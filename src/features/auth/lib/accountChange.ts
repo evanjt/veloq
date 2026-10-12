@@ -8,13 +8,13 @@
  * silently destroy synced data.
  */
 
-import { Alert } from 'react-native';
 import { i18n } from '@/i18n';
 import { getEngine, isEngineReady } from '@/shared/native/engine';
 import { engineErrorKey } from '@/shared/native/engineError';
 import { DEMO_ATHLETE_ID, useAuthStore } from '@/shared/app/AuthStore';
 import { safeJsonParse } from '@/shared/validation/validation';
 import { rememberCachedAthleteId, readCachedAthleteIdMirror, wipeLibrary } from '@/shared/storage';
+import { confirmAction, inform } from '@/shared/ui/dialog';
 
 export type AccountChangeKind = 'login' | 'demo';
 
@@ -100,9 +100,9 @@ interface ConfirmAccountChangeArgs {
 }
 
 /**
- * Wraps `Alert.alert` in a Promise<boolean>. Resolves `true` if the user
- * accepts the destructive action (cached data will be wiped), `false` if
- * they back out.
+ * Asks in a Promise<boolean>. Resolves `true` if the user accepts the
+ * destructive action (cached data will be wiped), `false` if they back out,
+ * by Cancel or by dismissing the dialog.
  *
  * Use the result to gate a `clearAccountData(queryClient)` call. Do NOT
  * proceed with the login / demo entry on `false` - keep the caller on the
@@ -138,10 +138,15 @@ export function confirmAccountChange(args: ConfirmAccountChangeArgs): Promise<bo
   const cancelLabel = t('common.cancel');
 
   return new Promise((resolve) => {
-    Alert.alert(title, body, [
-      { text: cancelLabel, style: 'cancel', onPress: () => resolve(false) },
-      { text: continueLabel, style: 'destructive', onPress: () => resolve(true) },
-    ]);
+    confirmAction({
+      title,
+      message: body,
+      confirmLabel: continueLabel,
+      cancelLabel,
+      destructive: true,
+      onConfirm: () => resolve(true),
+      onCancel: () => resolve(false),
+    });
   });
 }
 
@@ -165,50 +170,46 @@ export function promptAccountMismatch(args: PromptAccountMismatchArgs): Promise<
   const t = i18n.t.bind(i18n);
 
   return new Promise((resolve) => {
-    Alert.alert(
-      t('backup.deviceLibraryDifferentAccount', {
+    confirmAction({
+      title: t('backup.deviceLibraryDifferentAccount', {
         defaultValue: 'Library on this device belongs to another account',
       }),
-      t('backup.differentAccountMessage', {
+      message: t('backup.differentAccountMessage', {
         cachedAthleteId: storedAthleteId,
         count: activityCount,
         defaultValue:
           'This device holds {{count}} activities from another account ({{cachedAthleteId}}). Clearing and syncing permanently deletes them. To keep them, cancel and sign in to that account instead.',
       }),
-      [
-        {
-          text: t('common.cancel'),
-          style: 'cancel',
-          onPress: () => {
+      cancelLabel: t('common.cancel'),
+      onCancel: () => {
+        useAuthStore.getState().clearCredentials();
+        resolve(false);
+      },
+      confirmLabel: t('backup.clearAndSync', { defaultValue: 'Clear & Sync' }),
+      destructive: true,
+      onConfirm: () => {
+        void (async () => {
+          // The wipe runs on a Rust thread and `clear` re-opens the handle
+          // after it, so the stamp has to follow it rather than race it.
+          try {
+            await wipeLibrary();
+          } catch (error) {
+            // Launch waits on this answer, so a failed wipe still has to
+            // give one. Signing out is Cancel's answer, and it leaves the
+            // library named for the athlete it still belongs to.
+            inform({
+              title: t('alerts.clearFailedTitle'),
+              message: t(engineErrorKey(error, 'alerts.failedToClear')),
+            });
             useAuthStore.getState().clearCredentials();
             resolve(false);
-          },
-        },
-        {
-          text: t('backup.clearAndSync', { defaultValue: 'Clear & Sync' }),
-          style: 'destructive',
-          onPress: () => {
-            void (async () => {
-              // The wipe runs on a Rust thread and `clear` re-opens the handle
-              // after it, so the stamp has to follow it rather than race it.
-              try {
-                await wipeLibrary();
-              } catch (error) {
-                // Launch waits on this answer, so a failed wipe still has to
-                // give one. Signing out is Cancel's answer, and it leaves the
-                // library named for the athlete it still belongs to.
-                Alert.alert(t('alerts.error'), t(engineErrorKey(error, 'alerts.failedToClear')));
-                useAuthStore.getState().clearCredentials();
-                resolve(false);
-                return;
-              }
-              getEngine()?.setSetting('__athlete_id', credentialsAthleteId);
-              await rememberCachedAthleteId(credentialsAthleteId);
-              resolve(true);
-            })();
-          },
-        },
-      ]
-    );
+            return;
+          }
+          getEngine()?.setSetting('__athlete_id', credentialsAthleteId);
+          await rememberCachedAthleteId(credentialsAthleteId);
+          resolve(true);
+        })();
+      },
+    });
   });
 }

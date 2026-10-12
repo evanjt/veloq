@@ -2,8 +2,8 @@
  * Scenario: the route detail screen opens on a route the athlete never named,
  * which the engine hands over under its number in the current language.
  *
- * Expected behaviour: the header, the rename field and the GPX export all read
- * that label, and the group id appears nowhere.
+ * Expected behaviour: the hero name, the navigation title, the rename field and
+ * the GPX export all read that label, and the group id appears nowhere.
  */
 
 import React from 'react';
@@ -19,11 +19,23 @@ jest.mock('veloqrs', () =>
   })
 );
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
-jest.mock('expo-router', () => ({
-  ...jest.requireActual('expo-router'),
-  useLocalSearchParams: () => ({ id: 'r_9' }),
-  router: { back: jest.fn() },
-}));
+// The options each `Stack.Screen` the screen renders hands its navigation item, merged in order.
+let mockScreenOptions: Record<string, unknown> = {};
+jest.mock('expo-router', () => {
+  function Stack() {
+    return null;
+  }
+  Stack.Screen = function Screen({ options }: { options?: Record<string, unknown> }) {
+    mockScreenOptions = { ...mockScreenOptions, ...options };
+    return null;
+  };
+  return {
+    ...jest.requireActual('expo-router'),
+    useLocalSearchParams: () => ({ id: 'r_9' }),
+    router: { back: jest.fn() },
+    Stack,
+  };
+});
 jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context'),
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
@@ -128,7 +140,6 @@ jest.mock('@/features/routes/hooks', () => ({
   ...jest.requireActual('@/features/routes/hooks/useRouteRenaming'),
   ...jest.requireActual('@/features/routes/hooks/useSectionChartData'),
   ...jest.requireActual('@/features/routes/hooks/useSectionChartDataEnriched'),
-  ...jest.requireActual('@/features/routes/hooks/useSectionMapData'),
   useRouteMapSignatures: () => ({}),
   useSectionTimeStreamSync: () => ({
     ready: true,
@@ -148,31 +159,39 @@ jest.mock('@/features/routes/hooks', () => ({
 beforeEach(() => {
   jest.useFakeTimers();
   mockExportGpx.mockClear();
+  mockScreenOptions = {};
 });
 
 afterEach(() => {
   jest.useRealTimers();
 });
 
-it('titles the header with the numbered label, not the group id', () => {
-  const screen = render(<RouteDetailScreen />);
+it('titles the header with the numbered label, not the group id', async () => {
+  const screen = await render(<RouteDetailScreen />);
 
   expect(screen.getByTestId('route-detail-name').props.children).toBe('Strecke 4');
   expect(screen.queryByText('r_9')).toBeNull();
 });
 
-it('opens the rename field on the numbered label', () => {
-  const screen = render(<RouteDetailScreen />);
+it('titles the navigation item with the numbered label and marks the hero name a heading', async () => {
+  const screen = await render(<RouteDetailScreen />);
 
-  fireEvent.press(screen.getByTestId('route-rename-button'));
+  expect(mockScreenOptions.title).toBe('Strecke 4');
+  expect(screen.getByRole('header', { name: 'Strecke 4' })).toBeTruthy();
+});
+
+it('opens the rename field on the numbered label', async () => {
+  const screen = await render(<RouteDetailScreen />);
+
+  await fireEvent.press(screen.getByTestId('route-rename-button'));
 
   expect(screen.getByTestId('route-rename-input').props.value).toBe('Strecke 4');
 });
 
-it('names the GPX export with the numbered label', () => {
-  const screen = render(<RouteDetailScreen />);
+it('names the GPX export with the numbered label', async () => {
+  const screen = await render(<RouteDetailScreen />);
 
-  fireEvent.press(screen.getByTestId('route-export-gpx'));
+  await fireEvent.press(screen.getByTestId('route-export-gpx'));
 
   expect(mockExportGpx).toHaveBeenCalledWith(
     expect.objectContaining({ name: 'Strecke 4', sport: 'Ride' })

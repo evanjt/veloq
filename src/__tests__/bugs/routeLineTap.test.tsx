@@ -22,20 +22,20 @@ jest.mock('expo-location', () => ({
   Accuracy: { Balanced: 3 },
 }));
 
-function mount() {
+async function mount() {
   const setSelected = jest.fn();
   const setSelectedSectionId = jest.fn();
   const setSelectedRouteId = jest.fn();
-  const setSectionChoices = jest.fn();
+  const chooseSection = jest.fn();
   const setSpider = jest.fn();
-  const rendered = renderHook(() =>
+  const rendered = await renderHook(() =>
     useMapHandlers({
       activities: [],
       selected: { activity: { id: 'a1' } },
       setSelected,
       setSelectedSectionId,
       setSelectedRouteId,
-      setSectionChoices,
+      chooseSection,
       setSpider,
       currentZoomRef: { current: 14 },
       currentCenterRef: { current: [6.6, 46.5] },
@@ -46,7 +46,7 @@ function mount() {
       is3DMode: false,
     } as never)
   );
-  return { rendered, setSelected, setSelectedSectionId, setSelectedRouteId, setSectionChoices };
+  return { rendered, setSelected, setSelectedSectionId, setSelectedRouteId, chooseSection };
 }
 
 const hit = (layerId: string, id: string) => ({
@@ -57,7 +57,7 @@ const hit = (layerId: string, id: string) => ({
 });
 
 async function press(
-  rendered: ReturnType<typeof mount>['rendered'],
+  rendered: Awaited<ReturnType<typeof mount>>['rendered'],
   feature: ReturnType<typeof hit> | undefined
 ) {
   await act(async () => {
@@ -72,7 +72,7 @@ async function press(
 
 describe('a tap on a route line', () => {
   it('selects that route and closes the activity popup', async () => {
-    const { rendered, setSelected, setSelectedSectionId, setSelectedRouteId } = mount();
+    const { rendered, setSelected, setSelectedSectionId, setSelectedRouteId } = await mount();
     await press(rendered, hit(ROUTES_LINE_LAYER_ID, 'loop-7'));
     expect(setSelectedRouteId).toHaveBeenLastCalledWith('loop-7');
     expect(setSelected).toHaveBeenCalledWith(null);
@@ -80,7 +80,7 @@ describe('a tap on a route line', () => {
   });
 
   it('does nothing to the selection when the line carries no id', async () => {
-    const { rendered, setSelected, setSelectedRouteId } = mount();
+    const { rendered, setSelected, setSelectedRouteId } = await mount();
     await press(rendered, { ...hit(ROUTES_LINE_LAYER_ID, ''), properties: {} as never });
     expect(setSelectedRouteId).not.toHaveBeenCalled();
     expect(setSelected).not.toHaveBeenCalled();
@@ -89,7 +89,7 @@ describe('a tap on a route line', () => {
 
 describe('a tap that wins over the route', () => {
   it('opens the section drawn over the route and closes the route', async () => {
-    const { rendered, setSelectedSectionId, setSelectedRouteId } = mount();
+    const { rendered, setSelectedSectionId, setSelectedRouteId } = await mount();
     await press(rendered, hit(SECTIONS_LINE_LAYER_ID, 'ridge'));
     expect(setSelectedSectionId).toHaveBeenCalledWith('ridge');
     expect(setSelectedRouteId).toHaveBeenCalledWith(null);
@@ -97,7 +97,7 @@ describe('a tap that wins over the route', () => {
   });
 
   it('closes the route on bare terrain', async () => {
-    const { rendered, setSelectedRouteId } = mount();
+    const { rendered, setSelectedRouteId } = await mount();
     await press(rendered, undefined);
     expect(setSelectedRouteId).toHaveBeenCalledWith(null);
   });

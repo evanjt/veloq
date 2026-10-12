@@ -52,24 +52,30 @@ describe('the first-sync standby', () => {
     mockStatus = { state: 1, completed: 0, total: 0 };
   });
 
-  it('says what is happening rather than that there is nothing', () => {
-    render(<FeedFirstSyncStandby />);
+  it('says what is happening rather than that there is nothing', async () => {
+    await render(<FeedFirstSyncStandby />);
 
     expect(screen.getByTestId('feed-first-sync-title')).toBeTruthy();
     expect(screen.getByTestId('feed-first-sync-body')).toBeTruthy();
   });
 
-  it('draws no step line before the engine reports a step', () => {
-    render(<FeedFirstSyncStandby />);
+  it('titles itself as a heading, so a screen reader can skim to it', async () => {
+    await render(<FeedFirstSyncStandby />);
+
+    expect(screen.getByRole('header', { name: 'feed.firstSyncTitle' })).toBeTruthy();
+  });
+
+  it('draws no step line before the engine reports a step', async () => {
+    await render(<FeedFirstSyncStandby />);
 
     expect(screen.queryByTestId('feed-first-sync-step')).toBeNull();
   });
 
   /** The defect: a step count read as a count of activities, so a fresh
    *  install waiting on the athlete profile said "0 of 7 activities". */
-  it('names the endpoint the engine is on rather than counting activities', () => {
+  it('names the endpoint the engine is on rather than counting activities', async () => {
     mockStatus = { state: 1, completed: 0, total: 8, step: SyncStep.Athlete };
-    render(<FeedFirstSyncStandby />);
+    await render(<FeedFirstSyncStandby />);
 
     const line = screen.getByTestId('feed-first-sync-step').props.children;
     expect(line).toBe(
@@ -77,18 +83,18 @@ describe('the first-sync standby', () => {
     );
   });
 
-  it('follows the engine to the step that carries the activities', () => {
+  it('follows the engine to the step that carries the activities', async () => {
     mockStatus = { state: 1, completed: 4, total: 8, step: SyncStep.Activities };
-    render(<FeedFirstSyncStandby />);
+    await render(<FeedFirstSyncStandby />);
 
     expect(screen.getByTestId('feed-first-sync-step').props.children).toBe(
       'settings.syncStepProgress:{"label":"settings.syncStep.activities","completed":4,"total":8}'
     );
   });
 
-  it('survives a status the engine has not answered yet', () => {
+  it('survives a status the engine has not answered yet', async () => {
     mockStatus = null;
-    render(<FeedFirstSyncStandby />);
+    await render(<FeedFirstSyncStandby />);
 
     expect(screen.getByTestId('feed-first-sync-standby')).toBeTruthy();
     expect(screen.queryByTestId('feed-first-sync-step')).toBeNull();
@@ -109,29 +115,29 @@ describe('the first-sync standby', () => {
       announce.mockRestore();
     });
 
-    it('marks the step line as a polite live region for Android', () => {
+    it('marks the step line as a polite live region for Android', async () => {
       mockStatus = { state: 1, completed: 0, total: 8, step: SyncStep.Athlete };
-      render(<FeedFirstSyncStandby />);
+      await render(<FeedFirstSyncStandby />);
 
       expect(screen.getByTestId('feed-first-sync-step').props.accessibilityLiveRegion).toBe(
         'polite'
       );
     });
 
-    it('announces each new step on iOS, which has no live region', () => {
+    it('announces each new step on iOS, which has no live region', async () => {
       Platform.OS = 'ios';
       mockStatus = { state: 1, completed: 0, total: 8, step: SyncStep.Athlete };
-      const { rerender } = render(<FeedFirstSyncStandby />);
+      const { rerender } = await render(<FeedFirstSyncStandby />);
       expect(announce).toHaveBeenLastCalledWith('settings.syncStep.athlete');
 
       mockStatus = { state: 1, completed: 1, total: 8, step: SyncStep.SportSettings };
-      rerender(<FeedFirstSyncStandby />);
+      await rerender(<FeedFirstSyncStandby />);
 
       expect(announce).toHaveBeenLastCalledWith('settings.syncStep.sportSettings');
       expect(announce).toHaveBeenCalledTimes(2);
     });
 
-    it('says nothing new on iOS while only the counts inside one step move', () => {
+    it('says nothing new on iOS while only the counts inside one step move', async () => {
       Platform.OS = 'ios';
       mockStatus = {
         state: 1,
@@ -141,19 +147,19 @@ describe('the first-sync standby', () => {
         stepItemsDone: 10,
         stepItemsTotal: 400,
       };
-      const { rerender } = render(<FeedFirstSyncStandby />);
+      const { rerender } = await render(<FeedFirstSyncStandby />);
       mockStatus = { ...mockStatus, stepItemsDone: 11 };
-      rerender(<FeedFirstSyncStandby />);
+      await rerender(<FeedFirstSyncStandby />);
       mockStatus = { ...mockStatus, stepItemsDone: 12 };
-      rerender(<FeedFirstSyncStandby />);
+      await rerender(<FeedFirstSyncStandby />);
 
       expect(announce).toHaveBeenCalledTimes(1);
       expect(announce).toHaveBeenCalledWith('settings.syncStep.activities');
     });
 
-    it('announces nothing before the engine reports a step', () => {
+    it('announces nothing before the engine reports a step', async () => {
       Platform.OS = 'ios';
-      render(<FeedFirstSyncStandby />);
+      await render(<FeedFirstSyncStandby />);
 
       expect(announce).not.toHaveBeenCalled();
     });

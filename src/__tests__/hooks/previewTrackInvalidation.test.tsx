@@ -77,14 +77,14 @@ afterEach(() => {
 });
 
 it('reads the preview line once and holds it', async () => {
-  const { result, rerender } = renderHook(() => useCard('a1'), { wrapper });
+  const { result, rerender } = await renderHook(() => useCard('a1'), { wrapper });
 
   await waitFor(() => expect(result.current.coordinates).toHaveLength(2));
   expect(engine.getPreviewTrack).toHaveBeenCalledTimes(1);
 
   const first = result.current.coordinates;
   await act(async () => {
-    rerender({});
+    await rerender({});
   });
 
   expect(engine.getPreviewTrack).toHaveBeenCalledTimes(1);
@@ -92,7 +92,7 @@ it('reads the preview line once and holds it', async () => {
 });
 
 it('re-reads the activity whose track was replaced', async () => {
-  const { result } = renderHook(() => useCard('a1'), { wrapper });
+  const { result } = await renderHook(() => useCard('a1'), { wrapper });
 
   await waitFor(() => expect(engine.getPreviewTrack).toHaveBeenCalledTimes(1));
 
@@ -111,7 +111,7 @@ it('re-reads the activity whose track was replaced', async () => {
 });
 
 it('leaves every other card alone', async () => {
-  const { result } = renderHook(() => useCard('a1'), { wrapper });
+  const { result } = await renderHook(() => useCard('a1'), { wrapper });
 
   // On the render where the read has been called once the coordinates are
   // still empty, so holding the array here holds the empty one and the

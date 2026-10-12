@@ -171,7 +171,10 @@ function backfillState(phase: string): BackgroundJobState {
       return 'running';
     case 'complete':
       return 'complete';
+    // A refusal from intervals.icu leaves the rest owed, and the engine
+    // resumes it on its own.
     case 'partial':
+    case 'waiting':
       return 'partial';
     case 'failed':
       return 'failed';
@@ -202,6 +205,7 @@ function streamState(phase: string): BackgroundJobState {
     case 'complete':
       return 'complete';
     case 'partial':
+    case 'waiting':
       return 'partial';
     case 'failed':
       return 'failed';

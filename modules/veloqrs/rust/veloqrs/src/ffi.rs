@@ -941,6 +941,7 @@ fn start_fetch_and_store_run(
                 // the tracks: the chunk already fetched is kept, and nothing
                 // further is asked for.
                 let mut refused = false;
+                let mut held_until = None;
                 for (activity_id, result) in fetched {
                     if crate::http::download_cancelled(run) || !signed_in() {
                         break 'time_streams;
@@ -976,11 +977,25 @@ fn start_fetch_and_store_run(
                             }
                         }
                         Err(crate::net::transport::NetError::Unauthorized) => refused = true,
+                        // A refusal speaks for every chunk after this one.
+                        // The streams it held stay missing, and the engine's
+                        // wake-up asks for them once it lifts.
+                        Err(e) if e.is_refusal() => {
+                            held_until = fetcher
+                                .transport()
+                                .refusal_lifts_at(&e, chrono::Utc::now())
+                                .max(held_until);
+                        }
                         Err(e) => info!(
                             "[RUST: start_fetch_and_store] Time stream {} failed: {}",
                             activity_id, e
                         ),
                     }
+                }
+                if let Some(at) = held_until {
+                    info!("[RUST: start_fetch_and_store] Time streams refused until {at}");
+                    crate::net::resume::resume_at(at);
+                    break;
                 }
                 if refused {
                     if let Some(Ok((transport, athlete_id))) = crate::objects::current_session() {

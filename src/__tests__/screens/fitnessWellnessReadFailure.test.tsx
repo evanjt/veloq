@@ -1,8 +1,8 @@
 /**
  * Scenario: the wellness read throws while curves, bests, zones and decoupling read their own.
  *
- * Expected behaviour: the screen keeps its header, range selector, pull to refresh and every
- * section, and only the fitness chart card shows the read failure with a Retry.
+ * Expected behaviour: the screen keeps its header items, range selector, pull to refresh and
+ * every section, and only the fitness chart card shows the read failure with a Retry.
  */
 import React from 'react';
 import { RefreshControl } from 'react-native';
@@ -23,6 +23,7 @@ jest.mock('@/shared/debug/renderTimer', () => ({
 }));
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
+  Stack: require('../__shared__/nativeHeaderStandIn').Stack,
   router: { setParams: jest.fn() },
   useLocalSearchParams: () => ({}),
 }));
@@ -40,7 +41,6 @@ jest.mock('@/shared/ui', () => {
     ScreenSafeAreaView: View,
     useTabBarClearance: () => 0,
     ChartSkeleton: View,
-    ErrorStatePreset: View,
     ExplanationCard: View,
   };
 });
@@ -124,8 +124,8 @@ function runFrames() {
   });
   const cancel = jest.spyOn(global, 'cancelAnimationFrame').mockImplementation(jest.fn());
   return {
-    flush: () => {
-      while (frames.length > 0) act(() => frames.shift()?.(0));
+    flush: async () => {
+      while (frames.length > 0) await act(() => frames.shift()?.(0));
     },
     restore: () => {
       request.mockRestore();
@@ -140,12 +140,12 @@ beforeEach(() => {
 });
 
 describe('fitness tab with the wellness read failing', () => {
-  it('keeps the header, range selector, refresh and independent sections mounted', () => {
+  it('keeps the header, range selector, refresh and independent sections mounted', async () => {
     const frames = runFrames();
     try {
-      render(<FitnessScreen />);
-      frames.flush();
-      expect(screen.getByText('fitnessScreen.title')).toBeTruthy();
+      await render(<FitnessScreen />);
+      await frames.flush();
+      expect(screen.getByTestId('native-header-right')).toBeTruthy();
       expect(screen.getByTestId('time-range')).toBeTruthy();
       expect(screen.UNSAFE_getAllByType(RefreshControl)).toHaveLength(1);
       expect(screen.getByTestId('fitness-chart-canvas')).toBeTruthy();
@@ -161,7 +161,7 @@ describe('fitness tab with the wellness read failing', () => {
 });
 
 describe('fitness chart card with the wellness read failing', () => {
-  function renderFailedCard(onRetry: () => void) {
+  function renderFailedCard(onRetry: () => void, readError: unknown = mockError) {
     return render(
       <FitnessChartCard
         wellness={[]}
@@ -173,18 +173,29 @@ describe('fitness chart card with the wellness read failing', () => {
         sharedSelectedIdx={{ value: -1 } as never}
         onDateSelect={jest.fn()}
         onInteractionChange={jest.fn()}
-        readError={mockError}
+        readError={readError}
         onRetry={onRetry}
       />
     );
   }
 
-  it('shows the read failure in place of the charts and retries from it', () => {
+  it('shows the read failure in place of the charts and retries from it', async () => {
     const onRetry = jest.fn();
-    renderFailedCard(onRetry);
+    await renderFailedCard(onRetry);
     expect(screen.getByTestId('fitness-chart-failed')).toBeTruthy();
     expect(screen.queryByTestId('fitness-form-zone-chart')).toBeNull();
-    fireEvent.press(screen.getByText('common.retry'));
+    await fireEvent.press(screen.getByText('common.retry'));
     expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('names a busy engine rather than a generic failure', async () => {
+    await renderFailedCard(jest.fn(), { tag: 'Busy', message: 'a job is running' });
+    expect(screen.getByText('engine.failure.busy')).toBeTruthy();
+    expect(screen.queryByText('emptyState.error.description')).toBeNull();
+  });
+
+  it("names a failure that is not the engine's with the generic line", async () => {
+    await renderFailedCard(jest.fn(), new TypeError('Network request failed'));
+    expect(screen.getByText('emptyState.error.description')).toBeTruthy();
   });
 });

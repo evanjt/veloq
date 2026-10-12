@@ -28,10 +28,12 @@ jest.mock('@/shared/ui', () => {
       </Pressable>
     ),
     BodyNotDownloaded: jest.requireActual('@/shared/ui/BodyNotDownloaded').BodyNotDownloaded,
+    CardHeader: jest.requireActual('@/shared/ui/CardHeader').CardHeader,
     IconButton: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     pressable: (style: unknown) => style,
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     DeviceAttribution: () => null,
+    DisclosureChevron: () => null,
     ScreenSafeAreaView: View,
   };
 });
@@ -128,8 +130,8 @@ function renderSection(props: {
   );
 }
 
-it('shows the interval table for an activity with no streams', () => {
-  const { getByTestId, queryByTestId } = renderSection({
+it('shows the interval table for an activity with no streams', async () => {
+  const { getByTestId, queryByTestId } = await renderSection({
     streams: undefined,
     intervalsData: { icu_intervals: intervals },
   });
@@ -138,21 +140,21 @@ it('shows the interval table for an activity with no streams', () => {
   expect(queryByTestId('combined-plot')).toBeNull();
 });
 
-it('shows the power zone chart for an activity with no streams', () => {
-  const { getByTestId } = renderSection({ streams: undefined, powerZones });
+it('shows the power zone chart for an activity with no streams', async () => {
+  const { getByTestId } = await renderSection({ streams: undefined, powerZones });
 
   expect(getByTestId('power-zones-chart')).toBeTruthy();
 });
 
-it('shows the HR zone card for an activity whose bands came from its body, with no streams', () => {
-  const { getByTestId } = renderSection({ streams: undefined, hrZones });
+it('shows the HR zone card for an activity whose bands came from its body, with no streams', async () => {
+  const { getByTestId } = await renderSection({ streams: undefined, hrZones });
 
   expect(getByTestId('activity-zone-chart')).toBeTruthy();
   expect(getByTestId('hr-zones-chart')).toBeTruthy();
 });
 
-it('hides the HR zone card when the engine has no bands, though a heart rate stream is there', () => {
-  const { queryByTestId, getByTestId } = renderSection({
+it('hides the HR zone card when the engine has no bands, though a heart rate stream is there', async () => {
+  const { queryByTestId, getByTestId } = await renderSection({
     streams: { heartrate: [120, 130], time: [0, 1] } as unknown as ActivityStreams,
     hrZones: [],
   });
@@ -161,16 +163,16 @@ it('hides the HR zone card when the engine has no bands, though a heart rate str
   expect(queryByTestId('activity-zone-chart')).toBeNull();
 });
 
-it('shows neither when the activity carries neither', () => {
-  const { queryByTestId } = renderSection({ streams: undefined });
+it('shows neither when the activity carries neither', async () => {
+  const { queryByTestId } = await renderSection({ streams: undefined });
 
   expect(queryByTestId('activity-interval-table')).toBeNull();
   expect(queryByTestId('power-zones-chart')).toBeNull();
   expect(queryByTestId('activity-zone-chart')).toBeNull();
 });
 
-it('still shows the chart and the HR zones when the streams are there', () => {
-  const { getByTestId } = renderSection({
+it('still shows the chart and the HR zones when the streams are there', async () => {
+  const { getByTestId } = await renderSection({
     streams: {
       heartrate: [120, 130],
       time: [0, 1],
@@ -186,9 +188,9 @@ it('still shows the chart and the HR zones when the streams are there', () => {
   expect(getByTestId('power-zones-chart')).toBeTruthy();
 });
 
-it('keeps independent sections while a stream download waits and offers retry after its deadline', () => {
+it('keeps independent sections while a stream download waits and offers retry after its deadline', async () => {
   const retry = jest.fn();
-  const view = renderSection({
+  const view = await renderSection({
     streamsDownloaded: false,
     streamsStatus: 'timedOut',
     onRetryStreams: retry,
@@ -198,12 +200,12 @@ it('keeps independent sections while a stream download waits and offers retry af
   expect(view.getByTestId('streams-not-downloaded')).toBeTruthy();
   expect(view.getByTestId('activity-interval-table')).toBeTruthy();
   expect(view.getByTestId('power-zones-chart')).toBeTruthy();
-  fireEvent.press(view.getByText('common.retry'));
+  await fireEvent.press(view.getByText('common.retry'));
   expect(retry).toHaveBeenCalledTimes(1);
 });
 
-it('does not offer retry while streams are still downloading', () => {
-  const view = renderSection({
+it('does not offer retry while streams are still downloading', async () => {
+  const view = await renderSection({
     streamsDownloaded: false,
     streamsStatus: 'waiting',
   });

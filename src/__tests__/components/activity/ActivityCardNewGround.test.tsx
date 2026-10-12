@@ -7,11 +7,15 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { configure, render, screen } from '@testing-library/react-native';
 
 import { ActivityCard } from '@/features/activity/components/ActivityCard';
 import type { ActivityNewGround } from '@/features/activity/hooks/useActivitySectionHighlights';
 import type { Activity } from '@/types';
+
+// The card's figures are drawn for the eye and hidden from a screen reader,
+// which hears them in the card's label, so queries reach hidden elements.
+configure({ defaultIncludeHiddenElements: true });
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -62,30 +66,32 @@ const ground = (badge: ActivityNewGround['badge'], newTiles: number): ActivityNe
 const PILL = 'activity-card-a1-new-ground-pill';
 
 describe('the new ground pill on the feed card', () => {
-  it('says new ground when the engine calls the ride entirely new', () => {
-    render(<ActivityCard activity={activity} newGround={ground('entirelyNew', 10)} />);
+  it('says new ground when the engine calls the ride entirely new', async () => {
+    await render(<ActivityCard activity={activity} newGround={ground('entirelyNew', 10)} />);
 
     expect(screen.getByTestId(PILL)).toBeTruthy();
     expect(screen.getByText('activity.newGround')).toBeTruthy();
   });
 
-  it('says mostly new when the engine calls the ride mostly new', () => {
-    render(<ActivityCard activity={activity} newGround={ground('mostlyNew', 6)} />);
+  it('says mostly new when the engine calls the ride mostly new', async () => {
+    await render(<ActivityCard activity={activity} newGround={ground('mostlyNew', 6)} />);
 
     expect(screen.getByText('activity.mostlyNewGround')).toBeTruthy();
     expect(screen.queryByText('activity.newGround')).toBeNull();
   });
 
-  it('draws nothing below the threshold or with no read', () => {
-    const { rerender } = render(<ActivityCard activity={activity} newGround={ground(null, 4)} />);
+  it('draws nothing below the threshold or with no read', async () => {
+    const { rerender } = await render(
+      <ActivityCard activity={activity} newGround={ground(null, 4)} />
+    );
     expect(screen.queryByTestId(PILL)).toBeNull();
 
-    rerender(<ActivityCard activity={activity} />);
+    await rerender(<ActivityCard activity={activity} />);
     expect(screen.queryByTestId(PILL)).toBeNull();
   });
 
-  it('sits beside the section chip rather than replacing it', () => {
-    render(
+  it('sits beside the section chip rather than replacing it', async () => {
+    await render(
       <ActivityCard
         activity={activity}
         newGround={ground('entirelyNew', 10)}

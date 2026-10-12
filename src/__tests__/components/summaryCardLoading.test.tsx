@@ -33,8 +33,8 @@ function card(props: Partial<SummaryCardProps>) {
 }
 
 describe('SummaryCard loading', () => {
-  it('draws placeholders and no dash while loading', () => {
-    const { queryByTestId, queryAllByText } = card({ isLoading: true });
+  it('draws placeholders and no dash while loading', async () => {
+    const { queryByTestId, queryAllByText } = await card({ isLoading: true });
     expect(queryByTestId('summary-card-hero-shimmer')).toBeTruthy();
     expect(queryByTestId('summary-card-hero-label-shimmer')).toBeTruthy();
     expect(queryByTestId('summary-card-metric-0-shimmer')).toBeTruthy();
@@ -42,8 +42,8 @@ describe('SummaryCard loading', () => {
     expect(queryAllByText('-')).toHaveLength(0);
   });
 
-  it('draws the settled values when not loading', () => {
-    const { queryByTestId, queryAllByText } = card({});
+  it('draws the settled values when not loading', async () => {
+    const { queryByTestId, queryAllByText } = await card({});
     expect(queryByTestId('summary-card-hero-shimmer')).toBeNull();
     expect(queryByTestId('summary-card-metric-0-shimmer')).toBeNull();
     expect(queryAllByText('-').length).toBeGreaterThan(0);

@@ -68,16 +68,19 @@ function surface(): MapSurfaceRef {
   } as unknown as MapSurfaceRef;
 }
 
-function mountHandlers(activities: ActivityBoundsItem[], zoom = 14) {
+async function mountHandlers(activities: ActivityBoundsItem[], zoom = 14) {
   const setSpider = jest.fn();
   const setSelected = jest.fn();
-  const rendered = renderHook(() =>
-    useMapHandlers({
+  const rendered = await renderHook(() => {
+    // The selection comes back as the next render's prop, as the map screen holds it.
+    const [selected, hold] = React.useState<unknown>(null);
+    setSelected.mockImplementation(hold);
+    return useMapHandlers({
       activities,
-      selected: null,
+      selected,
       setSelected,
       setSelectedSectionId: jest.fn(),
-      setSectionChoices: jest.fn(),
+      chooseSection: jest.fn(),
       showActivities: true,
       setShowActivities: jest.fn(),
       showSections: true,
@@ -97,8 +100,8 @@ function mountHandlers(activities: ActivityBoundsItem[], zoom = 14) {
       is3DMode: false,
       markUserInteracted: jest.fn(),
       setSpider,
-    } as never)
-  );
+    } as never);
+  });
   mounted.push(rendered);
   return { rendered, setSpider, setSelected };
 }
@@ -110,8 +113,8 @@ beforeEach(() => {
   mockGetGpsTrack.mockReset().mockReturnValue('encoded');
 });
 
-afterEach(() => {
-  act(() => {
+afterEach(async () => {
+  await act(() => {
     jest.runOnlyPendingTimers();
   });
   mounted.splice(0).forEach((r) => r.unmount());
@@ -135,7 +138,7 @@ function press(hits: MapFeatureHit[]) {
 describe('a tap on the start dot at trace zoom', () => {
   it('opens that activity, though its bounds centre is kilometres away', async () => {
     const a1 = ride('a1');
-    const { rendered, setSelected, setSpider } = mountHandlers([a1]);
+    const { rendered, setSelected, setSpider } = await mountHandlers([a1]);
 
     await act(async () => {
       rendered.result.current.handleSurfacePress(press([startHit('a1', [6.6, 46.5])]) as never);
@@ -151,7 +154,7 @@ describe('a tap on the start dot at trace zoom', () => {
 
   it('fans three starts at one garage out into a spider of all three', async () => {
     const rides = ['a1', 'a2', 'a3'].map((id) => ride(id));
-    const { rendered, setSelected, setSpider } = mountHandlers(rides);
+    const { rendered, setSelected, setSpider } = await mountHandlers(rides);
 
     await act(async () => {
       rendered.result.current.handleSurfacePress(
@@ -179,7 +182,7 @@ describe('a tap on the start dot at trace zoom', () => {
   it('opens the one under the finger when a neighbour in the box is not stacked on it', async () => {
     const a1 = ride('a1');
     const a2 = ride('a2', [46.5, 6.6005]);
-    const { rendered, setSelected, setSpider } = mountHandlers([a1, a2]);
+    const { rendered, setSelected, setSpider } = await mountHandlers([a1, a2]);
 
     await act(async () => {
       rendered.result.current.handleSurfacePress(
@@ -195,7 +198,7 @@ describe('a tap on the start dot at trace zoom', () => {
 
   it('counts one activity reported twice across a tile edge as one', async () => {
     const a1 = ride('a1');
-    const { rendered, setSelected, setSpider } = mountHandlers([a1]);
+    const { rendered, setSelected, setSpider } = await mountHandlers([a1]);
 
     await act(async () => {
       rendered.result.current.handleSurfacePress(
@@ -211,7 +214,7 @@ describe('a tap on the start dot at trace zoom', () => {
 
   it('still opens the activity from a page that reports only the winning feature', async () => {
     const a1 = ride('a1');
-    const { rendered, setSelected } = mountHandlers([a1]);
+    const { rendered, setSelected } = await mountHandlers([a1]);
     const hit = startHit('a1', [6.6, 46.5]);
 
     await act(async () => {
@@ -229,7 +232,7 @@ describe('a tap on the start dot at trace zoom', () => {
 describe('the route load after a tap on a start dot', () => {
   it('replaces the loading popup with the stored track', async () => {
     const a1 = ride('a1');
-    const { rendered, setSelected } = mountHandlers([a1]);
+    const { rendered, setSelected } = await mountHandlers([a1]);
 
     await act(async () => {
       rendered.result.current.handleSurfacePress(press([startHit('a1', [6.6, 46.5])]) as never);
@@ -257,7 +260,7 @@ describe('the route load after a tap on a start dot', () => {
 describe('a tap below the handover, on the centre layer', () => {
   it('still opens the activity it names', async () => {
     const a1 = ride('a1');
-    const { rendered, setSelected } = mountHandlers([a1], 10.5);
+    const { rendered, setSelected } = await mountHandlers([a1], 10.5);
 
     await act(async () => {
       rendered.result.current.handleSurfacePress({

@@ -28,6 +28,7 @@ export {
   type HomeRadiusMapProps,
 } from './components/HomeRadiusMap';
 export { Map3DWebView, type Map3DWebViewRef } from './components/Map3DWebView';
+export { MapKey, MapKeyRamp, MapKeySwatch } from './components/MapKey';
 export { type MapCameraState, MapSurface, type MapSurfaceRef } from './components/MapSurface';
 export { RegionalMapView } from './components/RegionalMapView';
 export { MapNameSearch } from './components/MapNameSearch';
@@ -82,6 +83,7 @@ export {
 } from './lib/coordinates';
 export { type MapCameraSpec, type MapLayerSpec, type MapSourceSpec } from './lib/htmlBuilders';
 export { circlePolygon } from './lib/radiusCircle';
+export { progressLine } from './lib/syncProgressFormat';
 export { TRIM_UPDATE_THROTTLE_MS } from './lib/mapBudgets';
 export { registerMapSurfaceReclaimer } from './lib/mapMemoryReclaimer';
 export {

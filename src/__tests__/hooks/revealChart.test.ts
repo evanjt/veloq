@@ -22,10 +22,10 @@ const ANCHOR: Record<Chart, Anchor> = { ftp: 'trends', week: 'weekly' };
 const layoutAt = (y: number) =>
   ({ nativeEvent: { layout: { x: 0, y, width: 1, height: 1 } } }) as LayoutChangeEvent;
 
-function setup(initial: Chart | null) {
+async function setup(initial: Chart | null) {
   const scrollTo = jest.fn();
   const prepare = jest.fn();
-  const hook = renderHook(
+  const hook = await renderHook(
     ({ chart }: { chart: Chart | null }) => useRevealChart(chart, (c) => ANCHOR[c], prepare),
     { initialProps: { chart: initial } }
   );
@@ -36,63 +36,63 @@ function setup(initial: Chart | null) {
 beforeEach(() => jest.clearAllMocks());
 
 describe('revealing a chart from the route', () => {
-  it('does nothing without a chart', () => {
-    const { result, scrollTo, prepare } = setup(null);
+  it('does nothing without a chart', async () => {
+    const { result, scrollTo, prepare } = await setup(null);
 
-    act(() => result.current.onAnchorLayout('trends', layoutAt(400)));
+    await act(() => result.current.onAnchorLayout('trends', layoutAt(400)));
 
     expect(prepare).not.toHaveBeenCalled();
     expect(scrollTo).not.toHaveBeenCalled();
     expect(router.setParams).not.toHaveBeenCalled();
   });
 
-  it('prepares the chart and clears the param once', () => {
-    const { prepare } = setup('ftp');
+  it('prepares the chart and clears the param once', async () => {
+    const { prepare } = await setup('ftp');
 
     expect(prepare).toHaveBeenCalledTimes(1);
     expect(prepare).toHaveBeenCalledWith('ftp');
     expect(router.setParams).toHaveBeenCalledWith({ chart: undefined });
   });
 
-  it('scrolls to the anchor when it lays out after the chart arrived', () => {
-    const { result, scrollTo } = setup('week');
+  it('scrolls to the anchor when it lays out after the chart arrived', async () => {
+    const { result, scrollTo } = await setup('week');
 
-    act(() => result.current.onAnchorLayout('trends', layoutAt(200)));
+    await act(() => result.current.onAnchorLayout('trends', layoutAt(200)));
     expect(scrollTo).not.toHaveBeenCalled();
 
-    act(() => result.current.onAnchorLayout('weekly', layoutAt(900)));
+    await act(() => result.current.onAnchorLayout('weekly', layoutAt(900)));
     expect(scrollTo).toHaveBeenCalledWith({ y: 900, animated: true });
   });
 
-  it('scrolls at once to an anchor already laid out', () => {
-    const { result, rerender, scrollTo } = setup(null);
-    act(() => result.current.onAnchorLayout('trends', layoutAt(640)));
+  it('scrolls at once to an anchor already laid out', async () => {
+    const { result, rerender, scrollTo } = await setup(null);
+    await act(() => result.current.onAnchorLayout('trends', layoutAt(640)));
 
-    rerender({ chart: 'ftp' });
+    await rerender({ chart: 'ftp' });
 
     expect(scrollTo).toHaveBeenCalledWith({ y: 640, animated: true });
   });
 
-  it('follows the anchor while the layout above it settles, until the athlete scrolls', () => {
-    const { result, scrollTo } = setup('ftp');
-    act(() => result.current.onAnchorLayout('trends', layoutAt(500)));
-    act(() => result.current.onAnchorLayout('trends', layoutAt(720)));
+  it('follows the anchor while the layout above it settles, until the athlete scrolls', async () => {
+    const { result, scrollTo } = await setup('ftp');
+    await act(() => result.current.onAnchorLayout('trends', layoutAt(500)));
+    await act(() => result.current.onAnchorLayout('trends', layoutAt(720)));
 
     expect(scrollTo).toHaveBeenLastCalledWith({ y: 720, animated: true });
 
-    act(() => result.current.onScrollBeginDrag());
-    act(() => result.current.onAnchorLayout('trends', layoutAt(800)));
+    await act(() => result.current.onScrollBeginDrag());
+    await act(() => result.current.onAnchorLayout('trends', layoutAt(800)));
 
     expect(scrollTo).toHaveBeenCalledTimes(2);
   });
 
-  it('reveals again when a second link arrives on the mounted tab', () => {
-    const { result, rerender, scrollTo, prepare } = setup('ftp');
-    act(() => result.current.onAnchorLayout('trends', layoutAt(500)));
-    act(() => result.current.onScrollBeginDrag());
-    rerender({ chart: null });
+  it('reveals again when a second link arrives on the mounted tab', async () => {
+    const { result, rerender, scrollTo, prepare } = await setup('ftp');
+    await act(() => result.current.onAnchorLayout('trends', layoutAt(500)));
+    await act(() => result.current.onScrollBeginDrag());
+    await rerender({ chart: null });
 
-    rerender({ chart: 'ftp' });
+    await rerender({ chart: 'ftp' });
 
     expect(prepare).toHaveBeenCalledTimes(2);
     expect(scrollTo).toHaveBeenCalledTimes(2);

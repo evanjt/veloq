@@ -79,25 +79,25 @@ beforeEach(() => {
   mockOrder.length = 0;
 });
 
-it('opens the tapped insight in a route and dismisses before opening its detail', () => {
-  render(
+it('opens the tapped insight in a route and dismisses before opening its detail', async () => {
+  await render(
     <InsightsPanel insights={[insight('one', 'First climb'), insight('two', 'Second climb')]} />
   );
-  fireEvent.press(screen.getByTestId('insight-card-two'));
+  await fireEvent.press(screen.getByTestId('insight-card-two'));
 
   expect(mockPush).toHaveBeenCalledWith({
     pathname: 'sheets/insight',
     params: { request: expect.any(String) },
   });
   mockParams = { request: mockPush.mock.calls[0][0].params.request };
-  render(<InsightSheet />);
+  await render(<InsightSheet />);
   const sheet = within(screen.getByTestId('insight-detail-sheet'));
   expect(sheet.getByText('Second climb')).toBeTruthy();
   expect(sheet.queryByText('First climb')).toBeNull();
 
   expect(sheetScrollPlacement(screen.toJSON())).not.toBe('nested');
 
-  fireEvent.press(sheet.getByText('View in detail'));
+  await fireEvent.press(sheet.getByText('View in detail'));
   expect(mockOrder).toEqual(['dismiss', 'navigate']);
   expect(mockNavigate).toHaveBeenCalledWith('/section/two');
 });

@@ -4,12 +4,14 @@
  * This lives in `shared/native` rather than beside its routes callers because
  * shared hooks that reach into `features/routes` pull the static native
  * binding chain into every consumer. The lazy `getEngine` loader does not, and
- * neither does the ready nonce `useEngineReady` reads: that store imports
- * `zustand` and nothing else.
+ * neither does the engine status store `useEngineReady` reads: that store
+ * imports `zustand` and nothing else.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 
-import { getEngine } from './engine';
+import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
+
+import { getEngine, isEngineReady } from './engine';
 import { useEngineReady } from './useEngineReady';
 
 /**
@@ -41,6 +43,15 @@ export type EngineEvent =
  * events.
  */
 export function useEngineSubscription(events: EngineEvent[]): number {
+  return useEventGeneration(events, true);
+}
+
+/**
+ * The trigger behind both hooks. `bumpOnArrival` is the late-subscription
+ * refresh, which a reader keyed on the open itself does not need: the render
+ * that saw the open already read, and a second bump would read again.
+ */
+function useEventGeneration(events: EngineEvent[], bumpOnArrival: boolean): number {
   const [trigger, setTrigger] = useState(0);
 
   // Stable ref for the refresh callback to avoid stale closures
@@ -70,7 +81,7 @@ export function useEngineSubscription(events: EngineEvent[]): number {
     const list = eventKey === '' ? [] : (eventKey.split(',') as EngineEvent[]);
     const cb = () => refreshRef.current();
     const unsubscribes = list.map((event) => engine.subscribe(event, cb));
-    if (missedRef.current) {
+    if (missedRef.current && bumpOnArrival) {
       refreshRef.current();
     }
     missedRef.current = false;
@@ -78,7 +89,7 @@ export function useEngineSubscription(events: EngineEvent[]): number {
     return () => {
       unsubscribes.forEach((u) => u());
     };
-  }, [eventKey, engine]);
+  }, [eventKey, engine, bumpOnArrival]);
 
   return trigger;
 }
@@ -118,22 +129,69 @@ export function useEngineRead(
   events: EngineEvent[],
   keys: readonly EngineReadKey[] = []
 ): <T>(read: (engine: NonNullable<ReturnType<typeof getEngine>>) => T) => T | undefined {
-  const generation = useEngineSubscription(events);
+  // The handle exists before it opens and answers every read with its empty
+  // default, and opening it announces nothing on any channel. So the open is a
+  // reason to look again in its own right, or a screen mounted while the
+  // engine was opening keeps the empty answer it got. It also covers a handle
+  // that arrived late, which is why the subscription's own arrival bump is off.
+  const generation = useEventGeneration(events, false);
+  const opened = useEngineStatus((s) => s.readyNonce);
   // Callers pass a fresh array literal every render, so the serialised keys
   // are the identity, the same reasoning as the event key above.
   const keyId = JSON.stringify(keys);
 
-  // The generation and the keys are the whole dependency: a new identity per
-  // announcement or key move is what re-runs every memo keyed on this reader,
-  // and holding it stable in between is what stops one re-running on an
-  // unrelated render.
+  // The generation, the open and the keys are the whole dependency: a new
+  // identity per announcement, open or key move is what re-runs every memo
+  // keyed on this reader, and holding it stable in between is what stops one
+  // re-running on an unrelated render.
   return useCallback(
     <T>(read: (engine: NonNullable<ReturnType<typeof getEngine>>) => T): T | undefined => {
       void generation;
+      void opened;
       void keyId;
       const engine = getEngine();
       return engine ? read(engine) : undefined;
     },
-    [generation, keyId]
+    [generation, opened, keyId]
   );
+}
+
+/**
+ * Whether a read can be believed: the engine is open, still opening, or gave
+ * up opening.
+ *
+ * A handle that is not open answers every read with its empty default, so a
+ * reader's rows cannot tell an empty library from one that is not open. This
+ * is the one place that tells them apart, and every surface that would
+ * otherwise say "there are none" asks it first: `closed` draws a placeholder,
+ * `failed` says why with a Retry, and only `ready` with no rows is empty.
+ */
+export type EngineReadState = 'ready' | 'closed' | 'failed';
+
+export function engineReadState(open: boolean, initFailed: boolean): EngineReadState {
+  if (open) return 'ready';
+  return initFailed ? 'failed' : 'closed';
+}
+
+export function useEngineReadState(): EngineReadState {
+  // The nonce moves when the engine opens or its handle is replaced, which is
+  // when `isEngineReady` can change its answer.
+  useEngineStatus((s) => s.readyNonce);
+  const initFailed = useEngineStatus((s) => s.initFailed);
+  return engineReadState(isEngineReady(), initFailed);
+}
+
+/**
+ * A key and the call that moves it, for a read that offers a retry.
+ *
+ * A failed read is a memo like any other and stays failed until one of its
+ * keys moves. Passed to `useEngineRead` beside the caller's own keys, this one
+ * lets a Retry read again without waiting for the engine to announce a change.
+ */
+export function useReadRetry(): [attempt: number, retry: () => void] {
+  return useReducer(nextAttempt, 0);
+}
+
+function nextAttempt(attempt: number): number {
+  return attempt + 1;
 }

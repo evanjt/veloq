@@ -10,11 +10,9 @@ import { useTranslation } from 'react-i18next';
 import type { ExerciseSet } from 'veloqrs';
 
 import { useMetricSystem } from '@/shared/app';
-import { engineErrorKey } from '@/shared/native/engineError';
 import { formatDateTime, formatDuration } from '@/shared/format/format';
 import {
   colors,
-  darkColors,
   spacing,
   typography,
   brand,
@@ -23,6 +21,8 @@ import {
   colorWithOpacity,
   ink,
   mapTextShadow,
+  themedStyles,
+  type Palette,
 } from '@/theme';
 import type { ActivityDetail } from '@/types';
 
@@ -31,6 +31,7 @@ import { useMuscleDetail } from '../hooks/useMuscleDetail';
 import { formatWeight } from '@/shared/format/weight';
 import { BodyPairWithLoupe } from './BodyPairWithLoupe';
 import { IconButton } from '@/shared/ui';
+import { ErrorState } from '@/shared/ui/ErrorState';
 
 interface MuscleGroupViewProps {
   activityId: string;
@@ -54,12 +55,14 @@ export function MuscleGroupView({
   exerciseSets,
 }: MuscleGroupViewProps) {
   const { t } = useTranslation();
+  const styles = themedStyles(makeStyles, isDark);
   const insets = useSafeAreaInsets();
   const isMetric = useMetricSystem();
-  const { data: muscleGroups, error: muscleGroupsError } = useMuscleGroups(
-    activityId,
-    hasExercises
-  );
+  const {
+    data: muscleGroups,
+    error: muscleGroupsError,
+    refetch: refetchMuscleGroups,
+  } = useMuscleGroups(activityId, hasExercises);
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
   const muscleDetail = useMuscleDetail(activityId, selectedMuscle);
 
@@ -95,7 +98,7 @@ export function MuscleGroupView({
   const hasInteractiveData = (exerciseSets ?? []).length > 0 && tappableSlugs.size > 0;
 
   return (
-    <View style={[styles.hero, isDark && styles.heroDark]}>
+    <View style={styles.hero}>
       <Stack.Screen
         options={{ headerTintColor: isDark ? colors.textOnDark : colors.textPrimary }}
       />
@@ -111,6 +114,12 @@ export function MuscleGroupView({
           onMuscleTap={hasInteractiveData ? handleMuscleTap : undefined}
           onMuscleScrub={hasInteractiveData ? handleMuscleScrub : undefined}
           tappableSlugs={tappableSlugs}
+          accessibilityLabel={t('strength.muscleGroupVolume')}
+          accessibilityValueText={
+            muscleDetail
+              ? `${muscleDetail.name}, ${t('activity.muscle.setCount', { count: muscleDetail.totalSets })}, ${t('activity.muscle.repsCount', { count: muscleDetail.totalReps })}`
+              : undefined
+          }
           centerWidth={CENTER_COLUMN_WIDTH}
           centerContent={
             <View style={styles.centerColumn}>
@@ -124,9 +133,12 @@ export function MuscleGroupView({
               </View>
 
               {muscleGroupsError ? (
-                <Text testID="muscle-groups-failure" style={styles.legendText}>
-                  {t(engineErrorKey(muscleGroupsError, 'engine.failure.database'))}
-                </Text>
+                <ErrorState
+                  variant="inline"
+                  error={muscleGroupsError}
+                  onRetry={() => void refetchMuscleGroups()}
+                  testID="muscle-groups-failure"
+                />
               ) : null}
 
               {muscleDetail ? (
@@ -142,10 +154,7 @@ export function MuscleGroupView({
                         },
                       ]}
                     />
-                    <Text
-                      style={[styles.detailName, isDark && styles.detailNameDark]}
-                      numberOfLines={1}
-                    >
+                    <Text style={styles.detailName} numberOfLines={1}>
                       {muscleDetail.name}
                     </Text>
                     <IconButton
@@ -155,11 +164,11 @@ export function MuscleGroupView({
                       <MaterialCommunityIcons
                         name="close"
                         size={12}
-                        color={isDark ? darkColors.textSecondary : colors.textDisabled}
+                        color={styles.detailStat.color}
                       />
                     </IconButton>
                   </View>
-                  <Text style={[styles.detailStat, isDark && styles.detailStatDark]}>
+                  <Text style={styles.detailStat}>
                     {t('activity.muscle.setCount', {
                       count: muscleDetail.totalSets,
                     })}{' '}
@@ -169,7 +178,7 @@ export function MuscleGroupView({
                     })}
                   </Text>
                   {muscleDetail.volumeKg > 0 && (
-                    <Text style={[styles.detailStat, isDark && styles.detailStatDark]}>
+                    <Text style={styles.detailStat}>
                       {formatWeight(Math.round(muscleDetail.volumeKg), isMetric)}
                     </Text>
                   )}
@@ -190,14 +199,11 @@ export function MuscleGroupView({
                               },
                             ]}
                           />
-                          <Text
-                            style={[styles.detailExName, isDark && styles.detailExNameDark]}
-                            numberOfLines={1}
-                          >
+                          <Text style={styles.detailExName} numberOfLines={1}>
                             {ex.name}
                           </Text>
                         </View>
-                        <Text style={[styles.detailExSub, isDark && styles.detailExSubDark]}>
+                        <Text style={styles.detailExSub}>
                           {t('activity.muscle.setCount', { count: ex.sets })} ·{' '}
                           {t('activity.muscle.repsCount', { count: ex.reps })}
                         </Text>
@@ -222,14 +228,21 @@ export function MuscleGroupView({
         pointerEvents="none"
       />
       <View style={styles.infoOverlay} pointerEvents="none">
-        <Text style={[styles.activityName, !isDark && styles.activityNameLight]} numberOfLines={1}>
+        <Text
+          accessibilityRole="header"
+          style={[styles.activityName, !isDark && styles.activityNameLight]}
+          numberOfLines={1}
+        >
           {activity.name}
         </Text>
         <View style={styles.metaRow}>
           <Text style={[styles.activityDate, !isDark && styles.activityDateLight]}>
             {formatDateTime(activity.start_date_local)}
           </Text>
-          <Text style={[styles.durationStat, !isDark && styles.durationStatLight]}>
+          <Text
+            accessibilityLabel={`${t('activity.duration')}: ${formatDuration(activity.moving_time)}`}
+            style={[styles.durationStat, !isDark && styles.durationStatLight]}
+          >
             {formatDuration(activity.moving_time)}
           </Text>
         </View>
@@ -243,161 +256,147 @@ const CENTER_COLUMN_WIDTH = 120;
 
 const MUSCLE_VIEW_BOTTOM_PADDING = spacing.xl + spacing.lg;
 
-const styles = StyleSheet.create({
-  hero: {
-    position: 'relative',
-    backgroundColor: loupeChrome.bgLight,
-  },
-  heroDark: {
-    backgroundColor: loupeChrome.bgDark,
-  },
-  bodyContainer: {
-    paddingHorizontal: spacing.sm,
-    paddingBottom: MUSCLE_VIEW_BOTTOM_PADDING,
-  },
-  centerColumn: {
-    width: CENTER_COLUMN_WIDTH,
-    alignItems: 'flex-start',
-    justifyContent: 'flex-start',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.xs,
-    paddingTop: spacing.xl,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: layout.borderRadiusFull,
-  },
-  legendText: {
-    fontSize: typography.micro.fontSize,
-    color: colors.textSecondary,
-  },
-  hintText: {
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textDisabled,
-    marginTop: spacing.xs,
-    fontStyle: 'italic',
-  },
-  detailDivider: {
-    width: '100%',
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colorWithOpacity(ink.black, 0.15),
-    marginVertical: spacing.xs,
-  },
-  detailHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  detailDot: {
-    width: 8,
-    height: 8,
-    borderRadius: layout.borderRadiusFull,
-  },
-  detailName: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  detailNameDark: {
-    color: darkColors.textPrimary,
-  },
-  detailStat: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-    lineHeight: 16,
-  },
-  detailStatDark: {
-    color: darkColors.textSecondary,
-  },
-  detailExList: {
-    maxHeight: 120,
-    width: '100%',
-  },
-  detailExItem: {
-    marginBottom: spacing.xs,
-    width: '100%',
-  },
-  detailExNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    width: '100%',
-  },
-  detailExDot: {
-    width: 5,
-    height: 5,
-    borderRadius: layout.borderRadiusFull,
-    flexShrink: 0,
-  },
-  detailExName: {
-    fontSize: typography.micro.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    flexShrink: 1,
-  },
-  detailExNameDark: {
-    color: darkColors.textPrimary,
-  },
-  detailExSub: {
-    fontSize: typography.micro.fontSize,
-    color: colors.textSecondary,
-    paddingLeft: spacing.sm,
-  },
-  detailExSubDark: {
-    color: darkColors.textSecondary,
-  },
-  gradient: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 100,
-  },
-  infoOverlay: {
-    position: 'absolute',
-    left: spacing.md,
-    right: spacing.md,
-    bottom: spacing.md,
-    zIndex: 5,
-  },
-  activityName: {
-    ...typography.statsValue,
-    color: colors.textOnDark,
-    textShadowColor: colorWithOpacity(ink.black, 0.6),
-    ...mapTextShadow,
-  },
-  activityNameLight: {
-    color: colors.textPrimary,
-    textShadowColor: 'transparent',
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.xs,
-  },
-  activityDate: {
-    fontSize: typography.bodyCompact.fontSize,
-    color: colors.textOnDark,
-  },
-  activityDateLight: {
-    color: colors.textSecondary,
-  },
-  durationStat: {
-    ...typography.bodyCompact,
-    fontWeight: '600',
-    color: colors.textOnDark,
-    textShadowColor: colorWithOpacity(ink.black, 0.5),
-    ...mapTextShadow,
-  },
-  durationStatLight: {
-    color: colors.textPrimary,
-    textShadowColor: 'transparent',
-  },
-});
+const makeStyles = (palette: Palette, isDark: boolean) =>
+  StyleSheet.create({
+    hero: {
+      position: 'relative',
+      backgroundColor: isDark ? loupeChrome.bgDark : loupeChrome.bgLight,
+    },
+    bodyContainer: {
+      paddingHorizontal: spacing.sm,
+      paddingBottom: MUSCLE_VIEW_BOTTOM_PADDING,
+    },
+    centerColumn: {
+      width: CENTER_COLUMN_WIDTH,
+      alignItems: 'flex-start',
+      justifyContent: 'flex-start',
+      gap: spacing.xs,
+      paddingHorizontal: spacing.xs,
+      paddingTop: spacing.xl,
+    },
+    legendItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    legendDot: {
+      width: 8,
+      height: 8,
+      borderRadius: layout.borderRadiusFull,
+    },
+    legendText: {
+      fontSize: typography.micro.fontSize,
+      color: palette.textSecondary,
+    },
+    hintText: {
+      fontSize: typography.pillLabel.fontSize,
+      color: palette.textSecondary,
+      marginTop: spacing.xs,
+      fontStyle: 'italic',
+    },
+    detailDivider: {
+      width: '100%',
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: palette.divider,
+      marginVertical: spacing.xs,
+    },
+    detailHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    detailDot: {
+      width: 8,
+      height: 8,
+      borderRadius: layout.borderRadiusFull,
+    },
+    detailName: {
+      fontSize: typography.bodyCompact.fontSize,
+      fontWeight: '700',
+      color: palette.textPrimary,
+    },
+    detailStat: {
+      fontSize: typography.label.fontSize,
+      color: palette.textSecondary,
+      lineHeight: 16,
+    },
+    detailExList: {
+      maxHeight: 120,
+      width: '100%',
+    },
+    detailExItem: {
+      marginBottom: spacing.xs,
+      width: '100%',
+    },
+    detailExNameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      width: '100%',
+    },
+    detailExDot: {
+      width: 5,
+      height: 5,
+      borderRadius: layout.borderRadiusFull,
+      flexShrink: 0,
+    },
+    detailExName: {
+      fontSize: typography.micro.fontSize,
+      fontWeight: '600',
+      color: palette.textPrimary,
+      flexShrink: 1,
+    },
+    detailExSub: {
+      fontSize: typography.micro.fontSize,
+      color: palette.textSecondary,
+      paddingLeft: spacing.sm,
+    },
+    gradient: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: 100,
+    },
+    infoOverlay: {
+      position: 'absolute',
+      left: spacing.md,
+      right: spacing.md,
+      bottom: spacing.md,
+      zIndex: 5,
+    },
+    activityName: {
+      ...typography.statsValue,
+      color: colors.textOnDark,
+      textShadowColor: colorWithOpacity(ink.black, 0.6),
+      ...mapTextShadow,
+    },
+    activityNameLight: {
+      color: colors.textPrimary,
+      textShadowColor: 'transparent',
+    },
+    metaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: spacing.xs,
+    },
+    activityDate: {
+      fontSize: typography.bodyCompact.fontSize,
+      color: colors.textOnDark,
+    },
+    activityDateLight: {
+      color: palette.textSecondary,
+    },
+    durationStat: {
+      ...typography.bodyCompact,
+      fontWeight: '600',
+      color: colors.textOnDark,
+      textShadowColor: colorWithOpacity(ink.black, 0.5),
+      ...mapTextShadow,
+    },
+    durationStatLight: {
+      color: colors.textPrimary,
+      textShadowColor: 'transparent',
+    },
+  });

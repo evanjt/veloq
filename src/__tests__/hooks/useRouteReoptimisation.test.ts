@@ -23,15 +23,15 @@ jest.mock('@/shared/app/SyncDateRangeStore', () => ({
 describe('useRouteReoptimisation', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('marks the expansion processed when the engine took the request', () => {
+  it('marks the expansion processed when the engine took the request', async () => {
     mockMark.mockReturnValue(true);
-    renderHook(() => useRouteReoptimisation());
+    await renderHook(() => useRouteReoptimisation());
     expect(mockProcessed).toHaveBeenCalledTimes(1);
   });
 
-  it('leaves the expansion unprocessed when the engine refused it', () => {
+  it('leaves the expansion unprocessed when the engine refused it', async () => {
     mockMark.mockReturnValue(false);
-    renderHook(() => useRouteReoptimisation());
+    await renderHook(() => useRouteReoptimisation());
     expect(mockMark).toHaveBeenCalledTimes(1);
     expect(mockProcessed).not.toHaveBeenCalled();
   });

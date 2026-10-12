@@ -78,7 +78,7 @@ afterEach(() => {
 
 describe('a tip delivered to the purchase listener', () => {
   it('is consumed, recorded and thanked once it is paid', async () => {
-    const { result } = renderHook(() => useDonation());
+    const { result } = await renderHook(() => useDonation());
 
     await deliver(tip());
 
@@ -92,7 +92,7 @@ describe('a tip delivered to the purchase listener', () => {
   });
 
   it('is neither consumed nor thanked while its payment is pending', async () => {
-    const { result } = renderHook(() => useDonation());
+    const { result } = await renderHook(() => useDonation());
     await act(async () => {
       await result.current.purchase('tip_small');
     });
@@ -107,7 +107,7 @@ describe('a tip delivered to the purchase listener', () => {
   });
 
   it('is neither consumed nor thanked in an unknown state', async () => {
-    const { result } = renderHook(() => useDonation());
+    const { result } = await renderHook(() => useDonation());
 
     await deliver(tip({ purchaseState: 'unknown' }));
 
@@ -118,7 +118,7 @@ describe('a tip delivered to the purchase listener', () => {
 
   it('is not recorded or thanked when the consume fails', async () => {
     mockFinishTransaction.mockRejectedValue(new Error('service unavailable'));
-    const { result } = renderHook(() => useDonation());
+    const { result } = await renderHook(() => useDonation());
 
     await deliver(tip());
 
@@ -130,7 +130,7 @@ describe('a tip delivered to the purchase listener', () => {
 
   it('is consumed on a second delivery after the first consume failed', async () => {
     mockFinishTransaction.mockRejectedValueOnce(new Error('service unavailable'));
-    const { result } = renderHook(() => useDonation());
+    const { result } = await renderHook(() => useDonation());
 
     await deliver(tip());
     await deliver(tip());
@@ -146,7 +146,7 @@ describe('opening the billing connection', () => {
     mockConnected = true;
     mockGetAvailablePurchases.mockResolvedValue([tip()]);
 
-    renderHook(() => useDonation());
+    await renderHook(() => useDonation());
 
     await waitFor(() =>
       expect(mockFinishTransaction).toHaveBeenCalledWith({
@@ -164,7 +164,7 @@ describe('opening the billing connection', () => {
       tip({ productId: 'other_product', purchaseToken: 'token-other' }),
     ]);
 
-    renderHook(() => useDonation());
+    await renderHook(() => useDonation());
 
     await waitFor(() => expect(mockGetAvailablePurchases).toHaveBeenCalled());
     await act(async () => {});
@@ -177,7 +177,7 @@ describe('opening the billing connection', () => {
     mockGetAvailablePurchases.mockResolvedValue([tip()]);
     mockFinishTransaction.mockRejectedValue(new Error('service unavailable'));
 
-    renderHook(() => useDonation());
+    await renderHook(() => useDonation());
 
     await waitFor(() => expect(mockFinishTransaction).toHaveBeenCalledTimes(1));
     await act(async () => {});
@@ -189,7 +189,7 @@ describe('opening the billing connection', () => {
     mockGetAvailablePurchases.mockRejectedValue(new Error('not connected'));
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
-    const { result } = renderHook(() => useDonation());
+    const { result } = await renderHook(() => useDonation());
 
     await waitFor(() => expect(mockGetAvailablePurchases).toHaveBeenCalled());
     await act(async () => {});
@@ -206,7 +206,7 @@ describe('opening the billing connection', () => {
     );
     mockGetAvailablePurchases.mockResolvedValue([tip()]);
 
-    renderHook(() => useDonation());
+    await renderHook(() => useDonation());
     await waitFor(() => expect(mockFinishTransaction).toHaveBeenCalledTimes(1));
 
     const second = mockOptions!.onPurchaseSuccess(tip());

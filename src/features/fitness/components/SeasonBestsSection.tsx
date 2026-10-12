@@ -1,11 +1,18 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
-import { Text, ActivityIndicator } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useActivityLabels } from '@/features/activity';
 import { useTheme } from '@/shared/app';
-import { EngineReadFailure, pressable, pressRipple } from '@/shared/ui';
+import {
+  composeAccessibilityLabel,
+  EmptyState,
+  ErrorState,
+  pressable,
+  pressRipple,
+  Spinner,
+} from '@/shared/ui';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { formatDurationOrNull } from '@/shared/format/format';
 import { formatEffortValue } from '../lib/bestEfforts';
@@ -15,7 +22,16 @@ import {
   SPORT_TEXT_COLORS_DARK,
   type PrimarySport,
 } from '@/features/fitness/stores';
-import { colors, darkColors, spacing, typography, colorWithOpacity, ink } from '@/theme';
+import {
+  colors,
+  darkColors,
+  layout,
+  spacing,
+  typography,
+  colorWithOpacity,
+  ink,
+  slopToMinTapTarget,
+} from '@/theme';
 import {
   bestEffortsHref,
   type BestEffort,
@@ -56,7 +72,11 @@ export function SeasonBestsSection({
     () => efforts.map((effort) => effort.activityId).filter((id): id is string => !!id),
     [efforts]
   );
-  const { labels: activityMap, error: labelsError } = useActivityLabels(effortIds);
+  const {
+    labels: activityMap,
+    error: labelsError,
+    refetch: refetchLabels,
+  } = useActivityLabels(effortIds);
 
   const hasEfforts = efforts.some((e) => e.value !== null);
   const hasClimbingValues = climbing.some((b) => b.vam !== null || b.wattsPerKg !== null);
@@ -82,7 +102,7 @@ export function SeasonBestsSection({
     return (
       <View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={colors.primary} />
+          <Spinner />
         </View>
         {viewAll}
       </View>
@@ -92,11 +112,7 @@ export function SeasonBestsSection({
   if (!hasEfforts && !hasClimbing) {
     return (
       <View>
-        <View style={styles.emptyContainer}>
-          <Text style={[styles.emptyText, isDark && styles.emptyTextDark]}>
-            {t('statsScreen.noEffortData')}
-          </Text>
-        </View>
+        <EmptyState variant="inline" title={t('statsScreen.noEffortData')} />
         {viewAll}
       </View>
     );
@@ -105,32 +121,48 @@ export function SeasonBestsSection({
   return (
     <View>
       {labelsError != null && (
-        <EngineReadFailure error={labelsError} testID="season-bests-labels-failed" />
+        <ErrorState
+          variant="inline"
+          error={labelsError}
+          onRetry={refetchLabels}
+          testID="season-bests-labels-failed"
+        />
       )}
       {(hasEfforts ? efforts : []).map((effort, index) => {
         const activityName = effort.activityId
           ? activityMap.get(effort.activityId)?.name
           : undefined;
         const timeStr = formatDurationOrNull(effort.time);
+        const valueStr = formatEffortValue(effort.value, sport, t('units.watts'), isMetric);
+        const showTime = !!timeStr && sport !== 'Cycling';
+        // A row with a link is read through the link, which speaks the row in
+        // reading order, so its other text is not read a second time.
+        const linked = !!activityName && !!effort.activityId;
 
         return (
           <BestEffortRow
             key={effort.label}
             testID={`season-bests-row-${effort.label}`}
             label={effort.label}
-            value={formatEffortValue(effort.value, sport, t('units.watts'), isMetric)}
-            secondary={sport !== 'Cycling' ? timeStr : null}
+            value={valueStr}
+            secondary={showTime ? timeStr : null}
             valueColor={sportText}
             isLast={index === efforts.length - 1}
+            readThroughLink={linked}
           >
-            {activityName && effort.activityId ? (
+            {linked ? (
               <Pressable
                 android_ripple={pressRipple}
                 accessibilityRole="button"
-                accessibilityLabel={activityName}
+                accessibilityLabel={composeAccessibilityLabel(
+                  effort.label,
+                  valueStr,
+                  showTime && timeStr,
+                  activityName
+                )}
                 onPress={() => tapTo(`/activity/${effort.activityId}`)}
                 style={pressable()}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                hitSlop={LINK_SLOP}
               >
                 <Text style={[styles.activityName, { color: sportText }]} numberOfLines={1}>
                   {activityName} →
@@ -154,22 +186,13 @@ export function SeasonBestsSection({
   );
 }
 
+const LINK_SLOP = slopToMinTapTarget(typography.caption.lineHeight);
+
 const styles = StyleSheet.create({
   loadingContainer: {
     padding: spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  emptyContainer: {
-    padding: spacing.lg,
-    alignItems: 'center',
-  },
-  emptyText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  emptyTextDark: {
-    color: darkColors.textSecondary,
   },
   activityName: {
     ...typography.caption,
@@ -189,6 +212,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     paddingTop: spacing.sm,
+    minHeight: layout.minTapTarget,
     marginTop: spacing.xs,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colorWithOpacity(ink.black, 0.08),

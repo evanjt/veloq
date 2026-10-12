@@ -4,9 +4,9 @@ import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
-import { Button, TextField } from '@/shared/ui';
+import { SheetActions, SheetHeader, TextField } from '@/shared/ui';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import {
   DETECTION_PARAM_RANGES,
   isPastClamp,
@@ -67,65 +67,65 @@ function ParamEditorSheetContent() {
     if (refused || value === null) return;
     resolve(value);
   };
+  const rangeText = t('settings.sectionParamRange', {
+    min: bound(range.min),
+    max: bound(range.max),
+  });
   const surface = isDark ? darkColors.surface : colors.surface;
   const secondary = isDark ? darkColors.textSecondary : colors.textSecondary;
 
+  const ids =
+    input.kind === 'param'
+      ? { cancelTestID: 'param-editor-cancel', saveTestID: 'param-editor-save' }
+      : { cancelTestID: 'grouping-editor-cancel', saveTestID: 'grouping-editor-save' };
+  const actions = {
+    onCancel: () => tapBack(),
+    cancelTestID: ids.cancelTestID,
+    confirm: {
+      label: t('common.save'),
+      onPress: save,
+      disabled: refused,
+      testID: ids.saveTestID,
+    },
+  };
+
   return (
     <View testID={prefix} style={[styles.sheet, { backgroundColor: surface }]}>
-      <TextField
-        testID={input.kind === 'param' ? 'param-editor-input' : 'grouping-editor-input'}
-        label={input.label}
-        unit={input.unit?.label}
-        error={error}
-        value={text}
-        onChangeText={setText}
-        keyboardType="numeric"
-        autoFocus
-        selectTextOnFocus
-      />
-      <Text style={[styles.note, { color: secondary }]}>
-        {t('settings.sectionParamRange', {
-          min: bound(range.min),
-          max: bound(range.max),
-        })}
-      </Text>
-      {pastRange && (
-        <Text testID={`${prefix}-range-note`} style={[styles.note, { color: secondary }]}>
-          {t('settings.sectionParamPastRange')}
-        </Text>
-      )}
-      {pastClamp && (
-        <Text testID={`${prefix}-clamp-note`} style={[styles.note, { color: secondary }]}>
-          {t('settings.sectionParamPastClamp')}
-        </Text>
-      )}
-      <View style={styles.actions}>
-        <Button
-          testID={input.kind === 'param' ? 'param-editor-cancel' : 'grouping-editor-cancel'}
-          label={t('common.cancel')}
-          onPress={() => tapBack()}
-          variant="ghost"
+      <SheetHeader title={input.label} {...actions} />
+      <View style={styles.body}>
+        <TextField
+          testID={input.kind === 'param' ? 'param-editor-input' : 'grouping-editor-input'}
+          label={input.label}
+          unit={input.unit?.label}
+          value={text}
+          onChangeText={setText}
+          onSubmitEditing={save}
+          keyboardType="numeric"
+          autoFocus
+          selectTextOnFocus
+          hint={rangeText}
+          error={error}
         />
-        <Button
-          testID={input.kind === 'param' ? 'param-editor-save' : 'grouping-editor-save'}
-          label={t('common.save')}
-          onPress={save}
-          disabled={refused}
-          variant="ghost"
-        />
+        {pastRange && (
+          <Text testID={`${prefix}-range-note`} style={[styles.note, { color: secondary }]}>
+            {t('settings.sectionParamPastRange')}
+          </Text>
+        )}
+        {pastClamp && (
+          <Text testID={`${prefix}-clamp-note`} style={[styles.note, { color: secondary }]}>
+            {t('settings.sectionParamPastClamp')}
+          </Text>
+        )}
       </View>
+      <SheetActions {...actions} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  sheet: { flex: 1, padding: spacing.md, gap: spacing.sm },
+  sheet: { flex: 1 },
+  body: { flex: 1, paddingHorizontal: layout.screenPadding, gap: spacing.sm },
   note: { ...typography.caption },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.lg,
-  },
 });
 
 export default withScreenBoundary(ParamEditorSheetContent, 'Parameter Editor');

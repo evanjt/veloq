@@ -42,27 +42,27 @@ const post = (message: object) =>
   });
 
 describe('MapSurface basemap availability', () => {
-  it('shows nothing extra on a surface that has not failed', () => {
-    renderSurface();
+  it('shows nothing extra on a surface that has not failed', async () => {
+    await renderSurface();
 
     expect(screen.queryByTestId(MAP_SURFACE_UNAVAILABLE_TEST_ID)).toBeNull();
   });
 
-  it('shows the unavailable state when the page reports it cannot load', () => {
+  it('shows the unavailable state when the page reports it cannot load', async () => {
     const onMapFailed = jest.fn();
-    renderSurface({ onMapFailed });
+    await renderSurface({ onMapFailed });
 
-    post({ type: 'mapFailed', reason: 'ready timeout' });
+    await post({ type: 'mapFailed', reason: 'ready timeout' });
 
     expect(screen.getByTestId(MAP_SURFACE_UNAVAILABLE_TEST_ID)).toBeTruthy();
     expect(onMapFailed).toHaveBeenCalledWith('ready timeout');
   });
 
-  it('treats a WebView load error as a failure', () => {
+  it('treats a WebView load error as a failure', async () => {
     const onMapFailed = jest.fn();
-    renderSurface({ onMapFailed });
+    await renderSurface({ onMapFailed });
 
-    fireEvent(screen.getByTestId(MAP_SURFACE_TEST_ID), 'error', {
+    await fireEvent(screen.getByTestId(MAP_SURFACE_TEST_ID), 'error', {
       nativeEvent: { description: 'net::ERR_NAME_NOT_RESOLVED' },
     });
 
@@ -70,11 +70,11 @@ describe('MapSurface basemap availability', () => {
     expect(onMapFailed).toHaveBeenCalled();
   });
 
-  it('treats a WebView HTTP error as a failure', () => {
+  it('treats a WebView HTTP error as a failure', async () => {
     const onMapFailed = jest.fn();
-    renderSurface({ onMapFailed });
+    await renderSurface({ onMapFailed });
 
-    fireEvent(screen.getByTestId(MAP_SURFACE_TEST_ID), 'httpError', {
+    await fireEvent(screen.getByTestId(MAP_SURFACE_TEST_ID), 'httpError', {
       nativeEvent: { statusCode: 503, url: 'https://veloq.fit/' },
     });
 
@@ -82,38 +82,38 @@ describe('MapSurface basemap availability', () => {
     expect(onMapFailed).toHaveBeenCalled();
   });
 
-  it('clears the unavailable state when the page loads after all', () => {
+  it('clears the unavailable state when the page loads after all', async () => {
     const onMapReady = jest.fn();
-    renderSurface({ onMapReady });
+    await renderSurface({ onMapReady });
 
-    post({ type: 'mapFailed', reason: 'ready timeout' });
+    await post({ type: 'mapFailed', reason: 'ready timeout' });
     expect(screen.getByTestId(MAP_SURFACE_UNAVAILABLE_TEST_ID)).toBeTruthy();
 
-    post({ type: 'mapReady' });
+    await post({ type: 'mapReady' });
 
     expect(screen.queryByTestId(MAP_SURFACE_UNAVAILABLE_TEST_ID)).toBeNull();
     expect(onMapReady).toHaveBeenCalled();
   });
 
-  it('reports the failure once, however many errors arrive', () => {
+  it('reports the failure once, however many errors arrive', async () => {
     const onMapFailed = jest.fn();
-    renderSurface({ onMapFailed });
+    await renderSurface({ onMapFailed });
 
-    post({ type: 'mapFailed', reason: 'ready timeout' });
-    post({ type: 'mapFailed', reason: 'page error' });
-    fireEvent(screen.getByTestId(MAP_SURFACE_TEST_ID), 'error', { nativeEvent: {} });
+    await post({ type: 'mapFailed', reason: 'ready timeout' });
+    await post({ type: 'mapFailed', reason: 'page error' });
+    await fireEvent(screen.getByTestId(MAP_SURFACE_TEST_ID), 'error', { nativeEvent: {} });
 
     expect(onMapFailed).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId(MAP_SURFACE_UNAVAILABLE_TEST_ID)).toBeTruthy();
   });
 
-  it('can fail again after a recovery', () => {
+  it('can fail again after a recovery', async () => {
     const onMapFailed = jest.fn();
-    renderSurface({ onMapFailed });
+    await renderSurface({ onMapFailed });
 
-    post({ type: 'mapFailed', reason: 'ready timeout' });
-    post({ type: 'mapReady' });
-    post({ type: 'mapFailed', reason: 'style gone' });
+    await post({ type: 'mapFailed', reason: 'ready timeout' });
+    await post({ type: 'mapReady' });
+    await post({ type: 'mapFailed', reason: 'style gone' });
 
     expect(onMapFailed).toHaveBeenCalledTimes(2);
     expect(screen.getByTestId(MAP_SURFACE_UNAVAILABLE_TEST_ID)).toBeTruthy();

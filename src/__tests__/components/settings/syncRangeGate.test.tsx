@@ -78,8 +78,8 @@ jest.mock('@/features/maps/lib/heatmapTiles', () => ({
   HEATMAP_TILES_DIR: '/tmp/heatmap',
 }));
 
-function dragTo(year: number) {
-  render(<SyncRangePanel />);
+async function dragTo(year: number) {
+  await render(<SyncRangePanel />);
   mockSliderRangeChange?.(new Date(`${year}-01-01T00:00:00`), new Date());
 }
 
@@ -94,13 +94,13 @@ describe('the history slider gate', () => {
   describe('putting the handle back', () => {
     const distinctKeys = () => new Set(mockResetKeys).size;
 
-    function dragInAct(start: string) {
-      act(() => {
+    async function dragInAct(start: string) {
+      await act(() => {
         mockSliderRangeChange?.(new Date(`${start}T00:00:00`), new Date());
       });
     }
 
-    it('after Cancel on the large-history prompt', () => {
+    it('after Cancel on the large-history prompt', async () => {
       jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
         buttons?.[0]?.onPress?.();
       });
@@ -109,36 +109,36 @@ describe('the history slider gate', () => {
         { year: 2025, count: 40 },
         { year: 2026, count: 60 },
       ];
-      render(<SyncRangePanel />);
+      await render(<SyncRangePanel />);
       const before = distinctKeys();
-      dragInAct('2015-01-01');
+      await dragInAct('2015-01-01');
 
       expect(distinctKeys()).toBe(before + 1);
     });
 
-    it('after the expansion latch refuses the drag', () => {
+    it('after the expansion latch refuses the drag', async () => {
       jest.spyOn(Alert, 'alert').mockImplementation(() => {});
       mockSyncDateRange.mockReturnValue('locked');
       mockYearCounts = [
         { year: 2025, count: 40 },
         { year: 2026, count: 60 },
       ];
-      render(<SyncRangePanel />);
+      await render(<SyncRangePanel />);
       const before = distinctKeys();
-      dragInAct('2025-01-01');
+      await dragInAct('2025-01-01');
 
       expect(distinctKeys()).toBe(before + 1);
     });
 
-    it('after a drag that does not widen the range', () => {
-      render(<SyncRangePanel />);
+    it('after a drag that does not widen the range', async () => {
+      await render(<SyncRangePanel />);
       const before = distinctKeys();
-      dragInAct('2026-08-01');
+      await dragInAct('2026-08-01');
 
       expect(distinctKeys()).toBe(before + 1);
     });
 
-    it('not when the prompt is confirmed', () => {
+    it('not when the prompt is confirmed', async () => {
       jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
         buttons?.[buttons.length - 1]?.onPress?.();
       });
@@ -148,51 +148,51 @@ describe('the history slider gate', () => {
         { year: 2025, count: 40 },
         { year: 2026, count: 60 },
       ];
-      render(<SyncRangePanel />);
+      await render(<SyncRangePanel />);
       const before = distinctKeys();
-      dragInAct('2015-01-01');
+      await dragInAct('2015-01-01');
 
       expect(distinctKeys()).toBe(before);
     });
 
-    it('not when a small widening goes through', () => {
+    it('not when a small widening goes through', async () => {
       mockSyncDateRange.mockReturnValue('expanded');
       mockYearCounts = [
         { year: 2025, count: 40 },
         { year: 2026, count: 60 },
       ];
-      render(<SyncRangePanel />);
+      await render(<SyncRangePanel />);
       const before = distinctKeys();
-      dragInAct('2025-01-01');
+      await dragInAct('2025-01-01');
 
       expect(distinctKeys()).toBe(before);
     });
   });
 
-  it('expands straight away when the widening is small', () => {
+  it('expands straight away when the widening is small', async () => {
     mockYearCounts = [
       { year: 2025, count: 40 },
       { year: 2026, count: 60 },
     ];
-    dragTo(2025);
+    await dragTo(2025);
 
     expect(mockSyncDateRange).toHaveBeenCalledTimes(1);
   });
 
-  it('asks before expanding when the widening is large', () => {
+  it('asks before expanding when the widening is large', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     mockYearCounts = [
       { year: 2015, count: 700 },
       { year: 2025, count: 40 },
       { year: 2026, count: 60 },
     ];
-    dragTo(2015);
+    await dragTo(2015);
 
     expect(alert).toHaveBeenCalled();
     expect(mockSyncDateRange).not.toHaveBeenCalled();
   });
 
-  it('expands once the prompt is confirmed', () => {
+  it('expands once the prompt is confirmed', async () => {
     jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
       buttons?.[buttons.length - 1]?.onPress?.();
     });
@@ -201,12 +201,12 @@ describe('the history slider gate', () => {
       { year: 2025, count: 40 },
       { year: 2026, count: 60 },
     ];
-    dragTo(2015);
+    await dragTo(2015);
 
     expect(mockSyncDateRange).toHaveBeenCalledTimes(1);
   });
 
-  it('leaves the range alone when the prompt is cancelled', () => {
+  it('leaves the range alone when the prompt is cancelled', async () => {
     jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
       buttons?.[0]?.onPress?.();
     });
@@ -215,47 +215,52 @@ describe('the history slider gate', () => {
       { year: 2025, count: 40 },
       { year: 2026, count: 60 },
     ];
-    dragTo(2015);
+    await dragTo(2015);
 
     expect(mockSyncDateRange).not.toHaveBeenCalled();
   });
 
-  it('does not block the user behind a count it does not have', () => {
+  it('does not block the user behind a count it does not have', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     mockYearCounts = [];
-    dragTo(2015);
+    await dragTo(2015);
 
     expect(alert).not.toHaveBeenCalled();
     expect(mockSyncDateRange).toHaveBeenCalledTimes(1);
   });
 
-  it('says why when the expansion latch refuses the drag', () => {
+  it('says why when the expansion latch refuses the drag', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     mockSyncDateRange.mockReturnValue('locked');
     mockYearCounts = [
       { year: 2025, count: 40 },
       { year: 2026, count: 60 },
     ];
-    dragTo(2025);
+    await dragTo(2025);
 
-    expect(alert).toHaveBeenCalledWith('settings.rangeLockedTitle', 'settings.rangeLockedMessage');
+    expect(alert).toHaveBeenCalledWith(
+      'settings.rangeLockedTitle',
+      'settings.rangeLockedMessage',
+      undefined,
+      expect.objectContaining({ cancelable: true })
+    );
   });
 
-  it('stays quiet when the expansion goes through', () => {
+  it('stays quiet when the expansion goes through', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     mockSyncDateRange.mockReturnValue('expanded');
     mockYearCounts = [
       { year: 2025, count: 40 },
       { year: 2026, count: 60 },
     ];
-    dragTo(2025);
+    await dragTo(2025);
 
     expect(alert).not.toHaveBeenCalled();
   });
 
-  it('ignores a drag that does not widen the range', () => {
+  it('ignores a drag that does not widen the range', async () => {
     mockYearCounts = [{ year: 2015, count: 700 }];
-    render(<SyncRangePanel />);
+    await render(<SyncRangePanel />);
     mockSliderRangeChange?.(new Date('2026-08-01T00:00:00'), new Date());
 
     expect(mockSyncDateRange).not.toHaveBeenCalled();

@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { colors, colorWithOpacity, spacing, layout, typography, darkColors } from '@/theme';
+import { colors, colorWithOpacity, spacing, layout, typography, themePalette } from '@/theme';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { Button } from '@/shared/ui/Button';
 import { IconButton } from '@/shared/ui/IconButton';
@@ -18,6 +18,7 @@ import { IconButton } from '@/shared/ui/IconButton';
 export function BatteryOptimisationNudge() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const dismissed = useRecordingPreferences((s) => s.batteryOptDismissed);
   const isLoaded = useRecordingPreferences((s) => s.isLoaded);
   const dismiss = useRecordingPreferences((s) => s.dismissBatteryOptNudge);
@@ -43,10 +44,10 @@ export function BatteryOptimisationNudge() {
       <MaterialCommunityIcons
         name="battery-alert-variant-outline"
         size={20}
-        color={isDark ? darkColors.warningAmber : colors.warningAmber}
+        color={palette.warningAmber}
       />
       <View style={styles.body}>
-        <Text style={[styles.text, { color: colors.amberIcon }]}>
+        <Text style={[styles.text, { color: palette.amberIcon }]}>
           {t(
             'recording.batteryOptNudge',
             'Long recordings work best with battery optimisation off for Veloq.'
@@ -64,7 +65,7 @@ export function BatteryOptimisationNudge() {
         onPress={dismiss}
         accessibilityLabel={t('common.close', 'Close')}
       >
-        <MaterialCommunityIcons name="close" size={18} color={colors.amberIcon} />
+        <MaterialCommunityIcons name="close" size={18} color={palette.amberIcon} />
       </IconButton>
     </View>
   );

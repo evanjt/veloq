@@ -49,6 +49,7 @@ jest.mock('react-native-body-highlighter', () => ({
 }));
 
 const lockFailed = { tag: 'Database', inner: { msg: 'poisoned' } };
+const mockRetrySection = jest.fn();
 
 jest.mock('@/shared/native/useSectionDetail', () => ({ useSectionDetail: jest.fn() }));
 jest.mock('@/features/routes/hooks/useEngine', () => ({
@@ -108,7 +109,11 @@ function insight(category: 'section_pr' | 'section_trend' | 'stale_pr'): Insight
 beforeEach(() => {
   jest.clearAllMocks();
   mockPerformances.mockReturnValue(performances());
-  engineHooks.useSectionDetail.mockReturnValue({ section: null, error: lockFailed });
+  engineHooks.useSectionDetail.mockReturnValue({
+    section: null,
+    error: lockFailed,
+    retry: mockRetrySection,
+  });
   engineHooks.useGroupSummaries.mockReturnValue({
     totalCount: 0,
     summaries: [],
@@ -118,28 +123,31 @@ beforeEach(() => {
 });
 
 describe('insight sheets', () => {
-  it('SectionPRContent shows the failure rather than an empty sheet', () => {
-    const { getByTestId } = render(<SectionPRContent insight={insight('section_pr')} />);
-    expect(getByTestId('section-read-failure').props.children).toBe('engine.failure.database');
+  it('SectionPRContent shows the failure rather than an empty sheet', async () => {
+    const { getByTestId } = await render(<SectionPRContent insight={insight('section_pr')} />);
+    expect(getByTestId('section-read-failure')).toHaveTextContent(/engine\.failure\.database/);
+    await fireEvent.press(getByTestId('section-read-failure-retry'));
+    expect(mockRetrySection).toHaveBeenCalledTimes(1);
   });
 
-  it('StalePRContent shows the failure where the map would be', () => {
-    const { getByTestId } = render(<StalePRContent insight={insight('stale_pr')} />);
-    expect(getByTestId('section-read-failure').props.children).toBe('engine.failure.database');
+  it('StalePRContent shows the failure where the map would be', async () => {
+    const { getByTestId } = await render(<StalePRContent insight={insight('stale_pr')} />);
+    expect(getByTestId('section-read-failure')).toHaveTextContent(/engine\.failure\.database/);
+    expect(getByTestId('section-read-failure-retry')).toBeTruthy();
   });
 
-  it('an opened trend row shows the failure instead of the no-efforts line', () => {
-    const { getByTestId, queryByText } = render(
+  it('an opened trend row shows the failure instead of the no-efforts line', async () => {
+    const { getByTestId, queryByText } = await render(
       <SectionTrendContent insight={insight('section_trend')} />
     );
-    fireEvent.press(getByTestId('section-trend-toggle-s1'));
+    await fireEvent.press(getByTestId('section-trend-toggle-s1'));
     expect(getByTestId('section-read-failure')).toBeTruthy();
     expect(queryByText('insights.sectionTrendSheet.noEfforts')).toBeNull();
   });
 
-  it('a read that answers nothing draws no failure', () => {
+  it('a read that answers nothing draws no failure', async () => {
     engineHooks.useSectionDetail.mockReturnValue({ section: null });
-    const { queryByTestId } = render(<SectionPRContent insight={insight('section_pr')} />);
+    const { queryByTestId } = await render(<SectionPRContent insight={insight('section_pr')} />);
     expect(queryByTestId('section-read-failure')).toBeNull();
   });
 });
@@ -156,44 +164,46 @@ describe('insight sheets whose time streams failed', () => {
     );
   });
 
-  it('SectionPRContent shows a retry in place of the timeline', () => {
-    const { getByTestId, getByText } = render(<SectionPRContent insight={insight('section_pr')} />);
+  it('SectionPRContent shows a retry in place of the timeline', async () => {
+    const { getByTestId, getByText } = await render(
+      <SectionPRContent insight={insight('section_pr')} />
+    );
     expect(getByTestId('section-stream-failure')).toBeTruthy();
-    fireEvent.press(getByText('common.retry'));
+    await fireEvent.press(getByText('common.retry'));
     expect(mockRefetchStreams).toHaveBeenCalledTimes(1);
   });
 
-  it('an opened trend row shows a retry instead of the no-efforts line', () => {
-    const { getByTestId, getByText, queryByText } = render(
+  it('an opened trend row shows a retry instead of the no-efforts line', async () => {
+    const { getByTestId, getByText, queryByText } = await render(
       <SectionTrendContent insight={insight('section_trend')} />
     );
-    fireEvent.press(getByTestId('section-trend-toggle-s1'));
+    await fireEvent.press(getByTestId('section-trend-toggle-s1'));
     expect(getByTestId('section-stream-failure')).toBeTruthy();
     expect(queryByText('insights.sectionTrendSheet.noEfforts')).toBeNull();
-    fireEvent.press(getByText('common.retry'));
+    await fireEvent.press(getByText('common.retry'));
     expect(mockRefetchStreams).toHaveBeenCalledTimes(1);
   });
 
-  it('draws no retry while the streams are still loading', () => {
+  it('draws no retry while the streams are still loading', async () => {
     mockPerformances.mockReturnValue(performances({ isLoading: true }));
-    const { queryByTestId } = render(<SectionPRContent insight={insight('section_pr')} />);
+    const { queryByTestId } = await render(<SectionPRContent insight={insight('section_pr')} />);
     expect(queryByTestId('section-stream-failure')).toBeNull();
   });
 });
 
 describe('RouteOverlaySheet', () => {
-  it('shows the failure instead of "no saved routes"', () => {
+  it('shows the failure instead of "no saved routes"', async () => {
     openSheet('sheets/route-overlay', { activityType: 'Ride', selectedRouteId: null });
     mockSheetParams.request = (router.push as jest.Mock).mock.calls.at(-1)[0].params.request;
-    const { getByTestId, queryByText } = render(<RouteOverlaySheet />);
+    const { getByTestId, queryByText } = await render(<RouteOverlaySheet />);
     expect(getByTestId('route-groups-failure').props.children).toBe('engine.failure.database');
     expect(queryByText('No saved routes for this sport yet.')).toBeNull();
   });
 });
 
 describe('route hooks hand the failure on', () => {
-  it('useRouteGroups returns the error of its summaries read', () => {
-    const { result } = renderHook(() => useRouteGroups());
+  it('useRouteGroups returns the error of its summaries read', async () => {
+    const { result } = await renderHook(() => useRouteGroups());
     expect(engineErrorTag(result.current.error)).toBe('Database');
   });
 });

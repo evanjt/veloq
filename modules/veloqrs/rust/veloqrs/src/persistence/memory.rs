@@ -74,7 +74,7 @@ mod tests {
     /// row that either holds it or does not.
     fn hold_folded_cache(row_holds_it: bool) {
         with_persistent_engine(|e| {
-            e.cache_folded_ids.insert("a1".to_string());
+            std::sync::Arc::make_mut(&mut e.cache_folded_ids).insert("a1".to_string());
             e.evidence_cache_restored = true;
             e.evidence_row_current = row_holds_it;
         })

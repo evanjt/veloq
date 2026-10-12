@@ -19,3 +19,23 @@ export function permissionOutcome(answer: PermissionAnswer): PermissionOutcome {
   if (answer.status === 'granted') return 'granted';
   return answer.canAskAgain === false ? 'blocked' : 'askable';
 }
+
+export interface PermissionAsk {
+  outcome: PermissionOutcome;
+  /** The system dialog was raised by this ask, so the athlete has just answered it. */
+  prompted: boolean;
+}
+
+/**
+ * Reads the permission first and requests it only when the system will still
+ * show its dialog. A `blocked` result with `prompted` false means the tap raised
+ * nothing on screen, so the caller owes the athlete the way to settings.
+ */
+export async function askPermission(
+  read: () => Promise<PermissionAnswer>,
+  request: () => Promise<PermissionAnswer>
+): Promise<PermissionAsk> {
+  const before = permissionOutcome(await read());
+  if (before !== 'askable') return { outcome: before, prompted: false };
+  return { outcome: permissionOutcome(await request()), prompted: true };
+}

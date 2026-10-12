@@ -32,24 +32,33 @@ jest.mock('expo-constants', () => ({
   },
 }));
 
-function versionLine() {
-  const { getByTestId } = render(<FooterSection />);
+async function versionLine() {
+  const { getByTestId } = await render(<FooterSection />);
   return getByTestId('settings-version-text').props.children.join('');
 }
 
 describe('the settings version line', () => {
-  it('names the commit the build was made from', () => {
+  it('names the commit the build was made from', async () => {
     expoConfig.extra = { buildCommit: 'a8f276dff' };
-    expect(versionLine()).toBe('t(settings.version) 0.4.0 (a8f276dff)');
+    expect(await versionLine()).toBe('t(settings.version) 0.4.0 (a8f276dff)');
   });
 
-  it('marks a build made from a dirty tree', () => {
+  it('marks a build made from a dirty tree', async () => {
     expoConfig.extra = { buildCommit: 'a8f276dff+3c9e04b1' };
-    expect(versionLine()).toBe('t(settings.version) 0.4.0 (a8f276dff+3c9e04b1)');
+    expect(await versionLine()).toBe('t(settings.version) 0.4.0 (a8f276dff+3c9e04b1)');
   });
 
-  it('falls back to the version alone when nothing stamped the build', () => {
+  it('falls back to the version alone when nothing stamped the build', async () => {
     expoConfig.extra = {};
-    expect(versionLine()).toBe('t(settings.version) 0.4.0');
+    expect(await versionLine()).toBe('t(settings.version) 0.4.0');
+  });
+
+  it('speaks the whole version line, not the word version alone', () => {
+    expoConfig.extra = { buildCommit: 'a8f276dff' };
+    const { getByRole } = render(<FooterSection />);
+
+    expect(getByRole('button', { name: /0\.4\.0/ }).props.accessibilityLabel).toBe(
+      't(settings.version) 0.4.0 (a8f276dff)'
+    );
   });
 });

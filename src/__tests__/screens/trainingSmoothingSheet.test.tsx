@@ -18,6 +18,7 @@ const mockChartWindows: unknown[] = [];
 
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
+  Stack: require('../__shared__/nativeHeaderStandIn').Stack,
   router: { push: (...a: unknown[]) => mockPush(...a), canGoBack: () => true, back: jest.fn() },
   useLocalSearchParams: () => mockParams,
 }));
@@ -74,24 +75,24 @@ beforeEach(() => {
 
 describe('training smoothing sheet', () => {
   it('opens the sheet with the current window and applies the chosen preset', async () => {
-    renderTraining();
-    fireEvent.press(await screen.findByTestId('training-smoothing-button'));
+    await renderTraining();
+    void fireEvent.press(await screen.findByTestId('training-smoothing-button'));
     expect(mockPush.mock.calls[0][0].pathname).toBe('sheets/smoothing');
     mockParams.request = mockPush.mock.calls[0][0].params.request;
-    const sheet = renderHook(() => useSheetRequest<{ window: unknown }, number>());
+    const sheet = await renderHook(() => useSheetRequest<{ window: unknown }, number>());
     expect(sheet.result.current.input).toEqual({ window: 'auto' });
-    act(() => sheet.result.current.resolve(14));
-    sheet.unmount();
+    await act(() => sheet.result.current.resolve(14));
+    await sheet.unmount();
     await act(async () => {});
     expect(chartWindow()).toBe(14);
   });
 
   it('leaves the window unchanged when the sheet is dismissed', async () => {
-    renderTraining();
+    await renderTraining();
     // The chart mounts on the frame after the screen's first.
     await waitFor(() => expect(chartWindow()).toBe('auto'));
-    fireEvent.press(await screen.findByTestId('training-smoothing-button'));
-    answerSheet(mockPush, mockParams, null);
+    void fireEvent.press(await screen.findByTestId('training-smoothing-button'));
+    await answerSheet(mockPush, mockParams, null);
     await act(async () => {});
     expect(chartWindow()).toBe('auto');
   });

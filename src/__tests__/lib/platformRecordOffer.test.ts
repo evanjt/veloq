@@ -71,7 +71,12 @@ describe('the record zip a device backup brings back', () => {
 
     expect(restore).toHaveBeenCalledWith('file:///docs/veloq-decisions.zip');
     expect(alert).toHaveBeenCalledTimes(1);
-    expect(alert).toHaveBeenCalledWith('backup.restoreComplete', 'backup.recordRestored');
+    expect(alert).toHaveBeenCalledWith(
+      'backup.restoreComplete',
+      'backup.recordRestored',
+      undefined,
+      expect.objectContaining({ cancelable: true })
+    );
     expect(await platformRecordToOffer(0)).toBeNull();
   });
 
@@ -122,7 +127,12 @@ describe('the record zip a device backup brings back', () => {
     await applyPlatformRecord(0, t);
     await settle();
 
-    expect(alert).toHaveBeenCalledWith('common.error', 'backup.backupDifferentAccount');
+    expect(alert).toHaveBeenCalledWith(
+      'backup.notRestoredTitle',
+      'backup.backupDifferentAccount',
+      undefined,
+      expect.objectContaining({ cancelable: true })
+    );
     expect(await platformRecordToOffer(0)).toBeNull();
   });
 });

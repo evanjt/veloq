@@ -88,7 +88,8 @@ jest.mock('@/features/sensors', () => ({
     }),
   startScan: jest.fn(),
   stopScan: jest.fn(),
-  connectKnownSensors: jest.fn(),
+  connectPairedSensor: jest.fn(),
+  releasePairingConnections: jest.fn(),
   disconnectSensor: jest.fn(),
   requestBlePermissions: jest.fn(),
   isBleAvailable: () => true,
@@ -102,11 +103,11 @@ describe('settings screens that pad their own bottom', () => {
     expect(headerLargeTitle(route, 'android')).toBe(false);
   });
 
-  it.each(ROUTES)('%s insets the system way and pads nothing for a tab bar', (route) => {
+  it.each(ROUTES)('%s insets the system way and pads nothing for a tab bar', async (route) => {
     Platform.OS = 'ios';
     mockSegments = [route];
     const Screen: React.ComponentType = require(`@/app/${route}`).default;
-    const { UNSAFE_getAllByType } = render(<Screen />);
+    const { UNSAFE_getAllByType } = await render(<Screen />);
 
     const scroll = UNSAFE_getAllByType(ScrollView)[0];
     expect(scroll.props.contentInsetAdjustmentBehavior).toBe('automatic');

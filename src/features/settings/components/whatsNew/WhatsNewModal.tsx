@@ -1,20 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Modal,
   View,
   StyleSheet,
   Pressable,
   useWindowDimensions,
+  type AccessibilityActionEvent,
   type LayoutChangeEvent,
 } from 'react-native';
 import { Text } from 'react-native-paper';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
+  runOnJS,
   Easing,
-  FadeIn,
-  FadeOut,
   useReducedMotion,
   type SharedValue,
 } from 'react-native-reanimated';
@@ -25,6 +26,7 @@ import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, ink, colorWithOpacity } from '@/theme';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
+import { useLaunchSurfaces } from '@/features/settings/hooks/useLaunchSurfaces';
 import { useCutoverSummary, useGroupSummaries, useSectionSummaries } from '@/features/routes';
 import { cutoverHasChangesToShow } from '@/features/settings/lib/cutoverShowMe';
 import {
@@ -42,11 +44,13 @@ import {
   type WhatsNewSlideDefinition,
 } from './slides';
 import { WhatsNewSlide } from './WhatsNewSlide';
-import { Button } from '@/shared/ui';
+import { Button, pageAccessibility } from '@/shared/ui';
+import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 
 const SWIPE_THRESHOLD_RATIO = 0.2;
 const VELOCITY_THRESHOLD = 400;
 const TIMING_CONFIG = { duration: 250, easing: Easing.out(Easing.cubic) };
+// The modal's own fade, which the resume slide waits out so the slide across is seen.
 const ENTER_FADE_MS = 300;
 
 const MODAL_HORIZONTAL_PADDING = spacing.xl;
@@ -110,18 +114,28 @@ export function WhatsNewModal() {
   const currentVersion = Constants.expoConfig?.version ?? '';
   const missedSlides = lastSeenVersion ? getSlidesSince(lastSeenVersion) : [];
 
+  // A first load opens the tutorial; any other launch opens What's New only when
+  // nothing else took the launch's one modal, and waits for the next launch if it did.
+  const { modal: launchModal } = useLaunchSurfaces();
+  const takeLaunchSlot = useWhatsNewStore((s) => s.takeLaunchSlot);
   const hasAutoTriggered = useRef(false);
   useEffect(() => {
-    // Demo is not a sign-in: opening the tour there would mark it seen before the first real one.
     if (!isLoaded || !isAuthenticated || isDemoMode || hasAutoTriggered.current || tourState)
       return;
-    if (lastSeenVersion === null) {
+    if (launchModal === 'tutorial') {
       hasAutoTriggered.current = true;
+      takeLaunchSlot('tutorial');
       startTour('tutorial');
-    } else if (lastSeenVersion !== currentVersion && missedSlides.length > 0) {
+    } else if (launchModal === 'whatsNew') {
       hasAutoTriggered.current = true;
+      takeLaunchSlot('whatsNew');
       startTour('whatsNew');
-    } else if (lastSeenVersion !== currentVersion) {
+    } else if (
+      lastSeenVersion !== null &&
+      lastSeenVersion !== currentVersion &&
+      missedSlides.length === 0
+    ) {
+      // A version with nothing new is seen at once; a tour that lost the slot is not.
       hasAutoTriggered.current = true;
       markSeen(currentVersion);
     }
@@ -129,11 +143,13 @@ export function WhatsNewModal() {
     isLoaded,
     isAuthenticated,
     isDemoMode,
+    launchModal,
     lastSeenVersion,
     currentVersion,
     missedSlides.length,
     tourState,
     startTour,
+    takeLaunchSlot,
     markSeen,
   ]);
 
@@ -155,18 +171,27 @@ export function WhatsNewModal() {
 
   const translateX = useSharedValue(0);
   const activeIndex = useSharedValue(0);
+  // The shared value drives the gesture on the UI thread; this mirror of it is what
+  // the footer, the pager value and the slides' accessibility render from. Every
+  // move goes through `placeSlide` or the gesture's end, which set both.
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const placeSlide = useCallback(
+    (index: number, animate: boolean) => {
+      activeIndex.value = index;
+      translateX.value = animate
+        ? withTiming(-contentWidth * index, TIMING_CONFIG)
+        : -contentWidth * index;
+      setCurrentIndex(index);
+    },
+    [translateX, activeIndex, contentWidth]
+  );
 
   const dismiss = useCallback(() => {
     dismissTour(currentVersion);
   }, [currentVersion, dismissTour]);
 
-  const goToSlide = useCallback(
-    (index: number) => {
-      activeIndex.value = index;
-      translateX.value = withTiming(-contentWidth * index, TIMING_CONFIG);
-    },
-    [translateX, activeIndex, contentWidth]
-  );
+  const goToSlide = useCallback((index: number) => placeSlide(index, true), [placeSlide]);
 
   // The card fades in before the carousel moves, so the slide across is seen.
   const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -201,8 +226,7 @@ export function WhatsNewModal() {
       goToSlide(0);
     } else if (opened || resumed) {
       const { openOn, slideTo } = tourResumeMotion(tourState, reduceMotion);
-      activeIndex.value = openOn;
-      translateX.value = -contentWidth * openOn;
+      placeSlide(openOn, false);
       if (slideTo !== null) {
         cancelResumeSlide();
         resumeTimer.current = setTimeout(() => {
@@ -212,15 +236,7 @@ export function WhatsNewModal() {
         }, ENTER_FADE_MS);
       }
     }
-  }, [
-    tourState,
-    reduceMotion,
-    translateX,
-    activeIndex,
-    contentWidth,
-    goToSlide,
-    cancelResumeSlide,
-  ]);
+  }, [tourState, reduceMotion, activeIndex, placeSlide, goToSlide, cancelResumeSlide]);
 
   const handleNext = useCallback(() => {
     const next = activeIndex.value + 1;
@@ -241,6 +257,18 @@ export function WhatsNewModal() {
     showMe(current, nextIndex, slide.showMeTip);
     navigateTab(route);
   }, [activeIndex, slides, slideCount, showMe, library]);
+
+  const handlePagerAction = useCallback(
+    (event: AccessibilityActionEvent) => {
+      const current = activeIndex.value;
+      if (event.nativeEvent.actionName === 'increment' && current < slideCount - 1) {
+        goToSlide(current + 1);
+      } else if (event.nativeEvent.actionName === 'decrement' && current > 0) {
+        goToSlide(current - 1);
+      }
+    },
+    [activeIndex, slideCount, goToSlide]
+  );
 
   const handleModeToggle = useCallback(() => {
     const newMode = tourState?.mode === 'tutorial' ? 'whatsNew' : 'tutorial';
@@ -276,6 +304,7 @@ export function WhatsNewModal() {
 
           activeIndex.value = targetIndex;
           translateX.value = withTiming(-contentWidth * targetIndex, TIMING_CONFIG);
+          runOnJS(setCurrentIndex)(targetIndex);
         }),
     [translateX, activeIndex, slideCount, contentWidth, swipeThreshold]
   );
@@ -284,9 +313,11 @@ export function WhatsNewModal() {
     transform: [{ translateX: translateX.value }],
   }));
 
+  const position = t('whatsNew.slidePosition', { n: currentIndex + 1, total: slideCount });
   // Modal is visible when tour is active and user is NOT exploring
   const showModal = tourState !== null && !tourState.exploring;
-  if (!showModal || slideCount === 0) return null;
+  useAnnounceOnAppear(showModal ? position : null);
+  if (slideCount === 0) return null;
 
   const bgColor = isDark ? darkColors.surface : colors.surface;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -294,87 +325,117 @@ export function WhatsNewModal() {
 
   const canToggleMode = missedSlides.length > 0;
 
+  // A modal is its own window: it draws over the tab bar, takes Android back through
+  // `onRequestClose`, and hides the app beneath from TalkBack. iOS keeps the app
+  // beneath a transparent modal, so the card marks itself modal for VoiceOver.
   return (
-    <Animated.View
-      style={styles.overlay}
-      entering={FadeIn.duration(ENTER_FADE_MS)}
-      exiting={FadeOut.duration(200)}
-      onLayout={(event: LayoutChangeEvent) => setOverlayHeight(event.nativeEvent.layout.height)}
+    <Modal
+      visible={showModal}
+      transparent
+      animationType="fade"
+      statusBarTranslucent
+      navigationBarTranslucent
+      onRequestClose={dismiss}
     >
-      {/* press-feedback: none, the scrim is the way out and not a control */}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={t('common.close')}
-        style={styles.backdrop}
-        onPress={dismiss}
-      />
-      <View style={[styles.card, { width: contentWidth, backgroundColor: bgColor }]}>
-        <GestureDetector gesture={panGesture}>
-          <View style={[styles.slideArea, { maxHeight: slideAreaHeight }]}>
-            <Animated.View
-              style={[styles.slideRow, { width: contentWidth * slideCount }, contentStyle]}
-            >
-              {slides.map((slide, index) => (
-                <WhatsNewSlide
-                  key={index}
-                  icon={slide.icon}
-                  title={t(slide.titleKey as never)}
-                  body={t(slide.bodyKey as never)}
-                  availableHeight={slideAreaHeight}
-                >
-                  {slide.Component && <slide.Component />}
-                </WhatsNewSlide>
-              ))}
-            </Animated.View>
-          </View>
-        </GestureDetector>
-
+      <GestureHandlerRootView
+        style={styles.overlay}
+        onLayout={(event: LayoutChangeEvent) => setOverlayHeight(event.nativeEvent.layout.height)}
+      >
+        {/* press-feedback: none, the scrim is the way out and not a control */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('common.close')}
+          style={styles.backdrop}
+          onPress={dismiss}
+        />
         <View
-          onLayout={(event: LayoutChangeEvent) => setChromeHeight(event.nativeEvent.layout.height)}
+          testID="whats-new-card"
+          accessibilityViewIsModal
+          style={[styles.card, { width: contentWidth, backgroundColor: bgColor }]}
         >
-          {/* Mode toggle + dot indicators */}
-          <View style={styles.indicators}>
-            {canToggleMode && (
-              <Button
-                label={
-                  tourState?.mode === 'tutorial'
-                    ? t('whatsNew.justWhatsNew')
-                    : t('whatsNew.seeAllFeatures')
-                }
-                onPress={handleModeToggle}
-                variant="secondary"
-                size="sm"
-              />
-            )}
-            <View style={styles.dots}>
-              {slides.map((_, index) => (
-                <DotIndicator
-                  key={index}
-                  index={index}
-                  activeIndex={activeIndex}
-                  primaryColor={primaryColor}
-                  mutedColor={mutedColor}
-                />
-              ))}
+          <GestureDetector gesture={panGesture}>
+            <View style={[styles.slideArea, { maxHeight: slideAreaHeight }]}>
+              <Animated.View
+                style={[styles.slideRow, { width: contentWidth * slideCount }, contentStyle]}
+              >
+                {slides.map((slide, index) => (
+                  <View key={index} {...pageAccessibility(index, currentIndex)}>
+                    <WhatsNewSlide
+                      icon={slide.icon}
+                      title={t(slide.titleKey as never)}
+                      body={t(slide.bodyKey as never)}
+                      availableHeight={slideAreaHeight}
+                    >
+                      {slide.Component && <slide.Component />}
+                    </WhatsNewSlide>
+                  </View>
+                ))}
+              </Animated.View>
             </View>
-          </View>
+          </GestureDetector>
 
-          {/* Navigation buttons: Skip | Show Me | Next/Done */}
-          <NavigationButtons
-            activeIndex={activeIndex}
-            slides={slides}
-            slideCount={slideCount}
-            onSkip={dismiss}
-            onNext={handleNext}
-            onShowMe={handleShowMe}
-            skipLabel={t('whatsNew.skipButton')}
-            nextLabel={t('whatsNew.nextButton')}
-            doneLabel={t('whatsNew.doneButton')}
-            showMeLabel={t('whatsNew.showMeButton')}
-          />
+          <View
+            onLayout={(event: LayoutChangeEvent) =>
+              setChromeHeight(event.nativeEvent.layout.height)
+            }
+          >
+            {/* Mode toggle + dot indicators */}
+            <View style={styles.indicators}>
+              {canToggleMode && (
+                <Button
+                  label={
+                    tourState?.mode === 'tutorial'
+                      ? t('whatsNew.justWhatsNew')
+                      : t('whatsNew.seeAllFeatures')
+                  }
+                  onPress={handleModeToggle}
+                  variant="secondary"
+                  size="sm"
+                />
+              )}
+              <View
+                style={styles.dots}
+                accessible
+                accessibilityRole="adjustable"
+                accessibilityValue={{
+                  min: 1,
+                  max: slideCount,
+                  now: currentIndex + 1,
+                  text: position,
+                }}
+                accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+                onAccessibilityAction={handlePagerAction}
+                accessibilityLiveRegion="polite"
+              >
+                {slides.map((_, index) => (
+                  <DotIndicator
+                    key={index}
+                    index={index}
+                    activeIndex={activeIndex}
+                    primaryColor={primaryColor}
+                    mutedColor={mutedColor}
+                  />
+                ))}
+              </View>
+            </View>
+
+            {/* Navigation buttons: Skip | Show Me | Next/Done */}
+            <NavigationButtons
+              index={currentIndex}
+              slides={slides}
+              slideCount={slideCount}
+              onSkip={dismiss}
+              onNext={handleNext}
+              onShowMe={handleShowMe}
+              skipLabel={t('whatsNew.skipButton')}
+              nextLabel={t('whatsNew.nextButton')}
+              doneLabel={t('whatsNew.doneButton')}
+              showMeLabel={t('whatsNew.showMeButton')}
+            />
+          </View>
         </View>
-      </View>
-    </Animated.View>
+      </GestureHandlerRootView>
+    </Modal>
   );
 }
 
@@ -398,8 +459,10 @@ function DotIndicator({
   return <Animated.View style={[styles.dot, dotStyle]} />;
 }
 
+// A button that does not apply to the slide in view is not rendered, so it is never
+// pressed or focused unseen.
 function NavigationButtons({
-  activeIndex,
+  index,
   slides,
   slideCount,
   onSkip,
@@ -410,7 +473,7 @@ function NavigationButtons({
   doneLabel,
   showMeLabel,
 }: {
-  activeIndex: SharedValue<number>;
+  index: number;
   slides: { showMeRoute?: string }[];
   slideCount: number;
   onSkip: () => void;
@@ -421,30 +484,16 @@ function NavigationButtons({
   doneLabel: string;
   showMeLabel: string;
 }) {
-  const isLast = useAnimatedStyle(() => ({
-    opacity: activeIndex.value === slideCount - 1 ? 0 : 1,
-  }));
-
-  const doneStyle = useAnimatedStyle(() => ({
-    opacity: activeIndex.value === slideCount - 1 ? 1 : 0,
-  }));
-
-  // Show Me is visible when the current slide has a showMeRoute
-  const showMeStyle = useAnimatedStyle(() => ({
-    opacity: slides[activeIndex.value]?.showMeRoute ? 1 : 0,
-  }));
+  const isLast = index === slideCount - 1;
+  const canShowMe = !!slides[index]?.showMeRoute;
 
   return (
     <View style={styles.nav}>
-      {/* Left: Skip (hidden on last slide) */}
       <View style={styles.navLeft}>
-        <Animated.View style={isLast}>
-          <Button label={skipLabel} onPress={onSkip} variant="ghost" size="sm" />
-        </Animated.View>
+        {!isLast && <Button label={skipLabel} onPress={onSkip} variant="ghost" size="sm" />}
       </View>
 
-      {/* Center: Show Me */}
-      <Animated.View style={showMeStyle}>
+      {canShowMe && (
         <Button
           label={showMeLabel}
           onPress={onShowMe}
@@ -452,16 +501,14 @@ function NavigationButtons({
           size="sm"
           icon={<Text>→</Text>}
         />
-      </Animated.View>
+      )}
 
-      {/* Right: Next / Done */}
       <View style={styles.navRight}>
-        <Animated.View style={doneStyle}>
+        {isLast ? (
           <Button label={doneLabel} onPress={onSkip} size="sm" />
-        </Animated.View>
-        <Animated.View style={[styles.nextOverlay, isLast]}>
+        ) : (
           <Button label={nextLabel} onPress={onNext} variant="ghost" size="sm" />
-        </Animated.View>
+        )}
       </View>
     </View>
   );
@@ -469,10 +516,9 @@ function NavigationButtons({
 
 const styles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFill,
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1000,
   },
   backdrop: {
     ...StyleSheet.absoluteFill,
@@ -516,15 +562,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   navRight: {
-    position: 'relative',
     minWidth: 80,
     alignItems: 'flex-end',
-  },
-  nextOverlay: {
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
   },
 });

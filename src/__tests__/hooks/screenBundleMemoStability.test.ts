@@ -56,8 +56,8 @@ beforeEach(() => {
 describe('useSectionMatches over a rebuilt bundle wrapper', () => {
   const sections = [nativeSection('s1'), nativeSection('s2')];
 
-  it('decodes each matched section once across re-renders', () => {
-    const { result, rerender } = renderHook(
+  it('decodes each matched section once across re-renders', async () => {
+    const { result, rerender } = await renderHook(
       ({ count }: { count: number }) =>
         useSectionMatches('act-1', { sections, sectionCount: count }),
       { initialProps: { count: 2 } }
@@ -67,31 +67,31 @@ describe('useSectionMatches over a rebuilt bundle wrapper', () => {
     expect(first).toHaveLength(2);
     expect(mockDecodeCoords).toHaveBeenCalledTimes(2);
 
-    rerender({ count: 2 });
-    rerender({ count: 2 });
+    await rerender({ count: 2 });
+    await rerender({ count: 2 });
 
     expect(result.current.sections).toBe(first);
     expect(mockDecodeCoords).toHaveBeenCalledTimes(2);
   });
 
-  it('recomputes when the matched sections themselves change', () => {
-    const { result, rerender } = renderHook(
+  it('recomputes when the matched sections themselves change', async () => {
+    const { result, rerender } = await renderHook(
       ({ list }: { list: SectionWithPolyline[] }) =>
         useSectionMatches('act-1', { sections: list, sectionCount: list.length }),
       { initialProps: { list: sections } }
     );
 
     const first = result.current.sections;
-    rerender({ list: [...sections, nativeSection('s3')] });
+    await rerender({ list: [...sections, nativeSection('s3')] });
 
     expect(result.current.sections).not.toBe(first);
     expect(result.current.sections).toHaveLength(3);
     expect(mockDecodeCoords).toHaveBeenCalledTimes(5);
   });
 
-  it('holds an empty result stable and reports the bundle count', () => {
+  it('holds an empty result stable and reports the bundle count', async () => {
     const empty: SectionWithPolyline[] = [];
-    const { result, rerender } = renderHook(() =>
+    const { result, rerender } = await renderHook(() =>
       useSectionMatches('act-1', { sections: empty, sectionCount: 7 })
     );
 
@@ -99,7 +99,7 @@ describe('useSectionMatches over a rebuilt bundle wrapper', () => {
     expect(first).toEqual([]);
     expect(result.current.count).toBe(0);
 
-    rerender(undefined);
+    await rerender(undefined);
 
     expect(result.current.sections).toBe(first);
     expect(mockDecodeCoords).not.toHaveBeenCalled();
@@ -130,8 +130,8 @@ describe('useSectionOverlays over a rebuilt bundle wrapper', () => {
   const sectionTraces = { s1: coordinates };
   const prSectionIds = new Set(['s1']);
 
-  it('returns the same overlays across re-renders that rebuild the wrapper', () => {
-    const { result, rerender } = renderHook(() =>
+  it('returns the same overlays across re-renders that rebuild the wrapper', async () => {
+    const { result, rerender } = await renderHook(() =>
       useSectionOverlays('act-1', matches, noCustom, coordinates, {
         sectionTraces,
         prSectionIds,
@@ -142,13 +142,13 @@ describe('useSectionOverlays over a rebuilt bundle wrapper', () => {
     expect(first).toHaveLength(1);
     expect(first?.[0].isPR).toBe(true);
 
-    rerender(undefined);
-    rerender(undefined);
+    await rerender(undefined);
+    await rerender(undefined);
 
     expect(result.current.sectionOverlays).toBe(first);
   });
 
-  it('orders overlays by the engine encounter order, not by where their polylines sit on the track', () => {
+  it('orders overlays by the engine encounter order, not by where their polylines sit on the track', async () => {
     const sectionAt = (id: string, point: { latitude: number; longitude: number }) => ({
       section: {
         id,
@@ -178,7 +178,7 @@ describe('useSectionOverlays over a rebuilt bundle wrapper', () => {
       historyActivityIds: [],
     });
 
-    const { result } = renderHook(() =>
+    const { result } = await renderHook(() =>
       useSectionOverlays(
         'act-1',
         twoMatches,
@@ -192,8 +192,8 @@ describe('useSectionOverlays over a rebuilt bundle wrapper', () => {
     expect(result.current.sectionOverlays?.map((o) => o.id)).toEqual(['early', 'late']);
   });
 
-  it('recomputes when the record holders change', () => {
-    const { result, rerender } = renderHook(
+  it('recomputes when the record holders change', async () => {
+    const { result, rerender } = await renderHook(
       ({ prs }: { prs: Set<string> }) =>
         useSectionOverlays('act-1', matches, noCustom, coordinates, {
           sectionTraces,
@@ -203,13 +203,13 @@ describe('useSectionOverlays over a rebuilt bundle wrapper', () => {
     );
 
     const first = result.current.sectionOverlays;
-    rerender({ prs: new Set<string>() });
+    await rerender({ prs: new Set<string>() });
 
     expect(result.current.sectionOverlays).not.toBe(first);
     expect(result.current.sectionOverlays?.[0].isPR).toBe(false);
   });
 
-  it('splits one section into direction-specific overlays when encounters contain both directions', () => {
+  it('splits one section into direction-specific overlays when encounters contain both directions', async () => {
     const directionalEncounters: SectionEncounter[] = [
       {
         sectionId: 's1',
@@ -243,7 +243,7 @@ describe('useSectionOverlays over a rebuilt bundle wrapper', () => {
       },
     ] as SectionEncounter[];
 
-    const { result } = renderHook(() =>
+    const { result } = await renderHook(() =>
       useSectionOverlays(
         'act-1',
         matches,
@@ -276,28 +276,28 @@ describe('section detail traces', () => {
     mapSignatures: [firstSignature],
   };
 
-  it('decodes signatures once across re-renders of the same detail read', () => {
+  it('decodes signatures once across re-renders of the same detail read', async () => {
     (getEngine as jest.Mock).mockReturnValue({
       subscribe: () => () => {},
       getSectionDetailData: () => firstBundle,
     });
-    const { result, rerender } = renderHook(() => useSectionDetailData('s1'));
+    const { result, rerender } = await renderHook(() => useSectionDetailData('s1'));
     const first = result.current.allActivityTraces;
     expect(first?.['act-1']).toHaveLength(2);
     expect(mockDecodeCoords).toHaveBeenCalledTimes(1);
 
-    rerender({});
+    await rerender({});
     expect(result.current.allActivityTraces).toBe(first);
     expect(mockDecodeCoords).toHaveBeenCalledTimes(1);
   });
 
-  it('re-decodes when a refreshed detail read carries new signatures', () => {
+  it('re-decodes when a refreshed detail read carries new signatures', async () => {
     let bundle = firstBundle;
     (getEngine as jest.Mock).mockReturnValue({
       subscribe: () => () => {},
       getSectionDetailData: () => bundle,
     });
-    const { result, rerender } = renderHook(
+    const { result, rerender } = await renderHook(
       ({ refreshKey }: { refreshKey: number }) => useSectionDetailData('s1', refreshKey),
       { initialProps: { refreshKey: 0 } }
     );
@@ -306,7 +306,7 @@ describe('section detail traces', () => {
       ...firstBundle,
       mapSignatures: [firstSignature, { activityId: 'act-2', encodedCoords: new ArrayBuffer(0) }],
     };
-    rerender({ refreshKey: 1 });
+    await rerender({ refreshKey: 1 });
 
     expect(result.current.allActivityTraces).not.toBe(first);
     expect(result.current.allActivityTraces?.['act-2']).toHaveLength(2);

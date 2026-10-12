@@ -9,8 +9,12 @@ import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import {
+  formatCadence,
+  formatCalories,
   formatDistance,
   formatDuration,
+  formatHeartRate,
+  formatPower,
   formatSpeed,
   formatPace,
   formatSportSpeed,
@@ -19,10 +23,11 @@ import {
 import { colors, colorWithOpacity, darkColors, spacing, typography } from '@/theme';
 import type { ActivityType, DataFieldType } from '@/types';
 import { isSwimmingActivity } from '@/shared/activity/activityUtils';
-import { pressable, pressRipple } from '@/shared/ui';
+import { accessibleActions, pressable, pressRipple } from '@/shared/ui';
 import type { SensorKind } from '@/features/sensors';
 import { hrZoneTextColor } from '../lib/hrZoneTextColor';
 import { DELIBERATE_HOLD_MS } from '@/shared/ui/holdDurations';
+import { ABSENT, absentLabel } from '@/shared/format/absent';
 
 export interface HrZoneInfo {
   color: string;
@@ -88,18 +93,17 @@ function formatFieldValue(
       return formatDistance(metrics.distance, isMetric);
     case 'heartrate': {
       const bpm = Math.round(metrics.heartrate);
-      return Number.isFinite(bpm) && bpm > 0 ? `${bpm} bpm` : '-- bpm';
+      return Number.isFinite(bpm) && bpm > 0 ? formatHeartRate(bpm) : ABSENT;
     }
     case 'power': {
       const w = Math.round(metrics.power);
-      return Number.isFinite(w) && w > 0 ? `${w} W` : '-- W';
+      return Number.isFinite(w) && w > 0 ? formatPower(w) : ABSENT;
     }
     case 'cadence': {
       const rpm = Math.round(metrics.cadence);
-      return Number.isFinite(rpm) && rpm > 0 ? `${rpm} rpm` : '-- rpm';
+      return Number.isFinite(rpm) && rpm > 0 ? formatCadence(rpm) : ABSENT;
     }
     case 'elevation':
-      if (metrics.elevation == null) return isMetric ? '-- m' : '-- ft';
       return formatElevation(metrics.elevation, isMetric);
     case 'elevationGain':
       return formatElevation(metrics.elevationGain, isMetric);
@@ -113,10 +117,8 @@ function formatFieldValue(
       return swimming
         ? formatSportSpeed(metrics.avgSpeed, activityType, isMetric)
         : formatPace(metrics.avgSpeed, isMetric);
-    case 'calories': {
-      const kcal = Math.round(metrics.calories);
-      return Number.isFinite(kcal) && kcal >= 0 ? `${kcal} kcal` : '0 kcal';
-    }
+    case 'calories':
+      return formatCalories(metrics.calories);
     case 'lapDistance':
       return formatDistance(metrics.lapDistance, isMetric);
     case 'lapTime':
@@ -126,7 +128,7 @@ function formatFieldValue(
     case 'movingTime':
       return formatDuration(metrics.movingTime);
     default:
-      return '--';
+      return ABSENT;
   }
 }
 
@@ -138,6 +140,8 @@ interface DataFieldTileProps {
   zone: number | undefined;
   zoneColor: string | undefined;
   emptyKind: SensorKind | undefined;
+  /** What the change-field action reads, the hold's only other way in. */
+  changeFieldLabel: string;
   isDark: boolean;
   textColor: string;
   mutedColor: string;
@@ -153,12 +157,14 @@ const DataFieldTile = React.memo(function DataFieldTile({
   zone,
   zoneColor,
   emptyKind,
+  changeFieldLabel,
   isDark,
   textColor,
   mutedColor,
   onLongPressField,
   onEmptySensorTap,
 }: DataFieldTileProps) {
+  const { t } = useTranslation();
   const handleLongPress = React.useCallback(() => {
     haptics.light();
     onLongPressField?.(index, field);
@@ -167,7 +173,17 @@ const DataFieldTile = React.memo(function DataFieldTile({
     if (emptyKind) onEmptySensorTap?.(emptyKind);
   }, [emptyKind, onEmptySensorTap]);
   const zoned = zone != null && zoneColor != null;
+  const actions = React.useMemo(
+    () =>
+      accessibleActions(
+        onLongPressField
+          ? [{ name: 'changeField', label: changeFieldLabel, run: handleLongPress }]
+          : undefined
+      ),
+    [onLongPressField, changeFieldLabel, handleLongPress]
+  );
 
+  // Only an empty sensor tile does anything on a tap, so only it is a button.
   return (
     <Pressable
       testID={`data-field-${field}`}
@@ -175,6 +191,8 @@ const DataFieldTile = React.memo(function DataFieldTile({
       onLongPress={onLongPressField ? handleLongPress : undefined}
       delayLongPress={DELIBERATE_HOLD_MS}
       accessibilityRole={emptyKind ? 'button' : undefined}
+      accessibilityLabel={`${label}, ${absentLabel(value, t) ?? value}`}
+      {...actions}
       style={pressable([
         styles.cell,
         {
@@ -194,6 +212,7 @@ const DataFieldTile = React.memo(function DataFieldTile({
         numberOfLines={1}
         adjustsFontSizeToFit
         minimumFontScale={VALUE_MIN_FONT_SCALE}
+        accessibilityLabel={absentLabel(value, t)}
       >
         {value}
       </Text>
@@ -255,6 +274,7 @@ function DataFieldGridInner({
             zone={zone}
             zoneColor={zone != null ? hrZone?.color : undefined}
             emptyKind={emptyKind}
+            changeFieldLabel={t('recording.changeField')}
             isDark={isDark}
             textColor={themeColors.text}
             mutedColor={themeColors.textSecondary}

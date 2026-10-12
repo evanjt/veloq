@@ -424,17 +424,19 @@ describe('MapPreferencesContext', () => {
     jest.clearAllMocks();
   });
 
-  it('throws when used outside provider', () => {
+  it('throws when used outside provider', async () => {
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-    expect(() => {
-      renderHook(() => useMapPreferences());
-    }).toThrow('useMapPreferences must be used within a MapPreferencesProvider');
+    await expect(
+      (async () => {
+        await renderHook(() => useMapPreferences());
+      })()
+    ).rejects.toThrow('useMapPreferences must be used within a MapPreferencesProvider');
     consoleSpy.mockRestore();
   });
 
   describe('Style Resolution', () => {
     it('returns default when no override, override when set', async () => {
-      const { result } = renderHook(() => useMapPreferences(), {
+      const { result } = await renderHook(() => useMapPreferences(), {
         wrapper: mapWrapper,
       });
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
@@ -456,7 +458,7 @@ describe('MapPreferencesContext', () => {
           activityTypeStyles: { Ride: 'dark' },
         })
       );
-      const { result } = renderHook(() => useMapPreferences(), {
+      const { result } = await renderHook(() => useMapPreferences(), {
         wrapper: mapWrapper,
       });
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
@@ -470,7 +472,7 @@ describe('MapPreferencesContext', () => {
 
   describe('setDefaultStyle()', () => {
     it('updates default without affecting overrides', async () => {
-      const { result } = renderHook(() => useMapPreferences(), {
+      const { result } = await renderHook(() => useMapPreferences(), {
         wrapper: mapWrapper,
       });
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
@@ -489,7 +491,7 @@ describe('MapPreferencesContext', () => {
 
   describe('setActivityGroupStyle() - Batch Updates', () => {
     it('updates multiple activity types at once', async () => {
-      const { result } = renderHook(() => useMapPreferences(), {
+      const { result } = await renderHook(() => useMapPreferences(), {
         wrapper: mapWrapper,
       });
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
@@ -503,7 +505,7 @@ describe('MapPreferencesContext', () => {
     });
 
     it('removes multiple overrides when null', async () => {
-      const { result } = renderHook(() => useMapPreferences(), {
+      const { result } = await renderHook(() => useMapPreferences(), {
         wrapper: mapWrapper,
       });
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
@@ -524,7 +526,7 @@ describe('MapPreferencesContext', () => {
   describe('Persistence Validation', () => {
     it('rejects invalid JSON and uses defaults', async () => {
       await AsyncStorage.setItem(MAP_PREFS_KEY, 'not valid json');
-      const { result } = renderHook(() => useMapPreferences(), {
+      const { result } = await renderHook(() => useMapPreferences(), {
         wrapper: mapWrapper,
       });
       await waitFor(() => expect(result.current.isLoaded).toBe(true));
@@ -533,7 +535,7 @@ describe('MapPreferencesContext', () => {
 
     it('handles AsyncStorage read failure', async () => {
       (AsyncStorage.getItem as jest.Mock).mockRejectedValueOnce(new Error('fail'));
-      const { result } = renderHook(() => useMapPreferences(), {
+      const { result } = await renderHook(() => useMapPreferences(), {
         wrapper: mapWrapper,
       });
       await waitFor(() => expect(result.current.isLoaded).toBe(true));

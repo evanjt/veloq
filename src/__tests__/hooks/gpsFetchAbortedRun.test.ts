@@ -69,6 +69,7 @@ jest.mock('@/features/routes/lib/detectionRun', () => ({
 
 // A pass that is running reports itself, so the tile wait has a write to make.
 jest.mock('@/features/routes/lib/tilePass', () => ({
+  ...jest.requireActual('@/features/routes/lib/tilePass'),
   awaitTilePass: jest.fn(async (onStarted?: (processed: number, total: number) => void) => {
     onStarted?.(1, 10);
   }),
@@ -113,7 +114,7 @@ async function run(mode: 'api' | 'demo', point: AbortPoint) {
   mockController = new AbortController();
   const afterAbort: SyncProgress['status'][] = [];
   const all: SyncProgress['status'][] = [];
-  const { result } = renderHook(() => useGpsDataFetcher());
+  const { result } = await renderHook(() => useGpsDataFetcher());
   const fetch = mode === 'api' ? result.current.fetchApiGps : result.current.fetchDemoGps;
 
   const outcome = await fetch([activity('a1'), activity('a2')], {

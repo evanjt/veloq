@@ -1,13 +1,13 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import type { SharedValue } from 'react-native-reanimated';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, typography, opacity } from '@/theme';
+import { spacing, opacity } from '@/theme';
 import { Card } from '@/shared/ui/Card';
-import { EngineReadFailureRetry } from '@/shared/ui/EngineReadFailureRetry';
+import { CardHeader } from '@/shared/ui/CardHeader';
+import { ErrorState } from '@/shared/ui/ErrorState';
 import type { DayLoad, RangeCoverage } from 'veloqrs';
 import type { WellnessData, Activity } from '@/types';
 import { FitnessChart, FormZoneChart, ActivityDotsChart } from '..';
@@ -52,11 +52,9 @@ export const FitnessChartCard = React.memo(function FitnessChartCard({
   if (readError != null && onRetry) {
     return (
       <View style={styles.chartFrame}>
-        <Card variant="flat">
-          <Text style={[styles.chartTitle, isDark && styles.chartTitleDark]}>
-            {t('fitnessScreen.fitnessAndFatigue')}
-          </Text>
-          <EngineReadFailureRetry
+        <Card variant="flat" title={t('fitnessScreen.fitnessAndFatigue')}>
+          <ErrorState
+            variant="inline"
             error={readError}
             onRetry={onRetry}
             testID="fitness-chart-failed"
@@ -68,11 +66,7 @@ export const FitnessChartCard = React.memo(function FitnessChartCard({
 
   return (
     <View style={styles.chartFrame}>
-      <Card variant="flat">
-        {/* Fitness/Fatigue chart */}
-        <Text style={[styles.chartTitle, isDark && styles.chartTitleDark]}>
-          {t('fitnessScreen.fitnessAndFatigue')}
-        </Text>
+      <Card variant="flat" title={t('fitnessScreen.fitnessAndFatigue')}>
         <FitnessChart
           data={wellness}
           coverage={wellnessCoverage}
@@ -104,9 +98,7 @@ export const FitnessChartCard = React.memo(function FitnessChartCard({
           testID="fitness-form-zone-chart"
           style={[styles.formSection, isDark && styles.formSectionDark]}
         >
-          <Text style={[styles.chartTitle, isDark && styles.chartTitleDark]}>
-            {t('metrics.form')}
-          </Text>
+          <CardHeader title={t('metrics.form')} />
           <FormZoneChart
             data={wellness}
             height={140}
@@ -124,15 +116,6 @@ export const FitnessChartCard = React.memo(function FitnessChartCard({
 const styles = StyleSheet.create({
   chartFrame: {
     marginBottom: spacing.md,
-  },
-  chartTitle: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-  },
-  chartTitleDark: {
-    color: darkColors.textPrimary,
   },
   dotsSection: {
     marginTop: spacing.sm,

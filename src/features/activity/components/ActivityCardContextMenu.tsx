@@ -1,6 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Modal, Pressable, Share, Platform } from 'react-native';
-import { Switch } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as haptics from '@/shared/ui/haptics';
 import { useTranslation } from 'react-i18next';
@@ -23,7 +22,7 @@ import {
   colorWithOpacity,
 } from '@/theme';
 import type { Activity } from '@/types';
-import { IconButton, pressable, pressRipple } from '@/shared/ui';
+import { IconButton, pressable, pressRipple, Switch } from '@/shared/ui';
 import { tapTo } from '@/shared/app/navigation';
 
 interface ActivityCardContextMenuProps {
@@ -61,11 +60,13 @@ function Terrain3DSwitch({
   mode,
   savedCamera,
   onValueChange,
+  accessibilityLabel,
 }: {
   activity: Activity;
   mode: ReturnType<ReturnType<typeof useMapPreferences>['getTerrain3DMode']>;
   savedCamera: TerrainCamera | null;
   onValueChange: (value: boolean) => void;
+  accessibilityLabel: string;
 }) {
   const { coordinates, altitude } = useMapPreviewCoordinates(
     activity.id,
@@ -87,7 +88,9 @@ function Terrain3DSwitch({
       }).show3D,
     [mode, lngLatCoords, altitude, activity.total_elevation_gain, activity.distance, savedCamera]
   );
-  return <Switch value={is3DOn} onValueChange={onValueChange} color={brand.teal} />;
+  return (
+    <Switch value={is3DOn} onValueChange={onValueChange} accessibilityLabel={accessibilityLabel} />
+  );
 }
 
 export function ActivityCardContextMenu({
@@ -120,7 +123,6 @@ export function ActivityCardContextMenu({
 
   const handleToggle3D = useCallback(
     (value: boolean) => {
-      haptics.selection();
       setActivityOverride(activity.id, { terrain3D: value });
     },
     [activity.id, setActivityOverride]
@@ -243,6 +245,7 @@ export function ActivityCardContextMenu({
               mode={currentTerrain}
               savedCamera={getActivityCamera(activity.id) ?? null}
               onValueChange={handleToggle3D}
+              accessibilityLabel={t('activity.terrainRow')}
             />
           </View>
 

@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import {
@@ -20,6 +19,7 @@ import {
   type BulkExportKind,
 } from '@/features/settings/lib/bulkExportFormat';
 import { engineErrorKey, engineErrorTag } from '@/shared/native/engineError';
+import { inform } from '@/shared/ui/dialog';
 
 type ExportState = 'idle' | 'exporting' | 'done' | 'error';
 
@@ -88,7 +88,7 @@ export function useBulkExport() {
     (outcome: Completed) => {
       if (live.current) setStillRunning(false);
       const message = completionMessage(outcome, t);
-      if (message) Alert.alert(t('export.bulkComplete'), message);
+      if (message) inform({ title: t('export.bulkComplete'), message });
     },
     [t]
   );
@@ -106,7 +106,7 @@ export function useBulkExport() {
         setState('error');
         setError(message);
       }
-      Alert.alert(t('common.error'), message);
+      inform({ title: t('export.failedTitle'), message });
     },
     [t]
   );

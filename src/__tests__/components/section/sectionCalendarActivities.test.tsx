@@ -52,7 +52,7 @@ function renderCards(calendar: CalendarSummary) {
     <SectionStatsCards
       calendarSummary={calendar}
       isDark={false}
-      isRunning={false}
+      basis="speed"
       activityColor="#3B82F6"
     />
   );
@@ -63,14 +63,14 @@ describe('the calendar year line', () => {
     await initialiseI18n('en-AU');
   });
 
-  it('names the one activity three laps came from', () => {
-    const { getByText } = renderCards(summary(3, 1));
+  it('names the one activity three laps came from', async () => {
+    const { getByText } = await renderCards(summary(3, 1));
 
     expect(getByText(/3 traversals · best .* · 1 activity$/)).toBeTruthy();
   });
 
-  it('names several activities in the plural', () => {
-    const { getByText } = renderCards(summary(5, 2));
+  it('names several activities in the plural', async () => {
+    const { getByText } = await renderCards(summary(5, 2));
 
     expect(getByText(/5 traversals · best .* · 2 activities$/)).toBeTruthy();
   });

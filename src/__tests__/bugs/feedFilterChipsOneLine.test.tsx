@@ -32,8 +32,8 @@ function renderChips() {
 }
 
 describe('feed filter chips', () => {
-  it('draws every sport chip', () => {
-    renderChips();
+  it('draws every sport chip', async () => {
+    await renderChips();
 
     for (const testID of [
       'home-filter-cycling',
@@ -45,8 +45,8 @@ describe('feed filter chips', () => {
     }
   });
 
-  it('lays the chips out in one horizontal scroller rather than wrapping', () => {
-    const { UNSAFE_getByType } = renderChips();
+  it('lays the chips out in one horizontal scroller rather than wrapping', async () => {
+    const { UNSAFE_getByType } = await renderChips();
     const scroller = UNSAFE_getByType(ScrollView);
 
     expect(scroller.props.horizontal).toBe(true);
@@ -56,10 +56,10 @@ describe('feed filter chips', () => {
     expect(row.flexWrap).toBeUndefined();
   });
 
-  it('lets two sport chips stay selected together', () => {
+  it('lets two sport chips stay selected together', async () => {
     const selected = new Set<FeedGroup>(['Cycling', 'Other']);
     const onSelect = jest.fn();
-    render(
+    await render(
       <FeedFilterChips
         selected={selected}
         onSelect={onSelect}
@@ -69,7 +69,7 @@ describe('feed filter chips', () => {
     );
     expect(screen.getByTestId('home-filter-cycling').props.accessibilityState.selected).toBe(true);
     expect(screen.getByTestId('home-filter-other').props.accessibilityState.selected).toBe(true);
-    fireEvent.press(screen.getByTestId('home-filter-running'));
+    await fireEvent.press(screen.getByTestId('home-filter-running'));
     expect(onSelect).toHaveBeenCalledWith('Running');
   });
 });

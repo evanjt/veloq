@@ -120,10 +120,10 @@ beforeEach(async () => {
   await forgetCachedAthleteId();
 });
 
-it('offers a control to discard the queued offline key', () => {
+it('offers a control to discard the queued offline key', async () => {
   mockQueuedMessage = 'Waiting for connection';
-  render(<LoginScreen />);
-  fireEvent.press(screen.getByTestId('login-discard-queued-key'));
+  await render(<LoginScreen />);
+  await fireEvent.press(screen.getByTestId('login-discard-queued-key'));
   expect(mockDiscardQueuedKey).toHaveBeenCalledTimes(1);
 });
 
@@ -133,9 +133,9 @@ it('drops the queued offline key when the athlete cancels Try Demo', async () =>
   mockQueuedMessage = 'Waiting for connection';
   jest.mocked(demoEntryAction).mockResolvedValueOnce('confirm-then-wipe');
   jest.mocked(confirmAccountChange).mockResolvedValueOnce(false);
-  render(<LoginScreen />);
+  await render(<LoginScreen />);
   await act(async () => {
-    fireEvent.press(screen.getByTestId('login-demo-button'));
+    await fireEvent.press(screen.getByTestId('login-demo-button'));
     await Promise.resolve();
     await Promise.resolve();
   });
@@ -148,9 +148,9 @@ it('keeps demo mode closed and reports a failed account wipe', async () => {
   const enterDemoMode = jest.fn();
   useAuthStore.setState({ enterDemoMode });
   jest.mocked(clearAccountData).mockRejectedValueOnce(new Error('wipe failed'));
-  render(<LoginScreen />);
+  await render(<LoginScreen />);
   await act(async () => {
-    fireEvent.press(screen.getByTestId('login-demo-button'));
+    await fireEvent.press(screen.getByTestId('login-demo-button'));
     await Promise.resolve();
     await Promise.resolve();
   });
@@ -169,7 +169,7 @@ async function settle() {
 
 async function reEnter() {
   useAuthStore.setState({ sessionExpired: 'key_rejected' });
-  render(<LoginScreen />);
+  await render(<LoginScreen />);
   await settle();
 }
 
@@ -178,7 +178,7 @@ describe('a re-entry after a rejected key', () => {
     await rememberCachedAthleteId(ATHLETE);
     keychain({ intervals_api_key: STORED_KEY, intervals_api_key_athlete_id: ATHLETE });
     await useAuthStore.getState().initialise();
-    render(<LoginScreen />);
+    await render(<LoginScreen />);
     await settle();
     expect(screen.getByTestId('login-apikey-input').props.value).toBe(STORED_KEY);
   });
@@ -232,7 +232,7 @@ describe('a first sign-in', () => {
     await rememberCachedAthleteId(ATHLETE);
     keychain({ intervals_api_key: STORED_KEY, intervals_api_key_athlete_id: ATHLETE });
 
-    render(<LoginScreen />);
+    await render(<LoginScreen />);
     await settle();
 
     expect(screen.queryByTestId('login-apikey-input')).toBeNull();
@@ -254,18 +254,18 @@ describe('the form itself', () => {
     );
   }
 
-  it('starts empty and shut without a prefill', () => {
-    renderForm(null);
+  it('starts empty and shut without a prefill', async () => {
+    await renderForm(null);
 
     expect(screen.queryByTestId('login-apikey-input')).toBeNull();
   });
 
   // The prefill resolves from the keychain a tick or two after the first
   // render, so it has to seed a field that is already on screen.
-  it('seeds a field the athlete has not touched', () => {
-    const { rerender } = renderForm(null);
+  it('seeds a field the athlete has not touched', async () => {
+    const { rerender } = await renderForm(null);
 
-    rerender(
+    await rerender(
       <ApiKeyLoginForm
         onLogin={noop}
         isLoading={false}
@@ -278,10 +278,10 @@ describe('the form itself', () => {
     expect(screen.getByTestId('login-apikey-input').props.value).toBe(STORED_KEY);
   });
 
-  it('never types over what the athlete has already pasted', () => {
-    renderForm(STORED_KEY);
+  it('never types over what the athlete has already pasted', async () => {
+    await renderForm(STORED_KEY);
 
-    fireEvent.changeText(screen.getByTestId('login-apikey-input'), 'a-newer-key');
+    await fireEvent.changeText(screen.getByTestId('login-apikey-input'), 'a-newer-key');
 
     expect(screen.getByTestId('login-apikey-input').props.value).toBe('a-newer-key');
   });

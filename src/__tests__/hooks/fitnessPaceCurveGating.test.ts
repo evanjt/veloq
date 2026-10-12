@@ -49,20 +49,20 @@ function enabledBySport(): Record<string, boolean | undefined> {
 beforeEach(() => jest.clearAllMocks());
 
 describe('the fitness screen pace curves', () => {
-  it('fetches neither curve for a cyclist', () => {
-    renderHook(() => useFitnessScreenData({ timeRange: '1m', sportMode: 'Cycling' }));
+  it('fetches neither curve for a cyclist', async () => {
+    await renderHook(() => useFitnessScreenData({ timeRange: '1m', sportMode: 'Cycling' }));
 
     expect(enabledBySport()).toEqual({ Run: false, Swim: false });
   });
 
-  it('fetches only the running curve in Running', () => {
-    renderHook(() => useFitnessScreenData({ timeRange: '1m', sportMode: 'Running' }));
+  it('fetches only the running curve in Running', async () => {
+    await renderHook(() => useFitnessScreenData({ timeRange: '1m', sportMode: 'Running' }));
 
     expect(enabledBySport()).toEqual({ Run: true, Swim: false });
   });
 
-  it('fetches only the swimming curve in Swimming', () => {
-    renderHook(() => useFitnessScreenData({ timeRange: '1m', sportMode: 'Swimming' }));
+  it('fetches only the swimming curve in Swimming', async () => {
+    await renderHook(() => useFitnessScreenData({ timeRange: '1m', sportMode: 'Swimming' }));
 
     expect(enabledBySport()).toEqual({ Run: false, Swim: true });
   });

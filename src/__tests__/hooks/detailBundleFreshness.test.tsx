@@ -54,7 +54,7 @@ function collectCommits(useValue: (id: string) => number | undefined) {
 describe('detail bundle freshness', () => {
   afterEach(() => mockGetEngine.mockReset());
 
-  it('never commits the superseded activity bundle', () => {
+  it('never commits the superseded activity bundle', async () => {
     const counts: Record<string, number> = { a: 1, b: 2 };
     mockGetEngine.mockReturnValue({
       subscribe: () => () => {},
@@ -64,14 +64,14 @@ describe('detail bundle freshness', () => {
     const { commits, Probe } = collectCommits(
       (id) => useActivityDetailData(id, true).data?.activityCount
     );
-    const screen = render(<Probe id="a" />);
+    const screen = await render(<Probe id="a" />);
     expect(commits).toEqual([1]);
 
-    screen.rerender(<Probe id="b" />);
+    await screen.rerender(<Probe id="b" />);
     expect(commits).toEqual([1, 2]);
   });
 
-  it('never commits the superseded section bundle', () => {
+  it('never commits the superseded section bundle', async () => {
     const counts: Record<string, number> = { a: 1, b: 2 };
     mockGetEngine.mockReturnValue({
       subscribe: () => () => {},
@@ -81,14 +81,14 @@ describe('detail bundle freshness', () => {
     const { commits, Probe } = collectCommits(
       (id) => useSectionDetailData(id, 0).data?.activityCount
     );
-    const screen = render(<Probe id="a" />);
+    const screen = await render(<Probe id="a" />);
     expect(commits).toEqual([1]);
 
-    screen.rerender(<Probe id="b" />);
+    await screen.rerender(<Probe id="b" />);
     expect(commits).toEqual([1, 2]);
   });
 
-  it('re-reads the section bundle when the caller bumps its refresh key', () => {
+  it('re-reads the section bundle when the caller bumps its refresh key', async () => {
     let count = 1;
     mockGetEngine.mockReturnValue({
       subscribe: () => () => {},
@@ -99,18 +99,18 @@ describe('detail bundle freshness', () => {
       const value = useSectionDetailData('a', refreshKey).data?.activityCount;
       return <Text testID="count">{String(value)}</Text>;
     }
-    const screen = render(<Probe refreshKey={0} />);
+    const screen = await render(<Probe refreshKey={0} />);
     expect(screen.getByTestId('count')).toHaveTextContent('1');
 
     count = 2;
-    screen.rerender(<Probe refreshKey={0} />);
+    await screen.rerender(<Probe refreshKey={0} />);
     expect(screen.getByTestId('count')).toHaveTextContent('1');
 
-    screen.rerender(<Probe refreshKey={1} />);
+    await screen.rerender(<Probe refreshKey={1} />);
     expect(screen.getByTestId('count')).toHaveTextContent('2');
   });
 
-  it('keeps the bundle it has when the read goes quiet', () => {
+  it('keeps the bundle it has when the read goes quiet', async () => {
     mockGetEngine.mockReturnValue({
       subscribe: () => () => {},
       getActivityDetailData: () => activityDetail(3),
@@ -119,10 +119,10 @@ describe('detail bundle freshness', () => {
     const { commits, Probe } = collectCommits(
       (id) => useActivityDetailData(id, true).data?.activityCount
     );
-    const screen = render(<Probe id="a" />);
+    const screen = await render(<Probe id="a" />);
 
     mockGetEngine.mockReturnValue(null);
-    screen.rerender(<Probe id="a" />);
+    await screen.rerender(<Probe id="a" />);
     expect(commits[commits.length - 1]).toBe(3);
   });
 });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, Alert, LayoutChangeEvent } from 'react-native';
+import { View, StyleSheet, LayoutChangeEvent } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -22,7 +22,7 @@ import {
   type BasemapTileSizes,
 } from '@/features/maps';
 import { engineErrorKey } from '@/shared/native/engineError';
-import { EngineReadFailure } from '@/shared/ui/EngineReadFailure';
+import { ErrorState } from '@/shared/ui/ErrorState';
 import * as haptics from '@/shared/ui/haptics';
 import { useQueryCacheCount } from '../hooks/useQueryCacheCount';
 import { offlineConfirmMessage } from '../lib/offlineConfirmCopy';
@@ -30,6 +30,7 @@ import { colors, darkColors, layout } from '@/theme';
 import { ListSectionHeader } from '@/shared/ui/ListSectionHeader';
 import { CacheManagementPanel } from './CacheManagementPanel';
 import { StorageStatsPanel } from './StorageStatsPanel';
+import { confirmAction, inform } from '@/shared/ui/dialog';
 
 interface DataCacheSectionProps {
   onLayout?: (event: LayoutChangeEvent) => void;
@@ -52,10 +53,15 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
     groups: routeGroups,
     processedCount: routeProcessedCount,
     error: routeGroupsError,
+    retry: retryRouteGroups,
   } = useRouteGroups({
     minActivities: 2,
   });
-  const { totalCount: totalSections, error: sectionsError } = useSectionSummaries();
+  const {
+    totalCount: totalSections,
+    error: sectionsError,
+    retry: retrySections,
+  } = useSectionSummaries();
   const { settings: routeSettings } = useRouteSettings();
 
   // Map cache figures. On both handsets every kept basemap tile lives in the
@@ -115,7 +121,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
       setHeatmapCacheSize(0);
     } else {
       readHeatmapTilesCacheSize().then(setHeatmapCacheSize);
-      Alert.alert(t('alerts.error'), t('alerts.failedToClear'));
+      inform({ title: t('alerts.clearFailedTitle'), message: t('alerts.failedToClear') });
     }
   }, [t, refreshBasemapTiles]);
 
@@ -157,56 +163,59 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
       t('alerts.clearCacheOffline'),
       isOnline
     );
-    Alert.alert(t('alerts.clearCacheTitle'), message, [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('alerts.clearReload'),
-        style: 'destructive',
-        onPress: async () => {
-          haptics.medium();
-          try {
-            // 1. Cancel any in-flight queries
-            await queryClient.cancelQueries();
+    confirmAction({
+      title: t('alerts.clearCacheTitle'),
+      message,
+      confirmLabel: t('alerts.clearReload'),
+      cancelLabel: t('common.cancel'),
+      destructive: true,
+      onConfirm: async () => {
+        haptics.medium();
+        try {
+          // 1. Cancel any in-flight queries
+          await queryClient.cancelQueries();
 
-            // 2. Reset sync date range to 90 days FIRST (changes query keys)
-            resetSyncDateRange();
+          // 2. Reset sync date range to 90 days FIRST (changes query keys)
+          resetSyncDateRange();
 
-            // 3. Clear all caches (engine, tiles, filesystem)
-            const cleared = await clearCache();
-            await clearTerrainPreviews();
-            await clearUnpinnedBasemapTiles();
-            refreshBasemapTiles();
-            const tilesCleared = await clearHeatmapTileSets([HEATMAP_TILES_DIR]);
-            setTerrainCacheSize(0);
-            setHeatmapCacheSize(tilesCleared ? 0 : await readHeatmapTilesCacheSize());
+          // 3. Clear all caches (engine, tiles, filesystem)
+          const cleared = await clearCache();
+          await clearTerrainPreviews();
+          await clearUnpinnedBasemapTiles();
+          refreshBasemapTiles();
+          const tilesCleared = await clearHeatmapTileSets([HEATMAP_TILES_DIR]);
+          setTerrainCacheSize(0);
+          setHeatmapCacheSize(tilesCleared ? 0 : await readHeatmapTilesCacheSize());
 
-            // 4. Yield to let GlobalDataSync re-render with new 90-day date range
-            await new Promise((resolve) => setTimeout(resolve, 200));
+          // 4. Yield to let GlobalDataSync re-render with new 90-day date range
+          await new Promise((resolve) => setTimeout(resolve, 200));
 
-            // 5. Force active queries to refetch fresh data.
-            // DO NOT use clear() - it destroys observers.
-            // DO NOT use invalidateQueries() - it only marks stale, doesn't actively fetch.
-            // refetchQueries() actively fetches all mounted queries regardless of state.
-            await queryClient.refetchQueries();
+          // 5. Force active queries to refetch fresh data.
+          // DO NOT use clear() - it destroys observers.
+          // DO NOT use invalidateQueries() - it only marks stale, doesn't actively fetch.
+          // refetchQueries() actively fetches all mounted queries regardless of state.
+          await queryClient.refetchQueries();
 
-            // Refresh cache sizes
-            refreshCacheSizes();
+          // Refresh cache sizes
+          refreshCacheSizes();
 
-            // Heat left on disk is not a cleared cache, whatever the wipe said.
-            if (!tilesCleared) {
-              Alert.alert(t('alerts.error'), t('alerts.failedToClear'));
-            } else {
-              Alert.alert(cleared ? t('alerts.cacheCleared') : t('settings.stillRunning'));
-            }
-          } catch (error) {
-            // Which failure it was, where the engine said. "Not open yet" and
-            // "the database refused" were one line, and neither told the
-            // athlete what to do next.
-            Alert.alert(t('alerts.error'), t(engineErrorKey(error, 'alerts.failedToClear')));
+          // Heat left on disk is not a cleared cache, whatever the wipe said.
+          if (!tilesCleared) {
+            inform({ title: t('alerts.clearFailedTitle'), message: t('alerts.failedToClear') });
+          } else {
+            inform({ title: cleared ? t('alerts.cacheCleared') : t('settings.stillRunning') });
           }
-        },
+        } catch (error) {
+          // Which failure it was, where the engine said. "Not open yet" and
+          // "the database refused" were one line, and neither told the
+          // athlete what to do next.
+          inform({
+            title: t('alerts.clearFailedTitle'),
+            message: t(engineErrorKey(error, 'alerts.failedToClear')),
+          });
+        }
       },
-    ]);
+    });
   }, [
     t,
     isOnline,
@@ -231,8 +240,13 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
         />
 
         {routeGroupsError !== undefined || sectionsError !== undefined ? (
-          <EngineReadFailure
+          <ErrorState
+            variant="inline"
             error={routeGroupsError ?? sectionsError}
+            onRetry={() => {
+              retryRouteGroups();
+              retrySections();
+            }}
             testID="route-counts-failure"
           />
         ) : null}

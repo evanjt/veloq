@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityMapView,
   ATTRIBUTION_CLEARANCE,
@@ -12,19 +13,22 @@ import {
   type SectionOverlay,
   type TerrainCamera,
 } from '@/features/maps';
-import { ComponentErrorBoundary, DetailHero, pressable, pressRipple } from '@/shared/ui';
+import {
+  ComponentErrorBoundary,
+  DetailHero,
+  HeroStatsRow,
+  pressable,
+  pressRipple,
+} from '@/shared/ui';
 import { heroTextStyles } from '@/shared/ui/DetailHero';
 import type { ActivityDetail, ActivityStreams } from '@/types';
-import {
-  formatDistance,
-  formatDuration,
-  formatElevation,
-  formatDateTime,
-} from '@/shared/format/format';
+import { formatDateTime } from '@/shared/format/format';
+import { cardPrimaryStats } from '../lib/cardPrimaryStats';
 import { engine } from 'veloqrs';
 import type { LatLng } from '@/shared/geo/polyline';
 import { colors, mapTextShadow, opacity, spacing, typography } from '@/theme';
 import { CONFIRM_HOLD_MS } from '@/shared/ui/holdDurations';
+import { chooseAction, inform } from '@/shared/ui/dialog';
 
 interface ActivityHeaderProps {
   activity: ActivityDetail;
@@ -82,12 +86,14 @@ export const ActivityHeader = React.memo(function ActivityHeader({
   highlightedSectionId,
   onSectionMarkerPress,
 }: ActivityHeaderProps) {
+  const { t } = useTranslation();
   // The satellite credit wraps to two rows at phone width, so the reservation
   // comes from what the pill measured. The constant is only the first guess.
   const controlColumn = useMapControlColumn(mapHeight);
   const [attributionClearance, setAttributionClearance] = useState(ATTRIBUTION_CLEARANCE);
   const visibleSectionOverlays =
     activeTab === 'sections' || activeTab === 'charts' ? sectionOverlays : null;
+  const stats = cardPrimaryStats(activity, isMetric);
 
   return (
     <DetailHero
@@ -106,29 +112,30 @@ export const ActivityHeader = React.memo(function ActivityHeader({
               onLongPress={() => {
                 const doClone = (n: number) => {
                   const created = engine.debugCloneActivity(activityId, n);
-                  Alert.alert('Done', `Created ${created} clones`);
+                  inform({ title: 'Done', message: `Created ${created} clones` });
                 };
-                Alert.alert(
-                  'Clone for Testing',
-                  `Clone "${activity.name}" to stress test sections and routes.`,
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: '10 clones', onPress: () => doClone(10) },
+                chooseAction({
+                  title: 'Clone for Testing',
+                  message: `Clone "${activity.name}" to stress test sections and routes.`,
+                  cancelLabel: 'Cancel',
+                  actions: [
+                    { label: '10 clones', onPress: () => doClone(10) },
                     {
-                      text: 'More...',
+                      label: 'More...',
                       onPress: () => {
-                        Alert.alert('Clone Amount', 'Choose number of clones:', [
-                          { text: 'Cancel', style: 'cancel' },
-                          { text: '50 clones', onPress: () => doClone(50) },
-                          {
-                            text: '100 clones',
-                            onPress: () => doClone(100),
-                          },
-                        ]);
+                        chooseAction({
+                          title: 'Clone Amount',
+                          message: 'Choose number of clones:',
+                          cancelLabel: 'Cancel',
+                          actions: [
+                            { label: '50 clones', onPress: () => doClone(50) },
+                            { label: '100 clones', onPress: () => doClone(100) },
+                          ],
+                        });
                       },
                     },
-                  ]
-                );
+                  ],
+                });
               }}
               style={(state) => [pressable()(state), styles.namePressable]}
               android_ripple={pressRipple}
@@ -140,6 +147,7 @@ export const ActivityHeader = React.memo(function ActivityHeader({
           ) : (
             <Text
               testID="activity-detail-name"
+              accessibilityRole="header"
               pointerEvents="none"
               style={heroTextStyles.name}
               numberOfLines={1}
@@ -150,19 +158,18 @@ export const ActivityHeader = React.memo(function ActivityHeader({
 
           <View style={styles.metaRow} pointerEvents="none">
             <Text style={styles.activityDate}>{formatDateTime(activity.start_date_local)}</Text>
-            <View style={styles.inlineStats}>
-              <Text testID="activity-detail-distance" style={heroTextStyles.stat}>
-                {formatDistance(activity.distance, isMetric)}
-              </Text>
-              <Text style={heroTextStyles.statDivider}>·</Text>
-              <Text testID="activity-detail-duration" style={heroTextStyles.stat}>
-                {formatDuration(activity.moving_time)}
-              </Text>
-              <Text style={heroTextStyles.statDivider}>·</Text>
-              <Text style={heroTextStyles.stat}>
-                {formatElevation(activity.total_elevation_gain, isMetric)}
-              </Text>
-            </View>
+            <HeroStatsRow
+              testID="activity-detail-stats"
+              style={styles.inlineStats}
+              statTestIDs={['activity-detail-distance', 'activity-detail-duration']}
+              stats={[
+                stats.distance != null ? labelled(t('activity.distance'), stats.distance) : null,
+                labelled(t('activity.duration'), stats.duration),
+                stats.elevation != null
+                  ? labelled(t('sections.elevationGain'), stats.elevation)
+                  : null,
+              ]}
+            />
           </View>
         </>
       }
@@ -201,6 +208,11 @@ export const ActivityHeader = React.memo(function ActivityHeader({
   );
 });
 
+/** A stat drawn as its value and read with the name of what it is. */
+function labelled(name: string, text: string) {
+  return { text, label: `${name}: ${text}` };
+}
+
 const styles = StyleSheet.create({
   namePressable: {
     alignSelf: 'flex-start',
@@ -218,7 +230,7 @@ const styles = StyleSheet.create({
     ...mapTextShadow,
   },
   inlineStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    marginTop: 0,
+    flexWrap: 'nowrap',
   },
 });

@@ -23,7 +23,7 @@ import {
 import { generateSectionTrendInsights } from '@/features/insights/generators/sectionTrend';
 import type { SectionTrendData } from '@/features/insights/types';
 import { getTrendStyle } from '@/features/routes/components/TodayBanner';
-import { getTrendColor } from '@/features/insights/components/content/SectionTrendContent';
+import { rowTrendColor, rowTrendIcon } from '@/features/insights/lib/rowTrend';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
@@ -193,17 +193,24 @@ describe('the two sites that drew a verdict from another palette', () => {
     expect(getTrendStyle('sideways', true)).toEqual({ color: verdict.neutral.dark });
   });
 
-  it('colours the section trend insight from the ladder, faster being positive', () => {
-    expect(getTrendColor(1, false)).toBe(verdict.positive.light);
-    expect(getTrendColor(-1, false)).toBe(verdict.negative.light);
-    expect(getTrendColor(0, false)).toBe(verdict.neutral.light);
-    expect(getTrendColor(1, true)).toBe(verdict.positive.dark);
-    expect(getTrendColor(-1, true)).toBe(verdict.negative.dark);
+  it('colours a section or route row trend from the ladder, faster being positive', () => {
+    expect(rowTrendColor(1, false)).toBe(verdict.positive.light);
+    expect(rowTrendColor(-1, false)).toBe(verdict.negative.light);
+    expect(rowTrendColor(0, false)).toBe(verdict.neutral.light);
+    expect(rowTrendColor(1, true)).toBe(verdict.positive.dark);
+    expect(rowTrendColor(-1, true)).toBe(verdict.negative.dark);
   });
 
-  it('gives a missing section trend the neutral rung', () => {
-    expect(getTrendColor(undefined, false)).toBe(verdict.neutral.light);
-    expect(getTrendColor(undefined, true)).toBe(verdict.neutral.dark);
+  it('gives a missing row trend the neutral rung', () => {
+    expect(rowTrendColor(undefined, false)).toBe(verdict.neutral.light);
+    expect(rowTrendColor(undefined, true)).toBe(verdict.neutral.dark);
+  });
+
+  it('draws a row trend with the glyph its rung is coloured from', () => {
+    expect(rowTrendIcon(0.4)).toBe('trending-up');
+    expect(rowTrendIcon(-2)).toBe('trending-down');
+    expect(rowTrendIcon(0)).toBe('minus');
+    expect(rowTrendIcon(undefined)).toBe('minus');
   });
 });
 
@@ -244,8 +251,10 @@ describe('the surfaces that used to answer from their own palette', () => {
       expect(insightToneColor(rung, false)).toBe(verdictColor(rung, false));
       expect(insightToneColor(rung, true)).toBe(verdictColor(rung, true));
     }
-    expect(insightToneColor('info', false)).toBe(insightIcon.info);
-    expect(insightToneColor('opportunity', true)).toBe(insightIcon.opportunity);
+    for (const tone of ['info', 'opportunity'] as const) {
+      expect(insightToneColor(tone, false)).toBe(insightIcon[tone].light);
+      expect(insightToneColor(tone, true)).toBe(insightIcon[tone].dark);
+    }
   });
 
   /**
@@ -257,11 +266,18 @@ describe('the surfaces that used to answer from their own palette', () => {
    */
   it('holds no tone that nothing can reach', () => {
     const reachable = new Set(
-      (['info', 'opportunity'] as const).map((tone) => insightToneColor(tone, false))
+      (['info', 'opportunity'] as const).flatMap((tone) => [
+        insightToneColor(tone, false),
+        insightToneColor(tone, true),
+      ])
     );
-    const unreachable = Object.entries(insightIcon).filter(([, hue]) => !reachable.has(hue));
+    const unreachable = Object.entries(insightIcon).flatMap(([name, pair]) =>
+      Object.entries(pair)
+        .filter(([, hue]) => !reachable.has(hue))
+        .map(([theme]) => `${name}.${theme}`)
+    );
 
-    expect(unreachable.map(([name]) => name)).toStrictEqual([]);
+    expect(unreachable).toStrictEqual([]);
   });
 
   // The pill is a solid with white text, which is the opposite of what the

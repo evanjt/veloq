@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { View, ScrollView, StyleSheet, Pressable, Text as RNText } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as haptics from '@/shared/ui/haptics';
@@ -7,12 +7,16 @@ import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 
 import { useTheme, useMetricSystem, useAthlete } from '@/shared/app';
 import type { Activity } from '@/types';
-import { ActivityCardContextMenu, SkylineBar } from '@/features/activity';
+import {
+  ActivityCardContextMenu,
+  SkylineBar,
+  activitySecondaryStatLabels,
+} from '@/features/activity';
 import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
 import {
   formatDuration,
   formatRelativeDate,
-  formatTSS,
+  formatLoad,
   formatHeartRate,
   formatPower,
   formatCalories,
@@ -30,7 +34,8 @@ import {
   mapTextShadow,
 } from '@/theme';
 import { formatWeightRounded } from '@/shared/format/weight';
-import { pressable, pressRipple } from '@/shared/ui';
+import { spokenDuration } from '@/shared/format/spoken';
+import { accessibleActions, composeAccessibilityLabel, pressable, pressRipple } from '@/shared/ui';
 import { Card } from '@/shared/ui/Card';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 import { tapTo } from '@/shared/app/navigation';
@@ -76,6 +81,15 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
     setMenuVisible(true);
   }, []);
 
+  // The hold sits inside the card's one element, so a screen reader reaches it here.
+  const cardActions = useMemo(
+    () =>
+      accessibleActions([
+        { name: 'longpress', label: t('activity.moreActions'), run: handleLongPress },
+      ]),
+    [handleLongPress, t]
+  );
+
   const scrollRef = useRef<ScrollView>(null);
   const hasFlashed = useRef(false);
 
@@ -101,28 +115,27 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
       onContentSizeChange={handleContentSizeChange}
       style={styles.secondaryScroll}
     >
+      {/* A second touch area for the card's own press. The card's label speaks
+          these stats, so a screen reader never reaches this. */}
       <Pressable
         onPress={handlePress}
-        accessibilityRole="button"
+        accessible={false}
+        accessibilityRole="none"
+        importantForAccessibility="no-hide-descendants"
+        accessibilityElementsHidden
         style={pressable(styles.secondaryStats)}
         android_ripple={pressRipple}
       >
         {!!activity.icu_training_load && (
-          <View
-            style={styles.secondaryStat}
-            accessibilityLabel={`${t('activity.stats.trainingLoad')}: ${formatTSS(activity.icu_training_load)}`}
-          >
+          <View style={styles.secondaryStat}>
             <MaterialCommunityIcons name="fire" size={14} color={colors.primary} />
             <RNText style={[styles.secondaryStatValue, { color: compactMutedColor }]}>
-              {formatTSS(activity.icu_training_load)}
+              {formatLoad(activity.icu_training_load)}
             </RNText>
           </View>
         )}
         {averageHeartRate ? (
-          <View
-            style={styles.secondaryStat}
-            accessibilityLabel={`${t('activity.heartRate')}: ${formatHeartRate(averageHeartRate)} ${t('units.bpm')}`}
-          >
+          <View style={styles.secondaryStat}>
             <MaterialCommunityIcons name="heart-pulse" size={14} color={colors.error} />
             <RNText style={[styles.secondaryStatValue, { color: compactMutedColor }]}>
               {formatHeartRate(averageHeartRate)}
@@ -130,10 +143,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
           </View>
         ) : null}
         {averagePower ? (
-          <View
-            style={styles.secondaryStat}
-            accessibilityLabel={`${t('activity.power')}: ${formatPower(averagePower)} ${t('units.watts')}`}
-          >
+          <View style={styles.secondaryStat}>
             <MaterialCommunityIcons
               name="lightning-bolt"
               size={14}
@@ -145,10 +155,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
           </View>
         ) : null}
         {!!activity.calories && (
-          <View
-            style={styles.secondaryStat}
-            accessibilityLabel={`${t('activity.calories')}: ${formatCalories(activity.calories)} ${t('units.kcal')}`}
-          >
+          <View style={styles.secondaryStat}>
             <MaterialCommunityIcons
               name="food-apple"
               size={14}
@@ -160,10 +167,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
           </View>
         )}
         {activity.has_weather && activity.average_weather_temp != null && (
-          <View
-            style={styles.secondaryStat}
-            accessibilityLabel={`${t('activity.stats.temperature')}: ${formatTemperature(activity.average_weather_temp, isMetric)}`}
-          >
+          <View style={styles.secondaryStat}>
             <MaterialCommunityIcons name="weather-partly-cloudy" size={14} color={colors.info} />
             <RNText style={[styles.secondaryStatValue, { color: compactMutedColor }]}>
               {formatTemperature(activity.average_weather_temp, isMetric)}
@@ -187,11 +191,26 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
             style={pressable(styles.pressableOverlay)}
             android_ripple={pressRipple}
             accessibilityRole="button"
-            accessibilityLabel={`${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDuration(activity.moving_time)}`}
+            accessibilityLabel={composeAccessibilityLabel(
+              activity.name,
+              formatRelativeDate(activity.start_date_local),
+              `${t('strength.durationLabel')}: ${spokenDuration(activity.moving_time)}`,
+              `${t('activityDetail.exercises')}: ${strengthData.exerciseCount}`,
+              `${t('strength.setsLabel')}: ${strengthData.setCount}`,
+              strengthData.totalWeight > 0 &&
+                `${t('strength.totalLabel')}: ${formatWeightRounded(strengthData.totalWeight, isMetric)}`,
+              ...activitySecondaryStatLabels(activity, isMetric, t)
+            )}
+            {...cardActions}
           />
 
           {/* Top: icon + name + date */}
-          <View style={styles.topOverlay} pointerEvents="none">
+          <View
+            style={styles.topOverlay}
+            pointerEvents="none"
+            importantForAccessibility="no-hide-descendants"
+            accessibilityElementsHidden
+          >
             <View style={styles.overlayHeader}>
               <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
                 <MaterialCommunityIcons name={iconName} size={14} color={colors.textOnDark} />
@@ -219,7 +238,11 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
           </View>
 
           {/* Center: body diagrams + stats */}
-          <View style={styles.strengthCenter}>
+          <View
+            style={styles.strengthCenter}
+            importantForAccessibility="no-hide-descendants"
+            accessibilityElementsHidden
+          >
             <View style={styles.strengthBodies}>
               <Body
                 data={strengthData.muscles}
@@ -266,8 +289,13 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
             </View>
           </View>
 
-          {/* Bottom: secondary stats only */}
-          <View style={styles.strengthBottom}>
+          {/* Bottom: secondary stats only. Its press opens the activity the
+              overlay already opens, so it is not a second stop. */}
+          <View
+            style={styles.strengthBottom}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
             {activity.skyline_chart_bytes ? (
               <SkylineBar skylineBytes={activity.skyline_chart_bytes} isDark={isDark} />
             ) : (

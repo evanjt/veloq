@@ -24,30 +24,30 @@ function renderCost(pool: PreviewResult['pool'], elapsedMs: number) {
 }
 
 describe('the preview run cost', () => {
-  it('reports the pool the engine loaded and how long it took', () => {
-    const { getByTestId } = renderCost(POOL, 3210);
+  it('reports the pool the engine loaded and how long it took', async () => {
+    const { getByTestId } = await renderCost(POOL, 3210);
     const text = getByTestId('preview-run-cost').props.children;
     expect(text).toContain('"count":214');
     expect(text).toContain('"duration":"3.2 s"');
   });
 
-  it('says the run is not bounded by the picked area', () => {
-    const { getByTestId } = renderCost(POOL, 100);
+  it('says the run is not bounded by the picked area', async () => {
+    const { getByTestId } = await renderCost(POOL, 100);
     expect(getByTestId('preview-run-scope')).toBeTruthy();
   });
 
-  it('holds an unreadable count back until there is one', () => {
-    const { queryByTestId } = renderCost(POOL, 100);
+  it('holds an unreadable count back until there is one', async () => {
+    const { queryByTestId } = await renderCost(POOL, 100);
     expect(queryByTestId('preview-run-unreadable')).toBeNull();
   });
 
-  it('reports unreadable tracks when the pool carries them', () => {
-    const { getByTestId } = renderCost({ activities: 214, empty: 1, unreadable: 3 }, 100);
+  it('reports unreadable tracks when the pool carries them', async () => {
+    const { getByTestId } = await renderCost({ activities: 214, empty: 1, unreadable: 3 }, 100);
     expect(getByTestId('preview-run-unreadable').props.children).toContain('"count":3');
   });
 
-  it('reads a single-activity pool as ordinary rather than as an error', () => {
-    const { getByTestId, queryByTestId } = renderCost(
+  it('reads a single-activity pool as ordinary rather than as an error', async () => {
+    const { getByTestId, queryByTestId } = await renderCost(
       { activities: 1, empty: 0, unreadable: 0 },
       40
     );
@@ -55,8 +55,8 @@ describe('the preview run cost', () => {
     expect(queryByTestId('preview-run-unreadable')).toBeNull();
   });
 
-  it('reads a sub-second run in milliseconds rather than as 0.0 s', () => {
-    const { getByTestId } = renderCost(POOL, 40);
+  it('reads a sub-second run in milliseconds rather than as 0.0 s', async () => {
+    const { getByTestId } = await renderCost(POOL, 40);
     expect(getByTestId('preview-run-cost').props.children).toContain('"duration":"40 ms"');
   });
 });

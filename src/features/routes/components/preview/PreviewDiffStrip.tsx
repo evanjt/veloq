@@ -8,7 +8,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import type { PreviewResult } from 'veloqrs';
 
 interface PreviewDiffStripProps {
@@ -22,7 +22,8 @@ export function PreviewDiffStrip({ counts }: PreviewDiffStripProps) {
   const border = isDark ? darkColors.border : colors.border;
   const neutral = isDark ? darkColors.textSecondary : colors.textSecondary;
   const success = isDark ? darkColors.successDeep : colors.successDeep;
-  const danger = isDark ? darkColors.error : colors.error;
+  const danger = isDark ? darkColors.errorDeep : colors.errorDeep;
+  const changed = isDark ? darkColors.linkTeal : colors.linkTeal;
 
   const cells: { key: string; text: string; color: string }[] = [
     {
@@ -33,7 +34,7 @@ export function PreviewDiffStrip({ counts }: PreviewDiffStripProps) {
     {
       key: 'changed',
       text: t('settings.previewChanged', { count: counts.changed }),
-      color: brand.tealLight,
+      color: changed,
     },
     { key: 'new', text: t('settings.previewNew', { count: counts.new }), color: success },
     { key: 'gone', text: t('settings.previewGone', { count: counts.gone }), color: danger },

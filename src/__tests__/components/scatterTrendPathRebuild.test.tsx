@@ -9,12 +9,12 @@
 
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
-import { View } from 'react-native';
 import { Circle, Skia } from '@shopify/react-native-skia';
 
 import { SectionScatterChart } from '@/features/routes/components/section/SectionScatterChart';
 import type { PerformanceDataPoint } from '@/types';
 import { colors } from '@/theme';
+import { layoutViews } from '../__shared__/layoutViews';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -72,7 +72,7 @@ function chart(props: Partial<React.ComponentProps<typeof SectionScatterChart>> 
 describe('section scatter trend paths', () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it('shows only the selected direction and opens on the linked activity direction', () => {
+  it('shows only the selected direction and opens on the linked activity direction', async () => {
     const rendered: Record<string, unknown>[] = [];
     const circleComponent = Circle as unknown as {
       render: (props: Record<string, unknown>, ref: unknown) => React.ReactNode;
@@ -82,12 +82,8 @@ describe('section scatter trend paths', () => {
       rendered.push(props);
       return originalRender(props, ref);
     });
-    const tree = render(chart({ highlightedActivityId: 'act-0' }));
-    for (const view of tree.UNSAFE_getAllByType(View)) {
-      if (view.props.onLayout) {
-        fireEvent(view, 'layout', { nativeEvent: { layout: { width: 400, height: 300 } } });
-      }
-    }
+    const tree = await render(chart({ highlightedActivityId: 'act-0' }));
+    await layoutViews(tree, 400, 300);
     const forward = tree.getByTestId('section-chart-direction-forward');
     const reverse = tree.getByTestId('section-chart-direction-reverse');
 
@@ -95,14 +91,14 @@ describe('section scatter trend paths', () => {
     expect(rendered.filter((dot) => dot.color === colors.reverseDirection)).toHaveLength(3);
 
     rendered.length = 0;
-    fireEvent.press(forward);
+    await fireEvent.press(forward);
 
     expect(forward.props.accessibilityState.selected).toBe(true);
     expect(rendered.filter((dot) => dot.color === colors.reverseDirection)).toHaveLength(0);
   });
 
-  it('omits the direction switch for a single direction', () => {
-    const tree = render(
+  it('omits the direction switch for a single direction', async () => {
+    const tree = await render(
       chart({ chartData: CHART_DATA.filter((point) => point.direction !== 'reverse') })
     );
     expect(tree.queryByTestId('section-chart-direction-forward')).toBeNull();
@@ -110,31 +106,33 @@ describe('section scatter trend paths', () => {
   });
 
   // Built from the box the chart is given rather than from the canvas's own
-  // measurement, so they exist before a layout pass and survive a re-render.
-  it('does not rebuild the trend paths on a render that changes nothing', () => {
+  // measurement, so they survive a re-render that changes nothing.
+  it('does not rebuild the trend paths on a render that changes nothing', async () => {
     const svg = jest.spyOn(Skia.Path, 'MakeFromSVGString');
-    const tree = render(chart());
+    const tree = await render(chart());
+    await layoutViews(tree, 400, 300);
     const atRest = svg.mock.calls.length;
     expect(atRest).toBeGreaterThan(0);
 
-    tree.rerender(chart());
+    await tree.rerender(chart());
 
     expect(svg.mock.calls.length).toBe(atRest);
   });
 
-  it('rebuilds them when the drawn axis changes', () => {
+  it('rebuilds them when the drawn axis changes', async () => {
     const svg = jest.spyOn(Skia.Path, 'MakeFromSVGString');
-    const tree = render(chart());
+    const tree = await render(chart());
+    await layoutViews(tree, 400, 300);
     const atRest = svg.mock.calls.length;
 
-    tree.rerender(chart({ useTimeAxis: true }));
+    await tree.rerender(chart({ useTimeAxis: true }));
 
     expect(svg.mock.calls.length).toBeGreaterThan(atRest);
   });
 
   it.each([false, true])(
     'rings the point the engine flags, not the fastest, with the time axis %s',
-    (useTimeAxis) => {
+    async (useTimeAxis) => {
       const rendered: Record<string, unknown>[] = [];
       const circleComponent = Circle as unknown as {
         render: (props: Record<string, unknown>, ref: unknown) => React.ReactNode;
@@ -175,12 +173,8 @@ describe('section scatter trend paths', () => {
           x: 1,
         },
       ] as unknown as (PerformanceDataPoint & { x: number })[];
-      const tree = render(chart({ chartData: points, useTimeAxis }));
-      for (const view of tree.UNSAFE_getAllByType(View)) {
-        if (view.props.onLayout) {
-          fireEvent(view, 'layout', { nativeEvent: { layout: { width: 400, height: 300 } } });
-        }
-      }
+      const tree = await render(chart({ chartData: points, useTimeAxis }));
+      await layoutViews(tree, 400, 300);
       // The points sit at x 0, 0.5 and 1, so the best one is drawn midway
       // between the first and the last, whatever styling the ring gives it.
       const xs = [...new Set(rendered.map((circle) => circle.cx as number))].sort((a, b) => a - b);

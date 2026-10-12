@@ -45,7 +45,7 @@ jest.mock('react-native-iap', () => ({
 }));
 
 describe('the parts of the recording screen the clock does not touch', () => {
-  it('holds the header against a render that changed nothing it reads', () => {
+  it('holds the header against a render that changed nothing it reads', async () => {
     const onLock = jest.fn();
     const onOpenTypePicker = jest.fn();
     const props = {
@@ -64,15 +64,15 @@ describe('the parts of the recording screen the clock does not touch', () => {
     };
 
     mockIndicatorRender.mockClear();
-    const { rerender } = render(<TimerHeader {...props} />);
+    const { rerender } = await render(<TimerHeader {...props} />);
     const rendersAfterMount = mockIndicatorRender.mock.calls.length;
-    rerender(<TimerHeader {...props} />);
+    await rerender(<TimerHeader {...props} />);
 
     expect(rendersAfterMount).toBeGreaterThan(0);
     expect(mockIndicatorRender.mock.calls.length).toBe(rendersAfterMount);
   });
 
-  it('renders the header again when what it reads changes', () => {
+  it('renders the header again when what it reads changes', async () => {
     const props = {
       currentActivityType: 'Ride' as never,
       status: 'recording' as never,
@@ -88,14 +88,14 @@ describe('the parts of the recording screen the clock does not touch', () => {
       onLock: jest.fn(),
     };
     mockIndicatorRender.mockClear();
-    const { rerender } = render(<TimerHeader {...props} />);
+    const { rerender } = await render(<TimerHeader {...props} />);
     const rendersAfterMount = mockIndicatorRender.mock.calls.length;
-    rerender(<TimerHeader {...props} accuracy={12} />);
+    await rerender(<TimerHeader {...props} accuracy={12} />);
 
     expect(mockIndicatorRender.mock.calls.length).toBeGreaterThan(rendersAfterMount);
   });
 
-  it('holds the status slot against a render that changed nothing it reads', () => {
+  it('holds the status slot against a render that changed nothing it reads', async () => {
     const select = selectStatusMessage as jest.Mock;
     const props = {
       backgroundTrackingWarning: null,
@@ -105,12 +105,12 @@ describe('the parts of the recording screen the clock does not touch', () => {
       onDismissGpsWarning: jest.fn(),
     };
     select.mockClear();
-    const { rerender } = render(<StatusSlot {...props} />);
+    const { rerender } = await render(<StatusSlot {...props} />);
     const rendersAfterMount = select.mock.calls.length;
-    rerender(<StatusSlot {...props} />);
+    await rerender(<StatusSlot {...props} />);
     expect(select.mock.calls.length).toBe(rendersAfterMount);
 
-    rerender(<StatusSlot {...props} gpsWarning="Lost GPS" />);
+    await rerender(<StatusSlot {...props} gpsWarning="Lost GPS" />);
     expect(select.mock.calls.length).toBeGreaterThan(rendersAfterMount);
   });
 });

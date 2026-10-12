@@ -40,7 +40,7 @@ export { useLocationPermission } from './hooks/useLocationPermission';
 export { usePermissionUpgrade } from './hooks/usePermissionUpgrade';
 export { useRecordingHandlers } from './hooks/useRecordingHandlers';
 export { useRecordingKeepAwake } from './hooks/useRecordingKeepAwake';
-export { useRecordingLibrary } from './hooks/useRecordingLibrary';
+export { useRecordingLibrary, useVisibleRecording } from './hooks/useRecordingLibrary';
 export { useRecordingLock } from './hooks/useRecordingLock';
 export { useRecordingMetrics } from './hooks/useRecordingMetrics';
 export { useRecordingScreenColors } from './hooks/useRecordingScreenColors';
@@ -58,14 +58,17 @@ export {
 export { promptInterruptedRecording } from './lib/interruptedRecording';
 export { defaultEntrySport, entrySportChips, recordingEntryHref } from './lib/recordEntry';
 export { locationServicesOffMessage } from './lib/locationServicesCopy';
-export { ALL_DATA_FIELDS } from './lib/dataFields';
+export { ALL_DATA_FIELDS, fieldsForMode } from './lib/dataFields';
 export { recordingActions } from './lib/recordingActions';
+export { uploadStatusTone } from './lib/uploadStatusTone';
+export type { UploadStatusTone } from './lib/uploadStatusTone';
 export { ACTIVITY_CATEGORIES, getRecordingMode, screenRecordingMode } from './lib/recordingModes';
 export { installRecordingSession } from './lib/recordingSession';
 export { discardReviewedRecording } from './lib/discardReview';
 export { resumeStoppedRecording } from './lib/resumeStoppedRecording';
 export { sessionReturnRoute } from './lib/sessionReturnRoute';
 export { shareRecordingFit } from './lib/shareRecordingFit';
+export { recordingBackAction, type RecordingBackAction } from './lib/recordingBackAction';
 export {
   adoptOwnerlessRecordingBackup,
   settleOwnerlessAdoptions,
@@ -86,7 +89,7 @@ export {
   initialiseRecordingPreferences,
   useRecordingPreferences,
 } from './stores/RecordingPreferencesStore';
-export { useRecordingStore } from './stores/RecordingStore';
+export { useRecordingStore, SENSOR_STALE_MS } from './stores/RecordingStore';
 export {
   initialiseUploadPermission,
   useUploadPermissionStore,

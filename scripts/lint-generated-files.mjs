@@ -35,7 +35,7 @@ const IGNORED_BY_RULE = [
   'modules/veloqrs/android/src/main/java/uniffi/',
   'modules/veloqrs/ios/Generated/',
   'modules/veloqrs/ios/cpp/',
-  // The basemap sprite and glyphs, copied from modules/veloqrs/assets/basemap
+  // The map renderer, sprite and glyphs, copied from modules/veloqrs/assets/basemap
   // by the podspec when CocoaPods reads it.
   'modules/veloqrs/ios/BasemapAssets/',
   // Compiled libraries, built from source by the stated toolchain.

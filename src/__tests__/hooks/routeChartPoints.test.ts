@@ -46,8 +46,8 @@ function chart(points: FfiSectionChartPoint[]): FfiSectionChartData {
 }
 
 describe('route attempts on the chart', () => {
-  it('carries the band flag, the match and the record stamp of each counted attempt', () => {
-    const { result } = renderHook(() =>
+  it('carries the band flag, the match and the record stamp of each counted attempt', async () => {
+    const { result } = await renderHook(() =>
       useSectionChartData({
         preComputedChart: chart([
           attempt('dune-loop-1', { isBest: true, matchPercentage: 99 }),
@@ -69,17 +69,19 @@ describe('route attempts on the chart', () => {
     ]);
   });
 
-  it('leaves the match absent for a section lap, which has none', () => {
+  it('leaves the match absent for a section lap, which has none', async () => {
     const lap = attempt('ridge-climb');
     delete lap.matchPercentage;
-    const { result } = renderHook(() => useSectionChartData({ preComputedChart: chart([lap]) }));
+    const { result } = await renderHook(() =>
+      useSectionChartData({ preComputedChart: chart([lap]) })
+    );
 
     expect(result.current.chartData[0].matchPercentage).toBeUndefined();
     expect(result.current.chartData[0].outsideDistanceBand).toBe(false);
   });
 
-  it('carries the band flag and the match onto a shown excluded attempt', () => {
-    const { result } = renderHook(() =>
+  it('carries the band flag and the match onto a shown excluded attempt', async () => {
+    const { result } = await renderHook(() =>
       useSectionChartDataEnriched({
         chartData: [],
         showExcluded: true,

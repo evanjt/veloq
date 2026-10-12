@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { PlaceNameOutcome, type PlaceNameKind } from 'veloqrs';
 import { nameFromPlaces } from '../lib/nameCommands';
+import { inform } from '@/shared/ui/dialog';
 
 /**
  * Ask the engine to name one route or section from its places.
@@ -39,14 +39,14 @@ export function usePlaceNameLookup(kind: PlaceNameKind, itemId: string) {
       if (mounted.current) setPending(false);
     }
     if (outcome === PlaceNameOutcome.Named || !mounted.current) return;
-    Alert.alert(
-      t('routes.placeNameFailedTitle'),
-      t(
+    inform({
+      title: t('routes.placeNameFailedTitle'),
+      message: t(
         outcome === PlaceNameOutcome.NoPlace
           ? 'routes.placeNameNoPlaceMessage'
           : 'routes.placeNameFailedMessage'
-      )
-    );
+      ),
+    });
   }, [kind, itemId, t]);
 
   return { pending, request };

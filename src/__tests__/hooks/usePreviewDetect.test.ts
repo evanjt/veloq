@@ -56,14 +56,14 @@ let phaseListeners: Set<() => void>;
 /** How many registrations the hook has detached. */
 let detaches: number;
 
-function fireFinished() {
-  act(() => {
+async function fireFinished() {
+  await act(() => {
     [...finishListeners].forEach((cb) => cb());
   });
 }
 
-function firePhase() {
-  act(() => {
+async function firePhase() {
+  await act(() => {
     [...phaseListeners].forEach((cb) => cb());
   });
 }
@@ -112,11 +112,11 @@ describe('usePreviewDetect', () => {
     jest.useRealTimers();
   });
 
-  it('merges only the staged params over the live config', () => {
+  it('merges only the staged params over the live config', async () => {
     const client = makeClient();
-    const { result } = renderHook(() => usePreviewDetect(client));
+    const { result } = await renderHook(() => usePreviewDetect(client));
 
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
 
@@ -127,7 +127,7 @@ describe('usePreviewDetect', () => {
     expect(result.current.status).toBe('running');
   });
 
-  it('reads progress when a phase is announced and surfaces a display name', () => {
+  it('reads progress when a phase is announced and surfaces a display name', async () => {
     const client = makeClient({
       getPreviewProgress: jest.fn(() => ({
         phase: 'loading',
@@ -136,15 +136,15 @@ describe('usePreviewDetect', () => {
         percent: 25,
       })),
     });
-    const { result } = renderHook(() => usePreviewDetect(client));
+    const { result } = await renderHook(() => usePreviewDetect(client));
 
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
     expect(client.subscribe).toHaveBeenCalledWith('previewPhase', expect.any(Function));
     expect(client.getPreviewProgress).not.toHaveBeenCalled();
 
-    firePhase();
+    await firePhase();
     expect(client.getPreviewProgress).toHaveBeenCalledTimes(1);
     expect(result.current.progress).toMatchObject({
       phase: 'loading',
@@ -153,11 +153,11 @@ describe('usePreviewDetect', () => {
       percent: 25,
     });
 
-    firePhase();
+    await firePhase();
     expect(client.getPreviewProgress).toHaveBeenCalledTimes(2);
   });
 
-  it('arms no timer, so a long run costs one read per announced phase', () => {
+  it('arms no timer, so a long run costs one read per announced phase', async () => {
     const client = makeClient({
       getPreviewProgress: jest.fn(() => ({
         phase: 'analyzing',
@@ -166,12 +166,12 @@ describe('usePreviewDetect', () => {
         percent: 5,
       })),
     });
-    const { result } = renderHook(() => usePreviewDetect(client));
+    const { result } = await renderHook(() => usePreviewDetect(client));
 
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(600000);
     });
 
@@ -180,7 +180,7 @@ describe('usePreviewDetect', () => {
     expect(jest.getTimerCount()).toBe(1);
   });
 
-  it('stops reading phases once the run settles', () => {
+  it('stops reading phases once the run settles', async () => {
     const client = makeClient({
       pollPreviewDetect: jest.fn((): PreviewPollStatus => 'complete'),
       takePreviewResult: jest.fn(() => RESULT),
@@ -191,30 +191,30 @@ describe('usePreviewDetect', () => {
         percent: 1,
       })),
     });
-    const { result } = renderHook(() => usePreviewDetect(client));
+    const { result } = await renderHook(() => usePreviewDetect(client));
 
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
-    firePhase();
+    await firePhase();
     expect(client.getPreviewProgress).toHaveBeenCalledTimes(1);
 
-    fireFinished();
+    await fireFinished();
     expect(result.current.status).toBe('complete');
     expect(phaseListeners.size).toBe(0);
 
-    firePhase();
+    await firePhase();
     expect(client.getPreviewProgress).toHaveBeenCalledTimes(1);
   });
 
-  it('reads nothing at all between the start and the finish event', () => {
+  it('reads nothing at all between the start and the finish event', async () => {
     const client = makeClient();
-    const { result } = renderHook(() => usePreviewDetect(client));
+    const { result } = await renderHook(() => usePreviewDetect(client));
 
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(10000);
     });
 
@@ -228,42 +228,42 @@ describe('usePreviewDetect', () => {
     expect(result.current.status).toBe('running');
   });
 
-  it('leaves the run live when the engine still reads running at the notice', () => {
+  it('leaves the run live when the engine still reads running at the notice', async () => {
     const poll = jest.fn((): PreviewPollStatus => 'running');
     const client = makeClient({ pollPreviewDetect: poll });
-    const { result } = renderHook(() => usePreviewDetect(client));
+    const { result } = await renderHook(() => usePreviewDetect(client));
 
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
-    fireFinished();
+    await fireFinished();
 
     expect(result.current.status).toBe('running');
     expect(detaches).toBe(0);
 
     poll.mockReturnValue('complete');
-    fireFinished();
+    await fireFinished();
 
     expect(result.current.status).toBe('complete');
     expect(poll).toHaveBeenCalledTimes(2);
     expect(detaches).toBe(2);
   });
 
-  it('subscribes afresh for a second run', () => {
+  it('subscribes afresh for a second run', async () => {
     const client = makeClient({
       pollPreviewDetect: jest.fn((): PreviewPollStatus => 'complete'),
       takePreviewResult: jest.fn(() => RESULT),
     });
-    const { result } = renderHook(() => usePreviewDetect(client));
+    const { result } = await renderHook(() => usePreviewDetect(client));
 
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
-    fireFinished();
-    act(() => {
+    await fireFinished();
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
-    fireFinished();
+    await fireFinished();
 
     expect(client.subscribe).toHaveBeenCalledTimes(4);
     expect(client.takePreviewResult).toHaveBeenCalledTimes(2);
@@ -272,25 +272,25 @@ describe('usePreviewDetect', () => {
     expect(detaches).toBe(4);
   });
 
-  it('takes the result exactly once on the finish event and stops', () => {
+  it('takes the result exactly once on the finish event and stops', async () => {
     const client = makeClient({
       pollPreviewDetect: jest.fn((): PreviewPollStatus => 'complete'),
       takePreviewResult: jest.fn(() => RESULT),
     });
-    const { result } = renderHook(() => usePreviewDetect(client));
+    const { result } = await renderHook(() => usePreviewDetect(client));
 
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
-    fireFinished();
+    await fireFinished();
 
     expect(result.current.status).toBe('complete');
     expect(result.current.result).toEqual(RESULT);
     expect(client.takePreviewResult).toHaveBeenCalledTimes(1);
     expect(client.pollPreviewDetect).toHaveBeenCalledTimes(1);
 
-    fireFinished();
-    act(() => {
+    await fireFinished();
+    await act(() => {
       jest.advanceTimersByTime(2000);
     });
     expect(client.pollPreviewDetect).toHaveBeenCalledTimes(1);
@@ -299,12 +299,12 @@ describe('usePreviewDetect', () => {
     expect(detaches).toBe(2);
   });
 
-  it("passes the engine's own refusal through rather than one standing for four", () => {
+  it("passes the engine's own refusal through rather than one standing for four", async () => {
     const client = makeClient({ startPreviewDetect: jest.fn(() => StartOutcome.Held) });
-    const { result } = renderHook(() => usePreviewDetect(client));
+    const { result } = await renderHook(() => usePreviewDetect(client));
 
     let outcome: StartVerdict = StartOutcome.Started;
-    act(() => {
+    await act(() => {
       outcome = result.current.start(10, 20, PARAMS);
     });
 
@@ -313,13 +313,13 @@ describe('usePreviewDetect', () => {
     expect(result.current.status).toBe('idle');
   });
 
-  it('keeps the retry time of a refused preview start', () => {
+  it('keeps the retry time of a refused preview start', async () => {
     const held = { outcome: StartOutcome.Held, retryAtMs: 1_500_000 };
     const client = makeClient({ startPreviewDetect: jest.fn(() => held) });
-    const { result } = renderHook(() => usePreviewDetect(client));
+    const { result } = await renderHook(() => usePreviewDetect(client));
 
     let outcome: StartVerdict = StartOutcome.Started;
-    act(() => {
+    await act(() => {
       outcome = result.current.start(10, 20, PARAMS);
     });
 
@@ -328,12 +328,12 @@ describe('usePreviewDetect', () => {
     expect(result.current.status).toBe('idle');
   });
 
-  it('reads a run already in flight as busy, and still waiting', () => {
+  it('reads a run already in flight as busy, and still waiting', async () => {
     const client = makeClient({ startPreviewDetect: jest.fn(() => StartOutcome.Busy) });
-    const { result } = renderHook(() => usePreviewDetect(client));
+    const { result } = await renderHook(() => usePreviewDetect(client));
 
     let outcome: StartVerdict = StartOutcome.Started;
-    act(() => {
+    await act(() => {
       outcome = result.current.start(10, 20, PARAMS);
     });
 
@@ -341,12 +341,12 @@ describe('usePreviewDetect', () => {
     expect(result.current.refusal).toBe(StartOutcome.Busy);
   });
 
-  it('does not read a point nothing covers as something that will lift', () => {
+  it('does not read a point nothing covers as something that will lift', async () => {
     const client = makeClient({ startPreviewDetect: jest.fn(() => StartOutcome.NotOwed) });
-    const { result } = renderHook(() => usePreviewDetect(client));
+    const { result } = await renderHook(() => usePreviewDetect(client));
 
     let outcome: StartVerdict = StartOutcome.Started;
-    act(() => {
+    await act(() => {
       outcome = result.current.start(10, 20, PARAMS);
     });
 
@@ -355,91 +355,91 @@ describe('usePreviewDetect', () => {
     expect(result.current.status).toBe('idle');
   });
 
-  it('keeps a not-ready refusal as its own outcome', () => {
+  it('keeps a not-ready refusal as its own outcome', async () => {
     const client = makeClient({ startPreviewDetect: jest.fn(() => StartOutcome.NotReady) });
-    const { result } = renderHook(() => usePreviewDetect(client));
+    const { result } = await renderHook(() => usePreviewDetect(client));
 
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
 
     expect(result.current.refusal).toBe(StartOutcome.NotReady);
   });
 
-  it('clears a refusal when the next start is accepted', () => {
+  it('clears a refusal when the next start is accepted', async () => {
     const startPreviewDetect = jest
       .fn()
       .mockReturnValueOnce(StartOutcome.Held)
       .mockReturnValueOnce(StartOutcome.Started);
     const client = makeClient({ startPreviewDetect });
-    const { result } = renderHook(() => usePreviewDetect(client));
+    const { result } = await renderHook(() => usePreviewDetect(client));
 
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
     expect(result.current.refusal).toBe(StartOutcome.Held);
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
     expect(result.current.refusal).toBeNull();
   });
 
-  it('surfaces an engine error and stops', () => {
+  it('surfaces an engine error and stops', async () => {
     const client = makeClient({
       pollPreviewDetect: jest.fn((): PreviewPollStatus => 'error'),
     });
-    const { result } = renderHook(() => usePreviewDetect(client));
+    const { result } = await renderHook(() => usePreviewDetect(client));
 
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
-    fireFinished();
+    await fireFinished();
 
     expect(result.current.status).toBe('error');
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(2000);
     });
     expect(client.pollPreviewDetect).toHaveBeenCalledTimes(1);
   });
 
-  it('surfaces a refused pool from the finish event', () => {
+  it('surfaces a refused pool from the finish event', async () => {
     const client = makeClient({
       pollPreviewDetect: jest.fn((): PreviewPollStatus => 'pool_unusable'),
     });
-    const { result } = renderHook(() => usePreviewDetect(client));
+    const { result } = await renderHook(() => usePreviewDetect(client));
 
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
-    fireFinished();
+    await fireFinished();
 
     expect(result.current.status).toBe('pool_unusable');
     expect(result.current.progress).toBeNull();
   });
 
-  it('reads idle mid-run as an error, never a clean finish', () => {
+  it('reads idle mid-run as an error, never a clean finish', async () => {
     const client = makeClient({
       pollPreviewDetect: jest.fn((): PreviewPollStatus => 'idle'),
     });
-    const { result } = renderHook(() => usePreviewDetect(client));
+    const { result } = await renderHook(() => usePreviewDetect(client));
 
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
-    fireFinished();
+    await fireFinished();
 
     expect(result.current.status).toBe('error');
     expect(result.current.result).toBeNull();
   });
 
-  it('cancel tells the engine and lands in cancelled', () => {
+  it('cancel tells the engine and lands in cancelled', async () => {
     const client = makeClient();
-    const { result } = renderHook(() => usePreviewDetect(client));
+    const { result } = await renderHook(() => usePreviewDetect(client));
 
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
-    act(() => {
+    await act(() => {
       result.current.cancel();
     });
 
@@ -450,8 +450,8 @@ describe('usePreviewDetect', () => {
     // announces its end, and nothing it produced is shown.
     expect(detaches).toBe(0);
     (client.pollPreviewDetect as jest.Mock).mockReturnValue('cancelled');
-    fireFinished();
-    act(() => {
+    await fireFinished();
+    await act(() => {
       jest.advanceTimersByTime(2000);
     });
     expect(client.takePreviewResult).not.toHaveBeenCalled();
@@ -459,12 +459,12 @@ describe('usePreviewDetect', () => {
     expect(detaches).toBe(2);
   });
 
-  it('fails the start when no live config exists, and says it will not lift', () => {
+  it('fails the start when no live config exists, and says it will not lift', async () => {
     const client = makeClient({ getSectionConfig: jest.fn(() => null) });
-    const { result } = renderHook(() => usePreviewDetect(client));
+    const { result } = await renderHook(() => usePreviewDetect(client));
 
     let outcome: StartVerdict = StartOutcome.Started;
-    act(() => {
+    await act(() => {
       outcome = result.current.start(10, 20, PARAMS);
     });
 
@@ -474,61 +474,61 @@ describe('usePreviewDetect', () => {
     expect(result.current.status).toBe('error');
   });
 
-  it('cancels a live run on unmount', () => {
+  it('cancels a live run on unmount', async () => {
     const client = makeClient();
-    const { result, unmount } = renderHook(() => usePreviewDetect(client));
+    const { result, unmount } = await renderHook(() => usePreviewDetect(client));
 
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
-    unmount();
+    await unmount();
 
     expect(client.cancelPreviewDetect).toHaveBeenCalledTimes(1);
     expect(detaches).toBe(2);
-    fireFinished();
-    act(() => {
+    await fireFinished();
+    await act(() => {
       jest.advanceTimersByTime(2000);
     });
     expect(client.pollPreviewDetect).not.toHaveBeenCalled();
   });
 
-  it('reset clears the previous result and state', () => {
+  it('reset clears the previous result and state', async () => {
     const client = makeClient({
       pollPreviewDetect: jest.fn((): PreviewPollStatus => 'complete'),
       takePreviewResult: jest.fn(() => RESULT),
     });
-    const { result } = renderHook(() => usePreviewDetect(client));
+    const { result } = await renderHook(() => usePreviewDetect(client));
 
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
-    fireFinished();
+    await fireFinished();
     expect(result.current.result).toEqual(RESULT);
 
-    act(() => {
+    await act(() => {
       result.current.reset();
     });
     expect(result.current).toMatchObject({ status: 'idle', result: null, progress: null });
     expect(finishListeners.size).toBe(0);
 
-    fireFinished();
+    await fireFinished();
     expect(result.current.status).toBe('idle');
   });
 
-  it('keeps the finished diff on screen while the next run computes', () => {
+  it('keeps the finished diff on screen while the next run computes', async () => {
     const client = makeClient({
       pollPreviewDetect: jest.fn((): PreviewPollStatus => 'complete'),
       takePreviewResult: jest.fn(() => RESULT),
     });
-    const { result } = renderHook(() => usePreviewDetect(client));
+    const { result } = await renderHook(() => usePreviewDetect(client));
 
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
-    fireFinished();
+    await fireFinished();
     expect(result.current.result).toEqual(RESULT);
 
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
 
@@ -536,45 +536,45 @@ describe('usePreviewDetect', () => {
     expect(result.current.result).toEqual(RESULT);
   });
 
-  it('swaps the held result for the new one when the run settles', () => {
+  it('swaps the held result for the new one when the run settles', async () => {
     const second: PreviewResult = { ...RESULT, elapsedMs: 999 };
     const takePreviewResult = jest.fn(() => RESULT);
     const client = makeClient({
       pollPreviewDetect: jest.fn((): PreviewPollStatus => 'complete'),
       takePreviewResult,
     });
-    const { result } = renderHook(() => usePreviewDetect(client));
+    const { result } = await renderHook(() => usePreviewDetect(client));
 
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
-    fireFinished();
+    await fireFinished();
 
     takePreviewResult.mockReturnValue(second);
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
-    fireFinished();
+    await fireFinished();
 
     expect(result.current.result).toEqual(second);
   });
 
-  it('leaves the last diff standing when a run is cancelled', () => {
+  it('leaves the last diff standing when a run is cancelled', async () => {
     const client = makeClient({
       pollPreviewDetect: jest.fn((): PreviewPollStatus => 'complete'),
       takePreviewResult: jest.fn(() => RESULT),
     });
-    const { result } = renderHook(() => usePreviewDetect(client));
+    const { result } = await renderHook(() => usePreviewDetect(client));
 
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
-    fireFinished();
+    await fireFinished();
 
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
-    act(() => {
+    await act(() => {
       result.current.cancel();
     });
 
@@ -582,24 +582,24 @@ describe('usePreviewDetect', () => {
     expect(result.current.result).toEqual(RESULT);
   });
 
-  it('leaves the last diff standing when a run fails', () => {
+  it('leaves the last diff standing when a run fails', async () => {
     const pollPreviewDetect = jest.fn((): PreviewPollStatus => 'complete');
     const client = makeClient({
       takePreviewResult: jest.fn(() => RESULT),
       pollPreviewDetect,
     });
-    const { result } = renderHook(() => usePreviewDetect(client));
+    const { result } = await renderHook(() => usePreviewDetect(client));
 
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
-    fireFinished();
+    await fireFinished();
 
     pollPreviewDetect.mockReturnValue('error');
-    act(() => {
+    await act(() => {
       result.current.start(10, 20, PARAMS);
     });
-    fireFinished();
+    await fireFinished();
 
     expect(result.current.status).toBe('error');
     expect(result.current.result).toEqual(RESULT);
@@ -609,22 +609,22 @@ describe('usePreviewDetect', () => {
   // event, an observer that was never registered, or an engine that never
   // finishes all leave the same spinner, so the run carries its own budgets.
   describe('when the finish event never arrives', () => {
-    it('settles from the poll when the event is lost', () => {
+    it('settles from the poll when the event is lost', async () => {
       const pollPreviewDetect = jest.fn((): PreviewPollStatus => 'running');
       const client = makeClient({
         pollPreviewDetect,
         takePreviewResult: jest.fn(() => RESULT),
       });
-      const { result } = renderHook(() => usePreviewDetect(client));
+      const { result } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(PREVIEW_LAPSE_AFTER_MS);
       });
       pollPreviewDetect.mockReturnValue('complete');
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(PREVIEW_POLL_INTERVAL_MS);
       });
 
@@ -632,14 +632,14 @@ describe('usePreviewDetect', () => {
       expect(result.current.result).toEqual(RESULT);
     });
 
-    it('does not lapse on a suspension shorter than its budget in awake time', () => {
+    it('does not lapse on a suspension shorter than its budget in awake time', async () => {
       const client = makeClient();
-      const { result } = renderHook(() => usePreviewDetect(client));
+      const { result } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      act(() => {
+      await act(() => {
         jest.setSystemTime(Date.now() + PREVIEW_LAPSE_AFTER_MS * 4);
         jest.advanceTimersByTime(PREVIEW_POLL_INTERVAL_MS);
       });
@@ -648,14 +648,14 @@ describe('usePreviewDetect', () => {
       expect(client.pollPreviewDetect).not.toHaveBeenCalled();
     });
 
-    it('leaves the run live while the poll still reads running', () => {
+    it('leaves the run live while the poll still reads running', async () => {
       const client = makeClient();
-      const { result } = renderHook(() => usePreviewDetect(client));
+      const { result } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(PREVIEW_LAPSE_AFTER_MS + PREVIEW_POLL_INTERVAL_MS * 5);
       });
 
@@ -663,14 +663,14 @@ describe('usePreviewDetect', () => {
       expect(client.takePreviewResult).not.toHaveBeenCalled();
     });
 
-    it('reads nothing at all before the lapse budget passes', () => {
+    it('reads nothing at all before the lapse budget passes', async () => {
       const client = makeClient();
-      const { result } = renderHook(() => usePreviewDetect(client));
+      const { result } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(PREVIEW_LAPSE_AFTER_MS - 1);
       });
 
@@ -678,16 +678,16 @@ describe('usePreviewDetect', () => {
       expect(result.current.status).toBe('running');
     });
 
-    it('says the run is slow once its lapse budget passes, and keeps following', () => {
+    it('says the run is slow once its lapse budget passes, and keeps following', async () => {
       const client = makeClient();
-      const { result } = renderHook(() => usePreviewDetect(client));
+      const { result } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
       expect(result.current.lapsed).toBe(false);
 
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(PREVIEW_LAPSE_AFTER_MS);
       });
 
@@ -695,14 +695,14 @@ describe('usePreviewDetect', () => {
       expect(result.current.status).toBe('running');
     });
 
-    it('never cancels a run that is still running, however long it takes', () => {
+    it('never cancels a run that is still running, however long it takes', async () => {
       const client = makeClient();
-      const { result } = renderHook(() => usePreviewDetect(client));
+      const { result } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(LONG_RUN_MS);
       });
 
@@ -711,22 +711,22 @@ describe('usePreviewDetect', () => {
       expect(client.cancelPreviewDetect).not.toHaveBeenCalled();
     });
 
-    it('takes the result when a lapsed run finishes without its event', () => {
+    it('takes the result when a lapsed run finishes without its event', async () => {
       const pollPreviewDetect = jest.fn((): PreviewPollStatus => 'running');
       const client = makeClient({
         pollPreviewDetect,
         takePreviewResult: jest.fn(() => RESULT),
       });
-      const { result } = renderHook(() => usePreviewDetect(client));
+      const { result } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(LONG_RUN_MS);
       });
       pollPreviewDetect.mockReturnValue('complete');
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(PREVIEW_POLL_INTERVAL_MS);
       });
 
@@ -738,21 +738,21 @@ describe('usePreviewDetect', () => {
   // A settled run owns no timers. A budget that outlives its run would
   // overwrite the answer the user is already looking at.
   describe('budgets end with the run', () => {
-    it('drops them when the finish event settles the run', () => {
+    it('drops them when the finish event settles the run', async () => {
       const pollPreviewDetect = jest.fn((): PreviewPollStatus => 'complete');
       const client = makeClient({
         pollPreviewDetect,
         takePreviewResult: jest.fn(() => RESULT),
       });
-      const { result } = renderHook(() => usePreviewDetect(client));
+      const { result } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      fireFinished();
+      await fireFinished();
       expect(result.current.status).toBe('complete');
 
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(LONG_RUN_MS * 2);
       });
 
@@ -762,17 +762,17 @@ describe('usePreviewDetect', () => {
       expect(client.takePreviewResult).toHaveBeenCalledTimes(1);
     });
 
-    it('drops them when the user cancels', () => {
+    it('drops them when the user cancels', async () => {
       const client = makeClient();
-      const { result } = renderHook(() => usePreviewDetect(client));
+      const { result } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      act(() => {
+      await act(() => {
         result.current.cancel();
       });
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(LONG_RUN_MS * 2);
       });
 
@@ -780,15 +780,15 @@ describe('usePreviewDetect', () => {
       expect(client.cancelPreviewDetect).toHaveBeenCalledTimes(1);
     });
 
-    it('drops them when the hook unmounts', () => {
+    it('drops them when the hook unmounts', async () => {
       const client = makeClient();
-      const { result, unmount } = renderHook(() => usePreviewDetect(client));
+      const { result, unmount } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      unmount();
-      act(() => {
+      await unmount();
+      await act(() => {
         jest.advanceTimersByTime(LONG_RUN_MS * 2);
       });
 
@@ -796,45 +796,45 @@ describe('usePreviewDetect', () => {
       expect(client.pollPreviewDetect).not.toHaveBeenCalled();
     });
 
-    it('clears the lapse when the run is reset', () => {
+    it('clears the lapse when the run is reset', async () => {
       const client = makeClient();
-      const { result } = renderHook(() => usePreviewDetect(client));
+      const { result } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(PREVIEW_LAPSE_AFTER_MS);
       });
       expect(result.current.lapsed).toBe(true);
 
-      act(() => {
+      await act(() => {
         result.current.reset();
       });
 
       expect(result.current.lapsed).toBe(false);
     });
 
-    it('starts the budgets of a second run from zero', () => {
+    it('starts the budgets of a second run from zero', async () => {
       const pollPreviewDetect = jest.fn((): PreviewPollStatus => 'complete');
       const client = makeClient({ pollPreviewDetect });
-      const { result } = renderHook(() => usePreviewDetect(client));
+      const { result } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      fireFinished();
+      await fireFinished();
 
       pollPreviewDetect.mockReturnValue('running');
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(PREVIEW_LAPSE_AFTER_MS - 1);
       });
       expect(result.current.lapsed).toBe(false);
 
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(1);
       });
       expect(result.current.lapsed).toBe(true);
@@ -845,25 +845,25 @@ describe('usePreviewDetect', () => {
     const NEXT: PreviewParams = { ...PARAMS, minActivities: 7 };
     const LAST: PreviewParams = { ...PARAMS, minActivities: 9 };
 
-    it('starts nothing until the values have stood still, then runs the last of them', () => {
+    it('starts nothing until the values have stood still, then runs the last of them', async () => {
       const client = makeClient();
-      const { result } = renderHook(() => usePreviewDetect(client));
+      const { result } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.request(10, 20, NEXT);
       });
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(PREVIEW_DEBOUNCE_MS - 1);
       });
-      act(() => {
+      await act(() => {
         result.current.request(10, 20, LAST);
       });
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(PREVIEW_DEBOUNCE_MS - 1);
       });
       expect(client.startPreviewDetect).not.toHaveBeenCalled();
 
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(1);
       });
       expect(client.startPreviewDetect).toHaveBeenCalledTimes(1);
@@ -871,15 +871,15 @@ describe('usePreviewDetect', () => {
       expect(result.current.status).toBe('running');
     });
 
-    it('cancels the run in flight and starts the new values once it has ended', () => {
+    it('cancels the run in flight and starts the new values once it has ended', async () => {
       const pollPreviewDetect = jest.fn((): PreviewPollStatus => 'running');
       const client = makeClient({ pollPreviewDetect });
-      const { result } = renderHook(() => usePreviewDetect(client));
+      const { result } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      act(() => {
+      await act(() => {
         result.current.request(10, 20, NEXT);
         jest.advanceTimersByTime(PREVIEW_DEBOUNCE_MS);
       });
@@ -891,7 +891,7 @@ describe('usePreviewDetect', () => {
       expect(result.current.status).toBe('running');
 
       pollPreviewDetect.mockReturnValue('cancelled');
-      fireFinished();
+      await fireFinished();
 
       expect(client.startPreviewDetect).toHaveBeenCalledTimes(2);
       expect(client.startPreviewDetect).toHaveBeenLastCalledWith(10, 20, {
@@ -901,21 +901,21 @@ describe('usePreviewDetect', () => {
       expect(result.current.status).toBe('running');
     });
 
-    it('discards a superseded run that completed rather than painting it', () => {
+    it('discards a superseded run that completed rather than painting it', async () => {
       const pollPreviewDetect = jest.fn((): PreviewPollStatus => 'running');
       const takePreviewResult = jest.fn((): PreviewResult | null => RESULT);
       const client = makeClient({ pollPreviewDetect, takePreviewResult });
-      const { result } = renderHook(() => usePreviewDetect(client));
+      const { result } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      act(() => {
+      await act(() => {
         result.current.request(10, 20, NEXT);
         jest.advanceTimersByTime(PREVIEW_DEBOUNCE_MS);
       });
       pollPreviewDetect.mockReturnValue('complete');
-      fireFinished();
+      await fireFinished();
 
       expect(takePreviewResult).not.toHaveBeenCalled();
       expect(result.current.result).toBeNull();
@@ -923,31 +923,31 @@ describe('usePreviewDetect', () => {
 
       const second = { ...RESULT, config: NEXT };
       takePreviewResult.mockReturnValue(second);
-      fireFinished();
+      await fireFinished();
 
       expect(result.current.status).toBe('complete');
       expect(result.current.result).toBe(second);
     });
 
-    it('asks the engine to cancel once however many values land while it winds down', () => {
+    it('asks the engine to cancel once however many values land while it winds down', async () => {
       const client = makeClient();
-      const { result } = renderHook(() => usePreviewDetect(client));
+      const { result } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      act(() => {
+      await act(() => {
         result.current.request(10, 20, NEXT);
         jest.advanceTimersByTime(PREVIEW_DEBOUNCE_MS);
       });
-      act(() => {
+      await act(() => {
         result.current.request(10, 20, LAST);
         jest.advanceTimersByTime(PREVIEW_DEBOUNCE_MS);
       });
       expect(client.cancelPreviewDetect).toHaveBeenCalledTimes(1);
 
       (client.pollPreviewDetect as jest.Mock).mockReturnValue('cancelled');
-      fireFinished();
+      await fireFinished();
 
       expect(client.startPreviewDetect).toHaveBeenCalledTimes(2);
       expect(client.startPreviewDetect).toHaveBeenLastCalledWith(10, 20, {
@@ -956,56 +956,56 @@ describe('usePreviewDetect', () => {
       });
     });
 
-    it('starts nothing after the athlete cancels, whether the request was waiting or queued', () => {
+    it('starts nothing after the athlete cancels, whether the request was waiting or queued', async () => {
       const client = makeClient();
-      const { result } = renderHook(() => usePreviewDetect(client));
+      const { result } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.request(10, 20, NEXT);
       });
-      act(() => {
+      await act(() => {
         result.current.cancel();
         jest.advanceTimersByTime(PREVIEW_DEBOUNCE_MS);
       });
       expect(client.startPreviewDetect).not.toHaveBeenCalled();
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      act(() => {
+      await act(() => {
         result.current.request(10, 20, NEXT);
         jest.advanceTimersByTime(PREVIEW_DEBOUNCE_MS);
       });
-      act(() => {
+      await act(() => {
         result.current.cancel();
       });
       (client.pollPreviewDetect as jest.Mock).mockReturnValue('cancelled');
-      fireFinished();
+      await fireFinished();
 
       expect(client.startPreviewDetect).toHaveBeenCalledTimes(1);
       expect(result.current.status).toBe('cancelled');
     });
 
-    it('drops a waiting request on reset and on unmount', () => {
+    it('drops a waiting request on reset and on unmount', async () => {
       const client = makeClient();
-      const { result, unmount } = renderHook(() => usePreviewDetect(client));
+      const { result, unmount } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.request(10, 20, NEXT);
         result.current.reset();
         jest.advanceTimersByTime(PREVIEW_DEBOUNCE_MS);
       });
       expect(client.startPreviewDetect).not.toHaveBeenCalled();
 
-      act(() => {
+      await act(() => {
         result.current.request(10, 20, NEXT);
       });
-      unmount();
+      await unmount();
       jest.advanceTimersByTime(PREVIEW_DEBOUNCE_MS);
       expect(client.startPreviewDetect).not.toHaveBeenCalled();
     });
 
-    it('reads no progress from a superseded run', () => {
+    it('reads no progress from a superseded run', async () => {
       const getPreviewProgress = jest.fn(() => ({
         phase: 'loading',
         completed: 3,
@@ -1013,16 +1013,16 @@ describe('usePreviewDetect', () => {
         percent: 25,
       }));
       const client = makeClient({ getPreviewProgress });
-      const { result } = renderHook(() => usePreviewDetect(client));
+      const { result } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      act(() => {
+      await act(() => {
         result.current.request(10, 20, NEXT);
         jest.advanceTimersByTime(PREVIEW_DEBOUNCE_MS);
       });
-      firePhase();
+      await firePhase();
 
       expect(getPreviewProgress).not.toHaveBeenCalled();
       expect(result.current.progress).toBeNull();
@@ -1049,33 +1049,33 @@ describe('usePreviewDetect', () => {
         pollPreviewDetect: jest.fn(() => polled),
         takePreviewResult: jest.fn(() => RESULT),
       });
-      const endRun = (status: PreviewPollStatus) => {
+      const endRun = async (status: PreviewPollStatus) => {
         held = false;
         polled = status;
-        fireFinished();
+        await fireFinished();
       };
       return { client, endRun };
     }
 
-    it('reset cancels the live run and a Preview tapped before it ends starts once it has', () => {
+    it('reset cancels the live run and a Preview tapped before it ends starts once it has', async () => {
       const { client, endRun } = makeSlotClient();
-      const { result } = renderHook(() => usePreviewDetect(client));
+      const { result } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      act(() => {
+      await act(() => {
         result.current.reset();
       });
       expect(client.cancelPreviewDetect).toHaveBeenCalledTimes(1);
       expect(result.current.status).toBe('idle');
 
-      act(() => {
+      await act(() => {
         result.current.start(NEXT_CENTRE.lat, NEXT_CENTRE.lng, PARAMS);
       });
       expect(result.current.refusal).toBeNull();
 
-      endRun('cancelled');
+      await endRun('cancelled');
 
       expect(client.takePreviewResult).not.toHaveBeenCalled();
       expect(client.startPreviewDetect).toHaveBeenLastCalledWith(NEXT_CENTRE.lat, NEXT_CENTRE.lng, {
@@ -1085,39 +1085,39 @@ describe('usePreviewDetect', () => {
       expect(result.current.refusal).toBeNull();
       expect(result.current.status).toBe('running');
 
-      endRun('complete');
+      await endRun('complete');
       expect(result.current.status).toBe('complete');
       expect(result.current.result).toEqual(RESULT);
     });
 
-    it('does not paint a reset run that completes before its cancel is noticed', () => {
+    it('does not paint a reset run that completes before its cancel is noticed', async () => {
       const { client, endRun } = makeSlotClient();
-      const { result } = renderHook(() => usePreviewDetect(client));
+      const { result } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      act(() => {
+      await act(() => {
         result.current.reset();
       });
-      endRun('complete');
+      await endRun('complete');
 
       expect(client.takePreviewResult).not.toHaveBeenCalled();
       expect(result.current).toMatchObject({ status: 'idle', result: null, refusal: null });
       expect(finishListeners.size).toBe(0);
     });
 
-    it('does not say a reset run is slow while it winds down', () => {
+    it('does not say a reset run is slow while it winds down', async () => {
       const { client } = makeSlotClient();
-      const { result } = renderHook(() => usePreviewDetect(client));
+      const { result } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      act(() => {
+      await act(() => {
         result.current.reset();
       });
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(PREVIEW_LAPSE_AFTER_MS * 2);
       });
 
@@ -1125,25 +1125,25 @@ describe('usePreviewDetect', () => {
       expect(result.current.status).toBe('idle');
     });
 
-    it('a Preview tapped after cancel, before the run ends, starts once it has', () => {
+    it('a Preview tapped after cancel, before the run ends, starts once it has', async () => {
       const { client, endRun } = makeSlotClient();
-      const { result } = renderHook(() => usePreviewDetect(client));
+      const { result } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      act(() => {
+      await act(() => {
         result.current.cancel();
       });
       expect(result.current.status).toBe('cancelled');
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
       expect(result.current.refusal).toBeNull();
       expect(client.cancelPreviewDetect).toHaveBeenCalledTimes(1);
 
-      endRun('cancelled');
+      await endRun('cancelled');
 
       expect(client.startPreviewDetect).toHaveBeenCalledTimes(2);
       expect(client.startPreviewDetect).toHaveBeenLastCalledWith(10, 20, {
@@ -1154,17 +1154,17 @@ describe('usePreviewDetect', () => {
       expect(result.current.status).toBe('running');
     });
 
-    it('starts nothing after a cancel that nothing follows, and stays cancelled', () => {
+    it('starts nothing after a cancel that nothing follows, and stays cancelled', async () => {
       const { client, endRun } = makeSlotClient();
-      const { result } = renderHook(() => usePreviewDetect(client));
+      const { result } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      act(() => {
+      await act(() => {
         result.current.cancel();
       });
-      endRun('complete');
+      await endRun('complete');
 
       expect(client.startPreviewDetect).toHaveBeenCalledTimes(1);
       expect(client.takePreviewResult).not.toHaveBeenCalled();
@@ -1172,46 +1172,46 @@ describe('usePreviewDetect', () => {
       expect(finishListeners.size).toBe(0);
     });
 
-    it('a second cancel drops a queued Preview and asks the engine nothing more', () => {
+    it('a second cancel drops a queued Preview and asks the engine nothing more', async () => {
       const { client, endRun } = makeSlotClient();
-      const { result } = renderHook(() => usePreviewDetect(client));
+      const { result } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      act(() => {
+      await act(() => {
         result.current.reset();
       });
-      act(() => {
+      await act(() => {
         result.current.start(NEXT_CENTRE.lat, NEXT_CENTRE.lng, PARAMS);
       });
-      act(() => {
+      await act(() => {
         result.current.cancel();
       });
-      endRun('cancelled');
+      await endRun('cancelled');
 
       expect(client.cancelPreviewDetect).toHaveBeenCalledTimes(1);
       expect(client.startPreviewDetect).toHaveBeenCalledTimes(1);
       expect(result.current.status).toBe('cancelled');
     });
 
-    it('runs the last of several Preview taps made while the run winds down', () => {
+    it('runs the last of several Preview taps made while the run winds down', async () => {
       const { client, endRun } = makeSlotClient();
-      const { result } = renderHook(() => usePreviewDetect(client));
+      const { result } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      act(() => {
+      await act(() => {
         result.current.reset();
       });
-      act(() => {
+      await act(() => {
         result.current.start(1, 2, PARAMS);
       });
-      act(() => {
+      await act(() => {
         result.current.start(NEXT_CENTRE.lat, NEXT_CENTRE.lng, PARAMS);
       });
-      endRun('cancelled');
+      await endRun('cancelled');
 
       expect(client.startPreviewDetect).toHaveBeenCalledTimes(2);
       expect(client.startPreviewDetect).toHaveBeenLastCalledWith(NEXT_CENTRE.lat, NEXT_CENTRE.lng, {
@@ -1220,22 +1220,22 @@ describe('usePreviewDetect', () => {
       });
     });
 
-    it('unmount during the wind-down asks the engine nothing more and starts nothing', () => {
+    it('unmount during the wind-down asks the engine nothing more and starts nothing', async () => {
       const { client, endRun } = makeSlotClient();
-      const { result, unmount } = renderHook(() => usePreviewDetect(client));
+      const { result, unmount } = await renderHook(() => usePreviewDetect(client));
 
-      act(() => {
+      await act(() => {
         result.current.start(10, 20, PARAMS);
       });
-      act(() => {
+      await act(() => {
         result.current.reset();
       });
-      act(() => {
+      await act(() => {
         result.current.start(NEXT_CENTRE.lat, NEXT_CENTRE.lng, PARAMS);
       });
-      unmount();
+      await unmount();
       expect(finishListeners.size).toBe(0);
-      endRun('cancelled');
+      await endRun('cancelled');
 
       expect(client.cancelPreviewDetect).toHaveBeenCalledTimes(1);
       expect(client.startPreviewDetect).toHaveBeenCalledTimes(1);

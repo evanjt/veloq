@@ -2,7 +2,6 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/shared/app';
 import {
   DetailFallback,
@@ -18,7 +17,7 @@ import {
   withoutRecordMarks,
 } from '@/features/routes';
 import { colors, darkColors, layout, spacing } from '@/theme';
-import { Button, EngineReadFailure, ScreenScrollView } from '@/shared/ui';
+import { ErrorState, ScreenScrollView } from '@/shared/ui';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 function SectionLapsScreenContent() {
@@ -29,7 +28,6 @@ function SectionLapsScreenContent() {
   }>();
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const insets = useSafeAreaInsets();
   const [refreshKey, setRefreshKey] = useState(0);
   const { data: detail, status } = useSectionDetailData(id, refreshKey);
   const timeRange: SectionTimeRange =
@@ -78,9 +76,7 @@ function SectionLapsScreenContent() {
     return (
       <DetailFallback
         isDark={isDark}
-        insetTop={insets.top}
         status={status}
-        loading={status.kind === 'closed'}
         onRetry={refresh}
         notFoundMessage={t('sections.sectionNotFound')}
       />
@@ -91,10 +87,12 @@ function SectionLapsScreenContent() {
     <View style={[styles.screen, isDark && styles.screenDark]}>
       <ScreenScrollView contentContainerStyle={styles.content}>
         {streamsError && (
-          <View>
-            <EngineReadFailure error={streamsError} testID="section-laps-stream-failure" />
-            <Button label={t('common.retry')} variant="secondary" onPress={refetchStreams} />
-          </View>
+          <ErrorState
+            variant="inline"
+            error={streamsError}
+            onRetry={refetchStreams}
+            testID="section-laps-stream-failure"
+          />
         )}
         {!streamsError && ready && outstanding > 0 && (
           <SectionStreamsNotice
@@ -104,7 +102,12 @@ function SectionLapsScreenContent() {
           />
         )}
         {performanceError !== undefined && (
-          <EngineReadFailure error={performanceError} testID="section-laps-performance-failure" />
+          <ErrorState
+            variant="inline"
+            error={performanceError}
+            onRetry={refresh}
+            testID="section-laps-performance-failure"
+          />
         )}
         <SectionLapList
           isDark={isDark}

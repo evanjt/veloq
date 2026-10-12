@@ -48,12 +48,12 @@ describe('label contrast', () => {
 
   for (const isDark of [false, true]) {
     const theme = isDark ? 'dark' : 'light';
-    it(`keeps every variant's label at 4.5:1 in the ${theme} theme, a transparent one on each ground it sits on`, () => {
+    it(`keeps every variant's label at 4.5:1 in the ${theme} theme, a transparent one on each ground it sits on`, async () => {
       mockIsDark = isDark;
       const palette = isDark ? darkColors : colors;
       const pageGrounds = [palette.surface, palette.background, palette.backgroundAlt];
       for (const variant of ['primary', 'secondary', 'ghost', 'destructive'] as const) {
-        const { getByTestId } = render(
+        const { getByTestId } = await render(
           <Button label="x" variant={variant} onPress={() => {}} testID="b" />
         );
         const ground = styleOf(getByTestId('b')).backgroundColor as string;
@@ -64,9 +64,9 @@ describe('label contrast', () => {
       }
     });
 
-    it(`keeps a selected ToggleButton label at 4.5:1 in the ${theme} theme`, () => {
+    it(`keeps a selected ToggleButton label at 4.5:1 in the ${theme} theme`, async () => {
       mockIsDark = isDark;
-      const { getByTestId } = render(
+      const { getByTestId } = await render(
         <ToggleButton label="x" selected onPress={() => {}} testID="t" />
       );
       const ground = styleOf(getByTestId('t')).backgroundColor as string;
@@ -87,9 +87,9 @@ describe('label contrast', () => {
 
     for (const selected of [false, true]) {
       const state = selected ? 'selected' : 'unselected';
-      it(`keeps a ToggleButton's label and count at 4.5:1 when ${state}, in the ${theme} theme`, () => {
+      it(`keeps a ToggleButton's label and count at 4.5:1 when ${state}, in the ${theme} theme`, async () => {
         mockIsDark = isDark;
-        const { getByTestId } = render(
+        const { getByTestId } = await render(
           <ToggleButton label="x" count={12} selected={selected} onPress={() => {}} testID="t" />
         );
         const fill = styleOf(getByTestId('t')).backgroundColor as string;
@@ -146,8 +146,8 @@ function over(color: string, ground: string): string {
 }
 
 describe('Button', () => {
-  it('draws the primary variant from tokens, with no literal of its own', () => {
-    const { getByTestId } = render(<Button label="Save" onPress={() => {}} testID="b" />);
+  it('draws the primary variant from tokens, with no literal of its own', async () => {
+    const { getByTestId } = await render(<Button label="Save" onPress={() => {}} testID="b" />);
 
     const style = styleOf(getByTestId('b'));
     expect(style.backgroundColor).toBe(colors.primary);
@@ -155,13 +155,14 @@ describe('Button', () => {
     expect(style.paddingHorizontal).toBe(spacing.md);
   });
 
-  it('gives each variant its own ground and border', () => {
-    const grounds = (['primary', 'secondary', 'ghost', 'destructive'] as const).map((variant) => {
-      const { getByTestId } = render(
+  it('gives each variant its own ground and border', async () => {
+    const grounds = [];
+    for (const variant of ['primary', 'secondary', 'ghost', 'destructive'] as const) {
+      const { getByTestId } = await render(
         <Button label="x" variant={variant} onPress={() => {}} testID="b" />
       );
-      return styleOf(getByTestId('b')).backgroundColor;
-    });
+      grounds.push(styleOf(getByTestId('b')).backgroundColor);
+    }
 
     expect(grounds[0]).toBe(colors.primary);
     expect(grounds[1]).toBe(colors.surface);
@@ -170,11 +171,11 @@ describe('Button', () => {
     expect(new Set(grounds).size).toBe(4);
   });
 
-  it('sizes sm and md apart, and both from the type scale', () => {
-    const { getByTestId: sm } = render(
+  it('sizes sm and md apart, and both from the type scale', async () => {
+    const { getByTestId: sm } = await render(
       <Button label="x" size="sm" onPress={() => {}} testID="b" />
     );
-    const { getByTestId: md } = render(<Button label="x" onPress={() => {}} testID="b" />);
+    const { getByTestId: md } = await render(<Button label="x" onPress={() => {}} testID="b" />);
 
     expect(styleOf(sm('b')).paddingVertical).toBeLessThan(
       styleOf(md('b')).paddingVertical as number
@@ -183,9 +184,9 @@ describe('Button', () => {
     expect(styleOf(md('b-label')).fontSize).toBe(typography.body.fontSize);
   });
 
-  it('reaches the platform tap-target minimum through hit slop, at either size', () => {
+  it('reaches the platform tap-target minimum through hit slop, at either size', async () => {
     for (const size of ['sm', 'md'] as const) {
-      const { getByTestId } = render(
+      const { getByTestId } = await render(
         <Button label="x" size={size} onPress={() => {}} testID="b" />
       );
       expect(reachHeight(getByTestId('b'))).toBeGreaterThanOrEqual(layout.minTapTarget);
@@ -197,49 +198,51 @@ describe('Button', () => {
     expect(layout.minTapTarget).toBe(MIN_TAP_TARGET[Platform.OS === 'android' ? 'android' : 'ios']);
   });
 
-  it('does not fire onPress while disabled', () => {
+  it('does not fire onPress while disabled', async () => {
     const onPress = jest.fn();
-    const { getByTestId } = render(<Button label="x" disabled onPress={onPress} testID="b" />);
+    const { getByTestId } = await render(
+      <Button label="x" disabled onPress={onPress} testID="b" />
+    );
 
-    fireEvent.press(getByTestId('b'));
+    await fireEvent.press(getByTestId('b'));
 
     expect(onPress).not.toHaveBeenCalled();
     expect(getByTestId('b').props.accessibilityState.disabled).toBe(true);
   });
 
-  it('does not fire onPress while loading, and says it is busy', () => {
+  it('does not fire onPress while loading, and says it is busy', async () => {
     const onPress = jest.fn();
-    const { getByTestId, queryByText } = render(
+    const { getByTestId, queryByText } = await render(
       <Button label="Save" loading onPress={onPress} testID="b" />
     );
 
-    fireEvent.press(getByTestId('b'));
+    await fireEvent.press(getByTestId('b'));
 
     expect(onPress).not.toHaveBeenCalled();
     expect(getByTestId('b').props.accessibilityState.busy).toBe(true);
     expect(queryByText('Save')).toBeNull();
   });
 
-  it('fires once when it is neither', () => {
+  it('fires once when it is neither', async () => {
     const onPress = jest.fn();
-    const { getByTestId } = render(<Button label="x" onPress={onPress} testID="b" />);
+    const { getByTestId } = await render(<Button label="x" onPress={onPress} testID="b" />);
 
-    fireEvent.press(getByTestId('b'));
+    await fireEvent.press(getByTestId('b'));
 
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
-  it('is a button to a screen reader, labelled by its own text', () => {
-    const { getByTestId } = render(<Button label="Save" onPress={() => {}} testID="b" />);
+  it('is a button to a screen reader, labelled by its own text', async () => {
+    const { getByTestId } = await render(<Button label="Save" onPress={() => {}} testID="b" />);
 
     expect(getByTestId('b').props.accessibilityRole).toBe('button');
     expect(getByTestId('b').props.accessibilityLabel).toBe('Save');
   });
 
-  it('wraps a long label inside its row and grows, rather than cutting it at large text', () => {
+  it('wraps a long label inside its row and grows, rather than cutting it at large text', async () => {
     const label = 'Wiederherstellen aus einer gespeicherten Sicherungskopie jetzt';
     for (const size of ['sm', 'md'] as const) {
-      const { getByTestId } = render(
+      const { getByTestId } = await render(
         <Button label={label} size={size} onPress={() => {}} testID="b" />
       );
       const text = getByTestId('b-label');
@@ -250,11 +253,24 @@ describe('Button', () => {
       expect(styleOf(getByTestId('b')).height).toBeUndefined();
     }
   });
+
+  it('carries an expanded state when it opens something, and none otherwise', async () => {
+    const closed = await render(
+      <Button label="x" expanded={false} onPress={() => {}} testID="b" />
+    );
+    expect(closed.getByTestId('b').props.accessibilityState).toMatchObject({ expanded: false });
+
+    const open = await render(<Button label="y" expanded onPress={() => {}} testID="c" />);
+    expect(open.getByTestId('c').props.accessibilityState).toMatchObject({ expanded: true });
+
+    const plain = await render(<Button label="z" onPress={() => {}} testID="d" />);
+    expect(plain.getByTestId('d').props.accessibilityState.expanded).toBeUndefined();
+  });
 });
 
 describe('ToggleButton', () => {
-  it('marks the selected state to a screen reader, not only in colour', () => {
-    const { getByTestId } = render(
+  it('marks the selected state to a screen reader, not only in colour', async () => {
+    const { getByTestId } = await render(
       <ToggleButton label="Distance" selected onPress={() => {}} testID="t" />
     );
 
@@ -263,13 +279,15 @@ describe('ToggleButton', () => {
   });
 
   for (const isDark of [false, true]) {
-    it(`steps in lightness when selected, so the state survives greyscale, in the ${isDark ? 'dark' : 'light'} theme`, () => {
+    it(`steps in lightness when selected, so the state survives greyscale, in the ${isDark ? 'dark' : 'light'} theme`, async () => {
       mockIsDark = isDark;
       const surface = (isDark ? darkColors : colors).surface;
-      const { getByTestId: on } = render(
+      const { getByTestId: on } = await render(
         <ToggleButton label="x" selected onPress={() => {}} testID="t" />
       );
-      const { getByTestId: off } = render(<ToggleButton label="x" onPress={() => {}} testID="t" />);
+      const { getByTestId: off } = await render(
+        <ToggleButton label="x" onPress={() => {}} testID="t" />
+      );
       mockIsDark = false;
 
       const selected = over(styleOf(on('t')).backgroundColor as string, surface);
@@ -278,27 +296,27 @@ describe('ToggleButton', () => {
     });
   }
 
-  it('keeps a chip label on one line, since chips sit in a horizontal row', () => {
-    const { getByTestId } = render(
+  it('keeps a chip label on one line, since chips sit in a horizontal row', async () => {
+    const { getByTestId } = await render(
       <ToggleButton label="A long option label" count={3} onPress={() => {}} testID="t" />
     );
 
     expect(getByTestId('t-label').props.numberOfLines).toBe(1);
   });
 
-  it('reaches the tap target through hit slop like every other button', () => {
-    const { getByTestId } = render(<ToggleButton label="x" onPress={() => {}} testID="t" />);
+  it('reaches the tap target through hit slop like every other button', async () => {
+    const { getByTestId } = await render(<ToggleButton label="x" onPress={() => {}} testID="t" />);
 
     expect(reachHeight(getByTestId('t'))).toBeGreaterThanOrEqual(layout.minTapTarget);
   });
 
-  it('does not fire while disabled', () => {
+  it('does not fire while disabled', async () => {
     const onPress = jest.fn();
-    const { getByTestId } = render(
+    const { getByTestId } = await render(
       <ToggleButton label="x" disabled onPress={onPress} testID="t" />
     );
 
-    fireEvent.press(getByTestId('t'));
+    await fireEvent.press(getByTestId('t'));
 
     expect(onPress).not.toHaveBeenCalled();
   });
@@ -309,36 +327,36 @@ describe('destructive press haptic', () => {
 
   beforeEach(() => jest.clearAllMocks());
 
-  it('fires one medium impact and the caller press for a destructive button', () => {
+  it('fires one medium impact and the caller press for a destructive button', async () => {
     const onPress = jest.fn();
-    const { getByTestId } = render(
+    const { getByTestId } = await render(
       <Button label="Remove" variant="destructive" onPress={onPress} testID="b" />
     );
-    fireEvent.press(getByTestId('b'));
+    await fireEvent.press(getByTestId('b'));
     expect(haptics.medium).toHaveBeenCalledTimes(1);
     expect(onPress).toHaveBeenCalledTimes(1);
     expect(haptics.light).not.toHaveBeenCalled();
     expect(haptics.success).not.toHaveBeenCalled();
   });
 
-  it('leaves the haptic to the confirm when the press only opens one', () => {
+  it('leaves the haptic to the confirm when the press only opens one', async () => {
     const onPress = jest.fn();
-    const { getByTestId } = render(
+    const { getByTestId } = await render(
       <Button label="Delete" variant="destructive" opensConfirm onPress={onPress} testID="b" />
     );
-    fireEvent.press(getByTestId('b'));
+    await fireEvent.press(getByTestId('b'));
     expect(onPress).toHaveBeenCalledTimes(1);
     expect(haptics.medium).not.toHaveBeenCalled();
   });
 
   it.each(['primary', 'secondary', 'ghost'] as const)(
     'fires no haptic for a %s button',
-    (variant) => {
+    async (variant) => {
       const onPress = jest.fn();
-      const { getByTestId } = render(
+      const { getByTestId } = await render(
         <Button label="Go" variant={variant} onPress={onPress} testID="b" />
       );
-      fireEvent.press(getByTestId('b'));
+      await fireEvent.press(getByTestId('b'));
       expect(onPress).toHaveBeenCalledTimes(1);
       for (const fn of Object.values(haptics)) expect(fn).not.toHaveBeenCalled();
     }
@@ -346,12 +364,12 @@ describe('destructive press haptic', () => {
 
   it.each([{ disabled: true }, { loading: true }])(
     'fires neither the haptic nor the press for a destructive button that is %o',
-    (state) => {
+    async (state) => {
       const onPress = jest.fn();
-      const { getByTestId } = render(
+      const { getByTestId } = await render(
         <Button label="Remove" variant="destructive" onPress={onPress} testID="b" {...state} />
       );
-      fireEvent.press(getByTestId('b'));
+      await fireEvent.press(getByTestId('b'));
       expect(onPress).not.toHaveBeenCalled();
       expect(haptics.medium).not.toHaveBeenCalled();
     }

@@ -56,8 +56,8 @@ describe('the zone skyline', () => {
     await initialiseI18n('en-AU');
   });
 
-  it('stands a threshold segment taller than an endurance one', () => {
-    const { getByTestId } = render(
+  it('stands a threshold segment taller than an endurance one', async () => {
+    const { getByTestId } = await render(
       <SkylineBar skylineBytes={skyline([600, 300, 600, 300], [2, 4, 2, 4])} isDark={false} />
     );
 
@@ -72,9 +72,9 @@ describe('the zone skyline', () => {
     expect(thresholdFirst).toBeGreaterThan(enduranceFirst ?? Infinity);
   });
 
-  it('orders every zone by height, the lowest still drawn', () => {
+  it('orders every zone by height, the lowest still drawn', async () => {
     const zones = [7, 6, 5, 4, 3, 2, 1];
-    const { getByTestId } = render(
+    const { getByTestId } = await render(
       <SkylineBar
         skylineBytes={skyline(
           zones.map(() => 60),
@@ -92,16 +92,16 @@ describe('the zone skyline', () => {
     expect(Math.min(...heights)).toBeGreaterThan(0);
   });
 
-  it('labels the bar with the time in each zone, summed across its segments', () => {
-    const { getByLabelText } = render(
+  it('labels the bar with the time in each zone, summed across its segments', async () => {
+    const { getByLabelText } = await render(
       <SkylineBar skylineBytes={skyline([600, 300, 600, 300], [2, 4, 2, 4])} isDark={false} />
     );
 
     expect(getByLabelText('Time in Power Zones: Z2 Endurance 20m, Z4 Threshold 10m')).toBeTruthy();
   });
 
-  it('names heart rate zones from the heart rate list', () => {
-    const { getByLabelText } = render(
+  it('names heart rate zones from the heart rate list', async () => {
+    const { getByLabelText } = await render(
       <SkylineBar skylineBytes={skyline([90, 1800], [5, 1], 2)} isDark={false} />
     );
 
@@ -110,8 +110,8 @@ describe('the zone skyline', () => {
     ).toBeTruthy();
   });
 
-  it('draws nothing for an empty skyline', () => {
-    const { toJSON } = render(<SkylineBar skylineBytes="" isDark={false} />);
+  it('draws nothing for an empty skyline', async () => {
+    const { toJSON } = await render(<SkylineBar skylineBytes="" isDark={false} />);
 
     expect(toJSON()).toBeNull();
   });

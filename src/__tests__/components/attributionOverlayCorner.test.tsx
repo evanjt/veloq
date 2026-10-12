@@ -22,8 +22,8 @@ function flatStyle(node: { props: Record<string, unknown> }): Record<string, unk
 }
 
 describe('the map attribution overlay', () => {
-  it('anchors in one corner and never spans the map', () => {
-    const tree = render(<AttributionOverlay initialAttribution={LONG} />);
+  it('anchors in one corner and never spans the map', async () => {
+    const tree = await render(<AttributionOverlay initialAttribution={LONG} />);
     const container = flatStyle(tree.getByTestId('map-attribution'));
 
     expect(container.position).toBe('absolute');
@@ -34,23 +34,23 @@ describe('the map attribution overlay', () => {
     expect(container.maxWidth).not.toBe('100%');
   });
 
-  it('sizes the pill to its text rather than to the container', () => {
-    const tree = render(<AttributionOverlay initialAttribution={LONG} />);
+  it('sizes the pill to its text rather than to the container', async () => {
+    const tree = await render(<AttributionOverlay initialAttribution={LONG} />);
 
     expect(flatStyle(tree.getByTestId('map-attribution-pill')).alignSelf).toBe('flex-end');
   });
 
-  it('still shows the whole credit, however long it is', () => {
-    const tree = render(<AttributionOverlay initialAttribution={LONG} />);
+  it('still shows the whole credit, however long it is', async () => {
+    const tree = await render(<AttributionOverlay initialAttribution={LONG} />);
     const text = tree.getByTestId('map-attribution-text');
 
     expect(text.props.children).toBe(LONG);
     expect(text.props.numberOfLines).toBeUndefined();
   });
 
-  it('still reports a clearance so content in the same corner can pad clear', () => {
+  it('still reports a clearance so content in the same corner can pad clear', async () => {
     const onClearanceChange = jest.fn();
-    const tree = render(
+    const tree = await render(
       <AttributionOverlay initialAttribution={LONG} onClearanceChange={onClearanceChange} />
     );
 

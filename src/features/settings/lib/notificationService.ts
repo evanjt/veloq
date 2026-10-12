@@ -13,6 +13,7 @@ import {
   requestNotificationPermissionOutcome,
 } from '@/shared/app/permissions/notifications';
 import { i18n } from '@/i18n';
+import type { PermissionOutcome } from '@/shared/app/permissions';
 
 const log = debug.create('Notification');
 const CHANNEL_ID = 'veloq-insights';
@@ -73,9 +74,13 @@ function nameInsightsChannel(): void {
   }).catch((e: unknown) => log.warn('could not create the insights channel', e));
 }
 
-/** Request notification permissions from the OS. Returns true if granted. */
-export async function requestNotificationPermission(): Promise<boolean> {
-  return (await requestNotificationPermissionOutcome()) === 'granted';
+/**
+ * Request notification permissions from the OS, raising the dialog only while
+ * the system will still show it. `blocked` means only system settings can turn
+ * them on.
+ */
+export async function requestNotificationPermission(): Promise<PermissionOutcome> {
+  return requestNotificationPermissionOutcome();
 }
 
 /** Check if notification permissions are currently granted. */

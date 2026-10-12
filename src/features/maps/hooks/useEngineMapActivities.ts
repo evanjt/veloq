@@ -1,5 +1,5 @@
 /** Map activities and filter counts from one Rust screen read. */
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import type { ActivityBoundsItem } from '@/types';
 import type { FfiRouteLineLayer, MapDistanceBand } from 'veloqrs';
@@ -53,6 +53,12 @@ interface UseEngineMapActivitiesReturn {
   sections: MapSection[];
   /** The overlay's lines, the same object while the engine's stamp is unchanged */
   sectionsGeoJSON: GeoJSON.FeatureCollection;
+  /** The screen read threw, so nothing above describes the library */
+  isError: boolean;
+  /** What the screen read threw, when it did */
+  error: unknown;
+  /** Read again, after a failure */
+  refetch: () => void;
 }
 
 /** Get the map's filtered activities and unfiltered chip counts. */
@@ -79,6 +85,9 @@ export function useEngineMapActivities({
     )
   );
   const [sectionCache] = useState(createSectionLineCache);
+  // A retry has no announcement to wait for, so it moves its own generation.
+  const [retries, setRetries] = useState(0);
+  const refetch = useCallback(() => setRetries((n) => n + 1), []);
 
   // One call: engine total, sport types and the filtered activities.
   const {
@@ -90,9 +99,14 @@ export function useEngineMapActivities({
     routeLines,
     sectionCount,
     sectionOverlay,
+    isError,
+    error,
   } = useMemo(() => {
+    void retries;
     // Built only when there is nothing to show, since it lets go of the held layers.
     const empty = () => ({
+      isError: false,
+      error: undefined as unknown,
       activities: [],
       availableTypes: [],
       activityCount: 0,
@@ -105,20 +119,25 @@ export function useEngineMapActivities({
     if (!enabled) return empty();
 
     const sportTypesArray = Array.from(selectedTypes);
-    const data = readEngine((engine) =>
-      engine.getMapScreenData(
-        startDate,
-        endDate,
-        sportTypesArray,
-        distanceBand,
-        isMetric,
-        showRoutes,
-        showSections && sectionsEnabled,
-        nameNeedle,
-        routeHold.stamp(),
-        sectionCache.stamp()
-      )
-    );
+    let data;
+    try {
+      data = readEngine((engine) =>
+        engine.getMapScreenData(
+          startDate,
+          endDate,
+          sportTypesArray,
+          distanceBand,
+          isMetric,
+          showRoutes,
+          showSections && sectionsEnabled,
+          nameNeedle,
+          routeHold.stamp(),
+          sectionCache.stamp()
+        )
+      );
+    } catch (readError) {
+      return { ...empty(), isError: true, error: readError };
+    }
     if (!data) return empty();
 
     // Convert to ActivityBoundsItem format
@@ -145,6 +164,8 @@ export function useEngineMapActivities({
     }));
 
     return {
+      isError: false,
+      error: undefined,
       activities: items,
       availableTypes: data.availableSportTypes,
       activityCount: data.activityCount,
@@ -158,6 +179,7 @@ export function useEngineMapActivities({
     enabled,
     routeHold,
     sectionCache,
+    retries,
     readEngine,
     startDate,
     endDate,
@@ -180,5 +202,8 @@ export function useEngineMapActivities({
     sectionCount,
     sections: sectionOverlay.sections,
     sectionsGeoJSON: sectionOverlay.collection,
+    isError,
+    error,
+    refetch,
   };
 }

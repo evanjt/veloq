@@ -1,13 +1,12 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { Text, Snackbar } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
+  BodyNotDownloaded,
   ScreenSafeAreaView,
   ComponentErrorBoundary,
-  ErrorStatePreset,
+  ErrorState,
   useHeroMapHeight,
-  HERO_HEADER_HEIGHT,
 } from '@/shared/ui';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useLocalSearchParams, Stack } from 'expo-router';
@@ -56,7 +55,7 @@ import type { RouteGroup as NativeRouteGroup, Section as NativeSection } from 'v
 import { useExerciseSets, ExerciseTable, MuscleGroupView } from '@/features/strength';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { colors, darkColors, spacing, typography } from '@/theme';
-import { overMapHeaderTint } from '@/shared/app/screenHeaders';
+import { noHeroHeaderOptions, overMapHeaderOptions } from '@/shared/app/screenHeaders';
 
 /** Stable empty list so the custom-sections hook keeps skipping its own read. */
 const NO_CUSTOM_SECTIONS: NativeSection[] = [];
@@ -81,7 +80,6 @@ export function ActivityDetailScreenContent({
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
   const debugEnabled = useDebugStore((s) => s.enabled);
-  const insets = useSafeAreaInsets();
   const mapHeight = useHeroMapHeight();
 
   const {
@@ -388,12 +386,28 @@ export function ActivityDetailScreenContent({
     }
   }, [activity, coordinates, exportGpx]);
 
+  // Over the map, the strength diagrams, or the skeleton standing in for them, the header is
+  // transparent and draws no title. Every other state takes the opaque header. Either way the
+  // navigation item carries the name once it is known, for screen readers and for the next
+  // screen's back control.
+  const showsHero =
+    isLoading || streamsLoading || (!error && !!activity && (hasGpsData || isStrength));
+  const headerTitle = !error ? activity?.name : undefined;
+  const headerOptions = useMemo(
+    () =>
+      showsHero
+        ? overMapHeaderOptions({ title: headerTitle, isDark })
+        : noHeroHeaderOptions({ title: headerTitle, isDark }),
+    [showsHero, headerTitle, isDark]
+  );
+
   if (isLoading || streamsLoading) {
     return (
       <ScreenSafeAreaView
         testID="activity-detail-screen"
         style={[styles.container, isDark && styles.containerDark]}
       >
+        <Stack.Screen options={headerOptions} />
         <ActivityDetailSkeleton activityId={id || ''} />
       </ScreenSafeAreaView>
     );
@@ -401,22 +415,36 @@ export function ActivityDetailScreenContent({
 
   // A deep link or push can name an activity the library has never held. The
   // engine is downloading it, so the screen waits until the hook's deadline and
-  // then retries the download. Only a failed read of the stored row is a load
-  // failure, and its retry re-reads that row.
+  // then retries the download. Offline or signed out, the engine starts no
+  // download, so the screen says what will fix it rather than waiting. Only a
+  // failed read of the stored row is a load failure, and its retry re-reads
+  // that row.
   if (!error && !activity) {
     const timedOut = waitEnded(bodyStatus);
+    const refusedWithFix = bodyStatus === 'offline' || bodyStatus === 'notConfigured';
     return (
       <ScreenSafeAreaView
         testID="activity-detail-screen"
+        hasNativeHeader
         style={[styles.container, isDark && styles.containerDark]}
       >
-        <Stack.Screen
-          options={{ headerTintColor: overMapHeaderTint({ overHero: false, isDark }) }}
-        />
-        <View style={{ height: insets.top + HERO_HEADER_HEIGHT }} />
+        <Stack.Screen options={headerOptions} />
         <View style={styles.loadingContainer}>
           {timedOut ? (
-            <ErrorStatePreset message={t('activitySummary.unavailable')} onRetry={retryBody} />
+            <ErrorState
+              error={undefined}
+              fallbackKey="activitySummary.unavailable"
+              onRetry={retryBody}
+            />
+          ) : refusedWithFix ? (
+            <BodyNotDownloaded
+              testID="activity-detail-not-downloaded"
+              style={styles.waiting}
+              textStyle={{ color: isDark ? darkColors.textSecondary : colors.textSecondary }}
+              message={t('activitySummary.notDownloaded')}
+              status={bodyStatus}
+              onRetry={retryBody}
+            />
           ) : (
             <View testID="activity-detail-waiting" style={styles.waiting}>
               <ActivityIndicator
@@ -437,14 +465,16 @@ export function ActivityDetailScreenContent({
     return (
       <ScreenSafeAreaView
         testID="activity-detail-screen"
+        hasNativeHeader
         style={[styles.container, isDark && styles.containerDark]}
       >
-        <Stack.Screen
-          options={{ headerTintColor: overMapHeaderTint({ overHero: false, isDark }) }}
-        />
-        <View style={{ height: insets.top + HERO_HEADER_HEIGHT }} />
+        <Stack.Screen options={headerOptions} />
         <View style={styles.loadingContainer}>
-          <ErrorStatePreset message={t('activityDetail.failedToLoad')} onRetry={() => refetch()} />
+          <ErrorState
+            error={error}
+            fallbackKey="activityDetail.failedToLoad"
+            onRetry={() => refetch()}
+          />
         </View>
       </ScreenSafeAreaView>
     );
@@ -455,30 +485,7 @@ export function ActivityDetailScreenContent({
       testID="activity-detail-screen"
       style={[styles.container, isDark && styles.containerDark]}
     >
-      {/* Simple header for non-GPS, non-strength activities */}
-      {!hasGpsData && !isStrength && (
-        <>
-          <Stack.Screen
-            options={{ headerTintColor: overMapHeaderTint({ overHero: false, isDark }) }}
-          />
-          <View
-            style={[
-              styles.noMapHeader,
-              { paddingTop: insets.top + HERO_HEADER_HEIGHT },
-              isDark && styles.noMapHeaderDark,
-            ]}
-          >
-            <View style={styles.noMapHeaderText}>
-              <Text
-                numberOfLines={1}
-                style={[styles.noMapTitle, isDark && { color: darkColors.textPrimary }]}
-              >
-                {activity.name}
-              </Text>
-            </View>
-          </View>
-        </>
-      )}
+      <Stack.Screen options={headerOptions} />
 
       {/* Strength Training hero - body diagrams with overlay (back button, name, date, duration) */}
       {isStrength && (
@@ -566,6 +573,7 @@ export function ActivityDetailScreenContent({
           engineSectionCount={engineSectionCount}
           customSectionCount={customMatchedSections.length}
           maxHR={detail?.maxHR}
+          maxHrSource={detail?.maxHrSource}
           fitnessImpact={detail?.fitnessImpact}
           newGround={newGround}
           hrZones={detail?.hrZones}
@@ -673,24 +681,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.xl + BOTTOM_BAR_HEIGHT,
   },
-  noMapHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.xs,
-    backgroundColor: colors.background,
-  },
-  noMapHeaderDark: {
-    backgroundColor: darkColors.background,
-  },
-  noMapHeaderText: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  noMapTitle: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
   descriptionContainer: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -700,7 +690,7 @@ const styles = StyleSheet.create({
   },
   descriptionContainerDark: {
     backgroundColor: darkColors.surface,
-    borderBottomColor: darkColors.border,
+    borderBottomColor: darkColors.divider,
   },
   descriptionText: {
     fontSize: typography.bodySmall.fontSize,

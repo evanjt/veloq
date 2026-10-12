@@ -1,6 +1,6 @@
 import React from 'react';
-import { View } from 'react-native';
-import { render } from '@testing-library/react-native';
+import { AccessibilityInfo, Platform, View } from 'react-native';
+import { act, render } from '@testing-library/react-native';
 import DetectionSettingsScreen from '@/app/detection-settings';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 
@@ -49,18 +49,38 @@ jest.mock('react-native-iap', () => ({
   ErrorCode: {},
 }));
 
-jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
-
-const mockRescan = { isScanning: false, stillRunning: false, failed: false };
-jest.mock('@/features/routes/hooks/useSectionRescan', () => ({
-  useSectionRescan: () => ({
-    forceRescan: jest.fn(),
-    isScanning: mockRescan.isScanning,
-    stillRunning: mockRescan.stillRunning,
-    result: null,
-    failed: mockRescan.failed,
-    clearResult: jest.fn(),
+// The key alone, or the key with its interpolation values when they are an
+// object, so a count reaches the rendered text and a string default does not.
+jest.mock('react-i18next', () => ({
+  ...jest.requireActual('react-i18next'),
+  useTranslation: () => ({
+    t: (key: string, arg?: unknown) =>
+      arg !== null && typeof arg === 'object' ? `${key}:${JSON.stringify(arg)}` : key,
   }),
+}));
+
+const mockRescan: {
+  isScanning: boolean;
+  stillRunning: boolean;
+  failed: boolean;
+  result: { before: number; after: number } | null;
+} = { isScanning: false, stillRunning: false, failed: false, result: null };
+// Holds the result in state, as the hook does, so a screen that clears it is
+// seen to clear it.
+jest.mock('@/features/routes/hooks/useSectionRescan', () => ({
+  useSectionRescan: () => {
+    const { useState } = require('react');
+    const [result, setResult] = useState(mockRescan.result);
+    return {
+      forceRescan: jest.fn(),
+      isScanning: mockRescan.isScanning,
+      stillRunning: mockRescan.stillRunning,
+      result,
+      failed: mockRescan.failed,
+      refusal: null,
+      clearResult: () => setResult(null),
+    };
+  },
 }));
 
 // Hoisted past the mock factory as a declaration, so the factory can reach it.
@@ -79,6 +99,7 @@ function mockPlaceNamesSwitch() {
 // The barrel no longer exports `DetectionIllustration`, so a screen that went
 // back to rendering it would render `undefined` and every test here would fail.
 jest.mock('@/features/settings/components', () => ({
+  ...jest.requireActual('@/features/settings/components'),
   BackgroundJobsActivityBar: mockActivityBar,
   ElevationBackfillStatus: mockElevationStatus,
   CutoverStatus: () => null,
@@ -91,8 +112,8 @@ describe('detection settings screen', () => {
     mockGetSectionConfig.mockClear();
   });
 
-  it('offers no sensitivity sliders', () => {
-    const tree = render(<DetectionSettingsScreen />);
+  it('offers no sensitivity sliders', async () => {
+    const tree = await render(<DetectionSettingsScreen />);
     expect(
       tree.UNSAFE_queryAllByType(require('@react-native-community/slider').default)
     ).toHaveLength(0);
@@ -100,41 +121,41 @@ describe('detection settings screen', () => {
     expect(tree.queryByTestId('detection-advanced-panel')).toBeNull();
   });
 
-  it('offers no sensitivity presets', () => {
-    const tree = render(<DetectionSettingsScreen />);
+  it('offers no sensitivity presets', async () => {
+    const tree = await render(<DetectionSettingsScreen />);
     expect(tree.queryByText('settings.detectionSensitivity')).toBeNull();
     expect(tree.queryByText('settings.balanced')).toBeNull();
     expect(tree.queryByText('settings.default')).toBeNull();
   });
 
-  it('never writes the detector config from this screen', () => {
-    render(<DetectionSettingsScreen />);
+  it('never writes the detector config from this screen', async () => {
+    await render(<DetectionSettingsScreen />);
     expect(mockSetSectionConfig).not.toHaveBeenCalled();
   });
 
-  it('keeps the rescan button and the route into the preview', () => {
-    const tree = render(<DetectionSettingsScreen />);
+  it('keeps the rescan button and the route into the preview', async () => {
+    const tree = await render(<DetectionSettingsScreen />);
     expect(tree.getByTestId('detection-rescan-button')).toBeTruthy();
     expect(tree.getByTestId('detection-preview-row')).toBeTruthy();
   });
 
-  it('offers the place names switch beside route matching', () => {
-    const tree = render(<DetectionSettingsScreen />);
+  it('offers the place names switch beside route matching', async () => {
+    const tree = await render(<DetectionSettingsScreen />);
     expect(tree.getByTestId('place-names-switch')).toBeTruthy();
   });
 
-  it('shows the activity bar on the screen that starts detection', () => {
-    const tree = render(<DetectionSettingsScreen />);
+  it('shows the activity bar on the screen that starts detection', async () => {
+    const tree = await render(<DetectionSettingsScreen />);
     expect(tree.getByTestId('background-jobs-activity')).toBeTruthy();
   });
 
-  it('reads no detector config, since nothing on the screen draws it', () => {
-    render(<DetectionSettingsScreen />);
+  it('reads no detector config, since nothing on the screen draws it', async () => {
+    await render(<DetectionSettingsScreen />);
     expect(mockGetSectionConfig).not.toHaveBeenCalled();
   });
 
-  it('puts the preview above the re-analyse button', () => {
-    const tree = render(<DetectionSettingsScreen />);
+  it('puts the preview above the re-analyse button', async () => {
+    const tree = await render(<DetectionSettingsScreen />);
     const order = tree.root
       .findAll((node) => typeof node.props.testID === 'string')
       .map((node) => node.props.testID as string);
@@ -146,10 +167,10 @@ describe('detection settings screen', () => {
   });
 });
 
-it('keeps elevation controls enabled when route matching is off', () => {
+it('keeps elevation controls enabled when route matching is off', async () => {
   useRouteSettings.setState((state) => ({ settings: { ...state.settings, enabled: false } }));
   try {
-    const tree = render(<DetectionSettingsScreen />);
+    const tree = await render(<DetectionSettingsScreen />);
     let node = tree.getByTestId('elevation-backfill-status').parent;
     while (node) {
       expect(node.props.pointerEvents).not.toBe('none');
@@ -174,27 +195,133 @@ describe('a rescan the screen stops watching', () => {
     mockRescan.failed = false;
   });
 
-  it('says nothing while the run is inside its budget', () => {
+  it('says nothing while the run is inside its budget', async () => {
     mockRescan.isScanning = true;
 
     expect(
-      render(<DetectionSettingsScreen />).queryByTestId('detection-rescan-still-running')
+      await (
+        await render(<DetectionSettingsScreen />)
+      ).queryByTestId('detection-rescan-still-running')
     ).toBeNull();
   });
 
-  it('tells the athlete the run is still going and the screen can be left', () => {
+  it('tells the athlete the run is still going and the screen can be left', async () => {
     mockRescan.stillRunning = true;
 
-    const tree = render(<DetectionSettingsScreen />);
+    const tree = await render(<DetectionSettingsScreen />);
     expect(tree.getByTestId('detection-rescan-still-running')).toBeTruthy();
     expect(tree.queryByText('settings.rescanFailed')).toBeNull();
   });
 
-  it('keeps the failure wording for a failure the engine reported', () => {
+  it('keeps the failure wording for a failure the engine reported', async () => {
     mockRescan.failed = true;
 
-    const tree = render(<DetectionSettingsScreen />);
+    const tree = await render(<DetectionSettingsScreen />);
     expect(tree.getByText('settings.rescanFailed')).toBeTruthy();
     expect(tree.queryByTestId('detection-rescan-still-running')).toBeNull();
   });
 });
+
+/**
+ * Scenario: with route matching off, the previews and Reanalyse cannot run.
+ * They were dimmed by an opacity wrapper, which a screen reader cannot hear, so
+ * VoiceOver and TalkBack announced them as live buttons that did nothing.
+ *
+ * Expected behaviour: each control reports itself disabled and refuses the
+ * press, and a caption says why.
+ */
+describe('with route matching off', () => {
+  const CONTROLS = [
+    'detection-preview-row',
+    'route-grouping-preview-row',
+    'detection-rescan-button',
+  ];
+
+  function renderWithMatching(enabled: boolean) {
+    useRouteSettings.setState((state) => ({ settings: { ...state.settings, enabled } }));
+    return render(<DetectionSettingsScreen />);
+  }
+
+  afterEach(() => {
+    useRouteSettings.setState((state) => ({ settings: { ...state.settings, enabled: true } }));
+  });
+
+  it.each(CONTROLS)('reports %s as disabled', async (testID) => {
+    const tree = await renderWithMatching(false);
+    expect(tree.getByTestId(testID).props.accessibilityState).toMatchObject({ disabled: true });
+    expect(tree.getByTestId(testID)).toBeDisabled();
+  });
+
+  it('says route matching is off', async () => {
+    const tree = await renderWithMatching(false);
+    expect(tree.getByTestId('detection-matching-off')).toHaveTextContent(
+      'settings.routeMatchingOff'
+    );
+  });
+
+  it.each(CONTROLS)('reports %s as enabled with matching on', async (testID) => {
+    const tree = await renderWithMatching(true);
+    expect(tree.getByTestId(testID).props.accessibilityState?.disabled ?? false).toBe(false);
+    expect(tree.queryByTestId('detection-matching-off')).toBeNull();
+  });
+});
+
+/**
+ * Scenario: a rescan finishes and the screen prints what it found.
+ *
+ * Expected behaviour: the line names the count before and after, stays until
+ * the athlete does something else, and is spoken on arrival.
+ */
+describe('a finished rescan', () => {
+  const os = Platform.OS;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    Platform.OS = 'ios';
+    (AccessibilityInfo.announceForAccessibility as jest.Mock).mockClear();
+    mockRescan.result = { before: 40, after: 42 };
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+    Platform.OS = os;
+    mockRescan.result = null;
+  });
+
+  it('keeps the before and after on screen past any timeout and announces both', async () => {
+    const tree = await render(<DetectionSettingsScreen />);
+
+    await act(() => jest.advanceTimersByTime(6000));
+
+    const line = tree.getByTestId('detection-rescan-result');
+    expect(line).toHaveTextContent(/"before":40/);
+    expect(line).toHaveTextContent(/"after":42/);
+    expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(
+      expect.stringMatching(/"before":40.*"after":42/)
+    );
+  });
+
+  it('marks the result as a polite live region and a failure as an assertive one', async () => {
+    const polite = await render(<DetectionSettingsScreen />);
+    expect(liveRegionOf(polite.getByTestId('detection-rescan-result'))).toBe('polite');
+    await polite.unmount();
+
+    mockRescan.result = null;
+    mockRescan.failed = true;
+    try {
+      const assertive = await render(<DetectionSettingsScreen />);
+      expect(liveRegionOf(assertive.getByText('settings.rescanFailed'))).toBe('assertive');
+    } finally {
+      mockRescan.failed = false;
+    }
+  });
+});
+
+function liveRegionOf(node: { props: Record<string, unknown>; parent: unknown }): unknown {
+  let at: { props: Record<string, unknown>; parent: unknown } | null = node;
+  while (at) {
+    if (at.props.accessibilityLiveRegion) return at.props.accessibilityLiveRegion;
+    at = at.parent as typeof at;
+  }
+  return undefined;
+}

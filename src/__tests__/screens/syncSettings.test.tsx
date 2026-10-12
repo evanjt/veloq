@@ -59,14 +59,14 @@ jest.mock('@/features/settings/components', () => ({
 }));
 
 describe('SyncSettingsScreen', () => {
-  it('shows the activity bar above the controls', () => {
-    const tree = render(<SyncSettingsScreen />);
+  it('shows the activity bar above the controls', async () => {
+    const tree = await render(<SyncSettingsScreen />);
 
     expect(tree.getByTestId('background-jobs-activity')).toBeTruthy();
   });
 
-  it('keeps its own sync row, which the link does not replace', () => {
-    const tree = render(<SyncSettingsScreen />);
+  it('keeps its own sync row, which the link does not replace', async () => {
+    const tree = await render(<SyncSettingsScreen />);
 
     expect(tree.getByTestId('activity-sync-row')).toBeTruthy();
     expect(tree.getByTestId('sync-range-panel')).toBeTruthy();

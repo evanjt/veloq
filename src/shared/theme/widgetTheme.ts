@@ -60,7 +60,7 @@ export interface WidgetPalette {
   trendUp: string;
   /** A declining trend (the negative rung). */
   trendDown: string;
-  /** A flat trend, or one with no judgement (faint grey). */
+  /** A flat trend, or one with no judgement: the ladder's neutral grey. */
   trendFlat: string;
   /** Amber text: an age line past the point the numbers can still be called current. */
   warning: string;
@@ -87,7 +87,7 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     textSecondary: colors.textSecondary,
     primary: brand.tealLight,
     textOnPrimary: colors.textOnPrimary,
-    gold: brand.gold,
+    gold: colors.chartGoldMark,
     blue: brand.blueDark,
     fatigue: colors.fatigue,
     chartFitness: colors.fitnessBlue,
@@ -105,7 +105,7 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     formTransitionText: colors.formTransitionText,
     trendUp: verdictColor('positive', false),
     trendDown: verdictColor('negative', false),
-    trendFlat: colors.textDisabled,
+    trendFlat: verdictColor('neutral', false),
     warning: colors.warningAmber,
     toneNegative: insightToneColor('negative', false),
     toneCaution: insightToneColor('caution', false),
@@ -125,7 +125,7 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     textSecondary: darkColors.textSecondary,
     primary: brand.tealDark,
     textOnPrimary: colors.textOnPrimary,
-    gold: brand.gold,
+    gold: darkColors.chartGoldMark,
     blue: brand.blue,
     fatigue: darkColors.chartFatigue,
     chartFitness: colors.fitnessBlue,
@@ -143,7 +143,7 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     formTransitionText: darkColors.formTransitionText,
     trendUp: verdictColor('positive', true),
     trendDown: verdictColor('negative', true),
-    trendFlat: darkColors.textDisabled,
+    trendFlat: verdictColor('neutral', true),
     warning: darkColors.warningAmber,
     toneNegative: insightToneColor('negative', true),
     toneCaution: insightToneColor('caution', true),

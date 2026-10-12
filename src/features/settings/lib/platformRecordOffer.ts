@@ -9,7 +9,6 @@
  * athlete's or a newer format's, is left alone.
  */
 
-import { Alert } from 'react-native';
 import type { TFunction } from 'i18next';
 import * as FileSystem from 'expo-file-system/legacy';
 
@@ -17,6 +16,7 @@ import { platformRecordUri } from '@/shared/storage/platformRecord';
 import { debug } from '@/shared/debug/debug';
 import { isPlatformRecordAnswered, markPlatformRecordAnswered } from './autobackup/autoBackup';
 import { checkRecordBackup, restoreRecordBackup } from './backup';
+import { inform } from '@/shared/ui/dialog';
 
 const log = debug.create('PlatformRecord');
 
@@ -40,16 +40,16 @@ export async function platformRecordToOffer(activityCount: number): Promise<stri
 async function restorePlatformRecord(uri: string, t: TFunction): Promise<void> {
   try {
     await restoreRecordBackup(uri);
-    Alert.alert(t('backup.restoreComplete'), t('backup.recordRestored'));
+    inform({ title: t('backup.restoreComplete'), message: t('backup.recordRestored') });
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
     log.warn('Platform record restore refused:', message);
-    Alert.alert(
-      t('common.error'),
-      message.includes('another athlete')
+    inform({
+      title: t('backup.notRestoredTitle'),
+      message: message.includes('another athlete')
         ? t('backup.backupDifferentAccount')
-        : t('backup.importError')
-    );
+        : t('backup.importError'),
+    });
   }
 }
 

@@ -30,6 +30,7 @@ jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
+  Stack: Object.assign(() => null, { Screen: () => null }),
   useLocalSearchParams: () => ({ id: 'sec-quarry' }),
   useFocusEffect: () => {},
   router: { back: jest.fn(), push: jest.fn(), replace: jest.fn() },
@@ -176,7 +177,7 @@ jest.mock('@/shared/native/engine', () => ({
 
 async function openSection() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const screen = render(
+  const screen = await render(
     <QueryClientProvider client={client}>
       <SectionDetailScreen />
     </QueryClientProvider>
@@ -206,7 +207,7 @@ describe('section page curves owed', () => {
     const screen = await openSection();
 
     await act(async () => {
-      fireEvent.press(screen.getByTestId('sport-pill-Run'));
+      await fireEvent.press(screen.getByTestId('sport-pill-Run'));
     });
 
     expect(mockEngine.getSectionDetailPerformance).toHaveBeenLastCalledWith(

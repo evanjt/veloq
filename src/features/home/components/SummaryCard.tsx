@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, StyleSheet, Pressable, Image, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, Pressable, Image } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { runWhenIdle } from '@/shared/async/runWhenIdle';
@@ -10,12 +10,15 @@ import { colors, darkColors, spacing, layout, typography, shadows, opacity } fro
 import { SummaryCardSparkline, SPARKLINE_MIN_DAYS, type ScrubValues } from './SummaryCardSparkline';
 import { SummaryCardHRVSparkline } from './SummaryCardHRVSparkline';
 import { Card } from '@/shared/ui/Card';
+import { useMeasuredWidth } from '@/shared/charts';
 import { useTranslation } from 'react-i18next';
 import { getFormZone, formatForm, formZoneTextColor } from '@/features/fitness';
+import { summaryMetricTextColor } from '@/features/home/lib/summaryMetricColour';
 import { debug } from '@/shared/debug/debug';
 import type { TrendGlyph } from '@/shared/format/trend';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { formatSignedChange } from '../lib/fitnessChange';
+import { ABSENT, absentLabel } from '@/shared/format/absent';
 
 const log = debug.create('SummaryCard');
 
@@ -28,7 +31,11 @@ const SHIMMER_METRIC_WIDTH = 28;
  */
 interface SupportingMetric {
   label: string;
+  /** The metric's name for a screen reader, the only thing it hears while values load. */
+  name?: string | undefined;
   value: string | number;
+  /** The unit the value is read in, drawn after it. */
+  unit?: string | undefined;
   color?: string | undefined;
   trend?: TrendGlyph | undefined;
   /** What a screen reader hears: the value, and what its arrow was judged against. */
@@ -120,7 +127,8 @@ export const SummaryCard = React.memo(function SummaryCard({
   isLoading = false,
 }: SummaryCardProps) {
   const { t } = useTranslation();
-  const { width: windowWidth } = useWindowDimensions();
+  // The sparkline row fills the card, so its width is the card's inner width.
+  const { width: sparklineWidth, onLayout: onSparklineLayout } = useMeasuredWidth();
   if (__DEV__) {
     const start = performance.now();
     // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -164,11 +172,11 @@ export const SummaryCard = React.memo(function SummaryCard({
   const fitnessChange = formatSignedChange(fitnessDelta);
 
   // During scrub, override the hero display
-  // Headline numbers, so they are text and hold 4.5:1. The series fills they
-  // read from are 2.66:1 and 3.17:1 on the light card.
-  const fitnessTextColor = isDark ? darkColors.fitnessBlueText : colors.fitnessBlueText;
+  // Headline numbers, so they are text and hold 4.5:1. The scrub readout sets
+  // the same values the card does, in the same colours.
+  const fitnessTextColor = summaryMetricTextColor('fitness', isDark);
   const fatigueTextColor = isDark ? darkColors.chartPinkText : colors.chartPinkText;
-  const hrvTextColor = isDark ? darkColors.chartHrvText : colors.chartHrvText;
+  const hrvTextColor = summaryMetricTextColor('hrv', isDark);
 
   // Current fitness sparkline values (latest or scrubbed)
   const lastIdx = fitnessData ? fitnessData.length - 1 : 0;
@@ -187,7 +195,7 @@ export const SummaryCard = React.memo(function SummaryCard({
       ? isHrvMode
         ? (scrubValues.hrv ?? heroValue)
         : isFormMode
-          ? (formatForm(scrubValues.form, scrubValues.fitness, asPercent) ?? '-')
+          ? (formatForm(scrubValues.form, scrubValues.fitness, asPercent) ?? ABSENT)
           : scrubValues.fitness
       : heroValue;
   const displayColor =
@@ -205,21 +213,18 @@ export const SummaryCard = React.memo(function SummaryCard({
 
   // Current HRV sparkline values (latest or scrubbed)
   const hrvLastIdx = hrvData ? hrvData.length - 1 : 0;
-  // A scrubbed day with no reading of its own reads '-', not the value the
+  // A scrubbed day with no reading of its own reads the absent mark, not the value the
   // line carries over it from an earlier day.
   const currentHrv = scrubValues
     ? scrubValues.hrv === null
-      ? '-'
+      ? ABSENT
       : (scrubValues.hrv ?? hrvData?.[hrvLastIdx] ?? 0)
     : (hrvData?.[hrvLastIdx] ?? 0);
   const currentRhr = scrubValues
     ? scrubValues.rhr === null
-      ? '-'
+      ? ABSENT
       : (scrubValues.rhr ?? null)
     : (rhrData?.[hrvLastIdx] ?? null);
-
-  // Compute explicit sparkline width (screen minus card margins and padding)
-  const sparklineWidth = windowWidth - layout.screenPadding * 2 - spacing.md * 2;
 
   return (
     <View>
@@ -307,7 +312,7 @@ export const SummaryCard = React.memo(function SummaryCard({
                       ]}
                     >
                       {isFormMode
-                        ? (formatForm(currentForm, currentFitness, asPercent) ?? '-')
+                        ? (formatForm(currentForm, currentFitness, asPercent) ?? ABSENT)
                         : currentFitness}
                     </Text>
                     <Text
@@ -355,8 +360,12 @@ export const SummaryCard = React.memo(function SummaryCard({
                   <Text
                     testID="summary-card-hrv-value"
                     style={[styles.heroValueFixed, { color: hrvTextColor }]}
+                    accessibilityLabel={absentLabel(String(currentHrv), t)}
                   >
                     {currentHrv}
+                    {typeof currentHrv === 'number' ? (
+                      <Text style={styles.heroUnit}> {t('units.ms')}</Text>
+                    ) : null}
                   </Text>
                   <Text style={[styles.heroLabel, { color: hrvTextColor }]}>
                     {t('metrics.hrv')}
@@ -366,8 +375,12 @@ export const SummaryCard = React.memo(function SummaryCard({
                       <Text
                         testID="summary-card-rhr-value"
                         style={[styles.secondaryValueFixed, { color: rhrColor }]}
+                        accessibilityLabel={absentLabel(String(currentRhr), t)}
                       >
                         {currentRhr}
+                        {typeof currentRhr === 'number' ? (
+                          <Text style={styles.secondaryUnit}> {t('units.bpm')}</Text>
+                        ) : null}
                       </Text>
                       <Text style={[styles.secondaryLabel, { color: rhrColor }]}>
                         {t('metrics.rhr')}
@@ -379,6 +392,9 @@ export const SummaryCard = React.memo(function SummaryCard({
                 <View style={styles.heroValueRow}>
                   <Text style={[styles.heroValue, { color: displayColor }]}>
                     {formattedHeroValue}
+                    {isHrvMode && typeof displayValue === 'number' ? (
+                      <Text style={styles.heroUnit}> {t('units.ms')}</Text>
+                    ) : null}
                     {!scrubValues && heroTrend && <Text style={styles.heroTrend}>{heroTrend}</Text>}
                   </Text>
                   <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>
@@ -394,7 +410,11 @@ export const SummaryCard = React.memo(function SummaryCard({
 
           {/* Sparkline row - fitness or HRV depending on hero metric */}
           {fitnessSparkline && (
-            <View testID="summary-card-sparkline" style={styles.sparklineRow}>
+            <View
+              testID="summary-card-sparkline"
+              style={styles.sparklineRow}
+              onLayout={onSparklineLayout}
+            >
               <SummaryCardSparkline
                 fitnessData={fitnessSparkline.fitness}
                 fatigueData={fatigueData}
@@ -408,7 +428,11 @@ export const SummaryCard = React.memo(function SummaryCard({
             </View>
           )}
           {hrvSparkline && (
-            <View testID="summary-card-hrv-sparkline" style={styles.sparklineRow}>
+            <View
+              testID="summary-card-hrv-sparkline"
+              style={styles.sparklineRow}
+              onLayout={onSparklineLayout}
+            >
               <SummaryCardHRVSparkline
                 hrvData={hrvSparkline}
                 rhrData={rhrData}
@@ -434,7 +458,7 @@ export const SummaryCard = React.memo(function SummaryCard({
                 <Pressable
                   accessibilityRole="button"
                   testID={`summary-card-metric-${index}`}
-                  accessibilityLabel={isLoading ? undefined : metric.accessibilityLabel}
+                  accessibilityLabel={isLoading ? metric.name : metric.accessibilityLabel}
                   style={pressable(styles.supportingMetric)}
                   android_ripple={pressRipple}
                   onPress={() => tapTo(metric.navigationTarget)}
@@ -455,8 +479,10 @@ export const SummaryCard = React.memo(function SummaryCard({
                             metric.color || (isDark ? darkColors.textPrimary : colors.textPrimary),
                         },
                       ]}
+                      accessibilityLabel={absentLabel(String(metric.value), t)}
                     >
                       {metric.value}
+                      {metric.unit ? <Text style={styles.metricUnit}> {metric.unit}</Text> : null}
                       {metric.trend && <Text style={styles.metricTrend}>{metric.trend}</Text>}
                     </Text>
                   )}
@@ -582,6 +608,16 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     flexShrink: 1,
   },
+  heroUnit: {
+    fontSize: typography.bodySmall.fontSize,
+    fontWeight: '500',
+    letterSpacing: 0,
+  },
+  secondaryUnit: {
+    fontSize: typography.caption.fontSize,
+    fontWeight: '500',
+    letterSpacing: 0,
+  },
   heroTrend: {
     fontSize: typography.cardTitle.fontSize,
     marginLeft: spacing.xxs,
@@ -595,13 +631,12 @@ const styles = StyleSheet.create({
   sparklineRow: {
     marginTop: spacing.xs,
   },
-  // Supporting metrics row
+  // Supporting metrics row. The metrics fill the row's height rather than
+  // reaching it through slop, which would take the sparkline's taps above them.
   supportingRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
     flexWrap: 'wrap',
     gap: spacing.xxs,
   },
@@ -609,6 +644,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xxs,
+    minHeight: layout.minTapTarget,
   },
   metricLabel: {
     fontSize: typography.caption.fontSize,
@@ -619,6 +655,10 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
+  },
+  metricUnit: {
+    fontSize: typography.micro.fontSize,
+    fontWeight: '500',
   },
   metricTrend: {
     fontSize: typography.micro.fontSize,

@@ -1,11 +1,16 @@
 import { useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
-import { View, ScrollView, Keyboard } from 'react-native';
+import { View, Keyboard } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/shared/ui/Button';
+import { ScreenScrollView } from '@/shared/ui/ScreenScrollView';
 import { TextField } from '@/shared/ui/TextField';
 import { navigateTo } from '@/shared/app/navigation';
+import { useDiscardGuard } from '@/shared/app/useDiscardGuard';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { useMetricSystem } from '@/shared/app/useMetricSystem';
+import { parseDecimalInput } from '@/shared/format/decimalInput';
+import { longDistanceToMeters, longDistanceUnitLabel } from '@/shared/format/format';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import type { ActivityType } from '@/types';
 import { styles } from '../RecordingScreen.styles';
@@ -46,6 +51,7 @@ export function ManualEntryForm({
   prefill,
   rpe,
   above,
+  unsaved = false,
 }: {
   activityType: ActivityType;
   pairedEventId?: number | undefined;
@@ -53,8 +59,15 @@ export function ManualEntryForm({
   prefill?: ManualPrefill | undefined;
   rpe?: number | null | undefined;
   above?: ReactNode;
+  /** The form opens on input nothing has saved yet, such as a finished guided session. */
+  unsaved?: boolean | undefined;
 }) {
   const { t } = useTranslation();
+  const isMetric = useMetricSystem();
+  const distanceLabel = t('recording.distance', {
+    unit: longDistanceUnitLabel(isMetric),
+    defaultValue: 'Distance ({{unit}})',
+  });
 
   const [name, setName] = useState(prefill?.name ?? '');
   const [durationMinutes, setDurationMinutes] = useState(prefill?.durationMinutes ?? '');
@@ -67,6 +80,14 @@ export function ManualEntryForm({
   const [isNavigating, setIsNavigating] = useState(false);
   const stopWaiting = useRef<(() => void) | null>(null);
   useEffect(() => () => stopWaiting.current?.(), []);
+  useDiscardGuard(
+    unsaved ||
+      name !== (prefill?.name ?? '') ||
+      durationMinutes !== (prefill?.durationMinutes ?? '') ||
+      distance !== '' ||
+      avgHr !== '' ||
+      notes !== (prefill?.notes ?? '')
+  );
 
   const handleSave = useCallback(() => {
     Keyboard.dismiss();
@@ -87,17 +108,18 @@ export function ManualEntryForm({
 
     let hasError = false;
 
-    const mins = parseFloat(durationMinutes);
-    if (!Number.isFinite(mins) || mins <= 0) {
+    const mins = parseDecimalInput(durationMinutes);
+    if (mins == null || mins <= 0) {
       setDurationError(true);
       hasError = true;
     } else {
       setDurationError(false);
     }
 
+    // The cap is in the unit the athlete typed.
+    const dist = distance ? parseDecimalInput(distance) : null;
     if (distance) {
-      const dist = parseFloat(distance);
-      if (!Number.isFinite(dist) || dist < 0 || dist > 999) {
+      if (dist == null || dist < 0 || dist > 999) {
         setDistanceError(true);
         hasError = true;
       } else {
@@ -107,9 +129,9 @@ export function ManualEntryForm({
       setDistanceError(false);
     }
 
+    const hr = avgHr ? parseDecimalInput(avgHr) : null;
     if (avgHr) {
-      const hr = parseFloat(avgHr);
-      if (!Number.isFinite(hr) || hr < 30 || hr > 250) {
+      if (hr == null || hr < 30 || hr > 250) {
         setHrError(true);
         hasError = true;
       } else {
@@ -119,7 +141,7 @@ export function ManualEntryForm({
       setHrError(false);
     }
 
-    if (hasError) return;
+    if (hasError || mins == null) return;
 
     setIsNavigating(true);
 
@@ -133,8 +155,9 @@ export function ManualEntryForm({
           manual: 'true',
           name: name || undefined,
           durationSeconds: String(Math.round(mins * 60)),
-          distance: distance ? String(parseFloat(distance) * 1000) : undefined, // km to m
-          avgHr: avgHr || undefined,
+          distance:
+            dist != null ? String(Math.round(longDistanceToMeters(dist, isMetric))) : undefined,
+          avgHr: hr != null ? String(hr) : undefined,
           notes: notes || undefined,
           rpe: rpe != null ? String(rpe) : undefined,
         },
@@ -172,10 +195,14 @@ export function ManualEntryForm({
       cancelled = true;
       unsubscribe();
     };
-  }, [activityType, pairedEventId, name, durationMinutes, distance, avgHr, notes, rpe]);
+  }, [activityType, pairedEventId, name, durationMinutes, distance, avgHr, notes, rpe, isMetric]);
 
   return (
-    <ScrollView contentContainerStyle={[styles.manualForm, { paddingBottom: bottomPadding }]}>
+    // The caller pads the bottom edge itself, so the system adds no inset of its own.
+    <ScreenScrollView
+      contentInsetAdjustmentBehavior="never"
+      contentContainerStyle={[styles.manualForm, { paddingBottom: bottomPadding }]}
+    >
       {above}
       <TextField
         testID="manual-entry-name"
@@ -199,11 +226,11 @@ export function ManualEntryForm({
           if (durationError) setDurationError(false);
         }}
         placeholder="60"
-        keyboardType="numeric"
+        keyboardType="decimal-pad"
       />
       <TextField
         testID="manual-entry-distance"
-        label={t('recording.distance', 'Distance (km)')}
+        label={distanceLabel}
         error={
           distanceError
             ? t('recording.distanceInvalid', 'Please enter a valid distance (0-999).')
@@ -216,7 +243,7 @@ export function ManualEntryForm({
           if (distanceError) setDistanceError(false);
         }}
         placeholder="0"
-        keyboardType="numeric"
+        keyboardType="decimal-pad"
       />
       <TextField
         testID="manual-entry-hr"
@@ -231,19 +258,17 @@ export function ManualEntryForm({
           if (hrError) setHrError(false);
         }}
         placeholder="0"
-        keyboardType="numeric"
+        keyboardType="number-pad"
       />
       <TextField
         testID="manual-entry-notes"
         label={t('recording.notes', 'Notes')}
         style={styles.field}
-        inputStyle={styles.notesInput}
         value={notes}
         onChangeText={setNotes}
         placeholder={t('recording.notesPlaceholder', 'How did it feel?')}
         multiline
         numberOfLines={4}
-        textAlignVertical="top"
       />
 
       <TouchableButton
@@ -252,6 +277,6 @@ export function ManualEntryForm({
         onPress={handleSave}
         disabled={isNavigating}
       />
-    </ScrollView>
+    </ScreenScrollView>
   );
 }

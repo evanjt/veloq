@@ -37,8 +37,8 @@ beforeEach(() => {
 });
 
 describe('the excluded laps come from the screen read', () => {
-  it('reads nothing of its own: the lap list carries each lap flagged', () => {
-    renderHook(() => useSectionLaps('sec1'));
+  it('reads nothing of its own: the lap list carries each lap flagged', async () => {
+    await renderHook(() => useSectionLaps('sec1'));
 
     expect(visibility).not.toHaveProperty('getExcludedSectionLaps');
   });
@@ -54,8 +54,8 @@ describe('the ledger comes from the bundle', () => {
     pinnedVersion: 2,
   };
 
-  it('uses the bundled ledger and reads nothing', () => {
-    const { result } = renderHook(() => useSectionLedger('sec1', bundled));
+  it('uses the bundled ledger and reads nothing', async () => {
+    const { result } = await renderHook(() => useSectionLedger('sec1', bundled));
 
     expect(result.current.pinnedVersion).toBe(2);
     expect(result.current.versions.map((v) => v.version)).toEqual([2, 1]);
@@ -64,8 +64,8 @@ describe('the ledger comes from the bundle', () => {
     expect(engine.getPinnedSectionVersion).not.toHaveBeenCalled();
   });
 
-  it('reads nothing and is empty when the bundle carried none', () => {
-    const { result } = renderHook(() => useSectionLedger('sec1'));
+  it('reads nothing and is empty when the bundle carried none', async () => {
+    const { result } = await renderHook(() => useSectionLedger('sec1'));
 
     expect(result.current.history).toEqual([]);
     expect(engine.getSectionHistory).not.toHaveBeenCalled();
@@ -74,7 +74,7 @@ describe('the ledger comes from the bundle', () => {
   });
 
   it('leaves the ledger to the re-read bundle after a revert or an unpin', async () => {
-    const { result, rerender } = renderHook(
+    const { result, rerender } = await renderHook(
       ({ ledger }: { ledger: typeof bundled }) => useSectionLedger('sec1', ledger),
       { initialProps: { ledger: bundled } }
     );
@@ -87,7 +87,7 @@ describe('the ledger comes from the bundle', () => {
       sectionId: 'sec1',
       version: 1,
     });
-    act(() => {
+    await act(() => {
       expect(result.current.unpin()).toBe(true);
     });
     expect(engine.unpinSection).toHaveBeenCalledWith('sec1');
@@ -95,7 +95,7 @@ describe('the ledger comes from the bundle', () => {
     expect(engine.getSectionGeometryVersions).not.toHaveBeenCalled();
     expect(engine.getPinnedSectionVersion).not.toHaveBeenCalled();
 
-    rerender({
+    await rerender({
       ledger: {
         ...bundled,
         pinnedVersion: null,
@@ -109,7 +109,7 @@ describe('the ledger comes from the bundle', () => {
   it('does not touch the engine for a revert it was not asked to make', async () => {
     jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     engine.runSectionBoundsEdit.mockResolvedValueOnce(null);
-    const { result } = renderHook(() => useSectionLedger('sec1', bundled));
+    const { result } = await renderHook(() => useSectionLedger('sec1', bundled));
 
     await act(async () => {
       expect(await result.current.revert(1)).toBe(false);

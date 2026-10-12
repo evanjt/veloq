@@ -1,7 +1,7 @@
 import type { TFunction } from 'i18next';
 
 import { formatEpochDayUtc } from '@/shared/format/format';
-import { TREND_POLARITY, type TrendGlyph, type TrendMetric } from '@/shared/format/trend';
+import { glyphMove, type TrendGlyph, type TrendMetric } from '@/shared/format/trend';
 
 /**
  * What a summary card arrow was judged against, as the engine read it: an
@@ -26,15 +26,12 @@ export interface SummaryMetricLabelInput {
  * no polarity says only which way the number went.
  */
 function moveWord(t: TFunction, metric: TrendMetric, trend: TrendGlyph): string {
-  if (trend === '→') return t('summaryCardChange.trend.steady');
-  if (TREND_POLARITY[metric] === 'none') {
-    return trend === '↑'
-      ? t('summaryCardChange.trend.rising')
-      : t('summaryCardChange.trend.falling');
-  }
-  return trend === '↑'
-    ? t('summaryCardChange.trend.improved')
-    : t('summaryCardChange.trend.declined');
+  const { verdict, direction } = glyphMove(metric, trend);
+  if (verdict === 'improved') return t('summaryCardChange.trend.improved');
+  if (verdict === 'declined') return t('summaryCardChange.trend.declined');
+  if (direction === 'up') return t('summaryCardChange.trend.rising');
+  if (direction === 'down') return t('summaryCardChange.trend.falling');
+  return t('summaryCardChange.trend.steady');
 }
 
 /**

@@ -65,38 +65,38 @@ function renderRoute(props: Partial<React.ComponentProps<typeof RouteMapView>> =
 }
 
 describe('RouteMapView', () => {
-  it('mounts the route container and a map', () => {
-    renderRoute();
+  it('mounts the route container and a map', async () => {
+    await renderRoute();
 
     expect(screen.getByTestId('route-map-container')).toBeTruthy();
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
   });
 
-  it('opens fullscreen on tap when fullscreen is enabled', () => {
-    renderRoute({ enableFullscreen: true });
+  it('opens fullscreen on tap when fullscreen is enabled', async () => {
+    await renderRoute({ enableFullscreen: true });
 
     expect(screen.queryByTestId('map-fullscreen-close')).toBeNull();
 
-    fireEvent.press(screen.getByTestId('route-map-container'));
+    await fireEvent.press(screen.getByTestId('route-map-container'));
 
     expect(screen.getByTestId('map-fullscreen-close')).toBeTruthy();
 
-    fireEvent.press(screen.getByTestId('map-fullscreen-close'));
+    await fireEvent.press(screen.getByTestId('map-fullscreen-close'));
     expect(screen.queryByTestId('map-fullscreen-close')).toBeNull();
   });
 
-  it('calls the press handler instead of opening fullscreen', () => {
+  it('calls the press handler instead of opening fullscreen', async () => {
     const onPress = jest.fn();
-    renderRoute({ onPress });
+    await renderRoute({ onPress });
 
-    fireEvent.press(screen.getByTestId('route-map-container'));
+    await fireEvent.press(screen.getByTestId('route-map-container'));
 
     expect(onPress).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId('map-fullscreen-close')).toBeNull();
   });
 
-  it('renders highlighted traces from activity signatures', () => {
-    renderRoute({
+  it('renders highlighted traces from activity signatures', async () => {
+    await renderRoute({
       activitySignatures: {
         a1: { points: POINTS },
         a2: { points: POINTS.slice(0, 3) },
@@ -107,8 +107,8 @@ describe('RouteMapView', () => {
     expect(screen.getByTestId('route-map-container')).toBeTruthy();
   });
 
-  it('accepts a highlighted lap that is shorter than the route', () => {
-    renderRoute({
+  it('accepts a highlighted lap that is shorter than the route', async () => {
+    await renderRoute({
       activitySignatures: { a1: { points: POINTS } },
       highlightedLapPoints: POINTS.slice(1, 3),
     });
@@ -117,50 +117,54 @@ describe('RouteMapView', () => {
   });
 
   describe('degenerate input', () => {
-    it('falls back to a placeholder when the signature is missing', () => {
-      renderRoute({ routeGroup: routeGroup(null) });
+    it('falls back to a placeholder when the signature is missing', async () => {
+      await renderRoute({ routeGroup: routeGroup(null) });
 
       expect(screen.queryByTestId('route-map-container')).toBeNull();
       expect(screen.queryByTestId('maplibre-map')).toBeNull();
     });
 
-    it('falls back to a placeholder for an empty point list', () => {
-      renderRoute({ routeGroup: routeGroup({ points: [], distance: 0 }) });
+    it('falls back to a placeholder for an empty point list', async () => {
+      await renderRoute({ routeGroup: routeGroup({ points: [], distance: 0 }) });
 
       expect(screen.queryByTestId('route-map-container')).toBeNull();
     });
 
-    it('renders a single-point route without a line', () => {
-      expect(() =>
-        renderRoute({ routeGroup: routeGroup({ points: [POINTS[0]], distance: 0 }) })
-      ).not.toThrow();
+    it('renders a single-point route without a line', async () => {
+      await expect(
+        (async () =>
+          renderRoute({ routeGroup: routeGroup({ points: [POINTS[0]], distance: 0 }) }))()
+      ).resolves.not.toThrow();
     });
 
-    it('drops non-finite points rather than throwing', () => {
+    it('drops non-finite points rather than throwing', async () => {
       const dirty: RoutePoint[] = [
         { lat: NaN, lng: 7.447 },
         { lat: 46.949, lng: Infinity },
         ...POINTS,
       ];
 
-      expect(() =>
-        renderRoute({ routeGroup: routeGroup({ points: dirty, distance: 1 }) })
-      ).not.toThrow();
+      await expect(
+        (async () => renderRoute({ routeGroup: routeGroup({ points: dirty, distance: 1 }) }))()
+      ).resolves.not.toThrow();
       expect(screen.getByTestId('route-map-container')).toBeTruthy();
     });
 
-    it('ignores activity signatures that are too short to draw', () => {
-      expect(() =>
-        renderRoute({
-          activitySignatures: { a1: { points: [POINTS[0]] }, a2: { points: [] } },
-          highlightedActivityId: 'a1',
-        })
-      ).not.toThrow();
+    it('ignores activity signatures that are too short to draw', async () => {
+      await expect(
+        (async () =>
+          renderRoute({
+            activitySignatures: { a1: { points: [POINTS[0]] }, a2: { points: [] } },
+            highlightedActivityId: 'a1',
+          }))()
+      ).resolves.not.toThrow();
       expect(screen.getByTestId('route-map-container')).toBeTruthy();
     });
 
-    it('ignores a highlighted activity that has no trace', () => {
-      expect(() => renderRoute({ highlightedActivityId: 'missing' })).not.toThrow();
+    it('ignores a highlighted activity that has no trace', async () => {
+      await expect(
+        (async () => renderRoute({ highlightedActivityId: 'missing' }))()
+      ).resolves.not.toThrow();
       expect(screen.getByTestId('route-map-container')).toBeTruthy();
     });
   });

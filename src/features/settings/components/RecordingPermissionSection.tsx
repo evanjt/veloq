@@ -5,13 +5,14 @@ import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useTheme } from '@/shared/app';
+import { StatusLine } from '@/shared/ui';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import {
   useUploadPermissionStore,
   usePermissionUpgrade,
   GrantAccessButton,
 } from '@/features/recording';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, typography, themedStyles, type Palette } from '@/theme';
 import { ListSectionHeader } from '@/shared/ui/ListSectionHeader';
 import { settingsStyles } from './settingsStyles';
 
@@ -22,6 +23,7 @@ import { settingsStyles } from './settingsStyles';
  */
 export function RecordingPermissionSection() {
   const { isDark } = useTheme();
+  const styles = themedStyles(makeStyles, isDark);
   const { t } = useTranslation();
   const authMethod = useAuthStore((s) => s.authMethod);
   const hasWritePermission = useUploadPermissionStore((s) => s.hasWritePermission);
@@ -46,7 +48,7 @@ export function RecordingPermissionSection() {
             <Text style={[styles.statusText, isDark && settingsStyles.textLight]}>
               {t('recording.writePermissionNotGranted', 'Write permission not granted')}
             </Text>
-            <Text style={[styles.description, isDark && settingsStyles.textSecondary]}>
+            <Text style={styles.description}>
               {t(
                 'recording.writePermissionLocalOnly',
                 'Recording works without it. The ride stays on this device until you grant upload access.'
@@ -61,9 +63,11 @@ export function RecordingPermissionSection() {
           />
         </View>
         {error ? (
-          <Text style={[styles.errorText, isDark && styles.errorTextDark]} numberOfLines={2}>
-            {error}
-          </Text>
+          <StatusLine tone="error" message={error}>
+            <Text style={[styles.errorText, isDark && styles.errorTextDark]} numberOfLines={2}>
+              {error}
+            </Text>
+          </StatusLine>
         ) : null}
       </View>
     </>
@@ -72,35 +76,36 @@ export function RecordingPermissionSection() {
 
 const PERMISSION_ICON_WIDTH = 22;
 
-const styles = StyleSheet.create({
-  card: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  textContainer: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  statusText: {
-    ...typography.body,
-    color: colors.textPrimary,
-  },
-  description: {
-    ...typography.bodyCompact,
-    color: colors.textSecondary,
-  },
-  errorText: {
-    ...typography.caption,
-    color: colors.errorDeep,
-    marginTop: spacing.xs,
-    marginLeft: PERMISSION_ICON_WIDTH + spacing.sm,
-  },
-  errorTextDark: {
-    color: darkColors.errorDeep,
-  },
-});
+const makeStyles = (palette: Palette) =>
+  StyleSheet.create({
+    card: {
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    textContainer: {
+      flex: 1,
+      gap: spacing.xs,
+    },
+    statusText: {
+      ...typography.body,
+      color: colors.textPrimary,
+    },
+    description: {
+      ...typography.bodyCompact,
+      color: palette.textSecondary,
+    },
+    errorText: {
+      ...typography.caption,
+      color: palette.errorDeep,
+      marginTop: spacing.xs,
+      marginLeft: PERMISSION_ICON_WIDTH + spacing.sm,
+    },
+    errorTextDark: {
+      color: darkColors.errorDeep,
+    },
+  });

@@ -50,31 +50,33 @@ beforeEach(() => {
 
 describe('the strip activity picker', () => {
   it('opens the sheet with the day activities and opens the chosen one', async () => {
-    const tree = render(strip('2026-03-10'));
-    fireEvent.press(tree.getByText(/fitness\.activitiesCount/));
+    const tree = await render(strip('2026-03-10'));
+    void fireEvent.press(tree.getByText(/fitness\.activitiesCount/));
     const sheet = pushedRoutes()[0];
     expect(sheet.pathname).toBe('sheets/day-activities');
 
     mockParams.request = sheet.params.request;
-    const reader = renderHook(() => useSheetRequest<{ activities: { id: string }[] }, string>());
+    const reader = await renderHook(() =>
+      useSheetRequest<{ activities: { id: string }[] }, string>()
+    );
     expect(reader.result.current.input?.activities.map((a) => a.id)).toEqual(['a1', 'a2', 'a3']);
-    act(() => reader.result.current.resolve('a2'));
-    reader.unmount();
+    await act(() => reader.result.current.resolve('a2'));
+    await reader.unmount();
     await act(async () => {});
     expect(pushedRoutes().at(-1)).toBe('/activity/a2');
   });
 
   it('opens nothing when the sheet is dismissed', async () => {
-    const tree = render(strip('2026-03-10'));
-    fireEvent.press(tree.getByText(/fitness\.activitiesCount/));
-    answerSheet(mockPush, mockParams, null);
+    const tree = await render(strip('2026-03-10'));
+    void fireEvent.press(tree.getByText(/fitness\.activitiesCount/));
+    await answerSheet(mockPush, mockParams, null);
     await act(async () => {});
     expect(pushedRoutes()).toHaveLength(1);
   });
 
-  it('goes straight to the activity on a one-activity day', () => {
-    const tree = render(strip('2026-03-11'));
-    fireEvent.press(tree.getByText(/Ride b1/));
+  it('goes straight to the activity on a one-activity day', async () => {
+    const tree = await render(strip('2026-03-11'));
+    await fireEvent.press(tree.getByText(/Ride b1/));
     expect(pushedRoutes()).toEqual(['/activity/b1']);
   });
 });

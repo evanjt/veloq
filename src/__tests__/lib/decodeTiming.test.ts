@@ -6,7 +6,7 @@
  * is on, returns what it decoded, and records nothing while it is off.
  */
 
-import { parseBodies, DECODE_ACTIVITY_BODIES } from '@/features/activity/hooks/useActivities';
+import { parseBodies, DECODE_ACTIVITY_BODIES } from '@/shared/native/storedActivities';
 import { DECODE_STREAMS, streamsFromBuffers } from '@/features/activity/lib/streams';
 import { buildPreviewTracks, DECODE_PREVIEW_TRACKS } from '@/features/home/hooks/useStartupData';
 import {

@@ -28,10 +28,10 @@ const METRICS = {
   movingTime: 200,
 };
 
-function renderGrid(metrics = METRICS) {
+async function renderGrid(metrics = METRICS) {
   const onEmptySensorTap = jest.fn();
   const onLongPressField = jest.fn();
-  const tree = render(
+  const tree = await render(
     <DataFieldGrid
       fields={['heartrate', 'power', 'cadence', 'speed']}
       metrics={metrics}
@@ -47,50 +47,50 @@ it.each([
   ['heartrate', 'heartRate'],
   ['power', 'power'],
   ['cadence', 'cadence'],
-])('opens pairing for %s when the tile is empty', (field, kind) => {
-  const { tree, onEmptySensorTap } = renderGrid();
-  fireEvent.press(tree.getByTestId(`data-field-${field}`));
+])('opens pairing for %s when the tile is empty', async (field, kind) => {
+  const { tree, onEmptySensorTap } = await renderGrid();
+  await fireEvent.press(tree.getByTestId(`data-field-${field}`));
   expect(onEmptySensorTap).toHaveBeenCalledWith(kind);
 });
 
-it('does nothing on a tap when the sensor tile has a value', () => {
-  const { tree, onEmptySensorTap } = renderGrid({ ...METRICS, heartrate: 140, power: 200 });
-  fireEvent.press(tree.getByTestId('data-field-heartrate'));
-  fireEvent.press(tree.getByTestId('data-field-power'));
+it('does nothing on a tap when the sensor tile has a value', async () => {
+  const { tree, onEmptySensorTap } = await renderGrid({ ...METRICS, heartrate: 140, power: 200 });
+  await fireEvent.press(tree.getByTestId('data-field-heartrate'));
+  await fireEvent.press(tree.getByTestId('data-field-power'));
   expect(onEmptySensorTap).not.toHaveBeenCalled();
 });
 
-it('does nothing on a tap for a non-sensor tile', () => {
-  const { tree, onEmptySensorTap } = renderGrid();
-  fireEvent.press(tree.getByTestId('data-field-speed'));
+it('does nothing on a tap for a non-sensor tile', async () => {
+  const { tree, onEmptySensorTap } = await renderGrid();
+  await fireEvent.press(tree.getByTestId('data-field-speed'));
   expect(onEmptySensorTap).not.toHaveBeenCalled();
 });
 
-it('announces a tile as a button only when a tap does something', () => {
-  const { tree } = renderGrid({ ...METRICS, power: 200 });
+it('announces a tile as a button only when a tap does something', async () => {
+  const { tree } = await renderGrid({ ...METRICS, power: 200 });
   expect(tree.getByTestId('data-field-heartrate').props.accessibilityRole).toBe('button');
   expect(tree.getByTestId('data-field-power').props.accessibilityRole).toBeUndefined();
   expect(tree.getByTestId('data-field-speed').props.accessibilityRole).toBeUndefined();
 });
 
-it('keeps the long press on an empty sensor tile for the field picker', () => {
-  const { tree, onEmptySensorTap, onLongPressField } = renderGrid();
-  fireEvent(tree.getByTestId('data-field-power'), 'longPress');
+it('keeps the long press on an empty sensor tile for the field picker', async () => {
+  const { tree, onEmptySensorTap, onLongPressField } = await renderGrid();
+  await fireEvent(tree.getByTestId('data-field-power'), 'longPress');
   expect(onLongPressField).toHaveBeenCalledWith(1, 'power');
   expect(onEmptySensorTap).not.toHaveBeenCalled();
 });
 
-it('waits through a riding bump before opening the field picker', () => {
+it('waits through a riding bump before opening the field picker', async () => {
   jest.useFakeTimers();
   try {
-    const { tree, onLongPressField } = renderGrid();
-    fireEvent(tree.getByTestId('data-field-power'), 'onResponderGrant', {
+    const { tree, onLongPressField } = await renderGrid();
+    await fireEvent(tree.getByTestId('data-field-power'), 'onResponderGrant', {
       persist: jest.fn(),
       nativeEvent: { pageX: 0, pageY: 0, locationX: 0, locationY: 0, timestamp: 0 },
     });
-    act(() => jest.advanceTimersByTime(400));
+    await act(() => jest.advanceTimersByTime(400));
     expect(onLongPressField).not.toHaveBeenCalled();
-    act(() => jest.advanceTimersByTime(100));
+    await act(() => jest.advanceTimersByTime(100));
     expect(onLongPressField).toHaveBeenCalledWith(1, 'power');
   } finally {
     jest.useRealTimers();

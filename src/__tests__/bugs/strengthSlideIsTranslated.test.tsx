@@ -29,7 +29,7 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => `[${key}]` }),
 }));
 
-function drawnText(tree: ReturnType<typeof render>): string[] {
+function drawnText(tree: Awaited<ReturnType<typeof render>>): string[] {
   return tree.root.findAllByType('Text' as never).flatMap((node) => {
     const child = (node.props as { children?: unknown }).children;
     return typeof child === 'string' ? [child] : [];
@@ -37,8 +37,8 @@ function drawnText(tree: ReturnType<typeof render>): string[] {
 }
 
 describe('the strength tour slide', () => {
-  it('draws no string that did not come from a translation key', () => {
-    const drawn = drawnText(render(<StrengthSlide />));
+  it('draws no string that did not come from a translation key', async () => {
+    const drawn = drawnText(await render(<StrengthSlide />));
 
     expect(drawn.length).toBeGreaterThan(0);
     for (const text of drawn) {
@@ -46,8 +46,8 @@ describe('the strength tour slide', () => {
     }
   });
 
-  it('names the volume split and its muscles through keys that exist', () => {
-    const drawn = drawnText(render(<StrengthSlide />));
+  it('names the volume split and its muscles through keys that exist', async () => {
+    const drawn = drawnText(await render(<StrengthSlide />));
     const lookup = en as unknown as Record<string, unknown>;
 
     for (const text of drawn) {

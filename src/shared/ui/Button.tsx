@@ -42,6 +42,7 @@ import {
   darkColors,
   ink as inkTone,
   layout,
+  opacity,
   slopToMinTapTarget,
   spacing,
   typography,
@@ -63,6 +64,8 @@ export interface ButtonProps {
   opensConfirm?: boolean;
   /** Swaps the label for a spinner and refuses the press, without resizing. */
   loading?: boolean;
+  /** The button opens and closes something, and this is whether it is open. */
+  expanded?: boolean;
   /** Sits beside the label, inside the same tap target. */
   icon?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
@@ -131,6 +134,7 @@ export function Button({
   disabled = false,
   loading = false,
   opensConfirm = false,
+  expanded,
   icon,
   style,
   testID,
@@ -153,7 +157,11 @@ export function Button({
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={{ disabled, busy: loading }}
+      accessibilityState={{
+        disabled,
+        busy: loading,
+        ...(expanded !== undefined && { expanded }),
+      }}
       hitSlop={BUTTON_SLOP[size]}
       android_ripple={inert ? undefined : ripple}
       disabled={inert}
@@ -165,7 +173,7 @@ export function Button({
           backgroundColor: skin.backgroundColor,
           borderColor: skin.borderColor,
           borderWidth: skin.borderWidth,
-          opacity: inert ? 0.5 : pressedOpacity(pressed),
+          opacity: inert ? opacity.disabled : pressedOpacity(pressed),
         },
         style,
       ]}
@@ -204,6 +212,8 @@ export interface ToggleButtonProps {
   ink?: string;
   /** A number after the label, drawn smaller in the label's ink, such as how many items the option holds. */
   count?: number;
+  /** What a tap does, when the label alone does not say it. Defaults to the label. */
+  accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
   testID?: string;
 }
@@ -228,6 +238,7 @@ export function ToggleButton({
   fill,
   ink,
   count,
+  accessibilityLabel,
   style,
   testID,
 }: ToggleButtonProps) {
@@ -239,7 +250,7 @@ export function ToggleButton({
     <Pressable
       testID={testID}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ selected, disabled }}
       hitSlop={CHIP_SLOP[size]}
       android_ripple={disabled ? undefined : ripple}
@@ -250,7 +261,7 @@ export function ToggleButton({
         size === 'sm' ? styles.chipSm : styles.chipMd,
         {
           backgroundColor: selected ? (fill ?? palette.primary) : chipWash(isDark),
-          opacity: disabled ? 0.5 : pressedOpacity(pressed),
+          opacity: disabled ? opacity.disabled : pressedOpacity(pressed),
         },
         style,
       ]}

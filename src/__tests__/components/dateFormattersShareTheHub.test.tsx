@@ -28,9 +28,9 @@ afterEach(() => {
 });
 
 describe('section summary card dates', () => {
-  it('renders First and Last through the hub axis date', () => {
+  it('renders First and Last through the hub axis date', async () => {
     jest.spyOn(hub, 'formatAxisDate').mockImplementation((d: Date) => `axis:${d.getFullYear()}`);
-    const { getByTestId } = render(
+    const { getByTestId } = await render(
       <SectionInfoCard
         firstActivityDate={new Date(2024, 0, 1)}
         lastActivityDate={new Date(2026, 2, 1)}
@@ -38,7 +38,7 @@ describe('section summary card dates', () => {
         bestReverseRecord={null}
         forwardStats={null}
         reverseStats={null}
-        sportType="Run"
+        basis="pace"
         isDark={false}
       />
     );
@@ -46,7 +46,7 @@ describe('section summary card dates', () => {
     expect(getByTestId('section-last')).toHaveTextContent('axis:2026');
   });
 
-  it('shows no First or Last until the engine dates a visit, and holds its place while pending', () => {
+  it('shows no First or Last until the engine dates a visit, and holds its place while pending', async () => {
     const props = {
       firstActivityDate: null,
       lastActivityDate: null,
@@ -54,14 +54,14 @@ describe('section summary card dates', () => {
       bestReverseRecord: null,
       forwardStats: null,
       reverseStats: null,
-      sportType: 'Run',
+      basis: 'pace' as const,
       isDark: false,
     };
-    const empty = render(<SectionInfoCard {...props} />);
+    const empty = await render(<SectionInfoCard {...props} />);
     expect(empty.queryByTestId('section-first')).toBeNull();
     expect(empty.queryByTestId('section-info-pending')).toBeNull();
 
-    const pending = render(<SectionInfoCard {...props} pending />);
+    const pending = await render(<SectionInfoCard {...props} pending />);
     expect(pending.getByTestId('section-info-pending')).toBeTruthy();
   });
 });

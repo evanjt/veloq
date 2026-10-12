@@ -55,7 +55,7 @@ const maxDate = new Date('2026-01-01T00:00:00Z');
 const startDate = new Date('2024-01-01T00:00:00Z');
 const endDate = new Date('2026-01-01T00:00:00Z');
 
-function renderSlider(resetKey: number) {
+async function renderSlider(resetKey: number) {
   const ui = (key: number) => (
     <TimelineSlider
       minDate={minDate}
@@ -66,8 +66,8 @@ function renderSlider(resetKey: number) {
       resetKey={key}
     />
   );
-  const view = render(ui(resetKey));
-  act(() => {
+  const view = await render(ui(resetKey));
+  await act(() => {
     view.getByTestId('timeline-slider-track').props.onLayout({
       nativeEvent: { layout: { width: TRACK_WIDTH } },
     });
@@ -75,25 +75,25 @@ function renderSlider(resetKey: number) {
   let current = resetKey;
   return {
     view,
-    rerenderWith: (key: number) => {
+    rerenderWith: async (key: number) => {
       current = key;
-      view.rerender(ui(key));
+      await view.rerender(ui(key));
     },
     settle: () => view.rerender(ui(current)),
   };
 }
 
-function startHandleLeft(view: ReturnType<typeof render>): number {
-  act(() => {
+async function startHandleLeft(view: Awaited<ReturnType<typeof render>>): Promise<number> {
+  await act(() => {
     jest.advanceTimersByTime(100);
   });
   const style = StyleSheet.flatten(view.getByTestId('timeline-slider-start-handle').props.style);
   return style.left as number;
 }
 
-function tapTrack(x: number) {
+async function tapTrack(x: number) {
   const tap = [...mockGestures].reverse().find((g) => g.handlers?.onEnd && !g.handlers?.onUpdate);
-  act(() => {
+  await act(() => {
     tap?.handlers?.onEnd?.({ x });
     jest.advanceTimersByTime(100);
   });
@@ -114,28 +114,28 @@ describe('TimelineSlider resetKey', () => {
     return dateToPosition(startDate) * TRACK_WIDTH - HANDLE_SIZE / 2;
   };
 
-  it('puts the handle back on the committed range when resetKey changes', () => {
-    const { view, rerenderWith, settle } = renderSlider(0);
-    settle();
-    expect(startHandleLeft(view)).toBeCloseTo(committedLeft());
+  it('puts the handle back on the committed range when resetKey changes', async () => {
+    const { view, rerenderWith, settle } = await renderSlider(0);
+    await settle();
+    expect(await startHandleLeft(view)).toBeCloseTo(committedLeft());
 
-    tapTrack(20);
-    settle();
-    expect(startHandleLeft(view)).not.toBeCloseTo(committedLeft());
+    await tapTrack(20);
+    await settle();
+    expect(await startHandleLeft(view)).not.toBeCloseTo(committedLeft());
 
-    rerenderWith(1);
-    settle();
-    expect(startHandleLeft(view)).toBeCloseTo(committedLeft());
+    await rerenderWith(1);
+    await settle();
+    expect(await startHandleLeft(view)).toBeCloseTo(committedLeft());
   });
 
-  it('leaves the handle where the gesture put it when resetKey is unchanged', () => {
-    const { view, rerenderWith, settle } = renderSlider(0);
-    tapTrack(20);
-    settle();
-    const moved = startHandleLeft(view);
+  it('leaves the handle where the gesture put it when resetKey is unchanged', async () => {
+    const { view, rerenderWith, settle } = await renderSlider(0);
+    await tapTrack(20);
+    await settle();
+    const moved = await startHandleLeft(view);
 
-    rerenderWith(0);
-    settle();
-    expect(startHandleLeft(view)).toBeCloseTo(moved);
+    await rerenderWith(0);
+    await settle();
+    expect(await startHandleLeft(view)).toBeCloseTo(moved);
   });
 });

@@ -4,8 +4,7 @@ import MapScreen from '@/app/(tabs)/map';
 import { MapDistanceBand } from 'veloqrs';
 
 const mockUseMap = jest.fn();
-const mockRefetchActivities = jest.fn();
-const mockActivitiesRead: { isError: boolean; error: unknown } = { isError: false, error: null };
+const mockRefetchMapRead = jest.fn();
 const mockMapView = jest.fn((_props: unknown) => null);
 const mockTranslate = jest.fn((key: string, options?: { count?: number; mapped?: number }) => {
   if (key === 'mapScreen.activitySummary') return `${options?.count}:${options?.mapped}`;
@@ -52,7 +51,6 @@ jest.mock('@/features/maps', () => ({
   useHeatmapPreference: (select: (s: unknown) => unknown) => select({ routesVisible: false }),
 }));
 jest.mock('@/features/activity', () => ({
-  useActivities: () => ({ ...mockActivitiesRead, refetch: mockRefetchActivities }),
   useActivityBoundsCache: () => ({
     isReady: true,
     cacheStats: { oldestDate: null, newestDate: null },
@@ -62,13 +60,6 @@ jest.mock('@/shared/app', () => ({
   useMetricSystem: () => true,
   useTheme: () => ({ isDark: false, colors: {} }),
 }));
-jest.mock('@/shared/app/AuthStore', () => ({
-  useAuthStore: (select: (state: { isAuthenticated: boolean }) => boolean) =>
-    select({ isAuthenticated: true }),
-}));
-jest.mock('@/shared/app/SyncDateRangeStore', () => ({
-  useSyncDateRange: () => null,
-}));
 jest.mock('@/shared/debug/renderTimer', () => ({ logScreenRender: () => () => {} }));
 jest.mock('@/shared/ui', () => {
   const { Text } = require('react-native');
@@ -76,9 +67,7 @@ jest.mock('@/shared/ui', () => {
     Button: ({ label }: { label: string }) => <Text>{label}</Text>,
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
     ScreenErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
-    ErrorStatePreset: () => null,
-    EngineReadFailureRetry: jest.requireActual('@/shared/ui/EngineReadFailureRetry')
-      .EngineReadFailureRetry,
+    ErrorState: jest.requireActual('@/shared/ui/ErrorState').ErrorState,
     useTabBarClearance: () => 0,
     Shimmer: () => null,
     pressable: (style: unknown) => style,
@@ -88,8 +77,6 @@ jest.mock('@/shared/ui', () => {
 describe('map library summary', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockActivitiesRead.isError = false;
-    mockActivitiesRead.error = null;
     mockUseMap.mockReturnValue({
       activities: [],
       availableTypes: ['Ride', 'Run'],
@@ -101,36 +88,36 @@ describe('map library summary', () => {
     });
   });
 
-  it('opens on the period chips alone and shows the other filters once the handle is raised', () => {
-    const view = render(<MapScreen />);
+  it('opens on the period chips alone and shows the other filters once the handle is raised', async () => {
+    const view = await render(<MapScreen />);
     expect(view.getByText('all')).toBeTruthy();
     expect(view.queryByText('5–10km')).toBeNull();
     expect(view.queryByText('Run', { exact: false })).toBeNull();
     expect(view.queryByText('292:0')).toBeNull();
 
-    fireEvent.press(view.getByTestId('map-filter-handle'));
+    await fireEvent.press(view.getByTestId('map-filter-handle'));
     expect(view.getByText('5–10km')).toBeTruthy();
     expect(view.getByText('Run', { exact: false })).toBeTruthy();
     expect(view.getByText('292:0')).toBeTruthy();
 
-    fireEvent.press(view.getByTestId('map-filter-handle'));
+    await fireEvent.press(view.getByTestId('map-filter-handle'));
     expect(view.queryByText('5–10km')).toBeNull();
     expect(view.getByText('all')).toBeTruthy();
   });
 
-  it('keeps a distance filter applied while the sheet is lowered', () => {
-    const view = render(<MapScreen />);
-    fireEvent.press(view.getByTestId('map-filter-handle'));
-    fireEvent.press(view.getByText('5–10km'));
-    fireEvent.press(view.getByTestId('map-filter-handle'));
+  it('keeps a distance filter applied while the sheet is lowered', async () => {
+    const view = await render(<MapScreen />);
+    await fireEvent.press(view.getByTestId('map-filter-handle'));
+    await fireEvent.press(view.getByText('5–10km'));
+    await fireEvent.press(view.getByTestId('map-filter-handle'));
     expect(mockUseMap).toHaveBeenLastCalledWith(
       expect.objectContaining({ distanceBand: MapDistanceBand.Short })
     );
   });
 
-  it('shows the full library while mapped activities arrive and narrows the mapped count', () => {
-    const view = render(<MapScreen />);
-    fireEvent.press(view.getByTestId('map-filter-handle'));
+  it('shows the full library while mapped activities arrive and narrows the mapped count', async () => {
+    const view = await render(<MapScreen />);
+    await fireEvent.press(view.getByTestId('map-filter-handle'));
     expect(view.getByText('292:0')).toBeTruthy();
 
     mockUseMap.mockImplementation(({ selectedTypes }: { selectedTypes: Set<string> }) => ({
@@ -145,10 +132,10 @@ describe('map library summary', () => {
       ],
       totalCount: 292,
     }));
-    view.rerender(<MapScreen />);
+    await view.rerender(<MapScreen />);
     expect(view.getByText('292:2')).toBeTruthy();
 
-    fireEvent.press(view.getByText('Run', { exact: false }));
+    await fireEvent.press(view.getByText('Run', { exact: false }));
     expect(view.getByText('292:1')).toBeTruthy();
     expect(mockUseMap).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -159,7 +146,7 @@ describe('map library summary', () => {
       expect.objectContaining({ activities: [{ id: 'run-1', type: 'Run' }] })
     );
 
-    fireEvent.press(view.getByText('5–10km'));
+    await fireEvent.press(view.getByText('5–10km'));
     expect(mockUseMap).toHaveBeenLastCalledWith(
       expect.objectContaining({
         selectedTypes: new Set(['Run', 'VirtualRun', 'TrailRun', 'Treadmill']),
@@ -169,39 +156,50 @@ describe('map library summary', () => {
   });
 });
 
-describe('map with the activities read failing', () => {
+describe('map with its screen read failing', () => {
+  const answered = {
+    activities: [{ id: 'ride-1', type: 'Ride' }],
+    availableTypes: ['Ride'],
+    categoryCounts: [{ category: 'Ride', count: 1 }],
+    totalCount: 1,
+    isError: false,
+    error: undefined,
+    refetch: mockRefetchMapRead,
+  };
+  const failed = {
+    ...answered,
+    activities: [],
+    availableTypes: [],
+    categoryCounts: [],
+    totalCount: 0,
+    isError: true,
+    error: { tag: 'Busy', message: 'a job is running' },
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
-    mockActivitiesRead.isError = true;
-    mockActivitiesRead.error = { tag: 'Database' };
-    mockUseMap.mockReturnValue({
-      activities: [{ id: 'ride-1', type: 'Ride' }],
-      availableTypes: ['Ride'],
-      categoryCounts: [{ category: 'Ride', count: 1 }],
-      totalCount: 1,
-    });
+    mockUseMap.mockReturnValue(failed);
   });
 
-  it('keeps the map and its filters and shows the failure with a Retry', () => {
-    const view = render(<MapScreen />);
+  it('keeps the map and its filters and shows the failure with a Retry', async () => {
+    const view = await render(<MapScreen />);
     expect(view.getByTestId('regional-map')).toBeTruthy();
-    expect(mockMapView).toHaveBeenCalledWith(
-      expect.objectContaining({ activities: [{ id: 'ride-1', type: 'Ride' }] })
-    );
     expect(view.getByTestId('map-filter-handle')).toBeTruthy();
     expect(view.getByTestId('map-activities-failed')).toBeTruthy();
+    expect(view.getByText('engine.failure.busy')).toBeTruthy();
 
-    fireEvent.press(view.getByText('common.retry'));
-    expect(mockRefetchActivities).toHaveBeenCalledTimes(1);
+    await fireEvent.press(view.getByText('common.retry'));
+    expect(mockRefetchMapRead).toHaveBeenCalledTimes(1);
   });
 
-  it('drops the failure once the read answers', () => {
-    const view = render(<MapScreen />);
+  it('drops the failure once the read answers', async () => {
+    const view = await render(<MapScreen />);
     expect(view.getByTestId('map-activities-failed')).toBeTruthy();
-    mockActivitiesRead.isError = false;
-    mockActivitiesRead.error = null;
-    view.rerender(<MapScreen />);
+    mockUseMap.mockReturnValue(answered);
+    await view.rerender(<MapScreen />);
     expect(view.queryByTestId('map-activities-failed')).toBeNull();
-    expect(view.getByTestId('regional-map')).toBeTruthy();
+    expect(mockMapView).toHaveBeenLastCalledWith(
+      expect.objectContaining({ activities: [{ id: 'ride-1', type: 'Ride' }] })
+    );
   });
 });

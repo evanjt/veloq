@@ -13,18 +13,13 @@
  */
 
 import React from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  View,
-  type AccessibilityActionEvent,
-  type AccessibilityActionInfo,
-  type ViewStyle,
-} from 'react-native';
+import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, layout, shadows, spacing } from '@/theme';
+import { CardHeader } from './CardHeader';
 import { pressable, pressRipple } from './pressFeedback';
+import { accessibleActions, type AccessibleAction } from './accessibleActions';
 
 export type CardVariant = 'flat' | 'raised';
 export type CardPadding = 'none' | 'sm' | 'md';
@@ -39,28 +34,38 @@ interface CardBaseProps {
   padding?: CardPadding;
   style?: CardLayoutStyle;
   testID?: string;
+  /** The card's heading, drawn above the content in the card title role. */
+  title?: string | undefined;
+  /** A control or figure beside the title. */
+  titleAccessory?: React.ReactNode;
   children?: React.ReactNode;
 }
 
 export type CardProps =
   | (CardBaseProps & {
       onPress?: undefined;
-      accessibilityActions?: undefined;
-      onAccessibilityAction?: undefined;
+      actions?: undefined;
       accessibilityLabel?: string;
+      accessibilityValue?: undefined;
       /** Names a static card for a screen reader, `summary` for a figure panel. */
       accessibilityRole?: 'summary';
     })
   | (CardBaseProps & {
       onPress: () => void;
+      /**
+       * Replaces every child's text for a screen reader, so it carries the
+       * card's values as well as its name (`composeAccessibilityLabel`).
+       */
       accessibilityLabel: string;
+      /** The card's current value or state, read after its name. */
+      accessibilityValue?: string | undefined;
       accessibilityRole: 'button';
       /**
        * What a screen reader offers beside the press. A press target nested in
-       * the card is hidden inside the card's own element, so it is offered here.
+       * the card, or a swipe or hold over it, is hidden inside the card's own
+       * element, so it is offered here.
        */
-      accessibilityActions?: AccessibilityActionInfo[];
-      onAccessibilityAction?: (event: AccessibilityActionEvent) => void;
+      actions?: readonly AccessibleAction[] | undefined;
     });
 
 const PADDING: Record<CardPadding, number | undefined> = {
@@ -74,12 +79,14 @@ export function Card({
   padding = 'md',
   style,
   testID,
+  title,
+  titleAccessory,
   children,
   onPress,
   accessibilityLabel,
+  accessibilityValue,
   accessibilityRole,
-  accessibilityActions,
-  onAccessibilityAction,
+  actions,
 }: CardProps) {
   const { isDark } = useTheme();
 
@@ -106,6 +113,13 @@ export function Card({
 
   const body = (
     <View testID={testID ? `${testID}-body` : undefined} style={[styles.body, bodyStyle, inner]}>
+      {title != null && (
+        <CardHeader
+          title={title}
+          accessory={titleAccessory}
+          testID={testID ? `${testID}-header` : undefined}
+        />
+      )}
       {children}
     </View>
   );
@@ -116,8 +130,8 @@ export function Card({
         testID={testID}
         accessibilityRole={accessibilityRole}
         accessibilityLabel={accessibilityLabel}
-        accessibilityActions={accessibilityActions}
-        onAccessibilityAction={onAccessibilityAction}
+        accessibilityValue={accessibilityValue ? { text: accessibilityValue } : undefined}
+        {...accessibleActions(actions)}
         onPress={onPress}
         android_ripple={pressRipple}
         style={pressable([ground, outer])}

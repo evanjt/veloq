@@ -135,6 +135,7 @@ struct RecordWidgetView: View {
           .fill(WidgetTheme.Record.foreground)
           .frame(width: 26, height: 26)
       }
+      .unspoken()
       Text("Record")
         .measuredText("record")
         .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))

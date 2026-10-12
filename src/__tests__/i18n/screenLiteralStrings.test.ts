@@ -38,8 +38,8 @@ async function translatorFor(locale: string) {
     resources: { [locale]: { translation: load(locale) } },
     interpolation: { escapeValue: false },
   });
-  return (key: string, count: number): string =>
-    (instance.t as unknown as (k: string, o: object) => string)(key, { count });
+  return (key: string, values: object): string =>
+    (instance.t as unknown as (k: string, o: object) => string)(key, values);
 }
 
 describe('screen literal strings', () => {
@@ -50,20 +50,22 @@ describe('screen literal strings', () => {
       expect((value as string).length).toBeGreaterThan(0);
     });
 
-    it('interpolates the count into the sections detected string', async () => {
+    it('interpolates both counts into the rescan before and after', async () => {
       const t = await translatorFor(locale);
-      expect(t('settings.sectionsDetectedCount', 1)).toContain('1');
-      expect(t('settings.sectionsDetectedCount', 7)).toContain('7');
-      expect(t('settings.sectionsDetectedCount', 1)).not.toContain('{{');
+      const line = t('settings.sectionsBeforeAfter', { before: 40, after: 42 });
+      expect(line).toContain('40');
+      expect(line).toContain('42');
+      expect(line.indexOf('40')).toBeLessThan(line.indexOf('42'));
+      expect(line).not.toContain('{{');
     });
   });
 
-  it('uses the singular form for a count of one in English and German', async () => {
-    expect((await translatorFor('en-AU'))('settings.sectionsDetectedCount', 1)).toBe(
-      '1 section detected'
-    );
-    expect((await translatorFor('de-DE'))('settings.sectionsDetectedCount', 1)).toBe(
-      '1 Abschnitt erkannt'
-    );
+  it('reads the rescan before and after in English and German', async () => {
+    expect(
+      (await translatorFor('en-AU'))('settings.sectionsBeforeAfter', { before: 1, after: 3 })
+    ).toBe('Sections before the rescan: 1. After: 3.');
+    expect(
+      (await translatorFor('de-DE'))('settings.sectionsBeforeAfter', { before: 1, after: 3 })
+    ).toBe('Abschnitte vor dem Suchlauf: 1. Danach: 3.');
   });
 });

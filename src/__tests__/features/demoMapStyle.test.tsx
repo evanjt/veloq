@@ -27,7 +27,7 @@ const wrapper = ({ children }: { children: React.ReactNode }) => (
 );
 
 async function styleFor(id: string, type: 'Ride' | 'Run' = 'Ride') {
-  const { result } = renderHook(() => useMapPreferences(), { wrapper });
+  const { result } = await renderHook(() => useMapPreferences(), { wrapper });
   await waitFor(() => expect(result.current.isLoaded).toBe(true));
   return result.current.getStyleForActivity(type, id);
 }

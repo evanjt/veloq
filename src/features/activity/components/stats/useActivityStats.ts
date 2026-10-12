@@ -10,8 +10,12 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getApparentTemperature } from '@/shared/activity/activityUtils';
 import {
+  formatCalorieRate,
+  formatCalories,
   formatDuration,
   formatHeartRate,
+  formatHrv,
+  formatPower,
   formatSpeed,
   formatTemperature,
 } from '@/shared/format/format';
@@ -23,7 +27,7 @@ import {
 } from '@/features/fitness';
 import { storedDecoupling } from '@/features/activity/lib/decoupling';
 import type { Activity, WellnessData } from '@/types';
-import type { ActivityFitnessImpact } from 'veloqrs';
+import { MaxHrSource, type ActivityFitnessImpact } from 'veloqrs';
 import type { StatDetail } from './types';
 import type { ActivityNewGround } from '../../hooks/useActivitySectionHighlights';
 import { colors, darkColors } from '@/theme';
@@ -55,8 +59,16 @@ interface UseActivityStatsOptions {
    * that forgets it is a type error rather than a metric card.
    */
   isMetric: boolean;
-  /** The max HR the zones chart divides by, from the detail screen read. */
-  maxHR: number;
+  /**
+   * The max HR the zones chart divides by, from the detail screen read. Without
+   * one the heart rate card carries no percent of max.
+   */
+  maxHR?: number | undefined;
+  /**
+   * Where `maxHR` came from. A percent against the engine's default is named
+   * as one, so it never reads as the athlete's own.
+   */
+  maxHrSource?: MaxHrSource | undefined;
   fitnessImpact?: ActivityFitnessImpact | null | undefined;
   /** Tile coverage against earlier activities; the card is left out without it. */
   newGround?: ActivityNewGround | undefined;
@@ -72,6 +84,7 @@ export function useActivityStats({
   isDark = false,
   isMetric,
   maxHR,
+  maxHrSource,
   fitnessImpact,
   newGround,
 }: UseActivityStatsOptions): UseActivityStatsResult {
@@ -93,11 +106,14 @@ export function useActivityStats({
       const intensity = activity.icu_intensity;
 
       result.push({
-        title: t('activity.stats.trainingLoad'),
+        title: t('metrics.trainingLoad'),
         value: `${Math.round(load)}`,
         icon: 'lightning-bolt',
         color: isDark ? darkColors.chartGoldText : colors.chartGoldText,
-        context: intensity == null ? undefined : `IF ${Math.round(intensity)}%`,
+        context:
+          intensity == null
+            ? undefined
+            : t('activity.stats.intensityContext', { percent: Math.round(intensity) }),
         explanation: t(METRIC_EXPLANATION_KEYS['Training Load'] as never),
         details: [
           intensity == null
@@ -120,13 +136,13 @@ export function useActivityStats({
             : null,
           wellness?.ctl
             ? {
-                label: t('activity.stats.yourFitness'),
+                label: t('activity.stats.fitnessThatDay'),
                 value: `${Math.round(wellness.ctl)}`,
               }
             : null,
           wellness?.atl
             ? {
-                label: t('activity.stats.yourFatigue'),
+                label: t('activity.stats.fatigueThatDay'),
                 value: `${Math.round(wellness.atl)}`,
               }
             : null,
@@ -173,14 +189,22 @@ export function useActivityStats({
     const avgHRValue = activity.average_heartrate;
     const maxHRValue = activity.max_heartrate;
     if (avgHRValue) {
-      const hrPercent = Math.round((avgHRValue / maxHR) * 100);
+      const hrPercent = maxHR ? Math.round((avgHRValue / maxHR) * 100) : null;
+      const ownMax =
+        maxHrSource === MaxHrSource.ActivityZones || maxHrSource === MaxHrSource.SportSettings;
 
       result.push({
         title: t('activity.heartRate'),
         value: `${Math.round(avgHRValue)}`,
+        unit: t('units.bpm'),
         icon: 'heart-pulse',
         color: isDark ? darkColors.chartPinkText : colors.chartPinkText,
-        context: t('activity.stats.percentOfMaxHR', { percent: hrPercent }),
+        context:
+          hrPercent === null
+            ? undefined
+            : ownMax
+              ? t('activity.stats.percentOfMaxHR', { percent: hrPercent })
+              : t('activity.stats.percentOfDefaultMaxHR', { percent: hrPercent, value: maxHR }),
         explanation: t(METRIC_EXPLANATION_KEYS['Heart Rate'] as never),
         details: [
           {
@@ -189,14 +213,18 @@ export function useActivityStats({
           },
           maxHRValue
             ? {
-                label: t('activity.stats.peak'),
+                label: t('activity.stats.maxLabel'),
                 value: formatHeartRate(maxHRValue),
               }
             : null,
-          {
-            label: t('activity.stats.percentOfMaxHRLabel'),
-            value: `${hrPercent}%`,
-          },
+          hrPercent === null
+            ? null
+            : {
+                label: ownMax
+                  ? t('activity.stats.percentOfMaxHRLabel')
+                  : t('activity.stats.percentOfDefaultMaxHRLabel', { value: maxHR }),
+                value: `${hrPercent}%`,
+              },
           activity.icu_hrr
             ? {
                 label: t('activity.stats.hrRecovery'),
@@ -207,14 +235,14 @@ export function useActivityStats({
             : null,
           wellness?.restingHR
             ? {
-                label: t('activity.stats.restingHRToday'),
+                label: t('activity.stats.restingHRThatDay'),
                 value: formatHeartRate(wellness.restingHR),
               }
             : null,
           wellness?.hrv
             ? {
-                label: t('activity.stats.hrvToday'),
-                value: `${Math.round(wellness.hrv)} ms`,
+                label: t('activity.stats.hrvThatDay'),
+                value: formatHrv(wellness.hrv),
               }
             : null,
         ].filter(Boolean) as { label: string; value: string }[],
@@ -224,15 +252,15 @@ export function useActivityStats({
     // Calories
     if (activity.calories && activity.calories > 0) {
       // moving_time can be 0 (manual indoor entries), so gate the burn rate to
-      // avoid rendering "Infinity kcal/hr".
-      const calPerHour =
+      // avoid rendering "Infinity kcal/h".
+      const burnRate =
         activity.moving_time > 0
-          ? Math.round((activity.calories / activity.moving_time) * 3600)
-          : null;
-      const burnRate = calPerHour != null ? `${calPerHour} kcal/hr` : undefined;
+          ? formatCalorieRate((activity.calories / activity.moving_time) * 3600)
+          : undefined;
       result.push({
         title: t('activity.stats.energy'),
         value: `${Math.round(activity.calories)}`,
+        unit: t('units.kcal'),
         icon: 'fire',
         color: amber,
         context: burnRate,
@@ -240,7 +268,7 @@ export function useActivityStats({
         details: [
           {
             label: t('activity.stats.caloriesBurned'),
-            value: `${Math.round(activity.calories)} kcal`,
+            value: formatCalories(activity.calories),
           },
           {
             label: t('activity.duration'),
@@ -344,13 +372,13 @@ export function useActivityStats({
           wellness.hrv
             ? {
                 label: t('metrics.hrv'),
-                value: `${Math.round(wellness.hrv)} ms`,
+                value: formatHrv(wellness.hrv),
               }
             : null,
           wellness.sleepScore
             ? {
                 label: t('activity.stats.sleepScore'),
-                value: `${wellness.sleepScore}%`,
+                value: `${Math.round(wellness.sleepScore)}`,
               }
             : null,
         ].filter(Boolean) as { label: string; value: string }[],
@@ -365,14 +393,13 @@ export function useActivityStats({
       result.push({
         title: t('activity.power'),
         value: `${Math.round(avgPower)}`,
+        unit: t('units.watts'),
         icon: 'lightning-bolt-circle',
         color: isDark ? darkColors.chartPurpleText : colors.chartPurpleText,
         context: eftp
-          ? `${t('activity.stats.eftpEstimated')} ${Math.round(eftp)}W`
+          ? t('activity.stats.eftpContext', { value: formatPower(eftp) })
           : activity.icu_pm_p_max
-            ? t('activity.stats.max', {
-                value: Math.round(activity.icu_pm_p_max),
-              }) + 'W'
+            ? t('activity.stats.max', { value: formatPower(activity.icu_pm_p_max) })
             : undefined,
         explanation: eftp
           ? `${t(METRIC_EXPLANATION_KEYS['Power'] as never)} ${t('activity.explanations.activityEftp')}`
@@ -380,12 +407,12 @@ export function useActivityStats({
         details: [
           {
             label: t('activity.stats.average'),
-            value: `${Math.round(avgPower)}W`,
+            value: formatPower(avgPower),
           },
           activity.icu_pm_p_max
             ? {
                 label: t('activity.stats.maxLabel'),
-                value: `${Math.round(activity.icu_pm_p_max)}W`,
+                value: formatPower(activity.icu_pm_p_max),
               }
             : null,
           activity.icu_ftp
@@ -397,7 +424,7 @@ export function useActivityStats({
           eftp
             ? {
                 label: t('activity.stats.eftpEstimated'),
-                value: `${Math.round(eftp)}W`,
+                value: formatPower(eftp),
               }
             : null,
           activity.icu_efficiency_factor
@@ -417,7 +444,19 @@ export function useActivityStats({
     }
 
     return result;
-  }, [activity, wellness, fitnessImpact, newGround, t, green, amber, isDark, isMetric, maxHR]);
+  }, [
+    activity,
+    wellness,
+    fitnessImpact,
+    newGround,
+    t,
+    green,
+    amber,
+    isDark,
+    isMetric,
+    maxHR,
+    maxHrSource,
+  ]);
 
   return { stats };
 }

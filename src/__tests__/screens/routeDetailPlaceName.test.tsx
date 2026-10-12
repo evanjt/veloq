@@ -24,6 +24,7 @@ jest.mock('veloqrs', () =>
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
+  Stack: Object.assign(() => null, { Screen: () => null }),
   useLocalSearchParams: () => ({ id: 'r_9' }),
   router: { back: jest.fn() },
 }));
@@ -139,7 +140,6 @@ jest.mock('@/features/routes/hooks', () => ({
   ...jest.requireActual('@/features/routes/hooks/useRouteRenaming'),
   ...jest.requireActual('@/features/routes/hooks/useSectionChartData'),
   ...jest.requireActual('@/features/routes/hooks/useSectionChartDataEnriched'),
-  ...jest.requireActual('@/features/routes/hooks/useSectionMapData'),
   useRouteMapSignatures: () => ({}),
   useSectionTimeStreamSync: () => ({
     ready: true,
@@ -166,23 +166,23 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-it('offers the place name button when the read allows it', () => {
-  const screen = render(<RouteDetailScreen />);
+it('offers the place name button when the read allows it', async () => {
+  const screen = await render(<RouteDetailScreen />);
 
   expect(screen.getByTestId('route-place-name-button')).toBeTruthy();
 });
 
-it('draws no place name button when the read refuses it', () => {
+it('draws no place name button when the read refuses it', async () => {
   mockOffered = false;
-  const screen = render(<RouteDetailScreen />);
+  const screen = await render(<RouteDetailScreen />);
 
   expect(screen.queryByTestId('route-place-name-button')).toBeNull();
 });
 
-it('hides the button while the name is being edited', () => {
-  const screen = render(<RouteDetailScreen />);
+it('hides the button while the name is being edited', async () => {
+  const screen = await render(<RouteDetailScreen />);
 
-  fireEvent.press(screen.getByTestId('route-rename-button'));
+  await fireEvent.press(screen.getByTestId('route-rename-button'));
 
   expect(screen.queryByTestId('route-place-name-button')).toBeNull();
 });
@@ -190,10 +190,10 @@ it('hides the button while the name is being edited', () => {
 it('asks for this route once, however often it is pressed while waiting', async () => {
   let answer: (outcome: PlaceNameOutcome) => void = () => {};
   mockNameFromPlaces.mockReturnValue(new Promise((resolve) => (answer = resolve)));
-  const screen = render(<RouteDetailScreen />);
+  const screen = await render(<RouteDetailScreen />);
 
-  fireEvent.press(screen.getByTestId('route-place-name-button'));
-  fireEvent.press(screen.getByTestId('route-place-name-button'));
+  void fireEvent.press(screen.getByTestId('route-place-name-button'));
+  void fireEvent.press(screen.getByTestId('route-place-name-button'));
 
   expect(mockNameFromPlaces).toHaveBeenCalledTimes(1);
   expect(mockNameFromPlaces).toHaveBeenCalledWith(PlaceNameKind.Route, 'r_9');
@@ -217,22 +217,29 @@ it.each([
   [PlaceNameOutcome.Refused, 'routes.placeNameFailedMessage'],
 ])('says so when the lookup gives no name (%s)', async (outcome, message) => {
   mockNameFromPlaces.mockResolvedValue(outcome);
-  const screen = render(<RouteDetailScreen />);
+  const screen = await render(<RouteDetailScreen />);
 
-  await act(async () => fireEvent.press(screen.getByTestId('route-place-name-button')));
+  await act(async () => await fireEvent.press(screen.getByTestId('route-place-name-button')));
 
-  expect(Alert.alert).toHaveBeenCalledWith('routes.placeNameFailedTitle', message);
+  expect(Alert.alert).toHaveBeenCalledWith(
+    'routes.placeNameFailedTitle',
+    message,
+    undefined,
+    expect.objectContaining({ cancelable: true })
+  );
   expect(screen.getByTestId('route-detail-name').props.children).toBe('Strecke 4');
 });
 
 it('says so when the lookup throws', async () => {
   mockNameFromPlaces.mockRejectedValue(new Error('engine closed'));
-  const screen = render(<RouteDetailScreen />);
+  const screen = await render(<RouteDetailScreen />);
 
-  await act(async () => fireEvent.press(screen.getByTestId('route-place-name-button')));
+  await act(async () => await fireEvent.press(screen.getByTestId('route-place-name-button')));
 
   expect(Alert.alert).toHaveBeenCalledWith(
     'routes.placeNameFailedTitle',
-    'routes.placeNameFailedMessage'
+    'routes.placeNameFailedMessage',
+    undefined,
+    expect.objectContaining({ cancelable: true })
   );
 });

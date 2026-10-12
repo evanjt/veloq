@@ -1,10 +1,9 @@
-import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, Switch, TextInput, Modal } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, Modal, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
-import { Button } from '@/shared/ui';
-import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
+import { Button, StatusLine, SwitchRow, TextField, type TextFieldHandle } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import {
   getWebdavConfig,
@@ -13,7 +12,7 @@ import {
   testWebdavConnection,
   webdavUrlProblem,
 } from '@/features/settings/lib/autobackup';
-import { colors, darkColors, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { NextcloudQrScanner } from './NextcloudQrScanner';
 import { InfoButton } from './InfoButton';
 import { webdavTestMessage } from '../lib/autobackup/webdavTestMessage';
@@ -43,6 +42,25 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
   const [connectionResult, setConnectionResult] = useState<'success' | 'error' | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [showQrScanner, setShowQrScanner] = useState(false);
+  const urlInputRef = useRef<TextFieldHandle>(null);
+  const focusUrlOnCloseRef = useRef(false);
+
+  // Typing the details in is the way past a camera that is not allowed, so the
+  // scanner closes onto the server field with the keyboard up.
+  const focusUrlIfAsked = useCallback(() => {
+    if (!focusUrlOnCloseRef.current) return;
+    focusUrlOnCloseRef.current = false;
+    urlInputRef.current?.focus();
+  }, []);
+  const enterDetailsInstead = useCallback(() => {
+    focusUrlOnCloseRef.current = true;
+    setShowQrScanner(false);
+  }, []);
+  // iOS reports the end of the dismissal through `onDismiss`; Android has no
+  // such callback and has already removed the modal by the next commit.
+  useEffect(() => {
+    if (!showQrScanner && Platform.OS !== 'ios') focusUrlIfAsked();
+  }, [showQrScanner, focusUrlIfAsked]);
 
   // Basic credentials and the record archive cross on every backup, so an
   // address that would carry them in the clear is refused before it is stored.
@@ -95,15 +113,14 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
   }, []);
   const plainHttp = /^\s*http:/i.test(webdavUrl);
 
-  // The test's outcome is a status message: Android speaks the live region it
-  // sits in, iOS hears it announced.
+  // The test's outcome is a status message, spoken by the status line it sits
+  // in, which stays mounted so a second test's outcome is heard as a change.
   const connectionStatus =
     connectionResult === 'success'
       ? t('backup.connectionSuccess')
       : connectionResult === 'error'
         ? connectionError || t('backup.connectionFailed')
         : null;
-  useAnnounceOnAppear(connectionStatus);
 
   const handleQrScanned = useCallback(
     (data: string) => {
@@ -196,50 +213,50 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
             )}
           />
         </View>
-        <TextInput
-          style={[styles.input, isDark && styles.inputDark]}
-          placeholder={t('backup.serverUrl')}
-          placeholderTextColor={isDark ? darkColors.textSecondary : colors.textSecondary}
+        <TextField
+          ref={urlInputRef}
+          testID="backup-webdav-url"
+          label={t('backup.serverUrl')}
           value={webdavUrl}
           onChangeText={setWebdavUrl}
           onBlur={handleSaveWebdav}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="url"
+          textContentType="URL"
+          autoComplete="url"
         />
         {plainHttp && (
-          <View style={styles.plainLanRow}>
-            <Text style={[styles.plainLanText, isDark && styles.textSecondary]}>
-              {t('backup.webdavPlainLan', 'Allow an unencrypted server on my own network')}
-            </Text>
-            <Switch
-              value={webdavPlainLan}
-              onValueChange={handleTogglePlainLan}
-              trackColor={{ false: colors.border, true: colors.primary }}
-              testID="backup-webdav-plain-lan"
-            />
-          </View>
+          <SwitchRow
+            inset="none"
+            title={t('backup.webdavPlainLan', 'Allow an unencrypted server on my own network')}
+            value={webdavPlainLan}
+            onValueChange={handleTogglePlainLan}
+            testID="backup-webdav-plain-lan"
+          />
         )}
-        <TextInput
-          style={[styles.input, isDark && styles.inputDark]}
-          placeholder={t('backup.username')}
-          placeholderTextColor={isDark ? darkColors.textSecondary : colors.textSecondary}
+        <TextField
+          testID="backup-webdav-username"
+          label={t('backup.username')}
           value={webdavUser}
           onChangeText={setWebdavUser}
           onBlur={handleSaveWebdav}
           autoCapitalize="none"
           autoCorrect={false}
+          textContentType="username"
+          autoComplete="username"
         />
-        <TextInput
-          style={[styles.input, isDark && styles.inputDark]}
-          placeholder={t('backup.password')}
-          placeholderTextColor={isDark ? darkColors.textSecondary : colors.textSecondary}
+        <TextField
+          testID="backup-webdav-password"
+          label={t('backup.password')}
           value={webdavPass}
           onChangeText={setWebdavPass}
           onBlur={handleSaveWebdav}
           autoCapitalize="none"
           autoCorrect={false}
           secureTextEntry
+          textContentType="password"
+          autoComplete="current-password"
         />
         <View style={styles.testRow}>
           {getWebdavConfig() && (
@@ -258,7 +275,10 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
             onPress={handleTestConnection}
             loading={testingConnection}
           />
-          <View accessibilityLiveRegion="polite">
+          <StatusLine
+            tone={connectionResult === 'error' ? 'error' : 'success'}
+            message={connectionStatus}
+          >
             {connectionResult === 'success' && (
               <Text
                 style={[
@@ -274,36 +294,26 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
                 {connectionStatus}
               </Text>
             )}
-          </View>
+          </StatusLine>
         </View>
       </View>
       <Modal
         visible={showQrScanner}
         animationType="slide"
         onRequestClose={() => setShowQrScanner(false)}
+        onDismiss={focusUrlIfAsked}
       >
-        <NextcloudQrScanner onScanned={handleQrScanned} onClose={() => setShowQrScanner(false)} />
+        <NextcloudQrScanner
+          onScanned={handleQrScanned}
+          onClose={() => setShowQrScanner(false)}
+          onEnterDetails={enterDetailsInstead}
+        />
       </Modal>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  input: {
-    ...typography.body,
-    height: layout.minTapTarget,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: layout.borderRadiusSm,
-    paddingHorizontal: spacing.sm,
-    color: colors.textPrimary,
-    backgroundColor: colors.background,
-  },
-  inputDark: {
-    borderColor: darkColors.border,
-    color: colors.textOnDark,
-    backgroundColor: darkColors.background,
-  },
   qrRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -314,16 +324,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexWrap: 'wrap',
     gap: spacing.sm,
-  },
-  plainLanRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  plainLanText: {
-    ...typography.caption,
-    flex: 1,
-    color: colors.textSecondary,
   },
   configBlockDark: {},
   configBlock: {
@@ -340,8 +340,5 @@ const styles = StyleSheet.create({
   },
   connectionErrorDark: {
     color: darkColors.errorDeep,
-  },
-  textSecondary: {
-    color: darkColors.textSecondary,
   },
 });

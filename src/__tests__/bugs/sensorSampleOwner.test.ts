@@ -5,21 +5,25 @@
  * which every tile and the recorder read.
  *
  * Expected behaviour: the recording store holds the one live sample, and a
- * notification wakes nothing subscribed to the sensors store.
+ * notification from the sensor already supplying its metric wakes nothing
+ * subscribed to the sensors store.
  */
 
 import { useSensorStore } from '@/features/sensors/store';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 
+const STRAP = 'strap-1';
+
 beforeEach(() => {
+  useSensorStore.getState().dropSources(STRAP);
   useRecordingStore.setState({ latestSensor: { heartrate: null, power: null, cadence: null } });
 });
 
 it('lands each kind in the recording store under its stream name', () => {
   const { setLatest } = useSensorStore.getState();
-  setLatest('heartRate', 152);
-  setLatest('power', 240);
-  setLatest('cadence', 88);
+  setLatest('heartRate', 152, STRAP);
+  setLatest('power', 240, STRAP);
+  setLatest('cadence', 88, STRAP);
 
   const { latestSensor } = useRecordingStore.getState();
   expect(latestSensor.heartrate?.value).toBe(152);
@@ -27,12 +31,13 @@ it('lands each kind in the recording store under its stream name', () => {
   expect(latestSensor.cadence?.value).toBe(88);
 });
 
-it('does not notify the sensors store on a notification', () => {
+it('does not notify the sensors store on a notification from the sitting source', () => {
+  useSensorStore.getState().setLatest('heartRate', 151, STRAP);
   const listener = jest.fn();
   const unsubscribe = useSensorStore.subscribe(listener);
   try {
-    useSensorStore.getState().setLatest('heartRate', 152);
-    useSensorStore.getState().setLatest('heartRate', 153);
+    useSensorStore.getState().setLatest('heartRate', 152, STRAP);
+    useSensorStore.getState().setLatest('heartRate', 153, STRAP);
   } finally {
     unsubscribe();
   }

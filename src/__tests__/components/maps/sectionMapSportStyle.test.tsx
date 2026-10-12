@@ -70,9 +70,9 @@ function sectionOfSports(sportTypes: string[]): FrequentSection {
 }
 
 /** Which sport the map asked the athlete's preferences about, if any. */
-function styleAskedFor(sportTypes: string[], picked?: string): string | undefined {
+async function styleAskedFor(sportTypes: string[], picked?: string): Promise<string | undefined> {
   askedFor.length = 0;
-  render(
+  await render(
     <SafeAreaProvider initialMetrics={METRICS}>
       <SectionMapView section={sectionOfSports(sportTypes)} sportType={picked} />
     </SafeAreaProvider>
@@ -90,25 +90,25 @@ describe('the sport a section map draws', () => {
     'Treadmill',
     'TrackRide',
     'Cyclocross',
-  ])('is the section its own, not road cycling: %s', (sportType) => {
-    expect(styleAskedFor([sportType])).toBe(sportType);
+  ])('is the section its own, not road cycling: %s', async (sportType) => {
+    expect(await styleAskedFor([sportType])).toBe(sportType);
   });
 
-  it('is unchanged for the sports that always worked', () => {
-    expect(styleAskedFor(['Ride'])).toBe('Ride');
-    expect(styleAskedFor(['Hike'])).toBe('Hike');
-    expect(styleAskedFor(['OpenWaterSwim'])).toBe('OpenWaterSwim');
+  it('is unchanged for the sports that always worked', async () => {
+    expect(await styleAskedFor(['Ride'])).toBe('Ride');
+    expect(await styleAskedFor(['Hike'])).toBe('Hike');
+    expect(await styleAskedFor(['OpenWaterSwim'])).toBe('OpenWaterSwim');
   });
 
-  it('falls through to Other for a sport the app does not know', () => {
-    expect(styleAskedFor(['Quidditch'])).toBe('Other');
+  it('falls through to Other for a sport the app does not know', async () => {
+    expect(await styleAskedFor(['Quidditch'])).toBe('Other');
   });
 
-  it('is the picked sport on ground ridden and run', () => {
-    expect(styleAskedFor(['Ride', 'Run'], 'Run')).toBe('Run');
+  it('is the picked sport on ground ridden and run', async () => {
+    expect(await styleAskedFor(['Ride', 'Run'], 'Run')).toBe('Run');
   });
 
-  it('is none on ground ridden and run with nothing picked, so the default style holds', () => {
-    expect(styleAskedFor(['Ride', 'Run'])).toBeUndefined();
+  it('is none on ground ridden and run with nothing picked, so the default style holds', async () => {
+    expect(await styleAskedFor(['Ride', 'Run'])).toBeUndefined();
   });
 });

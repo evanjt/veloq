@@ -9,9 +9,10 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { formatDuration, formatPace, formatSwimPace, getIntlLocale } from '@/shared/format/format';
-import { colors, darkColors, spacing, typography } from '@/theme';
-import { Card, pressable, pressRipple } from '@/shared/ui';
+import { getIntlLocale } from '@/shared/format/format';
+import { formatAttemptFigure, type AttemptBasis } from '@/features/routes/lib/attemptBasis';
+import { colors, darkColors, spacing, typography, slopToMinTapTarget } from '@/theme';
+import { Card, DisclosureChevron, pressable, pressRipple } from '@/shared/ui';
 import { tapTo } from '@/shared/app/navigation';
 import { DirectionArrow, directionWord } from './DirectionCue';
 
@@ -56,8 +57,8 @@ export interface CalendarSummary {
 export interface SectionStatsCardsProps {
   calendarSummary: CalendarSummary;
   isDark: boolean;
-  isRunning: boolean;
-  isSwimming?: boolean | undefined;
+  /** What the year and month bests read as, the basis the chart plots on. */
+  basis: AttemptBasis;
   activityColor: string;
   onSetAsReference?: ((activityId: string) => void) | undefined;
   referenceActivityId?: string | undefined;
@@ -71,8 +72,7 @@ export interface SectionStatsCardsProps {
 export function SectionStatsCards({
   calendarSummary,
   isDark,
-  isRunning,
-  isSwimming = false,
+  basis,
   activityColor,
   onSetAsReference,
   referenceActivityId,
@@ -105,11 +105,7 @@ export function SectionStatsCards({
   }, []);
 
   const formatBest = (entry: CalendarDirectionBest) =>
-    isSwimming
-      ? formatSwimPace(entry.bestPace, isMetric)
-      : isRunning
-        ? formatPace(entry.bestPace, isMetric)
-        : formatDuration(entry.bestTime);
+    formatAttemptFigure(basis, entry.bestTime, entry.bestPace, isMetric);
 
   if (calendarSummary.years.length < 1) {
     return null;
@@ -142,8 +138,8 @@ export function SectionStatsCards({
                 accessibilityState={{ expanded: isYearExpanded }}
                 onPress={() => toggleYear(yearData.year)}
               >
-                <MaterialCommunityIcons
-                  name={isYearExpanded ? 'chevron-down' : 'chevron-right'}
+                <DisclosureChevron
+                  expanded={isYearExpanded}
                   size={STATS_ICON_SIZE}
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 />
@@ -371,7 +367,7 @@ function ReferenceStar({ isReference, isDark, label, onPress }: ReferenceStarPro
       )}
       <MaterialCommunityIcons
         name={isReference ? 'star' : 'star-outline'}
-        size={16}
+        size={REFERENCE_STAR_SIZE}
         color={
           isReference ? colors.primary : isDark ? darkColors.textSecondary : colors.textSecondary
         }
@@ -380,7 +376,9 @@ function ReferenceStar({ isReference, isDark, label, onPress }: ReferenceStarPro
   );
 }
 
-const REFERENCE_HIT_SLOP = { top: 12, bottom: 12, left: 8, right: 8 };
+const REFERENCE_STAR_SIZE = 16;
+const REFERENCE_MIN_WIDTH = 24;
+const REFERENCE_HIT_SLOP = slopToMinTapTarget(REFERENCE_STAR_SIZE, REFERENCE_MIN_WIDTH);
 const STATS_ICON_SIZE = 20;
 const DIRECTION_ARROW_SIZE = 12;
 const STATS_LABEL_INSET = spacing.md + STATS_ICON_SIZE + spacing.xs;
@@ -451,7 +449,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   referenceButton: {
-    minWidth: 24,
+    minWidth: REFERENCE_MIN_WIDTH,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

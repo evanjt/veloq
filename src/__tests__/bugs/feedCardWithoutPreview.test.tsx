@@ -83,7 +83,7 @@ const activity = {
 /** Every Skia primitive the deleted route line drew. */
 const SKIA_NODES = ['skia-canvas', 'Canvas', 'Path', 'Circle'];
 
-function skiaNodeCount(tree: ReturnType<typeof render>): number {
+function skiaNodeCount(tree: Awaited<ReturnType<typeof render>>): number {
   const json = JSON.stringify(tree.toJSON());
   return SKIA_NODES.filter((n) => json.includes(`"${n}"`)).length;
 }
@@ -99,17 +99,17 @@ describe('a feed card with no preview draws no route line', () => {
     jest.useRealTimers();
   });
 
-  it('spins while the render is pending', () => {
-    const tree = render(<ActivityMapPreview activity={activity} />);
+  it('spins while the render is pending', async () => {
+    const tree = await render(<ActivityMapPreview activity={activity} />);
 
     expect(tree.UNSAFE_queryAllByType(require('react-native').ActivityIndicator)).toHaveLength(1);
     expect(skiaNodeCount(tree)).toBe(0);
   });
 
-  it('keeps spinning when the render is merely slow, rather than calling it failed', () => {
-    const tree = render(<ActivityMapPreview activity={activity} />);
+  it('keeps spinning when the render is merely slow, rather than calling it failed', async () => {
+    const tree = await render(<ActivityMapPreview activity={activity} />);
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(30_000);
     });
 
@@ -117,10 +117,10 @@ describe('a feed card with no preview draws no route line', () => {
     expect(skiaNodeCount(tree)).toBe(0);
   });
 
-  it('shows the no-map mark once the pipeline says it gave up, and never a line', () => {
-    const tree = render(<ActivityMapPreview activity={activity} />);
+  it('shows the no-map mark once the pipeline says it gave up, and never a line', async () => {
+    const tree = await render(<ActivityMapPreview activity={activity} />);
 
-    act(() => {
+    await act(() => {
       mockSnapshotFailed?.();
     });
 
@@ -142,38 +142,38 @@ describe('a cached preview that will not decode', () => {
     mockCached.add(mockKey('demo-1', 'light', false));
   });
 
-  function renderCachedCard() {
+  async function renderCachedCard() {
     const requestSnapshot = jest.fn();
     const snapshotRef = {
       current: { requestSnapshot, retryFailed: jest.fn(), holdForScroll: jest.fn() },
     };
-    const tree = render(
+    const tree = await render(
       <ActivityMapPreview activity={activity} snapshotRef={snapshotRef} snapshotReady={true} />
     );
     return { requestSnapshot, tree };
   }
 
-  function failImage(tree: ReturnType<typeof render>) {
-    act(() => {
+  async function failImage(tree: Awaited<ReturnType<typeof render>>) {
+    await act(() => {
       tree.UNSAFE_getByType(Image).props.onError({ nativeEvent: { error: 'decode failed' } });
     });
   }
 
-  it('drops the broken entry from the cache', () => {
-    const { tree } = renderCachedCard();
+  it('drops the broken entry from the cache', async () => {
+    const { tree } = await renderCachedCard();
 
-    failImage(tree);
+    await failImage(tree);
 
     const { deleteTerrainPreview } = require('@/features/maps/lib/storage/terrainPreviewCache');
     expect(deleteTerrainPreview).toHaveBeenCalledWith('demo-1', 'light', false);
     expect(mockCached.has(mockKey('demo-1', 'light', false))).toBe(false);
   });
 
-  it('asks the pool to draw it again, so the spinner has something to wait for', () => {
-    const { requestSnapshot, tree } = renderCachedCard();
+  it('asks the pool to draw it again, so the spinner has something to wait for', async () => {
+    const { requestSnapshot, tree } = await renderCachedCard();
     expect(requestSnapshot).not.toHaveBeenCalled();
 
-    failImage(tree);
+    await failImage(tree);
 
     expect(requestSnapshot).toHaveBeenCalledTimes(1);
     expect(requestSnapshot).toHaveBeenCalledWith(
@@ -181,15 +181,15 @@ describe('a cached preview that will not decode', () => {
     );
   });
 
-  it('takes the no-map mark when the redrawn image fails too, rather than asking forever', () => {
-    const { requestSnapshot, tree } = renderCachedCard();
-    failImage(tree);
-    act(() => {
+  it('takes the no-map mark when the redrawn image fails too, rather than asking forever', async () => {
+    const { requestSnapshot, tree } = await renderCachedCard();
+    await failImage(tree);
+    await act(() => {
       mockCached.add(mockKey('demo-1', 'light', false));
       mockSnapshotDone?.('file:///redrawn.jpg');
     });
 
-    failImage(tree);
+    await failImage(tree);
 
     expect(requestSnapshot).toHaveBeenCalledTimes(1);
     expect(tree.UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(0);

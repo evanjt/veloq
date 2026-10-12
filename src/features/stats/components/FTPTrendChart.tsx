@@ -7,10 +7,22 @@ import { RangeCoverage } from 'veloqrs';
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { useTranslation } from 'react-i18next';
 import { Circle, LinearGradient, vec } from '@shopify/react-native-skia';
-import { colors, typography, spacing, layout, chartStyles, darkColors } from '@/theme';
-import { verdictColor, verdictFill, type VerdictRung } from '@/theme/colors';
+import {
+  colors,
+  typography,
+  spacing,
+  layout,
+  chartStyles,
+  darkColors,
+  themedStyles,
+  type Palette,
+} from '@/theme';
+import { verdictColor, verdictFill } from '@/theme/colors';
 import { formatMonth } from '@/shared/format/format';
+import { spokenVerdict } from '@/shared/format/spoken';
+import { trendVerdict, verdictRung, type TrendDirection } from '@/shared/format/trend';
 import { ChartCanvas, CurveArea, CurveLine, useChartColors } from '@/shared/charts';
+import { EmptyState } from '@/shared/ui/EmptyState';
 
 /** One daily eFTP estimate: the local day and the watts. */
 interface FtpSeriesPoint {
@@ -25,6 +37,8 @@ interface FTPTrendChartProps {
   change?: number | undefined;
   /** The step as a percentage of the earlier estimate */
   changePercent?: number | undefined;
+  /** The window in days the engine measured the step over, which the caption names */
+  lookbackDays?: number | undefined;
   /** Chart height */
   height?: number | undefined;
   /**
@@ -49,11 +63,13 @@ export function FTPTrendChart({
   data,
   change: ftpChange = 0,
   changePercent = 0,
+  lookbackDays,
   height = 180,
   coverage,
 }: FTPTrendChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const styles = themedStyles(makeStyles, isDark);
   const chartColors = useChartColors();
 
   // All hooks must be called before any conditional returns
@@ -84,8 +100,13 @@ export function FTPTrendChart({
     };
   }, [chartData]);
 
-  const rung: VerdictRung = ftpChange > 0 ? 'positive' : ftpChange < 0 ? 'negative' : 'neutral';
+  const direction: TrendDirection = ftpChange > 0 ? 'up' : ftpChange < 0 ? 'down' : 'flat';
+  const verdict = trendVerdict('ftp', direction);
+  const rung = verdictRung(verdict);
   const arrow = ftpChange > 0 ? '▲ ' : ftpChange < 0 ? '▼ ' : '';
+  // The triangle is read as "black up-pointing triangle", so the badge is
+  // named with the judgement it draws instead.
+  const changeLabel = `${spokenVerdict(verdict, direction)}, ${Math.abs(ftpChange)} ${t('units.watts')}`;
   const yDomain = useMemo<[number, number]>(() => [minFTP, maxFTP], [minFTP, maxFTP]);
 
   // Show empty state if no data
@@ -95,21 +116,17 @@ export function FTPTrendChart({
       <View style={[styles.container, { height }]}>
         <View style={styles.emptyState}>
           {notDownloaded ? (
-            <Text
+            <EmptyState
+              variant="inline"
               testID="ftp-trend-not-downloaded"
-              style={[styles.emptyText, isDark && chartStyles.textDark]}
-            >
-              {t('stats.rangeNotDownloaded')}
-            </Text>
+              title={t('stats.rangeNotDownloaded')}
+            />
           ) : (
-            <>
-              <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
-                {t('stats.noFtpData')}
-              </Text>
-              <Text style={[styles.emptyHint, isDark && chartStyles.textDark]}>
-                {t('stats.completePowerActivities')}
-              </Text>
-            </>
+            <EmptyState
+              variant="inline"
+              title={t('stats.noFtpData')}
+              description={t('stats.completePowerActivities')}
+            />
           )}
         </View>
       </View>
@@ -121,9 +138,7 @@ export function FTPTrendChart({
       {/* Header with current FTP */}
       <View style={styles.header}>
         <View>
-          <Text style={[styles.label, isDark && chartStyles.textDark]}>
-            {t('stats.estimatedFtp')}
-          </Text>
+          <Text style={styles.label}>{t('stats.estimatedFtp')}</Text>
           <View style={styles.ftpRow}>
             <Text
               style={[
@@ -134,16 +149,21 @@ export function FTPTrendChart({
               {latestFTP} {t('units.watts')}
             </Text>
             <View style={[styles.changeBadge, { backgroundColor: verdictFill(rung, isDark) }]}>
-              <Text style={[styles.changeText, { color: verdictColor(rung, isDark) }]}>
+              <Text
+                accessibilityLabel={changeLabel}
+                style={[styles.changeText, { color: verdictColor(rung, isDark) }]}
+              >
                 {arrow}
                 {Math.abs(ftpChange)} {t('units.watts')}
               </Text>
             </View>
           </View>
-          <Text style={[styles.changeSubtext, isDark && chartStyles.textDark]}>
-            {ftpChange > 0 ? '+' : ''}
-            {changePercent.toFixed(1)}% {t('stats.from3MonthsAgo')}
-          </Text>
+          {lookbackDays ? (
+            <Text style={styles.changeSubtext}>
+              {ftpChange > 0 ? '+' : ''}
+              {changePercent.toFixed(1)}% {t('stats.fromDaysAgo', { count: lookbackDays })}
+            </Text>
+          ) : null}
         </View>
       </View>
 
@@ -227,66 +247,57 @@ export function FTPTrendChart({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {},
-  header: {
-    marginBottom: spacing.sm,
-  },
-  label: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-  },
-  ftpRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  ftpValue: {
-    fontSize: typography.headlineNumber.fontSize,
-    fontWeight: '700',
-  },
-  changeBadge: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
-    borderRadius: layout.borderRadius,
-  },
-  changeText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
-  },
-  changeSubtext: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-    marginTop: spacing.xxs,
-  },
-  xAxisOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: spacing.xs,
-    right: spacing.xs,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  yAxisOverlay: {
-    position: 'absolute',
-    top: spacing.sm,
-    bottom: spacing.md,
-    left: spacing.xs,
-    justifyContent: 'space-between',
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyText: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  emptyHint: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-});
+const makeStyles = (palette: Palette) =>
+  StyleSheet.create({
+    container: {},
+    header: {
+      marginBottom: spacing.sm,
+    },
+    label: {
+      fontSize: typography.caption.fontSize,
+      color: palette.textSecondary,
+    },
+    ftpRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    ftpValue: {
+      fontSize: typography.headlineNumber.fontSize,
+      fontWeight: '700',
+    },
+    changeBadge: {
+      paddingHorizontal: spacing.sm,
+      paddingVertical: spacing.xxs,
+      borderRadius: layout.borderRadius,
+    },
+    changeText: {
+      fontSize: typography.caption.fontSize,
+      fontWeight: '600',
+    },
+    changeSubtext: {
+      fontSize: typography.label.fontSize,
+      color: palette.textSecondary,
+      marginTop: spacing.xxs,
+    },
+    xAxisOverlay: {
+      position: 'absolute',
+      bottom: 0,
+      left: spacing.xs,
+      right: spacing.xs,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+    },
+    yAxisOverlay: {
+      position: 'absolute',
+      top: spacing.sm,
+      bottom: spacing.md,
+      left: spacing.xs,
+      justifyContent: 'space-between',
+    },
+    emptyState: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+  });

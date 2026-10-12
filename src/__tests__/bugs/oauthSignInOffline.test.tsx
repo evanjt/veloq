@@ -64,8 +64,8 @@ const mockBrowser = jest.mocked(WebBrowser.openAuthSessionAsync);
 const originalFetch = global.fetch;
 const setError = jest.fn();
 
-function signIn() {
-  const { result } = renderHook(() => useOAuthLogin({ setError }));
+async function signIn() {
+  const { result } = await renderHook(() => useOAuthLogin({ setError }));
   return result.current.handleOAuthLogin;
 }
 
@@ -92,7 +92,7 @@ afterAll(() => {
 
 it('asks nothing offline and says sign-in needs a network', async () => {
   mockIsOnline.mockReturnValue(false);
-  const handleOAuthLogin = signIn();
+  const handleOAuthLogin = await signIn();
 
   await act(async () => {
     await handleOAuthLogin();
@@ -105,7 +105,7 @@ it('asks nothing offline and says sign-in needs a network', async () => {
 
 it('shows translated text when the proxy fetch fails in transport', async () => {
   global.fetch = jest.fn().mockRejectedValue(new TypeError('Network request failed'));
-  const handleOAuthLogin = signIn();
+  const handleOAuthLogin = await signIn();
 
   await act(async () => {
     await handleOAuthLogin();
@@ -123,7 +123,7 @@ it('shows translated text when the proxy fetch runs out its deadline', async () 
         init?.signal?.addEventListener('abort', () => reject(new Error('Aborted')));
       })
   ) as unknown as typeof fetch;
-  const handleOAuthLogin = signIn();
+  const handleOAuthLogin = await signIn();
 
   await act(async () => {
     const attempt = handleOAuthLogin();
@@ -137,7 +137,7 @@ it('shows translated text when the proxy fetch runs out its deadline', async () 
 
 it('shows translated text when the proxy refuses to register the state', async () => {
   global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 503 });
-  const handleOAuthLogin = signIn();
+  const handleOAuthLogin = await signIn();
 
   await act(async () => {
     await handleOAuthLogin();
@@ -156,7 +156,7 @@ it('shows translated text when the proxy refuses to redeem the code', async () =
     .fn()
     .mockResolvedValueOnce({ ok: true })
     .mockResolvedValueOnce({ ok: false, status: 502 });
-  const handleOAuthLogin = signIn();
+  const handleOAuthLogin = await signIn();
 
   await act(async () => {
     await handleOAuthLogin();
@@ -167,7 +167,7 @@ it('shows translated text when the proxy refuses to redeem the code', async () =
 
 it('does not name the API key for a failure with no message', async () => {
   global.fetch = jest.fn().mockRejectedValue('dropped');
-  const handleOAuthLogin = signIn();
+  const handleOAuthLogin = await signIn();
 
   await act(async () => {
     await handleOAuthLogin();
@@ -191,7 +191,7 @@ it.each([
     type: 'success',
     url: `veloq://oauth/callback?${query}`,
   });
-  const handleOAuthLogin = signIn();
+  const handleOAuthLogin = await signIn();
 
   await act(async () => {
     await handleOAuthLogin();
@@ -212,7 +212,7 @@ it('shows translated text when the code exchange returns no token', async () => 
       ok: true,
       json: async () => ({ success: true }),
     });
-  const handleOAuthLogin = signIn();
+  const handleOAuthLogin = await signIn();
 
   await act(async () => {
     await handleOAuthLogin();

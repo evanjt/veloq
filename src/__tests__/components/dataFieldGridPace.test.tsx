@@ -34,14 +34,14 @@ function metricsAt(speed: number, avgSpeed: number) {
   };
 }
 
-function tile(
+async function tile(
   field: DataFieldType,
   speed: number,
   avgSpeed: number,
   isMetric: boolean,
   activityType?: ActivityType
-): string {
-  const tree = render(
+): Promise<string> {
+  const tree = await render(
     <DataFieldGrid
       fields={[field]}
       metrics={metricsAt(speed, avgSpeed)}
@@ -54,25 +54,25 @@ function tile(
     .findAll((n) => typeof n.children[0] === 'string')[0].children[0] as string;
 }
 
-it('reads the current pace of a 3 m/s run in both unit systems', () => {
-  expect(tile('pace', 3, 2.5, true)).toBe('5:33 /km');
-  expect(tile('pace', 3, 2.5, false)).toBe('8:56 /mi');
+it('reads the current pace of a 3 m/s run in both unit systems', async () => {
+  expect(await tile('pace', 3, 2.5, true)).toBe('5:33 /km');
+  expect(await tile('pace', 3, 2.5, false)).toBe('8:56 /mi');
 });
 
-it('reads the average pace from the average speed, not the current one', () => {
-  expect(tile('avgPace', 2.5, 3, true)).toBe('5:33 /km');
-  expect(tile('avgPace', 2.5, 3, false)).toBe('8:56 /mi');
+it('reads the average pace from the average speed, not the current one', async () => {
+  expect(await tile('avgPace', 2.5, 3, true)).toBe('5:33 /km');
+  expect(await tile('avgPace', 2.5, 3, false)).toBe('8:56 /mi');
 });
 
-it('reads a placeholder when standing still', () => {
-  expect(tile('pace', 0, 0, true)).toBe('--:--');
-  expect(tile('avgPace', 0, 0, false)).toBe('--:--');
+it('reads a placeholder when standing still', async () => {
+  expect(await tile('pace', 0, 0, true)).toBe('--:--');
+  expect(await tile('avgPace', 0, 0, false)).toBe('--:--');
 });
 
 describe('an open-water swim', () => {
-  it('reads the pace tiles per 100 m or 100 yd', () => {
-    expect(tile('pace', 0.833, 0.833, true, 'OpenWaterSwim')).toBe('2:00 /100m');
-    expect(tile('avgPace', 0.833, 0.833, false, 'OpenWaterSwim')).toBe('1:50 /100yd');
+  it('reads the pace tiles per 100 m or 100 yd', async () => {
+    expect(await tile('pace', 0.833, 0.833, true, 'OpenWaterSwim')).toBe('2:00 /100m');
+    expect(await tile('avgPace', 0.833, 0.833, false, 'OpenWaterSwim')).toBe('1:50 /100yd');
   });
 
   it('reads the same label on the notification and live activity text', () => {

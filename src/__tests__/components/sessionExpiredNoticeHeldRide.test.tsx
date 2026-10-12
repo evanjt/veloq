@@ -84,8 +84,8 @@ beforeEach(() => {
 });
 
 describe('the notice', () => {
-  it('names the held ride and where it reappears', () => {
-    const view = render(
+  it('names the held ride and where it reappears', async () => {
+    const view = await render(
       <SessionExpiredNotice
         notice={{ reason: 'signed_out', cachedAthleteId: 'i1', heldRideStart: START }}
       />
@@ -95,8 +95,8 @@ describe('the notice', () => {
     ).toBeTruthy();
   });
 
-  it('mentions no ride when none is held', () => {
-    const view = render(
+  it('mentions no ride when none is held', async () => {
+    const view = await render(
       <SessionExpiredNotice
         notice={{ reason: 'signed_out', cachedAthleteId: 'i1', heldRideStart: null }}
       />
@@ -109,7 +109,7 @@ describe('the notice source', () => {
   it('reads the outgoing athlete’s held ride', async () => {
     await saveRecordingBackup(backup());
     useAuthStore.setState({ sessionExpired: 'signed_out' });
-    const { result } = renderHook(() => useSessionExpiryNotice());
+    const { result } = await renderHook(() => useSessionExpiryNotice());
     await waitFor(() => expect(result.current[0]).not.toBeNull());
     expect(result.current[0]).toEqual({
       reason: 'signed_out',
@@ -122,7 +122,7 @@ describe('the notice source', () => {
     await saveRecordingBackup(backup({ status: 'paused', stopTime: null }));
     await saveRecordingBackup(backup({ athleteId: 'i2' }));
     useAuthStore.setState({ sessionExpired: 'signed_out' });
-    const { result } = renderHook(() => useSessionExpiryNotice());
+    const { result } = await renderHook(() => useSessionExpiryNotice());
     await waitFor(() => expect(result.current[0]).not.toBeNull());
     expect(result.current[0]?.heldRideStart).toBeNull();
   });

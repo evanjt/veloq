@@ -33,26 +33,26 @@ beforeEach(() => {
 });
 
 describe('the backup tour slide', () => {
-  it('turns automatic backup on through the setting the backup screen reads', () => {
-    const { getByTestId } = render(<BackupSlide />);
+  it('turns automatic backup on through the setting the backup screen reads', async () => {
+    const { getByTestId } = await render(<BackupSlide />);
     const toggle = getByTestId('tour-backup-auto-switch');
 
-    expect(toggle.props.value).toBe(false);
-    fireEvent(toggle, 'valueChange', true);
+    expect(toggle).not.toBeChecked();
+    await fireEvent.press(toggle);
 
     expect(isAutoBackupEnabled()).toBe(true);
-    expect(getByTestId('tour-backup-auto-switch').props.value).toBe(true);
+    expect(getByTestId('tour-backup-auto-switch')).toBeChecked();
   });
 
-  it('shows the switch on when automatic backup is already on, and turns it off', () => {
+  it('shows the switch on when automatic backup is already on, and turns it off', async () => {
     setAutoBackupEnabled(true);
-    const { getByTestId } = render(<BackupSlide />);
+    const { getByTestId } = await render(<BackupSlide />);
     const toggle = getByTestId('tour-backup-auto-switch');
 
-    expect(toggle.props.value).toBe(true);
-    fireEvent(toggle, 'valueChange', false);
+    expect(toggle).toBeChecked();
+    await fireEvent.press(toggle);
 
     expect(isAutoBackupEnabled()).toBe(false);
-    expect(getByTestId('tour-backup-auto-switch').props.value).toBe(false);
+    expect(getByTestId('tour-backup-auto-switch')).not.toBeChecked();
   });
 });

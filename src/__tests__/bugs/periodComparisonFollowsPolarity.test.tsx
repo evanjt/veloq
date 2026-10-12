@@ -58,9 +58,9 @@ function againstChronic(comparison: PeriodComparison) {
 }
 
 /** The colour the sheet draws the change in. */
-function changeColour(insight: ReturnType<typeof weekOverWeek>): string {
+async function changeColour(insight: ReturnType<typeof weekOverWeek>): Promise<string> {
   const change = String(insight.supportingData?.comparisonData?.change.value);
-  const { getByText } = render(<PeriodComparisonContent insight={insight} />);
+  const { getByText } = await render(<PeriodComparisonContent insight={insight} />);
   return StyleSheet.flatten(getByText(change).props.style).color as string;
 }
 
@@ -98,11 +98,11 @@ describe('the period comparison verdict', () => {
   it.each([
     ['a load rise', LOAD_RISE],
     ['a load fall', LOAD_FALL],
-  ])('draws %s on the neutral rung, card and sheet', (_name, comparison) => {
+  ])('draws %s on the neutral rung, card and sheet', async (_name, comparison) => {
     const insight = weekOverWeek(comparison);
 
     expect(insight.iconTone).toBe('neutral');
-    expect(changeColour(insight)).toBe(verdictColor('neutral', false));
+    expect(await changeColour(insight)).toBe(verdictColor('neutral', false));
   });
 
   it('keeps the bare direction of a load move as its glyph', () => {
@@ -110,27 +110,27 @@ describe('the period comparison verdict', () => {
     expect(weekOverWeek(LOAD_FALL).icon).toBe('trending-down');
   });
 
-  it('draws a fall in training time on the negative rung, not amber', () => {
+  it('draws a fall in training time on the negative rung, not amber', async () => {
     const insight = weekOverWeek(TIME_FALL);
 
     expect(insight.iconTone).toBe('negative');
-    expect(changeColour(insight)).toBe(verdictColor('negative', false));
+    expect(await changeColour(insight)).toBe(verdictColor('negative', false));
   });
 
-  it('draws a rise in training time on the positive rung', () => {
+  it('draws a rise in training time on the positive rung', async () => {
     const insight = weekOverWeek(TIME_RISE);
 
     expect(insight.iconTone).toBe('positive');
-    expect(changeColour(insight)).toBe(verdictColor('positive', false));
+    expect(await changeColour(insight)).toBe(verdictColor('positive', false));
   });
 
-  it('judges a week against the chronic average by the same table', () => {
+  it('judges a week against the chronic average by the same table', async () => {
     const load = againstChronic({ ...LOAD_FALL, ratio: -0.28 });
     const time = againstChronic({ ...TIME_FALL, ratio: -0.28 });
 
     expect(load.iconTone).toBe('neutral');
-    expect(changeColour(load)).toBe(verdictColor('neutral', false));
+    expect(await changeColour(load)).toBe(verdictColor('neutral', false));
     expect(time.iconTone).toBe('negative');
-    expect(changeColour(time)).toBe(verdictColor('negative', false));
+    expect(await changeColour(time)).toBe(verdictColor('negative', false));
   });
 });

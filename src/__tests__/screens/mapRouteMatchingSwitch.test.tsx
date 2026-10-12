@@ -74,7 +74,7 @@ jest.mock('@/shared/ui', () => {
     Button: ({ label }: { label: string }) => <Text>{label}</Text>,
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
     ScreenErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
-    ErrorStatePreset: () => null,
+    ErrorState: () => null,
     useTabBarClearance: () => 0,
     Shimmer: () => null,
     pressable: (style: unknown) => style,
@@ -95,9 +95,9 @@ describe('map screen route matching switch', () => {
     });
   });
 
-  it('hands the engine read, the map view and the deep link the switch when it is off', () => {
+  it('hands the engine read, the map view and the deep link the switch when it is off', async () => {
     mockRouteMatchingEnabled = false;
-    render(<MapScreen />);
+    await render(<MapScreen />);
     expect(mockUseMap).toHaveBeenLastCalledWith(
       expect.objectContaining({ sectionsEnabled: false })
     );
@@ -106,9 +106,9 @@ describe('map screen route matching switch', () => {
     expect(props.selectSectionId).toBeUndefined();
   });
 
-  it('carries the switch and the deep-linked section through when it is on', () => {
+  it('carries the switch and the deep-linked section through when it is on', async () => {
     mockRouteMatchingEnabled = true;
-    render(<MapScreen />);
+    await render(<MapScreen />);
     expect(mockUseMap).toHaveBeenLastCalledWith(expect.objectContaining({ sectionsEnabled: true }));
     const props = mockMapView.mock.calls.at(-1)?.[0] as Record<string, unknown>;
     expect(props.sectionsEnabled).toBe(true);

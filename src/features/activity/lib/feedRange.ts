@@ -19,6 +19,13 @@ export const FEED_RANGE_PRESETS = ['last90Days', 'thisYear', 'lastYear'] as cons
 
 export type FeedRangePreset = (typeof FEED_RANGE_PRESETS)[number];
 
+/** Each preset's chip label, as a translation key. */
+export const FEED_RANGE_LABELS = {
+  last90Days: 'feed.range.last90Days',
+  thisYear: 'feed.range.thisYear',
+  lastYear: 'feed.range.lastYear',
+} as const satisfies Record<FeedRangePreset, string>;
+
 /** The range a preset names, as of the calendar day `today` (YYYY-MM-DD). */
 export function feedRangeForPreset(preset: FeedRangePreset, today: string): FeedRange {
   const year = Number(today.slice(0, 4));

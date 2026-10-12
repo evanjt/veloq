@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, Linking } from 'react-native';
 import {
   ListSectionHeader,
+  Row,
   ScreenSafeAreaView,
   ScreenScrollView,
   pressable,
@@ -53,38 +54,6 @@ function LinkRow({ icon, label, url, isDark, testID }: LinkRowProps) {
       <MaterialCommunityIcons name={icon} size={22} color={colors.primary} />
       <Text style={[styles.linkText, { color: textColor }]}>{label}</Text>
       <MaterialCommunityIcons name="open-in-new" size={18} color={mutedColor} />
-    </Pressable>
-  );
-}
-
-interface NavRowProps {
-  icon: keyof typeof MaterialCommunityIcons.glyphMap;
-  label: string;
-  route: string;
-  isDark: boolean;
-  testID?: string;
-}
-
-function NavRow({ icon, label, route, isDark, testID }: NavRowProps) {
-  const handlePress = () => {
-    tapTo(route);
-  };
-
-  const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
-  const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      style={pressable(styles.linkRow)}
-      onPress={handlePress}
-      testID={testID}
-      android_ripple={pressRipple}
-    >
-      <MaterialCommunityIcons name={icon} size={22} color={colors.primary} />
-      <Text style={[styles.linkText, { color: textColor }]}>{label}</Text>
-      <MaterialCommunityIcons name="chevron-right" size={22} color={mutedColor} />
     </Pressable>
   );
 }
@@ -166,13 +135,19 @@ function AboutScreenContent() {
             isDark={isDark}
           />
           <View style={styles.linkDivider(isDark)} />
-          <NavRow
+          <Row
             testID="about-link-licenses"
-            icon="file-document-multiple"
-            label={t('about.thirdPartyLicenses')}
-            route="/licenses"
-            isDark={isDark}
-          />
+            behaviour="navigate"
+            accessibilityLabel={t('about.thirdPartyLicenses')}
+            onPress={() => tapTo('/licenses')}
+          >
+            <MaterialCommunityIcons
+              name="file-document-multiple"
+              size={22}
+              color={colors.primary}
+            />
+            <Text style={[styles.linkText, shared.text]}>{t('about.thirdPartyLicenses')}</Text>
+          </Row>
           <View style={styles.linkDivider(isDark)} />
           <LinkRow
             testID="about-link-source"

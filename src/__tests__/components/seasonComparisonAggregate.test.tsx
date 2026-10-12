@@ -83,7 +83,7 @@ beforeEach(() => {
 
 describe('SeasonComparison', () => {
   it('totals the year from the engine aggregate, with no activities given', async () => {
-    const view = render(<SeasonComparison />, { wrapper });
+    const view = await render(<SeasonComparison />, { wrapper });
 
     // 3600 + 10800 seconds this year, 7200 last, in hours to one decimal.
     await waitFor(() => expect(view.getByText('4h')).toBeTruthy());
@@ -97,10 +97,10 @@ describe('SeasonComparison', () => {
     'totals the distance in %s units, labelled in the unit it is read in',
     async (preference, current, previous, unit) => {
       useUnitPreference.setState({ unitPreference: preference });
-      const view = render(<SeasonComparison />, { wrapper });
+      const view = await render(<SeasonComparison />, { wrapper });
       await waitFor(() => expect(view.getByText('4h')).toBeTruthy());
 
-      fireEvent.press(view.getByText('activity.distance'));
+      await fireEvent.press(view.getByText('activity.distance'));
 
       await waitFor(() => expect(view.getByText(`${current}${unit}`)).toBeTruthy());
       expect(view.getByText(`${previous}${unit}`)).toBeTruthy();
@@ -108,14 +108,14 @@ describe('SeasonComparison', () => {
   );
 
   it('reads no activity bodies', async () => {
-    render(<SeasonComparison />, { wrapper });
+    await render(<SeasonComparison />, { wrapper });
 
     await waitFor(() => expect(monthlyRows).toHaveBeenCalled());
     expect(engine.getActivityBodies).not.toHaveBeenCalled();
   });
 
   it('asks the engine for the two calendar years the chart shows', async () => {
-    render(<SeasonComparison />, { wrapper });
+    await render(<SeasonComparison />, { wrapper });
 
     await waitFor(() => expect(monthlyRows).toHaveBeenCalled());
     const [startTs, endTs] = monthlyRows.mock.calls[0] as unknown as [number, number];
@@ -129,7 +129,7 @@ describe.each(CLOCK_EDGES)('SeasonComparison on %s', (_name, at) => {
   beforeEach(() => jest.setSystemTime(at));
 
   it('asks for 1 January last year through the end of today, by the local calendar', async () => {
-    render(<SeasonComparison />, { wrapper });
+    await render(<SeasonComparison />, { wrapper });
 
     await waitFor(() => expect(monthlyRows).toHaveBeenCalled());
     const [startTs, endTs] = monthlyRows.mock.calls[0] as unknown as [number, number];

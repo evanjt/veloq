@@ -594,63 +594,105 @@ fn salvage_declared_records(
     records
 }
 
-/// The section's records as the junction rows stand now: per sport, the
-/// fastest included full traversal and its activity. A record is held within
-/// one sport, so a ride over ground a run also crosses never holds the run's.
-pub(super) fn current_prs_on(
-    conn: &rusqlite::Connection,
-    section_id: &str,
-) -> std::collections::BTreeMap<String, (String, f64)> {
+/// A section's records keyed by (sport, direction), each the holding
+/// activity and its lap time.
+pub(super) type SectionRecords = std::collections::BTreeMap<(String, String), (String, f64)>;
+
+/// The section's records as the junction rows stand now, one per sport and
+/// direction under the one record rule: the fastest included full traversal,
+/// when it beats every other outing's. A record is held within one sport, a
+/// reverse traversal is a different effort, and a lone outing or a tie between
+/// outings holds nothing.
+pub(super) fn current_prs_on(conn: &rusqlite::Connection, section_id: &str) -> SectionRecords {
     let complete = crate::persistence::records::complete_traversal_clause("sa", "s");
     let sport = crate::persistence::records::activity_sport_sql();
-    let mut records = std::collections::BTreeMap::new();
+    let mut records = SectionRecords::new();
     let Ok(mut stmt) = conn.prepare(&format!(
-        "SELECT {sport}, sa.activity_id, sa.lap_time
+        "SELECT {sport}, sa.direction, sa.activity_id, sa.lap_time
          FROM section_activities sa
          JOIN activities a ON a.id = sa.activity_id
          LEFT JOIN activity_metrics am ON am.activity_id = sa.activity_id
          LEFT JOIN sections s ON s.id = sa.section_id
          WHERE sa.section_id = ? AND sa.excluded = 0 AND sa.lap_time IS NOT NULL{complete}
-         ORDER BY 1, sa.lap_time ASC, sa.activity_id ASC"
+         ORDER BY 1, 2, sa.lap_time ASC, sa.activity_id ASC"
     )) else {
         return records;
     };
     let rows = stmt.query_map(params![section_id], |row| {
         Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, f64>(2)?,
+            (row.get::<_, String>(0)?, row.get::<_, String>(1)?),
+            row.get::<_, String>(2)?,
+            row.get::<_, f64>(3)?,
         ))
     });
+    let mut laps: std::collections::BTreeMap<(String, String), Vec<(String, f64)>> =
+        std::collections::BTreeMap::new();
     if let Ok(rows) = rows {
-        for (sport, activity_id, lap_time) in rows.flatten() {
-            records.entry(sport).or_insert((activity_id, lap_time));
+        for (key, activity_id, lap_time) in rows.flatten() {
+            laps.entry(key).or_default().push((activity_id, lap_time));
+        }
+    }
+    for (key, laps) in laps {
+        let Some((activity_id, time)) = laps.first() else {
+            continue;
+        };
+        let held = crate::persistence::records::holds_section_record(
+            *time,
+            activity_id,
+            laps.iter().map(|(a, t)| (a.as_str(), *t)),
+        );
+        if held {
+            records.insert(key, (activity_id.clone(), *time));
         }
     }
     records
 }
 
-/// The records as the era snapshot stores them, keyed by sport.
-pub(super) fn prs_json(
-    records: &std::collections::BTreeMap<String, (String, f64)>,
-) -> serde_json::Value {
-    serde_json::Value::Object(
+/// The records as the era snapshot stores them: a list of entries, each
+/// naming its sport and direction, in that order.
+pub(super) fn prs_json(records: &SectionRecords) -> serde_json::Value {
+    serde_json::Value::Array(
         records
             .iter()
-            .map(|(sport, (activity_id, time))| {
-                (
-                    sport.clone(),
-                    serde_json::json!({ "activity_id": activity_id, "time": time }),
-                )
+            .map(|((sport, direction), (activity_id, time))| {
+                serde_json::json!({
+                    "sport": sport,
+                    "direction": direction,
+                    "activity_id": activity_id,
+                    "time": time,
+                })
             })
             .collect(),
     )
 }
 
-/// After a re-cut's junction rows are written, compare each sport's record
-/// they hold with the one the era snapshot the re-cut event carried, and write
-/// one [`KIND_PR_REBASED`] row per sport whose record moved. A record that
-/// merely gained precision is not a move: times compare to the millisecond.
+/// The records an era snapshot holds, or `None` when it holds them in a
+/// shape keyed by sport alone. Such a snapshot took the fastest lap in either
+/// direction and let a lone outing hold a record, so nothing compares with it.
+fn era_records(era: &serde_json::Value) -> Option<SectionRecords> {
+    let Some(prs) = era.get("prs") else {
+        return Some(SectionRecords::new());
+    };
+    let entries = prs.as_array()?;
+    Some(
+        entries
+            .iter()
+            .filter_map(|entry| {
+                let text = |key: &str| entry.get(key).and_then(|v| v.as_str()).map(str::to_string);
+                Some((
+                    (text("sport")?, text("direction")?),
+                    (text("activity_id")?, entry.get("time")?.as_f64()?),
+                ))
+            })
+            .collect(),
+    )
+}
+
+/// After a re-cut's junction rows are written, compare each record they hold
+/// with the one the era snapshot the re-cut event carried, and write one
+/// [`KIND_PR_REBASED`] row per sport and direction whose record moved. A
+/// record that merely gained precision is not a move: times compare to the
+/// millisecond.
 pub(super) fn record_pr_rebase_on(
     conn: &rusqlite::Connection,
     section_id: &str,
@@ -659,31 +701,18 @@ pub(super) fn record_pr_rebase_on(
     let era: serde_json::Value = recut_details
         .and_then(|d| serde_json::from_str(d).ok())
         .unwrap_or(serde_json::Value::Null);
-    let before: std::collections::BTreeMap<String, (Option<String>, Option<f64>)> = era
-        .get("prs")
-        .and_then(|v| v.as_object())
-        .map(|prs| {
-            prs.iter()
-                .map(|(sport, record)| {
-                    (
-                        sport.clone(),
-                        (
-                            record
-                                .get("activity_id")
-                                .and_then(|v| v.as_str())
-                                .map(str::to_string),
-                            record.get("time").and_then(|v| v.as_f64()),
-                        ),
-                    )
-                })
-                .collect()
-        })
-        .unwrap_or_default();
+    let Some(before) = era_records(&era) else {
+        return Ok(());
+    };
     let now = current_prs_on(conn, section_id);
-    let sports: std::collections::BTreeSet<&String> = before.keys().chain(now.keys()).collect();
-    for sport in sports {
-        let (from_activity, from_time) = before.get(sport).cloned().unwrap_or((None, None));
-        let (to_activity, to_time) = match now.get(sport) {
+    let keys: std::collections::BTreeSet<&(String, String)> =
+        before.keys().chain(now.keys()).collect();
+    for key in keys {
+        let (from_activity, from_time) = match before.get(key) {
+            Some((a, t)) => (Some(a.clone()), Some(*t)),
+            None => (None, None),
+        };
+        let (to_activity, to_time) = match now.get(key) {
             Some((a, t)) => (Some(a.clone()), Some(*t)),
             None => (None, None),
         };
@@ -695,8 +724,10 @@ pub(super) fn record_pr_rebase_on(
         if from_activity == to_activity && same_time {
             continue;
         }
+        let (sport, direction) = key;
         let details = serde_json::json!({
             "sport": sport,
+            "direction": direction,
             "from_activity_id": from_activity,
             "from_time": from_time,
             "to_activity_id": to_activity,
@@ -2205,8 +2236,24 @@ mod tests {
             .collect()
     }
 
-    /// The era a re-cut carried, in the per-sport shape the snapshot writes.
-    fn era(records: &[(&str, &str, f64)]) -> String {
+    /// The era a re-cut carried, one record per sport and direction.
+    fn era(records: &[(&str, &str, &str, f64)]) -> String {
+        let prs: Vec<serde_json::Value> = records
+            .iter()
+            .map(|(sport, direction, activity, time)| {
+                serde_json::json!({
+                    "sport": sport,
+                    "direction": direction,
+                    "activity_id": activity,
+                    "time": time,
+                })
+            })
+            .collect();
+        serde_json::json!({ "prs": prs }).to_string()
+    }
+
+    /// The era as a build that keyed the record by sport alone stored it.
+    fn era_by_sport(records: &[(&str, &str, f64)]) -> String {
         let prs: serde_json::Map<String, serde_json::Value> = records
             .iter()
             .map(|(sport, activity, time)| {
@@ -2217,6 +2264,10 @@ mod tests {
             })
             .collect();
         serde_json::json!({ "prs": prs }).to_string()
+    }
+
+    fn key(sport: &str, direction: &str) -> (String, String) {
+        (sport.to_string(), direction.to_string())
     }
 
     /// Scenario: a section is run in about four minutes and ridden in about
@@ -2231,17 +2282,125 @@ mod tests {
             ("run1", "Run", "same", 250.0, Some(1.0)),
             ("run2", "Run", "same", 240.0, Some(1.0)),
             ("ride1", "Ride", "same", 65.0, Some(1.0)),
+            ("ride2", "Ride", "same", 70.0, Some(1.0)),
         ]);
-        let before = era(&[("Run", "run1", 250.0), ("Ride", "ride1", 65.0)]);
+        let before = era(&[
+            ("Run", "same", "run1", 250.0),
+            ("Ride", "same", "ride1", 65.0),
+        ]);
 
         record_pr_rebase_on(&engine.db, "s1", Some(&before)).expect("rebase");
 
         let rows = rebased_rows(&engine.db);
         assert_eq!(rows.len(), 1, "one sport's record moved: {rows:?}");
         assert_eq!(rows[0]["sport"], "Run");
+        assert_eq!(rows[0]["direction"], "same");
         assert_eq!(rows[0]["from_time"], 250.0);
         assert_eq!(rows[0]["to_time"], 240.0);
         assert_eq!(rows[0]["to_activity_id"], "run2");
+    }
+
+    /// Scenario: one section ridden up in 600 s and 580 s and down in 200 s
+    /// and 210 s, all rides. The era before a re-cut held the 600 s climb.
+    ///
+    /// Expected behaviour: a reverse traversal is a different effort, so each
+    /// direction holds its own record, and the ledger says the climb moved
+    /// from 600 s to 580 s without naming the descent as the climb's record.
+    #[test]
+    fn a_rebase_compares_each_direction_with_its_own_record() {
+        let engine = section_with_laps(&[
+            ("up1", "Ride", "same", 600.0, Some(1.0)),
+            ("up2", "Ride", "same", 580.0, Some(1.0)),
+            ("down1", "Ride", "reverse", 200.0, Some(1.0)),
+            ("down2", "Ride", "reverse", 210.0, Some(1.0)),
+        ]);
+
+        let prs = current_prs_on(&engine.db, "s1");
+        assert_eq!(prs.len(), 2, "{prs:?}");
+        assert_eq!(prs[&key("Ride", "same")], ("up2".to_string(), 580.0));
+        assert_eq!(prs[&key("Ride", "reverse")], ("down1".to_string(), 200.0));
+
+        let before = era(&[
+            ("Ride", "same", "up1", 600.0),
+            ("Ride", "reverse", "down1", 200.0),
+        ]);
+        record_pr_rebase_on(&engine.db, "s1", Some(&before)).expect("rebase");
+
+        let rows = rebased_rows(&engine.db);
+        assert_eq!(rows.len(), 1, "only the climb's record moved: {rows:?}");
+        assert_eq!(rows[0]["sport"], "Ride");
+        assert_eq!(rows[0]["direction"], "same");
+        assert_eq!(rows[0]["from_activity_id"], "up1");
+        assert_eq!(rows[0]["from_time"], 600.0);
+        assert_eq!(rows[0]["to_activity_id"], "up2");
+        assert_eq!(rows[0]["to_time"], 580.0);
+    }
+
+    /// Scenario: a re-cut touches only the descent laps, so the descent
+    /// record moves and the climb's does not.
+    ///
+    /// Expected behaviour: the one row written is the descent's, labelled
+    /// reverse, and the climb's record is left unnarrated.
+    #[test]
+    fn a_descent_that_moves_is_not_written_as_the_climbs_move() {
+        let engine = section_with_laps(&[
+            ("up1", "Ride", "same", 600.0, Some(1.0)),
+            ("up2", "Ride", "same", 580.0, Some(1.0)),
+            ("down1", "Ride", "reverse", 190.0, Some(1.0)),
+            ("down2", "Ride", "reverse", 210.0, Some(1.0)),
+        ]);
+        let before = era(&[
+            ("Ride", "same", "up2", 580.0),
+            ("Ride", "reverse", "down1", 200.0),
+        ]);
+
+        record_pr_rebase_on(&engine.db, "s1", Some(&before)).expect("rebase");
+
+        let rows = rebased_rows(&engine.db);
+        assert_eq!(rows.len(), 1, "{rows:?}");
+        assert_eq!(rows[0]["direction"], "reverse");
+        assert_eq!(rows[0]["from_time"], 200.0);
+        assert_eq!(rows[0]["to_time"], 190.0);
+    }
+
+    /// Scenario: the era was written by a build that held one record per
+    /// sport, the fastest lap in either direction, and a lone outing counted.
+    ///
+    /// Expected behaviour: that snapshot was judged by another rule, so
+    /// nothing is compared against it and no move is invented, neither the
+    /// descent as the climb's record nor a lone outing's record vanishing.
+    #[test]
+    fn a_snapshot_keyed_by_sport_alone_invents_no_move() {
+        let engine = section_with_laps(&[
+            ("up1", "Ride", "same", 600.0, Some(1.0)),
+            ("up2", "Ride", "same", 580.0, Some(1.0)),
+            ("down1", "Ride", "reverse", 200.0, Some(1.0)),
+            ("down2", "Ride", "reverse", 210.0, Some(1.0)),
+            ("run1", "Run", "same", 900.0, Some(1.0)),
+        ]);
+        let before = era_by_sport(&[("Ride", "down1", 200.0), ("Run", "run1", 900.0)]);
+
+        record_pr_rebase_on(&engine.db, "s1", Some(&before)).expect("rebase");
+
+        assert_eq!(rebased_rows(&engine.db), Vec::<serde_json::Value>::new());
+    }
+
+    /// Scenario: a section ridden once, and run once in two laps.
+    ///
+    /// Expected behaviour: an outing with nothing beside it has beaten
+    /// nothing, so neither sport holds a record, and a lapped session cannot
+    /// hold one against itself.
+    #[test]
+    fn a_lone_outing_holds_no_record() {
+        let engine = section_with_laps(&[
+            ("ride1", "Ride", "same", 65.0, Some(1.0)),
+            ("run1", "Run", "same", 250.0, Some(1.0)),
+            ("run1", "Run", "same", 260.0, Some(1.0)),
+        ]);
+
+        assert!(current_prs_on(&engine.db, "s1").is_empty());
+        let snap = serde_json::Value::Object(engine.section_era_snapshot("s1"));
+        assert_eq!(snap["prs"], serde_json::json!([]));
     }
 
     /// Scenario: the fastest included row covers 59 per cent of the section,
@@ -2253,10 +2412,11 @@ mod tests {
     fn a_fragment_does_not_move_the_record() {
         let engine = section_with_laps(&[
             ("full", "Ride", "same", 98.0, Some(1.0)),
+            ("slow", "Ride", "same", 110.0, Some(1.0)),
             ("frag", "Ride", "same", 44.0, Some(0.59)),
             ("part", "Ride", "partial", 40.0, None),
         ]);
-        let before = era(&[("Ride", "full", 98.0)]);
+        let before = era(&[("Ride", "same", "full", 98.0)]);
 
         record_pr_rebase_on(&engine.db, "s1", Some(&before)).expect("rebase");
 
@@ -2268,10 +2428,11 @@ mod tests {
     /// faster but excluded. Detection then dissolves or re-cuts it and
     /// snapshots the era.
     ///
-    /// Expected behaviour: the snapshot holds only the per-sport records, each
-    /// from an included full traversal.
+    /// Expected behaviour: the snapshot holds only the records, each from an
+    /// included full traversal that beats another outing in its sport and
+    /// direction; the lone run holds none.
     #[test]
-    fn the_era_snapshot_keeps_one_full_lap_record_per_sport() {
+    fn the_era_snapshot_keeps_one_full_lap_record_per_sport_and_direction() {
         let engine = section_with_laps(&[
             ("run1", "Run", "same", 250.0, Some(1.0)),
             ("ride1", "Ride", "same", 65.0, Some(1.0)),
@@ -2280,6 +2441,8 @@ mod tests {
             ("loop", "Ride", "same", 72.0, Some(1.0)),
             ("frag", "Ride", "same", 30.0, Some(0.5)),
             ("hidden", "Ride", "same", 40.0, Some(1.0)),
+            ("back1", "Ride", "reverse", 80.0, Some(1.0)),
+            ("back2", "Ride", "reverse", 85.0, Some(1.0)),
         ]);
         engine
             .db
@@ -2293,36 +2456,33 @@ mod tests {
 
         assert_eq!(
             snap["prs"],
-            serde_json::json!({
-                "Ride": { "activity_id": "ride1", "time": 65.0 },
-                "Run": { "activity_id": "run1", "time": 250.0 },
-            })
+            serde_json::json!([
+                { "sport": "Ride", "direction": "reverse", "activity_id": "back1", "time": 80.0 },
+                { "sport": "Ride", "direction": "same", "activity_id": "ride1", "time": 65.0 },
+            ])
         );
         let keys: Vec<&String> = snap.as_object().expect("object").keys().collect();
         assert_eq!(keys, vec!["prs"]);
     }
 
-    /// Scenario: two activities hold the same fastest lap time, the higher
-    /// activity id inserted first, in two sports.
+    /// Scenario: two rides tie at the fastest lap time, and a run's two tied
+    /// fastest laps belong to one lapped session that beats another run.
     ///
-    /// Expected behaviour: the record, and the era snapshot that stores it,
-    /// names the lower activity id whatever the insertion order.
+    /// Expected behaviour: a tie between outings beats nobody, so the ride
+    /// holds no record; two tied laps of one outing are that outing's record.
     #[test]
-    fn tied_lap_times_give_the_record_to_the_lower_activity_id() {
+    fn a_tie_between_outings_holds_no_record() {
         let engine = section_with_laps(&[
             ("act_b", "Ride", "same", 60.0, Some(1.0)),
             ("act_a", "Ride", "same", 60.0, Some(1.0)),
-            ("run_b", "Run", "same", 200.0, Some(1.0)),
             ("run_a", "Run", "same", 200.0, Some(1.0)),
+            ("run_a", "Run", "same", 200.0, Some(1.0)),
+            ("run_b", "Run", "same", 210.0, Some(1.0)),
         ]);
 
         let prs = current_prs_on(&engine.db, "s1");
-        assert_eq!(prs["Ride"], ("act_a".to_string(), 60.0));
-        assert_eq!(prs["Run"], ("run_a".to_string(), 200.0));
-
-        let snap = serde_json::Value::Object(engine.section_era_snapshot("s1"));
-        assert_eq!(snap["prs"]["Ride"]["activity_id"], "act_a");
-        assert_eq!(snap["prs"]["Run"]["activity_id"], "run_a");
+        assert_eq!(prs.len(), 1, "{prs:?}");
+        assert_eq!(prs[&key("Run", "same")], ("run_a".to_string(), 200.0));
     }
 
     /// A line long enough that the version below is an interior slice of it.

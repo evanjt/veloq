@@ -44,6 +44,7 @@ jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 let mockPageId = '';
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
+  Stack: Object.assign(() => null, { Screen: () => null }),
   useLocalSearchParams: () => ({ id: mockPageId }),
   useFocusEffect: () => {},
   router: { back: jest.fn(), push: jest.fn(), replace: jest.fn() },
@@ -405,7 +406,7 @@ const SECTION_ONLY: SectionOnlyElement[] = [
 async function openPage(page: 'section' | 'route') {
   mockPageId = page === 'section' ? SECTION_ID : GROUP_ID;
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const screen = render(
+  const screen = await render(
     <QueryClientProvider client={client}>
       {page === 'section' ? <SectionDetailScreen /> : <RouteDetailScreen />}
     </QueryClientProvider>
@@ -423,7 +424,7 @@ describe('the section page and the route page over one demo route', () => {
     const sectionDates = ['section-first', 'section-last'].map(
       (id) => sectionPage.getByTestId(id).props.children
     );
-    sectionPage.unmount();
+    await sectionPage.unmount();
     const routePage = await openPage('route');
     const routeDates = ['section-first', 'section-last'].map(
       (id) => routePage.getByTestId(id).props.children
@@ -436,7 +437,7 @@ describe('the section page and the route page over one demo route', () => {
   it.each(SHARED)('finds the $element on both pages', async ({ section, route }) => {
     const sectionPage = await openPage('section');
     expect(sectionPage.queryByTestId(section)).not.toBeNull();
-    sectionPage.unmount();
+    await sectionPage.unmount();
 
     const routePage = await openPage('route');
     expect(routePage.queryByTestId(route)).not.toBeNull();
@@ -446,9 +447,9 @@ describe('the section page and the route page over one demo route', () => {
     'finds the $element on the section page alone',
     async ({ section, reveal }) => {
       const sectionPage = await openPage('section');
-      if (reveal) fireEvent.press(sectionPage.getByTestId(reveal));
+      if (reveal) await fireEvent.press(sectionPage.getByTestId(reveal));
       expect(sectionPage.queryByTestId(section)).not.toBeNull();
-      sectionPage.unmount();
+      await sectionPage.unmount();
 
       const routePage = await openPage('route');
       if (reveal) expect(routePage.queryByTestId(reveal)).toBeNull();

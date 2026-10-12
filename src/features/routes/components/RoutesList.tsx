@@ -22,15 +22,23 @@ import type { FfiCatalogueEmptyReason, GroupWithPolyline } from 'veloqrs';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, slopToMinTapTarget, typography } from '@/theme';
 import { haversineDistance, type LatLngShort } from '@/shared/geo/distance';
-import { EmptyState, ExplanationCard, SearchBar, pressable, pressRipple } from '@/shared/ui';
+import { filterSummary } from '@/shared/format/filterSummary';
+import {
+  EmptyState,
+  ErrorState,
+  ExplanationCard,
+  SearchBar,
+  pressable,
+  pressRipple,
+} from '@/shared/ui';
 import { RowSkeleton } from '@/features/routes/components/RowSkeleton';
 import { RouteRow } from './RouteRow';
 import { CatalogueEmptyState } from './CatalogueEmptyState';
 import { DataRangeFooter } from './DataRangeFooter';
 import { routesExplanation } from '@/features/routes/lib/explanationCopy';
-import { SportFilterMenu } from './SportFilterMenu';
+import { SportFilterChips } from './SportFilterChips';
 import type { RouteGroup } from '@/types';
 import { batchGroupToRouteGroup } from '@/features/routes/lib/batchGroupToRouteGroup';
 import type { RoutesSortOption } from '@/features/routes/lib/routesScreenQuery';
@@ -62,16 +70,18 @@ interface RoutesListProps {
   searchQuery: string;
   /** Called when the search term changes */
   onSearchChange: (next: string) => void;
-  /** The sports the athlete has activities in, offered in the sport filter menu */
+  /** The sports the athlete has activities in, offered as the sport chips */
   sportOptions?: string[] | undefined;
   /** The sport the list is narrowed to, if any */
   sportType?: string | undefined;
   /** Called with the sport chosen, or undefined for all sports */
   onSportChange?: (next: string | undefined) => void;
+  /** Clears the search and the sport together, from a list they have emptied */
+  onClearFilters?: (() => void) | undefined;
   /** Engine data still loading - show skeletons instead of an empty state */
   isLoading?: boolean;
   /** The page read failed: shown with a retry, never as skeletons or an empty library */
-  loadError?: Error | null | undefined;
+  loadError?: unknown;
   /** Reads the page again after a failure */
   onRetry?: (() => void) | undefined;
   /** Why the engine holds no route at all, or null while it holds one */
@@ -98,6 +108,7 @@ export const RoutesList = memo(function RoutesList({
   sportOptions = [],
   sportType,
   onSportChange,
+  onClearFilters,
 }: RoutesListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -155,6 +166,7 @@ export const RoutesList = memo(function RoutesList({
   );
 
   const routeTotal = totalGroupCount ?? allGroups.length;
+  const filtered = searchQuery.trim().length > 0 || sportType !== undefined;
   const routeCountLabel = listCountLabel(
     t,
     t('trainingScreen.routes'),
@@ -163,16 +175,8 @@ export const RoutesList = memo(function RoutesList({
   );
 
   const renderEmpty = () => {
-    if (loadError) {
-      return (
-        <EmptyState
-          icon="alert-circle-outline"
-          title={t('emptyState.error.title')}
-          description={t('emptyState.error.description')}
-          actionLabel={t('common.retry')}
-          onAction={onRetry}
-        />
-      );
+    if (loadError && onRetry) {
+      return <ErrorState error={loadError} onRetry={onRetry} testID="routes-load-failure" />;
     }
 
     if (isLoading) {
@@ -189,20 +193,30 @@ export const RoutesList = memo(function RoutesList({
       return <CatalogueEmptyState reason={emptyReason} kind="routes" />;
     }
 
-    return (
-      <View style={styles.emptyContainer}>
-        <MaterialCommunityIcons
-          name="map-marker-question-outline"
-          size={48}
-          color={isDark ? darkColors.iconDisabled : colors.gray400}
+    if (filtered) {
+      return (
+        <EmptyState
+          icon="filter-remove-outline"
+          title={t('routes.noRoutesFor', {
+            filters: filterSummary(
+              t,
+              searchQuery,
+              sportType === undefined ? [] : [t(`activityTypes.${sportType}` as never, sportType)]
+            ),
+          })}
+          actionLabel={t('common.clearFilters')}
+          onAction={onClearFilters}
+          actionTestID="routes-clear-filters"
         />
-        <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
-          {t('routes.noMatchingRoutes')}
-        </Text>
-        <Text style={[styles.emptySubtitle, isDark && styles.textSecondary]}>
-          {t('routes.routesWithTwoPlus')}
-        </Text>
-      </View>
+      );
+    }
+
+    return (
+      <EmptyState
+        icon="map-marker-question-outline"
+        title={t('routes.noMatchingRoutes')}
+        description={t('routes.routesWithTwoPlus')}
+      />
     );
   };
 
@@ -235,8 +249,8 @@ export const RoutesList = memo(function RoutesList({
             style={styles.searchBar}
           />
           {onSportChange && (sportOptions.length > 1 || sportType !== undefined) && (
-            <SportFilterMenu
-              options={sportOptions.map((type) => ({ type }))}
+            <SportFilterChips
+              options={sportOptions}
               selectedType={sportType}
               onSelect={onSportChange}
             />
@@ -264,6 +278,7 @@ export const RoutesList = memo(function RoutesList({
                       isActive && styles.sortChipActive,
                     ])}
                     android_ripple={pressRipple}
+                    hitSlop={sortChipHitSlop}
                     onPress={() => onSortChange(chip.key)}
                   >
                     <MaterialCommunityIcons
@@ -331,7 +346,9 @@ export const RoutesList = memo(function RoutesList({
   );
 });
 
-const LIST_EMPTY_VERTICAL_PADDING = spacing.xxl * 2;
+const SORT_CHIP_BORDER_WIDTH = 1;
+const SORT_CHIP_HEIGHT = typography.caption.lineHeight + 2 * (spacing.xs + SORT_CHIP_BORDER_WIDTH);
+const sortChipHitSlop = slopToMinTapTarget(SORT_CHIP_HEIGHT);
 
 const styles = StyleSheet.create({
   outerContainer: {
@@ -381,8 +398,9 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
+    minHeight: SORT_CHIP_HEIGHT,
     borderRadius: layout.borderRadius,
-    borderWidth: 1,
+    borderWidth: SORT_CHIP_BORDER_WIDTH,
     borderColor: colors.border,
   },
   sortChipDark: {
@@ -402,30 +420,6 @@ const styles = StyleSheet.create({
   emptyList: {
     flexGrow: 1,
     paddingTop: spacing.md,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: layout.screenPadding * 2,
-    paddingVertical: LIST_EMPTY_VERTICAL_PADDING,
-  },
-  emptyTitle: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginTop: spacing.md,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textSecondary,
-    marginTop: spacing.sm,
-    textAlign: 'center',
-    lineHeight: typography.bodySmall.lineHeight,
-  },
-  textLight: {
-    color: colors.textOnDark,
   },
   textSecondary: {
     color: darkColors.textSecondary,

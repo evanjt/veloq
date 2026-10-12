@@ -5,10 +5,10 @@ import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: () => null }));
 
-it('changes the live session type when a new type is chosen', () => {
+it('changes the live session type when a new type is chosen', async () => {
   useRecordingStore.getState().reset();
   useRecordingStore.getState().startRecording('Ride', 'gps');
-  const { result } = renderHook(() => useRecordingHandlers());
-  act(() => result.current.handleChangeType('Run'));
+  const { result } = await renderHook(() => useRecordingHandlers());
+  await act(() => result.current.handleChangeType('Run'));
   expect(useRecordingStore.getState().activityType).toBe('Run');
 });

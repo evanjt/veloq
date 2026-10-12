@@ -41,8 +41,8 @@ const BASE: FrequentSection = {
   createdAt: '2026-01-01T00:00:00Z',
 };
 
-function renderHeader(section: FrequentSection, onUnflagLift?: () => void) {
-  return render(
+async function renderHeader(section: FrequentSection, onUnflagLift?: () => void) {
+  return await render(
     <SectionHeader
       section={section}
       onUnflagLift={onUnflagLift}
@@ -63,54 +63,56 @@ function renderHeader(section: FrequentSection, onUnflagLift?: () => void) {
 }
 
 describe('section lift badge', () => {
-  it('badges a section the detector flagged as lift ground', () => {
-    const tree = renderHeader({ ...BASE, isLift: true });
+  it('badges a section the detector flagged as lift ground', async () => {
+    const tree = await renderHeader({ ...BASE, isLift: true });
 
     expect(tree.getByTestId('section-lift-badge')).toBeTruthy();
   });
 
-  it('shows nothing on a section that is not lift ground', () => {
-    expect(renderHeader({ ...BASE, isLift: false }).queryByTestId('section-lift-badge')).toBeNull();
+  it('shows nothing on a section that is not lift ground', async () => {
+    expect(
+      await (await renderHeader({ ...BASE, isLift: false })).queryByTestId('section-lift-badge')
+    ).toBeNull();
   });
 
-  it('shows nothing when the flag never arrived', () => {
-    expect(renderHeader(BASE).queryByTestId('section-lift-badge')).toBeNull();
+  it('shows nothing when the flag never arrived', async () => {
+    expect(await (await renderHeader(BASE)).queryByTestId('section-lift-badge')).toBeNull();
   });
 
-  it('leaves the name and its rename affordance alone', () => {
-    const tree = renderHeader({ ...BASE, name: 'Top Station', isLift: true });
+  it('leaves the name and its rename affordance alone', async () => {
+    const tree = await renderHeader({ ...BASE, name: 'Top Station', isLift: true });
 
     expect(tree.getByText('Top Station')).toBeTruthy();
     expect(tree.getByTestId('section-rename-button')).toBeTruthy();
     expect(tree.getByTestId('section-lift-badge')).toBeTruthy();
   });
 
-  it('takes the flag off when the badge is pressed', () => {
+  it('takes the flag off when the badge is pressed', async () => {
     const onUnflagLift = jest.fn();
-    const tree = renderHeader({ ...BASE, isLift: true }, onUnflagLift);
+    const tree = await renderHeader({ ...BASE, isLift: true }, onUnflagLift);
 
-    fireEvent.press(tree.getByTestId('section-lift-badge'));
+    await fireEvent.press(tree.getByTestId('section-lift-badge'));
 
     expect(onUnflagLift).toHaveBeenCalledTimes(1);
   });
 
-  it('still draws the badge when nothing can take the flag off', () => {
-    const tree = renderHeader({ ...BASE, isLift: true });
+  it('still draws the badge when nothing can take the flag off', async () => {
+    const tree = await renderHeader({ ...BASE, isLift: true });
 
     expect(tree.getByTestId('section-lift-badge')).toBeTruthy();
     expect(tree.queryByTestId('section-lift-unflag')).toBeNull();
   });
 
-  it('offers the unflag affordance only alongside a handler', () => {
-    const tree = renderHeader({ ...BASE, isLift: true }, jest.fn());
+  it('offers the unflag affordance only alongside a handler', async () => {
+    const tree = await renderHeader({ ...BASE, isLift: true }, jest.fn());
 
     expect(tree.getByTestId('section-lift-unflag')).toBeTruthy();
   });
 });
 
 describe('section traversal count scope', () => {
-  function renderScoped(extra: Partial<React.ComponentProps<typeof SectionHeader>>) {
-    return render(
+  async function renderScoped(extra: Partial<React.ComponentProps<typeof SectionHeader>>) {
+    return await render(
       <SectionHeader
         section={BASE}
         insetTop={0}
@@ -130,22 +132,22 @@ describe('section traversal count scope', () => {
     );
   }
 
-  it('names the sport and the range when the section spans sports and the range is not all time', () => {
-    const tree = renderScoped({ scopeSport: 'Run', sportsOffered: 2, scopeRange: '6m' });
+  it('names the sport and the range when the section spans sports and the range is not all time', async () => {
+    const tree = await renderScoped({ scopeSport: 'Run', sportsOffered: 2, scopeRange: '6m' });
 
     expect(
       tree.getByText('sections.traversalsCount · activityTypes.Run · period.long.6m')
     ).toBeTruthy();
   });
 
-  it('names only the range for a single-sport section', () => {
-    const tree = renderScoped({ scopeSport: 'Ride', sportsOffered: 1, scopeRange: '1y' });
+  it('names only the range for a single-sport section', async () => {
+    const tree = await renderScoped({ scopeSport: 'Ride', sportsOffered: 1, scopeRange: '1y' });
 
     expect(tree.getByText('sections.traversalsCount · period.long.1y')).toBeTruthy();
   });
 
-  it('adds nothing for a single-sport section over all time', () => {
-    const tree = renderScoped({ scopeSport: 'Ride', sportsOffered: 1, scopeRange: 'all' });
+  it('adds nothing for a single-sport section over all time', async () => {
+    const tree = await renderScoped({ scopeSport: 'Ride', sportsOffered: 1, scopeRange: 'all' });
 
     expect(tree.getByText('sections.traversalsCount')).toBeTruthy();
   });

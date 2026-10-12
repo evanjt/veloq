@@ -70,18 +70,18 @@ describe('adopting a detect that is already running', () => {
     jest.useRealTimers();
   });
 
-  it('picks up a run in flight at mount', () => {
+  it('picks up a run in flight at mount', async () => {
     const engine = engineWith({
       pollSectionDetection: jest.fn(() => 'running'),
       getSectionDetectionProgress: jest.fn(() => progress),
     });
     mockedGetEngine.mockReturnValue(engine as never);
 
-    const { result } = renderHook(() => useSectionRescan());
+    const { result } = await renderHook(() => useSectionRescan());
 
     expect(result.current.isScanning).toBe(true);
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(500);
     });
 
@@ -97,7 +97,7 @@ describe('adopting a detect that is already running', () => {
       }) as never
     );
 
-    const { result } = renderHook(() => useSectionRescan());
+    const { result } = await renderHook(() => useSectionRescan());
 
     poll.mockReturnValue('complete');
     await act(async () => {
@@ -108,7 +108,7 @@ describe('adopting a detect that is already running', () => {
     expect(result.current.result).toBeNull();
   });
 
-  it('adopts a run that starts while the screen is idle, when focus returns', () => {
+  it('adopts a run that starts while the screen is idle, when focus returns', async () => {
     const poll = jest.fn(() => 'idle');
     const engine = engineWith({
       pollSectionDetection: poll,
@@ -117,12 +117,12 @@ describe('adopting a detect that is already running', () => {
     engine.getSectionDetectionProgress.mockReturnValue(null as never);
     mockedGetEngine.mockReturnValue(engine as never);
 
-    const { result } = renderHook(() => useSectionRescan());
+    const { result } = await renderHook(() => useSectionRescan());
     expect(result.current.isScanning).toBe(false);
 
     poll.mockReturnValue('running');
     engine.getSectionDetectionProgress.mockReturnValue(progress as never);
-    act(() => {
+    await act(() => {
       focusCallback?.();
     });
 
@@ -130,10 +130,10 @@ describe('adopting a detect that is already running', () => {
     expect(result.current.result).toBeNull();
   });
 
-  it('adopts nothing when the engine is idle', () => {
+  it('adopts nothing when the engine is idle', async () => {
     mockedGetEngine.mockReturnValue(engineWith() as never);
 
-    const { result } = renderHook(() => useSectionRescan());
+    const { result } = await renderHook(() => useSectionRescan());
 
     expect(result.current.isScanning).toBe(false);
     expect(result.current.progress).toBeNull();
@@ -143,9 +143,9 @@ describe('adopting a detect that is already running', () => {
     const poll = jest.fn(() => 'running');
     mockedGetEngine.mockReturnValue(engineWith({ pollSectionDetection: poll }) as never);
 
-    const { result } = renderHook(() => useSectionRescan());
+    const { result } = await renderHook(() => useSectionRescan());
 
-    act(() => {
+    await act(() => {
       result.current.forceRescan();
     });
     poll.mockReturnValue('complete');
@@ -168,9 +168,9 @@ describe('adopting a detect that is already running', () => {
       engineWith({ pollSectionDetection: poll, getSectionCount }) as never
     );
 
-    const { result } = renderHook(() => useSectionRescan());
+    const { result } = await renderHook(() => useSectionRescan());
 
-    act(() => {
+    await act(() => {
       result.current.forceRescan();
     });
     poll.mockReturnValue('complete');
@@ -191,12 +191,12 @@ describe('adopting a detect that is already running', () => {
     });
     mockedGetEngine.mockReturnValue(engine as never);
 
-    const firstScreen = renderHook(() => useSectionRescan());
+    const firstScreen = await renderHook(() => useSectionRescan());
     expect(firstScreen.result.current.isScanning).toBe(true);
     const pollsBeforeSecondMount = poll.mock.calls.length;
 
     poll.mockReturnValueOnce('error').mockReturnValue('idle');
-    const secondScreen = renderHook(() => useSectionRescan());
+    const secondScreen = await renderHook(() => useSectionRescan());
     expect(poll).toHaveBeenCalledTimes(pollsBeforeSecondMount);
     await act(async () => {
       announceDetectionApplied();
@@ -204,8 +204,8 @@ describe('adopting a detect that is already running', () => {
 
     expect(firstScreen.result.current.failed).toBe(true);
     expect(firstScreen.result.current.result).toBeNull();
-    secondScreen.unmount();
-    firstScreen.unmount();
+    await secondScreen.unmount();
+    await firstScreen.unmount();
   });
 });
 
@@ -226,7 +226,7 @@ describe('following a rescan without draining the worker', () => {
     jest.useRealTimers();
   });
 
-  it('reads only progress on the timer', () => {
+  it('reads only progress on the timer', async () => {
     const engine = engineWith({
       pollSectionDetection: jest.fn(() => 'running'),
       getSectionDetectionProgress: jest.fn(() => ({
@@ -238,13 +238,13 @@ describe('following a rescan without draining the worker', () => {
     });
     mockedGetEngine.mockReturnValue(engine as never);
 
-    const { result } = renderHook(() => useSectionRescan());
-    act(() => {
+    const { result } = await renderHook(() => useSectionRescan());
+    await act(() => {
       result.current.rescan();
     });
     const pollsAtStart = engine.pollSectionDetection.mock.calls.length;
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(2000);
     });
 
@@ -257,8 +257,8 @@ describe('following a rescan without draining the worker', () => {
     const engine = engineWith({ pollSectionDetection: jest.fn(() => 'running') });
     mockedGetEngine.mockReturnValue(engine as never);
 
-    const { result } = renderHook(() => useSectionRescan());
-    act(() => {
+    const { result } = await renderHook(() => useSectionRescan());
+    await act(() => {
       result.current.rescan();
     });
     expect(result.current.isScanning).toBe(true);
@@ -276,8 +276,8 @@ describe('following a rescan without draining the worker', () => {
     const engine = engineWith({ pollSectionDetection: jest.fn(() => 'running') });
     mockedGetEngine.mockReturnValue(engine as never);
 
-    const { result } = renderHook(() => useSectionRescan());
-    act(() => {
+    const { result } = await renderHook(() => useSectionRescan());
+    await act(() => {
       result.current.rescan();
     });
 
@@ -305,37 +305,37 @@ describe('a refused rescan says why', () => {
     for (const key of Object.keys(listeners)) delete listeners[key];
   });
 
-  it('passes the engine refusal through rather than flattening it', () => {
+  it('passes the engine refusal through rather than flattening it', async () => {
     const engine = engineWith({
       startSectionDetection: jest.fn(() => StartOutcome.Busy),
       forceRedetectSections: jest.fn(() => StartOutcome.Held),
     });
     mockedGetEngine.mockReturnValue(engine as never);
 
-    const { result } = renderHook(() => useSectionRescan());
+    const { result } = await renderHook(() => useSectionRescan());
 
     let started: StartVerdict = StartOutcome.Started;
-    act(() => {
+    await act(() => {
       started = result.current.rescan();
     });
     expect(started).toBe(StartOutcome.Busy);
     expect(isRetryableStart(started)).toBe(true);
     expect(result.current.isScanning).toBe(false);
 
-    act(() => {
+    await act(() => {
       started = result.current.forceRescan();
     });
     expect(started).toBe(StartOutcome.Held);
     expect(result.current.isScanning).toBe(false);
   });
 
-  it('says it was early, not refused, when no engine is open', () => {
+  it('says it was early, not refused, when no engine is open', async () => {
     mockedGetEngine.mockReturnValue(null);
 
-    const { result } = renderHook(() => useSectionRescan());
+    const { result } = await renderHook(() => useSectionRescan());
 
     let started: StartVerdict = StartOutcome.Started;
-    act(() => {
+    await act(() => {
       started = result.current.rescan();
     });
     expect(started).toBe(StartOutcome.NotReady);
@@ -362,27 +362,27 @@ describe('a refusal the screen can show', () => {
     jest.useRealTimers();
   });
 
-  it('holds the refusal until something clears it', () => {
+  it('holds the refusal until something clears it', async () => {
     const engine = engineWith({
       startSectionDetection: jest.fn(() => StartOutcome.NotConfigured),
     });
     mockedGetEngine.mockReturnValue(engine as never);
 
-    const { result } = renderHook(() => useSectionRescan());
+    const { result } = await renderHook(() => useSectionRescan());
     expect(result.current.refusal).toBeNull();
 
-    act(() => {
+    await act(() => {
       result.current.rescan();
     });
     expect(result.current.refusal).toBe(StartOutcome.NotConfigured);
 
-    act(() => {
+    await act(() => {
       result.current.clearResult();
     });
     expect(result.current.refusal).toBeNull();
   });
 
-  it('drops the refusal the moment a rescan starts', () => {
+  it('drops the refusal the moment a rescan starts', async () => {
     const startSectionDetection = jest
       .fn()
       .mockReturnValueOnce(StartOutcome.Busy)
@@ -390,37 +390,39 @@ describe('a refusal the screen can show', () => {
     const engine = engineWith({ startSectionDetection });
     mockedGetEngine.mockReturnValue(engine as never);
 
-    const { result } = renderHook(() => useSectionRescan());
-    act(() => {
+    const { result } = await renderHook(() => useSectionRescan());
+    await act(() => {
       result.current.rescan();
     });
     expect(result.current.refusal).toBe(StartOutcome.Busy);
 
-    act(() => {
+    // Read inside the same turn as the start: awaiting the act lets the first
+    // status poll land, and the scan this asserts on is then already over.
+    void act(() => {
       result.current.rescan();
     });
     expect(result.current.refusal).toBeNull();
     expect(result.current.isScanning).toBe(true);
   });
 
-  it('records the force path refusal too', () => {
+  it('records the force path refusal too', async () => {
     const engine = engineWith({
       forceRedetectSections: jest.fn(() => StartOutcome.Held),
     });
     mockedGetEngine.mockReturnValue(engine as never);
 
-    const { result } = renderHook(() => useSectionRescan());
-    act(() => {
+    const { result } = await renderHook(() => useSectionRescan());
+    await act(() => {
       result.current.forceRescan();
     });
     expect(result.current.refusal).toBe(StartOutcome.Held);
   });
 
-  it('records being early as a refusal the screen can name', () => {
+  it('records being early as a refusal the screen can name', async () => {
     mockedGetEngine.mockReturnValue(null);
 
-    const { result } = renderHook(() => useSectionRescan());
-    act(() => {
+    const { result } = await renderHook(() => useSectionRescan());
+    await act(() => {
       result.current.rescan();
     });
     expect(result.current.refusal).toBe(StartOutcome.NotReady);
@@ -449,11 +451,11 @@ describe('a rescan that is never told it ended', () => {
     jest.useRealTimers();
   });
 
-  function scanning() {
+  async function scanning() {
     const engine = engineWith({ pollSectionDetection: jest.fn(() => 'running') });
     mockedGetEngine.mockReturnValue(engine as never);
-    const hook = renderHook(() => useSectionRescan());
-    act(() => {
+    const hook = await renderHook(() => useSectionRescan());
+    await act(() => {
       hook.result.current.rescan();
     });
     expect(hook.result.current.isScanning).toBe(true);
@@ -461,7 +463,7 @@ describe('a rescan that is never told it ended', () => {
   }
 
   it('stops following at the foreground budget and says the run is still going', async () => {
-    const { result } = scanning();
+    const { result } = await scanning();
     expect(result.current.stillRunning).toBe(false);
 
     await act(async () => {
@@ -477,8 +479,8 @@ describe('a rescan that is never told it ended', () => {
   it('calls a run failed only when the engine said so', async () => {
     const engine = engineWith({ pollSectionDetection: jest.fn(() => 'running') });
     mockedGetEngine.mockReturnValue(engine as never);
-    const hook = renderHook(() => useSectionRescan());
-    act(() => {
+    const hook = await renderHook(() => useSectionRescan());
+    await act(() => {
       hook.result.current.rescan();
     });
 
@@ -492,7 +494,7 @@ describe('a rescan that is never told it ended', () => {
   });
 
   it('does not report the cap as a rescan that changed nothing', async () => {
-    const { result } = scanning();
+    const { result } = await scanning();
 
     await act(async () => {
       jest.advanceTimersByTime(DETECTION_FOREGROUND_MS);
@@ -502,31 +504,31 @@ describe('a rescan that is never told it ended', () => {
   });
 
   it('clears the still-running notice when the next run starts', async () => {
-    const { result } = scanning();
+    const { result } = await scanning();
 
     await act(async () => {
       jest.advanceTimersByTime(DETECTION_FOREGROUND_MS);
     });
     expect(result.current.stillRunning).toBe(true);
 
-    act(() => {
+    await act(() => {
       result.current.rescan();
     });
 
     expect(result.current.stillRunning).toBe(false);
   });
 
-  it('stops following once the hook goes away', () => {
+  it('stops following once the hook goes away', async () => {
     const engine = engineWith({ pollSectionDetection: jest.fn(() => 'running') });
     mockedGetEngine.mockReturnValue(engine as never);
-    const { result, unmount } = renderHook(() => useSectionRescan());
-    act(() => {
+    const { result, unmount } = await renderHook(() => useSectionRescan());
+    await act(() => {
       result.current.rescan();
     });
 
     const readsAtUnmount = engine.getSectionDetectionProgress.mock.calls.length;
-    unmount();
-    act(() => {
+    await unmount();
+    await act(() => {
       jest.advanceTimersByTime(DETECTION_FOREGROUND_MS);
     });
 
@@ -552,15 +554,15 @@ describe('counting sections around a rescan', () => {
     jest.useRealTimers();
   });
 
-  it('reads the count without loading any summaries', () => {
+  it('reads the count without loading any summaries', async () => {
     const getSectionCount = jest.fn(() => 7);
     const getFilteredSectionSummaries = jest.fn(() => ({ totalCount: 7 }));
     const engine = engineWith({ getSectionCount, getFilteredSectionSummaries });
     mockedGetEngine.mockReturnValue(engine as never);
 
-    const { result } = renderHook(() => useSectionRescan());
+    const { result } = await renderHook(() => useSectionRescan());
 
-    act(() => {
+    await act(() => {
       result.current.rescan();
     });
 
@@ -568,7 +570,7 @@ describe('counting sections around a rescan', () => {
     expect(getFilteredSectionSummaries).not.toHaveBeenCalled();
   });
 
-  it('reports zero rather than throwing when the count fails', () => {
+  it('reports zero rather than throwing when the count fails', async () => {
     const engine = engineWith({
       getSectionCount: jest.fn(() => {
         throw new Error('engine is gone');
@@ -576,12 +578,13 @@ describe('counting sections around a rescan', () => {
     });
     mockedGetEngine.mockReturnValue(engine as never);
 
-    const { result } = renderHook(() => useSectionRescan());
+    const { result } = await renderHook(() => useSectionRescan());
 
-    expect(() =>
-      act(() => {
-        result.current.rescan();
-      })
-    ).not.toThrow();
+    await expect(
+      (async () =>
+        act(() => {
+          result.current.rescan();
+        }))()
+    ).resolves.not.toThrow();
   });
 });

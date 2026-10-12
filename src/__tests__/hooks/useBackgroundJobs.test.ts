@@ -103,8 +103,8 @@ function engine() {
 }
 
 /** Stands in for the timer the detection poll runs on. */
-function advance(ms: number) {
-  act(() => {
+async function advance(ms: number) {
+  await act(() => {
     jest.advanceTimersByTime(ms);
   });
 }
@@ -127,8 +127,8 @@ describe('useBackgroundJobs', () => {
     jest.useRealTimers();
   });
 
-  it('lists every job on an engine where nothing has ever run', () => {
-    const { result } = jobs();
+  it('lists every job on an engine where nothing has ever run', async () => {
+    const { result } = await jobs();
 
     // No sync row. Every other row rests on a count of what it still owes, and
     // sync is scheduled rather than owed, so it had none to rest on.
@@ -141,7 +141,7 @@ describe('useBackgroundJobs', () => {
     expect(result.current.every((job) => job.state === 'idle')).toBe(true);
   });
 
-  it('reads one routes snapshot for all jobs when the bar mounts', () => {
+  it('reads one routes snapshot for all jobs when the bar mounts', async () => {
     let reads = 0;
     mockGetEngine.mockImplementation(() => {
       const base = engine() as unknown as Record<string, unknown>;
@@ -155,46 +155,46 @@ describe('useBackgroundJobs', () => {
       } as unknown as ReturnType<typeof getEngine>;
     });
 
-    const { result } = jobs();
+    const { result } = await jobs();
     expect(result.current).toHaveLength(4);
     expect(reads).toBe(1);
-    advance(1500);
+    await advance(1500);
     expect(reads).toBe(4);
   });
 
-  it('keeps every row when there is no engine at all', () => {
+  it('keeps every row when there is no engine at all', async () => {
     mockGetEngine.mockReturnValue(null);
 
-    const { result } = jobs();
+    const { result } = await jobs();
 
     expect(result.current).toHaveLength(4);
     expect(result.current.every((job) => job.state === 'idle')).toBe(true);
     expect(result.current.every((job) => job.remaining === null)).toBe(true);
   });
 
-  it('reports the queue behind a backfill that is not running', () => {
+  it('reports the queue behind a backfill that is not running', async () => {
     state.remaining = 42;
 
-    const { result } = jobs();
+    const { result } = await jobs();
 
     const backfill = result.current.find((job) => job.id === 'elevationBackfill');
     expect(backfill?.state).toBe('idle');
     expect(backfill?.remaining).toBe(42);
   });
 
-  it('leaves the queue null when the engine cannot count it', () => {
+  it('leaves the queue null when the engine cannot count it', async () => {
     state.remaining = null;
 
-    const { result } = jobs();
+    const { result } = await jobs();
 
     expect(result.current.find((job) => job.id === 'elevationBackfill')?.remaining).toBeNull();
   });
 
-  it('picks up a detection run that started before the screen opened', () => {
+  it('picks up a detection run that started before the screen opened', async () => {
     state.detection = 'running';
     state.detectionProgress = { phase: 'analyzing', completed: 3, total: 9, percent: 40 };
 
-    const { result } = jobs();
+    const { result } = await jobs();
 
     const detection = result.current.find((job) => job.id === 'detection');
     expect(detection?.state).toBe('running');
@@ -202,22 +202,22 @@ describe('useBackgroundJobs', () => {
     expect(detection?.percent).toBe(40);
   });
 
-  it('picks up a detection run that starts while the screen is open', () => {
-    const { result } = jobs();
+  it('picks up a detection run that starts while the screen is open', async () => {
+    const { result } = await jobs();
     expect(result.current.find((job) => job.id === 'detection')?.state).toBe('idle');
 
     state.detection = 'running';
     state.detectionProgress = { phase: 'loading', completed: 1, total: 4, percent: 10 };
-    advance(1000);
+    await advance(1000);
 
     expect(result.current.find((job) => job.id === 'detection')?.state).toBe('running');
   });
 
-  it('reads a detection that aborted as failed, not as one that finished', () => {
-    const { result } = jobs();
+  it('reads a detection that aborted as failed, not as one that finished', async () => {
+    const { result } = await jobs();
 
     state.lastOutcome = 'error';
-    advance(1000);
+    await advance(1000);
 
     expect(result.current.find((job) => job.id === 'detection')?.state).toBe('failed');
   });
@@ -228,23 +228,23 @@ describe('useBackgroundJobs', () => {
    * it settles a run the follower is still waiting on, and the rescan it
    * belongs to reports no change.
    */
-  it('never takes the completion, whatever it is showing', () => {
-    const { result } = jobs();
+  it('never takes the completion, whatever it is showing', async () => {
+    const { result } = await jobs();
 
     state.detectionProgress = { phase: 'loading', completed: 1, total: 4, percent: 10 };
-    advance(1000);
+    await advance(1000);
     expect(result.current.find((job) => job.id === 'detection')?.state).toBe('running');
 
     state.detectionProgress = null;
     state.lastOutcome = 'complete';
-    advance(1000);
+    await advance(1000);
     expect(result.current.find((job) => job.id === 'detection')?.state).toBe('complete');
 
-    advance(5000);
+    await advance(5000);
     expect(polls).toBe(0);
   });
 
-  it('stops reading detection once the screen is gone', () => {
+  it('stops reading detection once the screen is gone', async () => {
     let reads = 0;
     mockGetEngine.mockImplementation(() => {
       const real = engine() as unknown as Record<string, unknown>;
@@ -265,70 +265,70 @@ describe('useBackgroundJobs', () => {
       } as unknown as ReturnType<typeof getEngine>;
     });
 
-    const { unmount } = jobs();
-    advance(3000);
+    const { unmount } = await jobs();
+    await advance(3000);
     const whileMounted = reads;
-    unmount();
-    advance(5000);
+    await unmount();
+    await advance(5000);
 
     expect(whileMounted).toBeGreaterThan(1);
     expect(reads).toBe(whileMounted);
   });
 
-  it('carries no sync row at all, whatever the sync service says', () => {
+  it('carries no sync row at all, whatever the sync service says', async () => {
     state.sync = { state: SyncState.Syncing, inFlight: 2, completed: 5, total: 20 };
 
-    const { result } = jobs();
+    const { result } = await jobs();
 
     // A running sync is reported by the sync notification and the feed's own
     // banner. This screen lists what is owed, and sync owes nothing countable.
     expect(result.current.find((job) => (job.id as string) === 'sync')).toBeUndefined();
   });
 
-  it('keeps a partial backfill distinct from a complete one', () => {
+  it('keeps a partial backfill distinct from a complete one', async () => {
     state.backfill = { phase: 'partial', completed: 8, total: 10, failed: 2 };
 
-    const { result } = jobs();
+    const { result } = await jobs();
 
     expect(result.current.find((job) => job.id === 'elevationBackfill')?.state).toBe('partial');
   });
 
-  it('reads a paused backfill as paused, not as idle with work waiting', () => {
+  it('reads a paused backfill as paused, not as idle with work waiting', async () => {
     state.backfill = { phase: 'paused', completed: 20, total: 40, failed: 0 };
     state.remaining = 20;
 
-    const { result } = jobs();
+    const { result } = await jobs();
 
     expect(result.current.find((job) => job.id === 'elevationBackfill')?.state).toBe('paused');
   });
 
-  it('reads a cutover mid-run as running whatever phase it holds', () => {
+  it('reads a cutover mid-run as running whatever phase it holds', async () => {
     state.cutover = { phase: 'archiving', running: true };
 
-    const { result } = jobs();
+    const { result } = await jobs();
 
     const cutover = result.current.find((job) => job.id === 'cutover');
     expect(cutover?.state).toBe('running');
     expect(cutover?.phase).toBe('archiving');
   });
 
-  it('reads a cutover that failed as failed', () => {
+  it('reads a cutover that failed as failed', async () => {
     state.cutover = { phase: 'failed', running: false };
 
-    const { result } = jobs();
+    const { result } = await jobs();
 
     expect(result.current.find((job) => job.id === 'cutover')?.state).toBe('failed');
   });
 
-  it('reads a cutover that failed after its apply as failed', () => {
+  it('reads a cutover that failed after its apply as failed', async () => {
     state.cutover = { phase: 'failed_after_apply', running: false };
 
-    const { result } = jobs();
+    const { result } = await jobs();
 
     expect(result.current.find((job) => job.id === 'cutover')?.state).toBe('failed');
   });
 
-  it('reads idle from a detection poll that throws rather than losing the screen', () => {
+  it('reads idle from a detection poll that throws rather than losing the screen', async () => {
     mockGetEngine.mockImplementation(
       () =>
         ({
@@ -339,7 +339,7 @@ describe('useBackgroundJobs', () => {
         }) as unknown as ReturnType<typeof getEngine>
     );
 
-    const { result } = jobs();
+    const { result } = await jobs();
 
     expect(result.current).toHaveLength(4);
     expect(result.current.find((job) => job.id === 'detection')?.state).toBe('idle');
@@ -353,45 +353,45 @@ describe('useBackgroundJobs', () => {
    *
    * Expected behaviour: a resting cutover row says the work is waiting.
    */
-  it('rests with the cutover it still owes, on a launch where nothing has run', () => {
+  it('rests with the cutover it still owes, on a launch where nothing has run', async () => {
     state.cutoverPending = true;
 
-    const { result } = jobs();
+    const { result } = await jobs();
     const cutover = result.current.find((job) => job.id === 'cutover');
 
     expect(cutover?.state).toBe('idle');
     expect(cutover?.remaining).toBe(1);
   });
 
-  it('rests with nothing owed when the token is clear', () => {
-    const { result } = jobs();
+  it('rests with nothing owed when the token is clear', async () => {
+    const { result } = await jobs();
 
     expect(result.current.find((job) => job.id === 'cutover')?.remaining).toBe(0);
   });
 
-  it('reports no count rather than zero when the engine cannot answer', () => {
+  it('reports no count rather than zero when the engine cannot answer', async () => {
     mockGetEngine.mockReturnValue(null);
 
-    const { result } = jobs();
+    const { result } = await jobs();
 
     expect(result.current.find((job) => job.id === 'cutover')?.remaining).toBeNull();
   });
 
-  it('does not claim a running cutover is also waiting', () => {
+  it('does not claim a running cutover is also waiting', async () => {
     state.cutoverPending = true;
     state.cutover = { phase: 'archiving', running: true };
 
-    const { result } = jobs();
+    const { result } = await jobs();
     const cutover = result.current.find((job) => job.id === 'cutover');
 
     expect(cutover?.state).toBe('running');
     expect(cutover?.remaining).toBeNull();
   });
 
-  it('survives a throwing screen read rather than losing the rows', () => {
+  it('survives a throwing screen read rather than losing the rows', async () => {
     state.dataThrows = 'engine gone';
 
-    const { result } = jobs();
+    const { result } = await jobs();
 
     expect(result.current).toHaveLength(4);
     expect(result.current.find((job) => job.id === 'cutover')?.remaining).toBeNull();
@@ -403,48 +403,48 @@ describe('useBackgroundJobs', () => {
    * activities never detected showed the row reporting nothing. The processed
    * set behind it is persisted, and what is not in it is what a run owes.
    */
-  it('rests with the activities detection has never seen', () => {
+  it('rests with the activities detection has never seen', async () => {
     state.detectionAwaiting = 12;
 
-    const { result } = jobs();
+    const { result } = await jobs();
     const detection = result.current.find((job) => job.id === 'detection');
 
     expect(detection?.state).toBe('idle');
     expect(detection?.remaining).toBe(12);
   });
 
-  it('rests with nothing owed once every activity has been through a detect', () => {
-    const { result } = jobs();
+  it('rests with nothing owed once every activity has been through a detect', async () => {
+    const { result } = await jobs();
 
     expect(result.current.find((job) => job.id === 'detection')?.remaining).toBe(0);
   });
 
-  it('does not claim a running detect is also waiting', () => {
+  it('does not claim a running detect is also waiting', async () => {
     state.detectionAwaiting = 12;
     state.detectionProgress = { phase: 'analyzing', completed: 3, total: 12, percent: 25 };
 
-    const { result } = jobs();
+    const { result } = await jobs();
     const detection = result.current.find((job) => job.id === 'detection');
 
     expect(detection?.state).toBe('running');
     expect(detection?.remaining).toBeNull();
   });
 
-  it('rests with the activities still owed a stream, on a launch where nothing has run', () => {
+  it('rests with the activities still owed a stream, on a launch where nothing has run', async () => {
     state.streamRemaining = 300;
 
-    const { result } = jobs();
+    const { result } = await jobs();
     const stream = result.current.find((job) => job.id === 'streamBackfill');
 
     expect(stream?.state).toBe('idle');
     expect(stream?.remaining).toBe(300);
   });
 
-  it('reads a running stream pass with its progress and no resting count', () => {
+  it('reads a running stream pass with its progress and no resting count', async () => {
     state.stream = { phase: 'fetching', completed: 4, total: 20 };
     state.streamRemaining = null;
 
-    const { result } = jobs();
+    const { result } = await jobs();
     const stream = result.current.find((job) => job.id === 'streamBackfill');
 
     expect(stream?.state).toBe('running');
@@ -453,19 +453,19 @@ describe('useBackgroundJobs', () => {
     expect(stream?.remaining).toBeNull();
   });
 
-  it('reads a stream pass that failed as failed', () => {
+  it('reads a stream pass that failed as failed', async () => {
     state.stream = { phase: 'failed', completed: 1, total: 20 };
 
-    const { result } = jobs();
+    const { result } = await jobs();
 
     expect(result.current.find((job) => job.id === 'streamBackfill')?.state).toBe('failed');
   });
 
-  it('reads a stream pass held for consent as idle with its count', () => {
+  it('reads a stream pass held for consent as idle with its count', async () => {
     state.stream = { phase: 'awaiting_consent', completed: 0, total: 0 };
     state.streamRemaining = 300;
 
-    const { result } = jobs();
+    const { result } = await jobs();
     const stream = result.current.find((job) => job.id === 'streamBackfill');
 
     expect(stream?.state).toBe('idle');

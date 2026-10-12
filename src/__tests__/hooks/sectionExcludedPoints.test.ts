@@ -48,8 +48,8 @@ describe('useSectionChartDataEnriched', () => {
     (getEngine as jest.Mock).mockReturnValue({});
   });
 
-  it('draws the excluded attempts the screen read returned, flagged', () => {
-    const { result } = renderHook(() =>
+  it('draws the excluded attempts the screen read returned, flagged', async () => {
+    const { result } = await renderHook(() =>
       useSectionChartDataEnriched({
         chartData: counted,
         showExcluded: true,
@@ -73,8 +73,8 @@ describe('useSectionChartDataEnriched', () => {
     expect(result.current.combinedChartData).toHaveLength(2);
   });
 
-  it('draws none while they are hidden', () => {
-    const { result } = renderHook(() =>
+  it('draws none while they are hidden', async () => {
+    const { result } = await renderHook(() =>
       useSectionChartDataEnriched({
         chartData: counted,
         showExcluded: false,
@@ -88,9 +88,9 @@ describe('useSectionChartDataEnriched', () => {
     expect(result.current.combinedChartData.some((p) => p.isExcluded)).toBe(false);
   });
 
-  it('keeps the record flag the engine set rather than re-picking the fastest point', () => {
+  it('keeps the record flag the engine set rather than re-picking the fastest point', async () => {
     const tied = counted.map((p, i) => ({ ...p, speed: 4, isBest: i === 0 }));
-    const { result } = renderHook(() =>
+    const { result } = await renderHook(() =>
       useSectionChartDataEnriched({
         chartData: [
           ...tied,
@@ -110,8 +110,8 @@ describe('useSectionChartDataEnriched', () => {
     ]);
   });
 
-  it('uses the engine best for chart comparisons when a longer lap has higher speed', () => {
-    const { result } = renderHook(() =>
+  it('uses the engine best for chart comparisons when a longer lap has higher speed', async () => {
+    const { result } = await renderHook(() =>
       useSectionChartDataEnriched({
         chartData: [
           { ...counted[0], x: 0, sectionTime: 935, speed: 1951 / 935 },

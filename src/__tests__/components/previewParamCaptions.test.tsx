@@ -34,8 +34,8 @@ const params = {
   divergenceThreshold: 0.15,
 };
 
-function captions(overrides: Partial<typeof params> = {}) {
-  const { UNSAFE_getAllByType } = render(
+async function captions(overrides: Partial<typeof params> = {}) {
+  const { UNSAFE_getAllByType } = await render(
     <PreviewParamPanel params={{ ...params, ...overrides }} onChange={jest.fn()} />
   );
   const { Text } = require('react-native');
@@ -43,18 +43,18 @@ function captions(overrides: Partial<typeof params> = {}) {
 }
 
 describe('the distance captions', () => {
-  it('promotes a 200 km ceiling out of metres', () => {
-    expect(captions()).toContain('settings.sectionMaxLength:200.0 km');
+  it('promotes a 200 km ceiling out of metres', async () => {
+    expect(await captions()).toContain('settings.sectionMaxLength:200.0 km');
   });
 
-  it('keeps a short distance in metres, spaced the way the app spaces it', () => {
-    const rendered = captions();
+  it('keeps a short distance in metres, spaced the way the app spaces it', async () => {
+    const rendered = await captions();
     expect(rendered).toContain('settings.sectionProximity:200 m');
     expect(rendered).toContain('settings.sectionMinLength:150 m');
   });
 
-  it('spaces every distance caption the same way', () => {
-    for (const caption of captions()) {
+  it('spaces every distance caption the same way', async () => {
+    for (const caption of await captions()) {
       if (!caption.startsWith('settings.section')) continue;
       const value = caption.split(':')[1];
       // The panel's other `settings.section*` strings are the preset labels,
@@ -66,13 +66,15 @@ describe('the distance captions', () => {
     }
   });
 
-  it('promotes at the kilometre, not at some threshold of its own', () => {
-    expect(captions({ minSectionLength: 999 })).toContain('settings.sectionMinLength:999 m');
-    expect(captions({ minSectionLength: 1000 })).toContain('settings.sectionMinLength:1.0 km');
+  it('promotes at the kilometre, not at some threshold of its own', async () => {
+    expect(await captions({ minSectionLength: 999 })).toContain('settings.sectionMinLength:999 m');
+    expect(await captions({ minSectionLength: 1000 })).toContain(
+      'settings.sectionMinLength:1.0 km'
+    );
   });
 
-  it('leaves the two captions that are not distances alone', () => {
-    const rendered = captions();
+  it('leaves the two captions that are not distances alone', async () => {
+    const rendered = await captions();
     expect(rendered).toContain('settings.sectionMinActivities:2');
     expect(rendered).toContain('settings.sectionSameTraffic:0.15');
   });

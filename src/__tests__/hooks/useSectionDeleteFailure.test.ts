@@ -44,7 +44,7 @@ const noExclusions: string[] = [];
 
 async function deleteAndConfirm() {
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  const { result } = renderHook(() =>
+  const { result } = await renderHook(() =>
     useSectionActions({
       id: section.id,
       isCustomId: true,
@@ -55,7 +55,7 @@ async function deleteAndConfirm() {
       preComputedExcludedActivityIds: noExclusions,
     })
   );
-  act(() => result.current.handleDeleteSection());
+  await act(() => result.current.handleDeleteSection());
   const buttons = alert.mock.calls[0][2] as { style?: string; onPress?: () => Promise<void> }[];
   const destructive = buttons.find((button) => button.style === 'destructive');
   await act(async () => {
@@ -72,7 +72,14 @@ describe('a section delete that fails', () => {
 
     const alerts = await deleteAndConfirm();
 
-    expect(alerts).toEqual([['common.error', 'sections.deleteFailed']]);
+    expect(alerts).toEqual([
+      [
+        'sections.deleteFailedTitle',
+        'sections.deleteFailed',
+        undefined,
+        expect.objectContaining({ cancelable: true }),
+      ],
+    ]);
   });
 
   it('alerts the same line when the throw is not an Error', async () => {
@@ -80,6 +87,13 @@ describe('a section delete that fails', () => {
 
     const alerts = await deleteAndConfirm();
 
-    expect(alerts).toEqual([['common.error', 'sections.deleteFailed']]);
+    expect(alerts).toEqual([
+      [
+        'sections.deleteFailedTitle',
+        'sections.deleteFailed',
+        undefined,
+        expect.objectContaining({ cancelable: true }),
+      ],
+    ]);
   });
 });

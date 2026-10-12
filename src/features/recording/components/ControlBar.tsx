@@ -8,12 +8,11 @@ import * as haptics from '@/shared/ui/haptics';
 
 import { useTheme } from '@/shared/app';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
-import { colors, darkColors, spacing, layout, brand, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, brand, typography, themePalette } from '@/theme';
 import type { RecordingStatus, RecordingMode } from '@/types';
 
 const BRAND_COLOR = brand.tealLight;
 const RESUME_COLOR = colors.success;
-const STOP_COLOR = colors.error;
 
 interface ControlBarProps {
   status: RecordingStatus;
@@ -49,6 +48,8 @@ function ControlBarInner({
 
   const secondaryBg = isDark ? darkColors.surfaceElevated : colors.surface;
   const secondaryText = isDark ? darkColors.textPrimary : colors.textPrimary;
+  // Stop is a word as well as a glyph, so it takes the red's text tone.
+  const stopColor = isDark ? darkColors.errorDeep : colors.errorDeep;
 
   // Manual mode: just a save button
   if (mode === 'manual') {
@@ -121,7 +122,7 @@ function ControlBarInner({
             label={t('recording.controls.stop')}
             icon="stop"
             backgroundColor={secondaryBg}
-            textColor={STOP_COLOR}
+            textColor={stopColor}
             onPress={() => handleHapticPress(onStop)}
           />
         </View>
@@ -155,7 +156,7 @@ function ControlBarInner({
           label={t('recording.controls.stop')}
           icon="stop"
           backgroundColor={secondaryBg}
-          textColor={STOP_COLOR}
+          textColor={stopColor}
           onPress={() => handleHapticPress(onStop)}
         />
       </View>
@@ -177,6 +178,7 @@ function PrimaryButton({
   onPress: () => void;
   testID?: string;
 }) {
+  const { isDark } = useTheme();
   return (
     <View style={styles.buttonContainer}>
       <Pressable
@@ -187,9 +189,11 @@ function PrimaryButton({
         accessibilityLabel={label}
         accessibilityRole="button"
       >
-        <MaterialCommunityIcons name={icon} size={28} color={colors.textOnDark} />
+        <MaterialCommunityIcons name={icon} size={28} color={colors.textOnPrimary} />
       </Pressable>
-      <Text style={styles.buttonLabel}>{label}</Text>
+      <Text style={[styles.buttonLabel, { color: themePalette(isDark).textSecondary }]}>
+        {label}
+      </Text>
     </View>
   );
 }
@@ -263,6 +267,5 @@ const styles = StyleSheet.create({
   buttonLabel: {
     fontSize: typography.label.fontSize,
     fontWeight: '500',
-    color: colors.textSecondary,
   },
 });

@@ -41,8 +41,8 @@ jest.mock('@/shared/native/engine', () => ({
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
-function announce(event: string): void {
-  act(() => {
+async function announce(event: string): Promise<void> {
+  await act(() => {
     for (const cb of listeners[event] ?? []) cb();
   });
 }
@@ -61,18 +61,18 @@ beforeEach(() => {
 });
 
 describe('the coverage hooks', () => {
-  it('re-reads the range when an activities announcement lands', () => {
-    const { result } = renderHook(() => useRangeCoverage(42));
+  it('re-reads the range when an activities announcement lands', async () => {
+    const { result } = await renderHook(() => useRangeCoverage(42));
     expect(result.current).toBe(RangeCoverage.NotFetched);
 
     mockEngine.rangeCoverage.mockReturnValue(RangeCoverage.Loaded);
-    announce('activities');
+    await announce('activities');
 
     expect(result.current).toBe(RangeCoverage.Loaded);
   });
 
-  it('re-reads the library when an activities announcement lands', () => {
-    const { result } = renderHook(() => useLibraryCoverage());
+  it('re-reads the library when an activities announcement lands', async () => {
+    const { result } = await renderHook(() => useLibraryCoverage());
     expect(result.current?.fetched).toBe(2);
 
     mockEngine.libraryCoverage.mockReturnValue({
@@ -81,13 +81,13 @@ describe('the coverage hooks', () => {
       tracksUpstream: 8,
       tracksStored: 8,
     });
-    announce('activities');
+    await announce('activities');
 
     expect(result.current?.fetched).toBe(10);
   });
 
-  it('re-reads the library when a track lands during a bulk pass', () => {
-    const { result } = renderHook(() => useLibraryCoverage());
+  it('re-reads the library when a track lands during a bulk pass', async () => {
+    const { result } = await renderHook(() => useLibraryCoverage());
     expect(result.current?.tracksStored).toBe(1);
 
     mockEngine.libraryCoverage.mockReturnValue({
@@ -96,21 +96,21 @@ describe('the coverage hooks', () => {
       tracksUpstream: 8,
       tracksStored: 2,
     });
-    announce('gpsTrackStored');
+    await announce('gpsTrackStored');
 
     expect(result.current?.tracksStored).toBe(2);
   });
 
   /** A read that is switched off claims nothing, and asks the engine nothing. */
-  it('asks the engine nothing when the range read is disabled', () => {
-    const { result } = renderHook(() => useRangeCoverage(42, false));
+  it('asks the engine nothing when the range read is disabled', async () => {
+    const { result } = await renderHook(() => useRangeCoverage(42, false));
 
     expect(result.current).toBe(RangeCoverage.NotFetched);
     expect(mockEngine.rangeCoverage).not.toHaveBeenCalled();
   });
 
   /** A census never pulled answers zeros, and the library reports nothing. */
-  it('reports nothing for a library the engine answers zeros for', () => {
+  it('reports nothing for a library the engine answers zeros for', async () => {
     mockEngine.libraryCoverage.mockReturnValue({
       upstream: 0,
       fetched: 0,
@@ -118,7 +118,7 @@ describe('the coverage hooks', () => {
       tracksStored: 0,
     });
 
-    const { result } = renderHook(() => useLibraryCoverage());
+    const { result } = await renderHook(() => useLibraryCoverage());
 
     expect(result.current).toBeNull();
   });

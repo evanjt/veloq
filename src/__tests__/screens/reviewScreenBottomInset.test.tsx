@@ -15,6 +15,7 @@ import ReviewScreen from '@/app/recording/review';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { headerLargeTitle } from '@/shared/app/screenHeaders';
+import { inStack } from '../__shared__/testStack';
 
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
@@ -68,9 +69,9 @@ describe('review screen scroll view', () => {
     expect(headerLargeTitle('recording/review', 'android')).toBe(false);
   });
 
-  it('insets the system way and pads nothing for a tab bar', () => {
+  it('insets the system way and pads nothing for a tab bar', async () => {
     Platform.OS = 'ios';
-    const { UNSAFE_getAllByType } = render(<ReviewScreen />);
+    const { UNSAFE_getAllByType } = await render(inStack(<ReviewScreen />));
 
     const scroll = UNSAFE_getAllByType(ScrollView)[0];
     expect(scroll.props.contentInsetAdjustmentBehavior).toBe('automatic');

@@ -39,28 +39,30 @@ describe('isTabBarRoute', () => {
 });
 
 describe('useTabBarClearance', () => {
-  it('clears the bar on a tab screen', () => {
+  it('clears the bar on a tab screen', async () => {
     mockSegments = ['(tabs)', 'map'];
-    expect(renderHook(() => useTabBarClearance()).result.current).toBe(TAB_BAR_SAFE_PADDING);
+    expect(await (await renderHook(() => useTabBarClearance())).result.current).toBe(
+      TAB_BAR_SAFE_PADDING
+    );
     expect(TAB_BAR_SAFE_PADDING).toBeGreaterThan(0);
   });
 
-  it('clears nothing on a stack screen', () => {
+  it('clears nothing on a stack screen', async () => {
     mockSegments = ['detection-preview'];
-    expect(renderHook(() => useTabBarClearance()).result.current).toBe(0);
+    expect(await (await renderHook(() => useTabBarClearance())).result.current).toBe(0);
   });
 
-  it('clears nothing while the route is unresolved', () => {
+  it('clears nothing while the route is unresolved', async () => {
     mockSegments = [];
-    expect(renderHook(() => useTabBarClearance()).result.current).toBe(0);
+    expect(await (await renderHook(() => useTabBarClearance())).result.current).toBe(0);
   });
 
-  it('follows the route when it changes under the same component', () => {
+  it('follows the route when it changes under the same component', async () => {
     mockSegments = ['(tabs)'];
-    const hook = renderHook(() => useTabBarClearance());
+    const hook = await renderHook(() => useTabBarClearance());
     expect(hook.result.current).toBe(TAB_BAR_SAFE_PADDING);
     mockSegments = ['settings'];
-    hook.rerender({});
+    await hook.rerender({});
     expect(hook.result.current).toBe(0);
   });
 });

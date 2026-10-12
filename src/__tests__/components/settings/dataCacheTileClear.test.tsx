@@ -156,39 +156,54 @@ describe('clearing the cache with the heatmap tiles', () => {
   it('reports a Clear cache that left heatmap tiles on disk', async () => {
     const engine = engineWhoseTileClear('fails');
     mockedGetEngine.mockReturnValue(engine as never);
-    render(<DataCacheSection />);
+    await render(<DataCacheSection />);
 
     await confirmClearCache(alert);
 
     await waitFor(() => expect(alert).toHaveBeenCalled());
     expect(engine.clearHeatmapTiles).toHaveBeenCalledWith('/cache/heatmap-tiles/');
-    expect(alert).toHaveBeenLastCalledWith('alerts.error', 'alerts.failedToClear');
+    expect(alert).toHaveBeenLastCalledWith(
+      'alerts.clearFailedTitle',
+      'alerts.failedToClear',
+      undefined,
+      expect.objectContaining({ cancelable: true })
+    );
   });
 
   it('says the cache was cleared when the tiles went', async () => {
     mockedGetEngine.mockReturnValue(engineWhoseTileClear('goes') as never);
-    render(<DataCacheSection />);
+    await render(<DataCacheSection />);
 
     await confirmClearCache(alert);
 
     await waitFor(() => expect(alert).toHaveBeenCalled());
-    expect(alert).toHaveBeenLastCalledWith('alerts.cacheCleared');
+    expect(alert).toHaveBeenLastCalledWith(
+      'alerts.cacheCleared',
+      undefined,
+      undefined,
+      expect.objectContaining({ cancelable: true })
+    );
   });
 
   it('reports a map cache clear that left heatmap tiles on disk', async () => {
     const engine = engineWhoseTileClear('fails');
     mockedGetEngine.mockReturnValue(engine as never);
-    render(<DataCacheSection />);
+    await render(<DataCacheSection />);
 
     await mockPanels.onClearMapCache?.();
 
     expect(engine.clearHeatmapTiles).toHaveBeenCalledWith('/cache/heatmap-tiles/');
-    expect(alert).toHaveBeenCalledWith('alerts.error', 'alerts.failedToClear');
+    expect(alert).toHaveBeenCalledWith(
+      'alerts.clearFailedTitle',
+      'alerts.failedToClear',
+      undefined,
+      expect.objectContaining({ cancelable: true })
+    );
   });
 
   it('reports nothing when the map cache clear went', async () => {
     mockedGetEngine.mockReturnValue(engineWhoseTileClear('goes') as never);
-    render(<DataCacheSection />);
+    await render(<DataCacheSection />);
 
     await mockPanels.onClearMapCache?.();
 
@@ -197,7 +212,7 @@ describe('clearing the cache with the heatmap tiles', () => {
 
   it('leaves the pinned offline tiles in the Rust store on both clears', async () => {
     mockedGetEngine.mockReturnValue(engineWhoseTileClear('goes') as never);
-    render(<DataCacheSection />);
+    await render(<DataCacheSection />);
 
     await mockPanels.onClearMapCache?.();
     await confirmClearCache(alert);
@@ -208,7 +223,7 @@ describe('clearing the cache with the heatmap tiles', () => {
 
   it('clears the unpinned Rust tiles on both clears', async () => {
     mockedGetEngine.mockReturnValue(engineWhoseTileClear('goes') as never);
-    render(<DataCacheSection />);
+    await render(<DataCacheSection />);
 
     await mockPanels.onClearMapCache?.();
     expect(basemap().clearUnpinnedTiles).toHaveBeenCalledTimes(1);
@@ -221,7 +236,7 @@ describe('clearing the cache with the heatmap tiles', () => {
   it('still finishes the clear where the tile store is absent or refuses', async () => {
     mockedGetEngine.mockReturnValue(engineWhoseTileClear('goes') as never);
     basemap().clearUnpinnedTiles.mockRejectedValueOnce(new Error('no path set'));
-    render(<DataCacheSection />);
+    await render(<DataCacheSection />);
 
     await mockPanels.onClearMapCache?.();
 
@@ -234,7 +249,7 @@ describe('clear cache haptic', () => {
     jest.clearAllMocks();
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     mockedGetEngine.mockReturnValue(engineWhoseTileClear('goes') as never);
-    render(<DataCacheSection />);
+    await render(<DataCacheSection />);
 
     mockPanels.onClearCache?.();
     const buttons = alert.mock.calls[0][2] as AlertButton[];
@@ -259,9 +274,9 @@ describe('the clear cache confirm', () => {
     mockIsOnline = true;
   });
 
-  it('warns while offline that the library stays empty until the network returns', () => {
+  it('warns while offline that the library stays empty until the network returns', async () => {
     mockIsOnline = false;
-    render(<DataCacheSection />);
+    await render(<DataCacheSection />);
 
     mockPanels.onClearCache?.();
 
@@ -270,8 +285,8 @@ describe('the clear cache confirm', () => {
     expect(buttons.some((button) => button.style === 'destructive')).toBe(true);
   });
 
-  it('reads as before while online', () => {
-    render(<DataCacheSection />);
+  it('reads as before while online', async () => {
+    await render(<DataCacheSection />);
 
     mockPanels.onClearCache?.();
 
@@ -283,7 +298,7 @@ describe('lowering the tile limit', () => {
   it('re-reads what the store holds once the limit has been applied', async () => {
     mockedGetEngine.mockReturnValue(engineWhoseTileClear('goes') as never);
     basemap().getCacheSize.mockResolvedValue(300 * 1024 * 1024);
-    render(<DataCacheSection />);
+    await render(<DataCacheSection />);
     await waitFor(() => expect(mockPanels.basemapTiles?.totalBytes).toBe(300 * 1024 * 1024));
 
     basemap().getCacheSize.mockResolvedValue(50 * 1024 * 1024);

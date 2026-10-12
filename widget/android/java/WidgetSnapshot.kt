@@ -13,7 +13,7 @@ import kotlin.math.roundToInt
  * Version skew happens in both directions, so every field added after schema 2 is
  * nullable with a hide/neutral default.
  *
- * Shape mirrors `src/features/home/lib/widgetSnapshot.ts` (schema version 15).
+ * Shape mirrors `src/features/home/lib/widgetSnapshot.ts` (schema version 16).
  */
 private const val SNAPSHOT_FILE = "widget-snapshot.json"
 
@@ -26,6 +26,11 @@ data class Metric(
   val delta: Double? = null,
   /** Form only: the pre-formatted readout, so a percentage setting needs no maths here. */
   val text: String? = null,
+  /**
+   * The name, the reading and the verdict as a screen reader says them, since the arrow carries
+   * the verdict in colour alone. Null on a snapshot written before schema 16.
+   */
+  val spoken: String? = null,
 ) {
   /** What a value slot prints: the engine's text where it sent one, else the rounded number. */
   fun display(): String = text ?: value.roundToInt().toString()
@@ -63,6 +68,10 @@ data class Latest(
   val headline: Headline? = null,
   val loadText: String? = null,
   val sectionPrsText: String? = null,
+  /** What the drawn route is, as a screen reader says it. Null with no route drawn. */
+  val routeLabel: String? = null,
+  /** What the record mark beside the name says. Null when no record was set. */
+  val prLabel: String? = null,
 ) {
   /**
    * The line under the name: distance and time, then the date on its own line so a long
@@ -100,6 +109,24 @@ data class SummaryEntry(
   val trendDir: String,
   val verdict: String = "flat",
   val colorKey: String,
+  /** The name, the reading and the verdict as a screen reader says them. */
+  val spoken: String? = null,
+) {
+  /** What a screen reader says for the cell: the engine's words, else the label and the value. */
+  fun spokenOrPlain(): String = spoken ?: "$label $value"
+}
+
+/**
+ * What each chart shows, as a screen reader says it, since a drawn line says nothing aloud. Null
+ * for a chart too short to draw, and on a snapshot written before schema 16.
+ */
+data class ChartLabels(
+  /** Fitness and fatigue, the chart beside every hero but HRV. */
+  val fitness: String? = null,
+  /** HRV, the chart beside an HRV hero. */
+  val hrv: String? = null,
+  /** Form over its zones, the large size's chart. */
+  val form: String? = null,
 )
 
 /** Ready-to-render mirror of the in-app summary card, following the app settings. */
@@ -195,6 +222,7 @@ data class WidgetSnapshot(
   val summaryMetrics: List<SummaryEntry> = emptyList(),
   /** The metrics the card offers as its hero, in its picker's order. Empty before the list. */
   val summaryHeroes: List<String> = emptyList(),
+  val chartLabels: ChartLabels = ChartLabels(),
 ) {
   /** The one a single-sport surface starts. */
   val lastRecordingType: String?
@@ -271,7 +299,14 @@ data class WidgetSnapshot(
         dataAsOfLabel = optText(display, "dataAsOfLabel"),
         insights = parseInsights(root),
         strength = parseStrength(root),
+        chartLabels = parseChartLabels(display),
       )
+    }
+
+    private fun parseChartLabels(display: JSONObject): ChartLabels {
+      val c = display.optJSONObject("chartLabels") ?: return ChartLabels()
+      return ChartLabels(
+        fitness = optText(c, "fitness"), hrv = optText(c, "hrv"), form = optText(c, "form"))
     }
 
     private fun parseStrength(root: JSONObject): StrengthBlock? {
@@ -315,6 +350,7 @@ data class WidgetSnapshot(
         muscles = muscles,
         top = top,
         emptyText = optText(w, "emptyText"),
+        bodyLabel = optText(w, "bodyLabel"),
       )
     }
 
@@ -339,6 +375,7 @@ data class WidgetSnapshot(
             icon = o.optString("icon", ""),
             tone = o.optString("tone", "info"),
             url = url,
+            toneLabel = optText(o, "toneLabel"),
           ))
       }
       return out
@@ -366,6 +403,7 @@ data class WidgetSnapshot(
         zone = optText(o, "zone"),
         delta = o.optDouble("deltaVsYesterday").takeIf { !it.isNaN() },
         text = optText(o, "text"),
+        spoken = optText(o, "spoken"),
       )
     }
 
@@ -385,6 +423,8 @@ data class WidgetSnapshot(
         headline = parseHeadline(l),
         loadText = optText(l, "loadText"),
         sectionPrsText = optText(l, "sectionPrsText"),
+        routeLabel = optText(l, "routeLabel"),
+        prLabel = optText(l, "prLabel"),
       )
     }
 
@@ -488,6 +528,7 @@ data class WidgetSnapshot(
         trendDir = o.optString("trendDir", "flat"),
         verdict = o.optString("verdict", "flat"),
         colorKey = o.optString("colorKey", "default"),
+        spoken = optText(o, "spoken"),
       )
     }
 

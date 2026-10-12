@@ -35,46 +35,46 @@ beforeEach(() => {
   });
 });
 
-it('offers a loop that has been walked to a walk, not only to a ride', () => {
-  const { result } = renderHook(() => useRouteGroups({ type: 'Walk' }));
+it('offers a loop that has been walked to a walk, not only to a ride', async () => {
+  const { result } = await renderHook(() => useRouteGroups({ type: 'Walk' }));
 
   expect(result.current.groups.map((g) => g.id)).toEqual(['g1']);
 });
 
-it('still offers it to the sport most of its members carry', () => {
-  const { result } = renderHook(() => useRouteGroups({ type: 'Ride' }));
+it('still offers it to the sport most of its members carry', async () => {
+  const { result } = await renderHook(() => useRouteGroups({ type: 'Ride' }));
 
   expect(result.current.groups.map((g) => g.id)).toEqual(['g1']);
 });
 
-it('does not offer it to a sport nothing traversed it in', () => {
-  const { result } = renderHook(() => useRouteGroups({ type: 'Swim' }));
+it('does not offer it to a sport nothing traversed it in', async () => {
+  const { result } = await renderHook(() => useRouteGroups({ type: 'Swim' }));
 
   expect(result.current.groups).toEqual([]);
 });
 
 describe('a group the engine gave no label', () => {
-  it('keeps a single sport in the membership set without giving the group a sport label', () => {
+  it('keeps a single sport in the membership set without giving the group a sport label', async () => {
     (useGroupSummaries as jest.Mock).mockReturnValue({
       summaries: [{ ...mixedLoop, sportType: '', sportTypes: ['Run'] }],
       totalCount: 1,
       refresh: jest.fn(),
     });
 
-    const { result } = renderHook(() => useRouteGroups({}));
+    const { result } = await renderHook(() => useRouteGroups({}));
 
     expect(result.current.groups[0].type).toBe('Other');
     expect(result.current.groups[0].sportTypes).toEqual(['Run']);
   });
 
-  it('reads as Other when the set is empty too, rather than inventing one', () => {
+  it('reads as Other when the set is empty too, rather than inventing one', async () => {
     (useGroupSummaries as jest.Mock).mockReturnValue({
       summaries: [{ ...mixedLoop, sportType: '', sportTypes: [] }],
       totalCount: 1,
       refresh: jest.fn(),
     });
 
-    const { result } = renderHook(() => useRouteGroups({}));
+    const { result } = await renderHook(() => useRouteGroups({}));
 
     expect(result.current.groups[0].type).toBe('Other');
   });

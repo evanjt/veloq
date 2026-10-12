@@ -59,6 +59,7 @@ function props(
     onPress: jest.fn(),
     onSwipeableOpen: jest.fn(),
     renderRightActions,
+    actionsFor: () => [],
     swipeableRefs: { current: new Map() },
   };
 }
@@ -69,11 +70,11 @@ describe('section row scrub re-renders', () => {
    * The row builds the per-group closure itself, from the group it already has,
    * which is why the group has to reach the callback.
    */
-  it('hands the swipe actions the row its own group', () => {
+  it('hands the swipe actions the row its own group', async () => {
     const renderRightActions = jest.fn<React.ReactNode, [SectionEncounterGroup]>(() => null);
     const p = props('s1', renderRightActions);
 
-    render(<SectionInlinePlot {...p} />);
+    await render(<SectionInlinePlot {...p} />);
 
     expect(renderRightActions).toHaveBeenCalled();
     for (const call of renderRightActions.mock.calls) {
@@ -82,24 +83,24 @@ describe('section row scrub re-renders', () => {
   });
 
   /** A re-render with the same props does no work in the row at all. */
-  it('does no work in the row when nothing about it changed', () => {
+  it('does no work in the row when nothing about it changed', async () => {
     const renderRightActions = jest.fn<React.ReactNode, [SectionEncounterGroup]>(() => null);
     const p = props('s1', renderRightActions);
 
-    const tree = render(<SectionInlinePlot {...p} />);
+    const tree = await render(<SectionInlinePlot {...p} />);
     const rendersAfterMount = renderRightActions.mock.calls.length;
-    tree.rerender(<SectionInlinePlot {...p} />);
+    await tree.rerender(<SectionInlinePlot {...p} />);
 
     expect(renderRightActions.mock.calls.length).toBe(rendersAfterMount);
   });
 
-  it('does render the row again when its highlight changes', () => {
+  it('does render the row again when its highlight changes', async () => {
     const renderRightActions = jest.fn<React.ReactNode, [SectionEncounterGroup]>(() => null);
     const p = props('s1', renderRightActions);
 
-    const tree = render(<SectionInlinePlot {...p} />);
+    const tree = await render(<SectionInlinePlot {...p} />);
     const rendersAfterMount = renderRightActions.mock.calls.length;
-    tree.rerender(<SectionInlinePlot {...p} isHighlighted />);
+    await tree.rerender(<SectionInlinePlot {...p} isHighlighted />);
 
     expect(renderRightActions.mock.calls.length).toBeGreaterThan(rendersAfterMount);
   });

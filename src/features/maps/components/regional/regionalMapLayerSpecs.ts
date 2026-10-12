@@ -26,6 +26,13 @@ export const SECTIONS_LINE_LAYER_ID = 'sections-line';
 export const ROUTES_LINE_LAYER_ID = 'routes-line';
 
 /**
+ * An activity dot's opacity by age in years, 0 today and 1 at a year or more:
+ * full when new, fading linearly to the faintest at a year. The map key draws
+ * the same fade.
+ */
+export const RECENCY_FADE = { newest: 1, oldest: 0.35 } as const;
+
+/**
  * Tap precedence: the fanned-out markers sit above everything else, and the
  * route lines, drawn under the sections, come last.
  */
@@ -239,7 +246,8 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       paint: {
         'circle-color': colors.primary,
         'circle-radius': ['step', ['get', 'point_count'], 20, 10, 25, 50, 30],
-        'circle-opacity': showActivities ? 0.8 : 0,
+        // Opaque, so the count's contrast holds over any basemap beneath it.
+        'circle-opacity': showActivities ? 1 : 0,
       },
       visible: showActivities,
     },
@@ -255,7 +263,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
         'text-allow-overlap': true,
         'text-ignore-placement': true,
       },
-      paint: { 'text-color': colors.textOnDark },
+      paint: { 'text-color': colors.textOnPrimary },
       visible: showActivities,
     },
     {
@@ -279,9 +287,16 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
           TRACE_ZOOM_THRESHOLD,
           selectedActivityId ? ['case', isSelectedActivity, 12, 5] : 5,
         ],
-        // Recency fade: recent activities full opacity, 1+ year old at 35%
         'circle-opacity': showActivities
-          ? ['interpolate', ['linear'], ['get', 'age'], 0, 1, 1, 0.35]
+          ? [
+              'interpolate',
+              ['linear'],
+              ['get', 'age'],
+              0,
+              RECENCY_FADE.newest,
+              1,
+              RECENCY_FADE.oldest,
+            ]
           : 0,
         'circle-stroke-width': selectedActivityId ? ['case', isSelectedActivity, 2.5, 1.5] : 1.5,
         'circle-stroke-color': selectedActivityId

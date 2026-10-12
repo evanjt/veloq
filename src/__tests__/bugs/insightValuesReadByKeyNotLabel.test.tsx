@@ -99,7 +99,7 @@ describe.each(['de-DE', 'it', 'ja', 'en-AU'] as const)('insight values in %s', (
     expect(balance.subtitle).toMatch(/ 2\.4x$/);
   });
 
-  it('shows the latest HRV and the average on the HRV sheet', () => {
+  it('shows the latest HRV and the average on the HRV sheet', async () => {
     const [hrv] = generateHrvTrendInsight(
       {
         label: 'trendingDown',
@@ -111,15 +111,15 @@ describe.each(['de-DE', 'it', 'ja', 'en-AU'] as const)('insight values in %s', (
       NOW,
       t
     );
-    const { getByText, toJSON } = render(<HrvTrendContent insight={hrv} />);
+    const { getByText, toJSON } = await render(<HrvTrendContent insight={hrv} />);
 
     expect(getByText('58')).toBeTruthy();
     expect(JSON.stringify(toJSON())).toContain('62');
   });
 
-  it('shows the effort count on the efficiency sheet', () => {
+  it('shows the effort count on the efficiency sheet', async () => {
     const [efficiency] = generateEfficiencyTrendInsights([EFFICIENCY], NOW, t);
-    const { getAllByText } = render(<EfficiencyTrendContent insight={efficiency} />);
+    const { getAllByText } = await render(<EfficiencyTrendContent insight={efficiency} />);
 
     // The headline's effort badge. The efforts row sits under the sheet's
     // "How was this calculated?", which this content does not draw.

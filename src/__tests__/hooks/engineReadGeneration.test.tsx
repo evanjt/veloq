@@ -45,8 +45,8 @@ jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
 }));
 
-function fire(event: string): void {
-  act(() => {
+async function fire(event: string): Promise<void> {
+  await act(() => {
     for (const cb of listeners[event] ?? []) cb();
   });
 }
@@ -73,26 +73,26 @@ beforeEach(() => {
   mockGetEngine.mockReturnValue(mockEngine as unknown as ReturnType<typeof getEngine>);
 });
 
-it('re-runs the read when a subscribed event fires', () => {
-  const screen = render(<Probe events={['activities']} other="a" />);
+it('re-runs the read when a subscribed event fires', async () => {
+  const screen = await render(<Probe events={['activities']} other="a" />);
   expect(screen.getByTestId('shown')).toHaveTextContent('first:a');
 
   value = 'second';
-  fire('activities');
+  await fire('activities');
 
   expect(screen.getByTestId('shown')).toHaveTextContent('second:a');
 });
 
-it('keeps the reader identity stable, so a render nothing announced re-reads nothing', () => {
-  const screen = render(<Probe events={['activities']} other="a" />);
+it('keeps the reader identity stable, so a render nothing announced re-reads nothing', async () => {
+  const screen = await render(<Probe events={['activities']} other="a" />);
   const before = reads;
 
-  screen.rerender(<Probe events={['activities']} other="b" />);
+  await screen.rerender(<Probe events={['activities']} other="b" />);
 
   expect(reads).toBe(before);
 });
 
-it('hands the read undefined rather than throwing when the engine is not there', () => {
+it('hands the read undefined rather than throwing when the engine is not there', async () => {
   mockGetEngine.mockReturnValue(null);
 
   function NoEngine() {
@@ -101,7 +101,7 @@ it('hands the read undefined rather than throwing when the engine is not there',
     return <Text testID="shown">{String(shown)}</Text>;
   }
 
-  const screen = render(<NoEngine />);
+  const screen = await render(<NoEngine />);
 
   expect(screen.getByTestId('shown')).toHaveTextContent('undefined');
 });
@@ -119,21 +119,21 @@ function KeyedProbe({ refreshKey, other }: { refreshKey: number; other: string }
   );
 }
 
-it('re-runs the read when a caller key moves, with no event announced', () => {
-  const screen = render(<KeyedProbe refreshKey={0} other="a" />);
+it('re-runs the read when a caller key moves, with no event announced', async () => {
+  const screen = await render(<KeyedProbe refreshKey={0} other="a" />);
   expect(screen.getByTestId('shown')).toHaveTextContent('first:a');
 
   value = 'second';
-  screen.rerender(<KeyedProbe refreshKey={1} other="a" />);
+  await screen.rerender(<KeyedProbe refreshKey={1} other="a" />);
 
   expect(screen.getByTestId('shown')).toHaveTextContent('second:a');
 });
 
-it('keeps the reader stable while the keys are equal, though the array is new', () => {
-  const screen = render(<KeyedProbe refreshKey={3} other="a" />);
+it('keeps the reader stable while the keys are equal, though the array is new', async () => {
+  const screen = await render(<KeyedProbe refreshKey={3} other="a" />);
   const before = reads;
 
-  screen.rerender(<KeyedProbe refreshKey={3} other="b" />);
+  await screen.rerender(<KeyedProbe refreshKey={3} other="b" />);
 
   expect(reads).toBe(before);
 });

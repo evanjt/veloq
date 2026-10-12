@@ -7,8 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { pressable, pressRipple } from '@/shared/ui';
-import { IconButton } from '@/shared/ui/IconButton';
+import { pressable, pressRipple, SheetHeader } from '@/shared/ui';
 import { ALL_DATA_FIELDS } from '@/features/recording';
 import { brand, colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
 import type { DataFieldType } from '@/types';
@@ -31,19 +30,16 @@ function FieldPickerSheetContent() {
 
   const surface = isDark ? darkColors.surface : colors.surface;
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
-  const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
+  const accentText = isDark ? darkColors.linkTeal : colors.linkTeal;
   const border = isDark ? darkColors.border : colors.border;
 
   return (
     <View style={[styles.sheet, { backgroundColor: surface }]}>
-      <View style={styles.header}>
-        <Text accessibilityRole="header" style={[styles.title, { color: textPrimary }]}>
-          {t('recording.settingsDataFields', 'Data Fields')}
-        </Text>
-        <IconButton onPress={() => tapBack()} accessibilityLabel={t('common.close')}>
-          <MaterialCommunityIcons name="close" size={22} color={textSecondary} />
-        </IconButton>
-      </View>
+      <SheetHeader
+        title={t('recording.settingsDataFields', 'Data Fields')}
+        onCancel={() => tapBack()}
+        cancelTestID="field-picker-cancel"
+      />
       <FlatList
         testID="field-picker-list"
         data={ALL_DATA_FIELDS}
@@ -65,7 +61,7 @@ function FieldPickerSheetContent() {
               onPress={() => resolve(item)}
             >
               <Text
-                style={[styles.rowText, { color: isSelected ? brand.teal : textPrimary }]}
+                style={[styles.rowText, { color: isSelected ? accentText : textPrimary }]}
                 numberOfLines={1}
               >
                 {t(`recording.fields.${item}`)}
@@ -85,16 +81,6 @@ const styles = StyleSheet.create({
   sheet: {
     flex: 1,
     paddingBottom: spacing.lg,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  title: {
-    ...typography.cardTitle,
   },
   list: {
     paddingHorizontal: spacing.md,

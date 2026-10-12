@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
@@ -9,7 +8,8 @@ import { TodayBanner } from '@/features/routes';
 import { InsightListCard } from './InsightListCard';
 import { InsightDebugPanel } from './InsightDebugPanel';
 import {
-  ErrorStatePreset,
+  EmptyState,
+  ErrorState,
   ExplanationCard,
   pressable,
   pressRipple,
@@ -105,34 +105,22 @@ export const InsightsPanel = React.memo(function InsightsPanel({
               <InsightListCard key={insight.id} insight={insight} onPress={handleInsightPress} />
             ))}
           </View>
-        ) : failed ? (
+        ) : failed && onRetry ? (
           <View testID="insights-failed">
-            <ErrorStatePreset
-              message={t('insights.couldNotBuild', 'Insights could not be built')}
-              {...(onRetry ? { onRetry } : {})}
-            />
+            <ErrorState error={undefined} fallbackKey="insights.couldNotBuild" onRetry={onRetry} />
           </View>
         ) : (
-          <View style={styles.emptyContainer} testID="insights-empty">
-            <MaterialCommunityIcons
-              name="lightbulb-outline"
-              size={32}
-              color={isDark ? darkColors.textSecondary : colors.textDisabled}
-            />
-            <Text style={[styles.empty, isDark && styles.emptyDark]}>
-              {t('insights.noInsights', 'No insights yet')}
-            </Text>
-            <Text style={[styles.emptyHint, isDark && styles.emptyDark]}>
-              {t(
-                'insights.noInsightsHint',
-                'Complete a few more activities to unlock personalized insights'
-              )}
-            </Text>
-          </View>
+          <EmptyState
+            variant="compact"
+            testID="insights-empty"
+            icon="lightbulb-outline"
+            title={t('insights.noInsights')}
+            description={t('insights.noInsightsHint')}
+          />
         )}
         {hrvWithheldSince ? (
           <Text
-            style={[styles.staleWellness, isDark && styles.emptyDark]}
+            style={[styles.staleWellness, isDark && styles.secondaryDark]}
             testID="insights-stale-wellness"
           >
             {t('insights.wellnessFromLastSync', {
@@ -163,23 +151,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     gap: spacing.xxs,
   },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingVertical: spacing.lg,
-    gap: spacing.sm,
-  },
-  empty: {
-    fontSize: typography.bodyCompact.fontSize,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  emptyHint: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-  emptyDark: {
+  secondaryDark: {
     color: darkColors.textSecondary,
   },
   staleWellness: {

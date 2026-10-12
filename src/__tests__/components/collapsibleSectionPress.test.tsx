@@ -41,30 +41,30 @@ function renderSection(onToggle: (expanded: boolean) => void) {
 
 afterEach(() => jest.clearAllMocks());
 
-it('fires no haptic when a touch lands on the header', () => {
-  const { getByTestId } = renderSection(jest.fn());
+it('fires no haptic when a touch lands on the header', async () => {
+  const { getByTestId } = await renderSection(jest.fn());
 
-  fireEvent(getByTestId('gear-header'), 'pressIn');
-  fireEvent(getByTestId('gear-header'), 'pressOut');
+  await fireEvent(getByTestId('gear-header'), 'pressIn');
+  await fireEvent(getByTestId('gear-header'), 'pressOut');
 
   expect(haptics.selection).not.toHaveBeenCalled();
   expect(haptics.light).not.toHaveBeenCalled();
   expect(haptics.medium).not.toHaveBeenCalled();
 });
 
-it('fires one selection tick and toggles on a press', () => {
+it('fires one selection tick and toggles on a press', async () => {
   const onToggle = jest.fn();
-  const { getByTestId } = renderSection(onToggle);
+  const { getByTestId } = await renderSection(onToggle);
 
-  fireEvent.press(getByTestId('gear-header'));
+  await fireEvent.press(getByTestId('gear-header'));
 
   expect(haptics.selection).toHaveBeenCalledTimes(1);
   expect(haptics.light).not.toHaveBeenCalled();
   expect(onToggle).toHaveBeenCalledWith(true);
 });
 
-it('draws the shared ripple on Android', () => {
-  const { UNSAFE_root } = renderSection(jest.fn());
+it('draws the shared ripple on Android', async () => {
+  const { UNSAFE_root } = await renderSection(jest.fn());
 
   const header = UNSAFE_root.find(
     (node) => node.props.testID === 'gear-header' && 'android_ripple' in node.props

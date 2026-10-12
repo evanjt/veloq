@@ -45,50 +45,50 @@ describe('useKmSplitBannerEffect', () => {
     useRecordingStore.getState().reset();
   });
 
-  it('shows nothing below the first kilometre', () => {
+  it('shows nothing below the first kilometre', async () => {
     const setSplitBanner = jest.fn();
-    const { rerender } = mount(setSplitBanner);
+    const { rerender } = await mount(setSplitBanner);
     runTo([0, 500, 999], [0, 150, 300]);
-    rerender({ distanceLength: 3, startTime: 1 });
+    await rerender({ distanceLength: 3, startTime: 1 });
     expect(setSplitBanner).not.toHaveBeenCalled();
   });
 
-  it('shows one banner at each whole kilometre, the first included', () => {
+  it('shows one banner at each whole kilometre, the first included', async () => {
     const setSplitBanner = jest.fn();
-    const { rerender } = mount(setSplitBanner);
+    const { rerender } = await mount(setSplitBanner);
 
     runTo([0, 500, 1000], [0, 150, 300]);
-    rerender({ distanceLength: 3, startTime: 1 });
+    await rerender({ distanceLength: 3, startTime: 1 });
     runTo([0, 500, 1000, 1500], [0, 150, 300, 450]);
-    rerender({ distanceLength: 4, startTime: 1 });
+    await rerender({ distanceLength: 4, startTime: 1 });
     runTo([0, 500, 1000, 1500, 2010], [0, 150, 300, 450, 600]);
-    rerender({ distanceLength: 5, startTime: 1 });
+    await rerender({ distanceLength: 5, startTime: 1 });
 
     const banners = setSplitBanner.mock.calls.map(([b]) => b).filter((b) => b !== null);
     expect(banners).toHaveLength(2);
   });
 
-  it('starts from zero again for a second ride on a mounted screen', () => {
+  it('starts from zero again for a second ride on a mounted screen', async () => {
     const setSplitBanner = jest.fn();
-    const { rerender } = mount(setSplitBanner);
+    const { rerender } = await mount(setSplitBanner);
     runTo([0, 1000, 2000], [0, 300, 600]);
-    rerender({ distanceLength: 3, startTime: 1 });
+    await rerender({ distanceLength: 3, startTime: 1 });
     setSplitBanner.mockClear();
 
     // A new ride starts on empty streams.
     runTo([], []);
-    act(() => rerender({ distanceLength: 0, startTime: 2 }));
+    await act(async () => await rerender({ distanceLength: 0, startTime: 2 }));
     runTo([0, 1000], [0, 300]);
-    act(() => rerender({ distanceLength: 2, startTime: 2 }));
+    await act(async () => await rerender({ distanceLength: 2, startTime: 2 }));
 
     const banners = setSplitBanner.mock.calls.map(([b]) => b).filter((b) => b !== null);
     expect(banners).toHaveLength(1);
   });
 
-  it('counts from the splits already passed when the screen mounts mid-ride', () => {
+  it('counts from the splits already passed when the screen mounts mid-ride', async () => {
     const setSplitBanner = jest.fn();
     runTo([0, 6000, 12_300], [0, 1800, 3700]);
-    const { rerender } = renderHook(
+    const { rerender } = await renderHook(
       ({ distanceLength }: { distanceLength: number }) =>
         useKmSplitBannerEffect({
           mode: 'gps',
@@ -101,24 +101,36 @@ describe('useKmSplitBannerEffect', () => {
       { initialProps: { distanceLength: 3 } }
     );
     runTo([0, 6000, 12_300, 12_800], [0, 1800, 3700, 3850]);
-    rerender({ distanceLength: 4 });
+    await rerender({ distanceLength: 4 });
     expect(setSplitBanner).not.toHaveBeenCalled();
 
     runTo([0, 6000, 12_300, 12_800, 13_050], [0, 1800, 3700, 3850, 3925]);
-    rerender({ distanceLength: 5 });
+    await rerender({ distanceLength: 5 });
     const banners = setSplitBanner.mock.calls.map(([b]) => b).filter((b) => b !== null);
     expect(banners).toHaveLength(1);
   });
 
-  it("gives the ride's pauses back from the split pace", () => {
+  it("gives the ride's pauses back from the split pace", async () => {
     const setSplitBanner = jest.fn();
-    const { rerender } = mount(setSplitBanner);
+    const { rerender } = await mount(setSplitBanner);
     useRecordingStore.setState({ pauseIntervals: [{ start: 150, end: 750 }] });
     runTo([0, 500, 500, 1000], [0, 150, 750, 900]);
-    rerender({ distanceLength: 4, startTime: 1 });
+    await rerender({ distanceLength: 4, startTime: 1 });
 
     const banners = setSplitBanner.mock.calls.map(([b]) => b).filter((b) => b !== null);
     expect(banners).toHaveLength(1);
-    expect(banners[0]).toContain('"pace":"5:00 /km"');
+    expect(banners[0].text).toContain('"pace":"5:00 /km"');
+  });
+
+  it('gives the split in words for a screen reader, beside the line on screen', () => {
+    const setSplitBanner = jest.fn();
+    const { rerender } = mount(setSplitBanner);
+    runTo([0, 500, 1000], [0, 150, 312]);
+    rerender({ distanceLength: 3, startTime: 1 });
+
+    const [banner] = setSplitBanner.mock.calls.map(([b]) => b).filter((b) => b !== null);
+    expect(banner.text).toContain('recording.splitBanner');
+    expect(banner.spoken).toContain('recording.splitAnnouncementKm');
+    expect(banner.spoken).not.toContain('5:12');
   });
 });

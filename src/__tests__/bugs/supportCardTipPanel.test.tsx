@@ -60,8 +60,8 @@ function fixedHeightsAbove(node: ReactTestInstance): number[] {
 }
 
 describe('the support card tip panel', () => {
-  it('exposes no purchase or sponsor button while collapsed', () => {
-    render(<SupportCard />);
+  it('exposes no purchase or sponsor button while collapsed', async () => {
+    await render(<SupportCard />);
 
     expect(
       screen.queryByTestId('support-card-sponsor-button', { includeHiddenElements: false })
@@ -71,10 +71,10 @@ describe('the support card tip panel', () => {
     ).toBeNull();
   });
 
-  it('opens to the height of its content rather than a fixed one', () => {
-    render(<SupportCard />);
+  it('opens to the height of its content rather than a fixed one', async () => {
+    await render(<SupportCard />);
 
-    fireEvent.press(screen.getByTestId('support-card-tip-toggle'));
+    await fireEvent.press(screen.getByTestId('support-card-tip-toggle'));
 
     const sponsor = screen.getByTestId('support-card-sponsor-button', {
       includeHiddenElements: false,
@@ -82,12 +82,12 @@ describe('the support card tip panel', () => {
     expect(fixedHeightsAbove(sponsor)).toEqual([]);
   });
 
-  it('hides the buttons again when closed a second time', () => {
-    render(<SupportCard />);
+  it('hides the buttons again when closed a second time', async () => {
+    await render(<SupportCard />);
     const toggle = screen.getByTestId('support-card-tip-toggle');
 
-    fireEvent.press(toggle);
-    fireEvent.press(toggle);
+    await fireEvent.press(toggle);
+    await fireEvent.press(toggle);
 
     expect(
       screen.queryByTestId('support-card-sponsor-button', { includeHiddenElements: false })

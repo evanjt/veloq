@@ -61,12 +61,12 @@ const activity = {
   stream_types: ['latlng'],
 } as unknown as Activity;
 
-function renderCard(index = 0) {
+async function renderCard(index = 0) {
   const requestSnapshot = jest.fn();
   const snapshotRef = {
     current: { requestSnapshot, retryFailed: jest.fn(), holdForScroll: jest.fn() },
   };
-  const tree = render(
+  const tree = await render(
     <ActivityMapPreview
       activity={activity}
       index={index}
@@ -85,18 +85,18 @@ describe('a card too far from the viewport asks for nothing', () => {
     mockDowngraded = true;
   });
 
-  it('asks when it is the card on screen', () => {
+  it('asks when it is the card on screen', async () => {
     setVisibleRange({ first: 0, last: 2 });
 
-    const { requestSnapshot } = renderCard(1);
+    const { requestSnapshot } = await renderCard(1);
 
     expect(requestSnapshot).toHaveBeenCalled();
   });
 
-  it('says nothing three screens down, where the list still mounts it', () => {
+  it('says nothing three screens down, where the list still mounts it', async () => {
     setVisibleRange({ first: 0, last: 2 });
 
-    const { requestSnapshot } = renderCard(11);
+    const { requestSnapshot } = await renderCard(11);
 
     expect(requestSnapshot).not.toHaveBeenCalled();
   });
@@ -107,24 +107,24 @@ describe('a card holding a stand-in serves it and still asks for the real one', 
     mockDowngraded = true;
   });
 
-  it('asks again, marked as an upgrade', () => {
-    const { requestSnapshot } = renderCard();
+  it('asks again, marked as an upgrade', async () => {
+    const { requestSnapshot } = await renderCard();
 
     expect(requestSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({ activityId: 'demo-1', upgrade: true })
     );
   });
 
-  it('keeps the stand-in on screen while it asks', () => {
-    const { tree } = renderCard();
+  it('keeps the stand-in on screen while it asks', async () => {
+    const { tree } = await renderCard();
 
     expect(tree.getByTestId('activity-map-preview-ready-demo-1')).toBeTruthy();
   });
 
-  it('asks for nothing once it holds the render it wanted', () => {
+  it('asks for nothing once it holds the render it wanted', async () => {
     mockDowngraded = false;
 
-    const { requestSnapshot } = renderCard();
+    const { requestSnapshot } = await renderCard();
 
     expect(requestSnapshot).not.toHaveBeenCalled();
   });

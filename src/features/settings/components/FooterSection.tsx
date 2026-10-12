@@ -1,9 +1,8 @@
 import React, { useCallback, useRef } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
-import { Text, Switch } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import { tapTo } from '@/shared/app/navigation';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
@@ -11,7 +10,7 @@ import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { buildCommit, formatVersionLine } from '@/shared/format/buildStamp';
 import { settingsStyles } from './settingsStyles';
-import { pressable, pressRipple } from '@/shared/ui';
+import { Row, pressable, pressRipple, SwitchRow } from '@/shared/ui';
 
 export function FooterSection() {
   const { isDark } = useTheme();
@@ -37,109 +36,83 @@ export function FooterSection() {
     }
   }, [debugUnlocked]);
 
-  const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
+  const versionLine = formatVersionLine(Constants.expoConfig?.version ?? '0.0.1', buildCommit());
 
   return (
     <>
-      <Pressable
-        accessibilityRole="button"
+      <Row
+        behaviour="navigate"
         accessibilityLabel={t('settings.appTour')}
-        style={pressable(styles.toggleRow)}
         onPress={() => useWhatsNewStore.getState().startTour('tutorial')}
-        android_ripple={pressRipple}
       >
         <View style={styles.toggleInfo}>
           <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>
             {t('settings.appTour')}
           </Text>
-          <Text style={[styles.toggleDescription, isDark && settingsStyles.textSecondary]}>
+          <Text style={[styles.toggleDescription, isDark && styles.toggleDescriptionDark]}>
             {t('settings.appTourDescription')}
           </Text>
         </View>
-        <MaterialCommunityIcons name="chevron-right" size={24} color={mutedColor} />
-      </Pressable>
+      </Row>
 
-      <Pressable
-        accessibilityRole="button"
+      <Row
+        behaviour="navigate"
         accessibilityLabel={t('about.title')}
-        style={pressable(styles.toggleRow)}
         onPress={() => tapTo('/about')}
-        android_ripple={pressRipple}
       >
         <View style={styles.toggleInfo}>
           <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>
             {t('about.title')}
           </Text>
         </View>
-        <MaterialCommunityIcons name="chevron-right" size={24} color={mutedColor} />
-      </Pressable>
+      </Row>
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={t('settings.version')}
+        accessibilityLabel={`${t('settings.version')} ${versionLine}`}
         onPress={handleVersionTap}
         style={pressable()}
         android_ripple={pressRipple}
       >
         <Text
           testID="settings-version-text"
-          style={[styles.versionText, isDark && settingsStyles.textSecondary]}
+          style={[styles.versionText, isDark && styles.versionTextDark]}
         >
-          {t('settings.version')}{' '}
-          {formatVersionLine(Constants.expoConfig?.version ?? '0.0.1', buildCommit())}
+          {t('settings.version')} {versionLine}
         </Text>
       </Pressable>
 
       {(debugUnlocked || debugEnabled) && (
-        <View style={styles.toggleRow}>
-          <View style={styles.toggleInfo}>
-            <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>
-              {t('settings.debugMode')}
-            </Text>
-            <Text style={[styles.toggleDescription, isDark && settingsStyles.textSecondary]}>
-              {t('settings.debugModeDescription')}
-            </Text>
-          </View>
-          <Switch
-            testID="settings-debug-switch"
-            value={debugEnabled}
-            onValueChange={setDebugEnabled}
-            color={colors.primary}
-          />
-        </View>
+        <SwitchRow
+          title={t('settings.debugMode')}
+          description={t('settings.debugModeDescription')}
+          value={debugEnabled}
+          onValueChange={setDebugEnabled}
+          testID="settings-debug-switch"
+        />
       )}
       {debugEnabled && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('settings.developerDashboard')}
+        <Row
           testID="settings-developer-dashboard-link"
-          style={pressable(styles.toggleRow)}
+          behaviour="navigate"
+          accessibilityLabel={t('settings.developerDashboard')}
           onPress={() => tapTo('/debug')}
-          android_ripple={pressRipple}
         >
           <View style={styles.toggleInfo}>
             <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>
               {t('settings.developerDashboard')}
             </Text>
-            <Text style={[styles.toggleDescription, isDark && settingsStyles.textSecondary]}>
+            <Text style={[styles.toggleDescription, isDark && styles.toggleDescriptionDark]}>
               {t('settings.developerDashboardDescription')}
             </Text>
           </View>
-          <MaterialCommunityIcons name="chevron-right" size={24} color={mutedColor} />
-        </Pressable>
+        </Row>
       )}
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-  },
   toggleInfo: {
     flex: 1,
     marginRight: spacing.md,
@@ -154,11 +127,17 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.xxs,
   },
+  toggleDescriptionDark: {
+    color: darkColors.textSecondary,
+  },
   versionText: {
     ...typography.caption,
     color: colors.textSecondary,
     textAlign: 'center',
     marginTop: spacing.xl,
     marginBottom: spacing.md,
+  },
+  versionTextDark: {
+    color: darkColors.textSecondary,
   },
 });

@@ -18,29 +18,29 @@ describe('the preview run cost sentences', () => {
     await initialiseI18n('en-AU');
   });
 
-  it('reads one analysed activity in the singular', () => {
-    const { getByTestId } = render(
+  it('reads one analysed activity in the singular', async () => {
+    const { getByTestId } = await render(
       <PreviewRunCost pool={{ activities: 1, empty: 0, unreadable: 0 }} elapsedMs={40} />
     );
     expect(getByTestId('preview-run-cost').props.children).toBe('1 activity analysed in 40 ms');
   });
 
-  it('reads two analysed activities in the plural', () => {
-    const { getByTestId } = render(
+  it('reads two analysed activities in the plural', async () => {
+    const { getByTestId } = await render(
       <PreviewRunCost pool={{ activities: 2, empty: 0, unreadable: 0 }} elapsedMs={40} />
     );
     expect(getByTestId('preview-run-cost').props.children).toBe('2 activities analysed in 40 ms');
   });
 
-  it('reads one unreadable track in the singular', () => {
-    const { getByTestId } = render(
+  it('reads one unreadable track in the singular', async () => {
+    const { getByTestId } = await render(
       <PreviewRunCost pool={{ activities: 5, empty: 0, unreadable: 1 }} elapsedMs={40} />
     );
     expect(getByTestId('preview-run-unreadable').props.children).toBe('1 track could not be read');
   });
 
-  it('reads two unreadable tracks in the plural', () => {
-    const { getByTestId } = render(
+  it('reads two unreadable tracks in the plural', async () => {
+    const { getByTestId } = await render(
       <PreviewRunCost pool={{ activities: 5, empty: 0, unreadable: 2 }} elapsedMs={40} />
     );
     expect(getByTestId('preview-run-unreadable').props.children).toBe('2 tracks could not be read');

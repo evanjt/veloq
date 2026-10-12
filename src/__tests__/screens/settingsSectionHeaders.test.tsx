@@ -11,7 +11,7 @@
 
 import React from 'react';
 import { StyleSheet, type TextStyle } from 'react-native';
-import { render, type RenderAPI } from '@testing-library/react-native';
+import { render } from '@testing-library/react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import SettingsScreen from '@/app/settings';
@@ -88,7 +88,7 @@ beforeEach(() => {
 });
 
 /** What makes two headers look the same, read off the rendered heading. */
-function headerLook(screen: RenderAPI, text: string) {
+function headerLook(screen: Awaited<ReturnType<typeof render>>, text: string) {
   const style = StyleSheet.flatten(
     screen.getByRole('header', { name: text }).props.style
   ) as TextStyle;
@@ -119,29 +119,33 @@ function renderDisplay() {
 }
 
 describe('settings group headers', () => {
-  it('draw one way on every settings-family screen, over the translation unchanged', () => {
+  it('draw one way on every settings-family screen, over the translation unchanged', async () => {
     const looks: { screen: string; header: string; look: ReturnType<typeof headerLook> }[] = [];
-    const collect = (name: string, screen: RenderAPI, headers: string[]) => {
+    const collect = async (
+      name: string,
+      screen: Awaited<ReturnType<typeof render>>,
+      headers: string[]
+    ) => {
       for (const header of headers) {
         looks.push({ screen: name, header, look: headerLook(screen, header) });
       }
-      screen.unmount();
+      await screen.unmount();
     };
 
-    collect('hub', render(<SettingsScreen />), [
+    await collect('hub', await render(<SettingsScreen />), [
       'Appearance',
       'Data & recording',
       'Library & backup',
       'Notifications',
     ]);
-    collect('about', render(<AboutScreen />), [
+    await collect('about', await render(<AboutScreen />), [
       'about.disclaimerTitle',
       'intervals.icu',
       'Veloq',
       'about.dataAttribution',
       'about.mapData',
     ]);
-    collect('recording', render(<RecordingSettingsScreen />), [
+    await collect('recording', await render(<RecordingSettingsScreen />), [
       'Upload',
       'GPS & Battery',
       'recording.settingsAutoPause',
@@ -149,16 +153,16 @@ describe('settings group headers', () => {
       'Sensors',
       'recording.settingsUnits',
     ]);
-    collect('display', renderDisplay(), ['settings.display']);
+    await collect('display', await renderDisplay(), ['settings.display']);
 
     expect(looks[0].look.textTransform).toBe('uppercase');
     const odd = looks.filter((l) => JSON.stringify(l.look) !== JSON.stringify(looks[0].look));
     expect(odd).toEqual([]);
   });
 
-  it('give every Display sub-heading one colour and one icon size in dark', () => {
+  it('give every Display sub-heading one colour and one icon size in dark', async () => {
     mockIsDark = true;
-    const screen = renderDisplay();
+    const screen = await renderDisplay();
     const subHeadings = [
       'settings.appearance',
       'settings.units',

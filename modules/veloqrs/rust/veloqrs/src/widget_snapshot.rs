@@ -25,7 +25,7 @@ use crate::{
 mod tests;
 
 /// Bumped when the shape changes, so a native can tell a snapshot it cannot read.
-pub const SCHEMA_VERSION: u32 = 15;
+pub const SCHEMA_VERSION: u32 = 16;
 
 /// Trailing wellness window the sparklines cover.
 pub const SPARKLINE_DAYS: u32 = 30;
@@ -119,6 +119,10 @@ pub struct WidgetInsight {
     pub icon: String,
     pub tone: String,
     pub url: String,
+    /// The tone as a screen reader says it, since the row draws it as a colour
+    /// alone. Composed here, since the app hands over none.
+    #[serde(rename = "toneLabel")]
+    pub tone_label: String,
 }
 
 /// The locale's own names for days and months, and the order a short date is
@@ -277,6 +281,9 @@ pub struct MetricValue {
     /// What a native prints in place of the number.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
+    /// The name, the reading and the verdict as a screen reader says them,
+    /// since the arrow carries the verdict in colour alone.
+    pub spoken: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -351,6 +358,10 @@ pub struct Latest {
     /// "Section PRs 3", absent when it holds none.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub section_prs_text: Option<String>,
+    /// What the drawn route is, as a screen reader says it, absent with no route drawn.
+    pub route_label: Option<String>,
+    /// What the record mark beside the name says, absent when no record was set.
+    pub pr_label: Option<String>,
 }
 
 /// The comparison a widget leads with: the rank among attempts on the route,
@@ -449,6 +460,8 @@ pub struct SummaryEntry {
     /// The palette role a native tints the value with.
     #[serde(rename = "colorKey")]
     pub colour_key: &'static str,
+    /// The name, the reading and the verdict as a screen reader says them.
+    pub spoken: String,
 }
 
 /// The in-app summary card as the athlete configured it, ready to draw.
@@ -485,6 +498,22 @@ pub struct Display {
     /// The small label every widget draws on a sample library's snapshot.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub demo_label: Option<String>,
+    /// One line for each chart a widget draws, since a drawn line says nothing aloud.
+    pub chart_labels: ChartLabels,
+}
+
+/// What each chart shows, as a screen reader says it: the series, the days
+/// they span and where each starts and ends. Absent for a chart with fewer than
+/// the two days a native needs to draw one, and when the app handed over none
+/// of the words.
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct ChartLabels {
+    /// Fitness and fatigue, the chart beside every hero but HRV.
+    pub fitness: Option<String>,
+    /// HRV, the chart beside an HRV hero.
+    pub hrv: Option<String>,
+    /// Form over its zones, the large size's chart.
+    pub form: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -526,6 +555,9 @@ pub struct StrengthWindow {
     /// What a widget shows in place of the body when the window has no
     /// strength sessions: none, or sessions whose sets are still owed.
     pub empty_text: Option<String>,
+    /// What the shaded body shows, as a screen reader says it: the most
+    /// trained muscles and their sets. Absent where the body is not drawn.
+    pub body_label: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -604,6 +636,15 @@ pub fn compose(data: &FfiWidgetSnapshotData, ctx: &WidgetContext, clock: Clock) 
         Some(f64::from(fitness.last().copied().unwrap_or(0))),
         as_percent,
     );
+    let form_history = form_history(sp, as_percent);
+    let chart_labels = chart_labels(
+        ctx,
+        fitness,
+        fatigue,
+        hrv,
+        form_history.as_ref(),
+        today_zone,
+    );
 
     WidgetSnapshot {
         schema_version: SCHEMA_VERSION,
@@ -613,29 +654,45 @@ pub fn compose(data: &FfiWidgetSnapshotData, ctx: &WidgetContext, clock: Clock) 
         empty_library,
         demo: ctx.demo,
         metrics: Metrics {
-            form: form_metric(as_percent, w),
-            fitness: wellness_metric(
-                w.and_then(|w| w.fitness),
-                w.and_then(|w| w.fitness_trend.as_deref()),
-                w.and_then(|w| w.fitness_previous),
+            form: spoken_metric(ctx, "metrics.form", form_metric(as_percent, w)),
+            fitness: spoken_metric(
+                ctx,
+                "metrics.fitness",
+                wellness_metric(
+                    w.and_then(|w| w.fitness),
+                    w.and_then(|w| w.fitness_trend.as_deref()),
+                    w.and_then(|w| w.fitness_previous),
+                ),
             ),
-            fatigue: fatigue_metric(
-                w.and_then(|w| w.fatigue),
-                w.and_then(|w| w.fatigue_previous),
-                w.and_then(|w| w.fatigue_basis.as_ref()),
+            fatigue: spoken_metric(
+                ctx,
+                "metrics.fatigue",
+                fatigue_metric(
+                    w.and_then(|w| w.fatigue),
+                    w.and_then(|w| w.fatigue_previous),
+                    w.and_then(|w| w.fatigue_basis.as_ref()),
+                ),
             ),
             ramp_rate: RampRate {
                 value: js_round(finite(data.ramp_rate.unwrap_or(0.0)) * 10.0) / 10.0,
             },
-            hrv: wellness_metric(
-                w.and_then(|w| w.hrv),
-                w.and_then(|w| w.hrv_trend.as_deref()),
-                w.and_then(|w| w.hrv_previous),
+            hrv: spoken_metric(
+                ctx,
+                "metrics.hrv",
+                wellness_metric(
+                    w.and_then(|w| w.hrv),
+                    w.and_then(|w| w.hrv_trend.as_deref()),
+                    w.and_then(|w| w.hrv_previous),
+                ),
             ),
-            rhr: wellness_metric(
-                w.and_then(|w| w.rhr),
-                w.and_then(|w| w.rhr_trend.as_deref()),
-                w.and_then(|w| w.rhr_previous),
+            rhr: spoken_metric(
+                ctx,
+                "metrics.rhr",
+                wellness_metric(
+                    w.and_then(|w| w.rhr),
+                    w.and_then(|w| w.rhr_trend.as_deref()),
+                    w.and_then(|w| w.rhr_previous),
+                ),
             ),
         },
         sparklines: Sparklines {
@@ -644,7 +701,7 @@ pub fn compose(data: &FfiWidgetSnapshotData, ctx: &WidgetContext, clock: Clock) 
             fatigue: fatigue.to_vec(),
             hrv: hrv.to_vec(),
         },
-        form_history: form_history(sp, as_percent),
+        form_history,
         weekly: Weekly {
             tss: js_round(cur_tss) as i64,
             distance_m: weekly_distance,
@@ -664,13 +721,20 @@ pub fn compose(data: &FfiWidgetSnapshotData, ctx: &WidgetContext, clock: Clock) 
             .filter_map(|id| summary_entry(data, ctx, id, false))
             .collect(),
         summary_heroes: SUMMARY_HERO_IDS.to_vec(),
-        display: display(ctx, impact.as_ref(), today_zone),
+        display: display(ctx, impact.as_ref(), today_zone, chart_labels),
         latest,
         impact,
         theme: ctx.theme.clone(),
         record_shortcuts: ctx.record_shortcuts.clone(),
         launcher_shortcuts: ctx.launcher_shortcuts.clone(),
-        insights: ctx.insights.clone(),
+        insights: ctx
+            .insights
+            .iter()
+            .map(|insight| WidgetInsight {
+                tone_label: tone_label(ctx, &insight.tone),
+                ..insight.clone()
+            })
+            .collect(),
         strength: compose_strength(data, ctx, clock),
     }
 }
@@ -757,6 +821,7 @@ fn metric(value: f64, (trend_dir, verdict): (&'static str, &'static str)) -> Met
         delta_vs_yesterday: None,
         zone: None,
         text: None,
+        spoken: String::new(),
     }
 }
 
@@ -1007,9 +1072,17 @@ fn summary_entry(
     let summary = &data.summary;
     let w = wellness_of(&summary.wellness);
     let entry = |label: &str, value: String, judged: (&'static str, &'static str), colour_key| {
+        // The week's count is labelled with a sign, which says nothing aloud.
+        let spoken_label = match id {
+            "weekCount" => {
+                phrase(ctx, "metrics.activityCount").unwrap_or_else(|| label.to_string())
+            }
+            _ => label.to_string(),
+        };
         Some(SummaryEntry {
             id: id.to_string(),
             label: label.to_string(),
+            spoken: spoken_words(ctx, &spoken_label, &value, judged),
             value,
             trend_dir: judged.0,
             verdict: judged.1,
@@ -1096,7 +1169,7 @@ fn summary_entry(
         "ftp" => {
             let latest = summary.ftp_trend.latest_ftp.map(f64::from);
             entry(
-                translate(ctx, "metrics.ftp"),
+                translate(ctx, "metrics.eftp"),
                 latest.map_or(TEXT_NONE.to_string(), int_text),
                 from_glyph(summary.ftp_trend.glyph.as_deref(), true),
                 "default",
@@ -1156,10 +1229,16 @@ fn int_text(v: f64) -> String {
 // Display strings
 // ---------------------------------------------------------------------------
 
-fn display(ctx: &WidgetContext, impact: Option<&Impact>, zone: Option<&'static str>) -> Display {
+fn display(
+    ctx: &WidgetContext,
+    impact: Option<&Impact>,
+    zone: Option<&'static str>,
+    chart_labels: ChartLabels,
+) -> Display {
     let form_label = translate(ctx, "metrics.form").to_string();
     Display {
         impact_line: impact.map(|i| impact_line(&form_label, i)),
+        chart_labels,
         data_as_of_label: None,
         demo_label: ctx.demo.then(|| translate(ctx, "demo.banner").to_string()),
         metric_labels: MetricLabels {
@@ -1175,9 +1254,7 @@ fn display(ctx: &WidgetContext, impact: Option<&Impact>, zone: Option<&'static s
         refresh_label: translate(ctx, "systemSurfaces.refresh").to_string(),
         refreshing_label: translate(ctx, "systemSurfaces.refreshing").to_string(),
         per_week_suffix: translate(ctx, "fitnessScreen.perWeek").to_string(),
-        form_zone: zone.map_or(String::new(), |z| {
-            translate(ctx, &format!("formZones.{z}")).to_string()
-        }),
+        form_zone: zone.map_or(String::new(), |z| translate(ctx, &zone_key(z)).to_string()),
     }
 }
 
@@ -1195,6 +1272,168 @@ fn impact_line(form_label: &str, impact: &Impact) -> String {
         ));
     }
     line
+}
+
+// ---------------------------------------------------------------------------
+// What a screen reader says
+// ---------------------------------------------------------------------------
+
+/// A headline metric with its spoken words, read under its own name.
+fn spoken_metric(ctx: &WidgetContext, label_key: &str, m: MetricValue) -> MetricValue {
+    let value = m.text.clone().unwrap_or_else(|| int_text(m.value));
+    MetricValue {
+        spoken: spoken_words(
+            ctx,
+            translate(ctx, label_key),
+            &value,
+            (m.trend_dir, m.verdict),
+        ),
+        ..m
+    }
+}
+
+/// A metric as a screen reader says it: "Fitness 52, improved". A move with no
+/// judgement says which way it went. With none of the words handed over, as
+/// from a context stored before them, the name and the reading alone.
+fn spoken_words(
+    ctx: &WidgetContext,
+    label: &str,
+    value: &str,
+    (trend_dir, verdict): (&'static str, &'static str),
+) -> String {
+    if value == TEXT_NONE {
+        return fill(
+            ctx,
+            "systemSurfaces.spoken.noReading",
+            &[("label", label.to_string())],
+        )
+        .unwrap_or_else(|| label.to_string());
+    }
+    let word = match (verdict, trend_dir) {
+        ("improved", _) => phrase(ctx, "systemSurfaces.spoken.improved"),
+        ("declined", _) => phrase(ctx, "systemSurfaces.spoken.declined"),
+        (_, "up") => phrase(ctx, "systemSurfaces.spoken.rising"),
+        (_, "down") => phrase(ctx, "systemSurfaces.spoken.falling"),
+        _ => phrase(ctx, "systemSurfaces.spoken.steady"),
+    };
+    word.and_then(|word| {
+        fill(
+            ctx,
+            "systemSurfaces.spoken.metric",
+            &[
+                ("label", label.to_string()),
+                ("value", value.to_string()),
+                ("verdict", word),
+            ],
+        )
+    })
+    .unwrap_or_else(|| format!("{label} {value}"))
+}
+
+/// The tone an insight row draws as a coloured mark. An unknown tone is drawn
+/// neutral, so it is read as neutral too.
+fn tone_label(ctx: &WidgetContext, tone: &str) -> String {
+    match tone {
+        "negative" => phrase(ctx, "systemSurfaces.spoken.toneNegative"),
+        "caution" => phrase(ctx, "systemSurfaces.spoken.toneCaution"),
+        "positive" => phrase(ctx, "systemSurfaces.spoken.tonePositive"),
+        "record" => phrase(ctx, "systemSurfaces.spoken.toneRecord"),
+        "info" => phrase(ctx, "systemSurfaces.spoken.toneInfo"),
+        "opportunity" => phrase(ctx, "systemSurfaces.spoken.toneOpportunity"),
+        _ => phrase(ctx, "systemSurfaces.spoken.toneNeutral"),
+    }
+    .unwrap_or_default()
+}
+
+/// The fewest days a native draws a chart from.
+const CHART_MIN_DAYS: usize = 2;
+
+/// One line per chart: each series from its first day to its last, and the
+/// days drawn. Form also names the zone it sits in today.
+fn chart_labels(
+    ctx: &WidgetContext,
+    fitness: &[i32],
+    fatigue: &[i32],
+    hrv: &[i32],
+    form: Option<&FormHistory>,
+    today_zone: Option<&'static str>,
+) -> ChartLabels {
+    let ends = |series: &[i32]| -> Option<(String, String)> {
+        (series.len() >= CHART_MIN_DAYS)
+            .then(|| Some((series.first()?.to_string(), series.last()?.to_string())))
+            .flatten()
+    };
+    let line = |label_key: &str, (from, to): (String, String), days: usize| {
+        fill(
+            ctx,
+            "systemSurfaces.spoken.lineChart",
+            &[
+                ("metric", translate(ctx, label_key).to_string()),
+                ("from", from),
+                ("to", to),
+                ("days", days.to_string()),
+            ],
+        )
+    };
+
+    let fitness_label = ends(fitness).and_then(|fit| match ends(fatigue) {
+        Some(fat) => fill(
+            ctx,
+            "systemSurfaces.spoken.twoLineChart",
+            &[
+                ("first", translate(ctx, "metrics.fitness").to_string()),
+                ("firstFrom", fit.0),
+                ("firstTo", fit.1),
+                ("second", translate(ctx, "metrics.fatigue").to_string()),
+                ("secondFrom", fat.0),
+                ("secondTo", fat.1),
+                ("days", fitness.len().to_string()),
+            ],
+        ),
+        None => line("metrics.fitness", fit, fitness.len()),
+    });
+
+    let form_label = form.and_then(|history| {
+        let mut measured = history.values.iter().flatten();
+        let first = *measured.next()?;
+        let last = *measured.last()?;
+        let text = |v: i32| {
+            let n = signed(f64::from(v));
+            if history.as_percent {
+                format!("{n}%")
+            } else {
+                n
+            }
+        };
+        let ends = (text(first), text(last));
+        let days = history.values.len();
+        let zone = today_zone.and_then(|z| phrase(ctx, &zone_key(z)));
+        match zone {
+            Some(zone) => fill(
+                ctx,
+                "systemSurfaces.spoken.formChart",
+                &[
+                    ("metric", translate(ctx, "metrics.form").to_string()),
+                    ("from", ends.0),
+                    ("to", ends.1),
+                    ("days", days.to_string()),
+                    ("zone", zone),
+                ],
+            ),
+            None => line("metrics.form", ends, days),
+        }
+    });
+
+    ChartLabels {
+        fitness: fitness_label,
+        hrv: ends(hrv).and_then(|ends| line("metrics.hrv", ends, hrv.len())),
+        form: form_label,
+    }
+}
+
+/// The translation key of a form zone's name.
+fn zone_key(zone: &str) -> String {
+    format!("formZones.{zone}")
 }
 
 // ---------------------------------------------------------------------------
@@ -1234,6 +1473,17 @@ fn strength_window(
     ctx: &WidgetContext,
 ) -> StrengthWindow {
     let summary = &window.summary;
+    let top: Vec<StrengthTopMuscle> = summary
+        .muscle_volumes
+        .iter()
+        .take(STRENGTH_TOP_MAX)
+        .map(|m| StrengthTopMuscle {
+            slug: m.slug.clone(),
+            name: phrase(ctx, &muscle_name_key(&m.slug)).unwrap_or_else(|| m.slug.clone()),
+            sets_text: sets_text(m.weighted_sets, ctx),
+            volume_text: volume_text(m.volume_kg, ctx.is_metric),
+        })
+        .collect();
     let empty_text = (summary.activity_count == 0).then(|| {
         if window.owed_count > 0 {
             translate(ctx, "strength.notDownloaded").to_string()
@@ -1255,19 +1505,28 @@ fn strength_window(
                 shade: m.shade,
             })
             .collect(),
-        top: summary
-            .muscle_volumes
-            .iter()
-            .take(STRENGTH_TOP_MAX)
-            .map(|m| StrengthTopMuscle {
-                slug: m.slug.clone(),
-                name: phrase(ctx, &muscle_name_key(&m.slug)).unwrap_or_else(|| m.slug.clone()),
-                sets_text: sets_text(m.weighted_sets, ctx),
-                volume_text: volume_text(m.volume_kg, ctx.is_metric),
-            })
-            .collect(),
+        body_label: if empty_text.is_none() {
+            body_label(&top, ctx)
+        } else {
+            None
+        },
+        top,
         empty_text,
     }
+}
+
+/// The most trained muscles and their sets, most first, which is what the
+/// shading shows.
+fn body_label(top: &[StrengthTopMuscle], ctx: &WidgetContext) -> Option<String> {
+    if top.is_empty() {
+        return None;
+    }
+    let muscles = top
+        .iter()
+        .map(|m| format!("{} {}", m.name, m.sets_text))
+        .collect::<Vec<_>>()
+        .join(", ");
+    fill(ctx, "systemSurfaces.spoken.body", &[("muscles", muscles)])
 }
 
 /// The month the clock falls in, by its long name, else by the short one an
@@ -1397,6 +1656,7 @@ fn compose_latest(
     let date = finite(a.date);
     let distance = finite(a.distance);
     let moving = f64::from(a.moving_time);
+    let route_preview = route_outline(&data.latest_gps, ROUTE_OUTLINE_MAX_POINTS);
     Some(Latest {
         activity_id: a.activity_id.clone(),
         name: a.name.clone(),
@@ -1416,7 +1676,6 @@ fn compose_latest(
             .cloned()
             .unwrap_or_default(),
         is_pr: data.latest_is_pr,
-        route_preview: route_outline(&data.latest_gps, ROUTE_OUTLINE_MAX_POINTS),
         route: route_standing(&data.latest_comparison),
         section_prs: data.latest_comparison.section_pr_count,
         load_vs_typical: load_vs_typical(a.training_load, &data.latest_comparison),
@@ -1427,6 +1686,21 @@ fn compose_latest(
                 .map(|word| format!("{word} {}", int_text(load)))
         }),
         section_prs_text: section_prs_text(data.latest_comparison.section_pr_count, ctx),
+        route_label: route_preview
+            .is_some()
+            .then(|| {
+                fill(
+                    ctx,
+                    "systemSurfaces.spoken.route",
+                    &[("name", a.name.clone())],
+                )
+            })
+            .flatten(),
+        pr_label: data
+            .latest_is_pr
+            .then(|| phrase(ctx, "systemSurfaces.spoken.setRecord"))
+            .flatten(),
+        route_preview,
     })
 }
 

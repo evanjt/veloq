@@ -47,51 +47,51 @@ beforeEach(() => {
 });
 
 describe('the engine subscription key', () => {
-  it('does not resubscribe when the caller passes an equal list again', () => {
-    const tree = render(<Probe events={['sections', 'groups']} />);
+  it('does not resubscribe when the caller passes an equal list again', async () => {
+    const tree = await render(<Probe events={['sections', 'groups']} />);
     expect(subscribed).toEqual(['sections', 'groups']);
 
     // A new array literal with the same contents, three times over.
-    tree.rerender(<Probe events={['sections', 'groups']} />);
-    tree.rerender(<Probe events={['sections', 'groups']} />);
-    tree.rerender(<Probe events={['sections', 'groups']} />);
+    await tree.rerender(<Probe events={['sections', 'groups']} />);
+    await tree.rerender(<Probe events={['sections', 'groups']} />);
+    await tree.rerender(<Probe events={['sections', 'groups']} />);
 
     expect(subscribed).toEqual(['sections', 'groups']);
     expect(unsubscribed).toEqual([]);
   });
 
-  it('resubscribes when the set of events actually changes', () => {
-    const tree = render(<Probe events={['sections'] as EngineEvent[]} />);
+  it('resubscribes when the set of events actually changes', async () => {
+    const tree = await render(<Probe events={['sections'] as EngineEvent[]} />);
     expect(subscribed).toEqual(['sections']);
 
-    tree.rerender(<Probe events={['sections', 'activities'] as EngineEvent[]} />);
+    await tree.rerender(<Probe events={['sections', 'activities'] as EngineEvent[]} />);
 
     expect(unsubscribed).toEqual(['sections']);
     expect(subscribed).toEqual(['sections', 'sections', 'activities']);
   });
 
-  it('treats a reordered list as a different key, because the join is the key', () => {
-    const tree = render(<Probe events={['sections', 'groups'] as EngineEvent[]} />);
+  it('treats a reordered list as a different key, because the join is the key', async () => {
+    const tree = await render(<Probe events={['sections', 'groups'] as EngineEvent[]} />);
     subscribed.length = 0;
     unsubscribed.length = 0;
 
-    tree.rerender(<Probe events={['groups', 'sections'] as EngineEvent[]} />);
+    await tree.rerender(<Probe events={['groups', 'sections'] as EngineEvent[]} />);
 
     expect(unsubscribed).toEqual(['sections', 'groups']);
     expect(subscribed).toEqual(['groups', 'sections']);
   });
 
-  it('bumps the trigger when a subscribed event fires', () => {
-    const tree = render(<Probe events={['sections'] as EngineEvent[]} />);
+  it('bumps the trigger when a subscribed event fires', async () => {
+    const tree = await render(<Probe events={['sections'] as EngineEvent[]} />);
     expect(tree.getByTestId('trigger').props.children).toBe('0');
 
-    act(() => listeners.sections.forEach((l) => l()));
+    await act(() => listeners.sections.forEach((l) => l()));
 
     expect(tree.getByTestId('trigger').props.children).toBe('1');
   });
 
-  it('subscribes to nothing for an empty list, rather than to an empty name', () => {
-    render(<Probe events={[]} />);
+  it('subscribes to nothing for an empty list, rather than to an empty name', async () => {
+    await render(<Probe events={[]} />);
 
     expect(subscribed).toEqual([]);
   });

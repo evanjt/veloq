@@ -46,21 +46,21 @@ const barProps = {
 };
 
 describe('the bar of an idle recording screen', () => {
-  it('offers Start while nothing is recording', () => {
+  it('offers Start while nothing is recording', async () => {
     const onStart = jest.fn();
-    const { getByTestId, queryByTestId } = render(
+    const { getByTestId, queryByTestId } = await render(
       <ControlBar {...barProps} status="idle" onStart={onStart} />
     );
 
-    fireEvent.press(getByTestId('control-start'));
+    await fireEvent.press(getByTestId('control-start'));
 
     expect(onStart).toHaveBeenCalledTimes(1);
     expect(queryByTestId('control-pause')).toBeNull();
     expect(queryByTestId('control-resume')).toBeNull();
   });
 
-  it('keeps the recording bar for a ride that is under way', () => {
-    const { getByTestId, queryByTestId } = render(
+  it('keeps the recording bar for a ride that is under way', async () => {
+    const { getByTestId, queryByTestId } = await render(
       <ControlBar {...barProps} status="recording" onStart={jest.fn()} />
     );
 
@@ -70,14 +70,18 @@ describe('the bar of an idle recording screen', () => {
 });
 
 describe('the header of a screen that is not recording', () => {
-  it('shows no REC or PAUSED badge while idle', () => {
-    const { queryByTestId } = render(<TimerHeader {...headerProps} status={'idle' as never} />);
+  it('shows no REC or PAUSED badge while idle', async () => {
+    const { queryByTestId } = await render(
+      <TimerHeader {...headerProps} status={'idle' as never} />
+    );
 
     expect(queryByTestId('recording-status')).toBeNull();
   });
 
-  it('still badges a paused ride', () => {
-    const { getByTestId } = render(<TimerHeader {...headerProps} status={'paused' as never} />);
+  it('still badges a paused ride', async () => {
+    const { getByTestId } = await render(
+      <TimerHeader {...headerProps} status={'paused' as never} />
+    );
 
     expect(getByTestId('recording-status')).toBeTruthy();
   });
@@ -99,18 +103,18 @@ describe('starting from an idle screen', () => {
   const idle = () =>
     renderHook(() => useInitRecordingEffect('idle', 'Ride', undefined, true, 'quickstart'));
 
-  it('records the sport chosen on the screen, not the one tapped', () => {
-    const { result } = idle();
-    act(() => useRecordingStore.getState().changeActivityType('Run'));
+  it('records the sport chosen on the screen, not the one tapped', async () => {
+    const { result } = await idle();
+    await act(() => useRecordingStore.getState().changeActivityType('Run'));
 
-    act(() => result.current.startNow());
+    await act(() => result.current.startNow());
 
     expect(started()).toHaveBeenCalledWith('Run', 'gps', undefined);
   });
 
-  it('starts nothing on its own', () => {
-    const { result } = idle();
-    act(() => {
+  it('starts nothing on its own', async () => {
+    const { result } = await idle();
+    await act(() => {
       jest.advanceTimersByTime(10_000);
     });
     expect(result.current).toBeDefined();
@@ -118,11 +122,11 @@ describe('starting from an idle screen', () => {
     expect(started()).not.toHaveBeenCalled();
   });
 
-  it('starts once when Start is pressed twice', () => {
-    const { result } = idle();
+  it('starts once when Start is pressed twice', async () => {
+    const { result } = await idle();
 
-    act(() => result.current.startNow());
-    act(() => result.current.startNow());
+    await act(() => result.current.startNow());
+    await act(() => result.current.startNow());
 
     expect(started()).toHaveBeenCalledTimes(1);
   });

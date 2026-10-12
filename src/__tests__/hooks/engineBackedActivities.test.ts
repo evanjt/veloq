@@ -71,7 +71,7 @@ describe('useActivities', () => {
       JSON.stringify({ id: 'a1', name: 'Older' }),
     ]);
 
-    const { result } = renderHook(() => useActivities({ days: 30 }), { wrapper });
+    const { result } = await renderHook(() => useActivities({ days: 30 }), { wrapper });
 
     await waitFor(() => expect(result.current.data?.length).toBe(2));
     expect(result.current.data?.[0].id).toBe('a2');
@@ -83,14 +83,16 @@ describe('useActivities', () => {
   it('drops a corrupt row rather than failing the whole window', async () => {
     engine.getActivityBodies.mockReturnValue(['{broken', JSON.stringify({ id: 'a1' })]);
 
-    const { result } = renderHook(() => useActivities({ days: 30 }), { wrapper });
+    const { result } = await renderHook(() => useActivities({ days: 30 }), { wrapper });
 
     await waitFor(() => expect(result.current.data?.length).toBe(1));
     expect(result.current.data?.[0].id).toBe('a1');
   });
 
   it('asks the engine to fill the window it is about to read', async () => {
-    renderHook(() => useActivities({ oldest: '2024-01-01', newest: '2024-06-01' }), { wrapper });
+    await renderHook(() => useActivities({ oldest: '2024-01-01', newest: '2024-06-01' }), {
+      wrapper,
+    });
 
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalled());
     expect(engine.syncActivitiesWindow).toHaveBeenCalledWith('2024-01-01', '2024-06-01');
@@ -98,9 +100,9 @@ describe('useActivities', () => {
 
   it('requests a given window only once', async () => {
     const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
-    const { rerender } = renderHook(() => useActivities(opts), { wrapper });
-    rerender({});
-    rerender({});
+    const { rerender } = await renderHook(() => useActivities(opts), { wrapper });
+    await rerender({});
+    await rerender({});
 
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
   });
@@ -109,13 +111,13 @@ describe('useActivities', () => {
     engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Busy);
     const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
 
-    const { rerender, unmount } = renderHook(() => useActivities(opts), { wrapper });
+    const { rerender, unmount } = await renderHook(() => useActivities(opts), { wrapper });
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
-    unmount();
+    await unmount();
 
     engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Started);
-    rerender({});
-    renderHook(() => useActivities(opts), { wrapper });
+    await rerender({});
+    await renderHook(() => useActivities(opts), { wrapper });
 
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
   });
@@ -126,47 +128,47 @@ describe('useActivities', () => {
     });
     const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
 
-    const first = renderHook(() => useActivities(opts), { wrapper });
+    const first = await renderHook(() => useActivities(opts), { wrapper });
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
-    first.unmount();
+    await first.unmount();
 
     engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Started);
-    renderHook(() => useActivities(opts), { wrapper });
+    await renderHook(() => useActivities(opts), { wrapper });
 
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
   });
 
   it('asks again on the reconnect edge', async () => {
     const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
-    const { rerender } = renderHook(() => useActivities(opts), { wrapper });
+    const { rerender } = await renderHook(() => useActivities(opts), { wrapper });
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
 
     mockIsOnline = false;
-    act(() => rerender({}));
+    await act(async () => await rerender({}));
     mockIsOnline = true;
-    act(() => rerender({}));
+    await act(async () => await rerender({}));
 
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
   });
 
   it('keeps an accepted window to one ask while the connection holds', async () => {
     const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
-    const { rerender } = renderHook(() => useActivities(opts), { wrapper });
+    const { rerender } = await renderHook(() => useActivities(opts), { wrapper });
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
 
-    act(() => rerender({}));
-    act(() => rerender({}));
+    await act(async () => await rerender({}));
+    await act(async () => await rerender({}));
 
     expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1);
   });
 
   it('asks again for the same window after the athlete changes', async () => {
     const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
-    const { rerender } = renderHook(() => useActivities(opts), { wrapper });
+    const { rerender } = await renderHook(() => useActivities(opts), { wrapper });
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
 
-    act(() => useAuthStore.setState({ athleteId: 'i2' }));
-    act(() => rerender({}));
+    await act(() => useAuthStore.setState({ athleteId: 'i2' }));
+    await act(async () => await rerender({}));
 
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
   });
@@ -176,11 +178,11 @@ describe('useActivities', () => {
     // failure, and that ends without the user touching anything.
     engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Busy);
     const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
-    renderHook(() => useActivities(opts), { wrapper });
+    await renderHook(() => useActivities(opts), { wrapper });
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
 
     engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Started);
-    act(() => emitSyncSettled());
+    await act(() => emitSyncSettled());
 
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
     expect(engine.syncActivitiesWindow).toHaveBeenLastCalledWith('2024-01-01', '2024-06-01');
@@ -191,11 +193,11 @@ describe('useActivities', () => {
     // remembered an accepted window kept a second copy of that answer, and one
     // a relaunch emptied.
     const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
-    renderHook(() => useActivities(opts), { wrapper });
+    await renderHook(() => useActivities(opts), { wrapper });
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
 
     engine.syncActivitiesWindow.mockReturnValue(StartOutcome.NotOwed);
-    act(() => emitSyncSettled());
+    await act(() => emitSyncSettled());
 
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
   });
@@ -204,7 +206,7 @@ describe('useActivities', () => {
     engine.syncActivitiesWindow.mockReturnValue(StartOutcome.NotOwed);
     const accepted = jest.spyOn(useSyncDateRange.getState(), 'windowAccepted');
 
-    renderHook(() => useActivities({ oldest: '2024-01-01', newest: '2024-06-01' }), {
+    await renderHook(() => useActivities({ oldest: '2024-01-01', newest: '2024-06-01' }), {
       wrapper,
     });
 
@@ -215,17 +217,17 @@ describe('useActivities', () => {
   it('stops asking once the hook is gone', async () => {
     engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Busy);
     const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
-    const { unmount } = renderHook(() => useActivities(opts), { wrapper });
+    const { unmount } = await renderHook(() => useActivities(opts), { wrapper });
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
-    unmount();
+    await unmount();
 
-    act(() => emitSyncSettled());
+    await act(() => emitSyncSettled());
 
     expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1);
   });
 
   it('runs an open-ended window to today rather than to nothing', async () => {
-    renderHook(() => useActivities({ oldest: '2024-01-01' }), { wrapper });
+    await renderHook(() => useActivities({ oldest: '2024-01-01' }), { wrapper });
 
     await waitFor(() => expect(engine.getActivityBodies).toHaveBeenCalled());
     const [oldestTs, newestTs] = engine.getActivityBodies.mock.calls[0];
@@ -235,7 +237,9 @@ describe('useActivities', () => {
   });
 
   it('reads a window as end-of-day inclusive', async () => {
-    renderHook(() => useActivities({ oldest: '2024-01-01', newest: '2024-01-02' }), { wrapper });
+    await renderHook(() => useActivities({ oldest: '2024-01-01', newest: '2024-01-02' }), {
+      wrapper,
+    });
 
     await waitFor(() => expect(engine.getActivityBodies).toHaveBeenCalled());
     const [oldestTs, newestTs] = engine.getActivityBodies.mock.calls[0];
@@ -248,14 +252,14 @@ describe('useOldestActivityDate', () => {
   it('returns the date the sync stored', async () => {
     engine.getSetting.mockReturnValue('2019-04-02T06:00:00');
 
-    const { result } = renderHook(() => useOldestActivityDate(), { wrapper });
+    const { result } = await renderHook(() => useOldestActivityDate(), { wrapper });
 
     await waitFor(() => expect(result.current.data).not.toBeUndefined());
     expect(result.current.data?.getFullYear()).toBe(2019);
   });
 
   it('returns null before the first sync has stored one', async () => {
-    const { result } = renderHook(() => useOldestActivityDate(), { wrapper });
+    const { result } = await renderHook(() => useOldestActivityDate(), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toBeNull();
@@ -264,7 +268,7 @@ describe('useOldestActivityDate', () => {
   it('returns null for an unparseable stored value', async () => {
     engine.getSetting.mockReturnValue('not a date');
 
-    const { result } = renderHook(() => useOldestActivityDate(), { wrapper });
+    const { result } = await renderHook(() => useOldestActivityDate(), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(result.current.data).toBeNull();
@@ -273,7 +277,7 @@ describe('useOldestActivityDate', () => {
 
 describe('useInfiniteActivities', () => {
   it('can page back to the newest window after the cap evicts it', async () => {
-    const { result } = renderHook(() => useInfiniteActivities(), { wrapper });
+    const { result } = await renderHook(() => useInfiniteActivities(), { wrapper });
     const head = () => (result.current.data?.pageParams[0] as { newest: string }).newest;
     // The fetch resolves before React renders its result, so wait for the rendered head to match.
     const page = async (direction: 'fetchNextPage' | 'fetchPreviousPage') => {
@@ -307,11 +311,13 @@ describe('useInfiniteActivities', () => {
   });
 
   it('stops paging after the known oldest activity', async () => {
-    const { result } = renderHook(() => useInfiniteActivities(), { wrapper });
+    const { result } = await renderHook(() => useInfiniteActivities(), { wrapper });
     await waitFor(() => expect(result.current.data?.pageParams).toHaveLength(1));
     const first = result.current.data?.pageParams[0] as { oldest: string };
     const oldest = addDaysToDay(first.oldest, -5);
-    act(() => client.setQueryData(queryKeys.calendar.oldestDate, new Date(`${oldest}T12:00:00Z`)));
+    await act(() =>
+      client.setQueryData(queryKeys.calendar.oldestDate, new Date(`${oldest}T12:00:00Z`))
+    );
 
     await waitFor(() => expect(result.current.hasNextPage).toBe(true));
     await act(async () => {
@@ -321,33 +327,33 @@ describe('useInfiniteActivities', () => {
   });
   it('re-asks for the feed pages when the launch sync releases the slot', async () => {
     engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Busy);
-    renderHook(() => useInfiniteActivities(), { wrapper });
+    await renderHook(() => useInfiniteActivities(), { wrapper });
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
 
     engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Started);
-    act(() => emitSyncSettled());
+    await act(() => emitSyncSettled());
 
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
   });
 
   it('asks again for a feed page after the athlete changes', async () => {
-    const { rerender } = renderHook(() => useInfiniteActivities(), { wrapper });
+    const { rerender } = await renderHook(() => useInfiniteActivities(), { wrapper });
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
 
-    act(() => useAuthStore.setState({ athleteId: 'i2' }));
-    act(() => rerender({}));
+    await act(() => useAuthStore.setState({ athleteId: 'i2' }));
+    await act(async () => await rerender({}));
 
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
   });
 
   it('re-asks for the feed window on the reconnect edge', async () => {
-    const { rerender } = renderHook(() => useInfiniteActivities(), { wrapper });
+    const { rerender } = await renderHook(() => useInfiniteActivities(), { wrapper });
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
 
     mockIsOnline = false;
-    act(() => rerender({}));
+    await act(async () => await rerender({}));
     mockIsOnline = true;
-    act(() => rerender({}));
+    await act(async () => await rerender({}));
 
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
   });
@@ -358,7 +364,7 @@ describe('useRangeActivities', () => {
     engine.getActivityBodies.mockReturnValue([JSON.stringify({ id: 'mar', name: 'March ride' })]);
     const range = { oldest: '2024-03-01', newest: '2024-03-31' };
 
-    const { result } = renderHook(() => useRangeActivities(range), { wrapper });
+    const { result } = await renderHook(() => useRangeActivities(range), { wrapper });
 
     await waitFor(() => expect(result.current.allActivities.map((a) => a.id)).toContain('mar'));
     const windows = engine.getActivityBodies.mock.calls as [number, number][];
@@ -372,7 +378,7 @@ describe('useRangeActivities', () => {
 
   it('stops paging at the first day of the range', async () => {
     const range = { oldest: '2024-03-01', newest: '2024-03-31' };
-    const { result } = renderHook(() => useRangeActivities(range), { wrapper });
+    const { result } = await renderHook(() => useRangeActivities(range), { wrapper });
     await waitFor(() => expect(result.current.hasNextPage).toBe(true));
     await act(async () => {
       await result.current.fetchNextPage();
@@ -381,8 +387,8 @@ describe('useRangeActivities', () => {
     expect(engine.syncActivitiesWindow).toHaveBeenLastCalledWith('2024-03-01', '2024-03-01');
   });
 
-  it('reads nothing while no range is set', () => {
-    renderHook(() => useRangeActivities(null), { wrapper });
+  it('reads nothing while no range is set', async () => {
+    await renderHook(() => useRangeActivities(null), { wrapper });
     expect(engine.getActivityBodies).not.toHaveBeenCalled();
   });
 });

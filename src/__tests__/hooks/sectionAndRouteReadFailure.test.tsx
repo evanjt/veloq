@@ -34,10 +34,10 @@ describe('useSectionChartData', () => {
     preComputedChart: null,
   };
 
-  it('never reads the engine for a chart; the screen read supplies it', () => {
+  it('never reads the engine for a chart; the screen read supplies it', async () => {
     const omitted = { ...params } as Partial<typeof params>;
     delete omitted.preComputedChart;
-    const { result } = renderHook(() => useSectionChartData(omitted as typeof params));
+    const { result } = await renderHook(() => useSectionChartData(omitted as typeof params));
 
     expect(result.current.chartData).toEqual([]);
     expect(engine.getSectionChartData).not.toHaveBeenCalled();

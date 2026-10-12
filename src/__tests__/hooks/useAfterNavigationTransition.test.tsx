@@ -21,35 +21,35 @@ beforeEach(() => {
 
 afterEach(() => jest.useRealTimers());
 
-it('waits for a late opening transition end before running the read', () => {
+it('waits for a late opening transition end before running the read', async () => {
   const read = jest.fn();
-  renderHook(() => useAfterNavigationTransition(read));
+  await renderHook(() => useAfterNavigationTransition(read));
 
-  act(() => {
+  await act(() => {
     listeners.get('transitionStart')?.({ data: { closing: false } });
     jest.advanceTimersByTime(2000);
   });
   expect(read).not.toHaveBeenCalled();
 
-  act(() => listeners.get('transitionEnd')?.({ data: { closing: false } }));
+  await act(() => listeners.get('transitionEnd')?.({ data: { closing: false } }));
   expect(read).toHaveBeenCalledTimes(1);
 });
 
-it('runs for an already settled screen when no transition arrives', () => {
+it('runs for an already settled screen when no transition arrives', async () => {
   const read = jest.fn();
-  renderHook(() => useAfterNavigationTransition(read));
+  await renderHook(() => useAfterNavigationTransition(read));
 
-  act(() => jest.runOnlyPendingTimers());
+  await act(() => jest.runOnlyPendingTimers());
   expect(read).toHaveBeenCalledTimes(1);
 });
 
-it('does not run after unmount or on a closing transition', () => {
+it('does not run after unmount or on a closing transition', async () => {
   const read = jest.fn();
-  const view = renderHook(() => useAfterNavigationTransition(read));
-  act(() => listeners.get('transitionEnd')?.({ data: { closing: true } }));
+  const view = await renderHook(() => useAfterNavigationTransition(read));
+  await act(() => listeners.get('transitionEnd')?.({ data: { closing: true } }));
   expect(read).not.toHaveBeenCalled();
 
-  view.unmount();
-  act(() => jest.runOnlyPendingTimers());
+  await view.unmount();
+  await act(() => jest.runOnlyPendingTimers());
   expect(read).not.toHaveBeenCalled();
 });

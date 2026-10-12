@@ -15,6 +15,7 @@ jest.mock('@/shared/debug/renderTimer', () => ({
 }));
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
+  Stack: require('../__shared__/nativeHeaderStandIn').Stack,
   router: { setParams: jest.fn() },
   useLocalSearchParams: () => ({}),
 }));
@@ -32,7 +33,7 @@ jest.mock('@/shared/ui', () => {
     ScreenSafeAreaView: View,
     useTabBarClearance: () => 0,
     ChartSkeleton: View,
-    ErrorStatePreset: View,
+    ErrorState: View,
     ExplanationCard: View,
   };
 });
@@ -95,7 +96,7 @@ jest.mock('@/features/fitness', () => {
   };
 });
 
-it('paints the range selector and a chart placeholder before mounting the chart and performance section', () => {
+it('paints the range selector and a chart placeholder before mounting the chart and performance section', async () => {
   const frames: FrameRequestCallback[] = [];
   const request = jest.spyOn(global, 'requestAnimationFrame').mockImplementation((callback) => {
     frames.push(callback);
@@ -104,7 +105,7 @@ it('paints the range selector and a chart placeholder before mounting the chart 
   const cancel = jest.spyOn(global, 'cancelAnimationFrame').mockImplementation(jest.fn());
 
   try {
-    render(<FitnessScreen />);
+    await render(<FitnessScreen />);
     expect(screen.getByTestId('time-range')).toBeTruthy();
     expect(
       StyleSheet.flatten(screen.getByTestId('fitness-chart-placeholder').props.style).height
@@ -113,15 +114,15 @@ it('paints the range selector and a chart placeholder before mounting the chart 
     expect(screen.queryByTestId('performance-curves')).toBeNull();
     expect(screen.queryByTestId('fitness-trends')).toBeNull();
 
-    act(() => frames.shift()?.(0));
+    await act(() => frames.shift()?.(0));
     expect(screen.queryByTestId('fitness-chart-canvas')).toBeNull();
 
-    act(() => frames.shift()?.(16));
+    await act(() => frames.shift()?.(16));
     expect(screen.getByTestId('fitness-chart-canvas')).toBeTruthy();
     expect(screen.queryByTestId('fitness-chart-placeholder')).toBeNull();
     expect(screen.queryByTestId('performance-curves')).toBeNull();
 
-    act(() => frames.shift()?.(32));
+    await act(() => frames.shift()?.(32));
     expect(screen.getByTestId('performance-curves')).toBeTruthy();
     expect(screen.getByTestId('fitness-trends')).toBeTruthy();
   } finally {

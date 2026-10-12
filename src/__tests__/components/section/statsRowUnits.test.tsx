@@ -19,30 +19,30 @@ const props: React.ComponentProps<typeof StatsRow> = {
   bestIsRecord: true,
   pointCount: 3,
   color: '#000000',
-  showPace: true,
+  basis: 'pace',
   isDark: false,
 };
 
 describe('StatsRow pace units', () => {
-  it('prints per mile for an imperial athlete', () => {
+  it('prints per mile for an imperial athlete', async () => {
     mockIsMetric = false;
-    const { toJSON } = render(<StatsRow {...props} />);
+    const { toJSON } = await render(<StatsRow {...props} />);
     const out = JSON.stringify(toJSON());
     expect(out).toContain('/mi');
     expect(out).not.toContain('/km');
   });
 
-  it('prints per kilometre for a metric athlete', () => {
+  it('prints per kilometre for a metric athlete', async () => {
     mockIsMetric = true;
-    const { toJSON } = render(<StatsRow {...props} />);
+    const { toJSON } = await render(<StatsRow {...props} />);
     const out = JSON.stringify(toJSON());
     expect(out).toContain('/km');
     expect(out).not.toContain('/mi');
   });
 
-  it('prints the engine average speed as the average pace, not the section length over the mean time', () => {
+  it('prints the engine average speed as the average pace, not the section length over the mean time', async () => {
     mockIsMetric = true;
-    const { toJSON } = render(
+    const { toJSON } = await render(
       <StatsRow {...props} stats={{ ...props.stats!, avgTime: 306, avgSpeed: 2.5 }} />
     );
     const out = JSON.stringify(toJSON());

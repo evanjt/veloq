@@ -133,6 +133,34 @@ fn test_fitness_screen_ftp_direction_matches_summary_with_older_gain() {
     assert_eq!(fitness.history.len(), 4);
 }
 
+/// Scenario: the chart draws three months of eFTP while the step it captions
+/// is measured across the shared month, so a caption that names a window of
+/// its own misstates the change.
+///
+/// Expected behaviour: the read carries the window the step was measured over,
+/// the same one the summary card compares across.
+#[test]
+fn test_fitness_screen_ftp_trend_names_the_window_its_step_spans() {
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    engine
+        .upsert_wellness(&[
+            eftp_day("2026-06-07", 240.0),
+            eftp_day("2026-08-06", 270.0),
+            eftp_day(TODAY, 275.0),
+        ])
+        .unwrap();
+    let conn = engine.cold_connection();
+
+    let fitness = fitness_screen_data(conn, TODAY).ftp_trend;
+    assert_eq!(
+        fitness.lookback_days,
+        ftp_trend_to(conn, TODAY).lookback_days
+    );
+    assert_eq!(fitness.lookback_days, 30);
+    assert_eq!(fitness.delta_watts, Some(5));
+    assert_eq!(fitness.history.len(), 3);
+}
+
 #[test]
 fn an_empty_library_answers_no_trend_and_no_speed() {
     let engine = PersistentEngine::in_memory().unwrap();

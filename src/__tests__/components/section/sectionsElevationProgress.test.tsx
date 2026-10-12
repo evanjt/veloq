@@ -58,8 +58,8 @@ describe('SectionsListHeader elevation progress', () => {
     await changeLanguage('en-AU');
   });
 
-  it('counts the pass while one runs', () => {
-    const tree = renderHeader(
+  it('counts the pass while one runs', async () => {
+    const tree = await renderHeader(
       backfill({ phase: 'fetching', isRunning: true, completed: 40, total: 312 })
     );
 
@@ -67,44 +67,44 @@ describe('SectionsListHeader elevation progress', () => {
     expect(tree.getByText('40 of 312 activities')).toBeTruthy();
   });
 
-  it('counts what is still owed at rest', () => {
-    const tree = renderHeader(backfill({ remaining: 7 }));
+  it('counts what is still owed at rest', async () => {
+    const tree = await renderHeader(backfill({ remaining: 7 }));
 
     expect(tree.getByTestId('elevation-backfill-row')).toBeTruthy();
     expect(tree.getByText('7 activity tracks still need elevation.')).toBeTruthy();
   });
 
-  it('reads a single owed track as one', () => {
-    const tree = renderHeader(backfill({ remaining: 1 }));
+  it('reads a single owed track as one', async () => {
+    const tree = await renderHeader(backfill({ remaining: 1 }));
 
     expect(tree.getByText('1 activity track still needs elevation.')).toBeTruthy();
   });
 
-  it('says nothing once the queue is empty', () => {
+  it('says nothing once the queue is empty', async () => {
     expect(
-      renderHeader(backfill({ remaining: 0 })).queryByTestId('elevation-backfill-row')
+      (await renderHeader(backfill({ remaining: 0 }))).queryByTestId('elevation-backfill-row')
     ).toBeNull();
     expect(
-      renderHeader(backfill({ phase: 'complete', remaining: 0 })).queryByTestId(
+      (await renderHeader(backfill({ phase: 'complete', remaining: 0 }))).queryByTestId(
         'elevation-backfill-row'
       )
     ).toBeNull();
   });
 
-  it('says nothing when the engine could not answer, rather than reading as finished', () => {
+  it('says nothing when the engine could not answer, rather than reading as finished', async () => {
     expect(
-      renderHeader(backfill({ remaining: null })).queryByTestId('elevation-backfill-row')
+      (await renderHeader(backfill({ remaining: null }))).queryByTestId('elevation-backfill-row')
     ).toBeNull();
   });
 
-  it('still counts what is owed after a pass that only got part way', () => {
-    const tree = renderHeader(backfill({ phase: 'partial', remaining: 9 }));
+  it('still counts what is owed after a pass that only got part way', async () => {
+    const tree = await renderHeader(backfill({ phase: 'partial', remaining: 9 }));
 
     expect(tree.getByText('9 activity tracks still need elevation.')).toBeTruthy();
   });
 
-  it('carries the count beside the paused chip, since one explains the other', () => {
-    const tree = render(
+  it('carries the count beside the paused chip, since one explains the other', async () => {
+    const tree = await render(
       <SectionsListHeader
         {...BASE}
         detectionHold="elevation-running"
@@ -116,9 +116,9 @@ describe('SectionsListHeader elevation progress', () => {
     expect(tree.getByTestId('elevation-backfill-row')).toBeTruthy();
   });
 
-  it('draws no row when the caller passes no backfill state at all', () => {
+  it('draws no row when the caller passes no backfill state at all', async () => {
     expect(
-      render(<SectionsListHeader {...BASE} />).queryByTestId('elevation-backfill-row')
+      await (await render(<SectionsListHeader {...BASE} />)).queryByTestId('elevation-backfill-row')
     ).toBeNull();
   });
 });

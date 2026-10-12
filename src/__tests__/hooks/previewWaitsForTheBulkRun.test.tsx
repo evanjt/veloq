@@ -65,7 +65,7 @@ afterEach(() => {
 it('asks for nothing while the bulk run holds the same id', async () => {
   pending(['a1', 'a2']);
 
-  renderHook(() => useMapPreviewCoordinates('a1', true, undefined), { wrapper });
+  await renderHook(() => useMapPreviewCoordinates('a1', true, undefined), { wrapper });
 
   await waitFor(() => expect(engine.getPreviewTrack).toHaveBeenCalled());
   expect(mockRequestStreams).not.toHaveBeenCalled();
@@ -74,7 +74,7 @@ it('asks for nothing while the bulk run holds the same id', async () => {
 it('asks as before for a card the run does not cover', async () => {
   pending(['a2']);
 
-  renderHook(() => useMapPreviewCoordinates('a1', true, undefined), { wrapper });
+  await renderHook(() => useMapPreviewCoordinates('a1', true, undefined), { wrapper });
 
   await waitFor(() => expect(mockRequestStreams).toHaveBeenCalledWith('a1', expect.anything()));
 });
@@ -82,7 +82,7 @@ it('asks as before for a card the run does not cover', async () => {
 it('asks once the run ends with no line stored', async () => {
   pending(['a1']);
 
-  renderHook(() => useMapPreviewCoordinates('a1', true, undefined), { wrapper });
+  await renderHook(() => useMapPreviewCoordinates('a1', true, undefined), { wrapper });
   await waitFor(() => expect(engine.getPreviewTrack).toHaveBeenCalled());
   expect(mockRequestStreams).not.toHaveBeenCalled();
 
@@ -104,13 +104,13 @@ it('opens the gate for good when a run ends without publishing a status', async 
   pending(['a1']);
   useSyncDateRange.getState().setGpsSyncPendingIds([]);
 
-  renderHook(() => useMapPreviewCoordinates('a1', true, undefined), { wrapper });
+  await renderHook(() => useMapPreviewCoordinates('a1', true, undefined), { wrapper });
 
   await waitFor(() => expect(mockRequestStreams).toHaveBeenCalledWith('a1', expect.anything()));
 });
 
 it('asks for nothing for a card the startup bundle already filled', async () => {
-  renderHook(
+  await renderHook(
     () => useMapPreviewCoordinates('a1', true, { coordinates: [], altitude: [] } as never),
     { wrapper }
   );

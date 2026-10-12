@@ -76,20 +76,20 @@ describe('StreamHistoryRow', () => {
     mockEngineHandle = buildEngine();
   });
 
-  it('keeps everything on an install that has never chosen', () => {
-    const { getByTestId } = render(<StreamHistoryRow isDark={false} />);
+  it('keeps everything on an install that has never chosen', async () => {
+    const { getByTestId } = await render(<StreamHistoryRow isDark={false} />);
     expect(DEFAULT_STREAM_RETENTION_DAYS).toBe(0);
     expect(getByTestId('settings-stream-window').props.children).toBe(
       'settings.streamHistoryAll ›'
     );
   });
 
-  it('shows what the store holds', () => {
-    const { getByTestId } = render(<StreamHistoryRow isDark={false} />);
+  it('shows what the store holds', async () => {
+    const { getByTestId } = await render(<StreamHistoryRow isDark={false} />);
     expect(getByTestId('settings-stream-bytes').props.children).toBe('4.2 MB');
   });
 
-  it('reads the window and bytes in one screen call', () => {
+  it('reads the window and bytes in one screen call', async () => {
     const engine = {
       ...buildEngine(),
       streamRetentionDays: jest.fn(() => {
@@ -101,20 +101,20 @@ describe('StreamHistoryRow', () => {
       getCacheScreenData: jest.fn(() => ({ streamRetentionDays: 0, streamStoreBytes: bytes })),
     };
     mockEngineHandle = engine;
-    render(<StreamHistoryRow isDark={false} />);
+    await render(<StreamHistoryRow isDark={false} />);
     expect(engine.getCacheScreenData).toHaveBeenCalledTimes(1);
     expect(engine.streamRetentionDays).not.toHaveBeenCalled();
     expect(engine.streamStoreBytes).not.toHaveBeenCalled();
   });
 
-  it('writes the next window once and re-reads the size the eviction left', () => {
-    const { getByTestId } = render(<StreamHistoryRow isDark={false} />);
+  it('writes the next window once and re-reads the size the eviction left', async () => {
+    const { getByTestId } = await render(<StreamHistoryRow isDark={false} />);
     const next =
       STREAM_RETENTION_CHOICES_DAYS[
         (STREAM_RETENTION_CHOICES_DAYS.indexOf(DEFAULT_STREAM_RETENTION_DAYS) + 1) %
           STREAM_RETENTION_CHOICES_DAYS.length
       ];
-    fireEvent.press(getByTestId('settings-stream-window'));
+    await fireEvent.press(getByTestId('settings-stream-window'));
     expect(setStreamRetentionDays).toHaveBeenCalledTimes(1);
     expect(setStreamRetentionDays).toHaveBeenCalledWith(next);
     // The default is the open window, so the step off it is the narrowest one
@@ -122,69 +122,71 @@ describe('StreamHistoryRow', () => {
     expect(getByTestId('settings-stream-bytes').props.children).toBe('1.4 MB');
   });
 
-  it('shrinking the window drops the readout', () => {
+  it('shrinking the window drops the readout', async () => {
     bytes = 9 * 1024 * 1024;
-    const { getByTestId } = render(<StreamHistoryRow isDark={false} />);
+    const { getByTestId } = await render(<StreamHistoryRow isDark={false} />);
     expect(getByTestId('settings-stream-bytes').props.children).toBe('9.4 MB');
-    fireEvent.press(getByTestId('settings-stream-window'));
+    await fireEvent.press(getByTestId('settings-stream-window'));
     expect(getByTestId('settings-stream-bytes').props.children).toBe('1.4 MB');
   });
 
-  it('cycles through every choice and comes back to where it started', () => {
-    const { getByTestId } = render(<StreamHistoryRow isDark={false} />);
+  it('cycles through every choice and comes back to where it started', async () => {
+    const { getByTestId } = await render(<StreamHistoryRow isDark={false} />);
     for (let i = 0; i < STREAM_RETENTION_CHOICES_DAYS.length; i += 1) {
-      fireEvent.press(getByTestId('settings-stream-window'));
+      await fireEvent.press(getByTestId('settings-stream-window'));
     }
     expect(stored).toBe(DEFAULT_STREAM_RETENTION_DAYS);
     expect(setStreamRetentionDays).toHaveBeenCalledTimes(STREAM_RETENTION_CHOICES_DAYS.length);
   });
 
-  it('names the widest window rather than printing zero days', () => {
+  it('names the widest window rather than printing zero days', async () => {
     stored = 0;
-    const { getByTestId } = render(<StreamHistoryRow isDark={false} />);
+    const { getByTestId } = await render(<StreamHistoryRow isDark={false} />);
     expect(getByTestId('settings-stream-window').props.children).toBe(
       'settings.streamHistoryAll ›'
     );
   });
 
-  it('offers a reset only when the window is not the default', () => {
-    const { getByTestId, queryByTestId, rerender } = render(<StreamHistoryRow isDark={false} />);
+  it('offers a reset only when the window is not the default', async () => {
+    const { getByTestId, queryByTestId, rerender } = await render(
+      <StreamHistoryRow isDark={false} />
+    );
     expect(queryByTestId('settings-stream-reset')).toBeNull();
     stored = 365;
-    rerender(<StreamHistoryRow isDark={false} />);
-    fireEvent.press(getByTestId('settings-stream-window'));
+    await rerender(<StreamHistoryRow isDark={false} />);
+    await fireEvent.press(getByTestId('settings-stream-window'));
     setStreamRetentionDays.mockClear();
     expect(queryByTestId('settings-stream-reset')).not.toBeNull();
   });
 
-  it('reset returns to the default, which is keeping everything', () => {
+  it('reset returns to the default, which is keeping everything', async () => {
     stored = 365;
-    const { getByTestId } = render(<StreamHistoryRow isDark={false} />);
-    fireEvent.press(getByTestId('settings-stream-reset'));
+    const { getByTestId } = await render(<StreamHistoryRow isDark={false} />);
+    await fireEvent.press(getByTestId('settings-stream-reset'));
     expect(setStreamRetentionDays).toHaveBeenCalledWith(DEFAULT_STREAM_RETENTION_DAYS);
     expect(stored).toBe(DEFAULT_STREAM_RETENTION_DAYS);
   });
 
-  it('never writes the activity retention setting, which deletes whole activities', () => {
-    const { getByTestId } = render(<StreamHistoryRow isDark={false} />);
-    fireEvent.press(getByTestId('settings-stream-window'));
-    fireEvent.press(getByTestId('settings-stream-window'));
+  it('never writes the activity retention setting, which deletes whole activities', async () => {
+    const { getByTestId } = await render(<StreamHistoryRow isDark={false} />);
+    await fireEvent.press(getByTestId('settings-stream-window'));
+    await fireEvent.press(getByTestId('settings-stream-window'));
     expect(mockUpdateRouteSettings).not.toHaveBeenCalled();
   });
 
-  it('renders nothing when the engine cannot answer', () => {
+  it('renders nothing when the engine cannot answer', async () => {
     mockEngineHandle = null;
-    const { queryByTestId } = render(<StreamHistoryRow isDark={false} />);
+    const { queryByTestId } = await render(<StreamHistoryRow isDark={false} />);
     expect(queryByTestId('settings-stream-history')).toBeNull();
   });
 
-  it('renders nothing while the engine is open but unready, rather than the default', () => {
+  it('renders nothing while the engine is open but unready, rather than the default', async () => {
     stored = undefined;
-    const { queryByTestId } = render(<StreamHistoryRow isDark={false} />);
+    const { queryByTestId } = await render(<StreamHistoryRow isDark={false} />);
     expect(queryByTestId('settings-stream-history')).toBeNull();
   });
 
-  it('names a failed size read rather than showing an empty store', () => {
+  it('names a failed size read rather than showing an empty store', async () => {
     jest.spyOn(console, 'warn').mockImplementation(() => {});
     mockEngineHandle = {
       ...buildEngine(),
@@ -193,7 +195,7 @@ describe('StreamHistoryRow', () => {
       },
     };
 
-    const { getByTestId, queryByTestId } = render(<StreamHistoryRow isDark={false} />);
+    const { getByTestId, queryByTestId } = await render(<StreamHistoryRow isDark={false} />);
 
     expect(getByTestId('settings-stream-failed').props.children).toBe('engine.failure.database');
     expect(queryByTestId('settings-stream-bytes')).toBeNull();

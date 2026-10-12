@@ -12,6 +12,7 @@ import { tapTo } from '@/shared/app/navigation';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { Card } from '@/shared/ui/Card';
+import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { SportIcons } from '@/shared/activity/SportIcons';
 import { formatDistance } from '@/shared/format/format';
@@ -76,6 +77,17 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
     ? route.averageMatchQuality
     : route.avgMatchPercentage;
 
+  const distanceText = distance && distance > 0 ? formatDistance(distance, isMetric) : null;
+  const proximityText =
+    distanceFromUser != null && Number.isFinite(distanceFromUser)
+      ? formatDistance(distanceFromUser, isMetric)
+      : null;
+  const matchText =
+    avgMatchPercentage !== undefined && avgMatchPercentage > 0
+      ? `${Math.round(avgMatchPercentage)}% ${t('routes.match')}`
+      : null;
+  const countLabel = t('routes.activitiesCount', { count: route.activityCount });
+
   // The expandable form is gone: its activity list was fed by `activityIds`,
   // which `batchGroupToRouteGroup` always builds empty, so it never had a row
   // to draw. Every row the list renders is navigable.
@@ -91,7 +103,13 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
         style={{ flexDirection: 'row', alignItems: 'center' }}
         onPress={handlePress}
         accessibilityRole="button"
-        accessibilityLabel={displayName}
+        accessibilityLabel={composeAccessibilityLabel(
+          displayName,
+          distanceText,
+          proximityText,
+          matchText,
+          countLabel
+        )}
         testID={`route-row-${route.id}-touch`}
       >
         {/* Route preview with map-like backdrop */}
@@ -127,31 +145,29 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
             )}
           </View>
           <View style={styles.metaRow}>
-            {distance && distance > 0 && (
-              <Text style={[styles.metaText, isDark && styles.textSecondary]}>
-                {formatDistance(distance, isMetric)}
-              </Text>
+            {distanceText && (
+              <Text style={[styles.metaText, isDark && styles.textSecondary]}>{distanceText}</Text>
             )}
-            {distanceFromUser != null && Number.isFinite(distanceFromUser) && (
+            {proximityText && (
               <View style={styles.proximityTag}>
                 <MaterialCommunityIcons
                   name="map-marker-distance"
                   size={10}
-                  color={isDark ? darkColors.textDisabled : colors.textDisabled}
+                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 />
                 <Text style={[styles.proximityText, isDark && styles.proximityTextDark]}>
-                  {formatDistance(distanceFromUser, isMetric)}
+                  {proximityText}
                 </Text>
               </View>
             )}
-            {avgMatchPercentage !== undefined && avgMatchPercentage > 0 && (
+            {matchText && (
               <Text
                 style={[
                   styles.matchPercent,
                   { color: isDark ? darkColors.successDeep : colors.successDeep },
                 ]}
               >
-                {Math.round(avgMatchPercentage)}% {t('routes.match')}
+                {matchText}
               </Text>
             )}
           </View>
@@ -161,7 +177,7 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
         <View
           style={styles.countBadge}
           accessible
-          accessibilityLabel={t('routes.activitiesCount', { count: route.activityCount })}
+          accessibilityLabel={countLabel}
           testID={`route-row-${route.id}-count`}
         >
           <MaterialCommunityIcons
@@ -256,11 +272,11 @@ const styles = StyleSheet.create({
     gap: spacing.xxs,
   },
   proximityText: {
-    fontSize: typography.micro.fontSize,
-    color: colors.textDisabled,
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
   },
   proximityTextDark: {
-    color: darkColors.textDisabled,
+    color: darkColors.textSecondary,
   },
   matchPercent: {
     fontSize: typography.label.fontSize,

@@ -33,22 +33,28 @@ jest.mock('@/shared/ui', () => ({
   ScreenSafeAreaView: require('react-native').View,
   ScreenScrollView: require('react-native').ScrollView,
   EmptyState: () => null,
+  ErrorState: () => null,
   useTabBarClearance: () => 0,
+  useHeroMapHeight: () => 300,
+}));
+const mockOpenEngine = { id: 'open-handle' };
+jest.mock('@/shared/native/useEngineReady', () => ({
+  useEngineReady: () => mockOpenEngine,
+  useEngineOpening: () => false,
 }));
 jest.mock('@/shared/ui/withScreenBoundary', () => ({
   withScreenBoundary: (c: unknown) => c,
 }));
 jest.mock('@/features/recording/components/RecordingMap', () => ({ RecordingMap: () => null }));
 jest.mock('@/features/recording', () =>
-  require('../__shared__/recordingBarrelStub').withRecordingOverrides({
-    readRecordingTrack: jest.fn(async () => []),
-  })
+  require('../__shared__/recordingBarrelStub').withRecordingOverrides()
 );
 jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
   getVisibleRecording: jest.fn(),
   recordingFitExists: jest.fn(async () => true),
 }));
 jest.mock('@/features/recording/hooks/useRecordingLibrary', () => ({
+  ...jest.requireActual('@/features/recording/hooks/useRecordingLibrary'),
   useRecordingLibrary: () => ({ uploadNow: jest.fn(), remove: jest.fn(), uploadingId: null }),
 }));
 jest.mock('@/features/sensors', () => {
@@ -58,6 +64,8 @@ jest.mock('@/features/sensors', () => {
     discovered: [],
     knownSensors: [],
     connections: {},
+    activeSources: {},
+    suppliedKinds: {},
     isLoaded: true,
     initialize: jest.fn(),
   }));
@@ -65,10 +73,13 @@ jest.mock('@/features/sensors', () => {
     useSensorStore: store,
     startScan: jest.fn(),
     stopScan: jest.fn(),
-    connectKnownSensors: jest.fn(),
+    connectPairedSensor: jest.fn(),
+    releasePairingConnections: jest.fn(),
     disconnectSensor: jest.fn(),
     requestBlePermissions: jest.fn(),
     isBleAvailable: () => true,
+    displayedSensorSource: jest.fn(),
+    metricsSuppliedBy: jest.fn(() => []),
   };
 });
 
@@ -89,15 +100,15 @@ it('draws the Upload now label, icon and ink on the teal fill', async () => {
     uploadStatus: 'pending',
     retryCount: 0,
   });
-  render(<RecordingDetailScreen />);
+  await render(<RecordingDetailScreen />);
   const button = await screen.findByTestId('recording-upload-button');
   expect(flat(button.props.style).backgroundColor).toBe(colors.primary);
   expect(flat(screen.getByText('Upload now').props.style).color).toBe(colors.textOnPrimary);
 });
 
-it.each([false, true])('draws the scan label on the teal fill (scanning %s)', (scanning) => {
+it.each([false, true])('draws the scan label on the teal fill (scanning %s)', async (scanning) => {
   useSensorStore.setState({ scanning } as never);
-  render(<SensorSettingsScreen />);
+  await render(<SensorSettingsScreen />);
   const button = screen.getByTestId('sensor-scan-button');
   expect(flat(button.props.style).backgroundColor).toBe(colors.primary);
   const label = screen.getByText(scanning ? 'Stop scanning' : 'Scan for sensors');

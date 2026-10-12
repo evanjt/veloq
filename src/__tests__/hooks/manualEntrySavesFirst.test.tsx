@@ -93,7 +93,7 @@ describe('saving a manual entry', () => {
       return { outcome: UploadOutcome.Uploaded };
     });
 
-    const { result } = renderHook(() => useReviewSave(args()));
+    const { result } = await renderHook(() => useReviewSave(args()));
     await act(() => result.current.handleSave());
 
     expect(order).toEqual(['save', 'provisional', 'post']);
@@ -107,7 +107,7 @@ describe('saving a manual entry', () => {
   });
 
   it('leaves a held ride backup untouched when a manual entry saves', async () => {
-    const { result } = renderHook(() => useReviewSave(args()));
+    const { result } = await renderHook(() => useReviewSave(args()));
     await act(() => result.current.handleSave());
     expect(clearRecordingBackup).not.toHaveBeenCalled();
   });
@@ -122,7 +122,7 @@ describe('saving a manual entry', () => {
           finishSave = resolve;
         })
     );
-    const { result } = renderHook(() => useReviewSave(args()));
+    const { result } = await renderHook(() => useReviewSave(args()));
     let pending!: Promise<void>;
     await act(async () => {
       pending = result.current.handleSave();
@@ -143,7 +143,7 @@ describe('saving a manual entry', () => {
       errorDetail: 'server said no',
     });
 
-    const { result } = renderHook(() => useReviewSave(args()));
+    const { result } = await renderHook(() => useReviewSave(args()));
     await act(() => result.current.handleSave());
 
     expect(saveRecording).toHaveBeenCalled();
@@ -159,7 +159,7 @@ describe('saving a manual entry', () => {
       errorDetail: 'offline',
     });
 
-    const { result } = renderHook(() => useReviewSave(args()));
+    const { result } = await renderHook(() => useReviewSave(args()));
     await act(() => result.current.handleSave());
 
     // The row is saved and the queue owns the retry, so the screen says so and
@@ -172,7 +172,7 @@ describe('saving a manual entry', () => {
   it('saves the row and posts nothing with auto-upload off', async () => {
     useRecordingPreferences.setState({ autoUploadEnabled: false });
 
-    const { result } = renderHook(() => useReviewSave(args()));
+    const { result } = await renderHook(() => useReviewSave(args()));
     await act(() => result.current.handleSave());
 
     expect(saveRecording).toHaveBeenCalledWith(
@@ -182,14 +182,14 @@ describe('saving a manual entry', () => {
   });
 
   it('saves the effort chosen after the session on the row', async () => {
-    const { result } = renderHook(() => useReviewSave({ ...args(), rpe: 7 }));
+    const { result } = await renderHook(() => useReviewSave({ ...args(), rpe: 7 }));
     await act(() => result.current.handleSave());
 
     expect(saveRecording).toHaveBeenCalledWith(expect.objectContaining({ rpe: 7 }));
   });
 
   it('saves no effort when none was chosen', async () => {
-    const { result } = renderHook(() => useReviewSave({ ...args(), rpe: null }));
+    const { result } = await renderHook(() => useReviewSave({ ...args(), rpe: null }));
     await act(() => result.current.handleSave());
 
     expect((saveRecording as jest.Mock).mock.calls[0][0].rpe).toBeUndefined();

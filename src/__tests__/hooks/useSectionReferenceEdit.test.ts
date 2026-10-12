@@ -47,12 +47,12 @@ function sectionWith(isUserDefined: boolean): FrequentSection {
   };
 }
 
-function mountWith(edit: () => Promise<unknown[] | null>, isUserDefined = false) {
+async function mountWith(edit: () => Promise<unknown[] | null>, isUserDefined = false) {
   const engine = { runSectionBoundsEdit: jest.fn(edit) };
   mockedGetEngine.mockReturnValue(engine as never);
   const onSectionRefresh = jest.fn();
   const section = sectionWith(isUserDefined);
-  const hook = renderHook(() =>
+  const hook = await renderHook(() =>
     useSectionActions({
       id: 's1',
       isCustomId: true,
@@ -92,12 +92,12 @@ describe('setting and resetting a section reference', () => {
   });
   afterEach(() => jest.restoreAllMocks());
 
-  it('returns from the confirm while the edit runs and refuses a second reference tap', () => {
-    const { hook, engine, onSectionRefresh } = mountWith(() => new Promise(() => {}));
+  it('returns from the confirm while the edit runs and refuses a second reference tap', async () => {
+    const { hook, engine, onSectionRefresh } = await mountWith(() => new Promise(() => {}));
     const confirm = confirmOf(() => hook.result.current.handleSetAsReference('a2'));
     let returned = false;
 
-    act(() => {
+    await act(() => {
       void confirm();
       returned = true;
     });
@@ -113,19 +113,19 @@ describe('setting and resetting a section reference', () => {
     expect(onSectionRefresh).not.toHaveBeenCalled();
 
     const second = confirmOf(() => hook.result.current.handleSetAsReference('a1'));
-    act(() => {
+    await act(() => {
       void second();
     });
 
     expect(engine.runSectionBoundsEdit).toHaveBeenCalledTimes(1);
   });
 
-  it('refuses a second confirm from a prompt opened before the first edit began', () => {
-    const { hook, engine } = mountWith(() => new Promise(() => {}));
+  it('refuses a second confirm from a prompt opened before the first edit began', async () => {
+    const { hook, engine } = await mountWith(() => new Promise(() => {}));
     const first = confirmOf(() => hook.result.current.handleSetAsReference('a2'));
     const second = confirmOf(() => hook.result.current.handleSetAsReference('a1'));
 
-    act(() => {
+    await act(() => {
       void first();
       void second();
     });
@@ -134,7 +134,7 @@ describe('setting and resetting a section reference', () => {
   });
 
   it('takes the new reference and names the ride it took out once the edit ends', async () => {
-    const { hook, engine, onSectionRefresh } = mountWith(() => Promise.resolve([ride]));
+    const { hook, engine, onSectionRefresh } = await mountWith(() => Promise.resolve([ride]));
     const confirm = confirmOf(() => hook.result.current.handleSetAsReference('a2'));
 
     await act(async () => {
@@ -151,7 +151,7 @@ describe('setting and resetting a section reference', () => {
   });
 
   it('shows the failure and keeps the reference when the edit fails', async () => {
-    const { hook, onSectionRefresh } = mountWith(() => Promise.resolve(null));
+    const { hook, onSectionRefresh } = await mountWith(() => Promise.resolve(null));
     const confirm = confirmOf(() => hook.result.current.handleSetAsReference('a2'));
 
     await act(async () => {
@@ -162,16 +162,16 @@ describe('setting and resetting a section reference', () => {
     expect(hook.result.current.effectiveReferenceId).toBe('a1');
     expect(onSectionRefresh).not.toHaveBeenCalled();
     expect(Alert.alert).toHaveBeenCalledTimes(1);
-    expect((Alert.alert as jest.Mock).mock.calls[0][0]).toBe('common.error');
+    expect((Alert.alert as jest.Mock).mock.calls[0][0]).toBe('sections.referenceFailedTitle');
     expect((Alert.alert as jest.Mock).mock.calls[0][1]).toContain('sections.setReferenceError');
   });
 
   it('runs a reset as an edit and refreshes once it ends', async () => {
     const pending = deferred();
-    const { hook, engine, onSectionRefresh } = mountWith(() => pending.promise, true);
+    const { hook, engine, onSectionRefresh } = await mountWith(() => pending.promise, true);
     const confirm = confirmOf(() => hook.result.current.handleSetAsReference('a1'));
 
-    act(() => {
+    await act(() => {
       void confirm();
     });
 
@@ -190,7 +190,7 @@ describe('setting and resetting a section reference', () => {
   });
 
   it('shows the failure when a reset fails', async () => {
-    const { hook, onSectionRefresh } = mountWith(() => Promise.resolve(null), true);
+    const { hook, onSectionRefresh } = await mountWith(() => Promise.resolve(null), true);
     const confirm = confirmOf(() => hook.result.current.handleSetAsReference('a1'));
 
     await act(async () => {
@@ -199,17 +199,17 @@ describe('setting and resetting a section reference', () => {
 
     expect(onSectionRefresh).not.toHaveBeenCalled();
     expect(Alert.alert).toHaveBeenCalledTimes(1);
-    expect((Alert.alert as jest.Mock).mock.calls[0][0]).toBe('common.error');
+    expect((Alert.alert as jest.Mock).mock.calls[0][0]).toBe('sections.referenceFailedTitle');
   });
 
   it('invalidates and announces an edit that ends after unmount without refreshing', async () => {
     const pending = deferred();
-    const { hook, onSectionRefresh } = mountWith(() => pending.promise);
+    const { hook, onSectionRefresh } = await mountWith(() => pending.promise);
     const confirm = confirmOf(() => hook.result.current.handleSetAsReference('a2'));
-    act(() => {
+    await act(() => {
       void confirm();
     });
-    hook.unmount();
+    await hook.unmount();
 
     await act(async () => pending.settle([ride]));
 

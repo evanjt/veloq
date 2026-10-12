@@ -42,7 +42,7 @@ describe('map preference actions', () => {
       return null;
     }
 
-    render(
+    await render(
       <MapPreferencesProvider>
         <Writer />
         <Reader />

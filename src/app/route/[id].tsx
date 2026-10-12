@@ -1,11 +1,9 @@
 import React, { useCallback, useMemo, useEffect, useRef, useState } from 'react';
 import { View, ScrollView, StatusBar } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { isEngineReady } from '@/shared/native/engine';
 import {
   useRouteDetailData,
   useRouteDetailPerformance,
@@ -24,7 +22,6 @@ import {
   useRouteRenaming,
   useSectionChartData,
   useSectionChartDataEnriched,
-  useSectionMapData,
   useSectionTimeStreamSync,
   sectionStreamsState,
   buildRouteGroupBase,
@@ -43,10 +40,11 @@ import {
 import { useGpxExport, useDebugStore } from '@/features/settings';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
+import { overMapHeaderOptions } from '@/shared/app/screenHeaders';
 import {
   Button,
   DetailHero,
-  EngineReadFailure,
+  ErrorState,
   HeroNameRow,
   HeroStatsRow,
   useHeroMapHeight,
@@ -93,7 +91,6 @@ function RouteDetailScreenContent() {
   const { isDark } = useTheme();
   const tabBarClearance = useTabBarClearance();
   const isMetric = useMetricSystem();
-  const insets = useSafeAreaInsets();
   const mapHeight = useHeroMapHeight();
 
   // One engine call covering the route, its ranking list, every attempt, the
@@ -152,7 +149,6 @@ function RouteDetailScreenContent() {
     setSelectedSportType(undefined);
   }
   const effectiveSportType = performance?.sportType ?? selectedSportType;
-  const { isRunning } = useSectionMapData(effectiveSportType, null);
   const sportCounts = performance?.sportCounts ?? EMPTY_SPORT_COUNTS;
   const showSportChips = shouldShowSportChips(sportCounts);
 
@@ -225,13 +221,20 @@ function RouteDetailScreenContent() {
     [routeGroupBase, representativePoints, routeStats.distance]
   );
 
+  const heroTitle = routeGroup ? customName || routeGroup.name : undefined;
+
+  // A fallback state takes the opaque header, so the hero puts the transparent one back, named
+  // after the route.
+  const heroHeaderOptions = useMemo(
+    () => overMapHeaderOptions({ title: heroTitle, isDark }),
+    [heroTitle, isDark]
+  );
+
   if (!routeGroup) {
     return (
       <DetailFallback
         isDark={isDark}
-        insetTop={insets.top}
         status={detailStatus}
-        loading={!isEngineReady()}
         onRetry={refreshDetail}
         notFoundMessage={t('routeDetail.routeNotFound')}
       />
@@ -247,6 +250,7 @@ function RouteDetailScreenContent() {
 
   return (
     <View testID="route-detail-screen" style={[styles.container, isDark && styles.containerDark]}>
+      <Stack.Screen options={heroHeaderOptions} />
       <StatusBar barStyle="light-content" />
       <ScrollView
         style={styles.scrollView}
@@ -254,10 +258,6 @@ function RouteDetailScreenContent() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {performanceReadError !== undefined ? (
-          <EngineReadFailure error={performanceReadError} testID="route-performance-failure" />
-        ) : null}
-
         {/* Hero Map Section */}
         <DetailHero
           height={mapHeight}
@@ -274,7 +274,7 @@ function RouteDetailScreenContent() {
                   isEditing,
                   editName,
                   inputRef: nameInputRef,
-                  placeholder: t('routes.routeNamePlaceholder'),
+                  label: t('routes.routeNamePlaceholder'),
                   testIDPrefix: 'route',
                   onStartEdit: handleStartEditing,
                   onSave: handleSaveName,
@@ -323,6 +323,16 @@ function RouteDetailScreenContent() {
           />
         </DetailHero>
 
+        {performanceReadError !== undefined ? (
+          <ErrorState
+            variant="inline"
+            error={performanceReadError}
+            onRetry={refreshDetail}
+            testID="route-performance-failure"
+            style={styles.readFailure}
+          />
+        ) : null}
+
         {showSportChips && (
           <SportTypeSelector
             options={sportCounts.map(({ sportType, count }) => ({ type: sportType, count }))}
@@ -358,7 +368,6 @@ function RouteDetailScreenContent() {
             bestReverseIsRecord={bestReverseIsRecord}
             calendarSummary={calendarSummary}
             effectiveSportType={effectiveSportType}
-            isRunning={isRunning}
             activityColor={activityColor}
             navActivityId={navActivityId}
             effectiveReferenceId={effectiveRepresentativeId}

@@ -20,7 +20,15 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { colors as lightColors, darkColors, layout, opacity, spacing, typography } from '@/theme';
+import {
+  colors as lightColors,
+  darkColors,
+  layout,
+  opacity,
+  slopToMinTapTarget,
+  spacing,
+  typography,
+} from '@/theme';
 
 import { pressable, pressRipple } from './pressFeedback';
 
@@ -43,6 +51,7 @@ export function SearchBar({ value, onChangeText, placeholder, testID, style }: S
       <TextInput
         testID={testID}
         style={[styles.input, isDark && styles.inputDark]}
+        accessibilityLabel={placeholder}
         placeholder={placeholder}
         placeholderTextColor={themeColors.textSecondary}
         value={value}
@@ -59,16 +68,23 @@ export function SearchBar({ value, onChangeText, placeholder, testID, style }: S
           onPress={() => onChangeText('')}
           accessibilityLabel={t('common.clearSearch')}
           accessibilityRole="button"
-          hitSlop={8}
+          hitSlop={CLEAR_SLOP}
           style={pressable()}
           android_ripple={pressRipple}
         >
-          <MaterialCommunityIcons name="close-circle" size={18} color={themeColors.textSecondary} />
+          <MaterialCommunityIcons
+            name="close-circle"
+            size={CLEAR_ICON_SIZE}
+            color={themeColors.textSecondary}
+          />
         </Pressable>
       )}
     </View>
   );
 }
+
+const CLEAR_ICON_SIZE = 18;
+const CLEAR_SLOP = slopToMinTapTarget(CLEAR_ICON_SIZE, CLEAR_ICON_SIZE);
 
 const styles = StyleSheet.create({
   bar: {
@@ -77,14 +93,16 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlay.light,
     borderRadius: layout.borderRadiusMd,
     paddingHorizontal: layout.cardMargin,
-    paddingVertical: spacing.sm,
     gap: spacing.sm,
   },
   barDark: {
     backgroundColor: opacity.overlayDark.medium,
   },
+  // The field fills the bar's height, so the whole bar takes the tap rather than
+  // the one line of text inside it.
   input: {
     flex: 1,
+    minHeight: layout.minTapTarget,
     fontSize: typography.bodyMedium.fontSize,
     color: lightColors.textPrimary,
     paddingVertical: 0,

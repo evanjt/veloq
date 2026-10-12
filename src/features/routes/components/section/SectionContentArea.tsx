@@ -15,6 +15,7 @@ import { SectionInfoCard } from './SectionInfoCard';
 import { SectionEfficiencyCard } from './SectionEfficiencyCard';
 import { SectionCorrelationCard } from './SectionCorrelationCard';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
+import { attemptBasis } from '@/features/routes/lib/attemptBasis';
 import type { SectionTimeRange } from '@/features/routes/constants';
 import type { CalendarSummary } from './SectionStatsCards';
 import type {
@@ -69,7 +70,6 @@ export interface SectionContentAreaProps {
   /** The sport whose efforts are on screen, the one the engine answered for.
    *  Units follow it: a section has no sport of its own. */
   effectiveSportType?: string | undefined;
-  isRunning: boolean;
   activityColor: string;
   navActivityId?: string | undefined;
   effectiveReferenceId?: string | undefined;
@@ -115,7 +115,6 @@ export function SectionContentArea({
   recordsSettled,
   calendarSummary,
   effectiveSportType,
-  isRunning,
   activityColor,
   navActivityId,
   effectiveReferenceId,
@@ -134,6 +133,8 @@ export function SectionContentArea({
   children,
 }: SectionContentAreaProps) {
   const { t } = useTranslation();
+  // A route's chart plots moving time, so every figure beside it is a time.
+  const basis = attemptBasis(effectiveSportType, subject === 'route');
 
   return (
     <View style={styles.contentSection}>
@@ -226,7 +227,7 @@ export function SectionContentArea({
         bestReverseRecord={bestReverseRecord}
         forwardStats={forwardStats}
         reverseStats={reverseStats}
-        sportType={effectiveSportType}
+        basis={basis}
         isDark={isDark}
         activityColor={activityColor}
         pending={streams?.status === 'loading'}
@@ -246,7 +247,7 @@ export function SectionContentArea({
         <SectionStatsCards
           calendarSummary={calendarSummary}
           isDark={isDark}
-          isRunning={isRunning}
+          basis={basis}
           activityColor={activityColor}
           onSetAsReference={onSetAsReference}
           referenceActivityId={effectiveReferenceId}

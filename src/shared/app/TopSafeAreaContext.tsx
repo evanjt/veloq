@@ -9,7 +9,15 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncHealth } from '@/shared/native/useSyncHealth';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useTrackFetchNotice } from '@/features/routes/lib/trackFetchNotice';
-import { pickTopBanner, padsStatusBar, type TopBanner } from './topBanner';
+import { spacing } from '@/theme';
+import {
+  pickTopBanner,
+  padsStatusBar,
+  stackHeight,
+  useTopBannerHeights,
+  type ShownBanner,
+  type TopBanner,
+} from './topBanner';
 
 import { useNetwork } from './NetworkContext';
 
@@ -91,9 +99,30 @@ export function useTopSafeArea(): TopSafeAreaContextValue {
  * Whether this banner carries the status-bar inset. Outside a provider, as in
  * a standalone render, it does.
  */
-export function useBannerPadsStatusBar(self: Exclude<TopBanner, null>): boolean {
+export function useBannerPadsStatusBar(self: ShownBanner): boolean {
   const context = useContext(TopSafeAreaContext);
   return padsStatusBar(context?.activeBanner, self);
+}
+
+/**
+ * The top padding a banner in the slot draws: the inset the device reports
+ * when it is the topmost, and none beneath it. The safe-area context already
+ * reports the real inset under edge-to-edge, so there is no floor per platform,
+ * and a banner keeps its own inner spacing in its own style.
+ */
+export function useBannerTopPadding(self: ShownBanner): number {
+  const insets = useSafeAreaInsets();
+  return useBannerPadsStatusBar(self) ? insets.top : 0;
+}
+
+/**
+ * Where a pill floating under the status bar starts: below every banner in the
+ * top slot, so it never covers one, and under the inset when the slot is empty.
+ */
+export function useFloatingPillTop(): number {
+  const insets = useSafeAreaInsets();
+  const slot = useTopBannerHeights((s) => stackHeight(s.heights));
+  return Math.max(insets.top, slot) + spacing.xs;
 }
 
 export function useScreenSafeAreaEdges(): Edge[] {

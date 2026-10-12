@@ -87,8 +87,8 @@ const touchTakers = (node: Node, blocked = false): string[] => {
 };
 
 describe('activity hero overlay touches', () => {
-  it('takes no touch anywhere in the overlay with debug off', () => {
-    renderHeader(false);
+  it('takes no touch anywhere in the overlay with debug off', async () => {
+    await renderHeader(false);
     const overlay = screen.getByTestId('detail-hero-overlay');
     const root = screen.toJSON() as unknown as Node;
     const find = (n: Node): Node | null =>
@@ -108,8 +108,8 @@ describe('activity hero overlay touches', () => {
     expect(takers).toEqual([]);
   });
 
-  it('sizes the debug name control to its text', () => {
-    renderHeader(true);
+  it('sizes the debug name control to its text', async () => {
+    await renderHeader(true);
     const name = screen.getByTestId('activity-detail-name');
     expect(StyleSheet.flatten(name.props.style).alignSelf).toBe('flex-start');
   });

@@ -15,6 +15,7 @@ import { saveRecording } from '@/features/recording/lib/storage/recordingLibrary
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { navigateTo, replaceTo } from '@/shared/app/navigation';
+import { inStack } from '../__shared__/testStack';
 
 let mockParams: Record<string, string | undefined> = { type: 'Ride' };
 let mockSegments: string[] = ['recording', '[type]'];
@@ -141,7 +142,7 @@ it('hides the outgoing ride while another athlete waits for its backup handoff',
   const pending = resumeHeldRecordingForAthlete('athlete-b');
   expect(useRecordingStore.getState().status).toBe('stopped');
 
-  render(<RecordingScreen />);
+  await render(<RecordingScreen />);
   expect(screen.queryByTestId('recording-map')).toBeNull();
   expect(screen.queryByTestId('recording-controls')).toBeNull();
   expect(screen.queryByTestId('unlock-track-handle')).toBeNull();
@@ -156,7 +157,7 @@ it('hides the outgoing ride while another athlete waits for its backup handoff',
   expect(screen.getByTestId('unlock-track-handle')).toBeTruthy();
 });
 
-it('shows a stopped ride to the athlete who recorded it', () => {
+it('shows a stopped ride to the athlete who recorded it', async () => {
   useRecordingStore.getState().startRecording('Ride', 'gps');
   useRecordingStore.getState().addGpsPoint({
     latitude: 47,
@@ -169,7 +170,7 @@ it('shows a stopped ride to the athlete who recorded it', () => {
   });
   useRecordingStore.getState().stopRecording();
 
-  render(<RecordingScreen />);
+  await render(<RecordingScreen />);
   expect(screen.getByTestId('recording-map')).toHaveTextContent('[[47,8]]');
   expect(screen.getByTestId('unlock-track-handle')).toBeTruthy();
 });
@@ -190,7 +191,7 @@ it('keeps the new athlete on the picker while the outgoing ride is handed off', 
   useAuthStore.setState({ athleteId: 'athlete-b', isAuthenticated: true });
   const pending = resumeHeldRecordingForAthlete('athlete-b');
 
-  render(<RecordScreen />);
+  await render(<RecordScreen />);
   expect(replaceTo).not.toHaveBeenCalledWith('/recording/review');
 
   await act(async () => {
@@ -218,7 +219,7 @@ it('leaves review for the picker when another athlete owns the held ride', async
   useAuthStore.setState({ athleteId: 'athlete-b', isAuthenticated: true });
   const pending = resumeHeldRecordingForAthlete('athlete-b');
 
-  render(<ReviewScreen />);
+  await render(inStack(<ReviewScreen />));
   expect(screen.queryByTestId('review-save-button')).toBeNull();
 
   await act(async () => {
@@ -229,15 +230,15 @@ it('leaves review for the picker when another athlete owns the held ride', async
   expect(replaceTo).toHaveBeenCalledWith('/record');
 });
 
-it('still opens review for the athlete who owns the stopped ride', () => {
+it('still opens review for the athlete who owns the stopped ride', async () => {
   useRecordingStore.getState().startRecording('Ride', 'gps');
   useRecordingStore.getState().stopRecording();
 
-  const picker = render(<RecordScreen />);
+  const picker = await render(<RecordScreen />);
   expect(replaceTo).toHaveBeenCalledWith('/recording/review');
-  picker.unmount();
+  await picker.unmount();
 
-  render(<ReviewScreen />);
+  await render(inStack(<ReviewScreen />));
   expect(screen.getByTestId('review-save-button')).toBeTruthy();
 });
 
@@ -258,10 +259,10 @@ it('saves a manual entry made during the handoff for the new athlete', async () 
   useAuthStore.setState({ athleteId: 'athlete-b', isAuthenticated: true });
   const pending = resumeHeldRecordingForAthlete('athlete-b');
 
-  const form = render(<ManualEntryForm activityType="Yoga" bottomPadding={0} />);
-  fireEvent.changeText(form.getByTestId('manual-entry-duration'), '30');
-  fireEvent.press(form.getByTestId('manual-entry-continue'));
-  fireEvent.press(form.getByTestId('manual-entry-continue'));
+  const form = await render(inStack(<ManualEntryForm activityType="Yoga" bottomPadding={0} />));
+  await fireEvent.changeText(form.getByTestId('manual-entry-duration'), '30');
+  await fireEvent.press(form.getByTestId('manual-entry-continue'));
+  await fireEvent.press(form.getByTestId('manual-entry-continue'));
   expect(navigateTo).not.toHaveBeenCalled();
   expect(useRecordingStore.getState().athleteId).toBe('athlete-a');
   expect(useRecordingStore.getState().status).toBe('stopped');
@@ -279,13 +280,13 @@ it('saves a manual entry made during the handoff for the new athlete', async () 
   expect(navigateTo).toHaveBeenCalledTimes(1);
   const { params } = (navigateTo as jest.Mock).mock.calls[0][0];
   expect(params).toMatchObject({ manual: 'true', durationSeconds: '1800' });
-  form.unmount();
+  await form.unmount();
 
   mockParams = params;
-  render(<ReviewScreen />);
+  await render(inStack(<ReviewScreen />));
   expect(replaceTo).not.toHaveBeenCalledWith('/record');
   await act(async () => {
-    fireEvent.press(screen.getByTestId('review-save-button'));
+    await fireEvent.press(screen.getByTestId('review-save-button'));
   });
   expect(saveRecording).toHaveBeenCalledTimes(1);
   expect(saveRecording).toHaveBeenCalledWith(
@@ -323,9 +324,9 @@ it('drops a held manual entry when its athlete signs out before the handoff clea
   useAuthStore.setState({ athleteId: 'athlete-b', isAuthenticated: true });
   const pending = resumeHeldRecordingForAthlete('athlete-b');
 
-  render(<ManualEntryForm activityType="Yoga" bottomPadding={0} />);
-  fireEvent.changeText(screen.getByTestId('manual-entry-duration'), '30');
-  fireEvent.press(screen.getByTestId('manual-entry-continue'));
+  await render(inStack(<ManualEntryForm activityType="Yoga" bottomPadding={0} />));
+  await fireEvent.changeText(screen.getByTestId('manual-entry-duration'), '30');
+  await fireEvent.press(screen.getByTestId('manual-entry-continue'));
   useAuthStore.setState({ athleteId: null, isAuthenticated: false });
 
   await act(async () => {
@@ -352,10 +353,10 @@ it('drops a held manual entry when its form closes before the handoff clears', a
   useAuthStore.setState({ athleteId: 'athlete-b', isAuthenticated: true });
   const pending = resumeHeldRecordingForAthlete('athlete-b');
 
-  const form = render(<ManualEntryForm activityType="Yoga" bottomPadding={0} />);
-  fireEvent.changeText(form.getByTestId('manual-entry-duration'), '30');
-  fireEvent.press(form.getByTestId('manual-entry-continue'));
-  form.unmount();
+  const form = await render(inStack(<ManualEntryForm activityType="Yoga" bottomPadding={0} />));
+  await fireEvent.changeText(form.getByTestId('manual-entry-duration'), '30');
+  await fireEvent.press(form.getByTestId('manual-entry-continue'));
+  await form.unmount();
 
   await act(async () => {
     finishWrite(false);
@@ -391,9 +392,9 @@ it('sends the athlete to their own held ride when the handoff restores it', asyn
   useAuthStore.setState({ athleteId: 'athlete-b', isAuthenticated: true });
   const pending = resumeHeldRecordingForAthlete('athlete-b');
 
-  render(<ManualEntryForm activityType="Yoga" bottomPadding={0} />);
-  fireEvent.changeText(screen.getByTestId('manual-entry-duration'), '30');
-  fireEvent.press(screen.getByTestId('manual-entry-continue'));
+  await render(inStack(<ManualEntryForm activityType="Yoga" bottomPadding={0} />));
+  await fireEvent.changeText(screen.getByTestId('manual-entry-duration'), '30');
+  await fireEvent.press(screen.getByTestId('manual-entry-continue'));
 
   await act(async () => {
     finishWrite(false);
@@ -410,12 +411,12 @@ it('sends the athlete to their own held ride when the handoff restores it', asyn
   expect(navigateTo).toHaveBeenCalledWith('/recording/review');
 });
 
-it('pads the review scroll content by nothing for a tab bar that does not draw on it', () => {
+it('pads the review scroll content by nothing for a tab bar that does not draw on it', async () => {
   mockSegments = ['recording', 'review'];
   useRecordingStore.getState().startRecording('Ride', 'gps');
   useRecordingStore.getState().stopRecording();
 
-  const { UNSAFE_getAllByType } = render(<ReviewScreen />);
+  const { UNSAFE_getAllByType } = await render(inStack(<ReviewScreen />));
   const scroll = UNSAFE_getAllByType(ScrollView).find(
     (view) => view.props.contentContainerStyle !== undefined
   )!;
@@ -426,11 +427,11 @@ it('pads the review scroll content by nothing for a tab bar that does not draw o
 
 it.each([0, 34])(
   'gives the unlock track the whole bottom edge above a %i dp inset, with no tab bar to clear',
-  (bottom) => {
+  async (bottom) => {
     mockInsets.bottom = bottom;
     useRecordingStore.getState().startRecording('Ride', 'gps');
 
-    render(<RecordingScreen />);
+    await render(<RecordingScreen />);
     const { paddingBottom } = StyleSheet.flatten(
       screen.getByTestId('recording-unlock-slot').props.style
     );

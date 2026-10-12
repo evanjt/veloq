@@ -284,17 +284,19 @@ describe('recordingSession', () => {
     useRecordingStore.getState().startRecording('Ride', 'gps');
     await settle();
 
-    const { unmount } = renderHook(() =>
+    const { unmount } = await renderHook(() =>
       useGpsSessionEffect({
         mode: 'gps',
         status: 'recording',
         hasPermission: true,
+        precision: 'precise',
         requestPermission: async () => true,
+        upgradePrecision: async () => {},
         setGpsWarning: () => {},
       })
     );
     await settle();
-    unmount();
+    await unmount();
     await settle();
 
     expect(watchRemove).not.toHaveBeenCalled();

@@ -249,6 +249,7 @@ mod tests {
             previous_date: None,
             delta_watts: None,
             glyph: None,
+            lookback_days: 30,
             sample_count: 0,
         }
     }

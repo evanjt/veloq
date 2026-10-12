@@ -26,6 +26,7 @@ import {
   adoptOwnerlessRecordings,
   recordingFitExists,
 } from '@/features/recording/lib/storage/recordingLibrary';
+import { engineErrorTag } from '@/shared/native/engineError';
 
 jest.mock('@/shared/debug/debug', () => ({
   debug: {
@@ -233,8 +234,10 @@ const markRecordingPermissionBlocked = (id: string) =>
 const requeueRecording = async (id: string) =>
   (await transitionRecording(id, { kind: 'requeue' })).applied;
 
+let mockEngineOpen = true;
+
 jest.mock('@/shared/native/engine', () => ({
-  getEngine: () => mockEngine,
+  getEngine: () => (mockEngineOpen ? mockEngine : null),
 }));
 
 let mockSignedInAthlete: string | null = 'i296629';
@@ -271,6 +274,7 @@ async function saveOne(
 }
 
 beforeEach(() => {
+  mockEngineOpen = true;
   mockEngine.ready = true;
   mockStorage.clear();
   mockFileStore.clear();
@@ -1094,6 +1098,20 @@ describe('adoptOwnerlessRecordings', () => {
     await adoptOwnerlessRecordings(async () => 'iA');
 
     expect(rows.size).toBe(0);
+  });
+});
+
+describe('reading before the engine opens', () => {
+  it('rejects with the engine not-open failure, so a screen names it', async () => {
+    mockEngineOpen = false;
+
+    for (const read of [() => listVisibleRecordings(), () => getVisibleRecording('rec-any')]) {
+      const failure = await read().then(
+        () => undefined,
+        (error: unknown) => error
+      );
+      expect(engineErrorTag(failure)).toBe('NotInitialized');
+    }
   });
 });
 

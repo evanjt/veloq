@@ -64,14 +64,14 @@ describe('the fitness milestone sheet', () => {
     return (children ?? []).flatMap(textOf);
   }
 
-  function rendered(element: React.ReactElement): string {
-    return textOf(render(element).toJSON()).join(' ');
+  async function rendered(element: React.ReactElement): Promise<string> {
+    return textOf((await render(element)).toJSON()).join(' ');
   }
 
   /** The method as it reads once "How was this calculated?" is open. */
-  function method(insight: Insight): string {
-    const view = render(<MethodologySection insight={insight} />);
-    fireEvent.press(view.getByTestId('methodology-toggle'));
+  async function method(insight: Insight): Promise<string> {
+    const view = await render(<MethodologySection insight={insight} />);
+    await fireEvent.press(view.getByTestId('methodology-toggle'));
     return `${insight.methodology?.name} ${textOf(view.toJSON()).join(' ')}`;
   }
 
@@ -79,7 +79,7 @@ describe('the fitness milestone sheet', () => {
     return generateFitnessMilestoneInsights(POWER, PACE, null, NOW, t);
   }
 
-  function sheet(id: string): string {
+  function sheet(id: string): Promise<string> {
     const insight = milestones().find((i) => i.id === id);
     if (!insight) throw new Error(`no ${id} milestone`);
     return rendered(<FitnessMilestoneContent insight={insight} />);
@@ -93,19 +93,19 @@ describe('the fitness milestone sheet', () => {
     await changeLanguage('en-AU');
   });
 
-  it('names eFTP on the power sheet and never the setting', () => {
-    const text = sheet('fitness_milestone-ftp');
+  it('names eFTP on the power sheet and never the setting', async () => {
+    const text = await sheet('fitness_milestone-ftp');
 
     expect(text).toContain('eFTP');
     expect(text).not.toContain('FTP shifted');
     expect(text).not.toMatch(/(^|[^e])FTP/);
   });
 
-  it('names eFTP on the power card and states the 30-day comparison in its method', () => {
+  it('names eFTP on the power card and states the 30-day comparison in its method', async () => {
     const power = milestones().find((i) => i.id === 'fitness_milestone-ftp');
     if (!power) throw new Error('no power milestone');
-    const card = rendered(<InsightListCard insight={power} onPress={jest.fn()} />);
-    const methodText = method(power);
+    const card = await rendered(<InsightListCard insight={power} onPress={jest.fn()} />);
+    const methodText = await method(power);
 
     expect(card).toContain('eFTP');
     expect(card).not.toMatch(/(^|[^e])FTP/);
@@ -114,34 +114,34 @@ describe('the fitness milestone sheet', () => {
     expect(methodText).toContain('30 days');
   });
 
-  it('names critical speed on the pace sheet, not a threshold pace', () => {
-    const text = sheet('fitness_milestone-pace');
+  it('names critical speed on the pace sheet, not a threshold pace', async () => {
+    const text = await sheet('fitness_milestone-pace');
 
     expect(text).toContain('critical speed');
     expect(text.toLowerCase()).not.toContain('threshold');
   });
 
   it('draws no English on the sheet in German', async () => {
-    const english = new Set(
-      ['fitness_milestone-ftp', 'fitness_milestone-pace'].flatMap((id) =>
-        sheet(id).split(/(?<=\.) /)
-      )
-    );
+    const ids = ['fitness_milestone-ftp', 'fitness_milestone-pace'];
+    const sheetLines = async () => {
+      const lines: string[] = [];
+      for (const id of ids) lines.push(...(await sheet(id)).split(/(?<=\.) /));
+      return lines;
+    };
+    const english = new Set(await sheetLines());
 
     await changeLanguage('de-DE');
-    const german = ['fitness_milestone-ftp', 'fitness_milestone-pace'].flatMap((id) =>
-      sheet(id).split(/(?<=\.) /)
-    );
+    const german = await sheetLines();
 
     const prose = german.filter((line) => /[a-z]{4,}/i.test(line));
     expect(prose.filter((line) => english.has(line))).toEqual([]);
     expect(german.join(' ')).toContain('eFTP');
   });
 
-  it('states the critical speed, the 42-day curve and the 90-day lookback in the pace method', () => {
+  it('states the critical speed, the 42-day curve and the 90-day lookback in the pace method', async () => {
     const pace = milestones().find((i) => i.id === 'fitness_milestone-pace');
     if (!pace) throw new Error('no pace milestone');
-    const methodText = method(pace);
+    const methodText = await method(pace);
 
     expect(methodText.toLowerCase()).toContain('critical speed');
     expect(methodText).toContain('42-day');

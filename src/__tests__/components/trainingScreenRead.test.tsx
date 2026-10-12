@@ -25,8 +25,8 @@ jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 
 const listeners = new Map<string, Set<() => void>>();
 
-function emit(event: string) {
-  act(() => {
+async function emit(event: string) {
+  await act(() => {
     listeners.get(event)?.forEach((cb) => cb());
   });
 }
@@ -83,7 +83,7 @@ beforeEach(() => {
 
 describe('the training screen read', () => {
   it('paints both cards from one call and no per-part read', async () => {
-    const view = renderCards();
+    const view = await renderCards();
 
     await waitFor(() => expect(view.getByTestId('activity-heatmap-count')).toBeTruthy());
     expect(view.getByText('4h')).toBeTruthy();
@@ -95,19 +95,19 @@ describe('the training screen read', () => {
   });
 
   it('reads once more when activities change, not once per card', async () => {
-    const view = renderCards();
+    const view = await renderCards();
     await waitFor(() => expect(view.getByText('4h')).toBeTruthy());
 
-    emit('activities');
+    await emit('activities');
 
     await waitFor(() => expect(engine.getTrainingScreenData).toHaveBeenCalledTimes(2));
   });
 
   it('ignores an event the read does not depend on', async () => {
-    const view = renderCards();
+    const view = await renderCards();
     await waitFor(() => expect(view.getByText('4h')).toBeTruthy());
 
-    emit('sections');
+    await emit('sections');
 
     expect(engine.getTrainingScreenData).toHaveBeenCalledTimes(1);
   });
@@ -117,7 +117,7 @@ describe.each(CLOCK_EDGES)('the training screen read on %s', (_name, at) => {
   beforeEach(() => jest.setSystemTime(at));
 
   it('names the heatmap grid, the two calendar years and the to-date spans by the local calendar', async () => {
-    renderCards();
+    await renderCards();
 
     await waitFor(() => expect(engine.getTrainingScreenData).toHaveBeenCalled());
     const [windows] = engine.getTrainingScreenData.mock.calls[0] as [TrainingScreenWindows];

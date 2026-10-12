@@ -1,4 +1,3 @@
-import { Alert } from 'react-native';
 import { i18n } from '@/i18n';
 import {
   accountChangeAction,
@@ -7,6 +6,7 @@ import {
   settleBeforeNamingLibrary,
 } from './accountChange';
 import { resolveStoredActivityCount } from './storedActivityCount';
+import { chooseAction } from '@/shared/ui/dialog';
 
 /** What a sign-in does with the library already on the device. */
 export type LoginLibraryOutcome = 'keep' | 'wipe' | 'refused';
@@ -20,26 +20,29 @@ type UnnamedLibraryChoice = 'mine' | 'delete' | 'cancel';
 function askAboutUnnamedLibrary(): Promise<UnnamedLibraryChoice> {
   const t = i18n.t.bind(i18n);
   return new Promise((resolve) => {
-    Alert.alert(
-      t('alerts.accountChangeTitle', { defaultValue: 'Different account detected' }),
-      t('alerts.unnamedLibraryMessage', {
+    // Required: login waits on this answer, and neither keeping nor deleting
+    // is safe to assume, so back and the scrim do nothing.
+    chooseAction({
+      title: t('alerts.accountChangeTitle', { defaultValue: 'Different account detected' }),
+      message: t('alerts.unnamedLibraryMessage', {
         defaultValue:
           'This device holds a library that names no account. If it is yours, keep it and it will sync as this account. Otherwise delete it.',
       }),
-      [
-        { text: t('common.cancel'), style: 'cancel', onPress: () => resolve('cancel') },
+      cancelLabel: t('common.cancel'),
+      onCancel: () => resolve('cancel'),
+      actions: [
         {
-          text: t('alerts.unnamedLibraryMine', { defaultValue: 'This is mine' }),
-          onPress: () => resolve('mine'),
-        },
-        {
-          text: t('alerts.unnamedLibraryDelete', { defaultValue: 'Delete it' }),
-          style: 'destructive',
+          label: t('alerts.unnamedLibraryDelete', { defaultValue: 'Delete it' }),
+          destructive: true,
           onPress: () => resolve('delete'),
         },
+        {
+          label: t('alerts.unnamedLibraryMine', { defaultValue: 'This is mine' }),
+          onPress: () => resolve('mine'),
+        },
       ],
-      { cancelable: false }
-    );
+      required: true,
+    });
   });
 }
 

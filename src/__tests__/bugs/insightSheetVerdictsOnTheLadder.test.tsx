@@ -31,8 +31,8 @@ type Node = {
 };
 
 /** Every background an element drew, flattened. */
-function drawn(element: React.ReactElement): string[] {
-  const { UNSAFE_root } = render(element);
+async function drawn(element: React.ReactElement): Promise<string[]> {
+  const { UNSAFE_root } = await render(element);
   return (UNSAFE_root.findAll(() => true) as unknown as Node[])
     .map((n) => StyleSheet.flatten(n.props.style as never) as { backgroundColor?: string } | null)
     .map((style) => style?.backgroundColor)
@@ -40,8 +40,8 @@ function drawn(element: React.ReactElement): string[] {
 }
 
 /** The colours of every icon a data row drew. */
-function row(context: DataPoint['context']): unknown[] {
-  const { UNSAFE_root } = render(
+async function row(context: DataPoint['context']): Promise<unknown[]> {
+  const { UNSAFE_root } = await render(
     <DataPointRow dataPoint={{ label: 'Value', value: 1, context }} />
   );
   return (UNSAFE_root.findAll(() => true) as unknown as Node[])
@@ -49,7 +49,7 @@ function row(context: DataPoint['context']): unknown[] {
     .map((n) => n.props.color);
 }
 
-function comparison(trend: SupportingTrend): string[] {
+function comparison(trend: SupportingTrend): Promise<string[]> {
   const data: InsightSupportingData = {
     comparisonData: {
       current: { label: 'Now', value: 2 },
@@ -70,14 +70,14 @@ describe.each([false, true])('the insight sheet verdicts, dark %s', (isDark) => 
     ['good', 'positive'],
     ['warning', 'caution'],
     ['concern', 'negative'],
-  ] as const)('marks a %s value on the %s rung', (context, rung) => {
-    expect(row(context)).toContain(verdictColor(rung, isDark));
+  ] as const)('marks a %s value on the %s rung', async (context, rung) => {
+    expect(await row(context)).toContain(verdictColor(rung, isDark));
   });
 
   it.each([
     ['improved', 'positive'],
     ['declined', 'negative'],
-  ] as const)('tints a comparison that %s on the %s rung', (verdict, rung) => {
-    expect(comparison({ direction: 'up', verdict })).toContain(verdictFill(rung, isDark));
+  ] as const)('tints a comparison that %s on the %s rung', async (verdict, rung) => {
+    expect(await comparison({ direction: 'up', verdict })).toContain(verdictFill(rung, isDark));
   });
 });

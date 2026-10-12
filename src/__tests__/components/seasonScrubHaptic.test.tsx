@@ -45,7 +45,7 @@ let pans: ReturnType<typeof capturePans>;
 
 async function renderChart() {
   pans = capturePans();
-  render(
+  await render(
     <QueryClientProvider client={client}>
       <SeasonComparison />
     </QueryClientProvider>
@@ -54,8 +54,8 @@ async function renderChart() {
     expect(screen.UNSAFE_getAllByType(View).some((n) => n.props.onLayout)).toBe(true)
   );
   const chart = screen.UNSAFE_getAllByType(View).find((node) => node.props.onLayout);
-  act(() => {
-    fireEvent(chart!, 'layout', { nativeEvent: { layout: { width: WIDTH, height: 200 } } });
+  await act(async () => {
+    await fireEvent(chart!, 'layout', { nativeEvent: { layout: { width: WIDTH, height: 200 } } });
   });
 }
 

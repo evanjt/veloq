@@ -43,36 +43,56 @@ beforeEach(() => {
 });
 
 describe('the notification category switches', () => {
-  it('offers one for each flag once notifications are on', () => {
+  it('offers one for each flag once notifications are on', async () => {
     givenPreferences(true, { sectionPr: true, fitnessMilestone: true });
-    const { getByTestId } = render(<NotificationSection />);
+    const { getByTestId } = await render(<NotificationSection />);
     expect(getByTestId('settings-notifications-sectionPr')).toBeTruthy();
     expect(getByTestId('settings-notifications-fitnessMilestone')).toBeTruthy();
   });
 
-  it('writes only the flag it belongs to', () => {
+  it('writes only the flag it belongs to', async () => {
     givenPreferences(true, { sectionPr: true, fitnessMilestone: true });
-    const { getByTestId } = render(<NotificationSection />);
+    const { getByTestId } = await render(<NotificationSection />);
 
-    fireEvent(getByTestId('settings-notifications-sectionPr'), 'valueChange', false);
+    await fireEvent.press(getByTestId('settings-notifications-sectionPr'));
     expect(setCategoryEnabled).toHaveBeenCalledTimes(1);
     expect(setCategoryEnabled).toHaveBeenCalledWith('sectionPr', false);
 
-    fireEvent(getByTestId('settings-notifications-fitnessMilestone'), 'valueChange', false);
+    await fireEvent.press(getByTestId('settings-notifications-fitnessMilestone'));
     expect(setCategoryEnabled).toHaveBeenLastCalledWith('fitnessMilestone', false);
   });
 
-  it('reads the flags rather than holding its own copy', () => {
+  it('reads the flags rather than holding its own copy', async () => {
     givenPreferences(true, { sectionPr: false, fitnessMilestone: true });
-    const { getByTestId } = render(<NotificationSection />);
-    expect(getByTestId('settings-notifications-sectionPr').props.value).toBe(false);
-    expect(getByTestId('settings-notifications-fitnessMilestone').props.value).toBe(true);
+    const { getByTestId } = await render(<NotificationSection />);
+    expect(getByTestId('settings-notifications-sectionPr')).not.toBeChecked();
+    expect(getByTestId('settings-notifications-fitnessMilestone')).toBeChecked();
   });
 
-  it('is inert while notifications are off, so a switch cannot promise a push', () => {
+  it('names every switch, the two categories apart', async () => {
+    givenPreferences(true, { sectionPr: true, fitnessMilestone: true });
+    const { getAllByRole, getByRole } = await render(<NotificationSection />);
+
+    expect(getAllByRole('switch')).toHaveLength(3);
+    expect(getByRole('switch', { name: 'notifications.settings.enable' })).toBeTruthy();
+    expect(getByRole('switch', { name: 'notifications.settings.sectionPr' })).toBeTruthy();
+    expect(getByRole('switch', { name: 'notifications.settings.fitnessMilestone' })).toBeTruthy();
+  });
+
+  it('turns a category off from a tap on its name', async () => {
+    givenPreferences(true, { sectionPr: true, fitnessMilestone: true });
+    const { getByText } = await render(<NotificationSection />);
+
+    await fireEvent.press(getByText('notifications.settings.sectionPr'));
+
+    expect(setCategoryEnabled).toHaveBeenCalledTimes(1);
+    expect(setCategoryEnabled).toHaveBeenCalledWith('sectionPr', false);
+  });
+
+  it('is inert while notifications are off, so a switch cannot promise a push', async () => {
     givenPreferences(false, { sectionPr: true, fitnessMilestone: true });
-    const { getByTestId } = render(<NotificationSection />);
-    expect(getByTestId('settings-notifications-sectionPr').props.disabled).toBe(true);
-    expect(getByTestId('settings-notifications-fitnessMilestone').props.disabled).toBe(true);
+    const { getByTestId } = await render(<NotificationSection />);
+    expect(getByTestId('settings-notifications-sectionPr')).toBeDisabled();
+    expect(getByTestId('settings-notifications-fitnessMilestone')).toBeDisabled();
   });
 });

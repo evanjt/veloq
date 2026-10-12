@@ -22,7 +22,7 @@ describe('useMergeSections departed rides', () => {
     (getEngine as jest.Mock).mockReturnValue({
       runSectionMerge: jest.fn(async () => ({ sectionId: 'primary', departed: [ride] })),
     });
-    const { result } = renderHook(() => useMergeSections());
+    const { result } = await renderHook(() => useMergeSections());
 
     let kept: string | null = null;
     await act(async () => {
@@ -39,7 +39,7 @@ describe('useMergeSections departed rides', () => {
       .mockResolvedValueOnce({ sectionId: 'primary', departed: [] })
       .mockResolvedValueOnce(null);
     (getEngine as jest.Mock).mockReturnValue({ runSectionMerge });
-    const { result } = renderHook(() => useMergeSections());
+    const { result } = await renderHook(() => useMergeSections());
 
     await act(async () => {
       expect(await result.current.merge('primary', 'donor')).toBe('primary');
@@ -57,10 +57,10 @@ describe('useMergeSections departed rides', () => {
   it('returns while the merge runs and refuses a second merge', async () => {
     const runSectionMerge = jest.fn(() => new Promise(() => {}));
     (getEngine as jest.Mock).mockReturnValue({ runSectionMerge });
-    const { result } = renderHook(() => useMergeSections());
+    const { result } = await renderHook(() => useMergeSections());
 
     let first: Promise<string | null> | undefined;
-    act(() => {
+    await act(() => {
       first = result.current.merge('primary', 'donor');
     });
     expect(first).toBeInstanceOf(Promise);
@@ -73,11 +73,11 @@ describe('useMergeSections departed rides', () => {
     expect(Alert.alert).not.toHaveBeenCalled();
   });
 
-  it('previews the dropped rides, and answers an empty list when the read fails', () => {
+  it('previews the dropped rides, and answers an empty list when the read fails', async () => {
     const dropped = [{ activityId: 'a1', name: 'Morning ride', startDate: 1_710_200_000 }];
     const mergePreview = jest.fn().mockReturnValueOnce(dropped).mockReturnValueOnce(null);
     (getEngine as jest.Mock).mockReturnValue({ mergePreview });
-    const { result } = renderHook(() => useMergeSections());
+    const { result } = await renderHook(() => useMergeSections());
 
     expect(result.current.previewDropped('primary', 'donor')).toEqual(dropped);
     expect(result.current.previewDropped('donor', 'primary')).toEqual([]);

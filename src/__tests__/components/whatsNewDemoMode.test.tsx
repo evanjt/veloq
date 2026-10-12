@@ -26,9 +26,9 @@ describe('WhatsNewModal auto-open', () => {
     useWhatsNewStore.setState({ isLoaded: true, lastSeenVersion: null, tourState: null });
   });
 
-  it('stays closed in demo mode and opens after a real sign-in', () => {
+  it('stays closed in demo mode and opens after a real sign-in', async () => {
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: true });
-    render(
+    await render(
       <MapPreferencesProvider>
         <WhatsNewModal />
       </MapPreferencesProvider>
@@ -36,26 +36,26 @@ describe('WhatsNewModal auto-open', () => {
     expect(useWhatsNewStore.getState().tourState).toBeNull();
     expect(useWhatsNewStore.getState().lastSeenVersion).toBeNull();
 
-    act(() => {
+    await act(() => {
       useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
     });
     expect(useWhatsNewStore.getState().tourState?.mode).toBe('tutorial');
   });
 
-  it('keeps the tour navigation discoverable by role and text', () => {
+  it('keeps the tour navigation discoverable by role and text', async () => {
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
-    render(
+    await render(
       <MapPreferencesProvider>
         <WhatsNewModal />
       </MapPreferencesProvider>
     );
 
-    for (const label of ['whatsNew.skipButton', 'whatsNew.doneButton']) {
+    for (const label of ['whatsNew.skipButton', 'whatsNew.nextButton']) {
       expect(screen.getByText(label)).toBeTruthy();
       expect(screen.getByRole('button', { name: label })).toBeTruthy();
     }
 
-    fireEvent.press(screen.getByText('whatsNew.skipButton'));
+    await fireEvent.press(screen.getByText('whatsNew.skipButton'));
     expect(useWhatsNewStore.getState().tourState).toBeNull();
   });
 });

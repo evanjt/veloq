@@ -16,37 +16,37 @@ jest.mock('expo-router', () => ({
 }));
 jest.mock('@/shared/app/navigation', () => ({ replaceTo: jest.fn() }));
 
-function renderWith(params: Record<string, string | undefined>) {
+async function renderWith(params: Record<string, string | undefined>) {
   (useLocalSearchParams as jest.Mock).mockReturnValue(params);
-  render(<RoutesRedirectScreen />);
+  await render(<RoutesRedirectScreen />);
 }
 
 beforeEach(() => jest.clearAllMocks());
 
-it('sends a bare /routes to the insights tab', () => {
-  renderWith({});
+it('sends a bare /routes to the insights tab', async () => {
+  await renderWith({});
   expect(replaceTo).toHaveBeenCalledWith({ pathname: '/insights', params: {} });
 });
 
-it('carries the sub-tab through', () => {
-  renderWith({ tab: 'sections' });
+it('carries the sub-tab through', async () => {
+  await renderWith({ tab: 'sections' });
   expect(replaceTo).toHaveBeenCalledWith({
     pathname: '/insights',
     params: { tab: 'sections' },
   });
 });
 
-it('carries an insight id through', () => {
-  renderWith({ tab: 'insights', insightId: 'ins-7' });
+it('carries an insight id through', async () => {
+  await renderWith({ tab: 'insights', insightId: 'ins-7' });
   expect(replaceTo).toHaveBeenCalledWith({
     pathname: '/insights',
     params: { tab: 'insights', insightId: 'ins-7' },
   });
 });
 
-it('redirects once, not on every render', () => {
+it('redirects once, not on every render', async () => {
   (useLocalSearchParams as jest.Mock).mockReturnValue({ tab: 'routes' });
-  const { rerender } = render(<RoutesRedirectScreen />);
-  rerender(<RoutesRedirectScreen />);
+  const { rerender } = await render(<RoutesRedirectScreen />);
+  await rerender(<RoutesRedirectScreen />);
   expect(replaceTo).toHaveBeenCalledTimes(1);
 });

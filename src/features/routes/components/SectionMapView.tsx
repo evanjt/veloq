@@ -581,7 +581,6 @@ export const SectionMapView = memo(function SectionMapView({
                 accessibilityLabel={t('maps.toggleStyle')}
                 style={pressable([styles.controlButton, isDark && styles.controlButtonDark])}
                 onPress={toggleMapStyle}
-                hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
                 android_ripple={pressRipple}
               >
                 <MaterialCommunityIcons
@@ -604,7 +603,6 @@ export const SectionMapView = memo(function SectionMapView({
                     is3DMode && styles.controlButtonActive,
                   ])}
                   onPress={toggle3D}
-                  hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
                   android_ripple={pressRipple}
                 >
                   <MaterialCommunityIcons
@@ -628,7 +626,6 @@ export const SectionMapView = memo(function SectionMapView({
                 accessibilityRole="button"
                 accessibilityLabel={t('maps.resetOrientation')}
                 onPress={resetOrientation}
-                hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
                 android_ripple={pressRipple}
               >
                 <CompassArrow
@@ -651,7 +648,6 @@ export const SectionMapView = memo(function SectionMapView({
                 accessibilityState={{ disabled: locationLoading }}
                 onPress={locationLoading ? undefined : handleGetLocation}
                 disabled={locationLoading}
-                hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
                 android_ripple={pressRipple}
               >
                 {locationLoading ? (
@@ -676,7 +672,6 @@ export const SectionMapView = memo(function SectionMapView({
                   accessibilityLabel={t('maps.openFullscreen')}
                   style={pressable([styles.controlButton, isDark && styles.controlButtonDark])}
                   onPress={openFullscreen}
-                  hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
                   android_ripple={pressRipple}
                 >
                   <MaterialCommunityIcons

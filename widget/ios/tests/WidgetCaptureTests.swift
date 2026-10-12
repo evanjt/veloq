@@ -224,6 +224,73 @@ final class WidgetCaptureTests: XCTestCase {
     XCTAssert(failures.isEmpty, failures.joined(separator: "\n"))
   }
 
+  /// Scenario: a screen reader reaches each widget the sample library draws. The arrow beside a
+  /// metric is coloured by its verdict, the charts, the route and the body are drawn and an
+  /// insight's tone is a coloured dot, so none of them says anything unless it is given words.
+  ///
+  /// Expected behaviour: every one of them is drawn with the words the snapshot carries for it,
+  /// and none reaches the screen reader empty.
+  func testEveryMarkAWidgetDrawsSaysWhatItShows() throws {
+    let snapshot = try self.snapshot("demo")
+    var failures: [String] = []
+    for widget in widgets where widget.name != "record" && widget.name != "strength-empty" {
+      for family in widget.families {
+        let name = "\(widget.name)-\(familyName(family))"
+        let marks = spokenMarks(
+          widget.draw(snapshot, family, Date()).padding(contentMargin), boxes(family)[0].size)
+        for mark in marks where mark.label.isEmpty {
+          failures.append("\(name): the \(mark.name) says nothing")
+        }
+        let missing = expectedMarks(widget.name, family).subtracting(marks.map(\.name))
+        failures += missing.sorted().map { "\(name): draws no spoken \($0)" }
+      }
+    }
+    XCTAssert(failures.isEmpty, "Marks without words:\n" + failures.joined(separator: "\n"))
+  }
+
+  /// The probe has to see a mark with no words, or the test above passes on nothing.
+  func testTheProbeReportsAMarkWithNoWords() {
+    let size = CGSize(width: 80, height: 80)
+    XCTAssertEqual(
+      spokenMarks(Circle().spoken("tone", nil), size), [SpokenMark(name: "tone", label: "")])
+    XCTAssertEqual(
+      spokenMarks(Circle().spoken("tone", "Record"), size),
+      [SpokenMark(name: "tone", label: "Record")])
+    XCTAssertEqual(spokenMarks(Circle(), size), [])
+  }
+
+  /// What each widget draws from the sample library that a screen reader cannot read off a text:
+  /// the Last activity widget's small size leads with its comparison and leaves the name, the
+  /// record mark beside it and the route out. A Summary placed on another hero draws the same
+  /// marks as the default one.
+  private func expectedMarks(_ widget: String, _ family: WidgetFamily) -> Set<String> {
+    switch (widget.hasPrefix("summary") ? "summary" : widget, family) {
+    case ("summary", .systemSmall): return ["hero", "chart"]
+    case ("summary", .systemMedium): return ["hero", "chart", "metric"]
+    case ("summary", _): return ["hero", "chart", "metric", "form chart"]
+    case ("activity", .systemSmall): return []
+    case ("activity", _): return ["route", "record"]
+    case ("insights", _): return ["tone"]
+    default: return ["body"]
+    }
+  }
+
+  private final class Marks {
+    var marks: [SpokenMark] = []
+  }
+
+  private func spokenMarks(_ view: some View, _ size: CGSize) -> [SpokenMark] {
+    let log = Marks()
+    let root = view
+      .environment(\.measuresText, true)
+      .backgroundPreferenceValue(SpokenMarkKey.self) { marks in
+        let _ = (log.marks = marks)
+        Color.clear
+      }
+    _ = ImageRenderer(content: root.frame(width: size.width, height: size.height)).uiImage
+    return log.marks
+  }
+
   // MARK: - drawing
 
   /// The snapshot with its calendar month emptied and worded as the longest words a locale gives

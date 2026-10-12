@@ -121,9 +121,9 @@ describe('ActivityMapPreview', () => {
     } as unknown as ReturnType<typeof getEngine>);
   });
 
-  it('does not render again for sync progress within the same state', () => {
+  it('does not render again for sync progress within the same state', async () => {
     let renders = 0;
-    render(
+    await render(
       <React.Profiler
         id="preview"
         onRender={() => {
@@ -135,36 +135,36 @@ describe('ActivityMapPreview', () => {
     );
     const before = renders;
 
-    act(() => {
+    await act(() => {
       mockSyncCompleted = 1;
       mockSyncListeners.get('syncProgress')?.forEach((notify) => notify());
     });
     expect(renders).toBe(before);
   });
 
-  it('draws no credit over the cached snapshot', () => {
-    const { queryByTestId } = render(<ActivityMapPreview activity={activity} />);
+  it('draws no credit over the cached snapshot', async () => {
+    const { queryByTestId } = await render(<ActivityMapPreview activity={activity} />);
 
     expect(queryByTestId('map-attribution')).toBeNull();
     expect(queryByTestId('map-attribution-text')).toBeNull();
   });
 
-  it('shows the cached image at full opacity on its first frame', () => {
-    const { getByTestId } = render(<ActivityMapPreview activity={activity} />);
+  it('shows the cached image at full opacity on its first frame', async () => {
+    const { getByTestId } = await render(<ActivityMapPreview activity={activity} />);
 
     const preview = getByTestId('activity-map-preview-ready-demo-1');
     const { Image } = require('react-native');
     expect(preview.findByType(Image).props.fadeDuration).toBe(0);
   });
 
-  it('draws the compass of a turned snapshot without an SVG surface', () => {
+  it('draws the compass of a turned snapshot without an SVG surface', async () => {
     // An SVG surface re-renders and dispatches a layout event every time the
     // list reattaches the row, which held feed scroll frames past the budget.
     mockTerrain3DMode = 'always';
     mockCameraOverride = { center: [8.71, 47.51], zoom: 13, bearing: 90, pitch: 60 };
     mockCached.add(mockKey('demo-1', 'light', true));
 
-    const { getByTestId, UNSAFE_root } = render(<ActivityMapPreview activity={activity} />);
+    const { getByTestId, UNSAFE_root } = await render(<ActivityMapPreview activity={activity} />);
 
     expect(getByTestId('activity-map-preview-compass')).toBeTruthy();
     const svgHosts = UNSAFE_root.findAll(
@@ -173,28 +173,28 @@ describe('ActivityMapPreview', () => {
     expect(svgHosts).toHaveLength(0);
   });
 
-  it('draws no compass over a snapshot facing north', () => {
-    const { queryByTestId } = render(<ActivityMapPreview activity={activity} />);
+  it('draws no compass over a snapshot facing north', async () => {
+    const { queryByTestId } = await render(<ActivityMapPreview activity={activity} />);
 
     expect(queryByTestId('activity-map-preview-compass')).toBeNull();
   });
 
-  it('draws none over a satellite snapshot either, where the credit was longest', () => {
+  it('draws none over a satellite snapshot either, where the credit was longest', async () => {
     mockMapStyle = 'satellite';
 
-    const { queryByTestId } = render(<ActivityMapPreview activity={activity} />);
+    const { queryByTestId } = await render(<ActivityMapPreview activity={activity} />);
 
     expect(queryByTestId('map-attribution')).toBeNull();
   });
 
-  it('asks for a stand-in with the terrain camera when only the flat key is cached', () => {
+  it('asks for a stand-in with the terrain camera when only the flat key is cached', async () => {
     mockTerrain3DMode = 'always';
     const requestSnapshot = jest.fn();
     const snapshotRef = {
       current: { requestSnapshot, retryFailed: jest.fn(), holdForScroll: jest.fn() },
     };
 
-    render(
+    await render(
       <ActivityMapPreview activity={activity} snapshotRef={snapshotRef} snapshotReady={true} />
     );
 
@@ -212,7 +212,7 @@ describe('ActivityMapPreview', () => {
     );
   });
 
-  it('sends an overridden card to the head of the queue', () => {
+  it('sends an overridden card to the head of the queue', async () => {
     mockHasOverride = true;
     mockTerrain3DMode = 'always';
     const requestSnapshot = jest.fn();
@@ -220,52 +220,52 @@ describe('ActivityMapPreview', () => {
       current: { requestSnapshot, retryFailed: jest.fn(), holdForScroll: jest.fn() },
     };
 
-    render(
+    await render(
       <ActivityMapPreview activity={activity} snapshotRef={snapshotRef} snapshotReady={true} />
     );
 
     expect(requestSnapshot).toHaveBeenCalledWith(expect.objectContaining({ priority: true }));
   });
 
-  it('leaves an ordinary card in the queue it landed in', () => {
+  it('leaves an ordinary card in the queue it landed in', async () => {
     mockTerrain3DMode = 'always';
     const requestSnapshot = jest.fn();
     const snapshotRef = {
       current: { requestSnapshot, retryFailed: jest.fn(), holdForScroll: jest.fn() },
     };
 
-    render(
+    await render(
       <ActivityMapPreview activity={activity} snapshotRef={snapshotRef} snapshotReady={true} />
     );
 
     expect(requestSnapshot).toHaveBeenCalledWith(expect.objectContaining({ priority: false }));
   });
 
-  it('deletes the superseded renders once the overridden one has landed', () => {
+  it('deletes the superseded renders once the overridden one has landed', async () => {
     mockHasOverride = true;
     mockMapStyle = 'satellite';
     mockTerrain3DMode = 'always';
 
-    render(<ActivityMapPreview activity={activity} />);
-    act(() => mockSnapshotLanded?.());
+    await render(<ActivityMapPreview activity={activity} />);
+    await act(() => mockSnapshotLanded?.());
 
     expect(mockDeleteSuperseded).toHaveBeenCalledWith('demo-1', 'satellite', true);
   });
 
-  it('keeps every render for a card the athlete has not overridden', () => {
-    render(<ActivityMapPreview activity={activity} />);
-    act(() => mockSnapshotLanded?.());
+  it('keeps every render for a card the athlete has not overridden', async () => {
+    await render(<ActivityMapPreview activity={activity} />);
+    await act(() => mockSnapshotLanded?.());
 
     expect(mockDeleteSuperseded).not.toHaveBeenCalled();
   });
 
-  it('serves the cached flat render without queuing anything', () => {
+  it('serves the cached flat render without queuing anything', async () => {
     const requestSnapshot = jest.fn();
     const snapshotRef = {
       current: { requestSnapshot, retryFailed: jest.fn(), holdForScroll: jest.fn() },
     };
 
-    render(
+    await render(
       <ActivityMapPreview activity={activity} snapshotRef={snapshotRef} snapshotReady={true} />
     );
 

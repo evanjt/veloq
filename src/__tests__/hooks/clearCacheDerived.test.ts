@@ -62,7 +62,7 @@ const mockCopyAsync = FileSystem.copyAsync as jest.Mock;
 const mockDeleteAsync = FileSystem.deleteAsync as jest.Mock;
 
 async function clear(): Promise<boolean> {
-  const { result } = renderHook(() => useActivityBoundsCache());
+  const { result } = await renderHook(() => useActivityBoundsCache());
   let cleared = false;
   await act(async () => {
     cleared = await result.current.clearCache();
@@ -143,7 +143,7 @@ describe('clearing the cache', () => {
       })
     );
 
-    const { result } = renderHook(() => useActivityBoundsCache());
+    const { result } = await renderHook(() => useActivityBoundsCache());
     let cleared: boolean | undefined;
     const running = act(async () => {
       cleared = await result.current.clearCache();

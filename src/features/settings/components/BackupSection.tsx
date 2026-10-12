@@ -1,8 +1,8 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
-import { View, StyleSheet, Switch, Alert, Platform } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Button, Card, ListSectionHeader, Row } from '@/shared/ui';
+import { Button, Card, ListSectionHeader, Row, StatusLine, SwitchRow } from '@/shared/ui';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { SyncState, SyncStep } from 'veloqrs';
@@ -64,6 +64,7 @@ import { describeBackupFailure } from '@/features/settings/lib/backupFailure';
 import { formatFileSize, getIntlLocale } from '@/shared/format/format';
 import { getAndroidAutoBackupStatus } from '@/shared/native/androidAutoBackup';
 import { androidAutoBackupLines } from '@/features/settings/lib/androidAutoBackupLines';
+import { confirmAction, inform } from '@/shared/ui/dialog';
 
 /** The entries one carrier listed, restored through that carrier. */
 interface CarrierEntries {
@@ -86,6 +87,67 @@ function carrierName(t: TFunction, id: string): string {
   }
 }
 
+/** Every failure line in this section, in the error tone of the active theme. */
+function errorStyle(isDark: boolean) {
+  return [styles.detail, styles.error, isDark && styles.errorDark];
+}
+
+interface BackupRunStatus {
+  tone: 'error' | 'success';
+  spoken: (string | null)[];
+  saved: string[] | null;
+  carriers: { id: string; state: 'failed' | 'owed'; lines: string[] }[];
+  error: string | null;
+}
+
+/**
+ * What the last Back Up Now left to say: where it was saved, each carrier it
+ * did not reach, or the error. One announcement for the lot, assertive when
+ * any part of it failed.
+ */
+function describeBackupRun(
+  t: TFunction,
+  result: 'success' | 'error' | null,
+  error: string | null,
+  run: BackupRunResult | null,
+  destinations: { webdav: string; folder: string; googleDrive: string }
+): BackupRunStatus | null {
+  if (result === 'error') {
+    return { tone: 'error', spoken: [error], saved: null, carriers: [], error };
+  }
+  if (result !== 'success') return null;
+  const carriers = run?.carriers;
+  const saved = [
+    t('backup.recordSavedLocal'),
+    ...(carriers?.webdav?.status === 'written'
+      ? [t('backup.recordSavedWebdav', { destination: destinations.webdav })]
+      : []),
+    ...(carriers?.folder?.status === 'written'
+      ? [t('backup.recordSavedFolder', { destination: destinations.folder })]
+      : []),
+    ...(carriers?.googleDrive?.status === 'written'
+      ? [t('backup.recordSavedGoogleDrive', { destination: destinations.googleDrive })]
+      : []),
+  ];
+  const missed: BackupRunStatus['carriers'] = [];
+  for (const [id, outcome] of Object.entries(carriers ?? {})) {
+    const notWritten = t('backup.carrierNotWritten', { destination: carrierName(t, id) });
+    if (outcome.status === 'failed') {
+      const kind = outcome.kind === 'unknown' ? 'transport' : outcome.kind;
+      missed.push({ id, state: 'failed', lines: [notWritten, t(failureMessageKey(kind))] });
+    } else if (outcome.status === 'skipped' && outcome.reason === 'no-radio') {
+      missed.push({ id, state: 'owed', lines: [notWritten, t('backup.carrierSentWhenOnline')] });
+    }
+  }
+  return {
+    tone: missed.length > 0 ? 'error' : 'success',
+    spoken: [...saved, ...missed.flatMap((carrier) => carrier.lines)],
+    saved,
+    carriers: missed,
+    error: null,
+  };
+}
+
 /** The failure a carrier's last run left, in words the athlete can act on. */
 function CarrierFailure({
   failure,
@@ -95,9 +157,10 @@ function CarrierFailure({
   testID: string;
 }) {
   const { t } = useTranslation();
+  const { isDark } = useTheme();
   if (!failure) return null;
   return (
-    <Text testID={testID} style={[styles.detail, styles.error]}>
+    <Text testID={testID} style={errorStyle(isDark)}>
       {t('backup.lastAttemptFailed', {
         date: new Date(failure.at).toLocaleDateString(getIntlLocale()),
       })}
@@ -152,11 +215,7 @@ function AndroidAutoBackupState() {
             );
           case 'quotaExceeded':
             return (
-              <Text
-                key={line.kind}
-                testID="backup-carrier-device-quota"
-                style={[styles.detail, styles.error]}
-              >
+              <Text key={line.kind} testID="backup-carrier-device-quota" style={errorStyle(isDark)}>
                 {t('backup.androidQuotaExceeded', {
                   date: day(line.at),
                   size: formatFileSize(line.bytes),
@@ -347,7 +406,8 @@ export function BackupSection() {
       }
       setBackendBackups(groups);
       setListedSetUpDestination(candidates.some((backend) => backend.id !== 'local'));
-      if (firstError) Alert.alert(t('common.error'), describeBackupError(firstError));
+      if (firstError)
+        inform({ title: t('backup.notListedTitle'), message: describeBackupError(firstError) });
     } finally {
       setLoadingBackups(false);
     }
@@ -369,13 +429,13 @@ export function BackupSection() {
       setRestoringEntry(entry.id);
       try {
         const notice = await restoreBackendEntry(backend, entry, t);
-        Alert.alert(notice.title, notice.message);
+        inform({ title: notice.title, message: notice.message });
         setBackendBackups(null);
       } catch (error) {
-        Alert.alert(
-          t('common.error'),
-          error instanceof Error ? error.message : t('backup.importError')
-        );
+        inform({
+          title: t('backup.notRestoredTitle'),
+          message: error instanceof Error ? error.message : t('backup.importError'),
+        });
       } finally {
         restoreRunning.current = false;
         setRestoringEntry(null);
@@ -394,10 +454,10 @@ export function BackupSection() {
     try {
       const result = await resumeRecordImport();
       if (result) {
-        Alert.alert(t('backup.restoreComplete'), t('backup.recordRestored'));
+        inform({ title: t('backup.restoreComplete'), message: t('backup.recordRestored') });
       }
     } catch {
-      Alert.alert(t('common.error'), t('backup.importPausedError'));
+      inform({ title: t('backup.notRestoredTitle'), message: t('backup.importPausedError') });
     } finally {
       restoreRunning.current = false;
       setResumingImport(false);
@@ -406,47 +466,53 @@ export function BackupSection() {
   }, [t]);
 
   const handleDiscardImport = useCallback(() => {
-    Alert.alert(t('backup.discardImportTitle'), t('backup.discardImportMessage'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('backup.discardImport'),
-        style: 'destructive',
-        onPress: async () => {
-          if (restoreRunning.current) return;
-          restoreRunning.current = true;
-          try {
-            await discardRecordImport();
-          } catch {
-            Alert.alert(t('common.error'), t('backup.discardImportError'));
-          } finally {
-            restoreRunning.current = false;
-            setRestoreGeneration((generation) => generation + 1);
-          }
-        },
+    confirmAction({
+      title: t('backup.discardImportTitle'),
+      message: t('backup.discardImportMessage'),
+      confirmLabel: t('backup.discardImport'),
+      cancelLabel: t('common.cancel'),
+      destructive: true,
+      onConfirm: async () => {
+        if (restoreRunning.current) return;
+        restoreRunning.current = true;
+        try {
+          await discardRecordImport();
+        } catch {
+          inform({
+            title: t('backup.importNotDiscardedTitle'),
+            message: t('backup.discardImportError'),
+          });
+        } finally {
+          restoreRunning.current = false;
+          setRestoreGeneration((generation) => generation + 1);
+        }
       },
-    ]);
+    });
   }, [t]);
 
   const handleDiscardWaiting = useCallback(() => {
-    Alert.alert(t('backup.discardWaitingTitle'), t('backup.discardWaitingMessage'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('backup.discardImport'),
-        style: 'destructive',
-        onPress: async () => {
-          if (restoreRunning.current) return;
-          restoreRunning.current = true;
-          try {
-            await discardUnplacedRecords();
-          } catch {
-            Alert.alert(t('common.error'), t('backup.discardWaitingError'));
-          } finally {
-            restoreRunning.current = false;
-            setRestoreGeneration((generation) => generation + 1);
-          }
-        },
+    confirmAction({
+      title: t('backup.discardWaitingTitle'),
+      message: t('backup.discardWaitingMessage'),
+      confirmLabel: t('backup.discardImport'),
+      cancelLabel: t('common.cancel'),
+      destructive: true,
+      onConfirm: async () => {
+        if (restoreRunning.current) return;
+        restoreRunning.current = true;
+        try {
+          await discardUnplacedRecords();
+        } catch {
+          inform({
+            title: t('backup.importNotDiscardedTitle'),
+            message: t('backup.discardWaitingError'),
+          });
+        } finally {
+          restoreRunning.current = false;
+          setRestoreGeneration((generation) => generation + 1);
+        }
       },
-    ]);
+    });
   }, [t]);
 
   // Removing one carrier leaves the switch and the other carriers as they were.
@@ -463,7 +529,7 @@ export function BackupSection() {
         setBackendBackups(null);
       }
     } catch (error) {
-      Alert.alert(t('common.error'), describeBackupError(error));
+      inform({ title: t('backup.folderNotChosenTitle'), message: describeBackupError(error) });
     }
   }, [describeBackupError, t]);
 
@@ -474,7 +540,10 @@ export function BackupSection() {
       try {
         account = await signInToGoogleDrive();
       } catch {
-        Alert.alert(t('common.error'), t('backup.carrierGoogleDriveSignInFailed'));
+        inform({
+          title: t('backup.driveNotSetUpTitle'),
+          message: t('backup.carrierGoogleDriveSignInFailed'),
+        });
         return;
       }
       if (account === null) return;
@@ -485,7 +554,7 @@ export function BackupSection() {
       await paid;
       setCarrierGeneration((generation) => generation + 1);
     } catch (error) {
-      Alert.alert(t('common.error'), describeBackupError(error));
+      inform({ title: t('backup.driveNotSetUpTitle'), message: describeBackupError(error) });
     } finally {
       setSigningInToDrive(false);
     }
@@ -537,7 +606,7 @@ export function BackupSection() {
   const iconColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const labelStyle = [settingsStyles.actionRowText, isDark && settingsStyles.textLight];
   const detailStyle = [styles.detail, isDark && settingsStyles.textSecondary];
-  const errorStyle = [styles.detail, styles.error, isDark && styles.errorDark];
+  const errorLine = errorStyle(isDark);
   const divider = (
     <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
   );
@@ -545,25 +614,30 @@ export function BackupSection() {
 
   const info = (...parts: string[]) => parts.join('\n\n');
 
+  const runStatus = describeBackupRun(t, backupResult, backupError, runResult, {
+    webdav: getWebdavConfig()?.url ?? '',
+    folder: folderName ?? '',
+    googleDrive: driveAccount ?? '',
+  });
+
   return (
     <>
       <ListSectionHeader>{t('backup.sectionBackup')}</ListSectionHeader>
       <Card variant="flat" padding="none">
-        <Row>
-          <MaterialCommunityIcons name="cloud-sync-outline" size={22} color={iconColor} />
-          <Text style={labelStyle}>{t('backup.autoBackup')}</Text>
-          <InfoButton
-            testID="backup-info-auto"
-            title={t('backup.autoBackup')}
-            message={info(t('backup.autoBackupDescription'), t('backup.recordContents'))}
-          />
-          <Switch
-            testID="backup-auto-switch"
-            value={autoEnabled}
-            onValueChange={handleToggleAutoBackup}
-            trackColor={{ false: colors.border, true: colors.primary }}
-          />
-        </Row>
+        <SwitchRow
+          icon="cloud-sync-outline"
+          title={t('backup.autoBackup')}
+          value={autoEnabled}
+          onValueChange={handleToggleAutoBackup}
+          accessory={
+            <InfoButton
+              testID="backup-info-auto"
+              title={t('backup.autoBackup')}
+              message={info(t('backup.autoBackupDescription'), t('backup.recordContents'))}
+            />
+          }
+          testID="backup-auto-switch"
+        />
         {divider}
         <Row>
           <MaterialCommunityIcons name="history" size={22} color={iconColor} />
@@ -571,53 +645,31 @@ export function BackupSection() {
             <Text testID="backup-last-run-text" style={labelStyle}>
               {lastBackupText}
             </Text>
-            {backupResult === 'success' && (
-              <Text
-                testID="backup-success-message"
-                style={[styles.detail, styles.success, isDark && styles.successDark]}
-              >
-                {[
-                  t('backup.recordSavedLocal'),
-                  ...(runResult?.carriers.webdav?.status === 'written'
-                    ? [t('backup.recordSavedWebdav', { destination: getWebdavConfig()?.url ?? '' })]
-                    : []),
-                  ...(runResult?.carriers.folder?.status === 'written'
-                    ? [t('backup.recordSavedFolder', { destination: folderName ?? '' })]
-                    : []),
-                  ...(runResult?.carriers.googleDrive?.status === 'written'
-                    ? [t('backup.recordSavedGoogleDrive', { destination: driveAccount ?? '' })]
-                    : []),
-                ].join('\n')}
-              </Text>
-            )}
-            {backupResult === 'success' &&
-              Object.entries(runResult?.carriers ?? {}).map(([id, outcome]) => {
-                if (outcome.status === 'failed') {
-                  return (
-                    <Text key={id} testID={`backup-carrier-failed-${id}`} style={errorStyle}>
-                      {t('backup.carrierNotWritten', { destination: carrierName(t, id) })}
-                      {'\n'}
-                      {t(
-                        failureMessageKey(outcome.kind === 'unknown' ? 'transport' : outcome.kind)
-                      )}
-                    </Text>
-                  );
-                }
-                if (outcome.status === 'skipped' && outcome.reason === 'no-radio') {
-                  return (
-                    <Text key={id} testID={`backup-carrier-owed-${id}`} style={errorStyle}>
-                      {t('backup.carrierNotWritten', { destination: carrierName(t, id) })}
-                      {'\n'}
-                      {t('backup.carrierSentWhenOnline')}
-                    </Text>
-                  );
-                }
-                return null;
-              })}
-            {backupResult === 'error' && (
-              <Text testID="backup-error-message" style={errorStyle}>
-                {backupError}
-              </Text>
+            {runStatus && (
+              <StatusLine tone={runStatus.tone} message={runStatus.spoken}>
+                {runStatus.saved && (
+                  <Text
+                    testID="backup-success-message"
+                    style={[styles.detail, styles.success, isDark && styles.successDark]}
+                  >
+                    {runStatus.saved.join('\n')}
+                  </Text>
+                )}
+                {runStatus.carriers.map((carrier) => (
+                  <Text
+                    key={carrier.id}
+                    testID={`backup-carrier-${carrier.state}-${carrier.id}`}
+                    style={errorLine}
+                  >
+                    {carrier.lines.join('\n')}
+                  </Text>
+                ))}
+                {runStatus.error !== null && (
+                  <Text testID="backup-error-message" style={errorLine}>
+                    {runStatus.error}
+                  </Text>
+                )}
+              </StatusLine>
             )}
           </View>
           <Button
@@ -635,6 +687,7 @@ export function BackupSection() {
       <Card variant="flat" padding="none">
         <Row
           testID="backup-list-button"
+          behaviour="act"
           onPress={handleListBackups}
           accessibilityLabel={t('backup.restoreFromDestination')}
           disabled={loadingBackups || anyBusy}
@@ -671,6 +724,7 @@ export function BackupSection() {
                 <Row
                   key={entry.id}
                   testID={`backup-entry-${backend.id}-${entry.id}`}
+                  behaviour="act"
                   onPress={() => handleRestoreEntry(backend, entry)}
                   accessibilityLabel={t('backup.restoreDatedBackup', {
                     date: new Date(entry.timestamp).toLocaleDateString(getIntlLocale()),
@@ -690,6 +744,7 @@ export function BackupSection() {
         {divider}
         <Row
           testID="backup-import-button"
+          behaviour="act"
           onPress={handleImportBackup}
           accessibilityLabel={dbImporting ? t('backup.importing') : t('backup.importBackup')}
           disabled={dbImporting}
@@ -711,7 +766,7 @@ export function BackupSection() {
                 <View style={styles.actions}>
                   <Button
                     testID="backup-import-resume-button"
-                    label={t('errorState.tryAgain')}
+                    label={t('common.retry')}
                     variant="secondary"
                     size="sm"
                     onPress={handleResumeImport}
@@ -787,7 +842,7 @@ export function BackupSection() {
         )}
         {unplacedReadError && (
           <Row>
-            <Text testID="backup-unplaced-read-error" style={errorStyle}>
+            <Text testID="backup-unplaced-read-error" style={errorLine}>
               {t('backup.unplacedReadError')}
             </Text>
           </Row>
@@ -945,6 +1000,7 @@ export function BackupSection() {
       <Card variant="flat" padding="none">
         <Row
           testID="backup-export-button"
+          behaviour="act"
           onPress={exportRecordBackup}
           accessibilityLabel={dbExporting ? t('backup.exporting') : t('backup.exportBackup')}
           disabled={dbExporting}
@@ -963,9 +1019,11 @@ export function BackupSection() {
         </Row>
         {exportStillRunning && (
           <Row>
-            <Text testID="backup-export-still-running" style={detailStyle}>
-              {t('settings.stillRunning')}
-            </Text>
+            <StatusLine tone="pending" message={t('settings.stillRunning')}>
+              <Text testID="backup-export-still-running" style={detailStyle}>
+                {t('settings.stillRunning')}
+              </Text>
+            </StatusLine>
           </Row>
         )}
         {divider}
@@ -1003,9 +1061,11 @@ export function BackupSection() {
         {/* A late share is the run ending, not one the athlete can leave. */}
         {bulkStillRunning && bulkPhase !== 'sharing' && (
           <Row>
-            <Text testID="bulk-export-still-running" style={detailStyle}>
-              {t('settings.stillRunning')}
-            </Text>
+            <StatusLine tone="pending" message={t('settings.stillRunning')}>
+              <Text testID="bulk-export-still-running" style={detailStyle}>
+                {t('settings.stillRunning')}
+              </Text>
+            </StatusLine>
           </Row>
         )}
         {divider}

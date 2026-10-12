@@ -16,8 +16,10 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { clearRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
 import * as haptics from '@/shared/ui/haptics';
+import { inStack } from '../__shared__/testStack';
 
 const mockReplace = jest.fn();
+const mockReturnTo = jest.fn();
 
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
@@ -42,6 +44,7 @@ jest.mock('@/shared/app', () => ({
 jest.mock('@/shared/app/navigation', () => ({
   navigateTo: jest.fn(),
   replaceTo: (...a: unknown[]) => mockReplace(...a),
+  returnTo: (...a: unknown[]) => mockReturnTo(...a),
   tapBack: jest.fn(),
 }));
 jest.mock('@/shared/native/engine', () => ({ getEngine: () => null }));
@@ -87,8 +90,8 @@ function stoppedRide() {
 }
 
 /** Press Discard and return the buttons of the alert it raised. */
-function pressDiscard(review: ReturnType<typeof render>): AlertButton[] {
-  fireEvent.press(review.getByTestId('review-discard-button'));
+async function pressDiscard(review: Awaited<ReturnType<typeof render>>): Promise<AlertButton[]> {
+  await fireEvent.press(review.getByTestId('review-discard-button'));
   expect(alertSpy).toHaveBeenCalledTimes(1);
   return alertSpy.mock.calls[0][2] as AlertButton[];
 }
@@ -106,17 +109,17 @@ afterEach(() => {
 });
 
 describe('review screen discard', () => {
-  it('is a button a screen reader can name and activate', () => {
-    const review = render(<ReviewScreen />);
+  it('is a button a screen reader can name and activate', async () => {
+    const review = await render(inStack(<ReviewScreen />));
     const discard = review.getByTestId('review-discard-button');
 
     expect(discard.props.accessibilityRole).toBe('button');
     expect(discard.props.accessibilityLabel).toBe('recording.discard');
   });
 
-  it('raises a confirmation with a cancel and a destructive accept, and acts on neither yet', () => {
-    const review = render(<ReviewScreen />);
-    const buttons = pressDiscard(review);
+  it('raises a confirmation with a cancel and a destructive accept, and acts on neither yet', async () => {
+    const review = await render(inStack(<ReviewScreen />));
+    const buttons = await pressDiscard(review);
 
     expect(alertSpy.mock.calls[0][0]).toBe('recording.discardConfirmTitle');
     expect(alertSpy.mock.calls[0][1]).toBe('recording.discardConfirmMessage');
@@ -126,10 +129,10 @@ describe('review screen discard', () => {
     expect(mockMedium).not.toHaveBeenCalled();
   });
 
-  it('leaves the ride untouched on cancel', () => {
-    const review = render(<ReviewScreen />);
+  it('leaves the ride untouched on cancel', async () => {
+    const review = await render(inStack(<ReviewScreen />));
     const before = useRecordingStore.getState();
-    const cancel = pressDiscard(review).find((b) => b.style === 'cancel');
+    const cancel = (await pressDiscard(review)).find((b) => b.style === 'cancel');
 
     cancel?.onPress?.();
 
@@ -139,25 +142,28 @@ describe('review screen discard', () => {
     expect(after.athleteId).toBe('i1');
     expect(mockClearBackup).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
+    expect(mockReturnTo).not.toHaveBeenCalled();
     expect(mockMedium).not.toHaveBeenCalled();
   });
 
-  it('drops the ride, deletes its backup and goes home on the accept, with one medium impact', () => {
-    const review = render(<ReviewScreen />);
-    const accept = pressDiscard(review).find((b) => b.style === 'destructive');
+  it('drops the ride, deletes its backup and goes home on the accept, with one medium impact', async () => {
+    const review = await render(inStack(<ReviewScreen />));
+    const accept = (await pressDiscard(review)).find((b) => b.style === 'destructive');
 
     accept?.onPress?.();
 
     expect(useRecordingStore.getState().status).toBe('idle');
     expect(mockClearBackup).toHaveBeenCalledTimes(1);
-    expect(mockReplace).toHaveBeenCalledWith('/');
+    // Home pops the review and the live screen beneath it, so back cannot land on either.
+    expect(mockReturnTo).toHaveBeenCalledWith('/');
+    expect(mockReplace).not.toHaveBeenCalled();
     expect(mockMedium).toHaveBeenCalledTimes(1);
     expect(haptics.success).not.toHaveBeenCalled();
   });
 
-  it('does nothing on an accept that lands after the ride has already gone', () => {
-    const review = render(<ReviewScreen />);
-    const accept = pressDiscard(review).find((b) => b.style === 'destructive');
+  it('does nothing on an accept that lands after the ride has already gone', async () => {
+    const review = await render(inStack(<ReviewScreen />));
+    const accept = (await pressDiscard(review)).find((b) => b.style === 'destructive');
 
     useRecordingStore.getState().reset();
     stoppedRide();
@@ -167,15 +173,16 @@ describe('review screen discard', () => {
     expect(useRecordingStore.getState().status).toBe('stopped');
     expect(mockClearBackup).not.toHaveBeenCalled();
     expect(mockReplace).not.toHaveBeenCalled();
+    expect(mockReturnTo).not.toHaveBeenCalled();
   });
 
-  it('refuses the press while a save is in flight', () => {
+  it('refuses the press while a save is in flight', async () => {
     mockUploading = true;
-    const review = render(<ReviewScreen />);
+    const review = await render(inStack(<ReviewScreen />));
     const discard = review.getByTestId('review-discard-button');
 
     expect(discard.props.accessibilityState?.disabled).toBe(true);
-    fireEvent.press(discard);
+    await fireEvent.press(discard);
     expect(alertSpy).not.toHaveBeenCalled();
   });
 });

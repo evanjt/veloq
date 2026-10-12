@@ -5,6 +5,8 @@ export {
   startScan,
   stopScan,
   connectKnownSensors,
+  connectPairedSensor,
+  releasePairingConnections,
   disconnectSensor,
   disconnectAllSensors,
   requestBlePermissions,
@@ -13,4 +15,5 @@ export {
   turnOnBluetooth,
 } from './lib/sensorManager';
 export { startSimulatedSensors, stopSimulatedSensors } from './lib/simulatedSensors';
+export { displayedSensorSource, metricsSuppliedBy } from './lib/sensorSource';
 export type * from './types';

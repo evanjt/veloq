@@ -108,7 +108,7 @@ function Tab({ frozen }: { frozen: boolean }) {
   );
 }
 
-const painted = (api: ReturnType<typeof render>, scheme: Scheme) => {
+const painted = (api: Awaited<ReturnType<typeof render>>, scheme: Scheme) => {
   const background = scheme === 'dark' ? darkColors.background : colors.background;
   expect(api.getByTestId('useTheme').props.children).toBe(`${scheme}:${background}`);
   for (const name of PROBES.filter((n) => n !== 'useTheme')) {
@@ -132,7 +132,7 @@ beforeEach(async () => {
 
 describe('a frozen subtree and a colour-scheme flip', () => {
   it('flips a subtree that is not frozen at once (control)', async () => {
-    const api = render(<Tab frozen={false} />);
+    const api = await render(<Tab frozen={false} />);
     painted(api, 'light');
 
     await setPreference('dark');
@@ -145,8 +145,8 @@ describe('a frozen subtree and a colour-scheme flip', () => {
   });
 
   it('commits nothing while frozen, then paints the new scheme at thaw without remounting', async () => {
-    const api = render(<Tab frozen={false} />);
-    api.rerender(<Tab frozen />);
+    const api = await render(<Tab frozen={false} />);
+    await api.rerender(<Tab frozen />);
     const commitsBefore = Object.fromEntries(PROBES.map((n) => [n, ledger.commits[n]?.length]));
 
     await setPreference('dark');
@@ -156,7 +156,7 @@ describe('a frozen subtree and a colour-scheme flip', () => {
       expect(lastCommit(name)).toBe('light');
     }
 
-    api.rerender(<Tab frozen={false} />);
+    await api.rerender(<Tab frozen={false} />);
 
     painted(api, 'dark');
     for (const name of PROBES) {
@@ -166,12 +166,12 @@ describe('a frozen subtree and a colour-scheme flip', () => {
   });
 
   it('shows no stale scheme after two flips that end where they began', async () => {
-    const api = render(<Tab frozen={false} />);
-    api.rerender(<Tab frozen />);
+    const api = await render(<Tab frozen={false} />);
+    await api.rerender(<Tab frozen />);
 
     await setPreference('dark');
     await setPreference('light');
-    api.rerender(<Tab frozen={false} />);
+    await api.rerender(<Tab frozen={false} />);
 
     painted(api, 'light');
     for (const name of PROBES) {
@@ -182,18 +182,18 @@ describe('a frozen subtree and a colour-scheme flip', () => {
 
   it('follows the system scheme at thaw when the preference is system', async () => {
     await setPreference('system');
-    const api = render(<Tab frozen={false} />);
+    const api = await render(<Tab frozen={false} />);
     painted(api, 'light');
-    api.rerender(<Tab frozen />);
+    await api.rerender(<Tab frozen />);
     const commitsBefore = Object.fromEntries(PROBES.map((n) => [n, ledger.commits[n]?.length]));
 
-    act(() => mockSetSystemScheme('dark'));
+    await act(() => mockSetSystemScheme('dark'));
 
     for (const name of PROBES) {
       expect(ledger.commits[name]?.length).toBe(commitsBefore[name]);
     }
 
-    api.rerender(<Tab frozen={false} />);
+    await api.rerender(<Tab frozen={false} />);
 
     painted(api, 'dark');
     for (const name of PROBES) {
@@ -203,11 +203,11 @@ describe('a frozen subtree and a colour-scheme flip', () => {
   });
 
   it('ignores a system flip at thaw when the preference is explicit', async () => {
-    const api = render(<Tab frozen={false} />);
-    api.rerender(<Tab frozen />);
+    const api = await render(<Tab frozen={false} />);
+    await api.rerender(<Tab frozen />);
 
-    act(() => mockSetSystemScheme('dark'));
-    api.rerender(<Tab frozen={false} />);
+    await act(() => mockSetSystemScheme('dark'));
+    await api.rerender(<Tab frozen={false} />);
 
     painted(api, 'light');
     for (const name of PROBES) {

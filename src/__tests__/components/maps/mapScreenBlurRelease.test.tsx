@@ -140,12 +140,12 @@ function page(id: string): Page {
   return found;
 }
 
-function post(id: string, message: Record<string, unknown>): void {
-  act(() => page(id).onMessage({ nativeEvent: { data: JSON.stringify(message) } }));
+async function post(id: string, message: Record<string, unknown>): Promise<void> {
+  await act(() => page(id).onMessage({ nativeEvent: { data: JSON.stringify(message) } }));
 }
 
-function setFocused(focused: boolean): void {
-  act(() => {
+async function setFocused(focused: boolean): Promise<void> {
+  await act(() => {
     mockFocus.focused = focused;
     mockFocus.listeners.forEach((listener) => listener());
   });
@@ -200,17 +200,17 @@ afterEach(() => {
 });
 
 describe('an activity map on a covered screen', () => {
-  it('releases the 3D page on blur and rebuilds it once, at its camera, on focus', () => {
+  it('releases the 3D page on blur and rebuilds it once, at its camera, on focus', async () => {
     jest.useFakeTimers();
-    const view = render(activityMap({ initial3DCamera: OPENING_3D }));
-    post(PAGE_3D, { type: 'mapReady' });
-    post(PAGE_3D, { type: 'cameraState', camera: SETTLED_3D, gesture: true });
+    const view = await render(activityMap({ initial3DCamera: OPENING_3D }));
+    await post(PAGE_3D, { type: 'mapReady' });
+    await post(PAGE_3D, { type: 'cameraState', camera: SETTLED_3D, gesture: true });
 
-    setFocused(false);
+    await setFocused(false);
     expect(lastScript(PAGE_3D)).toContain('map.remove()');
 
     page(PAGE_3D).injected.length = 0;
-    view.rerender(
+    await view.rerender(
       activityMap({
         initial3DCamera: OPENING_3D,
         highlightIndex: 3,
@@ -220,143 +220,143 @@ describe('an activity map on a covered screen', () => {
     expect(page(PAGE_3D).injected).toEqual([]);
     expect(rebuilds(PAGE_3D)).toBe(0);
 
-    setFocused(true);
+    await setFocused(true);
     expect(rebuilds(PAGE_3D)).toBe(1);
     const rebuilt = page(PAGE_3D).html[page(PAGE_3D).html.length - 1];
     expect(rebuilt).toContain(String(SETTLED_3D.center[0]));
     expect(rebuilt).toContain(String(SETTLED_3D.zoom));
     expect(page(PAGE_3D).injected).toEqual([]);
 
-    post(PAGE_3D, { type: 'mapReady' });
-    act(() => {
+    await post(PAGE_3D, { type: 'mapReady' });
+    await act(() => {
       jest.advanceTimersByTime(150);
     });
     expect(page(PAGE_3D).injected.length).toBeGreaterThan(0);
-    view.unmount();
+    await view.unmount();
   });
 
-  it('reloads the 3D page when its camera never moved', () => {
-    const view = render(activityMap({ initial3DCamera: OPENING_3D }));
-    post(PAGE_3D, { type: 'mapReady' });
+  it('reloads the 3D page when its camera never moved', async () => {
+    const view = await render(activityMap({ initial3DCamera: OPENING_3D }));
+    await post(PAGE_3D, { type: 'mapReady' });
 
-    setFocused(false);
-    setFocused(true);
+    await setFocused(false);
+    await setFocused(true);
 
     expect(page(PAGE_3D).reloads).toBe(1);
     expect(rebuilds(PAGE_3D)).toBe(1);
-    view.unmount();
+    await view.unmount();
   });
 
-  it('releases the 2D page on blur and rebuilds it once, at its settled camera, on focus', () => {
-    const view = render(activityMap());
-    post(PAGE_2D, { type: 'mapReady' });
-    post(PAGE_2D, { type: 'regionDidChange', ...SETTLED_2D, isUserInteraction: true });
+  it('releases the 2D page on blur and rebuilds it once, at its settled camera, on focus', async () => {
+    const view = await render(activityMap());
+    await post(PAGE_2D, { type: 'mapReady' });
+    await post(PAGE_2D, { type: 'regionDidChange', ...SETTLED_2D, isUserInteraction: true });
 
-    setFocused(false);
+    await setFocused(false);
     expect(lastScript(PAGE_2D)).toContain('map.remove()');
 
     page(PAGE_2D).injected.length = 0;
-    view.rerender(
+    await view.rerender(
       activityMap({ sectionOverlays: [{ id: 's1', sectionPolyline: COORDINATES.slice(2, 8) }] })
     );
     expect(page(PAGE_2D).injected).toEqual([]);
 
-    setFocused(true);
+    await setFocused(true);
     expect(rebuilds(PAGE_2D)).toBe(1);
     const rebuilt = page(PAGE_2D).html[page(PAGE_2D).html.length - 1];
     expect(rebuilt).toContain(String(SETTLED_2D.center[0]));
     expect(rebuilt).toContain(String(SETTLED_2D.zoom));
-    view.unmount();
+    await view.unmount();
   });
 
-  it('stays released through a foreground until its screen is shown again', () => {
-    const view = render(activityMap({ initial3DCamera: OPENING_3D }));
-    post(PAGE_3D, { type: 'mapReady' });
+  it('stays released through a foreground until its screen is shown again', async () => {
+    const view = await render(activityMap({ initial3DCamera: OPENING_3D }));
+    await post(PAGE_3D, { type: 'mapReady' });
 
-    setFocused(false);
-    act(() => {
+    await setFocused(false);
+    await act(() => {
       rebuildReleasedSurfaces();
     });
     expect(rebuilds(PAGE_3D)).toBe(0);
 
-    setFocused(true);
+    await setFocused(true);
     expect(rebuilds(PAGE_3D)).toBe(1);
-    act(() => {
+    await act(() => {
       rebuildReleasedSurfaces();
     });
     expect(rebuilds(PAGE_3D)).toBe(1);
-    view.unmount();
+    await view.unmount();
   });
 
-  it('releases a page that finished loading after its screen was covered', () => {
+  it('releases a page that finished loading after its screen was covered', async () => {
     jest.useFakeTimers();
-    const view = render(activityMap({ initial3DCamera: OPENING_3D }));
+    const view = await render(activityMap({ initial3DCamera: OPENING_3D }));
 
-    setFocused(false);
+    await setFocused(false);
     page(PAGE_3D).injected.length = 0;
-    post(PAGE_3D, { type: 'mapReady' });
-    act(() => {
+    await post(PAGE_3D, { type: 'mapReady' });
+    await act(() => {
       jest.advanceTimersByTime(150);
     });
     expect(page(PAGE_3D).injected).toHaveLength(1);
     expect(lastScript(PAGE_3D)).toContain('map.remove()');
 
-    setFocused(true);
+    await setFocused(true);
     expect(rebuilds(PAGE_3D)).toBe(1);
-    view.unmount();
+    await view.unmount();
   });
 
-  it('does nothing to a page on a screen that stays shown', () => {
-    const view = render(activityMap({ initial3DCamera: OPENING_3D }));
-    post(PAGE_3D, { type: 'mapReady' });
+  it('does nothing to a page on a screen that stays shown', async () => {
+    const view = await render(activityMap({ initial3DCamera: OPENING_3D }));
+    await post(PAGE_3D, { type: 'mapReady' });
 
-    setFocused(true);
+    await setFocused(true);
 
     expect(page(PAGE_3D).injected.some((script) => script.includes('map.remove()'))).toBe(false);
     expect(rebuilds(PAGE_3D)).toBe(0);
-    view.unmount();
+    await view.unmount();
   });
 });
 
 describe('a section map on a covered screen', () => {
-  it('releases the 2D page on blur and rebuilds it once, at its settled camera, on focus', () => {
-    const view = render(sectionMap());
-    post(PAGE_2D, { type: 'mapReady' });
-    post(PAGE_2D, { type: 'regionDidChange', ...SETTLED_2D, isUserInteraction: true });
+  it('releases the 2D page on blur and rebuilds it once, at its settled camera, on focus', async () => {
+    const view = await render(sectionMap());
+    await post(PAGE_2D, { type: 'mapReady' });
+    await post(PAGE_2D, { type: 'regionDidChange', ...SETTLED_2D, isUserInteraction: true });
 
-    setFocused(false);
+    await setFocused(false);
     expect(lastScript(PAGE_2D)).toContain('map.remove()');
 
     page(PAGE_2D).injected.length = 0;
-    view.rerender(sectionMap({ trimRange: { start: 1, end: 3 } }));
+    await view.rerender(sectionMap({ trimRange: { start: 1, end: 3 } }));
     expect(page(PAGE_2D).injected).toEqual([]);
 
-    setFocused(true);
+    await setFocused(true);
     expect(rebuilds(PAGE_2D)).toBe(1);
     expect(page(PAGE_2D).html[page(PAGE_2D).html.length - 1]).toContain(
       String(SETTLED_2D.center[0])
     );
-    view.unmount();
+    await view.unmount();
   });
 
-  it('releases the 3D page on blur and rebuilds it once, at its camera, on focus', () => {
-    const view = render(sectionMap());
-    fireEvent.press(view.getByTestId('section-map-3d-toggle'));
-    post(PAGE_3D, { type: 'mapReady' });
-    post(PAGE_3D, { type: 'cameraState', camera: SETTLED_3D, gesture: true });
+  it('releases the 3D page on blur and rebuilds it once, at its camera, on focus', async () => {
+    const view = await render(sectionMap());
+    await fireEvent.press(view.getByTestId('section-map-3d-toggle'));
+    await post(PAGE_3D, { type: 'mapReady' });
+    await post(PAGE_3D, { type: 'cameraState', camera: SETTLED_3D, gesture: true });
 
-    setFocused(false);
+    await setFocused(false);
     expect(lastScript(PAGE_3D)).toContain('map.remove()');
 
     page(PAGE_3D).injected.length = 0;
-    view.rerender(sectionMap({ trimRange: { start: 1, end: 3 } }));
+    await view.rerender(sectionMap({ trimRange: { start: 1, end: 3 } }));
     expect(page(PAGE_3D).injected).toEqual([]);
 
-    setFocused(true);
+    await setFocused(true);
     expect(rebuilds(PAGE_3D)).toBe(1);
     expect(page(PAGE_3D).html[page(PAGE_3D).html.length - 1]).toContain(
       String(SETTLED_3D.center[0])
     );
-    view.unmount();
+    await view.unmount();
   });
 });

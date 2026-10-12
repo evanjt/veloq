@@ -24,6 +24,8 @@ import {
 import { SportIcons } from '@/shared/activity/SportIcons';
 import { Card } from '@/shared/ui/Card';
 import { TrackEndpointMarkers } from '@/shared/ui/TrackEndpointMarkers';
+import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
+import type { AccessibleAction } from '@/shared/ui/accessibleActions';
 import { formatDistance, formatElevation } from '@/shared/format/format';
 import { getBoundsFromPoints } from '@/shared/geo/polyline';
 import { sectionElevation } from '@/features/routes/lib/sectionElevation';
@@ -42,6 +44,8 @@ interface SectionRowProps {
   /** Distance from user's current location in meters */
   distanceFromUser?: number | undefined;
   onPress?: ((id: string) => void) | undefined;
+  /** What a swipe over the row does, offered to a screen reader on the row itself. */
+  actions?: readonly AccessibleAction[] | undefined;
 }
 
 const PREVIEW_WIDTH = ROW_PREVIEW_WIDTH;
@@ -53,6 +57,7 @@ export const SectionRow = memo(function SectionRow({
   isDisabled,
   distanceFromUser,
   onPress,
+  actions,
 }: SectionRowProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -141,6 +146,34 @@ export const SectionRow = memo(function SectionRow({
     };
   }, [polyline, bounds, normalisePoint]);
 
+  const distanceText = formatDistance(section.distanceMeters, isMetric);
+  const elevationText = elevation ? formatElevation(elevation.metres, isMetric) : null;
+  const proximityText =
+    distanceFromUser != null && Number.isFinite(distanceFromUser)
+      ? formatDistance(distanceFromUser, isMetric)
+      : null;
+  const countLabel = t('sections.traversalsCount', { count: section.visitCount });
+  // The trend badge is drawn only for a non-zero trend, so only that is spoken,
+  // in the words the badge itself carries.
+  const trendWord =
+    section.trend != null && section.trend !== 0
+      ? t(section.trend > 0 ? 'sections.trendingFaster' : 'sections.trendingSlower')
+      : null;
+  // The row is one element: on iOS the badges inside it are unreachable, so
+  // their text is read here. An unnamed section draws no name and speaks none.
+  const accessibilityLabel = composeAccessibilityLabel(
+    section.name,
+    distanceText,
+    elevationText &&
+      `${t(elevation?.direction === 'loss' ? 'a11y.elevationLoss' : 'sections.elevationGain')} ${elevationText}`,
+    proximityText,
+    section.sectionType === 'custom' && t('routes.custom'),
+    isDisabled && t('sections.disabled'),
+    section.latestIsRecord && t('sections.latestIsRecord'),
+    trendWord,
+    countLabel
+  );
+
   return (
     <View style={styles.wrapper}>
       <Card
@@ -150,7 +183,8 @@ export const SectionRow = memo(function SectionRow({
         testID={`section-row-${section.id}`}
         onPress={handlePress}
         accessibilityRole="button"
-        accessibilityLabel={section.name ?? section.id}
+        accessibilityLabel={accessibilityLabel}
+        actions={actions}
       >
         {/* Section polyline preview with map-like backdrop */}
         <View style={styles.previewBox} pointerEvents="none">
@@ -241,7 +275,7 @@ export const SectionRow = memo(function SectionRow({
               <MaterialCommunityIcons
                 name="pin"
                 size={12}
-                color={isDark ? darkColors.textSecondary : colors.textDisabled}
+                color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 style={{ marginLeft: spacing.xs }}
               />
             )}
@@ -261,9 +295,7 @@ export const SectionRow = memo(function SectionRow({
               <View
                 testID={`section-row-trend-${section.id}`}
                 accessibilityRole="image"
-                accessibilityLabel={t(
-                  section.trend > 0 ? 'sections.trendingFaster' : 'sections.trendingSlower'
-                )}
+                accessibilityLabel={trendWord ?? undefined}
                 style={{ marginLeft: spacing.xs }}
               >
                 <MaterialCommunityIcons
@@ -291,9 +323,7 @@ export const SectionRow = memo(function SectionRow({
             </View>
           </View>
           <View style={styles.metaRow}>
-            <Text style={[styles.metaText, isDark && styles.textSecondary]}>
-              {formatDistance(section.distanceMeters, isMetric)}
-            </Text>
+            <Text style={[styles.metaText, isDark && styles.textSecondary]}>{distanceText}</Text>
             {elevation && (
               <View style={styles.gainChip}>
                 <MaterialCommunityIcons
@@ -302,19 +332,19 @@ export const SectionRow = memo(function SectionRow({
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 />
                 <Text style={[styles.metaText, isDark && styles.textSecondary]}>
-                  {formatElevation(elevation.metres, isMetric)}
+                  {elevationText}
                 </Text>
               </View>
             )}
-            {distanceFromUser != null && Number.isFinite(distanceFromUser) && (
+            {proximityText && (
               <View style={styles.proximityTag}>
                 <MaterialCommunityIcons
                   name="map-marker-distance"
                   size={10}
-                  color={isDark ? darkColors.textDisabled : colors.textDisabled}
+                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 />
                 <Text style={[styles.proximityText, isDark && styles.proximityTextDark]}>
-                  {formatDistance(distanceFromUser, isMetric)}
+                  {proximityText}
                 </Text>
               </View>
             )}
@@ -344,7 +374,7 @@ export const SectionRow = memo(function SectionRow({
         <View
           style={styles.countBadge}
           accessible
-          accessibilityLabel={t('sections.traversalsCount', { count: section.visitCount })}
+          accessibilityLabel={countLabel}
           testID={`section-row-${section.id}-count`}
         >
           <MaterialCommunityIcons
@@ -444,11 +474,11 @@ const styles = StyleSheet.create({
     gap: spacing.xxs,
   },
   proximityText: {
-    fontSize: typography.micro.fontSize,
-    color: colors.textDisabled,
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
   },
   proximityTextDark: {
-    color: darkColors.textDisabled,
+    color: darkColors.textSecondary,
   },
   customTag: {
     backgroundColor: colorWithOpacity(colors.chartPurple, 0.12),

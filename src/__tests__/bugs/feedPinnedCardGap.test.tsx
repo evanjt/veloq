@@ -1,14 +1,18 @@
 /**
- * Scenario: the feed opens with its search section scrolled exactly past, so the
+ * Scenario: the feed opens with its filter section scrolled exactly past, so the
  * first activity card sits at the top of the list, under the pinned summary card.
  * Expected behaviour: the space above the first card is the space between cards,
- * with the search section hidden or shown, and the space either side of a shown
- * search section is the same.
+ * with the filter section hidden or shown, and the space either side of a shown
+ * filter section is the same. Settings is reachable on the first frame: with the
+ * summary card off, its control sits in the native header rather than in the
+ * section the list opens scrolled past.
  *
  * Scenario: the system text size is past the dense cap, where the pinned cards
  * alone can fill the window and leave the list no height.
- * Expected behaviour: the cards scroll with the feed, above the search section,
- * and the feed opens scrolled past both so the first activity is on screen.
+ * Expected behaviour: the cards scroll with the feed, above the filter section,
+ * and the feed opens scrolled past both so the first activity is on screen. A
+ * search typed into the header opens the list at the filter section, not at the
+ * cards above it.
  */
 
 import React from 'react';
@@ -18,8 +22,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { getEngine } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { useDashboardPreferences } from '@/features/settings';
 import { CARD_MARGIN } from '@/features/activity/lib/cardLayout';
-import FeedScreen from '@/app/(tabs)/index';
+import FeedScreen from '@/app/(tabs)/(feed)';
 
 const mockFontScale = { current: 1 };
 jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
@@ -38,6 +43,7 @@ jest.mock('react-native-safe-area-context', () => ({
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   useIsFocused: () => true,
+  Stack: require('../__shared__/nativeHeaderStandIn').Stack,
 }));
 jest.mock('@/shared/app/TopSafeAreaContext', () => ({
   useTopSafeArea: () => ({ screenEdges: [] }),
@@ -98,7 +104,7 @@ jest.mock('@/features/maps/lib/storage/terrainCameraOverrides', () => ({
 }));
 jest.mock('@/features/activity/components', () => ({ ActivityCard: () => null }));
 
-function renderFeed(fontScale = 1) {
+async function renderFeed(fontScale = 1) {
   mockFontScale.current = fontScale;
   (getEngine as jest.Mock).mockReturnValue({
     getActivityHighlightsBundle: () => ({ indicators: [], routeHighlights: [], newGround: [] }),
@@ -108,13 +114,13 @@ function renderFeed(fontScale = 1) {
   });
   useAuthStore.setState({ isAuthenticated: true, athleteId: 'i1' });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
+  await render(
     <QueryClientProvider client={client}>
       <FeedScreen />
     </QueryClientProvider>
   );
   const pinned = StyleSheet.flatten(screen.getByTestId('home-pinned-cards').props.style);
-  const search = StyleSheet.flatten(screen.getByTestId('home-search-section').props.style);
+  const search = StyleSheet.flatten(screen.getByTestId('home-filter-section').props.style);
   return {
     pinnedBottom: pinned.paddingBottom ?? 0,
     searchTop: search.paddingTop ?? 0,
@@ -123,13 +129,13 @@ function renderFeed(fontScale = 1) {
 }
 
 describe('feed gap under the pinned cards', () => {
-  it('leaves the card spacing above the first card when the search section is hidden', () => {
-    const { pinnedBottom } = renderFeed();
+  it('leaves the card spacing above the first card when the filter section is hidden', async () => {
+    const { pinnedBottom } = await renderFeed();
     expect(pinnedBottom).toBe(CARD_MARGIN);
   });
 
-  it('leaves the card spacing above and below a shown search section', () => {
-    const { pinnedBottom, searchTop, searchBottom } = renderFeed();
+  it('leaves the card spacing above and below a shown filter section', async () => {
+    const { pinnedBottom, searchTop, searchBottom } = await renderFeed();
     expect(pinnedBottom + searchTop).toBe(CARD_MARGIN);
     expect(searchBottom).toBe(CARD_MARGIN);
   });
@@ -138,33 +144,65 @@ describe('feed gap under the pinned cards', () => {
 describe('feed pinned cards at large text', () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it('keeps the cards pinned above the list at the default size', () => {
-    renderFeed(1);
+  it('keeps the cards pinned above the list at the default size', async () => {
+    await renderFeed(1);
     const list = screen.getByTestId('home-activity-list');
     expect(within(list).queryByTestId('home-pinned-cards')).toBeNull();
   });
 
-  it('scrolls the cards with the list past the dense cap', () => {
-    renderFeed(2);
+  it('scrolls the cards with the list past the dense cap', async () => {
+    await renderFeed(2);
     const list = screen.getByTestId('home-activity-list');
     expect(within(list).getByTestId('home-pinned-cards')).toBeTruthy();
   });
 
-  it('opens scrolled past the cards and the search section together', () => {
+  it('opens scrolled past the cards and the filter section together', async () => {
     const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
-    renderFeed(2);
-    fireEvent(screen.getByTestId('home-search-section'), 'layout', {
+    await renderFeed(2);
+    await fireEvent(screen.getByTestId('home-filter-section'), 'layout', {
       nativeEvent: { layout: { x: 0, y: 640, width: 430, height: 86 } },
     });
     expect(scrollToOffset).toHaveBeenLastCalledWith({ offset: 726, animated: false });
   });
 
-  it('opens scrolled past the search section alone while the cards are pinned', () => {
+  it('opens scrolled past the filter section alone while the cards are pinned', async () => {
     const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
-    renderFeed(1);
-    fireEvent(screen.getByTestId('home-search-section'), 'layout', {
+    await renderFeed(1);
+    await fireEvent(screen.getByTestId('home-filter-section'), 'layout', {
       nativeEvent: { layout: { x: 0, y: 0, width: 430, height: 86 } },
     });
     expect(scrollToOffset).toHaveBeenLastCalledWith({ offset: 86, animated: false });
+  });
+
+  it('opens a search typed into the header at the filter section below the cards', async () => {
+    const scrollToOffset = jest.spyOn(FlatList.prototype, 'scrollToOffset');
+    await renderFeed(2);
+    await fireEvent(screen.getByTestId('home-filter-section'), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 640, width: 430, height: 42 } },
+    });
+    await fireEvent.changeText(screen.getByTestId('native-header-search'), 'ride');
+    expect(scrollToOffset).toHaveBeenLastCalledWith({ offset: 640, animated: false });
+  });
+});
+
+describe('feed settings control', () => {
+  const initial = useDashboardPreferences.getState().summaryCard;
+  afterEach(() => useDashboardPreferences.setState({ summaryCard: initial }));
+
+  it('puts Settings in the header on the first frame when the summary card is off', async () => {
+    useDashboardPreferences.setState({ summaryCard: { ...initial, enabled: false } });
+    await renderFeed();
+    const header = screen.getByTestId('native-header-right');
+    expect(within(header).getByLabelText('navigation.settings')).toBeTruthy();
+    const section = screen.getByTestId('home-filter-section');
+    expect(within(section).queryByLabelText('navigation.settings')).toBeNull();
+  });
+
+  it('leaves the profile in the summary card when the card is on', async () => {
+    useDashboardPreferences.setState({ summaryCard: { ...initial, enabled: true } });
+    await renderFeed();
+    expect(
+      within(screen.getByTestId('native-header')).queryByLabelText('navigation.settings')
+    ).toBeNull();
   });
 });

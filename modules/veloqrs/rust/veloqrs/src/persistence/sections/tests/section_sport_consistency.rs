@@ -7,25 +7,27 @@ use tracematch::GpsPoint;
 #[test]
 fn test_section_reads_use_the_synced_activity_sport() {
     let mut engine = PersistentEngine::in_memory().expect("engine");
-    let track = (0..8)
+    let track: Vec<GpsPoint> = (0..8)
         .map(|index| GpsPoint {
             latitude: 46.2 + f64::from(index) * 0.001,
             longitude: 7.3,
             elevation: None,
         })
         .collect();
-    engine
-        .add_activity("outing".to_string(), track, "Ride".to_string())
-        .expect("activity");
-    engine
-        .db
-        .execute(
-            "INSERT INTO activity_metrics (activity_id, name, date, distance, moving_time,
-                elapsed_time, elevation_gain, sport_type)
-             VALUES ('outing', 'Morning outing', 1700000000, 400.0, 200, 200, 0, 'Run')",
-            [],
-        )
-        .expect("synced metrics");
+    for (id, date) in [("outing", 1_700_000_000), ("rival", 1_700_100_000)] {
+        engine
+            .add_activity(id.to_string(), track.clone(), "Ride".to_string())
+            .expect("activity");
+        engine
+            .db
+            .execute(
+                "INSERT INTO activity_metrics (activity_id, name, date, distance, moving_time,
+                    elapsed_time, elevation_gain, sport_type)
+                 VALUES (?1, 'Morning outing', ?2, 400.0, 200, 200, 0, 'Run')",
+                rusqlite::params![id, date],
+            )
+            .expect("synced metrics");
+    }
     engine
         .db
         .execute(
@@ -36,26 +38,34 @@ fn test_section_reads_use_the_synced_activity_sport() {
             [],
         )
         .expect("section");
-    engine
-        .db
-        .execute(
-            "INSERT INTO section_activities (section_id, activity_id, direction,
-                start_index, end_index, distance_meters, lap_time, lap_pace, coverage)
-             VALUES ('climb', 'outing', 'same', 1, 5, 400.0, 200.0, 2.0, 1.0)",
-            [],
-        )
-        .expect("traversal");
+    for (id, lap_time) in [("outing", 200.0), ("rival", 220.0)] {
+        engine
+            .db
+            .execute(
+                "INSERT INTO section_activities (section_id, activity_id, direction,
+                    start_index, end_index, distance_meters, lap_time, lap_pace, coverage)
+                 VALUES ('climb', ?1, 'same', 1, 5, 400.0, ?2, 400.0 / ?2, 1.0)",
+                rusqlite::params![id, lap_time],
+            )
+            .expect("traversal");
+    }
 
-    assert_eq!(current_prs_on(&engine.db, "climb")["Run"].0, "outing");
+    let records = current_prs_on(&engine.db, "climb");
+    let held: Vec<_> = records.keys().collect();
+    assert_eq!(held, vec![&("Run".to_string(), "same".to_string())]);
+    assert_eq!(
+        records[&("Run".to_string(), "same".to_string())].0,
+        "outing"
+    );
     assert_eq!(
         laps::sports(&engine.db, "climb"),
-        vec![("Run".to_string(), 1)]
+        vec![("Run".to_string(), 2)]
     );
     assert_eq!(
         pooled::section_performances(&engine.db, "climb", Some("Run"))
             .records
             .len(),
-        1
+        2
     );
     assert!(
         pooled::section_performances(&engine.db, "climb", Some("Ride"))
@@ -151,8 +161,9 @@ fn test_indicators_group_a_retyped_activity_under_its_synced_sport() {
     engine.recompute_activity_indicators().expect("indicators");
 
     let prs = current_prs_on(&engine.db, "climb");
-    assert_eq!(prs["GravelRide"].0, "gravel");
-    assert_eq!(prs["Ride"].0, "commute");
+    let held: Vec<_> = prs.keys().collect();
+    assert_eq!(held, vec![&("Ride".to_string(), "same".to_string())]);
+    assert_eq!(prs[&("Ride".to_string(), "same".to_string())].0, "commute");
 
     let ids = ["steady", "gravel", "commute"].map(String::from);
     let indicators = engine.get_activity_indicators(&ids);

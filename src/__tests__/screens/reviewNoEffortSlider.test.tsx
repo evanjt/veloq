@@ -2,15 +2,17 @@
  * Scenario: a GPS ride reaches the review screen, and a manual or strength entry reaches it
  * carrying the effort the athlete chose on the screen before.
  *
- * Expected behaviour: the screen offers no effort slider, and an effort carried in hands its
- * value to the save rather than dropping it.
+ * Expected behaviour: the screen offers no effort slider, an effort carried in hands its value
+ * to the save rather than dropping it, and the name and notes fields are named by their labels
+ * once the athlete has typed in them.
  */
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 
 import ReviewScreen from '@/app/recording/review';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { inStack } from '../__shared__/testStack';
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
@@ -81,22 +83,22 @@ beforeEach(() => {
 });
 
 describe('review screen effort rating', () => {
-  it('shows no effort slider for a GPS ride', () => {
+  it('shows no effort slider for a GPS ride', async () => {
     stoppedRide();
-    const review = render(<ReviewScreen />);
+    const review = await render(inStack(<ReviewScreen />));
     expect(review.queryByTestId('review-rpe')).toBeNull();
   });
 
-  it('saves no effort for a GPS ride', () => {
+  it('saves no effort for a GPS ride', async () => {
     stoppedRide();
-    render(<ReviewScreen />);
+    await render(inStack(<ReviewScreen />));
     expect(savedEffort()).toBeNull();
   });
 
-  it('hands the effort a manual entry carries to the save', () => {
+  it('hands the effort a manual entry carries to the save', async () => {
     manualEntry();
     mockParams = { manual: 'true', durationSeconds: '1800', rpe: '7' };
-    render(<ReviewScreen />);
+    await render(inStack(<ReviewScreen />));
     expect(savedEffort()).toBe(7);
   });
 
@@ -107,20 +109,34 @@ describe('review screen effort rating', () => {
     ['below the scale', '0'],
     ['above the scale', '11'],
     ['fractional', '6.5'],
-  ])('saves no effort when the carried value is %s', (_label, rpe) => {
+  ])('saves no effort when the carried value is %s', async (_label, rpe) => {
     manualEntry();
     mockParams = { manual: 'true', durationSeconds: '1800', ...(rpe === undefined ? {} : { rpe }) };
-    render(<ReviewScreen />);
+    await render(inStack(<ReviewScreen />));
     expect(savedEffort()).toBeNull();
   });
 
-  it('keeps the scale ends', () => {
+  it('keeps the scale ends', async () => {
     manualEntry();
     mockParams = { manual: 'true', durationSeconds: '1800', rpe: '1' };
-    render(<ReviewScreen />);
+    await render(inStack(<ReviewScreen />));
     expect(savedEffort()).toBe(1);
     mockParams = { ...mockParams, rpe: '10' };
-    render(<ReviewScreen />);
+    await render(inStack(<ReviewScreen />));
     expect(savedEffort()).toBe(10);
+  });
+});
+
+describe('review screen fields', () => {
+  it('names the activity name and the notes by their labels once typed in', async () => {
+    stoppedRide();
+    const review = await render(<ReviewScreen />);
+    await fireEvent.changeText(review.getByTestId('review-activity-name'), 'Harbour loop');
+    await fireEvent.changeText(review.getByTestId('review-notes'), 'Windy on the pier');
+
+    expect(review.getByLabelText('recording.activityName').props.value).toBe('Harbour loop');
+    const notes = review.getByLabelText('recording.notes');
+    expect(notes.props.value).toBe('Windy on the pier');
+    expect(notes.props.multiline).toBe(true);
   });
 });

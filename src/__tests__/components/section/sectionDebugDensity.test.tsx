@@ -12,6 +12,7 @@ import { render } from '@testing-library/react-native';
 
 import { SectionDebugPanel } from '@/features/routes/components/section/SectionDebugPanel';
 import type { FrequentSection } from '@/types';
+import { ABSENT } from '@/shared/format/absent';
 
 function section(pointDensity?: number[]): FrequentSection {
   return {
@@ -30,28 +31,28 @@ function section(pointDensity?: number[]): FrequentSection {
   } as FrequentSection;
 }
 
-function densityValue(pointDensity?: number[]): string {
-  const tree = render(
+async function densityValue(pointDensity?: number[]): Promise<string> {
+  const tree = await render(
     <SectionDebugPanel section={section(pointDensity)} pageMetrics={[]} isDark={false} />
   );
   return tree.getByTestId('debug-value-Density').props.children as string;
 }
 
 describe('the section debug panel density row', () => {
-  it('summarises the passes as a count and a spread', () => {
-    expect(densityValue([2, 9, 4, 5])).toBe('4 pts, 2-9, med 4');
+  it('summarises the passes as a count and a spread', async () => {
+    expect(await densityValue([2, 9, 4, 5])).toBe('4 pts, 2-9, med 4');
   });
 
-  it('reads a single point without inventing a range', () => {
-    expect(densityValue([7])).toBe('1 pt, 7-7, med 7');
+  it('reads a single point without inventing a range', async () => {
+    expect(await densityValue([7])).toBe('1 pt, 7-7, med 7');
   });
 
-  it('says nothing rather than zero when the section carries none', () => {
-    expect(densityValue([])).toBe('-');
-    expect(densityValue(undefined)).toBe('-');
+  it('says nothing rather than zero when the section carries none', async () => {
+    expect(await densityValue([])).toBe(ABSENT);
+    expect(await densityValue(undefined)).toBe(ABSENT);
   });
 
-  it('takes the lower of the two middles on an even count', () => {
-    expect(densityValue([1, 2, 3, 4])).toBe('4 pts, 1-4, med 2');
+  it('takes the lower of the two middles on an even count', async () => {
+    expect(await densityValue([1, 2, 3, 4])).toBe('4 pts, 1-4, med 2');
   });
 });

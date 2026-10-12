@@ -96,20 +96,20 @@ function topOf(testID: string): number {
 }
 
 describe('the section map keeps its overlays out of the status bar', () => {
-  it('drops the legend below the inset and the back button row', () => {
-    renderHeader(INSET_TOP);
+  it('drops the legend below the inset and the back button row', async () => {
+    await renderHeader(INSET_TOP);
 
     expect(topOf('section-map-legend')).toBeGreaterThanOrEqual(INSET_TOP + HERO_HEADER_HEIGHT);
   });
 
-  it('drops the map controls below the same row, rather than a fixed guess', () => {
-    renderHeader(INSET_TOP);
+  it('drops the map controls below the same row, rather than a fixed guess', async () => {
+    await renderHeader(INSET_TOP);
 
     expect(topOf('section-map-controls')).toBeGreaterThanOrEqual(INSET_TOP + HERO_HEADER_HEIGHT);
   });
 
-  it('still clears the back button row on a screen with no top inset', () => {
-    renderHeader(0);
+  it('still clears the back button row on a screen with no top inset', async () => {
+    await renderHeader(0);
 
     expect(topOf('section-map-legend')).toBeGreaterThanOrEqual(HERO_HEADER_HEIGHT);
     expect(topOf('section-map-controls')).toBeGreaterThanOrEqual(HERO_HEADER_HEIGHT);

@@ -10,7 +10,12 @@
  * against the API, and the body's athlete id has to be that athlete.
  */
 
-import { authoriseDevice, credentialHeader } from '../../../oauth-proxy/src/deviceAuth';
+import {
+  authoriseDevice,
+  credentialHeader,
+  intervalsAthleteResolver,
+  UpstreamRefusal,
+} from '../../../oauth-proxy/src/deviceAuth';
 
 jest.mock('expo-notifications', () => ({
   ...jest.requireActual('expo-notifications'),
@@ -88,6 +93,34 @@ describe('authorising a device registration', () => {
     };
     const result = await authoriseDevice('Bearer token-of-own', OWN, unreachable);
     expect(result).toEqual({ ok: false, status: 401, error: 'Invalid credential' });
+  });
+
+  /// intervals.icu refusing the lookup says nothing about the credential, so
+  /// a device told 401 would treat a working sign-in as a bad one.
+  it('answers a refused lookup with 429 and the wait intervals.icu asked for', async () => {
+    const refused = async () => {
+      throw new UpstreamRefusal('600');
+    };
+    const result = await authoriseDevice('Bearer token-of-own', OWN, refused);
+    expect(result).toEqual({
+      ok: false,
+      status: 429,
+      error: 'intervals.icu asked for a pause',
+      retryAfter: '600',
+    });
+  });
+
+  it('reads a 429 from intervals.icu as a refusal, not as no athlete', async () => {
+    const fetchImpl = (async () =>
+      new Response('', { status: 429, headers: { 'Retry-After': '120' } })) as typeof fetch;
+    await expect(intervalsAthleteResolver(fetchImpl)('Bearer token-of-own')).rejects.toEqual(
+      new UpstreamRefusal('120')
+    );
+  });
+
+  it('reads a 401 from intervals.icu as no athlete', async () => {
+    const fetchImpl = (async () => new Response('', { status: 401 })) as typeof fetch;
+    await expect(intervalsAthleteResolver(fetchImpl)('Bearer forged')).resolves.toBeNull();
   });
 
   it('resolves the token once, not once per field it checks', async () => {

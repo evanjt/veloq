@@ -9,7 +9,11 @@
  */
 
 import { useEffect, useState, useMemo } from 'react';
-import { useEngineRead, useEngineSubscription } from '@/shared/native/useEngineSubscription';
+import {
+  useEngineRead,
+  useEngineSubscription,
+  useReadRetry,
+} from '@/shared/native/useEngineSubscription';
 import { decodeCoords, type RouteGroup, type SectionSummary, type GroupSummary } from 'veloqrs';
 import type { LatLngShort } from '@/shared/geo/distance';
 
@@ -40,6 +44,8 @@ interface UseEngineGroupsResult {
   totalCount: number;
   /** What the engine threw, when the read failed. Empty groups with no error is an empty library. */
   error?: unknown;
+  /** Reads again after a failure. */
+  retry: () => void;
 }
 
 /**
@@ -48,9 +54,10 @@ interface UseEngineGroupsResult {
  */
 export function useEngineGroups(options: UseEngineGroupsOptions = {}): UseEngineGroupsResult {
   const { minActivities = 2, sortBy = 'count', enabled = true } = options;
-  const readGroups = useEngineRead(['groups']);
+  const [attempt, retry] = useReadRetry();
+  const readGroups = useEngineRead(['groups'], [attempt]);
 
-  return useMemo(() => {
+  const read = useMemo(() => {
     try {
       if (!enabled) return { groups: [], totalCount: 0 };
       const engine = readGroups((open) => open);
@@ -73,6 +80,7 @@ export function useEngineGroups(options: UseEngineGroupsOptions = {}): UseEngine
       return { groups: [], totalCount: 0, error };
     }
   }, [readGroups, minActivities, sortBy, enabled]);
+  return useMemo(() => ({ ...read, retry }), [read, retry]);
 }
 
 interface UseSectionSummariesOptions {
@@ -91,6 +99,8 @@ interface UseSectionSummariesResult {
   summaries: SectionSummary[];
   /** What the engine threw, when the read failed. */
   error?: unknown;
+  /** Reads again after a failure. */
+  retry: () => void;
 }
 
 /**
@@ -102,9 +112,10 @@ export function useSectionSummaries(
   options: UseSectionSummariesOptions = {}
 ): UseSectionSummariesResult {
   const { sportType, minVisits = 1, enabled = true } = options;
-  const readSections = useEngineRead(['sections', 'detectionApplied']);
+  const [attempt, retry] = useReadRetry();
+  const readSections = useEngineRead(['sections', 'detectionApplied'], [attempt]);
 
-  return useMemo(() => {
+  const read = useMemo(() => {
     if (!enabled) return { totalCount: 0, summaries: [] };
     try {
       const engine = readSections((open) => open);
@@ -122,6 +133,7 @@ export function useSectionSummaries(
       return { totalCount: 0, summaries: [], error };
     }
   }, [readSections, sportType, minVisits, enabled]);
+  return useMemo(() => ({ ...read, retry }), [read, retry]);
 }
 
 interface UseGroupSummariesOptions {
@@ -140,6 +152,8 @@ interface UseGroupSummariesResult {
   summaries: GroupSummary[];
   /** What the engine threw, when the read failed. */
   error?: unknown;
+  /** Reads again after a failure. */
+  retry: () => void;
 }
 
 /**
@@ -149,9 +163,10 @@ interface UseGroupSummariesResult {
  */
 export function useGroupSummaries(options: UseGroupSummariesOptions = {}): UseGroupSummariesResult {
   const { minActivities = 2, sortBy = 'count', enabled = true } = options;
-  const readGroups = useEngineRead(['groups']);
+  const [attempt, retry] = useReadRetry();
+  const readGroups = useEngineRead(['groups'], [attempt]);
 
-  return useMemo(() => {
+  const read = useMemo(() => {
     if (!enabled) return { totalCount: 0, summaries: [] };
     try {
       const engine = readGroups((open) => open);
@@ -163,6 +178,7 @@ export function useGroupSummaries(options: UseGroupSummariesOptions = {}): UseGr
       return { totalCount: 0, summaries: [], error };
     }
   }, [readGroups, minActivities, sortBy, enabled]);
+  return useMemo(() => ({ ...read, retry }), [read, retry]);
 }
 
 // ============================================================================

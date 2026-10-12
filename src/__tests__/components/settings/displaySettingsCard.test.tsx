@@ -35,8 +35,8 @@ function renderDisplay() {
 }
 
 describe('DisplaySettings', () => {
-  it('puts the theme picker, sport picker and sport hint in one card', () => {
-    const screen = renderDisplay();
+  it('puts the theme picker, sport picker and sport hint in one card', async () => {
+    const screen = await renderDisplay();
     const cards = screen.UNSAFE_getAllByType(View).filter((v) => {
       const style = ([] as unknown[]).concat(v.props.style);
       return style.includes(settingsStyles.sectionCard);

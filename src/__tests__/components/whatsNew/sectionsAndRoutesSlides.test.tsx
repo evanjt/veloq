@@ -28,6 +28,7 @@ import {
 } from '@/features/settings/lib/tourSectionDemo';
 import { SectionPerformanceSlide } from '@/features/settings/components/whatsNew/SectionPerformanceSlide';
 import { RoutesSlide } from '@/features/settings/components/whatsNew/RoutesSlide';
+import { layoutViews } from '../../__shared__/layoutViews';
 
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 
@@ -139,8 +140,10 @@ describe('the demo attempts the sections slide draws', () => {
 });
 
 describe('the sections and routes slides', () => {
-  it('captions each of the four pictures through the translator', () => {
-    const { getByText } = render(<SectionPerformanceSlide />);
+  it('captions each of the four pictures through the translator', async () => {
+    const tree = await render(<SectionPerformanceSlide />);
+    await layoutViews(tree, 320, 300);
+    const { getByText } = tree;
     for (const key of [
       'sectionPageTrend',
       'sectionPageHistogram',
@@ -152,8 +155,8 @@ describe('the sections and routes slides', () => {
     }
   });
 
-  it('renders the routes picture', () => {
-    const { getByTestId } = render(<RoutesSlide />);
+  it('renders the routes picture', async () => {
+    const { getByTestId } = await render(<RoutesSlide />);
     expect(getByTestId('tour-routes-picture')).toBeTruthy();
   });
 

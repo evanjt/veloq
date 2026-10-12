@@ -124,16 +124,16 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-it('serialises only the layer list while scrubbing section activity highlights', () => {
-  const view = render(map(null));
+it('serialises only the layer list while scrubbing section activity highlights', async () => {
+  const view = await render(map(null));
   const onMessage = mockPages.get('maplibre-map');
   if (!onMessage) throw new Error('the section map did not mount');
-  act(() => onMessage({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
+  await act(() => onMessage({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
   mockPatches.length = 0;
 
   for (const id of ids) {
-    view.rerender(map(id));
-    act(() => jest.advanceTimersByTime(20));
+    await view.rerender(map(id));
+    await act(() => jest.advanceTimersByTime(20));
   }
 
   expect(mockPatches).toHaveLength(ids.length);

@@ -8,6 +8,7 @@ import { useTheme, useMetricSystem } from '@/shared/app';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { formatDistance } from '@/shared/format/format';
+import { ABSENT, absentLabel } from '@/shared/format/absent';
 // The light entry keeps the routes map components out of the recording module
 // graph.
 import { useRouteGroups } from '@/features/routes/light';
@@ -15,8 +16,7 @@ import { useRecordingStore } from '@/features/recording';
 import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
 import type { ActivityType } from '@/types';
 import { engineErrorKey } from '@/shared/native/engineError';
-import { pressable, pressRipple } from '@/shared/ui';
-import { IconButton } from '@/shared/ui/IconButton';
+import { EmptyState, pressable, pressRipple, SheetHeader } from '@/shared/ui';
 import { tapBack } from '@/shared/app/navigation';
 
 /**
@@ -90,24 +90,18 @@ function RouteOverlaySheetContent() {
   }, [groups, distanceBucket, overlaps]);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
+  const accentText = isDark ? darkColors.linkTeal : colors.linkTeal;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
 
   return (
     <View style={[styles.sheet, { backgroundColor: surface }]}>
-      <View style={styles.sheetHeader}>
-        <Text accessibilityRole="header" style={[styles.sheetTitle, { color: textPrimary }]}>
-          {t('recording.routeOverlay.title', 'Follow a route')}
-        </Text>
-        <IconButton
-          testID="route-overlay-close"
-          onPress={() => tapBack()}
-          accessibilityLabel={t('common.close', 'Close')}
-        >
-          <MaterialCommunityIcons name="close" size={22} color={textSecondary} />
-        </IconButton>
-      </View>
+      <SheetHeader
+        title={t('recording.routeOverlay.title', 'Follow a route')}
+        onCancel={() => tapBack()}
+        cancelTestID="route-overlay-cancel"
+      />
 
       <Pressable
         accessibilityRole="button"
@@ -123,20 +117,21 @@ function RouteOverlaySheetContent() {
           color={selectedRouteId == null ? brand.teal : textSecondary}
         />
         <Text
-          style={[styles.rowTitle, { color: selectedRouteId == null ? brand.teal : textPrimary }]}
+          style={[styles.rowTitle, { color: selectedRouteId == null ? accentText : textPrimary }]}
         >
           {t('recording.routeOverlay.none', 'No route')}
         </Text>
       </Pressable>
 
       {groupsError !== undefined ? (
-        <Text testID="route-groups-failure" style={[styles.emptyHint, { color: textSecondary }]}>
+        <Text testID="route-groups-failure" style={[styles.failureLine, { color: textSecondary }]}>
           {t(engineErrorKey(groupsError, 'engine.failure.database'))}
         </Text>
       ) : groups.length === 0 ? (
-        <Text style={[styles.emptyHint, { color: textSecondary }]}>
-          {t('recording.routeOverlay.empty', 'No saved routes for this sport yet.')}
-        </Text>
+        <EmptyState
+          variant="inline"
+          title={t('recording.routeOverlay.empty', 'No saved routes for this sport yet.')}
+        />
       ) : (
         <FlatList
           testID="route-overlay-list"
@@ -145,6 +140,16 @@ function RouteOverlaySheetContent() {
           style={styles.list}
           renderItem={({ item }) => {
             const isSelected = item.id === selectedRouteId;
+            // Only a measured overlap is a figure; before the first measurement, after a
+            // failed one, or for a route the measurement left out, there is none to print.
+            const overlap = overlaps[item.id];
+            const meta = [
+              ...(item.distance != null ? [formatDistance(item.distance, isMetric)] : []),
+              t('recording.routeOverlay.activities', { count: item.activityCount }),
+              overlap != null && Number.isFinite(overlap)
+                ? `${Math.round(overlap)}% ${t('sections.overlapLabel')}`
+                : ABSENT,
+            ].join(' · ');
             return (
               <Pressable
                 accessibilityRole="button"
@@ -161,16 +166,16 @@ function RouteOverlaySheetContent() {
                 />
                 <View style={styles.rowBody}>
                   <Text
-                    style={[styles.rowTitle, { color: isSelected ? brand.teal : textPrimary }]}
+                    style={[styles.rowTitle, { color: isSelected ? accentText : textPrimary }]}
                     numberOfLines={1}
                   >
                     {item.name}
                   </Text>
-                  <Text style={[styles.rowMeta, { color: textSecondary }]}>
-                    {item.distance != null ? `${formatDistance(item.distance, isMetric)} · ` : ''}
-                    {t('recording.routeOverlay.activities', { count: item.activityCount })}
-                    {' · '}
-                    {`${Math.round(overlaps[item.id] ?? 0)}%`}
+                  <Text
+                    style={[styles.rowMeta, { color: textSecondary }]}
+                    accessibilityLabel={absentLabel(meta, t)}
+                  >
+                    {meta}
                   </Text>
                 </View>
                 {isSelected && <MaterialCommunityIcons name="check" size={20} color={brand.teal} />}
@@ -189,17 +194,6 @@ const styles = StyleSheet.create({
   sheet: {
     flex: 1,
     paddingBottom: spacing.lg,
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-  },
-  sheetTitle: {
-    ...typography.sectionTitle,
   },
   list: {
     flexGrow: 0,
@@ -224,7 +218,7 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.fontSize,
     marginTop: spacing.xxs,
   },
-  emptyHint: {
+  failureLine: {
     ...typography.bodySmall,
     fontStyle: 'italic',
     paddingHorizontal: spacing.md,

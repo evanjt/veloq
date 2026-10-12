@@ -1,4 +1,10 @@
-import { Appearance, useColorScheme, type ColorSchemeName } from 'react-native';
+import {
+  AccessibilityInfo,
+  Appearance,
+  Platform,
+  useColorScheme,
+  type ColorSchemeName,
+} from 'react-native';
 import { create } from 'zustand';
 import { getSetting, setSetting } from '@/shared/storage';
 
@@ -37,6 +43,7 @@ function applyThemePreference(preference: ThemePreference): void {
  * Call this early in _layout.tsx before rendering.
  */
 export async function initialiseTheme(): Promise<void> {
+  watchOpaqueChrome();
   try {
     const preference = normalisePreference(await getSetting(STORAGE_KEY));
     useThemePreferenceStore.getState().setHydratedPreference(preference);
@@ -65,4 +72,95 @@ export function useResolvedColorScheme(): NonNullable<ColorSchemeName> {
     return systemScheme === 'dark' ? 'dark' : 'light';
   }
   return preference;
+}
+
+/**
+ * The system settings that ask for chrome to stop borrowing contrast from what
+ * is drawn beneath it: Reduce Transparency and Increase Contrast on iOS,
+ * high-contrast text on Android. Each is read on the one platform that has it.
+ */
+type ChromeSettingEvent =
+  | 'reduceTransparencyChanged'
+  | 'darkerSystemColorsChanged'
+  | 'highTextContrastChanged';
+
+interface ChromeSetting {
+  read: () => Promise<boolean>;
+  event: ChromeSettingEvent;
+}
+
+function chromeSettings(): ChromeSetting[] {
+  if (Platform.OS === 'ios') {
+    return [
+      {
+        read: () => AccessibilityInfo.isReduceTransparencyEnabled(),
+        event: 'reduceTransparencyChanged',
+      },
+      {
+        read: () => AccessibilityInfo.isDarkerSystemColorsEnabled(),
+        event: 'darkerSystemColorsChanged',
+      },
+    ];
+  }
+  if (Platform.OS === 'android') {
+    return [
+      {
+        read: () => AccessibilityInfo.isHighTextContrastEnabled(),
+        event: 'highTextContrastChanged',
+      },
+    ];
+  }
+  return [];
+}
+
+interface OpaqueChromeState {
+  /** True while any of the platform's contrast settings is on. */
+  preferOpaqueChrome: boolean;
+}
+
+export const useOpaqueChromeStore = create<OpaqueChromeState>(() => ({
+  preferOpaqueChrome: false,
+}));
+
+let stopWatching: (() => void) | null = null;
+
+/**
+ * Read the platform's contrast settings once and follow their changes into
+ * `preferOpaqueChrome`. Starting it again while it runs does nothing; the
+ * returned function stops it and turns the flag off.
+ */
+export function watchOpaqueChrome(): () => void {
+  if (stopWatching) return stopWatching;
+
+  const enabled = new Map<ChromeSettingEvent, boolean>();
+  const publish = () =>
+    useOpaqueChromeStore.setState({
+      preferOpaqueChrome: [...enabled.values()].some(Boolean),
+    });
+
+  let live = true;
+  const subscriptions = chromeSettings().map(({ read, event }) => {
+    read()
+      .then((on) => {
+        // A change heard before the first read answered is the newer value.
+        if (!live || enabled.has(event)) return;
+        enabled.set(event, on);
+        publish();
+      })
+      .catch(() => {
+        // A platform that cannot answer leaves the chrome as drawn.
+      });
+    return AccessibilityInfo.addEventListener(event, (on: boolean) => {
+      enabled.set(event, on);
+      publish();
+    });
+  });
+
+  stopWatching = () => {
+    live = false;
+    subscriptions.forEach((subscription) => subscription.remove());
+    useOpaqueChromeStore.setState({ preferOpaqueChrome: false });
+    stopWatching = null;
+  };
+  return stopWatching;
 }

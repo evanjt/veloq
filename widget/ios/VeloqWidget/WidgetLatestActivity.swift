@@ -119,6 +119,7 @@ struct LatestActivityView: View {
       HStack(spacing: WidgetTheme.Layout.gap) {
         if content.showsRoute {
           RoutePreviewView(preview: latest.routePreview, tint: tint)
+            .spoken("route", latest.routeLabel)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         lines(latest, content, palette, tint)
@@ -156,6 +157,7 @@ struct LatestActivityView: View {
             .foregroundColor(tint)
           if latest.isPr == true {
             Circle().fill(palette.gold).frame(width: 6, height: 6)
+              .spoken("record", latest.prLabel)
           }
         }
       }
@@ -178,6 +180,7 @@ struct LatestActivityView: View {
       }
       if !content.dots.isEmpty {
         AttemptDotsView(dots: content.dots, tint: tint, palette: palette)
+          .unspoken()
           .padding(.top, 2)
       }
       if let figures = content.figures {

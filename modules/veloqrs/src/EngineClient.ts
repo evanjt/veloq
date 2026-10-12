@@ -716,7 +716,7 @@ class EngineClient implements DelegateHost {
 
   clearSyncCredentials = (): void => syncDelegates.clearSyncCredentials(this);
 
-  syncNow = (force: boolean): FfiStartOutcome => syncDelegates.syncNow(this, force);
+  syncNow = (force: boolean): FfiStartResult => syncDelegates.syncNow(this, force);
 
   syncActivitiesWindow = (oldest: string, newest: string): FfiStartOutcome =>
     syncDelegates.syncActivitiesWindow(this, oldest, newest);
@@ -816,10 +816,10 @@ class EngineClient implements DelegateHost {
   setRouteName = (routeId: string, name: string): void =>
     routeDelegates.setRouteName(this, routeId, name);
 
-  setRouteRepresentative = (routeId: string, activityId: string): boolean =>
+  setRouteRepresentative = (routeId: string, activityId: string): Promise<boolean> =>
     routeDelegates.setRouteRepresentative(this, routeId, activityId);
 
-  resetRouteRepresentative = (routeId: string): boolean =>
+  resetRouteRepresentative = (routeId: string): Promise<boolean> =>
     routeDelegates.resetRouteRepresentative(this, routeId);
 
   setSectionName = (

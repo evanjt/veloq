@@ -12,22 +12,26 @@ import {
   EmptyState,
   signalColor,
 } from '@/shared/ui';
-import { Button } from '@/shared/ui/Button';
+import { Button, ToggleButton } from '@/shared/ui/Button';
 import { ListSectionHeader } from '@/shared/ui/ListSectionHeader';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 import { useTheme } from '@/shared/app';
 import { useForeground } from '@/shared/app/useRetryTriggers';
-import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
+import { openAppSettings } from '@/shared/app/permissions';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import {
   useSensorStore,
   startScan,
   stopScan,
-  connectKnownSensors,
+  connectPairedSensor,
+  releasePairingConnections,
   disconnectSensor,
   isBleAvailable,
   refreshBleAccess,
   turnOnBluetooth,
+  displayedSensorSource,
+  metricsSuppliedBy,
 } from '@/features/sensors';
 import type {
   DiscoveredSensor,
@@ -111,7 +115,7 @@ function availabilityNotice(availability: SensorAvailability, t: TFunction): Not
         description: needsLocationGrant
           ? t('sensors.availability.locationBlockedHint')
           : t('sensors.availability.blockedHint'),
-        action: { label: t('common.openSettings'), onPress: () => void Linking.openSettings() },
+        action: { label: t('common.openSettings'), onPress: openAppSettings },
       };
     case 'needsLocation':
       return {
@@ -141,6 +145,8 @@ function SensorSettingsScreenContent() {
   const isLoaded = useSensorStore((s) => s.isLoaded);
   const availability = useSensorStore((s) => s.availability);
   const scanFinished = useSensorStore((s) => s.scanFinished);
+  const activeSources = useSensorStore((s) => s.activeSources);
+  const suppliedKinds = useSensorStore((s) => s.suppliedKinds);
 
   useEffect(() => {
     if (!isLoaded) {
@@ -149,7 +155,10 @@ function SensorSettingsScreenContent() {
   }, [isLoaded]);
 
   useEffect(() => {
-    return () => stopScan();
+    return () => {
+      stopScan();
+      void releasePairingConnections();
+    };
   }, []);
 
   // Open settings leaves the app, and a grant or location services turned on
@@ -157,6 +166,7 @@ function SensorSettingsScreenContent() {
   useForeground(() => void refreshBleAccess());
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
+  const accentText = isDark ? darkColors.linkTeal : colors.linkTeal;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bg = isDark ? darkColors.background : colors.background;
   const surface = isDark ? darkColors.surface : colors.surface;
@@ -172,12 +182,9 @@ function SensorSettingsScreenContent() {
 
   const handlePair = useCallback((sensor: DiscoveredSensor) => {
     stopScan();
-    useSensorStore.getState().addKnownSensor({
-      id: sensor.id,
-      name: sensor.name,
-      kinds: sensor.kinds,
-    });
-    connectKnownSensors();
+    const known = { id: sensor.id, name: sensor.name, kinds: sensor.kinds };
+    useSensorStore.getState().addKnownSensor(known);
+    void connectPairedSensor(known);
   }, []);
 
   const handleForget = useCallback((sensor: KnownSensor) => {
@@ -185,7 +192,20 @@ function SensorSettingsScreenContent() {
     disconnectSensor(sensor.id);
   }, []);
 
+  const handleChooseSource = useCallback((sensor: KnownSensor, kind: SensorKind) => {
+    if (sensor.preferredFor?.includes(kind)) return;
+    useSensorStore.getState().setPreferredSource(sensor.id, kind);
+  }, []);
+
   const pairedIds = new Set(knownSensors.map((s) => s.id));
+  const pairedMetrics = new Map(
+    knownSensors.map((sensor) => [sensor.id, metricsSuppliedBy(sensor, suppliedKinds[sensor.id])])
+  );
+  const sourceOf = (kind: SensorKind) =>
+    displayedSensorSource(kind, knownSensors, activeSources[kind]);
+  const sharedMetric = (['heartRate', 'power', 'cadence'] as const).some(
+    (kind) => [...pairedMetrics.values()].filter((kinds) => kinds.includes(kind)).length > 1
+  );
   const discoverable = discovered.filter((d) => !pairedIds.has(d.id));
   const bleAvailable = isBleAvailable();
   const blocking = availabilityNotice(availability, t);
@@ -214,6 +234,36 @@ function SensorSettingsScreenContent() {
     </View>
   );
 
+  // Each metric is recorded from one sensor. A filled chip is the sensor it is
+  // recorded from, and tapping an unfilled one makes that sensor the source.
+  const renderSources = (sensor: KnownSensor) => (
+    <View style={styles.kindRow}>
+      {(pairedMetrics.get(sensor.id) ?? []).map((kind) => {
+        const isSource = sourceOf(kind) === sensor.id;
+        return (
+          <ToggleButton
+            key={kind}
+            testID={`sensor-source-${sensor.id}-${kind}`}
+            label={t(`sensors.kinds.${kind}`)}
+            accessibilityLabel={t('sensors.recordFrom', {
+              kind: t(`sensors.kinds.${kind}`),
+              name: sensor.name,
+            })}
+            selected={isSource}
+            icon={
+              <MaterialCommunityIcons
+                name={KIND_ICONS[kind]}
+                size={14}
+                color={isSource ? colors.textOnPrimary : textSecondary}
+              />
+            }
+            onPress={() => handleChooseSource(sensor, kind)}
+          />
+        );
+      })}
+    </View>
+  );
+
   return (
     <ScreenSafeAreaView
       hasNativeHeader
@@ -228,10 +278,16 @@ function SensorSettingsScreenContent() {
           <ListSectionHeader inset={false}>
             {t('sensors.paired', 'Paired sensors')}
           </ListSectionHeader>
-          {knownSensors.length === 0 ? (
-            <Text style={[styles.emptyHint, { color: textSecondary }]}>
-              {t('sensors.nonePaired', 'No sensors paired yet. Scan below to add one.')}
+          {sharedMetric && (
+            <Text style={[styles.sourceHint, { color: textSecondary }]}>
+              {t('sensors.chooseSourceHint')}
             </Text>
+          )}
+          {knownSensors.length === 0 ? (
+            <EmptyState
+              variant="inline"
+              title={t('sensors.nonePaired', 'No sensors paired yet. Scan below to add one.')}
+            />
           ) : (
             knownSensors.map((sensor) => {
               const connection = connections[sensor.id];
@@ -251,7 +307,7 @@ function SensorSettingsScreenContent() {
                     <Text style={[styles.cardTitle, { color: textPrimary }]} numberOfLines={1}>
                       {sensor.name}
                     </Text>
-                    {renderKinds(sensor.kinds, textSecondary)}
+                    {renderSources(sensor)}
                     <Text style={[styles.statusText, { color: statusColor }]}>
                       {connection
                         ? t(`sensors.status.${connection.status}`)
@@ -286,7 +342,7 @@ function SensorSettingsScreenContent() {
                 'sensors.bleUnavailableHint',
                 'This build does not include Bluetooth support.'
               )}
-              compact
+              variant="compact"
             />
           ) : notice ? (
             <View testID={notice.testID} accessibilityLiveRegion="polite">
@@ -297,7 +353,7 @@ function SensorSettingsScreenContent() {
                 actionLabel={notice.action?.label}
                 onAction={notice.action?.onPress}
                 actionTestID="sensor-availability-action"
-                compact
+                variant="compact"
               />
             </View>
           ) : (
@@ -340,14 +396,14 @@ function SensorSettingsScreenContent() {
                     </Text>
                     {renderKinds(sensor.kinds, textSecondary)}
                   </View>
-                  <Text style={[styles.pairText, { color: brand.teal }]}>
+                  <Text style={[styles.pairText, { color: accentText }]}>
                     {t('sensors.pair', 'Pair')}
                   </Text>
                 </Pressable>
               ))}
 
               {scanning && discoverable.length === 0 && (
-                <Text style={[styles.emptyHint, { color: textSecondary }]}>
+                <Text style={[styles.searchingLine, { color: textSecondary }]}>
                   {t('sensors.searching', 'Searching for nearby sensors…')}
                 </Text>
               )}
@@ -370,7 +426,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     marginBottom: spacing.lg,
   },
-  emptyHint: {
+  searchingLine: {
     ...typography.bodySmall,
     fontStyle: 'italic',
     paddingVertical: spacing.sm,
@@ -391,8 +447,13 @@ const styles = StyleSheet.create({
   cardTitle: {
     ...typography.bodyBold,
   },
+  sourceHint: {
+    ...typography.bodySmall,
+    paddingBottom: spacing.sm,
+  },
   kindRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
     marginTop: spacing.xxs,
   },

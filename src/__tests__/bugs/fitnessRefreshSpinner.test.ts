@@ -38,7 +38,7 @@ beforeEach(() => {
 describe('pull to refresh on the Fitness screen', () => {
   it('clears the spinner when the wellness refetch rejects', async () => {
     const refetch = jest.fn().mockRejectedValue(new Error('offline'));
-    const { result } = renderHook(() => useFitnessRefresh(refetch), { wrapper });
+    const { result } = await renderHook(() => useFitnessRefresh(refetch), { wrapper });
 
     await act(async () => {
       await result.current.onRefresh().catch(() => {});
@@ -49,7 +49,7 @@ describe('pull to refresh on the Fitness screen', () => {
 
   it('clears the spinner on a refresh that resolves', async () => {
     const refetch = jest.fn().mockResolvedValue(undefined);
-    const { result } = renderHook(() => useFitnessRefresh(refetch), { wrapper });
+    const { result } = await renderHook(() => useFitnessRefresh(refetch), { wrapper });
 
     await act(async () => {
       await result.current.onRefresh();
@@ -68,7 +68,7 @@ describe('pull to refresh on the Fitness screen', () => {
       order.push('refetch');
       return Promise.resolve();
     });
-    const { result } = renderHook(() => useFitnessRefresh(refetch), { wrapper });
+    const { result } = await renderHook(() => useFitnessRefresh(refetch), { wrapper });
 
     await act(async () => {
       await result.current.onRefresh();

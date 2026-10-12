@@ -15,8 +15,8 @@ jest.mock('react-i18next', () => ({
 }));
 
 describe('SearchBar', () => {
-  it('does not capitalise what is typed and sets the field up for search', () => {
-    const { getByTestId } = render(
+  it('does not capitalise what is typed and sets the field up for search', async () => {
+    const { getByTestId } = await render(
       <SearchBar value="" onChangeText={() => {}} placeholder="Search" testID="bar" />
     );
     const input = getByTestId('bar');
@@ -26,16 +26,18 @@ describe('SearchBar', () => {
     expect(input.props.keyboardAppearance).toBeDefined();
   });
 
-  it('shows the clear button only when there is text, and clears it', () => {
+  it('shows the clear button only when there is text, and clears it', async () => {
     const onChangeText = jest.fn();
-    const empty = render(<SearchBar value="" onChangeText={onChangeText} placeholder="Search" />);
+    const empty = await render(
+      <SearchBar value="" onChangeText={onChangeText} placeholder="Search" />
+    );
     expect(empty.queryByLabelText('t:common.clearSearch')).toBeNull();
-    empty.unmount();
+    await empty.unmount();
 
-    const filled = render(
+    const filled = await render(
       <SearchBar value="loop" onChangeText={onChangeText} placeholder="Search" />
     );
-    fireEvent.press(filled.getByLabelText('t:common.clearSearch'));
+    await fireEvent.press(filled.getByLabelText('t:common.clearSearch'));
     expect(onChangeText).toHaveBeenCalledWith('');
   });
 });

@@ -13,9 +13,9 @@ import { SaveErrorBanner } from '@/features/recording/components/SaveErrorBanner
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
-function renderBanner(onFreeSpace?: () => void) {
+async function renderBanner(onFreeSpace?: () => void) {
   const onRetry = jest.fn();
-  const view = render(
+  const view = await render(
     <SaveErrorBanner
       errorMessage="recording.saveErrorNoSpace"
       showPermissionFix={false}
@@ -29,19 +29,19 @@ function renderBanner(onFreeSpace?: () => void) {
 }
 
 describe('SaveErrorBanner', () => {
-  it('offers to free space and keeps Retry', () => {
+  it('offers to free space and keeps Retry', async () => {
     const onFreeSpace = jest.fn();
-    const { getByText, onRetry } = renderBanner(onFreeSpace);
+    const { getByText, onRetry } = await renderBanner(onFreeSpace);
 
-    fireEvent.press(getByText('common.freeUpSpace'));
-    fireEvent.press(getByText('common.retry'));
+    await fireEvent.press(getByText('common.freeUpSpace'));
+    await fireEvent.press(getByText('common.retry'));
 
     expect(onFreeSpace).toHaveBeenCalledTimes(1);
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
-  it('offers no space action when the device has room', () => {
-    const { queryByText, getByText } = renderBanner(undefined);
+  it('offers no space action when the device has room', async () => {
+    const { queryByText, getByText } = await renderBanner(undefined);
 
     expect(queryByText('common.freeUpSpace')).toBeNull();
     expect(getByText('common.retry')).toBeTruthy();

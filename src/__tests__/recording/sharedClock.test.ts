@@ -20,23 +20,23 @@ describe('recording clock', () => {
     useRecordingStore.getState().reset();
   });
 
-  it('renders once a second while both hooks run', () => {
+  it('renders once a second while both hooks run', async () => {
     let renders = 0;
-    renderHook(() => {
+    await renderHook(() => {
       renders += 1;
       useTimer();
       useRecordingMetrics();
     });
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(400);
     });
-    act(() => {
+    await act(() => {
       useRecordingStore.getState().startRecording('Ride', 'outdoor' as never);
     });
     renders = 0;
     for (let i = 0; i < 50; i += 1) {
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(100);
       });
     }
@@ -44,12 +44,12 @@ describe('recording clock', () => {
     expect(renders).toBe(5);
   });
 
-  it('turns a held sensor sample stale while idle', () => {
+  it('turns a held sensor sample stale while idle', async () => {
     useRecordingStore.getState().setSensorSample('heartrate', 140);
-    const { result } = renderHook(() => useRecordingMetrics());
+    const { result } = await renderHook(() => useRecordingMetrics());
     expect(result.current.heartrate).toBe(140);
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(10_000);
     });
 

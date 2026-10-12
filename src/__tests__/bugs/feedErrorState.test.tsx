@@ -1,17 +1,17 @@
 /**
  * Scenario: the feed's activity read throws an Error whose text is English
- * and built in the engine.
+ * and built in the engine, or a search matches no activities.
  * Expected behaviour: the error state shows the translated failure line and
- * never the thrown message.
+ * never the thrown message. A search with no match draws the shared EmptyState.
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { getEngine } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import FeedScreen from '@/app/(tabs)/index';
+import FeedScreen from '@/app/(tabs)/(feed)';
 
 jest.mock('@/shared/native/syncRefresh', () => ({
   requestSyncRefresh: jest.fn(),
@@ -23,6 +23,7 @@ jest.mock('react-native-safe-area-context', () => ({
 }));
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
+  Stack: require('../__shared__/nativeHeaderStandIn').Stack,
   useIsFocused: () => true,
 }));
 jest.mock('@/shared/app/TopSafeAreaContext', () => ({
@@ -39,13 +40,14 @@ jest.mock('@/shared/native/engine', () => ({
   getNativeModule: () => null,
   getRouteDbPath: () => null,
 }));
+const mockFeedRead = { isError: true };
 jest.mock('@/features/activity/hooks', () => ({
   ...jest.requireActual('@/features/activity/hooks'),
   useInfiniteActivities: () => ({
     data: { pages: [[]] },
     isLoading: false,
-    isError: true,
-    error: new Error('engine read failed: SQLITE_BUSY'),
+    isError: mockFeedRead.isError,
+    error: mockFeedRead.isError ? new Error('engine read failed: SQLITE_BUSY') : null,
     isRefetching: false,
     fetchNextPage: jest.fn(),
     fetchPreviousPage: jest.fn(),
@@ -84,7 +86,7 @@ jest.mock('@/features/maps/lib/storage/terrainCameraOverrides', () => ({
 }));
 jest.mock('@/features/activity/components', () => ({ ActivityCard: () => null }));
 
-it('shows the translated failure line, not the thrown message', () => {
+async function renderFeed() {
   (getEngine as jest.Mock).mockReturnValue({
     getActivityHighlightsBundle: () => ({ indicators: [], routeHighlights: [], newGround: [] }),
     searchActivityBodies: () => ({ bodies: [], matchedCount: 0, hasMore: false }),
@@ -93,11 +95,26 @@ it('shows the translated failure line, not the thrown message', () => {
   });
   useAuthStore.setState({ isAuthenticated: true, athleteId: 'i1' });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
+  await render(
     <QueryClientProvider client={client}>
       <FeedScreen />
     </QueryClientProvider>
   );
+}
+
+it('shows the translated failure line, not the thrown message', async () => {
+  mockFeedRead.isError = true;
+  await renderFeed();
   expect(screen.getByText('feed.failedToLoad')).toBeTruthy();
   expect(screen.queryByText(/SQLITE_BUSY/)).toBeNull();
+});
+
+it('draws the shared empty state for a search that matches nothing', async () => {
+  mockFeedRead.isError = false;
+  await renderFeed();
+  await fireEvent.changeText(screen.getByTestId('native-header-search'), 'nowhere');
+  await waitFor(() => expect(screen.getByTestId('home-empty-state-title')).toBeTruthy());
+  expect(screen.getByTestId('home-empty-state-title').props.children).toMatch(
+    /^feed\.noActivitiesFor/
+  );
 });

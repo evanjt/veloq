@@ -53,11 +53,11 @@ function client(overrides: Partial<RouteGroupingPreviewClient> = {}) {
 beforeEach(() => jest.useFakeTimers());
 afterEach(() => jest.useRealTimers());
 
-it('starts one run for a drag across the range, at the value it settled on', () => {
+it('starts one run for a drag across the range, at the value it settled on', async () => {
   const c = client();
-  const { result } = renderHook(() => useRouteGroupingPreview(c));
+  const { result } = await renderHook(() => useRouteGroupingPreview(c));
 
-  act(() => {
+  await act(() => {
     for (let pct = 50; pct <= 65; pct++) {
       result.current.request({ minMatchPercentage: pct, endpointThreshold: 250 });
       jest.advanceTimersByTime(GROUPING_DEBOUNCE_MS - 50);
@@ -71,9 +71,9 @@ it('starts one run for a drag across the range, at the value it settled on', () 
 
 it('paints the payload the run answered with', async () => {
   const c = client();
-  const { result } = renderHook(() => useRouteGroupingPreview(c));
+  const { result } = await renderHook(() => useRouteGroupingPreview(c));
 
-  act(() => {
+  await act(() => {
     result.current.request({ minMatchPercentage: 55, endpointThreshold: 250 });
     jest.advanceTimersByTime(GROUPING_DEBOUNCE_MS);
   });
@@ -89,13 +89,13 @@ it('paints the payload the run answered with', async () => {
 
 it('discards the run in flight when the knob moves again', async () => {
   const c = client();
-  const { result } = renderHook(() => useRouteGroupingPreview(c));
+  const { result } = await renderHook(() => useRouteGroupingPreview(c));
 
-  act(() => {
+  await act(() => {
     result.current.request({ minMatchPercentage: 55, endpointThreshold: 250 });
     jest.advanceTimersByTime(GROUPING_DEBOUNCE_MS);
   });
-  act(() => {
+  await act(() => {
     result.current.request({ minMatchPercentage: 60, endpointThreshold: 250 });
     jest.advanceTimersByTime(GROUPING_DEBOUNCE_MS);
   });
@@ -115,7 +115,7 @@ it('says so when the engine refuses the run rather than showing an empty map', a
   const c = client({
     runRouteGroupingPreview: jest.fn(() => Promise.resolve({ state: 'refused' as const })),
   });
-  const { result } = renderHook(() => useRouteGroupingPreview(c));
+  const { result } = await renderHook(() => useRouteGroupingPreview(c));
 
   await act(async () => {
     result.current.request({ minMatchPercentage: 55, endpointThreshold: 250 });
@@ -126,27 +126,27 @@ it('says so when the engine refuses the run rather than showing an empty map', a
   expect(result.current.status).toBe('idle');
 });
 
-it('cancels what is still grouping when the screen goes away', () => {
+it('cancels what is still grouping when the screen goes away', async () => {
   const c = client();
-  const { result, unmount } = renderHook(() => useRouteGroupingPreview(c));
+  const { result, unmount } = await renderHook(() => useRouteGroupingPreview(c));
 
-  act(() => {
+  await act(() => {
     result.current.request({ minMatchPercentage: 55, endpointThreshold: 250 });
     jest.advanceTimersByTime(GROUPING_DEBOUNCE_MS);
   });
   const cancelsAtStart = (c.cancelRouteGroupingPreview as jest.Mock).mock.calls.length;
-  unmount();
+  await unmount();
 
   expect((c.cancelRouteGroupingPreview as jest.Mock).mock.calls.length).toBeGreaterThan(
     cancelsAtStart
   );
 });
 
-it('starts nothing while the value is still moving', () => {
+it('starts nothing while the value is still moving', async () => {
   const c = client();
-  const { result } = renderHook(() => useRouteGroupingPreview(c));
+  const { result } = await renderHook(() => useRouteGroupingPreview(c));
 
-  act(() => {
+  await act(() => {
     result.current.request({ minMatchPercentage: 55, endpointThreshold: 250 });
     jest.advanceTimersByTime(GROUPING_DEBOUNCE_MS - 1);
   });
@@ -161,9 +161,9 @@ it('starts nothing while the value is still moving', () => {
  */
 it('gives a wedged run one minute, not two', async () => {
   const c = client();
-  const { result } = renderHook(() => useRouteGroupingPreview(c));
+  const { result } = await renderHook(() => useRouteGroupingPreview(c));
 
-  act(() => {
+  await act(() => {
     result.current.request({ minMatchPercentage: 60, endpointThreshold: 250 });
     jest.advanceTimersByTime(GROUPING_DEBOUNCE_MS);
   });
@@ -183,9 +183,9 @@ it('gives a wedged run one minute, not two', async () => {
 
 it('keeps a healthy run going when the process was suspended past the deadline', async () => {
   const c = client();
-  const { result } = renderHook(() => useRouteGroupingPreview(c));
+  const { result } = await renderHook(() => useRouteGroupingPreview(c));
 
-  act(() => {
+  await act(() => {
     result.current.request({ minMatchPercentage: 55, endpointThreshold: 250 });
     jest.advanceTimersByTime(GROUPING_DEBOUNCE_MS);
   });

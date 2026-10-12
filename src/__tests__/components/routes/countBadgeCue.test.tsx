@@ -55,24 +55,26 @@ const section = {
 } as unknown as Section;
 
 describe('count badge cue', () => {
-  it('labels the route badge as activities and draws the route glyph', () => {
-    const { getByTestId } = render(<RouteRow route={route} navigable />);
+  it('labels the route badge as activities and draws the route glyph', async () => {
+    const { getByTestId } = await render(<RouteRow route={route} navigable />);
     expect(getByTestId('route-row-r_5-count').props.accessibilityLabel).toBe(
       'routes.activitiesCount:5'
     );
     expect(getByTestId('route-row-r_5-count-glyph').props.name).toBe('map-marker-multiple');
   });
 
-  it('labels the section badge as traversals and draws the section glyph', () => {
-    const { getByTestId } = render(<SectionRow section={section} />);
+  it('labels the section badge as traversals and draws the section glyph', async () => {
+    const { getByTestId } = await render(<SectionRow section={section} />);
     expect(getByTestId('section-row-s_5-count').props.accessibilityLabel).toBe(
       'sections.traversalsCount:5'
     );
     expect(getByTestId('section-row-s_5-count-glyph').props.name).toBe('repeat');
   });
 
-  it('uses the singular for one', () => {
-    const { getByTestId } = render(<RouteRow route={{ ...route, activityCount: 1 }} navigable />);
+  it('uses the singular for one', async () => {
+    const { getByTestId } = await render(
+      <RouteRow route={{ ...route, activityCount: 1 }} navigable />
+    );
     expect(getByTestId('route-row-r_5-count').props.accessibilityLabel).toBe(
       'routes.activitiesCount:1'
     );

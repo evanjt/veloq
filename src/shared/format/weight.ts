@@ -1,3 +1,5 @@
+import { ABSENT } from './absent';
+
 export const KG_TO_LB = 2.20462;
 
 /** Convert kilograms to the athlete's display unit. */
@@ -11,6 +13,7 @@ export function weightUnitLabel(isMetric: boolean): string {
 
 /** Integers stay integer; fractional values get one decimal. */
 export function formatWeight(kg: number, isMetric: boolean): string {
+  if (!Number.isFinite(kg)) return ABSENT;
   const value = toDisplayWeight(kg, isMetric);
   const text = value % 1 === 0 ? `${value}` : value.toFixed(1);
   return `${text} ${weightUnitLabel(isMetric)}`;

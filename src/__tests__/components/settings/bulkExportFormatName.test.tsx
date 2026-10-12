@@ -54,8 +54,8 @@ beforeEach(() => {
 });
 
 describe('the progress row names the format being written', () => {
-  it('says GeoJSON for a GeoJSON export', () => {
-    render(
+  it('says GeoJSON for a GeoJSON export', async () => {
+    await render(
       <BulkExportProgress
         phase="generating"
         format="geojson"
@@ -69,8 +69,8 @@ describe('the progress row names the format being written', () => {
     expect(screen.getByText(/export\.bulkExporting.*GeoJSON/)).toBeTruthy();
   });
 
-  it('says GPX for a GPX export', () => {
-    render(
+  it('says GPX for a GPX export', async () => {
+    await render(
       <BulkExportProgress
         phase="generating"
         format="gpx"
@@ -88,9 +88,9 @@ describe('the progress row names the format being written', () => {
 
 describe('the hook reports which format is running', () => {
   it('reports geojson for the GeoJSON pill', async () => {
-    const { result } = renderHook(() => useBulkExport());
+    const { result } = await renderHook(() => useBulkExport());
 
-    act(() => {
+    await act(() => {
       result.current.exportAllGeoJson();
     });
 
@@ -99,9 +99,9 @@ describe('the hook reports which format is running', () => {
   });
 
   it('reports gpx for the GPX pill', async () => {
-    const { result } = renderHook(() => useBulkExport());
+    const { result } = await renderHook(() => useBulkExport());
 
-    act(() => {
+    await act(() => {
       result.current.exportAll();
     });
 
@@ -111,7 +111,7 @@ describe('the hook reports which format is running', () => {
 
   it('names the format in the alert that reports what was skipped', async () => {
     bulkExportActivitiesGeoJson.mockResolvedValue(complete('geojson', 2, 1));
-    const { result } = renderHook(() => useBulkExport());
+    const { result } = await renderHook(() => useBulkExport());
 
     await act(async () => {
       await result.current.exportAllGeoJson();
@@ -133,7 +133,7 @@ describe('an export that outlived the wait', () => {
     bulkExportActivities.mockResolvedValue({ state: 'still-running' });
     // The spy carries its calls across tests in this file.
     (Alert.alert as jest.Mock).mockClear();
-    const { result } = renderHook(() => useBulkExport());
+    const { result } = await renderHook(() => useBulkExport());
 
     await act(async () => {
       await result.current.exportAll();
@@ -146,7 +146,7 @@ describe('an export that outlived the wait', () => {
 
   it('stops saying so once the file the next mount finds has been shared', async () => {
     resumePendingBulkExport.mockResolvedValue(complete('gpx', 3, 0));
-    const { result } = renderHook(() => useBulkExport());
+    const { result } = await renderHook(() => useBulkExport());
 
     await waitFor(() => expect(resumePendingBulkExport).toHaveBeenCalled());
     expect(result.current.stillRunning).toBe(false);

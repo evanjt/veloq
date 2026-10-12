@@ -58,8 +58,8 @@ beforeEach(() => {
 });
 
 describe('useStrengthCardData', () => {
-  it('turns a row with active sets into what the card paints', () => {
-    const { result } = render([row('s1')]);
+  it('turns a row with active sets into what the card paints', async () => {
+    const { result } = await render([row('s1')]);
 
     expect(result.current.get('s1')).toEqual({
       muscles: [{ slug: 'chest', intensity: 2 }],
@@ -69,73 +69,73 @@ describe('useStrengthCardData', () => {
     });
   });
 
-  it('gives no entry to an activity without active sets, and asks for nothing settled', () => {
-    const { result } = render([row('s1', { activeSetCount: 0, muscles: [] })]);
+  it('gives no entry to an activity without active sets, and asks for nothing settled', async () => {
+    const { result } = await render([row('s1', { activeSetCount: 0, muscles: [] })]);
 
     expect(result.current.size).toBe(0);
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('holds nothing for a feed with no strength activity', () => {
-    const { result } = render([]);
+  it('holds nothing for a feed with no strength activity', async () => {
+    const { result } = await render([]);
 
     expect(result.current.size).toBe(0);
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it('asks once for a download that is still owed, however often the rows arrive', () => {
-    const { rerender } = render([row('s1'), owed('s2')]);
-    rerender({ current: [row('s1'), owed('s2')] as Rows });
-    rerender({ current: [row('s1'), owed('s2')] as Rows });
+  it('asks once for a download that is still owed, however often the rows arrive', async () => {
+    const { rerender } = await render([row('s1'), owed('s2')]);
+    await rerender({ current: [row('s1'), owed('s2')] as Rows });
+    await rerender({ current: [row('s1'), owed('s2')] as Rows });
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
     expect(mockFetch).toHaveBeenCalledWith('s2');
   });
 
-  it('draws the card once the parse lands in the next rows', () => {
-    const { result, rerender } = render([owed('s1')]);
+  it('draws the card once the parse lands in the next rows', async () => {
+    const { result, rerender } = await render([owed('s1')]);
     expect(result.current.size).toBe(0);
 
-    rerender({ current: [row('s1')] as Rows });
+    await rerender({ current: [row('s1')] as Rows });
 
     expect(result.current.get('s1')?.setCount).toBe(4);
   });
 
-  it('asks again for a download a dead connection lost, once the radio is back', () => {
+  it('asks again for a download a dead connection lost, once the radio is back', async () => {
     mockIsOnline = false;
     const rows = [owed('s1')] as Rows;
-    const { rerender } = render(rows);
+    const { rerender } = await render(rows);
     expect(mockFetch).toHaveBeenCalledTimes(1);
 
     mockIsOnline = true;
-    act(() => rerender({ current: rows }));
+    await act(() => rerender({ current: rows }));
 
     expect(mockFetch).toHaveBeenCalledTimes(2);
   });
 
-  it('keeps a settled card as the same object when another activity parses', () => {
-    const { result, rerender } = render([row('s1'), owed('s2')]);
+  it('keeps a settled card as the same object when another activity parses', async () => {
+    const { result, rerender } = await render([row('s1'), owed('s2')]);
     const before = result.current.get('s1');
 
-    rerender({ current: [row('s1'), row('s2')] as Rows });
+    await rerender({ current: [row('s1'), row('s2')] as Rows });
 
     expect(result.current.get('s1')).toBe(before);
     expect(result.current.has('s2')).toBe(true);
   });
 
-  it('replaces the card whose content moved', () => {
-    const { result, rerender } = render([row('s1')]);
+  it('replaces the card whose content moved', async () => {
+    const { result, rerender } = await render([row('s1')]);
     const before = result.current.get('s1');
 
-    rerender({ current: [row('s1', { activeSetCount: 5 })] as Rows });
+    await rerender({ current: [row('s1', { activeSetCount: 5 })] as Rows });
 
     expect(result.current.get('s1')).not.toBe(before);
     expect(result.current.get('s1')?.setCount).toBe(5);
   });
 
-  it('seeds a demo activity instead of downloading it', () => {
+  it('seeds a demo activity instead of downloading it', async () => {
     useAuthStore.setState({ isDemoMode: true });
-    render([owed('demo-test-6')]);
+    await render([owed('demo-test-6')]);
 
     expect(mockSeed).toHaveBeenCalledTimes(1);
     expect(mockSeed.mock.calls[0][0]).toBe('demo-test-6');

@@ -40,7 +40,9 @@ function mountRide(hasPermission: boolean) {
       mode: 'gps',
       status: useRecordingStore((s) => s.status),
       hasPermission,
+      precision: 'precise',
       requestPermission,
+      upgradePrecision: jest.fn(),
       setGpsWarning,
     })
   );
@@ -85,7 +87,7 @@ describe('a ride on Android with location off', () => {
   });
 
   it('names the switch at once and keeps recording', async () => {
-    mountRide(true);
+    await mountRide(true);
     await flush();
 
     expect(lastWarning()).toBe('recording.gpsServicesOffAndroid');
@@ -93,7 +95,7 @@ describe('a ride on Android with location off', () => {
   });
 
   it('still names the switch, not the wait, once the warning delay has passed', async () => {
-    mountRide(true);
+    await mountRide(true);
     await flush();
     await act(async () => {
       jest.advanceTimersByTime(GPS_WARNING_MS);
@@ -104,7 +106,7 @@ describe('a ride on Android with location off', () => {
   });
 
   it('offers to turn the switch on from the no-fix alert, and not the app settings', async () => {
-    mountRide(true);
+    await mountRide(true);
     await flush();
     await act(async () => {
       jest.advanceTimersByTime(GPS_ALERT_MS);
@@ -115,7 +117,7 @@ describe('a ride on Android with location off', () => {
     expect(calls[0][0]).toBe('recording.gpsServicesOffTitle');
     expect(calls[0][1]).toBe('recording.gpsServicesOffAndroid');
     const texts = alertButtons().map((b) => b.text);
-    expect(texts).not.toContain('recording.gpsAlertSettings');
+    expect(texts).not.toContain('common.openSettings');
 
     location.hasServicesEnabledAsync.mockResolvedValue(true);
     await act(async () => {
@@ -136,7 +138,7 @@ describe('a ride on iOS with Location Services off', () => {
   });
 
   it('names the switch rather than the permission, and does not pause the ride', async () => {
-    mountRide(false);
+    await mountRide(false);
     await flush();
 
     expect(lastWarning()).toBe('recording.gpsServicesOffIos');
@@ -145,7 +147,7 @@ describe('a ride on iOS with Location Services off', () => {
   });
 
   it('says where the switch is in the no-fix alert, with no button that cannot reach it', async () => {
-    mountRide(false);
+    await mountRide(false);
     await flush();
     await act(async () => {
       jest.advanceTimersByTime(GPS_ALERT_MS);
@@ -167,7 +169,7 @@ describe('a ride with location on', () => {
   });
 
   it('pauses on a refused permission, as before', async () => {
-    mountRide(false);
+    await mountRide(false);
     await flush();
 
     expect(requestPermission).toHaveBeenCalledTimes(1);
@@ -176,7 +178,7 @@ describe('a ride with location on', () => {
   });
 
   it('opens the no-fix alert with the sky as the cause', async () => {
-    mountRide(true);
+    await mountRide(true);
     await flush();
     await act(async () => {
       jest.advanceTimersByTime(GPS_ALERT_MS);

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, ScrollView, StyleSheet, Pressable, Text as RNText } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, useMetricSystem } from '@/shared/app';
@@ -8,14 +8,11 @@ import { useTranslation } from 'react-i18next';
 import type { Activity } from '@/types';
 import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
 import {
-  formatDistance,
-  formatDuration,
-  formatElevation,
   formatHeartRate,
   formatPower,
   formatRelativeDate,
   formatTemperature,
-  formatTSS,
+  formatLoad,
   formatCalories,
   formatPrDelta,
   formatPrImprovement,
@@ -31,6 +28,7 @@ import {
   verdict,
   colorWithOpacity,
   mapTextShadow,
+  slopToMinTapTarget,
 } from '@/theme';
 import { useMapPreferences } from '@/features/settings';
 import { type TerrainSnapshotWebViewRef } from '@/features/maps';
@@ -38,13 +36,21 @@ import { ActivityMapPreview } from './ActivityMapPreview';
 import type { PreviewTrack } from '@/features/home';
 import { ActivityCardContextMenu } from './ActivityCardContextMenu';
 import { SkylineBar } from './SkylineBar';
+import { cardPrimaryStats } from '../lib/cardPrimaryStats';
 import { StrengthActivityCard, type StrengthCardData } from '@/features/strength';
 import { debug } from '@/shared/debug/debug';
 import { rowIsUnchanged } from '@/shared/ui/rowMemo';
 import { prefetchActivityDetailData } from '../hooks/useActivityDetailData';
 import type { ActivityNewGround } from '../hooks/useActivitySectionHighlights';
-import { pressable, pressRipple, pressRippleOver } from '@/shared/ui';
+import {
+  accessibleActions,
+  composeAccessibilityLabel,
+  pressable,
+  pressRipple,
+  pressRippleOver,
+} from '@/shared/ui';
 import { Card } from '@/shared/ui/Card';
+import { activityCardA11yLabel, routeChipSpeech } from '../lib/activityCardA11yLabel';
 import { freshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
 
 import { CARD_HEIGHT, CARD_MARGIN } from '@/features/activity/lib/cardLayout';
@@ -193,7 +199,7 @@ export const ActivityCard = React.memo(
       log.log(`  🃏 ActivityCard[${index}] BODY executing (${activity.type})`);
     }
     const { t } = useTranslation();
-    const { isDark } = useTheme();
+    const { isDark, preferOpaqueChrome } = useTheme();
     const isMetric = useMetricSystem();
     const [menuVisible, setMenuVisible] = useState(false);
     const averageHeartRate = activity.average_heartrate;
@@ -218,6 +224,40 @@ export const ActivityCard = React.memo(
       haptics.medium();
       setMenuVisible(true);
     }, []);
+
+    const showsRouteChip =
+      !!routeHighlight &&
+      (routeHighlight.isPr ||
+        (routeHighlight.timeDeltaSeconds != null && routeHighlight.timeDeltaSeconds > 0));
+    const showsSectionChip = !!sectionHighlights && sectionHighlights.length > 0;
+
+    // The chips and the hold sit inside the card's one element, so a screen
+    // reader reaches them here.
+    const cardActions = useMemo(
+      () =>
+        accessibleActions([
+          ...(showsRouteChip
+            ? [
+                {
+                  name: 'openRoute',
+                  label: t('activityDetail.tabs.route'),
+                  run: () => openActivity('routes'),
+                },
+              ]
+            : []),
+          ...(showsSectionChip
+            ? [
+                {
+                  name: 'openSections',
+                  label: t('activityDetail.tabs.sections'),
+                  run: () => openActivity('sections'),
+                },
+              ]
+            : []),
+          { name: 'longpress', label: t('activity.moreActions'), run: handleLongPress },
+        ]),
+      [showsRouteChip, showsSectionChip, openActivity, handleLongPress, t]
+    );
 
     const scrollRef = useRef<ScrollView>(null);
     const hasFlashed = useRef(false);
@@ -253,29 +293,27 @@ export const ActivityCard = React.memo(
         testID={`activity-card-${activity.id}-secondary-stats`}
         style={styles.secondaryScroll}
       >
+        {/* A second touch area for the card's own press. The card's label speaks
+            these stats, so a screen reader never reaches this. */}
         <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={activity.name}
+          accessible={false}
+          accessibilityRole="none"
+          importantForAccessibility="no-hide-descendants"
+          accessibilityElementsHidden
           onPress={handlePress}
           style={pressable(styles.secondaryStats)}
           android_ripple={pressRipple}
         >
           {!!activity.icu_training_load && (
-            <View
-              style={styles.secondaryStat}
-              accessibilityLabel={`${t('activity.stats.trainingLoad')}: ${formatTSS(activity.icu_training_load)}`}
-            >
+            <View style={styles.secondaryStat}>
               <MaterialCommunityIcons name="fire" size={14} color={colors.primary} />
               <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
-                {formatTSS(activity.icu_training_load)}
+                {formatLoad(activity.icu_training_load)}
               </RNText>
             </View>
           )}
           {averageHeartRate ? (
-            <View
-              style={styles.secondaryStat}
-              accessibilityLabel={`${t('activity.heartRate')}: ${formatHeartRate(averageHeartRate)} ${t('units.bpm')}`}
-            >
+            <View style={styles.secondaryStat}>
               <MaterialCommunityIcons name="heart-pulse" size={14} color={colors.error} />
               <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
                 {formatHeartRate(averageHeartRate)}
@@ -283,10 +321,7 @@ export const ActivityCard = React.memo(
             </View>
           ) : null}
           {averagePower ? (
-            <View
-              style={styles.secondaryStat}
-              accessibilityLabel={`${t('activity.power')}: ${formatPower(averagePower)} ${t('units.watts')}`}
-            >
+            <View style={styles.secondaryStat}>
               <MaterialCommunityIcons
                 name="lightning-bolt"
                 size={14}
@@ -298,10 +333,7 @@ export const ActivityCard = React.memo(
             </View>
           ) : null}
           {!!activity.calories && (
-            <View
-              style={styles.secondaryStat}
-              accessibilityLabel={`${t('activity.calories')}: ${formatCalories(activity.calories)} ${t('units.kcal')}`}
-            >
+            <View style={styles.secondaryStat}>
               <MaterialCommunityIcons
                 name="food-apple"
                 size={14}
@@ -313,10 +345,7 @@ export const ActivityCard = React.memo(
             </View>
           )}
           {activity.has_weather && activity.average_weather_temp != null && (
-            <View
-              style={styles.secondaryStat}
-              accessibilityLabel={`${t('activity.stats.temperature')}: ${formatTemperature(activity.average_weather_temp, isMetric)}`}
-            >
+            <View style={styles.secondaryStat}>
               <MaterialCommunityIcons name="weather-partly-cloudy" size={14} color={colors.info} />
               <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
                 {formatTemperature(activity.average_weather_temp, isMetric)}
@@ -326,6 +355,12 @@ export const ActivityCard = React.memo(
         </Pressable>
       </ScrollView>
     );
+
+    const sectionCounts = {
+      prs: sectionHighlights?.filter((h) => h.isPr).length ?? 0,
+      faster: sectionHighlights?.filter((h) => h.trend === 1 && !h.isPr).length ?? 0,
+      slower: sectionHighlights?.filter((h) => h.trend === -1 && !h.isPr).length ?? 0,
+    };
 
     // Context menu (shared between compact and full card)
     const contextMenu = (
@@ -344,6 +379,8 @@ export const ActivityCard = React.memo(
       return <StrengthActivityCard activity={activity} strengthData={strengthData} />;
     }
 
+    const stats = cardPrimaryStats(activity, isMetric);
+
     // Compact card for activities without GPS data
     if (!hasGpsData) {
       return (
@@ -354,12 +391,18 @@ export const ActivityCard = React.memo(
             onLongPress={handleLongPress}
             delayLongPress={PREVIEW_HOLD_MS}
             accessibilityRole="button"
-            accessibilityLabel={`${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDistance(activity.distance, isMetric)}, ${formatDuration(activity.moving_time)}`}
+            accessibilityLabel={activityCardA11yLabel({ activity, isMetric }, t)}
+            {...cardActions}
             style={pressable()}
             android_ripple={pressRippleOver}
           >
             <Card variant="raised" padding="none" testID={`activity-card-${activity.id}-container`}>
-              <View style={styles.compactContent}>
+              {/* Read through the card's own label, so the name is heard once. */}
+              <View
+                style={styles.compactContent}
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+              >
                 {/* Header: icon + name/date stacked + no-map indicator */}
                 <View style={styles.compactHeader}>
                   <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
@@ -392,13 +435,13 @@ export const ActivityCard = React.memo(
                 {/* Primary stats */}
                 <View style={styles.compactPrimaryRow}>
                   <View style={styles.primaryStats}>
-                    {activity.distance > 0 && (
+                    {stats.distance != null && (
                       <>
                         <RNText
                           testID={`activity-card-${activity.id}-distance`}
                           style={[styles.compactStatValue, { color: compactTextColor }]}
                         >
-                          {formatDistance(activity.distance, isMetric)}
+                          {stats.distance}
                         </RNText>
                         <RNText style={[styles.statDot, { color: compactDotColor }]}>·</RNText>
                       </>
@@ -407,16 +450,16 @@ export const ActivityCard = React.memo(
                       testID={`activity-card-${activity.id}-duration`}
                       style={[styles.compactStatValue, { color: compactTextColor }]}
                     >
-                      {formatDuration(activity.moving_time)}
+                      {stats.duration}
                     </RNText>
-                    {activity.total_elevation_gain > 0 && (
+                    {stats.elevation != null && (
                       <>
                         <RNText style={[styles.statDot, { color: compactDotColor }]}>·</RNText>
                         <RNText
                           testID={`activity-card-${activity.id}-elevation`}
                           style={[styles.compactStatValue, { color: compactTextColor }]}
                         >
-                          {formatElevation(activity.total_elevation_gain, isMetric)}
+                          {stats.elevation}
                         </RNText>
                       </>
                     )}
@@ -462,14 +505,27 @@ export const ActivityCard = React.memo(
               style={pressable(styles.pressableOverlay)}
               android_ripple={pressRipple}
               accessibilityRole="button"
-              accessibilityLabel={`${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDistance(activity.distance, isMetric)}, ${formatDuration(activity.moving_time)}`}
+              accessibilityLabel={activityCardA11yLabel(
+                {
+                  activity,
+                  isMetric,
+                  sectionHighlights,
+                  routeHighlight,
+                  newGround,
+                },
+                t
+              )}
+              {...cardActions}
             />
 
-            {/* Top gradient: sport icon + name/date stacked + route trend */}
+            {/* Top gradient: sport icon + name/date stacked + route trend. Read
+                through the overlay's label and actions, so the name is heard once. */}
             <LinearGradient
               colors={theme.top as [string, string, string]}
               style={styles.topOverlay}
               pointerEvents="box-none"
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
             >
               <View style={styles.overlayHeader} pointerEvents="box-none">
                 <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
@@ -495,78 +551,96 @@ export const ActivityCard = React.memo(
                     {formatRelativeDate(activity.start_date_local)}
                   </RNText>
                 </View>
-                {routeHighlight &&
-                  (routeHighlight.isPr ||
-                    (routeHighlight.timeDeltaSeconds != null &&
-                      routeHighlight.timeDeltaSeconds > 0)) && (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`${activity.name}, ${t('activityDetail.tabs.route')}`}
-                      testID={`activity-card-${activity.id}-route-chip`}
-                      onPress={() => openActivity('routes')}
-                      hitSlop={8}
-                      style={pressable([
-                        styles.routeTrendBadge,
-                        routeHighlight.isPr
-                          ? isDark
-                            ? styles.routeTrendBadgePrDark
-                            : styles.routeTrendBadgePrLight
+                {routeHighlight && showsRouteChip && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={composeAccessibilityLabel(
+                      t('activityDetail.tabs.route'),
+                      routeHighlight.routeName,
+                      routeChipSpeech(routeHighlight, t)
+                    )}
+                    testID={`activity-card-${activity.id}-route-chip`}
+                    onPress={() => openActivity('routes')}
+                    hitSlop={CHIP_SLOP}
+                    style={pressable([
+                      styles.routeTrendBadge,
+                      routeHighlight.isPr
+                        ? isDark
+                          ? styles.routeTrendBadgePrDark
+                          : styles.routeTrendBadgePrLight
+                        : preferOpaqueChrome
+                          ? styles.routeTrendBadgeDeltaOpaque
                           : styles.routeTrendBadgeDelta,
-                      ])}
-                      android_ripple={pressRipple}
-                    >
-                      {routeHighlight.isPr ? (
-                        <>
-                          <MaterialCommunityIcons
-                            name="trophy"
-                            size={PILL_ICON_SIZE}
-                            color={colors.textOnPrimary}
-                          />
-                          {formatPrImprovement(routeHighlight.prImprovementSeconds) != null && (
-                            <RNText
-                              testID={`activity-card-${activity.id}-route-improvement`}
-                              style={styles.routeTrendBadgeText}
-                            >
-                              {formatPrImprovement(routeHighlight.prImprovementSeconds)}
-                            </RNText>
-                          )}
-                        </>
-                      ) : routeHighlight.timeDeltaSeconds != null ? (
-                        <RNText style={styles.routeTrendBadgeText}>
-                          {formatPrDelta(routeHighlight.timeDeltaSeconds)}
-                        </RNText>
-                      ) : null}
-                    </Pressable>
-                  )}
+                    ])}
+                    android_ripple={pressRipple}
+                  >
+                    {routeHighlight.isPr ? (
+                      <>
+                        <MaterialCommunityIcons
+                          name="trophy"
+                          size={PILL_ICON_SIZE}
+                          color={colors.textOnPrimary}
+                        />
+                        {formatPrImprovement(routeHighlight.prImprovementSeconds) != null && (
+                          <RNText
+                            testID={`activity-card-${activity.id}-route-improvement`}
+                            style={[styles.routeTrendBadgeText, styles.routeTrendBadgePrText]}
+                          >
+                            {formatPrImprovement(routeHighlight.prImprovementSeconds)}
+                          </RNText>
+                        )}
+                      </>
+                    ) : routeHighlight.timeDeltaSeconds != null ? (
+                      <RNText style={styles.routeTrendBadgeText}>
+                        {formatPrDelta(routeHighlight.timeDeltaSeconds)}
+                      </RNText>
+                    ) : null}
+                  </Pressable>
+                )}
               </View>
             </LinearGradient>
 
             {/* Bottom: all stats unified */}
-            <View testID="activity-card-bottom" style={styles.bottomSection}>
+            <View
+              testID="activity-card-bottom"
+              style={styles.bottomSection}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+            >
               <LinearGradient
                 colors={theme.bottom as [string, string, string]}
                 style={StyleSheet.absoluteFill}
                 pointerEvents="none"
               />
-              {/* Primary stats */}
+              {/* Primary stats: a second touch area for the card's own press,
+                    spoken in the card's label. The section chip inside is
+                    reached through the card's actions. */}
               <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={activity.name}
+                accessible={false}
+                accessibilityRole="none"
                 onPress={handlePress}
                 style={pressable(styles.primaryRow)}
                 android_ripple={pressRipple}
               >
-                <View style={styles.primaryStats}>
-                  <RNText
-                    testID={`activity-card-${activity.id}-distance`}
-                    style={[
-                      styles.primaryStatValue,
-                      { color: theme.text, textShadowColor: theme.shadow },
-                    ]}
-                  >
-                    {formatDistance(activity.distance, isMetric)}
-                  </RNText>
-                  <RNText style={[styles.statDot, { color: theme.dot }]}>·</RNText>
+                <View
+                  style={styles.primaryStats}
+                  importantForAccessibility="no-hide-descendants"
+                  accessibilityElementsHidden
+                >
+                  {stats.distance != null && (
+                    <>
+                      <RNText
+                        testID={`activity-card-${activity.id}-distance`}
+                        style={[
+                          styles.primaryStatValue,
+                          { color: theme.text, textShadowColor: theme.shadow },
+                        ]}
+                      >
+                        {stats.distance}
+                      </RNText>
+                      <RNText style={[styles.statDot, { color: theme.dot }]}>·</RNText>
+                    </>
+                  )}
                   <RNText
                     testID={`activity-card-${activity.id}-duration`}
                     style={[
@@ -574,26 +648,32 @@ export const ActivityCard = React.memo(
                       { color: theme.text, textShadowColor: theme.shadow },
                     ]}
                   >
-                    {formatDuration(activity.moving_time)}
+                    {stats.duration}
                   </RNText>
-                  <RNText style={[styles.statDot, { color: theme.dot }]}>·</RNText>
-                  <RNText
-                    testID={`activity-card-${activity.id}-elevation`}
-                    style={[
-                      styles.primaryStatValue,
-                      { color: theme.text, textShadowColor: theme.shadow },
-                    ]}
-                  >
-                    {formatElevation(activity.total_elevation_gain, isMetric)}
-                  </RNText>
+                  {stats.elevation != null && (
+                    <>
+                      <RNText style={[styles.statDot, { color: theme.dot }]}>·</RNText>
+                      <RNText
+                        testID={`activity-card-${activity.id}-elevation`}
+                        style={[
+                          styles.primaryStatValue,
+                          { color: theme.text, textShadowColor: theme.shadow },
+                        ]}
+                      >
+                        {stats.elevation}
+                      </RNText>
+                    </>
+                  )}
                 </View>
                 {/* Right column: ground coverage, section trend indicators + PR counts. */}
-                {newGround?.badge || (sectionHighlights && sectionHighlights.length > 0) ? (
+                {newGround?.badge || showsSectionChip ? (
                   <View style={styles.rightColumn}>
                     {newGround?.badge && (
                       <View
                         testID={`activity-card-${activity.id}-new-ground-pill`}
                         style={[styles.trendPill, styles.newGroundPill]}
+                        importantForAccessibility="no-hide-descendants"
+                        accessibilityElementsHidden
                       >
                         <MaterialCommunityIcons
                           name="compass-outline"
@@ -607,24 +687,27 @@ export const ActivityCard = React.memo(
                         </RNText>
                       </View>
                     )}
-                    {sectionHighlights && sectionHighlights.length > 0 && (
+                    {sectionHighlights && showsSectionChip && (
                       <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel={`${activity.name}, ${t('activityDetail.tabs.sections')}`}
+                        accessibilityLabel={composeAccessibilityLabel(
+                          t('activityDetail.tabs.sections'),
+                          sectionCounts.prs > 0 && t('a11y.prs', { n: sectionCounts.prs }),
+                          sectionCounts.faster > 0 && t('a11y.faster', { n: sectionCounts.faster }),
+                          sectionCounts.slower > 0 && t('a11y.slower', { n: sectionCounts.slower })
+                        )}
                         testID={`activity-card-${activity.id}-section-chip`}
                         onPress={() => openActivity('sections')}
-                        hitSlop={8}
+                        hitSlop={CHIP_SLOP}
                         style={pressable(styles.trendBadge)}
                         android_ripple={pressRipple}
                       >
                         {(() => {
-                          const improving = sectionHighlights.filter(
-                            (h) => h.trend === 1 && !h.isPr
-                          ).length;
-                          const declining = sectionHighlights.filter(
-                            (h) => h.trend === -1 && !h.isPr
-                          ).length;
-                          const prCount = sectionHighlights.filter((h) => h.isPr).length;
+                          const {
+                            faster: improving,
+                            slower: declining,
+                            prs: prCount,
+                          } = sectionCounts;
                           return (
                             <>
                               {prCount > 0 && (
@@ -741,12 +824,18 @@ export const ActivityCard = React.memo(
 const PILL_ICON_SIZE = 13;
 
 /** Shape shared by the route chip and the section pills. */
+const PILL_BORDER = 1;
 const pillShape = {
   borderRadius: layout.borderRadiusSm,
   paddingHorizontal: spacing.xsPlus,
   paddingVertical: spacing.xxs,
-  borderWidth: 1,
+  borderWidth: PILL_BORDER,
 } as const;
+
+// The chips sit on the card, which is its own press target, so the slop only
+// lifts their height and leaves the card's area beside them alone.
+const PILL_HEIGHT = typography.pillValue.lineHeight + 2 * (spacing.xxs + PILL_BORDER);
+const CHIP_SLOP = slopToMinTapTarget(PILL_HEIGHT);
 
 const styles = StyleSheet.create({
   cardWrapper: {
@@ -805,9 +894,18 @@ const styles = StyleSheet.create({
     backgroundColor: colorWithOpacity(ink.black, 0.55),
     borderColor: colorWithOpacity(ink.white, 0.2),
   },
+  // Reduce Transparency or a contrast setting: the same dark chip in both
+  // themes, holding its own contrast rather than taking it from the map.
+  routeTrendBadgeDeltaOpaque: {
+    backgroundColor: darkColors.surface,
+    borderColor: darkColors.border,
+  },
   routeTrendBadgeText: {
     ...typography.pillValue,
     color: ink.white,
+  },
+  routeTrendBadgePrText: {
+    color: colors.textOnPrimary,
   },
   overlayName: {
     ...typography.cardTitle,

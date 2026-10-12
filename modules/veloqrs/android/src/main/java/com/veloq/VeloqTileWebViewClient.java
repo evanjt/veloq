@@ -16,8 +16,8 @@ import java.util.Map;
 /**
  * Serves basemap tiles straight out of the Rust-owned store, and lets Rust
  * fetch and keep the tile when the store does not have it, answering the page
- * at once with a body that follows. Serves the sprite and glyphs out of the
- * app's assets, and GeoJSON Rust writes from what it stores.
+ * at once with a body that follows. Serves the map renderer, the sprite and
+ * glyphs out of the app's assets, and GeoJSON Rust writes from what it stores.
  *
  * <p>Android calls this on a background thread with no JavaScript context, so
  * the only route into Rust is {@link TileBridge}, which this module owns.
@@ -48,7 +48,9 @@ public class VeloqTileWebViewClient extends RNCWebViewClient {
     if (path == null) return empty(404, "No Asset", headers);
     try {
       InputStream stream = view.getContext().getAssets().open(path);
-      return new WebResourceResponse(BasemapAssetPath.mimeFor(path), null, 200, "OK", headers, stream);
+      headers.put("Cache-Control", BasemapAssetPath.cacheControlFor(path));
+      return new WebResourceResponse(BasemapAssetPath.mimeFor(path),
+          BasemapAssetPath.encodingFor(path), 200, "OK", headers, stream);
     } catch (FileNotFoundException e) {
       return glyph(path, headers);
     } catch (Throwable t) {

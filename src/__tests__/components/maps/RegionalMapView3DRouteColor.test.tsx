@@ -93,17 +93,17 @@ function lastRouteColor(): string | undefined {
 }
 
 describe('RegionalMapView 3D selected line colour', () => {
-  it('follows the heatmap switch the 2D line follows', () => {
-    render(
+  it('follows the heatmap switch the 2D line follows', async () => {
+    await render(
       <SafeAreaProvider initialMetrics={METRICS}>
         <RegionalMapView activities={[RIDE]} selectActivityId="a1" />
       </SafeAreaProvider>
     );
-    fireEvent.press(screen.getByTestId('map-toggle-3d'));
+    await fireEvent.press(screen.getByTestId('map-toggle-3d'));
     expect(lastRouteColor()).toBe(HEATMAP_ROUTE_COLOR);
 
-    fireEvent.press(screen.getByTestId('map-layers'));
-    fireEvent.press(screen.getByTestId('map-toggle-heatmap'));
+    await fireEvent.press(screen.getByTestId('map-layers'));
+    await fireEvent.press(screen.getByTestId('map-toggle-heatmap'));
     expect(lastRouteColor()).toBe(getActivityTypeConfig('Ride').color);
   });
 });

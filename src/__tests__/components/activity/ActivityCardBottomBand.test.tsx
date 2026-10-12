@@ -11,13 +11,17 @@
 import React from 'react';
 import { Platform, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { fireEvent, render, screen, within } from '@testing-library/react-native';
+import { configure, fireEvent, render, screen, within } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import { ActivityCard } from '@/features/activity/components/ActivityCard';
 import { Card } from '@/shared/ui/Card';
 import type { Activity } from '@/types';
 import { layout, spacing } from '@/theme';
+
+// The card's figures are drawn for the eye and hidden from a screen reader,
+// which hears them in the card's label, so queries reach hidden elements.
+configure({ defaultIncludeHiddenElements: true });
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
@@ -82,36 +86,36 @@ const bottomPaddingBottom = () =>
   StyleSheet.flatten(screen.getByTestId('activity-card-bottom').props.style).paddingBottom ?? 0;
 
 describe('the feed card keeps its bottom band for the stats', () => {
-  it('uses the same raised card with and without a map', () => {
-    const mapped = renderCard();
+  it('uses the same raised card with and without a map', async () => {
+    const mapped = await renderCard();
     expect(mapped.UNSAFE_getByType(Card).props.variant).toBe('raised');
-    mapped.unmount();
+    await mapped.unmount();
 
-    const compact = renderCard(activity({ stream_types: [] }));
+    const compact = await renderCard(activity({ stream_types: [] }));
     expect(compact.UNSAFE_getByType(Card).props.variant).toBe('raised');
   });
 
-  it('shows the synced power used by the metrics row', () => {
-    renderCard(activity({ icu_average_watts: 205 }));
+  it('shows the synced power used by the metrics row', async () => {
+    await renderCard(activity({ icu_average_watts: 205 }));
 
     expect(screen.getByText('205 W')).toBeTruthy();
   });
 
-  it('draws no map credit of its own', () => {
-    renderCard();
+  it('draws no map credit of its own', async () => {
+    await renderCard();
 
     expect(screen.queryByTestId('map-attribution')).toBeNull();
     expect(screen.queryByTestId('map-attribution-text')).toBeNull();
   });
 
-  it('reserves no clearance under the stat rows', () => {
-    renderCard();
+  it('reserves no clearance under the stat rows', async () => {
+    await renderCard();
 
     expect(bottomPaddingBottom()).toBe(0);
   });
 
-  it('keeps every stat row over the full-height preview', () => {
-    renderCard(activity({ icu_average_watts: 205 }));
+  it('keeps every stat row over the full-height preview', async () => {
+    await renderCard(activity({ icu_average_watts: 205 }));
 
     const band = within(screen.getByTestId('activity-card-bottom'));
     expect(band.getByTestId('activity-card-a1-distance')).toBeTruthy();
@@ -120,8 +124,8 @@ describe('the feed card keeps its bottom band for the stats', () => {
 });
 
 describe('the feed card keeps its stat row clear of the record button', () => {
-  it('insets the secondary stat row on the right by the button footprint and its margin', () => {
-    renderCard();
+  it('insets the secondary stat row on the right by the button footprint and its margin', async () => {
+    await renderCard();
     const style = StyleSheet.flatten(
       screen.getByTestId('activity-card-a1-secondary-stats').props.style
     );
@@ -130,8 +134,10 @@ describe('the feed card keeps its stat row clear of the record button', () => {
 });
 
 describe('the feed card draws no place line', () => {
-  it('shows nothing for a locality an older stored body still carries', () => {
-    renderCard(activity({ locality: 'Lausanne', country: 'Switzerland' } as Partial<Activity>));
+  it('shows nothing for a locality an older stored body still carries', async () => {
+    await renderCard(
+      activity({ locality: 'Lausanne', country: 'Switzerland' } as Partial<Activity>)
+    );
 
     expect(screen.queryByText('Lausanne')).toBeNull();
     expect(screen.queryByText(/Switzerland/)).toBeNull();
@@ -142,14 +148,14 @@ describe('the feed card long-press', () => {
   it.each([
     ['ios', Haptics.impactAsync, 'medium'],
     ['android', Haptics.performAndroidHapticsAsync, 'long-press'],
-  ] as const)('fires one medium haptic on %s', (os, call, constant) => {
+  ] as const)('fires one medium haptic on %s', async (os, call, constant) => {
     const originalOS = Platform.OS;
     Platform.OS = os;
     (call as jest.Mock).mockClear();
     try {
-      renderCard();
+      await renderCard();
 
-      fireEvent(screen.getByTestId('activity-card-a1'), 'longPress');
+      await fireEvent(screen.getByTestId('activity-card-a1'), 'longPress');
 
       expect(call).toHaveBeenCalledTimes(1);
       expect(call).toHaveBeenCalledWith(constant);
@@ -163,15 +169,15 @@ describe('the feed card press', () => {
   it.each([
     ['ios', Haptics.impactAsync, 'light'],
     ['android', Haptics.performAndroidHapticsAsync, 'context-click'],
-  ] as const)('fires one light haptic and opens the activity on %s', (os, call, constant) => {
+  ] as const)('fires one light haptic and opens the activity on %s', async (os, call, constant) => {
     const originalOS = Platform.OS;
     Platform.OS = os;
     (call as jest.Mock).mockClear();
     (router.push as jest.Mock).mockClear();
     try {
-      renderCard();
+      await renderCard();
 
-      fireEvent.press(screen.getByTestId('activity-card-a1'));
+      await fireEvent.press(screen.getByTestId('activity-card-a1'));
 
       expect(call).toHaveBeenCalledTimes(1);
       expect(call).toHaveBeenCalledWith(constant);

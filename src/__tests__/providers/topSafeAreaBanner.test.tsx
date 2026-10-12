@@ -45,81 +45,84 @@ describe('TopSafeAreaProvider with a failing sync', () => {
     });
   });
 
-  it('reserves the top edge for the sync-error banner', () => {
+  it('reserves the top edge for the sync-error banner', async () => {
     mockHealth = { lastError: 'HTTP 503', lastSuccessAt: null };
-    const { result } = renderHook(() => useTopSafeArea(), { wrapper });
+    const { result } = await renderHook(() => useTopSafeArea(), { wrapper });
 
     expect(result.current.activeBanner).toBe('syncError');
     expect(result.current.hasTopBanner).toBe(true);
     expect(result.current.screenEdges).not.toContain('top');
   });
 
-  it.each([false, true])('ignores demo sync errors with hideDemoBanner=%s', (hideDemoBanner) => {
-    useAuthStore.setState({ isDemoMode: true, hideDemoBanner });
-    mockHealth = {
-      lastError: 'No intervals.icu login stored',
-      lastSuccessAt: null,
-    };
-    const { result } = renderHook(() => useTopSafeArea(), { wrapper });
+  it.each([false, true])(
+    'ignores demo sync errors with hideDemoBanner=%s',
+    async (hideDemoBanner) => {
+      useAuthStore.setState({ isDemoMode: true, hideDemoBanner });
+      mockHealth = {
+        lastError: 'No intervals.icu login stored',
+        lastSuccessAt: null,
+      };
+      const { result } = await renderHook(() => useTopSafeArea(), { wrapper });
 
-    expect(result.current.activeBanner).toBe(hideDemoBanner ? null : 'demo');
-    expect(result.current.screenEdges.includes('top')).toBe(hideDemoBanner);
-  });
+      expect(result.current.activeBanner).toBe(hideDemoBanner ? null : 'demo');
+      expect(result.current.screenEdges.includes('top')).toBe(hideDemoBanner);
+    }
+  );
 
-  it('gives the edge back to the screen when the floating offline pill replaces the error', () => {
+  it('gives the edge back to the screen when the floating offline pill replaces the error', async () => {
     mockIsOnline = false;
     mockHealth = { lastError: 'HTTP 503', lastSuccessAt: null };
-    const { result } = renderHook(() => useTopSafeArea(), { wrapper });
+    const { result } = await renderHook(() => useTopSafeArea(), { wrapper });
 
     expect(result.current.activeBanner).toBeNull();
     expect(result.current.screenEdges).toContain('top');
   });
 
-  it('leaves the top edge to the screen when the sync is healthy', () => {
-    const { result } = renderHook(() => useTopSafeArea(), { wrapper });
+  it('leaves the top edge to the screen when the sync is healthy', async () => {
+    const { result } = await renderHook(() => useTopSafeArea(), { wrapper });
 
     expect(result.current.activeBanner).toBeNull();
     expect(result.current.screenEdges).toContain('top');
   });
 
-  it('shows nothing to a signed-out user', () => {
+  it('shows nothing to a signed-out user', async () => {
     useAuthStore.setState({ isAuthenticated: false });
     mockHealth = { lastError: 'HTTP 503', lastSuccessAt: null };
-    const { result } = renderHook(() => useTopSafeArea(), { wrapper });
+    const { result } = await renderHook(() => useTopSafeArea(), { wrapper });
 
     expect(result.current.activeBanner).toBeNull();
   });
 });
 
 describe('TopSafeAreaProvider with the notices outside the sync', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     mockIsOnline = true;
     mockHealth = { lastError: null, lastSuccessAt: null };
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: false, hideDemoBanner: false });
-    act(() => {
+    await act(() => {
       useEngineStatus.setState({ initFailed: false });
       useTrackFetchNotice.setState({ failedIds: [], failedCount: 0, dismissed: false });
     });
   });
 
-  it('reserves the top edge for the track notice alone', () => {
+  it('reserves the top edge for the track notice alone', async () => {
     useTrackFetchNotice.setState({ failedIds: ['a', 'b', 'c'], failedCount: 3, dismissed: false });
-    const { result } = renderHook(() => useTopSafeArea(), { wrapper });
+    const { result } = await renderHook(() => useTopSafeArea(), { wrapper });
 
     expect(result.current.activeBanner).toBe('trackFetch');
     expect(result.current.screenEdges).not.toContain('top');
   });
 
-  it('gives the edge back once the track notice is dismissed', () => {
+  it('gives the edge back once the track notice is dismissed', async () => {
     useTrackFetchNotice.setState({ failedIds: ['a'], failedCount: 1, dismissed: true });
-    const { result } = renderHook(() => useTopSafeArea(), { wrapper });
+    const { result } = await renderHook(() => useTopSafeArea(), { wrapper });
 
     expect(result.current.screenEdges).toContain('top');
   });
 
-  it('reserves the top edge for a failed engine open', () => {
+  it('reserves the top edge for a failed engine open', async () => {
     useEngineStatus.setState({ initFailed: true });
-    const { result } = renderHook(() => useTopSafeArea(), { wrapper });
+    const { result } = await renderHook(() => useTopSafeArea(), { wrapper });
 
     expect(result.current.activeBanner).toBe('engineInit');
     expect(result.current.screenEdges).not.toContain('top');

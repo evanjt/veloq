@@ -7,6 +7,7 @@
  * owns the screen.
  */
 import type { ActivityType } from '@/types';
+import type { LocationPrecision } from '@/shared/app/permissions/locationGrant';
 
 import { ENTRY_SCREEN_ENTRY } from './armCountdown';
 
@@ -49,10 +50,18 @@ export function recordingEntryHref(type: ActivityType, pairedEventId?: number): 
  * permission: Android grants the permission with the switch off and sends no
  * fix, and iOS reports the permission denied.
  */
-export type EntryGpsState = 'checking' | 'ready' | 'weak' | 'none' | 'servicesOff';
+export type EntryGpsState = 'checking' | 'ready' | 'weak' | 'approximate' | 'none' | 'servicesOff';
 
-/** What a fix says about readiness. A fix with no accuracy is not a ready one. */
-export function entryGpsState(accuracy: number | null | undefined): EntryGpsState {
+/**
+ * What a fix says about readiness. A fix with no accuracy is not a ready one.
+ * An approximate grant is its own state whatever the fix: its fixes are too
+ * coarse for the recording to keep, and the cause is the setting, not the sky.
+ */
+export function entryGpsState(
+  accuracy: number | null | undefined,
+  precision: LocationPrecision = 'precise'
+): EntryGpsState {
+  if (precision === 'approximate') return 'approximate';
   return accuracy != null && accuracy <= GPS_READY_ACCURACY_M ? 'ready' : 'weak';
 }
 
@@ -65,6 +74,8 @@ export interface EntryGpsInput {
   fix: { accuracy: number | null } | null;
   /** The first fix has taken longer than the screen waits for one. */
   timedOut: boolean;
+  /** How precise the granted location is; precise until the grant is read. */
+  precision: LocationPrecision;
 }
 
 /**
@@ -77,9 +88,12 @@ export function resolveEntryGps({
   permission,
   fix,
   timedOut,
+  precision,
 }: EntryGpsInput): EntryGpsState {
   if (servicesEnabled === false) return 'servicesOff';
   if (permission === 'denied') return 'none';
-  if (fix) return entryGpsState(fix.accuracy);
-  return timedOut ? 'weak' : 'checking';
+  if (fix) return entryGpsState(fix.accuracy, precision);
+  // An approximate grant is known before any fix, so it does not wait out the timeout.
+  if (timedOut || precision === 'approximate') return entryGpsState(null, precision);
+  return 'checking';
 }

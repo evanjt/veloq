@@ -1,16 +1,18 @@
 /**
  * Shared hero frame for the activity, route, and section detail screens:
- * full-bleed map slot, bottom gradient and a bottom info overlay. The back
- * control is the stack's transparent native header, drawn over the map. HeroNameRow and HeroStatsRow provide the
- * standard overlay content (editable name, dot-separated stats).
+ * full-bleed map slot, a top scrim, a bottom gradient and a bottom info
+ * overlay. The back control is the stack's transparent native header, drawn
+ * over the map. HeroNameRow and HeroStatsRow provide the standard overlay
+ * content (editable name, dot-separated stats).
  */
 
 import React from 'react';
-import { Pressable, View, StyleSheet, TextInput } from 'react-native';
+import { Pressable, View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   colors,
@@ -26,6 +28,7 @@ import {
 } from '@/theme';
 import { pressable, pressRipple } from './pressFeedback';
 import { useBackDismiss } from '@/shared/app/useBackDismiss';
+import { TextField, type TextFieldHandle } from './TextField';
 
 type MaterialIconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -63,6 +66,16 @@ export const heroTextStyles = StyleSheet.create({
  */
 export const HERO_HEADER_HEIGHT = NATIVE_BACK_CONTROL_SIZE + spacing.sm;
 
+/** How far below the header the top scrim takes to fade out. */
+const TOP_SCRIM_FADE = spacing.xl;
+
+/**
+ * Held across the status bar and the header row, so the white back control and
+ * status glyphs keep 3:1 over the palest tile. A pure white tile under black at
+ * 0.5 composites to a grey white reads at about 4:1 against.
+ */
+const TOP_SCRIM_COLOUR = opacity.overlay.heavy;
+
 export interface DetailHeroProps {
   height: number;
   containerTestID?: string;
@@ -88,9 +101,20 @@ export function DetailHero({
   overlayInsetEnd,
   children,
 }: DetailHeroProps) {
+  const headerBottom = useSafeAreaInsets().top + HERO_HEADER_HEIGHT;
+  const topScrimHeight = headerBottom + TOP_SCRIM_FADE;
+
   return (
     <View testID={containerTestID} style={[styles.heroSection, { height }]}>
       <View style={styles.mapContainer}>{children}</View>
+
+      <LinearGradient
+        testID="detail-hero-top-scrim"
+        colors={[TOP_SCRIM_COLOUR, TOP_SCRIM_COLOUR, 'transparent']}
+        locations={[0, headerBottom / topScrimHeight, 1]}
+        style={[styles.topScrim, { height: topScrimHeight }]}
+        pointerEvents="none"
+      />
 
       <LinearGradient
         testID="detail-hero-gradient"
@@ -125,8 +149,9 @@ export interface HeroNameRowProps {
   editable?: {
     isEditing: boolean;
     editName: string;
-    inputRef: React.RefObject<TextInput | null>;
-    placeholder: string;
+    inputRef: React.RefObject<TextFieldHandle | null>;
+    /** What is being named, shown above the field and read as its name. */
+    label: string;
     testIDPrefix: string;
     onStartEdit: () => void;
     onSave: () => void;
@@ -151,15 +176,15 @@ export function HeroNameRow({ name, nameTestID, icon, editable, accessory }: Her
       )}
       {editable?.isEditing ? (
         <View style={styles.editNameContainer}>
-          <TextInput
+          <TextField
             testID={`${editable.testIDPrefix}-rename-input`}
             ref={editable.inputRef}
-            style={styles.editNameInput}
+            label={editable.label}
+            onDarkGround
+            style={styles.editNameField}
             value={editable.editName}
             onChangeText={editable.onChange}
             onSubmitEditing={editable.onSave}
-            placeholder={editable.placeholder}
-            placeholderTextColor={colorWithOpacity(colors.textOnDark, 0.5)}
             returnKeyType="done"
             maxLength={255}
             autoFocus
@@ -190,10 +215,13 @@ export function HeroNameRow({ name, nameTestID, icon, editable, accessory }: Her
           </Pressable>
         </View>
       ) : editable ? (
+        // A heading that renames when activated: one role per element, and the name is what the
+        // headings rotor needs to land on, so the rename is its hint rather than its role.
         <Pressable
           testID={`${editable.testIDPrefix}-rename-button`}
-          accessibilityRole="button"
-          accessibilityLabel={t('common.rename')}
+          accessibilityRole="header"
+          accessibilityLabel={name}
+          accessibilityHint={t('common.rename')}
           onPress={editable.onStartEdit}
           style={pressable(styles.nameEditTouchable)}
           android_ripple={pressRipple}
@@ -213,7 +241,12 @@ export function HeroNameRow({ name, nameTestID, icon, editable, accessory }: Her
           />
         </Pressable>
       ) : (
-        <Text testID={nameTestID} style={[heroTextStyles.name, styles.heroName]} numberOfLines={1}>
+        <Text
+          testID={nameTestID}
+          accessibilityRole="header"
+          style={[heroTextStyles.name, styles.heroName]}
+          numberOfLines={1}
+        >
           {name}
         </Text>
       )}
@@ -222,26 +255,51 @@ export function HeroNameRow({ name, nameTestID, icon, editable, accessory }: Her
   );
 }
 
-export interface HeroStatsRowProps {
-  /** Stat strings rendered with dot dividers; null/undefined entries are skipped. */
-  stats: (string | null | undefined)[];
-  testID?: string;
-  statTestIDs?: (string | undefined)[];
+/** One stat on a hero: the text drawn, and the words a screen reader says for it. */
+export interface HeroStat {
+  text: string;
+  /** Names the value, "Distance: 12.3 km", so the strip read as one element says what each is. */
+  label: string;
 }
 
-export function HeroStatsRow({ stats, testID, statTestIDs }: HeroStatsRowProps) {
+export interface HeroStatsRowProps {
+  /** Stats rendered with dot dividers; null/undefined entries are skipped. */
+  stats: (HeroStat | null | undefined)[];
+  testID?: string;
+  statTestIDs?: (string | undefined)[];
+  style?: StyleProp<ViewStyle>;
+}
+
+/**
+ * A hero's stat strip, read as one element whose label names each value. The dividers are drawn
+ * for the eye and kept out of the accessibility tree.
+ */
+export function HeroStatsRow({ stats, testID, statTestIDs, style }: HeroStatsRowProps) {
   const visible = stats
-    .map((value, index) => ({ value, testID: statTestIDs?.[index] }))
-    .filter((entry): entry is { value: string; testID: string | undefined } => entry.value != null);
+    .map((stat, index) => (stat ? { ...stat, testID: statTestIDs?.[index] } : null))
+    .filter((entry) => entry != null);
   if (visible.length === 0) return null;
 
   return (
-    <View testID={testID} style={styles.statsRow}>
+    <View
+      testID={testID}
+      accessible
+      accessibilityLabel={visible.map((entry) => entry.label).join(', ')}
+      style={[styles.statsRow, style]}
+    >
       {visible.map((entry, index) => (
         <React.Fragment key={index}>
-          {index > 0 && <Text style={heroTextStyles.statDivider}>·</Text>}
+          {index > 0 && (
+            <Text
+              style={heroTextStyles.statDivider}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+            >
+              ·
+            </Text>
+          )}
           <Text testID={entry.testID} style={heroTextStyles.stat}>
-            {entry.value}
+            {entry.text}
           </Text>
         </React.Fragment>
       ))}
@@ -261,6 +319,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+  },
+  topScrim: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
   },
   mapGradient: {
     position: 'absolute',
@@ -310,11 +374,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     gap: spacing.xs,
   },
-  editNameInput: {
+  editNameField: {
     flex: 1,
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
-    color: colors.textOnDark,
     paddingVertical: spacing.sm,
   },
   editNameButton: {

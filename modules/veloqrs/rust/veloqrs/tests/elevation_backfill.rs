@@ -27,9 +27,9 @@ use veloqrs::governor::{AuthMethod, Governor, NoopPolicy};
 use veloqrs::net::Transport;
 use veloqrs::net::elevation_backfill::{
     BACKFILL_PHASE_COMPLETE, BACKFILL_PHASE_FETCHING, BACKFILL_PHASE_PARTIAL,
-    BACKFILL_PHASE_PAUSED, BackfillRun, ELEVATION_ATTEMPT_LIMIT, MAX_CONSECUTIVE_FAILURES,
-    backfill_progress, detect_runs_started, elevation_backfill_paused, pause_elevation_backfill,
-    reset_elevation_backfill_pause, run_elevation_backfill,
+    BACKFILL_PHASE_PAUSED, BACKFILL_PHASE_WAITING, BackfillRun, ELEVATION_ATTEMPT_LIMIT,
+    MAX_CONSECUTIVE_FAILURES, backfill_progress, detect_runs_started, elevation_backfill_paused,
+    pause_elevation_backfill, reset_elevation_backfill_pause, run_elevation_backfill,
 };
 use veloqrs::objects::{SYNC_SERVICE, SyncState};
 use veloqrs::persistence::persistent_engine_ffi::{
@@ -1021,16 +1021,12 @@ fn seeded_long_queue() -> (TempDir, Vec<String>) {
     (dir, ids)
 }
 
-/// Every activity in `ids` answers `status`. `Retry-After: 0` keeps a 429
-/// test fast while still taking the header path the transport honours.
-fn answer_all(server: &MockServer, ids: &[String], status: u16, retry_after: bool) {
+/// Every activity in `ids` answers `status`.
+fn answer_all(server: &MockServer, ids: &[String], status: u16) {
     for id in ids {
         server.mock(|when, then| {
             when.path(format!("/activity/{id}/streams.json"));
-            let then = then.status(status).body("nothing to give");
-            if retry_after {
-                then.header("Retry-After", "0");
-            }
+            then.status(status).body("nothing to give");
         });
     }
 }
@@ -1041,7 +1037,7 @@ fn a_connection_that_is_gone_stops_the_pass_at_the_threshold_not_at_the_queue() 
     let (_dir, ids) = seeded_long_queue();
 
     let server = MockServer::start();
-    answer_all(&server, &ids, 500, false);
+    answer_all(&server, &ids, 500);
 
     let run = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(outcome) = run else {
@@ -1066,22 +1062,50 @@ fn a_connection_that_is_gone_stops_the_pass_at_the_threshold_not_at_the_queue() 
     );
 }
 
+/// Scenario: intervals.icu refuses every track, and the retries run out.
+///
+/// Expected behaviour: the refusal speaks for the whole queue, so the pass
+/// stops after the batch it met it in, counts no track as failed, and waits
+/// for the refusal to lift rather than walking on to the threshold.
 #[test]
-fn an_exhausted_budget_stops_the_pass_the_same_way() {
+fn a_refusal_stops_the_pass_at_the_first_batch_and_counts_nothing() {
     let _serial_state = super::serial_state();
     let (_dir, ids) = seeded_long_queue();
 
     let server = MockServer::start();
-    answer_all(&server, &ids, 429, true);
+    let asked: Vec<_> = ids
+        .iter()
+        .map(|id| {
+            server.mock(|when, then| {
+                when.path(format!("/activity/{id}/streams.json"));
+                then.status(429)
+                    .body("slow down")
+                    .header("Retry-After", "0");
+            })
+        })
+        .collect();
 
     let run = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(outcome) = run else {
-        panic!("an exhausted budget is not a failed pass: {run:?}");
+        panic!("a refusal is not a failed pass: {run:?}");
     };
 
-    assert_eq!(outcome.failed, MAX_CONSECUTIVE_FAILURES as u32);
-    assert_eq!(queue_ids().len(), ids.len());
-    assert_eq!(backfill_progress().phase, BACKFILL_PHASE_PARTIAL);
+    assert_eq!(outcome.failed, 0, "a refusal counted against the tracks");
+    assert_eq!(
+        queue_ids().len(),
+        ids.len(),
+        "every refused track is still owed"
+    );
+    assert_eq!(backfill_progress().phase, BACKFILL_PHASE_WAITING);
+    let hits: Vec<usize> = asked.iter().map(|mock| mock.calls()).collect();
+    assert!(
+        hits.iter().filter(|&&h| h > 0).count() <= MAX_CONSECUTIVE_FAILURES,
+        "the pass asked past the batch the refusal stopped it in: {hits:?}"
+    );
+    assert!(
+        hits.iter().all(|&h| h <= HITS_PER_ASK),
+        "a refused track was re-asked inside the pass: {hits:?}"
+    );
 }
 
 /// Upstream answering about one activity is not the connection going away. A
@@ -1093,7 +1117,7 @@ fn an_answer_about_one_activity_does_not_stop_the_pass() {
     let (_dir, ids) = seeded_long_queue();
 
     let server = MockServer::start();
-    answer_all(&server, &ids, 404, false);
+    answer_all(&server, &ids, 404);
 
     let run = run_backfill(&fast_transport(server.base_url()));
     let BackfillRun::Finished(outcome) = run else {
@@ -1151,30 +1175,27 @@ fn work_landing_between_the_failures_keeps_the_pass_going() {
 //
 // One ask is four hits: the backfill lane retries a transient answer three
 // times inside the request before it gives the pass an error to work with.
-// `Retry-After: 0` keeps that ladder fast while still taking the path the
-// transport honours.
+// A 5xx is the transient answer here, since a 429 stops the pass outright.
 // ============================================================================
 
 const HITS_PER_ASK: usize = 4;
 
-static REFUSALS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+static FAILURES: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
-/// Refuses the first ask, whichever activity it is for, then stops refusing.
+/// Fails the first ask, whichever activity it is for, then stops failing.
 /// Tests are serialised, so the count belongs to the one running.
-fn refuse_the_first_ask(_req: &httpmock::prelude::HttpMockRequest) -> bool {
-    REFUSALS.fetch_add(1, std::sync::atomic::Ordering::SeqCst) < HITS_PER_ASK
+fn fail_the_first_ask(_req: &httpmock::prelude::HttpMockRequest) -> bool {
+    FAILURES.fetch_add(1, std::sync::atomic::Ordering::SeqCst) < HITS_PER_ASK
 }
 
-/// `id` is refused once, then answers with altitude.
-fn refused_once_then_elevated(server: &MockServer, id: &str, seed: f64) {
-    REFUSALS.store(0, std::sync::atomic::Ordering::SeqCst);
+/// `id` fails once with a 5xx, then answers with altitude.
+fn failed_once_then_elevated(server: &MockServer, id: &str, seed: f64) {
+    FAILURES.store(0, std::sync::atomic::Ordering::SeqCst);
     let path = format!("/activity/{id}/streams.json");
-    let refused = path.clone();
+    let failed = path.clone();
     server.mock(|when, then| {
-        when.path(refused).is_true(refuse_the_first_ask);
-        then.status(429)
-            .header("Retry-After", "0")
-            .body("slow down");
+        when.path(failed).is_true(fail_the_first_ask);
+        then.status(503).body("upstream is down");
     });
     server.mock(|when, then| {
         when.path(path);
@@ -1188,7 +1209,7 @@ fn a_transient_failure_is_re_asked_inside_the_pass_rather_than_next_launch() {
     let (_dir, _path) = seeded_engine(&["a", "b"]);
 
     let server = MockServer::start();
-    refused_once_then_elevated(&server, "a", 0.0);
+    failed_once_then_elevated(&server, "a", 0.0);
     server.mock(|when, then| {
         when.path("/activity/b/streams.json");
         then.status(200).json_body(elevated_streams(0.4));
@@ -1250,9 +1271,7 @@ fn a_connection_that_is_gone_is_not_re_asked_at_all() {
         .map(|id| {
             server.mock(|when, then| {
                 when.path(format!("/activity/{id}/streams.json"));
-                then.status(429)
-                    .body("nothing to give")
-                    .header("Retry-After", "0");
+                then.status(503).body("nothing to give");
             })
         })
         .collect();
@@ -1286,7 +1305,7 @@ fn re_asking_never_reports_more_progress_than_the_queue_held() {
     let (_dir, _path) = seeded_engine(&["a", "b"]);
 
     let server = MockServer::start();
-    refused_once_then_elevated(&server, "a", 0.0);
+    failed_once_then_elevated(&server, "a", 0.0);
     server.mock(|when, then| {
         when.path("/activity/b/streams.json");
         then.status(200).json_body(elevated_streams(0.4));

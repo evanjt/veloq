@@ -47,13 +47,13 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   warningAmber: 'text',
   amberIcon: 'text',
   successDeep: 'text',
+  successChipText: 'text',
   errorDeep: 'text',
   errorDark: 'mark',
   linkTeal: 'text',
   cautionYellowText: 'text',
   cautionOrangeText: 'text',
   infoText: 'text',
-  warningBannerText: 'text',
   rideText: 'text',
   runText: 'text',
   swimText: 'text',
@@ -149,7 +149,6 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   cautionOrange: 'ground',
   info: 'ground',
   infoLight: 'ground',
-  warningBannerBg: 'ground',
   eventPriorityA: 'ground',
   eventPriorityB: 'ground',
   eventPriorityC: 'ground',
@@ -221,6 +220,31 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
 };
 
 /**
+ * Every key of `brand`. These hues resolve in neither theme, so none can be a
+ * text colour: a teal that reads on white is too dark on near-black, and the
+ * gold is 2.10:1 on white. A word in the brand teal takes `linkTeal`, one in
+ * the gold takes `chartGoldText`, each read for the theme it is drawn in. The
+ * same holds for every entry of `SPORT_COLORS` and every category colour in
+ * `ACTIVITY_CATEGORIES`, which are fills: their words take the sport text
+ * variants or the body ink. `ground-token-text` refuses each as a Text colour.
+ */
+export const BRAND_FAMILIES: Record<string, TokenFamily> = {
+  // A selected tick, a slider handle, a trophy beside its label.
+  teal: 'mark',
+  tealLight: 'mark',
+  tealDark: 'mark',
+  gold: 'mark',
+  goldLight: 'mark',
+  goldDark: 'mark',
+  // Hover tones, gradient stops and the chart blue.
+  tealHover: 'ground',
+  tealHoverDark: 'ground',
+  blue: 'ground',
+  blueLight: 'ground',
+  blueDark: 'ground',
+};
+
+/**
  * Tokens drawn on something other than their theme's three surfaces. The value
  * is the ground token, in the same theme, that the pair is measured against.
  */
@@ -231,7 +255,6 @@ export const TOKEN_GROUNDS: Record<string, readonly string[]> = {
   // where dark ink on it is 3.93:1, and the sync pill's fill in both themes.
   textOnDark: ['secondary', 'appColourPillBackground'],
   textOnPrimary: ['accent', 'accentLight', 'primary'],
-  warningBannerText: ['warningBannerBg'],
 };
 
 /**

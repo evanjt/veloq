@@ -12,6 +12,7 @@ import { CollapsibleSection } from '@/shared/ui/CollapsibleSection';
 import { DataPointRow } from './DataPointRow';
 import { RankingFactorsGroup } from './RankingFactorsGroup';
 import { dataLinkLabel, insightDataTarget } from '../lib/dataLink';
+import { timeMethodKey } from '../lib/timeMethod';
 import type { TFunc } from '../types';
 
 interface MethodologySectionProps {
@@ -39,6 +40,7 @@ export const MethodologySection = React.memo(function MethodologySection({
   const dataPoints = supportingData?.dataPoints?.length ? supportingData.dataPoints : null;
   const ranking = insight.meta?.ranking;
   const dataTarget = insightDataTarget(insight);
+  const timeMethod = timeMethodKey(insight);
 
   const hasAnyContent =
     ranking != null ||
@@ -46,6 +48,7 @@ export const MethodologySection = React.memo(function MethodologySection({
     algorithmDescription != null ||
     description != null ||
     dataPoints != null ||
+    timeMethod != null ||
     dataTarget != null;
 
   if (!hasAnyContent) return null;
@@ -66,6 +69,15 @@ export const MethodologySection = React.memo(function MethodologySection({
           ) : description ? (
             <Text style={[styles.algorithmText, isDark && styles.algorithmTextDark]}>
               {description}
+            </Text>
+          ) : null}
+
+          {timeMethod ? (
+            <Text
+              testID="insight-time-method"
+              style={[styles.algorithmText, isDark && styles.algorithmTextDark]}
+            >
+              {t(timeMethod)}
             </Text>
           ) : null}
 

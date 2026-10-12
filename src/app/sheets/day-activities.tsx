@@ -6,8 +6,10 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { pressable, pressRipple } from '@/shared/ui';
+import { pressable, pressRipple, SheetHeader } from '@/shared/ui';
+import { tapBack } from '@/shared/app/navigation';
 import { getActivityColor } from '@/shared/activity/activityUtils';
+import { formatLoad } from '@/shared/format/format';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import type { ActivityType } from '@/types';
 
@@ -45,10 +47,12 @@ function DayActivitiesSheetContent() {
 
   return (
     <View style={[styles.sheet, { backgroundColor: surface }]}>
-      <Text accessibilityRole="header" style={[styles.title, { color: textPrimary }]}>
-        {t('fitness.selectActivity')}
-      </Text>
-      <ScrollView>
+      <SheetHeader
+        title={t('fitness.selectActivity')}
+        onCancel={() => tapBack()}
+        cancelTestID="day-activities-cancel"
+      />
+      <ScrollView contentContainerStyle={styles.list}>
         {(input?.activities ?? []).map((activity) => (
           <Pressable
             key={activity.id}
@@ -68,7 +72,7 @@ function DayActivitiesSheetContent() {
               </Text>
               {activity.load > 0 && (
                 <Text style={[styles.load, { color: textSecondary }]}>
-                  {Math.round(activity.load)} {t('stats.tss')}
+                  {t('metrics.trainingLoad')} {formatLoad(activity.load)}
                 </Text>
               )}
             </View>
@@ -84,13 +88,10 @@ export default withScreenBoundary(DayActivitiesSheetContent, 'Day Activities');
 const styles = StyleSheet.create({
   sheet: {
     flex: 1,
-    padding: layout.screenPadding,
   },
-  title: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: spacing.md,
+  list: {
+    paddingHorizontal: layout.screenPadding,
+    paddingBottom: layout.screenPadding,
   },
   row: {
     flexDirection: 'row',

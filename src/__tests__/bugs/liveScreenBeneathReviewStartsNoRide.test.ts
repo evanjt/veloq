@@ -32,25 +32,25 @@ describe('a recording screen that mounted on a ride under way', () => {
 
   it.each<RecordingStatus>(['recording', 'paused', 'stopped'])(
     'starts no ride when the store goes idle after mounting %s',
-    (initial) => {
-      const { rerender } = mount(initial);
+    async (initial) => {
+      const { rerender } = await mount(initial);
 
-      rerender({ status: 'idle' });
+      await rerender({ status: 'idle' });
 
       expect(started()).not.toHaveBeenCalled();
     }
   );
 
-  it('still starts a ride on a screen that mounts idle', () => {
-    mount('idle');
+  it('still starts a ride on a screen that mounts idle', async () => {
+    await mount('idle');
 
     expect(started()).toHaveBeenCalledTimes(1);
   });
 
-  it('does not start a second ride when the screen it started goes idle again', () => {
-    const { rerender } = mount('idle');
-    rerender({ status: 'recording' });
-    rerender({ status: 'idle' });
+  it('does not start a second ride when the screen it started goes idle again', async () => {
+    const { rerender } = await mount('idle');
+    await rerender({ status: 'recording' });
+    await rerender({ status: 'idle' });
 
     expect(started()).toHaveBeenCalledTimes(1);
   });

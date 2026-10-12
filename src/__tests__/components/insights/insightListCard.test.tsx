@@ -139,9 +139,9 @@ function sectionTrendCard(): Insight {
   return card;
 }
 
-function laidOut(tree: ReturnType<typeof render>) {
-  act(() => {
-    fireEvent(tree.getByTestId('insight-graphic-plot'), 'layout', {
+async function laidOut(tree: Awaited<ReturnType<typeof render>>) {
+  await act(async () => {
+    await fireEvent(tree.getByTestId('insight-graphic-plot'), 'layout', {
       nativeEvent: { layout: { width: 320, height: 48 } },
     });
   });
@@ -154,38 +154,40 @@ beforeEach(() => {
 });
 
 describe('the insight list card', () => {
-  it('opens the section at its best effort from the graphic and not the sheet', () => {
+  it('opens the section at its best effort from the graphic and not the sheet', async () => {
     const insight = sectionPrCard();
     const onPress = jest.fn();
-    const tree = render(<InsightListCard insight={insight} onPress={onPress} />);
+    const tree = await render(<InsightListCard insight={insight} onPress={onPress} />);
 
-    fireEvent.press(tree.getByRole('link'));
+    await fireEvent.press(tree.getByRole('link'));
 
     expect(tapTo).toHaveBeenCalledWith('/section/s1?activityId=a3');
     expect(onPress).not.toHaveBeenCalled();
   });
 
-  it('opens the sheet from the title and pushes nothing', () => {
+  it('opens the sheet from the title and pushes nothing', async () => {
     const insight = sectionPrCard();
     const onPress = jest.fn();
-    const tree = render(<InsightListCard insight={insight} onPress={onPress} />);
+    const tree = await render(<InsightListCard insight={insight} onPress={onPress} />);
 
-    fireEvent.press(tree.getByText(insight.title));
+    await fireEvent.press(tree.getByText(insight.title));
 
     expect(onPress).toHaveBeenCalledWith(insight);
     expect(tapTo).not.toHaveBeenCalled();
   });
 
-  it('names where the graphic goes', () => {
-    const tree = render(<InsightListCard insight={sectionPrCard()} onPress={jest.fn()} />);
+  it('names where the graphic goes', async () => {
+    const tree = await render(<InsightListCard insight={sectionPrCard()} onPress={jest.fn()} />);
 
     expect(tree.getByRole('link').props.accessibilityLabel).toBe(
       'insights.graphic.openSection:{"name":"Orchard Lane"}'
     );
   });
 
-  it('rings the best effort on the section timeline', () => {
-    const tree = laidOut(render(<InsightListCard insight={sectionPrCard()} onPress={jest.fn()} />));
+  it('rings the best effort on the section timeline', async () => {
+    const tree = await laidOut(
+      await render(<InsightListCard insight={sectionPrCard()} onPress={jest.fn()} />)
+    );
 
     const rings = tree
       .UNSAFE_getAllByType(Circle)
@@ -195,9 +197,11 @@ describe('the insight list card', () => {
     expect(rings[0].props.color).toBe(insightCategoryColor('section_pr', false));
   });
 
-  it('rings the best effort in the dark step on the dark theme', () => {
+  it('rings the best effort in the dark step on the dark theme', async () => {
     mockIsDark = true;
-    const tree = laidOut(render(<InsightListCard insight={sectionPrCard()} onPress={jest.fn()} />));
+    const tree = await laidOut(
+      await render(<InsightListCard insight={sectionPrCard()} onPress={jest.fn()} />)
+    );
 
     const rings = tree
       .UNSAFE_getAllByType(Circle)
@@ -207,8 +211,10 @@ describe('the insight list card', () => {
     expect(rings[0].props.color).toBe(insightCategoryColor('section_pr', true));
   });
 
-  it('draws the weekly bars with only the compared week marked', () => {
-    const tree = laidOut(render(<InsightListCard insight={periodCard()} onPress={jest.fn()} />));
+  it('draws the weekly bars with only the compared week marked', async () => {
+    const tree = await laidOut(
+      await render(<InsightListCard insight={periodCard()} onPress={jest.fn()} />)
+    );
 
     const bars = tree.UNSAFE_getAllByType(Rect).map((bar) => bar.props.color);
 
@@ -219,16 +225,18 @@ describe('the insight list card', () => {
     expect(bars.filter((color) => color === colors.chartMutedBar)).toHaveLength(5);
   });
 
-  it('draws the running week as an outline beside the whole weeks', () => {
-    const tree = laidOut(render(<InsightListCard insight={periodCard()} onPress={jest.fn()} />));
+  it('draws the running week as an outline beside the whole weeks', async () => {
+    const tree = await laidOut(
+      await render(<InsightListCard insight={periodCard()} onPress={jest.fn()} />)
+    );
 
     const styles = tree.UNSAFE_getAllByType(Rect).map((bar) => bar.props.style ?? 'fill');
 
     expect(styles).toEqual(['fill', 'fill', 'fill', 'fill', 'fill', 'stroke']);
   });
 
-  it('prints the fastest and slowest times beside the timeline and its first and last dates', () => {
-    const tree = render(<InsightListCard insight={sectionPrCard()} onPress={jest.fn()} />);
+  it('prints the fastest and slowest times beside the timeline and its first and last dates', async () => {
+    const tree = await render(<InsightListCard insight={sectionPrCard()} onPress={jest.fn()} />);
 
     const scale = tree.getByTestId('insight-graphic-scale');
     const dates = tree.getByTestId('insight-graphic-dates');
@@ -248,8 +256,8 @@ describe('the insight list card', () => {
     ]);
   });
 
-  it('prints the tallest week and the zero line beside the weekly bars', () => {
-    const tree = render(<InsightListCard insight={periodCard()} onPress={jest.fn()} />);
+  it('prints the tallest week and the zero line beside the weekly bars', async () => {
+    const tree = await render(<InsightListCard insight={periodCard()} onPress={jest.fn()} />);
 
     const scale = tree.getByTestId('insight-graphic-scale');
 
@@ -257,32 +265,32 @@ describe('the insight list card', () => {
       within(scale)
         .getAllByText(/./)
         .map((label) => label.props.children)
-    ).toEqual(['450 TSS', '0 TSS']);
+    ).toEqual(['450', '0']);
   });
 
-  it('prints no scale and no dates beside the section changes', () => {
-    const tree = render(<InsightListCard insight={sectionTrendCard()} onPress={jest.fn()} />);
+  it('prints no scale and no dates beside the section changes', async () => {
+    const tree = await render(<InsightListCard insight={sectionTrendCard()} onPress={jest.fn()} />);
 
     expect(tree.getByTestId('insight-graphic')).toBeTruthy();
     expect(tree.queryByTestId('insight-graphic-scale')).toBeNull();
     expect(tree.queryByTestId('insight-graphic-dates')).toBeNull();
   });
 
-  it('draws no graphic and no empty frame for a card with no history', () => {
+  it('draws no graphic and no empty frame for a card with no history', async () => {
     const insight = {
       ...periodCard(),
       supportingData: { trend: { direction: 'up', verdict: 'improved' } },
     } as Insight;
-    const tree = render(<InsightListCard insight={insight} onPress={jest.fn()} />);
+    const tree = await render(<InsightListCard insight={insight} onPress={jest.fn()} />);
 
     expect(tree.queryByTestId('insight-graphic')).toBeNull();
     expect(tree.queryByRole('link')).toBeNull();
     expect(tree.getByText(insight.title)).toBeTruthy();
   });
 
-  it("draws each section's change above the line when faster and below when slower", () => {
-    const tree = laidOut(
-      render(<InsightListCard insight={sectionTrendCard()} onPress={jest.fn()} />)
+  it("draws each section's change above the line when faster and below when slower", async () => {
+    const tree = await laidOut(
+      await render(<InsightListCard insight={sectionTrendCard()} onPress={jest.fn()} />)
     );
 
     const bars = tree.UNSAFE_getAllByType(Rect).filter((bar) => bar.props.height > 0);
@@ -297,15 +305,36 @@ describe('the insight list card', () => {
     expect(faster!.props.height).toBeGreaterThan(slower!.props.height);
   });
 
-  it('opens the sheet from the section changes graphic and pushes nothing', () => {
+  it('opens the sheet from the section changes graphic and pushes nothing', async () => {
     const insight = sectionTrendCard();
     const onPress = jest.fn();
-    const tree = render(<InsightListCard insight={insight} onPress={onPress} />);
+    const tree = await render(<InsightListCard insight={insight} onPress={onPress} />);
 
-    fireEvent.press(tree.getByTestId('insight-graphic'));
+    await fireEvent.press(tree.getByTestId('insight-graphic'));
 
     expect(onPress).toHaveBeenCalledWith(insight);
     expect(tapTo).not.toHaveBeenCalled();
+  });
+});
+
+describe('the insight list card label', () => {
+  it('speaks the title, the new mark and the caption the card draws', () => {
+    const insight = { ...sectionPrCard(), isNew: true, subtitle: 'Nine laps of the orchard' };
+    const tree = render(<InsightListCard insight={insight} onPress={jest.fn()} />);
+
+    expect(tree.getByTestId(`insight-card-${insight.id}`).props.accessibilityLabel).toBe(
+      `${insight.title}, a11y.isNew, Nine laps of the orchard`
+    );
+  });
+
+  it('speaks no new mark and no caption when the card draws neither', () => {
+    const insight: Insight = { ...sectionPrCard(), isNew: false };
+    delete insight.subtitle;
+    const tree = render(<InsightListCard insight={insight} onPress={jest.fn()} />);
+
+    expect(tree.getByTestId(`insight-card-${insight.id}`).props.accessibilityLabel).toBe(
+      insight.title
+    );
   });
 });
 

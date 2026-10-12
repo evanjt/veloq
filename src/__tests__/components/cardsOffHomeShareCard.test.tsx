@@ -34,7 +34,7 @@ jest.mock('@/features/fitness/components', () => ({
   ActivityDotsChart: () => null,
 }));
 
-type Rendered = ReturnType<typeof render>;
+type Rendered = Awaited<ReturnType<typeof render>>;
 
 const style = (node: { props: { style?: unknown } }): Record<string, unknown> => {
   const raw = node.props.style;
@@ -84,17 +84,17 @@ const volume = {
 } as unknown as MuscleVolume;
 
 describe('cards off the home scroll', () => {
-  it('draws an insight entry on the dark card', () => {
-    expectDarkCard(render(<InsightListCard insight={insight} onPress={jest.fn()} />));
+  it('draws an insight entry on the dark card', async () => {
+    expectDarkCard(await render(<InsightListCard insight={insight} onPress={jest.fn()} />));
   });
 
-  it('draws the activity stats on the dark card', () => {
-    expectDarkCard(render(<InsightfulStats activity={ride} />));
+  it('draws the activity stats on the dark card', async () => {
+    expectDarkCard(await render(<InsightfulStats activity={ride} />));
   });
 
-  it('draws the fitness chart on the dark card', () => {
+  it('draws the fitness chart on the dark card', async () => {
     expectDarkCard(
-      render(
+      await render(
         <FitnessChartCard
           wellness={[]}
           wellnessCoverage={RangeCoverage.Loaded}
@@ -110,9 +110,9 @@ describe('cards off the home scroll', () => {
     );
   });
 
-  it('draws the strength progression on the dark card', () => {
+  it('draws the strength progression on the dark card', async () => {
     expectDarkCard(
-      render(
+      await render(
         <StrengthProgressionCard
           selectedVolume={volume}
           progression={null}
@@ -122,10 +122,10 @@ describe('cards off the home scroll', () => {
     );
   });
 
-  it('keeps a stat tile off its card ground', () => {
-    const stats = render(<InsightfulStats activity={ride} />);
+  it('keeps a stat tile off its card ground', async () => {
+    const stats = await render(<InsightfulStats activity={ride} />);
     const cardGround = style(stats.UNSAFE_getAllByType(Card)[0].children[0] as never);
-    const tile = render(
+    const tile = await render(
       <StatCard
         stat={{ title: 'T', value: '1', icon: 'heart', color: '#000' } as never}
         isDark

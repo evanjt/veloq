@@ -43,7 +43,7 @@ jest.mock('@/shared/ui', () => {
     },
     ChartSkeleton: () => <View testID="chart-skeleton" />,
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-    ErrorStatePreset: () => null,
+    ErrorState: () => null,
     useHeroMapHeight: () => 300,
     HERO_HEADER_HEIGHT: 48,
     Shimmer: () => <View testID="shimmer" />,
@@ -105,8 +105,8 @@ const mockIntervalsIds: unknown[] = [];
 const mockDetailEnabled: unknown[] = [];
 const mockFrames: FrameRequestCallback[] = [];
 
-function flushFrame() {
-  act(() => {
+async function flushFrame() {
+  await act(() => {
     const callbacks = mockFrames.splice(0);
     callbacks.forEach((callback) => callback(0));
   });
@@ -149,10 +149,10 @@ afterEach(() => {
 });
 
 describe('activity detail first paint', () => {
-  it('paints the cached poster in a hero slot while the reads are pending', () => {
+  it('paints the cached poster in a hero slot while the reads are pending', async () => {
     mockCached.add('act-1-light-false');
 
-    render(<ActivityDetailScreen />);
+    await render(<ActivityDetailScreen />);
 
     expect(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID).props.source).toEqual({
       uri: 'file:///previews/act-1-light-false.jpg',
@@ -162,54 +162,54 @@ describe('activity detail first paint', () => {
     expect(screen.getAllByTestId('chart-skeleton').length).toBeGreaterThan(0);
   });
 
-  it('keeps an empty hero of the same slot when no poster exists', () => {
-    render(<ActivityDetailScreen />);
+  it('keeps an empty hero of the same slot when no poster exists', async () => {
+    await render(<ActivityDetailScreen />);
 
     expect(screen.getByTestId('activity-detail-skeleton-hero')).toBeTruthy();
     expect(screen.queryByTestId(ACTIVITY_MAP_POSTER_TEST_ID)).toBeNull();
   });
 
-  it('starts detail reads after the poster loads and a frame has passed', () => {
+  it('starts detail reads after the poster loads and a frame has passed', async () => {
     mockCached.add('act-1-light-false');
-    render(<ActivityDetailScreen />);
+    await render(<ActivityDetailScreen />);
 
     expect(mockActivityReadCommits).toEqual([]);
-    fireEvent(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID), 'load');
-    flushFrame();
+    await fireEvent(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID), 'load');
+    await flushFrame();
     expect(mockActivityReadCommits).toEqual([]);
-    flushFrame();
+    await flushFrame();
 
     expect(mockIntervalsIds).toEqual(['act-1']);
     expect(mockDetailEnabled).toEqual([undefined]);
     expect(mockActivityReadCommits).toEqual([true]);
   });
 
-  it('continues after an empty poster slot commits', () => {
-    render(<ActivityDetailScreen />);
-    flushFrame();
-    flushFrame();
+  it('continues after an empty poster slot commits', async () => {
+    await render(<ActivityDetailScreen />);
+    await flushFrame();
+    await flushFrame();
 
     expect(mockActivityReadCommits).toEqual([true]);
   });
 
-  it('continues when a cached poster fails to load', () => {
+  it('continues when a cached poster fails to load', async () => {
     mockCached.add('act-1-light-false');
-    render(<ActivityDetailScreen />);
-    fireEvent(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID), 'error');
-    flushFrame();
-    flushFrame();
+    await render(<ActivityDetailScreen />);
+    await fireEvent(screen.getByTestId(ACTIVITY_MAP_POSTER_TEST_ID), 'error');
+    await flushFrame();
+    await flushFrame();
 
     expect(mockActivityReadCommits).toEqual([true]);
   });
 
-  it('continues when a cached poster sends no load event', () => {
+  it('continues when a cached poster sends no load event', async () => {
     jest.useFakeTimers({ doNotFake: ['requestAnimationFrame'] });
     mockCached.add('act-1-light-false');
-    render(<ActivityDetailScreen />);
+    await render(<ActivityDetailScreen />);
 
-    act(() => jest.advanceTimersByTime(250));
-    flushFrame();
-    flushFrame();
+    await act(() => jest.advanceTimersByTime(250));
+    await flushFrame();
+    await flushFrame();
 
     expect(mockActivityReadCommits).toEqual([true]);
   });

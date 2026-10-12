@@ -19,7 +19,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useAfterNavigationTransition } from '@/shared/async/useAfterNavigationTransition';
@@ -27,9 +27,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 // Straight from the module, not the app barrel: the barrel reaches the
 // in-app purchase binding, which a screen that only needs the theme should not.
 import { useTheme } from '@/shared/app/useTheme';
-import { Button, ScreenSafeAreaView, useTabBarClearance } from '@/shared/ui';
+import { Button, ErrorState, ScreenSafeAreaView, useTabBarClearance } from '@/shared/ui';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { getEngine } from '@/shared/native/engine';
+import { attemptEngineRead } from '@/shared/native/engineError';
 import { GroupSort, SectionSort, hasStarted, type PreviewCentre } from 'veloqrs';
 import {
   groupingParamsOf,
@@ -46,6 +47,7 @@ import {
 } from '@/features/routes';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { goBack, tapBack } from '@/shared/app/navigation';
+import { confirmAction, inform } from '@/shared/ui/dialog';
 
 /**
  * How many of today's routes are drawn. They arrive nearest the selected area
@@ -58,12 +60,19 @@ interface RouteRow extends GroupingRoute {
   representativeId: string;
 }
 
-function readRoutes(centre: PreviewCentre | null): RouteRow[] {
+/** The routes drawn, or what the read threw, so a failure is not an empty library. */
+interface RoutesRead {
+  routes: RouteRow[];
+  error: unknown;
+}
+
+const NO_ROUTES: RoutesRead = { routes: [], error: undefined };
+
+function readRoutes(centre: PreviewCentre | null): RoutesRead {
   const engine = getEngine();
-  if (!engine?.getRoutesScreenData) return [];
-  let data: ReturnType<typeof engine.getRoutesScreenData>;
-  try {
-    data = engine.getRoutesScreenData({
+  if (!engine?.getRoutesScreenData) return NO_ROUTES;
+  const read = attemptEngineRead(() =>
+    engine.getRoutesScreenData({
       groupLimit: ROUTES_DRAWN,
       groupOffset: 0,
       sectionLimit: 0,
@@ -81,16 +90,18 @@ function readRoutes(centre: PreviewCentre | null): RouteRow[] {
       },
       userLat: centre?.lat ?? Number.NaN,
       userLng: centre?.lng ?? Number.NaN,
-    });
-  } catch {
-    return [];
-  }
-  return (data?.groups ?? []).map((g) => ({
-    groupId: g.groupId,
-    representativeId: g.representativeId,
-    encodedPolyline: g.encodedPolyline,
-    bounds: g.bounds,
-  }));
+    })
+  );
+  if (!read.ok) return { routes: [], error: read.error };
+  return {
+    routes: (read.value?.groups ?? []).map((g) => ({
+      groupId: g.groupId,
+      representativeId: g.representativeId,
+      encodedPolyline: g.encodedPolyline,
+      bounds: g.bounds,
+    })),
+    error: undefined,
+  };
 }
 
 function RouteGroupingPreviewScreenContent() {
@@ -110,9 +121,10 @@ function RouteGroupingPreviewScreenContent() {
   );
   const [applied] = useState<GroupingParams>(params);
   const { rescan } = useSectionRescan();
-  const [routes, setRoutes] = useState<RouteRow[]>([]);
+  const [routesRead, setRoutesRead] = useState<RoutesRead>(NO_ROUTES);
+  const routes = routesRead.routes;
   const { status, groups, refused, request } = useRouteGroupingPreview(client);
-  const { centres, labels } = usePreviewCentres(client);
+  const { centres, labels, error: centresError, retry: retryCentres } = usePreviewCentres(client);
   const [centre, setCentre] = useState<PreviewCentre | null>(null);
   const selectedCentre = centre ?? centres[0] ?? null;
 
@@ -124,13 +136,14 @@ function RouteGroupingPreviewScreenContent() {
   useEffect(() => {
     centreRef.current = selectedCentre;
   }, [selectedCentre]);
-  useAfterNavigationTransition(useCallback(() => setRoutes(readRoutes(centreRef.current)), []));
+  const rereadRoutes = useCallback(() => setRoutesRead(readRoutes(centreRef.current)), []);
+  useAfterNavigationTransition(rereadRoutes);
 
   const handleSelectCentre = useCallback(
     (next: PreviewCentre) => {
       if (next.binKey === selectedCentre?.binKey) return;
       setCentre(next);
-      setRoutes(readRoutes(next));
+      setRoutesRead(readRoutes(next));
     },
     [selectedCentre]
   );
@@ -151,36 +164,38 @@ function RouteGroupingPreviewScreenContent() {
   const onChange = useCallback((next: GroupingParams) => setParams(next), []);
 
   // Offered only once a knob differs from what the grouper runs at, so a Keep
-  // never rewrites the value already held.
+  // never rewrites the value already held, and never while the routes read has
+  // failed, since the preview then judged the setting against nothing.
+  const routesFailed = routesRead.error !== undefined;
   const changed =
     params.minMatchPercentage !== applied.minMatchPercentage ||
     params.endpointThreshold !== applied.endpointThreshold;
 
   const handleKeep = useCallback(() => {
-    Alert.alert(t('settings.groupingKeepTitle'), t('settings.groupingKeepWarning'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('common.confirm'),
-        onPress: () => {
-          if (!client) return;
-          client.setMatchStrictness(params.minMatchPercentage, params.endpointThreshold);
-          // Through the rescan hook so the athlete sees the regroup run. The
-          // setting is already written when the engine refuses, so stay and
-          // say why rather than report a change that has not run.
-          const outcome = rescan();
-          if (!hasStarted(outcome)) {
-            const reasonKey = rescanRefusalKey(outcome);
-            const saved = t('settings.previewKeepRefused');
-            Alert.alert(
-              t('settings.previewKeepRefusedTitle'),
-              reasonKey ? `${saved} ${t(reasonKey)}` : saved
-            );
-            return;
-          }
-          goBack();
-        },
+    confirmAction({
+      title: t('settings.groupingKeepTitle'),
+      message: t('settings.groupingKeepWarning'),
+      confirmLabel: t('common.confirm'),
+      cancelLabel: t('common.cancel'),
+      onConfirm: () => {
+        if (!client) return;
+        client.setMatchStrictness(params.minMatchPercentage, params.endpointThreshold);
+        // Through the rescan hook so the athlete sees the regroup run. The
+        // setting is already written when the engine refuses, so stay and
+        // say why rather than report a change that has not run.
+        const outcome = rescan();
+        if (!hasStarted(outcome)) {
+          const reasonKey = rescanRefusalKey(outcome);
+          const saved = t('settings.previewKeepRefused');
+          inform({
+            title: t('settings.previewKeepRefusedTitle'),
+            message: reasonKey ? `${saved} ${t(reasonKey)}` : saved,
+          });
+          return;
+        }
+        goBack();
       },
-    ]);
+    });
   }, [t, client, params, rescan]);
 
   const handleDiscard = useCallback(() => tapBack(), []);
@@ -215,6 +230,24 @@ function RouteGroupingPreviewScreenContent() {
           />
         </View>
 
+        {centresError !== undefined && (
+          <ErrorState
+            variant="inline"
+            error={centresError}
+            onRetry={retryCentres}
+            testID="grouping-centres-failed"
+          />
+        )}
+
+        {routesFailed && (
+          <ErrorState
+            variant="inline"
+            error={routesRead.error}
+            onRetry={rereadRoutes}
+            testID="grouping-routes-failed"
+          />
+        )}
+
         {centres.length > 0 && (
           <View style={styles.pickerWrap}>
             <PreviewCentrePicker
@@ -247,7 +280,7 @@ function RouteGroupingPreviewScreenContent() {
 
         <GroupingParamPanel params={params} onChange={onChange} />
 
-        {changed && (
+        {changed && !routesFailed && (
           <View style={styles.actionRow}>
             <Button
               label={t('settings.previewDiscard')}

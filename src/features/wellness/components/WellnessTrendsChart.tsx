@@ -13,15 +13,17 @@ import {
   layout,
   typography,
   opacity,
-  chartStyles,
   colorWithOpacity,
   ink,
+  themedStyles,
+  type Palette,
 } from '@/theme';
 import { useChartColors, useChartGestures } from '@/shared/charts';
 import { sortByDateId } from '@/shared/activity/activityUtils';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { toDisplayWeight, weightUnitLabel } from '@/shared/format/weight';
 import { formatShortDate, formatShortDateWithWeekday } from '@/shared/format/format';
+import { ABSENT } from '@/shared/format/absent';
 import {
   smoothDataPoints,
   getEffectiveWindow,
@@ -31,6 +33,7 @@ import type { WellnessData } from '@/types';
 
 import type { TimeRange } from '../hooks';
 import { wellnessRowDomain, wellnessRowReading } from '../lib';
+import { EmptyState } from '@/shared/ui/EmptyState';
 
 interface WellnessTrendsChartProps {
   data?: WellnessData[] | undefined;
@@ -135,6 +138,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
 }: WellnessTrendsChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const styles = themedStyles(makeStyles, isDark);
   const chartColors = useChartColors();
   const isMetric = useMetricSystem();
   const [containerWidth, setContainerWidth] = useState(0);
@@ -431,7 +435,10 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
   // Compute display values for each metric row
   const metricDisplayValues = useMemo(() => {
     return activeMetrics.map((metric) => {
-      const avgValue = metric.data.reduce((sum, d) => sum + d.rawValue, 0) / metric.data.length;
+      const avgValue =
+        metric.data.length > 0
+          ? metric.data.reduce((sum, d) => sum + d.rawValue, 0) / metric.data.length
+          : null;
       const isSelected = selectedIdx !== null;
       const displayValue = wellnessRowReading(metric.data, selectedIdx);
       return { displayValue, avgValue, isSelected };
@@ -460,21 +467,17 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
       <View style={[styles.container, { height }]}>
         <View style={styles.emptyState}>
           {coverage === RangeCoverage.NotFetched ? (
-            <Text
+            <EmptyState
+              variant="inline"
               testID="wellness-trends-not-downloaded"
-              style={[styles.emptyText, isDark && chartStyles.textDark]}
-            >
-              {t('stats.rangeNotDownloaded')}
-            </Text>
+              title={t('stats.rangeNotDownloaded')}
+            />
           ) : (
-            <>
-              <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
-                {t('wellness.noTrendData')}
-              </Text>
-              <Text style={[styles.emptyHint, isDark && chartStyles.textDark]}>
-                {t('wellness.trendHint')}
-              </Text>
-            </>
+            <EmptyState
+              variant="inline"
+              title={t('wellness.noTrendData')}
+              description={t('wellness.trendHint')}
+            />
           )}
         </View>
       </View>
@@ -494,11 +497,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
               ? formatShortDateWithWeekday(newestReadingDate)
               : t('time.today')}
         </Text>
-        {selectedIdx !== null && (
-          <Text style={[styles.dateHint, isDark && chartStyles.textDark]}>
-            {t('wellness.dragToExplore')}
-          </Text>
-        )}
+        {selectedIdx !== null && <Text style={styles.dateHint}>{t('wellness.dragToExplore')}</Text>}
       </View>
 
       <GestureDetector gesture={gesture}>
@@ -515,9 +514,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
               {/* Left: label */}
               <View style={styles.metricInfo}>
                 <View style={[styles.metricDot, { backgroundColor: metric.color }]} />
-                <Text style={[styles.metricLabel, isDark && chartStyles.textDark]}>
-                  {metric.label}
-                </Text>
+                <Text style={styles.metricLabel}>{metric.label}</Text>
               </View>
 
               {/* Center: spacer for sparkline area (canvas is overlaid absolutely) */}
@@ -528,20 +525,19 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
                 <Text style={[styles.metricValue, isDark && styles.textLight]}>
                   {metricDisplayValues[i]?.displayValue
                     ? metric.formatValue(metricDisplayValues[i].displayValue.value)
-                    : '-'}
+                    : ABSENT}
                 </Text>
-                <Text style={[styles.metricUnit, isDark && chartStyles.textDark]}>
-                  {metric.unit}
-                </Text>
-                {!metricDisplayValues[i]?.isSelected && (
-                  <Text style={[styles.metricAvg, isDark && chartStyles.textDark]}>
-                    {t('sections.avg')} {metric.formatValue(metricDisplayValues[i]?.avgValue ?? 0)}
-                  </Text>
-                )}
+                <Text style={styles.metricUnit}>{metric.unit}</Text>
+                {!metricDisplayValues[i]?.isSelected &&
+                  metricDisplayValues[i]?.avgValue != null && (
+                    <Text style={styles.metricAvg}>
+                      {t('sections.avg')} {metric.formatValue(metricDisplayValues[i].avgValue)}
+                    </Text>
+                  )}
                 {!metricDisplayValues[i]?.isSelected &&
                   metricDisplayValues[i]?.displayValue &&
                   metricDisplayValues[i].displayValue.date !== newestReadingDate && (
-                    <Text style={[styles.metricAvg, isDark && chartStyles.textDark]}>
+                    <Text style={styles.metricAvg}>
                       {formatShortDate(metricDisplayValues[i].displayValue.date)}
                     </Text>
                   )}
@@ -571,107 +567,96 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
       </GestureDetector>
 
       {/* Period label */}
-      <Text style={[styles.periodLabel, isDark && chartStyles.textDark]}>
-        {t('wellness.lastDays', { count: data.length })}
-      </Text>
+      <Text style={styles.periodLabel}>{t('wellness.lastDays', { count: data.length })}</Text>
     </View>
   );
 });
 
-const styles = StyleSheet.create({
-  container: {},
-  dateHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.xs,
-  },
-  dateText: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  dateHint: {
-    fontSize: typography.micro.fontSize,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.xl,
-  },
-  emptyText: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  emptyHint: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  textLight: {
-    color: colors.textOnDark,
-  },
-  metricRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 50,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: opacity.overlay.light,
-  },
-  metricRowDark: {
-    borderBottomColor: opacity.overlayDark.medium,
-  },
-  metricRowLast: {
-    borderBottomWidth: 0,
-  },
-  metricInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: 75,
-  },
-  metricDot: {
-    width: spacing.sm,
-    height: spacing.sm,
-    borderRadius: layout.borderRadiusXs,
-    marginRight: spacing.xs,
-  },
-  metricLabel: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  sparklineContainer: {
-    flex: 1,
-    marginHorizontal: spacing.sm,
-  },
-  metricValues: {
-    alignItems: 'flex-end',
-    width: 55,
-  },
-  metricValue: {
-    fontSize: typography.bodySmall.fontSize + 1,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  metricUnit: {
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
-    marginTop: -spacing.xxs,
-  },
-  metricAvg: {
-    fontSize: typography.pillLabel.fontSize - 1,
-    color: colors.textSecondary,
-    marginTop: spacing.xxs,
-  },
-  periodLabel: {
-    fontSize: typography.micro.fontSize,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: spacing.sm,
-  },
-});
+const makeStyles = (palette: Palette) =>
+  StyleSheet.create({
+    container: {},
+    dateHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: spacing.sm,
+      paddingHorizontal: spacing.xs,
+    },
+    dateText: {
+      fontSize: typography.bodySmall.fontSize,
+      fontWeight: '600',
+      color: colors.textPrimary,
+    },
+    dateHint: {
+      fontSize: typography.micro.fontSize,
+      color: palette.textSecondary,
+      fontStyle: 'italic',
+    },
+    emptyState: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: spacing.xl,
+    },
+    textLight: {
+      color: colors.textOnDark,
+    },
+    metricRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      height: 50,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: opacity.overlay.light,
+    },
+    metricRowDark: {
+      borderBottomColor: opacity.overlayDark.medium,
+    },
+    metricRowLast: {
+      borderBottomWidth: 0,
+    },
+    metricInfo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      width: 75,
+    },
+    metricDot: {
+      width: spacing.sm,
+      height: spacing.sm,
+      borderRadius: layout.borderRadiusXs,
+      marginRight: spacing.xs,
+    },
+    metricLabel: {
+      fontSize: typography.label.fontSize,
+      color: palette.textSecondary,
+      fontWeight: '500',
+    },
+    sparklineContainer: {
+      flex: 1,
+      marginHorizontal: spacing.sm,
+    },
+    metricValues: {
+      alignItems: 'flex-end',
+      width: 55,
+    },
+    metricValue: {
+      fontSize: typography.bodySmall.fontSize + 1,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    metricUnit: {
+      fontSize: typography.pillLabel.fontSize,
+      color: palette.textSecondary,
+      marginTop: -spacing.xxs,
+    },
+    metricAvg: {
+      fontSize: typography.pillLabel.fontSize - 1,
+      color: palette.textSecondary,
+      marginTop: spacing.xxs,
+    },
+    periodLabel: {
+      fontSize: typography.micro.fontSize,
+      color: palette.textSecondary,
+      textAlign: 'center',
+      marginTop: spacing.sm,
+    },
+  });

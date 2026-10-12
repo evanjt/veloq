@@ -24,8 +24,8 @@ const ZONES: ZoneDistribution[] = [
 ];
 
 describe('ZoneDistributionChart over a range never downloaded', () => {
-  it('says the range is not downloaded rather than holding no zone data', () => {
-    const view = render(
+  it('says the range is not downloaded rather than holding no zone data', async () => {
+    const view = await render(
       <ZoneDistributionChart data={undefined} coverage={RangeCoverage.NotFetched} />
     );
 
@@ -33,21 +33,25 @@ describe('ZoneDistributionChart over a range never downloaded', () => {
     expect(view.queryByText('stats.noZoneData')).toBeNull();
   });
 
-  it('keeps the empty state for a range the census says is empty', () => {
-    const view = render(<ZoneDistributionChart data={[]} coverage={RangeCoverage.Empty} />);
+  it('keeps the empty state for a range the census says is empty', async () => {
+    const view = await render(<ZoneDistributionChart data={[]} coverage={RangeCoverage.Empty} />);
 
     expect(view.getByText('stats.noZoneData')).toBeTruthy();
     expect(view.queryByText('stats.rangeNotDownloaded')).toBeNull();
   });
 
-  it('adds a quiet line under zone time from a range partly downloaded', () => {
-    const view = render(<ZoneDistributionChart data={ZONES} coverage={RangeCoverage.NotFetched} />);
+  it('adds a quiet line under zone time from a range partly downloaded', async () => {
+    const view = await render(
+      <ZoneDistributionChart data={ZONES} coverage={RangeCoverage.NotFetched} />
+    );
 
     expect(view.getByTestId('zone-distribution-partial')).toBeTruthy();
   });
 
-  it('carries no line when the range is downloaded', () => {
-    const view = render(<ZoneDistributionChart data={ZONES} coverage={RangeCoverage.Loaded} />);
+  it('carries no line when the range is downloaded', async () => {
+    const view = await render(
+      <ZoneDistributionChart data={ZONES} coverage={RangeCoverage.Loaded} />
+    );
 
     expect(view.queryByTestId('zone-distribution-partial')).toBeNull();
   });

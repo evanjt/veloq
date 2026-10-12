@@ -32,13 +32,13 @@ function withoutNulls(intervals: ActivityInterval[]): ActivityInterval[] {
   );
 }
 
-function tableOf(intervals: ActivityInterval[], sport: ActivityType, isMetric: boolean) {
-  const { toJSON, unmount } = render(
+async function tableOf(intervals: ActivityInterval[], sport: ActivityType, isMetric: boolean) {
+  const { toJSON, unmount } = await render(
     <IntervalsTable intervals={intervals} activityType={sport} isMetric={isMetric} isDark />
   );
   // The rows as drawn, without the list's own copy of the data it was handed.
   const tree = JSON.stringify((toJSON() as { children: unknown }).children);
-  unmount();
+  await unmount();
   return tree;
 }
 
@@ -57,8 +57,8 @@ describe.each(Object.keys(SPORTS))('the %s body with its nulls dropped', (name) 
     expect(JSON.stringify(stored).length).toBeLessThan(JSON.stringify(fetched).length);
   });
 
-  it.each([true, false])('renders the same intervals table (metric %s)', (isMetric) => {
-    expect(tableOf(stored, sport, isMetric)).toBe(tableOf(fetched, sport, isMetric));
+  it.each([true, false])('renders the same intervals table (metric %s)', async (isMetric) => {
+    expect(await tableOf(stored, sport, isMetric)).toBe(await tableOf(fetched, sport, isMetric));
   });
 
   it.each(['time', 'distance'] as const)('places the same bands on the %s axis', (axis) => {

@@ -42,12 +42,12 @@ function Probe() {
 }
 
 describe('useSectionSummaries', () => {
-  it('reads again when a detection run is applied', () => {
-    const tree = render(<Probe />);
+  it('reads again when a detection run is applied', async () => {
+    const tree = await render(<Probe />);
     expect(tree.getByTestId('count').props.children).toBe('3');
 
     count = 7;
-    act(() => {
+    await act(() => {
       for (const cb of listeners.detectionApplied ?? []) cb();
     });
 

@@ -1,8 +1,6 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
 
-import { engineErrorKey } from '@/shared/native/engineError';
-import { ErrorStatePreset } from '@/shared/ui';
+import { ErrorState } from '@/shared/ui';
 
 interface ActivityDetailReadFailedProps {
   error: unknown;
@@ -14,11 +12,5 @@ interface ActivityDetailReadFailedProps {
  * so a failed read is not drawn as an activity that matched nothing.
  */
 export function ActivityDetailReadFailed({ error, onRetry }: ActivityDetailReadFailedProps) {
-  const { t } = useTranslation();
-  return (
-    <ErrorStatePreset
-      message={t(engineErrorKey(error, 'activityDetail.failedToLoad'))}
-      onRetry={onRetry}
-    />
-  );
+  return <ErrorState error={error} fallbackKey="activityDetail.failedToLoad" onRetry={onRetry} />;
 }

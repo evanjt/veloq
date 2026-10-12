@@ -12,6 +12,7 @@
 
   <TextView
     android:id="@+id/sum_label"
+    android:importantForAccessibility="no"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:maxLines="1"
@@ -24,6 +25,7 @@
   <!-- The row wraps its content, so the trend sits beside the value until a long value fills the
        width; then the weight shrinks the value's box and the value shrinks to fit it. -->
   <LinearLayout
+    android:id="@+id/sum_hero"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
@@ -73,8 +75,7 @@
     android:layout_width="match_parent"
     android:layout_height="40dp"
     android:layout_marginTop="@dimen/widget_gap"
-    android:scaleType="fitXY"
-    android:contentDescription="@null" />
+    android:scaleType="fitXY" />
 
   <LinearLayout
     android:id="@+id/small_age"

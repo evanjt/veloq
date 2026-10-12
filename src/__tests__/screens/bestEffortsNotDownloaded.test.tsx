@@ -79,34 +79,41 @@ function rideSection() {
 describe('a Best Efforts curve that was never fetched', () => {
   it.each<EngineBodyStatus>(['timedOut', 'refused'])(
     'says not downloaded with a Retry that asks again once the wait is %s',
-    (status) => {
+    async (status) => {
       mockRideStatus.current = status;
-      renderScreen();
+      await renderScreen();
 
       const section = rideSection();
       expect(screen.getByTestId('best-efforts-not-downloaded-Cycling')).toBeTruthy();
       expect(section).toHaveTextContent(new RegExp(NOT_DOWNLOADED));
       expect(section).not.toHaveTextContent(new RegExp(NO_DATA));
 
-      fireEvent.press(screen.getByTestId('best-efforts-not-downloaded-Cycling-retry'));
+      await fireEvent.press(screen.getByTestId('best-efforts-not-downloaded-Cycling-retry'));
       expect(mockRetryRide).toHaveBeenCalledTimes(1);
     }
   );
 
-  it('waits without a Retry while the curve is still being fetched', () => {
+  it('waits without a Retry while the curve is still being fetched', async () => {
     mockRideStatus.current = 'waiting';
-    renderScreen();
+    await renderScreen();
 
     expect(screen.queryByTestId('best-efforts-not-downloaded-Cycling')).toBeNull();
     expect(screen.queryByTestId('best-efforts-not-downloaded-Cycling-retry')).toBeNull();
     expect(rideSection()).not.toHaveTextContent(new RegExp(NO_DATA));
   });
 
-  it('keeps the no-data line for a fetched curve with no efforts', () => {
-    renderScreen();
+  it('keeps the no-data line for a fetched curve with no efforts', async () => {
+    await renderScreen();
 
     const run = screen.getByTestId('best-efforts-section-Running');
     expect(run).toHaveTextContent(new RegExp(NO_DATA));
     expect(screen.queryByTestId('best-efforts-not-downloaded-Running')).toBeNull();
+  });
+
+  it('titles every sport card as a heading, so a screen reader can skim between them', async () => {
+    await renderScreen();
+
+    expect(screen.getByRole('header', { name: 'bestEffortsScreen.powerBests' })).toBeTruthy();
+    expect(screen.getByRole('header', { name: 'bestEffortsScreen.paceBests' })).toBeTruthy();
   });
 });

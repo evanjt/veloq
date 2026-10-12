@@ -13,6 +13,7 @@ import { Path } from '@shopify/react-native-skia';
 import { SectionDeltaChart } from '@/features/routes/components/section/SectionDeltaChart';
 import { PerformanceChartPanel } from '@/features/routes/components/section/PerformanceChartPanel';
 import type { PerformanceDataPoint } from '@/types';
+import { layoutViews } from '../../__shared__/layoutViews';
 import type {
   FfiDirectionDeltas,
   FfiLapDelta,
@@ -103,9 +104,9 @@ const full = (drawn: Record<string, unknown>[]) => drawn.filter((p) => p.opacity
 describe('SectionDeltaChart', () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it('draws the newest attempt in full and the others faint when none is selected', () => {
+  it('draws the newest attempt in full and the others faint when none is selected', async () => {
     const drawn = capturePaths();
-    render(chart());
+    await layoutViews(await render(chart()), 400, 300);
 
     const emphasised = full(drawn);
     expect(emphasised).toHaveLength(1);
@@ -117,62 +118,63 @@ describe('SectionDeltaChart', () => {
     expect(drawn.length).toBe(LAPS.length);
   });
 
-  it('draws the selected attempt in full instead of the newest', () => {
+  it('draws the selected attempt in full instead of the newest', async () => {
     const drawn = capturePaths();
-    const withNewest = render(chart());
+    const withNewest = await render(chart());
+    await layoutViews(withNewest, 400, 300);
     const newestPath = String(full(drawn)[0]!.path);
-    withNewest.unmount();
+    await withNewest.unmount();
     drawn.length = 0;
 
-    render(chart({ highlightedActivityId: 'older' }));
+    await layoutViews(await render(chart({ highlightedActivityId: 'older' })), 400, 300);
 
     expect(full(drawn)).toHaveLength(1);
     expect(String(full(drawn)[0]!.path)).not.toBe(newestPath);
   });
 
-  it('leaves a gap at a NaN run and does not draw a zero there', () => {
+  it('leaves a gap at a NaN run and does not draw a zero there', async () => {
     const drawn = capturePaths();
     const partial = lap('partial', 3, [NaN, NaN, 0, 4, NaN, NaN, 5, 6, 7]);
-    render(chart({ deltas: direction([partial]) }));
+    await layoutViews(await render(chart({ deltas: direction([partial]) })), 400, 300);
 
     const path = String(full(drawn)[0]!.path);
     expect(path.match(/M/g)).toHaveLength(2);
     expect(path).not.toMatch(/NaN/);
   });
 
-  it('shows the whole-section figure only where the engine gave an end delta', () => {
-    const withEnd = render(chart({ highlightedActivityId: 'older' }));
+  it('shows the whole-section figure only where the engine gave an end delta', async () => {
+    const withEnd = await render(chart({ highlightedActivityId: 'older' }));
     expect(withEnd.getByTestId('section-delta-end').props.children).toContain('"time":"8s"');
-    withEnd.unmount();
+    await withEnd.unmount();
 
     const partial = lap('partial', 3, [NaN, 0, 2, 3]);
     delete (partial as { endDeltaSecs?: number }).endDeltaSecs;
-    const withoutEnd = render(chart({ deltas: direction([partial]) }));
+    const withoutEnd = await render(chart({ deltas: direction([partial]) }));
     expect(withoutEnd.queryByTestId('section-delta-end')).toBeNull();
   });
 
-  it('counts the attempts that have no curve', () => {
-    const tree = render(
+  it('counts the attempts that have no curve', async () => {
+    const tree = await render(
       chart({ deltas: direction(LAPS, { missing: [missing('x'), missing('y')] }) })
     );
 
     expect(tree.getByTestId('section-delta-missing').props.children).toContain('"attempts":2');
   });
 
-  it('shows no missing count when every attempt is drawn', () => {
-    const tree = render(chart());
+  it('shows no missing count when every attempt is drawn', async () => {
+    const tree = await render(chart());
 
     expect(tree.queryByTestId('section-delta-missing')).toBeNull();
   });
 
-  it('names the record as the reference, with its date', () => {
-    const record = render(chart());
+  it('names the record as the reference, with its date', async () => {
+    const record = await render(chart());
     expect(record.getByTestId('section-delta-caption').props.children).toContain(
       'sections.deltaVsRecord'
     );
-    record.unmount();
+    await record.unmount();
 
-    const set = render(
+    const set = await render(
       chart({
         deltas: direction(LAPS, { referenceSource: 1 as FfiDirectionDeltas['referenceSource'] }),
       })
@@ -213,8 +215,8 @@ function panel(curves: FfiSectionLapCurves | undefined) {
 }
 
 describe('PerformanceChartPanel delta plot', () => {
-  it('offers delta when the direction has curves and draws it when chosen', () => {
-    const tree = render(
+  it('offers delta when the direction has curves and draws it when chosen', async () => {
+    const tree = await render(
       panel({
         gridStepM: GRID_STEP_M,
         splitStepM: 100,
@@ -223,19 +225,19 @@ describe('PerformanceChartPanel delta plot', () => {
       })
     );
 
-    fireEvent.press(tree.getByTestId('chart-plot-delta'));
+    await fireEvent.press(tree.getByTestId('chart-plot-delta'));
     expect(tree.getByTestId('section-delta-chart')).toBeTruthy();
     expect(tree.getByTestId('chart-plot-delta').props.accessibilityState.selected).toBe(true);
   });
 
-  it('offers no delta option when curves is absent', () => {
-    const tree = render(panel(undefined));
+  it('offers no delta option when curves is absent', async () => {
+    const tree = await render(panel(undefined));
 
     expect(tree.queryByTestId('chart-plot-delta')).toBeNull();
   });
 
-  it('offers no delta option for a direction without curves', () => {
-    const tree = render(
+  it('offers no delta option for a direction without curves', async () => {
+    const tree = await render(
       panel({
         gridStepM: GRID_STEP_M,
         splitStepM: 100,

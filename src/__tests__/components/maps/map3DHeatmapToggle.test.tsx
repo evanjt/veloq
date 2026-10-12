@@ -62,29 +62,29 @@ beforeEach(() => {
 });
 
 describe('toggling the heatmap in 3D', () => {
-  it('does not regenerate the page, so the camera and the tiles survive', () => {
-    const view = render(surface(false));
-    act(() => onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
+  it('does not regenerate the page, so the camera and the tiles survive', async () => {
+    const view = await render(surface(false));
+    await act(() => onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
     const before = html;
 
-    view.rerender(surface(true));
+    await view.rerender(surface(true));
 
     expect(html).toBe(before);
-    view.unmount();
+    await view.unmount();
   });
 
-  it('sends the toggle to the layer that is already there', () => {
-    const view = render(surface(false));
-    act(() => onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
+  it('sends the toggle to the layer that is already there', async () => {
+    const view = await render(surface(false));
+    await act(() => onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
     injected.length = 0;
 
-    view.rerender(surface(true));
+    await view.rerender(surface(true));
 
     expect(
       injected.some((s) =>
         s.includes("setLayoutProperty('heatmap-layer', 'visibility', \"visible\")")
       )
     ).toBe(true);
-    view.unmount();
+    await view.unmount();
   });
 });

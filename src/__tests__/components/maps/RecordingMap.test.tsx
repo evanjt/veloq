@@ -36,8 +36,8 @@ const HERE = { latitude: 46.948, longitude: 7.447 };
 
 // A pan reaches React Native as a bridge message from the map surface, so the
 // test posts the same message the page would.
-function panTheMap() {
-  fireEvent(screen.getByTestId('maplibre-map'), 'message', {
+async function panTheMap() {
+  await fireEvent(screen.getByTestId('maplibre-map'), 'message', {
     nativeEvent: {
       data: JSON.stringify({
         type: 'regionDidChange',
@@ -56,31 +56,31 @@ function panTheMap() {
 }
 
 describe('RecordingMap', () => {
-  it('mounts with a live track and a current position', () => {
-    render(<RecordingMap coordinates={TRACK} currentLocation={HERE} />);
+  it('mounts with a live track and a current position', async () => {
+    await render(<RecordingMap coordinates={TRACK} currentLocation={HERE} />);
 
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
   });
 
-  it('offers recentring only once the user has panned away', () => {
-    render(<RecordingMap coordinates={TRACK} currentLocation={HERE} />);
+  it('offers recentring only once the user has panned away', async () => {
+    await render(<RecordingMap coordinates={TRACK} currentLocation={HERE} />);
 
     expect(screen.queryByTestId('recording-map-recenter')).toBeNull();
 
-    panTheMap();
+    await panTheMap();
 
     expect(screen.getByTestId('recording-map-recenter')).toBeTruthy();
-    fireEvent.press(screen.getByTestId('recording-map-recenter'));
+    await fireEvent.press(screen.getByTestId('recording-map-recenter'));
     expect(screen.queryByTestId('recording-map-recenter')).toBeNull();
   });
 
-  it('shows the route picker control only when a handler is supplied', () => {
+  it('shows the route picker control only when a handler is supplied', async () => {
     const onOpenRoutePicker = jest.fn();
-    const { rerender } = render(<RecordingMap coordinates={TRACK} currentLocation={HERE} />);
+    const { rerender } = await render(<RecordingMap coordinates={TRACK} currentLocation={HERE} />);
 
     expect(screen.queryByTestId('recording-map-route-overlay')).toBeNull();
 
-    rerender(
+    await rerender(
       <RecordingMap
         coordinates={TRACK}
         currentLocation={HERE}
@@ -88,14 +88,14 @@ describe('RecordingMap', () => {
       />
     );
 
-    fireEvent.press(screen.getByTestId('recording-map-route-overlay'));
+    await fireEvent.press(screen.getByTestId('recording-map-route-overlay'));
     expect(onOpenRoutePicker).toHaveBeenCalledTimes(1);
   });
 
-  it('names each control and says when the route overlay is on', () => {
+  it('names each control and says when the route overlay is on', async () => {
     const props = { coordinates: TRACK, currentLocation: HERE, onOpenRoutePicker: jest.fn() };
-    const { rerender } = render(<RecordingMap {...props} />);
-    panTheMap();
+    const { rerender } = await render(<RecordingMap {...props} />);
+    await panTheMap();
 
     expect(screen.getByRole('button', { name: 'maps.toggleStyle' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'maps.goToLocation' })).toBeTruthy();
@@ -103,15 +103,15 @@ describe('RecordingMap', () => {
       screen.getByRole('button', { name: 'recording.routeOverlay.title', selected: false })
     ).toBeTruthy();
 
-    rerender(<RecordingMap {...props} routeOverlay={[{ lat: 46.948, lng: 7.447 }]} />);
+    await rerender(<RecordingMap {...props} routeOverlay={[{ lat: 46.948, lng: 7.447 }]} />);
 
     expect(
       screen.getByRole('button', { name: 'recording.routeOverlay.title', selected: true })
     ).toBeTruthy();
   });
 
-  it('hides the controls in review mode', () => {
-    render(
+  it('hides the controls in review mode', async () => {
+    await render(
       <RecordingMap
         coordinates={TRACK}
         currentLocation={HERE}
@@ -160,8 +160,8 @@ describe('RecordingMap', () => {
       ],
     ];
 
-    it.each(cases)('survives %s', (_label, props) => {
-      expect(() => render(<RecordingMap {...props} />)).not.toThrow();
+    it.each(cases)('survives %s', async (_label, props) => {
+      await expect((async () => render(<RecordingMap {...props} />))()).resolves.not.toThrow();
       expect(screen.getByTestId('maplibre-map')).toBeTruthy();
     });
   });

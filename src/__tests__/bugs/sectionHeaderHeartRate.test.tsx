@@ -40,8 +40,8 @@ const SECTION: FrequentSection = {
 const legacyHeartRate = { avgHr: { bpm: 163, laps: 2, ofLaps: 8 } };
 
 describe('the section header stats', () => {
-  it('shows no heart rate figure or coverage', () => {
-    const tree = render(
+  it('shows no heart rate figure or coverage', async () => {
+    const tree = await render(
       <SectionHeader
         section={SECTION}
         insetTop={0}

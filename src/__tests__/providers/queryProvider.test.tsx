@@ -62,9 +62,9 @@ describe('QueryProvider', () => {
   });
 
   describe('legacy cache cleanup', () => {
-    it('removes the veloq-query-cache blob on the first mount', () => {
+    it('removes the veloq-query-cache blob on the first mount', async () => {
       expect(removalsAtImport).toEqual([]);
-      render(
+      await render(
         <QueryProvider>
           <></>
         </QueryProvider>
@@ -72,13 +72,13 @@ describe('QueryProvider', () => {
       expect(removeItemSpy).toHaveBeenCalledWith('veloq-query-cache');
     });
 
-    it('does not remove it again on mount, or on a second mount', () => {
-      render(
+    it('does not remove it again on mount, or on a second mount', async () => {
+      await render(
         <QueryProvider>
           <></>
         </QueryProvider>
       );
-      render(
+      await render(
         <QueryProvider>
           <></>
         </QueryProvider>
@@ -93,8 +93,8 @@ describe('QueryProvider', () => {
   });
 
   describe('no persister', () => {
-    it('never reads the cache blob back, at import or on mount', () => {
-      render(
+    it('never reads the cache blob back, at import or on mount', async () => {
+      await render(
         <QueryProvider>
           <></>
         </QueryProvider>
@@ -103,9 +103,9 @@ describe('QueryProvider', () => {
       expect(keysRead).not.toContain('veloq-query-cache');
     });
 
-    it('runs the first query on the first render, with no restore step between', () => {
+    it('runs the first query on the first render, with no restore step between', async () => {
       const queryFn = jest.fn().mockResolvedValue('engine');
-      render(
+      await render(
         <QueryProvider>
           <Probe queryFn={queryFn} cacheKey="first" />
         </QueryProvider>
@@ -113,10 +113,10 @@ describe('QueryProvider', () => {
       expect(queryFn).toHaveBeenCalledTimes(1);
     });
 
-    it('mounts the module singleton, so a seeded key is read without a fetch', () => {
+    it('mounts the module singleton, so a seeded key is read without a fetch', async () => {
       queryClient.setQueryData(['seeded'], 'from cache');
       const queryFn = jest.fn().mockResolvedValue('engine');
-      const { getByText } = render(
+      const { getByText } = await render(
         <QueryProvider>
           <Probe queryFn={queryFn} cacheKey="seeded" />
         </QueryProvider>
@@ -127,8 +127,8 @@ describe('QueryProvider', () => {
   });
 
   describe('rendering', () => {
-    it('renders children inside the provider', () => {
-      const { getByText } = render(
+    it('renders children inside the provider', async () => {
+      const { getByText } = await render(
         <QueryProvider>
           <Text>child marker</Text>
         </QueryProvider>

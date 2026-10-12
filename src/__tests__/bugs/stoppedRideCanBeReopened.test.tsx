@@ -32,11 +32,13 @@ beforeEach(() => {
 afterEach(() => jest.useRealTimers());
 
 describe('Stop on a paused ride', () => {
-  it('fires on a single press, with no hold', () => {
+  it('fires on a single press, with no hold', async () => {
     const onStop = jest.fn();
-    const { getByTestId } = render(<ControlBar {...barProps} status="paused" onStop={onStop} />);
+    const { getByTestId } = await render(
+      <ControlBar {...barProps} status="paused" onStop={onStop} />
+    );
 
-    fireEvent.press(getByTestId('control-stop'));
+    await fireEvent.press(getByTestId('control-stop'));
 
     expect(onStop).toHaveBeenCalledTimes(1);
   });

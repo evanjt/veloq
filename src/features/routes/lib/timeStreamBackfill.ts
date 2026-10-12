@@ -63,6 +63,6 @@ export function timeStreamsProgress(completed: number, total: number, t: TFuncti
     completed,
     total,
     percent: 50,
-    message: t('cache.fetchingTimeStreams', { percent: 50, completed, total }),
+    message: t('cache.fetchingTimeStreams', { completed, total }),
   };
 }

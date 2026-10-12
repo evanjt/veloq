@@ -124,7 +124,7 @@ describe('openableSystemPath', () => {
 
   it.each([
     'veloq://sheets/param-editor',
-    'veloq://sheets/restore-prompt?x=1',
+    'veloq://sheets/smoothing?x=1',
     'veloq:///sheets/insight',
     '/sheets/stat-detail',
     'veloq://recording/review',

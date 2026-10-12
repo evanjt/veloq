@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useAthlete } from '@/shared/app/useAthlete';
 import {
+  useOwedStrengthFiles,
   useStrengthScreenData,
   buildStrengthBalancePairs,
   selectExercises,
@@ -18,8 +19,14 @@ import {
   StrengthBalanceView,
   STRENGTH_PERIODS,
 } from '@/features/strength';
-import { ErrorStatePreset, ExplanationCard, ToggleButton, useTabBarClearance } from '@/shared/ui';
-import { engineErrorKey } from '@/shared/native/engineError';
+import {
+  BodyNotDownloaded,
+  EmptyState,
+  ErrorState,
+  ExplanationCard,
+  ToggleButton,
+  useTabBarClearance,
+} from '@/shared/ui';
 import { useSyncState } from '@/shared/native/useSyncStatus';
 import { SyncState } from 'veloqrs';
 import { colors, darkColors, spacing, typography } from '@/theme';
@@ -124,7 +131,11 @@ export const StrengthTab = React.memo(function StrengthTab({
   // cannot show yet, which is not the same as having none.
   const periodAwaitingDownload = awaitingDownload || (screen?.owedCount ?? 0) > 0;
   const isSyncing = useSyncState() === SyncState.Syncing;
-  const periodDownloading = periodAwaitingDownload && isSyncing;
+  // Asked for only while the empty state is what shows: a populated period
+  // names its owed count and leaves the files to the sync.
+  const showsEmpty = !isLoading && !isError && (!summary || summary.activityCount === 0);
+  const owedFiles = useOwedStrengthFiles(periodAwaitingDownload && showsEmpty);
+  const periodDownloading = periodAwaitingDownload && (isSyncing || owedFiles.status === 'waiting');
 
   return (
     <ScrollView
@@ -152,37 +163,47 @@ export const StrengthTab = React.memo(function StrengthTab({
         </View>
       ) : isError ? (
         <View testID="strength-failed">
-          <ErrorStatePreset
-            message={t(engineErrorKey(error, 'engine.failure.database'))}
+          <ErrorState
+            error={error}
+            fallbackKey="engine.failure.database"
             onRetry={() => void refetch()}
           />
         </View>
       ) : !summary || summary.activityCount === 0 ? (
-        <View style={styles.emptyContainer} testID="strength-empty">
-          {periodDownloading ? (
+        periodDownloading ? (
+          <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color={colors.primary} testID="strength-downloading" />
-          ) : (
-            <MaterialCommunityIcons
-              name={periodAwaitingDownload ? 'cloud-download-outline' : 'dumbbell'}
-              size={32}
-              color={isDark ? darkColors.textSecondary : colors.textDisabled}
+            <EmptyState
+              variant="inline"
+              title={t('strength.downloading')}
+              description={t('strength.downloadingHint')}
             />
-          )}
-          <Text style={[styles.emptyText, isDark && styles.emptyTextDark]}>
-            {periodDownloading
-              ? t('strength.downloading')
-              : periodAwaitingDownload
-                ? t('strength.notDownloaded')
-                : t('strength.noWorkouts', { period: periodLabel })}
-          </Text>
-          <Text style={[styles.emptyHint, isDark && styles.emptyTextDark]}>
-            {periodDownloading
-              ? t('strength.downloadingHint')
-              : periodAwaitingDownload
-                ? t('strength.notDownloadedHint')
-                : t('strength.noWorkoutsHint')}
-          </Text>
-        </View>
+          </View>
+        ) : periodAwaitingDownload ? (
+          <View style={styles.notDownloadedContainer} testID="strength-empty">
+            <MaterialCommunityIcons
+              name="cloud-download-outline"
+              size={32}
+              color={isDark ? darkColors.textSecondary : colors.textSecondary}
+            />
+            <BodyNotDownloaded
+              testID="strength-not-downloaded"
+              style={styles.notDownloaded}
+              textStyle={[styles.notDownloadedText, isDark && styles.notDownloadedTextDark]}
+              message={t('strength.notDownloaded')}
+              status={owedFiles.status}
+              onRetry={owedFiles.retry}
+            />
+          </View>
+        ) : (
+          <EmptyState
+            variant="compact"
+            testID="strength-empty"
+            icon="dumbbell"
+            title={t('strength.noWorkouts', { period: periodLabel })}
+            description={t('strength.noWorkoutsHint')}
+          />
+        )
       ) : (
         <>
           {(screen?.owedCount ?? 0) > 0 && (
@@ -192,7 +213,7 @@ export const StrengthTab = React.memo(function StrengthTab({
                 size={typography.caption.fontSize}
                 color={isDark ? darkColors.textSecondary : colors.textSecondary}
               />
-              <Text style={[styles.owedText, isDark && styles.emptyTextDark]}>
+              <Text style={[styles.owedText, isDark && styles.owedTextDark]}>
                 {t('strength.periodOwed', { count: screen?.owedCount ?? 0 })}
               </Text>
             </View>
@@ -259,21 +280,22 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xxl,
     alignItems: 'center',
   },
-  emptyContainer: {
+  notDownloadedContainer: {
     alignItems: 'center',
     paddingVertical: spacing.lg,
     gap: spacing.sm,
   },
-  emptyText: {
+  notDownloaded: {
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  notDownloadedText: {
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
     textAlign: 'center',
   },
-  emptyHint: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: spacing.lg,
+  notDownloadedTextDark: {
+    color: darkColors.textSecondary,
   },
   owedRow: {
     flexDirection: 'row',
@@ -286,7 +308,7 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
-  emptyTextDark: {
+  owedTextDark: {
     color: darkColors.textSecondary,
   },
 });

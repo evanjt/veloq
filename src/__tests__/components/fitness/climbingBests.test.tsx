@@ -14,6 +14,7 @@ import { SeasonBestsSection } from '@/features/fitness/components/SeasonBestsSec
 import { climbBestsOf, climbStatusOf } from '@/features/stats/hooks/useSeasonBests';
 import { useUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import type { BestEffortsData } from 'veloqrs';
+import { ABSENT } from '@/shared/format/absent';
 
 jest.mock('@/features/activity', () => ({
   useActivityLabels: () => ({
@@ -57,8 +58,8 @@ describe('climbBestsOf', () => {
 describe('Season Bests climbing rows', () => {
   beforeEach(() => useUnitPreference.setState({ unitPreference: 'metric' }));
 
-  it('draws W/kg for a short window, m/h for a long one and a dash for a gap', () => {
-    render(
+  it('draws W/kg for a short window, m/h for a long one and the absent mark for a gap', async () => {
+    await render(
       <SeasonBestsSection
         efforts={[]}
         climbing={climbBestsOf(read, 'Running')}
@@ -71,15 +72,15 @@ describe('Season Bests climbing rows', () => {
     expect(screen.getByText('bestEffortsScreen.climbingBests')).toBeTruthy();
     expect(screen.getByText('4.91 units.wattsPerKg')).toBeTruthy();
     expect(screen.getByText('900 units.metresPerHour')).toBeTruthy();
-    expect(screen.getByTestId('season-bests-climbing-300')).toHaveTextContent('5m-', {
+    expect(screen.getByTestId('season-bests-climbing-300')).toHaveTextContent(`5m${ABSENT}`, {
       exact: true,
     });
     expect(screen.queryByText('statsScreen.noEffortData')).toBeNull();
     expect(screen.queryByText(/NaN/)).toBeNull();
   });
 
-  it('draws no climbing heading when there are no climbing rows', () => {
-    render(
+  it('draws no climbing heading when there are no climbing rows', async () => {
+    await render(
       <SeasonBestsSection
         efforts={[]}
         climbing={[]}
@@ -122,8 +123,8 @@ describe('Season Bests climbing status', () => {
     'Running'
   );
 
-  it('draws the excluded line under the rows only when the count is above zero', () => {
-    const { rerender } = render(
+  it('draws the excluded line under the rows only when the count is above zero', async () => {
+    const { rerender } = await render(
       <SeasonBestsSection
         efforts={[]}
         climbing={climbBestsOf(read, 'Running')}
@@ -135,7 +136,7 @@ describe('Season Bests climbing status', () => {
     );
     expect(screen.getByTestId('climbing-source-excluded')).toBeTruthy();
 
-    rerender(
+    await rerender(
       <SeasonBestsSection
         efforts={[]}
         climbing={climbBestsOf(read, 'Running')}
@@ -149,8 +150,8 @@ describe('Season Bests climbing status', () => {
     expect(screen.queryByTestId('climbing-owed')).toBeNull();
   });
 
-  it('draws the still-computing line when every window is empty and rows are owed', () => {
-    render(
+  it('draws the still-computing line when every window is empty and rows are owed', async () => {
+    await render(
       <SeasonBestsSection
         efforts={[]}
         climbing={emptyBests}

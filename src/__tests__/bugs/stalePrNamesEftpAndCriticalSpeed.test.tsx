@@ -77,8 +77,8 @@ function textOf(node: ReactTestRendererJSON | ReactTestRendererJSON[] | string |
   return (node.children ?? []).flatMap((child) => textOf(child as ReactTestRendererJSON | string));
 }
 
-function sheetText(insight: Insight): string[] {
-  const { toJSON } = render(<StalePRContent insight={insight} />);
+async function sheetText(insight: Insight): Promise<string[]> {
+  const { toJSON } = await render(<StalePRContent insight={insight} />);
   return textOf(toJSON() as ReactTestRendererJSON | null);
 }
 
@@ -99,7 +99,7 @@ describe('the stale PR card names eFTP and critical speed', () => {
     async (locale) => {
       await changeLanguage(locale);
       const [insight] = generateStalePRInsights([opportunity('a')], t, 0);
-      const text = [...cardText(insight), ...sheetText(insight)];
+      const text = [...cardText(insight), ...(await sheetText(insight))];
 
       expect(text.join(' ')).toContain('eFTP');
       expect(text.filter((line) => BARE_FTP.test(line))).toEqual([]);
@@ -111,40 +111,48 @@ describe('the stale PR card names eFTP and critical speed', () => {
     async (locale) => {
       await changeLanguage(locale);
       const [group] = generateStalePRInsights([opportunity('a'), opportunity('b')], t, 0);
-      const text = [...cardText(group), ...sheetText(group)];
+      const text = [...cardText(group), ...(await sheetText(group))];
 
       expect(group.subtitle).toContain('eFTP');
       expect(text.filter((line) => BARE_FTP.test(line))).toEqual([]);
     }
   );
 
-  it('names critical speed, not a threshold, on a run card', () => {
+  it('names critical speed, not a threshold, on a run card', async () => {
     const [insight] = generateStalePRInsights([opportunity('r', RUN)], t, 0);
-    const text = [...cardText(insight), ...sheetText(insight)].join(' ');
+    const text = [...cardText(insight), ...(await sheetText(insight))].join(' ');
 
     expect(insight.supportingData?.formula).toContain('critical speed');
     expect(text).toContain('Running critical speed');
     expect(text.toLowerCase()).not.toContain('threshold');
   });
 
-  it('names critical speed in a run group subtitle', () => {
+  it('names critical speed in a run group subtitle', async () => {
     const [group] = generateStalePRInsights([opportunity('r', RUN), opportunity('s', RUN)], t, 0);
 
     expect(group.subtitle).toContain('Running critical speed');
     // A group carries no data rows, so the sheet names the metric from the
     // sport its sections share.
-    expect(sheetText(group)).toContain('Current running critical speed vs PR period');
+    expect(await sheetText(group)).toContain('Current running critical speed vs PR period');
   });
 
   it('draws the sheet in German, not in English', async () => {
     const [single] = generateStalePRInsights([opportunity('a')], t, 0);
     const [group] = generateStalePRInsights([opportunity('a'), opportunity('b', RUN)], t, 0);
-    const english = new Set([...sheetText(single), ...sheetText(group), group.subtitle]);
+    const english = new Set([
+      ...(await sheetText(single)),
+      ...(await sheetText(group)),
+      group.subtitle,
+    ]);
 
     await changeLanguage('de-DE');
     const [deSingle] = generateStalePRInsights([opportunity('a')], t, 0);
     const [deGroup] = generateStalePRInsights([opportunity('a'), opportunity('b', RUN)], t, 0);
-    const german = [...sheetText(deSingle), ...sheetText(deGroup), deGroup.subtitle ?? ''];
+    const german = [
+      ...(await sheetText(deSingle)),
+      ...(await sheetText(deGroup)),
+      deGroup.subtitle ?? '',
+    ];
 
     // The section names and the numbers are the same in both languages.
     const prose = german.filter((line) => /[a-z]{4,}/i.test(line) && !/^Section /.test(line));

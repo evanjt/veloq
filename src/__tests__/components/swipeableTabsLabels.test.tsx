@@ -41,17 +41,53 @@ function renderStrip() {
 }
 
 describe('the tab strip', () => {
-  it.each(TABS.map((t) => t.label))('keeps %s on one line', (label) => {
-    const { getByText } = renderStrip();
+  it.each(TABS.map((t) => t.label))('keeps %s on one line', async (label) => {
+    const { getByText } = await renderStrip();
 
     expect(getByText(label).props.numberOfLines).toBe(1);
   });
 
-  it('holds every label to one line, however many tabs it is given', () => {
-    const { getByText } = renderStrip();
+  it('holds every label to one line, however many tabs it is given', async () => {
+    const { getByText } = await renderStrip();
 
     const wrapping = TABS.filter((t) => getByText(t.label).props.numberOfLines !== 1);
 
     expect(wrapping.map((t) => t.label)).toStrictEqual([]);
+  });
+});
+
+describe('what a screen reader hears on a tab', () => {
+  const BADGED = [
+    { key: 'laps', label: 'Laps', icon: 'flag-outline' as const, badgeText: '−12s' },
+    { key: 'notes', label: 'Notes', icon: 'note-outline' as const, count: 0 },
+    { key: 'gear', label: 'Gear', icon: 'cog-outline' as const },
+  ];
+
+  function renderBadged() {
+    return render(
+      <SwipeableTabs tabs={BADGED} activeTab="laps" onTabChange={jest.fn()} isDark={false}>
+        {BADGED.map((tab) => (
+          <React.Fragment key={tab.key} />
+        ))}
+      </SwipeableTabs>
+    );
+  }
+
+  it('speaks the badge text the tab draws beside its name', () => {
+    const { getByRole } = renderBadged();
+
+    expect(getByRole('tab', { name: 'Laps, −12s' })).toBeTruthy();
+  });
+
+  it('speaks the count, a zero included', () => {
+    const { getByRole } = renderBadged();
+
+    expect(getByRole('tab', { name: 'Notes, 0' })).toBeTruthy();
+  });
+
+  it('speaks only the name of a tab with no badge', () => {
+    const { getByRole } = renderBadged();
+
+    expect(getByRole('tab', { name: 'Gear' })).toBeTruthy();
   });
 });

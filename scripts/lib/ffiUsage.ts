@@ -288,9 +288,9 @@ const NOT_A_CALLER = [
   'src/generated/',
   '__tests__',
   '__mocks__',
-  // Any generated module, wherever it sits. `maplibreRenderer.generated.ts` is
-  // a megabyte of vendored renderer under `src/features/`, and every method
-  // name in it read as a caller.
+  // Any generated module, wherever it sits: its names are output, and a
+  // generated module that carries vendored code reads every method name in it
+  // as a caller.
   '.generated.',
 ];
 

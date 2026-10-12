@@ -56,53 +56,57 @@ beforeEach(() => {
 });
 
 describe('StreamConsentCard', () => {
-  it('states the engine count and megabytes and answers through the engine', () => {
+  it('states the engine count and megabytes and answers through the engine', async () => {
     readRoutesStatus.mockReturnValue(
       status('awaiting_consent', { estimateRequests: 1200, estimateBytes: 141_000_000 })
     );
-    const tree = render(<StreamConsentCard />);
+    const tree = await render(<StreamConsentCard />);
 
     expect(tree.getByTestId('stream-consent-body').props.children).toBe(
       'feed.streamConsentBody:{"count":1200,"megabytes":141}'
     );
     expect(tree.UNSAFE_getByType(Card).props.variant).toBe('raised');
 
-    fireEvent.press(tree.getByTestId('stream-consent-download'));
+    await fireEvent.press(tree.getByTestId('stream-consent-download'));
     expect(engine.consentStreamBackfill).toHaveBeenCalledTimes(1);
 
-    fireEvent.press(tree.getByTestId('stream-consent-decline'));
+    await fireEvent.press(tree.getByTestId('stream-consent-decline'));
     expect(engine.stopStreamBackfill).toHaveBeenCalledTimes(1);
   });
 
-  it('is gone once the answer is given', () => {
+  it('is gone once the answer is given', async () => {
     readRoutesStatus.mockReturnValue(status('awaiting_consent', { estimateRequests: 600 }));
-    const tree = render(<StreamConsentCard />);
+    const tree = await render(<StreamConsentCard />);
 
     readRoutesStatus.mockReturnValue(status('stopped'));
-    fireEvent.press(tree.getByTestId('stream-consent-decline'));
+    await fireEvent.press(tree.getByTestId('stream-consent-decline'));
 
     expect(tree.queryByTestId('stream-consent-card')).toBeNull();
   });
 
-  it.each(['idle', 'fetching', 'stopped', 'complete'])('shows no card while %s', (phase) => {
+  it.each(['idle', 'fetching', 'stopped', 'complete'])('shows no card while %s', async (phase) => {
     readRoutesStatus.mockReturnValue(status(phase));
 
-    expect(render(<StreamConsentCard />).queryByTestId('stream-consent-card')).toBeNull();
+    expect(
+      await (await render(<StreamConsentCard />)).queryByTestId('stream-consent-card')
+    ).toBeNull();
   });
 
-  it('shows no card when the engine cannot answer', () => {
+  it('shows no card when the engine cannot answer', async () => {
     readRoutesStatus.mockReturnValue(null);
 
-    expect(render(<StreamConsentCard />).queryByTestId('stream-consent-card')).toBeNull();
+    expect(
+      await (await render(<StreamConsentCard />)).queryByTestId('stream-consent-card')
+    ).toBeNull();
   });
 });
 
 describe('useStreamBackfill consent', () => {
-  it('reads the held pass as awaiting the athlete, never as running', () => {
+  it('reads the held pass as awaiting the athlete, never as running', async () => {
     readRoutesStatus.mockReturnValue(
       status('awaiting_consent', { estimateRequests: 501, estimateBytes: 52_000_000 })
     );
-    const { result } = renderHook(() => useStreamBackfill());
+    const { result } = await renderHook(() => useStreamBackfill());
 
     expect(result.current.awaitingConsent).toBe(true);
     expect(result.current.isRunning).toBe(false);
@@ -110,11 +114,11 @@ describe('useStreamBackfill consent', () => {
     expect(result.current.estimateMegabytes).toBe(52);
   });
 
-  it('a Download that starts the pass arms the poll', () => {
+  it('a Download that starts the pass arms the poll', async () => {
     readRoutesStatus.mockReturnValue(status('awaiting_consent', { estimateRequests: 501 }));
-    const { result } = renderHook(() => useStreamBackfill());
+    const { result } = await renderHook(() => useStreamBackfill());
 
-    act(() => result.current.start());
+    await act(() => result.current.start());
 
     expect(engine.consentStreamBackfill).toHaveBeenCalledTimes(1);
   });

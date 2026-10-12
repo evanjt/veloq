@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     height: 16,
   },
   countLabelVisible: {
-    color: colors.textOnDark,
+    color: colors.textOnPrimary,
     fontSize: typography.caption.fontSize,
     fontWeight: '600',
     textAlign: 'center',

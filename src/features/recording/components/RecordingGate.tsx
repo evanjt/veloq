@@ -49,6 +49,7 @@ export function RecordingGate({
   const { isDark } = useTheme();
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
+  const errorText = isDark ? darkColors.errorDeep : colors.errorDeep;
   const signedOut = reason === 'not_signed_in';
 
   return (
@@ -91,7 +92,7 @@ export function RecordingGate({
         </>
       )}
       {error ? (
-        <Text style={styles.error} numberOfLines={2}>
+        <Text style={[styles.error, { color: errorText }]} numberOfLines={2}>
           {error}
         </Text>
       ) : null}
@@ -120,7 +121,6 @@ const styles = StyleSheet.create({
   },
   error: {
     fontSize: typography.bodyCompact.fontSize,
-    color: colors.errorDeep,
     textAlign: 'center',
   },
 });

@@ -206,6 +206,59 @@ describe('RecordingPreferencesStore', () => {
     });
   });
 
+  describe('setSlotField', () => {
+    it('puts the field in the slot and leaves the others', () => {
+      useRecordingPreferences.getState().setSlotField('gps', 1, 'cadence');
+      expect(useRecordingPreferences.getState().dataFields.gps).toEqual([
+        'speed',
+        'cadence',
+        'heartrate',
+        'power',
+      ]);
+    });
+
+    it('swaps with the slot that already shows the field', () => {
+      useRecordingPreferences.getState().setSlotField('gps', 3, 'speed');
+      expect(useRecordingPreferences.getState().dataFields.gps).toEqual([
+        'power',
+        'distance',
+        'heartrate',
+        'speed',
+      ]);
+    });
+
+    it('changes nothing when the slot already shows the field', () => {
+      const before = useRecordingPreferences.getState().dataFields;
+      useRecordingPreferences.getState().setSlotField('gps', 0, 'speed');
+      expect(useRecordingPreferences.getState().dataFields).toBe(before);
+    });
+
+    it('starts from the default layout of a mode the stored layout never named', () => {
+      useRecordingPreferences.setState({ dataFields: { gps: ['speed'] } });
+      useRecordingPreferences.getState().setSlotField('indoor', 0, 'calories');
+      expect(useRecordingPreferences.getState().dataFields.indoor).toEqual([
+        'calories',
+        'power',
+        'cadence',
+        'timer',
+      ]);
+    });
+
+    it('ignores a slot outside the layout', () => {
+      const before = useRecordingPreferences.getState().dataFields;
+      useRecordingPreferences.getState().setSlotField('gps', 4, 'calories');
+      useRecordingPreferences.getState().setSlotField('gps', -1, 'calories');
+      expect(useRecordingPreferences.getState().dataFields).toBe(before);
+    });
+
+    it('persists the new layout', async () => {
+      useRecordingPreferences.getState().setSlotField('gps', 2, 'elevation');
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      const parsed = JSON.parse((await AsyncStorage.getItem(STORAGE_KEY))!);
+      expect(parsed.dataFields.gps).toEqual(['speed', 'distance', 'elevation', 'power']);
+    });
+  });
+
   // ============================================================
   // Persistence
   // ============================================================

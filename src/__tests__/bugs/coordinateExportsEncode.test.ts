@@ -50,7 +50,7 @@ beforeEach(() => {
 
 describe('the representative route crosses the FFI encoded', () => {
   it('decodes the blob the engine returned, untouched', async () => {
-    const { result } = renderHook(() => useRepresentativeRoute('group1'));
+    const { result } = await renderHook(() => useRepresentativeRoute('group1'));
 
     await waitFor(() => expect(result.current.points).toEqual(EXPECTED));
     expect(decodeCoords).toHaveBeenCalledWith(BLOB);
@@ -60,7 +60,7 @@ describe('the representative route crosses the FFI encoded', () => {
     engine.getRepresentativeRoute.mockReturnValueOnce(EMPTY);
     (decodeCoords as jest.Mock).mockReturnValueOnce([]);
 
-    const { result } = renderHook(() => useRepresentativeRoute('group1'));
+    const { result } = await renderHook(() => useRepresentativeRoute('group1'));
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.points).toBeNull();
@@ -76,11 +76,11 @@ describe('the representative route crosses the FFI encoded', () => {
     (decodeCoords as jest.Mock).mockImplementation((blob: ArrayBuffer) =>
       blob === nextBlob ? [{ latitude: 47, longitude: 8 }] : [{ latitude: 46, longitude: 7 }]
     );
-    const { result } = renderHook(() => useRepresentativeRoute('group1'));
+    const { result } = await renderHook(() => useRepresentativeRoute('group1'));
     expect(result.current.points).toEqual([{ lat: 46, lng: 7 }]);
 
     engine.getRepresentativeRoute.mockReturnValue(nextBlob);
-    act(() => refreshGroups?.());
+    await act(() => refreshGroups?.());
     await waitFor(() => expect(result.current.points).toEqual([{ lat: 47, lng: 8 }]));
   });
 });

@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { fireEvent, render, type RenderAPI } from '@testing-library/react-native';
+import { fireEvent, render, type RenderResult } from '@testing-library/react-native';
 
 import { LanguagePicker } from '@/features/auth/components/LanguagePicker';
 import { DisplaySettings } from '@/features/settings/components/DisplaySettings';
@@ -25,7 +25,7 @@ const firstLabel = languages[0].label;
 const lastLabel = languages[languages.length - 1].label;
 
 /** Every rendered string, in tree order. */
-function textsInOrder(screen: RenderAPI): string[] {
+function textsInOrder(screen: RenderResult): string[] {
   const out: string[] = [];
   const walk = (node: unknown) => {
     if (node == null) return;
@@ -44,7 +44,7 @@ function textsInOrder(screen: RenderAPI): string[] {
   return out;
 }
 
-function expectKeyBelowList(screen: RenderAPI) {
+function expectKeyBelowList(screen: RenderResult) {
   const texts = textsInOrder(screen);
   const keyAt = texts.lastIndexOf('settings.dialect');
   expect(keyAt).toBeGreaterThan(-1);
@@ -53,7 +53,7 @@ function expectKeyBelowList(screen: RenderAPI) {
   expect(texts.slice(texts.indexOf(firstLabel), keyAt)).not.toContain('settings.dialect');
 }
 
-function expectDialectChipsSaySo(screen: RenderAPI) {
+function expectDialectChipsSaySo(screen: RenderResult) {
   expect(screen.getByLabelText('CH, settings.dialect')).toBeTruthy();
   expect(screen.getByLabelText('AU, settings.dialect')).toBeTruthy();
   expect(screen.getByLabelText('DE')).toBeTruthy();
@@ -61,17 +61,17 @@ function expectDialectChipsSaySo(screen: RenderAPI) {
 }
 
 describe('language list dialect key', () => {
-  it('puts the key under the login picker list, not beside its first language', () => {
-    const screen = render(<LanguagePicker />);
-    fireEvent.press(screen.getByTestId('login-language-button'));
+  it('puts the key under the login picker list, not beside its first language', async () => {
+    const screen = await render(<LanguagePicker />);
+    await fireEvent.press(screen.getByTestId('login-language-button'));
     expectKeyBelowList(screen);
     expectDialectChipsSaySo(screen);
   });
 
   it.each(['en-GB', 'en-AU'])(
     'puts the key under the Display settings list with %s chosen',
-    (language) => {
-      const screen = render(
+    async (language) => {
+      const screen = await render(
         <DisplaySettings
           themePreference="system"
           onThemeChange={jest.fn()}

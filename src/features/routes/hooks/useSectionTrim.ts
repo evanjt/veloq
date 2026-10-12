@@ -8,7 +8,6 @@
  */
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { Alert } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { getEngine } from '@/shared/native/engine';
@@ -20,6 +19,7 @@ import { haversineDistance, polylineDistance } from '@/shared/geo/distance';
 import type { FfiDepartedRide, SectionBoundsEdit } from 'veloqrs';
 import type { FrequentSection, RoutePoint } from '@/types';
 import { announceDepartedRides } from '../lib/departedRides';
+import { confirmAction, inform } from '@/shared/ui/dialog';
 
 /** Padded window context for expand mode */
 interface ExpandContext {
@@ -198,10 +198,10 @@ export function useSectionTrim(
     try {
       const result = engine.getSectionExtensionTrack(section.id);
       if (!result) {
-        Alert.alert(
-          t('common.error'),
-          t('sections.expandUnavailable', 'No activity track available for expansion')
-        );
+        inform({
+          title: t('sections.trimFailedTitle'),
+          message: t('sections.expandUnavailable', 'No activity track available for expansion'),
+        });
         return;
       }
 
@@ -210,10 +210,10 @@ export function useSectionTrim(
         lng: p.longitude,
       }));
       if (fullPoints.length < 2) {
-        Alert.alert(
-          t('common.error'),
-          t('sections.expandUnavailable', 'No activity track available for expansion')
-        );
+        inform({
+          title: t('sections.trimFailedTitle'),
+          message: t('sections.expandUnavailable', 'No activity track available for expansion'),
+        });
         return;
       }
 
@@ -230,12 +230,12 @@ export function useSectionTrim(
       setIsExpanded(true);
     } catch (error) {
       // A failed read is not a missing track, so the engine's failure is named.
-      Alert.alert(
-        t('common.error'),
-        engineErrorTag(error)
+      inform({
+        title: t('sections.trimFailedTitle'),
+        message: engineErrorTag(error)
           ? t(engineErrorKey(error, 'engine.failure.database'))
-          : t('sections.expandUnavailable', 'No activity track available for expansion')
-      );
+          : t('sections.expandUnavailable', 'No activity track available for expansion'),
+      });
     }
   }, [section, isExpanded, t]);
 
@@ -266,7 +266,10 @@ export function useSectionTrim(
       }
 
       if (!departed) {
-        Alert.alert(t('common.error'), t('sections.trimFailed', 'Failed to trim section bounds'));
+        inform({
+          title: t('sections.trimFailedTitle'),
+          message: t('sections.trimFailed', 'Failed to trim section bounds'),
+        });
         return;
       }
 
@@ -287,10 +290,10 @@ export function useSectionTrim(
 
     // Validate minimum points
     if (trimEnd - trimStart + 1 < 5) {
-      Alert.alert(
-        t('common.error'),
-        t('sections.trimTooShort', 'Section must have at least 5 points')
-      );
+      inform({
+        title: t('sections.trimFailedTitle'),
+        message: t('sections.trimTooShort', 'Section must have at least 5 points'),
+      });
       return;
     }
 
@@ -303,7 +306,10 @@ export function useSectionTrim(
       // indices into it.
       const activityId = section.representativeActivityId;
       if (!activityId) {
-        Alert.alert(t('common.error'), t('sections.trimFailed', 'Failed to trim section bounds'));
+        inform({
+          title: t('sections.trimFailedTitle'),
+          message: t('sections.trimFailed', 'Failed to trim section bounds'),
+        });
         return;
       }
       edit = {
@@ -324,15 +330,15 @@ export function useSectionTrim(
   const resetBounds = useCallback(() => {
     if (!section?.id || editInFlight.current) return;
 
-    Alert.alert(t('sections.resetBounds'), t('sections.resetBoundsConfirm'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('common.reset'),
-        onPress: async () => {
-          await runBoundsEdit({ kind: 'reset', sectionId: section.id });
-        },
+    confirmAction({
+      title: t('sections.resetBounds'),
+      message: t('sections.resetBoundsConfirm'),
+      confirmLabel: t('common.reset'),
+      cancelLabel: t('common.cancel'),
+      onConfirm: async () => {
+        await runBoundsEdit({ kind: 'reset', sectionId: section.id });
       },
-    ]);
+    });
   }, [section, runBoundsEdit, t]);
 
   return {

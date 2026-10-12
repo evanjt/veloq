@@ -3,6 +3,7 @@ import { DebugInfoPanel } from '../DebugInfoPanel';
 import { DebugWarningBanner } from '../DebugWarningBanner';
 import { formatRelativeDate } from '@/shared/format/format';
 import type { FrequentSection } from '@/types';
+import { ABSENT } from '@/shared/format/absent';
 
 interface FFITimerEntry {
   name: string;
@@ -22,7 +23,7 @@ export interface SectionDebugPanelProps {
  * as every point being seen zero times, so it reads as nothing at all.
  */
 function formatDensity(pointDensity: number[] | undefined): string {
-  if (!pointDensity || pointDensity.length === 0) return '-';
+  if (!pointDensity || pointDensity.length === 0) return ABSENT;
   const sorted = [...pointDensity].sort((a, b) => a - b);
   const median = sorted[Math.floor((sorted.length - 1) / 2)];
   const unit = sorted.length === 1 ? 'pt' : 'pts';
@@ -84,37 +85,37 @@ export function SectionDebugPanel({ section, pageMetrics, isDark }: SectionDebug
           { label: 'Type', value: section.sectionType },
           {
             label: 'Stability',
-            value: finite(section.stability)?.toFixed(3) ?? '-',
+            value: finite(section.stability)?.toFixed(3) ?? ABSENT,
           },
           {
             label: 'Version',
-            value: section.version != null ? String(section.version) : '-',
+            value: section.version != null ? String(section.version) : ABSENT,
           },
           {
             label: 'Updated',
-            value: section.updatedAt ? formatRelativeDate(section.updatedAt) : '-',
+            value: section.updatedAt ? formatRelativeDate(section.updatedAt) : ABSENT,
           },
           {
             label: 'Created',
-            value: section.createdAt ? formatRelativeDate(section.createdAt) : '-',
+            value: section.createdAt ? formatRelativeDate(section.createdAt) : ABSENT,
           },
           {
             label: 'Confidence',
-            value: finite(section.confidence)?.toFixed(2) ?? '-',
+            value: finite(section.confidence)?.toFixed(2) ?? ABSENT,
           },
           {
             label: 'Observations',
-            value: section.observationCount != null ? String(section.observationCount) : '-',
+            value: section.observationCount != null ? String(section.observationCount) : ABSENT,
           },
           {
             label: 'Avg Spread',
-            value: finite(section.averageSpread)?.toFixed(1).concat('m') ?? '-',
+            value: finite(section.averageSpread)?.toFixed(1).concat('m') ?? ABSENT,
           },
           {
             label: 'Reference',
             value: section.representativeActivityId
               ? section.representativeActivityId.slice(0, 20) + '...'
-              : '-',
+              : ABSENT,
           },
           {
             label: 'User Defined',

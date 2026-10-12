@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Alert, Linking } from 'react-native';
+import { Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
@@ -13,15 +13,21 @@ import {
   readLocationServices,
   useLocationServices,
 } from '@/shared/app/permissions/locationServices';
+import { openAppSettings } from '@/shared/app/permissions';
+import type { LocationPrecision } from '@/shared/app/permissions/locationGrant';
 import { GPS_WARNING_MS, GPS_ALERT_MS } from '../lib/constants';
 import { locationServicesOffMessage } from '../lib/locationServicesCopy';
 import type { RecordingMode, RecordingStatus } from '../types';
+import type { SetGpsWarning } from './useRecordingScreenState';
+import { chooseAction } from '@/shared/ui/dialog';
 
 const log = debug.create('RecordingScreen');
 
 /**
  * The screen's half of the GPS session: the permission prompt and the
- * signal-loss warnings. The watch itself belongs to the recording session, so
+ * signal-loss warnings. Under an approximate grant every fix is too coarse for
+ * the session to keep, so the warnings name that instead of the signal. The
+ * watch itself belongs to the recording session, so
  * leaving the screen does not end the ride. The one thing here that does is the
  * no-fix alert's stop, which is the stop every surface uses, so it reaches
  * review with the ride and its backup intact.
@@ -34,23 +40,38 @@ export function useGpsSessionEffect({
   mode,
   status,
   hasPermission,
+  precision,
   requestPermission,
+  upgradePrecision,
   setGpsWarning,
 }: {
   mode: RecordingMode;
   status: RecordingStatus;
   hasPermission: boolean;
+  precision: LocationPrecision;
   requestPermission: () => Promise<boolean>;
-  setGpsWarning: (warning: string | null) => void;
+  upgradePrecision: () => Promise<void>;
+  setGpsWarning: SetGpsWarning;
 }) {
   const { t } = useTranslation();
 
   const gpsSessionActive = mode === 'gps' && (status === 'recording' || status === 'paused');
   const services = useLocationServices(gpsSessionActive);
 
-  /** The line a ride with no fix shows: the switch when it is off, else the wait. */
-  const noFixWarning = async (): Promise<string> =>
-    (await readLocationServices()) ? t('recording.gpsWaiting') : locationServicesOffMessage(t);
+  // The timers below outlive the render that armed them, so they read the
+  // grant through a ref: an upgrade mid-ride changes what they say.
+  const approximateRef = useRef(precision === 'approximate');
+
+  /**
+   * The line a ride with no fix shows: the switch when it is off, then an
+   * approximate grant, else the wait.
+   */
+  const noFixWarning = async (): Promise<string> => {
+    if (!(await readLocationServices())) return locationServicesOffMessage(t);
+    return approximateRef.current
+      ? t('recording.gpsApproximateWarning')
+      : t('recording.gpsWaiting');
+  };
 
   // The switch turned off or back on during the ride, read on each return to
   // the app. Off is named at once. Back on clears that line and only that
@@ -66,6 +87,15 @@ export function useGpsSessionEffect({
       setGpsWarning(null);
     }
   }, [gpsSessionActive, services.enabled]); // eslint-disable-line react-hooks/exhaustive-deps -- Only the switch moving changes the line.
+
+  useEffect(() => {
+    approximateRef.current = precision === 'approximate';
+    // A switch that is off is the cause to name, so the grant waits for the
+    // switch to read on, and is said again when it comes back on.
+    if (gpsSessionActive && precision === 'approximate' && services.enabled === true) {
+      setGpsWarning(t('recording.gpsApproximateWarning'));
+    }
+  }, [gpsSessionActive, precision, services.enabled]); // eslint-disable-line react-hooks/exhaustive-deps -- Said once per session, per change of grant and per change of switch.
 
   // Mid-session signal-loss watchdog. The one-shot timers below only cover a
   // missing FIRST fix; this covers the signal dropping later (tunnel, canyon,
@@ -104,7 +134,7 @@ export function useGpsSessionEffect({
           if (!granted) {
             if (!cancelled) {
               log.warn('Location permission denied - pausing recording');
-              setGpsWarning(t('recording.gpsPermissionDenied'));
+              setGpsWarning(t('recording.gpsPermissionDenied'), { opensSettings: true });
               useRecordingStore.getState().pauseRecording();
             }
             return;
@@ -134,8 +164,9 @@ export function useGpsSessionEffect({
               gpsAlertShown = true;
               void readLocationServices().then((on) => {
                 if (cancelled) return;
-                if (on) showNoFixAlert();
-                else showServicesOffAlert();
+                if (!on) showServicesOffAlert();
+                else if (approximateRef.current) showApproximateAlert();
+                else showNoFixAlert();
               });
             }
           }, GPS_ALERT_MS);
@@ -148,47 +179,57 @@ export function useGpsSessionEffect({
       }
     })();
 
+    // Stop goes first in each alert below so Android never makes it the
+    // positive button: a tap meant for the primary slot must not end the ride.
+    const stopAction = {
+      label: t('recording.gpsAlertStop'),
+      destructive: true,
+      onPress: () => void endRecordingSession(),
+    };
+
     function showNoFixAlert() {
-      Alert.alert(t('recording.gpsAlertTitle'), t('recording.gpsAlertMessage'), [
-        {
-          text: t('recording.gpsAlertContinue'),
-          style: 'cancel',
-          onPress: () => setGpsWarning(null),
-        },
-        {
-          text: t('recording.gpsAlertSettings'),
-          onPress: () => Linking.openSettings(),
-        },
-        {
-          text: t('recording.gpsAlertStop'),
-          style: 'destructive',
-          onPress: () => void endRecordingSession(),
-        },
-      ]);
+      chooseAction({
+        title: t('recording.gpsAlertTitle'),
+        message: t('recording.gpsAlertMessage'),
+        cancelLabel: t('recording.gpsAlertContinue'),
+        onCancel: () => setGpsWarning(null),
+        actions: [stopAction, { label: t('common.openSettings'), onPress: openAppSettings }],
+      });
+    }
+
+    // Every fix under an approximate grant is dropped, so the cause is the
+    // grant and not the sky. Android upgrades in place; iOS opens Settings.
+    function showApproximateAlert() {
+      chooseAction({
+        title: t('recording.gpsApproximateAlertTitle'),
+        message: t('recording.gpsApproximateAlertMessage'),
+        cancelLabel: t('recording.gpsAlertContinue'),
+        actions: [
+          stopAction,
+          {
+            label: t(
+              Platform.OS === 'android' ? 'recording.gpsApproximateAllow' : 'common.openSettings'
+            ),
+            onPress: () => void upgradePrecision(),
+          },
+        ],
+      });
     }
 
     // The app's settings page does not hold the switch, so this alert never
     // offers it. Android turns the switch on from here; iOS names where it is.
     function showServicesOffAlert() {
-      Alert.alert(t('recording.gpsServicesOffTitle'), locationServicesOffMessage(t), [
-        {
-          text: t('recording.gpsAlertContinue'),
-          style: 'cancel',
-        },
-        ...(canTurnOnLocationServices()
+      chooseAction({
+        title: t('recording.gpsServicesOffTitle'),
+        message: locationServicesOffMessage(t),
+        cancelLabel: t('recording.gpsAlertContinue'),
+        actions: canTurnOnLocationServices()
           ? [
-              {
-                text: t('recording.gpsServicesTurnOn'),
-                onPress: () => void services.turnOn(),
-              },
+              stopAction,
+              { label: t('recording.gpsServicesTurnOn'), onPress: () => void services.turnOn() },
             ]
-          : []),
-        {
-          text: t('recording.gpsAlertStop'),
-          style: 'destructive' as const,
-          onPress: () => void endRecordingSession(),
-        },
-      ]);
+          : [stopAction],
+      });
     }
 
     return () => {

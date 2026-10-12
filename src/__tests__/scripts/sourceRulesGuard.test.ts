@@ -3,8 +3,8 @@
  * file: a wait drawn as a static glyph, coverage hooks reading around their
  * subscription, a picker opening on a literal period, an insight card sending
  * the athlete to the tab they were on, a hand-rolled header, a label with no
- * bundled glyph stack, a ground token colouring text, and a metrics row
- * written from TypeScript beside the engine's.
+ * bundled glyph stack, a ground token colouring text, disabled-grade ink on
+ * live content, and a metrics row written from TypeScript beside the engine's.
  *
  * Expected behaviour: each rule fails the shape it names, passes the shape it
  * asks for, and fails when a file it names is gone.
@@ -116,6 +116,52 @@ describe('static-loading-glyph', () => {
   });
 });
 
+describe('paper-spinner', () => {
+  it("fails Paper's ActivityIndicator imported beside its Text, across lines", () => {
+    const root = fixture({
+      'src/features/kiln/FiringLog.tsx': [
+        'import {',
+        '  Text,',
+        '  ActivityIndicator,',
+        "} from 'react-native-paper';",
+        '<ActivityIndicator size="small" />',
+      ].join('\n'),
+    });
+
+    const { status, output } = runRule('paper-spinner', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/features/kiln/FiringLog.tsx:3');
+  });
+
+  it('fails it under another name, and drawn through a namespace import', () => {
+    const root = fixture({
+      'src/app/kiln.tsx': "import { ActivityIndicator as Busy } from 'react-native-paper';\n",
+      'src/features/kiln/Glaze.tsx': [
+        "import * as Paper from 'react-native-paper';",
+        '<Paper.ActivityIndicator />',
+      ].join('\n'),
+    });
+
+    const { status, output } = runRule('paper-spinner', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/app/kiln.tsx:1');
+    expect(output).toContain('src/features/kiln/Glaze.tsx:2');
+  });
+
+  it("passes react-native's indicator and Paper's other components, and leaves tests alone", () => {
+    const root = fixture({
+      'src/shared/ui/Spinner.tsx': "import { ActivityIndicator } from 'react-native';\n",
+      'src/features/kiln/FiringLog.tsx':
+        "import { Text, ProgressBar } from 'react-native-paper';\n",
+      'src/__tests__/kiln.test.tsx': "import { ActivityIndicator } from 'react-native-paper';\n",
+    });
+
+    expect(runRule('paper-spinner', root).status).toBe(0);
+  });
+});
+
 describe('coverage-hooks-read', () => {
   const READS = {
     'src/shared/native/useRangeCoverage.ts':
@@ -160,7 +206,7 @@ describe('picker-default-period', () => {
   const OPENINGS = {
     'src/features/fitness/hooks/useFitnessWindow.ts':
       'const [r, setR] = useState<TimeRange>(entryRange ?? DEFAULT_PERIOD);\n',
-    'src/app/(tabs)/training.tsx': 'const [r, setR] = useState<TimeRange>(DEFAULT_PERIOD);\n',
+    'src/app/(tabs)/training/index.tsx': 'const [r, setR] = useState<TimeRange>(DEFAULT_PERIOD);\n',
     'src/features/routes/hooks/useSectionUIState.ts':
       'const [r, setR] = useState<SectionTimeRange>(DEFAULT_PERIOD);\n',
     'src/features/insights/components/StrengthTab.tsx':
@@ -175,13 +221,13 @@ describe('picker-default-period', () => {
   it('fails a picker that opens on a literal of its own', () => {
     const root = fixture({
       ...OPENINGS,
-      'src/app/(tabs)/training.tsx': "const [r, setR] = useState<TimeRange>('3m');\n",
+      'src/app/(tabs)/training/index.tsx': "const [r, setR] = useState<TimeRange>('3m');\n",
     });
 
     const { status, output } = runRule('picker-default-period', root);
 
     expect(status).toBe(1);
-    expect(output).toContain("src/app/(tabs)/training.tsx  opens on `'3m'`");
+    expect(output).toContain("src/app/(tabs)/training/index.tsx  opens on `'3m'`");
   });
 
   it('fails a literal fallback behind a handed-in range', () => {
@@ -245,6 +291,10 @@ describe('native-header', () => {
       "  about: { titleKey: 'about.title' },",
       "  'best-efforts': { titleKey: 'bestEffortsScreen.title' },",
       '};',
+      'export const TAB_HEADERS: Record<string, ScreenHeader | null> = {',
+      "  stopwatch: { titleKey: 'stopwatch.title' },",
+      '  compass: null,',
+      '};',
     ].join('\n'),
     'src/app/_layout.tsx': [
       '<Stack screenOptions={{ animation: "default" }}>',
@@ -253,11 +303,13 @@ describe('native-header', () => {
     ].join('\n'),
     'src/app/about.tsx': '<View style={styles.container} />\n',
     'src/app/best-efforts/index.tsx': '<View style={styles.container} />\n',
-    'src/app/(tabs)/index.tsx': '<View style={styles.header} />\n',
+    'src/app/(tabs)/compass.tsx': '<View style={styles.header} />\n',
+    'src/app/(tabs)/stopwatch/_layout.tsx': 'export default () => <TabStack tab="stopwatch" />;\n',
+    'src/app/(tabs)/stopwatch/index.tsx': '<View style={styles.headerActions} />\n',
     'src/styles/shared.ts': 'export const shared = { container: {} };\n',
   };
 
-  it('passes screens that take the native header, and a tab that draws its own title row', () => {
+  it('passes screens that take the native header, and a headerless tab that draws its own row', () => {
     expect(runRule('native-header', fixture(CLEAN)).status).toBe(0);
   });
 
@@ -337,6 +389,71 @@ describe('native-header', () => {
     expect(runRule('native-header', root).output).toContain('src/app/about.tsx:1');
   });
 
+  it('fails a headered tab root that has no stack of its own', () => {
+    const { 'src/app/(tabs)/stopwatch/_layout.tsx': _gone, ...rest } = CLEAN;
+
+    const { status, output } = runRule('native-header', fixture(rest));
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/app/(tabs)/stopwatch/_layout.tsx  is missing');
+  });
+
+  it('fails a title row drawn on a headered tab root', () => {
+    const root = fixture({
+      ...CLEAN,
+      'src/app/(tabs)/stopwatch/index.tsx': '<Text style={shared.screenTitle} />\n',
+    });
+
+    expect(runRule('native-header', root).output).toContain('src/app/(tabs)/stopwatch/index.tsx:1');
+  });
+
+  it('fails a header table with no tab table to read', () => {
+    const root = fixture({
+      ...CLEAN,
+      'src/shared/app/screenHeaders.ts':
+        "export const SCREEN_HEADERS = { about: { titleKey: 'a' } };\n",
+    });
+
+    expect(runRule('native-header', root).output).toContain('has no TAB_HEADERS object');
+  });
+
+  it('fails a back glyph drawn under the features and the shared ui', () => {
+    for (const [file, line] of [
+      ['src/features/garden/components/BedHeader.tsx', '<Icon name="arrow-left" onPress={back} />'],
+      ['src/shared/ui/Hero.tsx', "<IconButton icon='chevron-left' onPress={back} />"],
+      ['src/features/garden/components/Plot.tsx', '<Icon name="arrow-back" onPress={back} />'],
+    ]) {
+      const root = fixture({ ...CLEAN, [file]: `${line}\n` });
+
+      const { status, output } = runRule('native-header', root);
+
+      expect(status).toBe(1);
+      expect(output).toContain(`${file}:1`);
+    }
+  });
+
+  it('passes a glyph that points somewhere other than back in a file listed for it', () => {
+    const root = fixture({
+      ...CLEAN,
+      'src/features/routes/components/SectionTrimOverlay.tsx':
+        '<MaterialCommunityIcons name="chevron-left" size={16} />\n',
+    });
+
+    expect(runRule('native-header', root).status).toBe(0);
+  });
+
+  it('fails a back glyph in a listed file that is not the glyph it is listed for', () => {
+    const root = fixture({
+      ...CLEAN,
+      'src/features/routes/components/SectionTrimOverlay.tsx':
+        '<MaterialCommunityIcons name="arrow-left" size={24} />\n',
+    });
+
+    expect(runRule('native-header', root).output).toContain(
+      'src/features/routes/components/SectionTrimOverlay.tsx:1'
+    );
+  });
+
   it('fails a header table it cannot read a route out of', () => {
     const root = fixture({
       ...CLEAN,
@@ -401,6 +518,11 @@ describe('ground-token-text', () => {
     "  primary: 'mark',",
     "  linkTeal: 'text',",
     '};',
+    'export const BRAND_FAMILIES: Record<string, TokenFamily> = {',
+    "  teal: 'mark',",
+    "  tealLight: 'mark',",
+    "  gold: 'mark',",
+    '};',
   ].join('\n');
 
   it('fails a mark token in a StyleSheet colour, and passes its text variant', () => {
@@ -464,6 +586,46 @@ describe('ground-token-text', () => {
     expect(output).toContain('src/features/a/Row.tsx  colours text with metric.color');
   });
 
+  it('fails a map palette or effort ramp hue drawn as text, directly or through a local', () => {
+    const root = fixture({
+      'src/theme/tokenFamilies.ts': FAMILIES,
+      'src/features/a/Badge.tsx': '<Text style={{ color: sectionPalette[i] }} />\n',
+      'src/features/a/Card.tsx': [
+        'const numberColor = sectionPalette[slot];',
+        '<Text style={[styles.number, { color: numberColor }]} />',
+      ].join('\n'),
+      'src/features/a/Effort.tsx': [
+        'function effortHue(value: number): string {',
+        '  return rpeRamp[Math.floor(value / 2)];',
+        '}',
+        '<Text style={[styles.value, { color: effortHue(value) }]} />',
+      ].join('\n'),
+    });
+
+    const { status, output } = runRule('ground-token-text', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/features/a/Badge.tsx  colours text with sectionPalette[]');
+    expect(output).toContain('src/features/a/Card.tsx  colours text with sectionPalette[]');
+    expect(output).toContain('src/features/a/Effort.tsx  colours text with rpeRamp[]');
+  });
+
+  it('passes a map palette or effort ramp hue drawn as a fill', () => {
+    const root = fixture({
+      'src/theme/tokenFamilies.ts': FAMILIES,
+      'src/features/a/Card.tsx': [
+        'const numberColor = sectionPalette[slot];',
+        'function effortHue(value: number): string {',
+        '  return rpeRamp[Math.floor(value / 2)];',
+        '}',
+        '<View style={[styles.disc, { backgroundColor: numberColor }]} />',
+        '<View style={[styles.thumb, { backgroundColor: effortHue(value) }]} />',
+      ].join('\n'),
+    });
+
+    expect(runRule('ground-token-text', root).status).toBe(0);
+  });
+
   it('passes a text token, a ground as a fill, and a colour field outside a style', () => {
     const root = fixture({
       'src/theme/tokenFamilies.ts': FAMILIES,
@@ -474,6 +636,77 @@ describe('ground-token-text', () => {
     });
 
     expect(runRule('ground-token-text', root).status).toBe(0);
+  });
+
+  it('fails a brand hue, a sport colour and a category colour drawn as text', () => {
+    const root = fixture({
+      'src/theme/tokenFamilies.ts': FAMILIES,
+      'src/features/a/Banner.tsx': [
+        'const s = StyleSheet.create({ pr: { color: brand.tealLight } });',
+        '<Text style={{ color: brand.gold }} />',
+        '<Text style={{ color: SPORT_COLORS.Ride }} />',
+        '<Text style={[s.pill, { color: ACTIVITY_CATEGORIES[group]?.color }]} />',
+      ].join('\n'),
+    });
+
+    const { status, output } = runRule('ground-token-text', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/features/a/Banner.tsx  colours text with brand.tealLight');
+    expect(output).toContain('src/features/a/Banner.tsx  colours text with brand.gold');
+    expect(output).toContain('src/features/a/Banner.tsx  colours text with SPORT_COLORS.Ride');
+    expect(output).toContain('src/features/a/Banner.tsx  colours text with ACTIVITY_CATEGORIES');
+  });
+
+  it('reads both arms of a conditional colour', () => {
+    const root = fixture({
+      'src/theme/tokenFamilies.ts': FAMILIES,
+      'src/features/a/Row.tsx': [
+        '<Text style={[s.row, { color: isSelected ? brand.teal : textPrimary }]} />',
+        '<Text style={{ color: isDark ? darkColors.textPrimary : colors.chartGreen }} />',
+      ].join('\n'),
+    });
+
+    const { status, output } = runRule('ground-token-text', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/features/a/Row.tsx  colours text with brand.teal');
+    expect(output).toContain('src/features/a/Row.tsx  colours text with colors.chartGreen');
+    expect(output).not.toContain('textPrimary');
+  });
+
+  it('fails a brand key the table does not classify', () => {
+    const root = fixture({
+      'src/theme/tokenFamilies.ts': FAMILIES,
+      'src/features/a/New.tsx': '<Text style={{ color: brand.blueLight }} />\n',
+    });
+
+    expect(runRule('ground-token-text', root).output).toContain(
+      'colours text with brand.blueLight'
+    );
+  });
+
+  it('passes a brand hue as a fill or an icon, a category chip ink, and a themed text token', () => {
+    const root = fixture({
+      'src/theme/tokenFamilies.ts': FAMILIES,
+      'src/features/a/Chip.tsx': [
+        'const s = StyleSheet.create({ badge: { backgroundColor: brand.gold, borderColor: brand.teal } });',
+        '<Icon name="trophy" color={brand.gold} style={s.icon} />',
+        '<Text style={{ color: ACTIVITY_CATEGORIES[group].selectedInk }} />',
+        '<Text style={{ color: isDark ? darkColors.linkTeal : colors.linkTeal }} />',
+      ].join('\n'),
+    });
+
+    expect(runRule('ground-token-text', root).status).toBe(0);
+  });
+
+  it('reads the real brand table', () => {
+    const root = fixture({
+      'src/theme/tokenFamilies.ts': real('src/theme/tokenFamilies.ts'),
+      'src/features/a/Banner.tsx': '<Text style={{ color: brand.gold }} />\n',
+    });
+
+    expect(runRule('ground-token-text', root).output).toContain('colours text with brand.gold');
   });
 
   it('reads the real family table', () => {
@@ -493,18 +726,21 @@ describe('ground-token-text', () => {
   });
 });
 
-describe('dark-text-counterpart', () => {
+describe('dark-counterpart', () => {
   const FAMILIES = [
     'export const TOKEN_FAMILIES: Record<string, TokenFamily> = {',
     "  textPrimary: 'text',",
     "  linkTeal: 'text',",
     "  sameInBoth: 'text',",
     "  surface: 'ground',",
+    "  background: 'ground',",
+    "  border: 'ground',",
+    "  fill: 'mark',",
     '};',
   ].join('\n');
   const COLOURS = [
-    'export const colors = { linkTeal: "#00796B", sameInBoth: "#111111", surface: "#FFF" };',
-    'export const darkColors = { linkTeal: brand.tealDark, sameInBoth: "#111111", surface: "#000" };',
+    'export const colors = { linkTeal: "#00796B", sameInBoth: "#111111", surface: "#FFF", background: "#FAFAFA", border: "#EEE", fill: "#123456" };',
+    'export const darkColors = { linkTeal: brand.tealDark, sameInBoth: "#111111", surface: "#000", background: "#0D0D0D", border: "#222", fill: "#654321" };',
   ].join('\n');
 
   const theme = {
@@ -521,10 +757,73 @@ describe('dark-text-counterpart', () => {
       ].join('\n'),
     });
 
-    const { status, output } = runRule('dark-text-counterpart', root);
+    const { status, output } = runRule('dark-counterpart', root);
 
     expect(status).toBe(1);
-    expect(output).toContain('src/features/a/Tabs.tsx  colours text with colors.linkTeal');
+    expect(output).toContain('src/features/a/Tabs.tsx:1  draws colors.linkTeal');
+  });
+
+  it('fails a ground or a border drawn in the light value only', () => {
+    const root = fixture({
+      ...theme,
+      'src/features/a/Row.tsx': [
+        'const s = StyleSheet.create({',
+        '  row: { backgroundColor: colors.background, borderBottomColor: colors.border },',
+        '});',
+        'const Row = ({ isDark }) => <View style={[s.row, isDark && s.dark]} />;',
+      ].join('\n'),
+    });
+
+    const { status, output } = runRule('dark-counterpart', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/features/a/Row.tsx:2  draws colors.background');
+    expect(output).toContain('src/features/a/Row.tsx:2  draws colors.border');
+  });
+
+  it('passes a style whose dark sibling sets the same property', () => {
+    const root = fixture({
+      ...theme,
+      'src/features/a/Pill.tsx': [
+        'const s = StyleSheet.create({',
+        '  pill: { backgroundColor: colors.background },',
+        '  pillDark: { backgroundColor: darkColors.surfaceElevated },',
+        '});',
+        'const Pill = ({ isDark }) => <View style={[s.pill, isDark && s.pillDark]} />;',
+      ].join('\n'),
+    });
+
+    expect(runRule('dark-counterpart', root).status).toBe(0);
+  });
+
+  it('fails a style whose dark sibling sets another property', () => {
+    const root = fixture({
+      ...theme,
+      'src/features/a/Pill.tsx': [
+        'const s = StyleSheet.create({',
+        '  pill: { backgroundColor: colors.surface, borderColor: colors.border },',
+        '  pillDark: { backgroundColor: darkColors.surface },',
+        '});',
+        'const Pill = ({ isDark }) => <View style={[s.pill, isDark && s.pillDark]} />;',
+      ].join('\n'),
+    });
+
+    const { status, output } = runRule('dark-counterpart', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/features/a/Pill.tsx:2  draws colors.border');
+  });
+
+  it('leaves a token outside the watched list alone', () => {
+    const root = fixture({
+      ...theme,
+      'src/features/a/Mark.tsx': [
+        'const s = StyleSheet.create({ dot: { backgroundColor: colors.fill, borderColor: colors.surface } });',
+        'const Mark = ({ isDark }) => <View style={s.dot} />;',
+      ].join('\n'),
+    });
+
+    expect(runRule('dark-counterpart', root).status).toBe(0);
   });
 
   it('passes a file that also reads the dark value of the same token', () => {
@@ -536,7 +835,7 @@ describe('dark-text-counterpart', () => {
       ].join('\n'),
     });
 
-    expect(runRule('dark-text-counterpart', root).status).toBe(0);
+    expect(runRule('dark-counterpart', root).status).toBe(0);
   });
 
   it('passes a token whose dark value is the same, and a file with no dark branch', () => {
@@ -550,7 +849,31 @@ describe('dark-text-counterpart', () => {
         'const s = StyleSheet.create({ a: { color: colors.linkTeal } });\n',
     });
 
-    expect(runRule('dark-text-counterpart', root).status).toBe(0);
+    expect(runRule('dark-counterpart', root).status).toBe(0);
+  });
+
+  it.each([
+    ['textSecondary', 'color'],
+    ['errorDeep', 'color'],
+    ['amberIcon', 'color'],
+    ['error', 'color'],
+    ['background', 'backgroundColor'],
+    ['border', 'borderColor'],
+    ['divider', 'borderBottomColor'],
+  ])('refuses a light-only %s in a file that reads isDark', (token, property) => {
+    const root = fixture({
+      'src/theme/tokenFamilies.ts': real('src/theme/tokenFamilies.ts'),
+      'src/theme/colors.ts': real('src/theme/colors.ts'),
+      'src/features/a/Panel.tsx': [
+        `const s = StyleSheet.create({ a: { ${property}: colors.${token} } });`,
+        'const Panel = ({ isDark }) => <Text style={[s.a, isDark && s.dark]} />;',
+      ].join('\n'),
+    });
+
+    const { status, output } = runRule('dark-counterpart', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain(`src/features/a/Panel.tsx:1  draws colors.${token}`);
   });
 
   it('reads the real tables', () => {
@@ -563,13 +886,13 @@ describe('dark-text-counterpart', () => {
       ].join('\n'),
     });
 
-    expect(runRule('dark-text-counterpart', root).status).toBe(1);
+    expect(runRule('dark-counterpart', root).status).toBe(1);
   });
 
   it('fails when the colour tables cannot be read', () => {
     const root = fixture({ 'src/features/a/Tabs.tsx': 'export {};\n' });
 
-    expect(runRule('dark-text-counterpart', root).output).toContain('for this rule to read');
+    expect(runRule('dark-counterpart', root).output).toContain('for this rule to read');
   });
 });
 
@@ -629,14 +952,83 @@ describe('dimmed-text', () => {
 
   it('fails a measured entry whose style has stopped dimming, so the measurement cannot go stale', () => {
     const root = fixture({
-      'src/shared/app/DemoBanner.tsx':
-        'const s = StyleSheet.create({ subtext: { color: colors.textOnPrimary } });\n',
+      'src/shared/ui/OfflineBanner.tsx':
+        'const s = StyleSheet.create({ subtitleText: { color: colors.textPrimary } });\n',
     });
 
     const { status, output } = runRule('dimmed-text', root);
 
     expect(status).toBe(1);
-    expect(output).toContain('subtext no longer dims');
+    expect(output).toContain('subtitleText no longer dims');
+  });
+});
+
+describe('disabled-ink-content', () => {
+  const rule = (body: string) =>
+    runRule('disabled-ink-content', fixture({ 'src/features/a/Row.tsx': body }));
+
+  it('fails the disabled ink on a Text with no disabled branch', () => {
+    const result = rule('const s = StyleSheet.create({ hint: { color: colors.textDisabled } });\n');
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('src/features/a/Row.tsx:1');
+  });
+
+  it('passes the same ink inside a branch on a disabled state', () => {
+    expect(
+      rule(
+        [
+          'const s = StyleSheet.create({ label: { color: colors.textSecondary } });',
+          'const Row = ({ disabled }) => (',
+          '  <Text style={[s.label, { color: disabled ? colors.textDisabled : colors.textSecondary }]} />',
+          ');',
+        ].join('\n')
+      ).status
+    ).toBe(0);
+  });
+
+  it('fails the disabled ink on the side of the branch taken when enabled', () => {
+    expect(
+      rule(
+        'const I = ({ disabled }) => <Icon color={disabled ? colors.textSecondary : colors.textDisabled} />;\n'
+      ).status
+    ).toBe(1);
+    expect(
+      rule(
+        'const I = ({ disabled }) => <Icon color={!disabled ? colors.textDisabled : colors.textSecondary} />;\n'
+      ).status
+    ).toBe(1);
+  });
+
+  it('passes a style keyed on a disabled state and a guard on the disabled flag', () => {
+    expect(
+      rule(
+        [
+          'const s = StyleSheet.create({ labelDisabled: { color: colors.textDisabled } });',
+          'const Row = ({ isDisabled }) => <Text style={[isDisabled && { color: darkColors.textDisabled }]} />;',
+        ].join('\n')
+      ).status
+    ).toBe(0);
+  });
+
+  it('fails a line token drawn as an icon in either theme', () => {
+    expect(
+      rule(
+        'const I = ({ isDark }) => <Icon color={isDark ? darkColors.border : colors.divider} />;\n'
+      ).status
+    ).toBe(1);
+  });
+
+  it('passes a line token as a border and a fill, and leaves the test tree alone', () => {
+    const root = fixture({
+      'src/features/a/Row.tsx': [
+        'const s = StyleSheet.create({ row: { borderColor: colors.border, backgroundColor: colors.divider } });',
+        'const series = { color: colors.textDisabled };',
+      ].join('\n'),
+      'src/features/a/__tests__/Row.test.tsx': '<Icon color={colors.textDisabled} />;\n',
+    });
+
+    expect(runRule('disabled-ink-content', root).status).toBe(0);
   });
 });
 
@@ -743,6 +1135,45 @@ describe('one-back', () => {
 
   it('fails when the owner is gone', () => {
     const { status } = runRule('one-back', fixture({ 'src/a.ts': 'export {};\n' }));
+
+    expect(status).toBe(1);
+  });
+});
+
+describe('one-text-field', () => {
+  const OWNERS = {
+    'src/shared/ui/TextField.tsx': "import { TextInput } from 'react-native';\n",
+    'src/shared/ui/SearchBar.tsx': "import {\n  Pressable,\n  TextInput,\n} from 'react-native';\n",
+  };
+
+  it('fails a form drawing its own input from either library', () => {
+    const root = fixture({
+      ...OWNERS,
+      'src/features/harbour/MooringForm.tsx':
+        "import React from 'react';\nimport {\n  View,\n  TextInput,\n} from 'react-native';\n",
+      'src/app/berth.tsx': "import { Text, TextInput as Field } from 'react-native-paper';\n",
+    });
+
+    const { status, output } = runRule('one-text-field', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/features/harbour/MooringForm.tsx:2');
+    expect(output).toContain('src/app/berth.tsx:1');
+  });
+
+  it('passes the two owners, a type-only import and the test tree', () => {
+    const root = fixture({
+      ...OWNERS,
+      'src/features/harbour/useMooring.ts':
+        "import { Keyboard, type TextInput } from 'react-native';\nimport type { TextInputProps } from 'react-native';\n",
+      'src/__tests__/mooring.test.tsx': "import { TextInput } from 'react-native';\n",
+    });
+
+    expect(runRule('one-text-field', root).status).toBe(0);
+  });
+
+  it('fails when the field it owns is gone', () => {
+    const { status } = runRule('one-text-field', fixture({ 'src/a.ts': 'export {};\n' }));
 
     expect(status).toBe(1);
   });
@@ -863,21 +1294,79 @@ describe('shared-ui-accessibility', () => {
 
 describe('banner-live-region', () => {
   const BANNERS = [
+    'src/shared/ui/NoticeBanner.tsx',
     'src/shared/ui/OfflineBanner.tsx',
     'src/features/recording/components/SaveErrorBanner.tsx',
     'src/shared/ui/SyncProgressStrip.tsx',
     'src/features/maps/components/timeline/SyncProgressBanner.tsx',
+    'src/shared/ui/SyncErrorBanner.tsx',
+    'src/shared/ui/StartupErrorBanner.tsx',
+    'src/shared/ui/TrackFetchNotice.tsx',
+    'src/shared/app/EngineInitBanner.tsx',
+    'src/shared/app/DemoBanner.tsx',
+    'src/features/maps/components/TerrainUnavailableNotice.tsx',
+    'src/features/recording/components/StatusSlot.tsx',
+    'src/features/recording/components/TimerHeader.tsx',
   ];
+  const SHARED = BANNERS[0];
+  const DRAWN = BANNERS[5];
+  const STATUS_OWNER = 'src/shared/ui/StatusLine.tsx';
+  const STATUS = [
+    'src/app/login.tsx',
+    'src/app/detection-settings.tsx',
+    'src/app/recording/review.tsx',
+    'src/features/auth/components/SessionExpiredNotice.tsx',
+    'src/features/settings/components/BackupSection.tsx',
+    'src/features/settings/components/WebdavConfigForm.tsx',
+    'src/features/settings/components/RecordingPermissionSection.tsx',
+    'src/shared/ui/EmptyState.tsx',
+    'src/shared/ui/ErrorState.tsx',
+    'src/shared/ui/BodyNotDownloaded.tsx',
+  ];
+  const BOUNDARY = 'src/shared/ui/ScreenErrorBoundary.tsx';
   const ok = '<View accessibilityLiveRegion="polite" />;\nuseAnnounceOnAppear(text);\n';
-  const all = () => Object.fromEntries(BANNERS.map((f) => [f, ok]));
+  const status = '<StatusLine tone="error" message={text} />;\n';
+  const all = (): Record<string, string> => ({
+    ...Object.fromEntries(BANNERS.map((f) => [f, ok])),
+    ...Object.fromEntries(STATUS.map((f) => [f, status])),
+    [STATUS_OWNER]: ok,
+    [BOUNDARY]: status,
+  });
 
   it('fails a banner with no live region', () => {
-    const root = fixture({ ...all(), [BANNERS[0]]: 'useAnnounceOnAppear(text);\n' });
+    const root = fixture({ ...all(), [BANNERS[1]]: 'useAnnounceOnAppear(text);\n' });
 
-    const { status, output } = runRule('banner-live-region', root);
+    const { status: code, output } = runRule('banner-live-region', root);
 
-    expect(status).toBe(1);
-    expect(output).toContain(`${BANNERS[0]}  has no accessibilityLiveRegion`);
+    expect(code).toBe(1);
+    expect(output).toContain(`${BANNERS[1]}  has no accessibilityLiveRegion`);
+  });
+
+  it('passes a banner drawn with the shared banner, which speaks for it', () => {
+    const root = fixture({ ...all(), [DRAWN]: 'return <NoticeBanner title={title} />;\n' });
+
+    expect(runRule('banner-live-region', root).status).toBe(0);
+  });
+
+  it('fails a banner that draws its own view with neither', () => {
+    const root = fixture({ ...all(), [DRAWN]: 'return <View testID="banner" />;\n' });
+
+    const { status: code, output } = runRule('banner-live-region', root);
+
+    expect(code).toBe(1);
+    expect(output).toContain(`${DRAWN}  has no accessibilityLiveRegion`);
+  });
+
+  it('fails the shared banner when it stops speaking, even though it names itself', () => {
+    const root = fixture({
+      ...all(),
+      [SHARED]: 'export function NoticeBanner() { return <NoticeBanner />; }\n',
+    });
+
+    const { status: code, output } = runRule('banner-live-region', root);
+
+    expect(code).toBe(1);
+    expect(output).toContain(`${SHARED}  has no accessibilityLiveRegion`);
   });
 
   it('fails a banner that never announces on iOS', () => {
@@ -889,14 +1378,50 @@ describe('banner-live-region', () => {
     expect(runRule('banner-live-region', root).output).toContain('never announces');
   });
 
-  it('passes the real banners', () => {
-    const root = fixture(Object.fromEntries(BANNERS.map((f) => [f, real(f)])));
+  it('fails a listed result line drawn outside a StatusLine', () => {
+    const root = fixture({ ...all(), [STATUS[4]]: '<Text>{saved}</Text>;\n' });
+
+    const { status: code, output } = runRule('banner-live-region', root);
+
+    expect(code).toBe(1);
+    expect(output).toContain(`${STATUS[4]}  shows a status outside a StatusLine`);
+  });
+
+  it('fails an error boundary added under src/shared/ui without a StatusLine', () => {
+    const added = 'src/shared/ui/OrchardErrorBoundary.tsx';
+    const root = fixture({ ...all(), [added]: '<View><Text>{title}</Text></View>;\n' });
+
+    expect(runRule('banner-live-region', root).output).toContain(
+      `${added}  shows a status outside a StatusLine`
+    );
+  });
+
+  it('fails a StatusLine that stops announcing', () => {
+    const root = fixture({
+      ...all(),
+      [STATUS_OWNER]: '<View accessibilityLiveRegion="polite" />;\n',
+    });
+
+    expect(runRule('banner-live-region', root).output).toContain(
+      `${STATUS_OWNER}  no longer carries both`
+    );
+  });
+
+  it('passes the real banners and status lines', () => {
+    const files = [...BANNERS, ...STATUS, STATUS_OWNER, BOUNDARY];
+    const root = fixture(Object.fromEntries(files.map((f) => [f, real(f)])));
 
     expect(runRule('banner-live-region', root).status).toBe(0);
   });
 
   it('fails when a listed banner is gone', () => {
     const { [BANNERS[3]]: _gone, ...rest } = all();
+
+    expect(runRule('banner-live-region', fixture(rest)).status).toBe(1);
+  });
+
+  it('fails when a listed status file is gone', () => {
+    const { [STATUS[0]]: _gone, ...rest } = all();
 
     expect(runRule('banner-live-region', fixture(rest)).status).toBe(1);
   });
@@ -1166,6 +1691,33 @@ describe('large-title-scroll', () => {
     });
 
     expect(runRule('large-title-scroll', root).status).toBe(0);
+  });
+
+  it('judges a large-title tab root by the screen in its directory', () => {
+    const tabs = [
+      'export const TAB_HEADERS: Record<string, ScreenHeader | null> = {',
+      "  stopwatch: { titleKey: 'stopwatch.title', largeTitle: true },",
+      '  compass: null,',
+      '};',
+    ].join('\n');
+    const withTabs = {
+      ...CLEAN,
+      'src/shared/app/screenHeaders.ts': `${headers(true)}\n${tabs}`,
+      'src/app/(tabs)/stopwatch/index.tsx': [
+        "import { ScrollView } from 'react-native-gesture-handler';",
+        'export default () => <ScrollView {...screenListInsets} />;',
+      ].join('\n'),
+      'src/app/(tabs)/compass.tsx': 'export default () => <ScrollView />;\n',
+    };
+    expect(runRule('large-title-scroll', fixture(withTabs)).status).toBe(0);
+
+    const bare = fixture({
+      ...withTabs,
+      'src/app/(tabs)/stopwatch/index.tsx': 'export default () => <ScrollView />;\n',
+    });
+    const { status, output } = runRule('large-title-scroll', bare);
+    expect(status).toBe(1);
+    expect(output).toContain('src/app/(tabs)/stopwatch/index.tsx');
   });
 
   it('fails a flagged route that has no screen file', () => {

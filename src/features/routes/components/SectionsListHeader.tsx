@@ -77,6 +77,8 @@ export function SectionsListHeader({
           ? t('settings.elevationBackfillOutstanding', { count: elevationBackfill.remaining })
           : null;
 
+  const rescanDisabled = isScanning || detectionHold !== null;
+
   return (
     <>
       <SearchBar
@@ -120,18 +122,26 @@ export function SectionsListHeader({
           <IconButton
             onPress={onRescan}
             accessibilityLabel={t('settings.reanalyzeSections')}
-            disabled={isScanning || detectionHold !== null}
+            disabled={rescanDisabled}
           >
             {isScanning ? (
               <ActivityIndicator
                 size={13}
-                color={isDark ? darkColors.textDisabled : colors.textDisabled}
+                color={isDark ? darkColors.textSecondary : colors.textSecondary}
               />
             ) : (
               <MaterialCommunityIcons
                 name="reload"
                 size={14}
-                color={isDark ? darkColors.textDisabled : colors.textDisabled}
+                color={
+                  rescanDisabled
+                    ? isDark
+                      ? darkColors.textDisabled
+                      : colors.textDisabled
+                    : isDark
+                      ? darkColors.textSecondary
+                      : colors.textSecondary
+                }
               />
             )}
           </IconButton>

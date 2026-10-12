@@ -139,11 +139,10 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
           <MaterialCommunityIcons
             name={displayInfo.icon as keyof typeof MaterialCommunityIcons.glyphMap}
             size={16}
-            color={ink.white}
+            color={colors.textOnPrimary}
           />
           <Text style={styles.text} testID="sync-progress-message">
             {displayInfo.text}
-            {displayInfo.percent > 0 ? `... ${displayInfo.percent}%` : '...'}
           </Text>
           {displayInfo.countText && <Text style={styles.countText}>{displayInfo.countText}</Text>}
         </View>

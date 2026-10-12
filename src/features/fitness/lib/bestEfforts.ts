@@ -7,6 +7,7 @@ import {
 import type { ClimbBest } from '@/features/stats';
 import { M_TO_FT } from '@/shared/format/format';
 import type { PrimarySport } from '../stores/SportPreferenceStore';
+import { ABSENT } from '@/shared/format/absent';
 
 // Power for cycling, pace per km or mile for running, pace per 100 m or 100 yd for swimming.
 export function formatEffortValue(
@@ -15,7 +16,7 @@ export function formatEffortValue(
   wattsUnit: string,
   isMetric: boolean
 ): string {
-  if (value === null || !Number.isFinite(value)) return '-';
+  if (value === null || !Number.isFinite(value)) return ABSENT;
 
   if (sport === 'Cycling') {
     return `${Math.round(value)} ${wattsUnit}`;
@@ -26,7 +27,7 @@ export function formatEffortValue(
   if (sport === 'Swimming') {
     return `${formatSwimPace(value, isMetric)}${swimPaceUnitLabel(isMetric)}`;
   }
-  return '-';
+  return ABSENT;
 }
 
 /** Windows from this length up are read as climbing rate, shorter ones as vertical power. */
@@ -41,10 +42,10 @@ export interface ClimbUnits {
 // Vertical power per kilogram for a short window, vertical metres or feet per hour for a long one.
 export function formatClimbValue(best: ClimbBest, isMetric: boolean, units: ClimbUnits): string {
   if (best.windowS < VAM_FROM_WINDOW_S) {
-    if (best.wattsPerKg === null || !Number.isFinite(best.wattsPerKg)) return '-';
+    if (best.wattsPerKg === null || !Number.isFinite(best.wattsPerKg)) return ABSENT;
     return `${best.wattsPerKg.toFixed(2)} ${units.wattsPerKg}`;
   }
-  if (best.vam === null || !Number.isFinite(best.vam)) return '-';
+  if (best.vam === null || !Number.isFinite(best.vam)) return ABSENT;
   return isMetric
     ? `${Math.round(best.vam)} ${units.metresPerHour}`
     : `${Math.round(best.vam * M_TO_FT)} ${units.feetPerHour}`;

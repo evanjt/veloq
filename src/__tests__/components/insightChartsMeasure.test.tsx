@@ -22,17 +22,17 @@ import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectio
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 
-function layout(tree: ReturnType<typeof render>) {
+async function layout(tree: Awaited<ReturnType<typeof render>>) {
   const measured = tree.UNSAFE_getAllByType(View).filter((node) => node.props.onLayout);
   expect(measured.length).toBeGreaterThan(0);
-  act(() => {
+  await act(async () => {
     for (const node of measured) {
-      fireEvent(node, 'layout', { nativeEvent: { layout: { width: 320, height: 150 } } });
+      await fireEvent(node, 'layout', { nativeEvent: { layout: { width: 320, height: 150 } } });
     }
   });
 }
 
-const canvases = (tree: ReturnType<typeof render>) => tree.UNSAFE_queryAllByType(Canvas);
+const canvases = (tree: Awaited<ReturnType<typeof render>>) => tree.UNSAFE_queryAllByType(Canvas);
 
 function hrvInsight(sparklineData: number[]): Insight {
   return {
@@ -75,44 +75,44 @@ const POLYLINE = [
 ];
 
 describe('insight charts measure outside the chart branch', () => {
-  it('draws the HRV trend once laid out', () => {
-    const tree = render(<HrvTrendContent insight={hrvInsight([50, 55, 52, 58])} />);
-    layout(tree);
+  it('draws the HRV trend once laid out', async () => {
+    const tree = await render(<HrvTrendContent insight={hrvInsight([50, 55, 52, 58])} />);
+    await layout(tree);
     expect(canvases(tree)).toHaveLength(1);
   });
 
-  it('draws no HRV trend from a single reading', () => {
-    const tree = render(<HrvTrendContent insight={hrvInsight([50])} />);
+  it('draws no HRV trend from a single reading', async () => {
+    const tree = await render(<HrvTrendContent insight={hrvInsight([50])} />);
     expect(canvases(tree)).toHaveLength(0);
   });
 
-  it('draws the section PR timeline once laid out', () => {
+  it('draws the section PR timeline once laid out', async () => {
     const records = [record('a', 1, 300), record('b', 5, 290), record('c', 9, 310)];
-    const tree = render(
+    const tree = await render(
       <SectionPerformanceTimeline
         records={records}
         bests={{ forward: records[1], reverse: null, forwardIsPr: true, reverseIsPr: false }}
       />
     );
-    layout(tree);
+    await layout(tree);
     expect(canvases(tree)).toHaveLength(1);
   });
 
-  it('draws no timeline from one effort', () => {
-    const tree = render(
+  it('draws no timeline from one effort', async () => {
+    const tree = await render(
       <SectionPerformanceTimeline records={[record('a', 1, 300)]} bests={NO_BESTS} />
     );
     expect(tree.toJSON()).toBeNull();
   });
 
-  it('draws the section map once laid out', () => {
-    const tree = render(<SectionInsightMap polyline={POLYLINE} />);
-    layout(tree);
+  it('draws the section map once laid out', async () => {
+    const tree = await render(<SectionInsightMap polyline={POLYLINE} />);
+    await layout(tree);
     expect(canvases(tree)).toHaveLength(1);
   });
 
-  it('draws no map from fewer than two usable points', () => {
-    const tree = render(
+  it('draws no map from fewer than two usable points', async () => {
+    const tree = await render(
       <SectionInsightMap polyline={[POLYLINE[0], { lat: Number.NaN, lng: Number.NaN }]} />
     );
     expect(tree.toJSON()).toBeNull();

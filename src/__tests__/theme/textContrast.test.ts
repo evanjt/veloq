@@ -11,7 +11,15 @@
  * nobody noticed.
  */
 
-import { colors, darkColors, chartStreamColors, recording } from '@/theme';
+import {
+  brand,
+  colors,
+  darkColors,
+  chartStreamColors,
+  recording,
+  lightTheme,
+  darkTheme,
+} from '@/theme';
 import {
   FORM_ZONE_COLORS,
   FORM_ZONE_MARK_COLORS,
@@ -21,6 +29,7 @@ import {
 } from '@/features/fitness/lib/fitness';
 import { widgetPalette, widgetRecord } from '@/shared/theme/widgetTheme';
 import {
+  BRAND_FAMILIES,
   FAMILY_BARS,
   FAMILY_EXEMPTIONS,
   TOKEN_FAMILIES,
@@ -194,6 +203,32 @@ describe('body text clears AA on every surface it is drawn on', () => {
     );
 
     expect(worst).toBeGreaterThan(AA_TEXT);
+  });
+});
+
+/**
+ * Scenario: Paper draws text in its on-roles over the matching fill: a contained
+ * button's label, a snackbar's message and its action, a text input's label.
+ *
+ * Expected behaviour: each pair clears 4.5:1 in both themes.
+ */
+describe('the Paper on-roles clear AA on the role they sit on', () => {
+  const PAIRS = [
+    ['onPrimary', 'primary'],
+    ['inverseOnSurface', 'inverseSurface'],
+    ['inversePrimary', 'inverseSurface'],
+    ['onSurfaceVariant', 'surface'],
+  ] as const;
+
+  const SCHEMES = [
+    ['light', lightTheme.colors],
+    ['dark', darkTheme.colors],
+  ] as const;
+
+  describe.each(SCHEMES)('%s', (_name, scheme) => {
+    it.each(PAIRS)('%s on %s', (text, ground) => {
+      expect(contrastRatio(scheme[text], scheme[ground])).toBeGreaterThanOrEqual(AA_TEXT);
+    });
   });
 });
 
@@ -433,6 +468,15 @@ describe('every palette token answers to its family bar', () => {
 
   it('classifies nothing that is not a token, so the table cannot rot', () => {
     expect(classified.filter((token) => !palettes.includes(token))).toStrictEqual([]);
+  });
+
+  // The brand hues resolve in neither theme, so the guard refuses each one as a
+  // text colour by reading this table: an unlisted hue would be refused too,
+  // but only once something drew it.
+  it('classifies every brand hue, and none of them as text', () => {
+    expect(Object.keys(brand).filter((key) => !(key in BRAND_FAMILIES))).toStrictEqual([]);
+    expect(Object.keys(BRAND_FAMILIES).filter((key) => !(key in brand))).toStrictEqual([]);
+    expect(Object.values(BRAND_FAMILIES)).not.toContain('text');
   });
 
   it('holds every exemption and every failure to a token that exists', () => {

@@ -650,9 +650,8 @@ void uniffi_veloqrs_fn_method_routemanager_include_activity(
 void uniffi_veloqrs_fn_method_routemanager_set_name(
     /*handle*/ uint64_t ptr, RustBuffer route_id, RustBuffer name,
     RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_method_routemanager_set_representative(
-    /*handle*/ uint64_t ptr, RustBuffer route_id, RustBuffer activity_id,
-    RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_method_routemanager_set_representative(
+    /*handle*/ uint64_t ptr, RustBuffer route_id, RustBuffer activity_id);
 /*handle*/ uint64_t uniffi_veloqrs_fn_clone_sectionmanager(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_free_sectionmanager(
@@ -17555,18 +17554,14 @@ jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_set_representative(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  uniffi_veloqrs_fn_method_routemanager_set_representative(
+  auto value = uniffi_veloqrs_fn_method_routemanager_set_representative(
       uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
                                                         args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]));
 
-  return jsi::Value::undefined();
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_clone_sectionmanager(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,

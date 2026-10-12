@@ -70,9 +70,9 @@ beforeEach(() => {
 
 describe('WeeklySummary over a range never downloaded', () => {
   it('asks the census about each period it compares, by its own dates', async () => {
-    const view = render(<WeeklySummary />, { wrapper });
+    const view = await render(<WeeklySummary />, { wrapper });
 
-    fireEvent.press(view.getByTestId('weekly-summary-range-month'));
+    await fireEvent.press(view.getByTestId('weekly-summary-range-month'));
 
     // The clock is set to noon on Wednesday 17 June 2026, local time.
     await waitFor(() =>
@@ -85,8 +85,8 @@ describe('WeeklySummary over a range never downloaded', () => {
     engine.getPeriodStats.mockImplementation(() => totals(0));
     coverageBy({ '2026-06-01': RangeCoverage.NotFetched });
 
-    const view = render(<WeeklySummary />, { wrapper });
-    fireEvent.press(view.getByTestId('weekly-summary-range-month'));
+    const view = await render(<WeeklySummary />, { wrapper });
+    await fireEvent.press(view.getByTestId('weekly-summary-range-month'));
 
     await waitFor(() => expect(view.getByText('stats.rangeNotDownloaded')).toBeTruthy());
     expect(view.queryByText('stats.noActivitiesInPeriod')).toBeNull();
@@ -96,8 +96,8 @@ describe('WeeklySummary over a range never downloaded', () => {
     engine.getPeriodStats.mockImplementation(() => totals(0));
     coverageBy({ '2026-06-01': RangeCoverage.Empty });
 
-    const view = render(<WeeklySummary />, { wrapper });
-    fireEvent.press(view.getByTestId('weekly-summary-range-month'));
+    const view = await render(<WeeklySummary />, { wrapper });
+    await fireEvent.press(view.getByTestId('weekly-summary-range-month'));
 
     await waitFor(() => expect(view.getByText('stats.noActivitiesInPeriod')).toBeTruthy());
     expect(view.queryByText('stats.rangeNotDownloaded')).toBeNull();
@@ -106,8 +106,8 @@ describe('WeeklySummary over a range never downloaded', () => {
   it('adds a quiet line when the year is partly downloaded', async () => {
     coverageBy({ '2026-01-01': RangeCoverage.NotFetched });
 
-    const view = render(<WeeklySummary />, { wrapper });
-    fireEvent.press(view.getByTestId('weekly-summary-range-year'));
+    const view = await render(<WeeklySummary />, { wrapper });
+    await fireEvent.press(view.getByTestId('weekly-summary-range-year'));
 
     await waitFor(() => expect(view.getByTestId('weekly-summary-count')).toBeTruthy());
     expect(view.getByTestId('weekly-summary-partial')).toBeTruthy();
@@ -116,16 +116,16 @@ describe('WeeklySummary over a range never downloaded', () => {
   it('adds the quiet line when the period compared against is not downloaded', async () => {
     coverageBy({ '2025-01-01': RangeCoverage.NotFetched });
 
-    const view = render(<WeeklySummary />, { wrapper });
-    fireEvent.press(view.getByTestId('weekly-summary-range-year'));
+    const view = await render(<WeeklySummary />, { wrapper });
+    await fireEvent.press(view.getByTestId('weekly-summary-range-year'));
 
     await waitFor(() => expect(view.getByTestId('weekly-summary-count')).toBeTruthy());
     expect(view.getByTestId('weekly-summary-partial')).toBeTruthy();
   });
 
   it('carries no line when both periods are downloaded', async () => {
-    const view = render(<WeeklySummary />, { wrapper });
-    fireEvent.press(view.getByTestId('weekly-summary-range-year'));
+    const view = await render(<WeeklySummary />, { wrapper });
+    await fireEvent.press(view.getByTestId('weekly-summary-range-year'));
 
     await waitFor(() => expect(view.getByTestId('weekly-summary-count')).toBeTruthy());
     expect(view.queryByTestId('weekly-summary-partial')).toBeNull();
@@ -137,7 +137,7 @@ describe('WeeklySummary over a range never downloaded', () => {
       .requireMock('@/features/fitness/hooks')
       .useAthleteSummary.mockReturnValue({ data: SUMMARY, isLoading: false });
 
-    const view = render(<WeeklySummary />, { wrapper });
+    const view = await render(<WeeklySummary />, { wrapper });
 
     await waitFor(() => expect(view.getByTestId('weekly-summary-count')).toBeTruthy());
     expect(view.getByTestId('weekly-summary-partial')).toBeTruthy();
@@ -149,7 +149,7 @@ describe('WeeklySummary over a range never downloaded', () => {
       .requireMock('@/features/fitness/hooks')
       .useAthleteSummary.mockReturnValue({ data: SUMMARY, isLoading: false });
 
-    const view = render(<WeeklySummary />, { wrapper });
+    const view = await render(<WeeklySummary />, { wrapper });
 
     await waitFor(() => expect(view.getByTestId('weekly-summary-count')).toBeTruthy());
     expect(view.queryByTestId('weekly-summary-partial')).toBeNull();

@@ -58,8 +58,8 @@ describe.each([
     restoreClock = installUtcOffset(offset, NOW);
   });
 
-  it('asks the engine to resolve the weeks from wall-clock now', () => {
-    renderHook(() => useSummaryCardData());
+  it('asks the engine to resolve the weeks from wall-clock now', async () => {
+    await renderHook(() => useSummaryCardData());
 
     const localTime = offset === 10 ? '2026-09-23T22:00:00' : '2026-09-23T05:00:00';
     expect(engine.getSummaryCardData).toHaveBeenCalledWith(startDateLocalToEpochSeconds(localTime));

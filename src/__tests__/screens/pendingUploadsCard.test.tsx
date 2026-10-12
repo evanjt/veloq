@@ -33,13 +33,13 @@ const mockCount = getVisibleUnuploadedCount as jest.Mock;
 
 it("hides when the only unuploaded ride is another athlete's", async () => {
   mockCount.mockResolvedValue(0);
-  render(<PendingUploadsCard />);
+  await render(<PendingUploadsCard />);
   await waitFor(() => expect(mockCount).toHaveBeenCalled());
   expect(screen.queryByTestId('pending-uploads-card')).toBeNull();
 });
 
 it("shows the signed-in athlete's own count", async () => {
   mockCount.mockResolvedValue(2);
-  render(<PendingUploadsCard />);
+  await render(<PendingUploadsCard />);
   expect(await screen.findByText('2 not uploaded')).toBeTruthy();
 });

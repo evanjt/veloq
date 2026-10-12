@@ -48,8 +48,8 @@ function ring(): GeoJSON.FeatureCollection {
 }
 
 describe('the accuracy ring', () => {
-  it('surrounds the position at the fix accuracy', () => {
-    render(<RecordingMap coordinates={[]} currentLocation={HERE} accuracy={30} />);
+  it('surrounds the position at the fix accuracy', async () => {
+    await render(<RecordingMap coordinates={[]} currentLocation={HERE} accuracy={30} />);
 
     const polygon = ring().features[0] as GeoJSON.Feature<GeoJSON.Polygon>;
     const lats = polygon.geometry.coordinates[0].map(([, lat]) => lat);
@@ -57,11 +57,11 @@ describe('the accuracy ring', () => {
     expect(northM).toBeCloseTo(30, 0);
   });
 
-  it('keeps the source mounted and empty with no accuracy or no position', () => {
-    const view = render(<RecordingMap coordinates={[]} currentLocation={HERE} />);
+  it('keeps the source mounted and empty with no accuracy or no position', async () => {
+    const view = await render(<RecordingMap coordinates={[]} currentLocation={HERE} />);
     expect(ring().features).toEqual([]);
 
-    view.rerender(<RecordingMap coordinates={[]} currentLocation={null} accuracy={30} />);
+    await view.rerender(<RecordingMap coordinates={[]} currentLocation={null} accuracy={30} />);
     expect(ring().features).toEqual([]);
   });
 });

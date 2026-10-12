@@ -214,16 +214,42 @@ impl ResumeGuard {
 /// nothing else. `elevation_resume_ladder.rs` pins all of this, the absence
 /// included.
 pub fn resume_ladder(
+    sleep: impl FnMut(Duration) -> bool,
+    remaining: impl FnMut() -> Option<u64>,
+    offline: impl FnMut() -> bool,
+    paused_or_switched_off: impl FnMut() -> bool,
+    engine_gone: impl FnMut() -> bool,
+    attempt: impl FnMut(),
+) {
+    resume_ladder_after_cooldown(
+        sleep,
+        remaining,
+        offline,
+        paused_or_switched_off,
+        engine_gone,
+        || None,
+        attempt,
+    );
+}
+
+/// The ladder, holding every attempt until a refusal's cooldown has ended.
+///
+/// `cooldown_left` answers how long the governor's cooldown still holds, or
+/// `None` once it does not. A rung waits at least that long, and a rung that
+/// wakes early, on the connection coming back, sends nothing while it holds.
+pub fn resume_ladder_after_cooldown(
     mut sleep: impl FnMut(Duration) -> bool,
     mut remaining: impl FnMut() -> Option<u64>,
     mut offline: impl FnMut() -> bool,
     mut paused_or_switched_off: impl FnMut() -> bool,
     mut engine_gone: impl FnMut() -> bool,
+    mut cooldown_left: impl FnMut() -> Option<Duration>,
     mut attempt: impl FnMut(),
 ) {
     let mut attempts = 0usize;
     loop {
-        if !sleep(resume_wait(attempts)) {
+        let wait = resume_wait(attempts).max(cooldown_left().unwrap_or_default());
+        if !sleep(wait) {
             return;
         }
         attempts += 1;
@@ -250,6 +276,11 @@ pub fn resume_ladder(
         // so a device that is away for an evening is not asked every minute
         // when it comes back.
         if offline() {
+            continue;
+        }
+        // A rung that woke early, or a cooldown a later refusal lengthened,
+        // sends nothing before the cooldown ends.
+        if cooldown_left().is_some() {
             continue;
         }
         attempt();
@@ -292,7 +323,7 @@ fn engine_gone() -> bool {
 /// Put a ladder behind the pass, unless one is already climbing.
 fn arm_resume_ladder() {
     spawn_resume_ladder(|| {
-        resume_ladder(
+        resume_ladder_after_cooldown(
             resume_sleep,
             || match with_persistent_engine(|engine| engine.elevation_backfill_remaining()) {
                 Some(Ok(n)) => Some(n),
@@ -301,6 +332,12 @@ fn arm_resume_ladder() {
             crate::net::connectivity::is_offline,
             || elevation_backfill_paused() || detection_switched_off(),
             engine_gone,
+            || {
+                let now = chrono::Utc::now();
+                crate::governor::GOVERNOR
+                    .cooldown_until(now)
+                    .and_then(|until| (until - now).to_std().ok())
+            },
             || {
                 start_pass();
             },
@@ -326,6 +363,10 @@ pub const BACKFILL_PHASE_PARTIAL: &str = "partial";
 pub const BACKFILL_PHASE_FAILED: &str = "failed";
 /// The athlete paused the download. Nothing runs until the app is reopened.
 pub const BACKFILL_PHASE_PAUSED: &str = "paused";
+/// intervals.icu refused, or the request budget deferred, the download. The
+/// rows it did not reach are owed, and the engine resumes it when the refusal
+/// lifts.
+pub const BACKFILL_PHASE_WAITING: &str = "waiting";
 
 // ============================================================================
 // Pause
@@ -997,6 +1038,7 @@ fn record_run(install: u64, run: &BackfillRun) {
 fn run_outcome(phase: &str, failed: u32) -> RunOutcome {
     match phase {
         BACKFILL_PHASE_PAUSED => RunOutcome::Paused,
+        BACKFILL_PHASE_WAITING => RunOutcome::Deferred,
         BACKFILL_PHASE_FAILED => RunOutcome::Failed,
         BACKFILL_PHASE_COMPLETE if failed == 0 => RunOutcome::Complete,
         _ => RunOutcome::Partial,
@@ -1100,6 +1142,18 @@ fn run_queue(install: u64, transport: &Transport, athlete_id: &str) -> (Backfill
             queue.len() as u32 - outcome.elevated - outcome.unavailable,
             queue.len()
         ),
+        // Not a failed pass either. Nothing more is sent until the refusal
+        // lifts, and the engine's own wake-up starts the next pass then.
+        Some(Stopped::Refused { until }) => {
+            let at = until.unwrap_or_else(|| transport.cooldown_lifts_at(chrono::Utc::now()));
+            log::info!(
+                "[Elevation] backfill stopped: refused until {}, {} of {} tracks still to ask",
+                at,
+                queue.len() as u32 - outcome.elevated - outcome.unavailable,
+                queue.len()
+            );
+            crate::net::resume::resume_at(at);
+        }
         None => {}
     }
 
@@ -1125,6 +1179,8 @@ fn run_queue(install: u64, transport: &Transport, athlete_id: &str) -> (Backfill
     // already resumed.
     set_phase(if matches!(stopped, Some(Stopped::Paused)) {
         BACKFILL_PHASE_PAUSED
+    } else if matches!(stopped, Some(Stopped::Refused { .. })) {
+        BACKFILL_PHASE_WAITING
     } else if drained {
         BACKFILL_PHASE_COMPLETE
     } else {
@@ -1172,6 +1228,12 @@ enum Stopped {
     Paused,
     /// Route Matching was switched off during the download.
     SwitchedOff,
+    /// intervals.icu refused, or the request budget deferred, the walk. It
+    /// lifts at `until`, or when the governor's cooldown ends when the
+    /// refusal carried no time.
+    Refused {
+        until: Option<chrono::DateTime<chrono::Utc>>,
+    },
 }
 
 /// Whether this failure says the connection is gone rather than answering for
@@ -1184,7 +1246,7 @@ enum Stopped {
 /// prefix would stop every future pass at the same place.
 fn is_connectivity(e: &NetError) -> bool {
     match e {
-        NetError::Transport(_) | NetError::RateLimited | NetError::Deferred { .. } => true,
+        NetError::Transport(_) => true,
         NetError::Http { status, .. } => *status >= 500,
         _ => false,
     }
@@ -1548,9 +1610,26 @@ fn drain_queue_asking(
         ) as u32;
         outcome.retired += retire_batch(install, &plan.attempted);
         if count_progress {
-            BACKFILL
-                .completed
-                .fetch_add(batch.len() as u32, Ordering::Relaxed);
+            BACKFILL.completed.fetch_add(
+                (batch.len() - plan.deferred.len()) as u32,
+                Ordering::Relaxed,
+            );
+        }
+
+        // A refusal speaks for the rest of the queue. What this batch was
+        // answered is stored above; the refused tracks and every one behind
+        // them stay owed, unasked, until the refusal lifts.
+        if !plan.deferred.is_empty() {
+            let mut unasked = std::mem::take(&mut plan.deferred);
+            unasked.extend_from_slice(&queue[chunk * BATCH + batch.len()..]);
+            return Walk {
+                outcome,
+                stopped: Some(Stopped::Refused {
+                    until: plan.refused_until,
+                }),
+                refused,
+                unasked,
+            };
         }
 
         if consecutive_failures >= MAX_CONSECUTIVE_FAILURES {
@@ -1595,6 +1674,11 @@ struct Plan {
     /// Asked, and the answer settled nothing. Counted against the track, so a
     /// track upstream never answers for eventually leaves the queue.
     attempted: Vec<String>,
+    /// Asked, and intervals.icu or the request budget refused. Owed, never
+    /// counted, and the walk stops once the batch is stored.
+    deferred: Vec<(String, String)>,
+    /// The latest time a deferral in this batch named, if any did.
+    refused_until: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 impl Plan {
@@ -1647,6 +1731,16 @@ impl Plan {
                 BACKFILL.failed.fetch_add(1, Ordering::Relaxed);
                 self.attempted.push(id);
                 // Upstream replied, so the connection is fine.
+                true
+            }
+            // A refusal says nothing about the track or the connection. It
+            // is owed, and the walk stops after this batch.
+            Fetched::Failed(e) if e.is_refusal() => {
+                if let NetError::Deferred { until } = e {
+                    self.refused_until = Some(self.refused_until.map_or(until, |u| u.max(until)));
+                }
+                let sport = sport(&id);
+                self.deferred.push((id, sport));
                 true
             }
             Fetched::Failed(e) => {
@@ -2049,12 +2143,16 @@ fn resolve_sources_with(
 
         let mut answered = Vec::new();
         let mut attempted = Vec::new();
+        let mut refused = false;
         for (id, result) in fetched {
             match result {
                 Fetched::Altitudes(altitudes, series) => {
                     consecutive_failures = 0;
                     answered.push((id, altitudes, series));
                 }
+                // Owed and never counted against the track, and the walk
+                // stops once this batch is settled.
+                Fetched::Failed(e) if e.is_refusal() => refused = true,
                 Fetched::Failed(e) if is_connectivity(&e) => {
                     consecutive_failures += 1;
                 }
@@ -2083,7 +2181,7 @@ fn resolve_sources_with(
             }
         });
 
-        if consecutive_failures >= MAX_CONSECUTIVE_FAILURES {
+        if refused || consecutive_failures >= MAX_CONSECUTIVE_FAILURES {
             walk.stopped = true;
             return walk;
         }
@@ -2364,15 +2462,6 @@ mod tests {
         seeded_global_engine, serial_global_state,
     };
     use tempfile::TempDir;
-
-    /// Expected behaviour: a request the budget held back is asked again, not
-    /// left for the next run as though upstream had answered for the track.
-    #[test]
-    fn a_deferral_is_asked_again_rather_than_held_against_the_track() {
-        assert!(is_connectivity(&NetError::Deferred {
-            until: chrono::Utc::now(),
-        }));
-    }
 
     /// A restore lands while a pass is splicing. The batch finishes and writes
     /// elevation computed from the old library's tracks into the restored
@@ -3311,6 +3400,72 @@ mod tests {
                 elapsed >= 2 * pacing::GAP,
                 "two boundaries, each held for the gap, took only {elapsed:?}"
             );
+        }
+
+        /// Scenario: intervals.icu refuses the walk's first batch, or the
+        /// budget defers it.
+        ///
+        /// Expected behaviour: the refusal speaks for the rest of the queue,
+        /// so the walk stops as it does offline. The refused tracks stay owed
+        /// unasked, none of them counts toward the failures in a row or the
+        /// pass's failures, and the stop carries when it lifts.
+        #[test]
+        fn a_refused_batch_stops_the_walk_and_counts_nothing() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+            let until = chrono::Utc::now() + chrono::TimeDelta::minutes(10);
+
+            let mut asked = 0usize;
+            let walk = drain_queue_with(engine_install(), &queue(3 * BATCH), true, |ids, _ask| {
+                asked += ids.len();
+                ids.iter()
+                    .map(|id| (id.clone(), Fetched::Failed(NetError::Deferred { until })))
+                    .collect()
+            });
+
+            assert_eq!(asked, BATCH);
+            assert!(
+                matches!(walk.stopped, Some(Stopped::Refused { until: Some(u) }) if u == until),
+                "the walk did not stop on the refusal"
+            );
+            assert!(walk.refused.is_empty(), "a refused track was re-asked");
+            assert_eq!(
+                walk.unasked.len(),
+                3 * BATCH,
+                "the whole queue is still owed"
+            );
+            assert_eq!(walk.outcome.failed, 0);
+        }
+
+        /// Expected behaviour: the tracks a batch answered before the refusal
+        /// are kept, and only the refused ones and those behind them stay
+        /// owed.
+        #[test]
+        fn a_batch_refused_part_way_keeps_what_was_answered() {
+            let _serial = serial_global_state();
+            connectivity::reset();
+
+            let walk = drain_queue_with(engine_install(), &queue(2 * BATCH), true, |ids, _ask| {
+                ids.iter()
+                    .enumerate()
+                    .map(|(i, id)| {
+                        let fetched = if i < 5 {
+                            Fetched::NoAltitude
+                        } else {
+                            Fetched::Failed(NetError::RateLimited)
+                        };
+                        (id.clone(), fetched)
+                    })
+                    .collect()
+            });
+
+            assert!(matches!(
+                walk.stopped,
+                Some(Stopped::Refused { until: None })
+            ));
+            assert_eq!(walk.outcome.unavailable, 5);
+            assert_eq!(walk.unasked.len(), 2 * BATCH - 5);
+            assert_eq!(walk.outcome.failed, 0);
         }
 
         #[test]

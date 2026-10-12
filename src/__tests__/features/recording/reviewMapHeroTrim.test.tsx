@@ -45,7 +45,6 @@ const hero = (overrides: Record<string, unknown> = {}) =>
       totalPoints={121}
       onTrimChange={jest.fn()}
       onTrimCommit={jest.fn()}
-      onBack={jest.fn()}
       {...overrides}
     />
   );
@@ -56,24 +55,24 @@ beforeEach(() => {
 });
 
 describe('ReviewMapHero', () => {
-  it('draws the map at the released trim, not the one under the finger', () => {
-    hero();
+  it('draws the map at the released trim, not the one under the finger', async () => {
+    await hero();
 
     expect(mockRecordingMapProps).toHaveBeenCalledWith(
       expect.objectContaining({ trimStart: 0, trimEnd: 120 })
     );
   });
 
-  it('leaves the slider on the trim under the finger', () => {
-    hero();
+  it('leaves the slider on the trim under the finger', async () => {
+    await hero();
 
     expect(mockTrimSliderProps).toHaveBeenCalledWith(
       expect.objectContaining({ startIdx: 40, endIdx: 90 })
     );
   });
 
-  it('gives the map no trim at all when trimming is off', () => {
-    hero({ canTrim: false });
+  it('gives the map no trim at all when trimming is off', async () => {
+    await hero({ canTrim: false });
 
     expect(mockRecordingMapProps).toHaveBeenCalledWith(
       expect.objectContaining({ trimStart: undefined, trimEnd: undefined })
@@ -81,9 +80,9 @@ describe('ReviewMapHero', () => {
     expect(mockTrimSliderProps).not.toHaveBeenCalled();
   });
 
-  it('hands the slider a commit callback of its own', () => {
+  it('hands the slider a commit callback of its own', async () => {
     const onTrimCommit = jest.fn();
-    hero({ onTrimCommit });
+    await hero({ onTrimCommit });
 
     expect(mockTrimSliderProps).toHaveBeenCalledWith(expect.objectContaining({ onTrimCommit }));
   });

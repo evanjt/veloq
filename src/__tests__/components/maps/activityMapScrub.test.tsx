@@ -153,10 +153,10 @@ describe.each(['sections', 'charts'])('scrubbing the 2D activity map on %s', (ta
     </SafeAreaProvider>
   );
 
-  const scrub = (view: ReturnType<typeof render>) => {
+  const scrub = async (view: Awaited<ReturnType<typeof render>>) => {
     for (const index of TICKS) {
-      view.rerender(map(index));
-      act(() => {
+      await view.rerender(map(index));
+      await act(() => {
         jest.advanceTimersByTime(20);
       });
     }
@@ -168,36 +168,36 @@ describe.each(['sections', 'charts'])('scrubbing the 2D activity map on %s', (ta
     return page;
   };
 
-  it('builds the map fitted to the track, with the shared padding', () => {
-    render(map(null));
+  it('builds the map fitted to the track, with the shared padding', async () => {
+    await render(map(null));
 
     expect(surface().html).toHaveLength(1);
     expect(surface().html[0]).toContain(`_fitPadding = ${TRACK_FIT_PADDING}`);
   });
 
-  it('never fits the track a second time, on ready or on scrub', () => {
-    const view = render(map(0));
-    ready(surface());
-    scrub(view);
+  it('never fits the track a second time, on ready or on scrub', async () => {
+    const view = await render(map(0));
+    await ready(surface());
+    await scrub(view);
 
     expect(surface().injected.filter((s) => s.includes('fitBounds'))).toEqual([]);
     expect(surface().injected.filter((s) => /jumpTo|easeTo/.test(s))).toEqual([]);
   });
 
-  it('keeps the page it was built with', () => {
-    const view = render(map(0));
-    ready(surface());
-    scrub(view);
+  it('keeps the page it was built with', async () => {
+    const view = await render(map(0));
+    await ready(surface());
+    await scrub(view);
 
     expect(surface().html).toHaveLength(1);
   });
 
-  it('re-serialises only the highlight on each tick', () => {
-    const view = render(map(0));
-    ready(surface());
+  it('re-serialises only the highlight on each tick', async () => {
+    const view = await render(map(0));
+    await ready(surface());
     mockPatches.length = 0;
 
-    scrub(view);
+    await scrub(view);
 
     const sent = mockPatches.filter((p) => p.patch !== null);
     expect(sent.length).toBeGreaterThan(0);
@@ -209,24 +209,24 @@ describe.each(['sections', 'charts'])('scrubbing the 2D activity map on %s', (ta
     }
   });
 
-  it('serialises once per tick across the whole scrub', () => {
-    const view = render(map(0));
-    ready(surface());
+  it('serialises once per tick across the whole scrub', async () => {
+    const view = await render(map(0));
+    await ready(surface());
     mockPatches.length = 0;
 
-    scrub(view);
+    await scrub(view);
 
     expect(mockPatches.filter((p) => p.patch === null)).toEqual([]);
     expect(mockPatches.reduce((sum, p) => sum + p.serialised, 0)).toBe(TICKS.length);
   });
 
-  it('sends the layer list again only when the highlight appears or goes', () => {
-    const view = render(map(null));
-    ready(surface());
+  it('sends the layer list again only when the highlight appears or goes', async () => {
+    const view = await render(map(null));
+    await ready(surface());
     mockPatches.length = 0;
 
-    view.rerender(map(3));
-    act(() => {
+    await view.rerender(map(3));
+    await act(() => {
       jest.advanceTimersByTime(20);
     });
 
@@ -274,16 +274,16 @@ describe('scrubbing the chart on the charts tab', () => {
     </SafeAreaProvider>
   );
 
-  it('re-serialises only the highlight, through the header', () => {
-    const view = render(header(0));
+  it('re-serialises only the highlight, through the header', async () => {
+    const view = await render(header(0));
     const page = mockPages.get('maplibre-map');
     if (!page) throw new Error('the 2D surface did not mount');
-    ready(page);
+    await ready(page);
     mockPatches.length = 0;
 
     for (const index of TICKS) {
-      view.rerender(header(index));
-      act(() => {
+      await view.rerender(header(index));
+      await act(() => {
         jest.advanceTimersByTime(20);
       });
     }
@@ -314,19 +314,19 @@ describe('the activity map in 3D', () => {
     </SafeAreaProvider>
   );
 
-  it('sends the highlight only when the highlight moves', () => {
-    const view = render(map(3, null));
+  it('sends the highlight only when the highlight moves', async () => {
+    const view = await render(map(3, null));
     const page = mockPages.get('webview');
     if (!page) throw new Error('the 3D page did not mount');
-    ready(page);
-    act(() => {
+    await ready(page);
+    await act(() => {
       jest.advanceTimersByTime(100);
     });
     page.injected.length = 0;
 
     for (const selected of ['s1', null, 's1']) {
-      view.rerender(map(3, selected));
-      act(() => {
+      await view.rerender(map(3, selected));
+      await act(() => {
         jest.advanceTimersByTime(100);
       });
     }
@@ -342,16 +342,16 @@ describe('scrubbing the 3D activity map', () => {
     <Map3DWebView coordinates={COORDS} mapStyle="light" highlightCoordinate={highlightCoordinate} />
   );
 
-  it('keeps the page and moves the highlight by injected script', () => {
-    const view = render(terrain(null));
+  it('keeps the page and moves the highlight by injected script', async () => {
+    const view = await render(terrain(null));
     const page = mockPages.get('webview');
     if (!page) throw new Error('the 3D page did not mount');
-    ready(page);
+    await ready(page);
     page.injected.length = 0;
 
     for (const coordinate of COORDS.slice(0, 6)) {
-      view.rerender(terrain(coordinate));
-      act(() => {
+      await view.rerender(terrain(coordinate));
+      await act(() => {
         jest.advanceTimersByTime(40);
       });
     }

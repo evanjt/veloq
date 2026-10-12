@@ -44,8 +44,8 @@ describe('the Insights explanation card', () => {
     ['with cards', { insights: [insight] }],
     ['with none yet', { insights: [] }],
     ['after a failure', { insights: [], failed: true, onRetry: jest.fn() }],
-  ])('closes the panel %s', (_label, props) => {
-    render(<InsightsPanel {...props} />);
+  ])('closes the panel %s', async (_label, props) => {
+    await render(<InsightsPanel {...props} />);
 
     const card = screen.getByTestId('insights-explanation');
     expect(within(card).getByText('insights.explanation.title')).toBeTruthy();

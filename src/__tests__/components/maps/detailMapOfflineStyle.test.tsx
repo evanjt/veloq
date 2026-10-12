@@ -96,18 +96,18 @@ describe.each(Object.keys(views))('%s detail map offline style', (name) => {
 
   const tree = () => <SafeAreaProvider initialMetrics={METRICS}>{views[name]()}</SafeAreaProvider>;
 
-  it('draws satellite online', () => {
-    render(tree());
+  it('draws satellite online', async () => {
+    await render(tree());
     expect(mockSurfaceStyles.at(-1)).toBe('satellite');
   });
 
-  it('draws the vector basemap offline and satellite on return', () => {
+  it('draws the vector basemap offline and satellite on return', async () => {
     mockOnline = false;
-    const { rerender } = render(tree());
+    const { rerender } = await render(tree());
     expect(mockSurfaceStyles.at(-1)).toBe('light');
 
     mockOnline = true;
-    rerender(tree());
+    await rerender(tree());
     expect(mockSurfaceStyles.at(-1)).toBe('satellite');
   });
 });

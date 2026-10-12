@@ -397,9 +397,9 @@ describe('a ride with paired sensors and the radio off', () => {
     await manager.connectKnownSensors();
     await settle();
 
-    const { result, unmount } = renderHook(() => useSensorIssue());
+    const { result, unmount } = await renderHook(() => useSensorIssue());
     expect(result.current).toBe('sensors.title: sensors.issue.bluetoothOff');
-    unmount();
+    await unmount();
   });
 
   it('does not retry while the radio is off, and reconnects when it comes on', async () => {
@@ -434,9 +434,9 @@ describe('a ride with paired sensors and the radio off', () => {
     androidAnswers(DENIED, DENIED);
     await manager.requestBlePermissions();
 
-    const { result, unmount } = renderHook(() => useSensorIssue());
+    const { result, unmount } = await renderHook(() => useSensorIssue());
     expect(result.current).toBe('sensors.title: sensors.issue.permission');
-    unmount();
+    await unmount();
   });
 
   it('says nothing about the radio when no sensor is paired', async () => {
@@ -446,8 +446,8 @@ describe('a ride with paired sensors and the radio off', () => {
     emitAdapter('PoweredOff');
     await scan;
 
-    const { result, unmount } = renderHook(() => useSensorIssue());
+    const { result, unmount } = await renderHook(() => useSensorIssue());
     expect(result.current).toBeNull();
-    unmount();
+    await unmount();
   });
 });

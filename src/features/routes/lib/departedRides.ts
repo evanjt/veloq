@@ -1,7 +1,7 @@
-import { Alert } from 'react-native';
 import type { TFunction } from 'i18next';
 import type { FfiDepartedRide } from 'veloqrs';
 import { formatShortDate } from '@/shared/format';
+import { inform } from '@/shared/ui/dialog';
 
 /**
  * One line per ride a section edit took out of the section, named by the
@@ -20,5 +20,5 @@ export function departedRideLines(rides: readonly FfiDepartedRide[], t: TFunctio
 export function announceDepartedRides(rides: readonly FfiDepartedRide[], t: TFunction): void {
   const lines = departedRideLines(rides, t);
   if (lines.length === 0) return;
-  Alert.alert(t('sections.ridesLeftTitle'), lines.join('\n'));
+  inform({ title: t('sections.ridesLeftTitle'), message: lines.join('\n') });
 }

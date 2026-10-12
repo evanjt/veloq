@@ -11,6 +11,7 @@ import { renderHook } from '@testing-library/react-native';
 
 import { useSummaryCardData } from '@/features/home/hooks/useSummaryCardData';
 import { getEngine } from '@/shared/native/engine';
+import { ABSENT } from '@/shared/format/absent';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 
@@ -61,38 +62,44 @@ beforeEach(() => {
 });
 
 describe('the summary card while the startup bundle is outstanding', () => {
-  it('reports loading', () => {
-    const { result } = renderHook(() => useSummaryCardData(undefined, { awaitPrecomputed: true }));
+  it('reports loading', async () => {
+    const { result } = await renderHook(() =>
+      useSummaryCardData(undefined, { awaitPrecomputed: true })
+    );
 
     expect(result.current.isLoading).toBe(true);
   });
 
-  it('draws no hero number', () => {
-    const { result } = renderHook(() => useSummaryCardData(undefined, { awaitPrecomputed: true }));
+  it('draws no hero number', async () => {
+    const { result } = await renderHook(() =>
+      useSummaryCardData(undefined, { awaitPrecomputed: true })
+    );
 
-    expect(result.current.heroValue).toBe('-');
+    expect(result.current.heroValue).toBe(ABSENT);
     expect(result.current.heroTrend).toBeUndefined();
   });
 
-  it('draws no supporting number', () => {
-    const { result } = renderHook(() => useSummaryCardData(undefined, { awaitPrecomputed: true }));
+  it('draws no supporting number', async () => {
+    const { result } = await renderHook(() =>
+      useSummaryCardData(undefined, { awaitPrecomputed: true })
+    );
 
     expect(result.current.supportingMetrics.length).toBeGreaterThan(0);
     for (const metric of result.current.supportingMetrics) {
-      expect(metric.value).toBe('-');
+      expect(metric.value).toBe(ABSENT);
       expect(metric.trend).toBeUndefined();
     }
   });
 
-  it('draws the numbers once the bundle lands', () => {
-    const { result } = renderHook(() => useSummaryCardData(CARD, { awaitPrecomputed: true }));
+  it('draws the numbers once the bundle lands', async () => {
+    const { result } = await renderHook(() => useSummaryCardData(CARD, { awaitPrecomputed: true }));
 
     expect(result.current.isLoading).toBe(false);
-    expect(result.current.supportingMetrics.some((m) => m.value !== '-')).toBe(true);
+    expect(result.current.supportingMetrics.some((m) => m.value !== ABSENT)).toBe(true);
   });
 
-  it('leaves a caller with no bundle to wait for alone', () => {
-    const { result } = renderHook(() => useSummaryCardData());
+  it('leaves a caller with no bundle to wait for alone', async () => {
+    const { result } = await renderHook(() => useSummaryCardData());
 
     expect(result.current.isLoading).toBe(false);
   });

@@ -1,12 +1,10 @@
 import React from 'react';
-import { View, StyleSheet, Text } from 'react-native';
-import { useTheme } from '@/shared/app';
+import { View, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, typography } from '@/theme';
 import { HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
-import type { HrZoneBand } from 'veloqrs';
-import { formatHeartRate } from '@/shared/format/format';
-import { DEFAULT_MAX_HR } from '../lib/hrZones';
+import { MaxHrSource, type HrZoneBand } from 'veloqrs';
+import { EmptyState } from '@/shared/ui';
+import { formatHeartRateRange } from '@/shared/format/format';
 import { ZoneTimeCard } from './ZoneTimeCard';
 
 interface HRZonesChartProps {
@@ -14,27 +12,37 @@ interface HRZonesChartProps {
   hrZones?: HrZoneBand[] | undefined;
   /** The max HR from the detail screen read, the one the heart rate stat card divides by */
   maxHR?: number | undefined;
+  /** Where `maxHR` came from, from the same read */
+  maxHrSource?: MaxHrSource | undefined;
   movingTime: number;
 }
 
-export function HRZonesChart({ hrZones, maxHR: engineMaxHR, movingTime }: HRZonesChartProps) {
+export function HRZonesChart({ hrZones, maxHR, maxHrSource, movingTime }: HRZonesChartProps) {
   const { t } = useTranslation();
-  const { isDark } = useTheme();
 
   if (!hrZones || hrZones.length === 0) {
     return (
       <View style={styles.placeholder}>
-        <Text style={[styles.placeholderText, isDark && styles.textDark]}>
-          {t('activity.noHeartRateData')}
-        </Text>
+        <EmptyState variant="inline" title={t('activity.noHeartRateData')} />
       </View>
     );
+  }
+
+  let headerLabel: string | undefined;
+  let notes: string[] | undefined;
+  if (maxHR !== undefined && maxHrSource === MaxHrSource.ActivityZones) {
+    headerLabel = t('activity.zoneMaxFromActivity', { value: maxHR });
+  } else if (maxHR !== undefined && maxHrSource === MaxHrSource.SportSettings) {
+    headerLabel = t('activity.zoneMaxFromSettings', { value: maxHR });
+  } else if (maxHR !== undefined && maxHrSource === MaxHrSource.Default) {
+    notes = [t('activity.zoneMaxDefault', { value: maxHR }), t('activity.zoneMaxDefaultHint')];
   }
 
   return (
     <ZoneTimeCard
       title={t('activity.timeInHRZones')}
-      headerLabel={t('activity.maxHR', { value: engineMaxHR ?? DEFAULT_MAX_HR })}
+      headerLabel={headerLabel}
+      notes={notes}
       zoneTotalLabel={(duration) => t('activity.hrZoneTotal', { duration })}
       movingTime={movingTime}
       bands={hrZones.map((band) => ({
@@ -45,7 +53,7 @@ export function HRZonesChart({ hrZones, maxHR: engineMaxHR, movingTime }: HRZone
         percent: band.percent,
       }))}
       colours={HR_ZONE_COLORS}
-      formatEdge={formatHeartRate}
+      formatRange={formatHeartRateRange}
       chartName="Heart Rate Zones"
     />
   );
@@ -56,12 +64,5 @@ const styles = StyleSheet.create({
     minHeight: 100,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  placeholderText: {
-    fontSize: typography.bodyCompact.fontSize,
-    color: colors.textSecondary,
-  },
-  textDark: {
-    color: darkColors.textSecondary,
   },
 });

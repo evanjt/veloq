@@ -8,19 +8,17 @@ import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
-import { spacing, colors, darkColors, colorWithOpacity, layout, typography } from '@/theme';
+import { spacing, colors, colorWithOpacity, layout, typography, themePalette } from '@/theme';
 import { GrantAccessButton } from './GrantAccessButton';
 import { IconButton } from '@/shared/ui/IconButton';
 
 const AMBER_BG = colorWithOpacity(colors.warning, 0.12);
 const AMBER_BG_DARK = colorWithOpacity(colors.warning, 0.18);
-const AMBER_TEXT = colors.amberIcon;
-const AMBER_ACCENT = colors.warningAmber;
-const AMBER_ACCENT_DARK = darkColors.warningAmber;
 
 function PermissionUpgradeBannerInner() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const authMethod = useAuthStore((s) => s.authMethod);
   const hasWritePermission = useUploadPermissionStore((s) => s.hasWritePermission);
   const bannerDismissed = useUploadPermissionStore((s) => s.bannerDismissed);
@@ -40,9 +38,9 @@ function PermissionUpgradeBannerInner() {
           <MaterialCommunityIcons
             name="shield-lock-outline"
             size={18}
-            color={isDark ? AMBER_ACCENT_DARK : AMBER_ACCENT}
+            color={palette.warningAmber}
           />
-          <Text style={[styles.text, { color: AMBER_TEXT }]} numberOfLines={2}>
+          <Text style={[styles.text, { color: palette.amberIcon }]} numberOfLines={2}>
             {t('recording.permissionNeeded', 'Permission needed to upload activities')}
           </Text>
           <GrantAccessButton onPress={upgradePermissions} loading={isUpgrading} small />
@@ -51,11 +49,11 @@ function PermissionUpgradeBannerInner() {
             onPress={dismissBanner}
             accessibilityLabel={t('common.close', 'Close')}
           >
-            <MaterialCommunityIcons name="close" size={18} color={AMBER_TEXT} />
+            <MaterialCommunityIcons name="close" size={18} color={palette.amberIcon} />
           </IconButton>
         </View>
         {error ? (
-          <Text style={styles.errorText} numberOfLines={2}>
+          <Text style={[styles.errorText, { color: palette.errorDeep }]} numberOfLines={2}>
             {error}
           </Text>
         ) : null}
@@ -91,7 +89,6 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: typography.caption.fontSize,
-    color: colors.errorDeep,
     marginLeft: PERMISSION_ICON_WIDTH + spacing.sm,
   },
 });

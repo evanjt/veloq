@@ -96,7 +96,7 @@ describe('a sign-out that clears the data', () => {
 
 describe('who the app draws while signed out', () => {
   it('reads the profile while there is a credential', async () => {
-    const { result } = renderHook(() => useAthlete(), { wrapper });
+    const { result } = await renderHook(() => useAthlete(), { wrapper });
 
     await waitFor(() => expect(result.current.data?.name).toBe('Alex'));
     expect(engine.getAthleteProfile).toHaveBeenCalled();
@@ -105,7 +105,7 @@ describe('who the app draws while signed out', () => {
   it('asks the engine for nobody once the credential is gone', async () => {
     useAuthStore.setState({ isAuthenticated: false });
 
-    const { result } = renderHook(() => useAthlete(), { wrapper });
+    const { result } = await renderHook(() => useAthlete(), { wrapper });
 
     await waitFor(() => expect(result.current.fetchStatus).toBe('idle'));
     expect(engine.getAthleteProfile).not.toHaveBeenCalled();

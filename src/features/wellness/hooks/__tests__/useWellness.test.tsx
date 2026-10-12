@@ -94,7 +94,7 @@ describe('useWellness', () => {
     mockGetWellnessDays.mockReturnValue(stored());
     const client = newClient();
 
-    const { result } = renderHook(() => useWellness('7d'), { wrapper: wrapper(client) });
+    const { result } = await renderHook(() => useWellness('7d'), { wrapper: wrapper(client) });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     const key = queryKeys.wellness.byRange('7d', '2026-08-21', '2026-08-28');
@@ -107,14 +107,14 @@ describe('useWellness', () => {
     mockGetWellnessDays.mockReturnValue(stored(day('2026-08-28')));
     const client = newClient();
 
-    const first = renderHook(() => useWellness('7d'), { wrapper: wrapper(client) });
+    const first = await renderHook(() => useWellness('7d'), { wrapper: wrapper(client) });
     await waitFor(() => expect(first.result.current.isSuccess).toBe(true));
-    first.unmount();
+    await first.unmount();
 
     jest.setSystemTime(new Date('2026-08-29T09:00:00'));
     mockGetWellnessDays.mockReturnValue(stored(day('2026-08-29')));
 
-    const second = renderHook(() => useWellness('7d'), { wrapper: wrapper(client) });
+    const second = await renderHook(() => useWellness('7d'), { wrapper: wrapper(client) });
     // Yesterday's rows must not paint the chart while today's window loads.
     expect(second.result.current.data).toBeUndefined();
     await waitFor(() => expect(second.result.current.data?.[0].id).toBe('2026-08-29'));

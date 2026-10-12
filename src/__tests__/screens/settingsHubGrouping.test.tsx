@@ -95,8 +95,8 @@ function inRenderOrder(tree: unknown): string[] {
 }
 
 describe('Settings hub grouping', () => {
-  it('groups the rows by what the athlete is doing', () => {
-    const screen = render(<SettingsScreen />);
+  it('groups the rows by what the athlete is doing', async () => {
+    const screen = await render(<SettingsScreen />);
 
     expect(inRenderOrder(screen.toJSON())).toEqual([
       'settings-group-shows',
@@ -117,8 +117,8 @@ describe('Settings hub grouping', () => {
     ]);
   });
 
-  it('gives every spoke a subtitle, so a new row cannot arrive bare', () => {
-    const screen = render(<SettingsScreen />);
+  it('gives every spoke a subtitle, so a new row cannot arrive bare', async () => {
+    const screen = await render(<SettingsScreen />);
     // The footer link is not a spoke and carries no preference of its own.
     const spokes = inRenderOrder(screen.toJSON()).filter(
       (id) => id.startsWith('settings-nav-') && id !== 'settings-nav-data-sources'
@@ -131,8 +131,8 @@ describe('Settings hub grouping', () => {
     expect(bare).toEqual([]);
   });
 
-  it('ends the list at its own spacing, with no tab bar to clear on a stack screen', () => {
-    const screen = render(<SettingsScreen />);
+  it('ends the list at its own spacing, with no tab bar to clear on a stack screen', async () => {
+    const screen = await render(<SettingsScreen />);
     const content = screen.getByTestId('settings-scrollview').props.contentContainerStyle;
 
     expect(StyleSheet.flatten(content).paddingBottom).toBe(spacing.xl);

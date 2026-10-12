@@ -42,18 +42,65 @@ describe('the eFTP change badge', () => {
     await initialiseI18n('en-AU');
   });
 
-  it('colours a fall as negative', () => {
-    const { getByText } = render(<FTPTrendChart data={series} change={-12} changePercent={-4.6} />);
+  it('colours a fall as negative', async () => {
+    const { getByText } = await render(
+      <FTPTrendChart data={series} change={-12} changePercent={-4.6} />
+    );
     expect(badgeColor(getByText('▼ 12 W'))).toBe(verdictColor('negative', false));
   });
 
-  it('colours a rise as positive', () => {
-    const { getByText } = render(<FTPTrendChart data={series} change={12} changePercent={4.8} />);
+  it('colours a rise as positive', async () => {
+    const { getByText } = await render(
+      <FTPTrendChart data={series} change={12} changePercent={4.8} />
+    );
     expect(badgeColor(getByText('▲ 12 W'))).toBe(verdictColor('positive', false));
   });
 
-  it('shows a flat series as neutral with no arrow', () => {
-    const { getByText } = render(<FTPTrendChart data={series} change={0} changePercent={0} />);
+  it('shows a flat series as neutral with no arrow', async () => {
+    const { getByText } = await render(
+      <FTPTrendChart data={series} change={0} changePercent={0} />
+    );
     expect(badgeColor(getByText('0 W'))).toBe(verdictColor('neutral', false));
+  });
+
+  it('names the change for a screen reader with its judgement, not the triangle', async () => {
+    const rise = await render(<FTPTrendChart data={series} change={12} changePercent={4.8} />);
+    expect(rise.getByText('▲ 12 W').props.accessibilityLabel).toBe('improved, 12 W');
+    await rise.unmount();
+
+    const fall = await render(<FTPTrendChart data={series} change={-12} changePercent={-4.6} />);
+    expect(fall.getByText('▼ 12 W').props.accessibilityLabel).toBe('declined, 12 W');
+    await fall.unmount();
+
+    const flat = await render(<FTPTrendChart data={series} change={0} changePercent={0} />);
+    expect(flat.getByText('0 W').props.accessibilityLabel).toBe('no change, 0 W');
+  });
+});
+
+describe('the eFTP change caption', () => {
+  beforeAll(async () => {
+    await initialiseI18n('en-AU');
+  });
+
+  it('names the window the step was measured over, not the range the chart draws', async () => {
+    const { getByText, queryByText } = await render(
+      <FTPTrendChart data={series} change={5} changePercent={1.85} lookbackDays={30} />
+    );
+    expect(getByText('+1.9% from 30 days ago')).toBeTruthy();
+    expect(queryByText(/3 months/)).toBeNull();
+  });
+
+  it('pluralises a one-day window', async () => {
+    const { getByText } = await render(
+      <FTPTrendChart data={series} change={-2} changePercent={-0.8} lookbackDays={1} />
+    );
+    expect(getByText('-0.8% from 1 day ago')).toBeTruthy();
+  });
+
+  it('states no window when the engine named none', async () => {
+    const { queryByText } = await render(
+      <FTPTrendChart data={series} change={0} changePercent={0} lookbackDays={0} />
+    );
+    expect(queryByText(/ago/)).toBeNull();
   });
 });

@@ -7,13 +7,14 @@ import { Canvas, Group, Rect } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import { ChartCrosshair, useChartGestures } from '@/shared/charts';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, slopToMinTapTarget, typography } from '@/theme';
 import { sortByDateId } from '@/shared/activity/activityUtils';
 import { ACTIVITY_CATEGORIES, getActivityCategory } from '@/shared/activity/sportCategories';
 import type { DayLoad } from 'veloqrs';
 import type { Activity, ActivityType, WellnessData } from '@/types';
 import { stripMarks, stripKey, markFills } from '../lib/stripMarks';
 import { dayLoadReadout } from '../lib/dayLoadReadout';
+import { dayPillTone, groupColor } from '../lib/dayPillTone';
 import { formFromLoads } from '@/shared/math';
 import { pressable, pressRipple } from '@/shared/ui';
 
@@ -50,11 +51,6 @@ interface DotData {
   fitness: number;
   fatigue: number;
   form: number;
-}
-
-/** A sport group's colour, the one its map filter chip carries. */
-function groupColor(group: string): string {
-  return ACTIVITY_CATEGORIES[group]?.color ?? colors.textSecondary;
 }
 
 export const ActivityDotsChart = React.memo(function ActivityDotsChart({
@@ -301,9 +297,10 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
 
   // The pill takes the first activity's sport group colour, as its mark does.
   const firstActivity = displayActivities[0];
-  const activityPillColor = firstActivity
-    ? groupColor(getActivityCategory(firstActivity.type))
-    : colors.primary;
+  const pillTone = dayPillTone(
+    firstActivity ? getActivityCategory(firstActivity.type) : undefined,
+    isDark
+  );
 
   const mutedColor = isDark ? darkColors.textDisabled : colors.textDisabled;
   const keyTextStyle = [styles.keyText, isDark && styles.noActivityLabelDark];
@@ -324,25 +321,16 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
               getActivitySummary(displayActivities) ?? t('fitness.selectActivity')
             }
             onPress={handleActivityTap}
+            hitSlop={activityPillSlop}
             style={pressable()}
           >
             <View
               style={[
                 styles.activityPill,
-                {
-                  backgroundColor: `${activityPillColor}20`,
-                  borderColor: `${activityPillColor}40`,
-                },
-                isDark && {
-                  backgroundColor: `${activityPillColor}30`,
-                  borderColor: `${activityPillColor}50`,
-                },
+                { backgroundColor: pillTone.fill, borderColor: pillTone.border },
               ]}
             >
-              <Text
-                style={[styles.activityPillText, { color: activityPillColor }]}
-                numberOfLines={1}
-              >
+              <Text style={[styles.activityPillText, { color: pillTone.ink }]} numberOfLines={1}>
                 {getActivitySummary(displayActivities)} →
               </Text>
             </View>
@@ -358,7 +346,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
             style={[styles.dayLoad, isDark && styles.noActivityLabelDark]}
             numberOfLines={1}
           >
-            {t('fitness.trainingLoad')}{' '}
+            {t('metrics.trainingLoad')}{' '}
             {readout.total === null ? t('fitness.loadUnavailable') : readout.total}
             {readout.status === 'partial' ? ` ${t('fitness.loadPartial')}` : ''}
           </Text>
@@ -432,6 +420,11 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   );
 });
 
+// The row the selected activity's pill sits in, which the pill reaches past
+// through slop to the tap target.
+const LABEL_ROW_HEIGHT = 24;
+const activityPillSlop = slopToMinTapTarget(LABEL_ROW_HEIGHT);
+
 const styles = StyleSheet.create({
   container: {},
   stripTitle: {
@@ -466,7 +459,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   labelContainer: {
-    height: 24,
+    height: LABEL_ROW_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,

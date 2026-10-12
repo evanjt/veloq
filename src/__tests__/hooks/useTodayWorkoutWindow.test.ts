@@ -59,16 +59,16 @@ beforeEach(() => {
 });
 
 describe('the planned-workout window', () => {
-  it('reads a forward fortnight', () => {
-    renderHook(() => useTodayWorkout());
+  it('reads a forward fortnight', async () => {
+    await renderHook(() => useTodayWorkout());
 
     const [oldest, newest] = readWindows[0];
     const spanDays = (newest + 1 - oldest) / 86400;
     expect(spanDays).toBeCloseTo(15, 0);
   });
 
-  it('still picks today and tomorrow out of the wider window', () => {
-    const { result } = renderHook(() => useTodayWorkout());
+  it('still picks today and tomorrow out of the wider window', async () => {
+    const { result } = await renderHook(() => useTodayWorkout());
 
     expect(result.current.todayWorkout?.name).toBe('today');
     expect(result.current.tomorrowWorkout?.name).toBe('tomorrow');
@@ -78,15 +78,15 @@ describe('the planned-workout window', () => {
 describe.each(CLOCK_EDGES)('the planned-workout window on %s', (_name, at) => {
   beforeEach(() => jest.setSystemTime(at));
 
-  it('reads today through fourteen days on, by the local calendar', () => {
-    renderHook(() => useTodayWorkout());
+  it('reads today through fourteen days on, by the local calendar', async () => {
+    await renderHook(() => useTodayWorkout());
     const [oldest, newest] = readWindows[0];
     expect(oldest).toBe(Date.parse(`${localDay(at)}T00:00:00Z`) / 1000);
     expect(newest).toBe(Date.parse(`${localDay(at, 14)}T23:59:59Z`) / 1000);
   });
 
-  it('still picks today and tomorrow out of the window', () => {
-    const { result } = renderHook(() => useTodayWorkout());
+  it('still picks today and tomorrow out of the window', async () => {
+    const { result } = await renderHook(() => useTodayWorkout());
 
     expect(result.current.todayWorkout?.name).toBe('today');
     expect(result.current.tomorrowWorkout?.name).toBe('tomorrow');

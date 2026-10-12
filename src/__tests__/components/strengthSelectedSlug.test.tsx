@@ -45,8 +45,8 @@ beforeEach(() => {
 });
 
 describe('the body pair selection', () => {
-  it('strokes only the selected part', () => {
-    render(pair('chest'));
+  it('strokes only the selected part', async () => {
+    await render(pair('chest'));
 
     const last = received[received.length - 1]!;
     expect(last.find((p) => p.slug === 'chest')?.styles).toMatchObject({
@@ -55,17 +55,17 @@ describe('the body pair selection', () => {
     expect(last.find((p) => p.slug === 'biceps')?.styles).toBeUndefined();
   });
 
-  it('leaves the caller data untouched', () => {
-    render(pair('chest'));
+  it('leaves the caller data untouched', async () => {
+    await render(pair('chest'));
 
     expect((DATA[0] as { styles?: unknown }).styles).toBeUndefined();
   });
 
-  it('keeps an unselected part referentially stable across a scrub step', () => {
-    const tree = render(pair('chest'));
+  it('keeps an unselected part referentially stable across a scrub step', async () => {
+    const tree = await render(pair('chest'));
     const before = received[received.length - 1]!.find((p) => p.slug === 'abs');
 
-    tree.rerender(pair('biceps'));
+    await tree.rerender(pair('biceps'));
 
     const after = received[received.length - 1]!;
     expect(after.find((p) => p.slug === 'chest')?.styles).toBeUndefined();
@@ -73,8 +73,8 @@ describe('the body pair selection', () => {
     expect(after.find((p) => p.slug === 'abs')).toBe(before);
   });
 
-  it('draws nothing selected for a null selection', () => {
-    render(pair(null));
+  it('draws nothing selected for a null selection', async () => {
+    await render(pair(null));
 
     expect(received[received.length - 1]!.every((p) => p.styles === undefined)).toBe(true);
   });

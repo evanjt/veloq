@@ -23,8 +23,8 @@ import { CARD_HEIGHT, CARD_MARGIN } from '@/features/activity/lib/cardLayout';
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 
 describe('skeleton sizes', () => {
-  it('the activity card skeleton has the card height and margins', () => {
-    render(<ActivityCardSkeleton />);
+  it('the activity card skeleton has the card height and margins', async () => {
+    await render(<ActivityCardSkeleton />);
     const outer = StyleSheet.flatten(screen.getByTestId('activity-card-skeleton').props.style);
     const shimmer = StyleSheet.flatten(
       screen.getByTestId('activity-card-skeleton-fill').props.style
@@ -36,8 +36,8 @@ describe('skeleton sizes', () => {
     expect(CARD_HEIGHT).toBe(240);
   });
 
-  it('the row skeleton has the row padding, margins and preview size', () => {
-    render(<RowSkeleton />);
+  it('the row skeleton has the row padding, margins and preview size', async () => {
+    await render(<RowSkeleton />);
     const outer = StyleSheet.flatten(screen.getByTestId('row-skeleton').props.style);
     expect(outer.padding).toBe(ROW_PADDING);
     expect(outer.marginHorizontal).toBe(ROW_MARGIN_HORIZONTAL);

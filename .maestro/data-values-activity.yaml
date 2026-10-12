@@ -41,11 +41,10 @@ tags:
 - assertNotVisible:
     text: "Infinity"
 
-# Assert demo-test-0 fixture values are rendered (Ride: 45km, 1:30:00)
+# Assert demo-test-0 fixture values are rendered (Ride: 45km, 1:30:00). The strip is one
+# accessibility element, so iOS exposes it and not the values inside it.
 - assertVisible:
-    id: "activity-detail-distance"
-- assertVisible:
-    id: "activity-detail-duration"
+    id: "activity-detail-stats"
 
 - takeScreenshot: "screenshots/data-values-activity-initial"
 

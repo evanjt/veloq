@@ -3,11 +3,11 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert } from 'react-native';
 import { getEngine } from '@/shared/native/engine';
 import { useTranslation } from 'react-i18next';
 import type { FfiMergeOutcome, MergeDropped } from 'veloqrs';
 import { announceDepartedRides } from '../lib/departedRides';
+import { inform } from '@/shared/ui/dialog';
 
 interface UseMergeSectionsResult {
   /**
@@ -58,7 +58,7 @@ export function useMergeSections(): UseMergeSectionsResult {
       }
 
       if (!outcome) {
-        Alert.alert(t('common.error'), t('sections.mergeFailed'));
+        inform({ title: t('sections.mergeFailedTitle'), message: t('sections.mergeFailed') });
         return null;
       }
       announceDepartedRides(outcome.departed, t);

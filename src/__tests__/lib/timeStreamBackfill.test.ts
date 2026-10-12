@@ -154,7 +154,6 @@ describe('timeStreamsProgress', () => {
     expect(row).toMatchObject({ status: 'fetching', completed: 3, total: 7, percent: 50 });
     expect(row.message).toBe('cache.fetchingTimeStreams');
     expect(t).toHaveBeenCalledWith('cache.fetchingTimeStreams', {
-      percent: 50,
       completed: 3,
       total: 7,
     });

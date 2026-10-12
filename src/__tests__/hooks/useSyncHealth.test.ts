@@ -50,62 +50,62 @@ describe('useSyncHealth', () => {
     mockGetEngine.mockReturnValue({ setSetting } as unknown as ReturnType<typeof getEngine>);
   });
 
-  it('reports nothing for a null status', () => {
-    const { result } = renderHook(() => useSyncHealth());
+  it('reports nothing for a null status', async () => {
+    const { result } = await renderHook(() => useSyncHealth());
 
     expect(result.current.lastError).toBeNull();
     expect(result.current.lastSuccessAt).toBeNull();
   });
 
-  it('reports nothing for a status with no success time', () => {
+  it('reports nothing for a status with no success time', async () => {
     mockStatus = status(SyncState.Idle);
 
-    const { result } = renderHook(() => useSyncHealth());
+    const { result } = await renderHook(() => useSyncHealth());
 
     expect(result.current.lastSuccessAt).toBeNull();
   });
 
-  it('returns the engine time for a status first seen idle and never seen syncing', () => {
+  it('returns the engine time for a status first seen idle and never seen syncing', async () => {
     mockStatus = status(SyncState.Idle, { lastSuccessAt: '2026-08-01T10:00:00.000Z' });
 
-    const { result } = renderHook(() => useSyncHealth());
+    const { result } = await renderHook(() => useSyncHealth());
 
     expect(result.current.lastSuccessAt).toBe('2026-08-01T10:00:00.000Z');
   });
 
-  it('replaces the time when the next snapshot carries a newer one', () => {
+  it('replaces the time when the next snapshot carries a newer one', async () => {
     mockStatus = status(SyncState.Idle, { lastSuccessAt: '2026-08-01T10:00:00.000Z' });
-    const { result, rerender } = renderHook(() => useSyncHealth());
+    const { result, rerender } = await renderHook(() => useSyncHealth());
 
     mockStatus = status(SyncState.Idle, { lastSuccessAt: '2026-08-02T10:00:00.000Z' });
-    rerender(undefined);
+    await rerender(undefined);
 
     expect(result.current.lastSuccessAt).toBe('2026-08-02T10:00:00.000Z');
   });
 
-  it('writes nothing when a sync settles clean, with two instances mounted', () => {
-    const a = renderHook(() => useSyncHealth());
-    const b = renderHook(() => useSyncHealth());
+  it('writes nothing when a sync settles clean, with two instances mounted', async () => {
+    const a = await renderHook(() => useSyncHealth());
+    const b = await renderHook(() => useSyncHealth());
 
     mockStatus = status(SyncState.Syncing);
-    a.rerender(undefined);
-    b.rerender(undefined);
+    await a.rerender(undefined);
+    await b.rerender(undefined);
     mockStatus = status(SyncState.Idle, { lastSuccessAt: '2026-08-03T10:00:00.000Z' });
-    a.rerender(undefined);
-    b.rerender(undefined);
+    await a.rerender(undefined);
+    await b.rerender(undefined);
 
     expect(setSetting).not.toHaveBeenCalled();
     expect(a.result.current.lastSuccessAt).toBe('2026-08-03T10:00:00.000Z');
     expect(b.result.current.lastSuccessAt).toBe('2026-08-03T10:00:00.000Z');
   });
 
-  it('keeps the earlier success time while a failing sync reports its error', () => {
+  it('keeps the earlier success time while a failing sync reports its error', async () => {
     mockStatus = status(SyncState.Idle, {
       lastError: 'HTTP 503',
       lastSuccessAt: '2026-08-01T10:00:00.000Z',
     });
 
-    const { result } = renderHook(() => useSyncHealth());
+    const { result } = await renderHook(() => useSyncHealth());
 
     expect(result.current.lastError).toBe('HTTP 503');
     expect(result.current.lastSuccessAt).toBe('2026-08-01T10:00:00.000Z');

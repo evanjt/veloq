@@ -55,7 +55,7 @@ function engineWith(read: jest.Mock) {
 
 afterEach(() => mockGetEngine.mockReset());
 
-it('returns the thrown error with no bundle', () => {
+it('returns the thrown error with no bundle', async () => {
   const { engine } = engineWith(
     jest.fn(() => {
       throw lockFailed;
@@ -63,30 +63,30 @@ it('returns the thrown error with no bundle', () => {
   );
   mockGetEngine.mockReturnValue(engine);
 
-  const { result } = renderHook(() => useActivityDetailData('a1'));
+  const { result } = await renderHook(() => useActivityDetailData('a1'));
 
   expect(result.current.data).toBeNull();
   expect(result.current.error).toBe(lockFailed);
 });
 
-it('reports no error when the bundle reads', () => {
+it('reports no error when the bundle reads', async () => {
   const { engine } = engineWith(jest.fn(() => bundle));
   mockGetEngine.mockReturnValue(engine);
 
-  const { result } = renderHook(() => useActivityDetailData('a1'));
+  const { result } = await renderHook(() => useActivityDetailData('a1'));
 
   expect(result.current.data?.sectionCount).toBe(2);
   expect(result.current.error).toBeUndefined();
 });
 
-it('reports no error for a missing engine or activity', () => {
+it('reports no error for a missing engine or activity', async () => {
   mockGetEngine.mockReturnValue(null);
-  const { result } = renderHook(() => useActivityDetailData('a1'));
+  const { result } = await renderHook(() => useActivityDetailData('a1'));
   expect(result.current.data).toBeNull();
   expect(result.current.error).toBeUndefined();
 });
 
-it('clears the error when a retry reads', () => {
+it('clears the error when a retry reads', async () => {
   const read = jest
     .fn()
     .mockImplementationOnce(() => {
@@ -96,16 +96,16 @@ it('clears the error when a retry reads', () => {
   const { engine } = engineWith(read);
   mockGetEngine.mockReturnValue(engine);
 
-  const { result } = renderHook(() => useActivityDetailData('a1'));
+  const { result } = await renderHook(() => useActivityDetailData('a1'));
   expect(result.current.error).toBe(lockFailed);
 
-  act(() => result.current.refresh());
+  await act(() => result.current.refresh());
 
   expect(result.current.error).toBeUndefined();
   expect(result.current.data?.sectionCount).toBe(2);
 });
 
-it('keeps the bundle and reports the error when a refresh throws', () => {
+it('keeps the bundle and reports the error when a refresh throws', async () => {
   const read = jest
     .fn()
     .mockImplementationOnce(() => bundle)
@@ -115,8 +115,8 @@ it('keeps the bundle and reports the error when a refresh throws', () => {
   const { engine } = engineWith(read);
   mockGetEngine.mockReturnValue(engine);
 
-  const { result } = renderHook(() => useActivityDetailData('a1'));
-  act(() => result.current.refresh());
+  const { result } = await renderHook(() => useActivityDetailData('a1'));
+  await act(() => result.current.refresh());
 
   expect(result.current.data?.sectionCount).toBe(2);
   expect(result.current.error).toBe(lockFailed);

@@ -2,7 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { POWER_ZONE_COLORS } from '@/shared/app/useSportSettings';
 import type { PowerZoneBand } from 'veloqrs';
-import { formatPower } from '@/shared/format/format';
+import { formatPower, formatPowerRange } from '@/shared/format/format';
 import { ZoneTimeCard } from './ZoneTimeCard';
 
 interface PowerZonesChartProps {
@@ -30,7 +30,7 @@ export function PowerZonesChart({ powerZones, ftp, movingTime }: PowerZonesChart
         percent: band.percent,
       }))}
       colours={POWER_ZONE_COLORS}
-      formatEdge={formatPower}
+      formatRange={formatPowerRange}
       chartName="Power Zones"
     />
   );

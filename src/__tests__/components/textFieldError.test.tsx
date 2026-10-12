@@ -14,7 +14,7 @@ import type { ReactTestInstance } from 'react-test-renderer';
 
 import { TextField } from '@/shared/ui/TextField';
 
-jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
+jest.mock('@/shared/app/useTheme', () => ({ useTheme: () => ({ isDark: false }) }));
 
 const originalOS = Platform.OS;
 let announce: jest.SpyInstance;
@@ -48,45 +48,45 @@ function Field({ error, unit }: { error?: string | null; unit?: string }) {
   );
 }
 
-it('names the field by its label and unit', () => {
-  const view = render(<Field unit="litres" />);
+it('names the field by its label and unit', async () => {
+  const view = await render(<Field unit="litres" />);
   const input = view.getByTestId('tank-volume');
   expect(input.props.accessibilityLabel).toContain('Tank volume');
   expect(input.props.accessibilityLabel).toContain('litres');
   expect(view.getByText('litres', { includeHiddenElements: true })).toBeTruthy();
 });
 
-it('names the field by its label alone when it has no unit', () => {
-  const view = render(<Field />);
+it('names the field by its label alone when it has no unit', async () => {
+  const view = await render(<Field />);
   expect(view.getByTestId('tank-volume').props.accessibilityLabel).toBe('Tank volume');
 });
 
-it('renders no error line while the value is accepted', () => {
-  const view = render(<Field />);
+it('renders no error line while the value is accepted', async () => {
+  const view = await render(<Field />);
   expect(view.queryByTestId('tank-volume-error')).toBeNull();
 });
 
-it('puts the error under the field in a polite live region', () => {
+it('puts the error under the field in a polite live region', async () => {
   Platform.OS = 'android';
-  const view = render(<Field error="Enter a volume above 0." />);
+  const view = await render(<Field error="Enter a volume above 0." />);
   const error = view.getByTestId('tank-volume-error');
   expect(error).toHaveTextContent('Enter a volume above 0.');
   expect(liveRegionOf(error)).toBe('polite');
 });
 
-it('announces the error on iOS, once per new message', () => {
+it('announces the error on iOS, once per new message', async () => {
   Platform.OS = 'ios';
-  const view = render(<Field />);
+  const view = await render(<Field />);
   expect(announce).not.toHaveBeenCalled();
-  view.rerender(<Field error="Enter a volume above 0." />);
+  await view.rerender(<Field error="Enter a volume above 0." />);
   expect(announce).toHaveBeenCalledWith('Enter a volume above 0.');
-  view.rerender(<Field error="Enter a volume above 0." />);
+  await view.rerender(<Field error="Enter a volume above 0." />);
   expect(announce).toHaveBeenCalledTimes(1);
-  view.rerender(<Field error="Enter a whole number." />);
+  await view.rerender(<Field error="Enter a whole number." />);
   expect(announce).toHaveBeenLastCalledWith('Enter a whole number.');
 });
 
-it('keeps the error on the field a screen reader is focused on', () => {
-  const view = render(<Field error="Enter a volume above 0." />);
+it('keeps the error on the field a screen reader is focused on', async () => {
+  const view = await render(<Field error="Enter a volume above 0." />);
   expect(view.getByTestId('tank-volume').props.accessibilityHint).toBe('Enter a volume above 0.');
 });

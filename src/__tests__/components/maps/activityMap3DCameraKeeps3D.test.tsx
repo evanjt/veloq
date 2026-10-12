@@ -135,14 +135,14 @@ function Screen({
   );
 }
 
-const post = (message: Record<string, unknown>) => {
+const post = async (message: Record<string, unknown>) => {
   const page = mockPages.get('webview');
   if (!page) throw new Error('the 3D page did not mount');
-  act(() => page.onMessage({ nativeEvent: { data: JSON.stringify(message) } }));
+  await act(() => page.onMessage({ nativeEvent: { data: JSON.stringify(message) } }));
 };
 
 async function open3D() {
-  const view = render(
+  const view = await render(
     <SafeAreaProvider initialMetrics={METRICS}>
       <MapPreferencesProvider>
         <Screen
@@ -155,13 +155,13 @@ async function open3D() {
     </SafeAreaProvider>
   );
   await waitFor(() => expect(prefs.isLoaded).toBe(true));
-  post({ type: 'mapReady' });
+  await post({ type: 'mapReady' });
   return view;
 }
 
 async function leave3D(view: Awaited<ReturnType<typeof open3D>>) {
   await act(async () => {
-    fireEvent.press(view.getByTestId('activity-map-3d-toggle'));
+    await fireEvent.press(view.getByTestId('activity-map-3d-toggle'));
   });
 }
 
@@ -183,7 +183,7 @@ describe('saving a 3D camera angle', () => {
 
   it('keeps the activity a 3D render drawn from the saved angle', async () => {
     const view = await open3D();
-    post({ type: 'cameraState', camera: ATHLETE_CAMERA, gesture: true });
+    await post({ type: 'cameraState', camera: ATHLETE_CAMERA, gesture: true });
 
     await leave3D(view);
 
@@ -194,7 +194,7 @@ describe('saving a 3D camera angle', () => {
 
   it('turns 3D off when the camera was never moved', async () => {
     const view = await open3D();
-    post({ type: 'cameraState', camera: ATHLETE_CAMERA, gesture: false });
+    await post({ type: 'cameraState', camera: ATHLETE_CAMERA, gesture: false });
 
     await leave3D(view);
 
@@ -205,7 +205,7 @@ describe('saving a 3D camera angle', () => {
   it('undo puts back the mode and the angle the activity had', async () => {
     await setCameraOverride(ACTIVITY_ID, EARLIER_CAMERA);
     const view = await open3D();
-    post({ type: 'cameraState', camera: ATHLETE_CAMERA, gesture: true });
+    await post({ type: 'cameraState', camera: ATHLETE_CAMERA, gesture: true });
     await leave3D(view);
 
     await act(async () => undo());
@@ -220,7 +220,7 @@ describe('saving a 3D camera angle', () => {
     await act(async () => {
       await prefs.setActivityOverride(ACTIVITY_ID, { terrain3D: true });
     });
-    post({ type: 'cameraState', camera: ATHLETE_CAMERA, gesture: true });
+    await post({ type: 'cameraState', camera: ATHLETE_CAMERA, gesture: true });
     await leave3D(view);
 
     await act(async () => undo());
@@ -231,7 +231,7 @@ describe('saving a 3D camera angle', () => {
 
   it('resetting the activity map forgets the saved angle with the mode', async () => {
     const view = await open3D();
-    post({ type: 'cameraState', camera: ATHLETE_CAMERA, gesture: true });
+    await post({ type: 'cameraState', camera: ATHLETE_CAMERA, gesture: true });
     await leave3D(view);
 
     await act(async () => {

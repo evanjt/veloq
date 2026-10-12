@@ -1,16 +1,16 @@
 import React, { useCallback } from 'react';
-import { View, StyleSheet, Pressable, Switch } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import {
   ListSectionHeader,
+  Row,
   ScreenSafeAreaView,
   ScreenScrollView,
+  SwitchRow,
   useTabBarClearance,
 } from '@/shared/ui';
 import { ToggleButton } from '@/shared/ui/Button';
 import { Stepper, type StepperScale } from '@/shared/ui/Stepper';
-import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import {
@@ -20,15 +20,20 @@ import {
   formatElevation,
   formatSpeed,
 } from '@/shared/format/format';
-import { colors, colorWithOpacity, darkColors, spacing, layout, typography, brand } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { tapTo } from '@/shared/app/navigation';
 import {
   ACCURACY_REJECT_BOUNDS_M,
+  ALL_DATA_FIELDS,
   AUTO_PAUSE_DURATION_BOUNDS_MS,
   AUTO_PAUSE_THRESHOLD_BOUNDS_KMH,
+  fieldsForMode,
   useRecordingPreferences,
   type GpsAccuracyMode,
 } from '@/features/recording';
+import { useSheetOpener } from '@/shared/app/sheetRequest';
+import type { FieldPickerSheetInput } from '@/app/sheets/field-picker';
+import { SettingsNavRow } from '@/features/settings';
 import { DEFAULT_AUTO_PAUSE_KMH, type SportCategory } from '@/shared/recording';
 import type { DataFieldType } from '@/types';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
@@ -66,24 +71,6 @@ const SPORT_THRESHOLDS: {
     labelKey: 'recording.settingsAutoPauseWalkingAndOther',
     fallback: 'Walking and other sports',
   },
-];
-
-const ALL_DATA_FIELDS: DataFieldType[] = [
-  'speed',
-  'avgSpeed',
-  'distance',
-  'heartrate',
-  'power',
-  'cadence',
-  'elevation',
-  'elevationGain',
-  'pace',
-  'avgPace',
-  'timer',
-  'movingTime',
-  'lapTime',
-  'lapDistance',
-  'calories',
 ];
 
 const FIELD_MODES = ['gps', 'indoor'] as const;
@@ -157,7 +144,7 @@ function RecordingSettingsScreenContent() {
   const unitSystem = isMetric ? 'metric' : 'imperial';
 
   const handleToggleField = useCallback((mode: string, field: DataFieldType) => {
-    const current = useRecordingPreferences.getState().dataFields[mode] ?? [];
+    const current = fieldsForMode(useRecordingPreferences.getState().dataFields, mode);
     const isSelected = current.includes(field);
     let updated: DataFieldType[];
     if (isSelected) {
@@ -169,6 +156,22 @@ function RecordingSettingsScreenContent() {
     }
     useRecordingPreferences.getState().setDataFields(mode, updated);
   }, []);
+
+  // The same picker and the same write as a hold on a live tile, so the order can
+  // be set by someone who never finds the hold.
+  const openSheet = useSheetOpener();
+  const handleEditTile = useCallback(
+    async (mode: string, index: number) => {
+      const current = fieldsForMode(useRecordingPreferences.getState().dataFields, mode);
+      const result = await openSheet<FieldPickerSheetInput, DataFieldType>('sheets/field-picker', {
+        selectedField: current[index] ?? null,
+      });
+      if (result.kind === 'selected') {
+        useRecordingPreferences.getState().setSlotField(mode, index, result.value);
+      }
+    },
+    [openSheet]
+  );
 
   return (
     <ScreenSafeAreaView
@@ -185,51 +188,31 @@ function RecordingSettingsScreenContent() {
             {t('recording.settingsUpload', 'Upload')}
           </ListSectionHeader>
           <View style={[styles.card, { backgroundColor: surface, borderColor: border }]}>
-            <View style={styles.switchRow}>
-              <View style={styles.switchLabelBlock}>
-                <Text style={[styles.rowLabel, { color: textPrimary }]}>
-                  {t('recording.autoUpload', 'Auto-upload')}
-                </Text>
-                <Text style={[styles.rowDescription, { color: textSecondary }]}>
-                  {t(
-                    'recording.autoUploadDescription',
-                    'Upload recordings to intervals.icu automatically when you save them. Off keeps them on this device until you upload from My Recordings.'
-                  )}
-                </Text>
-              </View>
-              <Switch
-                testID="settings-auto-upload"
-                value={autoUploadEnabled}
-                onValueChange={handleToggleAutoUpload}
-                trackColor={{
-                  false: colors.iconNeutral,
-                  true: colorWithOpacity(brand.teal, 0.38),
-                }}
-                thumbColor={autoUploadEnabled ? brand.teal : colors.background}
-              />
-            </View>
+            <SwitchRow
+              inset="none"
+              title={t('recording.autoUpload', 'Auto-upload')}
+              description={t(
+                'recording.autoUploadDescription',
+                'Upload recordings to intervals.icu automatically when you save them. Off keeps them on this device until you upload from My Recordings.'
+              )}
+              value={autoUploadEnabled}
+              onValueChange={handleToggleAutoUpload}
+              testID="settings-auto-upload"
+            />
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('recording.library.title', 'My Recordings')}
-            testID="settings-recordings-link"
-            style={pressable([
+          <View
+            style={[
               styles.linkCard,
-              {
-                backgroundColor: surface,
-                borderColor: border,
-                marginTop: spacing.sm,
-              },
-            ])}
-            android_ripple={pressRipple}
-            onPress={() => tapTo('/recordings')}
+              { backgroundColor: surface, borderColor: border, marginTop: spacing.sm },
+            ]}
           >
-            <MaterialCommunityIcons name="folder-play-outline" size={20} color={textSecondary} />
-            <Text style={[styles.linkText, { color: textPrimary }]}>
-              {t('recording.library.title', 'My Recordings')}
-            </Text>
-            <MaterialCommunityIcons name="chevron-right" size={20} color={textSecondary} />
-          </Pressable>
+            <SettingsNavRow
+              testID="settings-recordings-link"
+              icon="folder-play-outline"
+              title={t('recording.library.title', 'My Recordings')}
+              onPress={() => tapTo('/recordings')}
+            />
+          </View>
         </View>
 
         {/* GPS & Battery Section */}
@@ -288,27 +271,17 @@ function RecordingSettingsScreenContent() {
               />
             </View>
 
-            <View style={[styles.thresholdRow, { borderTopColor: border }]}>
-              <View style={styles.switchLabelBlock}>
-                <Text style={[styles.thresholdLabel, { color: textPrimary }]}>
-                  {t('recording.keepAwake', 'Keep screen awake')}
-                </Text>
-                <Text style={[styles.rowDescription, { color: textSecondary }]}>
-                  {t(
-                    'recording.keepAwakeDescription',
-                    'Prevent the screen from sleeping during recording.'
-                  )}
-                </Text>
-              </View>
-              <Switch
-                testID="settings-keep-awake"
+            <View style={[styles.dividedRow, { borderTopColor: border }]}>
+              <SwitchRow
+                inset="none"
+                title={t('recording.keepAwake', 'Keep screen awake')}
+                description={t(
+                  'recording.keepAwakeDescription',
+                  'Prevent the screen from sleeping during recording.'
+                )}
                 value={keepAwakeEnabled}
                 onValueChange={handleToggleKeepAwake}
-                trackColor={{
-                  false: colors.iconNeutral,
-                  true: colorWithOpacity(brand.teal, 0.38),
-                }}
-                thumbColor={keepAwakeEnabled ? brand.teal : colors.background}
+                testID="settings-keep-awake"
               />
             </View>
           </View>
@@ -319,21 +292,13 @@ function RecordingSettingsScreenContent() {
           <ListSectionHeader inset={false}>{t('recording.settingsAutoPause')}</ListSectionHeader>
 
           <View style={[styles.card, { backgroundColor: surface, borderColor: border }]}>
-            <View style={styles.switchRow}>
-              <Text style={[styles.rowLabel, { color: textPrimary }]}>
-                {t('recording.settingsAutoPause')}
-              </Text>
-              <Switch
-                testID="settings-auto-pause"
-                value={autoPauseEnabled}
-                onValueChange={handleToggleAutoPause}
-                trackColor={{
-                  false: colors.iconNeutral,
-                  true: colorWithOpacity(brand.teal, 0.38),
-                }}
-                thumbColor={autoPauseEnabled ? brand.teal : colors.background}
-              />
-            </View>
+            <SwitchRow
+              inset="none"
+              title={t('recording.settingsAutoPause')}
+              value={autoPauseEnabled}
+              onValueChange={handleToggleAutoPause}
+              testID="settings-auto-pause"
+            />
 
             {autoPauseEnabled && (
               <View style={styles.thresholdList}>
@@ -396,7 +361,7 @@ function RecordingSettingsScreenContent() {
           <ListSectionHeader inset={false}>{t('recording.settingsDataFields')}</ListSectionHeader>
 
           {FIELD_MODES.map((mode) => {
-            const selectedFields = dataFields[mode] ?? [];
+            const selectedFields = fieldsForMode(dataFields, mode);
             return (
               <View
                 key={mode}
@@ -426,6 +391,34 @@ function RecordingSettingsScreenContent() {
                     );
                   })}
                 </View>
+                <Text style={[styles.tileOrderTitle, { color: textPrimary }]}>
+                  {t('recording.tileOrder')}
+                </Text>
+                <Text style={[styles.rowDescription, { color: textSecondary }]}>
+                  {t('recording.tileOrderDescription')}
+                </Text>
+                <View style={styles.tileOrderList}>
+                  {selectedFields.map((field, index) => {
+                    const fieldLabel = t(`recording.fields.${field}`);
+                    return (
+                      <Row
+                        key={field}
+                        testID={`settings-tile-${mode}-${index}`}
+                        behaviour="navigate"
+                        accessibilityLabel={t('recording.tileSlotLabel', {
+                          number: index + 1,
+                          field: fieldLabel,
+                        })}
+                        onPress={() => handleEditTile(mode, index)}
+                      >
+                        <Text style={[styles.tileNumber, { color: textSecondary }]}>
+                          {index + 1}
+                        </Text>
+                        <Text style={[styles.linkText, { color: textPrimary }]}>{fieldLabel}</Text>
+                      </Row>
+                    );
+                  })}
+                </View>
               </View>
             );
           })}
@@ -434,36 +427,26 @@ function RecordingSettingsScreenContent() {
         {/* Sensors Link */}
         <View style={styles.section}>
           <ListSectionHeader inset={false}>{t('sensors.title', 'Sensors')}</ListSectionHeader>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('sensors.manageSensors', 'Heart rate, power & cadence sensors')}
-            testID="settings-sensors-link"
-            style={pressable([styles.linkCard, { backgroundColor: surface, borderColor: border }])}
-            android_ripple={pressRipple}
-            onPress={() => tapTo('/sensor-settings')}
-          >
-            <MaterialCommunityIcons name="bluetooth" size={20} color={textSecondary} />
-            <Text style={[styles.linkText, { color: textPrimary }]}>
-              {t('sensors.manageSensors', 'Heart rate, power & cadence sensors')}
-            </Text>
-            <MaterialCommunityIcons name="chevron-right" size={20} color={textSecondary} />
-          </Pressable>
+          <View style={[styles.linkCard, { backgroundColor: surface, borderColor: border }]}>
+            <SettingsNavRow
+              testID="settings-sensors-link"
+              icon="bluetooth"
+              title={t('sensors.manageSensors', 'Heart rate, power & cadence sensors')}
+              onPress={() => tapTo('/sensor-settings')}
+            />
+          </View>
         </View>
 
         {/* Units Link */}
         <View style={styles.section}>
           <ListSectionHeader inset={false}>{t('recording.settingsUnits')}</ListSectionHeader>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t('settings.units')}
-            style={pressable([styles.linkCard, { backgroundColor: surface, borderColor: border }])}
-            android_ripple={pressRipple}
-            onPress={() => tapTo('/display-settings')}
-          >
-            <MaterialCommunityIcons name="ruler" size={20} color={textSecondary} />
-            <Text style={[styles.linkText, { color: textPrimary }]}>{t('settings.units')}</Text>
-            <MaterialCommunityIcons name="chevron-right" size={20} color={textSecondary} />
-          </Pressable>
+          <View style={[styles.linkCard, { backgroundColor: surface, borderColor: border }]}>
+            <SettingsNavRow
+              icon="ruler"
+              title={t('settings.units')}
+              onPress={() => tapTo('/display-settings')}
+            />
+          </View>
         </View>
       </ScreenScrollView>
     </ScreenSafeAreaView>
@@ -486,11 +469,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     padding: spacing.md,
   },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   rowLabel: {
     ...typography.body,
   },
@@ -508,6 +486,9 @@ const styles = StyleSheet.create({
   thresholdTitle: {
     ...typography.caption,
     marginBottom: spacing.sm,
+  },
+  dividedRow: {
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   thresholdRow: {
     flexDirection: 'row',
@@ -528,6 +509,20 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.xs,
   },
+  tileOrderTitle: {
+    ...typography.bodyBold,
+    marginTop: spacing.md,
+  },
+  tileOrderList: {
+    marginTop: spacing.xs,
+    marginHorizontal: -spacing.md,
+    marginBottom: -spacing.md,
+  },
+  tileNumber: {
+    ...typography.bodyBold,
+    fontVariant: ['tabular-nums'],
+    minWidth: spacing.lg,
+  },
   gpsModeRow: {
     flexDirection: 'row',
     gap: spacing.xs,
@@ -538,12 +533,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   linkCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
     borderRadius: layout.borderRadius,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: spacing.md,
+    overflow: 'hidden',
   },
   linkText: {
     ...typography.body,

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Canvas, RoundedRect } from '@shopify/react-native-skia';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,7 +7,7 @@ import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, opacity, layout, typography, verdictColor } from '@/theme';
 import { verdictRung } from '@/shared/format/trend';
 import { ChartErrorBoundary } from '@/shared/ui';
-import { useChartColors } from '@/shared/charts';
+import { useChartColors, useMeasuredWidth } from '@/shared/charts';
 import type { Insight } from '@/types';
 
 const CHART_HEIGHT = 140;
@@ -29,8 +29,7 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
 }: PeriodComparisonContentProps) {
   const { isDark } = useTheme();
   const chartColors = useChartColors();
-  const { width: windowWidth } = useWindowDimensions();
-  const chartWidth = windowWidth - spacing.lg * 4;
+  const { width: chartWidth, onLayout } = useMeasuredWidth();
   const comparison = insight.supportingData?.comparisonData;
 
   const currentVal = typeof comparison?.current.value === 'number' ? comparison.current.value : 0;
@@ -63,6 +62,7 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
   const maxVal = Math.max(...bars.map((b) => b.value), 1);
 
   const barChart = useMemo(() => {
+    if (chartWidth <= 0) return [];
     const drawW = chartWidth - CHART_PADDING.left - CHART_PADDING.right;
     const drawH = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
     const barCount = bars.length;
@@ -110,20 +110,22 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
       {/* Bar chart */}
       <ChartErrorBoundary height={CHART_HEIGHT}>
         <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
-          <View style={[styles.chartWrapper, { width: chartWidth }]}>
-            <Canvas style={{ width: chartWidth, height: CHART_HEIGHT }}>
-              {barChart.map((bar, i) => (
-                <RoundedRect
-                  key={`bar-${i}`}
-                  x={bar.x}
-                  y={bar.y}
-                  width={bar.width}
-                  height={bar.height}
-                  r={4}
-                  color={bar.isCurrent ? barColor : mutedBarColor}
-                />
-              ))}
-            </Canvas>
+          <View style={styles.chartWrapper} onLayout={onLayout}>
+            {chartWidth > 0 && (
+              <Canvas style={{ width: chartWidth, height: CHART_HEIGHT }}>
+                {barChart.map((bar, i) => (
+                  <RoundedRect
+                    key={`bar-${i}`}
+                    x={bar.x}
+                    y={bar.y}
+                    width={bar.width}
+                    height={bar.height}
+                    r={4}
+                    color={bar.isCurrent ? barColor : mutedBarColor}
+                  />
+                ))}
+              </Canvas>
+            )}
 
             {/* Bar labels below */}
             {barChart.map((bar, i) => (

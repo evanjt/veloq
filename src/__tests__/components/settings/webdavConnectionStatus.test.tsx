@@ -2,8 +2,9 @@
  * Scenario: the WebDAV connection test reported its outcome as text in the
  * button row, which a screen reader never heard.
  *
- * Expected behaviour: the outcome is a status message, spoken through a polite
- * live region on Android and an announcement on iOS, success and failure alike.
+ * Expected behaviour: the outcome is a status message, spoken through a live
+ * region on Android and an announcement on iOS, success and failure alike. A
+ * success waits its turn and a failure interrupts.
  */
 
 import { AccessibilityInfo, Platform } from 'react-native';
@@ -55,8 +56,8 @@ function liveRegionOf(node: ReactTestInstance): string | undefined {
 it('speaks a successful connection test on Android', async () => {
   Platform.OS = 'android';
   mockTest.mockResolvedValue({ kind: 'ok' });
-  render(<WebdavConfigForm onConfigChange={() => {}} onRemoved={() => {}} />);
-  fireEvent.press(screen.getByText('backup.testConnection'));
+  await render(<WebdavConfigForm onConfigChange={() => {}} onRemoved={() => {}} />);
+  await fireEvent.press(screen.getByText('backup.testConnection'));
 
   const result = await screen.findByText('backup.connectionSuccess');
   expect(liveRegionOf(result)).toBe('polite');
@@ -65,11 +66,11 @@ it('speaks a successful connection test on Android', async () => {
 it('announces a failed connection test on iOS', async () => {
   Platform.OS = 'ios';
   mockTest.mockResolvedValue({ kind: 'unreachable' });
-  render(<WebdavConfigForm onConfigChange={() => {}} onRemoved={() => {}} />);
-  fireEvent.press(screen.getByText('backup.testConnection'));
+  await render(<WebdavConfigForm onConfigChange={() => {}} onRemoved={() => {}} />);
+  await fireEvent.press(screen.getByText('backup.testConnection'));
 
   await waitFor(() => expect(announce).toHaveBeenCalledTimes(1));
   const spoken = announce.mock.calls[0][0] as string;
   expect(spoken.length).toBeGreaterThan(0);
-  expect(liveRegionOf(screen.getByText(spoken))).toBe('polite');
+  expect(liveRegionOf(screen.getByText(spoken))).toBe('assertive');
 });

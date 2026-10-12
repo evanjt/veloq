@@ -36,7 +36,7 @@ use rusqlite::{Connection, Result as SqlResult, params};
 use std::collections::{HashMap, HashSet};
 use std::ops::ControlFlow;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc;
 #[cfg(test)]
 use tracematch::{Bounds, RouteSignature};
@@ -677,6 +677,20 @@ pub(crate) fn rank_off_lock(install: u64) {
     });
 }
 
+/// Copies a detection worker made of the evidence cache, read by
+/// [`PersistentEngine::evidence_cache_copies`].
+static EVIDENCE_CACHE_COPIES: AtomicU64 = AtomicU64::new(0);
+
+/// The worker's own evidence cache to fold into. The engine keeps its shared
+/// handle until the apply replaces it, so this is a copy, made on the worker
+/// and never on the thread that asked for the run.
+fn owned_evidence_cache(shared: Arc<SectionEvidenceCache>) -> SectionEvidenceCache {
+    Arc::try_unwrap(shared).unwrap_or_else(|shared| {
+        EVIDENCE_CACHE_COPIES.fetch_add(1, Ordering::Relaxed);
+        SectionEvidenceCache::clone(&shared)
+    })
+}
+
 /// Announces the end of a detection run to the observer, whatever the run's
 /// outcome, once the senders it holds are gone. The poll behind the notice
 /// then reads a result or a dead worker rather than "running". A run that
@@ -871,26 +885,131 @@ impl PersistentEngine {
             ApplyOn::Worker => Some(Arc::new(AtomicBool::new(false))),
             ApplyOn::Caller => None,
         };
-        let db_path = self.db_path.clone();
         // Which library this run belongs to. Captured here, on the thread that
         // holds the engine, so a restore installing another database under the
         // worker cannot be mistaken for this one: the path is the same file
         // name either way.
         let install_at_spawn = super::super::engine_install();
-        let section_config = self.section_config.clone();
-
-        // The incremental folds new activities into a per-cluster evidence
-        // cache. Clone the current cache + its folded-id shadow into the worker.
-        // The worker mutates its clone and ships it back via `cache_tx`; the
-        // cache-aware apply stores it only if the save succeeds, so `self`'s
-        // cache can never advance past the applied catalogue.
-        let (cache, folded) = self.evidence_cache();
-        let cache_at_spawn = cache.clone();
-        let folded_at_spawn = folded.clone();
 
         // Create shared progress tracker
         let progress = SectionDetectionProgress::new();
         let progress_clone = progress.clone();
+
+        let groups_epoch_at_spawn = self.groups_dirty_epoch;
+
+        // Short-circuit: no new activities means nothing to detect. Re-emit the
+        // last RAW batch, not the damped visible view: the visible catalogue can
+        // lag the batch while a dissolve debounces, and echoing it back through
+        // identity would count as a decisive continuation and hold the laggards
+        // forever. The raw batch is what a re-fold over the unchanged pool would
+        // emit, so the debounce keeps pressing and the view converges. A known
+        // EMPTY raw batch is echoed as empty for the same reason: it is the
+        // detector's answer, and echoing the visible view instead would
+        // resurrect sections the pool no longer supports. The raw batch lives
+        // in memory only; in a fresh process the visible catalogue is the best
+        // available echo.
+        //
+        // Every caller holds the engine lock here, so the test reads the
+        // engine in place and copies nothing first. The cache's debt is read
+        // from its row's count while the cache is still unrestored, so an echo
+        // never pays the cache's decode either.
+        let nothing_new = self
+            .activity_metadata
+            .keys()
+            .all(|id| self.processed_activity_ids.contains(id));
+        if nothing_new
+            && self.sections.iter().any(|s| !s.is_user_defined)
+            && self.evidence_cache_debt() == 0
+        {
+            log::info!(
+                "veloqrs: [SectionDetection] No new activities, skipping detection ({} already processed)",
+                self.processed_activity_ids.len()
+            );
+            let echo: Arc<[FrequentSection]> = match &self.raw_sections {
+                Some(raw) => Arc::clone(raw),
+                None => self
+                    .sections
+                    .iter()
+                    .filter(|s| !s.is_user_defined)
+                    .cloned()
+                    .collect(),
+            };
+            let all_ids = self.sorted_activity_ids();
+            // No detection ran, so the evidence cache is unchanged: `cache_tx` is
+            // dropped unsent, `take_cache` returns None, and the caller leaves the
+            // engine cache as-is.
+            //
+            // Echoing the last batch is still a full catalogue write, so the
+            // owned copy it saves is made on a thread of its own, never on the
+            // one that asked for the detect.
+            match &worker_applied {
+                // A self-applying run saves on that thread too, so neither the
+                // ask nor the poll behind it pays for the save.
+                Some(flag) => {
+                    let flag = Arc::clone(flag);
+                    let echo_progress = progress.clone();
+                    let completion_slot = Arc::clone(&checkpoint_slot);
+                    #[cfg(test)]
+                    let worker_guard = crate::test_globals::detection_worker_started();
+                    crate::threads::spawn_background("veloq-save", move || {
+                        #[cfg(test)]
+                        let _worker_guard = worker_guard.running();
+                        // The guard holds the sender, so the notice lands
+                        // once the outcome is readable.
+                        let ended = DetectionEnded::holding(tx).settling(Some(completion_slot));
+                        echo_progress.set_phase("saving", 1);
+                        if apply_on_worker(
+                            install_at_spawn,
+                            echo.to_vec(),
+                            None,
+                            &all_ids,
+                            &echo_progress,
+                            false,
+                            groups_epoch_at_spawn,
+                        ) {
+                            flag.store(true, Ordering::SeqCst);
+                        }
+                        ended.senders().send((Vec::new(), Vec::new())).ok();
+                    });
+                    return SectionDetectionHandle {
+                        receiver: rx,
+                        final_update: std::sync::Mutex::new(None),
+                        cache_receiver: cache_rx,
+                        checkpoint: checkpoint_slot,
+                        progress,
+                        worker_applied,
+                        cancel: Arc::new(AtomicBool::new(false)),
+                    };
+                }
+                None => {
+                    crate::threads::spawn_background("veloq-echo", move || {
+                        tx.send((echo.to_vec(), all_ids)).ok();
+                    });
+                }
+            }
+            return SectionDetectionHandle {
+                receiver: rx,
+                final_update: std::sync::Mutex::new(None),
+                cache_receiver: cache_rx,
+                checkpoint: Arc::new(CheckpointSlot::default()),
+                progress,
+                worker_applied,
+                // The echo is one write and already under way; there is no
+                // stage boundary to stop it at.
+                cancel: Arc::new(AtomicBool::new(false)),
+            };
+        }
+
+        let db_path = self.db_path.clone();
+        let section_config = self.section_config.clone();
+
+        // The incremental folds new activities into a per-cluster evidence
+        // cache. The worker takes the engine's cache and its folded-id shadow
+        // as shared handles and makes its own copy to fold into, on its own
+        // thread. It ships the copy back via `cache_tx`; the cache-aware apply
+        // stores it only if the save succeeds, so `self`'s cache can never
+        // advance past the applied catalogue.
+        let (cache_at_spawn, folded_at_spawn) = self.shared_evidence_cache();
 
         // Capture whether groups need recomputation. Instead of blocking the
         // calling thread (which freezes the JS progress bar), we pass this
@@ -899,22 +1018,15 @@ impl PersistentEngine {
         let match_config = self.match_config.clone();
         let current_groups = self.groups.clone();
         let group_generation = self.group_generation;
-        let groups_epoch_at_spawn = self.groups_dirty_epoch;
         let moved_tracks: HashSet<String> = self.moved_tracks.keys().cloned().collect();
 
-        // Build sport type map + activity_ids in a single pass over metadata.
-        // Uses the HashMap key (= activity id) to avoid cloning m.id separately.
-        let mut sport_map: HashMap<String, String> =
-            HashMap::with_capacity(self.activity_metadata.len());
-        let mut activity_ids: Vec<String> = Vec::with_capacity(self.activity_metadata.len());
-
-        for (id, m) in &self.activity_metadata {
-            sport_map.insert(id.clone(), m.sport_type.clone());
-            activity_ids.push(id.clone());
-        }
-        // Metadata iterates in HashMap order, so sort by the activities primary
-        // key to give the detector a deterministic input order.
-        activity_ids.sort();
+        // The sport of every activity, keyed by its id.
+        let sport_map: HashMap<String, String> = self
+            .activity_metadata
+            .iter()
+            .map(|(id, m)| (id.clone(), m.sport_type.clone()))
+            .collect();
+        let activity_ids = self.sorted_activity_ids();
 
         // Activity start times for the occasion support floor: ground
         // visited only within one stay is a trip, not repetition. Dates
@@ -937,11 +1049,10 @@ impl PersistentEngine {
 
         // The catalogue this detect re-derives from. It seeds the Unified
         // incremental (its add/dissolve diff is computed against this prior
-        // catalogue) and gates the no-new-activities short-circuit below. Only the
-        // auto catalogue belongs here: `self.sections` also carries the durable
-        // user-defined sections (custom + accepted) for the matcher, but the
-        // incremental converges the AUTO batch and must not treat a custom section
-        // as an auto prior.
+        // catalogue). Only the auto catalogue belongs here: `self.sections`
+        // also carries the durable user-defined sections (custom + accepted)
+        // for the matcher, but the incremental converges the AUTO batch and
+        // must not treat a custom section as an auto prior.
         let existing_sections: Vec<FrequentSection> = self
             .sections
             .iter()
@@ -953,97 +1064,6 @@ impl PersistentEngine {
         // withholds any fresh cut sharing their corridor. Read here, on the
         // engine, so the worker takes the durable intent as an explicit input.
         let pinned_ids = self.pinned_section_ids();
-
-        let new_activity_ids: Vec<String> = activity_ids
-            .iter()
-            .filter(|id| !self.processed_activity_ids.contains(*id))
-            .cloned()
-            .collect();
-
-        // Short-circuit: no new activities means nothing to detect. Re-emit the
-        // last RAW batch, not the damped visible view: the visible catalogue can
-        // lag the batch while a dissolve debounces, and echoing it back through
-        // identity would count as a decisive continuation and hold the laggards
-        // forever. The raw batch is what a re-fold over the unchanged pool would
-        // emit, so the debounce keeps pressing and the view converges. A known
-        // EMPTY raw batch is echoed as empty for the same reason: it is the
-        // detector's answer, and echoing the visible view instead would
-        // resurrect sections the pool no longer supports. The raw batch lives
-        // in memory only; in a fresh process the visible catalogue is the best
-        // available echo.
-        if new_activity_ids.is_empty()
-            && !existing_sections.is_empty()
-            && self.evidence_cache().0.dirty_clusters() == 0
-        {
-            log::info!(
-                "veloqrs: [SectionDetection] No new activities, skipping detection ({} already processed)",
-                self.processed_activity_ids.len()
-            );
-            let sections_copy = match &self.raw_sections {
-                Some(raw) => raw.clone(),
-                None => existing_sections.clone(),
-            };
-            let all_ids = activity_ids.clone();
-            // No detection ran, so the evidence cache is unchanged: `cache_tx` is
-            // dropped unsent, `take_cache` returns None, and the caller leaves the
-            // engine cache as-is.
-            match &worker_applied {
-                // Echoing the last batch is still a full catalogue write, and
-                // this arm runs on the thread that asked for the detect. A
-                // self-applying run puts it on a thread of its own so neither
-                // the ask nor the poll behind it pays for the save.
-                Some(flag) => {
-                    let flag = Arc::clone(flag);
-                    let echo_progress = progress.clone();
-                    let completion_slot = Arc::clone(&checkpoint_slot);
-                    #[cfg(test)]
-                    let worker_guard = crate::test_globals::detection_worker_started();
-                    crate::threads::spawn_background("veloq-save", move || {
-                        #[cfg(test)]
-                        let _worker_guard = worker_guard.running();
-                        // The guard holds the sender, so the notice lands
-                        // once the outcome is readable.
-                        let ended = DetectionEnded::holding(tx).settling(Some(completion_slot));
-                        echo_progress.set_phase("saving", 1);
-                        if apply_on_worker(
-                            install_at_spawn,
-                            sections_copy,
-                            None,
-                            &all_ids,
-                            &echo_progress,
-                            false,
-                            groups_epoch_at_spawn,
-                        ) {
-                            flag.store(true, Ordering::SeqCst);
-                        }
-                        ended.senders().send((Vec::new(), Vec::new())).ok();
-                    });
-                    return SectionDetectionHandle {
-                        receiver: rx,
-                        final_update: std::sync::Mutex::new(None),
-                        cache_receiver: cache_rx,
-                        checkpoint: checkpoint_slot,
-                        progress,
-                        worker_applied,
-                        cancel: Arc::new(AtomicBool::new(false)),
-                    };
-                }
-                None => {
-                    tx.send((sections_copy, all_ids)).ok();
-                }
-            }
-            return SectionDetectionHandle {
-                receiver: rx,
-                final_update: std::sync::Mutex::new(None),
-                cache_receiver: cache_rx,
-                checkpoint: Arc::new(CheckpointSlot::default()),
-                progress,
-                worker_applied,
-                // The echo is one write and already under way; there is no
-                // stage boundary to stop it at.
-                cancel: Arc::new(AtomicBool::new(false)),
-            };
-        }
 
         // What the fold will actually read, asked before anything is read.
         //
@@ -1066,11 +1086,13 @@ impl PersistentEngine {
         )
         .unwrap_or_else(|| activity_ids.clone());
         let narrowed_pool = ids_to_load.len() < activity_ids.len();
-        let empty_pool_echo = narrowed_pool.then(|| {
-            self.raw_sections
-                .clone()
-                .unwrap_or_else(|| existing_sections.clone())
-        });
+        // A narrowed pool that loads nothing echoes the last batch, which the
+        // worker copies out of this shared handle only if it gets that far.
+        let raw_at_spawn = if narrowed_pool {
+            self.raw_sections.clone()
+        } else {
+            None
+        };
         if narrowed_pool {
             log::info!(
                 "veloqrs: [SectionDetection] pool narrowed to {} of {} tracks by the clusters the new ids touch",
@@ -1284,7 +1306,11 @@ impl PersistentEngine {
 
             if tracks.is_empty() {
                 log::info!("veloqrs: [SectionDetection] No tracks loaded, skipping detection");
-                let sections = empty_pool_echo.unwrap_or_default();
+                let sections = match (narrowed_pool, raw_at_spawn) {
+                    (false, _) => Vec::new(),
+                    (true, Some(raw)) => raw.to_vec(),
+                    (true, None) => existing_sections,
+                };
                 match &applied_flag {
                     Some(flag) => {
                         progress_clone.set_phase("saving", 1);
@@ -1364,12 +1390,12 @@ impl PersistentEngine {
                     folded_at_spawn.len(),
                 );
 
-                let mut cache = cache_at_spawn;
+                let mut cache = owned_evidence_cache(cache_at_spawn);
                 // The cache will fold everything it did before plus the new pool
                 // ids just routed (each present in the pool, so actually folded).
                 // Keeping this shadow set in step with the returned cache is what
                 // lets the next detect compute `pool − folded` correctly.
-                let mut folded_after = folded_at_spawn;
+                let mut folded_after = Arc::unwrap_or_clone(folded_at_spawn);
                 folded_after.extend(new_ids_for_cache.iter().cloned());
                 // A checkpoint after each cut cluster, throttled: the poller
                 // persists the newest one, so a killed run resumes from
@@ -1606,8 +1632,8 @@ impl PersistentEngine {
         let old_identity = std::mem::replace(&mut self.identity, trial_identity);
         match self.save_sections_with_events(&events) {
             Ok(()) => {
-                if raw_for_convergence.is_some() {
-                    self.raw_sections = raw_for_convergence;
+                if let Some(raw) = raw_for_convergence {
+                    self.raw_sections = Some(Arc::from(raw));
                 }
                 self.sections_dirty = false;
                 // Clear activity_traces to prevent memory leak. These GPS
@@ -1720,8 +1746,8 @@ impl PersistentEngine {
         match saved {
             Ok(counts) => {
                 if let Some(u) = update {
-                    self.section_evidence_cache = u.cache;
-                    self.cache_folded_ids = u.folded_ids;
+                    self.section_evidence_cache = Arc::new(u.cache);
+                    self.cache_folded_ids = Arc::new(u.folded_ids);
                     self.evidence_cache_restored = true;
                     match encoded {
                         // An empty fold has nothing to file, and the row that
@@ -1917,15 +1943,9 @@ impl PersistentEngine {
             self.clear_persisted_evidence_cache();
             return;
         }
-        let cache = std::mem::replace(
-            &mut self.section_evidence_cache,
-            SectionEvidenceCache::new(),
-        );
-        let folded = std::mem::take(&mut self.cache_folded_ids);
-        let written = self.persist_evidence_blob(&cache, &folded);
-        self.section_evidence_cache = cache;
-        self.cache_folded_ids = folded;
-        self.evidence_row_current = written;
+        let cache = Arc::clone(&self.section_evidence_cache);
+        let folded = Arc::clone(&self.cache_folded_ids);
+        self.evidence_row_current = self.persist_evidence_blob(&cache, &folded);
     }
 
     /// Persist a mid-fold checkpoint in place of the last completed cache.
@@ -2044,7 +2064,35 @@ impl PersistentEngine {
 
     pub(crate) fn evidence_cache(&mut self) -> (&SectionEvidenceCache, &HashSet<String>) {
         self.ensure_evidence_cache_restored();
-        (&self.section_evidence_cache, &self.cache_folded_ids)
+        (&*self.section_evidence_cache, &*self.cache_folded_ids)
+    }
+
+    /// The evidence cache and its folded-id shadow as handles a detection
+    /// worker can hold while the engine keeps reading them. Taking one copies
+    /// nothing; the worker copies the cache when it folds.
+    #[doc(hidden)]
+    pub fn shared_evidence_cache(&mut self) -> (Arc<SectionEvidenceCache>, Arc<HashSet<String>>) {
+        self.ensure_evidence_cache_restored();
+        (
+            Arc::clone(&self.section_evidence_cache),
+            Arc::clone(&self.cache_folded_ids),
+        )
+    }
+
+    /// How many times a detection worker has copied the evidence cache to
+    /// fold into, process-wide, so a test can tell a run that copied it from
+    /// one that only shared it.
+    #[doc(hidden)]
+    pub fn evidence_cache_copies() -> u64 {
+        EVIDENCE_CACHE_COPIES.load(Ordering::Relaxed)
+    }
+
+    /// Every activity id, sorted by the activities primary key so the
+    /// detector reads its pool in a deterministic order.
+    fn sorted_activity_ids(&self) -> Vec<String> {
+        let mut ids: Vec<String> = self.activity_metadata.keys().cloned().collect();
+        ids.sort();
+        ids
     }
 
     fn evidence_cache_debt(&mut self) -> usize {
@@ -2122,8 +2170,8 @@ impl PersistentEngine {
 
         match decoded {
             Ok((cache, folded)) => {
-                self.section_evidence_cache = cache;
-                self.cache_folded_ids = folded.into_iter().collect();
+                self.section_evidence_cache = Arc::new(cache);
+                self.cache_folded_ids = Arc::new(folded.into_iter().collect());
                 self.evidence_row_current = true;
                 true
             }

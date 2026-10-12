@@ -34,45 +34,45 @@ afterEach(() => {
 });
 
 describe('useBackDismiss outside a navigator', () => {
-  it('consumes back and dismisses once while active', () => {
+  it('consumes back and dismisses once while active', async () => {
     const onDismiss = jest.fn();
-    renderHook(() => useBackDismiss(true, onDismiss));
+    await renderHook(() => useBackDismiss(true, onDismiss));
 
     expect(back.press()).toBe(true);
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 
-  it('leaves back alone while inactive', () => {
+  it('leaves back alone while inactive', async () => {
     const onDismiss = jest.fn();
-    renderHook(() => useBackDismiss(false, onDismiss));
+    await renderHook(() => useBackDismiss(false, onDismiss));
 
     expect(back.press()).toBe(false);
     expect(onDismiss).not.toHaveBeenCalled();
   });
 
-  it('lets go of back when the state ends, and calls the latest dismiss', () => {
+  it('lets go of back when the state ends, and calls the latest dismiss', async () => {
     const first = jest.fn();
     const latest = jest.fn();
-    const { rerender } = renderHook(
+    const { rerender } = await renderHook(
       ({ active, onDismiss }: { active: boolean; onDismiss: () => void }) =>
         useBackDismiss(active, onDismiss),
       { initialProps: { active: true, onDismiss: first } }
     );
 
-    rerender({ active: true, onDismiss: latest });
+    await rerender({ active: true, onDismiss: latest });
     expect(back.press()).toBe(true);
     expect(first).not.toHaveBeenCalled();
     expect(latest).toHaveBeenCalledTimes(1);
 
-    rerender({ active: false, onDismiss: latest });
+    await rerender({ active: false, onDismiss: latest });
     expect(back.listeners()).toBe(0);
     expect(back.press()).toBe(false);
   });
 
-  it('dismisses the state opened last first', () => {
+  it('dismisses the state opened last first', async () => {
     const menu = jest.fn();
     const popup = jest.fn();
-    const { rerender } = renderHook(
+    const { rerender } = await renderHook(
       ({ menuOpen }: { menuOpen: boolean }) => {
         useBackDismiss(true, popup);
         useBackDismiss(menuOpen, menu);
@@ -80,7 +80,7 @@ describe('useBackDismiss outside a navigator', () => {
       { initialProps: { menuOpen: false } }
     );
 
-    rerender({ menuOpen: true });
+    await rerender({ menuOpen: true });
     back.press();
     expect(menu).toHaveBeenCalledTimes(1);
     expect(popup).not.toHaveBeenCalled();
@@ -120,7 +120,7 @@ function TwoModeScreen() {
   return <Text>{`${trimming} ${renaming}`}</Text>;
 }
 
-function renderStack() {
+async function renderStack() {
   pathname = renderRouter(
     {
       _layout: () => <Stack />,
@@ -129,7 +129,7 @@ function renderStack() {
     },
     { initialUrl: '/' }
   ).getPathname;
-  act(() => router.push('/detail'));
+  await act(() => router.push('/detail'));
 }
 
 describe('useBackDismiss on a stack screen', () => {
@@ -139,29 +139,29 @@ describe('useBackDismiss on a stack screen', () => {
     stackOptions = [];
   });
 
-  it('holds the screen on a goBack and ends the state instead', () => {
-    renderStack();
+  it('holds the screen on a goBack and ends the state instead', async () => {
+    await renderStack();
 
-    act(() => router.back());
+    await act(() => router.back());
 
     expect(pathname()).toBe('/detail');
     expect(stackDismiss).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('editing')).toHaveTextContent('viewing');
   });
 
-  it('turns the swipe and the header back off while active, and back on after', () => {
-    renderStack();
+  it('turns the swipe and the header back off while active, and back on after', async () => {
+    await renderStack();
     expect(stackOptions.at(-1)).toEqual({ gestureEnabled: false, headerBackVisible: false });
 
-    act(() => router.back());
+    await act(() => router.back());
 
     expect(stackOptions.at(-1)).toEqual({ gestureEnabled: true, headerBackVisible: true });
   });
 
-  it('ends the state on Android back without leaving the screen', () => {
-    renderStack();
+  it('ends the state on Android back without leaving the screen', async () => {
+    await renderStack();
 
-    act(() => {
+    await act(() => {
       expect(back.press()).toBe(true);
     });
 
@@ -169,17 +169,17 @@ describe('useBackDismiss on a stack screen', () => {
     expect(stackDismiss).toHaveBeenCalledTimes(1);
   });
 
-  it('leaves the screen on the next back once the state has ended', () => {
-    renderStack();
-    act(() => router.back());
+  it('leaves the screen on the next back once the state has ended', async () => {
+    await renderStack();
+    await act(() => router.back());
 
-    act(() => router.back());
+    await act(() => router.back());
 
     expect(pathname()).toBe('/');
     expect(stackDismiss).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the swipe off until the last of two states on the screen ends', () => {
+  it('keeps the swipe off until the last of two states on the screen ends', async () => {
     pathname = renderRouter(
       {
         _layout: () => <Stack />,
@@ -188,22 +188,22 @@ describe('useBackDismiss on a stack screen', () => {
       },
       { initialUrl: '/' }
     ).getPathname;
-    act(() => router.push('/detail'));
+    await act(() => router.push('/detail'));
     expect(stackOptions).toEqual([{ gestureEnabled: false, headerBackVisible: false }]);
 
-    act(() => router.back());
+    await act(() => router.back());
     expect(stackOptions).toHaveLength(1);
 
-    act(() => router.back());
+    await act(() => router.back());
     expect(stackOptions.at(-1)).toEqual({ gestureEnabled: true, headerBackVisible: true });
     expect(pathname()).toBe('/detail');
   });
 
-  it('does not hold the screen while inactive', () => {
+  it('does not hold the screen while inactive', async () => {
     stackActive = false;
-    renderStack();
+    await renderStack();
 
-    act(() => router.back());
+    await act(() => router.back());
 
     expect(pathname()).toBe('/');
     expect(stackDismiss).not.toHaveBeenCalled();
@@ -228,7 +228,7 @@ function MenuTab() {
   );
 }
 
-function renderTabs() {
+async function renderTabs() {
   pathname = renderRouter(
     {
       _layout: () => <Tabs />,
@@ -237,16 +237,16 @@ function renderTabs() {
     },
     { initialUrl: '/map' }
   ).getPathname;
-  fireEvent.press(screen.getByTestId('menu'));
+  await fireEvent.press(screen.getByTestId('menu'));
 }
 
 describe('useBackDismiss on a tab root', () => {
   beforeEach(() => tabDismiss.mockClear());
 
-  it('closes the open state on back while its tab is in front', () => {
-    renderTabs();
+  it('closes the open state on back while its tab is in front', async () => {
+    await renderTabs();
 
-    act(() => {
+    await act(() => {
       expect(back.press()).toBe(true);
     });
 
@@ -255,11 +255,11 @@ describe('useBackDismiss on a tab root', () => {
     expect(screen.getByTestId('menu')).toHaveTextContent('closed');
   });
 
-  it('leaves back to the tab in front once the athlete has moved away', () => {
-    renderTabs();
-    act(() => router.navigate('/'));
+  it('leaves back to the tab in front once the athlete has moved away', async () => {
+    await renderTabs();
+    await act(() => router.navigate('/'));
 
-    act(() => {
+    await act(() => {
       back.press();
     });
 

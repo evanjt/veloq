@@ -37,7 +37,7 @@ it('re-reads the planned workout after the engine stores a calendar window', asy
   );
   let unmount: (() => void) | undefined;
   try {
-    const rendered = renderHook(() => useTodayWorkout(), { wrapper });
+    const rendered = await renderHook(() => useTodayWorkout(), { wrapper });
     unmount = rendered.unmount;
     const { result } = rendered;
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -52,12 +52,12 @@ it('re-reads the planned workout after the engine stores a calendar window', asy
         start_date_local: `${today}T07:00:00`,
       }),
     ];
-    act(() => listeners.get('bodyStored')?.({ kind: 'calendar' }));
+    await act(() => listeners.get('bodyStored')?.({ kind: 'calendar' }));
 
     await waitFor(() => expect(result.current.todayWorkout?.name).toBe('Intervals'));
     expect(syncCalendarEvents).not.toHaveBeenCalled();
   } finally {
-    unmount?.();
+    await unmount?.();
     client.clear();
   }
 });

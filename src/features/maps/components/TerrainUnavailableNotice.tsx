@@ -7,6 +7,7 @@ import { darkColors } from '@/theme/colors';
 import { layout, spacing } from '@/theme/spacing';
 import { typography } from '@/theme/typography';
 import { pressable, pressRipple } from '@/shared/ui';
+import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 
 export const TERRAIN_UNAVAILABLE_TEST_ID = 'terrain-unavailable-notice';
 
@@ -18,7 +19,8 @@ const DISMISS_AFTER_MS = 6000;
  * that read as broken 3D.
  *
  * It clears itself, because the athlete cannot act on it while offline and a
- * pill that has to be dismissed is worse than the silence it replaced.
+ * pill that has to be dismissed is worse than the silence it replaced. So it
+ * speaks as it appears, since a screen reader may not reach it before it goes.
  *
  * `bottom` lifts it clear of whatever the host draws over the foot of its map.
  */
@@ -30,6 +32,8 @@ export function TerrainUnavailableNotice({
   bottom?: number | undefined;
 }) {
   const { t } = useTranslation();
+  const message = t('maps.threeDUnavailable');
+  useAnnounceOnAppear(message);
 
   // Callers pass a fresh arrow each render, so keying the timer on it would restart the clock.
   const dismissRef = useRef(onDismiss);
@@ -48,11 +52,14 @@ export function TerrainUnavailableNotice({
       android_ripple={pressRipple}
       onPress={onDismiss}
       accessibilityRole="button"
+      accessibilityLabel={message}
+      accessibilityHint={t('common.close')}
+      accessibilityLiveRegion="polite"
       testID={TERRAIN_UNAVAILABLE_TEST_ID}
     >
       <View style={styles.pill}>
         <MaterialCommunityIcons name="terrain" size={16} color={darkColors.textSecondary} />
-        <Text style={styles.text}>{t('maps.threeDUnavailable')}</Text>
+        <Text style={styles.text}>{message}</Text>
       </View>
     </Pressable>
   );

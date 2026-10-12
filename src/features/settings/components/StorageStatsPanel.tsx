@@ -7,11 +7,21 @@ import type { TileCacheBudgetSheetInput } from '@/app/sheets/tile-cache-budget';
 import { formatDateOrDash, formatFileSize } from '@/shared/format/format';
 import { BYTES_PER_BUDGET_MB, type BasemapTileSizes, useTileCacheSettings } from '@/features/maps';
 import { mapCacheTotal } from '../lib/mapCacheTotal';
-import { colors, darkColors, spacing, layout, typography, colorWithOpacity, ink } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  layout,
+  typography,
+  colorWithOpacity,
+  ink,
+  themePalette,
+} from '@/theme';
 
 import { StreamBackfillRow } from './StreamBackfillRow';
 import { StreamHistoryRow } from './StreamHistoryRow';
-import { pressable, pressRipple } from '@/shared/ui';
+import { Button, composeAccessibilityLabel, pressable, pressRipple } from '@/shared/ui';
+import { ABSENT } from '@/shared/format/absent';
 
 /** Every segment the bar can draw. A key, never a literal: the legend and
  * the total line beside it were once English literals. */
@@ -109,7 +119,7 @@ function StorageBreakdownBar({
   const deviceUsagePct = totalDevice > 0 ? (totalCacheBytes / totalDevice) * 100 : 0;
 
   return (
-    <View style={styles.storageBarContainer}>
+    <View style={[styles.storageBarContainer, { borderTopColor: themePalette(isDark).border }]}>
       <View style={styles.storageBar}>
         {segments.map((seg) => {
           const pct = totalCacheBytes > 0 ? (seg.bytes / totalCacheBytes) * 100 : 0;
@@ -232,6 +242,17 @@ export function StorageStatsPanel({
   const budgetBytes = budgetMb * BYTES_PER_BUDGET_MB;
   const usedBytes = basemapTiles?.totalBytes ?? 0;
   const usedShare = budgetBytes > 0 ? Math.min(1, usedBytes / budgetBytes) : 0;
+  const palette = themePalette(isDark);
+  const footerText = [styles.budgetFooterText, { color: palette.textSecondary }];
+  const statDivider = [styles.statDivider, { backgroundColor: palette.border }];
+
+  // With matching off the route and section counts print '-' and refuse the
+  // press, so the spoken name carries the reason as well.
+  const statLabel = (key: 'settings.routesCount' | 'settings.sectionsCount', count: number) =>
+    composeAccessibilityLabel(
+      t(key),
+      routeMatchingEnabled ? count : t('settings.routeMatchingOff')
+    );
 
   return (
     <>
@@ -239,7 +260,7 @@ export function StorageStatsPanel({
       <View testID="settings-storage-stats" style={styles.statRow}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t('settings.activities')}
+          accessibilityLabel={composeAccessibilityLabel(t('settings.activities'), totalActivities)}
           style={pressable(styles.statItem)}
           onPress={() => tapTo('/map')}
           android_ripple={pressRipple}
@@ -252,20 +273,21 @@ export function StorageStatsPanel({
               isDark && { color: darkColors.linkTeal },
             ]}
           >
-            {t('settings.activities')} ›
+            {t('settings.activities')}
           </Text>
         </Pressable>
-        <View style={styles.statDivider} />
+        <View style={statDivider} />
         <Pressable
+          testID="storage-stat-settings.routesCount"
           accessibilityRole="button"
-          accessibilityLabel={t('settings.routesCount')}
+          accessibilityLabel={statLabel('settings.routesCount', routeGroupCount)}
           style={pressable(styles.statItem)}
           onPress={() => tapTo('/insights?tab=routes')}
           disabled={!routeMatchingEnabled}
           android_ripple={pressRipple}
         >
           <Text style={[styles.statValue, isDark && styles.textLight]}>
-            {routeMatchingEnabled ? routeGroupCount : '-'}
+            {routeMatchingEnabled ? routeGroupCount : ABSENT}
           </Text>
           <Text
             style={[
@@ -275,20 +297,21 @@ export function StorageStatsPanel({
                 : isDark && styles.textSecondary,
             ]}
           >
-            {t('settings.routesCount')} ›
+            {t('settings.routesCount')}
           </Text>
         </Pressable>
-        <View style={styles.statDivider} />
+        <View style={statDivider} />
         <Pressable
+          testID="storage-stat-settings.sectionsCount"
           accessibilityRole="button"
-          accessibilityLabel={t('settings.sectionsCount')}
+          accessibilityLabel={statLabel('settings.sectionsCount', totalSections)}
           style={pressable(styles.statItem)}
           onPress={() => tapTo('/insights?tab=sections')}
           disabled={!routeMatchingEnabled}
           android_ripple={pressRipple}
         >
           <Text style={[styles.statValue, isDark && styles.textLight]}>
-            {routeMatchingEnabled ? totalSections : '-'}
+            {routeMatchingEnabled ? totalSections : ABSENT}
           </Text>
           <Text
             style={[
@@ -298,7 +321,7 @@ export function StorageStatsPanel({
                 : isDark && styles.textSecondary,
             ]}
           >
-            {t('settings.sectionsCount')} ›
+            {t('settings.sectionsCount')}
           </Text>
         </Pressable>
       </View>
@@ -358,20 +381,15 @@ export function StorageStatsPanel({
                 : t('settings.sizeAtLeast', {
                     size: formatFileSize(total.bytes),
                   })
-              : '-'}
+              : ABSENT}
           </Text>
           {total.bytes > 0 && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('settings.clearCache')}
+            <Button
+              label={t('settings.clearCache')}
               onPress={onClearMapCache}
-              style={pressable(styles.clearInlineButton)}
-              android_ripple={pressRipple}
-            >
-              <Text style={[styles.clearInlineText, isDark && { color: darkColors.linkTeal }]}>
-                {t('settings.clearCache')}
-              </Text>
-            </Pressable>
+              variant="ghost"
+              size="sm"
+            />
           )}
         </View>
       </View>
@@ -388,6 +406,10 @@ export function StorageStatsPanel({
             onPress={chooseBudget}
             style={pressable(styles.infoValueRow)}
             accessibilityRole="button"
+            accessibilityLabel={composeAccessibilityLabel(
+              t('settings.tileCacheLimit'),
+              formatFileSize(budgetBytes)
+            )}
             android_ripple={pressRipple}
           >
             <Text
@@ -397,7 +419,7 @@ export function StorageStatsPanel({
                 isDark && { color: darkColors.linkTeal },
               ]}
             >
-              {formatFileSize(budgetBytes)} ›
+              {formatFileSize(budgetBytes)}
             </Text>
           </Pressable>
         </View>
@@ -412,7 +434,7 @@ export function StorageStatsPanel({
           <View style={{ flex: 1 - usedShare }} />
         </View>
         <View style={styles.budgetFooter}>
-          <Text testID="settings-tile-cache-used" style={styles.budgetFooterText}>
+          <Text testID="settings-tile-cache-used" style={footerText}>
             {basemapTiles
               ? t('settings.tileCacheUsedOfBudget', {
                   used: formatFileSize(usedBytes),
@@ -424,7 +446,7 @@ export function StorageStatsPanel({
                 })}
           </Text>
           {freeStorage !== null && (
-            <Text testID="settings-tile-cache-free" style={styles.budgetFooterText}>
+            <Text testID="settings-tile-cache-free" style={footerText}>
               {t('settings.tileCacheFree', {
                 size: formatFileSize(freeStorage),
               })}
@@ -469,7 +491,6 @@ const styles = StyleSheet.create({
   },
   statDivider: {
     width: 1,
-    backgroundColor: colors.border,
   },
   statLabelClickable: {
     fontSize: typography.caption.fontSize,
@@ -523,7 +544,6 @@ const styles = StyleSheet.create({
   },
   budgetFooterText: {
     fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
   },
   infoLabel: {
     fontSize: typography.bodySmall.fontSize,
@@ -539,15 +559,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  clearInlineButton: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
-  },
-  clearInlineText: {
-    fontSize: typography.bodyCompact.fontSize,
-    color: colors.linkTeal,
-    fontWeight: '500',
-  },
   textLight: {
     color: colors.textOnDark,
   },
@@ -558,7 +569,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
   },
   storageBar: {
     flexDirection: 'row',

@@ -256,6 +256,7 @@ export function SectionCreationOverlay({
                 accessibilityRole="button"
                 accessibilityState={{ expanded: showTechnicalDetails }}
                 style={pressable(styles.technicalToggle)}
+                hitSlop={slopToMinTapTarget(EXPANDED_ROW_HEIGHT)}
                 onPress={() => setShowTechnicalDetails(!showTechnicalDetails)}
                 android_ripple={pressRipple}
               >
@@ -356,6 +357,7 @@ export function SectionCreationOverlay({
               <Pressable
                 accessibilityRole="button"
                 style={pressable(styles.resetRow)}
+                hitSlop={slopToMinTapTarget(EXPANDED_ROW_HEIGHT)}
                 onPress={onReset}
                 android_ripple={pressRipple}
               >
@@ -400,6 +402,8 @@ export function SectionCreationOverlay({
 }
 
 const STATUS_PILL_MIN_HEIGHT = 44;
+// A caption line inside the padding of the expanded card's two text controls.
+const EXPANDED_ROW_HEIGHT = typography.caption.lineHeight + 2 * spacing.xs;
 
 const styles = StyleSheet.create({
   container: {
@@ -440,7 +444,6 @@ const styles = StyleSheet.create({
   },
   statusPillError: {
     borderWidth: 1,
-    borderColor: colors.error,
   },
   statusRow: {
     flexDirection: 'row',
@@ -474,7 +477,6 @@ const styles = StyleSheet.create({
   },
   detailText: {
     ...typography.caption,
-    color: colors.textSecondary,
   },
   resetRow: {
     flexDirection: 'row',
@@ -483,6 +485,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     marginTop: spacing.xs,
     paddingVertical: spacing.xs,
+    minHeight: EXPANDED_ROW_HEIGHT,
   },
   resetText: {
     ...typography.caption,
@@ -493,10 +496,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
     paddingVertical: spacing.xs,
+    minHeight: EXPANDED_ROW_HEIGHT,
   },
   technicalToggleText: {
     ...typography.caption,
-    color: colors.textSecondary,
     flex: 1,
   },
   technicalDetails: {
@@ -509,12 +512,10 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontFamily: typography.code.fontFamily,
     fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
     flex: 1,
   },
   helpText: {
     ...typography.caption,
-    color: colors.textSecondary,
     fontStyle: 'italic',
     marginTop: spacing.xs,
     textAlign: 'center',

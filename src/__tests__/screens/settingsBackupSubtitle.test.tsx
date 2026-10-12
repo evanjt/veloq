@@ -87,58 +87,58 @@ const readEnabled = isAutoBackupEnabled as jest.MockedFunction<() => boolean>;
 beforeEach(() => readEnabled.mockReturnValue(true));
 
 /** The nav row renders its title then its subtitle, so the subtitle is the last line. */
-function backupSubtitle(screen: ReturnType<typeof render>): string {
+function backupSubtitle(screen: Awaited<ReturnType<typeof render>>): string {
   const row = screen.getByTestId('settings-nav-backup');
   const lines = within(row).getAllByText(/.+/);
   return String(lines[lines.length - 1].props.children);
 }
 
 describe('Settings auto-backup subtitle', () => {
-  it('says never when no backup has been taken', () => {
+  it('says never when no backup has been taken', async () => {
     readTimestamp.mockReturnValue(null);
-    const screen = render(<SettingsScreen />);
+    const screen = await render(<SettingsScreen />);
     expect(backupSubtitle(screen)).toBe('backup.lastBackupNever');
   });
 
-  it('shows the date a backup was last taken', () => {
+  it('shows the date a backup was last taken', async () => {
     const taken = Date.UTC(2026, 0, 15, 12);
     readTimestamp.mockReturnValue(taken);
-    const screen = render(<SettingsScreen />);
+    const screen = await render(<SettingsScreen />);
     expect(backupSubtitle(screen)).toBe(new Date(taken).toLocaleDateString('ja'));
   });
 
-  it('picks up a backup taken since the screen mounted', () => {
+  it('picks up a backup taken since the screen mounted', async () => {
     const first = Date.UTC(2026, 0, 15, 12);
     const second = Date.UTC(2026, 5, 20, 12);
     readTimestamp.mockReturnValue(first);
-    const screen = render(<SettingsScreen />);
+    const screen = await render(<SettingsScreen />);
     expect(backupSubtitle(screen)).toBe(new Date(first).toLocaleDateString('ja'));
 
     readTimestamp.mockReturnValue(second);
-    screen.rerender(<SettingsScreen />);
+    await screen.rerender(<SettingsScreen />);
     expect(backupSubtitle(screen)).toBe(new Date(second).toLocaleDateString('ja'));
   });
 
-  it('goes back to never if the backup record is cleared', () => {
+  it('goes back to never if the backup record is cleared', async () => {
     readTimestamp.mockReturnValue(Date.UTC(2026, 0, 15, 12));
-    const screen = render(<SettingsScreen />);
+    const screen = await render(<SettingsScreen />);
 
     readTimestamp.mockReturnValue(null);
-    screen.rerender(<SettingsScreen />);
+    await screen.rerender(<SettingsScreen />);
     expect(backupSubtitle(screen)).toBe('backup.lastBackupNever');
   });
 
-  it('says off when auto backup is off, even after a manual backup', () => {
+  it('says off when auto backup is off, even after a manual backup', async () => {
     readEnabled.mockReturnValue(false);
     readTimestamp.mockReturnValue(Date.UTC(2026, 0, 15, 12));
-    const screen = render(<SettingsScreen />);
+    const screen = await render(<SettingsScreen />);
     expect(backupSubtitle(screen)).toBe('common.off');
   });
 
-  it('says off when auto backup is off and nothing was ever backed up', () => {
+  it('says off when auto backup is off and nothing was ever backed up', async () => {
     readEnabled.mockReturnValue(false);
     readTimestamp.mockReturnValue(null);
-    const screen = render(<SettingsScreen />);
+    const screen = await render(<SettingsScreen />);
     expect(backupSubtitle(screen)).toBe('common.off');
   });
 });

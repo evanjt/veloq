@@ -95,7 +95,7 @@ afterEach(() => {
 
 it('the strength loupe fires one light impact when its hold is recognised', async () => {
   const presses = capture('LongPress');
-  render(
+  await render(
     <BodyPairWithLoupe
       data={[]}
       gender="male"
@@ -116,10 +116,10 @@ describe('the chart type chips', () => {
     { id: 'heartrate', label: 'HR', icon: 'heart', color: '#ff0000', ink: '#ffffff' },
   ] as unknown as ChartConfig[];
 
-  function chips() {
+  async function chips() {
     const onToggle = jest.fn();
     const onPreviewStart = jest.fn();
-    const tree = render(
+    const tree = await render(
       <ChartTypeSelector
         available={available}
         selected={['heartrate']}
@@ -132,29 +132,29 @@ describe('the chart type chips', () => {
     return { chip, onToggle, onPreviewStart };
   }
 
-  it('fire one light impact when a hold opens the axis preview', () => {
-    const { chip, onPreviewStart } = chips();
+  it('fire one light impact when a hold opens the axis preview', async () => {
+    const { chip, onPreviewStart } = await chips();
 
-    fireEvent(chip, 'pressIn');
-    fireEvent(chip, 'longPress');
+    await fireEvent(chip, 'pressIn');
+    await fireEvent(chip, 'longPress');
 
     expect(onPreviewStart).toHaveBeenCalledWith('heartrate');
     expect(fired()).toEqual(ONE_LIGHT);
   });
 
-  it('fire nothing of their own on a tap', () => {
-    const { chip, onToggle } = chips();
+  it('fire nothing of their own on a tap', async () => {
+    const { chip, onToggle } = await chips();
 
-    fireEvent.press(chip);
+    await fireEvent.press(chip);
 
     expect(onToggle).toHaveBeenCalledWith('heartrate');
     expect(fired()).toEqual(NONE);
   });
 });
 
-it('a ride tile fires one light impact when its hold opens the field picker', () => {
+it('a ride tile fires one light impact when its hold opens the field picker', async () => {
   const onLongPressField = jest.fn();
-  const tree = render(
+  const tree = await render(
     <DataFieldGrid
       fields={['speed', 'distance']}
       metrics={{
@@ -177,7 +177,7 @@ it('a ride tile fires one light impact when its hold opens the field picker', ()
     />
   );
 
-  fireEvent(tree.getByTestId('data-field-speed'), 'longPress');
+  await fireEvent(tree.getByTestId('data-field-speed'), 'longPress');
 
   expect(onLongPressField).toHaveBeenCalledWith(0, 'speed');
   expect(fired()).toEqual(ONE_LIGHT);
@@ -186,7 +186,7 @@ it('a ride tile fires one light impact when its hold opens the field picker', ()
 it('the sections scrub fires one light impact when it lands on a row', async () => {
   const pans = capture('Pan');
   const onHighlight = jest.fn();
-  render(
+  await render(
     <ActivitySectionsSection
       activityId="a1"
       sportType="Ride"
@@ -225,7 +225,7 @@ it('the sections scrub fires one light impact when it lands on a row', async () 
   const row = mockSectionInlinePlot.mock.calls[0]?.[0] as {
     onRowHeight: (index: number, height: number) => void;
   };
-  act(() => row.onRowHeight(0, 100));
+  await act(() => row.onRowHeight(0, 100));
 
   await settle(() => startOf(pans)({ x: 10, y: 50, absoluteY: 50 }));
 

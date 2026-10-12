@@ -24,8 +24,7 @@
       android:layout_width="0dp"
       android:layout_height="match_parent"
       android:layout_weight="1"
-      android:scaleType="fitCenter"
-      android:contentDescription="@null" />
+      android:scaleType="fitCenter" />
 
     <ImageView
       android:id="@+id/str_back"
@@ -33,7 +32,7 @@
       android:layout_height="match_parent"
       android:layout_weight="1"
       android:scaleType="fitCenter"
-      android:contentDescription="@null" />
+      android:importantForAccessibility="no" />
   </LinearLayout>
 
   <LinearLayout

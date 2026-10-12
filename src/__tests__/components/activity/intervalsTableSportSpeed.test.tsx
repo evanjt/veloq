@@ -25,31 +25,31 @@ function interval(distance: number, seconds: number): ActivityInterval {
   } as ActivityInterval;
 }
 
-function renderRow(type: ActivityType, row: ActivityInterval, isMetric = true) {
-  render(
+async function renderRow(type: ActivityType, row: ActivityInterval, isMetric = true) {
+  await render(
     <IntervalsTable intervals={[row]} activityType={type} isMetric={isMetric} isDark={false} />
   );
 }
 
 describe('the intervals table speed column', () => {
-  it('reads a swim as pace per 100 m', () => {
-    renderRow('Swim', interval(100, 120));
+  it('reads a swim as pace per 100 m', async () => {
+    await renderRow('Swim', interval(100, 120));
     expect(screen.getByText('2:00 /100m')).toBeTruthy();
     expect(screen.queryByText(/km\/h/)).toBeNull();
   });
 
-  it('reads an imperial swim as pace per 100 yd', () => {
-    renderRow('Swim', interval(100, 120), false);
+  it('reads an imperial swim as pace per 100 yd', async () => {
+    await renderRow('Swim', interval(100, 120), false);
     expect(screen.getByText('1:50 /100yd')).toBeTruthy();
   });
 
-  it('reads a run as pace per km', () => {
-    renderRow('Run', interval(1000, 300));
+  it('reads a run as pace per km', async () => {
+    await renderRow('Run', interval(1000, 300));
     expect(screen.getByText('5:00 /km')).toBeTruthy();
   });
 
-  it('reads a ride as speed', () => {
-    renderRow('Ride', interval(1000, 120));
+  it('reads a ride as speed', async () => {
+    await renderRow('Ride', interval(1000, 120));
     expect(screen.getByText('30.0 km/h')).toBeTruthy();
   });
 });

@@ -60,60 +60,60 @@ beforeEach(() => {
 afterEach(() => jest.useRealTimers());
 
 describe('the sync line when nothing can be announced', () => {
-  it('re-reads the status on the timer, so the line moves', () => {
+  it('re-reads the status on the timer, so the line moves', async () => {
     const engine = fakeEngine(false, status(SyncState.Syncing, 0));
     mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
-    const { result } = renderHook(() => useSyncStatus());
+    const { result } = await renderHook(() => useSyncStatus());
     expect(result.current?.completed).toBe(0);
 
     engine.setSnapshot(status(SyncState.Syncing, 4));
-    act(() => jest.advanceTimersByTime(FALLBACK_TICK_MS));
+    await act(() => jest.advanceTimersByTime(FALLBACK_TICK_MS));
 
     expect(result.current?.completed).toBe(4);
   });
 
-  it('sees the settle, which is the transition nothing else would report', () => {
+  it('sees the settle, which is the transition nothing else would report', async () => {
     const engine = fakeEngine(false, status(SyncState.Syncing, 6));
     mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
-    const { result } = renderHook(() => useSyncStatus());
+    const { result } = await renderHook(() => useSyncStatus());
 
     engine.setSnapshot(status(SyncState.Idle, 7));
-    act(() => jest.advanceTimersByTime(FALLBACK_TICK_MS));
+    await act(() => jest.advanceTimersByTime(FALLBACK_TICK_MS));
 
     expect(result.current?.state).toBe(SyncState.Idle);
   });
 
-  it('costs nothing while the engine can announce', () => {
+  it('costs nothing while the engine can announce', async () => {
     const engine = fakeEngine(true, status(SyncState.Syncing, 0));
     mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
-    renderHook(() => useSyncStatus());
+    await renderHook(() => useSyncStatus());
     expect(engine.getSyncStatus).toHaveBeenCalledTimes(1);
 
-    act(() => jest.advanceTimersByTime(FALLBACK_TICK_MS * 5));
+    await act(() => jest.advanceTimersByTime(FALLBACK_TICK_MS * 5));
 
     expect(engine.getSyncStatus).toHaveBeenCalledTimes(1);
   });
 
-  it('stops the moment events come back', () => {
+  it('stops the moment events come back', async () => {
     const engine = fakeEngine(false, status(SyncState.Syncing, 0));
     mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
     const ticked = jest.fn();
 
     const unsubscribe = subscribeToFallbackTick(ticked);
-    act(() => jest.advanceTimersByTime(FALLBACK_TICK_MS));
+    await act(() => jest.advanceTimersByTime(FALLBACK_TICK_MS));
     expect(ticked).toHaveBeenCalledTimes(1);
 
     engine.setLive(true);
-    act(() => jest.advanceTimersByTime(FALLBACK_TICK_MS * 5));
+    await act(() => jest.advanceTimersByTime(FALLBACK_TICK_MS * 5));
 
     expect(ticked).toHaveBeenCalledTimes(1);
     unsubscribe();
   });
 
-  it('takes a handle that cannot say as able to announce', () => {
+  it('takes a handle that cannot say as able to announce', async () => {
     mockGetEngine.mockReturnValue({
       getSyncStatus: jest.fn(() => status(SyncState.Syncing, 0)),
       subscribe: jest.fn(() => () => {}),
@@ -121,13 +121,13 @@ describe('the sync line when nothing can be announced', () => {
     const ticked = jest.fn();
 
     const unsubscribe = subscribeToFallbackTick(ticked);
-    act(() => jest.advanceTimersByTime(FALLBACK_TICK_MS * 5));
+    await act(() => jest.advanceTimersByTime(FALLBACK_TICK_MS * 5));
 
     expect(ticked).not.toHaveBeenCalled();
     unsubscribe();
   });
 
-  it('takes a handle that throws as unable, and polls', () => {
+  it('takes a handle that throws as unable, and polls', async () => {
     mockGetEngine.mockReturnValue({
       eventsAreLive: jest.fn(() => {
         throw new Error('bridge gone');
@@ -138,39 +138,39 @@ describe('the sync line when nothing can be announced', () => {
     const ticked = jest.fn();
 
     const unsubscribe = subscribeToFallbackTick(ticked);
-    act(() => jest.advanceTimersByTime(FALLBACK_TICK_MS));
+    await act(() => jest.advanceTimersByTime(FALLBACK_TICK_MS));
 
     expect(ticked).toHaveBeenCalledTimes(1);
     unsubscribe();
   });
 
-  it('drops the timer when the last subscriber goes', () => {
+  it('drops the timer when the last subscriber goes', async () => {
     const engine = fakeEngine(false, status(SyncState.Syncing, 0));
     mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
     const ticked = jest.fn();
 
     const unsubscribe = subscribeToFallbackTick(ticked);
     unsubscribe();
-    act(() => jest.advanceTimersByTime(FALLBACK_TICK_MS * 5));
+    await act(() => jest.advanceTimersByTime(FALLBACK_TICK_MS * 5));
 
     expect(ticked).not.toHaveBeenCalled();
   });
 });
 
 describe('the fallback timer against a closed engine', () => {
-  it('schedules nothing while the engine is closed, and starts once it opens', () => {
+  it('schedules nothing while the engine is closed, and starts once it opens', async () => {
     const engine = { ...fakeEngine(false, status(SyncState.Idle, 0)), ready: false };
     mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
     const tick = jest.fn();
 
     const off = subscribeToFallbackTick(tick);
-    act(() => jest.advanceTimersByTime(FALLBACK_TICK_MS * 3));
+    await act(() => jest.advanceTimersByTime(FALLBACK_TICK_MS * 3));
     expect(tick).not.toHaveBeenCalled();
     expect(jest.getTimerCount()).toBe(0);
 
     engine.ready = true;
     reconsiderFallback();
-    act(() => jest.advanceTimersByTime(FALLBACK_TICK_MS));
+    await act(() => jest.advanceTimersByTime(FALLBACK_TICK_MS));
     expect(tick).toHaveBeenCalledTimes(1);
     off();
   });

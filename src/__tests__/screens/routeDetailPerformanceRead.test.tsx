@@ -29,6 +29,7 @@ jest.mock('veloqrs', () =>
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
+  Stack: Object.assign(() => null, { Screen: () => null }),
   useLocalSearchParams: () => ({ id: 'grp-heath' }),
   router: { back: jest.fn(), push: jest.fn() },
 }));
@@ -209,14 +210,14 @@ describe('route page on a route ridden and run', () => {
     ];
   });
 
-  it('states the attempts in the sport on screen and the climbing in the hero', () => {
-    const screen = render(<RouteDetailScreen />);
+  it('states the attempts in the sport on screen and the climbing in the hero', async () => {
+    const screen = await render(<RouteDetailScreen />);
 
     const stats = screen.getByTestId('route-detail-stats');
     expect(stats).toHaveTextContent('maps.activitiesCount · activityTypes.Ride', { exact: false });
     expect(stats).toHaveTextContent('774 ft', { exact: false });
 
-    fireEvent.press(screen.getByRole('button', { name: 'activityTypes.Run' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'activityTypes.Run' }));
 
     expect(screen.getByTestId('route-detail-stats')).toHaveTextContent(
       'maps.activitiesCount · activityTypes.Run',
@@ -224,15 +225,15 @@ describe('route page on a route ridden and run', () => {
     );
   });
 
-  it('reads the route performance read once over every date and the default sport', () => {
-    render(<RouteDetailScreen />);
+  it('reads the route performance read once over every date and the default sport', async () => {
+    await render(<RouteDetailScreen />);
 
     expect(mockEngine.getRouteDetailPerformance).toHaveBeenCalledTimes(1);
     expect(mockEngine.getRouteDetailPerformance).toHaveBeenCalledWith('grp-heath', 0, undefined);
   });
 
-  it('offers the range chips and one pill per sport the read counts', () => {
-    const screen = render(<RouteDetailScreen />);
+  it('offers the range chips and one pill per sport the read counts', async () => {
+    const screen = await render(<RouteDetailScreen />);
 
     for (const range of ['1m', '3m', '6m', '1y', 'all']) {
       expect(screen.getByTestId(`section-time-range-${range}`)).toBeTruthy();
@@ -242,10 +243,10 @@ describe('route page on a route ridden and run', () => {
     expect(screen.getByTestId('attempt-chart').props.accessibilityValue.text).toBe('2');
   });
 
-  it('re-reads at ninety days when the three-month chip is tapped', () => {
-    const screen = render(<RouteDetailScreen />);
+  it('re-reads at ninety days when the three-month chip is tapped', async () => {
+    const screen = await render(<RouteDetailScreen />);
 
-    fireEvent.press(screen.getByTestId('section-time-range-3m'));
+    await fireEvent.press(screen.getByTestId('section-time-range-3m'));
 
     expect(mockEngine.getRouteDetailPerformance).toHaveBeenLastCalledWith(
       'grp-heath',
@@ -254,13 +255,13 @@ describe('route page on a route ridden and run', () => {
     );
   });
 
-  it('re-reads for a sport when its pill is tapped and hands it back on a second tap', () => {
-    const screen = render(<RouteDetailScreen />);
+  it('re-reads for a sport when its pill is tapped and hands it back on a second tap', async () => {
+    const screen = await render(<RouteDetailScreen />);
 
-    fireEvent.press(screen.getByRole('button', { name: 'activityTypes.Run' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'activityTypes.Run' }));
     expect(mockEngine.getRouteDetailPerformance).toHaveBeenLastCalledWith('grp-heath', 0, 'Run');
 
-    fireEvent.press(screen.getByRole('button', { name: 'activityTypes.Run' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'activityTypes.Run' }));
     expect(mockEngine.getRouteDetailPerformance).toHaveBeenLastCalledWith(
       'grp-heath',
       0,
@@ -268,24 +269,24 @@ describe('route page on a route ridden and run', () => {
     );
   });
 
-  it('draws the efficiency card from the read, for the sport on screen', () => {
-    const screen = render(<RouteDetailScreen />);
+  it('draws the efficiency card from the read, for the sport on screen', async () => {
+    const screen = await render(<RouteDetailScreen />);
 
     expect(screen.getByTestId('section-efficiency-card')).toBeTruthy();
     expect(screen.getByTestId('section-efficiency-detail').props.children).toContain(
       'sections.aerobicEfficiencyDetail'
     );
 
-    fireEvent.press(screen.getByRole('button', { name: 'activityTypes.Run' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'activityTypes.Run' }));
 
     expect(screen.queryByTestId('section-efficiency-card')).toBeNull();
   });
 
-  it('never makes the per-sport read, showing excluded attempts included', () => {
-    const screen = render(<RouteDetailScreen />);
+  it('never makes the per-sport read, showing excluded attempts included', async () => {
+    const screen = await render(<RouteDetailScreen />);
 
-    fireEvent.press(screen.getByRole('button', { name: 'activityTypes.Run' }));
-    fireEvent.press(screen.getByRole('button', { name: 'sections.showExcludedActivities' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'activityTypes.Run' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'sections.showExcludedActivities' }));
 
     expect(mockEngine.getRoutePerformances).not.toHaveBeenCalled();
   });
@@ -296,22 +297,22 @@ describe('route page on a route of one sport', () => {
     mockSportCounts = [{ sportType: 'Ride', count: 3 }];
   });
 
-  it('gives the bare count over every date and names the range once one is picked', () => {
-    const screen = render(<RouteDetailScreen />);
+  it('gives the bare count over every date and names the range once one is picked', async () => {
+    const screen = await render(<RouteDetailScreen />);
 
     expect(screen.getByTestId('route-detail-stats')).toHaveTextContent(
       '1.9 mi·maps.activitiesCount·774 ft'
     );
 
-    fireEvent.press(screen.getByTestId('section-time-range-3m'));
+    await fireEvent.press(screen.getByTestId('section-time-range-3m'));
 
     expect(screen.getByTestId('route-detail-stats')).toHaveTextContent(
       '1.9 mi·maps.activitiesCount · period.long.3m·774 ft'
     );
   });
 
-  it('shows the one pill', () => {
-    const screen = render(<RouteDetailScreen />);
+  it('shows the one pill', async () => {
+    const screen = await render(<RouteDetailScreen />);
 
     expect(screen.getAllByRole('button', { name: /^activityTypes\./ })).toHaveLength(1);
     expect(screen.getByRole('button', { name: 'activityTypes.Ride' })).toBeTruthy();
@@ -323,37 +324,37 @@ describe('route page after an exclusion', () => {
     mockSportCounts = [{ sportType: 'Ride', count: 3 }];
   });
 
-  it('re-reads the attempts once the exclusion is written', () => {
-    const screen = render(<RouteDetailScreen />);
+  it('re-reads the attempts once the exclusion is written', async () => {
+    const screen = await render(<RouteDetailScreen />);
     const before = mockEngine.getRouteDetailPerformance.mock.calls.length;
 
-    fireEvent.press(screen.getByTestId('exclude-first-attempt'));
+    await fireEvent.press(screen.getByTestId('exclude-first-attempt'));
 
     expect(mockEngine.excludeActivityFromRoute).toHaveBeenCalledWith('grp-heath', 'Ride-1');
     expect(mockEngine.getRouteDetailPerformance.mock.calls.length).toBe(before + 1);
   });
 
-  it('keeps the eye when every attempt is excluded and draws them when it is pressed', () => {
+  it('keeps the eye when every attempt is excluded and draws them when it is pressed', async () => {
     mockCounted = false;
-    const screen = render(<RouteDetailScreen />);
+    const screen = await render(<RouteDetailScreen />);
 
     expect(screen.getByTestId('section-performance-empty')).toBeTruthy();
     expect(screen.queryByTestId('attempt-chart')).toBeNull();
 
-    fireEvent.press(screen.getByRole('button', { name: 'sections.showExcludedActivities' }));
+    await fireEvent.press(screen.getByRole('button', { name: 'sections.showExcludedActivities' }));
 
     expect(screen.getByTestId('attempt-chart').props.accessibilityValue.text).toBe('1');
   });
 });
 
 describe('route page when the read fails', () => {
-  it('says the read failed rather than drawing a route with no attempts', () => {
+  it('says the read failed rather than drawing a route with no attempts', async () => {
     mockSportCounts = [{ sportType: 'Ride', count: 3 }];
     mockEngine.getRouteDetailPerformance.mockImplementationOnce(() => {
       throw new Error('engine down');
     });
 
-    const screen = render(<RouteDetailScreen />);
+    const screen = await render(<RouteDetailScreen />);
 
     expect(screen.getByTestId('route-performance-failure')).toBeTruthy();
   });
@@ -415,15 +416,15 @@ describe('route page below the chart', () => {
     };
   });
 
-  it('shows the summary with the oldest attempt in the read as First', () => {
-    const screen = render(<RouteDetailScreen />);
+  it('shows the summary with the oldest attempt in the read as First', async () => {
+    const screen = await render(<RouteDetailScreen />);
 
     expect(screen.getByTestId('section-first')).toHaveTextContent(/'24/);
     expect(screen.getByTestId('section-last')).toHaveTextContent(/'26/);
   });
 
-  it('shows the calendar with both years and the wellness card', () => {
-    const screen = render(<RouteDetailScreen />);
+  it('shows the calendar with both years and the wellness card', async () => {
+    const screen = await render(<RouteDetailScreen />);
 
     expect(screen.getByTestId('section-calendar')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'stats.year 2026' })).toBeTruthy();
@@ -432,25 +433,26 @@ describe('route page below the chart', () => {
     expect(screen.getByTestId('section-correlation-collapsed-same')).toBeTruthy();
   });
 
-  it('sets the route reference from a calendar month best', () => {
+  it('sets the route reference from a calendar month best', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    const screen = render(<RouteDetailScreen />);
+    const screen = await render(<RouteDetailScreen />);
 
-    fireEvent.press(screen.getAllByTestId('calendar-reference-button')[0]);
+    await fireEvent.press(screen.getAllByTestId('calendar-reference-button')[0]);
     const confirm = alert.mock.calls[0][2]?.find((button) => button.text === 'common.confirm');
     confirm?.onPress?.();
 
     expect(alert).toHaveBeenCalledWith(
       'routes.setAsReference',
       expect.anything(),
-      expect.anything()
+      expect.anything(),
+      expect.objectContaining({ cancelable: true })
     );
     expect(mockEngine.setRouteRepresentative).toHaveBeenCalledWith('grp-heath', 'h2');
     alert.mockRestore();
   });
 
-  it('leaves out the banners a section carries', () => {
-    const screen = render(<RouteDetailScreen />);
+  it('leaves out the banners a section carries', async () => {
+    const screen = await render(<RouteDetailScreen />);
 
     expect(screen.queryByRole('button', { name: 'sections.restoreSection' })).toBeNull();
   });

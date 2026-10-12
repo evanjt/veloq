@@ -105,14 +105,14 @@ const COORDINATES: LatLng[] = Array.from({ length: 12 }, (_, i) => ({
 
 const CAMERA = { center: [7.45, 46.95] as [number, number], zoom: 13, bearing: 0, pitch: 60 };
 
-const post = (message: Record<string, unknown>) => {
+const post = async (message: Record<string, unknown>) => {
   const page = mockPages.get('webview');
   if (!page) throw new Error('the 3D page did not mount');
-  act(() => page.onMessage({ nativeEvent: { data: JSON.stringify(message) } }));
+  await act(() => page.onMessage({ nativeEvent: { data: JSON.stringify(message) } }));
 };
 
-const open3D = (onCameraCapture: jest.Mock) => {
-  const view = render(
+const open3D = async (onCameraCapture: jest.Mock) => {
+  const view = await render(
     <SafeAreaProvider initialMetrics={METRICS}>
       <ActivityMapView
         activityType="Ride"
@@ -123,45 +123,45 @@ const open3D = (onCameraCapture: jest.Mock) => {
       />
     </SafeAreaProvider>
   );
-  post({ type: 'mapReady' });
+  await post({ type: 'mapReady' });
   return view;
 };
 
 describe('leaving the 3D view', () => {
-  it('captures nothing when the camera only moved by itself', () => {
+  it('captures nothing when the camera only moved by itself', async () => {
     const capture = jest.fn();
-    const view = open3D(capture);
-    post({ type: 'cameraState', camera: CAMERA, gesture: false });
+    const view = await open3D(capture);
+    await post({ type: 'cameraState', camera: CAMERA, gesture: false });
 
-    fireEvent.press(view.getByTestId('activity-map-3d-toggle'));
+    await fireEvent.press(view.getByTestId('activity-map-3d-toggle'));
 
     expect(capture).not.toHaveBeenCalled();
   });
 
-  it('captures the camera a gesture left', () => {
+  it('captures the camera a gesture left', async () => {
     const capture = jest.fn();
-    const view = open3D(capture);
-    post({ type: 'cameraState', camera: CAMERA, gesture: true });
+    const view = await open3D(capture);
+    await post({ type: 'cameraState', camera: CAMERA, gesture: true });
 
-    fireEvent.press(view.getByTestId('activity-map-3d-toggle'));
+    await fireEvent.press(view.getByTestId('activity-map-3d-toggle'));
 
     expect(capture).toHaveBeenCalledWith(CAMERA);
   });
 
-  it('captures nothing when the terrain failed after a gesture', () => {
+  it('captures nothing when the terrain failed after a gesture', async () => {
     const capture = jest.fn();
-    open3D(capture);
-    post({ type: 'cameraState', camera: CAMERA, gesture: true });
-    post({ type: 'terrainUnavailable', reason: 'no-tiles' });
+    await open3D(capture);
+    await post({ type: 'cameraState', camera: CAMERA, gesture: true });
+    await post({ type: 'terrainUnavailable', reason: 'no-tiles' });
 
     expect(capture).not.toHaveBeenCalled();
   });
 
-  it('captures nothing when the page failed after a gesture', () => {
+  it('captures nothing when the page failed after a gesture', async () => {
     const capture = jest.fn();
-    open3D(capture);
-    post({ type: 'cameraState', camera: CAMERA, gesture: true });
-    post({ type: 'mapFailed' });
+    await open3D(capture);
+    await post({ type: 'cameraState', camera: CAMERA, gesture: true });
+    await post({ type: 'mapFailed' });
 
     expect(capture).not.toHaveBeenCalled();
   });

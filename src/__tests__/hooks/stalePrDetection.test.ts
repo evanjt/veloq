@@ -67,8 +67,8 @@ describe('stalePROpportunityToInsight', () => {
 
   it('includes fitness values in body', () => {
     const insight = stalePROpportunityToInsight(opportunity, mockT);
-    expect(insight.body).toContain('200W');
-    expect(insight.body).toContain('220W');
+    expect(insight.body).toContain('200 W');
+    expect(insight.body).toContain('220 W');
     expect(insight.body).toContain('Hill Climb');
   });
 

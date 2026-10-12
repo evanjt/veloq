@@ -5,11 +5,13 @@ import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Animated } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import {
   brand,
   colors,
   colorWithOpacity,
   darkColors,
+  sectionNumberInk,
   sectionPalette,
   sectionPaletteIndex,
   spacing,
@@ -18,7 +20,13 @@ import {
 } from '@/theme';
 import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
 import { formatDistance, formatDuration, formatSportSpeed } from '@/shared/format/format';
-import { pressable, pressRipple } from '@/shared/ui';
+import {
+  accessibleActions,
+  composeAccessibilityLabel,
+  pressable,
+  pressRipple,
+  type AccessibleAction,
+} from '@/shared/ui';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
 import { SectionSparkline } from '@/features/routes';
 import type { SectionEncounter } from 'veloqrs';
@@ -51,6 +59,11 @@ interface SectionInlinePlotProps {
     progress: Animated.AnimatedInterpolation<number>,
     dragX: Animated.AnimatedInterpolation<number>
   ) => React.ReactNode;
+  /**
+   * What the swipe actions do, offered to a screen reader on the card, which
+   * takes the swipe for itself. One function for every row, as above.
+   */
+  actionsFor: (group: SectionEncounterGroup) => readonly AccessibleAction[];
   swipeableRefs: React.MutableRefObject<Map<string, Swipeable | null>>;
 }
 
@@ -66,6 +79,51 @@ function formatLap(
     return formatSportSpeed(lapPace, type, isMetric);
   }
   return formatDuration(lapTime);
+}
+
+/** The place word a medal marks, for ranks two and three of a complete pass. */
+function placeKey(
+  encounter: SectionEncounter
+): 'sections.placeSecond' | 'sections.placeThird' | null {
+  if (!encounter.isComplete) return null;
+  if (encounter.rank === 2) return 'sections.placeSecond';
+  if (encounter.rank === 3) return 'sections.placeThird';
+  return null;
+}
+
+/**
+ * The name a screen reader speaks for a section card, which is one element.
+ *
+ * The section name, then each direction in the order the card draws it: the
+ * direction word where the card marks one, the distance, the visits, the lap,
+ * the partial word, the record and the place. Each direction is composed on
+ * its own so a distance both directions share is spoken for each.
+ */
+export function sectionCardAccessibilityLabel(
+  group: SectionEncounterGroup,
+  sportType: string | undefined,
+  isMetric: boolean,
+  t: TFunction
+): string {
+  const directions = group.encounters.map((encounter) => {
+    const isReverse = encounter.direction === 'reverse';
+    const isPartialDirection = encounter.direction === 'partial';
+    const showDirection = !isPartialDirection && (group.hasBothDirections || isReverse);
+    const place = placeKey(encounter);
+    return composeAccessibilityLabel(
+      isPartialDirection
+        ? t('sections.partial')
+        : showDirection && t(isReverse ? 'sections.reverse' : 'sections.forward'),
+      formatDistance(encounter.distanceMeters, isMetric),
+      encounter.historyTimes.length > 0 &&
+        t('sections.visitsCount', { count: encounter.visitCount }),
+      encounter.lapTime > 0 && formatLap(encounter.lapPace, encounter.lapTime, sportType, isMetric),
+      !encounter.isComplete && !isPartialDirection && t('sections.partial'),
+      encounter.isComplete && encounter.isPr && t('a11y.personalRecord'),
+      place && t(place)
+    );
+  });
+  return composeAccessibilityLabel(group.sectionName, ...directions);
 }
 
 /**
@@ -138,6 +196,7 @@ export const SectionInlinePlot = memo(
     onRowHeight,
     firstRowRef,
     renderRightActions,
+    actionsFor,
     swipeableRefs,
   }: SectionInlinePlotProps) {
     const { t } = useTranslation();
@@ -154,9 +213,13 @@ export const SectionInlinePlot = memo(
       [renderRightActions, group]
     );
 
-    // Colour the card's index number using the same palette + hash as the map's
-    // section portions, so card N matches the colour of its section on the map.
-    const numberColor = sectionPalette[sectionPaletteIndex(group.sectionId)];
+    const cardActions = useMemo(() => accessibleActions(actionsFor(group)), [actionsFor, group]);
+
+    // The card's index number sits on a disc of the colour the map draws its
+    // section in, so card N matches its section on the map. The palette is
+    // drawn for map lines and most of it is under 3:1 on white, so the hue is
+    // the disc and the number takes the ink measured against that slot.
+    const numberSlot = sectionPaletteIndex(group.sectionId);
 
     const sparklines = useMemo(
       () => group.encounters.map((encounter) => buildSparklineData(encounter, activityId)),
@@ -198,7 +261,8 @@ export const SectionInlinePlot = memo(
         >
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={group.sectionName}
+            accessibilityLabel={sectionCardAccessibilityLabel(group, sportType, isMetric, t)}
+            {...cardActions}
             onPress={handlePress}
             style={pressable([
               styles.card,
@@ -208,7 +272,11 @@ export const SectionInlinePlot = memo(
             android_ripple={pressRipple}
           >
             <View style={styles.header}>
-              <Text style={[styles.numberLabel, { color: numberColor }]}>{index + 1}</Text>
+              <View style={[styles.numberDisc, { backgroundColor: sectionPalette[numberSlot] }]}>
+                <Text style={[styles.numberLabel, { color: sectionNumberInk(numberSlot) }]}>
+                  {index + 1}
+                </Text>
+              </View>
               <Text style={[styles.name, isDark && styles.textLight]} numberOfLines={1}>
                 {group.sectionName}
               </Text>
@@ -283,13 +351,15 @@ export const SectionInlinePlot = memo(
                         </Text>
                       )}
                       {encounter.isComplete && encounter.isPr && (
-                        <MaterialCommunityIcons
+                        <View
                           testID={`section-inline-trophy-${suffix}`}
-                          name="trophy"
-                          size={11}
-                          color={brand.gold}
+                          accessible
+                          accessibilityRole="image"
+                          accessibilityLabel={t('a11y.personalRecord')}
                           style={{ marginLeft: spacing.xxs }}
-                        />
+                        >
+                          <MaterialCommunityIcons name="trophy" size={11} color={brand.gold} />
+                        </View>
                       )}
                       {encounter.isComplete && (encounter.rank === 2 || encounter.rank === 3) && (
                         <View
@@ -348,6 +418,7 @@ export const SectionInlinePlot = memo(
           prev.activityId,
           prev.sportType,
           prev.renderRightActions,
+          prev.actionsFor,
         ],
       },
       {
@@ -360,12 +431,15 @@ export const SectionInlinePlot = memo(
           next.activityId,
           next.sportType,
           next.renderRightActions,
+          next.actionsFor,
         ],
       }
     )
 );
 
 const DIRECTION_LABEL_WIDTH = 26;
+/** The index number's disc, as wide as the column the direction rows indent past. */
+const NUMBER_DISC = DIRECTION_LABEL_WIDTH;
 
 const styles = StyleSheet.create({
   card: {
@@ -392,13 +466,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.sm,
   },
+  numberDisc: {
+    width: NUMBER_DISC,
+    height: NUMBER_DISC,
+    borderRadius: layout.borderRadiusFull,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
   numberLabel: {
-    width: 26,
     textAlign: 'center',
     fontSize: typography.metricValue.fontSize,
     fontWeight: '800',
-    color: colors.textSecondary,
-    marginRight: spacing.sm,
   },
   name: {
     flex: 1,

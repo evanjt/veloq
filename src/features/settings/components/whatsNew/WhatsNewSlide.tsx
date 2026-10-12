@@ -3,6 +3,7 @@ import { View, StyleSheet, useWindowDimensions, type LayoutChangeEvent } from 'r
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
+import { SectionTitle } from '@/shared/ui/SectionTitle';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import {
   TOUR_PICTURE_GAP,
@@ -51,11 +52,9 @@ export function WhatsNewSlide({
           size={40}
           color={isDark ? darkColors.primary : colors.primary}
         />
-        <Text
-          style={[styles.title, { color: isDark ? darkColors.textPrimary : colors.textPrimary }]}
-        >
+        <SectionTitle align="center" style={styles.title}>
           {title}
-        </Text>
+        </SectionTitle>
         <Text
           style={[styles.body, { color: isDark ? darkColors.textSecondary : colors.textSecondary }]}
         >
@@ -89,9 +88,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   title: {
-    fontSize: typography.sectionTitle.fontSize,
-    fontWeight: '700',
-    textAlign: 'center',
     marginTop: spacing.sm,
   },
   body: {

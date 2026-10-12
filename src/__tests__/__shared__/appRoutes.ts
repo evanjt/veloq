@@ -14,7 +14,7 @@ export function routePathOf(link: string): string {
 
 /** The route files expo-router would try for a path, in the order it tries them. */
 export function routeCandidates(routePath: string): string[] {
-  if (routePath === '') return ['index.tsx', '(tabs)/index.tsx'];
+  if (routePath === '') return ['index.tsx', '(tabs)/index.tsx', '(tabs)/(feed)/index.tsx'];
   const segments = routePath.split('/');
   const group = ['', '(tabs)/'];
   const shapes = [`${routePath}.tsx`, `${routePath}/index.tsx`];

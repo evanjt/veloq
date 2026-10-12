@@ -425,4 +425,17 @@ class SummaryWidgetTest {
       }
     assertNull(snap.formHistory)
   }
+
+  @Test
+  fun the_trend_arrows_are_the_engine_glyphs_with_flat_drawn_as_a_right_arrow() {
+    assertEquals("↑", SummaryWidget.trendArrow("up"))
+    assertEquals("↓", SummaryWidget.trendArrow("down"))
+    assertEquals("→", SummaryWidget.trendArrow("flat"))
+  }
+
+  @Test
+  fun a_direction_the_widget_does_not_know_draws_flat() {
+    assertEquals("→", SummaryWidget.trendArrow(""))
+    assertEquals("→", SummaryWidget.trendArrow("sideways"))
+  }
 }

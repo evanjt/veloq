@@ -12,10 +12,10 @@ import { renderHook } from '@testing-library/react-native';
 
 import { useRevealMapOnDraw } from '@/features/routes/hooks/useRevealMapOnDraw';
 
-function setup(initial: string | number | null | undefined) {
+async function setup(initial: string | number | null | undefined) {
   const scrollTo = jest.fn();
   const scrollRef = { current: { scrollTo } };
-  const view = renderHook(
+  const view = await renderHook(
     ({ target }: { target: string | number | null | undefined }) =>
       useRevealMapOnDraw(scrollRef as never, target),
     {
@@ -26,31 +26,31 @@ function setup(initial: string | number | null | undefined) {
 }
 
 describe('useRevealMapOnDraw', () => {
-  it('does not scroll on mount with nothing drawn', () => {
-    const { scrollTo } = setup(null);
+  it('does not scroll on mount with nothing drawn', async () => {
+    const { scrollTo } = await setup(null);
     expect(scrollTo).not.toHaveBeenCalled();
   });
 
-  it('scrolls to the top when a target is set', () => {
-    const { scrollTo, rerender } = setup(null);
-    rerender({ target: 'activity-1' });
+  it('scrolls to the top when a target is set', async () => {
+    const { scrollTo, rerender } = await setup(null);
+    await rerender({ target: 'activity-1' });
     expect(scrollTo).toHaveBeenCalledTimes(1);
     expect(scrollTo).toHaveBeenCalledWith({ y: 0, animated: true });
   });
 
-  it('scrolls again when the target changes to another', () => {
-    const { scrollTo, rerender } = setup('a');
-    rerender({ target: 'b' });
+  it('scrolls again when the target changes to another', async () => {
+    const { scrollTo, rerender } = await setup('a');
+    await rerender({ target: 'b' });
     expect(scrollTo).toHaveBeenCalledTimes(2);
   });
 
-  it('does not scroll when the target is cleared or unchanged', () => {
-    const { scrollTo, rerender } = setup(null);
-    rerender({ target: 3 });
+  it('does not scroll when the target is cleared or unchanged', async () => {
+    const { scrollTo, rerender } = await setup(null);
+    await rerender({ target: 3 });
     scrollTo.mockClear();
-    rerender({ target: 3 });
-    rerender({ target: null });
-    rerender({ target: undefined });
+    await rerender({ target: 3 });
+    await rerender({ target: null });
+    await rerender({ target: undefined });
     expect(scrollTo).not.toHaveBeenCalled();
   });
 });

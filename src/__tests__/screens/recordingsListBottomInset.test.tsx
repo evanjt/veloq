@@ -54,9 +54,9 @@ describe('recordings list', () => {
     expect(headerLargeTitle('recordings/index', 'android')).toBe(false);
   });
 
-  it('insets the system way and pads nothing for a tab bar', () => {
+  it('insets the system way and pads nothing for a tab bar', async () => {
     Platform.OS = 'ios';
-    const { UNSAFE_getByType } = render(<RecordingsLibraryScreen />);
+    const { UNSAFE_getByType } = await render(<RecordingsLibraryScreen />);
 
     const list = UNSAFE_getByType(FlatList);
     expect(list.props.contentInsetAdjustmentBehavior).toBe('automatic');

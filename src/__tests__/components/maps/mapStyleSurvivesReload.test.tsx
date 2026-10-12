@@ -48,8 +48,8 @@ type Style = 'light' | 'satellite';
 
 const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
-function ready(): void {
-  act(() => onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
+async function ready(): Promise<void> {
+  await act(() => onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
 }
 
 const surfaces = {
@@ -81,39 +81,39 @@ beforeEach(() => {
 afterEach(() => jest.useRealTimers());
 
 describe.each(Object.entries(surfaces))('%s style after the page is rebuilt', (_name, surface) => {
-  it('re-applies the shown style when a released page is rebuilt', () => {
-    const view = render(surface.element('light'));
-    ready();
-    view.rerender(surface.element('satellite'));
+  it('re-applies the shown style when a released page is rebuilt', async () => {
+    const view = await render(surface.element('light'));
+    await ready();
+    await view.rerender(surface.element('satellite'));
     expect(injected.some((s) => surface.swapsTo(s, 'satellite'))).toBe(true);
 
     releaseMountedSurfaces();
     rebuildReleasedSurfaces();
     injected.length = 0;
-    ready();
+    await ready();
 
     expect(injected.some((s) => surface.swapsTo(s, 'satellite'))).toBe(true);
-    view.unmount();
+    await view.unmount();
   });
 
-  it('applies a style chosen before the page first reports ready', () => {
-    const view = render(surface.element('light'));
-    view.rerender(surface.element('satellite'));
+  it('applies a style chosen before the page first reports ready', async () => {
+    const view = await render(surface.element('light'));
+    await view.rerender(surface.element('satellite'));
     injected.length = 0;
 
-    ready();
+    await ready();
 
     expect(injected.some((s) => surface.swapsTo(s, 'satellite'))).toBe(true);
-    view.unmount();
+    await view.unmount();
   });
 
-  it('leaves the page alone when the shown style is the one it was built with', () => {
-    const view = render(surface.element('light'));
+  it('leaves the page alone when the shown style is the one it was built with', async () => {
+    const view = await render(surface.element('light'));
     injected.length = 0;
 
-    ready();
+    await ready();
 
     expect(injected.some((s) => s.includes('setStyle'))).toBe(false);
-    view.unmount();
+    await view.unmount();
   });
 });

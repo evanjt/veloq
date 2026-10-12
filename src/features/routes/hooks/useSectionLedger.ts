@@ -6,13 +6,13 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { getEngine } from '@/shared/native/engine';
 import { engineErrorTag } from '@/shared/native/engineError';
 import type { FfiDepartedRide, FfiSectionEventDetails } from 'veloqrs';
 import type { RoutePoint } from '@/types';
 import { announceDepartedRides } from '@/features/routes/lib/departedRides';
+import { inform } from '@/shared/ui/dialog';
 
 /** A ledger row, with the engine's 64-bit ids as numbers. */
 export interface SectionHistoryEvent {
@@ -148,7 +148,10 @@ export function useSectionLedger(
       }
 
       if (!departed) {
-        Alert.alert(t('common.error'), t('sectionHistory.revertFailed'));
+        inform({
+          title: t('sectionHistory.revertFailedTitle'),
+          message: t('sectionHistory.revertFailed'),
+        });
         return false;
       }
       announceDepartedRides(departed, t);

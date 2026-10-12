@@ -21,6 +21,7 @@ jest.mock('@/shared/ui/withScreenBoundary', () => ({
   withScreenBoundary: (c: unknown) => c,
 }));
 jest.mock('@/shared/app/ThemeProvider', () => ({
+  ...jest.requireActual('@/shared/app/ThemeProvider'),
   useResolvedColorScheme: () => mockScheme,
 }));
 jest.mock('@/shared/app', () => ({
@@ -56,25 +57,25 @@ describe('section detail with route matching off', () => {
     mockScheme = 'light';
   });
 
-  it('renders the disabled state and reads no section', () => {
-    const view = render(<SectionDetailScreen />);
+  it('renders the disabled state and reads no section', async () => {
+    const view = await render(<SectionDetailScreen />);
     expect(view.getByTestId('section-detail-disabled')).toBeTruthy();
     expect(mockContentRendered).not.toHaveBeenCalled();
   });
 
-  it('offers a button named for the action that turns matching on', () => {
-    const view = render(<SectionDetailScreen />);
+  it('offers a button named for the action that turns matching on', async () => {
+    const view = await render(<SectionDetailScreen />);
     const action = view.getByRole('button', { name: 'insights.routesDisabledLine2' });
 
-    fireEvent.press(action);
+    await fireEvent.press(action);
 
     expect(mockSetEnabled).toHaveBeenCalledTimes(1);
     expect(mockSetEnabled).toHaveBeenCalledWith(true);
   });
 
-  it('draws the title at 4.5:1 or better on the dark ground', () => {
+  it('draws the title at 4.5:1 or better on the dark ground', async () => {
     mockScheme = 'dark';
-    const view = render(<SectionDetailScreen />);
+    const view = await render(<SectionDetailScreen />);
 
     const ground = StyleSheet.flatten(view.getByTestId('section-detail-disabled').props.style);
     expect(ground.backgroundColor).toBe(darkColors.background);

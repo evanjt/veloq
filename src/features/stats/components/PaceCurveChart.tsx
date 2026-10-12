@@ -1,21 +1,28 @@
 import React, { useMemo, useCallback, useState, useRef } from 'react';
-import { View, StyleSheet, Switch, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import {
   colors,
-  darkColors,
   typography,
   spacing,
   layout,
-  chartStyles,
-  switchTrackOff,
   colorWithOpacity,
+  themedStyles,
+  type Palette,
 } from '@/theme';
 import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
 import { RangeCoverage } from 'veloqrs';
-import { BodyNotDownloaded, pressable, pressRipple } from '@/shared/ui';
+import {
+  BodyNotDownloaded,
+  CardHeader,
+  ErrorState,
+  pressable,
+  pressRipple,
+  Switch,
+  EmptyState,
+} from '@/shared/ui';
 import { CurveLoadingPlaceholder } from './CurveLoadingPlaceholder';
 import { paceChartSeries } from '../lib/curveChartSeries';
 import { usePaceCurve } from '../hooks/usePaceCurve';
@@ -66,6 +73,7 @@ interface HeldPoint {
 export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceCurveChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const styles = themedStyles(makeStyles, isDark);
   const chartColors = useChartColors();
   const isMetric = useMetricSystem();
   const isRunning = sport === 'Run';
@@ -84,6 +92,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
     coverage,
     bodyStatus,
     retryBody,
+    refetch,
   } = usePaceCurve({
     sport,
     days,
@@ -207,30 +216,42 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
   if (isLoading || awaitingBody) {
     return (
       <View style={[styles.container, { height }]}>
-        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.paceCurve')}</Text>
+        <CardHeader title={t('stats.paceCurve')} />
         <CurveLoadingPlaceholder height={height} />
       </View>
     );
   }
 
-  if (error || chartData.length === 0) {
+  if (error) {
     return (
       <View style={[styles.container, { height }]}>
-        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.paceCurve')}</Text>
+        <CardHeader title={t('stats.paceCurve')} />
+        <ErrorState
+          variant="inline"
+          error={error}
+          onRetry={() => void refetch()}
+          testID="pace-curve-failed"
+        />
+      </View>
+    );
+  }
+
+  if (chartData.length === 0) {
+    return (
+      <View style={[styles.container, { height }]}>
+        <CardHeader title={t('stats.paceCurve')} />
         <View style={styles.emptyState}>
           {coverage === RangeCoverage.NotFetched ? (
             <BodyNotDownloaded
               testID="pace-curve-not-downloaded"
               style={styles.notDownloaded}
-              textStyle={[styles.emptyText, isDark && chartStyles.textDark]}
+              textStyle={styles.notDownloadedText}
               message={t('stats.rangeNotDownloaded')}
               status={bodyStatus}
               onRetry={retryBody}
             />
           ) : (
-            <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
-              {t('stats.noPaceData')}
-            </Text>
+            <EmptyState variant="inline" title={t('stats.noPaceData')} />
           )}
         </View>
       </View>
@@ -239,49 +260,39 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
 
   return (
     <View style={[styles.container, { height }]}>
-      {/* Header with title and GAP toggle */}
-      <View style={styles.header}>
-        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.paceCurve')}</Text>
-        {/* GAP toggle (running only) */}
-        {isRunning && (
-          <View style={styles.gapToggle}>
-            <Text style={[styles.gapLabel, isDark && chartStyles.textDark]}>{t('stats.gap')}</Text>
-            <Switch
-              value={showGap}
-              onValueChange={setShowGap}
-              trackColor={{
-                false: isDark ? switchTrackOff.dark : switchTrackOff.light,
-                true: colors.primary,
-              }}
-              thumbColor={
-                showGap ? colors.textOnDark : isDark ? darkColors.textSecondary : colors.textOnDark
-              }
-              style={styles.gapSwitch}
-            />
-          </View>
-        )}
-      </View>
+      {/* Header with title and the GAP toggle, which only running has */}
+      <CardHeader
+        title={t('stats.paceCurve')}
+        accessory={
+          isRunning && (
+            <View style={styles.gapToggle}>
+              <Text style={styles.gapLabel}>{t('stats.gap')}</Text>
+              <Switch
+                value={showGap}
+                onValueChange={setShowGap}
+                accessibilityLabel={t('stats.gap')}
+              />
+            </View>
+          )
+        }
+      />
 
       {/* Values row */}
       <View style={styles.valuesRow}>
         <View style={styles.valueItem}>
-          <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
-            {t('activity.distance')}
-          </Text>
+          <Text style={styles.valueLabel}>{t('activity.distance')}</Text>
           <Text style={[styles.valueNumber, isDark && styles.textLight]}>
             {formatDistance(displayData.distance, isMetric)}
           </Text>
         </View>
         <View style={styles.valueItem}>
-          <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>{t('stats.time')}</Text>
+          <Text style={styles.valueLabel}>{t('stats.time')}</Text>
           <Text style={[styles.valueNumber, isDark && styles.textLight]}>
             {formatDuration(displayData.time)}
           </Text>
         </View>
         <View style={styles.valueItem}>
-          <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
-            {t('metrics.pace')}
-          </Text>
+          <Text style={styles.valueLabel}>{t('metrics.pace')}</Text>
           <Text style={[styles.valueNumber, isDark && styles.textLight]}>
             {formatPaceFromSecsPerKm(displayData.paceSecsPerKm, isMetric)}
             {paceUnitLabel(isMetric)}
@@ -325,10 +336,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
       {criticalSpeedPace && (
         <View style={styles.legend}>
           <View style={[styles.legendDash, { backgroundColor: CS_LINE_COLOR }]} />
-          <Text
-            testID="pace-curve-cs-legend"
-            style={[styles.legendText, isDark && chartStyles.textDark]}
-          >
+          <Text testID="pace-curve-cs-legend" style={styles.legendText}>
             {t('metrics.cs')} {formatPaceFromSecsPerKm(criticalSpeedPace, isMetric)}
             {paceUnitLabel(isMetric)}
           </Text>
@@ -338,14 +346,14 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
       {/* Model info */}
       <View style={styles.footer}>
         <View style={styles.modelInfo}>
-          <Text style={[styles.dateRange, isDark && chartStyles.textDark]}>
+          <Text style={styles.dateRange}>
             {curve?.days ? `${t('time.daysCount', { count: curve.days })}: ` : ''}
             {curve?.startDate && curve?.endDate
               ? `${formatFullDate(curve.startDate)} - ${formatFullDate(curve.endDate)}`
               : ''}
           </Text>
           {criticalSpeedPace && (
-            <Text style={[styles.modelStats, isDark && chartStyles.textDark]}>
+            <Text style={styles.modelStats}>
               {t('metrics.cs')} {formatPaceFromSecsPerKm(criticalSpeedPace, isMetric)}
               {paceUnitLabel(isMetric)} ({curve?.criticalSpeed?.toFixed(2)}{' '}
               {t('units.metresPerSecond')})
@@ -359,112 +367,99 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
   );
 }
 
-const styles = StyleSheet.create({
-  container: {},
-  title: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  textLight: { color: colors.textOnDark },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  gapToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xsPlus,
-  },
-  gapLabel: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '500',
-    color: colors.textSecondary,
-  },
-  gapSwitch: {
-    transform: [{ scale: 0.8 }],
-  },
-  valuesRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: spacing.xs,
-  },
-  valueItem: {
-    alignItems: 'center',
-  },
-  valueLabel: {
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
-    marginBottom: spacing.xxs,
-  },
-  valueNumber: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '700',
-  },
-  activityRow: {
-    marginBottom: spacing.xs,
-    alignItems: 'center',
-  },
-  activityPill: {
-    backgroundColor: colorWithOpacity(colors.run, 0.15),
-    paddingHorizontal: layout.borderRadius,
-    paddingVertical: spacing.xs,
-    borderRadius: layout.borderRadius,
-    borderWidth: 1,
-    borderColor: colorWithOpacity(colors.run, 0.3),
-  },
-  activityPillDark: {
-    backgroundColor: colorWithOpacity(colors.run, 0.2),
-    borderColor: colorWithOpacity(colors.run, 0.4),
-  },
-  activityLabel: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  notDownloaded: {
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: typography.bodyCompact.fontSize,
-    color: colors.textSecondary,
-  },
-  legend: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing.xs,
-    gap: spacing.xsPlus,
-  },
-  legendDash: {
-    width: spacing.md,
-    height: 2,
-    borderRadius: layout.borderRadiusFull,
-  },
-  legendText: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-  },
-  footer: {
-    marginTop: spacing.xs,
-  },
-  modelInfo: {
-    alignItems: 'center',
-  },
-  dateRange: {
-    fontSize: typography.micro.fontSize,
-    color: colors.textSecondary,
-    marginBottom: spacing.xxs,
-  },
-  modelStats: {
-    fontSize: typography.micro.fontSize,
-    color: colors.textSecondary,
-  },
-});
+const makeStyles = (palette: Palette) =>
+  StyleSheet.create({
+    container: {},
+    textLight: { color: colors.textOnDark },
+    gapToggle: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xsPlus,
+    },
+    gapLabel: {
+      fontSize: typography.caption.fontSize,
+      fontWeight: '500',
+      color: palette.textSecondary,
+    },
+    valuesRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      marginBottom: spacing.xs,
+    },
+    valueItem: {
+      alignItems: 'center',
+    },
+    valueLabel: {
+      fontSize: typography.pillLabel.fontSize,
+      color: palette.textSecondary,
+      marginBottom: spacing.xxs,
+    },
+    valueNumber: {
+      fontSize: typography.bodySmall.fontSize,
+      fontWeight: '700',
+    },
+    activityRow: {
+      marginBottom: spacing.xs,
+      alignItems: 'center',
+    },
+    activityPill: {
+      backgroundColor: colorWithOpacity(colors.run, 0.15),
+      paddingHorizontal: layout.borderRadius,
+      paddingVertical: spacing.xs,
+      borderRadius: layout.borderRadius,
+      borderWidth: 1,
+      borderColor: colorWithOpacity(colors.run, 0.3),
+    },
+    activityPillDark: {
+      backgroundColor: colorWithOpacity(colors.run, 0.2),
+      borderColor: colorWithOpacity(colors.run, 0.4),
+    },
+    activityLabel: {
+      fontSize: typography.caption.fontSize,
+      fontWeight: '600',
+      color: colors.textPrimary,
+    },
+    emptyState: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    notDownloaded: {
+      alignItems: 'center',
+    },
+    notDownloadedText: {
+      fontSize: typography.bodyCompact.fontSize,
+      color: palette.textSecondary,
+    },
+    legend: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: spacing.xs,
+      gap: spacing.xsPlus,
+    },
+    legendDash: {
+      width: spacing.md,
+      height: 2,
+      borderRadius: layout.borderRadiusFull,
+    },
+    legendText: {
+      fontSize: typography.label.fontSize,
+      color: palette.textSecondary,
+    },
+    footer: {
+      marginTop: spacing.xs,
+    },
+    modelInfo: {
+      alignItems: 'center',
+    },
+    dateRange: {
+      fontSize: typography.micro.fontSize,
+      color: palette.textSecondary,
+      marginBottom: spacing.xxs,
+    },
+    modelStats: {
+      fontSize: typography.micro.fontSize,
+      color: palette.textSecondary,
+    },
+  });

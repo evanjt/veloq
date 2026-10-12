@@ -10,7 +10,6 @@
 import { renderHook } from '@testing-library/react-native';
 
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
-import { DEFAULT_MAX_HR } from '@/features/activity/lib/hrZones';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import {
   getFormZone,
@@ -20,8 +19,9 @@ import {
   type FormZone,
 } from '@/features/fitness/lib/fitness';
 import type { Activity, WellnessData } from '@/types';
+import { MaxHrSource } from 'veloqrs';
 
-jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
 
 const activity = {
   id: 'a1',
@@ -30,27 +30,28 @@ const activity = {
   start_date_local: '2026-09-05T08:00:00',
 } as Activity;
 
-const settings = { isMetric: true, maxHR: DEFAULT_MAX_HR };
+// The athlete's own max, the source a percent of max was once graded against.
+const settings = { isMetric: true, maxHR: 185, maxHrSource: MaxHrSource.SportSettings };
 
-function formStat(wellness?: WellnessData, isDark = false) {
-  const { result } = renderHook(() =>
+async function formStat(wellness?: WellnessData, isDark = false) {
+  const { result } = await renderHook(() =>
     useActivityStats({ activity, wellness, isDark, ...settings })
   );
   return result.current.stats.find((s) => s.title === 'activity.stats.yourForm');
 }
 
 describe('the activity card form band', () => {
-  it('uses the displayed form when fractional loads round across a zone boundary', () => {
-    const stat = formStat({ ctl: 50.5, atl: 45.6 } as WellnessData);
+  it('uses the displayed form when fractional loads round across a zone boundary', async () => {
+    const stat = await formStat({ ctl: 50.5, atl: 45.6 } as WellnessData);
     expect(stat?.value).toBe('+5');
     expect(stat?.context).toBe(formZoneLabel('fresh'));
     expect(stat?.color).toBe(FORM_ZONE_TEXT_COLORS.fresh);
   });
 
-  it('uses rounded fitness to zone the displayed percentage', () => {
+  it('uses rounded fitness to zone the displayed percentage', async () => {
     useFormPreference.getState().setFormAsPercent(true);
     try {
-      const stat = formStat({ ctl: 100.49, atl: 95.49 } as WellnessData);
+      const stat = await formStat({ ctl: 100.49, atl: 95.49 } as WellnessData);
       expect(stat?.value).toBe('+5%');
       expect(stat?.color).toBe(FORM_ZONE_TEXT_COLORS.fresh);
     } finally {
@@ -60,19 +61,19 @@ describe('the activity card form band', () => {
 
   it.each([-35, -30, -20, -10, -5, 0, 5, 10, 25, 30])(
     'colours a TSB of %d from the fitness ladder',
-    (tsb) => {
-      const stat = formStat({ ctl: 50, atl: 50 - tsb } as WellnessData);
+    async (tsb) => {
+      const stat = await formStat({ ctl: 50, atl: 50 - tsb } as WellnessData);
       expect(stat).toBeDefined();
       expect(stat?.color).toBe(FORM_ZONE_TEXT_COLORS[getFormZone(tsb) as FormZone]);
 
-      const dark = formStat({ ctl: 50, atl: 50 - tsb } as WellnessData, true);
+      const dark = await formStat({ ctl: 50, atl: 50 - tsb } as WellnessData, true);
       expect(dark?.color).toBe(FORM_ZONE_TEXT_COLORS_DARK[getFormZone(tsb) as FormZone]);
     }
   );
 
-  it('shows no form stat without wellness', () => {
-    expect(formStat(undefined)).toBeUndefined();
-    expect(formStat({ ctl: 50 } as WellnessData)).toBeUndefined();
+  it('shows no form stat without wellness', async () => {
+    expect(await formStat(undefined)).toBeUndefined();
+    expect(await formStat({ ctl: 50 } as WellnessData)).toBeUndefined();
   });
 });
 
@@ -81,8 +82,8 @@ describe('the activity card form band', () => {
  * zone never reaches the athlete through hue alone.
  */
 describe('the form card names its zone', () => {
-  it.each([-35, -20, 0, 10, 30])('names the form zone at a TSB of %d', (tsb) => {
-    const stat = formStat({ ctl: 50, atl: 50 - tsb } as WellnessData);
+  it.each([-35, -20, 0, 10, 30])('names the form zone at a TSB of %d', async (tsb) => {
+    const stat = await formStat({ ctl: 50, atl: 50 - tsb } as WellnessData);
     expect(stat?.context).toBe(formZoneLabel(getFormZone(tsb) as FormZone));
   });
 });
@@ -94,17 +95,17 @@ describe('the form card names its zone', () => {
  * band word.
  */
 describe('a card grades nothing the data source does not', () => {
-  function stats(fields: Partial<Activity>, isDark = false) {
-    const { result } = renderHook(() =>
+  async function stats(fields: Partial<Activity>, isDark = false) {
+    const { result } = await renderHook(() =>
       useActivityStats({ activity: { ...activity, ...fields } as Activity, isDark, ...settings })
     );
     return result.current.stats;
   }
-  const titled = (title: string, fields: Partial<Activity>, isDark = false) =>
-    stats(fields, isDark).find((s) => s.title === title);
+  const titled = async (title: string, fields: Partial<Activity>, isDark = false) =>
+    (await stats(fields, isDark)).find((s) => s.title === title);
 
-  it('omits intensity when a stored activity has load but no intensity', () => {
-    const stat = titled('activity.stats.trainingLoad', { icu_training_load: 60 });
+  it('omits intensity when a stored activity has load but no intensity', async () => {
+    const stat = await titled('metrics.trainingLoad', { icu_training_load: 60 });
 
     expect(stat?.value).toBe('60');
     expect(stat?.context).toBeUndefined();
@@ -113,48 +114,64 @@ describe('a card grades nothing the data source does not', () => {
     ).toBeUndefined();
   });
 
-  it.each([false, true])('colours training load the same at every intensity (dark %s)', (dark) => {
-    const colours = [undefined, 0, 60, 78, 92, 100, 105, 140].map(
-      (intensity) =>
-        titled(
-          'activity.stats.trainingLoad',
+  it.each([false, true])(
+    'colours training load the same at every intensity (dark %s)',
+    async (dark) => {
+      const colours: (string | undefined)[] = [];
+      for (const intensity of [undefined, 0, 60, 78, 92, 100, 105, 140]) {
+        const stat = await titled(
+          'metrics.trainingLoad',
           { icu_training_load: 60, icu_intensity: intensity },
           dark
-        )?.color
-    );
-    expect(colours[0]).toBeDefined();
-    expect(new Set(colours).size).toBe(1);
-  });
-
-  it.each([0, 60, 70, 78, 85, 92, 100, 105])(
-    'states an IF of %d with no band word',
-    (intensity) => {
-      const stat = titled('activity.stats.trainingLoad', {
-        icu_training_load: 60,
-        icu_intensity: intensity,
-      });
-      expect(stat?.context).toBe(`IF ${intensity}%`);
+        );
+        colours.push(stat?.color);
+      }
+      expect(colours[0]).toBeDefined();
+      expect(new Set(colours).size).toBe(1);
     }
   );
 
-  it.each([false, true])('colours heart rate the same at every share of max (dark %s)', (dark) => {
-    const colours = [0.5, 0.6, 0.8, 0.81, 0.9, 0.95, 1.05].map(
-      (share) =>
-        titled(
+  it.each([0, 60, 70, 78, 85, 92, 100, 105])(
+    'states an IF of %d with no band word',
+    async (intensity) => {
+      const stat = await titled('metrics.trainingLoad', {
+        icu_training_load: 60,
+        icu_intensity: intensity,
+      });
+      expect(stat?.context).toBe(
+        `activity.stats.intensityContext:${JSON.stringify({ percent: intensity })}`
+      );
+    }
+  );
+
+  it.each([false, true])(
+    'colours heart rate the same at every share of max (dark %s)',
+    async (dark) => {
+      const colours: (string | undefined)[] = [];
+      for (const share of [0.5, 0.6, 0.8, 0.81, 0.9, 0.95, 1.05]) {
+        const stat = await titled(
           'activity.heartRate',
           { average_heartrate: Math.round(settings.maxHR * share) },
           dark
-        )?.color
-    );
-    expect(colours[0]).toBeDefined();
-    expect(new Set(colours).size).toBe(1);
-  });
+        );
+        colours.push(stat?.color);
+      }
+      expect(colours[0]).toBeDefined();
+      expect(new Set(colours).size).toBe(1);
+    }
+  );
 
-  it.each([false, true])('colours conditions the same at every temperature (dark %s)', (dark) => {
-    const colours = [-10, 0, 9, 10, 20, 28, 29, 40].map(
-      (temp) => titled('activity.stats.conditions', { average_temp: temp }, dark)?.color
-    );
-    expect(colours[0]).toBeDefined();
-    expect(new Set(colours).size).toBe(1);
-  });
+  it.each([false, true])(
+    'colours conditions the same at every temperature (dark %s)',
+    async (dark) => {
+      const colours: (string | undefined)[] = [];
+      for (const temp of [-10, 0, 9, 10, 20, 28, 29, 40]) {
+        colours.push(
+          (await titled('activity.stats.conditions', { average_temp: temp }, dark))?.color
+        );
+      }
+      expect(colours[0]).toBeDefined();
+      expect(new Set(colours).size).toBe(1);
+    }
+  );
 });

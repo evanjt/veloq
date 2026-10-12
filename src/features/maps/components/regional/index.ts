@@ -1,7 +1,6 @@
 export { ActivityPopup, type SelectedActivity } from './ActivityPopup';
 export { SectionPopup } from './SectionPopup';
 export { RoutePopup, type MapRouteSummary } from './RoutePopup';
-export { SectionChooser } from './SectionChooser';
 export { MapControlStack } from './MapControlStack';
 export { useMapGeoJSON, getMarkerSize } from './useMapGeoJSON';
 export { useMapHandlers, type SpiderState } from './useMapHandlers';

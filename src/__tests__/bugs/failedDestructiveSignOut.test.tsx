@@ -75,8 +75,8 @@ it.each([
   useAuthStore.setState({ authMethod: 'oauth', clearCredentials });
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   try {
-    render(<ProfileAccountSection />);
-    fireEvent.press(screen.getByTestId(button));
+    await render(<ProfileAccountSection />);
+    await fireEvent.press(screen.getByTestId(button));
     const buttons = alert.mock.calls[0][2];
     await act(async () => {
       buttons?.find((b) => b.style === 'destructive')?.onPress?.();
@@ -95,15 +95,20 @@ it('reports a failed destructive wipe without signing out', async () => {
   jest.mocked(clearAccountData).mockRejectedValueOnce(new Error('wipe failed'));
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   try {
-    render(<ProfileAccountSection />);
-    fireEvent.press(screen.getByTestId('settings-logout-clear-button'));
+    await render(<ProfileAccountSection />);
+    await fireEvent.press(screen.getByTestId('settings-logout-clear-button'));
     const buttons = alert.mock.calls[0][2];
     await act(async () => {
       buttons?.find((b) => b.style === 'destructive')?.onPress?.();
       await Promise.resolve();
     });
     expect(clearCredentials).not.toHaveBeenCalled();
-    expect(alert).toHaveBeenLastCalledWith('alerts.error', 'alerts.failedToDisconnect');
+    expect(alert).toHaveBeenLastCalledWith(
+      'alerts.disconnectFailedTitle',
+      'alerts.failedToDisconnect',
+      undefined,
+      expect.objectContaining({ cancelable: true })
+    );
   } finally {
     alert.mockRestore();
   }
@@ -123,8 +128,8 @@ describe.each([
       clearCredentials: jest.fn(async () => {}),
     });
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    render(<ProfileAccountSection />);
-    fireEvent.press(screen.getByTestId(button));
+    await render(<ProfileAccountSection />);
+    await fireEvent.press(screen.getByTestId(button));
     return { alert, buttons: alert.mock.calls[0][2] };
   }
 
@@ -163,12 +168,12 @@ describe.each([
  * nobody out, and the confirm opens again once the file has been offered.
  */
 describe('Sign out and delete data confirm', () => {
-  function openConfirm() {
+  async function openConfirm() {
     const clearCredentials = jest.fn(async () => {});
     useAuthStore.setState({ authMethod: 'oauth', clearCredentials });
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    render(<ProfileAccountSection />);
-    fireEvent.press(screen.getByTestId('settings-logout-clear-button'));
+    await render(<ProfileAccountSection />);
+    await fireEvent.press(screen.getByTestId('settings-logout-clear-button'));
     return { alert, clearCredentials };
   }
 
@@ -177,8 +182,8 @@ describe('Sign out and delete data confirm', () => {
     jest.mocked(exportRecordBackup).mockResolvedValue('complete');
   });
 
-  it('lists what comes back and what is deleted for good', () => {
-    const { alert } = openConfirm();
+  it('lists what comes back and what is deleted for good', async () => {
+    const { alert } = await openConfirm();
     try {
       const message = alert.mock.calls[0][1] ?? '';
       expect(message).toContain('alerts.wipeList.returns');
@@ -192,7 +197,7 @@ describe('Sign out and delete data confirm', () => {
   });
 
   it('backs up first, then asks again without deleting anything', async () => {
-    const { alert, clearCredentials } = openConfirm();
+    const { alert, clearCredentials } = await openConfirm();
     try {
       const backUp = alert.mock.calls[0][2]?.find(
         (b) => b.text === 'alerts.disconnectAndClearBackUpFirst'
@@ -217,7 +222,7 @@ describe('Sign out and delete data confirm', () => {
 
   it('does not ask again when the backup failed', async () => {
     jest.mocked(exportRecordBackup).mockRejectedValueOnce(new Error('disk full'));
-    const { alert, clearCredentials } = openConfirm();
+    const { alert, clearCredentials } = await openConfirm();
     try {
       const backUp = alert.mock.calls[0][2]?.find(
         (b) => b.text === 'alerts.disconnectAndClearBackUpFirst'
@@ -227,7 +232,7 @@ describe('Sign out and delete data confirm', () => {
       });
 
       await waitFor(() => expect(alert).toHaveBeenCalledTimes(2));
-      expect(alert.mock.calls[1][0]).toBe('common.error');
+      expect(alert.mock.calls[1][0]).toBe('backup.notSavedTitle');
       expect(clearAccountData).not.toHaveBeenCalled();
       expect(clearCredentials).not.toHaveBeenCalled();
     } finally {

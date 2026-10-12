@@ -87,24 +87,30 @@ describe('usePowerCurve', () => {
   it('reads the stored body once across re-renders', async () => {
     engine.getPowerCurve.mockImplementation((sport: string) => POWER(sport));
 
-    const { result, rerender } = renderHook(() => usePowerCurve({ sport: 'Ride', days: 90 }), {
-      wrapper,
-    });
+    const { result, rerender } = await renderHook(
+      () => usePowerCurve({ sport: 'Ride', days: 90 }),
+      {
+        wrapper,
+      }
+    );
     await waitFor(() => expect(result.current.data?.watts).toEqual([9]));
-    rerender({});
-    rerender({});
+    await rerender({});
+    await rerender({});
 
     expect(engine.getPowerCurve).toHaveBeenCalledTimes(1);
     expect(engine.syncPowerCurve).not.toHaveBeenCalled();
   });
 
   it('still asks once for a body it has never stored, and reads it once', async () => {
-    const { result, rerender } = renderHook(() => usePowerCurve({ sport: 'Ride', days: 90 }), {
-      wrapper,
-    });
+    const { result, rerender } = await renderHook(
+      () => usePowerCurve({ sport: 'Ride', days: 90 }),
+      {
+        wrapper,
+      }
+    );
     await waitFor(() => expect(engine.syncPowerCurve).toHaveBeenCalledWith('Ride', 90));
     await waitFor(() => expect(result.current.data?.watts).toEqual([]));
-    rerender({});
+    await rerender({});
 
     expect(engine.syncPowerCurve).toHaveBeenCalledTimes(1);
     expect(engine.getPowerCurve).toHaveBeenCalledTimes(1);
@@ -113,14 +119,14 @@ describe('usePowerCurve', () => {
   it('reads once more when the sport changes, not once per render', async () => {
     engine.getPowerCurve.mockImplementation((sport: string) => POWER(sport));
 
-    const { result, rerender } = renderHook(
+    const { result, rerender } = await renderHook(
       ({ sport }: { sport: string }) => usePowerCurve({ sport, days: 90 }),
       { wrapper, initialProps: { sport: 'Ride' } }
     );
     await waitFor(() => expect(result.current.data?.watts).toEqual([9]));
-    rerender({ sport: 'MountainBikeRide' });
+    await rerender({ sport: 'MountainBikeRide' });
     await waitFor(() => expect(result.current.data?.sport).toBe('MountainBikeRide'));
-    rerender({ sport: 'MountainBikeRide' });
+    await rerender({ sport: 'MountainBikeRide' });
 
     expect(engine.getPowerCurve).toHaveBeenCalledTimes(2);
   });
@@ -130,19 +136,19 @@ describe('usePaceCurve', () => {
   it('reads the stored body once across re-renders', async () => {
     engine.getPaceCurve.mockImplementation((sport: string) => PACE(sport));
 
-    const { result, rerender } = renderHook(() => usePaceCurve({ sport: 'Run', days: 42 }), {
+    const { result, rerender } = await renderHook(() => usePaceCurve({ sport: 'Run', days: 42 }), {
       wrapper,
     });
     await waitFor(() => expect(result.current.data?.pace).toEqual([5]));
-    rerender({});
-    rerender({});
+    await rerender({});
+    await rerender({});
 
     expect(engine.getPaceCurve).toHaveBeenCalledTimes(1);
     expect(engine.syncPaceCurve).not.toHaveBeenCalled();
   });
 
   it('still asks once for a body it has never stored', async () => {
-    renderHook(() => usePaceCurve({ sport: 'Run', days: 42, gap: true }), { wrapper });
+    await renderHook(() => usePaceCurve({ sport: 'Run', days: 42, gap: true }), { wrapper });
 
     await waitFor(() => expect(engine.syncPaceCurve).toHaveBeenCalledWith('Run', 42, true));
     expect(engine.syncPaceCurve).toHaveBeenCalledTimes(1);
@@ -153,28 +159,28 @@ describe('useActivityIntervals', () => {
   it('reads the stored body once across re-renders', async () => {
     engine.getIntervalBody.mockReturnValue(INTERVALS);
 
-    const { result, rerender } = renderHook(() => useActivityIntervals('a1'), { wrapper });
+    const { result, rerender } = await renderHook(() => useActivityIntervals('a1'), { wrapper });
     await waitFor(() => expect(result.current.data?.icu_intervals).toHaveLength(1));
-    rerender({});
-    rerender({});
+    await rerender({});
+    await rerender({});
 
     expect(engine.getIntervalBody).toHaveBeenCalledTimes(1);
     expect(engine.syncActivityIntervals).not.toHaveBeenCalled();
   });
 
   it('still asks once for intervals it has never stored', async () => {
-    const { result, rerender } = renderHook(() => useActivityIntervals('a1'), { wrapper });
+    const { result, rerender } = await renderHook(() => useActivityIntervals('a1'), { wrapper });
 
     await waitFor(() => expect(engine.syncActivityIntervals).toHaveBeenCalledWith('a1'));
     await waitFor(() => expect(result.current.data?.icu_intervals).toEqual([]));
-    rerender({});
+    await rerender({});
 
     expect(engine.syncActivityIntervals).toHaveBeenCalledTimes(1);
   });
 
   it('reads nothing and asks for nothing without an id', async () => {
-    const { rerender } = renderHook(() => useActivityIntervals(''), { wrapper });
-    rerender({});
+    const { rerender } = await renderHook(() => useActivityIntervals(''), { wrapper });
+    await rerender({});
 
     expect(engine.getIntervalBody).not.toHaveBeenCalled();
     expect(engine.syncActivityIntervals).not.toHaveBeenCalled();

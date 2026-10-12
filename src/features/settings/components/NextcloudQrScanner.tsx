@@ -1,37 +1,63 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, Text } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { AppState, View, StyleSheet, Text } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, cameraOverlay, typography, colorWithOpacity, ink } from '@/theme';
-import { Button, IconButton } from '@/shared/ui';
+import { permissionOutcome } from '@/shared/app/permissions';
+import { Button, IconButton, PermissionNotice } from '@/shared/ui';
 
 interface NextcloudQrScannerProps {
   onScanned: (data: string) => void;
   onClose: () => void;
+  /** Closes the scanner for the typed fields, which need no camera. */
+  onEnterDetails: () => void;
 }
 
-export function NextcloudQrScanner({ onScanned, onClose }: NextcloudQrScannerProps) {
+export function NextcloudQrScanner({
+  onScanned,
+  onClose,
+  onEnterDetails,
+}: NextcloudQrScannerProps) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const [permission, requestPermission] = useCameraPermissions();
+  const [permission, requestPermission, getPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
+
+  // Coming back from system settings is where a blocked camera gets allowed,
+  // so the viewfinder opens then rather than on the next visit.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void getPermission();
+    });
+    return () => sub.remove();
+  }, [getPermission]);
 
   if (!permission) {
     return <View style={styles.container} />;
   }
 
-  if (!permission.granted) {
+  const outcome = permissionOutcome(permission);
+  if (outcome !== 'granted') {
     return (
       <View style={[styles.container, styles.centered]}>
         <MaterialCommunityIcons name="camera-off" size={48} color={cameraOverlay.hint} />
-        <Text style={styles.permissionText}>
-          {t('backup.cameraPermissionNeeded', 'Camera access is required to scan QR codes')}
-        </Text>
+        <PermissionNotice
+          testID="nextcloud-scanner-camera"
+          outcome={outcome}
+          icon="camera-outline"
+          reason={
+            outcome === 'blocked'
+              ? t('permissionNotice.cameraOff')
+              : t('backup.cameraPermissionNeeded', 'Camera access is required to scan QR codes')
+          }
+          onAllow={() => void requestPermission()}
+        />
         <Button
-          label={t('backup.grantCameraAccess', 'Grant Camera Access')}
-          onPress={requestPermission}
+          label={t('backup.enterDetailsInstead')}
+          onPress={onEnterDetails}
+          variant="secondary"
         />
         <Button label={t('common.cancel')} onPress={onClose} variant="ghost" />
       </View>
@@ -163,10 +189,5 @@ const styles = StyleSheet.create({
     borderBottomWidth: CORNER_WIDTH,
     borderRightWidth: CORNER_WIDTH,
     borderColor: cameraOverlay.text,
-  },
-  permissionText: {
-    fontSize: typography.body.fontSize,
-    color: cameraOverlay.hint,
-    textAlign: 'center',
   },
 });

@@ -8,8 +8,9 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, darkColors, typography, spacing } from '@/theme';
+import { colors, darkColors, layout, typography, spacing } from '@/theme';
 import { useTheme } from '@/shared/app';
+import { DisclosureChevron } from './DisclosureChevron';
 import * as haptics from './haptics';
 import { pressable, pressRipple } from './pressFeedback';
 
@@ -81,10 +82,6 @@ export function CollapsibleSection({
     overflow: 'hidden',
   }));
 
-  const chevronStyle = useAnimatedStyle(() => ({
-    transform: [{ rotate: `${interpolate(animation.value, [0, 1], [0, 180])}deg` }],
-  }));
-
   // An expand is a discrete toggle, so it ticks once on the press itself and
   // never on touch-down, where a scroll may still take the touch.
   const handlePress = () => {
@@ -101,9 +98,10 @@ export function CollapsibleSection({
 
   return (
     <View style={[styles.container, style]}>
+      {/* A container's header role is not read on the control inside it, so it goes here. */}
       <Pressable
         testID={testID}
-        accessibilityRole="button"
+        accessibilityRole="header"
         accessibilityLabel={title}
         accessibilityState={{ expanded }}
         onPress={handlePress}
@@ -143,13 +141,11 @@ export function CollapsibleSection({
           </View>
         </View>
         {headerRight}
-        <Animated.View style={chevronStyle}>
-          <MaterialCommunityIcons
-            name="chevron-down"
-            size={24}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-        </Animated.View>
+        <DisclosureChevron
+          expanded={expanded}
+          size={24}
+          color={isDark ? darkColors.textSecondary : colors.textSecondary}
+        />
       </Pressable>
 
       {showDivider && (
@@ -178,6 +174,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
+    minHeight: layout.minTapTarget,
   },
   headerLeft: {
     flexDirection: 'row',

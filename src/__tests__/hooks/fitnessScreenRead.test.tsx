@@ -14,15 +14,15 @@ import { RangeCoverage } from 'veloqrs';
 
 import { useFitnessScreenRead } from '@/features/fitness/hooks/useFitnessScreenRead';
 import { getEngine } from '@/shared/native/engine';
-import { atUtcOffset } from '../__shared__/fixedOffsetDate';
+import { atUtcOffsetAsync } from '../__shared__/fixedOffsetDate';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 
 const listeners = new Map<string, Set<() => void>>();
 
-function emit(event: string) {
-  act(() => {
+async function emit(event: string) {
+  await act(() => {
     listeners.get(event)?.forEach((cb) => cb());
   });
 }
@@ -78,8 +78,8 @@ beforeEach(() => {
 });
 
 describe('the fitness screen read', () => {
-  it('serves the trend, the markers and both stored speeds from one call', () => {
-    const { result } = renderHook(useFitnessScreenRead);
+  it('serves the trend, the markers and both stored speeds from one call', async () => {
+    const { result } = await renderHook(useFitnessScreenRead);
 
     expect(result.current.eftpTrend?.latest).toBe(260);
     expect(result.current.eftpTrend?.previous).toBe(240);
@@ -94,57 +94,57 @@ describe('the fitness screen read', () => {
     expect(engine.getSummaryCardData).not.toHaveBeenCalled();
   });
 
-  it('reads once more when activities change', () => {
-    const { result } = renderHook(useFitnessScreenRead);
+  it('reads once more when activities change', async () => {
+    const { result } = await renderHook(useFitnessScreenRead);
 
     engine.getFitnessScreenData.mockImplementation(() => ({
       ...screenRead(),
       runPaceTrend: pace(4.0),
     }));
-    emit('activities');
+    await emit('activities');
 
     expect(result.current.storedRunPace).toBe(4.0);
     expect(engine.getFitnessScreenData).toHaveBeenCalledTimes(2);
   });
 
-  it('ignores an event the read does not depend on', () => {
-    renderHook(useFitnessScreenRead);
+  it('ignores an event the read does not depend on', async () => {
+    await renderHook(useFitnessScreenRead);
 
-    emit('sections');
+    await emit('sections');
 
     expect(engine.getFitnessScreenData).toHaveBeenCalledTimes(1);
   });
 
-  it('holds its answer across a render that changes nothing', () => {
-    const { result, rerender } = renderHook(useFitnessScreenRead);
+  it('holds its answer across a render that changes nothing', async () => {
+    const { result, rerender } = await renderHook(useFitnessScreenRead);
     const first = result.current;
 
-    rerender({});
+    await rerender({});
 
     expect(result.current).toBe(first);
     expect(engine.getFitnessScreenData).toHaveBeenCalledTimes(1);
   });
 
-  it('answers no trend while no day carries an estimate, and no speed when none was stored', () => {
+  it('answers no trend while no day carries an estimate, and no speed when none was stored', async () => {
     engine.getFitnessScreenData.mockImplementation(() => ({
       ...screenRead({ history: [] }),
       runPaceTrend: pace(undefined),
       swimPaceTrend: pace(undefined),
     }));
 
-    const { result } = renderHook(useFitnessScreenRead);
+    const { result } = await renderHook(useFitnessScreenRead);
 
     expect(result.current.eftpTrend).toBeUndefined();
     expect(result.current.storedRunPace).toBeNull();
     expect(result.current.storedSwimPace).toBeNull();
   });
 
-  it('hands the chart the coverage of the wellness its trend is read from', () => {
+  it('hands the chart the coverage of the wellness its trend is read from', async () => {
     engine.getFitnessScreenData.mockImplementation(() => ({
       ...screenRead({ history: [] }),
       ftpTrendCoverage: RangeCoverage.NotFetched,
     }));
-    const { result } = renderHook(useFitnessScreenRead);
+    const { result } = await renderHook(useFitnessScreenRead);
 
     expect(result.current.eftpTrend).toBeUndefined();
     expect(result.current.eftpCoverage).toBe(RangeCoverage.NotFetched);
@@ -153,16 +153,16 @@ describe('the fitness screen read', () => {
       ...screenRead({ history: [] }),
       ftpTrendCoverage: RangeCoverage.Empty,
     }));
-    emit('activities');
+    await emit('activities');
 
     expect(result.current.eftpCoverage).toBe(RangeCoverage.Empty);
   });
 
-  it('answers nothing from a read that throws, and reads again on the next event', () => {
+  it('answers nothing from a read that throws, and reads again on the next event', async () => {
     engine.getFitnessScreenData.mockImplementation(() => {
       throw new Error('engine closed');
     });
-    const { result } = renderHook(useFitnessScreenRead);
+    const { result } = await renderHook(useFitnessScreenRead);
 
     expect(result.current.eftpTrend).toBeUndefined();
     expect(result.current.eftpChanges).toEqual([]);
@@ -170,17 +170,17 @@ describe('the fitness screen read', () => {
     expect(result.current.eftpCoverage).toBe(RangeCoverage.NotFetched);
 
     engine.getFitnessScreenData.mockImplementation(() => screenRead());
-    emit('activities');
+    await emit('activities');
 
     expect(result.current.storedRunPace).toBe(3.8);
   });
 
-  it('answers nothing while the engine is not open', () => {
+  it('answers nothing while the engine is not open', async () => {
     (getEngine as jest.MockedFunction<typeof getEngine>).mockReturnValue(
       undefined as unknown as ReturnType<typeof getEngine>
     );
 
-    const { result } = renderHook(useFitnessScreenRead);
+    const { result } = await renderHook(useFitnessScreenRead);
 
     expect(result.current.eftpTrend).toBeUndefined();
     expect(result.current.eftpChanges).toEqual([]);
@@ -198,12 +198,12 @@ const change = (day: string, activityId: string, hour = 12) => ({
 });
 
 describe('the eFTP markers', () => {
-  it('date each marker by the local day the plot keys on, oldest first', () => {
+  it('date each marker by the local day the plot keys on, oldest first', async () => {
     engine.getFitnessScreenData.mockImplementation(() =>
       screenRead({ changes: [change('2026-06-06', 'a'), change('2026-07-14', 'b')] })
     );
 
-    const { result } = renderHook(useFitnessScreenRead);
+    const { result } = await renderHook(useFitnessScreenRead);
 
     expect(result.current.eftpChanges.map((c) => [c.activityId, c.date, c.eftp, c.delta])).toEqual([
       ['a', '2026-06-06', 406, 20],
@@ -215,14 +215,16 @@ describe('the eFTP markers', () => {
     ['Australia/Sydney', 10],
     ['America/Los_Angeles', -7],
   ])('in %s', (_zone, offsetHours) => {
-    it('keeps the day of an evening and a morning ride', () => {
+    it('keeps the day of an evening and a morning ride', async () => {
       engine.getFitnessScreenData.mockImplementation(() =>
         screenRead({
           changes: [change('2026-07-14', 'evening', 20), change('2026-07-14', 'morning', 6)],
         })
       );
 
-      const { result } = atUtcOffset(offsetHours, () => renderHook(useFitnessScreenRead));
+      const { result } = await atUtcOffsetAsync(offsetHours, () =>
+        renderHook(useFitnessScreenRead)
+      );
 
       expect(result.current.eftpChanges.map((c) => [c.activityId, c.date])).toEqual([
         ['evening', '2026-07-14'],

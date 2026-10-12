@@ -78,39 +78,39 @@ function Harness({ efforts }: { efforts: (PerformanceDataPoint & { x: number })[
 }
 
 describe('SectionPerformanceSection time range', () => {
-  it('explains that section times include stops beside the performance chart', () => {
-    const { getByTestId } = render(<Harness efforts={[effort(1)]} />);
+  it('explains that section times include stops beside the performance chart', async () => {
+    const { getByTestId } = await render(<Harness efforts={[effort(1)]} />);
 
     expect(getByTestId('section-time-method').props.children).toBe('sections.timeMethod');
     expect(enGB.sections.timeMethod).toMatch(/elapsed/i);
     expect(enGB.sections.timeMethod).toMatch(/stops/i);
   });
-  it('keeps the range control on screen when the chosen range is empty', () => {
-    const { getByTestId, queryByTestId } = render(<Harness efforts={[effort(200)]} />);
+  it('keeps the range control on screen when the chosen range is empty', async () => {
+    const { getByTestId, queryByTestId } = await render(<Harness efforts={[effort(200)]} />);
 
-    fireEvent.press(getByTestId('section-time-range-1m'));
+    await fireEvent.press(getByTestId('section-time-range-1m'));
 
     expect(getByTestId('section-time-range-all')).toBeTruthy();
     expect(queryByTestId('section-performance-empty')).toBeTruthy();
 
-    fireEvent.press(getByTestId('section-time-range-all'));
+    await fireEvent.press(getByTestId('section-time-range-all'));
 
     expect(queryByTestId('section-performance-empty')).toBeNull();
   });
 
-  it('survives a second pass through the same empty range', () => {
-    const { getByTestId, queryByTestId } = render(<Harness efforts={[effort(200)]} />);
+  it('survives a second pass through the same empty range', async () => {
+    const { getByTestId, queryByTestId } = await render(<Harness efforts={[effort(200)]} />);
 
     for (const _pass of [0, 1]) {
-      fireEvent.press(getByTestId('section-time-range-1m'));
+      await fireEvent.press(getByTestId('section-time-range-1m'));
       expect(queryByTestId('section-performance-empty')).toBeTruthy();
-      fireEvent.press(getByTestId('section-time-range-1y'));
+      await fireEvent.press(getByTestId('section-time-range-1y'));
       expect(queryByTestId('section-performance-empty')).toBeNull();
     }
   });
 
-  it('offers the control when the section has no efforts in any range', () => {
-    const { getByTestId, queryByTestId } = render(<Harness efforts={[]} />);
+  it('offers the control when the section has no efforts in any range', async () => {
+    const { getByTestId, queryByTestId } = await render(<Harness efforts={[]} />);
 
     expect(queryByTestId('section-performance-empty')).toBeTruthy();
     for (const id of ['1m', '3m', '6m', '1y', 'all']) {
@@ -118,8 +118,8 @@ describe('SectionPerformanceSection time range', () => {
     }
   });
 
-  it('plots a single effort rather than treating one point as empty', () => {
-    const { queryByTestId } = render(<Harness efforts={[effort(1)]} />);
+  it('plots a single effort rather than treating one point as empty', async () => {
+    const { queryByTestId } = await render(<Harness efforts={[effort(1)]} />);
 
     expect(queryByTestId('section-performance-empty')).toBeNull();
     expect(queryByTestId('section-time-range-all')).toBeTruthy();
@@ -143,8 +143,8 @@ describe('SectionPerformanceSection while time streams download', () => {
     onTimeRangeChange: jest.fn(),
   };
 
-  it('draws a placeholder and never the empty state while streams are outstanding', () => {
-    const { queryByTestId } = render(
+  it('draws a placeholder and never the empty state while streams are outstanding', async () => {
+    const { queryByTestId } = await render(
       <SectionPerformanceSection {...base} streams={{ status: 'loading', onRetry: jest.fn() }} />
     );
 
@@ -153,9 +153,9 @@ describe('SectionPerformanceSection while time streams download', () => {
     expect(queryByTestId('section-time-range-all')).toBeTruthy();
   });
 
-  it('offers a retry when the stream sync failed and calls it on press', () => {
+  it('offers a retry when the stream sync failed and calls it on press', async () => {
     const onRetry = jest.fn();
-    const { getByText, queryByTestId } = render(
+    const { getByText, queryByTestId } = await render(
       <SectionPerformanceSection
         {...base}
         streams={{ status: 'failed', error: new Error('boom'), onRetry }}
@@ -164,12 +164,12 @@ describe('SectionPerformanceSection while time streams download', () => {
 
     expect(queryByTestId('section-performance-stream-failure')).toBeTruthy();
     expect(queryByTestId('section-performance-empty')).toBeNull();
-    fireEvent.press(getByText('common.retry'));
+    await fireEvent.press(getByText('common.retry'));
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the empty state for a settled empty result', () => {
-    const { queryByTestId } = render(
+  it('keeps the empty state for a settled empty result', async () => {
+    const { queryByTestId } = await render(
       <SectionPerformanceSection {...base} streams={{ status: 'ready', onRetry: jest.fn() }} />
     );
 
@@ -177,8 +177,8 @@ describe('SectionPerformanceSection while time streams download', () => {
     expect(queryByTestId('section-performance-pending')).toBeNull();
   });
 
-  it('plots efforts that landed even while the rest download', () => {
-    const { queryByTestId } = render(
+  it('plots efforts that landed even while the rest download', async () => {
+    const { queryByTestId } = await render(
       <SectionPerformanceSection
         {...base}
         chartData={[{ ...effort(1), x: 0 }]}
@@ -211,9 +211,9 @@ describe('SectionPerformanceSection with time streams still missing', () => {
     onTimeRangeChange: jest.fn(),
   };
 
-  it('plots what landed, names the count missing and retries on press', () => {
+  it('plots what landed, names the count missing and retries on press', async () => {
     const onRetry = jest.fn();
-    const { getByTestId, getByText, queryByTestId } = render(
+    const { getByTestId, getByText, queryByTestId } = await render(
       <SectionPerformanceSection
         {...base}
         chartData={[{ ...effort(1), x: 0 }]}
@@ -224,12 +224,12 @@ describe('SectionPerformanceSection with time streams still missing', () => {
     expect(getByText('sections.effortsNotDownloaded:2')).toBeTruthy();
     expect(getByTestId('section-streams-partial')).toBeTruthy();
     expect(queryByTestId('section-performance-empty')).toBeNull();
-    fireEvent.press(getByText('common.retry'));
+    await fireEvent.press(getByText('common.retry'));
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
-  it('does not call an empty chart no activities while streams are missing', () => {
-    const { getByTestId, queryByTestId } = render(
+  it('does not call an empty chart no activities while streams are missing', async () => {
+    const { getByTestId, queryByTestId } = await render(
       <SectionPerformanceSection
         {...base}
         chartData={[]}
@@ -241,8 +241,8 @@ describe('SectionPerformanceSection with time streams still missing', () => {
     expect(queryByTestId('section-performance-empty')).toBeNull();
   });
 
-  it('says nothing about missing streams once every one is stored', () => {
-    const { queryByTestId } = render(
+  it('says nothing about missing streams once every one is stored', async () => {
+    const { queryByTestId } = await render(
       <SectionPerformanceSection
         {...base}
         chartData={[{ ...effort(1), x: 0 }]}
@@ -300,8 +300,8 @@ describe('SectionPerformanceSection for a route', () => {
     onTimeRangeChange: jest.fn(),
   };
 
-  it('explains that route times use moving time beside the performance chart', () => {
-    const { getByTestId, queryByTestId } = render(
+  it('explains that route times use moving time beside the performance chart', async () => {
+    const { getByTestId, queryByTestId } = await render(
       <SectionPerformanceSection {...base} chartData={[effort(1)]} />
     );
 
@@ -310,9 +310,9 @@ describe('SectionPerformanceSection for a route', () => {
     expect(enGB.routes.timeMethod).toMatch(/moving time/i);
   });
 
-  it('keeps the eye on screen when every attempt is excluded', () => {
+  it('keeps the eye on screen when every attempt is excluded', async () => {
     const onToggleShowExcluded = jest.fn();
-    const { getByTestId, getByRole } = render(
+    const { getByTestId, getByRole } = await render(
       <SectionPerformanceSection
         {...base}
         chartData={[]}
@@ -323,12 +323,12 @@ describe('SectionPerformanceSection for a route', () => {
     );
 
     expect(getByTestId('section-performance-empty')).toBeTruthy();
-    fireEvent.press(getByRole('button', { name: 'sections.showExcludedActivities' }));
+    await fireEvent.press(getByRole('button', { name: 'sections.showExcludedActivities' }));
     expect(onToggleShowExcluded).toHaveBeenCalledTimes(1);
   });
 
-  it('offers no eye in an empty range with nothing excluded', () => {
-    const { queryByRole } = render(
+  it('offers no eye in an empty range with nothing excluded', async () => {
+    const { queryByRole } = await render(
       <SectionPerformanceSection
         {...base}
         chartData={[]}

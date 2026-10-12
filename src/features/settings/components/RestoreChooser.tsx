@@ -6,7 +6,7 @@
  * a chosen backup is held for the sign-in.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -26,6 +26,7 @@ import {
 import { describeBackupFailure } from '../lib/backupFailure';
 import { restoreBackendEntry } from '../lib/restoreBackendEntry';
 import { WebdavConfigForm } from './WebdavConfigForm';
+import { inform } from '@/shared/ui/dialog';
 
 interface RestoreChooserProps {
   /** A backup was restored, or held for the sign-in. */
@@ -65,7 +66,10 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
       }
       setEntries(await webdavBackend.listBackups());
     } catch (error) {
-      Alert.alert(t('common.error'), error instanceof Error ? error.message : '');
+      inform({
+        title: t('backup.notListedTitle'),
+        message: error instanceof Error ? error.message : '',
+      });
     } finally {
       setListing(false);
     }
@@ -80,7 +84,10 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
       try {
         account = await signInToGoogleDrive();
       } catch {
-        Alert.alert(t('common.error'), t('backup.carrierGoogleDriveSignInFailed'));
+        inform({
+          title: t('backup.driveNotSetUpTitle'),
+          message: t('backup.carrierGoogleDriveSignInFailed'),
+        });
         return;
       }
       if (account === null) return;
@@ -88,10 +95,10 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
       setDriveEntries(await googleDriveBackend.listBackups());
     } catch (error) {
       const described = describeBackupFailure(error);
-      Alert.alert(
-        t('common.error'),
-        described.kind === 'key' ? t(described.key) : described.message
-      );
+      inform({
+        title: t('backup.notListedTitle'),
+        message: described.kind === 'key' ? t(described.key) : described.message,
+      });
     } finally {
       setDriveListing(false);
     }
@@ -113,13 +120,13 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
       setRestoring(entry.id);
       try {
         const notice = await restoreBackendEntry(backend, entry, t);
-        Alert.alert(notice.title, notice.message);
+        inform({ title: notice.title, message: notice.message });
         onRestored?.();
       } catch (error) {
-        Alert.alert(
-          t('common.error'),
-          error instanceof Error ? error.message : t('backup.importError')
-        );
+        inform({
+          title: t('backup.notRestoredTitle'),
+          message: error instanceof Error ? error.message : t('backup.importError'),
+        });
       } finally {
         running.current = false;
         setRestoring(null);

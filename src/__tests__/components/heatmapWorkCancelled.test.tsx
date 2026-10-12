@@ -61,8 +61,8 @@ describe('turning the heatmap off', () => {
     mockedGetEngine.mockReturnValue(mock as never);
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 
-    const { getByTestId } = render(<HeatmapRow />);
-    fireEvent(getByTestId('heatmap-switch'), 'valueChange', false);
+    const { getByTestId } = await render(<HeatmapRow />);
+    await fireEvent.press(getByTestId('heatmap-switch'));
 
     await waitFor(() => expect(mock.clearHeatmapTiles).toHaveBeenCalledTimes(2));
     const firstClear = mock.clearHeatmapTiles.mock.invocationCallOrder[0];
@@ -81,21 +81,21 @@ describe('turning the heatmap off', () => {
     mockedGetEngine.mockReturnValue(mock as never);
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 
-    const { getByTestId } = render(<HeatmapRow />);
-    fireEvent(getByTestId('heatmap-switch'), 'valueChange', false);
+    const { getByTestId } = await render(<HeatmapRow />);
+    await fireEvent.press(getByTestId('heatmap-switch'));
 
     await waitFor(() => expect(alert).toHaveBeenCalledTimes(1));
     expect(mock.clearHeatmapTiles).toHaveBeenCalledTimes(2);
   });
 
   /** Turning it on must not cancel: the pass it starts is the point. */
-  it('cancels nothing when the heatmap is turned on', () => {
+  it('cancels nothing when the heatmap is turned on', async () => {
     const mock = engine();
     mockedGetEngine.mockReturnValue(mock as never);
     mockPreference.enabled = false;
 
-    const { getByTestId } = render(<HeatmapRow />);
-    fireEvent(getByTestId('heatmap-switch'), 'valueChange', true);
+    const { getByTestId } = await render(<HeatmapRow />);
+    await fireEvent.press(getByTestId('heatmap-switch'));
 
     expect(mock.cancelHeatmapWork).not.toHaveBeenCalled();
     expect(mock.enableHeatmapTiles).toHaveBeenCalledTimes(1);

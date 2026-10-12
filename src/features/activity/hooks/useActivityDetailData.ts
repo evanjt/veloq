@@ -11,6 +11,7 @@ import type {
   RouteGroup,
   HrZoneBand,
   PowerZoneBand,
+  MaxHrSource,
   Section as NativeSection,
   SectionEncounter,
   SectionWithPolyline,
@@ -49,6 +50,8 @@ export interface ActivityDetailBundle {
   prSectionIds: Set<string>;
   /** The max HR the stat card and the zones chart divide by, resolved by the engine */
   maxHR: number;
+  /** Where `maxHR` came from, so the engine's default is never shown as the athlete's own */
+  maxHrSource: MaxHrSource;
   /** The zone bands and the time in each, from the engine; empty with no heart rate time */
   hrZones: HrZoneBand[];
   /** The power zone bands in watts and the time in each, from the engine; empty with no power zone time */
@@ -119,6 +122,7 @@ function fetchActivityDetailData(activityId: string): DetailRead {
       sectionTraces: buildTraces(result.sectionTraces),
       prSectionIds: new Set(result.prSectionIds),
       maxHR: result.maxHr,
+      maxHrSource: result.maxHrSource,
       hrZones: result.hrZones,
       powerZones: result.powerZones,
       fitnessImpact: result.fitnessImpact,

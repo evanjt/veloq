@@ -3,9 +3,9 @@ import { useSectionAutoToggle } from '@/features/maps/hooks/useSectionAutoToggle
 
 const camera = (zoom: number) => ({ center: [7.45, 46.95] as [number, number], zoom }) as never;
 
-function setup(holdSections?: boolean, enabled?: boolean, showSections = true) {
+async function setup(holdSections?: boolean, enabled?: boolean, showSections = true) {
   const setShowSections = jest.fn();
-  const { result } = renderHook(() =>
+  const { result } = await renderHook(() =>
     useSectionAutoToggle({
       showSections,
       enabled,
@@ -28,10 +28,10 @@ describe('useSectionAutoToggle', () => {
    *
    * Expected behaviour: the overlay stays shown, so the popup survives.
    */
-  it('keeps sections shown when zoomed out while a section is held open', () => {
-    const { result, setShowSections } = setup(true);
+  it('keeps sections shown when zoomed out while a section is held open', async () => {
+    const { result, setShowSections } = await setup(true);
 
-    act(() => {
+    await act(() => {
       result.current.handleRegionDidChange(camera(9));
       jest.advanceTimersByTime(500);
     });
@@ -39,10 +39,10 @@ describe('useSectionAutoToggle', () => {
     expect(setShowSections).not.toHaveBeenCalled();
   });
 
-  it('never shows sections on a zoom in while they are switched off', () => {
-    const { result, setShowSections } = setup(false, false, false);
+  it('never shows sections on a zoom in while they are switched off', async () => {
+    const { result, setShowSections } = await setup(false, false, false);
 
-    act(() => {
+    await act(() => {
       result.current.handleRegionDidChange(camera(14));
       jest.advanceTimersByTime(500);
     });
@@ -50,10 +50,10 @@ describe('useSectionAutoToggle', () => {
     expect(setShowSections).not.toHaveBeenCalled();
   });
 
-  it('hides sections below the hide zoom when nothing is held open', () => {
-    const { result, setShowSections } = setup();
+  it('hides sections below the hide zoom when nothing is held open', async () => {
+    const { result, setShowSections } = await setup();
 
-    act(() => {
+    await act(() => {
       result.current.handleRegionDidChange(camera(9));
       jest.advanceTimersByTime(500);
     });
@@ -73,10 +73,10 @@ describe('useSectionAutoToggle', () => {
     ['shown at low zoom', 9, true],
   ])(
     'drops a pending auto-toggle when the athlete toggles manually (%s)',
-    (_name, zoom, shownAfterToggle) => {
+    async (_name, zoom, shownAfterToggle) => {
       const setShowSections = jest.fn();
       const baseToggleSections = jest.fn();
-      const { result, rerender } = renderHook(
+      const { result, rerender } = await renderHook(
         ({ shown }: { shown: boolean }) =>
           useSectionAutoToggle({
             showSections: shown,
@@ -87,14 +87,14 @@ describe('useSectionAutoToggle', () => {
         { initialProps: { shown: !shownAfterToggle } }
       );
 
-      act(() => {
+      await act(() => {
         result.current.handleRegionDidChange(camera(zoom));
       });
-      act(() => {
+      await act(() => {
         result.current.toggleSections();
       });
-      rerender({ shown: shownAfterToggle });
-      act(() => {
+      await rerender({ shown: shownAfterToggle });
+      await act(() => {
         jest.advanceTimersByTime(500);
       });
 
@@ -102,9 +102,9 @@ describe('useSectionAutoToggle', () => {
     }
   );
 
-  it('clears a pending auto-toggle on unmount', () => {
+  it('clears a pending auto-toggle on unmount', async () => {
     const setShowSections = jest.fn();
-    const view = renderHook(() =>
+    const view = await renderHook(() =>
       useSectionAutoToggle({
         showSections: true,
         setShowSections,
@@ -112,11 +112,11 @@ describe('useSectionAutoToggle', () => {
         baseToggleSections: jest.fn(),
       })
     );
-    act(() => {
+    await act(() => {
       view.result.current.handleRegionDidChange(camera(9));
     });
-    view.unmount();
-    act(() => {
+    await view.unmount();
+    await act(() => {
       jest.advanceTimersByTime(500);
     });
     expect(setShowSections).not.toHaveBeenCalled();

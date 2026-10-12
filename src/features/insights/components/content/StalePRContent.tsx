@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -22,13 +22,12 @@ import {
   darkColors,
   spacing,
   opacity,
-  shadows,
-  insightIcon,
+  insightToneColor,
   layout,
   typography,
 } from '@/theme';
 import type { ActivityType, Insight, SupportingSection } from '@/types';
-import { pressable, pressRipple, EngineReadFailure } from '@/shared/ui';
+import { composeAccessibilityLabel, ErrorState, Row } from '@/shared/ui';
 
 interface StalePRContentProps {
   insight: Insight;
@@ -102,12 +101,20 @@ function getContextCopy(
 
 /** Map preview for the first section */
 const TopSectionMap = React.memo(function TopSectionMap({ sectionId }: { sectionId: string }) {
-  const { section, error } = useSectionDetail(sectionId);
+  const { isDark } = useTheme();
+  const { section, error, retry } = useSectionDetail(sectionId);
   if (error !== undefined) {
-    return <EngineReadFailure error={error} testID="section-read-failure" />;
+    return (
+      <ErrorState variant="inline" error={error} onRetry={retry} testID="section-read-failure" />
+    );
   }
   if (!section?.polyline || section.polyline.length < 2) return null;
-  return <SectionInsightMap polyline={section.polyline} lineColor={insightIcon.opportunity} />;
+  return (
+    <SectionInsightMap
+      polyline={section.polyline}
+      lineColor={insightToneColor('opportunity', isDark)}
+    />
+  );
 });
 
 /**
@@ -144,46 +151,41 @@ export const StalePRContent = React.memo(function StalePRContent({ insight }: St
       </View>
 
       {sections.length > 0 ? (
-        <View style={styles.sectionList}>
-          {sections.map((s: SupportingSection) => (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={s.sectionName}
-              key={sectionRowKey(s)}
-              style={pressable([styles.sectionCard, isDark && styles.sectionCardDark])}
-              android_ripple={pressRipple}
-              onPress={() => handleSectionPress(s.sectionId)}
-            >
-              <View style={styles.sectionContent}>
-                <View style={styles.sectionNameRow}>
-                  {s.sportType ? (
-                    <MaterialCommunityIcons
-                      name={getActivityIcon(s.sportType)}
-                      size={14}
-                      color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                      style={styles.sportIcon}
-                    />
+        <View>
+          {sections.map((s: SupportingSection) => {
+            const name = sectionWithSport(s.sectionName, s.sportType, t as unknown as TFunc);
+            const bestTime = s.bestTime != null ? formatDuration(s.bestTime) : null;
+            return (
+              <Row
+                key={sectionRowKey(s)}
+                behaviour="navigate"
+                accessibilityLabel={composeAccessibilityLabel(name, bestTime)}
+                onPress={() => handleSectionPress(s.sectionId)}
+              >
+                <View style={styles.sectionContent}>
+                  <View style={styles.sectionNameRow}>
+                    {s.sportType ? (
+                      <MaterialCommunityIcons
+                        name={getActivityIcon(s.sportType)}
+                        size={14}
+                        color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                        style={styles.sportIcon}
+                      />
+                    ) : null}
+                    <Text
+                      style={[styles.sectionName, isDark && styles.sectionNameDark]}
+                      numberOfLines={1}
+                    >
+                      {name}
+                    </Text>
+                  </View>
+                  {bestTime != null ? (
+                    <Text style={[styles.bestTime, isDark && styles.bestTimeDark]}>{bestTime}</Text>
                   ) : null}
-                  <Text
-                    style={[styles.sectionName, isDark && styles.sectionNameDark]}
-                    numberOfLines={1}
-                  >
-                    {sectionWithSport(s.sectionName, s.sportType, t as unknown as TFunc)}
-                  </Text>
                 </View>
-                {s.bestTime != null ? (
-                  <Text style={[styles.bestTime, isDark && styles.bestTimeDark]}>
-                    {formatDuration(s.bestTime)}
-                  </Text>
-                ) : null}
-              </View>
-              <MaterialCommunityIcons
-                name="chevron-right"
-                size={18}
-                color={isDark ? darkColors.textSecondary : colors.textSecondary}
-              />
-            </Pressable>
-          ))}
+              </Row>
+            );
+          })}
         </View>
       ) : null}
     </View>
@@ -226,30 +228,11 @@ const styles = StyleSheet.create({
   contextMetaDark: {
     color: darkColors.textSecondary,
   },
-  sectionList: {
-    gap: spacing.xs,
-  },
-  sectionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadiusMd,
-    padding: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...shadows.card,
-  },
-  sectionCardDark: {
-    backgroundColor: darkColors.surfaceCard,
-    borderColor: darkColors.border,
-    ...shadows.none,
-  },
   sectionContent: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginRight: spacing.xs,
   },
   sectionNameRow: {
     flex: 1,

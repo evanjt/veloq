@@ -26,9 +26,9 @@ export function startSimulatedSensors(): void {
     const s = useSensorStore.getState();
     // Slow sinusoidal drift + small jitter, deterministic enough for tests
     const wave = Math.sin(tick / 30);
-    s.setLatest('heartRate', Math.round(140 + 15 * wave + (tick % 3)));
-    s.setLatest('power', Math.round(190 + 40 * wave + ((tick * 7) % 11)));
-    s.setLatest('cadence', Math.round(87 + 4 * wave));
+    s.setLatest('heartRate', Math.round(140 + 15 * wave + (tick % 3)), SIMULATED_ID);
+    s.setLatest('power', Math.round(190 + 40 * wave + ((tick * 7) % 11)), SIMULATED_ID);
+    s.setLatest('cadence', Math.round(87 + 4 * wave), SIMULATED_ID);
   }, 1000);
 }
 
@@ -39,4 +39,5 @@ export function stopSimulatedSensors(): void {
   }
   tick = 0;
   useSensorStore.getState().setConnection(SIMULATED_ID, null);
+  useSensorStore.getState().dropSources(SIMULATED_ID);
 }

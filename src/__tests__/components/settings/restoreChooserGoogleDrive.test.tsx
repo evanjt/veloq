@@ -68,8 +68,8 @@ describe('restoring from Google Drive', () => {
     ]);
     mockRestore.mockResolvedValue({ title: 'done', message: 'restored' });
 
-    render(<RestoreChooser />);
-    fireEvent.press(screen.getByTestId('restore-chooser-google-drive'));
+    await render(<RestoreChooser />);
+    await fireEvent.press(screen.getByTestId('restore-chooser-google-drive'));
 
     await waitFor(() =>
       expect(
@@ -81,7 +81,7 @@ describe('restoring from Google Drive', () => {
     ).toBeTruthy();
     expect(screen.getByText('rider@example.org')).toBeTruthy();
 
-    fireEvent.press(
+    await fireEvent.press(
       screen.getByTestId('restore-chooser-entry-googleDrive-veloq-2026-06-10T08-00-00-000Z.zip')
     );
     await waitFor(() => expect(mockRestore).toHaveBeenCalledTimes(1));
@@ -93,17 +93,17 @@ describe('restoring from Google Drive', () => {
     onPlatform('android');
     mockSignIn.mockResolvedValue(null);
 
-    render(<RestoreChooser />);
-    fireEvent.press(screen.getByTestId('restore-chooser-google-drive'));
+    await render(<RestoreChooser />);
+    await fireEvent.press(screen.getByTestId('restore-chooser-google-drive'));
 
     await waitFor(() => expect(mockSignIn).toHaveBeenCalledTimes(1));
     expect(mockList).not.toHaveBeenCalled();
     expect(screen.queryByTestId('restore-chooser-none')).toBeNull();
   });
 
-  it('offers no Google Drive choice on iOS', () => {
+  it('offers no Google Drive choice on iOS', async () => {
     onPlatform('ios');
-    render(<RestoreChooser />);
+    await render(<RestoreChooser />);
     expect(screen.queryByTestId('restore-chooser-google-drive')).toBeNull();
   });
 });

@@ -64,22 +64,22 @@ describe('the section detail rematch', () => {
     mockEngine.startSectionDetection.mockReturnValue(StartOutcome.Held);
   });
 
-  it('exposes the refusal the engine answered, and drops it on the next start', () => {
-    const { result } = mount();
+  it('exposes the refusal the engine answered, and drops it on the next start', async () => {
+    const { result } = await mount();
     expect(result.current.rescanRefusal).toBeNull();
 
-    act(() => result.current.handleRematchActivities());
+    await act(() => result.current.handleRematchActivities());
     expect(result.current.rescanRefusal).toBe(StartOutcome.Held);
 
     mockEngine.startSectionDetection.mockReturnValue(StartOutcome.Started);
-    act(() => result.current.handleRematchActivities());
+    await act(() => result.current.handleRematchActivities());
     expect(result.current.rescanRefusal).toBeNull();
   });
 
-  it('holds the button while detection is held', () => {
+  it('holds the button while detection is held', async () => {
     mockHold = 'cutover';
-    expect(mount().result.current.isRematchHeld).toBe(true);
+    expect((await mount()).result.current.isRematchHeld).toBe(true);
     mockHold = null;
-    expect(mount().result.current.isRematchHeld).toBe(false);
+    expect((await mount()).result.current.isRematchHeld).toBe(false);
   });
 });

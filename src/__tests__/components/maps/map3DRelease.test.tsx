@@ -63,8 +63,8 @@ const ONE: GeoJSON.FeatureCollection = {
   ],
 };
 
-function post(message: object): void {
-  act(() => onMessage?.({ nativeEvent: { data: JSON.stringify(message) } }));
+async function post(message: object): Promise<void> {
+  await act(() => onMessage?.({ nativeEvent: { data: JSON.stringify(message) } }));
 }
 
 function surface(routes: GeoJSON.FeatureCollection) {
@@ -77,45 +77,45 @@ beforeEach(() => {
 });
 
 describe('Map3DWebView under memory pressure', () => {
-  it('tears the map down on release and sends nothing more until the rebuild', () => {
-    const view = render(surface(EMPTY));
-    post({ type: 'mapReady' });
+  it('tears the map down on release and sends nothing more until the rebuild', async () => {
+    const view = await render(surface(EMPTY));
+    await post({ type: 'mapReady' });
 
     expect(releaseMountedSurfaces()).toBe(1);
     expect(injected[injected.length - 1]).toContain('map.remove()');
 
     injected.length = 0;
-    view.rerender(surface(ONE));
+    await view.rerender(surface(ONE));
     expect(injected).toEqual([]);
 
     expect(rebuildReleasedSurfaces()).toBe(1);
     expect(reload).toHaveBeenCalledTimes(1);
-    view.unmount();
+    await view.unmount();
   });
 
-  it('holds no offscreen hardware layer, which redraws whole on every pan frame', () => {
-    const view = render(surface(EMPTY));
+  it('holds no offscreen hardware layer, which redraws whole on every pan frame', async () => {
+    const view = await render(surface(EMPTY));
     expect(androidLayerType).not.toBe('hardware');
-    view.unmount();
+    await view.unmount();
   });
 
-  it('is forgotten by the registry once unmounted', () => {
-    const view = render(surface(EMPTY));
-    view.unmount();
+  it('is forgotten by the registry once unmounted', async () => {
+    const view = await render(surface(EMPTY));
+    await view.unmount();
     expect(releaseMountedSurfaces()).toBe(0);
   });
 
-  it('reloads a page after it reports a native release on return', () => {
+  it('reloads a page after it reports a native release on return', async () => {
     Object.defineProperty(AppState, 'currentState', { configurable: true, value: 'active' });
-    const view = render(surface(EMPTY));
-    post({ type: 'mapReady' });
+    const view = await render(surface(EMPTY));
+    await post({ type: 'mapReady' });
     injected.length = 0;
 
-    post({ type: 'nativeMapReleased' });
+    await post({ type: 'nativeMapReleased' });
 
     expect(injected).toEqual([]);
     expect(reload).toHaveBeenCalledTimes(1);
     expect(rebuildReleasedSurfaces()).toBe(0);
-    view.unmount();
+    await view.unmount();
   });
 });

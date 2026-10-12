@@ -11,6 +11,9 @@
  * sync, because a device with no network has no sync to report on: the
  * sync-error banner gives way while the pill shows, and the slot with it.
  */
+
+import { create } from 'zustand';
+
 export interface TopBannerState {
   startupErrorShown: boolean;
   /**
@@ -29,7 +32,7 @@ export interface TopBannerState {
 
 export type TopBanner = 'startupError' | 'demo' | 'syncError' | 'trackFetch' | 'engineInit' | null;
 
-type ShownBanner = Exclude<TopBanner, null>;
+export type ShownBanner = Exclude<TopBanner, null>;
 
 /** Whether a banner carries the status-bar inset: the topmost does, and so does a banner with no slot owner above it. */
 export function padsStatusBar(active: TopBanner | undefined, self: ShownBanner): boolean {
@@ -50,4 +53,34 @@ export function pickTopBanner(state: TopBannerState): TopBanner {
   if (state.engineInitFailed) return 'engineInit';
   if (state.isDemoMode && !state.hideDemoBanner) return 'demo';
   return null;
+}
+
+interface TopBannerHeights {
+  /** Each shown banner's drawn height, its status-bar padding included. */
+  heights: Partial<Record<ShownBanner, number>>;
+  /** Records a banner's height as it lays out, and drops it with `null` as it goes. */
+  setHeight(banner: ShownBanner, height: number | null): void;
+}
+
+/**
+ * How tall the banners in the top slot are drawn.
+ *
+ * The floating pills sit below the slot rather than over it, and only layout
+ * knows how tall a banner came out, since its lines wrap with the text size.
+ */
+export const useTopBannerHeights = create<TopBannerHeights>((set) => ({
+  heights: {},
+  setHeight: (banner, height) =>
+    set((state) => {
+      if ((state.heights[banner] ?? null) === height) return state;
+      const heights = { ...state.heights };
+      if (height === null) delete heights[banner];
+      else heights[banner] = height;
+      return { heights };
+    }),
+}));
+
+/** The banners stack, so the slot ends at the sum of their heights. */
+export function stackHeight(heights: Partial<Record<ShownBanner, number>>): number {
+  return Object.values(heights).reduce((sum, height) => sum + (height ?? 0), 0);
 }

@@ -27,7 +27,7 @@ describe('fitness pull-to-refresh', () => {
 
   it('asks the engine for a sync and refetches wellness', async () => {
     const refetchWellness = jest.fn().mockResolvedValue(undefined);
-    const { result } = renderHook(() => useFitnessRefresh(refetchWellness), { wrapper });
+    const { result } = await renderHook(() => useFitnessRefresh(refetchWellness), { wrapper });
 
     await act(async () => {
       await result.current.onRefresh();
@@ -40,7 +40,7 @@ describe('fitness pull-to-refresh', () => {
 
   it('stops the spinner when the wellness refetch rejects', async () => {
     const refetchWellness = jest.fn().mockRejectedValue(new Error('offline'));
-    const { result } = renderHook(() => useFitnessRefresh(refetchWellness), { wrapper });
+    const { result } = await renderHook(() => useFitnessRefresh(refetchWellness), { wrapper });
 
     await act(async () => {
       await result.current.onRefresh().catch(() => undefined);

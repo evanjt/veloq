@@ -229,11 +229,11 @@ describe('detection preview bottom buffer', () => {
     });
   });
 
-  function panelPaddingBottom() {
-    const tree = render(<DetectionPreviewScreen />);
+  async function panelPaddingBottom() {
+    const tree = await render(<DetectionPreviewScreen />);
     const style = tree.getByTestId('preview-control-panel').props.style;
     const flat = Array.isArray(style) ? Object.assign({}, ...style.filter(Boolean)) : style;
-    tree.unmount();
+    await tree.unmount();
     return flat.paddingBottom;
   }
 
@@ -241,20 +241,20 @@ describe('detection preview bottom buffer', () => {
     mockInsets.bottom = 0;
   });
 
-  it('reserves nothing for the tab bar when the device has no gesture inset', () => {
+  it('reserves nothing for the tab bar when the device has no gesture inset', async () => {
     mockInsets.bottom = 0;
-    expect(panelPaddingBottom()).toBe(0);
+    expect(await panelPaddingBottom()).toBe(0);
   });
 
-  it('keeps the gesture inset whole', () => {
+  it('keeps the gesture inset whole', async () => {
     mockInsets.bottom = 34;
-    expect(panelPaddingBottom()).toBe(34);
+    expect(await panelPaddingBottom()).toBe(34);
   });
 
-  it('pads by the inset alone whatever its size', () => {
+  it('pads by the inset alone whatever its size', async () => {
     for (const bottom of [0, 16, 34, 48]) {
       mockInsets.bottom = bottom;
-      expect(panelPaddingBottom()).toBe(bottom);
+      expect(await panelPaddingBottom()).toBe(bottom);
     }
   });
 });
@@ -355,18 +355,18 @@ describe('changing the riding area under a finished preview', () => {
 
   beforeEach(() => mockReset.mockClear());
 
-  it('drops the diff that was about the previous area', () => {
-    const tree = render(<DetectionPreviewScreen />);
+  it('drops the diff that was about the previous area', async () => {
+    const tree = await render(<DetectionPreviewScreen />);
 
-    fireEvent.press(tree.getByTestId('centre-b'));
+    await fireEvent.press(tree.getByTestId('centre-b'));
 
     expect(mockReset).toHaveBeenCalledTimes(1);
   });
 
-  it('leaves the diff alone when the same area is picked again', () => {
-    const tree = render(<DetectionPreviewScreen />);
+  it('leaves the diff alone when the same area is picked again', async () => {
+    const tree = await render(<DetectionPreviewScreen />);
 
-    fireEvent.press(tree.getByTestId('centre-a'));
+    await fireEvent.press(tree.getByTestId('centre-a'));
 
     expect(mockReset).not.toHaveBeenCalled();
   });
@@ -485,45 +485,45 @@ describe('detection preview screen', () => {
     mockResult = null;
   });
 
-  it('shows the live catalogue for the chosen area without a run', () => {
-    const tree = render(<DetectionPreviewScreen />);
+  it('shows the live catalogue for the chosen area without a run', async () => {
+    const tree = await render(<DetectionPreviewScreen />);
 
     expect(mockGetPreviewCurrentSections).toHaveBeenCalledWith(CENTRE.lat, CENTRE.lng);
     expect(tree.getByTestId('preview-map-current').props.children).toBe('live-a,live-b');
     expect(mockStart).not.toHaveBeenCalled();
   });
 
-  it('runs the proposal against that catalogue when Preview is pressed', () => {
-    const tree = render(<DetectionPreviewScreen />);
+  it('runs the proposal against that catalogue when Preview is pressed', async () => {
+    const tree = await render(<DetectionPreviewScreen />);
 
-    fireEvent.press(tree.getByTestId('preview-run-button'));
+    await fireEvent.press(tree.getByTestId('preview-run-button'));
 
     expect(mockStart).toHaveBeenCalledWith(CENTRE.lat, CENTRE.lng, expect.any(Object));
   });
 
-  it('lets a finished proposal supersede the catalogue on the map', () => {
+  it('lets a finished proposal supersede the catalogue on the map', async () => {
     mockResult = RESULT;
-    const tree = render(<DetectionPreviewScreen />);
+    const tree = await render(<DetectionPreviewScreen />);
 
     expect(tree.getByTestId('preview-map-result').props.children).toBe('proposed-a');
   });
 
-  it('says so when the catalogue read fails, rather than drawing a blank map', () => {
+  it('says so when the catalogue read fails, rather than drawing a blank map', async () => {
     mockGetPreviewCurrentSections.mockImplementationOnce(() => {
       throw new Error('engine gone');
     });
 
-    const tree = render(<DetectionPreviewScreen />);
+    const tree = await render(<DetectionPreviewScreen />);
 
     expect(tree.getByTestId('preview-current-failed').props.children).toBe(
       'settings.previewCurrentFailed'
     );
   });
 
-  it('stays quiet when the area honestly holds nothing', () => {
+  it('stays quiet when the area honestly holds nothing', async () => {
     mockGetPreviewCurrentSections.mockImplementationOnce(() => []);
 
-    const tree = render(<DetectionPreviewScreen />);
+    const tree = await render(<DetectionPreviewScreen />);
 
     expect(tree.queryByTestId('preview-current-failed')).toBeNull();
   });
@@ -576,15 +576,15 @@ describe('the preview during the detector cutover', () => {
     mockCutover.mockReturnValue(false);
   });
 
-  it('says the library is still migrating while the cutover is owed', () => {
+  it('says the library is still migrating while the cutover is owed', async () => {
     mockCutover.mockReturnValue(true);
-    const { getByTestId } = render(<DetectionPreviewScreen />);
+    const { getByTestId } = await render(<DetectionPreviewScreen />);
 
     expect(getByTestId('preview-migrating')).toBeTruthy();
   });
 
-  it('says nothing on a database that owes no cutover', () => {
-    const { queryByTestId } = render(<DetectionPreviewScreen />);
+  it('says nothing on a database that owes no cutover', async () => {
+    const { queryByTestId } = await render(<DetectionPreviewScreen />);
 
     expect(queryByTestId('preview-migrating')).toBeNull();
   });
@@ -592,17 +592,17 @@ describe('the preview during the detector cutover', () => {
   /// The upgrade path owes the cutover and the elevation queue together, and
   /// the hold the hook ranks first is the backfill's. The notice follows the
   /// cutover, not that ranking.
-  it('says the library is migrating while elevation is also owed', () => {
+  it('says the library is migrating while elevation is also owed', async () => {
     mockEnv.hold = () => 'elevation-waiting';
     mockCutover.mockReturnValue(true);
-    const { getByTestId } = render(<DetectionPreviewScreen />);
+    const { getByTestId } = await render(<DetectionPreviewScreen />);
 
     expect(getByTestId('preview-migrating')).toBeTruthy();
   });
 
-  it('says nothing when only the elevation backfill is owed', () => {
+  it('says nothing when only the elevation backfill is owed', async () => {
     mockEnv.hold = () => 'elevation-waiting';
-    const { queryByTestId } = render(<DetectionPreviewScreen />);
+    const { queryByTestId } = await render(<DetectionPreviewScreen />);
 
     expect(queryByTestId('preview-migrating')).toBeNull();
   });
@@ -631,14 +631,14 @@ describe('the preview during the detector cutover', () => {
       [StartOutcome.NotReady, null, 'sections.rescanRefusedNotReady'],
       [StartOutcome.NotOwed, null, 'settings.previewRefusedNothingCovers'],
       [StartOutcome.Failed, null, 'settings.previewRefusedFailed'],
-    ])('gives %s under hold %s its own line', (outcome, hold, key) => {
-      const { getByTestId } = refusedWith(outcome, hold);
+    ])('gives %s under hold %s its own line', async (outcome, hold, key) => {
+      const { getByTestId } = await refusedWith(outcome, hold);
 
       expect(getByTestId('preview-refusal').props.children).toBe(key);
     });
 
-    it('shows nothing when the start was not refused', () => {
-      const { queryByTestId } = refusedWith(null, 'elevation-running');
+    it('shows nothing when the start was not refused', async () => {
+      const { queryByTestId } = await refusedWith(null, 'elevation-running');
 
       expect(queryByTestId('preview-refusal')).toBeNull();
     });
@@ -668,8 +668,8 @@ describe('the stale catalogue notice', () => {
     },
   };
 
-  function fire(event: string) {
-    act(() => {
+  async function fire(event: string) {
+    await act(() => {
       listeners.get(event)?.forEach((listener) => listener());
     });
   }
@@ -702,24 +702,24 @@ describe('the stale catalogue notice', () => {
 
   it.each(['activities', 'sections', 'detectionApplied'])(
     'shows the notice once %s announces activities the catalogue has not seen',
-    (event) => {
-      const { queryByTestId } = render(<DetectionPreviewScreen />);
+    async (event) => {
+      const { queryByTestId } = await render(<DetectionPreviewScreen />);
       expect(queryByTestId('preview-stale-catalogue')).toBeNull();
 
       awaiting = 3;
-      fire(event);
+      await fire(event);
 
       expect(queryByTestId('preview-stale-catalogue')).toBeTruthy();
     }
   );
 
-  it('drops the notice once detection has caught up', () => {
+  it('drops the notice once detection has caught up', async () => {
     awaiting = 3;
-    const { queryByTestId } = render(<DetectionPreviewScreen />);
+    const { queryByTestId } = await render(<DetectionPreviewScreen />);
     expect(queryByTestId('preview-stale-catalogue')).toBeTruthy();
 
     awaiting = 0;
-    fire('detectionApplied');
+    await fire('detectionApplied');
 
     expect(queryByTestId('preview-stale-catalogue')).toBeNull();
   });
@@ -738,12 +738,12 @@ describe('keeping a preview starts an observable re-cut', () => {
   const mockClientForceRedetect = jest.fn(() => StartOutcome.Started);
   const mockForceRescan = jest.fn(() => StartOutcome.Started);
 
-  function pressKeepAndConfirm() {
+  async function pressKeepAndConfirm() {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => {
       buttons?.find((b) => b.style !== 'cancel')?.onPress?.();
     });
-    const tree = render(<DetectionPreviewScreen />);
-    fireEvent.press(tree.getByTestId('preview-keep-button'));
+    const tree = await render(<DetectionPreviewScreen />);
+    await fireEvent.press(tree.getByTestId('preview-keep-button'));
     alert.mockRestore();
     return tree;
   }
@@ -811,24 +811,24 @@ describe('keeping a preview starts an observable re-cut', () => {
     mockClientForceRedetect.mockReturnValue(StartOutcome.Started);
   });
 
-  it('starts the re-cut through the rescan hook, not the raw client', () => {
-    pressKeepAndConfirm();
+  it('starts the re-cut through the rescan hook, not the raw client', async () => {
+    await pressKeepAndConfirm();
 
     expect(mockSetSectionConfig).toHaveBeenCalledTimes(1);
     expect(mockForceRescan).toHaveBeenCalledTimes(1);
     expect(mockClientForceRedetect).not.toHaveBeenCalled();
   });
 
-  it('leaves the screen once the re-cut is running', () => {
-    pressKeepAndConfirm();
+  it('leaves the screen once the re-cut is running', async () => {
+    await pressKeepAndConfirm();
 
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
-  it('stays on the screen when the engine refuses the re-cut', () => {
+  it('stays on the screen when the engine refuses the re-cut', async () => {
     mockForceRescan.mockReturnValue(StartOutcome.Held);
 
-    pressKeepAndConfirm();
+    await pressKeepAndConfirm();
 
     expect(mockBack).not.toHaveBeenCalled();
   });
@@ -843,30 +843,30 @@ describe('keeping a preview starts an observable re-cut', () => {
       mockEnv.cutover = () => false;
     });
 
-    it('disables Keep and says it can be kept once the upgrade finishes', () => {
-      const tree = render(<DetectionPreviewScreen />);
+    it('disables Keep and says it can be kept once the upgrade finishes', async () => {
+      const tree = await render(<DetectionPreviewScreen />);
 
       expect(tree.getByTestId('preview-keep-button').props.accessibilityState?.disabled).toBe(true);
       expect(tree.getByTestId('preview-keep-after-upgrade')).toBeTruthy();
     });
 
-    it('writes no config when Keep is pressed', () => {
-      pressKeepAndConfirm();
+    it('writes no config when Keep is pressed', async () => {
+      await pressKeepAndConfirm();
 
       expect(mockSetSectionConfig).not.toHaveBeenCalled();
       expect(mockForceRescan).not.toHaveBeenCalled();
     });
   });
 
-  it('shows no upgrade notice and an enabled Keep once the cutover has run', () => {
-    const tree = render(<DetectionPreviewScreen />);
+  it('shows no upgrade notice and an enabled Keep once the cutover has run', async () => {
+    const tree = await render(<DetectionPreviewScreen />);
 
     expect(tree.queryByTestId('preview-keep-after-upgrade')).toBeNull();
     expect(tree.getByTestId('preview-keep-button').props.accessibilityState?.disabled).toBeFalsy();
   });
 
-  it('exposes discard, run and keep as named buttons beside their test ids', () => {
-    const tree = render(<DetectionPreviewScreen />);
+  it('exposes discard, run and keep as named buttons beside their test ids', async () => {
+    const tree = await render(<DetectionPreviewScreen />);
 
     expect(tree.getByRole('button', { name: 'settings.previewDiscard' })).toBe(
       tree.getByTestId('preview-discard-button')
@@ -879,10 +879,10 @@ describe('keeping a preview starts an observable re-cut', () => {
     );
   });
 
-  it('starts nothing when the preview is discarded', () => {
-    const tree = render(<DetectionPreviewScreen />);
+  it('starts nothing when the preview is discarded', async () => {
+    const tree = await render(<DetectionPreviewScreen />);
 
-    fireEvent.press(tree.getByTestId('preview-discard-button'));
+    await fireEvent.press(tree.getByTestId('preview-discard-button'));
 
     expect(mockSetSectionConfig).not.toHaveBeenCalled();
     expect(mockForceRescan).not.toHaveBeenCalled();
@@ -912,7 +912,7 @@ describe('preview screen layout', () => {
   // The testID alone, because a failed match on the node prints the whole fiber.
   // Identity rather than a count, so a later regression that scrolls the whole
   // column fails here instead of passing on the card's own ScrollView.
-  function onlyVerticalScrollView(tree: ReturnType<typeof render>) {
+  function onlyVerticalScrollView(tree: Awaited<ReturnType<typeof render>>) {
     const found = tree.UNSAFE_queryAllByType(ScrollView).filter((node) => !node.props.horizontal);
     return found.map((node) => String(node.props.testID));
   }
@@ -992,20 +992,20 @@ describe('preview screen layout', () => {
     mockResult.value = null;
   });
 
-  it('scrolls the slider card and nothing else, so the map cannot leave the screen', () => {
-    const tree = render(<DetectionPreviewScreen />);
+  it('scrolls the slider card and nothing else, so the map cannot leave the screen', async () => {
+    const tree = await render(<DetectionPreviewScreen />);
 
     expect(onlyVerticalScrollView(tree)).toEqual(['preview-param-panel']);
   });
 
-  it('keeps the area picker horizontal rather than making the column scroll', () => {
-    const tree = render(<DetectionPreviewScreen />);
+  it('keeps the area picker horizontal rather than making the column scroll', async () => {
+    const tree = await render(<DetectionPreviewScreen />);
 
     expect(tree.getByTestId('preview-centre-picker').props.horizontal).toBe(true);
   });
 
-  it('holds the map and all five sliders in the tree at once', () => {
-    const tree = render(<DetectionPreviewScreen />);
+  it('holds the map and all five sliders in the tree at once', async () => {
+    const tree = await render(<DetectionPreviewScreen />);
 
     expect(tree.getByTestId('preview-map')).toBeTruthy();
     const panel = tree.getByTestId('preview-param-panel');
@@ -1015,8 +1015,8 @@ describe('preview screen layout', () => {
     expect(panel.findAllByType(ScrollView)).toHaveLength(0);
   });
 
-  it('lets the slider card absorb the leftover height rather than fixing its own', () => {
-    const tree = render(<DetectionPreviewScreen />);
+  it('lets the slider card absorb the leftover height rather than fixing its own', async () => {
+    const tree = await render(<DetectionPreviewScreen />);
 
     const panel = tree
       .UNSAFE_getAllByType(ScrollView)
@@ -1032,16 +1032,16 @@ describe('preview screen layout', () => {
     }
   });
 
-  it('keeps Preview reachable once a result has arrived', () => {
+  it('keeps Preview reachable once a result has arrived', async () => {
     mockResult.value = RESULT_WITH_COUNTS;
-    const tree = render(<DetectionPreviewScreen />);
+    const tree = await render(<DetectionPreviewScreen />);
 
     expect(tree.getByTestId('preview-run-button')).toBeTruthy();
   });
 
-  it('adds the diff strip and the decision row without displacing the map or the sliders', () => {
+  it('adds the diff strip and the decision row without displacing the map or the sliders', async () => {
     mockResult.value = RESULT_WITH_COUNTS;
-    const tree = render(<DetectionPreviewScreen />);
+    const tree = await render(<DetectionPreviewScreen />);
 
     expect(tree.getByTestId('preview-keep-button')).toBeTruthy();
     expect(tree.getByTestId('preview-discard-button')).toBeTruthy();
@@ -1083,7 +1083,7 @@ describe('detection preview sensitivity controls', () => {
   };
   let mockResult: typeof previewResult | null = previewResult;
 
-  function sliders(tree: ReturnType<typeof render>) {
+  function sliders(tree: Awaited<ReturnType<typeof render>>) {
     return tree.UNSAFE_getAllByType(require('@react-native-community/slider').default);
   }
 
@@ -1137,29 +1137,29 @@ describe('detection preview sensitivity controls', () => {
     jest.restoreAllMocks();
   });
 
-  it('seeds every slider from the persisted config', () => {
-    const tree = render(<DetectionPreviewScreen />);
+  it('seeds every slider from the persisted config', async () => {
+    const tree = await render(<DetectionPreviewScreen />);
     expect(sliders(tree).map((s) => s.props.value)).toEqual([50, 500, 50000, 3, 0.2]);
   });
 
-  it('falls back to the validated defaults when the engine has no config', () => {
+  it('falls back to the validated defaults when the engine has no config', async () => {
     mockGetSectionConfig.mockReturnValueOnce(null as never);
-    const tree = render(<DetectionPreviewScreen />);
+    const tree = await render(<DetectionPreviewScreen />);
     expect(sliders(tree).map((s) => s.props.value)).toEqual([25, 50, 2000, 2, 0.05]);
   });
 
-  it('writes nothing to the engine while a slider moves', () => {
-    const tree = render(<DetectionPreviewScreen />);
-    fireEvent(sliders(tree)[0], 'valueChange', 150);
-    fireEvent(sliders(tree)[1], 'valueChange', 900);
+  it('writes nothing to the engine while a slider moves', async () => {
+    const tree = await render(<DetectionPreviewScreen />);
+    await fireEvent(sliders(tree)[0], 'valueChange', 150);
+    await fireEvent(sliders(tree)[1], 'valueChange', 900);
     expect(mockSetSectionConfig).not.toHaveBeenCalled();
     expect(mockForceRedetect).not.toHaveBeenCalled();
   });
 
-  it('passes the staged values to a preview run without committing them', () => {
-    const tree = render(<DetectionPreviewScreen />);
-    fireEvent(sliders(tree)[0], 'valueChange', 150);
-    fireEvent(tree.getByTestId('preview-run-button'), 'press');
+  it('passes the staged values to a preview run without committing them', async () => {
+    const tree = await render(<DetectionPreviewScreen />);
+    await fireEvent(sliders(tree)[0], 'valueChange', 150);
+    await fireEvent(tree.getByTestId('preview-run-button'), 'press');
     expect(mockStart).toHaveBeenCalledWith(
       -37.8,
       144.9,
@@ -1168,16 +1168,16 @@ describe('detection preview sensitivity controls', () => {
     expect(mockSetSectionConfig).not.toHaveBeenCalled();
   });
 
-  it('commits the previewed values only when Keep is confirmed', () => {
+  it('commits the previewed values only when Keep is confirmed', async () => {
     confirmNextAlert();
     mockResult = {
       ...previewResult,
       config: { ...previewedConfig, proximityThreshold: 150, minActivities: 5 },
     };
-    const tree = render(<DetectionPreviewScreen />);
-    fireEvent(sliders(tree)[0], 'valueChange', 150);
-    fireEvent(sliders(tree)[3], 'valueChange', 5);
-    fireEvent.press(tree.getByTestId('preview-keep-button'));
+    const tree = await render(<DetectionPreviewScreen />);
+    await fireEvent(sliders(tree)[0], 'valueChange', 150);
+    await fireEvent(sliders(tree)[3], 'valueChange', 5);
+    await fireEvent.press(tree.getByTestId('preview-keep-button'));
     expect(mockSetSectionConfig).toHaveBeenCalledTimes(1);
     expect(mockSetSectionConfig).toHaveBeenCalledWith(
       expect.objectContaining({ proximityThreshold: 150, minActivities: 5 })
@@ -1185,57 +1185,57 @@ describe('detection preview sensitivity controls', () => {
     expect(mockForceRedetect).toHaveBeenCalledTimes(1);
   });
 
-  it('disables Keep once a slider moves away from the previewed config', () => {
+  it('disables Keep once a slider moves away from the previewed config', async () => {
     confirmNextAlert();
-    const tree = render(<DetectionPreviewScreen />);
+    const tree = await render(<DetectionPreviewScreen />);
     expect(tree.getByTestId('preview-keep-button').props.accessibilityState?.disabled).toBeFalsy();
-    fireEvent(sliders(tree)[0], 'valueChange', 400);
+    await fireEvent(sliders(tree)[0], 'valueChange', 400);
     expect(tree.getByTestId('preview-keep-button').props.accessibilityState?.disabled).toBe(true);
-    fireEvent.press(tree.getByTestId('preview-keep-button'));
+    await fireEvent.press(tree.getByTestId('preview-keep-button'));
     expect(mockSetSectionConfig).not.toHaveBeenCalled();
   });
 
-  it('enables Keep again when the slider returns to the previewed value', () => {
-    const tree = render(<DetectionPreviewScreen />);
-    fireEvent(sliders(tree)[0], 'valueChange', 400);
-    fireEvent(sliders(tree)[0], 'valueChange', 50);
+  it('enables Keep again when the slider returns to the previewed value', async () => {
+    const tree = await render(<DetectionPreviewScreen />);
+    await fireEvent(sliders(tree)[0], 'valueChange', 400);
+    await fireEvent(sliders(tree)[0], 'valueChange', 50);
     expect(tree.getByTestId('preview-keep-button').props.accessibilityState?.disabled).toBeFalsy();
   });
 
-  it('leaves the config alone when Keep is cancelled', () => {
+  it('leaves the config alone when Keep is cancelled', async () => {
     jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
       buttons?.find((b) => b.style === 'cancel')?.onPress?.();
     });
-    const tree = render(<DetectionPreviewScreen />);
-    fireEvent(sliders(tree)[0], 'valueChange', 150);
-    fireEvent(tree.getByTestId('preview-keep-button'), 'press');
+    const tree = await render(<DetectionPreviewScreen />);
+    await fireEvent(sliders(tree)[0], 'valueChange', 150);
+    await fireEvent(tree.getByTestId('preview-keep-button'), 'press');
     expect(mockSetSectionConfig).not.toHaveBeenCalled();
     expect(mockForceRedetect).not.toHaveBeenCalled();
   });
 
-  it('closes the screen once the re-cut has actually started', () => {
+  it('closes the screen once the re-cut has actually started', async () => {
     confirmNextAlert();
-    const tree = render(<DetectionPreviewScreen />);
-    fireEvent(tree.getByTestId('preview-keep-button'), 'press');
+    const tree = await render(<DetectionPreviewScreen />);
+    await fireEvent(tree.getByTestId('preview-keep-button'), 'press');
     expect(mockForceRedetect).toHaveBeenCalledTimes(1);
     expect(router.back).toHaveBeenCalledTimes(1);
   });
 
-  it('stays on the screen when the engine refuses the re-cut', () => {
+  it('stays on the screen when the engine refuses the re-cut', async () => {
     // A refusal lands after the config is already persisted and the evidence
     // cache cleared, so closing here would report a change that never ran.
     mockForceRedetect.mockReturnValue(StartOutcome.Held);
     confirmNextAlert();
-    const tree = render(<DetectionPreviewScreen />);
-    fireEvent(tree.getByTestId('preview-keep-button'), 'press');
+    const tree = await render(<DetectionPreviewScreen />);
+    await fireEvent(tree.getByTestId('preview-keep-button'), 'press');
     expect(router.back).not.toHaveBeenCalled();
   });
 
-  it('states why the re-cut did not start', () => {
+  it('states why the re-cut did not start', async () => {
     mockForceRedetect.mockReturnValue(StartOutcome.Held);
     const alert = confirmNextAlert();
-    const tree = render(<DetectionPreviewScreen />);
-    fireEvent(tree.getByTestId('preview-keep-button'), 'press');
+    const tree = await render(<DetectionPreviewScreen />);
+    await fireEvent(tree.getByTestId('preview-keep-button'), 'press');
     const [title, message] = alert.mock.calls[alert.mock.calls.length - 1];
     expect(title).toBe('settings.previewKeepRefusedTitle');
     expect(message).toBe('settings.previewKeepRefused sections.rescanRefusedHeld');
@@ -1246,29 +1246,29 @@ describe('detection preview sensitivity controls', () => {
     [StartOutcome.Held, 'sections.rescanRefusedHeld'],
     [StartOutcome.NotReady, 'sections.rescanRefusedNotReady'],
     [StartOutcome.NotConfigured, 'sections.rescanRefusedOff'],
-  ])('gives each refusal its own reason (%s)', (outcome, key) => {
+  ])('gives each refusal its own reason (%s)', async (outcome, key) => {
     mockForceRedetect.mockReturnValue(outcome);
     const alert = confirmNextAlert();
-    const tree = render(<DetectionPreviewScreen />);
-    fireEvent(tree.getByTestId('preview-keep-button'), 'press');
+    const tree = await render(<DetectionPreviewScreen />);
+    await fireEvent(tree.getByTestId('preview-keep-button'), 'press');
     const [, message] = alert.mock.calls[alert.mock.calls.length - 1];
     expect(message).toContain(key);
   });
 
-  it('lets a refused accept be retried without leaving the screen', () => {
+  it('lets a refused accept be retried without leaving the screen', async () => {
     mockForceRedetect.mockReturnValue(StartOutcome.Held);
     confirmNextAlert();
-    const tree = render(<DetectionPreviewScreen />);
-    fireEvent(tree.getByTestId('preview-keep-button'), 'press');
+    const tree = await render(<DetectionPreviewScreen />);
+    await fireEvent(tree.getByTestId('preview-keep-button'), 'press');
     mockForceRedetect.mockReturnValue(StartOutcome.Started);
-    fireEvent(tree.getByTestId('preview-keep-button'), 'press');
+    await fireEvent(tree.getByTestId('preview-keep-button'), 'press');
     expect(mockForceRedetect).toHaveBeenCalledTimes(2);
     expect(router.back).toHaveBeenCalledTimes(1);
   });
 
-  it('offers no Keep until a run has produced a result', () => {
+  it('offers no Keep until a run has produced a result', async () => {
     mockResult = null;
-    const tree = render(<DetectionPreviewScreen />);
+    const tree = await render(<DetectionPreviewScreen />);
     expect(tree.queryByTestId('preview-keep-button')).toBeNull();
     expect(tree.getByTestId('preview-param-panel')).toBeTruthy();
   });
@@ -1292,13 +1292,13 @@ describe('detection preview sensitivity controls', () => {
       });
     });
 
-    it('asks for a run nowhere but on the release', () => {
-      const tree = render(<DetectionPreviewScreen />);
-      fireEvent(sliders(tree)[0], 'valueChange', 120);
-      fireEvent(sliders(tree)[0], 'valueChange', 150);
+    it('asks for a run nowhere but on the release', async () => {
+      const tree = await render(<DetectionPreviewScreen />);
+      await fireEvent(sliders(tree)[0], 'valueChange', 120);
+      await fireEvent(sliders(tree)[0], 'valueChange', 150);
       expect(mockRequest).not.toHaveBeenCalled();
 
-      fireEvent(sliders(tree)[0], 'slidingComplete', 150);
+      await fireEvent(sliders(tree)[0], 'slidingComplete', 150);
       expect(mockRequest).toHaveBeenCalledTimes(1);
       expect(mockRequest).toHaveBeenCalledWith(-37.8, 144.9, {
         ...previewedConfig,
@@ -1307,12 +1307,12 @@ describe('detection preview sensitivity controls', () => {
       expect(mockStart).not.toHaveBeenCalled();
     });
 
-    it('carries the values already moved on other sliders', () => {
-      const tree = render(<DetectionPreviewScreen />);
-      fireEvent(sliders(tree)[0], 'valueChange', 150);
-      fireEvent(sliders(tree)[0], 'slidingComplete', 150);
-      fireEvent(sliders(tree)[3], 'valueChange', 6);
-      fireEvent(sliders(tree)[3], 'slidingComplete', 6);
+    it('carries the values already moved on other sliders', async () => {
+      const tree = await render(<DetectionPreviewScreen />);
+      await fireEvent(sliders(tree)[0], 'valueChange', 150);
+      await fireEvent(sliders(tree)[0], 'slidingComplete', 150);
+      await fireEvent(sliders(tree)[3], 'valueChange', 6);
+      await fireEvent(sliders(tree)[3], 'slidingComplete', 6);
       expect(mockRequest).toHaveBeenLastCalledWith(-37.8, 144.9, {
         ...previewedConfig,
         proximityThreshold: 150,
@@ -1320,17 +1320,17 @@ describe('detection preview sensitivity controls', () => {
       });
     });
 
-    it('asks for a run when a preset is chosen', () => {
-      const tree = render(<DetectionPreviewScreen />);
-      fireEvent.press(tree.getByTestId('preset-strict'));
+    it('asks for a run when a preset is chosen', async () => {
+      const tree = await render(<DetectionPreviewScreen />);
+      await fireEvent.press(tree.getByTestId('preset-strict'));
       expect(mockRequest).toHaveBeenCalledTimes(1);
     });
 
-    it('leaves the sliders live during a run, so a release can supersede it', () => {
+    it('leaves the sliders live during a run, so a release can supersede it', async () => {
       mockStatus = 'running';
-      const tree = render(<DetectionPreviewScreen />);
+      const tree = await render(<DetectionPreviewScreen />);
       for (const slider of sliders(tree)) expect(slider.props.disabled).toBeFalsy();
-      fireEvent(sliders(tree)[1], 'slidingComplete', 900);
+      await fireEvent(sliders(tree)[1], 'slidingComplete', 900);
       expect(mockRequest).toHaveBeenCalledWith(
         -37.8,
         144.9,
@@ -1338,10 +1338,10 @@ describe('detection preview sensitivity controls', () => {
       );
     });
 
-    it('asks for nothing with no area to run against', () => {
+    it('asks for nothing with no area to run against', async () => {
       mockEnv.centres = { centres: [], labels: {} };
-      const tree = render(<DetectionPreviewScreen />);
-      fireEvent(sliders(tree)[0], 'slidingComplete', 150);
+      const tree = await render(<DetectionPreviewScreen />);
+      await fireEvent(sliders(tree)[0], 'slidingComplete', 150);
       expect(mockRequest).not.toHaveBeenCalled();
     });
   });
@@ -1358,7 +1358,7 @@ describe('preview run progress', () => {
   const mockStatus = { value: 'idle' };
   const mockLapsed = { value: false };
 
-  function barWidth(tree: ReturnType<typeof render>) {
+  function barWidth(tree: Awaited<ReturnType<typeof render>>) {
     const fill = tree.queryByTestId('preview-progress-fill');
     if (!fill) return null;
     const style = fill.props.style;
@@ -1412,7 +1412,7 @@ describe('preview run progress', () => {
     mockLapsed.value = false;
   });
 
-  it('draws a bar at the reported percentage', () => {
+  it('draws a bar at the reported percentage', async () => {
     mockStatus.value = 'running';
     mockProgress.value = {
       phase: 'analyzing',
@@ -1422,10 +1422,10 @@ describe('preview run progress', () => {
       percent: 40,
     };
 
-    expect(barWidth(render(<DetectionPreviewScreen />))).toBe('40%');
+    expect(barWidth(await render(<DetectionPreviewScreen />))).toBe('40%');
   });
 
-  it('clamps a percentage outside 0 to 100', () => {
+  it('clamps a percentage outside 0 to 100', async () => {
     mockStatus.value = 'running';
     mockProgress.value = {
       phase: 'analyzing',
@@ -1435,33 +1435,37 @@ describe('preview run progress', () => {
       percent: 140,
     };
 
-    expect(barWidth(render(<DetectionPreviewScreen />))).toBe('100%');
+    expect(barWidth(await render(<DetectionPreviewScreen />))).toBe('100%');
   });
 
-  it('starts the bar at zero before any percentage arrives', () => {
+  it('starts the bar at zero before any percentage arrives', async () => {
     mockStatus.value = 'running';
     mockProgress.value = null;
 
-    expect(barWidth(render(<DetectionPreviewScreen />))).toBe('0%');
+    expect(barWidth(await render(<DetectionPreviewScreen />))).toBe('0%');
   });
 
-  it('says nothing about a slow run until the run has lapsed', () => {
+  it('says nothing about a slow run until the run has lapsed', async () => {
     mockStatus.value = 'running';
 
-    expect(render(<DetectionPreviewScreen />).queryByTestId('preview-slow')).toBeNull();
+    expect(
+      await (await render(<DetectionPreviewScreen />)).queryByTestId('preview-slow')
+    ).toBeNull();
   });
 
-  it('tells the athlete a lapsed run is still going', () => {
+  it('tells the athlete a lapsed run is still going', async () => {
     mockStatus.value = 'running';
     mockLapsed.value = true;
 
-    expect(render(<DetectionPreviewScreen />).getByTestId('preview-slow')).toBeTruthy();
+    expect(
+      await (await render(<DetectionPreviewScreen />)).getByTestId('preview-slow')
+    ).toBeTruthy();
   });
 
-  it('draws no bar when no run is in flight', () => {
+  it('draws no bar when no run is in flight', async () => {
     mockStatus.value = 'idle';
 
-    expect(barWidth(render(<DetectionPreviewScreen />))).toBeNull();
+    expect(barWidth(await render(<DetectionPreviewScreen />))).toBeNull();
   });
 });
 
@@ -1520,9 +1524,9 @@ describe('the preview against a catalogue that has not caught up', () => {
     mockAwaiting.mockReturnValue(0);
   });
 
-  it('says the catalogue is behind when the config change cleared the whole set', () => {
+  it('says the catalogue is behind when the config change cleared the whole set', async () => {
     mockAwaiting.mockReturnValue(118);
-    const { getByTestId } = render(<DetectionPreviewScreen />);
+    const { getByTestId } = await render(<DetectionPreviewScreen />);
 
     expect(getByTestId('preview-stale-catalogue')).toBeTruthy();
   });
@@ -1531,17 +1535,17 @@ describe('the preview against a catalogue that has not caught up', () => {
   /// what separates "three new rides" from "the whole library". Asserted
   /// against the rendered sentence, so a regression to a countless string
   /// fails here rather than passing on a key that still resolves.
-  it('names how many activities the live catalogue has never seen', () => {
+  it('names how many activities the live catalogue has never seen', async () => {
     mockAwaiting.mockReturnValue(118);
-    const { getByTestId } = render(<DetectionPreviewScreen />);
+    const { getByTestId } = await render(<DetectionPreviewScreen />);
 
     expect(getByTestId('preview-stale-catalogue')).toHaveTextContent(
       /has not seen 118 of your activities yet/
     );
   });
 
-  it('says nothing when the catalogue has seen every activity', () => {
-    const { queryByTestId } = render(<DetectionPreviewScreen />);
+  it('says nothing when the catalogue has seen every activity', async () => {
+    const { queryByTestId } = await render(<DetectionPreviewScreen />);
 
     expect(queryByTestId('preview-stale-catalogue')).toBeNull();
   });
@@ -1549,9 +1553,9 @@ describe('the preview against a catalogue that has not caught up', () => {
   /// An engine that cannot answer must not read as "everything is fine", but
   /// it must not invent a staleness either. Silence is the honest answer, and
   /// it is what the count returning null means.
-  it('says nothing when the engine cannot answer', () => {
+  it('says nothing when the engine cannot answer', async () => {
     mockAwaiting.mockReturnValue(null);
-    const { queryByTestId } = render(<DetectionPreviewScreen />);
+    const { queryByTestId } = await render(<DetectionPreviewScreen />);
 
     expect(queryByTestId('preview-stale-catalogue')).toBeNull();
   });

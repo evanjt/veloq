@@ -51,28 +51,28 @@ afterEach(() => {
 });
 
 describe('section creation step announcements', () => {
-  it('announces each step once on iOS as the selection moves on', () => {
+  it('announces each step once on iOS as the selection moves on', async () => {
     setOS('ios');
-    const view = render(overlay('selectingStart'));
+    const view = await render(overlay('selectingStart'));
     expect(announce).toHaveBeenCalledTimes(1);
     expect(announce).toHaveBeenLastCalledWith('maps.tapSelectStart');
 
-    view.rerender(overlay('selectingStart'));
+    await view.rerender(overlay('selectingStart'));
     expect(announce).toHaveBeenCalledTimes(1);
 
-    view.rerender(overlay('selectingEnd'));
+    await view.rerender(overlay('selectingEnd'));
     expect(announce).toHaveBeenCalledTimes(2);
     expect(announce).toHaveBeenLastCalledWith('maps.tapSelectEnd');
 
-    view.rerender(overlay('complete', 50));
+    await view.rerender(overlay('complete', 50));
     expect(announce).toHaveBeenCalledTimes(3);
     expect(announce).toHaveBeenLastCalledWith('maps.sectionSelected, 1.0 km');
   });
 
-  it('leaves the speaking to the live region on Android', () => {
+  it('leaves the speaking to the live region on Android', async () => {
     setOS('android');
-    const view = render(overlay('selectingStart'));
-    view.rerender(overlay('selectingEnd'));
+    const view = await render(overlay('selectingStart'));
+    await view.rerender(overlay('selectingEnd'));
     expect(announce).not.toHaveBeenCalled();
 
     const prompt = screen.getByText('maps.tapSelectEnd');

@@ -43,12 +43,14 @@ const props = {
 } as unknown as React.ComponentProps<typeof SectionContentArea>;
 
 describe('the section content area stack', () => {
-  it('holds its children in the stack that carries the one gap', () => {
-    const tree = render(
-      <SectionContentArea {...props}>
-        <Text testID="tail">tail</Text>
-      </SectionContentArea>
-    ).toJSON() as { props: { style?: unknown }; children: { props: { testID?: string } }[] };
+  it('holds its children in the stack that carries the one gap', async () => {
+    const tree = (await (
+      await render(
+        <SectionContentArea {...props}>
+          <Text testID="tail">tail</Text>
+        </SectionContentArea>
+      )
+    ).toJSON()) as { props: { style?: unknown }; children: { props: { testID?: string } }[] };
     expect(tree.children.at(-1)?.props.testID).toBe('tail');
     const stack = StyleSheet.flatten(tree.props.style as never) as Record<string, unknown>;
     expect(stack.gap).toBe(spacing.md);

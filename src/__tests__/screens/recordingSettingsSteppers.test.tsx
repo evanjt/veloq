@@ -45,9 +45,9 @@ beforeEach(() => {
 });
 
 describe('recording settings steppers', () => {
-  it('exposes the accuracy filter at its ceiling as one adjustable element with plus disabled', () => {
+  it('exposes the accuracy filter at its ceiling as one adjustable element with plus disabled', async () => {
     useRecordingPreferences.setState({ accuracyRejectThreshold: 100 });
-    const view = render(<RecordingSettingsScreen />);
+    const view = await render(<RecordingSettingsScreen />);
     const stepper = view.getByTestId('settings-accuracy-filter-value');
     expect(stepper.props.accessibilityRole).toBe('adjustable');
     expect(stepper.props.accessibilityLabel).toBe('Accuracy filter');
@@ -56,44 +56,44 @@ describe('recording settings steppers', () => {
     expect(disabled(view.getByTestId('settings-accuracy-filter-minus'))).toBe(false);
   });
 
-  it('gives every stepper row exactly one adjustable element', () => {
-    const view = render(<RecordingSettingsScreen />);
+  it('gives every stepper row exactly one adjustable element', async () => {
+    const view = await render(<RecordingSettingsScreen />);
     expect(view.getAllByRole('adjustable')).toHaveLength(5);
   });
 
-  it('disables minus on the accuracy filter at its floor', () => {
+  it('disables minus on the accuracy filter at its floor', async () => {
     useRecordingPreferences.setState({ accuracyRejectThreshold: 10 });
-    const view = render(<RecordingSettingsScreen />);
+    const view = await render(<RecordingSettingsScreen />);
     expect(disabled(view.getByTestId('settings-accuracy-filter-minus'))).toBe(true);
-    fireEvent.press(view.getByTestId('settings-accuracy-filter-minus'));
+    await fireEvent.press(view.getByTestId('settings-accuracy-filter-minus'));
     expect(useRecordingPreferences.getState().accuracyRejectThreshold).toBe(10);
   });
 
-  it('disables the auto-pause delay at both ends', () => {
+  it('disables the auto-pause delay at both ends', async () => {
     useRecordingPreferences.setState({ autoPauseDurationMs: 10_000 });
-    const top = render(<RecordingSettingsScreen />);
+    const top = await render(<RecordingSettingsScreen />);
     expect(disabled(top.getByTestId('settings-auto-pause-delay-plus'))).toBe(true);
-    top.unmount();
+    await top.unmount();
 
     useRecordingPreferences.setState({ autoPauseDurationMs: 1000 });
-    const bottom = render(<RecordingSettingsScreen />);
+    const bottom = await render(<RecordingSettingsScreen />);
     expect(disabled(bottom.getByTestId('settings-auto-pause-delay-minus'))).toBe(true);
   });
 
-  it('disables a sport threshold at its ceiling', () => {
+  it('disables a sport threshold at its ceiling', async () => {
     useRecordingPreferences.setState({
       autoPauseThresholds: { cycling: 10, running: 1, walking: 0.5 },
     });
-    const view = render(<RecordingSettingsScreen />);
+    const view = await render(<RecordingSettingsScreen />);
     expect(disabled(view.getByTestId('settings-threshold-cycling-plus'))).toBe(true);
     expect(disabled(view.getByTestId('settings-threshold-walking-minus'))).toBe(true);
   });
 
-  it('steps metric rows by 5 m, 0.5 s and 0.5 km/h', () => {
-    const view = render(<RecordingSettingsScreen />);
-    fireEvent.press(view.getByTestId('settings-accuracy-filter-plus'));
-    fireEvent.press(view.getByTestId('settings-auto-pause-delay-minus'));
-    fireEvent.press(view.getByTestId('settings-threshold-cycling-plus'));
+  it('steps metric rows by 5 m, 0.5 s and 0.5 km/h', async () => {
+    const view = await render(<RecordingSettingsScreen />);
+    await fireEvent.press(view.getByTestId('settings-accuracy-filter-plus'));
+    await fireEvent.press(view.getByTestId('settings-auto-pause-delay-minus'));
+    await fireEvent.press(view.getByTestId('settings-threshold-cycling-plus'));
     const state = useRecordingPreferences.getState();
     expect(state.accuracyRejectThreshold).toBe(55);
     expect(state.autoPauseDurationMs).toBe(4500);
@@ -103,35 +103,35 @@ describe('recording settings steppers', () => {
     });
   });
 
-  it('steps the accuracy filter by 15 ft for an imperial athlete and stores metres', () => {
+  it('steps the accuracy filter by 15 ft for an imperial athlete and stores metres', async () => {
     mockIsMetric = false;
     useRecordingPreferences.setState({ accuracyRejectThreshold: 45 / M_TO_FT });
-    const view = render(<RecordingSettingsScreen />);
+    const view = await render(<RecordingSettingsScreen />);
     const stepper = () => view.getByTestId('settings-accuracy-filter-value');
     expect(stepper().props.accessibilityValue).toEqual({ text: '45 ft' });
 
-    fireEvent.press(view.getByTestId('settings-accuracy-filter-plus'));
+    await fireEvent.press(view.getByTestId('settings-accuracy-filter-plus'));
     expect(stepper().props.accessibilityValue).toEqual({ text: '60 ft' });
     expect(useRecordingPreferences.getState().accuracyRejectThreshold).toBeCloseTo(60 / M_TO_FT, 9);
 
-    fireEvent(stepper(), 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
+    await fireEvent(stepper(), 'accessibilityAction', { nativeEvent: { actionName: 'increment' } });
     expect(stepper().props.accessibilityValue).toEqual({ text: '75 ft' });
   });
 
-  it('steps a sport threshold by 0.5 mph for an imperial athlete and stores km/h', () => {
+  it('steps a sport threshold by 0.5 mph for an imperial athlete and stores km/h', async () => {
     mockIsMetric = false;
-    const view = render(<RecordingSettingsScreen />);
+    const view = await render(<RecordingSettingsScreen />);
     const stepper = () => view.getByTestId('settings-threshold-cycling-value');
     expect(stepper().props.accessibilityValue).toEqual({ text: '1.2 mph' });
 
-    fireEvent.press(view.getByTestId('settings-threshold-cycling-plus'));
+    await fireEvent.press(view.getByTestId('settings-threshold-cycling-plus'));
     expect(stepper().props.accessibilityValue).toEqual({ text: '1.5 mph' });
     expect(useRecordingPreferences.getState().autoPauseThresholds.cycling).toBeCloseTo(
       1.5 / KM_TO_MI,
       9
     );
 
-    fireEvent.press(view.getByTestId('settings-threshold-cycling-plus'));
+    await fireEvent.press(view.getByTestId('settings-threshold-cycling-plus'));
     expect(stepper().props.accessibilityValue).toEqual({ text: '2.0 mph' });
   });
 });

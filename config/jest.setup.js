@@ -82,6 +82,14 @@ jest.mock("veloqrs", () =>
 // `shared/app`, which the same barrels pull in.
 jest.mock("react-native-iap", () => ({ useIAP: () => ({}), ErrorCode: {} }));
 
+// A gesture root installs the handler's native module on its first render, and
+// there is none under Jest. A modal carries its own root, since Android gives it
+// a window of its own, so the root renders as a plain View here.
+jest.mock("react-native-gesture-handler", () => ({
+  ...jest.requireActual("react-native-gesture-handler"),
+  GestureHandlerRootView: require("react-native").View,
+}));
+
 // Mock expo-localization for device locale simulation
 // Note: i18next is NOT mocked - we test real integration
 jest.mock("expo-localization", () => ({

@@ -12,16 +12,19 @@
  * An engine open captures the one-shot report, including an open after this
  * notice mounted on the login screen. The notice is the platform alert, raised
  * once when the report appears; its button and an Android dismiss both clear
- * the report.
+ * the report. It is a launch modal, so it waits for `launchSurfaces` to give it
+ * the slot: a first load's tour keeps it, and it takes it from What's New.
  */
 import { useEffect, useRef } from 'react';
-import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useEngineStatus } from '@/features/routes';
 
 import { quarantineNoticeParts, type QuarantineNoticeKey } from '../lib/quarantineNotice';
 import { clearQuarantineReport } from '../lib/quarantineReport';
+import { useLaunchSurfaces } from '../hooks/useLaunchSurfaces';
+import { useWhatsNewStore } from '../stores/WhatsNewStore';
+import { inform } from '@/shared/ui/dialog';
 
 /**
  * Spelled out rather than built from the key, so the unused-key guard can see
@@ -41,14 +44,17 @@ const KEPT_KEY = {
 export function LibraryRebuiltNotice() {
   const { t } = useTranslation();
   const report = useEngineStatus((s) => s.quarantineReport);
+  const ownsSlot = useLaunchSurfaces().modal === 'libraryRebuilt';
+  const takeLaunchSlot = useWhatsNewStore((s) => s.takeLaunchSlot);
 
   const announced = useRef<typeof report>(null);
 
   useEffect(() => {
     const parts = quarantineNoticeParts(report);
     // A language change re-creates `t`; the same report is not announced twice.
-    if (!parts || announced.current === report) return;
+    if (!parts || !ownsSlot || announced.current === report) return;
     announced.current = report;
+    takeLaunchSlot('libraryRebuilt');
 
     const kept = parts
       .map((part) => t(KEPT_KEY[part.key], { count: part.count }))
@@ -58,13 +64,13 @@ export function LibraryRebuiltNotice() {
         ? t('engine.quarantine.kept.lead', { kept })
         : t('engine.quarantine.keptNothing');
 
-    Alert.alert(
-      t('engine.quarantine.title'),
-      `${keptLine}\n${t('engine.quarantine.resyncing')}`,
-      [{ text: t('engine.quarantine.dismiss'), onPress: clearQuarantineReport }],
-      { cancelable: true, onDismiss: clearQuarantineReport }
-    );
-  }, [report, t]);
+    inform({
+      title: t('engine.quarantine.title'),
+      message: `${keptLine}\n${t('engine.quarantine.resyncing')}`,
+      dismissLabel: t('engine.quarantine.dismiss'),
+      onDismiss: clearQuarantineReport,
+    });
+  }, [report, ownsSlot, takeLaunchSlot, t]);
 
   return null;
 }

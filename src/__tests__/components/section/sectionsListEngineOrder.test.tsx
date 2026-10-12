@@ -102,8 +102,8 @@ describe('SectionsList over an engine-ordered page', () => {
     await initialiseI18n('en-AU');
   });
 
-  it('renders the page in the order the engine gave it', () => {
-    const tree = renderList();
+  it('renders the page in the order the engine gave it', async () => {
+    const tree = await renderList();
 
     const ids = tree
       .getAllByTestId(/^section-row-auto_[a-z0-9]+(-body)?$/)
@@ -114,18 +114,18 @@ describe('SectionsList over an engine-ordered page', () => {
     expect(ids).toEqual(['auto_c', 'auto_a', 'auto_b']);
   });
 
-  it('offers Accept all on the engine count, not the page tally', () => {
+  it('offers Accept all on the engine count, not the page tally', async () => {
     // Every section on this page is already accepted, so a tally taken here is
     // zero while 63 of the catalogue still await review.
-    const tree = renderList();
+    const tree = await renderList();
 
     expect(tree.getByText('Accept All')).toBeTruthy();
     expect(tree.getByText('Accepted only')).toBeTruthy();
   });
 
-  it('names the selected row before deleting a custom section', () => {
+  it('names the selected row before deleting a custom section', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    const tree = renderList({
+    const tree = await renderList({
       batchSections: [
         record('custom_a', 'Zulu', 1, 'custom'),
         record('custom_b', 'Alpha', 1, 'custom'),
@@ -135,23 +135,23 @@ describe('SectionsList over an engine-ordered page', () => {
     const actions = rows[1].props.renderRightActions(null, {
       interpolate: () => 1,
     });
-    const swipe = render(actions);
+    const swipe = await render(actions);
 
-    fireEvent.press(swipe.getByText('Delete'));
+    await fireEvent.press(swipe.getByText('Delete'));
 
     expect(alert.mock.calls[0][1]).toContain('Alpha');
     expect(alert.mock.calls[0][1]).not.toContain('Zulu');
     expect(alert.mock.calls[0][2]?.map((button) => button.style)).toContain('cancel');
   });
 
-  it('offers Restore for a retired row and enables that section', () => {
+  it('offers Restore for a retired row and enables that section', async () => {
     const retired = { ...record('auto_retired', 'Retired climb', 2), disabled: true };
-    const tree = renderList({ batchSections: [retired] });
+    const tree = await renderList({ batchSections: [retired] });
     const row = tree.UNSAFE_getByType(Swipeable);
-    const swipe = render(row.props.renderRightActions(null, { interpolate: () => 1 }));
+    const swipe = await render(row.props.renderRightActions(null, { interpolate: () => 1 }));
 
     expect(tree.getByTestId('section-row-auto_retired')).toBeTruthy();
-    fireEvent.press(swipe.getByText('Restore'));
+    await fireEvent.press(swipe.getByText('Restore'));
     expect(mockEnableSection).toHaveBeenCalledWith('auto_retired');
   });
 });
@@ -167,15 +167,15 @@ describe('the filter chips count the catalogue, not the page', () => {
     await initialiseI18n('en-AU');
   });
 
-  it('shows the custom and retired figures it was given', () => {
-    const { getByText } = renderList();
+  it('shows the custom and retired figures it was given', async () => {
+    const { getByText } = await renderList();
 
     expect(getByText('18 custom sections')).toBeTruthy();
     expect(getByText('7 removed sections')).toBeTruthy();
   });
 
-  it('keeps them when the page holds none of either', () => {
-    const { getByText, queryByText } = renderList({
+  it('keeps them when the page holds none of either', async () => {
+    const { getByText, queryByText } = await renderList({
       customSectionCount: 4,
       retiredSectionCount: 2,
     });
@@ -191,9 +191,9 @@ describe('SectionsList over a failed page read', () => {
     await initialiseI18n('en-AU');
   });
 
-  it('shows the failure with a retry, not the empty library copy', () => {
+  it('shows the failure with a retry, not the empty library copy', async () => {
     const onRetry = jest.fn();
-    const tree = renderList({
+    const tree = await renderList({
       batchSections: undefined,
       totalSectionCount: 0,
       loadError: new Error('database is locked'),
@@ -201,7 +201,7 @@ describe('SectionsList over a failed page read', () => {
     });
 
     expect(tree.queryByText(/No frequent sections/)).toBeNull();
-    fireEvent.press(tree.getByText('Retry'));
+    await fireEvent.press(tree.getByText('Retry'));
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 });

@@ -121,15 +121,15 @@ describe('RegionalMapView', () => {
    * Expected behaviour: the popup shows for the named id, and nothing opens
    * when the link names none.
    */
-  it('opens the popup for the section a link names', () => {
-    renderRegional({ selectSectionId: 'sec-1' });
+  it('opens the popup for the section a link names', async () => {
+    await renderRegional({ selectSectionId: 'sec-1' });
 
     expect(mockSectionDetail).toHaveBeenCalledWith('sec-1');
     expect(screen.getByTestId('section-popup')).toBeTruthy();
   });
 
-  it('opens no section popup without a section in the link', () => {
-    renderRegional();
+  it('opens no section popup without a section in the link', async () => {
+    await renderRegional();
 
     expect(screen.queryByTestId('section-popup')).toBeNull();
   });
@@ -139,37 +139,39 @@ describe('RegionalMapView', () => {
     mockPathname = '/map';
   });
 
-  it('mounts a map with activity overlays', () => {
-    renderRegional();
+  it('mounts a map with activity overlays', async () => {
+    await renderRegional();
 
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
-    fireEvent.press(screen.getByTestId('map-layers'));
+    await fireEvent.press(screen.getByTestId('map-layers'));
     expect(screen.getByTestId('map-toggle-activities')).toBeTruthy();
   });
 
-  it('offers fit-all once there is at least one activity', () => {
-    renderRegional();
-    fireEvent.press(screen.getByTestId('map-layers'));
+  it('offers fit-all once there is at least one activity', async () => {
+    await renderRegional();
+    await fireEvent.press(screen.getByTestId('map-layers'));
 
     expect(screen.getByTestId('map-fit-all')).toBeTruthy();
-    expect(() => fireEvent.press(screen.getByTestId('map-fit-all'))).not.toThrow();
+    await expect(
+      (async () => fireEvent.press(screen.getByTestId('map-fit-all')))()
+    ).resolves.not.toThrow();
   });
 
-  it('withholds fit-all when there is nothing to fit', () => {
-    renderRegional({ activities: [] });
-    fireEvent.press(screen.getByTestId('map-layers'));
+  it('withholds fit-all when there is nothing to fit', async () => {
+    await renderRegional({ activities: [] });
+    await fireEvent.press(screen.getByTestId('map-layers'));
 
     expect(screen.queryByTestId('map-fit-all')).toBeNull();
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
   });
 
-  it('keeps the overlay toggles pressable', () => {
-    renderRegional();
-    fireEvent.press(screen.getByTestId('map-layers'));
+  it('keeps the overlay toggles pressable', async () => {
+    await renderRegional();
+    await fireEvent.press(screen.getByTestId('map-layers'));
 
     for (const id of ['map-toggle-activities', 'map-toggle-heatmap']) {
-      expect(() => fireEvent.press(screen.getByTestId(id))).not.toThrow();
-      expect(() => fireEvent.press(screen.getByTestId(id))).not.toThrow();
+      await expect((async () => fireEvent.press(screen.getByTestId(id)))()).resolves.not.toThrow();
+      await expect((async () => fireEvent.press(screen.getByTestId(id)))()).resolves.not.toThrow();
     }
 
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
@@ -182,14 +184,14 @@ describe('RegionalMapView', () => {
    * Expected behaviour: the named activity's popup shows with its actions, the
    * close button dismisses it, and an unknown id opens nothing.
    */
-  it('opens the popup for the activity a deep link names, and closes it', () => {
-    renderRegional({ selectActivityId: 'a2' });
+  it('opens the popup for the activity a deep link names, and closes it', async () => {
+    await renderRegional({ selectActivityId: 'a2' });
 
     expect(screen.getByTestId('activity-popup')).toBeTruthy();
     expect(screen.getByText('Ride a2')).toBeTruthy();
     expect(screen.getByTestId('activity-popup-view-details')).toBeTruthy();
 
-    fireEvent.press(screen.getByTestId('activity-popup-close'));
+    await fireEvent.press(screen.getByTestId('activity-popup-close'));
     expect(screen.queryByTestId('activity-popup')).toBeNull();
   });
 
@@ -202,13 +204,13 @@ describe('RegionalMapView', () => {
   it.each([
     ['activity', { selectActivityId: 'a2' }],
     ['section', { selectSectionId: 'sec-1' }],
-  ])('closes the %s popup on back', (kind, props) => {
+  ])('closes the %s popup on back', async (kind, props) => {
     const back = stubHardwareBack();
     try {
-      renderRegional(props);
+      await renderRegional(props);
       expect(screen.getByTestId(`${kind}-popup`)).toBeTruthy();
 
-      act(() => {
+      await act(() => {
         expect(back.press()).toBe(true);
       });
 
@@ -219,17 +221,17 @@ describe('RegionalMapView', () => {
     }
   });
 
-  it('opens no popup for an activity that is not on the map', () => {
-    renderRegional({ selectActivityId: 'missing' });
+  it('opens no popup for an activity that is not on the map', async () => {
+    await renderRegional({ selectActivityId: 'missing' });
 
     expect(screen.queryByTestId('activity-popup')).toBeNull();
   });
 
-  it('opens the popup once the named activity arrives', () => {
-    const view = renderRegional({ activities: [], selectActivityId: 'a1' });
+  it('opens the popup once the named activity arrives', async () => {
+    const view = await renderRegional({ activities: [], selectActivityId: 'a1' });
     expect(screen.queryByTestId('activity-popup')).toBeNull();
 
-    view.rerender(
+    await view.rerender(
       <SafeAreaProvider initialMetrics={METRICS}>
         <RegionalMapView activities={[activity('a1')]} selectActivityId="a1" />
       </SafeAreaProvider>
@@ -237,25 +239,25 @@ describe('RegionalMapView', () => {
     expect(screen.getByTestId('activity-popup')).toBeTruthy();
   });
 
-  it('swaps in the terrain view when 3D is enabled', () => {
-    renderRegional();
+  it('swaps in the terrain view when 3D is enabled', async () => {
+    await renderRegional();
 
     expect(screen.queryByTestId('webview')).toBeNull();
 
-    fireEvent.press(screen.getByTestId('map-toggle-3d'));
+    await fireEvent.press(screen.getByTestId('map-toggle-3d'));
     expect(screen.getByTestId('webview')).toBeTruthy();
 
-    fireEvent.press(screen.getByTestId('map-toggle-3d'));
+    await fireEvent.press(screen.getByTestId('map-toggle-3d'));
     expect(screen.queryByTestId('webview')).toBeNull();
   });
 
-  it('falls back to the 2D map and says why when the terrain page has no elevation tiles', () => {
-    renderRegional();
+  it('falls back to the 2D map and says why when the terrain page has no elevation tiles', async () => {
+    await renderRegional();
 
-    fireEvent.press(screen.getByTestId('map-toggle-3d'));
+    await fireEvent.press(screen.getByTestId('map-toggle-3d'));
     expect(screen.queryByTestId(TERRAIN_UNAVAILABLE_TEST_ID)).toBeNull();
 
-    fireEvent(screen.getByTestId('webview'), 'message', {
+    await fireEvent(screen.getByTestId('webview'), 'message', {
       nativeEvent: {
         data: JSON.stringify({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' }),
       },
@@ -266,12 +268,12 @@ describe('RegionalMapView', () => {
     expect(screen.getByTestId(TERRAIN_UNAVAILABLE_TEST_ID)).toBeTruthy();
   });
 
-  it('tears the surface down when the tab loses focus and rebuilds it on return', () => {
-    const view = renderRegional();
+  it('tears the surface down when the tab loses focus and rebuilds it on return', async () => {
+    const view = await renderRegional();
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
 
     mockPathname = '/activity/a1';
-    view.rerender(
+    await view.rerender(
       <SafeAreaProvider initialMetrics={METRICS}>
         <RegionalMapView activities={[activity('a1'), activity('a2')]} />
       </SafeAreaProvider>
@@ -279,7 +281,7 @@ describe('RegionalMapView', () => {
     expect(screen.queryByTestId('maplibre-map')).toBeNull();
 
     mockPathname = '/map';
-    view.rerender(
+    await view.rerender(
       <SafeAreaProvider initialMetrics={METRICS}>
         <RegionalMapView activities={[activity('a1'), activity('a2')]} />
       </SafeAreaProvider>
@@ -294,12 +296,12 @@ describe('RegionalMapView', () => {
    * Expected behaviour: leaving the tab clears the priority view. Staying on
    * the tab, or entering 3D, which still shows the same ground, does not.
    */
-  it('forgets the heatmap priority view when the tab loses focus', () => {
+  it('forgets the heatmap priority view when the tab loses focus', async () => {
     mockClearHeatmapView.mockClear();
-    const view = renderRegional();
-    fireEvent.press(screen.getByTestId('map-toggle-3d'));
-    fireEvent.press(screen.getByTestId('map-toggle-3d'));
-    view.rerender(
+    const view = await renderRegional();
+    await fireEvent.press(screen.getByTestId('map-toggle-3d'));
+    await fireEvent.press(screen.getByTestId('map-toggle-3d'));
+    await view.rerender(
       <SafeAreaProvider initialMetrics={METRICS}>
         <RegionalMapView activities={[activity('a1'), activity('a2')]} />
       </SafeAreaProvider>
@@ -307,7 +309,7 @@ describe('RegionalMapView', () => {
     expect(mockClearHeatmapView).not.toHaveBeenCalled();
 
     mockPathname = '/activity/a1';
-    view.rerender(
+    await view.rerender(
       <SafeAreaProvider initialMetrics={METRICS}>
         <RegionalMapView activities={[activity('a1'), activity('a2')]} />
       </SafeAreaProvider>
@@ -316,13 +318,13 @@ describe('RegionalMapView', () => {
     expect(mockClearHeatmapView).toHaveBeenCalledTimes(1);
   });
 
-  it('takes the terrain view down with the tab too', () => {
-    const view = renderRegional();
-    fireEvent.press(screen.getByTestId('map-toggle-3d'));
+  it('takes the terrain view down with the tab too', async () => {
+    const view = await renderRegional();
+    await fireEvent.press(screen.getByTestId('map-toggle-3d'));
     expect(screen.getByTestId('webview')).toBeTruthy();
 
     mockPathname = '/activity/a1';
-    view.rerender(
+    await view.rerender(
       <SafeAreaProvider initialMetrics={METRICS}>
         <RegionalMapView activities={[activity('a1'), activity('a2')]} />
       </SafeAreaProvider>
@@ -331,9 +333,9 @@ describe('RegionalMapView', () => {
     expect(screen.queryByTestId('webview')).toBeNull();
   });
 
-  it('reports attribution changes to the caller', () => {
+  it('reports attribution changes to the caller', async () => {
     const onAttributionChange = jest.fn();
-    renderRegional({ onAttributionChange });
+    await renderRegional({ onAttributionChange });
 
     expect(onAttributionChange).toHaveBeenCalled();
     expect(screen.queryByText(onAttributionChange.mock.calls[0][0])).toBeNull();
@@ -370,8 +372,8 @@ describe('RegionalMapView', () => {
       ],
     ];
 
-    it.each(cases)('survives %s', (_label, props) => {
-      expect(() => renderRegional(props)).not.toThrow();
+    it.each(cases)('survives %s', async (_label, props) => {
+      await expect((async () => renderRegional(props))()).resolves.not.toThrow();
       expect(screen.getByTestId('maplibre-map')).toBeTruthy();
     });
   });

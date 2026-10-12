@@ -63,8 +63,8 @@ function surface(mapStyle: 'light' | 'dark' = 'light') {
   );
 }
 
-function ready() {
-  act(() => onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
+async function ready() {
+  await act(() => onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
 }
 
 beforeEach(() => {
@@ -74,42 +74,42 @@ beforeEach(() => {
 });
 
 describe('a finished tile pass in 3D', () => {
-  it('points the heatmap source at the versioned template without reloading the page', () => {
-    const view = render(surface());
-    ready();
+  it('points the heatmap source at the versioned template without reloading the page', async () => {
+    const view = await render(surface());
+    await ready();
     const before = html;
     injected.length = 0;
 
     mockGeneration = 1;
-    view.rerender(surface());
+    await view.rerender(surface());
 
     const script = injected.find((s) => s.includes('setTiles'));
     expect(script).toContain(JSON.stringify(heatmapTileTemplate(1)));
     expect(html).toBe(before);
-    view.unmount();
+    await view.unmount();
   });
 
-  it('sends nothing on mount, where the page already holds the current template', () => {
+  it('sends nothing on mount, where the page already holds the current template', async () => {
     mockGeneration = 3;
-    const view = render(surface());
-    ready();
+    const view = await render(surface());
+    await ready();
 
     expect(injected.some((s) => s.includes('setTiles'))).toBe(false);
     expect(html).toContain(JSON.stringify(heatmapTileTemplate(3)));
-    view.unmount();
+    await view.unmount();
   });
 
-  it('re-adds the source after a style swap with the versioned template', () => {
-    const view = render(surface('light'));
-    ready();
+  it('re-adds the source after a style swap with the versioned template', async () => {
+    const view = await render(surface('light'));
+    await ready();
     mockGeneration = 2;
-    view.rerender(surface('light'));
+    await view.rerender(surface('light'));
     injected.length = 0;
 
-    view.rerender(surface('dark'));
+    await view.rerender(surface('dark'));
 
     const swap = injected.find((s) => s.includes("addSource('heatmap-tiles'"));
     expect(swap).toContain(JSON.stringify(heatmapTileTemplate(2)));
-    view.unmount();
+    await view.unmount();
   });
 });

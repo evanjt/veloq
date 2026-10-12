@@ -4,20 +4,36 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, typography, spacing } from '@/theme';
 import { Row } from '@/shared/ui/Row';
+import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
 
 interface SettingsNavRowProps {
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
   title: string;
   subtitle?: string;
   onPress: () => void;
+  /** Greys the row and stops its press. */
+  disabled?: boolean;
   testID?: string;
 }
 
-export function SettingsNavRow({ icon, title, subtitle, onPress, testID }: SettingsNavRowProps) {
+export function SettingsNavRow({
+  icon,
+  title,
+  subtitle,
+  onPress,
+  disabled,
+  testID,
+}: SettingsNavRowProps) {
   const { isDark } = useTheme();
 
   return (
-    <Row testID={testID} onPress={onPress} accessibilityLabel={title}>
+    <Row
+      testID={testID}
+      behaviour="navigate"
+      onPress={onPress}
+      accessibilityLabel={composeAccessibilityLabel(title, subtitle)}
+      disabled={disabled}
+    >
       <MaterialCommunityIcons
         name={icon}
         size={22}

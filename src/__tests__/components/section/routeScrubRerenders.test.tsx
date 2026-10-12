@@ -36,7 +36,7 @@ const GROUP = {
 
 const LAP = [{ lat: 1, lng: 2 }];
 
-function setup() {
+async function setup() {
   const store = createMapHighlightStore();
   const rootRenders = jest.fn();
 
@@ -53,7 +53,7 @@ function setup() {
     );
   }
 
-  render(<Root />);
+  await render(<Root />);
   return { store, rootRenders };
 }
 
@@ -62,13 +62,13 @@ const lastMapProps = () => mockMapProps.mock.calls[mockMapProps.mock.calls.lengt
 beforeEach(() => mockMapProps.mockClear());
 
 describe('a chart scrub on the route screen', () => {
-  it('renders the map per index and never the root that owns the store', () => {
-    const { store, rootRenders } = setup();
+  it('renders the map per index and never the root that owns the store', async () => {
+    const { store, rootRenders } = await setup();
     expect(rootRenders).toHaveBeenCalledTimes(1);
     mockMapProps.mockClear();
 
     for (const id of ['a', 'b', 'c', 'd', 'e']) {
-      act(() => store.set(id, LAP));
+      await act(() => store.set(id, LAP));
       expect(lastMapProps()).toMatchObject({
         highlightedActivityId: id,
         highlightedLapPoints: LAP,
@@ -79,15 +79,15 @@ describe('a chart scrub on the route screen', () => {
     expect(rootRenders).toHaveBeenCalledTimes(1);
   });
 
-  it('hands the map nothing before a scrub and after a clear', () => {
-    const { store } = setup();
+  it('hands the map nothing before a scrub and after a clear', async () => {
+    const { store } = await setup();
     expect(lastMapProps()).toMatchObject({
       highlightedActivityId: null,
       highlightedLapPoints: undefined,
     });
 
-    act(() => store.set('a', LAP));
-    act(() => store.set(null));
+    await act(() => store.set('a', LAP));
+    await act(() => store.set(null));
 
     expect(lastMapProps()).toMatchObject({
       highlightedActivityId: null,

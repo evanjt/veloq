@@ -13,7 +13,6 @@ import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { hasStarted } from 'veloqrs';
 import { freshLoginTimeline, type TrackWait } from '@/shared/debug/freshLoginTimeline';
-import { timeAppWork } from '@/shared/debug/renderTimer';
 import { getEngine } from '@/shared/native/engine';
 import { useEngineBody } from '@/shared/native/engineBodies';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
@@ -23,37 +22,10 @@ import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useReconnect, useSyncSettled } from '@/shared/app/useRetryTriggers';
 import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
 import { useDetailCoordinates } from './useDetailCoordinates';
+import { parseBodies, readActivities } from '@/shared/native/storedActivities';
 import { feedSportGroup, type FeedGroup } from '../lib/feedActivityGroups';
 import { firstRangePage, olderRangePage, type FeedRange } from '../lib/feedRange';
-
-/**
- * Read stored activities over a date window, newest first. A body that will
- * not parse is dropped rather than surfaced as a half-populated card.
- */
-function readActivities(oldest: string, newest: string): Activity[] {
-  const engine = getEngine();
-  if (!engine?.getActivityBodies) return [];
-  return parseBodies(
-    engine.getActivityBodies(dayStartEpochSeconds(oldest), dayEndEpochSeconds(newest))
-  );
-}
-
-/** The metrics row for parsing a window of stored activity bodies. */
-export const DECODE_ACTIVITY_BODIES = 'decode.activityBodies';
-
-export function parseBodies(bodies: readonly string[]): Activity[] {
-  return timeAppWork(DECODE_ACTIVITY_BODIES, () => {
-    const out: Activity[] = [];
-    for (const body of bodies) {
-      try {
-        out.push(JSON.parse(body) as Activity);
-      } catch {
-        // A body we cannot parse is a corrupt row, not an activity with no data.
-      }
-    }
-    return out;
-  });
-}
+import { isFeedSearch } from '../lib/feedFilter';
 
 /**
  * Ask Rust to fill a window the default sync may not cover.
@@ -85,6 +57,32 @@ function requestActivityWindow(oldest: string, newest: string): void {
   }
 }
 
+/**
+ * Keep asking the engine for a window until it is local, without reading it.
+ * The ask goes out when the window changes, on a reconnect and when the launch
+ * sync lets go of its slot.
+ */
+export function useActivityWindowRequest(oldest: string, newest: string, enabled = true): void {
+  const athleteId = useAuthStore((s) => s.athleteId);
+
+  const askForWindow = useCallback(() => {
+    if (!enabled || !athleteId) return;
+    requestActivityWindow(oldest, newest);
+  }, [enabled, athleteId, oldest, newest]);
+
+  useEffect(askForWindow, [askForWindow]);
+
+  // A window accepted while the connection was dropping may have fetched
+  // nothing, and the mount effect never re-runs for an unchanged window.
+  useReconnect(askForWindow);
+
+  // The launch sync holds the exclusive slot for minutes and refuses every
+  // window opened while it runs. Nothing else observes it letting go, so a
+  // window asked for at launch would otherwise stay blank until the user went
+  // offline and back. A window that landed meanwhile answers `NotOwed`.
+  useSyncSettled(askForWindow);
+}
+
 interface UseActivitiesOptions {
   /** Number of days to fetch (from today backwards) */
   days?: number;
@@ -114,23 +112,7 @@ export function useActivities(options: UseActivitiesOptions = {}) {
   const queryNewest = newest ?? formatLocalDate(today);
 
   useEngineChannel('activities', queryKeys.activities.all);
-
-  const askForWindow = useCallback(() => {
-    if (!enabled || !athleteId) return;
-    requestActivityWindow(queryOldest, queryNewest);
-  }, [enabled, athleteId, queryOldest, queryNewest]);
-
-  useEffect(askForWindow, [askForWindow]);
-
-  // A window accepted while the connection was dropping may have fetched
-  // nothing, and the mount effect never re-runs for an unchanged window.
-  useReconnect(askForWindow);
-
-  // The launch sync holds the exclusive slot for minutes and refuses every
-  // window opened while it runs. Nothing else observes it letting go, so a
-  // window asked for at launch would otherwise stay blank until the user went
-  // offline and back. A window that landed meanwhile answers `NotOwed`.
-  useSyncSettled(askForWindow);
+  useActivityWindowRequest(queryOldest, queryNewest, enabled);
 
   return useQuery<Activity[]>({
     ...LOCAL_READ_QUERY,
@@ -250,7 +232,8 @@ function readSearchPage(
   needle: string,
   groups: ReadonlySet<FeedGroup>,
   range: FeedRange | null,
-  offset: number
+  offset: number,
+  limit: number
 ): FeedSearchPage | undefined {
   const page = getEngine()?.searchActivityBodies({
     needle,
@@ -260,7 +243,7 @@ function readSearchPage(
       newestTs: dayEndEpochSeconds(range.newest),
     }),
     offset,
-    limit: SEARCH_PAGE_SIZE,
+    limit,
   });
   return (
     page && {
@@ -278,7 +261,8 @@ function readSearchPage(
  * activity older than what happened to be loaded.
  *
  * A date range narrows the read to its inclusive days; none reads the whole
- * library.
+ * library. A range on its own is listed by the range read, so this reads only
+ * the engine's count of it, with no bodies.
  *
  * Disabled with no filter, when the windowed feed is the read.
  */
@@ -290,7 +274,10 @@ export function useFeedSearch(
   const athleteId = useAuthStore((s) => s.athleteId);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const needle = searchText.trim();
-  const enabled = isAuthenticated && !!athleteId && (needle.length > 0 || groups.size > 0);
+  const searching = isFeedSearch({ searchText, groups });
+  const countOnly = !searching && range !== null;
+  const limit = countOnly ? 0 : SEARCH_PAGE_SIZE;
+  const enabled = isAuthenticated && !!athleteId && (searching || countOnly);
 
   useEngineChannel('activities', queryKeys.activities.search.all);
 
@@ -303,7 +290,7 @@ export function useFeedSearch(
       range
     ),
     queryFn: ({ pageParam }) => {
-      const page = readSearchPage(needle, groups, range, pageParam as number);
+      const page = readSearchPage(needle, groups, range, pageParam as number, limit);
       if (!page) throw new Error('The activity library is not open');
       return page;
     },
@@ -313,12 +300,12 @@ export function useFeedSearch(
     // and took its focus.
     initialData: () => {
       if (!enabled) return undefined;
-      const first = readSearchPage(needle, groups, range, 0);
+      const first = readSearchPage(needle, groups, range, 0, limit);
       return first && { pages: [first], pageParams: [0] };
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage, _allPages, lastPageParam) =>
-      lastPage.hasMore ? (lastPageParam as number) + SEARCH_PAGE_SIZE : undefined,
+      !countOnly && lastPage.hasMore ? (lastPageParam as number) + SEARCH_PAGE_SIZE : undefined,
     // SQLite is the source, so a sync decides freshness, not a clock.
     staleTime: Infinity,
     gcTime: CACHE.SHORT,

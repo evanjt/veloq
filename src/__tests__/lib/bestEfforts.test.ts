@@ -1,4 +1,5 @@
 import { formatClimbValue, formatEffortValue } from '@/features/fitness/lib/bestEfforts';
+import { ABSENT } from '@/shared/format/absent';
 
 describe('formatEffortValue', () => {
   it('writes cycling power with the supplied watts unit, spaced from the number', () => {
@@ -6,9 +7,9 @@ describe('formatEffortValue', () => {
     expect(formatEffortValue(305.4, 'Cycling', 'Вт', true)).toBe('305 Вт');
   });
 
-  it('answers a dash for a missing value', () => {
-    expect(formatEffortValue(null, 'Cycling', 'W', true)).toBe('-');
-    expect(formatEffortValue(Number.NaN, 'Cycling', 'W', true)).toBe('-');
+  it('answers the absent mark for a missing value', () => {
+    expect(formatEffortValue(null, 'Cycling', 'W', true)).toBe(ABSENT);
+    expect(formatEffortValue(Number.NaN, 'Cycling', 'W', true)).toBe(ABSENT);
   });
 });
 
@@ -45,10 +46,10 @@ describe('formatClimbValue', () => {
     expect(formatClimbValue(best(600, 1000, 2.7), false, units)).toBe('3281 ft/h');
   });
 
-  it('draws a dash, never NaN, for a window nobody measured', () => {
-    expect(formatClimbValue(best(15, null, null), true, units)).toBe('-');
-    expect(formatClimbValue(best(300, null, null), true, units)).toBe('-');
-    expect(formatClimbValue(best(15, Number.NaN, Number.NaN), true, units)).toBe('-');
-    expect(formatClimbValue(best(300, Number.POSITIVE_INFINITY, null), true, units)).toBe('-');
+  it('draws the absent mark, never NaN, for a window nobody measured', () => {
+    expect(formatClimbValue(best(15, null, null), true, units)).toBe(ABSENT);
+    expect(formatClimbValue(best(300, null, null), true, units)).toBe(ABSENT);
+    expect(formatClimbValue(best(15, Number.NaN, Number.NaN), true, units)).toBe(ABSENT);
+    expect(formatClimbValue(best(300, Number.POSITIVE_INFINITY, null), true, units)).toBe(ABSENT);
   });
 });

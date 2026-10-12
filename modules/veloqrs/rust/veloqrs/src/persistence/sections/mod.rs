@@ -2727,7 +2727,7 @@ mod tests {
         engine
             .save_processed_activity_ids(&["a".to_string(), "b".to_string()])
             .unwrap();
-        engine.cache_folded_ids.insert("a".to_string());
+        std::sync::Arc::make_mut(&mut engine.cache_folded_ids).insert("a".to_string());
 
         engine
             .db

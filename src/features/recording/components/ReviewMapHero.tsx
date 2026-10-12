@@ -1,11 +1,8 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-import { spacing, ink, layout, colorWithOpacity } from '@/theme';
+import { spacing } from '@/theme';
 import { RecordingMap } from '@/features/recording/components/RecordingMap';
 import { TrimSlider } from '@/features/recording/components/TrimSlider';
-import { IconButton } from '@/shared/ui/IconButton';
 
 interface ReviewMapHeroProps {
   coordinates: [number, number][];
@@ -25,8 +22,6 @@ interface ReviewMapHeroProps {
   totalPoints: number;
   onTrimChange: (startIdx: number, endIdx: number) => void;
   onTrimCommit: (startIdx: number, endIdx: number) => void;
-  onBack: () => void;
-  disabled?: boolean;
 }
 
 function ReviewMapHeroInner({
@@ -42,10 +37,7 @@ function ReviewMapHeroInner({
   totalPoints,
   onTrimChange,
   onTrimCommit,
-  onBack,
-  disabled,
 }: ReviewMapHeroProps) {
-  const { t } = useTranslation();
   return (
     <View style={[styles.mapContainer, { height: mapHeight, paddingTop: topInset }]}>
       <RecordingMap
@@ -56,16 +48,6 @@ function ReviewMapHeroInner({
         trimEnd={canTrim ? mapTrimEnd : undefined}
         style={styles.map}
       />
-
-      {/* Back button overlaid on map */}
-      <IconButton
-        onPress={onBack}
-        style={[styles.mapBackButton, { top: topInset + spacing.sm }]}
-        disabled={disabled === true}
-        accessibilityLabel={t('common.back', 'Back')}
-      >
-        <MaterialCommunityIcons name="arrow-left" size={24} color={ink.white} />
-      </IconButton>
 
       {/* Trim slider overlaid at bottom of map */}
       {canTrim && (
@@ -92,17 +74,6 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
-  },
-  mapBackButton: {
-    position: 'absolute',
-    left: spacing.md,
-    width: 40,
-    height: 40,
-    borderRadius: layout.borderRadiusFull,
-    backgroundColor: colorWithOpacity(ink.black, 0.4),
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
   },
   trimOverlay: {
     position: 'absolute',

@@ -67,30 +67,30 @@ function Probe({ id }: { id: string }) {
 describe('activity detail prefetch', () => {
   afterEach(() => mockGetEngine.mockReset());
 
-  it('paints the prefetched bundle on the first render without reading again', () => {
+  it('paints the prefetched bundle on the first render without reading again', async () => {
     const stub = stubEngine({ a: 1 });
     mockGetEngine.mockReturnValue(stub.engine);
 
     prefetchActivityDetailData('a');
     expect(stub.reads).toEqual(['a']);
 
-    const screen = render(<Probe id="a" />);
+    const screen = await render(<Probe id="a" />);
     expect(screen.getByText('1')).toBeTruthy();
     expect(stub.reads).toEqual(['a']);
   });
 
-  it('reads for itself when the prefetch was for another activity', () => {
+  it('reads for itself when the prefetch was for another activity', async () => {
     const stub = stubEngine({ a: 1, b: 2 });
     mockGetEngine.mockReturnValue(stub.engine);
 
     prefetchActivityDetailData('a');
-    const screen = render(<Probe id="b" />);
+    const screen = await render(<Probe id="b" />);
 
     expect(screen.getByText('2')).toBeTruthy();
     expect(stub.reads).toEqual(['a', 'b']);
   });
 
-  it('drops the prefetch when the engine changes before the screen mounts', () => {
+  it('drops the prefetch when the engine changes before the screen mounts', async () => {
     const counts: Record<string, number> = { a: 1 };
     const stub = stubEngine(counts);
     mockGetEngine.mockReturnValue(stub.engine);
@@ -99,29 +99,29 @@ describe('activity detail prefetch', () => {
     counts.a = 7;
     stub.fireChange();
 
-    const screen = render(<Probe id="a" />);
+    const screen = await render(<Probe id="a" />);
     expect(screen.getByText('7')).toBeTruthy();
     expect(stub.reads).toEqual(['a', 'a']);
   });
 
-  it('uses a prefetch once, so a second screen reads for itself', () => {
+  it('uses a prefetch once, so a second screen reads for itself', async () => {
     const stub = stubEngine({ a: 1 });
     mockGetEngine.mockReturnValue(stub.engine);
 
     prefetchActivityDetailData('a');
-    render(<Probe id="a" />);
-    render(<Probe id="a" />);
+    await render(<Probe id="a" />);
+    await render(<Probe id="a" />);
 
     expect(stub.reads).toEqual(['a', 'a']);
   });
 
-  it('leaves nothing cached when the engine is missing at press time', () => {
+  it('leaves nothing cached when the engine is missing at press time', async () => {
     mockGetEngine.mockReturnValue(null);
     prefetchActivityDetailData('a');
 
     const stub = stubEngine({ a: 4 });
     mockGetEngine.mockReturnValue(stub.engine);
-    const screen = render(<Probe id="a" />);
+    const screen = await render(<Probe id="a" />);
 
     expect(screen.getByText('4')).toBeTruthy();
     expect(stub.reads).toEqual(['a']);

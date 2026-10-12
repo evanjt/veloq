@@ -4,13 +4,17 @@
  *
  * Expected behaviour: the screen says it is downloading, not that loading
  * failed. Once the wait runs out it offers a retry that asks the engine again.
- * A real query error keeps the failure state and re-reads the row.
+ * Offline or signed out, the engine starts nothing, so the screen says what
+ * will fix it at once and offers no retry that cannot work. A real query
+ * error keeps the failure state and re-reads the row.
  */
 
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
+import { getHeaderTitle } from 'expo-router/build/react-navigation/elements/Header/getHeaderTitle';
 
 import { colors } from '@/theme';
+import { OVER_MAP_TITLE_COLOR } from '@/shared/app/screenHeaders';
 import ActivityDetailScreen from '@/app/activity/[id]';
 
 const mockStackScreen = jest.fn();
@@ -51,13 +55,32 @@ jest.mock('@/shared/ui', () => {
     ScreenSafeAreaView: View,
     ChartSkeleton: () => null,
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-    ErrorStatePreset: ({ message, onRetry }: { message: string; onRetry?: () => void }) => (
+    ErrorState: ({ fallbackKey, onRetry }: { fallbackKey: string; onRetry: () => void }) => (
       <View testID="error-state" onTouchEnd={onRetry}>
-        <Text>{message}</Text>
+        <Text>{fallbackKey}</Text>
       </View>
     ),
     useHeroMapHeight: () => 300,
     SwipeableTabs: () => null,
+    BodyNotDownloaded: jest.requireActual('@/shared/ui/BodyNotDownloaded').BodyNotDownloaded,
+  };
+});
+jest.mock('@/shared/ui/Button', () => {
+  const { Pressable, Text } = require('react-native');
+  return {
+    Button: ({
+      label,
+      onPress,
+      testID,
+    }: {
+      label: string;
+      onPress: () => void;
+      testID: string;
+    }) => (
+      <Pressable onPress={onPress} testID={testID}>
+        <Text>{label}</Text>
+      </Pressable>
+    ),
   };
 });
 
@@ -146,44 +169,63 @@ describe('activity detail for an activity that is not stored', () => {
   });
   afterEach(() => jest.restoreAllMocks());
 
-  it('says it is downloading while the body wait runs', () => {
+  it('says it is downloading while the body wait runs', async () => {
     answer({});
 
-    const { getByTestId, queryByTestId } = render(<ActivityDetailScreen />);
+    const { getByTestId, queryByTestId } = await render(<ActivityDetailScreen />);
 
     expect(getByTestId('activity-detail-waiting')).toHaveTextContent('activitySummary.downloading');
     expect(queryByTestId('error-state')).toBeNull();
   });
 
-  it('offers a retry that asks the engine again once the wait has timed out', () => {
+  it('offers a retry that asks the engine again once the wait has timed out', async () => {
     const retryBody = jest.fn();
     const refetch = jest.fn();
     answer({ bodyStatus: 'timedOut', retryBody, refetch });
 
-    const { getByTestId, queryByTestId } = render(<ActivityDetailScreen />);
+    const { getByTestId, queryByTestId } = await render(<ActivityDetailScreen />);
 
     expect(queryByTestId('activity-detail-waiting')).toBeNull();
     expect(getByTestId('error-state')).toHaveTextContent('activitySummary.unavailable');
-    fireEvent(getByTestId('error-state'), 'touchEnd');
+    await fireEvent(getByTestId('error-state'), 'touchEnd');
     expect(retryBody).toHaveBeenCalledTimes(1);
     expect(refetch).not.toHaveBeenCalled();
   });
 
-  it('keeps the failure state and a re-read for a real query error', () => {
+  it.each([
+    ['offline', 'refresh.offline'],
+    ['notConfigured', 'settings.streamBackfillRefusedNotConfigured'],
+  ])(
+    'says what fixes a download refused %s, with no retry and no spinner',
+    async (status, reason) => {
+      answer({ bodyStatus: status });
+
+      const { getByTestId, queryByTestId } = await render(<ActivityDetailScreen />);
+
+      expect(queryByTestId('activity-detail-waiting')).toBeNull();
+      expect(queryByTestId('error-state')).toBeNull();
+      const block = getByTestId('activity-detail-not-downloaded');
+      expect(block).toHaveTextContent(/activitySummary\.notDownloaded/);
+      expect(block).toHaveTextContent(new RegExp(reason.replace('.', '\\.')));
+      expect(queryByTestId('activity-detail-not-downloaded-retry')).toBeNull();
+    }
+  );
+
+  it('keeps the failure state and a re-read for a real query error', async () => {
     const retryBody = jest.fn();
     const refetch = jest.fn();
     answer({ error: new Error('read failed'), retryBody, refetch });
 
-    const { getByTestId, queryByTestId } = render(<ActivityDetailScreen />);
+    const { getByTestId, queryByTestId } = await render(<ActivityDetailScreen />);
 
     expect(queryByTestId('activity-detail-waiting')).toBeNull();
     expect(getByTestId('error-state')).toHaveTextContent('activityDetail.failedToLoad');
-    fireEvent(getByTestId('error-state'), 'touchEnd');
+    await fireEvent(getByTestId('error-state'), 'touchEnd');
     expect(refetch).toHaveBeenCalledTimes(1);
     expect(retryBody).not.toHaveBeenCalled();
   });
 
-  it('tints the back chevron for the page background when a loaded activity has no map', () => {
+  it('tints the back chevron for the page background when a loaded activity has no map', async () => {
     mockStackScreen.mockClear();
     answer({
       data: {
@@ -195,11 +237,83 @@ describe('activity detail for an activity that is not stored', () => {
       bodyStatus: 'ready',
     });
 
-    render(<ActivityDetailScreen />);
+    await render(<ActivityDetailScreen />);
 
     const tints = mockStackScreen.mock.calls.map(
       ([props]) => (props as { options?: { headerTintColor?: string } }).options?.headerTintColor
     );
     expect(tints).toContain(colors.textPrimary);
   });
+
+  it('titles the opaque platform header with the name of a loaded activity that has no map', async () => {
+    mockStackScreen.mockClear();
+    answer({
+      data: {
+        id: 'act-9',
+        name: 'Trainer ride',
+        type: 'VirtualRide',
+        start_date_local: '2026-01-01T07:00:00',
+      },
+      bodyStatus: 'ready',
+    });
+
+    const { queryByText } = await render(<ActivityDetailScreen />);
+
+    expect(lastHeaderOptions()).toMatchObject({
+      headerTransparent: false,
+      headerTitleStyle: { color: colors.textPrimary },
+    });
+    expect(lastHeaderTitle()).toBe('Trainer ride');
+    expect(queryByText('Trainer ride')).toBeNull();
+  });
+
+  it('starts the waiting and failed states directly under an opaque header, with no spacer', async () => {
+    for (const overrides of [{}, { error: new Error('read failed') }]) {
+      mockStackScreen.mockClear();
+      answer(overrides);
+
+      const { getByTestId, toJSON, unmount } = await render(<ActivityDetailScreen />);
+
+      expect(lastHeaderOptions()).toMatchObject({ headerTransparent: false });
+      expect(getByTestId('activity-detail-screen').props.hasNativeHeader).toBe(true);
+      const root = toJSON() as { props: { testID?: string }; children: unknown[] };
+      expect(root.props.testID).toBe('activity-detail-screen');
+      expect(root.children).toHaveLength(1);
+      await unmount();
+    }
+  });
+
+  it('puts the transparent header back once a waiting activity loads with a hero', async () => {
+    mockStackScreen.mockClear();
+    answer({});
+    const { rerender } = await render(<ActivityDetailScreen />);
+    expect(lastHeaderOptions()).toMatchObject({ headerTransparent: false });
+
+    answer({
+      data: {
+        id: 'act-9',
+        name: 'Leg day',
+        type: 'WeightTraining',
+        start_date_local: '2026-01-01T07:00:00',
+      },
+      bodyStatus: 'ready',
+    });
+    await rerender(<ActivityDetailScreen />);
+
+    expect(lastHeaderOptions()).toMatchObject({
+      headerTransparent: true,
+      headerTitleStyle: { color: OVER_MAP_TITLE_COLOR },
+    });
+    expect(lastHeaderTitle()).toBe('Leg day');
+  });
 });
+
+function lastHeaderOptions(): Record<string, unknown> | undefined {
+  const calls = mockStackScreen.mock.calls;
+  return (calls[calls.length - 1]?.[0] as { options?: Record<string, unknown> })?.options;
+}
+
+/** The title the native stack hands the navigation item for the last options the screen set. */
+function lastHeaderTitle(): string {
+  return getHeaderTitle(lastHeaderOptions() as { title?: string }, 'activity/[id]');
+}

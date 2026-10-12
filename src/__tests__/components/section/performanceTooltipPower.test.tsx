@@ -31,7 +31,7 @@ function renderTooltip(avgPower: number | undefined) {
     <PerformanceTooltip
       selectedPoint={{ ...POINT, avgPower, x: 0 }}
       isDark={false}
-      showPace
+      basis="pace"
       activityColor="#000000"
       onClearSelection={() => {}}
     />
@@ -39,18 +39,18 @@ function renderTooltip(avgPower: number | undefined) {
 }
 
 describe('PerformanceTooltip mean power', () => {
-  it('shows the rounded mean watts', () => {
-    const { getByText } = renderTooltip(245.4);
+  it('shows the rounded mean watts', async () => {
+    const { getByText } = await renderTooltip(245.4);
     expect(getByText(/245 W/)).toBeTruthy();
   });
 
-  it('shows no power text when the lap has no power', () => {
-    const { queryByText } = renderTooltip(undefined);
+  it('shows no power text when the lap has no power', async () => {
+    const { queryByText } = await renderTooltip(undefined);
     expect(queryByText(/\d W$/)).toBeNull();
   });
 
-  it('shows no power text for zero watts', () => {
-    const { queryByText } = renderTooltip(0);
+  it('shows no power text for zero watts', async () => {
+    const { queryByText } = await renderTooltip(0);
     expect(queryByText(/\d W$/)).toBeNull();
   });
 });

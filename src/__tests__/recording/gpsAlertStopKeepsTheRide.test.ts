@@ -52,7 +52,9 @@ function useRecordingScreenGps() {
     mode: 'gps',
     status,
     hasPermission: true,
+    precision: 'precise',
     requestPermission: async () => true,
+    upgradePrecision: async () => {},
     setGpsWarning: () => {},
   });
 }
@@ -91,7 +93,7 @@ afterEach(() => {
 });
 
 async function openNoFixAlert() {
-  renderHook(() => useRecordingScreenGps());
+  await renderHook(() => useRecordingScreenGps());
   await act(async () => {
     for (let i = 0; i < 4; i++) await Promise.resolve();
     jest.advanceTimersByTime(GPS_ALERT_MS);
@@ -105,6 +107,24 @@ describe('the no-GPS alert', () => {
 
     expect(Alert.alert).toHaveBeenCalledTimes(1);
     expect(useRecordingStore.getState().streams.latlng).toHaveLength(0);
+  });
+
+  // Android shows the last button as the positive one and the second last as
+  // the negative, whatever their style says.
+  it('never puts Stop in the positive slot, and can be dismissed as Continue', async () => {
+    await openNoFixAlert();
+
+    const [, , buttons, options] = (Alert.alert as jest.Mock).mock.calls[0] as [
+      string,
+      string,
+      AlertButton[],
+      { cancelable?: boolean; onDismiss?: () => void },
+    ];
+    expect(buttons.at(-1)?.style).not.toBe('destructive');
+    expect(buttons.at(-2)?.style).toBe('cancel');
+    expect(options.cancelable).toBe(true);
+    act(() => options.onDismiss?.());
+    expect(useRecordingStore.getState().status).toBe('recording');
   });
 
   it('keeps every stream when its stop option is taken', async () => {

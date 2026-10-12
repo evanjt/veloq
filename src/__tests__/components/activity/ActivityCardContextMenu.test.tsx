@@ -47,16 +47,16 @@ jest.mock('expo-haptics', () => ({
 const activity = { id: 'a1', name: 'Morning ride', type: 'Ride' } as Activity;
 
 describe('ActivityCardContextMenu', () => {
-  it('traps screen-reader focus inside the open menu card', () => {
-    render(<ActivityCardContextMenu visible onDismiss={jest.fn()} activity={activity} />);
+  it('traps screen-reader focus inside the open menu card', async () => {
+    await render(<ActivityCardContextMenu visible onDismiss={jest.fn()} activity={activity} />);
 
     expect(screen.getByTestId('activity-card-context-menu').props.accessibilityViewIsModal).toBe(
       true
     );
   });
 
-  it('shows the translated terrain row label', () => {
-    render(<ActivityCardContextMenu visible onDismiss={jest.fn()} activity={activity} />);
+  it('shows the translated terrain row label', async () => {
+    await render(<ActivityCardContextMenu visible onDismiss={jest.fn()} activity={activity} />);
 
     expect(screen.getByText('Relief')).toBeTruthy();
   });

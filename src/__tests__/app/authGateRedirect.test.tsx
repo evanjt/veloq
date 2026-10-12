@@ -136,7 +136,7 @@ beforeEach(() => {
 });
 
 it('redirects once the identity is settled, and stamps it', async () => {
-  render(<AuthGate>{null}</AuthGate>);
+  await render(<AuthGate>{null}</AuthGate>);
 
   await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/'));
   expect(stamped(mockEngineHolder.engine)).toBe(true);
@@ -144,7 +144,7 @@ it('redirects once the identity is settled, and stamps it', async () => {
 
 it('holds the redirect while the athlete is asked whose library it is', async () => {
   mockEngineHolder.engine = engine({ getSetting: jest.fn(() => 'i-other') });
-  render(<AuthGate>{null}</AuthGate>);
+  await render(<AuthGate>{null}</AuthGate>);
 
   await waitFor(() => expect(mockPrompt).toHaveBeenCalled());
   await new Promise((resolve) => setTimeout(resolve, 50));
@@ -155,7 +155,7 @@ it('writes the whole library to the stored-count mirror, not the GPS-backed set'
   mockEngineHolder.engine = engine({
     launchData: jest.fn(() => ({ activityCount: 0, libraryCount: 7 })),
   });
-  render(<AuthGate>{null}</AuthGate>);
+  await render(<AuthGate>{null}</AuthGate>);
 
   await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/'));
   expect(rememberStoredActivityCount).toHaveBeenCalledWith(7);
@@ -168,7 +168,7 @@ it("asks before wiping another athlete's library whose activities have no GPS", 
     getStats: jest.fn(() => ({ activityCount: 0, libraryCount: 9 })),
     launchData: jest.fn(() => ({ activityCount: 0, libraryCount: 9 })),
   });
-  render(<AuthGate>{null}</AuthGate>);
+  await render(<AuthGate>{null}</AuthGate>);
 
   await waitFor(() => expect(mockPrompt).toHaveBeenCalled());
   expect(mockEngineHolder.engine?.clear).not.toHaveBeenCalled();
@@ -179,7 +179,7 @@ it('redirects without a stamp when the init gives up', async () => {
     initWithPath: jest.fn(() => false),
     initOutcome: jest.fn(() => 6),
   });
-  render(<AuthGate>{null}</AuthGate>);
+  await render(<AuthGate>{null}</AuthGate>);
 
   await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/'));
   expect(stamped(mockEngineHolder.engine)).toBe(false);
@@ -187,7 +187,7 @@ it('redirects without a stamp when the init gives up', async () => {
 
 it('redirects when there is no path to open the library at', async () => {
   mockEngineHolder.path = null;
-  render(<AuthGate>{null}</AuthGate>);
+  await render(<AuthGate>{null}</AuthGate>);
 
   await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/'));
   expect(stamped(mockEngineHolder.engine)).toBe(false);
@@ -195,7 +195,7 @@ it('redirects when there is no path to open the library at', async () => {
 
 it('redirects when there is no engine at all', async () => {
   mockEngineHolder.engine = null;
-  render(<AuthGate>{null}</AuthGate>);
+  await render(<AuthGate>{null}</AuthGate>);
 
   await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/'));
 });
@@ -207,7 +207,7 @@ it("deletes the other athlete's decisions zip when launch wipes their empty libr
     getStats: jest.fn(() => ({ activityCount: 0, libraryCount: 0 })),
     launchData: jest.fn(() => ({ activityCount: 0, libraryCount: 0 })),
   });
-  render(<AuthGate>{null}</AuthGate>);
+  await render(<AuthGate>{null}</AuthGate>);
 
   await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/'));
   expect(mockEngineHolder.engine?.clear).toHaveBeenCalled();
@@ -230,7 +230,7 @@ it("stamps an older build's ownerless library recordings for the library's athle
     getStats: jest.fn(() => ({ activityCount: 0, libraryCount: 0 })),
     launchData: jest.fn(() => ({ activityCount: 0, libraryCount: 0 })),
   });
-  render(<AuthGate>{null}</AuthGate>);
+  await render(<AuthGate>{null}</AuthGate>);
 
   await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/'));
   expect(mockAdoptOwnerlessRecordings).toHaveBeenCalledWith('i-other');
@@ -246,7 +246,7 @@ it("hands an older build's ownerless crash backup to the library's athlete befor
     getStats: jest.fn(() => ({ activityCount: 0, libraryCount: 0 })),
     launchData: jest.fn(() => ({ activityCount: 0, libraryCount: 0 })),
   });
-  render(<AuthGate>{null}</AuthGate>);
+  await render(<AuthGate>{null}</AuthGate>);
 
   await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/'));
   expect(mockAdoptOwnerless).toHaveBeenCalledWith('i-other');
@@ -275,7 +275,7 @@ describe('the decisions zip a device backup brought back', () => {
       launchData: jest.fn(() => ({ activityCount: 0, libraryCount: 0 })),
       restoreRecordZip: jest.fn(async () => ({ placed: 3, unplaced: 0, missingActivityIds: [] })),
     });
-    render(<AuthGate>{null}</AuthGate>);
+    await render(<AuthGate>{null}</AuthGate>);
 
     await waitFor(() => expect(alert).toHaveBeenCalled());
     translate.mockRestore();
@@ -284,7 +284,12 @@ describe('the decisions zip a device backup brought back', () => {
     );
     expect(mockEngineHolder.engine?.restoreRecordZip).toHaveBeenCalledTimes(1);
     expect(alert).toHaveBeenCalledTimes(1);
-    expect(alert.mock.calls[0]).toEqual(['backup.restoreComplete', 'backup.recordRestored']);
+    expect(alert.mock.calls[0]).toEqual([
+      'backup.restoreComplete',
+      'backup.recordRestored',
+      undefined,
+      expect.objectContaining({ cancelable: true }),
+    ]);
   });
 
   it("is not offered when the engine would refuse it as another athlete's", async () => {
@@ -298,7 +303,7 @@ describe('the decisions zip a device backup brought back', () => {
         throw new Error('Record belongs to another athlete');
       }),
     });
-    render(<AuthGate>{null}</AuthGate>);
+    await render(<AuthGate>{null}</AuthGate>);
 
     await waitFor(() => expect(mockEngineHolder.engine?.checkRecordZip).toHaveBeenCalled());
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -308,7 +313,7 @@ describe('the decisions zip a device backup brought back', () => {
   it('is not offered on a library that held activities before the launch sync', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     mockEngineHolder.engine = engine({ getSetting: heldBy('i1') });
-    render(<AuthGate>{null}</AuthGate>);
+    await render(<AuthGate>{null}</AuthGate>);
 
     await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/'));
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -319,7 +324,7 @@ describe('the decisions zip a device backup brought back', () => {
 
 it('runs the background work when the app goes to the background, and not on a return', async () => {
   const addListener = jest.spyOn(AppState, 'addEventListener');
-  render(<AuthGate>{null}</AuthGate>);
+  await render(<AuthGate>{null}</AuthGate>);
   await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/'));
 
   const fire = (state: string) => {

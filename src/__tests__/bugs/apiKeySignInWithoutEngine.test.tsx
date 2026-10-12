@@ -61,7 +61,7 @@ describe('API key sign-in with no engine open', () => {
 
   async function signIn(key = 'a-valid-key') {
     const setError = jest.fn();
-    const { result } = renderHook(() => useApiKeyLogin({ setError }));
+    const { result } = await renderHook(() => useApiKeyLogin({ setError }));
     await act(async () => {
       await result.current.handleApiKeyLogin(key);
     });

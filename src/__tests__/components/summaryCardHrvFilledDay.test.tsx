@@ -3,7 +3,7 @@
  * the 1st's reading over the 2nd, which is what the line draws, and scrubbing
  * the summary card onto the 2nd printed that reading under the 2nd's date.
  *
- * Expected behaviour: a scrub onto a day with no reading of its own reads '-'
+ * Expected behaviour: a scrub onto a day with no reading of its own reads the absent mark
  * for that series, a day with one reads it, and letting go reads today again.
  */
 
@@ -14,6 +14,8 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { SummaryCard } from '@/features/home/components/SummaryCard';
 import { Card } from '@/shared/ui/Card';
+import { ABSENT } from '@/shared/format/absent';
+import { layoutViews } from '../__shared__/layoutViews';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -41,7 +43,7 @@ afterEach(() => jest.restoreAllMocks());
 
 async function mount() {
   const pans = capturePans();
-  const tree = render(
+  const tree = await render(
     <SummaryCard
       onProfilePress={() => {}}
       heroMetric="hrv"
@@ -57,6 +59,7 @@ async function mount() {
     />
   );
   await settle();
+  await layoutViews(tree, 360, 300);
   // The sparkline's own surface, which the scrub maps a finger across.
   const surface = tree.UNSAFE_getByType(GestureDetector).props.children;
   const { width } = StyleSheet.flatten(surface.props.style) as { width: number };
@@ -80,24 +83,24 @@ describe('scrubbing the HRV sparkline', () => {
     expect(style).not.toHaveProperty('marginBottom');
   });
 
-  it("reads '-' on a day carried forward and the reading on a day with one", async () => {
+  it('reads the absent mark on a day carried forward and the reading on a day with one', async () => {
     const { tree, scrubTo } = await mount();
 
     await scrubTo(1);
-    expect(tree.getByTestId('summary-card-hrv-value')).toHaveTextContent('-', { exact: true });
-    expect(tree.getByTestId('summary-card-rhr-value')).toHaveTextContent('46');
+    expect(tree.getByTestId('summary-card-hrv-value')).toHaveTextContent(ABSENT, { exact: true });
+    expect(tree.getByTestId('summary-card-rhr-value')).toHaveTextContent('46 units.bpm');
 
     await scrubTo(0);
-    expect(tree.getByTestId('summary-card-hrv-value')).toHaveTextContent('50');
+    expect(tree.getByTestId('summary-card-hrv-value')).toHaveTextContent('50 units.ms');
   });
 
-  it("reads '-' for resting heart rate on its own filled day", async () => {
+  it('reads the absent mark for resting heart rate on its own filled day', async () => {
     const { tree, scrubTo } = await mount();
 
     await scrubTo(2);
 
-    expect(tree.getByTestId('summary-card-hrv-value')).toHaveTextContent('62');
-    expect(tree.getByTestId('summary-card-rhr-value')).toHaveTextContent('-', { exact: true });
+    expect(tree.getByTestId('summary-card-hrv-value')).toHaveTextContent('62 units.ms');
+    expect(tree.getByTestId('summary-card-rhr-value')).toHaveTextContent(ABSENT, { exact: true });
   });
 
   it('reads today again on release', async () => {
@@ -106,6 +109,6 @@ describe('scrubbing the HRV sparkline', () => {
 
     await settle(() => handlers.onFinalize?.());
 
-    expect(tree.getByTestId('summary-card-hrv-value')).toHaveTextContent('62');
+    expect(tree.getByTestId('summary-card-hrv-value')).toHaveTextContent('62 units.ms');
   });
 });

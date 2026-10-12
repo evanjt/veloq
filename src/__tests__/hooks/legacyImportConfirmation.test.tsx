@@ -71,7 +71,7 @@ function pressButton(label: string) {
 
 it('reads and restores nothing until the confirmation is accepted', async () => {
   jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
-  const { result } = renderHook(() => useImportDatabaseBackup());
+  const { result } = await renderHook(() => useImportDatabaseBackup());
 
   let pending!: Promise<unknown>;
   await act(async () => {
@@ -91,7 +91,7 @@ it('reads and restores nothing until the confirmation is accepted', async () => 
 
 it('changes nothing when the confirmation is declined', async () => {
   jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
-  const { result } = renderHook(() => useImportDatabaseBackup());
+  const { result } = await renderHook(() => useImportDatabaseBackup());
 
   let pending!: Promise<unknown>;
   await act(async () => {
@@ -119,7 +119,7 @@ describe.each(['veloq-backup-2026-09-30.zip', 'older.veloqdb'])('a picked %s', (
 
   async function startImport() {
     jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
-    const { result } = renderHook(() => useImportDatabaseBackup());
+    const { result } = await renderHook(() => useImportDatabaseBackup());
     let pending!: Promise<unknown>;
     await act(async () => {
       pending = result.current.importDatabaseBackup();
@@ -171,7 +171,7 @@ describe.each(['old.veloq', 'older.veloqdb', 'veloq-backup-2026-09-30.zip'])(
 
     it('is held for sign-in after the confirmation, and restores nothing', async () => {
       jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
-      const { result } = renderHook(() => useImportDatabaseBackup());
+      const { result } = await renderHook(() => useImportDatabaseBackup());
       let pending!: Promise<unknown>;
       await act(async () => {
         pending = result.current.importDatabaseBackup();
@@ -192,9 +192,16 @@ describe.each(['old.veloq', 'older.veloqdb', 'veloq-backup-2026-09-30.zip'])(
       expect(restoreDatabaseBackup).not.toHaveBeenCalled();
       expect(Alert.alert).toHaveBeenLastCalledWith(
         i18n.t('backup.importBackup'),
-        i18n.t('backup.heldUntilSignIn')
+        i18n.t('backup.heldUntilSignIn'),
+        undefined,
+        expect.objectContaining({ cancelable: true })
       );
-      expect(Alert.alert).not.toHaveBeenCalledWith(i18n.t('common.error'), expect.anything());
+      expect(Alert.alert).not.toHaveBeenCalledWith(
+        i18n.t('backup.notRestoredTitle'),
+        expect.anything(),
+        undefined,
+        expect.anything()
+      );
     });
   }
 );
@@ -207,7 +214,7 @@ describe.each(['notes.json'])('a picked %s while signed out', (name) => {
       assets: [{ uri: `file:///cache/DocumentPicker/${name}`, name }],
     });
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
-    const { result } = renderHook(() => useImportDatabaseBackup());
+    const { result } = await renderHook(() => useImportDatabaseBackup());
 
     let outcome: unknown;
     await act(async () => {
@@ -215,7 +222,12 @@ describe.each(['notes.json'])('a picked %s while signed out', (name) => {
     });
 
     expect(alert).toHaveBeenCalledTimes(1);
-    expect(alert).toHaveBeenCalledWith(i18n.t('common.error'), i18n.t('backup.signInRequired'));
+    expect(alert).toHaveBeenCalledWith(
+      i18n.t('backup.notRestoredTitle'),
+      i18n.t('backup.signInRequired'),
+      undefined,
+      expect.objectContaining({ cancelable: true })
+    );
     expect(outcome).toMatchObject({ success: false });
     expect(restoreBackup).not.toHaveBeenCalled();
     expect(restoreRecordBackup).not.toHaveBeenCalled();

@@ -53,11 +53,11 @@ function engine() {
   } as unknown as ReturnType<typeof getEngine>;
 }
 
-function announce(event: string, payload?: { kind?: string }) {
-  act(() => {
+async function announce(event: string, payload?: { kind?: string }) {
+  await act(() => {
     listeners.get(event)?.forEach((cb) => cb(payload));
   });
-  act(() => {
+  await act(() => {
     jest.runOnlyPendingTimers();
   });
 }
@@ -75,53 +75,53 @@ describe('the summary card follows the wellness it summarises', () => {
     mockGetEngine.mockReturnValue(engine());
   });
 
-  afterEach(() => {
-    act(() => {
+  afterEach(async () => {
+    await act(() => {
       unmountRendered?.();
     });
     unmountRendered = null;
     jest.useRealTimers();
   });
 
-  function mount() {
-    const rendered = renderHook(() => useStartupData(['a1']));
+  async function mount() {
+    const rendered = await renderHook(() => useStartupData(['a1']));
     unmountRendered = rendered.unmount;
-    act(() => {
+    await act(() => {
       jest.runOnlyPendingTimers();
     });
     return rendered;
   }
 
-  it('reads the bundle when wellness lands mid-sync, without waiting for the settle', () => {
-    const { result } = mount();
+  it('reads the bundle when wellness lands mid-sync, without waiting for the settle', async () => {
+    const { result } = await mount();
     expect(reads).toBe(1);
     expect(result.current.data?.summaryCardData).toEqual({ ctl: 0 });
 
     ctl = 38;
-    announce('bodyStored', { kind: 'wellness' });
+    await announce('bodyStored', { kind: 'wellness' });
 
     expect(reads).toBe(2);
     expect(result.current.data?.summaryCardData).toEqual({ ctl: 38 });
   });
 
-  it('leaves a body of some other kind alone, so the hold still holds', () => {
-    mount();
+  it('leaves a body of some other kind alone, so the hold still holds', async () => {
+    await mount();
     expect(reads).toBe(1);
 
-    announce('bodyStored', { kind: 'activity_detail' });
+    await announce('bodyStored', { kind: 'activity_detail' });
 
     expect(reads).toBe(1);
   });
 
-  it('reads the bundle when the feed refreshes, whatever the sync is doing', () => {
-    const { result } = mount();
+  it('reads the bundle when the feed refreshes, whatever the sync is doing', async () => {
+    const { result } = await mount();
     expect(reads).toBe(1);
 
     ctl = 38;
-    act(() => {
+    await act(() => {
       result.current.refresh();
     });
-    act(() => {
+    await act(() => {
       jest.runOnlyPendingTimers();
     });
 

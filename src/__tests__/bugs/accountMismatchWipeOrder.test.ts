@@ -175,7 +175,12 @@ describe('Clear & Sync on the account mismatch prompt', () => {
       })
     ).resolves.toBe(false);
 
-    expect(Alert.alert).toHaveBeenCalledWith('alerts.error', 'alerts.failedToClear');
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'alerts.clearFailedTitle',
+      'alerts.failedToClear',
+      undefined,
+      expect.objectContaining({ cancelable: true })
+    );
     expect(mockClearCredentials).toHaveBeenCalledTimes(1);
     expect(mockEngine.setSetting).not.toHaveBeenCalled();
     await expect(readCachedAthleteIdMirror()).resolves.toBe('athlete-a');

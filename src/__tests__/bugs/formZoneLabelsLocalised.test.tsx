@@ -34,7 +34,7 @@ describe('the form zone label', () => {
   it('reads the athlete language on the form chart', async () => {
     await changeLanguage('de-DE');
 
-    render(<FormZoneChart data={DAYS} />);
+    await render(<FormZoneChart data={DAYS} />);
 
     expect(screen.getByTestId('form-chart-zone')).toHaveTextContent('Grauzone', { exact: true });
     expect(screen.queryByText('Grey Zone')).toBeNull();
@@ -43,7 +43,7 @@ describe('the form zone label', () => {
   it('answers in English when that is the language', async () => {
     await changeLanguage('en-AU');
 
-    render(<FormZoneChart data={DAYS} />);
+    await render(<FormZoneChart data={DAYS} />);
 
     expect(screen.getByTestId('form-chart-zone')).toHaveTextContent('Grey Zone', { exact: true });
   });

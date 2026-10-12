@@ -6,7 +6,7 @@ export interface CalendarEvent {
   type: string; // sport: 'Ride', 'Run', 'Swim', etc.
   description: string; // intervals.icu workout DSL text
   moving_time: number; // planned duration in seconds
-  icu_training_load: number; // planned TSS
+  icu_training_load: number; // planned training load
   target: 'POWER' | 'HR' | 'PACE' | null;
   workout_doc: WorkoutDoc | null;
 }

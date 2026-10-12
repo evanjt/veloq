@@ -14,8 +14,8 @@ const native = {
 } as never;
 
 describe('useSectionDataRefresh', () => {
-  it('converts the bundled section through the shared converter', () => {
-    const { result } = renderHook(() => useSectionDataRefresh(native));
+  it('converts the bundled section through the shared converter', async () => {
+    const { result } = await renderHook(() => useSectionDataRefresh(native));
     expect(result.current.section).toMatchObject({
       id: 's1',
       sectionType: 'custom',
@@ -23,15 +23,15 @@ describe('useSectionDataRefresh', () => {
     });
   });
 
-  it('has no section without a bundle', () => {
-    const { result } = renderHook(() => useSectionDataRefresh(undefined));
+  it('has no section without a bundle', async () => {
+    const { result } = await renderHook(() => useSectionDataRefresh(undefined));
     expect(result.current.section).toBeNull();
   });
 
-  it('keeps the bundled section when a trim bumps the key', () => {
-    const { result } = renderHook(() => useSectionDataRefresh(native));
+  it('keeps the bundled section when a trim bumps the key', async () => {
+    const { result } = await renderHook(() => useSectionDataRefresh(native));
     const before = result.current.section;
-    act(() => result.current.handleTrimRefresh());
+    await act(() => result.current.handleTrimRefresh());
     expect(result.current.sectionRefreshKey).toBe(1);
     expect(result.current.section).toBe(before);
   });

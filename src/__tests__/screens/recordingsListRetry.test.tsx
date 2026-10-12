@@ -78,19 +78,19 @@ beforeEach(() => {
 describe('the recordings list', () => {
   it.each<RecordingUploadStatus>(['localOnly', 'failed', 'permissionBlocked', 'pending'])(
     'offers a retry on a %s row',
-    (status) => {
+    async (status) => {
       mockLibrary.entries = [entry('r1', status)];
 
-      render(<RecordingsLibraryScreen />);
+      await render(<RecordingsLibraryScreen />);
 
       expect(screen.getByTestId('recording-retry-r1')).toBeTruthy();
     }
   );
 
-  it('offers no retry once the recording is uploaded', () => {
+  it('offers no retry once the recording is uploaded', async () => {
     mockLibrary.entries = [entry('r1', 'uploaded')];
 
-    render(<RecordingsLibraryScreen />);
+    await render(<RecordingsLibraryScreen />);
 
     expect(screen.queryByTestId('recording-retry-r1')).toBeNull();
   });
@@ -98,19 +98,19 @@ describe('the recordings list', () => {
   it('requeues through the library upload path when the retry is pressed', async () => {
     mockLibrary.entries = [entry('r1', 'failed')];
 
-    render(<RecordingsLibraryScreen />);
-    fireEvent.press(screen.getByTestId('recording-retry-r1'));
+    await render(<RecordingsLibraryScreen />);
+    await fireEvent.press(screen.getByTestId('recording-retry-r1'));
 
     await waitFor(() => expect(mockUploadNow).toHaveBeenCalledWith('r1'));
     expect(mockUploadNow).toHaveBeenCalledTimes(1);
   });
 
   /** An upload in flight is not a second press: the row says so instead. */
-  it('shows the upload running rather than a retry while it is in flight', () => {
+  it('shows the upload running rather than a retry while it is in flight', async () => {
     mockLibrary.entries = [entry('r1', 'failed')];
     mockLibrary.uploadingId = 'r1';
 
-    render(<RecordingsLibraryScreen />);
+    await render(<RecordingsLibraryScreen />);
 
     expect(screen.queryByTestId('recording-retry-r1')).toBeNull();
     expect(screen.getByTestId('recording-uploading-r1')).toBeTruthy();
@@ -120,18 +120,18 @@ describe('the recordings list', () => {
   it('leaves the other rows alone', async () => {
     mockLibrary.entries = [entry('r1', 'failed'), entry('r2', 'uploaded')];
 
-    render(<RecordingsLibraryScreen />);
-    fireEvent.press(screen.getByTestId('recording-retry-r1'));
+    await render(<RecordingsLibraryScreen />);
+    await fireEvent.press(screen.getByTestId('recording-retry-r1'));
 
     await waitFor(() => expect(mockUploadNow).toHaveBeenCalledWith('r1'));
     expect(screen.queryByTestId('recording-retry-r2')).toBeNull();
   });
 
   /** The mark the item asks for, which the screen already drew. */
-  it('marks a local-only recording as being on this device', () => {
+  it('marks a local-only recording as being on this device', async () => {
     mockLibrary.entries = [entry('r1', 'localOnly')];
 
-    render(<RecordingsLibraryScreen />);
+    await render(<RecordingsLibraryScreen />);
 
     expect(screen.getByTestId('recording-status-localOnly')).toBeTruthy();
   });
@@ -146,40 +146,40 @@ describe('a recordings row for a screen reader', () => {
     return screen.getByTestId(`recording-entry-${id}`);
   }
 
-  it('offers upload now as an action that requeues through the library', () => {
+  it('offers upload now as an action that requeues through the library', async () => {
     mockLibrary.entries = [entry('r1', 'failed')];
 
-    render(<RecordingsLibraryScreen />);
+    await render(<RecordingsLibraryScreen />);
     expect(row('r1').props.accessibilityActions).toEqual([
       { name: 'uploadNow', label: 'Upload now' },
     ]);
-    fireEvent(row('r1'), 'accessibilityAction', { nativeEvent: { actionName: 'uploadNow' } });
+    await fireEvent(row('r1'), 'accessibilityAction', { nativeEvent: { actionName: 'uploadNow' } });
 
     expect(mockUploadNow).toHaveBeenCalledWith('r1');
     expect(mockUploadNow).toHaveBeenCalledTimes(1);
   });
 
-  it('offers no upload while the upload is in flight', () => {
+  it('offers no upload while the upload is in flight', async () => {
     mockLibrary.entries = [entry('r1', 'failed')];
     mockLibrary.uploadingId = 'r1';
 
-    render(<RecordingsLibraryScreen />);
+    await render(<RecordingsLibraryScreen />);
 
     expect(row('r1').props.accessibilityActions).toBeUndefined();
   });
 
-  it('offers no upload once the recording is uploaded', () => {
+  it('offers no upload once the recording is uploaded', async () => {
     mockLibrary.entries = [entry('r1', 'uploaded')];
 
-    render(<RecordingsLibraryScreen />);
+    await render(<RecordingsLibraryScreen />);
 
     expect(row('r1').props.accessibilityActions).toBeUndefined();
   });
 
-  it('names itself by recording, distance, duration and upload status', () => {
+  it('names itself by recording, distance, duration and upload status', async () => {
     mockLibrary.entries = [entry('r1', 'failed')];
 
-    render(<RecordingsLibraryScreen />);
+    await render(<RecordingsLibraryScreen />);
     const label: string = row('r1').props.accessibilityLabel;
 
     expect(label).toContain('Ride r1');

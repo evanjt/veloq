@@ -49,31 +49,31 @@ afterEach(() => {
 });
 
 describe('withScreenBoundary', () => {
-  it('shows the screen fallback when the screen body throws', () => {
+  it('shows the screen fallback when the screen body throws', async () => {
     const Screen = withScreenBoundary(BrokenScreen, 'Feed');
-    const { getByText, queryByText } = render(<Screen />);
+    const { getByText, queryByText } = await render(<Screen />);
 
     expect(getByText('common.retry')).toBeTruthy();
     expect(getByText('common.back')).toBeTruthy();
     expect(queryByText('loaded')).toBeNull();
   });
 
-  it('remounts the screen on Retry', () => {
+  it('remounts the screen on Retry', async () => {
     const Screen = withScreenBoundary(BrokenScreen, 'Feed');
-    const { getByText } = render(<Screen />);
+    const { getByText } = await render(<Screen />);
 
     failing = false;
-    fireEvent.press(getByText('common.retry'));
+    await fireEvent.press(getByText('common.retry'));
 
     expect(getByText('loaded')).toBeTruthy();
   });
 
-  it('passes props through', () => {
+  it('passes props through', async () => {
     const Echo = ({ label }: { label: string }) => {
       const { Text } = require('react-native');
       return <Text>{label}</Text>;
     };
     const Screen = withScreenBoundary(Echo, 'Echo');
-    expect(render(<Screen label="hello" />).getByText('hello')).toBeTruthy();
+    expect(await (await render(<Screen label="hello" />)).getByText('hello')).toBeTruthy();
   });
 });

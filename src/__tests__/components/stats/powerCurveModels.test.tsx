@@ -48,56 +48,48 @@ beforeEach(() => {
 });
 
 describe('the fitted critical-power models under the power curve', () => {
-  it('names every fit with its critical power and W prime', () => {
-    render(<PowerCurveChart ftp={300} />);
+  it('names every fit with its critical power and W prime', async () => {
+    await render(<PowerCurveChart ftp={300} />);
 
-    expect(screen.getByTestId('power-curve-model-MS_2P')).toHaveTextContent(
-      '2P 119 units.watts 12.8kJ'
-    );
-    expect(screen.getByTestId('power-curve-model-MORTON_3P')).toHaveTextContent(
-      '3P 110 units.watts 19.7kJ'
-    );
+    expect(screen.getByTestId('power-curve-model-MS_2P')).toHaveTextContent('2P 119 W 12.8 kJ');
+    expect(screen.getByTestId('power-curve-model-MORTON_3P')).toHaveTextContent('3P 110 W 19.7 kJ');
     expect(screen.getByTestId('power-curve-model-FFT_CURVES')).toHaveTextContent(
-      'FFT 137 units.watts 9.7kJ'
+      'FFT 137 W 9.7 kJ'
     );
-    expect(screen.getByTestId('power-curve-model-ECP')).toHaveTextContent(
-      'ECP 137 units.watts 10.4kJ'
-    );
+    expect(screen.getByTestId('power-curve-model-ECP')).toHaveTextContent('ECP 137 W 10.4 kJ');
   });
 
-  it('prints a fit the server names but this build does not know, unabbreviated', () => {
+  it('prints a fit the server names but this build does not know, unabbreviated', async () => {
     mockCurve.current = {
       ...baseCurve,
       models: [{ type: 'OMNI_4P', criticalPower: 150, wPrime: 11000, ftp: 150 }],
     };
-    render(<PowerCurveChart ftp={300} />);
+    await render(<PowerCurveChart ftp={300} />);
 
     expect(screen.getByTestId('power-curve-model-OMNI_4P')).toHaveTextContent(
-      'OMNI_4P 150 units.watts 11kJ'
+      'OMNI_4P 150 W 11 kJ'
     );
   });
 
-  it('draws no footer for a body carrying no models', () => {
+  it('draws no footer for a body carrying no models', async () => {
     mockCurve.current = { ...baseCurve, models: undefined };
-    render(<PowerCurveChart ftp={300} />);
+    await render(<PowerCurveChart ftp={300} />);
 
     expect(screen.queryByTestId('power-curve-models')).toBeNull();
   });
 
-  it('draws no footer for a body whose models parsed to none', () => {
+  it('draws no footer for a body whose models parsed to none', async () => {
     mockCurve.current = { ...baseCurve, models: [] };
-    render(<PowerCurveChart ftp={300} />);
+    await render(<PowerCurveChart ftp={300} />);
 
     expect(screen.queryByTestId('power-curve-models')).toBeNull();
   });
 
-  it('keeps the fits in watts when the curve is read per kilogram', () => {
-    render(<PowerCurveChart ftp={300} />);
+  it('keeps the fits in watts when the curve is read per kilogram', async () => {
+    await render(<PowerCurveChart ftp={300} />);
 
-    fireEvent.press(screen.getByTestId('power-curve-unit-per-kg'));
+    await fireEvent.press(screen.getByTestId('power-curve-unit-per-kg'));
 
-    expect(screen.getByTestId('power-curve-model-ECP')).toHaveTextContent(
-      'ECP 137 units.watts 10.4kJ'
-    );
+    expect(screen.getByTestId('power-curve-model-ECP')).toHaveTextContent('ECP 137 W 10.4 kJ');
   });
 });

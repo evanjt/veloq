@@ -45,7 +45,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 async function nameSentToEngine(name?: string): Promise<unknown> {
   const mock = engine();
   mockedGetEngine.mockReturnValue(mock as never);
-  const { result } = renderHook(() => useCustomSections(), { wrapper });
+  const { result } = await renderHook(() => useCustomSections(), { wrapper });
   const params: CreateSectionParams = {
     startIndex: 0,
     endIndex: 10,

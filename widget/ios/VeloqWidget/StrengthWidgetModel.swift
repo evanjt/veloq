@@ -31,6 +31,9 @@ struct WidgetStrengthWindow: Codable {
   let top: [WidgetStrengthTopMuscle]
   /// The words in place of the body when the window holds no strength sessions.
   let emptyText: String?
+  /// What the shaded body shows, as a screen reader says it: the most trained muscles and their
+  /// sets. Nil where no body is drawn, and on a snapshot written before schema 16.
+  let bodyLabel: String?
 }
 
 struct WidgetStrengthMuscle: Codable {
@@ -69,6 +72,8 @@ struct StrengthContent {
   let shades: [String: Int]
   let top: [WidgetStrengthTopMuscle]
   let emptyText: String?
+  /// What a screen reader says for the bodies.
+  let bodyLabel: String?
   let url: URL?
 }
 
@@ -104,6 +109,7 @@ enum StrengthWidgetModel {
       shades: shades,
       top: empty == nil && size == .large ? shown.top : [],
       emptyText: empty,
+      bodyLabel: empty == nil ? shown.bodyLabel : nil,
       url: URL(string: strength.url))
   }
 

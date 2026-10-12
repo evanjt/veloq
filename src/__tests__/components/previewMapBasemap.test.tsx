@@ -77,27 +77,27 @@ describe('the detection preview basemap', () => {
     mockSetGlobalMapStyle.mockClear();
   });
 
-  it('takes the street style even when the athlete rides on satellite', () => {
-    renderMap();
+  it('takes the street style even when the athlete rides on satellite', async () => {
+    await renderMap();
 
     expect(capturedStyles[0]).toBe('light');
   });
 
-  it('follows the theme rather than the global preference', () => {
+  it('follows the theme rather than the global preference', async () => {
     mockIsDark = true;
-    renderMap();
+    await renderMap();
 
     expect(capturedStyles[0]).toBe('dark');
   });
 
-  it('does not read the global preference at all', () => {
-    renderMap();
+  it('does not read the global preference at all', async () => {
+    await renderMap();
 
     expect(mockGetGlobalMapStyle).not.toHaveBeenCalled();
   });
 
-  it('credits the street basemap, not the satellite imagery underneath nothing', () => {
-    const tree = renderMap();
+  it('credits the street basemap, not the satellite imagery underneath nothing', async () => {
+    const tree = await renderMap();
 
     expect(tree.getByTestId('map-attribution-text').props.children).toBe(
       '© OpenFreeMap © OpenMapTiles © OpenStreetMap'
@@ -121,52 +121,52 @@ describe('the preview basemap cycler', () => {
     return capturedStyles[capturedStyles.length - 1];
   }
 
-  it('moves off the street style on a tap', () => {
-    const tree = renderMap();
+  it('moves off the street style on a tap', async () => {
+    const tree = await renderMap();
 
-    fireEvent.press(tree.getByTestId('preview-map-style'));
+    await fireEvent.press(tree.getByTestId('preview-map-style'));
 
     expect(latestStyle()).toBe('dark');
   });
 
-  it('reaches satellite on the first tap under a dark theme', () => {
+  it('reaches satellite on the first tap under a dark theme', async () => {
     mockIsDark = true;
-    const tree = renderMap();
+    const tree = await renderMap();
 
-    fireEvent.press(tree.getByTestId('preview-map-style'));
+    await fireEvent.press(tree.getByTestId('preview-map-style'));
 
     expect(latestStyle()).toBe('satellite');
   });
 
-  it('leaves the global preference alone', () => {
-    const tree = renderMap();
+  it('leaves the global preference alone', async () => {
+    const tree = await renderMap();
 
-    fireEvent.press(tree.getByTestId('preview-map-style'));
-    fireEvent.press(tree.getByTestId('preview-map-style'));
+    await fireEvent.press(tree.getByTestId('preview-map-style'));
+    await fireEvent.press(tree.getByTestId('preview-map-style'));
 
     expect(mockSetGlobalMapStyle).not.toHaveBeenCalled();
     expect(mockGetGlobalMapStyle).not.toHaveBeenCalled();
   });
 
-  it('opens on street again on the next visit', () => {
+  it('opens on street again on the next visit', async () => {
     mockIsDark = true;
-    const first = renderMap();
-    fireEvent.press(first.getByTestId('preview-map-style'));
-    first.unmount();
+    const first = await renderMap();
+    await fireEvent.press(first.getByTestId('preview-map-style'));
+    await first.unmount();
 
     capturedStyles.length = 0;
-    renderMap();
+    await renderMap();
 
     expect(capturedStyles[0]).toBe('dark');
   });
 
   // The imagery source is whichever one covers the viewport, so the assertion
   // is that the credit followed the switch, not which provider it names.
-  it('credits the imagery the athlete switched to', () => {
+  it('credits the imagery the athlete switched to', async () => {
     mockIsDark = true;
-    const tree = renderMap();
+    const tree = await renderMap();
 
-    fireEvent.press(tree.getByTestId('preview-map-style'));
+    await fireEvent.press(tree.getByTestId('preview-map-style'));
 
     const credit = tree.getByTestId('map-attribution-text').props.children;
     expect(credit).not.toContain('OpenFreeMap');

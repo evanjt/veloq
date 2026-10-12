@@ -11,39 +11,50 @@
  * message. The message stays as the fallback for a reason a shipped build has
  * no string for, which is what an engine newer than the bundle produces.
  *
+ * A failure that can pass on its own offers a retry, which asks the engine for
+ * a sync and leaves the running of it to the engine. A refused login or a
+ * missing one cannot pass that way, so it offers none.
+ *
  * A full device is the one reason the athlete can fix from here, so it carries
  * an action to the screen where space is freed.
+ *
+ * A run that ended on a refusal from intervals.icu carries the time the
+ * engine asks again. That is a pause the engine resumes on its own, not a
+ * fault, so the banner turns neutral, names the time and offers no retry.
  */
 
 import React from 'react';
-import { View, StyleSheet, Platform, Pressable } from 'react-native';
-import Animated, { SlideInUp, SlideOutUp } from 'react-native-reanimated';
-import { Text } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { SyncErrorReason } from 'veloqrs';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useNetwork } from '@/shared/app/NetworkContext';
-import { useBannerPadsStatusBar } from '@/shared/app/TopSafeAreaContext';
-import { useTheme } from '@/shared/app/useTheme';
 import { tapTo } from '@/shared/app/navigation';
 import { useSyncHealth } from '@/shared/native/useSyncHealth';
+import { requestSyncRefresh } from '@/shared/native/syncRefresh';
 import { formatDateTime } from '@/shared/format';
+import { formatClockOrDate } from '@/shared/format/format';
 import { SYNC_ERROR_REASON_KEY } from '@/shared/format/syncErrorReason';
-import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
-import { amberBanner, typography, spacing, layout } from '@/theme';
+import { NoticeBanner, type NoticeAction } from './NoticeBanner';
+
+/** The reasons a later sync can get past without the athlete changing anything. */
+const RETRYABLE: ReadonlySet<SyncErrorReason> = new Set([
+  SyncErrorReason.Network,
+  SyncErrorReason.Server,
+  SyncErrorReason.RateLimited,
+  SyncErrorReason.Internal,
+]);
+
+function retry() {
+  requestSyncRefresh();
+}
 
 export function SyncErrorBanner() {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const { offlineBannerShown } = useNetwork();
-  const { isDark } = useTheme();
-  const padsStatusBar = useBannerPadsStatusBar('syncError');
-  const { lastError, lastErrorReason, lastSuccessAt } = useSyncHealth();
+  const { lastError, lastErrorReason, lastSuccessAt, retryAtMs } = useSyncHealth();
 
   // The offline pill already owns the no-connection case, and a sync cannot
   // progress offline, so this one gives way when the pill shows and not before:
@@ -56,86 +67,43 @@ export function SyncErrorBanner() {
     return null;
   }
 
-  const palette = isDark ? amberBanner.dark : amberBanner.light;
-  const topPadding = !padsStatusBar
-    ? 0
-    : Platform.OS === 'android'
-      ? Math.max(insets.top, 24)
-      : Math.max(insets.top, 20);
+  const pausedUntil = retryAtMs ?? null;
+  const paused = pausedUntil !== null;
+
+  const actions: NoticeAction[] = [];
+  if (lastErrorReason === SyncErrorReason.StorageFull) {
+    actions.push({
+      label: t('common.freeUpSpace'),
+      onPress: () => tapTo('/cache-settings'),
+      testID: 'sync-error-free-space',
+    });
+  }
+  if (!paused && lastErrorReason !== null && RETRYABLE.has(lastErrorReason)) {
+    actions.push({ label: t('common.retry'), onPress: retry, testID: 'sync-error-banner-retry' });
+  }
 
   return (
-    <Animated.View entering={SlideInUp.duration(250)} exiting={SlideOutUp.duration(200)}>
-      <View
-        style={[styles.container, { paddingTop: topPadding, backgroundColor: palette.bg }]}
-        testID="sync-error-banner"
-      >
-        <View style={styles.content}>
-          <View style={styles.headline}>
-            <MaterialCommunityIcons name="cloud-alert" size={16} color={palette.text} />
-            <Text style={[styles.title, { color: palette.text }]}>
-              {t('emptyState.syncError.title')}
-            </Text>
-          </View>
-          <Text numberOfLines={2} style={[styles.detail, { color: palette.subtext }]}>
-            {reasonKey ? t(reasonKey) : lastError}
-          </Text>
-          <Text style={[styles.detail, { color: palette.subtext }]}>
-            {lastSuccessAt
-              ? t('emptyState.syncError.lastSynced', {
-                  when: formatDateTime(lastSuccessAt),
-                })
-              : t('emptyState.syncError.neverSynced')}
-          </Text>
-          {lastErrorReason === SyncErrorReason.StorageFull && (
-            <Pressable
-              testID="sync-error-free-space"
-              accessibilityRole="button"
-              accessibilityLabel={t('common.freeUpSpace')}
-              onPress={() => tapTo('/cache-settings')}
-              hitSlop={8}
-              style={pressable(styles.action)}
-              android_ripple={pressRipple}
-            >
-              <Text style={[styles.actionLabel, { color: palette.text }]}>
-                {t('common.freeUpSpace')}
-              </Text>
-            </Pressable>
-          )}
-        </View>
-      </View>
-    </Animated.View>
+    <NoticeBanner
+      slot="syncError"
+      tone={paused ? 'neutral' : 'error'}
+      icon={paused ? 'timer-sand' : 'cloud-alert'}
+      title={
+        paused
+          ? t('emptyState.syncError.paused', { time: formatClockOrDate(pausedUntil) })
+          : t('emptyState.syncError.title')
+      }
+      detail={[
+        paused
+          ? t('emptyState.syncError.pausedDetail')
+          : reasonKey
+            ? t(reasonKey)
+            : (lastError ?? ''),
+        lastSuccessAt
+          ? t('emptyState.syncError.lastSynced', { when: formatDateTime(lastSuccessAt) })
+          : t('emptyState.syncError.neverSynced'),
+      ]}
+      actions={actions}
+      testID="sync-error-banner"
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    overflow: 'hidden',
-  },
-  content: {
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.xxs,
-  },
-  headline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  title: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
-  },
-  detail: {
-    fontSize: typography.caption.fontSize,
-    textAlign: 'center',
-  },
-  action: {
-    minHeight: layout.minTapTarget,
-    justifyContent: 'center',
-  },
-  actionLabel: {
-    ...typography.label,
-    fontWeight: '600',
-  },
-});

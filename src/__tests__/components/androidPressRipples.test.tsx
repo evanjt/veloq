@@ -14,7 +14,6 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactTestInstance } from 'react-test-renderer';
 
 import { ActivityCard } from '@/features/activity/components/ActivityCard';
-import { SectionChooser } from '@/features/maps/components/regional/SectionChooser';
 import { WhatsNewModal } from '@/features/settings/components/whatsNew/WhatsNewModal';
 import { MapPreferencesProvider } from '@/features/settings/stores/MapPreferencesContext';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
@@ -122,32 +121,34 @@ function transformsAbove(node: ReactTestInstance): unknown[] {
 }
 
 describe('a feed card pressed on Android', () => {
-  it('draws the ripple of a card with no map over its opaque ground', () => {
-    withProviders(<ActivityCard activity={ride} />);
+  it('draws the ripple of a card with no map over its opaque ground', async () => {
+    await withProviders(<ActivityCard activity={ride} />);
     const press = pressableAt(screen.getByTestId('activity-card-r1'));
 
     expect(press.props.android_ripple).toEqual(expect.objectContaining({ foreground: true }));
   });
 
-  it('neither shrinks nor dims a card with no map while held', () => {
-    withProviders(<ActivityCard activity={ride} />);
+  it('neither shrinks nor dims a card with no map while held', async () => {
+    await withProviders(<ActivityCard activity={ride} />);
     const card = screen.getByTestId('activity-card-r1');
 
-    fireEvent(card, 'pressIn');
+    await fireEvent(card, 'pressIn');
 
     expect(transformsAbove(screen.getByTestId('activity-card-r1-container'))).toEqual([]);
   });
 
-  it('neither shrinks nor dims a card with a map while held', () => {
-    withProviders(<ActivityCard activity={{ ...ride, stream_types: ['latlng'] } as Activity} />);
+  it('neither shrinks nor dims a card with a map while held', async () => {
+    await withProviders(
+      <ActivityCard activity={{ ...ride, stream_types: ['latlng'] } as Activity} />
+    );
 
-    fireEvent(screen.getByTestId('activity-card-r1'), 'pressIn');
+    await fireEvent(screen.getByTestId('activity-card-r1'), 'pressIn');
 
     expect(transformsAbove(screen.getByTestId('activity-card-r1-container'))).toEqual([]);
   });
 
-  it('neither shrinks nor dims a strength card while held', () => {
-    withProviders(
+  it('neither shrinks nor dims a strength card while held', async () => {
+    await withProviders(
       <StrengthActivityCard
         activity={lifting}
         strengthData={{ muscles: [], exerciseCount: 3, setCount: 9, totalWeight: 0 }}
@@ -155,25 +156,17 @@ describe('a feed card pressed on Android', () => {
     );
     const card = screen.getByTestId('activity-card-w1');
 
-    fireEvent(card, 'pressIn');
+    await fireEvent(card, 'pressIn');
 
     expect(transformsAbove(card)).toEqual([]);
   });
 });
 
 describe('a dismissing scrim on Android', () => {
-  it('draws no ripple behind the section chooser', () => {
-    render(<SectionChooser sections={[]} onSelect={jest.fn()} onClose={jest.fn()} />);
-    const scrims = scrimsIn(screen.getByTestId('section-chooser'));
-
-    expect(scrims.length).toBeGreaterThan(0);
-    for (const scrim of scrims) expect(scrim.props.android_ripple).toBeUndefined();
-  });
-
-  it('draws no ripple behind the tour', () => {
+  it('draws no ripple behind the tour', async () => {
     useWhatsNewStore.setState({ isLoaded: true, lastSeenVersion: null, tourState: null });
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
-    const view = withProviders(<WhatsNewModal />);
+    const view = await withProviders(<WhatsNewModal />);
     const scrims = scrimsIn(view.UNSAFE_root);
 
     expect(scrims.length).toBeGreaterThan(0);

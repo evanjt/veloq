@@ -17,19 +17,19 @@ jest.mock('expo-location', () => ({
   Accuracy: { Balanced: 3 },
 }));
 
-function mount() {
+async function mount() {
   const setSelected = jest.fn();
   const setSelectedSectionId = jest.fn();
-  const setSectionChoices = jest.fn();
+  const chooseSection = jest.fn();
   const setSpider = jest.fn();
-  const rendered = renderHook(() =>
+  const rendered = await renderHook(() =>
     useMapHandlers({
       activities: [],
       selected: { activity: { id: 'a1' } },
       setSelected,
       setSelectedSectionId,
       setSelectedRouteId: jest.fn(),
-      setSectionChoices,
+      chooseSection,
       setSpider,
       currentZoomRef: { current: 14 },
       currentCenterRef: { current: [6.6, 46.5] },
@@ -40,19 +40,19 @@ function mount() {
       is3DMode: true,
     } as never)
   );
-  return { rendered, setSelected, setSelectedSectionId, setSectionChoices, setSpider };
+  return { rendered, setSelected, setSelectedSectionId, chooseSection, setSpider };
 }
 
 describe('a tap on bare terrain', () => {
-  it('closes the section popup too, from the shared empty-space callback', () => {
-    const { rendered, setSelectedSectionId, setSpider } = mount();
-    act(() => rendered.result.current.handleEmptyPress());
+  it('closes the section popup too, from the shared empty-space callback', async () => {
+    const { rendered, setSelectedSectionId, setSpider } = await mount();
+    await act(() => rendered.result.current.handleEmptyPress());
     expect(setSelectedSectionId).toHaveBeenCalledWith(null);
     expect(setSpider).toHaveBeenCalledWith(null);
   });
 
   it('is what a surface press with no feature runs', async () => {
-    const { rendered, setSelectedSectionId } = mount();
+    const { rendered, setSelectedSectionId } = await mount();
     await act(async () => {
       rendered.result.current.handleSurfacePress({
         coordinate: [0, 0],
@@ -74,32 +74,26 @@ describe('section taps', () => {
   });
 
   it('opens the chooser for two distinct sections', async () => {
-    const { rendered, setSelectedSectionId, setSectionChoices } = mount();
+    const { rendered, setSelectedSectionId, chooseSection } = await mount();
     await act(async () => {
       await rendered.result.current.handleSurfacePress({
         feature: hit('ridge'),
         features: [hit('ridge'), hit('canal'), hit('ridge')],
       } as never);
     });
-    expect(setSectionChoices).toHaveBeenCalledWith(['ridge', 'canal']);
+    expect(chooseSection).toHaveBeenCalledWith(['ridge', 'canal']);
     expect(setSelectedSectionId).toHaveBeenCalledWith(null);
   });
 
   it('opens the section directly when duplicate hits have one id', async () => {
-    const { rendered, setSelectedSectionId, setSectionChoices } = mount();
+    const { rendered, setSelectedSectionId, chooseSection } = await mount();
     await act(async () => {
       await rendered.result.current.handleSurfacePress({
         feature: hit('ridge'),
         features: [hit('ridge'), hit('ridge')],
       } as never);
     });
-    expect(setSectionChoices).toHaveBeenCalledWith([]);
+    expect(chooseSection).not.toHaveBeenCalled();
     expect(setSelectedSectionId).toHaveBeenCalledWith('ridge');
-  });
-
-  it('dismisses the chooser on bare terrain', () => {
-    const { rendered, setSectionChoices } = mount();
-    act(() => rendered.result.current.handleEmptyPress());
-    expect(setSectionChoices).toHaveBeenCalledWith([]);
   });
 });

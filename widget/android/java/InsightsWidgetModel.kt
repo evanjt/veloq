@@ -13,6 +13,11 @@ data class WidgetInsight(
   val tone: String,
   /** Where a tap on the row goes. */
   val url: String,
+  /**
+   * The tone as a screen reader says it, since the row draws it as a colour alone. Null on a
+   * snapshot written before schema 16.
+   */
+  val toneLabel: String? = null,
 )
 
 /** What an Insights widget draws at one size: its rows, and how many more the list holds. */

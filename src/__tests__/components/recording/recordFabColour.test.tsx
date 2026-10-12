@@ -65,9 +65,9 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (_key: string, fallback: string) => fallback }),
 }));
 
-function fabStyle(isDark: boolean) {
+async function fabStyle(isDark: boolean) {
   theme.isDark = isDark;
-  const { getByTestId } = render(<RecordFAB />);
+  const { getByTestId } = await render(<RecordFAB />);
   return StyleSheetFlatten(getByTestId('record-fab').props.style);
 }
 
@@ -82,14 +82,14 @@ describe('the record button reads as recording', () => {
     session.status = 'idle';
   });
 
-  it('paints the recording colour and not the brand accent, in light', () => {
-    expect(fabStyle(false).backgroundColor).toBe(recording.light);
-    expect(fabStyle(false).backgroundColor).not.toBe(brand.tealLight);
+  it('paints the recording colour and not the brand accent, in light', async () => {
+    expect((await fabStyle(false)).backgroundColor).toBe(recording.light);
+    expect((await fabStyle(false)).backgroundColor).not.toBe(brand.tealLight);
   });
 
-  it('paints the recording colour and not the brand accent, in dark', () => {
-    expect(fabStyle(true).backgroundColor).toBe(recording.dark);
-    expect(fabStyle(true).backgroundColor).not.toBe(brand.tealDark);
+  it('paints the recording colour and not the brand accent, in dark', async () => {
+    expect((await fabStyle(true)).backgroundColor).toBe(recording.dark);
+    expect((await fabStyle(true)).backgroundColor).not.toBe(brand.tealDark);
   });
 
   it('carries its white glyph in both themes', () => {
@@ -102,9 +102,9 @@ describe('the record button reads as recording', () => {
     expect(contrastRatio(recording.dark, darkColors.background)).toBeGreaterThanOrEqual(AA_GRAPHIC);
   });
 
-  it('does not rely on colour alone: the glyph and the label stay', () => {
+  it('does not rely on colour alone: the glyph and the label stay', async () => {
     theme.isDark = false;
-    const view = render(<RecordFAB />);
+    const view = await render(<RecordFAB />);
     const fab = view.getByTestId('record-fab');
 
     expect(fab.props.accessibilityRole).toBe('button');
@@ -112,13 +112,13 @@ describe('the record button reads as recording', () => {
     expect(view.UNSAFE_queryAllByProps({ name: 'record-circle-outline' })).not.toHaveLength(0);
   });
 
-  it('floats above the tab bar on the feed, by the inset plus the bar', () => {
-    expect(fabStyle(false).bottom).toBe(24 + TAB_BAR_SAFE_PADDING + spacing.md);
+  it('floats above the tab bar on the feed, by the inset plus the bar', async () => {
+    expect((await fabStyle(false)).bottom).toBe(24 + TAB_BAR_SAFE_PADDING + spacing.md);
   });
 
-  it('stays hidden while a session is running', () => {
+  it('stays hidden while a session is running', async () => {
     session.status = 'recording';
-    const { queryByTestId } = render(<RecordFAB />);
+    const { queryByTestId } = await render(<RecordFAB />);
 
     expect(queryByTestId('record-fab')).toBeNull();
   });

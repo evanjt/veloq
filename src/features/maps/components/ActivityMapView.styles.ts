@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, darkColors, spacing, layout, shadows, colorWithOpacity, ink } from '@/theme';
+import { darkColors, spacing, layout, shadows, colorWithOpacity, ink } from '@/theme';
 
 export const styles = StyleSheet.create({
   outerContainer: {
@@ -29,7 +29,6 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   placeholder: {
-    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: layout.borderRadius,

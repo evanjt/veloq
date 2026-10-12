@@ -51,8 +51,8 @@ function renderControls(handlers: Partial<React.ComponentProps<typeof ActivityMa
 }
 
 describe('the activity map control column', () => {
-  it('starts below the inset and the back button row', () => {
-    renderControls();
+  it('starts below the inset and the back button row', async () => {
+    await renderControls();
 
     const column = screen.getByTestId('activity-map-controls');
     const top = StyleSheet.flatten(column.props.style).top;
@@ -65,18 +65,18 @@ describe('the activity map control column', () => {
     ['activity-map-3d-toggle', 'onToggle3D'],
     ['maps.resetOrientation', 'onResetOrientation'],
     ['activity-map-fullscreen', 'onOpenFullscreen'],
-  ] as const)('activates %s on release', (control, handlerName) => {
+  ] as const)('activates %s on release', async (control, handlerName) => {
     const handler = jest.fn();
-    renderControls({ [handlerName]: handler });
+    await renderControls({ [handlerName]: handler });
 
     const button =
       control === 'maps.resetOrientation'
         ? screen.getByLabelText(control)
         : screen.getByTestId(control);
-    fireEvent(button, 'pressIn');
+    await fireEvent(button, 'pressIn');
     expect(handler).not.toHaveBeenCalled();
 
-    fireEvent.press(button);
+    await fireEvent.press(button);
     expect(handler).toHaveBeenCalledTimes(1);
   });
 });

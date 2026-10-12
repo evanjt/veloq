@@ -22,7 +22,7 @@ function runGuard(version: string | null, pages: Record<string, string>) {
     if (version !== null) {
       files[RENDERER] =
         `export const MAPLIBRE_GL_VERSION = '${version}';\n` +
-        "export const MAPLIBRE_GL_JS = 'new AttributionControl({ attributionControl: true })';\n";
+        `export const MAPLIBRE_GL_JS_FILE = 'renderer/maplibre-gl-${version}.js';\n`;
     }
     for (const [file, text] of Object.entries(files)) {
       mkdirSync(dirname(join(root, file)), { recursive: true });

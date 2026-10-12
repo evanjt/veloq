@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect } from 'react';
-import { View, StyleSheet, Pressable, Alert, ActivityIndicator } from 'react-native';
-import { Text, Switch } from 'react-native-paper';
+import React, { useCallback } from 'react';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
@@ -10,20 +10,21 @@ import {
   ScreenSafeAreaView,
   ScreenScrollView,
   useTabBarClearance,
-  pressable,
-  pressRipple,
+  StatusLine,
 } from '@/shared/ui';
 import {
   BackgroundJobsActivityBar,
   CutoverStatus,
   ElevationBackfillStatus,
   PlaceNamesSwitch,
+  SettingsNavRow,
+  DIVIDER_INSET,
 } from '@/features/settings';
-import { colors, darkColors, spacing, layout, typography, slopToMinTapTarget } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { SwitchRow } from '@/shared/ui/SwitchRow';
 import { tapTo } from '@/shared/app/navigation';
-
-const PREVIEW_ROW_HEIGHT = 44;
+import { confirmAction } from '@/shared/ui/dialog';
 
 function DetectionSettingsScreenContent() {
   const { t } = useTranslation();
@@ -32,7 +33,6 @@ function DetectionSettingsScreenContent() {
 
   const routeMatchingEnabled = useRouteSettings((s) => s.settings.enabled);
   const setRouteMatchingEnabled = useRouteSettings((s) => s.setEnabled);
-  const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bg = isDark ? darkColors.background : colors.background;
   const surface = isDark ? darkColors.surface : colors.surface;
@@ -47,24 +47,20 @@ function DetectionSettingsScreenContent() {
     failed: rescanFailed,
     stillRunning: rescanStillRunning,
     refusal: rescanRefusal,
-    clearResult,
   } = useSectionRescan();
 
   // The confirm dialog's Reanalyse used to drop the engine's answer, so a
   // refused rescan closed the alert and showed nothing at all.
   const refusalKey = rescanRefusalKey(rescanRefusal);
 
-  useEffect(() => {
-    if (rescanResult === null) return undefined;
-    const timer = setTimeout(clearResult, 5000);
-    return () => clearTimeout(timer);
-  }, [rescanResult, clearResult]);
-
   const handleRescan = useCallback(() => {
-    Alert.alert(t('settings.reanalyzeSections'), t('settings.reanalyzeWarning'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('common.confirm'), onPress: () => forceRescan() },
-    ]);
+    confirmAction({
+      title: t('settings.reanalyzeSections'),
+      message: t('settings.reanalyzeWarning'),
+      confirmLabel: t('common.confirm'),
+      cancelLabel: t('common.cancel'),
+      onConfirm: () => forceRescan(),
+    });
   }, [t, forceRescan]);
 
   return (
@@ -79,62 +75,43 @@ function DetectionSettingsScreenContent() {
       >
         <BackgroundJobsActivityBar />
         <View style={[styles.toggleCard, { backgroundColor: surface, borderColor: border }]}>
-          <View style={styles.toggleRow}>
-            <MaterialCommunityIcons name="map-marker-path" size={22} color={textSecondary} />
-            <Text style={[styles.toggleLabel, { color: textPrimary }]}>
-              {t('settings.routeMatching')}
-            </Text>
-            <Switch
-              value={routeMatchingEnabled}
-              onValueChange={setRouteMatchingEnabled}
-              color={colors.primary}
-            />
-          </View>
+          <SwitchRow
+            icon="map-marker-path"
+            title={t('settings.routeMatching')}
+            value={routeMatchingEnabled}
+            onValueChange={setRouteMatchingEnabled}
+          />
         </View>
 
         <PlaceNamesSwitch />
 
-        <View
-          style={{ opacity: routeMatchingEnabled ? 1 : 0.4 }}
-          pointerEvents={routeMatchingEnabled ? 'auto' : 'none'}
-        >
-          <Pressable
-            style={pressable([
-              styles.previewRow,
-              { backgroundColor: surface, borderColor: border },
-            ])}
-            android_ripple={pressRipple}
-            onPress={() => tapTo('/detection-preview')}
-            accessibilityRole="button"
-            accessibilityLabel={t('settings.previewSections')}
-            hitSlop={slopToMinTapTarget(PREVIEW_ROW_HEIGHT)}
-            testID="detection-preview-row"
-          >
-            <MaterialCommunityIcons name="map-search-outline" size={20} color={textSecondary} />
-            <Text style={[styles.previewRowText, { color: textPrimary }]}>
-              {t('settings.previewSections')}
+        <View>
+          {!routeMatchingEnabled && (
+            <Text
+              testID="detection-matching-off"
+              style={[styles.matchingOff, { color: textSecondary }]}
+            >
+              {t('settings.routeMatchingOff')}
             </Text>
-            <MaterialCommunityIcons name="chevron-right" size={22} color={textSecondary} />
-          </Pressable>
+          )}
 
-          <Pressable
-            style={pressable([
-              styles.previewRow,
-              { backgroundColor: surface, borderColor: border },
-            ])}
-            android_ripple={pressRipple}
-            onPress={() => tapTo('/route-grouping-preview')}
-            accessibilityRole="button"
-            accessibilityLabel={t('settings.previewRouteGrouping')}
-            hitSlop={slopToMinTapTarget(PREVIEW_ROW_HEIGHT)}
-            testID="route-grouping-preview-row"
-          >
-            <MaterialCommunityIcons name="source-branch" size={20} color={textSecondary} />
-            <Text style={[styles.previewRowText, { color: textPrimary }]}>
-              {t('settings.previewRouteGrouping')}
-            </Text>
-            <MaterialCommunityIcons name="chevron-right" size={22} color={textSecondary} />
-          </Pressable>
+          <View style={[styles.previewCard, { backgroundColor: surface, borderColor: border }]}>
+            <SettingsNavRow
+              testID="detection-preview-row"
+              icon="map-search-outline"
+              title={t('settings.previewSections')}
+              onPress={() => tapTo('/detection-preview')}
+              disabled={!routeMatchingEnabled}
+            />
+            <View style={[styles.previewDivider, { backgroundColor: border }]} />
+            <SettingsNavRow
+              testID="route-grouping-preview-row"
+              icon="source-branch"
+              title={t('settings.previewRouteGrouping')}
+              onPress={() => tapTo('/route-grouping-preview')}
+              disabled={!routeMatchingEnabled}
+            />
+          </View>
 
           <Button
             variant={isScanning ? 'secondary' : 'primary'}
@@ -148,40 +125,50 @@ function DetectionSettingsScreenContent() {
               )
             }
             label={isScanning ? t('common.cancel') : t('settings.reanalyzeSections')}
+            disabled={!routeMatchingEnabled && !isScanning}
             testID="detection-rescan-button"
           />
 
+          {/* The result stays until the next rescan replaces it, never on a timer. */}
           {rescanResult && (
-            <Text style={[styles.rescanResult, { color: textSecondary }]}>
-              {t('settings.sectionsDetectedCount', { count: rescanResult.after })}
-            </Text>
+            <StatusLine
+              testID="detection-rescan-result"
+              tone="success"
+              message={t('settings.sectionsBeforeAfter', {
+                before: rescanResult.before,
+                after: rescanResult.after,
+              })}
+              textStyle={[styles.rescanResult, { color: textSecondary }]}
+            />
           )}
 
           {refusalKey !== null && (
-            <Text
+            <StatusLine
               testID="detection-rescan-refused"
-              style={[styles.rescanResult, { color: textSecondary }]}
-            >
-              {t(refusalKey)}
-            </Text>
+              tone="info"
+              message={t(refusalKey)}
+              textStyle={[styles.rescanResult, { color: textSecondary }]}
+            />
           )}
 
           {rescanStillRunning && (
-            <Text
+            <StatusLine
               testID="detection-rescan-still-running"
-              style={[styles.rescanResult, { color: textSecondary }]}
-            >
-              {t('settings.stillRunning')}
-            </Text>
+              tone="pending"
+              message={t('settings.stillRunning')}
+              textStyle={[styles.rescanResult, { color: textSecondary }]}
+            />
           )}
 
           {rescanFailed && (
-            <Text style={[styles.rescanResult, { color: danger }]}>
-              {t(
+            <StatusLine
+              tone="error"
+              message={t(
                 'settings.rescanFailed',
                 'The rescan could not finish. Some activity tracks could not be read.'
               )}
-            </Text>
+              textStyle={[styles.rescanResult, { color: danger }]}
+            />
           )}
 
           <CutoverStatus />
@@ -200,19 +187,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     overflow: 'hidden',
   },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-  },
-  toggleLabel: {
-    ...typography.body,
-    flex: 1,
-  },
   content: {
     paddingHorizontal: spacing.md,
+  },
+  matchingOff: {
+    ...typography.bodySmall,
+    marginTop: spacing.xs,
   },
   rescanBtn: {
     marginTop: spacing.lg,
@@ -222,20 +202,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.sm,
   },
-  previewRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    minHeight: PREVIEW_ROW_HEIGHT,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+  previewCard: {
     borderRadius: layout.borderRadius,
     borderWidth: StyleSheet.hairlineWidth,
     marginTop: spacing.md,
+    overflow: 'hidden',
   },
-  previewRowText: {
-    ...typography.body,
-    flex: 1,
+  previewDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginLeft: DIVIDER_INSET,
   },
 });
 

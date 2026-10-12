@@ -87,9 +87,9 @@ afterEach(() => {
 });
 
 it('says it is sharing, and not still running, while a late share sheet is up', async () => {
-  render(<BackupSection />);
+  await render(<BackupSection />);
   mockProgress = { running: true, visited: 150, total: 402 };
-  fireEvent.press(screen.getByText('GPX'));
+  void fireEvent.press(screen.getByText('GPX'));
   await act(async () => {
     await jest.advanceTimersByTimeAsync(61_000);
   });

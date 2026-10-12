@@ -94,13 +94,13 @@ describe('NetworkContext', () => {
   });
 
   describe('initial state', () => {
-    it('starts online (optimistic)', () => {
-      const { result } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
+    it('starts online (optimistic)', async () => {
+      const { result } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
       expect(result.current.isOnline).toBe(true);
     });
 
-    it('subscribes to network state listener on mount', () => {
-      renderHook(() => useNetwork(), { wrapper: wrapperFor });
+    it('subscribes to network state listener on mount', async () => {
+      await renderHook(() => useNetwork(), { wrapper: wrapperFor });
       const Network = require('expo-network');
       expect(Network.addNetworkStateListener).toHaveBeenCalledTimes(1);
       expect(getMock().listener).not.toBeNull();
@@ -108,9 +108,9 @@ describe('NetworkContext', () => {
   });
 
   describe('online transition', () => {
-    it('updates immediately when network reports connected and internet reachable', () => {
-      const { result } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
-      act(() => {
+    it('updates immediately when network reports connected and internet reachable', async () => {
+      const { result } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      await act(() => {
         getMock().listener!({
           isConnected: true,
           isInternetReachable: true,
@@ -120,9 +120,9 @@ describe('NetworkContext', () => {
       expect(result.current.isOnline).toBe(true);
     });
 
-    it('coalesces null isInternetReachable to online (missing field)', () => {
-      const { result } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
-      act(() => {
+    it('coalesces null isInternetReachable to online (missing field)', async () => {
+      const { result } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      await act(() => {
         getMock().listener!({
           isConnected: true,
           isInternetReachable: undefined,
@@ -140,16 +140,16 @@ describe('NetworkContext', () => {
      * here starts from a reading that confirmed online. A drop reported before
      * any reading has come back is the cold boot, and it applies at once.
      */
-    function confirmOnline() {
-      act(() => {
+    async function confirmOnline() {
+      await act(() => {
         getMock().listener!({ isConnected: true, isInternetReachable: true, type: 'WIFI' });
       });
     }
 
-    it('does NOT flip offline immediately', () => {
-      const { result } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
-      confirmOnline();
-      act(() => {
+    it('does NOT flip offline immediately', async () => {
+      const { result } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      await confirmOnline();
+      await act(() => {
         getMock().listener!({
           isConnected: false,
           isInternetReachable: false,
@@ -160,10 +160,10 @@ describe('NetworkContext', () => {
       expect(result.current.isOnline).toBe(true);
     });
 
-    it('flips offline after the debounce when offline state persists', () => {
-      const { result } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
-      confirmOnline();
-      act(() => {
+    it('flips offline after the debounce when offline state persists', async () => {
+      const { result } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      await confirmOnline();
+      await act(() => {
         getMock().listener!({
           isConnected: false,
           isInternetReachable: false,
@@ -171,18 +171,18 @@ describe('NetworkContext', () => {
         });
       });
 
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(OFFLINE_DEBOUNCE_MS);
       });
       expect(result.current.isOnline).toBe(false);
     });
 
-    it('cancels debounce when network comes back online before it elapses', () => {
-      const { result } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
-      confirmOnline();
+    it('cancels debounce when network comes back online before it elapses', async () => {
+      const { result } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      await confirmOnline();
 
       // First: go offline
-      act(() => {
+      await act(() => {
         getMock().listener!({
           isConnected: false,
           isInternetReachable: false,
@@ -191,13 +191,13 @@ describe('NetworkContext', () => {
       });
 
       // Advance partially, short of the debounce
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(OFFLINE_DEBOUNCE_MS - 500);
       });
       expect(result.current.isOnline).toBe(true);
 
       // Come back online
-      act(() => {
+      await act(() => {
         getMock().listener!({
           isConnected: true,
           isInternetReachable: true,
@@ -207,15 +207,15 @@ describe('NetworkContext', () => {
       expect(result.current.isOnline).toBe(true);
 
       // Advance past the original debounce mark - no offline flip
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(OFFLINE_DEBOUNCE_MS);
       });
       expect(result.current.isOnline).toBe(true);
     });
 
-    it('treats isInternetReachable=false as offline even when isConnected=true', () => {
-      const { result } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
-      act(() => {
+    it('treats isInternetReachable=false as offline even when isConnected=true', async () => {
+      const { result } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      await act(() => {
         getMock().listener!({
           isConnected: true,
           isInternetReachable: false,
@@ -223,7 +223,7 @@ describe('NetworkContext', () => {
         });
       });
       // Captive-portal scenario: has link but no internet
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(OFFLINE_DEBOUNCE_MS);
       });
       expect(result.current.isOnline).toBe(false);
@@ -231,16 +231,16 @@ describe('NetworkContext', () => {
   });
 
   describe('fallback: getNetworkStateAsync', () => {
-    it('does NOT call getNetworkStateAsync if listener fires within 100ms', () => {
-      renderHook(() => useNetwork(), { wrapper: wrapperFor });
-      act(() => {
+    it('does NOT call getNetworkStateAsync if listener fires within 100ms', async () => {
+      await renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      await act(() => {
         getMock().listener!({
           isConnected: true,
           isInternetReachable: true,
           type: 'WIFI',
         });
       });
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(150);
       });
       expect(getMock().getNetworkStateAsync).not.toHaveBeenCalled();
@@ -253,7 +253,7 @@ describe('NetworkContext', () => {
         type: 'WIFI',
       });
 
-      const { result } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      const { result } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
       await act(async () => {
         jest.advanceTimersByTime(100);
         // Flush any pending microtasks that the promise chain schedules
@@ -263,17 +263,17 @@ describe('NetworkContext', () => {
       expect(result.current.isOnline).toBe(true);
     });
 
-    it('does not override a listener-reported state that arrived first', () => {
+    it('does not override a listener-reported state that arrived first', async () => {
       getMock().getNetworkStateAsync.mockResolvedValue({
         isConnected: false,
         isInternetReachable: false,
         type: 'NONE',
       });
 
-      const { result } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      const { result } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
 
       // Listener fires with online state immediately
-      act(() => {
+      await act(() => {
         getMock().listener!({
           isConnected: true,
           isInternetReachable: true,
@@ -283,7 +283,7 @@ describe('NetworkContext', () => {
 
       // Fallback timer advances; but since hasReceivedListenerUpdate is true,
       // getNetworkStateAsync should NOT be invoked
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(100);
       });
       expect(getMock().getNetworkStateAsync).not.toHaveBeenCalled();
@@ -292,29 +292,29 @@ describe('NetworkContext', () => {
   });
 
   describe('cleanup on unmount', () => {
-    it('removes the listener subscription', () => {
-      const { unmount } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
-      unmount();
+    it('removes the listener subscription', async () => {
+      const { unmount } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      await unmount();
       expect(getMock().remove).toHaveBeenCalledTimes(1);
     });
 
-    it('cancels pending offline debounce on unmount', () => {
-      const { result, unmount } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
+    it('cancels pending offline debounce on unmount', async () => {
+      const { result, unmount } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
       // A drop is only debounced once a reading has confirmed online.
-      act(() => {
+      await act(() => {
         getMock().listener!({ isConnected: true, isInternetReachable: true, type: 'WIFI' });
       });
-      act(() => {
+      await act(() => {
         getMock().listener!({
           isConnected: false,
           isInternetReachable: false,
           type: 'NONE',
         });
       });
-      unmount();
+      await unmount();
       // After unmount, the timer is cleared; advancing it must not crash
       // and must not flip state (we have no more result reference anyway)
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(5000);
       });
       // Result from before unmount is a snapshot - should still be optimistic
@@ -330,15 +330,15 @@ describe('NetworkContext', () => {
           })
       );
 
-      const { unmount } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      const { unmount } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
 
       // Trigger fallback path
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(100);
       });
       expect(getMock().getNetworkStateAsync).toHaveBeenCalledTimes(1);
 
-      unmount();
+      await unmount();
       // Resolution after unmount must not throw
       await act(async () => {
         resolver!({
@@ -352,29 +352,29 @@ describe('NetworkContext', () => {
   });
 
   describe('TanStack onlineManager', () => {
-    it('mirrors the provider state, so refetchOnReconnect is not dead', () => {
-      renderHook(() => useNetwork(), { wrapper: wrapperFor });
+    it('mirrors the provider state, so refetchOnReconnect is not dead', async () => {
+      await renderHook(() => useNetwork(), { wrapper: wrapperFor });
 
-      act(() => {
+      await act(() => {
         getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
         jest.advanceTimersByTime(OFFLINE_DEBOUNCE_MS);
       });
       expect(onlineManager.isOnline()).toBe(false);
 
-      act(() => {
+      await act(() => {
         getMock().listener!({ isConnected: true, isInternetReachable: true, type: 'WIFI' });
       });
       expect(onlineManager.isOnline()).toBe(true);
     });
 
-    it('leaves the manager online once the provider unmounts', () => {
-      const { unmount } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
+    it('leaves the manager online once the provider unmounts', async () => {
+      const { unmount } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
 
-      act(() => {
+      await act(() => {
         getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
         jest.advanceTimersByTime(OFFLINE_DEBOUNCE_MS);
       });
-      unmount();
+      await unmount();
 
       expect(onlineManager.isOnline()).toBe(true);
     });
@@ -403,37 +403,37 @@ describe('NetworkContext', () => {
       jest.restoreAllMocks();
     });
 
-    it('pushes online on the same edge that sets onlineManager', () => {
-      renderHook(() => useNetwork(), { wrapper: wrapperFor });
-      act(() => {
+    it('pushes online on the same edge that sets onlineManager', async () => {
+      await renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      await act(() => {
         getMock().listener!({ isConnected: true, isInternetReachable: true, type: 'WIFI' });
       });
 
       expect(mockSetNetworkOnline).toHaveBeenCalledWith(true);
     });
 
-    it('pushes offline only after the debounce, not on the raw edge', () => {
-      renderHook(() => useNetwork(), { wrapper: wrapperFor });
-      act(() => {
+    it('pushes offline only after the debounce, not on the raw edge', async () => {
+      await renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      await act(() => {
         getMock().listener!({ isConnected: true, isInternetReachable: true, type: 'WIFI' });
       });
-      act(() => {
+      await act(() => {
         getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
       });
       expect(mockSetNetworkOnline).not.toHaveBeenCalledWith(false);
 
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(OFFLINE_DEBOUNCE_MS);
       });
       expect(mockSetNetworkOnline).toHaveBeenCalledWith(false);
     });
 
-    it('does not push offline when the network comes back inside the debounce', () => {
-      renderHook(() => useNetwork(), { wrapper: wrapperFor });
-      act(() => {
+    it('does not push offline when the network comes back inside the debounce', async () => {
+      await renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      await act(() => {
         getMock().listener!({ isConnected: true, isInternetReachable: true, type: 'WIFI' });
       });
-      act(() => {
+      await act(() => {
         getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
         jest.advanceTimersByTime(OFFLINE_DEBOUNCE_MS - 500);
         getMock().listener!({ isConnected: true, isInternetReachable: true, type: 'WIFI' });
@@ -447,15 +447,15 @@ describe('NetworkContext', () => {
      * A state Rust cannot refresh is worse than none, so the provider
      * re-states what it knows every time the app comes back.
      */
-    it('re-pushes the state it holds on foreground', () => {
-      renderHook(() => useNetwork(), { wrapper: wrapperFor });
-      act(() => {
+    it('re-pushes the state it holds on foreground', async () => {
+      await renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      await act(() => {
         getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
         jest.advanceTimersByTime(OFFLINE_DEBOUNCE_MS);
       });
       mockSetNetworkOnline.mockClear();
 
-      act(() => {
+      await act(() => {
         appStateListeners.forEach((l) => l('active'));
       });
 
@@ -474,8 +474,8 @@ describe('NetworkContext', () => {
      * offline for the life of the process on a working connection.
      */
     it('re-reads the network on foreground rather than trusting what it holds', async () => {
-      renderHook(() => useNetwork(), { wrapper: wrapperFor });
-      act(() => {
+      await renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      await act(() => {
         getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
       });
       mockSetNetworkOnline.mockClear();
@@ -501,8 +501,8 @@ describe('NetworkContext', () => {
      * disagree is what keeping one path avoids.
      */
     it('debounces a drop the foreground re-read brings back', async () => {
-      const { result } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
-      act(() => {
+      const { result } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      await act(() => {
         getMock().listener!({ isConnected: true, isInternetReachable: true, type: 'WIFI' });
       });
       getMock().getNetworkStateAsync.mockResolvedValue({
@@ -517,7 +517,7 @@ describe('NetworkContext', () => {
       });
       expect(result.current.isOnline).toBe(true);
 
-      act(() => {
+      await act(() => {
         jest.advanceTimersByTime(OFFLINE_DEBOUNCE_MS);
       });
       expect(result.current.isOnline).toBe(false);
@@ -528,8 +528,8 @@ describe('NetworkContext', () => {
      * what the engine already holds, so nothing is worse for having asked.
      */
     it('keeps what it holds when the re-read rejects', async () => {
-      const { result } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
-      act(() => {
+      const { result } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      await act(() => {
         getMock().listener!({ isConnected: true, isInternetReachable: true, type: 'WIFI' });
       });
       getMock().getNetworkStateAsync.mockRejectedValue(new Error('no answer'));
@@ -565,20 +565,20 @@ describe('NetworkContext', () => {
         if (original) Object.defineProperty(AppState, 'currentState', original);
       });
 
-      function holdOffline() {
-        renderHook(() => useNetwork(), { wrapper: wrapperFor });
-        act(() => {
+      async function holdOffline() {
+        await renderHook(() => useNetwork(), { wrapper: wrapperFor });
+        await act(() => {
           getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
         });
         mockSetNetworkOnline.mockClear();
         getMock().getNetworkStateAsync.mockClear();
       }
 
-      it('pushes the held state again before the engine stops believing it', () => {
+      it('pushes the held state again before the engine stops believing it', async () => {
         setAppState('active');
-        holdOffline();
+        await holdOffline();
 
-        act(() => {
+        await act(() => {
           jest.advanceTimersByTime(STALE_AFTER_MS - 1);
         });
 
@@ -589,7 +589,7 @@ describe('NetworkContext', () => {
 
       it('sends what the re-read finds through the same path as every reading', async () => {
         setAppState('active');
-        holdOffline();
+        await holdOffline();
         getMock().getNetworkStateAsync.mockResolvedValue({
           isConnected: true,
           isInternetReachable: true,
@@ -605,11 +605,11 @@ describe('NetworkContext', () => {
         expect(onlineManager.isOnline()).toBe(true);
       });
 
-      it('asks nothing while the app sits in the background', () => {
+      it('asks nothing while the app sits in the background', async () => {
         setAppState('background');
-        holdOffline();
+        await holdOffline();
 
-        act(() => {
+        await act(() => {
           jest.advanceTimersByTime(STALE_AFTER_MS * 2);
         });
 
@@ -617,14 +617,14 @@ describe('NetworkContext', () => {
         expect(getMock().getNetworkStateAsync).not.toHaveBeenCalled();
       });
 
-      it('stops asking once the app leaves the foreground', () => {
+      it('stops asking once the app leaves the foreground', async () => {
         setAppState('active');
-        holdOffline();
+        await holdOffline();
 
-        act(() => {
+        await act(() => {
           appStateListeners.forEach((l) => l('background'));
         });
-        act(() => {
+        await act(() => {
           jest.advanceTimersByTime(STALE_AFTER_MS * 2);
         });
 
@@ -632,15 +632,15 @@ describe('NetworkContext', () => {
         expect(getMock().getNetworkStateAsync).not.toHaveBeenCalled();
       });
 
-      it('starts asking again when a backgrounded app comes back', () => {
+      it('starts asking again when a backgrounded app comes back', async () => {
         setAppState('background');
-        holdOffline();
+        await holdOffline();
 
-        act(() => {
+        await act(() => {
           appStateListeners.forEach((l) => l('active'));
         });
         mockSetNetworkOnline.mockClear();
-        act(() => {
+        await act(() => {
           jest.advanceTimersByTime(STALE_AFTER_MS - 1);
         });
 
@@ -648,15 +648,15 @@ describe('NetworkContext', () => {
       });
     });
 
-    it('releases the engine on unmount, so nothing is left refusing work', () => {
-      const { unmount } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
-      act(() => {
+    it('releases the engine on unmount, so nothing is left refusing work', async () => {
+      const { unmount } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      await act(() => {
         getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
         jest.advanceTimersByTime(OFFLINE_DEBOUNCE_MS);
       });
       mockSetNetworkOnline.mockClear();
 
-      unmount();
+      await unmount();
 
       expect(mockSetNetworkOnline).toHaveBeenCalledWith(true);
     });
@@ -665,11 +665,11 @@ describe('NetworkContext', () => {
      * The provider mounts before `initWithPath`, so the module may not be
      * there yet. A push that throws must not take the provider down with it.
      */
-    it('survives an engine that is not loaded', () => {
+    it('survives an engine that is not loaded', async () => {
       mockGetEngine.mockImplementation(() => null as never);
-      const { result } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
+      const { result } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
 
-      act(() => {
+      await act(() => {
         getMock().listener!({ isConnected: true, isInternetReachable: true, type: 'WIFI' });
       });
 
@@ -678,10 +678,10 @@ describe('NetworkContext', () => {
   });
 
   describe('useNetwork() outside provider', () => {
-    it('throws a clear error', () => {
+    it('throws a clear error', async () => {
       // Silence expected console.error from React
       const consoleErr = jest.spyOn(console, 'error').mockImplementation(() => {});
-      expect(() => renderHook(() => useNetwork())).toThrow(
+      await expect((async () => renderHook(() => useNetwork()))()).rejects.toThrow(
         /useNetwork must be used within a NetworkProvider/
       );
       consoleErr.mockRestore();
@@ -716,10 +716,10 @@ describe('the first reading after a cold boot', () => {
     jest.useRealTimers();
   });
 
-  it('goes offline at once rather than after the debounce', () => {
-    const { result } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
+  it('goes offline at once rather than after the debounce', async () => {
+    const { result } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
 
-    act(() => {
+    await act(() => {
       getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
     });
 
@@ -728,40 +728,40 @@ describe('the first reading after a cold boot', () => {
     expect(mockSetNetworkOnline).toHaveBeenCalledWith(false);
   });
 
-  it('still debounces a drop once a reading has confirmed online', () => {
-    const { result } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
+  it('still debounces a drop once a reading has confirmed online', async () => {
+    const { result } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
 
-    act(() => {
+    await act(() => {
       getMock().listener!({ isConnected: true, isInternetReachable: true, type: 'WIFI' });
     });
-    act(() => {
+    await act(() => {
       getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
     });
 
     expect(result.current.isOnline).toBe(true);
 
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(OFFLINE_DEBOUNCE_MS);
     });
 
     expect(result.current.isOnline).toBe(false);
   });
 
-  it('debounces a drop that follows a confirmed offline, coming back online between', () => {
-    const { result } = renderHook(() => useNetwork(), { wrapper: wrapperFor });
+  it('debounces a drop that follows a confirmed offline, coming back online between', async () => {
+    const { result } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
 
-    act(() => {
+    await act(() => {
       getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
     });
-    act(() => {
+    await act(() => {
       getMock().listener!({ isConnected: true, isInternetReachable: true, type: 'WIFI' });
     });
-    act(() => {
+    await act(() => {
       getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
     });
 
     expect(result.current.isOnline).toBe(true);
-    act(() => {
+    await act(() => {
       jest.advanceTimersByTime(OFFLINE_DEBOUNCE_MS);
     });
     expect(result.current.isOnline).toBe(false);

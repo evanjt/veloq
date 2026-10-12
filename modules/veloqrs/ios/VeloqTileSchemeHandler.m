@@ -6,6 +6,16 @@ static NSString *const GeoPath = @"/veloq-geo/";
 static NSString *const TilePath = @"/veloq-tile/";
 static NSString *const AssetPath = @"/veloq-asset/";
 
+/** Where the map renderer and its stylesheet sit, each named by its version. */
+static NSString *const RendererDirectory = @"renderer";
+
+/**
+ * The renderer's file name changes with its version, so the web view may keep
+ * it for good. Everything else is answered fresh every time.
+ */
+static NSString *const KeepForGood = @"public, max-age=31536000, immutable";
+static NSString *const NoStore = @"no-store";
+
 /**
  * The store's own entry, exported by the Rust static library beside the UniFFI
  * surface. See `basemap/c.rs`. The bytes stay Rust's until they are freed.
@@ -57,6 +67,7 @@ static BOOL parseIndex(NSString *text, uint32_t *out)
 @property (nonatomic) NSInteger status;
 @property (nonatomic, copy) NSString *mime;
 @property (nonatomic, strong) NSData *body;
+@property (nonatomic, copy) NSString *cacheControl;
 @end
 
 @implementation VeloqTileAnswer
@@ -68,6 +79,7 @@ static VeloqTileAnswer *answer(NSInteger status, NSString *mime, NSData *body)
   a.status = status;
   a.mime = mime;
   a.body = body ?: [NSData data];
+  a.cacheControl = NoStore;
   return a;
 }
 
@@ -80,13 +92,15 @@ static NSString *assetMimeFor(NSString *path)
   if ([extension isEqualToString:@"json"]) return @"application/json";
   if ([extension isEqualToString:@"png"]) return @"image/png";
   if ([extension isEqualToString:@"pbf"]) return @"application/x-protobuf";
+  if ([extension isEqualToString:@"js"]) return @"text/javascript; charset=utf-8";
+  if ([extension isEqualToString:@"css"]) return @"text/css; charset=utf-8";
   return @"application/octet-stream";
 }
 
 /**
- * The directory the sprite and glyphs are bundled in. The resource bundle keeps
- * the layout it was packed from, which is under `BasemapAssets`; the root of
- * the bundle is tried as well so a flattened copy still answers.
+ * The directory the renderer, sprite and glyphs are bundled in. The resource
+ * bundle keeps the layout it was packed from, which is under `BasemapAssets`;
+ * the root of the bundle is tried as well so a flattened copy still answers.
  */
 static NSArray<NSString *> *assetRoots(void)
 {
@@ -126,9 +140,9 @@ static VeloqTileAnswer *answerGlyph(NSArray<NSString *> *segments)
 /**
  * A file the app carries, a glyph range fetched on a miss, or a 404 at once
  * for a path it does not. The page
- * chooses the path, so a request stays inside the two directories the app
+ * chooses the path, so a request stays inside the three directories the app
  * ships: an empty segment, `.`, `..`, a backslash, a NUL or any first segment
- * other than `sprites` or `fonts` is answered as a miss.
+ * other than `renderer`, `sprites` or `fonts` is answered as a miss.
  */
 static VeloqTileAnswer *answerAsset(NSString *rest)
 {
@@ -140,12 +154,17 @@ static VeloqTileAnswer *answerAsset(NSString *rest)
     }
   }
   if ([rest containsString:@"\\"] || [rest containsString:@"\0"]) return answer(404, @"application/octet-stream", nil);
-  if (![segments[0] isEqualToString:@"sprites"] && ![segments[0] isEqualToString:@"fonts"]) {
+  BOOL renderer = [segments[0] isEqualToString:RendererDirectory];
+  if (!renderer && ![segments[0] isEqualToString:@"sprites"] && ![segments[0] isEqualToString:@"fonts"]) {
     return answer(404, @"application/octet-stream", nil);
   }
   for (NSString *root in assetRoots()) {
     NSData *data = [NSData dataWithContentsOfFile:[root stringByAppendingPathComponent:rest]];
-    if (data.length > 0) return answer(200, assetMimeFor(rest), data);
+    if (data.length > 0) {
+      VeloqTileAnswer *found = answer(200, assetMimeFor(rest), data);
+      if (renderer) found.cacheControl = KeepForGood;
+      return found;
+    }
   }
   return answerGlyph(segments);
 }
@@ -253,7 +272,7 @@ static VeloqTileAnswer *answerFor(NSURL *url)
         @"Content-Type" : a.mime,
         @"Content-Length" : [NSString stringWithFormat:@"%lu", (unsigned long)a.body.length],
         @"Access-Control-Allow-Origin" : @"*",
-        @"Cache-Control" : @"no-store",
+        @"Cache-Control" : a.cacheControl,
       };
       NSHTTPURLResponse *response = [[NSHTTPURLResponse alloc] initWithURL:url
                                                                 statusCode:a.status

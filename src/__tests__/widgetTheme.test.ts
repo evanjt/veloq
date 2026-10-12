@@ -8,6 +8,18 @@ import { widgetPalette, widgetRecord } from '@/shared/theme/widgetTheme';
 // snapshot theme block and the generated WidgetTheme files), so every token must
 // trace back to colors.ts, no widget-only hex values.
 
+function relativeLuminance(hex: string): number {
+  const [r, g, b] = [1, 3, 5]
+    .map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+    .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrastRatio(a: string, b: string): number {
+  const [hi, lo] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
 describe('widgetPalette', () => {
   it('carries the five form zone colours from the canonical tokens', () => {
     for (const p of [widgetPalette.light, widgetPalette.dark]) {
@@ -129,6 +141,42 @@ describe('widgetPalette', () => {
       .map((hex) => `Color(hex: "${hex}")`)
       .join(', ')}]`;
     expect(swift.split(ramp)).toHaveLength(3);
+  });
+
+  /**
+   * Scenario: a PR dot, a record attempt dot, a trend arrow and an insight row's
+   * tone dot are each the only thing on the widget that carries their meaning,
+   * so WCAG 1.4.11 holds them to 3:1 against what they sit on.
+   *
+   * Expected behaviour: every mark field clears 3:1 on both grounds of its own
+   * scheme.
+   */
+  it('draws every mark at 3:1 on both grounds of its scheme', () => {
+    const marks = [
+      'gold',
+      'trendUp',
+      'trendDown',
+      'trendFlat',
+      'toneNegative',
+      'toneCaution',
+      'tonePositive',
+      'toneNeutral',
+      'toneRecord',
+      'toneInfo',
+      'toneOpportunity',
+    ] as const;
+    const under: string[] = [];
+    for (const scheme of ['light', 'dark'] as const) {
+      const p = widgetPalette[scheme];
+      for (const field of marks) {
+        for (const ground of ['surface', 'background'] as const) {
+          const ratio = contrastRatio(p[field], p[ground]);
+          if (ratio < 3) under.push(`${scheme}.${field} on ${ground} ${ratio.toFixed(2)}:1`);
+        }
+      }
+    }
+
+    expect(under).toStrictEqual([]);
   });
 
   it('keeps light and dark palettes key-aligned', () => {

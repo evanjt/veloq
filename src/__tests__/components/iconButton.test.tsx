@@ -25,8 +25,8 @@ function flatten(style: unknown): Record<string, number | string> {
 }
 
 describe('IconButton', () => {
-  it('reaches the tap-target minimum square around a small glyph', () => {
-    const { getByTestId } = render(
+  it('reaches the tap-target minimum square around a small glyph', async () => {
+    const { getByTestId } = await render(
       <IconButton accessibilityLabel="Rename" onPress={() => {}} testID="i">
         <Text>x</Text>
       </IconButton>
@@ -42,8 +42,8 @@ describe('IconButton', () => {
     );
   });
 
-  it('reaches the accessibility tree as a named button', () => {
-    const { getByRole } = render(
+  it('reaches the accessibility tree as a named button', async () => {
+    const { getByRole } = await render(
       <IconButton accessibilityLabel="Rename" onPress={() => {}}>
         <Text>x</Text>
       </IconButton>
@@ -51,27 +51,27 @@ describe('IconButton', () => {
     expect(getByRole('button', { name: 'Rename' })).toBeTruthy();
   });
 
-  it('presses, and refuses a press while disabled', () => {
+  it('presses, and refuses a press while disabled', async () => {
     const onPress = jest.fn();
-    const { getByTestId, rerender } = render(
+    const { getByTestId, rerender } = await render(
       <IconButton accessibilityLabel="Back" onPress={onPress} testID="i">
         <Text>x</Text>
       </IconButton>
     );
-    fireEvent.press(getByTestId('i'));
+    await fireEvent.press(getByTestId('i'));
     expect(onPress).toHaveBeenCalledTimes(1);
 
-    rerender(
+    await rerender(
       <IconButton accessibilityLabel="Back" onPress={onPress} disabled testID="i">
         <Text>x</Text>
       </IconButton>
     );
-    fireEvent.press(getByTestId('i'));
+    await fireEvent.press(getByTestId('i'));
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
-  it('takes the Button variant ground', () => {
-    const { getByTestId } = render(
+  it('takes the Button variant ground', async () => {
+    const { getByTestId } = await render(
       <IconButton accessibilityLabel="Go" variant="primary" onPress={() => {}} testID="i">
         <Text>x</Text>
       </IconButton>

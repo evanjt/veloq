@@ -113,7 +113,7 @@ it('waits for a running auto-backup and then shares its own archive', async () =
   const auto = performBackup(true);
   await untilClaimed(1);
 
-  const { result } = renderHook(() => useExportRecordBackup());
+  const { result } = await renderHook(() => useExportRecordBackup());
   let exporting: Promise<unknown> = Promise.resolve();
   await act(async () => {
     exporting = result.current.exportRecordBackup();
@@ -146,7 +146,7 @@ it('exports at once once the auto-backup has ended', async () => {
   mockReleaseFirst?.();
   await auto;
 
-  const { result } = renderHook(() => useExportRecordBackup());
+  const { result } = await renderHook(() => useExportRecordBackup());
   await act(async () => {
     await result.current.exportRecordBackup();
   });

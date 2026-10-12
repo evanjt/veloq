@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import {
+  ListSectionHeader,
+  Row,
   ScreenSafeAreaView,
   ScreenScrollView,
   useTabBarClearance,
-  pressable,
-  pressRipple,
-  ListSectionHeader,
 } from '@/shared/ui';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -74,13 +73,11 @@ function AccountRow({
         styles.accountCard,
       ]}
     >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={athlete?.name || t('settings.account')}
+      <Row
         testID="settings-account-row"
-        style={pressable(styles.accountRow)}
+        behaviour="navigate"
+        accessibilityLabel={athlete?.name || t('settings.account')}
         onPress={() => tapTo('/account')}
-        android_ripple={pressRipple}
       >
         <View style={[styles.accountPhoto, isDark && styles.accountPhotoDark]}>
           {hasValidProfileUrl && !profileImageError ? (
@@ -106,12 +103,7 @@ function AccountRow({
             {badgeLabel}
           </Text>
         </View>
-        <MaterialCommunityIcons
-          name="chevron-right"
-          size={20}
-          color={isDark ? darkColors.textSecondary : colors.textSecondary}
-        />
-      </Pressable>
+      </Row>
     </View>
   );
 }
@@ -377,13 +369,6 @@ const styles = StyleSheet.create({
   accountCard: {
     marginTop: spacing.md,
     marginHorizontal: layout.screenPadding,
-  },
-  accountRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    gap: spacing.sm,
-    minHeight: layout.minTapTarget,
   },
   accountPhoto: {
     width: 36,

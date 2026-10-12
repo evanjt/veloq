@@ -61,7 +61,7 @@ describe('insight card captions', () => {
     );
 
     expect(card.subtitle).toBe(
-      'insights.caption.thisWeekAgainstLast:{"current":"450 TSS","previous":"340 TSS"}'
+      'insights.caption.thisWeekAgainstLast:{"current":"450","previous":"340"}'
     );
   });
 
@@ -104,7 +104,9 @@ describe('insight card captions', () => {
       t
     );
 
-    expect(cards[0]?.subtitle).toBe('insights.caption.fromTo:{"previous":"240W","current":"252W"}');
+    expect(cards[0]?.subtitle).toBe(
+      'insights.caption.fromTo:{"previous":"240 W","current":"252 W"}'
+    );
   });
 
   it('states the pace against the earlier one in the athlete unit', () => {

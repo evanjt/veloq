@@ -1,10 +1,10 @@
 import React from 'react';
 import { curveHeaderValue } from '@/features/fitness/lib/curveHeaderValue';
 import { View, StyleSheet } from 'react-native';
-import { Text, ActivityIndicator } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { CollapsibleSection } from '@/shared/ui';
+import { CollapsibleSection, Spinner } from '@/shared/ui';
 import { ZoneDistributionChart, FTPTrendChart, DecouplingChart } from '@/features/stats';
 import { type DecouplingSource } from '@/features/activity';
 import { useTheme } from '@/shared/app';
@@ -22,6 +22,7 @@ import { type TimeRange } from '@/features/wellness';
 import type { ZoneDistribution } from '@/types';
 import type { FtpTrendView } from '../../lib/ftpTrendView';
 import type { RangeCoverage } from 'veloqrs';
+import { ABSENT } from '@/shared/format/absent';
 
 interface FitnessTrendSectionsProps {
   sportMode: PrimarySport;
@@ -114,7 +115,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
           <View style={styles.collapsibleContent}>
             {loadingActivities && !hasActivities ? (
               <View style={styles.zoneLoadingContainer}>
-                <ActivityIndicator size="small" color={colors.primary} />
+                <Spinner />
               </View>
             ) : (
               <>
@@ -173,13 +174,14 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
             <View style={styles.collapsibleContent}>
               {loadingActivities && !hasActivities ? (
                 <View style={styles.zoneLoadingContainer}>
-                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Spinner />
                 </View>
               ) : (
                 <FTPTrendChart
                   data={eftpTrend?.series}
                   change={eftpTrend?.change}
                   changePercent={eftpTrend?.changePercent}
+                  lookbackDays={eftpTrend?.lookbackDays}
                   height={180}
                   coverage={eftpCoverage}
                 />
@@ -218,7 +220,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                   testID="fitness-threshold-empty"
                   style={[styles.thresholdEmpty, isDark && styles.thresholdLabelDark]}
                 >
-                  {t('statsScreen.notEnoughRuns')}
+                  {t('statsScreen.thresholdInputsMissing')}
                 </Text>
               ) : (
                 <View style={styles.thresholdRow}>
@@ -229,7 +231,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                     <Text style={[styles.thresholdValue, { color: sportText.Running }]}>
                       {thresholdPace
                         ? `${formatPaceCompact(thresholdPace, isMetric)}${paceUnitLabel(isMetric)}`
-                        : '-'}
+                        : ABSENT}
                     </Text>
                   </View>
                   {runLthr && (
@@ -273,7 +275,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
             <View style={styles.collapsibleContent}>
               {loadingActivities && !decouplingSource ? (
                 <View style={styles.zoneLoadingContainer}>
-                  <ActivityIndicator size="small" color={colors.primary} />
+                  <Spinner />
                 </View>
               ) : (
                 <DecouplingChart source={decouplingSource} height={120} coverage={periodCoverage} />

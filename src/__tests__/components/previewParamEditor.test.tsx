@@ -65,30 +65,30 @@ const params = {
   divergenceThreshold: 0.15,
 };
 
-function panel(overrides: Partial<typeof params> = {}) {
+async function panel(overrides: Partial<typeof params> = {}) {
   const onChange = jest.fn();
-  const view = renderWithSheet(
+  const view = await renderWithSheet(
     <PreviewParamPanel params={{ ...params, ...overrides }} onChange={onChange} />
   );
   return { ...view, onChange };
 }
 
 describe('typing a parameter', () => {
-  it('opens on the caption and starts from the value already set', () => {
-    const { getByTestId, queryByTestId } = panel();
+  it('opens on the caption and starts from the value already set', async () => {
+    const { getByTestId, queryByTestId } = await panel();
 
     expect(queryByTestId('param-editor')).toBeNull();
-    fireEvent.press(getByTestId('param-edit-maxSectionLength'));
+    void fireEvent.press(getByTestId('param-edit-maxSectionLength'));
 
     expect(getByTestId('param-editor-input').props.value).toBe('200');
   });
 
   it('takes a value past the slider, which is the reason it exists', async () => {
-    const { getByTestId, onChange } = panel();
+    const { getByTestId, onChange } = await panel();
 
-    fireEvent.press(getByTestId('param-edit-maxSectionLength'));
-    fireEvent.changeText(getByTestId('param-editor-input'), '500');
-    fireEvent.press(getByTestId('param-editor-save'));
+    void fireEvent.press(getByTestId('param-edit-maxSectionLength'));
+    await fireEvent.changeText(getByTestId('param-editor-input'), '500');
+    await fireEvent.press(getByTestId('param-editor-save'));
 
     await waitFor(() =>
       expect(onChange).toHaveBeenCalledWith({
@@ -98,40 +98,40 @@ describe('typing a parameter', () => {
     );
   });
 
-  it('says when the detector stops telling the value apart', () => {
-    const { getByTestId, queryByTestId } = panel();
+  it('says when the detector stops telling the value apart', async () => {
+    const { getByTestId, queryByTestId } = await panel();
 
-    fireEvent.press(getByTestId('param-edit-divergenceThreshold'));
+    void fireEvent.press(getByTestId('param-edit-divergenceThreshold'));
     expect(queryByTestId('param-editor-clamp-note')).toBeNull();
 
-    fireEvent.changeText(getByTestId('param-editor-input'), '0.8');
+    await fireEvent.changeText(getByTestId('param-editor-input'), '0.8');
     expect(getByTestId('param-editor-clamp-note')).toBeTruthy();
   });
 
-  it('refuses a value the detector could not be given, and changes nothing', () => {
-    const { getByTestId, onChange } = panel();
+  it('refuses a value the detector could not be given, and changes nothing', async () => {
+    const { getByTestId, onChange } = await panel();
 
-    fireEvent.press(getByTestId('param-edit-minSectionLength'));
-    fireEvent.changeText(getByTestId('param-editor-input'), 'wide');
-    fireEvent.press(getByTestId('param-editor-save'));
+    void fireEvent.press(getByTestId('param-edit-minSectionLength'));
+    await fireEvent.changeText(getByTestId('param-editor-input'), 'wide');
+    await fireEvent.press(getByTestId('param-editor-save'));
 
     expect(onChange).not.toHaveBeenCalled();
     expect(getByTestId('param-editor')).toBeTruthy();
   });
 
-  it('leaves the value alone when the edit is cancelled', () => {
-    const { getByTestId, queryByTestId, onChange } = panel();
+  it('leaves the value alone when the edit is cancelled', async () => {
+    const { getByTestId, queryByTestId, onChange } = await panel();
 
-    fireEvent.press(getByTestId('param-edit-minActivities'));
-    fireEvent.changeText(getByTestId('param-editor-input'), '7');
-    fireEvent.press(getByTestId('param-editor-cancel'));
+    void fireEvent.press(getByTestId('param-edit-minActivities'));
+    await fireEvent.changeText(getByTestId('param-editor-input'), '7');
+    await fireEvent.press(getByTestId('param-editor-cancel'));
 
     expect(onChange).not.toHaveBeenCalled();
     expect(queryByTestId('param-editor')).toBeNull();
   });
 
-  it('grows the slider to reach a value typed past its end', () => {
-    const { UNSAFE_getAllByType } = renderWithSheet(
+  it('grows the slider to reach a value typed past its end', async () => {
+    const { UNSAFE_getAllByType } = await renderWithSheet(
       <PreviewParamPanel params={{ ...params, maxSectionLength: 500000 }} onChange={jest.fn()} />
     );
     const Slider = require('@react-native-community/slider').default;
@@ -142,30 +142,30 @@ describe('typing a parameter', () => {
 });
 
 describe('the presets', () => {
-  it('set all five fields at once', () => {
-    const { getByTestId, onChange } = panel();
+  it('set all five fields at once', async () => {
+    const { getByTestId, onChange } = await panel();
 
-    fireEvent.press(getByTestId('preset-strict'));
+    await fireEvent.press(getByTestId('preset-strict'));
 
     expect(onChange).toHaveBeenCalledWith(DETECTION_PRESETS.strict);
   });
 
-  it('offer the way back to the configuration the detector is validated at', () => {
-    const { getByTestId, onChange } = panel({ minActivities: 9 });
+  it('offer the way back to the configuration the detector is validated at', async () => {
+    const { getByTestId, onChange } = await panel({ minActivities: 9 });
 
-    fireEvent.press(getByTestId('preset-default'));
+    await fireEvent.press(getByTestId('preset-default'));
 
     expect(onChange).toHaveBeenCalledWith(DETECTION_PRESETS.default);
   });
 });
 
 describe('a run in flight', () => {
-  it('closes the editor and the presets, not just the sliders', () => {
-    const { getByTestId, queryByTestId } = renderWithSheet(
+  it('closes the editor and the presets, not just the sliders', async () => {
+    const { getByTestId, queryByTestId } = await renderWithSheet(
       <PreviewParamPanel params={params} onChange={jest.fn()} disabled />
     );
 
-    fireEvent.press(getByTestId('param-edit-minActivities'));
+    void fireEvent.press(getByTestId('param-edit-minActivities'));
     expect(queryByTestId('param-editor')).toBeNull();
     expect(getByTestId('preset-strict').props.accessibilityState.disabled).toBe(true);
   });

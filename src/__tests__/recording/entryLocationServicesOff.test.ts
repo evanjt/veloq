@@ -76,7 +76,7 @@ describe('Android with the location switch off', () => {
   });
 
   it('names the switch at once and starts no watch', async () => {
-    const { result } = renderHook(() => useEntryLocation(true));
+    const { result } = await renderHook(() => useEntryLocation(true));
     await flush();
 
     expect(result.current.state).toBe('servicesOff');
@@ -84,7 +84,7 @@ describe('Android with the location switch off', () => {
   });
 
   it('still names the switch once the wait for a fix has run out', async () => {
-    const { result } = renderHook(() => useEntryLocation(true));
+    const { result } = await renderHook(() => useEntryLocation(true));
     await flush();
     await act(async () => {
       jest.advanceTimersByTime(GPS_READINESS_TIMEOUT_MS + 1);
@@ -94,7 +94,7 @@ describe('Android with the location switch off', () => {
   });
 
   it('turns the switch on from the app and starts the watch', async () => {
-    const { result } = renderHook(() => useEntryLocation(true));
+    const { result } = await renderHook(() => useEntryLocation(true));
     await flush();
 
     location.hasServicesEnabledAsync.mockResolvedValue(true);
@@ -110,7 +110,7 @@ describe('Android with the location switch off', () => {
 
   it('keeps naming the switch when the dialog is refused', async () => {
     location.enableNetworkProviderAsync.mockRejectedValue(new Error('refused'));
-    const { result } = renderHook(() => useEntryLocation(true));
+    const { result } = await renderHook(() => useEntryLocation(true));
     await flush();
 
     await act(async () => {
@@ -123,7 +123,7 @@ describe('Android with the location switch off', () => {
   });
 
   it('reads the switch again when the quick settings shade gives focus back', async () => {
-    const { result } = renderHook(() => useEntryLocation(true));
+    const { result } = await renderHook(() => useEntryLocation(true));
     await flush();
 
     location.hasServicesEnabledAsync.mockResolvedValue(true);
@@ -144,14 +144,14 @@ describe('iOS with Location Services off', () => {
   });
 
   it('names the switch rather than a denied permission', async () => {
-    const { result } = renderHook(() => useEntryLocation(true));
+    const { result } = await renderHook(() => useEntryLocation(true));
     await flush();
 
     expect(result.current.state).toBe('servicesOff');
   });
 
   it('never raises the dialog, which iOS does not have', async () => {
-    const { result } = renderHook(() => useEntryLocation(true));
+    const { result } = await renderHook(() => useEntryLocation(true));
     await flush();
 
     await act(async () => {
@@ -163,7 +163,7 @@ describe('iOS with Location Services off', () => {
   });
 
   it('reads the switch again on the way back from Settings', async () => {
-    const { result } = renderHook(() => useEntryLocation(true));
+    const { result } = await renderHook(() => useEntryLocation(true));
     await flush();
 
     location.hasServicesEnabledAsync.mockResolvedValue(true);
@@ -181,7 +181,7 @@ describe('the switch on', () => {
   });
 
   it('waits for a fix, then calls the signal weak once the wait runs out', async () => {
-    const { result } = renderHook(() => useEntryLocation(true));
+    const { result } = await renderHook(() => useEntryLocation(true));
     await flush();
     expect(result.current.state).toBe('checking');
 
@@ -193,7 +193,7 @@ describe('the switch on', () => {
 
   it('counts a switch that cannot be read as on', async () => {
     location.hasServicesEnabledAsync.mockRejectedValue(new Error('unavailable'));
-    const { result } = renderHook(() => useEntryLocation(true));
+    const { result } = await renderHook(() => useEntryLocation(true));
     await flush();
 
     expect(result.current.state).toBe('checking');
@@ -201,7 +201,7 @@ describe('the switch on', () => {
   });
 
   it('reads nothing for a sport that records no position', async () => {
-    renderHook(() => useEntryLocation(false));
+    await renderHook(() => useEntryLocation(false));
     await flush();
 
     expect(location.hasServicesEnabledAsync).not.toHaveBeenCalled();

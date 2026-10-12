@@ -54,8 +54,8 @@ const SOURCE = {
   track: { kind: 'geojson' as const, data: { type: 'FeatureCollection' as const, features: [] } },
 };
 
-function post(message: object): void {
-  act(() => onMessage?.({ nativeEvent: { data: JSON.stringify(message) } }));
+async function post(message: object): Promise<void> {
+  await act(() => onMessage?.({ nativeEvent: { data: JSON.stringify(message) } }));
 }
 
 function renderSurface(sources: typeof SOURCE | Record<string, never> = SOURCE) {
@@ -75,9 +75,9 @@ beforeEach(() => {
 });
 
 describe('MapSurface under memory pressure', () => {
-  it('tears the map down on release and sends nothing more until the rebuild', () => {
-    const view = renderSurface();
-    post({ type: 'mapReady' });
+  it('tears the map down on release and sends nothing more until the rebuild', async () => {
+    const view = await renderSurface();
+    await post({ type: 'mapReady' });
     const sentBefore = injected.length;
     expect(sentBefore).toBeGreaterThan(0);
 
@@ -85,7 +85,7 @@ describe('MapSurface under memory pressure', () => {
     expect(injected[injected.length - 1]).toContain('map.remove()');
 
     injected.length = 0;
-    view.rerender(
+    await view.rerender(
       <MapSurface
         mapStyle="light"
         initialCamera={{ center: [7.448, 46.949], zoom: 12 }}
@@ -98,34 +98,34 @@ describe('MapSurface under memory pressure', () => {
     expect(rebuildReleasedSurfaces()).toBe(1);
     expect(reload).toHaveBeenCalledTimes(1);
 
-    post({ type: 'mapReady' });
+    await post({ type: 'mapReady' });
     expect(injected.length).toBeGreaterThan(0);
-    view.unmount();
+    await view.unmount();
   });
 
-  it('holds no offscreen hardware layer, which redraws whole on every pan frame', () => {
-    const view = renderSurface();
+  it('holds no offscreen hardware layer, which redraws whole on every pan frame', async () => {
+    const view = await renderSurface();
     expect(androidLayerType).not.toBe('hardware');
-    view.unmount();
+    await view.unmount();
   });
 
-  it('is forgotten by the registry once unmounted', () => {
-    const view = renderSurface();
-    view.unmount();
+  it('is forgotten by the registry once unmounted', async () => {
+    const view = await renderSurface();
+    await view.unmount();
     expect(releaseMountedSurfaces()).toBe(0);
   });
 
-  it('reloads a page after it reports a native release on return', () => {
+  it('reloads a page after it reports a native release on return', async () => {
     Object.defineProperty(AppState, 'currentState', { configurable: true, value: 'active' });
-    const view = renderSurface();
-    post({ type: 'mapReady' });
+    const view = await renderSurface();
+    await post({ type: 'mapReady' });
     injected.length = 0;
 
-    post({ type: 'nativeMapReleased' });
+    await post({ type: 'nativeMapReleased' });
 
     expect(injected).toEqual([]);
     expect(reload).toHaveBeenCalledTimes(1);
     expect(rebuildReleasedSurfaces()).toBe(0);
-    view.unmount();
+    await view.unmount();
   });
 });

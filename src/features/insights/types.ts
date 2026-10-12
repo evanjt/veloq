@@ -31,6 +31,8 @@ export interface DataPoint {
   value: number | string;
   unit?: string | undefined;
   context?: 'good' | 'warning' | 'concern' | 'neutral' | undefined;
+  /** The day the value was read, epoch seconds at UTC midnight of that day. */
+  date?: number | undefined;
 }
 
 export interface InsightAlternative {
@@ -130,6 +132,8 @@ export type HistoryMark = { date: number } | { from: number; to: number };
 export interface HistorySeries {
   label: string;
   points: SeriesPoint[];
+  /** The symbol a value of the series is read in, printed after it; none prints it bare. */
+  unit?: string | undefined;
 }
 
 /**
@@ -263,7 +267,7 @@ export interface WeeklyTotal {
 export interface PeriodComparison {
   /** Which total both values are under. */
   metric: 'tss' | 'duration';
-  /** The later period's total, in TSS or in seconds. */
+  /** The later period's total, in training load or in seconds. */
   current: number;
   /** The earlier period's total, on the same metric. */
   previous: number;

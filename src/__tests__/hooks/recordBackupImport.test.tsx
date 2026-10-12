@@ -1,5 +1,5 @@
 import { act, renderHook } from '@testing-library/react-native';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { useImportDatabaseBackup } from '@/features/settings/hooks/useBackup';
@@ -64,13 +64,40 @@ it('explains an account mismatch when a legacy database cannot be converted', as
     athleteIdMismatch: true,
     error: 'Account mismatch',
   });
-  const { result } = renderHook(() => useImportDatabaseBackup());
+  const { result } = await renderHook(() => useImportDatabaseBackup());
 
   await act(async () => {
     await result.current.importDatabaseBackup();
   });
 
-  expect(Alert.alert).toHaveBeenCalledWith('common.error', 'backup.backupDifferentAccount');
+  expect(Alert.alert).toHaveBeenCalledWith(
+    'backup.notRestoredTitle',
+    'backup.backupDifferentAccount',
+    undefined,
+    expect.objectContaining({ cancelable: true })
+  );
+});
+
+it('titles a failed restore for what failed, and back on Android dismisses it', async () => {
+  const originalOs = Platform.OS;
+  Platform.OS = 'android';
+  try {
+    mockFileName = 'veloq-backup-2026-09-30.zip';
+    (restoreRecordBackup as jest.Mock).mockRejectedValue(new Error('corrupt'));
+    const { result } = renderHook(() => useImportDatabaseBackup());
+
+    await act(async () => {
+      await result.current.importDatabaseBackup();
+    });
+
+    const [title, message, , options] = jest.mocked(Alert.alert).mock.calls.at(-1) ?? [];
+    expect(title).not.toBe('common.error');
+    expect(title).toBe('backup.notRestoredTitle');
+    expect(message).toBe('corrupt');
+    expect(options?.cancelable).toBe(true);
+  } finally {
+    Platform.OS = originalOs;
+  }
 });
 
 afterEach(() => {
@@ -82,7 +109,7 @@ it('reports a legacy record restore and the records still waiting', async () => 
   mockRestore.mockResolvedValue({ unplacedCount: 2 } as unknown as Awaited<
     ReturnType<typeof restoreBackup>
   >);
-  const { result } = renderHook(() => useImportDatabaseBackup());
+  const { result } = await renderHook(() => useImportDatabaseBackup());
 
   const outcome: { current: Awaited<ReturnType<typeof result.current.importDatabaseBackup>> } = {
     current: null,
@@ -95,7 +122,12 @@ it('reports a legacy record restore and the records still waiting', async () => 
     encoding: FileSystem.EncodingType.UTF8,
   });
   expect(outcome.current?.success).toBe(true);
-  expect(Alert.alert).toHaveBeenCalledWith('backup.restoreComplete', 'backup.recordRestored');
+  expect(Alert.alert).toHaveBeenCalledWith(
+    'backup.restoreComplete',
+    'backup.recordRestored',
+    undefined,
+    expect.objectContaining({ cancelable: true })
+  );
 });
 
 describe("the picker's copy of an imported backup", () => {
@@ -133,7 +165,7 @@ describe("the picker's copy of an imported backup", () => {
 
   it.each(imports)('is deleted once %s is imported', async (_kind, arrange) => {
     arrange();
-    const { result } = renderHook(() => useImportDatabaseBackup());
+    const { result } = await renderHook(() => useImportDatabaseBackup());
 
     await act(async () => {
       await result.current.importDatabaseBackup();
@@ -148,7 +180,7 @@ describe("the picker's copy of an imported backup", () => {
     mockFileName = 'veloq-backup-2026-09-30.zip';
     mockPickedUri = (name: string) => `file:///docs/backups/${name}`;
     (restoreRecordBackup as jest.Mock).mockResolvedValue({ placed: 3, unplaced: 0 });
-    const { result } = renderHook(() => useImportDatabaseBackup());
+    const { result } = await renderHook(() => useImportDatabaseBackup());
 
     await act(async () => {
       await result.current.importDatabaseBackup();

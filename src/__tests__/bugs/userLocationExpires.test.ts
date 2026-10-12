@@ -11,7 +11,7 @@
  */
 
 import { act, renderHook, waitFor } from '@testing-library/react-native';
-import { AppState } from 'react-native';
+import { Alert, AppState, Linking, type AlertButton } from 'react-native';
 import * as Location from 'expo-location';
 
 import {
@@ -58,7 +58,7 @@ describe('fixIsStale', () => {
 
 it('asks again when the app foregrounds with a stale fix', async () => {
   (Location.getLastKnownPositionAsync as jest.Mock).mockResolvedValueOnce(fixAt(46.5, 6.6));
-  const { result } = renderHook(() => useUserLocation());
+  const { result } = await renderHook(() => useUserLocation());
   await waitFor(() => expect(result.current.location).toEqual({ lat: 46.5, lng: 6.6 }));
 
   const listener = (AppState.addEventListener as jest.Mock).mock.calls.at(-1)?.[1];
@@ -76,7 +76,7 @@ it('asks again when the app foregrounds with a stale fix', async () => {
 
 it('does not ask again when the fix is still fresh', async () => {
   (Location.getLastKnownPositionAsync as jest.Mock).mockResolvedValue(fixAt(46.5, 6.6));
-  const { result } = renderHook(() => useUserLocation());
+  const { result } = await renderHook(() => useUserLocation());
   await waitFor(() => expect(result.current.location).toEqual({ lat: 46.5, lng: 6.6 }));
   expect(Location.getLastKnownPositionAsync).toHaveBeenCalledTimes(1);
 
@@ -90,7 +90,7 @@ it('does not ask again when the fix is still fresh', async () => {
 
 it('stops loading when permission was never granted', async () => {
   (Location.getForegroundPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'denied' });
-  const { result } = renderHook(() => useUserLocation());
+  const { result } = await renderHook(() => useUserLocation());
 
   await waitFor(() => expect(result.current.isLoading).toBe(false));
   expect(result.current.location).toBeNull();
@@ -104,7 +104,7 @@ describe('OS last-known position', () => {
     );
     (Location.getCurrentPositionAsync as jest.Mock).mockResolvedValue(fixAt(47.4, 8.5));
 
-    const { result } = renderHook(() => useUserLocation());
+    const { result } = await renderHook(() => useUserLocation());
 
     await waitFor(() => expect(result.current.location).toEqual({ lat: 47.4, lng: 8.5 }));
     expect(Location.getLastKnownPositionAsync).toHaveBeenCalledWith(
@@ -117,7 +117,7 @@ describe('OS last-known position', () => {
     const recent = Date.now() - LOCATION_TTL_MS / 2;
     (Location.getLastKnownPositionAsync as jest.Mock).mockResolvedValue(fixAt(46.5, 6.6, recent));
 
-    const { result } = renderHook(() => useUserLocation());
+    const { result } = await renderHook(() => useUserLocation());
 
     await waitFor(() => expect(result.current.location).toEqual({ lat: 46.5, lng: 6.6 }));
     expect(Location.getCurrentPositionAsync).not.toHaveBeenCalled();
@@ -128,7 +128,7 @@ describe('OS last-known position', () => {
     (Location.getLastKnownPositionAsync as jest.Mock).mockResolvedValueOnce(
       fixAt(46.5, 6.6, takenAt)
     );
-    const { result } = renderHook(() => useUserLocation());
+    const { result } = await renderHook(() => useUserLocation());
     await waitFor(() => expect(result.current.location).toEqual({ lat: 46.5, lng: 6.6 }));
 
     const listener = (AppState.addEventListener as jest.Mock).mock.calls.at(-1)?.[1];
@@ -146,18 +146,49 @@ describe('OS last-known position', () => {
   it('applies the same rule when permission is requested', async () => {
     const yesterday = Date.now() - 24 * 60 * 60 * 1000;
     (Location.requestForegroundPermissionsAsync as jest.Mock).mockResolvedValue(granted);
-    (Location.getForegroundPermissionsAsync as jest.Mock).mockResolvedValue({ status: 'denied' });
+    (Location.getForegroundPermissionsAsync as jest.Mock).mockResolvedValue({
+      status: 'undetermined',
+      canAskAgain: true,
+    });
     (Location.getLastKnownPositionAsync as jest.Mock).mockResolvedValue(
       fixAt(46.5, 6.6, yesterday)
     );
     (Location.getCurrentPositionAsync as jest.Mock).mockResolvedValue(fixAt(47.4, 8.5));
 
-    const { result } = renderHook(() => useUserLocation());
+    const { result } = await renderHook(() => useUserLocation());
     let got: unknown;
     await act(async () => {
       got = await result.current.requestPermission();
     });
 
     expect(got).toEqual({ lat: 47.4, lng: 8.5 });
+  });
+});
+
+describe('location refused for good', () => {
+  beforeEach(() => {
+    (Location.getForegroundPermissionsAsync as jest.Mock).mockResolvedValue({
+      status: 'denied',
+      canAskAgain: false,
+    });
+  });
+
+  it('offers the settings page from the request rather than doing nothing', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const openSettings = jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
+    const { result } = await renderHook(() => useUserLocation());
+    let got: unknown;
+    await act(async () => {
+      got = await result.current.requestPermission();
+    });
+
+    expect(got).toBeNull();
+    expect(Location.requestForegroundPermissionsAsync).not.toHaveBeenCalled();
+    expect(alert).toHaveBeenCalledTimes(1);
+    const buttons = alert.mock.calls[0][2] as AlertButton[];
+    buttons.find((b) => b.style !== 'cancel')?.onPress?.();
+    expect(openSettings).toHaveBeenCalledTimes(1);
+    alert.mockRestore();
+    openSettings.mockRestore();
   });
 });

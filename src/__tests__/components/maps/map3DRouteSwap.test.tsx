@@ -68,8 +68,8 @@ function surface(coordinates: [number, number][], routeColor?: string, mapStyle 
   );
 }
 
-function ready() {
-  act(() => onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
+async function ready() {
+  await act(() => onMessage?.({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
 }
 
 const setRoutes = () => injected.filter((s) => s.includes('_veloq3d.setRoute('));
@@ -80,80 +80,80 @@ beforeEach(() => {
 });
 
 describe('selecting an activity in 3D', () => {
-  it('keeps the page and injects the route with its colour', () => {
-    const view = render(surface(NONE));
-    ready();
+  it('keeps the page and injects the route with its colour', async () => {
+    const view = await render(surface(NONE));
+    await ready();
     const before = html;
     injected.length = 0;
 
-    view.rerender(surface(TRACK_A, RIDE));
+    await view.rerender(surface(TRACK_A, RIDE));
 
     expect(html).toBe(before);
     const scripts = setRoutes();
     expect(scripts).toHaveLength(1);
     expect(scripts[0]).toContain(JSON.stringify(TRACK_A));
     expect(scripts[0]).toContain(RIDE);
-    view.unmount();
+    await view.unmount();
   });
 
-  it('recolours the line when the sport changes and the route does too', () => {
-    const view = render(surface(TRACK_A, RIDE));
-    ready();
+  it('recolours the line when the sport changes and the route does too', async () => {
+    const view = await render(surface(TRACK_A, RIDE));
+    await ready();
     injected.length = 0;
 
-    view.rerender(surface(TRACK_B, RUN));
+    await view.rerender(surface(TRACK_B, RUN));
 
     const scripts = setRoutes();
     expect(scripts).toHaveLength(1);
     expect(scripts[0]).toContain(RUN);
     expect(scripts[0]).not.toContain(RIDE);
-    view.unmount();
+    await view.unmount();
   });
 
-  it('draws a route that arrived before the page was ready once it is', () => {
-    const view = render(surface(NONE));
-    view.rerender(surface(TRACK_A, RIDE));
+  it('draws a route that arrived before the page was ready once it is', async () => {
+    const view = await render(surface(NONE));
+    await view.rerender(surface(TRACK_A, RIDE));
     expect(setRoutes()).toHaveLength(0);
 
-    ready();
+    await ready();
 
     const scripts = setRoutes();
     expect(scripts).toHaveLength(1);
     expect(scripts[0]).toContain(JSON.stringify(TRACK_A));
-    view.unmount();
+    await view.unmount();
   });
 
-  it('does not re-send a route the page was built with', () => {
-    const view = render(surface(TRACK_A, RIDE));
+  it('does not re-send a route the page was built with', async () => {
+    const view = await render(surface(TRACK_A, RIDE));
 
-    ready();
+    await ready();
 
     expect(setRoutes()).toHaveLength(0);
-    view.unmount();
+    await view.unmount();
   });
 
-  it('restores the latest route after the render process is lost', () => {
-    const view = render(surface(TRACK_A, RIDE));
-    ready();
-    view.rerender(surface(TRACK_B, RUN));
+  it('restores the latest route after the render process is lost', async () => {
+    const view = await render(surface(TRACK_A, RIDE));
+    await ready();
+    await view.rerender(surface(TRACK_B, RUN));
     injected.length = 0;
 
-    act(() => onCrash?.());
-    ready();
+    await act(() => onCrash?.());
+    await ready();
 
     const scripts = setRoutes();
     expect(scripts).toHaveLength(1);
     expect(scripts[0]).toContain(JSON.stringify(TRACK_B));
     expect(scripts[0]).toContain(RUN);
-    view.unmount();
+    await view.unmount();
   });
 
-  it('builds a rebuilt page with the current route and style', () => {
-    const view = render(surface(NONE, undefined, 'light'));
-    ready();
-    view.rerender(surface(TRACK_A, RIDE, 'satellite'));
+  it('builds a rebuilt page with the current route and style', async () => {
+    const view = await render(surface(NONE, undefined, 'light'));
+    await ready();
+    await view.rerender(surface(TRACK_A, RIDE, 'satellite'));
 
-    view.rerender(
+    await view.rerender(
       <Map3DWebView
         coordinates={TRACK_A}
         routeColor={RIDE}
@@ -163,6 +163,6 @@ describe('selecting an activity in 3D', () => {
     );
 
     expect(html).toContain(JSON.stringify(TRACK_A));
-    view.unmount();
+    await view.unmount();
   });
 });

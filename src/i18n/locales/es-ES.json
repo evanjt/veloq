@@ -7,7 +7,6 @@
     "veloqPrivacy": "Política de Privacidad de Veloq"
   },
   "activity": {
-    "maxHR": "Max: {{value}} lpm",
     "stats": {
       "bpmDrop": "{{value}} lpm de bajada",
       "decoupling": "Desacoplamiento",
@@ -53,8 +52,11 @@
       "busy": "Otra cosa estaba usando la base de datos. Vuelve a intentarlo en un momento.",
       "forwardSchema": "Estos datos se guardaron con una versión más nueva de Veloq. Actualiza la aplicación para abrirlos.",
       "storageUnavailable": "No se ha podido escribir la base de datos. Libera espacio e inténtalo de nuevo.",
-      "failed": "El motor de rutas se paró por un motivo que la aplicación no sabe nombrar.",
+      "failed": "No se ha podido abrir tu biblioteca de actividades por un motivo que la aplicación no sabe nombrar. Sigue en tu dispositivo, intacta.",
       "versionMismatch": "No se han podido abrir estos datos. Siguen en tu dispositivo: pide ayuda en el foro desde Ajustes."
+    },
+    "initAction": {
+      "update": "Actualizar la aplicación"
     }
   },
   "errorState": {
@@ -94,12 +96,11 @@
     "settingsAutoPauseWalkingAndOther": "Caminar y otros deportes"
   },
   "routes": {
-    "gpsTrackNotSynced": "Datos GPS no disponibles. Por favor, espera a que se complete la sincronización e inténtalo de nuevo.",
     "invalidSectionRange": "Rango de selección no válido. Por favor, intenta seleccionar una porción diferente.",
     "shareDetailsWithDeveloper": "Copiar detalles y compartir con el desarrollador si informas de un problema"
   },
   "settings": {
-    "primarySportHintCycling": "FTP se muestra en el encabezado. La página de rendimiento muestra Power Curve, zonas de potencia, tendencia eFTP y desacoplamiento.",
+    "primarySportHintCycling": "eFTP se muestra en el encabezado. La página de rendimiento muestra Power Curve, zonas de potencia, tendencia eFTP y desacoplamiento.",
     "primarySportHintRunning": "El ritmo umbral y LTHR se muestran en el encabezado. La página de rendimiento muestra Pace Curve, potencia de carrera y zonas de FC.",
     "primarySportHintSwimming": "CSS (Critical Swim Speed) se muestra en el encabezado. La página de rendimiento muestra Swim Pace Curve y zonas de FC.",
     "unitsAuto": "Auto",

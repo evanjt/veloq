@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text, Switch } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { ListSectionHeader } from '@/shared/ui/ListSectionHeader';
 import { settingsStyles } from './settingsStyles';
+import { SwitchRow } from '@/shared/ui/SwitchRow';
 
 export function DataSourcesSection() {
   const { isDark } = useTheme();
@@ -22,22 +23,13 @@ export function DataSourcesSection() {
       <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
         {isDemoMode && (
           <>
-            <View style={styles.toggleRow}>
-              <View style={styles.toggleInfo}>
-                <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>
-                  {t('settings.hideDemoBanner')}
-                </Text>
-                <Text style={[styles.toggleDescription, isDark && settingsStyles.textSecondary]}>
-                  {t('settings.hideDemoBannerHint')}
-                </Text>
-              </View>
-              <Switch
-                testID="hide-demo-banner-switch"
-                value={hideDemoBanner}
-                onValueChange={setHideDemoBanner}
-                color={colors.primary}
-              />
-            </View>
+            <SwitchRow
+              title={t('settings.hideDemoBanner')}
+              description={t('settings.hideDemoBannerHint')}
+              value={hideDemoBanner}
+              onValueChange={setHideDemoBanner}
+              testID="hide-demo-banner-switch"
+            />
             <View style={styles.dataSourcesContent}>
               <Text style={[styles.dataSourcesText, isDark && settingsStyles.textSecondary]}>
                 {t('attribution.demoData')}
@@ -102,26 +94,5 @@ const styles = StyleSheet.create({
   trademarkText: {
     ...typography.micro,
     color: colors.textSecondary,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-  },
-  toggleInfo: {
-    flex: 1,
-    marginRight: spacing.md,
-  },
-  toggleLabel: {
-    ...typography.body,
-    fontWeight: '500',
-    color: colors.textPrimary,
-  },
-  toggleDescription: {
-    ...typography.bodyCompact,
-    color: colors.textSecondary,
-    marginTop: spacing.xxs,
   },
 });

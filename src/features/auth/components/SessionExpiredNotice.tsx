@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
+import { StatusLine } from '@/shared/ui';
 import { colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
 import { formatClockOrDate } from '@/shared/format/format';
 import type { SessionExpiryNotice } from '@/features/auth/hooks';
@@ -21,27 +22,36 @@ export const SessionExpiredNotice = React.memo(function SessionExpiredNotice({
   const { reason, cachedAthleteId, heldRideStart } = notice;
 
   const iconColour = isDark ? darkColors.warningAmber : colors.warningAmber;
+  const title =
+    reason === 'key_rejected' ? t('login.sessionKeyRejected') : t('login.sessionSignedOut');
+  const kept = t('login.sessionDataKept');
+  const heldRide =
+    heldRideStart !== null
+      ? t('login.sessionHeldRide', { when: formatClockOrDate(heldRideStart) })
+      : null;
+  const restore = cachedAthleteId
+    ? t('login.sessionRestoreAthlete', { athleteId: cachedAthleteId })
+    : t('login.sessionRestore');
 
   return (
-    <View style={[styles.notice, isDark && styles.noticeDark]} testID="login-session-notice">
+    <StatusLine
+      tone="info"
+      message={heldRide ? [title, kept, heldRide, restore] : [title, kept, restore]}
+      style={[styles.notice, isDark && styles.noticeDark]}
+      testID="login-session-notice"
+    >
       <View style={styles.header}>
         <MaterialCommunityIcons name="account-clock-outline" size={20} color={iconColour} />
-        <Text style={[styles.title, isDark && styles.titleDark]}>
-          {reason === 'key_rejected' ? t('login.sessionKeyRejected') : t('login.sessionSignedOut')}
-        </Text>
+        <Text style={[styles.title, isDark && styles.titleDark]}>{title}</Text>
       </View>
-      <Text style={[styles.detail, isDark && styles.detailDark]}>{t('login.sessionDataKept')}</Text>
-      {heldRideStart !== null && (
+      <Text style={[styles.detail, isDark && styles.detailDark]}>{kept}</Text>
+      {heldRide !== null && (
         <Text style={[styles.detail, isDark && styles.detailDark]} testID="login-session-held-ride">
-          {t('login.sessionHeldRide', { when: formatClockOrDate(heldRideStart) })}
+          {heldRide}
         </Text>
       )}
-      <Text style={[styles.detail, isDark && styles.detailDark]}>
-        {cachedAthleteId
-          ? t('login.sessionRestoreAthlete', { athleteId: cachedAthleteId })
-          : t('login.sessionRestore')}
-      </Text>
-    </View>
+      <Text style={[styles.detail, isDark && styles.detailDark]}>{restore}</Text>
+    </StatusLine>
   );
 });
 

@@ -10,8 +10,7 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Switch, Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { useMetricSystem, useTheme } from '@/shared/app';
@@ -22,10 +21,9 @@ import { engineErrorTag } from '@/shared/native/engineError';
 import { useEngineReady } from '@/shared/native/useEngineReady';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import type { ExportPrivacyPreview } from 'veloqrs';
-import { colors, darkColors, spacing, typography } from '@/theme';
-import { settingsStyles } from './settingsStyles';
+import { spacing, typography, themedStyles, type Palette } from '@/theme';
 import { Button, ToggleButtonRow } from '@/shared/ui/Button';
-import { Row } from '@/shared/ui/Row';
+import { SwitchRow } from '@/shared/ui/SwitchRow';
 import { InfoButton } from './InfoButton';
 
 const HOME_LAT_KEY = '__export_home_lat';
@@ -63,6 +61,7 @@ export function endpointSharePercent(share: number): number {
 
 export function ExportPrivacyRow() {
   const { isDark } = useTheme();
+  const styles = themedStyles(makeStyles, isDark);
   const isMetric = useMetricSystem();
   const { t } = useTranslation();
 
@@ -155,62 +154,44 @@ export function ExportPrivacyRow() {
     setToggled(true);
   }, []);
 
-  const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const hint = [styles.hint, isDark && settingsStyles.textSecondary];
-  // A switch held off by a missing home looks like any switch that is off, so
-  // the whole title reads as inactive until there is a home to trim around.
-  const textDisabled = isDark ? darkColors.textDisabled : colors.textDisabled;
-
   return (
     <View style={styles.block} testID="export-privacy-row">
-      <Row>
-        <MaterialCommunityIcons
-          name="home-map-marker"
-          size={22}
-          color={confirmed ? textSecondary : textDisabled}
-        />
-        <View style={styles.titleBlock}>
-          <Text
-            testID="export-privacy-title"
-            style={[
-              settingsStyles.actionRowText,
-              isDark && settingsStyles.textLight,
-              !confirmed && { color: textDisabled },
-            ]}
-          >
-            {t('settings.exportPrivacyTitle', 'Leave home out of exports')}
-          </Text>
-          {!confirmed && (
-            <Text style={hint} testID="export-privacy-needs-home">
-              {mapHome
-                ? t(
-                    'settings.exportPrivacyNeedsHome',
-                    'Off until a home is set. Use the suggested place below, or tap the map.'
-                  )
-                : t('settings.exportPrivacyNeedsHomeNoSuggestion', 'Off until a home is set.')}
-            </Text>
-          )}
-        </View>
-        <InfoButton
-          testID="export-privacy-info"
-          title={t('settings.exportPrivacyTitle', 'Leave home out of exports')}
-          message={[
-            t('settings.exportPrivacyDescription', {
-              defaultValue:
-                'Trims the start and end of each track within {{radius}} of home. Only the exported copy is shortened.',
-              radius: formatElevation(mapRadius, isMetric),
-            }),
-            t('settings.exportPrivacyMoveHint', 'Tap the map to move home.'),
-          ].join('\n\n')}
-        />
-        <Switch
-          value={enabled}
-          onValueChange={handleToggle}
-          disabled={!confirmed}
-          color={colors.primary}
-          testID="export-privacy-switch"
-        />
-      </Row>
+      {/* A switch held off by a missing home looks like any switch that is off, so
+          the row reads as inactive until there is a home to trim around. */}
+      <SwitchRow
+        icon="home-map-marker"
+        title={t('settings.exportPrivacyTitle', 'Leave home out of exports')}
+        description={
+          confirmed
+            ? undefined
+            : mapHome
+              ? t(
+                  'settings.exportPrivacyNeedsHome',
+                  'Off until a home is set. Use the suggested place below, or tap the map.'
+                )
+              : t('settings.exportPrivacyNeedsHomeNoSuggestion', 'Off until a home is set.')
+        }
+        value={enabled}
+        onValueChange={handleToggle}
+        disabled={!confirmed}
+        accessory={
+          <InfoButton
+            testID="export-privacy-info"
+            title={t('settings.exportPrivacyTitle', 'Leave home out of exports')}
+            message={[
+              t('settings.exportPrivacyDescription', {
+                defaultValue:
+                  'Trims the start and end of each track within {{radius}} of home. Only the exported copy is shortened.',
+                radius: formatElevation(mapRadius, isMetric),
+              }),
+              t('settings.exportPrivacyMoveHint', 'Tap the map to move home.'),
+            ].join('\n\n')}
+          />
+        }
+        testID="export-privacy-switch"
+        titleTestID="export-privacy-title"
+        descriptionTestID="export-privacy-needs-home"
+      />
 
       {mapHome && (
         <View style={styles.indented}>
@@ -225,7 +206,7 @@ export function ExportPrivacyRow() {
 
       {!confirmed && suggestion && (
         <View style={[styles.indented, styles.suggestion]} testID="export-privacy-home">
-          <Text style={[hint, styles.suggestionText]}>
+          <Text style={[styles.hint, styles.suggestionText]}>
             {t('settings.exportPrivacySuggested', {
               defaultValue:
                 'Most of your rides start near one place, {{count}} of them. {{share}}% of all ride ends.',
@@ -244,7 +225,7 @@ export function ExportPrivacyRow() {
       )}
 
       {confirmed && preview && (
-        <Text style={[hint, styles.indented]} testID="export-privacy-count">
+        <Text style={[styles.hint, styles.indented]} testID="export-privacy-count">
           {enabled
             ? t('settings.exportPrivacyCount', {
                 defaultValue:
@@ -275,7 +256,7 @@ export function ExportPrivacyRow() {
       )}
 
       {!confirmed && !suggestion && (
-        <Text style={[hint, styles.indented]} testID="export-privacy-no-home">
+        <Text style={[styles.hint, styles.indented]} testID="export-privacy-no-home">
           {t(
             'settings.exportPrivacyNoSuggestion',
             'Not enough rides yet to work out where home is.'
@@ -286,11 +267,11 @@ export function ExportPrivacyRow() {
   );
 }
 
-const styles = StyleSheet.create({
-  block: { paddingBottom: spacing.sm, gap: spacing.sm },
-  hint: { ...typography.caption, color: colors.textSecondary },
-  indented: { paddingHorizontal: spacing.md },
-  titleBlock: { flex: 1 },
-  suggestion: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  suggestionText: { flex: 1 },
-});
+const makeStyles = (palette: Palette) =>
+  StyleSheet.create({
+    block: { paddingBottom: spacing.sm, gap: spacing.sm },
+    hint: { ...typography.caption, color: palette.textSecondary },
+    indented: { paddingHorizontal: spacing.md },
+    suggestion: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+    suggestionText: { flex: 1 },
+  });

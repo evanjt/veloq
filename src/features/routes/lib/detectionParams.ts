@@ -10,6 +10,7 @@
  * the panel can say so instead of pretending.
  */
 
+import { parseDecimalInput } from '@/shared/format/decimalInput';
 import { UNIFIED_CONFIG } from '@/shared/native/unifiedConfig.generated';
 import type { PreviewParams } from 'veloqrs';
 
@@ -105,8 +106,8 @@ export function isPastTestedRange(key: DetectionParamKey, value: number): boolea
  * and a divergence are all positive or they are nothing.
  */
 export function parseParamInput(key: DetectionParamKey, text: string): number | null {
-  const value = Number(text.trim().replace(',', '.'));
-  if (!Number.isFinite(value) || value <= 0) return null;
+  const value = parseDecimalInput(text);
+  if (value == null || value <= 0) return null;
   return DETECTION_PARAM_RANGES[key].integer ? Math.round(value) : value;
 }
 

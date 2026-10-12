@@ -31,21 +31,23 @@ const overlays: SectionOverlay[] = [
 
 const matchedRoute = track;
 
-function renderLayers() {
-  return renderHook(() =>
-    useMapLayers({
-      validCoordinates: track,
-      coordinates: track,
-      routeOverlay: matchedRoute,
-      sectionOverlays: overlays,
-      highlightIndex: null,
-      activeTab: 'charts',
-    })
+async function renderLayers() {
+  return (
+    await renderHook(() =>
+      useMapLayers({
+        validCoordinates: track,
+        coordinates: track,
+        routeOverlay: matchedRoute,
+        sectionOverlays: overlays,
+        highlightIndex: null,
+        activeTab: 'charts',
+      })
+    )
   ).result.current;
 }
 
-it('gives the fullscreen terrain layer the portions and matched route the inline one draws', () => {
-  const layers = renderLayers();
+it('gives the fullscreen terrain layer the portions and matched route the inline one draws', async () => {
+  const layers = await renderLayers();
 
   const inline = buildActivity3DCollections({
     portions: layers.consolidatedPortionsGeoJSON,
@@ -66,8 +68,8 @@ it('gives the fullscreen terrain layer the portions and matched route the inline
   expect(fullscreen.sectionBoundariesGeoJSON).toBeUndefined();
 });
 
-it('marks the fullscreen PR markers as PR, so the terrain page draws and taps them as trophies', () => {
-  const { fullscreenPRMarkersGeoJSON } = renderLayers();
+it('marks the fullscreen PR markers as PR, so the terrain page draws and taps them as trophies', async () => {
+  const { fullscreenPRMarkersGeoJSON } = await renderLayers();
 
   const markers = buildActivity3DCollections({
     portions: { type: 'FeatureCollection', features: [] },

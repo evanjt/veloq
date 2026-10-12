@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, View, StyleSheet, Linking, Pressable } from 'react-native';
-import { Text, Switch } from 'react-native-paper';
+import { View, StyleSheet, Linking, Pressable } from 'react-native';
+import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
@@ -10,9 +10,16 @@ import {
   requestNotificationPermission,
   hasNotificationPermission,
 } from '@/features/settings/lib/notificationService';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
-import { ListSectionHeader, pressable, pressRipple } from '@/shared/ui';
+import {
+  ListSectionHeader,
+  pressable,
+  pressRipple,
+  PermissionNotice,
+  SwitchRow,
+} from '@/shared/ui';
+import { confirmAction } from '@/shared/ui/dialog';
 
 /**
  * The kinds of push the athlete can turn off one at a time. Both flags shipped
@@ -33,6 +40,8 @@ export function NotificationSection() {
   const { enabled, privacyAccepted, categories, setEnabled, acceptPrivacy, setCategoryEnabled } =
     useNotificationPreferences();
   const [toggling, setToggling] = useState(false);
+  // Set when the system will no longer show its dialog, so the switch alone cannot turn on.
+  const [blocked, setBlocked] = useState(false);
 
   const canEnable = isOAuth && !isDemoMode;
 
@@ -46,29 +55,32 @@ export function NotificationSection() {
     }
   }, [enabled, setEnabled]);
 
-  const handlePrivacyAccept = useCallback(async () => {
-    acceptPrivacy();
+  const turnOnWithPermission = useCallback(async () => {
     setToggling(true);
-    const granted = await requestNotificationPermission();
-    if (granted) {
+    const outcome = await requestNotificationPermission();
+    if (outcome === 'granted') {
       setEnabled(true);
     }
+    setBlocked(outcome === 'blocked');
     setToggling(false);
-  }, [acceptPrivacy, setEnabled]);
+  }, [setEnabled]);
+
+  const handlePrivacyAccept = useCallback(async () => {
+    acceptPrivacy();
+    await turnOnWithPermission();
+  }, [acceptPrivacy, turnOnWithPermission]);
 
   // The notice that has to be read before a push token leaves the device: it
   // names what is stored on the server and who routes the notification.
   // Dismissing it, by the back gesture or a tap outside, is a decline.
   const showPrivacyNotice = useCallback(() => {
-    Alert.alert(
-      t('notifications.privacy.title'),
-      t('notifications.privacy.brief'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        { text: t('notifications.privacy.accept'), onPress: handlePrivacyAccept },
-      ],
-      { cancelable: true }
-    );
+    confirmAction({
+      title: t('notifications.privacy.title'),
+      message: t('notifications.privacy.brief'),
+      confirmLabel: t('notifications.privacy.accept'),
+      cancelLabel: t('common.cancel'),
+      onConfirm: handlePrivacyAccept,
+    });
   }, [t, handlePrivacyAccept]);
 
   const handleMainToggle = useCallback(
@@ -80,56 +92,51 @@ export function NotificationSection() {
           showPrivacyNotice();
           return;
         }
-        setToggling(true);
-        const granted = await requestNotificationPermission();
-        if (granted) {
-          setEnabled(true);
-        }
-        setToggling(false);
+        await turnOnWithPermission();
       } else {
         setEnabled(false);
       }
     },
-    [canEnable, privacyAccepted, setEnabled, showPrivacyNotice]
+    [canEnable, privacyAccepted, setEnabled, showPrivacyNotice, turnOnWithPermission]
   );
 
   return (
     <>
       <ListSectionHeader>{t('notifications.settings.title')}</ListSectionHeader>
       <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
-        <View style={styles.row}>
-          <MaterialCommunityIcons
-            name="bell-outline"
-            size={20}
-            color={isDark ? darkColors.textPrimary : colors.textPrimary}
-          />
-          <Text style={[styles.rowLabel, isDark && settingsStyles.textLight]} numberOfLines={1}>
-            {t('notifications.settings.enable')}
-          </Text>
-          <Switch
-            value={enabled}
-            onValueChange={handleMainToggle}
-            disabled={(!canEnable && !enabled) || toggling}
-            color={colors.primary}
-            testID="settings-notifications-toggle"
-          />
-        </View>
+        <SwitchRow
+          icon="bell-outline"
+          title={t('notifications.settings.enable')}
+          value={enabled}
+          onValueChange={handleMainToggle}
+          disabled={(!canEnable && !enabled) || toggling}
+          testID="settings-notifications-toggle"
+        />
 
-        {CATEGORIES.map((category) => (
-          <View key={category.id} style={[styles.row, styles.categoryRow]}>
-            <Text style={[styles.rowLabel, isDark && settingsStyles.textLight]} numberOfLines={1}>
-              {t(category.label)}
-            </Text>
-            <Switch
-              value={categories[category.id]}
-              onValueChange={(next) => setCategoryEnabled(category.id, next)}
-              // A switch that can be moved while notifications are off promises
-              // a push that will not arrive.
-              disabled={!enabled || !canEnable || toggling}
-              color={colors.primary}
-              testID={`settings-notifications-${category.id}`}
+        {blocked && !enabled && (
+          <View style={styles.notice}>
+            <PermissionNotice
+              testID="settings-notifications-blocked"
+              outcome="blocked"
+              icon="bell-off-outline"
+              reason={t('permissionNotice.notificationsOff')}
+              onAllow={turnOnWithPermission}
             />
           </View>
+        )}
+
+        {CATEGORIES.map((category) => (
+          <SwitchRow
+            key={category.id}
+            inset="nested"
+            title={t(category.label)}
+            value={categories[category.id]}
+            onValueChange={(next) => setCategoryEnabled(category.id, next)}
+            // A switch that can be moved while notifications are off promises
+            // a push that will not arrive.
+            disabled={!enabled || !canEnable || toggling}
+            testID={`settings-notifications-${category.id}`}
+          />
         ))}
 
         {!canEnable ? (
@@ -163,22 +170,9 @@ export function NotificationSection() {
 }
 
 const styles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  notice: {
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-  },
-  categoryRow: {
-    // Indented under the switch that governs them.
-    paddingLeft: spacing.xl,
-    paddingVertical: spacing.xs,
-  },
-  rowLabel: {
-    ...typography.body,
-    flex: 1,
-    color: colors.textPrimary,
+    paddingBottom: spacing.sm,
   },
   privacyRow: {
     flexDirection: 'row',
@@ -186,6 +180,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
+    minHeight: layout.minTapTarget,
   },
   privacyText: {
     ...typography.label,

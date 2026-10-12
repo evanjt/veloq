@@ -19,7 +19,7 @@ import {
 import { InsightDetailContent } from './content/InsightDetailContent';
 import { MethodologySection } from './MethodologySection';
 import type { Insight } from '@/types';
-import { pressable, pressRipple, SheetScrollView } from '@/shared/ui';
+import { pressable, pressRipple, SheetHeader, SheetScrollView } from '@/shared/ui';
 
 interface InsightDetailSheetProps {
   insight: Insight;
@@ -60,38 +60,17 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
       bounces={false}
       nestedScrollEnabled={true}
     >
-      {/* Compact header row */}
-      <View style={styles.headerRow}>
-        <View style={[styles.iconCircle, { backgroundColor: colorWithOpacity(toneColor, 0.12) }]}>
-          <MaterialCommunityIcons name={insight.icon as never} size={16} color={toneColor} />
-        </View>
-        <Text
-          testID="insight-detail-title"
-          style={[styles.title, isDark && styles.titleDark]}
-          numberOfLines={2}
-        >
-          {insight.title}
-        </Text>
-        <Pressable
-          style={pressable(styles.closeButton)}
-          android_ripple={pressRipple}
-          onPress={handleClose}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel={t('common.close')}
-        >
-          <MaterialCommunityIcons
-            name="close"
-            size={20}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-        </Pressable>
-      </View>
-
-      {/* Subtitle */}
-      {insight.subtitle ? (
-        <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>{insight.subtitle}</Text>
-      ) : null}
+      <SheetHeader
+        title={insight.title}
+        subtitle={insight.subtitle}
+        onClose={handleClose}
+        titleTestID="insight-detail-title"
+        leading={
+          <View style={[styles.iconCircle, { backgroundColor: colorWithOpacity(toneColor, 0.12) }]}>
+            <MaterialCommunityIcons name={insight.icon as never} size={16} color={toneColor} />
+          </View>
+        }
+      />
 
       {/* Body text */}
       {insight.body ? (
@@ -136,14 +115,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingBottom: spacing.xxl,
   },
-  // Compact header
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
-    gap: spacing.sm,
-  },
   iconCircle: {
     width: 28,
     height: 28,
@@ -151,32 +122,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: {
-    ...typography.cardTitle,
-    flex: 1,
-    color: colors.textPrimary,
-  },
-  titleDark: {
-    color: darkColors.textPrimary,
-  },
-  closeButton: {
-    padding: spacing.xs,
-  },
   // Text
-  subtitle: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textSecondary,
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.xs,
-  },
-  subtitleDark: {
-    color: darkColors.textSecondary,
-  },
   body: {
     fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
     lineHeight: 20,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: layout.screenPadding,
     marginBottom: spacing.sm,
   },
   bodyDark: {
@@ -184,19 +135,19 @@ const styles = StyleSheet.create({
   },
   // Content
   contentSection: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: layout.screenPadding,
     marginTop: spacing.xs,
   },
   // Methodology
   methodologySection: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: layout.screenPadding,
   },
   // Navigation
   navLink: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginHorizontal: spacing.lg,
+    marginHorizontal: layout.screenPadding,
     marginTop: spacing.sm,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,

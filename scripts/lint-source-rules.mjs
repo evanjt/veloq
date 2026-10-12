@@ -60,6 +60,58 @@ function propertyName(property) {
   return null;
 }
 
+const COLOUR_PROPERTY = /^(?:color|backgroundColor|border\w*Color)$/;
+
+/**
+ * Every `<colour property>: colors.<token>` in a file, for a token in `tokens`,
+ * that nothing pairs with the dark value. A site is paired when the
+ * file reads `darkColors.<token>`, or when it sits in a style `K` and the same
+ * object holds a `KDark` that sets the same property, which is how a dark
+ * theme swaps one role for another.
+ */
+function lightOnlySites(text, tokens) {
+  const sf = ts.createSourceFile('x.tsx', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const sites = [];
+  const visit = (node) => {
+    if (
+      ts.isPropertyAssignment(node) &&
+      COLOUR_PROPERTY.test(propertyName(node) ?? '') &&
+      ts.isPropertyAccessExpression(node.initializer) &&
+      ts.isIdentifier(node.initializer.expression) &&
+      node.initializer.expression.text === 'colors' &&
+      tokens.includes(node.initializer.name.text)
+    ) {
+      const token = node.initializer.name.text;
+      if (!new RegExp(`darkColors\\.${token}\\b`).test(text) && !hasDarkSibling(node)) {
+        sites.push({ token, line: sf.getLineAndCharacterOfPosition(node.getStart()).line + 1 });
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return sites;
+}
+
+/** Whether the style holding `property` has a `<name>Dark` sibling setting it too. */
+function hasDarkSibling(property) {
+  const style = property.parent;
+  const entry = style?.parent;
+  if (!ts.isObjectLiteralExpression(style) || !entry || !ts.isPropertyAssignment(entry)) {
+    return false;
+  }
+  const name = propertyName(entry);
+  const sheet = entry.parent;
+  if (!name || !ts.isObjectLiteralExpression(sheet)) return false;
+  const dark = sheet.properties.find(
+    (p) => ts.isPropertyAssignment(p) && propertyName(p) === `${name}Dark`
+  );
+  return (
+    !!dark &&
+    ts.isObjectLiteralExpression(dark.initializer) &&
+    dark.initializer.properties.some((p) => propertyName(p) === propertyName(property))
+  );
+}
+
 /**
  * The regions of a file where `color:` means text: every
  * `StyleSheet.create({...})` body, and every line carrying a `style=` prop,
@@ -84,6 +136,36 @@ function styleRegions(source) {
   return regions;
 }
 
+/**
+ * Every way a file reads a fill series member as a `color:` value: indexing
+ * the series there, a local holding a member, or a function returning one.
+ * Each entry is the pattern for the style value and the series it reaches.
+ */
+function fillSeriesReads(source) {
+  const reads = [];
+  const series = FILL_SERIES.join('|');
+  for (const name of FILL_SERIES) {
+    reads.push([new RegExp(`(?<![A-Za-z])color:\\s*${name}\\[`), name]);
+  }
+  const holders = [
+    new RegExp(`(?:const|let)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*(${series})\\[`, 'g'),
+    new RegExp(
+      `function\\s+([A-Za-z_$][\\w$]*)\\s*\\([^)]*\\)[^{]*\\{[^}]*?return\\s+(${series})\\[`,
+      'g'
+    ),
+    new RegExp(
+      `(?:const|let)\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*\\([^)]*\\)[^=]*=>\\s*(${series})\\[`,
+      'g'
+    ),
+  ];
+  for (const holder of holders) {
+    for (const [, local, name] of source.matchAll(holder)) {
+      reads.push([new RegExp(`(?<![A-Za-z])color:\\s*${local.replace(/\$/g, '\\$')}\\b`), name]);
+    }
+  }
+  return reads;
+}
+
 /** Whether a TSX file renders `<ScreenScrollView>`, or a list spreading `screenListInsets`. */
 function rendersInsetScroll(text) {
   const sf = ts.createSourceFile('x.tsx', text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -92,7 +174,7 @@ function rendersInsetScroll(text) {
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
       const tag = node.tagName.getText(sf);
       if (tag === 'ScreenScrollView') found = true;
-      if (tag === 'FlatList' || tag === 'SectionList') {
+      if (tag === 'FlatList' || tag === 'SectionList' || tag === 'ScrollView') {
         found ||= node.attributes.properties.some(
           (a) =>
             ts.isJsxSpreadAttribute(a) &&
@@ -198,7 +280,7 @@ const COVERAGE_HOOKS = [
 
 const PICKER_OPENINGS = {
   'src/features/fitness/hooks/useFitnessWindow.ts': 'DEFAULT_PERIOD',
-  'src/app/(tabs)/training.tsx': 'DEFAULT_PERIOD',
+  'src/app/(tabs)/training/index.tsx': 'DEFAULT_PERIOD',
   'src/features/routes/hooks/useSectionUIState.ts': 'DEFAULT_PERIOD',
   'src/features/insights/components/StrengthTab.tsx': 'DEFAULT_PERIOD',
   'src/app/(tabs)/map.tsx': 'DEFAULT_MAP_PERIOD',
@@ -220,12 +302,27 @@ const LAYER_SCRIPTS = [
 const GROUND_TEXT_BASELINE = [];
 
 /**
- * Text tokens whose light value is read through the static `colors` object and
- * whose dark value differs, so a style that names only the light one is wrong
- * in the dark theme. The body tokens are left out: the theme hook hands those
- * out already resolved for the active theme.
+ * The colour series in `colors.ts` read by index. They are drawn as map lines,
+ * ramps and thumbs, so a member is held to being told apart from its
+ * neighbours and not to any text bar.
  */
-const DARK_COUNTERPART_TOKENS = ['linkTeal'];
+const FILL_SERIES = ['sectionPalette', 'routePalette', 'rpeRamp', 'strengthRamp'];
+
+/**
+ * Tokens whose light value is read through the static `colors` object and whose
+ * dark value differs, so a style that names only the light one is wrong in the
+ * dark theme, whether it colours text, fills a view or outlines one.
+ */
+const DARK_COUNTERPART_TOKENS = [
+  'linkTeal',
+  'textSecondary',
+  'errorDeep',
+  'error',
+  'amberIcon',
+  'background',
+  'border',
+  'divider',
+];
 
 /**
  * Dimmed text that is allowed to be, by file and style key, with the reason:
@@ -235,13 +332,6 @@ const DARK_COUNTERPART_TOKENS = ['linkTeal'];
  * measurement of something that has since changed.
  */
 const DIMMED_TEXT_MEASURED = {
-  'src/app/(tabs)/map.tsx': {
-    chipTextDark:
-      'white at 0.8 on the dark chip wash, 6.93:1 over surfaceCard and higher elsewhere',
-  },
-  'src/shared/app/DemoBanner.tsx': {
-    subtext: 'dark ink at 0.85 on brand.blue, 4.78:1',
-  },
   'src/shared/ui/OfflineBanner.tsx': {
     subtitleText: 'pill ink at 0.8 on the pill fill, 4.90:1',
   },
@@ -256,6 +346,100 @@ const DIMMED_TEXT_MEASURED = {
  * stopped writing fails the rule rather than going quiet.
  */
 const METRICS_WRITE_BASELINE = [];
+
+const DISABLED_INK = /\b(?:colors|darkColors)\.(?:textDisabled|divider|border)\b/;
+const NAMES_DISABLED = /disabled/i;
+
+/**
+ * The expression a node sets as the colour of text or an icon: a JSX `color`
+ * prop, or a `color` field inside a `StyleSheet.create` body or a `style` prop.
+ */
+function inkValue(node) {
+  if (ts.isJsxAttribute(node) && node.name.getText() === 'color') {
+    const init = node.initializer;
+    return init && ts.isJsxExpression(init) ? init.expression : undefined;
+  }
+  if (!ts.isPropertyAssignment(node) || propertyName(node) !== 'color') return undefined;
+  for (let at = node.parent; at; at = at.parent) {
+    if (ts.isJsxAttribute(at)) return at.name.getText() === 'style' ? node.initializer : undefined;
+    if (
+      ts.isCallExpression(at) &&
+      at.expression.getText().replace(/\s/g, '') === 'StyleSheet.create'
+    ) {
+      return node.initializer;
+    }
+  }
+  return undefined;
+}
+
+/** Every `colors.<token>` or `darkColors.<token>` read of a disabled-grade ink in `value`. */
+function disabledInkReads(value) {
+  const reads = [];
+  const visit = (node) => {
+    if (ts.isPropertyAccessExpression(node) && DISABLED_INK.test(node.getText())) {
+      reads.push(node);
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(value);
+  return reads;
+}
+
+/**
+ * Whether a condition holds when something is disabled: true when it names a
+ * disabled state, false when it negates one, undefined when it names none.
+ */
+function disabledPolarity(condition) {
+  let negated = false;
+  let at = condition;
+  while (ts.isParenthesizedExpression(at) || ts.isPrefixUnaryExpression(at)) {
+    if (ts.isPrefixUnaryExpression(at)) {
+      if (at.operator !== ts.SyntaxKind.ExclamationToken) break;
+      negated = !negated;
+      at = at.operand;
+    } else at = at.expression;
+  }
+  if (!NAMES_DISABLED.test(at.getText())) return undefined;
+  return !negated;
+}
+
+/**
+ * Whether a read sits on the side of a branch taken for a disabled state, or in
+ * a style whose key names one. Walks from the read up to the node that sets it.
+ */
+function guardedByDisabled(read, setter) {
+  let child = read;
+  for (let at = read.parent; at; child = at, at = at.parent) {
+    if (ts.isConditionalExpression(at) && child !== at.condition) {
+      const when = disabledPolarity(at.condition);
+      if (when !== undefined && child === (when ? at.whenTrue : at.whenFalse)) return true;
+    }
+    if (
+      ts.isBinaryExpression(at) &&
+      at.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken &&
+      child === at.right &&
+      disabledPolarity(at.left) === true
+    ) {
+      return true;
+    }
+    if (ts.isPropertyAssignment(at) && at !== setter && NAMES_DISABLED.test(propertyName(at) ?? ''))
+      return true;
+    if (ts.isJsxAttribute(at) || ts.isCallExpression(at)) return false;
+  }
+  return false;
+}
+
+/**
+ * Files that draw a back-pointing glyph for something other than leaving the
+ * screen, by the one glyph each may draw. Any other back glyph there still fails.
+ */
+const NOT_BACK_GLYPHS = {
+  // Steps a trim handle one point earlier.
+  'src/features/routes/components/SectionTrimOverlay.tsx': 'chevron-left',
+  // A labelled pill that returns to the feature tour, not down the stack.
+  'src/features/settings/components/whatsNew/TourReturnPill.tsx': 'arrow-left',
+};
 
 const REFERENCE_LOCALE = 'src/i18n/locales/en-GB.json';
 
@@ -345,12 +529,10 @@ const RULES = {
       const adjacentLabels = new Set([
         'units.bpm',
         'units.watts',
-        'units.kcal',
         'units.ms',
         'units.seconds',
         'units.metres',
         'units.times',
-        'stats.tss',
         'metrics.fatigue',
         'sections.avg',
         'sections.best',
@@ -386,6 +568,54 @@ const RULES = {
       return out;
     },
     fix: 'draw an ActivityIndicator for a wait; keep a static glyph for a settled state',
+  },
+
+  // A wait has one look per platform: react-native's ActivityIndicator, which is
+  // the system indicator on iOS and the Material circle on Android. Paper's is a
+  // drawn Material arc, so on iOS it is a second spinner beside the system one.
+  'paper-spinner': {
+    pathspec: ['src'],
+    check(sources) {
+      const out = [];
+      for (const [file, text] of sources) {
+        if (!/\.tsx?$/.test(file) || TESTS.test(file)) continue;
+        const kind = file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+        const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, kind);
+        const at = (node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
+        for (const statement of sf.statements) {
+          if (
+            !ts.isImportDeclaration(statement) ||
+            statement.moduleSpecifier.text !== 'react-native-paper'
+          ) {
+            continue;
+          }
+          const bindings = statement.importClause?.namedBindings;
+          if (!bindings) continue;
+          if (ts.isNamedImports(bindings)) {
+            for (const spec of bindings.elements) {
+              if ((spec.propertyName ?? spec.name).text === 'ActivityIndicator')
+                out.push(`${file}:${at(spec)}  imports ActivityIndicator from react-native-paper`);
+            }
+          } else if (ts.isNamespaceImport(bindings)) {
+            const namespace = bindings.name.text;
+            const visit = (node) => {
+              if (
+                ts.isPropertyAccessExpression(node) &&
+                ts.isIdentifier(node.expression) &&
+                node.expression.text === namespace &&
+                node.name.text === 'ActivityIndicator'
+              ) {
+                out.push(`${file}:${at(node)}  draws ${namespace}.ActivityIndicator`);
+              }
+              ts.forEachChild(node, visit);
+            };
+            visit(sf);
+          }
+        }
+      }
+      return out;
+    },
+    fix: "draw the Spinner from '@/shared/ui', which is the platform's own indicator",
   },
 
   // The coverage hooks key their read on the reader the body calls. A
@@ -464,9 +694,12 @@ const RULES = {
       for (const [file, text] of sources) {
         if (!/\.tsx?$/.test(file)) continue;
         out.push(...linesMatching(file, text, /\bbackButton\b/));
-        if (file.startsWith('src/app/')) {
-          out.push(...linesMatching(file, text, /(?:icon|name)=["']arrow-left["']/));
-        }
+        text.split('\n').forEach((line, i) => {
+          const glyph = line.match(/(?:icon|name)=\{?["'](arrow-left|chevron-left|arrow-back)["']/);
+          if (glyph && NOT_BACK_GLYPHS[file] !== glyph[1]) {
+            out.push(`${file}:${i + 1}  ${line.trim()}`);
+          }
+        });
       }
 
       const headers = objectLiteral(
@@ -478,8 +711,8 @@ const RULES = {
           'src/shared/app/screenHeaders.ts  has no SCREEN_HEADERS object for this rule to read'
         );
       }
-      // The tab screens and the login screen take no header and draw their
-      // own title row, so the ban on a hand-rolled one does not reach them.
+      // The login screen and the map tab take no header, so the ban on a
+      // hand-rolled title row does not reach them.
       const headered = (headers?.properties ?? [])
         .filter(
           (p) => ts.isPropertyAssignment(p) && p.initializer.kind !== ts.SyntaxKind.NullKeyword
@@ -499,6 +732,39 @@ const RULES = {
         );
       }
 
+      // A headered tab root is a stack of one screen, so its header is the
+      // platform's: the tab needs its own stack layout and draws no title row.
+      const tabHeaders = objectLiteral(
+        sources.get('src/shared/app/screenHeaders.ts') ?? '',
+        'TAB_HEADERS'
+      );
+      if (!tabHeaders && sources.has('src/shared/app/screenHeaders.ts')) {
+        out.push(
+          'src/shared/app/screenHeaders.ts  has no TAB_HEADERS object for this rule to read'
+        );
+      }
+      const headeredTabs = (tabHeaders?.properties ?? [])
+        .filter(
+          (p) => ts.isPropertyAssignment(p) && p.initializer.kind !== ts.SyntaxKind.NullKeyword
+        )
+        .map(propertyName)
+        .filter(Boolean);
+      for (const tab of headeredTabs) {
+        const layoutFile = `src/app/(tabs)/${tab}/_layout.tsx`;
+        if (!sources.has(layoutFile)) {
+          out.push(`${layoutFile}  is missing, so the ${tab} tab has no native header`);
+        }
+        const file = `src/app/(tabs)/${tab}/index.tsx`;
+        if (!sources.has(file)) continue;
+        out.push(
+          ...linesMatching(
+            file,
+            sources.get(file),
+            /style=\{(?:\[)?(?:styles|shared)\.(?:header|headerTitle|screenTitle)\b/
+          )
+        );
+      }
+
       const layout = sources.get('src/app/_layout.tsx') ?? '';
       const screenOptions = layout.slice(layout.indexOf('<Stack'), layout.indexOf('<Stack.Screen'));
       if (/headerShown:\s*false/.test(screenOptions)) {
@@ -506,7 +772,7 @@ const RULES = {
       }
 
       const shared = sources.get('src/styles/shared.ts') ?? '';
-      for (const key of ['header:', 'headerTitle:', 'backButton:']) {
+      for (const key of ['header:', 'headerTitle:', 'backButton:', 'screenTitle:']) {
         if (shared.includes(key)) out.push(`src/styles/shared.ts  carries the copied ${key} style`);
       }
       return out;
@@ -515,8 +781,8 @@ const RULES = {
   },
 
   // A collapsing large title only works when the screen's scroll view lets the system inset its
-  // content. `ScreenScrollView` sets that on iOS and `screenListInsets` carries it onto a list, so a
-  // route that takes a large title renders one of them. The tags are read from the syntax tree, so
+  // content. `ScreenScrollView` sets that on iOS and `screenListInsets` carries it onto a list or a
+  // scroll view of another kind, so a route or tab root that takes a large title renders one of them. The tags are read from the syntax tree, so
   // a mention in a comment or a string does not count. A route that only re-exports a feature's
   // screen is judged by the file that defines that screen.
   'large-title-scroll': {
@@ -531,18 +797,22 @@ const RULES = {
         }
         return out;
       }
-      const flagged = headers.properties
-        .filter((p) => ts.isPropertyAssignment(p) && ts.isObjectLiteralExpression(p.initializer))
-        .filter((p) =>
-          p.initializer.properties.some(
-            (q) =>
-              ts.isPropertyAssignment(q) &&
-              propertyName(q) === 'largeTitle' &&
-              q.initializer.kind === ts.SyntaxKind.TrueKeyword
+      const largeTitled = (table) =>
+        (table?.properties ?? [])
+          .filter((p) => ts.isPropertyAssignment(p) && ts.isObjectLiteralExpression(p.initializer))
+          .filter((p) =>
+            p.initializer.properties.some(
+              (q) =>
+                ts.isPropertyAssignment(q) &&
+                propertyName(q) === 'largeTitle' &&
+                q.initializer.kind === ts.SyntaxKind.TrueKeyword
+            )
           )
-        )
-        .map(propertyName)
-        .filter(Boolean);
+          .map(propertyName)
+          .filter(Boolean);
+      // A tab root's screen sits in its tab's directory, under the stack that gives it the header.
+      const tabs = objectLiteral(sources.get(headersFile) ?? '', 'TAB_HEADERS');
+      const flagged = [...largeTitled(headers), ...largeTitled(tabs).map((tab) => `(tabs)/${tab}`)];
       for (const route of flagged) {
         const file = [`src/app/${route}.tsx`, `src/app/${route}/index.tsx`].find((f) =>
           sources.has(f)
@@ -554,13 +824,13 @@ const RULES = {
         const screen = rendersInsetScroll(sources.get(file)) ? file : screenFile(sources, file);
         if (!screen || !rendersInsetScroll(sources.get(screen))) {
           out.push(
-            `${file}  is a large-title route and renders neither ScreenScrollView nor a list spreading screenListInsets`
+            `${file}  is a large-title route and renders neither ScreenScrollView nor a list or scroll view spreading screenListInsets`
           );
         }
       }
       return out;
     },
-    fix: 'render ScreenScrollView from @/shared/ui, or spread screenListInsets onto the FlatList',
+    fix: 'render ScreenScrollView from @/shared/ui, or spread screenListInsets onto the FlatList or ScrollView',
   },
 
   // A label with no `text-font` takes the style spec's default stack, which the
@@ -591,19 +861,35 @@ const RULES = {
 
   // A ground or a mark is not a text token because it answers to a lower bar
   // than text does. `color:` is the text property, so one there is a hue that
-  // is held to less than 4.5:1 and drawn as a word.
+  // is held to less than 4.5:1 and drawn as a word. Every arm of a conditional
+  // is read, since a selected row drawn in a fill is as wrong as an idle one.
+  // The brand hues resolve in neither theme and are classified in their own
+  // table, and the sport and category palettes are fills in every entry.
   // It reads the token by name, so a site that reaches a hue through a local,
   // a prop or a function is invisible to it: that decision belongs in a
-  // function a test can take, the way `sectionSizeTone.ts` holds one.
+  // function a test can take, the way `sectionSizeTone.ts` holds one. The fill
+  // series are the exception, followed through a local or a function in the
+  // same file, because they are read by an index computed beside the style.
   'ground-token-text': {
     pathspec: ['src'],
     check(sources) {
-      const families = objectLiteral(
-        sources.get('src/theme/tokenFamilies.ts') ?? '',
-        'TOKEN_FAMILIES'
-      );
-      if (!families)
-        return ['src/theme/tokenFamilies.ts  has no TOKEN_FAMILIES object for this rule to read'];
+      const table = sources.get('src/theme/tokenFamilies.ts') ?? '';
+      const families = objectLiteral(table, 'TOKEN_FAMILIES');
+      const brandFamilies = objectLiteral(table, 'BRAND_FAMILIES');
+      if (!families || !brandFamilies)
+        return [
+          'src/theme/tokenFamilies.ts  has no TOKEN_FAMILIES and BRAND_FAMILIES objects for this rule to read',
+        ];
+      const textKeys = (literal) =>
+        literal.properties
+          .filter(
+            (p) =>
+              ts.isPropertyAssignment(p) &&
+              ts.isStringLiteralLike(p.initializer) &&
+              p.initializer.text === 'text'
+          )
+          .map(propertyName)
+          .filter(Boolean);
       const grounds = families.properties
         .filter(
           (p) =>
@@ -615,6 +901,9 @@ const RULES = {
         .filter(Boolean);
       if (grounds.length === 0)
         return ['src/theme/tokenFamilies.ts  names no ground or mark token'];
+      // A brand key the table does not name is refused with the rest, so a new
+      // hue has to be classified before it can be drawn as a word.
+      const brandText = textKeys(brandFamilies);
 
       const offenders = [];
       for (const [file, text] of sources) {
@@ -622,16 +911,26 @@ const RULES = {
         if (/(?<![A-Za-z])color:\s*metric\.color\s*\}/.test(text)) {
           offenders.push({ file, token: 'metric.color' });
         }
+        const seriesReads = fillSeriesReads(text);
         for (const region of styleRegions(text)) {
-          for (const [, holder, token] of region.matchAll(
-            /(?<![A-Za-z])color:\s*(colors|darkColors|chartColors|SPORT_COLORS)\.([A-Za-z0-9_]+)/g
-          )) {
-            const ground =
-              holder === 'SPORT_COLORS' ||
-              (holder === 'chartColors' &&
-                grounds.includes(`chart${token[0].toUpperCase()}${token.slice(1)}`)) ||
-              ((holder === 'colors' || holder === 'darkColors') && grounds.includes(token));
-            if (ground) offenders.push({ file, token: `${holder}.${token}` });
+          for (const [pattern, series] of seriesReads) {
+            if (pattern.test(region)) offenders.push({ file, token: `${series}[]` });
+          }
+          for (const [, value] of region.matchAll(/(?<![A-Za-z])color:([^,}\n]*)/g)) {
+            for (const [, holder, token] of value.matchAll(
+              /(?<![A-Za-z.])(colors|darkColors|chartColors|SPORT_COLORS|brand)\.([A-Za-z0-9_]+)/g
+            )) {
+              const ground =
+                holder === 'SPORT_COLORS' ||
+                (holder === 'brand' && !brandText.includes(token)) ||
+                (holder === 'chartColors' &&
+                  grounds.includes(`chart${token[0].toUpperCase()}${token.slice(1)}`)) ||
+                ((holder === 'colors' || holder === 'darkColors') && grounds.includes(token));
+              if (ground) offenders.push({ file, token: `${holder}.${token}` });
+            }
+            if (/(?<![A-Za-z.])ACTIVITY_CATEGORIES\b[^?:]*?\??\.color\b/.test(value)) {
+              offenders.push({ file, token: 'ACTIVITY_CATEGORIES[…].color' });
+            }
           }
         }
       }
@@ -649,12 +948,13 @@ const RULES = {
     fix: 'colour the text with a text-family token, the deep tone of the hue',
   },
 
-  // `colors` holds the light value and `darkColors` the dark one. A text token
-  // that the dark theme redefines, read as `colors.<token>` in a file that
-  // switches on `isDark` and never reads `darkColors.<token>`, draws the light
-  // value in both themes. The family check measures each theme on its own
-  // value, so that mix is never measured.
-  'dark-text-counterpart': {
+  // `colors` holds the light value and `darkColors` the dark one. A token the
+  // dark theme redefines, read as `colors.<token>` in a file that switches on
+  // `isDark`, draws the light value in both themes unless the file reads
+  // `darkColors.<token>` or the style has a `<name>Dark` sibling setting the same
+  // property. The family check measures each theme on its own value, so that mix
+  // is never measured.
+  'dark-counterpart': {
     pathspec: ['src'],
     check(sources) {
       const families = objectLiteral(
@@ -676,17 +976,12 @@ const RULES = {
         );
       const lightValues = initialisers(light);
       const darkValues = initialisers(dark);
-      const textTokens = families.properties
-        .filter(
-          (p) =>
-            ts.isPropertyAssignment(p) &&
-            ts.isStringLiteralLike(p.initializer) &&
-            p.initializer.text === 'text'
-        )
-        .map(propertyName);
+      const classified = new Set(
+        families.properties.filter((p) => ts.isPropertyAssignment(p)).map(propertyName)
+      );
       const tokens = DARK_COUNTERPART_TOKENS.filter(
         (token) =>
-          textTokens.includes(token) &&
+          classified.has(token) &&
           darkValues.has(token) &&
           darkValues.get(token) !== lightValues.get(token)
       );
@@ -695,19 +990,13 @@ const RULES = {
       for (const [file, text] of sources) {
         if (!/\.tsx?$/.test(file) || TESTS.test(file) || file.startsWith('src/theme/')) continue;
         if (!/\bisDark\b/.test(text)) continue;
-        for (const token of tokens) {
-          const read = new RegExp(`(?<![A-Za-z.])color:\\s*colors\\.${token}\\b`);
-          const dim = new RegExp(`darkColors\\.${token}\\b`);
-          if (read.test(text) && !dim.test(text)) {
-            out.push(
-              `${file}  colours text with colors.${token} and never reads darkColors.${token}`
-            );
-          }
+        for (const site of lightOnlySites(text, tokens)) {
+          out.push(`${file}:${site.line}  draws colors.${site.token} with no dark counterpart`);
         }
       }
       return out;
     },
-    fix: 'read `isDark ? darkColors.<token> : colors.<token>`, or a dark style that sets the dark token',
+    fix: 'build the style from the theme palette, `themedStyles(make, isDark)`, or read `isDark ? darkColors.<token> : colors.<token>`',
   },
 
   // A text token clears 4.5:1 at full strength, and the token test measures it
@@ -774,6 +1063,40 @@ const RULES = {
     fix: 'draw the text in a full-strength text token, textSecondary for the quieter line, or measure it on its ground and list it in DIMMED_TEXT_MEASURED',
   },
 
+  // `textDisabled` is exempt from the text contrast bar only because it marks
+  // an inactive control, and `divider` and `border` are lines, not ink. Drawn
+  // as the colour of text or an icon anywhere else they put live content under
+  // the bar. A use is in bounds inside a branch whose condition names a
+  // disabled state, or in a style whose key does.
+  // It reads the token by name, so a site that reaches one through a local or
+  // a theme field is invisible to it.
+  'disabled-ink-content': {
+    pathspec: ['src'],
+    check(sources) {
+      const out = [];
+      for (const [file, text] of sources) {
+        if (!/\.tsx?$/.test(file) || TESTS.test(file) || file.startsWith('src/theme/')) continue;
+        if (!DISABLED_INK.test(text)) continue;
+        const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+        const visit = (node) => {
+          const value = inkValue(node);
+          if (value) {
+            for (const token of disabledInkReads(value)) {
+              if (!guardedByDisabled(token, node)) {
+                const { line } = sf.getLineAndCharacterOfPosition(token.getStart(sf));
+                out.push(`${file}:${line + 1}  colours content with ${token.getText(sf)}`);
+              }
+            }
+          }
+          ts.forEachChild(node, visit);
+        };
+        visit(sf);
+      }
+      return out;
+    },
+    fix: 'draw live content in textSecondary, and keep textDisabled for a branch on a disabled state',
+  },
+
   // The engine derives every `activity_metrics` row from the body it stores,
   // with one precedence per value. A row built in TypeScript beside it carries
   // a rule of its own and replaces the engine's, which is how push ingest
@@ -837,6 +1160,34 @@ const RULES = {
       return out;
     },
     fix: 'leave the screen with goBack or tapBack from @/shared/app/navigation',
+  },
+
+  // A form field is drawn by the shared TextField, which carries the visible
+  // label as the accessible name, the 3:1 edge, the error line and the themed
+  // keyboard. An input drawn anywhere else gets none of them, so the value
+  // import of TextInput from either library is held to the field and to the
+  // search bar, which is its own control.
+  'one-text-field': {
+    pathspec: ['src'],
+    check(sources) {
+      const OWNERS = ['src/shared/ui/TextField.tsx', 'src/shared/ui/SearchBar.tsx'];
+      const gone = OWNERS.filter((owner) => !sources.has(owner));
+      if (gone.length > 0) return gone.map((owner) => `${owner}  is gone: it owns a text input`);
+      const IMPORT = /import\s*(type\s+)?\{([^}]*)\}\s*from\s*'react-native(?:-paper)?'/g;
+      const out = [];
+      for (const [file, text] of sources) {
+        if (OWNERS.includes(file) || !/\.tsx?$/.test(file) || TESTS.test(file)) continue;
+        for (const match of text.matchAll(IMPORT)) {
+          if (match[1]) continue;
+          const names = match[2].split(',').map((name) => name.trim());
+          if (!names.some((name) => /^TextInput(\s+as\s+\w+)?$/.test(name))) continue;
+          const line = text.slice(0, match.index).split('\n').length;
+          out.push(`${file}:${line}  imports TextInput`);
+        }
+      }
+      return out;
+    },
+    fix: 'draw the field with TextField from @/shared/ui, which names it by its label',
   },
 
   // `src/shared/` is the layer every feature imports, so a cycle inside it is a
@@ -937,16 +1288,61 @@ const RULES = {
 
   // A banner that appears on its own is spoken by a screen reader: Android
   // through a live region on its outer view, iOS through an announcement when
-  // it mounts. Each listed file declares both.
+  // it mounts. Each listed banner declares both, or draws the shared
+  // NoticeBanner, which is listed and declares both for it. A result, error or
+  // fallback that appears in place does the same through `StatusLine`, which
+  // carries both, so each listed file renders one, and so does every error
+  // boundary under src/shared/ui, including one added later.
   'banner-live-region': {
     pathspec: ['src'],
     check(sources) {
       const out = [];
+      const statusOwner = 'src/shared/ui/StatusLine.tsx';
+      const statusFiles = [
+        'src/app/login.tsx',
+        'src/app/detection-settings.tsx',
+        'src/app/recording/review.tsx',
+        'src/features/auth/components/SessionExpiredNotice.tsx',
+        'src/features/settings/components/BackupSection.tsx',
+        'src/features/settings/components/WebdavConfigForm.tsx',
+        'src/features/settings/components/RecordingPermissionSection.tsx',
+        'src/shared/ui/EmptyState.tsx',
+        'src/shared/ui/ErrorState.tsx',
+        'src/shared/ui/BodyNotDownloaded.tsx',
+      ];
+      const owner = sources.get(statusOwner);
+      if (owner === undefined) out.push(`${statusOwner}  is gone, and every status line with it`);
+      else if (
+        !owner.includes('accessibilityLiveRegion=') ||
+        !owner.includes('useAnnounceOnAppear(')
+      )
+        out.push(`${statusOwner}  no longer carries both a live region and an announcement`);
+      const boundaries = [...sources.keys()].filter((file) =>
+        /^src\/shared\/ui\/[A-Za-z]+ErrorBoundary\.tsx$/.test(file)
+      );
+      if (boundaries.length === 0) out.push('found no error boundary under src/shared/ui');
+      for (const file of [...statusFiles, ...boundaries]) {
+        const text = sources.get(file);
+        if (text === undefined) {
+          out.push(`${file}  is gone: remove it from this list`);
+          continue;
+        }
+        if (!text.includes('<StatusLine')) out.push(`${file}  shows a status outside a StatusLine`);
+      }
       const bannerFiles = [
+        'src/shared/ui/NoticeBanner.tsx',
         'src/shared/ui/OfflineBanner.tsx',
         'src/features/recording/components/SaveErrorBanner.tsx',
         'src/shared/ui/SyncProgressStrip.tsx',
         'src/features/maps/components/timeline/SyncProgressBanner.tsx',
+        'src/shared/ui/SyncErrorBanner.tsx',
+        'src/shared/ui/StartupErrorBanner.tsx',
+        'src/shared/ui/TrackFetchNotice.tsx',
+        'src/shared/app/EngineInitBanner.tsx',
+        'src/shared/app/DemoBanner.tsx',
+        'src/features/maps/components/TerrainUnavailableNotice.tsx',
+        'src/features/recording/components/StatusSlot.tsx',
+        'src/features/recording/components/TimerHeader.tsx',
       ];
       for (const file of bannerFiles) {
         const text = sources.get(file);
@@ -954,13 +1350,14 @@ const RULES = {
           out.push(`${file}  is fixed: remove it from this list`);
           continue;
         }
+        if (file !== 'src/shared/ui/NoticeBanner.tsx' && text.includes('<NoticeBanner')) continue;
         if (!text.includes('accessibilityLiveRegion='))
           out.push(`${file}  has no accessibilityLiveRegion`);
         if (!text.includes('useAnnounceOnAppear(')) out.push(`${file}  never announces on iOS`);
       }
       return out;
     },
-    fix: 'give the banner view an accessibilityLiveRegion and call useAnnounceOnAppear with its text',
+    fix: 'draw the banner with NoticeBanner, or give its view an accessibilityLiveRegion and call useAnnounceOnAppear with its text; draw a result, error or fallback inside a StatusLine',
   },
 
   // A chip whose look depends on a selected or active flag also says so to a

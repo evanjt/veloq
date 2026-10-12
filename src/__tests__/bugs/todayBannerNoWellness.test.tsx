@@ -38,8 +38,8 @@ jest.mock('@/features/wellness', () => ({
 }));
 
 describe('TodayBanner without a form reading', () => {
-  it('draws the planned workout and no readiness row', () => {
-    const { queryByText, getByText } = render(<TodayBanner form={null} />);
+  it('draws the planned workout and no readiness row', async () => {
+    const { queryByText, getByText } = await render(<TodayBanner form={null} />);
 
     expect(getByText(/Tempo intervals/)).toBeTruthy();
     expect(queryByText(/TSB/)).toBeNull();

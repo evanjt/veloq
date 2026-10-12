@@ -46,6 +46,9 @@ pub enum RunOutcome {
     Paused,
     /// The athlete stopped it.
     Stopped,
+    /// intervals.icu refused it, or the request budget deferred it, and the
+    /// engine resumes it when that lifts. Owed, not failed.
+    Deferred,
 }
 
 impl RunOutcome {
@@ -56,6 +59,7 @@ impl RunOutcome {
             Self::Failed => "failed",
             Self::Paused => "paused",
             Self::Stopped => "stopped",
+            Self::Deferred => "deferred",
         }
     }
 }

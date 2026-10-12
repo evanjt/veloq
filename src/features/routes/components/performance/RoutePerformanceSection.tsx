@@ -19,7 +19,7 @@ import { colors, darkColors, mapLayerColors, spacing, layout, typography } from 
 import type { ActivityType, PerformanceDataPoint } from '@/types';
 import { SectionScatterChart, ScatterLegend } from '@/features/routes/components/section';
 import { formatRouteStanding } from '@/features/routes/lib/routeStanding';
-import { EngineReadFailure } from '@/shared/ui/EngineReadFailure';
+import { ErrorState } from '@/shared/ui/ErrorState';
 
 interface RoutePerformanceSectionProps {
   activityId: string;
@@ -48,6 +48,7 @@ export function RoutePerformanceSection({
     percentileRank,
     trendCurves,
     error,
+    retry,
   } = useRoutePerformances(activityId);
 
   const activityColor = getActivityColor(activityType);
@@ -95,7 +96,14 @@ export function RoutePerformanceSection({
   }, [routeGroup]);
 
   if (error !== undefined) {
-    return <EngineReadFailure error={error} testID="route-performance-failure" />;
+    return (
+      <ErrorState
+        variant="inline"
+        error={error}
+        onRetry={retry}
+        testID="route-performance-failure"
+      />
+    );
   }
 
   if (!routeGroup) {

@@ -9,8 +9,7 @@ import { useSectionDetail } from '@/shared/native/useSectionDetail';
 import { cardSportType } from '@/features/insights/lib/cardSport';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { Shimmer } from '@/shared/ui/Shimmer';
-import { EngineReadFailure } from '@/shared/ui/EngineReadFailure';
-import { EngineReadFailureRetry } from '@/shared/ui/EngineReadFailureRetry';
+import { ErrorState } from '@/shared/ui/ErrorState';
 import { SectionInsightMap } from './SectionInsightMap';
 import { SectionPerformanceTimeline } from './SectionPerformanceTimeline';
 import { RecentEffortsList } from './RecentEffortsList';
@@ -18,8 +17,6 @@ import { formatDuration, formatShortDate } from '@/shared/format/format';
 import { colors, darkColors, spacing, opacity, brand, layout, typography } from '@/theme';
 import { prRecordOf } from '@/features/insights/lib/directionBests';
 import type { Insight } from '@/types';
-
-const ACCENT_COLOR = brand.gold;
 
 interface SectionPRContentProps {
   insight: Insight;
@@ -32,7 +29,7 @@ export const SectionPRContent = React.memo(function SectionPRContent({
   const { t } = useTranslation();
   const prData = insight.supportingData?.sections?.[0];
   const sectionId = prData?.sectionId ?? null;
-  const { section, error: sectionError } = useSectionDetail(sectionId);
+  const { section, error: sectionError, retry: retrySection } = useSectionDetail(sectionId);
   // The timeline and effort list show the sport the record was set in.
   const {
     records,
@@ -62,12 +59,17 @@ export const SectionPRContent = React.memo(function SectionPRContent({
   return (
     <View style={styles.container}>
       {sectionError !== undefined ? (
-        <EngineReadFailure error={sectionError} testID="section-read-failure" />
+        <ErrorState
+          variant="inline"
+          error={sectionError}
+          onRetry={retrySection}
+          testID="section-read-failure"
+        />
       ) : null}
 
       {/* Section map */}
       {section?.polyline && section.polyline.length >= 2 ? (
-        <SectionInsightMap polyline={section.polyline} lineColor={ACCENT_COLOR} />
+        <SectionInsightMap polyline={section.polyline} lineColor={brand.gold} />
       ) : null}
 
       {/* PR celebration card */}
@@ -95,13 +97,13 @@ export const SectionPRContent = React.memo(function SectionPRContent({
 
           {/* PR time with trophy */}
           <View style={styles.prRow}>
-            <MaterialCommunityIcons name="trophy-outline" size={24} color={ACCENT_COLOR} />
-            <Text style={styles.prTime}>{bestTimeFormatted}</Text>
+            <MaterialCommunityIcons name="trophy-outline" size={24} color={brand.gold} />
+            <Text style={[styles.prTime, isDark && styles.prTextDark]}>{bestTimeFormatted}</Text>
           </View>
 
           {/* Delta from previous best */}
           {deltaFormatted ? (
-            <Text style={styles.deltaText}>
+            <Text style={[styles.deltaText, isDark && styles.prTextDark]}>
               {t('insights.sectionPrSheet.fromPrevious', { delta: deltaFormatted })}
             </Text>
           ) : null}
@@ -138,7 +140,8 @@ export const SectionPRContent = React.memo(function SectionPRContent({
 
       {/* Performance timeline chart */}
       {streamsError ? (
-        <EngineReadFailureRetry
+        <ErrorState
+          variant="inline"
           error={streamsError}
           onRetry={refetchStreams}
           testID="section-stream-failure"
@@ -148,7 +151,7 @@ export const SectionPRContent = React.memo(function SectionPRContent({
           <Shimmer width="100%" height={160} borderRadius={8} />
         </View>
       ) : records.length >= 2 ? (
-        <SectionPerformanceTimeline records={records} bests={bests} lineColor={ACCENT_COLOR} />
+        <SectionPerformanceTimeline records={records} bests={bests} lineColor={brand.gold} />
       ) : null}
 
       {/* Recent efforts list */}
@@ -197,14 +200,17 @@ const styles = StyleSheet.create({
   prTime: {
     fontSize: typography.headlineNumber.fontSize,
     fontWeight: '700',
-    color: ACCENT_COLOR,
+    color: colors.chartGoldText,
     fontVariant: ['tabular-nums'],
   },
   deltaText: {
     fontSize: typography.body.fontSize,
     fontWeight: '600',
-    color: ACCENT_COLOR,
+    color: colors.chartGoldText,
     fontVariant: ['tabular-nums'],
+  },
+  prTextDark: {
+    color: darkColors.chartGoldText,
   },
   previousText: {
     fontSize: typography.bodyCompact.fontSize,

@@ -47,19 +47,19 @@ afterEach(() => {
 
 describe('the streams hook reads the body once', () => {
   it('costs nothing on a re-render', async () => {
-    const { result, rerender } = renderHook(() => useActivityStreams('a1'), {
+    const { result, rerender } = await renderHook(() => useActivityStreams('a1'), {
       wrapper,
     });
     await waitFor(() => expect(result.current.data?.time).toEqual(new Float64Array([0, 1, 2])));
 
     const afterFirstPaint = engine.getActivityStreams.mock.calls.length;
-    for (let frame = 0; frame < 20; frame++) rerender(undefined);
+    for (let frame = 0; frame < 20; frame++) await rerender(undefined);
 
     expect(engine.getActivityStreams.mock.calls.length).toBe(afterFirstPaint);
   });
 
   it('reads the body once for the first paint, not twice', async () => {
-    const { result } = renderHook(() => useActivityStreams('a1'), { wrapper });
+    const { result } = await renderHook(() => useActivityStreams('a1'), { wrapper });
     await waitFor(() => expect(result.current.data?.time).toEqual(new Float64Array([0, 1, 2])));
 
     expect(engine.getActivityStreams).toHaveBeenCalledTimes(1);
@@ -69,18 +69,18 @@ describe('the streams hook reads the body once', () => {
   it('asks the engine for a body it does not hold, once', async () => {
     engine.getActivityStreams.mockReturnValue(null);
 
-    const { rerender } = renderHook(() => useActivityStreams('a2'), {
+    const { rerender } = await renderHook(() => useActivityStreams('a2'), {
       wrapper,
     });
     await waitFor(() => expect(engine.syncActivityStreams).toHaveBeenCalled());
-    for (let frame = 0; frame < 5; frame++) rerender(undefined);
+    for (let frame = 0; frame < 5; frame++) await rerender(undefined);
 
     expect(engine.syncActivityStreams).toHaveBeenCalledTimes(1);
   });
 
   /** An empty id is a screen with nothing open, and reads nothing at all. */
   it('reads nothing without an id', async () => {
-    renderHook(() => useActivityStreams(''), { wrapper });
+    await renderHook(() => useActivityStreams(''), { wrapper });
 
     expect(engine.getActivityStreams).not.toHaveBeenCalled();
     expect(engine.syncActivityStreams).not.toHaveBeenCalled();
@@ -91,15 +91,15 @@ describe('stream download state', () => {
   it('keeps waiting after SQLite finishes, retries a timeout, and observes the stored body', async () => {
     jest.useFakeTimers();
     engine.getActivityStreams.mockReturnValue(null);
-    const { result } = renderHook(() => useActivityStreams('pending'), {
+    const { result } = await renderHook(() => useActivityStreams('pending'), {
       wrapper,
     });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.bodyStatus).toBe('waiting');
     expect(result.current.isDownloaded).toBe(false);
-    act(() => jest.advanceTimersByTime(15_000));
+    await act(() => jest.advanceTimersByTime(15_000));
     expect(result.current.bodyStatus).toBe('timedOut');
-    act(() => result.current.retryBody());
+    await act(() => result.current.retryBody());
     expect(result.current.bodyStatus).toBe('waiting');
     expect(engine.syncActivityStreams).toHaveBeenCalledTimes(2);
     engine.getActivityStreams.mockReturnValue(streamBuffers({ time: [0, 1] }));
@@ -114,7 +114,7 @@ describe('stream download state', () => {
 
   it('recognises a fetched empty body', async () => {
     engine.getActivityStreams.mockReturnValue(streamBuffers());
-    const { result } = renderHook(() => useActivityStreams('empty'), {
+    const { result } = await renderHook(() => useActivityStreams('empty'), {
       wrapper,
     });
     await waitFor(() => expect(result.current.isLoading).toBe(false));

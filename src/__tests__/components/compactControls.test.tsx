@@ -77,12 +77,14 @@ describe('compact controls', () => {
     await initialiseI18n('en-AU');
   });
 
-  it('draws Button at its rung and reaches the minimum through slop, at either size', () => {
+  it('draws Button at its rung and reaches the minimum through slop, at either size', async () => {
     for (const [size, rung] of [
       ['sm', controlHeight.buttonSm],
       ['md', controlHeight.button],
     ] as const) {
-      render(<Button label="Save" size={size} onPress={() => {}} testID={`button-${size}`} />);
+      await render(
+        <Button label="Save" size={size} onPress={() => {}} testID={`button-${size}`} />
+      );
       const node = screen.getByTestId(`button-${size}`);
 
       expect(drawnHeight(node)).toBe(rung);
@@ -91,16 +93,16 @@ describe('compact controls', () => {
     }
   });
 
-  it('draws ToggleButton as a chip and reaches the minimum through slop', () => {
-    render(<ToggleButton label="Distance" onPress={() => {}} testID="toggle" />);
+  it('draws ToggleButton as a chip and reaches the minimum through slop', async () => {
+    await render(<ToggleButton label="Distance" onPress={() => {}} testID="toggle" />);
     const node = screen.getByTestId('toggle');
 
     expect(drawnHeight(node)).toBe(controlHeight.chip);
     expect(reachHeight(node)).toBeGreaterThanOrEqual(layout.minTapTarget);
   });
 
-  it('draws IconButton in the button square and reaches the minimum on both axes', () => {
-    render(
+  it('draws IconButton in the button square and reaches the minimum on both axes', async () => {
+    await render(
       <IconButton accessibilityLabel="Refresh" onPress={() => {}} testID="icon">
         <Text>r</Text>
       </IconButton>
@@ -113,8 +115,8 @@ describe('compact controls', () => {
     expect(reachWidth(node)).toBeGreaterThanOrEqual(layout.minTapTarget);
   });
 
-  it('draws each ChipSelector option as a chip that reaches the minimum', () => {
-    render(
+  it('draws each ChipSelector option as a chip that reaches the minimum', async () => {
+    await render(
       <ChipSelector
         options={[
           { value: 'a', label: 'Alpha' },
@@ -133,8 +135,8 @@ describe('compact controls', () => {
     }
   });
 
-  it('draws the feed range preset as the same chip as the sport chips beside it', () => {
-    render(
+  it('draws the feed range preset as the same chip as the sport chips beside it', async () => {
+    await render(
       <FeedFilterChips
         selected={new Set()}
         onSelect={jest.fn()}
@@ -152,8 +154,8 @@ describe('compact controls', () => {
     }
   });
 
-  it('draws the section page chip and the feed chip as one selector', () => {
-    const section = render(
+  it('draws the section page chip and the feed chip as one selector', async () => {
+    const section = await render(
       <ChipSelector
         options={[{ value: 'a', label: 'Alpha' }]}
         value="a"
@@ -161,7 +163,7 @@ describe('compact controls', () => {
         optionTestID={(value) => `option-${value}`}
       />
     );
-    const feed = render(
+    const feed = await render(
       <FeedFilterChips
         selected={new Set()}
         onSelect={jest.fn()}

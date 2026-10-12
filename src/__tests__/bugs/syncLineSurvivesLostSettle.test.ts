@@ -52,40 +52,40 @@ beforeEach(() => {
 afterEach(() => jest.useRealTimers());
 
 describe('the sync line when a settle announcement is lost', () => {
-  it('leaves the running step once the engine is idle', () => {
+  it('leaves the running step once the engine is idle', async () => {
     const engine = liveEngine(status(SyncState.Syncing));
     mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
-    const { result } = renderHook(() => useSyncStatus());
+    const { result } = await renderHook(() => useSyncStatus());
     expect(result.current?.state).toBe(SyncState.Syncing);
 
     engine.setSnapshot(status(SyncState.Idle));
-    act(() => jest.advanceTimersByTime(SYNC_RUNNING_REREAD_MS));
+    await act(() => jest.advanceTimersByTime(SYNC_RUNNING_REREAD_MS));
 
     expect(result.current?.state).toBe(SyncState.Idle);
   });
 
-  it('stops re-reading once the snapshot is idle', () => {
+  it('stops re-reading once the snapshot is idle', async () => {
     const engine = liveEngine(status(SyncState.Syncing));
     mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
-    renderHook(() => useSyncStatus());
+    await renderHook(() => useSyncStatus());
     engine.setSnapshot(status(SyncState.Idle));
-    act(() => jest.advanceTimersByTime(SYNC_RUNNING_REREAD_MS));
+    await act(() => jest.advanceTimersByTime(SYNC_RUNNING_REREAD_MS));
     const reads = engine.getSyncStatus.mock.calls.length;
 
-    act(() => jest.advanceTimersByTime(SYNC_RUNNING_REREAD_MS * 5));
+    await act(() => jest.advanceTimersByTime(SYNC_RUNNING_REREAD_MS * 5));
 
     expect(engine.getSyncStatus).toHaveBeenCalledTimes(reads);
     expect(jest.getTimerCount()).toBe(0);
   });
 
-  it('never polls an engine that opened idle', () => {
+  it('never polls an engine that opened idle', async () => {
     const engine = liveEngine(status(SyncState.Idle));
     mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
 
-    renderHook(() => useSyncStatus());
-    act(() => jest.advanceTimersByTime(SYNC_RUNNING_REREAD_MS * 5));
+    await renderHook(() => useSyncStatus());
+    await act(() => jest.advanceTimersByTime(SYNC_RUNNING_REREAD_MS * 5));
 
     expect(engine.getSyncStatus).toHaveBeenCalledTimes(1);
   });

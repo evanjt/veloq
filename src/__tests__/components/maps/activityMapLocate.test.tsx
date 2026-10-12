@@ -83,6 +83,7 @@ jest.mock('@/shared/app', () => ({
 
 jest.mock('expo-location', () => ({
   ...jest.requireActual('expo-location'),
+  getForegroundPermissionsAsync: jest.fn(),
   requestForegroundPermissionsAsync: jest.fn(),
   getCurrentPositionAsync: jest.fn(),
   Accuracy: { Balanced: 3 },
@@ -114,6 +115,10 @@ const userLocationData = () =>
 beforeEach(() => {
   mockPages.clear();
   mockPatches.length = 0;
+  (Location.getForegroundPermissionsAsync as jest.Mock).mockResolvedValue({
+    status: 'undetermined',
+    canAskAgain: true,
+  });
   (Location.requestForegroundPermissionsAsync as jest.Mock).mockResolvedValue({
     status: 'granted',
   });
@@ -123,26 +128,28 @@ beforeEach(() => {
 });
 
 describe('locating the user on the inline activity map', () => {
-  const mount = () => {
-    render(
+  const mount = async () => {
+    await render(
       <SafeAreaProvider initialMetrics={METRICS}>
         <ActivityMapView activityType="Ride" coordinates={COORDINATES} showStyleToggle />
       </SafeAreaProvider>
     );
     const page = mockPages.get('maplibre-map');
     if (!page) throw new Error('the 2D surface did not mount');
-    act(() => page.onMessage({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } }));
+    await act(() =>
+      page.onMessage({ nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) } })
+    );
     return page;
   };
 
   const press = async () => {
     await act(async () => {
-      fireEvent.press(screen.getByTestId('activity-map-location'));
+      await fireEvent.press(screen.getByTestId('activity-map-location'));
     });
   };
 
   it('asks for one fix across two presses', async () => {
-    mount();
+    await mount();
     await press();
     await press();
 
@@ -150,7 +157,7 @@ describe('locating the user on the inline activity map', () => {
   });
 
   it('eases the 2D surface onto the fix at the shared zoom', async () => {
-    const page = mount();
+    const page = await mount();
     await press();
 
     const eased = page.injected.filter((s) => s.includes('easeTo'));
@@ -161,7 +168,7 @@ describe('locating the user on the inline activity map', () => {
   });
 
   it('mounts the dot source empty, then holds a point at the fix', async () => {
-    mount();
+    await mount();
     expect(userLocationData().at(-1)).toEqual({ type: 'FeatureCollection', features: [] });
 
     await press();
@@ -172,7 +179,7 @@ describe('locating the user on the inline activity map', () => {
   });
 
   it('draws the dot layers last and shows the button active while a dot is held', async () => {
-    mount();
+    await mount();
     expect(screen.getByTestId('activity-map-location').props.accessibilityState).toMatchObject({
       selected: false,
     });
@@ -193,7 +200,7 @@ describe('locating the user on the inline activity map', () => {
     (Location.requestForegroundPermissionsAsync as jest.Mock).mockResolvedValue({
       status: 'denied',
     });
-    const page = mount();
+    const page = await mount();
     await press();
 
     expect(Location.getCurrentPositionAsync).not.toHaveBeenCalled();

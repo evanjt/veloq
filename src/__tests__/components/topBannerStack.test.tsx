@@ -57,20 +57,27 @@ describe('top banner stack', () => {
     useTrackFetchNotice.setState({ failedIds: [], failedCount: 0, dismissed: false });
   });
 
-  it('pads the startup error with the offline pill floating beside it', () => {
-    const { getByTestId } = render(
+  it('pads the startup error with the offline pill floating beside it', async () => {
+    const { getByTestId } = await render(
       <TopSafeAreaProvider startupErrorShown>
         <StartupErrorBanner areas={['preferences']} onDismiss={() => {}} />
         <OfflineBanner />
       </TopSafeAreaProvider>
     );
 
-    expect(paddingTop(getByTestId('startup-error-banner'))).toBe(40 + spacing.sm);
+    expect(paddingTop(getByTestId('startup-error-banner'))).toBe(40);
+    expect(
+      (
+        StyleSheet.flatten(getByTestId('startup-error-banner-content').props.style) as {
+          paddingVertical: number;
+        }
+      ).paddingVertical
+    ).toBe(spacing.sm);
     expect(getByTestId('offline-banner')).toBeTruthy();
   });
 
-  it('pads the demo banner for the status bar while the offline pill floats over it', () => {
-    const { getByTestId } = render(
+  it('pads the demo banner for the status bar while the offline pill floats over it', async () => {
+    const { getByTestId } = await render(
       <QueryClientProvider client={new QueryClient()}>
         <TopSafeAreaProvider>
           <OfflineBanner />
@@ -83,11 +90,11 @@ describe('top banner stack', () => {
     expect(paddingTop(getByTestId('demo-mode-banner'))).toBe(40);
   });
 
-  it('pads the track notice when it is the only banner', () => {
+  it('pads the track notice when it is the only banner', async () => {
     mockOffline = false;
     useAuthStore.setState({ isDemoMode: false });
     useTrackFetchNotice.setState({ failedIds: ['a', 'b', 'c'], failedCount: 3, dismissed: false });
-    const { getByTestId } = render(
+    const { getByTestId } = await render(
       <TopSafeAreaProvider>
         <TrackFetchNotice />
       </TopSafeAreaProvider>

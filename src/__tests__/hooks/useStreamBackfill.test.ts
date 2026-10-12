@@ -48,9 +48,9 @@ function engine() {
   } as unknown as ReturnType<typeof getEngine>;
 }
 
-function announce(event: string, next: string) {
+async function announce(event: string, next: string) {
   phase = next;
-  act(() => {
+  await act(() => {
     listeners.get(event)?.forEach((listener) => listener());
   });
 }
@@ -67,12 +67,12 @@ describe('useStreamBackfill', () => {
     jest.useRealTimers();
   });
 
-  it('follows a pass the engine starts on a mounted row', () => {
-    const { result } = renderHook(() => useStreamBackfill());
+  it('follows a pass the engine starts on a mounted row', async () => {
+    const { result } = await renderHook(() => useStreamBackfill());
     expect(result.current.isRunning).toBe(false);
     expect(result.current.remaining).toBe(245);
 
-    announce('streamBackfillPhase', 'fetching');
+    await announce('streamBackfillPhase', 'fetching');
 
     expect(result.current.isRunning).toBe(true);
     expect(result.current.total).toBe(10);
@@ -83,49 +83,49 @@ describe('useStreamBackfill', () => {
    * detector cutover. Expected behaviour: the phase reads deferred rather than
    * idle, which is what lets the row offer the pass by hand.
    */
-  it('reads a deferred pass as deferred, not as idle', () => {
-    const { result } = renderHook(() => useStreamBackfill());
+  it('reads a deferred pass as deferred, not as idle', async () => {
+    const { result } = await renderHook(() => useStreamBackfill());
 
-    announce('streamBackfillPhase', 'deferred');
+    await announce('streamBackfillPhase', 'deferred');
 
     expect(result.current.phase).toBe('deferred');
     expect(result.current.isRunning).toBe(false);
     expect(result.current.remaining).toBe(245);
   });
 
-  it('carries the owed queue size with the count, and withholds both while running', () => {
-    const { result } = renderHook(() => useStreamBackfill());
+  it('carries the owed queue size with the count, and withholds both while running', async () => {
+    const { result } = await renderHook(() => useStreamBackfill());
     expect(result.current.remainingBytes).toBe(5_145_000);
 
-    announce('streamBackfillPhase', 'fetching');
+    await announce('streamBackfillPhase', 'fetching');
 
     expect(result.current.remaining).toBeNull();
     expect(result.current.remainingBytes).toBeNull();
   });
 
-  it('returns to rest on a terminal phase', () => {
-    const { result } = renderHook(() => useStreamBackfill());
-    announce('streamBackfillPhase', 'fetching');
+  it('returns to rest on a terminal phase', async () => {
+    const { result } = await renderHook(() => useStreamBackfill());
+    await announce('streamBackfillPhase', 'fetching');
 
-    announce('streamBackfillPhase', 'complete');
+    await announce('streamBackfillPhase', 'complete');
 
     expect(result.current.isRunning).toBe(false);
     expect(result.current.phase).toBe('complete');
     expect(result.current.remaining).toBe(245);
   });
 
-  it('shows a held download when the engine announces awaiting consent', () => {
-    const { result } = renderHook(() => useStreamBackfill());
+  it('shows a held download when the engine announces awaiting consent', async () => {
+    const { result } = await renderHook(() => useStreamBackfill());
 
-    announce('streamBackfillPhase', 'awaiting_consent');
+    await announce('streamBackfillPhase', 'awaiting_consent');
 
     expect(result.current.awaitingConsent).toBe(true);
   });
 
-  it('does not react to the elevation pass phase', () => {
-    const { result } = renderHook(() => useStreamBackfill());
+  it('does not react to the elevation pass phase', async () => {
+    const { result } = await renderHook(() => useStreamBackfill());
     phase = 'fetching';
-    act(() => {
+    await act(() => {
       listeners.get('backfillPhase')?.forEach((listener) => listener());
     });
     expect(result.current.isRunning).toBe(false);
@@ -145,46 +145,46 @@ describe('useStreamBackfill', () => {
       StartOutcome.NotConfigured,
       StartOutcome.NotReady,
       StartOutcome.Busy,
-    ])('surfaces verdict %s and does not read as a running pass', (outcome) => {
+    ])('surfaces verdict %s and does not read as a running pass', async (outcome) => {
       withConsent(() => outcome);
-      const { result } = renderHook(() => useStreamBackfill());
+      const { result } = await renderHook(() => useStreamBackfill());
 
-      act(() => result.current.start());
+      await act(() => result.current.start());
 
       expect(result.current.refusal).toBe(outcome);
       expect(result.current.isRunning).toBe(false);
     });
 
-    it('records a thrown start as Failed', () => {
+    it('records a thrown start as Failed', async () => {
       withConsent(() => {
         throw new Error('ffi');
       });
-      const { result } = renderHook(() => useStreamBackfill());
+      const { result } = await renderHook(() => useStreamBackfill());
 
-      act(() => result.current.start());
+      await act(() => result.current.start());
 
       expect(result.current.refusal).toBe(StartOutcome.Failed);
     });
 
-    it('clears the refusal when the next tap starts', () => {
+    it('clears the refusal when the next tap starts', async () => {
       let next = StartOutcome.Offline;
       withConsent(() => next);
-      const { result } = renderHook(() => useStreamBackfill());
-      act(() => result.current.start());
+      const { result } = await renderHook(() => useStreamBackfill());
+      await act(() => result.current.start());
       expect(result.current.refusal).toBe(StartOutcome.Offline);
 
       next = StartOutcome.Started;
-      act(() => result.current.start());
+      await act(() => result.current.start());
 
       expect(result.current.refusal).toBeNull();
     });
 
-    it('clears the refusal when a pass begins', () => {
+    it('clears the refusal when a pass begins', async () => {
       withConsent(() => StartOutcome.Busy);
-      const { result } = renderHook(() => useStreamBackfill());
-      act(() => result.current.start());
+      const { result } = await renderHook(() => useStreamBackfill());
+      await act(() => result.current.start());
 
-      announce('streamBackfillPhase', 'fetching');
+      await announce('streamBackfillPhase', 'fetching');
 
       expect(result.current.refusal).toBeNull();
     });

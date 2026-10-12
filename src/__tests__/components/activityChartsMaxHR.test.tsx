@@ -74,12 +74,12 @@ const hrZones = [{ zone: 1, minBpm: 0, maxBpm: 140, seconds: 60, percent: 100 }]
 
 afterEach(() => jest.restoreAllMocks());
 
-it('gives the zones chart and the stat card the one max HR the screen read resolved', () => {
+it('gives the zones chart and the stat card the one max HR the screen read resolved', async () => {
   jest.spyOn(global, 'requestAnimationFrame').mockImplementation((callback) => {
     callback(0);
     return 1;
   });
-  render(
+  await render(
     <ActivityChartsSection
       activity={activity}
       activityId="act-1"

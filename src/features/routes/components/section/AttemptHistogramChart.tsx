@@ -6,7 +6,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, DashPathEffect, Line, Rect, vec } from '@shopify/react-native-skia';
@@ -16,12 +16,11 @@ import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { formatDuration } from '@/shared/format/format';
 import { layoutHistogram } from '@/features/routes/lib/histogramLayout';
 import { formatSectionSpeed } from '@/features/routes/lib/sectionSpeedFormat';
+import { useMeasuredWidth } from '@/shared/charts';
 import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import type { FfiAttemptHistogram } from 'veloqrs';
 import type { ActivityType } from '@/types';
 
-/** Horizontal room the chart leaves at the window edge, as the scatter does. */
-const CHART_INSET = 32;
 const CHART_HEIGHT = 120;
 const CHART_PADDING = { left: 12, right: 8, top: 12, bottom: 12 } as const;
 const MARK_WIDTH = 2;
@@ -58,8 +57,7 @@ export function AttemptHistogramChart({
 }: AttemptHistogramChartProps) {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
-  const { width: windowWidth } = useWindowDimensions();
-  const chartWidth = windowWidth - CHART_INSET;
+  const { width: chartWidth, onLayout } = useMeasuredWidth();
   const palette = isDark ? darkColors : colors;
 
   const plot = useMemo(
@@ -95,59 +93,63 @@ export function AttemptHistogramChart({
 
   return (
     <View testID="attempt-histogram" style={[styles.container, isDark && styles.containerDark]}>
-      <View style={{ width: chartWidth, height: CHART_HEIGHT }}>
-        <Canvas style={StyleSheet.absoluteFill}>
-          {plot.countTicks.map((tick) => (
-            <Rect
-              key={`grid-${tick.count}`}
-              x={CHART_PADDING.left}
-              y={tick.y}
-              width={chartWidth - CHART_PADDING.left - CHART_PADDING.right}
-              height={GRID_THICKNESS}
-              color={palette.border}
-            />
-          ))}
-          {plot.bars.map((bar, i) => (
-            <Rect
-              key={`bar-${i}`}
-              x={bar.x + 1}
-              y={bar.y}
-              width={Math.max(0, bar.width - 2)}
-              height={bar.height}
-              color={palette.primary}
-              opacity={0.7}
-            />
-          ))}
-          {recordX !== null && (
-            <Line
-              p1={vec(recordX, plotTop)}
-              p2={vec(recordX, plotTop + plotHeight)}
-              strokeWidth={MARK_WIDTH}
-              color={palette.chartGoldMark}
-            >
-              <DashPathEffect intervals={RECORD_DASH} />
-            </Line>
-          )}
-          {highlightX !== null && (
-            <Line
-              p1={vec(highlightX, plotTop)}
-              p2={vec(highlightX, plotTop + plotHeight)}
-              strokeWidth={MARK_WIDTH}
-              color={palette.chartGreenMark}
-            />
-          )}
-        </Canvas>
-        <View style={styles.yAxisOverlay} pointerEvents="none">
-          {plot.countTicks.map((tick) => (
-            <Text
-              key={tick.count}
-              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-              style={[styles.axisLabel, isDark && styles.axisLabelDark, { top: tick.y - 14 }]}
-            >
-              {tick.count}
-            </Text>
-          ))}
-        </View>
+      <View style={styles.plot} onLayout={onLayout}>
+        {chartWidth > 0 && (
+          <>
+            <Canvas style={StyleSheet.absoluteFill}>
+              {plot.countTicks.map((tick) => (
+                <Rect
+                  key={`grid-${tick.count}`}
+                  x={CHART_PADDING.left}
+                  y={tick.y}
+                  width={chartWidth - CHART_PADDING.left - CHART_PADDING.right}
+                  height={GRID_THICKNESS}
+                  color={palette.border}
+                />
+              ))}
+              {plot.bars.map((bar, i) => (
+                <Rect
+                  key={`bar-${i}`}
+                  x={bar.x + 1}
+                  y={bar.y}
+                  width={Math.max(0, bar.width - 2)}
+                  height={bar.height}
+                  color={palette.primary}
+                  opacity={0.7}
+                />
+              ))}
+              {recordX !== null && (
+                <Line
+                  p1={vec(recordX, plotTop)}
+                  p2={vec(recordX, plotTop + plotHeight)}
+                  strokeWidth={MARK_WIDTH}
+                  color={palette.chartGoldMark}
+                >
+                  <DashPathEffect intervals={RECORD_DASH} />
+                </Line>
+              )}
+              {highlightX !== null && (
+                <Line
+                  p1={vec(highlightX, plotTop)}
+                  p2={vec(highlightX, plotTop + plotHeight)}
+                  strokeWidth={MARK_WIDTH}
+                  color={palette.chartGreenMark}
+                />
+              )}
+            </Canvas>
+            <View style={styles.yAxisOverlay} pointerEvents="none">
+              {plot.countTicks.map((tick) => (
+                <Text
+                  key={tick.count}
+                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                  style={[styles.axisLabel, isDark && styles.axisLabelDark, { top: tick.y - 14 }]}
+                >
+                  {tick.count}
+                </Text>
+              ))}
+            </View>
+          </>
+        )}
       </View>
       <View style={styles.edgeAxis}>
         {edgeLabels.map((label, i) => (
@@ -239,6 +241,9 @@ const styles = StyleSheet.create({
   },
   containerDark: {
     backgroundColor: darkColors.surfaceCard,
+  },
+  plot: {
+    height: CHART_HEIGHT,
   },
   yAxisOverlay: {
     ...StyleSheet.absoluteFill,

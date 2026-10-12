@@ -14,7 +14,8 @@
     "tapMuscle": "Tap for the details"
   },
   "activitySummary": {
-    "downloading": "Pulling this activity down...",
+    "downloading": "Pulling this activity down…",
+    "notDownloaded": "This activity hasn't come down yet",
     "unavailable": "Couldn't download this activity, sorry."
   },
   "activityTypes": {
@@ -78,17 +79,16 @@
   },
   "cache": {
     "allActivitiesSynced": "All activities synced, too easy",
-    "fetchingGpsData": "Grabbing GPS data...",
+    "fetchingGpsData": "Grabbing GPS data…",
     "offlineUsingCached": "Offline, so using the routes you've got",
     "syncedActivities_one": "Synced {{count}} activity, all good",
     "syncedActivities_other": "Synced {{count}} activities, all good",
     "syncedStillAnalysing_one": "Synced {{count}} activity. Still sussing out routes",
     "syncedStillAnalysing_other": "Synced {{count}} activities. Still sussing out routes",
-    "downloadingGpsProgress": "Pulling down GPS data... {{percent}}%",
+    "downloadingGpsProgress": "Pulling down GPS data…",
     "noValidGpsChecked_one": "Couldn't find usable GPS data (checked {{count}} activity)",
     "noValidGpsChecked_other": "Couldn't find usable GPS data (checked {{count}} activities)",
-    "fetchingTimeStreams": "Grabbing time data... {{percent}}%",
-    "finalizingHeatmap": "Finishing off the heatmap... {{percent}}%"
+    "fetchingTimeStreams": "Grabbing time data…"
   },
   "emptyState": {
     "error": {
@@ -101,6 +101,8 @@
     "syncError": {
       "title": "Sync's not getting through",
       "neverSynced": "No sync has finished yet",
+      "paused": "intervals.icu's put downloads on hold till {{time}}",
+      "pausedDetail": "Everything on this device still works fine",
       "reason": {
         "unauthorized": "intervals.icu knocked back your login",
         "rateLimited": "intervals.icu asked us to ease up, so sync is waiting a tick",
@@ -124,7 +126,7 @@
     }
   },
   "engine": {
-    "initFailed": "The route engine couldn't start. Routes and sections might not be available.",
+    "initFailed": "Your activity library couldn't be opened. It's still on your device, untouched.",
     "failure": {
       "notOpen": "The route engine isn't open yet. Try again in a tick.",
       "busy": "The database is flat out. Try again in a tick.",
@@ -133,7 +135,7 @@
     "initReason": {
       "busy": "Something else was using the database. Another go should sort it.",
       "storageUnavailable": "The database couldn't be written. Free up some space, then try again.",
-      "failed": "The route engine stopped for a reason the app can't put a name to."
+      "failed": "Your activity library couldn't be opened, for a reason the app can't put a name to. It's still on your device, untouched."
     },
     "quarantine": {
       "resyncing": "Your activities are coming down again."
@@ -144,18 +146,16 @@
     "unableToLoad": "Couldn't load {{componentName}}",
     "closeAndReopen": "Close the app and open it again to keep going.",
     "restartHint": "Have another go, or restart the app",
-    "unableToDisplayChart": "Can't show this chart",
-    "tapToRetry": "Tap to have another go"
+    "unableToDisplayChart": "Can't show this chart"
   },
   "export": {
-    "bulkSharing": "Opening the share sheet...",
+    "bulkSharing": "Opening the share sheet…",
     "error": "Couldn't export the GPX file."
   },
   "feed": {
     "failedToLoad": "Couldn't load your activities",
     "firstSyncBody": "Only the first time, promise. The feed opens once your first activities land.",
     "firstSyncTitle": "Fetching your activities, hang tight",
-    "noMatchingActivities": "Nothing matching those filters",
     "emptyLibrary": {
       "pausedTitle": "Sync's having a breather",
       "pausedBody": "Your activities are safe on intervals.icu and come down once sync gets going again.",
@@ -183,12 +183,13 @@
     "oauthAccessDenied": "Access was denied. Allow access and have another go at signing in.",
     "oauthProxyRefused": "The sign-in service knocked back the request. Try again shortly.",
     "oauthUnreachable": "Couldn't reach the sign-in service. Check your connection and have another go.",
+    "oauthInterrupted": "Sign-in got interrupted. Have another go.",
     "sessionDataKept": "Your activities, sections and settings are all still on this device.",
     "sessionSignedOut": "You've been signed out.",
     "sessionKeyRejected": "Your API key got knocked back."
   },
   "mapScreen": {
-    "loadingOlderActivities": "Bringing in older activities..."
+    "loadingOlderActivities": "Bringing in older activities…"
   },
   "maps": {
     "threeDUnavailable": "Terrain needs a connection, so here's the flat map.",
@@ -210,7 +211,7 @@
     "autoPausedHint": "Waiting for you to get moving",
     "distanceInvalid": "Pop in a valid distance (0-999).",
     "durationRequired": "Pop in a valid duration.",
-    "gpsAcquiring": "Hunting for GPS...",
+    "gpsAcquiring": "Hunting for GPS…",
     "gpsAlertMessage": "Can't get a GPS fix. Head somewhere with a clear view of the sky.",
     "gpsTrackingError": "Couldn't start GPS tracking. Try pausing and resuming.",
     "gpsWaiting": "Waiting on a GPS signal. Head outdoors for a better fix.",
@@ -240,9 +241,8 @@
     "routeNotFound": "Can't find that route"
   },
   "routes": {
-    "adjustSportTypeFilter": "Try tweaking the sport type filter",
     "duplicateNameMessage": "Pick a different name. Every route needs its own.",
-    "gpsTrackNotSynced": "No GPS data yet. Wait for sync to finish and have another go.",
+    "gpsTrackNotDownloaded": "No GPS data yet. Have another go once it's come down.",
     "invalidSectionRange": "That selection range doesn't work. Try picking a different portion.",
     "noFrequentSections": "No frequent sections just yet",
     "noMatchingRoutes": "Couldn't find any matching routes",
@@ -342,7 +342,7 @@
   },
   "statsScreen": {
     "noEffortData": "No best effort data yet",
-    "notEnoughRuns": "Not enough runs in yet"
+    "thresholdInputsMissing": "No LTHR in your intervals.icu run settings, and no pace curve in yet"
   },
   "refresh": {
     "busy": "Refreshes once this sync is done.",

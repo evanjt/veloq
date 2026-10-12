@@ -21,12 +21,12 @@ jest.mock('@/shared/native/hrZone', () => ({ engineHrZone: jest.fn() }));
 const zonesOfTheAthlete = (_sport: string, bpm: number): number | null =>
   bpm <= 0 ? null : bpm < 140 ? 1 : bpm < 155 ? 2 : bpm < 170 ? 3 : bpm < 185 ? 4 : 5;
 
-function render(initialBpm: number, sport = 'Ride') {
+async function render(initialBpm: number, sport = 'Ride') {
   let zone: HrZoneInfo | null = null;
   const setHrZone = jest.fn((next: HrZoneInfo | null) => {
     zone = next;
   });
-  const hook = renderHook(
+  const hook = await renderHook(
     ({ bpm }: { bpm: number }) => useHrZoneColorEffect(bpm, sport, setHrZone),
     { initialProps: { bpm: initialBpm } }
   );
@@ -37,42 +37,42 @@ beforeEach(() => {
   (engineHrZone as jest.Mock).mockReset().mockImplementation(zonesOfTheAthlete);
 });
 
-it('tints with the engine zone for the recorded sport and the live bpm', () => {
-  const { zone } = render(150, 'Run');
+it('tints with the engine zone for the recorded sport and the live bpm', async () => {
+  const { zone } = await render(150, 'Run');
 
   expect(engineHrZone).toHaveBeenCalledWith('Run', 150);
   expect(zone()).toEqual({ zone: 2, color: HR_ZONE_COLORS[1] });
 });
 
-it('follows the live bpm across zones and drops the tint when it goes stale', () => {
-  const { zone, rerender } = render(165);
+it('follows the live bpm across zones and drops the tint when it goes stale', async () => {
+  const { zone, rerender } = await render(165);
   expect(zone()?.zone).toBe(3);
 
-  rerender(90);
+  await rerender(90);
   expect(zone()).toEqual({ zone: 1, color: HR_ZONE_COLORS[0] });
 
-  rerender(0);
+  await rerender(0);
   expect(zone()).toBeNull();
 });
 
-it('does not tell the screen again while the zone holds', () => {
-  const { setHrZone, rerender } = render(150);
-  rerender(152);
-  rerender(154);
+it('does not tell the screen again while the zone holds', async () => {
+  const { setHrZone, rerender } = await render(150);
+  await rerender(152);
+  await rerender(154);
 
   expect(setHrZone).toHaveBeenCalledTimes(1);
 });
 
-it('takes the last colour for a zone past the ramp', () => {
+it('takes the last colour for a zone past the ramp', async () => {
   (engineHrZone as jest.Mock).mockReturnValue(9);
-  const { zone } = render(150);
+  const { zone } = await render(150);
 
   expect(zone()).toEqual({ zone: 9, color: HR_ZONE_COLORS[HR_ZONE_COLORS.length - 1] });
 });
 
-it('shows no tint while the engine has no answer', () => {
+it('shows no tint while the engine has no answer', async () => {
   (engineHrZone as jest.Mock).mockReturnValue(null);
-  const { zone } = render(150);
+  const { zone } = await render(150);
 
   expect(zone()).toBeNull();
 });

@@ -25,6 +25,9 @@ export { CHART_CONFIG } from './constants';
 export { finiteExtent } from './extent';
 export type { Extent } from './extent';
 
+export { useMeasuredWidth } from './useMeasuredWidth';
+export type { MeasuredWidth } from './useMeasuredWidth';
+
 export { ChartCanvas } from './ChartCanvas';
 export type { ChartCanvasProps, ChartFrame } from './ChartCanvas';
 

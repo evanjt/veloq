@@ -14,7 +14,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useIsFocused } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { decodeCoords } from 'veloqrs';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, slopToMinTapTarget, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 // Straight from the context, not the app barrel: a surface mounted with no
 // app shell still has to draw, and the barrel is what such a caller stubs.
@@ -343,12 +343,17 @@ export function PreviewMapView({
           { backgroundColor: chipBg, borderColor: chipBorder },
         ])}
         android_ripple={pressRipple}
+        hitSlop={styleButtonSlop}
         onPress={cycleStyle}
         testID="preview-map-style"
         accessibilityRole="button"
         accessibilityLabel={t('maps.toggleStyle')}
       >
-        <MaterialCommunityIcons name={getStyleIcon(mapStyle)} size={20} color={textPrimary} />
+        <MaterialCommunityIcons
+          name={getStyleIcon(mapStyle)}
+          size={STYLE_ICON_SIZE}
+          color={textPrimary}
+        />
       </Pressable>
       <View style={styles.legend} pointerEvents="box-none">
         <LegendChip
@@ -425,6 +430,7 @@ function LegendChip({
         !on && styles.legendChipOff,
       ])}
       android_ripple={pressRipple}
+      hitSlop={legendChipSlop}
       onPress={onPress}
       testID={testID}
       accessibilityRole="switch"
@@ -443,6 +449,13 @@ function LegendChip({
   );
 }
 
+const STYLE_ICON_SIZE = 20;
+const STYLE_BUTTON_SIZE = STYLE_ICON_SIZE + 2 * spacing.xs;
+const styleButtonSlop = slopToMinTapTarget(STYLE_BUTTON_SIZE, STYLE_BUTTON_SIZE);
+// The legend chips sit side by side, so their slop is vertical only.
+const LEGEND_CHIP_HEIGHT = typography.caption.lineHeight + 2 * spacing.xs;
+const legendChipSlop = slopToMinTapTarget(LEGEND_CHIP_HEIGHT);
+
 const styles = StyleSheet.create({
   container: { flex: 1 },
   styleButton: {
@@ -450,6 +463,8 @@ const styles = StyleSheet.create({
     top: spacing.sm,
     left: spacing.sm,
     padding: spacing.xs,
+    minWidth: STYLE_BUTTON_SIZE,
+    minHeight: STYLE_BUTTON_SIZE,
     borderRadius: layout.borderRadiusSm,
     borderWidth: StyleSheet.hairlineWidth,
   },
@@ -466,6 +481,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
+    minHeight: LEGEND_CHIP_HEIGHT,
     borderRadius: layout.borderRadiusSm,
     borderWidth: StyleSheet.hairlineWidth,
   },

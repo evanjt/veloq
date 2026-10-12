@@ -5,19 +5,18 @@
  *
  * Expected behaviour: a live run hands the engine's candidates, for the range
  * the athlete selected, to the download and publishes their ids as pending,
- * whatever the activities passed to the hook say. Demo mode pulls no census, so
- * its fixtures decide.
+ * without reading a stored body. Demo mode pulls no census, so its fixture
+ * bodies decide.
  */
 import { act, renderHook } from '@testing-library/react-native';
 import { stubIdleScheduler, type IdleScheduler } from '../__shared__/idleScheduler';
 
 import { useRouteDataSync } from '@/features/routes/hooks/useRouteDataSync';
 import { resetGlobalSyncState } from '@/features/routes/hooks/useRouteSyncContext';
-import { getNativeModule } from '@/shared/native/engine';
+import { getEngine, getNativeModule } from '@/shared/native/engine';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { setFeedHeadIds } from '@/shared/activity/feedHead';
-import type { Activity } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({
@@ -35,6 +34,7 @@ jest.mock('@/features/routes/hooks/useGpsDataFetcher', () => ({
 }));
 
 const pendingSeen: string[][] = [];
+const mockGetActivityBodies = jest.fn((_oldest: number, _newest: number): string[] => []);
 const mockGetGpsFetchCandidates = jest.fn();
 
 let idle: IdleScheduler;
@@ -55,6 +55,10 @@ describe('the tracks a route sync owes', () => {
         setPending(ids);
       },
     });
+    (getEngine as jest.Mock).mockReturnValue({
+      getActivityBodies: mockGetActivityBodies,
+      subscribe: () => () => {},
+    });
     mockGetGpsFetchCandidates.mockReturnValue([
       { activityId: 'ride', sportType: 'Ride', startDate: 1_773_642_600 },
       { activityId: 'run', sportType: 'Run' },
@@ -63,6 +67,7 @@ describe('the tracks a route sync owes', () => {
       engine: {
         getActivityIds: () => ['stored'],
         getActivityCount: () => 1,
+        getStats: () => ({ libraryCount: 3 }),
         getGpsFetchCandidates: mockGetGpsFetchCandidates,
         getUnprocessedStrengthIds: () => [],
         batchFetchExerciseSets: () => 0,
@@ -78,11 +83,8 @@ describe('the tracks a route sync owes', () => {
     jest.restoreAllMocks();
   });
 
-  // No stream_types on any of them: a live run must not read the bodies' own list.
-  const activities = [{ id: 'ride' }, { id: 'run' }, { id: 'walk' }] as unknown as Activity[];
-
   it('hands the engine candidates for the selected range to the download and the pending ids', async () => {
-    renderHook(() => useRouteDataSync(activities, true));
+    await renderHook(() => useRouteDataSync(true));
     await act(async () => {});
 
     expect(mockGetGpsFetchCandidates).toHaveBeenCalledWith('2026-01-01', '2026-03-31');
@@ -92,11 +94,12 @@ describe('the tracks a route sync owes', () => {
     ]);
     expect(pendingSeen[0]).toEqual(['ride', 'run']);
     expect(mockFetchDemoGps).not.toHaveBeenCalled();
+    expect(mockGetActivityBodies).not.toHaveBeenCalled();
   });
 
   it('puts the cards the feed is showing first', async () => {
     setFeedHeadIds(['run']);
-    renderHook(() => useRouteDataSync(activities, true));
+    await renderHook(() => useRouteDataSync(true));
     await act(async () => {});
 
     expect(pendingSeen[0]).toEqual(['run', 'ride']);
@@ -104,7 +107,7 @@ describe('the tracks a route sync owes', () => {
 
   it('fetches nothing when the engine owes no track', async () => {
     mockGetGpsFetchCandidates.mockReturnValue([]);
-    renderHook(() => useRouteDataSync(activities, true));
+    await renderHook(() => useRouteDataSync(true));
     await act(async () => {});
 
     expect(mockFetchApiGps).not.toHaveBeenCalled();
@@ -113,18 +116,20 @@ describe('the tracks a route sync owes', () => {
 
   it('asks the fixtures, not the engine, in demo mode', async () => {
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: true });
-    const demo = [
-      { id: 'stored', stream_types: ['latlng'], type: 'Ride' },
-      {
-        id: 'fresh',
-        stream_types: ['latlng'],
-        type: 'Run',
-        start_date_local: '2026-03-16T06:30:00',
-      },
-      { id: 'pool', stream_types: ['time'], type: 'Swim' },
-    ] as unknown as Activity[];
+    mockGetActivityBodies.mockReturnValue(
+      [
+        { id: 'stored', stream_types: ['latlng'], type: 'Ride' },
+        {
+          id: 'fresh',
+          stream_types: ['latlng'],
+          type: 'Run',
+          start_date_local: '2026-03-16T06:30:00',
+        },
+        { id: 'pool', stream_types: ['time'], type: 'Swim' },
+      ].map((body) => JSON.stringify(body))
+    );
 
-    renderHook(() => useRouteDataSync(demo, true));
+    await renderHook(() => useRouteDataSync(true));
     await act(async () => {});
 
     expect(mockGetGpsFetchCandidates).not.toHaveBeenCalled();

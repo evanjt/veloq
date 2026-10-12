@@ -9,31 +9,28 @@ import { fireEvent, render } from '@testing-library/react-native';
 import { ActivityDetailReadFailed } from '@/features/activity/components/ActivityDetailReadFailed';
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
-jest.mock('@/shared/ui', () => {
-  const { Text, Pressable } = require('react-native');
-  return {
-    ErrorStatePreset: ({ message, onRetry }: { message: string; onRetry: () => void }) => (
-      <Pressable testID="retry" onPress={onRetry}>
-        <Text>{message}</Text>
-      </Pressable>
-    ),
-  };
+jest.mock('@/shared/app', () => {
+  const { colors } = jest.requireActual('@/theme');
+  return { useTheme: () => ({ isDark: false, colors }) };
 });
+jest.mock('@/shared/ui', () => ({
+  ErrorState: jest.requireActual('@/shared/ui/ErrorState').ErrorState,
+}));
 
-it('names the engine failure and retries on press', () => {
+it('names the engine failure and retries on press', async () => {
   const onRetry = jest.fn();
-  const { getByText, getByTestId, queryByText } = render(
+  const { getByText, getByTestId, queryByText } = await render(
     <ActivityDetailReadFailed error={{ tag: 'Database' }} onRetry={onRetry} />
   );
 
   expect(getByText('engine.failure.database')).toBeTruthy();
   expect(queryByText('activityDetail.noMatchedSections')).toBeNull();
-  fireEvent.press(getByTestId('retry'));
+  await fireEvent.press(getByTestId('error-state-retry'));
   expect(onRetry).toHaveBeenCalledTimes(1);
 });
 
-it('falls back to the load failure line for a non-engine error', () => {
-  const { getByText } = render(
+it('falls back to the load failure line for a non-engine error', async () => {
+  const { getByText } = await render(
     <ActivityDetailReadFailed error={new Error('x')} onRetry={jest.fn()} />
   );
   expect(getByText('activityDetail.failedToLoad')).toBeTruthy();

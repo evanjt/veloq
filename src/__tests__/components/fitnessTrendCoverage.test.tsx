@@ -23,15 +23,15 @@ jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 describe('the eFTP trend chart', () => {
-  it('says a range never downloaded is not downloaded, with no instruction', () => {
-    const view = render(<FTPTrendChart data={[]} coverage={RangeCoverage.NotFetched} />);
+  it('says a range never downloaded is not downloaded, with no instruction', async () => {
+    const view = await render(<FTPTrendChart data={[]} coverage={RangeCoverage.NotFetched} />);
 
     expect(view.getByText('stats.rangeNotDownloaded')).toBeTruthy();
     expect(view.queryByText('stats.completePowerActivities')).toBeNull();
   });
 
-  it('keeps its hint when the range is downloaded and holds no estimate', () => {
-    const view = render(<FTPTrendChart data={[]} coverage={RangeCoverage.Empty} />);
+  it('keeps its hint when the range is downloaded and holds no estimate', async () => {
+    const view = await render(<FTPTrendChart data={[]} coverage={RangeCoverage.Empty} />);
 
     expect(view.getByText('stats.noFtpData')).toBeTruthy();
     expect(view.getByText('stats.completePowerActivities')).toBeTruthy();
@@ -40,15 +40,17 @@ describe('the eFTP trend chart', () => {
 });
 
 describe('the decoupling chart', () => {
-  it('says a range never downloaded is not downloaded, with no instruction', () => {
-    const view = render(<DecouplingChart source={null} coverage={RangeCoverage.NotFetched} />);
+  it('says a range never downloaded is not downloaded, with no instruction', async () => {
+    const view = await render(
+      <DecouplingChart source={null} coverage={RangeCoverage.NotFetched} />
+    );
 
     expect(view.getByText('stats.rangeNotDownloaded')).toBeTruthy();
     expect(view.queryByText('stats.completeDecouplingHint')).toBeNull();
   });
 
-  it('keeps its hint for a range the census says is empty', () => {
-    const view = render(<DecouplingChart source={null} coverage={RangeCoverage.Empty} />);
+  it('keeps its hint for a range the census says is empty', async () => {
+    const view = await render(<DecouplingChart source={null} coverage={RangeCoverage.Empty} />);
 
     expect(view.getByText('stats.noDecouplingData')).toBeTruthy();
     expect(view.getByText('stats.completeDecouplingHint')).toBeTruthy();
@@ -56,8 +58,8 @@ describe('the decoupling chart', () => {
 });
 
 describe('the wellness trends chart', () => {
-  it('says wellness never downloaded is not downloaded, with no instruction', () => {
-    const view = render(
+  it('says wellness never downloaded is not downloaded, with no instruction', async () => {
+    const view = await render(
       <WellnessTrendsChart data={[]} timeRange="1m" coverage={RangeCoverage.NotFetched} />
     );
 
@@ -65,8 +67,8 @@ describe('the wellness trends chart', () => {
     expect(view.queryByText('wellness.trendHint')).toBeNull();
   });
 
-  it('keeps its hint when wellness is downloaded and carries no metric', () => {
-    const view = render(
+  it('keeps its hint when wellness is downloaded and carries no metric', async () => {
+    const view = await render(
       <WellnessTrendsChart
         data={[{ id: '2026-06-01', ctl: 40, atl: 30 }]}
         timeRange="1m"
@@ -80,15 +82,15 @@ describe('the wellness trends chart', () => {
 });
 
 describe('the fitness chart', () => {
-  it('says wellness never downloaded is not downloaded', () => {
-    const view = render(<FitnessChart data={[]} coverage={RangeCoverage.NotFetched} />);
+  it('says wellness never downloaded is not downloaded', async () => {
+    const view = await render(<FitnessChart data={[]} coverage={RangeCoverage.NotFetched} />);
 
     expect(view.getByText('stats.rangeNotDownloaded')).toBeTruthy();
     expect(view.queryByText('fitness.noData')).toBeNull();
   });
 
-  it('keeps its empty state for a range with no stored wellness', () => {
-    const view = render(<FitnessChart data={[]} coverage={RangeCoverage.Empty} />);
+  it('keeps its empty state for a range with no stored wellness', async () => {
+    const view = await render(<FitnessChart data={[]} coverage={RangeCoverage.Empty} />);
 
     expect(view.getByText('fitness.noData')).toBeTruthy();
   });
@@ -122,8 +124,8 @@ describe('the fitness trend sections', () => {
     );
   }
 
-  it('hands each chart the coverage of the range it draws', () => {
-    const view = sections(RangeCoverage.NotFetched, RangeCoverage.Empty);
+  it('hands each chart the coverage of the range it draws', async () => {
+    const view = await sections(RangeCoverage.NotFetched, RangeCoverage.Empty);
 
     expect(view.getByTestId('ftp-trend-not-downloaded')).toBeTruthy();
     expect(view.queryByText('stats.completePowerActivities')).toBeNull();
@@ -131,8 +133,8 @@ describe('the fitness trend sections', () => {
     expect(view.getByText('stats.completeDecouplingHint')).toBeTruthy();
   });
 
-  it('says the decoupling period is not downloaded when the census owes it', () => {
-    const view = sections(RangeCoverage.Loaded, RangeCoverage.NotFetched);
+  it('says the decoupling period is not downloaded when the census owes it', async () => {
+    const view = await sections(RangeCoverage.Loaded, RangeCoverage.NotFetched);
 
     expect(view.getByTestId('decoupling-not-downloaded')).toBeTruthy();
     expect(view.queryByText('stats.completeDecouplingHint')).toBeNull();

@@ -14,6 +14,7 @@ export { useExerciseSets, useMuscleGroups, useStrengthCardData } from './hooks/u
 export { useMuscleDetail } from './hooks/useMuscleDetail';
 export type { MuscleGroupDetail } from './hooks/useMuscleDetail';
 export {
+  useOwedStrengthFiles,
   useStrengthScreenData,
   useStrengthTabState,
   readExerciseDetailData,

@@ -88,28 +88,28 @@ describe('SectionsList footer links', () => {
     (router.push as jest.Mock).mockClear();
   });
 
-  it('opens the retired sections from a named button', () => {
-    const tree = renderList();
+  it('opens the retired sections from a named button', async () => {
+    const tree = await renderList();
 
     const link = tree.getByRole('button', { name: i18n.t('sectionHistory.seeRetired') });
-    fireEvent.press(link);
+    await fireEvent.press(link);
 
     expect(link).toBe(tree.getByTestId('sections-retired-link'));
     expect(router.push).toHaveBeenCalledWith('/section-retired');
   });
 
-  it('opens the named corridors from a named button', () => {
-    const tree = renderList();
+  it('opens the named corridors from a named button', async () => {
+    const tree = await renderList();
 
     const link = tree.getByRole('button', { name: i18n.t('namedCorridors.link') });
-    fireEvent.press(link);
+    await fireEvent.press(link);
 
     expect(link).toBe(tree.getByTestId('sections-named-corridors-link'));
     expect(router.push).toHaveBeenCalledWith('/named-corridors');
   });
 
-  it('closes on the card that explains sections', () => {
-    const tree = renderList();
+  it('closes on the card that explains sections', async () => {
+    const tree = await renderList();
 
     const card = tree.getByTestId('sections-explanation');
     expect(card).toHaveTextContent(new RegExp(i18n.t('routes.explanation.sectionsTitle')));

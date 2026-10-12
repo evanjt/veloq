@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { Alert, Linking, Platform, View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
@@ -7,43 +7,22 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { useDonation } from '@/shared/app/useDonation';
 import { TipButtons } from '@/shared/ui/TipButtons';
-import { getCrashLog, formatCrashLog } from '@/shared/debug/crashLog';
-import { shareFile } from '@/features/settings/lib/shareFile';
+import {
+  GITHUB_ISSUES_URL,
+  GITHUB_SPONSORS_URL,
+  openForum,
+  openStorePage,
+  shareCrashLog,
+} from '@/shared/app/supportLinks';
 import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
-import { Button, ListSectionHeader, pressable, pressRipple } from '@/shared/ui';
-
-const FORUM_URL =
-  'https://forum.intervals.icu/t/veloq-route-and-section-matching-mapping-app/120283';
-const GITHUB_ISSUES_URL = 'https://github.com/evanjt/veloq/issues/new';
-const GITHUB_SPONSORS_URL = 'https://github.com/sponsors/evanjt';
+import { Button, ListSectionHeader, Row, pressable, pressRipple } from '@/shared/ui';
 
 export function SupportSection() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const { products, isAvailable, isPurchasing, purchaseSuccess, purchase } = useDonation();
 
-  const handleReview = useCallback(async () => {
-    if (Platform.OS === 'android') {
-      Linking.openURL('market://details?id=com.veloq.app');
-    } else if (Platform.OS === 'ios') {
-      Linking.openURL('itms-apps://apps.apple.com/app/id6757836732?action=write-review');
-    } else {
-      WebBrowser.openBrowserAsync('https://github.com/evanjt/veloq');
-    }
-  }, []);
-
-  const handleShareCrashLog = useCallback(async () => {
-    const entries = await getCrashLog();
-    if (!entries.length) {
-      Alert.alert(t('support.shareCrashLog'), t('support.noCrashLog'));
-      return;
-    }
-    await shareFile({
-      content: formatCrashLog(entries),
-      filename: 'veloq-crash-log.txt',
-      mimeType: 'text/plain',
-    });
-  }, [t]);
+  const handleShareCrashLog = useCallback(() => shareCrashLog(t), [t]);
 
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -58,7 +37,7 @@ export function SupportSection() {
         <View style={styles.actionRow}>
           <Button
             label={t('support.review')}
-            onPress={handleReview}
+            onPress={() => openStorePage({ review: true })}
             variant="secondary"
             size="sm"
             style={styles.actionButton}
@@ -74,7 +53,7 @@ export function SupportSection() {
           />
           <Button
             label={t('support.forum')}
-            onPress={() => WebBrowser.openBrowserAsync(FORUM_URL)}
+            onPress={openForum}
             variant="secondary"
             size="sm"
             style={styles.actionButton}
@@ -115,22 +94,24 @@ export function SupportSection() {
         <View style={[styles.divider, { backgroundColor: dividerColor }]} />
 
         {/* intervals.icu row */}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('settings.subscribe')}
-          onPress={() => WebBrowser.openBrowserAsync('https://intervals.icu/settings/subscription')}
-          style={pressable(styles.row)}
-          android_ripple={pressRipple}
-        >
-          <MaterialCommunityIcons name="heart" size={20} color={colors.chartPink} />
-          <View style={styles.rowTextGroup}>
-            <Text style={[styles.rowText, { color: textColor }]}>intervals.icu</Text>
-            <Text style={[styles.rowSubtext, { color: mutedColor }]}>
-              {t('settings.subscribe')}
-            </Text>
-          </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color={mutedColor} />
-        </Pressable>
+        {/* The card's own padding is the row's inset, so the row runs to its edges. */}
+        <View style={styles.bleed}>
+          <Row
+            behaviour="navigate"
+            accessibilityLabel={t('settings.subscribe')}
+            onPress={() =>
+              WebBrowser.openBrowserAsync('https://intervals.icu/settings/subscription')
+            }
+          >
+            <MaterialCommunityIcons name="heart" size={20} color={colors.chartPink} />
+            <View style={styles.rowTextGroup}>
+              <Text style={[styles.rowText, { color: textColor }]}>intervals.icu</Text>
+              <Text style={[styles.rowSubtext, { color: mutedColor }]}>
+                {t('settings.subscribe')}
+              </Text>
+            </View>
+          </Row>
+        </View>
 
         <View style={[styles.divider, { backgroundColor: dividerColor }]} />
 
@@ -180,6 +161,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     paddingVertical: spacing.xs,
+    minHeight: layout.minTapTarget,
   },
   rowText: {
     ...typography.bodySmall,
@@ -188,6 +170,9 @@ const styles = StyleSheet.create({
   },
   rowTextGroup: {
     flex: 1,
+  },
+  bleed: {
+    marginHorizontal: -spacing.md,
   },
   rowSubtext: {
     ...typography.caption,

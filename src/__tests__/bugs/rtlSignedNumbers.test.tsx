@@ -42,11 +42,11 @@ function signTouchesDigits(text: string): boolean {
   return /[+-]\d/.test(text) && !/\d\s*[+-](?!\d)/.test(text.replace(/\d[+-]\d/g, ''));
 }
 
-function withRtl(run: () => void) {
+async function withRtl(run: () => Promise<void>) {
   const wasRtl = I18nManager.isRTL;
   I18nManager.isRTL = true;
   try {
-    run();
+    await run();
   } finally {
     I18nManager.isRTL = wasRtl;
   }
@@ -58,31 +58,31 @@ describe('isolateNumeric', () => {
     expect(isolateNumeric('')).toBe('');
   });
 
-  it('isolates the run under a right-to-left layout', () => {
-    withRtl(() => {
+  it('isolates the run under a right-to-left layout', async () => {
+    await withRtl(async () => {
       expect(isolateNumeric('-0.2')).toBe(`${FSI}-0.2${PDI}`);
       expect(isolateNumeric('+16')).toBe(`${FSI}+16${PDI}`);
     });
   });
 
-  it('does not wrap an empty string, which has no run to isolate', () => {
-    withRtl(() => {
+  it('does not wrap an empty string, which has no run to isolate', async () => {
+    await withRtl(async () => {
       expect(isolateNumeric('')).toBe('');
     });
   });
 });
 
 describe('a delta chip under a right-to-left layout', () => {
-  it('keeps the minus with the digits', () => {
-    withRtl(() => {
+  it('keeps the minus with the digits', async () => {
+    await withRtl(async () => {
       expect(formatTimeDelta(-90)).toBe(`${FSI}-1:30${PDI}`);
       expect(formatTimeDelta(90)).toBe(`${FSI}+1:30${PDI}`);
       expect(signTouchesDigits(formatTimeDelta(-5) as string)).toBe(true);
     });
   });
 
-  it('still returns null below a second, so the isolate never stands alone', () => {
-    withRtl(() => {
+  it('still returns null below a second, so the isolate never stands alone', async () => {
+    await withRtl(async () => {
       expect(formatTimeDelta(0.5)).toBeNull();
     });
   });
@@ -95,9 +95,9 @@ describe('a delta chip under a right-to-left layout', () => {
 describe('the grade chip under a right-to-left layout', () => {
   const grade = CHART_CONFIGS.grade;
 
-  it('keeps the minus with the digits and the unit outside the run', () => {
-    withRtl(() => {
-      const tree = render(
+  it('keeps the minus with the digits and the unit outside the run', async () => {
+    await withRtl(async () => {
+      const tree = await render(
         <ChartTypeSelector
           available={[grade]}
           selected={['grade']}
@@ -115,8 +115,8 @@ describe('the grade chip under a right-to-left layout', () => {
     });
   });
 
-  it('renders the plain value left to right', () => {
-    const tree = render(
+  it('renders the plain value left to right', async () => {
+    const tree = await render(
       <ChartTypeSelector
         available={[grade]}
         selected={['grade']}
@@ -129,9 +129,9 @@ describe('the grade chip under a right-to-left layout', () => {
 });
 
 describe('the TSB figure under a right-to-left layout', () => {
-  it('keeps a negative balance signed', () => {
-    withRtl(() => {
-      const tree = render(<TodayBanner form={{ ctl: 40, atl: 52 }} />);
+  it('keeps a negative balance signed', async () => {
+    await withRtl(async () => {
+      const tree = await render(<TodayBanner form={{ ctl: 40, atl: 52 }} />);
       expect(tree.getByText(new RegExp(`${FSI}-12${PDI}`))).toBeTruthy();
     });
   });

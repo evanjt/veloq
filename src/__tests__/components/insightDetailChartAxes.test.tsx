@@ -27,21 +27,21 @@ jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 const DAY = 86_400;
 const START = Date.UTC(2026, 5, 1) / 1000;
 
-function layout(tree: ReturnType<typeof render>) {
+async function layout(tree: Awaited<ReturnType<typeof render>>) {
   const measured = tree.UNSAFE_getAllByType(View).filter((node) => node.props.onLayout);
-  act(() => {
+  await act(async () => {
     for (const node of measured) {
-      fireEvent(node, 'layout', { nativeEvent: { layout: { width: 320, height: 150 } } });
+      await fireEvent(node, 'layout', { nativeEvent: { layout: { width: 320, height: 150 } } });
     }
   });
 }
 
 const dayLabel = (epochSeconds: number) => formatShortDate(new Date(epochSeconds * 1000));
 
-function select(tree: ReturnType<typeof render>, index: number) {
+async function select(tree: Awaited<ReturnType<typeof render>>, index: number) {
   const chart = tree.UNSAFE_getByType(CurveChart);
   const data = chart.props.data as unknown[];
-  act(() => chart.props.onSelect(data[index]));
+  await act(() => chart.props.onSelect(data[index]));
 }
 
 function hrvInsight(values: number[], days: number[]): Insight {
@@ -71,25 +71,25 @@ function hrvInsight(values: number[], days: number[]): Insight {
 
 describe('the HRV trend chart', () => {
   const days = [0, 1, 2, 9];
-  const tree = () => {
-    const t = render(<HrvTrendContent insight={hrvInsight([50, 55, 52, 58], days)} />);
-    layout(t);
+  const tree = async () => {
+    const t = await render(<HrvTrendContent insight={hrvInsight([50, 55, 52, 58], days)} />);
+    await layout(t);
     return t;
   };
 
-  it('is the shared scrubbable chart', () => {
-    expect(tree().UNSAFE_getAllByType(CurveChart)).toHaveLength(1);
+  it('is the shared scrubbable chart', async () => {
+    expect((await tree()).UNSAFE_getAllByType(CurveChart)).toHaveLength(1);
   });
 
-  it('names its series and prints its ticks in milliseconds', () => {
-    const t = tree();
+  it('names its series and prints its ticks in milliseconds', async () => {
+    const t = await tree();
     const chart = t.getByTestId('insight-series-chart');
     expect(t.getByText('Resting variability')).toBeTruthy();
     expect(within(chart).getByTestId('insight-series-axis-top').props.children).toMatch(/ms$/);
   });
 
-  it('labels its first and last dates, placed on the dates they name', () => {
-    const t = tree();
+  it('labels its first and last dates, placed on the dates they name', async () => {
+    const t = await tree();
     const axis = within(t.getByTestId('insight-series-chart'));
     expect(axis.getByText(dayLabel(START))).toBeTruthy();
     expect(axis.getByText(dayLabel(START + 9 * DAY))).toBeTruthy();
@@ -97,14 +97,14 @@ describe('the HRV trend chart', () => {
     expect(xs).toEqual(days.map((d) => START + d * DAY));
   });
 
-  it('reads out the newest sample, then the one a scrub picks', () => {
-    const t = tree();
+  it('reads out the newest sample, then the one a scrub picks', async () => {
+    const t = await tree();
     expect(t.getByTestId('insight-series-readout-value').props.children).toBe('58 ms');
     expect(t.getByTestId('insight-series-readout-date').props.children).toBe(
       dayLabel(START + 9 * DAY)
     );
 
-    select(t, 0);
+    await select(t, 0);
 
     expect(t.getByTestId('insight-series-readout-value').props.children).toBe('50 ms');
     expect(t.getByTestId('insight-series-readout-date').props.children).toBe(dayLabel(START));
@@ -125,9 +125,9 @@ describe('the supporting history chart', () => {
     },
   };
 
-  it('names its series, labels its dates and reads out a sample', () => {
-    const t = render(<SupportingDataSection data={data} />);
-    layout(t);
+  it('names its series, labels its dates and reads out a sample', async () => {
+    const t = await render(<SupportingDataSection data={data} />);
+    await layout(t);
 
     expect(t.getByTestId('insight-series-chart')).toBeTruthy();
     expect(t.getByText('Weighted sets')).toBeTruthy();
@@ -136,12 +136,12 @@ describe('the supporting history chart', () => {
     expect(axis.getByText(dayLabel(START + 21 * DAY))).toBeTruthy();
     expect(t.getByTestId('insight-series-readout-value').props.children).toBe('16');
 
-    select(t, 1);
+    await select(t, 1);
 
     expect(t.getByTestId('insight-series-readout-value').props.children).toBe('14');
   });
 
-  it('prints a ratio with the precision its range needs', () => {
+  it('prints a ratio with the precision its range needs', async () => {
     const ratios: InsightSupportingData = {
       history: {
         kind: 'sparkline',
@@ -154,8 +154,8 @@ describe('the supporting history chart', () => {
         ],
       },
     };
-    const t = render(<SupportingDataSection data={ratios} />);
-    layout(t);
+    const t = await render(<SupportingDataSection data={ratios} />);
+    await layout(t);
 
     expect(t.getByTestId('insight-series-readout-value').props.children).toBe('1.16');
   });
@@ -179,9 +179,9 @@ describe('the section effort timeline', () => {
   const records = [record('a', 0, 300), record('b', 4, 290), record('c', 25, 310)];
   const bests = { forward: records[1], reverse: null, forwardIsPr: true, reverseIsPr: false };
 
-  it('places efforts on their dates and puts the fastest at the top', () => {
-    const t = render(<SectionPerformanceTimeline records={records} bests={bests} />);
-    layout(t);
+  it('places efforts on their dates and puts the fastest at the top', async () => {
+    const t = await render(<SectionPerformanceTimeline records={records} bests={bests} />);
+    await layout(t);
 
     const chart = t.UNSAFE_getByType(CurveChart);
     expect((chart.props.data as { x: number }[]).map((d) => d.x)).toEqual(
@@ -192,14 +192,14 @@ describe('the section effort timeline', () => {
     expect(bottom).toBeGreaterThan(310);
   });
 
-  it('marks the record and reads out an effort as a time and a date', () => {
-    const t = render(<SectionPerformanceTimeline records={records} bests={bests} />);
-    layout(t);
+  it('marks the record and reads out an effort as a time and a date', async () => {
+    const t = await render(<SectionPerformanceTimeline records={records} bests={bests} />);
+    await layout(t);
 
     expect(t.UNSAFE_getByType(CurveChart).props.marker?.index).toBe(1);
     expect(t.getByTestId('insight-series-readout-value').props.children).toBe(formatDuration(310));
 
-    select(t, 1);
+    await select(t, 1);
 
     expect(t.getByTestId('insight-series-readout-value').props.children).toBe(formatDuration(290));
     expect(t.getByTestId('insight-series-readout-date').props.children).toBe(

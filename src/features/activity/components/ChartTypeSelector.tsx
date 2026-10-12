@@ -2,11 +2,19 @@ import React, { useRef, useCallback } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { DenseText } from '@/shared/ui/DenseText';
 import { useTheme } from '@/shared/app';
-import { pressable, pressRipple } from '@/shared/ui';
+import { composeAccessibilityLabel, pressable, pressRipple } from '@/shared/ui';
 import * as haptics from '@/shared/ui/haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, layout, typography, spacing, colorWithOpacity } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  darkColors,
+  layout,
+  slopToMinTapTarget,
+  spacing,
+  typography,
+} from '@/theme';
 import { isolateNumeric } from '@/shared/format';
 import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
@@ -129,13 +137,19 @@ export function ChartTypeSelector({
         const label = labelKey ? (t(labelKey) as string) : config.label;
         // Get metric value for this chip
         const metric = metricValues?.find((m) => m.id === config.id);
+        // The chip is one element, so its name carries the value it draws.
+        const spokenValue = metric
+          ? metric.unit
+            ? `${metric.value} ${metric.unit}`
+            : metric.value
+          : null;
 
         return (
           <Pressable
             key={config.id}
             testID={`chart-type-${config.id}`}
             accessibilityRole="button"
-            accessibilityLabel={label}
+            accessibilityLabel={composeAccessibilityLabel(label, spokenValue)}
             accessibilityState={{ selected: isSelected }}
             style={pressable([
               styles.chip,
@@ -143,6 +157,7 @@ export function ChartTypeSelector({
               { backgroundColor: bgColor },
             ])}
             android_ripple={pressRipple}
+            hitSlop={metric ? CHIP_WITH_VALUE_SLOP : CHIP_SLOP}
             onPressIn={handlePressIn}
             onPress={() => handlePress(config.id)}
             onLongPress={() => handleLongPress(config.id)}
@@ -177,7 +192,12 @@ export function ChartTypeSelector({
   );
 }
 
-const VALUE_FONT_SIZE = 10;
+// The chips wrap into rows only a small gap apart, so each is drawn at its
+// content's height and reaches the tap target through slop.
+const CHIP_HEIGHT = typography.label.lineHeight + 2 * spacing.xs;
+const CHIP_WITH_VALUE_HEIGHT = CHIP_HEIGHT + spacing.xxs + typography.micro.lineHeight;
+const CHIP_SLOP = slopToMinTapTarget(CHIP_HEIGHT);
+const CHIP_WITH_VALUE_SLOP = slopToMinTapTarget(CHIP_WITH_VALUE_HEIGHT);
 
 const styles = StyleSheet.create({
   container: {
@@ -188,12 +208,14 @@ const styles = StyleSheet.create({
   },
   chip: {
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
+    minHeight: CHIP_HEIGHT,
     borderRadius: layout.borderRadius,
   },
   chipWithValue: {
-    paddingVertical: spacing.xs,
+    minHeight: CHIP_WITH_VALUE_HEIGHT,
   },
   chipLabelRow: {
     flexDirection: 'row',
@@ -202,6 +224,7 @@ const styles = StyleSheet.create({
   },
   chipLabel: {
     fontSize: typography.label.fontSize,
+    lineHeight: typography.label.lineHeight,
     fontWeight: '500',
   },
   chipValueContainer: {
@@ -210,7 +233,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.xxs,
   },
   chipValue: {
-    fontSize: VALUE_FONT_SIZE,
+    fontSize: typography.micro.fontSize,
+    lineHeight: typography.micro.lineHeight,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
     textAlign: 'center',

@@ -19,45 +19,45 @@ interface Props {
 }
 
 describe('useStableBy', () => {
-  it('hands back the first reference while the key holds', () => {
+  it('hands back the first reference while the key holds', async () => {
     const first = [{ id: 'a' }];
-    const { result, rerender } = renderHook(({ v, k }: Props) => useStableBy(v, k), {
+    const { result, rerender } = await renderHook(({ v, k }: Props) => useStableBy(v, k), {
       initialProps: { v: first, k: 'a' },
     });
 
     expect(result.current).toBe(first);
 
-    rerender({ v: [{ id: 'a' }], k: 'a' });
+    await rerender({ v: [{ id: 'a' }], k: 'a' });
 
     expect(result.current).toBe(first);
   });
 
-  it('takes the new reference when the key moves', () => {
+  it('takes the new reference when the key moves', async () => {
     const first = [{ id: 'a' }];
     const second = [{ id: 'b' }];
-    const { result, rerender } = renderHook(({ v, k }: Props) => useStableBy(v, k), {
+    const { result, rerender } = await renderHook(({ v, k }: Props) => useStableBy(v, k), {
       initialProps: { v: first, k: 'a' },
     });
 
-    rerender({ v: second, k: 'b' });
+    await rerender({ v: second, k: 'b' });
 
     expect(result.current).toBe(second);
   });
 
-  it('does not give a later value back under an unchanged key', () => {
+  it('does not give a later value back under an unchanged key', async () => {
     const first = [{ id: 'a' }];
-    const { result, rerender } = renderHook(({ v, k }: Props) => useStableBy(v, k), {
+    const { result, rerender } = await renderHook(({ v, k }: Props) => useStableBy(v, k), {
       initialProps: { v: first, k: 'a' },
     });
 
-    rerender({ v: [{ id: 'a' }], k: 'a' });
-    rerender({ v: [{ id: 'a' }], k: 'a' });
+    await rerender({ v: [{ id: 'a' }], k: 'a' });
+    await rerender({ v: [{ id: 'a' }], k: 'a' });
 
     expect(result.current).toBe(first);
   });
 
-  it('carries undefined, which is a different answer from an empty list', () => {
-    const { result, rerender } = renderHook(
+  it('carries undefined, which is a different answer from an empty list', async () => {
+    const { result, rerender } = await renderHook(
       ({ v, k }: { v: number[] | undefined; k: string }) => useStableBy(v, k),
       { initialProps: { v: undefined as number[] | undefined, k: 'none' } }
     );
@@ -65,7 +65,7 @@ describe('useStableBy', () => {
     expect(result.current).toBeUndefined();
 
     const empty: number[] = [];
-    rerender({ v: empty, k: '' });
+    await rerender({ v: empty, k: '' });
 
     expect(result.current).toBe(empty);
   });
@@ -75,9 +75,9 @@ describe('useStableBy', () => {
    * runs twice for one commit. A ref written on the first pass is read by the
    * second; a memo keyed on the same key is not.
    */
-  it('survives a double render under StrictMode', () => {
+  it('survives a double render under StrictMode', async () => {
     const first = [{ id: 'a' }];
-    const { result, rerender } = renderHook(({ v, k }: Props) => useStableBy(v, k), {
+    const { result, rerender } = await renderHook(({ v, k }: Props) => useStableBy(v, k), {
       initialProps: { v: first, k: 'a' },
       wrapper: ({ children }: { children: React.ReactNode }) => (
         <React.StrictMode>{children}</React.StrictMode>
@@ -86,7 +86,7 @@ describe('useStableBy', () => {
 
     expect(result.current).toBe(first);
 
-    rerender({ v: [{ id: 'a' }], k: 'a' });
+    await rerender({ v: [{ id: 'a' }], k: 'a' });
 
     expect(result.current).toBe(first);
   });

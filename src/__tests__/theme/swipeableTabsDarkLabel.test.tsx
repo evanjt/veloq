@@ -39,8 +39,8 @@ const TABS = [
   { key: 'two', label: 'Two', icon: 'dumbbell' as const },
 ];
 
-function activeLabelColour(isDark: boolean): string {
-  const { getByText } = render(
+async function activeLabelColour(isDark: boolean): Promise<string> {
+  const { getByText } = await render(
     <SwipeableTabs tabs={TABS} activeTab="one" onTabChange={jest.fn()} isDark={isDark}>
       {TABS.map((tab) => (
         <React.Fragment key={tab.key} />
@@ -51,13 +51,13 @@ function activeLabelColour(isDark: boolean): string {
 }
 
 describe('the active tab label', () => {
-  it('clears 4.5:1 on the dark background in the dark theme', () => {
-    const colour = activeLabelColour(true);
+  it('clears 4.5:1 on the dark background in the dark theme', async () => {
+    const colour = await activeLabelColour(true);
 
     expect(contrastRatio(colour, darkColors.background)).toBeGreaterThanOrEqual(AA_TEXT);
   });
 
-  it('keeps the light link teal in the light theme', () => {
-    expect(activeLabelColour(false)).toBe(colors.linkTeal);
+  it('keeps the light link teal in the light theme', async () => {
+    expect(await activeLabelColour(false)).toBe(colors.linkTeal);
   });
 });

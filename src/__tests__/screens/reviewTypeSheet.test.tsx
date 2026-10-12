@@ -12,6 +12,7 @@ import { answerSheet } from '../__shared__/answerSheet';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import type { ActivityType } from '@/types';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { inStack } from '../__shared__/testStack';
 
 const mockPush = jest.fn();
 const mockBack = jest.fn();
@@ -73,20 +74,20 @@ beforeEach(() => {
 
 describe('review activity type sheet', () => {
   it('applies the selection to the draft and leaves the recording store alone', async () => {
-    const review = render(<ReviewScreen />);
+    const review = await render(inStack(<ReviewScreen />));
     const draftType = () => review.getByTestId('review-activity-type');
-    fireEvent.press(draftType());
+    void fireEvent.press(draftType());
     expect(mockPush.mock.calls[0][0].pathname).toBe('sheets/activity-type');
-    answerSheet(mockPush, mockParams, 'Run' as ActivityType);
+    await answerSheet(mockPush, mockParams, 'Run' as ActivityType);
     await waitFor(() => expect(within(draftType()).getByText('activityTypes.Run')).toBeTruthy());
     expect(useRecordingStore.getState().activityType).toBe('Ride');
   });
 
   it('keeps the draft when the sheet is dismissed', async () => {
-    const review = render(<ReviewScreen />);
+    const review = await render(inStack(<ReviewScreen />));
     const draftType = () => review.getByTestId('review-activity-type');
-    fireEvent.press(draftType());
-    answerSheet(mockPush, mockParams, null);
+    void fireEvent.press(draftType());
+    await answerSheet(mockPush, mockParams, null);
     await act(async () => {});
     expect(within(draftType()).getByText('activityTypes.Ride')).toBeTruthy();
   });

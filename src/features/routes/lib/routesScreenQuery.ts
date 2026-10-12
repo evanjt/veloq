@@ -29,6 +29,13 @@ export const DEFAULT_SECTION_HIDE_FLAGS: SectionHideFlags = {
   unaccepted: false,
 };
 
+/** Whether the flags hide a kind of section the default shows, which narrows the list. */
+export function hidesBeyondDefault(hidden: SectionHideFlags): boolean {
+  return (Object.keys(DEFAULT_SECTION_HIDE_FLAGS) as (keyof SectionHideFlags)[]).some(
+    (kind) => hidden[kind] && !DEFAULT_SECTION_HIDE_FLAGS[kind]
+  );
+}
+
 export function groupSortFor(option: RoutesSortOption): GroupSort {
   switch (option) {
     case 'nearby':

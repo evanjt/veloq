@@ -65,15 +65,26 @@ const tooFew = (n: number) => ({ tag: 'TooFew', inner: { n } });
 const undef = (n: number) => ({ tag: 'Undefined', inner: { n } });
 
 describe('SectionCorrelationCard', () => {
-  it('renders nothing for an empty list', () => {
-    const { queryByTestId } = render(
+  it('renders nothing for an empty list', async () => {
+    const { queryByTestId } = await render(
       <SectionCorrelationCard correlations={[]} floor={10} isDark={false} />
     );
     expect(queryByTestId('section-correlation-card')).toBeNull();
   });
 
-  it('draws a mover as a strength word, a direction and n, with no raw figure', () => {
-    const { getByTestId } = render(
+  it('titles the card as a heading', async () => {
+    const { getByRole } = await render(
+      <SectionCorrelationCard
+        correlations={[row('same', 'hrv', mover(0.4321, 31, 0.1234, 0.6789))]}
+        floor={10}
+        isDark={false}
+      />
+    );
+    expect(getByRole('header', { name: 'sections.correlationTitle' })).toBeTruthy();
+  });
+
+  it('draws a mover as a strength word, a direction and n, with no raw figure', async () => {
+    const { getByTestId } = await render(
       <SectionCorrelationCard
         correlations={[row('same', 'hrv', mover(0.4321, 31, 0.1234, 0.6789))]}
         floor={10}
@@ -88,8 +99,8 @@ describe('SectionCorrelationCard', () => {
     expect(text).not.toContain('0.43');
   });
 
-  it('shows r and the interval only after the raw switch is on', () => {
-    const { getByTestId, queryByTestId } = render(
+  it('shows r and the interval only after the raw switch is on', async () => {
+    const { getByTestId, queryByTestId } = await render(
       <SectionCorrelationCard
         correlations={[row('same', 'hrv', mover(0.4321, 31, 0.1234, 0.6789))]}
         floor={10}
@@ -97,17 +108,17 @@ describe('SectionCorrelationCard', () => {
       />
     );
     expect(queryByTestId('section-correlation-raw-same-hrv')).toBeNull();
-    fireEvent(getByTestId('section-correlation-raw-switch'), 'valueChange', true);
+    await fireEvent(getByTestId('section-correlation-raw-switch'), 'valueChange', true);
     const raw = JSON.stringify(getByTestId('section-correlation-raw-same-hrv').props.children);
     expect(raw).toContain('0.43');
     expect(raw).toContain('0.12');
     expect(raw).toContain('0.68');
-    fireEvent(getByTestId('section-correlation-raw-switch'), 'valueChange', false);
+    await fireEvent(getByTestId('section-correlation-raw-switch'), 'valueChange', false);
     expect(queryByTestId('section-correlation-raw-same-hrv')).toBeNull();
   });
 
-  it('reads a negative mover as faster when lower', () => {
-    const { getByTestId } = render(
+  it('reads a negative mover as faster when lower', async () => {
+    const { getByTestId } = await render(
       <SectionCorrelationCard
         correlations={[row('same', 'resting_hr', mover(-0.65, 40, -0.8, -0.4))]}
         floor={10}
@@ -119,8 +130,8 @@ describe('SectionCorrelationCard', () => {
     expect(text).toContain('sections.correlationStrengthStrong');
   });
 
-  it('draws an inconclusive row as no clear link with no direction', () => {
-    const { getByTestId } = render(
+  it('draws an inconclusive row as no clear link with no direction', async () => {
+    const { getByTestId } = await render(
       <SectionCorrelationCard
         correlations={[row('same', 'weight', inconclusive(-0.05, 22, -0.45, 0.37))]}
         floor={10}
@@ -134,8 +145,8 @@ describe('SectionCorrelationCard', () => {
     expect(text).toContain('sections.correlationNoClearLink');
   });
 
-  it('draws too few as not enough data with n and no coefficient', () => {
-    const { getByTestId, getAllByText } = render(
+  it('draws too few as not enough data with n and no coefficient', async () => {
+    const { getByTestId, getAllByText } = await render(
       <SectionCorrelationCard
         correlations={[
           row('same', 'hrv', tooFew(7)),
@@ -152,8 +163,8 @@ describe('SectionCorrelationCard', () => {
     expect(getAllByText(/correlationNotEnoughData/).length).toBeGreaterThan(0);
   });
 
-  it('draws undefined with no coefficient', () => {
-    const { getByTestId } = render(
+  it('draws undefined with no coefficient', async () => {
+    const { getByTestId } = await render(
       <SectionCorrelationCard
         correlations={[
           row('same', 'weight', undef(15)),
@@ -168,8 +179,8 @@ describe('SectionCorrelationCard', () => {
     expect(text).not.toMatch(/\d\.\d/);
   });
 
-  it('collapses a direction of only too-few and undefined rows to one line with the largest n', () => {
-    const { queryByTestId, getByTestId } = render(
+  it('collapses a direction of only too-few and undefined rows to one line with the largest n', async () => {
+    const { queryByTestId, getByTestId } = await render(
       <SectionCorrelationCard
         correlations={[
           row('same', 'hrv', tooFew(3)),
@@ -188,8 +199,8 @@ describe('SectionCorrelationCard', () => {
     expect(text).not.toMatch(/\\"n\\":3\b/);
   });
 
-  it('states the floor the engine applied, not one of its own', () => {
-    const { getByTestId } = render(
+  it('states the floor the engine applied, not one of its own', async () => {
+    const { getByTestId } = await render(
       <SectionCorrelationCard
         correlations={[
           row('same', 'hrv', tooFew(7)),
@@ -209,8 +220,8 @@ describe('SectionCorrelationCard', () => {
     expect(collapsed).toMatch(/\\"floor\\":14\b/);
   });
 
-  it("names each direction's family size, as the engine gave it", () => {
-    const { getByTestId, queryByTestId } = render(
+  it("names each direction's family size, as the engine gave it", async () => {
+    const { getByTestId, queryByTestId } = await render(
       <SectionCorrelationCard
         correlations={[
           row('same', 'hrv', mover(0.6, 30, 0.3, 0.8), 6),
@@ -232,8 +243,8 @@ describe('SectionCorrelationCard', () => {
     expect(queryByTestId('section-correlation-family-other')).toBeNull();
   });
 
-  it('names no family for a direction with no coefficient to adjust', () => {
-    const { queryByTestId } = render(
+  it('names no family for a direction with no coefficient to adjust', async () => {
+    const { queryByTestId } = await render(
       <SectionCorrelationCard
         correlations={[row('same', 'hrv', tooFew(3), 0), row('same', 'ctl', undef(5), 0)]}
         floor={10}
@@ -243,8 +254,8 @@ describe('SectionCorrelationCard', () => {
     expect(queryByTestId('section-correlation-family-same')).toBeNull();
   });
 
-  it('draws an inconclusive row whose own interval misses zero as no clear link', () => {
-    const { getByTestId } = render(
+  it('draws an inconclusive row whose own interval misses zero as no clear link', async () => {
+    const { getByTestId } = await render(
       <SectionCorrelationCard
         correlations={[row('same', 'sleep_secs', inconclusive(0.45, 20, 0.01, 0.74), 12)]}
         floor={10}
@@ -256,8 +267,8 @@ describe('SectionCorrelationCard', () => {
     expect(text).not.toContain('sections.correlationFasterWhen');
   });
 
-  it('keeps the engine order within a direction', () => {
-    const { getAllByTestId } = render(
+  it('keeps the engine order within a direction', async () => {
+    const { getAllByTestId } = await render(
       <SectionCorrelationCard
         correlations={[
           row('same', 'weight', inconclusive(0.01, 20, -0.4, 0.4)),

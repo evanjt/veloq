@@ -14,9 +14,9 @@
 // `// empty-on-error: <reason>` comment inside the `catch` or on the line above
 // it, and the reason cannot be blank.
 //
-// The rule holds in the client, its delegates and every feature hook, since a
-// hook that catches the throw and answers empty hides the failure from the
-// screen the same way.
+// The rule holds in the client, its delegates, every feature hook and every
+// screen under `src/app`, since a hook or a screen that catches the throw and
+// answers empty hides the failure from the athlete the same way.
 //
 // The rule covers both shapes: `try { ... } catch { return []; }` and a
 // promise's `.catch(() => [])`.
@@ -49,6 +49,8 @@ const BASELINE_FILE =
 const HOOK_FILE = /^src\/(?:.*\/)?hooks\/[^/]+\.tsx?$/;
 // A lib file is held to the rule when it reaches the engine itself.
 const LIB_FILE = /^src\/(?:.*\/)?lib\/[^/]+\.tsx?$/;
+// A screen reads the engine and its queries directly as often as through a hook.
+const APP_FILE = /^src\/app\/.+\.tsx?$/;
 const ENGINE_IMPORT = /from\s+'@\/shared\/native\/engine'/;
 
 const MARKER = /\/\/\s*empty-on-error:\s*(\S.*)?$/;
@@ -247,6 +249,7 @@ for (const [rel, bytes] of sources) {
     rel === CLIENT ||
     rel.startsWith(`${DELEGATES}/`) ||
     HOOK_FILE.test(rel) ||
+    APP_FILE.test(rel) ||
     (LIB_FILE.test(rel) && ENGINE_IMPORT.test(text));
   if (!inScope || !/\.tsx?$/.test(rel)) continue;
   check(rel, text);

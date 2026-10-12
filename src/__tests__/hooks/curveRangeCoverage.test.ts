@@ -62,7 +62,9 @@ describe('a curve hook carries why its range is empty', () => {
   it('says the range was never downloaded when the census has rows still owed', async () => {
     engine.rangeCoverage.mockReturnValue(RangeCoverage.NotFetched);
 
-    const { result } = renderHook(() => usePowerCurve({ sport: 'Ride', days: 42 }), { wrapper });
+    const { result } = await renderHook(() => usePowerCurve({ sport: 'Ride', days: 42 }), {
+      wrapper,
+    });
 
     await waitFor(() => expect(result.current.coverage).toBe(RangeCoverage.NotFetched));
     expect(result.current.data.secs).toEqual([]);
@@ -71,13 +73,15 @@ describe('a curve hook carries why its range is empty', () => {
   it('says the range is genuinely empty when the census names nothing in it', async () => {
     engine.rangeCoverage.mockReturnValue(RangeCoverage.Empty);
 
-    const { result } = renderHook(() => usePaceCurve({ sport: 'Run', days: 42 }), { wrapper });
+    const { result } = await renderHook(() => usePaceCurve({ sport: 'Run', days: 42 }), {
+      wrapper,
+    });
 
     await waitFor(() => expect(result.current.coverage).toBe(RangeCoverage.Empty));
   });
 
   it('asks the engine for the window the curve covers, both ends resolved', async () => {
-    renderHook(() => usePowerCurve({ sport: 'Ride', days: 42 }), { wrapper });
+    await renderHook(() => usePowerCurve({ sport: 'Ride', days: 42 }), { wrapper });
 
     await waitFor(() => expect(engine.rangeCoverage).toHaveBeenCalled());
     const [oldest, newest] = engine.rangeCoverage.mock.calls[0];
@@ -90,7 +94,9 @@ describe('a curve hook carries why its range is empty', () => {
   it('does not call a range empty when there is no engine to ask', async () => {
     mockGetEngine.mockReturnValue(undefined as unknown as ReturnType<typeof getEngine>);
 
-    const { result } = renderHook(() => usePowerCurve({ sport: 'Ride', days: 42 }), { wrapper });
+    const { result } = await renderHook(() => usePowerCurve({ sport: 'Ride', days: 42 }), {
+      wrapper,
+    });
 
     await waitFor(() => expect(result.current.coverage).toBe(RangeCoverage.NotFetched));
   });
@@ -106,7 +112,9 @@ describe('a curve hook carries why its range is empty', () => {
       fetchedAt: Date.UTC(2026, 7, 8),
     });
 
-    const { result } = renderHook(() => usePowerCurve({ sport: 'Ride', days: 42 }), { wrapper });
+    const { result } = await renderHook(() => usePowerCurve({ sport: 'Ride', days: 42 }), {
+      wrapper,
+    });
 
     await waitFor(() => expect(result.current.data.secs.length).toBe(1));
     expect(result.current.coverage).toBe(RangeCoverage.Loaded);
@@ -122,7 +130,7 @@ const curveHooks = [
 it.each(curveHooks)(
   'keeps a missing %s curve not downloaded after activities arrive',
   async (_, useCurve) => {
-    const { result } = renderHook(() => useCurve(), { wrapper });
+    const { result } = await renderHook(() => useCurve(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.coverage).toBe(RangeCoverage.NotFetched);
   }
@@ -146,7 +154,7 @@ it.each(curveHooks)('recognises a stored empty %s curve as loaded', async (_, us
     activities: {},
     fetchedAt: 1,
   });
-  const { result } = renderHook(() => useCurve(), { wrapper });
+  const { result } = await renderHook(() => useCurve(), { wrapper });
   await waitFor(() => expect(result.current.fetchedAt).toBe(1));
   expect(result.current.coverage).toBe(RangeCoverage.Loaded);
 });
@@ -171,7 +179,7 @@ it.each(curveHooks)(
       activities: {},
       fetchedAt: 1,
     });
-    const { result } = renderHook(() => useCurve(), { wrapper });
+    const { result } = await renderHook(() => useCurve(), { wrapper });
     await waitFor(() => expect(result.current.fetchedAt).toBe(1));
     expect(result.current.coverage).toBe(RangeCoverage.Loaded);
     expect(result.current.data).toEqual(
@@ -187,12 +195,12 @@ it.each(curveHooks)(
   async (_, useCurve) => {
     jest.useFakeTimers();
     try {
-      const { result } = renderHook(() => useCurve(), { wrapper });
+      const { result } = await renderHook(() => useCurve(), { wrapper });
       await waitFor(() => expect(result.current.bodyStatus).toBe('waiting'));
-      act(() => jest.advanceTimersByTime(BODY_WAIT_MS));
+      await act(() => jest.advanceTimersByTime(BODY_WAIT_MS));
       expect(result.current.bodyStatus).toBe('timedOut');
       expect(result.current.coverage).toBe(RangeCoverage.NotFetched);
-      act(() => result.current.retryBody());
+      await act(() => result.current.retryBody());
       expect(result.current.bodyStatus).toBe('waiting');
       expect(engine.syncPowerCurve.mock.calls.length + engine.syncPaceCurve.mock.calls.length).toBe(
         2

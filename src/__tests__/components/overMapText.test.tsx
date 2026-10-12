@@ -1,12 +1,16 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { render } from '@testing-library/react-native';
+import { configure, render } from '@testing-library/react-native';
 
 import { ActivityCard } from '@/features/activity/components/ActivityCard';
 import { ActivityHeader } from '@/features/activity/components/ActivityHeader';
 import { DetailHero, HeroNameRow, HeroStatsRow } from '@/shared/ui/DetailHero';
 import { opacity, typography } from '@/theme';
 import type { Activity, ActivityDetail } from '@/types';
+
+// The card's drawn text is hidden from assistive technology, which reads the
+// card's own label instead, and these cases check what is drawn.
+configure({ defaultIncludeHiddenElements: true });
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -44,19 +48,27 @@ const activity = {
 const styleOf = (node: { props: { style?: unknown } }) =>
   StyleSheet.flatten(node.props.style as never) as Record<string, unknown>;
 
-it('uses one shadow geometry and full type roles for map text', () => {
-  const card = render(<ActivityCard activity={activity} />);
+it('uses one shadow geometry and full type roles for map text', async () => {
+  const card = await render(<ActivityCard activity={activity} />);
   const cardName = styleOf(card.getByText('Morning ride'));
-  const cardStat = styleOf(card.getByTestId('activity-card-sample-1-distance'));
+  const cardStat = styleOf(
+    card.getByTestId('activity-card-sample-1-distance', { includeHiddenElements: true })
+  );
   expect(cardName.lineHeight).toBe(typography.cardTitle.lineHeight);
 
-  const hero = render(
+  const hero = await render(
     <DetailHero
       height={320}
       overlay={
         <>
           <HeroNameRow name="River path" nameTestID="hero-name" />
-          <HeroStatsRow stats={['42 km', '2h']} statTestIDs={['hero-stat']} />
+          <HeroStatsRow
+            stats={[
+              { text: '42 km', label: 'Distance: 42 km' },
+              { text: '2h', label: 'Duration: 2h' },
+            ]}
+            statTestIDs={['hero-stat']}
+          />
         </>
       }
     >
@@ -67,7 +79,7 @@ it('uses one shadow geometry and full type roles for map text', () => {
   const heroStat = styleOf(hero.getByTestId('hero-stat'));
 
   const detail = activity as unknown as ActivityDetail;
-  const header = render(
+  const header = await render(
     <ActivityHeader
       activity={detail}
       activityId={detail.id}

@@ -648,14 +648,17 @@ impl Budget {
     }
 
     /// Record a success: the cooldown, its ladder and the run of refusals all
-    /// end. A low budget figure on it still holds the backfill.
-    pub fn succeeded(&mut self, rate: &RateBudget, now: DateTime<Utc>) {
+    /// end. A low budget figure on it still holds the backfill. Returns
+    /// whether it ended a cooldown that still held.
+    pub fn succeeded(&mut self, rate: &RateBudget, now: DateTime<Utc>) -> bool {
+        let ended = self.cooldown_until(now).is_some();
         self.refusals_in_a_row = 0;
         self.headerless_in_a_row = 0;
         self.ladder_step = 0;
         self.cooldown_until = None;
         self.last_probe_at = None;
         self.hold_on_low_figure(rate, now);
+        ended
     }
 
     /// A low remaining figure holds the backfill: below a quarter of the day
@@ -950,9 +953,25 @@ impl Governor {
         .unwrap_or(AfterRefusal::RetryInline)
     }
 
-    /// Record a success, which ends any cooldown.
-    pub fn note_success(&self, rate: &RateBudget, now: DateTime<Utc>) {
-        self.with_budget_state(now, |budget| budget.succeeded(rate, now));
+    /// Record a success, which ends any cooldown. Returns whether it ended
+    /// one, so the work the cooldown held can resume at once.
+    pub fn note_success(&self, rate: &RateBudget, now: DateTime<Utc>) -> bool {
+        self.with_budget_state(now, |budget| budget.succeeded(rate, now))
+            .unwrap_or(false)
+    }
+
+    /// Until when a refusal's cooldown holds at `now`, as every process sees
+    /// it. `None` when none does, and always on a pacing-only governor.
+    pub fn cooldown_until(&self, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
+        self.with_budget_state(now, |budget| budget.cooldown_until(now))
+            .flatten()
+    }
+
+    /// When work refused at `now` may be asked for again: the end of the
+    /// cooldown, or the first rung of the cooldown ladder when none holds.
+    pub fn refusal_lifts_at(&self, now: DateTime<Utc>) -> DateTime<Utc> {
+        self.cooldown_until(now)
+            .unwrap_or_else(|| now + COOLDOWN_LADDER[0])
     }
 
     /// The budget at `now`, or `None` on a pacing-only governor.
@@ -1133,6 +1152,8 @@ mod tests {
             .decode(encoded)
             .unwrap();
         assert_eq!(std::str::from_utf8(&decoded).unwrap(), "API_KEY:secret");
+        // A round trip through one crate cannot see that crate change its alphabet or padding.
+        assert_eq!(header, "Basic QVBJX0tFWTpzZWNyZXQ=");
     }
 
     #[test]

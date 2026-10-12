@@ -266,3 +266,53 @@ fn test_measure_match_percentages_keeps_the_endpoint_direction_above_the_partial
     let (_, direction) = measure_with_offset_member(false, 32.0);
     assert_eq!(direction, Direction::Same);
 }
+
+#[test]
+fn test_measure_match_percentages_descends_a_tree_per_point_on_a_well_ridden_route() {
+    use crate::persistence::track_index::{distance_evaluation_bound, take_distance_evaluations};
+
+    const POINTS: usize = 2_100;
+    const MEMBERS: usize = 20;
+    let member = |index: usize| -> Vec<GpsPoint> {
+        let east = (index as f64 * 0.5) / (111_320.0 * 47.0_f64.to_radians().cos());
+        (0..POINTS)
+            .map(|step| GpsPoint::new(47.0 + step as f64 * 0.0001, 7.0 + east))
+            .collect()
+    };
+    let tracks: HashMap<String, Vec<GpsPoint>> = (0..MEMBERS)
+        .map(|index| (format!("m{index}"), member(index)))
+        .collect();
+    let mut route = group();
+    route.representative_id = "m0".to_string();
+    route.activity_ids = (0..MEMBERS).map(|index| format!("m{index}")).collect();
+
+    // One worker thread, so every distance the pairs measure is counted on it.
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(1)
+        .build()
+        .unwrap();
+    let (measured, evaluations) = pool.install(|| {
+        take_distance_evaluations();
+        let measured = crate::persistence::routes::measure_match_percentages(
+            &[route],
+            &HashMap::new(),
+            &tracematch::MatchConfig::default(),
+            |id| tracks.get(id).cloned(),
+            None,
+            None,
+        );
+        (measured, take_distance_evaluations())
+    });
+
+    assert_eq!(measured["r_1"].len(), MEMBERS);
+    assert!(
+        measured["r_1"].iter().all(|m| m.match_percentage == 100.0),
+        "every member lies within metres of the representative"
+    );
+    let pairs = (MEMBERS - 1) as u64;
+    let bound = pairs * 2 * distance_evaluation_bound(POINTS, POINTS);
+    assert!(
+        evaluations <= bound,
+        "{evaluations} distances measured, at most {bound} expected"
+    );
+}

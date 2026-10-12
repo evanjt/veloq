@@ -8,12 +8,14 @@
 // the reason it does. The full-screen takeovers (the landscape chart, the
 // full-screen maps, the QR camera), the menu and the developer panel stay a
 // `Modal` because a formSheet cannot hold a landscape lock or a full-screen
-// camera, and their entries say so. The rest say `converting`. A confirmation
-// is `Alert.alert`, not a sheet.
+// camera, and their entries say so. A confirmation is `Alert.alert`, not a
+// sheet.
 //
 // An entry whose file no longer renders `<Modal` fails as stale, so a
 // conversion deletes its own line and the list only shrinks. An entry with no
-// reason fails too.
+// reason fails too, and so does one whose reason is `converting`: that is a
+// promise nobody holds, so a sheet is converted before it lands rather than
+// listed.
 //
 // Not counted: tests under `src/__tests__/`.
 
@@ -55,8 +57,16 @@ const stale = Object.keys(baseline).filter((file) => !rendering.has(file));
 const reasonless = Object.keys(baseline).filter(
   (file) => rendering.has(file) && !String(baseline[file]).trim()
 );
+const promised = Object.keys(baseline).filter(
+  (file) => rendering.has(file) && /^converting$/i.test(String(baseline[file]).trim())
+);
 
-if (unlisted.length === 0 && stale.length === 0 && reasonless.length === 0) {
+if (
+  unlisted.length === 0 &&
+  stale.length === 0 &&
+  reasonless.length === 0 &&
+  promised.length === 0
+) {
   console.log(
     `modal sheet guard: ${rendering.size} files render a Modal, all in the baseline with a reason.`
   );
@@ -75,9 +85,17 @@ if (stale.length > 0) {
   for (const file of stale) console.error(`  ${file}`);
 }
 if (reasonless.length > 0) {
-  console.error(
-    '\nA baseline entry with no reason. Say why the file stays a Modal, or `converting`:\n'
-  );
+  console.error('\nA baseline entry with no reason. Say why the file stays a Modal:\n');
   for (const file of reasonless) console.error(`  ${file}`);
+}
+if (promised.length > 0) {
+  console.error(
+    '\nA baseline entry whose reason is `converting`. A sheet that returns a choice is'
+  );
+  console.error(
+    'a formSheet route under src/app/sheets/: convert it, or name the takeover or menu'
+  );
+  console.error('it is:\n');
+  for (const file of promised) console.error(`  ${file}`);
 }
 process.exit(1);

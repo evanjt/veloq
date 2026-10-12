@@ -24,7 +24,7 @@ function row(bestIsRecord: boolean) {
       bestIsRecord={bestIsRecord}
       pointCount={2}
       color="#00aa00"
-      showPace={false}
+      basis="speed"
       isDark={false}
     />
   );
@@ -35,22 +35,22 @@ describe('StatsRow best', () => {
     await initialiseI18n('en-AU');
   });
 
-  it('draws the trophy beside a record', () => {
-    const { getByTestId } = row(true);
+  it('draws the trophy beside a record', async () => {
+    const { getByTestId } = await row(true);
 
     expect(getByTestId('stats-row-trophy-forward')).toBeTruthy();
     expect(getByTestId('stats-row-best-forward').props.children).toBe('4:00');
   });
 
-  it('labels a best that is not a record and draws no trophy', () => {
-    const { getByTestId, queryByTestId } = row(false);
+  it('labels a best that is not a record and draws no trophy', async () => {
+    const { getByTestId, queryByTestId } = await row(false);
 
     expect(queryByTestId('stats-row-trophy-forward')).toBeNull();
     expect(getByTestId('stats-row-best-forward').props.children).toBe('4:00 Best');
   });
 
-  it('shows the counted attempts and the omitted distance-band attempts', () => {
-    const { getByTestId } = render(
+  it('shows the counted attempts and the omitted distance-band attempts', async () => {
+    const { getByTestId } = await render(
       <StatsRow
         direction="forward"
         stats={{ avgTime: 245, lastActivity: null, count: 2, avgSpeed: null, outsideBandCount: 1 }}
@@ -58,7 +58,7 @@ describe('StatsRow best', () => {
         bestIsRecord
         pointCount={3}
         color="#00aa00"
-        showPace={false}
+        basis="speed"
         isDark={false}
       />
     );

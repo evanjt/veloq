@@ -13,10 +13,10 @@
     "Soccer": "Soccer"
   },
   "cache": {
-    "analyzingRoutes": "Analyzing routes",
+    "analyzingRoutes": "Analyzing routes…",
     "syncedStillAnalysing_one": "Synced {{count}} activity. Still analyzing route",
     "syncedStillAnalysing_other": "Synced {{count}} activities. Still analyzing routes",
-    "finalizingHeatmap": "Finalizing heatmap... {{percent}}%"
+    "finalizingHeatmap": "Finalizing heatmap…"
   },
   "emptyState": {
     "syncError": {
@@ -28,9 +28,6 @@
         "internal": "Sync stopped for a reason the app can't name"
       }
     }
-  },
-  "engine": {
-    "initFailed": "Route engine failed to initialize. Routes and sections may be unavailable."
   },
   "fitness": {
     "stripGloss": "Marks show days trained; colors identify sports, not shares of load. Gray means no recorded load."
@@ -73,7 +70,9 @@
     }
   },
   "recording": {
-    "batteryOptNudge": "Long recordings work best with battery optimization off for Veloq."
+    "batteryOptNudge": "Long recordings work best with battery optimization off for Veloq.",
+    "splitAnnouncementKm": "Kilometer {{index}}, {{pace}}",
+    "splitReachedKm": "Kilometer {{index}}"
   },
   "routes": {
     "createSection": "Create section"
@@ -121,5 +120,13 @@
     "availability": {
       "poweredOffHintIos": "Turn Bluetooth on in Control Center or Settings to find and connect sensors."
     }
+  },
+  "spoken": {
+    "perKilometre": "{{value}} per kilometer",
+    "per100Metres": "{{value}} per 100 meters",
+    "metres_one": "{{value}} meter",
+    "metres_other": "{{value}} meters",
+    "kilometres_one": "{{value}} kilometer",
+    "kilometres_other": "{{value}} kilometers"
   }
 }

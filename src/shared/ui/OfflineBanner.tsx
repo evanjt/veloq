@@ -6,23 +6,23 @@
  *
  * It floats over the screen rather than taking the top slot, so it moves no
  * screen's edge on the way in or out, and it passes every touch through to
- * what is beneath it.
+ * what is beneath it. It starts below any banner in the slot.
  */
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { Text } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useNetwork } from '@/shared/app/NetworkContext';
+import { useFloatingPillTop } from '@/shared/app/TopSafeAreaContext';
 import { useAnnounceOnAppear } from './useAnnounceOnAppear';
 import { offlinePill, typography, spacing, layout, shadows, colorWithOpacity } from '@/theme';
 
 export function OfflineBanner() {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
+  const top = useFloatingPillTop();
   const { offlineBannerShown } = useNetwork();
 
   useAnnounceOnAppear(
@@ -39,7 +39,7 @@ export function OfflineBanner() {
     <Animated.View
       entering={FadeIn.duration(200)}
       exiting={FadeOut.duration(150)}
-      style={[styles.container, { top: insets.top + spacing.xs }]}
+      style={[styles.container, { top }]}
       pointerEvents="none"
       accessibilityLiveRegion="polite"
       testID="offline-banner"
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     maxWidth: '100%',
     gap: spacing.xs,
-    borderRadius: layout.borderRadiusXl,
+    borderRadius: layout.borderRadiusFull,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     backgroundColor: offlinePill.bg,

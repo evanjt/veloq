@@ -45,7 +45,7 @@ const DENSE_SURFACES = [
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
 /** Every `Text` the tree rendered, with the cap it carries. */
-function capsOf(tree: ReturnType<typeof render>): (number | undefined)[] {
+function capsOf(tree: Awaited<ReturnType<typeof render>>): (number | undefined)[] {
   return tree
     .UNSAFE_getAllByType(Text)
     .map((node) => node.props.maxFontSizeMultiplier as number | undefined);
@@ -56,18 +56,18 @@ describe('the dense text cap', () => {
     expect(DENSE_TEXT_SCALE).toBe(1.3);
   });
 
-  it('rides on every DenseText', () => {
-    const tree = render(<DenseText>44.2 km</DenseText>);
+  it('rides on every DenseText', async () => {
+    const tree = await render(<DenseText>44.2 km</DenseText>);
     expect(capsOf(tree)).toEqual([DENSE_TEXT_SCALE]);
   });
 
-  it('does not stop a caller overriding it deliberately', () => {
-    const tree = render(<DenseText maxFontSizeMultiplier={2}>44.2 km</DenseText>);
+  it('does not stop a caller overriding it deliberately', async () => {
+    const tree = await render(<DenseText maxFontSizeMultiplier={2}>44.2 km</DenseText>);
     expect(capsOf(tree)).toEqual([2]);
   });
 
-  it('caps every line of a stats grid card', () => {
-    const tree = render(
+  it('caps every line of a stats grid card', async () => {
+    const tree = await render(
       <StatCard
         stat={{
           title: 'Distance',
@@ -84,12 +84,12 @@ describe('the dense text cap', () => {
     expect(caps.every((cap) => cap === DENSE_TEXT_SCALE)).toBe(true);
   });
 
-  it('caps the activity plot axis labels and anchors the min label to its measured height', () => {
-    const x = render(<ChartXAxisLabel xAxisMode="distance" maxX={10} isDark={false} />);
+  it('caps the activity plot axis labels and anchors the min label to its measured height', async () => {
+    const x = await render(<ChartXAxisLabel xAxisMode="distance" maxX={10} isDark={false} />);
     expect(capsOf(x).every((cap) => cap === DENSE_TEXT_SCALE)).toBe(true);
 
     const series = { range: { min: 0, max: 10 }, config: { color: '#000000' } } as never;
-    const y = render(
+    const y = await render(
       <ChartYAxisLabel
         yAxisSeries={series}
         yAxisAvgInfo={{ normalised: 0.5, raw: 5 }}
@@ -108,7 +108,7 @@ describe('the dense text cap', () => {
         const flat = Object.assign({}, ...[n.props.style].flat(Infinity).filter(Boolean));
         return flat.top as number;
       });
-    act(() => {
+    await act(() => {
       labels.forEach((n) => n.props.onLayout({ nativeEvent: { layout: { height: 40 } } }));
     });
     const after = y.UNSAFE_getAllByType(Text).map((n) => {

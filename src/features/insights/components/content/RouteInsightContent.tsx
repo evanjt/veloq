@@ -7,38 +7,28 @@ import { useTheme } from '@/shared/app';
 import { tapTo } from '@/shared/app/navigation';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { formatDuration } from '@/shared/format/format';
-import { brand, colors, darkColors, spacing, typography, verdictColor } from '@/theme';
+import { brand, colors, darkColors, spacing, typography } from '@/theme';
 import type { Insight, SupportingRoute } from '@/types';
 import { Row } from '@/shared/ui';
 import type { TFunc } from '../../types';
 import { sectionWithSport } from '../../lib/cardSport';
+import { rowTrendColor, rowTrendIcon } from '../../lib/rowTrend';
 import { SparklineChart } from '../SupportingDataSection';
 
 const STRIP_WIDTH = 96;
 const STRIP_HEIGHT = 28;
 
-function trendIcon(trend: number): string {
-  if (trend > 0) return 'trending-up';
-  if (trend < 0) return 'trending-down';
-  return 'minus';
-}
-
-function trendColor(trend: number, isDark: boolean): string {
-  if (trend > 0) return verdictColor('positive', isDark);
-  if (trend < 0) return verdictColor('negative', isDark);
-  return verdictColor('neutral', isDark);
-}
-
 const RouteRow = React.memo(function RouteRow({ route }: { route: SupportingRoute }) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const efforts = route.recentEfforts?.map((p) => p.value) ?? [];
-  const lineColor = trendColor(route.trend, isDark);
+  const lineColor = rowTrendColor(route.trend, isDark);
   const label = sectionWithSport(route.routeName, route.sportType, t as unknown as TFunc);
 
   return (
     <Row
       testID={`route-insight-row-${route.rowKey}`}
+      behaviour="navigate"
       onPress={() => tapTo(route.navigationTarget)}
       accessibilityLabel={label}
     >
@@ -83,11 +73,7 @@ const RouteRow = React.memo(function RouteRow({ route }: { route: SupportingRout
           {formatDuration(route.bestTime)}
         </Text>
         {route.trend !== 0 ? (
-          <MaterialCommunityIcons
-            name={trendIcon(route.trend) as never}
-            size={16}
-            color={lineColor}
-          />
+          <MaterialCommunityIcons name={rowTrendIcon(route.trend)} size={16} color={lineColor} />
         ) : null}
       </View>
     </Row>

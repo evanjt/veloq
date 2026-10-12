@@ -49,20 +49,20 @@ beforeEach(() => {
 });
 
 describe('the stat detail sheet', () => {
-  it('opens as a route when a stat card is tapped, without drawing its own overlay', () => {
-    const card = render(<InsightfulStats activity={activity} fitnessImpact={impact} />);
+  it('opens as a route when a stat card is tapped, without drawing its own overlay', async () => {
+    const card = await render(<InsightfulStats activity={activity} fitnessImpact={impact} />);
     expect(mockPush).not.toHaveBeenCalled();
-    fireEvent.press(card.getByText('activity.stats.fitnessImpact'));
+    await fireEvent.press(card.getByText('activity.stats.fitnessImpact'));
     expect(mockPush).toHaveBeenCalledTimes(1);
     expect(mockPush.mock.calls[0][0]).toMatchObject({ pathname: 'sheets/stat-detail' });
     expect(card.queryByTestId('stat-detail-sheet')).toBeNull();
   });
 
-  it('shows the tapped stat in the route', () => {
-    const card = render(<InsightfulStats activity={activity} fitnessImpact={impact} />);
-    fireEvent.press(card.getByText('activity.stats.fitnessImpact'));
+  it('shows the tapped stat in the route', async () => {
+    const card = await render(<InsightfulStats activity={activity} fitnessImpact={impact} />);
+    await fireEvent.press(card.getByText('activity.stats.fitnessImpact'));
     mockParams = { request: mockPush.mock.calls.at(-1)[0].params.request };
-    render(<StatDetailSheet />);
+    await render(<StatDetailSheet />);
     const sheet = within(screen.getByTestId('stat-detail-sheet'));
     expect(sheet.getByText('activity.stats.fitnessImpact')).toBeTruthy();
     expect(sheet.getAllByText('+2.4').length).toBeGreaterThan(0);
@@ -70,9 +70,9 @@ describe('the stat detail sheet', () => {
     expect(sheet.getByText('-11.9')).toBeTruthy();
   });
 
-  it('shows nothing and goes back when its request is unknown', () => {
+  it('shows nothing and goes back when its request is unknown', async () => {
     mockParams = { request: 'sheet-unknown' };
-    render(<StatDetailSheet />);
+    await render(<StatDetailSheet />);
     expect(screen.queryByTestId('stat-detail-sheet')).toBeNull();
     expect(mockBack).toHaveBeenCalledTimes(1);
   });

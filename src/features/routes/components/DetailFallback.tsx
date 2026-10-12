@@ -1,26 +1,29 @@
 /**
  * Fallback screen for route/section detail: skeleton while the engine is
- * still initialising, the not-found text when the item is missing, and a failure
- * message with Retry when the read failed or the engine is closed.
+ * still opening, the engine's reason and its recovery once it has given up,
+ * the not-found text when the item is missing, and a failure message with
+ * Retry when the read failed. There is no hero to lay a transparent header
+ * over, so it takes the opaque header and the content starts directly beneath
+ * it.
  */
 
+import { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
-import { ChartSkeleton, EmptyState, HERO_HEADER_HEIGHT } from '@/shared/ui';
+import { ChartSkeleton, EmptyState } from '@/shared/ui';
 import { engineErrorKey } from '@/shared/native/engineError';
+import { useEngineReadState } from '@/shared/native/useEngineSubscription';
+import { EngineUnavailableState } from '@/shared/app/EngineUnavailableState';
 import type { DetailReadStatus } from '../lib/detailReadResult';
 import { colors, darkColors, spacing } from '@/theme';
-import { overMapHeaderTint } from '@/shared/app/screenHeaders';
+import { noHeroHeaderOptions } from '@/shared/app/screenHeaders';
 
 interface DetailFallbackProps {
   isDark: boolean;
-  insetTop: number;
   /** The read's outcome: only `missing` shows the not-found text. */
   status: DetailReadStatus;
-  /** True while the engine is not open yet, so a closed read shows the skeleton. */
-  loading: boolean;
   notFoundMessage: string;
   /** A missing record the ledger knows: how it left, and where it went when that is live. */
   retired?:
@@ -32,27 +35,31 @@ interface DetailFallbackProps {
 
 export function DetailFallback({
   isDark,
-  insetTop,
   status,
-  loading,
   notFoundMessage,
   retired,
   onRetry,
 }: DetailFallbackProps) {
   const { t } = useTranslation();
+  const headerOptions = useMemo(() => noHeroHeaderOptions({ isDark }), [isDark]);
+  // A closed read is the engine's answer, not the record's: the engine says
+  // whether it is still opening or has given up, never the caller.
+  const engine = useEngineReadState();
+  const closedEngine = status.kind === 'closed' ? engine : 'ready';
 
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>
-      <Stack.Screen options={{ headerTintColor: overMapHeaderTint({ overHero: false, isDark }) }} />
-      <View style={{ height: insetTop + HERO_HEADER_HEIGHT }} />
-      {status.kind === 'closed' && loading ? (
-        <View style={styles.skeletonWrap}>
+      <Stack.Screen options={headerOptions} />
+      {closedEngine === 'closed' ? (
+        <View testID="detail-fallback-skeleton" style={styles.skeletonWrap}>
           <ChartSkeleton height={280} />
           <ChartSkeleton height={200} />
         </View>
       ) : (
         <View style={styles.emptyWrap}>
-          {status.kind === 'missing' && retired ? (
+          {closedEngine === 'failed' ? (
+            <EngineUnavailableState />
+          ) : status.kind === 'missing' && retired ? (
             <EmptyState
               icon="map-marker-question-outline"
               title={retired.title}

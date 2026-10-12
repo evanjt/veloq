@@ -6,7 +6,7 @@
 
 import { useMetricSystem } from '@/shared/app';
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { View, Pressable, StyleSheet, type ViewStyle, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, type ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -19,14 +19,15 @@ import {
   chartBoundsFor,
   polylineSvgPath,
   useChartGestures,
+  useMeasuredWidth,
   xForValue,
   yForValue,
 } from '@/shared/charts';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
-import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
 import { formatAxisDate, formatDuration } from '@/shared/format/format';
 import { formatSectionSpeed } from '@/features/routes/lib/sectionSpeedFormat';
+import { attemptBasis } from '@/features/routes/lib/attemptBasis';
 import {
   splitAndPositionChartData,
   placeEngineTrend,
@@ -36,7 +37,7 @@ import {
   type TrendBandPoint,
 } from '@/features/routes/lib/scatterData';
 import { computeTimeAxisLabels, axisLabelsNeedDay } from '@/features/stats';
-import { colors, darkColors, layout, typography, spacing } from '@/theme';
+import { colors, darkColors, layout, typography, spacing, themePalette } from '@/theme';
 import type { FfiSectionTrendCurves } from 'veloqrs';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 import type {
@@ -45,10 +46,8 @@ import type {
 } from '@/features/routes/lib/performanceTypes';
 import { StatsRow } from './StatsRow';
 import { PerformanceTooltip } from './PerformanceTooltip';
-import { ChipSelector, pressable, pressRipple } from '@/shared/ui';
+import { ChipSelector, IconButton } from '@/shared/ui';
 
-/** Horizontal room the chart leaves at the window edge. */
-const CHART_INSET = 32;
 const CHART_HEIGHT = 120;
 const CHART_PADDING = { left: 12, right: 8, top: 12, bottom: 12 } as const;
 const MINI_HEIGHT = 56;
@@ -130,8 +129,8 @@ export function SectionScatterChart({
   selectedDirection: controlledDirection,
   onTrendChange,
 }: SectionScatterChartProps) {
-  const isSwimming = isSwimmingActivity(activityType);
-  const showPace = isPaceSport(activityType) || isSwimming;
+  const basis = attemptBasis(activityType, !!useTimeAxis);
+  const palette = themePalette(isDark);
   const activityColor = isDark ? darkColors.primary : colors.primary;
   // The ring is the only thing that says "personal best" or "this activity",
   // so it is a mark and owes 3:1 rather than a chart tone.
@@ -161,8 +160,7 @@ export function SectionScatterChart({
   }
 
   const isMetric = useMetricSystem();
-  const { width: windowWidth } = useWindowDimensions();
-  const chartWidth = windowWidth - CHART_INSET;
+  const { width: chartWidth, onLayout: onChartLayout } = useMeasuredWidth();
 
   const formatSpeedValue = useCallback(
     (speed: number) => formatSectionSpeed(speed, activityType, isMetric),
@@ -258,6 +256,7 @@ export function SectionScatterChart({
   // domain does. Rebuilding them inside the render prop re-parsed the SVG
   // strings on every scrub tick.
   const trendPaths = useMemo(() => {
+    if (chartWidth <= 0) return { line: null, band: null };
     const bounds = chartBoundsFor(chartWidth, effectiveHeight, effectivePadding);
     const xFor = (value: number) => xForValue(value, X_DOMAIN, bounds);
     const yFor = (value: number) => yForValue(value, yDomain, bounds);
@@ -346,180 +345,182 @@ export function SectionScatterChart({
           bestIsRecord={bestForwardIsRecord}
           pointCount={forwardPoints.length}
           color={activityColor}
-          showPace={showPace}
+          basis={basis}
           isDark={isDark}
         />
       )}
 
       {/* Chart */}
-      <View style={{ width: chartWidth, height: effectiveHeight }}>
-        <View style={StyleSheet.absoluteFill}>
-          <ChartCanvas
-            data={drawnPoints}
-            x={xOf}
-            series={NO_SERIES}
-            xDomain={X_DOMAIN}
-            yDomain={yDomain}
-            padding={effectivePadding}
-            grid={5}
-          >
-            {({ xFor, yFor }) => {
-              return (
-                <>
-                  {/* Confidence bands (drawn first, behind everything) */}
-                  {trendPaths.band && (
-                    <Path
-                      path={trendPaths.band}
-                      color={
-                        selectedDirection === 'reverse' ? colors.reverseDirection : activityColor
-                      }
-                      style="fill"
-                      opacity={0.08}
-                    />
-                  )}
-                  {/* Trend lines */}
-                  {trendPaths.line && (
-                    <Path
-                      path={trendPaths.line}
-                      color={
-                        selectedDirection === 'reverse' ? colors.reverseDirection : activityColor
-                      }
-                      style="stroke"
-                      strokeWidth={2}
-                      opacity={0.6}
-                    />
-                  )}
+      <View style={{ height: effectiveHeight }} onLayout={onChartLayout}>
+        {chartWidth > 0 && (
+          <View style={StyleSheet.absoluteFill}>
+            <ChartCanvas
+              data={drawnPoints}
+              x={xOf}
+              series={NO_SERIES}
+              xDomain={X_DOMAIN}
+              yDomain={yDomain}
+              padding={effectivePadding}
+              grid={5}
+            >
+              {({ xFor, yFor }) => {
+                return (
+                  <>
+                    {/* Confidence bands (drawn first, behind everything) */}
+                    {trendPaths.band && (
+                      <Path
+                        path={trendPaths.band}
+                        color={
+                          selectedDirection === 'reverse' ? colors.reverseDirection : activityColor
+                        }
+                        style="fill"
+                        opacity={0.08}
+                      />
+                    )}
+                    {/* Trend lines */}
+                    {trendPaths.line && (
+                      <Path
+                        path={trendPaths.line}
+                        color={
+                          selectedDirection === 'reverse' ? colors.reverseDirection : activityColor
+                        }
+                        style="stroke"
+                        strokeWidth={2}
+                        opacity={0.6}
+                      />
+                    )}
 
-                  {/* Scatter points */}
-                  {(() => {
-                    const highlight: { x: number; y: number }[] = [];
+                    {/* Scatter points */}
+                    {(() => {
+                      const highlight: { x: number; y: number }[] = [];
 
-                    const dots = drawnPoints.map((dataPoint, idx) => {
-                      const yValue = yOf(dataPoint);
-                      if (yValue == null || !Number.isFinite(yValue)) return null;
-                      const point = { x: xFor(dataPoint.x), y: yFor(yValue) };
+                      const dots = drawnPoints.map((dataPoint, idx) => {
+                        const yValue = yOf(dataPoint);
+                        if (yValue == null || !Number.isFinite(yValue)) return null;
+                        const point = { x: xFor(dataPoint.x), y: yFor(yValue) };
 
-                      const isReverse = dataPoint.direction === 'reverse';
-                      const dotColor = isReverse ? colors.reverseDirection : activityColor;
-                      const isPointExcluded = dataPoint.isExcluded === true;
+                        const isReverse = dataPoint.direction === 'reverse';
+                        const dotColor = isReverse ? colors.reverseDirection : activityColor;
+                        const isPointExcluded = dataPoint.isExcluded === true;
 
-                      const isBest =
-                        recordsSettled && !isPointExcluded && dataPoint.isBest === true;
+                        const isBest =
+                          recordsSettled && !isPointExcluded && dataPoint.isBest === true;
 
-                      // Track highlighted point for rendering last (on top)
-                      const isHighlighted =
-                        highlightedActivityId != null &&
-                        dataPoint.activityId === highlightedActivityId;
-                      if (isHighlighted && highlight.length === 0) {
-                        highlight.push(point);
-                      }
+                        // Track highlighted point for rendering last (on top)
+                        const isHighlighted =
+                          highlightedActivityId != null &&
+                          dataPoint.activityId === highlightedActivityId;
+                        if (isHighlighted && highlight.length === 0) {
+                          highlight.push(point);
+                        }
 
-                      const isSelected =
-                        selectedPoint?.activityId === dataPoint.activityId &&
-                        selectedPoint?.id === dataPoint.id;
+                        const isSelected =
+                          selectedPoint?.activityId === dataPoint.activityId &&
+                          selectedPoint?.id === dataPoint.id;
 
-                      if (isSelected) {
-                        return (
-                          <React.Fragment key={`pt-${idx}`}>
+                        if (isSelected) {
+                          return (
+                            <React.Fragment key={`pt-${idx}`}>
+                              <Circle
+                                cx={point.x}
+                                cy={point.y}
+                                r={dotRadius + 3}
+                                color={colors.chartCyan}
+                              />
+                              <Circle cx={point.x} cy={point.y} r={dotRadius} color={dotColor} />
+                            </React.Fragment>
+                          );
+                        }
+
+                        // Skip highlighted point in main loop - rendered on top below
+                        if (isHighlighted) return null;
+
+                        if (isPointExcluded) {
+                          return (
                             <Circle
+                              key={`pt-${idx}`}
                               cx={point.x}
                               cy={point.y}
-                              r={dotRadius + 3}
-                              color={colors.chartCyan}
+                              r={dotRadius - 1}
+                              color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                              opacity={0.25}
                             />
-                            <Circle cx={point.x} cy={point.y} r={dotRadius} color={dotColor} />
-                          </React.Fragment>
-                        );
-                      }
+                          );
+                        }
 
-                      // Skip highlighted point in main loop - rendered on top below
-                      if (isHighlighted) return null;
+                        if (dataPoint.outsideDistanceBand === true) {
+                          return (
+                            <Circle
+                              key={`pt-${idx}`}
+                              cx={point.x}
+                              cy={point.y}
+                              r={dotRadius - 0.75}
+                              color={dotColor}
+                              style="stroke"
+                              strokeWidth={1.5}
+                            />
+                          );
+                        }
 
-                      if (isPointExcluded) {
+                        if (isBest) {
+                          return (
+                            <React.Fragment key={`pt-${idx}`}>
+                              <Circle cx={point.x} cy={point.y} r={dotRadius} color={dotColor} />
+                              <Circle
+                                cx={point.x}
+                                cy={point.y}
+                                r={prRingRadius}
+                                color={prMarkColor}
+                                style="stroke"
+                                strokeWidth={1.5}
+                              />
+                            </React.Fragment>
+                          );
+                        }
+
                         return (
                           <Circle
                             key={`pt-${idx}`}
                             cx={point.x}
                             cy={point.y}
-                            r={dotRadius - 1}
-                            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                            opacity={0.25}
-                          />
-                        );
-                      }
-
-                      if (dataPoint.outsideDistanceBand === true) {
-                        return (
-                          <Circle
-                            key={`pt-${idx}`}
-                            cx={point.x}
-                            cy={point.y}
-                            r={dotRadius - 0.75}
+                            r={dotRadius}
                             color={dotColor}
-                            style="stroke"
-                            strokeWidth={1.5}
+                            opacity={0.7}
                           />
                         );
-                      }
+                      });
 
-                      if (isBest) {
-                        return (
-                          <React.Fragment key={`pt-${idx}`}>
-                            <Circle cx={point.x} cy={point.y} r={dotRadius} color={dotColor} />
-                            <Circle
-                              cx={point.x}
-                              cy={point.y}
-                              r={prRingRadius}
-                              color={prMarkColor}
-                              style="stroke"
-                              strokeWidth={1.5}
-                            />
-                          </React.Fragment>
-                        );
-                      }
-
+                      const hp = highlight[0];
                       return (
-                        <Circle
-                          key={`pt-${idx}`}
-                          cx={point.x}
-                          cy={point.y}
-                          r={dotRadius}
-                          color={dotColor}
-                          opacity={0.7}
-                        />
+                        <>
+                          {dots}
+                          {hp && (
+                            <React.Fragment key="highlighted-activity">
+                              <Circle
+                                cx={hp.x}
+                                cy={hp.y}
+                                r={dotRadius + 3}
+                                color={highlightMarkColor}
+                                style="stroke"
+                                strokeWidth={1.5}
+                              />
+                              <Circle
+                                cx={hp.x}
+                                cy={hp.y}
+                                r={dotRadius + 1}
+                                color={highlightMarkColor}
+                              />
+                            </React.Fragment>
+                          )}
+                        </>
                       );
-                    });
-
-                    const hp = highlight[0];
-                    return (
-                      <>
-                        {dots}
-                        {hp && (
-                          <React.Fragment key="highlighted-activity">
-                            <Circle
-                              cx={hp.x}
-                              cy={hp.y}
-                              r={dotRadius + 3}
-                              color={highlightMarkColor}
-                              style="stroke"
-                              strokeWidth={1.5}
-                            />
-                            <Circle
-                              cx={hp.x}
-                              cy={hp.y}
-                              r={dotRadius + 1}
-                              color={highlightMarkColor}
-                            />
-                          </React.Fragment>
-                        )}
-                      </>
-                    );
-                  })()}
-                </>
-              );
-            }}
-          </ChartCanvas>
-        </View>
+                    })()}
+                  </>
+                );
+              }}
+            </ChartCanvas>
+          </View>
+        )}
 
         {/* Gesture target for tap + long-press scrub */}
         {!mini && (
@@ -529,7 +530,12 @@ export function SectionScatterChart({
         )}
 
         {/* Crosshair (visible during scrubbing) */}
-        {!mini && <Animated.View style={[styles.crosshair, crosshairStyle]} pointerEvents="none" />}
+        {!mini && (
+          <Animated.View
+            style={[styles.crosshair, { backgroundColor: palette.textSecondary }, crosshairStyle]}
+            pointerEvents="none"
+          />
+        )}
 
         {/* Y-axis labels */}
         {!mini && (
@@ -580,7 +586,7 @@ export function SectionScatterChart({
           bestIsRecord={bestReverseIsRecord}
           pointCount={reversePoints.length}
           color={colors.reverseDirection}
-          showPace={showPace}
+          basis={basis}
           isDark={isDark}
         />
       )}
@@ -590,7 +596,7 @@ export function SectionScatterChart({
         <PerformanceTooltip
           selectedPoint={selectedPoint}
           isDark={isDark}
-          showPace={showPace}
+          basis={basis}
           activityColor={activityColor}
           referenceActivityId={referenceActivityId}
           onSetAsReference={onSetAsReference}
@@ -622,21 +628,17 @@ export function ExcludedActivitiesToggle({
 
   return (
     <View style={styles.eyeToggleRow}>
-      <Pressable
-        accessibilityRole="button"
+      <IconButton
         accessibilityLabel={t('sections.showExcludedActivities')}
         accessibilityState={{ selected: showExcluded }}
         onPress={onToggle}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        style={pressable(styles.eyeToggle)}
-        android_ripple={pressRipple}
       >
         <MaterialCommunityIcons
           name={showExcluded ? 'eye' : 'eye-off'}
           size={16}
           color={isDark ? darkColors.textSecondary : colors.textSecondary}
         />
-      </Pressable>
+      </IconButton>
     </View>
   );
 }
@@ -656,9 +658,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.smPlus,
     paddingBottom: spacing.xs,
   },
-  eyeToggle: {
-    padding: spacing.xs,
-  },
   directionControl: {
     alignSelf: 'center',
     marginBottom: spacing.xs,
@@ -671,7 +670,6 @@ const styles = StyleSheet.create({
     top: CHART_PADDING.top,
     bottom: CHART_PADDING.bottom,
     width: 1,
-    backgroundColor: colors.textSecondary,
   },
   yAxisOverlay: {
     position: 'absolute',

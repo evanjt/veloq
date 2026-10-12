@@ -3,9 +3,8 @@
   "src/features/activity/components/ActivityChartsSection.tsx": "full-screen takeover: the chart holds a landscape lock",
   "src/features/insights/components/InsightDebugPanel.tsx": "developer panel, opened only under __DEV__",
   "src/features/maps/components/ActivityMapView.tsx": "full-screen takeover: the map fills the screen",
-  "src/features/maps/components/regional/SectionChooser.tsx": "converting",
   "src/features/routes/components/RouteMapView.tsx": "full-screen takeover: the map fills the screen",
   "src/features/routes/components/SectionMapView.tsx": "full-screen takeover: the map fills the screen",
-  "src/features/routes/components/SportFilterMenu.tsx": "converting",
-  "src/features/settings/components/WebdavConfigForm.tsx": "full-screen takeover: the QR camera"
+  "src/features/settings/components/WebdavConfigForm.tsx": "full-screen takeover: the QR camera",
+  "src/features/settings/components/whatsNew/WhatsNewModal.tsx": "centred tour card over every screen, opened by the store on launch rather than by a route, not a sheet"
 }

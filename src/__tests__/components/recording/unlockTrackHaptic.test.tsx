@@ -26,7 +26,7 @@ jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 
 const TRACK_WIDTH = 300;
 
-function renderTrack() {
+async function renderTrack() {
   let callbacks: PanResponderCallbacks = {};
   const real = PanResponder.create.bind(PanResponder);
   jest.spyOn(PanResponder, 'create').mockImplementation((config) => {
@@ -34,8 +34,8 @@ function renderTrack() {
     return real(config);
   });
   const onUnlock = jest.fn();
-  const tree = render(<UnlockTrack onUnlock={onUnlock} />);
-  fireEvent(tree.getByTestId('unlock-track'), 'layout', {
+  const tree = await render(<UnlockTrack onUnlock={onUnlock} />);
+  await fireEvent(tree.getByTestId('unlock-track'), 'layout', {
     nativeEvent: { layout: { width: TRACK_WIDTH, height: 56 } },
   });
   const slide = (dx: number) =>
@@ -65,19 +65,19 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-it('unlocks with a selection tick and no success notification', () => {
-  const { slide, onUnlock } = renderTrack();
+it('unlocks with a selection tick and no success notification', async () => {
+  const { slide, onUnlock } = await renderTrack();
 
-  slide(TRACK_WIDTH);
+  await slide(TRACK_WIDTH);
 
   expect(onUnlock).toHaveBeenCalledTimes(1);
   expect(fired()).toEqual({ selection: 1, light: 1, medium: 0, success: 0 });
 });
 
-it('fires only the grab when the slide falls short', () => {
-  const { slide, onUnlock } = renderTrack();
+it('fires only the grab when the slide falls short', async () => {
+  const { slide, onUnlock } = await renderTrack();
 
-  slide(10);
+  await slide(10);
 
   expect(onUnlock).not.toHaveBeenCalled();
   expect(fired()).toEqual({ selection: 0, light: 1, medium: 0, success: 0 });

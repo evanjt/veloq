@@ -26,6 +26,7 @@ jest.mock("expo-router", () => {
     navigate: jest.fn(),
     dismiss: jest.fn(),
     dismissAll: jest.fn(),
+    dismissTo: jest.fn(),
     setParams: jest.fn(),
     canGoBack: () => false,
   };
@@ -48,6 +49,13 @@ jest.mock("expo-router", () => {
     Stack,
   };
 });
+
+// The back intercept needs the same navigator. A suite that drives a real stack unmocks both.
+jest.mock("expo-router/react-navigation", () => ({
+  ...jest.requireActual("expo-router/react-navigation"),
+  useNavigation: () => ({ dispatch: jest.fn() }),
+  usePreventRemove: () => undefined,
+}));
 
 // The native module behind this answers `undefined` under jest-expo, and the
 // real directories are `null`, so a path built from them reads "null/...".

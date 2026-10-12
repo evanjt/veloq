@@ -65,9 +65,9 @@ jest.mock('veloqrs', () =>
 );
 
 async function openRequestBudget() {
-  const screen = render(<DebugScreen />);
+  const screen = await render(<DebugScreen />);
   await act(async () => {});
-  fireEvent.press(screen.getByTestId('debug-section-request-budget'));
+  await fireEvent.press(screen.getByTestId('debug-section-request-budget'));
   await act(async () => {});
   return screen;
 }

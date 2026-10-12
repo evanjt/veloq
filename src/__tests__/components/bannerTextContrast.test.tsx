@@ -4,7 +4,8 @@
  * WCAG exemption reaches them.
  *
  * Expected behaviour: every word in either banner clears 4.5:1 against the
- * fill it is drawn on, in both schemes. Measured from what the components
+ * ground it is drawn on, in both schemes: the fill for the banner's own text,
+ * the button's ground for its action. Measured from what the components
  * actually render, so a palette edit that undoes it fails here.
  */
 
@@ -97,34 +98,49 @@ function inks(testID: string): { fill: string; inks: string[] } {
   };
 }
 
+/** The action's label against the ground of the button it sits on. */
+function actionInk(testID: string): { fill: string; ink: string } {
+  const button = screen.getByTestId(testID);
+  const style = button.props.style;
+  const resolved = typeof style === 'function' ? style({ pressed: false }) : style;
+  return {
+    fill: StyleSheet.flatten(resolved)?.backgroundColor as string,
+    ink: StyleSheet.flatten(screen.getByTestId(`${testID}-label`).props.style)?.color as string,
+  };
+}
+
 describe('a banner read at a glance clears the text bar', () => {
   afterEach(() => {
     mockIsDark = false;
   });
 
-  it('draws every demo-banner word over its light fill at 4.5:1', () => {
-    render(<DemoBanner />);
+  it('draws every demo-banner word over its light fill at 4.5:1', async () => {
+    await render(<DemoBanner />);
     const { fill, inks: colours } = inks('demo-mode-banner');
+    const action = actionInk('demo-mode-sign-in');
 
-    expect(colours.length).toBeGreaterThan(1);
+    expect(colours.length).toBeGreaterThan(0);
     for (const ink of colours) {
       expect(ratio(ink, fill)).toBeGreaterThanOrEqual(AA_TEXT);
     }
+    expect(ratio(action.ink, action.fill)).toBeGreaterThanOrEqual(AA_TEXT);
   });
 
-  it('draws every demo-banner word over its dark fill at 4.5:1', () => {
+  it('draws every demo-banner word over its dark fill at 4.5:1', async () => {
     mockIsDark = true;
-    render(<DemoBanner />);
+    await render(<DemoBanner />);
     const { fill, inks: colours } = inks('demo-mode-banner');
+    const action = actionInk('demo-mode-sign-in');
 
-    expect(colours.length).toBeGreaterThan(1);
+    expect(colours.length).toBeGreaterThan(0);
     for (const ink of colours) {
       expect(ratio(ink, fill)).toBeGreaterThanOrEqual(AA_TEXT);
     }
+    expect(ratio(action.ink, action.fill)).toBeGreaterThanOrEqual(AA_TEXT);
   });
 
-  it('draws every offline-pill word over its fill at 4.5:1', () => {
-    render(<OfflineBanner />);
+  it('draws every offline-pill word over its fill at 4.5:1', async () => {
+    await render(<OfflineBanner />);
     const { fill, inks: colours } = inks('offline-pill');
 
     expect(colours.length).toBeGreaterThan(1);

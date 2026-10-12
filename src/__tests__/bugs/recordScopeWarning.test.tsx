@@ -102,20 +102,20 @@ beforeEach(() => {
 afterEach(() => jest.restoreAllMocks());
 
 describe('the missing-scope gate', () => {
-  it('offers a continue beside the grant action', () => {
+  it('offers a continue beside the grant action', async () => {
     const onContinue = jest.fn();
-    const tree = render(
+    const tree = await render(
       <RecordingGate reason="no_permission" onGrantAccess={jest.fn()} onContinue={onContinue} />
     );
 
     expect(tree.getByTestId('record-grant-access')).toBeTruthy();
-    fireEvent.press(tree.getByTestId('recording-gate-continue'));
+    await fireEvent.press(tree.getByTestId('recording-gate-continue'));
 
     expect(onContinue).toHaveBeenCalled();
   });
 
-  it('offers no continue to an athlete with no account', () => {
-    const tree = render(
+  it('offers no continue to an athlete with no account', async () => {
+    const tree = await render(
       <RecordingGate reason="not_signed_in" onGrantAccess={jest.fn()} onContinue={jest.fn()} />
     );
 
@@ -127,7 +127,7 @@ describe('a ride recorded past the warning', () => {
   it('is saved to the device even with auto-upload on', async () => {
     useUploadPermissionStore.getState().continueWithoutScope();
 
-    const { result } = renderHook(() => useReviewSave(saveArgs()));
+    const { result } = await renderHook(() => useReviewSave(saveArgs()));
     await act(() => result.current.handleSave());
 
     expect(saveRecording).toHaveBeenCalledWith(
@@ -140,7 +140,7 @@ describe('a ride recorded past the warning', () => {
     (uploadRecordingNow as jest.Mock).mockResolvedValue({ outcome: UploadOutcome.Uploaded });
     useUploadPermissionStore.setState({ hasWritePermission: true, recordingWithoutScope: false });
 
-    const { result } = renderHook(() => useReviewSave(saveArgs()));
+    const { result } = await renderHook(() => useReviewSave(saveArgs()));
     await act(() => result.current.handleSave());
 
     expect(saveRecording).toHaveBeenCalledWith(
@@ -152,7 +152,7 @@ describe('a ride recorded past the warning', () => {
   it('does not carry the flag into the next ride', async () => {
     useUploadPermissionStore.getState().continueWithoutScope();
 
-    const { result } = renderHook(() => useReviewSave(saveArgs()));
+    const { result } = await renderHook(() => useReviewSave(saveArgs()));
     await act(() => result.current.handleSave());
 
     expect(useUploadPermissionStore.getState().recordingWithoutScope).toBe(false);

@@ -89,3 +89,17 @@ export function atUtcOffset<T>(offsetHours: number, fn: () => T, now?: number): 
     restore();
   }
 }
+
+/** `atUtcOffset` for work that settles later, such as a render: the offset holds until it does. */
+export async function atUtcOffsetAsync<T>(
+  offsetHours: number,
+  fn: () => T,
+  now?: number
+): Promise<Awaited<T>> {
+  const restore = installUtcOffset(offsetHours, now);
+  try {
+    return await fn();
+  } finally {
+    restore();
+  }
+}

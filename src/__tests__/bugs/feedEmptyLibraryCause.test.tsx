@@ -16,7 +16,7 @@ import { getEngine } from '@/shared/native/engine';
 import { requestSyncRefresh } from '@/shared/native/syncRefresh';
 import { tapTo } from '@/shared/app/navigation';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import FeedScreen from '@/app/(tabs)/index';
+import FeedScreen from '@/app/(tabs)/(feed)';
 
 jest.mock('@/shared/app/navigation', () => ({
   ...jest.requireActual('@/shared/app/navigation'),
@@ -33,6 +33,7 @@ jest.mock('react-native-safe-area-context', () => ({
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   useIsFocused: () => true,
+  Stack: require('../__shared__/nativeHeaderStandIn').Stack,
 }));
 jest.mock('@/shared/app/TopSafeAreaContext', () => ({
   useTopSafeArea: () => ({ screenEdges: [] }),
@@ -93,7 +94,7 @@ jest.mock('@/features/maps/lib/storage/terrainCameraOverrides', () => ({
 }));
 jest.mock('@/features/activity/components', () => ({ ActivityCard: () => null }));
 
-function renderFeedAfterSync(state: SyncState, lastErrorReason: SyncErrorReason | null) {
+async function renderFeedAfterSync(state: SyncState, lastErrorReason: SyncErrorReason | null) {
   (getEngine as jest.Mock).mockReturnValue({
     getActivityHighlightsBundle: () => ({ indicators: [], routeHighlights: [], newGround: [] }),
     searchActivityBodies: () => ({ bodies: [], matchedCount: 0, hasMore: false }),
@@ -109,7 +110,7 @@ function renderFeedAfterSync(state: SyncState, lastErrorReason: SyncErrorReason 
   });
   useAuthStore.setState({ isAuthenticated: true, athleteId: 'i1' });
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
+  await render(
     <QueryClientProvider client={client}>
       <FeedScreen />
     </QueryClientProvider>
@@ -120,48 +121,48 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-it('names an unreachable server and retries the sync', () => {
-  renderFeedAfterSync(SyncState.Idle, SyncErrorReason.Network);
+it('names an unreachable server and retries the sync', async () => {
+  await renderFeedAfterSync(SyncState.Idle, SyncErrorReason.Network);
 
   expect(screen.getByText('feed.emptyLibrary.failedTitle')).toBeTruthy();
   expect(screen.getByText('emptyState.syncError.reason.network')).toBeTruthy();
   expect(screen.queryByText('feed.emptyLibrary.emptyTitle')).toBeNull();
 
-  fireEvent.press(screen.getByText('errorState.tryAgain'));
+  await fireEvent.press(screen.getByText('common.retry'));
   expect(requestSyncRefresh).toHaveBeenCalledTimes(1);
 });
 
-it('sends a refused login to sign in again', () => {
-  renderFeedAfterSync(SyncState.AuthExpired, SyncErrorReason.Unauthorized);
+it('sends a refused login to sign in again', async () => {
+  await renderFeedAfterSync(SyncState.AuthExpired, SyncErrorReason.Unauthorized);
 
   expect(screen.getByText('feed.emptyLibrary.authExpiredTitle')).toBeTruthy();
   expect(screen.queryByText('feed.emptyLibrary.emptyTitle')).toBeNull();
 
-  fireEvent.press(screen.getByText('feed.emptyLibrary.signInAgain'));
+  await fireEvent.press(screen.getByText('feed.emptyLibrary.signInAgain'));
   expect(tapTo).toHaveBeenCalledWith('/login');
 });
 
-it('says a rate-limited sync is waiting, with nothing to press', () => {
-  renderFeedAfterSync(SyncState.Idle, SyncErrorReason.RateLimited);
+it('says a rate-limited sync is waiting, with nothing to press', async () => {
+  await renderFeedAfterSync(SyncState.Idle, SyncErrorReason.RateLimited);
 
   expect(screen.getByText('feed.emptyLibrary.pausedTitle')).toBeTruthy();
   expect(screen.getByText('emptyState.syncError.reason.rateLimited')).toBeTruthy();
-  expect(screen.queryByText('errorState.tryAgain')).toBeNull();
+  expect(screen.queryByText('common.retry')).toBeNull();
 });
 
-it('says a paused sync resumes', () => {
-  renderFeedAfterSync(SyncState.Paused, null);
+it('says a paused sync resumes', async () => {
+  await renderFeedAfterSync(SyncState.Paused, null);
 
   expect(screen.getByText('feed.emptyLibrary.pausedTitle')).toBeTruthy();
   expect(screen.getByText('feed.emptyLibrary.pausedBody')).toBeTruthy();
 });
 
-it('tells an account with no activities where they come from and offers to record', () => {
-  renderFeedAfterSync(SyncState.Idle, null);
+it('tells an account with no activities where they come from and offers to record', async () => {
+  await renderFeedAfterSync(SyncState.Idle, null);
 
   expect(screen.getByText('feed.emptyLibrary.emptyTitle')).toBeTruthy();
   expect(screen.getByText('feed.emptyLibrary.emptyBody')).toBeTruthy();
 
-  fireEvent.press(screen.getByText('feed.emptyLibrary.record'));
+  await fireEvent.press(screen.getByText('feed.emptyLibrary.record'));
   expect(tapTo).toHaveBeenCalledWith('/record');
 });

@@ -36,15 +36,15 @@ jest.mock('@/features/stats/hooks/usePowerCurve', () => ({
 }));
 
 describe('the power curve per-kilogram toggle', () => {
-  it('offers the toggle and shows watts until it is pressed', () => {
-    render(<PowerCurveChart ftp={300} />);
+  it('offers the toggle and shows watts until it is pressed', async () => {
+    await render(<PowerCurveChart ftp={300} />);
 
-    expect(screen.getByTestId('power-curve-watts')).toHaveTextContent('260w');
+    expect(screen.getByTestId('power-curve-watts')).toHaveTextContent('260 W');
     expect(screen.getByTestId('power-curve-unit-per-kg')).toBeTruthy();
   });
 
-  it('draws the pair as selectable buttons that each reach the tap-target minimum', () => {
-    render(<PowerCurveChart ftp={300} />);
+  it('draws the pair as selectable buttons that each reach the tap-target minimum', async () => {
+    await render(<PowerCurveChart ftp={300} />);
 
     for (const [testID, selected] of [
       ['power-curve-unit-watts', true],
@@ -61,10 +61,10 @@ describe('the power curve per-kilogram toggle', () => {
     }
   });
 
-  it('switches the value, the axis and the FTP line to watts per kilogram', () => {
-    render(<PowerCurveChart ftp={300} />);
+  it('switches the value, the axis and the FTP line to watts per kilogram', async () => {
+    await render(<PowerCurveChart ftp={300} />);
 
-    fireEvent.press(screen.getByTestId('power-curve-unit-per-kg'));
+    await fireEvent.press(screen.getByTestId('power-curve-unit-per-kg'));
 
     // Under Jest `t` answers with the key, so the unit and the weight line are
     // asserted as keys and the numbers, which sit outside `t`, as numbers.
@@ -73,27 +73,27 @@ describe('the power curve per-kilogram toggle', () => {
     expect(screen.getByTestId('power-curve-ftp-legend')).toHaveTextContent(/stats\.atWeight/);
   });
 
-  it('switches back to watts', () => {
-    render(<PowerCurveChart ftp={300} />);
+  it('switches back to watts', async () => {
+    await render(<PowerCurveChart ftp={300} />);
 
-    fireEvent.press(screen.getByTestId('power-curve-unit-per-kg'));
-    fireEvent.press(screen.getByTestId('power-curve-unit-watts'));
+    await fireEvent.press(screen.getByTestId('power-curve-unit-per-kg'));
+    await fireEvent.press(screen.getByTestId('power-curve-unit-watts'));
 
-    expect(screen.getByTestId('power-curve-watts')).toHaveTextContent('260w');
+    expect(screen.getByTestId('power-curve-watts')).toHaveTextContent('260 W');
     expect(screen.getByTestId('power-curve-ftp-legend')).not.toHaveTextContent(/stats\.atWeight/);
   });
 
-  it('offers no toggle for a curve without a per-kilogram series', () => {
+  it('offers no toggle for a curve without a per-kilogram series', async () => {
     mockCurve.current = { ...mockCurve.current, watts_per_kg: undefined, weight: undefined };
-    render(<PowerCurveChart ftp={300} />);
+    await render(<PowerCurveChart ftp={300} />);
 
     expect(screen.queryByTestId('power-curve-unit-per-kg')).toBeNull();
-    expect(screen.getByTestId('power-curve-watts')).toHaveTextContent('260w');
+    expect(screen.getByTestId('power-curve-watts')).toHaveTextContent('260 W');
   });
 
-  it('offers no toggle for a per-kilogram series that is all zero', () => {
+  it('offers no toggle for a per-kilogram series that is all zero', async () => {
     mockCurve.current = { ...mockCurve.current, watts_per_kg: [0, 0, 0, 0, 0], weight: 80 };
-    render(<PowerCurveChart ftp={300} />);
+    await render(<PowerCurveChart ftp={300} />);
 
     expect(screen.queryByTestId('power-curve-unit-per-kg')).toBeNull();
   });

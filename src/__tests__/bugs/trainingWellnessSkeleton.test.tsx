@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { render, screen, within } from '@testing-library/react-native';
-import { ActivityIndicator } from 'react-native-paper';
+import { ActivityIndicator } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import TrainingScreen from '@/app/(tabs)/training';
@@ -47,7 +47,7 @@ jest.mock('@/features/fitness/hooks', () => ({
 }));
 
 it('draws a 200 px shimmer and no spinner in the trends card while loading', async () => {
-  render(
+  await render(
     <QueryClientProvider client={new QueryClient()}>
       <TrainingScreen />
     </QueryClientProvider>

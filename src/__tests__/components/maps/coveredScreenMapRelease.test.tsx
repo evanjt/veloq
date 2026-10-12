@@ -129,12 +129,12 @@ function page(id: string): Page {
   return found;
 }
 
-function post(id: string, message: Record<string, unknown>): void {
-  act(() => page(id).onMessage({ nativeEvent: { data: JSON.stringify(message) } }));
+async function post(id: string, message: Record<string, unknown>): Promise<void> {
+  await act(() => page(id).onMessage({ nativeEvent: { data: JSON.stringify(message) } }));
 }
 
-function setFocused(focused: boolean): void {
-  act(() => {
+async function setFocused(focused: boolean): Promise<void> {
+  await act(() => {
     mockFocus.focused = focused;
     mockFocus.listeners.forEach((listener) => listener());
   });
@@ -221,47 +221,47 @@ beforeEach(() => {
 });
 
 describe.each(SCREENS)('the $name on a covered screen', ({ pageId, element }) => {
-  it('releases the page on blur and rebuilds it once on focus', () => {
-    const view = render(element());
-    post(pageId, { type: 'mapReady' });
+  it('releases the page on blur and rebuilds it once on focus', async () => {
+    const view = await render(element());
+    await post(pageId, { type: 'mapReady' });
     expect(released(pageId)).toBe(false);
 
-    setFocused(false);
+    await setFocused(false);
     expect(released(pageId)).toBe(true);
     expect(rebuilds(pageId)).toBe(0);
 
-    setFocused(true);
+    await setFocused(true);
     expect(rebuilds(pageId)).toBe(1);
-    view.unmount();
+    await view.unmount();
   });
 
-  it('does nothing to the page while its screen stays shown', () => {
-    const view = render(element());
-    post(pageId, { type: 'mapReady' });
+  it('does nothing to the page while its screen stays shown', async () => {
+    const view = await render(element());
+    await post(pageId, { type: 'mapReady' });
 
-    setFocused(true);
+    await setFocused(true);
 
     expect(released(pageId)).toBe(false);
     expect(rebuilds(pageId)).toBe(0);
-    view.unmount();
+    await view.unmount();
   });
 });
 
 describe('the route detail hero under its own fullscreen map', () => {
-  it('is released while fullscreen is open and rebuilt once when it closes', () => {
-    const view = render(routeMap({ enableFullscreen: true }));
-    post('maplibre-map', { type: 'mapReady' });
+  it('is released while fullscreen is open and rebuilt once when it closes', async () => {
+    const view = await render(routeMap({ enableFullscreen: true }));
+    await post('maplibre-map', { type: 'mapReady' });
 
-    fireEvent.press(view.getByTestId('route-map-container'));
+    await fireEvent.press(view.getByTestId('route-map-container'));
     expect(view.getByTestId('fullscreen-map')).toBeTruthy();
     expect(released('maplibre-map')).toBe(true);
     expect(rebuilds('maplibre-map')).toBe(0);
 
-    act(() => {
+    await act(() => {
       view.UNSAFE_getByProps({ visible: true }).props.onRequestClose();
     });
     expect(view.queryByTestId('fullscreen-map')).toBeNull();
     expect(rebuilds('maplibre-map')).toBe(1);
-    view.unmount();
+    await view.unmount();
   });
 });

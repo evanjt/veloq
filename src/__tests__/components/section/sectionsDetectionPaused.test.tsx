@@ -61,15 +61,15 @@ describe('SectionsListHeader detection hold', () => {
     await changeLanguage('en-AU');
   });
 
-  it('names the migration when the cutover is holding', () => {
-    const tree = renderHeader('cutover');
+  it('names the migration when the cutover is holding', async () => {
+    const tree = await renderHeader('cutover');
 
     expect(tree.getByTestId('detection-paused')).toBeTruthy();
     expect(tree.getByText("Detection's paused while your sections migrate")).toBeTruthy();
   });
 
-  it('names the elevation download while a pass is running', () => {
-    const tree = renderHeader('elevation-running');
+  it('names the elevation download while a pass is running', async () => {
+    const tree = await renderHeader('elevation-running');
 
     expect(tree.getByTestId('detection-paused')).toBeTruthy();
     expect(tree.getByText("Detection's paused while elevation comes down")).toBeTruthy();
@@ -81,8 +81,8 @@ describe('SectionsListHeader detection hold', () => {
    * much is left and what lifts it, or it is indistinguishable from a pass
    * that finishes in minutes.
    */
-  it('sizes a queue nothing is working on, and says what lifts it', () => {
-    const tree = renderHeader('elevation-waiting', backfill({ remaining: 12 }));
+  it('sizes a queue nothing is working on, and says what lifts it', async () => {
+    const tree = await renderHeader('elevation-waiting', backfill({ remaining: 12 }));
 
     expect(
       tree.getByText(
@@ -92,8 +92,8 @@ describe('SectionsListHeader detection hold', () => {
     expect(tree.queryByText("Detection's paused while elevation comes down")).toBeNull();
   });
 
-  it('says one track singly', () => {
-    const tree = renderHeader('elevation-waiting', backfill({ remaining: 1 }));
+  it('says one track singly', async () => {
+    const tree = await renderHeader('elevation-waiting', backfill({ remaining: 1 }));
 
     expect(
       tree.getByText(
@@ -106,15 +106,15 @@ describe('SectionsListHeader detection hold', () => {
    * The count is the hold line's own now, so the standing outstanding row
    * would say the same number twice.
    */
-  it('does not say the count twice', () => {
-    const tree = renderHeader('elevation-waiting', backfill({ remaining: 12 }));
+  it('does not say the count twice', async () => {
+    const tree = await renderHeader('elevation-waiting', backfill({ remaining: 12 }));
 
     expect(tree.queryByTestId('elevation-backfill-row')).toBeNull();
   });
 
   /** An engine that could not answer must not render as a number. */
-  it('falls back to the unsized sentence when the count is unanswerable', () => {
-    const tree = renderHeader('elevation-waiting');
+  it('falls back to the unsized sentence when the count is unanswerable', async () => {
+    const tree = await renderHeader('elevation-waiting');
 
     expect(tree.getByText("Detection's paused while elevation comes down")).toBeTruthy();
     expect(within(tree.getByTestId('detection-paused')).queryByText(/\d/)).toBeNull();
@@ -124,8 +124,8 @@ describe('SectionsListHeader detection hold', () => {
    * A pause was indistinguishable from a download in flight, and it is the one
    * hold the athlete can lift, so it is the one that has to say where.
    */
-  it('points a paused download at the control that resumes it', () => {
-    const tree = renderHeader('elevation-paused');
+  it('points a paused download at the control that resumes it', async () => {
+    const tree = await renderHeader('elevation-paused');
 
     expect(tree.getByTestId('detection-paused')).toBeTruthy();
     expect(
@@ -140,8 +140,8 @@ describe('SectionsListHeader detection hold', () => {
    * Expected behaviour: the refusal is named, and a switch the athlete holds
    * reads differently from a hold that lifts by itself.
    */
-  it('names a refused rescan, and says which refusal it was', () => {
-    const off = render(
+  it('names a refused rescan, and says which refusal it was', async () => {
+    const off = await render(
       <SectionsListHeader
         {...BASE}
         detectionHold={null}
@@ -151,22 +151,22 @@ describe('SectionsListHeader detection hold', () => {
     expect(off.getByTestId('rescan-refused')).toBeTruthy();
     expect(off.getByText('Route matching is off. Turn it on in Settings to scan.')).toBeTruthy();
 
-    const busy = render(
+    const busy = await render(
       <SectionsListHeader {...BASE} detectionHold={null} rescanRefusal={StartOutcome.Busy} />
     );
     expect(busy.getByText("A scan's already running.")).toBeTruthy();
   });
 
-  it('says nothing about a refusal until there is one', () => {
-    const tree = render(
+  it('says nothing about a refusal until there is one', async () => {
+    const tree = await render(
       <SectionsListHeader {...BASE} detectionHold={null} rescanRefusal={StartOutcome.Started} />
     );
 
     expect(tree.queryByTestId('rescan-refused')).toBeNull();
   });
 
-  it('says nothing once neither holds', () => {
-    const tree = renderHeader(null);
+  it('says nothing once neither holds', async () => {
+    const tree = await renderHeader(null);
 
     expect(tree.queryByTestId('detection-paused')).toBeNull();
   });

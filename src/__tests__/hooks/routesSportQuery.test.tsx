@@ -31,11 +31,11 @@ const PAGE = {
 beforeEach(() => jest.clearAllMocks());
 
 describe('the routes screen sport filter', () => {
-  it('sends the chosen sport to the engine for groups and sections', () => {
+  it('sends the chosen sport to the engine for groups and sections', async () => {
     const getRoutesScreenData = jest.fn(() => PAGE);
     mockedGetEngine.mockReturnValue({ getRoutesScreenData } as never);
 
-    const { result } = renderHook(() =>
+    const { result } = await renderHook(() =>
       useRoutesScreenData({ groupSportType: 'Run', sectionSportType: 'Run' })
     );
 
@@ -45,11 +45,11 @@ describe('the routes screen sport filter', () => {
     expect(result.current.data?.availableSportTypes).toEqual(['Ride', 'Run']);
   });
 
-  it('leaves both fields off when no sport is chosen', () => {
+  it('leaves both fields off when no sport is chosen', async () => {
     const getRoutesScreenData = jest.fn(() => PAGE);
     mockedGetEngine.mockReturnValue({ getRoutesScreenData } as never);
 
-    renderHook(() => useRoutesScreenData());
+    await renderHook(() => useRoutesScreenData());
 
     const query = (getRoutesScreenData.mock.calls[0] as unknown[])[0] as Record<string, unknown>;
     expect(query).not.toHaveProperty('groupSportType');

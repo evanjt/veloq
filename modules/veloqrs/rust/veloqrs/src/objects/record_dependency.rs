@@ -105,6 +105,14 @@ pub(crate) async fn fetch_owed_record_activities(
                 }
                 return Err(NetError::Unauthorized);
             }
+            // A refusal speaks for every id after this one too. What is
+            // still owed stays owed, and the sync resumes when it lifts.
+            Err(error) if error.is_refusal() => {
+                if fetched > 0 {
+                    observer::notify(Announcement::ActivitiesStored);
+                }
+                return Err(error);
+            }
             Err(error) => {
                 log::warn!("[Record restore] activity {activity_id} fetch deferred: {error}");
             }

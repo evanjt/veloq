@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useBestEfforts, type BestEffortsSport } from './useBestEfforts';
 import {
   formatPaceCompact,
+  formatPower,
   formatSwimPace,
   paceUnitLabel,
   swimPaceUnitLabel,
@@ -112,10 +113,10 @@ export function useSeasonBests({ sport, days }: UseSeasonBestsOptions): UseSeaso
     if (sport === 'Cycling') {
       // Show 5m power as the headline
       const fiveMin = efforts.find((e) => e.checkpoint === 300);
-      if (fiveMin?.value) return `5m: ${Math.round(fiveMin.value)}w`;
+      if (fiveMin?.value) return `5m: ${formatPower(fiveMin.value)}`;
       // Fallback to first non-null
       const first = efforts.find((e) => e.value !== null);
-      if (first?.value) return `${first.label}: ${Math.round(first.value)}w`;
+      if (first?.value) return `${first.label}: ${formatPower(first.value)}`;
       return null;
     }
 

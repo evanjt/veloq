@@ -75,8 +75,8 @@ const RESULT: PreviewResult = {
   ],
 };
 
-function renderMap() {
-  render(
+async function renderMap() {
+  await render(
     <PreviewMapView
       result={RESULT}
       currentSections={[section('l-1', 8)]}
@@ -99,8 +99,8 @@ describe('PreviewMapView current geometry after a run', () => {
     capturedSources.length = 0;
   });
 
-  it('draws a matched row’s live line in current and its proposed line in proposed', () => {
-    const sources = renderMap();
+  it('draws a matched row’s live line in current and its proposed line in proposed', async () => {
+    const sources = await renderMap();
     const current = sources['current-sections'].data.features;
     const proposed = sources['proposed-sections'].data.features;
     expect(current).toHaveLength(1);
@@ -111,8 +111,8 @@ describe('PreviewMapView current geometry after a run', () => {
     ]);
   });
 
-  it('draws no current line for a live id the catalogue does not hold', () => {
-    const sources = renderMap();
+  it('draws no current line for a live id the catalogue does not hold', async () => {
+    const sources = await renderMap();
     expect(sources['current-sections'].data.features.map((f) => f.properties?.id)).not.toContain(
       'p-2'
     );

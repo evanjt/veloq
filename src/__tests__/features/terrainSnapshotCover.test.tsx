@@ -9,8 +9,8 @@ jest.mock('@/shared/app', () => ({
 }));
 
 describe('TerrainSnapshotWebView', () => {
-  it('covers its live map surface with an opaque fill so place labels never show through the feed', () => {
-    const { getByTestId } = render(<TerrainSnapshotWebView suspended={false} />);
+  it('covers its live map surface with an opaque fill so place labels never show through the feed', async () => {
+    const { getByTestId } = await render(<TerrainSnapshotWebView suspended={false} />);
     const cover = getByTestId('terrain-snapshot-cover');
     const style = StyleSheet.flatten(cover.props.style);
     expect(style.backgroundColor).toBe('#ABCDEF');

@@ -84,11 +84,11 @@ const CHARTS = [
 afterEach(() => jest.restoreAllMocks());
 
 describe.each(CHARTS)('the %s sparkline', (_name, chart) => {
-  function mount() {
+  async function mount() {
     const built = captureGestures();
     const onTap = jest.fn();
     const onScrub = jest.fn();
-    const tree = render(chart({ onTap, onScrub }));
+    const tree = await render(chart({ onTap, onScrub }));
     const pan = built.pans[built.pans.length - 1];
     const tap = built.taps[built.taps.length - 1];
     const attached = tree.UNSAFE_getByType(GestureDetector).props.gesture as { prepare(): void };
@@ -96,7 +96,7 @@ describe.each(CHARTS)('the %s sparkline', (_name, chart) => {
   }
 
   it('navigates on a tap and selects no day', async () => {
-    const { tap, onTap, onScrub } = mount();
+    const { tap, onTap, onScrub } = await mount();
 
     await settle(() => handlersOf(tap).onEnd?.({ x: 150, y: 20 }));
 
@@ -105,7 +105,7 @@ describe.each(CHARTS)('the %s sparkline', (_name, chart) => {
   });
 
   it('scrubs on a drag and does not navigate', async () => {
-    const { pan, onTap, onScrub } = mount();
+    const { pan, onTap, onScrub } = await mount();
 
     await settle(() => {
       handlersOf(pan).onStart?.({ x: 10 });
@@ -117,8 +117,8 @@ describe.each(CHARTS)('the %s sparkline', (_name, chart) => {
     expect(onTap).not.toHaveBeenCalled();
   });
 
-  it('starts the scrub only past the drag slop, and the tap waits for it to fail', () => {
-    const { pan, tap, attached } = mount();
+  it('starts the scrub only past the drag slop, and the tap waits for it to fail', async () => {
+    const { pan, tap, attached } = await mount();
 
     expect(configOf(pan)).toMatchObject({
       activeOffsetXStart: -CHART_CONFIG.DRAG_SLOP,
@@ -131,8 +131,8 @@ describe.each(CHARTS)('the %s sparkline', (_name, chart) => {
     expect(configOf(tap).simultaneousWith ?? []).not.toContain(pan);
   });
 
-  it('counts a touch held for half a second as a tap', () => {
-    const { tap } = mount();
+  it('counts a touch held for half a second as a tap', async () => {
+    const { tap } = await mount();
 
     expect(configOf(tap).maxDurationMs).toBeGreaterThanOrEqual(500);
   });

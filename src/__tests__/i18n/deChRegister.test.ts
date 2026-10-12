@@ -38,11 +38,11 @@ describe('de-CH register', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('keeps the oath on the shared error titles', () => {
+  it('keeps the oath on the error titles', () => {
     const ch = new Map(flatten(deCH));
-    expect(ch.get('common.error')).toMatch(OATH);
-    expect(ch.get('alerts.error')).toMatch(OATH);
     expect(ch.get('errorState.defaultTitle')).toMatch(OATH);
+    expect(ch.get('alerts.clearFailedTitle')).toMatch(OATH);
+    expect(ch.get('backup.notSavedTitle')).toMatch(OATH);
   });
 
   it('clear cache confirmation names the activity data, tracks and route matching it deletes', () => {

@@ -66,15 +66,15 @@ function surface(overrides: Partial<MapSurfaceRef>): MapSurfaceRef {
   } as unknown as MapSurfaceRef;
 }
 
-function mountHandlers(surfaceRef: MapSurfaceRef) {
+async function mountHandlers(surfaceRef: MapSurfaceRef) {
   const setSpider = jest.fn();
-  const rendered = renderHook(() =>
+  const rendered = await renderHook(() =>
     useMapHandlers({
       activities: [],
       selected: null,
       setSelected: jest.fn(),
       setSelectedSectionId: jest.fn(),
-      setSectionChoices: jest.fn(),
+      chooseSection: jest.fn(),
       showActivities: true,
       setShowActivities: jest.fn(),
       showSections: true,
@@ -115,7 +115,7 @@ describe('handleSurfacePress on a cluster whose leaves never arrive', () => {
       getClusterLeaves: jest.fn(async () => []),
       getClusterExpansionZoom: jest.fn(async () => 11),
     });
-    const { rendered } = mountHandlers(ref);
+    const { rendered } = await mountHandlers(ref);
 
     await act(async () => {
       rendered.result.current.handleSurfacePress(clusterTap as never);
@@ -133,7 +133,7 @@ describe('handleSurfacePress on a cluster whose leaves never arrive', () => {
       getClusterLeaves: jest.fn(async () => []),
       getClusterExpansionZoom: jest.fn(async () => null),
     });
-    const { rendered } = mountHandlers(ref);
+    const { rendered } = await mountHandlers(ref);
 
     await act(async () => {
       rendered.result.current.handleSurfacePress(clusterTap as never);
@@ -155,7 +155,7 @@ describe('handleSurfacePress on a cluster whose leaves never arrive', () => {
     const ref = surface({
       getClusterLeaves: jest.fn(async () => [leaf(7.0, 46.0), leaf(7.4, 46.4)]),
     });
-    const { rendered } = mountHandlers(ref);
+    const { rendered } = await mountHandlers(ref);
 
     await act(async () => {
       rendered.result.current.handleSurfacePress(clusterTap as never);

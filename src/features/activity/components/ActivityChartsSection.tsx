@@ -26,8 +26,10 @@ import { InsightfulStats } from './stats';
 import {
   BodyNotDownloaded,
   Button,
+  CardHeader,
   ComponentErrorBoundary,
   DeviceAttribution,
+  DisclosureChevron,
   IconButton,
   pressable,
   pressRipple,
@@ -36,7 +38,7 @@ import { DebugInfoPanel, DebugWarningBanner } from '@/features/routes';
 import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { measuresPower, isSwimmingActivity } from '@/shared/activity/activityUtils';
-import type { HrZoneBand, PowerZoneBand, ActivityFitnessImpact } from 'veloqrs';
+import type { HrZoneBand, PowerZoneBand, ActivityFitnessImpact, MaxHrSource } from 'veloqrs';
 import type { LatLng } from '@/shared/geo/polyline';
 import type { EngineBodyStatus } from '@/shared/native/engineBodies';
 import type { IntervalsOutcome } from '../hooks/useActivities';
@@ -67,6 +69,7 @@ import {
   slopToMinTapTarget,
   typography,
 } from '@/theme';
+import { ABSENT } from '@/shared/format/absent';
 
 /** The chart an activity opens on: power where the sport measures it, pace for a swim. */
 function defaultChartFor(type: ActivityType): ChartTypeId {
@@ -103,6 +106,8 @@ interface ActivityChartsSectionProps {
   customSectionCount: number;
   /** The max HR from the detail screen read, for the zones chart and the stat card */
   maxHR?: number | undefined;
+  /** Where `maxHR` came from, from the same read */
+  maxHrSource?: MaxHrSource | undefined;
   fitnessImpact?: ActivityFitnessImpact | null | undefined;
   /** Tile coverage against earlier activities, for the new ground stat */
   newGround?: ActivityNewGround | undefined;
@@ -138,6 +143,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   engineSectionCount,
   customSectionCount,
   maxHR,
+  maxHrSource,
   fitnessImpact,
   newGround,
   hrZones,
@@ -382,7 +388,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
               <BodyNotDownloaded
                 testID="intervals-not-downloaded"
                 style={[styles.intervalsCard, isDark && styles.cardDark, styles.intervalsPending]}
-                textStyle={[styles.intervalsTitle, isDark && styles.textSecondary]}
+                textStyle={[styles.intervalsMessage, isDark && styles.textSecondary]}
                 message={t('activityDetail.intervalsNotDownloaded')}
                 status={intervalsStatus}
                 onRetry={() => onRetryIntervals?.()}
@@ -402,25 +408,32 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                   android_ripple={pressRipple}
                   onPress={() => setIntervalsExpanded((v) => !v)}
                 >
-                  <View style={styles.intervalsBarLeft}>
-                    <Text style={[styles.intervalsTitle, isDark && styles.textSecondary]}>
-                      {t('activityDetail.tabs.intervals')}
-                    </Text>
-                    {intervalZoneSummary.map((z, i) => (
-                      <View key={i} style={[styles.zoneChip, { backgroundColor: z.color + '25' }]}>
-                        <View style={[styles.zoneDot, { backgroundColor: z.color }]} />
-                        <Text style={[styles.zoneChipText, isDark && styles.zoneChipTextDark]}>
-                          {z.label} {t('units.times', { value: z.count })}{' '}
-                          {formatDurationHuman(z.totalTime)}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                  <MaterialCommunityIcons
-                    name={intervalsExpanded ? 'chevron-up' : 'chevron-down'}
-                    size={18}
-                    color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                  <CardHeader
+                    title={t('activityDetail.tabs.intervals')}
+                    accessory={
+                      <DisclosureChevron
+                        expanded={intervalsExpanded}
+                        size={18}
+                        color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                      />
+                    }
                   />
+                  {intervalZoneSummary.length > 0 && (
+                    <View style={styles.intervalsChips}>
+                      {intervalZoneSummary.map((z, i) => (
+                        <View
+                          key={i}
+                          style={[styles.zoneChip, { backgroundColor: z.color + '25' }]}
+                        >
+                          <View style={[styles.zoneDot, { backgroundColor: z.color }]} />
+                          <Text style={[styles.zoneChipText, isDark && styles.zoneChipTextDark]}>
+                            {z.label} {t('units.times', { value: z.count })}{' '}
+                            {formatDurationHuman(z.totalTime)}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
                 </Pressable>
                 {intervalsExpanded && intervalsData?.icu_intervals && (
                   <IntervalsTable
@@ -440,7 +453,12 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                 style={[styles.chartCard, isDark && styles.cardDark]}
               >
                 <ComponentErrorBoundary componentName="HR Zones Chart">
-                  <HRZonesChart hrZones={hrZones} maxHR={maxHR} movingTime={activity.moving_time} />
+                  <HRZonesChart
+                    hrZones={hrZones}
+                    maxHR={maxHR}
+                    maxHrSource={maxHrSource}
+                    movingTime={activity.moving_time}
+                  />
                 </ComponentErrorBoundary>
               </View>
             )}
@@ -468,6 +486,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                 activity={activity}
                 wellness={activityWellness}
                 maxHR={maxHR}
+                maxHrSource={maxHrSource}
                 fitnessImpact={fitnessImpact}
                 newGround={newGround}
               />
@@ -537,24 +556,24 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                       entries={[
                         {
                           label: 'Activity ID',
-                          value: activityId?.slice(0, 24) ?? '-',
+                          value: activityId?.slice(0, 24) ?? ABSENT,
                         },
-                        { label: 'Sport', value: activity.type ?? '-' },
+                        { label: 'Sport', value: activity.type ?? ABSENT },
                         {
                           label: 'GPS Points',
-                          value: streams?.latlng ? String(gpsPoints) : '-',
+                          value: streams?.latlng ? String(gpsPoints) : ABSENT,
                         },
                         {
                           label: 'HR Samples',
-                          value: streams?.heartrate ? String(streams.heartrate.length) : '-',
+                          value: streams?.heartrate ? String(streams.heartrate.length) : ABSENT,
                         },
                         {
                           label: 'Power Samples',
-                          value: streams?.watts ? String(streams.watts.length) : '-',
+                          value: streams?.watts ? String(streams.watts.length) : ABSENT,
                         },
                         {
                           label: 'Cadence Samples',
-                          value: streams?.cadence ? String(streams.cadence.length) : '-',
+                          value: streams?.cadence ? String(streams.cadence.length) : ABSENT,
                         },
                         {
                           label: 'Sections Matched',
@@ -763,28 +782,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xsPlus,
   },
+  // The card clips, so the bar is drawn at the tap target rather than reaching
+  // it through slop.
   intervalsBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xsPlus,
+    minHeight: layout.minTapTarget,
   },
   intervalsBarDark: {
     borderTopColor: darkColors.border,
   },
-  intervalsBarLeft: {
+  intervalsChips: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    flex: 1,
     gap: spacing.xs,
   },
-  intervalsTitle: {
+  intervalsMessage: {
     fontSize: typography.label.fontSize,
     fontWeight: '600',
     color: colors.textSecondary,
-    marginRight: spacing.xxs,
   },
   zoneChip: {
     flexDirection: 'row',

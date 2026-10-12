@@ -1,5 +1,10 @@
 {
   "display": {
+    "chartLabels": {
+      "fitness": "Condición física van 10555 naar 12345 en Affaticamento van 10712 naar 10987 in 30 dagen",
+      "form": "Formstatus de +475 à +1358 sur 42 jours, actuellement Transizione",
+      "hrv": "心率变异性 fra 62 til 58 over 30 dage"
+    },
     "formZone": "Transizione",
     "impactLine": "Formstatus +1784 → +1571 · +12345 TSS",
     "metricLabels": {
@@ -91,6 +96,7 @@
       "subtitle": "Steigerungsrate von 12345 pro Woche über den gesamten Zeitraum gemessen",
       "title": "Deine Fitness ist in den letzten vier Wochen um 12345 Punkte gestiegen",
       "tone": "positive",
+      "toneLabel": "Pozytywny",
       "url": "veloq://fitness"
     },
     {
@@ -100,6 +106,7 @@
       "subtitle": "12:34:56 hinter deiner Bestzeit auf dieser Strecke",
       "title": "Zweitbeste Zeit auf der Strecke Großer Hafenrundkurs über die Brücke",
       "tone": "record",
+      "toneLabel": "Recorde",
       "url": "veloq://fitness"
     },
     {
@@ -109,6 +116,7 @@
       "subtitle": "12345 ms de moyenne sur la période de référence choisie",
       "title": "Variabilité de la fréquence cardiaque stable sur sept jours consécutifs",
       "tone": "info",
+      "toneLabel": "Informazione",
       "url": "veloq://fitness"
     },
     {
@@ -118,6 +126,7 @@
       "subtitle": "−12345 heute, nach einer sehr langen Belastungsphase",
       "title": "Tagesform liegt im Übergangsbereich zwischen Erholung und Training",
       "tone": "caution",
+      "toneLabel": "Ostrzeżenie",
       "url": "veloq://fitness"
     },
     {
@@ -127,6 +136,7 @@
       "subtitle": "Subiu 12345 W nos últimos trinta dias de treino",
       "title": "eFTP de 12345 W, a mais alta estimativa desde o início do registo",
       "tone": "positive",
+      "toneLabel": "Pozytywny",
       "url": "veloq://fitness"
     }
   ],
@@ -206,6 +216,7 @@
     "loadVsTypical": null,
     "movingTimeS": 359999.0,
     "name": "Grande boucle des collines et du littoral par le col du vent",
+    "prLabel": "Persönlicher Rekord",
     "route": {
       "attemptCount": 14,
       "attemptSeconds": [
@@ -228,6 +239,7 @@
       "name": "Grande boucle des collines et du littoral par le col du vent",
       "rank": 2
     },
+    "routeLabel": "Mappa del percorso Grande boucle des collines et du littoral par le col du vent",
     "routePreview": {
       "aspect": 1.43,
       "points": [
@@ -592,18 +604,21 @@
   "metrics": {
     "fatigue": {
       "deltaVsYesterday": 275.0,
+      "spoken": "Affaticamento 10987, en aumento",
       "trendDir": "up",
       "value": 10987.0,
       "verdict": "moved"
     },
     "fitness": {
       "deltaVsYesterday": 62.0,
+      "spoken": "Condición física 12345, verbessert",
       "trendDir": "up",
       "value": 12345.0,
       "verdict": "improved"
     },
     "form": {
       "deltaVsYesterday": -213.0,
+      "spoken": "Formstatus +1358, en descenso",
       "text": "+1358",
       "trendDir": "down",
       "value": 1358.0,
@@ -612,6 +627,7 @@
     },
     "hrv": {
       "deltaVsYesterday": -1.0,
+      "spoken": "心率变异性 58, gleichbleibend",
       "trendDir": "flat",
       "value": 58.0,
       "verdict": "flat"
@@ -621,6 +637,7 @@
     },
     "rhr": {
       "deltaVsYesterday": -1.0,
+      "spoken": "Ruehpuls 47, verbessert",
       "trendDir": "up",
       "value": 47.0,
       "verdict": "improved"
@@ -638,7 +655,7 @@
       "url": "veloq://record?type=Run"
     }
   ],
-  "schemaVersion": 15,
+  "schemaVersion": 16,
   "sparklines": {
     "fatigue": [
       10712,
@@ -775,6 +792,7 @@
     "windows": {
       "last30": {
         "activityCount": 2,
+        "bodyLabel": "Najczęściej trenowane: Bilspieren 92.5 series, Dolna część pleców 87 series, Czworogłowe uda 41 series, Bicipiti femorali 39 series",
         "emptyText": null,
         "label": "1 miesiąc",
         "maxWeightedSets": 92.5,
@@ -855,6 +873,7 @@
       },
       "month": {
         "activityCount": 1,
+        "bodyLabel": "Najczęściej trenowane: Bilspieren 92.5 series, Dolna część pleców 72 series, Czworogłowe uda 41 series, Bicipiti femorali 39 series",
         "emptyText": null,
         "label": "diciembre",
         "maxWeightedSets": 92.5,
@@ -929,6 +948,7 @@
         "colorKey": "blue",
         "id": "fitness",
         "label": "Condición física",
+        "spoken": "Condición física 12345, verbessert",
         "trendDir": "up",
         "value": "12345",
         "verdict": "improved"
@@ -936,7 +956,8 @@
       {
         "colorKey": "default",
         "id": "ftp",
-        "label": "功能阈值功率",
+        "label": "eFTP",
+        "spoken": "eFTP, nessuna rilevazione",
         "trendDir": "flat",
         "value": "-",
         "verdict": "flat"
@@ -945,6 +966,7 @@
         "colorKey": "default",
         "id": "weekHours",
         "label": "Semaine",
+        "spoken": "Semaine 183.3h, verbessert",
         "trendDir": "up",
         "value": "183.3h",
         "verdict": "improved"
@@ -954,6 +976,7 @@
       "colorKey": "formZone",
       "id": "form",
       "label": "Formstatus",
+      "spoken": "Formstatus +1358, en descenso",
       "trendDir": "down",
       "value": "+1358",
       "verdict": "moved"
@@ -1002,6 +1025,7 @@
       "colorKey": "default",
       "id": "hrv",
       "label": "心率变异性",
+      "spoken": "心率变异性 58, gleichbleibend",
       "trendDir": "flat",
       "value": "58",
       "verdict": "flat"
@@ -1010,6 +1034,7 @@
       "colorKey": "default",
       "id": "rhr",
       "label": "Ruehpuls",
+      "spoken": "Ruehpuls 47, verbessert",
       "trendDir": "up",
       "value": "47",
       "verdict": "improved"
@@ -1018,6 +1043,7 @@
       "colorKey": "default",
       "id": "weekHours",
       "label": "Semaine",
+      "spoken": "Semaine 183.3h, verbessert",
       "trendDir": "up",
       "value": "183.3h",
       "verdict": "improved"
@@ -1026,6 +1052,7 @@
       "colorKey": "default",
       "id": "weekCount",
       "label": "#",
+      "spoken": "Activiteiten 2, verbessert",
       "trendDir": "up",
       "value": "2",
       "verdict": "improved"
@@ -1033,7 +1060,8 @@
     {
       "colorKey": "default",
       "id": "ftp",
-      "label": "功能阈值功率",
+      "label": "eFTP",
+      "spoken": "eFTP, nessuna rilevazione",
       "trendDir": "flat",
       "value": "-",
       "verdict": "flat"
@@ -1042,6 +1070,7 @@
       "colorKey": "default",
       "id": "thresholdPace",
       "label": "Allure",
+      "spoken": "Allure, nessuna rilevazione",
       "trendDir": "flat",
       "value": "-",
       "verdict": "flat"
@@ -1050,6 +1079,7 @@
       "colorKey": "default",
       "id": "css",
       "label": "临界游泳速度",
+      "spoken": "临界游泳速度, nessuna rilevazione",
       "trendDir": "flat",
       "value": "-",
       "verdict": "flat"
@@ -1058,6 +1088,7 @@
       "colorKey": "blue",
       "id": "fitness",
       "label": "Condición física",
+      "spoken": "Condición física 12345, verbessert",
       "trendDir": "up",
       "value": "12345",
       "verdict": "improved"
@@ -1066,6 +1097,7 @@
       "colorKey": "formZone",
       "id": "form",
       "label": "Formstatus",
+      "spoken": "Formstatus +1358, en descenso",
       "trendDir": "down",
       "value": "+1358",
       "verdict": "moved"

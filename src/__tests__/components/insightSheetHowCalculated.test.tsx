@@ -82,8 +82,8 @@ function weekOnWeek(): Insight {
 
 const HOW = 'How was this calculated?';
 
-function openSheet(insight: Insight) {
-  render(<InsightDetailSheet insight={insight} onClose={() => undefined} />);
+async function openSheet(insight: Insight) {
+  await render(<InsightDetailSheet insight={insight} onClose={() => undefined} />);
 }
 
 describe('the How was this calculated disclosure on an insight sheet', () => {
@@ -96,11 +96,11 @@ describe('the How was this calculated disclosure on an insight sheet', () => {
   it.each([
     ['a stale record', staleRecord],
     ['a week on week comparison', weekOnWeek],
-  ])('opens collapsed on %s, with none of its numbers or method showing', (_, build) => {
+  ])('opens collapsed on %s, with none of its numbers or method showing', async (_, build) => {
     const insight = build();
-    openSheet(insight);
+    await openSheet(insight);
 
-    const header = screen.getByRole('button', { name: HOW });
+    const header = screen.getByRole('header', { name: HOW });
     expect(header.props.accessibilityState).toMatchObject({ expanded: false });
 
     for (const row of insight.supportingData?.dataPoints ?? []) {
@@ -112,13 +112,13 @@ describe('the How was this calculated disclosure on an insight sheet', () => {
     expect(screen.queryByTestId('insight-data-link')).toBeNull();
   });
 
-  it('holds the method, the formula, every number and the data link once opened', () => {
+  it('holds the method, the formula, every number and the data link once opened', async () => {
     const insight = staleRecord();
-    openSheet(insight);
+    await openSheet(insight);
 
-    fireEvent.press(screen.getByRole('button', { name: HOW }));
+    await fireEvent.press(screen.getByRole('header', { name: HOW }));
 
-    expect(screen.getByRole('button', { name: HOW }).props.accessibilityState).toMatchObject({
+    expect(screen.getByRole('header', { name: HOW }).props.accessibilityState).toMatchObject({
       expanded: true,
     });
     expect(screen.getByText(insight.supportingData?.algorithmDescription as string)).toBeTruthy();
@@ -129,29 +129,29 @@ describe('the How was this calculated disclosure on an insight sheet', () => {
     expect(screen.getByTestId('insight-data-link')).toBeTruthy();
   });
 
-  it('opens the section with the record effort highlighted from the data link', () => {
-    openSheet(staleRecord());
+  it('opens the section with the record effort highlighted from the data link', async () => {
+    await openSheet(staleRecord());
 
-    fireEvent.press(screen.getByRole('button', { name: HOW }));
-    fireEvent.press(screen.getByTestId('insight-data-link'));
+    await fireEvent.press(screen.getByRole('header', { name: HOW }));
+    await fireEvent.press(screen.getByTestId('insight-data-link'));
 
     expect(tapTo).toHaveBeenCalledTimes(1);
     expect(tapTo).toHaveBeenCalledWith('/section/quarry?activityId=quarry-2');
   });
 
-  it('names where the data link goes', () => {
-    openSheet(staleRecord());
+  it('names where the data link goes', async () => {
+    await openSheet(staleRecord());
 
-    fireEvent.press(screen.getByRole('button', { name: HOW }));
+    await fireEvent.press(screen.getByRole('header', { name: HOW }));
 
     expect(screen.getByRole('button', { name: 'Open Quarry Climb' })).toBeTruthy();
   });
 
-  it('opens a week comparison on the fitness window it compared', () => {
-    openSheet(weekOnWeek());
+  it('opens a week comparison on the fitness window it compared', async () => {
+    await openSheet(weekOnWeek());
 
-    fireEvent.press(screen.getByRole('button', { name: HOW }));
-    fireEvent.press(screen.getByTestId('insight-data-link'));
+    await fireEvent.press(screen.getByRole('header', { name: HOW }));
+    await fireEvent.press(screen.getByTestId('insight-data-link'));
 
     expect(jest.mocked(tapTo).mock.calls[0][0]).toMatch(/^\/fitness\?/);
   });

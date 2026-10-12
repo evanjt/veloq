@@ -75,9 +75,9 @@ const hrZones = [{ zone: 1, minBpm: 0, maxBpm: 140, seconds: 60, percent: 100 }]
 
 const frames: FrameRequestCallback[] = [];
 
-function flushFrame() {
+async function flushFrame() {
   const pending = frames.splice(0);
-  act(() => pending.forEach((callback) => callback(0)));
+  await act(() => pending.forEach((callback) => callback(0)));
 }
 
 function section(transitionSettled: boolean) {
@@ -124,43 +124,43 @@ beforeEach(() => {
 
 afterEach(() => jest.restoreAllMocks());
 
-it('mounts the top chart with the screen and holds the rest while the transition runs', () => {
-  render(section(false));
+it('mounts the top chart with the screen and holds the rest while the transition runs', async () => {
+  await render(section(false));
 
   expect(screen.getByTestId('combined-plot')).toBeTruthy();
   expect(screen.getByTestId('hr-zones-chart')).toBeTruthy();
   expectBelowFold(false);
 
-  flushFrame();
-  flushFrame();
+  await flushFrame();
+  await flushFrame();
   expectBelowFold(false);
 });
 
-it('mounts the rest a frame after the transition settles', () => {
-  const view = render(section(false));
+it('mounts the rest a frame after the transition settles', async () => {
+  const view = await render(section(false));
 
-  view.rerender(section(true));
+  await view.rerender(section(true));
   expectBelowFold(false);
 
-  flushFrame();
+  await flushFrame();
   expectBelowFold(true);
   expect(screen.getByTestId('combined-plot')).toBeTruthy();
 });
 
-it('keeps the rest out of the first commit when the transition settled before the tab mounted', () => {
-  render(section(true));
+it('keeps the rest out of the first commit when the transition settled before the tab mounted', async () => {
+  await render(section(true));
 
   expect(screen.getByTestId('combined-plot')).toBeTruthy();
   expectBelowFold(false);
 
-  flushFrame();
+  await flushFrame();
   expectBelowFold(true);
 });
 
-it('keeps the rest mounted once shown', () => {
-  const view = render(section(true));
-  flushFrame();
+it('keeps the rest mounted once shown', async () => {
+  const view = await render(section(true));
+  await flushFrame();
 
-  view.rerender(section(false));
+  await view.rerender(section(false));
   expectBelowFold(true);
 });

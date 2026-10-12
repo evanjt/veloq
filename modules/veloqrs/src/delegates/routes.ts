@@ -131,16 +131,21 @@ export function getRoutesScreenData(
   return host.timed('getRoutesScreenData', () => host.engine.routes().getScreenData(query), place);
 }
 
-export function setRouteRepresentative(
+/**
+ * Choose the route's representative on a Rust thread, since every member is
+ * measured again against the new representative's track. Resolves false when
+ * the engine refuses the choice, including while another is running.
+ */
+export async function setRouteRepresentative(
   host: DelegateHost,
   routeId: string,
   activityId: string
-): boolean {
+): Promise<boolean> {
   if (!host.ready) return false;
   validateId(routeId, 'route ID');
   validateId(activityId, 'activity ID');
   try {
-    host.timed('setRouteRepresentative', () =>
+    await host.timedAsync('setRouteRepresentative', () =>
       host.engine.routes().setRepresentative(routeId, activityId)
     );
     host.notify('groups');
@@ -151,11 +156,15 @@ export function setRouteRepresentative(
   }
 }
 
-export function resetRouteRepresentative(host: DelegateHost, routeId: string): boolean {
+/** Restore the representative grouping chose, on a Rust thread. */
+export async function resetRouteRepresentative(
+  host: DelegateHost,
+  routeId: string
+): Promise<boolean> {
   if (!host.ready) return false;
   validateId(routeId, 'route ID');
   try {
-    host.timed('resetRouteRepresentative', () =>
+    await host.timedAsync('resetRouteRepresentative', () =>
       host.engine.routes().setRepresentative(routeId, undefined)
     );
     host.notify('groups');

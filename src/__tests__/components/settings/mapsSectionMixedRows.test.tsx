@@ -83,11 +83,11 @@ describe('map style rows over split saved values', () => {
     seed({ terrain3DModeByType: { Hike: 'off', Snowshoe: 'always' } });
     const before = mockStore.get(PREFS_KEY);
 
-    const first = render(screen());
+    const first = await render(screen());
     await waitFor(() => expect(first.getByTestId('map-terrain-pill-Hike')).toBeTruthy());
-    first.rerender(screen());
-    first.unmount();
-    const second = render(screen());
+    await first.rerender(screen());
+    await first.unmount();
+    const second = await render(screen());
     await waitFor(() => expect(second.getByTestId('map-terrain-pill-Hike')).toBeTruthy());
     await act(async () => {});
 
@@ -101,7 +101,7 @@ describe('map style rows over split saved values', () => {
       activityTypeStyles: GYM_SATELLITE,
       terrain3DModeByType: { Hike: 'off', Snowshoe: 'always' },
     });
-    const view = render(screen());
+    const view = await render(screen());
     await waitFor(() => expect(view.getByTestId('map-terrain-pill-Hike')).toBeTruthy());
 
     expect(view.getAllByText(/settings\.mixed/).length).toBeGreaterThan(0);
@@ -113,7 +113,7 @@ describe('map style rows over split saved values', () => {
     expect(view.getByTestId('map-terrain-pill-Hike')).toHaveTextContent('Relief: settings.mixed');
 
     await act(async () => {
-      fireEvent.press(view.getByTestId('map-terrain-pill-Hike'));
+      await fireEvent.press(view.getByTestId('map-terrain-pill-Hike'));
     });
     const afterTerrain = saved();
     expect(afterTerrain.terrain3DModeByType).toEqual({});
@@ -124,7 +124,7 @@ describe('map style rows over split saved values', () => {
     expect(view.getByTestId('map-style-pill-Gym')).toHaveTextContent('settings.mixed');
 
     await act(async () => {
-      fireEvent.press(view.getByTestId('map-style-pill-Gym'));
+      await fireEvent.press(view.getByTestId('map-style-pill-Gym'));
     });
     const afterStyle = saved();
     const gymStyles = Object.keys(GYM_SATELLITE).filter((tp) => tp !== 'Other');
@@ -137,7 +137,7 @@ describe('map style rows over split saved values', () => {
 
   it('shows the translated terrain mode in the badge and group rows', async () => {
     seed({});
-    const view = render(screen());
+    const view = await render(screen());
     await waitFor(() => expect(view.getByTestId('map-terrain-pill-Hike')).toBeTruthy());
 
     expect(view.getByLabelText('settings.terrain3D: settings.terrain3DSmart')).toHaveTextContent(
@@ -145,6 +145,23 @@ describe('map style rows over split saved values', () => {
     );
     expect(view.getByTestId('map-terrain-pill-Hike')).toHaveTextContent(
       'Relief: settings.terrain3DSmart'
+    );
+  });
+});
+
+describe('what a screen reader hears on a terrain pill', () => {
+  it('names the sport beside the mode it draws, and says a tap changes it', async () => {
+    seed({ terrain3DModeByType: { Hike: 'off', Snowshoe: 'always' } });
+    const view = render(screen());
+    await waitFor(() => expect(view.getByTestId('map-terrain-pill-Hike')).toBeTruthy());
+
+    const gym = view.getByTestId('map-terrain-pill-Gym');
+    expect(gym.props.accessibilityLabel).toBe(
+      'maps.activityTypes.gym, Relief: settings.terrain3DSmart'
+    );
+    expect(gym.props.accessibilityHint).toBe('a11y.cycleHint');
+    expect(view.getByTestId('map-terrain-pill-Hike').props.accessibilityLabel).toBe(
+      'maps.activityTypes.hike, Relief: settings.mixed'
     );
   });
 });

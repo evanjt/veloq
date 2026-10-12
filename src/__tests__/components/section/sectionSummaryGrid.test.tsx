@@ -23,7 +23,7 @@ function card(props: Record<string, unknown>) {
       bestReverseRecord={null}
       forwardStats={null}
       reverseStats={null}
-      sportType="Run"
+      basis="pace"
       isDark={false}
       {...props}
     />
@@ -35,8 +35,8 @@ describe('Summary card layout', () => {
     await initialiseI18n('en-AU');
   });
 
-  it('puts two directions in three rows of two values', () => {
-    const { getByTestId, queryByTestId } = card({
+  it('puts two directions in three rows of two values', async () => {
+    const { getByTestId, queryByTestId } = await card({
       bestForwardRecord: record(550),
       bestReverseRecord: record(340),
       forwardStats: stats(600),
@@ -49,8 +49,8 @@ describe('Summary card layout', () => {
     expect(queryByTestId('section-summary-row-3')).toBeNull();
   });
 
-  it('keeps a single direction to two rows of two values', () => {
-    const { getByTestId, queryByTestId } = card({
+  it('keeps a single direction to two rows of two values', async () => {
+    const { getByTestId, queryByTestId } = await card({
       bestForwardRecord: record(550),
       forwardStats: stats(600),
     });
@@ -60,8 +60,8 @@ describe('Summary card layout', () => {
     expect(queryByTestId('section-summary-row-2')).toBeNull();
   });
 
-  it('holds every value to one line', () => {
-    const { getByTestId } = card({
+  it('holds every value to one line', async () => {
+    const { getByTestId } = await card({
       bestForwardRecord: record(550),
       bestReverseRecord: record(340),
       forwardStats: stats(600),

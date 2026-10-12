@@ -19,7 +19,7 @@
 
 import { secretsMatch } from "./secrets";
 import { dedupeKey, exchangeKey, rateKey, stateKey } from "./keys";
-import { authoriseDevice, intervalsAthleteResolver } from "./deviceAuth";
+import { authoriseDevice, type DeviceAuth, intervalsAthleteResolver } from "./deviceAuth";
 import { isValidVerifier, newOpaqueToken, verifierMatches } from "./pkce";
 import { buildPushMessages, pushDataFor } from "./pushMessages";
 
@@ -654,7 +654,7 @@ async function handleDeviceRegister(
       intervalsAthleteResolver()
     );
     if (!auth.ok) {
-      return jsonResponse({ error: auth.error }, auth.status);
+      return deviceAuthRefusal(auth);
     }
 
     const ownerKey = tokenOwnerKey(body.token);
@@ -737,7 +737,7 @@ async function handleDeviceUnregister(
       intervalsAthleteResolver()
     );
     if (!auth.ok) {
-      return jsonResponse({ error: auth.error }, auth.status);
+      return deviceAuthRefusal(auth);
     }
 
     await removeTokenFromAthlete(env, body.athleteId, body.token);
@@ -931,6 +931,15 @@ async function sendExpoPush(
 }
 
 /** Helper to create JSON responses */
+/** A device request that proved nothing, with intervals.icu's wait on a 429. */
+function deviceAuthRefusal(auth: Exclude<DeviceAuth, { ok: true }>): Response {
+  const response = jsonResponse({ error: auth.error }, auth.status);
+  if (auth.status === 429 && auth.retryAfter) {
+    response.headers.set("Retry-After", auth.retryAfter);
+  }
+  return response;
+}
+
 function jsonResponse(body: Record<string, unknown>, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,

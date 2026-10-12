@@ -14,6 +14,7 @@ import { CHART_CONFIG } from '@/constants';
 import { finiteExtent, type Extent } from '@/shared/charts/extent';
 import { KM_TO_MI, MPS_TO_KPH } from '@/shared/format/format';
 import { paceMinutesFromSpeed, speedFromPaceMinutes } from '@/shared/math/kinematics';
+import { ABSENT } from '@/shared/format/absent';
 
 /**
  * One input series derived from a chart config + streams. The colour is not
@@ -35,13 +36,13 @@ export function formatScrubValue(
   raw: number | undefined,
   isMetric: boolean
 ): string {
-  if (raw == null || !Number.isFinite(raw)) return '-';
-  if (isStoppedSample(config, raw)) return '-';
+  if (raw == null || !Number.isFinite(raw)) return ABSENT;
+  if (isStoppedSample(config, raw)) return ABSENT;
   const value = !isMetric && config.convertToImperial ? config.convertToImperial(raw) : raw;
   const formatted = config.formatValue
     ? config.formatValue(value, isMetric)
     : Math.round(value).toString();
-  return formatted || '-';
+  return formatted || ABSENT;
 }
 
 type Motion = NonNullable<ChartConfig['motion']>;
@@ -122,12 +123,21 @@ export interface ChartMetricValue {
   maxValueWidth?: string | undefined;
 }
 
+/**
+ * Why a chart has nothing to draw: the distance axis on an activity with time
+ * but no distance, an activity with no samples on either axis, or chosen
+ * metrics the activity did not record.
+ */
+export type EmptyPlotCause = 'noDistance' | 'noSamples' | 'noMetrics';
+
 /** Output of {@link buildChartData}. */
 export interface ChartDataResult {
   chartData: Record<string, number>[];
   seriesInfo: SeriesInfo[];
   indexMap: number[];
   maxX: number;
+  /** Null when there is a series to draw. */
+  emptyCause: EmptyPlotCause | null;
 }
 
 /**
@@ -149,12 +159,9 @@ export interface IntervalBand {
   isWork: boolean;
 }
 
-const EMPTY_RESULT: ChartDataResult = {
-  chartData: [],
-  seriesInfo: [],
-  indexMap: [],
-  maxX: 1,
-};
+function emptyResult(emptyCause: EmptyPlotCause): ChartDataResult {
+  return { chartData: [], seriesInfo: [], indexMap: [], maxX: 1, emptyCause };
+}
 
 /**
  * Downsample + normalise stream data across all selected series.
@@ -177,7 +184,10 @@ export function buildChartData(
 ): ChartDataResult {
   // Choose x-axis source array based on mode
   const xSource = xAxisMode === 'time' ? streams.time || [] : streams.distance || [];
-  if (xSource.length === 0) return EMPTY_RESULT;
+  if (xSource.length === 0) {
+    const hasTime = (streams.time?.length ?? 0) > 0;
+    return emptyResult(xAxisMode === 'distance' && hasTime ? 'noDistance' : 'noSamples');
+  }
 
   // Determine which charts to render (selected + preview if unselected)
   const chartsToRender = [...selectedCharts];
@@ -200,7 +210,7 @@ export function buildChartData(
     });
   }
 
-  if (series.length === 0) return EMPTY_RESULT;
+  if (series.length === 0) return emptyResult('noMetrics');
 
   // Downsample and normalise
   const maxPoints = CHART_CONFIG.MAX_DATA_POINTS;
@@ -255,6 +265,7 @@ export function buildChartData(
     seriesInfo: series.map((s, idx) => ({ ...s, range: seriesRanges[idx] })),
     indexMap: indices,
     maxX: computedMaxX,
+    emptyCause: null,
   };
 }
 

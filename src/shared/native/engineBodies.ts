@@ -15,18 +15,27 @@
  * reads below, one either side of the request, are what close it.
  *
  * The other is a request Rust refused outright. `request` hands back the
- * engine's start verdict. One that asking again cannot change, such as no
- * credentials, ends the wait at once as `refused`. One that can change, a
- * request folded into one in flight or no network yet, keeps waiting, and so
- * does no verdict at all (demo mode, no engine). A refusal is announced by
- * nothing, so the deadline still ends a wait the verdict could not classify.
+ * engine's start verdict. A device that said it is offline, and a missing
+ * credential, each end the wait at once under their own name, because each
+ * has a fix the screen can state and a spinner states neither. Any other
+ * refusal asking again cannot change ends it as `refused`. One that can
+ * change, a request folded into one in flight or an engine not open yet,
+ * keeps waiting, and so does no verdict at all (demo mode, no engine). A
+ * refusal is announced by nothing, so the deadline still ends a wait the
+ * verdict could not classify.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 
 import { useReconnect } from '@/shared/app/useRetryTriggers';
 
-import { hasStarted, isRetryableStart, type StartOutcome, type StartResult } from 'veloqrs';
+import {
+  hasStarted,
+  isRetryableStart,
+  startOutcome,
+  StartOutcome,
+  type StartResult,
+} from 'veloqrs';
 
 import { getEngine } from './engine';
 
@@ -44,9 +53,12 @@ const CHANNELS = ['bodyStored', 'activities'] as const;
 export const BODY_WAIT_MS = 15_000;
 
 /**
- * Whether a body is still being waited on. `refused` means the engine will
- * not fetch it and asking again cannot change that, so the screen can say so
- * at once. `timedOut` is not an error: the
+ * Whether a body is still being waited on. `offline` means the device has
+ * said it has no connection, so nothing was asked for and the reconnect edge
+ * asks again. `notConfigured` means there is no credential to sign the call
+ * with, which only signing in changes. `refused` means the engine will not
+ * fetch it for another reason asking again cannot change, so the screen can
+ * say so at once. `timedOut` is not an error: the
  * body may still land and announce itself later, and the caller is free to
  * keep whatever it is showing. It means only that waiting is no longer a
  * reason to show a spinner.
@@ -57,14 +69,41 @@ export const BODY_WAIT_MS = 15_000;
  * that is announced but does not actually store this body still reaches the
  * deadline.
  */
-export type EngineBodyStatus = 'idle' | 'waiting' | 'timedOut' | 'refused';
+export type EngineBodyStatus =
+  | 'idle'
+  | 'waiting'
+  | 'timedOut'
+  | 'refused'
+  | 'offline'
+  | 'notConfigured';
+
+/** The statuses a start verdict ends the wait with. */
+type EngineBodyRefusal = 'refused' | 'offline' | 'notConfigured';
 
 /**
  * Whether the wait gave up without a body, so asking again is the athlete's
  * to do. Nothing else re-asks a fetch that failed while the radio was up.
+ * Offline and signed out are not among them: asking again cannot succeed
+ * until the connection or the credential is back, and the reconnect edge
+ * asks by itself.
  */
 export function waitEnded(status: EngineBodyStatus): boolean {
   return status === 'timedOut' || status === 'refused';
+}
+
+/**
+ * The status a start verdict ends the wait with, or null when the wait goes
+ * on: the job started, or the refusal lifts by itself.
+ */
+function refusalOf(outcome: StartOutcome | StartResult): EngineBodyRefusal | null {
+  switch (startOutcome(outcome)) {
+    case StartOutcome.Offline:
+      return 'offline';
+    case StartOutcome.NotConfigured:
+      return 'notConfigured';
+    default:
+      return hasStarted(outcome) || isRetryableStart(outcome) ? null : 'refused';
+  }
 }
 
 /**
@@ -117,7 +156,7 @@ export function useEngineBody(
   // having to clear the old one.
   const waitId = `${keyId}#${attempt}`;
   const [expiredWait, setExpiredWait] = useState<string | null>(null);
-  const [refusedWait, setRefusedWait] = useState<string | null>(null);
+  const [refusal, setRefusal] = useState<{ wait: string; status: EngineBodyRefusal } | null>(null);
 
   // The count as the request went out, or null when this mount asked for
   // nothing and so has no window to reconcile.
@@ -127,10 +166,11 @@ export function useEngineBody(
     if (!enabled || present) return undefined;
     countAtRequest.current = bodiesStored();
     const outcome = request();
-    if (outcome !== undefined && !hasStarted(outcome) && !isRetryableStart(outcome)) {
+    const refused = outcome === undefined ? null : refusalOf(outcome);
+    if (refused !== null) {
       // The verdict only exists once the request has gone out, so it is read here.
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setRefusedWait(waitId);
+      setRefusal({ wait: waitId, status: refused });
       return undefined;
     }
 
@@ -174,6 +214,6 @@ export function useEngineBody(
   });
 
   if (!enabled || present) return { status: 'idle', retry };
-  if (refusedWait === waitId) return { status: 'refused', retry };
+  if (refusal?.wait === waitId) return { status: refusal.status, retry };
   return { status: expiredWait === waitId ? 'timedOut' : 'waiting', retry };
 }

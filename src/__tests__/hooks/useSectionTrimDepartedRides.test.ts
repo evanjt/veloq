@@ -23,14 +23,14 @@ const polyline = Array.from({ length: 20 }, (_, i) => ({ lat: 46 + i * 0.0001, l
 const section = { id: 'sec1', polyline, distanceMeters: 200 } as unknown as FrequentSection;
 const ride = { activityId: 'a1', name: 'Morning ride', date: 1_710_200_000 };
 
-function trimWith(departed: Promise<unknown[] | null>) {
+async function trimWith(departed: Promise<unknown[] | null>) {
   const engine = { runSectionBoundsEdit: jest.fn(() => departed) };
   (getEngine as jest.Mock).mockReturnValue(engine);
   const onRefresh = jest.fn();
-  const hook = renderHook(() => useSectionTrim(section, onRefresh, true));
-  act(() => hook.result.current.startTrim());
-  act(() => hook.result.current.setTrimStart(2));
-  act(() => hook.result.current.setTrimEnd(15));
+  const hook = await renderHook(() => useSectionTrim(section, onRefresh, true));
+  await act(() => hook.result.current.startTrim());
+  await act(() => hook.result.current.setTrimStart(2));
+  await act(() => hook.result.current.setTrimEnd(15));
   return { hook, engine, onRefresh };
 }
 
@@ -42,7 +42,7 @@ describe('useSectionTrim departed rides', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it('names the ride the trim took out of the section', async () => {
-    const { hook, engine, onRefresh } = trimWith(Promise.resolve([ride]));
+    const { hook, engine, onRefresh } = await trimWith(Promise.resolve([ride]));
 
     await act(() => hook.result.current.confirmTrim());
 
@@ -58,7 +58,7 @@ describe('useSectionTrim departed rides', () => {
   });
 
   it('shows nothing when the trim took no ride out', async () => {
-    const { hook, onRefresh } = trimWith(Promise.resolve([]));
+    const { hook, onRefresh } = await trimWith(Promise.resolve([]));
 
     await act(() => hook.result.current.confirmTrim());
 
@@ -67,7 +67,7 @@ describe('useSectionTrim departed rides', () => {
   });
 
   it('shows the failure and no ride when the trim failed', async () => {
-    const { hook, onRefresh } = trimWith(Promise.resolve(null));
+    const { hook, onRefresh } = await trimWith(Promise.resolve(null));
 
     await act(() => hook.result.current.confirmTrim());
 
@@ -76,11 +76,11 @@ describe('useSectionTrim departed rides', () => {
     expect((Alert.alert as jest.Mock).mock.calls[0][1]).not.toContain('Morning ride');
   });
 
-  it('returns to the caller while the edit is still running', () => {
-    const { hook, engine, onRefresh } = trimWith(new Promise(() => {}));
+  it('returns to the caller while the edit is still running', async () => {
+    const { hook, engine, onRefresh } = await trimWith(new Promise(() => {}));
     let returned = false;
 
-    act(() => {
+    await act(() => {
       void hook.result.current.confirmTrim();
       returned = true;
     });
@@ -92,8 +92,8 @@ describe('useSectionTrim departed rides', () => {
   });
 
   it('names the ride a reset took out once the reset is confirmed', async () => {
-    const { hook, engine, onRefresh } = trimWith(Promise.resolve([ride]));
-    act(() => hook.result.current.resetBounds());
+    const { hook, engine, onRefresh } = await trimWith(Promise.resolve([ride]));
+    await act(() => hook.result.current.resetBounds());
     const buttons = (Alert.alert as jest.Mock).mock.calls[0][2] as { onPress?: () => unknown }[];
     (Alert.alert as jest.Mock).mockClear();
 
@@ -112,12 +112,12 @@ describe('useSectionTrim departed rides', () => {
     const pending = new Promise<unknown[] | null>((resolve) => {
       settle = resolve;
     });
-    const { hook, engine, onRefresh } = trimWith(pending);
-    act(() => hook.result.current.resetBounds());
+    const { hook, engine, onRefresh } = await trimWith(pending);
+    await act(() => hook.result.current.resetBounds());
     const buttons = (Alert.alert as jest.Mock).mock.calls[0][2] as { onPress?: () => unknown }[];
     (Alert.alert as jest.Mock).mockClear();
 
-    act(() => {
+    await act(() => {
       void buttons[1].onPress?.();
       void hook.result.current.confirmTrim();
     });
@@ -132,13 +132,13 @@ describe('useSectionTrim departed rides', () => {
     expect(hook.result.current.isTrimming).toBe(true);
     expect(onRefresh).not.toHaveBeenCalled();
     expect(Alert.alert).toHaveBeenCalledTimes(1);
-    expect((Alert.alert as jest.Mock).mock.calls[0][0]).toBe('common.error');
+    expect((Alert.alert as jest.Mock).mock.calls[0][0]).toBe('sections.trimFailedTitle');
     expect((Alert.alert as jest.Mock).mock.calls[0][1]).toContain('sections.trimFailed');
   });
 
-  it('refuses reset while a trim is pending', () => {
-    const { hook, engine } = trimWith(new Promise(() => {}));
-    act(() => {
+  it('refuses reset while a trim is pending', async () => {
+    const { hook, engine } = await trimWith(new Promise(() => {}));
+    await act(() => {
       void hook.result.current.confirmTrim();
       hook.result.current.resetBounds();
     });
@@ -152,14 +152,14 @@ describe('useSectionTrim departed rides', () => {
     const pending = new Promise<unknown[] | null>((resolve) => {
       settle = resolve;
     });
-    const { hook, onRefresh } = trimWith(pending);
-    act(() => hook.result.current.resetBounds());
+    const { hook, onRefresh } = await trimWith(pending);
+    await act(() => hook.result.current.resetBounds());
     const buttons = (Alert.alert as jest.Mock).mock.calls[0][2] as { onPress?: () => unknown }[];
     (Alert.alert as jest.Mock).mockClear();
-    act(() => {
+    await act(() => {
       void buttons[1].onPress?.();
     });
-    hook.unmount();
+    await hook.unmount();
 
     await act(async () => settle([ride]));
 

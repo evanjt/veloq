@@ -60,8 +60,8 @@ const MARGINS = ['margin', 'marginTop', 'marginBottom', 'marginHorizontal', 'mar
 
 type Json = { type: string; props: { style?: unknown; testID?: string }; children?: unknown[] };
 
-function outermost(ui: React.ReactElement): Record<string, unknown> {
-  const root = render(ui).toJSON() as Json;
+async function outermost(ui: React.ReactElement): Promise<Record<string, unknown>> {
+  const root = (await render(ui)).toJSON() as Json;
   return StyleSheet.flatten(root.props.style as never) ?? {};
 }
 
@@ -122,9 +122,9 @@ describe('the containers below the section chart', () => {
     await initialiseI18n('en-AU');
   });
 
-  it('draws the summary card as the flat dark card', () => {
+  it('draws the summary card as the flat dark card', async () => {
     expectFlatDarkCard(
-      outermost(
+      await outermost(
         <SectionInfoCard
           firstActivityDate={new Date(2026, 0, 1)}
           lastActivityDate={new Date(2026, 2, 1)}
@@ -132,20 +132,20 @@ describe('the containers below the section chart', () => {
           forwardStats={{ avgTime: 600, count: 10 } as never}
           bestReverseRecord={null}
           reverseStats={null}
-          sportType="Run"
+          basis="pace"
           isDark
         />
       )
     );
   });
 
-  it('draws the efficiency card as the flat dark card, borderless', () => {
-    expectFlatDarkCard(outermost(<SectionEfficiencyCard trend={efficiencyTrend} isDark />));
+  it('draws the efficiency card as the flat dark card, borderless', async () => {
+    expectFlatDarkCard(await outermost(<SectionEfficiencyCard trend={efficiencyTrend} isDark />));
   });
 
-  it('draws the correlation card as the flat dark card', () => {
+  it('draws the correlation card as the flat dark card', async () => {
     expectFlatDarkCard(
-      outermost(
+      await outermost(
         <SectionCorrelationCard
           correlations={
             [
@@ -164,22 +164,22 @@ describe('the containers below the section chart', () => {
     );
   });
 
-  it('draws the calendar card as the flat dark card', () => {
+  it('draws the calendar card as the flat dark card', async () => {
     expectFlatDarkCard(
-      outermost(
+      await outermost(
         <SectionStatsCards
           calendarSummary={calendar}
           isDark
-          isRunning={false}
+          basis="speed"
           activityColor="#3B82F6"
         />
       )
     );
   });
 
-  it('draws the lap list as the flat dark card', () => {
+  it('draws the lap list as the flat dark card', async () => {
     expectFlatDarkCard(
-      outermost(
+      await outermost(
         <SectionLapList
           isDark
           records={[lapRecord]}
@@ -190,9 +190,9 @@ describe('the containers below the section chart', () => {
     );
   });
 
-  it('draws the history panel as the flat dark card', () => {
+  it('draws the history panel as the flat dark card', async () => {
     expectFlatDarkCard(
-      outermost(
+      await outermost(
         <SectionHistoryPanel
           isDark
           history={[]}

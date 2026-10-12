@@ -16,3 +16,14 @@ export function useEngineReady(): ReturnType<typeof getEngine> {
   useEngineStatus((s) => s.readyNonce);
   return getEngine();
 }
+
+/**
+ * Whether the engine is still opening: no handle yet, and the init has not
+ * failed. A read that throws meanwhile is a load still under way rather than a
+ * failure, and an effect keyed on `useEngineReady` reads again once it opens.
+ */
+export function useEngineOpening(): boolean {
+  const engine = useEngineReady();
+  const initFailed = useEngineStatus((s) => s.initFailed);
+  return engine == null && !initFailed;
+}

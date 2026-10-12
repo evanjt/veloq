@@ -9,6 +9,8 @@ import { ZoneHistogram, type ZoneBand } from '@/shared/charts';
 
 import type { ZoneDistribution } from '@/types';
 import { formatDurationHuman } from '@/shared/format/format';
+import { CardHeader } from '@/shared/ui/CardHeader';
+import { EmptyState } from '@/shared/ui/EmptyState';
 
 interface ZoneDistributionChartProps {
   /** Zone distribution data */
@@ -71,21 +73,24 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
   if (!data || data.length === 0) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={[styles.title, isDark && styles.textLight]}>{displayTitle}</Text>
-          <Text style={[styles.subtitle, isDark && styles.textDark]}>{displayPeriodLabel}</Text>
-        </View>
+        <CardHeader
+          title={displayTitle}
+          accessory={
+            <Text style={[styles.subtitle, isDark && styles.textDark]}>{displayPeriodLabel}</Text>
+          }
+        />
         <View style={styles.emptyState}>
-          <Text style={[styles.emptyText, isDark && styles.textDark]}>
-            {notDownloaded ? t('stats.rangeNotDownloaded') : t('stats.noZoneData')}
-          </Text>
-          {!notDownloaded && (
-            <Text style={[styles.emptyHint, isDark && styles.textDark]}>
-              {type === 'power'
-                ? t('stats.completeActivitiesPower')
-                : t('stats.completeActivitiesHr')}
-            </Text>
-          )}
+          <EmptyState
+            variant="inline"
+            title={notDownloaded ? t('stats.rangeNotDownloaded') : t('stats.noZoneData')}
+            description={
+              notDownloaded
+                ? undefined
+                : type === 'power'
+                  ? t('stats.completeActivitiesPower')
+                  : t('stats.completeActivitiesHr')
+            }
+          />
         </View>
       </View>
     );
@@ -94,17 +99,19 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={[styles.title, isDark && styles.textLight]}>{displayTitle}</Text>
-        <Text style={[styles.subtitle, isDark && styles.textDark]}>{displayPeriodLabel}</Text>
-      </View>
+      <CardHeader
+        title={displayTitle}
+        accessory={
+          <Text style={[styles.subtitle, isDark && styles.textDark]}>{displayPeriodLabel}</Text>
+        }
+      />
 
       <View style={styles.bars}>
         <ZoneHistogram bands={bands} />
       </View>
 
       {/* Total time */}
-      <View style={styles.totalRow}>
+      <View style={[styles.totalRow, isDark && styles.totalRowDark]}>
         <Text style={[styles.totalLabel, isDark && styles.textDark]}>{t('stats.totalTime')}</Text>
         <Text style={[styles.totalValue, isDark && styles.textLight]}>
           {formatDurationHuman(processedData.reduce((sum, d) => sum + d.seconds, 0))}
@@ -125,14 +132,6 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
 
 const styles = StyleSheet.create({
   container: {},
-  header: {
-    marginBottom: spacing.md,
-  },
-  title: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
   subtitle: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
@@ -156,6 +155,9 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
   },
+  totalRowDark: {
+    borderTopColor: darkColors.border,
+  },
   totalLabel: {
     fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
@@ -174,15 +176,5 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  emptyText: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  emptyHint: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-    textAlign: 'center',
   },
 });

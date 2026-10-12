@@ -11,7 +11,6 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { goBack } from '@/shared/app/navigation';
@@ -26,6 +25,7 @@ import type { FrequentSection } from '@/types';
 import { debug } from '@/shared/debug/debug';
 import * as haptics from '@/shared/ui/haptics';
 import { renameFailureMessageKey } from '../lib/sectionRenameFailure';
+import { confirmAction, inform } from '@/shared/ui/dialog';
 
 const log = debug.create('SectionActions');
 
@@ -191,7 +191,10 @@ export function useSectionActions({
       // Fire rename in background - don't await, cache invalidation happens async
       renameSection(id, trimmedName).catch((error: unknown) => {
         setCustomName((current) => (current === nextName ? previousName : current));
-        Alert.alert(t('sections.renameFailedTitle'), t(renameFailureMessageKey(error)));
+        inform({
+          title: t('sections.renameFailedTitle'),
+          message: t(renameFailureMessageKey(error)),
+        });
         if (__DEV__) console.error('Failed to save section name:', error);
       });
     },
@@ -205,27 +208,23 @@ export function useSectionActions({
       return;
     }
 
-    Alert.alert(
-      t('sections.deleteSection'),
-      t('sections.deleteSectionConfirm', { name: customName || section?.name || id }),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            haptics.medium();
-            try {
-              await removeSection(id);
-              goBack();
-            } catch (error) {
-              if (__DEV__) console.error('Failed to delete section:', error);
-              Alert.alert(t('common.error'), t('sections.deleteFailed'));
-            }
-          },
-        },
-      ]
-    );
+    confirmAction({
+      title: t('sections.deleteSection'),
+      message: t('sections.deleteSectionConfirm', { name: customName || section?.name || id }),
+      confirmLabel: t('common.delete'),
+      cancelLabel: t('common.cancel'),
+      destructive: true,
+      onConfirm: async () => {
+        haptics.medium();
+        try {
+          await removeSection(id);
+          goBack();
+        } catch (error) {
+          if (__DEV__) console.error('Failed to delete section:', error);
+          inform({ title: t('sections.deleteFailedTitle'), message: t('sections.deleteFailed') });
+        }
+      },
+    });
   }, [customName, id, isCustomId, removeSection, section?.name, t]);
 
   // --- reference actions ---
@@ -249,10 +248,10 @@ export function useSectionActions({
       }
 
       if (!departed) {
-        Alert.alert(
-          t('common.error'),
-          t('sections.setReferenceError', 'Failed to set reference. Please try again.')
-        );
+        inform({
+          title: t('sections.referenceFailedTitle'),
+          message: t('sections.setReferenceError', 'Failed to set reference. Please try again.'),
+        });
         return;
       }
 
@@ -284,29 +283,29 @@ export function useSectionActions({
 
       if (currentRef === activityId && isUserDefinedRef) {
         // Already the user-defined reference - offer to reset
-        Alert.alert(t('sections.resetReference'), t('sections.resetReferenceConfirm'), [
-          { text: t('common.cancel'), style: 'cancel' },
-          {
-            text: t('common.reset'),
-            onPress: () => runReferenceEdit({ kind: 'resetReference', sectionId: id }, null),
-          },
-        ]);
+        confirmAction({
+          title: t('sections.resetReference'),
+          message: t('sections.resetReferenceConfirm'),
+          confirmLabel: t('common.reset'),
+          cancelLabel: t('common.cancel'),
+          onConfirm: () => runReferenceEdit({ kind: 'resetReference', sectionId: id }, null),
+        });
       } else {
-        Alert.alert(t('sections.setAsReference'), t('sections.setAsReferenceConfirm'), [
-          { text: t('common.cancel'), style: 'cancel' },
-          {
-            text: t('common.confirm'),
-            onPress: () => {
-              if (__DEV__) {
-                log.log('[SetReference] sectionId=', id, 'activityId=', activityId);
-              }
-              return runReferenceEdit(
-                { kind: 'setReference', sectionId: id, activityId },
-                activityId
-              );
-            },
+        confirmAction({
+          title: t('sections.setAsReference'),
+          message: t('sections.setAsReferenceConfirm'),
+          confirmLabel: t('common.confirm'),
+          cancelLabel: t('common.cancel'),
+          onConfirm: () => {
+            if (__DEV__) {
+              log.log('[SetReference] sectionId=', id, 'activityId=', activityId);
+            }
+            return runReferenceEdit(
+              { kind: 'setReference', sectionId: id, activityId },
+              activityId
+            );
           },
-        ]);
+        });
       }
     },
     [id, t, effectiveReferenceId, section?.isUserDefined, runReferenceEdit]
@@ -321,17 +320,17 @@ export function useSectionActions({
       getEngine()?.enableSection(id);
     } else {
       // Remove with confirmation, navigate back after
-      Alert.alert(t('sections.removeSection'), t('sections.removeSectionConfirm'), [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.remove'),
-          style: 'destructive',
-          onPress: () => {
-            getEngine()?.disableSection(id);
-            goBack();
-          },
+      confirmAction({
+        title: t('sections.removeSection'),
+        message: t('sections.removeSectionConfirm'),
+        confirmLabel: t('common.remove'),
+        cancelLabel: t('common.cancel'),
+        destructive: true,
+        onConfirm: () => {
+          getEngine()?.disableSection(id);
+          goBack();
         },
-      ]);
+      });
     }
   }, [id, isCustomId, isSectionDisabled, t]);
 
@@ -389,21 +388,21 @@ export function useSectionActions({
     if (!id) return;
     const engine = getEngine();
     if (!engine) return;
-    Alert.alert(t('sections.unflagLift'), t('sections.unflagLiftConfirm'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('common.remove'),
-        style: 'destructive',
-        onPress: () => {
-          if (!engine.setSectionIsLift(id, false)) {
-            log.warn('unflag refused', id);
-            return;
-          }
-          queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
-          onSectionRefresh();
-        },
+    confirmAction({
+      title: t('sections.unflagLift'),
+      message: t('sections.unflagLiftConfirm'),
+      confirmLabel: t('common.remove'),
+      cancelLabel: t('common.cancel'),
+      destructive: true,
+      onConfirm: () => {
+        if (!engine.setSectionIsLift(id, false)) {
+          log.warn('unflag refused', id);
+          return;
+        }
+        queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
+        onSectionRefresh();
       },
-    ]);
+    });
   }, [id, t, queryClient, onSectionRefresh]);
 
   // --- rematch ---

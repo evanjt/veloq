@@ -33,8 +33,8 @@ const SUMMARY_CARD = { currentWeek: { count: 3 } };
 
 let idle: IdleScheduler;
 
-function flushInteractions(): void {
-  act(() => idle.flush());
+async function flushInteractions(): Promise<void> {
+  await act(() => idle.flush());
 }
 
 let subscribers: (() => void)[] = [];
@@ -68,69 +68,72 @@ afterEach(() => {
 });
 
 describe('useStartupData', () => {
-  it('makes no engine call while the feed renders', () => {
-    const { result } = renderHook(() => useStartupData(['a', 'b']));
+  it('makes no engine call while the feed renders', async () => {
+    const { result } = await renderHook(() => useStartupData(['a', 'b']));
 
     expect(engine.getStartupData).not.toHaveBeenCalled();
     expect(result.current.data).toBeNull();
 
-    flushInteractions();
+    await flushInteractions();
 
     expect(engine.getStartupData).toHaveBeenCalledTimes(1);
     expect(result.current.data?.previewTracks.size).toBe(2);
   });
 
-  it('costs one call when several engine events arrive before the read runs', () => {
-    renderHook(() => useStartupData(['a']));
-    flushInteractions();
+  it('costs one call when several engine events arrive before the read runs', async () => {
+    await renderHook(() => useStartupData(['a']));
+    await flushInteractions();
     expect(engine.getStartupData).toHaveBeenCalledTimes(1);
 
-    act(() => {
+    await act(() => {
       for (const notify of subscribers) notify();
       for (const notify of subscribers) notify();
     });
-    flushInteractions();
+    await flushInteractions();
 
     expect(engine.getStartupData).toHaveBeenCalledTimes(2);
   });
 
-  it('keeps the last bundle on screen while the next read is pending', () => {
-    const { result, rerender } = renderHook(({ ids }: { ids: string[] }) => useStartupData(ids), {
-      initialProps: { ids: ['a'] },
-    });
-    flushInteractions();
+  it('keeps the last bundle on screen while the next read is pending', async () => {
+    const { result, rerender } = await renderHook(
+      ({ ids }: { ids: string[] }) => useStartupData(ids),
+      {
+        initialProps: { ids: ['a'] },
+      }
+    );
+    await flushInteractions();
     const first = result.current.data;
     expect(first?.previewTracks.size).toBe(1);
 
-    rerender({ ids: ['a', 'b'] });
+    await rerender({ ids: ['a', 'b'] });
 
     expect(result.current.data).toBe(first);
 
-    flushInteractions();
+    await flushInteractions();
 
     expect(result.current.data?.previewTracks.size).toBe(2);
   });
 
-  it('keeps the last bundle when the engine read fails', () => {
-    const { result } = renderHook(() => useStartupData(['a']));
-    flushInteractions();
+  it('keeps the last bundle when the engine read fails', async () => {
+    const { result } = await renderHook(() => useStartupData(['a']));
+    await flushInteractions();
     const first = result.current.data;
     expect(first).not.toBeNull();
 
     engine.getStartupData.mockImplementation(() => {
       throw new Error('engine busy');
     });
-    act(() => {
+    await act(() => {
       for (const notify of subscribers) notify();
     });
-    flushInteractions();
+    await flushInteractions();
 
     expect(result.current.data).toBe(first);
   });
 
-  it('carries the summary card, preview tracks and sparklines, and nothing else', () => {
-    const { result } = renderHook(() => useStartupData([]));
-    flushInteractions();
+  it('carries the summary card, preview tracks and sparklines, and nothing else', async () => {
+    const { result } = await renderHook(() => useStartupData([]));
+    await flushInteractions();
 
     expect(engine.getStartupData).toHaveBeenCalledTimes(1);
     expect(result.current.data?.previewTracks.size).toBe(0);
@@ -141,10 +144,10 @@ describe('useStartupData', () => {
     ]);
   });
 
-  it('makes no engine call once the feed has unmounted', () => {
-    const { unmount } = renderHook(() => useStartupData(['a']));
-    unmount();
-    flushInteractions();
+  it('makes no engine call once the feed has unmounted', async () => {
+    const { unmount } = await renderHook(() => useStartupData(['a']));
+    await unmount();
+    await flushInteractions();
 
     expect(engine.getStartupData).not.toHaveBeenCalled();
   });

@@ -4,6 +4,7 @@ import { confidenceFrom } from '../lib/config';
 import type { InsightTone } from '@/theme';
 import { fitnessTarget, rangeCovering } from '@/shared/app/fitnessEntry';
 import { sparkline } from '../lib/sparkline';
+import { formatHrv } from '@/shared/format/format';
 
 interface TrendShape {
   label: string; // "trendingUp" | "stable" | "trendingDown"
@@ -126,7 +127,7 @@ export function generateHrvTrendInsight(
               trend.windowSplit !== undefined && lastReading
                 ? { from: trend.windowSplit, to: lastReading.date }
                 : undefined,
-            format: (ms) => `${Math.round(ms)} ms`,
+            format: formatHrv,
           }
         ),
       },

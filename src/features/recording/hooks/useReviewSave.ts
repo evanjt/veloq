@@ -1,6 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { UploadOutcome } from 'veloqrs';
 
@@ -13,6 +12,7 @@ import { requestSyncRefresh } from '@/shared/native/syncRefresh';
 import { isDeviceLowOnSpace } from '@/shared/storage/freeSpace';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { returnTo } from '@/shared/app/navigation';
 import { clearRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
 import {
   attachEngineActivity,
@@ -168,11 +168,11 @@ export function useReviewSave({
         setTimeout(() => {
           if (!stillCurrent()) return;
           useRecordingStore.getState().reset();
-          router.replace('/');
+          returnTo('/');
         }, 1500);
       } else {
         useRecordingStore.getState().reset();
-        router.replace('/');
+        returnTo('/');
       }
     },
     [setQueuedMessage]

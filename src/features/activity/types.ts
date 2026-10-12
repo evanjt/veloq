@@ -37,7 +37,7 @@ export interface Activity {
   icu_power_zones?: number[] | undefined; // percent of icu_ftp, 999 for the open top
   icu_hr_zones?: number[] | undefined;
   // Training metrics
-  icu_training_load?: number | undefined; // TSS
+  icu_training_load?: number | undefined; // training load
   icu_ftp?: number | undefined; // FTP used for this activity
   icu_pm_ftp_watts?: number | undefined; // Estimated FTP from this activity (eFTP)
   icu_rolling_ftp?: number | undefined; // eFTP intervals.icu accepted after this activity
@@ -586,7 +586,7 @@ export interface AthleteSummary {
   calories: number;
   /** Total elevation gain in meters */
   total_elevation_gain: number;
-  /** Total training load (TSS) */
+  /** Total training load */
   training_load: number;
   /** Session RPE load */
   srpe: number;
@@ -636,7 +636,7 @@ export interface AthleteSummaryCategory {
   calories: number;
   /** Total elevation gain in meters */
   total_elevation_gain: number;
-  /** Total training load (TSS) */
+  /** Total training load */
   training_load: number;
   /** Session RPE load */
   srpe: number;

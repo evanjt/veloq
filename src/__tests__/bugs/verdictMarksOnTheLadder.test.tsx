@@ -104,8 +104,8 @@ function strengthProgression(): Insight {
 }
 
 /** The comparison's change glyph, which is drawn after the sparkline's own arrow. */
-function comparisonOf(data: InsightSupportingData) {
-  const { UNSAFE_root } = render(<SupportingDataSection data={data} />);
+async function comparisonOf(data: InsightSupportingData) {
+  const { UNSAFE_root } = await render(<SupportingDataSection data={data} />);
   const glyph = icons(UNSAFE_root)
     .filter((icon) => COMPARISON_GLYPHS.has(icon.name))
     .at(-1);
@@ -123,11 +123,11 @@ describe.each([false, true])('the sheet comparison, dark %s', (isDark) => {
     mockTheme.isDark = isDark;
   });
 
-  it('draws a strength rise of 25% as a bare up arrow on the neutral rung', () => {
+  it('draws a strength rise of 25% as a bare up arrow on the neutral rung', async () => {
     const insight = strengthProgression();
     expect(insight.supportingData?.trend).toEqual({ direction: 'up', verdict: 'moved' });
 
-    const { glyph } = comparisonOf(insight.supportingData!);
+    const { glyph } = await comparisonOf(insight.supportingData!);
 
     expect(glyph).toEqual({ name: 'trending-up', color: verdictColor('neutral', isDark) });
   });
@@ -137,15 +137,15 @@ describe.each([false, true])('the sheet comparison, dark %s', (isDark) => {
     [{ direction: 'up', verdict: 'declined' }, 'trending-down', 'negative'],
     [{ direction: 'down', verdict: 'moved' }, 'trending-down', 'neutral'],
     [{ direction: 'flat', verdict: 'flat' }, 'minus', 'neutral'],
-  ] as const)('draws the move %j as %s on the %s rung', (trend, name, rung) => {
-    const { glyph, fills: drawn } = comparisonOf({ comparisonData: COMPARISON, trend });
+  ] as const)('draws the move %j as %s on the %s rung', async (trend, name, rung) => {
+    const { glyph, fills: drawn } = await comparisonOf({ comparisonData: COMPARISON, trend });
 
     expect(glyph).toEqual({ name, color: verdictColor(rung, isDark) });
     if (rung !== 'neutral') expect(drawn).toContain(verdictFill(rung, isDark));
   });
 
-  it('draws a comparison with no judged move on the neutral rung whatever its context says', () => {
-    const { glyph, fills: drawn } = comparisonOf({
+  it('draws a comparison with no judged move on the neutral rung whatever its context says', async () => {
+    const { glyph, fills: drawn } = await comparisonOf({
       comparisonData: { ...COMPARISON, change: { ...COMPARISON.change, context: 'concern' } },
     });
 
@@ -155,8 +155,8 @@ describe.each([false, true])('the sheet comparison, dark %s', (isDark) => {
 });
 
 /** The change badge's glyph on the milestone sheet. */
-function milestoneGlyph(insight: Insight) {
-  const { UNSAFE_root } = render(<FitnessMilestoneContent insight={insight} />);
+async function milestoneGlyph(insight: Insight) {
+  const { UNSAFE_root } = await render(<FitnessMilestoneContent insight={insight} />);
   return icons(UNSAFE_root).find((icon) => COMPARISON_GLYPHS.has(icon.name));
 }
 
@@ -172,32 +172,32 @@ describe.each([false, true])('the milestone sheet, dark %s', (isDark) => {
   it.each([
     ['a rising', 10],
     ['a falling', -10],
-  ])('draws %s eFTP with the glyph and rung of the move the card carries', (_, delta) => {
+  ])('draws %s eFTP with the glyph and rung of the move the card carries', async (_, delta) => {
     const [insight] = generateFitnessMilestoneInsights(ftp(delta), null, null, NOW, t);
     const trend = insight.supportingData!.trend!;
 
-    expect(milestoneGlyph(insight)).toEqual({
+    expect(await milestoneGlyph(insight)).toEqual({
       name: verdictIcon(trend.verdict, trend.direction),
       color: verdictColor(verdictRung(trend.verdict), isDark),
     });
   });
 
-  it('reads the judged move rather than the change row, so an improvement with no context is not a fall', () => {
+  it('reads the judged move rather than the change row, so an improvement with no context is not a fall', async () => {
     const [rising] = generateFitnessMilestoneInsights(ftp(10), null, null, NOW, t);
     const dataPoints = rising.supportingData!.dataPoints!.map(({ context: _, ...point }) => point);
     const insight = { ...rising, supportingData: { ...rising.supportingData, dataPoints } };
 
-    expect(milestoneGlyph(insight)).toEqual({
+    expect(await milestoneGlyph(insight)).toEqual({
       name: 'trending-up',
       color: verdictColor('positive', isDark),
     });
   });
 
-  it('draws a milestone with no judged move as a dash on the neutral rung', () => {
+  it('draws a milestone with no judged move as a dash on the neutral rung', async () => {
     const [rising] = generateFitnessMilestoneInsights(ftp(10), null, null, NOW, t);
     const insight = { ...rising, supportingData: { ...rising.supportingData, trend: undefined } };
 
-    expect(milestoneGlyph(insight)).toEqual({
+    expect(await milestoneGlyph(insight)).toEqual({
       name: 'minus',
       color: verdictColor('neutral', isDark),
     });
@@ -206,8 +206,8 @@ describe.each([false, true])('the milestone sheet, dark %s', (isDark) => {
 
 const ROW_GLYPHS = new Set(['check-circle', 'alert', 'alert-octagon', 'minus']);
 
-function row(context: DataPoint['context']) {
-  const { UNSAFE_root } = render(
+async function row(context: DataPoint['context']) {
+  const { UNSAFE_root } = await render(
     <DataPointRow dataPoint={{ label: 'Ramp', value: 7, unit: 'pts', context }} />
   );
   return icons(UNSAFE_root).filter((icon) => ROW_GLYPHS.has(icon.name));
@@ -223,28 +223,31 @@ describe.each([false, true])('a data row verdict, dark %s', (isDark) => {
     ['warning', 'alert', 'caution'],
     ['concern', 'alert-octagon', 'negative'],
     ['neutral', 'minus', 'neutral'],
-  ] as const)('draws %s as %s on the %s rung', (context, name, rung) => {
-    expect(row(context)).toEqual([{ name, color: verdictColor(rung, isDark) }]);
+  ] as const)('draws %s as %s on the %s rung', async (context, name, rung) => {
+    expect(await row(context)).toEqual([{ name, color: verdictColor(rung, isDark) }]);
   });
 
-  it('gives good, warning and concern three different glyphs', () => {
-    const names = (['good', 'warning', 'concern'] as const).map((context) => row(context)[0]?.name);
+  it('gives good, warning and concern three different glyphs', async () => {
+    const names: (string | undefined)[] = [];
+    for (const context of ['good', 'warning', 'concern'] as const) {
+      names.push((await row(context))[0]?.name);
+    }
 
     expect(new Set(names).size).toBe(3);
   });
 
   it.each(['good', 'warning', 'concern', 'neutral'] as const)(
     'names the %s verdict in the row label',
-    (context) => {
-      render(<DataPointRow dataPoint={{ label: 'Ramp', value: 7, unit: 'pts', context }} />);
+    async (context) => {
+      await render(<DataPointRow dataPoint={{ label: 'Ramp', value: 7, unit: 'pts', context }} />);
 
       expect(screen.getByLabelText(`Ramp, 7 pts, insights.verdict.${context}`)).toBeTruthy();
     }
   );
 
-  it('draws no verdict glyph and names none for a value with no verdict', () => {
-    expect(row(undefined)).toEqual([]);
-    render(<DataPointRow dataPoint={{ label: 'Ramp', value: 7 }} />);
+  it('draws no verdict glyph and names none for a value with no verdict', async () => {
+    expect(await row(undefined)).toEqual([]);
+    await render(<DataPointRow dataPoint={{ label: 'Ramp', value: 7 }} />);
 
     expect(screen.getByLabelText('Ramp, 7')).toBeTruthy();
   });

@@ -1,6 +1,12 @@
 #!/usr/bin/env node
-// A pressable with an explicitly undersized axis needs hit slop to reach the
-// platform tap-target floor. This checks styles passed to pressable().
+// A pressable with an explicitly undersized axis, or one sized by vertical
+// padding no thicker than spacing.xs, needs hit slop or a minimum height to
+// reach the platform tap-target floor. This checks styles passed to
+// pressable(), and refuses a hit slop written as a number: a literal says
+// nothing about the size it reaches, so it drifts under the floor as the
+// control or the platform minimum changes. Slop comes from slopToMinTapTarget,
+// which owns that sum. A Text that takes a press itself is drawn at its line
+// height, so only the shared link component may write one.
 
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -67,9 +73,19 @@ function numeric(node, constants) {
   return undefined;
 }
 
-function dimensions(expr, styleObjects, constants) {
+const thinPadding = numberIn(objectFor(spacingSource, 'spacing'), 'xs');
+if (thinPadding === undefined) throw new Error('Tap target guard could not read spacing.xs');
+
+// The one file allowed a Text with onPress: the link component, whose inline
+// form sits inside a sentence and so is exempt from the target size.
+const LINK_COMPONENT = 'src/shared/ui/TextLink.tsx';
+
+const SIZE_AXES = ['width', 'height', 'minWidth', 'minHeight'];
+const PADDING_KEYS = ['padding', 'paddingVertical', 'paddingTop', 'paddingBottom'];
+
+function properties(expr, styleObjects, constants) {
   if (ts.isArrayLiteralExpression(expr)) {
-    return expr.elements.flatMap((part) => dimensions(part, styleObjects, constants));
+    return expr.elements.flatMap((part) => properties(part, styleObjects, constants));
   }
   if (ts.isPropertyAccessExpression(expr)) {
     const owner = styleObjects.get(expr.expression.getText());
@@ -77,17 +93,26 @@ function dimensions(expr, styleObjects, constants) {
       (part) => ts.isPropertyAssignment(part) && part.name.getText() === expr.name.text
     );
     return property && ts.isPropertyAssignment(property)
-      ? dimensions(property.initializer, styleObjects, constants)
+      ? properties(property.initializer, styleObjects, constants)
       : [];
   }
   if (!ts.isObjectLiteralExpression(expr)) return [];
   return expr.properties.flatMap((part) => {
     if (!ts.isPropertyAssignment(part)) return [];
     const axis = part.name.getText();
-    if (!['width', 'height', 'minWidth', 'minHeight'].includes(axis)) return [];
+    if (!SIZE_AXES.includes(axis) && !PADDING_KEYS.includes(axis)) return [];
     const value = numeric(part.initializer, constants);
     return value === undefined ? [] : [{ axis, value }];
   });
+}
+
+// The vertical padding the style resolves to, the later entry winning as it
+// does in a style array, or undefined when the style declares none.
+function verticalPadding(entries) {
+  const last = new Map(entries.map(({ axis, value }) => [axis, value]));
+  if (!PADDING_KEYS.some((key) => last.has(key))) return undefined;
+  const base = last.get('paddingVertical') ?? last.get('padding') ?? 0;
+  return Math.max(last.get('paddingTop') ?? base, last.get('paddingBottom') ?? base);
 }
 
 function styleObjectsIn(file) {
@@ -109,7 +134,27 @@ function styleObjectsIn(file) {
   return { objects, constants };
 }
 
+// A hit slop counts as literal when it is a number, a local numeric constant,
+// or an object with any side given as one.
+function literalSlop(expr, objects, constants) {
+  if (ts.isParenthesizedExpression(expr)) return literalSlop(expr.expression, objects, constants);
+  if (ts.isNumericLiteral(expr)) return true;
+  if (ts.isIdentifier(expr)) {
+    if (constants.has(expr.text)) return true;
+    const object = objects.get(expr.text);
+    return object ? literalSlop(object, objects, constants) : false;
+  }
+  if (!ts.isObjectLiteralExpression(expr)) return false;
+  return expr.properties.some(
+    (part) =>
+      ts.isPropertyAssignment(part) &&
+      (ts.isNumericLiteral(part.initializer) ||
+        (ts.isIdentifier(part.initializer) && constants.has(part.initializer.text)))
+  );
+}
+
 const failures = [];
+const literalSlops = [];
 const files = tree.files(
   join(root, 'src'),
   (path) => path.endsWith('.tsx') && !path.includes('/__tests__/')
@@ -117,13 +162,35 @@ const files = tree.files(
 if (!files.length) throw new Error('Tap target guard found no TSX files');
 for (const file of files) {
   const source = tree.text(file);
-  if (!source?.includes('pressable(')) continue;
+  if (
+    !source?.includes('pressable(') &&
+    !source?.includes('hitSlop') &&
+    !source?.includes('onPress')
+  )
+    continue;
+  const linkComponent = relative(root, file) === LINK_COMPONENT;
   const parsed = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
   const { objects, constants } = styleObjectsIn(parsed);
   function visit(node) {
     if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
       const props = node.attributes.properties;
-      const slop = props.some((part) => ts.isJsxAttribute(part) && part.name.text === 'hitSlop');
+      const line = parsed.getLineAndCharacterOfPosition(node.getStart(parsed)).line + 1;
+      const pressed = props.some((part) => ts.isJsxAttribute(part) && part.name.text === 'onPress');
+      if (pressed && node.tagName.getText(parsed) === 'Text' && !linkComponent) {
+        failures.push(`${relative(root, file)}:${line}: text onPress`);
+      }
+      const slopProp = props.find(
+        (part) => ts.isJsxAttribute(part) && part.name.text === 'hitSlop'
+      );
+      const slop = Boolean(slopProp);
+      const slopValue =
+        slopProp?.initializer && ts.isJsxExpression(slopProp.initializer)
+          ? slopProp.initializer.expression
+          : undefined;
+      if (slopValue && literalSlop(slopValue, objects, constants)) {
+        const slopLine = parsed.getLineAndCharacterOfPosition(slopProp.getStart(parsed)).line + 1;
+        literalSlops.push(`${relative(root, file)}:${slopLine}: literal hitSlop`);
+      }
       const style = props.find((part) => ts.isJsxAttribute(part) && part.name.text === 'style');
       const value = style?.initializer;
       const call = value && ts.isJsxExpression(value) ? value.expression : undefined;
@@ -133,7 +200,8 @@ for (const file of files) {
         call.expression.getText(parsed) === 'pressable' &&
         !slop
       ) {
-        const sizes = call.arguments.flatMap((arg) => dimensions(arg, objects, constants));
+        const entries = call.arguments.flatMap((arg) => properties(arg, objects, constants));
+        const sizes = entries.filter(({ axis }) => SIZE_AXES.includes(axis));
         const small = sizes.filter(({ axis, value }) => {
           if (value >= floor) return false;
           const peer = axis.startsWith('min')
@@ -141,12 +209,13 @@ for (const file of files) {
             : `min${axis[0].toUpperCase()}${axis.slice(1)}`;
           return !sizes.some((other) => other.axis === peer && other.value >= floor);
         });
-        if (small.length) {
-          const line = parsed.getLineAndCharacterOfPosition(node.getStart(parsed)).line + 1;
-          failures.push(
-            `${relative(root, file)}:${line}: ${small.map(({ axis }) => axis).join(', ')}`
-          );
-        }
+        const tall = sizes.some(
+          ({ axis, value }) => (axis === 'height' || axis === 'minHeight') && value >= floor
+        );
+        const padding = verticalPadding(entries);
+        const reasons = small.map(({ axis }) => axis);
+        if (!tall && padding !== undefined && padding <= thinPadding) reasons.push('padding');
+        if (reasons.length) failures.push(`${relative(root, file)}:${line}: ${reasons.join(', ')}`);
       }
     }
     ts.forEachChild(node, visit);
@@ -155,8 +224,16 @@ for (const file of files) {
 }
 
 if (failures.length) {
-  console.error(`Pressable axes below the ${floor} point tap-target floor without hitSlop:`);
+  console.error(
+    `Pressable axes below the ${floor} point tap-target floor without hitSlop, or a Text with onPress outside ${LINK_COMPONENT}:`
+  );
   for (const failure of failures) console.error(`  ${failure}`);
-  process.exit(1);
 }
-console.log('Tap target guard: explicit pressable dimensions reach the platform floor.');
+if (literalSlops.length) {
+  console.error('Hit slop written as a number; compute it with slopToMinTapTarget:');
+  for (const failure of literalSlops) console.error(`  ${failure}`);
+}
+if (failures.length || literalSlops.length) process.exit(1);
+console.log(
+  'Tap target guard: explicit pressable dimensions and thin padding reach the platform floor, and every hit slop is computed.'
+);

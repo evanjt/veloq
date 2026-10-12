@@ -54,53 +54,53 @@ describe('the cutover status line', () => {
     await changeLanguage('en-AU');
   });
 
-  it('says nothing when nothing is running', () => {
+  it('says nothing when nothing is running', async () => {
     mockUseCutoverSummary.mockReturnValue(settled('idle'));
-    render(<CutoverStatus />);
+    await render(<CutoverStatus />);
     expect(screen.queryByTestId(CUTOVER_STATUS_TEST_ID)).toBeNull();
   });
 
-  it('names the phase while the run holds the slot', () => {
+  it('names the phase while the run holds the slot', async () => {
     mockUseCutoverSummary.mockReturnValue(running('detecting'));
-    render(<CutoverStatus />);
+    await render(<CutoverStatus />);
     expect(screen.getByTestId(CUTOVER_STATUS_TEST_ID)).toBeTruthy();
     expect(screen.getByText('Rebuilding sections: Detecting sections')).toBeTruthy();
   });
 
-  it('uses the preparing wording while the run drains', () => {
+  it('uses the preparing wording while the run drains', async () => {
     mockUseCutoverSummary.mockReturnValue(running('draining'));
-    render(<CutoverStatus />);
+    await render(<CutoverStatus />);
     expect(screen.getByText('Rebuilding sections: Preparing catalogue')).toBeTruthy();
   });
 
-  it('names every phase a run can hold the slot in', () => {
+  it('names every phase a run can hold the slot in', async () => {
     for (const phase of ['draining', 'archiving', 'detecting', 'diffing'] as const) {
       mockUseCutoverSummary.mockReturnValue(running(phase));
-      const tree = render(<CutoverStatus />);
+      const tree = await render(<CutoverStatus />);
       const line = screen.getByTestId(CUTOVER_STATUS_TEST_ID);
       expect(line).toBeTruthy();
       // A missing translation renders the key, which is never a phase name.
       expect(screen.queryByText(/settings\./)).toBeNull();
-      tree.unmount();
+      await tree.unmount();
     }
   });
 
-  it('goes away when the run settles', () => {
+  it('goes away when the run settles', async () => {
     mockUseCutoverSummary.mockReturnValue(running('diffing'));
-    const tree = render(<CutoverStatus />);
+    const tree = await render(<CutoverStatus />);
     expect(screen.getByTestId(CUTOVER_STATUS_TEST_ID)).toBeTruthy();
 
     mockUseCutoverSummary.mockReturnValue(settled('complete'));
-    tree.rerender(<CutoverStatus />);
+    await tree.rerender(<CutoverStatus />);
     expect(screen.queryByTestId(CUTOVER_STATUS_TEST_ID)).toBeNull();
   });
 
-  it('does not report a failed run as a finished one', () => {
+  it('does not report a failed run as a finished one', async () => {
     mockUseCutoverSummary.mockReturnValue(running('detecting'));
-    const tree = render(<CutoverStatus />);
+    const tree = await render(<CutoverStatus />);
 
     mockUseCutoverSummary.mockReturnValue(settled('failed', true));
-    tree.rerender(<CutoverStatus />);
+    await tree.rerender(<CutoverStatus />);
 
     expect(screen.getByTestId(CUTOVER_STATUS_TEST_ID)).toBeTruthy();
     expect(
@@ -110,12 +110,12 @@ describe('the cutover status line', () => {
     ).toBeTruthy();
   });
 
-  it('says the sections were rebuilt when the run failed after replacing them', () => {
+  it('says the sections were rebuilt when the run failed after replacing them', async () => {
     mockUseCutoverSummary.mockReturnValue(running('diffing'));
-    const tree = render(<CutoverStatus />);
+    const tree = await render(<CutoverStatus />);
 
     mockUseCutoverSummary.mockReturnValue(settled('failed_after_apply', true));
-    tree.rerender(<CutoverStatus />);
+    await tree.rerender(<CutoverStatus />);
 
     expect(screen.getByTestId(CUTOVER_STATUS_TEST_ID)).toBeTruthy();
     expect(
@@ -126,9 +126,9 @@ describe('the cutover status line', () => {
     expect(screen.queryByText(/Your sections are unchanged/)).toBeNull();
   });
 
-  it('says nothing about a run that was already over when the screen opened', () => {
+  it('says nothing about a run that was already over when the screen opened', async () => {
     mockUseCutoverSummary.mockReturnValue(settled('failed'));
-    render(<CutoverStatus />);
+    await render(<CutoverStatus />);
     expect(screen.queryByTestId(CUTOVER_STATUS_TEST_ID)).toBeNull();
   });
 });

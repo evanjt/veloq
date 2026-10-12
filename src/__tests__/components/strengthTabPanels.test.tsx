@@ -4,20 +4,23 @@
  * draws once a muscle is chosen, not the hit testing that chooses it.
  *
  * Expected behaviour: a period whose strength sessions are still owed their
- * files says so rather than that none exist; a muscle trained in the period
- * shows its period totals whether or not the last four weeks reached it.
+ * files says so rather than that none exist, asks for the files, and says what
+ * will fix a request the engine refused; a muscle trained in the period shows
+ * its period totals whether or not the last four weeks reached it.
  */
 
-import { SyncState } from 'veloqrs';
+import { StartOutcome, SyncState } from 'veloqrs';
 import React from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { StrengthTab } from '@/features/insights/components/StrengthTab';
-import { getEngine } from '@/shared/native/engine';
+import { getEngine, getNativeModule } from '@/shared/native/engine';
+import { BODY_WAIT_MS } from '@/shared/native/engineBodies';
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
+  getNativeModule: jest.fn(),
 }));
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -67,6 +70,9 @@ const engine = {
   subscribe: jest.fn(() => () => {}),
   getSyncStatus: jest.fn(() => ({ state: SyncState.Idle })),
   getStrengthScreenData: jest.fn(),
+  getUnprocessedStrengthIds: jest.fn((): string[] => []),
+  batchFetchExerciseSets: jest.fn((_ids: string[]) => ({ outcome: StartOutcome.NotOwed })),
+  getBodiesStored: jest.fn(() => 0),
 };
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
@@ -139,16 +145,86 @@ beforeEach(() => {
   jest.clearAllMocks();
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
+  (getNativeModule as jest.Mock).mockReturnValue({ engine });
   engine.getStrengthScreenData.mockReturnValue(screenRead());
   engine.getSyncStatus.mockReturnValue({ state: SyncState.Idle });
+  engine.getUnprocessedStrengthIds.mockReturnValue([]);
+  engine.batchFetchExerciseSets.mockReturnValue({ outcome: StartOutcome.NotOwed });
 });
 
 afterEach(() => {
   client.clear();
 });
 
+/** Three strength sessions owe their files, and asking for them answers `outcome`. */
+function owesFiles(outcome: StartOutcome) {
+  engine.getUnprocessedStrengthIds.mockReturnValue(['w1', 'w2', 'w3']);
+  engine.batchFetchExerciseSets.mockReturnValue({ outcome });
+}
+
+function emptyPeriodOwing() {
+  engine.getStrengthScreenData.mockReturnValue(
+    screenRead({
+      summary: summary([]),
+      weekly: [],
+      progressions: [],
+      exercises: [],
+      owedCount: 3,
+    })
+  );
+}
+
+describe('an empty period whose workouts are owed their files', () => {
+  afterEach(() => jest.useRealTimers());
+
+  it('asks for the files online, and offers a Retry once the wait runs out', async () => {
+    jest.useFakeTimers();
+    owesFiles(StartOutcome.Started);
+    emptyPeriodOwing();
+
+    await renderTab();
+
+    await waitFor(() => expect(screen.getByText('strength.downloading')).toBeTruthy());
+    expect(engine.batchFetchExerciseSets).toHaveBeenCalledWith(['w1', 'w2', 'w3']);
+    expect(screen.queryByTestId('strength-not-downloaded-retry')).toBeNull();
+
+    await act(() => {
+      jest.advanceTimersByTime(BODY_WAIT_MS);
+    });
+
+    expect(screen.getByText('strength.notDownloaded')).toBeTruthy();
+    expect(screen.queryByText('strength.notDownloadedHint')).toBeNull();
+    await fireEvent.press(screen.getByTestId('strength-not-downloaded-retry'));
+    expect(engine.batchFetchExerciseSets).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ['offline', StartOutcome.Offline, 'refresh.offline'],
+    ['signed out', StartOutcome.NotConfigured, 'settings.streamBackfillRefusedNotConfigured'],
+  ])('says what fixes a request refused %s, with no Retry', async (_state, outcome, reason) => {
+    owesFiles(outcome);
+    emptyPeriodOwing();
+
+    await renderTab();
+
+    await waitFor(() => expect(screen.getByText(reason)).toBeTruthy());
+    expect(screen.getByText('strength.notDownloaded')).toBeTruthy();
+    expect(screen.queryByText('strength.notDownloadedHint')).toBeNull();
+    expect(screen.queryByTestId('strength-not-downloaded-retry')).toBeNull();
+    expect(screen.queryByTestId('strength-downloading')).toBeNull();
+  });
+
+  it('asks for nothing when the period owes no files', async () => {
+    await renderTab();
+
+    await waitFor(() => expect(screen.getByTestId('strength-tab')).toBeTruthy());
+    expect(engine.batchFetchExerciseSets).not.toHaveBeenCalled();
+  });
+});
+
 describe('a period with no parsed sets', () => {
   it('says the workouts are not downloaded when the period still owes some', async () => {
+    owesFiles(StartOutcome.Offline);
     engine.getStrengthScreenData.mockReturnValue(
       screenRead({
         summary: summary([]),
@@ -159,7 +235,7 @@ describe('a period with no parsed sets', () => {
       })
     );
 
-    renderTab();
+    await renderTab();
 
     await waitFor(() => expect(screen.getByText('strength.notDownloaded')).toBeTruthy());
     expect(screen.queryByText('strength.noWorkouts')).toBeNull();
@@ -177,7 +253,7 @@ describe('a period with no parsed sets', () => {
       })
     );
 
-    renderTab();
+    await renderTab();
 
     await waitFor(() => expect(screen.getByText('strength.downloading')).toBeTruthy());
     expect(screen.getByTestId('strength-downloading')).toBeTruthy();
@@ -195,7 +271,7 @@ describe('a period with no parsed sets', () => {
       })
     );
 
-    renderTab();
+    await renderTab();
 
     await waitFor(() => expect(screen.getByText('strength.noWorkouts')).toBeTruthy());
   });
@@ -205,7 +281,7 @@ describe('a populated period that still owes some workouts', () => {
   it('says how many are not downloaded yet', async () => {
     engine.getStrengthScreenData.mockReturnValue(screenRead({ owedCount: 2 }));
 
-    renderTab();
+    await renderTab();
 
     await waitFor(() => expect(screen.getByTestId('strength-period-owed')).toBeTruthy());
     expect(screen.getByText('strength.periodOwed:2')).toBeTruthy();
@@ -214,19 +290,20 @@ describe('a populated period that still owes some workouts', () => {
   it('passes a count of one through the same key', async () => {
     engine.getStrengthScreenData.mockReturnValue(screenRead({ owedCount: 1 }));
 
-    renderTab();
+    await renderTab();
 
     await waitFor(() => expect(screen.getByText('strength.periodOwed:1')).toBeTruthy());
   });
 
   it('shows no line when the period owes none', async () => {
-    renderTab();
+    await renderTab();
 
     await waitFor(() => expect(screen.getByTestId('strength-tab')).toBeTruthy());
     expect(screen.queryByTestId('strength-period-owed')).toBeNull();
   });
 
   it('does not repeat the count in an empty period', async () => {
+    owesFiles(StartOutcome.Offline);
     engine.getStrengthScreenData.mockReturnValue(
       screenRead({
         summary: summary([]),
@@ -237,7 +314,7 @@ describe('a populated period that still owes some workouts', () => {
       })
     );
 
-    renderTab();
+    await renderTab();
 
     await waitFor(() => expect(screen.getByText('strength.notDownloaded')).toBeTruthy());
     expect(screen.queryByTestId('strength-period-owed')).toBeNull();
@@ -251,25 +328,25 @@ describe('a failed strength screen read', () => {
       throw databaseError;
     });
 
-    renderTab();
+    await renderTab();
 
     await waitFor(() => expect(screen.getByTestId('strength-failed')).toBeTruthy());
     expect(screen.getByText('engine.failure.database')).toBeTruthy();
     expect(screen.queryByText('strength.noWorkouts')).toBeNull();
 
-    fireEvent.press(screen.getByText('errorState.tryAgain'));
+    await fireEvent.press(screen.getByText('common.retry'));
 
     await waitFor(() => expect(engine.getStrengthScreenData).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.queryByTestId('strength-failed')).toBeNull());
-    fireEvent.press(screen.getByTestId('tap-hamstring'));
+    await fireEvent.press(screen.getByTestId('tap-hamstring'));
     expect(screen.getByTestId('strength-progression-card')).toBeTruthy();
   });
 });
 
 describe('a selected muscle', () => {
   it('shows its period totals when the last four weeks never reached it', async () => {
-    renderTab();
-    fireEvent.press(await screen.findByTestId('tap-hamstring'));
+    await renderTab();
+    await fireEvent.press(await screen.findByTestId('tap-hamstring'));
 
     expect(screen.getByTestId('strength-progression-card')).toBeTruthy();
     expect(screen.getByText('12')).toBeTruthy();
@@ -282,8 +359,8 @@ describe('a selected muscle', () => {
   });
 
   it('shows the four-week figures beside the totals when the weeks reached it', async () => {
-    renderTab();
-    fireEvent.press(await screen.findByTestId('tap-quadriceps'));
+    await renderTab();
+    await fireEvent.press(await screen.findByTestId('tap-quadriceps'));
 
     expect(screen.getByTestId('strength-progression-card')).toBeTruthy();
     expect(screen.getByText('strength.totalVolume')).toBeTruthy();
@@ -307,8 +384,8 @@ describe('a selected muscle', () => {
         ],
       })
     );
-    renderTab();
-    fireEvent.press(await screen.findByTestId('tap-quadriceps'));
+    await renderTab();
+    await fireEvent.press(await screen.findByTestId('tap-quadriceps'));
 
     expect(screen.getByTestId('strength-progression-card')).toBeTruthy();
     expect(screen.queryByText('strength.last4Weeks')).toBeNull();
@@ -327,7 +404,7 @@ describe('a period named by a link', () => {
   }
 
   it('opens on the linked period and reads its range, never the default', async () => {
-    renderTab({ linkedPeriod: { period: '1m' } });
+    await renderTab({ linkedPeriod: { period: '1m' } });
 
     await waitFor(() => expect(engine.getStrengthScreenData).toHaveBeenCalled());
     expect(selected('1m')).toBe(true);
@@ -339,7 +416,7 @@ describe('a period named by a link', () => {
   });
 
   it('opens on the default period with no link', async () => {
-    renderTab();
+    await renderTab();
 
     await waitFor(() => expect(engine.getStrengthScreenData).toHaveBeenCalled());
     expect(selected('6m')).toBe(true);
@@ -347,10 +424,10 @@ describe('a period named by a link', () => {
   });
 
   it('moves to the period a second link names while mounted', async () => {
-    const { rerender } = renderTab({ linkedPeriod: { period: '1m' } });
+    const { rerender } = await renderTab({ linkedPeriod: { period: '1m' } });
     await waitFor(() => expect(selected('1m')).toBe(true));
 
-    rerender(
+    await rerender(
       <QueryClientProvider client={client}>
         <StrengthTab linkedPeriod={{ period: '7d' }} />
       </QueryClientProvider>
@@ -362,18 +439,18 @@ describe('a period named by a link', () => {
 
   it('keeps the athlete choice until a new link arrives, then follows the link', async () => {
     const link = { period: '1m' as const };
-    const { rerender } = renderTab({ linkedPeriod: link });
+    const { rerender } = await renderTab({ linkedPeriod: link });
     await waitFor(() => expect(selected('1m')).toBe(true));
 
-    fireEvent.press(screen.getByTestId('strength-period-3m'));
-    rerender(
+    await fireEvent.press(screen.getByTestId('strength-period-3m'));
+    await rerender(
       <QueryClientProvider client={client}>
         <StrengthTab linkedPeriod={link} />
       </QueryClientProvider>
     );
     await waitFor(() => expect(selected('3m')).toBe(true));
 
-    rerender(
+    await rerender(
       <QueryClientProvider client={client}>
         <StrengthTab linkedPeriod={{ period: '1m' }} />
       </QueryClientProvider>
@@ -392,7 +469,7 @@ describe('the body diagram', () => {
         },
       })
     );
-    renderTab();
+    await renderTab();
 
     await waitFor(() =>
       expect(mockDiagramProps.bodyData).toEqual([
@@ -406,7 +483,7 @@ describe('the body diagram', () => {
 
 describe('the explanation card', () => {
   it('closes a period with workouts, saying how sets count and where they come from', async () => {
-    renderTab();
+    await renderTab();
 
     const card = await screen.findByTestId('strength-explanation');
     expect(within(card).getByText('insights.explanation.strengthTitle')).toBeTruthy();

@@ -42,7 +42,7 @@ describe('custom section names', () => {
   it('saves an absent or blank name as no name, so the section is shown under its number', async () => {
     const mockEngine = engine();
     mockedGetEngine.mockReturnValue(mockEngine as never);
-    const { result } = renderHook(() => useCustomSections());
+    const { result } = await renderHook(() => useCustomSections());
 
     await act(async () => {
       await result.current.createSection(INPUT);
@@ -58,7 +58,7 @@ describe('custom section names', () => {
   it('passes an explicit name unchanged', async () => {
     const mockEngine = engine();
     mockedGetEngine.mockReturnValue(mockEngine as never);
-    const { result } = renderHook(() => useCustomSections());
+    const { result } = await renderHook(() => useCustomSections());
 
     await act(async () => {
       await result.current.createSection({ ...INPUT, name: 'Col de la Croix' });
@@ -77,7 +77,7 @@ describe('custom section names', () => {
     const mockEngine = engine();
     mockEngine.setSectionName.mockReturnValue('failed');
     mockedGetEngine.mockReturnValue(mockEngine as never);
-    const { result } = renderHook(() => useCustomSections());
+    const { result } = await renderHook(() => useCustomSections());
 
     await expect(result.current.renameSection('custom_1', 'Taken')).rejects.toMatchObject({
       reason: 'failed',
@@ -88,7 +88,7 @@ describe('custom section names', () => {
     const mockEngine = engine();
     mockEngine.setSectionName.mockReturnValue('nameTaken');
     mockedGetEngine.mockReturnValue(mockEngine as never);
-    const { result } = renderHook(() => useCustomSections());
+    const { result } = await renderHook(() => useCustomSections());
 
     await expect(result.current.renameSection('custom_1', 'Taken')).rejects.toMatchObject({
       reason: 'nameTaken',
@@ -98,7 +98,7 @@ describe('custom section names', () => {
   it('keeps create and delete supersession inside each engine mutation', async () => {
     const mockEngine = engine();
     mockedGetEngine.mockReturnValue(mockEngine as never);
-    const { result } = renderHook(() => useCustomSections());
+    const { result } = await renderHook(() => useCustomSections());
 
     await act(async () => {
       await result.current.createSection(INPUT);

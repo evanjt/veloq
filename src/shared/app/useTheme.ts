@@ -1,6 +1,6 @@
-import { brand, colors, darkColors } from '@/theme';
+import { brand, colors, darkColors, themePalette, type Palette } from '@/theme';
 
-import { useResolvedColorScheme } from './ThemeProvider';
+import { useOpaqueChromeStore, useResolvedColorScheme } from './ThemeProvider';
 
 export interface ThemeColors {
   // Core brand
@@ -40,7 +40,15 @@ export interface ThemeColors {
 
 export interface Theme {
   isDark: boolean;
+  /**
+   * Reduce Transparency or Increase Contrast on iOS, high-contrast text on
+   * Android: chrome drawn over a map or a scrolling list draws on an opaque
+   * surface instead of a fade or a translucent fill.
+   */
+  preferOpaqueChrome: boolean;
   colors: ThemeColors;
+  /** Every role of the active theme, for a colour the short list above does not carry. */
+  palette: Palette;
   // Commonly used style combinations
   styles: {
     container: { backgroundColor: string };
@@ -53,6 +61,7 @@ export interface Theme {
 export function useTheme(): Theme {
   const colorScheme = useResolvedColorScheme();
   const isDark = colorScheme === 'dark';
+  const preferOpaqueChrome = useOpaqueChromeStore((s) => s.preferOpaqueChrome);
 
   const themeColors: ThemeColors = {
     // Core brand - Teal primary (mode-aware), Blue secondary, Gold for achievements
@@ -92,7 +101,9 @@ export function useTheme(): Theme {
 
   return {
     isDark,
+    preferOpaqueChrome,
     colors: themeColors,
+    palette: themePalette(isDark),
     styles: {
       container: { backgroundColor: themeColors.background },
       card: { backgroundColor: themeColors.card },

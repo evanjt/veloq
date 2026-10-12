@@ -36,13 +36,13 @@ beforeEach(() => {
 });
 
 describe('the live screen under a stopped ride', () => {
-  it('offers review rather than the recording controls', () => {
+  it('offers review rather than the recording controls', async () => {
     const onReview = jest.fn();
-    const { getByTestId, queryByTestId } = render(
+    const { getByTestId, queryByTestId } = await render(
       <ControlBar {...barProps} status="stopped" onReview={onReview} />
     );
 
-    fireEvent.press(getByTestId('control-review'));
+    await fireEvent.press(getByTestId('control-review'));
 
     expect(onReview).toHaveBeenCalledTimes(1);
     expect(queryByTestId('control-pause')).toBeNull();
@@ -76,53 +76,53 @@ describe('the way back to a session', () => {
     ).toBeNull();
   });
 
-  it('hides the pill for a stopped ride the library already holds', () => {
+  it('hides the pill for a stopped ride the library already holds', async () => {
     useRecordingStore.getState().startRecording('Ride', 'gps');
     useRecordingStore.getState().stopRecording();
     useRecordingStore.setState({ savedToLibrary: true });
-    const view = render(<RecordingReturnPill />);
+    const view = await render(<RecordingReturnPill />);
     expect(view.queryByTestId('recording-return-pill')).toBeNull();
   });
 
-  it('shows the pill for a stopped ride and opens review from it', () => {
+  it('shows the pill for a stopped ride and opens review from it', async () => {
     useRecordingStore.getState().startRecording('Ride', 'gps');
     useRecordingStore.getState().stopRecording();
 
-    const { getByTestId } = render(<RecordingReturnPill />);
-    fireEvent.press(getByTestId('recording-return-pill'));
+    const { getByTestId } = await render(<RecordingReturnPill />);
+    await fireEvent.press(getByTestId('recording-return-pill'));
 
     expect(tapTo).toHaveBeenCalledWith('/recording/review');
   });
 
-  it('hides the pill after sign-out', () => {
+  it('hides the pill after sign-out', async () => {
     useRecordingStore.getState().startRecording('Ride', 'gps');
     useRecordingStore.getState().stopRecording();
-    const view = render(<RecordingReturnPill />);
+    const view = await render(<RecordingReturnPill />);
     expect(view.queryByTestId('recording-return-pill')).not.toBeNull();
-    act(() => useAuthStore.setState({ isAuthenticated: false }));
+    await act(() => useAuthStore.setState({ isAuthenticated: false }));
     expect(view.queryByTestId('recording-return-pill')).toBeNull();
   });
 
-  it("hides one athlete's stopped ride from another who signs in", () => {
+  it("hides one athlete's stopped ride from another who signs in", async () => {
     useRecordingStore.getState().startRecording('Ride', 'gps');
     useRecordingStore.getState().stopRecording();
-    const view = render(<RecordingReturnPill />);
+    const view = await render(<RecordingReturnPill />);
     expect(view.queryByTestId('recording-return-pill')).not.toBeNull();
-    act(() => useAuthStore.setState({ athleteId: 'i2', isAuthenticated: true }));
+    await act(() => useAuthStore.setState({ athleteId: 'i2', isAuthenticated: true }));
     expect(view.queryByTestId('recording-return-pill')).toBeNull();
   });
 
-  it('hides a stopped ride that has no athlete', () => {
+  it('hides a stopped ride that has no athlete', async () => {
     useRecordingStore.getState().startRecording('Ride', 'gps');
     useRecordingStore.getState().stopRecording();
     useRecordingStore.setState({ athleteId: null });
-    const view = render(<RecordingReturnPill />);
+    const view = await render(<RecordingReturnPill />);
     expect(view.queryByTestId('recording-return-pill')).toBeNull();
   });
 
-  it('does not present a manual review draft as a live ride', () => {
+  it('does not present a manual review draft as a live ride', async () => {
     useRecordingStore.getState().startRecording('Yoga', 'manual');
-    const view = render(<RecordingReturnPill />);
+    const view = await render(<RecordingReturnPill />);
     expect(view.queryByTestId('recording-return-pill')).toBeNull();
   });
 });

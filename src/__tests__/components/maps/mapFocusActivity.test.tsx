@@ -35,15 +35,15 @@ const ventoux: ActivityBoundsItem = {
   duration: 12_000,
 };
 
-function mount(surface: Partial<MapSurfaceRef>, setSelected = jest.fn()) {
+async function mount(surface: Partial<MapSurfaceRef>, setSelected = jest.fn()) {
   const ref = { fitBounds: jest.fn(), setCamera: jest.fn(), ...surface } as MapSurfaceRef;
-  const rendered = renderHook(() =>
+  const rendered = await renderHook(() =>
     useMapHandlers({
       activities: [ventoux],
       selected: null,
       setSelected,
       setSelectedSectionId: jest.fn(),
-      setSectionChoices: jest.fn(),
+      chooseSection: jest.fn(),
       showActivities: true,
       setShowActivities: jest.fn(),
       showSections: true,
@@ -69,10 +69,10 @@ function mount(surface: Partial<MapSurfaceRef>, setSelected = jest.fn()) {
 }
 
 describe('handleFocusActivity', () => {
-  it('opens the popup and fits the camera to the activity bounds', () => {
-    const { rendered, ref, setSelected } = mount({});
+  it('opens the popup and fits the camera to the activity bounds', async () => {
+    const { rendered, ref, setSelected } = await mount({});
 
-    act(() => {
+    await act(() => {
       rendered.result.current.handleFocusActivity(ventoux);
     });
 

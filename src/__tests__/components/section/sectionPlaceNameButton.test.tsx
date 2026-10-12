@@ -68,30 +68,30 @@ beforeEach(() => {
   mockNameFromPlaces.mockResolvedValue(PlaceNameOutcome.Named);
 });
 
-it('offers the place name button when the read allows it', () => {
-  expect(renderHeader(true).getByTestId('section-place-name-button')).toBeTruthy();
+it('offers the place name button when the read allows it', async () => {
+  expect((await renderHeader(true)).getByTestId('section-place-name-button')).toBeTruthy();
 });
 
-it('draws no place name button when the read refuses it', () => {
-  expect(renderHeader(false).queryByTestId('section-place-name-button')).toBeNull();
+it('draws no place name button when the read refuses it', async () => {
+  expect((await renderHeader(false)).queryByTestId('section-place-name-button')).toBeNull();
 });
 
-it('draws no place name button while the bounds are trimmed', () => {
-  expect(renderHeader(true, true).queryByTestId('section-place-name-button')).toBeNull();
+it('draws no place name button while the bounds are trimmed', async () => {
+  expect((await renderHeader(true, true)).queryByTestId('section-place-name-button')).toBeNull();
 });
 
-it('hides the button while the name is being edited', () => {
-  const tree = renderHeader(true);
+it('hides the button while the name is being edited', async () => {
+  const tree = await renderHeader(true);
 
-  fireEvent.press(tree.getByTestId('section-rename-button'));
+  await fireEvent.press(tree.getByTestId('section-rename-button'));
 
   expect(tree.queryByTestId('section-place-name-button')).toBeNull();
 });
 
-it('asks for this section when pressed', () => {
-  const tree = renderHeader(true);
+it('asks for this section when pressed', async () => {
+  const tree = await renderHeader(true);
 
-  fireEvent.press(tree.getByTestId('section-place-name-button'));
+  await fireEvent.press(tree.getByTestId('section-place-name-button'));
 
   expect(mockNameFromPlaces).toHaveBeenCalledWith(PlaceNameKind.Section, 'sec-7');
 });

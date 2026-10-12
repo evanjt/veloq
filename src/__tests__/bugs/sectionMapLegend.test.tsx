@@ -87,29 +87,29 @@ describe('the section detail map legend', () => {
     await changeLanguage('en-AU');
   });
 
-  it('draws no legend for the section alone', () => {
-    renderMap();
+  it('draws no legend for the section alone', async () => {
+    await renderMap();
     expect(screen.queryByTestId('section-map-legend')).toBeNull();
   });
 
-  it('draws no nearby layer and no legend when neighbouring sections are passed', () => {
-    renderMap({ nearbyPolylines: [nearby('a'), nearby('b')] } as never);
+  it('draws no nearby layer and no legend when neighbouring sections are passed', async () => {
+    await renderMap({ nearbyPolylines: [nearby('a'), nearby('b')] } as never);
 
     expect(screen.queryByTestId('section-map-legend')).toBeNull();
     expect(screen.queryByText('Other sections nearby')).toBeNull();
     expect(screen.queryByText('This section')).toBeNull();
   });
 
-  it('names only the highlighted lap when one is drawn', () => {
-    renderMap({ highlightedLapPoints: POLYLINE });
+  it('names only the highlighted lap when one is drawn', async () => {
+    await renderMap({ highlightedLapPoints: POLYLINE });
 
     expect(screen.getByText('This activity')).toBeTruthy();
     expect(screen.queryByText('This section')).toBeNull();
     expect(screen.queryByText('Other sections nearby')).toBeNull();
   });
 
-  it('names the shown ledger version, which draws as a grey line', () => {
-    renderMap({
+  it('names the shown ledger version, which draws as a grey line', async () => {
+    await renderMap({
       shadowTrack: [
         [7.447, 46.948],
         [7.449, 46.95],
@@ -120,8 +120,8 @@ describe('the section detail map legend', () => {
     expect(screen.queryByText('This activity')).toBeNull();
   });
 
-  it('stays out of the preview form, which carries no controls', () => {
-    renderMap({ interactive: false, highlightedLapPoints: POLYLINE });
+  it('stays out of the preview form, which carries no controls', async () => {
+    await renderMap({ interactive: false, highlightedLapPoints: POLYLINE });
 
     expect(screen.queryByTestId('section-map-legend')).toBeNull();
   });

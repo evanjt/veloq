@@ -28,32 +28,32 @@ function client(centres: PreviewCentre[], getPreviewCentres = jest.fn(() => cent
 }
 
 describe('usePreviewCentres', () => {
-  it('letters each area', () => {
+  it('letters each area', async () => {
     const { client: c } = client([centre({})]);
 
-    const { result } = renderHook(() => usePreviewCentres(c));
+    const { result } = await renderHook(() => usePreviewCentres(c));
 
     expect(result.current.labels[0].fallbackLetter).toBe('A');
   });
 
-  it('reads the centres once per mount and not on every render', () => {
+  it('reads the centres once per mount and not on every render', async () => {
     const { client: c, getPreviewCentres } = client([centre({})]);
 
-    const { rerender } = renderHook(() => usePreviewCentres(c));
-    rerender(undefined);
+    const { rerender } = await renderHook(() => usePreviewCentres(c));
+    await rerender(undefined);
 
     expect(getPreviewCentres).toHaveBeenCalledTimes(1);
   });
 
-  it('asks for the limit it was given', () => {
+  it('asks for the limit it was given', async () => {
     const { client: c, getPreviewCentres } = client([centre({})]);
 
-    renderHook(() => usePreviewCentres(c, 3));
+    await renderHook(() => usePreviewCentres(c, 3));
 
     expect(getPreviewCentres).toHaveBeenCalledWith(3);
   });
 
-  it('hands the thrown error back beside empty centres', () => {
+  it('hands the thrown error back beside empty centres', async () => {
     const lockFailed = { tag: 'Database', inner: { msg: 'poisoned' } };
     const throwing = {
       getPreviewCentres: jest.fn(() => {
@@ -61,23 +61,23 @@ describe('usePreviewCentres', () => {
       }),
     } as never;
 
-    const { result } = renderHook(() => usePreviewCentres(throwing));
+    const { result } = await renderHook(() => usePreviewCentres(throwing));
 
     expect(result.current.error).toBe(lockFailed);
     expect(result.current.centres).toEqual([]);
     expect(result.current.labels).toEqual([]);
   });
 
-  it('carries no error when the read succeeds', () => {
+  it('carries no error when the read succeeds', async () => {
     const { client: c } = client([centre({})]);
 
-    const { result } = renderHook(() => usePreviewCentres(c));
+    const { result } = await renderHook(() => usePreviewCentres(c));
 
     expect(result.current.error).toBeUndefined();
   });
 
-  it('leaves the screen empty when there is no client yet', () => {
-    const { result } = renderHook(() => usePreviewCentres(null));
+  it('leaves the screen empty when there is no client yet', async () => {
+    const { result } = await renderHook(() => usePreviewCentres(null));
 
     expect(result.current.centres).toEqual([]);
     expect(result.current.labels).toEqual([]);

@@ -38,46 +38,46 @@ describe('sheet request channel', () => {
   it('hands the caller the value the sheet selects and the sheet its object input', async () => {
     const result = openSheet<{ name: string }, string>('/sheet', { name: 'ride' });
     expect(mockPush.mock.calls[0][0].pathname).toBe('/sheet');
-    const sheet = mountSheet(pushedId());
+    const sheet = await mountSheet(pushedId());
     expect(sheet.result.current.input).toEqual({ name: 'ride' });
-    act(() => sheet.result.current.resolve('picked'));
+    await act(() => sheet.result.current.resolve('picked'));
     await expect(result).resolves.toEqual({ kind: 'selected', value: 'picked' });
   });
 
   it('resolves cancelled when the sheet unmounts without a selection', async () => {
     const result = openSheet('/sheet', { name: 'x' });
-    const sheet = mountSheet(pushedId());
-    sheet.unmount();
+    const sheet = await mountSheet(pushedId());
+    await sheet.unmount();
     await expect(result).resolves.toEqual({ kind: 'cancelled' });
   });
 
   it('ignores a second resolve and keeps the first value after unmount', async () => {
     const result = openSheet<{ name: string }, string>('/sheet', { name: 'x' });
-    const sheet = mountSheet(pushedId());
-    act(() => sheet.result.current.resolve('first'));
-    act(() => sheet.result.current.resolve('second'));
-    sheet.unmount();
+    const sheet = await mountSheet(pushedId());
+    await act(() => sheet.result.current.resolve('first'));
+    await act(() => sheet.result.current.resolve('second'));
+    await sheet.unmount();
     await expect(result).resolves.toEqual({ kind: 'selected', value: 'first' });
   });
 
   it('cancels an open request when the caller unmounts', async () => {
-    const caller = renderHook(() => useSheetOpener());
+    const caller = await renderHook(() => useSheetOpener());
     const result = caller.result.current<{ name: string }, string>('/sheet', { name: 'x' });
-    caller.unmount();
+    await caller.unmount();
     await expect(result).resolves.toEqual({ kind: 'cancelled' });
   });
 
-  it('reads an unknown id as cancelled and closes the sheet', () => {
-    const sheet = mountSheet('gone');
+  it('reads an unknown id as cancelled and closes the sheet', async () => {
+    const sheet = await mountSheet('gone');
     expect(sheet.result.current.input).toBeUndefined();
     expect(sheet.result.current.missing).toBe(true);
     expect(mockBack).toHaveBeenCalledTimes(1);
     expect(mockReplace).not.toHaveBeenCalled();
   });
 
-  it('leaves an unknown request for the Feed when nothing is behind the sheet', () => {
+  it('leaves an unknown request for the Feed when nothing is behind the sheet', async () => {
     mockCanGoBack = false;
-    const sheet = mountSheet('gone');
+    const sheet = await mountSheet('gone');
     expect(sheet.result.current.missing).toBe(true);
     expect(mockBack).not.toHaveBeenCalled();
     expect(mockReplace).toHaveBeenCalledWith('/');
@@ -85,9 +85,9 @@ describe('sheet request channel', () => {
 
   it('leaves for the Feed after a selection when nothing is behind the sheet', async () => {
     const result = openSheet<{ name: string }, string>('/sheet', { name: 'x' });
-    const sheet = mountSheet(pushedId());
+    const sheet = await mountSheet(pushedId());
     mockCanGoBack = false;
-    act(() => sheet.result.current.resolve('picked'));
+    await act(() => sheet.result.current.resolve('picked'));
     await expect(result).resolves.toEqual({ kind: 'selected', value: 'picked' });
     expect(mockBack).not.toHaveBeenCalled();
     expect(mockReplace).toHaveBeenCalledWith('/');
@@ -99,10 +99,10 @@ describe('sheet request channel', () => {
     const second = openSheet<{ name: string }, string>('/sheet', { name: 'b' });
     const secondId = pushedId();
     expect(firstId).not.toBe(secondId);
-    mountSheet(firstId).unmount();
-    const sheet = mountSheet(secondId);
+    await (await mountSheet(firstId)).unmount();
+    const sheet = await mountSheet(secondId);
     expect(sheet.result.current.input).toEqual({ name: 'b' });
-    act(() => sheet.result.current.resolve('mine'));
+    await act(() => sheet.result.current.resolve('mine'));
     await expect(first).resolves.toEqual({ kind: 'cancelled' });
     await expect(second).resolves.toEqual({ kind: 'selected', value: 'mine' });
   });

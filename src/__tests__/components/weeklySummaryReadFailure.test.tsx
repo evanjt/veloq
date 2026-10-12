@@ -46,14 +46,14 @@ beforeEach(() => {
 });
 
 it('shows the failure line and Retry, not the empty state, for a thrown read', async () => {
-  const view = render(<WeeklySummary />, { wrapper });
-  fireEvent.press(view.getByTestId('weekly-summary-range-month'));
+  const view = await render(<WeeklySummary />, { wrapper });
+  await fireEvent.press(view.getByTestId('weekly-summary-range-month'));
 
   await waitFor(() => expect(view.getByTestId('weekly-summary-failed')).toBeTruthy());
   expect(view.getByText('engine.failure.database')).toBeTruthy();
   expect(view.queryByTestId('weekly-summary-empty')).toBeNull();
 
   const calls = engine.getPeriodStats.mock.calls.length;
-  fireEvent.press(view.getByText('common.retry'));
+  await fireEvent.press(view.getByText('common.retry'));
   await waitFor(() => expect(engine.getPeriodStats.mock.calls.length).toBeGreaterThan(calls));
 });

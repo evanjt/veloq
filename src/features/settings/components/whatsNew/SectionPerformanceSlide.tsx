@@ -5,11 +5,12 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Circle, Line, Path, Rect, vec } from '@shopify/react-native-skia';
 import { useTheme } from '@/shared/app';
+import { useMeasuredWidth } from '@/shared/charts';
 import {
   colors,
   darkColors,
@@ -89,12 +90,12 @@ function Panel({
 export function SectionPerformanceSlide() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: gridWidth, onLayout } = useMeasuredWidth();
   const palette = isDark ? darkColors : colors;
   const background = isDark ? colorWithOpacity(ink.white, 0.06) : colorWithOpacity(ink.black, 0.04);
   const gridColor = isDark ? colorWithOpacity(ink.white, 0.25) : colorWithOpacity(ink.black, 0.2);
-  // The slide is the modal's width less its padding, two panels to a row.
-  const panelWidth = Math.floor((windowWidth - spacing.xl * 2 - spacing.md * 2 - spacing.sm) / 2);
+  // Two panels to a row of the slide's own width, with the grid's gap between them.
+  const panelWidth = Math.max(0, Math.floor((gridWidth - spacing.sm) / 2));
   const inner = panelWidth - PAD * 2;
 
   const pictures = useMemo(() => {
@@ -150,88 +151,94 @@ export function SectionPerformanceSlide() {
   const captionColor = palette.textSecondary;
 
   return (
-    <View style={styles.grid} testID="tour-section-pictures">
-      <Panel
-        width={panelWidth}
-        caption={t('whatsNew.v040.sectionPageTrend')}
-        captionColor={captionColor}
-        background={background}
-        overlay={
-          <Text style={[styles.rLabel, { color: palette.textPrimary }]}>
-            {t('whatsNew.v040.sectionPageTrendR', { r: r === null ? '' : r.toFixed(2) })}
-          </Text>
-        }
-      >
-        {pictures.points.map((p, i) => (
-          <Circle key={i} cx={p.x} cy={p.y} r={2.5} color={palette.primary} />
-        ))}
-        <Line
-          p1={pictures.trendStart}
-          p2={pictures.trendEnd}
-          color={palette.textPrimary}
-          strokeWidth={1.5}
-        />
-      </Panel>
-      <Panel
-        width={panelWidth}
-        caption={t('whatsNew.v040.sectionPageHistogram')}
-        captionColor={captionColor}
-        background={background}
-      >
-        {pictures.bars.map((bar, i) => (
-          <Rect
-            key={i}
-            x={bar.x}
-            y={PANEL_HEIGHT - PAD - bar.height}
-            width={bar.width}
-            height={bar.height}
-            color={palette.primary}
-          />
-        ))}
-      </Panel>
-      <Panel
-        width={panelWidth}
-        caption={t('whatsNew.v040.sectionPageDelta')}
-        captionColor={captionColor}
-        background={background}
-      >
-        <Line
-          p1={vec(PAD, PANEL_HEIGHT / 2)}
-          p2={vec(panelWidth - PAD, PANEL_HEIGHT / 2)}
-          color={gridColor}
-          strokeWidth={1}
-        />
-        {pictures.deltaPaths.map((path, i) => {
-          const newest = i === pictures.deltaPaths.length - 1;
-          return (
-            <Path
-              key={i}
-              path={path}
-              style="stroke"
-              strokeWidth={newest ? 2 : 1}
-              strokeJoin="round"
-              color={newest ? palette.primary : colorWithOpacity(palette.primary, FAINT_OPACITY)}
+    <View style={styles.grid} testID="tour-section-pictures" onLayout={onLayout}>
+      {panelWidth > 0 && (
+        <>
+          <Panel
+            width={panelWidth}
+            caption={t('whatsNew.v040.sectionPageTrend')}
+            captionColor={captionColor}
+            background={background}
+            overlay={
+              <Text style={[styles.rLabel, { color: palette.textPrimary }]}>
+                {t('whatsNew.v040.sectionPageTrendR', { r: r === null ? '' : r.toFixed(2) })}
+              </Text>
+            }
+          >
+            {pictures.points.map((p, i) => (
+              <Circle key={i} cx={p.x} cy={p.y} r={2.5} color={palette.primary} />
+            ))}
+            <Line
+              p1={pictures.trendStart}
+              p2={pictures.trendEnd}
+              color={palette.textPrimary}
+              strokeWidth={1.5}
             />
-          );
-        })}
-      </Panel>
-      <Panel
-        width={panelWidth}
-        caption={t('whatsNew.v040.sectionPageLine')}
-        captionColor={captionColor}
-        background={background}
-      >
-        {pictures.stretches.map((stretch, i) => (
-          <Line
-            key={i}
-            p1={vec(stretch.p1.x, stretch.p1.y)}
-            p2={vec(stretch.p2.x, stretch.p2.y)}
-            color={STRETCH_COLOURS[stretch.kind]}
-            strokeWidth={4}
-            strokeCap="round"
-          />
-        ))}
-      </Panel>
+          </Panel>
+          <Panel
+            width={panelWidth}
+            caption={t('whatsNew.v040.sectionPageHistogram')}
+            captionColor={captionColor}
+            background={background}
+          >
+            {pictures.bars.map((bar, i) => (
+              <Rect
+                key={i}
+                x={bar.x}
+                y={PANEL_HEIGHT - PAD - bar.height}
+                width={bar.width}
+                height={bar.height}
+                color={palette.primary}
+              />
+            ))}
+          </Panel>
+          <Panel
+            width={panelWidth}
+            caption={t('whatsNew.v040.sectionPageDelta')}
+            captionColor={captionColor}
+            background={background}
+          >
+            <Line
+              p1={vec(PAD, PANEL_HEIGHT / 2)}
+              p2={vec(panelWidth - PAD, PANEL_HEIGHT / 2)}
+              color={gridColor}
+              strokeWidth={1}
+            />
+            {pictures.deltaPaths.map((path, i) => {
+              const newest = i === pictures.deltaPaths.length - 1;
+              return (
+                <Path
+                  key={i}
+                  path={path}
+                  style="stroke"
+                  strokeWidth={newest ? 2 : 1}
+                  strokeJoin="round"
+                  color={
+                    newest ? palette.primary : colorWithOpacity(palette.primary, FAINT_OPACITY)
+                  }
+                />
+              );
+            })}
+          </Panel>
+          <Panel
+            width={panelWidth}
+            caption={t('whatsNew.v040.sectionPageLine')}
+            captionColor={captionColor}
+            background={background}
+          >
+            {pictures.stretches.map((stretch, i) => (
+              <Line
+                key={i}
+                p1={vec(stretch.p1.x, stretch.p1.y)}
+                p2={vec(stretch.p2.x, stretch.p2.y)}
+                color={STRETCH_COLOURS[stretch.kind]}
+                strokeWidth={4}
+                strokeCap="round"
+              />
+            ))}
+          </Panel>
+        </>
+      )}
     </View>
   );
 }

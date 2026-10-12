@@ -60,68 +60,68 @@ describe('stopping the cutover from its status line', () => {
     await changeLanguage('en-AU');
   });
 
-  it('offers to stop a run that is going', () => {
+  it('offers to stop a run that is going', async () => {
     mockUseCutoverSummary.mockReturnValue(running('detecting'));
-    render(<CutoverStatus />);
+    await render(<CutoverStatus />);
 
     expect(screen.getByTestId(CUTOVER_CANCEL_TEST_ID)).toBeTruthy();
   });
 
-  it('asks the engine to stop when it is tapped', () => {
+  it('asks the engine to stop when it is tapped', async () => {
     mockUseCutoverSummary.mockReturnValue(running('archiving'));
-    render(<CutoverStatus />);
+    await render(<CutoverStatus />);
 
-    fireEvent.press(screen.getByTestId(CUTOVER_CANCEL_TEST_ID));
+    await fireEvent.press(screen.getByTestId(CUTOVER_CANCEL_TEST_ID));
 
     expect(mockCancel).toHaveBeenCalledTimes(1);
   });
 
-  it('says what stopping buys, which is this run and not the migration', () => {
+  it('says what stopping buys, which is this run and not the migration', async () => {
     mockUseCutoverSummary.mockReturnValue(running('detecting'));
-    render(<CutoverStatus />);
+    await render(<CutoverStatus />);
 
-    fireEvent.press(screen.getByTestId(CUTOVER_CANCEL_TEST_ID));
+    await fireEvent.press(screen.getByTestId(CUTOVER_CANCEL_TEST_ID));
 
     expect(screen.getByText('Stopping. It picks up again next time you open Veloq.')).toBeTruthy();
     expect(screen.queryByTestId(CUTOVER_CANCEL_TEST_ID)).toBeNull();
   });
 
-  it('does not ask twice', () => {
+  it('does not ask twice', async () => {
     mockUseCutoverSummary.mockReturnValue(running('detecting'));
-    render(<CutoverStatus />);
+    await render(<CutoverStatus />);
 
     const stop = screen.getByTestId(CUTOVER_CANCEL_TEST_ID);
-    fireEvent.press(stop);
-    fireEvent.press(stop);
+    await fireEvent.press(stop);
+    await fireEvent.press(stop);
 
     expect(mockCancel).toHaveBeenCalledTimes(1);
   });
 
-  it('offers nothing to stop when nothing is running', () => {
+  it('offers nothing to stop when nothing is running', async () => {
     mockUseCutoverSummary.mockReturnValue(settled('complete'));
-    render(<CutoverStatus />);
+    await render(<CutoverStatus />);
 
     expect(screen.queryByTestId(CUTOVER_CANCEL_TEST_ID)).toBeNull();
   });
 
-  it('offers nothing to stop on a failed run', () => {
+  it('offers nothing to stop on a failed run', async () => {
     mockUseCutoverSummary.mockReturnValue(settled('failed', true));
-    render(<CutoverStatus />);
+    await render(<CutoverStatus />);
 
     expect(screen.getByTestId(CUTOVER_STATUS_TEST_ID)).toBeTruthy();
     expect(screen.queryByTestId(CUTOVER_CANCEL_TEST_ID)).toBeNull();
   });
 
   /** The next run is a new run: it gets its own offer to stop. */
-  it('offers again once a later run starts', () => {
+  it('offers again once a later run starts', async () => {
     mockUseCutoverSummary.mockReturnValue(running('detecting'));
-    const tree = render(<CutoverStatus />);
-    fireEvent.press(screen.getByTestId(CUTOVER_CANCEL_TEST_ID));
+    const tree = await render(<CutoverStatus />);
+    await fireEvent.press(screen.getByTestId(CUTOVER_CANCEL_TEST_ID));
 
     mockUseCutoverSummary.mockReturnValue(settled('complete'));
-    tree.rerender(<CutoverStatus />);
+    await tree.rerender(<CutoverStatus />);
     mockUseCutoverSummary.mockReturnValue(running('archiving'));
-    tree.rerender(<CutoverStatus />);
+    await tree.rerender(<CutoverStatus />);
 
     expect(screen.getByTestId(CUTOVER_CANCEL_TEST_ID)).toBeTruthy();
   });

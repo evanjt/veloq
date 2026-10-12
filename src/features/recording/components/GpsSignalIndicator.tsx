@@ -3,6 +3,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useMetricSystem } from '@/shared/app';
 import { formatElevation } from '@/shared/format/format';
+import { ABSENT } from '@/shared/format/absent';
 import { SignalStatus, type SignalLevel } from '@/shared/ui';
 
 interface GpsSignalIndicatorProps {
@@ -32,7 +33,7 @@ export function GpsSignalIndicator({ accuracy }: GpsSignalIndicatorProps) {
     <SignalStatus
       level={level}
       icon={icon}
-      label={accuracy == null ? '--' : formatElevation(accuracy, isMetric)}
+      label={accuracy == null ? ABSENT : formatElevation(accuracy, isMetric)}
     />
   );
 }

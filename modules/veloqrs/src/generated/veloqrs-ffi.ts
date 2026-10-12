@@ -1111,8 +1111,7 @@ interface NativeModuleInterface {
     uniffiSelf: bigint,
     routeId: Uint8Array,
     activityId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): void;
+  ): bigint;
   ubrn_uniffi_veloqrs_fn_constructor_sectionmanager_new(
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;

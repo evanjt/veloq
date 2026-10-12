@@ -5,11 +5,10 @@
  */
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
-import { colors, darkColors, mapLayerColors, shadows, spacing, typography, layout } from '@/theme';
+import { MapKey, MapKeySwatch } from '@/features/maps';
+import { colors, mapLayerColors } from '@/theme';
 
 export interface SectionMapLegendProps {
   isDark: boolean;
@@ -42,83 +41,29 @@ export function SectionMapLegend({
   const { t } = useTranslation();
 
   return (
-    <View
-      style={[styles.legend, { top }, isDark && styles.legendDark]}
-      testID="section-map-legend"
-      pointerEvents="none"
-    >
+    <MapKey isDark={isDark} style={{ top }} testID="section-map-legend">
       {showDelta && (
-        <View style={styles.item} testID="section-map-legend-delta">
-          <View style={styles.deltaSwatch}>
-            <View style={[styles.deltaHalf, { backgroundColor: mapLayerColors.deltaWon }]} />
-            <View style={[styles.deltaHalf, { backgroundColor: mapLayerColors.deltaNeutral }]} />
-            <View style={[styles.deltaHalf, { backgroundColor: mapLayerColors.deltaLost }]} />
-          </View>
-          <Text style={[styles.text, isDark && styles.textDark]}>
-            {t('sections.legendDeltaWonLost')}
-          </Text>
-        </View>
+        <MapKeySwatch
+          testID="section-map-legend-delta"
+          swatch={[mapLayerColors.deltaWon, mapLayerColors.deltaNeutral, mapLayerColors.deltaLost]}
+          label={t('sections.legendDeltaWonLost')}
+          isDark={isDark}
+        />
       )}
       {showActivity && (
-        <View style={styles.item}>
-          <View style={[styles.lineSwatch, { backgroundColor: colors.chartCyan }]} />
-          <Text style={[styles.text, isDark && styles.textDark]}>
-            {t('sections.legendThisActivity')}
-          </Text>
-        </View>
+        <MapKeySwatch
+          swatch={colors.chartCyan}
+          label={t('sections.legendThisActivity')}
+          isDark={isDark}
+        />
       )}
       {showEarlierVersion && (
-        <View style={styles.item}>
-          <View style={[styles.lineSwatch, { backgroundColor: colors.gray500 }]} />
-          <Text style={[styles.text, isDark && styles.textDark]}>
-            {t('sections.legendEarlierVersion')}
-          </Text>
-        </View>
+        <MapKeySwatch
+          swatch={colors.gray500}
+          label={t('sections.legendEarlierVersion')}
+          isDark={isDark}
+        />
       )}
-    </View>
+    </MapKey>
   );
 }
-
-const styles = StyleSheet.create({
-  legend: {
-    // The caller gives `top`, because the map runs under the status bar.
-    position: 'absolute',
-    left: spacing.sm,
-    gap: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xsPlus,
-    borderRadius: layout.borderRadiusMd,
-    backgroundColor: colors.surface,
-    ...shadows.card,
-  },
-  legendDark: {
-    backgroundColor: darkColors.surface,
-  },
-  item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xsPlus,
-  },
-  lineSwatch: {
-    width: 16,
-    height: 3,
-    borderRadius: layout.borderRadiusFull,
-  },
-  deltaSwatch: {
-    width: 28,
-    height: 3,
-    flexDirection: 'row',
-    borderRadius: layout.borderRadiusFull,
-    overflow: 'hidden',
-  },
-  deltaHalf: {
-    flex: 1,
-  },
-  text: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-  },
-  textDark: {
-    color: darkColors.textSecondary,
-  },
-});

@@ -4,7 +4,6 @@ import {
   FlatList,
   Pressable,
   Animated,
-  Alert,
   StyleSheet,
   type LayoutChangeEvent,
 } from 'react-native';
@@ -25,7 +24,15 @@ import { SectionInlinePlot } from './SectionInlinePlot';
 import { ActivityLedgerChanges } from './ActivityLedgerChanges';
 import { findRowIndexAtPageY } from './scrubHitTest';
 import { DataRangeFooter } from '@/features/routes';
-import { Button, pressable, pressRipple, useTabBarClearance } from '@/shared/ui';
+import {
+  Button,
+  composeAccessibilityLabel,
+  EmptyState,
+  pressable,
+  pressRipple,
+  useTabBarClearance,
+  type AccessibleAction,
+} from '@/shared/ui';
 import { getEngine } from '@/shared/native/engine';
 import {
   groupSectionEncounters,
@@ -33,9 +40,10 @@ import {
 } from '@/features/activity/lib/groupSectionEncounters';
 import { tapTo } from '@/shared/app/navigation';
 import { formatDistance } from '@/shared/format/format';
-import { colors, darkColors, spacing, shadows, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, shadows, layout, typography, swipeAction } from '@/theme';
 import { debug } from '@/shared/debug/debug';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
+import { confirmAction, inform } from '@/shared/ui/dialog';
 
 const log = debug.create('ActivitySectionsSection');
 
@@ -155,26 +163,22 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
 
   const handleDelete = useCallback(
     (group: SectionEncounterGroup) => {
-      Alert.alert(
-        t('sections.deleteSection'),
-        t('sections.deleteSectionConfirm', { name: group.sectionName }),
-        [
-          { text: t('common.cancel'), style: 'cancel' },
-          {
-            text: t('common.delete'),
-            style: 'destructive',
-            onPress: async () => {
-              swipeableRefs.current.get(group.sectionId)?.close();
-              try {
-                await removeSection(group.sectionId);
-              } catch (error) {
-                if (__DEV__) console.error('Failed to delete section:', error);
-                Alert.alert(t('common.error'), t('sections.deleteFailed'));
-              }
-            },
-          },
-        ]
-      );
+      confirmAction({
+        title: t('sections.deleteSection'),
+        message: t('sections.deleteSectionConfirm', { name: group.sectionName }),
+        confirmLabel: t('common.delete'),
+        cancelLabel: t('common.cancel'),
+        destructive: true,
+        onConfirm: async () => {
+          swipeableRefs.current.get(group.sectionId)?.close();
+          try {
+            await removeSection(group.sectionId);
+          } catch (error) {
+            if (__DEV__) console.error('Failed to delete section:', error);
+            inform({ title: t('sections.deleteFailedTitle'), message: t('sections.deleteFailed') });
+          }
+        },
+      });
     },
     [removeSection, t]
   );
@@ -422,6 +426,20 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     [activityId]
   );
 
+  // The swipe button and the screen reader's action are one action, so the
+  // label and the handler cannot drift apart.
+  const sectionAction = useCallback(
+    (group: SectionEncounterGroup): AccessibleAction =>
+      group.sectionType === 'custom'
+        ? { name: 'delete', label: t('common.delete'), run: () => handleDelete(group) }
+        : { name: 'hide', label: t('common.hide'), run: () => handleDisable(group.sectionId) },
+    [handleDelete, handleDisable, t]
+  );
+  const sectionActions = useCallback(
+    (group: SectionEncounterGroup) => [sectionAction(group)],
+    [sectionAction]
+  );
+
   // Render swipe actions for section cards
   const renderSectionSwipeActions = useCallback(
     (
@@ -436,6 +454,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       });
 
       const custom = group.sectionType === 'custom';
+      const action = sectionAction(group);
       return (
         <Animated.View
           style={[
@@ -444,23 +463,25 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
             { opacity },
           ]}
         >
-          <RectButton
-            style={styles.swipeActionButton}
-            onPress={() => (custom ? handleDelete(group) : handleDisable(group.sectionId))}
-          >
+          <RectButton style={styles.swipeActionButton} onPress={action.run}>
             <MaterialCommunityIcons
               name={custom ? 'delete' : 'eye-off'}
               size={24}
-              color={colors.textOnDark}
+              color={custom ? swipeAction.destructive.text : swipeAction.hide.text}
             />
-            <Text style={styles.swipeActionText}>
-              {t(custom ? 'common.delete' : 'common.hide')}
+            <Text
+              style={[
+                styles.swipeActionText,
+                custom ? styles.deleteSwipeActionText : styles.disableSwipeActionText,
+              ]}
+            >
+              {action.label}
             </Text>
           </RectButton>
         </Animated.View>
       );
     },
-    [handleDelete, handleDisable, t]
+    [sectionAction]
   );
 
   // FlatList key extractor
@@ -483,6 +504,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
           onRowHeight={handleRowHeight}
           firstRowRef={handleFirstRowRef}
           renderRightActions={renderSectionSwipeActions}
+          actionsFor={sectionActions}
           swipeableRefs={swipeableRefs}
         />
       );
@@ -498,6 +520,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       handleRowHeight,
       handleFirstRowRef,
       renderSectionSwipeActions,
+      sectionActions,
       swipeableRefs,
     ]
   );
@@ -505,31 +528,17 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   // Render empty state for section list
   const renderSectionsListEmpty = useCallback(() => {
     return (
-      <View style={styles.emptyStateContainer}>
-        <MaterialCommunityIcons
-          name="road-variant"
-          size={48}
-          color={isDark ? darkColors.border : colors.divider}
-        />
-        <Text style={[styles.emptyStateTitle, isDark && styles.textLight]}>
-          {t('activityDetail.noMatchedSections')}
-        </Text>
-        <Text style={[styles.emptyStateDescription, isDark && styles.textSecondary]}>
-          {t('activityDetail.noMatchedSectionsDescription')}
-        </Text>
-        {!hasScanned && (
-          <Button
-            label={t('sections.scanForMatches')}
-            variant="secondary"
-            icon={<MaterialCommunityIcons name="magnify" size={18} color={colors.primary} />}
-            onPress={handleScan}
-            loading={scanning}
-            style={styles.scanButton}
-          />
-        )}
-      </View>
+      <EmptyState
+        variant="compact"
+        icon="road-variant"
+        title={t('activityDetail.noMatchedSections')}
+        description={t('activityDetail.noMatchedSectionsDescription')}
+        actionLabel={hasScanned ? undefined : t('sections.scanForMatches')}
+        onAction={handleScan}
+        actionLoading={scanning}
+      />
     );
-  }, [isDark, t, hasScanned, handleScan, scanning]);
+  }, [t, hasScanned, handleScan, scanning]);
 
   // Render a single scan match result row. The engine sends the name it
   // resolves for the section, the one every other screen shows.
@@ -540,6 +549,18 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       const displayName = !match.sameDirection ? `${baseName} \u21A9` : baseName;
       const totalPoints = coordinates?.length ?? 0;
       const startPct = totalPoints > 0 ? Math.round((match.startIndex / totalPoints) * 100) : 0;
+      const distance = formatDistance(match.distanceMeters, isMetric);
+      const position = startPct > 0 ? t('sections.atPosition', { pct: startPct }) : null;
+      const qualityText = quality < 90 ? t('sections.matchQuality', { quality }) : null;
+      // The row is one element: the arrow is spoken as the reverse word, then
+      // the meta line it draws.
+      const spokenName = composeAccessibilityLabel(
+        baseName,
+        !match.sameDirection && t('sections.reverse'),
+        distance,
+        position,
+        qualityText
+      );
       return (
         <View
           key={`${match.sectionId}-${match.startIndex}`}
@@ -547,7 +568,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         >
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={displayName}
+            accessibilityLabel={spokenName}
             style={pressable(styles.scanMatchInfo)}
             android_ripple={pressRipple}
             onPress={() => tapTo(`/section/${match.sectionId}?activityId=${activityId}`)}
@@ -559,9 +580,9 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
               {displayName}
             </Text>
             <Text style={[styles.scanMatchMeta, isDark && { color: darkColors.textSecondary }]}>
-              {formatDistance(match.distanceMeters, isMetric)}
-              {startPct > 0 ? ` · ${t('sections.atPosition', { pct: startPct })}` : ''}
-              {quality < 90 ? ` · ${t('sections.matchQuality', { quality })}` : ''}
+              {distance}
+              {position ? ` · ${position}` : ''}
+              {qualityText ? ` · ${qualityText}` : ''}
             </Text>
           </Pressable>
           <Button
@@ -677,8 +698,6 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   );
 });
 
-const EMPTY_STATE_VERTICAL_PADDING = spacing.xl * 2;
-
 const styles = StyleSheet.create({
   tabScrollView: {
     flex: 1,
@@ -688,33 +707,6 @@ const styles = StyleSheet.create({
   },
   tabScrollContentEmpty: {
     flexGrow: 1,
-  },
-  emptyStateContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: EMPTY_STATE_VERTICAL_PADDING,
-    paddingHorizontal: spacing.lg,
-  },
-  emptyStateTitle: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginTop: spacing.md,
-    textAlign: 'center',
-  },
-  emptyStateDescription: {
-    fontSize: typography.bodySmall.fontSize,
-    color: colors.textSecondary,
-    marginTop: spacing.sm,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  textLight: {
-    color: colors.textOnDark,
-  },
-  textSecondary: {
-    color: darkColors.textSecondary,
   },
   createSectionButton: {
     marginHorizontal: spacing.md,
@@ -737,16 +729,18 @@ const styles = StyleSheet.create({
   swipeActionText: {
     fontSize: typography.caption.fontSize,
     fontWeight: '600',
-    color: colors.textOnDark,
   },
   deleteSwipeAction: {
-    backgroundColor: colors.error,
+    backgroundColor: swipeAction.destructive.bg,
+  },
+  deleteSwipeActionText: {
+    color: swipeAction.destructive.text,
   },
   disableSwipeAction: {
-    backgroundColor: colors.warning,
+    backgroundColor: swipeAction.hide.bg,
   },
-  scanButton: {
-    marginTop: spacing.lg,
+  disableSwipeActionText: {
+    color: swipeAction.hide.text,
   },
   scanLink: {
     marginHorizontal: spacing.md,

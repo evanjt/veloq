@@ -5,8 +5,8 @@ import { ScatterLegend } from '@/features/routes/components/section/ScatterLegen
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
 
-it('names the drawn trend and band and explains their method on tap', () => {
-  const tree = render(
+it('names the drawn trend and band and explains their method on tap', async () => {
+  const tree = await render(
     <ScatterLegend isDark={false} showReverse={false} showThisActivity={false} showTrend />
   );
 
@@ -14,12 +14,12 @@ it('names the drawn trend and band and explains their method on tap', () => {
   expect(tree.getByText('sections.legendTrendBand')).toBeTruthy();
   expect(tree.queryByText('sections.legendTrendMethod')).toBeNull();
 
-  fireEvent.press(tree.getByRole('button', { name: 'sections.legendTrend' }));
+  await fireEvent.press(tree.getByRole('button', { name: 'sections.legendTrend' }));
   expect(tree.getByText('sections.legendTrendMethod')).toBeTruthy();
 });
 
-it('omits the trend explanation when no curve is drawn', () => {
-  const tree = render(
+it('omits the trend explanation when no curve is drawn', async () => {
+  const tree = await render(
     <ScatterLegend isDark={false} showReverse={false} showThisActivity={false} />
   );
 

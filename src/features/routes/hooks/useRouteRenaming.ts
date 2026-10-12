@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Keyboard, TextInput } from 'react-native';
+import { Keyboard } from 'react-native';
 import type { TFunction } from 'i18next';
 import { setRouteName } from '../lib/nameCommands';
 import * as haptics from '@/shared/ui/haptics';
+import type { TextFieldHandle } from '@/shared/ui/TextField';
+import { inform } from '@/shared/ui/dialog';
 
 /**
  * `routeNames` is the name map the route detail read carries, the one reader
@@ -18,7 +20,7 @@ export function useRouteRenaming(
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
   const [customName, setCustomName] = useState<string | null>(null);
-  const nameInputRef = useRef<TextInput>(null);
+  const nameInputRef = useRef<TextFieldHandle>(null);
   const openedWithName = useRef<string | null>(null);
 
   const readNames = useCallback(() => routeNames ?? {}, [routeNames]);
@@ -75,7 +77,7 @@ export function useRouteRenaming(
     );
 
     if (isDuplicate) {
-      Alert.alert(t('routes.duplicateNameTitle'), t('routes.duplicateNameMessage'));
+      inform({ title: t('routes.duplicateNameTitle'), message: t('routes.duplicateNameMessage') });
       return;
     }
 
@@ -88,7 +90,7 @@ export function useRouteRenaming(
       renameRoute(id, trimmedName);
     } catch (error) {
       setCustomName(previousName);
-      Alert.alert(t('routes.renameFailedTitle'), t('routes.renameFailedMessage'));
+      inform({ title: t('routes.renameFailedTitle'), message: t('routes.renameFailedMessage') });
       if (__DEV__) console.error('Failed to save route name:', error);
       return;
     }

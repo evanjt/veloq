@@ -65,7 +65,7 @@ beforeEach(() => {
 });
 
 async function openWellness() {
-  const view = renderHook(() => useWellness('1y'), { wrapper });
+  const view = await renderHook(() => useWellness('1y'), { wrapper });
   await waitFor(() => expect(view.result.current.data).not.toBeUndefined());
   return view;
 }

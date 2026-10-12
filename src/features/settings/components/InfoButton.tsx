@@ -1,11 +1,11 @@
 import React from 'react';
-import { Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { IconButton } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors } from '@/theme';
+import { inform } from '@/shared/ui/dialog';
 
 interface InfoButtonProps {
   testID: string;
@@ -24,7 +24,7 @@ export function InfoButton({ testID, title, message }: InfoButtonProps) {
     <IconButton
       testID={testID}
       accessibilityLabel={t('backup.aboutTopic', { title })}
-      onPress={() => Alert.alert(title, message)}
+      onPress={() => inform({ title, message })}
     >
       <MaterialCommunityIcons
         name="information-outline"

@@ -63,20 +63,20 @@ describe('selection haptics', () => {
     jest.clearAllMocks();
   });
 
-  it('picking a map style fires one selection and no impact', () => {
-    const { getByText } = render(
+  it('picking a map style fires one selection and no impact', async () => {
+    const { getByText } = await render(
       <ActivityCardContextMenu visible onDismiss={jest.fn()} activity={ACTIVITY} />
     );
 
-    fireEvent.press(getByText('settings.dark'));
+    await fireEvent.press(getByText('settings.dark'));
 
     expect(Haptics.selectionAsync).toHaveBeenCalledTimes(1);
     expect(Haptics.impactAsync).not.toHaveBeenCalled();
     expect(mockSetActivityOverride).toHaveBeenCalledWith('a1', { style: 'dark' });
   });
 
-  it('flipping the 3D switch fires one selection and no impact', () => {
-    const { UNSAFE_getByType } = render(
+  it('flipping the 3D switch fires one selection and no impact', async () => {
+    const { UNSAFE_getByType } = await render(
       <ActivityCardContextMenu visible onDismiss={jest.fn()} activity={ACTIVITY} />
     );
     const { Switch } = require('react-native-paper');
@@ -88,12 +88,12 @@ describe('selection haptics', () => {
     expect(mockSetActivityOverride).toHaveBeenCalledWith('a1', { terrain3D: true });
   });
 
-  it('the reset button stays a light impact', () => {
-    const { getByText } = render(
+  it('the reset button stays a light impact', async () => {
+    const { getByText } = await render(
       <ActivityCardContextMenu visible onDismiss={jest.fn()} activity={ACTIVITY} />
     );
 
-    fireEvent.press(getByText('activity.resetToDefault'));
+    await fireEvent.press(getByText('activity.resetToDefault'));
 
     expect(Haptics.impactAsync).toHaveBeenCalledTimes(1);
     expect(Haptics.impactAsync).toHaveBeenCalledWith('light');
@@ -101,9 +101,9 @@ describe('selection haptics', () => {
     expect(mockClearActivityOverride).toHaveBeenCalledWith('a1');
   });
 
-  it('switching the x-axis mode fires one selection and no impact', () => {
+  it('switching the x-axis mode fires one selection and no impact', async () => {
     const onToggle = jest.fn();
-    const { getByText } = render(
+    const { getByText } = await render(
       <ChartDistanceIndicator
         xAxisMode="distance"
         maxX={12.3}
@@ -114,20 +114,20 @@ describe('selection haptics', () => {
       />
     );
 
-    fireEvent.press(getByText('12.3 km'));
+    await fireEvent.press(getByText('12.3 km'));
 
     expect(Haptics.selectionAsync).toHaveBeenCalledTimes(1);
     expect(Haptics.impactAsync).not.toHaveBeenCalled();
     expect(onToggle).toHaveBeenCalledTimes(1);
   });
 
-  it('switching a sub-tab fires one selection, and pressing the active one fires none', () => {
+  it('switching a sub-tab fires one selection, and pressing the active one fires none', async () => {
     const tabs = [
       { key: 'one', label: 'One', icon: 'lightbulb-outline' as const },
       { key: 'two', label: 'Two', icon: 'dumbbell' as const },
     ];
     const onTabChange = jest.fn();
-    const { getByLabelText } = render(
+    const { getByLabelText } = await render(
       <SwipeableTabs tabs={tabs} activeTab="one" onTabChange={onTabChange} isDark={false}>
         {tabs.map((tab) => (
           <React.Fragment key={tab.key} />
@@ -135,10 +135,10 @@ describe('selection haptics', () => {
       </SwipeableTabs>
     );
 
-    fireEvent.press(getByLabelText('One'));
+    await fireEvent.press(getByLabelText('One'));
     expect(Haptics.selectionAsync).not.toHaveBeenCalled();
 
-    fireEvent.press(getByLabelText('Two'));
+    await fireEvent.press(getByLabelText('Two'));
 
     expect(Haptics.selectionAsync).toHaveBeenCalledTimes(1);
     expect(Haptics.impactAsync).not.toHaveBeenCalled();

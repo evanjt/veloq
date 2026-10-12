@@ -36,11 +36,11 @@ const INPUT: DayActivitiesInput = {
   ],
 };
 
-function open() {
+async function open() {
   const result = openSheet<DayActivitiesInput, string>('sheets/day-activities', INPUT);
   mockParams = { request: mockPush.mock.calls.at(-1)[0].params.request };
-  render(<DayActivitiesSheet />);
-  return result;
+  await render(<DayActivitiesSheet />);
+  return { result };
 }
 
 beforeAll(async () => {
@@ -53,27 +53,27 @@ beforeEach(() => {
 
 describe('day activities sheet', () => {
   it('resolves the caller with the id of the tapped activity', async () => {
-    const result = open();
+    const { result } = await open();
     expect(screen.getByText('Lunch run')).toBeTruthy();
-    fireEvent.press(screen.getByTestId('day-activity-a2'));
+    await fireEvent.press(screen.getByTestId('day-activity-a2'));
     await expect(result).resolves.toEqual({ kind: 'selected', value: 'a2' });
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
-  it('shows a load only for an activity that has one', () => {
-    open();
+  it('shows a load only for an activity that has one', async () => {
+    await open();
     expect(screen.getByTestId('day-activity-a1')).toHaveTextContent(/80/);
     expect(screen.getByTestId('day-activity-a2')).not.toHaveTextContent(/\b0\b/);
   });
 
-  it('keeps its scroll view where the iOS sheet sizes it', () => {
-    open();
+  it('keeps its scroll view where the iOS sheet sizes it', async () => {
+    await open();
     expect(sheetScrollPlacement(screen.toJSON())).not.toBe('nested');
   });
 
   it('resolves cancelled when it unmounts without a tap', async () => {
-    const result = open();
-    screen.unmount();
+    const { result } = await open();
+    await screen.unmount();
     await expect(result).resolves.toEqual({ kind: 'cancelled' });
   });
 });

@@ -22,6 +22,7 @@ function getRpeLabelKey(value: number): RpeLabelKey {
   return 'max';
 }
 
+/** The effort hue, drawn on the thumb and the fill. The value beside it is text. */
 function getRpeColor(value: number): string {
   return rpeRamp[Math.min(4, Math.floor((Math.max(1, value) - 1) / 2))];
 }

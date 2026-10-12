@@ -22,6 +22,12 @@ export interface SyncHealth {
   lastErrorReason: SyncErrorReason | null;
   /** ISO time of the last sync that completed cleanly, or null if none has. */
   lastSuccessAt: string | null;
+  /**
+   * When intervals.icu or the request budget lets the sync ask again, as epoch
+   * milliseconds, when the last run ended on a refusal. The engine resumes on
+   * its own then, so this is a pause and not a failure.
+   */
+  retryAtMs: number | null;
 }
 
 export function useSyncHealth(): SyncHealth {
@@ -30,5 +36,6 @@ export function useSyncHealth(): SyncHealth {
     lastError: status?.lastError ?? null,
     lastErrorReason: status?.lastErrorReason ?? null,
     lastSuccessAt: status?.lastSuccessAt ?? null,
+    retryAtMs: status?.retryAtMs ?? null,
   };
 }

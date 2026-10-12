@@ -19,6 +19,7 @@ import { generateEfficiencyTrendInsights } from '@/features/insights/generators/
 import type { InsightSupportingData } from '@/types';
 import { verdictColor } from '@/theme';
 import { CurveChart } from '@/shared/charts';
+import { initialiseI18n } from '@/i18n';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
@@ -26,6 +27,10 @@ jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 
 const t = (key: string) => key;
+
+beforeAll(async () => {
+  await initialiseI18n('en-GB');
+});
 
 const history = (values: number[]) => ({
   kind: 'sparkline' as const,
@@ -53,24 +58,26 @@ type Node = { type: { displayName?: string }; props: Record<string, unknown> };
  * mocks forward no style props to the host view, so these are read off the
  * icon and the chart as the component handed them over.
  */
-function drawn(data: InsightSupportingData) {
-  const { UNSAFE_root } = render(<SupportingDataSection data={data} />);
+async function drawn(data: InsightSupportingData) {
+  const { UNSAFE_root } = await render(<SupportingDataSection data={data} />);
   const all = UNSAFE_root.findAll(() => true) as unknown as Node[];
   const glyphs = all.filter(
     (n) => n.type.displayName === 'MaterialCommunityIcons' && TRENDING.has(n.props.name as string)
   );
   const line = all.find((n) => (n.type as unknown) === CurveChart);
   return {
-    glyph: glyphs[0]?.props as { name: string; color: string } | undefined,
+    glyph: glyphs[0]?.props as
+      | { name: string; color: string; accessibilityLabel?: string }
+      | undefined,
     glyphCount: glyphs.length,
     line: line?.props.color as string,
   };
 }
 
 describe('the sheet sparkline', () => {
-  it('draws a falling efficiency ratio on the positive rung', () => {
+  it('draws a falling efficiency ratio on the positive rung', async () => {
     const [efficiency] = generateEfficiencyTrendInsights([EFFICIENCY], 0, t);
-    const { glyph, line } = drawn(efficiency.supportingData!);
+    const { glyph, line } = await drawn(efficiency.supportingData!);
 
     expect(line).toBe(verdictColor('positive', false));
     expect(glyph?.color).toBe(verdictColor('positive', false));
@@ -83,8 +90,8 @@ describe('the sheet sparkline', () => {
     expect(efficiency.supportingData?.trend).toEqual({ direction: 'down', verdict: 'improved' });
   });
 
-  it('draws a move the generator judged flat on the neutral rung, with no arrow', () => {
-    const { glyphCount, line } = drawn({
+  it('draws a move the generator judged flat on the neutral rung, with no arrow', async () => {
+    const { glyphCount, line } = await drawn({
       history: history([100, 100.05, 100.1]),
       trend: { direction: 'flat', verdict: 'flat' },
     });
@@ -93,15 +100,15 @@ describe('the sheet sparkline', () => {
     expect(glyphCount).toBe(0);
   });
 
-  it('draws a series that carries no verdict on the neutral rung, with no arrow', () => {
-    const { glyphCount, line } = drawn({ history: history([10, 12, 15]) });
+  it('draws a series that carries no verdict on the neutral rung, with no arrow', async () => {
+    const { glyphCount, line } = await drawn({ history: history([10, 12, 15]) });
 
     expect(line).toBe(verdictColor('neutral', false));
     expect(glyphCount).toBe(0);
   });
 
-  it('draws a move with a direction and no judgement as its bare arrow on the neutral rung', () => {
-    const { glyph, line } = drawn({
+  it('draws a move with a direction and no judgement as its bare arrow on the neutral rung', async () => {
+    const { glyph, line } = await drawn({
       history: history([10, 12, 15]),
       trend: { direction: 'up', verdict: 'moved' },
     });
@@ -110,5 +117,12 @@ describe('the sheet sparkline', () => {
     expect(glyph).toEqual(
       expect.objectContaining({ name: 'trending-up', color: verdictColor('neutral', false) })
     );
+  });
+
+  it('names the arrow with the verdict for a screen reader, not the direction it points', async () => {
+    const [efficiency] = generateEfficiencyTrendInsights([EFFICIENCY], 0, t);
+    const { glyph } = await drawn(efficiency.supportingData!);
+
+    expect(glyph?.accessibilityLabel).toBe('improved');
   });
 });

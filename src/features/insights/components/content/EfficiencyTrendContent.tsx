@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -8,7 +8,7 @@ import { tapTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, shadows, layout, typography } from '@/theme';
 import type { Insight } from '@/types';
 import { SupportingDataSection } from '../SupportingDataSection';
-import { pressable, pressRipple } from '@/shared/ui';
+import { Row } from '@/shared/ui';
 
 interface EfficiencyTrendContentProps {
   insight: Insight;
@@ -77,13 +77,7 @@ export const EfficiencyTrendContent = React.memo(function EfficiencyTrendContent
       </View>
 
       {sectionId && sectionName ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={sectionName}
-          style={pressable([styles.sectionLink, isDark && styles.sectionLinkDark])}
-          android_ripple={pressRipple}
-          onPress={handleSectionPress}
-        >
+        <Row behaviour="navigate" accessibilityLabel={sectionName} onPress={handleSectionPress}>
           <MaterialCommunityIcons
             name="map-marker-path"
             size={18}
@@ -92,12 +86,7 @@ export const EfficiencyTrendContent = React.memo(function EfficiencyTrendContent
           <Text style={[styles.sectionName, isDark && styles.sectionNameDark]} numberOfLines={1}>
             {sectionName}
           </Text>
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={18}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-        </Pressable>
+        </Row>
       ) : null}
 
       {insight.supportingData ? <SupportingDataSection data={insight.supportingData} /> : null}
@@ -203,22 +192,6 @@ const styles = StyleSheet.create({
   },
   effortLabelDark: {
     color: darkColors.formOptimalText,
-  },
-  sectionLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadiusMd,
-    padding: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: spacing.xs,
-    ...shadows.card,
-  },
-  sectionLinkDark: {
-    backgroundColor: darkColors.surfaceCard,
-    borderColor: darkColors.border,
-    ...shadows.none,
   },
   sectionName: {
     flex: 1,

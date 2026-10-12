@@ -37,8 +37,8 @@ const CUSTOM: FrequentSection = {
   createdAt: '2026-01-01T00:00:00Z',
 };
 
-function tagGround(): unknown {
-  render(<SectionRow section={CUSTOM} />);
+async function tagGround(): Promise<unknown> {
+  await render(<SectionRow section={CUSTOM} />);
   const label = screen.getByText('routes.custom');
   let node: ReactTestInstance | null = label.parent;
   while (node) {
@@ -50,8 +50,8 @@ function tagGround(): unknown {
 }
 
 describe('the dark Custom tag ground', () => {
-  it('does not follow the dark fatigue series', () => {
+  it('does not follow the dark fatigue series', async () => {
     expect(darkColors.chartFatigue).toBe('#112233');
-    expect(tagGround()).toBe(colorWithOpacity('#C084FC', 0.15));
+    expect(await tagGround()).toBe(colorWithOpacity('#C084FC', 0.15));
   });
 });

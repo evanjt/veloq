@@ -19,9 +19,10 @@ import {
   formatHeartRate,
   formatPower,
   formatCalories,
-  formatTSS,
+  formatLoad,
 } from '@/shared/format/format';
 import { getFormZone } from '@/features/fitness/lib/fitness';
+import { ABSENT } from '@/shared/format/absent';
 
 // Mock veloqrs native module
 jest.mock('veloqrs', () => require('__shared__/veloqrsStub'));
@@ -111,8 +112,9 @@ describe('Data Pipeline', () => {
     expect(formatSpeed(RIDE.average_speed, true)).toBe('29.9 km/h');
     expect(formatPower(RIDE.icu_average_watts)).toBe('210 W');
     expect(formatHeartRate(RIDE.average_heartrate)).toBe('142 bpm');
-    expect(formatTSS(RIDE.icu_training_load)).toBe('85 TSS');
-    expect(formatCalories(RIDE.calories)).toBe('1.2k cal');
+    expect(formatLoad(RIDE.icu_training_load)).toBe('85');
+    // Written in full in kcal, grouped by the locale's separator.
+    expect(formatCalories(RIDE.calories)).toMatch(/^1[,.\u00a0\u202f]?200 kcal$/);
   });
 
   // Test 3: Run shows pace not speed
@@ -173,12 +175,12 @@ describe('Resilience', () => {
     expect(formatDuration(3600)).toBe('1:00:00');
   });
 
-  // Test 25: formatTemperature(null) → "--°C" not "NaN°C"
-  it('formatTemperature(null) → "--°C" not "NaN°C"', () => {
-    expect(formatTemperature(null)).toBe('--°C');
-    expect(formatTemperature(undefined)).toBe('--°C');
-    expect(formatTemperature(null, false)).toBe('--°F');
-    expect(formatTemperature(undefined, false)).toBe('--°F');
+  // Test 25: formatTemperature(null) → the absent mark, not "NaN°C"
+  it('formatTemperature(null) → the absent mark, not "NaN°C"', () => {
+    expect(formatTemperature(null)).toBe(ABSENT);
+    expect(formatTemperature(undefined)).toBe(ABSENT);
+    expect(formatTemperature(null, false)).toBe(ABSENT);
+    expect(formatTemperature(undefined, false)).toBe(ABSENT);
   });
 });
 
@@ -207,7 +209,7 @@ describe('Zero-distance activity contract', () => {
       formatHeartRate(0),
       formatPower(0),
       formatCalories(0),
-      formatTSS(0),
+      formatLoad(0),
     ];
     for (const r of results) {
       expect(r).not.toContain('NaN');

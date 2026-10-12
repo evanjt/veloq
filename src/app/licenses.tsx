@@ -549,26 +549,23 @@ function LicenseEntryRow({ entry, isDark, isLast, testID }: LicenseEntryRowProps
   return (
     <View testID={testID} style={[styles.entryContainer, !isLast && styles.entryBorder(isDark)]}>
       <View style={styles.entryRow}>
-        <View style={styles.entryInfo}>
+        {/* The name and the licence together expand the licence text, so the
+            target is the row's text block and not the licence line alone. */}
+        <Pressable
+          onPress={toggleLicense}
+          style={pressable(styles.entryInfo)}
+          android_ripple={pressRipple}
+          accessibilityRole="button"
+          accessibilityLabel={`${entry.name}: ${entry.license}`}
+          accessibilityState={{ expanded: showLicense }}
+        >
           <Text style={[styles.entryName, { color: themeColors.textPrimary }]}>{entry.name}</Text>
-          <Pressable
-            onPress={toggleLicense}
-            style={pressable()}
-            android_ripple={pressRipple}
-            accessibilityRole="button"
-            accessibilityLabel={`${entry.name}: ${entry.license}`}
-            accessibilityState={{ expanded: showLicense }}
+          <Text
+            style={[styles.entryLicense, { color: isDark ? darkColors.linkTeal : colors.linkTeal }]}
           >
-            <Text
-              style={[
-                styles.entryLicense,
-                { color: isDark ? darkColors.linkTeal : colors.linkTeal },
-              ]}
-            >
-              {entry.license}
-            </Text>
-          </Pressable>
-        </View>
+            {entry.license}
+          </Text>
+        </Pressable>
         {entry.repository && (
           <IconButton
             accessibilityLabel={`${t('licenses.openRepository')}: ${entry.name}`}
@@ -699,6 +696,8 @@ const styles = {
   },
   entryInfo: {
     flex: 1,
+    justifyContent: 'center' as const,
+    minHeight: layout.minTapTarget,
   },
   entryName: {
     ...typography.body,

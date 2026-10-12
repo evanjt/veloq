@@ -92,41 +92,41 @@ describe('Settings recording permission', () => {
     signIn('oauth');
   });
 
-  it('waits for permission hydration before offering an upgrade', () => {
+  it('waits for permission hydration before offering an upgrade', async () => {
     useUploadPermissionStore.getState().reset();
-    const { queryByTestId, getByTestId } = render(<SettingsScreen />);
+    const { queryByTestId, getByTestId } = await render(<SettingsScreen />);
     expect(queryByTestId('settings-grant-access')).toBeNull();
 
-    act(() => useUploadPermissionStore.getState().setFromOAuthScope(''));
+    await act(() => useUploadPermissionStore.getState().setFromOAuthScope(''));
     expect(getByTestId('settings-grant-access')).toBeTruthy();
   });
 
-  it('offers Grant Access when an OAuth token has no confirmed write permission', () => {
-    const { getByTestId } = render(<SettingsScreen />);
+  it('offers Grant Access when an OAuth token has no confirmed write permission', async () => {
+    const { getByTestId } = await render(<SettingsScreen />);
     expect(getByTestId('settings-grant-access')).toBeTruthy();
   });
 
-  it('says recording works without write permission rather than requiring it', () => {
-    const { queryByText, getByText } = render(<SettingsScreen />);
+  it('says recording works without write permission rather than requiring it', async () => {
+    const { queryByText, getByText } = await render(<SettingsScreen />);
     expect(queryByText(/requires write permission/i)).toBeNull();
     expect(getByText(/Recording works without it/)).toBeTruthy();
   });
 
-  it('offers Grant Access when the write scope was explicitly refused', () => {
+  it('offers Grant Access when the write scope was explicitly refused', async () => {
     useUploadPermissionStore.setState({ hasWritePermission: false });
-    const { getByTestId } = render(<SettingsScreen />);
+    const { getByTestId } = await render(<SettingsScreen />);
     expect(getByTestId('settings-grant-access')).toBeTruthy();
   });
 
-  it('says nothing once the write permission is confirmed', () => {
+  it('says nothing once the write permission is confirmed', async () => {
     useUploadPermissionStore.setState({ hasWritePermission: true });
-    const { queryByTestId } = render(<SettingsScreen />);
+    const { queryByTestId } = await render(<SettingsScreen />);
     expect(queryByTestId('settings-grant-access')).toBeNull();
   });
 
-  it.each(['apiKey', 'demo'] as const)('says nothing for a %s sign-in', (authMethod) => {
+  it.each(['apiKey', 'demo'] as const)('says nothing for a %s sign-in', async (authMethod) => {
     signIn(authMethod);
-    const { queryByTestId } = render(<SettingsScreen />);
+    const { queryByTestId } = await render(<SettingsScreen />);
     expect(queryByTestId('settings-grant-access')).toBeNull();
   });
 });

@@ -100,7 +100,7 @@ describe('the library coverage lines', () => {
 });
 
 describe('the running sync row', () => {
-  it('carries the library lines beside its own queue figure', () => {
+  it('carries the library lines beside its own queue figure', async () => {
     mockCoverage = coverage({
       upstream: 1598,
       fetched: 412,
@@ -108,7 +108,7 @@ describe('the running sync row', () => {
       tracksStored: 400,
     });
 
-    render(<ActivitySyncRow />);
+    await render(<ActivitySyncRow />);
 
     expect(screen.getByTestId('sync-library-coverage')).toBeTruthy();
     expect(screen.getByText('sync.ridesDownloaded:{"completed":412,"total":1598}')).toBeTruthy();
@@ -119,7 +119,7 @@ describe('the running sync row', () => {
     ).toBeTruthy();
   });
 
-  it('carries no library line when the library is fully downloaded', () => {
+  it('carries no library line when the library is fully downloaded', async () => {
     mockCoverage = coverage({
       upstream: 100,
       fetched: 100,
@@ -127,7 +127,7 @@ describe('the running sync row', () => {
       tracksStored: 80,
     });
 
-    render(<ActivitySyncRow />);
+    await render(<ActivitySyncRow />);
 
     expect(screen.queryByTestId('sync-library-coverage')).toBeNull();
   });

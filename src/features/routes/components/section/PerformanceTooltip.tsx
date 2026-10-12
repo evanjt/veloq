@@ -1,10 +1,11 @@
 /**
  * Tooltip shown below the section scatter chart when a point is selected.
  *
- * Displays the activity name, date, section time, pace/speed delta vs PR,
- * and exposes the reference / exclude / include controls. Tapping the row
- * navigates to the activity detail screen. The controls are drawn inside the
- * row's own button, so a screen reader is offered them as actions on the row.
+ * Displays the activity name, date, the attempt's figure and its gap to the
+ * best in the basis the chart plots on, and exposes the reference / exclude /
+ * include controls. Tapping the row navigates to the activity detail screen.
+ * The controls are drawn inside the row's own button, so a screen reader is
+ * offered them as actions on the row.
  */
 
 import { useMetricSystem } from '@/shared/app';
@@ -16,16 +17,35 @@ import { useTranslation } from 'react-i18next';
 
 import { tapTo } from '@/shared/app/navigation';
 import {
-  formatPace,
-  formatSpeed,
   formatDuration,
   formatPower,
   formatPerformanceDelta,
   formatShortDateWithYear,
 } from '@/shared/format/format';
-import { colors, darkColors, layout, typography, spacing, verdictColor } from '@/theme';
+import {
+  formatAttemptHeadline,
+  readsPace,
+  type AttemptBasis,
+} from '@/features/routes/lib/attemptBasis';
+import {
+  colors,
+  controlHeight,
+  darkColors,
+  layout,
+  typography,
+  spacing,
+  verdictColor,
+  themedStyles,
+  type Palette,
+} from '@/theme';
 import type { PerformanceDataPoint } from '@/types';
-import { assistiveActions, pressable, pressRipple, type AssistiveAction } from '@/shared/ui';
+import {
+  accessibleActions,
+  IconButton,
+  pressable,
+  pressRipple,
+  type AccessibleAction,
+} from '@/shared/ui';
 
 /** Scatter chart point - adds the computed X coordinate to the base record. */
 type ChartPoint = PerformanceDataPoint & { x: number };
@@ -34,8 +54,8 @@ export interface PerformanceTooltipProps {
   /** The point currently selected by tap/scrub, or null when nothing is selected. */
   selectedPoint: ChartPoint | null;
   isDark: boolean;
-  /** When true, display pace instead of speed for the selected point. */
-  showPace: boolean;
+  /** What the headline and its gap to the best read as, the basis the chart plots on. */
+  basis: AttemptBasis;
   /** Accent color for the speed value in "forward" direction. */
   activityColor: string;
   /** Selected reference activity id (shows filled star when matched). */
@@ -52,7 +72,7 @@ export interface PerformanceTooltipProps {
 export function PerformanceTooltip({
   selectedPoint,
   isDark,
-  showPace,
+  basis,
   activityColor,
   referenceActivityId,
   onSetAsReference,
@@ -63,17 +83,13 @@ export function PerformanceTooltip({
 }: PerformanceTooltipProps) {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
-
-  const formatSpeedValue = (speed: number) =>
-    showPace ? formatPace(speed, isMetric) : formatSpeed(speed, isMetric);
+  const styles = themedStyles(makeStyles, isDark);
 
   if (!selectedPoint) {
     return (
       <View style={styles.tooltipContainer}>
         <View style={styles.tooltipPlaceholder}>
-          <Text style={[styles.chartHint, isDark && styles.textSecondary]}>
-            {t('sections.scrubHint')}
-          </Text>
+          <Text style={styles.chartHint}>{t('sections.scrubHint')}</Text>
         </View>
       </View>
     );
@@ -82,7 +98,7 @@ export function PerformanceTooltip({
   const delta = formatPerformanceDelta({
     isMetric,
     isBest: selectedPoint.isBest === true,
-    showPace,
+    showPace: readsPace(basis),
     currentSpeed: selectedPoint.speed,
     bestSpeed: selectedPoint.bestSpeed,
     timeDelta:
@@ -116,15 +132,17 @@ export function PerformanceTooltip({
     recordsSettled && selectedPoint.isBest ? t('sections.legendPr') : null,
     selectedPoint.activityName,
     formatShortDateWithYear(selectedPoint.date),
-    selectedPoint.sectionTime != null ? formatDuration(selectedPoint.sectionTime) : null,
+    basis !== 'time' && selectedPoint.sectionTime != null
+      ? formatDuration(selectedPoint.sectionTime)
+      : null,
     power,
     delta.deltaDisplay,
-    formatSpeedValue(selectedPoint.speed),
+    formatAttemptHeadline(basis, selectedPoint.sectionTime, selectedPoint.speed, isMetric),
   ]
     .filter((part): part is string => !!part)
     .join(', ');
 
-  const rowActions: AssistiveAction[] = [];
+  const rowActions: AccessibleAction[] = [];
   if (setReference) {
     rowActions.push({
       name: 'setReference',
@@ -141,10 +159,10 @@ export function PerformanceTooltip({
   return (
     <View style={styles.tooltipContainer}>
       <Pressable
-        style={pressable([styles.selectedTooltip, isDark && styles.selectedTooltipDark])}
+        style={pressable(styles.selectedTooltip)}
         accessibilityRole="button"
         accessibilityLabel={rowLabel}
-        {...assistiveActions(rowActions)}
+        {...accessibleActions(rowActions)}
         onPress={() => tapTo(`/activity/${activityId}`)}
         android_ripple={pressRipple}
       >
@@ -160,12 +178,10 @@ export function PerformanceTooltip({
                 />
                 {/* The trophy was the whole message, and gold on white is
                     1.89:1. The word is what carries it. */}
-                <Text style={[styles.prTag, isDark && styles.prTagDark]}>
-                  {t('sections.legendPr')}
-                </Text>
+                <Text style={styles.prTag}>{t('sections.legendPr')}</Text>
               </>
             )}
-            <Text style={[styles.tooltipName, isDark && styles.textLight]} numberOfLines={1}>
+            <Text style={styles.tooltipName} numberOfLines={1}>
               {selectedPoint.activityName}
             </Text>
             {(selectedPoint.lapCount ?? 0) > 1 && (
@@ -177,17 +193,15 @@ export function PerformanceTooltip({
             )}
           </View>
           <View style={styles.tooltipMeta}>
-            <Text style={[styles.tooltipDate, isDark && styles.textSecondary]}>
-              {formatShortDateWithYear(selectedPoint.date)}
-            </Text>
-            {selectedPoint.sectionTime != null && (
-              <Text style={[styles.tooltipDate, isDark && styles.textSecondary]}>
+            <Text style={styles.tooltipDate}>{formatShortDateWithYear(selectedPoint.date)}</Text>
+            {basis !== 'time' && selectedPoint.sectionTime != null && (
+              <Text style={styles.tooltipDate}>
                 {' \u00b7 '}
                 {formatDuration(selectedPoint.sectionTime)}
               </Text>
             )}
             {power && (
-              <Text style={[styles.tooltipDate, isDark && styles.textSecondary]}>
+              <Text style={styles.tooltipDate}>
                 {' \u00b7 '}
                 {power}
               </Text>
@@ -218,6 +232,7 @@ export function PerformanceTooltip({
         </View>
         <View style={styles.tooltipRight}>
           <Text
+            testID="performance-tooltip-value"
             style={[
               styles.tooltipSpeed,
               {
@@ -226,173 +241,127 @@ export function PerformanceTooltip({
               },
             ]}
           >
-            {formatSpeedValue(selectedPoint.speed)}
+            {formatAttemptHeadline(basis, selectedPoint.sectionTime, selectedPoint.speed, isMetric)}
           </Text>
           {setReference && (
-            <Pressable
-              onPress={setReference}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              style={pressable(styles.referenceButton)}
-              accessibilityLabel={t('sections.setAsReference')}
-              accessibilityRole="button"
-              android_ripple={pressRipple}
-            >
+            <IconButton onPress={setReference} accessibilityLabel={t('sections.setAsReference')}>
               <MaterialCommunityIcons
                 name={selectedPoint.activityId === referenceActivityId ? 'star' : 'star-outline'}
                 size={18}
                 color={
                   selectedPoint.activityId === referenceActivityId
                     ? colors.primary
-                    : isDark
-                      ? darkColors.textSecondary
-                      : colors.textSecondary
+                    : styles.tooltipDate.color
                 }
               />
-            </Pressable>
+            </IconButton>
           )}
           {include ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('sections.includeActivity')}
-              onPress={include}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={pressable(styles.excludeButton)}
-              android_ripple={pressRipple}
-            >
+            <IconButton accessibilityLabel={t('sections.includeActivity')} onPress={include}>
               <MaterialCommunityIcons name="undo" size={16} color={colors.primary} />
-            </Pressable>
+            </IconButton>
           ) : (
             exclude && (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('sections.excludeActivity')}
-                onPress={exclude}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                style={pressable(styles.excludeButton)}
-                android_ripple={pressRipple}
-              >
+              <IconButton accessibilityLabel={t('sections.excludeActivity')} onPress={exclude}>
                 <MaterialCommunityIcons
                   name="close-circle-outline"
                   size={16}
-                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                  color={styles.tooltipDate.color}
                 />
-              </Pressable>
+              </IconButton>
             )
           )}
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={14}
-            color={isDark ? darkColors.textSecondary : colors.border}
-          />
+          <MaterialCommunityIcons name="chevron-right" size={14} color={styles.tooltipDate.color} />
         </View>
       </Pressable>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  tooltipContainer: {
-    minHeight: 52,
-    paddingHorizontal: spacing.smPlus,
-    paddingBottom: spacing.smPlus,
-  },
-  tooltipPlaceholder: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: 44,
-  },
-  chartHint: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  selectedTooltip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.background,
-    padding: spacing.sm,
-    borderRadius: layout.borderRadiusSm,
-  },
-  selectedTooltipDark: {
-    backgroundColor: darkColors.surfaceElevated,
-  },
-  tooltipLeft: {
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  tooltipNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  tooltipName: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: spacing.xxs,
-    flex: 1,
-  },
-  prTag: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '700',
-    color: colors.chartGoldText,
-    marginRight: spacing.xs,
-  },
-  prTagDark: {
-    color: darkColors.chartGoldText,
-  },
-  lapBadge: {
-    backgroundColor: colors.textSecondary + '20',
-    paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.xxs,
-    borderRadius: layout.borderRadiusXs,
-    marginLeft: spacing.xs,
-  },
-  lapBadgeText: {
-    fontSize: typography.micro.fontSize,
-    fontWeight: '700',
-    color: colors.textSecondary,
-  },
-  tooltipDelta: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
-  },
-  tooltipMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  tooltipDate: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-  },
-  reverseBadge: {
-    padding: spacing.xxs,
-  },
-  tooltipRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xxs,
-  },
-  referenceButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: spacing.xxs,
-  },
-  excludeButton: {
-    padding: spacing.xxs,
-    marginLeft: spacing.xs,
-  },
-  tooltipSpeed: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '700',
-  },
-  textLight: {
-    color: darkColors.textPrimary,
-  },
-  textSecondary: {
-    color: darkColors.textSecondary,
-  },
-});
+const makeStyles = (palette: Palette, isDark: boolean) =>
+  StyleSheet.create({
+    tooltipContainer: {
+      minHeight: 52,
+      paddingHorizontal: spacing.smPlus,
+      paddingBottom: spacing.smPlus,
+    },
+    tooltipPlaceholder: {
+      justifyContent: 'center',
+      alignItems: 'center',
+      height: 44,
+    },
+    chartHint: {
+      fontSize: typography.label.fontSize,
+      color: palette.textSecondary,
+      textAlign: 'center',
+    },
+    selectedTooltip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      // The elevated surface is a role only the dark theme has.
+      backgroundColor: isDark ? darkColors.surfaceElevated : palette.background,
+      padding: spacing.sm,
+      borderRadius: layout.borderRadiusSm,
+    },
+    tooltipLeft: {
+      flex: 1,
+      marginRight: spacing.sm,
+    },
+    tooltipNameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    tooltipName: {
+      fontSize: typography.bodyCompact.fontSize,
+      fontWeight: '600',
+      color: palette.textPrimary,
+      marginBottom: spacing.xxs,
+      flex: 1,
+    },
+    prTag: {
+      fontSize: typography.caption.fontSize,
+      fontWeight: '700',
+      color: palette.chartGoldText,
+      marginRight: spacing.xs,
+    },
+    lapBadge: {
+      backgroundColor: palette.textSecondary + '20',
+      paddingHorizontal: spacing.xs,
+      paddingVertical: spacing.xxs,
+      borderRadius: layout.borderRadiusXs,
+      marginLeft: spacing.xs,
+    },
+    lapBadgeText: {
+      fontSize: typography.micro.fontSize,
+      fontWeight: '700',
+      color: palette.textSecondary,
+    },
+    tooltipDelta: {
+      fontSize: typography.label.fontSize,
+      fontWeight: '600',
+    },
+    tooltipMeta: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    tooltipDate: {
+      fontSize: typography.label.fontSize,
+      color: palette.textSecondary,
+    },
+    reverseBadge: {
+      padding: spacing.xxs,
+    },
+    // The reference and exclude buttons sit side by side. The gap is at least
+    // the hit slop each lends its neighbour, so the two targets never overlap.
+    tooltipRight: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Math.max(spacing.xxs, layout.minTapTarget - controlHeight.button),
+    },
+    tooltipSpeed: {
+      fontSize: typography.bodySmall.fontSize,
+      fontWeight: '700',
+    },
+  });

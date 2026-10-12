@@ -63,8 +63,8 @@ function atRest(remaining: number | null): ElevationBackfillState {
   };
 }
 
-function statusText(): string {
-  const tree = render(<ElevationBackfillStatus />);
+async function statusText(): Promise<string> {
+  const tree = await render(<ElevationBackfillStatus />);
   return tree.getByTestId('elevation-backfill-status').props.children as string;
 }
 
@@ -73,7 +73,7 @@ it('reports a switched off download as stopped even when an earlier pass was fet
   mockRouteMatching.enabled = false;
   mockUseElevationBackfill.mockReturnValue({ ...partialRun(0), phase: 'fetching' });
   try {
-    const tree = render(<ElevationBackfillStatus />);
+    const tree = await render(<ElevationBackfillStatus />);
     expect(tree.getByTestId('elevation-backfill-status').props.children).toBe(
       enAU.settings.elevationBackfillSwitchedOff
     );
@@ -92,21 +92,23 @@ describe('ElevationBackfillStatus retry line', () => {
     await changeLanguage('en-AU');
   });
 
-  it('reads as a singular when one track failed', () => {
+  it('reads as a singular when one track failed', async () => {
     mockUseElevationBackfill.mockReturnValue(partialRun(1));
-    expect(statusText()).toBe("1 activity track couldn't be updated. It'll get another go later.");
+    expect(await statusText()).toBe(
+      "1 activity track couldn't be updated. It'll get another go later."
+    );
   });
 
-  it('reads as a plural when more than one track failed', () => {
+  it('reads as a plural when more than one track failed', async () => {
     mockUseElevationBackfill.mockReturnValue(partialRun(4));
-    expect(statusText()).toBe(
+    expect(await statusText()).toBe(
       "4 activity tracks couldn't be updated. They'll get another go later."
     );
   });
 
-  it('drops the count entirely when nothing failed', () => {
+  it('drops the count entirely when nothing failed', async () => {
     mockUseElevationBackfill.mockReturnValue(partialRun(0));
-    expect(statusText()).toBe(
+    expect(await statusText()).toBe(
       "Some activity tracks still need elevation. They'll get another go later."
     );
   });
@@ -115,7 +117,7 @@ describe('ElevationBackfillStatus retry line', () => {
     mockUseElevationBackfill.mockReturnValue(partialRun(1));
     for (const locale of ['fr', 'de-DE', 'ja', 'pl', 'zh-Hans'] as const) {
       await changeLanguage(locale);
-      const text = statusText();
+      const text = await statusText();
       expect(text).not.toContain('{{');
       expect(text).toContain('1');
     }
@@ -137,7 +139,7 @@ describe('ElevationBackfillStatus explanation', () => {
     await changeLanguage('en-AU');
   });
 
-  it('says what waits on the download while it runs', () => {
+  it('says what waits on the download while it runs', async () => {
     mockUseElevationBackfill.mockReturnValue({
       phase: 'fetching',
       completed: 3,
@@ -145,21 +147,21 @@ describe('ElevationBackfillStatus explanation', () => {
       failed: 0,
       isRunning: true,
     });
-    const tree = render(<ElevationBackfillStatus />);
+    const tree = await render(<ElevationBackfillStatus />);
 
     expect(tree.getByTestId('elevation-backfill-explainer').props.children).toBe(
       'Improved section detection runs once every track has elevation.'
     );
   });
 
-  it('still says it when the run stopped part way, since the wait is not over', () => {
+  it('still says it when the run stopped part way, since the wait is not over', async () => {
     mockUseElevationBackfill.mockReturnValue(partialRun(2));
-    const tree = render(<ElevationBackfillStatus />);
+    const tree = await render(<ElevationBackfillStatus />);
 
     expect(tree.queryByTestId('elevation-backfill-explainer')).not.toBeNull();
   });
 
-  it('drops the line once every track has elevation', () => {
+  it('drops the line once every track has elevation', async () => {
     mockUseElevationBackfill.mockReturnValue({
       phase: 'complete',
       completed: 10,
@@ -167,13 +169,13 @@ describe('ElevationBackfillStatus explanation', () => {
       failed: 0,
       isRunning: false,
     });
-    const tree = render(<ElevationBackfillStatus />);
+    const tree = await render(<ElevationBackfillStatus />);
 
     expect(tree.queryByTestId('elevation-backfill-explainer')).toBeNull();
     expect(tree.queryByTestId('elevation-backfill-why')).not.toBeNull();
   });
 
-  it('shows nothing at all while the phase is idle', () => {
+  it('shows nothing at all while the phase is idle', async () => {
     mockUseElevationBackfill.mockReturnValue({
       phase: 'idle',
       completed: 0,
@@ -181,19 +183,19 @@ describe('ElevationBackfillStatus explanation', () => {
       failed: 0,
       isRunning: false,
     });
-    const tree = render(<ElevationBackfillStatus />);
+    const tree = await render(<ElevationBackfillStatus />);
 
     expect(tree.queryByTestId('elevation-backfill-why')).toBeNull();
     expect(tree.queryByTestId('elevation-backfill-explainer')).toBeNull();
   });
 
-  it('opens the Why explanation as a platform alert from the control', () => {
+  it('opens the Why explanation as a platform alert from the control', async () => {
     mockUseElevationBackfill.mockReturnValue(partialRun(0));
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
-    const tree = render(<ElevationBackfillStatus />);
+    const tree = await render(<ElevationBackfillStatus />);
 
     expect(alertSpy).not.toHaveBeenCalled();
-    fireEvent.press(tree.getByTestId('elevation-backfill-why'));
+    await fireEvent.press(tree.getByTestId('elevation-backfill-why'));
 
     expect(alertSpy).toHaveBeenCalledTimes(1);
     const [title, body] = alertSpy.mock.calls[0];
@@ -209,8 +211,8 @@ describe('ElevationBackfillStatus explanation', () => {
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     for (const locale of ['fr', 'de-DE', 'ja', 'pl', 'zh-Hans'] as const) {
       await changeLanguage(locale);
-      const tree = render(<ElevationBackfillStatus />);
-      fireEvent.press(tree.getByTestId('elevation-backfill-why'));
+      const tree = await render(<ElevationBackfillStatus />);
+      await fireEvent.press(tree.getByTestId('elevation-backfill-why'));
 
       const explainer = tree.getByTestId('elevation-backfill-explainer').props.children as string;
       const body = alertSpy.mock.calls[alertSpy.mock.calls.length - 1][1] as string;
@@ -236,29 +238,29 @@ describe('ElevationBackfillStatus at rest', () => {
     await changeLanguage('en-AU');
   });
 
-  it('names what is still outstanding', () => {
+  it('names what is still outstanding', async () => {
     mockUseElevationBackfill.mockReturnValue(atRest(12));
-    expect(statusText()).toBe('12 activity tracks still need elevation.');
+    expect(await statusText()).toBe('12 activity tracks still need elevation.');
   });
 
-  it('reads as a singular for one track', () => {
+  it('reads as a singular for one track', async () => {
     mockUseElevationBackfill.mockReturnValue(atRest(1));
-    expect(statusText()).toBe('1 activity track still needs elevation.');
+    expect(await statusText()).toBe('1 activity track still needs elevation.');
   });
 
-  it('says nothing when nothing is outstanding', () => {
+  it('says nothing when nothing is outstanding', async () => {
     mockUseElevationBackfill.mockReturnValue(atRest(0));
-    const tree = render(<ElevationBackfillStatus />);
+    const tree = await render(<ElevationBackfillStatus />);
     expect(tree.queryByTestId('elevation-backfill-status')).toBeNull();
   });
 
-  it('says nothing rather than zero when the engine could not answer', () => {
+  it('says nothing rather than zero when the engine could not answer', async () => {
     mockUseElevationBackfill.mockReturnValue(atRest(null));
-    const tree = render(<ElevationBackfillStatus />);
+    const tree = await render(<ElevationBackfillStatus />);
     expect(tree.queryByTestId('elevation-backfill-status')).toBeNull();
   });
 
-  it('leaves a live pass reporting its own progress', () => {
+  it('leaves a live pass reporting its own progress', async () => {
     mockUseElevationBackfill.mockReturnValue({
       phase: 'fetching',
       completed: 3,
@@ -267,7 +269,7 @@ describe('ElevationBackfillStatus at rest', () => {
       remaining: null,
       isRunning: true,
     });
-    const tree = render(<ElevationBackfillStatus />);
+    const tree = await render(<ElevationBackfillStatus />);
     expect(tree.getByText('3 of 20 activities')).toBeTruthy();
   });
 });
@@ -312,25 +314,25 @@ describe('ElevationBackfillStatus pause', () => {
     };
   }
 
-  it('offers a pause while the download runs, and it reaches the engine', () => {
+  it('offers a pause while the download runs, and it reaches the engine', async () => {
     mockUseElevationBackfill.mockReturnValue(running());
-    const tree = render(<ElevationBackfillStatus />);
+    const tree = await render(<ElevationBackfillStatus />);
 
-    fireEvent.press(tree.getByTestId('elevation-backfill-pause'));
+    await fireEvent.press(tree.getByTestId('elevation-backfill-pause'));
 
     expect(mockPauseElevationBackfill).toHaveBeenCalledTimes(1);
   });
 
-  it('offers a pause at rest with work outstanding, since the next pass is armed', () => {
+  it('offers a pause at rest with work outstanding, since the next pass is armed', async () => {
     mockUseElevationBackfill.mockReturnValue(atRest(12));
-    const tree = render(<ElevationBackfillStatus />);
+    const tree = await render(<ElevationBackfillStatus />);
 
     expect(tree.queryByTestId('elevation-backfill-pause')).not.toBeNull();
   });
 
-  it('says the download is paused and names the switch needed to continue', () => {
+  it('says the download is paused and names the switch needed to continue', async () => {
     mockUseElevationBackfill.mockReturnValue(paused());
-    const tree = render(<ElevationBackfillStatus />);
+    const tree = await render(<ElevationBackfillStatus />);
 
     const text = tree.getByTestId('elevation-backfill-status').props.children as string;
     expect(text).toContain('paused');
@@ -344,32 +346,32 @@ describe('ElevationBackfillStatus pause', () => {
    * The pause was process-local with only a force-quit to clear it, and
    * detection is held behind this queue, so a paused install had no way back.
    */
-  it('offers a resume once paused, and it reaches the engine', () => {
+  it('offers a resume once paused, and it reaches the engine', async () => {
     mockUseElevationBackfill.mockReturnValue(paused());
-    const tree = render(<ElevationBackfillStatus />);
+    const tree = await render(<ElevationBackfillStatus />);
 
-    fireEvent.press(tree.getByTestId('elevation-backfill-resume'));
+    await fireEvent.press(tree.getByTestId('elevation-backfill-resume'));
 
     expect(mockResumeElevationBackfill).toHaveBeenCalledTimes(1);
     expect(mockPauseElevationBackfill).not.toHaveBeenCalled();
   });
 
-  it('offers a resume even where the phase has moved off paused', () => {
+  it('offers a resume even where the phase has moved off paused', async () => {
     mockUseElevationBackfill.mockReturnValue({ ...atRest(12), isPaused: true });
-    const tree = render(<ElevationBackfillStatus />);
+    const tree = await render(<ElevationBackfillStatus />);
 
     expect(tree.queryByTestId('elevation-backfill-resume')).not.toBeNull();
     expect(tree.queryByTestId('elevation-backfill-pause')).toBeNull();
   });
 
-  it('offers no resume while nothing is paused', () => {
+  it('offers no resume while nothing is paused', async () => {
     mockUseElevationBackfill.mockReturnValue(running());
-    const tree = render(<ElevationBackfillStatus />);
+    const tree = await render(<ElevationBackfillStatus />);
 
     expect(tree.queryByTestId('elevation-backfill-resume')).toBeNull();
   });
 
-  it('offers no pause once every track has elevation', () => {
+  it('offers no pause once every track has elevation', async () => {
     mockUseElevationBackfill.mockReturnValue({
       phase: 'complete',
       completed: 10,
@@ -379,7 +381,7 @@ describe('ElevationBackfillStatus pause', () => {
       isRunning: false,
       isPaused: false,
     });
-    const tree = render(<ElevationBackfillStatus />);
+    const tree = await render(<ElevationBackfillStatus />);
 
     expect(tree.queryByTestId('elevation-backfill-pause')).toBeNull();
   });
@@ -388,7 +390,7 @@ describe('ElevationBackfillStatus pause', () => {
     mockUseElevationBackfill.mockReturnValue(paused());
     for (const locale of ['fr', 'de-DE', 'ja', 'pl', 'zh-Hans'] as const) {
       await changeLanguage(locale);
-      const text = statusText();
+      const text = await statusText();
       expect(text).not.toContain('{{');
       expect(text.length).toBeGreaterThan(0);
     }

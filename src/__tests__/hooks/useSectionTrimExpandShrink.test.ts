@@ -36,7 +36,7 @@ const section = {
   representativeActivityId: 'rep',
 } as unknown as FrequentSection;
 
-function expandedHook(target: FrequentSection = section) {
+async function expandedHook(target: FrequentSection = section) {
   const engine = {
     getSectionExtensionTrack: jest.fn(() => ({
       encodedTrack: encodeTrack(track),
@@ -46,9 +46,9 @@ function expandedHook(target: FrequentSection = section) {
     runSectionBoundsEdit: jest.fn(() => Promise.resolve([])),
   };
   (getEngine as jest.Mock).mockReturnValue(engine);
-  const hook = renderHook(() => useSectionTrim(target, jest.fn(), true));
-  act(() => hook.result.current.startTrim());
-  act(() => hook.result.current.toggleExpand());
+  const hook = await renderHook(() => useSectionTrim(target, jest.fn(), true));
+  await act(() => hook.result.current.startTrim());
+  await act(() => hook.result.current.toggleExpand());
   return { hook, engine };
 }
 
@@ -59,13 +59,13 @@ describe('useSectionTrim shrink in expand mode', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it('sends track indices on the representative activity when both handles move in', async () => {
-    const { hook, engine } = expandedHook();
+    const { hook, engine } = await expandedHook();
     const inWindowStart = hook.result.current.sectionStartInWindow!;
     const inWindowEnd = hook.result.current.sectionEndInWindow!;
     expect(inWindowEnd - inWindowStart).toBe(TRACK_END - TRACK_START);
 
-    act(() => hook.result.current.setTrimStart(inWindowStart + 10));
-    act(() => hook.result.current.setTrimEnd(inWindowEnd - 10));
+    await act(() => hook.result.current.setTrimStart(inWindowStart + 10));
+    await act(() => hook.result.current.setTrimEnd(inWindowEnd - 10));
     await act(() => hook.result.current.confirmTrim());
 
     expect(engine.runSectionBoundsEdit).toHaveBeenCalledWith({
@@ -79,10 +79,10 @@ describe('useSectionTrim shrink in expand mode', () => {
   });
 
   it('sends track indices when only the end handle moves in', async () => {
-    const { hook, engine } = expandedHook();
+    const { hook, engine } = await expandedHook();
     const inWindowEnd = hook.result.current.sectionEndInWindow!;
 
-    act(() => hook.result.current.setTrimEnd(inWindowEnd - 9));
+    await act(() => hook.result.current.setTrimEnd(inWindowEnd - 9));
     await act(() => hook.result.current.confirmTrim());
 
     expect(engine.runSectionBoundsEdit).toHaveBeenCalledWith({
@@ -96,10 +96,10 @@ describe('useSectionTrim shrink in expand mode', () => {
 
   it('refuses the shrink and sends nothing when the section has no representative', async () => {
     const unowned = { ...section, representativeActivityId: undefined } as FrequentSection;
-    const { hook, engine } = expandedHook(unowned);
+    const { hook, engine } = await expandedHook(unowned);
     const inWindowStart = hook.result.current.sectionStartInWindow!;
 
-    act(() => hook.result.current.setTrimStart(inWindowStart + 10));
+    await act(() => hook.result.current.setTrimStart(inWindowStart + 10));
     await act(() => hook.result.current.confirmTrim());
 
     expect(engine.runSectionBoundsEdit).not.toHaveBeenCalled();

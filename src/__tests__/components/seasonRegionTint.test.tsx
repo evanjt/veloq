@@ -31,7 +31,7 @@ it('draws the season summary with a visible dark region tint', async () => {
   } as unknown as ReturnType<typeof getEngine>);
   const built = capturePans();
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const view = render(
+  const view = await render(
     <QueryClientProvider client={client}>
       <SeasonComparison />
     </QueryClientProvider>
@@ -47,8 +47,8 @@ it('draws the season summary with a visible dark region tint', async () => {
   });
 
   const chart = view.UNSAFE_getAllByType(View).find((node) => node.props.onLayout);
-  act(() => {
-    fireEvent(chart!, 'layout', { nativeEvent: { layout: { width: 360, height: 200 } } });
+  await act(async () => {
+    await fireEvent(chart!, 'layout', { nativeEvent: { layout: { width: 360, height: 200 } } });
   });
   await holdAndScrub(longPressPan(built), 10);
   const selected = screen
@@ -57,6 +57,6 @@ it('draws the season summary with a visible dark region tint', async () => {
   expect(StyleSheet.flatten(selected?.props.style)?.backgroundColor).toBe(
     darkColors.regionTintActive
   );
-  view.unmount();
+  await view.unmount();
   client.clear();
 });

@@ -38,10 +38,10 @@ const DAYS: WellnessData[] = Array.from({ length: 30 }, (_, i) => ({
   weight: 72 + (i % 3) * 0.2,
 }));
 
-function layout(tree: ReturnType<typeof render>, width = 360) {
+async function layout(tree: Awaited<ReturnType<typeof render>>, width = 360) {
   const container = tree.UNSAFE_getAllByType(View).find((node) => node.props.onLayout);
-  act(() => {
-    fireEvent(container!, 'layout', { nativeEvent: { layout: { width, height: 300 } } });
+  await act(async () => {
+    await fireEvent(container!, 'layout', { nativeEvent: { layout: { width, height: 300 } } });
   });
 }
 
@@ -57,8 +57,8 @@ describe('wellness trends scrub', () => {
 
   it('fires one light impact when the hold completes', async () => {
     const built = capturePans();
-    const tree = render(<WellnessTrendsChart data={DAYS} timeRange="1m" />);
-    layout(tree);
+    const tree = await render(<WellnessTrendsChart data={DAYS} timeRange="1m" />);
+    await layout(tree);
 
     await holdAndScrub(longPressPan(built), 300);
 
@@ -68,8 +68,8 @@ describe('wellness trends scrub', () => {
 
   it('fires no impact for a touch released before the hold completes', async () => {
     const built = capturePans();
-    const tree = render(<WellnessTrendsChart data={DAYS} timeRange="1m" />);
-    layout(tree);
+    const tree = await render(<WellnessTrendsChart data={DAYS} timeRange="1m" />);
+    await layout(tree);
 
     await pressAndLift(longPressPan(built), 300, 50);
 
@@ -79,10 +79,10 @@ describe('wellness trends scrub', () => {
   it('reports the scrubbed date at the first and last day and clears it on release', async () => {
     const built = capturePans();
     const onDateSelect = jest.fn();
-    const tree = render(
+    const tree = await render(
       <WellnessTrendsChart data={DAYS} timeRange="1m" onDateSelect={onDateSelect} />
     );
-    layout(tree);
+    await layout(tree);
 
     const pan = longPressPan(built);
     await holdAndScrub(pan, 300);
@@ -98,11 +98,11 @@ describe('wellness trends scrub', () => {
   it('snaps to the day under the finger after the chart is resized', async () => {
     const built = capturePans();
     const onDateSelect = jest.fn();
-    const tree = render(
+    const tree = await render(
       <WellnessTrendsChart data={DAYS} timeRange="1m" onDateSelect={onDateSelect} />
     );
-    layout(tree, 360);
-    layout(tree, 560);
+    await layout(tree, 360);
+    await layout(tree, 560);
 
     // 360 wide puts day 30 near x=300; at 560 that x is only about two-thirds across.
     await holdAndScrub(longPressPan(built), 300);

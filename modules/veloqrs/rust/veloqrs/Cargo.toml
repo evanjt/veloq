@@ -44,7 +44,7 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls", "multipart", "st
 tokio = { version = "1", features = ["rt-multi-thread", "sync", "fs"] }
 tokio-util = { version = "0.7", features = ["io"] }
 futures = "0.3"
-base64 = "0.22"
+base64 = "0.23"
 
 # Error handling
 thiserror = "2"
@@ -227,6 +227,12 @@ path = "tests/page_split_memory.rs"
 name = "geojson_feature"
 path = "tests/geojson_feature.rs"
 
+# Standalone: installs a counting global allocator to read what a detect spawn allocates on the asking thread.
+[[test]]
+name = "detection_spawn_allocations"
+path = "tests/detection_spawn_allocations.rs"
+required-features = ["synthetic"]
+
 # Area: heatmap tiles and their scheme handler.
 [[test]]
 name = "heatmap"
@@ -344,6 +350,10 @@ harness = false
 
 [[bench]]
 name = "routes_screen_read_cost"
+harness = false
+
+[[bench]]
+name = "route_representative_cost"
 harness = false
 
 [[bench]]

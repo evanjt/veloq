@@ -16,21 +16,22 @@ jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
   default: () => mockDimensions(),
 }));
 
-function largeTextAt(fontScale: number): boolean {
+async function largeTextAt(fontScale: number): Promise<boolean> {
   mockDimensions.mockReturnValue({ width: 400, height: 800, scale: 3, fontScale });
-  return renderHook(() => useLargeText()).result.current;
+  const { result } = await renderHook(() => useLargeText());
+  return result.current;
 }
 
 describe('useLargeText', () => {
-  it('is false at the default size and at the cap', () => {
-    expect(largeTextAt(1)).toBe(false);
-    expect(largeTextAt(DENSE_TEXT_SCALE)).toBe(false);
-    expect(largeTextAt(1.3)).toBe(false);
+  it('is false at the default size and at the cap', async () => {
+    expect(await largeTextAt(1)).toBe(false);
+    expect(await largeTextAt(DENSE_TEXT_SCALE)).toBe(false);
+    expect(await largeTextAt(1.3)).toBe(false);
   });
 
-  it('is true just past the cap and at the largest sizes', () => {
-    expect(largeTextAt(1.31)).toBe(true);
-    expect(largeTextAt(2)).toBe(true);
-    expect(largeTextAt(3.57)).toBe(true);
+  it('is true just past the cap and at the largest sizes', async () => {
+    expect(await largeTextAt(1.31)).toBe(true);
+    expect(await largeTextAt(2)).toBe(true);
+    expect(await largeTextAt(3.57)).toBe(true);
   });
 });

@@ -6,9 +6,12 @@
  */
 
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { render } from '@testing-library/react-native';
 
 import { HRZonesChart } from '@/features/activity/components/HRZonesChart';
+import { typography } from '@/theme';
+import { MaxHrSource } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
@@ -30,8 +33,8 @@ const bands = [
   { zone: 5, minBpm: 185, maxBpm: 200, seconds: 0, percent: 0 },
 ];
 
-it('renders the engine bands and times as given, with no sport settings read', () => {
-  const { getByText, queryByText } = render(
+it('renders the engine bands and times as given, with no sport settings read', async () => {
+  const { getByText, queryByText } = await render(
     <HRZonesChart hrZones={bands} maxHR={200} movingTime={120} />
   );
 
@@ -45,20 +48,37 @@ it('renders the engine bands and times as given, with no sport settings read', (
   expect(mockUseSportSettings).not.toHaveBeenCalled();
 });
 
-it('shows the placeholder when the engine has no zone time', () => {
-  const { getByText } = render(<HRZonesChart hrZones={[]} maxHR={200} movingTime={120} />);
+it('shows the placeholder when the engine has no zone time', async () => {
+  const { getByText } = await render(<HRZonesChart hrZones={[]} maxHR={200} movingTime={120} />);
   expect(getByText('activity.noHeartRateData')).toBeTruthy();
 });
 
-it('shows zone time with heart rate beside a different moving time', () => {
+it('shows zone time with heart rate beside a different moving time', async () => {
   const differingBands = [
     { ...bands[0], seconds: 3000 },
     { ...bands[1], seconds: 985 },
   ];
-  const { getByText } = render(
+  const { getByText } = await render(
     <HRZonesChart hrZones={differingBands} maxHR={200} movingTime={4090} />
   );
 
   expect(getByText('activity.hrZoneTotal:{"duration":"1:06:25"}')).toBeTruthy();
   expect(getByText('activity.movingTime:{"duration":"1:08:10"}')).toBeTruthy();
+});
+
+it('titles the card as a header in the card title role, with the max HR beside it', () => {
+  const { getByRole, getByText } = render(
+    <HRZonesChart
+      hrZones={bands}
+      maxHR={200}
+      maxHrSource={MaxHrSource.SportSettings}
+      movingTime={120}
+    />
+  );
+
+  const title = getByRole('header', { name: 'activity.timeInHRZones' });
+  const style = StyleSheet.flatten(title.props.style);
+  expect(style.fontSize).toBe(typography.cardTitle.fontSize);
+  expect(style.fontWeight).toBe(typography.cardTitle.fontWeight);
+  expect(getByText('activity.zoneMaxFromSettings:{"value":200}')).toBeTruthy();
 });

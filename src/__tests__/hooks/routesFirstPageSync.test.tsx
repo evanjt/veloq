@@ -70,11 +70,11 @@ function section(overrides: Partial<Section> = {}): Section {
 beforeEach(() => jest.clearAllMocks());
 
 describe('the routes page', () => {
-  it('is there on the first render, with no interaction to wait for', () => {
+  it('is there on the first render, with no interaction to wait for', async () => {
     const stub = engine();
     mockedGetEngine.mockReturnValue(stub);
 
-    const { result } = renderHook(() => useRoutesScreenData());
+    const { result } = await renderHook(() => useRoutesScreenData());
 
     expect(result.current.data).not.toBeNull();
     expect(
@@ -84,40 +84,40 @@ describe('the routes page', () => {
 });
 
 describe('a section row', () => {
-  it('draws the polyline its page carries and reads nothing itself', () => {
+  it('draws the polyline its page carries and reads nothing itself', async () => {
     const stub = engine();
     mockedGetEngine.mockReturnValue(stub);
 
-    render(<SectionRow section={section()} />);
+    await render(<SectionRow section={section()} />);
 
     expect(mockedGetEngine).not.toHaveBeenCalled();
   });
 
-  it('reads nothing for a row whose page carried no polyline either', () => {
+  it('reads nothing for a row whose page carried no polyline either', async () => {
     const stub = engine();
     mockedGetEngine.mockReturnValue(stub);
 
-    render(<SectionRow section={section({ polyline: [] })} />);
+    await render(<SectionRow section={section({ polyline: [] })} />);
 
     expect(mockedGetEngine).not.toHaveBeenCalled();
   });
 });
 
 describe('the sections hook', () => {
-  it('reads nothing from the engine when the page has not landed', () => {
+  it('reads nothing from the engine when the page has not landed', async () => {
     mockedGetEngine.mockReturnValue(engine());
 
-    const { result } = renderHook(() => useSections({ preloadedEngineSections: undefined }));
+    const { result } = await renderHook(() => useSections({ preloadedEngineSections: undefined }));
 
     expect(mockedGetEngine).not.toHaveBeenCalled();
     expect(result.current.sections).toEqual([]);
   });
 
-  it('takes the engine rows from the page and reads nothing of its own', () => {
+  it('takes the engine rows from the page and reads nothing of its own', async () => {
     mockedGetEngine.mockReturnValue(engine());
     const row = { id: 'sec-7', name: 'Col de la Page', sportTypes: ['Ride'] } as FrequentSection;
 
-    const { result } = renderHook(() => useSections({ preloadedEngineSections: [row] }));
+    const { result } = await renderHook(() => useSections({ preloadedEngineSections: [row] }));
 
     expect(mockedGetEngine).not.toHaveBeenCalled();
     expect(result.current.sections.map((s) => s.id)).toEqual(['sec-7']);
@@ -130,20 +130,20 @@ describe('a failed routes page read', () => {
       throw new Error('database is locked');
     });
 
-  it('is an error state with no data, not an empty page', () => {
+  it('is an error state with no data, not an empty page', async () => {
     mockedGetEngine.mockReturnValue(engine({ getRoutesScreenData: failing() }));
 
-    const { result } = renderHook(() => useRoutesScreenData());
+    const { result } = await renderHook(() => useRoutesScreenData());
 
     expect(result.current.data).toBeNull();
     expect(result.current.error?.message).toBe('database is locked');
     expect(result.current.status).toBe('error');
   });
 
-  it('is loaded with no error when the read succeeds', () => {
+  it('is loaded with no error when the read succeeds', async () => {
     mockedGetEngine.mockReturnValue(engine());
 
-    const { result } = renderHook(() => useRoutesScreenData());
+    const { result } = await renderHook(() => useRoutesScreenData());
 
     expect(result.current.status).toBe('loaded');
     expect(result.current.error).toBeNull();
@@ -158,7 +158,7 @@ describe('a failed routes page read', () => {
       .mockImplementation(() => PAGE);
     mockedGetEngine.mockReturnValue(engine({ getRoutesScreenData: read }));
 
-    const { result } = renderHook(() => useRoutesScreenData());
+    const { result } = await renderHook(() => useRoutesScreenData());
     expect(result.current.status).toBe('error');
 
     await act(async () => {
@@ -179,7 +179,7 @@ describe('a failed routes page read', () => {
       });
     mockedGetEngine.mockReturnValue(engine({ getRoutesScreenData: read }));
 
-    const { result } = renderHook(() => useRoutesScreenData());
+    const { result } = await renderHook(() => useRoutesScreenData());
     expect(result.current.status).toBe('loaded');
 
     await act(async () => {

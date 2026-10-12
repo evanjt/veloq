@@ -18,6 +18,7 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
+  Stack: require('../__shared__/nativeHeaderStandIn').Stack,
   useFocusEffect: jest.fn(),
   useLocalSearchParams: () => mockParams.current,
   router: {
@@ -133,19 +134,19 @@ describe('the Insights screen', () => {
     { strength: 'shown', routeMatching: true, debug: true },
     { strength: 'hidden', routeMatching: true, debug: false },
     { strength: 'hidden', routeMatching: false, debug: false },
-  ])('renders the page of each tab at its own index: %o', (flags) => {
+  ])('renders the page of each tab at its own index: %o', async (flags) => {
     Object.assign(mockFlags, flags);
 
-    render(<InsightsScreen />);
+    await render(<InsightsScreen />);
 
     expect(pairs()).toEqual(mockStrip.tabs.map((tab) => [tab.key, tab.key]));
     expect(mockStrip.pages).toHaveLength(mockStrip.tabs.length);
   });
 
-  it('offers no Routes or Sections tab and shows the disabled hint with route matching off', () => {
+  it('offers no Routes or Sections tab and shows the disabled hint with route matching off', async () => {
     Object.assign(mockFlags, { strength: 'shown', routeMatching: false, debug: true });
 
-    render(<InsightsScreen />);
+    await render(<InsightsScreen />);
 
     const keys = mockStrip.tabs.map((tab) => tab.key);
     expect(keys).not.toContain('routes');
@@ -153,10 +154,10 @@ describe('the Insights screen', () => {
     expect(screen.getByText('insights.routesDisabledLine1')).toBeTruthy();
   });
 
-  it('offers the Routes and Sections tabs and no disabled hint with route matching on', () => {
+  it('offers the Routes and Sections tabs and no disabled hint with route matching on', async () => {
     Object.assign(mockFlags, { strength: 'hidden', routeMatching: true, debug: false });
 
-    render(<InsightsScreen />);
+    await render(<InsightsScreen />);
 
     const keys = mockStrip.tabs.map((tab) => tab.key);
     expect(keys).toContain('routes');
@@ -164,50 +165,50 @@ describe('the Insights screen', () => {
     expect(screen.queryByText('insights.routesDisabledLine1')).toBeNull();
   });
 
-  it('says in its header that it is beta', () => {
+  it('says in its header that it is beta', async () => {
     Object.assign(mockFlags, { strength: 'hidden', routeMatching: true, debug: false });
 
-    render(<InsightsScreen />);
+    await render(<InsightsScreen />);
 
     expect(screen.getByTestId('insights-beta-marker')).toBeTruthy();
     expect(screen.getByText('insights.beta')).toBeTruthy();
   });
 
-  it('names the control that explains the screen', () => {
+  it('names the control that explains the screen', async () => {
     Object.assign(mockFlags, { strength: 'hidden', routeMatching: true, debug: false });
 
-    render(<InsightsScreen />);
+    await render(<InsightsScreen />);
 
     expect(screen.getByRole('button', { name: 'insights.aboutTitle' })).toBeTruthy();
   });
 
-  it('leaves a failed engine start to the global banner and shows none of its own', () => {
+  it('leaves a failed engine start to the global banner and shows none of its own', async () => {
     Object.assign(mockFlags, { strength: 'hidden', routeMatching: true, debug: false });
     mockEngine.initFailed = true;
 
-    render(<InsightsScreen />);
+    await render(<InsightsScreen />);
     mockEngine.initFailed = false;
 
     expect(screen.queryByText('engine.initFailed')).toBeNull();
   });
 
-  it('lands on strength again when a second card pushes the same tab after a swipe away', () => {
+  it('lands on strength again when a second card pushes the same tab after a swipe away', async () => {
     Object.assign(mockFlags, { strength: 'shown', routeMatching: false, debug: false });
     mockParams.current = {};
-    const { rerender } = render(<InsightsScreen />);
+    const { rerender } = await render(<InsightsScreen />);
 
-    const push = () => {
+    const push = async () => {
       mockParams.current = { ...mockParams.current, tab: 'strength' };
-      rerender(<InsightsScreen />);
+      await rerender(<InsightsScreen />);
     };
 
-    push();
+    await push();
     expect(mockStrip.activeTab).toBe('strength');
 
-    act(() => mockStrip.onTabChange?.('insights'));
+    await act(() => mockStrip.onTabChange?.('insights'));
     expect(mockStrip.activeTab).toBe('insights');
 
-    push();
+    await push();
     expect(mockStrip.activeTab).toBe('strength');
   });
 });
@@ -223,55 +224,55 @@ describe('a link to the strength tab that names a period', () => {
     Object.assign(mockFlags, { strength: 'shown', routeMatching: false, debug: false });
   });
 
-  it('hands the named period to the strength tab on the first render and clears the param', () => {
+  it('hands the named period to the strength tab on the first render and clears the param', async () => {
     mockParams.current = { tab: 'strength', period: '1m' };
 
-    render(<InsightsScreen />);
+    await render(<InsightsScreen />);
 
     expect(mockStrip.activeTab).toBe('strength');
     expect(linkedPeriod()).toBe('1m');
     expect(mockParams.current.period).toBeUndefined();
   });
 
-  it.each(['bogus', '1y', 'all', ''])('leaves the tab its own period for %p', (period) => {
+  it.each(['bogus', '1y', 'all', ''])('leaves the tab its own period for %p', async (period) => {
     mockParams.current = { tab: 'strength', period };
 
-    render(<InsightsScreen />);
+    await render(<InsightsScreen />);
 
     expect(mockStrip.activeTab).toBe('strength');
     expect(linkedPeriod()).toBeUndefined();
   });
 
-  it('leaves the tab its own period when the link names none', () => {
+  it('leaves the tab its own period when the link names none', async () => {
     mockParams.current = { tab: 'strength' };
 
-    render(<InsightsScreen />);
+    await render(<InsightsScreen />);
 
     expect(linkedPeriod()).toBeUndefined();
   });
 
-  it('moves the mounted tab to the period a second link names', () => {
+  it('moves the mounted tab to the period a second link names', async () => {
     mockParams.current = { tab: 'strength', period: '1m' };
-    const { rerender } = render(<InsightsScreen />);
-    rerender(<InsightsScreen />);
+    const { rerender } = await render(<InsightsScreen />);
+    await rerender(<InsightsScreen />);
     expect(linkedPeriod()).toBe('1m');
 
     mockParams.current = { ...mockParams.current, tab: 'strength', period: '7d' };
-    rerender(<InsightsScreen />);
+    await rerender(<InsightsScreen />);
 
     expect(linkedPeriod()).toBe('7d');
     expect(mockParams.current.period).toBeUndefined();
   });
 
-  it('hands a fresh link when a second link names the same period again', () => {
+  it('hands a fresh link when a second link names the same period again', async () => {
     mockParams.current = { tab: 'strength', period: '1m' };
-    const { rerender } = render(<InsightsScreen />);
-    rerender(<InsightsScreen />);
+    const { rerender } = await render(<InsightsScreen />);
+    await rerender(<InsightsScreen />);
     const page = mockStrip.pages[mockStrip.tabs.findIndex((tab) => tab.key === 'strength')];
     const first = (page.props as { linkedPeriod?: object }).linkedPeriod;
 
     mockParams.current = { ...mockParams.current, period: '1m' };
-    rerender(<InsightsScreen />);
+    await rerender(<InsightsScreen />);
 
     const again = mockStrip.pages[mockStrip.tabs.findIndex((tab) => tab.key === 'strength')];
     const second = (again.props as { linkedPeriod?: object }).linkedPeriod;

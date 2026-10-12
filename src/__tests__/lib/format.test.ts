@@ -26,7 +26,7 @@ import {
   formatPower,
   formatHeartRate,
   formatCalories,
-  formatTSS,
+  formatLoad,
   formatElevation,
   formatTemperature,
   formatSwimPace,
@@ -39,6 +39,8 @@ import {
   getMonday,
   getSunday,
 } from '@/shared/format/format';
+import { ABSENT } from '@/shared/format/absent';
+import { formatWeight } from '@/shared/format/weight';
 
 describe('formatDistance', () => {
   it('shows meters below 1km, kilometers above', () => {
@@ -237,14 +239,14 @@ describe('getMonday / getSunday', () => {
 // Formatters that reject negative numbers (distance/duration/pace/power/etc.
 // can never be negative in the real world).
 describe.each([
-  { name: 'formatDuration', fn: (v: unknown) => formatDuration(v as number), fallback: '0:00' },
-  { name: 'formatDistance', fn: (v: unknown) => formatDistance(v as number), fallback: '0 m' },
+  { name: 'formatDuration', fn: (v: unknown) => formatDuration(v as number), fallback: ABSENT },
+  { name: 'formatDistance', fn: (v: unknown) => formatDistance(v as number), fallback: ABSENT },
   { name: 'formatPace', fn: (v: unknown) => formatPace(v as number, true), fallback: '--:--' },
-  { name: 'formatSpeed', fn: (v: unknown) => formatSpeed(v as number, true), fallback: '0.0 km/h' },
-  { name: 'formatPower', fn: (v: unknown) => formatPower(v as number), fallback: '0 W' },
-  { name: 'formatHeartRate', fn: (v: unknown) => formatHeartRate(v as number), fallback: '0 bpm' },
-  { name: 'formatCalories', fn: (v: unknown) => formatCalories(v as number), fallback: '0 cal' },
-  { name: 'formatTSS', fn: (v: unknown) => formatTSS(v as number), fallback: '0 TSS' },
+  { name: 'formatSpeed', fn: (v: unknown) => formatSpeed(v as number, true), fallback: ABSENT },
+  { name: 'formatPower', fn: (v: unknown) => formatPower(v as number), fallback: ABSENT },
+  { name: 'formatHeartRate', fn: (v: unknown) => formatHeartRate(v as number), fallback: ABSENT },
+  { name: 'formatCalories', fn: (v: unknown) => formatCalories(v as number), fallback: ABSENT },
+  { name: 'formatLoad', fn: (v: unknown) => formatLoad(v as number), fallback: ABSENT },
 ])('$name invalid-input fallback', ({ fn, fallback }) => {
   it.each([NaN, Infinity, -Infinity, -1, null, undefined])('returns %p → fallback', (input) => {
     expect(fn(input)).toBe(fallback);
@@ -257,12 +259,12 @@ describe.each([
   {
     name: 'formatElevation',
     fn: (v: unknown) => formatElevation(v as number | null),
-    fallback: '0 m',
+    fallback: ABSENT,
   },
   {
     name: 'formatTemperature',
     fn: (v: unknown) => formatTemperature(v as number | null),
-    fallback: '--°C',
+    fallback: ABSENT,
   },
 ])('$name invalid-input fallback', ({ fn, fallback }) => {
   it.each([NaN, Infinity, -Infinity, null, undefined])('returns %p → fallback', (input) => {
@@ -285,10 +287,22 @@ describe('zero-input handling', () => {
   });
 });
 
-// Imperial variants: just confirm they also fall back cleanly on invalid input.
+// A value the data does not carry prints the absent mark in either unit
+// system, never a zero it would read as a measurement.
 describe('imperial fallbacks', () => {
-  it('formatDistance(NaN, false) returns 0 ft', () => {
-    expect(formatDistance(NaN, false)).toBe('0 ft');
+  it.each([
+    ['formatDistance', () => formatDistance(NaN, false)],
+    ['formatSpeed', () => formatSpeed(NaN, false)],
+    ['formatElevation', () => formatElevation(null, false)],
+    ['formatTemperature', () => formatTemperature(undefined, false)],
+    ['formatWeight', () => formatWeight(NaN, false)],
+  ])('%s prints the absent mark', (_, fn) => {
+    expect(fn()).toBe(ABSENT);
+  });
+
+  it('formatWeight prints the absent mark for a weight it cannot read', () => {
+    expect(formatWeight(NaN, true)).toBe(ABSENT);
+    expect(formatWeight(Infinity, true)).toBe(ABSENT);
   });
 });
 
@@ -358,7 +372,8 @@ describe('formatDurationDelta', () => {
     [60, '1:00'],
     [65, '1:05'],
     [3725, '1:02:05'],
-    [-5, '0s'],
+    [-5, ABSENT],
+    [NaN, ABSENT],
   ])('%p seconds formats as %p', (input, expected) => {
     expect(formatDurationDelta(input)).toBe(expected);
   });
@@ -422,7 +437,7 @@ describe('NaN/Infinity wall', () => {
     ['formatTemperature (imperial)', (v: number) => formatTemperature(v, false)],
     ['formatHeartRate', (v: number) => formatHeartRate(v)],
     ['formatPower', (v: number) => formatPower(v)],
-    ['formatTSS', (v: number) => formatTSS(v)],
+    ['formatLoad', (v: number) => formatLoad(v)],
     ['formatCalories', (v: number) => formatCalories(v)],
     ['formatFileSize', (v: number) => formatFileSize(v)],
   ])('%s never leaks a banned token for any invalid input', (_name, fn) => {
@@ -469,8 +484,8 @@ describe('extreme finite magnitudes do not leak scientific-notation garbage', ()
   });
 
   it('formatDuration / formatDurationHuman reject an absurdly large duration', () => {
-    expect(formatDuration(HUGE)).toBe('0:00');
-    expect(formatDurationHuman(HUGE)).toBe('0s');
+    expect(formatDuration(HUGE)).toBe(ABSENT);
+    expect(formatDurationHuman(HUGE)).toBe(ABSENT);
   });
 
   it('no formatter emits scientific notation for extreme finite inputs', () => {
@@ -496,9 +511,9 @@ describe('formatDurationCompact', () => {
     [2700, '45m', 'minutes only'],
     [3660, '1h01', 'minutes padded with leading zero'],
     [0, '0m', 'zero'],
-    [-100, '0m', 'negative'],
-    [NaN, '0m', 'NaN'],
-    [Infinity, '0m', 'Infinity'],
+    [-100, ABSENT, 'negative'],
+    [NaN, ABSENT, 'NaN'],
+    [Infinity, ABSENT, 'Infinity'],
   ])('formats %p as %p (%s)', (seconds, expected) => {
     expect(formatDurationCompact(seconds)).toBe(expected);
   });
@@ -551,12 +566,12 @@ describe('formatAxisDate', () => {
 });
 
 describe('formatDateOrDash', () => {
-  it('reads a missing date as a dash', () => {
-    expect(formatDateOrDash(null)).toBe('-');
+  it('reads a missing date as the absent mark', () => {
+    expect(formatDateOrDash(null)).toBe(ABSENT);
   });
 
-  it('reads an empty string as a dash', () => {
-    expect(formatDateOrDash('')).toBe('-');
+  it('reads an empty string as the absent mark', () => {
+    expect(formatDateOrDash('')).toBe(ABSENT);
   });
 
   it('renders a date string the way the full date does', () => {

@@ -3088,6 +3088,56 @@ const FfiConverterTypeFfiSectionTrace = (() => {
 })();
 
 /**
+ * Where an activity's max HR came from.
+ */
+export enum FfiMaxHrSource {
+  /**
+   * The top bound of the activity's own heart rate zones.
+   */
+  ActivityZones,
+  /**
+   * The `max_hr` of the athlete's sport settings for the activity's type.
+   */
+  SportSettings,
+  /**
+   * Neither carries one, so the value is the engine's default.
+   */
+  Default,
+}
+
+const FfiConverterTypeFfiMaxHrSource = (() => {
+  type TypeName = FfiMaxHrSource;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiMaxHrSource.ActivityZones;
+        case 2:
+          return FfiMaxHrSource.SportSettings;
+        case 3:
+          return FfiMaxHrSource.Default;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiMaxHrSource.ActivityZones:
+          return c.writeI32(1);
+        case FfiMaxHrSource.SportSettings:
+          return c.writeI32(2);
+        case FfiMaxHrSource.Default:
+          return c.writeI32(3);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * One heart rate zone of a saved activity.
  */
 export type FfiHrZoneBand = {
@@ -3386,10 +3436,15 @@ export type FfiActivityDetailData = {
   prSectionIds: Array<string>;
   /**
    * The max HR this activity's heart rate is read against: the top of its
-   * own zones, then the sport setting for its type, then the local zones
-   * setting, then 190. The stat card and the zones chart both divide by it.
+   * own zones, then the sport setting for its type, then 190. The stat card
+   * and the zones chart both divide by it.
    */
   maxHr: number;
+  /**
+   * Which of those `max_hr` came from, so a screen can tell the athlete's
+   * own maximum from the default.
+   */
+  maxHrSource: FfiMaxHrSource;
   /**
    * The heart rate zone bands for this activity and the time in each, from
    * the same resolver live recording classifies with. Empty when the
@@ -3450,6 +3505,7 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
           FfiConverterSequenceTypeFfiSectionTrace.readFromCursor(c),
         prSectionIds: FfiConverterSequenceString.readFromCursor(c),
         maxHr: FfiConverterFloat64.readFromCursor(c),
+        maxHrSource: FfiConverterTypeFfiMaxHrSource.readFromCursor(c),
         hrZones: FfiConverterSequenceTypeFfiHrZoneBand.readFromCursor(c),
         powerZones: FfiConverterSequenceTypeFfiPowerZoneBand.readFromCursor(c),
         ledgerChanges:
@@ -3494,6 +3550,7 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
       );
       FfiConverterSequenceString.writeIntoCursor(value.prSectionIds, c);
       FfiConverterFloat64.writeIntoCursor(value.maxHr, c);
+      FfiConverterTypeFfiMaxHrSource.writeIntoCursor(value.maxHrSource, c);
       FfiConverterSequenceTypeFfiHrZoneBand.writeIntoCursor(value.hrZones, c);
       FfiConverterSequenceTypeFfiPowerZoneBand.writeIntoCursor(
         value.powerZones,
@@ -3535,6 +3592,7 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
         ) +
         FfiConverterSequenceString.allocationSize(value.prSectionIds) +
         FfiConverterFloat64.allocationSize(value.maxHr) +
+        FfiConverterTypeFfiMaxHrSource.allocationSize(value.maxHrSource) +
         FfiConverterSequenceTypeFfiHrZoneBand.allocationSize(value.hrZones) +
         FfiConverterSequenceTypeFfiPowerZoneBand.allocationSize(
           value.powerZones,
@@ -7787,8 +7845,8 @@ export type FfiFtpTrend = {
    */
   latestDate?: number;
   /**
-   * eFTP of the newest day on or before 30 days earlier than `latest_date`.
-   * It may equal `latest_ftp`
+   * eFTP of the newest day on or before `lookback_days` earlier than
+   * `latest_date`. It may equal `latest_ftp`
    */
   previousFtp?: number;
   /**
@@ -7808,6 +7866,12 @@ export type FfiFtpTrend = {
    * compare against.
    */
   glyph?: string;
+  /**
+   * The window in days `delta_watts` was measured across, carried so a
+   * caption names the window of the step it shows rather than the range of
+   * the chart it sits on, which can be longer.
+   */
+  lookbackDays: number;
   /**
    * Days carrying an estimate from the one compared against to the newest,
    * inclusive. The insight ranker weighs a claim by what it stands on, and
@@ -7855,6 +7919,7 @@ const FfiConverterTypeFfiFtpTrend = (() => {
         previousDate: FfiConverterOptionalFloat64.readFromCursor(c),
         deltaWatts: FfiConverterOptionalInt32.readFromCursor(c),
         glyph: FfiConverterOptionalString.readFromCursor(c),
+        lookbackDays: FfiConverterUInt32.readFromCursor(c),
         sampleCount: FfiConverterUInt32.readFromCursor(c),
         history: FfiConverterSequenceTypeFfiSeriesPoint.readFromCursor(c),
         changes: FfiConverterSequenceTypeFfiEftpChange.readFromCursor(c),
@@ -7867,6 +7932,7 @@ const FfiConverterTypeFfiFtpTrend = (() => {
       FfiConverterOptionalFloat64.writeIntoCursor(value.previousDate, c);
       FfiConverterOptionalInt32.writeIntoCursor(value.deltaWatts, c);
       FfiConverterOptionalString.writeIntoCursor(value.glyph, c);
+      FfiConverterUInt32.writeIntoCursor(value.lookbackDays, c);
       FfiConverterUInt32.writeIntoCursor(value.sampleCount, c);
       FfiConverterSequenceTypeFfiSeriesPoint.writeIntoCursor(value.history, c);
       FfiConverterSequenceTypeFfiEftpChange.writeIntoCursor(value.changes, c);
@@ -7879,6 +7945,7 @@ const FfiConverterTypeFfiFtpTrend = (() => {
         FfiConverterOptionalFloat64.allocationSize(value.previousDate) +
         FfiConverterOptionalInt32.allocationSize(value.deltaWatts) +
         FfiConverterOptionalString.allocationSize(value.glyph) +
+        FfiConverterUInt32.allocationSize(value.lookbackDays) +
         FfiConverterUInt32.allocationSize(value.sampleCount) +
         FfiConverterSequenceTypeFfiSeriesPoint.allocationSize(value.history) +
         FfiConverterSequenceTypeFfiEftpChange.allocationSize(value.changes)
@@ -15576,10 +15643,15 @@ const FfiConverterTypeFfiSectionRetirement = (() => {
 })();
 
 /**
- * One sport's record on a section when an era ended.
+ * One sport's record in one direction on a section when an era ended.
  */
 export type FfiSectionEraRecord = {
   sport?: string;
+  /**
+   * `same` or `reverse`; absent on a row written before records were held
+   * per direction.
+   */
+  direction?: string;
   /**
    * Seconds.
    */
@@ -15609,16 +15681,19 @@ const FfiConverterTypeFfiSectionEraRecord = (() => {
     readFromCursor(c: Cursor): TypeName {
       return {
         sport: FfiConverterOptionalString.readFromCursor(c),
+        direction: FfiConverterOptionalString.readFromCursor(c),
         time: FfiConverterFloat64.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterOptionalString.writeIntoCursor(value.sport, c);
+      FfiConverterOptionalString.writeIntoCursor(value.direction, c);
       FfiConverterFloat64.writeIntoCursor(value.time, c);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterOptionalString.allocationSize(value.sport) +
+        FfiConverterOptionalString.allocationSize(value.direction) +
         FfiConverterFloat64.allocationSize(value.time)
       );
     }
@@ -15693,16 +15768,23 @@ export type FfiSectionEventDetails = {
    */
   forkAround: Array<string>;
   /**
-   * The era's records, one per sport; a row written before records were
-   * held per sport carries one record and no sport.
+   * The era's records, one per sport and direction; a row written before
+   * records were held per direction carries no direction, and one written
+   * before they were held per sport carries one record and no sport.
    */
   prs: Array<FfiSectionEraRecord>;
   /**
-   * A re-based record's time before and after, within `pr_sport`.
+   * A re-based record's time before and after, within `pr_sport` and
+   * `pr_direction`.
    */
   prFrom?: number;
   prTo?: number;
   prSport?: string;
+  /**
+   * `same` or `reverse`; absent on a row written before records were held
+   * per direction.
+   */
+  prDirection?: string;
   /**
    * The sections a split left behind, in line order.
    */
@@ -15761,6 +15843,7 @@ const FfiConverterTypeFfiSectionEventDetails = (() => {
         prFrom: FfiConverterOptionalFloat64.readFromCursor(c),
         prTo: FfiConverterOptionalFloat64.readFromCursor(c),
         prSport: FfiConverterOptionalString.readFromCursor(c),
+        prDirection: FfiConverterOptionalString.readFromCursor(c),
         siblings: FfiConverterSequenceString.readFromCursor(c),
         version: FfiConverterOptionalFloat64.readFromCursor(c),
         reanchoredFrom: FfiConverterOptionalString.readFromCursor(c),
@@ -15778,6 +15861,7 @@ const FfiConverterTypeFfiSectionEventDetails = (() => {
       FfiConverterOptionalFloat64.writeIntoCursor(value.prFrom, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.prTo, c);
       FfiConverterOptionalString.writeIntoCursor(value.prSport, c);
+      FfiConverterOptionalString.writeIntoCursor(value.prDirection, c);
       FfiConverterSequenceString.writeIntoCursor(value.siblings, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.version, c);
       FfiConverterOptionalString.writeIntoCursor(value.reanchoredFrom, c);
@@ -15801,6 +15885,7 @@ const FfiConverterTypeFfiSectionEventDetails = (() => {
         FfiConverterOptionalFloat64.allocationSize(value.prFrom) +
         FfiConverterOptionalFloat64.allocationSize(value.prTo) +
         FfiConverterOptionalString.allocationSize(value.prSport) +
+        FfiConverterOptionalString.allocationSize(value.prDirection) +
         FfiConverterSequenceString.allocationSize(value.siblings) +
         FfiConverterOptionalFloat64.allocationSize(value.version) +
         FfiConverterOptionalString.allocationSize(value.reanchoredFrom) +
@@ -18531,6 +18616,12 @@ export type FfiSyncStatus = {
    * reflected with no copy to clear. `None` before any clean run.
    */
   lastSuccessAt?: string;
+  /**
+   * When the work the last run left owed is asked for again, as epoch
+   * milliseconds, when it ended on a refusal or a deferral from the
+   * request budget. The engine resumes it itself at this time.
+   */
+  retryAtMs?: number;
 };
 
 /**
@@ -18566,6 +18657,7 @@ const FfiConverterTypeFfiSyncStatus = (() => {
         lastErrorReason:
           FfiConverterOptionalTypeFfiSyncErrorReason.readFromCursor(c),
         lastSuccessAt: FfiConverterOptionalString.readFromCursor(c),
+        retryAtMs: FfiConverterOptionalFloat64.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -18582,6 +18674,7 @@ const FfiConverterTypeFfiSyncStatus = (() => {
         c,
       );
       FfiConverterOptionalString.writeIntoCursor(value.lastSuccessAt, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.retryAtMs, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -18596,7 +18689,8 @@ const FfiConverterTypeFfiSyncStatus = (() => {
         FfiConverterOptionalTypeFfiSyncErrorReason.allocationSize(
           value.lastErrorReason,
         ) +
-        FfiConverterOptionalString.allocationSize(value.lastSuccessAt)
+        FfiConverterOptionalString.allocationSize(value.lastSuccessAt) +
+        FfiConverterOptionalFloat64.allocationSize(value.retryAtMs)
       );
     }
   }
@@ -27425,10 +27519,17 @@ export interface RouteManagerLike {
     asyncOpts_?: { signal: AbortSignal },
   ) /*throws*/ : Promise<Array<LiveRouteOverlap>>;
   setName(routeId: string, name: string) /*throws*/ : void;
+  /**
+   * Choose the route's representative, or with no activity restore the
+   * one grouping chose, off the JS thread. Every member is measured again
+   * against the new representative's full track, which on a well-ridden
+   * route runs past a tap's budget.
+   */
   setRepresentative(
     routeId: string,
     activityId: string | undefined,
-  ) /*throws*/ : void;
+    asyncOpts_?: { signal: AbortSignal },
+  ) /*throws*/ : Promise<void>;
 }
 /**
  * @deprecated Use `RouteManagerLike` instead.
@@ -27786,27 +27887,49 @@ export class RouteManager
     );
   }
 
-  setRepresentative(
+  /**
+   * Choose the route's representative, or with no activity restore the
+   * one grouping chose, off the JS thread. Every member is measured again
+   * against the new representative's full track, which on a well-ridden
+   * route runs past a tap's budget.
+   */
+  async setRepresentative(
     routeId: string,
     activityId: string | undefined,
-  ): void /*throws*/ {
-    uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_set_representative(
-          uniffiTypeRouteManagerObjectFactory.clonePointer(this),
-          FfiConverterString.lower(routeId, nativeModule().rustbuffer_alloc),
-          FfiConverterOptionalString.lower(
-            activityId,
-            nativeModule().rustbuffer_alloc,
-          ),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<void> /*throws*/ {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_set_representative(
+            uniffiTypeRouteManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(routeId, nativeModule().rustbuffer_alloc),
+            FfiConverterOptionalString.lower(
+              activityId,
+              nativeModule().rustbuffer_alloc,
+            ),
+          );
+        },
+        /*pollFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_poll_void,
+        /*cancelFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_cancel_void,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_complete_void,
+        /*freeFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_free_void,
+        /*liftFunc:*/ (_v) => {},
+        /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+        /*asyncOpts:*/ asyncOpts_,
+        /*errorHandler:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
   }
 
   uniffiDestroy(): void {
@@ -31162,8 +31285,11 @@ export interface SyncManagerLike {
    * `force` fetches the athlete profile and its sport settings whatever
    * their age. A foreground passes false and they come at most once in six
    * hours; a pull to refresh and a saved recording pass true.
+   *
+   * Inside a refusal's cooldown it answers `Held` with the time the
+   * cooldown ends, and the engine starts the sync itself at that time.
    */
-  syncNow(force: boolean) /*throws*/ : FfiStartOutcome;
+  syncNow(force: boolean) /*throws*/ : FfiStartResult;
   /**
    * Fetch and store a pace curve. `gap` asks for gradient-adjusted pace and
    * is only honoured for running.
@@ -31501,8 +31627,11 @@ export class SyncManager
    * `force` fetches the athlete profile and its sport settings whatever
    * their age. A foreground passes false and they come at most once in six
    * hours; a pull to refresh and a saved recording pass true.
+   *
+   * Inside a refusal's cooldown it answers `Held` with the time the
+   * cooldown ends, and the engine starts the sync itself at that time.
    */
-  syncNow(force: boolean): FfiStartOutcome /*throws*/ {
+  syncNow(force: boolean): FfiStartResult /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
         FfiConverterTypeVeloqError,
@@ -31517,7 +31646,7 @@ export class SyncManager
       /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
     );
     try {
-      return FfiConverterTypeFfiStartOutcome.lift(__rb);
+      return FfiConverterTypeFfiStartResult.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -35215,7 +35344,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_set_representative() !==
-    43478
+    30373
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_routemanager_set_representative",
@@ -36015,7 +36144,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_now() !==
-    1246
+    40242
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_now",
@@ -36459,6 +36588,7 @@ export default Object.freeze({
     FfiConverterTypeFfiMapSectionLayer,
     FfiConverterTypeFfiMapSignature,
     FfiConverterTypeFfiMatchStrictness,
+    FfiConverterTypeFfiMaxHrSource,
     FfiConverterTypeFfiMergeCandidate,
     FfiConverterTypeFfiMergeDropped,
     FfiConverterTypeFfiMergeOutcome,

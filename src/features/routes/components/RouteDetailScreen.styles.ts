@@ -13,6 +13,10 @@ export const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  readFailure: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+  },
   // Hero section styles
   mapContainer: {
     flex: 1,

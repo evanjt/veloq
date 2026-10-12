@@ -7,7 +7,7 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { StyleSheet, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Path, Rect } from '@shopify/react-native-skia';
@@ -26,11 +26,10 @@ import {
   snapScrubIndex,
   type DeltaFrame,
 } from '@/features/routes/lib/deltaLayout';
+import { useMeasuredWidth } from '@/shared/charts';
 import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import { FfiReferenceSource, type FfiDirectionDeltas } from 'veloqrs';
 
-/** Horizontal room the chart leaves at the window edge, as the scatter does. */
-const CHART_INSET = 32;
 const CHART_HEIGHT = 160;
 const CHART_PADDING = { left: 12, right: 8, top: 12, bottom: 12 } as const;
 const ZERO_LINE_THICKNESS = 1;
@@ -57,8 +56,7 @@ export function SectionDeltaChart({
 }: SectionDeltaChartProps) {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
-  const { width: windowWidth } = useWindowDimensions();
-  const chartWidth = windowWidth - CHART_INSET;
+  const { width: chartWidth, onLayout } = useMeasuredWidth();
   const palette = isDark ? darkColors : colors;
   const [scrubX, setScrubX] = useState<number | null>(null);
 
@@ -101,7 +99,8 @@ export function SectionDeltaChart({
   return (
     <View testID="section-delta-chart" style={[styles.container, isDark && styles.containerDark]}>
       <View
-        style={{ width: chartWidth, height: CHART_HEIGHT }}
+        style={styles.plot}
+        onLayout={onLayout}
         onStartShouldSetResponder={() => true}
         onMoveShouldSetResponder={() => true}
         onResponderGrant={touchX}
@@ -109,66 +108,74 @@ export function SectionDeltaChart({
         onResponderRelease={() => setScrubX(null)}
         onResponderTerminate={() => setScrubX(null)}
       >
-        <Canvas style={StyleSheet.absoluteFill}>
-          <Rect
-            x={plotLeft}
-            y={plot.zeroY}
-            width={plotRight - plotLeft}
-            height={ZERO_LINE_THICKNESS}
-            color={palette.border}
-          />
-          {plot.laps
-            .filter((lap) => !lap.emphasised && lap.path !== '')
-            .map((lap) => (
-              <Path
-                key={`${lap.activityId}-${lap.startIndex}`}
-                path={lap.path}
-                style="stroke"
-                strokeWidth={FAINT_STROKE}
-                color={palette.primary}
-                opacity={FAINT_OPACITY}
+        {chartWidth > 0 && (
+          <>
+            <Canvas style={StyleSheet.absoluteFill}>
+              <Rect
+                x={plotLeft}
+                y={plot.zeroY}
+                width={plotRight - plotLeft}
+                height={ZERO_LINE_THICKNESS}
+                color={palette.border}
               />
-            ))}
-          {plot.laps
-            .filter((lap) => lap.emphasised && lap.path !== '')
-            .map((lap) => (
-              <Path
-                key={`${lap.activityId}-${lap.startIndex}`}
-                path={lap.path}
-                style="stroke"
-                strokeWidth={FULL_STROKE}
-                strokeJoin="round"
-                color={palette.chartGreenMark}
-              />
-            ))}
-          {scrub !== null && (
-            <Rect
-              x={plot.xForDistance(scrub.distanceM)}
-              y={CHART_PADDING.top}
-              width={SCRUB_THICKNESS}
-              height={CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom}
-              color={palette.textSecondary}
-            />
-          )}
-        </Canvas>
-        <View style={styles.yAxisOverlay} pointerEvents="none">
-          <Text
-            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-            style={[styles.axisLabel, isDark && styles.axisLabelDark, { top: CHART_PADDING.top }]}
-          >
-            {`+${formatDurationDelta(plot.extentSecs)}`}
-          </Text>
-          <Text
-            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-            style={[
-              styles.axisLabel,
-              isDark && styles.axisLabelDark,
-              { top: CHART_HEIGHT - CHART_PADDING.bottom - 14 },
-            ]}
-          >
-            {`-${formatDurationDelta(plot.extentSecs)}`}
-          </Text>
-        </View>
+              {plot.laps
+                .filter((lap) => !lap.emphasised && lap.path !== '')
+                .map((lap) => (
+                  <Path
+                    key={`${lap.activityId}-${lap.startIndex}`}
+                    path={lap.path}
+                    style="stroke"
+                    strokeWidth={FAINT_STROKE}
+                    color={palette.primary}
+                    opacity={FAINT_OPACITY}
+                  />
+                ))}
+              {plot.laps
+                .filter((lap) => lap.emphasised && lap.path !== '')
+                .map((lap) => (
+                  <Path
+                    key={`${lap.activityId}-${lap.startIndex}`}
+                    path={lap.path}
+                    style="stroke"
+                    strokeWidth={FULL_STROKE}
+                    strokeJoin="round"
+                    color={palette.chartGreenMark}
+                  />
+                ))}
+              {scrub !== null && (
+                <Rect
+                  x={plot.xForDistance(scrub.distanceM)}
+                  y={CHART_PADDING.top}
+                  width={SCRUB_THICKNESS}
+                  height={CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom}
+                  color={palette.textSecondary}
+                />
+              )}
+            </Canvas>
+            <View style={styles.yAxisOverlay} pointerEvents="none">
+              <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                style={[
+                  styles.axisLabel,
+                  isDark && styles.axisLabelDark,
+                  { top: CHART_PADDING.top },
+                ]}
+              >
+                {`+${formatDurationDelta(plot.extentSecs)}`}
+              </Text>
+              <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                style={[
+                  styles.axisLabel,
+                  isDark && styles.axisLabelDark,
+                  { top: CHART_HEIGHT - CHART_PADDING.bottom - 14 },
+                ]}
+              >
+                {`-${formatDurationDelta(plot.extentSecs)}`}
+              </Text>
+            </View>
+          </>
+        )}
       </View>
       <View style={styles.edgeAxis}>
         <Text
@@ -233,6 +240,9 @@ const styles = StyleSheet.create({
   },
   containerDark: {
     backgroundColor: darkColors.surfaceCard,
+  },
+  plot: {
+    height: CHART_HEIGHT,
   },
   yAxisOverlay: {
     ...StyleSheet.absoluteFill,

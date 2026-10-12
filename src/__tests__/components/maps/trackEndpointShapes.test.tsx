@@ -101,8 +101,8 @@ describe('track thumbnail endpoints', () => {
     { x: 1, y: 1 },
   ];
 
-  it('draws the end with a different shape from the start', () => {
-    const view = render(<TrackPreview points={points} color="#123456" isDark={false} />);
+  it('draws the end with a different shape from the start', async () => {
+    const view = await render(<TrackPreview points={points} color="#123456" isDark={false} />);
     const [start, , finish] = fitTrackToBox(points, 48, 36, 4);
     const discsAt = (p: { x: number; y: number }) =>
       view.UNSAFE_getAllByType(Circle).filter((c) => c.props.cx === p.x && c.props.cy === p.y);
@@ -119,8 +119,8 @@ describe('track thumbnail endpoints', () => {
     expect(discsAt(finish)).toHaveLength(0);
   });
 
-  it('draws nothing for a track too short to have two ends', () => {
-    const view = render(<TrackPreview points={[{ x: 0, y: 0 }]} color="#123456" isDark />);
+  it('draws nothing for a track too short to have two ends', async () => {
+    const view = await render(<TrackPreview points={[{ x: 0, y: 0 }]} color="#123456" isDark />);
     expect(view.toJSON()).toBeNull();
   });
 });

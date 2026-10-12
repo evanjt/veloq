@@ -29,7 +29,7 @@ const activity = (id: string) => ({ activityId: id, sportType: 'Ride' });
 
 async function runToExhaustion() {
   const written: SyncProgress[] = [];
-  const { result } = renderHook(() => useGpsDataFetcher());
+  const { result } = await renderHook(() => useGpsDataFetcher());
 
   const outcome = await result.current.fetchApiGps([activity('a1'), activity('a2')], {
     isMountedRef: { current: true },

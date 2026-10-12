@@ -117,7 +117,7 @@ describe('the cache screen measures the Rust tile store', () => {
 
   it('reads the used figure from the store with no map page to answer', async () => {
     storeHolding(40 * MB, 30 * MB);
-    const view = render(<DataCacheSection />);
+    const view = await render(<DataCacheSection />);
 
     await waitFor(() =>
       expect(view.getByTestId('settings-tile-cache-used').props.children).toBe(
@@ -128,7 +128,7 @@ describe('the cache screen measures the Rust tile store', () => {
 
   it('breaks the store down into vector and ground', async () => {
     storeHolding(40 * MB, 30 * MB);
-    const view = render(<DataCacheSection />);
+    const view = await render(<DataCacheSection />);
 
     await waitFor(() => {
       const legend = view
@@ -142,7 +142,7 @@ describe('the cache screen measures the Rust tile store', () => {
 
   it('counts the store in the map cache total as a complete figure', async () => {
     storeHolding(40 * MB, 30 * MB);
-    const view = render(<DataCacheSection />);
+    const view = await render(<DataCacheSection />);
 
     await waitFor(() =>
       expect(view.getByTestId('settings-map-cache-value').props.children).toBe('41.9 MB')
@@ -151,7 +151,7 @@ describe('the cache screen measures the Rust tile store', () => {
 
   it('says a store that holds nothing holds nothing, not at least nothing', async () => {
     storeHolding(0, 0);
-    const view = render(<DataCacheSection />);
+    const view = await render(<DataCacheSection />);
 
     await waitFor(() =>
       expect(view.getByTestId('settings-tile-cache-used').props.children).toBe(

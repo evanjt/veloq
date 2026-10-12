@@ -72,10 +72,10 @@ const activity = {
   stream_types: ['latlng'],
 } as unknown as Activity;
 
-const spinners = (tree: ReturnType<typeof render>) =>
+const spinners = (tree: Awaited<ReturnType<typeof render>>) =>
   tree.UNSAFE_queryAllByType(ActivityIndicator).length;
 
-const noMapMarks = (tree: ReturnType<typeof render>) =>
+const noMapMarks = (tree: Awaited<ReturnType<typeof render>>) =>
   tree
     .UNSAFE_queryAllByType(MaterialCommunityIcons)
     .filter((i) => i.props.name === 'map-marker-off').length;
@@ -86,43 +86,43 @@ describe('a feed card with no preview, offline', () => {
     mockSnapshotLanded = null;
   });
 
-  it('shows the no-map mark from the first render rather than a spinner', () => {
+  it('shows the no-map mark from the first render rather than a spinner', async () => {
     mockOnline = false;
-    const tree = render(<ActivityMapPreview activity={activity} />);
+    const tree = await render(<ActivityMapPreview activity={activity} />);
 
     expect(spinners(tree)).toBe(0);
     expect(noMapMarks(tree)).toBe(1);
   });
 
-  it('still spins online, where the render is merely pending', () => {
-    const tree = render(<ActivityMapPreview activity={activity} />);
+  it('still spins online, where the render is merely pending', async () => {
+    const tree = await render(<ActivityMapPreview activity={activity} />);
 
     expect(spinners(tree)).toBe(1);
     expect(noMapMarks(tree)).toBe(0);
   });
 
-  it('goes back to the spinner when the network returns', () => {
+  it('goes back to the spinner when the network returns', async () => {
     mockOnline = false;
-    const tree = render(<ActivityMapPreview activity={activity} />);
+    const tree = await render(<ActivityMapPreview activity={activity} />);
     expect(noMapMarks(tree)).toBe(1);
 
     // The component is memoised, and in the app the network reaches it through
     // context, which re-renders past a memo. The mock does not, so the rerender
     // moves a real prop to make the render happen.
     mockOnline = true;
-    act(() => {
-      tree.rerender(<ActivityMapPreview activity={activity} index={1} />);
+    await act(async () => {
+      await tree.rerender(<ActivityMapPreview activity={activity} index={1} />);
     });
 
     expect(spinners(tree)).toBe(1);
     expect(noMapMarks(tree)).toBe(0);
   });
 
-  it('draws the snapshot that lands while offline, rather than the mark', () => {
+  it('draws the snapshot that lands while offline, rather than the mark', async () => {
     mockOnline = false;
-    const tree = render(<ActivityMapPreview activity={activity} />);
+    const tree = await render(<ActivityMapPreview activity={activity} />);
 
-    act(() => {
+    await act(() => {
       mockSnapshotLanded?.('file:///cached.jpg');
     });
 

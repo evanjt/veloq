@@ -1,7 +1,7 @@
 /**
  * Scenario: a heart-rate strap or speed sensor drops out, so the stream carries
  * nulls, an imperial swimmer reads pace per 100 yd, and a run stops at lights.
- * Expected behaviour: the scrub chip reads '-' over a missing sample for every
+ * Expected behaviour: the scrub chip reads the absent mark over a missing sample for every
  * metric, pace included, rather than NaN or a 0:00 pace nobody ran, and swim
  * pace per 100 yd agrees with `formatSwimPace` for the same speed. The idle
  * chip formats as the scrub does, and its pace is the pace of the mean moving
@@ -30,6 +30,7 @@ import {
 } from '@/shared/format/format';
 import { stoppedSpeedMs } from '@/shared/recording';
 import { streamsFromArrays as streamsOf } from '@/features/activity/lib/streams';
+import { ABSENT } from '@/shared/format/absent';
 
 function streamsWithGap() {
   return streamsOf({
@@ -49,10 +50,10 @@ function scrub(id: keyof typeof CHART_CONFIGS, index: number, isMetric = true) {
 
 describe('the scrub chip over a missing sample', () => {
   it.each(['heartrate', 'power', 'cadence', 'speed', 'pace', 'gap'] as const)(
-    'reads - for %s at a null sample',
+    'reads the absent mark for %s at a null sample',
     (id) => {
-      expect(scrub(id, 1)).toBe('-');
-      expect(scrub(id, 1, false)).toBe('-');
+      expect(scrub(id, 1)).toBe(ABSENT);
+      expect(scrub(id, 1, false)).toBe(ABSENT);
     }
   );
 
@@ -69,7 +70,7 @@ describe('the scrub chip over a missing sample', () => {
     expect(Number.isNaN(pace[1])).toBe(true);
   });
 
-  it('reads - over a stop and a crawl, for pace, GAP and swim pace', () => {
+  it('reads the absent mark over a stop and a crawl, for pace, GAP and swim pace', () => {
     const streams = streamsOf({
       velocity_smooth: [3, 3, 0, 0.05],
       gap: [3, 3, 0, 0.05].map((v) => paceMinutesFromSample(v)),
@@ -78,15 +79,15 @@ describe('the scrub chip over a missing sample', () => {
       for (const id of ['pace', 'gap'] as const) {
         const config = CHART_CONFIGS[id];
         const raw = config.getStream?.(streams) ?? [];
-        expect(formatScrubValue(config, raw[2], isMetric)).toBe('-');
-        expect(formatScrubValue(config, raw[3], isMetric)).toBe('-');
-        expect(formatScrubValue(config, raw[0], isMetric)).not.toBe('-');
+        expect(formatScrubValue(config, raw[2], isMetric)).toBe(ABSENT);
+        expect(formatScrubValue(config, raw[3], isMetric)).toBe(ABSENT);
+        expect(formatScrubValue(config, raw[0], isMetric)).not.toBe(ABSENT);
       }
       const swim = chartConfigsFor('Swim').pace;
       const raw = swim.getStream?.(streamsOf({ velocity_smooth: [1, 1, 0, 0.05] })) ?? [];
-      expect(formatScrubValue(swim, raw[2], isMetric)).toBe('-');
-      expect(formatScrubValue(swim, raw[3], isMetric)).toBe('-');
-      expect(formatScrubValue(swim, raw[0], isMetric)).not.toBe('-');
+      expect(formatScrubValue(swim, raw[2], isMetric)).toBe(ABSENT);
+      expect(formatScrubValue(swim, raw[3], isMetric)).toBe(ABSENT);
+      expect(formatScrubValue(swim, raw[0], isMetric)).not.toBe(ABSENT);
     }
   });
 
@@ -98,8 +99,8 @@ describe('the scrub chip over a missing sample', () => {
     const at = 0.5 / 3.6;
     const pace =
       CHART_CONFIGS.pace.getStream?.(streamsOf({ velocity_smooth: [at, at * 0.99] })) ?? [];
-    expect(formatScrubValue(CHART_CONFIGS.pace, pace[0], true)).not.toBe('-');
-    expect(formatScrubValue(CHART_CONFIGS.pace, pace[1], true)).toBe('-');
+    expect(formatScrubValue(CHART_CONFIGS.pace, pace[0], true)).not.toBe(ABSENT);
+    expect(formatScrubValue(CHART_CONFIGS.pace, pace[1], true)).toBe(ABSENT);
   });
 
   it('draws a stopped pace sample as NaN and leaves the speed point finite', () => {
@@ -117,8 +118,8 @@ describe('the scrub chip over a missing sample', () => {
     expect(Number.isFinite(chartData[2].speed)).toBe(true);
   });
 
-  it('reads - for an index past the end of the stream', () => {
-    expect(formatScrubValue(CHART_CONFIGS.heartrate, undefined, true)).toBe('-');
+  it('reads the absent mark for an index past the end of the stream', () => {
+    expect(formatScrubValue(CHART_CONFIGS.heartrate, undefined, true)).toBe(ABSENT);
   });
 });
 
@@ -207,9 +208,9 @@ describe('the idle chip formats as the scrub does', () => {
     const blank = { ...CHART_CONFIGS.heartrate, formatValue: () => '' };
     const configs = { heartrate: blank } as unknown as Record<ChartTypeId, ChartConfig>;
     const chip = idleChip(configs, streamsOf({ heartrate: [150, 150] }), 'heartrate');
-    expect(formatScrubValue(blank, 150, true)).toBe('-');
-    expect(chip?.value).toBe('-');
-    expect(chip?.maxValueWidth).toBe('-');
+    expect(formatScrubValue(blank, 150, true)).toBe(ABSENT);
+    expect(chip?.value).toBe(ABSENT);
+    expect(chip?.maxValueWidth).toBe(ABSENT);
   });
 
   it('keeps the + on elevation gain, converted for an imperial athlete', () => {
@@ -264,7 +265,7 @@ describe('the idle pace chip over a run with stops', () => {
 
   it('reads the absent mark for a pace with no moving sample', () => {
     const chip = idleChip(CHART_CONFIGS, streamsOf({ velocity_smooth: [0, 0.05] }), 'pace');
-    expect(chip?.value).toBe('-');
+    expect(chip?.value).toBe(ABSENT);
   });
 
   it('draws the average line at the moving pace', () => {

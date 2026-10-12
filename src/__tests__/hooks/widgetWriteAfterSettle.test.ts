@@ -85,11 +85,11 @@ const idle: SyncStatus = {
   stepItemsTotal: 0,
 };
 
-function runSync(rerender: (props: undefined) => void): void {
+async function runSync(rerender: (props: undefined) => void): Promise<void> {
   mockStatus = syncing;
-  act(() => rerender(undefined));
+  await act(() => rerender(undefined));
   mockStatus = idle;
-  act(() => rerender(undefined));
+  await act(() => rerender(undefined));
 }
 
 let idleScheduler: IdleScheduler;
@@ -117,64 +117,64 @@ afterEach(() => {
 });
 
 describe('widget refresh after a sync settles', () => {
-  it('reads nothing inside the settle and writes once the thread is idle', () => {
-    const { rerender } = renderHook(() => useEngineSync());
+  it('reads nothing inside the settle and writes once the thread is idle', async () => {
+    const { rerender } = await renderHook(() => useEngineSync());
 
-    runSync(rerender);
+    await runSync(rerender);
 
     expect(mockEngine.getInsightsData).not.toHaveBeenCalled();
     expect(mockEngine.composeWidgetSnapshot).not.toHaveBeenCalled();
     expect(mockWidget.writeSnapshot).not.toHaveBeenCalled();
 
-    act(() => idleScheduler.flush());
+    await act(() => idleScheduler.flush());
 
     expect(mockEngine.getInsightsData).toHaveBeenCalledTimes(1);
     expect(mockWidget.writeSnapshot).toHaveBeenCalledTimes(1);
   });
 
-  it('writes once for two settles inside one idle window', () => {
-    const { rerender } = renderHook(() => useEngineSync());
+  it('writes once for two settles inside one idle window', async () => {
+    const { rerender } = await renderHook(() => useEngineSync());
 
-    runSync(rerender);
-    runSync(rerender);
-    act(() => idleScheduler.flush());
+    await runSync(rerender);
+    await runSync(rerender);
+    await act(() => idleScheduler.flush());
 
     expect(mockEngine.getInsightsData).toHaveBeenCalledTimes(1);
     expect(mockWidget.writeSnapshot).toHaveBeenCalledTimes(1);
   });
 
-  it('writes again for a settle after the first write ran', () => {
-    const { rerender } = renderHook(() => useEngineSync());
+  it('writes again for a settle after the first write ran', async () => {
+    const { rerender } = await renderHook(() => useEngineSync());
 
-    runSync(rerender);
-    act(() => idleScheduler.flush());
-    runSync(rerender);
-    act(() => idleScheduler.flush());
+    await runSync(rerender);
+    await act(() => idleScheduler.flush());
+    await runSync(rerender);
+    await act(() => idleScheduler.flush());
 
     expect(mockEngine.getInsightsData).toHaveBeenCalledTimes(2);
     expect(mockWidget.writeSnapshot).toHaveBeenCalledTimes(2);
   });
 
-  it('still writes when the hook unmounts before the thread idles', () => {
-    const { rerender, unmount } = renderHook(() => useEngineSync());
+  it('still writes when the hook unmounts before the thread idles', async () => {
+    const { rerender, unmount } = await renderHook(() => useEngineSync());
 
-    runSync(rerender);
-    unmount();
-    act(() => idleScheduler.flush());
+    await runSync(rerender);
+    await unmount();
+    await act(() => idleScheduler.flush());
 
     expect(mockWidget.writeSnapshot).toHaveBeenCalledTimes(1);
   });
 
-  it('writes at once on backgrounding, and that write replaces the waiting one', () => {
-    const { rerender } = renderHook(() => useEngineSync());
+  it('writes at once on backgrounding, and that write replaces the waiting one', async () => {
+    const { rerender } = await renderHook(() => useEngineSync());
 
-    runSync(rerender);
+    await runSync(rerender);
     handleAppBackground();
 
     expect(mockEngine.getInsightsData).toHaveBeenCalledTimes(1);
     expect(mockWidget.writeSnapshot).toHaveBeenCalledTimes(1);
 
-    act(() => idleScheduler.flush());
+    await act(() => idleScheduler.flush());
 
     expect(mockEngine.getInsightsData).toHaveBeenCalledTimes(1);
     expect(mockWidget.writeSnapshot).toHaveBeenCalledTimes(1);

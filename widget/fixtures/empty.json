@@ -1,5 +1,10 @@
 {
   "display": {
+    "chartLabels": {
+      "fitness": null,
+      "form": null,
+      "hrv": null
+    },
     "formZone": "Grey Zone",
     "impactLine": null,
     "metricLabels": {
@@ -26,18 +31,21 @@
   "locale": "en-AU",
   "metrics": {
     "fatigue": {
+      "spoken": "Fatigue, no reading",
       "text": "-",
       "trendDir": "flat",
       "value": 0.0,
       "verdict": "flat"
     },
     "fitness": {
+      "spoken": "Fitness, no reading",
       "text": "-",
       "trendDir": "flat",
       "value": 0.0,
       "verdict": "flat"
     },
     "form": {
+      "spoken": "Form, no reading",
       "text": "-",
       "trendDir": "flat",
       "value": 0.0,
@@ -45,6 +53,7 @@
       "zone": "greyZone"
     },
     "hrv": {
+      "spoken": "HRV, no reading",
       "text": "-",
       "trendDir": "flat",
       "value": 0.0,
@@ -54,6 +63,7 @@
       "value": 0.0
     },
     "rhr": {
+      "spoken": "RHR, no reading",
       "text": "-",
       "trendDir": "flat",
       "value": 0.0,
@@ -61,7 +71,7 @@
     }
   },
   "recordShortcuts": [],
-  "schemaVersion": 15,
+  "schemaVersion": 16,
   "sparklines": {
     "fatigue": [],
     "fitness": [],
@@ -74,6 +84,7 @@
     "windows": {
       "last30": {
         "activityCount": 0,
+        "bodyLabel": null,
         "emptyText": "No gym sessions in the last 1 month",
         "label": "1 month",
         "maxWeightedSets": 0.0,
@@ -84,6 +95,7 @@
       },
       "month": {
         "activityCount": 0,
+        "bodyLabel": null,
         "emptyText": "No gym sessions this month",
         "label": "December",
         "maxWeightedSets": 0.0,
@@ -100,6 +112,7 @@
         "colorKey": "blue",
         "id": "fitness",
         "label": "Fitness",
+        "spoken": "Fitness, no reading",
         "trendDir": "flat",
         "value": "-",
         "verdict": "flat"
@@ -107,7 +120,8 @@
       {
         "colorKey": "default",
         "id": "ftp",
-        "label": "FTP",
+        "label": "eFTP",
+        "spoken": "eFTP, no reading",
         "trendDir": "flat",
         "value": "-",
         "verdict": "flat"
@@ -116,6 +130,7 @@
         "colorKey": "default",
         "id": "weekHours",
         "label": "Week",
+        "spoken": "Week 0h, steady",
         "trendDir": "flat",
         "value": "0h",
         "verdict": "flat"
@@ -125,6 +140,7 @@
       "colorKey": "formZone",
       "id": "form",
       "label": "Form",
+      "spoken": "Form, no reading",
       "trendDir": "flat",
       "value": "-",
       "verdict": "flat"
@@ -142,6 +158,7 @@
       "colorKey": "default",
       "id": "hrv",
       "label": "HRV",
+      "spoken": "HRV, no reading",
       "trendDir": "flat",
       "value": "-",
       "verdict": "flat"
@@ -150,6 +167,7 @@
       "colorKey": "default",
       "id": "rhr",
       "label": "RHR",
+      "spoken": "RHR, no reading",
       "trendDir": "flat",
       "value": "-",
       "verdict": "flat"
@@ -158,6 +176,7 @@
       "colorKey": "default",
       "id": "weekHours",
       "label": "Week",
+      "spoken": "Week 0h, steady",
       "trendDir": "flat",
       "value": "0h",
       "verdict": "flat"
@@ -166,6 +185,7 @@
       "colorKey": "default",
       "id": "weekCount",
       "label": "#",
+      "spoken": "Activities 0, steady",
       "trendDir": "flat",
       "value": "0",
       "verdict": "flat"
@@ -173,7 +193,8 @@
     {
       "colorKey": "default",
       "id": "ftp",
-      "label": "FTP",
+      "label": "eFTP",
+      "spoken": "eFTP, no reading",
       "trendDir": "flat",
       "value": "-",
       "verdict": "flat"
@@ -182,6 +203,7 @@
       "colorKey": "default",
       "id": "thresholdPace",
       "label": "Pace",
+      "spoken": "Pace, no reading",
       "trendDir": "flat",
       "value": "-",
       "verdict": "flat"
@@ -190,6 +212,7 @@
       "colorKey": "default",
       "id": "css",
       "label": "CSS",
+      "spoken": "CSS, no reading",
       "trendDir": "flat",
       "value": "-",
       "verdict": "flat"
@@ -198,6 +221,7 @@
       "colorKey": "blue",
       "id": "fitness",
       "label": "Fitness",
+      "spoken": "Fitness, no reading",
       "trendDir": "flat",
       "value": "-",
       "verdict": "flat"
@@ -206,6 +230,7 @@
       "colorKey": "formZone",
       "id": "form",
       "label": "Form",
+      "spoken": "Form, no reading",
       "trendDir": "flat",
       "value": "-",
       "verdict": "flat"
