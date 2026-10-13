@@ -177,6 +177,7 @@ describe('3D section creation markers', () => {
       routeColor: colors.success,
       showHeatmap: false,
       devicePixelRatio: 1,
+      reduceMotion: false,
     });
 
     expect(html).not.toMatch(BUNDLE_MISSING_GLYPHS);

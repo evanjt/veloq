@@ -7,6 +7,7 @@ import type {
   ActivityHighlightsBundle,
   ActivityLedgerChange,
   ActivityFitnessImpact,
+  ActivitySummary,
   ExerciseGroup,
   RouteGroup,
   HrZoneBand,
@@ -58,6 +59,8 @@ export interface ActivityDetailBundle {
   powerZones: PowerZoneBand[];
   /** This activity's contribution against a rest day, when it has training load. */
   fitnessImpact?: ActivityFitnessImpact | undefined;
+  /** The speed, times and cadence stored with the activity, read without its streams */
+  summary: ActivitySummary;
   /** Section changes whose ledger rows name this activity, newest first */
   ledgerChanges: ActivityLedgerChange[];
 }
@@ -126,6 +129,7 @@ function fetchActivityDetailData(activityId: string): DetailRead {
       hrZones: result.hrZones,
       powerZones: result.powerZones,
       fitnessImpact: result.fitnessImpact,
+      summary: result.summary,
       ledgerChanges: result.ledgerChanges,
     },
     error: undefined,

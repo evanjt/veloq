@@ -1166,8 +1166,8 @@ pub(crate) mod pooled {
             sample_count: 0,
         };
 
-        // A year of days is 365 rows of JSON, parsed once per call, and the
-        // caller is a screen bundle rather than a loop.
+        // The read stops at the day the longer window reaches back to, so a
+        // call parses that window's bodies and not the whole history.
         let rows = match daily_cycling_ftp(conn, today, lookback_days.max(history_days)) {
             Ok(rows) if !rows.is_empty() => rows,
             _ => return default,
@@ -1215,27 +1215,26 @@ pub(crate) mod pooled {
 
     /// The stored days the trend needs, oldest first.
     ///
-    /// Newest first out of SQLite so [`trend_days`] can stop at the day it
-    /// compares against, rather than materialising and parsing every body in
-    /// a table that grows a year per year of use.
+    /// Newest first out of SQLite and streamed, so when [`trend_days`] stops at
+    /// the day it compares against SQLite stops stepping too, rather than
+    /// fetching every body in a table that grows a year per year of use.
     fn daily_cycling_ftp(
         conn: &Connection,
         today: &str,
         lookback_days: i64,
     ) -> rusqlite::Result<Vec<(String, u16)>> {
-        Ok(trend_days(
-            cycling_wellness_rows(conn, today)?.into_iter(),
-            lookback_days,
-        ))
+        cycling_wellness_rows(conn, today, |rows| trend_days(rows, lookback_days))
     }
 
-    /// The stored bodies on or before `today`, newest first, that carry a
-    /// cycling `sportInfo` entry with a positive `eftp`. SQLite filters inside
-    /// the JSON so a body without one is never fetched or parsed in Rust.
-    pub(crate) fn cycling_wellness_rows(
+    /// Hands `read` the stored bodies on or before `today`, newest first, that
+    /// carry a cycling `sportInfo` entry with a positive `eftp`. SQLite filters
+    /// inside the JSON so a body without one is never fetched or parsed in
+    /// Rust, and steps a row only when `read` pulls it.
+    pub(crate) fn cycling_wellness_rows<T>(
         conn: &Connection,
         today: &str,
-    ) -> rusqlite::Result<Vec<(String, String)>> {
+        read: impl FnOnce(&mut dyn Iterator<Item = (String, String)>) -> T,
+    ) -> rusqlite::Result<T> {
         let query = format!(
             "SELECT date, raw FROM wellness
              WHERE raw IS NOT NULL AND date <= ?
@@ -1250,7 +1249,7 @@ pub(crate) mod pooled {
         let rows = stmt.query_map(params![today], |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
         })?;
-        Ok(rows.flatten().collect())
+        Ok(read(&mut rows.flatten()))
     }
 
     pub fn pace_trend(conn: &Connection, sport_type: &str) -> crate::FfiPaceTrend {
@@ -3727,6 +3726,63 @@ mod tests {
         }
     }
 
+    static FTP_TREND_STEPS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+    fn count_ftp_trend_step() -> bool {
+        FTP_TREND_STEPS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        false
+    }
+
+    /// Scenario: a cyclist's wellness table grows a year per year of use, and
+    /// the trend needs only the newest estimate and the one a lookback older.
+    ///
+    /// Expected behaviour: a 30-day trend costs the same SQLite virtual
+    /// machine steps over 800 stored days as over 400, because the query stops
+    /// stepping at the day it compares against, and the two trends agree.
+    #[test]
+    fn the_ftp_trend_stops_reading_at_the_day_it_compares_against() {
+        let end = chrono::NaiveDate::parse_from_str("2026-09-05", "%Y-%m-%d").unwrap();
+        let read = |days: i64| {
+            let mut engine = PersistentEngine::in_memory().unwrap();
+            let rows: Vec<_> = (0..days)
+                .map(|back| {
+                    let date = (end - chrono::Duration::days(back))
+                        .format("%Y-%m-%d")
+                        .to_string();
+                    wellness_day(&date, Some(200.0 + (back % 7) as f64))
+                })
+                .collect();
+            engine.upsert_wellness(&rows).unwrap();
+            FTP_TREND_STEPS.store(0, std::sync::atomic::Ordering::SeqCst);
+            engine
+                .db
+                .progress_handler(1, Some(count_ftp_trend_step))
+                .unwrap();
+            let trend = engine.get_ftp_trend_over_to("2026-09-05", 30);
+            engine.db.progress_handler(1, None::<fn() -> bool>).unwrap();
+            (
+                FTP_TREND_STEPS.load(std::sync::atomic::Ordering::SeqCst),
+                trend,
+            )
+        };
+
+        let (short_steps, short) = read(400);
+        let (long_steps, long) = read(800);
+
+        assert_eq!(short.latest_ftp, Some(200));
+        assert_eq!(short.previous_ftp, Some(202), "the estimate 30 days back");
+        assert_eq!(short.sample_count, 31);
+        assert_eq!(short.history.len(), long.history.len());
+        assert_eq!(
+            (long.latest_ftp, long.previous_ftp, long.previous_date),
+            (short.latest_ftp, short.previous_ftp, short.previous_date)
+        );
+        assert_eq!(
+            long_steps, short_steps,
+            "a longer history must not cost the trend more steps"
+        );
+    }
+
     /// Scenario: `icu_ftp` is the athlete's configured setting, and on a real
     /// five-year account it holds one value throughout, so a trend read from it
     /// never has a previous value and the delta never renders. The daily model
@@ -3795,7 +3851,10 @@ mod tests {
             ])
             .unwrap();
 
-        let rows = super::pooled::cycling_wellness_rows(&engine.db, "2026-09-05").unwrap();
+        let rows = super::pooled::cycling_wellness_rows(&engine.db, "2026-09-05", |rows| {
+            rows.collect::<Vec<_>>()
+        })
+        .unwrap();
 
         assert!(rows.is_empty());
         let trend = engine.get_ftp_trend_to("2026-09-05");
@@ -3815,7 +3874,10 @@ mod tests {
             ])
             .unwrap();
 
-        let rows = super::pooled::cycling_wellness_rows(&engine.db, "2026-09-05").unwrap();
+        let rows = super::pooled::cycling_wellness_rows(&engine.db, "2026-09-05", |rows| {
+            rows.collect::<Vec<_>>()
+        })
+        .unwrap();
 
         let dates: Vec<_> = rows.iter().map(|(d, _)| d.as_str()).collect();
         assert_eq!(dates, ["2026-09-05", "2026-08-06"]);

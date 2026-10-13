@@ -164,4 +164,26 @@ describe('recording settings tile order', () => {
       expect(within(row).getByText(`recording.fields.${field}`)).toBeTruthy();
     });
   });
+
+  it('stops adding fields at the cap and says how many are chosen', async () => {
+    useRecordingPreferences.setState({
+      dataFields: { gps: ['speed', 'distance', 'heartrate', 'power', 'cadence', 'timer'] },
+    });
+    const view = await render(<RecordingSettingsScreen />);
+    expect(view.getByTestId('settings-field-count-gps')).toBeTruthy();
+    expect(view.getByTestId('settings-field-gps-calories').props.accessibilityState.disabled).toBe(
+      true
+    );
+    expect(view.getByTestId('settings-field-gps-speed').props.accessibilityState.disabled).toBe(
+      false
+    );
+    void fireEvent.press(view.getByTestId('settings-field-gps-calories'));
+    expect(useRecordingPreferences.getState().dataFields.gps).not.toContain('calories');
+    void fireEvent.press(view.getByTestId('settings-field-gps-timer'));
+    await waitFor(() =>
+      expect(
+        view.getByTestId('settings-field-gps-calories').props.accessibilityState.disabled
+      ).toBe(false)
+    );
+  });
 });

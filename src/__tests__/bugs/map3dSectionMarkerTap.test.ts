@@ -101,6 +101,7 @@ function runPage(hitsByLayer: Record<string, Hit[]>) {
     routeColor: '#FF6B35',
     showHeatmap: false,
     devicePixelRatio: 2,
+    reduceMotion: false,
   });
   const blocks = [
     ...html.matchAll(/<script(?![^>]*\bsrc=)(?![^>]*maplibre-gl)[^>]*>([\s\S]*?)<\/script>/g),

@@ -2,6 +2,7 @@ package com.veloq.widget
 
 import java.time.ZoneId
 import java.util.Locale
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -56,5 +57,36 @@ class SnapshotAgeTest {
     assertTrue(label, label.contains("15:20"))
     val shifted = SnapshotAge.absolute(written, ZoneId.of("Asia/Tokyo"), Locale.GERMANY)
     assertTrue(shifted, shifted.contains("00:20"))
+  }
+
+  @Test
+  fun the_age_line_speaks_the_language_the_snapshot_was_written_in() {
+    assertEquals(Locale.forLanguageTag("de-CH"), SnapshotAge.locale("de-CH", Locale.UK))
+    assertEquals(Locale.forLanguageTag("zh-Hans"), SnapshotAge.locale("zh-Hans", Locale.UK))
+  }
+
+  @Test
+  fun a_snapshot_with_no_language_reads_in_the_phone_language() {
+    assertEquals(Locale.UK, SnapshotAge.locale("", Locale.UK))
+    assertEquals(Locale.UK, SnapshotAge.locale(null, Locale.UK))
+    assertEquals(Locale.UK, SnapshotAge.locale("!!", Locale.UK))
+  }
+
+  @Test
+  fun the_age_counts_whole_minutes_under_an_hour() {
+    assertEquals(SnapshotAge.Span(0L, hours = false), SnapshotAge.span(written, written * 1000L + 59_000L))
+    assertEquals(SnapshotAge.Span(5L, hours = false), SnapshotAge.span(written, nowAfter(0, 5 * 60L)))
+    assertEquals(SnapshotAge.Span(59L, hours = false), SnapshotAge.span(written, nowAfter(0, 3599L)))
+  }
+
+  @Test
+  fun the_age_counts_whole_hours_from_an_hour() {
+    assertEquals(SnapshotAge.Span(1L, hours = true), SnapshotAge.span(written, nowAfter(1)))
+    assertEquals(SnapshotAge.Span(23L, hours = true), SnapshotAge.span(written, nowAfter(23, 3599L)))
+  }
+
+  @Test
+  fun a_snapshot_from_the_future_reads_as_just_written() {
+    assertEquals(SnapshotAge.Span(0L, hours = false), SnapshotAge.span(written, nowAfter(-3)))
   }
 }

@@ -12,7 +12,9 @@ describe('buildSetCameraScript', () => {
   });
 
   it('animates a bounds camera for the given duration', () => {
-    expect(buildSetCameraScript({ bounds }, 300)).toContain('duration: 300');
+    expect(buildSetCameraScript({ bounds }, 300)).toContain(
+      'duration: (window._veloqReduceMotion ? 0 : 300)'
+    );
   });
 
   it('still jumps for a centre and zoom camera', () => {

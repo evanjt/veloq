@@ -45,6 +45,7 @@ jest.mock('@/features/recording', () =>
   require('../__shared__/recordingBarrelStub').withRecordingOverrides()
 );
 jest.mock('@/features/sensors', () => ({
+  ...jest.requireActual('@/features/sensors/lib/sensorRows'),
   useSensorStore: require('@/features/sensors/store').useSensorStore,
   startScan: jest.fn(),
   stopScan: jest.fn(),

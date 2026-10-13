@@ -11,11 +11,10 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { getIntlLocale } from '@/shared/format/format';
+import { formatDateOrDash } from '@/shared/format/format';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { Button } from '@/shared/ui';
 import { tapTo } from '@/shared/app/navigation';
-import { ABSENT } from '@/shared/format/absent';
 
 interface DateRangeSummaryProps {
   activityCount: number;
@@ -24,15 +23,6 @@ interface DateRangeSummaryProps {
   isDark?: boolean;
   isLoading?: boolean;
   syncMessage?: string | null;
-}
-
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return ABSENT;
-  const date = new Date(dateStr);
-  return date.toLocaleDateString(getIntlLocale(), {
-    month: 'short',
-    year: 'numeric',
-  });
 }
 
 export function DateRangeSummary({
@@ -79,7 +69,7 @@ export function DateRangeSummary({
           </View>
           {!isLoading && oldestDate && newestDate && (
             <Text style={[styles.dateText, isDark && styles.textSecondary]}>
-              {formatDate(oldestDate)} - {formatDate(newestDate)}
+              {formatDateOrDash(oldestDate)} - {formatDateOrDash(newestDate)}
             </Text>
           )}
         </View>

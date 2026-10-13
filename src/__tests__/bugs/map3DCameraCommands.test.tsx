@@ -166,7 +166,7 @@ describe('Map3DWebViewRef camera commands', () => {
     await act(() => ref.current?.fitBounds({ sw: [7.0, 46.0], ne: [7.8, 46.9] }, 40, 500));
     const script = injected.join('\n');
     expect(script).toContain('window.map.fitBounds([[7,46],[7.8,46.9]]');
-    expect(script).toContain('duration: 500');
+    expect(script).toContain('duration: (window._veloqReduceMotion ? 0 : 500)');
     await view.unmount();
   });
 

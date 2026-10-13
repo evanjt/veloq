@@ -1,6 +1,6 @@
 import { decodeSkylineBytes } from '@/features/activity/lib/skylineDecoder';
 import { skylineColours } from '@/features/activity/lib/skylineColours';
-import { zoneColors, zoneColorsDark } from '@/theme';
+import { zoneColors, zoneColorsDark, zoneColorsLight } from '@/theme';
 
 // Helper: encode a minimal protobuf for testing
 function encodeVarint(value: number): number[] {
@@ -148,7 +148,7 @@ describe('skyline zone colours', () => {
     expect(power).toEqual([zoneColors.zone2, zoneColors.zone6]);
 
     const hr = resolveColours(makeColorPayload([300, 200], [1, 4], 2), false);
-    expect(hr).toEqual([zoneColors.zone1, zoneColors.zone4]);
+    expect(hr).toEqual([zoneColorsLight.zone1, zoneColorsLight.zone4]);
   });
 
   it('keeps power Z7 in its palette colour in light mode', () => {

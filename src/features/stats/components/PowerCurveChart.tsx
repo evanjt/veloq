@@ -282,7 +282,10 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
           <View style={[styles.legendDash, { backgroundColor: FTP_LINE_COLOR }]} />
           <Text testID="power-curve-ftp-legend" style={styles.legendText}>
             {perKg
-              ? `${t('statsScreen.ftpLabel', { value: formatValue(ftpValue, true, unit) })} ${t('stats.atWeight', { weight: formatWeightRounded(curve.weight ?? 0, isMetric) })}`
+              ? t('statsScreen.ftpLabelAtWeight', {
+                  value: formatValue(ftpValue, true, unit),
+                  weight: formatWeightRounded(curve.weight ?? 0, isMetric),
+                })
               : t('statsScreen.ftpLabel', { value: formatValue(ftpValue, false, unit) })}
           </Text>
         </View>

@@ -44,6 +44,7 @@ import {
   sectionHeroName,
   SectionActionRow,
   SectionContentArea,
+  forwardDirectionColour,
   sectionStreamsState,
   type SectionDeltaLine,
   SectionDebugPanel,
@@ -495,7 +496,7 @@ function SectionDetailScreenContent() {
               recordsSettled={recordsSettled}
               calendarSummary={calendarSummary}
               effectiveSportType={effectiveSportType}
-              activityColor={activityColor}
+              forwardColour={forwardDirectionColour(isDark)}
               navActivityId={navActivityId}
               effectiveReferenceId={effectiveReferenceId}
               showExcluded={showExcluded}

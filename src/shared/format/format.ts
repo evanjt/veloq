@@ -5,7 +5,8 @@
  * across the application. Handles localization and unit conversion.
  */
 
-import { I18nManager } from 'react-native';
+import { AppState, I18nManager } from 'react-native';
+import { getCalendars } from 'expo-localization';
 
 import { i18n, getCurrentLanguage } from '@/i18n';
 import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
@@ -49,6 +50,36 @@ export function getIntlLocale(): string {
   };
 
   return localeMap[locale] || locale;
+}
+
+let hourCycle: 'h23' | 'h12' | undefined;
+let hourCycleRead = false;
+
+/**
+ * The system's 12 or 24-hour clock setting, as the `hourCycle` every time the
+ * app prints carries.
+ *
+ * The setting is separate from the language on both platforms, so an en-US
+ * phone can run 24-hour time. It is read once and again each time the app comes
+ * to the foreground, since it can only change while the app is in the
+ * background. Undefined when the platform does not say, which leaves the
+ * language's own default.
+ */
+export function systemHourCycle(): 'h23' | 'h12' | undefined {
+  if (!hourCycleRead) {
+    hourCycleRead = true;
+    hourCycle = readHourCycle();
+    AppState.addEventListener('change', (state) => {
+      if (state === 'active') hourCycle = readHourCycle();
+    });
+  }
+  return hourCycle;
+}
+
+function readHourCycle(): 'h23' | 'h12' | undefined {
+  const uses24hourClock = getCalendars()[0]?.uses24hourClock;
+  if (uses24hourClock == null) return undefined;
+  return uses24hourClock ? 'h23' : 'h12';
 }
 
 /**
@@ -202,11 +233,14 @@ export function splitMinSec(totalSeconds: number): { minutes: number; seconds: n
 
 /**
  * The route PR+ badge: how far behind the record an attempt finished, as
- * whole seconds under a minute and `M:SS` from a minute up.
+ * whole seconds under a minute and `M:SS` from a minute up, worded by the
+ * locale around the delta.
  */
 export function formatPrDelta(seconds: number): string {
   const whole = Math.round(seconds);
-  return whole >= 60 ? `PR+${formatMinSec(whole)}` : `PR+${whole}s`;
+  const delta = whole >= 60 ? formatMinSec(whole) : `${whole}s`;
+  // English when the translator has no bundle, as the date words below do.
+  return i18n.t('activity.prDelta', { delta }) || `PR+${delta}`;
 }
 
 /**
@@ -531,17 +565,61 @@ export function formatRelativeDate(dateString: string): string {
   }
 }
 
-export function formatDateTime(dateString: string): string {
+/** A clock time in the app language and the system's 12 or 24-hour setting, with no seconds. */
+function formatShortTime(date: Date, locale: string): string {
+  return date.toLocaleTimeString(locale, { timeStyle: 'short', hourCycle: systemHourCycle() });
+}
+
+/** A day and a time of day joined the way the app language joins them. */
+function joinDayAndTime(day: string, time: string): string {
+  return i18n.t('time.dayAtTime', { day, time }) || `${day}, ${time}`;
+}
+
+/**
+ * The day an activity started and its start time, so two on one day read
+ * apart: "Today, 07:12", "Friday, 18:30", "5 Jan 2023, 06:45". A bare day
+ * string carries no time and reads as the day alone.
+ */
+export function formatRelativeDateTime(dateString: string): string {
+  const day = formatRelativeDate(dateString);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return day;
   const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return day;
+  return joinDayAndTime(day, formatShortTime(date, getIntlLocale()));
+}
+
+/**
+ * A moment with its weekday, date and short time, never the seconds, in the app
+ * language and the system's 12 or 24-hour setting.
+ *
+ * ```ts
+ * formatDateTime('2026-10-10T19:30:00'); // "Sat, 10 Oct 2026, 7:30 pm" or "..., 19:30"
+ * ```
+ */
+export function formatDateTime(instant: string | number): string {
+  const date = new Date(instant);
   const locale = getIntlLocale();
-  return date.toLocaleDateString(locale, {
+  const day = date.toLocaleDateString(locale, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
     year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
   });
+  return joinDayAndTime(day, formatShortTime(date, locale));
+}
+
+/**
+ * The clock time of a local date-time such as `start_date_local`, in the
+ * device's locale. A string that is not a date prints the absent mark.
+ *
+ * ```ts
+ * formatClockTime('2026-03-10T07:05:00'); // "7:05 am"
+ * ```
+ */
+export function formatClockTime(dateString: string): string {
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return ABSENT;
+  return date.toLocaleTimeString(getIntlLocale(), { hour: 'numeric', minute: '2-digit' });
 }
 
 /**
@@ -552,7 +630,11 @@ export function formatClockOrDate(epochMs: number, now: Date = new Date()): stri
   const date = new Date(epochMs);
   const locale = getIntlLocale();
   if (date.toDateString() === now.toDateString()) {
-    return date.toLocaleTimeString(locale, { hour: 'numeric', minute: '2-digit' });
+    return date.toLocaleTimeString(locale, {
+      hour: 'numeric',
+      minute: '2-digit',
+      hourCycle: systemHourCycle(),
+    });
   }
   return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
 }
@@ -630,22 +712,27 @@ export function formatShortDateWithWeekday(date: Date | string): string {
 }
 
 /**
- * Short date carrying a two-digit year (e.g., "Jan 15 '24"). Charts and
- * tooltips need it because their data spans years.
+ * Short date carrying a two-digit year, in the app language's own order and
+ * year form. Charts and tooltips need it because their data spans years.
  */
 export function formatShortDateWithYear(date: Date): string {
-  return `${formatShortDate(date)} '${date.getFullYear().toString().slice(-2)}`;
+  return formatAxisDate(date, true);
 }
 
 /**
- * An axis tick: "Jan '24", or "Jan 15 '24" when the ticks are close enough
- * together to need the day. Month before day whatever the locale, because the
- * ticks have to read in one order across the axis.
+ * An axis tick: the month and year, or the day, month and two-digit year when
+ * the ticks are close enough together to need the day. The order and the year
+ * form come from the app language, so a tick reads as the tooltip beside it
+ * does. A month alone takes the full year, because "Jan 24" reads as a day.
+ * For axes only: a specific day is `formatFullDate`.
  */
 export function formatAxisDate(date: Date, includeDay: boolean): string {
-  const month = date.toLocaleDateString(getIntlLocale(), { month: 'short' });
-  const year = date.getFullYear().toString().slice(-2);
-  return includeDay ? `${month} ${date.getDate()} '${year}` : `${month} '${year}`;
+  return date.toLocaleDateString(
+    getIntlLocale(),
+    includeDay
+      ? { month: 'short', day: 'numeric', year: '2-digit' }
+      : { month: 'short', year: 'numeric' }
+  );
 }
 
 /**

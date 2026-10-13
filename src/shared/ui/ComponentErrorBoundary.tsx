@@ -8,14 +8,38 @@ import { StatusLine } from './StatusLine';
 import { useTranslation } from 'react-i18next';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
 
+/** The parts of a screen a fallback can name, each a key under `errorState.part`. */
+export type ErrorStatePart =
+  | 'map'
+  | 'map3d'
+  | 'terrainSnapshots'
+  | 'routePerformance'
+  | 'hrZonesChart'
+  | 'powerZonesChart'
+  | 'activityStats'
+  | 'activityMap'
+  | 'muscleGroups';
+
+const PART_KEY = {
+  map: 'errorState.part.map',
+  map3d: 'errorState.part.map3d',
+  terrainSnapshots: 'errorState.part.terrainSnapshots',
+  routePerformance: 'errorState.part.routePerformance',
+  hrZonesChart: 'errorState.part.hrZonesChart',
+  powerZonesChart: 'errorState.part.powerZonesChart',
+  activityStats: 'errorState.part.activityStats',
+  activityMap: 'errorState.part.activityMap',
+  muscleGroups: 'errorState.part.muscleGroups',
+} as const satisfies Record<ErrorStatePart, string>;
+
 interface Props {
   children: ReactNode;
-  /** Component name for error message */
-  componentName?: string;
+  /** The part the fallback names to the athlete. Without one it reads as a general failure. */
+  part?: ErrorStatePart;
+  /** The part's name in the crash log, which stays English in every locale. */
+  debugName?: string;
   /** Optional minimum height */
   minHeight?: number;
-  /** Whether to show retry button */
-  showRetry?: boolean;
   /** Custom error handler */
   onError?: (error: Error, errorInfo: React.ErrorInfo) => void;
 }
@@ -40,11 +64,11 @@ export class ComponentErrorBoundary extends Component<Props, State> {
   }
 
   override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    const { componentName, onError } = this.props;
-    recordBoundaryCrash(error, errorInfo, { fatal: false, screen: componentName });
+    const { debugName, onError } = this.props;
+    recordBoundaryCrash(error, errorInfo, { fatal: false, screen: debugName });
     if (__DEV__) {
       console.error(
-        `[ComponentErrorBoundary] ${componentName || 'Component'} render error:`,
+        `[ComponentErrorBoundary] ${debugName ?? 'Component'} render error:`,
         error,
         errorInfo
       );
@@ -58,15 +82,8 @@ export class ComponentErrorBoundary extends Component<Props, State> {
 
   override render() {
     if (this.state.hasError) {
-      const { componentName, minHeight, showRetry = true } = this.props;
-      return (
-        <ErrorFallback
-          componentName={componentName}
-          minHeight={minHeight}
-          showRetry={showRetry}
-          onRetry={this.handleRetry}
-        />
-      );
+      const { part, minHeight } = this.props;
+      return <ErrorFallback part={part} minHeight={minHeight} onRetry={this.handleRetry} />;
     }
 
     return this.props.children;
@@ -74,20 +91,23 @@ export class ComponentErrorBoundary extends Component<Props, State> {
 }
 
 interface FallbackProps {
-  componentName?: string | undefined;
+  part?: ErrorStatePart | undefined;
   minHeight?: number | undefined;
-  showRetry: boolean;
   onRetry: () => void;
 }
 
-function ErrorFallback({ componentName, minHeight, showRetry, onRetry }: FallbackProps) {
+/**
+ * Retry remounts the part, which is the whole of what the athlete can do about
+ * a render failure, so the hint points at it and never at restarting the app.
+ */
+function ErrorFallback({ part, minHeight, onRetry }: FallbackProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
 
-  const title = componentName
-    ? t('errorState.unableToLoad', { componentName })
+  const title = part
+    ? t('errorState.unableToLoad', { part: t(PART_KEY[part]) })
     : t('errorState.defaultTitle');
-  const hint = t('errorState.restartHint');
+  const hint = t('errorState.retryHint');
 
   return (
     <StatusLine
@@ -101,15 +121,13 @@ function ErrorFallback({ componentName, minHeight, showRetry, onRetry }: Fallbac
     >
       <Text style={[styles.errorText, isDark && styles.errorTextDark]}>{title}</Text>
       <Text style={[styles.hintText, isDark && styles.hintTextDark]}>{hint}</Text>
-      {showRetry && (
-        <Button
-          label={t('common.retry')}
-          variant="secondary"
-          size="sm"
-          onPress={onRetry}
-          style={styles.retryButton}
-        />
-      )}
+      <Button
+        label={t('common.retry')}
+        variant="secondary"
+        size="sm"
+        onPress={onRetry}
+        style={styles.retryButton}
+      />
     </StatusLine>
   );
 }

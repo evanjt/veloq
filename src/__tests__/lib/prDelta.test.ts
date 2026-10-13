@@ -8,6 +8,11 @@
  */
 
 import { formatPrDelta, formatPrImprovement } from '@/shared/format/format';
+import { initialiseI18n } from '@/i18n';
+
+beforeAll(async () => {
+  await initialiseI18n('en-GB');
+});
 
 describe('formatPrDelta', () => {
   it('reads whole seconds under a minute', () => {

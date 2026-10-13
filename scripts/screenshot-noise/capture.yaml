@@ -1,0 +1,89 @@
+# Capture eight demo-mode screens in one theme, for measuring how far two
+# captures of the same build differ before any comparison gate trusts them.
+# Run with -e THEME=light|dark -e OUT=<absolute directory>.
+appId: com.veloq.app.dev
+---
+- runFlow:
+    file: ../../.maestro/helpers/setup-demo-mode.yaml
+
+- openLink: "veloq://display-settings"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "theme-button-${THEME}"
+    timeout: 10000
+- tapOn:
+    id: "theme-button-${THEME}"
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "${OUT}/08-display-settings"
+
+- openLink: "veloq://"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "${OUT}/01-home"
+
+- runFlow:
+    file: ../../.maestro/helpers/navigate-to-fitness.yaml
+- extendedWaitUntil:
+    visible:
+      id: "fitness-ctl-value"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "${OUT}/02-fitness"
+
+- runFlow:
+    file: ../../.maestro/helpers/navigate-to-training.yaml
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "${OUT}/03-training"
+
+- runFlow:
+    file: ../../.maestro/helpers/navigate-to-map.yaml
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: "${OUT}/04-map"
+
+- runFlow:
+    file: ../../.maestro/helpers/navigate-to-routes.yaml
+- extendedWaitUntil:
+    visible:
+      id: "routes-list"
+    timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "${OUT}/05-routes"
+
+- openLink: "veloq://activity/demo-test-0"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: "${OUT}/06-activity-detail"
+
+- runFlow:
+    file: ../../.maestro/helpers/navigate-to-settings.yaml
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "${OUT}/07-settings"

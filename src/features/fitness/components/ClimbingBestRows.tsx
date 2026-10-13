@@ -1,14 +1,13 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useActivityLabels } from '@/features/activity';
 import { useTheme } from '@/shared/app';
-import { Button, ErrorState } from '@/shared/ui';
+import { ErrorState } from '@/shared/ui';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { formatClimbValue } from '../lib/bestEfforts';
 import { SPORT_TEXT_COLORS, SPORT_TEXT_COLORS_DARK, type PrimarySport } from '../stores';
 import type { ClimbBest } from '@/features/stats';
-import { tapTo } from '@/shared/app/navigation';
 import { BestEffortRow } from './BestEffortRow';
 
 interface ClimbingBestRowsProps {
@@ -45,7 +44,7 @@ export function ClimbingBestRows({ bests, sport }: ClimbingBestRowsProps) {
         />
       )}
       {bests.map((best, index) => {
-        const name = best.activityId ? labels.get(best.activityId)?.name : undefined;
+        const info = best.activityId ? labels.get(best.activityId) : undefined;
         return (
           <BestEffortRow
             key={best.windowS}
@@ -54,25 +53,10 @@ export function ClimbingBestRows({ bests, sport }: ClimbingBestRowsProps) {
             value={formatClimbValue(best, isMetric, units)}
             valueColor={sportText}
             isLast={index === bests.length - 1}
-          >
-            {name && best.activityId ? (
-              <Button
-                label={`${name} →`}
-                variant="ghost"
-                size="sm"
-                onPress={() => tapTo(`/activity/${best.activityId}`)}
-                style={styles.activityLink}
-              />
-            ) : null}
-          </BestEffortRow>
+            activity={info && best.activityId ? { id: best.activityId, ...info } : undefined}
+          />
         );
       })}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  activityLink: {
-    alignSelf: 'flex-start',
-  },
-});

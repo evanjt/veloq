@@ -10,15 +10,13 @@ import type { ActivityType } from '@/types';
 import type { LocationPrecision } from '@/shared/app/permissions/locationGrant';
 
 import { ENTRY_SCREEN_ENTRY } from './armCountdown';
+import { gpsQuality } from './gpsQuality';
 
 /** The sports offered before the athlete has recorded anything. */
 export const DEFAULT_ENTRY_SPORTS: readonly ActivityType[] = ['Ride', 'Run', 'Walk', 'Hike'];
 
 /** Chips shown beside More. Enough to hold a week's habits on a narrow phone. */
 export const ENTRY_CHIP_COUNT = 4;
-
-/** A fix this tight or tighter reads as ready. */
-export const GPS_READY_ACCURACY_M = 20;
 
 /** The sport Start begins on arrival: the last one recorded. */
 export function defaultEntrySport(recent: readonly ActivityType[]): ActivityType {
@@ -53,16 +51,19 @@ export function recordingEntryHref(type: ActivityType, pairedEventId?: number): 
 export type EntryGpsState = 'checking' | 'ready' | 'weak' | 'approximate' | 'none' | 'servicesOff';
 
 /**
- * What a fix says about readiness. A fix with no accuracy is not a ready one.
- * An approximate grant is its own state whatever the fix: its fixes are too
- * coarse for the recording to keep, and the cause is the setting, not the sky.
+ * What a fix says about readiness: ready when the recording would keep it. A fix
+ * with no accuracy is not a ready one. An approximate grant is its own state
+ * whatever the fix: its fixes are too coarse for the recording to keep, and the
+ * cause is the setting, not the sky.
  */
 export function entryGpsState(
   accuracy: number | null | undefined,
+  rejectThreshold: number,
   precision: LocationPrecision = 'precise'
 ): EntryGpsState {
   if (precision === 'approximate') return 'approximate';
-  return accuracy != null && accuracy <= GPS_READY_ACCURACY_M ? 'ready' : 'weak';
+  const quality = gpsQuality(accuracy, rejectThreshold);
+  return quality === 'good' || quality === 'coarse' ? 'ready' : 'weak';
 }
 
 /** What the entry screen knows about location before a ride. */
@@ -76,6 +77,8 @@ export interface EntryGpsInput {
   timedOut: boolean;
   /** How precise the granted location is; precise until the grant is read. */
   precision: LocationPrecision;
+  /** Metres past which the recording discards a fix. */
+  rejectThreshold: number;
 }
 
 /**
@@ -89,11 +92,13 @@ export function resolveEntryGps({
   fix,
   timedOut,
   precision,
+  rejectThreshold,
 }: EntryGpsInput): EntryGpsState {
   if (servicesEnabled === false) return 'servicesOff';
   if (permission === 'denied') return 'none';
-  if (fix) return entryGpsState(fix.accuracy, precision);
+  if (fix) return entryGpsState(fix.accuracy, rejectThreshold, precision);
   // An approximate grant is known before any fix, so it does not wait out the timeout.
-  if (timedOut || precision === 'approximate') return entryGpsState(null, precision);
+  if (timedOut || precision === 'approximate')
+    return entryGpsState(null, rejectThreshold, precision);
   return 'checking';
 }

@@ -99,8 +99,8 @@ interface RegionalMapViewProps {
   sections?: MapSection[];
   /** The overlay's lines, the same object while the engine's stamp is unchanged */
   sectionsGeoJSON?: GeoJSON.FeatureCollection;
-  /** Callback when attribution text changes */
-  onAttributionChange?: (attribution: string) => void;
+  /** Called when the credit changes, with whether the basemap it sits on is dark. */
+  onAttributionChange?: (attribution: string, isDarkBasemap: boolean) => void;
   /** Activity to open the popup for, once it is among `activities`. */
   selectActivityId?: string | undefined;
   /** Activity to open the popup for and fit the camera to, once it is among `activities`. */
@@ -277,10 +277,10 @@ export function RegionalMapView({
     [mapStyle, cameraForAttribution, is3DMode]
   );
 
-  // Notify parent when attribution changes
+  // The caller draws the credit, so it needs the ground too to stay legible on it.
   useEffect(() => {
-    onAttributionChange?.(attributionText);
-  }, [attributionText, onAttributionChange]);
+    onAttributionChange?.(attributionText, isDark);
+  }, [attributionText, isDark, onAttributionChange]);
 
   // The decoded route lines stay the same object while the engine's layer generation is
   // unchanged, so a filter change hands MapLibre nothing new to diff.
@@ -605,11 +605,7 @@ export function RegionalMapView({
           the app theme. The entry exists only while the tab is focused, so it leaves with it. */}
       {isMapFocused && <StatusBar style={statusBarStyleForMap(mapStyle)} animated />}
       {!isMapFocused ? null : show3D ? (
-        <ComponentErrorBoundary
-          componentName="3D Map"
-          showRetry={false}
-          onError={() => setIs3DMode(false)}
-        >
+        <ComponentErrorBoundary part="map3d" debugName="3D Map" onError={() => setIs3DMode(false)}>
           <Map3DWebView
             ref={map3DRef}
             coordinates={route3DCoords.length > 0 ? route3DCoords : undefined}

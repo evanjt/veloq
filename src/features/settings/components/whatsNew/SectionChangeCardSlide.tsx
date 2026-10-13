@@ -86,14 +86,17 @@ export function SectionChangeCardSlide() {
         <Text style={[styles.summary, isDark && styles.textDark]} testID="change-card-counts">
           {untouched
             ? t('whatsNew.v040.diffUnchanged', { sections: shown.unchanged })
-            : `${t('whatsNew.v040.diffTotals', {
-                current: shown.current,
-                proposed: shown.proposed,
-              })} ${t('whatsNew.v040.diffBreakdown', {
-                new: shown.new,
-                changed: shown.changed,
-                gone: shown.gone,
-              })}`}
+            : t('common.sentencePair', {
+                first: t('whatsNew.v040.diffTotals', {
+                  current: shown.current,
+                  proposed: shown.proposed,
+                }),
+                second: t('whatsNew.v040.diffBreakdown', {
+                  new: shown.new,
+                  changed: shown.changed,
+                  gone: shown.gone,
+                }),
+              })}
         </Text>
       )}
       {changes !== '' && (

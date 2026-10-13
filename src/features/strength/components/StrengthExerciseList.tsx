@@ -1,14 +1,13 @@
 import React from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { colors, darkColors, spacing, layout, brand, typography } from '@/theme';
 import type { MuscleVolume, ExerciseSummary } from '@/types';
 import { formatWeightRounded as formatWeight } from '@/shared/format/weight';
-import { pressable, pressRipple } from '@/shared/ui';
+import { Row } from '@/shared/ui';
 
 import { muscleName } from '../lib/muscleNames';
 import { tapTo } from '@/shared/app/navigation';
@@ -34,39 +33,33 @@ export const StrengthExerciseList = React.memo(function StrengthExerciseList({
         {t('strength.exercisesTargeting', { muscle: selectedMuscleName })}
       </Text>
       {exerciseSummary.exercises.map((exercise, index) => (
-        <Pressable
-          android_ripple={pressRipple}
+        <View
           key={exercise.exerciseCategory}
-          style={pressable([
-            styles.item,
-            index > 0 && styles.itemBorder,
-            index > 0 && isDark && styles.itemBorderDark,
-          ])}
-          onPress={() => tapTo(`/exercise/${exercise.exerciseCategory}`)}
-          accessibilityRole="link"
-          accessibilityLabel={t('strength.openExerciseHistory', {
-            exercise: exercise.exerciseName,
-          })}
-          testID={`exercise-history-${exercise.exerciseCategory}`}
+          style={[index > 0 && styles.itemBorder, index > 0 && isDark && styles.itemBorderDark]}
         >
-          <View style={styles.dot} />
-          <View style={styles.content}>
-            <Text style={[styles.name, isDark && styles.nameDark]} numberOfLines={1}>
-              {exercise.exerciseName}
-            </Text>
-            <Text style={[styles.meta, isDark && styles.metaDark]}>
-              {t('strength.exerciseSets', { sets: exercise.totalSets })} ·{' '}
-              {t('strength.exerciseWorkoutCount', { count: exercise.activityCount })}
-              {` · ${t('strength.repsCount', { count: exercise.totalReps })}`}
-              {exercise.volumeKg > 0 ? ` · ${formatWeight(exercise.volumeKg, isMetric)}` : ''}
-            </Text>
-          </View>
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={20}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-        </Pressable>
+          <Row
+            inset="none"
+            behaviour="navigate"
+            onPress={() => tapTo(`/exercise/${exercise.exerciseCategory}`)}
+            accessibilityLabel={t('strength.openExerciseHistory', {
+              exercise: exercise.exerciseName,
+            })}
+            testID={`exercise-history-${exercise.exerciseCategory}`}
+          >
+            <View style={styles.dot} />
+            <View style={styles.content}>
+              <Text style={[styles.name, isDark && styles.nameDark]} numberOfLines={1}>
+                {exercise.exerciseName}
+              </Text>
+              <Text style={[styles.meta, isDark && styles.metaDark]}>
+                {t('strength.exerciseSets', { sets: exercise.totalSets })} ·{' '}
+                {t('strength.exerciseWorkoutCount', { count: exercise.activityCount })}
+                {` · ${t('strength.repsCount', { count: exercise.totalReps })}`}
+                {exercise.volumeKg > 0 ? ` · ${formatWeight(exercise.volumeKg, isMetric)}` : ''}
+              </Text>
+            </View>
+          </Row>
+        </View>
       ))}
     </View>
   );
@@ -80,12 +73,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   titleDark: { color: darkColors.textSecondary },
-  item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.xsPlus,
-    gap: spacing.sm,
-  },
   itemBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
   itemBorderDark: { borderTopColor: darkColors.border },
   dot: {

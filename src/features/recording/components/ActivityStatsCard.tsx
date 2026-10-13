@@ -3,57 +3,56 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
-import { formatDistance, formatDuration, formatElevation } from '@/shared/format/format';
 import { spacing, typography } from '@/theme';
 import { useMetricSystem } from '@/shared/app';
+import type { ActivityType } from '@/types';
 import type { ActivitySummary } from '@/features/recording/hooks/useActivitySummary';
+import { recordingStats } from '@/features/recording/lib/recordingStats';
 
 export interface ActivityStatsCardProps {
-  summary: Pick<ActivitySummary, 'duration' | 'distance' | 'elevationGain'>;
+  summary: ActivitySummary;
+  activityType: ActivityType;
   textPrimary: string;
   textSecondary: string;
 }
 
 /**
- * Compact horizontal stats row showing duration, distance, and elevation
- * gain for an activity being reviewed. Distance and elevation cells are
- * conditionally rendered - they only appear when the corresponding value
- * is > 0.
+ * Compact stats grid for an activity being reviewed: moving time, elapsed
+ * time when pauses made it longer, and every distance, gain and average the
+ * save will write.
  */
-export function ActivityStatsCard({ summary, textPrimary, textSecondary }: ActivityStatsCardProps) {
+export function ActivityStatsCard({
+  summary,
+  activityType,
+  textPrimary,
+  textSecondary,
+}: ActivityStatsCardProps) {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
+  const stats = recordingStats(
+    {
+      activityType,
+      movingSeconds: summary.duration,
+      elapsedSeconds: summary.elapsed,
+      distanceMeters: summary.distance,
+      elevationGain: summary.elevationGain,
+      avgHeartrate: summary.avgHeartrate,
+      avgPower: summary.avgPower,
+    },
+    isMetric,
+    t
+  );
 
   return (
     <View style={styles.compactStats}>
-      <View style={styles.compactStatItem}>
-        <Text style={[styles.compactStatValue, { color: textPrimary }]}>
-          {formatDuration(summary.duration)}
-        </Text>
-        <Text style={[styles.compactStatLabel, { color: textSecondary }]}>
-          {t('recording.durationLabel', 'Duration')}
-        </Text>
-      </View>
-      {summary.distance > 0 && (
-        <View style={styles.compactStatItem}>
+      {stats.map((stat) => (
+        <View key={stat.key} style={styles.compactStatItem}>
           <Text style={[styles.compactStatValue, { color: textPrimary }]}>
-            {formatDistance(summary.distance, isMetric)}
+            {stat.key === 'elevationGain' ? `${stat.value} ↑` : stat.value}
           </Text>
-          <Text style={[styles.compactStatLabel, { color: textSecondary }]}>
-            {t('recording.fields.distance', 'Distance')}
-          </Text>
+          <Text style={[styles.compactStatLabel, { color: textSecondary }]}>{stat.label}</Text>
         </View>
-      )}
-      {summary.elevationGain > 0 && (
-        <View style={styles.compactStatItem}>
-          <Text style={[styles.compactStatValue, { color: textPrimary }]}>
-            {formatElevation(summary.elevationGain, isMetric)} ↑
-          </Text>
-          <Text style={[styles.compactStatLabel, { color: textSecondary }]}>
-            {t('recording.elevation', 'Elevation')}
-          </Text>
-        </View>
-      )}
+      ))}
     </View>
   );
 }
@@ -61,12 +60,15 @@ export function ActivityStatsCard({ summary, textPrimary, textSecondary }: Activ
 const styles = StyleSheet.create({
   compactStats: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-around',
+    rowGap: spacing.sm,
     marginTop: spacing.md,
     paddingVertical: spacing.sm,
   },
   compactStatItem: {
     alignItems: 'center',
+    minWidth: '33%',
   },
   compactStatValue: {
     ...typography.metricValue,

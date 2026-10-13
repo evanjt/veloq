@@ -61,6 +61,7 @@ function Harness({ efforts }: { efforts: (PerformanceDataPoint & { x: number })[
   return (
     <SectionPerformanceSection
       isDark={false}
+      forwardColour="#0D9488"
       sportType="Ride"
       chartData={chartData}
       trendCurves={{}}
@@ -129,6 +130,7 @@ describe('SectionPerformanceSection time range', () => {
 describe('SectionPerformanceSection while time streams download', () => {
   const base = {
     isDark: false,
+    forwardColour: '#0D9488',
     sportType: 'Ride',
     chartData: [],
     trendCurves: {},
@@ -198,6 +200,7 @@ describe('SectionPerformanceSection while time streams download', () => {
 describe('SectionPerformanceSection with time streams still missing', () => {
   const base = {
     isDark: false,
+    forwardColour: '#0D9488',
     sportType: 'Ride',
     trendCurves: {},
     forwardStats: null,
@@ -287,6 +290,7 @@ describe('SectionPerformanceSection for a route', () => {
   const base = {
     subject: 'route' as const,
     isDark: false,
+    forwardColour: '#0D9488',
     sportType: 'Ride',
     trendCurves: {},
     forwardStats: null,

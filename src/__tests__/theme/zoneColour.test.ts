@@ -4,10 +4,10 @@
  * are keyed three ways on the activity screen: the chip above the table, the
  * table row's label and the band behind the chart.
  *
- * Expected behaviour: every zone's fill clears 3:1 on every dark surface, and
- * its text tone clears 4.5:1 on every surface of its theme. An interval of any
- * kind takes one colour on the chip and the band, and the table row's label is
- * the text tone of that same colour.
+ * Expected behaviour: every zone's fill clears 3:1 and its text tone 4.5:1 on
+ * every surface of its theme. An interval of any kind takes one colour on the
+ * chip and the band, and the table row's label is the text tone of that same
+ * colour.
  */
 
 import { colors, darkColors } from '@/theme';
@@ -42,6 +42,12 @@ describe('zoneColour', () => {
   it.each(ZONES)('draws the zone %i fill at 3:1 or more on every dark surface', (zone) => {
     for (const ground of DARK_SURFACES) {
       expect(contrastRatio(zoneColour(zone, true, 'fill'), ground)).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it.each(ZONES)('draws the zone %i fill at 3:1 or more on every light surface', (zone) => {
+    for (const ground of LIGHT_SURFACES) {
+      expect(contrastRatio(zoneColour(zone, false, 'fill'), ground)).toBeGreaterThanOrEqual(3);
     }
   });
 

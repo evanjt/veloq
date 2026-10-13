@@ -48,6 +48,7 @@ import {
   type FfiActivityStreams,
   type FfiActivityDetailData,
   type FfiActivityFitnessImpact,
+  type FfiActivitySummary,
   type FfiActivityLedgerChange,
   type FfiHrZoneBand,
   type FfiPowerZoneBand,
@@ -205,6 +206,7 @@ export type MapScreenData = FfiMapScreenData;
 export type BestEffortsData = FfiBestEffortsData;
 export type BestEffortsSport = FfiBestEffortsSport;
 export type BestEffort = FfiBestEffort;
+export { FfiBestEffortKind as BestEffortKind } from './generated/veloqrs';
 export type ClimbBests = FfiClimbBests;
 export type ClimbBest = FfiClimbBest;
 // Training screen types
@@ -218,6 +220,7 @@ export type ActivityStreamBuffers = FfiActivityStreams;
 // Activity detail batch types
 export type ActivityDetailData = FfiActivityDetailData;
 export type ActivityFitnessImpact = FfiActivityFitnessImpact;
+export type ActivitySummary = FfiActivitySummary;
 export type ActivityLedgerChange = FfiActivityLedgerChange;
 export type HrZoneBand = FfiHrZoneBand;
 export type PowerZoneBand = FfiPowerZoneBand;

@@ -17,6 +17,12 @@ interface RowBaseProps {
    * the row and the accessory as two controls.
    */
   accessory?: React.ReactNode;
+  /**
+   * `row` pads the row's own edges, for a row that is the full width of its
+   * screen or card. `none` leaves them to a container that already pads, such as
+   * a list inside a card.
+   */
+  inset?: 'row' | 'none' | undefined;
 }
 
 /**
@@ -60,13 +66,14 @@ export function Row({
   accessory,
   behaviour,
   busy,
+  inset = 'row',
 }: RowProps) {
   const { isDark } = useTheme();
   const glyphColour = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   if (!onPress) {
     return (
-      <View testID={testID} style={styles.row}>
+      <View testID={testID} style={[styles.row, inset === 'none' && styles.flush]}>
         {children}
         {accessory}
       </View>
@@ -87,6 +94,7 @@ export function Row({
       android_ripple={pressRipple}
       style={pressable([
         styles.row,
+        inset === 'none' && styles.flush,
         accessory != null && styles.besideAccessory,
         disabled && styles.disabled,
       ])}
@@ -128,6 +136,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     minHeight: layout.minTapTarget,
+  },
+  flush: {
+    paddingHorizontal: 0,
   },
   besideAccessory: {
     flex: 1,

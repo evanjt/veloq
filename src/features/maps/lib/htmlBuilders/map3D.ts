@@ -24,6 +24,7 @@ import { SURFACE_HIT_TEST_RADIUS_PX } from './mapSurface';
 import {
   consoleBridgeScript,
   mapLibreHead,
+  setReduceMotionStatement,
   terrainVisibilityScript,
   tileProtocolsScript,
 } from './shared';
@@ -88,6 +89,8 @@ export interface Map3DHtmlConfig {
   heatmapGeneration?: number | undefined;
   /** Device pixel ratio to hand to MapLibre (already capped by caller). */
   devicePixelRatio: number;
+  /** The system reduce-motion setting when the page is built. */
+  reduceMotion: boolean;
 }
 
 /**
@@ -112,6 +115,7 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
     showHeatmap,
     heatmapGeneration = 0,
     devicePixelRatio,
+    reduceMotion,
   } = config;
 
   const coordsJSON = JSON.stringify(coordinates);
@@ -221,6 +225,7 @@ ${consoleBridgeScript()}
     const savedBearing = ${jsNumber(bearing, 0)};
     const savedPitch = ${jsNumber(pitch, 0)};
     const isSatellite = ${isSatellite};
+    ${setReduceMotionStatement(reduceMotion)}
     const _terrainSource = ${initTerrainSourceJSON};
     const _skyConfig = ${initSkyConfigJSON};
     const _hillshadePaint = ${initHillshadePaintJSON};
@@ -243,6 +248,7 @@ ${terrainVisibilityScript()}
         attributionControl: false,
         antialias: true,
         pixelRatio: ${devicePixelRatio},
+        reduceMotion: window._veloqReduceMotion,
       };
       if (bounds && !${hasSavedCamera}) {
         opts.bounds = [bounds.sw, bounds.ne];

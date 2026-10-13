@@ -52,7 +52,13 @@ beforeEach(() => {
 describe('InsightfulStats', () => {
   it('shows the engine impact beside training load', async () => {
     const activity = { ...ride, icu_training_load: 100 } as Activity;
-    const impact = { fitness: 100 / 42, fatigue: 100 / 7, form: 100 / 42 - 100 / 7 };
+    const impact = {
+      fitness: 100 / 42,
+      fatigue: 100 / 7,
+      form: 100 / 42 - 100 / 7,
+      fitnessDays: 42,
+      fatigueDays: 7,
+    };
     const card = await render(<InsightfulStats activity={activity} fitnessImpact={impact} />);
     expect(card.getByText('metrics.trainingLoad')).toBeTruthy();
     expect(card.getByText('activity.stats.fitnessImpact')).toBeTruthy();

@@ -3,6 +3,7 @@ import {
   View,
   ScrollView,
   Pressable,
+  Platform,
   Modal,
   StyleSheet,
   type LayoutChangeEvent,
@@ -38,7 +39,13 @@ import { DebugInfoPanel, DebugWarningBanner } from '@/features/routes';
 import { intervalChips } from '../lib/intervalChips';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { measuresPower, isSwimmingActivity } from '@/shared/activity/activityUtils';
-import type { HrZoneBand, PowerZoneBand, ActivityFitnessImpact, MaxHrSource } from 'veloqrs';
+import type {
+  HrZoneBand,
+  PowerZoneBand,
+  ActivityFitnessImpact,
+  ActivitySummary,
+  MaxHrSource,
+} from 'veloqrs';
 import type { LatLng } from '@/shared/geo/polyline';
 import type { EngineBodyStatus } from '@/shared/native/engineBodies';
 import type { IntervalsOutcome } from '../hooks/useActivities';
@@ -49,6 +56,7 @@ import {
   CHART_CONFIGS,
 } from '@/features/activity/lib/chartConfig';
 import { fullscreenPlotFrame } from '@/features/activity/lib/fullscreenPlotFrame';
+import { fullscreenPlotOrientation } from '@/features/activity/lib/fullscreenPlotOrientation';
 import { formatDurationHuman } from '@/shared/format/format';
 import { type ChartTypeId } from '@/features/activity/lib/chartConfig';
 import type {
@@ -111,6 +119,8 @@ interface ActivityChartsSectionProps {
   fitnessImpact?: ActivityFitnessImpact | null | undefined;
   /** Tile coverage against earlier activities, for the new ground stat */
   newGround?: ActivityNewGround | undefined;
+  /** The speed, times and cadence stored with the activity, from the detail screen read */
+  summary?: ActivitySummary | undefined;
   /** The engine-resolved zone bands and time in each, from the detail screen read */
   hrZones?: HrZoneBand[] | undefined;
   /** The engine-resolved power zone bands in watts and time in each, from the detail screen read */
@@ -146,6 +156,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   maxHrSource,
   fitnessImpact,
   newGround,
+  summary,
   hrZones,
   powerZones,
   transitionSettled,
@@ -222,13 +233,15 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
     setChartMetrics(metrics);
   }, []);
 
-  // The landscape lock lives exactly as long as the full-screen view, so closing
-  // it and unmounting the section with it open both hand the app back to portrait.
+  // A phone's landscape lock lives exactly as long as the full-screen view, so
+  // closing it and unmounting the section with it open both hand the app back to
+  // portrait. An iPad is not rotated for the plot and takes no lock either way.
   React.useEffect(() => {
     if (!isChartFullscreen) return undefined;
-    void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE);
+    const { lockOnOpen, lockOnClose } = PLOT_ORIENTATION;
+    if (lockOnOpen !== null) void ScreenOrientation.lockAsync(lockOnOpen);
     return () => {
-      void ScreenOrientation.lockAsync(APP_ORIENTATION_LOCK);
+      if (lockOnClose !== null) void ScreenOrientation.lockAsync(lockOnClose);
     };
   }, [isChartFullscreen]);
 
@@ -239,8 +252,8 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   const intervalZoneSummary = useMemo(() => {
     if (!intervalsData?.icu_intervals || !activity) return [];
     const scale = measuresPower(activity.type) ? 'power' : 'hr';
-    return intervalChips(intervalsData.icu_intervals, scale, isDark);
-  }, [intervalsData, activity, isDark]);
+    return intervalChips(intervalsData.icu_intervals, scale, isDark, t);
+  }, [intervalsData, activity, isDark, t]);
 
   // Each block is gated on the source it reads. Only the chart needs a stream;
   // the intervals are a persisted column and both zone cards are the engine's
@@ -393,7 +406,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                 testID="activity-zone-chart"
                 style={[styles.chartCard, isDark && styles.cardDark]}
               >
-                <ComponentErrorBoundary componentName="HR Zones Chart">
+                <ComponentErrorBoundary part="hrZonesChart" debugName="HR Zones Chart">
                   <HRZonesChart
                     hrZones={hrZones}
                     maxHR={maxHR}
@@ -407,7 +420,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
             {/* Power Zones Chart */}
             {powerZones && hasPowerZones && (
               <View style={[styles.chartCard, isDark && styles.cardDark]}>
-                <ComponentErrorBoundary componentName="Power Zones Chart">
+                <ComponentErrorBoundary part="powerZonesChart" debugName="Power Zones Chart">
                   <PowerZonesChart
                     powerZones={powerZones}
                     ftp={activity.icu_ftp}
@@ -422,7 +435,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
         {belowFoldMounted && (
           <>
             {/* Insightful Stats */}
-            <ComponentErrorBoundary componentName="Activity Stats">
+            <ComponentErrorBoundary part="activityStats" debugName="Activity Stats">
               <InsightfulStats
                 activity={activity}
                 wellness={activityWellness}
@@ -430,6 +443,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                 maxHrSource={maxHrSource}
                 fitnessImpact={fitnessImpact}
                 newGround={newGround}
+                summary={summary}
               />
             </ComponentErrorBoundary>
 
@@ -537,13 +551,13 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
         )}
       </ScrollView>
 
-      {/* Fullscreen Chart Modal - Landscape */}
+      {/* Fullscreen Chart Modal */}
       <Modal
         visible={isChartFullscreen}
         animationType="fade"
         statusBarTranslucent
         navigationBarTranslucent
-        supportedOrientations={['landscape-left', 'landscape-right']}
+        supportedOrientations={PLOT_ORIENTATION.supportedOrientations}
         onRequestClose={closeChartFullscreen}
       >
         <GestureHandlerRootView style={{ flex: 1 }}>
@@ -663,13 +677,10 @@ function FullscreenPlotLayout({
   );
 }
 
-/**
- * The orientation the app runs in everywhere but the full-screen plot, as
- * `app.json` pins it. The way back from the plot is this lock, not
- * `unlockAsync`: on Android that requests an unspecified orientation, which
- * outranks the manifest's portrait and leaves every screen free to rotate.
- */
-const APP_ORIENTATION_LOCK = ScreenOrientation.OrientationLock.PORTRAIT_UP;
+const PLOT_ORIENTATION = fullscreenPlotOrientation({
+  os: Platform.OS,
+  isPad: Platform.OS === 'ios' && Platform.isPad,
+});
 
 const BOTTOM_BAR_HEIGHT = 80;
 

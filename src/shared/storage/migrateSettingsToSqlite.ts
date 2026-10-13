@@ -30,6 +30,7 @@ const REPAIR_KEYS = [
 export const PREFERENCE_KEYS = [
   'veloq-theme-preference',
   'veloq-language-preference',
+  'veloq-language-follows-system-checked',
   'veloq-unit-preference',
   'veloq-resolved-unit-system',
   'veloq-primary-sport',

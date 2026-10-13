@@ -86,18 +86,17 @@ describe('section rows in the insight sheets', () => {
     expect(tapTo).toHaveBeenCalledWith('/section/hill');
   });
 
-  it('draws the efficiency sheet section link as a shared row', async () => {
+  it('leaves the efficiency section to the sheet data link rather than a row of its own', async () => {
     const tree = await render(<EfficiencyTrendContent insight={insight(SECTIONS.slice(0, 1))} />);
-    // The supporting list below the link names the same section, so both are rows.
-    expect(chevronIds(tree)).toEqual(['row-chevron', 'row-chevron']);
-    const rows = tree.getAllByRole('button', { name: 'Quarry Hill' });
-    expect(rows).toHaveLength(2);
-    for (const row of rows) expect(rootStyle(row).minHeight).toBe(layout.minTapTarget);
+    expect(chevronIds(tree)).toEqual([]);
+    expect(tree.queryAllByRole('button', { name: 'Quarry Hill' })).toEqual([]);
   });
 
   it('holds each section trend accordion item in a flat card', async () => {
     const tree = await render(<SectionTrendContent insight={insight(SECTIONS)} />);
-    const cards = tree.UNSAFE_queryAllByType(Card);
+    const cards = tree
+      .UNSAFE_queryAllByType(Card)
+      .filter((card) => card.props.testID !== 'sheet-context');
     expect(cards).toHaveLength(SECTIONS.length);
     for (const card of cards) expect(card.props.variant).toBe('flat');
   });

@@ -120,15 +120,17 @@ impl RouteManager {
                     let config =
                         crate::persistence::settings::match_config_from(conn).unwrap_or_default();
                     let track: Vec<crate::GpsPoint> = coordinates
-                        .chunks_exact(2)
-                        .filter(|pair| {
-                            pair[0].is_finite()
-                                && pair[1].is_finite()
-                                && pair[0].abs() <= 90.0
-                                && pair[1].abs() <= 180.0
-                                && (pair[0] != 0.0 || pair[1] != 0.0)
+                        .as_chunks::<2>()
+                        .0
+                        .iter()
+                        .filter(|&&[lat, lng]| {
+                            lat.is_finite()
+                                && lng.is_finite()
+                                && lat.abs() <= 90.0
+                                && lng.abs() <= 180.0
+                                && (lat != 0.0 || lng != 0.0)
                         })
-                        .map(|pair| crate::GpsPoint::new(pair[0], pair[1]))
+                        .map(|&[lat, lng]| crate::GpsPoint::new(lat, lng))
                         .collect();
                     group_ids
                         .into_iter()

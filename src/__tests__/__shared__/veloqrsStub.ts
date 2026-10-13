@@ -134,6 +134,13 @@ export enum DayLoadStatus {
   Rest = 3,
 }
 
+/** `FfiBestEffortKind` as generated, what a best effort's checkpoint measures. */
+export enum BestEffortKind {
+  Duration = 0,
+  Distance = 1,
+  HalfMarathon = 2,
+}
+
 /** `FfiMaxHrSource` as generated, where an activity's max HR came from. */
 export enum MaxHrSource {
   ActivityZones = 0,
@@ -342,6 +349,7 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     LoadMetric,
     DayLoadStatus,
     MaxHrSource,
+    BestEffortKind,
     StartOutcome,
     InitOutcome,
     RangeCoverage,

@@ -17,7 +17,7 @@ import { exportRecordBackup } from '@/features/settings/lib/backup';
 import { inBackupSlot } from '@/features/settings/lib/backupSlot';
 import { shareExistingFile } from '@/features/settings/lib/shareFile';
 
-import { initialiseApp } from '@/shared/app/launch';
+import { initialiseApp, retryStartupAreas } from '@/shared/app/launch';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useLanguageStore } from '@/shared/app/LanguageStore';
 import { i18n } from '@/i18n';
@@ -121,6 +121,7 @@ const MIGRATED_KEYS = [
   'veloq-language-preference',
   'veloq-theme-preference',
   'veloq-primary-sport',
+  'veloq-primary-sport-default',
   'veloq-unit-preference',
   'veloq-route-settings',
   'veloq-heatmap-enabled',
@@ -141,6 +142,7 @@ const MIGRATED_KEYS = [
 function migratedLibrary(): void {
   for (const key of MIGRATED_KEYS) stored.set(key, '{}');
   stored.set('veloq-language-preference', 'de-DE');
+  stored.set('veloq-language-follows-system-checked', '1');
 }
 
 beforeEach(() => {
@@ -399,6 +401,32 @@ describe('initialiseApp', () => {
     (initialiseDebugStore as jest.Mock).mockRejectedValueOnce(new Error('debug store unreadable'));
 
     await expect(initialiseApp()).resolves.toEqual(['other']);
+  });
+
+  it('re-runs only the failed area on a retry, and clears it once it settles', async () => {
+    keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
+    migratedLibrary();
+    (initialiseDebugStore as jest.Mock).mockRejectedValueOnce(new Error('debug store unreadable'));
+    const failed = await initialiseApp();
+    expect(failed).toEqual(['other']);
+    const unitReads = () =>
+      calls.filter((c) => c.name === 'getSetting' && c.key === 'veloq-unit-preference').length;
+    const unitsBefore = unitReads();
+
+    await expect(retryStartupAreas(['other'])).resolves.toBeNull();
+
+    expect(initialiseDebugStore).toHaveBeenCalledTimes(2);
+    expect(unitReads()).toBe(unitsBefore);
+  });
+
+  it('names the area again when the retry fails too', async () => {
+    keychain({ intervals_api_key: 'key', intervals_athlete_id: 'i12345' });
+    (initialiseDebugStore as jest.Mock)
+      .mockRejectedValueOnce(new Error('debug store unreadable'))
+      .mockRejectedValueOnce(new Error('debug store unreadable'));
+    await initialiseApp();
+
+    await expect(retryStartupAreas(['other'])).resolves.toEqual(['other']);
   });
 
   it('resumes a paused record import once the engine is open', async () => {

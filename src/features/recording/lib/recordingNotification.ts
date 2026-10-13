@@ -88,6 +88,10 @@ interface VeloqRecordingNotificationModule {
   serviceRunning(): boolean;
   /** Take down the notice that a ride stopped when its process died. */
   clearInterrupted(): void;
+  /** Whether the app is exempt from Android's battery optimisation. */
+  batteryOptimisationExempt(): boolean;
+  /** Create or rename the channel expo-location's foreground service posts on. */
+  nameChannel(name: string, description: string): void;
 }
 
 const VeloqRecordingNotification = requireOptionalNativeModule<VeloqRecordingNotificationModule>(
@@ -103,6 +107,16 @@ const VeloqRecordingNotification = requireOptionalNativeModule<VeloqRecordingNot
 export async function locationServiceRunning(): Promise<boolean | null> {
   if (!VeloqRecordingNotification?.serviceRunning) return null;
   return VeloqRecordingNotification.serviceRunning();
+}
+
+/**
+ * Whether the athlete has exempted the app from battery optimisation. Null where
+ * the module is absent: there is nothing to ask, and "cannot tell" is not
+ * "exempt".
+ */
+export function batteryOptimisationExempt(): boolean | null {
+  if (!VeloqRecordingNotification?.batteryOptimisationExempt) return null;
+  return VeloqRecordingNotification.batteryOptimisationExempt();
 }
 
 /**
@@ -277,6 +291,38 @@ export function clearRecordingNotification(): void {
     VeloqRecordingNotification.clear();
   } catch (e) {
     log.warn('clearRecordingNotification failed:', e);
+  }
+}
+
+const CHANNEL_NAME_KEY = 'recording.serviceChannel.name';
+const CHANNEL_DESCRIPTION_KEY = 'recording.serviceChannel.description';
+
+/**
+ * Name the channel the recording's foreground service posts on, in the app's
+ * language. expo-location creates that channel only when it is absent, named
+ * after the app and described in English, so this runs before the service
+ * starts. Creating it again renames it without touching what the rider set, so
+ * it runs again when the language changes, for as long as this runtime lives.
+ *
+ * A name that resolves as its key means the bundles are not loaded yet, and
+ * then nothing is created: the language change that follows the load names it.
+ */
+export function nameRecordingChannel(): void {
+  if (!VeloqRecordingNotification?.nameChannel) return;
+  i18n.off('languageChanged', createRecordingChannel);
+  i18n.on('languageChanged', createRecordingChannel);
+  createRecordingChannel();
+}
+
+function createRecordingChannel(): void {
+  // i18n.t is typed to a finite key union; these are plain keys at runtime.
+  const t = i18n.t as unknown as (key: string) => string;
+  const name = t(CHANNEL_NAME_KEY);
+  if (!name || name === CHANNEL_NAME_KEY) return;
+  try {
+    VeloqRecordingNotification?.nameChannel(name, t(CHANNEL_DESCRIPTION_KEY));
+  } catch (e) {
+    log.warn('nameRecordingChannel failed:', e);
   }
 }
 

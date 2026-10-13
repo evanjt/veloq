@@ -12,6 +12,7 @@ import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { PerformanceTooltip } from '@/features/routes/components/section/PerformanceTooltip';
+import { formatShortDateWithYear } from '@/shared/format/format';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
@@ -126,7 +127,8 @@ describe('the selected attempt row for a screen reader', () => {
     expect(label).toContain('Harbour loop');
     expect(label).toContain('3:20');
     expect(label).toContain('40s');
-    expect(label).toContain("'26");
+    expect(label).toContain(formatShortDateWithYear(POINT.date));
+    expect(label).not.toContain("'");
   });
 
   it('names the record only once every time stream is read, as the drawn mark does', async () => {

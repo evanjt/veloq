@@ -21,6 +21,7 @@ import {
   getEnglishVariantValue,
   isEnglishVariant,
   isLanguageVariant,
+  SYSTEM_LANGUAGE,
 } from '@/shared/app/LanguageStore';
 
 const STORAGE_KEY = 'veloq-language-preference';
@@ -78,7 +79,7 @@ describe('LanguageStore', () => {
       expect(useLanguageStore.getState().isInitialised).toBe(true);
     });
 
-    it('detects device locale on first launch and saves it', async () => {
+    it('follows the device locale on first launch and saves that it follows', async () => {
       mockGetLocales.mockReturnValue([
         { languageTag: 'en-AU', languageCode: 'en', regionCode: 'AU' },
       ]);
@@ -86,11 +87,10 @@ describe('LanguageStore', () => {
       const result = await initialiseLanguage();
 
       expect(result).toBe('en-AU');
-      expect(useLanguageStore.getState().language).toBe('en-AU');
+      expect(useLanguageStore.getState().language).toBe(SYSTEM_LANGUAGE);
 
-      // Should have saved to AsyncStorage
       const saved = await AsyncStorage.getItem(STORAGE_KEY);
-      expect(saved).toBe('en-AU');
+      expect(saved).toBe(SYSTEM_LANGUAGE);
     });
 
     it('handles language-only saved values (old format)', async () => {
@@ -234,15 +234,15 @@ describe('device locales reach a selectable picker entry', () => {
   ];
 
   it.each(deviceTags)(
-    '%s saves a value the picker can select',
+    '%s resolves to a value the picker can select',
     async (languageTag, languageCode) => {
       (Localization.getLocales as jest.Mock).mockReturnValue([{ languageTag, languageCode }]);
       useLanguageStore.setState({ language: null, isInitialised: false });
       await AsyncStorage.clear();
 
-      await initialiseLanguage();
+      const locale = await initialiseLanguage();
 
-      expect(selectedEntries(useLanguageStore.getState().language as string)).toBe(1);
+      expect(selectedEntries(locale)).toBe(1);
     }
   );
 

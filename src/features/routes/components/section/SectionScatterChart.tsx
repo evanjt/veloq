@@ -60,6 +60,8 @@ export interface SectionScatterChartProps {
   chartData: (PerformanceDataPoint & { x: number })[];
   activityType: ActivityType;
   isDark: boolean;
+  /** Forward's colour, which the page draws on every view of it. */
+  forwardColour: string;
   bestForwardRecord: DirectionBestRecord | null;
   bestReverseRecord: DirectionBestRecord | null;
   bestForwardIsRecord: boolean;
@@ -105,6 +107,7 @@ export function SectionScatterChart({
   chartData,
   activityType,
   isDark,
+  forwardColour,
   bestForwardRecord,
   bestReverseRecord,
   bestForwardIsRecord,
@@ -131,7 +134,6 @@ export function SectionScatterChart({
 }: SectionScatterChartProps) {
   const basis = attemptBasis(activityType, !!useTimeAxis);
   const palette = themePalette(isDark);
-  const activityColor = isDark ? darkColors.primary : colors.primary;
   // The ring is the only thing that says "personal best" or "this activity",
   // so it is a mark and owes 3:1 rather than a chart tone.
   const prMarkColor = isDark ? darkColors.chartGoldMark : colors.chartGoldMark;
@@ -325,7 +327,7 @@ export function SectionScatterChart({
           options={(['forward', 'reverse'] as const).map((direction) => ({
             value: direction,
             label: t(direction === 'reverse' ? 'sections.reverse' : 'sections.forward'),
-            accent: direction === 'reverse' ? colors.reverseDirection : activityColor,
+            accent: direction === 'reverse' ? colors.reverseDirection : forwardColour,
           }))}
           value={selectedDirection}
           optionTestID={(direction) => `section-chart-direction-${direction}`}
@@ -344,7 +346,7 @@ export function SectionScatterChart({
           bestRecord={bestForwardRecord}
           bestIsRecord={bestForwardIsRecord}
           pointCount={forwardPoints.length}
-          color={activityColor}
+          color={forwardColour}
           basis={basis}
           isDark={isDark}
         />
@@ -371,7 +373,7 @@ export function SectionScatterChart({
                       <Path
                         path={trendPaths.band}
                         color={
-                          selectedDirection === 'reverse' ? colors.reverseDirection : activityColor
+                          selectedDirection === 'reverse' ? colors.reverseDirection : forwardColour
                         }
                         style="fill"
                         opacity={0.08}
@@ -382,7 +384,7 @@ export function SectionScatterChart({
                       <Path
                         path={trendPaths.line}
                         color={
-                          selectedDirection === 'reverse' ? colors.reverseDirection : activityColor
+                          selectedDirection === 'reverse' ? colors.reverseDirection : forwardColour
                         }
                         style="stroke"
                         strokeWidth={2}
@@ -400,7 +402,7 @@ export function SectionScatterChart({
                         const point = { x: xFor(dataPoint.x), y: yFor(yValue) };
 
                         const isReverse = dataPoint.direction === 'reverse';
-                        const dotColor = isReverse ? colors.reverseDirection : activityColor;
+                        const dotColor = isReverse ? colors.reverseDirection : forwardColour;
                         const isPointExcluded = dataPoint.isExcluded === true;
 
                         const isBest =
@@ -597,7 +599,7 @@ export function SectionScatterChart({
           selectedPoint={selectedPoint}
           isDark={isDark}
           basis={basis}
-          activityColor={activityColor}
+          activityColor={forwardColour}
           referenceActivityId={referenceActivityId}
           onSetAsReference={onSetAsReference}
           onExcludeActivity={onExcludeActivity}

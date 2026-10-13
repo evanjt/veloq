@@ -58,15 +58,15 @@ describe('the route a Start takes', () => {
 });
 
 describe('GPS readiness from a fix', () => {
-  it('is ready at 20 m or tighter', () => {
-    expect(entryGpsState(5)).toBe('ready');
-    expect(entryGpsState(20)).toBe('ready');
+  it('is ready at the discard threshold or tighter', () => {
+    expect(entryGpsState(5, 20)).toBe('ready');
+    expect(entryGpsState(20, 20)).toBe('ready');
   });
 
-  it('is weak past 20 m, and when the fix carries no accuracy', () => {
-    expect(entryGpsState(20.1)).toBe('weak');
-    expect(entryGpsState(null)).toBe('weak');
-    expect(entryGpsState(undefined)).toBe('weak');
+  it('is weak past the discard threshold, and when the fix carries no accuracy', () => {
+    expect(entryGpsState(20.1, 20)).toBe('weak');
+    expect(entryGpsState(null, 20)).toBe('weak');
+    expect(entryGpsState(undefined, 20)).toBe('weak');
   });
 });
 
@@ -77,6 +77,7 @@ describe('GPS state before a ride', () => {
     fix: null,
     timedOut: false,
     precision: 'precise',
+    rejectThreshold: 30,
   } as const;
 
   it('names the device switch at once when location is off', () => {
@@ -143,15 +144,15 @@ describe('GPS readiness under an approximate location grant', () => {
   } as LocationPermissionResponse;
 
   it('reads a granted coarse response with a 500 m fix as approximate, not weak', () => {
-    expect(entryGpsState(500, locationGrant(coarse).precision)).toBe('approximate');
+    expect(entryGpsState(500, 30, locationGrant(coarse).precision)).toBe('approximate');
   });
 
   it('is approximate before the first fix, since no fix will be tight enough', () => {
-    expect(entryGpsState(null, 'approximate')).toBe('approximate');
+    expect(entryGpsState(null, 30, 'approximate')).toBe('approximate');
   });
 
   it('keeps a precise grant on the fix alone', () => {
-    expect(entryGpsState(500, 'precise')).toBe('weak');
-    expect(entryGpsState(8, 'precise')).toBe('ready');
+    expect(entryGpsState(500, 30, 'precise')).toBe('weak');
+    expect(entryGpsState(8, 30, 'precise')).toBe('ready');
   });
 });

@@ -33,6 +33,7 @@ export {
   getFormZone,
   formZoneFromLoads,
   formatForm,
+  bestEffortCheckpointLabel,
   formatEffortValue,
   formChartSeries,
   type FormChartPoint,

@@ -59,7 +59,37 @@ extension WidgetPalette {
   }
 }
 
-/// One row: a tone mark, the title and, where there is room, the subtitle. On Medium and Large it
+/// The glyph beside an insight row: the symbol for the icon the Insights tab draws on that card,
+/// or, for an icon this build does not know, one symbol per tone. The tinted and clear Home
+/// Screens draw every row in one colour, so the glyph is what still tells the rows apart.
+func insightSymbol(icon: String?, tone: String?) -> String {
+  switch icon {
+  case "trending-up": return "chart.line.uptrend.xyaxis"
+  case "trending-down": return "chart.line.downtrend.xyaxis"
+  case "minus": return "minus"
+  case "trophy-outline": return "trophy"
+  case "lightning-bolt": return "bolt"
+  case "run-fast": return "figure.run"
+  case "swim": return "figure.pool.swim"
+  case "heart-pulse": return "waveform.path.ecg"
+  case "history": return "clock.arrow.circlepath"
+  case "scale-balance": return "scalemass"
+  case "arm-flex-outline": return "figure.strengthtraining.traditional"
+  case "dumbbell": return "dumbbell"
+  default: break
+  }
+  switch tone {
+  case "negative": return "arrow.down.circle"
+  case "caution": return "exclamationmark.triangle"
+  case "positive": return "arrow.up.circle"
+  case "record": return "star"
+  case "info": return "info.circle"
+  case "opportunity": return "lightbulb"
+  default: return "circle"
+  }
+}
+
+/// One row: the card's glyph in its tone, the title and, where there is room, the subtitle. On Medium and Large it
 /// is its own link; Small has room for one row and the whole widget carries that row's link.
 struct InsightRowView: View {
   let row: WidgetInsight
@@ -78,21 +108,22 @@ struct InsightRowView: View {
 
   private var label: some View {
     HStack(alignment: .top, spacing: WidgetTheme.Layout.gap) {
-      Circle()
-        .fill(palette.toneColor(row.tone))
-        .frame(width: 8, height: 8)
+      Image(systemName: insightSymbol(icon: row.icon, tone: row.tone))
+        .font(.system(size: WidgetTheme.TypeScale.label, weight: .semibold))
+        .foregroundColor(palette.toneColor(row.tone))
+        .widgetAccentable()
+        .frame(width: WidgetTheme.Layout.insightGlyph, height: WidgetTheme.Layout.insightGlyph)
         .spoken("tone", row.toneLabel)
-        .padding(.top, 4)
       VStack(alignment: .leading, spacing: 2) {
         Text(row.title)
           .measuredText("insight title")
-          .widgetFont(.label, weight: .semibold, shrinks: true)
+          .widgetProseFont(.label, weight: .semibold, shrinks: true)
           .foregroundColor(palette.textPrimary)
           .multilineTextAlignment(.leading)
         if showsSubtitle, let subtitle = row.subtitle, !subtitle.isEmpty {
           Text(subtitle)
             .measuredText("insight subtitle")
-            .widgetFont(.caption, shrinks: true)
+            .widgetProseFont(.caption, shrinks: true)
             .foregroundColor(palette.textSecondary)
             .multilineTextAlignment(.leading)
         }
@@ -145,7 +176,6 @@ struct InsightsWidgetView: View {
     }
     .environment(\.snapshotNow, entry.date)
     .widgetURL(tapURL(listing))
-    .widgetTextSize()
     .widgetBackground(
       LinearGradient(
         colors: [palette.surface, palette.background],
@@ -171,7 +201,7 @@ struct InsightsWidgetView: View {
         Spacer(minLength: 0)
         Text("No new insights")
           .measuredText("no insights")
-          .widgetFont(.value, weight: .semibold)
+          .widgetProseFont(.value, weight: .semibold, shrinks: true)
           .foregroundColor(palette.textPrimary)
           .frame(maxWidth: .infinity)
           .multilineTextAlignment(.center)
@@ -205,6 +235,7 @@ struct VeloqInsightsWidget: Widget {
   var body: some WidgetConfiguration {
     StaticConfiguration(kind: kind, provider: InsightsProvider()) { entry in
       WidgetFamilyReader { InsightsWidgetView(entry: entry, family: $0) }
+        .snapshotLocale(entry.snapshot)
     }
     .configurationDisplayName("Insights")
     .description("The top cards from your Insights tab.")

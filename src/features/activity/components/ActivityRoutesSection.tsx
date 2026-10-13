@@ -35,7 +35,7 @@ export const ActivityRoutesSection = React.memo(function ActivityRoutesSection({
       testID="activity-routes-list"
     >
       {hasMatchedRoute ? (
-        <ComponentErrorBoundary componentName="Route Performance">
+        <ComponentErrorBoundary part="routePerformance" debugName="Route Performance">
           <RoutePerformanceSection activityId={activityId} activityType={activityType} />
         </ComponentErrorBoundary>
       ) : (

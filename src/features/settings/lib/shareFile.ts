@@ -16,6 +16,7 @@ import { i18n } from '@/i18n';
 import { saveToDevice } from '@/shared/native/backupFolder';
 import { exportFileUri } from '@/shared/storage/cacheFiles';
 import { chooseAction } from '@/shared/ui/dialog';
+import { SharingUnavailableError } from '@/shared/ui/shareFailure';
 
 function getSharing(): typeof import('expo-sharing') {
   return require('expo-sharing');
@@ -64,7 +65,9 @@ function askDestination(name: string): Promise<Destination> {
 
 /**
  * Send a file already on disk where the athlete chooses. Settles once it has
- * gone, or when the athlete backed out, and rejects when a save failed.
+ * gone, or when the athlete backed out, and rejects when a save failed. A
+ * device with no share sheet throws `SharingUnavailableError` rather than
+ * resolving as if the athlete cancelled.
  */
 export async function shareExistingFile(
   fileUri: string,
@@ -81,6 +84,7 @@ export async function shareExistingFile(
     }
   }
   const Sharing = getSharing();
+  if (!(await Sharing.isAvailableAsync())) throw new SharingUnavailableError();
   await Sharing.shareAsync(fileUri, {
     mimeType,
     UTI: options.uti ?? mimeType,

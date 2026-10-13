@@ -458,9 +458,30 @@ fn archive_entries(path: &Path) -> std::collections::BTreeMap<String, Vec<u8>> {
             let mut entry = archive.by_index(i).unwrap();
             let mut bytes = Vec::new();
             entry.read_to_end(&mut bytes).unwrap();
-            (entry.name().to_string(), bytes)
+            (entry.name().to_string(), without_export_time(bytes))
         })
         .collect()
+}
+
+/// An archive's bytes with each export time stamped into it blanked, since two
+/// exports of one library differ in the second they were made and nothing else.
+fn without_export_time(mut bytes: Vec<u8>) -> Vec<u8> {
+    const SHAPE: &[u8] = b"dddd-dd-ddTdd:dd:ddZ";
+    let mut i = 0;
+    while i + SHAPE.len() <= bytes.len() {
+        let window = &bytes[i..i + SHAPE.len()];
+        let stamped = window.iter().zip(SHAPE).all(|(&byte, &shape)| match shape {
+            b'd' => byte.is_ascii_digit(),
+            other => byte == other,
+        });
+        if stamped {
+            bytes[i..i + SHAPE.len()].fill(b'0');
+            i += SHAPE.len();
+        } else {
+            i += 1;
+        }
+    }
+    bytes
 }
 
 /// Whether some connection holds a read mark on the write-ahead log, asked

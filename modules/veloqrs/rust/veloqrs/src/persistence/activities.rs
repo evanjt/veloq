@@ -2186,6 +2186,7 @@ impl PersistentEngine {
             super::settings_keys::EXPORT_HOME_LNG,
             super::settings_keys::EXPORT_PRIVACY_RADIUS_M,
             super::settings_keys::SYNC_LAST_SUCCESS_AT,
+            super::settings_keys::FITNESS_MODEL_EVENTS,
             super::settings_keys::WIDGET_CONTEXT,
             super::settings_keys::GEOCODING_ENABLED,
             super::settings_keys::GEOCODING_ENABLED_AT,

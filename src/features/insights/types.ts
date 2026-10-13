@@ -134,6 +134,8 @@ export interface HistorySeries {
   points: SeriesPoint[];
   /** The symbol a value of the series is read in, printed after it; none prints it bare. */
   unit?: string | undefined;
+  /** Prints a value as the card's scale printed it, for the sheet's ticks and readout. */
+  format?: ((value: number) => string) | undefined;
 }
 
 /**
@@ -176,6 +178,11 @@ export type InsightHistory =
     };
 
 export interface InsightSupportingData {
+  /**
+   * The one figure the sheet leads with, the value the card's claim rests on.
+   * Absent where the payload carries no single figure for the card.
+   */
+  hero?: DataPoint | undefined;
   dataPoints?: DataPoint[];
   sections?: SupportingSection[];
   routes?: SupportingRoute[];

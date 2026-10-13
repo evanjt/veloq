@@ -82,7 +82,13 @@
     "units.kcal": "Conventional measurement unit symbol.",
     "systemSurfaces.spoken.metric": "Slots and punctuation only, so every word is a slot.",
     "systemSurfaces.spoken.toneNeutral": "The same word in this language.",
-    "backup.carrierIcloud": "Service and product names."
+    "backup.carrierIcloud": "Service and product names.",
+    "bestEffortsScreen.checkpoint.metres": "Conventional measurement unit symbol after the number.",
+    "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
+    "units.rpm": "Conventional measurement unit symbol.",
+    "units.spm": "Conventional measurement unit symbol.",
+    "time.dayAtTime": "Date and time punctuation.",
+    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences."
   },
   "de-CH": {
     "activity.stats.maxLabel": "Abbreviation of the German label with the same spelling.",
@@ -159,7 +165,12 @@
     "activity.stats.intensityContext": "Conventional training or recording abbreviation.",
     "units.kcal": "Conventional measurement unit symbol.",
     "systemSurfaces.spoken.metric": "Slots and punctuation only, so every word is a slot.",
-    "systemSurfaces.spoken.toneNeutral": "The same word in this language."
+    "systemSurfaces.spoken.toneNeutral": "The same word in this language.",
+    "bestEffortsScreen.checkpoint.metres": "Conventional measurement unit symbol after the number.",
+    "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
+    "units.spm": "Conventional measurement unit symbol.",
+    "time.dayAtTime": "Date and time punctuation.",
+    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences."
   },
   "de-DE": {
     "about.version": "German word or phrase with the same spelling.",
@@ -261,7 +272,13 @@
     "activity.stats.intensityContext": "Conventional training or recording abbreviation.",
     "units.kcal": "Conventional measurement unit symbol.",
     "systemSurfaces.spoken.metric": "Slots and punctuation only, so every word is a slot.",
-    "systemSurfaces.spoken.toneNeutral": "The same word in this language."
+    "systemSurfaces.spoken.toneNeutral": "The same word in this language.",
+    "bestEffortsScreen.checkpoint.metres": "Conventional measurement unit symbol after the number.",
+    "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
+    "activity.stats.pace": "Established German loanword or technical term.",
+    "units.spm": "Conventional measurement unit symbol.",
+    "time.dayAtTime": "Date and time punctuation.",
+    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences."
   },
   "es-419": {
     "activity.stats.maxLabel": "Abbreviation of the Spanish label with the same spelling.",
@@ -325,7 +342,12 @@
     "activity.stats.intensityContext": "Conventional training or recording abbreviation.",
     "units.kcal": "Conventional measurement unit symbol.",
     "systemSurfaces.spoken.metric": "Slots and punctuation only, so every word is a slot.",
-    "systemSurfaces.spoken.toneNeutral": "The same word in this language."
+    "systemSurfaces.spoken.toneNeutral": "The same word in this language.",
+    "bestEffortsScreen.checkpoint.metres": "Conventional measurement unit symbol after the number.",
+    "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
+    "units.rpm": "Conventional measurement unit symbol.",
+    "time.dayAtTime": "Date and time punctuation.",
+    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences."
   },
   "es-ES": {
     "activity.stats.maxLabel": "Abbreviation of the Spanish label with the same spelling.",
@@ -394,7 +416,12 @@
     "activity.stats.intensityContext": "Conventional training or recording abbreviation.",
     "units.kcal": "Conventional measurement unit symbol.",
     "systemSurfaces.spoken.metric": "Slots and punctuation only, so every word is a slot.",
-    "systemSurfaces.spoken.toneNeutral": "The same word in this language."
+    "systemSurfaces.spoken.toneNeutral": "The same word in this language.",
+    "bestEffortsScreen.checkpoint.metres": "Conventional measurement unit symbol after the number.",
+    "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
+    "units.rpm": "Conventional measurement unit symbol.",
+    "time.dayAtTime": "Date and time punctuation.",
+    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences."
   },
   "es": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -456,7 +483,12 @@
     "activity.stats.intensityContext": "Conventional training or recording abbreviation.",
     "units.kcal": "Conventional measurement unit symbol.",
     "systemSurfaces.spoken.metric": "Slots and punctuation only, so every word is a slot.",
-    "systemSurfaces.spoken.toneNeutral": "The same word in this language."
+    "systemSurfaces.spoken.toneNeutral": "The same word in this language.",
+    "bestEffortsScreen.checkpoint.metres": "Conventional measurement unit symbol after the number.",
+    "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
+    "units.rpm": "Conventional measurement unit symbol.",
+    "time.dayAtTime": "Date and time punctuation.",
+    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences."
   },
   "fr": {
     "backup.carrierGoogleDrive": "Service and product names.",
@@ -560,7 +592,6 @@
     "zoneNames.power2": "Conventional training term spelled as in English.",
     "zoneNames.power3": "Conventional training term spelled as in English.",
     "zoneNames.power5": "Conventional training term spelled as in English.",
-    "recording.library.distance": "French word or phrase with the same spelling.",
     "units.times": "Conventional multiplication sign after a count.",
     "units.metresPerSecond": "Conventional measurement unit symbol.",
     "units.metres": "Conventional measurement unit symbol.",
@@ -574,7 +605,12 @@
     "activity.stats.intensityContext": "Conventional training or recording abbreviation.",
     "units.kcal": "Conventional measurement unit symbol.",
     "systemSurfaces.spoken.metric": "Slots and punctuation only, so every word is a slot.",
-    "systemSurfaces.spoken.toneRecord": "The same word in this language."
+    "systemSurfaces.spoken.toneRecord": "The same word in this language.",
+    "bestEffortsScreen.checkpoint.metres": "Conventional measurement unit symbol after the number.",
+    "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
+    "activity.stats.cadence": "The same word in this language.",
+    "time.dayAtTime": "Date and time punctuation.",
+    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences."
   },
   "it": {
     "activity.stats.maxLabel": "Abbreviation of the Italian label with the same spelling.",
@@ -653,7 +689,12 @@
     "activity.stats.intensityContext": "Conventional training or recording abbreviation.",
     "units.kcal": "Conventional measurement unit symbol.",
     "systemSurfaces.spoken.metric": "Slots and punctuation only, so every word is a slot.",
-    "systemSurfaces.spoken.toneRecord": "The same word in this language."
+    "systemSurfaces.spoken.toneRecord": "The same word in this language.",
+    "bestEffortsScreen.checkpoint.metres": "Conventional measurement unit symbol after the number.",
+    "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
+    "units.rpm": "Conventional measurement unit symbol.",
+    "time.dayAtTime": "Date and time punctuation.",
+    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences."
   },
   "ja": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -692,7 +733,10 @@
     "maps.gradientTick": "Numeric percentage template.",
     "activity.stats.intensityContext": "Conventional training or recording abbreviation.",
     "units.kcal": "Conventional measurement unit symbol.",
-    "backup.carrierIcloud": "Service and product names."
+    "backup.carrierIcloud": "Service and product names.",
+    "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
+    "units.rpm": "Conventional measurement unit symbol.",
+    "units.spm": "Conventional measurement unit symbol."
   },
   "nl": {
     "activityDetail.routePrBadge": "PR is the conventional abbreviation for personal record.",
@@ -816,7 +860,16 @@
     "activity.stats.intensityContext": "Conventional training or recording abbreviation.",
     "units.kcal": "Conventional measurement unit symbol.",
     "systemSurfaces.spoken.metric": "Slots and punctuation only, so every word is a slot.",
-    "systemSurfaces.spoken.toneRecord": "The same word in this language."
+    "systemSurfaces.spoken.toneRecord": "The same word in this language.",
+    "bestEffortsScreen.checkpoint.metres": "Conventional measurement unit symbol after the number.",
+    "intervalTypes.warmup.short": "WU, the abbreviation Dutch coaches use for warming-up.",
+    "intervalTypes.cooldown.short": "CD, the abbreviation Dutch coaches use for cooling-down.",
+    "recording.recentTypes": "Dutch word or phrase with the same spelling.",
+    "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
+    "units.rpm": "Conventional measurement unit symbol.",
+    "units.spm": "Conventional measurement unit symbol.",
+    "time.dayAtTime": "Date and time punctuation.",
+    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences."
   },
   "pl": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -888,7 +941,11 @@
     "activity.stats.intensityContext": "Conventional training or recording abbreviation.",
     "units.kcal": "Conventional measurement unit symbol.",
     "systemSurfaces.spoken.metric": "Slots and punctuation only, so every word is a slot.",
-    "backup.carrierIcloud": "Service and product names."
+    "backup.carrierIcloud": "Service and product names.",
+    "bestEffortsScreen.checkpoint.metres": "Conventional measurement unit symbol after the number.",
+    "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
+    "time.dayAtTime": "Date and time punctuation.",
+    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences."
   },
   "pt-BR": {
     "activity.stats.maxLabel": "Abbreviation of the Brazilian Portuguese label with the same spelling.",
@@ -964,7 +1021,12 @@
     "maps.gradientTick": "Numeric percentage template.",
     "activity.stats.intensityContext": "Conventional training or recording abbreviation.",
     "units.kcal": "Conventional measurement unit symbol.",
-    "systemSurfaces.spoken.metric": "Slots and punctuation only, so every word is a slot."
+    "systemSurfaces.spoken.metric": "Slots and punctuation only, so every word is a slot.",
+    "bestEffortsScreen.checkpoint.metres": "Conventional measurement unit symbol after the number.",
+    "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
+    "units.rpm": "Conventional measurement unit symbol.",
+    "time.dayAtTime": "Date and time punctuation.",
+    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences."
   },
   "pt": {
     "activity.stats.maxLabel": "Abbreviation of the Portuguese label with the same spelling.",
@@ -1040,7 +1102,12 @@
     "maps.gradientTick": "Numeric percentage template.",
     "activity.stats.intensityContext": "Conventional training or recording abbreviation.",
     "units.kcal": "Conventional measurement unit symbol.",
-    "systemSurfaces.spoken.metric": "Slots and punctuation only, so every word is a slot."
+    "systemSurfaces.spoken.metric": "Slots and punctuation only, so every word is a slot.",
+    "bestEffortsScreen.checkpoint.metres": "Conventional measurement unit symbol after the number.",
+    "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
+    "units.rpm": "Conventional measurement unit symbol.",
+    "time.dayAtTime": "Date and time punctuation.",
+    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences."
   },
   "zh-Hans": {
     "backgroundJobs.progressPercent": "Numeric percentage template.",
@@ -1068,6 +1135,9 @@
     "units.metres": "Conventional measurement unit symbol.",
     "maps.gradientTick": "Numeric percentage template.",
     "activity.stats.intensityContext": "Conventional training or recording abbreviation.",
-    "metrics.eftp": "Conventional training or recording abbreviation."
+    "metrics.eftp": "Conventional training or recording abbreviation.",
+    "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
+    "units.rpm": "Conventional measurement unit symbol.",
+    "units.spm": "Conventional measurement unit symbol."
   }
 }

@@ -3,7 +3,8 @@
  *
  * It names the part of the app that did not load, from a translated line per
  * area, and never the initialiser's own message, which is English and in the
- * engine's vocabulary. The work has finished, so nothing spins. The English
+ * engine's vocabulary. The work has finished, so nothing spins. Retry re-runs
+ * the initialisers that failed, and Dismiss carries on without them. The English
  * defaults cover the launch where the language initialiser is the one that
  * failed and the translator has no bundle to read.
  */
@@ -50,10 +51,11 @@ const AREA_KEY = {
 
 interface StartupErrorBannerProps {
   areas: readonly StartupArea[];
+  onRetry: () => void;
   onDismiss: () => void;
 }
 
-export function StartupErrorBanner({ areas, onDismiss }: StartupErrorBannerProps) {
+export function StartupErrorBanner({ areas, onRetry, onDismiss }: StartupErrorBannerProps) {
   const { t } = useTranslation();
   const named = areas
     .map((area) => t(AREA_KEY[area], { defaultValue: AREA_DEFAULT[area] }))
@@ -70,8 +72,15 @@ export function StartupErrorBanner({ areas, onDismiss }: StartupErrorBannerProps
       detail={[
         t('emptyState.startupError.detail', {
           areas: named,
-          defaultValue: 'Could not load: {{areas}}. Restart the app to try again.',
+          defaultValue: 'Could not load: {{areas}}.',
         }),
+      ]}
+      actions={[
+        {
+          label: t('common.retry', { defaultValue: 'Retry' }),
+          onPress: onRetry,
+          testID: 'startup-error-retry',
+        },
       ]}
       onDismiss={onDismiss}
       testID="startup-error-banner"

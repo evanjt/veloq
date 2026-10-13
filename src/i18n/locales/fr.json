@@ -47,7 +47,10 @@
       "activityEftp": "L'eFTP est l'estimation du modèle de puissance d'intervals.icu pour cette activité.",
       "power": "Puissance moyenne en watts.",
       "trainingLoad": "intervals.icu calcule la charge d'entraînement à partir de la puissance, de la fréquence cardiaque ou de l'allure, selon les données de l'activité et vos réglages de sport. Elle pondère la durée par l'intensité relative à votre seuil.",
-      "yourForm": "Votre Forme (TSB) ce jour-là. C'est une valeur quotidienne basée sur votre entraînement global, pas spécifique à cette activité. TSB = Forme (CTL) moins Fatigue (ATL)."
+      "yourForm": "Votre Forme (TSB) ce jour-là. C'est une valeur quotidienne basée sur votre entraînement global, pas spécifique à cette activité. TSB = Forme (CTL) moins Fatigue (ATL).",
+      "speed": "Vitesse moyenne et maximale telles qu'intervals.icu les a enregistrées pour cette activité.",
+      "pace": "Allure moyenne et la plus rapide telles qu'intervals.icu les a enregistrées pour cette activité.",
+      "cadence": "Cadence moyenne telle qu'intervals.icu l'a enregistrée : tours de pédalier par minute à vélo, pas ou mouvements par minute sinon."
     },
     "ftp": "Réglage de FTP : {{value}}",
     "heartRate": "Fréquence cardiaque",
@@ -106,7 +109,12 @@
       "fitnessThatDay": "Forme ce jour-là (CTL)",
       "yourForm": "Votre forme",
       "eftpContext": "eFTP de cette activité {{value}}",
-      "intensityContext": "IF {{percent}}%"
+      "intensityContext": "IF {{percent}}%",
+      "speed": "Vitesse",
+      "pace": "Allure",
+      "cadence": "Cadence",
+      "movingTime": "Temps en mouvement",
+      "elapsedTime": "Temps écoulé"
     },
     "hrZoneTotal": "Temps avec fréquence cardiaque : {{duration}}",
     "powerZoneTotal": "Temps avec puissance : {{duration}}",
@@ -126,7 +134,10 @@
     "zoneMaxFromActivity": "Max des zones {{value}} bpm, cette activité",
     "zoneMaxFromSettings": "Max des zones {{value}} bpm, réglages du sport",
     "zoneMaxDefault": "Aucune FC max définie, les zones supposent {{value}} bpm",
-    "zoneMaxDefaultHint": "Définissez votre FC max dans les réglages du sport sur intervals.icu"
+    "zoneMaxDefaultHint": "Définissez votre FC max dans les réglages du sport sur intervals.icu",
+    "prDelta": "+{{delta}} sur le PR",
+    "chartAverage": "moy.",
+    "gainStat": "↑ {{value}}"
   },
   "activityDetail": {
     "routePrBadge": "RP {{improvement}}",
@@ -401,7 +412,12 @@
     "sourceNote": "Touche une ligne pour ouvrir l activité.",
     "climbingBests": "Grimpe",
     "climbingSourceExcluded": "Exclues car l'altitude de l'appareil remplace l'élévation corrigée : {{excluded}}",
-    "climbingOwed": "Les meilleurs en montée sont encore en cours de calcul."
+    "climbingOwed": "Les meilleurs en montée sont encore en cours de calcul.",
+    "checkpoint": {
+      "halfMarathon": "Semi-marathon",
+      "metres": "{{value}} m",
+      "kilometres": "{{value}} km"
+    }
   },
   "cache": {
     "allActivitiesSynced": "Toutes les activités synchronisées",
@@ -476,7 +492,8 @@
     "discard": "Abandonner",
     "discardChangesTitle": "Abandonner les modifications ?",
     "discardChangesMessage": "Vos modifications sur cet écran n'ont pas été enregistrées.",
-    "keepEditing": "Continuer la modification"
+    "keepEditing": "Continuer la modification",
+    "sentencePair": "{{first}} {{second}}"
   },
   "demo": {
     "banner": "Mode Démo",
@@ -516,7 +533,7 @@
     },
     "startupError": {
       "title": "Certaines parties de l'appli n'ont pas chargé",
-      "detail": "Chargement impossible : {{areas}}. Redémarrez l'appli pour réessayer.",
+      "detail": "Chargement impossible : {{areas}}.",
       "area": {
         "language": "langue",
         "preferences": "préférences",
@@ -582,14 +599,47 @@
   },
   "errorState": {
     "defaultTitle": "Une erreur s'est produite",
-    "unableToLoad": "Impossible de charger {{componentName}}",
     "libraryUnaffected": "Vos activités sur cet appareil ne sont pas affectées.",
     "rideStillRecording": "Votre sortie est toujours en cours d'enregistrement.",
     "stopAndSaveRide": "Arrêter et enregistrer la sortie",
     "rideStopped": "Votre sortie est arrêtée et conservée sur cet appareil.",
     "shareFailed": "Impossible de partager le journal des plantages.",
-    "restartHint": "Veuillez réessayer ou redémarrer l'application",
-    "unableToDisplayChart": "Impossible d’afficher le graphique"
+    "unableToLoad": "Impossible de charger : {{part}}",
+    "retryHint": "Touchez Réessayer pour le charger à nouveau.",
+    "unableToDisplayChart": "Impossible d’afficher le graphique",
+    "part": {
+      "map": "carte",
+      "map3d": "carte 3D",
+      "terrainSnapshots": "aperçus du relief",
+      "routePerformance": "performance sur l’itinéraire",
+      "hrZonesChart": "graphique des zones de fréquence cardiaque",
+      "powerZonesChart": "graphique des zones de puissance",
+      "activityStats": "statistiques de l’activité",
+      "activityMap": "carte de l’activité",
+      "muscleGroups": "groupes musculaires"
+    }
+  },
+  "intervalTypes": {
+    "work": {
+      "short": "Effort",
+      "long": "Effort"
+    },
+    "recovery": {
+      "short": "Récup.",
+      "long": "Récupération"
+    },
+    "warmup": {
+      "short": "Échauf.",
+      "long": "Échauffement"
+    },
+    "cooldown": {
+      "short": "Retour",
+      "long": "Retour au calme"
+    },
+    "other": {
+      "short": "Autre",
+      "long": "Autre"
+    }
   },
   "export": {
     "bulkComplete": "Exportation terminée",
@@ -614,7 +664,10 @@
     "gpxTrimmedAway": "Rien à exporter. Le rognage autour du domicile a laissé trop peu du tracé.",
     "failedTitle": "Échec de l’exportation",
     "share": "Partager",
-    "saveToDevice": "Enregistrer sur l'appareil"
+    "saveToDevice": "Enregistrer sur l'appareil",
+    "shareFailedTitle": "Non partagé",
+    "shareFailed": "Impossible d’ouvrir le menu de partage. Réessayez.",
+    "shareUnavailable": "Cet appareil ne permet pas de partager des fichiers."
   },
   "feed": {
     "activitiesCount_one": "{{count}} Activité",
@@ -759,8 +812,6 @@
       "groupMore": "(+{{n}} autres)",
       "trendFaster": "Plus rapide",
       "trendSlower": "Plus lent",
-      "attempts_one": "{{count}} tentative",
-      "attempts_other": "{{count}} tentatives",
       "direction": {
         "forward": "Aller",
         "reverse": "Retour"
@@ -919,7 +970,6 @@
       "changeBody": "Sur {{efforts}} passages sur {{name}}, le produit fréquence cardiaque × allure a augmenté. À l’allure moyenne, cela représente +{{hrChange}} bpm modélisés ; la fréquence cardiaque mesurée peut différer.",
       "subtitle": "{{hrChange}} bpm modélisés à allure moyenne sur {{efforts}} efforts",
       "body": "Sur {{efforts}} efforts sur {{name}}, le produit fréquence cardiaque par allure s'est amélioré. À votre allure moyenne, cela représente {{hrChange}} bpm modélisés ; votre fréquence cardiaque elle-même peut ne pas avoir changé.",
-      "sheetHrCaption": "sur les efforts appariés",
       "sheetHeading": "Comparaison d’efforts appariés",
       "sheetBody": "Fondé sur des efforts répétés sur la même section qui portent à la fois la fréquence cardiaque et l’allure. Compare dans le temps ce que chaque passage a coûté à votre cœur.",
       "sheetMeta": "Ouvrez la section pour voir les efforts."
@@ -1091,7 +1141,9 @@
     "expandRange": "Étendre la plage",
     "distanceAny": "Toutes",
     "showFilters": "Afficher tous les filtres",
-    "hideFilters": "Afficher moins de filtres"
+    "hideFilters": "Afficher moins de filtres",
+    "searchCount": "{{shown}} sur {{total}}",
+    "searchFilteredBy": "filtré par {{filters}}"
   },
   "maps": {
     "threeDUnavailable": "Le relief nécessite une connexion. Carte plate affichée.",
@@ -1272,15 +1324,16 @@
     "distance": "Distance ({{unit}})",
     "distanceInvalid": "Veuillez saisir une distance valide (0-999).",
     "duration": "Durée (minutes)",
-    "durationLabel": "Durée",
     "durationRequired": "Veuillez saisir une durée valide.",
     "elevation": "Dénivelé",
     "fields": {
       "avgPace": "Allure Moy",
+      "avgPower": "Puiss Moy",
       "avgSpeed": "Vit Moy",
       "cadence": "Cadence",
       "calories": "Calories",
       "distance": "Distance",
+      "elapsedTime": "Temps écoulé",
       "elevation": "Dénivelé",
       "elevationGain": "Dén. positif",
       "heartrate": "Fréquence cardiaque",
@@ -1362,11 +1415,11 @@
       "recording": "Enregistrement"
     },
     "summary": "Résumé",
-    "timeOfDay": {
-      "morning": "Matin",
-      "afternoon": "Après-midi",
-      "evening": "Soir",
-      "night": "Nuit"
+    "autoName": {
+      "morning": "{{sport}} du matin",
+      "afternoon": "{{sport}} de l'après-midi",
+      "evening": "{{sport}} du soir",
+      "night": "{{sport}} de nuit"
     },
     "trimActivity": "Rogner l'activité",
     "trimEndHandle": "Fin du rognage",
@@ -1384,8 +1437,6 @@
     "autoUpload": "Téléversement automatique",
     "autoUploadDescription": "Téléverser automatiquement les enregistrements vers intervals.icu lors de la sauvegarde. Sinon, ils restent sur cet appareil jusqu'au téléversement depuis Mes enregistrements.",
     "library": {
-      "distance": "Distance",
-      "duration": "Durée",
       "title": "Mes enregistrements",
       "empty": "Aucun enregistrement",
       "emptyHint": "Les enregistrements sauvegardés restent ici sur cet appareil.",
@@ -1397,6 +1448,8 @@
       "delete": "Supprimer",
       "deleteConfirmTitle": "Supprimer l'enregistrement ?",
       "deleteConfirmMessage": "{{sport}} · {{startTime}}: L'enregistrement sera définitivement supprimé de cet appareil.",
+      "deleteFailedTitle": "Enregistrement non supprimé",
+      "deleteFailed": "Impossible de supprimer l’enregistrement. Il est toujours sur cet appareil.",
       "pendingUploads_one": "{{count}} enregistrement non téléversé",
       "pendingUploads_many": "{{count}} d'enregistrements non téléversés",
       "pendingUploads_other": "{{count}} enregistrements non téléversés",
@@ -1454,6 +1507,7 @@
     "entryManualCaption": "Saisie manuelle, Démarrer ouvre le formulaire",
     "fieldModeGps": "GPS",
     "fieldModeIndoor": "Intérieur",
+    "fieldsSelected": "{{selected}} champs sur {{max}}",
     "tileOrder": "Ordre des cases",
     "tileOrderDescription": "Touchez une case pour choisir la donnée qu'elle affiche. Sur l'écran d'enregistrement, un appui long sur une case fait de même.",
     "tileSlotLabel": "Case {{number}}, {{field}}",
@@ -1462,7 +1516,12 @@
       "card": "Enregistrement arrêté. Ouvrez Veloq pour reprendre.",
       "channel": "Enregistrements interrompus",
       "title": "Enregistrement arrêté"
-    }
+    },
+    "serviceChannel": {
+      "description": "Affiche l'activité en cours d'enregistrement, avec ses commandes.",
+      "name": "Enregistrement"
+    },
+    "recentTypes": "Récents"
   },
   "routeDetail": {
     "routeNotFound": "Itinéraire non trouvé"
@@ -1685,9 +1744,6 @@
     "traversalsCount_other": "{{count}} passages",
     "calendarActivities_one": "{{count}} activité",
     "calendarActivities_other": "{{count}} activités",
-    "visitsCount_one": "{{count}} passage",
-    "visitsCount_many": "{{count}} de passages",
-    "visitsCount_other": "{{count}} passages",
     "scanForMatches": "Rechercher des correspondances",
     "rematchActivities": "Rapprocher à nouveau les activités",
     "scanForMore": "Rechercher d'autres sections",
@@ -1738,7 +1794,6 @@
     "showFewerLaps": "Afficher moins de tours",
     "lapExcluded": "Exclu",
     "partlyExcluded": "Certains tours exclus",
-    "maxGrade": "Pente max",
     "rescanRefusedBusy": "Une analyse est déjà en cours.",
     "rescanRefusedHeld": "La détection est en attente pendant que le moteur termine d'autres tâches.",
     "rescanRefusedNotReady": "Le moteur est en cours d'ouverture. Réessaie dans un instant.",
@@ -1768,7 +1823,10 @@
     "referenceFailedTitle": "Référence non définie",
     "acceptAllFailedTitle": "Sections non acceptées",
     "changeFailedTitle": "Section non modifiée",
-    "bestLapValue": "Meilleur tour {{time}}"
+    "bestLapValue": "Meilleur tour {{time}}",
+    "avgValue": "{{value}} Moy",
+    "bestValue": "{{value}} Meilleur",
+    "maxGradeValue": "Pente max {{grade}}"
   },
   "settings": {
     "terrain3DMode": "3D : {{mode}}",
@@ -2119,7 +2177,8 @@
     "vsPrevious6Months": "vs 6 mois précédents",
     "week": "Semaine",
     "year": "Année",
-    "atWeight": "à {{weight}}"
+    "fewerActivities": "Moins d'activités",
+    "moreActivities": "Plus d'activités"
   },
   "statsScreen": {
     "eFTPTrend": "Tendance eFTP",
@@ -2135,7 +2194,8 @@
     "powerCurve": "Courbe de puissance",
     "seasonBests": "Meilleurs efforts",
     "swimPaceCurve": "Courbe d'allure natation",
-    "trainingZones": "Zones d'entraînement"
+    "trainingZones": "Zones d'entraînement",
+    "ftpLabelAtWeight": "Réglage de FTP {{value}} à {{weight}}"
   },
   "refresh": {
     "busy": "Actualisation après la synchronisation en cours.",
@@ -2150,6 +2210,7 @@
   },
   "time": {
     "asOfLastSync": "Données de la dernière synchronisation",
+    "dayAtTime": "{{day}}, {{time}}",
     "daysCount_one": "{{count}} jour",
     "daysCount_other": "{{count}} jours",
     "now": "Maintenant",
@@ -2181,7 +2242,9 @@
     "times": "{{value}}×",
     "metresPerSecond": "m/s",
     "metres": "m",
-    "seconds": "s"
+    "seconds": "s",
+    "rpm": "tr/min",
+    "spm": "pas/min"
   },
   "spoken": {
     "noValue": "aucune valeur",
@@ -2453,6 +2516,9 @@
     "noneFound": "Aucun capteur trouvé",
     "noneFoundHint": "Réveillez le capteur en portant la ceinture ou en tournant les manivelles, et gardez-le près du téléphone.",
     "scanAgain": "Rechercher à nouveau",
+    "signal": "Puissance du signal {{dbm}} dBm",
+    "unnamed": "Capteur {{kind}}",
+    "lastSample": "{{value}}, il y a {{seconds}} s",
     "availability": {
       "unsupportedTitle": "Cet appareil n'a pas de Bluetooth LE",
       "unsupportedHint": "Les capteurs de fréquence cardiaque, de puissance et de cadence nécessitent le Bluetooth LE.",
@@ -2475,7 +2541,8 @@
       "bluetoothOff": "Bluetooth désactivé",
       "permission": "Autorisation Bluetooth requise",
       "unsupported": "Bluetooth indisponible"
-    }
+    },
+    "issueSummary": "Capteurs : {{issue}}"
   },
   "sectionHistory": {
     "title": "Historique",

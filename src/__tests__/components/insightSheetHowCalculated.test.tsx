@@ -103,7 +103,10 @@ describe('the How was this calculated disclosure on an insight sheet', () => {
     const header = screen.getByRole('header', { name: HOW });
     expect(header.props.accessibilityState).toMatchObject({ expanded: false });
 
+    // The figure the sheet leads with stands above the fold; every other row is folded.
+    const hero = insight.supportingData?.hero;
     for (const row of insight.supportingData?.dataPoints ?? []) {
+      if (row.label === hero?.label) continue;
       expect(screen.queryByText(row.label)).toBeNull();
     }
     if (insight.methodology?.description) {
@@ -123,6 +126,7 @@ describe('the How was this calculated disclosure on an insight sheet', () => {
     });
     expect(screen.getByText(insight.supportingData?.algorithmDescription as string)).toBeTruthy();
     expect(screen.getByText(insight.supportingData?.formula as string)).toBeTruthy();
+    // Every number is drawn once, the leading figure above the fold among them.
     for (const row of insight.supportingData?.dataPoints ?? []) {
       expect(screen.getAllByText(row.label)).toHaveLength(1);
     }

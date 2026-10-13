@@ -40,7 +40,13 @@ const activity = {
   start_date_local: '2026-09-05T08:00:00',
   icu_training_load: 100,
 } as Activity;
-const impact = { fitness: 100 / 42, fatigue: 100 / 7, form: 100 / 42 - 100 / 7 };
+const impact = {
+  fitness: 100 / 42,
+  fatigue: 100 / 7,
+  form: 100 / 42 - 100 / 7,
+  fitnessDays: 42,
+  fatigueDays: 7,
+};
 
 beforeEach(() => {
   mockPush.mockClear();

@@ -99,7 +99,7 @@ function GlobalErrorFallback({ error, onRetry }: { error: Error | null; onRetry:
   const shareLog = async () => {
     setShareFailed(false);
     try {
-      await shareCrashLog(i18n.t);
+      if ((await shareCrashLog(i18n.t, { quiet: true })) === false) setShareFailed(true);
     } catch {
       setShareFailed(true);
     }

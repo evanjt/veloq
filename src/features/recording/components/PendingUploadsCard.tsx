@@ -1,14 +1,14 @@
 import React, { useState, useCallback } from 'react';
-import { StyleSheet, Pressable } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { tapTo } from '@/shared/app/navigation';
-import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
+import { Card } from '@/shared/ui/Card';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, colorWithOpacity, typography } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { getVisibleUnuploadedCount } from '@/features/recording/lib/storage/recordingLibrary';
 
 /** Home banner shown while locally saved recordings are not yet on intervals.icu. */
@@ -32,38 +32,34 @@ function PendingUploadsCardInner() {
   if (count === 0) return null;
 
   const tint = isDark ? darkColors.secondary : colors.secondary;
+  const label = t('recording.library.pendingUploads', { count });
 
   return (
-    <Pressable
+    <Card
+      variant="flat"
+      padding="sm"
       testID="pending-uploads-card"
-      style={pressable([styles.card, { backgroundColor: colorWithOpacity(tint, 0.1) }])}
-      android_ripple={pressRipple}
       onPress={() => tapTo('/recordings')}
       accessibilityRole="button"
+      accessibilityLabel={label}
+      style={styles.row}
     >
       <MaterialCommunityIcons name="cloud-upload-outline" size={18} color={tint} />
       <Text style={[styles.text, { color: tint }]} numberOfLines={1}>
-        {t('recording.library.pendingUploads', '{{count}} recording(s) not uploaded yet', {
-          count,
-        })}
+        {label}
       </Text>
       <MaterialCommunityIcons name="chevron-right" size={18} color={tint} />
-    </Pressable>
+    </Card>
   );
 }
 
 export const PendingUploadsCard = React.memo(PendingUploadsCardInner);
 
 const styles = StyleSheet.create({
-  card: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: layout.borderRadius,
   },
   text: {
     flex: 1,

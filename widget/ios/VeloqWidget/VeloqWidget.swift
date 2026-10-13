@@ -68,7 +68,6 @@ struct VeloqWidgetEntryView: View {
     )
     .environment(\.snapshotNow, entry.date)
     .widgetURL(SummaryDeepLink.fitness)
-    .widgetTextSize()
     .widgetBackground(
       LinearGradient(
         colors: [palette.surface, palette.background],
@@ -85,6 +84,7 @@ struct VeloqWidget: Widget {
   var body: some WidgetConfiguration {
     StaticConfiguration(kind: kind, provider: VeloqProvider()) { entry in
       WidgetFamilyReader { VeloqWidgetEntryView(entry: entry, family: $0) }
+        .snapshotLocale(entry.snapshot)
     }
     .configurationDisplayName("Summary")
     .description("Your summary card from the app at a glance.")
@@ -144,7 +144,6 @@ struct RecordWidgetView: View {
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .widgetURL(url)
-    .widgetTextSize()
     .widgetBackground(
       LinearGradient(
         colors: colorScheme == .dark
@@ -197,6 +196,17 @@ struct WidgetFamilyReader<Content: View>: View {
 }
 
 extension View {
+  /// The widget formats its own dates in the language the app wrote the snapshot in, so the age
+  /// line reads in the same language as the words beside it. With no snapshot, the phone's.
+  @ViewBuilder
+  func snapshotLocale(_ snapshot: WidgetSnapshot?) -> some View {
+    if let tag = snapshot?.locale, !tag.isEmpty {
+      environment(\.locale, Locale(identifier: tag))
+    } else {
+      self
+    }
+  }
+
   // iOS 17 requires containerBackground; 15/16 fall back to a plain background.
   @ViewBuilder
   func widgetBackground<S: ShapeStyle>(_ style: S) -> some View {

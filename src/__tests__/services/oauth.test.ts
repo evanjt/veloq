@@ -67,9 +67,15 @@ jest.mock('expo-web-browser', () => ({
   openAuthSessionAsync: jest.fn(),
 }));
 
-// Mock expo-linking: use a real-ish parse implementation that reads query params
+// Mock expo-linking: use a real-ish parse implementation that reads query params,
+// and keep the `url` listeners so a test can deliver a deep link.
+const mockUrlListeners = new Set<(event: { url: string }) => void>();
 jest.mock('expo-linking', () => ({
   ...jest.requireActual('expo-linking'),
+  addEventListener: jest.fn((_type: string, listener: (event: { url: string }) => void) => {
+    mockUrlListeners.add(listener);
+    return { remove: () => mockUrlListeners.delete(listener) };
+  }),
   parse: jest.fn((url: string) => {
     const u = new URL(url);
     const params: Record<string, string> = {};
@@ -103,6 +109,11 @@ function browserOpenedBy(oauth: typeof import('@/features/auth/lib/oauth')): Pro
   });
 }
 
+/** Deliver a deep link to every `url` listener, as Android does when the redirect lands. */
+function deliverLink(url: string): void {
+  mockUrlListeners.forEach((listener) => listener({ url }));
+}
+
 describe('OAuth service', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -129,7 +140,7 @@ describe('OAuth service', () => {
 
     it('produces a URL containing client_id, redirect_uri, scope, and state when state is set', async () => {
       mockedOpenAuth.mockResolvedValue({
-        type: 'dismiss',
+        type: 'cancel',
       } as WebBrowser.WebBrowserAuthSessionResult);
       await startOAuthFlow();
 
@@ -196,6 +207,149 @@ describe('OAuth service', () => {
     it('reports a closed browser tab as cancelled', async () => {
       mockedOpenAuth.mockResolvedValue({ type: WebBrowser.WebBrowserResultType.DISMISS });
       expect(await startOAuthFlow()).toEqual({ outcome: 'cancelled' });
+    });
+  });
+
+  describe('a redirect that races the browser closing on Android', () => {
+    const GRACE_MS = 1000;
+
+    beforeEach(() => {
+      jest.useFakeTimers({ doNotFake: ['nextTick', 'queueMicrotask', 'setImmediate'] });
+    });
+
+    afterEach(async () => {
+      jest.useRealTimers();
+      expect(mockUrlListeners.size).toBe(0);
+      await validateState('anything');
+    });
+
+    function registeredState(): string {
+      return JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body).state;
+    }
+
+    function redirectFor(state: string): string {
+      return `${OAUTH.APP_SCHEME}://oauth/callback?success=true&code=onetime&state=${state}`;
+    }
+
+    /**
+     * Settle the flow, moving the fake clock on in steps until it does. The
+     * challenge is hashed on a real thread first, so the clock only starts
+     * once the browser has been opened.
+     */
+    async function settle<T>(flow: Promise<T>, totalMs: number): Promise<T> {
+      let done = false;
+      const mark = () => {
+        done = true;
+      };
+      flow.then(mark, mark);
+      while (mockedOpenAuth.mock.calls.length === 0 && !done) {
+        await new Promise((resolve) => setImmediate(resolve));
+      }
+      for (let elapsed = 0; elapsed <= totalMs && !done; elapsed += 50) {
+        await jest.advanceTimersByTimeAsync(50);
+      }
+      return flow;
+    }
+
+    it('completes when the redirect lands before the browser reports dismiss', async () => {
+      let redirect = '';
+      mockedOpenAuth.mockImplementationOnce(async () => {
+        redirect = redirectFor(registeredState());
+        deliverLink(redirect);
+        return { type: WebBrowser.WebBrowserResultType.DISMISS };
+      });
+
+      expect(await settle(startOAuthFlow(), 0)).toEqual({ outcome: 'success', url: redirect });
+    });
+
+    it('completes when the redirect lands 200 ms after the browser reports dismiss', async () => {
+      let redirect = '';
+      mockedOpenAuth.mockImplementationOnce(async () => {
+        redirect = redirectFor(registeredState());
+        setTimeout(() => deliverLink(redirect), 200);
+        return { type: WebBrowser.WebBrowserResultType.DISMISS };
+      });
+
+      expect(await settle(startOAuthFlow(), GRACE_MS)).toEqual({
+        outcome: 'success',
+        url: redirect,
+      });
+    });
+
+    it('is cancelled when only a redirect for another flow lands', async () => {
+      mockedOpenAuth.mockImplementationOnce(async () => {
+        deliverLink(redirectFor('another-flow'));
+        setTimeout(() => deliverLink(redirectFor('yet-another-flow')), 200);
+        return { type: WebBrowser.WebBrowserResultType.DISMISS };
+      });
+
+      expect(await settle(startOAuthFlow(), GRACE_MS * 2)).toEqual({ outcome: 'cancelled' });
+    });
+
+    it('ignores a link to another route carrying this flow state', async () => {
+      mockedOpenAuth.mockImplementationOnce(async () => {
+        deliverLink(`${OAUTH.APP_SCHEME}://settings?state=${registeredState()}`);
+        return { type: WebBrowser.WebBrowserResultType.DISMISS };
+      });
+
+      expect(await settle(startOAuthFlow(), GRACE_MS * 2)).toEqual({ outcome: 'cancelled' });
+    });
+
+    it('is cancelled when no redirect lands within the grace', async () => {
+      let browserClosed!: () => void;
+      const closed = new Promise<void>((resolve) => (browserClosed = resolve));
+      mockedOpenAuth.mockImplementationOnce(async () => {
+        const redirect = redirectFor(registeredState());
+        setTimeout(() => deliverLink(redirect), GRACE_MS + 200);
+        browserClosed();
+        return { type: WebBrowser.WebBrowserResultType.DISMISS };
+      });
+
+      let outcome: unknown;
+      void startOAuthFlow().then((result) => (outcome = result));
+      await closed;
+      await jest.advanceTimersByTimeAsync(GRACE_MS - 50);
+      expect(outcome).toBeUndefined();
+      await jest.advanceTimersByTimeAsync(100);
+      expect(outcome).toEqual({ outcome: 'cancelled' });
+    });
+
+    it('takes a redirect that landed before an iOS cancel without waiting', async () => {
+      let redirect = '';
+      mockedOpenAuth.mockImplementationOnce(async () => {
+        redirect = redirectFor(registeredState());
+        deliverLink(redirect);
+        return { type: WebBrowser.WebBrowserResultType.CANCEL };
+      });
+
+      expect(await settle(startOAuthFlow(), 0)).toEqual({ outcome: 'success', url: redirect });
+    });
+
+    it('returns a success unchanged and without waiting', async () => {
+      const url = `${OAUTH.APP_SCHEME}://oauth/callback?success=true&code=from-browser&state=s`;
+      mockedOpenAuth.mockImplementationOnce(async () => {
+        deliverLink(redirectFor(registeredState()));
+        return { type: 'success', url };
+      });
+
+      expect(await settle(startOAuthFlow(), 0)).toEqual({ outcome: 'success', url });
+    });
+
+    it('stops listening when opening the browser throws', async () => {
+      mockedOpenAuth.mockRejectedValueOnce(new Error('no browser'));
+
+      await expect(settle(startOAuthFlow(), 0)).rejects.toThrow('no browser');
+    });
+
+    it('listens while the browser is in front', async () => {
+      let listening = 0;
+      mockedOpenAuth.mockImplementationOnce(async () => {
+        listening = mockUrlListeners.size;
+        return { type: 'success', url: redirectFor('s') };
+      });
+
+      await settle(startOAuthFlow(), 0);
+      expect(listening).toBe(1);
     });
   });
 
@@ -299,7 +453,7 @@ describe('OAuth service', () => {
 
     it('returns true when received state matches generated state', async () => {
       mockedOpenAuth.mockResolvedValue({
-        type: 'dismiss',
+        type: 'cancel',
       } as WebBrowser.WebBrowserAuthSessionResult);
       await startOAuthFlow();
 
@@ -312,7 +466,7 @@ describe('OAuth service', () => {
 
     it('returns false when received state does not match', async () => {
       mockedOpenAuth.mockResolvedValue({
-        type: 'dismiss',
+        type: 'cancel',
       } as WebBrowser.WebBrowserAuthSessionResult);
       await startOAuthFlow();
       expect(await validateState('wrong-state')).toBe(false);
@@ -320,7 +474,7 @@ describe('OAuth service', () => {
 
     it('is single-use: second call returns false even with correct state', async () => {
       mockedOpenAuth.mockResolvedValue({
-        type: 'dismiss',
+        type: 'cancel',
       } as WebBrowser.WebBrowserAuthSessionResult);
       await startOAuthFlow();
 
@@ -336,7 +490,7 @@ describe('OAuth service', () => {
     /** Start a flow and hand back the state and challenge it registered. */
     async function startedFlow() {
       mockedOpenAuth.mockResolvedValue({
-        type: 'dismiss',
+        type: 'cancel',
       } as WebBrowser.WebBrowserAuthSessionResult);
       await startOAuthFlow();
       const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
@@ -592,7 +746,7 @@ describe('OAuth service', () => {
 
     it('refuses an expired flow in the process that started it too', async () => {
       mockedOpenAuth.mockResolvedValue({
-        type: 'dismiss',
+        type: 'cancel',
       } as WebBrowser.WebBrowserAuthSessionResult);
       const oauth = freshProcess();
       await oauth.startOAuthFlow();

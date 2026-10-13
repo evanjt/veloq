@@ -5,7 +5,7 @@ import { DEFAULT_AUTO_PAUSE_KMH } from '@/shared/recording/sportCategoryDetector
 import { getSetting, setSetting } from '@/shared/storage';
 import type { ActivityType, DataFieldType } from '@/types';
 
-import { DEFAULT_DATA_FIELDS, fieldsForMode, placeFieldInSlot } from '../lib/dataFields';
+import { capFields, chosenLayouts, fieldsForMode, placeFieldInSlot } from '../lib/dataFields';
 import { parseRecordingType } from '../lib/recordingModes';
 
 const STORAGE_KEY = 'veloq-recording-preferences';
@@ -40,6 +40,7 @@ interface RecordingPreferencesState {
   notificationsAsked: boolean;
   autoPauseEnabled: boolean;
   autoPauseThresholds: Record<string, number>;
+  /** The layouts the athlete chose, by mode. A mode absent here shows its sport's default. */
   dataFields: Record<string, DataFieldType[]>;
   /** Upload recordings to intervals.icu automatically on save. Off = save locally, upload manually from the library. */
   autoUploadEnabled: boolean;
@@ -58,8 +59,17 @@ interface RecordingPreferencesState {
   setAutoPause: (enabled: boolean) => void;
   setAutoPauseThreshold: (sport: string, kmh: number) => void;
   setDataFields: (mode: string, fields: DataFieldType[]) => void;
-  /** Shows `field` in tile `index` of a mode, swapping with the tile that already shows it. */
-  setSlotField: (mode: string, index: number, field: DataFieldType) => void;
+  /**
+   * Shows `field` in tile `index` of a mode, swapping with the tile that already
+   * shows it. `sport` is the recording on screen, whose default the edit starts
+   * from when the mode has no chosen layout.
+   */
+  setSlotField: (
+    mode: string,
+    index: number,
+    field: DataFieldType,
+    sport?: ActivityType | null
+  ) => void;
   setAutoUpload: (enabled: boolean) => void;
   setGpsAccuracyMode: (mode: GpsAccuracyMode) => void;
   setAccuracyRejectThreshold: (metres: number) => void;
@@ -86,7 +96,7 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set) =
   notificationsAsked: false,
   autoPauseEnabled: true,
   autoPauseThresholds: { ...DEFAULT_AUTO_PAUSE_THRESHOLDS },
-  dataFields: { ...DEFAULT_DATA_FIELDS },
+  dataFields: {},
   autoUploadEnabled: true,
   gpsAccuracyMode: 'high',
   accuracyRejectThreshold: DEFAULT_ACCURACY_REJECT_THRESHOLD_M,
@@ -123,8 +133,8 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set) =
             parsed.dataFields &&
             typeof parsed.dataFields === 'object' &&
             !Array.isArray(parsed.dataFields)
-              ? parsed.dataFields
-              : { ...DEFAULT_DATA_FIELDS },
+              ? chosenLayouts(parsed.dataFields)
+              : {},
           autoUploadEnabled:
             typeof parsed.autoUploadEnabled === 'boolean' ? parsed.autoUploadEnabled : true,
           gpsAccuracyMode:
@@ -213,15 +223,15 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set) =
 
   setDataFields: (mode, fields) => {
     set((state) => {
-      const updated = { ...state.dataFields, [mode]: fields };
+      const updated = { ...state.dataFields, [mode]: capFields(fields) };
       persistPreferences({ ...state, dataFields: updated });
       return { dataFields: updated };
     });
   },
 
-  setSlotField: (mode, index, field) => {
+  setSlotField: (mode, index, field, sport) => {
     set((state) => {
-      const current = fieldsForMode(state.dataFields, mode);
+      const current = fieldsForMode(state.dataFields, mode, sport);
       const next = placeFieldInSlot(current, index, field);
       if (next === current) return state;
       const updated = { ...state.dataFields, [mode]: next };

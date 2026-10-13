@@ -46,7 +46,10 @@
       "activityEftp": "De eFTP isch d Schätzig vom Leistigsmodell vo intervals.icu für die Aktivität.",
       "power": "Schnitt-Watt.",
       "trainingLoad": "D Trainingsbelastig rächnet intervals.icu us Watt, Puls oder Tempo, je nach de Date vo de Aktivität und dine Sportiistellige.",
-      "yourForm": "Dini Form (TSB) a dem Tag. Fitness minus Müedigkeit."
+      "yourForm": "Dini Form (TSB) a dem Tag. Fitness minus Müedigkeit.",
+      "speed": "Durchschnitts- und Höchsttempo, wie intervals.icu sie für diese Aktivität gespeichert hat.",
+      "pace": "Durchschnittliches und schnellstes Tempo, wie intervals.icu sie für diese Aktivität gespeichert hat.",
+      "cadence": "Durchschnittliche Frequenz, wie intervals.icu sie gespeichert hat: Kurbelumdrehungen pro Minute auf dem Velo, sonst Schritte oder Züge pro Minute."
     },
     "ftp": "FTP-Iistellig: {{value}}",
     "heartRate": "Puls",
@@ -105,7 +108,12 @@
       "fitnessThatDay": "Fitness a dem Tag (CTL)",
       "yourForm": "Dini Form",
       "eftpContext": "eFTP vo dere Aktivität {{value}}",
-      "intensityContext": "IF {{percent}}%"
+      "intensityContext": "IF {{percent}}%",
+      "speed": "Tempo",
+      "pace": "Tempo",
+      "cadence": "Trittfrequenz",
+      "movingTime": "Bewegungszeit",
+      "elapsedTime": "Gesamtzeit"
     },
     "hrZoneTotal": "Ziit mit Puls: {{duration}}",
     "powerZoneTotal": "Ziit mit Leistig: {{duration}}",
@@ -124,7 +132,10 @@
     "zoneMaxFromActivity": "Zonen-Maximum {{value}} bpm, diese Aktivität",
     "zoneMaxFromSettings": "Zonen-Maximum {{value}} bpm, Sporteinstellungen",
     "zoneMaxDefault": "Keine max. HF hinterlegt, Zonen gehen von {{value}} bpm aus",
-    "zoneMaxDefaultHint": "Lege deine max. HF in deinen Sporteinstellungen auf intervals.icu fest"
+    "zoneMaxDefaultHint": "Lege deine max. HF in deinen Sporteinstellungen auf intervals.icu fest",
+    "prDelta": "+{{delta}} hinter em PR",
+    "chartAverage": "Ø",
+    "gainStat": "↑ {{value}}"
   },
   "activityDetail": {
     "routePrBadge": "PB {{improvement}}",
@@ -399,7 +410,12 @@
     "sourceNote": "Druck uf e Zile zum Aktivität z öffne.",
     "climbingBests": "Klettern",
     "climbingSourceExcluded": "Ausgelassen wegen Geräte-Höhe statt korrigierter Höhe: {{excluded}}",
-    "climbingOwed": "Die Kletter-Bestwerte werden noch berechnet."
+    "climbingOwed": "Die Kletter-Bestwerte werden noch berechnet.",
+    "checkpoint": {
+      "halfMarathon": "Halbmarathon",
+      "metres": "{{value}} m",
+      "kilometres": "{{value}} km"
+    }
   },
   "cache": {
     "allActivitiesSynced": "Alli Aktivitäte synchronisiert",
@@ -470,7 +486,8 @@
     "discardChangesTitle": "Änderige verwärfe?",
     "discardChangesMessage": "Dini Änderige uf däm Bildschirm sind nonig gspeicheret.",
     "keepEditing": "Wiiter bearbeite",
-    "allow": "Erlaube"
+    "allow": "Erlaube",
+    "sentencePair": "{{first}} {{second}}"
   },
   "demo": {
     "banner": "Demo-Modus",
@@ -510,7 +527,7 @@
     },
     "startupError": {
       "title": "Einige Teile der App wurden nicht geladen",
-      "detail": "Nicht geladen: {{areas}}. Starte die App neu, um es erneut zu versuchen.",
+      "detail": "Nöd glade: {{areas}}.",
       "area": {
         "language": "Sprache",
         "preferences": "Einstellungen",
@@ -569,14 +586,47 @@
   },
   "errorState": {
     "defaultTitle": "Gopferteckel!",
-    "unableToLoad": "{{componentName}} cha nöd glade wärde",
     "libraryUnaffected": "Dini Aktivitäte uf däm Grät sind nöd betroffe.",
     "rideStillRecording": "Dini Fahrt wird wiiter ufzeichnet.",
     "stopAndSaveRide": "Fahrt beände und speichere",
     "rideStopped": "Dini Fahrt isch beändet und uf däm Grät gspeicheret.",
     "shareFailed": "S Absturzprotokoll het nöd chöne teilt wärde.",
-    "restartHint": "Probiers nomol oder start d App nöi",
-    "unableToDisplayChart": "Diagramm kann nicht angezeigt werden"
+    "unableToLoad": "Nöd glade: {{part}}",
+    "retryHint": "Tipp uf «Nomol probiere», denn chunnts villicht.",
+    "unableToDisplayChart": "Diagramm kann nicht angezeigt werden",
+    "part": {
+      "map": "Charte",
+      "map3d": "3D-Charte",
+      "terrainSnapshots": "Geländevorschaue",
+      "routePerformance": "Routeleischtig",
+      "hrZonesChart": "Herzfrequenzzone-Diagramm",
+      "powerZonesChart": "Leischtigszone-Diagramm",
+      "activityStats": "Aktivitätswärt",
+      "activityMap": "Aktivitätscharte",
+      "muscleGroups": "Muskelgruppe"
+    }
+  },
+  "intervalTypes": {
+    "work": {
+      "short": "Belaschtig",
+      "long": "Belaschtig"
+    },
+    "recovery": {
+      "short": "Erh.",
+      "long": "Erholig"
+    },
+    "warmup": {
+      "short": "Iif.",
+      "long": "Iifahre"
+    },
+    "cooldown": {
+      "short": "Usf.",
+      "long": "Usfahre"
+    },
+    "other": {
+      "short": "Suscht",
+      "long": "Suscht öppis"
+    }
   },
   "export": {
     "bulkComplete": "Export fertig",
@@ -600,7 +650,10 @@
     "gpxTrimmedAway": "Nüt zum Exportiere. Das Kürze ums Dehei het z wenig vom Track übrig glah.",
     "failedTitle": "Export hät nöd klappet",
     "share": "Teilen",
-    "saveToDevice": "Auf dem Gerät speichern"
+    "saveToDevice": "Auf dem Gerät speichern",
+    "shareFailedTitle": "Nicht geteilt",
+    "shareFailed": "Das Teilen-Menü konnte nicht geöffnet werden. Versuche es erneut.",
+    "shareUnavailable": "Dieses Gerät kann keine Dateien teilen."
   },
   "feed": {
     "activitiesCount_one": "{{count}} Aktivität",
@@ -734,8 +787,6 @@
       "groupMore": "(+{{n}} weitere)",
       "trendFaster": "Schneller",
       "trendSlower": "Langsamer",
-      "attempts_one": "{{count}} Versuch",
-      "attempts_other": "{{count}} Versuche",
       "direction": {
         "forward": "Hin",
         "reverse": "Zurück"
@@ -893,7 +944,6 @@
       "changeBody": "Über {{efforts}} Versuche auf {{name}} stieg das Produkt aus Herzfrequenz und Tempo. Bei mittlerem Tempo entspricht dies modellierten +{{hrChange}} bpm; die gemessene Herzfrequenz kann abweichen.",
       "subtitle": "Modelliert {{hrChange}} bpm bim durchschnittlichä Tempo über {{efforts}} Versüech",
       "body": "Über {{efforts}} Versüech uf {{name}} hät sich Härzfrequänz mal Tempo verbessert. Bim durchschnittlichä Tempo entspricht das modellierte {{hrChange}} bpm; dini Härzfrequänz sälber cha unverändert si.",
-      "sheetHrCaption": "über passendi Versüech",
       "sheetHeading": "Passendi Versüech im Vergliich",
       "sheetBody": "Basiert uf mehrere Versüech uf em gliiche Abschnitt mit Härzfrequänz und Tempo. Vergliicht über d Ziit, was jede Durchgang dis Härz gchoschtet hät.",
       "sheetMeta": "Mach de Abschnitt uf, dänn gsehsch d Versüech dehinder."
@@ -1065,7 +1115,9 @@
     "expandRange": "Bereich erwiitere",
     "distanceAny": "Alle",
     "showFilters": "Alli Filter aazeige",
-    "hideFilters": "Weniger Filter aazeige"
+    "hideFilters": "Weniger Filter aazeige",
+    "searchCount": "{{shown}} von {{total}}",
+    "searchFilteredBy": "gefiltert nach {{filters}}"
   },
   "maps": {
     "threeDUnavailable": "Das Gelände braucht eine Verbindung. Es wird die flache Karte gezeigt.",
@@ -1241,15 +1293,16 @@
     "distance": "Distanz ({{unit}})",
     "distanceInvalid": "Bitte gib e gültigi Distanz ii (0-999).",
     "duration": "Duur (Minute)",
-    "durationLabel": "Duur",
     "durationRequired": "Bitte gib e gültigi Duur ii.",
     "elevation": "Höhemeter",
     "fields": {
       "avgPace": "Ø Tempo",
+      "avgPower": "Ø Leistig",
       "avgSpeed": "Ø Speed",
       "cadence": "Kadenz",
       "calories": "Kalorii",
       "distance": "Distanz",
+      "elapsedTime": "Gsamtziit",
       "elevation": "Höhi",
       "elevationGain": "Höhegwinn",
       "heartrate": "Puls",
@@ -1331,11 +1384,11 @@
       "recording": "Am Ufnäh"
     },
     "summary": "Zämmefassig",
-    "timeOfDay": {
-      "morning": "Morge",
-      "afternoon": "Namittag",
-      "evening": "Aabe",
-      "night": "Nacht"
+    "autoName": {
+      "morning": "{{sport}} am Morge",
+      "afternoon": "{{sport}} am Namittag",
+      "evening": "{{sport}} am Aabe",
+      "night": "{{sport}} i de Nacht"
     },
     "trimActivity": "Aktivität zschnide",
     "trimmedOff": "{{distance}} und {{time}} abgeschnitten",
@@ -1351,8 +1404,6 @@
     "autoUpload": "Automatisch hochladen",
     "autoUploadDescription": "Aufzeichnungen beim Speichern automatisch zu intervals.icu hochladen. Wenn deaktiviert, bleiben sie auf diesem Gerät, bis du sie über Meine Aufzeichnungen hochlädst.",
     "library": {
-      "distance": "Distanz",
-      "duration": "Duur",
       "title": "Meine Aufzeichnungen",
       "empty": "Noch keine Aufzeichnungen",
       "emptyHint": "Gespeicherte Aufzeichnungen bleiben hier auf diesem Gerät.",
@@ -1364,6 +1415,8 @@
       "delete": "Löschen",
       "deleteConfirmTitle": "Aufzeichnung löschen?",
       "deleteConfirmMessage": "{{sport}} · {{startTime}}: Die Aufzeichnung wird dauerhaft von diesem Gerät entfernt.",
+      "deleteFailedTitle": "Aufzeichnung nicht gelöscht",
+      "deleteFailed": "Die Aufzeichnung konnte nicht gelöscht werden. Sie ist weiterhin auf diesem Gerät.",
       "pendingUploads_one": "{{count}} Aufzeichnung noch nicht hochgeladen",
       "pendingUploads_other": "{{count}} Aufzeichnungen noch nicht hochgeladen",
       "status": {
@@ -1419,6 +1472,7 @@
     "entryManualCaption": "Vo Hand erfasst, Start macht s Formular uf",
     "fieldModeGps": "GPS",
     "fieldModeIndoor": "Indoor",
+    "fieldsSelected": "{{selected}} vo {{max}} Fälder",
     "tileOrder": "Reihefolg vo de Kachle",
     "tileOrderDescription": "Tipp uf e Kachle, zum ihres Datefeld uswähle. Uf em Ufzeichnigsbildschirm gaht das au mit langem Drücke uf e Kachle.",
     "tileSlotLabel": "Kachle {{number}}, {{field}}",
@@ -1427,7 +1481,12 @@
       "card": "Ufnahm gstoppt. Mach Veloq uf zum Wiiterfahre.",
       "channel": "Unterbrocheni Ufnahme",
       "title": "Ufnahm gstoppt"
-    }
+    },
+    "serviceChannel": {
+      "description": "Zeigt d Aktivität, wo grad ufgnoh wird, mit ihrne Bedienelement.",
+      "name": "Ufnahm"
+    },
+    "recentTypes": "Zuletzt"
   },
   "routeDetail": {
     "routeNotFound": "Route nöd gfunde"
@@ -1626,8 +1685,6 @@
     "traversalsCount_other": "{{count}} Durchfahrte",
     "calendarActivities_one": "{{count}} Aktivität",
     "calendarActivities_other": "{{count}} Aktivitäten",
-    "visitsCount_one": "{{count}} Bsüech",
-    "visitsCount_other": "{{count}} Bsüech",
     "scanForMatches": "Nach Überiistimmige sueche",
     "rematchActivities": "Aktivitäte neu zuordne",
     "scanForMore": "Nach meh Abschnitt sueche",
@@ -1671,7 +1728,6 @@
     "showFewerLaps": "Weniger Runden anzeigen",
     "lapExcluded": "Ausgeschlossen",
     "partlyExcluded": "Einige Runden ausgeschlossen",
-    "maxGrade": "Steilste Stelle",
     "rescanRefusedBusy": "Ein Scan läuft bereits.",
     "rescanRefusedHeld": "Die Erkennung pausiert, bis die Engine andere Arbeit beendet hat.",
     "rescanRefusedNotReady": "Die Engine startet noch. Versuche es gleich noch einmal.",
@@ -1701,7 +1757,10 @@
     "referenceFailedTitle": "Referänz nöd gsetzt",
     "acceptAllFailedTitle": "Abschnitt nöd akzeptiert",
     "changeFailedTitle": "Abschnitt nöd gänderet",
-    "bestLapValue": "Beste Runde {{time}}"
+    "bestLapValue": "Beste Runde {{time}}",
+    "avgValue": "Ø {{value}}",
+    "bestValue": "Bescht {{value}}",
+    "maxGradeValue": "Steilste Stelle {{grade}}"
   },
   "settings": {
     "terrain3DMode": "3D-Gländ: {{mode}}",
@@ -2032,7 +2091,8 @@
     "vsPrevious6Months": "vs vorheri 6 Mönet",
     "week": "Wuche",
     "year": "Jahr",
-    "atWeight": "bei {{weight}}"
+    "fewerActivities": "Weniger Aktivitäte",
+    "moreActivities": "Meh Aktivitäte"
   },
   "statsScreen": {
     "eFTPTrend": "eFTP-Trend",
@@ -2048,7 +2108,8 @@
     "powerCurve": "Wattkurve",
     "seasonBests": "Saisonbestleistungen",
     "swimPaceCurve": "Schwümmtempokurve",
-    "trainingZones": "Trainingszone"
+    "trainingZones": "Trainingszone",
+    "ftpLabelAtWeight": "FTP-Iistellig {{value}} bei {{weight}}"
   },
   "sync": {
     "ridesDownloaded": "{{completed}} vo {{total}} Fahrte abeglade",
@@ -2056,6 +2117,7 @@
   },
   "time": {
     "asOfLastSync": "Stand vo de letschte Synchronisierig",
+    "dayAtTime": "{{day}}, {{time}}",
     "daysCount_one": "{{count}} Tag",
     "daysCount_other": "{{count}} Täg",
     "now": "Jetzt",
@@ -2082,7 +2144,9 @@
     "wattsPerKg": "W/kg",
     "metresPerHour": "m/h",
     "feetPerHour": "ft/h",
-    "daysShort": "{{days}} T"
+    "daysShort": "{{days}} T",
+    "rpm": "U/min",
+    "spm": "spm"
   },
   "wellness": {
     "dragToExplore": "Zieh zum Erkunde",
@@ -2323,6 +2387,9 @@
     "noneFound": "Keine Sensoren gefunden",
     "noneFoundHint": "Wecke den Sensor, indem du den Gurt anlegst oder die Kurbel drehst, und halte ihn in die Nähe des Telefons.",
     "scanAgain": "Erneut suchen",
+    "signal": "Signalstärke {{dbm}} dBm",
+    "unnamed": "{{kind}}-Sensor",
+    "lastSample": "{{value}}, vor {{seconds}} s",
     "availability": {
       "unsupportedTitle": "Dieses Gerät hat kein Bluetooth LE",
       "unsupportedHint": "Herzfrequenz-, Leistungs- und Trittfrequenzsensoren benötigen Bluetooth LE.",
@@ -2345,7 +2412,8 @@
       "bluetoothOff": "Bluetooth aus",
       "permission": "Bluetooth-Berechtigung erforderlich",
       "unsupported": "Bluetooth nicht verfügbar"
-    }
+    },
+    "issueSummary": "Sensoren: {{issue}}"
   },
   "sectionHistory": {
     "title": "Verlauf",

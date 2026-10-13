@@ -1,6 +1,6 @@
 const { IDENTITIES, selected } = require('./scripts/lib/app-identity.js');
 const { buildStamp } = require('./scripts/lib/build-stamp.js');
-const { infoPlistFallback } = require('./src/plugins/nativeStrings.js');
+const { appleLanguages, infoPlistFallback } = require('./src/plugins/nativeStrings.js');
 const appColours = require('./src/theme/appColours.json');
 
 // Native code draws these before any JavaScript runs, so prebuild writes them
@@ -27,12 +27,27 @@ function withNativeColours(config) {
   };
 }
 
+// iOS offers a per-app language from the bundle's declared localisations, so
+// they are the languages the catalogues are generated for rather than a second
+// list. Android's half of `supportedLocales` also narrows the build's
+// resources, so `with-android-locale-config` declares that platform instead.
+function withDeclaredLocalisations(config) {
+  return {
+    ...config,
+    plugins: (config.plugins ?? []).map((plugin) => {
+      const [name, props] = Array.isArray(plugin) ? plugin : [plugin, {}];
+      if (name !== 'expo-localization') return plugin;
+      return [name, { ...props, supportedLocales: { ios: appleLanguages() } }];
+    }),
+  };
+}
+
 // expo-constants regenerates this config on every native build and writes it
 // into `assets/app.config`, so the commit lands in the APK and in
 // `Constants.expoConfig` without a native module of its own.
 module.exports = ({ config: input }) => {
   const identity = selected(process.env);
-  const config = withNativeColours(input);
+  const config = withDeclaredLocalisations(withNativeColours(input));
   return {
     ...config,
     name: identity.name,

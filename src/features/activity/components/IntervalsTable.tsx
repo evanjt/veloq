@@ -55,12 +55,13 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
       item.average_heartrate != null ? formatHeartRate(item.average_heartrate) : ABSENT;
     const power = item.average_watts != null ? formatPower(item.average_watts) : ABSENT;
 
-    const typeLabel = intervalTypeLabel({
+    const typeInput = {
       type: item.type,
       zone: item.zone,
       label: item.label,
       zoneColoured: token.kind === 'zone',
-    });
+    };
+    const typeLabel = intervalTypeLabel(typeInput);
 
     return (
       <View
@@ -71,7 +72,11 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
         ]}
       >
         <Text style={styles.indexText}>{index + 1}</Text>
-        <Text style={[styles.typeText, { color: labelColour }]} numberOfLines={1}>
+        <Text
+          style={[styles.typeText, { color: labelColour }]}
+          numberOfLines={1}
+          accessibilityLabel={intervalTypeLabel(typeInput, 'long')}
+        >
           {typeLabel}
         </Text>
         <View style={styles.statsRow}>

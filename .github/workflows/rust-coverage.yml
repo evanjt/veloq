@@ -52,7 +52,7 @@ jobs:
       # and not with a stable release.
       - name: Setup Rust
         if: steps.measured.outputs.cache-matched-key == ''
-        uses: dtolnay/rust-toolchain@1d64bbcee8ef0c191a54710c227fd268a0d5014b # 1.95.0
+        uses: dtolnay/rust-toolchain@fb523f40495206854c36b250850817ae0f83e3d1 # 1.99.0
         with:
           components: llvm-tools-preview
 

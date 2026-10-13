@@ -1,44 +1,45 @@
 import React from 'react';
-import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
+import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { pressable, pressRipple, SheetHeader } from '@/shared/ui';
+import { composeAccessibilityLabel, Row, SheetHeader } from '@/shared/ui';
 import { tapBack } from '@/shared/app/navigation';
-import { getActivityColor } from '@/shared/activity/activityUtils';
-import { formatLoad } from '@/shared/format/format';
-import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
+import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
+import {
+  formatClockTime,
+  formatDistance,
+  formatDuration,
+  formatLoad,
+} from '@/shared/format/format';
+import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import type { ActivityType } from '@/types';
 
 /** The picker for a day with several activities, a sheet route answered with the chosen activity id. */
 
 export interface DayActivitiesInput {
-  activities: { id: string; name: string; type: ActivityType; load: number }[];
+  activities: {
+    id: string;
+    name: string;
+    type: ActivityType;
+    load: number;
+    startDateLocal: string;
+    /** Seconds. */
+    movingTime: number;
+    /** Metres, zero for an activity that covers no ground. */
+    distance: number;
+  }[];
 }
-
-// Simple emoji icons for activity types
-const ACTIVITY_EMOJIS: Record<string, string> = {
-  Ride: '🚴',
-  Run: '🏃',
-  Swim: '🏊',
-  Walk: '🚶',
-  Hike: '🥾',
-  VirtualRide: '🚴',
-  VirtualRun: '🏃',
-  Workout: '💪',
-  WeightTraining: '🏋️',
-  Yoga: '🧘',
-  Other: '❤️',
-};
-
-const getActivityEmoji = (type: ActivityType): string => ACTIVITY_EMOJIS[type] || '❤️';
 
 function DayActivitiesSheetContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
   const { input, resolve } = useSheetRequest<DayActivitiesInput, string>();
 
   const surface = isDark ? darkColors.surface : colors.surface;
@@ -53,31 +54,38 @@ function DayActivitiesSheetContent() {
         cancelTestID="day-activities-cancel"
       />
       <ScrollView contentContainerStyle={styles.list}>
-        {(input?.activities ?? []).map((activity) => (
-          <Pressable
-            key={activity.id}
-            testID={`day-activity-${activity.id}`}
-            accessibilityRole="button"
-            accessibilityLabel={activity.name}
-            style={pressable([styles.row, isDark && styles.rowDark])}
-            android_ripple={pressRipple}
-            onPress={() => resolve(activity.id)}
-          >
-            <View style={[styles.icon, { backgroundColor: getActivityColor(activity.type) }]}>
-              <Text style={styles.iconText}>{getActivityEmoji(activity.type)}</Text>
-            </View>
-            <View style={styles.info}>
-              <Text style={[styles.name, { color: textPrimary }]} numberOfLines={1}>
-                {activity.name}
-              </Text>
-              {activity.load > 0 && (
-                <Text style={[styles.load, { color: textSecondary }]}>
-                  {t('metrics.trainingLoad')} {formatLoad(activity.load)}
+        {(input?.activities ?? []).map((activity) => {
+          // The start time leads because it is what tells two rides of one name apart.
+          const details = [
+            formatClockTime(activity.startDateLocal),
+            formatDuration(activity.movingTime),
+            activity.distance > 0 ? formatDistance(activity.distance, isMetric) : null,
+            activity.load > 0 ? `${t('metrics.trainingLoad')} ${formatLoad(activity.load)}` : null,
+          ].filter((part): part is string => part !== null);
+          return (
+            <Row
+              key={activity.id}
+              testID={`day-activity-${activity.id}`}
+              behaviour="navigate"
+              accessibilityLabel={composeAccessibilityLabel(activity.name, ...details)}
+              onPress={() => resolve(activity.id)}
+            >
+              <MaterialCommunityIcons
+                name={getActivityIcon(activity.type)}
+                size={22}
+                color={getActivityInk(activity.type, isDark)}
+              />
+              <View style={styles.info}>
+                <Text style={[styles.name, { color: textPrimary }]} numberOfLines={1}>
+                  {activity.name}
                 </Text>
-              )}
-            </View>
-          </Pressable>
-        ))}
+                <Text style={[styles.details, { color: textSecondary }]} numberOfLines={1}>
+                  {details.join(' · ')}
+                </Text>
+              </View>
+            </Row>
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -90,31 +98,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   list: {
-    paddingHorizontal: layout.screenPadding,
     paddingBottom: layout.screenPadding,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    borderRadius: layout.borderRadiusSm,
-    marginBottom: spacing.xs,
-    minHeight: layout.minTapTarget,
-  },
-  rowDark: {
-    backgroundColor: opacity.overlayDark.light,
-  },
-  icon: {
-    width: 32,
-    height: 32,
-    borderRadius: layout.borderRadiusFull,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.sm,
-  },
-  iconText: {
-    fontSize: typography.bodySmall.fontSize,
   },
   info: {
     flex: 1,
@@ -123,7 +107,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.fontSize,
     fontWeight: '500',
   },
-  load: {
+  details: {
     fontSize: typography.caption.fontSize,
     marginTop: spacing.xxs,
   },

@@ -9,7 +9,7 @@ import { PreviewParamPanel } from '@/features/routes/components/preview/PreviewP
 import { PreviewDiffStrip } from '@/features/routes/components/preview/PreviewDiffStrip';
 import { PreviewRunCost } from '@/features/routes/components/preview/PreviewRunCost';
 import DetectionPreviewScreen from '@/app/detection-preview';
-import { initialiseI18n, changeLanguage } from '@/i18n';
+import { i18n, initialiseI18n, changeLanguage } from '@/i18n';
 import { layout, spacing } from '@/theme';
 import type {
   PreviewCentre,
@@ -1238,13 +1238,22 @@ describe('detection preview sensitivity controls', () => {
   });
 
   it('states why the re-cut did not start', async () => {
+    mockEnv.realI18n = true;
+    await initialiseI18n('en-GB');
     mockForceRedetect.mockReturnValue(StartOutcome.Held);
     const alert = confirmNextAlert();
     const tree = await render(<DetectionPreviewScreen />);
     await fireEvent(tree.getByTestId('preview-keep-button'), 'press');
     const [title, message] = alert.mock.calls[alert.mock.calls.length - 1];
-    expect(title).toBe('settings.previewKeepRefusedTitle');
-    expect(message).toBe('settings.previewKeepRefused sections.rescanRefusedHeld');
+    expect(title).toBe(i18n.t('settings.previewKeepRefusedTitle'));
+    expect(message).toBe(
+      i18n.t('common.sentencePair', {
+        first: i18n.t('settings.previewKeepRefused'),
+        second: i18n.t('sections.rescanRefusedHeld'),
+      })
+    );
+    expect(message).toContain(i18n.t('settings.previewKeepRefused'));
+    expect(message).toContain(i18n.t('sections.rescanRefusedHeld'));
   });
 
   it.each([
@@ -1253,12 +1262,14 @@ describe('detection preview sensitivity controls', () => {
     [StartOutcome.NotReady, 'sections.rescanRefusedNotReady'],
     [StartOutcome.NotConfigured, 'sections.rescanRefusedOff'],
   ])('gives each refusal its own reason (%s)', async (outcome, key) => {
+    mockEnv.realI18n = true;
+    await initialiseI18n('en-GB');
     mockForceRedetect.mockReturnValue(outcome);
     const alert = confirmNextAlert();
     const tree = await render(<DetectionPreviewScreen />);
     await fireEvent(tree.getByTestId('preview-keep-button'), 'press');
     const [, message] = alert.mock.calls[alert.mock.calls.length - 1];
-    expect(message).toContain(key);
+    expect(message).toContain(i18n.t(key as never));
   });
 
   it('lets a refused accept be retried without leaving the screen', async () => {

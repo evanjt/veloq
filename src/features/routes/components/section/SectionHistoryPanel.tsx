@@ -10,7 +10,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { FfiSectionEventDetails, FfiSectionLink } from 'veloqrs';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
-import { formatDuration, getIntlLocale } from '@/shared/format/format';
+import { formatDuration, formatFullDate } from '@/shared/format/format';
 import {
   colors,
   controlHeight,
@@ -149,7 +149,6 @@ export function SectionHistoryPanel({
   activityNames,
 }: SectionHistoryPanelProps) {
   const { t } = useTranslation();
-  const locale = getIntlLocale();
   const newest = useMemo(() => Math.max(0, ...versions.map((v) => v.version)), [versions]);
 
   // A record is held within one sport and one direction, so a line about one
@@ -289,11 +288,7 @@ export function SectionHistoryPanel({
               testID={`section-history-event-${e.kind}`}
             >
               <Text style={[styles.date, isDark && styles.textDark]}>
-                {ledgerDate(e.at).toLocaleDateString(locale, {
-                  day: 'numeric',
-                  month: 'short',
-                  year: 'numeric',
-                })}
+                {formatFullDate(ledgerDate(e.at))}
               </Text>
               <Text style={[styles.kind, isDark && styles.textDark]}>{kindLine(e, d)}</Text>
               {e.kind === 'formed' && d.splitFrom && (

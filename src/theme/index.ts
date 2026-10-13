@@ -15,6 +15,7 @@ export {
   activityTypeInkDark,
   zoneColors,
   zoneColorsDark,
+  zoneColorsLight,
   zoneTextColors,
   zoneTextColorsDark,
   colorWithOpacity,

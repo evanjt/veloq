@@ -72,7 +72,7 @@ export const SectionPRContent = React.memo(function SectionPRContent({
         <SectionInsightMap polyline={section.polyline} lineColor={brand.gold} />
       ) : null}
 
-      {/* PR celebration card */}
+      {/* What the record beat; the time itself is the sheet's figure */}
       {bestTimeFormatted ? (
         <View style={[styles.statCard, isDark && styles.statCardDark]}>
           {/* Section name */}
@@ -94,12 +94,6 @@ export const SectionPRContent = React.memo(function SectionPRContent({
               </Text>
             </View>
           ) : null}
-
-          {/* PR time with trophy */}
-          <View style={styles.prRow}>
-            <MaterialCommunityIcons name="trophy-outline" size={24} color={brand.gold} />
-            <Text style={[styles.prTime, isDark && styles.prTextDark]}>{bestTimeFormatted}</Text>
-          </View>
 
           {/* Delta from previous best */}
           {deltaFormatted ? (
@@ -191,17 +185,6 @@ const styles = StyleSheet.create({
   },
   sectionTitleDark: {
     color: darkColors.textSecondary,
-  },
-  prRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  prTime: {
-    fontSize: typography.headlineNumber.fontSize,
-    fontWeight: '700',
-    color: colors.chartGoldText,
-    fontVariant: ['tabular-nums'],
   },
   deltaText: {
     fontSize: typography.body.fontSize,

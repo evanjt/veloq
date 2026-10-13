@@ -32,7 +32,7 @@ it('reads only the ids named by the best efforts', async () => {
   expect(screen.getByText(/Hill ride/)).toBeTruthy();
 });
 
-it('leaves an uncached effort without an activity link', async () => {
+it('leaves an uncached effort without an activity', async () => {
   await render(
     <SeasonBestsSection
       efforts={[{ label: '10 km', activityId: 'a2', value: 2400, time: 2400 }] as never}
@@ -93,10 +93,10 @@ it('sets the link and effort text in the sport text tone, not the fill', async (
   expect(colorsUsed).not.toContain(SPORT_COLORS.Running);
 });
 
-describe('the activity link for a screen reader', () => {
+describe('the activity row for a screen reader', () => {
   beforeAll(() => require('@/i18n').initialiseI18n('en-GB'));
 
-  it('speaks the row in reading order through its link: best, value, activity', () => {
+  it('speaks the row in reading order: best, value, activity', () => {
     render(
       <SeasonBestsSection
         efforts={[{ label: '5 km', activityId: 'a1', value: 250, time: 1200 }] as never}
@@ -124,7 +124,7 @@ describe('the activity link for a screen reader', () => {
     expect(label.endsWith(', 20:00, Hill ride')).toBe(true);
   });
 
-  it('does not read the best and its value again beside the link', () => {
+  it('reads the best and its value through the one row, not as elements of their own', () => {
     render(
       <SeasonBestsSection
         efforts={[{ label: '5 km', activityId: 'a1', value: 250, time: 1200 }] as never}
@@ -134,9 +134,10 @@ describe('the activity link for a screen reader', () => {
       />
     );
 
-    expect(screen.queryByText('5 km')).toBeNull();
-    expect(screen.queryByText('250 W')).toBeNull();
-    expect(screen.getByText('5 km', { includeHiddenElements: true })).toBeTruthy();
+    const row = screen.getByRole('button', { name: '5 km, 250 W, Hill ride' });
+    expect(screen.getAllByRole('button', { name: /Hill ride/ })).toHaveLength(1);
+    expect(row).toContainElement(screen.getByText('5 km'));
+    expect(row).toContainElement(screen.getByText('250 W'));
   });
 
   it('leaves the best readable on a row with no link', () => {

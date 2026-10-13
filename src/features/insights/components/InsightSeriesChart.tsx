@@ -29,6 +29,8 @@ interface InsightSeriesChartProps {
   marker?: { index: number; color: string } | null;
   /** Shown at the title's trailing edge, such as a glyph for the series' verdict. */
   accessory?: React.ReactNode;
+  /** One bar per sample from zero, for totals over a period. */
+  bars?: boolean;
 }
 
 const formatDate = (epochSeconds: number) => formatShortDate(new Date(epochSeconds * 1000));
@@ -47,11 +49,15 @@ export const InsightSeriesChart = React.memo(function InsightSeriesChart({
   pointColor,
   marker,
   accessory,
+  bars = false,
 }: InsightSeriesChartProps) {
   const { isDark } = useTheme();
   const [selected, setSelected] = useState<SeriesDatum | null>(null);
 
-  const model = useMemo(() => seriesChartModel(samples, { formatDate, invert }), [samples, invert]);
+  const model = useMemo(
+    () => seriesChartModel(samples, { formatDate, invert, fromZero: bars }),
+    [samples, invert, bars]
+  );
   const decimals = model?.decimals ?? 0;
   const formatY = useCallback(
     (value: number) => formatValue(value, decimals),
@@ -108,6 +114,7 @@ export const InsightSeriesChart = React.memo(function InsightSeriesChart({
           color={color}
           curve="linear"
           area
+          bars={bars}
           marker={markerAt}
           {...(pointColor !== undefined && { pointColor })}
           referenceLine={null}

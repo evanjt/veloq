@@ -422,7 +422,7 @@ export function SyncDebugTab() {
               <IconButton
                 variant="secondary"
                 onPress={() => setRemoveCount(Math.max(1, removeCount - 1))}
-                accessibilityLabel={`${i18n.t('stats.less')} ${i18n.t('stats.activities')}`}
+                accessibilityLabel={i18n.t('stats.fewerActivities')}
               >
                 <MaterialCommunityIcons
                   name="minus"
@@ -434,7 +434,7 @@ export function SyncDebugTab() {
               <IconButton
                 variant="secondary"
                 onPress={() => setRemoveCount(Math.min(50, removeCount + 1))}
-                accessibilityLabel={`${i18n.t('stats.more')} ${i18n.t('stats.activities')}`}
+                accessibilityLabel={i18n.t('stats.moreActivities')}
               >
                 <MaterialCommunityIcons
                   name="plus"

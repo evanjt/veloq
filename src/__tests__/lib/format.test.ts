@@ -15,7 +15,6 @@ import {
   formatDuration,
   formatDurationCompact,
   formatDurationOrNull,
-  formatShortDate,
   formatShortDateWithYear,
   formatDurationDelta,
   formatDurationHuman,
@@ -537,31 +536,38 @@ describe('formatDurationOrNull', () => {
 });
 
 describe('formatShortDateWithYear', () => {
-  it('appends the two-digit year to the short date', () => {
-    const date = new Date('2024-01-15T12:00:00Z');
-    expect(formatShortDateWithYear(date)).toBe(`${formatShortDate(date)} '24`);
+  it('carries the day, the month and a two-digit year with no apostrophe', () => {
+    const label = formatShortDateWithYear(new Date('2024-01-15T12:00:00'));
+    expect(label).toMatch(/15/);
+    expect(label).toMatch(/Jan/);
+    expect(label).toMatch(/24/);
+    expect(label).not.toContain("'");
   });
 
   it('carries the year across a boundary', () => {
-    expect(formatShortDateWithYear(new Date('2023-12-31T12:00:00'))).toContain("'23");
-    expect(formatShortDateWithYear(new Date('2024-01-01T12:00:00'))).toContain("'24");
+    expect(formatShortDateWithYear(new Date('2023-12-31T12:00:00'))).toMatch(/23$/);
+    expect(formatShortDateWithYear(new Date('2024-01-01T12:00:00'))).toMatch(/24$/);
   });
 });
 
 describe('formatAxisDate', () => {
   it('reads as month and year when the axis does not need the day', () => {
     const label = formatAxisDate(new Date('2024-01-15T12:00:00'), false);
-    expect(label).toMatch(/Jan '24/);
+    expect(label).toMatch(/Jan/);
+    expect(label).toMatch(/2024/);
     expect(label).not.toMatch(/15/);
   });
 
   it('adds the day when the axis needs it', () => {
-    expect(formatAxisDate(new Date('2024-01-15T12:00:00'), true)).toMatch(/Jan 15 '24/);
+    const label = formatAxisDate(new Date('2024-01-15T12:00:00'), true);
+    expect(label).toMatch(/15/);
+    expect(label).toMatch(/Jan/);
+    expect(label).not.toContain("'");
   });
 
   it('carries the year across a boundary', () => {
-    expect(formatAxisDate(new Date('2023-12-31T12:00:00'), false)).toContain("'23");
-    expect(formatAxisDate(new Date('2024-01-01T12:00:00'), false)).toContain("'24");
+    expect(formatAxisDate(new Date('2023-12-31T12:00:00'), false)).toContain('2023');
+    expect(formatAxisDate(new Date('2024-01-01T12:00:00'), false)).toContain('2024');
   });
 });
 

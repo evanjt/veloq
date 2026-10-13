@@ -420,8 +420,8 @@ describe('route page below the chart', () => {
   it('shows the summary with the oldest attempt in the read as First', async () => {
     const screen = await render(<RouteDetailScreen />);
 
-    expect(screen.getByTestId('section-first')).toHaveTextContent(/'24/);
-    expect(screen.getByTestId('section-last')).toHaveTextContent(/'26/);
+    expect(screen.getByTestId('section-first')).toHaveTextContent(/2024/);
+    expect(screen.getByTestId('section-last')).toHaveTextContent(/2026/);
   });
 
   it('shows the calendar with both years and the wellness card', async () => {

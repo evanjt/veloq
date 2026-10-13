@@ -18,7 +18,17 @@ jest.mock('@/shared/app', () => ({
 function renderCard() {
   return render(
     <ActivityStatsCard
-      summary={{ duration: 3600, distance: 20000, elevationGain: 612 }}
+      summary={{
+        duration: 3600,
+        elapsed: 3600,
+        distance: 20000,
+        avgSpeed: 20000 / 3600,
+        elevationGain: 612,
+        avgHeartrate: null,
+        avgPower: null,
+        hasGps: true,
+      }}
+      activityType="Ride"
       textPrimary="#000"
       textSecondary="#000"
     />

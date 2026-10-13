@@ -6,7 +6,7 @@
 //! Expected behaviour: one read answers all three, with the FTP comparison
 //! shared with the summary card and three months of chart history.
 
-use super::pooled::{FITNESS_FTP_LOOKBACK_DAYS, fitness_screen_data};
+use super::pooled::{FITNESS_FTP_LOOKBACK_DAYS, SPORT_MIX_ACTIVITIES, fitness_screen_data};
 use crate::persistence::PersistentEngine;
 use crate::persistence::fitness::derivations::pooled::{
     SYNC_PACE_WINDOW_DAYS, ftp_trend_to, pace_trend,
@@ -172,4 +172,95 @@ fn an_empty_library_answers_no_trend_and_no_speed() {
     assert!(read.ftp_trend.changes.is_empty());
     assert_eq!(read.run_pace_trend.latest_pace, None);
     assert_eq!(read.swim_pace_trend.latest_pace, None);
+}
+
+fn insert_activities(
+    engine: &PersistentEngine,
+    prefix: &str,
+    sport: &str,
+    count: usize,
+    date: i64,
+) {
+    for i in 0..count {
+        engine
+            .db
+            .execute(
+                "INSERT INTO activity_metrics
+                 (activity_id, name, date, distance, moving_time, elapsed_time,
+                  elevation_gain, sport_type) VALUES (?1, 'Session', ?2, 0, 0, 0, 0, ?3)",
+                rusqlite::params![format!("{prefix}{i}"), date, sport],
+            )
+            .unwrap();
+    }
+}
+
+const RECENT: i64 = 1_785_542_400;
+const LONG_AGO: i64 = 1_704_067_200;
+
+#[test]
+fn a_library_of_runs_reports_running_as_its_dominant_sport() {
+    let engine = PersistentEngine::in_memory().unwrap();
+    insert_activities(&engine, "run", "Run", 150, RECENT);
+    insert_activities(&engine, "trail", "TrailRun", 50, RECENT);
+    insert_activities(&engine, "old-ride", "Ride", 400, LONG_AGO);
+
+    let mix = fitness_screen_data(engine.cold_connection(), TODAY).sport_mix;
+
+    assert_eq!(
+        mix.runs, SPORT_MIX_ACTIVITIES,
+        "the latest activities are runs and trail runs"
+    );
+    assert_eq!(
+        mix.rides, 0,
+        "rides older than the latest activities do not count"
+    );
+    assert_eq!(mix.swims, 0);
+    assert_eq!(mix.dominant.as_deref(), Some("Running"));
+}
+
+#[test]
+fn the_dominant_sport_names_each_family_and_counts_its_members() {
+    let engine = PersistentEngine::in_memory().unwrap();
+    insert_activities(&engine, "pool", "Swim", 3, RECENT);
+    insert_activities(&engine, "lake", "OpenWaterSwim", 2, RECENT);
+    insert_activities(&engine, "zwift", "VirtualRide", 4, RECENT);
+    insert_activities(&engine, "lift", "WeightTraining", 9, RECENT);
+
+    let mix = fitness_screen_data(engine.cold_connection(), TODAY).sport_mix;
+
+    assert_eq!((mix.rides, mix.runs, mix.swims), (4, 0, 5));
+    assert_eq!(
+        mix.dominant.as_deref(),
+        Some("Swimming"),
+        "a sport outside the three is not counted"
+    );
+}
+
+#[test]
+fn the_mix_counts_the_latest_activities_and_none_older() {
+    let engine = PersistentEngine::in_memory().unwrap();
+    insert_activities(&engine, "old-ride", "Ride", 400, LONG_AGO);
+    insert_activities(&engine, "swim", "Swim", 10, RECENT);
+
+    let mix = fitness_screen_data(engine.cold_connection(), TODAY).sport_mix;
+
+    assert_eq!((mix.rides, mix.swims), (40, 10));
+    assert_eq!(
+        mix.dominant.as_deref(),
+        Some("Cycling"),
+        "fifty activities, forty of them rides"
+    );
+}
+
+#[test]
+fn a_tie_or_an_empty_library_names_no_dominant_sport() {
+    let engine = PersistentEngine::in_memory().unwrap();
+    let empty = fitness_screen_data(engine.cold_connection(), TODAY).sport_mix;
+    assert_eq!((empty.rides, empty.runs, empty.swims), (0, 0, 0));
+    assert_eq!(empty.dominant, None);
+
+    insert_activities(&engine, "ride", "Ride", 6, RECENT);
+    insert_activities(&engine, "run", "Run", 6, RECENT);
+    let tied = fitness_screen_data(engine.cold_connection(), TODAY).sport_mix;
+    assert_eq!(tied.dominant, None, "a tie is no evidence for either sport");
 }

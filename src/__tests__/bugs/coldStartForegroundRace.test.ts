@@ -18,6 +18,7 @@ import { useRecordingLiveStore } from '@/features/recording/stores/RecordingLive
 import { installRecordingSession } from '@/features/recording/lib/recordingSession';
 
 jest.mock('@/features/recording/lib/recordingNotification', () => ({
+  nameRecordingChannel: jest.fn(),
   installRecordingNotificationActions: jest.fn(() => jest.fn()),
   updateRecordingNotification: jest.fn(),
   clearRecordingNotification: jest.fn(),

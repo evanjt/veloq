@@ -97,7 +97,8 @@ it('opens the tapped insight in a route and dismisses before opening its detail'
 
   expect(sheetScrollPlacement(screen.toJSON())).not.toBe('nested');
 
-  await fireEvent.press(sheet.getByText('View in detail'));
+  await fireEvent.press(sheet.getByTestId('methodology-toggle'));
+  await fireEvent.press(sheet.getByTestId('insight-data-link'));
   expect(mockOrder).toEqual(['dismiss', 'navigate']);
   expect(mockNavigate).toHaveBeenCalledWith('/section/two');
 });

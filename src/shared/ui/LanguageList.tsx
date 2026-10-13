@@ -1,16 +1,20 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import {
+  SYSTEM_LANGUAGE,
   getAvailableLanguages,
   getEnglishVariantValue,
   isEnglishVariant,
   isLanguageVariant,
+  languageLabel,
+  resolveLanguageToLocale,
 } from '@/shared/app/LanguageStore';
+import { openAppSettings } from '@/shared/app/permissions/openAppSettings';
 import {
   brand,
   colors,
@@ -29,9 +33,10 @@ interface LanguageListProps {
 }
 
 /**
- * Every language the app speaks, one row each, with regional variants as chips. Dialect
- * variants carry a gold border, explained by a key below the last row so it never sits beside
- * a language it does not describe.
+ * Every language the app speaks, one row each, with regional variants as chips, after a row
+ * that follows the phone's language. Dialect variants carry a gold border, explained by a key
+ * below the last row so it never sits beside a language it does not describe. On iOS the system's
+ * own per-app language is on the app's page in the Settings app, so the list links to it.
  */
 export function LanguageList({ language, onSelect }: LanguageListProps) {
   const { t } = useTranslation();
@@ -39,9 +44,47 @@ export function LanguageList({ language, onSelect }: LanguageListProps) {
   const languages = getAvailableLanguages().flatMap((group) => group.languages);
   const hasDialect = languages.some((lang) => lang.variants?.some((v) => v.isDialect));
 
+  const followsSystem = language === SYSTEM_LANGUAGE;
+  const phoneLanguage = languageLabel(resolveLanguageToLocale(SYSTEM_LANGUAGE)).label;
+
   return (
     <View>
-      {languages.map((lang, index) => {
+      <View style={[styles.languageRow, isDark && styles.languageRowDark]}>
+        <Pressable
+          testID="language-system"
+          onPress={() => onSelect(SYSTEM_LANGUAGE)}
+          style={pressable(styles.languageLabelContainer)}
+          hitSlop={slopToMinTapTarget(LANGUAGE_LABEL_HEIGHT)}
+          accessibilityRole="button"
+          accessibilityLabel={`${t('settings.system')}, ${phoneLanguage}`}
+          accessibilityState={{ selected: followsSystem }}
+          android_ripple={pressRipple}
+        >
+          <Text style={[styles.languageLabel, isDark && styles.textLight]}>
+            {t('settings.system')}
+          </Text>
+          <Text style={[styles.systemLanguage, isDark && styles.textSecondary]}>
+            {phoneLanguage}
+          </Text>
+        </Pressable>
+        {Platform.OS === 'ios' && (
+          <Pressable
+            testID="language-open-settings"
+            onPress={openAppSettings}
+            style={pressable(styles.settingsLink)}
+            hitSlop={slopToMinTapTarget(LANGUAGE_LABEL_HEIGHT)}
+            accessibilityRole="link"
+            accessibilityLabel={t('common.openSettings')}
+            android_ripple={pressRipple}
+          >
+            <Text style={[styles.settingsLinkText, isDark && styles.settingsLinkTextDark]}>
+              {t('common.openSettings')}
+            </Text>
+          </Pressable>
+        )}
+        {followsSystem && <MaterialCommunityIcons name="check" size={20} color={colors.primary} />}
+      </View>
+      {languages.map((lang) => {
         const isSelected = language === lang.value;
         const isVariantOfThisLanguage = isLanguageVariant(language, lang.value);
         const showCheck = isSelected || isVariantOfThisLanguage;
@@ -49,11 +92,7 @@ export function LanguageList({ language, onSelect }: LanguageListProps) {
         return (
           <View
             key={lang.value}
-            style={[
-              styles.languageRow,
-              index > 0 && styles.languageRowBorder,
-              isDark && styles.languageRowDark,
-            ]}
+            style={[styles.languageRow, styles.languageRowBorder, isDark && styles.languageRowDark]}
           >
             <Pressable
               onPress={() =>
@@ -188,6 +227,21 @@ const styles = StyleSheet.create({
   languageLabel: {
     ...typography.body,
     color: colors.textPrimary,
+  },
+  systemLanguage: {
+    ...typography.caption,
+    color: colors.textSecondary,
+  },
+  settingsLink: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  settingsLinkText: {
+    ...typography.bodyCompact,
+    color: colors.linkTeal,
+  },
+  settingsLinkTextDark: {
+    color: darkColors.linkTeal,
   },
   variantChips: {
     flexDirection: 'row',

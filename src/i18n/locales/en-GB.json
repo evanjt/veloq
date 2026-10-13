@@ -47,7 +47,10 @@
       "activityEftp": "The eFTP is intervals.icu's power model estimate for this activity.",
       "power": "Average power output in watts.",
       "trainingLoad": "Training load is computed by intervals.icu from power, heart rate or pace, depending on the data the activity holds and your sport settings. It weighs duration by intensity relative to your threshold.",
-      "yourForm": "Your Form (TSB) on this day. This is a daily value based on your overall training, not specific to this activity. TSB = Fitness (CTL) minus Fatigue (ATL)."
+      "yourForm": "Your Form (TSB) on this day. This is a daily value based on your overall training, not specific to this activity. TSB = Fitness (CTL) minus Fatigue (ATL).",
+      "speed": "Average and maximum speed as intervals.icu stored them for this activity.",
+      "pace": "Average and fastest pace as intervals.icu stored them for this activity.",
+      "cadence": "Average cadence as intervals.icu stored it: crank revolutions per minute on a bike, steps or strokes per minute otherwise."
     },
     "ftp": "FTP setting: {{value}}",
     "heartRate": "Heart Rate",
@@ -106,7 +109,12 @@
       "fitnessThatDay": "Fitness that day (CTL)",
       "yourForm": "Your Form",
       "eftpContext": "This activity's eFTP {{value}}",
-      "intensityContext": "IF {{percent}}%"
+      "intensityContext": "IF {{percent}}%",
+      "speed": "Speed",
+      "pace": "Pace",
+      "cadence": "Cadence",
+      "movingTime": "Moving time",
+      "elapsedTime": "Elapsed time"
     },
     "hrZoneTotal": "Time with heart rate: {{duration}}",
     "powerZoneTotal": "Time with power: {{duration}}",
@@ -125,7 +133,10 @@
     "zoneMaxFromActivity": "Zone max {{value}} bpm, this activity",
     "zoneMaxFromSettings": "Zone max {{value}} bpm, sport settings",
     "zoneMaxDefault": "No max HR set, zones assume {{value}} bpm",
-    "zoneMaxDefaultHint": "Set your max HR in your intervals.icu sport settings"
+    "zoneMaxDefaultHint": "Set your max HR in your intervals.icu sport settings",
+    "prDelta": "PR+{{delta}}",
+    "chartAverage": "avg",
+    "gainStat": "↑ {{value}}"
   },
   "activityDetail": {
     "routePrBadge": "PR {{improvement}}",
@@ -400,7 +411,12 @@
     "sourceNote": "Tap a row to open the source activity.",
     "climbingBests": "Climbing",
     "climbingSourceExcluded": "Left out for device altitude instead of corrected elevation: {{excluded}}",
-    "climbingOwed": "Climbing bests are still being computed."
+    "climbingOwed": "Climbing bests are still being computed.",
+    "checkpoint": {
+      "halfMarathon": "Half marathon",
+      "metres": "{{value}} m",
+      "kilometres": "{{value}}K"
+    }
   },
   "cache": {
     "allActivitiesSynced": "All activities synced",
@@ -471,7 +487,8 @@
     "discard": "Discard",
     "discardChangesTitle": "Discard changes?",
     "discardChangesMessage": "Your changes on this screen have not been saved.",
-    "keepEditing": "Keep editing"
+    "keepEditing": "Keep editing",
+    "sentencePair": "{{first}} {{second}}"
   },
   "demo": {
     "banner": "Demo Mode",
@@ -511,7 +528,7 @@
     },
     "startupError": {
       "title": "Some parts of the app did not load",
-      "detail": "Could not load: {{areas}}. Restart the app to try again.",
+      "detail": "Could not load: {{areas}}.",
       "area": {
         "language": "language",
         "preferences": "preferences",
@@ -570,14 +587,47 @@
   },
   "errorState": {
     "defaultTitle": "Something went wrong",
-    "unableToLoad": "Unable to load {{componentName}}",
     "libraryUnaffected": "Your activities on this device are unaffected.",
     "rideStillRecording": "Your ride is still recording.",
     "stopAndSaveRide": "Stop and save ride",
     "rideStopped": "Your ride is stopped and kept on this device.",
     "shareFailed": "Couldn't share the crash log.",
-    "restartHint": "Please try again or restart the app",
-    "unableToDisplayChart": "Unable to display chart"
+    "unableToLoad": "Unable to load {{part}}",
+    "retryHint": "Tap Retry to load it again.",
+    "unableToDisplayChart": "Unable to display chart",
+    "part": {
+      "map": "the map",
+      "map3d": "the 3D map",
+      "terrainSnapshots": "the terrain previews",
+      "routePerformance": "route performance",
+      "hrZonesChart": "the heart rate zones chart",
+      "powerZonesChart": "the power zones chart",
+      "activityStats": "the activity stats",
+      "activityMap": "the activity map",
+      "muscleGroups": "the muscle groups"
+    }
+  },
+  "intervalTypes": {
+    "work": {
+      "short": "Work",
+      "long": "Work"
+    },
+    "recovery": {
+      "short": "Rec",
+      "long": "Recovery"
+    },
+    "warmup": {
+      "short": "WU",
+      "long": "Warm-up"
+    },
+    "cooldown": {
+      "short": "CD",
+      "long": "Cool-down"
+    },
+    "other": {
+      "short": "Other",
+      "long": "Other"
+    }
   },
   "export": {
     "bulkComplete": "Export Complete",
@@ -601,7 +651,10 @@
     "gpxTrimmedAway": "Nothing to export. Trimming near home left too little of the track.",
     "failedTitle": "Export failed",
     "share": "Share",
-    "saveToDevice": "Save to device"
+    "saveToDevice": "Save to device",
+    "shareFailedTitle": "Not shared",
+    "shareFailed": "The share sheet could not open. Try again.",
+    "shareUnavailable": "This device has no way to share files."
   },
   "feed": {
     "activitiesCount_one": "{{count}} Activity",
@@ -743,8 +796,6 @@
       "groupMore": "(+{{n}} more)",
       "trendFaster": "Faster",
       "trendSlower": "Slower",
-      "attempts_one": "{{count}} attempt",
-      "attempts_other": "{{count}} attempts",
       "direction": {
         "forward": "Forward",
         "reverse": "Reverse"
@@ -901,7 +952,6 @@
       "changeBody": "Over {{efforts}} efforts on {{name}}, heart rate times pace increased. At the average pace this is a modelled +{{hrChange}} bpm; measured heart rate may differ.",
       "subtitle": "Modelled {{hrChange}} bpm at average pace over {{efforts}} efforts",
       "body": "Over {{efforts}} efforts on {{name}}, heart rate times pace has improved. At your average pace that is a modelled {{hrChange}} bpm; your heart rate itself may not have changed.",
-      "sheetHrCaption": "across matched efforts",
       "sheetHeading": "Matched-effort comparison",
       "sheetBody": "Based on repeat efforts on the same section that carry both heart rate and pace. Compares what each pass cost your heart over time.",
       "sheetMeta": "Open the section for the underlying efforts."
@@ -1074,7 +1124,9 @@
     "expandRange": "Expand range",
     "distanceAny": "Any",
     "showFilters": "Show all filters",
-    "hideFilters": "Show fewer filters"
+    "hideFilters": "Show fewer filters",
+    "searchCount": "{{shown}} of {{total}}",
+    "searchFilteredBy": "filtered by {{filters}}"
   },
   "maps": {
     "threeDUnavailable": "Terrain needs a connection. Showing the flat map.",
@@ -1254,15 +1306,16 @@
     "distance": "Distance ({{unit}})",
     "distanceInvalid": "Please enter a valid distance (0-999).",
     "duration": "Duration (minutes)",
-    "durationLabel": "Duration",
     "durationRequired": "Please enter a valid duration.",
     "elevation": "Elevation",
     "fields": {
       "avgPace": "Avg Pace",
+      "avgPower": "Avg Power",
       "avgSpeed": "Avg Speed",
       "cadence": "Cadence",
       "calories": "Calories",
       "distance": "Distance",
+      "elapsedTime": "Elapsed Time",
       "elevation": "Elevation",
       "elevationGain": "Elev. Gain",
       "heartrate": "Heart Rate",
@@ -1344,11 +1397,11 @@
       "recording": "Recording"
     },
     "summary": "Summary",
-    "timeOfDay": {
-      "morning": "Morning",
-      "afternoon": "Afternoon",
-      "evening": "Evening",
-      "night": "Night"
+    "autoName": {
+      "morning": "Morning {{sport}}",
+      "afternoon": "Afternoon {{sport}}",
+      "evening": "Evening {{sport}}",
+      "night": "Night {{sport}}"
     },
     "trimActivity": "Trim Activity",
     "trimEndHandle": "Trim end",
@@ -1366,8 +1419,6 @@
     "autoUpload": "Auto-upload",
     "autoUploadDescription": "Upload recordings to intervals.icu automatically when you save them. Off keeps them on this device until you upload from My Recordings.",
     "library": {
-      "distance": "Distance",
-      "duration": "Duration",
       "title": "My Recordings",
       "empty": "No recordings yet",
       "emptyHint": "Recordings you save are kept here on this device.",
@@ -1379,8 +1430,10 @@
       "delete": "Delete",
       "deleteConfirmTitle": "Delete recording?",
       "deleteConfirmMessage": "{{sport}} · {{startTime}}: This removes the recording from this device permanently.",
+      "deleteFailedTitle": "Recording not deleted",
+      "deleteFailed": "The recording could not be deleted. It is still on this device.",
       "pendingUploads_one": "{{count}} recording not uploaded yet",
-      "pendingUploads_other": "{{count}} recording(s) not uploaded yet",
+      "pendingUploads_other": "{{count}} recordings not uploaded yet",
       "status": {
         "localOnly": "On this device",
         "pending": "Waiting to upload",
@@ -1434,6 +1487,7 @@
     "entryManualCaption": "Logged by hand, Start opens the form",
     "fieldModeGps": "GPS",
     "fieldModeIndoor": "Indoor",
+    "fieldsSelected": "{{selected}} of {{max}} fields",
     "tileOrder": "Tile order",
     "tileOrderDescription": "Tap a tile to choose the field it shows. On the recording screen, holding a tile does the same.",
     "tileSlotLabel": "Tile {{number}}, {{field}}",
@@ -1442,7 +1496,12 @@
       "card": "Recording stopped. Open Veloq to resume.",
       "channel": "Interrupted recordings",
       "title": "Recording stopped"
-    }
+    },
+    "serviceChannel": {
+      "description": "Shows the activity being recorded, with its controls.",
+      "name": "Recording"
+    },
+    "recentTypes": "Recent"
   },
   "routeDetail": {
     "routeNotFound": "Route not found"
@@ -1666,8 +1725,6 @@
     "traversalsCount_other": "{{count}} traversals",
     "calendarActivities_one": "{{count}} activity",
     "calendarActivities_other": "{{count}} activities",
-    "visitsCount_one": "{{count}} visit",
-    "visitsCount_other": "{{count}} visits",
     "scanForMatches": "Scan for matches",
     "rematchActivities": "Re-match activities",
     "scanForMore": "Scan for more sections",
@@ -1702,7 +1759,6 @@
     "showFewerLaps": "Show fewer laps",
     "lapExcluded": "Excluded",
     "partlyExcluded": "Some laps excluded",
-    "maxGrade": "Steepest",
     "rescanRefusedBusy": "A scan is already running.",
     "rescanRefusedHeld": "Detection is held while the engine finishes other work.",
     "rescanRefusedNotReady": "The engine is still opening. Try again in a moment.",
@@ -1732,7 +1788,10 @@
     "referenceFailedTitle": "Reference not set",
     "acceptAllFailedTitle": "Sections not accepted",
     "changeFailedTitle": "Section not changed",
-    "bestLapValue": "Best lap {{time}}"
+    "bestLapValue": "Best lap {{time}}",
+    "avgValue": "{{value}} Avg",
+    "bestValue": "{{value}} Best",
+    "maxGradeValue": "Steepest {{grade}}"
   },
   "settings": {
     "terrain3DMode": "3D: {{mode}}",
@@ -2066,7 +2125,8 @@
     "vsPrevious6Months": "vs previous 6 months",
     "week": "Week",
     "year": "Year",
-    "atWeight": "at {{weight}}"
+    "fewerActivities": "Fewer activities",
+    "moreActivities": "More activities"
   },
   "statsScreen": {
     "eFTPTrend": "eFTP Trend",
@@ -2082,7 +2142,8 @@
     "powerCurve": "Power Curve",
     "seasonBests": "Season Bests",
     "swimPaceCurve": "Swim Pace Curve",
-    "trainingZones": "Training Zones"
+    "trainingZones": "Training Zones",
+    "ftpLabelAtWeight": "FTP setting {{value}} at {{weight}}"
   },
   "refresh": {
     "busy": "Refreshes after the current sync.",
@@ -2097,6 +2158,7 @@
   },
   "time": {
     "asOfLastSync": "As of last sync",
+    "dayAtTime": "{{day}}, {{time}}",
     "daysCount_one": "{{count}} day",
     "daysCount_other": "{{count}} days",
     "now": "Now",
@@ -2127,7 +2189,9 @@
     "times": "{{value}}×",
     "metresPerSecond": "m/s",
     "metres": "m",
-    "seconds": "s"
+    "seconds": "s",
+    "rpm": "rpm",
+    "spm": "spm"
   },
   "spoken": {
     "noValue": "no value",
@@ -2397,6 +2461,9 @@
     "noneFound": "No sensors found",
     "noneFoundHint": "Wake the sensor by wearing the strap or turning the cranks, and keep it near the phone.",
     "scanAgain": "Scan again",
+    "signal": "Signal {{dbm}} dBm",
+    "unnamed": "{{kind}} sensor",
+    "lastSample": "{{value}}, {{seconds}} s ago",
     "availability": {
       "unsupportedTitle": "This device has no Bluetooth LE",
       "unsupportedHint": "Heart rate, power and cadence sensors need Bluetooth LE.",
@@ -2419,7 +2486,8 @@
       "bluetoothOff": "Bluetooth off",
       "permission": "Bluetooth permission needed",
       "unsupported": "Bluetooth not available"
-    }
+    },
+    "issueSummary": "Sensors: {{issue}}"
   },
   "sectionHistory": {
     "title": "History",

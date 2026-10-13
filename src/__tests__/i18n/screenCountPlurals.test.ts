@@ -6,7 +6,6 @@ import { resolvedLocale } from './resolvedLocale';
 
 const KEYS = [
   'sections.activitiesCount',
-  'sections.visitsCount',
   'sections.traversalsCount',
   'strength.repsCount',
   'strength.setsCount',
@@ -63,8 +62,8 @@ describe('screen count plurals', () => {
       expect(form(1)).not.toBe(form(2));
       expect(form(2)).toBe(form(22));
     }
-    expect(t('sections.visitsCount', 2)).toBe('2 wizyty');
-    expect(t('sections.visitsCount', 5)).toBe('5 wizyt');
+    expect(t('sections.traversalsCount', 2)).toBe('2 przejazdy');
+    expect(t('sections.traversalsCount', 5)).toBe('5 przejazdów');
   });
 
   it('fractional sets use the other form', async () => {

@@ -46,9 +46,9 @@ describe('the supporting data section rows', () => {
         { sectionId: 'moor', sectionName: 'Moor Gate', traversalCount: 2, trend: 0 },
       ])
     ).toEqual([
-      'Weir Path (Run), 5:00, 6×, improved',
+      'Weir Path (Run), 5:00, 6 traversals, improved',
       'Kiln Rise, 2:05, declined',
-      'Moor Gate, 2×, no change',
+      'Moor Gate, 2 traversals, no change',
     ]);
   });
 

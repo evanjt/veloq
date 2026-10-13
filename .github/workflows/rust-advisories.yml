@@ -1,0 +1,34 @@
+name: Rust Advisories
+
+# Scans the Rust lockfile against the RustSec advisory database. Test calls it
+# on every change, and the weekly run catches an advisory published against a
+# lockfile that has not changed. A warning (unmaintained, unsound, yanked) fails
+# too: one that cannot be fixed yet is ignored in .cargo/audit.toml beside the
+# lockfile, with its reason.
+on:
+  workflow_call:
+  schedule:
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Rust Advisories
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      # The lockfile and the config are all it reads, so no submodule.
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
+        with:
+          tool: cargo-audit@0.22.2
+
+      - name: Scan the lockfile
+        working-directory: modules/veloqrs/rust
+        run: cargo audit --deny warnings

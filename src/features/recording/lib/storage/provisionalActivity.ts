@@ -18,7 +18,11 @@ import type { Activity, RecordingLibraryEntry } from '@/types';
 
 const log = debug.create('Recording');
 
-/** The recording as an intervals.icu body, which is what the feed reads. */
+/**
+ * The recording as an intervals.icu body, which is what the feed reads. For a
+ * ride with a FIT the engine replaces the elapsed time and top speed with the
+ * file's session totals; a manual entry keeps its one duration for both times.
+ */
 export function buildProvisionalBody(entry: RecordingLibraryEntry, activityId: string): Activity {
   const seconds = entry.durationSeconds;
   return {

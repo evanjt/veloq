@@ -19,6 +19,7 @@ import { colors, darkColors, mapLayerColors, spacing, layout, typography } from 
 import type { ActivityType, PerformanceDataPoint } from '@/types';
 import { SectionScatterChart, ScatterLegend } from '@/features/routes/components/section';
 import { formatRouteStanding } from '@/features/routes/lib/routeStanding';
+import { forwardDirectionColour } from '@/features/routes/lib/directionColour';
 import { ErrorState } from '@/shared/ui/ErrorState';
 
 interface RoutePerformanceSectionProps {
@@ -53,6 +54,7 @@ export function RoutePerformanceSection({
 
   const activityColor = getActivityColor(activityType);
   const activityInk = getActivityInk(activityType, isDark);
+  const forwardColour = forwardDirectionColour(isDark);
   const [trendDisplay, setTrendDisplay] = useState({ visible: false, reverse: false });
   const onTrendChange = useCallback((visible: boolean, direction: 'forward' | 'reverse') => {
     setTrendDisplay((current) =>
@@ -200,6 +202,7 @@ export function RoutePerformanceSection({
             onTrendChange={onTrendChange}
             activityType={activityType}
             isDark={isDark}
+            forwardColour={forwardColour}
             useTimeAxis
             bestForwardRecord={bestForwardRecord}
             bestReverseRecord={bestReverseRecord}
@@ -212,7 +215,7 @@ export function RoutePerformanceSection({
           <ScatterLegend
             isDark={isDark}
             showTrend={trendDisplay.visible}
-            trendColor={trendDisplay.reverse ? colors.reverseDirection : activityColor}
+            trendColor={trendDisplay.reverse ? colors.reverseDirection : forwardColour}
             showReverse={!!bestReverseRecord}
             showThisActivity
             showOutsideBand={chartData.some((d) => d.outsideDistanceBand === true)}

@@ -15,7 +15,7 @@ import {
 } from '@/shared/app/UnitPreferenceStore';
 import { LanguageList, ListSectionHeader, ToggleButtonRow } from '@/shared/ui';
 
-// LanguageChoice from useLanguageStore (always a string now, no System option)
+// LanguageChoice from useLanguageStore: 'system' or an explicit locale
 type LanguageChoice = string;
 
 interface DisplaySettingsProps {

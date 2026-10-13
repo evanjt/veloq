@@ -15,7 +15,8 @@ import React from 'react';
 import { useBestEfforts } from '@/features/stats/hooks/useBestEfforts';
 import { useSeasonBests } from '@/features/stats/hooks/useSeasonBests';
 import { getEngine } from '@/shared/native/engine';
-import type { BestEffortsData } from 'veloqrs';
+import { BestEffortKind, type BestEffortsData } from 'veloqrs';
+import { initialiseI18n } from '@/i18n';
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
@@ -47,25 +48,35 @@ function screen(): BestEffortsData {
       {
         sport: 'Ride',
         fetched: false,
-        efforts: [{ label: '5m', checkpoint: 300 }],
+        efforts: [{ kind: BestEffortKind.Duration, checkpoint: 300 }],
       },
       {
         sport: 'Run',
         fetched: true,
         efforts: [
-          { label: '1K', checkpoint: 1000 },
-          { label: '5K', checkpoint: 5000, value: 4, time: 1250, activityId: 'tempo' },
+          { kind: BestEffortKind.Distance, checkpoint: 1000 },
+          {
+            kind: BestEffortKind.Distance,
+            checkpoint: 5000,
+            value: 4,
+            time: 1250,
+            activityId: 'tempo',
+          },
         ],
       },
       {
         sport: 'Swim',
         fetched: false,
-        efforts: [{ label: '400m', checkpoint: 400 }],
+        efforts: [{ kind: BestEffortKind.Distance, checkpoint: 400 }],
       },
     ],
     climbing: [],
   };
 }
+
+beforeAll(async () => {
+  await initialiseI18n('en-GB');
+});
 
 beforeEach(() => {
   jest.clearAllMocks();

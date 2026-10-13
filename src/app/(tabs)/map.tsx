@@ -1,11 +1,20 @@
 import { useTabFirstFrame } from '@/shared/debug/tabSwitchTiming';
-import React, { useState, useMemo, useEffect, useRef, useDeferredValue } from 'react';
-import { View, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import React, { useState, useMemo, useEffect, useRef, useDeferredValue, useCallback } from 'react';
+import {
+  View,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  type LayoutChangeEvent,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useLocalSearchParams } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import {
+  AttributionOverlay,
+  type AttributionOverlayRef,
   FILTER_CHIP,
   DEFAULT_MAP_PERIOD,
   filterSheetExpandedAfterDrag,
@@ -128,8 +137,19 @@ function MapScreenContent() {
   const bottomClearance = useBottomClearance();
   const isMetric = useMetricSystem();
 
-  // Attribution text from map (updated dynamically)
-  const [attribution, setAttribution] = useState('© OpenFreeMap © OpenMapTiles © OpenStreetMap');
+  // The map reports its credit as the style and viewport change. It goes to the
+  // overlay through its ref, so a new credit does not re-render the map.
+  const attributionRef = useRef<AttributionOverlayRef>(null);
+  const [isDarkBasemap, setIsDarkBasemap] = useState(false);
+  const handleAttributionChange = useCallback((text: string, isDark: boolean) => {
+    attributionRef.current?.setAttribution(text);
+    setIsDarkBasemap(isDark);
+  }, []);
+  // The sheet grows with the filters it shows, so the credit sits on its measured edge.
+  const [sheetHeight, setSheetHeight] = useState(0);
+  const handleSheetLayout = useCallback((event: LayoutChangeEvent) => {
+    setSheetHeight(event.nativeEvent.layout.height);
+  }, []);
 
   // Get sync state from engine cache
   const { isReady, cacheStats } = useActivityBoundsCache();
@@ -238,6 +258,19 @@ function MapScreenContent() {
 
   const results = resultsOpen ? displayActivities.slice(0, MAX_SEARCH_RESULTS) : [];
 
+  // The filters narrowing the matches, named as their chips draw them.
+  const activeFilterNames = [
+    ...PERIOD_OPTIONS.filter(({ id }) => id === period && id !== DEFAULT_MAP_PERIOD).map(
+      ({ labelKey }) => t(labelKey as never)
+    ),
+    ...getDistanceOptions(isMetric, '')
+      .filter(({ key }) => key === distanceFilter && key !== MapDistanceBand.All)
+      .map(({ label }) => label),
+    ...[...selectedCategories].map((category) =>
+      t(`maps.activityTypes.${ACTIVITY_CATEGORIES[category]?.labelKey ?? 'other'}` as never)
+    ),
+  ];
+
   const toggleCategory = (category: string) => {
     setSelectedCategories((previous) => {
       const next = new Set(previous);
@@ -290,7 +323,7 @@ function MapScreenContent() {
   return (
     <View style={styles.container} testID="map-screen">
       {/* Main map view */}
-      <ComponentErrorBoundary componentName="Map">
+      <ComponentErrorBoundary part="map" debugName="Map">
         <RegionalMapView
           activities={displayActivities}
           routeCount={routeCount}
@@ -298,7 +331,7 @@ function MapScreenContent() {
           sectionCount={sectionCount}
           sections={sections}
           sectionsGeoJSON={sectionsGeoJSON}
-          onAttributionChange={setAttribution}
+          onAttributionChange={handleAttributionChange}
           selectActivityId={selectActivityId}
           focusActivityId={focusActivityId}
           sectionsEnabled={sectionsEnabled}
@@ -307,23 +340,26 @@ function MapScreenContent() {
         />
       </ComponentErrorBoundary>
 
+      <View
+        testID="map-attribution-lane"
+        style={[styles.attributionLane, { bottom: sheetHeight }]}
+        pointerEvents="box-none"
+      >
+        <AttributionOverlay ref={attributionRef} initialAttribution="" isDark={isDarkBasemap} />
+      </View>
+
       {/* Filter sheet: lowered it shows the period chips, raised every filter */}
       <GestureDetector gesture={sheetDrag}>
         <Animated.View
           layout={LinearTransition.duration(SHEET_FADE_MS)}
+          testID="map-filter-sheet"
+          onLayout={handleSheetLayout}
           style={[
             styles.infoBar,
             { paddingBottom: bottomClearance + spacing.md },
             isDark && styles.infoBarDark,
           ]}
         >
-          {/* Attribution pill */}
-          <View style={[styles.attributionPill, isDark && styles.attributionPillDark]}>
-            <Text style={[styles.attributionText, isDark && styles.attributionTextDark]}>
-              {attribution}
-            </Text>
-          </View>
-
           <Pressable
             testID="map-filter-handle"
             onPress={() => setSheetExpanded((expanded) => !expanded)}
@@ -350,6 +386,8 @@ function MapScreenContent() {
                 needle={nameNeedle}
                 onChangeNeedle={changeNeedle}
                 results={results}
+                total={displayActivities.length}
+                filters={activeFilterNames}
                 onChoose={chooseResult}
               />
             </Animated.View>
@@ -503,25 +541,11 @@ const styles = StyleSheet.create({
   infoTextDark: {
     color: darkColors.textSecondary,
   },
-  attributionPill: {
+  attributionLane: {
     position: 'absolute',
-    top: -19,
+    top: 0,
+    left: 0,
     right: 0,
-    backgroundColor: colorWithOpacity(ink.white, 0.8),
-    paddingHorizontal: spacing.smPlus,
-    paddingVertical: spacing.xs,
-    borderTopLeftRadius: layout.borderRadiusSm,
-    zIndex: 1,
-  },
-  attributionPillDark: {
-    backgroundColor: colorWithOpacity(darkColors.surfaceElevated, 0.8),
-  },
-  attributionText: {
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
-  },
-  attributionTextDark: {
-    color: darkColors.textSecondary,
   },
 });
 

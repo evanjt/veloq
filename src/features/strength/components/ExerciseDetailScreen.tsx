@@ -13,7 +13,13 @@ import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { Button, EmptyState, ErrorState, ScreenScrollView } from '@/shared/ui';
+import {
+  composeAccessibilityLabel,
+  EmptyState,
+  ErrorState,
+  Row,
+  ScreenScrollView,
+} from '@/shared/ui';
 import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import type { ExerciseDetailData } from 'veloqrs';
 
@@ -96,24 +102,30 @@ function ExerciseDetailScreen() {
           <Text style={[styles.method, isDark && styles.secondaryDark]}>
             {t('strength.epleyMethod')}
           </Text>
-          {[...sessions].reverse().map((session) => (
-            <View key={session.activityId} style={[styles.row, isDark && styles.rowDark]}>
-              <Button
-                label={`${formatEpochDayUtc(session.date)} · ${session.activityName}`}
-                variant="ghost"
-                onPress={() => tapTo(`/activity/${session.activityId}`)}
-              />
-              <Text style={isDark && styles.textDark}>
-                {t('strength.bestSet')}: {formatBestSet(session.bestSet, isMetric, t)}
-              </Text>
-              <Text style={[styles.method, isDark && styles.secondaryDark]}>
-                {t('strength.estimatedOneRepMax')}:{' '}
-                {session.estimatedOneRepMaxKg == null
-                  ? t('strength.noEstimate')
-                  : formatWeight(session.estimatedOneRepMaxKg, isMetric)}
-              </Text>
-            </View>
-          ))}
+          {[...sessions].reverse().map((session) => {
+            const title = `${formatEpochDayUtc(session.date)} · ${session.activityName}`;
+            const bestSet = `${t('strength.bestSet')}: ${formatBestSet(session.bestSet, isMetric, t)}`;
+            const estimate = `${t('strength.estimatedOneRepMax')}: ${
+              session.estimatedOneRepMaxKg == null
+                ? t('strength.noEstimate')
+                : formatWeight(session.estimatedOneRepMaxKg, isMetric)
+            }`;
+            return (
+              <View key={session.activityId} style={[styles.row, isDark && styles.rowDark]}>
+                <Row
+                  behaviour="navigate"
+                  onPress={() => tapTo(`/activity/${session.activityId}`)}
+                  accessibilityLabel={composeAccessibilityLabel(title, bestSet, estimate)}
+                >
+                  <View style={styles.session}>
+                    <Text style={[styles.sessionTitle, isDark && styles.textDark]}>{title}</Text>
+                    <Text style={isDark && styles.textDark}>{bestSet}</Text>
+                    <Text style={[styles.method, isDark && styles.secondaryDark]}>{estimate}</Text>
+                  </View>
+                </Row>
+              </View>
+            );
+          })}
         </>
       ) : null}
     </ScreenScrollView>
@@ -132,10 +144,11 @@ const styles = StyleSheet.create({
   secondaryDark: { color: darkColors.textSecondary },
   textDark: { color: darkColors.textPrimary },
   row: {
-    padding: spacing.md,
     backgroundColor: colors.surface,
     borderRadius: layout.borderRadiusMd,
-    gap: spacing.xs,
+    overflow: 'hidden',
   },
+  session: { flex: 1, gap: spacing.xs },
+  sessionTitle: { fontWeight: '600', color: colors.textPrimary },
   rowDark: { backgroundColor: darkColors.surface },
 });

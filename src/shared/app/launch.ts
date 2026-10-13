@@ -146,10 +146,64 @@ function errorMessage(reason: unknown): string {
 }
 
 /**
+ * The store initialisers the first screen reads, each under the area the
+ * launch banner names when it rejects. A thunk, so a retry can run any of them
+ * again.
+ */
+const STORE_INITIALISERS: readonly [StartupArea, () => Promise<unknown>][] = [
+  ['language', () => initialiseLanguage().then(initialiseI18n).then(pushNotificationTemplates)],
+  ['preferences', initialiseTheme],
+  ['preferences', initialiseSportPreference],
+  ['preferences', initialiseUnitPreference],
+  ['routes', initialiseRouteSettings],
+  ['preferences', initialiseHeatmapPreference],
+  ['preferences', initialiseDashboardPreferences],
+  ['other', initialiseDebugStore],
+  ['maps', initialiseTileCacheSettings],
+  ['other', initialiseWhatsNewStore],
+  ['insights', initialiseInsightsStore],
+  ['recording', initialiseRecordingPreferences],
+  ['recording', initialiseUploadPermission],
+  ['notifications', initialiseNotificationPreferences],
+  ['notifications', initialiseNotificationPrompt],
+  ['other', initialiseSupportStore],
+  ['other', loadTrackFetchNotice],
+];
+
+/**
+ * Run the store initialisers in the given areas, all at once, and resolve to
+ * the areas whose initialiser rejected, each once and in launch order, or null
+ * when all of them settled. The engine's message is logged and never returned:
+ * it is English and in the engine's vocabulary, and the banner reads a
+ * translated line per area.
+ */
+async function runStoreInitialisers(
+  only: readonly StartupArea[] | null
+): Promise<StartupArea[] | null> {
+  const chosen = STORE_INITIALISERS.filter(([area]) => only === null || only.includes(area));
+  // Each starts in launch order before any is awaited, as the launch always ran them.
+  const results = await Promise.allSettled(
+    chosen.map(([, initialise]) => {
+      try {
+        return initialise();
+      } catch (reason) {
+        return Promise.reject(reason);
+      }
+    })
+  );
+  const areas: StartupArea[] = [];
+  results.forEach((result, index) => {
+    if (result.status !== 'rejected') return;
+    const area = chosen[index][0];
+    console.warn(`[AppInit] ${area} initialiser failed:`, errorMessage(result.reason));
+    if (!areas.includes(area)) areas.push(area);
+  });
+  return areas.length === 0 ? null : areas;
+}
+
+/**
  * Restore every store the first screen reads. Resolves to the areas whose
- * initialiser rejected, each once and in launch order, or null when all of them
- * settled. The engine's message is logged and never returned: it is English and
- * in the engine's vocabulary, and the banner reads a translated line per area.
+ * initialiser rejected, or null when all of them settled.
  */
 export async function initialiseApp(): Promise<StartupArea[] | null> {
   markLaunch('auth');
@@ -169,33 +223,15 @@ export async function initialiseApp(): Promise<StartupArea[] | null> {
     console.warn('[launch] backup cache sweep failed:', errorMessage(reason));
   });
   markLaunch('stores');
-  const initialisers: [StartupArea, Promise<unknown>][] = [
-    ['language', initialiseLanguage().then(initialiseI18n).then(pushNotificationTemplates)],
-    ['preferences', initialiseTheme()],
-    ['preferences', initialiseSportPreference()],
-    ['preferences', initialiseUnitPreference()],
-    ['routes', initialiseRouteSettings()],
-    ['preferences', initialiseHeatmapPreference()],
-    ['preferences', initialiseDashboardPreferences()],
-    ['other', initialiseDebugStore()],
-    ['maps', initialiseTileCacheSettings()],
-    ['other', initialiseWhatsNewStore()],
-    ['insights', initialiseInsightsStore()],
-    ['recording', initialiseRecordingPreferences()],
-    ['recording', initialiseUploadPermission()],
-    ['notifications', initialiseNotificationPreferences()],
-    ['notifications', initialiseNotificationPrompt()],
-    ['other', initialiseSupportStore()],
-    ['other', loadTrackFetchNotice()],
-  ];
-  const results = await Promise.allSettled(initialisers.map(([, started]) => started));
+  const failed = await runStoreInitialisers(null);
   resumePausedImport();
-  const areas: StartupArea[] = [];
-  results.forEach((result, index) => {
-    if (result.status !== 'rejected') return;
-    const area = initialisers[index][0];
-    console.warn(`[AppInit] ${area} initialiser failed:`, errorMessage(result.reason));
-    if (!areas.includes(area)) areas.push(area);
-  });
-  return areas.length === 0 ? null : areas;
+  return failed;
+}
+
+/**
+ * Run again every store initialiser in the areas the launch banner named, and
+ * resolve to the areas that still fail, or null when all of them settled.
+ */
+export function retryStartupAreas(areas: readonly StartupArea[]): Promise<StartupArea[] | null> {
+  return runStoreInitialisers(areas);
 }

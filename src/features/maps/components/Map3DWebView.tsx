@@ -25,6 +25,7 @@ import {
   buildMap3DHtml,
   buildFitBoundsScript,
   buildMap3DSetStyleScript,
+  buildResetOrientationScript,
   buildSetCameraScript,
   buildSetRouteGradientScript,
   buildSetRouteScript,
@@ -38,7 +39,10 @@ import type {
   UpdateLayersParams,
 } from '@/features/maps/lib/htmlBuilders';
 import type { LngLatBounds } from '@/features/maps/lib/coordinates';
-import { buildReleaseMapScript } from '@/features/maps/lib/htmlBuilders/shared';
+import {
+  buildReleaseMapScript,
+  buildSetReduceMotionScript,
+} from '@/features/maps/lib/htmlBuilders/shared';
 import { diffSpec, type SentSpec } from '@/features/maps/lib/mapSurfacePatch';
 import {
   holdSurfaceReleased,
@@ -51,6 +55,7 @@ import type { ReleasableSurface } from '@/features/maps/lib/mapSurfaceRegistry';
 import { pageOpensAt } from '@/features/maps/lib/settledCamera';
 import type { MapStyleType } from './mapStyles';
 import { jsLiteral } from '@/features/maps/lib/webViewLiterals';
+import { useReduceMotion } from '@/shared/ui/reduceMotion';
 
 // Stable empty array to prevent unnecessary re-renders when coordinates prop is undefined
 const EMPTY_COORDS: [number, number][] = [];
@@ -228,6 +233,12 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     // builds a new page when a released map comes back somewhere else.
     const pageCameraRef = useRef<typeof savedCameraRef.current | undefined>(null);
     const [pageEpoch, setPageEpoch] = useState(0);
+    // A change reaches the page by injection, so the page is never rebuilt for
+    // it. `pageReduceMotionRef` is what the page was last told.
+    const reduceMotion = useReduceMotion();
+    const reduceMotionRef = useRef(reduceMotion);
+    reduceMotionRef.current = reduceMotion;
+    const pageReduceMotionRef = useRef(reduceMotion);
 
     // Store GeoJSON data in refs to avoid stale closures
     const routesGeoJSONRef = useRef(routesGeoJSON);
@@ -460,6 +471,16 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       syncStyle();
     }, [syncStyle]);
 
+    const syncReduceMotion = useCallback(() => {
+      if (!webViewRef.current || reduceMotionRef.current === pageReduceMotionRef.current) return;
+      pageReduceMotionRef.current = reduceMotionRef.current;
+      webViewRef.current.injectJavaScript(buildSetReduceMotionScript(reduceMotionRef.current));
+    }, []);
+
+    useEffect(() => {
+      if (mapReadyRef.current) syncReduceMotion();
+    }, [reduceMotion, syncReduceMotion]);
+
     const handleMessage = useMap3DBridge({
       mapReadyRef,
       savedCameraRef,
@@ -469,6 +490,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       updateLayers,
       syncRoute,
       syncStyle: syncStyleOnReady,
+      syncReduceMotion,
       onMapReady,
       onMapFailed,
       onTerrainUnavailable,
@@ -498,16 +520,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
           webViewRef.current?.injectJavaScript(buildSetCameraScript(camera, duration));
         },
         resetOrientation: () => {
-          webViewRef.current?.injectJavaScript(`
-        if (window.map) {
-          window.map.easeTo({
-            bearing: 0,
-            pitch: 0,
-            duration: 500
-          });
-        }
-        true;
-      `);
+          webViewRef.current?.injectJavaScript(buildResetOrientationScript());
         },
       }),
       []
@@ -799,6 +812,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       // then fall back to initialCamera override (from parent), then to initial props.
       const savedCamera = savedCameraRef.current ?? initialCameraRef.current;
       pageCameraRef.current = savedCamera;
+      pageReduceMotionRef.current = reduceMotionRef.current;
       const centerOverride = savedCamera ? savedCamera.center : (initialCenterRef.current ?? null);
       const zoom = savedCamera ? savedCamera.zoom : (initialZoomRef.current ?? 12);
       const bearing = savedCamera ? savedCamera.bearing : 0;
@@ -823,6 +837,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         showHeatmap: showHeatmapRef.current,
         heatmapGeneration: heatmapGenerationRef.current,
         devicePixelRatio: Math.min(PixelRatio.get(), 2), // Cap at 2x for 3D terrain
+        reduceMotion: pageReduceMotionRef.current,
       });
       // `mapStyle` is read above and deliberately not a dependency: it is
       // applied by setStyle() injection, and listing it here would regenerate

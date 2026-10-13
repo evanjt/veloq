@@ -27,7 +27,10 @@ export {
   WorkoutGuide,
 } from './components';
 export { styles } from './RecordingScreen.styles';
-export { getTimeOfDayKey, useActivityNameGeneration } from './hooks/useActivityNameGeneration';
+export {
+  generatedActivityName,
+  useActivityNameGeneration,
+} from './hooks/useActivityNameGeneration';
 export { useActivitySummary } from './hooks/useActivitySummary';
 export { useAlwaysLocationPrompt } from './hooks/useAlwaysLocationPrompt';
 export { useCanRecord } from './hooks/useCanRecord';
@@ -49,7 +52,7 @@ export { useRecordingScreenState } from './hooks/useRecordingScreenState';
 export { useReviewDraft } from './hooks/useReviewDraft';
 export { useReviewSave } from './hooks/useReviewSave';
 export { useStatusPulseAnimation } from './hooks/useStatusPulseAnimation';
-export { useTimer } from './hooks/useTimer';
+export { useClock, useTimer } from './hooks/useTimer';
 export { useWriteAccessMissing } from './hooks/useWriteAccessMissing';
 export { armSystemRecordingPath, canStartAfterScopeWarning } from './lib/armCountdown';
 export {
@@ -60,8 +63,9 @@ export {
 export { promptInterruptedRecording } from './lib/interruptedRecording';
 export { defaultEntrySport, entrySportChips, recordingEntryHref } from './lib/recordEntry';
 export { locationServicesOffMessage } from './lib/locationServicesCopy';
-export { ALL_DATA_FIELDS, fieldsForMode } from './lib/dataFields';
+export { ALL_DATA_FIELDS, MAX_DATA_FIELDS, fieldsForMode } from './lib/dataFields';
 export { recordingActions } from './lib/recordingActions';
+export { recordingStats } from './lib/recordingStats';
 export { uploadStatusTone } from './lib/uploadStatusTone';
 export type { UploadStatusTone } from './lib/uploadStatusTone';
 export {

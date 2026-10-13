@@ -378,7 +378,7 @@ impl FirstBandDrawn {
         in_first_band
             && self
                 .remaining
-                .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| n.checked_sub(1))
+                .try_update(Ordering::AcqRel, Ordering::Acquire, |n| n.checked_sub(1))
                 .is_ok_and(|before| before == 1)
     }
 }

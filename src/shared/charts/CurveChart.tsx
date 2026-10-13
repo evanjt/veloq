@@ -8,6 +8,7 @@ import {
   DashPathEffect,
   LinearGradient,
   Line as SkiaLine,
+  Rect,
   vec,
 } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
@@ -24,13 +25,20 @@ import { useChartColors } from './useChartColors';
 import { useChartGestures } from './useChartGestures';
 import { useMeasuredWidth } from './useMeasuredWidth';
 
+/** A drawn sample. A `partial` one, a total still accruing, is drawn in outline as a bar. */
+export interface ChartSample {
+  x: number;
+  y: number;
+  partial?: boolean;
+}
+
 /** An x label pinned to a data value, for a log or otherwise uneven axis. */
 export interface PlacedLabel {
   label: string;
   value: number;
 }
 
-export interface CurveChartProps<T extends { x: number; y: number }> {
+export interface CurveChartProps<T extends ChartSample> {
   data: readonly T[];
   yDomain: Domain;
   /** Defaults to the extent of the data. */
@@ -49,8 +57,13 @@ export interface CurveChartProps<T extends { x: number; y: number }> {
   area?: boolean;
   /** A dot on every sample, for a series of discrete events. */
   pointColor?: string;
-  /** A ringed dot on one sample, such as a record, by its index in `data`. */
+  /**
+   * A ringed dot on one sample, such as a record, by its index in `data`. As
+   * bars, the marked bar is drawn in full and the others faded.
+   */
   marker?: { index: number; color: string } | null;
+  /** One bar per sample from zero, for totals over a period, in place of the line. */
+  bars?: boolean;
   crosshairMode?: 'point' | 'finger';
   onSelect?: (point: T) => void;
   onInteractionChange?: (active: boolean) => void;
@@ -60,13 +73,27 @@ export interface CurveChartProps<T extends { x: number; y: number }> {
 const PADDING = { top: spacing.xs } as const;
 const GRID_LINES = 5;
 const PLACED_LABEL_HALF_WIDTH = 15;
+/** The share of the gap between neighbouring samples a bar takes. */
+const BAR_FILL = 0.7;
+const BAR_MIN_WIDTH = 2;
+const FADED_BAR = 0.45;
+
+/** The narrowest gap between neighbouring samples, which every bar's width is cut from. */
+function barWidth(xs: readonly number[], span: number): number {
+  let gap = span;
+  xs.forEach((x, i) => {
+    const previous = xs[i - 1];
+    if (previous !== undefined) gap = Math.min(gap, Math.abs(x - previous));
+  });
+  return Math.max(gap * BAR_FILL, BAR_MIN_WIDTH);
+}
 
 /**
  * One line over a log or linear x axis with a casing stroke, an optional
  * reference rule, a scrub crosshair and three y labels. The header, legend
  * and any footer belong to the caller.
  */
-export function CurveChart<T extends { x: number; y: number }>({
+export function CurveChart<T extends ChartSample>({
   data,
   yDomain,
   xDomain,
@@ -79,6 +106,7 @@ export function CurveChart<T extends { x: number; y: number }>({
   area = false,
   pointColor,
   marker,
+  bars = false,
   crosshairMode = 'point',
   onSelect,
   onInteractionChange,
@@ -123,6 +151,29 @@ export function CurveChart<T extends { x: number; y: number }>({
             syncBounds(bounds);
             syncXCoords(points.y, (p) => p.x);
             const marked = marker ? points.y[marker.index] : undefined;
+            if (bars) {
+              const zero = yFor(Math.min(Math.max(0, yDomain[0]), yDomain[1]));
+              const width = barWidth(
+                points.y.map((p) => p.x),
+                bounds.right - bounds.left
+              );
+              return (
+                <>
+                  {points.y.map((p, i) => (
+                    <Rect
+                      key={i}
+                      x={p.x - width / 2}
+                      y={Math.min(p.y, zero)}
+                      width={width}
+                      height={Math.abs(zero - p.y)}
+                      color={color}
+                      opacity={marker && i !== marker.index ? FADED_BAR : 1}
+                      {...(data[i]?.partial ? { style: 'stroke' as const, strokeWidth: 1.5 } : {})}
+                    />
+                  ))}
+                </>
+              );
+            }
             return (
               <>
                 {area && (

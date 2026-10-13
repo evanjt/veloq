@@ -2127,6 +2127,16 @@ async fn sync_athlete(
         Some(settings) => settings,
         None => endpoints::fetch_sport_settings_body(transport, athlete_id, PROFILE_SLICE).await?,
     };
+    // The fitness and fatigue days change rarely and default to 42 and 7, so
+    // a failed read keeps whatever was stored rather than failing the profile.
+    let fitness_model_events =
+        endpoints::fetch_fitness_model_events_body(transport, athlete_id, PROFILE_SLICE)
+            .await
+            .inspect_err(|e| log::warn!("[Sync] fitness model events fetch failed: {}", e))
+            .ok()
+            .filter(|body| {
+                serde_json::from_str::<serde_json::Value>(body).is_ok_and(|v| v.is_array())
+            });
     // A dropped write leaves the previous athlete's profile, FTP and zones
     // standing with nothing to say so, and the step above counts as done. The
     // helper reports all three outcomes, so this needs no mapping of its own.
@@ -2134,6 +2144,12 @@ async fn sync_athlete(
         // The settings first: the profile's write time is what the gate
         // reads, so a profile never stands current without its settings.
         engine.set_sport_settings(&sport_settings)?;
+        if let Some(events) = &fitness_model_events {
+            engine.set_setting(
+                crate::persistence::settings_keys::FITNESS_MODEL_EVENTS,
+                events,
+            )?;
+        }
         engine.set_athlete_profile(&body)
     })
     .await

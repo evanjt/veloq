@@ -141,6 +141,11 @@ export function stalePROpportunityToInsight(
   const unit = displayUnit(opportunity, isMetric);
   const displayedCurrent = isPower ? currentStr : `${currentStr}${unit}`;
   const displayedPrevious = isPower ? previousStr : `${previousStr}${unit}`;
+  const current = {
+    label: t('insights.stalePr.currentMetric', { metric: metricLabel }),
+    value: isPower ? Math.round(opportunity.currentValue) : currentStr,
+    unit,
+  };
 
   return {
     id: `stale_pr-${sectionPairKey(opportunity.sectionId, opportunity.sportType)}`,
@@ -184,12 +189,9 @@ export function stalePROpportunityToInsight(
     supportingData: {
       ...opportunityHistory(opportunity, t),
       sections: [supportingSection(opportunity)],
+      hero: current,
       dataPoints: [
-        {
-          label: t('insights.stalePr.currentMetric', { metric: metricLabel }),
-          value: isPower ? Math.round(opportunity.currentValue) : currentStr,
-          unit,
-        },
+        current,
         {
           label: t('insights.stalePr.prMetric', { metric: metricLabel }),
           value: isPower ? Math.round(opportunity.previousValue) : previousStr,

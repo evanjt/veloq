@@ -9,7 +9,8 @@
  */
 import React from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { Platform, ScrollView } from 'react-native';
+import { fireEvent, render, screen, within } from '@testing-library/react-native';
 import type { MergeCandidate } from 'veloqrs';
 
 import MergeCandidatesSheet from '@/app/sheets/merge-candidates';
@@ -116,6 +117,11 @@ describe('merge candidates sheet', () => {
     expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
+  it('counts each candidate in traversals', async () => {
+    await openCandidates([candidate({ visitCount: 3 })]);
+    expect(screen.getByText(/3 traversals/)).toBeTruthy();
+  });
+
   it('cancels when closed without a tap', async () => {
     const { result } = await openCandidates([candidate()]);
     await fireEvent.press(screen.getByTestId('merge-candidates-cancel'));
@@ -181,6 +187,35 @@ describe('merge confirm sheet', () => {
     expect(sheetScrollPlacement(screen.toJSON())).not.toBe('nested');
   });
 
+  it.each(['ios', 'android'] as const)(
+    'keeps Cancel and Merge out of the scrolling list on %s, so they show at the resting detent',
+    async (os) => {
+      const originalOS = Platform.OS;
+      Platform.OS = os;
+      try {
+        mockPreviewDropped.mockReturnValue(
+          Array.from({ length: 6 }, (_, i) => ({
+            activityId: `r${i}`,
+            name: `Loop ${i}`,
+            startDate: 1_700_000_000 + i * 86_400,
+          }))
+        );
+        await openConfirm();
+        expect(sheetScrollPlacement(screen.toJSON())).toBe('root');
+        const list = within(screen.UNSAFE_getByType(ScrollView));
+        expect(list.getByTestId('merge-dropped-rides')).toBeTruthy();
+        expect(screen.getByTestId('merge-confirm-merge')).toBeTruthy();
+        expect(screen.getByTestId('merge-confirm-cancel')).toBeTruthy();
+        if (os === 'android') {
+          expect(list.queryByTestId('merge-confirm-merge')).toBeNull();
+          expect(list.queryByTestId('merge-confirm-cancel')).toBeNull();
+        }
+      } finally {
+        Platform.OS = originalOS;
+      }
+    }
+  );
+
   it('shows nothing extra when no ride would leave', async () => {
     await openConfirm();
     expect(screen.queryByTestId('merge-dropped-rides')).toBeNull();
@@ -200,6 +235,14 @@ describe('merge confirm sheet', () => {
     expect(screen.getByText(/Morning Spin/)).toBeTruthy();
   });
 
+  it('dates each ride that would leave with its year', async () => {
+    mockPreviewDropped.mockReturnValue([
+      { activityId: 'r1', name: 'Morning Spin', startDate: 1_700_000_000 },
+    ]);
+    await openConfirm();
+    expect(screen.getByText(/Morning Spin, .*2023/)).toBeTruthy();
+  });
+
   it('asks again for the other direction when the choice changes', async () => {
     await openConfirm();
     expect(mockPreviewDropped).toHaveBeenLastCalledWith('sec-a', 'sec-b');
@@ -217,6 +260,12 @@ describe('merge confirm sheet', () => {
     await openConfirm({ ...MAIN, distanceMeters: 1287 }, { ...OTHER, distanceMeters: 1287 });
     expect(screen.getAllByText('0.8 mi').length).toBeGreaterThan(0);
     expect(screen.queryByText('1287m')).toBeNull();
+  });
+
+  it('counts each section in traversals', async () => {
+    await openConfirm();
+    expect(screen.getByText(/5 traversals/)).toBeTruthy();
+    expect(screen.getByText(/2 traversals/)).toBeTruthy();
   });
 
   it('draws every sport of each section', async () => {

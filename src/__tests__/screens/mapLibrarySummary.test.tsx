@@ -27,6 +27,7 @@ jest.mock('expo-router', () => ({
   useSegments: () => ['(tabs)', 'map'],
 }));
 jest.mock('@/features/maps', () => ({
+  AttributionOverlay: () => null,
   ACTIVITY_CATEGORIES: {
     Ride: { color: 'blue', labelKey: 'ride', types: ['Ride'] },
     Run: { color: 'red', labelKey: 'run', types: ['Run'] },

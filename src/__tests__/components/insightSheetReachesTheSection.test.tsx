@@ -4,8 +4,9 @@
  * did: the PR content has no link at all, and the trend rows' name became the
  * accordion toggle, so from either sheet the section screen was unreachable.
  *
- * Expected behaviour: the PR sheet's View in detail opens the section the
- * record was set on, and an expanded trend row opens its own section.
+ * Expected behaviour: the PR sheet's one control to its section, the data link
+ * under How was this calculated, opens the section the record was set on, and
+ * an expanded trend row opens its own section.
  */
 
 import React from 'react';
@@ -72,10 +73,11 @@ describe('a section insight sheet', () => {
     jest.mocked(tapTo).mockClear();
   });
 
-  it('opens the PR section from View in detail', async () => {
+  it('opens the PR section from the data link', async () => {
     await render(<InsightDetailSheet insight={prInsight} onClose={() => undefined} />);
 
-    await fireEvent.press(screen.getByRole('button', { name: 'View in detail' }));
+    await fireEvent.press(screen.getByTestId('methodology-toggle'));
+    await fireEvent.press(screen.getByTestId('insight-data-link'));
 
     expect(tapTo).toHaveBeenCalledWith('/section/hill');
   });
@@ -124,9 +126,9 @@ describe('a section insight sheet', () => {
     const rows = screen.getAllByRole('button');
 
     expect(rows.map((row) => row.props.accessibilityLabel)).toEqual([
-      'Quarry Hill (Run), Personal record, 5:00, 7×, improved',
+      'Quarry Hill (Run), Personal record, 5:00, 7 traversals, improved',
       'River Flat, 8:20, declined',
-      'Weir Path, 3×, no change',
+      'Weir Path, 3 traversals, no change',
     ]);
     expect(rows.map((row) => row.props.testID)).toEqual([
       'section-trend-toggle-hill',

@@ -1038,13 +1038,15 @@ const DEVICE_WRITES: DeviceWrite[] = [
   },
   {
     confirm: [],
-    where: 'the recording foreground notification and the iOS Live Activity',
+    where:
+      'the recording foreground notification, the Android channel it posts on, and the iOS Live Activity',
     writers: [
       'modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/VeloqRecordingNotificationModule.kt',
       'modules/veloq-live-activity/ios/VeloqLiveActivityModule.swift',
     ],
-    holds: 'the ride in progress, its time, distance and trace',
-    kept: 'it belongs to a recording in progress and ends with it',
+    holds:
+      "the ride in progress, its time, distance and trace, and the channel's translated name and description",
+    kept: 'the notification belongs to a recording in progress and ends with it, and the channel holds no athlete data',
   },
   {
     confirm: [],

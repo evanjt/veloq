@@ -45,6 +45,7 @@ describe('3D route gradient', () => {
       routeColor: colors.success,
       showHeatmap: false,
       devicePixelRatio: 1,
+      reduceMotion: false,
     });
     expect(html).toContain('lineMetrics: true');
     expect(buildStyleOverlayScript()).toContain('lineMetrics: true');

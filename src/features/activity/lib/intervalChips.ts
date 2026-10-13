@@ -1,5 +1,8 @@
+import type { TFunction } from 'i18next';
+
 import { intervalBandToken, resolveBandColour } from '@/features/stats';
 import type { ActivityInterval } from '@/types';
+import { intervalTypeName } from './intervalTypeLabel';
 
 /** One chip in the key above the intervals table: a kind of interval, how many, and for how long. */
 export interface IntervalChip {
@@ -10,22 +13,16 @@ export interface IntervalChip {
   totalTime: number;
 }
 
-const ROLE_LABELS = {
-  work: 'W',
-  recovery: 'Rec',
-  warmup: 'WU',
-  cooldown: 'CD',
-} as const;
-
 /**
  * Folds the intervals into one chip per zone or role, in order of first
- * appearance. An interval with no moving time still counts as one, it just
+ * appearance, each role named in the athlete's language. An interval with no moving time still counts as one, it just
  * adds nothing to the total.
  */
 export function intervalChips(
   intervals: readonly ActivityInterval[],
   scale: 'power' | 'hr',
-  isDark: boolean
+  isDark: boolean,
+  t?: TFunction
 ): IntervalChip[] {
   const chips: IntervalChip[] = [];
   const byKey = new Map<string, IntervalChip>();
@@ -36,12 +33,9 @@ export function intervalChips(
     let label: string;
     if (token.kind === 'zone') {
       key = label = `Z${token.zone}`;
-    } else if (token.role === 'other') {
-      key = interval.type;
-      label = interval.type.slice(0, 3);
     } else {
       key = token.role;
-      label = ROLE_LABELS[token.role];
+      label = intervalTypeName(token.role, 'short', t);
     }
 
     const movingTime = interval.moving_time ?? 0;

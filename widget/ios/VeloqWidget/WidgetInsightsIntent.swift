@@ -91,6 +91,7 @@ struct VeloqConfigurableInsightsWidget: Widget {
       kind: kind, intent: SelectInsightKindsIntent.self, provider: InsightsConfigProvider()
     ) { entry in
       WidgetFamilyReader { InsightsWidgetView(entry: entry, family: $0) }
+        .snapshotLocale(entry.snapshot)
     }
     .configurationDisplayName("Insights")
     .description("The top cards from your Insights tab.")

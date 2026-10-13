@@ -22,6 +22,7 @@ import { installRecordingSession } from '@/features/recording/lib/recordingSessi
 const mockLocationServiceRunning = jest.fn();
 
 jest.mock('@/features/recording/lib/recordingNotification', () => ({
+  nameRecordingChannel: jest.fn(),
   installRecordingNotificationActions: jest.fn(() => jest.fn()),
   updateRecordingNotification: jest.fn(),
   clearRecordingNotification: jest.fn(),

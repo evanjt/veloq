@@ -61,7 +61,7 @@ impl Drop for DetectionSuspendGuard {
     fn drop(&mut self) {
         // Saturating: an underflow would wrap to a huge count and suspend
         // detection for the rest of the process.
-        let _ = DETECTION_SUSPENSIONS.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| {
+        let _ = DETECTION_SUSPENSIONS.try_update(Ordering::SeqCst, Ordering::SeqCst, |n| {
             Some(n.saturating_sub(1))
         });
     }

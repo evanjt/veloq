@@ -9,7 +9,7 @@ import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { ChipSelector } from '@/shared/ui';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, spacing } from '@/theme';
 import { pickEmphasisedLap, type SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
 import {
   resolveChartDirection,
@@ -60,6 +60,7 @@ export function PerformanceChartPanel({
     chartData,
     isDark,
     activityType,
+    forwardColour,
     useTimeAxis,
     highlightedActivityId,
     bestForwardRecord,
@@ -112,7 +113,6 @@ export function PerformanceChartPanel({
   )?.sectionTime;
   const recordTime = (direction === 'reverse' ? bestReverseRecord : bestForwardRecord)?.bestTime;
   const recordHeld = direction === 'reverse' ? bestReverseIsRecord : bestForwardIsRecord;
-  const activityColor = isDark ? darkColors.primary : colors.primary;
 
   const deltaLap =
     shownPlot === 'delta' && deltas
@@ -156,7 +156,7 @@ export function PerformanceChartPanel({
           options={DIRECTIONS.map((value) => ({
             value,
             label: t(value === 'reverse' ? 'sections.reverse' : 'sections.forward'),
-            accent: value === 'reverse' ? colors.reverseDirection : activityColor,
+            accent: value === 'reverse' ? colors.reverseDirection : forwardColour,
           }))}
           value={direction}
           optionTestID={(value) => `section-chart-direction-${value}`}
@@ -190,7 +190,7 @@ export function PerformanceChartPanel({
           <ScatterLegend
             isDark={isDark}
             showTrend={!!trend && trend.length >= 2}
-            trendColor={direction === 'reverse' ? colors.reverseDirection : activityColor}
+            trendColor={direction === 'reverse' ? colors.reverseDirection : forwardColour}
             showReverse={!!bestReverseRecord}
             showThisActivity={!!highlightedActivityId}
             showOutsideBand={chartData.some((d) => d.outsideDistanceBand === true)}

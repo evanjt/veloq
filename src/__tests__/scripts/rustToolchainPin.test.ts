@@ -7,9 +7,11 @@
  * has added its targets to a compiler nobody runs.
  *
  * Expected behaviour: the toolchain file pins an exact release with rustfmt and
- * clippy, and every `dtolnay/rust-toolchain` step in this repository's workflows
- * and actions installs that same release. Each step is pinned to the commit of
- * the action's branch for one release, and the trailing comment names it.
+ * clippy, every `dtolnay/rust-toolchain` step in this repository's workflows and
+ * actions installs that same release, and the matching engine's own toolchain
+ * file, which rustup prefers for every cargo run inside the submodule, names it
+ * too. Each step is pinned to the commit of the action's branch for one release,
+ * and the trailing comment names it.
  */
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
@@ -17,6 +19,7 @@ import { join, relative, resolve } from 'node:path';
 
 const ROOT = resolve(__dirname, '../../..');
 const TOOLCHAIN = join(ROOT, 'rust-toolchain.toml');
+const SUBMODULE_TOOLCHAIN = join(ROOT, 'modules/veloqrs/rust/tracematch/rust-toolchain.toml');
 
 function yamlFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -26,9 +29,9 @@ function yamlFiles(dir: string): string[] {
   });
 }
 
-function channel(): string {
-  const match = /^channel\s*=\s*"([^"]+)"/m.exec(readFileSync(TOOLCHAIN, 'utf8'));
-  if (!match) throw new Error('rust-toolchain.toml names no channel');
+function channel(file: string = TOOLCHAIN): string {
+  const match = /^channel\s*=\s*"([^"]+)"/m.exec(readFileSync(file, 'utf8'));
+  if (!match) throw new Error(`${relative(ROOT, file)} names no channel`);
   return match[1];
 }
 
@@ -49,5 +52,9 @@ describe('the Rust toolchain pin', () => {
     );
     expect(uses.length).toBeGreaterThan(0);
     expect(uses.filter((use) => !use.endsWith(`@${pinned}`))).toEqual([]);
+  });
+
+  it('is the release the matching engine submodule pins', () => {
+    expect(channel(SUBMODULE_TOOLCHAIN)).toBe(channel());
   });
 });

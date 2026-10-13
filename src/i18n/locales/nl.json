@@ -47,7 +47,10 @@
       "activityEftp": "De eFTP is de schatting van het vermogensmodel van intervals.icu voor deze activiteit.",
       "power": "Gemiddeld vermogen in watt.",
       "trainingLoad": "intervals.icu berekent de trainingsbelasting uit vermogen, hartslag of tempo, afhankelijk van de gegevens van de activiteit en je sportinstellingen. Ze weegt de duur naar de intensiteit ten opzichte van je drempel.",
-      "yourForm": "Je vorm (TSB) op deze dag. Dit is een dagwaarde gebaseerd op je totale training, niet specifiek voor deze activiteit. TSB = Fitheid (CTL) min Vermoeidheid (ATL)."
+      "yourForm": "Je vorm (TSB) op deze dag. Dit is een dagwaarde gebaseerd op je totale training, niet specifiek voor deze activiteit. TSB = Fitheid (CTL) min Vermoeidheid (ATL).",
+      "speed": "Gemiddelde en maximale snelheid zoals intervals.icu ze voor deze activiteit heeft opgeslagen.",
+      "pace": "Gemiddeld en snelste tempo zoals intervals.icu ze voor deze activiteit heeft opgeslagen.",
+      "cadence": "Gemiddelde cadans zoals intervals.icu die heeft opgeslagen: trapomwentelingen per minuut op de fiets, anders passen of slagen per minuut."
     },
     "ftp": "FTP-instelling: {{value}}",
     "heartRate": "Hartslag",
@@ -106,7 +109,12 @@
       "fitnessThatDay": "Fitheid die dag (CTL)",
       "yourForm": "Jouw vorm",
       "eftpContext": "eFTP van deze activiteit {{value}}",
-      "intensityContext": "IF {{percent}}%"
+      "intensityContext": "IF {{percent}}%",
+      "speed": "Snelheid",
+      "pace": "Tempo",
+      "cadence": "Cadans",
+      "movingTime": "Bewegingstijd",
+      "elapsedTime": "Verstreken tijd"
     },
     "hrZoneTotal": "Tijd met hartslag: {{duration}}",
     "powerZoneTotal": "Tijd met vermogen: {{duration}}",
@@ -125,7 +133,10 @@
     "zoneMaxFromActivity": "Zonemax {{value}} bpm, deze activiteit",
     "zoneMaxFromSettings": "Zonemax {{value}} bpm, sportinstellingen",
     "zoneMaxDefault": "Geen max HF ingesteld, zones gaan uit van {{value}} bpm",
-    "zoneMaxDefaultHint": "Stel je max HF in bij je sportinstellingen op intervals.icu"
+    "zoneMaxDefaultHint": "Stel je max HF in bij je sportinstellingen op intervals.icu",
+    "prDelta": "+{{delta}} achter PR",
+    "chartAverage": "gem.",
+    "gainStat": "↑ {{value}}"
   },
   "activityDetail": {
     "routePrBadge": "PR {{improvement}}",
@@ -400,7 +411,12 @@
     "sourceNote": "Tik op een rij om de activiteit te openen.",
     "climbingBests": "Klimmen",
     "climbingSourceExcluded": "Weggelaten wegens apparaathoogte in plaats van gecorrigeerde hoogte: {{excluded}}",
-    "climbingOwed": "De klimrecords worden nog berekend."
+    "climbingOwed": "De klimrecords worden nog berekend.",
+    "checkpoint": {
+      "halfMarathon": "Halve marathon",
+      "metres": "{{value}} m",
+      "kilometres": "{{value}} km"
+    }
   },
   "cache": {
     "allActivitiesSynced": "Alle activiteiten gesynchroniseerd",
@@ -471,7 +487,8 @@
     "discard": "Verwijderen",
     "discardChangesTitle": "Wijzigingen verwijderen?",
     "discardChangesMessage": "Je wijzigingen op dit scherm zijn niet opgeslagen.",
-    "keepEditing": "Verder bewerken"
+    "keepEditing": "Verder bewerken",
+    "sentencePair": "{{first}} {{second}}"
   },
   "demo": {
     "banner": "Demo-modus",
@@ -511,7 +528,7 @@
     },
     "startupError": {
       "title": "Sommige onderdelen van de app zijn niet geladen",
-      "detail": "Niet geladen: {{areas}}. Start de app opnieuw om het nog eens te proberen.",
+      "detail": "Niet geladen: {{areas}}.",
       "area": {
         "language": "taal",
         "preferences": "voorkeuren",
@@ -570,14 +587,47 @@
   },
   "errorState": {
     "defaultTitle": "Er ging iets mis",
-    "unableToLoad": "Kan {{componentName}} niet laden",
     "libraryUnaffected": "Je activiteiten op dit apparaat zijn niet aangetast.",
     "rideStillRecording": "Je rit wordt nog opgenomen.",
     "stopAndSaveRide": "Rit stoppen en opslaan",
     "rideStopped": "Je rit is gestopt en bewaard op dit apparaat.",
     "shareFailed": "Het crashlogboek kon niet worden gedeeld.",
-    "restartHint": "Probeer het opnieuw of herstart de app",
-    "unableToDisplayChart": "Kan grafiek niet weergeven"
+    "unableToLoad": "Kan {{part}} niet laden",
+    "retryHint": "Tik op Opnieuw proberen om het nog eens te laden.",
+    "unableToDisplayChart": "Kan grafiek niet weergeven",
+    "part": {
+      "map": "de kaart",
+      "map3d": "de 3D-kaart",
+      "terrainSnapshots": "de terreinvoorbeelden",
+      "routePerformance": "de routeprestatie",
+      "hrZonesChart": "de hartslagzonegrafiek",
+      "powerZonesChart": "de vermogenszonegrafiek",
+      "activityStats": "de activiteitsstatistieken",
+      "activityMap": "de activiteitskaart",
+      "muscleGroups": "de spiergroepen"
+    }
+  },
+  "intervalTypes": {
+    "work": {
+      "short": "Inspanning",
+      "long": "Inspanning"
+    },
+    "recovery": {
+      "short": "Herst.",
+      "long": "Herstel"
+    },
+    "warmup": {
+      "short": "WU",
+      "long": "Warming-up"
+    },
+    "cooldown": {
+      "short": "CD",
+      "long": "Cooling-down"
+    },
+    "other": {
+      "short": "Overig",
+      "long": "Overig"
+    }
   },
   "export": {
     "bulkComplete": "Export voltooid",
@@ -601,7 +651,10 @@
     "gpxTrimmedAway": "Niets om te exporteren. Bijsnijden rond thuis liet te weinig van het spoor over.",
     "failedTitle": "Exporteren mislukt",
     "share": "Delen",
-    "saveToDevice": "Opslaan op apparaat"
+    "saveToDevice": "Opslaan op apparaat",
+    "shareFailedTitle": "Niet gedeeld",
+    "shareFailed": "Het deelmenu kon niet worden geopend. Probeer het opnieuw.",
+    "shareUnavailable": "Dit apparaat kan geen bestanden delen."
   },
   "feed": {
     "activitiesCount_one": "{{count}} Activiteit",
@@ -743,8 +796,6 @@
       "groupMore": "(+{{n}} meer)",
       "trendFaster": "Sneller",
       "trendSlower": "Langzamer",
-      "attempts_one": "{{count}} poging",
-      "attempts_other": "{{count}} pogingen",
       "direction": {
         "forward": "Heen",
         "reverse": "Terug"
@@ -902,7 +953,6 @@
       "changeBody": "Over {{efforts}} ritten op {{name}} steeg het product van hartslag en tempo. Bij het gemiddelde tempo komt dat neer op gemodelleerd +{{hrChange}} bpm; de gemeten hartslag kan verschillen.",
       "subtitle": "Gemodelleerd {{hrChange}} bpm bij gemiddeld tempo over {{efforts}} pogingen",
       "body": "Over {{efforts}} pogingen op {{name}} is hartslag maal tempo verbeterd. Bij je gemiddelde tempo is dat een gemodelleerde {{hrChange}} bpm; je hartslag zelf kan onveranderd zijn.",
-      "sheetHrCaption": "over overeenkomende pogingen",
       "sheetHeading": "Vergelijking van overeenkomende pogingen",
       "sheetBody": "Gebaseerd op herhaalde pogingen op dezelfde sectie met zowel hartslag als tempo. Vergelijkt door de tijd wat elke passage je hart kostte.",
       "sheetMeta": "Open de sectie voor de onderliggende pogingen."
@@ -1074,7 +1124,9 @@
     "expandRange": "Bereik uitbreiden",
     "distanceAny": "Alle",
     "showFilters": "Alle filters tonen",
-    "hideFilters": "Minder filters tonen"
+    "hideFilters": "Minder filters tonen",
+    "searchCount": "{{shown}} van {{total}}",
+    "searchFilteredBy": "gefilterd op {{filters}}"
   },
   "maps": {
     "threeDUnavailable": "Terrein vereist een verbinding. De platte kaart wordt getoond.",
@@ -1254,15 +1306,16 @@
     "distance": "Afstand ({{unit}})",
     "distanceInvalid": "Voer een geldige afstand in (0-999).",
     "duration": "Duur (minuten)",
-    "durationLabel": "Duur",
     "durationRequired": "Voer een geldige duur in.",
     "elevation": "Hoogte",
     "fields": {
       "avgPace": "Gem. tempo",
+      "avgPower": "Gem. vermogen",
       "avgSpeed": "Gem. snelheid",
       "cadence": "Cadans",
       "calories": "Calorieën",
       "distance": "Afstand",
+      "elapsedTime": "Verstreken tijd",
       "elevation": "Hoogte",
       "elevationGain": "Stijging",
       "heartrate": "Hartslag",
@@ -1344,11 +1397,11 @@
       "recording": "Opnemen"
     },
     "summary": "Samenvatting",
-    "timeOfDay": {
-      "morning": "Ochtend",
-      "afternoon": "Middag",
-      "evening": "Avond",
-      "night": "Nacht"
+    "autoName": {
+      "morning": "{{sport}} in de ochtend",
+      "afternoon": "{{sport}} in de middag",
+      "evening": "{{sport}} in de avond",
+      "night": "{{sport}} in de nacht"
     },
     "trimActivity": "Activiteit bijsnijden",
     "trimEndHandle": "Eindpunt bijsnijden",
@@ -1366,8 +1419,6 @@
     "autoUpload": "Automatisch uploaden",
     "autoUploadDescription": "Opnamen automatisch naar intervals.icu uploaden bij het opslaan. Uitgeschakeld blijven ze op dit apparaat totdat je ze uploadt via Mijn opnamen.",
     "library": {
-      "distance": "Afstand",
-      "duration": "Duur",
       "title": "Mijn opnamen",
       "empty": "Nog geen opnamen",
       "emptyHint": "Opgeslagen opnamen blijven hier op dit apparaat.",
@@ -1379,8 +1430,10 @@
       "delete": "Verwijderen",
       "deleteConfirmTitle": "Opname verwijderen?",
       "deleteConfirmMessage": "{{sport}} · {{startTime}}: De opname wordt permanent van dit apparaat verwijderd.",
+      "deleteFailedTitle": "Opname niet verwijderd",
+      "deleteFailed": "De opname kon niet worden verwijderd. Ze staat nog op dit apparaat.",
       "pendingUploads_one": "{{count}} opname nog niet geüpload",
-      "pendingUploads_other": "{{count}} opname(n) nog niet geüpload",
+      "pendingUploads_other": "{{count}} opnamen nog niet geüpload",
       "status": {
         "localOnly": "Op dit apparaat",
         "pending": "Wacht op upload",
@@ -1434,6 +1487,7 @@
     "entryManualCaption": "Handmatig, Start opent het formulier",
     "fieldModeGps": "GPS",
     "fieldModeIndoor": "Binnen",
+    "fieldsSelected": "{{selected}} van {{max}} velden",
     "tileOrder": "Volgorde van tegels",
     "tileOrderDescription": "Tik op een tegel om te kiezen welk gegeven hij toont. Op het opnamescherm doet lang drukken op een tegel hetzelfde.",
     "tileSlotLabel": "Tegel {{number}}, {{field}}",
@@ -1442,7 +1496,12 @@
       "card": "Opname gestopt. Open Veloq om te hervatten.",
       "channel": "Onderbroken opnames",
       "title": "Opname gestopt"
-    }
+    },
+    "serviceChannel": {
+      "description": "Toont de activiteit die wordt opgenomen, met de bediening.",
+      "name": "Opname"
+    },
+    "recentTypes": "Recent"
   },
   "routeDetail": {
     "routeNotFound": "Route niet gevonden"
@@ -1657,8 +1716,6 @@
     "traversalsCount_other": "{{count}} passages",
     "calendarActivities_one": "{{count}} activiteit",
     "calendarActivities_other": "{{count}} activiteiten",
-    "visitsCount_one": "{{count}} bezoek",
-    "visitsCount_other": "{{count}} bezoeken",
     "scanForMatches": "Scannen op overeenkomsten",
     "rematchActivities": "Activiteiten opnieuw koppelen",
     "scanForMore": "Scannen op meer secties",
@@ -1702,7 +1759,6 @@
     "showFewerLaps": "Minder rondes tonen",
     "lapExcluded": "Uitgesloten",
     "partlyExcluded": "Sommige ronden uitgesloten",
-    "maxGrade": "Steilste",
     "rescanRefusedBusy": "Er loopt al een scan.",
     "rescanRefusedHeld": "Detectie wacht tot de engine ander werk heeft afgerond.",
     "rescanRefusedNotReady": "De engine wordt nog geopend. Probeer het zo opnieuw.",
@@ -1732,7 +1788,10 @@
     "referenceFailedTitle": "Referentie niet ingesteld",
     "acceptAllFailedTitle": "Secties niet geaccepteerd",
     "changeFailedTitle": "Sectie niet gewijzigd",
-    "bestLapValue": "Beste ronde {{time}}"
+    "bestLapValue": "Beste ronde {{time}}",
+    "avgValue": "{{value}} Gem",
+    "bestValue": "{{value}} Beste",
+    "maxGradeValue": "Steilste {{grade}}"
   },
   "settings": {
     "terrain3DMode": "3D-terrein: {{mode}}",
@@ -2066,7 +2125,8 @@
     "vsPrevious6Months": "vs vorige 6 maanden",
     "week": "Week",
     "year": "Jaar",
-    "atWeight": "bij {{weight}}"
+    "fewerActivities": "Minder activiteiten",
+    "moreActivities": "Meer activiteiten"
   },
   "statsScreen": {
     "eFTPTrend": "eFTP-trend",
@@ -2082,7 +2142,8 @@
     "powerCurve": "Vermogenscurve",
     "seasonBests": "Seizoensbesten",
     "swimPaceCurve": "Zwemtempocurve",
-    "trainingZones": "Trainingszones"
+    "trainingZones": "Trainingszones",
+    "ftpLabelAtWeight": "FTP-instelling {{value}} bij {{weight}}"
   },
   "refresh": {
     "busy": "Wordt bijgewerkt na de huidige synchronisatie.",
@@ -2097,6 +2158,7 @@
   },
   "time": {
     "asOfLastSync": "Gegevens van de laatste synchronisatie",
+    "dayAtTime": "{{day}}, {{time}}",
     "daysCount_one": "{{count}} dag",
     "daysCount_other": "{{count}} dagen",
     "now": "Nu",
@@ -2127,7 +2189,9 @@
     "times": "{{value}}×",
     "metresPerSecond": "m/s",
     "metres": "m",
-    "seconds": "s"
+    "seconds": "s",
+    "rpm": "rpm",
+    "spm": "spm"
   },
   "spoken": {
     "noValue": "geen waarde",
@@ -2397,6 +2461,9 @@
     "noneFound": "Geen sensoren gevonden",
     "noneFoundHint": "Maak de sensor wakker door de band om te doen of de cranks te draaien, en houd hem bij de telefoon.",
     "scanAgain": "Opnieuw zoeken",
+    "signal": "Signaal {{dbm}} dBm",
+    "unnamed": "{{kind}}-sensor",
+    "lastSample": "{{value}}, {{seconds}} s geleden",
     "availability": {
       "unsupportedTitle": "Dit apparaat heeft geen Bluetooth LE",
       "unsupportedHint": "Hartslag-, vermogen- en cadanssensoren hebben Bluetooth LE nodig.",
@@ -2419,7 +2486,8 @@
       "bluetoothOff": "Bluetooth uit",
       "permission": "Bluetooth-toestemming nodig",
       "unsupported": "Bluetooth niet beschikbaar"
-    }
+    },
+    "issueSummary": "Sensoren: {{issue}}"
   },
   "sectionHistory": {
     "title": "Geschiedenis",

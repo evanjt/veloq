@@ -5,6 +5,9 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import { StatsRow } from '@/features/routes/components/section/StatsRow';
+import { initialiseI18n } from '@/i18n';
+
+beforeAll(() => initialiseI18n('en-GB'));
 
 let mockIsMetric = false;
 jest.mock('@/shared/app', () => ({

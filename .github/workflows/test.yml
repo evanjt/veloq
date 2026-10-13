@@ -90,7 +90,7 @@ jobs:
       # rust-toolchain.toml at the repository root names, so the caches share
       # content. A Jest test fails when a pin here drifts from that file.
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1d64bbcee8ef0c191a54710c227fd268a0d5014b # 1.95.0
+        uses: dtolnay/rust-toolchain@fb523f40495206854c36b250850817ae0f83e3d1 # 1.99.0
 
       - name: Cache Rust
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
@@ -158,7 +158,7 @@ jobs:
       # Pinned to rust-toolchain.toml at the repository root, which is the
       # release the tree is formatted with. Bump both with a fresh `cargo fmt`.
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1d64bbcee8ef0c191a54710c227fd268a0d5014b # 1.95.0
+        uses: dtolnay/rust-toolchain@fb523f40495206854c36b250850817ae0f83e3d1 # 1.99.0
         with:
           components: rustfmt, clippy
 
@@ -251,7 +251,7 @@ jobs:
         uses: ./.github/actions/npm-ci
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1d64bbcee8ef0c191a54710c227fd268a0d5014b # 1.95.0
+        uses: dtolnay/rust-toolchain@fb523f40495206854c36b250850817ae0f83e3d1 # 1.99.0
 
       - name: Cache Rust
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
@@ -274,12 +274,15 @@ jobs:
       - name: Run guard scripts and verify bindings
         run: npm run audit
 
+  rust-advisories:
+    uses: ./.github/workflows/rust-advisories.yml
+
   # The one job branch protection requires from this workflow. A job skipped or
   # cancelled upstream reports neutral, which GitHub renders as passing, so the
   # result of each is read here instead.
   ci-required:
     name: CI Required
-    needs: [jest, rust, rust-lint, js, verify-bindings]
+    needs: [jest, rust, rust-lint, rust-advisories, js, verify-bindings]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -289,10 +292,11 @@ jobs:
           JEST: ${{ needs.jest.result }}
           RUST: ${{ needs.rust.result }}
           RUST_LINT: ${{ needs.rust-lint.result }}
+          RUST_ADVISORIES: ${{ needs.rust-advisories.result }}
           JS: ${{ needs.js.result }}
           VERIFY_BINDINGS: ${{ needs.verify-bindings.result }}
         run: |
-          echo "jest=$JEST rust=$RUST rust-lint=$RUST_LINT js=$JS verify-bindings=$VERIFY_BINDINGS"
-          for result in "$JEST" "$RUST" "$RUST_LINT" "$JS" "$VERIFY_BINDINGS"; do
+          echo "jest=$JEST rust=$RUST rust-lint=$RUST_LINT rust-advisories=$RUST_ADVISORIES js=$JS verify-bindings=$VERIFY_BINDINGS"
+          for result in "$JEST" "$RUST" "$RUST_LINT" "$RUST_ADVISORIES" "$JS" "$VERIFY_BINDINGS"; do
             [ "$result" = success ] || { echo "::error::A required check did not pass."; exit 1; }
           done

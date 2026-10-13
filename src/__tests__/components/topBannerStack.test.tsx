@@ -60,7 +60,7 @@ describe('top banner stack', () => {
   it('pads the startup error with the offline pill floating beside it', async () => {
     const { getByTestId } = await render(
       <TopSafeAreaProvider startupErrorShown>
-        <StartupErrorBanner areas={['preferences']} onDismiss={() => {}} />
+        <StartupErrorBanner areas={['preferences']} onRetry={() => {}} onDismiss={() => {}} />
         <OfflineBanner />
       </TopSafeAreaProvider>
     );

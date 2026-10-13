@@ -27,6 +27,7 @@ const html = buildMap3DHtml({
   routeColor: colors.success,
   showHeatmap: false,
   devicePixelRatio: 1,
+  reduceMotion: false,
 });
 
 describe('3D section creation layers', () => {

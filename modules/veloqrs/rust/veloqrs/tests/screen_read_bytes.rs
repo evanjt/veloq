@@ -216,6 +216,7 @@ fn activity_detail(v: FfiActivityDetailData) -> Lowered {
         pr_section_ids => |v: &FfiActivityDetailData| v.pr_section_ids.len(),
         max_hr,
         max_hr_source,
+        summary,
         hr_zones => |v: &FfiActivityDetailData| v.hr_zones.len(),
         power_zones => |v: &FfiActivityDetailData| v.power_zones.len(),
         ledger_changes => |v: &FfiActivityDetailData| v.ledger_changes.len(),
@@ -328,7 +329,13 @@ fn startup(v: FfiStartupData) -> Lowered {
 }
 
 fn fitness(v: FfiFitnessScreenData) -> Lowered {
-    lower!(FfiFitnessScreenData, v; ftp_trend, ftp_trend_coverage, run_pace_trend, swim_pace_trend)
+    lower!(FfiFitnessScreenData, v;
+        ftp_trend,
+        ftp_trend_coverage,
+        run_pace_trend,
+        swim_pace_trend,
+        sport_mix,
+    )
 }
 
 fn best_efforts(v: FfiBestEffortsData) -> Lowered {

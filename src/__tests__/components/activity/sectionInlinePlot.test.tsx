@@ -247,7 +247,7 @@ describe('SectionInlinePlot', () => {
     expect(ground).toBe(sectionPalette[slot]);
   });
 
-  it('speaks each direction with its distance, visits, lap, record and place', async () => {
+  it('speaks each direction with its distance, traversals, lap, record and place', async () => {
     const { getByRole } = await renderGroup([
       encounter({
         sectionId: 'sec-63',
@@ -260,7 +260,7 @@ describe('SectionInlinePlot', () => {
     ]);
 
     expect(getByRole('button').props.accessibilityLabel).toBe(
-      'Mont d’Orge, sections.forward, 1.2 km, sections.visitsCount, 2:20, a11y.personalRecord, ' +
+      'Mont d’Orge, sections.forward, 1.2 km, sections.traversalsCount, 2:20, a11y.personalRecord, ' +
         'sections.reverse, 1.2 km, 2:30, sections.placeSecond'
     );
   });

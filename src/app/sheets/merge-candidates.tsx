@@ -45,7 +45,7 @@ function MergeCandidatesSheetContent() {
             {item.name ?? item.sectionId}
           </Text>
           <Text style={[styles.rowMeta, { color: textSecondary }]}>
-            {t('sections.visitsCount', { count: item.visitCount })}
+            {t('sections.traversalsCount', { count: item.visitCount })}
             {' · '}
             {formatDistance(item.distanceMeters, isMetric)}
             {' · '}

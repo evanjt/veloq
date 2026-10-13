@@ -11,8 +11,13 @@
  */
 
 import { intervalTypeLabel } from '@/features/activity/lib/intervalTypeLabel';
+import { initialiseI18n } from '@/i18n';
 
 describe('intervalTypeLabel', () => {
+  beforeAll(async () => {
+    await initialiseI18n('en-GB');
+  });
+
   it('shows the athlete words over the zone token', () => {
     expect(
       intervalTypeLabel({ type: 'WORK', zone: 4, label: '2km at 6:00/km', zoneColoured: true })
@@ -68,8 +73,11 @@ describe('intervalTypeLabel', () => {
     ).toBe('jog back');
   });
 
-  it('passes an unrecognised type through, as it did before', () => {
-    expect(intervalTypeLabel({ type: 'WARMUP', zone: null, zoneColoured: false })).toBe('WARMUP');
+  it('names a warm up and a cool down from the locale, never by the raw type', () => {
+    expect(intervalTypeLabel({ type: 'WARMUP', zone: null, zoneColoured: false })).toBe('WU');
+    expect(intervalTypeLabel({ type: 'COOLDOWN', zone: null, zoneColoured: false }, 'long')).toBe(
+      'Cool-down'
+    );
   });
 
   it('trims the athlete words rather than rendering their padding', () => {

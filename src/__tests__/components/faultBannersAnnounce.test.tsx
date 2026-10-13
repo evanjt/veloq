@@ -86,7 +86,7 @@ const BANNERS: [string, string, () => React.ReactElement, () => void][] = [
   [
     'startup-error-banner',
     'assertive',
-    () => <StartupErrorBanner areas={['maps']} onDismiss={() => {}} />,
+    () => <StartupErrorBanner areas={['maps']} onRetry={() => {}} onDismiss={() => {}} />,
     () => {},
   ],
   [
@@ -213,7 +213,7 @@ describe('a failing sync offers a way back', () => {
 describe('the startup error closes like every other banner', () => {
   it('dismisses through the shared close control', async () => {
     const onDismiss = jest.fn();
-    await render(<StartupErrorBanner areas={['maps']} onDismiss={onDismiss} />);
+    await render(<StartupErrorBanner areas={['maps']} onRetry={() => {}} onDismiss={onDismiss} />);
 
     await fireEvent.press(screen.getByTestId('startup-error-banner-dismiss'));
 

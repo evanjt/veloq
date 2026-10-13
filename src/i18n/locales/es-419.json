@@ -197,7 +197,8 @@
   },
   "statsScreen": {
     "ftpLabel": "Configuración de FTP {{value}}",
-    "swimPaceCurve": "Curva de ritmo de natación"
+    "swimPaceCurve": "Curva de ritmo de natación",
+    "ftpLabelAtWeight": "Configuración de FTP {{value}} a {{weight}}"
   },
   "whatsNew": {
     "v022": {

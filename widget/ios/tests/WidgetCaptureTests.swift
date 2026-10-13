@@ -6,7 +6,7 @@ import XCTest
 
 /// Scenario: every widget is drawn at every family it supports, in the smallest and the largest
 /// box an iPhone gives that family, in light, in dark and in the accented mode of the tinted and
-/// clear Home Screens, and in colour at the largest text size the widgets follow, with the sample
+/// clear Home Screens, and in colour at the largest accessibility text size, with the sample
 /// library, with the longest words the locales have, with an empty library and with rides and no
 /// wellness reading.
 ///
@@ -129,13 +129,14 @@ final class WidgetCaptureTests: XCTestCase {
               let view = widget.draw(snapshot, family, Date())
               failures += capture(name, view, snapshot, box.size, mode, out, expected)
             }
-            // The largest text size the widgets follow, in colour: the modes draw one layout.
+            // The largest text size there is, in colour: the modes draw one layout.
             let name = [widget.name, familyName(family), box.screen, fixture, "largest-text"]
               .joined(separator: "-")
             let view = widget.draw(snapshot, family, Date())
+            // The form line is among the first to give way at a larger text size.
             failures += capture(
-              name, view, snapshot, box.size, .light, out, expected,
-              textSize: WidgetTheme.largestTextSize)
+              name, view, snapshot, box.size, .light, out, expected.filter { $0 != "form zone" },
+              textSize: .accessibility5)
           }
         }
       }
@@ -146,12 +147,21 @@ final class WidgetCaptureTests: XCTestCase {
         + failures.joined(separator: "\n"))
   }
 
-  /// Scenario: the reader picks the smallest text size in Settings, then the largest the widgets
-  /// follow, then one of the accessibility sizes past it.
+  /// The lines that read as sentences rather than as figures: a name, a finding, a prompt. They
+  /// follow the reader's text size as far as it goes, where a figure stops at its cap.
+  private let proseTexts: Set<String> = [
+    "insight title", "insight subtitle", "no insights", "empty title", "empty subtitle",
+    "empty window", "activity name", "detail", "section records",
+  ]
+
+  /// Scenario: the reader picks the smallest text size in Settings, then the default, then the
+  /// largest standard size, then one of the accessibility sizes past it.
   ///
-  /// Expected behaviour: every text a widget draws is taller at the largest size than at the
-  /// smallest, and past the largest every widget draws as it does at the largest.
-  func testEveryWidgetFollowsTheReadersTextSizeUpToItsCap() throws {
+  /// Expected behaviour: every text a widget draws is taller at the largest standard size than at
+  /// the smallest. A figure, a label or a caption is never more than `maxTextScale` times its
+  /// height at the default size, at an accessibility size too, while a line of prose keeps
+  /// growing past the largest standard size.
+  func testEveryWidgetFollowsTheReadersTextSizeWithFiguresCapped() throws {
     let snapshot = try self.snapshot("demo")
     var failures: [String] = []
     for widget in widgets {
@@ -168,7 +178,9 @@ final class WidgetCaptureTests: XCTestCase {
             fits.map { ($0.name, ($0.single.height * 2).rounded() / 2) }, uniquingKeysWith: max)
         }
         let smallest = heights(.xSmall)
-        let largest = heights(WidgetTheme.largestTextSize)
+        let standard = heights(.large)
+        let largest = heights(.xxxLarge)
+        let accessibility = heights(.accessibility3)
         // A widget may leave a line out at a larger size rather than cut it, so only the texts
         // drawn at both sizes are compared.
         let both = smallest.filter { largest[$0.key] != nil }
@@ -179,12 +191,22 @@ final class WidgetCaptureTests: XCTestCase {
             failures.append("\(name): the \(text) is \(height) pt at the smallest size, \(grown) at the largest")
           }
         }
-        if heights(.accessibility3) != largest {
-          failures.append("\(name): a text size past the largest draws larger still")
+        for (text, height) in accessibility.sorted(by: { $0.key < $1.key }) {
+          if proseTexts.contains(text) {
+            if let before = largest[text], height <= before {
+              failures.append(
+                "\(name): the \(text) is \(before) pt at the largest standard size and no taller "
+                  + "at an accessibility size")
+            }
+          } else if let base = standard[text], height > base * WidgetTheme.maxTextScale + 1 {
+            failures.append(
+              "\(name): the \(text) is \(base) pt at the default size and \(height) at an "
+                + "accessibility size, past \(WidgetTheme.maxTextScale) times")
+          }
         }
       }
     }
-    XCTAssert(failures.isEmpty, "Text that ignores the text size:\n" + failures.joined(separator: "\n"))
+    XCTAssert(failures.isEmpty, "Text that does not follow the text size as it should:\n" + failures.joined(separator: "\n"))
   }
 
   /// The probe has to see a cut when there is one, or the test above passes on nothing.

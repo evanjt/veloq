@@ -16,7 +16,7 @@ import {
   formatCalories,
   formatHeartRate,
   formatPower,
-  formatRelativeDate,
+  formatRelativeDateTime,
   formatTemperature,
   formatLoad,
 } from '@/shared/format/format';
@@ -93,7 +93,7 @@ export function activityCardA11yLabel(speech: ActivityCardSpeech, t: TFunction):
 
   return composeAccessibilityLabel(
     activity.name,
-    formatRelativeDate(activity.start_date_local),
+    formatRelativeDateTime(activity.start_date_local),
     distance,
     spokenDuration(activity.moving_time),
     elevation,

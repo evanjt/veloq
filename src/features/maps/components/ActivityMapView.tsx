@@ -870,11 +870,7 @@ export const ActivityMapView = memo(function ActivityMapView({
         {/* 3D Map layer */}
         {/* Error boundary prevents a 3D crash from taking out the entire map */}
         {is3DMode && hasRoute && !isFullscreen && (
-          <ComponentErrorBoundary
-            componentName="3D Map"
-            showRetry={false}
-            onError={handleMap3DFailed}
-          >
+          <ComponentErrorBoundary part="map3d" debugName="3D Map" onError={handleMap3DFailed}>
             <Animated.View
               style={[styles.mapLayer, styles.map3DLayer, { opacity: map3DOpacity }]}
               pointerEvents={is3DReady ? 'auto' : 'none'}

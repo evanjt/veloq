@@ -87,7 +87,7 @@ function area(subject: 'route' | 'section') {
       bestReverseIsRecord={false}
       calendarSummary={CALENDAR}
       effectiveSportType="Run"
-      activityColor="#336699"
+      forwardColour="#336699"
       showExcluded={false}
       hasExcluded={false}
       sectionTimeRange="all"

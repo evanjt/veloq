@@ -289,9 +289,77 @@ export async function startOAuthFlow(
 
   // Open browser for authorization
   // The proxy will redirect back to our app scheme
-  const result = await WebBrowser.openAuthSessionAsync(authUrl, appCallbackUrl);
+  const redirect = listenForRedirect(state);
+  try {
+    const result = await WebBrowser.openAuthSessionAsync(authUrl, appCallbackUrl);
+    if (result.type === WebBrowser.WebBrowserResultType.DISMISS) {
+      const url = await redirect.within(REDIRECT_GRACE_MS);
+      if (url) return { outcome: 'success', url };
+    } else if (result.type === WebBrowser.WebBrowserResultType.CANCEL) {
+      const url = redirect.taken();
+      if (url) return { outcome: 'success', url };
+    }
+    return classifyAuthResult(result);
+  } finally {
+    redirect.stop();
+  }
+}
 
-  return classifyAuthResult(result);
+/**
+ * How long a `dismiss` waits for the redirect it may have overtaken. Android
+ * has no native auth session: the fallback reports `dismiss` as soon as the app
+ * is back in front, and the redirect intent that brought it there can be
+ * delivered either side of that.
+ */
+const REDIRECT_GRACE_MS = 1000;
+
+/**
+ * Listen for this flow's redirect as a deep link, so the browser closing first
+ * does not lose it. Only a link to the callback route carrying this flow's
+ * state is kept.
+ */
+function listenForRedirect(state: string): {
+  taken: () => string | null;
+  within: (ms: number) => Promise<string | null>;
+  stop: () => void;
+} {
+  let captured: string | null = null;
+  let heard: ((url: string) => void) | null = null;
+  const subscription = Linking.addEventListener('url', ({ url }) => {
+    if (captured || !isRedirectFor(url, state)) return;
+    captured = url;
+    heard?.(url);
+  });
+  return {
+    taken: () => captured,
+    within: (ms) =>
+      new Promise((resolve) => {
+        if (captured) {
+          resolve(captured);
+          return;
+        }
+        const timer = setTimeout(() => {
+          heard = null;
+          resolve(null);
+        }, ms);
+        heard = (url) => {
+          clearTimeout(timer);
+          heard = null;
+          resolve(url);
+        };
+      }),
+    stop: () => subscription.remove(),
+  };
+}
+
+function isRedirectFor(url: string, state: string): boolean {
+  const redirectUri = getAppRedirectUri();
+  if (url !== redirectUri && !url.startsWith(`${redirectUri}?`)) return false;
+  try {
+    return Linking.parse(url).queryParams?.state === state;
+  } catch {
+    return false;
+  }
 }
 
 /** How the browser half of a sign-in ended, read the same way by every caller. */

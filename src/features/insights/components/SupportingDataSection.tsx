@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -19,7 +19,7 @@ import {
   verdictColor,
   verdictFill,
 } from '@/theme';
-import { InsightSeriesChart } from './InsightSeriesChart';
+import { InsightHistoryChart } from './InsightHistoryChart';
 import { formatDuration } from '@/shared/format/format';
 import type { InsightSupportingData } from '@/types';
 import { composeAccessibilityLabel, Row } from '@/shared/ui';
@@ -97,30 +97,12 @@ function buildSparklineAreaPath(
   return `${linePath} L ${lastX} ${height} L 0 ${height} Z`;
 }
 
-/** A series value as precise as its range needs, with the series' unit when it has one. */
-export function formatSeriesValue(
-  value: number,
-  decimals: number,
-  unit: string | undefined
-): string {
-  const number = value.toFixed(decimals);
-  return unit ? `${number} ${unit}` : number;
-}
-
 export const SupportingDataSection = React.memo(function SupportingDataSection({
   data,
 }: SupportingDataSectionProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
 
-  const history = data.history && 'series' in data.history ? data.history : null;
-  const points = history?.series[0]?.points;
-  const seriesUnit = history?.series[0]?.unit;
-  const formatValue = useCallback(
-    (value: number, decimals: number) => formatSeriesValue(value, decimals, seriesUnit),
-    [seriesUnit]
-  );
-  const samples = points && points.length >= 3 ? points : null;
   const comparison = data.comparisonData ?? null;
   const sections = data.sections?.length ? data.sections : null;
 
@@ -137,28 +119,20 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
 
   return (
     <View style={styles.container}>
-      {samples ? (
-        <View style={[styles.sparklineCard, isDark && styles.sparklineCardDark]}>
-          <InsightSeriesChart
-            samples={samples}
-            title={history?.series[0]?.label ?? ''}
-            color={trendColor}
-            formatValue={formatValue}
-            accessory={
-              trendGlyph && trendGlyph !== 'minus' ? (
-                <MaterialCommunityIcons
-                  name={trendGlyph}
-                  size={18}
-                  color={trendColor}
-                  accessibilityLabel={
-                    trend ? spokenVerdict(trend.verdict, trend.direction) : undefined
-                  }
-                />
-              ) : null
-            }
-          />
-        </View>
-      ) : null}
+      <InsightHistoryChart
+        history={data.history}
+        color={trendColor}
+        accessory={
+          trendGlyph && trendGlyph !== 'minus' ? (
+            <MaterialCommunityIcons
+              name={trendGlyph}
+              size={18}
+              color={trendColor}
+              accessibilityLabel={trend ? spokenVerdict(trend.verdict, trend.direction) : undefined}
+            />
+          ) : null
+        }
+      />
 
       {/* Comparison Card */}
       {comparison ? (
@@ -218,7 +192,7 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
             const bestTime = section.bestTime != null ? formatDuration(section.bestTime) : null;
             const traversals =
               section.traversalCount != null
-                ? t('units.times', { value: section.traversalCount })
+                ? t('sections.traversalsCount', { count: section.traversalCount })
                 : null;
             return (
               <Row
@@ -312,16 +286,6 @@ export const SparklineChart = React.memo(function SparklineChart({
 const styles = StyleSheet.create({
   container: {
     marginTop: spacing.sm,
-  },
-  // Sparkline
-  sparklineCard: {
-    backgroundColor: opacity.overlay.subtle,
-    borderRadius: layout.borderRadiusMd,
-    padding: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  sparklineCardDark: {
-    backgroundColor: opacity.overlayDark.light,
   },
   // Comparison
   comparisonCard: {

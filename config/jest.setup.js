@@ -96,6 +96,9 @@ jest.mock("expo-localization", () => ({
   getLocales: jest.fn(() => [
     { languageTag: "en-US", languageCode: "en", regionCode: "US" },
   ]),
+  getCalendars: jest.fn(() => [
+    { calendar: "gregorian", uses24hourClock: null, firstWeekday: 1, timeZone: null },
+  ]),
 }));
 
 // Silence console warnings during tests

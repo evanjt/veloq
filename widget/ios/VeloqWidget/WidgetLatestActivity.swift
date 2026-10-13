@@ -101,7 +101,6 @@ struct LatestActivityView: View {
         EmptyWidgetView(palette: palette)
       }
     }
-    .widgetTextSize()
     .widgetBackground(
       LinearGradient(
         colors: [palette.surface, palette.background],
@@ -134,7 +133,9 @@ struct LatestActivityView: View {
   /// The comparison and what it rests on, in the order they are read. A line with nothing to say
   /// is left out, and none of them truncates: a long one wraps, and where the family has no room
   /// for every line whole the lines read last give way, from `LastActivityWidgetModel.fallbacks`.
-  /// Nothing here caps a line's count, because the choice reads each line's whole height.
+  /// Nothing here caps a line's count, because the choice reads each line's whole height. Where
+  /// not even the last fallback fits whole, at the accessibility text sizes, it is drawn once
+  /// more with its prose fitted to the room left, down to the floor.
   private func lines(
     _ latest: WidgetLatest, _ content: LastActivityContent, _ palette: WidgetPalette, _ tint: Color
   ) -> some View {
@@ -143,18 +144,22 @@ struct LatestActivityView: View {
       ForEach(0..<choices.count, id: \.self) { index in
         column(latest, choices[index], palette, tint)
       }
+      if let last = choices.last {
+        column(latest, last, palette, tint, fitted: true)
+      }
     }
   }
 
   private func column(
-    _ latest: WidgetLatest, _ content: LastActivityContent, _ palette: WidgetPalette, _ tint: Color
+    _ latest: WidgetLatest, _ content: LastActivityContent, _ palette: WidgetPalette, _ tint: Color,
+    fitted: Bool = false
   ) -> some View {
     VStack(alignment: .leading, spacing: 2) {
       if let name = content.name {
         HStack(spacing: 4) {
           Text(name)
             .measuredText("activity name")
-            .widgetFont(.label, weight: .semibold)
+            .widgetProseFont(.label, weight: .semibold, shrinks: fitted)
             .foregroundColor(tint)
           if latest.isPr == true {
             Circle().fill(palette.gold).frame(width: 6, height: 6)
@@ -177,7 +182,7 @@ struct LatestActivityView: View {
           .lineLimit(1)
       }
       if let detail = content.detail {
-        captionLine("detail", detail, palette)
+        captionLine("detail", detail, palette, prose: true, fitted: fitted)
       }
       if !content.dots.isEmpty {
         AttemptDotsView(dots: content.dots, tint: tint, palette: palette)
@@ -188,7 +193,7 @@ struct LatestActivityView: View {
         captionLine("figures", figures, palette)
       }
       if let prs = content.sectionPrs {
-        captionLine("section records", prs, palette)
+        captionLine("section records", prs, palette, prose: true, fitted: fitted)
       }
       if let load = content.load {
         Text(load)
@@ -206,14 +211,26 @@ struct LatestActivityView: View {
     }
   }
 
-  private func captionLine(_ name: String, _ text: String, _ palette: WidgetPalette) -> some View {
-    Text(text)
-      .measuredText(name)
-      .widgetFont(.label)
+  /// A line under the hero. A sentence is `prose` and follows the reader's text size however
+  /// large; a run of figures stops at the cap. A `fitted` sentence shrinks to the room it is
+  /// given rather than taking every line it wraps to.
+  @ViewBuilder
+  private func captionLine(
+    _ name: String, _ text: String, _ palette: WidgetPalette, prose: Bool = false,
+    fitted: Bool = false
+  ) -> some View {
+    let line = Text(text).measuredText(name)
+    if prose && fitted {
+      line.widgetProseFont(.label, shrinks: true).foregroundColor(palette.textSecondary)
+    } else {
+      Group {
+        if prose { line.widgetProseFont(.label) } else { line.widgetFont(.label) }
+      }
       .foregroundColor(palette.textSecondary)
       // The fallback this column is chosen from gives way a line at a time, so a line it keeps
       // takes every line it wraps to.
       .fixedSize(horizontal: false, vertical: true)
+    }
   }
 
   /// Form before and after, each side in the colour of the zone it sits in, with the zones in
@@ -331,6 +348,7 @@ struct VeloqLatestActivityWidget: Widget {
   var body: some WidgetConfiguration {
     StaticConfiguration(kind: kind, provider: LatestActivityProvider()) { entry in
       WidgetFamilyReader { LatestActivityView(entry: entry, family: $0) }
+        .snapshotLocale(entry.snapshot)
     }
     .configurationDisplayName("Latest Activity")
     .description("Your most recent activity with its route.")

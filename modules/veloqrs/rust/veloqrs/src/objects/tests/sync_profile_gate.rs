@@ -1024,3 +1024,58 @@ fn the_athlete_body_stores_what_the_sport_settings_endpoint_did() {
     );
     assert_eq!(derived_from_stored(), old_derived);
 }
+
+fn fitness_model_events() -> serde_json::Value {
+    json!([{"category": "FITNESS_DAYS", "start_date_local": "2026-01-01T00:00:00",
+            "ctl_days": 28, "atl_days": 5}])
+}
+
+fn stored_fitness_model_events() -> Option<serde_json::Value> {
+    crate::persistence::with_persistent_engine(|engine| {
+        engine.get_setting(crate::persistence::settings_keys::FITNESS_MODEL_EVENTS)
+    })
+    .expect("engine")
+    .expect("setting read")
+    .map(|body| serde_json::from_str(&body).expect("json"))
+}
+
+#[test]
+fn the_fitness_model_events_are_stored_with_the_profile() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _engine = crate::test_globals::init_global_engine("profile_gate_fitness_days.db");
+    let upstream = upstream();
+    upstream.server.mock(|when, then| {
+        when.method(GET).path("/athlete/i1/fitness-model-events");
+        then.status(200).json_body(fitness_model_events());
+    });
+
+    run(&upstream, false);
+
+    assert_eq!(stored_fitness_model_events(), Some(fitness_model_events()));
+}
+
+#[test]
+fn a_failed_fitness_model_events_fetch_keeps_the_stored_body() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _engine = crate::test_globals::init_global_engine("profile_gate_fitness_days_kept.db");
+    let stored = fitness_model_events().to_string();
+    crate::persistence::with_persistent_engine(move |engine| {
+        engine
+            .set_setting(
+                crate::persistence::settings_keys::FITNESS_MODEL_EVENTS,
+                &stored,
+            )
+            .expect("seed events");
+    })
+    .expect("engine");
+    let upstream = upstream();
+    upstream.server.mock(|when, then| {
+        when.method(GET).path("/athlete/i1/fitness-model-events");
+        then.status(500);
+    });
+
+    run(&upstream, true);
+
+    assert_eq!(upstream.athlete_hits(), 1, "the profile itself still lands");
+    assert_eq!(stored_fitness_model_events(), Some(fitness_model_events()));
+}

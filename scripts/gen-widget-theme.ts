@@ -16,6 +16,7 @@ import { join } from 'node:path';
 import { trackedText } from './lib/indexedSources.mjs';
 
 import {
+  widgetBody,
   widgetChart,
   widgetLayout,
   widgetPalette,
@@ -127,6 +128,7 @@ ${swiftPalette('Dark', widgetPalette.dark)}
     static let metricLine: CGFloat = ${widgetLayout.metricLine}
     static let supportingRow: CGFloat = ${widgetLayout.supportingRow}
     static let supportingRowCaptioned: CGFloat = ${widgetLayout.supportingRowCaptioned}
+    static let insightGlyph: CGFloat = ${widgetLayout.insightGlyph}
   }
 
   enum TypeScale {
@@ -156,10 +158,8 @@ ${STEPS.map((k) => `      case .${k}: return .${widgetTextScale.styles[k]}`).joi
     }
   }
 
-  /// The largest text size the widgets and the Live Activity follow the reader to.
-  static let largestTextSize: DynamicTypeSize = .${widgetTextScale.iosLargest}
-
-  /// The most a step grows over its default size, whatever text size the reader picks.
+  /// The most a figure, a label or a caption grows over its step's default size, whatever text
+  /// size the reader picks. A line of prose is not held to it.
   static let maxTextScale: CGFloat = ${widgetTextScale.maxScale}
 
   enum Chart {
@@ -167,6 +167,12 @@ ${STEPS.map((k) => `      case .${k}: return .${widgetTextScale.styles[k]}`).joi
     static let bandOpacity: Double = ${widgetChart.bandOpacity}
     static let bandAccentedOpacities: [Double] = [${widgetChart.bandAccentedOpacities.join(', ')}]
     static let bandBoundary: CGFloat = ${widgetChart.bandBoundary}
+  }
+
+  enum Body {
+    static let accentedOpacities: [Double] = [${widgetBody.accentedOpacities.join(', ')}]
+    static let accentedUntrainedOpacity: Double = ${widgetBody.accentedUntrainedOpacity}
+    static let accentedOutline: CGFloat = ${widgetBody.accentedOutline}
   }
 }
 `;

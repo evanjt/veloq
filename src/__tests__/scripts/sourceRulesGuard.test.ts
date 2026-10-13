@@ -79,6 +79,52 @@ describe('counted-translation', () => {
   });
 });
 
+describe('joined-translations', () => {
+  it('fails two translations joined by a space', () => {
+    const root = fixture({
+      'src/features/garden/name.ts':
+        "const name = `${t(`garden.season.${season}`)} ${t('garden.plant.fern')}`;\n",
+    });
+    const { status, output } = runRule('joined-translations', root);
+    expect(status).toBe(1);
+    expect(output).toContain('src/features/garden/name.ts:1');
+  });
+
+  it('fails two translations with nothing between them', () => {
+    const root = fixture({
+      'src/app/garden.tsx': "const label = `${t('garden.first')}${i18n.t('garden.second')}`;\n",
+    });
+    expect(runRule('joined-translations', root).status).toBe(1);
+  });
+
+  it('passes one phrase carrying its parts as placeholders', () => {
+    const root = fixture({
+      'src/features/garden/name.ts':
+        "const name = t(`garden.name.${season}`, { plant: t('garden.plant.fern') });\n",
+    });
+    expect(runRule('joined-translations', root).status).toBe(0);
+  });
+
+  it('passes a translation beside a value, or two joined by punctuation', () => {
+    const root = fixture({
+      'src/features/garden/name.ts': [
+        "const a = `${t('garden.height')} ${height}`;",
+        "const b = `${t('garden.title')}: ${t('garden.status')}`;",
+        '',
+      ].join('\n'),
+    });
+    expect(runRule('joined-translations', root).status).toBe(0);
+  });
+
+  it('skips the test directories', () => {
+    const root = fixture({
+      'src/__tests__/garden.test.ts': "const n = `${t('garden.a')} ${t('garden.b')}`;\n",
+      'src/features/garden/ok.ts': "export const ok = t('garden.a');\n",
+    });
+    expect(runRule('joined-translations', root).status).toBe(0);
+  });
+});
+
 it('refuses a rule it does not know', () => {
   expect(runRule('everything', fixture({ 'src/a.ts': 'export {};\n' })).status).toBe(2);
 });

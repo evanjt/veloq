@@ -19,7 +19,7 @@ import { useTheme } from '@/shared/app';
 import { Button } from '@/shared/ui';
 
 import { useStreamBackfill } from '../hooks/useStreamBackfill';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { Card } from '@/shared/ui/Card';
 
 export function StreamConsentCard() {
@@ -30,7 +30,7 @@ export function StreamConsentCard() {
   if (!awaitingConsent) return null;
 
   return (
-    <View testID="stream-consent-card" style={styles.cardFrame} accessibilityRole="alert">
+    <View testID="stream-consent-card" accessibilityRole="alert">
       <Card variant="raised" style={{ gap: spacing.sm }}>
         <View style={styles.header}>
           <MaterialCommunityIcons
@@ -67,10 +67,6 @@ export function StreamConsentCard() {
 }
 
 const styles = StyleSheet.create({
-  cardFrame: {
-    marginHorizontal: layout.screenPadding,
-    marginBottom: spacing.sm,
-  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

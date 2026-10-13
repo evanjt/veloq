@@ -1,5 +1,5 @@
 import { useTabFirstFrame } from '@/shared/debug/tabSwitchTiming';
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { View, StyleSheet, RefreshControl } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import {
@@ -116,7 +116,7 @@ function FitnessScreenContent() {
     efficiency: false,
   });
 
-  const { primarySport } = useSportPreference();
+  const { primarySport, isLoaded: sportLoaded, adoptLibrarySport } = useSportPreference();
 
   // Sport mode state - defaults to primary sport, can be toggled
   const [sportMode, setSportMode] = useState<PrimarySport>(() => primarySport);
@@ -160,6 +160,7 @@ function FitnessScreenContent() {
     eftpChanges,
     storedRunPace,
     storedSwimPace,
+    librarySport,
     currentFTP,
     runSettings,
     runPaceCurve,
@@ -177,6 +178,12 @@ function FitnessScreenContent() {
     error,
     refetch,
   } = useFitnessScreenData({ timeRange, sportMode });
+
+  // Until the athlete picks a sport, it follows what the library is mostly
+  // made of. Taken before paint, so the tab never shows the old sport's cards.
+  useLayoutEffect(() => {
+    if (sportLoaded) void adoptLibrarySport(librarySport);
+  }, [adoptLibrarySport, librarySport, sportLoaded]);
 
   const runLthr = runSettings?.lthr;
   // The curve is a download, so offline it is absent and the stored critical

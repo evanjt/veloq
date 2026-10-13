@@ -14,14 +14,14 @@ struct WidgetInsight: Codable {
   let category: String?
   let title: String
   let subtitle: String?
-  /// The tab's icon name; carried so a later glyph set needs no new snapshot.
+  /// The tab's icon name, which the row draws as its glyph.
   let icon: String?
   /// The tab's tone: a verdict rung, `info` or `opportunity`.
   let tone: String?
   /// Where a tap on the row goes.
   let url: String
-  /// The tone as a screen reader says it, since the row draws it as a colour alone. Nil on a
-  /// snapshot written before schema 16.
+  /// The tone as a screen reader says it, since the row's glyph names the card and not its tone.
+  /// Nil on a snapshot written before schema 16.
   let toneLabel: String?
 }
 

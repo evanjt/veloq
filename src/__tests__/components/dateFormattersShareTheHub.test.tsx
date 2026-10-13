@@ -28,8 +28,10 @@ afterEach(() => {
 });
 
 describe('section summary card dates', () => {
-  it('renders First and Last through the hub axis date', async () => {
-    jest.spyOn(hub, 'formatAxisDate').mockImplementation((d: Date) => `axis:${d.getFullYear()}`);
+  it('renders First and Last through the hub full date', async () => {
+    jest
+      .spyOn(hub, 'formatFullDate')
+      .mockImplementation((d) => `full:${(d as Date).getFullYear()}`);
     const { getByTestId } = await render(
       <SectionInfoCard
         firstActivityDate={new Date(2024, 0, 1)}
@@ -42,8 +44,26 @@ describe('section summary card dates', () => {
         isDark={false}
       />
     );
-    expect(getByTestId('section-first')).toHaveTextContent('axis:2024');
-    expect(getByTestId('section-last')).toHaveTextContent('axis:2026');
+    expect(getByTestId('section-first')).toHaveTextContent('full:2024');
+    expect(getByTestId('section-last')).toHaveTextContent('full:2026');
+  });
+
+  it('names the day of a visit, not only its month', async () => {
+    const { getByTestId } = await render(
+      <SectionInfoCard
+        firstActivityDate={new Date(2024, 2, 15)}
+        lastActivityDate={new Date(2026, 2, 1)}
+        bestForwardRecord={null}
+        bestReverseRecord={null}
+        forwardStats={null}
+        reverseStats={null}
+        basis="pace"
+        isDark={false}
+      />
+    );
+    expect(getByTestId('section-first')).toHaveTextContent(/15/);
+    expect(getByTestId('section-first')).toHaveTextContent(/2024/);
+    expect(getByTestId('section-first')).not.toHaveTextContent(/'/);
   });
 
   it('shows no First or Last until the engine dates a visit, and holds its place while pending', async () => {

@@ -31,6 +31,7 @@ function html(mapStyle: MapStyleType): string {
     routeColor: '#FF6B35',
     showHeatmap: true,
     devicePixelRatio: 2,
+    reduceMotion: false,
   };
   return buildMap3DHtml(config);
 }

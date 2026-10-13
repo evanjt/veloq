@@ -148,6 +148,7 @@ struct VeloqConfigurableWidget: Widget {
       kind: kind, intent: SelectMetricIntent.self, provider: VeloqConfigProvider()
     ) { entry in
       WidgetFamilyReader { VeloqWidgetEntryView(entry: entry, family: $0) }
+        .snapshotLocale(entry.snapshot)
     }
     .configurationDisplayName("Summary")
     .description("Your summary card from the app at a glance.")

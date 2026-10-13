@@ -1,0 +1,19 @@
+# cargo audit reads this from .cargo/ under the directory it runs in, and CI
+# runs it with --deny warnings, so every warning is fixed or listed here with
+# the reason it cannot be yet. Drop an entry once the crate behind it moves.
+[advisories]
+ignore = [
+    # atomic-polyfill is unmaintained. heapless 0.7, under postcard, takes it
+    # only on avr and riscv32i targets, which nothing here builds for.
+    "RUSTSEC-2023-0089",
+    # bincode 1 is unmaintained. Reached only through iai-callgrind, a
+    # dev-dependency of tracematch for its benches.
+    "RUSTSEC-2025-0141",
+    # proc-macro-error2 is unmaintained. Reached only through
+    # iai-callgrind-macros, under the same bench dev-dependency.
+    "RUSTSEC-2026-0173",
+    # i_tree 0.8 has unsound public node accessors, patched in 0.10. It comes
+    # through geo 0.29 and i_overlay 1.9 in tracematch, which call it
+    # internally, and the patched release needs a geo upgrade there.
+    "RUSTSEC-2025-0165",
+]

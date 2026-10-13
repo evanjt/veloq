@@ -47,7 +47,10 @@
       "activityEftp": "El eFTP es la estimación del modelo de potencia de intervals.icu para esta actividad.",
       "power": "Potencia media en vatios.",
       "trainingLoad": "intervals.icu calcula la carga de entrenamiento a partir de la potencia, la frecuencia cardíaca o el ritmo, según los datos de la actividad y tus ajustes de deporte. Pondera la duración por la intensidad relativa a tu umbral.",
-      "yourForm": "Tu Forma (TSB) en este día. Es un valor diario basado en tu entrenamiento general, no específico de esta actividad. TSB = Forma física (CTL) menos Fatiga (ATL)."
+      "yourForm": "Tu Forma (TSB) en este día. Es un valor diario basado en tu entrenamiento general, no específico de esta actividad. TSB = Forma física (CTL) menos Fatiga (ATL).",
+      "speed": "Velocidad media y máxima tal como intervals.icu las guardó para esta actividad.",
+      "pace": "Ritmo medio y más rápido tal como intervals.icu los guardó para esta actividad.",
+      "cadence": "Cadencia media tal como intervals.icu la guardó: pedaladas por minuto en bici, pasos o brazadas por minuto en lo demás."
     },
     "ftp": "Ajuste de FTP: {{value}}",
     "heartRate": "Frecuencia cardíaca",
@@ -106,7 +109,12 @@
       "fitnessThatDay": "Forma física ese día (CTL)",
       "yourForm": "Tu forma",
       "eftpContext": "eFTP de esta actividad {{value}}",
-      "intensityContext": "IF {{percent}}%"
+      "intensityContext": "IF {{percent}}%",
+      "speed": "Velocidad",
+      "pace": "Ritmo",
+      "cadence": "Cadencia",
+      "movingTime": "Tiempo en movimiento",
+      "elapsedTime": "Tiempo total"
     },
     "hrZoneTotal": "Tiempo con frecuencia cardíaca: {{duration}}",
     "powerZoneTotal": "Tiempo con potencia: {{duration}}",
@@ -126,7 +134,10 @@
     "zoneMaxFromActivity": "Máx. de zonas {{value}} lpm, esta actividad",
     "zoneMaxFromSettings": "Máx. de zonas {{value}} lpm, ajustes del deporte",
     "zoneMaxDefault": "Sin FC máx. definida, las zonas suponen {{value}} lpm",
-    "zoneMaxDefaultHint": "Define tu FC máx. en los ajustes del deporte de intervals.icu"
+    "zoneMaxDefaultHint": "Define tu FC máx. en los ajustes del deporte de intervals.icu",
+    "prDelta": "+{{delta}} sobre el PR",
+    "chartAverage": "media",
+    "gainStat": "↑ {{value}}"
   },
   "activityDetail": {
     "routePrBadge": "MP {{improvement}}",
@@ -401,7 +412,12 @@
     "sourceNote": "Toca una fila para abrir la actividad.",
     "climbingBests": "Subidas",
     "climbingSourceExcluded": "Omitidas por usar la altitud del dispositivo en lugar de la elevación corregida: {{excluded}}",
-    "climbingOwed": "Los mejores de ascenso aún se están calculando."
+    "climbingOwed": "Los mejores de ascenso aún se están calculando.",
+    "checkpoint": {
+      "halfMarathon": "Media maratón",
+      "metres": "{{value}} m",
+      "kilometres": "{{value}} km"
+    }
   },
   "cache": {
     "allActivitiesSynced": "Todas las actividades sincronizadas",
@@ -476,7 +492,8 @@
     "discard": "Descartar",
     "discardChangesTitle": "¿Descartar los cambios?",
     "discardChangesMessage": "Tus cambios en esta pantalla no se han guardado.",
-    "keepEditing": "Seguir editando"
+    "keepEditing": "Seguir editando",
+    "sentencePair": "{{first}} {{second}}"
   },
   "demo": {
     "banner": "Modo Demo",
@@ -516,7 +533,7 @@
     },
     "startupError": {
       "title": "Algunas partes de la app no se cargaron",
-      "detail": "No se pudo cargar: {{areas}}. Reinicia la app para volver a intentarlo.",
+      "detail": "No se pudo cargar: {{areas}}.",
       "area": {
         "language": "idioma",
         "preferences": "preferencias",
@@ -582,14 +599,47 @@
   },
   "errorState": {
     "defaultTitle": "Algo salió mal",
-    "unableToLoad": "No se pudo cargar {{componentName}}",
     "libraryUnaffected": "Tus actividades en este dispositivo no se han visto afectadas.",
     "rideStillRecording": "Tu salida sigue grabándose.",
     "stopAndSaveRide": "Detener y guardar salida",
     "rideStopped": "Tu salida se ha detenido y se conserva en este dispositivo.",
     "shareFailed": "No se pudo compartir el registro de fallos.",
-    "restartHint": "Inténtalo de nuevo o reinicia la aplicación",
-    "unableToDisplayChart": "No se puede mostrar el gráfico"
+    "unableToLoad": "No se pudo cargar: {{part}}",
+    "retryHint": "Toca Reintentar para volver a cargarlo.",
+    "unableToDisplayChart": "No se puede mostrar el gráfico",
+    "part": {
+      "map": "mapa",
+      "map3d": "mapa 3D",
+      "terrainSnapshots": "vistas previas del terreno",
+      "routePerformance": "rendimiento en la ruta",
+      "hrZonesChart": "gráfico de zonas de frecuencia cardiaca",
+      "powerZonesChart": "gráfico de zonas de potencia",
+      "activityStats": "estadísticas de la actividad",
+      "activityMap": "mapa de la actividad",
+      "muscleGroups": "grupos musculares"
+    }
+  },
+  "intervalTypes": {
+    "work": {
+      "short": "Trabajo",
+      "long": "Trabajo"
+    },
+    "recovery": {
+      "short": "Rec.",
+      "long": "Recuperación"
+    },
+    "warmup": {
+      "short": "Cal.",
+      "long": "Calentamiento"
+    },
+    "cooldown": {
+      "short": "V. calma",
+      "long": "Vuelta a la calma"
+    },
+    "other": {
+      "short": "Otro",
+      "long": "Otro"
+    }
   },
   "export": {
     "bulkComplete": "Exportación completada",
@@ -614,7 +664,10 @@
     "gpxTrimmedAway": "No hay nada que exportar. Recortar cerca de casa dejó muy poco del recorrido.",
     "failedTitle": "Exportación fallida",
     "share": "Compartir",
-    "saveToDevice": "Guardar en el dispositivo"
+    "saveToDevice": "Guardar en el dispositivo",
+    "shareFailedTitle": "No compartido",
+    "shareFailed": "No se pudo abrir el menú de compartir. Inténtalo de nuevo.",
+    "shareUnavailable": "Este dispositivo no puede compartir archivos."
   },
   "feed": {
     "activitiesCount_one": "{{count}} Actividad",
@@ -759,8 +812,6 @@
       "groupMore": "(+{{n}} más)",
       "trendFaster": "Más rápida",
       "trendSlower": "Más lenta",
-      "attempts_one": "{{count}} intento",
-      "attempts_other": "{{count}} intentos",
       "direction": {
         "forward": "Ida",
         "reverse": "Vuelta"
@@ -919,7 +970,6 @@
       "changeBody": "En {{efforts}} recorridos de {{name}}, aumentó el producto de frecuencia cardíaca y ritmo. Al ritmo medio equivale a +{{hrChange}} ppm estimadas; la frecuencia medida puede variar.",
       "subtitle": "{{hrChange}} ppm modelados al ritmo medio en {{efforts}} esfuerzos",
       "body": "En {{efforts}} esfuerzos en {{name}}, la frecuencia cardíaca por ritmo ha mejorado. Al ritmo medio equivale a {{hrChange}} ppm modelados; tu frecuencia cardíaca en sí puede no haber cambiado.",
-      "sheetHrCaption": "en esfuerzos coincidentes",
       "sheetHeading": "Comparación de esfuerzos coincidentes",
       "sheetBody": "Basado en esfuerzos repetidos en la misma sección que incluyen frecuencia cardiaca y ritmo. Compara a lo largo del tiempo lo que cada paso le costó a tu corazón.",
       "sheetMeta": "Abre la sección para ver los esfuerzos."
@@ -1091,7 +1141,9 @@
     "expandRange": "Ampliar rango",
     "distanceAny": "Cualquiera",
     "showFilters": "Mostrar todos los filtros",
-    "hideFilters": "Mostrar menos filtros"
+    "hideFilters": "Mostrar menos filtros",
+    "searchCount": "{{shown}} de {{total}}",
+    "searchFilteredBy": "filtrado por {{filters}}"
   },
   "maps": {
     "threeDUnavailable": "El relieve necesita conexión. Se muestra el mapa plano.",
@@ -1272,15 +1324,16 @@
     "distance": "Distancia ({{unit}})",
     "distanceInvalid": "Por favor, ingresa una distancia válida (0-999).",
     "duration": "Duración (minutos)",
-    "durationLabel": "Duración",
     "durationRequired": "Por favor, ingresa una duración válida.",
     "elevation": "Elevación",
     "fields": {
       "avgPace": "Ritmo medio",
+      "avgPower": "Potencia media",
       "avgSpeed": "Vel. media",
       "cadence": "Cadencia",
       "calories": "Calorías",
       "distance": "Distancia",
+      "elapsedTime": "Tiempo total",
       "elevation": "Elevación",
       "elevationGain": "Desnivel",
       "heartrate": "Frecuencia cardíaca",
@@ -1362,11 +1415,11 @@
       "recording": "Grabando"
     },
     "summary": "Resumen",
-    "timeOfDay": {
-      "morning": "Mañana",
-      "afternoon": "Tarde",
-      "evening": "Tarde-noche",
-      "night": "Noche"
+    "autoName": {
+      "morning": "{{sport}} por la mañana",
+      "afternoon": "{{sport}} por la tarde",
+      "evening": "{{sport}} al atardecer",
+      "night": "{{sport}} por la noche"
     },
     "trimActivity": "Recortar actividad",
     "trimEndHandle": "Final del recorte",
@@ -1384,8 +1437,6 @@
     "autoUpload": "Subida automática",
     "autoUploadDescription": "Subir las grabaciones a intervals.icu automáticamente al guardarlas. Si está desactivado, se quedan en este dispositivo hasta que las subas desde Mis grabaciones.",
     "library": {
-      "distance": "Distancia",
-      "duration": "Duración",
       "title": "Mis grabaciones",
       "empty": "Aún no hay grabaciones",
       "emptyHint": "Las grabaciones guardadas se conservan aquí en este dispositivo.",
@@ -1397,9 +1448,11 @@
       "delete": "Eliminar",
       "deleteConfirmTitle": "¿Eliminar la grabación?",
       "deleteConfirmMessage": "{{sport}} · {{startTime}}: La grabación se eliminará permanentemente de este dispositivo.",
+      "deleteFailedTitle": "Grabación no eliminada",
+      "deleteFailed": "No se pudo eliminar la grabación. Sigue en este dispositivo.",
       "pendingUploads_one": "{{count}} grabación sin subir",
       "pendingUploads_many": "{{count}} de grabaciones sin subir",
-      "pendingUploads_other": "{{count}} grabación(es) sin subir",
+      "pendingUploads_other": "{{count}} grabaciones sin subir",
       "status": {
         "localOnly": "En este dispositivo",
         "pending": "Esperando para subir",
@@ -1454,6 +1507,7 @@
     "entryManualCaption": "Entrada manual, Iniciar abre el formulario",
     "fieldModeGps": "GPS",
     "fieldModeIndoor": "Interior",
+    "fieldsSelected": "{{selected}} de {{max}} campos",
     "tileOrder": "Orden de las casillas",
     "tileOrderDescription": "Toca una casilla para elegir el dato que muestra. En la pantalla de grabación, mantener pulsada una casilla hace lo mismo.",
     "tileSlotLabel": "Casilla {{number}}, {{field}}",
@@ -1462,7 +1516,12 @@
       "card": "Grabación detenida. Abre Veloq para reanudar.",
       "channel": "Grabaciones interrumpidas",
       "title": "Grabación detenida"
-    }
+    },
+    "serviceChannel": {
+      "description": "Muestra la actividad que se está grabando, con sus controles.",
+      "name": "Grabación"
+    },
+    "recentTypes": "Recientes"
   },
   "routeDetail": {
     "routeNotFound": "Ruta no encontrada"
@@ -1685,9 +1744,6 @@
     "traversalsCount_other": "{{count}} recorridos",
     "calendarActivities_one": "{{count}} actividad",
     "calendarActivities_other": "{{count}} actividades",
-    "visitsCount_one": "{{count}} visita",
-    "visitsCount_many": "{{count}} de visitas",
-    "visitsCount_other": "{{count}} visitas",
     "scanForMatches": "Buscar coincidencias",
     "rematchActivities": "Volver a emparejar actividades",
     "scanForMore": "Buscar más secciones",
@@ -1738,7 +1794,6 @@
     "showFewerLaps": "Mostrar menos vueltas",
     "lapExcluded": "Excluida",
     "partlyExcluded": "Algunas vueltas excluidas",
-    "maxGrade": "Pendiente máx.",
     "rescanRefusedBusy": "Ya hay un análisis en curso.",
     "rescanRefusedHeld": "La detección está en espera mientras el motor termina otro trabajo.",
     "rescanRefusedNotReady": "El motor todavía se está abriendo. Inténtalo de nuevo en un momento.",
@@ -1768,7 +1823,10 @@
     "referenceFailedTitle": "Referencia no establecida",
     "acceptAllFailedTitle": "Secciones no aceptadas",
     "changeFailedTitle": "Sección no modificada",
-    "bestLapValue": "Mejor vuelta {{time}}"
+    "bestLapValue": "Mejor vuelta {{time}}",
+    "avgValue": "{{value}} Prom",
+    "bestValue": "{{value}} Mejor",
+    "maxGradeValue": "Pendiente máx. {{grade}}"
   },
   "settings": {
     "terrain3DMode": "Terreno 3D: {{mode}}",
@@ -2119,7 +2177,8 @@
     "vsPrevious6Months": "vs 6 meses anteriores",
     "week": "Semana",
     "year": "Año",
-    "atWeight": "a {{weight}}"
+    "fewerActivities": "Menos actividades",
+    "moreActivities": "Más actividades"
   },
   "statsScreen": {
     "eFTPTrend": "Tendencia eFTP",
@@ -2135,7 +2194,8 @@
     "powerCurve": "Curva de potencia",
     "seasonBests": "Mejores marcas",
     "swimPaceCurve": "Curva de ritmo natación",
-    "trainingZones": "Zonas de entrenamiento"
+    "trainingZones": "Zonas de entrenamiento",
+    "ftpLabelAtWeight": "Ajuste de FTP {{value}} a {{weight}}"
   },
   "refresh": {
     "busy": "Se actualizará tras la sincronización en curso.",
@@ -2150,6 +2210,7 @@
   },
   "time": {
     "asOfLastSync": "Datos de la última sincronización",
+    "dayAtTime": "{{day}}, {{time}}",
     "daysCount_one": "{{count}} día",
     "daysCount_other": "{{count}} días",
     "now": "Ahora",
@@ -2181,7 +2242,9 @@
     "times": "{{value}}×",
     "metresPerSecond": "m/s",
     "metres": "m",
-    "seconds": "s"
+    "seconds": "s",
+    "rpm": "rpm",
+    "spm": "ppm"
   },
   "spoken": {
     "noValue": "sin valor",
@@ -2453,6 +2516,9 @@
     "noneFound": "No se encontraron sensores",
     "noneFoundHint": "Activa el sensor poniéndote la banda o girando las bielas, y mantenlo cerca del teléfono.",
     "scanAgain": "Buscar de nuevo",
+    "signal": "Señal {{dbm}} dBm",
+    "unnamed": "Sensor de {{kind}}",
+    "lastSample": "{{value}}, hace {{seconds}} s",
     "availability": {
       "unsupportedTitle": "Este dispositivo no tiene Bluetooth LE",
       "unsupportedHint": "Los sensores de frecuencia cardiaca, potencia y cadencia necesitan Bluetooth LE.",
@@ -2475,7 +2541,8 @@
       "bluetoothOff": "Bluetooth desactivado",
       "permission": "Se necesita permiso de Bluetooth",
       "unsupported": "Bluetooth no disponible"
-    }
+    },
+    "issueSummary": "Sensores: {{issue}}"
   },
   "sectionHistory": {
     "title": "Historial",

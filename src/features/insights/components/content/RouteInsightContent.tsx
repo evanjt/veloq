@@ -9,6 +9,7 @@ import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { formatDuration } from '@/shared/format/format';
 import { brand, colors, darkColors, spacing, typography } from '@/theme';
 import type { Insight, SupportingRoute } from '@/types';
+import { SheetContext } from './SheetContext';
 import { Row } from '@/shared/ui';
 import type { TFunc } from '../../types';
 import { sectionWithSport } from '../../lib/cardSport';
@@ -54,7 +55,7 @@ const RouteRow = React.memo(function RouteRow({ route }: { route: SupportingRout
             route.isRecentRecord ? t('insights.recentPersonalRecord') : null,
             route.trend > 0 ? t('insights.route.trendFaster') : null,
             route.trend < 0 ? t('insights.route.trendSlower') : null,
-            t('insights.route.attempts', { count: route.attemptCount }),
+            t('routes.activitiesCount', { count: route.attemptCount }),
           ]
             .filter(Boolean)
             .join(' · ')}
@@ -88,18 +89,13 @@ interface RouteInsightContentProps {
 export const RouteInsightContent = React.memo(function RouteInsightContent({
   insight,
 }: RouteInsightContentProps) {
-  const { isDark } = useTheme();
   const { t } = useTranslation();
   const routes = insight.supportingData?.routes;
   if (!routes || routes.length === 0) return null;
 
   return (
     <View style={styles.container}>
-      <View style={styles.context}>
-        <Text style={[styles.contextMeta, isDark && styles.metaDark]}>
-          {t('insights.route.sheetMeta')}
-        </Text>
-      </View>
+      <SheetContext meta={t('insights.route.sheetMeta')} />
       {routes.map((route) => (
         <RouteRow key={route.rowKey} route={route} />
       ))}
@@ -109,8 +105,6 @@ export const RouteInsightContent = React.memo(function RouteInsightContent({
 
 const styles = StyleSheet.create({
   container: { gap: spacing.xs },
-  context: { marginBottom: spacing.xs },
-  contextMeta: { fontSize: typography.caption.fontSize, color: colors.textSecondary },
   rowMain: { flex: 1, gap: spacing.xxs },
   nameRow: { flexDirection: 'row', alignItems: 'center' },
   sportIcon: { marginRight: spacing.xs },

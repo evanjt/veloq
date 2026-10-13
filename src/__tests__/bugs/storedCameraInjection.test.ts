@@ -25,6 +25,7 @@ function surfaceConfig(camera: MapSurfaceHtmlConfig['camera']): MapSurfaceHtmlCo
     camera,
     interaction: { scroll: true, zoom: true, rotate: true, pitch: false },
     devicePixelRatio: 2,
+    reduceMotion: false,
     regionChangeThrottleMs: 100,
     longPressMs: 500,
   };
@@ -45,6 +46,7 @@ function map3DConfig(overrides: Partial<Map3DHtmlConfig>): Map3DHtmlConfig {
     routeColor: '#000000',
     showHeatmap: false,
     devicePixelRatio: 2,
+    reduceMotion: false,
     ...overrides,
   };
 }

@@ -1,6 +1,6 @@
 /**
- * The stat cards on the activity detail screen: training load, heart rate,
- * energy, conditions, form and power.
+ * The stat cards on the activity detail screen: training load, speed or pace,
+ * heart rate, cadence, energy, conditions, form and power.
  *
  * Each card carries a context line under its value. A metric with no data is
  * left out rather than shown empty, so two activities rarely carry the same
@@ -8,7 +8,12 @@
  */
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { getApparentTemperature } from '@/shared/activity/activityUtils';
+import {
+  getApparentTemperature,
+  isCyclingActivity,
+  isPaceSport,
+  isSwimmingActivity,
+} from '@/shared/activity/activityUtils';
 import {
   formatCalorieRate,
   formatCalories,
@@ -17,6 +22,7 @@ import {
   formatHrv,
   formatPower,
   formatSpeed,
+  formatSportSpeed,
   formatTemperature,
 } from '@/shared/format/format';
 import {
@@ -27,7 +33,7 @@ import {
 } from '@/features/fitness';
 import { storedDecoupling } from '@/features/activity/lib/decoupling';
 import type { Activity, WellnessData } from '@/types';
-import { MaxHrSource, type ActivityFitnessImpact } from 'veloqrs';
+import { MaxHrSource, type ActivityFitnessImpact, type ActivitySummary } from 'veloqrs';
 import type { StatDetail } from './types';
 import type { ActivityNewGround } from '../../hooks/useActivitySectionHighlights';
 import { colors, darkColors } from '@/theme';
@@ -39,6 +45,9 @@ import { formFromLoads } from '@/shared/math';
 const METRIC_EXPLANATION_KEYS: Record<string, string> = {
   'Training Load': 'activity.explanations.trainingLoad',
   'Heart Rate': 'activity.explanations.heartRate',
+  Speed: 'activity.explanations.speed',
+  Pace: 'activity.explanations.pace',
+  Cadence: 'activity.explanations.cadence',
   Energy: 'activity.explanations.energy',
   Conditions: 'activity.explanations.conditions',
   'Your Form': 'activity.explanations.yourForm',
@@ -72,6 +81,11 @@ interface UseActivityStatsOptions {
   fitnessImpact?: ActivityFitnessImpact | null | undefined;
   /** Tile coverage against earlier activities; the card is left out without it. */
   newGround?: ActivityNewGround | undefined;
+  /**
+   * The summary the detail read took from the stored activity: speed, times and
+   * cadence. The cards it feeds are left out until the read lands.
+   */
+  summary?: ActivitySummary | undefined;
 }
 
 interface UseActivityStatsResult {
@@ -87,6 +101,7 @@ export function useActivityStats({
   maxHrSource,
   fitnessImpact,
   newGround,
+  summary,
 }: UseActivityStatsOptions): UseActivityStatsResult {
   const { t } = useTranslation();
   // The card marks are icons and text on the card surface, so they take the
@@ -188,6 +203,44 @@ export function useActivityStats({
       });
     }
 
+    // Speed, or pace for a sport read in pace. Both come from the stored
+    // summary, so a ride whose streams were never fetched still shows them.
+    const avgSpeed = summary?.averageSpeed;
+    if (avgSpeed != null) {
+      const maxSpeed = summary?.maxSpeed;
+      const sport = activity.type;
+      // The sports `formatSportSpeed` reads as a pace.
+      const metric = isPaceSport(sport) || isSwimmingActivity(sport) ? 'Pace' : 'Speed';
+      const formatted = (speed: number) => formatSportSpeed(speed, sport, isMetric);
+      result.push({
+        title: metric === 'Speed' ? t('activity.stats.speed') : t('activity.stats.pace'),
+        value: formatted(avgSpeed),
+        icon: 'speedometer',
+        color: isDark ? darkColors.infoText : colors.infoText,
+        context:
+          maxSpeed == null ? undefined : t('activity.stats.max', { value: formatted(maxSpeed) }),
+        explanation: t(METRIC_EXPLANATION_KEYS[metric] as never),
+        details: [
+          { label: t('activity.stats.average'), value: formatted(avgSpeed) },
+          maxSpeed == null
+            ? null
+            : { label: t('activity.stats.maxLabel'), value: formatted(maxSpeed) },
+          summary?.movingTime == null
+            ? null
+            : {
+                label: t('activity.stats.movingTime'),
+                value: formatDuration(summary.movingTime),
+              },
+          summary?.elapsedTime == null
+            ? null
+            : {
+                label: t('activity.stats.elapsedTime'),
+                value: formatDuration(summary.elapsedTime),
+              },
+        ].filter(Boolean) as { label: string; value: string }[],
+      });
+    }
+
     // Heart Rate with % of max context
     const avgHRValue = activity.average_heartrate;
     const maxHRValue = activity.max_heartrate;
@@ -252,6 +305,23 @@ export function useActivityStats({
       });
     }
 
+    // Cadence is crank revolutions on a bike and steps or strokes elsewhere.
+    const cadence = summary?.averageCadence;
+    if (cadence != null) {
+      const cadenceUnit = isCyclingActivity(activity.type) ? t('units.rpm') : t('units.spm');
+      result.push({
+        title: t('activity.stats.cadence'),
+        value: `${Math.round(cadence)}`,
+        unit: cadenceUnit,
+        icon: 'rotate-3d',
+        color: isDark ? darkColors.textSecondary : colors.textSecondary,
+        explanation: t(METRIC_EXPLANATION_KEYS['Cadence'] as never),
+        details: [
+          { label: t('activity.stats.average'), value: `${Math.round(cadence)} ${cadenceUnit}` },
+        ],
+      });
+    }
+
     // Calories
     if (activity.calories && activity.calories > 0) {
       // moving_time can be 0 (manual indoor entries), so gate the burn rate to
@@ -274,9 +344,17 @@ export function useActivityStats({
             value: formatCalories(activity.calories),
           },
           {
-            label: t('activity.duration'),
+            label: t('activity.stats.movingTime'),
             value: formatDuration(activity.moving_time),
           },
+          ...(summary?.elapsedTime != null
+            ? [
+                {
+                  label: t('activity.stats.elapsedTime'),
+                  value: formatDuration(summary.elapsedTime),
+                },
+              ]
+            : []),
           ...(burnRate ? [{ label: t('activity.stats.burnRate'), value: burnRate }] : []),
         ],
       });
@@ -404,7 +482,10 @@ export function useActivityStats({
             ? t('activity.stats.max', { value: formatPower(activity.icu_pm_p_max) })
             : undefined,
         explanation: eftp
-          ? `${t(METRIC_EXPLANATION_KEYS['Power'] as never)} ${t('activity.explanations.activityEftp')}`
+          ? t('common.sentencePair', {
+              first: t(METRIC_EXPLANATION_KEYS['Power'] as never),
+              second: t('activity.explanations.activityEftp'),
+            })
           : t(METRIC_EXPLANATION_KEYS['Power'] as never),
         details: [
           {
@@ -451,6 +532,7 @@ export function useActivityStats({
     wellness,
     fitnessImpact,
     newGround,
+    summary,
     t,
     green,
     amber,

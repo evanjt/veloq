@@ -179,6 +179,11 @@ data class WidgetSnapshot(
    */
   val generatedAt: Long,
   /**
+   * The BCP 47 tag of the language the app wrote the snapshot in, which the widget formats its
+   * own words in too. Empty on a snapshot that names none.
+   */
+  val locale: String = "",
+  /**
    * True when the library has no activity and no wellness, so the metrics are zeros and not
    * measurements. False on a snapshot written before schema 8.
    */
@@ -251,6 +256,7 @@ data class WidgetSnapshot(
 
       return WidgetSnapshot(
         generatedAt = root.optLong("generatedAt", 0L),
+        locale = root.optString("locale", ""),
         emptyLibrary = root.optBoolean("emptyLibrary", false),
         form = metric(metrics, "form"),
         fitness = metric(metrics, "fitness"),

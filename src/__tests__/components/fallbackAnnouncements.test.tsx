@@ -100,7 +100,7 @@ describe('the app fallback', () => {
 describe('the component and chart fallbacks', () => {
   it('announces a component that could not render', async () => {
     const tree = await render(
-      <ComponentErrorBoundary componentName="Orchard map">
+      <ComponentErrorBoundary part="map" debugName="Orchard map">
         <Broken />
       </ComponentErrorBoundary>
     );

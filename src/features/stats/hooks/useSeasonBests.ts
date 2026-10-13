@@ -8,8 +8,10 @@ import {
   swimPaceUnitLabel,
 } from '@/shared/format/format';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
-import { type PrimarySport } from '@/features/fitness';
+import { bestEffortCheckpointLabel, type PrimarySport } from '@/features/fitness';
 import type { BestEffortsData } from 'veloqrs';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 
 /** What the climb read says about the rows behind empty windows. */
 export interface ClimbStatus {
@@ -20,6 +22,7 @@ export interface ClimbStatus {
 }
 
 export interface BestEffort {
+  /** The checkpoint in the athlete's language. */
   label: string;
   value: number | null; // watts for power, m/s for pace
   time: number | null; // elapsed time in seconds (pace curves only)
@@ -60,11 +63,12 @@ export const BEST_EFFORTS_SPORT: Record<PrimarySport, BestEffortsSport> = {
 /** One sport's bests from the screen read, as the rows draw them. */
 export function bestEffortsOf(
   data: BestEffortsData | null | undefined,
-  sport: PrimarySport
+  sport: PrimarySport,
+  t: TFunction
 ): BestEffort[] {
   const row = data?.sports.find((s) => s.sport === BEST_EFFORTS_SPORT[sport]);
   return (row?.efforts ?? []).map((e) => ({
-    label: e.label,
+    label: bestEffortCheckpointLabel(e, t),
     value: e.value ?? null,
     time: e.time ?? null,
     activityId: e.activityId,
@@ -101,7 +105,8 @@ export function useSeasonBests({ sport, days }: UseSeasonBestsOptions): UseSeaso
   const shown = useMemo(() => [BEST_EFFORTS_SPORT[sport]], [sport]);
   const { data, isLoading } = useBestEfforts(days, shown);
 
-  const efforts = useMemo((): BestEffort[] => bestEffortsOf(data, sport), [data, sport]);
+  const { t } = useTranslation();
+  const efforts = useMemo((): BestEffort[] => bestEffortsOf(data, sport, t), [data, sport, t]);
 
   const climbing = useMemo((): ClimbBest[] => climbBestsOf(data, sport), [data, sport]);
 

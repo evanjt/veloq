@@ -14,6 +14,7 @@ import {
   colorWithOpacity,
   ink,
   opacity,
+  zoneColour,
 } from '@/theme';
 import {
   FORM_ZONE_BOUNDARIES,
@@ -186,7 +187,7 @@ export function FitnessHeroSlide() {
           <View style={styles.zones}>
             {ZONE_SHARES.map(({ zone, percent }) => (
               <View key={zone} style={styles.zoneRow}>
-                <Text style={[styles.zoneLabel, { color: chartColors[`zone${zone}`] }]}>
+                <Text style={[styles.zoneLabel, { color: zoneColour(zone, isDark, 'text') }]}>
                   {`Z${zone}`}
                 </Text>
                 <View
@@ -200,7 +201,7 @@ export function FitnessHeroSlide() {
                   <View
                     style={[
                       styles.zoneBar,
-                      { width: `${percent}%`, backgroundColor: chartColors[`zone${zone}`] },
+                      { width: `${percent}%`, backgroundColor: zoneColour(zone, isDark, 'fill') },
                     ]}
                   />
                 </View>

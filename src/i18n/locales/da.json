@@ -47,7 +47,10 @@
       "activityEftp": "eFTP er intervals.icus effektmodelestimat for denne aktivitet.",
       "power": "Gennemsnitlig kraftudvikling i watt.",
       "trainingLoad": "Træningsbelastning beregnes af intervals.icu ud fra kraft, puls eller tempo, alt efter aktivitetens data og dine sportsindstillinger. Den vægter varighed efter intensitet i forhold til din tærskel.",
-      "yourForm": "Din form (TSB) på denne dag. Dette er en daglig værdi baseret på din samlede træning, ikke specifik for denne aktivitet. TSB = Fitness (CTL) minus Træthed (ATL)."
+      "yourForm": "Din form (TSB) på denne dag. Dette er en daglig værdi baseret på din samlede træning, ikke specifik for denne aktivitet. TSB = Fitness (CTL) minus Træthed (ATL).",
+      "speed": "Gennemsnitlig og maksimal fart, som intervals.icu gemte dem for denne aktivitet.",
+      "pace": "Gennemsnitligt og hurtigste tempo, som intervals.icu gemte dem for denne aktivitet.",
+      "cadence": "Gennemsnitlig kadence, som intervals.icu gemte den: pedalomdrejninger pr. minut på cykel, ellers skridt eller tag pr. minut."
     },
     "ftp": "FTP-indstilling: {{value}}",
     "heartRate": "Puls",
@@ -106,7 +109,12 @@
       "fitnessThatDay": "Fitness den dag (CTL)",
       "yourForm": "Din form",
       "eftpContext": "eFTP for denne aktivitet {{value}}",
-      "intensityContext": "IF {{percent}}%"
+      "intensityContext": "IF {{percent}}%",
+      "speed": "Fart",
+      "pace": "Tempo",
+      "cadence": "Kadence",
+      "movingTime": "Bevægelsestid",
+      "elapsedTime": "Samlet tid"
     },
     "hrZoneTotal": "Tid med puls: {{duration}}",
     "powerZoneTotal": "Tid med effekt: {{duration}}",
@@ -125,7 +133,10 @@
     "zoneMaxFromActivity": "Zonemaks {{value}} bpm, denne aktivitet",
     "zoneMaxFromSettings": "Zonemaks {{value}} bpm, sportsindstillinger",
     "zoneMaxDefault": "Ingen maks puls angivet, zonerne antager {{value}} bpm",
-    "zoneMaxDefaultHint": "Angiv din maks puls i dine sportsindstillinger på intervals.icu"
+    "zoneMaxDefaultHint": "Angiv din maks puls i dine sportsindstillinger på intervals.icu",
+    "prDelta": "+{{delta}} efter PR",
+    "chartAverage": "gns.",
+    "gainStat": "↑ {{value}}"
   },
   "activityDetail": {
     "routePrBadge": "PR {{improvement}}",
@@ -400,7 +411,12 @@
     "sourceNote": "Tryk på en række for at åbne aktiviteten.",
     "climbingBests": "Klatring",
     "climbingSourceExcluded": "Udeladt pga. enhedens højdemåling i stedet for korrigeret højde: {{excluded}}",
-    "climbingOwed": "Klatrebedste beregnes stadig."
+    "climbingOwed": "Klatrebedste beregnes stadig.",
+    "checkpoint": {
+      "halfMarathon": "Halvmaraton",
+      "metres": "{{value}} m",
+      "kilometres": "{{value}} km"
+    }
   },
   "cache": {
     "allActivitiesSynced": "Alle aktiviteter synkroniseret",
@@ -471,7 +487,8 @@
     "discard": "Kassér",
     "discardChangesTitle": "Kassér ændringer?",
     "discardChangesMessage": "Dine ændringer på denne skærm er ikke gemt.",
-    "keepEditing": "Fortsæt redigering"
+    "keepEditing": "Fortsæt redigering",
+    "sentencePair": "{{first}} {{second}}"
   },
   "demo": {
     "banner": "Demotilstand",
@@ -511,7 +528,7 @@
     },
     "startupError": {
       "title": "Dele af appen blev ikke indlæst",
-      "detail": "Kunne ikke indlæse: {{areas}}. Genstart appen for at prøve igen.",
+      "detail": "Kunne ikke indlæse: {{areas}}.",
       "area": {
         "language": "sprog",
         "preferences": "præferencer",
@@ -570,14 +587,47 @@
   },
   "errorState": {
     "defaultTitle": "Noget gik galt",
-    "unableToLoad": "Kan ikke indlæse {{componentName}}",
     "libraryUnaffected": "Dine aktiviteter på denne enhed er ikke berørt.",
     "rideStillRecording": "Din tur optages stadig.",
     "stopAndSaveRide": "Stop og gem turen",
     "rideStopped": "Din tur er stoppet og gemt på denne enhed.",
     "shareFailed": "Crashloggen kunne ikke deles.",
-    "restartHint": "Prøv igen eller genstart appen",
-    "unableToDisplayChart": "Kan ikke vise diagrammet"
+    "unableToLoad": "Kan ikke indlæse {{part}}",
+    "retryHint": "Tryk på Prøv igen for at indlæse det igen.",
+    "unableToDisplayChart": "Kan ikke vise diagrammet",
+    "part": {
+      "map": "kortet",
+      "map3d": "3D-kortet",
+      "terrainSnapshots": "terrænforhåndsvisningerne",
+      "routePerformance": "rutepræstationen",
+      "hrZonesChart": "pulszonediagrammet",
+      "powerZonesChart": "wattzonediagrammet",
+      "activityStats": "aktivitetsstatistikken",
+      "activityMap": "aktivitetskortet",
+      "muscleGroups": "muskelgrupperne"
+    }
+  },
+  "intervalTypes": {
+    "work": {
+      "short": "Arbejde",
+      "long": "Arbejde"
+    },
+    "recovery": {
+      "short": "Hvil",
+      "long": "Restitution"
+    },
+    "warmup": {
+      "short": "Opv.",
+      "long": "Opvarmning"
+    },
+    "cooldown": {
+      "short": "Nedk.",
+      "long": "Nedkøling"
+    },
+    "other": {
+      "short": "Andet",
+      "long": "Andet"
+    }
   },
   "export": {
     "bulkComplete": "Eksport fuldført",
@@ -601,7 +651,10 @@
     "gpxTrimmedAway": "Intet at eksportere. Beskæring omkring hjemmet efterlod for lidt af sporet.",
     "failedTitle": "Eksport mislykkedes",
     "share": "Del",
-    "saveToDevice": "Gem på enheden"
+    "saveToDevice": "Gem på enheden",
+    "shareFailedTitle": "Ikke delt",
+    "shareFailed": "Delingsmenuen kunne ikke åbnes. Prøv igen.",
+    "shareUnavailable": "Denne enhed kan ikke dele filer."
   },
   "feed": {
     "activitiesCount_one": "{{count}} aktivitet",
@@ -743,8 +796,6 @@
       "groupMore": "(+{{n}} flere)",
       "trendFaster": "Hurtigere",
       "trendSlower": "Langsommere",
-      "attempts_one": "{{count}} forsøg",
-      "attempts_other": "{{count}} forsøg",
       "direction": {
         "forward": "Fremad",
         "reverse": "Omvendt"
@@ -902,7 +953,6 @@
       "changeBody": "Over {{efforts}} ture på {{name}} steg produktet af puls og tempo. Ved gennemsnitstempo svarer det til modellerede +{{hrChange}} bpm; den målte puls kan afvige.",
       "subtitle": "Modelleret {{hrChange}} bpm ved gennemsnitstempo over {{efforts}} bestræbelser",
       "body": "Over {{efforts}} bestræbelser på {{name}} er puls gange tempo forbedret. Ved dit gennemsnitstempo svarer det til modelleret {{hrChange}} bpm; din puls kan i sig selv være uændret.",
-      "sheetHrCaption": "på tværs af matchede forsøg",
       "sheetHeading": "Sammenligning af matchede forsøg",
       "sheetBody": "Bygger på gentagne forsøg på samme sektion med både puls og tempo. Sammenligner over tid, hvad hver passage kostede dit hjerte.",
       "sheetMeta": "Åbn sektionen for de underliggende forsøg."
@@ -1074,7 +1124,9 @@
     "expandRange": "Udvid interval",
     "distanceAny": "Alle",
     "showFilters": "Vis alle filtre",
-    "hideFilters": "Vis færre filtre"
+    "hideFilters": "Vis færre filtre",
+    "searchCount": "{{shown}} af {{total}}",
+    "searchFilteredBy": "filtreret efter {{filters}}"
   },
   "maps": {
     "threeDUnavailable": "Terræn kræver forbindelse. Viser det flade kort.",
@@ -1254,15 +1306,16 @@
     "distance": "Afstand ({{unit}})",
     "distanceInvalid": "Indtast venligst en gyldig distance (0-999).",
     "duration": "Varighed (minutter)",
-    "durationLabel": "Varighed",
     "durationRequired": "Indtast venligst en gyldig varighed.",
     "elevation": "Stigning",
     "fields": {
       "avgPace": "Gns tempo",
+      "avgPower": "Gns effekt",
       "avgSpeed": "Gns hastighed",
       "cadence": "Kadence",
       "calories": "Kalorier",
       "distance": "Afstand",
+      "elapsedTime": "Forløbet tid",
       "elevation": "Stigning",
       "elevationGain": "Samlet stigning",
       "heartrate": "Puls",
@@ -1344,11 +1397,11 @@
       "recording": "Optager"
     },
     "summary": "Oversigt",
-    "timeOfDay": {
-      "morning": "Morgen",
-      "afternoon": "Eftermiddag",
-      "evening": "Aften",
-      "night": "Nat"
+    "autoName": {
+      "morning": "{{sport}} om morgenen",
+      "afternoon": "{{sport}} om eftermiddagen",
+      "evening": "{{sport}} om aftenen",
+      "night": "{{sport}} om natten"
     },
     "trimActivity": "Beskær aktivitet",
     "trimEndHandle": "Beskæringsslut",
@@ -1366,8 +1419,6 @@
     "autoUpload": "Automatisk upload",
     "autoUploadDescription": "Upload optagelser til intervals.icu automatisk, når du gemmer dem. Slået fra bliver de på denne enhed, indtil du uploader fra Mine optagelser.",
     "library": {
-      "distance": "Afstand",
-      "duration": "Varighed",
       "title": "Mine optagelser",
       "empty": "Ingen optagelser endnu",
       "emptyHint": "Gemte optagelser opbevares her på denne enhed.",
@@ -1379,8 +1430,10 @@
       "delete": "Slet",
       "deleteConfirmTitle": "Slet optagelse?",
       "deleteConfirmMessage": "{{sport}} · {{startTime}}: Optagelsen fjernes permanent fra denne enhed.",
+      "deleteFailedTitle": "Optagelse ikke slettet",
+      "deleteFailed": "Optagelsen kunne ikke slettes. Den er stadig på denne enhed.",
       "pendingUploads_one": "{{count}} optagelse er ikke uploadet endnu",
-      "pendingUploads_other": "{{count}} optagelse(r) er ikke uploadet endnu",
+      "pendingUploads_other": "{{count}} optagelser er ikke uploadet endnu",
       "status": {
         "localOnly": "På denne enhed",
         "pending": "Venter på upload",
@@ -1434,6 +1487,7 @@
     "entryManualCaption": "Manuel registrering, Start åbner formularen",
     "fieldModeGps": "GPS",
     "fieldModeIndoor": "Indendørs",
+    "fieldsSelected": "{{selected}} af {{max}} felter",
     "tileOrder": "Feltrækkefølge",
     "tileOrderDescription": "Tryk på et felt for at vælge, hvad det viser. På optageskærmen gør et langt tryk på et felt det samme.",
     "tileSlotLabel": "Felt {{number}}, {{field}}",
@@ -1442,7 +1496,12 @@
       "card": "Optagelsen stoppede. Åbn Veloq for at genoptage.",
       "channel": "Afbrudte optagelser",
       "title": "Optagelsen stoppede"
-    }
+    },
+    "serviceChannel": {
+      "description": "Viser aktiviteten, der optages, med dens knapper.",
+      "name": "Optagelse"
+    },
+    "recentTypes": "Seneste"
   },
   "routeDetail": {
     "routeNotFound": "Rute ikke fundet"
@@ -1657,8 +1716,6 @@
     "traversalsCount_other": "{{count}} gennemkørsler",
     "calendarActivities_one": "{{count}} aktivitet",
     "calendarActivities_other": "{{count}} aktiviteter",
-    "visitsCount_one": "{{count}} besøg",
-    "visitsCount_other": "{{count}} besøg",
     "scanForMatches": "Scan efter match",
     "rematchActivities": "Match aktiviteter igen",
     "scanForMore": "Scan efter flere sektioner",
@@ -1702,7 +1759,6 @@
     "showFewerLaps": "Vis færre omgange",
     "lapExcluded": "Udelukket",
     "partlyExcluded": "Nogle omgange udelukket",
-    "maxGrade": "Stejlest",
     "rescanRefusedBusy": "En scanning kører allerede.",
     "rescanRefusedHeld": "Registrering er sat på hold, mens motoren gør andet arbejde færdigt.",
     "rescanRefusedNotReady": "Motoren er ved at åbne. Prøv igen om et øjeblik.",
@@ -1732,7 +1788,10 @@
     "referenceFailedTitle": "Reference ikke angivet",
     "acceptAllFailedTitle": "Sektioner ikke accepteret",
     "changeFailedTitle": "Sektion ikke ændret",
-    "bestLapValue": "Bedste omgang {{time}}"
+    "bestLapValue": "Bedste omgang {{time}}",
+    "avgValue": "{{value}} Gns",
+    "bestValue": "{{value}} Bedste",
+    "maxGradeValue": "Stejlest {{grade}}"
   },
   "settings": {
     "terrain3DMode": "3D-terræn: {{mode}}",
@@ -2066,7 +2125,8 @@
     "vsPrevious6Months": "vs forrige 6 måneder",
     "week": "Uge",
     "year": "År",
-    "atWeight": "ved {{weight}}"
+    "fewerActivities": "Færre aktiviteter",
+    "moreActivities": "Flere aktiviteter"
   },
   "statsScreen": {
     "eFTPTrend": "eFTP-trend",
@@ -2082,7 +2142,8 @@
     "powerCurve": "Kraftkurve",
     "seasonBests": "Sæsonbedste",
     "swimPaceCurve": "Svømmetempokurve",
-    "trainingZones": "Træningszoner"
+    "trainingZones": "Træningszoner",
+    "ftpLabelAtWeight": "FTP-indstilling {{value}} ved {{weight}}"
   },
   "refresh": {
     "busy": "Opdateres efter den igangværende synkronisering.",
@@ -2097,6 +2158,7 @@
   },
   "time": {
     "asOfLastSync": "Data fra seneste synkronisering",
+    "dayAtTime": "{{day}}, {{time}}",
     "daysCount_one": "{{count}} dag",
     "daysCount_other": "{{count}} dage",
     "now": "Nu",
@@ -2127,7 +2189,9 @@
     "times": "{{value}}×",
     "metresPerSecond": "m/s",
     "metres": "m",
-    "seconds": "s"
+    "seconds": "s",
+    "rpm": "rpm",
+    "spm": "spm"
   },
   "spoken": {
     "noValue": "ingen værdi",
@@ -2397,6 +2461,9 @@
     "noneFound": "Ingen sensorer fundet",
     "noneFoundHint": "Væk sensoren ved at tage bæltet på eller dreje pedalarmene, og hold den tæt på telefonen.",
     "scanAgain": "Søg igen",
+    "signal": "Signalstyrke {{dbm}} dBm",
+    "unnamed": "{{kind}}-sensor",
+    "lastSample": "{{value}}, for {{seconds}} s siden",
     "availability": {
       "unsupportedTitle": "Denne enhed har ikke Bluetooth LE",
       "unsupportedHint": "Puls-, watt- og kadencesensorer kræver Bluetooth LE.",
@@ -2419,7 +2486,8 @@
       "bluetoothOff": "Bluetooth slået fra",
       "permission": "Bluetooth-tilladelse mangler",
       "unsupported": "Bluetooth ikke tilgængelig"
-    }
+    },
+    "issueSummary": "Sensorer: {{issue}}"
   },
   "sectionHistory": {
     "title": "Historik",

@@ -1,4 +1,4 @@
-import type { Insight, TFunc } from '../types';
+import type { DataPoint, Insight, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { confidenceFrom } from '../lib/config';
 import type { InsightTone } from '@/theme';
@@ -53,6 +53,13 @@ export function generateHrvTrendInsight(
 
   const confidence = confidenceFrom('hrv_trend', trend.dataPoints);
   const lastReading = trend.sparkline[trend.sparkline.length - 1];
+  const latest: DataPoint = {
+    key: 'hrvLatest',
+    label: t('insights.data.latestHrv'),
+    value: Math.round(trend.latest),
+    unit: 'ms',
+    context: 'neutral',
+  };
 
   return [
     makeInsight({
@@ -97,6 +104,7 @@ export function generateHrvTrendInsight(
         signalDelta: trend.signalDelta,
       },
       supportingData: {
+        hero: latest,
         dataPoints: [
           {
             key: 'hrvAverage',
@@ -105,13 +113,7 @@ export function generateHrvTrendInsight(
             unit: 'ms',
             context: 'neutral',
           },
-          {
-            key: 'hrvLatest',
-            label: t('insights.data.latestHrv'),
-            value: Math.round(trend.latest),
-            unit: 'ms',
-            context: 'neutral',
-          },
+          latest,
           {
             label: t('insights.data.dataPoints'),
             value: trend.dataPoints,

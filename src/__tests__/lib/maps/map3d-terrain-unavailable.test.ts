@@ -34,6 +34,7 @@ function buildConfig(): Map3DHtmlConfig {
     routeColor: '#FF6B35',
     showHeatmap: false,
     devicePixelRatio: 2,
+    reduceMotion: false,
   };
 }
 

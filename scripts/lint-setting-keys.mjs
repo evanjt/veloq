@@ -41,6 +41,10 @@ const ENGINE_ONLY_KEYS = new Map([
   ['__platform_record_answered', 'Engine library restore marker'],
   ['__section_health_check_done', 'Engine library health check stamp'],
   ['__place_name_words', 'Engine naming words, pushed from the resolved language on every launch'],
+  [
+    'veloq-primary-sport-default',
+    'Derived from the library and taken again from the next fitness read, never in AsyncStorage',
+  ],
   ['__settings_migrated', 'Migration completion marker'],
   ['veloq-terrain-override-cleanup-done', 'Migration completion marker'],
 ]);

@@ -26,6 +26,8 @@ interface Case {
   violation: string;
   args?: string[];
   baseline?: boolean;
+  /** The empty baseline, where the guard's is not an empty object. */
+  emptyBaseline?: string;
 }
 
 // Assembled so the child-spawn scan in the git-fixture guard does not read these Rust fixtures as calls.
@@ -96,6 +98,15 @@ const CASES: Record<string, Case> = {
     clean: 'export const a = 1;\n',
     violation: 'export const a = <Modal visible />;\n',
     baseline: true,
+  },
+  'lint-react-native-text': {
+    guard: 'lint-react-native-text.mjs',
+    tree: {},
+    target: 'src/a.tsx',
+    clean: 'export const a = 1;\n',
+    violation: "import { Text } from 'react-native';\n",
+    baseline: true,
+    emptyBaseline: '[]\n',
   },
   'lint-reduce-motion': {
     guard: 'lint-reduce-motion.mjs',
@@ -272,7 +283,7 @@ describe.each(Object.entries(CASES))('%s', (_name, spec) => {
     roots.push(root);
     for (const [path, contents] of Object.entries(spec.tree)) write(root, path, contents);
     write(root, spec.target, spec.clean);
-    if (spec.baseline) write(root, 'baseline.json', '{}\n');
+    if (spec.baseline) write(root, 'baseline.json', spec.emptyBaseline ?? '{}\n');
     initFixtureRepo(root);
   });
 

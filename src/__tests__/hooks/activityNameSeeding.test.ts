@@ -1,19 +1,24 @@
 /**
  * Scenario: the recording screen opens with a name already in the field, either
  * the one passed in or a generated "Morning Ride". The athlete then edits it.
+ * The generated name is saved and uploaded, so it is read in the athlete's
+ * language.
  * Expected behaviour: the name is there on the very first render rather than
- * appearing a commit later, and nothing that happens afterwards overwrites what
- * the athlete typed.
+ * appearing a commit later, nothing that happens afterwards overwrites what
+ * the athlete typed, and the generated name is one translated phrase in each
+ * language's own word order rather than two translated words in English order.
  */
 
 import { act, renderHook } from '@testing-library/react-native';
 
+import { changeLanguage, i18n, initialiseI18n } from '@/i18n';
 import {
   getTimeOfDayKey,
   useActivityNameGeneration,
 } from '@/features/recording/hooks/useActivityNameGeneration';
 
-jest.mock('react-i18next', () => require('../__shared__/i18nMock').fallbackOrKey());
+beforeAll(() => initialiseI18n('en-GB'));
+afterEach(() => changeLanguage('en-GB'));
 
 describe('the recording name', () => {
   /** Every value the hook returned, in render order. */
@@ -38,9 +43,7 @@ describe('the recording name', () => {
   it('generates a time-of-day name when none was passed in', async () => {
     const { result, seen } = await renderRecording({ type: 'Ride' });
 
-    expect(result.current.name).toMatch(
-      /^recording\.timeOfDay\.(morning|afternoon|evening|night) Ride$/
-    );
+    expect(result.current.name).toMatch(/^(Morning|Afternoon|Evening|Night) Ride$/);
     expect(seen[0]).toContain('Ride');
   });
 
@@ -98,7 +101,7 @@ describe('recording start time names', () => {
     const { result } = await renderHook(() =>
       useActivityNameGeneration({ type: 'Ride', startTime })
     );
-    expect(result.current.name).toBe(`recording.timeOfDay.${expected} Ride`);
+    expect(result.current.name).toBe(`${expected[0].toUpperCase()}${expected.slice(1)} Ride`);
   });
 
   it('names a restored evening ride reviewed the next morning', async () => {
@@ -106,7 +109,7 @@ describe('recording start time names', () => {
     const { result } = await renderHook(() =>
       useActivityNameGeneration({ type: 'Ride', startTime })
     );
-    expect(result.current.name).toBe('recording.timeOfDay.evening Ride');
+    expect(result.current.name).toBe('Evening Ride');
   });
 
   it('uses the clock when a manual entry has no start time', async () => {
@@ -114,8 +117,28 @@ describe('recording start time names', () => {
       useActivityNameGeneration({ type: 'Ride', startTime: null })
     );
     expect(getTimeOfDayKey(null)).toBe('morning');
-    expect(result.current.name).toBe('recording.timeOfDay.morning Ride');
+    expect(result.current.name).toBe('Morning Ride');
   });
+
+  it.each([
+    ['fr', 'Matin Vélo'],
+    ['de-DE', 'Morgen Radfahrt'],
+    ['ja', '朝 ライド'],
+  ] as const)(
+    'names a %s morning ride with the bundle phrase, not words in English order',
+    async (locale, wordJoined) => {
+      await changeLanguage(locale);
+      const startTime = new Date(2026, 8, 25, 7, 30).getTime();
+      const { result } = await renderHook(() =>
+        useActivityNameGeneration({ type: 'Ride', startTime })
+      );
+      const sport = i18n.t('activityTypes.Ride');
+      expect(result.current.name).toBe(i18n.t('recording.autoName.morning', { sport }));
+      expect(result.current.name).toContain(sport);
+      expect(result.current.name).not.toBe(wordJoined);
+      expect(result.current.name).not.toMatch(/^recording\./);
+    }
+  );
 
   it('treats an epoch start as a timestamp rather than a missing start', () => {
     const epochHour = new Date(0).getHours();

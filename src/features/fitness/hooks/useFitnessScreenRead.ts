@@ -17,6 +17,8 @@ export interface FitnessScreenRead {
   /** The last stored critical speeds in m/s, null when none was ever stored. */
   storedRunPace: number | null;
   storedSwimPace: number | null;
+  /** The sport the latest activities are mostly in, null for none or a tie. */
+  librarySport: string | null;
 }
 
 const NO_FITNESS_SCREEN: FitnessScreenRead = {
@@ -25,6 +27,7 @@ const NO_FITNESS_SCREEN: FitnessScreenRead = {
   eftpChanges: [],
   storedRunPace: null,
   storedSwimPace: null,
+  librarySport: null,
 };
 
 function fitnessScreenView(read: FitnessScreenData): FitnessScreenRead {
@@ -40,12 +43,14 @@ function fitnessScreenView(read: FitnessScreenData): FitnessScreenRead {
     })),
     storedRunPace: read.runPaceTrend.latestPace ?? null,
     storedSwimPace: read.swimPaceTrend.latestPace ?? null,
+    librarySport: read.sportMix.dominant ?? null,
   };
 }
 
 /**
- * The fitness tab's one screen read: the eFTP trend and its markers, and the
- * critical speeds the threshold falls back on when no curve is to hand.
+ * The fitness tab's one screen read: the eFTP trend and its markers, the
+ * critical speeds the threshold falls back on when no curve is to hand, and
+ * the sport the primary sport defaults to.
  *
  * The screen reads it once and hands each card its part, so the tab costs one
  * engine call on mount and one per `activities` event, the event the read

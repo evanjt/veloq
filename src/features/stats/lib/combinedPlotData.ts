@@ -121,6 +121,8 @@ export interface ChartMetricValue {
   color: string;
   /** Longest formatted value (for stable chip width during scrubbing) */
   maxValueWidth?: string | undefined;
+  /** The value is the activity's average rather than the sample under a scrub. */
+  isAverage?: boolean | undefined;
 }
 
 /**
@@ -356,6 +358,8 @@ export function computeAllAverages(
       unit,
       color: config.color,
       maxValueWidth: widest,
+      // The gain is a total and carries its own '+'.
+      isAverage: config.defaultMetric !== 'gain',
     });
   }
   return results;

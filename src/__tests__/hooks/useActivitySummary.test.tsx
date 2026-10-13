@@ -79,6 +79,11 @@ describe('useActivitySummary duration', () => {
     expect(summary.avgSpeed).toBeCloseTo(300 / 20);
   });
 
+  it('keeps the pauses in the elapsed time of the whole recording', async () => {
+    expect((await summaryFor()).summary.elapsed).toBe(620);
+    expect((await summaryFor({ canTrim: false })).summary.elapsed).toBe(620);
+  });
+
   it('excludes only the pause inside a trimmed window', async () => {
     const { summary, pausedSecondsInWindow } = await summaryFor({
       trimStart: 1,
@@ -86,6 +91,7 @@ describe('useActivitySummary duration', () => {
     });
     expect(pausedSecondsInWindow).toBe(600);
     expect(summary.duration).toBe(10);
+    expect(summary.elapsed).toBe(610);
   });
 
   it('reports no paused time for a window after the pause', async () => {
@@ -95,6 +101,13 @@ describe('useActivitySummary duration', () => {
     });
     expect(pausedSecondsInWindow).toBe(0);
     expect(summary.duration).toBe(10);
+    expect(summary.elapsed).toBe(10);
+  });
+
+  it('takes the typed duration as the elapsed time of a manual entry', async () => {
+    const { summary } = await summaryFor({ isManual: true, params: { durationSeconds: '2700' } });
+    expect(summary.duration).toBe(2700);
+    expect(summary.elapsed).toBe(2700);
   });
 });
 

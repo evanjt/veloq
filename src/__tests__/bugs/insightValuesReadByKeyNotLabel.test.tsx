@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import type { EfficiencyTrend } from 'veloqrs';
 
 import { changeLanguage, i18n, initialiseI18n } from '@/i18n';
@@ -18,8 +18,8 @@ import type { TFunc } from '@/features/insights/types';
 import { generateStrengthInsights } from '@/features/strength/hooks/strengthInsights';
 import { generateHrvTrendInsight } from '@/features/insights/generators/hrvTrend';
 import { generateEfficiencyTrendInsights } from '@/features/insights/generators/efficiencyTrend';
-import { HrvTrendContent } from '@/features/insights/components/content/HrvTrendContent';
-import { EfficiencyTrendContent } from '@/features/insights/components/content/EfficiencyTrendContent';
+import { InsightDetailContent } from '@/features/insights/components/content/InsightDetailContent';
+import { InsightDetailSheet } from '@/features/insights/components/InsightDetailSheet';
 import type { StrengthSummary } from '@/features/strength/types';
 import { datedSeries } from '../__shared__/datedSeries';
 
@@ -111,18 +111,20 @@ describe.each(['de-DE', 'it', 'ja', 'en-AU'] as const)('insight values in %s', (
       NOW,
       t
     );
-    const { getByText, toJSON } = await render(<HrvTrendContent insight={hrv} />);
+    const { getByTestId, toJSON } = await render(<InsightDetailContent insight={hrv} />);
 
-    expect(getByText('58')).toBeTruthy();
+    expect(getByTestId('insight-hero-value')).toHaveTextContent(/^58/);
     expect(JSON.stringify(toJSON())).toContain('62');
   });
 
   it('shows the effort count on the efficiency sheet', async () => {
     const [efficiency] = generateEfficiencyTrendInsights([EFFICIENCY], NOW, t);
-    const { getAllByText } = await render(<EfficiencyTrendContent insight={efficiency} />);
+    const { getAllByText, getByTestId } = await render(
+      <InsightDetailSheet insight={efficiency} onClose={() => undefined} />
+    );
 
-    // The headline's effort badge. The efforts row sits under the sheet's
-    // "How was this calculated?", which this content does not draw.
+    // The efforts row sits under the sheet's "How was this calculated?".
+    await fireEvent.press(getByTestId('methodology-toggle'));
     expect(getAllByText('9')).toHaveLength(1);
   });
 });

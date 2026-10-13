@@ -34,6 +34,7 @@ jest.mock('expo-task-manager', () => ({
 const mockLocationServiceRunning = jest.fn();
 
 jest.mock('@/features/recording/lib/recordingNotification', () => ({
+  nameRecordingChannel: jest.fn(),
   locationServiceRunning: (...a: unknown[]) => mockLocationServiceRunning(...a),
   updateRecordingNotification: jest.fn(),
   clearRecordingNotification: jest.fn(),

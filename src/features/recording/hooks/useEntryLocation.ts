@@ -12,6 +12,7 @@ import {
 } from '@/shared/app/permissions/locationGrant';
 
 import { resolveEntryGps, type EntryGpsState } from '../lib/recordEntry';
+import { useRecordingPreferences } from '../stores/RecordingPreferencesStore';
 
 /** How long the first fix may take before the screen says the signal is weak. */
 export const GPS_READINESS_TIMEOUT_MS = 15_000;
@@ -77,6 +78,7 @@ export function useEntryLocation(active: boolean): EntryLocation {
     accuracy: number | null;
   } | null>(null);
   const [timedOut, setTimedOut] = useState(false);
+  const rejectThreshold = useRecordingPreferences((s) => s.accuracyRejectThreshold);
 
   useEffect(() => {
     if (!active || permission !== 'unknown') return undefined;
@@ -164,6 +166,7 @@ export function useEntryLocation(active: boolean): EntryLocation {
     fix,
     timedOut,
     precision,
+    rejectThreshold,
   });
   const shown = state === 'servicesOff' || state === 'none' ? null : fix;
   return {

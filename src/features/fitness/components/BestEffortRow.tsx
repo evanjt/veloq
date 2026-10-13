@@ -1,10 +1,17 @@
 import React, { type ReactNode } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
-import { pressable, pressRipple } from '@/shared/ui';
-import { colors, darkColors, spacing, typography, colorWithOpacity, ink, layout } from '@/theme';
+import { tapTo } from '@/shared/app/navigation';
+import { composeAccessibilityLabel, Row } from '@/shared/ui';
+import { colors, darkColors, spacing, typography, colorWithOpacity, ink } from '@/theme';
+
+/** The activity a best was set in, as the label read names it. */
+export interface BestEffortActivity {
+  id: string;
+  name: string;
+  date: string;
+}
 
 interface BestEffortRowProps {
   /** The window or distance the best is for. */
@@ -14,16 +21,13 @@ interface BestEffortRowProps {
   secondary?: string | null;
   valueColor: string;
   isLast: boolean;
-  /** Opens the activity from the whole row, which then carries a chevron. */
-  onPress?: (() => void) | undefined;
-  accessibilityLabel?: string | undefined;
   /**
-   * The activity column holds a link that speaks the whole row, so the label and
-   * value are hidden from a screen reader rather than read a second time.
+   * The activity the best was set in. When known, the row states its name and
+   * date and opens it from the whole row.
    */
-  readThroughLink?: boolean | undefined;
+  activity?: BestEffortActivity | undefined;
   testID?: string | undefined;
-  /** What the activity column shows: the activity's name, a link, or nothing. */
+  /** What the activity column shows when no activity is known, such as a note. */
   children?: ReactNode;
 }
 
@@ -40,79 +44,64 @@ export function BestEffortRow({
   secondary,
   valueColor,
   isLast,
-  onPress,
-  accessibilityLabel,
-  readThroughLink,
+  activity,
   testID,
   children,
 }: BestEffortRowProps) {
   const { isDark } = useTheme();
-  const rowStyle = [
-    styles.row,
-    !isLast && styles.rowBorder,
-    !isLast && isDark && styles.rowBorderDark,
-  ];
-
-  const hidden = readThroughLink
-    ? ({
-        importantForAccessibility: 'no-hide-descendants',
-        accessibilityElementsHidden: true,
-      } as const)
-    : {};
 
   const body = (
     <>
-      <Text style={[styles.label, isDark && styles.labelDark]} {...hidden}>
-        {label}
-      </Text>
-      <View style={styles.valueColumn} testID={testID ? `${testID}-value` : undefined} {...hidden}>
+      <Text style={[styles.label, isDark && styles.labelDark]}>{label}</Text>
+      <View style={styles.valueColumn} testID={testID ? `${testID}-value` : undefined}>
         <Text style={[styles.value, { color: valueColor }]}>{value}</Text>
         {secondary ? (
           <Text style={[styles.secondary, isDark && styles.secondaryDark]}>{secondary}</Text>
         ) : null}
       </View>
-      <View style={styles.activityColumn}>{children}</View>
-      {onPress ? (
-        <MaterialCommunityIcons
-          name="chevron-right"
-          size={20}
-          color={isDark ? darkColors.textSecondary : colors.textSecondary}
-        />
-      ) : null}
+      <View style={styles.activityColumn}>
+        {activity ? (
+          <>
+            <Text style={[styles.activityName, isDark && styles.textDark]} numberOfLines={1}>
+              {activity.name}
+            </Text>
+            <Text style={[styles.secondary, isDark && styles.secondaryDark]}>{activity.date}</Text>
+          </>
+        ) : (
+          children
+        )}
+      </View>
     </>
   );
 
-  if (onPress) {
-    return (
-      <Pressable
-        android_ripple={pressRipple}
-        accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel}
-        testID={testID}
-        style={pressable(rowStyle)}
-        onPress={onPress}
-      >
-        {body}
-      </Pressable>
-    );
-  }
-
   return (
-    <View testID={testID} style={rowStyle}>
-      {body}
+    <View style={[!isLast && styles.rowBorder, !isLast && isDark && styles.rowBorderDark]}>
+      {activity ? (
+        <Row
+          testID={testID}
+          inset="none"
+          behaviour="navigate"
+          onPress={() => tapTo(`/activity/${activity.id}`)}
+          accessibilityLabel={composeAccessibilityLabel(
+            label,
+            value,
+            secondary,
+            activity.name,
+            activity.date
+          )}
+        >
+          {body}
+        </Row>
+      ) : (
+        <Row testID={testID} inset="none">
+          {body}
+        </Row>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // At least a tap target tall, so a pressable row reaches the floor and an
-  // activity link's slop stays inside its own row rather than reaching the next.
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    minHeight: layout.minTapTarget,
-  },
   rowBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colorWithOpacity(ink.black, 0.08),
@@ -134,7 +123,6 @@ const styles = StyleSheet.create({
     minWidth: spacing.xxl * 2,
     flexShrink: 0,
     alignItems: 'flex-end',
-    marginLeft: spacing.sm,
   },
   value: {
     ...typography.body,
@@ -153,6 +141,14 @@ const styles = StyleSheet.create({
   activityColumn: {
     flex: 1,
     minWidth: 0,
-    marginLeft: spacing.md,
+    marginLeft: spacing.xs,
+  },
+  activityName: {
+    ...typography.caption,
+    fontWeight: '500',
+    color: colors.textPrimary,
+  },
+  textDark: {
+    color: darkColors.textPrimary,
   },
 });

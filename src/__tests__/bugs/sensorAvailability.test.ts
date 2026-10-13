@@ -15,7 +15,10 @@ import { BleErrorCode } from 'react-native-ble-plx';
 
 jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string, values?: { issue?: string }) =>
+      values?.issue === undefined ? key : `${key}(${values.issue})`,
+  }),
 }));
 
 const mockRequestLocation = jest.fn();
@@ -398,7 +401,7 @@ describe('a ride with paired sensors and the radio off', () => {
     await settle();
 
     const { result, unmount } = await renderHook(() => useSensorIssue());
-    expect(result.current).toBe('sensors.title: sensors.issue.bluetoothOff');
+    expect(result.current).toBe('sensors.issueSummary(sensors.issue.bluetoothOff)');
     await unmount();
   });
 
@@ -435,7 +438,7 @@ describe('a ride with paired sensors and the radio off', () => {
     await manager.requestBlePermissions();
 
     const { result, unmount } = await renderHook(() => useSensorIssue());
-    expect(result.current).toBe('sensors.title: sensors.issue.permission');
+    expect(result.current).toBe('sensors.issueSummary(sensors.issue.permission)');
     await unmount();
   });
 

@@ -154,6 +154,8 @@ jest.mock('@/features/routes', () => {
     useRevealMapOnDraw: noop,
     createMapHighlightStore: jest.requireActual('@/features/routes/lib/mapHighlight')
       .createMapHighlightStore,
+    forwardDirectionColour: jest.requireActual('@/features/routes/lib/directionColour')
+      .forwardDirectionColour,
     useMergeSections: () => ({ merge: noop, previewDropped: false }),
     useSectionDetailData: () => ({ data: mockDetail, status: 'ready', retirement: undefined }),
     useSectionDetailPerformance: (...args: unknown[]) => mockUseSectionDetailPerformance(...args),
