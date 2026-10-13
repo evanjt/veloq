@@ -26,6 +26,7 @@ import { buildRegionalLayers } from '@/features/maps/components/regional/regiona
 import { HEATMAP_TILE_STOPS } from '@/features/maps/lib/heatmapPaint';
 import { LIBERTY_SOURCES } from '@/features/maps/styles/liberty/sources';
 import { widgetPalette } from '@/shared/theme/widgetTheme';
+import { ACTIVITY_CATEGORIES } from '@/shared/activity/sportCategories';
 import { RECORD_PICKER_URL, WIDGET_STRING_KEYS } from '@/features/home/lib/widgetSnapshot';
 import { buildContentState } from '@/features/recording/lib/liveActivity/contentState';
 import { KEYCHAIN_ACCESS_GROUP } from '@/shared/app/credentialKeychain';
@@ -39,6 +40,7 @@ import { ENGINE_ERROR_TAGS } from '@/shared/native/engineError';
 import { PHASE_DISPLAY_KEYS } from '@/features/routes/lib/detectionProgress';
 import { SUPPORTED_LOCALES } from '@/i18n/types';
 import { MUSCLE_NAME_KEYS } from '@/features/strength/lib/muscleNames';
+import { FORM_ZONE_BOUNDARIES, formatForm, getFormZone } from '@/features/fitness/lib/fitness';
 import { AVAILABLE_METRICS, HERO_METRICS } from '@/features/settings/stores/summaryCardPreferences';
 import {
   ELEVATION_GAIN_HYSTERESIS_M,
@@ -223,7 +225,7 @@ const CONTRACTS: Contract[] = [
   ),
   {
     agree: 'the extension opens the database under the name the app moved it to',
-    a: { file: `${PUSH}/VeloqPushPayload.swift`, has: `"${ROUTE_DB_FILES[0]}"` },
+    a: { file: `${PUSH}/WidgetSnapshotFile.swift`, has: `"${ROUTE_DB_FILES[0]}"` },
     b: { file: 'src/shared/storage/routeDbLocation.ts', has: `'${ROUTE_DB_FILES[0]}'` },
   },
   {
@@ -321,7 +323,7 @@ const CONTRACTS: Contract[] = [
       file: `${PUSH}/VeloqPushExtension.entitlements`,
       has: 'com.apple.security.application-groups',
     },
-    b: { file: `${PUSH}/VeloqPushPayload.swift`, has: `"${APP_GROUP}"` },
+    b: { file: `${PUSH}/WidgetSnapshotFile.swift`, has: `"${APP_GROUP}"` },
   },
   ...['intervals_athlete_id', 'intervals_access_token', 'intervals_api_key'].map((key) => ({
     agree: `the extension reads ${key}, which the auth store writes`,
@@ -367,14 +369,27 @@ const CONTRACTS: Contract[] = [
   },
 
   // The tile transport, on both platforms.
-  ...['veloq_tile_get_or_fetch', 'veloq_tile_free', 'veloq_geo_get'].map((name) => ({
-    agree: `the iOS scheme handler's ${name} is a symbol Rust exports`,
-    a: { file: `${TILE_IOS}/VeloqTileSchemeHandler.m`, has: `${name}(` },
+  ...['veloq_tile_answer', 'veloq_tile_free', 'veloq_glyph_get_or_fetch', 'veloq_geo_get'].map(
+    (name) => ({
+      agree: `the iOS scheme handler's ${name} is a symbol Rust exports`,
+      a: { file: `${TILE_IOS}/VeloqTileSchemeHandler.m`, has: `${name}(` },
+      b: {
+        file: 'modules/veloqrs/rust/veloqrs/src/basemap/c.rs',
+        has: `pub unsafe extern "C" fn ${name}(`,
+      },
+    })
+  ),
+  {
+    agree: 'the iOS scheme handler takes a tile answer in the shape Rust calls it with',
+    a: {
+      file: `${TILE_IOS}/VeloqTileSchemeHandler.m`,
+      has: 'typedef void (*VeloqTileDone)(void *context, uint8_t *bytes, size_t len, uint16_t status);',
+    },
     b: {
       file: 'modules/veloqrs/rust/veloqrs/src/basemap/c.rs',
-      has: `pub unsafe extern "C" fn ${name}(`,
+      has: /unsafe extern "C" fn\(context: \*mut c_void, bytes: \*mut u8, len: usize, status: u16\)/,
     },
-  })),
+  },
   {
     agree:
       'the Android tile bridge hands Rust the status array and pending body its JNI symbol takes',
@@ -562,6 +577,54 @@ const CONTRACTS: Contract[] = [
     },
     b: { file: 'src/features/home/lib/widgetBridge.ts', has: 'publishRecordShortcuts?.(' },
   },
+  {
+    agree: 'the iOS widget module defines publishRecordShortcuts, which the bridge calls',
+    a: {
+      file: 'modules/veloq-widget/ios/VeloqWidgetModule.swift',
+      has: 'Function("publishRecordShortcuts")',
+    },
+    b: { file: 'src/features/home/lib/widgetBridge.ts', has: 'publishRecordShortcuts?.(' },
+  },
+  {
+    agree: 'autolinking registers the subscriber that opens a chosen quick action',
+    a: {
+      file: 'modules/veloq-widget/expo-module.config.json',
+      has: '"VeloqQuickActionSubscriber"',
+    },
+    b: {
+      file: 'modules/veloq-widget/ios/VeloqQuickActionSubscriber.swift',
+      has: 'class VeloqQuickActionSubscriber: ExpoAppDelegateSubscriber',
+    },
+  },
+  ...[
+    'modules/veloq-widget/android/src/main/java/com/veloq/widget/VeloqWidgetModule.kt',
+    'modules/veloq-widget/ios/RecordQuickActions.swift',
+  ].map((file) => ({
+    agree: `${path.basename(file)} reads the glyph the shortcut list carries`,
+    a: { file, has: 'entry["glyph"]' },
+    b: {
+      file: 'src/features/home/lib/widgetSnapshot.ts',
+      has: 'glyph: getActivityTypeConfig(type)',
+    },
+  })),
+  ...Object.values(ACTIVITY_CATEGORIES)
+    .map((category) => category.labelKey)
+    .filter((key) => key !== 'other')
+    .flatMap((key) => [
+      {
+        agree: `the Android launcher draws its own glyph for the ${key} category`,
+        a: {
+          file: 'modules/veloq-widget/android/src/main/java/com/veloq/widget/RecordShortcutIcons.kt',
+          has: `"${key}" -> R.drawable.shortcut_glyph_${key}`,
+        },
+        b: { file: 'src/shared/activity/sportCategories.ts', has: `labelKey: '${key}'` },
+      },
+      {
+        agree: `the iOS quick actions draw their own symbol for the ${key} category`,
+        a: { file: 'modules/veloq-widget/ios/RecordQuickActions.swift', has: `case "${key}":` },
+        b: { file: 'src/shared/activity/sportCategories.ts', has: `labelKey: '${key}'` },
+      },
+    ]),
   ...[
     'modules/veloq-widget/android/src/main/java/com/veloq/widget/VeloqWidgetModule.kt',
     'modules/veloq-widget/ios/VeloqWidgetModule.swift',
@@ -837,7 +900,7 @@ const CONTRACTS: Contract[] = [
   {
     agree: 'the running-service check names the service expo-location starts',
     a: {
-      file: 'modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/VeloqRecordingNotificationModule.kt',
+      file: 'modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/LiveRide.kt',
       has: 'expo.modules.location.services.LocationTaskService',
     },
     b: {
@@ -931,25 +994,35 @@ const CONTRACTS: Contract[] = [
 
   // The widgets, the App Shortcut and the record link.
   {
-    agree: 'the push worker writes the snapshot file the Android widgets read',
+    agree: 'the Android widgets read the snapshot file its one writer names',
     a: { file: `${TILE_ANDROID}/WidgetSnapshotFile.kt`, has: 'NAME = "widget-snapshot.json"' },
     b: {
       file: 'widget/android/java/WidgetSnapshot.kt',
-      has: 'SNAPSHOT_FILE = "widget-snapshot.json"',
+      has: 'WidgetSnapshotFile.file(context.filesDir)',
+      lacks: '"widget-snapshot.json"',
     },
   },
   {
-    agree: 'the push worker writes the snapshot file the app writes',
-    a: { file: `${TILE_ANDROID}/WidgetSnapshotFile.kt`, has: 'NAME = "widget-snapshot.json"' },
+    agree: 'the app writes and clears the snapshot through the writer the push worker uses',
+    a: { file: `${TILE_ANDROID}/WidgetSnapshotFile.kt`, has: 'fun clear(dir: File)' },
     b: {
       file: 'modules/veloq-widget/android/src/main/java/com/veloq/widget/VeloqWidgetModule.kt',
-      has: 'SNAPSHOT_FILE = "widget-snapshot.json"',
+      has: /WidgetSnapshotFile\.write\(context, json\)[\s\S]*WidgetSnapshotFile\.clear\(context\)/,
+      lacks: '"widget-snapshot.json"',
     },
   },
   {
     agree: 'the Android widgets fall back to the picker link the snapshot names',
     a: { file: 'widget/android/java/WidgetRenderer.kt', has: `"${RECORD_PICKER_URL}"` },
     b: { file: 'src/features/home/lib/widgetSnapshot.ts', has: `'${RECORD_PICKER_URL}'` },
+  },
+  {
+    agree: 'the Quick Settings tile opens a live ride where the ride notification does',
+    a: { file: 'widget/android/java/RecordTile.kt', has: 'LIVE_URL = "veloq://record"' },
+    b: {
+      file: 'modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/RideLink.kt',
+      has: 'RECORD_URL = "veloq://record"',
+    },
   },
   {
     agree: 'the small Android widget binds the snapshot age into a view its layout declares',
@@ -1113,7 +1186,7 @@ const CONTRACTS: Contract[] = [
     agree: 'the pod registers the subscriber that registers the task before launch finishes',
     a: {
       file: 'modules/veloq-widget/expo-module.config.json',
-      has: '"appDelegateSubscribers": ["VeloqWidgetRefreshSubscriber"]',
+      has: /"appDelegateSubscribers": \[[^\]]*"VeloqWidgetRefreshSubscriber"/,
     },
     b: {
       file: 'modules/veloq-widget/ios/VeloqWidgetRefresh.swift',
@@ -1399,12 +1472,15 @@ function widgetKeysTranslated(): string[] {
     (m) => m[1]
   );
   const zones = [...rust.matchAll(/^\s*"(highRisk|optimal|greyZone|fresh|transition)"/gm)];
-  const setCounts = [...rust.matchAll(/"(strength\.setsCount_\w+)"/g)].map((m) => m[1]);
+  // A counted phrase is looked up in every plural form any locale gives the count.
+  const counted = [...rust.matchAll(/counted\(\s*ctx,\s*"([\w.]+)"/g)].flatMap((m) =>
+    ['one', 'few', 'many', 'other'].map((form) => `${m[1]}_${form}`)
+  );
   // The composer names a muscle under its slug camel-cased, `lower-back` as `lowerBack`.
   const muscles = muscleSlugsInRust().map(
     (slug) => `strength.muscles.${slug.replace(/-(\w)/g, (_, c: string) => c.toUpperCase())}`
   );
-  return [...keys, ...zones.map((m) => `formZones.${m[1]}`), ...setCounts, ...muscles];
+  return [...keys, ...zones.map((m) => `formZones.${m[1]}`), ...counted, ...muscles];
 }
 
 const liveState = buildContentState({
@@ -1870,6 +1946,7 @@ const SETS: SetContract[] = [
     [
       ['FfiCatalogueEmptyReason_Tags', stub.FfiCatalogueEmptyReason_Tags],
       ['FfiDetectionHold_Tags', stub.FfiDetectionHold_Tags],
+      ['FfiMapEmptyReason_Tags', stub.FfiMapEmptyReason_Tags],
     ] as const
   ).map(
     ([name, value]): SetContract => ({
@@ -2126,5 +2203,44 @@ describe('the renderer every map page asks for is the one both platforms ship', 
       'BasemapAssetPath.cacheControlFor(path)'
     );
     expect(read(`${TILE_IOS}/VeloqTileSchemeHandler.m`)).toContain(`@"${immutable}"`);
+  });
+});
+
+/** One day's form as the engine zones and prints it, from the vectors its widget suite writes. */
+interface FormVector {
+  tsb: number;
+  fitness: number | null;
+  asPercent: boolean;
+  zone: string | null;
+  text: string | null;
+}
+
+describe('form is zoned and printed as the widget zones and prints it', () => {
+  const vectors: { bounds: number[]; cases: FormVector[] } = JSON.parse(
+    read('modules/veloqrs/rust/veloqrs/tests/fixtures/form_zone_vectors.json')
+  );
+  const name = (v: FormVector) =>
+    `${v.tsb} on fitness ${v.fitness} ${v.asPercent ? 'as a percentage' : 'absolute'}`;
+
+  it('has vectors on every band edge', () => {
+    expect(vectors.bounds).toHaveLength(4);
+    expect(vectors.cases.length).toBeGreaterThan(vectors.bounds.length * 3);
+  });
+
+  it('the chart bands meet at the engine edges', () => {
+    const [highRisk, optimal, greyZone, fresh] = vectors.bounds;
+    expect(FORM_ZONE_BOUNDARIES.highRisk.max).toBe(highRisk);
+    expect(FORM_ZONE_BOUNDARIES.optimal).toMatchObject({ min: highRisk, max: optimal });
+    expect(FORM_ZONE_BOUNDARIES.greyZone).toMatchObject({ min: optimal, max: greyZone });
+    expect(FORM_ZONE_BOUNDARIES.fresh).toMatchObject({ min: greyZone, max: fresh });
+    expect(FORM_ZONE_BOUNDARIES.transition.min).toBe(fresh);
+  });
+
+  it.each(vectors.cases.map((v) => [name(v), v] as const))('zones %s', (_name, v) => {
+    expect(getFormZone(v.tsb, v.fitness, v.asPercent)).toBe(v.zone);
+  });
+
+  it.each(vectors.cases.map((v) => [name(v), v] as const))('prints %s', (_name, v) => {
+    expect(formatForm(v.tsb, v.fitness, v.asPercent)).toBe(v.text);
   });
 });

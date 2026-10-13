@@ -1,4 +1,5 @@
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { sourceFor } from '@/shared/app/source';
 import { readNotificationPermission } from '@/shared/app/permissions/notifications';
 import {
   getNotificationPreferences,
@@ -14,8 +15,8 @@ import { ensurePushTokenRegistered, refreshPushTokenRegistration } from './pushT
  */
 export function reconcilePushRegistrationOnLaunch(): void {
   const prefs = getNotificationPreferences();
-  const { athleteId, isDemoMode } = useAuthStore.getState();
-  if (prefs.enabled && athleteId && !isDemoMode) {
+  const { athleteId, authMethod, isDemoMode } = useAuthStore.getState();
+  if (prefs.enabled && athleteId && sourceFor({ authMethod, isDemoMode })?.id !== 'demo') {
     void ensurePushTokenRegistered(athleteId);
     return;
   }

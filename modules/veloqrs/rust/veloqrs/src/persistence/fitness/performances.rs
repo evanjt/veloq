@@ -567,9 +567,11 @@ pub(crate) mod pooled {
 /// laps. Committed rows only, so a pooled connection answers it with no engine
 /// lock.
 ///
-/// A device-minted key no upload has given a server id is left out: upstream
-/// has no stream to send for it, so asking would only hold a waiter until its
-/// deadline on every pass.
+/// A key minted here, a recording or an import, that no upload has given a
+/// server id is left out: upstream has no stream to send for it, so asking
+/// would only hold a waiter until its deadline on every pass. That is
+/// `origin::intervals_upstream` over the stored id on the activity row or the
+/// body, with demo rows in as that function names them.
 pub(crate) fn activities_needing_time_streams(conn: &rusqlite::Connection) -> Vec<String> {
     match conn.prepare(
         "SELECT DISTINCT sa.activity_id
@@ -579,7 +581,7 @@ pub(crate) fn activities_needing_time_streams(conn: &rusqlite::Connection) -> Ve
          WHERE sa.excluded = 0
            AND ((sa.lap_time IS NULL AND ts.activity_id IS NULL)
                 OR (ts.point_count > 0 AND ts.point_count != g.point_count))
-           AND (sa.activity_id NOT LIKE 'local-%'
+           AND ((sa.activity_id NOT LIKE 'local-%' AND sa.activity_id NOT LIKE 'src-%')
                 OR EXISTS (SELECT 1 FROM activities a
                            WHERE a.id = sa.activity_id AND a.intervals_id IS NOT NULL)
                 OR EXISTS (SELECT 1 FROM activity_bodies ab

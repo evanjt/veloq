@@ -248,7 +248,7 @@ function RecordScreenContent() {
 
         {/* Warnings: one line each, only when true, each dismissable */}
         <View style={styles.warnings}>
-          {showGpsWarning && (
+          {showGpsWarning ? (
             <GpsWarningLine
               state={gps.state}
               onTurnOnServices={gps.turnOnServices}
@@ -256,7 +256,7 @@ function RecordScreenContent() {
               onDismiss={() => setGpsWarningDismissed(true)}
               surface={surface}
             />
-          )}
+          ) : null}
           {/* Android 13+ drops the foreground-service notification without the
               permission. The notice asks on arrival once the location question
               is behind the athlete, and never by Start: a dialog raised by the
@@ -487,7 +487,7 @@ function GpsWarningLine({
           icon={icon}
           label={label}
         >
-          {state === 'servicesOff' && canTurnOn && (
+          {state === 'servicesOff' && canTurnOn ? (
             <Button
               testID="record-gps-turn-on"
               onPress={() => void onTurnOnServices()}
@@ -495,7 +495,7 @@ function GpsWarningLine({
               variant="ghost"
               size="sm"
             />
-          )}
+          ) : null}
           {state === 'none' && <OpenSettingsButton testID="record-gps-settings" />}
           {state === 'approximate' && (
             <Button

@@ -63,6 +63,22 @@ struct FormZoneChart: Equatable {
   let max: Double
 }
 
+/// The words drawn under the chart beside the hero: its series in the order its lines are drawn
+/// apart, solid then dashed, and the days it spans. A single series is named by the hero beside
+/// it, so it lists none.
+struct ChartCaption: Equatable {
+  let series: [String]
+  let span: String?
+}
+
+/// The words drawn over the form chart: its name, the zone the latest day sits in, and the days
+/// it spans.
+struct FormChartCaption: Equatable {
+  let title: String
+  let zone: String?
+  let span: String?
+}
+
 /// One entry of the supporting row, with the words drawn under its value.
 struct SummarySupporting {
   let entry: WidgetSummaryEntry
@@ -78,8 +94,12 @@ struct SummaryContent {
   let chart: SummaryChartKind
   /// Empty on Small, up to four otherwise.
   let supporting: [SummarySupporting]
+  /// Nil with no chart, and on Small, which has no room for it.
+  let chartCaption: ChartCaption?
   /// Large only, and only with two measured days and the four zone bounds.
   let formZones: FormZoneChart?
+  /// Present with `formZones`.
+  let formCaption: FormChartCaption?
 }
 
 enum SummaryWidgetModel {
@@ -117,14 +137,42 @@ enum SummaryWidgetModel {
     }
 
     let shows = placement.sparkline ?? (card.sparkline != "none")
+    let chart = shows ? chartKind(snapshot, hero) : .none
+    let zones = size == .large ? formZones(snapshot) : nil
     return SummaryContent(
       hero: hero,
       heroLine: hero.id == "form" ? snapshot.display.formZone : nil,
-      chart: shows ? chartKind(snapshot, hero) : .none,
+      chart: chart,
       supporting: supporting.map {
         SummarySupporting(entry: $0, caption: $0.id == "form" ? snapshot.display.formZone : nil)
       },
-      formZones: size == .large ? formZones(snapshot) : nil)
+      chartCaption: size == .small ? nil : chartCaption(snapshot, chart),
+      formZones: zones,
+      formCaption: zones == nil ? nil : formCaption(snapshot))
+  }
+
+  /// The series a chart draws, named as the snapshot names them, and the days it spans.
+  static func chartCaption(_ snapshot: WidgetSnapshot, _ kind: SummaryChartKind) -> ChartCaption?
+  {
+    let labels = snapshot.display.metricLabels
+    let spans = snapshot.display.chartSpans
+    switch kind {
+    case .none:
+      return nil
+    case .fitnessForm:
+      let series =
+        snapshot.sparklines.fatigue.count >= 2 ? [labels.fitness, labels.fatigue] : [labels.fitness]
+      return ChartCaption(series: series, span: spans?.fitness)
+    case .hrv:
+      return ChartCaption(series: [], span: spans?.hrv)
+    }
+  }
+
+  /// The form chart's name, today's zone and its span.
+  static func formCaption(_ snapshot: WidgetSnapshot) -> FormChartCaption {
+    let zone = snapshot.display.formZone.flatMap { $0.isEmpty ? nil : $0 }
+    return FormChartCaption(
+      title: snapshot.display.metricLabels.form, zone: zone, span: snapshot.display.chartSpans?.form)
   }
 
   /// A chart the snapshot holds a series for; HRV has its own and every other hero shows the

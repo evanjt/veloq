@@ -41,6 +41,7 @@ const renderHeader = (debugEnabled: boolean) =>
       activity={activity}
       activityId={activity.id}
       coordinates={[]}
+      hasStoredTrack={false}
       isMetric={true}
       debugEnabled={debugEnabled}
       mapHeight={360}

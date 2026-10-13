@@ -178,7 +178,9 @@ function RouteOverlaySheetContent() {
                     {meta}
                   </Text>
                 </View>
-                {isSelected && <MaterialCommunityIcons name="check" size={20} color={brand.teal} />}
+                {isSelected ? (
+                  <MaterialCommunityIcons name="check" size={20} color={brand.teal} />
+                ) : null}
               </Pressable>
             );
           }}

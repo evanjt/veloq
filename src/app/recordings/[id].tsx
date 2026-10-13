@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { View, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useLocalSearchParams } from 'expo-router';
@@ -28,6 +28,7 @@ import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import * as haptics from '@/shared/ui/haptics';
 import { goBack } from '@/shared/app/navigation';
 import { confirmAction, inform } from '@/shared/ui/dialog';
+import { informShareFailed } from '@/shared/ui/shareFailure';
 
 function RecordingDetailScreenContent() {
   const { t } = useTranslation();
@@ -60,9 +61,14 @@ function RecordingDetailScreenContent() {
     await load();
   }, [entry, uploadNow, load]);
 
+  const shareAnchor = useRef<View>(null);
   const handleShare = useCallback(async () => {
     if (!entry || !recordingActions(entry, uploadingId).canShare) return;
-    setFitAvailable(await shareRecordingFit(entry, t));
+    try {
+      setFitAvailable(await shareRecordingFit(entry, shareAnchor));
+    } catch (error) {
+      informShareFailed(error, t);
+    }
   }, [entry, uploadingId, setFitAvailable, t]);
 
   const handleDelete = useCallback(() => {
@@ -192,7 +198,7 @@ function RecordingDetailScreenContent() {
         </View>
 
         <View style={styles.actions}>
-          {(canUpload || isUploading) && (
+          {canUpload || isUploading ? (
             <Button
               testID="recording-upload-button"
               label={t('recording.library.uploadNow', 'Upload now')}
@@ -206,16 +212,17 @@ function RecordingDetailScreenContent() {
                 />
               }
             />
-          )}
-          {canShare && (
+          ) : null}
+          {canShare ? (
             <Button
+              ref={shareAnchor}
               testID="recording-share-button"
               label={t('recording.library.share', 'Share FIT file')}
               variant="secondary"
               onPress={handleShare}
               icon={<MaterialCommunityIcons name="export-variant" size={18} color={textPrimary} />}
             />
-          )}
+          ) : null}
           <Button
             testID="recording-delete-button"
             label={t('recording.library.delete', 'Delete')}

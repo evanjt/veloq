@@ -43,7 +43,7 @@ export function DateRangeSummary({
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>
       {/* Sync message banner */}
-      {syncMessage && (
+      {syncMessage ? (
         <Animated.View
           entering={FadeIn.duration(200)}
           exiting={FadeOut.duration(150)}
@@ -52,26 +52,26 @@ export function DateRangeSummary({
           <ActivityIndicator size="small" color={themeColors.primary} style={styles.syncIcon} />
           <Text style={[styles.syncText, isDark && styles.textSecondary]}>{syncMessage}</Text>
         </Animated.View>
-      )}
+      ) : null}
 
       {/* Summary row */}
       <View style={styles.summaryRow}>
         <View style={styles.dateInfo}>
           <View style={styles.countRow}>
-            {isLoading && (
+            {isLoading ? (
               <ActivityIndicator size="small" color={themeColors.primary} style={styles.syncIcon} />
-            )}
+            ) : null}
             <Text style={[styles.countText, isDark && styles.textLight]}>
               {isLoading
                 ? t('mapScreen.loadingActivities')
                 : t('sections.activitiesCount', { count: activityCount })}
             </Text>
           </View>
-          {!isLoading && oldestDate && newestDate && (
+          {!isLoading && oldestDate && newestDate ? (
             <Text style={[styles.dateText, isDark && styles.textSecondary]}>
               {formatDateOrDash(oldestDate)} - {formatDateOrDash(newestDate)}
             </Text>
-          )}
+          ) : null}
         </View>
 
         <Button

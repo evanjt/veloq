@@ -58,7 +58,7 @@ describe('the aerobic efficiency sheet', () => {
 
 describe('a supporting series value', () => {
   it('carries the series unit when it has one', () => {
-    expect(formatSeriesValue(44100, 0, 'bpm·s/km')).toBe('44100 bpm·s/km');
+    expect(formatSeriesValue(44100, 0, 'bpm·s/km')).toBe('44,100 bpm·s/km');
   });
 
   it('prints bare when the series has none', () => {

@@ -27,7 +27,7 @@ import {
 import type { TFunc } from '../../types';
 import { sectionRowKey, sectionWithSport } from '../../lib/cardSport';
 import { rowTrendColor, rowTrendIcon, rowTrendWord } from '../../lib/rowTrend';
-import { formatSignedPercent } from '../../lib/rankingFactors';
+import { formatSignedPercent } from '@/shared/format/number';
 
 interface SectionTrendContentProps {
   insight: Insight;

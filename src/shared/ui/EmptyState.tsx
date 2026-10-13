@@ -157,7 +157,7 @@ function DiscEmptyState({
         </Text>
       ) : null}
 
-      {actionLabel && onAction && (
+      {actionLabel && onAction ? (
         <Button
           {...(actionTestID ? { testID: actionTestID } : {})}
           label={actionLabel}
@@ -166,7 +166,7 @@ function DiscEmptyState({
           variant="primary"
           style={styles.actionButton}
         />
-      )}
+      ) : null}
     </StatusLine>
   );
 }

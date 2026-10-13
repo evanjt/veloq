@@ -12,6 +12,7 @@ import type { SectionOverlay } from '@/features/maps/components/ActivityMapView'
 import { sectionPaletteIndex } from '@/theme';
 import { buildGradientLineStops } from '@/features/maps/lib/gradientLineColor';
 import type { ActivityStreams } from '@/types';
+import type { MapGeoJSONData } from '../lib/htmlBuilders';
 import { EMPTY_FEATURE_COLLECTION } from '../lib/coordinates';
 import { buildSectionMarkers } from '../lib/sectionMarkers';
 
@@ -43,11 +44,17 @@ interface UseMapLayersParams {
   activeTab?: string | undefined;
   /** Activity streams - used to build per-point gradient colors */
   streams?: ActivityStreams | null | undefined;
+  /**
+   * The engine's URL for the stored track, from `useStoredTrackUrl`. When set,
+   * the route line is drawn from it and never built here; the coordinates
+   * still serve the scrub highlight, the camera and the 3D view.
+   */
+  trackUrl?: string | null | undefined;
 }
 
 interface UseMapLayersResult {
-  /** GeoJSON for the activity route line */
-  routeGeoJSON: GeoJSON.FeatureCollection | GeoJSON.Feature;
+  /** The activity route line, or the engine's URL for it */
+  routeGeoJSON: MapGeoJSONData;
   /** GeoJSON for the route overlay (matched route trace) */
   overlayGeoJSON: GeoJSON.FeatureCollection | GeoJSON.Feature;
   /** Whether overlayGeoJSON contains renderable data */
@@ -86,9 +93,11 @@ export function useMapLayers({
   highlightIndex,
   activeTab,
   streams,
+  trackUrl,
 }: UseMapLayersParams): UseMapLayersResult {
   // ----- route line -----
-  const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
+  const routeGeoJSON = useMemo((): MapGeoJSONData => {
+    if (trackUrl) return trackUrl;
     if (validCoordinates.length < 2) {
       if (__DEV__) {
         console.warn(
@@ -105,7 +114,7 @@ export function useMapLayers({
         coordinates: validCoordinates.map((c) => [c.longitude, c.latitude]),
       },
     };
-  }, [validCoordinates]);
+  }, [validCoordinates, trackUrl]);
 
   // ----- route overlay (matched route trace) -----
   const overlayGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {

@@ -9,7 +9,10 @@
 import { unifySections } from '@/features/routes/lib/unifySections';
 import type { FrequentSection, Section } from '@/features/routes/types';
 
-jest.mock('@/i18n', () => ({ i18n: { t: (key: string) => key } }));
+jest.mock('@/i18n', () => ({
+  i18n: { t: (key: string) => key },
+  getCurrentLanguage: () => 'en-GB',
+}));
 
 const engineRow = (over: Partial<FrequentSection> = {}): FrequentSection => ({
   id: 'custom_1',

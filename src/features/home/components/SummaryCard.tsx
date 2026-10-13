@@ -231,7 +231,7 @@ export const SummaryCard = React.memo(function SummaryCard({
       <Card variant="raised" padding="none">
         <View style={styles.cardContent}>
           {/* Scrub date label - top right of card */}
-          {scrubValues && (
+          {scrubValues ? (
             <Text
               style={[
                 styles.scrubDate,
@@ -242,7 +242,7 @@ export const SummaryCard = React.memo(function SummaryCard({
             >
               {scrubValues.dateLabel}
             </Text>
-          )}
+          ) : null}
 
           {/* Top row: Profile + Hero value + zone */}
           <View style={styles.topRow}>
@@ -339,11 +339,11 @@ export const SummaryCard = React.memo(function SummaryCard({
                     )}
                   </View>
                   <View style={styles.heroSubLine}>
-                    {isFormMode && (
+                    {isFormMode ? (
                       <Text style={[styles.heroSubText, { color: currentFormColor }]}>
                         {currentFormZone ? t(`formZones.${currentFormZone}`) : ''}
                       </Text>
-                    )}
+                    ) : null}
                     {!isFormMode && currentFatigue !== null && (
                       <Text style={[styles.heroSubText, { color: fatigueTextColor }]}>
                         {currentFatigue} {t('metrics.fatigue')}
@@ -397,21 +397,23 @@ export const SummaryCard = React.memo(function SummaryCard({
                     {isHrvMode && typeof displayValue === 'number' ? (
                       <Text style={styles.heroUnit}> {t('units.ms')}</Text>
                     ) : null}
-                    {!scrubValues && heroTrend && <Text style={styles.heroTrend}>{heroTrend}</Text>}
+                    {!scrubValues && heroTrend ? (
+                      <Text style={styles.heroTrend}>{heroTrend}</Text>
+                    ) : null}
                   </Text>
                   <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>
                     {heroLabel}
                   </Text>
-                  {isFormMode && heroZone && (
+                  {isFormMode && heroZone ? (
                     <Text style={[styles.heroSubText, { color: displayColor }]}>{heroZone}</Text>
-                  )}
+                  ) : null}
                 </View>
               )}
             </Pressable>
           </View>
 
           {/* Sparkline row - fitness or HRV depending on hero metric */}
-          {fitnessSparkline && (
+          {fitnessSparkline ? (
             <View
               testID="summary-card-sparkline"
               style={styles.sparklineRow}
@@ -428,8 +430,8 @@ export const SummaryCard = React.memo(function SummaryCard({
                 onTap={showSparklineLabels ? undefined : onHeroPress}
               />
             </View>
-          )}
-          {hrvSparkline && (
+          ) : null}
+          {hrvSparkline ? (
             <View
               testID="summary-card-hrv-sparkline"
               style={styles.sparklineRow}
@@ -446,7 +448,7 @@ export const SummaryCard = React.memo(function SummaryCard({
                 onTap={showSparklineLabels ? undefined : onHeroPress}
               />
             </View>
-          )}
+          ) : null}
 
           {/* Supporting metrics row - each metric tappable */}
           <View style={styles.supportingRow}>
@@ -485,7 +487,7 @@ export const SummaryCard = React.memo(function SummaryCard({
                     >
                       {metric.value}
                       {metric.unit ? <Text style={styles.metricUnit}> {metric.unit}</Text> : null}
-                      {metric.trend && <Text style={styles.metricTrend}>{metric.trend}</Text>}
+                      {metric.trend ? <Text style={styles.metricTrend}>{metric.trend}</Text> : null}
                     </Text>
                   )}
                 </Pressable>

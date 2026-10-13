@@ -11,14 +11,20 @@
 import type { GpsSyncProgress } from '@/shared/app/SyncDateRangeStore';
 
 /**
- * Whether the GPS sync has stopped for good. `activityCount` is the library's,
- * null until the engine answers, and zero means the sync returns before
- * running, so no terminal status will ever arrive.
+ * Whether the GPS sync has stopped for good since the reset that set the
+ * latch. `activityCount` is the library's, null until the engine answers, and
+ * zero means the sync returns before running, so no terminal status will ever
+ * arrive. A terminal status counts only when the run that wrote it started at
+ * `lockGeneration`: the one a run from before the reset left standing says
+ * nothing about the new state.
  */
 export function syncSettledForExpansion(
-  status: GpsSyncProgress['status'],
-  activityCount: number | null
+  progress: Pick<GpsSyncProgress, 'status' | 'generation'>,
+  activityCount: number | null,
+  lockGeneration: number
 ): boolean {
-  if (status === 'complete' || status === 'error') return true;
+  if (progress.status === 'complete' || progress.status === 'error') {
+    return progress.generation === lockGeneration;
+  }
   return activityCount === 0;
 }

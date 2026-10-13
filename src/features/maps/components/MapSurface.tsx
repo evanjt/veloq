@@ -1,6 +1,6 @@
 /**
  * The 2D map surface. One MapLibre GL JS page in a WebView, driven by
- * declarative source, layer and marker specs.
+ * declarative source, layer and image specs.
  *
  * Callers describe what should be on the map and MapSurface works out the
  * minimum patch to send. Only sources whose data actually changed cross the
@@ -75,14 +75,12 @@ import type {
   MapCameraSpec,
   MapImageSpec,
   MapLayerSpec,
-  MapMarkerSpec,
   MapPadding,
   MapSourceSpec,
 } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import type { WebViewStyleOptions } from '@/features/maps/lib/htmlBuilders/styleResolution';
 import type { MapStyleType } from './mapStyles';
 import {} from '@/features/maps/lib/terrainSnapshotEvents';
-import { DELIBERATE_HOLD_MS } from '@/shared/ui/holdDurations';
 import { useReduceMotion } from '@/shared/ui/reduceMotion';
 
 const log = debug.create('MapSurface');
@@ -153,7 +151,6 @@ export interface MapSurfaceProps {
   initialCamera: MapCameraSpec;
   sources: Record<string, MapSourceSpec>;
   layers: MapLayerSpec[];
-  markers?: MapMarkerSpec[] | undefined;
   images?: MapImageSpec[] | undefined;
   /** Layers hit-tested on tap, most specific first. */
   interactiveLayers?: string[] | undefined;
@@ -170,7 +167,6 @@ export interface MapSurfaceProps {
   /** The page cannot render a basemap. Fires once per failure, with the reason. */
   onMapFailed?: ((reason: string) => void) | undefined;
   onPress?: ((event: MapPressEvent) => void) | undefined;
-  onLongPress?: ((event: MapPressEvent) => void) | undefined;
   onRegionIsChanging?: ((state: MapCameraState, isUserInteraction: boolean) => void) | undefined;
   onRegionDidChange?: ((state: MapCameraState, isUserInteraction: boolean) => void) | undefined;
   onBearingChange?: ((bearing: number) => void) | undefined;
@@ -208,7 +204,6 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     initialCamera,
     sources,
     layers,
-    markers,
     images,
     interactiveLayers,
     scrollEnabled = true,
@@ -219,7 +214,6 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     onMapReady,
     onMapFailed,
     onPress,
-    onLongPress,
     onRegionIsChanging,
     onRegionDidChange,
     onBearingChange,
@@ -250,7 +244,6 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     onMapReady,
     onMapFailed,
     onPress,
-    onLongPress,
     onRegionIsChanging,
     onRegionDidChange,
     onBearingChange,
@@ -259,7 +252,6 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     onMapReady,
     onMapFailed,
     onPress,
-    onLongPress,
     onRegionIsChanging,
     onRegionDidChange,
     onBearingChange,
@@ -298,7 +290,6 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
       },
       devicePixelRatio: Math.min(PixelRatio.get(), 2),
       regionChangeThrottleMs: REGION_CHANGE_DEBOUNCE_MS,
-      longPressMs: DELIBERATE_HOLD_MS,
       reduceMotion: pageReduceMotionRef.current,
     });
     // styleOptions is a plain settings object supplied as a literal by callers.
@@ -318,14 +309,13 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     const { patch, sourceJson } = patcherRef.current.next({
       sources,
       layers,
-      markers,
       images,
       interactiveLayers,
     });
     if (!patch) return;
 
     inject(buildApplyScript(patch, sourceJson));
-  }, [sources, layers, markers, images, interactiveLayers, inject]);
+  }, [sources, layers, images, interactiveLayers, inject]);
 
   // The bridge handlers are built once, so they reach the current patch sender
   // through a ref rather than a dependency.
@@ -397,10 +387,6 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
       mapClick: (data) => {
         const event = toPressEvent(data);
         if (event) callbacksRef.current.onPress?.(event);
-      },
-      mapLongPress: (data) => {
-        const event = toPressEvent(data);
-        if (event) callbacksRef.current.onLongPress?.(event);
       },
       regionIsChanging: (data) => {
         const state = toCameraState(data);
@@ -611,7 +597,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
             onHttpError={(event) => reportFailure(`HTTP ${event.nativeEvent?.statusCode ?? '?'}`)}
           />
         )}
-        {tilesLoading && !unavailable && (
+        {tilesLoading && !unavailable ? (
           <View
             style={styles.tilesLoading}
             pointerEvents="none"
@@ -619,8 +605,8 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
           >
             <ActivityIndicator size="small" color={darkColors.textSecondary} />
           </View>
-        )}
-        {unavailable && (
+        ) : null}
+        {unavailable ? (
           <View style={styles.unavailable} testID={MAP_SURFACE_UNAVAILABLE_TEST_ID}>
             <MaterialCommunityIcons
               name="map-marker-off-outline"
@@ -630,7 +616,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
             <Text style={styles.unavailableTitle}>{t('maps.unavailableTitle')}</Text>
             <Text style={styles.unavailableHint}>{t('maps.unavailableHint')}</Text>
           </View>
-        )}
+        ) : null}
       </View>
     </ComponentErrorBoundary>
   );

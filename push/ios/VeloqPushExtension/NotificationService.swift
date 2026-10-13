@@ -40,7 +40,7 @@ final class NotificationService: UNNotificationServiceExtension {
 
     guard let push = VeloqPushPayload(userInfo: request.content.userInfo) else {
       post(request.content)
-      if let database = VeloqPaths.routeDatabase() {
+      if let database = WidgetSnapshotFile.databasePath {
         let userInfo = request.content.userInfo
         let body = userInfo["body"] as? [String: Any]
         let reason = VeloqPushEngine.payloadReason(
@@ -81,7 +81,7 @@ final class NotificationService: UNNotificationServiceExtension {
     let answered = enrichedContent
     once.unlock()
     post(answered ?? original.map(Self.fallback) ?? UNMutableNotificationContent())
-    if answered == nil, let database = VeloqPaths.routeDatabase() {
+    if answered == nil, let database = WidgetSnapshotFile.databasePath {
       VeloqPushEngine.recordRefusal(
         databasePath: database, activityId: activityId, reason: "time ran out")
     }
@@ -153,7 +153,7 @@ final class NotificationService: UNNotificationServiceExtension {
     _ content: UNNotificationContent,
     with push: VeloqPushPayload
   ) -> Outcome {
-    guard let database = VeloqPaths.routeDatabase() else { return .unanswered }
+    guard let database = WidgetSnapshotFile.databasePath else { return .unanswered }
     func refuse(_ reason: String) -> Outcome {
       VeloqPushEngine.recordRefusal(
         databasePath: database, activityId: push.activityId, reason: reason)

@@ -206,7 +206,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
       <View style={[styles.container, { width, height: totalHeight }]}>
         <View style={styles.chartRow}>
           {/* Optional inline labels (settings preview only) */}
-          {showLabels && (
+          {showLabels ? (
             <View style={[styles.labelColumn, { width: labelWidth }]}>
               <RNText
                 style={[
@@ -221,13 +221,13 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                 {t('metrics.form')}
               </RNText>
             </View>
-          )}
+          ) : null}
 
           {/* Chart area - single Skia canvas: sparklines (top) + form zone bar (bottom) */}
           <View style={{ width: chartWidth, height: totalHeight }}>
             <Canvas style={{ width: chartWidth, height: totalHeight }}>
               {/* Fatigue (ATL) - drawn first so fitness renders on top */}
-              {linePaths.fatigue && (
+              {linePaths.fatigue ? (
                 <Path
                   path={linePaths.fatigue}
                   color={casingColor}
@@ -236,8 +236,8 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                   strokeJoin="round"
                   strokeCap="round"
                 />
-              )}
-              {linePaths.fatigue && (
+              ) : null}
+              {linePaths.fatigue ? (
                 <Path
                   path={linePaths.fatigue}
                   color={fatigueLineColor}
@@ -246,9 +246,9 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                   strokeJoin="round"
                   strokeCap="round"
                 />
-              )}
+              ) : null}
               {/* Fitness (CTL) - primary line, on top */}
-              {linePaths.fitness && (
+              {linePaths.fitness ? (
                 <Path
                   path={linePaths.fitness}
                   color={casingColor}
@@ -257,8 +257,8 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                   strokeJoin="round"
                   strokeCap="round"
                 />
-              )}
-              {linePaths.fitness && (
+              ) : null}
+              {linePaths.fitness ? (
                 <Path
                   path={linePaths.fitness}
                   color={fitnessLineColor}
@@ -267,7 +267,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                   strokeJoin="round"
                   strokeCap="round"
                 />
-              )}
+              ) : null}
               {risePoints.map((p, i) => (
                 <Circle
                   key={`rise-${i}`}

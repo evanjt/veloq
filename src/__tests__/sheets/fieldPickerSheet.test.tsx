@@ -3,7 +3,8 @@
  * the sheet request channel.
  *
  * Expected behaviour: it lists every field, a tapped field resolves the caller with it and
- * dismisses, the current field reads as selected, and closing without a tap cancels.
+ * dismisses, the current field reads as selected, and closing without a tap cancels. The
+ * calories row says how the estimate is made, and says so when it assumes a weight.
  */
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
@@ -11,6 +12,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import FieldPickerSheet, { type FieldPickerSheetInput } from '@/app/sheets/field-picker';
 import { ALL_DATA_FIELDS } from '@/features/recording';
 import { openSheet } from '@/shared/app/sheetRequest';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { sheetScrollPlacement } from '../__shared__/sheetScrollPlacement';
 import type { DataFieldType } from '@/types';
 
@@ -27,7 +29,7 @@ jest.mock('expo-router', () => ({
   },
   useLocalSearchParams: () => mockParams,
 }));
-jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
+jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@/features/recording', () =>
@@ -76,5 +78,28 @@ describe('field picker sheet', () => {
     const { result } = await open(null);
     await screen.unmount();
     await expect(result).resolves.toEqual({ kind: 'cancelled' });
+  });
+
+  it('notes the calories method, and the assumed weight only when the profile has none', async () => {
+    const athlete = useAuthStore.getState().athlete;
+    useAuthStore.setState({ athlete: null });
+    await open(null);
+    const row = screen.getByTestId('field-option-calories');
+    expect(row).toHaveTextContent(/recording\.caloriesMethod/);
+    expect(row).toHaveTextContent(/recording\.caloriesDefaultWeight:\{"weight":70\}/);
+    expect(screen.getByTestId('field-option-distance')).not.toHaveTextContent(
+      /recording\.caloriesMethod/
+    );
+    await screen.unmount();
+
+    useAuthStore.setState({ athlete: { id: 'i1', name: 'Rider', icu_weight: 64 } as never });
+    await open(null);
+    expect(screen.getByTestId('field-option-calories')).toHaveTextContent(
+      /recording\.caloriesMethod/
+    );
+    expect(screen.getByTestId('field-option-calories')).not.toHaveTextContent(
+      /caloriesDefaultWeight/
+    );
+    useAuthStore.setState({ athlete });
   });
 });

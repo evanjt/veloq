@@ -80,7 +80,7 @@ export function SectionActionRow({
           onPress={handleToggleDisable}
         >
           <MaterialCommunityIcons
-            name={isSectionDisabled ? 'undo' : 'delete-outline'}
+            name={isSectionDisabled ? 'undo' : 'minus-circle-outline'}
             size={16}
             color={
               isSectionDisabled
@@ -92,7 +92,7 @@ export function SectionActionRow({
           />
         </IconButton>
       )}
-      {handleRematchActivities && (
+      {handleRematchActivities ? (
         <IconButton
           variant="secondary"
           accessibilityLabel={t('sections.rematchActivities')}
@@ -105,9 +105,9 @@ export function SectionActionRow({
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
         </IconButton>
-      )}
+      ) : null}
       <View style={styles.actionChips}>
-        {partlyExcluded && (
+        {partlyExcluded ? (
           <View
             testID="section-partly-excluded"
             style={[
@@ -130,8 +130,8 @@ export function SectionActionRow({
               {t('sections.partlyExcluded')}
             </Text>
           </View>
-        )}
-        {chips.pinned && (
+        ) : null}
+        {chips.pinned ? (
           <View
             testID="section-pinned-version"
             style={[
@@ -150,16 +150,17 @@ export function SectionActionRow({
               {t('sections.pinned')}
             </Text>
           </View>
-        )}
+        ) : null}
         {chips.accept === 'accepted' && (
           <View
+            testID="section-accepted"
             style={[
               styles.actionPill,
               { backgroundColor: isDark ? darkColors.surface : colors.surface },
             ]}
           >
             <MaterialCommunityIcons
-              name="pin"
+              name="check-circle"
               size={14}
               color={isDark ? darkColors.textSecondary : colors.textSecondary}
             />
@@ -180,7 +181,13 @@ export function SectionActionRow({
             size="sm"
             label={t('sections.acceptSection')}
             onPress={handleAcceptSection}
-            icon={<MaterialCommunityIcons name="pin-outline" size={14} color={colors.primary} />}
+            icon={
+              <MaterialCommunityIcons
+                name="check-circle-outline"
+                size={14}
+                color={colors.primary}
+              />
+            }
           />
         )}
       </View>

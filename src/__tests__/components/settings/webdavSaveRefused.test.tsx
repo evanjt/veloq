@@ -23,10 +23,17 @@ jest.mock('@/features/settings/lib/autobackup', () => ({
   webdavUrlProblem: () => null,
 }));
 jest.mock('@/features/settings/components/NextcloudQrScanner', () => ({
-  NextcloudQrScanner: ({ onScanned }: { onScanned: (data: string) => void }) => {
+  NextcloudQrScanner: ({ onScanned }: { onScanned: (login: unknown) => void }) => {
     const { Pressable: P, Text: T } = jest.requireActual('react-native');
+    const { parseNextcloudLogin } = jest.requireActual(
+      '@/features/settings/lib/autobackup/nextcloudLogin'
+    );
     return (
-      <P onPress={() => onScanned('nc://login/user:a b&password:p&server:https://x.example/')}>
+      <P
+        onPress={() =>
+          onScanned(parseNextcloudLogin('nc://login/user:a b&password:p&server:https://x.example/'))
+        }
+      >
         <T>scan code</T>
       </P>
     );

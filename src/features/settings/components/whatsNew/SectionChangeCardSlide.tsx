@@ -63,7 +63,7 @@ export function SectionChangeCardSlide() {
   const changes = reset ? describeSettingsReset(reset, t as Translate) : '';
   return (
     <View style={styles.container} testID="change-card">
-      {isRunning && (
+      {isRunning ? (
         <Text style={[styles.summary, isDark && styles.textDark]} testID="change-card-progress">
           {phaseKey
             ? t('whatsNew.v040.recutRunningPhase', {
@@ -71,8 +71,8 @@ export function SectionChangeCardSlide() {
               })
             : t('whatsNew.v040.recutRunning')}
         </Text>
-      )}
-      {failure && (
+      ) : null}
+      {failure ? (
         <View style={styles.row} testID="change-card-failed">
           <MaterialCommunityIcons
             name="alert-circle-outline"
@@ -81,11 +81,11 @@ export function SectionChangeCardSlide() {
           />
           <Text style={[styles.text, isDark && styles.textDark]}>{t(failure.card)}</Text>
         </View>
-      )}
+      ) : null}
       {shown !== null && (
         <Text style={[styles.summary, isDark && styles.textDark]} testID="change-card-counts">
           {untouched
-            ? t('whatsNew.v040.diffUnchanged', { sections: shown.unchanged })
+            ? t('whatsNew.v040.diffUnchanged', { count: shown.unchanged })
             : t('common.sentencePair', {
                 first: t('whatsNew.v040.diffTotals', {
                   current: shown.current,

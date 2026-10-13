@@ -83,7 +83,7 @@ export function StreamBackfillRow({ isDark }: StreamBackfillRowProps) {
             >
               {value}
             </Text>
-            {(isRunning || offersDownload) && (
+            {isRunning || offersDownload ? (
               <Button
                 testID="settings-stream-backfill-action"
                 label={
@@ -95,7 +95,7 @@ export function StreamBackfillRow({ isDark }: StreamBackfillRowProps) {
                 variant="ghost"
                 size="sm"
               />
-            )}
+            ) : null}
           </View>
         </View>
         {refusalKey !== null && (

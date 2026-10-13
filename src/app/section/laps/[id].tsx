@@ -86,21 +86,21 @@ function SectionLapsScreenContent() {
   return (
     <View style={[styles.screen, isDark && styles.screenDark]}>
       <ScreenScrollView contentContainerStyle={styles.content}>
-        {streamsError && (
+        {streamsError ? (
           <ErrorState
             variant="inline"
             error={streamsError}
             onRetry={refetchStreams}
             testID="section-laps-stream-failure"
           />
-        )}
-        {!streamsError && ready && outstanding > 0 && (
+        ) : null}
+        {!streamsError && ready && outstanding > 0 ? (
           <SectionStreamsNotice
             isDark={isDark}
             outstanding={outstanding}
             onRetry={refetchStreams}
           />
-        )}
+        ) : null}
         {performanceError !== undefined && (
           <ErrorState
             variant="inline"

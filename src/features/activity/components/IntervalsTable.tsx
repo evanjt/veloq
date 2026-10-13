@@ -89,7 +89,7 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
           <Text style={styles.colStat} accessibilityLabel={absentLabel(speed, t)}>
             {speed}
           </Text>
-          {hasHR && (
+          {hasHR ? (
             <Text
               style={[
                 styles.colStat,
@@ -101,8 +101,8 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
             >
               {heartRate}
             </Text>
-          )}
-          {hasPower && (
+          ) : null}
+          {hasPower ? (
             <Text
               style={[
                 styles.colStat,
@@ -114,7 +114,7 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
             >
               {power}
             </Text>
-          )}
+          ) : null}
         </View>
       </View>
     );

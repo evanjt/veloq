@@ -2,6 +2,7 @@ use rusqlite::Connection;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::PersistentEngine;
+use veloqrs::persistence::recordings::UploadTransition;
 
 #[test]
 fn a_synced_upload_that_disappears_can_retry_without_another_local_copy() {
@@ -38,9 +39,16 @@ fn a_synced_upload_that_disappears_can_retry_without_another_local_copy() {
         .engine_activity_id
         .unwrap();
     assert_eq!(canonical, "i-old");
-    engine
-        .set_recording_rejected("r1", "intervals.icu no longer has this activity", 2_000)
-        .unwrap();
+    let rejected = UploadTransition::Rejected {
+        install: 0.0,
+        error: "intervals.icu no longer has this activity".to_string(),
+    };
+    assert!(
+        engine
+            .transition_recording("r1", &rejected, 2_000)
+            .unwrap()
+            .applied
+    );
     let rejected = engine.get_recording("r1").unwrap().unwrap();
     assert_eq!(rejected.upload_status, "failed");
     assert_eq!(rejected.intervals_activity_id, None);
@@ -49,15 +57,14 @@ fn a_synced_upload_that_disappears_can_retry_without_another_local_copy() {
     assert!(engine.next_pending_recording(10_000).unwrap().is_none());
     assert_eq!(engine.activity_id_for_intervals_id("i-old"), None);
 
-    engine
-        .transition_recording(
-            "r1",
-            &veloqrs::persistence::recordings::UploadTransition::Requeue,
-            0,
-        )
-        .unwrap();
-    engine.set_recording_uploading("r1").unwrap();
-    engine.set_recording_uploaded("r1", Some("i-new")).unwrap();
+    let landed = UploadTransition::Uploaded {
+        install: 0.0,
+        intervals_activity_id: Some("i-new".to_string()),
+    };
+    for transition in [UploadTransition::Requeue, UploadTransition::Begin, landed] {
+        let answer = engine.transition_recording("r1", &transition, 0).unwrap();
+        assert!(answer.applied, "{transition:?} was refused: {answer:?}");
+    }
     assert!(engine.record_upload(&canonical, "i-new").unwrap());
     engine.set_recording_reconciled("r1").unwrap();
     assert!(!engine.record_upload(&canonical, "i-new").unwrap());

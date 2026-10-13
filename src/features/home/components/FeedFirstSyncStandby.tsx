@@ -58,7 +58,7 @@ export function FeedFirstSyncStandby() {
       <Text style={[styles.body, { color: textSecondary }]} testID="feed-first-sync-body">
         {t('feed.firstSyncBody')}
       </Text>
-      {hasStep && (
+      {hasStep ? (
         <Text
           style={[styles.step, { color: textSecondary }]}
           testID="feed-first-sync-step"
@@ -66,7 +66,7 @@ export function FeedFirstSyncStandby() {
         >
           {formatSyncProgress(status, t)}
         </Text>
-      )}
+      ) : null}
     </View>
   );
 }

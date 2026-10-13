@@ -47,16 +47,7 @@ impl ActivityManager {
                     .get(i + 1)
                     .map(|&o| o as usize)
                     .unwrap_or(all_coords.len() / 2);
-                let coords: Vec<crate::GpsPoint> = (start..end)
-                    .filter_map(|j| {
-                        let idx = j * 2;
-                        if idx + 1 < all_coords.len() {
-                            Some(crate::GpsPoint::new(all_coords[idx], all_coords[idx + 1]))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
+                let coords = track_of(&all_coords, start, end);
                 let sport = sport_types.get(i).cloned().unwrap_or_default();
                 batch.push((id.clone(), coords, sport));
             }
@@ -183,15 +174,6 @@ impl ActivityManager {
                 msg: format!("{}", e),
             })
         })
-    }
-
-    fn set_metrics(&self, metrics: Vec<crate::FfiActivityMetrics>) -> Result<(), VeloqError> {
-        with_engine(|e| {
-            e.set_activity_metrics_extended(metrics)
-                .map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })
-        })?
     }
 
     /// Store untyped activity bodies. Demo mode seeds the same table a live
@@ -630,6 +612,18 @@ async fn run_provisional_worker(
 #[cfg(not(test))]
 fn pause_provisional_worker() {}
 
+/// One activity's points out of the flat buffer, held to the same gate as a
+/// downloaded track so a caller that skips its own check stores nothing bad.
+fn track_of(all_coords: &[f64], start: usize, end: usize) -> Vec<crate::GpsPoint> {
+    (start..end)
+        .filter_map(|j| {
+            let lat = *all_coords.get(j * 2)?;
+            let lng = *all_coords.get(j * 2 + 1)?;
+            crate::net::types::is_storable(lat, lng).then(|| crate::GpsPoint::new(lat, lng))
+        })
+        .collect()
+}
+
 #[cfg(test)]
 static PROVISIONAL_WORKER_GATE: std::sync::Mutex<
     Option<(std::sync::mpsc::Sender<()>, std::sync::mpsc::Receiver<()>)>,
@@ -647,6 +641,25 @@ fn pause_provisional_worker() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn add_stores_only_the_points_a_downloaded_track_would_store() {
+        let coords = [f64::NAN, 0.0, -37.8, 144.9, -37.81, 144.95, 91.0, 0.0];
+        let track = track_of(&coords, 0, 4);
+        assert_eq!(
+            track,
+            vec![
+                crate::GpsPoint::new(-37.8, 144.9),
+                crate::GpsPoint::new(-37.81, 144.95)
+            ]
+        );
+        assert_eq!(
+            track_of(&coords, 1, 2),
+            vec![crate::GpsPoint::new(-37.8, 144.9)]
+        );
+        assert!(track_of(&coords, 0, 1).is_empty());
+        assert!(track_of(&[], 0, 0).is_empty());
+    }
 
     // The flat-buffer guards reject malformed input before touching the engine,
     // so these cases short-circuit without an initialised PERSISTENT_ENGINE.

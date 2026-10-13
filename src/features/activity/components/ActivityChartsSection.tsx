@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   ScrollView,
@@ -125,11 +125,14 @@ interface ActivityChartsSectionProps {
   hrZones?: HrZoneBand[] | undefined;
   /** The engine-resolved power zone bands in watts and time in each, from the detail screen read */
   powerZones?: PowerZoneBand[] | undefined;
+  /** The intervals.icu id a web link may name, from the detail screen read */
+  intervalsId?: string | null | undefined;
   /** The screen's opening transition has ended, so the content below the top chart may mount */
   transitionSettled: boolean;
   onPointSelect: (index: number | null) => void;
   onInteractionChange: (isInteracting: boolean) => void;
-  onExportGpx: () => void;
+  /** Takes the export button, which the share sheet points at on iPad. */
+  onExportGpx: (anchor: React.RefObject<View | null>) => void;
 }
 
 export const ActivityChartsSection = React.memo(function ActivityChartsSection({
@@ -159,6 +162,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   summary,
   hrZones,
   powerZones,
+  intervalsId,
   transitionSettled,
   onPointSelect,
   onInteractionChange,
@@ -166,6 +170,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
 }: ActivityChartsSectionProps) {
   const { t } = useTranslation();
   const { getPageMetrics } = useFFITimer();
+  const exportAnchor = useRef<View>(null);
 
   // Chart state
   const [selectedCharts, setSelectedCharts] = useState<ChartTypeId[]>([]);
@@ -272,12 +277,12 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
         showsVerticalScrollIndicator={false}
         scrollEnabled={!chartInteracting}
       >
-        {(!streamsDownloaded ||
-          availableCharts.length > 0 ||
-          hasIntervals ||
-          intervalsOwed ||
-          hasHrZones ||
-          hasPowerZones) && (
+        {!streamsDownloaded ||
+        availableCharts.length > 0 ||
+        hasIntervals ||
+        intervalsOwed ||
+        hasHrZones ||
+        hasPowerZones ? (
           <View style={styles.chartSection}>
             {!streamsDownloaded && (
               <BodyNotDownloaded
@@ -315,7 +320,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
             )}
 
             {/* Chart */}
-            {streams && selectedCharts.length > 0 && (
+            {streams && selectedCharts.length > 0 ? (
               <View style={[styles.chartCard, isDark && styles.cardDark]}>
                 <CombinedPlot
                   streams={streams}
@@ -334,11 +339,11 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                   onMetricsChange={handleMetricsChange}
                 />
               </View>
-            )}
+            ) : null}
 
             {/* Intervals zone bar. Its own source is `icu_intervals`, which is
                 persisted whether or not the streams were ever fetched. */}
-            {intervalsOwed && (
+            {intervalsOwed ? (
               <BodyNotDownloaded
                 testID="intervals-not-downloaded"
                 style={[styles.intervalsCard, isDark && styles.cardDark, styles.intervalsPending]}
@@ -347,9 +352,9 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                 status={intervalsStatus}
                 onRetry={() => onRetryIntervals?.()}
               />
-            )}
+            ) : null}
 
-            {hasIntervals && (
+            {hasIntervals ? (
               <View
                 testID="activity-interval-table"
                 style={[styles.intervalsCard, isDark && styles.cardDark]}
@@ -389,19 +394,19 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                     </View>
                   )}
                 </Pressable>
-                {intervalsExpanded && intervalsData?.icu_intervals && (
+                {intervalsExpanded && intervalsData?.icu_intervals ? (
                   <IntervalsTable
                     intervals={intervalsData.icu_intervals}
                     activityType={activity.type}
                     isMetric={isMetric}
                     isDark={isDark}
                   />
-                )}
+                ) : null}
               </View>
-            )}
+            ) : null}
 
             {/* HR Zones Chart */}
-            {hasHrZones && (
+            {hasHrZones ? (
               <View
                 testID="activity-zone-chart"
                 style={[styles.chartCard, isDark && styles.cardDark]}
@@ -415,10 +420,10 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                   />
                 </ComponentErrorBoundary>
               </View>
-            )}
+            ) : null}
 
             {/* Power Zones Chart */}
-            {powerZones && hasPowerZones && (
+            {powerZones && hasPowerZones ? (
               <View style={[styles.chartCard, isDark && styles.cardDark]}>
                 <ComponentErrorBoundary part="powerZonesChart" debugName="Power Zones Chart">
                   <PowerZonesChart
@@ -428,11 +433,11 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                   />
                 </ComponentErrorBoundary>
               </View>
-            )}
+            ) : null}
           </View>
-        )}
+        ) : null}
 
-        {belowFoldMounted && (
+        {belowFoldMounted ? (
           <>
             {/* Insightful Stats */}
             <ComponentErrorBoundary part="activityStats" debugName="Activity Stats">
@@ -444,15 +449,17 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                 fitnessImpact={fitnessImpact}
                 newGround={newGround}
                 summary={summary}
+                intervalsId={intervalsId}
               />
             </ComponentErrorBoundary>
 
             {/* Export GPX button */}
             {coordinates.length > 0 && (
               <Button
+                ref={exportAnchor}
                 testID="activity-export-gpx"
                 style={styles.exportGpxButton}
-                onPress={onExportGpx}
+                onPress={() => onExportGpx(exportAnchor)}
                 loading={gpxExporting}
                 label={t('export.gpx')}
                 icon={
@@ -462,93 +469,93 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
             )}
 
             {/* Device attribution */}
-            {activity.device_name && (
+            {activity.device_name ? (
               <View style={styles.deviceAttributionContainer}>
                 <DeviceAttribution deviceName={activity.device_name} />
               </View>
-            )}
+            ) : null}
 
-            {debugEnabled &&
-              activity &&
-              (() => {
-                const pageMetrics = getPageMetrics();
-                const ffiEntries =
-                  pageMetrics.length > 0
-                    ? pageMetrics.reduce<
-                        Record<string, { calls: number; totalMs: number; maxMs: number }>
-                      >((acc, m) => {
-                        if (!acc[m.name]) acc[m.name] = { calls: 0, totalMs: 0, maxMs: 0 };
-                        acc[m.name].calls++;
-                        acc[m.name].totalMs += m.durationMs;
-                        acc[m.name].maxMs = Math.max(acc[m.name].maxMs, m.durationMs);
-                        return acc;
-                      }, {})
-                    : {};
-                const warnings: {
-                  level: 'warn' | 'error';
-                  message: string;
-                }[] = [];
-                const gpsPoints = streams?.latlng ? streams.latlng.length / 2 : 0;
-                if (gpsPoints > 2000) {
-                  warnings.push({
-                    level: 'warn',
-                    message: `Polyline points: ${gpsPoints}`,
-                  });
-                }
-                for (const [name, m] of Object.entries(ffiEntries)) {
-                  if (m.maxMs > 200) {
+            {debugEnabled && activity
+              ? (() => {
+                  const pageMetrics = getPageMetrics();
+                  const ffiEntries =
+                    pageMetrics.length > 0
+                      ? pageMetrics.reduce<
+                          Record<string, { calls: number; totalMs: number; maxMs: number }>
+                        >((acc, m) => {
+                          if (!acc[m.name]) acc[m.name] = { calls: 0, totalMs: 0, maxMs: 0 };
+                          acc[m.name].calls++;
+                          acc[m.name].totalMs += m.durationMs;
+                          acc[m.name].maxMs = Math.max(acc[m.name].maxMs, m.durationMs);
+                          return acc;
+                        }, {})
+                      : {};
+                  const warnings: {
+                    level: 'warn' | 'error';
+                    message: string;
+                  }[] = [];
+                  const gpsPoints = streams?.latlng ? streams.latlng.length / 2 : 0;
+                  if (gpsPoints > 2000) {
                     warnings.push({
-                      level: 'error',
-                      message: `${name}: ${m.maxMs.toFixed(0)}ms (max)`,
+                      level: 'warn',
+                      message: `Polyline points: ${gpsPoints}`,
                     });
                   }
-                }
-                return (
-                  <>
-                    {warnings.length > 0 && <DebugWarningBanner warnings={warnings} />}
-                    <DebugInfoPanel
-                      isDark={isDark}
-                      entries={[
-                        {
-                          label: 'Activity ID',
-                          value: activityId?.slice(0, 24) ?? ABSENT,
-                        },
-                        { label: 'Sport', value: activity.type ?? ABSENT },
-                        {
-                          label: 'GPS Points',
-                          value: streams?.latlng ? String(gpsPoints) : ABSENT,
-                        },
-                        {
-                          label: 'HR Samples',
-                          value: streams?.heartrate ? String(streams.heartrate.length) : ABSENT,
-                        },
-                        {
-                          label: 'Power Samples',
-                          value: streams?.watts ? String(streams.watts.length) : ABSENT,
-                        },
-                        {
-                          label: 'Cadence Samples',
-                          value: streams?.cadence ? String(streams.cadence.length) : ABSENT,
-                        },
-                        {
-                          label: 'Sections Matched',
-                          value: String(engineSectionCount),
-                        },
-                        {
-                          label: 'Custom Sections',
-                          value: String(customSectionCount),
-                        },
-                        ...Object.entries(ffiEntries).map(([name, m]) => ({
-                          label: name,
-                          value: `${m.calls}x ${m.totalMs.toFixed(0)}ms`,
-                        })),
-                      ]}
-                    />
-                  </>
-                );
-              })()}
+                  for (const [name, m] of Object.entries(ffiEntries)) {
+                    if (m.maxMs > 200) {
+                      warnings.push({
+                        level: 'error',
+                        message: `${name}: ${m.maxMs.toFixed(0)}ms (max)`,
+                      });
+                    }
+                  }
+                  return (
+                    <>
+                      {warnings.length > 0 && <DebugWarningBanner warnings={warnings} />}
+                      <DebugInfoPanel
+                        isDark={isDark}
+                        entries={[
+                          {
+                            label: 'Activity ID',
+                            value: activityId?.slice(0, 24) ?? ABSENT,
+                          },
+                          { label: 'Sport', value: activity.type ?? ABSENT },
+                          {
+                            label: 'GPS Points',
+                            value: streams?.latlng ? String(gpsPoints) : ABSENT,
+                          },
+                          {
+                            label: 'HR Samples',
+                            value: streams?.heartrate ? String(streams.heartrate.length) : ABSENT,
+                          },
+                          {
+                            label: 'Power Samples',
+                            value: streams?.watts ? String(streams.watts.length) : ABSENT,
+                          },
+                          {
+                            label: 'Cadence Samples',
+                            value: streams?.cadence ? String(streams.cadence.length) : ABSENT,
+                          },
+                          {
+                            label: 'Sections Matched',
+                            value: String(engineSectionCount),
+                          },
+                          {
+                            label: 'Custom Sections',
+                            value: String(customSectionCount),
+                          },
+                          ...Object.entries(ffiEntries).map(([name, m]) => ({
+                            label: name,
+                            value: `${m.calls}x ${m.totalMs.toFixed(0)}ms`,
+                          })),
+                        ]}
+                      />
+                    </>
+                  );
+                })()
+              : null}
           </>
-        )}
+        ) : null}
       </ScrollView>
 
       {/* Fullscreen Chart Modal */}

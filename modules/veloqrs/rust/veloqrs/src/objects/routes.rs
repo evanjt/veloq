@@ -123,13 +123,7 @@ impl RouteManager {
                         .as_chunks::<2>()
                         .0
                         .iter()
-                        .filter(|&&[lat, lng]| {
-                            lat.is_finite()
-                                && lng.is_finite()
-                                && lat.abs() <= 90.0
-                                && lng.abs() <= 180.0
-                                && (lat != 0.0 || lng != 0.0)
-                        })
+                        .filter(|&&[lat, lng]| crate::net::types::is_recorded_fix(lat, lng))
                         .map(|&[lat, lng]| crate::GpsPoint::new(lat, lng))
                         .collect();
                     group_ids

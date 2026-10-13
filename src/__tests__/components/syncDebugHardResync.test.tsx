@@ -1,5 +1,5 @@
 /**
- * Scenario: Hard Re-sync on the sync debug tab wipes the whole engine, and the
+ * Scenario: Hard Re-sync in the developer sync tools wipes the whole engine, and the
  * wipe fails on a Rust error, a stopped worker or its own deadline.
  * Expected behaviour: the failure is reported, and nothing claims a re-sync
  * that never started.
@@ -9,7 +9,7 @@ import React from 'react';
 import { Alert } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 
-import { SyncDebugTab } from '@/features/routes/components/SyncDebugTab';
+import { SyncDebugSection } from '@/features/routes/components/SyncDebugSection';
 
 const mockInvalidate = jest.fn();
 const mockEngine = {
@@ -20,7 +20,10 @@ const mockEngine = {
 };
 
 // No locale is loaded here, so the translator answers with the key it was asked.
-jest.mock('@/i18n', () => ({ i18n: { t: (key: string) => key } }));
+jest.mock('@/i18n', () => ({
+  i18n: { t: (key: string) => key },
+  getCurrentLanguage: () => 'en-GB',
+}));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@/features/activity', () => ({ useActivities: () => ({ data: [] }) }));
 jest.mock('@/shared/app/SyncDateRangeStore', () => ({
@@ -50,7 +53,7 @@ async function hardResync(): Promise<void> {
   (Alert.alert as jest.Mock).mockImplementation((_title, _body, buttons) => {
     buttons?.find((b: { style?: string }) => b.style === 'destructive')?.onPress?.();
   });
-  const { getByText } = await render(<SyncDebugTab />);
+  const { getByText } = await render(<SyncDebugSection />);
   await fireEvent.press(getByText('Hard Re-sync'));
   await wipe.catch(() => {});
   await new Promise(process.nextTick);

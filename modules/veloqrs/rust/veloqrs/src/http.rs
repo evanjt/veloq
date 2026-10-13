@@ -589,7 +589,10 @@ impl ActivityFetcher {
                     let dispatch_time = start_time.elapsed();
 
                     let wide = wide_ids.contains(&id);
-                    let named = upstream.get(&id).map(String::as_str).unwrap_or(&id);
+                    let named = crate::persistence::origin::upstream_or_key(
+                        &id,
+                        upstream.get(&id).map(String::as_str),
+                    );
                     let result = Self::fetch_single_track(transport, &id, named, wide, lane).await;
                     if result.error.as_deref() == Some("unauthorized") {
                         unauthorized.store(true, Ordering::Release);

@@ -42,7 +42,7 @@ const read = {
 
 describe('climbBestsOf', () => {
   it('picks the family of the sport and none for swimming', () => {
-    expect(climbBestsOf(read, 'Running').map((b) => b.label)).toEqual(['15s', '5m', '10m']);
+    expect(climbBestsOf(read, 'Running').map((b) => b.label)).toEqual(['15 s', '5 min', '10 min']);
     expect(climbBestsOf(read, 'Cycling')).toEqual([]);
     expect(climbBestsOf(read, 'Swimming')).toEqual([]);
     expect(climbBestsOf(null, 'Running')).toEqual([]);
@@ -72,7 +72,7 @@ describe('Season Bests climbing rows', () => {
     expect(screen.getByText('bestEffortsScreen.climbingBests')).toBeTruthy();
     expect(screen.getByText('4.91 units.wattsPerKg')).toBeTruthy();
     expect(screen.getByText('900 units.metresPerHour')).toBeTruthy();
-    expect(screen.getByTestId('season-bests-climbing-300')).toHaveTextContent(`5m${ABSENT}`, {
+    expect(screen.getByTestId('season-bests-climbing-300')).toHaveTextContent(`5 min${ABSENT}`, {
       exact: true,
     });
     expect(screen.queryByText('statsScreen.noEffortData')).toBeNull();

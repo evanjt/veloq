@@ -224,11 +224,11 @@ export const RoutesList = memo(function RoutesList({
     if (groups.length === 0) return null;
     return (
       <View>
-        {hasMore && (
+        {hasMore ? (
           <View style={styles.loadingMore}>
             <ActivityIndicator size="small" color={colors.primary} />
           </View>
-        )}
+        ) : null}
         <DataRangeFooter days={cacheDays} isDark={isDark} />
         <View style={styles.explanation}>
           <ExplanationCard {...routesExplanation(t)} testID="routes-explanation" />
@@ -248,13 +248,13 @@ export const RoutesList = memo(function RoutesList({
             placeholder={t('routes.searchRoutes' as never) as string}
             style={styles.searchBar}
           />
-          {onSportChange && (sportOptions.length > 1 || sportType !== undefined) && (
+          {onSportChange && (sportOptions.length > 1 || sportType !== undefined) ? (
             <SportFilterChips
               options={sportOptions}
               selectedType={sportType}
               onSelect={onSportChange}
             />
-          )}
+          ) : null}
           {/* Count line */}
           <View style={styles.countRow}>
             <Text style={[styles.summaryText, isDark && styles.summaryTextDark]}>

@@ -41,7 +41,7 @@ const DEBUG_SCREENS = [
   'src/app/debug.tsx',
   'src/features/insights/components/InsightDebugPanel.tsx',
   'src/features/routes/components/DebugInfoPanel.tsx',
-  'src/features/routes/components/SyncDebugTab.tsx',
+  'src/features/routes/components/SyncDebugSection.tsx',
 ];
 
 // Names and symbols a translation keeps as written, each with the reason.

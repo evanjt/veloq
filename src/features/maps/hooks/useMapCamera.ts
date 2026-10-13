@@ -18,7 +18,6 @@ import type { LngLatBounds } from '@/features/maps/lib/coordinates';
 import type { MapCameraSpec } from '@/features/maps/lib/htmlBuilders/mapSurface';
 import type { Map3DWebViewRef } from '@/features/maps/components/Map3DWebView';
 import { useLocateUser } from './useLocateUser';
-import { motionTiming } from '@/shared/ui/reduceMotion';
 
 /** Bounds returned by getMapLibreBounds */
 interface MapBounds {
@@ -153,12 +152,7 @@ export function useMapCamera({
     } else {
       surfaceRef.current?.resetOrientation();
     }
-    motionTiming(bearingAnim, {
-      toValue: 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [bearingAnim, is3DMode, is3DReady, map3DRef]);
+  }, [is3DMode, is3DReady, map3DRef]);
 
   const handleGetLocation = useCallback(
     () => locate(is3DMode && is3DReady ? map3DRef.current : surfaceRef.current),

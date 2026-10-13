@@ -5,6 +5,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
 import { getStoredCredentials, useAuthStore } from '@/shared/app/AuthStore';
+import { sourceFor } from '@/shared/app/source';
+import { INTERVALS_URLS } from '@/shared/app/constants';
 import { useUploadPermissionStore } from '@/features/recording';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { clearAccountData, clearAuthOnly, wipeConfirmMessage } from '@/shared/storage';
@@ -68,6 +70,22 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
   // instant and works with no network. Only the credentials go. "Sign out and
   // clear data" is the path that takes the rest.
   const handleLogout = () => {
+    // A demo holds no credentials and needs no connection to start again, so
+    // its confirm says only that the sample library closes.
+    if (authMethod === 'demo') {
+      confirmAction({
+        title: t('alerts.leaveDemoTitle'),
+        message: t('alerts.leaveDemoMessage'),
+        confirmLabel: t('alerts.leaveDemoConfirm'),
+        cancelLabel: t('common.cancel'),
+        destructive: true,
+        onConfirm: () => {
+          haptics.medium();
+          finishLogout(false);
+        },
+      });
+      return;
+    }
     confirmAction({
       title: t('alerts.disconnectTitle'),
       message: offlineConfirmMessage(
@@ -133,8 +151,9 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
     profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
 
   // Get auth method badge text
+  const source = sourceFor({ authMethod });
   const getAuthBadge = (): string => {
-    switch (authMethod) {
+    switch (source?.scheme) {
       case 'oauth':
         return 'OAuth';
       case 'apiKey':
@@ -182,8 +201,9 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
     return result;
   };
 
-  const isDemo = authMethod === 'demo';
-  const isOAuth = authMethod === 'oauth';
+  const isDemo = source?.id === 'demo';
+  const signOutLabel = isDemo ? t('settings.leaveDemo') : t('settings.disconnectAccount');
+  const isOAuth = source?.can.scoped === true;
   const parsedScopes = isOAuth && grantedScopes ? parseScopes(grantedScopes) : [];
   const profile = (
     <>
@@ -209,9 +229,9 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
           {athlete?.name || t('settings.athleteFallback', 'Athlete')}
         </Text>
         <Text style={[styles.profileEmail, isDark && settingsStyles.textSecondary]}>
-          {authMethod === 'demo' ? getAuthBadge() : `intervals.icu · ${getAuthBadge()}`}
+          {isDemo ? getAuthBadge() : `intervals.icu · ${getAuthBadge()}`}
         </Text>
-        {isOAuth && parsedScopes.length > 0 && (
+        {isOAuth && parsedScopes.length > 0 ? (
           <View style={styles.scopeContainer}>
             <Text style={[styles.scopeTitle, isDark && settingsStyles.textSecondary]}>
               {t('settings.permissions', 'Permissions')}
@@ -231,7 +251,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
               ))}
             </View>
           </View>
-        )}
+        ) : null}
       </View>
     </>
   );
@@ -246,7 +266,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
         <Row>{profile}</Row>
       ) : (
         <ExternalLinkRow
-          url={`https://intervals.icu/athlete/${getStoredCredentials().athleteId ?? ''}/activities`}
+          url={INTERVALS_URLS.athletePage(getStoredCredentials().athleteId ?? '')}
           label={athlete?.name || t('settings.athleteFallback', 'Athlete')}
         >
           {profile}
@@ -259,12 +279,10 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
         testID="settings-logout-button"
         behaviour="act"
         onPress={handleLogout}
-        accessibilityLabel={t('settings.disconnectAccount')}
+        accessibilityLabel={signOutLabel}
       >
         <MaterialCommunityIcons name="logout" size={22} color={colors.error} />
-        <Text style={[settingsStyles.actionRowText, { color: errorDeep }]}>
-          {t('settings.disconnectAccount')}
-        </Text>
+        <Text style={[settingsStyles.actionRowText, { color: errorDeep }]}>{signOutLabel}</Text>
       </Row>
 
       {/* Destructive sign-out - wipes activities/GPS/sections too */}

@@ -33,9 +33,12 @@ interface Versions {
   lock: string;
   crate: string;
   crateLock: string;
+  expo: string;
+  buildNumber: string;
+  versionCode: number;
 }
 
-/** Run the guard over a checkout whose five version copies are `versions`. */
+/** Run the guard over a checkout whose version copies are `versions`. */
 function runOver(versions: Versions) {
   const fixture = mkdtempSync(join(tmpdir(), 'module-version-'));
   try {
@@ -51,6 +54,16 @@ function runOver(versions: Versions) {
     );
     writeFileSync(join(fixture, CRATE), crateManifest(versions.crate));
     writeFileSync(join(fixture, CRATE_LOCK), crateLock(versions.crateLock));
+    writeFileSync(
+      join(fixture, 'app.json'),
+      JSON.stringify({
+        expo: {
+          version: versions.expo,
+          ios: { buildNumber: versions.buildNumber },
+          android: { versionCode: versions.versionCode },
+        },
+      })
+    );
     return spawnSync('node', [script, fixture], { encoding: 'utf8' });
   } finally {
     rmSync(fixture, { recursive: true, force: true });
@@ -63,6 +76,9 @@ const AGREED: Versions = {
   lock: '0.4.0',
   crate: '0.4.0',
   crateLock: '0.4.0',
+  expo: '0.4.0',
+  buildNumber: '29',
+  versionCode: 29,
 };
 
 it('the shipped module version matches the app release', () => {
@@ -115,4 +131,34 @@ it('the release audit rejects a stale locked module version', () => {
   const run = runOver({ ...AGREED, lock: '0.1.0' });
   expect(run.status).toBe(1);
   expect(run.stderr).toContain('lock version 0.1.0');
+});
+
+// The store builds take their version name from app.json, so a bump that
+// misses it publishes a release whose binaries name the previous version.
+it('the release audit rejects an app.json version left behind by a version bump', () => {
+  const run = runOver({
+    ...AGREED,
+    app: '0.4.1',
+    module: '0.4.1',
+    lock: '0.4.1',
+    crate: '0.4.1',
+    crateLock: '0.4.1',
+  });
+  expect(run.status).toBe(1);
+  expect(run.stderr).toContain('app.json version 0.4.0');
+});
+
+// Both stores refuse a build number they have already seen, so the two
+// platforms' build numbers move together.
+it('the release audit rejects an iOS build number behind the Android version code', () => {
+  const run = runOver({ ...AGREED, versionCode: 30 });
+  expect(run.status).toBe(1);
+  expect(run.stderr).toContain('iOS build number 29');
+  expect(run.stderr).toContain('Android version code 30');
+});
+
+it('the release audit rejects a checkout whose build numbers cannot be read', () => {
+  const run = runOver({ ...AGREED, buildNumber: '' });
+  expect(run.status).toBe(1);
+  expect(run.stderr).toContain('iOS build number');
 });

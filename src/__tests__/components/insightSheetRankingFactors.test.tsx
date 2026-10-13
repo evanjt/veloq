@@ -123,8 +123,8 @@ describe('the ranking factors group on an insight sheet', () => {
   it.each([
     [0.14, '+14%'],
     [0, '0%'],
-    [-0.14, '−14%'],
-    [-1.5, '−150%'],
+    [-0.14, '-14%'],
+    [-1.5, '-150%'],
   ])('shows a change of %p as %s', async (change, text) => {
     await sheet(insight({}, ranking({ improvementChange: change })));
     expect(screen.getByTestId('ranking-factor-value-improvement')).toHaveTextContent(text, {

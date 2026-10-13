@@ -30,6 +30,8 @@ export interface ActivityDetailBundle {
   exerciseGroups: ExerciseGroup[];
   /** Activities held by the engine, for the cached-days calculation */
   activityCount: number;
+  /** Whether the engine holds this activity's track, which the map then draws by URL */
+  hasGpsTrack: boolean;
   /** Sections held by the engine */
   sectionCount: number;
   /** Route groups above the requested minimum, most attempts first */
@@ -63,6 +65,8 @@ export interface ActivityDetailBundle {
   summary: ActivitySummary;
   /** Section changes whose ledger rows name this activity, newest first */
   ledgerChanges: ActivityLedgerChange[];
+  /** The intervals.icu id a web link may name; null when intervals.icu holds no page for it */
+  intervalsId: string | null;
 }
 
 /** Route groups on the detail screen need at least this many attempts. */
@@ -110,6 +114,7 @@ function fetchActivityDetailData(activityId: string): DetailRead {
     data: {
       exerciseGroups: result.exerciseGroups,
       activityCount: result.activityCount,
+      hasGpsTrack: result.hasGpsTrack,
       sectionCount: result.sectionCount,
       routeGroups: result.routeGroups,
       representativeSignature: result.representativeSignature,
@@ -131,6 +136,7 @@ function fetchActivityDetailData(activityId: string): DetailRead {
       fitnessImpact: result.fitnessImpact,
       summary: result.summary,
       ledgerChanges: result.ledgerChanges,
+      intervalsId: result.intervalsId ?? null,
     },
     error: undefined,
   };

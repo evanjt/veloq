@@ -15,7 +15,7 @@ import androidx.core.app.NotificationManagerCompat
  *
  * The channel, the tag and the tap target are the ones the JavaScript task
  * used, so an athlete sees one kind of entry whichever path posted it: the
- * `veloq-insights` channel the app creates at launch, `activity-<id>` as the
+ * `veloq-activity` channel the app creates at launch, `activity-<id>` as the
  * tag so a second post for the same ride replaces the first, and a tap that
  * opens the activity through the app's own deep link.
  *
@@ -30,7 +30,14 @@ import androidx.core.app.NotificationManagerCompat
  * they are absent.
  */
 object ActivityNotificationPoster {
-  const val CHANNEL_ID = "veloq-insights"
+  const val CHANNEL_ID = "veloq-activity"
+
+  /**
+   * The channel this one replaces, at high importance. Android keeps a
+   * channel's importance once created, so the quieter channel took a new id
+   * and the old one is deleted wherever the new one is made.
+   */
+  const val RETIRED_CHANNEL_ID = "veloq-insights"
 
   @JvmStatic
   fun post(context: Context, activityId: String, athleteId: String, title: String, body: String) {
@@ -50,7 +57,7 @@ object ActivityNotificationPoster {
       .setContentTitle(title)
       .setContentText(body)
       .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-      .setPriority(NotificationCompat.PRIORITY_HIGH)
+      .setPriority(NotificationCompat.PRIORITY_DEFAULT)
       .setContentIntent(pending)
       .setAutoCancel(true)
       .build()
@@ -76,11 +83,12 @@ object ActivityNotificationPoster {
   private fun ensureChannel(context: Context) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
     val manager = context.getSystemService(NotificationManager::class.java)
+    manager.deleteNotificationChannel(RETIRED_CHANNEL_ID)
     if (manager.getNotificationChannel(CHANNEL_ID) != null) return
     val channel = NotificationChannel(
       CHANNEL_ID,
       appString(context, "notification_channel_insights_name") ?: CHANNEL_ID,
-      NotificationManager.IMPORTANCE_HIGH
+      NotificationManager.IMPORTANCE_DEFAULT
     )
     appString(context, "notification_channel_insights_description")?.let { channel.description = it }
     manager.createNotificationChannel(channel)

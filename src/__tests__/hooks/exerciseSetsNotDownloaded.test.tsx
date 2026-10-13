@@ -191,7 +191,7 @@ describe('the exercise table with sets', () => {
     );
 
     await waitFor(() => expect(screen.getByText('Engine Squat')).toBeTruthy());
-    expect(screen.getByText('9526.2 lbs')).toBeTruthy();
+    expect(screen.getByText('9,526.2 lbs')).toBeTruthy();
     expect(screen.getByText(/strength.bestSet/)).toBeTruthy();
     expect(screen.getByText(/strength.restBetweenSets: 1:00/)).toBeTruthy();
     expect(screen.queryByText(/strength.restBetweenSets: 3:00/)).toBeNull();

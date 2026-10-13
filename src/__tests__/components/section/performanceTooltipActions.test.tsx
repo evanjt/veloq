@@ -126,7 +126,7 @@ describe('the selected attempt row for a screen reader', () => {
 
     expect(label).toContain('Harbour loop');
     expect(label).toContain('3:20');
-    expect(label).toContain('40s');
+    expect(label).toContain('40 s');
     expect(label).toContain(formatShortDateWithYear(POINT.date));
     expect(label).not.toContain("'");
   });
@@ -153,5 +153,18 @@ describe('the selected attempt row for a screen reader', () => {
 
     const row = screen.getByLabelText(/^Harbour loop/);
     expect(row.props.accessibilityActions).toBeUndefined();
+  });
+});
+
+describe('the selected attempt row exclude mark', () => {
+  it('draws the exclusion glyph the lap list and the action row use', async () => {
+    await renderTooltip(POINT);
+
+    const exclude = screen.getByLabelText('sections.excludeActivity');
+    const names = exclude
+      .findAll((n: { props: { name?: string } }) => typeof n.props.name === 'string')
+      .map((n: { props: { name?: string } }) => n.props.name);
+
+    expect(names[0]).toBe('eye-off-outline');
   });
 });

@@ -5,17 +5,18 @@ import XCTest
 @testable import VeloqWidget
 
 /// Scenario: every widget is drawn at every family it supports, in the smallest and the largest
-/// box an iPhone gives that family, in light, in dark and in the accented mode of the tinted and
-/// clear Home Screens, and in colour at the largest accessibility text size, with the sample
-/// library, with the longest words the locales have, with an empty library and with rides and no
-/// wellness reading.
+/// box an iPhone and an iPad give that family, in light, in dark and in the accented mode of the
+/// tinted and clear Home Screens, and in colour at the largest text size the widgets follow, with
+/// the sample library, with the longest words the locales have, with an empty library and with
+/// rides and no wellness reading.
 ///
 /// Expected behaviour: no text is truncated, squeezed to fewer lines than it needs or pushed out
-/// of the widget, an empty library draws the open-the-app prompt, and a Summary row that lists
-/// form names its zone. Every placement is saved as a PNG under `WIDGET_CAPTURES_DIR`, so a
-/// failure can be looked at rather than only read. An accented placement is saved as the system
-/// draws its one colour: every pixel the widget paints in white at the alpha it was painted
-/// with, on no ground of its own, so what is left is what the widget says without hue.
+/// of the widget, an empty library draws the open-the-app prompt, a Summary row that lists form
+/// names its zone, and a Summary chart names its series, its span and its zones. Every placement
+/// is saved as a PNG under `WIDGET_CAPTURES_DIR`, so a failure can be looked at rather than only
+/// read. An accented placement is saved as the system draws its one colour: every pixel the
+/// widget paints in white at the alpha it was painted with, on no ground of its own, so what is
+/// left is what the widget says without hue.
 ///
 /// Runs on the iOS simulator: `ImageRenderer` lays the views out with the platform's own text.
 @MainActor
@@ -62,7 +63,11 @@ final class WidgetCaptureTests: XCTestCase {
   ]
 
   /// The box each family gets on the smallest and the largest iPhone screen the app installs on,
-  /// 375 by 667 and 430 by 932 points, from the platform's table of widget sizes.
+  /// 375 by 667 and 430 by 932 points, then on the smallest and the largest iPad screen, 744 by
+  /// 1133 and 1192 by 1590 points with Display Zoom at More Space, from the platform's table of
+  /// widget sizes. An iPad lays a widget out in its canvas box and scales it down to the device,
+  /// so the canvas is the box. The iPhone boxes come first: the tests that take one box per
+  /// family read the smallest and the largest iPhone.
   private struct Box {
     let screen: String
     let size: CGSize
@@ -74,16 +79,22 @@ final class WidgetCaptureTests: XCTestCase {
       return [
         Box(screen: "375", size: CGSize(width: 148, height: 148)),
         Box(screen: "430", size: CGSize(width: 170, height: 170)),
+        Box(screen: "ipad-744", size: CGSize(width: 141, height: 141)),
+        Box(screen: "ipad-1192", size: CGSize(width: 188, height: 188)),
       ]
     case .systemMedium:
       return [
         Box(screen: "375", size: CGSize(width: 321, height: 148)),
         Box(screen: "430", size: CGSize(width: 364, height: 170)),
+        Box(screen: "ipad-744", size: CGSize(width: 305.5, height: 141)),
+        Box(screen: "ipad-1192", size: CGSize(width: 412, height: 188)),
       ]
     default:
       return [
         Box(screen: "375", size: CGSize(width: 321, height: 324)),
         Box(screen: "430", size: CGSize(width: 364, height: 382)),
+        Box(screen: "ipad-744", size: CGSize(width: 305.5, height: 305.5)),
+        Box(screen: "ipad-1192", size: CGSize(width: 412, height: 412)),
       ]
     }
   }
@@ -105,8 +116,18 @@ final class WidgetCaptureTests: XCTestCase {
     _ widget: String, _ family: WidgetFamily, _ screen: String, _ fixture: String
   ) -> [String] {
     if fixture == "empty" { return widget == "record" ? [] : ["empty title"] }
-    // A fitness hero moves form onto the row, which then names its zone.
-    if widget == "summary-fitness", family != .systemSmall { return ["metric caption"] }
+    if widget.hasPrefix("summary"), family != .systemSmall {
+      var texts: [String] = []
+      // A fitness hero moves form onto the row, which then names its zone.
+      if widget == "summary-fitness" { texts.append("metric caption") }
+      // The fitness chart names its two lines and the days they span; the large form chart
+      // names its zone and labels the bounds between zones.
+      if fixture == "demo" || fixture == "long-text" {
+        texts += ["chart series", "chart span"]
+        if family == .systemLarge { texts += ["form chart zone", "zone bound"] }
+      }
+      return texts
+    }
     // The sample library's form line has room under the comparison on the larger medium box.
     if widget == "activity", family == .systemMedium, screen == "430", fixture == "demo" {
       return ["form zone"]

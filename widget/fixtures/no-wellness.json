@@ -5,6 +5,11 @@
       "form": null,
       "hrv": null
     },
+    "chartSpans": {
+      "fitness": null,
+      "form": null,
+      "hrv": null
+    },
     "formZone": "Grey Zone",
     "impactLine": null,
     "metricLabels": {
@@ -624,9 +629,9 @@
       "colorKey": "default",
       "id": "weekHours",
       "label": "Week",
-      "spoken": "Week 1.5h, improved",
+      "spoken": "Week 1 h 30 min, improved",
       "trendDir": "up",
-      "value": "1.5h",
+      "value": "1 h 30 min",
       "verdict": "improved"
     },
     {

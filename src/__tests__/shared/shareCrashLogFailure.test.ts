@@ -65,7 +65,7 @@ it('says nothing when the sheet closes without a target', async () => {
 
   expect(Sharing.shareAsync).toHaveBeenCalledWith('file:///cache/veloq-crash-log.txt', {
     mimeType: 'text/plain',
-    UTI: 'text/plain',
+    dialogTitle: 'veloq-crash-log.txt',
   });
   expect(alert).not.toHaveBeenCalled();
 });

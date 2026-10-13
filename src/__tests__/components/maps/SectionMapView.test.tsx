@@ -14,6 +14,8 @@ import { render, fireEvent, screen, act, waitFor } from '@testing-library/react-
 import * as Location from 'expo-location';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SectionMapView } from '@/features/routes/components/SectionMapView';
+import { MapSurface } from '@/features/maps/components/MapSurface';
+import { CompassArrow } from '@/shared/ui';
 import { TERRAIN_UNAVAILABLE_TEST_ID } from '@/features/maps/components/TerrainUnavailableNotice';
 import type { FrequentSection, RoutePoint } from '@/types';
 
@@ -23,10 +25,15 @@ jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithVa
 const mockFitBounds = jest.fn();
 const mockSetCamera = jest.fn();
 const mockApply = jest.fn();
+const mockResetOrientation = jest.fn();
 jest.mock('@/features/maps/lib/htmlBuilders/mapSurface', () => {
   const actual = jest.requireActual('@/features/maps/lib/htmlBuilders/mapSurface');
   return {
     ...actual,
+    buildResetOrientationScript: (...args: unknown[]) => {
+      mockResetOrientation(...args);
+      return actual.buildResetOrientationScript(...args);
+    },
     buildSetCameraScript: (...args: unknown[]) => {
       mockSetCamera(...args);
       return actual.buildSetCameraScript(...args);
@@ -76,6 +83,10 @@ const POLYLINE: RoutePoint[] = [
   { lat: 46.951, lng: 7.45 },
   { lat: 46.952, lng: 7.451 },
 ];
+
+function readValue(value: Animated.Value): number {
+  return (value as unknown as { __getValue: () => number }).__getValue();
+}
 
 function section(overrides: Partial<FrequentSection> = {}): FrequentSection {
   return {
@@ -171,16 +182,27 @@ describe('SectionMapView', () => {
     ).not.toBe(icon);
   });
 
-  it('resets orientation on release', async () => {
+  it('resets orientation on release and leaves the compass to the bearing the map reports', async () => {
     const timing = jest.spyOn(Animated, 'timing');
     await renderSection();
-    timing.mockClear();
+    const compass = screen.getByTestId('section-map-compass').findByType(CompassArrow).props
+      .rotation as Animated.Value;
+    const reportBearing = (bearing: number) =>
+      act(() =>
+        (screen.UNSAFE_getByType(MapSurface).props.onBearingChange as (b: number) => void)(bearing)
+      );
+    await reportBearing(-120);
+    mockResetOrientation.mockClear();
 
     await fireEvent(screen.getByTestId('section-map-compass'), 'pressIn');
-    expect(timing).not.toHaveBeenCalled();
+    expect(mockResetOrientation).not.toHaveBeenCalled();
 
     await fireEvent.press(screen.getByTestId('section-map-compass'));
-    expect(timing).toHaveBeenCalledTimes(1);
+    expect(mockResetOrientation).toHaveBeenCalledTimes(1);
+    expect(timing.mock.calls.filter(([value]) => value === compass)).toEqual([]);
+    expect(readValue(compass)).toBe(120);
+    await reportBearing(0);
+    expect(Math.abs(readValue(compass))).toBe(0);
     timing.mockRestore();
   });
 

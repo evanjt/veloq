@@ -62,8 +62,11 @@ it('shows zone time with heart rate beside a different moving time', async () =>
     <HRZonesChart hrZones={differingBands} maxHR={200} movingTime={4090} />
   );
 
-  expect(getByText('activity.hrZoneTotal:{"duration":"1:06:25"}')).toBeTruthy();
-  expect(getByText('activity.movingTime:{"duration":"1:08:10"}')).toBeTruthy();
+  // The total and the moving time are written as the bands are, in hours and
+  // minutes, rather than as a clock beside them.
+  expect(getByText('activity.hrZoneTotal:{"duration":"1 h 6 min"}')).toBeTruthy();
+  expect(getByText('activity.movingTime:{"duration":"1 h 8 min"}')).toBeTruthy();
+  expect(getByText('50 min')).toBeTruthy();
 });
 
 it('titles the card as a header in the card title role, with the max HR beside it', () => {

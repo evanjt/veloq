@@ -237,7 +237,7 @@ describe('record backup export', () => {
 
     const path = mockEngine.runRecordBackup.mock.calls[0][0] as string;
     expect(path).toMatch(/^\/cache\/.*\.zip$/);
-    expect(shareExistingFile).toHaveBeenCalledWith(`file://${path}`, 'application/zip');
+    expect(shareExistingFile).toHaveBeenCalledWith(`file://${path}`, 'zip', { anchor: undefined });
   });
 
   it('does not share a failed write, and a second tap can retry', async () => {

@@ -39,6 +39,7 @@ const state = (over: Partial<LiveActivityContentState> = {}): LiveActivityConten
   distanceLabel: '12.4 km',
   speedLabel: '28.1 km/h',
   trace: null,
+  endedLabel: null,
   staleAt: 1_700_000_120_000,
   ...over,
 });

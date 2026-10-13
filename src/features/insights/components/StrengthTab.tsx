@@ -232,7 +232,7 @@ export const StrengthTab = React.memo(function StrengthTab({
           {/* The period totals show for any muscle the period reached. The
               four-week figures inside the card need the last four weeks to
               have reached it too. */}
-          {selectedVolume && (
+          {selectedVolume ? (
             <StrengthProgressionCard
               selectedVolume={selectedVolume}
               progression={hasRecentProgression ? progression : null}
@@ -247,7 +247,7 @@ export const StrengthTab = React.memo(function StrengthTab({
                 />
               ) : null}
             </StrengthProgressionCard>
-          )}
+          ) : null}
 
           <StrengthBalanceView
             visibleBalancePairs={visibleBalancePairs}

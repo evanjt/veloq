@@ -1,7 +1,8 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable, RefreshControl, Platform, Share } from 'react-native';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { View, Text, StyleSheet, Pressable, RefreshControl, Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { Button, ScreenScrollView, pressable, pressRipple } from '@/shared/ui';
+import { shareText } from '@/features/settings/light';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, spacing, layout, typography, themePalette } from '@/theme';
 import { useTheme } from '@/shared/app';
@@ -16,6 +17,7 @@ import { hermesStats } from '@/shared/debug/hermesStats';
 import { useSupportStore, daysSince } from '@/shared/app/SupportStore';
 import { formatLocalDate } from '@/shared/format/format';
 import { readTaskRuns, clearTaskRuns, type TaskRunEntry } from '@/features/insights';
+import { SyncDebugSection } from '@/features/routes';
 import type { FfiDashboardData, FfiRequestBudget, PersistentEngineStats } from 'veloqrs';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import {
@@ -24,6 +26,8 @@ import {
   type EngineReadResult,
 } from '@/shared/native/engineError';
 import { ABSENT } from '@/shared/format/absent';
+import { changeLanguage, i18n, PSEUDO_LOCALE, showPseudoLocale } from '@/i18n';
+import { resolveLanguageToLocale, useLanguageStore } from '@/shared/app/LanguageStore';
 
 function getEngine() {
   try {
@@ -92,7 +96,7 @@ function CollapsibleSection({
           color={mutedColor}
         />
       </Pressable>
-      {open && <View style={styles.sectionContent}>{children}</View>}
+      {open ? <View style={styles.sectionContent}>{children}</View> : null}
     </View>
   );
 }
@@ -205,6 +209,45 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
           size="sm"
         />
       </View>
+    </CollapsibleSection>
+  );
+}
+
+/**
+ * Switches the app to the pseudo-locale and back, so text expansion and strings
+ * that never went through `t()` show on every screen. Development builds only.
+ */
+function PseudoLocaleDebug({ isDark }: { isDark: boolean }) {
+  const savedLanguage = useLanguageStore((s) => s.language);
+  const [showing, setShowing] = useState(i18n.language === PSEUDO_LOCALE);
+
+  const toggle = useCallback(async () => {
+    if (showing) {
+      await changeLanguage(resolveLanguageToLocale(savedLanguage));
+      setShowing(false);
+    } else {
+      await showPseudoLocale();
+      setShowing(true);
+    }
+  }, [showing, savedLanguage]);
+
+  return (
+    <CollapsibleSection
+      title="Pseudo-locale"
+      icon="translate"
+      isDark={isDark}
+      defaultOpen={false}
+      testID="debug-section-pseudo-locale"
+    >
+      <StatRow label="Showing" value={showing ? PSEUDO_LOCALE : 'No'} isDark={isDark} />
+      <Button
+        testID="debug-pseudo-locale-toggle"
+        label={showing ? 'Back to saved language' : 'Show pseudo-locale'}
+        onPress={toggle}
+        variant="ghost"
+        size="sm"
+        style={styles.actionButton}
+      />
     </CollapsibleSection>
   );
 }
@@ -453,6 +496,7 @@ function DebugScreenContent() {
     setRefreshKey((k) => k + 1);
   }, []);
 
+  const snapshotAnchor = useRef<View>(null);
   // Not memoised: ffiSummary and mem are read fresh every render, so any
   // dependency list here is new on every render anyway.
   const handleShareSnapshot = async () => {
@@ -470,7 +514,7 @@ function DebugScreenContent() {
       tileCounts,
       memory: mem,
     };
-    await Share.share({ message: JSON.stringify(snapshot, null, 2) });
+    await shareText({ message: JSON.stringify(snapshot, null, 2) }, { anchor: snapshotAnchor });
   };
 
   return (
@@ -530,6 +574,9 @@ function DebugScreenContent() {
             <Text style={[styles.emptyText, { color: mutedColor }]}>Engine not initialised</Text>
           )}
         </CollapsibleSection>
+
+        {/* Sync alignment and the re-sync tools */}
+        <SyncDebugSection />
 
         {/* Engine events: what Rust announced, what JavaScript heard */}
         <CollapsibleSection
@@ -763,8 +810,11 @@ function DebugScreenContent() {
         {/* Support Card Testing */}
         <SupportCardDebug isDark={isDark} />
 
+        {__DEV__ ? <PseudoLocaleDebug isDark={isDark} /> : null}
+
         {/* Share Debug Snapshot */}
         <Button
+          ref={snapshotAnchor}
           label="Share Debug Snapshot"
           onPress={handleShareSnapshot}
           variant="secondary"

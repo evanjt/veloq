@@ -4,6 +4,7 @@ import { AppState, Platform } from 'react-native';
 
 import { getSetting } from '@/shared/storage';
 import { debug } from '@/shared/debug/debug';
+import { sourceFor } from '@/shared/app/source';
 import {
   presentActivityNotification,
   refreshPushTokenRegistration,
@@ -412,7 +413,7 @@ export async function handleBackgroundInsightTask({
       const { ensureCredentialsHydrated, getStoredCredentials } = require('@/shared/app/AuthStore');
       await ensureCredentialsHydrated();
       const { athleteId, authMethod } = getStoredCredentials();
-      if (athleteId && authMethod === 'oauth') {
+      if (athleteId && sourceFor({ authMethod })?.can.push) {
         await refreshPushTokenRegistration(athleteId);
       }
     } catch {

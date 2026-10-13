@@ -98,7 +98,7 @@ object WidgetRenderer {
     bindHero(p, v, snap, card)
     bindSupporting(p, v, snap, SummaryWidget.supporting(card, SummarySize.MEDIUM))
     val chartW = ((chartWidthDp(minWidthDp, 300) - 8) / 2).coerceAtLeast(120)
-    bindChart(context, p, v, snap, card, chartW, 48)
+    bindChart(context, p, v, snap, card, chartW, 48, captioned = true)
     bindFitnessTap(context, v, widgetId)
     bindUpdatedAt(p, v, R.id.med_updated, snap)
     bindRefresh(context, v, snap)
@@ -117,7 +117,7 @@ object WidgetRenderer {
     bindHero(p, v, snap, card)
     bindSupporting(p, v, snap, SummaryWidget.supporting(card, SummarySize.LARGE))
     val chartW = ((chartWidthDp(minWidthDp, 300) - 8) / 2).coerceAtLeast(120)
-    bindChart(context, p, v, snap, card, chartW, 52)
+    bindChart(context, p, v, snap, card, chartW, 52, captioned = true)
     bindFormZones(context, p, v, snap, chartWidthDp(minWidthDp, 300), 96)
 
     // One gate with the standalone Quick-Record widget: INCLUDE_RECORD_WIDGET in
@@ -256,7 +256,10 @@ object WidgetRenderer {
         if (span.hours) RelativeDateTimeFormatter.RelativeUnit.HOURS
         else RelativeDateTimeFormatter.RelativeUnit.MINUTES)
 
-  /** The age and the action share a row; the action keeps a full finger-sized target. */
+  /**
+   * The age and the action share a row; the action keeps a full finger-sized target. While a
+   * refresh runs, a progress indicator stands in for the symbol.
+   */
   internal fun bindRefresh(context: Context, v: RemoteViews, snap: WidgetSnapshot?) {
     if (snap == null || snap.emptyLibrary || snap.demoLabel != null) {
       v.setViewVisibility(R.id.widget_refresh, View.GONE)
@@ -264,7 +267,8 @@ object WidgetRenderer {
     }
     v.setViewVisibility(R.id.widget_refresh, View.VISIBLE)
     val busy = com.veloq.NativeWidgetSnapshot.isBusy(context)
-    v.setTextViewText(R.id.widget_refresh, if (busy) "…" else "↻")
+    v.setViewVisibility(R.id.widget_refresh_icon, if (busy) View.GONE else View.VISIBLE)
+    v.setViewVisibility(R.id.widget_refresh_busy, if (busy) View.VISIBLE else View.GONE)
     v.setContentDescription(
       R.id.widget_refresh,
       if (busy) snap?.refreshingLabel ?: context.getString(R.string.widget_refreshing)
@@ -465,7 +469,10 @@ object WidgetRenderer {
       grid = p.color(R.color.widget_border).pick(dark),
     )
 
-  /** The chart beside the hero, or nothing when the card hides it or the series is too short. */
+  /**
+   * The chart beside the hero, or nothing when the card hides it or the series is too short. A
+   * [captioned] layout names the chart's series and span under it; Small has no room for them.
+   */
   private fun bindChart(
     context: Context,
     p: WidgetPalette,
@@ -474,6 +481,7 @@ object WidgetRenderer {
     card: SummaryCard,
     widthDp: Int,
     heightDp: Int,
+    captioned: Boolean = false,
   ) {
     val d = context.resources.displayMetrics.density
     val label = axisLabelPx(context)
@@ -502,6 +510,22 @@ object WidgetRenderer {
         if (chart is SummaryChart.Single) snap.chartLabels.hrv else snap.chartLabels.fitness)
       v.setViewVisibility(R.id.sum_sparkline, View.VISIBLE)
     }
+    if (captioned) {
+      bindChartCaption(v, SummaryWidget.chartCaption(snap, chart).takeIf { light != null })
+    }
+  }
+
+  /** The series under the chart, each beside a stroke drawn as its line is, and the days it spans. */
+  private fun bindChartCaption(v: RemoteViews, caption: ChartCaption?) {
+    if (caption == null) {
+      v.setViewVisibility(R.id.sum_chart_caption, View.GONE)
+      return
+    }
+    v.setViewVisibility(R.id.sum_chart_caption, View.VISIBLE)
+    v.setViewVisibility(R.id.sum_series, if (caption.series.isEmpty()) View.GONE else View.VISIBLE)
+    bindLine(v, R.id.sum_series_fitness, caption.series.getOrNull(0))
+    bindLine(v, R.id.sum_series_fatigue, caption.series.getOrNull(1))
+    bindLine(v, R.id.sum_chart_span, caption.span)
   }
 
   /** Form over its five zones under the card, hidden with its title when the snapshot has none. */
@@ -515,7 +539,7 @@ object WidgetRenderer {
   ) {
     val chart = SummaryWidget.formZones(snap)
     if (chart == null) {
-      v.setViewVisibility(R.id.sum_form_title, View.GONE)
+      v.setViewVisibility(R.id.sum_form_header, View.GONE)
       v.setViewVisibility(R.id.sum_form_zones, View.GONE)
       return
     }
@@ -534,8 +558,12 @@ object WidgetRenderer {
         casing = p.color(R.color.widget_chart_casing).pick(dark),
         axisText = p.color(R.color.widget_text_secondary).pick(dark),
       )
+    val caption = SummaryWidget.formCaption(snap)
+    v.setViewVisibility(R.id.sum_form_header, View.VISIBLE)
     v.setViewVisibility(R.id.sum_form_title, View.VISIBLE)
-    v.setTextViewText(R.id.sum_form_title, snap.metricLabels["form"] ?: "Form")
+    v.setTextViewText(R.id.sum_form_title, caption.title)
+    bindLine(v, R.id.sum_form_zone, caption.zone)
+    bindLine(v, R.id.sum_form_span, caption.span)
     v.setViewVisibility(R.id.sum_form_zones, View.VISIBLE)
     v.setContentDescription(R.id.sum_form_zones, snap.chartLabels.form)
     p.bitmap(v, R.id.sum_form_zones) { dark ->

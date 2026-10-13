@@ -1,9 +1,9 @@
+import { formatSigned } from '@/shared/format';
+
 /** Signed change over the plotted window, `null` when the engine sent none. */
 export function formatSignedChange(delta: number | null | undefined): string | null {
   if (delta === null || delta === undefined) return null;
-  if (delta > 0) return `+${delta}`;
-  if (delta < 0) return `−${Math.abs(delta)}`;
-  return '0';
+  return formatSigned(delta, 0);
 }
 
 export interface RisePlot {

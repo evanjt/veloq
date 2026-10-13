@@ -67,11 +67,11 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
       </View>
 
       {/* Language Dropdown */}
-      {showLanguages && (
+      {showLanguages ? (
         <View style={[styles.languageDropdown, isDark && styles.languageDropdownDark]}>
           <LanguageList language={language} onSelect={handleLanguageChange} />
         </View>
-      )}
+      ) : null}
     </>
   );
 });

@@ -59,11 +59,11 @@ function SectionRetiredScreenContent() {
                   {formatFullDate(ledgerDate(r.at))}
                   {` · ${t('sectionHistory.versions')}: ${r.versions.length}`}
                 </Text>
-                {into && (
+                {into ? (
                   <Text style={[styles.link, isDark && { color: darkColors.linkTeal }]}>
                     {into}
                   </Text>
-                )}
+                ) : null}
               </>
             );
             // A retirement merged into another section opens it from anywhere on

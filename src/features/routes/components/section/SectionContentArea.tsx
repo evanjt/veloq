@@ -139,7 +139,7 @@ export function SectionContentArea({
   return (
     <View style={styles.contentSection}>
       {/* Disabled banner */}
-      {isSectionDisabled && onToggleDisable && (
+      {isSectionDisabled && onToggleDisable ? (
         <Pressable
           testID="section-disabled-banner"
           style={pressable([styles.disabledBanner, isDark && styles.disabledBannerDark])}
@@ -162,10 +162,10 @@ export function SectionContentArea({
             {t('sections.removed')} - {t('sections.restoreSection')}
           </Text>
         </Pressable>
-      )}
+      ) : null}
 
       {/* Merge candidates banner */}
-      {mergeCandidates && mergeCandidates.length > 0 && onMergePress && (
+      {mergeCandidates && mergeCandidates.length > 0 && onMergePress ? (
         <Pressable
           testID="section-merge-banner"
           style={pressable([styles.mergeBanner, isDark && styles.mergeBannerDark])}
@@ -186,7 +186,7 @@ export function SectionContentArea({
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
         </Pressable>
-      )}
+      ) : null}
 
       {/* Performance chart with eye toggle */}
       <SectionPerformanceSection
@@ -244,7 +244,7 @@ export function SectionContentArea({
       />
 
       {/* Calendar performance history */}
-      {calendarSummary && (
+      {calendarSummary ? (
         <SectionStatsCards
           calendarSummary={calendarSummary}
           isDark={isDark}
@@ -254,7 +254,7 @@ export function SectionContentArea({
           referenceActivityId={effectiveReferenceId}
           recordsSettled={recordsSettled}
         />
-      )}
+      ) : null}
 
       {children}
     </View>

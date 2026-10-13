@@ -63,7 +63,7 @@ export function Shimmer({
         style,
       ]}
     >
-      {animated && <ShimmerHighlight color={highlightColor} borderRadius={borderRadius} />}
+      {animated ? <ShimmerHighlight color={highlightColor} borderRadius={borderRadius} /> : null}
     </View>
   );
 }

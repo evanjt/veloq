@@ -619,11 +619,12 @@ export function BackupSection() {
     setBackendBackups(null);
   }, []);
 
+  const exportAnchor = useRef<View>(null);
   const {
     exportRecordBackup,
     exporting: dbExporting,
     stillRunning: exportStillRunning,
-  } = useExportRecordBackup();
+  } = useExportRecordBackup(exportAnchor);
   const { importDatabaseBackup, importing: dbImporting } = useImportDatabaseBackup();
   const handleImportBackup = useCallback(async () => {
     await importDatabaseBackup();
@@ -631,7 +632,9 @@ export function BackupSection() {
     setRestoreGeneration((generation) => generation + 1);
   }, [importDatabaseBackup]);
 
-  // Bulk export
+  // Bulk export. The pills give way to progress while it runs, so the share
+  // sheet anchors to their row.
+  const bulkAnchor = useRef<View>(null);
   const {
     exportAll,
     exportAllGeoJson,
@@ -642,7 +645,7 @@ export function BackupSection() {
     sizeBytes: bulkSizeBytes,
     current: bulkCurrent,
     total: bulkTotal,
-  } = useBulkExport();
+  } = useBulkExport(bulkAnchor);
 
   const totalActivities = useActivityCount();
 
@@ -692,16 +695,16 @@ export function BackupSection() {
             <Text testID="backup-last-run-text" style={labelStyle}>
               {lastBackupText}
             </Text>
-            {runStatus && (
+            {runStatus ? (
               <StatusLine tone={runStatus.tone} message={runStatus.spoken}>
-                {runStatus.saved && (
+                {runStatus.saved ? (
                   <Text
                     testID="backup-success-message"
                     style={[styles.detail, styles.success, isDark && styles.successDark]}
                   >
                     {runStatus.saved.join('\n')}
                   </Text>
-                )}
+                ) : null}
                 {runStatus.carriers.map((carrier) => (
                   <Text
                     key={carrier.id}
@@ -717,7 +720,7 @@ export function BackupSection() {
                   </Text>
                 )}
               </StatusLine>
-            )}
+            ) : null}
           </View>
           <Button
             testID="backup-now-button"
@@ -749,7 +752,7 @@ export function BackupSection() {
           <MaterialCommunityIcons name="cloud-download-outline" size={22} color={iconColor} />
           <Text style={labelStyle}>{t('backup.restoreFromDestination')}</Text>
         </Row>
-        {backendBackups?.every((group) => group.entries.length === 0) && (
+        {backendBackups?.every((group) => group.entries.length === 0) ? (
           <Row>
             {/* The device backup cannot be read from here: the platform hands it
                 back only while a new phone is set up. */}
@@ -759,7 +762,7 @@ export function BackupSection() {
                 : t('backup.noBrowsableDestination')}
             </Text>
           </Row>
-        )}
+        ) : null}
         {backendBackups?.map(({ backend, entries }) =>
           entries.length === 0 ? null : (
             <View key={backend.id} testID={`backup-group-${backend.id}`}>
@@ -802,7 +805,7 @@ export function BackupSection() {
             {dbImporting ? t('backup.importing') : t('backup.importBackup')}
           </Text>
         </Row>
-        {importPaused && (
+        {importPaused ? (
           <>
             {divider}
             <Row>
@@ -833,8 +836,8 @@ export function BackupSection() {
               </View>
             </Row>
           </>
-        )}
-        {fetchingActivities && (
+        ) : null}
+        {fetchingActivities ? (
           <>
             {divider}
             <Row testID="backup-restore-fetch">
@@ -851,7 +854,7 @@ export function BackupSection() {
               />
             </Row>
           </>
-        )}
+        ) : null}
         {waitingRecords.length > 0 && (
           <>
             {divider}
@@ -875,13 +878,13 @@ export function BackupSection() {
             </Row>
           </>
         )}
-        {unplacedReadError && (
+        {unplacedReadError ? (
           <Row>
             <Text testID="backup-unplaced-read-error" style={errorLine}>
               {t('backup.unplacedReadError')}
             </Text>
           </Row>
-        )}
+        ) : null}
       </Card>
 
       <ListSectionHeader>{t('backup.sectionDestinations')}</ListSectionHeader>
@@ -912,7 +915,7 @@ export function BackupSection() {
             )}
           />
         </Row>
-        {icloudSupported && (
+        {icloudSupported ? (
           <>
             {divider}
             <View testID="backup-carrier-icloud">
@@ -924,7 +927,7 @@ export function BackupSection() {
                 onValueChange={handleToggleIcloud}
                 testID="backup-icloud-switch"
               />
-              {icloudOn && (
+              {icloudOn ? (
                 <View style={styles.failure}>
                   {icloudState === 'unavailable' ? (
                     <Text testID="backup-icloud-unavailable" style={errorLine}>
@@ -941,10 +944,10 @@ export function BackupSection() {
                     testID="backup-carrier-failure-icloud"
                   />
                 </View>
-              )}
+              ) : null}
             </View>
           </>
-        )}
+        ) : null}
         {divider}
         <View testID="backup-carrier-folder">
           <Row>
@@ -952,14 +955,14 @@ export function BackupSection() {
             <View style={styles.fill}>
               <Text style={labelStyle}>{t('backup.carrierFolder')}</Text>
               <Text style={detailStyle}>{folderName ?? t('backup.carrierFolderNone')}</Text>
-              {folderName && (
+              {folderName ? (
                 <DestinationLastBackup
                   at={destinationStamps.folder}
                   testID="backup-carrier-last-folder"
                 />
-              )}
+              ) : null}
             </View>
-            {folderName && (
+            {folderName ? (
               <Button
                 testID="backup-folder-remove"
                 label={t('backup.carrierFolderRemove')}
@@ -967,7 +970,7 @@ export function BackupSection() {
                 size="sm"
                 onPress={handleRemoveFolder}
               />
-            )}
+            ) : null}
             <Button
               testID="backup-folder-choose"
               label={folderName ? t('backup.carrierFolderChange') : t('backup.carrierFolderChoose')}
@@ -976,16 +979,16 @@ export function BackupSection() {
               onPress={handleChooseFolder}
             />
           </Row>
-          {carrierFailures.folder && (
+          {carrierFailures.folder ? (
             <View style={styles.failure}>
               <CarrierFailure
                 failure={carrierFailures.folder}
                 testID="backup-carrier-failure-folder"
               />
             </View>
-          )}
+          ) : null}
         </View>
-        {driveSupported && (
+        {driveSupported ? (
           <>
             {divider}
             <View testID="backup-carrier-google-drive">
@@ -996,14 +999,14 @@ export function BackupSection() {
                   <Text testID="backup-google-drive-account" style={detailStyle}>
                     {driveAccount ?? t('backup.carrierGoogleDriveNone')}
                   </Text>
-                  {driveAccount && (
+                  {driveAccount ? (
                     <DestinationLastBackup
                       at={destinationStamps.googleDrive}
                       testID="backup-carrier-last-google-drive"
                     />
-                  )}
+                  ) : null}
                 </View>
-                {driveAccount && (
+                {driveAccount ? (
                   <Button
                     testID="backup-google-drive-sign-out"
                     label={t('backup.carrierGoogleDriveSignOut')}
@@ -1012,7 +1015,7 @@ export function BackupSection() {
                     onPress={handleGoogleDriveSignOut}
                     disabled={signingInToDrive}
                   />
-                )}
+                ) : null}
                 {(!driveAccount || carrierFailures.googleDrive?.kind === 'signin') && (
                   <Button
                     testID="backup-google-drive-sign-in"
@@ -1024,42 +1027,42 @@ export function BackupSection() {
                   />
                 )}
               </Row>
-              {driveAccount && carrierFailures.googleDrive && (
+              {driveAccount && carrierFailures.googleDrive ? (
                 <View style={styles.failure}>
                   <CarrierFailure
                     failure={carrierFailures.googleDrive}
                     testID="backup-carrier-failure-google-drive"
                   />
                 </View>
-              )}
+              ) : null}
               <View style={styles.failure}>
                 <Text style={detailStyle}>{t('backup.carrierGoogleDriveDescription')}</Text>
               </View>
             </View>
           </>
-        )}
+        ) : null}
         {divider}
         <View testID="backup-carrier-webdav">
           <Row>
             <MaterialCommunityIcons name="server-network" size={22} color={iconColor} />
             <View style={styles.fill}>
               <Text style={labelStyle}>{t('backup.backendWebdav')}</Text>
-              {webdavSet && (
+              {webdavSet ? (
                 <DestinationLastBackup
                   at={destinationStamps.webdav}
                   testID="backup-carrier-last-webdav"
                 />
-              )}
+              ) : null}
             </View>
           </Row>
-          {carrierFailures.webdav && (
+          {carrierFailures.webdav ? (
             <View style={styles.failure}>
               <CarrierFailure
                 failure={carrierFailures.webdav}
                 testID="backup-carrier-failure-webdav"
               />
             </View>
-          )}
+          ) : null}
           <WebdavConfigForm onConfigChange={handleWebdavChanged} onRemoved={handleWebdavChanged} />
         </View>
       </Card>
@@ -1067,6 +1070,7 @@ export function BackupSection() {
       <ListSectionHeader>{t('backup.sectionExport')}</ListSectionHeader>
       <Card variant="flat" padding="none">
         <Row
+          ref={exportAnchor}
           testID="backup-export-button"
           behaviour="act"
           onPress={exportRecordBackup}
@@ -1085,7 +1089,7 @@ export function BackupSection() {
             {dbExporting ? t('backup.exporting') : t('backup.exportBackup')}
           </Text>
         </Row>
-        {exportStillRunning && (
+        {exportStillRunning ? (
           <Row>
             <StatusLine tone="pending" message={t('settings.stillRunning')}>
               <Text testID="backup-export-still-running" style={detailStyle}>
@@ -1093,9 +1097,9 @@ export function BackupSection() {
               </Text>
             </StatusLine>
           </Row>
-        )}
+        ) : null}
         {divider}
-        <Row>
+        <Row ref={bulkAnchor}>
           <MaterialCommunityIcons name="map-marker-path" size={22} color={iconColor} />
           {bulkExporting || bulkStillRunning ? (
             <BulkExportProgress
@@ -1133,7 +1137,7 @@ export function BackupSection() {
           )}
         </Row>
         {/* A late share is the run ending, not one the athlete can leave. */}
-        {bulkStillRunning && bulkPhase !== 'sharing' && (
+        {bulkStillRunning && bulkPhase !== 'sharing' ? (
           <Row>
             <StatusLine tone="pending" message={t('settings.stillRunning')}>
               <Text testID="bulk-export-still-running" style={detailStyle}>
@@ -1141,7 +1145,7 @@ export function BackupSection() {
               </Text>
             </StatusLine>
           </Row>
-        )}
+        ) : null}
         {divider}
         <ExportPrivacyRow />
       </Card>

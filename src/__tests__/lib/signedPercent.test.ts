@@ -7,23 +7,23 @@
  * zero.
  */
 
-import { signedPercent } from '@/features/insights/generators/periodComparison';
+import { formatSignedPercent } from '@/shared/format';
 
-describe('signedPercent', () => {
+describe('formatSignedPercent', () => {
   it('signs a rise', () => {
-    expect(signedPercent(0.6)).toBe('+60%');
+    expect(formatSignedPercent(0.6)).toBe('+60%');
   });
 
   it('signs a fall', () => {
-    expect(signedPercent(-0.29)).toBe('-29%');
+    expect(formatSignedPercent(-0.29)).toBe('-29%');
   });
 
   it('prints zero bare', () => {
-    expect(signedPercent(0)).toBe('0%');
+    expect(formatSignedPercent(0)).toBe('0%');
   });
 
   it('prints a move that rounds to zero bare, not as -0%', () => {
-    expect(signedPercent(-0.004)).toBe('0%');
-    expect(signedPercent(0.004)).toBe('0%');
+    expect(formatSignedPercent(-0.004)).toBe('0%');
+    expect(formatSignedPercent(0.004)).toBe('0%');
   });
 });

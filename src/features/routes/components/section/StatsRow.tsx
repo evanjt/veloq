@@ -78,9 +78,9 @@ export function StatsRow({
             </Text>
           )}
         </View>
-        {bestRecord && (
+        {bestRecord ? (
           <View style={styles.prBadge}>
-            {bestIsRecord && (
+            {bestIsRecord ? (
               <View testID={`stats-row-trophy-${direction}`}>
                 <MaterialCommunityIcons
                   name="trophy"
@@ -88,7 +88,7 @@ export function StatsRow({
                   color={isDark ? darkColors.chartGoldMark : colors.chartGoldMark}
                 />
               </View>
-            )}
+            ) : null}
             <Text
               testID={`stats-row-best-${direction}`}
               style={
@@ -100,7 +100,7 @@ export function StatsRow({
               {bestIsRecord ? bestValue : t('sections.bestValue', { value: bestValue })}
             </Text>
           </View>
-        )}
+        ) : null}
       </View>
       {(stats?.outsideBandCount ?? 0) > 0 && (
         <Text

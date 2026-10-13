@@ -122,13 +122,13 @@ function MenuRow({
         color={checked ? palette.primary : palette.textSecondary}
       />
       <Text style={[styles.menuLabel, { color: palette.textPrimary }]}>{label}</Text>
-      {isToggle && (
+      {isToggle ? (
         <MaterialCommunityIcons
           name="check"
           size={MENU_ICON_SIZE}
           color={checked ? palette.primary : 'transparent'}
         />
-      )}
+      ) : null}
     </Pressable>
   );
 }
@@ -232,7 +232,7 @@ export function MapControlStack({
 
   return (
     <>
-      {menuOpen && (
+      {menuOpen ? (
         // press-feedback: none, an invisible scrim over the map that only closes the menu
         <Pressable
           testID="map-layers-backdrop"
@@ -241,7 +241,7 @@ export function MapControlStack({
           accessibilityLabel={t('common.close')}
           accessibilityRole="button"
         />
-      )}
+      ) : null}
       <View style={[styles.controlStack, { top }]}>
         <ColumnButton
           testID="map-toggle-3d"
@@ -291,7 +291,7 @@ export function MapControlStack({
           )}
         </ColumnButton>
 
-        {hasLayers && (
+        {hasLayers ? (
           <ColumnButton
             testID="map-layers"
             isDark={isDark}
@@ -306,10 +306,10 @@ export function MapControlStack({
               color={menuOpen ? colors.textOnPrimary : iconColor}
             />
           </ColumnButton>
-        )}
+        ) : null}
       </View>
 
-      {menuOpen && (
+      {menuOpen ? (
         <View
           testID="map-layers-menu"
           style={[
@@ -318,7 +318,7 @@ export function MapControlStack({
             { top: top + CONTROLS_ABOVE_LAYERS * (controlHeight.button + spacing.sm) },
           ]}
         >
-          {hasActivities && (
+          {hasActivities ? (
             <MenuRow
               testID="map-toggle-activities"
               icon="map-marker-multiple"
@@ -327,8 +327,8 @@ export function MapControlStack({
               isDark={isDark}
               onPress={onToggleActivities}
             />
-          )}
-          {hasActivities && showActivities && (
+          ) : null}
+          {hasActivities && showActivities ? (
             <View style={styles.menuKey}>
               {keyCategories.map((category) => {
                 const config = ACTIVITY_CATEGORIES[category];
@@ -351,8 +351,8 @@ export function MapControlStack({
                 isDark={isDark}
               />
             </View>
-          )}
-          {sectionsToggle && (
+          ) : null}
+          {sectionsToggle ? (
             <MenuRow
               testID="map-toggle-sections"
               icon="road-variant"
@@ -361,8 +361,8 @@ export function MapControlStack({
               isDark={isDark}
               onPress={sectionsToggle}
             />
-          )}
-          {onToggleHeatmap && (
+          ) : null}
+          {onToggleHeatmap ? (
             <MenuRow
               testID="map-toggle-heatmap"
               icon="fire"
@@ -371,8 +371,8 @@ export function MapControlStack({
               isDark={isDark}
               onPress={onToggleHeatmap}
             />
-          )}
-          {onToggleHeatmap && showHeatmap && heatKeyColours.length > 0 && (
+          ) : null}
+          {onToggleHeatmap && showHeatmap && heatKeyColours.length > 0 ? (
             <View style={styles.menuKey}>
               <MapKeyRamp
                 testID="map-key-heat"
@@ -381,8 +381,8 @@ export function MapControlStack({
                 isDark={isDark}
               />
             </View>
-          )}
-          {routesToggle && (
+          ) : null}
+          {routesToggle ? (
             <MenuRow
               testID="map-toggle-routes"
               icon="map-marker-path"
@@ -391,8 +391,8 @@ export function MapControlStack({
               isDark={isDark}
               onPress={routesToggle}
             />
-          )}
-          {hasActivities && (
+          ) : null}
+          {hasActivities ? (
             <>
               <View style={[styles.menuDivider, isDark && styles.menuDividerDark]} />
               <MenuRow
@@ -403,9 +403,9 @@ export function MapControlStack({
                 onPress={closing(onFitAll)}
               />
             </>
-          )}
+          ) : null}
         </View>
-      )}
+      ) : null}
     </>
   );
 }

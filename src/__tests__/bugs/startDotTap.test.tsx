@@ -19,14 +19,7 @@ import type { ActivityBoundsItem } from '@/types';
 
 const mockGetGpsTrack = jest.fn((_id: string) => '');
 
-jest.mock('veloqrs', () =>
-  require('../__shared__/veloqrsStub').withOverrides({
-    decodeCoords: () => [
-      { latitude: 46.5, longitude: 6.6 },
-      { latitude: 46.51, longitude: 6.61 },
-    ],
-  })
-);
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({ getGpsTrack: (id: string) => mockGetGpsTrack(id) }),
 }));
@@ -145,7 +138,7 @@ describe('a tap on the start dot at trace zoom', () => {
     });
 
     expect(setSelected).toHaveBeenCalledWith(
-      expect.objectContaining({ activity: a1, isLoading: true })
+      expect.objectContaining({ activity: a1, isLoading: false })
     );
     expect(setSpider).not.toHaveBeenCalledWith(
       expect.objectContaining({ leaves: expect.anything() })
@@ -229,31 +222,23 @@ describe('a tap on the start dot at trace zoom', () => {
   });
 });
 
-describe('the route load after a tap on a start dot', () => {
-  it('replaces the loading popup with the stored track', async () => {
+describe('the popup after a tap on a start dot', () => {
+  it('opens settled at once, without reading the track', async () => {
     const a1 = ride('a1');
     const { rendered, setSelected } = await mountHandlers([a1]);
 
     await act(async () => {
       rendered.result.current.handleSurfacePress(press([startHit('a1', [6.6, 46.5])]) as never);
     });
-    expect(setSelected).toHaveBeenCalledTimes(1);
-
     await act(async () => {
       jest.runOnlyPendingTimers();
     });
 
-    expect(mockGetGpsTrack).toHaveBeenCalledWith('a1');
+    expect(setSelected).toHaveBeenCalledTimes(1);
     expect(setSelected).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        activity: a1,
-        isLoading: false,
-        routeCoords: [
-          [6.6, 46.5],
-          [6.61, 46.51],
-        ],
-      })
+      expect.objectContaining({ activity: a1, isLoading: false })
     );
+    expect(mockGetGpsTrack).not.toHaveBeenCalled();
   });
 });
 

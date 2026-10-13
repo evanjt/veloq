@@ -365,12 +365,6 @@ export const OWNED_ELSEWHERE: Record<string, string> = {
   'StrengthManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
   'SyncManager.new': 'built by the engine accessor in Rust, never constructed from TypeScript',
 
-  // The engine writes every activity_metrics row from the body it stores, so
-  // no TypeScript caller remains. The export stays until its inbound record
-  // loses the fields the engine now derives.
-  'ActivityManager.setMetrics':
-    'the engine writes the metrics row itself; the export is removed with the record it takes',
-
   // The basemap tile store. Reached by the offline map work rather than a
   // screen, so none of it has a caller here yet.
   'BasemapManager.setPath':

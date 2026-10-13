@@ -6,6 +6,7 @@ import { ChartErrorBoundary } from '@/shared/ui';
 import { colorWithOpacity, ink, layout, opacity, spacing } from '@/theme';
 import type { HistoryMark, InsightHistory, SeriesPoint } from '../types';
 import { InsightSeriesChart } from './InsightSeriesChart';
+import { formatDecimal } from '@/shared/format/number';
 
 const CHART_HEIGHT = 180;
 
@@ -15,7 +16,7 @@ export function formatSeriesValue(
   decimals: number,
   unit: string | undefined
 ): string {
-  const number = value.toFixed(decimals);
+  const number = formatDecimal(value, decimals);
   return unit ? `${number} ${unit}` : number;
 }
 

@@ -21,7 +21,10 @@ jest.mock('react-i18next', () => ({
       options ? `${key} ${JSON.stringify(options)}` : key,
   }),
 }));
-jest.mock('@/i18n', () => ({ i18n: { t: (key: string) => key } }));
+jest.mock('@/i18n', () => ({
+  i18n: { t: (key: string) => key },
+  getCurrentLanguage: () => 'en-GB',
+}));
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
 jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefined }) }));
 jest.mock('@/shared/app/useSportSettings', () => ({
@@ -55,7 +58,7 @@ async function renderCard(props: Partial<SummaryCardProps>) {
 describe('formatSignedChange', () => {
   it('signs a rise and a fall and leaves zero bare', () => {
     expect(formatSignedChange(9)).toBe('+9');
-    expect(formatSignedChange(-11)).toBe('−11');
+    expect(formatSignedChange(-11)).toBe('-11');
     expect(formatSignedChange(0)).toBe('0');
   });
 
@@ -92,7 +95,7 @@ describe('the hero change', () => {
 
   it('prints a fall', async () => {
     const tree = await renderCard({ fitnessDelta: -4 });
-    expect(tree.getByTestId('summary-card-fitness-change').props.children).toContain('−4');
+    expect(tree.getByTestId('summary-card-fitness-change').props.children).toContain('-4');
   });
 
   it('prints nothing without a delta', async () => {

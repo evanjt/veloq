@@ -1,8 +1,8 @@
 //! What redraws the heatmap after something deletes part of it.
 //!
 //! A sweep deletes the tiles an added, changed or removed activity reached and
-//! marks the set dirty, and nothing is drawn on demand, so a deleted tile
-//! answers 404 until a pass redraws it. These pin who starts that pass and
+//! marks the set dirty. Only a deep tile is drawn on demand, so a deleted tile
+//! the pass draws answers 404 until a pass redraws it. These pin who starts that pass and
 //! which tiles the sweep is allowed to take.
 //!
 //! The pass slot, the handle slot, the sweep registry and the global engine
@@ -581,7 +581,7 @@ fn a_pass_projects_each_point_once() {
     let rides: Vec<Vec<GpsPoint>> = (0..12)
         .map(|i| {
             let lat = 46.23 + f64::from(i) * 0.002;
-            line((lat, 7.30), (lat, 7.40), 400)
+            line((lat, 7.30), (lat, 7.70), 400)
         })
         .collect();
     for (i, ride) in rides.iter().enumerate() {
@@ -626,5 +626,92 @@ fn a_pass_projects_each_point_once() {
     assert!(
         projected <= 2 * points,
         "{projected} projections for {points} stored points"
+    );
+}
+
+/// The zooms a set holds a tile or an empty marker at.
+fn zooms_held(base: &Path) -> std::collections::BTreeSet<u8> {
+    std::fs::read_dir(base)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|entry| entry.path().is_dir())
+        .filter_map(|entry| entry.file_name().to_string_lossy().parse::<u8>().ok())
+        .collect()
+}
+
+/// Scenario: a five-year library draws its heatmap on a fresh install. The
+/// deepest three zooms are most of the tree on disk, and the map draws any of
+/// them when it asks.
+///
+/// Expected behaviour: the pass draws every zoom up to the on-request floor
+/// and nothing at or below it.
+#[test]
+fn a_pass_draws_nothing_the_map_draws_on_request() {
+    let _serial = serial_global_state();
+    settle();
+    let (_tmp, tiles) = engine_with_two_rides("pass-floor.db");
+    turn_the_heatmap_off();
+
+    let deepest = ON_REQUEST_MIN_ZOOM - 1;
+    assert_eq!(
+        zooms_held(&tiles),
+        (1..=deepest).collect(),
+        "the pass drew a zoom the map draws on request, or skipped one it owes"
+    );
+    assert!(png(&tiles, tile_at(46.23, 7.37, deepest)).exists());
+}
+
+/// Scenario: the athlete looked at a street at z16, which drew and kept its
+/// tile, and a ride across that street then syncs.
+///
+/// Expected behaviour: the ride's sweep deletes the kept tile, the pass that
+/// follows does not draw it, and the next ask draws it again with the new
+/// ride in it.
+#[test]
+fn a_stored_track_clears_a_deep_tile_drawn_on_request_and_the_next_ask_redraws_it() {
+    let _serial = serial_global_state();
+    settle();
+    let (_tmp, tiles) = engine_with_two_rides("deep-sweep.db");
+    let (z, x, y) = tile_at(46.23, 7.37, 16);
+    let before = heatmap_tile_bytes(z, x, y).expect("the street is drawn on request");
+    assert!(
+        png(&tiles, (z, x, y)).exists(),
+        "the drawn tile was not kept"
+    );
+
+    let crossing = line((46.225, 7.371), (46.235, 7.371), 40);
+    store_through_the_ffi("crossing", &crossing);
+    wait_for_sweeps();
+    let swept = !png(&tiles, (z, x, y)).exists();
+    settle();
+    let after_pass = png(&tiles, (z, x, y)).exists();
+    let after = heatmap_tile_bytes(z, x, y);
+
+    let (_cold_tmp, cold) = {
+        let tmp = init_global_engine("deep-sweep-cold.db");
+        let tiles = tmp.path().join("tiles");
+        store_through_the_ffi("east", &sion_east());
+        store_through_the_ffi("west", &sion_west());
+        store_through_the_ffi("crossing", &crossing);
+        set_tiles_path(&tiles);
+        settle();
+        let cold = heatmap_tile_bytes(z, x, y);
+        (tmp, cold)
+    };
+    turn_the_heatmap_off();
+
+    assert!(
+        swept,
+        "the sweep left the deep tile drawn without the new ride"
+    );
+    assert!(!after_pass, "the pass drew a deep tile");
+    let after = after.expect("the street is drawn again on request");
+    assert_ne!(after, before, "the redrawn tile does not hold the new ride");
+    let pixels = |png: &[u8]| image::load_from_memory(png).unwrap().to_rgba8().into_raw();
+    assert_eq!(
+        pixels(&after),
+        pixels(&cold.expect("a cold library draws the street")),
+        "the redrawn tile is not what a library holding the new ride draws"
     );
 }

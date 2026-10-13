@@ -4,7 +4,7 @@
  * sentence.
  *
  * The bundles stay in TypeScript and i18next stays the only thing that
- * resolves one. Rust holds the seventeen resolved strings for whichever locale
+ * resolves one. Rust holds the resolved strings for whichever locale
  * was last pushed, and formats with those.
  *
  * `setNameTranslations` is the same gesture for two words and keeps them in a
@@ -19,13 +19,14 @@ import { debug } from '@/shared/debug/debug';
 const log = debug.create('NotificationTemplates');
 
 /**
- * Every key a notification sentence is built from: the thirteen clause
- * templates, the three titles and the two fitness milestone sentences.
+ * Every key a notification sentence is built from: the twelve clause
+ * templates, the three titles, the two fitness milestone sentences and the
+ * seconds unit a delta under a minute is written in.
  *
  * Named here rather than derived from the bundle, so a key that loses its
  * reader still fails `unusedKeys.test.ts` and a renamed one fails the parity
  * test beside it. They interpolate `{{name}}`, `{{delta}}`, `{{count}}`,
- * `{{current}}` and `{{change}}` and nothing else, and no locale carries a
+ * `{{current}}`, `{{change}}` and `{{value}}` and nothing else, and no locale carries a
  * plural variant of any of them.
  */
 export const NOTIFICATION_TEMPLATE_KEYS = [
@@ -46,10 +47,11 @@ export const NOTIFICATION_TEMPLATE_KEYS = [
   'notifications.activityRecorded.title',
   'insights.ftpIncrease',
   'insights.paceImproved',
+  'units.secondsValue',
 ] as const;
 
 /**
- * Resolve the seventeen against the current bundle and store them.
+ * Resolve them against the current bundle and store them.
  *
  * Call it only once the bundle is in i18next's store. Before that every key
  * resolves as itself, and a bundle of keys is what the handler would render.

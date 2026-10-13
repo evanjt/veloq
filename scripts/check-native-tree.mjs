@@ -16,7 +16,9 @@
 // checkout's own module, and otherwise names what escapes and the command
 // that gives the tree an installation of its own. It also refuses an
 // installation the worklets lifecycle repair never reached, because that app
-// keeps a vsync loop running while Android caches it and is killed for CPU.
+// keeps a vsync loop running while Android caches it and is killed for CPU, and
+// one the screens sheet width patch never reached, because that app draws every
+// sheet across the full width of a tablet.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, lstatSync, readdirSync, realpathSync } from 'node:fs';
@@ -31,6 +33,10 @@ export const SETUP = 'npm run setup:native';
 const REPAIR_WORKLETS = 'node scripts/patch-worklets-lifecycle.js';
 const { applyPatch: repairWorklets } = createRequire(import.meta.url)(
   './patch-worklets-lifecycle.js'
+);
+const PATCH_SCREENS = 'node scripts/patch-screens-sheet-width.js';
+const { applyPatch: patchScreens } = createRequire(import.meta.url)(
+  './patch-screens-sheet-width.js'
 );
 
 /** The router app root: expo-router reads `src/app` when the directory exists. */
@@ -169,7 +175,7 @@ export function requireNativeTree(root) {
     report(root, found);
     process.exit(1);
   }
-  const problem = workletsProblem(root);
+  const problem = patchProblem(root, 'react-native-worklets', repairWorklets);
   if (problem !== null) {
     console.error('The installed react-native-worklets does not carry the lifecycle repair.');
     console.error(`  ${problem}`);
@@ -178,16 +184,25 @@ export function requireNativeTree(root) {
     console.error(`  ${REPAIR_WORKLETS}`);
     process.exit(1);
   }
+  const screens = patchProblem(root, 'react-native-screens', patchScreens);
+  if (screens !== null) {
+    console.error('The installed react-native-screens does not carry the sheet width patch.');
+    console.error(`  ${screens}`);
+    console.error('A build here would draw every sheet across the full width of a tablet.');
+    console.error('Patch it, then build again:');
+    console.error(`  ${PATCH_SCREENS}`);
+    process.exit(1);
+  }
 }
 
 /**
- * Why the installed worklets package lacks the lifecycle repair, or null when it carries it.
- * An installation without the package has nothing to repair.
+ * Why the installed `name` lacks what `apply` writes into it, or null when it carries it.
+ * An installation without the package has nothing to patch.
  */
-function workletsProblem(root) {
-  if (!existsSync(join(root, 'node_modules', 'react-native-worklets'))) return null;
+function patchProblem(root, name, apply) {
+  if (!existsSync(join(root, 'node_modules', name))) return null;
   try {
-    repairWorklets(root, true);
+    apply(root, true);
     return null;
   } catch (error) {
     return error.message;

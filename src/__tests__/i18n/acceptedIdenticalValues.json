@@ -88,7 +88,13 @@
     "units.rpm": "Conventional measurement unit symbol.",
     "units.spm": "Conventional measurement unit symbol.",
     "time.dayAtTime": "Date and time punctuation.",
-    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences."
+    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences.",
+    "units.hours": "SI unit symbol for a duration, written the same in every language.",
+    "units.hoursValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.minutesValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.secondsValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.hoursMinutes": "SI unit symbol for a duration, written the same in every language.",
+    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language."
   },
   "de-CH": {
     "activity.stats.maxLabel": "Abbreviation of the German label with the same spelling.",
@@ -170,7 +176,13 @@
     "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
     "units.spm": "Conventional measurement unit symbol.",
     "time.dayAtTime": "Date and time punctuation.",
-    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences."
+    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences.",
+    "units.hours": "SI unit symbol for a duration, written the same in every language.",
+    "units.hoursValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.minutesValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.secondsValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.hoursMinutes": "SI unit symbol for a duration, written the same in every language.",
+    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language."
   },
   "de-DE": {
     "about.version": "German word or phrase with the same spelling.",
@@ -278,7 +290,13 @@
     "activity.stats.pace": "Established German loanword or technical term.",
     "units.spm": "Conventional measurement unit symbol.",
     "time.dayAtTime": "Date and time punctuation.",
-    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences."
+    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences.",
+    "units.hours": "SI unit symbol for a duration, written the same in every language.",
+    "units.hoursValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.minutesValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.secondsValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.hoursMinutes": "SI unit symbol for a duration, written the same in every language.",
+    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language."
   },
   "es-419": {
     "activity.stats.maxLabel": "Abbreviation of the Spanish label with the same spelling.",
@@ -347,7 +365,13 @@
     "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
     "units.rpm": "Conventional measurement unit symbol.",
     "time.dayAtTime": "Date and time punctuation.",
-    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences."
+    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences.",
+    "units.hours": "SI unit symbol for a duration, written the same in every language.",
+    "units.hoursValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.minutesValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.secondsValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.hoursMinutes": "SI unit symbol for a duration, written the same in every language.",
+    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language."
   },
   "es-ES": {
     "activity.stats.maxLabel": "Abbreviation of the Spanish label with the same spelling.",
@@ -421,7 +445,13 @@
     "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
     "units.rpm": "Conventional measurement unit symbol.",
     "time.dayAtTime": "Date and time punctuation.",
-    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences."
+    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences.",
+    "units.hours": "SI unit symbol for a duration, written the same in every language.",
+    "units.hoursValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.minutesValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.secondsValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.hoursMinutes": "SI unit symbol for a duration, written the same in every language.",
+    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language."
   },
   "es": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -488,7 +518,13 @@
     "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
     "units.rpm": "Conventional measurement unit symbol.",
     "time.dayAtTime": "Date and time punctuation.",
-    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences."
+    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences.",
+    "units.hours": "SI unit symbol for a duration, written the same in every language.",
+    "units.hoursValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.minutesValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.secondsValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.hoursMinutes": "SI unit symbol for a duration, written the same in every language.",
+    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language."
   },
   "fr": {
     "backup.carrierGoogleDrive": "Service and product names.",
@@ -535,7 +571,8 @@
     "formZones.optimal": "French word or phrase with the same spelling.",
     "formZones.transition": "French word or phrase with the same spelling.",
     "insights.data.efforts": "French word or phrase with the same spelling.",
-    "insights.sectionPrSheet.efforts": "French word or phrase with the same spelling.",
+    "insights.sectionPrSheet.efforts_one": "French word or phrase with the same spelling.",
+    "insights.sectionPrSheet.efforts_other": "French word or phrase with the same spelling.",
     "insights.sectionWithSport": "Placeholders only, no translatable words.",
     "insights.strengthBalance.ratioLabel": "French word or phrase with the same spelling.",
     "login.title": "Veloq product name.",
@@ -610,7 +647,13 @@
     "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
     "activity.stats.cadence": "The same word in this language.",
     "time.dayAtTime": "Date and time punctuation.",
-    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences."
+    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences.",
+    "units.hours": "SI unit symbol for a duration, written the same in every language.",
+    "units.hoursValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.minutesValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.secondsValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.hoursMinutes": "SI unit symbol for a duration, written the same in every language.",
+    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language."
   },
   "it": {
     "activity.stats.maxLabel": "Abbreviation of the Italian label with the same spelling.",
@@ -694,7 +737,13 @@
     "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
     "units.rpm": "Conventional measurement unit symbol.",
     "time.dayAtTime": "Date and time punctuation.",
-    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences."
+    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences.",
+    "units.hours": "SI unit symbol for a duration, written the same in every language.",
+    "units.hoursValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.minutesValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.secondsValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.hoursMinutes": "SI unit symbol for a duration, written the same in every language.",
+    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language."
   },
   "ja": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -820,7 +869,6 @@
     "settings.unitsAuto": "Abbreviation of the Dutch label with the same spelling.",
     "stats.gap": "Conventional training or recording abbreviation.",
     "stats.week": "Dutch word or phrase with the same spelling.",
-    "strength.exerciseSets": "Established Dutch loanword or technical term.",
     "strength.muscles.biceps": "Dutch anatomical term or abbreviation with the same spelling.",
     "strength.muscles.hamstring": "Dutch anatomical term or abbreviation with the same spelling.",
     "strength.muscles.quadriceps": "Dutch anatomical term or abbreviation with the same spelling.",
@@ -869,7 +917,13 @@
     "units.rpm": "Conventional measurement unit symbol.",
     "units.spm": "Conventional measurement unit symbol.",
     "time.dayAtTime": "Date and time punctuation.",
-    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences."
+    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences.",
+    "units.hours": "SI unit symbol for a duration, written the same in every language.",
+    "units.hoursValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.minutesValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.secondsValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.hoursMinutes": "SI unit symbol for a duration, written the same in every language.",
+    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language."
   },
   "pl": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -945,7 +999,13 @@
     "bestEffortsScreen.checkpoint.metres": "Conventional measurement unit symbol after the number.",
     "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
     "time.dayAtTime": "Date and time punctuation.",
-    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences."
+    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences.",
+    "units.hours": "SI unit symbol for a duration, written the same in every language.",
+    "units.hoursValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.minutesValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.secondsValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.hoursMinutes": "SI unit symbol for a duration, written the same in every language.",
+    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language."
   },
   "pt-BR": {
     "activity.stats.maxLabel": "Abbreviation of the Brazilian Portuguese label with the same spelling.",
@@ -1026,7 +1086,13 @@
     "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
     "units.rpm": "Conventional measurement unit symbol.",
     "time.dayAtTime": "Date and time punctuation.",
-    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences."
+    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences.",
+    "units.hours": "SI unit symbol for a duration, written the same in every language.",
+    "units.hoursValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.minutesValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.secondsValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.hoursMinutes": "SI unit symbol for a duration, written the same in every language.",
+    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language."
   },
   "pt": {
     "activity.stats.maxLabel": "Abbreviation of the Portuguese label with the same spelling.",
@@ -1107,7 +1173,13 @@
     "activity.gainStat": "An arrow mark before a formatted value, the same in every language.",
     "units.rpm": "Conventional measurement unit symbol.",
     "time.dayAtTime": "Date and time punctuation.",
-    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences."
+    "common.sentencePair": "Two placeholders joined by a space, which this language also uses between sentences.",
+    "units.hours": "SI unit symbol for a duration, written the same in every language.",
+    "units.hoursValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.minutesValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.secondsValue": "SI unit symbol for a duration, written the same in every language.",
+    "units.hoursMinutes": "SI unit symbol for a duration, written the same in every language.",
+    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language."
   },
   "zh-Hans": {
     "backgroundJobs.progressPercent": "Numeric percentage template.",

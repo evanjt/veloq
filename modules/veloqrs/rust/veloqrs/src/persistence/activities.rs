@@ -29,27 +29,26 @@ struct RemovalMemory {
     had_track: bool,
 }
 
-/// The prefix every device-minted activity key carries. intervals.icu ids are
-/// `i` and digits and the seeded corpora use `demo-`, so this namespace is
-/// ours alone and the three can share `activities.id` without meeting.
-pub const LOCAL_KEY_PREFIX: &str = "local-";
+use super::origin::{ActivityOrigin, LOCAL_KEY_PREFIX, SOURCE_KEY_PREFIX, origin_of};
 
-/// Whether a key was minted here rather than handed down by intervals.icu.
-/// The ingest writes `intervals_id` from the key for every server-sourced
-/// activity, which is true by construction and is what the `024` backfill
-/// rests on; this is the one case where it is not.
-pub fn is_local_activity_key(activity_id: &str) -> bool {
-    activity_id.starts_with(LOCAL_KEY_PREFIX)
-}
-
-/// The prefix the seeded demo corpora give their activity keys.
-pub const DEMO_KEY_PREFIX: &str = "demo-";
-
-/// Whether intervals.icu can know an activity by this key. A device-minted
-/// key and a seeded demo key name nothing upstream, so asking for either
-/// spends a request to learn nothing.
-pub fn names_upstream_activity(activity_id: &str) -> bool {
-    !is_local_activity_key(activity_id) && !activity_id.starts_with(DEMO_KEY_PREFIX)
+/// The intervals.icu id a web link may name for a stored activity, or None
+/// when intervals.icu holds no page for it.
+///
+/// `stored` is the `intervals_id` column. A demo row is seeded here and the
+/// ingest writes its own key into that column, so the column alone would name
+/// a page that does not exist. A row the device minted has no page until an
+/// upload answers with the server's id. Every other row came from
+/// intervals.icu, so its key is that id when the column is empty.
+pub fn intervals_web_id(key: &str, stored: Option<&str>) -> Option<String> {
+    let origin = origin_of(key);
+    if origin == ActivityOrigin::Demo {
+        return None;
+    }
+    match stored {
+        Some(id) => Some(id.to_owned()),
+        None if origin.minted_here() => None,
+        None => Some(key.to_owned()),
+    }
 }
 
 /// A key for a ride the device recorded and no server has named.
@@ -910,6 +909,39 @@ pub(crate) mod pooled {
         })
     }
 
+    /// The activities whose metrics date falls in a window, and of those
+    /// with no stored track, the ones the census says have a track upstream
+    /// that no refusal or run of failures has settled out: the GPS download
+    /// still owes them.
+    pub(crate) fn window_track_backlog(
+        conn: &Connection,
+        start_date: i64,
+        end_date: i64,
+    ) -> SqlResult<(u32, u32)> {
+        conn.query_row(
+            &format!(
+                "SELECT COUNT(*),
+                        COUNT(*) FILTER (WHERE
+                            NOT EXISTS (SELECT 1 FROM activities a WHERE a.id = m.activity_id)
+                            AND EXISTS (
+                                SELECT 1 FROM activity_census c
+                                WHERE (c.intervals_id = m.activity_id
+                                       OR c.intervals_id = (SELECT b.intervals_id
+                                                            FROM activity_bodies b
+                                                            WHERE b.activity_id = m.activity_id))
+                                  AND c.has_latlng = 1
+                                  AND NOT ({settled_out})
+                                  AND NOT {stored}))
+                 FROM activity_metrics m
+                 WHERE m.date >= ?1 AND m.date <= ?2",
+                settled_out = CENSUS_TRACK_SETTLED_OUT.as_str(),
+                stored = CENSUS_TRACK_STORED,
+            ),
+            params![start_date, end_date],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+    }
+
     /// The census ids whose track was refused for good at the version the
     /// census still names.
     pub(crate) fn refused_track_ids(conn: &Connection, athlete_id: &str) -> Vec<String> {
@@ -969,6 +1001,21 @@ pub(crate) mod pooled {
             .collect()
     }
 
+    /// The `intervals_id` stored for an activity, on its `activities` row or,
+    /// for a trackless one, on its body. None for one the server has never
+    /// named.
+    pub(crate) fn stored_intervals_id(conn: &Connection, activity_id: &str) -> Option<String> {
+        conn.query_row(
+            "SELECT COALESCE(
+                 (SELECT intervals_id FROM activities WHERE id = ?1),
+                 (SELECT intervals_id FROM activity_bodies WHERE activity_id = ?1))",
+            params![activity_id],
+            |row| row.get::<_, Option<String>>(0),
+        )
+        .ok()
+        .flatten()
+    }
+
     /// The feed's read: the bodies in a window, newest first, narrowed by a
     /// search and a sport chip, then paged. The match runs over the whole
     /// window before the page is taken, and the count is of every match.
@@ -998,9 +1045,11 @@ pub(crate) mod pooled {
             .map_or(usize::MAX, |limit| first.saturating_add(limit as usize));
 
         let mut stmt = conn.prepare_cached(
-            "SELECT b.raw, m.name, m.sport_type
+            "SELECT b.raw, m.name, m.sport_type, b.activity_id,
+                    COALESCE(a.intervals_id, b.intervals_id)
              FROM activity_bodies b
              LEFT JOIN activity_metrics m ON m.activity_id = b.activity_id
+             LEFT JOIN activities a ON a.id = b.activity_id
              WHERE b.date >= ?1 AND b.date <= ?2
              ORDER BY b.date DESC, b.activity_id DESC",
         )?;
@@ -1009,6 +1058,7 @@ pub(crate) mod pooled {
             query.newest_ts.map_or(i64::MAX, |ts| ts as i64)
         ])?;
         let mut bodies = Vec::new();
+        let mut intervals_ids = Vec::new();
         let mut matched = 0usize;
         while let Some(row) = rows.next()? {
             let hit = !filtered
@@ -1031,11 +1081,16 @@ pub(crate) mod pooled {
             }
             if (first..last).contains(&matched) {
                 bodies.push(row.get(0)?);
+                intervals_ids.push(super::intervals_web_id(
+                    &row.get::<_, String>(3)?,
+                    row.get::<_, Option<String>>(4)?.as_deref(),
+                ));
             }
             matched += 1;
         }
         Ok(crate::FfiActivityBodiesPage {
             bodies,
+            intervals_ids,
             matched_count: matched as u32,
             has_more: matched > last,
         })
@@ -2454,10 +2509,11 @@ impl PersistentEngine {
         // `intervals_id` is the server's own id, kept beside the key rather
         // than as it. An activity that came from intervals.icu is keyed by
         // that id, so the column records it and the `024` backfill is true by
-        // construction. A row the device minted carries NULL until an upload
-        // answers, which is what makes it a ride nothing upstream has named.
+        // construction. A key minted here, a recording or an import, carries
+        // NULL until an upload answers, which is what makes it a ride nothing
+        // upstream has named. `origin::ingest_intervals_id` decides which.
         // `COALESCE` so a re-ingest never overwrites one already recorded.
-        let intervals_id = (!is_local_activity_key(id)).then_some(id);
+        let intervals_id = super::origin::ingest_intervals_id(id);
         self.db.execute(
             "INSERT INTO activities
                  (id, intervals_id, sport_type, min_lat, max_lat, min_lng, max_lng)
@@ -3277,13 +3333,17 @@ impl PersistentEngine {
     /// unless the device minted it and its upload's id sits on its body.
     ///
     /// Scoped four ways, and each one is a library wiped if it is dropped. A
-    /// row with no `intervals_id`, or a `local-` key whose body carries none,
-    /// was never upstream as far as this library knows, so the server not
-    /// naming it says nothing. Demo rows are seeded on the device and no census
-    /// carries them. A row dated after `newest` is one the census could not
-    /// have named. And the comparison is against the server's own id, never
-    /// against the key, or a row the device minted would read as deleted the
-    /// moment it was stored.
+    /// row with no `intervals_id`, or a key minted here whose body carries
+    /// none, was never upstream as far as this library knows, so the server
+    /// not naming it says nothing: `origin::intervals_upstream` answering
+    /// None. The ingest stores NULL for such a key, so the first arm needs no
+    /// prefix test and the trackless arm binds both prefixes. Demo rows are
+    /// out, whatever id they carry, though `intervals_upstream` names them:
+    /// they are seeded on the device and no census carries them, so comparing
+    /// one would delete it. A row dated after `newest` is one the census could
+    /// not have named. And the comparison is against the server's own id,
+    /// never against the key, or a row the device minted would read as
+    /// deleted the moment it was stored.
     pub fn census_candidates(&self, newest: &str) -> Vec<(String, String)> {
         let mut stmt = match self.db.prepare(
             "SELECT a.id, a.intervals_id FROM activities a
@@ -3301,7 +3361,8 @@ impl PersistentEngine {
              LEFT JOIN activity_bodies b ON b.activity_id = k.id
              LEFT JOIN activity_metrics m ON m.activity_id = k.id
              WHERE NOT EXISTS (SELECT 1 FROM activities a WHERE a.id = k.id)
-               AND (substr(k.id, 1, length(?2)) != ?2 OR b.intervals_id IS NOT NULL)
+               AND ((substr(k.id, 1, length(?2)) != ?2 AND substr(k.id, 1, length(?3)) != ?3)
+                    OR b.intervals_id IS NOT NULL)
                AND k.id NOT LIKE 'demo-%'
                AND (COALESCE(b.date, m.date) IS NULL
                     OR date(COALESCE(b.date, m.date), 'unixepoch') <= date(?1))",
@@ -3312,9 +3373,10 @@ impl PersistentEngine {
                 return Vec::new();
             }
         };
-        let rows = stmt.query_map(params![newest, LOCAL_KEY_PREFIX], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        });
+        let rows = stmt.query_map(
+            params![newest, LOCAL_KEY_PREFIX, SOURCE_KEY_PREFIX],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+        );
         match rows {
             Ok(rows) => rows.flatten().collect(),
             Err(e) => {
@@ -3608,16 +3670,7 @@ impl PersistentEngine {
     /// from the key: the two are equal for every row today and the whole
     /// point of the column is that they stop being.
     pub fn intervals_id(&self, activity_id: &str) -> Option<String> {
-        self.db
-            .query_row(
-                "SELECT COALESCE(
-                     (SELECT intervals_id FROM activities WHERE id = ?1),
-                     (SELECT intervals_id FROM activity_bodies WHERE activity_id = ?1))",
-                params![activity_id],
-                |row| row.get::<_, Option<String>>(0),
-            )
-            .ok()
-            .flatten()
+        pooled::stored_intervals_id(&self.db, activity_id)
     }
 
     /// The intervals.icu id for each of `activity_ids` that has one, keyed by
@@ -4542,6 +4595,55 @@ mod tests {
 
     fn ride_points() -> Vec<GpsPoint> {
         vec![GpsPoint::new(46.0, 7.0), GpsPoint::new(46.001, 7.001)]
+    }
+
+    /// Scenario: a web link to intervals.icu is built for every kind of row
+    /// the library holds.
+    ///
+    /// Expected behaviour: only a row intervals.icu has named gets an id. A
+    /// demo row's stored id is its own key and names no page upstream, and a
+    /// recording names none until an upload answers.
+    #[test]
+    fn a_web_link_names_only_an_id_intervals_has_given() {
+        let cases: [(&str, Option<&str>, Option<&str>); 7] = [
+            ("i901", Some("i901"), Some("i901")),
+            ("i902", None, Some("i902")),
+            ("demo-ride-1", Some("demo-ride-1"), None),
+            ("demo-ride-2", None, None),
+            ("local-ride-1", None, None),
+            ("local-ride-2", Some("i900"), Some("i900")),
+            ("local-ride-3", Some("i903"), Some("i903")),
+        ];
+        for (key, stored, expected) in cases {
+            assert_eq!(
+                intervals_web_id(key, stored).as_deref(),
+                expected,
+                "{key} stored as {stored:?}"
+            );
+        }
+    }
+
+    /// Scenario: a trackless recording is uploaded, so its server id sits on
+    /// its body and it has no `activities` row at all.
+    ///
+    /// Expected behaviour: the pooled read finds the id on the body, the same
+    /// answer the engine's own lookup gives.
+    #[test]
+    fn the_stored_id_of_a_trackless_recording_is_read_from_its_body() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        engine
+            .upsert_activity_bodies(&[("local-ride-3".into(), 1_700_000_000, "{}".into())])
+            .unwrap();
+        assert_eq!(
+            pooled::stored_intervals_id(&engine.db, "local-ride-3"),
+            None
+        );
+        assert!(engine.record_upload("local-ride-3", "i903").unwrap());
+        assert_eq!(
+            pooled::stored_intervals_id(&engine.db, "local-ride-3").as_deref(),
+            Some("i903")
+        );
+        assert_eq!(engine.intervals_id("local-ride-3").as_deref(), Some("i903"));
     }
 
     #[test]

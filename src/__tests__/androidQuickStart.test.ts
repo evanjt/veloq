@@ -43,11 +43,17 @@ describe('the snapshot carries the recent sports as one pre-localised list', () 
       })
     );
     expect(context.recordShortcuts).toEqual([
-      { type: 'Ride', label: 'Vélo', url: 'veloq://recording/Ride?from=quickstart' },
+      {
+        type: 'Ride',
+        label: 'Vélo',
+        url: 'veloq://recording/Ride?from=quickstart',
+        glyph: 'ride',
+      },
       {
         type: 'OpenWaterSwim',
         label: 'OpenWaterSwim',
         url: 'veloq://recording/OpenWaterSwim?from=quickstart',
+        glyph: 'swim',
       },
     ]);
   });
@@ -83,6 +89,18 @@ describe('the snapshot carries the recent sports as one pre-localised list', () 
     );
     expect(context.recordShortcuts.map((s) => s.type)).toEqual(['Ride', 'Run']);
     expect(context.launcherShortcuts.map((s) => s.type)).toEqual(['Ride', 'Run']);
+  });
+
+  it('names the sport category each launcher shortcut draws, so no two sports share the app icon', () => {
+    const context = composeWidgetContext(
+      raw({ recentRecordingTypes: ['GravelRide', 'TrailRun', 'Kayaking'] })
+    );
+    expect(context.launcherShortcuts.map((s) => s.glyph)).toEqual(['ride', 'run', 'water']);
+  });
+
+  it('draws a sport the categories do not name with the catch-all glyph', () => {
+    const context = composeWidgetContext(raw({ recentRecordingTypes: ['Underwater Basket'] }));
+    expect(context.launcherShortcuts.map((s) => s.glyph)).toEqual(['other']);
   });
 
   it('is empty before anything has been recorded, which is the fallback signal', () => {

@@ -33,11 +33,13 @@ import { useWindowCoverage } from '@/shared/native/useRangeCoverage';
 import {
   formatLocalDate,
   getIntlLocale,
+  hoursUnitLabel,
   longDistanceUnitLabel,
   metersToLongDistance,
 } from '@/shared/format/format';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { useChartGestures } from '@/shared/charts';
+import { formatDecimalTrimmed } from '@/shared/format';
 
 interface SeasonComparisonProps {
   /** Height of the chart */
@@ -199,7 +201,7 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
   }, [yearCurrent, yearPrevious, metric, isMetric]);
 
   const metricLabels = {
-    hours: { label: t('stats.hours'), unit: 'h' },
+    hours: { label: t('stats.hours'), unit: hoursUnitLabel() },
     distance: { label: t('activity.distance'), unit: longDistanceUnitLabel(isMetric) },
     tss: { label: t('metrics.load'), unit: '' },
   };
@@ -407,7 +409,7 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
                   {currentYear - 1}
                 </Text>
                 <Text style={[styles.tooltipValue, isDark && styles.textLight]}>
-                  {selectedMonthData.previous}
+                  {formatDecimalTrimmed(selectedMonthData.previous, 1)}
                   {metricLabels[metric].unit}
                 </Text>
               </View>
@@ -417,17 +419,17 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
                   {currentYear}
                 </Text>
                 <Text style={[styles.tooltipValue, isDark && styles.textLight]}>
-                  {selectedMonthData.current}
+                  {formatDecimalTrimmed(selectedMonthData.current, 1)}
                   {metricLabels[metric].unit}
                 </Text>
               </View>
-              {monthChange && (
+              {monthChange ? (
                 <Text
                   style={[styles.tooltipDiff, { color: verdictColor(monthChange.rung, isDark) }]}
                 >
                   {monthChange.text}
                 </Text>
-              )}
+              ) : null}
             </View>
           </>
         ) : (
@@ -439,7 +441,7 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
               />
               <Text style={styles.summaryLabel}>{currentYear - 1}</Text>
               <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-                {totals.previousTotal}
+                {formatDecimalTrimmed(totals.previousTotal, 1)}
                 {metricLabels[metric].unit}
               </Text>
             </View>
@@ -450,11 +452,11 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
               />
               <Text style={styles.summaryLabel}>{currentYear}</Text>
               <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-                {totals.currentTotal}
+                {formatDecimalTrimmed(totals.currentTotal, 1)}
                 {metricLabels[metric].unit}
               </Text>
             </View>
-            {totalChange && (
+            {totalChange ? (
               <View style={styles.summaryItem}>
                 <Text
                   style={[styles.summaryValue, { color: verdictColor(totalChange.rung, isDark) }]}
@@ -462,7 +464,7 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
                   {totalChange.text}
                 </Text>
               </View>
-            )}
+            ) : null}
           </>
         )}
       </View>
@@ -470,11 +472,11 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
       {/* Chart - Skia Picture + gesture overlay */}
       <GestureDetector gesture={panGesture}>
         <View style={{ height }} onLayout={onChartLayout}>
-          {chartPicture && (
+          {chartPicture ? (
             <Canvas style={{ width: '100%', height }}>
               <Picture picture={chartPicture} />
             </Canvas>
-          )}
+          ) : null}
           {/* Month labels overlay */}
           <View style={styles.monthLabelsRow} pointerEvents="none">
             {monthLabels.map((m, idx) => (
@@ -495,11 +497,11 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
         </View>
       </GestureDetector>
 
-      {notDownloaded && (
+      {notDownloaded ? (
         <Text testID="season-comparison-partial" style={styles.partial}>
           {t('stats.rangePartlyDownloaded')}
         </Text>
-      )}
+      ) : null}
     </View>
   );
 }

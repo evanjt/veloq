@@ -121,7 +121,7 @@ function DetectionSettingsScreenContent() {
           />
 
           {/* The result stays until the next rescan replaces it, never on a timer. */}
-          {rescanResult && (
+          {rescanResult ? (
             <StatusLine
               testID="detection-rescan-result"
               tone="success"
@@ -131,7 +131,7 @@ function DetectionSettingsScreenContent() {
               })}
               textStyle={[styles.rescanResult, { color: textSecondary }]}
             />
-          )}
+          ) : null}
 
           {refusalKey !== null && (
             <StatusLine
@@ -142,16 +142,16 @@ function DetectionSettingsScreenContent() {
             />
           )}
 
-          {rescanStillRunning && (
+          {rescanStillRunning ? (
             <StatusLine
               testID="detection-rescan-still-running"
               tone="pending"
               message={t('settings.stillRunning')}
               textStyle={[styles.rescanResult, { color: textSecondary }]}
             />
-          )}
+          ) : null}
 
-          {rescanFailed && (
+          {rescanFailed ? (
             <StatusLine
               tone="error"
               message={t(
@@ -160,7 +160,7 @@ function DetectionSettingsScreenContent() {
               )}
               textStyle={[styles.rescanResult, { color: danger }]}
             />
-          )}
+          ) : null}
 
           <CutoverStatus />
         </View>

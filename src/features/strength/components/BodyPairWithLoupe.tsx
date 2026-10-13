@@ -332,7 +332,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
         {/* The drawing is reached by touch at coordinates, so a screen reader
             gets one element that steps through the muscles instead. It sits
             over the pair without taking a touch. */}
-        {adjustable && (
+        {adjustable ? (
           <View
             testID="body-pair-adjustable"
             style={StyleSheet.absoluteFill}
@@ -346,7 +346,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
             accessibilityActions={STEP_ACTIONS}
             onAccessibilityAction={handleStep}
           />
-        )}
+        ) : null}
         <View onLayout={handleLayout} style={styles.row}>
           <View style={styles.bodyView}>
             <Body
@@ -374,7 +374,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
           </View>
 
           {/* Magnifying loupe - bodies rendered at larger scale, no CSS scale transform */}
-          {scrubbing && (
+          {scrubbing ? (
             <Animated.View
               style={[styles.loupeContainer, loupeContainerStyle]}
               pointerEvents="none"
@@ -403,7 +403,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
                 <View style={styles.loupeCrosshair} />
               </View>
             </Animated.View>
-          )}
+          ) : null}
         </View>
       </Animated.View>
     </GestureDetector>

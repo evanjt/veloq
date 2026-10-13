@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The walk icon from Material Design Icons (Apache License 2.0), the glyph the app's sport chips draw. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+  android:width="24dp"
+  android:height="24dp"
+  android:viewportWidth="24"
+  android:viewportHeight="24">
+  <path
+    android:fillColor="@color/veloq_shortcut_glyph"
+    android:pathData="M14.109 9.984H18.984V8.203H15.375L13.359 4.875Q13.172 4.5 12.773 4.266Q12.375 4.031 11.906 4.031Q11.672 4.031 11.438 4.125L6 5.812V11.016H7.781V7.312L9.891 6.656L6 21.984H7.781L10.688 13.875L12.984 17.016V21.984H14.812V15.609L12.328 11.062L13.031 8.203ZM14.016 3.797Q14.766 3.797 15.281 3.281Q15.797 2.766 15.797 2.016Q15.797 1.266 15.281 0.727Q14.766 0.188 14.016 0.188Q13.266 0.188 12.727 0.727Q12.188 1.266 12.188 2.016Q12.188 2.766 12.727 3.281Q13.266 3.797 14.016 3.797Z" />
+</vector>

@@ -16,6 +16,7 @@ import { getEngine, isEngineReady } from '@/shared/native/engine';
 import { demoLibrary } from '@/shared/app/seedDemoEngine';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { getRecentRecordingTypes, getRecordedRecordingTypes } from '@/shared/recording';
+import { getActivityTypeConfig } from '@/shared/activity/sportCategories';
 import { activityTypeColors } from '@/theme/colors';
 import { widgetPalette, type WidgetPalette } from '@/shared/theme/widgetTheme';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
@@ -31,14 +32,21 @@ import {
 } from '@/features/insights/light';
 
 /**
- * One recent sport: the id, the name a surface shows, and the deep link that
- * starts it. The URL is composed here and nowhere else, so no native holds a
- * second copy of the rule and no surface can drift from the others.
+ * One recent sport: the id, the name a surface shows, the deep link that starts
+ * it, and the glyph a launcher draws for it. The URL is composed here and nowhere
+ * else, so no native holds a second copy of the rule and no surface can drift
+ * from the others.
  */
 export interface WidgetRecordShortcut {
   type: string;
   label: string;
   url: string;
+  /**
+   * The sport's category key, `ride` to `other`, the same grouping the app's sport
+   * chips draw. Each launcher maps the key to its own glyph, so no native holds a
+   * sport-to-category map.
+   */
+  glyph: string;
 }
 
 /** Where a record surface goes when no sport is known: the picker, as before. */
@@ -66,6 +74,11 @@ export const WIDGET_STRING_KEYS = [
   'metrics.hrv',
   'metrics.rhr',
   'metrics.week',
+  'units.secondsValue',
+  'units.minutesValue',
+  'units.minutesSeconds',
+  'units.hoursValue',
+  'units.hoursMinutes',
   'recording.startActivity',
   'systemSurfaces.refresh',
   'systemSurfaces.refreshing',
@@ -127,6 +140,11 @@ export const WIDGET_STRING_KEYS = [
   'strength.setsCount_few',
   'strength.setsCount_many',
   'strength.setsCount_other',
+  // The days a chart spans, drawn as its caption, in every plural form.
+  'time.daysCount_one',
+  'time.daysCount_few',
+  'time.daysCount_many',
+  'time.daysCount_other',
   ...Object.values(MUSCLE_NAME_KEYS),
 ] as const;
 
@@ -152,6 +170,14 @@ export interface WidgetDateWords {
   months: string[];
 }
 
+/** The locale's decimal and group separators, so the engine writes a number as the app does. */
+export interface WidgetNumberWords {
+  decimal: string;
+  group: string;
+  /** The fewest digits ahead of the first group: 1 groups 1,234, 2 waits for 12,345. */
+  minimumGroupingDigits: number;
+}
+
 /** What the engine composes the snapshot with beside its own rows. */
 export interface WidgetContext {
   locale: string;
@@ -159,6 +185,7 @@ export interface WidgetContext {
   formAsPercent: boolean;
   strings: Record<string, string>;
   dates: WidgetDateWords;
+  numbers: WidgetNumberWords;
   /** Null hides the widget summary block. */
   summaryCard: SummaryCardPreferences | null;
   theme: { light: WidgetPalette; dark: WidgetPalette };
@@ -208,6 +235,8 @@ export interface WidgetContextInput {
   recordedRecordingTypes?: string[] | null | undefined;
   /** The locale's date words; read from `Intl` when absent. */
   dates?: WidgetDateWords | undefined;
+  /** The locale's number separators; read from `Intl` when absent. */
+  numbers?: WidgetNumberWords | undefined;
   /** The Insights tab's ranked list, best first. */
   insights?: readonly Insight[] | undefined;
   /** The snapshot is of the sample library: demo mode, or nobody signed in. */
@@ -234,6 +263,7 @@ export function composeWidgetContext(input: WidgetContextInput): WidgetContext {
     formAsPercent: input.formAsPercent === true,
     strings,
     dates: input.dates ?? widgetDateWords(),
+    numbers: input.numbers ?? widgetNumberWords(),
     summaryCard: input.summaryPrefs ?? null,
     theme: { light: widgetPalette.light, dark: widgetPalette.dark },
     activityTints: { ...activityTypeColors },
@@ -272,6 +302,7 @@ function composeRecordShortcuts(
       type,
       label: label === `activityTypes.${type}` ? type : label,
       url: `veloq://recording/${encodeURIComponent(type)}?${QUICK_START_MARK}`,
+      glyph: getActivityTypeConfig(type)?.labelKey ?? 'other',
     });
   }
   return out;
@@ -330,6 +361,28 @@ function datePattern(locale: string, options: Intl.DateTimeFormatOptions): Widge
     return { parts, months };
   } catch {
     return { parts: [], months: [] };
+  }
+}
+
+/**
+ * The app locale's decimal and group separators, read from `Intl`. Empty where
+ * the runtime cannot say, and the engine then writes a point and no grouping.
+ */
+export function widgetNumberWords(locale: string = getIntlLocale()): WidgetNumberWords {
+  try {
+    const format = new Intl.NumberFormat(locale, { minimumFractionDigits: 1 });
+    if (typeof format.formatToParts !== 'function') {
+      return { decimal: '', group: '', minimumGroupingDigits: 1 };
+    }
+    const part = (value: number, type: string) =>
+      format.formatToParts(value).find((p) => p.type === type)?.value ?? '';
+    return {
+      decimal: part(12345.5, 'decimal'),
+      group: part(12345.5, 'group'),
+      minimumGroupingDigits: part(1234.5, 'group') === '' ? 2 : 1,
+    };
+  } catch {
+    return { decimal: '', group: '', minimumGroupingDigits: 1 };
   }
 }
 

@@ -35,7 +35,7 @@ function renderWithSheet(panel: React.ReactElement) {
     return (
       <>
         {panel}
-        {request && <ParamEditorSheet key={request} />}
+        {request ? <ParamEditorSheet key={request} /> : null}
       </>
     );
   }

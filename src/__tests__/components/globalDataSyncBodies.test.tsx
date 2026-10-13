@@ -63,10 +63,17 @@ function announce(channel: string) {
   listeners.get(channel)?.forEach((listener) => listener());
 }
 
-const fixtureBodies = [
+const page = (bodies: string[]) => ({
+  bodies,
+  intervalsIds: bodies.map(() => null),
+  matchedCount: bodies.length,
+  hasMore: false,
+});
+
+const fixtureBodies = page([
   JSON.stringify({ id: 'kite-1', type: 'Ride', stream_types: ['latlng'] }),
   JSON.stringify({ id: 'kite-2', type: 'Run', stream_types: ['time'] }),
-];
+]);
 
 const fakeEngine = {
   getActivityBodies: jest.fn((_oldest: number, _newest: number) => fixtureBodies),
@@ -150,7 +157,7 @@ describe('the sync tree on an activities announcement', () => {
 
   it('runs no pass while the library is empty', async () => {
     fakeEngine.getStats.mockReturnValue({ libraryCount: 0 });
-    fakeEngine.getActivityBodies.mockReturnValue([]);
+    fakeEngine.getActivityBodies.mockReturnValue(page([]));
     await mountSyncTree();
     await announceActivities();
 

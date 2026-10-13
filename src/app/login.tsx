@@ -139,9 +139,9 @@ function LoginScreenContent() {
 
         {/* Main Login Section */}
         <View style={[styles.card, isDark && styles.cardDark]}>
-          {sessionNotice && <SessionExpiredNotice notice={sessionNotice} />}
+          {sessionNotice ? <SessionExpiredNotice notice={sessionNotice} /> : null}
 
-          {error && !sessionNotice && (
+          {error && !sessionNotice ? (
             <StatusLine tone="error" message={error} style={styles.errorContainer}>
               <MaterialCommunityIcons name="alert-circle" size={20} color={colors.error} />
               <Text
@@ -151,9 +151,9 @@ function LoginScreenContent() {
                 {error}
               </Text>
             </StatusLine>
-          )}
+          ) : null}
 
-          {queuedMessage && !error && (
+          {queuedMessage && !error ? (
             <StatusLine tone="info" message={queuedMessage} style={styles.queuedContainer}>
               <MaterialCommunityIcons name="cloud-off-outline" size={20} color={colors.secondary} />
               <Text
@@ -170,7 +170,7 @@ function LoginScreenContent() {
                 onPress={discardQueuedKey}
               />
             </StatusLine>
-          )}
+          ) : null}
 
           {/* OAuth Login */}
           <OAuthLoginForm onLogin={handleOAuthLogin} isLoading={isLoading} />
@@ -195,6 +195,9 @@ function LoginScreenContent() {
               <MaterialCommunityIcons name="play-circle-outline" size={18} color={colors.primary} />
             }
           />
+          <Text style={[styles.demoCaption, isDark && styles.textDark]}>
+            {t('login.demoCaption')}
+          </Text>
 
           {/* Restore from Backup */}
           <Button
@@ -213,11 +216,11 @@ function LoginScreenContent() {
               />
             }
           />
-          {showRestore && (
+          {showRestore ? (
             <View style={styles.restoreChooser}>
               <RestoreChooser />
             </View>
-          )}
+          ) : null}
 
           {/* API Key Login */}
           <ApiKeyLoginForm
@@ -375,6 +378,12 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
     color: colors.textSecondary,
     fontSize: typography.bodySmall.fontSize,
+  },
+  demoCaption: {
+    marginTop: spacing.xs,
+    color: colors.textSecondary,
+    fontSize: typography.caption.fontSize,
+    textAlign: 'center',
   },
   restoreButton: {
     marginTop: spacing.sm,

@@ -10,12 +10,7 @@ import { normaliseBounds } from '@/shared/geo/polyline';
 import { planClusterZoom, stackedOn } from '@/features/maps/lib/clusterZoom';
 import type { LngLatBounds } from '@/features/maps/lib/coordinates';
 import { sectionIdsAtTap } from '@/features/maps/lib/sectionIdsAtTap';
-import { trackStillWanted, waitForGpsTrack } from '@/features/maps/lib/gpsTrackWait';
 import { saveMapCameraState } from '@/features/maps/lib/storage/mapCameraState';
-import { decodeCoords, DownloadPriority } from 'veloqrs';
-import { present } from 'veloqrs/src/delegates/optional';
-import { activityStartEpoch } from '@/shared/activity/streamWindow';
-import { getEngine } from '@/shared/native/engine';
 import type { ActivityBoundsItem } from '@/types';
 import type { SelectedActivity } from './ActivityPopup';
 import type { Map3DWebViewRef } from '../Map3DWebView';
@@ -31,7 +26,6 @@ import {
 import { REGIONAL_FIT_PADDING } from './regionalCamera';
 import { REGION_SETTLE_DEBOUNCE_MS } from '@/features/maps/lib/mapBudgets';
 import { tapTo } from '@/shared/app/navigation';
-import { motionTiming } from '@/shared/ui/reduceMotion';
 
 /** The ease onto a cluster whose leaves never arrived. */
 const CLUSTER_EXPAND_DURATION_MS = 400;
@@ -138,27 +132,21 @@ export function useMapHandlers({
   const prevCenterRef = useRef<[number, number] | null>(null);
   const prevZoomRef = useRef<number>(-1);
 
-  // Read by the track wait, which outlives this screen by up to fifteen
-  // seconds and must not write into it once it has gone.
-  const mountedRef = useRef(true);
-
   // Cleanup debounce timers on unmount
   useEffect(() => {
-    mountedRef.current = true;
     return () => {
-      mountedRef.current = false;
       if (zoomCenterDebounceRef.current) clearTimeout(zoomCenterDebounceRef.current);
     };
   }, []);
 
-  // Handle marker tap - no auto-zoom to prevent jarring camera movements
-  // Uses local cached GPS data from Rust engine for instant response
-  // PERF: Show popup immediately, load route data after
+  // Handle marker tap - no auto-zoom to prevent jarring camera movements.
+  // Every activity this map lists is a catalogue row, which the engine writes
+  // together with its track, so the line is drawn from the engine's URL and the
+  // tap reads nothing.
   const handleMarkerTap = useCallback(
     (activity: ActivityBoundsItem) => {
       // One popup at a time: the activity's takes the place of a route's.
       setSelectedRouteId(null);
-      // Show popup immediately with activity info (no route yet)
       setSelected({
         activity,
         mapData: {
@@ -167,76 +155,7 @@ export function useMapHandlers({
           route: null,
           weather: null,
         },
-        routeCoords: undefined,
-        isLoading: true,
-      });
-
-      // Load route data after popup is shown (non-blocking). A dismissal or
-      // another tap inside the frame decides what is on screen, so the frame
-      // writes only for the popup it was asked for.
-      requestAnimationFrame(() => {
-        const onScreen = selectedRef.current?.activity.id ?? null;
-        if (!trackStillWanted(activity.id, onScreen, mountedRef.current)) return;
-        const engine = getEngine();
-        const encoded = engine?.getGpsTrack(activity.id);
-        const localTrack = encoded ? decodeCoords(encoded) : [];
-
-        if (localTrack.length > 0) {
-          // Convert directly to GeoJSON format [lng, lat][]
-          const routeCoords: [number, number][] = [];
-          for (const p of localTrack) {
-            if (Number.isFinite(p.latitude) && Number.isFinite(p.longitude)) {
-              routeCoords.push([p.longitude, p.latitude]);
-            }
-          }
-          setSelected({
-            activity,
-            mapData: {
-              bounds: activity.bounds,
-              latlngs: null,
-              route: null,
-              weather: null,
-            },
-            routeCoords,
-            isLoading: false,
-          });
-        } else {
-          // No local track yet. Ask Rust to download and store this one
-          // activity's GPS, then read it back the same way as any other.
-          //
-          // The run id is discarded on purpose: this caller waits for the
-          // track to appear in the engine rather than for the fetch's own
-          // result, so its result is never read. It is filed under its own run
-          // and evicted in turn, which is what stops it being handed to the
-          // sync or the push task as theirs.
-          getEngine()?.startFetchAndStore(
-            [activity.id],
-            [
-              present({
-                activityId: activity.id,
-                sportType: activity.type,
-                startDate: activityStartEpoch(activity.date),
-              }),
-            ],
-            // Somebody is looking at this one, so it goes out beside a bulk
-            // pass rather than behind its hundreds.
-            DownloadPriority.Interactive
-          );
-          setSelected({ activity, mapData: null, isLoading: true });
-          waitForGpsTrack(activity.id).then((coords) => {
-            // The wait is up to fifteen seconds, so what the athlete is
-            // looking at now decides whether this lands.
-            const onScreen = selectedRef.current?.activity.id ?? null;
-            if (!trackStillWanted(activity.id, onScreen, mountedRef.current)) return;
-            setSelected({
-              activity,
-              mapData: coords
-                ? { bounds: activity.bounds, latlngs: coords, route: null, weather: null }
-                : null,
-              isLoading: false,
-            });
-          });
-        }
+        isLoading: false,
       });
     },
     [setSelected, setSelectedRouteId]
@@ -517,12 +436,7 @@ export function useMapHandlers({
     } else {
       surfaceRef.current?.resetOrientation();
     }
-    motionTiming(bearingAnim, {
-      toValue: 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [is3DMode, map3DRef, surfaceRef, bearingAnim]);
+  }, [is3DMode, map3DRef, surfaceRef]);
 
   // Fit all activities in view - recalculates bounds from all current activities
   const handleFitAll = useCallback(() => {

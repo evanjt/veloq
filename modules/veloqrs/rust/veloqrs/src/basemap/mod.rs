@@ -631,14 +631,6 @@ pub fn page_status(error: &TileFetchError) -> u16 {
     }
 }
 
-/// One tile's bytes for whatever source the page named, or the status to
-/// answer the page with when there are none, with a miss fetched on the
-/// caller's thread. The C entry point uses this, since its handler already
-/// runs off the main thread on a queue of its own.
-pub(crate) fn tile_bytes(source: &str, z: u8, x: u32, y: u32) -> Result<Vec<u8>, u16> {
-    fetch_tile(source, z, x, y)
-}
-
 /// Keep a tile fetched under `template`, unless a refresh has since moved the
 /// source to another template. That refresh dropped the tiles of the run
 /// `template` names, so keeping this one would serve it beside the new run's

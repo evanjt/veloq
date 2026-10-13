@@ -389,7 +389,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
         </View>
       </GestureDetector>
 
-      {(key.groups.length > 0 || key.noLoad) && (
+      {key.groups.length > 0 || key.noLoad ? (
         <View>
           <View style={styles.keyRow}>
             {key.groups.map((group) => (
@@ -402,18 +402,18 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
                 </Text>
               </View>
             ))}
-            {key.noLoad && (
+            {key.noLoad ? (
               <View testID="fitness-strip-key-noLoad" style={styles.keyItem}>
                 <View style={[styles.keySwatch, { backgroundColor: mutedColor }]} />
                 <Text style={keyTextStyle}>{t('fitness.noLoadKey')}</Text>
               </View>
-            )}
+            ) : null}
           </View>
           <Text testID="fitness-strip-gloss" style={keyTextStyle}>
             {t('fitness.stripGloss')}
           </Text>
         </View>
-      )}
+      ) : null}
     </View>
   );
 });

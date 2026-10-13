@@ -200,6 +200,16 @@ describe('SyncDateRangeStore', () => {
       // Now unlocked
       expect(useSyncDateRange.getState().isExpansionLocked).toBe(false);
     });
+
+    it('a reset cancels an unlock already pending, so its lock outlives the timer', () => {
+      useSyncDateRange.setState({ isExpansionLocked: true });
+      useSyncDateRange.getState().delayedUnlockExpansion();
+
+      useSyncDateRange.getState().reset();
+      jest.advanceTimersByTime(500);
+
+      expect(useSyncDateRange.getState().isExpansionLocked).toBe(true);
+    });
   });
 
   describe('the refusal expandRange gives back', () => {

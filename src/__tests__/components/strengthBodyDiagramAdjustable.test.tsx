@@ -84,7 +84,7 @@ describe('the muscle diagram for a screen reader', () => {
 
     expect(body.props.accessibilityLabel).toBe('strength.muscleGroupVolume');
     expect(body.props.accessibilityValue.text).toContain('12.5 strength.setsCount');
-    expect(body.props.accessibilityValue.text).toContain('3420 kg');
+    expect(body.props.accessibilityValue.text).toContain('3,420 kg');
     step('increment');
     expect(onMuscleTap).toHaveBeenLastCalledWith('quadriceps');
     step('decrement');

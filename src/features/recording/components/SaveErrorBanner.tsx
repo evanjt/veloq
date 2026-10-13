@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -31,7 +31,8 @@ export interface SaveErrorBannerProps {
   /** When provided, offers to open the kept ride in My Recordings. */
   onOpenRecording?: (() => void) | undefined;
   /** When provided, offers to share the kept ride's FIT file. */
-  onShareFit?: (() => void) | undefined;
+  /** Takes the share button, which the share sheet points at on iPad. */
+  onShareFit?: ((anchor: React.RefObject<View | null>) => void) | undefined;
   /**
    * When provided, shows a "Free up space" button beside Retry, for a save
    * that failed on a device short of space.
@@ -60,6 +61,7 @@ export function SaveErrorBanner({
 }: SaveErrorBannerProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const shareAnchor = useRef<View>(null);
 
   useAnnounceOnAppear(errorMessage);
 
@@ -73,42 +75,43 @@ export function SaveErrorBanner({
       {!!detail && (
         <Text style={[styles.detailText, isDark && styles.detailTextDark]}>{detail}</Text>
       )}
-      {showPermissionFix && (
+      {showPermissionFix ? (
         <GrantAccessButton onPress={onUpgradePermissions} loading={isOAuthLoading} />
-      )}
-      {!showPermissionFix && onFreeSpace && (
+      ) : null}
+      {!showPermissionFix && onFreeSpace ? (
         <Button
           style={styles.retryButton}
           variant="secondary"
           label={t('common.freeUpSpace')}
           onPress={onFreeSpace}
         />
-      )}
-      {!showPermissionFix && onRetry && (
+      ) : null}
+      {!showPermissionFix && onRetry ? (
         <Button
           style={styles.retryButton}
           label={t('common.retry', 'Retry')}
           onPress={onRetry}
           loading={isRetrying}
         />
-      )}
-      {onOpenRecording && (
+      ) : null}
+      {onOpenRecording ? (
         <Button
           testID="save-error-open-recording"
           style={styles.retryButton}
           label={t('recording.openInRecordings', 'Open in My Recordings')}
           onPress={onOpenRecording}
         />
-      )}
-      {onShareFit && (
+      ) : null}
+      {onShareFit ? (
         <Button
+          ref={shareAnchor}
           testID="save-error-share-fit"
           style={styles.retryButton}
           variant="secondary"
           label={t('recording.library.share', 'Share FIT file')}
-          onPress={onShareFit}
+          onPress={() => onShareFit(shareAnchor)}
         />
-      )}
+      ) : null}
     </View>
   );
 }

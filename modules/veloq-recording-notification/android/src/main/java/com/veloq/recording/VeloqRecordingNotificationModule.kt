@@ -1,6 +1,5 @@
 package com.veloq.recording
 
-import android.app.ActivityManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -18,11 +17,6 @@ import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import org.json.JSONObject
-
-// The service expo-location runs the location task in. Named rather than derived
-// because `getRunningServices` reports a class name and nothing else identifies
-// it.
-private const val LOCATION_SERVICE_CLASS = "expo.modules.location.services.LocationTaskService"
 
 // The service posts its notification asynchronously after the app backgrounds,
 // so the first update can arrive before there is anything to replace.
@@ -73,6 +67,7 @@ class VeloqRecordingNotificationModule : Module() {
     // is a page of parsing, and doing it here to hand over a `JSONObject` would
     // leave the JS thread paying for the half that is cheapest to move.
     Function("update") { json: String ->
+      LiveRide.reported = true
       onWorker {
         val payload = JSONObject(json)
         armInterruptedRide(payload)
@@ -84,6 +79,7 @@ class VeloqRecordingNotificationModule : Module() {
     // the service's lifecycle takes the notification down. Cancelling is the
     // only thing that does.
     Function("clear") {
+      LiveRide.reported = false
       onWorker {
         cancelRetry()
         cancelNotification()
@@ -116,25 +112,7 @@ class VeloqRecordingNotificationModule : Module() {
     Function("drainPendingActions") { RecordingActionReceiver.drainPending(context) }
 
     // Whether the location foreground service is actually running.
-    //
-    // Two cheaper answers were measured on a device and both lie. The task
-    // registry (`hasStartedLocationUpdatesAsync`) answers whether the task is
-    // registered, and a ride that ended abnormally leaves it registered across a
-    // process restart. The service's notification is worse: `manager.notify`
-    // takes ownership of the id, so a re-posted one outlives both the service
-    // and the process, and was measured still on screen with no app process
-    // alive at all.
-    //
-    // `getRunningServices` is deprecated and still correct here: since Android 8
-    // it returns only the caller's own services, which is exactly the scope
-    // wanted. A dead service is simply absent, and nothing stale can add one.
-    @Suppress("DEPRECATION")
-    Function("serviceRunning") {
-      val manager = context.getSystemService(ActivityManager::class.java)
-      manager?.getRunningServices(Int.MAX_VALUE)?.any {
-        it.service.className == LOCATION_SERVICE_CLASS && it.foreground
-      } == true
-    }
+    Function("serviceRunning") { LiveRide.locationServiceRunning(context) }
   }
 
   /**

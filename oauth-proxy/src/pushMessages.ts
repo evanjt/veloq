@@ -53,7 +53,7 @@ export function buildPushMessages(
   visible: VisibleContent | null,
   platform?: string
 ): Record<string, unknown>[] {
-  const channelId = "veloq-insights";
+  const channelId = "veloq-activity";
   const activityId = typeof data.activity_id === "string" ? data.activity_id : null;
   const messages: Record<string, unknown>[] = [];
 

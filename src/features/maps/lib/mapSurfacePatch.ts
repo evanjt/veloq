@@ -17,12 +17,7 @@
  * A source serialised here is handed on as `sourceJson`, so the script that
  * sends it reuses the string rather than stringifying the track again.
  */
-import type {
-  MapImageSpec,
-  MapLayerSpec,
-  MapMarkerSpec,
-  MapSourceSpec,
-} from '@/features/maps/lib/htmlBuilders';
+import type { MapImageSpec, MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
 
 /** What was last sent for one key: the object it came from, and its bytes. */
 export type SentSpec<T> = {
@@ -37,8 +32,8 @@ export type SingleDiff<T> = {
 };
 
 /**
- * Diff one whole spec, for the lists the page takes entire: layers, markers
- * and images. Identity first, then the bytes.
+ * Diff one whole spec, for the lists the page takes entire: layers and
+ * images. Identity first, then the bytes.
  */
 export function diffSpec<T>(sent: SentSpec<T> | undefined, spec: T): SingleDiff<T> {
   if (sent && sent.spec === spec) {
@@ -50,12 +45,13 @@ export function diffSpec<T>(sent: SentSpec<T> | undefined, spec: T): SingleDiff<
 
 /**
  * The coordinates of a source that is one LineString and says it grows, or
- * `null` for anything else. A collection with a second feature, a point, or a
- * clustered source is not a growing line whatever it claims.
+ * `null` for anything else. A collection with a second feature, a point, a URL
+ * or a clustered source is not a growing line whatever it claims.
  */
 export function growingLine(spec: MapSourceSpec): GeoJSON.Position[] | null {
   if (spec.kind !== 'geojson' || !spec.growing) return null;
   const { data } = spec;
+  if (typeof data === 'string') return null;
   let feature: GeoJSON.Feature;
   if (data.type === 'FeatureCollection') {
     if (data.features.length !== 1) return null;
@@ -102,7 +98,6 @@ export function planGrowth(
 export type SurfaceSpecs = {
   sources: Record<string, MapSourceSpec>;
   layers: MapLayerSpec[];
-  markers?: MapMarkerSpec[] | undefined;
   /** Absent and empty differ: the page is only told about images it has. */
   images?: MapImageSpec[] | undefined;
   interactiveLayers?: string[] | undefined;
@@ -112,7 +107,6 @@ export type SurfacePatch = {
   sources?: Record<string, MapSourceSpec | null>;
   appends?: Record<string, GeoJSON.Position[]>;
   layers?: MapLayerSpec[];
-  markers?: MapMarkerSpec[];
   images?: MapImageSpec[];
   interactiveLayers?: string[];
 };
@@ -161,14 +155,12 @@ const EMPTY: never[] = [];
 export function createSurfacePatcher() {
   let sentSources: Record<string, SentSource> = {};
   let sentLayers: SentSpec<MapLayerSpec[]> | undefined;
-  let sentMarkers: SentSpec<MapMarkerSpec[]> | undefined;
   let sentImages: SentSpec<MapImageSpec[]> | undefined;
 
   return {
     forget() {
       sentSources = {};
       sentLayers = undefined;
-      sentMarkers = undefined;
       sentImages = undefined;
     },
 
@@ -223,21 +215,12 @@ export function createSurfacePatcher() {
       const layers = diffSpec(sentLayers, specs.layers);
       sentLayers = layers.sent;
 
-      const markers = diffSpec(sentMarkers, specs.markers ?? (EMPTY as MapMarkerSpec[]));
-      sentMarkers = markers.sent;
-
       const images = diffSpec(sentImages, specs.images ?? (EMPTY as MapImageSpec[]));
       sentImages = images.sent;
 
-      serialised += layers.serialised + markers.serialised + images.serialised;
+      serialised += layers.serialised + images.serialised;
 
-      if (
-        !hasSourceChange &&
-        !hasAppend &&
-        !layers.changed &&
-        !markers.changed &&
-        !images.changed
-      ) {
+      if (!hasSourceChange && !hasAppend && !layers.changed && !images.changed) {
         return { patch: null, serialised, sourceJson };
       }
 
@@ -249,7 +232,6 @@ export function createSurfacePatcher() {
           ...(hasSourceChange ? { sources: changed } : {}),
           ...(hasAppend ? { appends } : {}),
           ...(layers.changed ? { layers: specs.layers } : {}),
-          ...(markers.changed ? { markers: specs.markers ?? [] } : {}),
           ...(specs.interactiveLayers ? { interactiveLayers: specs.interactiveLayers } : {}),
         },
         serialised,

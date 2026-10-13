@@ -10,12 +10,21 @@
  * the position is a value a screen reader can read and adjust.
  */
 import React from 'react';
-import { Modal } from 'react-native';
+import { Modal, StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
+import { advanceAnimationByTime, getAnimatedStyle } from 'react-native-reanimated';
 import { WhatsNewModal } from '@/features/settings/components/whatsNew/WhatsNewModal';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { MapPreferencesProvider } from '@/features/settings/stores/MapPreferencesContext';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { spacing } from '@/theme';
+
+const mockWindow = { width: 750, height: 1334, scale: 2, fontScale: 1 };
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+  ...jest.requireActual('react-native/Libraries/Utilities/useWindowDimensions'),
+  __esModule: true,
+  default: () => ({ ...mockWindow }),
+}));
 
 jest.mock('@/shared/storage', () => ({
   getSetting: jest.fn().mockResolvedValue(null),
@@ -43,14 +52,18 @@ jest.mock('@/features/settings/components/whatsNew/slides', () => {
 const visible = { includeHiddenElements: false } as const;
 const TITLES = ['tour.lighthouse', 'tour.harbour', 'tour.jetty'];
 
-function openTour() {
-  useWhatsNewStore.setState({ isLoaded: true, lastSeenVersion: null, tourState: null });
-  useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
-  render(
+function tourTree() {
+  return (
     <MapPreferencesProvider>
       <WhatsNewModal />
     </MapPreferencesProvider>
   );
+}
+
+function openTour() {
+  useWhatsNewStore.setState({ isLoaded: true, lastSeenVersion: null, tourState: null });
+  useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
+  render(tourTree());
   expect(useWhatsNewStore.getState().tourState?.mode).toBe('tutorial');
 }
 
@@ -187,5 +200,43 @@ describe('the tour footer on a narrow card', () => {
       within(screen.getByTestId('whats-new-nav-row')).getByTestId('whats-new-done')
     ).toBeTruthy();
     expect(screen.queryByTestId('whats-new-skip')).toBeNull();
+  });
+});
+
+describe('the tour when the window changes width', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => {
+    mockWindow.width = 750;
+    jest.useRealTimers();
+  });
+
+  const rowOffset = () =>
+    StyleSheet.flatten(getAnimatedStyle(screen.getByTestId('whats-new-slide-row'))).transform?.[0];
+
+  it('keeps the current slide in view after a fold, split or rotation', () => {
+    openTour();
+    fireEvent.press(screen.getByRole('button', { name: 'whatsNew.nextButton' }));
+    fireEvent.press(screen.getByRole('button', { name: 'whatsNew.nextButton' }));
+    act(() => advanceAnimationByTime(300));
+    expect(rowOffset()).toEqual({ translateX: -(750 - spacing.xl * 2) * 2 });
+
+    mockWindow.width = 500;
+    screen.rerender(tourTree());
+    act(() => advanceAnimationByTime(300));
+
+    expect(rowOffset()).toEqual({ translateX: -(500 - spacing.xl * 2) * 2 });
+    expect(exposedTitles()).toStrictEqual(['tour.jetty']);
+  });
+
+  it('snaps without an animation, so no frame shows two slides', () => {
+    openTour();
+    fireEvent.press(screen.getByRole('button', { name: 'whatsNew.nextButton' }));
+    act(() => advanceAnimationByTime(300));
+
+    mockWindow.width = 500;
+    screen.rerender(tourTree());
+    act(() => advanceAnimationByTime(0));
+
+    expect(rowOffset()).toEqual({ translateX: -(500 - spacing.xl * 2) });
   });
 });

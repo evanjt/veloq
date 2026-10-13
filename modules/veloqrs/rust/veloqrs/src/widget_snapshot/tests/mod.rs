@@ -1,8 +1,10 @@
+mod chart_words;
 mod clock;
 mod demo;
 mod fixtures;
 mod form_zones;
 mod native;
+mod numbers;
 mod snapshot;
 mod spoken;
 mod strength;

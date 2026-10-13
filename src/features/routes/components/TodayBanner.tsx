@@ -61,10 +61,12 @@ export const TodayBanner = React.memo(function TodayBanner({ form: formLoads }: 
   return (
     <View style={[styles.container, isDark && styles.containerDark]}>
       {/* Readiness header */}
-      {formLoads && <ReadinessRow loads={formLoads} isTomorrow={isTomorrow} isDark={isDark} />}
+      {formLoads ? (
+        <ReadinessRow loads={formLoads} isTomorrow={isTomorrow} isDark={isDark} />
+      ) : null}
 
       {/* Planned workout */}
-      {workout && <WorkoutCard workout={workout} isTomorrow={isTomorrow} isDark={isDark} />}
+      {workout ? <WorkoutCard workout={workout} isTomorrow={isTomorrow} isDark={isDark} /> : null}
 
       {/* Section highlights (for today's workout) */}
       {!isTomorrow && sections.length > 0 && (
@@ -145,9 +147,9 @@ const WorkoutCard = React.memo(function WorkoutCard({
         {formatDuration(workout.moving_time)}
         {workout.icu_training_load > 0 &&
           ` \u00B7 ${t('metrics.trainingLoad')} ${formatLoad(workout.icu_training_load)}`}
-        {targetLabel && ` \u00B7 ${targetLabel}`}
+        {targetLabel ? ` \u00B7 ${targetLabel}` : null}
       </Text>
-      {workout.workout_doc?.steps && <WorkoutStepBar steps={workout.workout_doc.steps} />}
+      {workout.workout_doc?.steps ? <WorkoutStepBar steps={workout.workout_doc.steps} /> : null}
     </View>
   );
 });
@@ -209,7 +211,7 @@ const SectionHighlights = React.memo(function SectionHighlights({
               {section.name}
             </Text>
             <View style={styles.sectionMeta}>
-              {prTimeSecs != null && isRecentPR && (
+              {prTimeSecs != null && isRecentPR ? (
                 <View style={styles.prCelebration}>
                   <MaterialCommunityIcons name="trophy" size={12} color={brand.gold} />
                   <Text style={[styles.prTextCelebration, isDark && styles.prGoldDark]}>
@@ -218,17 +220,17 @@ const SectionHighlights = React.memo(function SectionHighlights({
                   {gain != null && (
                     <Text
                       style={[styles.prDelta, isDark && styles.accentTextDark]}
-                    >{` \u2212${formatDuration(gain)}`}</Text>
+                    >{` -${formatDuration(gain)}`}</Text>
                   )}
                 </View>
-              )}
+              ) : null}
               {prTimeSecs != null && !isRecentPR && (
                 <Text style={[styles.prBadgeAccent, isDark && styles.accentTextDark]}>
                   {t('routes.prTime', { time: formatDuration(prTimeSecs) })}
-                  {gain != null ? ` (\u2212${formatDuration(gain)})` : ''}
+                  {gain != null ? ` (-${formatDuration(gain)})` : ''}
                 </Text>
               )}
-              {section.trend && (
+              {section.trend ? (
                 <Text style={[styles.trendArrow, getTrendStyle(section.trend, isDark)]}>
                   {section.trend === 'improving'
                     ? ' \u2191'
@@ -236,7 +238,7 @@ const SectionHighlights = React.memo(function SectionHighlights({
                       ? ' \u2193'
                       : ' \u2192'}
                 </Text>
-              )}
+              ) : null}
             </View>
           </Pressable>
         );

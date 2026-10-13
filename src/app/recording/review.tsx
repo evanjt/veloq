@@ -285,7 +285,7 @@ function ReviewScreenContent() {
         }}
       />
       {/* Map hero (top portion) */}
-      {hasGps && (
+      {hasGps ? (
         <ReviewMapHero
           coordinates={streams.latlng}
           mapHeight={mapHeight}
@@ -300,7 +300,7 @@ function ReviewScreenContent() {
           onTrimChange={handleTrimChange}
           onTrimCommit={handleTrimCommit}
         />
-      )}
+      ) : null}
 
       {/* Bottom sheet content */}
       <ScreenScrollView contentContainerStyle={styles.scrollContent}>
@@ -323,14 +323,14 @@ function ReviewScreenContent() {
         />
 
         {/* Trim delta feedback */}
-        {trimDelta && (
+        {trimDelta ? (
           <Text style={[styles.trimDelta, { color: textSecondary }]}>
             {t('recording.trimmedOff', {
               distance: formatDistance(trimDelta.distance, isMetric),
               time: formatDuration(trimDelta.duration),
             })}
           </Text>
-        )}
+        ) : null}
 
         {/* Activity Type (tappable) */}
         <Pressable
@@ -361,7 +361,7 @@ function ReviewScreenContent() {
         />
 
         {/* Queued success message */}
-        {queuedMessage && (
+        {queuedMessage ? (
           <StatusLine tone="success" message={queuedMessage} style={styles.queuedBanner}>
             <MaterialCommunityIcons
               name="check-circle-outline"
@@ -377,19 +377,19 @@ function ReviewScreenContent() {
               {queuedMessage}
             </Text>
           </StatusLine>
-        )}
+        ) : null}
 
         {/* The scope the athlete recorded past: say where the ride is going. */}
-        {ridingWithoutScope && (
+        {ridingWithoutScope ? (
           <Text
             testID="review-stays-on-device"
             style={[styles.localOnly, { color: textSecondary }]}
           >
             {t('recording.savedLocallyNoScope')}
           </Text>
-        )}
+        ) : null}
 
-        {unbackedRide && (
+        {unbackedRide ? (
           <StatusLine
             tone="error"
             message={t('recording.reviewNoBackup')}
@@ -410,7 +410,7 @@ function ReviewScreenContent() {
               {t('recording.reviewNoBackup')}
             </Text>
           </StatusLine>
-        )}
+        ) : null}
 
         {/* Error banner */}
         <SaveErrorBanner

@@ -42,28 +42,28 @@ export function SectionMapLegend({
 
   return (
     <MapKey isDark={isDark} style={{ top }} testID="section-map-legend">
-      {showDelta && (
+      {showDelta ? (
         <MapKeySwatch
           testID="section-map-legend-delta"
           swatch={[mapLayerColors.deltaWon, mapLayerColors.deltaNeutral, mapLayerColors.deltaLost]}
           label={t('sections.legendDeltaWonLost')}
           isDark={isDark}
         />
-      )}
-      {showActivity && (
+      ) : null}
+      {showActivity ? (
         <MapKeySwatch
           swatch={colors.chartCyan}
           label={t('sections.legendThisActivity')}
           isDark={isDark}
         />
-      )}
-      {showEarlierVersion && (
+      ) : null}
+      {showEarlierVersion ? (
         <MapKeySwatch
           swatch={colors.gray500}
           label={t('sections.legendEarlierVersion')}
           isDark={isDark}
         />
-      )}
+      ) : null}
     </MapKey>
   );
 }

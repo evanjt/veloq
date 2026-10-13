@@ -14,6 +14,26 @@ export interface SyncProgress {
   percent: number;
   message: string;
   analysingInBackground?: boolean;
+  /** The `syncGeneration` the run that wrote this started at. */
+  generation?: number;
+}
+
+type ProgressUpdate = SyncProgress | ((prev: SyncProgress) => SyncProgress);
+
+/**
+ * The writer one run hands its steps: every write it makes carries the
+ * `syncGeneration` the run started at, so a terminal status it leaves behind
+ * is never read as the outcome of a later state.
+ */
+export function stampedProgressWriter(
+  write: (updater: ProgressUpdate) => void,
+  generation: number
+): (updater: ProgressUpdate) => void {
+  return (updater) =>
+    write((prev) => ({
+      ...(typeof updater === 'function' ? updater(prev) : updater),
+      generation,
+    }));
 }
 
 interface UseRouteSyncProgressResult {

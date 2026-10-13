@@ -8,7 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const SRC = path.resolve(__dirname, '../..');
-const EXEMPT = ['app/debug.tsx', 'features/routes/components/SyncDebugTab.tsx'];
+const EXEMPT = ['app/debug.tsx', 'features/routes/components/SyncDebugSection.tsx'];
 const DEVICE_LOCALE_CALL =
   /\b(?:toLocale(?:Date|Time)?String|Intl\.DateTimeFormat)\(\s*(?:\)|undefined\b|'en-US')/g;
 

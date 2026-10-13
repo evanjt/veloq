@@ -25,6 +25,7 @@ import { formatDistance } from '@/shared/format/format';
 import { useMetricSystem, useTheme } from '@/shared/app';
 import { IconButton, pressable, pressRipple } from '@/shared/ui';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
+import { formatPercent } from '@/shared/format';
 
 export type CreationState =
   | 'idle'
@@ -136,12 +137,12 @@ export function SectionCreationOverlay({
 
   const getProgress = () => {
     if (startIndex === null || coordinateCount === 0) return null;
-    const startPercent = ((startIndex / coordinateCount) * 100).toFixed(0);
+    const startPercent = formatPercent((startIndex / coordinateCount) * 100);
     if (endIndex === null) {
-      return `${startPercent}%`;
+      return startPercent;
     }
-    const endPercent = ((endIndex / coordinateCount) * 100).toFixed(0);
-    return `${startPercent}% - ${endPercent}%`;
+    const endPercent = formatPercent((endIndex / coordinateCount) * 100);
+    return `${startPercent} - ${endPercent}`;
   };
 
   const toggleExpanded = () => {
@@ -232,17 +233,17 @@ export function SectionCreationOverlay({
             >
               {statusText}
             </Text>
-            {!isCreating && (hasSelection || isComplete || isError) && (
+            {!isCreating && (hasSelection || isComplete || isError) ? (
               <MaterialCommunityIcons
                 name={shouldExpand ? 'chevron-down' : 'chevron-up'}
                 size={16}
                 color={palette.textSecondary}
               />
-            )}
+            ) : null}
           </View>
 
           {/* Error details - expanded */}
-          {shouldExpand && isError && error && (
+          {shouldExpand && isError && error ? (
             <Animated.View entering={FadeIn} style={[styles.expandedContent, ruleStyle]}>
               {/* Technical details toggle */}
               <Pressable
@@ -270,9 +271,9 @@ export function SectionCreationOverlay({
                 />
               </Pressable>
 
-              {showTechnicalDetails && (
+              {showTechnicalDetails ? (
                 <View style={[styles.technicalDetails, detailsStyle]}>
-                  {error.technicalDetails && (
+                  {error.technicalDetails ? (
                     <View style={styles.detailRow}>
                       <MaterialCommunityIcons
                         name="code-tags"
@@ -283,8 +284,8 @@ export function SectionCreationOverlay({
                         {error.technicalDetails}
                       </Text>
                     </View>
-                  )}
-                  {error.activityId && (
+                  ) : null}
+                  {error.activityId ? (
                     <View style={styles.detailRow}>
                       <MaterialCommunityIcons
                         name="identifier"
@@ -295,8 +296,8 @@ export function SectionCreationOverlay({
                         {t('routes.errorDetailId', { id: error.activityId })}
                       </Text>
                     </View>
-                  )}
-                  {error.indices && (
+                  ) : null}
+                  {error.indices ? (
                     <View style={styles.detailRow}>
                       <MaterialCommunityIcons
                         name="arrow-expand-horizontal"
@@ -310,17 +311,17 @@ export function SectionCreationOverlay({
                         })}
                       </Text>
                     </View>
-                  )}
+                  ) : null}
                   <Text style={[styles.helpText, mutedText]}>
                     {t('routes.shareDetailsWithDeveloper' as never)}
                   </Text>
                 </View>
-              )}
+              ) : null}
             </Animated.View>
-          )}
+          ) : null}
 
           {/* Expanded details - normal selection */}
-          {shouldExpand && hasSelection && !isError && (
+          {shouldExpand && hasSelection && !isError ? (
             <Animated.View entering={FadeIn} style={[styles.expandedContent, ruleStyle]}>
               {getProgress() && (
                 <View style={styles.detailRow}>
@@ -340,12 +341,12 @@ export function SectionCreationOverlay({
                   </Text>
                 </View>
               )}
-              {sizeWarning && (
+              {sizeWarning ? (
                 <View style={styles.warningRow}>
                   <MaterialCommunityIcons name="alert-outline" size={14} color={statusTone.fill} />
                   <Text style={[styles.detailText, { color: statusTone.text }]}>{sizeWarning}</Text>
                 </View>
-              )}
+              ) : null}
               {/* Reset option in expanded view */}
               <Pressable
                 accessibilityRole="button"
@@ -360,7 +361,7 @@ export function SectionCreationOverlay({
                 </Text>
               </Pressable>
             </Animated.View>
-          )}
+          ) : null}
         </Pressable>
 
         {/* Create button - only when complete, or cancel on error */}

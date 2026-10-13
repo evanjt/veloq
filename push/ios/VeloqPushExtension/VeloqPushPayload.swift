@@ -1,31 +1,5 @@
 import Foundation
 
-/// The App Group container, which is where the database was moved to so a
-/// second process could reach it at all. An extension has no way into the
-/// app's own Documents directory.
-enum VeloqPaths {
-  static let appGroup = "group.com.veloq.app"
-
-  /// The database, or nil when the container is unreachable or the file is
-  /// not there yet.
-  ///
-  /// Absent is the ordinary case on the launch after an upgrade: the app moves
-  /// the file into the container on its next start, and until it has, the
-  /// library is still in `Documents` where no extension can see it. Opening a
-  /// path with nothing at it would create an empty database, index one ride
-  /// into it and compare that ride against nothing, so the answer is to post
-  /// what the server wrote and wait for the move.
-  static func routeDatabase() -> String? {
-    guard
-      let container = FileManager.default.containerURL(
-        forSecurityApplicationGroupIdentifier: appGroup
-      )
-    else { return nil }
-    let path = container.appendingPathComponent("routes.db").path
-    return FileManager.default.fileExists(atPath: path) ? path : nil
-  }
-}
-
 /// What one push says, out of the payload Expo sends.
 ///
 /// The developer data rides in the top-level `body` key of the APNs payload,

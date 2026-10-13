@@ -22,6 +22,8 @@ import { useDrawnMapStyle } from '@/features/maps/hooks/useDrawnMapStyle';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 import { heatmapKeyColours } from '@/features/maps/lib/heatmapPaint';
 import type { ActivityBoundsItem } from '@/types';
+import { useEngineRead } from '@/shared/native/useEngineSubscription';
+import { decodeCoords } from 'veloqrs';
 import { useSectionDetail } from '@/shared/native/useSectionDetail';
 import { useBackDismiss } from '@/shared/app/useBackDismiss';
 import type { MapSection } from '@/features/maps/hooks/useEngineMapActivities';
@@ -69,6 +71,7 @@ import {
   type LngLatBounds,
 } from '../lib/coordinates';
 import { surfaceIsLeaving, useInitialRegionalCamera } from '../hooks/useInitialRegionalCamera';
+import { useStoredTrackUrl } from '../hooks/useStoredTrackUrl';
 import { useSectionChooser } from './regional/useSectionChooser';
 import { tapTo } from '@/shared/app/navigation';
 
@@ -334,12 +337,17 @@ export function RegionalMapView({
     setSpider,
   });
 
+  // The selected activity's line, fetched by the page from the engine. Every
+  // activity this map lists is a catalogue row, so the engine holds its track.
+  const selectedTrackUrl = useStoredTrackUrl(selected?.activity.id, !!selected);
+
   // All GeoJSON data for map layers
   const { markersGeoJSON, userLocationGeoJSON, routeGeoJSON, routeHasData } = useMapGeoJSON({
     allActivities: activities,
     activityCenters,
     userLocation,
     selected,
+    selectedTrackUrl,
   });
 
   // The markers are drawn into the canvas, so a link names the activity whose
@@ -443,24 +451,6 @@ export function RegionalMapView({
   // Selected activity ID for MapLibre expressions (cheap to pass, doesn't trigger GeoJSON rebuild)
   const selectedActivityId = selected?.activity.id ?? null;
 
-  // Get 3D route coordinates from selected activity (if any)
-  // Uses pre-computed routeCoords if available, falls back to mapData.latlngs
-  // Filter NaN/Infinity to prevent invalid GeoJSON in Map3DWebView
-  const route3DCoords = useMemo(() => {
-    // Priority 1: Use pre-computed routeCoords (already in [lng, lat] format)
-    if (selected?.routeCoords && selected.routeCoords.length > 0) {
-      return selected.routeCoords;
-    }
-
-    // Priority 2: Fall back to mapData.latlngs
-    if (!selected?.mapData?.latlngs) return [];
-
-    return selected.mapData.latlngs
-      .filter((c): c is [number, number] => c !== null)
-      .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng))
-      .map(([lat, lng]) => [lng, lat] as [number, number]); // Convert to [lng, lat]
-  }, [selected]);
-
   // Spider GeoJSON for cluster fan-out at max zoom
   const { spiderPointsGeoJSON, spiderLinesGeoJSON } = useMemo(() => {
     if (!spider) {
@@ -508,6 +498,28 @@ export function RegionalMapView({
   const can3D = activities.length > 0;
   // Show 3D view when enabled
   const show3D = is3DMode && can3D;
+
+  // The 3D page takes the selected route as coordinates rather than a URL, so
+  // the stored track is decoded here, and only while 3D is showing. The URL
+  // moves when the track is replaced, which is what re-reads it.
+  // Filter NaN/Infinity to prevent invalid GeoJSON in Map3DWebView
+  const readTrack = useEngineRead([]);
+  const route3DCoords = useMemo((): [number, number][] => {
+    if (!show3D || !selected) return [];
+    if (selectedTrackUrl) {
+      const encoded = readTrack((engine) => engine.getGpsTrack(selected.activity.id));
+      const points = encoded ? decodeCoords(encoded) : [];
+      return points
+        .filter((p) => Number.isFinite(p.latitude) && Number.isFinite(p.longitude))
+        .map((p) => [p.longitude, p.latitude]);
+    }
+    if (!selected.mapData?.latlngs) return [];
+
+    return selected.mapData.latlngs
+      .filter((c): c is [number, number] => c !== null)
+      .filter(([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng))
+      .map(([lat, lng]) => [lng, lat] as [number, number]); // Convert to [lng, lat]
+  }, [show3D, selected, selectedTrackUrl, readTrack]);
 
   // Entering 3D unmounts the 2D surface as surely as leaving the tab does, so
   // both snapshot where it was. Without the 3D half, coming back opened on the
@@ -603,7 +615,7 @@ export function RegionalMapView({
     <View style={styles.container}>
       {/* The map is drawn under the status bar, so its glyphs follow the map style rather than
           the app theme. The entry exists only while the tab is focused, so it leaves with it. */}
-      {isMapFocused && <StatusBar style={statusBarStyleForMap(mapStyle)} animated />}
+      {isMapFocused ? <StatusBar style={statusBarStyleForMap(mapStyle)} animated /> : null}
       {!isMapFocused ? null : show3D ? (
         <ComponentErrorBoundary part="map3d" debugName="3D Map" onError={() => setIs3DMode(false)}>
           <Map3DWebView
@@ -654,20 +666,20 @@ export function RegionalMapView({
 
       {/* Accessibility and test handle for cluster counts. Invisible to users -
           the map draws the glyphs itself, inside a canvas nothing else can see. */}
-      {isMapFocused && !show3D && (
+      {isMapFocused && !show3D ? (
         <ClusterCountOverlay surfaceRef={surfaceRef} ref={clusterOverlayRef} />
-      )}
+      ) : null}
 
       {/* Same idea for the sections layer: something outside the canvas that
           says whether sections are currently drawn. */}
-      {!show3D && showSections && sectionsEnabled && (
+      {!show3D && showSections && sectionsEnabled ? (
         <View
           testID="regional-map-sections-overlay"
           accessibilityLabel={t('maps.showSections')}
           style={styles.layerMarker}
           pointerEvents="none"
         />
-      )}
+      ) : null}
 
       {terrainNotice}
 
@@ -720,7 +732,7 @@ export function RegionalMapView({
           (attribution pill + filter chips). Tuned to leave a small breathing
           gap above the attribution pill rather than the previous large
           floating-mid-screen position. */}
-      {selected && (
+      {selected ? (
         <ActivityPopup
           selected={selected}
           bottom={insets.bottom + 250}
@@ -728,9 +740,9 @@ export function RegionalMapView({
           onClose={handleClosePopup}
           onViewDetails={handleViewDetails}
         />
-      )}
+      ) : null}
       {/* Section popup - same vertical anchor as ActivityPopup. */}
-      {selectedSection && (
+      {selectedSection ? (
         <SectionPopup
           section={selectedSection}
           bottom={insets.bottom + 250}
@@ -740,8 +752,8 @@ export function RegionalMapView({
             tapTo(`/section/${selectedSection.id}`);
           }}
         />
-      )}
-      {selectedRoute && (
+      ) : null}
+      {selectedRoute ? (
         <RoutePopup
           route={selectedRoute}
           bottom={insets.bottom + 250}
@@ -751,7 +763,7 @@ export function RegionalMapView({
             tapTo(`/route/${selectedRoute.routeId}`);
           }}
         />
-      )}
+      ) : null}
     </View>
   );
 }

@@ -53,7 +53,9 @@ export const SectionSparkline = React.memo(function SectionSparkline({
   return (
     <Canvas style={{ width, height }}>
       {/* Trend line */}
-      {trendPath && <Path path={trendPath} color={lineColor} style="stroke" strokeWidth={1.5} />}
+      {trendPath ? (
+        <Path path={trendPath} color={lineColor} style="stroke" strokeWidth={1.5} />
+      ) : null}
 
       {/* Data points */}
       {data.map((point, i) => {

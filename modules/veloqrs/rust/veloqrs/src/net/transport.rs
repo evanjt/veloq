@@ -240,8 +240,10 @@ impl Transport {
         Self::with_governor(base_url, auth, governor::GOVERNOR.clone())
     }
 
-    /// Build a transport on a specific governor (used by tests for an isolated,
-    /// fast-paced limiter).
+    /// Build a transport on a specific governor, for tests that want an
+    /// isolated, fast-paced limiter. Production code builds through `new`:
+    /// the process governor carries the request budget, so a second governor
+    /// is a second budget that spends past the allowance and goes uncounted.
     pub fn with_governor(
         base_url: impl Into<String>,
         auth: AuthMethod<'_>,
@@ -273,6 +275,12 @@ impl Transport {
             governor,
             timeouts,
         })
+    }
+
+    /// The governor this transport draws on.
+    #[cfg(test)]
+    pub(crate) fn governor(&self) -> &Arc<Governor> {
+        &self.governor
     }
 
     /// When the work `e` refused may be asked for again, or `None` when `e`
@@ -770,6 +778,16 @@ mod tests {
         // isolated from the shared 8 req/s process governor.
         let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
         Transport::with_governor(base, auth, gov).unwrap()
+    }
+
+    #[test]
+    fn a_transport_built_with_new_shares_the_process_governor() {
+        // Port 9 is discard and nothing listens there; building sends nothing.
+        let a = Transport::new("http://127.0.0.1:9", AuthMethod::ApiKey("secret")).unwrap();
+        let b = Transport::new("http://127.0.0.1:9", AuthMethod::Bearer("tok")).unwrap();
+        assert!(Arc::ptr_eq(a.governor(), &governor::GOVERNOR));
+        assert!(Arc::ptr_eq(b.governor(), &governor::GOVERNOR));
+        assert!(Arc::ptr_eq(a.governor(), b.governor()));
     }
 
     #[test]

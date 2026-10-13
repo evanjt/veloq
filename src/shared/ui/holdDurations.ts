@@ -1,7 +1,7 @@
 // A preview opens quickly while a finger settles on a chart or card.
 export const PREVIEW_HOLD_MS = 200;
 
-// A map pan or riding bump needs more time before a hold claims the touch.
+// A riding bump needs more time before a hold claims the touch.
 export const DELIBERATE_HOLD_MS = 500;
 
 // A destructive action or hidden debug control needs an intentional hold.

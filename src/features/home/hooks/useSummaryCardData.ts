@@ -13,6 +13,7 @@ import {
   formatSwimPace,
   paceUnitLabel,
   swimPaceUnitLabel,
+  formatDurationHuman,
 } from '@/shared/format/format';
 import { spokenDuration, spokenPace, spokenSwimPace } from '@/shared/format/spoken';
 import { formatWeightCompact } from '@/shared/format/weight';
@@ -225,6 +226,7 @@ export function useSummaryCardData(
       weight: null as number | null,
       weightTrend: undefined as TrendGlyph | undefined,
       weekHours: 0,
+      weekSeconds: 0,
       weekHoursTrend: undefined as TrendGlyph | undefined,
       weekCount: 0,
       weekCountTrend: undefined as TrendGlyph | undefined,
@@ -301,6 +303,7 @@ export function useSummaryCardData(
       weightTrend: w.weightTrend as TrendGlyph | undefined,
       // The engine judged the week and FTP arrows too, on the same table.
       weekHours,
+      weekSeconds,
       weekHoursTrend: cardData.weekHoursTrend as TrendGlyph | undefined,
       weekCount,
       weekCountTrend: cardData.weekCountTrend as TrendGlyph | undefined,
@@ -384,7 +387,7 @@ export function useSummaryCardData(
         case 'weekHours':
           return {
             name: t('metrics.week'),
-            value: hours(quickStats.weekHours),
+            value: spokenDuration(Math.round(quickStats.weekSeconds)),
             baseline: lastWeek(b.weekHours === undefined ? undefined : hours(b.weekHours)),
           };
         case 'weekCount':
@@ -399,7 +402,7 @@ export function useSummaryCardData(
       quickStats.baselines,
       quickStats.thresholdPace,
       quickStats.css,
-      quickStats.weekHours,
+      quickStats.weekSeconds,
       asPercent,
       isMetric,
       t,
@@ -582,7 +585,7 @@ export function useSummaryCardData(
         case 'weekHours':
           return {
             label: t('metrics.week'),
-            value: `${quickStats.weekHours}h`,
+            value: formatDurationHuman(quickStats.weekSeconds),
             color: undefined,
             trend: quickStats.weekHoursTrend,
           };

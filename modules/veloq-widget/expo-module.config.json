@@ -2,7 +2,7 @@
   "platforms": ["apple", "android"],
   "apple": {
     "modules": ["VeloqWidgetModule"],
-    "appDelegateSubscribers": ["VeloqWidgetRefreshSubscriber"]
+    "appDelegateSubscribers": ["VeloqWidgetRefreshSubscriber", "VeloqQuickActionSubscriber"]
   },
   "android": {
     "modules": ["com.veloq.widget.VeloqWidgetModule"]

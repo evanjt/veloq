@@ -3,7 +3,7 @@
  * 2D map renders into.
  *
  * The page owns a small reconciler. React Native posts a declarative patch of
- * sources, layers and markers, and the page adds, updates or removes to match.
+ * sources and layers, and the page adds, updates or removes to match.
  * Keeping the reconciler in the page means a style change only has to replay a
  * cached spec instead of round-tripping every polyline back over the bridge.
  *
@@ -43,10 +43,17 @@ export interface MapCameraSpec {
   maxZoom?: number | undefined;
 }
 
+/**
+ * What a GeoJSON source draws: the data itself, or a URL the page fetches it
+ * from, such as `nativeGeoUrl`'s answer for a stored track. A URL keeps a large
+ * line off the bridge, and moving it is what makes the page fetch again.
+ */
+export type MapGeoJSONData = GeoJSON.FeatureCollection | GeoJSON.Feature | string;
+
 /** A GeoJSON source, optionally clustered. */
 export interface MapGeoJSONSourceSpec {
   kind: 'geojson';
-  data: GeoJSON.FeatureCollection | GeoJSON.Feature;
+  data: MapGeoJSONData;
   cluster?: boolean;
   clusterRadius?: number;
   clusterMaxZoom?: number;
@@ -57,7 +64,8 @@ export interface MapGeoJSONSourceSpec {
   /**
    * A single LineString that normally grows at its end, such as a recording
    * in progress. The surface then ships the new points alone instead of the
-   * whole line. A line that changes any other way is still sent whole.
+   * whole line. A line that changes any other way is still sent whole, and a
+   * URL is never treated as growing.
    */
   growing?: boolean;
 }
@@ -92,15 +100,6 @@ export interface MapLayerSpec {
   visible?: boolean | undefined;
 }
 
-/** A DOM marker anchored to a coordinate, for chrome the layers cannot draw. */
-export interface MapMarkerSpec {
-  id: string;
-  coordinate: LngLat;
-  /** Inline HTML for the marker element. Built from theme tokens by callers. */
-  html: string;
-  anchor?: 'center' | 'top' | 'bottom' | 'left' | 'right';
-}
-
 /** Images the page must register before symbol layers can reference them. */
 export interface MapImageSpec {
   id: string;
@@ -113,7 +112,6 @@ export interface MapImageSpec {
 export interface MapSurfaceSpec {
   sources: Record<string, MapSourceSpec>;
   layers: MapLayerSpec[];
-  markers?: MapMarkerSpec[];
   images?: MapImageSpec[];
   /** Layers hit-tested on tap, most specific first. */
   interactiveLayers?: string[];
@@ -133,8 +131,6 @@ export interface MapSurfaceHtmlConfig {
   devicePixelRatio: number;
   /** Milliseconds between `regionIsChanging` posts while a gesture runs. */
   regionChangeThrottleMs: number;
-  /** Emit a long-press message after this many milliseconds of contact. */
-  longPressMs: number;
   /** The system reduce-motion setting when the page is built. */
   reduceMotion: boolean;
 }
@@ -302,7 +298,6 @@ export function buildApplyScript(
     /** Points to add to the end of a growing line already on the page. */
     appends?: Record<string, GeoJSON.Position[]>;
     layers?: MapLayerSpec[];
-    markers?: MapMarkerSpec[];
     images?: MapImageSpec[];
     interactiveLayers?: string[];
   },

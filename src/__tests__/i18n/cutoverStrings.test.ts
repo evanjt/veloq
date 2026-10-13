@@ -14,7 +14,7 @@ const PLACEHOLDERS: Record<string, string[]> = {
   recutRunningPhase: ['{{phase}}'],
   diffTotals: ['{{current}}', '{{proposed}}'],
   diffBreakdown: ['{{new}}', '{{changed}}', '{{gone}}'],
-  diffUnchanged: ['{{sections}}'],
+  diffUnchanged_other: ['{{count}}'],
   settingsReset: ['{{changes}}'],
   settingsResetChange: ['{{label}}', '{{from}}', '{{to}}'],
 };

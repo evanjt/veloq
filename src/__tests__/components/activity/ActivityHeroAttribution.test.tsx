@@ -58,6 +58,7 @@ const renderHero = (insetTop: number, detail: ActivityDetail) =>
       activity={detail}
       activityId={detail.id}
       coordinates={[]}
+      hasStoredTrack={false}
       isMetric={true}
       debugEnabled={false}
       mapHeight={360}

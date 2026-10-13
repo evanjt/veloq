@@ -133,10 +133,9 @@ it('waits for a running auto-backup and then shares its own archive', async () =
   expect(Alert.alert).not.toHaveBeenCalled();
   expect(mockRunRecordBackup).toHaveBeenCalledTimes(2);
   expect(shareExistingFile).toHaveBeenCalledTimes(1);
-  expect(shareExistingFile).toHaveBeenCalledWith(
-    expect.stringMatching(/\.zip$/),
-    'application/zip'
-  );
+  expect(shareExistingFile).toHaveBeenCalledWith(expect.stringMatching(/\.zip$/), 'zip', {
+    anchor: undefined,
+  });
   expect(result.current.exporting).toBe(false);
 });
 

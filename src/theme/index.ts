@@ -58,6 +58,7 @@ export {
   sectionPalette,
   routePalette,
   sectionPaletteIndex,
+  routePaletteIndex,
   sectionPaletteExpression,
 } from './colors';
 export { zoneColour, type ZoneColourRole } from './zoneColour';

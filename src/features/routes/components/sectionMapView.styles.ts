@@ -40,10 +40,13 @@ export const styles = StyleSheet.create({
   },
   controlsContainer: {
     // `top` comes from the caller, alongside the legend's: the map draws under
-    // the status bar and a fixed guess at the inset clears it on some screens only.
+    // the status bar and a fixed guess at the inset clears it on some screens only. So does
+    // `maxHeight`, which keeps the column inside the map and wraps the rest beside it.
     position: 'absolute',
     right: layout.cardMargin,
     gap: spacing.sm,
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
     zIndex: 100,
     elevation: 100,
   },

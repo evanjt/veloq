@@ -11,7 +11,7 @@
  * work, so numbered and PR markers now come out of one source split by filter.
  */
 import { colors, mapLayerColors, sectionPalette, sectionPaletteExpression, brand } from '@/theme';
-import type { MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
+import type { MapGeoJSONData, MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
 import {
   SECTION_END_ICON_ID,
   SECTION_START_ICON_ID,
@@ -38,7 +38,8 @@ const OVERLAY_CASING_WIDTH = 12;
 const OVERLAY_LINE_WIDTH = 9;
 
 interface ActivitySourceInput {
-  routeGeoJSON: GeoJSON.FeatureCollection | GeoJSON.Feature;
+  /** The activity line, or the engine's URL for it when the engine holds the track. */
+  routeGeoJSON: MapGeoJSONData;
   overlayGeoJSON: GeoJSON.FeatureCollection | GeoJSON.Feature;
   consolidatedPortionsGeoJSON: GeoJSON.FeatureCollection;
   sectionBoundariesGeoJSON: GeoJSON.FeatureCollection;
@@ -67,11 +68,14 @@ type GeoJSONData = GeoJSON.FeatureCollection | GeoJSON.Feature;
 
 // The surface patcher compares each source by identity, so a wrapper is made
 // once per data object. A scrub then re-serialises the highlight alone rather
-// than the whole track.
+// than the whole track. A URL is compared by value, so it needs no cache.
 const plainSpecs = new WeakMap<GeoJSONData, MapSourceSpec>();
 const lineMetricSpecs = new WeakMap<GeoJSONData, MapSourceSpec>();
 
-function geojsonSource(data: GeoJSONData, lineMetrics = false): MapSourceSpec {
+function geojsonSource(data: MapGeoJSONData, lineMetrics = false): MapSourceSpec {
+  if (typeof data === 'string') {
+    return lineMetrics ? { kind: 'geojson', data, lineMetrics: true } : { kind: 'geojson', data };
+  }
   const cache = lineMetrics ? lineMetricSpecs : plainSpecs;
   let spec = cache.get(data);
   if (!spec) {

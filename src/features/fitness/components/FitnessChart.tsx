@@ -39,6 +39,7 @@ import { formatForm, formZoneTextColor, formZoneFromLoads } from '../lib';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { eftpChangesOn, formatEftpChange, type EftpChange } from '../lib/eftpChanges';
 import { ABSENT, absentLabel } from '@/shared/format/absent';
+import { formatSigned } from '@/shared/format';
 
 interface FitnessChartProps {
   data: WellnessData[];
@@ -328,7 +329,7 @@ export const FitnessChart = React.memo(function FitnessChart({
                       },
                     ]}
                   >
-                    {`${rampRate > 0 ? '+' : ''}${rampRate.toFixed(1)}`}
+                    {formatSigned(rampRate, 1)}
                   </Text>
                   <Text style={styles.valueLabel}>{t('fitnessScreen.perWeek')}</Text>
                 </View>
@@ -353,7 +354,7 @@ export const FitnessChart = React.memo(function FitnessChart({
                 syncXCoords(points.fitness, (p) => p.x);
                 return (
                   <>
-                    {visibleLines.fitness && (
+                    {visibleLines.fitness ? (
                       <>
                         <CurveArea points={points.fitness} y0={bounds.bottom}>
                           <LinearGradient
@@ -373,8 +374,8 @@ export const FitnessChart = React.memo(function FitnessChart({
                           strokeWidth={1.5}
                         />
                       </>
-                    )}
-                    {visibleLines.fatigue && (
+                    ) : null}
+                    {visibleLines.fatigue ? (
                       <>
                         <CurveLine
                           points={points.fatigue}
@@ -387,7 +388,7 @@ export const FitnessChart = React.memo(function FitnessChart({
                           strokeWidth={1}
                         />
                       </>
-                    )}
+                    ) : null}
                     {markerIndices.map((idx) => (
                       <Circle
                         key={chartData[idx].date}

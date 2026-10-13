@@ -13,6 +13,7 @@ import { formatDistance, formatElevation } from '@/shared/format/format';
 import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
 import type { PreviewSection, PreviewSectionStatus } from 'veloqrs';
 import { IconButton } from '@/shared/ui';
+import { formatPercent } from '@/shared/format';
 
 const STATUS_KEYS: Record<PreviewSectionStatus, string> = {
   unchanged: 'settings.previewStatusUnchanged',
@@ -69,14 +70,14 @@ export function PreviewSectionPopover({ section, newNumber, onClose }: PreviewSe
             {t(STATUS_KEYS[section.status] as never)}
           </Text>
         </View>
-        {section.pinned && (
+        {section.pinned ? (
           <View style={[styles.badge, { borderColor: textSecondary }]}>
             <MaterialCommunityIcons name="pin" size={11} color={textSecondary} />
             <Text style={[styles.badgeText, { color: textSecondary }]}>
               {t('sections.accepted')}
             </Text>
           </View>
-        )}
+        ) : null}
       </View>
 
       <View style={styles.metricsRow}>
@@ -93,7 +94,7 @@ export function PreviewSectionPopover({ section, newNumber, onClose }: PreviewSe
         )}
         {section.avgGradePercent !== null && (
           <Text style={[styles.metric, { color: textSecondary }]}>
-            {t('sections.avgGrade')} {section.avgGradePercent.toFixed(1)}%
+            {t('sections.avgGrade')} {formatPercent(section.avgGradePercent, 1)}
           </Text>
         )}
       </View>

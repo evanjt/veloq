@@ -231,6 +231,9 @@
     "disconnectMessage": "Das entfernt dini API-Zuegangsdate us de App. Du muesch si nomol iigee, zum d App z nutze.",
     "disconnectOffline": "Du bist offline. Beide Anmeldewege brauchen eine Verbindung, du kannst dich also erst wieder anmelden, wenn das Netz zurück ist.",
     "disconnectTitle": "Konto trenne?",
+    "leaveDemoTitle": "Demo verlah?",
+    "leaveDemoMessage": "D Biispiilfahrte gönd zue und du chunsch zrugg zur Amäldig. Nüt us de Demo wird gspeicheret.",
+    "leaveDemoConfirm": "Verlah",
     "failedToClear": "Gopferteckel, hät nöd klappet!",
     "failedToDisconnect": "Trenne hät nöd klappet, Siech!",
     "accountChangeTitle": "Anderi Konto gfunde",
@@ -377,6 +380,8 @@
     "scanQrTitle": "Nextcloud QR-Code scanne",
     "scanQrInstructions": "Gang i Nextcloud uf Iistellige → Sicherheit → Nöis App-Passwort mache, denn scann de QR-Code.",
     "invalidQrCode": "Das isch kein gültige Nextcloud QR-Code",
+    "torchOn": "Taschelampe iischalte",
+    "torchOff": "Taschelampe usschalte",
     "cameraPermissionNeeded": "Kamerazuegriff isch nötig zum QR-Codes scanne",
     "enterDetailsInstead": "Date stattdesse iigä",
     "fillAllFields": "Bitte füll alli Fälder us",
@@ -402,7 +407,8 @@
   },
   "bestEffortsScreen": {
     "title": "Bescht Leischtige",
-    "seasonSubtitle": "Persönlichi Rekord vo de letschte {{days}} Täg.",
+    "seasonSubtitle_one": "Persönlichi Rekord vom letschte {{count}} Tag.",
+    "seasonSubtitle_other": "Persönlichi Rekord vo de letschte {{count}} Täg.",
     "allTimeSubtitle": "Persönlichi Rekord us dinere ganze gspicherete Gschicht.",
     "powerBests": "Leistig",
     "paceBests": "Tempo",
@@ -1020,7 +1026,8 @@
     "sectionPrSheet": {
       "fromPrevious": "−{{delta}} gäge di letscht Bestziit",
       "previous": "Devor: {{time}} am {{date}}",
-      "efforts": "{{n}} Versüech",
+      "efforts_one": "{{count}} Versuech",
+      "efforts_other": "{{count}} Versüech",
       "fasterThan": "Schnäller als {{percent}}% vo de Versüech",
       "allEfforts": "Alli Versüech ({{n}})"
     },
@@ -1104,6 +1111,7 @@
     "subtitle": "Verbinde mit intervals.icu",
     "termsOfService": "AGB",
     "title": "Veloq",
+    "demoCaption": "Biispiilfahrte. Nüt wird gspeicheret, und d Demo hört uf, wenn d App zue gaht.",
     "tryDemo": "Demo aluege",
     "useApiKey": "Mit API-Schlüssel"
   },
@@ -1159,8 +1167,6 @@
     "tapSelectStart": "Tipp für Startpunkt",
     "toggleStyle": "Stil wächsle",
     "viewDetails": "Details luege",
-    "viewRouteDetails": "Routedetails aazeige",
-    "viewSectionDetails": "Abschnittsdetails aazeige",
     "zoomToActivity": "Uf Aktivität zoome",
     "gradientTick": "{{value}} %",
     "keyRecent": "Kürzlich",
@@ -1300,7 +1306,7 @@
       "avgPower": "Ø Leistig",
       "avgSpeed": "Ø Speed",
       "cadence": "Kadenz",
-      "calories": "Kalorii",
+      "calories": "Kalorii (gschätzt)",
       "distance": "Distanz",
       "elapsedTime": "Gsamtziit",
       "elevation": "Höhi",
@@ -1476,6 +1482,7 @@
     "tileOrder": "Reihefolg vo de Kachle",
     "tileOrderDescription": "Tipp uf e Kachle, zum ihres Datefeld uswähle. Uf em Ufzeichnigsbildschirm gaht das au mit langem Drücke uf e Kachle.",
     "tileSlotLabel": "Kachle {{number}}, {{field}}",
+    "endedCard": "Gstoppt. Mach Veloq uf zum Speichere.",
     "interruptedNotice": {
       "body": "S System het Veloq während dinere Aktivität zuegmacht, drum het d Ufnahm gstoppt. Tipp zum Wiiterfahre.",
       "card": "Ufnahm gstoppt. Mach Veloq uf zum Wiiterfahre.",
@@ -1486,7 +1493,9 @@
       "description": "Zeigt d Aktivität, wo grad ufgnoh wird, mit ihrne Bedienelement.",
       "name": "Ufnahm"
     },
-    "recentTypes": "Zuletzt"
+    "recentTypes": "Zuletzt",
+    "caloriesMethod": "Mit Sensor us de mittlere Herzfrequenz bi eme agnoh Alter vo {{age}} gschätzt, susch us Sportart und Beweigs-Ziit.",
+    "caloriesDefaultWeight": "Dis Profil het kei Gwicht, drum wärde {{weight}} kg agnoh."
   },
   "routeDetail": {
     "routeNotFound": "Route nöd gfunde"
@@ -1649,7 +1658,8 @@
     "correlationStrengthVeryStrong": "Sehr stark",
     "correlationFasterWhenHigher": "Schneller bei höherem Wert",
     "correlationFasterWhenLower": "Schneller bei niedrigerem Wert",
-    "correlationAttempts": "{{n}} Versuche",
+    "correlationAttempts_one": "{{count}} Versuch",
+    "correlationAttempts_other": "{{count}} Versuche",
     "correlationNotEnoughData": "nicht genug Daten, n {{n}}",
     "correlationNotEnoughDataOfFloor": "nicht genug Daten, n {{n}} von {{floor}}",
     "correlationCollapsed": "nicht genug Daten, grösstes n {{n}} von {{floor}}",
@@ -1785,6 +1795,7 @@
     "exploreMapStyle": "Erkundigscharte",
     "dialect": "Dialekt",
     "disconnectAccount": "Konto trenne",
+    "leaveDemo": "Demo verlah",
     "display": "Anzeige",
     "largeHistoryConfirm": "Trotzdem lade",
     "largeHistoryMessage_one": "So wit zrugg ladet bis zu öppe {{count}} Aktivität. Das duuret es Wiili, und d'App bliibt mit so vill Date nöd garantiert schnäll.",
@@ -2213,7 +2224,8 @@
       "recutRunningPhase": "Deine Abschnitte werden neu analysiert: {{phase}}",
       "diffTotals": "Aus {{current}} Abschnitten wurden {{proposed}}.",
       "diffBreakdown": "{{new}} neu, {{changed}} geändert, {{gone}} stillgelegt.",
-      "diffUnchanged": "Alle {{sections}} Abschnitte blieben bei der Neuanalyse unverändert.",
+      "diffUnchanged_one": "Der {{count}} Abschnitt blieb bei der Neuanalyse unverändert.",
+      "diffUnchanged_other": "Alle {{count}} Abschnitte blieben bei der Neuanalyse unverändert.",
       "recutFailed": "Die Neuanalyse wurde nicht fertig. Deine Abschnitte sind unverändert und sie läuft beim nächsten Start erneut.",
       "recutFailedAfterApply": "Deine Abschnitte wurden neu analysiert, aber die Übersicht der Änderungen wurde nicht gespeichert. Sie wird beim nächsten Start erneut geschrieben.",
       "settingsReset": "Deine Einstellungen zur Abschnittserkennung wurden auf die validierten Werte zurückgesetzt: {{changes}}. Abschnittsänderungen ansehen und dann Behalten stellt die vorherigen wieder her.",
@@ -2295,7 +2307,6 @@
     "pairsInfoThresholds": "Status: balancirt ≤ 1.35×, im Aug bhalte bis 2×, im Ungliichgwicht über 2×.",
     "pairsInfoMinSignal": "Paar mit weniger als 4 gwichtete Sätz pro Site werde übersprunge.",
     "exercisesTargeting": "Übige für {{muscle}}",
-    "exerciseSets": "{{sets}} Sätz",
     "exerciseWorkoutCount_one": "{{count}} Workout",
     "exerciseWorkoutCount_other": "{{count}} Workouts",
     "totalVolume": "Gsamtvolume",
@@ -2647,8 +2658,8 @@
     }
   },
   "permissions": {
-    "locationWhenInUse": "Veloq bruucht din Standort zum Aktivitätskarte azeige, Route verfolge und Aktivitäte ufzeichne.",
-    "locationBackground": "Veloq bruucht din Standort im Hintergrund, damit d Ufzeichnig wiiterlauft, wenn d App nöd im Vordergrund isch.",
+    "locationWhenInUse": "Veloq bruucht din Standort zum Aktivitäte ufzeichne, uf dr Charte zeige, wo du bisch, und Route und Abschnitt in dinere Nöchi sortiere. Er bliibt uf däm Telefon, ussert du ladsch e Aktivität ue.",
+    "locationBackground": "Lot Veloq e Aktivität ufzeichne, wo du über Siri, s Kontrollzentrum oder es Widget startisch, ohni zerscht d App z öffne.",
     "bluetooth": "Veloq bruucht Bluetooth zum sich während de Ufzeichnig mit Herzfrequenz-, Leistigs- und Trittfrequenzsensore verbinde.",
     "camera": "Veloq bruucht d Kamera zum de QR-Code vomene Nextcloud-App-Passwort scanne.",
     "microphone": "Veloq nimmt kei Ton uf. D Kamera wird nur zum QR-Codes scanne bruucht.",

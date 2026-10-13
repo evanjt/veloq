@@ -1,16 +1,25 @@
 /**
  * Where a file the app wrote can go: the one owner of every export, backup and
- * recording that leaves the app. On Android the athlete chooses between saving
+ * recording that leaves the app, and of a file another app shares into it. On Android the athlete chooses between saving
  * it to the device, through the system's create-document screen, and the share
  * chooser, which has no save target of its own. On iOS the share sheet carries
- * Save to Files, so it opens straight away.
+ * Save to Files, so it opens straight away. Messages and links go through
+ * `shareText` beside it, so every sheet takes the same anchor on iPad.
  *
  * expo-sharing is lazy-loaded to avoid crashing when the native module
  * isn't linked (e.g. iOS simulator without a full rebuild).
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
-import { Platform } from 'react-native';
+import type { RefObject } from 'react';
+import {
+  findNodeHandle,
+  Platform,
+  Share,
+  type ShareContent,
+  type ShareOptions,
+  type View,
+} from 'react-native';
 
 import { i18n } from '@/i18n';
 import { saveToDevice } from '@/shared/native/backupFolder';
@@ -22,28 +31,104 @@ function getSharing(): typeof import('expo-sharing') {
   return require('expo-sharing');
 }
 
-interface ShareFileParams {
-  content: string;
-  filename: string;
-  mimeType: string;
+/**
+ * What a shared file is. iOS reads the type from the file name's extension and
+ * Android filters the chooser by the MIME type, so both come from here.
+ */
+const SHARE_KINDS = {
+  gpx: { mimeType: 'application/gpx+xml', extension: 'gpx' },
+  zip: { mimeType: 'application/zip', extension: 'zip' },
+  geojson: { mimeType: 'application/geo+json', extension: 'geojson' },
+  fit: { mimeType: 'application/vnd.ant.fit', extension: 'fit' },
+  text: { mimeType: 'text/plain', extension: 'txt' },
+} as const;
+
+export type ShareKind = keyof typeof SHARE_KINDS;
+
+/**
+ * The control that opened the share. On iPad the sheet is a popover and points
+ * at it. A phone and Android ignore it.
+ */
+export type ShareAnchor = RefObject<View | null>;
+
+interface AnchorRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
-export async function shareFile({ content, filename, mimeType }: ShareFileParams): Promise<void> {
-  const fileUri = await exportFileUri(filename);
+/** How long a share waits on its anchor's measurement before opening without one. */
+const ANCHOR_MEASURE_MS = 100;
+
+function measureAnchor(anchor: ShareAnchor | undefined): Promise<AnchorRect | null> {
+  const view = anchor?.current;
+  if (!view) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    // A view torn down mid-measure never answers, and the share must still open.
+    const timer = setTimeout(() => resolve(null), ANCHOR_MEASURE_MS);
+    try {
+      view.measureInWindow((x, y, width, height) => {
+        clearTimeout(timer);
+        resolve({ x, y, width, height });
+      });
+    } catch {
+      clearTimeout(timer);
+      resolve(null);
+    }
+  });
+}
+
+/** The file name for `name`, ending in the kind's extension. */
+function fileNameFor(name: string, kind: ShareKind): string {
+  const extension = `.${SHARE_KINDS[kind].extension}`;
+  return name.toLowerCase().endsWith(extension) ? name : `${name}${extension}`;
+}
+
+/** `name` with the characters a file system or share target refuses replaced. */
+function readableFileName(name: string): string {
+  return name.replace(/[\u0000-\u001f/\\:*?"<>|]/g, '_').trim() || 'veloq';
+}
+
+interface ShareFileParams {
+  content: string;
+  /** The file name, with or without the kind's extension. */
+  name: string;
+  kind: ShareKind;
+  anchor?: ShareAnchor | undefined;
+}
+
+export async function shareFile({ content, name, kind, anchor }: ShareFileParams): Promise<void> {
+  const fileUri = await exportFileUri(fileNameFor(name, kind));
   await FileSystem.writeAsStringAsync(fileUri, content, {
     encoding: FileSystem.EncodingType.UTF8,
   });
-  await shareExistingFile(fileUri, mimeType);
+  await shareExistingFile(fileUri, kind, { anchor });
+}
+
+/**
+ * Share a copy of a file whose name on disk is not readable, under `name`, and
+ * delete the copy once the share has settled either way.
+ */
+export async function shareCopyAs(
+  fileUri: string,
+  kind: ShareKind,
+  name: string,
+  anchor?: ShareAnchor
+): Promise<void> {
+  const copyUri = await exportFileUri(fileNameFor(readableFileName(name), kind));
+  await FileSystem.copyAsync({ from: fileUri, to: copyUri });
+  try {
+    await shareExistingFile(copyUri, kind, { anchor });
+  } finally {
+    await FileSystem.deleteAsync(copyUri, { idempotent: true });
+  }
 }
 
 export interface ShareExistingFileOptions {
-  /**
-   * iOS's own type identifier for the file. It defaults to the MIME type, which
-   * is what a caller with no better answer was passing anyway.
-   */
-  uti?: string;
   /** The name the file is offered under, when the one on disk is not readable. */
-  name?: string;
+  name?: string | undefined;
+  anchor?: ShareAnchor | undefined;
 }
 
 type Destination = 'save' | 'share' | null;
@@ -71,9 +156,10 @@ function askDestination(name: string): Promise<Destination> {
  */
 export async function shareExistingFile(
   fileUri: string,
-  mimeType: string,
+  kind: ShareKind,
   options: ShareExistingFileOptions = {}
 ): Promise<void> {
+  const { mimeType } = SHARE_KINDS[kind];
   const name = options.name ?? fileUri.slice(fileUri.lastIndexOf('/') + 1);
   if (Platform.OS === 'android') {
     const destination = await askDestination(name);
@@ -85,9 +171,56 @@ export async function shareExistingFile(
   }
   const Sharing = getSharing();
   if (!(await Sharing.isAvailableAsync())) throw new SharingUnavailableError();
+  const anchor = await measureAnchor(options.anchor);
   await Sharing.shareAsync(fileUri, {
     mimeType,
-    UTI: options.uti ?? mimeType,
-    ...(options.name !== undefined && { dialogTitle: options.name }),
+    dialogTitle: name,
+    ...(anchor && { anchor }),
   });
+}
+
+/**
+ * The file another app last shared into this one, taken so it is handed over
+ * once. Null when the share carried no file.
+ */
+export async function takeSharedFile(): Promise<{ uri: string; name: string | null } | null> {
+  const Sharing = getSharing();
+  try {
+    const payloads = await Sharing.getResolvedSharedPayloadsAsync();
+    const file = payloads.find((payload) => payload.contentUri && payload.contentType === 'file');
+    return file?.contentUri ? { uri: file.contentUri, name: file.originalName } : null;
+  } finally {
+    Sharing.clearSharedPayloads();
+  }
+}
+
+function anchorTag(anchor: ShareAnchor | undefined): number | null {
+  if (!anchor?.current) return null;
+  try {
+    return findNodeHandle(anchor.current);
+  } catch {
+    return null;
+  }
+}
+
+interface ShareTextOptions {
+  /** The email subject on iOS, which ignores the content's title. */
+  subject?: string;
+  anchor?: ShareAnchor | undefined;
+}
+
+/**
+ * Share a message or a link through the system's text sheet. Closing the sheet
+ * resolves, so a rejection is a sheet that did not open.
+ */
+export async function shareText(
+  content: ShareContent,
+  { subject, anchor }: ShareTextOptions = {}
+): Promise<void> {
+  const tag = anchorTag(anchor);
+  const options: ShareOptions = {
+    ...(subject !== undefined && { subject }),
+    ...(tag != null && { anchor: tag }),
+  };
+  await Share.share(content, options);
 }

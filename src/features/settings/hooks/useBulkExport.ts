@@ -18,6 +18,7 @@ import {
   BULK_EXPORT_FORMAT_NAME,
   type BulkExportKind,
 } from '@/features/settings/lib/bulkExportFormat';
+import type { ShareAnchor } from '@/features/settings/lib/shareFile';
 import { engineErrorKey, engineErrorTag } from '@/shared/native/engineError';
 import { inform } from '@/shared/ui/dialog';
 
@@ -58,7 +59,7 @@ function completionMessage(outcome: Completed, t: TFunction): string | null {
  * screen is mounted. A screen that was left and comes back picks the same run up
  * on mount. Whichever is there when the write ends takes it, once.
  */
-export function useBulkExport() {
+export function useBulkExport(anchor?: ShareAnchor) {
   const [state, setState] = useState<ExportState>('idle');
   const [stillRunning, setStillRunning] = useState(false);
   const [phase, setPhase] = useState<BulkExportPhase>('generating');
@@ -123,7 +124,7 @@ export function useBulkExport() {
   const resume = useCallback(
     async function take(waited = false): Promise<void> {
       try {
-        const outcome = await resumePendingBulkExport(onProgress);
+        const outcome = await resumePendingBulkExport(onProgress, anchor);
         if (outcome.state === 'complete') reportComplete(outcome);
         else if (outcome.state === 'still-running' && live.current) {
           setStillRunning(true);
@@ -150,7 +151,7 @@ export function useBulkExport() {
         sharing.current = false;
       }
     },
-    [onProgress, reportComplete, reportFailure]
+    [anchor, onProgress, reportComplete, reportFailure]
   );
 
   const doExport = useCallback(
@@ -174,7 +175,7 @@ export function useBulkExport() {
 
       try {
         const exportFn = kind === 'geojson' ? bulkExportActivitiesGeoJson : bulkExportActivities;
-        const result = await exportFn(onProgress);
+        const result = await exportFn(onProgress, undefined, anchor);
         if (live.current) setState('done');
         if (result.state === 'still-running') {
           if (live.current) setStillRunning(true);
@@ -190,7 +191,7 @@ export function useBulkExport() {
         }, 1000);
       }
     },
-    [onProgress, resume, reportComplete, reportFailure]
+    [anchor, onProgress, resume, reportComplete, reportFailure]
   );
 
   // The worker runs on past the foreground wait, so the count does too, on the

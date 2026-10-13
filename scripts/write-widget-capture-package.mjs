@@ -36,6 +36,8 @@ let package = Package(
 
 const FIXTURES = ['demo.json', 'empty.json', 'long-text.json', 'no-wellness.json'];
 
+const BRIDGE_SOURCES = ['RecordQuickActions.swift'];
+
 export function writeWidgetCapturePackage(out) {
   const plugin = require(join(root, 'src', 'plugins', 'with-ios-widget.js'));
   rmSync(out, { recursive: true, force: true });
@@ -58,6 +60,12 @@ export function writeWidgetCapturePackage(out) {
     throw new Error(`write-widget-capture-package: expected one @main in ${launcher}`);
   }
   writeFileSync(launcher, swift.replace(/^@main\n/m, ''));
+
+  // The quick actions are the bridge module's, which the package cannot build, and
+  // their builder imports UIKit alone, so it compiles beside the widget for its test.
+  for (const name of BRIDGE_SOURCES) {
+    copyFileSync(join(root, 'modules', 'veloq-widget', 'ios', name), join(widget, name));
+  }
 
   const tests = join(out, 'Tests', 'WidgetCaptureTests');
   mkdirSync(join(tests, 'fixtures'), { recursive: true });

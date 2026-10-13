@@ -35,11 +35,17 @@ interface UnitPreferenceState {
 /**
  * Detect metric preference from device locale.
  * Returns true for metric, false for imperial.
+ *
+ * The platform's measurement system comes first, since iOS lets it be set apart
+ * from the region. The region list is the fallback where none is reported.
  */
 function detectFromLocale(): boolean {
   try {
     const locales = getLocales();
     const locale = locales[0];
+    const system = locale?.measurementSystem;
+    if (system === 'metric') return true;
+    if (system === 'us' || system === 'uk') return false;
     // Only US, Liberia, and Myanmar use imperial
     const imperialCountries = ['US', 'LR', 'MM'];
     return !imperialCountries.includes(locale?.regionCode || '');

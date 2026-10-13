@@ -4,6 +4,7 @@ import type { HeroStat } from '@/shared/ui/DetailHero';
 import { PERIOD_LABEL_KEYS, type Period } from '@/shared/app/period';
 import type { FrequentSection } from '@/types';
 import { sectionElevation } from './sectionElevation';
+import { formatPercent } from '@/shared/format';
 
 /** What a hero describes: a section with its grades, or a route. */
 export type HeroSubject =
@@ -91,7 +92,7 @@ export function heroStats(
     section.avgGradePercent != null &&
     Math.abs(section.avgGradePercent) >= MIN_AVG_GRADE_PERCENT
   ) {
-    const grade = `${section.avgGradePercent.toFixed(1)}%`;
+    const grade = formatPercent(section.avgGradePercent, 1);
     stats.push({ text: grade, label: `${t('sections.avgGrade')}: ${grade}` });
   }
   if (
@@ -99,7 +100,7 @@ export function heroStats(
     (section.klass === 'climb' || section.klass === 'descent')
   ) {
     const steepest = t('sections.maxGradeValue', {
-      grade: `${section.maxGradePercent.toFixed(1)}%`,
+      grade: formatPercent(section.maxGradePercent, 1),
     });
     stats.push({ text: steepest, label: steepest });
   }

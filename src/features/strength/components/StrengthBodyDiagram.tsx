@@ -22,7 +22,6 @@ import type { MuscleVolume } from '@/types';
 
 import { BodyPairWithLoupe } from './BodyPairWithLoupe';
 import { muscleName } from '../lib/muscleNames';
-import { formatSetCount } from '../lib/formatting';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { formatWeightRounded } from '@/shared/format/weight';
 
@@ -58,7 +57,7 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
   const untrainedFill = isDark ? BODY_FILL_DARK : BODY_FILL_LIGHT;
   const selectedName = selectedVolume ? muscleName(selectedVolume.slug, t) : '';
   const selectedSummary = selectedVolume
-    ? `${t('strength.setsCount', { count: Number(formatSetCount(selectedVolume.weightedSets)) })} · ${formatWeightRounded(selectedVolume.volumeKg, isMetric)}`
+    ? `${t('strength.setsCount', { count: Math.round(selectedVolume.weightedSets * 10) / 10 })} · ${formatWeightRounded(selectedVolume.volumeKg, isMetric)}`
     : '';
 
   return (
@@ -139,8 +138,7 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
         <View style={styles.scaleLabels}>
           <Text style={[styles.scaleValue, isDark && styles.scaleValueDark]}>0</Text>
           <Text style={[styles.scaleValue, isDark && styles.scaleValueDark]}>
-            {maxWeightedSets % 1 === 0 ? maxWeightedSets.toFixed(0) : maxWeightedSets.toFixed(1)}{' '}
-            {t('strength.sets')}
+            {t('strength.setsCount', { count: Math.round(maxWeightedSets * 10) / 10 })}
           </Text>
         </View>
       </View>

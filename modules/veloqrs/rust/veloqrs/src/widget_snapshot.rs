@@ -85,6 +85,7 @@ pub struct WidgetContext {
     /// Translations by i18next key. A key not here prints as itself.
     pub strings: BTreeMap<String, String>,
     pub dates: DateWords,
+    pub numbers: NumberWords,
     /// The in-app summary card settings; absent hides the widget summary block.
     pub summary_card: Option<SummaryPrefs>,
     /// The resolved light and dark palettes, carried through untouched.
@@ -139,6 +140,19 @@ pub struct DateWords {
     /// Long month names as a label writes one alone, January first. Empty in a
     /// context stored before they were handed over.
     pub months: Vec<String>,
+}
+
+/// The locale's decimal and group separators, so a number reads as the app
+/// writes it. Empty in a context stored before they were handed over, which
+/// writes a point and no grouping.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct NumberWords {
+    pub decimal: String,
+    pub group: String,
+    /// The fewest digits ahead of the first group: 1 groups 1,234, 2 waits
+    /// for 12,345.
+    pub minimum_grouping_digits: u32,
 }
 
 /// One date format: its parts in order, and the month names it writes.
@@ -509,6 +523,8 @@ pub struct Display {
     pub demo_label: Option<String>,
     /// One line for each chart a widget draws, since a drawn line says nothing aloud.
     pub chart_labels: ChartLabels,
+    /// The days each chart spans, drawn as its caption.
+    pub chart_spans: ChartSpans,
 }
 
 /// What each chart shows, as a screen reader says it: the series, the days
@@ -522,6 +538,16 @@ pub struct ChartLabels {
     /// HRV, the chart beside an HRV hero.
     pub hrv: Option<String>,
     /// Form over its zones, the large size's chart.
+    pub form: Option<String>,
+}
+
+/// The days each chart spans, as the caption under it reads: "30 days".
+/// Absent under the same rule as [`ChartLabels`], and when the app handed over
+/// none of the words.
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+pub struct ChartSpans {
+    pub fitness: Option<String>,
+    pub hrv: Option<String>,
     pub form: Option<String>,
 }
 
@@ -646,6 +672,7 @@ pub fn compose(data: &FfiWidgetSnapshotData, ctx: &WidgetContext, clock: Clock) 
         form_history.as_ref(),
         today_zone,
     );
+    let chart_spans = chart_spans(ctx, fitness, hrv, form_history.as_ref());
 
     WidgetSnapshot {
         schema_version: SCHEMA_VERSION,
@@ -709,7 +736,7 @@ pub fn compose(data: &FfiWidgetSnapshotData, ctx: &WidgetContext, clock: Clock) 
             duration_s: weekly_duration,
             count: summary.current_week.count,
             delta_pct,
-            distance_label: format_distance(weekly_distance, ctx.is_metric),
+            distance_label: format_distance(weekly_distance, ctx),
             duration_label: format_duration(weekly_duration),
         },
         summary_card: ctx
@@ -722,7 +749,7 @@ pub fn compose(data: &FfiWidgetSnapshotData, ctx: &WidgetContext, clock: Clock) 
             .filter_map(|id| summary_entry(data, ctx, id, false))
             .collect(),
         summary_heroes: SUMMARY_HERO_IDS.to_vec(),
-        display: display(ctx, impact.as_ref(), today_zone, chart_labels),
+        display: display(ctx, impact.as_ref(), today_zone, chart_labels, chart_spans),
         latest,
         impact,
         theme: ctx.theme.clone(),
@@ -1135,12 +1162,11 @@ fn summary_entry(
             "default",
         ),
         "weekHours" => {
-            let hours = crate::persistence::screens::week_hours(&summary.current_week);
             let (trend, _) =
                 crate::persistence::screens::week_trends(&summary.current_week, &summary.prev_week);
             entry(
                 translate(ctx, "metrics.week"),
-                format!("{hours}h"),
+                duration_human(ctx, summary.current_week.total_duration),
                 from_glyph(trend.as_deref(), true),
                 "default",
             )
@@ -1162,7 +1188,7 @@ fn summary_entry(
             }
             entry(
                 translate(ctx, "metrics.weight"),
-                kg.map_or(TEXT_NONE.to_string(), |kg| weight_text(kg, ctx.is_metric)),
+                kg.map_or(TEXT_NONE.to_string(), |kg| weight_text(kg, ctx)),
                 from_glyph(w.and_then(|w| w.weight_trend.as_deref()), false),
                 "default",
             )
@@ -1212,9 +1238,51 @@ fn display_weight(kg: f64, is_metric: bool) -> (f64, &'static str) {
 }
 
 /// Weight as the app card prints it: one decimal at most, the unit with no space.
-fn weight_text(kg: f64, is_metric: bool) -> String {
-    let (value, unit) = display_weight(kg, is_metric);
-    format!("{}{unit}", js_round(value * 10.0) / 10.0)
+fn weight_text(kg: f64, ctx: &WidgetContext) -> String {
+    let (value, unit) = display_weight(kg, ctx.is_metric);
+    let rounded = js_round(value * 10.0) / 10.0;
+    format!("{}{unit}", number_text(&rounded.to_string(), ctx))
+}
+
+/// A number already written with a point and no grouping, rewritten with the
+/// locale's decimal separator and grouped as the locale groups it.
+fn number_text(ascii: &str, ctx: &WidgetContext) -> String {
+    let words = &ctx.numbers;
+    let (sign, unsigned) = match ascii.strip_prefix('-') {
+        Some(rest) => ("-", rest),
+        None => ("", ascii),
+    };
+    let (whole, fraction) = match unsigned.split_once('.') {
+        Some((whole, fraction)) => (whole, Some(fraction)),
+        None => (unsigned, None),
+    };
+    let minimum = words.minimum_grouping_digits.max(1) as usize;
+    let grouped = if words.group.is_empty()
+        || !whole.bytes().all(|b| b.is_ascii_digit())
+        || whole.len() < 3 + minimum
+    {
+        whole.to_string()
+    } else {
+        let mut out = String::new();
+        for (i, digit) in whole.chars().enumerate() {
+            if i > 0 && (whole.len() - i) % 3 == 0 {
+                out.push_str(&words.group);
+            }
+            out.push(digit);
+        }
+        out
+    };
+    match fraction {
+        Some(fraction) => {
+            let decimal = if words.decimal.is_empty() {
+                "."
+            } else {
+                &words.decimal
+            };
+            format!("{sign}{grouped}{decimal}{fraction}")
+        }
+        None => format!("{sign}{grouped}"),
+    }
 }
 
 fn int_text(v: f64) -> String {
@@ -1235,11 +1303,13 @@ fn display(
     impact: Option<&Impact>,
     zone: Option<&'static str>,
     chart_labels: ChartLabels,
+    chart_spans: ChartSpans,
 ) -> Display {
     let form_label = translate(ctx, "metrics.form").to_string();
     Display {
         impact_line: impact.map(|i| impact_line(&form_label, i)),
         chart_labels,
+        chart_spans,
         data_as_of_label: None,
         demo_label: ctx.demo.then(|| translate(ctx, "demo.banner").to_string()),
         metric_labels: MetricLabels {
@@ -1433,6 +1503,28 @@ fn chart_labels(
     }
 }
 
+/// The days each drawn chart spans. Fitness and HRV span their own series and
+/// form its history, which is the days the large chart draws.
+fn chart_spans(
+    ctx: &WidgetContext,
+    fitness: &[i32],
+    hrv: &[i32],
+    form: Option<&FormHistory>,
+) -> ChartSpans {
+    let span = |days: usize| {
+        (days >= CHART_MIN_DAYS)
+            .then(|| counted(ctx, "time.daysCount", days as f64, &days.to_string()))
+            .flatten()
+    };
+    ChartSpans {
+        fitness: span(fitness.len()),
+        hrv: span(hrv.len()),
+        form: form
+            .filter(|history| history.values.iter().flatten().nth(1).is_some())
+            .and_then(|history| span(history.values.len())),
+    }
+}
+
 /// The translation key of a form zone's name.
 fn zone_key(zone: &str) -> String {
     format!("formZones.{zone}")
@@ -1483,7 +1575,7 @@ fn strength_window(
             slug: m.slug.clone(),
             name: phrase(ctx, &muscle_name_key(&m.slug)).unwrap_or_else(|| m.slug.clone()),
             sets_text: sets_text(m.weighted_sets, ctx),
-            volume_text: volume_text(m.volume_kg, ctx.is_metric),
+            volume_text: volume_text(m.volume_kg, ctx),
         })
         .collect();
     let empty_text = (summary.activity_count == 0).then(|| {
@@ -1576,26 +1668,26 @@ fn set_count(weighted_sets: f64) -> String {
 /// carrying neither prints the count alone.
 fn sets_text(weighted_sets: f64, ctx: &WidgetContext) -> String {
     let count = set_count(weighted_sets);
-    let key = match plural_category(&ctx.locale, count.parse().unwrap_or(weighted_sets)) {
-        "one" => "strength.setsCount_one",
-        "few" => "strength.setsCount_few",
-        "many" => "strength.setsCount_many",
-        _ => "strength.setsCount_other",
-    };
-    phrase(ctx, key)
-        .or_else(|| phrase(ctx, "strength.setsCount_other"))
-        .map_or_else(
-            || count.clone(),
-            |template| with_slots(template, &[("count", count.clone())]),
-        )
+    let value = count.parse().unwrap_or(weighted_sets);
+    counted(ctx, "strength.setsCount", value, &count).unwrap_or(count)
+}
+
+/// The phrase under `key` in the plural form the app's translator picks for
+/// `count`, with `text` written in as the count. A form the language does not
+/// have falls back to `other`, and None when the context carries neither.
+fn counted(ctx: &WidgetContext, key: &str, count: f64, text: &str) -> Option<String> {
+    let form = plural_category(&ctx.locale, count);
+    phrase(ctx, &format!("{key}_{form}"))
+        .or_else(|| phrase(ctx, &format!("{key}_other")))
+        .map(|template| with_slots(template, &[("count", text.to_string())]))
 }
 
 /// Volume as the strength tab prints it, rounded to a whole number in the
 /// athlete's unit. None for bodyweight work, which moved no recorded weight.
-fn volume_text(kg: f64, is_metric: bool) -> Option<String> {
-    let (value, unit) = display_weight(finite(kg), is_metric);
+fn volume_text(kg: f64, ctx: &WidgetContext) -> Option<String> {
+    let (value, unit) = display_weight(finite(kg), ctx.is_metric);
     let rounded = js_round(value);
-    (rounded > 0.0).then(|| format!("{} {unit}", rounded as i64))
+    (rounded > 0.0).then(|| format!("{} {unit}", number_text(&(rounded as i64).to_string(), ctx)))
 }
 
 /// The CLDR cardinal category the app's translator picks for `count` in
@@ -1668,7 +1760,7 @@ fn compose_latest(
         date,
         // A load of zero is how an activity without one is stored; it is not a measured zero.
         training_load: a.training_load.map(finite).filter(|load| *load > 0.0),
-        distance_label: format_distance(distance, ctx.is_metric),
+        distance_label: format_distance(distance, ctx),
         duration_label: format_duration(moving),
         date_label: relative_date_label(date, clock, ctx),
         tint_hex: ctx
@@ -1729,6 +1821,44 @@ fn phrase(ctx: &WidgetContext, key: &str) -> Option<String> {
         .get(key)
         .filter(|text| !text.is_empty() && text.as_str() != key)
         .cloned()
+}
+
+/// A duration in the units the app passes, as its `formatDurationHuman` writes
+/// it: "45 s", "5 min 30 s", "1 h 30 min", seconds dropped once there are
+/// hours. A unit the context lacks is written with its SI symbol.
+fn duration_human(ctx: &WidgetContext, seconds: f64) -> String {
+    let total = if seconds.is_finite() && seconds > 0.0 {
+        seconds.min(MAX_DURATION_SECONDS).round() as u64
+    } else {
+        0
+    };
+    if total < 60 {
+        return fill(ctx, "units.secondsValue", &[("value", total.to_string())])
+            .unwrap_or_else(|| format!("{total} s"));
+    }
+    let (minutes, secs) = (total / 60, total % 60);
+    if minutes < 60 {
+        if secs == 0 {
+            return fill(ctx, "units.minutesValue", &[("value", minutes.to_string())])
+                .unwrap_or_else(|| format!("{minutes} min"));
+        }
+        let slots = [
+            ("minutes", minutes.to_string()),
+            ("seconds", secs.to_string()),
+        ];
+        return fill(ctx, "units.minutesSeconds", &slots)
+            .unwrap_or_else(|| format!("{minutes} min {secs} s"));
+    }
+    let (hours, minutes) = (minutes / 60, minutes % 60);
+    if minutes == 0 {
+        return fill(ctx, "units.hoursValue", &[("value", hours.to_string())])
+            .unwrap_or_else(|| format!("{hours} h"));
+    }
+    let slots = [
+        ("hours", hours.to_string()),
+        ("minutes", minutes.to_string()),
+    ];
+    fill(ctx, "units.hoursMinutes", &slots).unwrap_or_else(|| format!("{hours} h {minutes} min"))
 }
 
 /// A phrase with its `{{name}}` slots filled.
@@ -1899,7 +2029,7 @@ fn sport_stats(a: &crate::FfiActivityMetrics, ctx: &WidgetContext) -> Vec<SportS
         stat(
             "distance",
             "activity.distance",
-            format_distance(distance, ctx.is_metric),
+            format_distance(distance, ctx),
         ),
         stat(
             "movingTime",
@@ -1912,9 +2042,9 @@ fn sport_stats(a: &crate::FfiActivityMetrics, ctx: &WidgetContext) -> Vec<SportS
         let climb = finite(a.elevation_gain);
         if climb > 0.0 {
             let value = if ctx.is_metric {
-                format!("{} m", int_text(climb))
+                format!("{} m", number_text(&int_text(climb), ctx))
             } else {
-                format!("{} ft", int_text(climb * M_TO_FT))
+                format!("{} ft", number_text(&int_text(climb * M_TO_FT), ctx))
             };
             stats.push(stat(
                 "elevationGain",
@@ -2019,21 +2149,22 @@ fn fixed1(v: f64) -> String {
 }
 
 /// "500 m" and "1.5 km", or "800 ft" and "0.9 mi".
-pub fn format_distance(meters: f64, is_metric: bool) -> String {
+pub fn format_distance(meters: f64, ctx: &WidgetContext) -> String {
+    let is_metric = ctx.is_metric;
     if !meters.is_finite() || meters < 0.0 {
         return if is_metric { "0 m" } else { "0 ft" }.to_string();
     }
     if is_metric {
         if meters < 1000.0 {
-            return format!("{} m", int_text(meters));
+            return format!("{} m", number_text(&int_text(meters), ctx));
         }
-        return format!("{} km", fixed1(meters / 1000.0));
+        return format!("{} km", number_text(&fixed1(meters / 1000.0), ctx));
     }
     let miles = meters / 1000.0 * KM_TO_MI;
     if miles < 0.25 {
-        return format!("{} ft", int_text(meters * M_TO_FT));
+        return format!("{} ft", number_text(&int_text(meters * M_TO_FT), ctx));
     }
-    format!("{} mi", fixed1(miles))
+    format!("{} mi", number_text(&fixed1(miles), ctx))
 }
 
 /// "1:01:05" from an hour, "45:30" under one.
@@ -2154,11 +2285,7 @@ pub fn route_outline(gps: &[FfiGpsPoint], max_points: usize) -> Option<RouteOutl
     if gps.len() < 2 {
         return None;
     }
-    let positioned = |p: &FfiGpsPoint| {
-        p.latitude.is_finite()
-            && p.longitude.is_finite()
-            && (p.latitude != 0.0 || p.longitude != 0.0)
-    };
+    let positioned = |p: &FfiGpsPoint| crate::net::types::is_recorded_fix(p.latitude, p.longitude);
     let stride = gps.len().div_ceil(max_points.max(1)).max(1);
     let mut sampled: Vec<&FfiGpsPoint> = gps
         .iter()

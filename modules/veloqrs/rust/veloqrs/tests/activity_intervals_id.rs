@@ -12,6 +12,7 @@ use rusqlite::{Connection, params};
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::PersistentEngine;
+use veloqrs::persistence::recordings::UploadTransition;
 
 fn track(seed: f64) -> Vec<GpsPoint> {
     (0..20)
@@ -531,9 +532,16 @@ mod trackless_provisional {
         )
         .unwrap();
 
-        engine
-            .set_recording_rejected("r1", "intervals.icu no longer has it", 2)
-            .unwrap();
+        let rejected = UploadTransition::Rejected {
+            install: 0.0,
+            error: "intervals.icu no longer has it".to_string(),
+        };
+        assert!(
+            engine
+                .transition_recording("r1", &rejected, 2)
+                .unwrap()
+                .applied
+        );
         assert_eq!(engine.intervals_id(LOCAL), None);
         assert_eq!(engine.activity_id_for_intervals_id("i123"), None);
         assert!(engine.record_upload(LOCAL, "i456").unwrap());

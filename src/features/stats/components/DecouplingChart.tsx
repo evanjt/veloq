@@ -9,6 +9,7 @@ import { formatRelativeDate } from '@/shared/format/format';
 import { colors, darkColors, typography, spacing } from '@/theme';
 import type { DecouplingSource } from '@/features/activity';
 import { tapTo } from '@/shared/app/navigation';
+import { formatPercent } from '@/shared/format';
 
 interface DecouplingChartProps {
   /** The ride and the decoupling intervals.icu stored for it, null when none has one */
@@ -61,7 +62,7 @@ export function DecouplingChart({ source, height = 150, coverage }: DecouplingCh
         title={t('stats.aerobicDecoupling')}
         accessory={
           <Text style={[styles.decouplingValue, isDark && styles.textLight]}>
-            {source.decoupling.toFixed(1)}%
+            {formatPercent(source.decoupling, 1)}
           </Text>
         }
       />

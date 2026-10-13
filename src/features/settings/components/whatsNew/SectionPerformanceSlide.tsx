@@ -30,6 +30,7 @@ import {
   demoTrendR,
   type StretchKind,
 } from '../../lib/tourSectionDemo';
+import { formatDecimal } from '@/shared/format';
 
 const PANEL_HEIGHT = 64;
 const PAD = 6;
@@ -161,7 +162,7 @@ export function SectionPerformanceSlide() {
             background={background}
             overlay={
               <Text style={[styles.rLabel, { color: palette.textPrimary }]}>
-                {t('whatsNew.v040.sectionPageTrendR', { r: r === null ? '' : r.toFixed(2) })}
+                {t('whatsNew.v040.sectionPageTrendR', { r: r === null ? '' : formatDecimal(r, 2) })}
               </Text>
             }
           >

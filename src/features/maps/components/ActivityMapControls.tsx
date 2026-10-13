@@ -70,7 +70,7 @@ export function ActivityMapControls({
       </IconButton>
 
       {/* Gradient coloring toggle - only shown when gradient data is available */}
-      {hasGradientData && (
+      {hasGradientData ? (
         <IconButton
           testID="activity-map-gradient-toggle"
           accessibilityState={{ selected: gradientActive }}
@@ -91,10 +91,10 @@ export function ActivityMapControls({
             }
           />
         </IconButton>
-      )}
+      ) : null}
 
       {/* 3D toggle */}
-      {hasRoute && (
+      {hasRoute ? (
         <IconButton
           testID="activity-map-3d-toggle"
           accessibilityLabel={is3DMode ? t('maps.disable3D') : t('maps.enable3D')}
@@ -110,7 +110,7 @@ export function ActivityMapControls({
             }
           />
         </IconButton>
-      )}
+      ) : null}
 
       {/* Compass */}
       <IconButton
@@ -162,7 +162,7 @@ export function ActivityMapControls({
       </IconButton>
 
       {/* Fullscreen expand */}
-      {enableFullscreen && (
+      {enableFullscreen ? (
         <IconButton
           testID="activity-map-fullscreen"
           accessibilityLabel={t('maps.openFullscreen')}
@@ -176,7 +176,7 @@ export function ActivityMapControls({
             color={isDark ? colors.textOnDark : colors.textSecondary}
           />
         </IconButton>
-      )}
+      ) : null}
     </View>
   );
 }

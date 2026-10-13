@@ -82,7 +82,9 @@ export function LanguageList({ language, onSelect }: LanguageListProps) {
             </Text>
           </Pressable>
         )}
-        {followsSystem && <MaterialCommunityIcons name="check" size={20} color={colors.primary} />}
+        {followsSystem ? (
+          <MaterialCommunityIcons name="check" size={20} color={colors.primary} />
+        ) : null}
       </View>
       {languages.map((lang) => {
         const isSelected = language === lang.value;
@@ -107,7 +109,7 @@ export function LanguageList({ language, onSelect }: LanguageListProps) {
             >
               <Text style={[styles.languageLabel, isDark && styles.textLight]}>{lang.label}</Text>
             </Pressable>
-            {lang.variants && (
+            {lang.variants ? (
               <View style={styles.variantChips}>
                 {lang.variants.map((variant) => {
                   const isVariantSelected =
@@ -158,14 +160,14 @@ export function LanguageList({ language, onSelect }: LanguageListProps) {
                   );
                 })}
               </View>
-            )}
-            {showCheck && !lang.variants && (
+            ) : null}
+            {showCheck && !lang.variants ? (
               <MaterialCommunityIcons name="check" size={20} color={colors.primary} />
-            )}
+            ) : null}
           </View>
         );
       })}
-      {hasDialect && (
+      {hasDialect ? (
         <View
           style={[styles.dialectKey, isDark && styles.languageRowDark]}
           importantForAccessibility="no-hide-descendants"
@@ -183,7 +185,7 @@ export function LanguageList({ language, onSelect }: LanguageListProps) {
             {t('settings.dialect')}
           </Text>
         </View>
-      )}
+      ) : null}
     </View>
   );
 }

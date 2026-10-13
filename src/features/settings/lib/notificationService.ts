@@ -13,7 +13,16 @@ import { i18n } from '@/i18n';
 import type { PermissionOutcome } from '@/shared/app/permissions';
 
 const log = debug.create('Notification');
-const CHANNEL_ID = 'veloq-insights';
+/**
+ * A ride's PRs and milestones are informational, so their channel is at
+ * default importance: it sounds and sits in the tray rather than dropping a
+ * heads-up banner over whatever app is open. Android keeps a channel's
+ * importance once created, so the quieter channel has its own id and the
+ * high-importance one it replaces is deleted. The native poster in
+ * `modules/veloqrs` creates the same channel when a push beats the launch.
+ */
+const CHANNEL_ID = 'veloq-activity';
+const RETIRED_CHANNEL_ID = 'veloq-insights';
 
 /**
  * expo-notifications reads the Android channel from the trigger and nowhere
@@ -39,6 +48,9 @@ export function initialiseNotifications(): void {
   });
 
   if (Platform.OS === 'android') {
+    Notifications.deleteNotificationChannelAsync(RETIRED_CHANNEL_ID).catch((e: unknown) =>
+      log.warn('could not delete the retired insights channel', e)
+    );
     nameInsightsChannel();
     i18n.off('languageChanged', nameInsightsChannel);
     i18n.on('languageChanged', nameInsightsChannel);
@@ -65,8 +77,7 @@ function nameInsightsChannel(): void {
   Notifications.setNotificationChannelAsync(CHANNEL_ID, {
     name,
     description: i18n.t(CHANNEL_DESCRIPTION_KEY),
-    importance: Notifications.AndroidImportance.HIGH,
-    vibrationPattern: [0, 250],
+    importance: Notifications.AndroidImportance.DEFAULT,
     lightColor: brand.tealLight,
   }).catch((e: unknown) => log.warn('could not create the insights channel', e));
 }
@@ -119,7 +130,7 @@ export async function presentActivityNotification(
       title,
       body,
       data: forSignedInAthlete(data),
-      priority: 'high',
+      priority: 'default',
     },
     trigger: immediatelyOn(CHANNEL_ID),
   });

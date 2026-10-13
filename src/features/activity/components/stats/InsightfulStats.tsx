@@ -10,6 +10,7 @@
 import React, { useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
+import { INTERVALS_URLS } from '@/shared/app/constants';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -36,6 +37,8 @@ interface InsightfulStatsProps {
   newGround?: ActivityNewGround | undefined;
   /** The stored summary from the detail screen read. */
   summary?: ActivitySummary | undefined;
+  /** The intervals.icu id the detail read names. Without one there is no page to link to. */
+  intervalsId?: string | null | undefined;
 }
 
 export function InsightfulStats({
@@ -46,6 +49,7 @@ export function InsightfulStats({
   fitnessImpact,
   newGround,
   summary,
+  intervalsId,
 }: InsightfulStatsProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -74,8 +78,9 @@ export function InsightfulStats({
 
   // Open activity in intervals.icu website
   const openInIntervalsICU = useCallback(() => {
-    void openExternal(`https://intervals.icu/activities/${activity.id}`);
-  }, [activity.id]);
+    if (!intervalsId) return;
+    void openExternal(INTERVALS_URLS.activityPage(intervalsId));
+  }, [intervalsId]);
 
   if (stats.length === 0) return null;
 
@@ -85,13 +90,15 @@ export function InsightfulStats({
         variant="raised"
         title={t('activity.activityStats')}
         titleAccessory={
-          <Button
-            label={t('activity.viewInIntervalsICU')}
-            variant="ghost"
-            size="sm"
-            onPress={openInIntervalsICU}
-            icon={<MaterialCommunityIcons name="open-in-new" size={14} color={colors.primary} />}
-          />
+          intervalsId ? (
+            <Button
+              label={t('activity.viewInIntervalsICU')}
+              variant="ghost"
+              size="sm"
+              onPress={openInIntervalsICU}
+              icon={<MaterialCommunityIcons name="open-in-new" size={14} color={colors.primary} />}
+            />
+          ) : undefined
         }
       >
         <View style={styles.statsGrid}>

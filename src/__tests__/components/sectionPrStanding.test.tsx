@@ -44,7 +44,7 @@ it('shows the standing and previous best carried by the PR', async () => {
   } as Insight;
 
   const { getByText } = await render(<SectionPRContent insight={insight} />);
-  getByText('insights.sectionPrSheet.efforts:{"n":4}');
+  getByText('insights.sectionPrSheet.efforts:{"count":4}');
   getByText('insights.sectionPrSheet.fasterThan:{"percent":75}');
   getByText('insights.sectionPrSheet.fromPrevious:{"delta":"0:10"}');
   getByText(/insights.sectionPrSheet.previous:.+"time":"5:10"/);

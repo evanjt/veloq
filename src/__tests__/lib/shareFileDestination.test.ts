@@ -76,7 +76,7 @@ describe('on Android', () => {
   });
 
   it('offers Save to device beside Share, with Share not the only way out', async () => {
-    const shared = shareExistingFile(ZIP, 'application/zip');
+    const shared = shareExistingFile(ZIP, 'zip');
     await untilAsked();
     const labels = buttons().map((b) => b.text);
     expect(labels).toEqual(expect.arrayContaining(['Share', 'Save to device', 'Cancel']));
@@ -85,7 +85,7 @@ describe('on Android', () => {
   });
 
   it('saves through the create-document screen with the file name, type and held folder', async () => {
-    const shared = shareExistingFile(ZIP, 'application/zip');
+    const shared = shareExistingFile(ZIP, 'zip');
     await untilAsked();
     press('Save to device');
     await shared;
@@ -99,13 +99,9 @@ describe('on Android', () => {
   });
 
   it('suggests the name the caller gives over the file name on disk', async () => {
-    const shared = shareExistingFile(
-      'file:///data/files/recordings/1728-k3j.fit',
-      'application/vnd.ant.fit',
-      {
-        name: 'Morning Paddle.fit',
-      }
-    );
+    const shared = shareExistingFile('file:///data/files/recordings/1728-k3j.fit', 'fit', {
+      name: 'Morning Paddle.fit',
+    });
     await untilAsked();
     press('Save to device');
     await shared;
@@ -119,7 +115,7 @@ describe('on Android', () => {
 
   it('starts from no folder when none is held', async () => {
     mockGetSetting.mockReturnValue(null);
-    const shared = shareExistingFile(ZIP, 'application/zip');
+    const shared = shareExistingFile(ZIP, 'zip');
     await untilAsked();
     press('Save to device');
     await shared;
@@ -132,7 +128,7 @@ describe('on Android', () => {
   });
 
   it('opens the share chooser when Share is chosen', async () => {
-    const shared = shareExistingFile(ZIP, 'application/zip');
+    const shared = shareExistingFile(ZIP, 'zip');
     await untilAsked();
     press('Share');
     await shared;
@@ -144,7 +140,7 @@ describe('on Android', () => {
   });
 
   it('does nothing when the choice is dismissed', async () => {
-    const shared = shareExistingFile(ZIP, 'application/zip');
+    const shared = shareExistingFile(ZIP, 'zip');
     await untilAsked();
     const options = alert.mock.calls[0][3] as { onDismiss?: () => void };
     options.onDismiss?.();
@@ -155,7 +151,7 @@ describe('on Android', () => {
 
   it('settles quietly when the create-document screen is backed out of', async () => {
     mockSaveDocument.mockResolvedValue(false);
-    const shared = shareExistingFile(ZIP, 'application/zip');
+    const shared = shareExistingFile(ZIP, 'zip');
     await untilAsked();
     press('Save to device');
     await expect(shared).resolves.toBeUndefined();
@@ -163,7 +159,7 @@ describe('on Android', () => {
 
   it('rejects when the copy fails, so the caller reports it', async () => {
     mockSaveDocument.mockRejectedValue(new Error('disk full'));
-    const shared = shareExistingFile(ZIP, 'application/zip');
+    const shared = shareExistingFile(ZIP, 'zip');
     await untilAsked();
     press('Save to device');
     await expect(shared).rejects.toThrow('disk full');
@@ -176,7 +172,7 @@ describe('on iOS', () => {
   });
 
   it('opens the share sheet at once, which carries its own save target', async () => {
-    await shareExistingFile(ZIP, 'application/zip');
+    await shareExistingFile(ZIP, 'zip');
     expect(alert).not.toHaveBeenCalled();
     expect(mockSaveDocument).not.toHaveBeenCalled();
     expect(Sharing.shareAsync).toHaveBeenCalledWith(

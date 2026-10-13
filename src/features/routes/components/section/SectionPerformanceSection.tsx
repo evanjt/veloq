@@ -204,13 +204,13 @@ export function SectionPerformanceSection({
       ) : streams?.status === 'partial' ? null : (
         <View testID="section-performance-empty" style={styles.emptyState}>
           {/* Every attempt excluded leaves no chart to carry the eye, so it stays here. */}
-          {hasExcluded && onToggleShowExcluded && (
+          {hasExcluded && onToggleShowExcluded ? (
             <ExcludedActivitiesToggle
               isDark={isDark}
               showExcluded={!!showExcluded}
               onToggle={onToggleShowExcluded}
             />
-          )}
+          ) : null}
           <EmptyState variant="inline" title={t('sections.noActivitiesFound')} />
         </View>
       )}

@@ -10,8 +10,8 @@ import Foundation
 /// update from a newer one.
 struct VeloqRecordingAttributes: ActivityAttributes {
   public struct ContentState: Codable, Hashable {
-    /// "recording" or "paused". A string rather than an enum so an unknown value from a
-    /// newer build reads as recording instead of failing to decode the whole card.
+    /// "recording", "paused" or "ended". A string rather than an enum so an unknown value
+    /// from a newer build reads as recording instead of failing to decode the whole card.
     let status: String
     /// Milliseconds since the epoch the clock counts up from, already net of paused
     /// time. The card runs its own timer from this, so it keeps ticking while the app
@@ -23,6 +23,8 @@ struct VeloqRecordingAttributes: ActivityAttributes {
     let distanceLabel: String
     let speedLabel: String
     let trace: Trace?
+    /// The translated line a stopped ride's final card shows. Nil while recording.
+    let endedLabel: String?
     /// Milliseconds since the epoch after which the card is stale. Every push moves it
     /// on, so only a process that has stopped pushing, one the system killed mid-ride,
     /// lets the card reach it.
@@ -35,6 +37,12 @@ struct VeloqRecordingAttributes: ActivityAttributes {
     }
 
     var isPaused: Bool { status == "paused" }
+
+    /// The final state of a stopped ride: frozen totals, no control, until dismissed.
+    var isEnded: Bool { status == "ended" }
+
+    /// Whether the clock shows the pushed moving time rather than running its own.
+    var isFrozen: Bool { isPaused || isEnded }
 
     /// The date `Text(timerInterval:)` counts from.
     var timerStart: Date { Date(timeIntervalSince1970: timerFrom / 1000) }

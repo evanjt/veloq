@@ -100,7 +100,7 @@ function StatusSlotInner({
       >
         <MaterialCommunityIcons name="alert-circle-outline" size={16} color={amber} />
         <Text style={[styles.text, { color: amber }]}>{message.text}</Text>
-        {message.opensSettings && <OpenSettingsButton testID="status-slot-gps-settings" />}
+        {message.opensSettings ? <OpenSettingsButton testID="status-slot-gps-settings" /> : null}
         <IconButton onPress={onDismissGpsWarning} accessibilityLabel={t('common.close', 'Close')}>
           <MaterialCommunityIcons name="close" size={16} color={amber} />
         </IconButton>

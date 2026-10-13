@@ -8,9 +8,14 @@ import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { buildRecordingNotificationPayload } from '@/features/recording/lib/recordingNotification';
 import { i18n } from '@/i18n';
 import { getIsMetric } from '@/shared/app/UnitPreferenceStore';
-import { LIVE_ACTIVITY_STALE_MS } from '@/features/recording/lib/constants';
+import { formatDistance } from '@/shared/format/format';
+import {
+  LIVE_ACTIVITY_ENDED_DISMISS_MS,
+  LIVE_ACTIVITY_STALE_MS,
+} from '@/features/recording/lib/constants';
 import {
   beginLiveActivity,
+  dismissEndedLiveActivity,
   finishLiveActivity,
   installLiveActivityControls,
   reapOrphanedLiveActivities,
@@ -57,6 +62,8 @@ function startRide(): void {
 describe('live activity controller', () => {
   beforeEach(() => {
     finishLiveActivity();
+    dismissEndedLiveActivity();
+    jest.restoreAllMocks();
     jest.clearAllMocks();
     mockNative.isSupported.mockReturnValue(true);
     mockNative.start.mockReturnValue('activity-1');
@@ -150,6 +157,64 @@ describe('live activity controller', () => {
 
     expect(mockNative.end).toHaveBeenCalledTimes(1);
     expect(mockNative.update).not.toHaveBeenCalled();
+  });
+
+  it('ends a stopped ride on its final figures and leaves them up for a while', () => {
+    jest
+      .spyOn(i18n, 't')
+      .mockImplementation(((key: string) => `translated:${key}`) as unknown as typeof i18n.t);
+    const now = jest.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000);
+    startRide();
+    useRecordingStore.setState({
+      streams: { ...useRecordingStore.getState().streams, time: [0, 300], distance: [0, 1500] },
+    });
+    beginLiveActivity();
+    now.mockReturnValue(1_700_000_060_000);
+    useRecordingStore.getState().stopRecording();
+    now.mockReturnValue(1_700_000_090_000);
+    finishLiveActivity();
+
+    expect(mockNative.end).toHaveBeenCalledTimes(1);
+    const final = JSON.parse(mockNative.end.mock.calls[0][0] as unknown as string);
+    expect(final.status).toBe('ended');
+    expect(final.endedLabel).toBe('translated:recording.endedCard');
+    // Moving time stops at the stop, not at the moment the card is ended.
+    expect(final.frozenElapsedS).toBe(360);
+    expect(final.distanceLabel).toBe(formatDistance(1500, getIsMetric()));
+    expect(final.staleAt).toBe(1_700_000_090_000 + LIVE_ACTIVITY_ENDED_DISMISS_MS);
+    now.mockRestore();
+  });
+
+  it('ends a ride dropped before it stopped at once, with nothing left to show', () => {
+    startRide();
+    beginLiveActivity();
+    useRecordingStore.getState().reset();
+    finishLiveActivity();
+
+    expect(mockNative.end).toHaveBeenCalledTimes(1);
+    expect(mockNative.end.mock.calls[0]).toEqual([null]);
+  });
+
+  it('clears the ended card once the ride is settled, and only then', () => {
+    startRide();
+    beginLiveActivity();
+    useRecordingStore.getState().stopRecording();
+    finishLiveActivity();
+    dismissEndedLiveActivity();
+    dismissEndedLiveActivity();
+
+    expect(mockNative.endAll).toHaveBeenCalledTimes(1);
+  });
+
+  it('has no ended card to clear when none was left up', () => {
+    dismissEndedLiveActivity();
+    startRide();
+    beginLiveActivity();
+    useRecordingStore.getState().reset();
+    finishLiveActivity();
+    dismissEndedLiveActivity();
+
+    expect(mockNative.endAll).not.toHaveBeenCalled();
   });
 
   it('ends nothing when no card was ever started', () => {

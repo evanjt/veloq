@@ -77,7 +77,7 @@ describe('handleFocusActivity', () => {
     });
 
     expect(setSelected).toHaveBeenCalledWith(
-      expect.objectContaining({ activity: ventoux, isLoading: true })
+      expect.objectContaining({ activity: ventoux, isLoading: false })
     );
     expect(ref.fitBounds).toHaveBeenCalledTimes(1);
     expect((ref.fitBounds as jest.Mock).mock.calls[0][0]).toEqual({

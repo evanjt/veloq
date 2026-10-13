@@ -247,7 +247,7 @@ function readSearchPage(
   });
   return (
     page && {
-      activities: parseBodies(page.bodies),
+      activities: parseBodies(page),
       matchedCount: page.matchedCount,
       hasMore: page.hasMore,
     }

@@ -139,6 +139,9 @@ module.exports = [
       'react-hooks/use-memo': 'warn',
 
       'react/jsx-key': 'error',
+      // A JSX `&&` whose left side is a number renders a bare `0` when it is
+      // zero, and under Fabric a string outside `<Text>` throws.
+      'react/jsx-no-leaked-render': ['error', { validStrategies: ['ternary', 'coerce'] }],
       // Off because every report it made here was wrong. It cannot follow a
       // prop through `forwardRef`, through a `memo` comparator that reads it,
       // or into a `renderItem` callback, and it reads any inline destructured

@@ -8,7 +8,7 @@
  * selection active does not re-upload every point.
  */
 import { colors, mapLayerColors, colorWithOpacity, ink } from '@/theme';
-import type { MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
+import type { MapGeoJSONData, MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
 import { heatmapRasterPaint } from '@/features/maps/lib/heatmapPaint';
 import { HEATMAP_SOURCE_MINZOOM, heatmapTileTemplate } from '@/features/maps/lib/heatmapTiles';
 import { TRACE_ZOOM_THRESHOLD } from '@/features/maps/lib/mapBudgets';
@@ -50,7 +50,8 @@ interface RegionalSourceInput {
   /** The route lines, empty while the layer is off. The source stays declared either way. */
   routesGeoJSON: GeoJSON.FeatureCollection;
   userLocationGeoJSON: GeoJSON.FeatureCollection;
-  routeGeoJSON: GeoJSON.FeatureCollection | GeoJSON.Feature;
+  /** The selected activity's line, or the engine's URL for it. */
+  routeGeoJSON: MapGeoJSONData;
   spiderPointsGeoJSON: GeoJSON.FeatureCollection;
   spiderLinesGeoJSON: GeoJSON.FeatureCollection;
   heatmapEnabled: boolean;

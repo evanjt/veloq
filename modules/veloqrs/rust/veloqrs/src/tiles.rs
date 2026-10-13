@@ -15,16 +15,28 @@ pub const TILE_SIZE: u32 = 512;
 /// Heatmap configuration
 #[derive(Debug, Clone)]
 pub struct HeatmapConfig {
+    /// The shallowest zoom a tile is drawn at.
     pub min_zoom: u8,
+    /// The deepest zoom the pass draws for the whole library. Deeper tiles are
+    /// most of the tree, so they are drawn when the map asks for one.
+    pub pass_max_zoom: u8,
+    /// The deepest zoom a tile exists at, drawn by the pass or on request. A
+    /// sweep clears every zoom up to here, so a changed track never leaves a
+    /// deep tile drawn without it.
     pub max_zoom: u8,
+}
+
+impl HeatmapConfig {
+    pub const DEFAULT: Self = Self {
+        min_zoom: 1,
+        pass_max_zoom: 14,
+        max_zoom: 17,
+    };
 }
 
 impl Default for HeatmapConfig {
     fn default() -> Self {
-        Self {
-            min_zoom: 1,
-            max_zoom: 17,
-        }
+        Self::DEFAULT
     }
 }
 

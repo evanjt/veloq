@@ -1417,6 +1417,11 @@ export type FfiActivityBodiesPage = {
    */
   bodies: Array<string>;
   /**
+   * The intervals.icu id a web link may name for each body, in the same
+   * order. None for a demo row and for a recording no server has named.
+   */
+  intervalsIds: Array<string | undefined>;
+  /**
    * Every stored activity the query matched, not only this page.
    */
   matchedCount: number;
@@ -1447,18 +1452,21 @@ const FfiConverterTypeFfiActivityBodiesPage = (() => {
     readFromCursor(c: Cursor): TypeName {
       return {
         bodies: FfiConverterSequenceString.readFromCursor(c),
+        intervalsIds: FfiConverterSequenceOptionalString.readFromCursor(c),
         matchedCount: FfiConverterUInt32.readFromCursor(c),
         hasMore: FfiConverterBool.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterSequenceString.writeIntoCursor(value.bodies, c);
+      FfiConverterSequenceOptionalString.writeIntoCursor(value.intervalsIds, c);
       FfiConverterUInt32.writeIntoCursor(value.matchedCount, c);
       FfiConverterBool.writeIntoCursor(value.hasMore, c);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterSequenceString.allocationSize(value.bodies) +
+        FfiConverterSequenceOptionalString.allocationSize(value.intervalsIds) +
         FfiConverterUInt32.allocationSize(value.matchedCount) +
         FfiConverterBool.allocationSize(value.hasMore)
       );
@@ -3487,6 +3495,12 @@ export type FfiActivityDetailData = {
    */
   activityCount: number;
   /**
+   * Whether the engine holds this activity's track. The map then draws the
+   * line from the engine's `veloq-geo` URL rather than receiving it as text;
+   * without one it is sent inline from the streams.
+   */
+  hasGpsTrack: boolean;
+  /**
    * Total sections held by the engine
    */
   sectionCount: number;
@@ -3564,6 +3578,11 @@ export type FfiActivityDetailData = {
    * Section changes whose ledger rows name this activity, newest first.
    */
   ledgerChanges: Array<FfiActivityLedgerChange>;
+  /**
+   * The intervals.icu id a web link may name. None for a demo row and for
+   * a recording no server has named, which have no page there.
+   */
+  intervalsId?: string;
 };
 
 /**
@@ -3594,6 +3613,7 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
         fitnessImpact:
           FfiConverterOptionalTypeFfiActivityFitnessImpact.readFromCursor(c),
         activityCount: FfiConverterUInt32.readFromCursor(c),
+        hasGpsTrack: FfiConverterBool.readFromCursor(c),
         sectionCount: FfiConverterUInt32.readFromCursor(c),
         routeGroups: FfiConverterSequenceTypeFfiRouteGroup.readFromCursor(c),
         representativeSignature: FfiConverterArrayBuffer.readFromCursor(c),
@@ -3614,6 +3634,7 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
         powerZones: FfiConverterSequenceTypeFfiPowerZoneBand.readFromCursor(c),
         ledgerChanges:
           FfiConverterSequenceTypeFfiActivityLedgerChange.readFromCursor(c),
+        intervalsId: FfiConverterOptionalString.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -3626,6 +3647,7 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
         c,
       );
       FfiConverterUInt32.writeIntoCursor(value.activityCount, c);
+      FfiConverterBool.writeIntoCursor(value.hasGpsTrack, c);
       FfiConverterUInt32.writeIntoCursor(value.sectionCount, c);
       FfiConverterSequenceTypeFfiRouteGroup.writeIntoCursor(
         value.routeGroups,
@@ -3665,6 +3687,7 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
         value.ledgerChanges,
         c,
       );
+      FfiConverterOptionalString.writeIntoCursor(value.intervalsId, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -3675,6 +3698,7 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
           value.fitnessImpact,
         ) +
         FfiConverterUInt32.allocationSize(value.activityCount) +
+        FfiConverterBool.allocationSize(value.hasGpsTrack) +
         FfiConverterUInt32.allocationSize(value.sectionCount) +
         FfiConverterSequenceTypeFfiRouteGroup.allocationSize(
           value.routeGroups,
@@ -3705,7 +3729,8 @@ const FfiConverterTypeFfiActivityDetailData = (() => {
         ) +
         FfiConverterSequenceTypeFfiActivityLedgerChange.allocationSize(
           value.ledgerChanges,
-        )
+        ) +
+        FfiConverterOptionalString.allocationSize(value.intervalsId)
       );
     }
   }
@@ -11120,6 +11145,11 @@ export type FfiRouteLine = {
    */
   activityCount: number;
   /**
+   * The representative's distance in metres, the figure the route list
+   * shows, read when the map is
+   */
+  distanceMeters: number;
+  /**
    * The representative's signature in `codec::encode_polyline` form
    */
   polyline: ArrayBuffer;
@@ -11151,6 +11181,7 @@ const FfiConverterTypeFfiRouteLine = (() => {
         routeNumber: FfiConverterOptionalUInt32.readFromCursor(c),
         name: FfiConverterString.readFromCursor(c),
         activityCount: FfiConverterUInt32.readFromCursor(c),
+        distanceMeters: FfiConverterFloat64.readFromCursor(c),
         polyline: FfiConverterArrayBuffer.readFromCursor(c),
       };
     }
@@ -11159,6 +11190,7 @@ const FfiConverterTypeFfiRouteLine = (() => {
       FfiConverterOptionalUInt32.writeIntoCursor(value.routeNumber, c);
       FfiConverterString.writeIntoCursor(value.name, c);
       FfiConverterUInt32.writeIntoCursor(value.activityCount, c);
+      FfiConverterFloat64.writeIntoCursor(value.distanceMeters, c);
       FfiConverterArrayBuffer.writeIntoCursor(value.polyline, c);
     }
     allocationSize(value: TypeName): number {
@@ -11167,6 +11199,7 @@ const FfiConverterTypeFfiRouteLine = (() => {
         FfiConverterOptionalUInt32.allocationSize(value.routeNumber) +
         FfiConverterString.allocationSize(value.name) +
         FfiConverterUInt32.allocationSize(value.activityCount) +
+        FfiConverterFloat64.allocationSize(value.distanceMeters) +
         FfiConverterArrayBuffer.allocationSize(value.polyline)
       );
     }
@@ -11404,6 +11437,245 @@ const FfiConverterTypeFfiMapSectionLayer = (() => {
   return new FFIConverter();
 })();
 
+// Enum: FfiMapEmptyReason
+export enum FfiMapEmptyReason_Tags {
+  NoActivities = "NoActivities",
+  Filtered = "Filtered",
+  TracksPending = "TracksPending",
+  NoGps = "NoGps",
+}
+/**
+ * Why the map draws no activity, so the tab names its cause rather than
+ * showing a bare basemap.
+ */
+export const FfiMapEmptyReason = (() => {
+  type NoActivities__interface = {
+    tag: FfiMapEmptyReason_Tags.NoActivities;
+  };
+  /**
+   * No activity falls inside the date window.
+   */
+  class NoActivities_ extends UniffiEnum implements NoActivities__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiMapEmptyReason";
+    readonly tag = FfiMapEmptyReason_Tags.NoActivities;
+    constructor() {
+      super("FfiMapEmptyReason", "NoActivities");
+    }
+
+    static new(): NoActivities_ {
+      return new NoActivities_();
+    }
+
+    static instanceOf(obj: any): obj is NoActivities_ {
+      return obj.tag === FfiMapEmptyReason_Tags.NoActivities;
+    }
+  }
+
+  type Filtered__interface = {
+    tag: FfiMapEmptyReason_Tags.Filtered;
+    inner: Readonly<{ mapped: number }>;
+  };
+  /**
+   * The window holds tracks and the sport, distance or name filters leave
+   * none of them. `mapped` is the window's tracks before those filters.
+   */
+  class Filtered_ extends UniffiEnum implements Filtered__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiMapEmptyReason";
+    readonly tag = FfiMapEmptyReason_Tags.Filtered;
+    readonly inner: Readonly<{ mapped: number }>;
+    constructor(inner: { mapped: number }) {
+      super("FfiMapEmptyReason", "Filtered");
+
+      this.inner = Object.freeze(inner);
+    }
+    static new(inner: { mapped: number }): Filtered_ {
+      return new Filtered_(inner);
+    }
+
+    static instanceOf(obj: any): obj is Filtered_ {
+      return obj.tag === FfiMapEmptyReason_Tags.Filtered;
+    }
+  }
+
+  type TracksPending__interface = {
+    tag: FfiMapEmptyReason_Tags.TracksPending;
+    inner: Readonly<{ activities: number; pending: number }>;
+  };
+  /**
+   * The window's activities have no stored track yet, and `pending` of them
+   * have one upstream that the GPS download has still to fetch.
+   */
+  class TracksPending_ extends UniffiEnum implements TracksPending__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiMapEmptyReason";
+    readonly tag = FfiMapEmptyReason_Tags.TracksPending;
+    readonly inner: Readonly<{ activities: number; pending: number }>;
+    constructor(inner: { activities: number; pending: number }) {
+      super("FfiMapEmptyReason", "TracksPending");
+
+      this.inner = Object.freeze(inner);
+    }
+    static new(inner: { activities: number; pending: number }): TracksPending_ {
+      return new TracksPending_(inner);
+    }
+
+    static instanceOf(obj: any): obj is TracksPending_ {
+      return obj.tag === FfiMapEmptyReason_Tags.TracksPending;
+    }
+  }
+
+  type NoGps__interface = {
+    tag: FfiMapEmptyReason_Tags.NoGps;
+    inner: Readonly<{ activities: number }>;
+  };
+  /**
+   * The window's activities have no track and none is owed: trainer, pool
+   * or strength sessions, or tracks the download gave up on.
+   */
+  class NoGps_ extends UniffiEnum implements NoGps__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiMapEmptyReason";
+    readonly tag = FfiMapEmptyReason_Tags.NoGps;
+    readonly inner: Readonly<{ activities: number }>;
+    constructor(inner: { activities: number }) {
+      super("FfiMapEmptyReason", "NoGps");
+
+      this.inner = Object.freeze(inner);
+    }
+    static new(inner: { activities: number }): NoGps_ {
+      return new NoGps_(inner);
+    }
+
+    static instanceOf(obj: any): obj is NoGps_ {
+      return obj.tag === FfiMapEmptyReason_Tags.NoGps;
+    }
+  }
+
+  function instanceOf(obj: any): obj is FfiMapEmptyReason {
+    return obj[uniffiTypeNameSymbol] === "FfiMapEmptyReason";
+  }
+
+  return Object.freeze({
+    instanceOf,
+    NoActivities: NoActivities_,
+    Filtered: Filtered_,
+    TracksPending: TracksPending_,
+    NoGps: NoGps_,
+  });
+})();
+/**
+ * Why the map draws no activity, so the tab names its cause rather than
+ * showing a bare basemap.
+ */
+export type FfiMapEmptyReason = InstanceType<
+  (typeof FfiMapEmptyReason)[
+    | "NoActivities"
+    | "Filtered"
+    | "TracksPending"
+    | "NoGps"]
+>;
+
+// FfiConverter for enum FfiMapEmptyReason
+const FfiConverterTypeFfiMapEmptyReason = (() => {
+  type TypeName = FfiMapEmptyReason;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return new FfiMapEmptyReason.NoActivities();
+        case 2:
+          return new FfiMapEmptyReason.Filtered({
+            mapped: FfiConverterUInt32.readFromCursor(c),
+          });
+        case 3:
+          return new FfiMapEmptyReason.TracksPending({
+            activities: FfiConverterUInt32.readFromCursor(c),
+            pending: FfiConverterUInt32.readFromCursor(c),
+          });
+        case 4:
+          return new FfiMapEmptyReason.NoGps({
+            activities: FfiConverterUInt32.readFromCursor(c),
+          });
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value.tag) {
+        case FfiMapEmptyReason_Tags.NoActivities: {
+          c.writeI32(1);
+          return;
+        }
+        case FfiMapEmptyReason_Tags.Filtered: {
+          c.writeI32(2);
+          const inner = value.inner;
+          FfiConverterUInt32.writeIntoCursor(inner.mapped, c);
+          return;
+        }
+        case FfiMapEmptyReason_Tags.TracksPending: {
+          c.writeI32(3);
+          const inner = value.inner;
+          FfiConverterUInt32.writeIntoCursor(inner.activities, c);
+          FfiConverterUInt32.writeIntoCursor(inner.pending, c);
+          return;
+        }
+        case FfiMapEmptyReason_Tags.NoGps: {
+          c.writeI32(4);
+          const inner = value.inner;
+          FfiConverterUInt32.writeIntoCursor(inner.activities, c);
+          return;
+        }
+        default:
+          // Throwing from here means that FfiMapEmptyReason_Tags hasn't matched an ordinal.
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    allocationSize(value: TypeName): number {
+      switch (value.tag) {
+        case FfiMapEmptyReason_Tags.NoActivities: {
+          return 4;
+        }
+        case FfiMapEmptyReason_Tags.Filtered: {
+          const inner = value.inner;
+          let size = 4;
+          size += FfiConverterUInt32.allocationSize(inner.mapped);
+          return size;
+        }
+        case FfiMapEmptyReason_Tags.TracksPending: {
+          const inner = value.inner;
+          let size = 4;
+          size += FfiConverterUInt32.allocationSize(inner.activities);
+          size += FfiConverterUInt32.allocationSize(inner.pending);
+          return size;
+        }
+        case FfiMapEmptyReason_Tags.NoGps: {
+          const inner = value.inner;
+          let size = 4;
+          size += FfiConverterUInt32.allocationSize(inner.activities);
+          return size;
+        }
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+  }
+  return new FFIConverter();
+})();
+
 /**
  * Everything the map tab paints with in one call.
  */
@@ -11442,6 +11714,11 @@ export type FfiMapScreenData = {
    * The section overlay, present only while the layer is requested
    */
   sections?: FfiMapSectionLayer;
+  /**
+   * Why the map draws no activity, from the date window's own counts.
+   * `None` while `activities` holds one.
+   */
+  emptyReason?: FfiMapEmptyReason;
 };
 
 /**
@@ -11476,6 +11753,8 @@ const FfiConverterTypeFfiMapScreenData = (() => {
         routeLines: FfiConverterOptionalTypeFfiRouteLineLayer.readFromCursor(c),
         sectionCount: FfiConverterUInt32.readFromCursor(c),
         sections: FfiConverterOptionalTypeFfiMapSectionLayer.readFromCursor(c),
+        emptyReason:
+          FfiConverterOptionalTypeFfiMapEmptyReason.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -11499,6 +11778,10 @@ const FfiConverterTypeFfiMapScreenData = (() => {
         value.sections,
         c,
       );
+      FfiConverterOptionalTypeFfiMapEmptyReason.writeIntoCursor(
+        value.emptyReason,
+        c,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
@@ -11517,6 +11800,9 @@ const FfiConverterTypeFfiMapScreenData = (() => {
         FfiConverterUInt32.allocationSize(value.sectionCount) +
         FfiConverterOptionalTypeFfiMapSectionLayer.allocationSize(
           value.sections,
+        ) +
+        FfiConverterOptionalTypeFfiMapEmptyReason.allocationSize(
+          value.emptyReason,
         )
       );
     }
@@ -21261,7 +21547,7 @@ export const UploadTransition = (() => {
   };
   /**
    * A retriable failure: the attempt is counted, and after the last one the
-   * ride parks as `failed`.
+   * ride parks as `failed`. The FIT is kept either way.
    */
   class Failed_ extends UniffiEnum implements Failed__interface {
     /**
@@ -21351,7 +21637,9 @@ export const UploadTransition = (() => {
     inner: Readonly<{ install: number; error: string }>;
   };
   /**
-   * A credential was refused. The ride waits with its attempts intact.
+   * A credential was refused. The ride waits with its attempts intact,
+   * because a 401 says nothing about the ride, and keeps the error so the
+   * library can say why it is waiting.
    */
   class HeldForAuth_ extends UniffiEnum implements HeldForAuth__interface {
     /**
@@ -22306,7 +22594,6 @@ export interface ActivityManagerLike {
    * Store an activity's interval payload directly, for demo seeding.
    */
   setIntervalBody(activityId: string, raw: string) /*throws*/ : void;
-  setMetrics(metrics: Array<FfiActivityMetrics>) /*throws*/ : void;
   setTimeStreams(
     activityIds: Array<string>,
     allTimes: Array<number>,
@@ -22987,25 +23274,6 @@ export class ActivityManager
           uniffiTypeActivityManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(activityId, nativeModule().rustbuffer_alloc),
           FfiConverterString.lower(raw, nativeModule().rustbuffer_alloc),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-  }
-
-  setMetrics(metrics: Array<FfiActivityMetrics>): void /*throws*/ {
-    uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_set_metrics(
-          uniffiTypeActivityManagerObjectFactory.clonePointer(this),
-          FfiConverterSequenceTypeFfiActivityMetrics.lower(
-            metrics,
-            nativeModule().rustbuffer_alloc,
-          ),
           callStatus,
         );
       },
@@ -33413,6 +33681,14 @@ const FfiConverterOptionalFloat64 = new FfiConverterOptional(
 // FfiConverter for Array<string>
 const FfiConverterSequenceString = new FfiConverterArray(FfiConverterString);
 
+// FfiConverter for string | undefined
+const FfiConverterOptionalString = new FfiConverterOptional(FfiConverterString);
+
+// FfiConverter for Array<string | undefined>
+const FfiConverterSequenceOptionalString = new FfiConverterArray(
+  FfiConverterOptionalString,
+);
+
 // FfiConverter for Array<FfiFeedGroup>
 const FfiConverterSequenceTypeFfiFeedGroup = new FfiConverterArray(
   FfiConverterTypeFfiFeedGroup,
@@ -33450,9 +33726,6 @@ const FfiConverterOptionalTypeFfiActivityFitnessImpact =
 const FfiConverterOptionalTypeFfiBounds = new FfiConverterOptional(
   FfiConverterTypeFfiBounds,
 );
-
-// FfiConverter for string | undefined
-const FfiConverterOptionalString = new FfiConverterOptional(FfiConverterString);
 
 // FfiConverter for Array<FfiRouteGroup>
 const FfiConverterSequenceTypeFfiRouteGroup = new FfiConverterArray(
@@ -33793,6 +34066,11 @@ const FfiConverterOptionalSequenceTypeFfiMapSection = new FfiConverterOptional(
 // FfiConverter for FfiMapSectionLayer | undefined
 const FfiConverterOptionalTypeFfiMapSectionLayer = new FfiConverterOptional(
   FfiConverterTypeFfiMapSectionLayer,
+);
+
+// FfiConverter for FfiMapEmptyReason | undefined
+const FfiConverterOptionalTypeFfiMapEmptyReason = new FfiConverterOptional(
+  FfiConverterTypeFfiMapEmptyReason,
 );
 
 // FfiConverter for Array<FfiDepartedRide>
@@ -34631,14 +34909,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_activitymanager_set_interval_body",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_metrics() !==
-    35728
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_activitymanager_set_metrics",
     );
   }
   if (
@@ -36812,6 +37082,7 @@ export default Object.freeze({
     FfiConverterTypeFfiLapDeltaMissingReason,
     FfiConverterTypeFfiLoadMetric,
     FfiConverterTypeFfiMapCategoryCount,
+    FfiConverterTypeFfiMapEmptyReason,
     FfiConverterTypeFfiMapScreenData,
     FfiConverterTypeFfiMapSection,
     FfiConverterTypeFfiMapSectionLayer,

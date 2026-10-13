@@ -3,7 +3,7 @@ import { StyleSheet } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
 import { SafeAreaInsetsContext } from 'react-native-safe-area-context';
 import MapScreen from '@/app/(tabs)/map';
-import { MapDistanceBand } from 'veloqrs';
+import { type FfiMapEmptyReason, FfiMapEmptyReason_Tags, MapDistanceBand } from 'veloqrs';
 
 const mockUseMap = jest.fn();
 const mockRefetchMapRead = jest.fn();
@@ -37,14 +37,18 @@ jest.mock('@/features/maps', () => ({
   DEFAULT_MAP_PERIOD: 'all',
   filterSheetExpandedAfterDrag: jest.requireActual('@/features/maps/lib/filterSheet')
     .filterSheetExpandedAfterDrag,
-  getPeriodStart: () => new Date('2026-01-01'),
+  getPeriodStart: (period: string) => new Date(period === 'all' ? '2000-01-01' : '2026-01-01'),
   groupTypesByCategory: (types: string[]) =>
     new Map<string, string[]>([
       ['Ride', types.filter((type) => type === 'Ride')],
       ['Run', types.filter((type) => type === 'Run')],
     ]),
+  MapEmptyState: jest.requireActual('@/features/maps/components/MapEmptyState').MapEmptyState,
   MapNameSearch: () => null,
-  PERIOD_OPTIONS: [{ id: 'all', labelKey: 'all' }],
+  PERIOD_OPTIONS: [
+    { id: 'all', labelKey: 'all' },
+    { id: '1m', labelKey: '1m' },
+  ],
   RegionalMapView: (props: unknown) => {
     const { View } = require('react-native');
     mockMapView(props);
@@ -92,12 +96,12 @@ describe('map library summary', () => {
     });
   });
 
-  it('opens on the period chips alone and shows the other filters once the handle is raised', async () => {
+  it('opens on the period chips and the count line and shows the other filters once the handle is raised', async () => {
     const view = await render(<MapScreen />);
     expect(view.getByText('all')).toBeTruthy();
     expect(view.queryByText('5–10km')).toBeNull();
     expect(view.queryByText('Run', { exact: false })).toBeNull();
-    expect(view.queryByText('292:0')).toBeNull();
+    expect(view.getByText('292:0')).toBeTruthy();
 
     await fireEvent.press(view.getByTestId('map-filter-handle'));
     expect(view.getByText('5–10km')).toBeTruthy();
@@ -219,5 +223,93 @@ describe('map with its screen read failing', () => {
     expect(mockMapView).toHaveBeenLastCalledWith(
       expect.objectContaining({ activities: [{ id: 'ride-1', type: 'Ride' }] })
     );
+  });
+});
+
+describe('map with no activity to draw', () => {
+  const emptyBecause = (tag: FfiMapEmptyReason_Tags, inner?: Record<string, number>) =>
+    ({ tag, inner }) as unknown as FfiMapEmptyReason;
+  const read = (emptyReason: FfiMapEmptyReason | undefined) => ({
+    activities: [],
+    availableTypes: ['Ride', 'Run'],
+    categoryCounts: [
+      { category: 'Ride', count: 0 },
+      { category: 'Run', count: 0 },
+    ],
+    totalCount: 12,
+    emptyReason,
+    isError: false,
+    error: undefined,
+    refetch: mockRefetchMapRead,
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('names activities without GPS over the map with the count line under it, the sheet lowered', async () => {
+    mockUseMap.mockReturnValue(
+      read(emptyBecause(FfiMapEmptyReason_Tags.NoGps, { activities: 12 }))
+    );
+    const view = await render(<MapScreen />);
+    expect(view.getByTestId('regional-map')).toBeTruthy();
+    expect(view.getByTestId('map-empty-state')).toBeTruthy();
+    expect(view.getByText('mapScreen.emptyNoGps')).toBeTruthy();
+    expect(view.getByText('12:0')).toBeTruthy();
+    expect(view.queryByText('5–10km')).toBeNull();
+  });
+
+  it('names tracks still to download with how many', async () => {
+    mockUseMap.mockReturnValue(
+      read(emptyBecause(FfiMapEmptyReason_Tags.TracksPending, { activities: 12, pending: 7 }))
+    );
+    const view = await render(<MapScreen />);
+    expect(view.getByText('mapScreen.emptyTracksPending')).toBeTruthy();
+    expect(mockTranslate).toHaveBeenCalledWith('mapScreen.emptyTracksPendingHint', { count: 7 });
+  });
+
+  it('offers the whole library for an empty period, and the sync range once on it', async () => {
+    mockUseMap.mockReturnValue(read(emptyBecause(FfiMapEmptyReason_Tags.NoActivities)));
+    const view = await render(<MapScreen />);
+    await fireEvent.press(view.getByText('1m'));
+    expect(mockUseMap).toHaveBeenLastCalledWith(
+      expect.objectContaining({ startDate: new Date('2026-01-01') })
+    );
+
+    await fireEvent.press(view.getByText('mapScreen.emptyShowAllTime'));
+    expect(mockUseMap).toHaveBeenLastCalledWith(
+      expect.objectContaining({ startDate: new Date('2000-01-01') })
+    );
+    expect(view.queryByText('mapScreen.emptyShowAllTime')).toBeNull();
+    expect(view.getByText('mapScreen.emptyNoActivitiesAllTimeHint')).toBeTruthy();
+  });
+
+  it('clears the filters that hide every track', async () => {
+    mockUseMap.mockReturnValue(read(emptyBecause(FfiMapEmptyReason_Tags.Filtered, { mapped: 4 })));
+    const view = await render(<MapScreen />);
+    await fireEvent.press(view.getByTestId('map-filter-handle'));
+    await fireEvent.press(view.getByText('5–10km'));
+    await fireEvent.press(view.getByText('Run', { exact: false }));
+    expect(mockUseMap).toHaveBeenLastCalledWith(
+      expect.objectContaining({ distanceBand: MapDistanceBand.Short })
+    );
+
+    await fireEvent.press(view.getByText('mapScreen.emptyClearFilters'));
+    expect(mockUseMap).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        distanceBand: MapDistanceBand.All,
+        selectedTypes: new Set(),
+        nameNeedle: '',
+      })
+    );
+  });
+
+  it('draws no explanation while the map draws an activity', async () => {
+    mockUseMap.mockReturnValue({
+      ...read(undefined),
+      activities: [{ id: 'ride-1', type: 'Ride' }],
+    });
+    const view = await render(<MapScreen />);
+    expect(view.queryByTestId('map-empty-state')).toBeNull();
   });
 });

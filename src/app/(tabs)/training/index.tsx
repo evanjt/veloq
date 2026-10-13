@@ -251,7 +251,7 @@ function HealthScreenContent() {
               Always mount once belowFoldReady - the component renders its own
               empty/loading states and the testID must be present for automated
               tests to find the widget during data load. */}
-        {belowFoldReady && (
+        {belowFoldReady ? (
           <View
             onLayout={(event) => onAnchorLayout('week', event)}
             style={[styles.card, isDark && styles.cardDark]}
@@ -262,14 +262,14 @@ function HealthScreenContent() {
               summaryError={summaryError}
             />
           </View>
-        )}
+        ) : null}
 
         {/* Below-fold Skia card - stage 3: SeasonComparison */}
-        {chartsReady && (
+        {chartsReady ? (
           <View style={[styles.card, isDark && styles.cardDark]}>
             <SeasonComparison height={180} />
           </View>
-        )}
+        ) : null}
       </ScreenScrollView>
     </ScreenSafeAreaView>
   );

@@ -1,31 +1,39 @@
-//! The C entry point the iOS scheme handler calls, through the symbol it links.
+//! The C entry points the iOS scheme handler calls, through the symbols it links.
 //!
-//! iOS has no JNI: the handler is Objective-C and reaches the store through a
-//! plain C symbol in the static library. These tests call it by that name, the
-//! way the handler does, so a rename on either side fails here rather than at
-//! link time on the macmini. The bytes cross the boundary as a leaked slice
-//! and come back through the free, which is the other half of the contract.
+//! iOS has no JNI: the handler is Objective-C and reaches the store through
+//! plain C symbols in the static library. These tests call them by those
+//! names, the way the handler does, so a rename on either side fails here
+//! rather than at link time on the Mac build host. The bytes cross the boundary as a
+//! leaked slice and come back through the free, which is the other half of the
+//! contract.
 //!
 //! Run: `cargo test --test heatmap -p veloqrs -- tile_scheme_handler::`
 
-use std::ffi::CString;
+use std::ffi::{CString, c_void};
 use std::fs;
+use std::io::{Read, Write};
+use std::net::TcpListener;
 use std::os::raw::c_char;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::mpsc;
+use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+use std::time::Duration;
 
 use httpmock::prelude::*;
 use tempfile::TempDir;
 use veloqrs::PersistentEngine;
 
+type TileDone = unsafe extern "C" fn(context: *mut c_void, bytes: *mut u8, len: usize, status: u16);
+
 unsafe extern "C" {
-    fn veloq_tile_get_or_fetch(
+    fn veloq_tile_answer(
         source: *const c_char,
         z: u32,
         x: u32,
         y: u32,
-        len: *mut usize,
-        status: *mut u16,
-    ) -> *mut u8;
+        context: *mut c_void,
+        done: Option<TileDone>,
+    );
     fn veloq_tile_free(bytes: *mut u8, len: usize);
     fn veloq_glyph_get_or_fetch(
         fontstack: *const c_char,
@@ -53,27 +61,45 @@ fn write_tile(base: &std::path::Path, z: u8, x: u32, y: u32, bytes: &[u8]) {
     fs::write(dir.join(format!("{}.png", y)), bytes).expect("tile");
 }
 
+type Answer = (Option<Vec<u8>>, u16);
+
+/// What the handler's callback does: take the bytes, give them back through
+/// the free, and pass the answer on. The context is the sender `ask_async`
+/// leaked, and it is reclaimed here because the callback runs exactly once.
+unsafe extern "C" fn deliver(context: *mut c_void, bytes: *mut u8, len: usize, status: u16) {
+    let reply = unsafe { Box::from_raw(context as *mut mpsc::Sender<Answer>) };
+    let answer = if bytes.is_null() {
+        assert_eq!(len, 0, "a null answer carries no length");
+        assert_ne!(status, 200, "a null answer is never a success");
+        (None, status)
+    } else {
+        assert_eq!(status, 200);
+        let copy = unsafe { std::slice::from_raw_parts(bytes, len) }.to_vec();
+        unsafe { veloq_tile_free(bytes, len) };
+        (Some(copy), status)
+    };
+    let _ = reply.send(answer);
+}
+
+/// Ask the way the handler asks, with the answer arriving on `reply`.
+fn ask_async(source: Option<&str>, z: u32, x: u32, y: u32, reply: mpsc::Sender<Answer>) {
+    let source = source.map(|s| CString::new(s).unwrap());
+    let ptr = source.as_ref().map_or(std::ptr::null(), |s| s.as_ptr());
+    let context = Box::into_raw(Box::new(reply)) as *mut c_void;
+    unsafe { veloq_tile_answer(ptr, z, x, y, context, Some(deliver)) };
+}
+
 /// Ask the way the handler asks, and give the bytes back the way it does.
 fn ask(source: Option<&str>, z: u32, x: u32, y: u32) -> Option<Vec<u8>> {
     answer(source, z, x, y).0
 }
 
 /// The bytes and the status the handler would answer the page with.
-fn answer(source: Option<&str>, z: u32, x: u32, y: u32) -> (Option<Vec<u8>>, u16) {
-    let source = source.map(|s| CString::new(s).unwrap());
-    let ptr = source.as_ref().map_or(std::ptr::null(), |s| s.as_ptr());
-    let mut len = usize::MAX;
-    let mut status = 0u16;
-    let bytes = unsafe { veloq_tile_get_or_fetch(ptr, z, x, y, &mut len, &mut status) };
-    if bytes.is_null() {
-        assert_eq!(len, 0, "a null answer carries no length");
-        assert_ne!(status, 200, "a null answer is never a success");
-        return (None, status);
-    }
-    assert_eq!(status, 200);
-    let copy = unsafe { std::slice::from_raw_parts(bytes, len) }.to_vec();
-    unsafe { veloq_tile_free(bytes, len) };
-    (Some(copy), status)
+fn answer(source: Option<&str>, z: u32, x: u32, y: u32) -> Answer {
+    let (tx, rx) = mpsc::channel();
+    ask_async(source, z, x, y, tx);
+    rx.recv_timeout(Duration::from_secs(30))
+        .expect("every ask is answered exactly once")
 }
 
 fn heatmap_dir(dir: &TempDir) -> std::path::PathBuf {
@@ -151,22 +177,14 @@ fn freeing_a_null_answer_is_a_no_op() {
     unsafe { veloq_tile_free(std::ptr::null_mut(), 0) };
 }
 
+/// A handler that wants no answer must not have a null pointer called.
 #[test]
-fn a_null_status_pointer_still_answers_the_bytes() {
+fn a_null_callback_is_never_called() {
     let _serial_state = super::serial_state();
     let _serial = serial();
-    let dir = TempDir::new().unwrap();
-    let tiles = heatmap_dir(&dir);
-    write_tile(&tiles, 12, 7, 8, b"\x89PNG\r\n\x1a\n heat");
-    let source = CString::new("heatmap").unwrap();
-    let mut len = 0usize;
+    let source = CString::new("nowhere").unwrap();
 
-    let bytes = unsafe {
-        veloq_tile_get_or_fetch(source.as_ptr(), 12, 7, 8, &mut len, std::ptr::null_mut())
-    };
-
-    assert!(!bytes.is_null());
-    unsafe { veloq_tile_free(bytes, len) };
+    unsafe { veloq_tile_answer(source.as_ptr(), 12, 1, 1, std::ptr::null_mut(), None) };
 }
 
 // ============================================================================
@@ -312,4 +330,133 @@ fn a_glyph_stack_the_host_does_not_serve_is_a_404_through_the_symbol() {
     assert!(bytes.is_null());
     assert_eq!(len, 0);
     assert_eq!(status, 404);
+}
+
+// ============================================================================
+// A miss holds no caller thread
+// ============================================================================
+
+/// A tile host that takes every request and answers none of them until it is
+/// released, counting what reached it.
+struct HeldHost {
+    url: String,
+    seen: Arc<AtomicUsize>,
+    gate: Arc<(Mutex<bool>, Condvar)>,
+}
+
+impl HeldHost {
+    fn start(body: &'static [u8]) -> Self {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let seen = Arc::new(AtomicUsize::new(0));
+        let gate = Arc::new((Mutex::new(false), Condvar::new()));
+        let (seen_in, gate_in) = (Arc::clone(&seen), Arc::clone(&gate));
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let Ok(mut stream) = stream else { return };
+                let (seen, gate) = (Arc::clone(&seen_in), Arc::clone(&gate_in));
+                std::thread::spawn(move || {
+                    let mut request = Vec::new();
+                    let mut chunk = [0u8; 1024];
+                    while !request.windows(4).any(|w| w == b"\r\n\r\n") {
+                        match stream.read(&mut chunk) {
+                            Ok(0) | Err(_) => return,
+                            Ok(n) => request.extend_from_slice(&chunk[..n]),
+                        }
+                    }
+                    seen.fetch_add(1, Ordering::SeqCst);
+                    let (open, wake) = &*gate;
+                    let mut open = open.lock().unwrap();
+                    while !*open {
+                        open = wake.wait(open).unwrap();
+                    }
+                    drop(open);
+                    let head = format!(
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                        body.len()
+                    );
+                    let _ = stream.write_all(head.as_bytes());
+                    let _ = stream.write_all(body);
+                });
+            }
+        });
+        Self { url, seen, gate }
+    }
+
+    fn release(&self) {
+        let (open, wake) = &*self.gate;
+        *open.lock().unwrap() = true;
+        wake.notify_all();
+    }
+}
+
+impl Drop for HeldHost {
+    fn drop(&mut self) {
+        self.release();
+    }
+}
+
+/// Scenario: a fast pan over new ground on a slow network asks for several
+/// dozen tiles the store does not hold, and the host is slow to answer any of
+/// them.
+///
+/// Expected behaviour: every ask returns to its caller before the host has
+/// answered, all of the misses are on the wire at once, and each is answered
+/// once the host speaks. A miss that held its caller would leave one blocked
+/// handler thread per tile, which on iOS is a thread taken from the global
+/// queues for as long as the host takes.
+#[test]
+fn sixty_four_misses_on_a_silent_host_return_to_their_callers_at_once() {
+    const MISSES: u32 = 64;
+    let _serial_state = super::serial_state();
+    let _serial = serial();
+    let dir = TempDir::new().unwrap();
+    let host = HeldHost::start(b"held-tile");
+    veloqrs::basemap::set_path(
+        dir.path()
+            .join("basemap-tiles")
+            .to_string_lossy()
+            .into_owned(),
+    );
+    veloqrs::basemap::set_template(
+        "held".to_string(),
+        format!("{}/{{z}}/{{x}}/{{y}}.pbf", host.url),
+    );
+
+    let (answers, answered) = mpsc::channel();
+    let (returned, all_returned) = mpsc::channel();
+    std::thread::spawn(move || {
+        for x in 0..MISSES {
+            ask_async(Some("held"), 14, 9000 + x, 6000, answers.clone());
+        }
+        let _ = returned.send(());
+    });
+
+    if all_returned.recv_timeout(Duration::from_secs(10)).is_err() {
+        host.release();
+        panic!("an ask held its caller while the host was silent");
+    }
+    for _ in 0..1000 {
+        if host.seen.load(Ordering::SeqCst) == MISSES as usize {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert_eq!(
+        host.seen.load(Ordering::SeqCst),
+        MISSES as usize,
+        "every miss is on the wire at once"
+    );
+    assert!(
+        answered.try_recv().is_err(),
+        "nothing is answered before the host speaks"
+    );
+
+    host.release();
+    for _ in 0..MISSES {
+        let answer = answered
+            .recv_timeout(Duration::from_secs(30))
+            .expect("every miss is answered once the host speaks");
+        assert_eq!(answer, (Some(b"held-tile".to_vec()), 200));
+    }
 }

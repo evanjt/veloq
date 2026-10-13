@@ -1,0 +1,500 @@
+{
+  "bounds": [
+    -30,
+    -10,
+    5,
+    25
+  ],
+  "cases": [
+    {
+      "asPercent": false,
+      "fitness": null,
+      "text": "-30",
+      "tsb": -30.01,
+      "zone": "highRisk"
+    },
+    {
+      "asPercent": false,
+      "fitness": 0.0,
+      "text": "-30",
+      "tsb": -30.01,
+      "zone": "highRisk"
+    },
+    {
+      "asPercent": false,
+      "fitness": 60.0,
+      "text": "-30",
+      "tsb": -30.01,
+      "zone": "highRisk"
+    },
+    {
+      "asPercent": true,
+      "fitness": 50.0,
+      "text": "-30%",
+      "tsb": -15.005,
+      "zone": "highRisk"
+    },
+    {
+      "asPercent": true,
+      "fitness": 80.0,
+      "text": "-30%",
+      "tsb": -24.008,
+      "zone": "highRisk"
+    },
+    {
+      "asPercent": false,
+      "fitness": null,
+      "text": "-30",
+      "tsb": -30.0,
+      "zone": "optimal"
+    },
+    {
+      "asPercent": false,
+      "fitness": 0.0,
+      "text": "-30",
+      "tsb": -30.0,
+      "zone": "optimal"
+    },
+    {
+      "asPercent": false,
+      "fitness": 60.0,
+      "text": "-30",
+      "tsb": -30.0,
+      "zone": "optimal"
+    },
+    {
+      "asPercent": true,
+      "fitness": 50.0,
+      "text": "-30%",
+      "tsb": -15.0,
+      "zone": "optimal"
+    },
+    {
+      "asPercent": true,
+      "fitness": 80.0,
+      "text": "-30%",
+      "tsb": -24.0,
+      "zone": "optimal"
+    },
+    {
+      "asPercent": false,
+      "fitness": null,
+      "text": "-30",
+      "tsb": -29.99,
+      "zone": "optimal"
+    },
+    {
+      "asPercent": false,
+      "fitness": 0.0,
+      "text": "-30",
+      "tsb": -29.99,
+      "zone": "optimal"
+    },
+    {
+      "asPercent": false,
+      "fitness": 60.0,
+      "text": "-30",
+      "tsb": -29.99,
+      "zone": "optimal"
+    },
+    {
+      "asPercent": true,
+      "fitness": 50.0,
+      "text": "-30%",
+      "tsb": -14.995,
+      "zone": "optimal"
+    },
+    {
+      "asPercent": true,
+      "fitness": 80.0,
+      "text": "-30%",
+      "tsb": -23.992,
+      "zone": "optimal"
+    },
+    {
+      "asPercent": false,
+      "fitness": null,
+      "text": "-10",
+      "tsb": -10.01,
+      "zone": "optimal"
+    },
+    {
+      "asPercent": false,
+      "fitness": 0.0,
+      "text": "-10",
+      "tsb": -10.01,
+      "zone": "optimal"
+    },
+    {
+      "asPercent": false,
+      "fitness": 60.0,
+      "text": "-10",
+      "tsb": -10.01,
+      "zone": "optimal"
+    },
+    {
+      "asPercent": true,
+      "fitness": 50.0,
+      "text": "-10%",
+      "tsb": -5.005,
+      "zone": "optimal"
+    },
+    {
+      "asPercent": true,
+      "fitness": 80.0,
+      "text": "-10%",
+      "tsb": -8.008,
+      "zone": "optimal"
+    },
+    {
+      "asPercent": false,
+      "fitness": null,
+      "text": "-10",
+      "tsb": -10.0,
+      "zone": "greyZone"
+    },
+    {
+      "asPercent": false,
+      "fitness": 0.0,
+      "text": "-10",
+      "tsb": -10.0,
+      "zone": "greyZone"
+    },
+    {
+      "asPercent": false,
+      "fitness": 60.0,
+      "text": "-10",
+      "tsb": -10.0,
+      "zone": "greyZone"
+    },
+    {
+      "asPercent": true,
+      "fitness": 50.0,
+      "text": "-10%",
+      "tsb": -5.0,
+      "zone": "greyZone"
+    },
+    {
+      "asPercent": true,
+      "fitness": 80.0,
+      "text": "-10%",
+      "tsb": -8.0,
+      "zone": "greyZone"
+    },
+    {
+      "asPercent": false,
+      "fitness": null,
+      "text": "-10",
+      "tsb": -9.99,
+      "zone": "greyZone"
+    },
+    {
+      "asPercent": false,
+      "fitness": 0.0,
+      "text": "-10",
+      "tsb": -9.99,
+      "zone": "greyZone"
+    },
+    {
+      "asPercent": false,
+      "fitness": 60.0,
+      "text": "-10",
+      "tsb": -9.99,
+      "zone": "greyZone"
+    },
+    {
+      "asPercent": true,
+      "fitness": 50.0,
+      "text": "-10%",
+      "tsb": -4.995,
+      "zone": "greyZone"
+    },
+    {
+      "asPercent": true,
+      "fitness": 80.0,
+      "text": "-10%",
+      "tsb": -7.992,
+      "zone": "greyZone"
+    },
+    {
+      "asPercent": false,
+      "fitness": null,
+      "text": "+5",
+      "tsb": 4.99,
+      "zone": "greyZone"
+    },
+    {
+      "asPercent": false,
+      "fitness": 0.0,
+      "text": "+5",
+      "tsb": 4.99,
+      "zone": "greyZone"
+    },
+    {
+      "asPercent": false,
+      "fitness": 60.0,
+      "text": "+5",
+      "tsb": 4.99,
+      "zone": "greyZone"
+    },
+    {
+      "asPercent": true,
+      "fitness": 50.0,
+      "text": "+5%",
+      "tsb": 2.495,
+      "zone": "greyZone"
+    },
+    {
+      "asPercent": true,
+      "fitness": 80.0,
+      "text": "+5%",
+      "tsb": 3.992,
+      "zone": "greyZone"
+    },
+    {
+      "asPercent": false,
+      "fitness": null,
+      "text": "+5",
+      "tsb": 5.0,
+      "zone": "fresh"
+    },
+    {
+      "asPercent": false,
+      "fitness": 0.0,
+      "text": "+5",
+      "tsb": 5.0,
+      "zone": "fresh"
+    },
+    {
+      "asPercent": false,
+      "fitness": 60.0,
+      "text": "+5",
+      "tsb": 5.0,
+      "zone": "fresh"
+    },
+    {
+      "asPercent": true,
+      "fitness": 50.0,
+      "text": "+5%",
+      "tsb": 2.5,
+      "zone": "fresh"
+    },
+    {
+      "asPercent": true,
+      "fitness": 80.0,
+      "text": "+5%",
+      "tsb": 4.0,
+      "zone": "fresh"
+    },
+    {
+      "asPercent": false,
+      "fitness": null,
+      "text": "+5",
+      "tsb": 5.01,
+      "zone": "fresh"
+    },
+    {
+      "asPercent": false,
+      "fitness": 0.0,
+      "text": "+5",
+      "tsb": 5.01,
+      "zone": "fresh"
+    },
+    {
+      "asPercent": false,
+      "fitness": 60.0,
+      "text": "+5",
+      "tsb": 5.01,
+      "zone": "fresh"
+    },
+    {
+      "asPercent": true,
+      "fitness": 50.0,
+      "text": "+5%",
+      "tsb": 2.505,
+      "zone": "fresh"
+    },
+    {
+      "asPercent": true,
+      "fitness": 80.0,
+      "text": "+5%",
+      "tsb": 4.008,
+      "zone": "fresh"
+    },
+    {
+      "asPercent": false,
+      "fitness": null,
+      "text": "+25",
+      "tsb": 24.99,
+      "zone": "fresh"
+    },
+    {
+      "asPercent": false,
+      "fitness": 0.0,
+      "text": "+25",
+      "tsb": 24.99,
+      "zone": "fresh"
+    },
+    {
+      "asPercent": false,
+      "fitness": 60.0,
+      "text": "+25",
+      "tsb": 24.99,
+      "zone": "fresh"
+    },
+    {
+      "asPercent": true,
+      "fitness": 50.0,
+      "text": "+25%",
+      "tsb": 12.495,
+      "zone": "fresh"
+    },
+    {
+      "asPercent": true,
+      "fitness": 80.0,
+      "text": "+25%",
+      "tsb": 19.992,
+      "zone": "fresh"
+    },
+    {
+      "asPercent": false,
+      "fitness": null,
+      "text": "+25",
+      "tsb": 25.0,
+      "zone": "transition"
+    },
+    {
+      "asPercent": false,
+      "fitness": 0.0,
+      "text": "+25",
+      "tsb": 25.0,
+      "zone": "transition"
+    },
+    {
+      "asPercent": false,
+      "fitness": 60.0,
+      "text": "+25",
+      "tsb": 25.0,
+      "zone": "transition"
+    },
+    {
+      "asPercent": true,
+      "fitness": 50.0,
+      "text": "+25%",
+      "tsb": 12.5,
+      "zone": "transition"
+    },
+    {
+      "asPercent": true,
+      "fitness": 80.0,
+      "text": "+25%",
+      "tsb": 20.0,
+      "zone": "transition"
+    },
+    {
+      "asPercent": false,
+      "fitness": null,
+      "text": "+25",
+      "tsb": 25.01,
+      "zone": "transition"
+    },
+    {
+      "asPercent": false,
+      "fitness": 0.0,
+      "text": "+25",
+      "tsb": 25.01,
+      "zone": "transition"
+    },
+    {
+      "asPercent": false,
+      "fitness": 60.0,
+      "text": "+25",
+      "tsb": 25.01,
+      "zone": "transition"
+    },
+    {
+      "asPercent": true,
+      "fitness": 50.0,
+      "text": "+25%",
+      "tsb": 12.505,
+      "zone": "transition"
+    },
+    {
+      "asPercent": true,
+      "fitness": 80.0,
+      "text": "+25%",
+      "tsb": 20.008,
+      "zone": "transition"
+    },
+    {
+      "asPercent": true,
+      "fitness": null,
+      "text": null,
+      "tsb": -20.0,
+      "zone": null
+    },
+    {
+      "asPercent": true,
+      "fitness": 0.0,
+      "text": null,
+      "tsb": -20.0,
+      "zone": null
+    },
+    {
+      "asPercent": false,
+      "fitness": 60.0,
+      "text": "+3",
+      "tsb": 2.5,
+      "zone": "greyZone"
+    },
+    {
+      "asPercent": false,
+      "fitness": 60.0,
+      "text": "-2",
+      "tsb": -2.5,
+      "zone": "greyZone"
+    },
+    {
+      "asPercent": false,
+      "fitness": 60.0,
+      "text": "0",
+      "tsb": 0.4,
+      "zone": "greyZone"
+    },
+    {
+      "asPercent": false,
+      "fitness": 60.0,
+      "text": "0",
+      "tsb": -0.4,
+      "zone": "greyZone"
+    },
+    {
+      "asPercent": false,
+      "fitness": 60.0,
+      "text": "0",
+      "tsb": 0.0,
+      "zone": "greyZone"
+    },
+    {
+      "asPercent": true,
+      "fitness": 40.0,
+      "text": "+3%",
+      "tsb": 1.0,
+      "zone": "greyZone"
+    },
+    {
+      "asPercent": true,
+      "fitness": 40.0,
+      "text": "-2%",
+      "tsb": -1.0,
+      "zone": "greyZone"
+    },
+    {
+      "asPercent": true,
+      "fitness": 40.0,
+      "text": "0%",
+      "tsb": -0.1,
+      "zone": "greyZone"
+    }
+  ]
+}

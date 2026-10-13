@@ -32,7 +32,7 @@ export function SheetFrame({ name, children }: { name: string; children: React.R
         { backgroundColor: palette.surface, paddingBottom },
       ]}
     >
-      {handle && (
+      {handle ? (
         <View
           testID="sheet-handle"
           style={styles.handleArea}
@@ -46,7 +46,7 @@ export function SheetFrame({ name, children }: { name: string; children: React.R
             ]}
           />
         </View>
-      )}
+      ) : null}
       {children}
     </View>
   );

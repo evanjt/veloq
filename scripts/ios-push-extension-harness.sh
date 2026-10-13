@@ -113,7 +113,7 @@ func write(_ key: String, _ value: String) {
 }
 
 func container() -> URL? {
-  FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: VeloqPaths.appGroup)
+  FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: WidgetSnapshotFile.appGroup)
 }
 
 switch arguments.first ?? "" {

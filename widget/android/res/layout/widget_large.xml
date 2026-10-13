@@ -67,12 +67,67 @@
         android:textColor="@color/widget_text_primary" />
     </LinearLayout>
 
-    <ImageView
-      android:id="@+id/sum_sparkline"
+    <LinearLayout
       android:layout_width="0dp"
-      android:layout_height="52dp"
+      android:layout_height="wrap_content"
       android:layout_weight="1"
-      android:scaleType="fitXY" />
+      android:orientation="vertical">
+
+      <ImageView
+        android:id="@+id/sum_sparkline"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:scaleType="fitXY" />
+
+      <LinearLayout
+        android:id="@+id/sum_chart_caption"
+        android:importantForAccessibility="noHideDescendants"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <LinearLayout
+          android:id="@+id/sum_series"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:orientation="horizontal"
+          android:gravity="center_vertical">
+
+          <TextView
+            android:id="@+id/sum_series_fitness"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:drawableStart="@drawable/widget_legend_fitness"
+            android:drawablePadding="3dp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textSize="@dimen/widget_text_caption"
+            android:textColor="@color/widget_text_secondary" />
+
+          <TextView
+            android:id="@+id/sum_series_fatigue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:drawableStart="@drawable/widget_legend_fatigue"
+            android:drawablePadding="3dp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textSize="@dimen/widget_text_caption"
+            android:textColor="@color/widget_text_secondary" />
+        </LinearLayout>
+
+        <TextView
+          android:id="@+id/sum_chart_span"
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:maxLines="1"
+          android:ellipsize="end"
+          android:textSize="@dimen/widget_text_caption"
+          android:textColor="@color/widget_text_secondary" />
+      </LinearLayout>
+    </LinearLayout>
   </LinearLayout>
 
   <TextView
@@ -84,17 +139,48 @@
 
   <include layout="@layout/widget_summary_cells" />
 
-  <TextView
-    android:id="@+id/sum_form_title"
+  <LinearLayout
+    android:id="@+id/sum_form_header"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginTop="@dimen/widget_gap"
-    android:maxLines="1"
-    android:ellipsize="end"
-    android:textSize="@dimen/widget_text_caption"
-    android:textColor="@color/widget_text_secondary"
-    android:textAllCaps="true"
-    android:letterSpacing="0.05" />
+    android:orientation="horizontal"
+    android:gravity="center_vertical">
+
+    <TextView
+      android:id="@+id/sum_form_title"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:maxLines="1"
+      android:ellipsize="end"
+      android:textSize="@dimen/widget_text_caption"
+      android:textColor="@color/widget_text_secondary"
+      android:textAllCaps="true"
+      android:letterSpacing="0.05" />
+
+    <TextView
+      android:id="@+id/sum_form_zone"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginStart="6dp"
+      android:maxLines="1"
+      android:ellipsize="end"
+      android:textSize="@dimen/widget_text_caption"
+      android:textStyle="bold"
+      android:textColor="@color/widget_text_primary" />
+
+    <TextView
+      android:id="@+id/sum_form_span"
+      android:layout_width="0dp"
+      android:layout_height="wrap_content"
+      android:layout_weight="1"
+      android:layout_marginStart="6dp"
+      android:gravity="end"
+      android:maxLines="1"
+      android:ellipsize="end"
+      android:textSize="@dimen/widget_text_caption"
+      android:textColor="@color/widget_text_secondary" />
+  </LinearLayout>
 
   <ImageView
     android:id="@+id/sum_form_zones"

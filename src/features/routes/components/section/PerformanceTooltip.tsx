@@ -168,7 +168,7 @@ export function PerformanceTooltip({
       >
         <View style={styles.tooltipLeft}>
           <View style={styles.tooltipNameRow}>
-            {recordsSettled && selectedPoint.isBest && (
+            {recordsSettled && selectedPoint.isBest ? (
               <>
                 <MaterialCommunityIcons
                   name="trophy"
@@ -180,7 +180,7 @@ export function PerformanceTooltip({
                     1.89:1. The word is what carries it. */}
                 <Text style={styles.prTag}>{t('sections.legendPr')}</Text>
               </>
-            )}
+            ) : null}
             <Text style={styles.tooltipName} numberOfLines={1}>
               {selectedPoint.activityName}
             </Text>
@@ -200,13 +200,13 @@ export function PerformanceTooltip({
                 {formatDuration(selectedPoint.sectionTime)}
               </Text>
             )}
-            {power && (
+            {power ? (
               <Text style={styles.tooltipDate}>
                 {' \u00b7 '}
                 {power}
               </Text>
-            )}
-            {delta.deltaDisplay && (
+            ) : null}
+            {delta.deltaDisplay ? (
               <Text
                 style={[
                   styles.tooltipDelta,
@@ -218,7 +218,7 @@ export function PerformanceTooltip({
                 {' \u00b7 '}
                 {delta.deltaDisplay}
               </Text>
-            )}
+            ) : null}
             {selectedPoint.direction === 'reverse' && (
               <View style={styles.reverseBadge}>
                 <MaterialCommunityIcons
@@ -243,7 +243,7 @@ export function PerformanceTooltip({
           >
             {formatAttemptHeadline(basis, selectedPoint.sectionTime, selectedPoint.speed, isMetric)}
           </Text>
-          {setReference && (
+          {setReference ? (
             <IconButton onPress={setReference} accessibilityLabel={t('sections.setAsReference')}>
               <MaterialCommunityIcons
                 name={selectedPoint.activityId === referenceActivityId ? 'star' : 'star-outline'}
@@ -255,7 +255,7 @@ export function PerformanceTooltip({
                 }
               />
             </IconButton>
-          )}
+          ) : null}
           {include ? (
             <IconButton accessibilityLabel={t('sections.includeActivity')} onPress={include}>
               <MaterialCommunityIcons name="undo" size={16} color={colors.primary} />
@@ -264,7 +264,7 @@ export function PerformanceTooltip({
             exclude && (
               <IconButton accessibilityLabel={t('sections.excludeActivity')} onPress={exclude}>
                 <MaterialCommunityIcons
-                  name="close-circle-outline"
+                  name="eye-off-outline"
                   size={16}
                   color={styles.tooltipDate.color}
                 />

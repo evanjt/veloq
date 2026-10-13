@@ -173,6 +173,9 @@ struct WidgetDisplay: Codable {
   /// One line for each chart, since a drawn line says nothing aloud. Nil on a snapshot written
   /// before schema 16.
   let chartLabels: WidgetChartLabels?
+  /// The days each chart spans, drawn as its caption. Nil on a snapshot written before the
+  /// captions.
+  let chartSpans: WidgetChartSpans?
 }
 
 /// What each chart shows, as a screen reader says it. Nil for a chart too short to draw.
@@ -182,6 +185,14 @@ struct WidgetChartLabels: Codable {
   /// HRV, the chart beside an HRV hero.
   let hrv: String?
   /// Form over its zones, the large size's chart.
+  let form: String?
+}
+
+/// The days each chart spans, as its caption reads: "30 days". Nil for a chart too short to
+/// draw.
+struct WidgetChartSpans: Codable {
+  let fitness: String?
+  let hrv: String?
   let form: String?
 }
 

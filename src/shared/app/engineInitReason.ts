@@ -2,7 +2,7 @@ import type { TFunction } from 'i18next';
 import { InitOutcome } from 'veloqrs';
 
 import { tapTo } from '@/shared/app/navigation';
-import { openForum, openStorePage, shareCrashLog } from '@/shared/app/supportLinks';
+import { offerCrashLog, openForum, openStorePage } from '@/shared/app/supportLinks';
 
 /**
  * The line each reason the engine gave for not opening names.
@@ -75,7 +75,7 @@ export function engineRecoveryActions(
         {
           label: t('support.shareCrashLog'),
           onPress: () => {
-            void shareCrashLog(t);
+            void offerCrashLog(t);
           },
           testID: 'engine-share-crash-log-button',
         },

@@ -73,6 +73,8 @@ export interface ButtonProps {
   style?: StyleProp<ViewStyle>;
   testID?: string;
   labelTestID?: string;
+  /** The pressable, for a sheet that anchors to the control that opened it. */
+  ref?: React.Ref<View>;
 }
 
 /**
@@ -142,6 +144,7 @@ export function Button({
   style,
   testID,
   labelTestID,
+  ref,
 }: ButtonProps) {
   const { isDark } = useTheme();
   const skin = paint(variant, isDark);
@@ -157,6 +160,7 @@ export function Button({
 
   return (
     <Pressable
+      ref={ref}
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
@@ -182,7 +186,11 @@ export function Button({
       ]}
     >
       {loading ? (
-        <ActivityIndicator testID={testID && `${testID}-spinner`} color={skin.color} size="small" />
+        <ActivityIndicator
+          testID={testID ? `${testID}-spinner` : undefined}
+          color={skin.color}
+          size="small"
+        />
       ) : (
         <View style={styles.row}>
           {icon}
@@ -272,14 +280,14 @@ export function ToggleButton({
       <View style={styles.row}>
         {icon}
         <Text
-          testID={testID && `${testID}-label`}
+          testID={testID ? `${testID}-label` : undefined}
           numberOfLines={1}
           style={[styles.chipLabel, { color: labelInk }]}
         >
           {label}
           {count !== undefined && (
             <Text
-              testID={testID && `${testID}-count`}
+              testID={testID ? `${testID}-count` : undefined}
               style={[styles.chipCount, { color: labelInk }]}
             >
               {' '}

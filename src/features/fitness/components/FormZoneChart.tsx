@@ -179,14 +179,14 @@ export const FormZoneChart = React.memo(function FormZoneChart({
           >
             {formText}
           </Text>
-          {formZone && (
+          {formZone ? (
             <Text
               testID="form-chart-zone"
               style={[styles.zoneText, { color: formZoneTextColor(formZone, isDark) }]}
             >
               {formZoneLabel(formZone)}
             </Text>
-          )}
+          ) : null}
         </View>
       </View>
 

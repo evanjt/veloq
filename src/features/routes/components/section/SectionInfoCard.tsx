@@ -139,13 +139,13 @@ export function SectionInfoCard({
           {row.map((col, i) => (
             <View key={i} style={styles.column} testID={`section-summary-cell-${r}-${i}`}>
               <View style={styles.labelRow}>
-                {col.direction && col.arrowColor && (
+                {col.direction && col.arrowColor ? (
                   <DirectionArrow
                     direction={col.direction}
                     color={col.arrowColor}
                     size={DIRECTION_ARROW_SIZE}
                   />
-                )}
+                ) : null}
                 <Text style={[styles.label, { color: labelColor }]} numberOfLines={1}>
                   {col.label}
                 </Text>

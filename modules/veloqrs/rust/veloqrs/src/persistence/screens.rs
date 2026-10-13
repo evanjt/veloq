@@ -2436,6 +2436,9 @@ pub mod pooled {
                 super::activity_load_impact(metrics.training_load, &metrics.sport_type, days)
             }),
             activity_count: activity_count(conn),
+            // The catalogue row and the track are written in one batch and the
+            // track cascades from the row, so holding one is holding the other.
+            has_gps_track: activities::has_activity(conn, activity_id).unwrap_or(false),
             section_count: sections::section_count(conn),
             route_groups,
             representative_signature,
@@ -2475,6 +2478,10 @@ pub mod pooled {
                     relation: c.relation,
                 })
                 .collect(),
+            intervals_id: crate::persistence::activities::intervals_web_id(
+                activity_id,
+                activities::stored_intervals_id(conn, activity_id).as_deref(),
+            ),
         }
     }
 
@@ -3224,6 +3231,7 @@ pub mod pooled {
         let stamp = crate::persistence::read_cache::stamp(conn).map(|stamp| stamp as f64);
         let holds = |held: Option<f64>| stamp.is_some() && held == stamp;
         let window = map_activities_filtered(conn, start_date, end_date);
+        let mapped = window.len() as u32;
         let category_counts = crate::sport::DISPLAY_GROUPS
             .iter()
             .map(|(category, _)| crate::ffi_types::FfiMapCategoryCount {
@@ -3247,7 +3255,25 @@ pub mod pooled {
                     && map_distance_matches(activity.distance, distance_band, is_metric)
                     && (needle.is_empty() || activity.name.to_lowercase().contains(&needle))
             })
-            .collect();
+            .collect::<Vec<_>>();
+        // The backlog is counted only for a map that draws nothing, which is
+        // the one case it explains. A count that cannot be read names no
+        // cause rather than a wrong one.
+        let empty_reason = if activities.is_empty() {
+            match crate::persistence::activities::pooled::window_track_backlog(
+                conn, start_date, end_date,
+            ) {
+                Ok((in_window, pending)) => {
+                    map_empty_reason(in_window.max(mapped), mapped, 0, pending)
+                }
+                Err(e) => {
+                    log::warn!("[map] window backlog: {e:?}");
+                    None
+                }
+            }
+        } else {
+            None
+        };
         // Off, or held by the caller, the read takes the count column alone;
         // on, it takes the one layer row. Neither touches a route group or a
         // track.
@@ -3271,15 +3297,22 @@ pub mod pooled {
                     // read beside the layer rather than stored in it.
                     let ids: Vec<&str> = lines.iter().map(|line| line.route_id.as_str()).collect();
                     let names = crate::persistence::routes::pooled::route_names_for(conn, &ids);
-                    let sizes = crate::persistence::routes::pooled::activity_counts(conn, &ids);
+                    let sizes = crate::persistence::routes::pooled::activity_counts_and_distances(
+                        conn, &ids,
+                    );
                     let routes = lines
                         .into_iter()
-                        .map(|line| crate::ffi_types::FfiRouteLine {
-                            name: names.get(&line.route_id).cloned().unwrap_or_default(),
-                            activity_count: sizes.get(&line.route_id).copied().unwrap_or_default(),
-                            route_id: line.route_id,
-                            route_number: line.number,
-                            polyline: line.polyline,
+                        .map(|line| {
+                            let (activity_count, distance_meters) =
+                                sizes.get(&line.route_id).copied().unwrap_or_default();
+                            crate::ffi_types::FfiRouteLine {
+                                name: names.get(&line.route_id).cloned().unwrap_or_default(),
+                                activity_count,
+                                distance_meters,
+                                route_id: line.route_id,
+                                route_number: line.number,
+                                polyline: line.polyline,
+                            }
                         })
                         .collect::<Vec<_>>();
                     (
@@ -3321,6 +3354,34 @@ pub mod pooled {
                     overlay.as_ref().clone()
                 }),
             }),
+            empty_reason,
+        }
+    }
+
+    /// Why the map draws nothing, or `None` while it draws anything.
+    /// `window` counts the activities in the date window, `mapped` those of
+    /// them with a stored track, `shown` the tracks left after the sport,
+    /// distance and name filters, and `pending` the window's tracks still to
+    /// download. Filters answer first, since loosening them draws at once.
+    pub(crate) fn map_empty_reason(
+        window: u32,
+        mapped: u32,
+        shown: u32,
+        pending: u32,
+    ) -> Option<crate::FfiMapEmptyReason> {
+        if shown > 0 {
+            None
+        } else if mapped > 0 {
+            Some(crate::FfiMapEmptyReason::Filtered { mapped })
+        } else if window == 0 {
+            Some(crate::FfiMapEmptyReason::NoActivities)
+        } else if pending > 0 {
+            Some(crate::FfiMapEmptyReason::TracksPending {
+                activities: window,
+                pending,
+            })
+        } else {
+            Some(crate::FfiMapEmptyReason::NoGps { activities: window })
         }
     }
 
@@ -3444,6 +3505,10 @@ mod section_record_tests;
 #[cfg(test)]
 #[path = "tests/sport_settings_fallback.rs"]
 mod sport_settings_fallback_tests;
+
+#[cfg(test)]
+#[path = "tests/map_empty_reason.rs"]
+mod map_empty_reason_tests;
 
 #[cfg(test)]
 mod tests {
@@ -6224,6 +6289,81 @@ mod tests {
         assert_eq!(data.latest_comparison.section_pr_count, 2);
 
         crate::persistence::read_cache::close();
+    }
+
+    /// Scenario: the library holds a synced ride, a demo ride, a recording no
+    /// upload has answered, a tracked recording the server has named and a
+    /// trackless one it has named.
+    ///
+    /// Expected behaviour: the detail read and every row of the feed page
+    /// carry the intervals.icu id a web link may name, and none for the demo
+    /// ride or the unanswered recording.
+    #[test]
+    fn the_screen_reads_carry_the_id_a_web_link_may_name() {
+        let mut engine = crate::persistence::PersistentEngine::in_memory().expect("engine");
+        let points = vec![
+            crate::GpsPoint::new(46.0, 7.0),
+            crate::GpsPoint::new(46.001, 7.001),
+        ];
+        let rows = [
+            ("i901", Some("i901")),
+            ("demo-ride-1", None),
+            ("local-ride-1", None),
+            ("local-ride-2", Some("i900")),
+            ("local-ride-3", Some("i903")),
+        ];
+        for (offset, (key, _)) in rows.iter().enumerate() {
+            if *key != "local-ride-3" {
+                engine
+                    .add_activity(key.to_string(), points.clone(), "Ride".into())
+                    .expect("track");
+            }
+            engine
+                .upsert_activity_bodies(&[(
+                    key.to_string(),
+                    1_700_000_000 - offset as i64 * 86_400,
+                    format!("{{\"id\":\"{key}\"}}"),
+                )])
+                .expect("body");
+        }
+        assert!(engine.record_upload("local-ride-2", "i900").unwrap());
+        assert!(engine.record_upload("local-ride-3", "i903").unwrap());
+
+        for (key, expected) in rows {
+            assert_eq!(
+                pooled::activity_detail_data(&engine.db, key, 1)
+                    .intervals_id
+                    .as_deref(),
+                expected,
+                "detail read of {key}"
+            );
+        }
+
+        let page = crate::persistence::activities::pooled::activity_body_page(
+            &engine.db,
+            &crate::FfiActivityBodiesQuery {
+                oldest_ts: None,
+                newest_ts: None,
+                needle: String::new(),
+                sport_groups: Vec::new(),
+                offset: 0,
+                limit: None,
+            },
+        )
+        .expect("page");
+        assert_eq!(page.bodies.len(), rows.len());
+        assert_eq!(page.intervals_ids.len(), page.bodies.len());
+        for (index, (key, expected)) in rows.iter().enumerate() {
+            assert!(
+                page.bodies[index].contains(key),
+                "page row {index} is {key}"
+            );
+            assert_eq!(
+                page.intervals_ids[index].as_deref(),
+                *expected,
+                "page row of {key}"
+            );
+        }
     }
 
     #[test]

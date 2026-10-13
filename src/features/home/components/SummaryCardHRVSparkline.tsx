@@ -185,24 +185,24 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
     <GestureDetector gesture={gesture}>
       <View style={[styles.container, { width, height: CHART_HEIGHT }]}>
         <View style={styles.chartRow}>
-          {showLabels && (
+          {showLabels ? (
             <View style={[styles.labelColumn, { width: labelWidth }]}>
               <RNText style={[styles.inlineLabel, { color: hrvTextColor }]}>
                 {t('metrics.hrv')}
               </RNText>
               <View style={{ flex: 1 }} />
-              {hasRhr && (
+              {hasRhr ? (
                 <RNText style={[styles.inlineLabel, { color: rhrTextColor }]}>
                   {t('metrics.rhr')}
                 </RNText>
-              )}
+              ) : null}
             </View>
-          )}
+          ) : null}
 
           <View style={{ width: chartWidth, height: CHART_HEIGHT }}>
             <Canvas style={{ width: chartWidth, height: CHART_HEIGHT }}>
               {/* HRV gradient fill */}
-              {skiaPaths.area && (
+              {skiaPaths.area ? (
                 <Path path={skiaPaths.area} style="fill" opacity={0.15}>
                   <LinearGradient
                     start={vec(0, 0)}
@@ -213,10 +213,10 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
                     ]}
                   />
                 </Path>
-              )}
+              ) : null}
 
               {/* RHR line (drawn first so HRV renders on top) */}
-              {hasRhr && skiaPaths.rhr && (
+              {hasRhr && skiaPaths.rhr ? (
                 <Path
                   path={skiaPaths.rhr}
                   color={chartColors.casing}
@@ -225,8 +225,8 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
                   strokeJoin="round"
                   strokeCap="round"
                 />
-              )}
-              {hasRhr && skiaPaths.rhr && (
+              ) : null}
+              {hasRhr && skiaPaths.rhr ? (
                 <Path
                   path={skiaPaths.rhr}
                   color={rhrLineColor}
@@ -235,10 +235,10 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
                   strokeJoin="round"
                   strokeCap="round"
                 />
-              )}
+              ) : null}
 
               {/* HRV line - primary, on top */}
-              {skiaPaths.hrv && (
+              {skiaPaths.hrv ? (
                 <Path
                   path={skiaPaths.hrv}
                   color={chartColors.casing}
@@ -247,8 +247,8 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
                   strokeJoin="round"
                   strokeCap="round"
                 />
-              )}
-              {skiaPaths.hrv && (
+              ) : null}
+              {skiaPaths.hrv ? (
                 <Path
                   path={skiaPaths.hrv}
                   color={hrvLineColor}
@@ -257,7 +257,7 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
                   strokeJoin="round"
                   strokeCap="round"
                 />
-              )}
+              ) : null}
             </Canvas>
 
             {/* Time range label */}

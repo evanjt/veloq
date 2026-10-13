@@ -41,15 +41,15 @@ export function ScatterLegend({
           {t('sections.legendPr')}
         </Text>
       </View>
-      {showReverse && (
+      {showReverse ? (
         <View style={styles.legendItem}>
           <View style={[styles.legendSwatch, styles.reverseSwatch]} />
           <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
             {t('sections.legendReverse')}
           </Text>
         </View>
-      )}
-      {showThisActivity && (
+      ) : null}
+      {showThisActivity ? (
         <View style={styles.legendItem}>
           <View
             style={[
@@ -62,8 +62,8 @@ export function ScatterLegend({
             {t('sections.legendThisActivity')}
           </Text>
         </View>
-      )}
-      {showOutsideBand && (
+      ) : null}
+      {showOutsideBand ? (
         <View style={styles.legendItem}>
           <View
             style={[
@@ -76,8 +76,8 @@ export function ScatterLegend({
             {t('sections.legendOutsideBand')}
           </Text>
         </View>
-      )}
-      {showTrend && (
+      ) : null}
+      {showTrend ? (
         <>
           <Button
             variant="ghost"
@@ -93,13 +93,13 @@ export function ScatterLegend({
               {t('sections.legendTrendBand')}
             </Text>
           </View>
-          {showMethod && (
+          {showMethod ? (
             <Text style={[styles.methodText, isDark && styles.legendTextDark]}>
               {t('sections.legendTrendMethod')}
             </Text>
-          )}
+          ) : null}
         </>
-      )}
+      ) : null}
     </View>
   );
 }

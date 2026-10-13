@@ -39,7 +39,7 @@ export function TourReturnPill() {
       exiting={FadeOut.duration(200)}
     >
       <View style={[styles.pillWrapper, { backgroundColor: bgColor }, shadows.elevated]}>
-        {tourState.tip && (
+        {tourState.tip ? (
           <Text
             style={[
               styles.tipText,
@@ -48,7 +48,7 @@ export function TourReturnPill() {
           >
             {t(tourState.tip as never)}
           </Text>
-        )}
+        ) : null}
         <View style={styles.buttonRow}>
           <Button
             label={t('whatsNew.backToTour')}

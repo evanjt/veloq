@@ -465,7 +465,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                     })}
 
                     {/* Y-axis reference lines: min, max, avg */}
-                    {yAxisSeries && (
+                    {yAxisSeries ? (
                       <>
                         <SkiaLine
                           p1={vec(bounds.left, bounds.top)}
@@ -493,7 +493,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                           </SkiaLine>
                         )}
                       </>
-                    )}
+                    ) : null}
                   </>
                 );
               }}
@@ -509,7 +509,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
             <ChartXAxisLabel xAxisMode={xAxisMode} maxX={maxX} isDark={isDark} />
 
             {/* Y-axis labels sitting on reference lines */}
-            {yAxisSeries && (
+            {yAxisSeries ? (
               <ChartYAxisLabel
                 yAxisSeries={yAxisSeries}
                 yAxisAvgInfo={yAxisAvgInfo}
@@ -520,7 +520,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                 isDark={isDark}
                 formatYAxisValue={formatYAxisValue}
               />
-            )}
+            ) : null}
 
             {/* X-axis indicator - overlaid on bottom right of chart */}
             <ChartDistanceIndicator

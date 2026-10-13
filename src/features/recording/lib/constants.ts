@@ -32,3 +32,8 @@ export const LIVE_ACTIVITY_REFRESH_MS = 5_000;
 // is wide because a live ride that reads as stopped sends the rider to an app
 // that was recording all along.
 export const LIVE_ACTIVITY_STALE_MS = LIVE_ACTIVITY_REFRESH_MS * 24;
+
+// How long a stopped ride's card stays on the lock screen with its final
+// figures. Long enough for a rider who pockets the phone at the stop to see
+// the ride ended and was kept, short of the hours the system would allow.
+export const LIVE_ACTIVITY_ENDED_DISMISS_MS = 15 * 60_000;

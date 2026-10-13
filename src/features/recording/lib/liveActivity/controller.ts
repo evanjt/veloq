@@ -30,11 +30,14 @@ interface LiveActivityAttributes {
 }
 
 let cardRunning = false;
+/** A stopped ride's card, ended on its final figures and still on screen. */
+let cardEndedOnScreen = false;
 
-function composeState(now: number): LiveActivityContentState | null {
+function composeState(now: number, endedLabel?: string): LiveActivityContentState | null {
   const state = useRecordingStore.getState();
   const { status, startTime, activityType, streams } = state;
-  if (!startTime || (status !== 'recording' && status !== 'paused')) return null;
+  const live = status === 'recording' || status === 'paused';
+  if (!startTime || (endedLabel === undefined ? !live : status !== 'stopped')) return null;
 
   const isMetric = getIsMetric();
   const distance = streams.distance[streams.distance.length - 1] ?? 0;
@@ -49,6 +52,7 @@ function composeState(now: number): LiveActivityContentState | null {
     distanceLabel: formatDistance(distance, isMetric),
     speedLabel: formatRecordingSpeed(activityType, avgSpeed, isMetric),
     gps: streams.latlng,
+    endedLabel,
   });
 }
 
@@ -89,10 +93,30 @@ export function refreshLiveActivity(): void {
   updateNativeLiveActivity(JSON.stringify(state));
 }
 
+/**
+ * End the card with the session. A ride that stopped leaves it on its final
+ * figures for a while, so a rider who pockets the phone at the stop sees the
+ * ride ended and was kept. A ride dropped without a stop has nothing to show.
+ */
 export function finishLiveActivity(): void {
   if (!cardRunning) return;
   cardRunning = false;
-  endNativeLiveActivity();
+  const final = composeState(
+    Date.now(),
+    translated('recording.endedCard', 'Stopped. Open Veloq to save.')
+  );
+  cardEndedOnScreen = final !== null;
+  endNativeLiveActivity(final ? JSON.stringify(final) : null);
+}
+
+/**
+ * Clear a stopped ride's card once the ride is saved or discarded, since its
+ * line asks for exactly that. The rider is in the app by then.
+ */
+export function dismissEndedLiveActivity(): void {
+  if (!cardEndedOnScreen) return;
+  cardEndedOnScreen = false;
+  endAllNativeLiveActivities();
 }
 
 /**
@@ -118,6 +142,7 @@ export function installLiveActivityControls(): () => void {
  */
 export function reapOrphanedLiveActivities(): void {
   cardRunning = false;
+  cardEndedOnScreen = false;
   if (!isLiveActivitySupported()) return;
   endAllNativeLiveActivities();
 }

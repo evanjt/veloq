@@ -34,6 +34,7 @@ import type { WellnessData } from '@/types';
 import type { TimeRange } from '../hooks';
 import { wellnessRowDomain, wellnessRowReading } from '../lib';
 import { EmptyState } from '@/shared/ui/EmptyState';
+import { formatDecimal } from '@/shared/format';
 
 interface WellnessTrendsChartProps {
   data?: WellnessData[] | undefined;
@@ -241,7 +242,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
         color: chartColors.hrv,
         label: t('metrics.hrv'),
         unit: t('units.ms'),
-        formatValue: (v) => Math.round(v).toString(),
+        formatValue: (v) => formatDecimal(v, 0),
       });
     if (rhrData.length > 0)
       metrics.push({
@@ -250,7 +251,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
         color: chartColors.rhr,
         label: t('wellness.restingHR'),
         unit: t('units.bpm'),
-        formatValue: (v) => Math.round(v).toString(),
+        formatValue: (v) => formatDecimal(v, 0),
       });
     if (sleepData.length > 0)
       metrics.push({
@@ -268,7 +269,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
         color: chartColors.sleepScore,
         label: t('wellness.sleepScore'),
         unit: '',
-        formatValue: (v) => Math.round(v).toString(),
+        formatValue: (v) => formatDecimal(v, 0),
       });
     if (weightData.length > 0)
       metrics.push({
@@ -277,7 +278,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
         color: chartColors.weight,
         label: t('wellness.weight'),
         unit: weightUnitLabel(isMetric),
-        formatValue: (v) => v.toFixed(1),
+        formatValue: (v) => formatDecimal(v, 1),
       });
     return metrics;
   }, [hrvData, rhrData, sleepData, sleepScoreData, weightData, chartColors, t, isMetric]);
@@ -535,18 +536,18 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
                     </Text>
                   )}
                 {!metricDisplayValues[i]?.isSelected &&
-                  metricDisplayValues[i]?.displayValue &&
-                  metricDisplayValues[i].displayValue.date !== newestReadingDate && (
-                    <Text style={styles.metricAvg}>
-                      {formatShortDate(metricDisplayValues[i].displayValue.date)}
-                    </Text>
-                  )}
+                metricDisplayValues[i]?.displayValue &&
+                metricDisplayValues[i].displayValue.date !== newestReadingDate ? (
+                  <Text style={styles.metricAvg}>
+                    {formatShortDate(metricDisplayValues[i].displayValue.date)}
+                  </Text>
+                ) : null}
               </View>
             </View>
           ))}
 
           {/* Single Skia canvas overlaid on the sparkline column area */}
-          {sparklineWidth > 0 && chartPicture && (
+          {sparklineWidth > 0 && chartPicture ? (
             <View
               style={{
                 position: 'absolute',
@@ -559,10 +560,10 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
             >
               <Canvas style={{ width: sparklineWidth, height: canvasHeight }}>
                 <Picture picture={chartPicture} />
-                {selectionPicture && <Picture picture={selectionPicture} />}
+                {selectionPicture ? <Picture picture={selectionPicture} /> : null}
               </Canvas>
             </View>
-          )}
+          ) : null}
         </View>
       </GestureDetector>
 

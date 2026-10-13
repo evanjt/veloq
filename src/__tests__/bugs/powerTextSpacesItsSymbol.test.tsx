@@ -116,7 +116,7 @@ describe('the eFTP milestone', () => {
   it('spaces the symbol on the card for a rise and a fall', () => {
     expect(power(12).title).toBe('Cycling eFTP: 252 W (+12 W)');
     expect(power(12).subtitle).toBe('From 240 W to 252 W');
-    expect(power(-12).title).toBe('Cycling eFTP: 252 W (−12 W)');
+    expect(power(-12).title).toBe('Cycling eFTP: 252 W (-12 W)');
   });
 
   it('spaces the symbol in the sheet summary', () => {

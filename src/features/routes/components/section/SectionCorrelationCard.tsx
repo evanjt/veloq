@@ -13,6 +13,7 @@ import type { FfiSectionCorrelation } from 'veloqrs';
 import { Card, Switch } from '@/shared/ui';
 import { correlationReading, type CorrelationStrength } from '../../lib/correlationReading';
 import { colors, darkColors, spacing, typography } from '@/theme';
+import { formatDecimal } from '@/shared/format';
 
 /** Label keys per variable token: the wellness and fitness labels where one exists. */
 const VARIABLE_LABEL_KEYS: Record<string, string> = {
@@ -114,7 +115,7 @@ export function SectionCorrelationCard({
                   : ''}
             </Text>
             <Text style={[styles.countCell, mutedStyle]}>
-              {t('sections.correlationAttempts', { n })}
+              {t('sections.correlationAttempts', { count: n })}
             </Text>
           </View>
           {showRaw ? (
@@ -123,10 +124,10 @@ export function SectionCorrelationCard({
               style={mutedStyle}
             >
               {t('sections.correlationFigures', {
-                r: r.toFixed(2),
+                r: formatDecimal(r, 2),
                 n,
-                low: low.toFixed(2),
-                high: high.toFixed(2),
+                low: formatDecimal(low, 2),
+                high: formatDecimal(high, 2),
               })}
             </Text>
           ) : null}

@@ -264,12 +264,16 @@ fn fill(v: &[Option<f64>]) -> Vec<f64> {
 
 /// A coordinate the engine will store. The validity mask, the parsed `latlng`
 /// and the stored track share this gate, so every series stays in the index
-/// space the stored points actually occupy.
+/// space the stored points actually occupy. The range rule is the detector's,
+/// so a stored point is never one the detector would refuse.
 pub(crate) fn is_storable(lat: f64, lng: f64) -> bool {
-    lat.is_finite()
-        && lng.is_finite()
-        && (-90.0..=90.0).contains(&lat)
-        && (-180.0..=180.0).contains(&lng)
+    crate::GpsPoint::new(lat, lng).is_valid()
+}
+
+/// A sample from a live recording. The recorder pads a sample with no position
+/// as `[0, 0]`, so that placeholder is dropped as well as any unstorable point.
+pub(crate) fn is_recorded_fix(lat: f64, lng: f64) -> bool {
+    is_storable(lat, lng) && (lat != 0.0 || lng != 0.0)
 }
 
 /// Sample validity taken from `latlng`: true where both lat and lng are present.
@@ -780,6 +784,23 @@ pub fn activity_counts_by_year(activities: &[CensusRecord]) -> BTreeMap<String, 
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn a_stored_point_and_a_recorded_fix_share_the_range_rule_and_only_a_fix_drops_the_origin() {
+        let cases = [
+            ((0.0, 0.0), true, false),
+            ((f64::NAN, 0.0), false, false),
+            ((0.0, f64::INFINITY), false, false),
+            ((91.0, 0.0), false, false),
+            ((0.0, -180.5), false, false),
+            ((-37.8, 144.9), true, true),
+            ((90.0, 180.0), true, true),
+        ];
+        for ((lat, lng), storable, fix) in cases {
+            assert_eq!(is_storable(lat, lng), storable, "stored ({lat}, {lng})");
+            assert_eq!(is_recorded_fix(lat, lng), fix, "recorded ({lat}, {lng})");
+        }
+    }
 
     #[test]
     fn a_series_the_stream_pass_does_not_ask_for_is_not_one_it_would_store() {

@@ -239,14 +239,14 @@ function RouteGroupingPreviewScreenContent() {
           />
         )}
 
-        {routesFailed && (
+        {routesFailed ? (
           <ErrorState
             variant="inline"
             error={routesRead.error}
             onRetry={rereadRoutes}
             testID="grouping-routes-failed"
           />
-        )}
+        ) : null}
 
         {centres.length > 0 && (
           <View style={styles.pickerWrap}>
@@ -280,7 +280,7 @@ function RouteGroupingPreviewScreenContent() {
 
         <GroupingParamPanel params={params} onChange={onChange} />
 
-        {changed && !routesFailed && (
+        {changed && !routesFailed ? (
           <View style={styles.actionRow}>
             <Button
               label={t('settings.previewDiscard')}
@@ -296,7 +296,7 @@ function RouteGroupingPreviewScreenContent() {
               style={styles.action}
             />
           </View>
-        )}
+        ) : null}
       </View>
     </ScreenSafeAreaView>
   );

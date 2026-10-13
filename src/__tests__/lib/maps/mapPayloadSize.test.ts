@@ -190,7 +190,6 @@ describe('map page size', () => {
       devicePixelRatio: 2,
       reduceMotion: false,
       regionChangeThrottleMs: 100,
-      longPressMs: 500,
     });
     expect(html.length).toBeLessThanOrEqual(PAGE_CEILING);
   });

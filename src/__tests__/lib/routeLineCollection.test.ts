@@ -2,11 +2,12 @@
  * Scenario: the map read hands the route-line layer over as encoded polylines.
  *
  * Expected behaviour: each line becomes one LineString in `[lng, lat]` order, a route
- * with fewer than two points is left out because the iOS renderer crashes on one, the
- * colours follow the route palette in order, and the same layer generation hands back
- * the same collection object so MapLibre is not given new data for an unchanged layer.
+ * with fewer than two points is left out because the iOS renderer crashes on one, a
+ * route's colour follows from its id so a regroup that reorders the list keeps it, and the
+ * same layer generation hands back the same collection object so MapLibre is not given new
+ * data for an unchanged layer.
  */
-import { routePalette } from '@/theme';
+import { routePalette, routePaletteIndex } from '@/theme/colors';
 import { createRouteLineCache } from '@/features/maps/lib/routeLineCollection';
 
 import { encodeTrack } from '../__shared__/trackBytes';
@@ -16,6 +17,7 @@ const line = (routeId: string, routeNumber: number | undefined, pts: [number, nu
   routeNumber,
   name: `Loop ${routeId}`,
   activityCount: 2,
+  distanceMeters: 5000,
   polyline: encodeTrack(pts.map(([latitude, longitude]) => ({ latitude, longitude }))),
 });
 
@@ -46,9 +48,46 @@ describe('route line collection', () => {
     expect(out.features[0].properties).toMatchObject({
       id: 'r1',
       number: 7,
-      color: routePalette[0],
+      color: routePalette[routePaletteIndex('r1')],
     });
-    expect(out.features[1].properties).toMatchObject({ id: 'r2', color: routePalette[1] });
+    expect(out.features[1].properties).toMatchObject({
+      id: 'r2',
+      color: routePalette[routePaletteIndex('r2')],
+    });
+  });
+
+  it('keeps each route its colour when a regroup puts a new route ahead of it', () => {
+    const cache = createRouteLineCache();
+    const pts: [number, number][] = [
+      [1, 2],
+      [3, 4],
+    ];
+    const colourOf = (out: GeoJSON.FeatureCollection, id: string) =>
+      out.features.find((f) => f.id === id)?.properties?.color;
+    const before = cache.collection({
+      generation: 1,
+      routes: ['north', 'river', 'hills'].map((id) => line(id, undefined, pts)),
+    });
+    const after = cache.collection({
+      generation: 2,
+      routes: ['harbour', 'north', 'river', 'hills'].map((id) => line(id, undefined, pts)),
+    });
+    for (const id of ['north', 'river', 'hills']) {
+      expect(colourOf(before, id)).toBeDefined();
+      expect(colourOf(after, id)).toBe(colourOf(before, id));
+    }
+  });
+
+  it('colours a route the same whatever line drops out ahead of it', () => {
+    const pts: [number, number][] = [
+      [1, 2],
+      [3, 4],
+    ];
+    const out = createRouteLineCache().collection({
+      generation: 1,
+      routes: [line('stub', 1, [[1, 2]]), line('coast', 2, pts)],
+    });
+    expect(out.features[0]?.properties?.color).toBe(routePalette[routePaletteIndex('coast')]);
   });
 
   it('leaves out a route with fewer than two points', () => {

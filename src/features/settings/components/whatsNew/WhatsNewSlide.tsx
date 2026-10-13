@@ -61,7 +61,7 @@ export function WhatsNewSlide({
           {body}
         </Text>
       </View>
-      {children && (
+      {children ? (
         <View style={[styles.frame, frameStyle]} testID="tour-slide-picture">
           <View
             style={[styles.content, { transform: [{ scale }] }]}
@@ -71,7 +71,7 @@ export function WhatsNewSlide({
             {children}
           </View>
         </View>
-      )}
+      ) : null}
     </View>
   );
 }

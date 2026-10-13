@@ -10,9 +10,11 @@
 import React from 'react';
 import { render, fireEvent, screen, act, waitFor } from '@testing-library/react-native';
 import * as Location from 'expo-location';
-import { ActivityIndicator } from 'react-native';
+import { ActivityIndicator, Animated } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { BaseMapView, type BaseMapViewProps } from '@/features/maps/components/BaseMapView';
+import { MapSurface, type MapCameraState } from '@/features/maps/components/MapSurface';
+import { CompassArrow } from '@/shared/ui';
 
 // The binding registers a TurboModule at import time. A hook on this screen's
 // import path compares against one of its generated enums, so the stub is the
@@ -95,10 +97,15 @@ jest.mock('@/features/maps/components/MapSurface', () => {
 });
 
 const mockSetCamera = jest.fn();
+const mockResetOrientation = jest.fn();
 jest.mock('@/features/maps/lib/htmlBuilders/mapSurface', () => {
   const actual = jest.requireActual('@/features/maps/lib/htmlBuilders/mapSurface');
   return {
     ...actual,
+    buildResetOrientationScript: (...args: unknown[]) => {
+      mockResetOrientation(...args);
+      return actual.buildResetOrientationScript(...args);
+    },
     buildSetCameraScript: (...args: unknown[]) => {
       mockSetCamera(...args);
       return actual.buildSetCameraScript(...args);
@@ -129,6 +136,10 @@ const OVERLAY_SOURCES: NonNullable<BaseMapViewProps['overlaySources']> = {
 const OVERLAY_LAYERS: NonNullable<BaseMapViewProps['overlayLayers']> = [
   { id: 'marks-line', type: 'line', source: 'marks', paint: { 'line-width': 2 } },
 ];
+
+function readValue(value: Animated.Value): number {
+  return (value as unknown as { __getValue: () => number }).__getValue();
+}
 
 function renderMap(props: Partial<BaseMapViewProps> = {}) {
   return render(
@@ -192,6 +203,31 @@ describe('BaseMapView', () => {
 
     await renderMap({ routeCoordinates: ROUTE });
     expect(screen.getByTestId('map-3d-toggle')).toBeTruthy();
+  });
+
+  it('resets the map to north and leaves the compass to the bearing the map reports', async () => {
+    const timing = jest.spyOn(Animated, 'timing');
+    await renderMap({ routeCoordinates: ROUTE });
+    const compass = screen.UNSAFE_getByType(CompassArrow).props.rotation as Animated.Value;
+    const reportBearing = (bearing: number) =>
+      act(() =>
+        (
+          screen.UNSAFE_getByType(MapSurface).props.onRegionIsChanging as (
+            state: MapCameraState
+          ) => void
+        )({ bearing } as MapCameraState)
+      );
+    await reportBearing(30);
+    mockResetOrientation.mockClear();
+
+    await fireEvent.press(screen.getByRole('button', { name: 'maps.resetOrientation' }));
+
+    expect(mockResetOrientation).toHaveBeenCalledTimes(1);
+    expect(timing.mock.calls.filter(([value]) => value === compass)).toEqual([]);
+    expect(readValue(compass)).toBe(-30);
+    await reportBearing(0);
+    expect(Math.abs(readValue(compass))).toBe(0);
+    timing.mockRestore();
   });
 
   it('swaps in the terrain view when 3D is enabled and back out again', async () => {

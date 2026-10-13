@@ -10,5 +10,6 @@
   android:maxResizeHeight="320dp"
   android:resizeMode="horizontal|vertical"
   android:widgetCategory="home_screen"
+  android:description="@string/widget_activity_description"
   android:initialLayout="@layout/widget_activity_small"
   android:previewLayout="@layout/widget_preview_activity" />

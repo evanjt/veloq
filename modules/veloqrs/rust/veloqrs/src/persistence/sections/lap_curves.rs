@@ -293,9 +293,17 @@ struct LapClock {
 impl LapClock {
     /// Within a grid step and one sample of both ends of the section.
     fn covers_both_ends(&self, length: f64) -> bool {
-        let slack = GRID_STEP_M + self.floor_m;
+        let slack = end_slack(self.floor_m);
         self.start_m <= slack && self.end_m >= length - slack
     }
+}
+
+/// How far inside an end a lap may start or stop and still count as reaching
+/// it: a grid step and one sample. The clock takes the end itself on this
+/// rule and the whole-section delta takes the lap as complete on it, so the
+/// two never disagree.
+fn end_slack(floor_m: f64) -> f64 {
+    GRID_STEP_M + floor_m
 }
 
 /// The lap's clock on the grid, or `None` when it does not advance along the
@@ -316,8 +324,29 @@ fn lap_clock(axis: &Axis, track: &[GpsPoint], times: &[u32], reverse: bool) -> O
     }
     let start_m = progress[0];
     let end_m = furthest;
-    let from = axis.grid.iter().position(|&g| g >= start_m - EPSILON_M)?;
-    let to = axis.grid.iter().rposition(|&g| g <= end_m + EPSILON_M)?;
+
+    let mut steps: Vec<f64> = progress
+        .windows(2)
+        .map(|w| w[1] - w[0])
+        .filter(|step| *step > 0.0)
+        .collect();
+    steps.sort_by(f64::total_cmp);
+    let floor_m = steps.get(steps.len() / 2).copied().unwrap_or(0.0);
+
+    // A lap within the slack of an end reaches it: the grid points short of
+    // its first sample take that sample's time, those past its last sample
+    // take the last one's.
+    let slack = end_slack(floor_m);
+    let from = if start_m <= slack {
+        0
+    } else {
+        axis.grid.iter().position(|&g| g >= start_m - EPSILON_M)?
+    };
+    let to = if end_m >= axis.length - slack {
+        axis.grid.len() - 1
+    } else {
+        axis.grid.iter().rposition(|&g| g <= end_m + EPSILON_M)?
+    };
     if to <= from {
         return None;
     }
@@ -342,14 +371,6 @@ fn lap_clock(axis: &Axis, track: &[GpsPoint], times: &[u32], reverse: bool) -> O
         };
         clock[k] = at - first;
     }
-
-    let mut steps: Vec<f64> = progress
-        .windows(2)
-        .map(|w| w[1] - w[0])
-        .filter(|step| *step > 0.0)
-        .collect();
-    steps.sort_by(f64::total_cmp);
-    let floor_m = steps.get(steps.len() / 2).copied().unwrap_or(0.0);
 
     Some(LapClock {
         from,

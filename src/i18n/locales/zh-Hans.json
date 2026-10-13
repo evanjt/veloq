@@ -232,6 +232,9 @@
     "disconnectMessage": "这将从应用中删除您的 API 凭据。您需要重新输入它们才能使用该应用。",
     "disconnectOffline": "你目前处于离线状态。两种登录方式都需要网络，网络恢复前无法重新登录。",
     "disconnectTitle": "断开账户连接",
+    "leaveDemoTitle": "退出演示？",
+    "leaveDemoMessage": "示例骑行将关闭，您将返回登录页面。演示中的内容不会保存。",
+    "leaveDemoConfirm": "退出",
     "failedToClear": "清除缓存失败。请重试。",
     "failedToDisconnect": "断开连接失败。请重试。",
     "accountChangeTitle": "检测到不同账户",
@@ -378,6 +381,8 @@
     "scanQrTitle": "扫描 Nextcloud 二维码",
     "scanQrInstructions": "在 Nextcloud 中，前往设置 → 安全 → 创建新应用密码，然后扫描显示的二维码。",
     "invalidQrCode": "无效的 Nextcloud 二维码",
+    "torchOn": "打开手电筒",
+    "torchOff": "关闭手电筒",
     "cameraPermissionNeeded": "扫描二维码需要相机权限",
     "enterDetailsInstead": "改为手动输入",
     "fillAllFields": "请填写所有字段",
@@ -403,7 +408,8 @@
   },
   "bestEffortsScreen": {
     "title": "最佳表现",
-    "seasonSubtitle": "过去 {{days}} 天的个人最佳记录。",
+    "seasonSubtitle_one": "过去 {{count}} 天的个人最佳记录。",
+    "seasonSubtitle_other": "过去 {{count}} 天的个人最佳记录。",
     "allTimeSubtitle": "缓存历史记录中的个人最佳成绩。",
     "powerBests": "功率",
     "paceBests": "配速",
@@ -1029,7 +1035,8 @@
     "sectionPrSheet": {
       "fromPrevious": "比上次 −{{delta}}",
       "previous": "上次：{{date}} {{time}}",
-      "efforts": "{{n}}次成绩",
+      "efforts_one": "{{count}}次成绩",
+      "efforts_other": "{{count}}次成绩",
       "fasterThan": "快于{{percent}}%的成绩",
       "allEfforts": "全部成绩（{{n}}）"
     },
@@ -1113,6 +1120,7 @@
     "subtitle": "连接到 intervals.icu",
     "termsOfService": "服务条款",
     "title": "Veloq",
+    "demoCaption": "示例骑行。不会保存任何内容，关闭应用后演示即结束。",
     "tryDemo": "试用演示",
     "useApiKey": "使用API密钥"
   },
@@ -1126,7 +1134,20 @@
     "showFilters": "显示全部筛选",
     "hideFilters": "收起筛选",
     "searchCount": "{{shown}} / {{total}}",
-    "searchFilteredBy": "筛选条件：{{filters}}"
+    "searchFilteredBy": "筛选条件：{{filters}}",
+    "emptyNoActivities": "此期间没有活动",
+    "emptyNoActivitiesHint": "更长的期间内可能有活动。",
+    "emptyNoActivitiesAllTimeHint": "同步更大的日期范围，即可在地图上显示更早的活动。",
+    "emptyShowAllTime": "显示全部时间",
+    "emptyFiltered": "没有符合这些筛选条件的活动",
+    "emptyFilteredHint_one": "此期间有 {{count}} 个活动带有轨迹。",
+    "emptyFilteredHint_other": "此期间有 {{count}} 个活动带有轨迹。",
+    "emptyClearFilters": "清除筛选",
+    "emptyTracksPending": "轨迹仍在下载",
+    "emptyTracksPendingHint_one": "还有 {{count}} 条轨迹待下载，到达后会显示在这里。",
+    "emptyTracksPendingHint_other": "还有 {{count}} 条轨迹待下载，每条到达后都会显示在这里。",
+    "emptyNoGps": "此期间没有 GPS 轨迹",
+    "emptyNoGpsHint": "室内、骑行台和泳池训练没有可绘制的路线。"
   },
   "maps": {
     "threeDUnavailable": "地形需要联网。现在显示平面地图。",
@@ -1168,8 +1189,6 @@
     "tapSelectStart": "点击选择起点",
     "toggleStyle": "切换地图样式",
     "viewDetails": "查看详情",
-    "viewRouteDetails": "查看路线详情",
-    "viewSectionDetails": "查看路段详情",
     "zoomToActivity": "缩放至活动",
     "gradientTick": "{{value}}%",
     "keyRecent": "最近",
@@ -1313,7 +1332,7 @@
       "avgPower": "平均功率",
       "avgSpeed": "平均速度",
       "cadence": "踏频",
-      "calories": "卡路里",
+      "calories": "卡路里（估算）",
       "distance": "距离",
       "elapsedTime": "总时间",
       "elevation": "海拔",
@@ -1491,6 +1510,7 @@
     "tileOrder": "磁贴顺序",
     "tileOrderDescription": "轻点磁贴即可选择其显示的数据。在记录界面长按磁贴也可以完成同样的操作。",
     "tileSlotLabel": "磁贴 {{number}}，{{field}}",
+    "endedCard": "已停止。打开 Veloq 保存。",
     "interruptedNotice": {
       "body": "系统在你的活动期间关闭了 Veloq，录制因此停止。轻点以恢复。",
       "card": "录制已停止。打开 Veloq 以恢复。",
@@ -1501,7 +1521,9 @@
       "description": "显示正在记录的活动及其控制按钮。",
       "name": "记录"
     },
-    "recentTypes": "最近"
+    "recentTypes": "最近",
+    "caloriesMethod": "有传感器时根据平均心率并假定年龄为 {{age}} 岁估算，否则根据运动类型和移动时间估算。",
+    "caloriesDefaultWeight": "你的资料中没有体重，因此假定为 {{weight}} kg。"
   },
   "routeDetail": {
     "routeNotFound": "未找到路线"
@@ -1673,7 +1695,8 @@
     "correlationStrengthVeryStrong": "很强",
     "correlationFasterWhenHigher": "数值越高越快",
     "correlationFasterWhenLower": "数值越低越快",
-    "correlationAttempts": "{{n}}次尝试",
+    "correlationAttempts_one": "{{count}}次尝试",
+    "correlationAttempts_other": "{{count}}次尝试",
     "correlationNotEnoughData": "数据不足，n {{n}}",
     "correlationNotEnoughDataOfFloor": "数据不足，n {{n}}／{{floor}}",
     "correlationCollapsed": "数据不足，最大n {{n}}／{{floor}}",
@@ -1816,6 +1839,7 @@
     "exploreMapStyle": "探索地图",
     "dialect": "方言",
     "disconnectAccount": "断开账户连接",
+    "leaveDemo": "退出演示",
     "display": "显示",
     "largeHistoryConfirm": "仍然下载",
     "largeHistoryMessage_one": "回溯到这么早会下载最多约 {{count}} 项活动。这需要一些时间，且数据量这么大时应用不保证保持流畅。",
@@ -2191,7 +2215,13 @@
     "metres": "m",
     "seconds": "秒",
     "rpm": "rpm",
-    "spm": "spm"
+    "spm": "spm",
+    "hours": "小时",
+    "hoursValue": "{{value}}小时",
+    "minutesValue": "{{value}}分钟",
+    "secondsValue": "{{value}}秒",
+    "hoursMinutes": "{{hours}}小时{{minutes}}分钟",
+    "minutesSeconds": "{{minutes}}分钟{{seconds}}秒"
   },
   "spoken": {
     "noValue": "无数值",
@@ -2287,7 +2317,8 @@
       "recutRunningPhase": "正在重新分析你的路段：{{phase}}",
       "diffTotals": "{{current}} 个路段变为 {{proposed}} 个。",
       "diffBreakdown": "新增 {{new}} 个，变更 {{changed}} 个，退役 {{gone}} 个。",
-      "diffUnchanged": "全部 {{sections}} 个路段在重新分析后没有变化。",
+      "diffUnchanged_one": "全部 {{count}} 个路段在重新分析后没有变化。",
+      "diffUnchanged_other": "全部 {{count}} 个路段在重新分析后没有变化。",
       "recutFailed": "重新分析没有完成。你的路段保持不变，下次启动时会再运行一次。",
       "recutFailedAfterApply": "你的路段已重新分析，但更改摘要没有保存。下次启动时会再次写入。",
       "settingsReset": "路段检测设置已重置为经过验证的值：{{changes}}。在预览路段变化中选择保留可恢复之前的值。",
@@ -2369,7 +2400,6 @@
     "pairsInfoThresholds": "状态：平衡 ≤ 1.35×，关注 至 2×，失衡 高于 2×。",
     "pairsInfoMinSignal": "每侧加权组数少于 4 的肌群对将被跳过。",
     "exercisesTargeting": "针对{{muscle}}的练习",
-    "exerciseSets": "{{sets}} 组",
     "exerciseWorkoutCount_one": "{{count}} 次训练",
     "exerciseWorkoutCount_other": "{{count}} 次训练",
     "totalVolume": "总训练量",
@@ -2721,8 +2751,8 @@
     }
   },
   "permissions": {
-    "locationWhenInUse": "Veloq使用您的位置来显示活动地图、跟踪路线和记录运动活动。",
-    "locationBackground": "Veloq在后台使用您的位置，以便在应用不在前台时继续记录运动活动。",
+    "locationWhenInUse": "Veloq使用您的位置来记录活动、在地图上显示您的位置，以及按距离排列您附近的路线和路段。除非您上传活动，否则位置信息只保留在这部手机上。",
+    "locationBackground": "让Veloq记录您从Siri、控制中心或小组件开始的活动，无需先打开应用。",
     "bluetooth": "Veloq在记录期间使用蓝牙连接心率、功率和踏频传感器。",
     "camera": "Veloq使用相机扫描Nextcloud应用密码的二维码。",
     "microphone": "Veloq不会录制声音。相机仅用于扫描二维码。",

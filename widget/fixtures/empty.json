@@ -5,6 +5,11 @@
       "form": null,
       "hrv": null
     },
+    "chartSpans": {
+      "fitness": null,
+      "form": null,
+      "hrv": null
+    },
     "formZone": "Grey Zone",
     "impactLine": null,
     "metricLabels": {
@@ -131,9 +136,9 @@
         "colorKey": "default",
         "id": "weekHours",
         "label": "Week",
-        "spoken": "Week 0h, steady",
+        "spoken": "Week 0 s, steady",
         "trendDir": "flat",
-        "value": "0h",
+        "value": "0 s",
         "verdict": "flat"
       }
     ],
@@ -177,9 +182,9 @@
       "colorKey": "default",
       "id": "weekHours",
       "label": "Week",
-      "spoken": "Week 0h, steady",
+      "spoken": "Week 0 s, steady",
       "trendDir": "flat",
-      "value": "0h",
+      "value": "0 s",
       "verdict": "flat"
     },
     {

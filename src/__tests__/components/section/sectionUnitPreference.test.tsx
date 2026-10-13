@@ -55,6 +55,6 @@ describe('section surfaces under the unit setting', () => {
     mockIsMetric = true;
     const { getByText } = await renderTooltip();
     expect(getByText('4:10 /km')).toBeTruthy();
-    expect(getByText(/\+50s/)).toBeTruthy();
+    expect(getByText(/\+50 s/)).toBeTruthy();
   });
 });

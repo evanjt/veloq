@@ -563,9 +563,11 @@ pub enum BackfillRun {
 // The queue
 // ============================================================================
 
-/// A local key upstream cannot name yet is not owed: the ride waits for its
-/// upload rather than spending attempts on a 404. A key that is not local is
-/// its own upstream id, as every row an older build stored is.
+/// A key minted here, a recording or an import, that upstream cannot name
+/// yet is not owed: the ride waits for its upload rather than spending
+/// attempts on a 404. Any other key is its own upstream id, as every row an
+/// older build stored is. That is `origin::intervals_upstream` over the stored
+/// id on the activity row or the body.
 ///
 /// A demo key is never owed. Demo mode seeds its tracks on the device with no
 /// altitude and no credential to ask with, so counting them would hold
@@ -573,7 +575,7 @@ pub enum BackfillRun {
 macro_rules! upstream_named_sql {
     () => {
         "g.activity_id NOT LIKE 'demo-%'
-                AND (g.activity_id NOT LIKE 'local-%'
+                AND ((g.activity_id NOT LIKE 'local-%' AND g.activity_id NOT LIKE 'src-%')
                   OR a.intervals_id IS NOT NULL
                   OR EXISTS (SELECT 1 FROM activity_bodies b
                               WHERE b.activity_id = g.activity_id
@@ -931,7 +933,10 @@ async fn fetch_batch(
 
     stream::iter(ids.to_vec())
         .map(|id| async move {
-            let named = upstream.get(&id).unwrap_or(&id).as_str();
+            let named = crate::persistence::origin::upstream_or_key(
+                &id,
+                upstream.get(&id).map(String::as_str),
+            );
             let outcome = match ask {
                 Ask::Elevation => match fetch_altitude(transport, named, Lane::Backfill).await {
                     Ok(altitudes) => reduce_altitudes(altitudes),

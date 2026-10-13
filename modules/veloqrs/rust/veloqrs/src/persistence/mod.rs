@@ -60,6 +60,7 @@ const PERF_CACHE_ENTRIES: std::num::NonZeroUsize = match std::num::NonZeroUsize:
 pub(crate) mod activities;
 pub mod attempts;
 pub(crate) mod climb_bests;
+pub(crate) mod origin;
 pub use activities::{
     DerivedClear, ELEVATION_SOURCE_CORRECTED, ELEVATION_SOURCE_DEVICE, ELEVATION_SOURCE_RECORDED,
     ELEVATION_SOURCE_UNKNOWN, ELEVATION_STATE_FETCHED, ELEVATION_STATE_UNAVAILABLE,

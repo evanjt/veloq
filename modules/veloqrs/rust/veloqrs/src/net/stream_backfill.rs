@@ -630,10 +630,11 @@ async fn fetch_batch(
 
     stream::iter(batch.iter().cloned())
         .map(|gap| {
-            let named = upstream
-                .get(&gap.activity_id)
-                .cloned()
-                .unwrap_or_else(|| gap.activity_id.clone());
+            let named = crate::persistence::origin::upstream_or_key(
+                &gap.activity_id,
+                upstream.get(&gap.activity_id).map(String::as_str),
+            )
+            .to_string();
             async move {
                 let fetched = fetch_one(transport, &named, gap.point_count).await;
                 (gap.activity_id, fetched)

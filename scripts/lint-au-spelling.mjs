@@ -108,6 +108,8 @@ const TS_EXEMPT = [
   'notificationbehavior',
   // React Native's KeyboardAvoidingView prop.
   'behavior={',
+  // Testing Library's text-match option.
+  'normalizer:',
   // React Native's ScrollView prop.
   'contentinsetadjustmentbehavior',
   // The Android intent action that opens the battery optimisation settings.

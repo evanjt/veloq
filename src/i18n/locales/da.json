@@ -232,6 +232,9 @@
     "disconnectMessage": "Dette vil fjerne dine API-legitimationsoplysninger fra appen. Du skal indtaste dem igen for at bruge appen.",
     "disconnectOffline": "Du er offline. Begge login-metoder kræver en forbindelse, så du kan ikke logge ind igen, før radioen er tilbage.",
     "disconnectTitle": "Afbryd konto",
+    "leaveDemoTitle": "Forlad demo?",
+    "leaveDemoMessage": "Eksempelturene lukkes, og du vender tilbage til log ind. Intet fra demoen gemmes.",
+    "leaveDemoConfirm": "Forlad",
     "failedToClear": "Kunne ikke rydde cache. Prøv venligst igen.",
     "failedToDisconnect": "Kunne ikke afbryde forbindelse. Prøv venligst igen.",
     "accountChangeTitle": "Anden konto registreret",
@@ -378,6 +381,8 @@
     "scanQrTitle": "Scan Nextcloud QR-kode",
     "scanQrInstructions": "I Nextcloud, gå til Indstillinger → Sikkerhed → Opret ny app-adgangskode, og scan derefter den viste QR-kode.",
     "invalidQrCode": "Ikke en gyldig Nextcloud QR-kode",
+    "torchOn": "Tænd lommelygte",
+    "torchOff": "Sluk lommelygte",
     "cameraPermissionNeeded": "Kameraadgang er påkrævet for at scanne QR-koder",
     "enterDetailsInstead": "Indtast oplysninger i stedet",
     "fillAllFields": "Udfyld venligst alle felter",
@@ -403,7 +408,8 @@
   },
   "bestEffortsScreen": {
     "title": "Bedste indsatser",
-    "seasonSubtitle": "Personlige rekorder fra de seneste {{days}} dage.",
+    "seasonSubtitle_one": "Personlige rekorder fra den seneste {{count}} dag.",
+    "seasonSubtitle_other": "Personlige rekorder fra de seneste {{count}} dage.",
     "allTimeSubtitle": "Personlige rekorder på tværs af din lokalt gemte historik.",
     "powerBests": "Watt",
     "paceBests": "Tempo",
@@ -1029,7 +1035,8 @@
     "sectionPrSheet": {
       "fromPrevious": "−{{delta}} i forhold til forrige",
       "previous": "Forrige: {{time}} den {{date}}",
-      "efforts": "{{n}} forsøg",
+      "efforts_one": "{{count}} forsøg",
+      "efforts_other": "{{count}} forsøg",
       "fasterThan": "Hurtigere end {{percent}}% af forsøgene",
       "allEfforts": "Alle forsøg ({{n}})"
     },
@@ -1113,6 +1120,7 @@
     "subtitle": "Opret forbindelse til intervals.icu",
     "termsOfService": "Servicevilkår",
     "title": "Veloq",
+    "demoCaption": "Eksempelture. Intet gemmes, og demoen slutter, når appen lukkes.",
     "tryDemo": "Prøv demo",
     "useApiKey": "Brug API-nøgle i stedet"
   },
@@ -1126,7 +1134,20 @@
     "showFilters": "Vis alle filtre",
     "hideFilters": "Vis færre filtre",
     "searchCount": "{{shown}} af {{total}}",
-    "searchFilteredBy": "filtreret efter {{filters}}"
+    "searchFilteredBy": "filtreret efter {{filters}}",
+    "emptyNoActivities": "Ingen aktiviteter i denne periode",
+    "emptyNoActivitiesHint": "En længere periode kan indeholde nogle.",
+    "emptyNoActivitiesAllTimeHint": "Synkroniser et bredere datointerval for at få ældre aktiviteter på kortet.",
+    "emptyShowAllTime": "Vis hele perioden",
+    "emptyFiltered": "Ingen aktiviteter matcher disse filtre",
+    "emptyFilteredHint_one": "{{count}} aktivitet i denne periode har et spor.",
+    "emptyFilteredHint_other": "{{count}} aktiviteter i denne periode har et spor.",
+    "emptyClearFilters": "Ryd filtre",
+    "emptyTracksPending": "Spor hentes stadig",
+    "emptyTracksPendingHint_one": "{{count}} spor mangler stadig at blive hentet. Det vises her, når det ankommer.",
+    "emptyTracksPendingHint_other": "{{count}} spor mangler stadig at blive hentet. Hvert vises her, når det ankommer.",
+    "emptyNoGps": "Ingen GPS-spor i denne periode",
+    "emptyNoGpsHint": "Indendørs-, hometrainer- og svømmehalspas har ingen rute at tegne."
   },
   "maps": {
     "threeDUnavailable": "Terræn kræver forbindelse. Viser det flade kort.",
@@ -1168,8 +1189,6 @@
     "tapSelectStart": "Tryk for at vælge startpunkt",
     "toggleStyle": "Skift kortstil",
     "viewDetails": "Vis detaljer",
-    "viewRouteDetails": "Vis rutedetaljer",
-    "viewSectionDetails": "Vis sektionsdetaljer",
     "zoomToActivity": "Zoom til aktivitet",
     "gradientTick": "{{value}} %",
     "keyRecent": "Nylig",
@@ -1313,7 +1332,7 @@
       "avgPower": "Gns effekt",
       "avgSpeed": "Gns hastighed",
       "cadence": "Kadence",
-      "calories": "Kalorier",
+      "calories": "Kalorier (anslået)",
       "distance": "Afstand",
       "elapsedTime": "Forløbet tid",
       "elevation": "Stigning",
@@ -1491,6 +1510,7 @@
     "tileOrder": "Feltrækkefølge",
     "tileOrderDescription": "Tryk på et felt for at vælge, hvad det viser. På optageskærmen gør et langt tryk på et felt det samme.",
     "tileSlotLabel": "Felt {{number}}, {{field}}",
+    "endedCard": "Stoppet. Åbn Veloq for at gemme.",
     "interruptedNotice": {
       "body": "Systemet lukkede Veloq under din aktivitet, så optagelsen stoppede. Tryk for at genoptage.",
       "card": "Optagelsen stoppede. Åbn Veloq for at genoptage.",
@@ -1501,7 +1521,9 @@
       "description": "Viser aktiviteten, der optages, med dens knapper.",
       "name": "Optagelse"
     },
-    "recentTypes": "Seneste"
+    "recentTypes": "Seneste",
+    "caloriesMethod": "Anslået ud fra gennemsnitlig puls med en sensor ved en antaget alder på {{age}}, ellers ud fra sporten og bevægelsestiden.",
+    "caloriesDefaultWeight": "Din profil har ingen vægt, så der antages {{weight}} kg."
   },
   "routeDetail": {
     "routeNotFound": "Rute ikke fundet"
@@ -1673,7 +1695,8 @@
     "correlationStrengthVeryStrong": "Meget stærk",
     "correlationFasterWhenHigher": "Hurtigere ved højere værdi",
     "correlationFasterWhenLower": "Hurtigere ved lavere værdi",
-    "correlationAttempts": "{{n}} forsøg",
+    "correlationAttempts_one": "{{count}} forsøg",
+    "correlationAttempts_other": "{{count}} forsøg",
     "correlationNotEnoughData": "for lidt data, n {{n}}",
     "correlationNotEnoughDataOfFloor": "for lidt data, n {{n}} af {{floor}}",
     "correlationCollapsed": "for lidt data, største n {{n}} af {{floor}}",
@@ -1816,6 +1839,7 @@
     "exploreMapStyle": "Udforsk kort",
     "dialect": "Dialekt",
     "disconnectAccount": "Afbryd konto",
+    "leaveDemo": "Forlad demo",
     "display": "Visning",
     "largeHistoryConfirm": "Hent alligevel",
     "largeHistoryMessage_one": "Så langt tilbage henter op til omkring {{count}} aktivitet. Det tager et stykke tid, og appen er ikke garanteret at forblive hurtig med så meget gemt.",
@@ -2191,7 +2215,13 @@
     "metres": "m",
     "seconds": "s",
     "rpm": "rpm",
-    "spm": "spm"
+    "spm": "spm",
+    "hours": "h",
+    "hoursValue": "{{value}} h",
+    "minutesValue": "{{value}} min",
+    "secondsValue": "{{value}} s",
+    "hoursMinutes": "{{hours}} h {{minutes}} min",
+    "minutesSeconds": "{{minutes}} min {{seconds}} s"
   },
   "spoken": {
     "noValue": "ingen værdi",
@@ -2287,7 +2317,8 @@
       "recutRunningPhase": "Analyserer dine strækninger igen: {{phase}}",
       "diffTotals": "{{current}} strækninger blev til {{proposed}}.",
       "diffBreakdown": "{{new}} nye, {{changed}} ændrede, {{gone}} pensionerede.",
-      "diffUnchanged": "Alle {{sections}} strækninger kom uændret gennem analysen.",
+      "diffUnchanged_one": "Den {{count}} strækning kom uændret gennem analysen.",
+      "diffUnchanged_other": "Alle {{count}} strækninger kom uændret gennem analysen.",
       "recutFailed": "Analysen blev ikke færdig. Dine strækninger er uændrede, og den kører igen ved næste start.",
       "recutFailedAfterApply": "Dine strækninger blev analyseret igen, men oversigten over ændringerne blev ikke gemt. Den skrives igen ved næste start.",
       "settingsReset": "Dine indstillinger for sektionsdetektion blev nulstillet til de validerede værdier: {{changes}}. Forhåndsvis sektionsændringer og tryk Behold for at få de tidligere tilbage.",
@@ -2369,7 +2400,6 @@
     "pairsInfoThresholds": "Status: i balance ≤ 1,35×, hold øje op til 2×, ubalance over 2×.",
     "pairsInfoMinSignal": "Par med færre end 4 vægtede sæt pr. side springes over.",
     "exercisesTargeting": "Øvelser der rammer {{muscle}}",
-    "exerciseSets": "{{sets}} sæt",
     "exerciseWorkoutCount_one": "{{count}} træning",
     "exerciseWorkoutCount_other": "{{count}} træninger",
     "totalVolume": "Samlet volumen",
@@ -2721,8 +2751,8 @@
     }
   },
   "permissions": {
-    "locationWhenInUse": "Veloq bruger din placering til at vise aktivitetskort, følge ruter og optage træningsaktiviteter.",
-    "locationBackground": "Veloq bruger din placering i baggrunden, så optagelsen af træningsaktiviteter fortsætter, når appen ikke er i forgrunden.",
+    "locationWhenInUse": "Veloq bruger din placering til at optage aktiviteter, vise hvor du er på kortet og sortere ruter og sektioner i nærheden af dig. Den forbliver på denne telefon, medmindre du uploader en aktivitet.",
+    "locationBackground": "Lader Veloq optage en aktivitet, du starter fra Siri, Kontrolcenter eller en widget, uden at åbne appen først.",
     "bluetooth": "Veloq bruger Bluetooth til at forbinde til puls-, watt- og kadencesensorer under optagelsen.",
     "camera": "Veloq bruger kameraet til at scanne QR-koden for en Nextcloud-appadgangskode.",
     "microphone": "Veloq optager ikke lyd. Kameraet bruges kun til at scanne QR-koder.",

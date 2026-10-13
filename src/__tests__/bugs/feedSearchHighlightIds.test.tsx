@@ -211,6 +211,7 @@ function searchActivityBodies(query: {
   const page = matched.slice(query.offset, query.offset + (query.limit ?? matched.length));
   return {
     bodies: page.map((a) => JSON.stringify(a)),
+    intervalsIds: page.map((a) => a.id),
     matchedCount: matched.length,
     hasMore: false,
   };

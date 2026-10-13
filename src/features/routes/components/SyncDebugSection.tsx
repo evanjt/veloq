@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { colors, darkColors, spacing, ink, layout, typography } from '@/theme';
@@ -71,7 +71,7 @@ function Section({
           color={mutedColor}
         />
       </Pressable>
-      {open && <View style={styles.sectionContent}>{children}</View>}
+      {open ? <View style={styles.sectionContent}>{children}</View> : null}
     </View>
   );
 }
@@ -80,7 +80,7 @@ function Section({
 // Main Component
 // ============================================================================
 
-export function SyncDebugTab() {
+export function SyncDebugSection() {
   const { isDark } = useTheme();
   const queryClient = useQueryClient();
 
@@ -261,10 +261,7 @@ export function SyncDebugTab() {
   }
 
   return (
-    <ScrollView
-      style={[styles.container, isDark && styles.containerDark]}
-      contentContainerStyle={styles.content}
-    >
+    <View testID="debug-sync-section">
       {/* Alignment */}
       <Section title="Alignment" icon="swap-horizontal" isDark={isDark}>
         <View style={styles.trafficLight}>
@@ -295,7 +292,7 @@ export function SyncDebugTab() {
             label={`${showMissing ? 'Hide' : 'Show'} missing IDs (${alignment.missingFromEngine.length})`}
           />
         )}
-        {showMissing && (
+        {showMissing ? (
           <View style={styles.idList}>
             {alignment.missingFromEngine.slice(0, 20).map((id) => (
               <Text key={id} style={[styles.idText, { color: mutedColor }]}>
@@ -308,7 +305,7 @@ export function SyncDebugTab() {
               </Text>
             )}
           </View>
-        )}
+        ) : null}
 
         {alignment.extraInEngine.length > 0 && (
           <Button
@@ -326,7 +323,7 @@ export function SyncDebugTab() {
             label={`${showExtra ? 'Hide' : 'Show'} extra IDs (${alignment.extraInEngine.length})`}
           />
         )}
-        {showExtra && (
+        {showExtra ? (
           <View style={styles.idList}>
             {alignment.extraInEngine.slice(0, 20).map((id) => (
               <Text key={id} style={[styles.idText, { color: mutedColor }]}>
@@ -339,7 +336,7 @@ export function SyncDebugTab() {
               </Text>
             )}
           </View>
-        )}
+        ) : null}
       </Section>
 
       {/* Engine Stats */}
@@ -468,9 +465,7 @@ export function SyncDebugTab() {
           </Text>
         </View>
       </Section>
-
-      <View style={{ height: spacing.xl }} />
-    </ScrollView>
+    </View>
   );
 }
 
@@ -479,17 +474,6 @@ export function SyncDebugTab() {
 // ============================================================================
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  containerDark: {
-    backgroundColor: darkColors.background,
-  },
-  content: {
-    padding: spacing.md,
-    paddingBottom: spacing.xl,
-  },
   section: {
     backgroundColor: colors.surface,
     borderRadius: layout.borderRadiusMd,

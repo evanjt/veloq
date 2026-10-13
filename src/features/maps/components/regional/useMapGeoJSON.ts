@@ -17,6 +17,7 @@ import { getActivityTypeConfig } from '../../lib/activityCategories';
 import type { SelectedActivity } from './ActivityPopup';
 import { EMPTY_FEATURE_COLLECTION } from '../../lib/coordinates';
 import { buildUserLocationCollection } from '../../lib/userLocationLayer';
+import type { MapGeoJSONData } from '../../lib/htmlBuilders';
 
 // Size based on distance (always returns 24 - kept as function for future scaling)
 const MARKER_SIZE = 24;
@@ -29,12 +30,15 @@ interface UseMapGeoJSONOptions {
   activityCenters: Record<string, [number, number]>;
   userLocation: [number, number] | null;
   selected: SelectedActivity | null;
+  /** The engine's URL for the selected activity's stored track, from `useStoredTrackUrl`. */
+  selectedTrackUrl?: string | null | undefined;
 }
 
 interface UseMapGeoJSONResult {
   markersGeoJSON: GeoJSON.FeatureCollection;
   userLocationGeoJSON: GeoJSON.FeatureCollection;
-  routeGeoJSON: GeoJSON.FeatureCollection | GeoJSON.Feature;
+  /** The selected activity's line, or the engine's URL for it. */
+  routeGeoJSON: MapGeoJSONData;
   routeHasData: boolean;
 }
 
@@ -43,6 +47,7 @@ export function useMapGeoJSON({
   activityCenters,
   userLocation,
   selected,
+  selectedTrackUrl,
 }: UseMapGeoJSONOptions): UseMapGeoJSONResult {
   // ===========================================
   // 1. ACTIVITY MARKERS - Point features for CircleLayer hit detection
@@ -123,20 +128,12 @@ export function useMapGeoJSON({
   // ===========================================
   // 8. SELECTED ACTIVITY ROUTE - Full route line for selected activity
   // ===========================================
-  // Uses pre-computed routeCoords (from Rust engine) if available, falls back to mapData.latlngs (from API)
+  // The engine's URL when it holds the track, else any line the popup's
+  // mapData carries.
   // Never null: with no route, the shared empty collection keeps the source unsent
-  const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
-    // Priority 1: Use pre-computed routeCoords from Rust engine (already in [lng, lat] format)
-    if (selected?.routeCoords && selected.routeCoords.length >= 2) {
-      return {
-        type: 'Feature' as const,
-        properties: {},
-        geometry: {
-          type: 'LineString' as const,
-          coordinates: selected.routeCoords,
-        },
-      };
-    }
+  const routeGeoJSON = useMemo((): MapGeoJSONData => {
+    // Priority 1: the page fetches the stored track from the engine
+    if (selected && selectedTrackUrl) return selectedTrackUrl;
 
     // Priority 2: Fall back to mapData.latlngs from API
     if (!selected?.mapData?.latlngs) return EMPTY_FEATURE_COLLECTION;
@@ -184,10 +181,11 @@ export function useMapGeoJSON({
         coordinates: validCoords,
       },
     };
-  }, [selected]);
+  }, [selected, selectedTrackUrl]);
 
   // Helper to check if routeGeoJSON has data
   const routeHasData =
+    typeof routeGeoJSON === 'string' ||
     routeGeoJSON.type === 'Feature' ||
     (routeGeoJSON.type === 'FeatureCollection' && routeGeoJSON.features.length > 0);
 

@@ -31,6 +31,7 @@ import {
 } from '@/features/fitness';
 import { timeRangeToDays } from '@/features/wellness';
 import { useTheme, useCollapsibleSections } from '@/shared/app';
+import { INTERVALS_URLS } from '@/shared/app/constants';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { createSharedStyles } from '@/styles';
 
@@ -220,7 +221,7 @@ function FitnessScreenContent() {
     () => ({
       headerRight: () => (
         <View style={styles.headerActions}>
-          {fetchingInBackground && <Spinner />}
+          {fetchingInBackground ? <Spinner /> : null}
           <BestEffortsHeaderButton period={timeRange} />
         </View>
       ),
@@ -297,7 +298,7 @@ function FitnessScreenContent() {
           )}
         </View>
 
-        {belowFoldReady && (
+        {belowFoldReady ? (
           <>
             {/* Sport toggle */}
             <SportToggleSelector sportMode={sportMode} onSportModeChange={setSportMode} />
@@ -377,7 +378,7 @@ function FitnessScreenContent() {
                   {
                     key: 'fitnessPage',
                     label: t('fitnessScreen.linkFitnessPage'),
-                    url: 'https://intervals.icu/fitness',
+                    url: INTERVALS_URLS.fitnessPage,
                   },
                   {
                     key: 'trainingLoad',
@@ -393,7 +394,7 @@ function FitnessScreenContent() {
               }}
             />
           </>
-        )}
+        ) : null}
       </ScrollView>
     </ScreenSafeAreaView>
   );

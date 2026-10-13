@@ -210,12 +210,7 @@ export function BaseMapView({
     } else {
       surfaceRef.current?.resetOrientation();
     }
-    motionTiming(bearingAnim, {
-      toValue: 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [is3DMode, is3DReady, bearingAnim]);
+  }, [is3DMode, is3DReady]);
 
   // Track centre and zoom so satellite attribution follows the viewport.
   // Also kept in a ref: the surface is unmounted whenever the 3D layer covers
@@ -308,7 +303,7 @@ export function BaseMapView({
   const renderControls = () => (
     <>
       {/* Close button */}
-      {onClose && (
+      {onClose ? (
         <IconButton
           testID="map-fullscreen-close"
           style={[
@@ -327,10 +322,10 @@ export function BaseMapView({
             color={isDark ? colors.textOnDark : colors.textSecondary}
           />
         </IconButton>
-      )}
+      ) : null}
 
       {/* Style toggle */}
-      {showStyleToggle && (
+      {showStyleToggle ? (
         <IconButton
           testID="map-style-toggle"
           style={[
@@ -349,11 +344,11 @@ export function BaseMapView({
             color={isDark ? colors.textOnDark : colors.textSecondary}
           />
         </IconButton>
-      )}
+      ) : null}
 
       {/* Control stack - positioned at same level as style toggle, horizontal layout */}
       <View style={[styles.controlStack, { top: insets.top + 12 }]}>
-        {show3DToggle && has3DRoute && (
+        {show3DToggle && has3DRoute ? (
           <IconButton
             testID="map-3d-toggle"
             style={[styles.controlButton, isDark && !is3DMode && styles.controlButtonDark]}
@@ -369,9 +364,9 @@ export function BaseMapView({
               }
             />
           </IconButton>
-        )}
+        ) : null}
 
-        {showOrientationButton && (
+        {showOrientationButton ? (
           <IconButton
             style={[styles.controlButton, isDark && styles.controlButtonDark]}
             onPress={resetOrientation}
@@ -385,9 +380,9 @@ export function BaseMapView({
               southColor={isDark ? colors.textOnDark : colors.textSecondary}
             />
           </IconButton>
-        )}
+        ) : null}
 
-        {showLocationButton && (
+        {showLocationButton ? (
           <IconButton
             style={[styles.controlButton, isDark && !userLocation && styles.controlButtonDark]}
             onPress={handleGetLocation}
@@ -415,13 +410,13 @@ export function BaseMapView({
               />
             )}
           </IconButton>
-        )}
+        ) : null}
 
         {extraControls}
       </View>
 
       {/* Attribution */}
-      {showAttribution && (
+      {showAttribution ? (
         <View style={[styles.attribution, { bottom: insets.bottom }]} pointerEvents="none">
           <View style={[styles.attributionPill, isDark && styles.attributionPillDark]}>
             <Text style={[styles.attributionText, isDark && styles.attributionTextDark]}>
@@ -429,7 +424,7 @@ export function BaseMapView({
             </Text>
           </View>
         </View>
-      )}
+      ) : null}
     </>
   );
 
@@ -437,7 +432,7 @@ export function BaseMapView({
     <View style={styles.container}>
       {/* 2D Map. Unmounted once the 3D layer covers it: a hidden WebView keeps
           its GL context and its tile textures alive for nobody. */}
-      {show2DSurface && (
+      {show2DSurface ? (
         <View style={styles.mapLayer}>
           <MapSurface
             ref={surfaceRef}
@@ -448,15 +443,15 @@ export function BaseMapView({
             images={overlayImages}
             interactiveLayers={interactiveLayers}
             onPress={onPress}
-            onRegionIsChanging={(state) => bearingAnim.setValue(-state.bearing)}
+            onRegionIsChanging={(state) => handleBearingChange(state.bearing)}
             onRegionDidChange={handleRegionDidChange}
           />
         </View>
-      )}
+      ) : null}
 
       {/* 3D Map - rendered when 3D mode is on, fades in when ready */}
       {/* Error boundary prevents a 3D crash from taking out the entire map */}
-      {is3DMode && has3DRoute && (
+      {is3DMode && has3DRoute ? (
         <ComponentErrorBoundary part="map3d" debugName="3D Map" onError={() => setIs3DMode(false)}>
           <Animated.View
             style={[styles.mapLayer, styles.map3DLayer, { opacity: map3DOpacity }]}
@@ -476,7 +471,7 @@ export function BaseMapView({
             />
           </Animated.View>
         </ComponentErrorBoundary>
-      )}
+      ) : null}
 
       {terrainNotice}
 

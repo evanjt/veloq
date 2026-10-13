@@ -106,16 +106,16 @@ function ParamEditorSheetContent() {
           hint={rangeText}
           error={error}
         />
-        {pastRange && (
+        {pastRange ? (
           <Text testID={`${prefix}-range-note`} style={[styles.note, { color: secondary }]}>
             {t('settings.sectionParamPastRange')}
           </Text>
-        )}
-        {pastClamp && (
+        ) : null}
+        {pastClamp ? (
           <Text testID={`${prefix}-clamp-note`} style={[styles.note, { color: secondary }]}>
             {t('settings.sectionParamPastClamp')}
           </Text>
-        )}
+        ) : null}
       </View>
       <SheetActions {...actions} />
     </View>

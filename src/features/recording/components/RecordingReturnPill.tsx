@@ -80,9 +80,9 @@ function RecordingReturnPillInner({ status }: { status: RecordingStatus }) {
         accessibilityLabel={t('recording.returnToRecording', 'Return to recording')}
       >
         <View style={[styles.dot, { backgroundColor: accent }]} />
-        {activityType && (
+        {activityType ? (
           <MaterialCommunityIcons name={getActivityIcon(activityType)} size={18} color={accent} />
-        )}
+        ) : null}
         <Text style={[styles.elapsed, { color: textPrimary }]}>{formattedElapsed}</Text>
         <Text style={[styles.label, { color: accent }]}>
           {stopped

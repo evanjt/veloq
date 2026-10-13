@@ -232,6 +232,9 @@
     "disconnectMessage": "Dit verwijdert je API-gegevens uit de app. Je moet ze opnieuw invoeren om de app te gebruiken.",
     "disconnectOffline": "Je bent offline. Beide manieren om terug te komen hebben een verbinding nodig, dus je kunt pas weer inloggen als het netwerk terug is.",
     "disconnectTitle": "Account loskoppelen",
+    "leaveDemoTitle": "Demo verlaten?",
+    "leaveDemoMessage": "De voorbeeldritten sluiten en je gaat terug naar inloggen. Niets uit de demo wordt bewaard.",
+    "leaveDemoConfirm": "Verlaten",
     "failedToClear": "Cache wissen mislukt. Probeer opnieuw.",
     "failedToDisconnect": "Loskoppelen mislukt. Probeer opnieuw.",
     "accountChangeTitle": "Ander account gedetecteerd",
@@ -378,6 +381,8 @@
     "scanQrTitle": "Nextcloud QR-code scannen",
     "scanQrInstructions": "Ga in Nextcloud naar Instellingen → Beveiliging → Nieuw appwachtwoord aanmaken en scan de getoonde QR-code.",
     "invalidQrCode": "Geen geldige Nextcloud QR-code",
+    "torchOn": "Zaklamp aanzetten",
+    "torchOff": "Zaklamp uitzetten",
     "cameraPermissionNeeded": "Cameratoegang is vereist om QR-codes te scannen",
     "enterDetailsInstead": "Gegevens zelf invoeren",
     "fillAllFields": "Vul alle velden in",
@@ -403,7 +408,8 @@
   },
   "bestEffortsScreen": {
     "title": "Beste prestaties",
-    "seasonSubtitle": "Persoonlijke records van de laatste {{days}} dagen.",
+    "seasonSubtitle_one": "Persoonlijke records van de laatste {{count}} dag.",
+    "seasonSubtitle_other": "Persoonlijke records van de laatste {{count}} dagen.",
     "allTimeSubtitle": "Persoonlijke records uit je gecachte geschiedenis.",
     "powerBests": "Vermogen",
     "paceBests": "Tempo",
@@ -1029,7 +1035,8 @@
     "sectionPrSheet": {
       "fromPrevious": "−{{delta}} ten opzichte van vorige",
       "previous": "Vorige: {{time}} op {{date}}",
-      "efforts": "{{n}} pogingen",
+      "efforts_one": "{{count}} poging",
+      "efforts_other": "{{count}} pogingen",
       "fasterThan": "Sneller dan {{percent}}% van de pogingen",
       "allEfforts": "Alle pogingen ({{n}})"
     },
@@ -1113,6 +1120,7 @@
     "subtitle": "Verbinden met intervals.icu",
     "termsOfService": "Servicevoorwaarden",
     "title": "Veloq",
+    "demoCaption": "Voorbeeldritten. Er wordt niets bewaard en de demo stopt wanneer de app sluit.",
     "tryDemo": "Demo proberen",
     "useApiKey": "Gebruik API-sleutel"
   },
@@ -1126,7 +1134,20 @@
     "showFilters": "Alle filters tonen",
     "hideFilters": "Minder filters tonen",
     "searchCount": "{{shown}} van {{total}}",
-    "searchFilteredBy": "gefilterd op {{filters}}"
+    "searchFilteredBy": "gefilterd op {{filters}}",
+    "emptyNoActivities": "Geen activiteiten in deze periode",
+    "emptyNoActivitiesHint": "Een langere periode bevat er misschien wel.",
+    "emptyNoActivitiesAllTimeHint": "Synchroniseer een groter datumbereik om oudere activiteiten op de kaart te zetten.",
+    "emptyShowAllTime": "Alles tonen",
+    "emptyFiltered": "Geen activiteiten passen bij deze filters",
+    "emptyFilteredHint_one": "{{count}} activiteit in deze periode heeft een track.",
+    "emptyFilteredHint_other": "{{count}} activiteiten in deze periode hebben een track.",
+    "emptyClearFilters": "Filters wissen",
+    "emptyTracksPending": "Tracks worden nog gedownload",
+    "emptyTracksPendingHint_one": "{{count}} track moet nog worden gedownload. Hij verschijnt hier zodra hij binnen is.",
+    "emptyTracksPendingHint_other": "{{count}} tracks moeten nog worden gedownload. Elke track verschijnt hier zodra hij binnen is.",
+    "emptyNoGps": "Geen gps-tracks in deze periode",
+    "emptyNoGpsHint": "Indoor-, trainer- en zwembadsessies hebben geen route om te tekenen."
   },
   "maps": {
     "threeDUnavailable": "Terrein vereist een verbinding. De platte kaart wordt getoond.",
@@ -1168,8 +1189,6 @@
     "tapSelectStart": "Tik om startpunt te selecteren",
     "toggleStyle": "Kaartstijl wisselen",
     "viewDetails": "Details bekijken",
-    "viewRouteDetails": "Routedetails bekijken",
-    "viewSectionDetails": "Sectiedetails bekijken",
     "zoomToActivity": "Inzoomen op activiteit",
     "gradientTick": "{{value}}%",
     "keyRecent": "Recent",
@@ -1313,7 +1332,7 @@
       "avgPower": "Gem. vermogen",
       "avgSpeed": "Gem. snelheid",
       "cadence": "Cadans",
-      "calories": "Calorieën",
+      "calories": "Calorieën (schatting)",
       "distance": "Afstand",
       "elapsedTime": "Verstreken tijd",
       "elevation": "Hoogte",
@@ -1491,6 +1510,7 @@
     "tileOrder": "Volgorde van tegels",
     "tileOrderDescription": "Tik op een tegel om te kiezen welk gegeven hij toont. Op het opnamescherm doet lang drukken op een tegel hetzelfde.",
     "tileSlotLabel": "Tegel {{number}}, {{field}}",
+    "endedCard": "Gestopt. Open Veloq om op te slaan.",
     "interruptedNotice": {
       "body": "Het systeem heeft Veloq tijdens je activiteit gesloten, waardoor de opname is gestopt. Tik om te hervatten.",
       "card": "Opname gestopt. Open Veloq om te hervatten.",
@@ -1501,7 +1521,9 @@
       "description": "Toont de activiteit die wordt opgenomen, met de bediening.",
       "name": "Opname"
     },
-    "recentTypes": "Recent"
+    "recentTypes": "Recent",
+    "caloriesMethod": "Geschat uit de gemiddelde hartslag met een sensor, bij een aangenomen leeftijd van {{age}}, anders uit de sport en de beweegtijd.",
+    "caloriesDefaultWeight": "Je profiel heeft geen gewicht, dus wordt {{weight}} kg aangenomen."
   },
   "routeDetail": {
     "routeNotFound": "Route niet gevonden"
@@ -1673,7 +1695,8 @@
     "correlationStrengthVeryStrong": "Zeer sterk",
     "correlationFasterWhenHigher": "Sneller bij een hogere waarde",
     "correlationFasterWhenLower": "Sneller bij een lagere waarde",
-    "correlationAttempts": "{{n}} pogingen",
+    "correlationAttempts_one": "{{count}} poging",
+    "correlationAttempts_other": "{{count}} pogingen",
     "correlationNotEnoughData": "te weinig gegevens, n {{n}}",
     "correlationNotEnoughDataOfFloor": "te weinig gegevens, n {{n}} van {{floor}}",
     "correlationCollapsed": "te weinig gegevens, grootste n {{n}} van {{floor}}",
@@ -1816,6 +1839,7 @@
     "exploreMapStyle": "Verkenkaart",
     "dialect": "Taalvariant",
     "disconnectAccount": "Account loskoppelen",
+    "leaveDemo": "Demo verlaten",
     "display": "Weergave",
     "largeHistoryConfirm": "Toch downloaden",
     "largeHistoryMessage_one": "Zo ver terug haalt tot ongeveer {{count}} activiteit op. Dat duurt even, en de app blijft met zoveel data niet gegarandeerd snel.",
@@ -2191,7 +2215,13 @@
     "metres": "m",
     "seconds": "s",
     "rpm": "rpm",
-    "spm": "spm"
+    "spm": "spm",
+    "hours": "h",
+    "hoursValue": "{{value}} h",
+    "minutesValue": "{{value}} min",
+    "secondsValue": "{{value}} s",
+    "hoursMinutes": "{{hours}} h {{minutes}} min",
+    "minutesSeconds": "{{minutes}} min {{seconds}} s"
   },
   "spoken": {
     "noValue": "geen waarde",
@@ -2287,7 +2317,8 @@
       "recutRunningPhase": "Je stukken worden opnieuw geanalyseerd: {{phase}}",
       "diffTotals": "{{current}} stukken werden er {{proposed}}.",
       "diffBreakdown": "{{new}} nieuw, {{changed}} gewijzigd, {{gone}} teruggetrokken.",
-      "diffUnchanged": "Alle {{sections}} stukken kwamen ongewijzigd uit de nieuwe analyse.",
+      "diffUnchanged_one": "Het {{count}} stuk kwam ongewijzigd uit de nieuwe analyse.",
+      "diffUnchanged_other": "Alle {{count}} stukken kwamen ongewijzigd uit de nieuwe analyse.",
       "recutFailed": "De nieuwe analyse is niet afgerond. Je secties zijn ongewijzigd en hij draait bij de volgende start opnieuw.",
       "recutFailedAfterApply": "Je secties zijn opnieuw geanalyseerd, maar het overzicht van de wijzigingen is niet opgeslagen. Het wordt bij de volgende start opnieuw geschreven.",
       "settingsReset": "Je instellingen voor sectiedetectie zijn teruggezet naar de gevalideerde waarden: {{changes}}. Sectiewijzigingen bekijken en dan Behouden zet de vorige terug.",
@@ -2369,7 +2400,6 @@
     "pairsInfoThresholds": "Status: in balans ≤ 1,35×, in de gaten houden tot 2×, onevenwichtig boven 2×.",
     "pairsInfoMinSignal": "Paren met minder dan 4 gewogen sets per kant worden overgeslagen.",
     "exercisesTargeting": "Oefeningen gericht op {{muscle}}",
-    "exerciseSets": "{{sets}} sets",
     "exerciseWorkoutCount_one": "{{count}} training",
     "exerciseWorkoutCount_other": "{{count}} trainingen",
     "totalVolume": "Totaal volume",
@@ -2721,8 +2751,8 @@
     }
   },
   "permissions": {
-    "locationWhenInUse": "Veloq gebruikt je locatie om activiteitenkaarten te tonen, routes te volgen en activiteiten op te nemen.",
-    "locationBackground": "Veloq gebruikt je locatie op de achtergrond om activiteiten te blijven opnemen wanneer de app niet op de voorgrond staat.",
+    "locationWhenInUse": "Veloq gebruikt je locatie om activiteiten op te nemen, op de kaart te tonen waar je bent en routes en secties bij jou in de buurt te sorteren. Je locatie blijft op deze telefoon, tenzij je een activiteit uploadt.",
+    "locationBackground": "Laat Veloq een activiteit opnemen die je start via Siri, het bedieningspaneel of een widget, zonder eerst de app te openen.",
     "bluetooth": "Veloq gebruikt Bluetooth om tijdens het opnemen verbinding te maken met hartslag-, vermogens- en cadanssensoren.",
     "camera": "Veloq gebruikt de camera om de QR-code van een Nextcloud-app-wachtwoord te scannen.",
     "microphone": "Veloq neemt geen geluid op. De camera wordt alleen gebruikt om QR-codes te scannen.",

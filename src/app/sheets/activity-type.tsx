@@ -137,7 +137,9 @@ function ActivityTypeSheetContent() {
               <Text style={[styles.label, { color: textPrimary }]}>
                 {t(`activityTypes.${item}`, item)}
               </Text>
-              {isSelected && <MaterialCommunityIcons name="check" size={20} color={brand.teal} />}
+              {isSelected ? (
+                <MaterialCommunityIcons name="check" size={20} color={brand.teal} />
+              ) : null}
             </Pressable>
           );
         }}

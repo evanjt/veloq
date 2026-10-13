@@ -249,9 +249,9 @@ export const SectionRow = memo(function SectionRow({
                 strokeLinejoin="round"
               />
 
-              {polylinePoints && (
+              {polylinePoints ? (
                 <TrackEndpointMarkers start={polylinePoints.start} end={polylinePoints.end} />
-              )}
+              ) : null}
             </Svg>
           ) : (
             <View style={[styles.previewPlaceholder, isDark && styles.previewPlaceholderDark]}>
@@ -271,15 +271,15 @@ export const SectionRow = memo(function SectionRow({
             <Text style={[styles.sectionName, isDark && styles.textLight]} numberOfLines={1}>
               {section.name}
             </Text>
-            {section.isUserDefined && section.sectionType === 'auto' && (
+            {section.isUserDefined && section.sectionType === 'auto' ? (
               <MaterialCommunityIcons
                 name="pin"
                 size={12}
                 color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 style={{ marginLeft: spacing.xs }}
               />
-            )}
-            {section.latestIsRecord && (
+            ) : null}
+            {section.latestIsRecord ? (
               // A View rather than the icon alone: the icon does not carry an
               // accessibility label through, and a trophy says nothing by itself.
               <View
@@ -290,7 +290,7 @@ export const SectionRow = memo(function SectionRow({
               >
                 <MaterialCommunityIcons name="trophy" size={12} color={brand.gold} />
               </View>
-            )}
+            ) : null}
             {section.trend != null && section.trend !== 0 && (
               <View
                 testID={`section-row-trend-${section.id}`}
@@ -324,7 +324,7 @@ export const SectionRow = memo(function SectionRow({
           </View>
           <View style={styles.metaRow}>
             <Text style={[styles.metaText, isDark && styles.textSecondary]}>{distanceText}</Text>
-            {elevation && (
+            {elevation ? (
               <View style={styles.gainChip}>
                 <MaterialCommunityIcons
                   name={elevation.direction === 'loss' ? 'arrow-bottom-right' : 'arrow-top-right'}
@@ -335,8 +335,8 @@ export const SectionRow = memo(function SectionRow({
                   {elevationText}
                 </Text>
               </View>
-            )}
-            {proximityText && (
+            ) : null}
+            {proximityText ? (
               <View style={styles.proximityTag}>
                 <MaterialCommunityIcons
                   name="map-marker-distance"
@@ -347,7 +347,7 @@ export const SectionRow = memo(function SectionRow({
                   {proximityText}
                 </Text>
               </View>
-            )}
+            ) : null}
             {section.sectionType === 'custom' && (
               <View style={[styles.customTag, isDark && styles.customTagDark]}>
                 <Text style={[styles.customTagText, isDark && styles.customTagTextDark]}>
@@ -355,7 +355,7 @@ export const SectionRow = memo(function SectionRow({
                 </Text>
               </View>
             )}
-            {isDisabled && (
+            {isDisabled ? (
               <View style={[styles.disabledTag, isDark && styles.disabledTagDark]}>
                 <MaterialCommunityIcons
                   name="eye-off"
@@ -366,7 +366,7 @@ export const SectionRow = memo(function SectionRow({
                   {t('sections.disabled')}
                 </Text>
               </View>
-            )}
+            ) : null}
           </View>
         </View>
 

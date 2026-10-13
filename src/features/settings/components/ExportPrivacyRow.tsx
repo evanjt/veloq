@@ -193,7 +193,7 @@ export function ExportPrivacyRow() {
         descriptionTestID="export-privacy-needs-home"
       />
 
-      {mapHome && (
+      {mapHome ? (
         <View style={styles.indented}>
           <HomeRadiusMap
             home={mapHome}
@@ -202,9 +202,9 @@ export function ExportPrivacyRow() {
             testID="export-privacy-map"
           />
         </View>
-      )}
+      ) : null}
 
-      {!confirmed && suggestion && (
+      {!confirmed && suggestion ? (
         <View style={[styles.indented, styles.suggestion]} testID="export-privacy-home">
           <Text style={[styles.hint, styles.suggestionText]}>
             {t('settings.exportPrivacySuggested', {
@@ -222,9 +222,9 @@ export function ExportPrivacyRow() {
             onPress={handleConfirm}
           />
         </View>
-      )}
+      ) : null}
 
-      {confirmed && preview && (
+      {confirmed && preview ? (
         <Text style={[styles.hint, styles.indented]} testID="export-privacy-count">
           {enabled
             ? t('settings.exportPrivacyCount', {
@@ -239,9 +239,9 @@ export function ExportPrivacyRow() {
                 'Nothing is trimmed. Exports carry the full track.'
               )}
         </Text>
-      )}
+      ) : null}
 
-      {confirmed && enabled && (
+      {confirmed && enabled ? (
         <View style={styles.indented} testID="export-privacy-radius">
           <ToggleButtonRow
             value={String(activeRadius)}
@@ -253,7 +253,7 @@ export function ExportPrivacyRow() {
             }))}
           />
         </View>
-      )}
+      ) : null}
 
       {!confirmed && !suggestion && (
         <Text style={[styles.hint, styles.indented]} testID="export-privacy-no-home">

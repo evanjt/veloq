@@ -11,7 +11,7 @@ use crate::{
     FfiWellnessSparklines, FfiWidgetSnapshotData, WidgetSummaryCardData, WidgetWellnessSummary,
 };
 
-fn rising_fitness() -> FfiWidgetSnapshotData {
+pub(super) fn rising_fitness() -> FfiWidgetSnapshotData {
     FfiWidgetSnapshotData {
         sparklines: Some(FfiWellnessSparklines {
             fitness: vec![40, 45, 52],
@@ -39,7 +39,7 @@ fn rising_fitness() -> FfiWidgetSnapshotData {
     }
 }
 
-fn context(strings: std::collections::BTreeMap<String, String>) -> WidgetContext {
+pub(super) fn context(strings: std::collections::BTreeMap<String, String>) -> WidgetContext {
     WidgetContext {
         locale: "en-GB".to_string(),
         is_metric: true,
@@ -54,7 +54,7 @@ fn context(strings: std::collections::BTreeMap<String, String>) -> WidgetContext
     }
 }
 
-fn clock() -> Clock {
+pub(super) fn clock() -> Clock {
     Clock {
         now_seconds: 1_800_000_000,
         now_wall_seconds: 1_800_000_000,

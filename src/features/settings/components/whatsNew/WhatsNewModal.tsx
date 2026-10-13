@@ -41,6 +41,7 @@ import {
   tourFooterLayout,
   tourSlideAreaHeight,
 } from '../../lib/tourSlideFit';
+import { tourPageOffset } from '../../lib/tourPageOffset';
 import { tourResumeMotion } from '../../lib/tourResume';
 import {
   getAllSlides,
@@ -184,13 +185,18 @@ export function WhatsNewModal() {
   const placeSlide = useCallback(
     (index: number, animate: boolean) => {
       activeIndex.value = index;
-      translateX.value = animate
-        ? withTiming(-contentWidth * index, TIMING_CONFIG)
-        : -contentWidth * index;
+      const offset = tourPageOffset(index, contentWidth);
+      translateX.value = animate ? withTiming(offset, TIMING_CONFIG) : offset;
       setCurrentIndex(index);
     },
     [translateX, activeIndex, contentWidth]
   );
+
+  // A fold, split screen or rotation resizes the card at once, so the row moves with it
+  // or the card shows parts of two slides.
+  useEffect(() => {
+    translateX.value = tourPageOffset(activeIndex.value, contentWidth);
+  }, [contentWidth, translateX, activeIndex]);
 
   const dismiss = useCallback(() => {
     dismissTour(currentVersion);
@@ -286,16 +292,16 @@ export function WhatsNewModal() {
         .activeOffsetX([-10, 10])
         .onUpdate((event) => {
           'worklet';
-          const currentOffset = -contentWidth * activeIndex.value;
+          const currentOffset = tourPageOffset(activeIndex.value, contentWidth);
           let newX = currentOffset + event.translationX;
-          const maxOffset = -contentWidth * (slideCount - 1);
+          const maxOffset = tourPageOffset(slideCount - 1, contentWidth);
           newX = Math.max(maxOffset, Math.min(0, newX));
           translateX.value = newX;
         })
         .onEnd((event) => {
           'worklet';
           const velocity = event.velocityX;
-          const currentOffset = -contentWidth * activeIndex.value;
+          const currentOffset = tourPageOffset(activeIndex.value, contentWidth);
           const distance = translateX.value - currentOffset;
 
           let targetIndex = activeIndex.value;
@@ -308,7 +314,7 @@ export function WhatsNewModal() {
           }
 
           activeIndex.value = targetIndex;
-          translateX.value = withTiming(-contentWidth * targetIndex, TIMING_CONFIG);
+          translateX.value = withTiming(tourPageOffset(targetIndex, contentWidth), TIMING_CONFIG);
           runOnJS(setCurrentIndex)(targetIndex);
         }),
     [translateX, activeIndex, slideCount, contentWidth, swipeThreshold]
@@ -361,6 +367,7 @@ export function WhatsNewModal() {
           <GestureDetector gesture={panGesture}>
             <View style={[styles.slideArea, { maxHeight: slideAreaHeight }]}>
               <Animated.View
+                testID="whats-new-slide-row"
                 style={[styles.slideRow, { width: contentWidth * slideCount }, contentStyle]}
               >
                 {slides.map((slide, index) => (
@@ -371,7 +378,7 @@ export function WhatsNewModal() {
                       body={t(slide.bodyKey as never)}
                       availableHeight={slideAreaHeight}
                     >
-                      {slide.Component && <slide.Component />}
+                      {slide.Component ? <slide.Component /> : null}
                     </WhatsNewSlide>
                   </View>
                 ))}
@@ -386,7 +393,7 @@ export function WhatsNewModal() {
           >
             {/* Mode toggle + dot indicators */}
             <View style={styles.indicators}>
-              {canToggleMode && (
+              {canToggleMode ? (
                 <Button
                   label={
                     tourState?.mode === 'tutorial'
@@ -397,7 +404,7 @@ export function WhatsNewModal() {
                   variant="secondary"
                   size="sm"
                 />
-              )}
+              ) : null}
               <View
                 style={styles.dots}
                 accessible
@@ -573,7 +580,7 @@ function NavigationButtons({
         setRowWidth(Math.max(0, event.nativeEvent.layout.width - NAV_HORIZONTAL_PADDING * 2))
       }
     >
-      {stacked && <View testID="whats-new-show-me-row">{showMeSlot}</View>}
+      {stacked ? <View testID="whats-new-show-me-row">{showMeSlot}</View> : null}
       <View testID="whats-new-nav-row" style={styles.navRow}>
         {skipSlot}
         {!stacked && showMeSlot}

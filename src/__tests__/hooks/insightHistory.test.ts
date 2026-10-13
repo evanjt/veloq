@@ -415,7 +415,7 @@ describe('the scale a card graphic prints', () => {
       t
     );
     expect(byTime.supportingData?.history).toMatchObject({
-      scale: { top: '2h', bottom: '0m' },
+      scale: { top: '2 h', bottom: '0 s' },
     });
   });
 

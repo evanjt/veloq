@@ -158,7 +158,7 @@ export const StrengthProgressionCard = React.memo(function StrengthProgressionCa
               </Text>
             </View>
           )}
-          {exerciseSummary && exerciseSummary.exercises.length > 0 && (
+          {exerciseSummary && exerciseSummary.exercises.length > 0 ? (
             <View style={styles.stat}>
               <Text style={[styles.statValue, isDark && styles.statValueDark]}>
                 {exerciseSummary.exercises.length}
@@ -169,7 +169,7 @@ export const StrengthProgressionCard = React.memo(function StrengthProgressionCa
                   : t('strength.exercises')}
               </Text>
             </View>
-          )}
+          ) : null}
           {periodLabel ? (
             <Text style={[styles.periodHint, isDark && styles.periodHintDark]}>
               {`(${periodLabel})`}

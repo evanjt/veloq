@@ -15,7 +15,11 @@ import { recordAppMetric } from '@/shared/debug/renderTimer';
 
 /** Time-range change to the first frame showing the section list for the new range. */
 export const FLOW_EXPAND = 'flow.expand';
-/** One new activity delivered by sync to the first frame showing its applied sections. */
+/**
+ * One activity's track stored by the engine, by whichever path, to the first
+ * frame showing its applied sections. A run that stores several times only the
+ * last of them.
+ */
 export const FLOW_ADD_ONE = 'flow.addOne';
 /** Press on a section row to the first frame with the visit list rendered. */
 export const FLOW_SECTION_OPEN = 'flow.sectionOpen';
@@ -32,6 +36,17 @@ export function completeFlow(name: string, now: number = performance.now()): voi
   marks.delete(name);
   if (now < startedAt) return;
   recordAppMetric(name, now - startedAt);
+}
+
+/**
+ * Mark the add-one flow on every track the engine announces it stored. The
+ * engine is the one place a track enters the library: the sync's download and
+ * the streams the engine pulls for itself both announce through it.
+ */
+export function markAddOneOnTrackStored(engine: {
+  subscribe(event: string, callback: () => void): () => void;
+}): () => void {
+  return engine.subscribe('gpsTrackStored', () => markFlow(FLOW_ADD_ONE));
 }
 
 /** Complete at the frame after the commit that is running now. */

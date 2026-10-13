@@ -75,7 +75,6 @@ jest.mock('@/features/routes/components/SectionsList', () => ({ SectionsList: ()
 jest.mock('@/features/routes/components/DateRangeSummary', () => ({
   DateRangeSummary: () => null,
 }));
-jest.mock('@/features/routes/components/SyncDebugTab', () => ({ SyncDebugTab: () => null }));
 jest.mock('@/features/routes/hooks/useCustomSections', () => ({
   useSectionCommands: () => ({ removeSection: jest.fn() }),
 }));
@@ -141,6 +140,19 @@ describe('the Insights screen', () => {
 
     expect(pairs()).toEqual(mockStrip.tabs.map((tab) => [tab.key, tab.key]));
     expect(mockStrip.pages).toHaveLength(mockStrip.tabs.length);
+  });
+
+  it('keeps developer tools out of the tab bar with debug mode on', async () => {
+    Object.assign(mockFlags, { strength: 'shown', routeMatching: true, debug: true });
+
+    await render(<InsightsScreen />);
+
+    expect(mockStrip.tabs.map((tab) => tab.key)).toEqual([
+      'insights',
+      'strength',
+      'routes',
+      'sections',
+    ]);
   });
 
   it('offers no Routes or Sections tab and shows the disabled hint with route matching off', async () => {

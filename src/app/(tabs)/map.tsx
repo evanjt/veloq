@@ -19,6 +19,7 @@ import {
   DEFAULT_MAP_PERIOD,
   filterSheetExpandedAfterDrag,
   getPeriodStart,
+  MapEmptyState,
   MapNameSearch,
   type MapPeriod,
   PERIOD_OPTIONS,
@@ -194,6 +195,7 @@ function MapScreenContent() {
     sectionCount,
     sections,
     sectionsGeoJSON,
+    emptyReason,
     isError: isMapReadError,
     error: mapReadError,
     refetch: refetchMapRead,
@@ -270,6 +272,12 @@ function MapScreenContent() {
       t(`maps.activityTypes.${ACTIVITY_CATEGORIES[category]?.labelKey ?? 'other'}` as never)
     ),
   ];
+
+  const clearFilters = () => {
+    setSelectedCategories(new Set());
+    setDistanceFilter(MapDistanceBand.All);
+    changeNeedle('');
+  };
 
   const toggleCategory = (category: string) => {
     setSelectedCategories((previous) => {
@@ -348,6 +356,16 @@ function MapScreenContent() {
         <AttributionOverlay ref={attributionRef} initialAttribution="" isDark={isDarkBasemap} />
       </View>
 
+      {emptyReason && !isMapReadError ? (
+        <MapEmptyState
+          reason={emptyReason}
+          allTime={period === DEFAULT_MAP_PERIOD}
+          onShowAllTime={() => setPeriod(DEFAULT_MAP_PERIOD)}
+          onExpandRange={() => tapTo('/sync-settings')}
+          onClearFilters={clearFilters}
+        />
+      ) : null}
+
       {/* Filter sheet: lowered it shows the period chips, raised every filter */}
       <GestureDetector gesture={sheetDrag}>
         <Animated.View
@@ -377,7 +395,7 @@ function MapScreenContent() {
 
           {mapReadFailure}
 
-          {sheetExpanded && (
+          {sheetExpanded ? (
             <Animated.View
               entering={FadeIn.duration(SHEET_FADE_MS)}
               exiting={FadeOut.duration(SHEET_FADE_MS)}
@@ -391,7 +409,7 @@ function MapScreenContent() {
                 onChoose={chooseResult}
               />
             </Animated.View>
-          )}
+          ) : null}
 
           {/* Time period chips */}
           <FilterChipRow
@@ -403,7 +421,7 @@ function MapScreenContent() {
             onSelect={setPeriod}
           />
 
-          {sheetExpanded && (
+          {sheetExpanded ? (
             <Animated.View
               entering={FadeIn.duration(SHEET_FADE_MS)}
               exiting={FadeOut.duration(SHEET_FADE_MS)}
@@ -425,26 +443,26 @@ function MapScreenContent() {
                 selected={selectedCategories}
                 onToggle={toggleCategory}
               />
-
-              {/* Activity count and date range */}
-              <View style={styles.infoRow}>
-                <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-                  {t('mapScreen.activitySummary', {
-                    count: totalCount,
-                    mapped: displayActivities.length,
-                    defaultValue: '{{count}} activities · {{mapped}} on the map',
-                  })}
-                  {dateRangeLabel ? ` · ${dateRangeLabel}` : ''}
-                </Text>
-                <Button
-                  label={t('mapScreen.expandRange', 'Expand range')}
-                  variant="ghost"
-                  size="sm"
-                  onPress={() => tapTo('/sync-settings')}
-                />
-              </View>
             </Animated.View>
-          )}
+          ) : null}
+
+          {/* Activity count and date range, in either position of the sheet */}
+          <View style={styles.infoRow}>
+            <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
+              {t('mapScreen.activitySummary', {
+                count: totalCount,
+                mapped: displayActivities.length,
+                defaultValue: '{{count}} activities · {{mapped}} on the map',
+              })}
+              {dateRangeLabel ? ` · ${dateRangeLabel}` : ''}
+            </Text>
+            <Button
+              label={t('mapScreen.expandRange', 'Expand range')}
+              variant="ghost"
+              size="sm"
+              onPress={() => tapTo('/sync-settings')}
+            />
+          </View>
         </Animated.View>
       </GestureDetector>
     </View>

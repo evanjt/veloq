@@ -84,8 +84,24 @@ describe('insight card captions', () => {
     );
 
     expect(card.subtitle).toBe(
-      'insights.caption.lastWeekAgainstAverage:{"current":"2h","previous":"6h"}'
+      'insights.caption.lastWeekAgainstAverage:{"current":"2 h","previous":"6 h"}'
     );
+  });
+
+  it('writes summed week time as hours and minutes in both the body and the caption', () => {
+    const [card] = generatePeriodComparisonInsights(
+      stats(0, 23_400),
+      stats(0, 18_000),
+      stats(0, 72_000),
+      [],
+      { metric: 'duration', current: 23_400, previous: 18_000, ratio: 0.3, comparedStart: 0 },
+      null,
+      NOW,
+      t
+    );
+
+    expect(card.body).toContain('"current":"6 h 30 min","previous":"5 h"');
+    expect(card.subtitle).toContain('"current":"6 h 30 min"');
   });
 
   it('states the eFTP against the one it was compared with', () => {

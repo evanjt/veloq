@@ -2,10 +2,11 @@ import { ABSENT } from '@/shared/format/absent';
 import { formatWeight } from '@/shared/format/weight';
 
 import type { StrengthBalancePair, StrengthBalanceStatus } from '../types';
+import { formatDecimal } from '@/shared/format';
 
 /** Format a set count: integers stay integer, fractions get one decimal. */
 export function formatSetCount(sets: number): string {
-  return sets % 1 === 0 ? sets.toFixed(0) : sets.toFixed(1);
+  return formatDecimal(sets, sets % 1 === 0 ? 0 : 1);
 }
 
 /**
@@ -40,7 +41,7 @@ export function formatBalanceRatio(pair: StrengthBalancePair, t: TFunc): string 
   if (pair.ratio == null || !Number.isFinite(pair.ratio)) {
     return t('insights.strengthBalance.noSignal');
   }
-  return `${pair.ratio.toFixed(pair.ratio >= 10 ? 0 : 1)}x`;
+  return `${formatDecimal(pair.ratio, pair.ratio >= 10 ? 0 : 1)}x`;
 }
 
 const BALANCE_STATUS_LABEL_KEYS = {

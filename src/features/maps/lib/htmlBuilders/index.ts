@@ -29,10 +29,10 @@ export {
 } from './mapSurface';
 export type {
   MapCameraSpec,
+  MapGeoJSONData,
   MapGeoJSONSourceSpec,
   MapImageSpec,
   MapLayerSpec,
-  MapMarkerSpec,
   MapPadding,
   MapRasterSourceSpec,
   MapSourceSpec,

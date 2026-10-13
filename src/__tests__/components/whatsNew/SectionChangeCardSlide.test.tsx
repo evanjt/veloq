@@ -106,7 +106,7 @@ describe('SectionChangeCardSlide', () => {
         await render(<SectionChangeCardSlide />)
       ).getByTestId('change-card-counts');
       expect(line).toHaveTextContent(/diffUnchanged/);
-      expect(line).toHaveTextContent(/"sections":40/);
+      expect(line).toHaveTextContent(/"count":40/);
     });
 
     it('shows neither progress nor counts when there is no stored diff', async () => {

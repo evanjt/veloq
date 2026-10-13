@@ -1,4 +1,5 @@
 import ExpoModulesCore
+import UIKit
 import WidgetKit
 
 /// Tells Siri the athlete's sport set may have changed, so a spoken sport name
@@ -33,6 +34,16 @@ public final class VeloqWidgetModule: Module {
 
     Function("reloadWidgets") {
       WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    /// The recent sports as Home Screen quick actions, from the list Android
+    /// publishes as launcher shortcuts. An empty list clears them rather than
+    /// leaving a stale sport behind.
+    Function("publishRecordShortcuts") { (shortcuts: [[String: String]]) in
+      let items = RecordQuickActions.items(shortcuts)
+      DispatchQueue.main.async {
+        UIApplication.shared.shortcutItems = items
+      }
     }
   }
 }

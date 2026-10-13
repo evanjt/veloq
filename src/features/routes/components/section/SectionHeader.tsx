@@ -135,7 +135,7 @@ export function SectionHeader({
               ) : undefined
             }
           />
-          {section.isLift && (
+          {section.isLift ? (
             <Pressable
               style={pressable(styles.liftBadge)}
               testID="section-lift-badge"
@@ -148,16 +148,16 @@ export function SectionHeader({
             >
               <MaterialCommunityIcons name="gondola" size={12} color={colors.textOnDark} />
               <Text style={styles.liftBadgeText}>{t('sections.liftGround')}</Text>
-              {onUnflagLift && (
+              {onUnflagLift ? (
                 <MaterialCommunityIcons
                   name="close"
                   size={12}
                   color={colors.textOnDark}
                   testID="section-lift-unflag"
                 />
-              )}
+              ) : null}
             </Pressable>
-          )}
+          ) : null}
           <HeroStatsRow testID="section-detail-stats" stats={stats} />
         </>
       }

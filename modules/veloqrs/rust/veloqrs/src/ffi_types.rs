@@ -2125,6 +2125,9 @@ pub struct FfiActivityBodiesQuery {
 pub struct FfiActivityBodiesPage {
     /// Untyped intervals.icu activity payloads.
     pub bodies: Vec<String>,
+    /// The intervals.icu id a web link may name for each body, in the same
+    /// order. None for a demo row and for a recording no server has named.
+    pub intervals_ids: Vec<Option<String>>,
     /// Every stored activity the query matched, not only this page.
     pub matched_count: u32,
     pub has_more: bool,
@@ -2570,6 +2573,10 @@ pub struct FfiActivityDetailData {
     pub fitness_impact: Option<FfiActivityFitnessImpact>,
     /// Total activities held by the engine
     pub activity_count: u32,
+    /// Whether the engine holds this activity's track. The map then draws the
+    /// line from the engine's `veloq-geo` URL rather than receiving it as text;
+    /// without one it is sent inline from the streams.
+    pub has_gps_track: bool,
     /// Total sections held by the engine
     pub section_count: u32,
     /// The route group this activity belongs to, if it meets the caller's
@@ -2618,6 +2625,9 @@ pub struct FfiActivityDetailData {
     pub power_zones: Vec<FfiPowerZoneBand>,
     /// Section changes whose ledger rows name this activity, newest first.
     pub ledger_changes: Vec<FfiActivityLedgerChange>,
+    /// The intervals.icu id a web link may name. None for a demo row and for
+    /// a recording no server has named, which have no page there.
+    pub intervals_id: Option<String>,
 }
 
 /// The summary intervals.icu stored with an activity. Each field is `None`
@@ -3307,6 +3317,26 @@ pub struct FfiMapScreenData {
     pub section_count: u32,
     /// The section overlay, present only while the layer is requested
     pub sections: Option<FfiMapSectionLayer>,
+    /// Why the map draws no activity, from the date window's own counts.
+    /// `None` while `activities` holds one.
+    pub empty_reason: Option<FfiMapEmptyReason>,
+}
+
+/// Why the map draws no activity, so the tab names its cause rather than
+/// showing a bare basemap.
+#[derive(Debug, Clone, PartialEq, uniffi::Enum)]
+pub enum FfiMapEmptyReason {
+    /// No activity falls inside the date window.
+    NoActivities,
+    /// The window holds tracks and the sport, distance or name filters leave
+    /// none of them. `mapped` is the window's tracks before those filters.
+    Filtered { mapped: u32 },
+    /// The window's activities have no stored track yet, and `pending` of them
+    /// have one upstream that the GPS download has still to fetch.
+    TracksPending { activities: u32, pending: u32 },
+    /// The window's activities have no track and none is owed: trainer, pool
+    /// or strength sessions, or tracks the download gave up on.
+    NoGps { activities: u32 },
 }
 
 /// The route-line layer the map draws, with the generation it was built from
@@ -3346,6 +3376,9 @@ pub struct FfiRouteLine {
     pub name: String,
     /// The activities in the route
     pub activity_count: u32,
+    /// The representative's distance in metres, the figure the route list
+    /// shows, read when the map is
+    pub distance_meters: f64,
     /// The representative's signature in `codec::encode_polyline` form
     pub polyline: Vec<u8>,
 }

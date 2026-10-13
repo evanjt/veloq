@@ -58,7 +58,10 @@ describe('timeAppWork', () => {
 
 describe('the decoding after an engine read', () => {
   it('times parsing the stored activity bodies', () => {
-    const parsed = parseBodies(['{"id":"i1"}', 'not json', '{"id":"i2"}']);
+    const parsed = parseBodies({
+      bodies: ['{"id":"i1"}', 'not json', '{"id":"i2"}'],
+      intervalsIds: [],
+    });
     expect(parsed.map((activity) => activity.id)).toEqual(['i1', 'i2']);
     expect(rows(DECODE_ACTIVITY_BODIES)).toHaveLength(1);
   });
@@ -79,7 +82,7 @@ describe('the decoding after an engine read', () => {
 
   it('records no decoding row while Debug Mode is off', () => {
     setAppMetricsEnabled(false);
-    parseBodies(['{"id":"i1"}']);
+    parseBodies({ bodies: ['{"id":"i1"}'], intervalsIds: [] });
     streamsFromBuffers(streamBuffers({ time: [0] }));
     expect(getFFIMetrics()).toEqual([]);
   });

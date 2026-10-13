@@ -53,7 +53,6 @@ struct ReadCache {
     /// Weighed by curve bytes, since one long route's curves outweigh a
     /// screenful of performance results.
     lap_curves: Mutex<LapCurveSlot>,
-    sections: Mutex<LruCache<String, Arc<tracematch::FrequentSection>>>,
     /// The corridors an athlete named, resolved onto the catalogue: the name
     /// per section and the corridor listing. One value for the whole library,
     /// and every pooled read that names a section or lists corridors wants
@@ -175,9 +174,6 @@ static READ_CACHE: LazyLock<ReadCache> = LazyLock::new(|| ReadCache {
         NonZeroUsize::new(PERFORMANCE_CAPACITY).expect("a cache with no room is a bug"),
     )),
     lap_curves: Mutex::new(LapCurveSlot::new()),
-    sections: Mutex::new(LruCache::new(
-        NonZeroUsize::new(32).expect("a cache with no room is a bug"),
-    )),
     named_overlay: Mutex::new(None),
     split_lineage: Mutex::new(None),
     map_sections: Mutex::new(None),
@@ -210,7 +206,6 @@ pub(crate) fn clear() {
     lock(&READ_CACHE.signatures).clear();
     lock(&READ_CACHE.performances).clear();
     lock(&READ_CACHE.lap_curves).clear();
-    lock(&READ_CACHE.sections).clear();
     *lock(&READ_CACHE.named_overlay) = None;
     *lock(&READ_CACHE.split_lineage) = None;
     *lock(&READ_CACHE.map_sections) = None;
@@ -391,33 +386,6 @@ fn cached_by_key<V>(
         cache.put(key.to_string(), Arc::clone(&value));
     }
     value
-}
-
-/// One raw section, cached until the database moves. Names are overlaid only
-/// after this read so a rename never bakes an old name into the value.
-pub fn section(
-    conn: &Connection,
-    section_id: &str,
-    fill: impl FnOnce() -> Option<tracematch::FrequentSection>,
-) -> Option<Arc<tracematch::FrequentSection>> {
-    if !serves(conn) {
-        return fill().map(Arc::new);
-    }
-    let generation = cache_generation()?;
-    {
-        let mut cache = lock(&READ_CACHE.sections);
-        if generation_current(generation)
-            && let Some(hit) = cache.get(section_id)
-        {
-            return Some(Arc::clone(hit));
-        }
-    }
-    let value = Arc::new(fill()?);
-    let mut cache = lock(&READ_CACHE.sections);
-    if generation_current(generation) {
-        cache.put(section_id.to_string(), Arc::clone(&value));
-    }
-    Some(value)
 }
 
 /// The resolved corridor overlay, cached until the database moves.

@@ -1,7 +1,8 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
+import { INTERVALS_URLS } from '@/shared/app/constants';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { openExternal } from '@/shared/app/openExternal';
@@ -12,7 +13,7 @@ import {
   GITHUB_SPONSORS_URL,
   openForum,
   openStorePage,
-  shareCrashLog,
+  offerCrashLog,
 } from '@/shared/app/supportLinks';
 import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
 import { Button, ExternalLinkRow, ListSectionHeader, pressable, pressRipple } from '@/shared/ui';
@@ -22,7 +23,8 @@ export function SupportSection() {
   const { t } = useTranslation();
   const { products, isAvailable, isPurchasing, purchaseSuccess, purchase } = useDonation();
 
-  const handleShareCrashLog = useCallback(() => shareCrashLog(t), [t]);
+  const crashLogAnchor = useRef<View>(null);
+  const handleShareCrashLog = useCallback(() => offerCrashLog(t, crashLogAnchor), [t]);
 
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -104,10 +106,7 @@ export function SupportSection() {
         {/* intervals.icu row */}
         {/* The card's own padding is the row's inset, so the row runs to its edges. */}
         <View style={styles.bleed}>
-          <ExternalLinkRow
-            url="https://intervals.icu/settings/subscription"
-            label={t('settings.subscribe')}
-          >
+          <ExternalLinkRow url={INTERVALS_URLS.subscription} label={t('settings.subscribe')}>
             <MaterialCommunityIcons name="heart" size={20} color={colors.chartPink} />
             <View style={styles.rowTextGroup}>
               <Text style={[styles.rowText, { color: textColor }]}>intervals.icu</Text>
@@ -121,6 +120,7 @@ export function SupportSection() {
         <View style={[styles.divider, { backgroundColor: dividerColor }]} />
 
         <Pressable
+          ref={crashLogAnchor}
           accessibilityRole="button"
           accessibilityLabel={t('support.shareCrashLog')}
           testID="support-crash-log"

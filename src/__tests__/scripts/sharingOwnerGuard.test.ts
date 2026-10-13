@@ -49,6 +49,25 @@ it.each([
   expect(result.output).toContain('src/features/kayak/shareLog.ts:2');
 });
 
+it.each([
+  "import { Share } from 'react-native';\nvoid Share.share({ message: 'x' });",
+  "import { Share as Sheet } from 'react-native';\nvoid Sheet.share({ message: 'x' });",
+  "import * as RN from 'react-native';\nvoid RN.Share.share({ message: 'x' });",
+])('refuses a text share outside the helper: %s', (source) => {
+  const result = check({ ...helper, 'src/features/kayak/Card.tsx': `${source}\n` });
+  expect(result.failed).toBe(true);
+  expect(result.output).toContain('src/features/kayak/Card.tsx:2');
+});
+
+it('passes a share method on something that is not the sheet', () => {
+  const result = check({
+    ...helper,
+    'src/features/kayak/Card.tsx':
+      "import { Share } from 'react-native';\nexport const x = Share;\nconst api = { share: () => 1 };\napi.share();\n",
+  });
+  expect(result.failed).toBe(false);
+});
+
 it('passes a test file and a string mention', () => {
   const result = check({
     ...helper,

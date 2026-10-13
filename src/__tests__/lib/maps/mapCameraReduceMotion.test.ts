@@ -175,7 +175,6 @@ function surfaceConfig(reduceMotion: boolean): MapSurfaceHtmlConfig {
     interaction: { scroll: true, zoom: true, rotate: true, pitch: false },
     devicePixelRatio: 2,
     regionChangeThrottleMs: 100,
-    longPressMs: 500,
     reduceMotion,
   };
 }

@@ -301,7 +301,7 @@ describe('the export privacy row', () => {
 
     expect(tree.getByTestId('export-privacy-radius-100-label')).toHaveTextContent('328 ft');
     expect(tree.getByTestId('export-privacy-radius-250-label')).toHaveTextContent('820 ft');
-    expect(tree.getByTestId('export-privacy-radius-500-label')).toHaveTextContent('1640 ft');
+    expect(tree.getByTestId('export-privacy-radius-500-label')).toHaveTextContent('1,640 ft');
     expect(tree.getByTestId('export-privacy-count').props.children).toContain('"radius":"328 ft"');
     expect(await describedRadius(tree)).toContain('"radius":"328 ft"');
     // What is stored stays in metres: the unit is how it reads, not what it is.

@@ -18,7 +18,7 @@ import type { Explanation, ExplanationRow } from '@/shared/ui/ExplanationCard';
 import type { InsightCategory } from '../types';
 
 /** The sub-tabs the header sits above. */
-export type InsightsTab = 'insights' | 'strength' | 'routes' | 'sections' | 'debug';
+export type InsightsTab = 'insights' | 'strength' | 'routes' | 'sections';
 
 export function aboutInsightsBody(t: TFunction, tab: InsightsTab): string {
   const body = t('insights.aboutBody') as string;

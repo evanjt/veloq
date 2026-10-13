@@ -2,6 +2,7 @@ import {
   advance,
   expandPlan,
   followablePlan,
+  formatLineDuration,
   planText,
   remainingSeconds,
   startFollow,
@@ -68,6 +69,19 @@ describe('planText', () => {
   it('joins the lines with their durations, one per line', () => {
     const lines = expandPlan([{ text: 'Squats', duration: 90 }, { text: 'Press' }]);
     expect(planText(lines)).toBe('Squats 1m30s\nPress');
+  });
+});
+
+describe('formatLineDuration', () => {
+  it('writes the on-screen duration in the locale units, minutes as min', () => {
+    expect(formatLineDuration(90)).toBe('1 min 30 s');
+    expect(formatLineDuration(45)).toBe('45 s');
+    expect(formatLineDuration(300)).toBe('5 min');
+  });
+
+  it('leaves the uploaded description in the workout syntax', () => {
+    const lines = expandPlan([{ text: 'Rows', duration: 300 }]);
+    expect(planText(lines)).toBe('Rows 5m');
   });
 });
 

@@ -109,7 +109,8 @@ export const sectionPalette = [
 ] as const;
 
 // A separate warm/purple family so routes stay visually distinct from sections
-// even when overlapping on the same map. A route takes the next colour in order.
+// even when overlapping on the same map. Like sections, a route's colour is a
+// hash of its id, so a regroup that reorders the routes leaves each its colour.
 export const routePalette = [
   '#7C4DFF',
   '#AA00FF',
@@ -121,13 +122,21 @@ export const routePalette = [
   '#CE93D8',
 ] as const;
 
-export function sectionPaletteIndex(sectionId: string): number {
+function idHash(id: string): number {
   let hash = 0;
-  for (let i = 0; i < sectionId.length; i++) {
-    hash = (hash << 5) - hash + sectionId.charCodeAt(i);
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash << 5) - hash + id.charCodeAt(i);
     hash |= 0;
   }
-  return Math.abs(hash) % sectionPalette.length;
+  return Math.abs(hash);
+}
+
+export function sectionPaletteIndex(sectionId: string): number {
+  return idHash(sectionId) % sectionPalette.length;
+}
+
+export function routePaletteIndex(routeId: string): number {
+  return idHash(routeId) % routePalette.length;
 }
 
 // MapLibre expression builder: maps the `colorIndex` feature property to a

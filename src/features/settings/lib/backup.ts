@@ -5,7 +5,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { getEngine, getNativeModule, isEngineReady } from '@/shared/native/engine';
 import { formatLocalDate } from '@/shared/format/format';
 import { exportFileUri, restoreCopyUri } from '@/shared/storage/cacheFiles';
-import { shareExistingFile } from '@/features/settings/lib/shareFile';
+import { shareExistingFile, type ShareAnchor } from '@/features/settings/lib/shareFile';
 import { inBackupSlot } from '@/features/settings/lib/backupSlot';
 import { withAwakeDeadline } from '@/shared/async/awakeDeadline';
 import { sweepBackupFiles } from './backupCache';
@@ -77,8 +77,8 @@ async function writeRecordArchive(
  * foreground ceiling. Past it this answers `still-running` and the file is
  * offered by `resumePendingRecordExport` once the write has ended.
  */
-export async function exportRecordBackup(): Promise<RecordExportOutcome> {
-  if (pendingExport) return resumePendingRecordExport();
+export async function exportRecordBackup(anchor?: ShareAnchor): Promise<RecordExportOutcome> {
+  if (pendingExport) return resumePendingRecordExport(anchor);
   const engine = getEngine();
   if (!engine) throw new Error('Engine not initialised');
 
@@ -93,7 +93,7 @@ export async function exportRecordBackup(): Promise<RecordExportOutcome> {
     // under the open sheet. A lapsed export is shared by its reader later.
     if (lapsed) return;
     sharing = true;
-    await shareExistingFile(uri, 'application/zip');
+    await shareExistingFile(uri, 'zip', { anchor });
   }).then(
     () => {
       settled = true;
@@ -147,14 +147,16 @@ export function pendingRecordExportSettled(): Promise<void> {
  * A write still going stays owed. One that ended is taken before anything else,
  * so only the first reader shares it or reports its failure.
  */
-export async function resumePendingRecordExport(): Promise<RecordExportOutcome> {
+export async function resumePendingRecordExport(
+  anchor?: ShareAnchor
+): Promise<RecordExportOutcome> {
   const owed = pendingExport;
   if (!owed) return 'nothing-pending';
   if (!owed.settled()) return 'still-running';
   pendingExport = null;
   const failure = owed.failure();
   if (failure) throw failure;
-  await shareExistingFile(owed.uri, 'application/zip');
+  await shareExistingFile(owed.uri, 'zip', { anchor });
   return 'complete';
 }
 
@@ -451,6 +453,8 @@ const LEGACY_BACKUP_VERSION = 2;
  * 'veloq-push-token-refreshed-at' (device-local refresh throttle; restoring a
  * stale timestamp could suppress a needed re-registration for a day). A
  * stale timestamp must not move to another install.
+ * 'veloq-upload-permission' is the scope of this install's OAuth token, which
+ * only the server that granted it can state, so a restore keeps the one here.
  * Also excluded because nothing reads them any more: 'veloq-section-dismissals',
  * 'veloq-geocoded-route-ids' and 'veloq-geocoded-section-ids'.
  * 'veloq-disabled-sections' and 'veloq-superseded-sections' are not settings
@@ -475,7 +479,6 @@ const LEGACY_PREFERENCE_KEYS = [
   'veloq-recording-preferences',
   'veloq-known-sensors',
   'veloq-notification-preferences',
-  'veloq-upload-permission',
   'veloq-support-store',
 ] as const;
 

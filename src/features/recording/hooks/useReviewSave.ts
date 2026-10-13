@@ -21,7 +21,9 @@ import {
 } from '@/features/recording/lib/storage/recordingLibrary';
 import { writeProvisionalActivity } from '@/features/recording/lib/storage/provisionalActivity';
 import { uploadRecordingNow } from '@/features/recording/lib/upload/intervalsUploads';
+import { informShareFailed } from '@/shared/ui/shareFailure';
 import { shareRecordingFit } from '@/features/recording/lib/shareRecordingFit';
+import type { ShareAnchor } from '@/features/settings/light';
 import { engineErrorKey } from '@/shared/native/engineError';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
@@ -94,7 +96,7 @@ export interface UseReviewSave {
    */
   keptRecording: RecordingLibraryEntry | null;
   /** Opens the share sheet on the refused ride's FIT file. */
-  shareKeptRecording: () => Promise<void>;
+  shareKeptRecording: (anchor?: ShareAnchor) => Promise<void>;
   /**
    * True when the last save did not land and the device is short of space, so
    * the error offers a way to free some beside Retry.
@@ -554,9 +556,17 @@ export function useReviewSave({
     }
   }, [upgradePermissions, handleSave]);
 
-  const shareKeptRecording = useCallback(async () => {
-    if (keptRecording) await shareRecordingFit(keptRecording, t);
-  }, [keptRecording, t]);
+  const shareKeptRecording = useCallback(
+    async (anchor?: ShareAnchor) => {
+      if (!keptRecording) return;
+      try {
+        await shareRecordingFit(keptRecording, anchor);
+      } catch (error) {
+        informShareFailed(error, t);
+      }
+    },
+    [keptRecording, t]
+  );
 
   return {
     handleSave,

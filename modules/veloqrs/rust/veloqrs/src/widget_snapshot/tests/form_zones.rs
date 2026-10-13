@@ -141,3 +141,82 @@ fn the_form_change_stays_absolute_when_the_flag_is_off() {
     assert_eq!(m.text.as_deref(), Some("-8"));
     assert_eq!(m.delta_vs_yesterday, Some(-4.0));
 }
+
+// The zone and the text the engine gives form across every band edge, which the
+// app's own zoning reads from the same file. Regenerate with UPDATE_GOLDEN=1.
+const FORM_VECTORS: &str = "tests/fixtures/form_zone_vectors.json";
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FormVector {
+    tsb: f64,
+    fitness: Option<f64>,
+    as_percent: bool,
+    zone: Option<&'static str>,
+    text: Option<String>,
+}
+
+fn form_vector(tsb: f64, fitness: Option<f64>, as_percent: bool) -> FormVector {
+    let text = form_text(tsb, fitness.unwrap_or(f64::NAN), as_percent);
+    FormVector {
+        tsb,
+        fitness,
+        as_percent,
+        zone: form_zone(tsb, fitness, as_percent),
+        text: (text != TEXT_NONE).then_some(text),
+    }
+}
+
+fn form_vectors() -> Vec<FormVector> {
+    let mut cases = Vec::new();
+    for edge in FORM_ZONE_BOUNDS {
+        // Hundredths of the edge: just under it, on it and just over it.
+        for hundredths in [edge * 100 - 1, edge * 100, edge * 100 + 1] {
+            let value = f64::from(hundredths) / 100.0;
+            for fitness in [None, Some(0.0), Some(60.0)] {
+                cases.push(form_vector(value, fitness, false));
+            }
+            for fitness in [50, 80] {
+                let tsb = f64::from(hundredths * fitness) / 10_000.0;
+                cases.push(form_vector(tsb, Some(f64::from(fitness)), true));
+            }
+        }
+    }
+    for fitness in [None, Some(0.0)] {
+        cases.push(form_vector(-20.0, fitness, true));
+    }
+    // Halves and a negative zero round as the app rounds them.
+    for tsb in [2.5, -2.5, 0.4, -0.4, 0.0] {
+        cases.push(form_vector(tsb, Some(60.0), false));
+    }
+    for tsb in [1.0, -1.0, -0.1] {
+        cases.push(form_vector(tsb, Some(40.0), true));
+    }
+    cases
+}
+
+/// Scenario: the widget zones and prints form here, and the app's screens zone
+/// and print the same day's form in TypeScript.
+///
+/// Expected behaviour: the shared vectors are exactly what the engine decides at
+/// every band edge, so an edge or the no-fitness rule that moves here fails this
+/// test until the file is regenerated, and the app's suite then fails until its
+/// copy moves with it.
+#[test]
+fn the_shared_form_vectors_are_what_the_engine_decides() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(FORM_VECTORS);
+    let json = serde_json::json!({
+        "bounds": FORM_ZONE_BOUNDS,
+        "cases": form_vectors(),
+    });
+    let expected = format!("{}\n", serde_json::to_string_pretty(&json).unwrap());
+    if std::env::var("UPDATE_GOLDEN").is_ok_and(|v| v == "1") {
+        std::fs::write(&path, &expected).unwrap();
+    }
+    let actual = std::fs::read_to_string(&path).unwrap_or_default();
+    assert!(
+        actual == expected,
+        "{} is not what the engine decides; regenerate it with UPDATE_GOLDEN=1",
+        path.display()
+    );
+}

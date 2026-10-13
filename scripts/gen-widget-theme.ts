@@ -244,6 +244,19 @@ function androidV31(): string {
 `;
 }
 
+// The launcher shortcut icons are drawn by the widget module, which compiles as its own library
+// and cannot name the app's colours, so it carries these two. The brand fill with the ink the
+// palette puts on it, as on the app's primary button.
+function androidShortcuts(): string {
+  return `<?xml version="1.0" encoding="utf-8"?>
+<!-- ${GEN} -->
+<resources>
+  <color name="veloq_shortcut_background">${widgetPalette.light.primary}</color>
+  <color name="veloq_shortcut_glyph">${widgetPalette.light.textOnPrimary}</color>
+</resources>
+`;
+}
+
 /**
  * `--check` compares instead of writing, so the gate can say the committed
  * files are behind the palette. The drift that prompted it went unnoticed
@@ -270,6 +283,7 @@ emit('widget/ios/VeloqWidget/WidgetTheme.swift', iosFile());
 emit('widget/android/res/values/widget_theme.xml', androidLight());
 emit('widget/android/res/values-night/widget_theme.xml', androidNight());
 emit('widget/android/res/values-v31/widget_theme.xml', androidV31());
+emit('modules/veloq-widget/android/src/main/res/values/shortcut_theme.xml', androidShortcuts());
 
 if (CHECK) {
   if (stale.length > 0) {

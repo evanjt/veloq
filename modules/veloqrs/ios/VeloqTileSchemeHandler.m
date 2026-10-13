@@ -18,9 +18,13 @@ static NSString *const NoStore = @"no-store";
 
 /**
  * The store's own entry, exported by the Rust static library beside the UniFFI
- * surface. See `basemap/c.rs`. The bytes stay Rust's until they are freed.
+ * surface. See `basemap/c.rs`. `done` is called exactly once: before the call
+ * returns for a tile that is held or refused, and later from a Rust thread for
+ * one the tile host is asked for. The bytes it hands over go back through
+ * `veloq_tile_free`.
  */
-extern uint8_t *veloq_tile_get_or_fetch(const char *source, uint32_t z, uint32_t x, uint32_t y, size_t *len, uint16_t *status);
+typedef void (*VeloqTileDone)(void *context, uint8_t *bytes, size_t len, uint16_t status);
+extern void veloq_tile_answer(const char *source, uint32_t z, uint32_t x, uint32_t y, void *context, VeloqTileDone done);
 extern void veloq_tile_free(uint8_t *bytes, size_t len);
 
 /**
@@ -81,6 +85,37 @@ static VeloqTileAnswer *answer(NSInteger status, NSString *mime, NSData *body)
   a.body = body ?: [NSData data];
   a.cacheControl = NoStore;
   return a;
+}
+
+typedef void (^VeloqTileReply)(VeloqTileAnswer *answer);
+
+/** What a tile's answer needs once Rust hands it back, carried as the context. */
+@interface VeloqTilePending : NSObject
+@property (nonatomic, copy) NSString *mime;
+@property (nonatomic, copy) VeloqTileReply reply;
+@end
+
+@implementation VeloqTilePending
+@end
+
+/**
+ * Rust's answer to one tile. For a miss this runs on a Rust thread, which has
+ * no autorelease pool of its own.
+ */
+static void tileDone(void *context, uint8_t *bytes, size_t len, uint16_t status)
+{
+  @autoreleasepool {
+    VeloqTilePending *pending = (__bridge_transfer VeloqTilePending *)context;
+    if (bytes == NULL || len == 0) {
+      pending.reply(answer(status == 200 ? 404 : status, pending.mime, nil));
+      return;
+    }
+    // No copy: the data owns the Rust allocation and hands it back when it goes.
+    NSData *body = [[NSData alloc] initWithBytesNoCopy:bytes length:len deallocator:^(void *p, NSUInteger n) {
+      veloq_tile_free(p, n);
+    }];
+    pending.reply(answer(200, pending.mime, body));
+  }
 }
 
 /**
@@ -188,23 +223,38 @@ static VeloqTileAnswer *answerGeo(NSString *rest)
 }
 
 /**
- * Ask the store. Blocks, so never on the main thread. The geo marker is
- * matched first: a geo path is not `source/z/x/y`, so the tile parser would
- * refuse it as a 400.
+ * Ask the store, and hand the answer to `reply`. A file, a glyph range, a geo
+ * answer or a tile the store holds is answered before this returns. A tile the
+ * host is asked for is answered later from a Rust thread, and this returns at
+ * once. It can still wait on the disk or a glyph host, so never on the main
+ * thread. The geo marker is matched first: a geo path is not `source/z/x/y`,
+ * so the tile parser would refuse it as a 400.
  */
-static VeloqTileAnswer *answerFor(NSURL *url)
+static void answerFor(NSURL *url, VeloqTileReply reply)
 {
   NSString *path = url.path;
   NSRange geo = [path rangeOfString:GeoPath];
-  if (geo.location != NSNotFound) return answerGeo([path substringFromIndex:geo.location + geo.length]);
+  if (geo.location != NSNotFound) {
+    reply(answerGeo([path substringFromIndex:geo.location + geo.length]));
+    return;
+  }
   NSRange asset = [path rangeOfString:AssetPath];
-  if (asset.location != NSNotFound) return answerAsset([path substringFromIndex:asset.location + asset.length]);
+  if (asset.location != NSNotFound) {
+    reply(answerAsset([path substringFromIndex:asset.location + asset.length]));
+    return;
+  }
   NSRange at = [path rangeOfString:TilePath];
-  if (at.location == NSNotFound) return answer(404, @"image/jpeg", nil);
+  if (at.location == NSNotFound) {
+    reply(answer(404, @"image/jpeg", nil));
+    return;
+  }
 
   // <source>/<z>/<x>/<y>[.ext]
   NSArray<NSString *> *parts = [[path substringFromIndex:at.location + at.length] componentsSeparatedByString:@"/"];
-  if (parts.count != 4) return answer(400, @"image/jpeg", nil);
+  if (parts.count != 4) {
+    reply(answer(400, @"image/jpeg", nil));
+    return;
+  }
   NSString *source = parts[0];
   NSString *last = parts[3];
   NSString *extension = @"";
@@ -215,56 +265,61 @@ static VeloqTileAnswer *answerFor(NSURL *url)
   }
   uint32_t z, x, y;
   if (!parseIndex(parts[1], &z) || !parseIndex(parts[2], &x) || !parseIndex(last, &y)) {
-    return answer(400, @"image/jpeg", nil);
+    reply(answer(400, @"image/jpeg", nil));
+    return;
   }
 
   // What Rust says the page is to be told. A 429 or a 503 is the tile host
   // asking to be left alone, and the page's throttle backoff counts only
-  // those, so they cross as themselves. It starts at 502 so a call that
-  // returns without writing it reads as a failure, not a refusal.
-  size_t len = 0;
-  uint16_t status = 502;
-  uint8_t *bytes = veloq_tile_get_or_fetch(source.UTF8String, z, x, y, &len, &status);
-  if (bytes == NULL || len == 0) {
-    return answer(status == 200 ? 404 : status, mimeFor(extension), nil);
-  }
-  // No copy: the data owns the Rust allocation and hands it back when it goes.
-  NSData *body = [[NSData alloc] initWithBytesNoCopy:bytes length:len deallocator:^(void *p, NSUInteger n) {
-    veloq_tile_free(p, n);
-  }];
-  return answer(200, mimeFor(extension), body);
+  // those, so they cross as themselves.
+  VeloqTilePending *pending = [VeloqTilePending new];
+  pending.mime = mimeFor(extension);
+  pending.reply = reply;
+  veloq_tile_answer(source.UTF8String, z, x, y, (__bridge_retained void *)pending, tileDone);
 }
 
 @implementation VeloqTileSchemeHandler {
   /**
-   * The tasks WebKit has started and not stopped. Answering a stopped task is
-   * a WebKit exception, and the store call finishes on its own time, so the
-   * answer checks membership first. WebKit starts and stops tasks on the main
-   * thread and wants its answers there, so this set is only ever touched on
-   * the main thread and needs no lock.
+   * The tasks WebKit has started and not stopped, each with the operation that
+   * answers it. Answering a stopped task is a WebKit exception, and a tile
+   * host answers on its own time, so the answer checks membership first.
+   * WebKit starts and stops tasks on the main thread and wants its answers
+   * there, so this table is only ever touched on the main thread and needs no
+   * lock.
    */
-  NSHashTable<id<WKURLSchemeTask>> *_live;
+  NSMapTable<id<WKURLSchemeTask>, NSOperation *> *_live;
+  /**
+   * Where the store is asked, a few at a time. A tile miss leaves it at once,
+   * but a disk read, a glyph fetch or the daily TileJSON still waits here, and
+   * a fast pan starts and stops tasks far quicker than those finish. A shared
+   * global queue would take a thread per waiting task. This caps them, and a
+   * task stopped before its turn is dropped without asking anything.
+   */
+  NSOperationQueue *_work;
 }
 
 - (instancetype)init
 {
   if (self = [super init]) {
-    _live = [NSHashTable hashTableWithOptions:NSPointerFunctionsObjectPointerPersonality | NSPointerFunctionsStrongMemory];
+    _live = [NSMapTable mapTableWithKeyOptions:NSPointerFunctionsObjectPointerPersonality | NSPointerFunctionsStrongMemory
+                                  valueOptions:NSPointerFunctionsStrongMemory];
+    _work = [NSOperationQueue new];
+    _work.name = @"veloq-tile";
+    _work.maxConcurrentOperationCount = 6;
+    _work.qualityOfService = NSQualityOfServiceUserInitiated;
   }
   return self;
 }
 
 - (void)webView:(WKWebView *)webView startURLSchemeTask:(id<WKURLSchemeTask>)task
 {
-  [_live addObject:task];
   NSURL *url = task.request.URL;
   __weak VeloqTileSchemeHandler *weakSelf = self;
-  dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-    VeloqTileAnswer *a = answerFor(url);
+  VeloqTileReply reply = ^(VeloqTileAnswer *a) {
     dispatch_async(dispatch_get_main_queue(), ^{
       VeloqTileSchemeHandler *strongSelf = weakSelf;
-      if (strongSelf == nil || ![strongSelf->_live containsObject:task]) return;
-      [strongSelf->_live removeObject:task];
+      if (strongSelf == nil || [strongSelf->_live objectForKey:task] == nil) return;
+      [strongSelf->_live removeObjectForKey:task];
 
       // The page shares the scheme, so this never leaves the process, but
       // MapLibre reads the image back off a canvas and needs the header.
@@ -282,12 +337,22 @@ static VeloqTileAnswer *answerFor(NSURL *url)
       if (a.body.length > 0) [task didReceiveData:a.body];
       [task didFinish];
     });
-  });
+  };
+
+  NSBlockOperation *operation = [NSBlockOperation new];
+  __weak NSBlockOperation *weakOperation = operation;
+  [operation addExecutionBlock:^{
+    if (weakOperation.isCancelled) return;
+    answerFor(url, reply);
+  }];
+  [_live setObject:operation forKey:task];
+  [_work addOperation:operation];
 }
 
 - (void)webView:(WKWebView *)webView stopURLSchemeTask:(id<WKURLSchemeTask>)task
 {
-  [_live removeObject:task];
+  [[_live objectForKey:task] cancel];
+  [_live removeObjectForKey:task];
 }
 
 @end

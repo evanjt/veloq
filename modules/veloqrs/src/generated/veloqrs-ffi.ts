@@ -516,11 +516,6 @@ interface NativeModuleInterface {
     raw: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
-  ubrn_uniffi_veloqrs_fn_method_activitymanager_set_metrics(
-    uniffiSelf: bigint,
-    metrics: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): void;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_set_time_streams(
     uniffiSelf: bigint,
     activityIds: Uint8Array,
@@ -1844,7 +1839,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_save_provisional(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_curve_body(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_interval_body(): number;
-  ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_metrics(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_time_streams(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_upsert_activity_bodies(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_basemapmanager_new(): number;

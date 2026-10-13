@@ -70,8 +70,7 @@
     "HeatmapManager.setPriorityView",
     "HeatmapManager.startCacheSize",
     "MapManager.getScreenData",
-    "SettingsManager.getSetting",
-    "startFetchAndStore"
+    "SettingsManager.getSetting"
   ],
   "features/recording": [
     "ActivityManager.getGpsTrack",

@@ -3,6 +3,7 @@ import {
   formatSwimPace,
   paceUnitLabel,
   swimPaceUnitLabel,
+  formatDecimal,
 } from '@/shared/format';
 import type { ClimbBest } from '@/features/stats';
 import { M_TO_FT, formatDurationHuman } from '@/shared/format/format';
@@ -66,10 +67,10 @@ export interface ClimbUnits {
 export function formatClimbValue(best: ClimbBest, isMetric: boolean, units: ClimbUnits): string {
   if (best.windowS < VAM_FROM_WINDOW_S) {
     if (best.wattsPerKg === null || !Number.isFinite(best.wattsPerKg)) return ABSENT;
-    return `${best.wattsPerKg.toFixed(2)} ${units.wattsPerKg}`;
+    return `${formatDecimal(best.wattsPerKg, 2)} ${units.wattsPerKg}`;
   }
   if (best.vam === null || !Number.isFinite(best.vam)) return ABSENT;
   return isMetric
-    ? `${Math.round(best.vam)} ${units.metresPerHour}`
-    : `${Math.round(best.vam * M_TO_FT)} ${units.feetPerHour}`;
+    ? `${formatDecimal(best.vam, 0)} ${units.metresPerHour}`
+    : `${formatDecimal(best.vam * M_TO_FT, 0)} ${units.feetPerHour}`;
 }

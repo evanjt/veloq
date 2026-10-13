@@ -10,16 +10,17 @@
 
 import { UploadOutcome, engine, type UploadResult } from 'veloqrs';
 
-import { useAuthStore, DEMO_ATHLETE_ID } from '@/shared/app/AuthStore';
+import { useAuthStore } from '@/shared/app/AuthStore';
+import { sourceFor } from '@/shared/app/source';
 import {
   recordingInstall,
   transitionRecording,
 } from '@/features/recording/lib/storage/recordingLibrary';
 import { DOCUMENTS_ROOT } from '@/features/recording/lib/storage/recordingFiles';
 
-function isDemoMode(): boolean {
-  const state = useAuthStore.getState();
-  return state.isDemoMode || state.athleteId === DEMO_ATHLETE_ID;
+function staysOnDevice(): boolean {
+  const { authMethod, isDemoMode, athleteId } = useAuthStore.getState();
+  return sourceFor({ authMethod, isDemoMode, athleteId })?.can.uploads === false;
 }
 
 /**
@@ -31,7 +32,7 @@ function isDemoMode(): boolean {
  * local id and nothing leaves the device.
  */
 export async function uploadRecordingNow(id: string): Promise<UploadResult> {
-  if (isDemoMode()) {
+  if (staysOnDevice()) {
     const answer = await transitionRecording(id, {
       kind: 'uploaded',
       install: recordingInstall(),

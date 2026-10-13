@@ -21,7 +21,6 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
       sourceDefs: {},
       layers: [],
       layerSpecs: {},
-      markers: {},
       images: {},
       interactiveLayers: [],
       redraws: {},
@@ -249,36 +248,6 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
       window._veloq.layers = desired.map(function(spec) { return spec.id; });
     }
 
-    function _applyMarkers(markers) {
-      var seen = {};
-      (markers || []).forEach(function(spec) {
-        seen[spec.id] = true;
-        var existing = window._veloq.markers[spec.id];
-        if (existing) {
-          if (existing.html !== spec.html) {
-            existing.marker.getElement().innerHTML = spec.html;
-            existing.html = spec.html;
-          }
-          existing.marker.setLngLat(spec.coordinate);
-          return;
-        }
-        var element = document.createElement('div');
-        element.className = 'veloq-marker';
-        element.innerHTML = spec.html;
-        var marker = new maplibregl.Marker({
-          element: element,
-          anchor: spec.anchor || 'center',
-        }).setLngLat(spec.coordinate).addTo(window.map);
-        window._veloq.markers[spec.id] = { marker: marker, html: spec.html };
-      });
-      Object.keys(window._veloq.markers).forEach(function(id) {
-        if (!seen[id]) {
-          window._veloq.markers[id].marker.remove();
-          delete window._veloq.markers[id];
-        }
-      });
-    }
-
     function _applyImages(images, done) {
       var pending = (images || []).filter(function(spec) {
         return !window.map.hasImage(spec.id);
@@ -325,7 +294,6 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
         // to twice, and before the layers, which may filter on its length.
         if (patch.appends) _applyAppends(patch.appends);
         if (patch.layers) _applyLayers(patch.layers);
-        if (patch.markers !== undefined) _applyMarkers(patch.markers);
         if (patch.interactiveLayers) {
           window._veloq.interactiveLayers = patch.interactiveLayers;
         }
@@ -466,47 +434,6 @@ export function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
           features: hits.map(describe),
         });
       });
-
-      // MapLibre GL JS has no long-press, so time the contact ourselves and
-      // cancel as soon as the finger travels far enough to be a drag.
-      var pressTimer = null;
-      var pressOrigin = null;
-      var canvas = map.getCanvasContainer();
-
-      function cancelPress() {
-        if (pressTimer !== null) { clearTimeout(pressTimer); pressTimer = null; }
-        pressOrigin = null;
-      }
-
-      canvas.addEventListener('touchstart', function(e) {
-        if (e.touches.length !== 1) { cancelPress(); return; }
-        var touch = e.touches[0];
-        var rect = canvas.getBoundingClientRect();
-        pressOrigin = { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
-        pressTimer = setTimeout(function() {
-          pressTimer = null;
-          if (!pressOrigin) return;
-          var lngLat = map.unproject([pressOrigin.x, pressOrigin.y]);
-          _post({
-            type: 'mapLongPress',
-            coordinate: [lngLat.lng, lngLat.lat],
-            point: [pressOrigin.x, pressOrigin.y],
-            feature: describe(hitTest([pressOrigin.x, pressOrigin.y])[0]),
-          });
-        }, ${config.longPressMs});
-      }, { passive: true });
-
-      canvas.addEventListener('touchmove', function(e) {
-        if (!pressOrigin || e.touches.length !== 1) { cancelPress(); return; }
-        var touch = e.touches[0];
-        var rect = canvas.getBoundingClientRect();
-        var dx = (touch.clientX - rect.left) - pressOrigin.x;
-        var dy = (touch.clientY - rect.top) - pressOrigin.y;
-        if (dx * dx + dy * dy > 100) cancelPress();
-      }, { passive: true });
-
-      canvas.addEventListener('touchend', cancelPress, { passive: true });
-      canvas.addEventListener('touchcancel', cancelPress, { passive: true });
     };
 
     // Request/response helpers. React Native holds the promise and matches on

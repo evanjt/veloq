@@ -14,7 +14,10 @@
  * opens nothing, and the developer screens open only for a developer.
  */
 
+import * as FileSystem from 'expo-file-system/legacy';
 import * as SecureStore from 'expo-secure-store';
+import { waitFor } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 
 import { isForSignedInAthlete, openableSystemPath } from '@/features/insights/lib/pushPayload';
 import { redirectSystemPath } from '@/app/+native-intent';
@@ -226,5 +229,21 @@ describe('redirectSystemPath', () => {
       'veloq://debug'
     );
     useDebugStore.setState({ unlocked: false });
+  });
+});
+
+describe('a backup file opened into the app', () => {
+  it.each([
+    'file:///docs/Inbox/backup.zip',
+    'content://com.android.providers.downloads.documents/document/42',
+  ])('opens no screen for %s, and copies it for the restore', async (link) => {
+    // Signed out, nothing waits for the engine, so the restore starts at once.
+    signIn(null);
+    const copy = jest.spyOn(FileSystem, 'copyAsync').mockResolvedValue(undefined);
+    jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      buttons?.find((button) => button.style === 'cancel')?.onPress?.();
+    });
+    await expect(redirectSystemPath({ path: link, initial: false })).resolves.toBeNull();
+    await waitFor(() => expect(copy).toHaveBeenCalledWith(expect.objectContaining({ from: link })));
   });
 });

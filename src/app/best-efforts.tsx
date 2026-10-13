@@ -264,7 +264,7 @@ function BestEffortsScreenContent() {
         <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>
           {period === 'all'
             ? t('bestEffortsScreen.allTimeSubtitle')
-            : t('bestEffortsScreen.seasonSubtitle', { days })}
+            : t('bestEffortsScreen.seasonSubtitle', { count: days })}
         </Text>
 
         {error != null ? (

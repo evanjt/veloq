@@ -7,12 +7,13 @@ import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import {
   celsiusToFahrenheit,
+  formatDecimal,
   formatMinSec,
   KM_TO_MI,
   M_TO_FT,
   MPS_TO_KPH,
   YARDS_100_IN_METRES,
-} from '@/shared/format/format';
+} from '@/shared/format';
 import { isSwimmingActivity } from '@/shared/activity/activityUtils';
 import { paceMinutesFromSample } from '@/shared/math/kinematics';
 import { chartStreamColors, chartInkColor } from '@/theme';
@@ -90,7 +91,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     streamKey: 'watts',
     unit: 'W',
     getStream: (streams) => streams.watts,
-    formatValue: (v) => Math.round(v).toString(),
+    formatValue: (v) => formatDecimal(v, 0),
   },
   heartrate: {
     id: 'heartrate',
@@ -101,7 +102,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     streamKey: 'heartrate',
     unit: 'bpm',
     getStream: (streams) => streams.heartrate,
-    formatValue: (v) => Math.round(v).toString(),
+    formatValue: (v) => formatDecimal(v, 0),
   },
   cadence: {
     id: 'cadence',
@@ -112,7 +113,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     streamKey: 'cadence',
     unit: 'rpm',
     getStream: (streams) => streams.cadence,
-    formatValue: (v) => Math.round(v).toString(),
+    formatValue: (v) => formatDecimal(v, 0),
   },
   speed: {
     id: 'speed',
@@ -126,7 +127,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     // velocity_smooth is in m/s
     getStream: (streams) => streams.velocity_smooth?.map((v) => v * MPS_TO_KPH),
     convertToImperial: (v) => v * KM_TO_MI, // km/h to mph
-    formatValue: (v) => v.toFixed(1),
+    formatValue: (v) => formatDecimal(v, 1),
     motion: { kind: 'speed', stoppedBelowMs: FLOOR_STOPPED_MS },
   },
   pace: {
@@ -157,7 +158,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     unitImperial: 'ft',
     getStream: (streams) => streams.altitude,
     convertToImperial: (v) => v * M_TO_FT,
-    formatValue: (v) => Math.round(v).toString(),
+    formatValue: (v) => formatDecimal(v, 0),
     defaultMetric: 'gain',
   },
   grade: {
@@ -169,7 +170,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     streamKey: 'grade_smooth',
     unit: '%',
     getStream: (streams) => streams.grade_smooth,
-    formatValue: (v) => v.toFixed(1),
+    formatValue: (v) => formatDecimal(v, 1),
   },
   wbal: {
     id: 'wbal',
@@ -180,7 +181,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     unit: 'kJ',
     // Sourced from intervals.icu's `w_bal` stream (joules). Displayed in kJ.
     getStream: (streams) => streams.wbal?.map((j) => j / 1000),
-    formatValue: (v) => Math.round(v).toString(),
+    formatValue: (v) => formatDecimal(v, 0),
   },
   gap: {
     id: 'gap',
@@ -207,7 +208,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     unitImperial: 'mi',
     getStream: (streams) => streams.distance?.map((d) => d / 1000),
     convertToImperial: (v) => v * KM_TO_MI,
-    formatValue: (v) => v.toFixed(2),
+    formatValue: (v) => formatDecimal(v, 2),
   },
   temp: {
     id: 'temp',
@@ -220,7 +221,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     unitImperial: '°F',
     getStream: (streams) => streams.temp,
     convertToImperial: celsiusToFahrenheit,
-    formatValue: (v) => Math.round(v).toString(),
+    formatValue: (v) => formatDecimal(v, 0),
   },
   moving_time: {
     id: 'moving_time',

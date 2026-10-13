@@ -2,6 +2,9 @@ import React from 'react';
 import { Alert } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
+
+import { formatDateTime, formatLocalDate } from '@/shared/format/format';
 
 import RecordingDetailScreen from '@/app/recordings/[id]';
 import {
@@ -9,7 +12,6 @@ import {
   recordingFitExists,
 } from '@/features/recording/lib/storage/recordingLibrary';
 import type { RecordingLibraryEntry } from '@/types';
-import { formatDateTime } from '@/shared/format/format';
 import { useRecordingLibrary } from '@/features/recording/hooks/useRecordingLibrary';
 import { goBack } from '@/shared/app/navigation';
 
@@ -172,9 +174,25 @@ it.each(['pending', 'uploaded'] as const)('shares a retained %s FIT', async (upl
   });
   await render(<RecordingDetailScreen />);
   await fireEvent.press(await screen.findByText('Share FIT file'));
-  await waitFor(() =>
-    expect(Sharing.shareAsync).toHaveBeenCalledWith(ENTRY.fitPath, expect.any(Object))
+  await waitFor(() => expect(Sharing.shareAsync).toHaveBeenCalledTimes(1));
+  const [uri, options] = jest.mocked(Sharing.shareAsync).mock.calls[0];
+  const name = `Morning ride ${formatLocalDate(new Date(ENTRY.startTime))}.fit`;
+  expect(uri.slice(uri.lastIndexOf('/') + 1)).toBe(name);
+  expect(options).toEqual(
+    expect.objectContaining({ mimeType: 'application/vnd.ant.fit', dialogTitle: name })
   );
+  expect(FileSystem.copyAsync).toHaveBeenCalledWith({ from: ENTRY.fitPath, to: uri });
+  expect(FileSystem.deleteAsync).toHaveBeenCalledWith(uri, { idempotent: true });
+});
+
+it('says so when the FIT cannot be shared', async () => {
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  jest.mocked(Sharing.shareAsync).mockRejectedValueOnce(new Error('unavailable'));
+  await render(<RecordingDetailScreen />);
+  await fireEvent.press(await screen.findByText('Share FIT file'));
+  await waitFor(() => expect(alert).toHaveBeenCalledTimes(1));
+  expect(alert.mock.calls[0][0]).toBe('export.shareFailedTitle');
+  expect(screen.getByText('Share FIT file')).toBeTruthy();
 });
 
 it.each([

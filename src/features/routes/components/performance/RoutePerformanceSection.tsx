@@ -142,22 +142,22 @@ export function RoutePerformanceSection({
             <Text style={[styles.meta, isDark && styles.textSecondary]}>
               {t('maps.activitiesCount', { count: routeGroup.activityCount })}
             </Text>
-            {bestTimeDisplay && (
+            {bestTimeDisplay ? (
               <>
                 <Text style={[styles.meta, isDark && styles.textSecondary]}> · </Text>
                 <Text style={[styles.timeValue, isDark && styles.textLight]}>
                   {bestTimeDisplay}
                 </Text>
-                {isCurrentBest && (
+                {isCurrentBest ? (
                   <MaterialCommunityIcons
                     name="trophy"
                     size={11}
                     color={colors.chartGold}
                     style={{ marginLeft: spacing.xxs }}
                   />
-                )}
+                ) : null}
               </>
-            )}
+            ) : null}
           </View>
         </View>
         <MaterialCommunityIcons
@@ -188,11 +188,11 @@ export function RoutePerformanceSection({
         </View>
       </View>
 
-      {standingText && (
+      {standingText ? (
         <Text testID="route-standing" style={[styles.standing, isDark && styles.textSecondary]}>
           {standingText}
         </Text>
-      )}
+      ) : null}
 
       {chartData.length >= 1 && (
         <View style={styles.chartWrap}>

@@ -34,6 +34,8 @@ interface ActivityHeaderProps {
   activity: ActivityDetail;
   activityId: string;
   coordinates: LatLng[];
+  /** Whether the engine holds the track, so the map draws it from the engine's URL */
+  hasStoredTrack: boolean;
   /** Activity streams - required for gradient-based line coloring on the map */
   streams?: ActivityStreams | null;
   isMetric: boolean;
@@ -64,6 +66,7 @@ export const ActivityHeader = React.memo(function ActivityHeader({
   activity,
   activityId,
   coordinates,
+  hasStoredTrack,
   streams,
   isMetric,
   debugEnabled,
@@ -171,6 +174,7 @@ export const ActivityHeader = React.memo(function ActivityHeader({
       <ComponentErrorBoundary part="activityMap" debugName="Activity Map">
         <ActivityMapView
           coordinates={coordinates}
+          hasStoredTrack={hasStoredTrack}
           activityType={activity.type}
           activityId={activity.id}
           streams={streams}

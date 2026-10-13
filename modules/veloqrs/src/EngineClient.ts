@@ -1190,7 +1190,7 @@ class EngineClient implements DelegateHost {
   getActivityBody = (activityId: string): string | null =>
     activityDelegates.getActivityBody(this, activityId);
 
-  getActivityBodies = (oldestTs: number, newestTs: number): string[] =>
+  getActivityBodies = (oldestTs: number, newestTs: number): FfiActivityBodiesPage | undefined =>
     activityDelegates.getActivityBodies(this, oldestTs, newestTs);
 
   searchActivityBodies = (

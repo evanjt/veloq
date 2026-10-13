@@ -133,7 +133,7 @@ export function NoticeBanner({
               {line}
             </Text>
           ))}
-          {hasControls && (
+          {hasControls ? (
             <View style={styles.actions}>
               {actions.map((action) => (
                 <Button
@@ -145,7 +145,7 @@ export function NoticeBanner({
                   testID={action.testID}
                 />
               ))}
-              {onDismiss && (
+              {onDismiss ? (
                 <Button
                   label={t('common.close', { defaultValue: 'Close' })}
                   onPress={onDismiss}
@@ -153,9 +153,9 @@ export function NoticeBanner({
                   size="sm"
                   testID={`${testID}-dismiss`}
                 />
-              )}
+              ) : null}
             </View>
-          )}
+          ) : null}
         </View>
       </View>
     </Animated.View>

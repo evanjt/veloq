@@ -1,8 +1,9 @@
-import React, { useCallback, useMemo } from 'react';
-import { Share, Platform } from 'react-native';
+import React, { useCallback, useMemo, useRef } from 'react';
+import { Platform, View } from 'react-native';
 import * as haptics from '@/shared/ui/haptics';
 import { useTranslation } from 'react-i18next';
 import { useMapPreferences } from '@/features/settings';
+import { shareText } from '@/features/settings/light';
 import { type MapStyleType, resolveTerrain3D } from '@/features/maps';
 import { useMapPreviewCoordinates } from '../hooks/useMapPreviewCoordinates';
 import type { Activity } from '@/types';
@@ -13,6 +14,7 @@ import {
   type ContextMenuEntry,
 } from '@/shared/ui/ContextMenu';
 import { tapTo } from '@/shared/app/navigation';
+import { INTERVALS_URLS } from '@/shared/app/constants';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('ActivityShare');
@@ -114,45 +116,51 @@ export function ActivityCardContextMenu({
     clearActivityOverride(activity.id);
   }, [activity.id, clearActivityOverride]);
 
+  const webId = activity.intervalsWebId;
+  // The menu row is gone by the time the sheet presents, so on iPad it points at the card.
+  const cardAnchor = useRef<View>(null);
   const handleShare = useCallback(async () => {
-    const url = `https://intervals.icu/activities/${activity.id}`;
-    // Closing the sheet resolves, so a rejection is always a sheet that failed to open.
-    // iOS reads the email subject from the options and ignores the title.
+    if (!webId) return;
+    const url = INTERVALS_URLS.activityPage(webId);
     try {
-      await Share.share(
+      await shareText(
         {
           message: Platform.OS === 'ios' ? activity.name : `${activity.name}\n${url}`,
           url: Platform.OS === 'ios' ? url : undefined,
           title: activity.name,
         },
-        { subject: activity.name }
+        { subject: activity.name, anchor: cardAnchor }
       );
     } catch (error) {
       log.warn('the share sheet did not open:', error);
     }
-  }, [activity.id, activity.name]);
+  }, [webId, activity.name]);
 
   const href = `/activity/${activity.id}` as const;
 
   const entries = useMemo((): ContextMenuEntry[] => {
-    const list: ContextMenuEntry[] = [
-      {
-        key: 'details',
-        label: t('activity.viewDetails'),
-        icon: 'information-outline',
-        systemIcon: 'info.circle',
-        onPress: () => tapTo(href),
-      },
-      {
-        key: 'share',
-        label: t('activity.share'),
-        icon: 'share-variant',
-        systemIcon: 'square.and.arrow.up',
-        onPress: () => void handleShare(),
-      },
-    ];
-    if (!hasMap) return list;
-    list.push(
+    const details: ContextMenuEntry = {
+      key: 'details',
+      label: t('activity.viewDetails'),
+      icon: 'information-outline',
+      systemIcon: 'info.circle',
+      onPress: () => tapTo(href),
+    };
+    // Share links to intervals.icu, so it needs a page there.
+    const share: ContextMenuEntry[] = webId
+      ? [
+          {
+            key: 'share',
+            label: t('activity.share'),
+            icon: 'share-variant',
+            systemIcon: 'square.and.arrow.up',
+            onPress: () => void handleShare(),
+          },
+        ]
+      : [];
+    const always = [details, ...share];
+    if (!hasMap) return always;
+    const mapEntries: ContextMenuEntry[] = [
       {
         key: 'mapStyle',
         label: t('activity.mapStyle'),
@@ -174,21 +182,21 @@ export function ActivityCardContextMenu({
         systemIcon: 'mountain.2',
         checked: is3DOn,
         onPress: handleToggle3D,
-      }
-    );
-    if (hasOverride) {
-      list.push({
-        key: 'reset',
-        label: t('activity.resetToDefault'),
-        icon: 'undo',
-        systemIcon: 'arrow.uturn.backward',
-        onPress: handleReset,
-      });
-    }
-    return list;
+      },
+    ];
+    if (!hasOverride) return [...always, ...mapEntries];
+    const reset: ContextMenuEntry = {
+      key: 'reset',
+      label: t('activity.resetToDefault'),
+      icon: 'undo',
+      systemIcon: 'arrow.uturn.backward',
+      onPress: handleReset,
+    };
+    return [...always, ...mapEntries, reset];
   }, [
     t,
     href,
+    webId,
     handleShare,
     hasMap,
     currentStyle,
@@ -207,7 +215,9 @@ export function ActivityCardContextMenu({
       visible={visible}
       onDismiss={onDismiss}
     >
-      {children}
+      <View ref={cardAnchor} collapsable={false}>
+        {children}
+      </View>
     </ContextMenu>
   );
 }

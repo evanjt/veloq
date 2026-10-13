@@ -24,7 +24,6 @@ function buildConfig(overrides: Partial<MapSurfaceHtmlConfig> = {}): MapSurfaceH
     devicePixelRatio: 2,
     reduceMotion: false,
     regionChangeThrottleMs: 100,
-    longPressMs: 500,
     ...overrides,
   };
 }

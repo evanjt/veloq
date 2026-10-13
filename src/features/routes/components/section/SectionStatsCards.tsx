@@ -178,164 +178,165 @@ export function SectionStatsCards({
                   )}
                   {` · ${t('sections.calendarActivities', { count: yearData.activityCount })}`}
                 </Text>
-                {isYearFwdPr && (
+                {isYearFwdPr ? (
                   <View style={styles.calendarTrophy}>
                     <MaterialCommunityIcons name="trophy" size={14} color={activityColor} />
-                    {yearRev && (
+                    {yearRev ? (
                       <DirectionArrow
                         direction="forward"
                         color={activityColor}
                         size={DIRECTION_ARROW_SIZE}
                       />
-                    )}
+                    ) : null}
                   </View>
-                )}
-                {isYearRevPr && (
+                ) : null}
+                {isYearRevPr ? (
                   <View style={styles.calendarTrophy}>
                     <MaterialCommunityIcons name="trophy" size={14} color={REVERSE_COLOR} />
-                    {yearFwd && (
+                    {yearFwd ? (
                       <DirectionArrow
                         direction="reverse"
                         color={REVERSE_COLOR}
                         size={DIRECTION_ARROW_SIZE}
                       />
-                    )}
+                    ) : null}
                   </View>
-                )}
+                ) : null}
               </Pressable>
-              {isYearExpanded &&
-                yearData.months.map((monthData) => {
-                  const fwd = monthData.forward;
-                  const rev = monthData.reverse;
-                  const isMonthFwdYearBest =
-                    fwd && yearFwd && fwd.bestActivityId === yearFwd.bestActivityId;
-                  const isMonthRevYearBest =
-                    rev && yearRev && rev.bestActivityId === yearRev.bestActivityId;
-                  const isMonthFwdOverallPr =
-                    fwd && forwardPr && fwd.bestActivityId === forwardPr.bestActivityId;
-                  const isMonthRevOverallPr =
-                    rev && reversePr && rev.bestActivityId === reversePr.bestActivityId;
+              {isYearExpanded
+                ? yearData.months.map((monthData) => {
+                    const fwd = monthData.forward;
+                    const rev = monthData.reverse;
+                    const isMonthFwdYearBest =
+                      fwd && yearFwd && fwd.bestActivityId === yearFwd.bestActivityId;
+                    const isMonthRevYearBest =
+                      rev && yearRev && rev.bestActivityId === yearRev.bestActivityId;
+                    const isMonthFwdOverallPr =
+                      fwd && forwardPr && fwd.bestActivityId === forwardPr.bestActivityId;
+                    const isMonthRevOverallPr =
+                      rev && reversePr && rev.bestActivityId === reversePr.bestActivityId;
 
-                  return (
-                    <View
-                      key={monthData.month}
-                      style={[styles.calendarMonthRow, isDark && styles.calendarMonthRowDark]}
-                    >
-                      <Text style={[styles.calendarMonthName, isDark && styles.textSecondary]}>
-                        {monthNames[monthData.month - 1]}
-                      </Text>
-                      <Text style={[styles.calendarMonthCount, isDark && styles.textSecondary]}>
-                        {monthData.traversalCount}
-                      </Text>
-                      <View style={styles.calendarMonthEntries}>
-                        {fwd && (
-                          <View style={styles.calendarMonthEntryRow}>
-                            <Pressable
-                              style={pressable(styles.calendarMonthEntry)}
-                              android_ripple={pressRipple}
-                              accessibilityRole="button"
-                              accessibilityLabel={`${directionWord(t, 'forward')}, ${formatBest(fwd)}, ${fwd.bestActivityName}`}
-                              onPress={() => tapTo(`/activity/${fwd.bestActivityId}`)}
-                            >
-                              <DirectionArrow
-                                direction="forward"
-                                color={activityColor}
-                                size={DIRECTION_ARROW_SIZE}
-                              />
-                              <Text
-                                style={[
-                                  styles.calendarMonthTime,
-                                  isDark && styles.textLight,
-                                  isMonthFwdYearBest && { fontWeight: '700' },
-                                ]}
+                    return (
+                      <View
+                        key={monthData.month}
+                        style={[styles.calendarMonthRow, isDark && styles.calendarMonthRowDark]}
+                      >
+                        <Text style={[styles.calendarMonthName, isDark && styles.textSecondary]}>
+                          {monthNames[monthData.month - 1]}
+                        </Text>
+                        <Text style={[styles.calendarMonthCount, isDark && styles.textSecondary]}>
+                          {monthData.traversalCount}
+                        </Text>
+                        <View style={styles.calendarMonthEntries}>
+                          {fwd ? (
+                            <View style={styles.calendarMonthEntryRow}>
+                              <Pressable
+                                style={pressable(styles.calendarMonthEntry)}
+                                android_ripple={pressRipple}
+                                accessibilityRole="button"
+                                accessibilityLabel={`${directionWord(t, 'forward')}, ${formatBest(fwd)}, ${fwd.bestActivityName}`}
+                                onPress={() => tapTo(`/activity/${fwd.bestActivityId}`)}
                               >
-                                {formatBest(fwd)}
-                              </Text>
-                              {(isMonthFwdYearBest || isMonthFwdOverallPr) && (
-                                <MaterialCommunityIcons
-                                  name="trophy"
-                                  size={12}
-                                  color={
-                                    isMonthFwdOverallPr
-                                      ? isDark
-                                        ? darkColors.chartGoldMark
-                                        : colors.chartGoldMark
-                                      : activityColor
-                                  }
+                                <DirectionArrow
+                                  direction="forward"
+                                  color={activityColor}
+                                  size={DIRECTION_ARROW_SIZE}
                                 />
-                              )}
-                              {isMonthFwdOverallPr && (
-                                <Text style={[styles.prTag, isDark && styles.prTagDark]}>
-                                  {t('sections.legendPr')}
+                                <Text
+                                  style={[
+                                    styles.calendarMonthTime,
+                                    isDark && styles.textLight,
+                                    isMonthFwdYearBest && { fontWeight: '700' },
+                                  ]}
+                                >
+                                  {formatBest(fwd)}
                                 </Text>
-                              )}
-                            </Pressable>
-                            {onSetAsReference && (
-                              <ReferenceStar
-                                isReference={fwd.bestActivityId === referenceActivityId}
-                                isDark={isDark}
-                                label={t('sections.legendReference')}
-                                onPress={() => onSetAsReference(fwd.bestActivityId)}
-                              />
-                            )}
-                          </View>
-                        )}
-                        {rev && (
-                          <View style={styles.calendarMonthEntryRow}>
-                            <Pressable
-                              style={pressable(styles.calendarMonthEntry)}
-                              android_ripple={pressRipple}
-                              accessibilityRole="button"
-                              accessibilityLabel={`${directionWord(t, 'reverse')}, ${formatBest(rev)}, ${rev.bestActivityName}`}
-                              onPress={() => tapTo(`/activity/${rev.bestActivityId}`)}
-                            >
-                              <DirectionArrow
-                                direction="reverse"
-                                color={REVERSE_COLOR}
-                                size={DIRECTION_ARROW_SIZE}
-                              />
-                              <Text
-                                style={[
-                                  styles.calendarMonthTime,
-                                  isDark && styles.textLight,
-                                  isMonthRevYearBest && { fontWeight: '700' },
-                                ]}
+                                {isMonthFwdYearBest || isMonthFwdOverallPr ? (
+                                  <MaterialCommunityIcons
+                                    name="trophy"
+                                    size={12}
+                                    color={
+                                      isMonthFwdOverallPr
+                                        ? isDark
+                                          ? darkColors.chartGoldMark
+                                          : colors.chartGoldMark
+                                        : activityColor
+                                    }
+                                  />
+                                ) : null}
+                                {isMonthFwdOverallPr ? (
+                                  <Text style={[styles.prTag, isDark && styles.prTagDark]}>
+                                    {t('sections.legendPr')}
+                                  </Text>
+                                ) : null}
+                              </Pressable>
+                              {onSetAsReference ? (
+                                <ReferenceStar
+                                  isReference={fwd.bestActivityId === referenceActivityId}
+                                  isDark={isDark}
+                                  label={t('sections.legendReference')}
+                                  onPress={() => onSetAsReference(fwd.bestActivityId)}
+                                />
+                              ) : null}
+                            </View>
+                          ) : null}
+                          {rev ? (
+                            <View style={styles.calendarMonthEntryRow}>
+                              <Pressable
+                                style={pressable(styles.calendarMonthEntry)}
+                                android_ripple={pressRipple}
+                                accessibilityRole="button"
+                                accessibilityLabel={`${directionWord(t, 'reverse')}, ${formatBest(rev)}, ${rev.bestActivityName}`}
+                                onPress={() => tapTo(`/activity/${rev.bestActivityId}`)}
                               >
-                                {formatBest(rev)}
-                              </Text>
-                              {(isMonthRevYearBest || isMonthRevOverallPr) && (
-                                <MaterialCommunityIcons
-                                  name="trophy"
-                                  size={12}
-                                  color={
-                                    isMonthRevOverallPr
-                                      ? isDark
-                                        ? darkColors.chartGoldMark
-                                        : colors.chartGoldMark
-                                      : REVERSE_COLOR
-                                  }
+                                <DirectionArrow
+                                  direction="reverse"
+                                  color={REVERSE_COLOR}
+                                  size={DIRECTION_ARROW_SIZE}
                                 />
-                              )}
-                              {isMonthRevOverallPr && (
-                                <Text style={[styles.prTag, isDark && styles.prTagDark]}>
-                                  {t('sections.legendPr')}
+                                <Text
+                                  style={[
+                                    styles.calendarMonthTime,
+                                    isDark && styles.textLight,
+                                    isMonthRevYearBest && { fontWeight: '700' },
+                                  ]}
+                                >
+                                  {formatBest(rev)}
                                 </Text>
-                              )}
-                            </Pressable>
-                            {onSetAsReference && (
-                              <ReferenceStar
-                                isReference={rev.bestActivityId === referenceActivityId}
-                                isDark={isDark}
-                                label={t('sections.legendReference')}
-                                onPress={() => onSetAsReference(rev.bestActivityId)}
-                              />
-                            )}
-                          </View>
-                        )}
+                                {isMonthRevYearBest || isMonthRevOverallPr ? (
+                                  <MaterialCommunityIcons
+                                    name="trophy"
+                                    size={12}
+                                    color={
+                                      isMonthRevOverallPr
+                                        ? isDark
+                                          ? darkColors.chartGoldMark
+                                          : colors.chartGoldMark
+                                        : REVERSE_COLOR
+                                    }
+                                  />
+                                ) : null}
+                                {isMonthRevOverallPr ? (
+                                  <Text style={[styles.prTag, isDark && styles.prTagDark]}>
+                                    {t('sections.legendPr')}
+                                  </Text>
+                                ) : null}
+                              </Pressable>
+                              {onSetAsReference ? (
+                                <ReferenceStar
+                                  isReference={rev.bestActivityId === referenceActivityId}
+                                  isDark={isDark}
+                                  label={t('sections.legendReference')}
+                                  onPress={() => onSetAsReference(rev.bestActivityId)}
+                                />
+                              ) : null}
+                            </View>
+                          ) : null}
+                        </View>
                       </View>
-                    </View>
-                  );
-                })}
+                    );
+                  })
+                : null}
             </View>
           );
         })}
@@ -362,9 +363,9 @@ function ReferenceStar({ isReference, isDark, label, onPress }: ReferenceStarPro
       style={pressable(styles.referenceButton)}
       android_ripple={pressRipple}
     >
-      {isReference && (
+      {isReference ? (
         <Text style={[styles.referenceTag, isDark && styles.referenceTagDark]}>{label}</Text>
-      )}
+      ) : null}
       <MaterialCommunityIcons
         name={isReference ? 'star' : 'star-outline'}
         size={REFERENCE_STAR_SIZE}

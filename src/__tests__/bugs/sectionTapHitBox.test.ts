@@ -41,7 +41,6 @@ function config(): MapSurfaceHtmlConfig {
     devicePixelRatio: 2,
     reduceMotion: false,
     regionChangeThrottleMs: 100,
-    longPressMs: 500,
   };
 }
 
@@ -246,21 +245,18 @@ describe('the page reports every hit in the layer that won the tap', () => {
   });
 });
 
-describe('a long press still reports the one feature it landed on', () => {
+describe('a held touch on the map offers no gesture', () => {
   afterEach(() => jest.useRealTimers());
 
-  it('names the winning layer, not a list', () => {
+  it('posts nothing however long the finger stays down', () => {
     jest.useFakeTimers();
     const { posted, touch } = runPage([SECTION_HIT], ['sections-line']);
 
-    touch.touchstart({ touches: [{ clientX: 100, clientY: 200 }] });
-    jest.advanceTimersByTime(config().longPressMs);
+    touch.touchstart?.({ touches: [{ clientX: 100, clientY: 200 }] });
+    jest.advanceTimersByTime(5000);
 
-    const press = posted.find((m) => m.type === 'mapLongPress') as {
-      feature: { layerId: string; properties: { id: string } } | null;
-    };
-    expect(press.feature?.layerId).toBe('sections-line');
-    expect(press.feature?.properties.id).toBe('s1');
+    expect(posted.map((m) => m.type)).not.toContain('mapLongPress');
+    expect(Object.keys(touch)).toEqual([]);
   });
 });
 

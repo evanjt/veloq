@@ -23,6 +23,7 @@ fn english() -> Templates {
         faster_on_route_delta: "Faster than usual on {{name}} ({{delta}} off PR)".into(),
         ftp_milestone: "Cycling eFTP: {{current}}W (+{{change}}W)".into(),
         pace_milestone: "Pace improved {{delta}}".into(),
+        seconds_value: "{{value}} s".into(),
     }
 }
 
@@ -91,7 +92,7 @@ fn a_single_section_pr_names_the_section() {
 
     assert_eq!(
         body_of(&picked, "Morning Ride"),
-        "PR on Climb (8s faster) - Morning Ride"
+        "PR on Climb (8 s faster) - Morning Ride"
     );
 }
 
@@ -171,7 +172,7 @@ fn an_upward_trend_without_a_pr_reads_faster_than_usual() {
 
     assert_eq!(
         body_of(&picked, ""),
-        "Faster than usual on Lake Loop (45s off PR)"
+        "Faster than usual on Lake Loop (45 s off PR)"
     );
 }
 
@@ -251,7 +252,7 @@ fn the_whole_route_pr_clause_and_its_delta_stay_inside_the_cap() {
 
     assert!(units(&body) <= NOTIFICATION_BODY_MAX, "{body}");
     assert!(body.starts_with("Route PR on "), "{body}");
-    assert!(body.contains("(12s faster)"), "{body}");
+    assert!(body.contains("(12 s faster)"), "{body}");
 }
 
 #[test]
@@ -267,7 +268,7 @@ fn the_route_name_is_truncated_and_the_delta_never_is() {
 
     assert!(body.contains('\u{2026}'), "{body}");
     assert!(!body.contains("back over the ridge"), "{body}");
-    assert!(body.contains("(12s faster)"), "{body}");
+    assert!(body.contains("(12 s faster)"), "{body}");
 }
 
 #[test]
@@ -530,7 +531,7 @@ fn the_sentence_gives_up_no_part_of_the_place_name() {
     assert_eq!(
         built.sentence.as_deref(),
         Some(
-            "Route PR on The long way round past the reservoir and back over the ridge (12s faster)"
+            "Route PR on The long way round past the reservoir and back over the ridge (12 s faster)"
         )
     );
     assert!(built.body.contains('\u{2026}'));
@@ -542,12 +543,53 @@ fn the_sentence_gives_up_no_part_of_the_place_name() {
 
 #[test]
 fn a_delta_under_a_minute_is_seconds_and_above_it_is_m_ss() {
-    assert_eq!(format_duration_delta(0), "0s");
-    assert_eq!(format_duration_delta(12), "12s");
-    assert_eq!(format_duration_delta(59), "59s");
-    assert_eq!(format_duration_delta(60), "1:00");
-    assert_eq!(format_duration_delta(154), "2:34");
-    assert_eq!(format_duration_delta(3665), "1:01:05");
+    let t = english();
+    assert_eq!(format_duration_delta(0, &t), "0 s");
+    assert_eq!(format_duration_delta(12, &t), "12 s");
+    assert_eq!(format_duration_delta(59, &t), "59 s");
+    assert_eq!(format_duration_delta(60, &t), "1:00");
+    assert_eq!(format_duration_delta(154, &t), "2:34");
+    assert_eq!(format_duration_delta(3665, &t), "1:01:05");
+}
+
+/// Scenario: a delta under a minute was written "12s" whatever the locale,
+/// while the sentence around it was translated.
+///
+/// Expected behaviour: the seconds take the unit the pushed bundle carries.
+#[test]
+fn a_delta_in_seconds_takes_the_unit_the_bundle_carries() {
+    let japanese = Templates {
+        route_pr_delta: "{{name}}のルートPR（{{delta}}短縮）".into(),
+        seconds_value: "{{value}}秒".into(),
+        ..english()
+    };
+    let picked = pick_highlight(
+        Some(&route("Lake Loop", true, 1, Some(12), None)),
+        &SectionPrs::default(),
+        true,
+        None,
+    );
+
+    let body = notification_for(&picked, "", &japanese).body;
+
+    assert_eq!(body, "Lake LoopのルートPR（12秒短縮）");
+}
+
+/// Scenario: a bundle stored by a push site from before the seconds unit
+/// joined it, read by a handler woken before the app is next opened.
+///
+/// Expected behaviour: the notification still renders, with the SI symbol.
+#[test]
+fn a_bundle_without_the_seconds_unit_still_renders() {
+    let mut pairs = stored_pairs();
+    pairs.retain(|(key, _)| key != SECONDS_VALUE_KEY);
+    let stored = crate::persistence::settings::NotificationTemplates {
+        locale: "en-AU".into(),
+        templates: pairs.into_iter().collect(),
+    };
+
+    let strings = templates_from_stored(&stored).expect("the bundle");
+    assert_eq!(strings.seconds_value, "{{value}} s");
 }
 
 /// Every cap here was sized against JavaScript's `String.length`, which counts
@@ -632,7 +674,7 @@ fn a_bundle_missing_a_key_reads_as_none_rather_than_a_dotted_path() {
     assert_eq!(templates_from_stored(&stored), None);
 }
 
-/// The seventeen keys the push site resolves, as it stores them.
+/// The keys the push site resolves, as it stores them.
 fn stored_pairs() -> Vec<(String, String)> {
     let t = english();
     [
@@ -677,6 +719,7 @@ fn stored_pairs() -> Vec<(String, String)> {
         ),
         ("insights.ftpIncrease", t.ftp_milestone),
         ("insights.paceImproved", t.pace_milestone),
+        (SECONDS_VALUE_KEY, t.seconds_value),
     ]
     .into_iter()
     .map(|(k, v)| (k.to_string(), v))
@@ -829,6 +872,7 @@ fn every_locale() -> Vec<(String, Templates)> {
                 faster_on_route_delta: body("fasterOnRouteDelta"),
                 ftp_milestone: at(&["insights", "ftpIncrease"]),
                 pace_milestone: at(&["insights", "paceImproved"]),
+                seconds_value: at(&["units", "secondsValue"]),
             },
         ));
     }
