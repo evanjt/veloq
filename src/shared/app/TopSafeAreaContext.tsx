@@ -13,7 +13,9 @@ import { spacing } from '@/theme';
 import {
   pickTopBanner,
   padsStatusBar,
+  shownHeaderHeight,
   stackHeight,
+  useShownHeaderHeights,
   useTopBannerHeights,
   type ShownBanner,
   type TopBanner,
@@ -118,11 +120,20 @@ export function useBannerTopPadding(self: ShownBanner): number {
 /**
  * Where a pill floating under the status bar starts: below every banner in the
  * top slot, so it never covers one, and under the inset when the slot is empty.
+ * The stack sits beneath the slot, so on a screen whose native header is shown
+ * the pill starts below that header's bottom edge instead, never over its title.
  */
 export function useFloatingPillTop(): number {
   const insets = useSafeAreaInsets();
   const slot = useTopBannerHeights((s) => stackHeight(s.heights));
-  return Math.max(insets.top, slot) + spacing.xs;
+  const header = useShownHeaderHeights((s) => shownHeaderHeight(s.heights));
+  return floatingPillTop(insets.top, slot, header);
+}
+
+/** The pill's top from the status-bar inset, the banner slot's height and the shown header's. */
+function floatingPillTop(inset: number, slot: number, header: number): number {
+  if (header > 0) return slot + header + spacing.xs;
+  return Math.max(inset, slot) + spacing.xs;
 }
 
 export function useScreenSafeAreaEdges(): Edge[] {

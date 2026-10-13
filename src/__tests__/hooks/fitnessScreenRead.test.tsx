@@ -37,7 +37,9 @@ const midnightUtc = (day: string) => wallClockStamp(day, 0);
 
 const pace = (latestPace: number | undefined) => ({ latestPace, sampleCount: 1, history: [] });
 
-function screenRead(over: { changes?: unknown[]; history?: unknown[] } = {}) {
+function screenRead(
+  over: { changes?: unknown[]; history?: unknown[]; dominant?: string | undefined } = {}
+) {
   return {
     ftpTrend: {
       latestFtp: 260,
@@ -53,6 +55,12 @@ function screenRead(over: { changes?: unknown[]; history?: unknown[] } = {}) {
     ftpTrendCoverage: RangeCoverage.Loaded,
     runPaceTrend: pace(3.8),
     swimPaceTrend: pace(1.2),
+    sportMix: {
+      rides: 4,
+      runs: 40,
+      swims: 6,
+      dominant: 'dominant' in over ? over.dominant : 'Running',
+    },
   };
 }
 
@@ -89,9 +97,18 @@ describe('the fitness screen read', () => {
     ]);
     expect(result.current.storedRunPace).toBe(3.8);
     expect(result.current.storedSwimPace).toBe(1.2);
+    expect(result.current.librarySport).toBe('Running');
     expect(engine.getFitnessScreenData).toHaveBeenCalledTimes(1);
     expect(engine.getFtpTrend).not.toHaveBeenCalled();
     expect(engine.getSummaryCardData).not.toHaveBeenCalled();
+  });
+
+  it('names no library sport when the read finds no single dominant one', async () => {
+    engine.getFitnessScreenData.mockImplementation(() => screenRead({ dominant: undefined }));
+
+    const { result } = await renderHook(useFitnessScreenRead);
+
+    expect(result.current.librarySport).toBeNull();
   });
 
   it('reads once more when activities change', async () => {

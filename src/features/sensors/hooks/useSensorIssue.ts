@@ -34,7 +34,7 @@ export function useSensorIssue(): string | null {
   // reason to give, rather than the reconnect it causes.
   const blocking = hasPaired ? blockingIssueKey(availability) : null;
   if (blocking) {
-    return `${t('sensors.title', 'Sensors')}: ${t(blocking)}`;
+    return t('sensors.issueSummary', { issue: t(blocking) });
   }
 
   const entries = Object.values(connections);
@@ -45,13 +45,13 @@ export function useSensorIssue(): string | null {
   // A link that carries nothing outranks a reconnect: the reconnect is only
   // how it is being fixed, and a ride recorded against it has no heart rate.
   if (silent) {
-    return `${t('sensors.title', 'Sensors')}: ${t('sensors.status.noData')}`;
+    return t('sensors.issueSummary', { issue: t('sensors.status.noData') });
   }
   if (reconnecting) {
-    return `${t('sensors.title', 'Sensors')}: ${t('sensors.status.reconnecting')}`;
+    return t('sensors.issueSummary', { issue: t('sensors.status.reconnecting') });
   }
   if (connecting) {
-    return `${t('sensors.title', 'Sensors')}: ${t('sensors.status.connecting')}`;
+    return t('sensors.issueSummary', { issue: t('sensors.status.connecting') });
   }
   return null;
 }

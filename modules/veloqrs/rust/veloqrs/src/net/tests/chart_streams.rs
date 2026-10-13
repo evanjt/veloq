@@ -4,8 +4,10 @@ use crate::persistence::codec::decode_polyline;
 fn floats(bytes: &[u8]) -> Vec<f64> {
     assert_eq!(bytes.len() % 8, 0, "a float buffer is whole samples");
     bytes
-        .chunks_exact(8)
-        .map(|c| f64::from_le_bytes(c.try_into().unwrap()))
+        .as_chunks::<8>()
+        .0
+        .iter()
+        .map(|&c| f64::from_le_bytes(c))
         .collect()
 }
 

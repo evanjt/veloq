@@ -42,9 +42,10 @@ jest.mock('@/features/stats/hooks/useBestEfforts', () => ({
         {
           sport: 'Swim',
           fetched: true,
+          // Kind 1 is `BestEffortKind.Distance`.
           efforts: [
-            { label: '3.8km', checkpoint: 3800, value: 0.7, time: 5565, activityId: 'long-swim' },
-            { label: '400m', checkpoint: 400, value: 1.2, time: 333 },
+            { kind: 1, checkpoint: 3800, value: 0.7, time: 5565, activityId: 'long-swim' },
+            { kind: 1, checkpoint: 400, value: 1.2, time: 333 },
           ],
         },
       ],
@@ -99,8 +100,8 @@ describe('BestEffortRow', () => {
     expect(StyleSheet.flatten(valueColumn.props.style).flexShrink).toBe(0);
   });
 
-  it('opens its target from the whole row when it has one', async () => {
-    const onPress = jest.fn();
+  it('opens its activity from the whole row and states its date', async () => {
+    const push = jest.spyOn(require('expo-router').router, 'push').mockImplementation(() => {});
     await render(
       <BestEffortRow
         testID="row"
@@ -108,13 +109,14 @@ describe('BestEffortRow', () => {
         value="4:10 /km"
         valueColor="#000"
         isLast={false}
-        onPress={onPress}
-        accessibilityLabel="5K"
+        activity={{ id: 'reef-run', name: 'Reef loop', date: '9 Jan' }}
       />
     );
 
-    await fireEvent.press(screen.getByRole('button', { name: '5K' }));
-    expect(onPress).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('9 Jan')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: '5K, 4:10 /km, Reef loop, 9 Jan' }));
+    expect(push).toHaveBeenCalledWith('/activity/reef-run');
+    push.mockRestore();
   });
 });
 
@@ -122,21 +124,25 @@ describe('the three surfaces that draw a best', () => {
   it('draw Best Efforts rows with no fixed column', async () => {
     await render(<BestEffortsScreen />);
 
-    expectNoFixedWidth(screen.getByTestId('best-efforts-row-Swimming-3.8km'));
-    expectNoFixedWidth(screen.getByTestId('best-efforts-row-Swimming-400m'));
+    expectNoFixedWidth(screen.getByTestId('best-efforts-row-Swimming-3800'));
+    expectNoFixedWidth(screen.getByTestId('best-efforts-row-Swimming-400'));
   });
 
   it('draw Season Bests rows with no fixed column', async () => {
     await render(
       <SeasonBestsSection
-        efforts={[{ label: '3.8km', activityId: 'long-swim', value: 0.7, time: 5565 }] as never}
+        efforts={
+          [
+            { label: '3.8km', checkpoint: 3800, activityId: 'long-swim', value: 0.7, time: 5565 },
+          ] as never
+        }
         sport="Swimming"
         period="6m"
         isLoading={false}
       />
     );
 
-    expectNoFixedWidth(screen.getByTestId('season-bests-row-3.8km'));
+    expectNoFixedWidth(screen.getByTestId('season-bests-row-3800'));
   });
 
   it('draw climbing rows with no fixed column', async () => {

@@ -57,6 +57,7 @@ function chart(props: Partial<React.ComponentProps<typeof SectionScatterChart>> 
       chartData={CHART_DATA}
       activityType="Ride"
       isDark={false}
+      forwardColour="#0D9488"
       bestForwardRecord={null}
       bestReverseRecord={null}
       bestForwardIsRecord={false}

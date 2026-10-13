@@ -1,0 +1,17 @@
+{
+  "name": "veloq-locale",
+  "version": "0.1.0",
+  "description": "Reads and writes the Android per-app language, so the in-app choice and the system's App languages setting stay one",
+  "main": "index.ts",
+  "author": "Evan Thomas <evan@evanjt.com>",
+  "homepage": "https://github.com/evanjt/veloq",
+  "license": "MIT",
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  },
+  "devDependencies": {
+    "expo-modules-core": "*"
+  }
+}

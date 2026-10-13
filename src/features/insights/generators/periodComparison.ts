@@ -1,4 +1,5 @@
 import type {
+  DataPoint,
   InsightMethodology,
   InsightSupportingData,
   Insight,
@@ -148,6 +149,11 @@ export function generatePeriodComparisonInsights(
     previous: captionValue(weekOverWeek.previous, useTss),
   });
 
+  const thisWeek: DataPoint = {
+    label: t('insights.data.thisWeek'),
+    value: displayValue(weekOverWeek.current, useTss),
+    unit: useTss ? undefined : 'min',
+  };
   const comparisonSupportingData: InsightSupportingData = {
     // The weekly totals in the comparison's unit, including the compared week.
     ...sparkline(
@@ -161,12 +167,9 @@ export function generatePeriodComparisonInsights(
       }
     ),
     trend,
+    hero: thisWeek,
     comparisonData: {
-      current: {
-        label: t('insights.data.thisWeek'),
-        value: displayValue(weekOverWeek.current, useTss),
-        unit: useTss ? undefined : 'min',
-      },
+      current: thisWeek,
       previous: {
         label: t('insights.data.samePointLastWeek'),
         value: displayValue(weekOverWeek.previous, useTss),
@@ -262,6 +265,11 @@ function generateLastWeekVsAverageInsight(
 
   const direction = ratio > 0 ? t('insights.weeklyLoad.above') : t('insights.weeklyLoad.below');
   const { metric, trend } = comparisonTrend(comparison);
+  const lastWeek: DataPoint = {
+    label: t('insights.data.lastWeek'),
+    value: displayValue(comparison.current, useTss),
+    unit: useTss ? undefined : 'min',
+  };
 
   return [
     makeInsight({
@@ -296,12 +304,9 @@ function generateLastWeekVsAverageInsight(
           }
         ),
         trend,
+        hero: lastWeek,
         comparisonData: {
-          current: {
-            label: t('insights.data.lastWeek'),
-            value: displayValue(comparison.current, useTss),
-            unit: useTss ? undefined : 'min',
-          },
+          current: lastWeek,
           previous: {
             label: t('insights.data.fourWeekAvgTss'),
             value: displayValue(comparison.previous, useTss),

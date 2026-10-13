@@ -6,6 +6,10 @@
  * gets the sheet's own frame as its frame, in the coordinates of the view around it, which moves
  * it out of sight and leaves the sheet blank. So the scroll view is the root, and nothing wraps
  * it to carry the background.
+ *
+ * `footer` draws below the scroll view rather than inside it, so a sheet's actions stay in view at
+ * any detent while only the body scrolls. It is a sibling in a fragment, not a wrapper, so the
+ * scroll view is still the first view of the content.
  */
 
 import React, { forwardRef } from 'react';
@@ -14,10 +18,23 @@ import { ScrollView, StyleSheet, type ScrollViewProps } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors } from '@/theme';
 
-export const SheetScrollView = forwardRef<ScrollView, Omit<ScrollViewProps, 'style'>>(
-  function SheetScrollView(props, ref) {
+type SheetScrollViewProps = Omit<ScrollViewProps, 'style'> & {
+  footer?: React.ReactNode;
+};
+
+export const SheetScrollView = forwardRef<ScrollView, SheetScrollViewProps>(
+  function SheetScrollView({ footer, ...props }, ref) {
     const { isDark } = useTheme();
-    return <ScrollView ref={ref} style={[styles.sheet, isDark && styles.sheetDark]} {...props} />;
+    const scroll = (
+      <ScrollView ref={ref} style={[styles.sheet, isDark && styles.sheetDark]} {...props} />
+    );
+    if (footer == null) return scroll;
+    return (
+      <>
+        {scroll}
+        {footer}
+      </>
+    );
   }
 );
 

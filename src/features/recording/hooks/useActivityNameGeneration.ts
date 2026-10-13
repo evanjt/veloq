@@ -1,3 +1,4 @@
+import type { TFunction } from 'i18next';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -12,6 +13,20 @@ export function getTimeOfDayKey(startTime: number | null): TimeOfDayKey {
   if (hour < 17) return 'afternoon';
   if (hour < 21) return 'evening';
   return 'night';
+}
+
+/**
+ * The name a recording is given when the athlete types none, such as "Morning
+ * Ride". Each time of day is one translated phrase with the sport as its
+ * placeholder, so every language orders and inflects its own words.
+ */
+export function generatedActivityName(
+  t: TFunction,
+  type: ActivityType,
+  startTime: number | null
+): string {
+  const sport = t(`activityTypes.${type}`, type.replace(/([A-Z])/g, ' $1').trim());
+  return t(`recording.autoName.${getTimeOfDayKey(startTime)}`, { sport });
 }
 
 export interface UseActivityNameGenerationArgs {
@@ -48,8 +63,7 @@ export function useActivityNameGeneration({
   const { t } = useTranslation();
   const [name, setName] = useState(() => {
     if (initialName) return initialName;
-    const tod = getTimeOfDayKey(startTime);
-    return `${t(`recording.timeOfDay.${tod}`)} ${t(`activityTypes.${type}`, type.replace(/([A-Z])/g, ' $1').trim())}`;
+    return generatedActivityName(t, type, startTime);
   });
 
   return { name, setName };

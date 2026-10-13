@@ -106,9 +106,18 @@ impl ActivityManager {
         // switch can reopen the engine before the worker is scheduled.
         let install = crate::persistence::engine_install();
         run_provisional_worker(move || {
-            let coords = match fit_path {
-                Some(path) => fit_coords(&path)?,
-                None => Vec::new(),
+            let (coords, body) = match fit_path {
+                Some(path) => {
+                    let recording = fit_recording(&path)?;
+                    let body = with_session_totals(body, &recording)?;
+                    let coords = recording
+                        .track
+                        .iter()
+                        .flat_map(|p| [p.latitude, p.longitude])
+                        .collect();
+                    (coords, body)
+                }
+                None => (Vec::new(), body),
             };
             save_provisional_for(install, &activity_id, coords, &body)
         })
@@ -509,18 +518,41 @@ impl ActivityManager {
 pub(crate) static PROVISIONAL_BUSY_RETRIES: std::sync::atomic::AtomicUsize =
     std::sync::atomic::AtomicUsize::new(0);
 
-/// The positions a recording's FIT holds, as lat/lon pairs.
-fn fit_coords(path: &str) -> Result<Vec<f64>, VeloqError> {
+/// What a recording's FIT holds: its track and its session totals.
+fn fit_recording(path: &str) -> Result<crate::fit::FitRecording, VeloqError> {
     let data = std::fs::read(path).map_err(|e| VeloqError::Database {
         msg: format!("the recording's FIT could not be read: {e}"),
     })?;
-    let track = crate::fit::parse_fit_track(&data).map_err(|e| VeloqError::Database {
+    crate::fit::parse_fit_recording(&data).map_err(|e| VeloqError::Database {
         msg: format!("the recording's FIT could not be parsed: {e}"),
-    })?;
-    Ok(track
-        .iter()
-        .flat_map(|p| [p.latitude, p.longitude])
-        .collect())
+    })
+}
+
+/// The body with the elapsed time and top speed the ride's FIT records.
+///
+/// The app knows the moving time it saved and writes it; the wall-clock span,
+/// pauses included, and the top speed are the file's. A ride that never
+/// uploads keeps this row for good, so the row takes them from the file
+/// rather than from a figure the app would have to carry alongside it.
+fn with_session_totals(
+    mut body: crate::FfiActivityBody,
+    recording: &crate::fit::FitRecording,
+) -> Result<crate::FfiActivityBody, VeloqError> {
+    if recording.elapsed_seconds.is_none() && recording.max_speed.is_none() {
+        return Ok(body);
+    }
+    let mut raw: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&body.raw)
+        .map_err(|e| VeloqError::Database {
+            msg: format!("the provisional body is not a JSON object: {e}"),
+        })?;
+    if let Some(elapsed) = recording.elapsed_seconds {
+        raw.insert("elapsed_time".into(), (elapsed.round() as i64).into());
+    }
+    if let Some(speed) = recording.max_speed {
+        raw.insert("max_speed".into(), speed.into());
+    }
+    body.raw = serde_json::Value::Object(raw).to_string();
+    Ok(body)
 }
 
 /// The provisional save, written into the library that was open at `install`.
@@ -934,6 +966,66 @@ mod tests {
                 .expect("a stored track");
             assert_eq!(points.len(), 30);
             assert!((points[0].latitude - 46.948).abs() < 1e-6);
+        }
+
+        /// Scenario: a ride paused inside its span is saved and never
+        /// uploaded, so the provisional row is the only row it will ever
+        /// have. The body the app hands over carries its moving time alone.
+        ///
+        /// Expected behaviour: the row's elapsed time is the span the FIT
+        /// records and its top speed the session's, in the metrics and the
+        /// body alike, while the moving time stays the app's.
+        #[test]
+        fn a_save_from_a_fit_takes_the_elapsed_time_and_top_speed_the_file_holds() {
+            let _serial = serial_global_state();
+            let _dir = init_global_engine("provisional_fit_totals.db");
+            let body = crate::FfiActivityBody {
+                activity_id: ID.into(),
+                date: 1000.0,
+                raw: format!(
+                    "{{\"id\":\"{ID}\",\"name\":\"Ride\",\"type\":\"Ride\",\"distance\":290,\"moving_time\":30,\"elapsed_time\":30,\"max_speed\":0}}"
+                ),
+            };
+
+            crate::runtime::block_on(ActivityManager::new().save_provisional(
+                ID.into(),
+                fit(),
+                body,
+            ))
+            .expect("the save");
+
+            let (metrics, raw) = with_engine(|engine| {
+                (
+                    engine.activity_metrics.get(ID).cloned().expect("metrics"),
+                    engine.get_activity_body(ID).expect("a body"),
+                )
+            })
+            .unwrap();
+            assert_eq!(metrics.elapsed_time, 58);
+            assert_eq!(metrics.moving_time, 30);
+            let stored: serde_json::Value = serde_json::from_str(&raw).unwrap();
+            assert_eq!(stored["elapsed_time"], 58);
+            assert_eq!(stored["moving_time"], 30);
+            assert_eq!(stored["max_speed"], 5.0);
+        }
+
+        /// A manual entry has no file, so the body it was handed is the row.
+        #[test]
+        fn a_save_with_no_fit_keeps_the_body_s_own_times() {
+            let _serial = serial_global_state();
+            let _dir = init_global_engine("provisional_manual_totals.db");
+
+            crate::runtime::block_on(ActivityManager::new().save_provisional(
+                ID.into(),
+                None,
+                body(),
+            ))
+            .expect("the save");
+
+            let raw = with_engine(|engine| engine.get_activity_body(ID))
+                .unwrap()
+                .expect("a body");
+            assert_eq!(raw, body().raw);
         }
 
         /// A file that is gone or unreadable is a failed save, retried at the

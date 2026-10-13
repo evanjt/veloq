@@ -15,7 +15,7 @@ import {
 import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
 import {
   formatDuration,
-  formatRelativeDate,
+  formatRelativeDateTime,
   formatLoad,
   formatHeartRate,
   formatPower,
@@ -200,7 +200,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
               accessibilityRole="button"
               accessibilityLabel={composeAccessibilityLabel(
                 activity.name,
-                formatRelativeDate(activity.start_date_local),
+                formatRelativeDateTime(activity.start_date_local),
                 `${t('strength.durationLabel')}: ${spokenDuration(activity.moving_time)}`,
                 `${t('activityDetail.exercises')}: ${strengthData.exerciseCount}`,
                 `${t('strength.setsLabel')}: ${strengthData.setCount}`,
@@ -238,7 +238,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
                       { color: compactMutedColor, textShadowColor: 'transparent' },
                     ]}
                   >
-                    {formatRelativeDate(activity.start_date_local)}
+                    {formatRelativeDateTime(activity.start_date_local)}
                   </RNText>
                 </View>
               </View>

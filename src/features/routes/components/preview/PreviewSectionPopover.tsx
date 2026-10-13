@@ -81,7 +81,7 @@ export function PreviewSectionPopover({ section, newNumber, onClose }: PreviewSe
 
       <View style={styles.metricsRow}>
         <Text style={[styles.metric, { color: textSecondary }]}>
-          {t('sections.visitsCount', { count: section.visits })}
+          {t('sections.traversalsCount', { count: section.visits })}
         </Text>
         <Text style={[styles.metric, { color: textSecondary }]}>
           {formatDistance(section.distanceM, isMetric)}

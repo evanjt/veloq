@@ -9,6 +9,7 @@
 //! non-finite.
 
 use super::pooled::best_efforts_data;
+use crate::FfiBestEffortKind::{Distance, Duration, HalfMarathon};
 use crate::GpsPoint;
 use crate::metrics::vertical_power::CLIMB_WINDOWS_S;
 use crate::persistence::PersistentEngine;
@@ -17,7 +18,7 @@ use crate::persistence::{
     ELEVATION_SOURCE_CORRECTED, ELEVATION_SOURCE_DEVICE, ELEVATION_SOURCE_RECORDED,
     ELEVATION_SOURCE_UNKNOWN,
 };
-use crate::{FfiBestEffortsData, FfiBestEffortsSport, FfiClimbBests};
+use crate::{FfiBestEffortKind, FfiBestEffortsData, FfiBestEffortsSport, FfiClimbBests};
 
 const NOW: i64 = 1_760_000_000;
 const DAY: i64 = 86_400;
@@ -42,11 +43,17 @@ const RUN_PACE: &str = r#"{
     }]
 }"#;
 
-/// Label, checkpoint, watts and the activity holding them.
-type PowerRow<'a> = (&'a str, f64, Option<f64>, Option<&'a str>);
+/// Kind, checkpoint, watts and the activity holding them.
+type PowerRow<'a> = (FfiBestEffortKind, f64, Option<f64>, Option<&'a str>);
 
-/// Label, speed, time and the activity holding them.
-type PaceRow<'a> = (&'a str, Option<f64>, Option<f64>, Option<&'a str>);
+/// Kind, metres, speed, time and the activity holding them.
+type PaceRow<'a> = (
+    FfiBestEffortKind,
+    f64,
+    Option<f64>,
+    Option<f64>,
+    Option<&'a str>,
+);
 
 /// Flat, then a rep of `rep_m` metres over 15 s from t=40, then flat again.
 fn hill_rep(rep_m: f64) -> impl Fn(u32) -> f64 {
@@ -106,9 +113,14 @@ fn assert_all_finite(data: &FfiBestEffortsData) {
                 e.value.is_none_or(f64::is_finite),
                 "{} {}",
                 s.sport,
-                e.label
+                e.checkpoint
             );
-            assert!(e.time.is_none_or(f64::is_finite), "{} {}", s.sport, e.label);
+            assert!(
+                e.time.is_none_or(f64::is_finite),
+                "{} {}",
+                s.sport,
+                e.checkpoint
+            );
         }
     }
     for c in &data.climbing {
@@ -181,25 +193,18 @@ fn power_bests_are_read_at_each_checkpoint_of_the_stored_ride_curve() {
     let rows: Vec<PowerRow> = ride
         .efforts
         .iter()
-        .map(|e| {
-            (
-                e.label.as_str(),
-                e.checkpoint,
-                e.value,
-                e.activity_id.as_deref(),
-            )
-        })
+        .map(|e| (e.kind, e.checkpoint, e.value, e.activity_id.as_deref()))
         .collect();
     assert_eq!(
         rows,
         vec![
-            ("5s", 5.0, Some(780.0), Some("p2")),
-            ("1m", 60.0, Some(410.0), Some("p3")),
+            (Duration, 5.0, Some(780.0), Some("p2")),
+            (Duration, 60.0, Some(410.0), Some("p3")),
             // A sample a second off its checkpoint stands for it.
-            ("5m", 300.0, Some(300.0), Some("p4")),
-            ("20m", 1200.0, Some(260.0), Some("p5")),
+            (Duration, 300.0, Some(300.0), Some("p4")),
+            (Duration, 1200.0, Some(260.0), Some("p5")),
             // The curve holds no hour, and the two-hour best is not one.
-            ("1h", 3600.0, None, None),
+            (Duration, 3600.0, None, None),
         ]
     );
     assert!(ride.efforts.iter().all(|e| e.time.is_none()));
@@ -218,17 +223,37 @@ fn pace_bests_carry_the_time_and_drop_a_distance_with_no_time() {
     let rows: Vec<PaceRow> = run
         .efforts
         .iter()
-        .map(|e| (e.label.as_str(), e.value, e.time, e.activity_id.as_deref()))
+        .map(|e| {
+            (
+                e.kind,
+                e.checkpoint,
+                e.value,
+                e.time,
+                e.activity_id.as_deref(),
+            )
+        })
         .collect();
     assert_eq!(
         rows,
         vec![
-            ("400m", Some(5.0), Some(80.0), Some("r1")),
-            ("1K", Some(1000.0 / 210.0), Some(210.0), Some("r2")),
-            ("5K", Some(5000.0 / 1200.0), Some(1200.0), Some("r3")),
-            ("10K", Some(4.0), Some(2500.0), Some("r4")),
+            (Distance, 400.0, Some(5.0), Some(80.0), Some("r1")),
+            (
+                Distance,
+                1000.0,
+                Some(1000.0 / 210.0),
+                Some(210.0),
+                Some("r2")
+            ),
+            (
+                Distance,
+                5000.0,
+                Some(5000.0 / 1200.0),
+                Some(1200.0),
+                Some("r3")
+            ),
+            (Distance, 10000.0, Some(4.0), Some(2500.0), Some("r4")),
             // Within a metre of the half, but a zero time is no best.
-            ("Half", None, None, None),
+            (HalfMarathon, 21097.5, None, None, None),
         ]
     );
     assert_all_finite(&data);
@@ -252,12 +277,20 @@ fn a_curve_never_fetched_for_the_period_says_so_and_holds_no_values() {
                 .all(|e| e.value.is_none() && e.activity_id.is_none())
         );
     }
-    let swim: Vec<&str> = sport(&all_time, "Swim")
+    let swim: Vec<(FfiBestEffortKind, f64)> = sport(&all_time, "Swim")
         .efforts
         .iter()
-        .map(|e| e.label.as_str())
+        .map(|e| (e.kind, e.checkpoint))
         .collect();
-    assert_eq!(swim, vec!["100m", "200m", "400m", "1500m"]);
+    assert_eq!(
+        swim,
+        vec![
+            (Distance, 100.0),
+            (Distance, 200.0),
+            (Distance, 400.0),
+            (Distance, 1500.0)
+        ]
+    );
 }
 
 #[test]
@@ -383,29 +416,68 @@ fn a_checkpoint_between_distant_samples_or_past_the_curve_has_no_best() {
         .unwrap();
 
     let data = read(&engine, SEASON);
-    let by_label = |sport_name: &str, label: &str| {
+    let at = |sport_name: &str, checkpoint: f64| {
         sport(&data, sport_name)
             .efforts
             .iter()
-            .find(|e| e.label == label)
+            .find(|e| e.checkpoint == checkpoint)
             .cloned()
             .unwrap()
     };
-    for label in ["10K", "Half"] {
-        let missing = by_label("Run", label);
+    for metres in [10000.0, 21097.5] {
+        let missing = at("Run", metres);
         assert_eq!(
             (missing.value, missing.time, missing.activity_id),
             (None, None, None)
         );
     }
-    let one_k = by_label("Run", "1K");
+    let one_k = at("Run", 1000.0);
     assert_eq!(
         (one_k.time, one_k.activity_id.as_deref()),
         (Some(222.0), Some("b"))
     );
-    let five_minutes = by_label("Ride", "5m");
+    let five_minutes = at("Ride", 300.0);
     assert_eq!((five_minutes.value, five_minutes.activity_id), (None, None));
-    assert_eq!(by_label("Ride", "1m").value, Some(500.0));
+    assert_eq!(at("Ride", 60.0).value, Some(500.0));
+}
+
+/// The front end words a checkpoint in the athlete's language and units, so a
+/// row carries what it measures and no display string. The pattern names every
+/// field, so a label added back fails to compile here.
+#[test]
+fn a_checkpoint_row_carries_its_kind_and_measure_and_no_words() {
+    let engine = PersistentEngine::in_memory().unwrap();
+    let data = read(&engine, ALL_TIME);
+    let run: Vec<(FfiBestEffortKind, f64)> = sport(&data, "Run")
+        .efforts
+        .iter()
+        .map(|effort| {
+            let crate::FfiBestEffort {
+                kind,
+                checkpoint,
+                value: _,
+                time: _,
+                activity_id: _,
+            } = effort;
+            (*kind, *checkpoint)
+        })
+        .collect();
+    assert_eq!(
+        run,
+        vec![
+            (Distance, 400.0),
+            (Distance, 1000.0),
+            (Distance, 5000.0),
+            (Distance, 10000.0),
+            (HalfMarathon, 21097.5),
+        ]
+    );
+    assert!(
+        sport(&data, "Ride")
+            .efforts
+            .iter()
+            .all(|e| e.kind == Duration)
+    );
 }
 
 #[test]
@@ -424,7 +496,7 @@ fn a_half_stored_as_a_rounded_distance_keeps_its_best() {
     let half = sport(&data, "Run")
         .efforts
         .iter()
-        .find(|e| e.label == "Half")
+        .find(|e| e.kind == HalfMarathon)
         .unwrap();
     assert_eq!(half.time, Some(5860.0));
     assert_eq!(half.activity_id.as_deref(), Some("e"));

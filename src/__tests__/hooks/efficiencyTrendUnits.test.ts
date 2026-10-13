@@ -10,7 +10,7 @@
 import { EfficiencyDirection, type EfficiencyTrend } from 'veloqrs';
 
 import { generateEfficiencyTrendInsights } from '@/features/insights/generators/efficiencyTrend';
-import { formatSeriesValue } from '@/features/insights/components/SupportingDataSection';
+import { formatSeriesValue } from '@/features/insights/components/InsightHistoryChart';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 

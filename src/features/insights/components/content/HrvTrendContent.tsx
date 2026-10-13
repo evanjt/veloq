@@ -43,14 +43,8 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
 
   return (
     <View style={styles.container}>
-      {/* HRV stat row: latest value + average */}
+      {/* The average the latest reading, the sheet's figure, is read against */}
       <View style={[styles.statCard, isDark && styles.statCardDark]}>
-        {latestValue != null ? (
-          <View style={styles.valueRow}>
-            <Text style={[styles.hrvValue, isDark && styles.hrvValueDark]}>{latestValue}</Text>
-            <Text style={[styles.hrvUnit, isDark && styles.hrvUnitDark]}>{t('units.ms')}</Text>
-          </View>
-        ) : null}
         <View style={styles.trendRow}>
           <MaterialCommunityIcons name={insight.icon as never} size={18} color={trendColor} />
           {avgPoint && avgValue != null && (avgValue !== latestValue || latestValue == null) ? (
@@ -92,32 +86,10 @@ const styles = StyleSheet.create({
   statCardDark: {
     backgroundColor: opacity.overlayDark.light,
   },
-  valueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: spacing.xs,
-  },
-  hrvValue: {
-    fontSize: typography.headlineNumber.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  hrvValueDark: {
-    color: darkColors.textPrimary,
-  },
-  hrvUnit: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '400',
-    color: colors.textSecondary,
-  },
-  hrvUnitDark: {
-    color: darkColors.textSecondary,
-  },
   trendRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    marginTop: spacing.xs,
   },
   avgText: {
     fontSize: typography.bodyCompact.fontSize,

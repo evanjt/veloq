@@ -1133,6 +1133,18 @@ export const zoneColorsDark = {
 } as const;
 
 /**
+ * The zone ladder as a fill on a light ground, held to 3:1 on every light
+ * surface. The tempo yellow at 1.37:1 and the threshold orange at 2.28:1 on the
+ * alternate background are darkened in the same hue; the other zones already
+ * clear it and keep the intervals.icu fill.
+ */
+export const zoneColorsLight = {
+  ...zoneColors,
+  zone3: '#AB8809',
+  zone4: '#DB6D0C',
+} as const;
+
+/**
  * Each zone fill darkened to 4.5:1 for text on its own 18% tint over the light
  * screen ground. Zones 6 and 7 already clear it and keep their fill.
  */

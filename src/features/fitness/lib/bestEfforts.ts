@@ -5,9 +5,32 @@ import {
   swimPaceUnitLabel,
 } from '@/shared/format';
 import type { ClimbBest } from '@/features/stats';
-import { M_TO_FT } from '@/shared/format/format';
+import { M_TO_FT, formatDurationHuman } from '@/shared/format/format';
+import { BestEffortKind, type BestEffort } from 'veloqrs';
+import type { TFunction } from 'i18next';
 import type { PrimarySport } from '../stores/SportPreferenceStore';
 import { ABSENT } from '@/shared/format/absent';
+
+/**
+ * A best effort's checkpoint in the athlete's language: a power duration as
+ * a duration, a race distance under its own name. A race distance keeps its
+ * metric name whatever the unit setting, since the checkpoint is the metric
+ * distance and a 5 km race is not renamed for an imperial reader.
+ */
+export function bestEffortCheckpointLabel(
+  effort: Pick<BestEffort, 'kind' | 'checkpoint'>,
+  t: TFunction
+): string {
+  if (effort.kind === BestEffortKind.Duration) return formatDurationHuman(effort.checkpoint);
+  if (effort.kind === BestEffortKind.HalfMarathon) {
+    return t('bestEffortsScreen.checkpoint.halfMarathon');
+  }
+  return effort.checkpoint < 1000
+    ? t('bestEffortsScreen.checkpoint.metres', { value: Math.round(effort.checkpoint) })
+    : t('bestEffortsScreen.checkpoint.kilometres', {
+        value: Math.round(effort.checkpoint / 100) / 10,
+      });
+}
 
 // Power for cycling, pace per km or mile for running, pace per 100 m or 100 yd for swimming.
 export function formatEffortValue(

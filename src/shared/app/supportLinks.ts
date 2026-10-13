@@ -13,6 +13,7 @@ import { openExternal } from '@/shared/app/openExternal';
 import { getCrashLog, formatCrashLog } from '@/shared/debug/crashLog';
 import { shareFile } from '@/features/settings/lib/shareFile';
 import { inform } from '@/shared/ui/dialog';
+import { informShareFailed } from '@/shared/ui/shareFailure';
 
 export const FORUM_URL =
   'https://forum.intervals.icu/t/veloq-route-and-section-matching-mapping-app/120283';
@@ -50,16 +51,29 @@ export function openForum(): Promise<boolean> {
   return openExternal(FORUM_URL);
 }
 
-/** Shares the on-device crash log, or says there is none to share. */
-export async function shareCrashLog(t: TFunction): Promise<void> {
+/**
+ * Shares the on-device crash log, or says there is none to share. Answers false
+ * when the share failed, which it says unless `quiet`: a caller outside the
+ * app's providers says it itself.
+ */
+export async function shareCrashLog(
+  t: TFunction,
+  { quiet = false }: { quiet?: boolean } = {}
+): Promise<boolean> {
   const entries = await getCrashLog();
   if (!entries.length) {
     inform({ title: t('support.shareCrashLog'), message: t('support.noCrashLog') });
-    return;
+    return true;
   }
-  await shareFile({
-    content: formatCrashLog(entries),
-    filename: 'veloq-crash-log.txt',
-    mimeType: 'text/plain',
-  });
+  try {
+    await shareFile({
+      content: formatCrashLog(entries),
+      filename: 'veloq-crash-log.txt',
+      mimeType: 'text/plain',
+    });
+    return true;
+  } catch (error) {
+    if (!quiet) informShareFailed(error, t);
+    return false;
+  }
 }

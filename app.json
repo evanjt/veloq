@@ -20,23 +20,6 @@
       "buildNumber": "29",
       "infoPlist": {
         "CFBundleDevelopmentRegion": "en-AU",
-        "CFBundleLocalizations": [
-          "en-AU",
-          "en-US",
-          "en-GB",
-          "es",
-          "es-419",
-          "fr",
-          "de",
-          "nl",
-          "it",
-          "pt",
-          "pt-BR",
-          "ja",
-          "zh-Hans",
-          "pl",
-          "da"
-        ],
         "UIBackgroundModes": [
           "location",
           "fetch",
@@ -62,6 +45,7 @@
         "monochromeImage": "./src/assets/monochrome-icon.png"
       },
       "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": true,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
@@ -116,6 +100,7 @@
         }
       ],
       "expo-localization",
+      "./src/plugins/with-android-locale-config",
       [
       "expo-location",
         {

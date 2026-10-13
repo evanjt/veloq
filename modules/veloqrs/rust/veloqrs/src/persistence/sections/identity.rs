@@ -667,6 +667,31 @@ impl PersistentEngine {
         self.identity.hysteresis.tombstone_ids()
     }
 
+    /// Test-only override of the registry's tombstone horizon, for a replay
+    /// that sweeps it.
+    #[cfg(feature = "synthetic")]
+    #[doc(hidden)]
+    pub fn section_identity_set_tombstone_horizon(&mut self, steps: u64) {
+        self.identity.hysteresis.set_tombstone_horizon_steps(steps);
+    }
+
+    /// Test-only view of each tombstoned join id with the step that retired
+    /// it, sorted by id, and the pure layer's step clock.
+    #[cfg(feature = "synthetic")]
+    #[doc(hidden)]
+    pub fn section_identity_tombstone_clock(&self) -> (Vec<(String, Option<u64>)>, u64) {
+        let hysteresis = &self.identity.hysteresis;
+        let stamps = hysteresis
+            .tombstone_ids()
+            .into_iter()
+            .map(|pid| {
+                let retired_at = hysteresis.tombstone_retired_at(&pid);
+                (pid, retired_at)
+            })
+            .collect();
+        (stamps, hysteresis.steps())
+    }
+
     /// Test-only view of the pure layer's visible join ids, sorted.
     #[cfg(feature = "synthetic")]
     #[doc(hidden)]
@@ -1090,10 +1115,6 @@ impl ReplaySource<'_> {
                 .iter()
                 .any(|aid| !cand.activity_ids.contains(aid) && judged(cand, aid))
         };
-        let (out, resolutions) = identity
-            .hysteresis
-            .step_assign_guarded(&candidates, &loses_a_member);
-
         // What arrived this step. A change that fires now was around these
         // and around whatever arrived while it was pending.
         let arrivals: BTreeSet<String> = match arrival {
@@ -1102,6 +1123,17 @@ impl ReplaySource<'_> {
                 .then(|| id.clone())
                 .into_iter()
                 .collect(),
+        };
+        // Tombstones age on arrivals, so a re-detect with none behind it
+        // debounces without ageing them.
+        let (out, resolutions) = if arrivals.is_empty() {
+            identity
+                .hysteresis
+                .rerun_assign_guarded(&candidates, &loses_a_member)
+        } else {
+            identity
+                .hysteresis
+                .step_assign_guarded(&candidates, &loses_a_member)
         };
         // The seen set after this step: what the pool still holds of the
         // seen set before it, and this step's arrivals.

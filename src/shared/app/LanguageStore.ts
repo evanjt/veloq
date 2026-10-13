@@ -1,23 +1,46 @@
 import { create } from 'zustand';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState } from 'react-native';
 import { getSetting, setSetting } from '@/shared/storage';
 import {
   SUPPORTED_LOCALES,
   type SupportedLocale,
   getDeviceLocale,
+  matchLocale,
   changeLanguage,
   i18n,
 } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
 import { pushNotificationTemplates } from '@/i18n/notificationTemplates';
 import { pushPlaceNameWords } from '@/i18n/placeNameWords';
+import { readPlatformLanguage, readSystemLocales, writePlatformLanguage } from './appLocale';
 
 const STORAGE_KEY = 'veloq-language-preference';
 
-/** Language choice - always an explicit locale (no 'system' option) */
+/** The stored choice that follows the phone's language rather than naming one. */
+export const SYSTEM_LANGUAGE = 'system';
+
+/**
+ * Set once an install has moved a first-launch detection to SYSTEM_LANGUAGE.
+ * Its absence marks an install that has not yet run this code, whose saved
+ * language may be the phone's, saved at its first launch, rather than a pick.
+ */
+const FOLLOWS_SYSTEM_CHECKED_KEY = 'veloq-language-follows-system-checked';
+
+/**
+ * The per-app language tag this install last agreed with the platform, or
+ * SYSTEM_LANGUAGE for none, since an empty value reads back as absent. It
+ * describes this device, so it lives in AsyncStorage beside the other
+ * device-local bookkeeping and never travels in a backup, and it is read only
+ * where the platform keeps a per-app language.
+ */
+const PLATFORM_AGREED_KEY = 'veloq-language-platform-agreed';
+
+/** Language choice: 'system', or an explicit locale. */
 type LanguageChoice = string;
 
 interface LanguageState {
-  /** Current language choice (explicit locale) */
+  /** Current language choice */
   language: LanguageChoice | null; // null only before initialisation
   /** Whether the store has been initialised */
   isInitialised: boolean;
@@ -26,13 +49,26 @@ interface LanguageState {
 }
 
 /**
+ * The phone's language. Where the platform keeps a per-app language, the
+ * process locale is that one rather than the phone's, so the phone's own list
+ * is read instead.
+ */
+function systemLocale(): SupportedLocale {
+  const system = readSystemLocales();
+  if (system && system.length > 0) {
+    return matchLocale(system.map((languageTag) => ({ languageTag })));
+  }
+  return getDeviceLocale();
+}
+
+/**
  * Map a language choice to the appropriate locale
  * For English, uses device region to pick the right variant (AU/US/UK)
  */
 export function resolveLanguageToLocale(language: LanguageChoice | null): SupportedLocale {
-  if (language === null) {
-    // Pre-initialisation state - use device locale
-    return getDeviceLocale();
+  if (language === null || language === SYSTEM_LANGUAGE) {
+    // Pre-initialisation state, or following the phone
+    return systemLocale();
   }
 
   // Direct locale values (e.g., 'en-AU', 'de-CH', 'pt-BR')
@@ -50,68 +86,142 @@ export function resolveLanguageToLocale(language: LanguageChoice | null): Suppor
   return 'en-GB';
 }
 
+/** The per-app language the platform holds for a choice: none when it follows the phone. */
+function platformTagFor(language: LanguageChoice): string {
+  return language === SYSTEM_LANGUAGE ? '' : resolveLanguageToLocale(language);
+}
+
+/** The choice a per-app language set in the platform's own settings stands for. */
+function choiceForPlatformTag(tag: string): LanguageChoice {
+  return tag === '' ? SYSTEM_LANGUAGE : matchLocale([{ languageTag: tag }]);
+}
+
+/** The per-app language tag this install last agreed with the platform, null before the first. */
+async function readAgreedTag(): Promise<string | null> {
+  const agreed = await AsyncStorage.getItem(PLATFORM_AGREED_KEY);
+  return agreed === SYSTEM_LANGUAGE ? '' : agreed;
+}
+
+async function rememberAgreedTag(tag: string): Promise<void> {
+  await AsyncStorage.setItem(PLATFORM_AGREED_KEY, tag === '' ? SYSTEM_LANGUAGE : tag);
+}
+
+/** Write the choice to the platform's per-app language, where there is one, and remember it. */
+async function agreeWithPlatform(language: LanguageChoice): Promise<void> {
+  const platform = readPlatformLanguage();
+  if (platform === null) return;
+  const tag = platformTagFor(language);
+  if (platform !== tag) writePlatformLanguage(tag);
+  await rememberAgreedTag(tag);
+}
+
+/**
+ * The choice once the platform has had its say. A per-app language that moved
+ * since this install last wrote one was picked in the platform's settings, and
+ * is adopted; otherwise the stored choice is written to the platform, which
+ * also carries a restored or first-migrated choice there.
+ */
+async function reconcileWithPlatform(language: LanguageChoice): Promise<LanguageChoice> {
+  const platform = readPlatformLanguage();
+  if (platform === null) return language;
+  const agreed = await readAgreedTag();
+  if (agreed !== null && platform !== agreed) {
+    const adopted = choiceForPlatformTag(platform);
+    await setSetting(STORAGE_KEY, adopted);
+    await rememberAgreedTag(platform);
+    return adopted;
+  }
+  if (agreed === null || platform !== platformTagFor(language)) {
+    await agreeWithPlatform(language);
+  }
+  return language;
+}
+
+/** Switch every reader of the language: i18next, the engine's words and the durable templates. */
+async function applyLanguage(language: LanguageChoice): Promise<void> {
+  await changeLanguage(resolveLanguageToLocale(language));
+
+  // Update Rust engine with new translations for auto-generated names
+  const engine = getEngine();
+  if (engine) {
+    const routeWord = i18n.t('routes.routeWord');
+    const sectionWord = i18n.t('routes.sectionWord');
+    engine.setNameTranslations(routeWord, sectionWord);
+  }
+
+  // The notification templates go with them, so a push handler woken with
+  // the app killed writes its sentence in the language just chosen. Unlike
+  // the two words above these are durable, which is the whole point. The
+  // place name words are durable for the same reason.
+  pushNotificationTemplates();
+  pushPlaceNameWords();
+
+  useLanguageStore.setState({ language });
+}
+
 /**
  * Zustand store for language preference
  */
-export const useLanguageStore = create<LanguageState>((set) => ({
+export const useLanguageStore = create<LanguageState>(() => ({
   language: null,
   isInitialised: false,
 
   setLanguage: async (language) => {
-    // Save preference (always an explicit locale)
     await setSetting(STORAGE_KEY, language);
-
-    // Resolve to the appropriate locale (handles English variants based on device region)
-    const effectiveLocale = resolveLanguageToLocale(language);
-    await changeLanguage(effectiveLocale);
-
-    // Update Rust engine with new translations for auto-generated names
-    const engine = getEngine();
-    if (engine) {
-      const routeWord = i18n.t('routes.routeWord');
-      const sectionWord = i18n.t('routes.sectionWord');
-      engine.setNameTranslations(routeWord, sectionWord);
-    }
-
-    // The notification templates go with them, so a push handler woken with
-    // the app killed writes its sentence in the language just chosen. Unlike
-    // the two words above these are durable, which is the whole point. The
-    // place name words are durable for the same reason.
-    pushNotificationTemplates();
-    pushPlaceNameWords();
-
-    set({ language });
+    await agreeWithPlatform(language);
+    await applyLanguage(language);
   },
 }));
 
 /**
  * Initialise language on app start.
  * Call this early in _layout.tsx before rendering.
- * On first launch, detects device locale and saves it as the explicit choice.
+ * A first launch follows the phone. An install that saved the phone's language
+ * as its first-launch detection moves to following it, once; a saved language
+ * that differs from the phone was picked, and stays.
  */
 export async function initialiseLanguage(): Promise<SupportedLocale> {
   try {
     const saved = await getSetting(STORAGE_KEY);
 
-    if (saved) {
-      // Neutral 'es' has no picker entry, so installs that saved it move to the default variant
-      const language = saved === 'es' ? 'es-419' : saved;
-      if (language !== saved) await setSetting(STORAGE_KEY, language);
-      useLanguageStore.setState({ language, isInitialised: true });
-      return resolveLanguageToLocale(language);
-    }
+    // Neutral 'es' has no picker entry, so installs that saved it move to the default variant
+    let language = saved === null ? SYSTEM_LANGUAGE : saved === 'es' ? 'es-419' : saved;
+    const unchecked = (await getSetting(FOLLOWS_SYSTEM_CHECKED_KEY)) === null;
+    if (unchecked && language === systemLocale()) language = SYSTEM_LANGUAGE;
+    if (language !== saved) await setSetting(STORAGE_KEY, language);
+    if (unchecked) await setSetting(FOLLOWS_SYSTEM_CHECKED_KEY, '1');
 
-    // No saved preference - detect device locale and save it as explicit choice
-    const deviceLocale = getDeviceLocale();
-    await setSetting(STORAGE_KEY, deviceLocale);
-    useLanguageStore.setState({ language: deviceLocale, isInitialised: true });
-    return deviceLocale;
+    language = await reconcileWithPlatform(language);
+    useLanguageStore.setState({ language, isInitialised: true });
+    return resolveLanguageToLocale(language);
   } catch {
-    // On error, still try to detect and save device locale
-    const deviceLocale = getDeviceLocale();
-    useLanguageStore.setState({ language: deviceLocale, isInitialised: true });
-    return deviceLocale;
+    useLanguageStore.setState({ language: SYSTEM_LANGUAGE, isInitialised: true });
+    return systemLocale();
   }
+}
+
+/**
+ * Bring the language in step with the phone and the platform's per-app
+ * setting, either of which can change while the app is in the background.
+ */
+export async function followPlatformLanguage(): Promise<void> {
+  const { language, isInitialised } = useLanguageStore.getState();
+  if (!isInitialised || language === null) return;
+  const next = await reconcileWithPlatform(language);
+  if (next !== language || resolveLanguageToLocale(next) !== i18n.language) {
+    await applyLanguage(next);
+  }
+}
+
+/** Re-read the language each time the app comes back to the foreground. */
+export function startLanguageFollower(): () => void {
+  const subscription = AppState.addEventListener('change', (state) => {
+    if (state !== 'active') return;
+    followPlatformLanguage().catch((error: unknown) => {
+      console.warn('[Language] could not follow the platform language:', error);
+    });
+  });
+  return () => subscription.remove();
 }
 
 /**
@@ -238,8 +348,15 @@ export function isLanguageVariant(language: string | null, baseLanguage: string)
 /**
  * Display label for a stored language code, with whether it is a dialect choice.
  * A variant reads "English (AU)"; a code matching only by prefix reads as its base language.
+ * Following the phone reads "System · " and the phone's language.
  */
 export function languageLabel(language: string | null): { label: string; isDialect: boolean } {
+  if (language === SYSTEM_LANGUAGE) {
+    return {
+      label: `${i18n.t('settings.system')} · ${languageLabel(systemLocale()).label}`,
+      isDialect: false,
+    };
+  }
   for (const group of getAvailableLanguages()) {
     for (const lang of group.languages) {
       if (language === lang.value) return { label: lang.label, isDialect: false };

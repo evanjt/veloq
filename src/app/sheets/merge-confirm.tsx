@@ -7,7 +7,7 @@ import { useTheme, useMetricSystem } from '@/shared/app';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { pressable, pressRipple, SheetActions, SheetHeader, SheetScrollView } from '@/shared/ui';
-import { formatDistance, formatShortDate } from '@/shared/format/format';
+import { formatDistance, formatFullDate } from '@/shared/format/format';
 import { SportIcons } from '@/shared/activity/SportIcons';
 import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
 import {
@@ -81,7 +81,7 @@ function MergeConfirmSheetContent() {
           <View style={styles.optionStats}>
             <SportIcons sportTypes={section.sportTypes} size={14} color={textSecondary} />
             <Text style={[styles.optionStat, { color: textSecondary }]}>
-              {t('sections.visitsCount', { count: section.visitCount })}
+              {t('sections.traversalsCount', { count: section.visitCount })}
             </Text>
             <Text style={[styles.optionStat, { color: textSecondary }]}>
               {formatDistance(section.distanceMeters, isMetric)}
@@ -103,7 +103,7 @@ function MergeConfirmSheetContent() {
   };
 
   return (
-    <SheetScrollView>
+    <SheetScrollView footer={<SheetActions {...actions} />}>
       <SheetHeader title={t('sections.mergeSections')} {...actions} />
       <View style={styles.content}>
         <Text style={[styles.subtitle, { color: textSecondary }]}>
@@ -131,8 +131,8 @@ function MergeConfirmSheetContent() {
                 numberOfLines={1}
               >
                 {ride.name
-                  ? `${ride.name}, ${formatShortDate(new Date(ride.startDate * 1000))}`
-                  : formatShortDate(new Date(ride.startDate * 1000))}
+                  ? `${ride.name}, ${formatFullDate(new Date(ride.startDate * 1000))}`
+                  : formatFullDate(new Date(ride.startDate * 1000))}
               </Text>
             ))}
             {dropped.length > MAX_NAMED_RIDES && (
@@ -143,7 +143,6 @@ function MergeConfirmSheetContent() {
           </View>
         )}
       </View>
-      <SheetActions {...actions} />
     </SheetScrollView>
   );
 }

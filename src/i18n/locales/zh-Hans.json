@@ -47,7 +47,10 @@
       "activityEftp": "eFTP 是 intervals.icu 对本次活动的功率模型估算值。",
       "power": "平均功率输出，单位为瓦特。",
       "trainingLoad": "训练负荷由 intervals.icu 根据活动的数据和您的运动设置，从功率、心率或配速计算得出。它按相对于您阈值的强度对持续时间加权。",
-      "yourForm": "您这天的状态 (TSB)。这是基于您整体训练的每日值，而非特定于此活动。TSB = 体能 (CTL) 减去疲劳 (ATL)。"
+      "yourForm": "您这天的状态 (TSB)。这是基于您整体训练的每日值，而非特定于此活动。TSB = 体能 (CTL) 减去疲劳 (ATL)。",
+      "speed": "intervals.icu 为此活动保存的平均速度和最高速度。",
+      "pace": "intervals.icu 为此活动保存的平均配速和最快配速。",
+      "cadence": "intervals.icu 保存的平均踏频：骑行时为每分钟曲柄转数，其他运动为每分钟步数或划水次数。"
     },
     "ftp": "FTP 设置：{{value}}",
     "heartRate": "心率",
@@ -106,7 +109,12 @@
       "fitnessThatDay": "当天体能 (CTL)",
       "yourForm": "您的状态",
       "eftpContext": "本次活动的 eFTP {{value}}",
-      "intensityContext": "IF {{percent}}%"
+      "intensityContext": "IF {{percent}}%",
+      "speed": "速度",
+      "pace": "配速",
+      "cadence": "踏频",
+      "movingTime": "移动时间",
+      "elapsedTime": "总用时"
     },
     "hrZoneTotal": "有心率记录的时间：{{duration}}",
     "powerZoneTotal": "有功率记录的时间：{{duration}}",
@@ -125,7 +133,10 @@
     "zoneMaxFromActivity": "区间上限 {{value}} bpm,本活动",
     "zoneMaxFromSettings": "区间上限 {{value}} bpm,运动设置",
     "zoneMaxDefault": "未设置最大心率,区间按 {{value}} bpm 计算",
-    "zoneMaxDefaultHint": "请在 intervals.icu 的运动设置中设置最大心率"
+    "zoneMaxDefaultHint": "请在 intervals.icu 的运动设置中设置最大心率",
+    "prDelta": "比PR慢{{delta}}",
+    "chartAverage": "平均",
+    "gainStat": "↑ {{value}}"
   },
   "activityDetail": {
     "routePrBadge": "个人最佳 {{improvement}}",
@@ -400,7 +411,12 @@
     "sourceNote": "点击某行以打开对应活动。",
     "climbingBests": "爬升",
     "climbingSourceExcluded": "因使用设备海拔而非校正海拔而排除：{{excluded}}",
-    "climbingOwed": "爬升最佳成绩仍在计算中。"
+    "climbingOwed": "爬升最佳成绩仍在计算中。",
+    "checkpoint": {
+      "halfMarathon": "半程马拉松",
+      "metres": "{{value}} 米",
+      "kilometres": "{{value}} 公里"
+    }
   },
   "cache": {
     "allActivitiesSynced": "所有活动已同步",
@@ -471,7 +487,8 @@
     "discard": "放弃",
     "discardChangesTitle": "放弃更改？",
     "discardChangesMessage": "此页面上的更改尚未保存。",
-    "keepEditing": "继续编辑"
+    "keepEditing": "继续编辑",
+    "sentencePair": "{{first}}{{second}}"
   },
   "demo": {
     "banner": "演示模式",
@@ -511,7 +528,7 @@
     },
     "startupError": {
       "title": "应用的部分内容未能加载",
-      "detail": "无法加载：{{areas}}。请重启应用后重试。",
+      "detail": "无法加载：{{areas}}。",
       "area": {
         "language": "语言",
         "preferences": "偏好设置",
@@ -570,14 +587,47 @@
   },
   "errorState": {
     "defaultTitle": "出错了",
-    "unableToLoad": "无法加载{{componentName}}",
     "libraryUnaffected": "此设备上的活动未受影响。",
     "rideStillRecording": "你的骑行仍在记录中。",
     "stopAndSaveRide": "停止并保存骑行",
     "rideStopped": "你的骑行已停止并保留在此设备上。",
     "shareFailed": "无法分享崩溃日志。",
-    "restartHint": "请重试或重启应用",
-    "unableToDisplayChart": "无法显示图表"
+    "unableToLoad": "无法加载{{part}}",
+    "retryHint": "轻点“重试”即可重新加载。",
+    "unableToDisplayChart": "无法显示图表",
+    "part": {
+      "map": "地图",
+      "map3d": "3D 地图",
+      "terrainSnapshots": "地形预览",
+      "routePerformance": "路线表现",
+      "hrZonesChart": "心率区间图表",
+      "powerZonesChart": "功率区间图表",
+      "activityStats": "活动统计",
+      "activityMap": "活动地图",
+      "muscleGroups": "肌肉群"
+    }
+  },
+  "intervalTypes": {
+    "work": {
+      "short": "训练",
+      "long": "训练"
+    },
+    "recovery": {
+      "short": "恢复",
+      "long": "恢复"
+    },
+    "warmup": {
+      "short": "热身",
+      "long": "热身"
+    },
+    "cooldown": {
+      "short": "放松",
+      "long": "放松"
+    },
+    "other": {
+      "short": "其他",
+      "long": "其他"
+    }
   },
   "export": {
     "bulkComplete": "导出完成",
@@ -601,7 +651,10 @@
     "gpxTrimmedAway": "没有可导出的内容。裁剪住所附近后，轨迹所剩无几。",
     "failedTitle": "导出失败",
     "share": "分享",
-    "saveToDevice": "保存到设备"
+    "saveToDevice": "保存到设备",
+    "shareFailedTitle": "未分享",
+    "shareFailed": "无法打开分享菜单。请重试。",
+    "shareUnavailable": "此设备无法分享文件。"
   },
   "feed": {
     "activitiesCount_one": "{{count}} 个活动",
@@ -743,8 +796,6 @@
       "groupMore": "(另外{{n}}个)",
       "trendFaster": "更快",
       "trendSlower": "更慢",
-      "attempts_one": "{{count}} 次",
-      "attempts_other": "{{count}} 次",
       "direction": {
         "forward": "正向",
         "reverse": "反向"
@@ -902,7 +953,6 @@
       "changeBody": "在 {{name}} 的 {{efforts}} 次活动中，心率与配速的乘积上升。按平均配速估算为 +{{hrChange}} bpm；实际测得的心率可能不同。",
       "subtitle": "{{efforts}}次中，平均配速下模型值{{hrChange}}bpm",
       "body": "在{{name}}的{{efforts}}次中，心率乘以配速有所改善。按平均配速换算，模型值为{{hrChange}}bpm；心率本身可能没有变化。",
-      "sheetHrCaption": "匹配成绩之间",
       "sheetHeading": "匹配成绩对比",
       "sheetBody": "基于同一路段上同时带有心率和配速的重复成绩，随时间比较每次通过时心脏的负担。",
       "sheetMeta": "打开路段查看对应成绩。"
@@ -1074,7 +1124,9 @@
     "expandRange": "扩展范围",
     "distanceAny": "不限",
     "showFilters": "显示全部筛选",
-    "hideFilters": "收起筛选"
+    "hideFilters": "收起筛选",
+    "searchCount": "{{shown}} / {{total}}",
+    "searchFilteredBy": "筛选条件：{{filters}}"
   },
   "maps": {
     "threeDUnavailable": "地形需要联网。现在显示平面地图。",
@@ -1254,15 +1306,16 @@
     "distance": "距离 ({{unit}})",
     "distanceInvalid": "请输入有效的距离 (0-999)。",
     "duration": "时长（分钟）",
-    "durationLabel": "时长",
     "durationRequired": "请输入有效的时长。",
     "elevation": "海拔",
     "fields": {
       "avgPace": "平均配速",
+      "avgPower": "平均功率",
       "avgSpeed": "平均速度",
       "cadence": "踏频",
       "calories": "卡路里",
       "distance": "距离",
+      "elapsedTime": "总时间",
       "elevation": "海拔",
       "elevationGain": "爬升",
       "heartrate": "心率",
@@ -1344,11 +1397,11 @@
       "recording": "录制中"
     },
     "summary": "总结",
-    "timeOfDay": {
-      "morning": "早晨",
-      "afternoon": "下午",
-      "evening": "傍晚",
-      "night": "夜间"
+    "autoName": {
+      "morning": "早晨{{sport}}",
+      "afternoon": "下午{{sport}}",
+      "evening": "傍晚{{sport}}",
+      "night": "夜间{{sport}}"
     },
     "trimActivity": "裁剪活动",
     "trimEndHandle": "裁剪终点",
@@ -1366,8 +1419,6 @@
     "autoUpload": "自动上传",
     "autoUploadDescription": "保存时自动将录制上传到 intervals.icu。关闭后将保留在此设备上，直到你在我的录制中上传。",
     "library": {
-      "distance": "距离",
-      "duration": "时长",
       "title": "我的录制",
       "empty": "还没有录制",
       "emptyHint": "保存的录制会保留在此设备上。",
@@ -1379,6 +1430,8 @@
       "delete": "删除",
       "deleteConfirmTitle": "删除录制？",
       "deleteConfirmMessage": "{{sport}} · {{startTime}}：该录制将从此设备永久删除。",
+      "deleteFailedTitle": "录制未删除",
+      "deleteFailed": "无法删除录制。它仍保留在此设备上。",
       "pendingUploads_one": "{{count}} 个录制尚未上传",
       "pendingUploads_other": "{{count}} 个录制尚未上传",
       "status": {
@@ -1434,6 +1487,7 @@
     "entryManualCaption": "手动记录，开始将打开表单",
     "fieldModeGps": "GPS",
     "fieldModeIndoor": "室内",
+    "fieldsSelected": "已选 {{selected}}/{{max}} 个字段",
     "tileOrder": "磁贴顺序",
     "tileOrderDescription": "轻点磁贴即可选择其显示的数据。在记录界面长按磁贴也可以完成同样的操作。",
     "tileSlotLabel": "磁贴 {{number}}，{{field}}",
@@ -1442,7 +1496,12 @@
       "card": "录制已停止。打开 Veloq 以恢复。",
       "channel": "已中断的录制",
       "title": "录制已停止"
-    }
+    },
+    "serviceChannel": {
+      "description": "显示正在记录的活动及其控制按钮。",
+      "name": "记录"
+    },
+    "recentTypes": "最近"
   },
   "routeDetail": {
     "routeNotFound": "未找到路线"
@@ -1657,8 +1716,6 @@
     "traversalsCount_other": "{{count}} 次通过",
     "calendarActivities_one": "{{count}} 项活动",
     "calendarActivities_other": "{{count}} 项活动",
-    "visitsCount_one": "{{count}} 次访问",
-    "visitsCount_other": "{{count}} 次访问",
     "scanForMatches": "扫描匹配",
     "rematchActivities": "重新匹配活动",
     "scanForMore": "扫描更多路段",
@@ -1702,7 +1759,6 @@
     "showFewerLaps": "显示较少圈",
     "lapExcluded": "已排除",
     "partlyExcluded": "部分圈已排除",
-    "maxGrade": "最大坡度",
     "rescanRefusedBusy": "扫描已在进行中。",
     "rescanRefusedHeld": "引擎正在处理其他工作，检测已暂停。",
     "rescanRefusedNotReady": "引擎仍在启动，请稍后再试。",
@@ -1732,7 +1788,10 @@
     "referenceFailedTitle": "参考未设置",
     "acceptAllFailedTitle": "路段未接受",
     "changeFailedTitle": "路段未更改",
-    "bestLapValue": "最快圈 {{time}}"
+    "bestLapValue": "最快圈 {{time}}",
+    "avgValue": "平均 {{value}}",
+    "bestValue": "最佳 {{value}}",
+    "maxGradeValue": "最大坡度 {{grade}}"
   },
   "settings": {
     "terrain3DMode": "3D：{{mode}}",
@@ -2066,7 +2125,8 @@
     "vsPrevious6Months": "vs 前 6 个月",
     "week": "周",
     "year": "年",
-    "atWeight": "按 {{weight}}"
+    "fewerActivities": "更少活动",
+    "moreActivities": "更多活动"
   },
   "statsScreen": {
     "eFTPTrend": "eFTP趋势",
@@ -2082,7 +2142,8 @@
     "powerCurve": "功率曲线",
     "seasonBests": "赛季最佳",
     "swimPaceCurve": "游泳配速曲线",
-    "trainingZones": "训练区间"
+    "trainingZones": "训练区间",
+    "ftpLabelAtWeight": "FTP 设置 {{value}}（按 {{weight}}）"
   },
   "refresh": {
     "busy": "当前同步完成后将刷新。",
@@ -2097,6 +2158,7 @@
   },
   "time": {
     "asOfLastSync": "数据截至上次同步",
+    "dayAtTime": "{{day}} {{time}}",
     "daysCount_one": "{{count}} 天",
     "daysCount_other": "{{count}} 天",
     "now": "现在",
@@ -2127,7 +2189,9 @@
     "times": "{{value}}次",
     "metresPerSecond": "m/s",
     "metres": "m",
-    "seconds": "秒"
+    "seconds": "秒",
+    "rpm": "rpm",
+    "spm": "spm"
   },
   "spoken": {
     "noValue": "无数值",
@@ -2397,6 +2461,9 @@
     "noneFound": "未找到传感器",
     "noneFoundHint": "佩戴心率带或转动曲柄以唤醒传感器，并让它靠近手机。",
     "scanAgain": "重新扫描",
+    "signal": "信号 {{dbm}} dBm",
+    "unnamed": "{{kind}}传感器",
+    "lastSample": "{{value}}，{{seconds}} 秒前",
     "availability": {
       "unsupportedTitle": "此设备不支持低功耗蓝牙",
       "unsupportedHint": "心率、功率和踏频传感器需要低功耗蓝牙。",
@@ -2419,7 +2486,8 @@
       "bluetoothOff": "蓝牙已关闭",
       "permission": "需要蓝牙权限",
       "unsupported": "蓝牙不可用"
-    }
+    },
+    "issueSummary": "传感器：{{issue}}"
   },
   "sectionHistory": {
     "title": "历史",

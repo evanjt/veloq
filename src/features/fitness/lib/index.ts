@@ -14,4 +14,4 @@ export {
   type FormZone,
 } from './fitness';
 
-export { formatClimbValue, formatEffortValue } from './bestEfforts';
+export { bestEffortCheckpointLabel, formatClimbValue, formatEffortValue } from './bestEfforts';

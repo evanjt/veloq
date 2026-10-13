@@ -6,7 +6,7 @@
  */
 
 import { useMemo } from 'react';
-import { brand, colors, darkColors, zoneColors, colorWithOpacity, ink } from '@/theme';
+import { brand, colors, darkColors, colorWithOpacity, ink } from '@/theme';
 import { useResolvedColorScheme } from '@/shared/app/ThemeProvider';
 
 export interface ChartColorScheme {
@@ -51,15 +51,6 @@ export interface ChartColorScheme {
   formLine: string;
   mutedBar: string;
   dotMuted: string;
-
-  // Zone colors (power/HR)
-  zone1: string;
-  zone2: string;
-  zone3: string;
-  zone4: string;
-  zone5: string;
-  zone6: string;
-  zone7: string;
 
   // Form zones (TSB)
   formHighRisk: string;
@@ -117,15 +108,6 @@ export function useChartColors(): ChartColorScheme {
       formLine: isDark ? darkColors.chartFormLine : colors.chartFormLine,
       mutedBar: isDark ? darkColors.chartMutedBar : colors.chartMutedBar,
       dotMuted: isDark ? darkColors.chartDotMuted : colors.chartDotMuted,
-
-      // Zone colors (consistent across themes for recognition)
-      zone1: zoneColors.zone1,
-      zone2: zoneColors.zone2,
-      zone3: zoneColors.zone3,
-      zone4: zoneColors.zone4,
-      zone5: zoneColors.zone5,
-      zone6: zoneColors.zone6,
-      zone7: zoneColors.zone7,
 
       // The one form zone a chart names for itself. The rest go through
       // `FORM_ZONE_COLORS`, which is where a zone's colour is decided.

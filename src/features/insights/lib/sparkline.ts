@@ -50,7 +50,9 @@ export function sparkline(
   { kind = 'sparkline', mark, format, unit }: SparklineOptions = {}
 ): { history?: InsightHistory } {
   if (!points || points.length < 3) return {};
-  const series: HistorySeries[] = [{ label, points, ...(unit ? { unit } : {}) }];
+  const series: HistorySeries[] = [
+    { label, points, ...(unit ? { unit } : {}), ...(format ? { format } : {}) },
+  ];
   return {
     history: {
       kind,

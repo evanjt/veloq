@@ -98,7 +98,9 @@ export function heroStats(
     section?.maxGradePercent != null &&
     (section.klass === 'climb' || section.klass === 'descent')
   ) {
-    const steepest = `${t('sections.maxGrade')} ${section.maxGradePercent.toFixed(1)}%`;
+    const steepest = t('sections.maxGradeValue', {
+      grade: `${section.maxGradePercent.toFixed(1)}%`,
+    });
     stats.push({ text: steepest, label: steepest });
   }
   return stats;

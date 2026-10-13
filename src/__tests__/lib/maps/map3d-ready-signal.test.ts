@@ -33,6 +33,7 @@ function buildConfig(overrides: Partial<Map3DHtmlConfig> = {}): Map3DHtmlConfig 
     routeColor: '#FF6B35',
     showHeatmap: false,
     devicePixelRatio: 2,
+    reduceMotion: false,
     ...overrides,
   };
 }

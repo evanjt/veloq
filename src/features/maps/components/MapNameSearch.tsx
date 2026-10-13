@@ -1,46 +1,97 @@
 import React from 'react';
-import { View, Pressable, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/shared/app';
-import { composeAccessibilityLabel, pressable, pressRipple, SearchBar } from '@/shared/ui';
-import { formatShortDateWithYear } from '@/shared/format/format';
+import { useMetricSystem, useTheme } from '@/shared/app';
+import { composeAccessibilityLabel, Row, SearchBar } from '@/shared/ui';
+import { formatDistance, formatShortDateWithYear } from '@/shared/format/format';
+import { spokenDistance } from '@/shared/format/spoken';
+import { getActivityIcon } from '@/shared/activity/activityUtils';
+import { ACTIVITY_CATEGORIES, getActivityCategory } from '@/shared/activity/sportCategories';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
 import type { ActivityBoundsItem } from '@/types';
+
+const ICON_SIZE = 18;
 
 interface MapNameSearchProps {
   needle: string;
   onChangeNeedle: (text: string) => void;
   /** Matches to offer under the field. Empty hides the list. */
   results: ActivityBoundsItem[];
+  /** Every match the filters let through, of which `results` is the head. */
+  total: number;
+  /** The names of the active filters that narrowed the matches, as their chips draw them. */
+  filters: string[];
   onChoose: (activityId: string) => void;
 }
 
-/** The shared search field over the map and the matches it finds, one tap each. */
-export function MapNameSearch({ needle, onChangeNeedle, results, onChoose }: MapNameSearchProps) {
+/**
+ * The shared search field over the map and the matches it finds, one tap each.
+ * A count line says how many of the matches are listed and which filters
+ * narrowed them, and each row carries sport, distance and date so two rides of
+ * one name can be told apart.
+ */
+export function MapNameSearch({
+  needle,
+  onChangeNeedle,
+  results,
+  total,
+  filters,
+  onChoose,
+}: MapNameSearchProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
+  const secondary = isDark ? darkColors.textSecondary : colors.textSecondary;
+
+  const shownOfTotal = t('mapScreen.searchCount', { shown: results.length, total });
+  const filteredBy =
+    filters.length > 0 ? t('mapScreen.searchFilteredBy', { filters: filters.join(', ') }) : null;
+  const countLine = filteredBy ? [shownOfTotal, filteredBy].join(' · ') : shownOfTotal;
 
   return (
     <View>
       {results.length > 0 && (
         <View style={[styles.results, isDark && styles.surfaceDark]} testID="map-search-results">
+          <Text
+            testID="map-search-count"
+            style={[styles.count, isDark && styles.secondaryDark]}
+            accessibilityRole="text"
+          >
+            {countLine}
+          </Text>
           {results.map((a) => {
             const date = formatShortDateWithYear(new Date(a.date));
+            const distance = formatDistance(a.distance, isMetric);
+            const category = ACTIVITY_CATEGORIES[getActivityCategory(a.type)];
+            const sport = t(`maps.activityTypes.${category?.labelKey ?? 'other'}` as never);
             return (
-              <Pressable
+              <Row
                 key={a.id}
                 testID={`map-search-result-${a.id}`}
-                accessibilityRole="button"
-                accessibilityLabel={composeAccessibilityLabel(a.name, date)}
+                behaviour="act"
+                accessibilityLabel={composeAccessibilityLabel(
+                  a.name,
+                  sport,
+                  spokenDistance(a.distance, isMetric),
+                  date
+                )}
                 onPress={() => onChoose(a.id)}
-                style={pressable(styles.resultRow)}
-                android_ripple={pressRipple}
               >
+                <MaterialCommunityIcons
+                  testID={`map-search-result-${a.id}-icon`}
+                  name={getActivityIcon(a.type)}
+                  size={ICON_SIZE}
+                  color={category?.color ?? secondary}
+                />
                 <Text numberOfLines={1} style={[styles.resultName, isDark && styles.textOnDark]}>
                   {a.name}
                 </Text>
-                <Text style={[styles.resultDate, isDark && styles.resultDateDark]}>{date}</Text>
-              </Pressable>
+                <Text style={[styles.resultDetail, isDark && styles.secondaryDark]}>
+                  {distance}
+                </Text>
+                <Text style={[styles.resultDetail, isDark && styles.secondaryDark]}>{date}</Text>
+              </Row>
             );
           })}
         </View>
@@ -67,24 +118,22 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusMd,
     backgroundColor: colors.gray100,
   },
-  resultRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: spacing.sm,
-    padding: spacing.sm,
-    minHeight: layout.minTapTarget,
+  count: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    fontSize: typography.bodyCompact.fontSize,
+    color: colors.textSecondary,
   },
   resultName: {
     flex: 1,
     fontSize: typography.bodySmall.fontSize,
     color: colors.textPrimary,
   },
-  resultDate: {
+  resultDetail: {
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
-  resultDateDark: {
+  secondaryDark: {
     color: darkColors.textSecondary,
   },
 });

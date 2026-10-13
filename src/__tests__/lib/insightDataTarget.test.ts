@@ -19,7 +19,7 @@ import { generateHrvTrendInsight } from '@/features/insights/generators/hrvTrend
 import { generateEfficiencyTrendInsights } from '@/features/insights/generators/efficiencyTrend';
 import { generateSectionChangedInsights } from '@/features/insights/generators/sectionChanged';
 import { generateStrengthInsights } from '@/features/strength/hooks/strengthInsights';
-import { insightDataTarget } from '@/features/insights/lib/dataLink';
+import { insightDataTarget, viewInDetailTarget } from '@/features/insights/lib/dataLink';
 import type { Insight, InsightCategory } from '@/features/insights/types';
 import type { StrengthSummary } from '@/features/strength/types';
 import type { EfficiencyTrend, StalePrOpportunity } from 'veloqrs';
@@ -265,5 +265,46 @@ describe('the data an insight was computed from', () => {
   it('names nothing for a card that carries no data', () => {
     const bare = { ...cards[0], navigationTarget: undefined, supportingData: undefined };
     expect(insightDataTarget(bare)).toBeNull();
+  });
+});
+
+describe('View in detail', () => {
+  const base = {
+    id: 'x',
+    category: 'section_pr',
+    priority: 1,
+    title: 'x',
+    icon: 'x',
+    iconTone: 'info',
+    timestamp: 0,
+    isNew: false,
+  } as Insight;
+  const pictured = (target: string) =>
+    ({ kind: 'timeline', series: [], target }) as NonNullable<Insight['supportingData']>['history'];
+
+  it('is dropped when the data link opens the same screen', () => {
+    expect(viewInDetailTarget({ ...base, navigationTarget: '/section/quarry' })).toBeNull();
+  });
+
+  it('is dropped when the data link opens the same screen at one effort', () => {
+    const insight = {
+      ...base,
+      navigationTarget: '/section/quarry',
+      supportingData: { history: pictured('/section/quarry?activityId=ride-2') },
+    } as Insight;
+    expect(viewInDetailTarget(insight)).toBeNull();
+  });
+
+  it('stays when it opens a screen the data link does not', () => {
+    const insight = {
+      ...base,
+      navigationTarget: '/fitness',
+      supportingData: { history: pictured('/section/quarry') },
+    } as Insight;
+    expect(viewInDetailTarget(insight)).toBe('/fitness');
+  });
+
+  it('is absent for a card with nowhere to go', () => {
+    expect(viewInDetailTarget(base)).toBeNull();
   });
 });

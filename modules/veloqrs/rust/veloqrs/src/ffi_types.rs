@@ -2609,12 +2609,31 @@ pub struct FfiActivityDetailData {
     /// the same resolver live recording classifies with. Empty when the
     /// activity has no heart rate time to show.
     pub hr_zones: Vec<FfiHrZoneBand>,
+    /// The summary stored with the activity, read whether or not its streams
+    /// were ever fetched.
+    pub summary: FfiActivitySummary,
     /// The power zone bands in watts for this activity and the time in each,
     /// from its own zones and FTP. Empty when the activity has no power zone
     /// time or no zones to place it in.
     pub power_zones: Vec<FfiPowerZoneBand>,
     /// Section changes whose ledger rows name this activity, newest first.
     pub ledger_changes: Vec<FfiActivityLedgerChange>,
+}
+
+/// The summary intervals.icu stored with an activity. Each field is `None`
+/// when the activity carries no positive value for it.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiActivitySummary {
+    /// Moving time in seconds
+    pub moving_time: Option<f64>,
+    /// Elapsed time in seconds, pauses and stops included
+    pub elapsed_time: Option<f64>,
+    /// Average speed in m/s
+    pub average_speed: Option<f64>,
+    /// Max speed in m/s
+    pub max_speed: Option<f64>,
+    /// Average cadence, as intervals.icu stored it
+    pub average_cadence: Option<f64>,
 }
 
 /// Where an activity's max HR came from.
@@ -2634,6 +2653,10 @@ pub struct FfiActivityFitnessImpact {
     pub fitness: f64,
     pub fatigue: f64,
     pub form: f64,
+    /// The fitness time constant in days in effect on the activity's date
+    pub fitness_days: u32,
+    /// The fatigue time constant in days in effect on the activity's date
+    pub fatigue_days: u32,
 }
 
 /// One heart rate zone of a saved activity.
@@ -2841,13 +2864,14 @@ impl FfiFloat32Array {
 
     /// `None` for bytes that are not a whole number of floats.
     pub fn from_le_bytes(bytes: &[u8]) -> Option<Self> {
-        let floats = bytes.chunks_exact(4);
-        if !floats.remainder().is_empty() {
+        let (floats, remainder) = bytes.as_chunks::<4>();
+        if !remainder.is_empty() {
             return None;
         }
         Some(Self(
             floats
-                .map(|four| f32::from_le_bytes([four[0], four[1], four[2], four[3]]))
+                .iter()
+                .map(|&four| f32::from_le_bytes(four))
                 .collect(),
         ))
     }
@@ -3137,9 +3161,21 @@ pub struct FfiBestEffortsSport {
     pub efforts: Vec<FfiBestEffort>,
 }
 
+/// What a best effort's checkpoint measures. The front end words it in the
+/// athlete's language and units, so the engine sends no display string.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum FfiBestEffortKind {
+    /// A duration in seconds, for power.
+    Duration,
+    /// A distance in metres, for pace.
+    Distance,
+    /// The half marathon, a distance in metres named for its race.
+    HalfMarathon,
+}
+
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiBestEffort {
-    pub label: String,
+    pub kind: FfiBestEffortKind,
     /// Seconds for power, metres for pace.
     pub checkpoint: f64,
     /// Watts for power, metres per second for pace. Empty when the curve
@@ -3230,6 +3266,20 @@ pub struct FfiFitnessScreenData {
     /// swimming cards fall back on when no curve is to hand.
     pub run_pace_trend: FfiPaceTrend,
     pub swim_pace_trend: FfiPaceTrend,
+    /// The rides, runs and swims among the latest activities, which the
+    /// primary sport defaults to until the athlete chooses one.
+    pub sport_mix: FfiSportMix,
+}
+
+/// The latest activities by the three sports the fitness tab draws.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSportMix {
+    pub rides: u32,
+    pub runs: u32,
+    pub swims: u32,
+    /// "Cycling", "Running" or "Swimming", whichever counts the most. `None`
+    /// for an empty library or a tie, which is no evidence for either sport.
+    pub dominant: Option<String>,
 }
 
 // ============================================================================

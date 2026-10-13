@@ -14,6 +14,8 @@
 import {
   consoleBridgeScript,
   mapLibreHead,
+  motionDurationExpression,
+  setReduceMotionStatement,
   setStyleStatement,
   tileProtocolsScript,
 } from './shared';
@@ -133,6 +135,8 @@ export interface MapSurfaceHtmlConfig {
   regionChangeThrottleMs: number;
   /** Emit a long-press message after this many milliseconds of contact. */
   longPressMs: number;
+  /** The system reduce-motion setting when the page is built. */
+  reduceMotion: boolean;
 }
 
 function paddingExpression(padding: MapPadding | undefined, fallback: number): string {
@@ -197,6 +201,7 @@ ${tileProtocolsScript()}
     var _maxZoom = ${jsNumber(camera.maxZoom, null)};
     window._veloqMaxZoom = _maxZoom;
     window._veloqFitPadding = _fitPadding;
+    ${setReduceMotionStatement(config.reduceMotion)}
 
     function _mapOptions(style) {
       var options = {
@@ -216,6 +221,7 @@ ${tileProtocolsScript()}
         dragRotate: ${interaction.rotate},
         touchPitch: ${interaction.pitch},
         keyboard: false,
+        reduceMotion: window._veloqReduceMotion,
       };
       if (_maxZoom !== null) options.maxZoom = _maxZoom;
       if (_bounds) {
@@ -344,7 +350,10 @@ export function buildSetStyleScript(
   `;
 }
 
-/** Move the camera. `duration` of 0 jumps. */
+/**
+ * Move the camera. `duration` of 0 jumps, and so does any move while the page
+ * holds reduce motion on.
+ */
 export function buildSetCameraScript(camera: MapCameraSpec, duration = 0): string {
   if (camera.bounds) {
     const maxZoom = Number.isFinite(camera.maxZoom)
@@ -355,7 +364,7 @@ export function buildSetCameraScript(camera: MapCameraSpec, duration = 0): strin
       window.map.fitBounds(${JSON.stringify([camera.bounds.sw, camera.bounds.ne])}, {
         padding: ${paddingExpression(camera.padding, 40)},
         ${maxZoom}
-        duration: ${duration},
+        duration: ${motionDurationExpression(duration)},
       });
     }
     true;
@@ -366,13 +375,27 @@ export function buildSetCameraScript(camera: MapCameraSpec, duration = 0): strin
   if (camera.zoom !== undefined) options.zoom = camera.zoom;
   if (camera.bearing !== undefined) options.bearing = camera.bearing;
   if (camera.pitch !== undefined) options.pitch = camera.pitch;
-  return `
+  const optionsJSON = JSON.stringify(options);
+  if (!(duration > 0)) {
+    return `
     if (window.map) {
-      window.map.${duration > 0 ? 'easeTo' : 'jumpTo'}(${JSON.stringify({
-        ...options,
-        ...(duration > 0 ? { duration } : {}),
-      })});
+      window.map.jumpTo(${optionsJSON});
     }
+    true;
+  `;
+  }
+  return `
+    (function() {
+      if (!window.map) return;
+      var options = ${optionsJSON};
+      var duration = ${motionDurationExpression(duration)};
+      if (duration > 0) {
+        options.duration = duration;
+        window.map.easeTo(options);
+      } else {
+        window.map.jumpTo(options);
+      }
+    })();
     true;
   `;
 }
@@ -386,7 +409,7 @@ export function buildFitBoundsScript(
     if (window.map) {
       window.map.fitBounds(${JSON.stringify([bounds.sw, bounds.ne])}, {
         padding: ${paddingExpression(padding, 40)},
-        duration: ${duration},
+        duration: ${motionDurationExpression(duration)},
       });
     }
     true;
@@ -395,7 +418,9 @@ export function buildFitBoundsScript(
 
 export function buildResetOrientationScript(duration = 500): string {
   return `
-    if (window.map) { window.map.easeTo({ bearing: 0, pitch: 0, duration: ${duration} }); }
+    if (window.map) {
+      window.map.easeTo({ bearing: 0, pitch: 0, duration: ${motionDurationExpression(duration)} });
+    }
     true;
   `;
 }

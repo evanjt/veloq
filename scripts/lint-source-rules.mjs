@@ -513,12 +513,12 @@ const DYNAMIC_PREFIXES = [
   'insights.hrvTrend.',
   'insights.sectionChanged.',
   'maps.activityTypes.',
+  'recording.autoName.',
   'recording.categories.',
   'recording.fields.',
   'recording.gpsModes.',
   'recording.library.status.',
   'recording.rpeLabels.',
-  'recording.timeOfDay.',
   'sectionHistory.kind_',
   'sensors.kinds.',
   'sensors.status.',
@@ -590,8 +590,6 @@ const RULES = {
         'units.metres',
         'units.times',
         'metrics.fatigue',
-        'sections.avg',
-        'sections.best',
         'sectionHistory.unavailable',
         'backgroundJobs.progressPercent',
       ]);
@@ -610,6 +608,44 @@ const RULES = {
       return out;
     },
     fix: 'interpolate the count inside one plural translation',
+  },
+  // A phrase is translated whole, with its parts as placeholders each locale can
+  // reorder. Two translations set side by side keep English word order in every
+  // language, and a saved activity read 'Matin Vélo' that way. Two joined by
+  // punctuation, a label and its value or two sentences, stay legal.
+  'joined-translations': {
+    pathspec: ['src'],
+    check(sources) {
+      const out = [];
+      const isT = (node) => {
+        if (!ts.isCallExpression(node)) return false;
+        const callee = node.expression;
+        if (ts.isIdentifier(callee)) return callee.text === 't';
+        return ts.isPropertyAccessExpression(callee) && callee.name.text === 't';
+      };
+      for (const [file, text] of sources) {
+        if (!/\.tsx?$/.test(file) || TESTS.test(file)) continue;
+        const kind = file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+        const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, kind);
+        const visit = (node) => {
+          if (ts.isTemplateExpression(node)) {
+            const spans = node.templateSpans;
+            for (let i = 0; i + 1 < spans.length; i++) {
+              const between = spans[i].literal.text;
+              if (isT(spans[i].expression) && isT(spans[i + 1].expression) && !between.trim()) {
+                const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line;
+                out.push(`${file}:${line + 1}  ${text.split('\n')[line].trim()}`);
+                break;
+              }
+            }
+          }
+          ts.forEachChild(node, visit);
+        };
+        visit(sf);
+      }
+      return out;
+    },
+    fix: 'translate the whole phrase as one key with placeholders, so each locale orders its own words',
   },
   // A wait shows motion. The `loading` and `progress-download` glyphs are
   // still, and screens used them as though they turned.

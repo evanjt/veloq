@@ -188,6 +188,7 @@ describe('map page size', () => {
       camera: { center: [6.6, 46.5], zoom: 12 },
       interaction: { scroll: true, zoom: true, rotate: true, pitch: true },
       devicePixelRatio: 2,
+      reduceMotion: false,
       regionChangeThrottleMs: 100,
       longPressMs: 500,
     });
@@ -214,6 +215,7 @@ describe('map page size', () => {
       routeColor: '#14B8A6',
       showHeatmap: false,
       devicePixelRatio: 2,
+      reduceMotion: false,
     };
     const empty = buildMap3DHtml({ ...config, coordinates: [] }).length;
     const ride = buildMap3DHtml(config).length;

@@ -534,8 +534,8 @@ export const SectionMapView = memo(function SectionMapView({
             {/* 3D Map layer */}
             {is3DMode && hasRoute && (
               <ComponentErrorBoundary
-                componentName="3D Map"
-                showRetry={false}
+                part="map3d"
+                debugName="3D Map"
                 onError={() => setIs3DMode(false)}
               >
                 <Animated.View

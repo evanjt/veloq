@@ -23,9 +23,8 @@ const LOCALES_DIR = path.join(__dirname, '..', 'i18n', 'locales');
  * Where each locale bundle lands on each platform. The root bundle, en-GB, is
  * also the bare `en` and Android's default `values`, so a language nobody
  * translated reads it rather than the Swift literal or nothing. de-DE is the
- * bare `de`, as the app's `CFBundleLocalizations` already names it, so German
- * in Austria reads it too. An Android qualifier with a script or a numeric
- * region needs the BCP 47 `b+` form.
+ * bare `de`, so German in Austria reads it too. An Android qualifier with a
+ * script or a numeric region needs the BCP 47 `b+` form.
  */
 const PLATFORM_LOCALES = {
   'en-GB': { apple: ['en', 'en-GB'], android: [''] },
@@ -462,7 +461,10 @@ function writePushExtensionCatalogue(extensionDir, bundles = loadLocaleBundles()
   fs.writeFileSync(path.join(extensionDir, LOCALIZABLE_FILE), json(pushExtensionCatalogue(bundles)));
 }
 
-/** Every Apple language a catalogue carries, for the project's known regions. */
+/**
+ * Every Apple language a catalogue carries, for the project's known regions.
+ * The app config declares these as the bundle's localisations.
+ */
 function appleLanguages() {
   return Object.values(PLATFORM_LOCALES).flatMap(({ apple }) => apple);
 }

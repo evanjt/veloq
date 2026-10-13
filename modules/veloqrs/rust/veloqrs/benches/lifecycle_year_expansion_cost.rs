@@ -14,7 +14,7 @@
 mod lifecycle_support;
 
 use std::alloc::{GlobalAlloc, Layout, System};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use tracematch::GpsPoint;
@@ -188,6 +188,81 @@ fn sync(engine: &mut PersistentEngine, batch: &[LifecycleActivity]) -> usize {
     peak
 }
 
+/// What the registry's tombstones did across one sync, read from their
+/// retirement stamps before and after it.
+#[derive(Default)]
+struct TombstoneFates {
+    restores: usize,
+    expiries: usize,
+    /// The longest restore seen, in activities arrived since retirement. An
+    /// upper bound: a restore is only known to fall inside the sync that
+    /// made it.
+    oldest_restore: u64,
+}
+
+/// The step clock and the arrival count side by side: the arrivals ingested
+/// by the end of each step.
+#[derive(Default)]
+struct Clock {
+    arrivals_at_step: BTreeMap<u64, u64>,
+}
+
+impl Clock {
+    fn record(&mut self, step: u64, arrivals: u64) {
+        self.arrivals_at_step.insert(step, arrivals);
+    }
+
+    fn arrivals_at(&self, step: u64) -> u64 {
+        self.arrivals_at_step
+            .range(..=step)
+            .next_back()
+            .map_or(0, |(_, &a)| a)
+    }
+}
+
+fn tombstone_fates(
+    before: &[(String, Option<u64>)],
+    after: &[(String, Option<u64>)],
+    steps_after: u64,
+    visible_after: &BTreeSet<String>,
+    clock: &Clock,
+) -> TombstoneFates {
+    let after: BTreeMap<&str, Option<u64>> =
+        after.iter().map(|(id, s)| (id.as_str(), *s)).collect();
+    let mut fates = TombstoneFates::default();
+    for (id, stamp) in before {
+        let Some(retired_at) = *stamp else { continue };
+        let restored_by = match after.get(id.as_str()) {
+            Some(&now) if now == Some(retired_at) => continue,
+            // Restored, then retired again inside the same sync.
+            Some(&now) => now.unwrap_or(steps_after),
+            None if visible_after.contains(id) => steps_after,
+            None => {
+                fates.expiries += 1;
+                continue;
+            }
+        };
+        fates.restores += 1;
+        let age = clock
+            .arrivals_at(restored_by)
+            .saturating_sub(clock.arrivals_at(retired_at));
+        fates.oldest_restore = fates.oldest_restore.max(age);
+    }
+    fates
+}
+
+fn env_number(name: &str) -> Option<u64> {
+    std::env::var(name).ok().and_then(|v| v.parse().ok())
+}
+
+/// How the replay batches and ages: activities per sync, and the horizon in
+/// the replay's own steps.
+#[derive(Clone, Copy)]
+struct Pace {
+    per_sync: Option<usize>,
+    horizon_steps: u64,
+}
+
 #[derive(Clone, Copy)]
 enum Ground {
     /// The same corridors every year.
@@ -198,8 +273,12 @@ enum Ground {
     StableWithDeletions,
 }
 
-fn replay_years(ground: Ground, years: usize) {
+fn replay_years(ground: Ground, years: usize, pace: Pace) {
     let (mut engine, tmp) = fresh_engine();
+    engine.section_identity_set_tombstone_horizon(pace.horizon_steps);
+    let mut clock = Clock::default();
+    let mut arrivals = 0u64;
+    let mut expiries = 0;
     let home = GpsPoint::with_elevation(47.37, 8.55, 410.0);
     let mut held: Vec<String> = Vec::new();
     println!(
@@ -216,12 +295,35 @@ fn replay_years(ground: Ground, years: usize) {
         let activities = year_of(year, seed, origin);
         let mut peak_max = 0;
         let mut last_ms = 0;
-        for month in activities.chunks(activities.len().div_ceil(12)) {
+        let mut fates = TombstoneFates::default();
+        let per_sync = pace
+            .per_sync
+            .unwrap_or_else(|| activities.len().div_ceil(12));
+        for batch in activities.chunks(per_sync) {
+            let (before, _) = engine.section_identity_tombstone_clock();
             let t = std::time::Instant::now();
-            peak_max = peak_max.max(sync(&mut engine, month));
+            peak_max = peak_max.max(sync(&mut engine, batch));
             last_ms = t.elapsed().as_millis();
-            held.extend(month.iter().map(|a| a.id.clone()));
+            held.extend(batch.iter().map(|a| a.id.clone()));
+            arrivals += batch.len() as u64;
+            let (after, steps) = engine.section_identity_tombstone_clock();
+            clock.record(steps, arrivals);
+            let visible: BTreeSet<String> = engine
+                .section_identity_pure_visible_ids()
+                .into_iter()
+                .collect();
+            let batch_fates = tombstone_fates(&before, &after, steps, &visible, &clock);
+            fates.restores += batch_fates.restores;
+            fates.expiries += batch_fates.expiries;
+            fates.oldest_restore = fates.oldest_restore.max(batch_fates.oldest_restore);
+            if let Some(oldest) = after.iter().filter_map(|(_, s)| *s).min() {
+                assert!(
+                    steps - oldest <= pace.horizon_steps,
+                    "a tombstone retired at step {oldest} outlived the horizon at step {steps}"
+                );
+            }
         }
+        expiries += fates.expiries;
         if matches!(ground, Ground::StableWithDeletions) {
             let doomed: Vec<String> = held.iter().step_by(20).cloned().collect();
             for id in &doomed {
@@ -243,6 +345,18 @@ fn replay_years(ground: Ground, years: usize) {
             last_ms,
         );
         println!("     kb: {}", blob_split(&tmp));
+        println!(
+            "     restores={} expiries={} oldest_restore={} arrivals",
+            fates.restores, fates.expiries, fates.oldest_restore,
+        );
+    }
+    let (_, steps) = engine.section_identity_tombstone_clock();
+    if steps > pace.horizon_steps.saturating_add(1) {
+        assert!(
+            expiries > 0,
+            "{steps} steps ran past a horizon of {} and nothing expired",
+            pace.horizon_steps
+        );
     }
 }
 
@@ -250,15 +364,36 @@ fn replay_years(ground: Ground, years: usize) {
 /// three kinds of library: stable ground, ground that moves every year, and
 /// stable ground with a twentieth of the library deleted each year. `YEARS`
 /// sets the count, five by default, and `GROUND` runs one kind by its label.
+/// Each year syncs a month at a time unless `PER_SYNC` sets the batch.
+///
+/// The horizon is read in arrivals, since the debounce counts arrivals. This
+/// replay steps once per sync, so it keeps a tombstone
+/// `HORIZON.div_ceil(PER_SYNC)` of its own steps, which spans the same
+/// arrivals. `HORIZON` is the engine's default unless set, and `off` keeps
+/// every tombstone, which is how restore ages are read: the oldest restore
+/// printed is the horizon that keeps all of them. With a horizon the replay
+/// fails when a tombstone outlives it, or when a run longer than it expires
+/// nothing.
 ///
 /// `cargo test --bench lifecycle_year_expansion_cost -p veloqrs --features synthetic --release -- --ignored --nocapture identity_growth`
 #[test]
 #[ignore = "minutes in release; run it deliberately"]
 fn identity_growth_per_year() {
-    let years = std::env::var("YEARS")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(5);
+    let years = env_number("YEARS").unwrap_or(5) as usize;
+    let per_sync = env_number("PER_SYNC").map(|n| n.max(1) as usize);
+    let horizon = match std::env::var("HORIZON").as_deref() {
+        Ok("off") => None,
+        _ => Some(
+            env_number("HORIZON")
+                .unwrap_or(tracematch::HysteresisParams::default().tombstone_horizon_steps),
+        ),
+    };
+    // A month of this replay's year is 31 activities.
+    let arrivals_per_step = per_sync.unwrap_or(31) as u64;
+    let pace = Pace {
+        per_sync,
+        horizon_steps: horizon.map_or(u64::MAX, |h| h.div_ceil(arrivals_per_step)),
+    };
     let only = std::env::var("GROUND").ok();
     for (label, ground) in [
         ("stable", Ground::Stable),
@@ -269,6 +404,6 @@ fn identity_growth_per_year() {
             continue;
         }
         println!("== {label}");
-        replay_years(ground, years);
+        replay_years(ground, years, pace);
     }
 }

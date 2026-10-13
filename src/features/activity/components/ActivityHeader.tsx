@@ -23,7 +23,7 @@ import {
 import { heroTextStyles } from '@/shared/ui/DetailHero';
 import type { ActivityDetail, ActivityStreams } from '@/types';
 import { formatDateTime } from '@/shared/format/format';
-import { cardPrimaryStats } from '../lib/cardPrimaryStats';
+import { activityHeroStats } from '../lib/activityHeroStats';
 import { engine } from 'veloqrs';
 import type { LatLng } from '@/shared/geo/polyline';
 import { colors, mapTextShadow, opacity, spacing, typography } from '@/theme';
@@ -93,7 +93,7 @@ export const ActivityHeader = React.memo(function ActivityHeader({
   const [attributionClearance, setAttributionClearance] = useState(ATTRIBUTION_CLEARANCE);
   const visibleSectionOverlays =
     activeTab === 'sections' || activeTab === 'charts' ? sectionOverlays : null;
-  const stats = cardPrimaryStats(activity, isMetric);
+  const stats = activityHeroStats(activity, isMetric, t);
 
   return (
     <DetailHero
@@ -162,19 +162,13 @@ export const ActivityHeader = React.memo(function ActivityHeader({
               testID="activity-detail-stats"
               style={styles.inlineStats}
               statTestIDs={['activity-detail-distance', 'activity-detail-duration']}
-              stats={[
-                stats.distance != null ? labelled(t('activity.distance'), stats.distance) : null,
-                labelled(t('activity.duration'), stats.duration),
-                stats.elevation != null
-                  ? labelled(t('sections.elevationGain'), stats.elevation)
-                  : null,
-              ]}
+              stats={stats}
             />
           </View>
         </>
       }
     >
-      <ComponentErrorBoundary componentName="Activity Map">
+      <ComponentErrorBoundary part="activityMap" debugName="Activity Map">
         <ActivityMapView
           coordinates={coordinates}
           activityType={activity.type}
@@ -207,11 +201,6 @@ export const ActivityHeader = React.memo(function ActivityHeader({
     </DetailHero>
   );
 });
-
-/** A stat drawn as its value and read with the name of what it is. */
-function labelled(name: string, text: string) {
-  return { text, label: `${name}: ${text}` };
-}
 
 const styles = StyleSheet.create({
   namePressable: {

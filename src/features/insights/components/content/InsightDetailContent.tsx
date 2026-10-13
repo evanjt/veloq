@@ -1,4 +1,6 @@
 import React from 'react';
+import { StyleSheet, View } from 'react-native';
+import { spacing } from '@/theme';
 import type { Insight, InsightCategory } from '@/features/insights/types';
 import { SectionPRContent } from './SectionPRContent';
 import { SectionTrendContent } from './SectionTrendContent';
@@ -9,6 +11,7 @@ import { PeriodComparisonContent } from './PeriodComparisonContent';
 import { FitnessMilestoneContent } from './FitnessMilestoneContent';
 import { EfficiencyTrendContent } from './EfficiencyTrendContent';
 import { SupportingDataSection } from '../SupportingDataSection';
+import { InsightHero } from './InsightHero';
 
 interface InsightContentProps {
   insight: Insight;
@@ -48,9 +51,24 @@ export const CONTENT_BY_CATEGORY: Record<
   section_changed: SupportingDataOnly,
 };
 
+/**
+ * The sheet's body: the figure the payload leads with, in the one slot every
+ * kind shares, then the kind's own content.
+ */
 export const InsightDetailContent = React.memo(function InsightDetailContent({
   insight,
 }: InsightContentProps) {
   const Content = CONTENT_BY_CATEGORY[insight.category] ?? SupportingDataOnly;
-  return <Content insight={insight} />;
+  const hero = insight.supportingData?.hero;
+  if (!hero) return <Content insight={insight} />;
+  return (
+    <View style={styles.stack}>
+      <InsightHero hero={hero} />
+      <Content insight={insight} />
+    </View>
+  );
+});
+
+const styles = StyleSheet.create({
+  stack: { gap: spacing.sm },
 });

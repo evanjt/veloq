@@ -38,6 +38,7 @@ describe('insight card histories', () => {
       series: [
         {
           label: 'insights.data.recentEfforts',
+          format: expect.any(Function),
           points: [
             { value: 260, date: DAY, activityId: 'ride-1' },
             { value: 240, date: DAY * 2, activityId: 'ride-2' },

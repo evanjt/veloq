@@ -1825,7 +1825,7 @@ mod tests {
                 .into_rgba8();
             assert_eq!(decoded.dimensions(), (TILE_SIZE, TILE_SIZE));
             assert!(decoded.into_raw() == rgba, "z{zoom}: decoded pixels differ");
-            let painted = rgba.chunks_exact(4).filter(|p| p[3] > 0).count();
+            let painted = rgba.as_chunks::<4>().0.iter().filter(|p| p[3] > 0).count();
             assert!(painted > 5_000, "z{zoom}: only {painted} pixels painted");
             assert!(
                 png.len() * 3 <= rgba_png_len,

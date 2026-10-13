@@ -5,14 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useActivityLabels } from '@/features/activity';
 import { useTheme } from '@/shared/app';
-import {
-  composeAccessibilityLabel,
-  EmptyState,
-  ErrorState,
-  pressable,
-  pressRipple,
-  Spinner,
-} from '@/shared/ui';
+import { EmptyState, ErrorState, pressable, pressRipple, Spinner } from '@/shared/ui';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { formatDurationOrNull } from '@/shared/format/format';
 import { formatEffortValue } from '../lib/bestEfforts';
@@ -22,16 +15,7 @@ import {
   SPORT_TEXT_COLORS_DARK,
   type PrimarySport,
 } from '@/features/fitness/stores';
-import {
-  colors,
-  darkColors,
-  layout,
-  spacing,
-  typography,
-  colorWithOpacity,
-  ink,
-  slopToMinTapTarget,
-} from '@/theme';
+import { colors, darkColors, layout, spacing, typography, colorWithOpacity, ink } from '@/theme';
 import {
   bestEffortsHref,
   type BestEffort,
@@ -129,47 +113,22 @@ export function SeasonBestsSection({
         />
       )}
       {(hasEfforts ? efforts : []).map((effort, index) => {
-        const activityName = effort.activityId
-          ? activityMap.get(effort.activityId)?.name
-          : undefined;
+        const info = effort.activityId ? activityMap.get(effort.activityId) : undefined;
         const timeStr = formatDurationOrNull(effort.time);
         const valueStr = formatEffortValue(effort.value, sport, t('units.watts'), isMetric);
         const showTime = !!timeStr && sport !== 'Cycling';
-        // A row with a link is read through the link, which speaks the row in
-        // reading order, so its other text is not read a second time.
-        const linked = !!activityName && !!effort.activityId;
 
         return (
           <BestEffortRow
-            key={effort.label}
-            testID={`season-bests-row-${effort.label}`}
+            key={effort.checkpoint}
+            testID={`season-bests-row-${effort.checkpoint}`}
             label={effort.label}
             value={valueStr}
             secondary={showTime ? timeStr : null}
             valueColor={sportText}
             isLast={index === efforts.length - 1}
-            readThroughLink={linked}
-          >
-            {linked ? (
-              <Pressable
-                android_ripple={pressRipple}
-                accessibilityRole="button"
-                accessibilityLabel={composeAccessibilityLabel(
-                  effort.label,
-                  valueStr,
-                  showTime && timeStr,
-                  activityName
-                )}
-                onPress={() => tapTo(`/activity/${effort.activityId}`)}
-                style={pressable()}
-                hitSlop={LINK_SLOP}
-              >
-                <Text style={[styles.activityName, { color: sportText }]} numberOfLines={1}>
-                  {activityName} →
-                </Text>
-              </Pressable>
-            ) : null}
-          </BestEffortRow>
+            activity={info && effort.activityId ? { id: effort.activityId, ...info } : undefined}
+          />
         );
       })}
       {hasClimbing ? (
@@ -186,17 +145,11 @@ export function SeasonBestsSection({
   );
 }
 
-const LINK_SLOP = slopToMinTapTarget(typography.caption.lineHeight);
-
 const styles = StyleSheet.create({
   loadingContainer: {
     padding: spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  activityName: {
-    ...typography.caption,
-    fontWeight: '500',
   },
   climbingTitle: {
     ...typography.bodySmall,

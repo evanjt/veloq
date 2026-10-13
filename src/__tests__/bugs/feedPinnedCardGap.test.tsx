@@ -13,6 +13,10 @@
  * and the feed opens scrolled past both so the first activity is on screen. A
  * search typed into the header opens the list at the filter section, not at the
  * cards above it.
+ *
+ * Scenario: the feed shows a pinned card above the activity list.
+ * Expected behaviour: every pinned card sits in the one container that insets the
+ * column by the activity card's margin, so the cards and the list share one edge.
  */
 
 import React from 'react';
@@ -86,12 +90,24 @@ jest.mock('@/features/home', () => ({
   useSummaryCardData: () => ({ showSparkline: false, refetch: jest.fn() }),
   useStartupData: () => ({ data: undefined, refresh: jest.fn() }),
   SummaryCard: () => null,
-  NotificationOptInCard: () => null,
+  NotificationOptInCard: () => {
+    const { View: Pinned } = jest.requireActual('react-native');
+    return <Pinned testID="stand-in-notification-card" />;
+  },
   SupportCard: () => null,
+}));
+jest.mock('@/features/settings/components/StreamConsentCard', () => ({
+  StreamConsentCard: () => {
+    const { View: Pinned } = jest.requireActual('react-native');
+    return <Pinned testID="stand-in-stream-consent-card" />;
+  },
 }));
 jest.mock('@/features/recording', () => ({
   RecordFAB: () => null,
-  PendingUploadsCard: () => null,
+  PendingUploadsCard: () => {
+    const { View: Pinned } = jest.requireActual('react-native');
+    return <Pinned testID="stand-in-pending-uploads-card" />;
+  },
 }));
 jest.mock('@/features/maps/components/TerrainSnapshotWebView', () => ({
   TerrainSnapshotWebView: () => null,
@@ -138,6 +154,21 @@ describe('feed gap under the pinned cards', () => {
     const { pinnedBottom, searchTop, searchBottom } = await renderFeed();
     expect(pinnedBottom + searchTop).toBe(CARD_MARGIN);
     expect(searchBottom).toBe(CARD_MARGIN);
+  });
+});
+
+describe('feed pinned card column', () => {
+  it('insets every pinned card by the activity card margin', async () => {
+    await renderFeed();
+    const pinned = screen.getByTestId('home-pinned-cards');
+    expect(StyleSheet.flatten(pinned.props.style).paddingHorizontal).toBe(CARD_MARGIN);
+    for (const card of [
+      'stand-in-stream-consent-card',
+      'stand-in-notification-card',
+      'stand-in-pending-uploads-card',
+    ]) {
+      expect(within(pinned).getByTestId(card)).toBeTruthy();
+    }
   });
 });
 

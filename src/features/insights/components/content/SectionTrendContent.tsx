@@ -15,6 +15,7 @@ import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration } from '@/shared/format/format';
 import { brand, colors, darkColors, spacing, opacity, layout, typography } from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
+import { SheetContext } from './SheetContext';
 import {
   composeAccessibilityLabel,
   pressable,
@@ -26,6 +27,7 @@ import {
 import type { TFunc } from '../../types';
 import { sectionRowKey, sectionWithSport } from '../../lib/cardSport';
 import { rowTrendColor, rowTrendIcon, rowTrendWord } from '../../lib/rowTrend';
+import { formatSignedPercent } from '../../lib/rankingFactors';
 
 interface SectionTrendContentProps {
   insight: Insight;
@@ -105,7 +107,14 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
   const name = sectionWithSport(section.sectionName, section.sportType, t as unknown as TFunc);
   const bestTime = section.bestTime != null ? formatDuration(section.bestTime) : null;
   const traversals =
-    section.traversalCount != null ? t('units.times', { value: section.traversalCount }) : null;
+    section.traversalCount != null
+      ? t('sections.traversalsCount', { count: section.traversalCount })
+      : null;
+  // The change the card's bar for this row stands for. A row the engine
+  // compared nothing on has no bar, so it prints none.
+  const changeValue = section.ranking?.improvementChange;
+  const change =
+    changeValue != null && Number.isFinite(changeValue) ? formatSignedPercent(changeValue) : null;
 
   // The whole header is one toggle, so a screen reader meets each row once and
   // hears everything the row draws.
@@ -121,6 +130,7 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
             section.hasRecentPR && t('a11y.personalRecord'),
             bestTime,
             traversals,
+            change,
             rowTrendWord(section.trend)
           )}
           accessibilityState={{ expanded }}
@@ -158,6 +168,14 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
               {traversals != null ? (
                 <Text style={[styles.traversals, isDark && styles.traversalsDark]}>
                   {traversals}
+                </Text>
+              ) : null}
+              {change != null && changeValue != null ? (
+                <Text
+                  testID="section-trend-change"
+                  style={[styles.change, { color: rowTrendColor(Math.sign(changeValue), isDark) }]}
+                >
+                  {change}
                 </Text>
               ) : null}
               <MaterialCommunityIcons
@@ -253,12 +271,7 @@ export const SectionTrendContent = React.memo(function SectionTrendContent({
 
   return (
     <View style={styles.container}>
-      <View style={[styles.contextCard, isDark && styles.contextCardDark]}>
-        <Text style={[styles.contextHeading, isDark && styles.contextHeadingDark]}>
-          {context.heading}
-        </Text>
-        <Text style={[styles.contextMeta, isDark && styles.contextMetaDark]}>{context.meta}</Text>
-      </View>
+      <SheetContext heading={context.heading} meta={context.meta} />
 
       {sections.map((section: SupportingSection) => (
         <SectionAccordionItem
@@ -288,31 +301,6 @@ export const SectionTrendContent = React.memo(function SectionTrendContent({
 const styles = StyleSheet.create({
   container: {
     gap: spacing.xs,
-  },
-  contextCard: {
-    backgroundColor: opacity.overlay.subtle,
-    borderRadius: layout.borderRadiusMd,
-    padding: spacing.md,
-    gap: spacing.xs,
-    marginBottom: spacing.xs,
-  },
-  contextCardDark: {
-    backgroundColor: opacity.overlayDark.light,
-  },
-  contextHeading: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  contextHeadingDark: {
-    color: darkColors.textPrimary,
-  },
-  contextMeta: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-  },
-  contextMetaDark: {
-    color: darkColors.textSecondary,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -375,6 +363,11 @@ const styles = StyleSheet.create({
   },
   traversalsDark: {
     color: darkColors.textSecondary,
+  },
+  change: {
+    fontSize: typography.caption.fontSize,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
   },
   expandedContent: {
     paddingHorizontal: spacing.sm,

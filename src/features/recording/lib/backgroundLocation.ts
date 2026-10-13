@@ -8,6 +8,7 @@ import { ensureCredentialsHydrated, useAuthStore } from '@/shared/app/AuthStore'
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import type { AutoPauseDetector } from './autoPause';
 import { fixAltitude, getGpsWatchOptions, getAccuracyRejectThreshold } from './gpsConfig';
+import { gpsFixKept } from './gpsQuality';
 import {
   autoPauseDetector,
   buildAutoPauseDetector,
@@ -17,6 +18,7 @@ import {
 import {
   installRecordingNotificationActions,
   locationServiceRunning,
+  nameRecordingChannel,
   updateRecordingNotification,
 } from './recordingNotification';
 import { loadRecordingBackup } from './storage/recordingBackup';
@@ -108,8 +110,7 @@ export async function handleBackgroundLocations(
 
   const rejectThreshold = getAccuracyRejectThreshold();
   for (const location of locations) {
-    // Drop low-accuracy points to reduce GPS noise (threshold is a preference)
-    if (location.coords.accuracy != null && location.coords.accuracy > rejectThreshold) continue;
+    if (!gpsFixKept(location.coords.accuracy, rejectThreshold)) continue;
 
     const point = {
       latitude: location.coords.latitude,
@@ -149,6 +150,7 @@ export async function startBackgroundLocation(options?: {
 }): Promise<void> {
   log.log('Starting background location updates');
   const watch = getGpsWatchOptions();
+  nameRecordingChannel();
   await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
     accuracy: watch.accuracy,
     distanceInterval: watch.distanceInterval,

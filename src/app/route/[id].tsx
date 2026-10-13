@@ -28,6 +28,7 @@ import {
   buildFinalRouteGroup,
   routeHeadline,
   heroStats,
+  forwardDirectionColour,
   toActivityType,
   toPerformanceView,
   EMPTY_PERFORMANCE_VIEW,
@@ -247,7 +248,8 @@ function RouteDetailScreenContent() {
 
   const displayName = customName || routeGroup.name;
 
-  // The sport on screen colours the icon and the map.
+  // The sport on screen colours the icon and the map placeholder. Forward is drawn
+  // in one colour of its own on every view of the page.
   const displayType = toActivityType(effectiveSportType);
   const activityColor = getActivityColor(displayType);
   const hasMapData = !!engineGroup?.activityIds.length;
@@ -374,7 +376,7 @@ function RouteDetailScreenContent() {
             bestReverseIsRecord={bestReverseIsRecord}
             calendarSummary={calendarSummary}
             effectiveSportType={effectiveSportType}
-            activityColor={activityColor}
+            forwardColour={forwardDirectionColour(isDark)}
             navActivityId={navActivityId}
             effectiveReferenceId={effectiveRepresentativeId}
             showExcluded={showExcluded}

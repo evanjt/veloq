@@ -35,30 +35,49 @@ export const SPORT_TEXT_COLORS_DARK: Record<PrimarySport, string> = {
   Swimming: darkColors.swimText,
 };
 
+const SPORT_DEFAULT_KEY = 'veloq-primary-sport-default';
+
+const SPORTS: readonly string[] = ['Cycling', 'Running', 'Swimming'];
+
+function asSport(value: string | null | undefined): PrimarySport | null {
+  return value && SPORTS.includes(value) ? (value as PrimarySport) : null;
+}
+
 interface SportPreferenceState {
   primarySport: PrimarySport;
+  /** Whether the athlete picked the sport, rather than it following the library. */
+  isChosen: boolean;
   isLoaded: boolean;
 
   // Actions
   initialise: () => Promise<void>;
   setPrimarySport: (sport: PrimarySport) => Promise<void>;
+  /**
+   * Take the sport the engine names dominant in the library, unless the
+   * athlete chose one. The default is stored under its own key, so the next
+   * launch opens on it before any read and a choice made later still wins.
+   */
+  adoptLibrarySport: (dominant: string | null | undefined) => Promise<void>;
 }
 
-export const useSportPreference = create<SportPreferenceState>((set) => ({
-  primarySport: 'Cycling', // Default
+export const useSportPreference = create<SportPreferenceState>((set, get) => ({
+  primarySport: 'Cycling', // Until a choice or the library says otherwise
+  isChosen: false,
   isLoaded: false,
 
   initialise: async () => {
     try {
-      const stored = await getSetting(SPORT_PREFERENCE_KEY);
-      if (stored && ['Cycling', 'Running', 'Swimming'].includes(stored)) {
-        set({
-          primarySport: stored as PrimarySport,
-          isLoaded: true,
-        });
-      } else {
-        set({ isLoaded: true });
+      const chosen = asSport(await getSetting(SPORT_PREFERENCE_KEY));
+      if (chosen) {
+        set({ primarySport: chosen, isChosen: true, isLoaded: true });
+        return;
       }
+      const fallback = asSport(await getSetting(SPORT_DEFAULT_KEY));
+      set({
+        ...(fallback ? { primarySport: fallback } : {}),
+        isChosen: false,
+        isLoaded: true,
+      });
     } catch {
       set({ isLoaded: true });
     }
@@ -66,7 +85,15 @@ export const useSportPreference = create<SportPreferenceState>((set) => ({
 
   setPrimarySport: async (sport: PrimarySport) => {
     await setSetting(SPORT_PREFERENCE_KEY, sport);
+    set({ primarySport: sport, isChosen: true });
+  },
+
+  adoptLibrarySport: async (dominant) => {
+    const sport = asSport(dominant);
+    const { isLoaded, isChosen, primarySport } = get();
+    if (!sport || !isLoaded || isChosen || sport === primarySport) return;
     set({ primarySport: sport });
+    await setSetting(SPORT_DEFAULT_KEY, sport);
   },
 }));
 

@@ -22,7 +22,6 @@ struct VeloqRecordingLiveActivity: Widget {
         state: context.state,
         isStale: context.isStale
       )
-      .widgetTextSize()
       .activityBackgroundTint(RecordingCardStyle.tint)
       .activitySystemActionForegroundColor(WidgetTheme.Record.foreground)
     } dynamicIsland: { context in
@@ -34,7 +33,6 @@ struct VeloqRecordingLiveActivity: Widget {
             step: .metric
           )
           .padding(.leading, WidgetTheme.Layout.gap)
-          .widgetTextSize()
         }
         DynamicIslandExpandedRegion(.trailing) {
           // The control sits with the numbers it acts on. In the bottom region it
@@ -62,7 +60,6 @@ struct VeloqRecordingLiveActivity: Widget {
             }
           }
           .padding(.trailing, WidgetTheme.Layout.gap)
-          .widgetTextSize()
         }
         DynamicIslandExpandedRegion(.bottom) {
           // Only when there is a shape to draw. An indoor ride never has one, and
@@ -86,7 +83,6 @@ struct VeloqRecordingLiveActivity: Widget {
           step: .label,
           maxWidth: RecordingCardStyle.compactClockWidth
         )
-        .widgetTextSize()
       } minimal: {
         RecordingGlyph(
           isPaused: context.state.isPaused, isStale: context.isStale,

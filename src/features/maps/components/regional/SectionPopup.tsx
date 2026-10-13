@@ -45,7 +45,7 @@ export const SectionPopup = memo(function SectionPopup({
             {displayName}
           </Text>
           <Text style={[styles.popupDate, isDark && styles.popupDateDark]}>
-            {t('sections.visitsCount', { count: section.visitCount })} •{' '}
+            {t('sections.traversalsCount', { count: section.visitCount })} •{' '}
             {formatDistance(section.distanceMeters, isMetric)}
           </Text>
         </View>

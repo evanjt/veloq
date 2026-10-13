@@ -14,7 +14,7 @@ import { useTheme } from '@/shared/app';
 import { useEngineRead, useEngineReadState } from '@/shared/native/useEngineSubscription';
 import { EngineReadPlaceholder } from '@/shared/app/EngineUnavailableState';
 import { getAllSectionDisplayNames, ledgerDate } from '@/features/routes';
-import { getIntlLocale } from '@/shared/format/format';
+import { formatFullDate } from '@/shared/format/format';
 import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { tapTo } from '@/shared/app/navigation';
@@ -22,7 +22,6 @@ import { tapTo } from '@/shared/app/navigation';
 function SectionRetiredScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const locale = getIntlLocale();
 
   const readRetired = useEngineRead(['sections', 'detectionApplied']);
   const engineState = useEngineReadState();
@@ -57,11 +56,7 @@ function SectionRetiredScreenContent() {
                   {t(`sectionHistory.kind_${r.kind}` as never)}
                 </Text>
                 <Text style={[styles.meta, isDark && styles.textSecondaryDark]}>
-                  {ledgerDate(r.at).toLocaleDateString(locale, {
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                  })}
+                  {formatFullDate(ledgerDate(r.at))}
                   {` · ${t('sectionHistory.versions')}: ${r.versions.length}`}
                 </Text>
                 {into && (

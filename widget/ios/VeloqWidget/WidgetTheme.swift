@@ -112,6 +112,7 @@ enum WidgetTheme {
     static let metricLine: CGFloat = 30
     static let supportingRow: CGFloat = 40
     static let supportingRowCaptioned: CGFloat = 52
+    static let insightGlyph: CGFloat = 14
   }
 
   enum TypeScale {
@@ -156,10 +157,8 @@ enum WidgetTheme {
     }
   }
 
-  /// The largest text size the widgets and the Live Activity follow the reader to.
-  static let largestTextSize: DynamicTypeSize = .xxLarge
-
-  /// The most a step grows over its default size, whatever text size the reader picks.
+  /// The most a figure, a label or a caption grows over its step's default size, whatever text
+  /// size the reader picks. A line of prose is not held to it.
   static let maxTextScale: CGFloat = 1.3
 
   enum Chart {
@@ -167,5 +166,11 @@ enum WidgetTheme {
     static let bandOpacity: Double = 0.3
     static let bandAccentedOpacities: [Double] = [0.12, 0.3]
     static let bandBoundary: CGFloat = 0.5
+  }
+
+  enum Body {
+    static let accentedOpacities: [Double] = [0.35, 0.5, 0.65, 0.8, 1]
+    static let accentedUntrainedOpacity: Double = 0.15
+    static let accentedOutline: CGFloat = 0.5
   }
 }

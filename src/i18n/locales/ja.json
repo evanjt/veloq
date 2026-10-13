@@ -47,7 +47,10 @@
       "activityEftp": "eFTPは、このアクティビティに対するintervals.icuのパワーモデル推定値です。",
       "power": "ワットでの平均パワー出力。",
       "trainingLoad": "トレーニング負荷は、アクティビティのデータとスポーツ設定に応じて、intervals.icu がパワー、心拍数、またはペースから算出します。閾値に対する強度で持続時間を重み付けします。",
-      "yourForm": "この日のあなたのフォーム（TSB）。これは特定のアクティビティではなく、全体的なトレーニングに基づく日次値です。TSB = フィットネス（CTL）- 疲労（ATL）。"
+      "yourForm": "この日のあなたのフォーム（TSB）。これは特定のアクティビティではなく、全体的なトレーニングに基づく日次値です。TSB = フィットネス（CTL）- 疲労（ATL）。",
+      "speed": "intervals.icu がこのアクティビティに保存した平均速度と最高速度です。",
+      "pace": "intervals.icu がこのアクティビティに保存した平均ペースと最速ペースです。",
+      "cadence": "intervals.icu が保存した平均ケイデンスです。自転車では毎分のクランク回転数、それ以外では毎分の歩数またはストローク数です。"
     },
     "ftp": "FTP設定: {{value}}",
     "heartRate": "心拍数",
@@ -106,7 +109,12 @@
       "fitnessThatDay": "その日のフィットネス（CTL）",
       "yourForm": "あなたのフォーム",
       "eftpContext": "このアクティビティのeFTP {{value}}",
-      "intensityContext": "IF {{percent}}%"
+      "intensityContext": "IF {{percent}}%",
+      "speed": "速度",
+      "pace": "ペース",
+      "cadence": "ケイデンス",
+      "movingTime": "移動時間",
+      "elapsedTime": "経過時間"
     },
     "hrZoneTotal": "心拍数の記録がある時間: {{duration}}",
     "powerZoneTotal": "パワーの記録がある時間: {{duration}}",
@@ -125,7 +133,10 @@
     "zoneMaxFromActivity": "ゾーン上限 {{value}} bpm(このアクティビティ)",
     "zoneMaxFromSettings": "ゾーン上限 {{value}} bpm(スポーツ設定)",
     "zoneMaxDefault": "最大心拍が未設定のため、ゾーンは {{value}} bpm と仮定しています",
-    "zoneMaxDefaultHint": "intervals.icu のスポーツ設定で最大心拍を設定してください"
+    "zoneMaxDefaultHint": "intervals.icu のスポーツ設定で最大心拍を設定してください",
+    "prDelta": "PR比 +{{delta}}",
+    "chartAverage": "平均",
+    "gainStat": "↑ {{value}}"
   },
   "activityDetail": {
     "routePrBadge": "自己記録 {{improvement}}",
@@ -400,7 +411,12 @@
     "sourceNote": "行をタップして元のアクティビティを開きます。",
     "climbingBests": "登坂",
     "climbingSourceExcluded": "補正済みの標高ではなくデバイスの高度のため除外: {{excluded}}",
-    "climbingOwed": "登坂ベストはまだ計算中です。"
+    "climbingOwed": "登坂ベストはまだ計算中です。",
+    "checkpoint": {
+      "halfMarathon": "ハーフマラソン",
+      "metres": "{{value}}m",
+      "kilometres": "{{value}}km"
+    }
   },
   "cache": {
     "allActivitiesSynced": "すべてのアクティビティが同期されました",
@@ -471,7 +487,8 @@
     "discard": "破棄",
     "discardChangesTitle": "変更を破棄しますか？",
     "discardChangesMessage": "この画面での変更は保存されていません。",
-    "keepEditing": "編集を続ける"
+    "keepEditing": "編集を続ける",
+    "sentencePair": "{{first}}{{second}}"
   },
   "demo": {
     "banner": "デモモード",
@@ -511,7 +528,7 @@
     },
     "startupError": {
       "title": "アプリの一部を読み込めませんでした",
-      "detail": "読み込めなかった項目: {{areas}}。アプリを再起動してもう一度お試しください。",
+      "detail": "読み込めなかった項目: {{areas}}。",
       "area": {
         "language": "言語",
         "preferences": "環境設定",
@@ -570,14 +587,47 @@
   },
   "errorState": {
     "defaultTitle": "問題が発生しました",
-    "unableToLoad": "{{componentName}}を読み込めません",
     "libraryUnaffected": "このデバイス上のアクティビティには影響ありません。",
     "rideStillRecording": "ライドはまだ記録中です。",
     "stopAndSaveRide": "ライドを停止して保存",
     "rideStopped": "ライドは停止され、このデバイスに保持されています。",
     "shareFailed": "クラッシュログを共有できませんでした。",
-    "restartHint": "もう一度お試しいただくか、アプリを再起動してください",
-    "unableToDisplayChart": "チャートを表示できません"
+    "unableToLoad": "{{part}}を読み込めません",
+    "retryHint": "「再試行」をタップすると、もう一度読み込みます。",
+    "unableToDisplayChart": "チャートを表示できません",
+    "part": {
+      "map": "マップ",
+      "map3d": "3Dマップ",
+      "terrainSnapshots": "地形プレビュー",
+      "routePerformance": "ルートのパフォーマンス",
+      "hrZonesChart": "心拍ゾーンのグラフ",
+      "powerZonesChart": "パワーゾーンのグラフ",
+      "activityStats": "アクティビティの統計",
+      "activityMap": "アクティビティのマップ",
+      "muscleGroups": "筋肉グループ"
+    }
+  },
+  "intervalTypes": {
+    "work": {
+      "short": "ワーク",
+      "long": "ワーク"
+    },
+    "recovery": {
+      "short": "回復",
+      "long": "回復"
+    },
+    "warmup": {
+      "short": "W-UP",
+      "long": "ウォームアップ"
+    },
+    "cooldown": {
+      "short": "C-DN",
+      "long": "クールダウン"
+    },
+    "other": {
+      "short": "その他",
+      "long": "その他"
+    }
   },
   "export": {
     "bulkComplete": "エクスポート完了",
@@ -601,7 +651,10 @@
     "gpxTrimmedAway": "エクスポートするものがありません。自宅付近のトリミングで、トラックがほとんど残りませんでした。",
     "failedTitle": "エクスポートに失敗しました",
     "share": "共有",
-    "saveToDevice": "端末に保存"
+    "saveToDevice": "端末に保存",
+    "shareFailedTitle": "共有できませんでした",
+    "shareFailed": "共有メニューを開けませんでした。もう一度お試しください。",
+    "shareUnavailable": "このデバイスではファイルを共有できません。"
   },
   "feed": {
     "activitiesCount_one": "{{count}}件のアクティビティ",
@@ -743,8 +796,6 @@
       "groupMore": "(他{{n}}件)",
       "trendFaster": "速くなっています",
       "trendSlower": "遅くなっています",
-      "attempts_one": "{{count}} 回",
-      "attempts_other": "{{count}} 回",
       "direction": {
         "forward": "順方向",
         "reverse": "逆方向"
@@ -902,7 +953,6 @@
       "changeBody": "{{name}}での{{efforts}}回の走行で、心拍数とペースの積が上昇しました。平均ペースでは推定 +{{hrChange}} bpmに相当します。実測心拍数とは異なる場合があります。",
       "subtitle": "{{efforts}}回の平均ペースでのモデル値 {{hrChange}}bpm",
       "body": "{{name}}での{{efforts}}回の走行で、心拍数×ペースが改善しました。平均ペースに換算したモデル値は{{hrChange}}bpmです。心拍数そのものは変わっていない可能性があります。",
-      "sheetHrCaption": "一致した記録全体で",
       "sheetHeading": "一致した記録の比較",
       "sheetBody": "同じセクションで心拍数とペースの両方がある繰り返しの記録に基づき、各回で心臓にかかった負担を時系列で比較します。",
       "sheetMeta": "記録はセクションを開いて確認できます。"
@@ -1074,7 +1124,9 @@
     "expandRange": "範囲を広げる",
     "distanceAny": "すべて",
     "showFilters": "すべてのフィルターを表示",
-    "hideFilters": "フィルターを減らす"
+    "hideFilters": "フィルターを減らす",
+    "searchCount": "{{total}} 件中 {{shown}} 件",
+    "searchFilteredBy": "絞り込み: {{filters}}"
   },
   "maps": {
     "threeDUnavailable": "地形には接続が必要です。平面の地図を表示しています。",
@@ -1254,15 +1306,16 @@
     "distance": "距離 ({{unit}})",
     "distanceInvalid": "有効な距離を入力してください（0〜999）。",
     "duration": "時間（分）",
-    "durationLabel": "時間",
     "durationRequired": "有効な時間を入力してください。",
     "elevation": "標高",
     "fields": {
       "avgPace": "平均ペース",
+      "avgPower": "平均パワー",
       "avgSpeed": "平均速度",
       "cadence": "ケイデンス",
       "calories": "カロリー",
       "distance": "距離",
+      "elapsedTime": "経過時間",
       "elevation": "標高",
       "elevationGain": "獲得標高",
       "heartrate": "心拍数",
@@ -1344,11 +1397,11 @@
       "recording": "記録中"
     },
     "summary": "サマリー",
-    "timeOfDay": {
-      "morning": "朝",
-      "afternoon": "午後",
-      "evening": "夕方",
-      "night": "夜"
+    "autoName": {
+      "morning": "朝の{{sport}}",
+      "afternoon": "午後の{{sport}}",
+      "evening": "夕方の{{sport}}",
+      "night": "夜の{{sport}}"
     },
     "trimActivity": "アクティビティをトリミング",
     "trimEndHandle": "トリミングの終了点",
@@ -1366,8 +1419,6 @@
     "autoUpload": "自動アップロード",
     "autoUploadDescription": "保存時に記録を intervals.icu へ自動でアップロードします。オフの場合、マイ記録からアップロードするまでこの端末に保存されます。",
     "library": {
-      "distance": "距離",
-      "duration": "時間",
       "title": "マイ記録",
       "empty": "記録はまだありません",
       "emptyHint": "保存した記録はこの端末に保管されます。",
@@ -1379,6 +1430,8 @@
       "delete": "削除",
       "deleteConfirmTitle": "記録を削除しますか？",
       "deleteConfirmMessage": "{{sport}} · {{startTime}}：この記録は端末から完全に削除されます。",
+      "deleteFailedTitle": "記録を削除できませんでした",
+      "deleteFailed": "記録を削除できませんでした。記録はこのデバイスに残っています。",
       "pendingUploads_one": "未アップロードの記録が{{count}}件あります",
       "pendingUploads_other": "未アップロードの記録が{{count}}件あります",
       "status": {
@@ -1434,6 +1487,7 @@
     "entryManualCaption": "手動入力、開始でフォームを開きます",
     "fieldModeGps": "GPS",
     "fieldModeIndoor": "屋内",
+    "fieldsSelected": "{{max}}項目中{{selected}}項目",
     "tileOrder": "タイルの順番",
     "tileOrderDescription": "タイルをタップすると表示する項目を選べます。記録画面でタイルを長押ししても同じ操作ができます。",
     "tileSlotLabel": "タイル{{number}}、{{field}}",
@@ -1442,7 +1496,12 @@
       "card": "記録が停止しました。Veloqを開いて再開します。",
       "channel": "中断された記録",
       "title": "記録が停止しました"
-    }
+    },
+    "serviceChannel": {
+      "description": "記録中のアクティビティと操作ボタンを表示します。",
+      "name": "記録"
+    },
+    "recentTypes": "最近"
   },
   "routeDetail": {
     "routeNotFound": "ルートが見つかりません"
@@ -1657,8 +1716,6 @@
     "traversalsCount_other": "{{count}}回通過",
     "calendarActivities_one": "{{count}} 件のアクティビティ",
     "calendarActivities_other": "{{count}} 件のアクティビティ",
-    "visitsCount_one": "{{count}}回の訪問",
-    "visitsCount_other": "{{count}}回の訪問",
     "scanForMatches": "一致をスキャン",
     "rematchActivities": "アクティビティを再照合",
     "scanForMore": "さらにセクションをスキャン",
@@ -1702,7 +1759,6 @@
     "showFewerLaps": "ラップを減らす",
     "lapExcluded": "除外済み",
     "partlyExcluded": "一部のラップを除外",
-    "maxGrade": "最大勾配",
     "rescanRefusedBusy": "スキャンはすでに実行中です。",
     "rescanRefusedHeld": "エンジンが他の処理を終えるまで検出は保留されています。",
     "rescanRefusedNotReady": "エンジンを準備中です。しばらくしてからもう一度お試しください。",
@@ -1732,7 +1788,10 @@
     "referenceFailedTitle": "リファレンスを設定できませんでした",
     "acceptAllFailedTitle": "セクションを承認できませんでした",
     "changeFailedTitle": "セクションを変更できませんでした",
-    "bestLapValue": "ベストラップ {{time}}"
+    "bestLapValue": "ベストラップ {{time}}",
+    "avgValue": "平均 {{value}}",
+    "bestValue": "ベスト {{value}}",
+    "maxGradeValue": "最大勾配 {{grade}}"
   },
   "settings": {
     "terrain3DMode": "3D：{{mode}}",
@@ -2066,7 +2125,8 @@
     "vsPrevious6Months": "vs 前6ヶ月",
     "week": "週",
     "year": "年",
-    "atWeight": "{{weight}} 時"
+    "fewerActivities": "アクティビティを減らす",
+    "moreActivities": "アクティビティを増やす"
   },
   "statsScreen": {
     "eFTPTrend": "eFTPトレンド",
@@ -2082,7 +2142,8 @@
     "powerCurve": "パワーカーブ",
     "seasonBests": "シーズンベスト",
     "swimPaceCurve": "スイムペースカーブ",
-    "trainingZones": "トレーニングゾーン"
+    "trainingZones": "トレーニングゾーン",
+    "ftpLabelAtWeight": "{{weight}} 時のFTP設定 {{value}}"
   },
   "refresh": {
     "busy": "現在の同期が終わると更新されます。",
@@ -2097,6 +2158,7 @@
   },
   "time": {
     "asOfLastSync": "最後の同期時点のデータ",
+    "dayAtTime": "{{day}} {{time}}",
     "daysCount_one": "{{count}}日間",
     "daysCount_other": "{{count}}日間",
     "now": "現在",
@@ -2127,7 +2189,9 @@
     "times": "{{value}}回",
     "metresPerSecond": "m/s",
     "metres": "m",
-    "seconds": "秒"
+    "seconds": "秒",
+    "rpm": "rpm",
+    "spm": "spm"
   },
   "spoken": {
     "noValue": "値なし",
@@ -2397,6 +2461,9 @@
     "noneFound": "センサーが見つかりません",
     "noneFoundHint": "ストラップを装着するかクランクを回してセンサーを起動し、スマートフォンの近くに置いてください。",
     "scanAgain": "再スキャン",
+    "signal": "信号 {{dbm}} dBm",
+    "unnamed": "{{kind}}センサー",
+    "lastSample": "{{value}}、{{seconds}} 秒前",
     "availability": {
       "unsupportedTitle": "このデバイスはBluetooth LEに対応していません",
       "unsupportedHint": "心拍・パワー・ケイデンスセンサーにはBluetooth LEが必要です。",
@@ -2419,7 +2486,8 @@
       "bluetoothOff": "Bluetoothオフ",
       "permission": "Bluetoothの許可が必要",
       "unsupported": "Bluetoothを利用できません"
-    }
+    },
+    "issueSummary": "センサー: {{issue}}"
   },
   "sectionHistory": {
     "title": "履歴",

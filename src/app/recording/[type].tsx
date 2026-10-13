@@ -184,7 +184,11 @@ function RecordingContent({ activityType }: { activityType: ActivityType }) {
     [bottomPadding]
   );
   const controlBarStyle = useMemo(() => ({ paddingBottom: bottomPadding }), [bottomPadding]);
-  const effectiveFields = useMemo(() => fieldsForMode(dataFields, mode), [dataFields, mode]);
+  const currentActivityType = storeActivityType ?? activityType;
+  const effectiveFields = useMemo(
+    () => fieldsForMode(dataFields, mode, currentActivityType),
+    [dataFields, mode, currentActivityType]
+  );
 
   // In-place tile customisation (long-press a tile while unlocked)
   const openSheet = useSheetOpener();
@@ -193,12 +197,10 @@ function RecordingContent({ activityType }: { activityType: ActivityType }) {
       const result = await openSheet<FieldPickerSheetInput, DataFieldType>('sheets/field-picker', {
         selectedField: effectiveFields[index] ?? null,
       });
-      if (result.kind === 'selected') setSlotField(mode, index, result.value);
+      if (result.kind === 'selected') setSlotField(mode, index, result.value, currentActivityType);
     },
-    [openSheet, effectiveFields, mode, setSlotField]
+    [openSheet, effectiveFields, mode, currentActivityType, setSlotField]
   );
-
-  const currentActivityType = storeActivityType ?? activityType;
 
   const openTypePicker = useCallback(async () => {
     const result = await openSheet<ActivityTypeSheetInput, ActivityType>('sheets/activity-type', {

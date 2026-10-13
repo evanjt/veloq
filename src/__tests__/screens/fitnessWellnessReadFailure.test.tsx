@@ -100,7 +100,7 @@ jest.mock('@/features/fitness', () => {
       handleInteractionChange: jest.fn(),
       handleDateSelect: jest.fn(),
     }),
-    useSportPreference: () => ({ primarySport: 'Cycling' }),
+    useSportPreference: () => ({ primarySport: 'Cycling', adoptLibrarySport: jest.fn() }),
     FORM_ZONE_COLORS: { optimal: 'green' },
   };
 });

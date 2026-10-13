@@ -29,6 +29,7 @@ describe('heatmap source minzoom', () => {
       routeColor: '#FF6B35',
       showHeatmap: true,
       devicePixelRatio: 2,
+      reduceMotion: false,
     });
     const source = html.match(/addSource\('heatmap-tiles',\s*\{[\s\S]*?minzoom:\s*(\d+)/);
     expect(source?.[1]).toBe(String(HEATMAP_SOURCE_MINZOOM));

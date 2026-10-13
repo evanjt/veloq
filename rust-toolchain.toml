@@ -4,5 +4,5 @@
 # The setup actions under .github/actions add them to this same release, and a
 # Jest test holds each dtolnay/rust-toolchain step to this channel.
 [toolchain]
-channel = "1.95.0"
+channel = "1.99.0"
 components = ["rustfmt", "clippy"]

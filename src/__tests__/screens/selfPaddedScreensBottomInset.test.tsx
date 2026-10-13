@@ -77,6 +77,7 @@ jest.mock('@/features/settings', () => {
   );
 });
 jest.mock('@/features/sensors', () => ({
+  ...jest.requireActual('@/features/sensors/lib/sensorRows'),
   useSensorStore: (selector: (state: object) => unknown) =>
     selector({
       scanning: false,

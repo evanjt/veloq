@@ -60,6 +60,9 @@ export const AttributionOverlay = memo(
         [onClearanceChange]
       );
 
+      // A caller that waits on the map for its credit draws no blank pill meanwhile.
+      if (!attribution) return null;
+
       return (
         <View testID="map-attribution" style={attributionStyles.attribution} pointerEvents="none">
           <View

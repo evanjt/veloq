@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback, useState, useRef } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -14,15 +14,7 @@ import {
 } from '@/theme';
 import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
 import { RangeCoverage } from 'veloqrs';
-import {
-  BodyNotDownloaded,
-  CardHeader,
-  ErrorState,
-  pressable,
-  pressRipple,
-  Switch,
-  EmptyState,
-} from '@/shared/ui';
+import { BodyNotDownloaded, CardHeader, ErrorState, Row, Switch, EmptyState } from '@/shared/ui';
 import { CurveLoadingPlaceholder } from './CurveLoadingPlaceholder';
 import { paceChartSeries } from '../lib/curveChartSeries';
 import { usePaceCurve } from '../hooks/usePaceCurve';
@@ -300,21 +292,20 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
         </View>
       </View>
 
-      {/* Activity info row - shows which activity achieved this best effort */}
+      {/* The activity that set the effort the header shows. */}
       {selectedActivity && (
-        <Pressable
-          android_ripple={pressRipple}
-          accessibilityRole="button"
+        <Row
+          inset="none"
+          behaviour="navigate"
           accessibilityLabel={selectedActivity.name}
           onPress={handleActivityTap}
-          style={pressable(styles.activityRow)}
         >
           <View style={[styles.activityPill, isDark && styles.activityPillDark]}>
             <Text style={[styles.activityLabel, isDark && styles.textLight]} numberOfLines={1}>
-              {selectedActivity.name} →
+              {selectedActivity.name}
             </Text>
           </View>
-        </Pressable>
+        </Row>
       )}
 
       <CurveChart
@@ -398,11 +389,9 @@ const makeStyles = (palette: Palette) =>
       fontSize: typography.bodySmall.fontSize,
       fontWeight: '700',
     },
-    activityRow: {
-      marginBottom: spacing.xs,
-      alignItems: 'center',
-    },
+
     activityPill: {
+      flexShrink: 1,
       backgroundColor: colorWithOpacity(colors.run, 0.15),
       paddingHorizontal: layout.borderRadius,
       paddingVertical: spacing.xs,

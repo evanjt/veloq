@@ -52,6 +52,10 @@
 //              passes a node-version, so CI builds under the major local
 //              builds are checked against, and package.json engines.node
 //              holds that same major
+//   advisories test.yml runs `cargo audit --deny warnings`, in a step of its own
+//              or through a local workflow it calls, and a scheduled workflow
+//              runs it too, since an advisory is published against a lockfile
+//              that has not changed
 //   deploys    a workflow only a tag starts never skips a store deploy: no step sets
 //              `skip=true` for a missing credential and no job runs only when an
 //              earlier job found its artefact, so a green run means an upload
@@ -94,6 +98,8 @@ const OFF_MAIN = "github.ref != 'refs/heads/main'";
 const SCHEDULE_ALLOWED = {
   '.github/workflows/e2e.yml':
     'the daily sweep tests the default branch head and looks for drift in what the app talks to, which moves without a push',
+  '.github/workflows/rust-advisories.yml':
+    'the advisory database moves without a push, so an unchanged lockfile is scanned again against it',
 };
 
 /** Workflows that must keep an aggregator, since branch protection names it. */
@@ -104,6 +110,9 @@ const BENCH_CHECKED = '.github/workflows/test.yml';
 
 /** The file every Node setup reads its version from, and the engines field echoes. */
 const NODE_VERSION_FILE = '.nvmrc';
+
+/** The workflow every change passes through, which must scan the Rust lockfile. */
+const ADVISORY_SCANNED = '.github/workflows/test.yml';
 
 /** The one native build definition per platform, reached through workflow_call. */
 const BUILD_DEFINITIONS = [
@@ -785,6 +794,42 @@ function checkNodePin(sources) {
   }
 }
 
+/** Whether a workflow has a step running cargo audit with warnings denied. */
+function scansAdvisories(workflow) {
+  return Object.values(workflow?.jobs ?? {}).some((job) =>
+    (job.steps ?? []).some((step) =>
+      cargoCommands(step.run).some(
+        ({ subcommand, rest }) =>
+          subcommand === 'audit' && /(^|\s)(--deny|-D)\s+warnings(\s|$)/.test(rest)
+      )
+    )
+  );
+}
+
+function checkAdvisoriesScanned(file, workflow, workflows) {
+  if (file !== ADVISORY_SCANNED) return;
+  const called = Object.values(workflow.jobs ?? {})
+    .map((job) => text(job.uses).replace(/^\.\//, '').split('@')[0])
+    .filter((target) => target.startsWith('.github/workflows/'));
+  if (!scansAdvisories(workflow) && !called.some((t) => scansAdvisories(workflows.get(t)))) {
+    fail(
+      file,
+      'jobs',
+      'no job runs cargo audit --deny warnings over the Rust lockfile, so an advisory against a shipped crate is never reported. Ignore a warning in .cargo/audit.toml with its reason rather than letting warnings through.'
+    );
+  }
+  const scheduled = [...workflows.values()].some(
+    (other) => 'schedule' in triggersOf(other) && scansAdvisories(other)
+  );
+  if (!scheduled) {
+    fail(
+      file,
+      'jobs',
+      'no scheduled workflow runs cargo audit, so an advisory published against an unchanged lockfile waits for the next push.'
+    );
+  }
+}
+
 function stepsOf(file, steps, prefix, isBenchWorkflow, isDefinition = false) {
   (steps ?? []).forEach((step, i) => {
     checkRustProfile(file, `${prefix}step ${step.name ?? step.uses ?? i + 1}`, step.env, step.run);
@@ -1157,6 +1202,7 @@ for (const [file, { doc, isAction }] of parsed) {
   checkSchedule(file, doc, triggers);
   checkAggregators(file, doc);
   checkBenchesChecked(file, doc);
+  checkAdvisoriesScanned(file, doc, workflows);
 }
 
 if (podsRun) {

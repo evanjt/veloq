@@ -13,8 +13,7 @@ import { getVisibleUnuploadedCount } from '@/features/recording/lib/storage/reco
 jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
   useTranslation: () => ({
-    t: (_key: string, _default: string, options?: { count: number }) =>
-      `${options?.count} not uploaded`,
+    t: (_key: string, options?: { count: number }) => `${options?.count} not uploaded`,
   }),
 }));
 jest.mock('expo-router', () => ({

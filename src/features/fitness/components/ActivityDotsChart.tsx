@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useCallback, useState } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -7,16 +7,16 @@ import { Canvas, Group, Rect } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import { ChartCrosshair, useChartGestures } from '@/shared/charts';
-import { colors, darkColors, spacing, layout, slopToMinTapTarget, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { sortByDateId } from '@/shared/activity/activityUtils';
 import { ACTIVITY_CATEGORIES, getActivityCategory } from '@/shared/activity/sportCategories';
 import type { DayLoad } from 'veloqrs';
-import type { Activity, ActivityType, WellnessData } from '@/types';
+import type { Activity, WellnessData } from '@/types';
 import { stripMarks, stripKey, markFills } from '../lib/stripMarks';
 import { dayLoadReadout } from '../lib/dayLoadReadout';
 import { dayPillTone, groupColor } from '../lib/dayPillTone';
 import { formFromLoads } from '@/shared/math';
-import { pressable, pressRipple } from '@/shared/ui';
+import { Row } from '@/shared/ui';
 
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import type { DayActivitiesInput } from '@/app/sheets/day-activities';
@@ -42,12 +42,7 @@ interface ActivityDotsChartProps {
 interface DotData {
   x: number;
   date: string;
-  activities: {
-    id: string;
-    name: string;
-    type: ActivityType;
-    load: number;
-  }[];
+  activities: DayActivitiesInput['activities'];
   fitness: number;
   fatigue: number;
   form: number;
@@ -85,7 +80,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
 
   // Build a map of activities by date
   const activitiesByDate = useMemo(() => {
-    const map = new Map<string, { id: string; name: string; type: ActivityType; load: number }[]>();
+    const map = new Map<string, DayActivitiesInput['activities']>();
     for (const activity of activities) {
       const date = activity.start_date_local?.split('T')[0];
       if (!date) continue;
@@ -100,6 +95,9 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
         name: activity.name,
         type: activity.type,
         load: activity.icu_training_load || 0,
+        startDateLocal: activity.start_date_local,
+        movingTime: activity.moving_time,
+        distance: activity.distance,
       });
     }
     return map;
@@ -305,53 +303,53 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   const mutedColor = isDark ? darkColors.textDisabled : colors.textDisabled;
   const keyTextStyle = [styles.keyText, isDark && styles.noActivityLabelDark];
 
+  const dayLoad = readout ? (
+    <Text
+      testID="fitness-day-load"
+      style={[styles.dayLoad, isDark && styles.noActivityLabelDark]}
+      numberOfLines={1}
+    >
+      {t('metrics.trainingLoad')}{' '}
+      {readout.total === null ? t('fitness.loadUnavailable') : readout.total}
+      {readout.status === 'partial' ? ` ${t('fitness.loadPartial')}` : ''}
+    </Text>
+  ) : null;
+
   return (
     <View style={styles.container}>
       <Text accessibilityRole="header" style={[styles.stripTitle, isDark && styles.stripTitleDark]}>
         {t('fitness.daysTrained')}
       </Text>
 
-      {/* Activity label when selected - tappable, styled as pill with activity color */}
-      <View style={styles.labelContainer}>
-        {displayActivities.length > 0 ? (
-          <Pressable
-            android_ripple={pressRipple}
-            accessibilityRole="button"
-            accessibilityLabel={
-              getActivitySummary(displayActivities) ?? t('fitness.selectActivity')
-            }
-            onPress={handleActivityTap}
-            hitSlop={activityPillSlop}
-            style={pressable()}
+      {displayActivities.length > 0 ? (
+        <Row
+          inset="none"
+          behaviour="navigate"
+          onPress={handleActivityTap}
+          accessibilityLabel={getActivitySummary(displayActivities) ?? t('fitness.selectActivity')}
+          accessory={dayLoad}
+        >
+          <View
+            style={[
+              styles.labelBox,
+              { backgroundColor: pillTone.fill, borderColor: pillTone.border },
+            ]}
           >
-            <View
-              style={[
-                styles.activityPill,
-                { backgroundColor: pillTone.fill, borderColor: pillTone.border },
-              ]}
-            >
-              <Text style={[styles.activityPillText, { color: pillTone.ink }]} numberOfLines={1}>
-                {getActivitySummary(displayActivities)} →
-              </Text>
-            </View>
-          </Pressable>
-        ) : (
-          <Text style={[styles.noActivityLabel, isDark && styles.noActivityLabelDark]}>
-            {displayData ? t('fitness.restDay') : t('navigation.activities')}
-          </Text>
-        )}
-        {readout && (
-          <Text
-            testID="fitness-day-load"
-            style={[styles.dayLoad, isDark && styles.noActivityLabelDark]}
-            numberOfLines={1}
-          >
-            {t('metrics.trainingLoad')}{' '}
-            {readout.total === null ? t('fitness.loadUnavailable') : readout.total}
-            {readout.status === 'partial' ? ` ${t('fitness.loadPartial')}` : ''}
-          </Text>
-        )}
-      </View>
+            <Text style={[styles.activityPillText, { color: pillTone.ink }]} numberOfLines={1}>
+              {getActivitySummary(displayActivities)}
+            </Text>
+          </View>
+        </Row>
+      ) : (
+        <Row inset="none" accessory={dayLoad}>
+          {/* The same box as the pill, so the row keeps its height across a scrub. */}
+          <View style={[styles.labelBox, styles.restBox]}>
+            <Text style={[styles.noActivityLabel, isDark && styles.noActivityLabelDark]}>
+              {displayData ? t('fitness.restDay') : t('navigation.activities')}
+            </Text>
+          </View>
+        </Row>
+      )}
 
       <GestureDetector gesture={gesture}>
         <View
@@ -422,8 +420,6 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
 
 // The row the selected activity's pill sits in, which the pill reaches past
 // through slop to the tap target.
-const LABEL_ROW_HEIGHT = 24;
-const activityPillSlop = slopToMinTapTarget(LABEL_ROW_HEIGHT);
 
 const styles = StyleSheet.create({
   container: {},
@@ -458,22 +454,21 @@ const styles = StyleSheet.create({
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
-  labelContainer: {
-    height: LABEL_ROW_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
   dayLoad: {
     flexShrink: 1,
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
   },
-  activityPill: {
+  labelBox: {
+    flexShrink: 1,
     paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadius,
     borderWidth: 1,
+  },
+  restBox: {
+    paddingHorizontal: 0,
+    borderColor: colors.transparent,
   },
   activityPillText: {
     fontSize: typography.caption.fontSize,

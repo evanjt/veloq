@@ -322,6 +322,13 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
       { paths: ['zone1', 'zone2', 'zone3', 'zone4', 'zone5', 'zone6', 'zone7'], theme: 'dark' },
     ],
   },
+  zoneColorsLight: {
+    kind: 'mark',
+    reason: 'the zone ladder as a bar, dot or skyline step on a light ground, held to 3:1',
+    marks: [
+      { paths: ['zone1', 'zone2', 'zone3', 'zone4', 'zone5', 'zone6', 'zone7'], theme: 'light' },
+    ],
+  },
   zoneTextColors: {
     kind: 'mark',
     reason:

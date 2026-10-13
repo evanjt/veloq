@@ -18,6 +18,7 @@ import {
 } from '@/theme';
 import { InsightDetailContent } from './content/InsightDetailContent';
 import { MethodologySection } from './MethodologySection';
+import { viewInDetailTarget } from '../lib/dataLink';
 import type { Insight } from '@/types';
 import { pressable, pressRipple, SheetHeader, SheetScrollView } from '@/shared/ui';
 
@@ -38,19 +39,20 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
     onClose();
   }, [onClose]);
 
+  const detailTarget = viewInDetailTarget(insight);
   const handleNavigate = useCallback(() => {
-    if (insight?.navigationTarget) {
+    if (detailTarget) {
       onClose();
-      tapTo(insight.navigationTarget);
+      tapTo(detailTarget);
     }
-  }, [insight?.navigationTarget, onClose]);
+  }, [detailTarget, onClose]);
 
   const toneColor = insightToneColor(insight.iconTone, isDark);
 
   // Only content that links each of its rows to its own screen may hide the
   // button. A section PR sheet has no such link, so it keeps View in detail.
   const contentHandlesNav = insight.category === 'section_trend' || insight.category === 'route';
-  const hasNavTarget = !!insight.navigationTarget && !contentHandlesNav;
+  const hasNavTarget = detailTarget != null && !contentHandlesNav;
 
   return (
     <SheetScrollView
@@ -84,7 +86,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
 
       {/* The numbers, the method and the link to the data, folded */}
       <View style={styles.methodologySection}>
-        <MethodologySection insight={insight} />
+        <MethodologySection insight={insight} onLeave={onClose} />
       </View>
 
       {/* Navigation link */}

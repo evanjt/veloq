@@ -89,15 +89,34 @@ jobs:
           save-if: \${{ github.ref == 'refs/heads/main' }}
       - name: Check Rust benches
         run: cargo check -p veloqrs --benches
+  rust-advisories:
+    uses: ./.github/workflows/rust-advisories.yml
   ci-required:
-    needs: [jest, rust]
+    needs: [jest, rust, rust-advisories]
     if: always()
     runs-on: ubuntu-24.04
     steps:
       - env:
           JEST: \${{ needs.jest.result }}
           RUST: \${{ needs.rust.result }}
-        run: for r in "$JEST" "$RUST"; do [ "$r" = success ] || exit 1; done
+          ADVISORIES: \${{ needs.rust-advisories.result }}
+        run: for r in "$JEST" "$RUST" "$ADVISORIES"; do [ "$r" = success ] || exit 1; done
+`;
+
+const ADVISORIES_YML = `name: Advisories
+on:
+  workflow_call:
+  schedule:
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Scan the lockfile
+        working-directory: rust
+        run: cargo audit --deny warnings
 `;
 
 const BUILD_YML = `name: Build
@@ -236,6 +255,7 @@ const CLEAN: Record<string, string> = {
   '.github/workflows/test.yml': TEST_YML,
   '.github/workflows/build.yml': BUILD_YML,
   '.github/workflows/coverage.yml': COVERAGE_YML,
+  '.github/workflows/rust-advisories.yml': ADVISORIES_YML,
   '.github/actions/npm-ci/action.yml': NPM_ACTION,
   '.nvmrc': '24\n',
   'package.json': JSON.stringify({ engines: { node: '^24.3.0' } }),
@@ -959,7 +979,11 @@ jobs:
 describe('aggregators', () => {
   it('refuses a job the aggregator does not need', () => {
     const output = refused(
-      withEdit('.github/workflows/test.yml', 'needs: [jest, rust]', 'needs: [jest]')
+      withEdit(
+        '.github/workflows/test.yml',
+        'needs: [jest, rust, rust-advisories]',
+        'needs: [jest, rust-advisories]'
+      )
     );
     expect(output).toContain('.github/workflows/test.yml (job ci-required): does not need rust');
   });
@@ -986,8 +1010,8 @@ describe('aggregators', () => {
     const output = refused(
       withEdit(
         '.github/workflows/test.yml',
-        '  ci-required:\n    needs: [jest, rust]',
-        '  report:\n    needs: [jest, rust]'
+        '  ci-required:\n    needs: [jest, rust, rust-advisories]',
+        '  report:\n    needs: [jest, rust, rust-advisories]'
       )
     );
     expect(output).toContain('.github/workflows/test.yml (jobs): has no *-required aggregator');
@@ -1016,6 +1040,57 @@ it('refuses test.yml losing its bench type-check', () => {
   );
   expect(output).toContain('.github/workflows/test.yml (jobs)');
   expect(output).toContain('cargo check --benches');
+});
+
+describe('Rust advisory scan', () => {
+  it('refuses test.yml with no job reaching cargo audit', () => {
+    const files = withEdit(
+      '.github/workflows/test.yml',
+      '  rust-advisories:\n    uses: ./.github/workflows/rust-advisories.yml\n',
+      ''
+    );
+    files['.github/workflows/test.yml'] = files['.github/workflows/test.yml']
+      .replace('needs: [jest, rust, rust-advisories]', 'needs: [jest, rust]')
+      .replace('          ADVISORIES: ${{ needs.rust-advisories.result }}\n', '');
+    const output = refused(files);
+    expect(output).toContain('.github/workflows/test.yml (jobs)');
+    expect(output).toContain('cargo audit --deny warnings');
+  });
+
+  it('refuses a scan that lets warnings through', () => {
+    const output = refused(
+      withEdit(
+        '.github/workflows/rust-advisories.yml',
+        'cargo audit --deny warnings',
+        'cargo audit'
+      )
+    );
+    expect(output).toContain('.github/workflows/test.yml (jobs)');
+    expect(output).toContain('cargo audit --deny warnings');
+  });
+
+  it('refuses a scan that no schedule runs', () => {
+    const output = refused(
+      withEdit(
+        '.github/workflows/rust-advisories.yml',
+        '  schedule:\n    - cron: "0 5 * * 1"\n',
+        ''
+      )
+    );
+    expect(output).toContain('.github/workflows/test.yml (jobs)');
+    expect(output).toContain('no scheduled workflow');
+  });
+
+  it('accepts the scan as a step of test.yml itself beside a scheduled copy', () => {
+    const files = withEdit(
+      '.github/workflows/test.yml',
+      '        run: cargo check -p veloqrs --benches\n',
+      '        run: cargo check -p veloqrs --benches\n      - run: cargo audit -D warnings\n'
+    );
+    const { status, output } = runGuard(fixture(files));
+    expect(output).toContain('Workflow guard: caches write from main only');
+    expect(status).toBe(0);
+  });
 });
 
 it('refuses benches built by cargo test', () => {

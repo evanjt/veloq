@@ -416,11 +416,11 @@ struct EmptyWidgetView: View {
         .unspoken()
       Text("Open Veloq")
         .measuredText("empty title")
-        .widgetFont(.value, weight: .semibold)
+        .widgetProseFont(.value, weight: .semibold, shrinks: true)
         .foregroundColor(palette.textPrimary)
       Text("to see your training")
         .measuredText("empty subtitle")
-        .widgetFont(.label)
+        .widgetProseFont(.label, shrinks: true)
         .foregroundColor(palette.textSecondary)
         .multilineTextAlignment(.center)
     }

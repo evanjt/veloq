@@ -72,7 +72,9 @@ export function StatsRow({
         <View style={styles.statsMiddle}>
           {stats?.avgTime != null && (
             <Text style={[styles.statsValue, isDark && styles.textSecondary]}>
-              {`${formatAttemptFigure(basis, stats.avgTime, stats.avgSpeed, isMetric)} ${t('sections.avg')}`}
+              {t('sections.avgValue', {
+                value: formatAttemptFigure(basis, stats.avgTime, stats.avgSpeed, isMetric),
+              })}
             </Text>
           )}
         </View>
@@ -95,7 +97,7 @@ export function StatsRow({
                   : [styles.statsValue, isDark && styles.textSecondary]
               }
             >
-              {bestIsRecord ? bestValue : `${bestValue} ${t('sections.best')}`}
+              {bestIsRecord ? bestValue : t('sections.bestValue', { value: bestValue })}
             </Text>
           </View>
         )}

@@ -10,7 +10,7 @@ import { getActivityIcon, getActivityColor, getActivityInk } from '@/shared/acti
 import {
   formatHeartRate,
   formatPower,
-  formatRelativeDate,
+  formatRelativeDateTime,
   formatTemperature,
   formatLoad,
   formatCalories,
@@ -434,7 +434,7 @@ export const ActivityCard = React.memo(
                       style={[styles.compactDateSubtitle, { color: compactMutedColor }]}
                       numberOfLines={1}
                     >
-                      {formatRelativeDate(activity.start_date_local)}
+                      {formatRelativeDateTime(activity.start_date_local)}
                     </RNText>
                   </View>
                 </View>
@@ -555,7 +555,7 @@ export const ActivityCard = React.memo(
                     ]}
                     numberOfLines={1}
                   >
-                    {formatRelativeDate(activity.start_date_local)}
+                    {formatRelativeDateTime(activity.start_date_local)}
                   </RNText>
                 </View>
                 {routeHighlight && showsRouteChip && (

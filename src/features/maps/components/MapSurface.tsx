@@ -56,7 +56,10 @@ import {
   buildSetCameraScript,
   buildSetStyleScript,
 } from '@/features/maps/lib/htmlBuilders/mapSurface';
-import { buildReleaseMapScript } from '@/features/maps/lib/htmlBuilders/shared';
+import {
+  buildReleaseMapScript,
+  buildSetReduceMotionScript,
+} from '@/features/maps/lib/htmlBuilders/shared';
 import { createSurfacePatcher } from '@/features/maps/lib/mapSurfacePatch';
 import { createPendingRequests } from '@/features/maps/lib/pendingRequests';
 import {
@@ -80,6 +83,7 @@ import type { WebViewStyleOptions } from '@/features/maps/lib/htmlBuilders/style
 import type { MapStyleType } from './mapStyles';
 import {} from '@/features/maps/lib/terrainSnapshotEvents';
 import { DELIBERATE_HOLD_MS } from '@/shared/ui/holdDurations';
+import { useReduceMotion } from '@/shared/ui/reduceMotion';
 
 const log = debug.create('MapSurface');
 
@@ -273,28 +277,34 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   shownStyleRef.current = mapStyle;
   const styleOptionsRef = useRef(styleOptions);
   styleOptionsRef.current = styleOptions;
+  // A change reaches the page by injection, so the page is never rebuilt for
+  // it. `pageReduceMotionRef` is what the page was last told.
+  const reduceMotion = useReduceMotion();
+  const reduceMotionRef = useRef(reduceMotion);
+  reduceMotionRef.current = reduceMotion;
+  const pageReduceMotionRef = useRef(reduceMotion);
 
-  const html = useMemo(
-    () =>
-      buildMapSurfaceHtml({
-        style: initialStyleRef.current,
-        styleOptions,
-        camera: pageCameraRef.current,
-        interaction: {
-          scroll: scrollEnabled,
-          zoom: zoomEnabled,
-          rotate: rotateEnabled,
-          pitch: pitchEnabled,
-        },
-        devicePixelRatio: Math.min(PixelRatio.get(), 2),
-        regionChangeThrottleMs: REGION_CHANGE_DEBOUNCE_MS,
-        longPressMs: DELIBERATE_HOLD_MS,
-      }),
+  const html = useMemo(() => {
+    pageReduceMotionRef.current = reduceMotionRef.current;
+    return buildMapSurfaceHtml({
+      style: initialStyleRef.current,
+      styleOptions,
+      camera: pageCameraRef.current,
+      interaction: {
+        scroll: scrollEnabled,
+        zoom: zoomEnabled,
+        rotate: rotateEnabled,
+        pitch: pitchEnabled,
+      },
+      devicePixelRatio: Math.min(PixelRatio.get(), 2),
+      regionChangeThrottleMs: REGION_CHANGE_DEBOUNCE_MS,
+      longPressMs: DELIBERATE_HOLD_MS,
+      reduceMotion: pageReduceMotionRef.current,
+    });
     // styleOptions is a plain settings object supplied as a literal by callers.
     // `pageEpoch` moves when a released map comes back at a new camera.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- The settings object is reconstructed by callers.
-    [scrollEnabled, zoomEnabled, rotateEnabled, pitchEnabled, pageEpoch]
-  );
+  }, [scrollEnabled, zoomEnabled, rotateEnabled, pitchEnabled, pageEpoch]);
 
   const inject = useCallback((script: string) => {
     webViewRef.current?.injectJavaScript(script);
@@ -371,6 +381,11 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
           renderedStyleRef.current = shownStyleRef.current;
           inject(buildSetStyleScript(shownStyleRef.current, styleOptionsRef.current));
         }
+        // A change made while the page loaded had nowhere to go either.
+        if (reduceMotionRef.current !== pageReduceMotionRef.current) {
+          pageReduceMotionRef.current = reduceMotionRef.current;
+          inject(buildSetReduceMotionScript(reduceMotionRef.current));
+        }
         sendPatchRef.current();
         callbacksRef.current.onMapReady?.();
       },
@@ -437,6 +452,12 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     // styleOptions is a settings literal; the style type is what drives the swap.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- The map style drives this update, and options are a settings literal.
   }, [mapStyle, inject]);
+
+  useEffect(() => {
+    if (!readyRef.current || reduceMotion === pageReduceMotionRef.current) return;
+    pageReduceMotionRef.current = reduceMotion;
+    inject(buildSetReduceMotionScript(reduceMotion));
+  }, [reduceMotion, inject]);
 
   useImperativeHandle(
     ref,
@@ -560,7 +581,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   }, [viewKey, lost]);
 
   return (
-    <ComponentErrorBoundary componentName="Map" showRetry={false}>
+    <ComponentErrorBoundary part="map" debugName="Map">
       <View style={styles.container} accessibilityIgnoresInvertColors>
         {!lost && (
           <WebView

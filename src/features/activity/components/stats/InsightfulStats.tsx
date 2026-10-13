@@ -16,7 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { openExternal } from '@/shared/app/openExternal';
 import { colors, spacing } from '@/theme';
 import type { Activity, WellnessData } from '@/types';
-import type { ActivityFitnessImpact, MaxHrSource } from 'veloqrs';
+import type { ActivityFitnessImpact, ActivitySummary, MaxHrSource } from 'veloqrs';
 import { useActivityStats } from './useActivityStats';
 import { StatCard } from './StatCard';
 import { Card } from '@/shared/ui/Card';
@@ -34,6 +34,8 @@ interface InsightfulStatsProps {
   maxHrSource?: MaxHrSource | undefined;
   fitnessImpact?: ActivityFitnessImpact | null | undefined;
   newGround?: ActivityNewGround | undefined;
+  /** The stored summary from the detail screen read. */
+  summary?: ActivitySummary | undefined;
 }
 
 export function InsightfulStats({
@@ -43,6 +45,7 @@ export function InsightfulStats({
   maxHrSource,
   fitnessImpact,
   newGround,
+  summary,
 }: InsightfulStatsProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -59,6 +62,7 @@ export function InsightfulStats({
     maxHrSource,
     fitnessImpact,
     newGround,
+    summary,
   });
 
   const handleStatPress = useCallback(

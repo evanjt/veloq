@@ -23,6 +23,24 @@ export function insightDataTarget(insight: Insight): string | null {
   return top ? `/section/${top.sectionId}` : null;
 }
 
+/** The screen a target opens, without the parameters that place it on that screen. */
+function screenOf(target: string): string {
+  const query = target.indexOf('?');
+  return query < 0 ? target : target.slice(0, query);
+}
+
+/**
+ * Where the sheet's View in detail goes, or null when it would open the screen
+ * the data link already opens. A sheet offers one control per destination, and
+ * the data link, which can carry the effort to highlight, is that control.
+ */
+export function viewInDetailTarget(insight: Insight): string | null {
+  const target = insight.navigationTarget;
+  if (!target) return null;
+  const data = insightDataTarget(insight);
+  return data != null && screenOf(data) === screenOf(target) ? null : target;
+}
+
 /** Where a link to an insight's data goes, named from the route it opens. */
 export function dataLinkLabel(insight: Insight, target: string | undefined, t: TFunc): string {
   if (!target) return t('insights.graphic.openDetail');

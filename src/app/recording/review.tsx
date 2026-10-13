@@ -26,7 +26,7 @@ import {
   useActivityNameGeneration,
   useReviewDraft,
   useRecordingLiveStore,
-  getTimeOfDayKey,
+  generatedActivityName,
   ReviewMapHero,
   ActivityStatsCard,
   SaveErrorBanner,
@@ -310,13 +310,14 @@ function ReviewScreenContent() {
           label={t('recording.activityName')}
           value={name}
           onChangeText={handleNameChange}
-          placeholder={`${t(`recording.timeOfDay.${getTimeOfDayKey(startTime)}`)} ${t(`activityTypes.${type}`, type.replace(/([A-Z])/g, ' $1').trim())}`}
+          placeholder={generatedActivityName(t, type, startTime)}
           editable={!isProcessing}
         />
 
         {/* Compact stat row */}
         <ActivityStatsCard
           summary={summary}
+          activityType={type}
           textPrimary={textPrimary}
           textSecondary={textSecondary}
         />

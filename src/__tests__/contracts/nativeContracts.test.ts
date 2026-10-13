@@ -570,7 +570,7 @@ const CONTRACTS: Contract[] = [
     a: { file, has: 'Function("clearSnapshot")' },
     b: { file: 'src/features/home/lib/widgetBridge.ts', has: 'VeloqWidget.clearSnapshot()' },
   })),
-  ...['serviceRunning', 'clear', 'clearInterrupted'].map((name) => ({
+  ...['serviceRunning', 'clear', 'clearInterrupted', 'batteryOptimisationExempt'].map((name) => ({
     agree: `the recording notification module defines ${name}, which the bridge calls`,
     a: {
       file: 'modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/VeloqRecordingNotificationModule.kt',
@@ -581,6 +581,63 @@ const CONTRACTS: Contract[] = [
       has: `VeloqRecordingNotification.${name}()`,
     },
   })),
+  {
+    agree: 'the recording notification module defines nameChannel, which the bridge calls',
+    a: {
+      file: 'modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/VeloqRecordingNotificationModule.kt',
+      has: 'Function("nameChannel")',
+    },
+    b: {
+      file: 'src/features/recording/lib/recordingNotification.ts',
+      has: 'VeloqRecordingNotification?.nameChannel(',
+    },
+  },
+  // The recording channel is named only because it is created first under the
+  // id the location service posts on, and the service leaves an existing one.
+  {
+    agree: 'the recording channel takes the id expo-location gives its service channel',
+    a: {
+      file: 'modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/RecordingChannel.kt',
+      has: '"$packageName:$LOCATION_TASK_NAME"',
+    },
+    b: {
+      file: 'node_modules/expo-location/android/src/main/java/expo/modules/location/services/LocationTaskService.kt',
+      has: 'mChannelId = extras.getString("appId") + ":" + extras.getString("taskName")',
+    },
+  },
+  {
+    agree: 'the app scope key in the channel id is the package name',
+    a: {
+      file: 'modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/VeloqRecordingNotificationModule.kt',
+      has: 'RecordingChannel.spec(context.packageName,',
+    },
+    b: {
+      file: 'node_modules/expo-constants/android/src/main/java/expo/modules/constants/ConstantsService.kt',
+      has: /appScopeKey: String\?\s*get\(\) = context\.packageName/,
+    },
+  },
+  {
+    agree: 'the recording channel names the task the app registers',
+    a: {
+      file: 'modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/RecordingChannel.kt',
+      has: 'LOCATION_TASK_NAME = "veloq-background-location"',
+    },
+    b: {
+      file: 'src/features/recording/lib/backgroundLocationTask.ts',
+      has: "BACKGROUND_LOCATION_TASK = 'veloq-background-location'",
+    },
+  },
+  {
+    agree: 'expo-location keeps a service channel that already exists',
+    a: {
+      file: 'node_modules/expo-location/android/src/main/java/expo/modules/location/services/LocationTaskService.kt',
+      has: /var channel = notificationManager\.getNotificationChannel\(id\)\s*if \(channel == null\)/,
+    },
+    b: {
+      file: 'src/features/recording/lib/backgroundLocation.ts',
+      has: /nameRecordingChannel\(\);\s*await Location\.startLocationUpdatesAsync/,
+    },
+  },
   {
     agree: 'the iOS backup module defines bookmarkFolder, which the backup folder bridge calls',
     a: {

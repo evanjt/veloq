@@ -393,11 +393,59 @@ fn positive(value: Option<f64>) -> Option<f64> {
     value.filter(|v| v.is_finite() && *v > 0.0)
 }
 
-/// One activity's contribution to the 42-day and 7-day load averages.
+/// The fitness and fatigue days intervals.icu uses when the athlete sets none.
+const DEFAULT_FITNESS_DAYS: (u32, u32) = (42, 7);
+
+/// The fitness and fatigue days in effect on `date`: those of the latest
+/// `FITNESS_DAYS` event dated on or before it. Each falls back to its default
+/// when that event leaves it out or at zero, and both do when no such event
+/// exists or the body will not parse.
+fn fitness_days_on(events_json: &str, date: chrono::NaiveDate) -> (u32, u32) {
+    let events: Vec<serde_json::Value> = serde_json::from_str(events_json).unwrap_or_default();
+    let in_effect = events
+        .iter()
+        .filter(|event| event.get("category").and_then(|c| c.as_str()) == Some("FITNESS_DAYS"))
+        .filter_map(|event| {
+            let start = event.get("start_date_local")?.as_str()?.get(..10)?;
+            let start = chrono::NaiveDate::parse_from_str(start, "%Y-%m-%d").ok()?;
+            (start <= date).then_some((start, event))
+        })
+        .max_by_key(|(start, _)| *start)
+        .map(|(_, event)| event);
+    let days = |key: &str, default: u32| {
+        in_effect
+            .and_then(|event| event.get(key)?.as_u64())
+            .and_then(|days| u32::try_from(days).ok())
+            .filter(|days| *days > 0)
+            .unwrap_or(default)
+    };
+    (
+        days("ctl_days", DEFAULT_FITNESS_DAYS.0),
+        days("atl_days", DEFAULT_FITNESS_DAYS.1),
+    )
+}
+
+/// [`fitness_days_on`] over the stored fitness model events, for an activity
+/// starting at `start`, local wall-clock in epoch seconds. A library synced
+/// before the events were stored reads the defaults.
+fn stored_fitness_days_on(conn: &rusqlite::Connection, start: i64) -> (u32, u32) {
+    let Some(start) = chrono::DateTime::from_timestamp(start, 0) else {
+        return DEFAULT_FITNESS_DAYS;
+    };
+    let events = super::settings::setting_from(conn, super::settings_keys::FITNESS_MODEL_EVENTS)
+        .ok()
+        .flatten()
+        .unwrap_or_default();
+    fitness_days_on(&events, start.date_naive())
+}
+
+/// One activity's contribution to the fitness and fatigue load averages over
+/// `days`, the fitness and fatigue time constants in effect on its date.
 /// The rest-day baseline cancels prior-day decay from each difference.
 fn activity_load_impact(
     load: Option<f64>,
     sport_type: &str,
+    (fitness_days, fatigue_days): (u32, u32),
 ) -> Option<crate::FfiActivityFitnessImpact> {
     let load = load.filter(|value| value.is_finite() && *value >= 0.0)?;
     let fitness_load = if sport_type == "WeightTraining" {
@@ -405,12 +453,14 @@ fn activity_load_impact(
     } else {
         load
     };
-    let fitness = fitness_load * (1.0 - (-1.0_f64 / 42.0).exp());
-    let fatigue = load * (1.0 - (-1.0_f64 / 7.0).exp());
+    let fitness = fitness_load * (1.0 - (-1.0 / f64::from(fitness_days)).exp());
+    let fatigue = load * (1.0 - (-1.0 / f64::from(fatigue_days)).exp());
     Some(crate::FfiActivityFitnessImpact {
         fitness,
         fatigue,
         form: fitness - fatigue,
+        fitness_days,
+        fatigue_days,
     })
 }
 
@@ -657,6 +707,21 @@ fn activity_hr_zones_from(
         times.as_deref(),
     )
     .unwrap_or_default()
+}
+
+/// The summary intervals.icu stored with the activity. A field that is
+/// missing, zero or not a number is `None`: a manual entry or a trainer ride
+/// sends zeros for what it never measured, and a zero speed is not a reading.
+fn activity_summary(body: Option<&str>) -> crate::FfiActivitySummary {
+    let body: Option<serde_json::Value> = body.and_then(|b| serde_json::from_str(b).ok());
+    let field = |name: &str| positive(body.as_ref()?.get(name)?.as_f64());
+    crate::FfiActivitySummary {
+        moving_time: field("moving_time"),
+        elapsed_time: field("elapsed_time"),
+        average_speed: field("average_speed"),
+        max_speed: field("max_speed"),
+        average_cadence: field("average_cadence"),
+    }
 }
 
 /// The value intervals.icu puts last in `icu_power_zones` for a top zone with
@@ -1069,19 +1134,21 @@ const BEST_EFFORT_SPORTS: [&str; 3] = ["Ride", "Run", "Swim"];
 /// The power checkpoints, in seconds.
 const POWER_CHECKPOINTS_S: [f64; 5] = [5.0, 60.0, 300.0, 1200.0, 3600.0];
 
-const RUN_CHECKPOINTS: [(f64, &str); 5] = [
-    (400.0, "400m"),
-    (1000.0, "1K"),
-    (5000.0, "5K"),
-    (10000.0, "10K"),
-    (21097.5, "Half"),
+/// The run checkpoints, in metres, with what each measures.
+const RUN_CHECKPOINTS: [(f64, crate::FfiBestEffortKind); 5] = [
+    (400.0, crate::FfiBestEffortKind::Distance),
+    (1000.0, crate::FfiBestEffortKind::Distance),
+    (5000.0, crate::FfiBestEffortKind::Distance),
+    (10000.0, crate::FfiBestEffortKind::Distance),
+    (21097.5, crate::FfiBestEffortKind::HalfMarathon),
 ];
 
-const SWIM_CHECKPOINTS: [(f64, &str); 4] = [
-    (100.0, "100m"),
-    (200.0, "200m"),
-    (400.0, "400m"),
-    (1500.0, "1500m"),
+/// The swim checkpoints, in metres.
+const SWIM_CHECKPOINTS: [(f64, crate::FfiBestEffortKind); 4] = [
+    (100.0, crate::FfiBestEffortKind::Distance),
+    (200.0, crate::FfiBestEffortKind::Distance),
+    (400.0, crate::FfiBestEffortKind::Distance),
+    (1500.0, crate::FfiBestEffortKind::Distance),
 ];
 
 /// The climbing families the screen ranks, named by their base sport.
@@ -1127,7 +1194,7 @@ fn power_bests(
             let index = curve.and_then(|c| nearest_within(&c.secs, secs, DURATION_TOLERANCE_S));
             let value = index.and_then(|i| positive(curve?.watts.get(i).copied()));
             crate::FfiBestEffort {
-                label: duration_label(secs),
+                kind: crate::FfiBestEffortKind::Duration,
                 checkpoint: secs,
                 value,
                 time: None,
@@ -1141,11 +1208,11 @@ fn power_bests(
 
 fn pace_bests(
     curve: Option<&crate::persistence::curves::FfiPaceCurve>,
-    checkpoints: &[(f64, &str)],
+    checkpoints: &[(f64, crate::FfiBestEffortKind)],
 ) -> Vec<crate::FfiBestEffort> {
     checkpoints
         .iter()
-        .map(|&(metres, label)| {
+        .map(|&(metres, kind)| {
             let index =
                 curve.and_then(|c| nearest_within(&c.distances, metres, DISTANCE_TOLERANCE_M));
             // A zero time is a distance the curve does not cover, and its pace
@@ -1155,7 +1222,7 @@ fn pace_bests(
                 .and(index)
                 .and_then(|i| positive(curve?.pace.get(i).copied()));
             crate::FfiBestEffort {
-                label: label.to_string(),
+                kind,
                 checkpoint: metres,
                 value,
                 time: value.and(time),
@@ -1703,6 +1770,52 @@ pub mod pooled {
             ),
             run_pace_trend: fitness::pace_trend(conn, "Run"),
             swim_pace_trend: fitness::pace_trend(conn, "Swim"),
+            sport_mix: sport_mix(conn),
+        }
+    }
+
+    /// The activities the sport mix counts, the most recent first. A fixed
+    /// number rather than a span of days keeps the read level as the library
+    /// grows, and still lets an athlete who stopped for a season count.
+    pub const SPORT_MIX_ACTIVITIES: u32 = 50;
+
+    /// Rides, runs and swims among the most recent activities, each sport
+    /// counting every member of its family, and the one with the most. A read
+    /// that fails counts nothing, so the athlete keeps the sport they had.
+    fn sport_mix(conn: &Connection) -> crate::FfiSportMix {
+        let rows: Vec<(String, u32)> = conn
+            .prepare_cached(
+                "SELECT sport_type, COUNT(*) FROM (
+                     SELECT sport_type FROM activity_metrics ORDER BY date DESC LIMIT ?1
+                 ) GROUP BY sport_type",
+            )
+            .and_then(|mut stmt| {
+                stmt.query_map([SPORT_MIX_ACTIVITIES], |row| Ok((row.get(0)?, row.get(1)?)))?
+                    .collect()
+            })
+            .unwrap_or_default();
+        let count = |member: fn(&str) -> bool| {
+            rows.iter()
+                .filter(|(sport, _)| member(sport))
+                .map(|(_, n)| n)
+                .sum::<u32>()
+        };
+        let ranked = [
+            (count(crate::sport::is_cycling), "Cycling"),
+            (count(crate::sport::is_running), "Running"),
+            (count(crate::sport::is_swimming), "Swimming"),
+        ];
+        let top = ranked.iter().map(|(n, _)| *n).max().unwrap_or(0);
+        let mut leaders = ranked.iter().filter(|(n, _)| *n == top && top > 0);
+        let dominant = match (leaders.next(), leaders.next()) {
+            (Some((_, sport)), None) => Some(sport.to_string()),
+            _ => None,
+        };
+        crate::FfiSportMix {
+            rides: ranked[0].0,
+            runs: ranked[1].0,
+            swims: ranked[2].0,
+            dominant,
         }
     }
 
@@ -1762,7 +1875,7 @@ pub mod pooled {
                 (fetched, super::power_bests(curve.as_ref()))
             } else {
                 let (fetched, curve) = pace_curve(conn, sport, days, false)?;
-                let checkpoints: &[(f64, &str)] = if sport == "Run" {
+                let checkpoints: &[(f64, crate::FfiBestEffortKind)] = if sport == "Run" {
                     &super::RUN_CHECKPOINTS
                 } else {
                     &super::SWIM_CHECKPOINTS
@@ -2308,6 +2421,7 @@ pub mod pooled {
 
         let ids = [activity_id.to_string()];
         let (max_hr, max_hr_source) = super::activity_max_hr(conn, activity_id);
+        let body = activities::activity_body(conn, activity_id);
         crate::FfiActivityDetailData {
             exercise_groups: crate::persistence::strength::pooled::exercise_sets(conn, activity_id)
                 .map(|sets| {
@@ -2318,7 +2432,8 @@ pub mod pooled {
                 })
                 .unwrap_or_default(),
             fitness_impact: activities::metrics_of(conn, activity_id).and_then(|metrics| {
-                super::activity_load_impact(metrics.training_load, &metrics.sport_type)
+                let days = super::stored_fitness_days_on(conn, metrics.date);
+                super::activity_load_impact(metrics.training_load, &metrics.sport_type, days)
             }),
             activity_count: activity_count(conn),
             section_count: sections::section_count(conn),
@@ -2341,10 +2456,8 @@ pub mod pooled {
             max_hr,
             max_hr_source,
             hr_zones: super::activity_hr_zones_from(conn, activity_id),
-            power_zones: super::activity_power_zones(
-                crate::persistence::activities::pooled::activity_body(conn, activity_id).as_deref(),
-            )
-            .unwrap_or_default(),
+            summary: super::activity_summary(body.as_deref()),
+            power_zones: super::activity_power_zones(body.as_deref()).unwrap_or_default(),
             ledger_changes:
                 crate::persistence::sections::history::pooled::ledger_changes_naming_activity(
                     conn,
@@ -3412,19 +3525,78 @@ mod tests {
 
     #[test]
     fn activity_load_impact_is_marginal_and_additive() {
-        let one = super::activity_load_impact(Some(100.0), "Ride").unwrap();
+        let one = super::activity_load_impact(Some(100.0), "Ride", (42, 7)).unwrap();
         assert!((one.fitness - 2.35283).abs() < 1e-5);
         assert!((one.fatigue - 13.31221).abs() < 1e-5);
         assert!((one.form - (one.fitness - one.fatigue)).abs() < 1e-10);
-        let pair = super::activity_load_impact(Some(200.0), "Ride").unwrap();
+        let pair = super::activity_load_impact(Some(200.0), "Ride", (42, 7)).unwrap();
         assert!((pair.fitness - 2.0 * one.fitness).abs() < 1e-10);
         assert!((pair.fatigue - 2.0 * one.fatigue).abs() < 1e-10);
         assert!((pair.form - 2.0 * one.form).abs() < 1e-10);
-        let zero = super::activity_load_impact(Some(0.0), "Ride").unwrap();
+        let zero = super::activity_load_impact(Some(0.0), "Ride", (42, 7)).unwrap();
         assert_eq!((zero.fitness, zero.fatigue, zero.form), (0.0, 0.0, 0.0));
-        let large = super::activity_load_impact(Some(1e300), "Ride").unwrap();
+        let large = super::activity_load_impact(Some(1e300), "Ride", (42, 7)).unwrap();
         assert!(large.fitness.is_finite() && large.fatigue.is_finite() && large.form.is_finite());
-        assert!(super::activity_load_impact(None, "Ride").is_none());
+        assert!(super::activity_load_impact(None, "Ride", (42, 7)).is_none());
+        assert_eq!((one.fitness_days, one.fatigue_days), (42, 7));
+    }
+
+    fn day(text: &str) -> chrono::NaiveDate {
+        chrono::NaiveDate::parse_from_str(text, "%Y-%m-%d").unwrap()
+    }
+
+    const SHORTER_DAYS: &str = r#"[{"category":"FITNESS_DAYS","start_date_local":"2026-01-01T00:00:00","ctl_days":28,"atl_days":5}]"#;
+
+    #[test]
+    fn activity_load_impact_uses_the_days_it_is_given() {
+        let days = super::fitness_days_on(SHORTER_DAYS, day("2026-02-01"));
+        let impact = super::activity_load_impact(Some(100.0), "Ride", days).unwrap();
+        assert!((impact.fitness - 3.50841).abs() < 1e-5);
+        assert!((impact.fatigue - 18.12692).abs() < 1e-5);
+        assert!((impact.form - (impact.fitness - impact.fatigue)).abs() < 1e-10);
+        assert_eq!((impact.fitness_days, impact.fatigue_days), (28, 5));
+    }
+
+    #[test]
+    fn fitness_days_take_effect_on_the_event_date() {
+        assert_eq!(
+            super::fitness_days_on(SHORTER_DAYS, day("2025-12-31")),
+            (42, 7)
+        );
+        assert_eq!(
+            super::fitness_days_on(SHORTER_DAYS, day("2026-01-01")),
+            (28, 5)
+        );
+    }
+
+    #[test]
+    fn the_latest_fitness_days_event_wins_and_other_categories_change_nothing() {
+        let events = r#"[
+            {"category":"FITNESS_DAYS","start_date_local":"2026-01-01T00:00:00","ctl_days":28,"atl_days":5},
+            {"category":"SET_FITNESS","start_date_local":"2026-02-01T00:00:00","ctl_days":60,"atl_days":14},
+            {"category":"FITNESS_DAYS","start_date_local":"2026-03-01T00:00:00","ctl_days":35,"atl_days":10}
+        ]"#;
+        assert_eq!(super::fitness_days_on(events, day("2026-02-15")), (28, 5));
+        assert_eq!(super::fitness_days_on(events, day("2026-02-28")), (28, 5));
+        assert_eq!(super::fitness_days_on(events, day("2026-03-01")), (35, 10));
+        assert_eq!(super::fitness_days_on(events, day("2027-01-01")), (35, 10));
+    }
+
+    #[test]
+    fn fitness_days_fall_back_to_the_defaults() {
+        assert_eq!(super::fitness_days_on("[]", day("2026-02-01")), (42, 7));
+        assert_eq!(
+            super::fitness_days_on("not json", day("2026-02-01")),
+            (42, 7)
+        );
+        assert_eq!(super::fitness_days_on("", day("2026-02-01")), (42, 7));
+        let partial = r#"[{"category":"FITNESS_DAYS","start_date_local":"2026-01-01T00:00:00","ctl_days":0}]"#;
+        assert_eq!(super::fitness_days_on(partial, day("2026-02-01")), (42, 7));
+        let fatigue_only = r#"[{"category":"FITNESS_DAYS","start_date_local":"2026-01-01T00:00:00","atl_days":4}]"#;
+        assert_eq!(
+            super::fitness_days_on(fatigue_only, day("2026-02-01")),
+            (42, 4)
+        );
     }
 
     /// Scenario: the floor is a parameter, and the change is rounded to a
@@ -3783,6 +3955,51 @@ mod tests {
                     .power_zones
                     .is_empty()
             );
+        }
+    }
+
+    /// Expected behaviour: the detail read carries the summary intervals.icu
+    /// stored with the activity, so the stat cards show it with no streams. A
+    /// zero or a missing field is no value rather than a zero to print.
+    mod activity_summary {
+        use super::*;
+
+        #[test]
+        fn the_detail_read_carries_the_stored_summary() {
+            let body = r#"{"type":"Ride","moving_time":3600,"elapsed_time":3720,
+                "average_speed":8.2,"max_speed":15.4,"average_cadence":88.5}"#;
+            let mut engine = crate::persistence::PersistentEngine::in_memory().expect("engine");
+            engine
+                .upsert_activity_bodies(&[("a1".into(), 1_700_000_000, body.into())])
+                .expect("body");
+
+            let summary = pooled::activity_detail_data(&engine.db, "a1", 1).summary;
+            assert_eq!(summary.moving_time, Some(3600.0));
+            assert_eq!(summary.elapsed_time, Some(3720.0));
+            assert_eq!(summary.average_speed, Some(8.2));
+            assert_eq!(summary.max_speed, Some(15.4));
+            assert_eq!(summary.average_cadence, Some(88.5));
+        }
+
+        #[test]
+        fn a_zero_or_missing_field_is_no_value() {
+            let body = r#"{"type":"WeightTraining","moving_time":1800,"elapsed_time":0,
+                "average_speed":0,"max_speed":null}"#;
+            let mut engine = crate::persistence::PersistentEngine::in_memory().expect("engine");
+            engine
+                .upsert_activity_bodies(&[("a1".into(), 1_700_000_000, body.into())])
+                .expect("body");
+
+            let summary = pooled::activity_detail_data(&engine.db, "a1", 1).summary;
+            assert_eq!(summary.moving_time, Some(1800.0));
+            assert_eq!(summary.elapsed_time, None);
+            assert_eq!(summary.average_speed, None);
+            assert_eq!(summary.max_speed, None);
+            assert_eq!(summary.average_cadence, None);
+
+            let unknown = pooled::activity_detail_data(&engine.db, "unknown", 1).summary;
+            assert_eq!(unknown.moving_time, None);
+            assert_eq!(unknown.average_speed, None);
         }
     }
 

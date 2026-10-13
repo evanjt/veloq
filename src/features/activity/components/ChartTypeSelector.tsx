@@ -52,6 +52,8 @@ interface ChartMetricDisplay {
   unit: string;
   /** Longest formatted value for stable width */
   maxValueWidth?: string | undefined;
+  /** The value is the activity's average, drawn with a mark saying so */
+  isAverage?: boolean | undefined;
 }
 
 interface ChartTypeSelectorProps {
@@ -138,11 +140,20 @@ export function ChartTypeSelector({
         // Get metric value for this chip
         const metric = metricValues?.find((m) => m.id === config.id);
         // The chip is one element, so its name carries the value it draws.
-        const spokenValue = metric
+        const valueWithUnit = metric
           ? metric.unit
             ? `${metric.value} ${metric.unit}`
             : metric.value
           : null;
+        const spokenValue =
+          metric?.isAverage && valueWithUnit
+            ? `${t('activity.stats.average')} ${valueWithUnit}`
+            : valueWithUnit;
+        const averageMark = metric?.isAverage ? `${t('activity.chartAverage')} ` : '';
+        // The reserve keeps the mark's room while a scrub hides it, so the chip
+        // holds its width. The climb chip is a total and never carries one.
+        const reservedMark =
+          config.defaultMetric === 'gain' ? '' : `${t('activity.chartAverage')} `;
 
         return (
           <Pressable
@@ -172,6 +183,7 @@ export function ChartTypeSelector({
               <View style={styles.chipValueContainer}>
                 {/* Hidden max-width text to reserve stable chip width */}
                 <DenseText style={[styles.chipValue, styles.chipValueHidden]} numberOfLines={1}>
+                  {reservedMark}
                   {isolateNumeric(metric.maxValueWidth || metric.value)}
                   {metric.unit ? ` ${metric.unit}` : ''}
                 </DenseText>
@@ -180,6 +192,9 @@ export function ChartTypeSelector({
                   style={[styles.chipValue, styles.chipValueVisible, { color: textColor }]}
                   numberOfLines={1}
                 >
+                  {averageMark ? (
+                    <DenseText testID={`chart-type-${config.id}-average`}>{averageMark}</DenseText>
+                  ) : null}
                   {isolateNumeric(metric.value)}
                   {metric.unit ? ` ${metric.unit}` : ''}
                 </DenseText>

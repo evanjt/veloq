@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import type { ActivityLedgerChange } from 'veloqrs';
 import { tapTo } from '@/shared/app/navigation';
-import { getIntlLocale } from '@/shared/format/format';
+import { formatFullDate } from '@/shared/format/format';
 import { FIXED_LABEL_LEDGER_KINDS, ledgerDate } from '@/features/routes';
 import { CardHeader, Row } from '@/shared/ui';
 import { spacing, typography, layout, themedStyles, type Palette } from '@/theme';
@@ -22,7 +22,6 @@ export function ActivityLedgerChanges({ changes, isDark }: ActivityLedgerChanges
   const { t } = useTranslation();
   if (changes.length === 0) return null;
   const styles = themedStyles(makeStyles, isDark);
-  const locale = getIntlLocale();
 
   return (
     <View style={styles.card} testID="activity-ledger-changes">
@@ -34,11 +33,7 @@ export function ActivityLedgerChanges({ changes, isDark }: ActivityLedgerChanges
           ? t(`sectionHistory.kind_${change.kind}` as never)
           : null;
         const name = change.sectionName ?? kindLabel ?? change.kind;
-        const date = ledgerDate(change.at).toLocaleDateString(locale, {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-        });
+        const date = formatFullDate(ledgerDate(change.at));
         return (
           <Row
             key={`${change.eventId}-${change.relation}`}

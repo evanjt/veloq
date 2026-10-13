@@ -28,7 +28,7 @@ import {
   ledgerDate,
 } from '@/features/routes';
 import { projectRouteToBox } from '@/shared/geo/routePreview';
-import { getIntlLocale } from '@/shared/format/format';
+import { formatFullDate } from '@/shared/format/format';
 import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { tapTo } from '@/shared/app/navigation';
@@ -64,7 +64,6 @@ function FootprintPreview({
 function NamedCorridorsScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const locale = getIntlLocale();
   const { corridors, state, remove } = useNamedCorridors();
 
   const sectionNames = useSectionDisplayNames();
@@ -107,11 +106,7 @@ function NamedCorridorsScreenContent() {
                 <Text style={[styles.name, isDark && styles.textDark]}>{corridor.name}</Text>
                 <Text style={[styles.meta, isDark && styles.textSecondaryDark]}>
                   {t('namedCorridors.created', {
-                    date: ledgerDate(corridor.createdAt).toLocaleDateString(locale, {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    }),
+                    date: formatFullDate(ledgerDate(corridor.createdAt)),
                   })}
                 </Text>
                 {corridor.dormant ? (

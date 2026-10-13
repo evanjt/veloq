@@ -52,6 +52,23 @@ pub async fn fetch_sport_settings_body(
     decode_body(bytes)
 }
 
+/// `GET /athlete/{id}/fitness-model-events` as the untyped body. The engine
+/// reads only the fitness and fatigue days out of it.
+pub async fn fetch_fitness_model_events_body(
+    t: &Transport,
+    athlete_id: &str,
+    dispatch: impl Into<Dispatch>,
+) -> Result<String, NetError> {
+    let bytes = t
+        .get_bytes(
+            &format!("/athlete/{}/fitness-model-events", athlete_id),
+            &[],
+            dispatch,
+        )
+        .await?;
+    decode_body(bytes)
+}
+
 /// `GET /athlete/{id}/wellness` returning each day both typed and as its own
 /// body, from a single request. Rust computes on the typed values; the UI
 /// reads fields the record does not model.

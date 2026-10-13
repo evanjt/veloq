@@ -71,6 +71,7 @@ jest.mock('@/features/sensors', () => {
     initialize: jest.fn(),
   }));
   return {
+    ...jest.requireActual('@/features/sensors/lib/sensorRows'),
     useSensorStore: store,
     startScan: jest.fn(),
     stopScan: jest.fn(),

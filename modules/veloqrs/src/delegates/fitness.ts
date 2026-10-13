@@ -116,8 +116,8 @@ export function savePaceSnapshot(
 /**
  * Everything the fitness tab paints with that stays fixed while it is
  * mounted: the eFTP trend over the chart's three months with the activities
- * that moved it, and the last stored running and swimming critical speeds.
- * Stale when `activities` fires.
+ * that moved it, the last stored running and swimming critical speeds, and
+ * the sport the latest activities are mostly in. Stale when `activities` fires.
  */
 export function getFitnessScreenData(host: DelegateHost): FfiFitnessScreenData {
   if (!host.ready) {
@@ -126,6 +126,7 @@ export function getFitnessScreenData(host: DelegateHost): FfiFitnessScreenData {
       ftpTrendCoverage: RangeCoverage.NotFetched,
       runPaceTrend: EMPTY_PACE_TREND,
       swimPaceTrend: EMPTY_PACE_TREND,
+      sportMix: { rides: 0, runs: 0, swims: 0 },
     };
   }
   return host.timed('getFitnessScreenData', () => host.engine.fitness().getFitnessScreenData());

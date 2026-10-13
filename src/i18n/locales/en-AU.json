@@ -122,7 +122,7 @@
     },
     "startupError": {
       "title": "Some bits of the app didn't load",
-      "detail": "Couldn't load: {{areas}}. Restart the app and have another go."
+      "detail": "Couldn't load: {{areas}}."
     }
   },
   "engine": {
@@ -143,9 +143,9 @@
   },
   "errorState": {
     "defaultTitle": "Strewth, something went wrong",
-    "unableToLoad": "Couldn't load {{componentName}}",
     "libraryUnaffected": "Your activities on this device are all good.",
-    "restartHint": "Have another go, or restart the app",
+    "unableToLoad": "Couldn't load {{part}}",
+    "retryHint": "Tap Retry to have another go.",
     "unableToDisplayChart": "Can't show this chart"
   },
   "export": {

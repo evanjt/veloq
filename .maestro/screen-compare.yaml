@@ -1,0 +1,30 @@
+# Screen compare capture: eight demo-mode screens in light and dark, for
+# scripts/screenshot-compare.mjs to hold against the goldens. Run it through
+# scripts/capture-screen-compare.sh, which pins the status bar first.
+#
+# Two runs of one build differ only where the content moves, and the location
+# is one of those: the routes list sorts by distance once a fix has arrived and
+# by activity count before, so the fix is pinned ahead of every screen.
+
+appId: com.veloq.app.dev
+tags:
+  - tier5
+  - screen-compare
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# The start of a demo route, so the nearby sort has something to order by.
+- setLocation:
+    latitude: -33.90587
+    longitude: 18.420593
+
+- runFlow:
+    file: helpers/capture-compare-screens.yaml
+    env:
+      THEME: light
+
+- runFlow:
+    file: helpers/capture-compare-screens.yaml
+    env:
+      THEME: dark

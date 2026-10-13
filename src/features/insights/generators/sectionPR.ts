@@ -22,6 +22,11 @@ export function generateSectionPRInsights(
 
   for (const pr of prs) {
     if (!pr.sectionId || !pr.sectionName || !Number.isFinite(pr.bestTime)) continue;
+    const bestTime = {
+      label: t('insights.data.bestTime'),
+      value: formatDuration(pr.bestTime),
+      context: 'good' as const,
+    };
     insights.push(
       makeInsight({
         id: `section_pr-${sectionPairKey(pr.sectionId, pr.sportType)}`,
@@ -67,12 +72,9 @@ export function generateSectionPRInsights(
               previewPoints: pr.previewPoints,
             },
           ],
+          hero: bestTime,
           dataPoints: [
-            {
-              label: t('insights.data.bestTime'),
-              value: formatDuration(pr.bestTime),
-              context: 'good' as const,
-            },
+            bestTime,
             {
               label: t('insights.data.daysAgo'),
               value: pr.daysAgo,

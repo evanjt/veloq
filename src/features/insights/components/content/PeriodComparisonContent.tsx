@@ -9,6 +9,7 @@ import { verdictRung } from '@/shared/format/trend';
 import { ChartErrorBoundary } from '@/shared/ui';
 import { useChartColors, useMeasuredWidth } from '@/shared/charts';
 import type { Insight } from '@/types';
+import { InsightHistoryChart } from '../InsightHistoryChart';
 
 const CHART_HEIGHT = 140;
 const CHART_PADDING = { top: 12, bottom: 28, left: 8, right: 8 };
@@ -103,70 +104,76 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
     trend?.direction === 'up' ? 'arrow-up' : trend?.direction === 'down' ? 'arrow-down' : 'minus';
 
   const barColor = verdictColor(rung, isDark);
+  const history = insight.supportingData?.history;
+  const hasHistory = history != null && 'series' in history && history.series[0] != null;
   const mutedBarColor = chartColors.mutedBar;
 
   return (
     <View style={styles.container}>
-      {/* Bar chart */}
-      <ChartErrorBoundary height={CHART_HEIGHT}>
-        <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
-          <View style={styles.chartWrapper} onLayout={onLayout}>
-            {chartWidth > 0 && (
-              <Canvas style={{ width: chartWidth, height: CHART_HEIGHT }}>
-                {barChart.map((bar, i) => (
-                  <RoundedRect
-                    key={`bar-${i}`}
-                    x={bar.x}
-                    y={bar.y}
-                    width={bar.width}
-                    height={bar.height}
-                    r={4}
-                    color={bar.isCurrent ? barColor : mutedBarColor}
-                  />
-                ))}
-              </Canvas>
-            )}
+      {/* The card's weekly bars in full, or the two weeks it compares when it had too few */}
+      {hasHistory ? (
+        <InsightHistoryChart history={history} color={barColor} />
+      ) : (
+        <ChartErrorBoundary height={CHART_HEIGHT}>
+          <View style={[styles.chartCard, isDark && styles.chartCardDark]}>
+            <View style={styles.chartWrapper} onLayout={onLayout}>
+              {chartWidth > 0 && (
+                <Canvas style={{ width: chartWidth, height: CHART_HEIGHT }}>
+                  {barChart.map((bar, i) => (
+                    <RoundedRect
+                      key={`bar-${i}`}
+                      x={bar.x}
+                      y={bar.y}
+                      width={bar.width}
+                      height={bar.height}
+                      r={4}
+                      color={bar.isCurrent ? barColor : mutedBarColor}
+                    />
+                  ))}
+                </Canvas>
+              )}
 
-            {/* Bar labels below */}
-            {barChart.map((bar, i) => (
-              <View
-                key={`label-${i}`}
-                style={[
-                  styles.barLabelContainer,
-                  { left: bar.x, width: bar.width, top: bar.labelY },
-                ]}
-              >
-                <Text style={[styles.barLabelText, isDark && styles.barLabelTextDark]}>
-                  {bar.label}
-                </Text>
-              </View>
-            ))}
-
-            {/* Value labels above bars */}
-            {barChart.map((bar, i) => (
-              <View
-                key={`value-${i}`}
-                style={[
-                  styles.barValueContainer,
-                  { left: bar.x, width: bar.width, top: bar.y - 18 },
-                ]}
-              >
-                <Text
+              {/* Bar labels below */}
+              {barChart.map((bar, i) => (
+                <View
+                  key={`label-${i}`}
                   style={[
-                    styles.barValueText,
-                    isDark && styles.barValueTextDark,
-                    bar.isCurrent && { fontWeight: '700' },
+                    styles.barLabelContainer,
+                    { left: bar.x, width: bar.width, top: bar.labelY },
                   ]}
                 >
-                  {typeof bar.value === 'number' && bar.unit
-                    ? `${bar.value} ${bar.unit}`
-                    : String(comparison[bar.isCurrent ? 'current' : 'previous'].value)}
-                </Text>
-              </View>
-            ))}
+                  <Text style={[styles.barLabelText, isDark && styles.barLabelTextDark]}>
+                    {bar.label}
+                  </Text>
+                </View>
+              ))}
+
+              {/* Value labels above bars */}
+              {barChart.map((bar, i) => (
+                <View
+                  key={`value-${i}`}
+                  style={[
+                    styles.barValueContainer,
+                    { left: bar.x, width: bar.width, top: bar.y - 18 },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.barValueText,
+                      isDark && styles.barValueTextDark,
+                      bar.isCurrent && { fontWeight: '700' },
+                    ]}
+                  >
+                    {typeof bar.value === 'number' && bar.unit
+                      ? `${bar.value} ${bar.unit}`
+                      : String(comparison[bar.isCurrent ? 'current' : 'previous'].value)}
+                  </Text>
+                </View>
+              ))}
+            </View>
           </View>
-        </View>
-      </ChartErrorBoundary>
+        </ChartErrorBoundary>
+      )}
 
       {/* Change badge */}
       <View style={styles.changeRow}>

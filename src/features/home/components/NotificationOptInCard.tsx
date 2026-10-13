@@ -15,7 +15,7 @@ import {
   requestNotificationPermission,
   useLaunchSurfaces,
 } from '@/features/settings';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { Button, PermissionNotice, TextLink } from '@/shared/ui';
 import { Card } from '@/shared/ui/Card';
 
@@ -69,19 +69,22 @@ export function NotificationOptInCard({ libraryCount }: NotificationOptInCardPro
   // Show settings hint after dismissal
   if (showingSettingsHint) {
     return (
-      <Animated.View
-        entering={FadeIn.duration(200)}
-        exiting={FadeOut.duration(300)}
-        style={[styles.hintContainer, isDark && styles.hintContainerDark]}
-      >
-        <MaterialCommunityIcons
-          name="cog-outline"
-          size={16}
-          color={isDark ? darkColors.textSecondary : colors.textSecondary}
-        />
-        <Text style={[styles.hintText, isDark && styles.hintTextDark]}>
-          {t('notifications.prompt.settingsHint')}
-        </Text>
+      <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(300)}>
+        <Card
+          variant="flat"
+          padding="sm"
+          accessibilityLabel={t('notifications.prompt.settingsHint')}
+          style={styles.hint}
+        >
+          <MaterialCommunityIcons
+            name="cog-outline"
+            size={16}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+          />
+          <Text style={[styles.hintText, isDark && styles.hintTextDark]}>
+            {t('notifications.prompt.settingsHint')}
+          </Text>
+        </Card>
       </Animated.View>
     );
   }
@@ -189,20 +192,10 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
     paddingTop: spacing.xs,
   },
-  hintContainer: {
+  hint: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: spacing.xs,
-    marginHorizontal: layout.screenPadding,
-    marginBottom: spacing.sm,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.background,
-    borderRadius: layout.borderRadiusSm,
-  },
-  hintContainerDark: {
-    backgroundColor: darkColors.surfaceElevated,
   },
   hintText: {
     ...typography.caption,

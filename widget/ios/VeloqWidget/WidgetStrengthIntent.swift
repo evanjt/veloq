@@ -74,6 +74,7 @@ struct VeloqConfigurableStrengthWidget: Widget {
       kind: kind, intent: SelectStrengthWindowIntent.self, provider: StrengthConfigProvider()
     ) { entry in
       WidgetFamilyReader { StrengthWidgetView(entry: entry, family: $0) }
+        .snapshotLocale(entry.snapshot)
     }
     .configurationDisplayName("Strength")
     .description("The muscles you trained, shaded by sets.")

@@ -41,6 +41,7 @@ jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
 }));
 
 jest.mock('@/features/recording/lib/recordingNotification', () => ({
+  nameRecordingChannel: jest.fn(),
   clearInterruptedRecordingNotice: () => mockClearNotice(),
 }));
 

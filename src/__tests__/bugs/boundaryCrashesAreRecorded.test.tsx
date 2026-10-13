@@ -65,7 +65,7 @@ describe('an error caught below the global boundary is recorded', () => {
 
   it('records a component crash under its component name', async () => {
     await render(
-      <ComponentErrorBoundary componentName="SectionList">
+      <ComponentErrorBoundary debugName="SectionList">
         <Boom />
       </ComponentErrorBoundary>
     );
@@ -135,7 +135,7 @@ describe('an error caught below the global boundary is recorded', () => {
   it('still calls the caller-supplied handler', async () => {
     const onError = jest.fn();
     await render(
-      <ComponentErrorBoundary componentName="SectionList" onError={onError}>
+      <ComponentErrorBoundary debugName="SectionList" onError={onError}>
         <Boom />
       </ComponentErrorBoundary>
     );

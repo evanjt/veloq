@@ -16,7 +16,9 @@ import {
 } from '@/theme';
 import { formatEpochDayUtc } from '@/shared/format/format';
 import type { Insight } from '@/types';
+import { SheetContext } from './SheetContext';
 import { verdictIcon, verdictRung } from '@/shared/format/trend';
+import { InsightHistoryChart } from '../InsightHistoryChart';
 
 /** What each milestone compares, named as its card names it. */
 const CONTEXT_COPY = {
@@ -82,83 +84,74 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
   );
 
   const lineColor = isDark ? darkColors.border : colors.border;
+  const history = insight.supportingData?.history;
+  const hasHistory = history != null && 'series' in history && history.series[0] != null;
 
   return (
     <View style={styles.container}>
-      {/* Large current value */}
-      <View style={[styles.statCard, isDark && styles.statCardDark]}>
-        <Text style={[styles.currentValue, isDark && styles.currentValueDark]}>
-          {String(currentPoint.value)}
-          {currentPoint.unit ? (
-            <Text style={[styles.unit, isDark && styles.unitDark]}> {currentPoint.unit}</Text>
-          ) : null}
-        </Text>
+      {/* Change badge, under the sheet's figure */}
+      {changeStr ? (
+        <View style={[styles.changeBadge, { backgroundColor: verdictFill(rung, isDark) }]}>
+          <MaterialCommunityIcons name={glyph} size={16} color={rungColor} />
+          <Text style={[styles.changeText, { color: rungColor }]}>
+            {changeStr} {changeUnit}
+          </Text>
+        </View>
+      ) : null}
 
-        {/* Change badge */}
-        {changeStr ? (
-          <View style={[styles.changeBadge, { backgroundColor: verdictFill(rung, isDark) }]}>
-            <MaterialCommunityIcons name={glyph} size={16} color={rungColor} />
-            <Text style={[styles.changeText, { color: rungColor }]}>
-              {changeStr} {changeUnit}
-            </Text>
+      {/* The card's history in full, or the two values it compares when it had none */}
+      {hasHistory ? (
+        <InsightHistoryChart history={history} color={rungColor} />
+      ) : (
+        <View style={[styles.timelineCard, isDark && styles.timelineCardDark]}>
+          {/* Previous value */}
+          <View style={styles.timelineEntry}>
+            <View style={styles.timelineDotColumn}>
+              <View style={[styles.timelineDot, { backgroundColor: lineColor }]} />
+              <View style={[styles.timelineLine, { backgroundColor: lineColor }]} />
+            </View>
+            <View style={styles.timelineContent}>
+              <Text style={[styles.timelineLabel, isDark && styles.timelineLabelDark]}>
+                {previousDate ? `${previousPoint.label} · ${previousDate}` : previousPoint.label}
+              </Text>
+              <Text style={[styles.timelineValue, isDark && styles.timelineValueDark]}>
+                {String(previousPoint.value)}
+                {previousPoint.unit ? ` ${previousPoint.unit}` : ''}
+              </Text>
+            </View>
           </View>
-        ) : null}
-      </View>
 
-      {/* Timeline: Previous → Current */}
-      <View style={[styles.timelineCard, isDark && styles.timelineCardDark]}>
-        {/* Previous value */}
-        <View style={styles.timelineEntry}>
-          <View style={styles.timelineDotColumn}>
-            <View style={[styles.timelineDot, { backgroundColor: lineColor }]} />
-            <View style={[styles.timelineLine, { backgroundColor: lineColor }]} />
-          </View>
-          <View style={styles.timelineContent}>
-            <Text style={[styles.timelineLabel, isDark && styles.timelineLabelDark]}>
-              {previousDate ? `${previousPoint.label} · ${previousDate}` : previousPoint.label}
-            </Text>
-            <Text style={[styles.timelineValue, isDark && styles.timelineValueDark]}>
-              {String(previousPoint.value)}
-              {previousPoint.unit ? ` ${previousPoint.unit}` : ''}
-            </Text>
+          {/* Current value */}
+          <View style={styles.timelineEntry}>
+            <View style={styles.timelineDotColumn}>
+              <View
+                style={[
+                  styles.timelineDot,
+                  styles.timelineDotCurrent,
+                  { backgroundColor: rungColor },
+                ]}
+              />
+            </View>
+            <View style={styles.timelineContent}>
+              <Text style={[styles.timelineLabel, isDark && styles.timelineLabelDark]}>
+                {currentDate ? `${currentPoint.label} · ${currentDate}` : currentPoint.label}
+              </Text>
+              <Text
+                style={[
+                  styles.timelineValue,
+                  isDark && styles.timelineValueDark,
+                  rung === 'positive' && { color: rungColor },
+                ]}
+              >
+                {String(currentPoint.value)}
+                {currentPoint.unit ? ` ${currentPoint.unit}` : ''}
+              </Text>
+            </View>
           </View>
         </View>
+      )}
 
-        {/* Current value */}
-        <View style={styles.timelineEntry}>
-          <View style={styles.timelineDotColumn}>
-            <View
-              style={[
-                styles.timelineDot,
-                styles.timelineDotCurrent,
-                { backgroundColor: rungColor },
-              ]}
-            />
-          </View>
-          <View style={styles.timelineContent}>
-            <Text style={[styles.timelineLabel, isDark && styles.timelineLabelDark]}>
-              {currentDate ? `${currentPoint.label} · ${currentDate}` : currentPoint.label}
-            </Text>
-            <Text
-              style={[
-                styles.timelineValue,
-                isDark && styles.timelineValueDark,
-                rung === 'positive' && { color: rungColor },
-              ]}
-            >
-              {String(currentPoint.value)}
-              {currentPoint.unit ? ` ${currentPoint.unit}` : ''}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={[styles.contextCard, isDark && styles.contextCardDark]}>
-        <Text style={[styles.contextHeading, isDark && styles.contextHeadingDark]}>
-          {contextHeading}
-        </Text>
-        <Text style={[styles.contextBody, isDark && styles.contextBodyDark]}>{contextSummary}</Text>
-      </View>
+      <SheetContext heading={contextHeading} body={contextSummary} />
     </View>
   );
 });
@@ -167,38 +160,13 @@ const styles = StyleSheet.create({
   container: {
     gap: spacing.sm,
   },
-  statCard: {
-    backgroundColor: opacity.overlay.subtle,
-    borderRadius: layout.borderRadiusMd,
-    padding: spacing.sm,
-    alignItems: 'center',
-  },
-  statCardDark: {
-    backgroundColor: opacity.overlayDark.light,
-  },
-  currentValue: {
-    fontSize: typography.statsValueLarge.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  currentValueDark: {
-    color: darkColors.textPrimary,
-  },
-  unit: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '400',
-    color: colors.textSecondary,
-  },
-  unitDark: {
-    color: darkColors.textSecondary,
-  },
   changeBadge: {
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadiusMd,
-    marginTop: spacing.xs,
     gap: spacing.xs,
   },
   changeText: {
@@ -258,30 +226,5 @@ const styles = StyleSheet.create({
   },
   timelineValueDark: {
     color: darkColors.textPrimary,
-  },
-  contextCard: {
-    backgroundColor: opacity.overlay.subtle,
-    borderRadius: layout.borderRadiusMd,
-    padding: spacing.sm,
-    gap: spacing.xs,
-  },
-  contextCardDark: {
-    backgroundColor: opacity.overlayDark.light,
-  },
-  contextHeading: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  contextHeadingDark: {
-    color: darkColors.textPrimary,
-  },
-  contextBody: {
-    fontSize: typography.bodyCompact.fontSize,
-    lineHeight: 18,
-    color: colors.textSecondary,
-  },
-  contextBodyDark: {
-    color: darkColors.textSecondary,
   },
 });

@@ -16,7 +16,7 @@ import { IconButton } from '@/shared/ui/IconButton';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { tapTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
-import { formatDistance, formatDuration, getIntlLocale } from '@/shared/format/format';
+import { formatDateTime, formatDistance, formatDuration } from '@/shared/format/format';
 import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
 import {
   useRecordingLibrary,
@@ -42,12 +42,11 @@ function RecordingsLibraryScreenContent() {
   const renderEntry = useCallback(
     ({ item }: { item: RecordingLibraryEntry }) => {
       const status = meta[item.uploadStatus] ?? meta.localOnly;
-      const date = new Date(item.startTime);
       // The same rule the detail screen offers its upload on, so a row and the
       // recording it opens never disagree about whether a send is still owed.
       const { canUpload, isUploading } = recordingActions(item, uploadingId);
       const offerUpload = canUpload && !isUploading;
-      const dateText = date.toLocaleDateString(getIntlLocale());
+      const dateText = formatDateTime(new Date(item.startTime).toISOString());
       const distanceText =
         item.distanceMeters > 0 ? formatDistance(item.distanceMeters, isMetric) : null;
       const durationText = item.durationSeconds > 0 ? formatDuration(item.durationSeconds) : null;

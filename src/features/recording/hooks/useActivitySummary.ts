@@ -6,7 +6,10 @@ import { parseManualSummary } from '../lib/parseManualSummary';
 import { buildStreamPrefixes, windowAverage, windowGain } from '../lib/streamPrefixes';
 
 export interface ActivitySummary {
+  /** Moving time in seconds: the window's wall-clock span less its pauses. */
   duration: number;
+  /** Wall-clock seconds the saved window spans, pauses included. */
+  elapsed: number;
   distance: number;
   avgSpeed: number;
   elevationGain: number;
@@ -113,6 +116,7 @@ export function useActivitySummary({
       const manual = parseManualSummary(params);
       return {
         ...manual,
+        elapsed: manual.duration,
         elevationGain: 0,
         avgPower: null as number | null,
         hasGps: false,
@@ -129,15 +133,20 @@ export function useActivitySummary({
 
     // Stream time values are seconds; startTime/stopTime are milliseconds. Stream
     // times run on wall clock, so a window measured from them still holds its pauses.
+    const windowed = canTrim && to - from >= 1;
+    const wallMs = startTime ? (stopTime ?? Date.now()) - startTime : 0;
     const elapsed = startTime
-      ? canTrim && to - from >= 1
+      ? windowed
+        ? Math.max(0, streams.time[to] - streams.time[from])
+        : wallMs / 1000
+      : 0;
+    const moving = startTime
+      ? windowed
         ? Math.max(
             0,
-            streams.time[to] -
-              streams.time[from] -
-              pausedSecondsBetween(pauseIntervals, streams.time[from], streams.time[to])
+            elapsed - pausedSecondsBetween(pauseIntervals, streams.time[from], streams.time[to])
           )
-        : ((stopTime ?? Date.now()) - startTime - pausedDuration) / 1000
+        : (wallMs - pausedDuration) / 1000
       : 0;
 
     const elevGain = windowGain(prefixes, from, to);
@@ -147,9 +156,10 @@ export function useActivitySummary({
     const points = Math.min(to, streams.latlng.length - 1) - from + 1;
 
     return {
-      duration: elapsed,
+      duration: moving,
+      elapsed,
       distance: totalDistance,
-      avgSpeed: elapsed > 0 ? totalDistance / elapsed : 0,
+      avgSpeed: moving > 0 ? totalDistance / moving : 0,
       elevationGain: elevGain,
       avgHeartrate: avgHr,
       avgPower: avgPwr,

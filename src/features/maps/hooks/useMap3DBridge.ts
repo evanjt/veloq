@@ -29,6 +29,8 @@ interface Map3DBridgeParams {
   syncRoute: () => void;
   /** Moves a page that came up in its built style to the one the toggle shows. */
   syncStyle: () => void;
+  /** Tells a page that came up the reduce-motion setting it missed while loading. */
+  syncReduceMotion?: (() => void) | undefined;
   onMapReady?: (() => void) | undefined;
   onMapFailed?: ((reason: string) => void) | undefined;
   onTerrainUnavailable?: ((reason: string) => void) | undefined;
@@ -50,6 +52,7 @@ export function useMap3DBridge({
   updateLayers,
   syncRoute,
   syncStyle,
+  syncReduceMotion,
   onMapReady,
   onMapFailed,
   onTerrainUnavailable,
@@ -67,6 +70,7 @@ export function useMap3DBridge({
         if (releaseIfHeld?.()) return;
         mapReadyRef.current = true;
         onMapReady?.();
+        syncReduceMotion?.();
         syncStyle();
         syncRoute();
         // Update layers after map is ready - small delay ensures style is fully settled
@@ -132,6 +136,7 @@ export function useMap3DBridge({
       updateLayers,
       syncRoute,
       syncStyle,
+      syncReduceMotion,
     ]
   );
 

@@ -12,7 +12,7 @@ import {
   terrain3DSource,
 } from '@/features/maps/components/mapStyles';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
-import { setStyleStatement } from './shared';
+import { motionDurationExpression, setStyleStatement } from './shared';
 import { resolveStyleExpression } from './styleResolution';
 import {
   colors,
@@ -522,7 +522,7 @@ export function buildSetRouteScript(
   const colorArg = color === undefined ? '' : `, ${JSON.stringify(color)}`;
   const fit =
     bounds && coordinates.length > 0
-      ? `window.map.fitBounds([${JSON.stringify(bounds.sw)}, ${JSON.stringify(bounds.ne)}], { padding: ${TRACK_FIT_PADDING}, duration: 600 });`
+      ? `window.map.fitBounds([${JSON.stringify(bounds.sw)}, ${JSON.stringify(bounds.ne)}], { padding: ${TRACK_FIT_PADDING}, duration: ${motionDurationExpression(600)} });`
       : '';
   return `
         (function() {

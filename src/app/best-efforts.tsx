@@ -6,7 +6,6 @@ import { useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
   BodyNotDownloaded,
-  composeAccessibilityLabel,
   EmptyState,
   ErrorState,
   ScreenSafeAreaView,
@@ -45,7 +44,6 @@ import {
 import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { tapTo } from '@/shared/app/navigation';
 
 const SPORTS: PrimarySport[] = ['Cycling', 'Running', 'Swimming'];
 const CLIMBING_SPORTS: PrimarySport[] = ['Cycling', 'Running'];
@@ -138,39 +136,22 @@ function SportSection({ sport, efforts, curve, isLoading, isDark }: SportSection
           const valueText = formatEffortValue(effort.value, sport, t('units.watts'), isMetric);
           const isLast = index === efforts.length - 1;
 
-          const opensActivity = !!activityInfo && !!effort.activityId;
-
           return (
             <BestEffortRow
-              key={effort.label}
-              testID={`best-efforts-row-${sport}-${effort.label}`}
+              key={effort.checkpoint}
+              testID={`best-efforts-row-${sport}-${effort.checkpoint}`}
               label={effort.label}
               value={valueText}
               secondary={shownTime}
               valueColor={sportText}
               isLast={isLast}
-              onPress={opensActivity ? () => tapTo(`/activity/${effort.activityId}`) : undefined}
-              accessibilityLabel={composeAccessibilityLabel(
-                effort.label,
-                valueText,
-                shownTime,
-                activityInfo?.name,
-                activityInfo?.date
-              )}
+              activity={
+                activityInfo && effort.activityId
+                  ? { id: effort.activityId, ...activityInfo }
+                  : undefined
+              }
             >
-              {activityInfo ? (
-                <>
-                  <Text
-                    style={[styles.activityName, isDark && styles.activityNameDark]}
-                    numberOfLines={1}
-                  >
-                    {activityInfo.name}
-                  </Text>
-                  <Text style={[styles.activityDate, isDark && styles.activityDateDark]}>
-                    {activityInfo.date}
-                  </Text>
-                </>
-              ) : effort.value !== null && labelsError == null ? (
+              {effort.value !== null && labelsError == null ? (
                 <Text style={[styles.activityMissing, isDark && styles.activityMissingDark]}>
                   {t('activitySummary.notDownloaded')}
                 </Text>
@@ -241,8 +222,8 @@ function BestEffortsScreenContent() {
   const days = bestEffortsDays(period);
   const { data, isLoading, error, refetch, curves } = useBestEfforts(days, SHOWN);
   const effortsBySport = useMemo(
-    () => new Map(SPORTS.map((sport) => [sport, bestEffortsOf(data, sport)])),
-    [data]
+    () => new Map(SPORTS.map((sport) => [sport, bestEffortsOf(data, sport, t)])),
+    [data, t]
   );
 
   const climbingBySport = useMemo(
@@ -387,22 +368,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   notDownloadedTextDark: {
-    color: darkColors.textSecondary,
-  },
-  activityName: {
-    ...typography.caption,
-    fontWeight: '500',
-    color: colors.textPrimary,
-  },
-  activityNameDark: {
-    color: darkColors.textPrimary,
-  },
-  activityDate: {
-    ...typography.micro,
-    color: colors.textSecondary,
-    marginTop: spacing.xxs,
-  },
-  activityDateDark: {
     color: darkColors.textSecondary,
   },
   activityMissing: {

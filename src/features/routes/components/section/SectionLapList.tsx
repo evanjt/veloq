@@ -12,7 +12,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
-import { formatDuration, formatPower, getIntlLocale } from '@/shared/format/format';
+import { formatDuration, formatPower, formatFullDate } from '@/shared/format/format';
 import { Button, Card, composeAccessibilityLabel } from '@/shared/ui';
 import { tapTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, typography, layout, slopToMinTapTarget } from '@/theme';
@@ -73,7 +73,6 @@ export function SectionLapList({
   onIncludeLap,
 }: SectionLapListProps) {
   const { t } = useTranslation();
-  const locale = getIntlLocale();
   const [showAll, setShowAll] = useState(initiallyExpanded);
   const lapped = records.filter((r) => r.laps.length > 1);
   if (lapped.length === 0) return null;
@@ -93,11 +92,7 @@ export function SectionLapList({
       {!showAll
         ? collapsedActivities(lapped).map((r) => {
             const best = bestLapTime(r);
-            const date = r.activityDate.toLocaleDateString(locale, {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-            });
+            const date = formatFullDate(r.activityDate);
             const record = holdsRecord(r);
             const bestLap =
               best !== null ? t('sections.bestLapValue', { time: formatDuration(best) }) : null;
@@ -157,11 +152,7 @@ export function SectionLapList({
                 {r.activityName}
               </Text>
               <Text style={[styles.activityDate, isDark && styles.textSecondaryDark]}>
-                {r.activityDate.toLocaleDateString(locale, {
-                  day: 'numeric',
-                  month: 'short',
-                  year: 'numeric',
-                })}
+                {formatFullDate(r.activityDate)}
               </Text>
               {[...r.laps]
                 .sort((a, b) => a.startIndex - b.startIndex)

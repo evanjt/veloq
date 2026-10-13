@@ -6,6 +6,7 @@
  */
 
 import { dropRetiredTileCachesScript } from '@/features/maps/lib/tileCacheBudget';
+import { jsNumber } from '@/features/maps/lib/webViewLiterals';
 import { mapPageBaseUrl } from '@/features/maps/lib/tileTransport';
 import {
   MAPLIBRE_GL_CSS_FILE,
@@ -196,4 +197,32 @@ export function buildReleaseMapScript(): string {
     })();
     true;
   `;
+}
+
+/**
+ * The page's copy of the system reduce-motion setting.
+ *
+ * The WebView reads the setting once at process start, and MapLibre reads its
+ * `reduceMotion` option once at construction, so neither follows a change made
+ * while the app runs. The page builders set this before the map is made and the
+ * host injects it again on every change, and every scripted camera move reads
+ * it through `motionDurationExpression` when it runs.
+ */
+export function setReduceMotionStatement(enabled: boolean): string {
+  return `window._veloqReduceMotion = ${enabled === true};`;
+}
+
+/** Injects a changed reduce-motion setting into a page that is already up. */
+export function buildSetReduceMotionScript(enabled: boolean): string {
+  return `${setReduceMotionStatement(enabled)} true;`;
+}
+
+/**
+ * A page-side expression for a camera move's duration: none while reduce
+ * motion is on, `durationMs` otherwise. Read when the script runs, so a script
+ * built before a change still honours it. Never pair it with `essential: true`,
+ * which makes MapLibre animate regardless.
+ */
+export function motionDurationExpression(durationMs: number): string {
+  return `(window._veloqReduceMotion ? 0 : ${jsNumber(durationMs, 0)})`;
 }

@@ -497,13 +497,20 @@ const GUARDS = [
     kind: 'correctness',
     cmd: node('lint-workflows.mjs'),
     catches:
-      'a cache written off main, a schedule re-running an unchanged sha or skipping one measured red as green, a superseded main push read as red, a job no aggregator reports, benches linked or left unchecked, a native build copied outside its platform definition, a call passing inputs the definition does not declare, a cache key hashing what the build wrote, a native build whose identity one step sets rather than the job, a tag release that skips a store deploy and ends green with nothing uploaded, CI installing an unpinned CocoaPods that writes another Podfile.lock version than the machines, a job on a floating -latest runner whose image moves on a date GitHub sets and changes the generated bindings or a release build with no commit, a third-party action on a tag or branch that whoever holds its repository can move to code run beside the signing keys, an action pinned at a version that runs on Node 20, or a dispatch input, event field or head ref expanded inside a run body or an action script, where the value runs as shell commands',
+      'a cache written off main, a schedule re-running an unchanged sha or skipping one measured red as green, a superseded main push read as red, a job no aggregator reports, benches linked or left unchecked, a native build copied outside its platform definition, a call passing inputs the definition does not declare, a cache key hashing what the build wrote, a native build whose identity one step sets rather than the job, a Rust lockfile no cargo audit scans on every change and on a schedule, a tag release that skips a store deploy and ends green with nothing uploaded, CI installing an unpinned CocoaPods that writes another Podfile.lock version than the machines, a job on a floating -latest runner whose image moves on a date GitHub sets and changes the generated bindings or a release build with no commit, a third-party action on a tag or branch that whoever holds its repository can move to code run beside the signing keys, an action pinned at a version that runs on Node 20, or a dispatch input, event field or head ref expanded inside a run body or an action script, where the value runs as shell commands',
   },
   {
     name: 'lint:counted-translation',
     kind: 'correctness',
     cmd: node('lint-source-rules.mjs', '--rule', 'counted-translation'),
     catches: 'a numeric expression joined to a bare translated noun on the same line',
+  },
+  {
+    name: 'lint:joined-translations',
+    kind: 'correctness',
+    cmd: node('lint-source-rules.mjs', '--rule', 'joined-translations'),
+    catches:
+      'two translations set side by side, which keeps English word order in every language and reorders a saved activity name',
   },
   {
     name: 'lint:static-loading-glyph',
@@ -911,6 +918,13 @@ const GUARDS = [
     kind: 'style',
     cmd: node('lint-modal-sheets.mjs'),
     catches: 'a hand-built Modal sheet instead of a formSheet route',
+  },
+  {
+    name: 'lint:react-native-text',
+    kind: 'style',
+    cmd: node('lint-react-native-text.mjs'),
+    catches:
+      "a new react-native Text, which skips the Material 3 type and colour defaults Android takes from Paper's",
   },
   {
     name: 'lint:sheet-headers',

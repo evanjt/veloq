@@ -27,6 +27,7 @@ import {
   AUTO_PAUSE_DURATION_BOUNDS_MS,
   AUTO_PAUSE_THRESHOLD_BOUNDS_KMH,
   fieldsForMode,
+  MAX_DATA_FIELDS,
   useRecordingPreferences,
   UploadPermissionNotice,
   type GpsAccuracyMode,
@@ -151,6 +152,7 @@ function RecordingSettingsScreenContent() {
       if (current.length <= 1) return;
       updated = current.filter((f) => f !== field);
     } else {
+      if (current.length >= MAX_DATA_FIELDS) return;
       updated = [...current, field];
     }
     useRecordingPreferences.getState().setDataFields(mode, updated);
@@ -363,6 +365,7 @@ function RecordingSettingsScreenContent() {
 
           {FIELD_MODES.map((mode) => {
             const selectedFields = fieldsForMode(dataFields, mode);
+            const atCap = selectedFields.length >= MAX_DATA_FIELDS;
             return (
               <View
                 key={mode}
@@ -375,9 +378,20 @@ function RecordingSettingsScreenContent() {
                   },
                 ]}
               >
-                <Text style={[styles.modeLabel, { color: textPrimary }]}>
-                  {t(MODE_LABEL_KEYS[mode])}
-                </Text>
+                <View style={styles.modeHeader}>
+                  <Text style={[styles.modeLabel, { color: textPrimary }]}>
+                    {t(MODE_LABEL_KEYS[mode])}
+                  </Text>
+                  <Text
+                    testID={`settings-field-count-${mode}`}
+                    style={[styles.fieldCount, { color: textSecondary }]}
+                  >
+                    {t('recording.fieldsSelected', {
+                      selected: selectedFields.length,
+                      max: MAX_DATA_FIELDS,
+                    })}
+                  </Text>
+                </View>
                 <View style={styles.fieldGrid}>
                   {ALL_DATA_FIELDS.map((field) => {
                     const isSelected = selectedFields.includes(field);
@@ -387,6 +401,7 @@ function RecordingSettingsScreenContent() {
                         testID={`settings-field-${mode}-${field}`}
                         label={t(`recording.fields.${field}`)}
                         selected={isSelected}
+                        disabled={atCap && !isSelected}
                         onPress={() => handleToggleField(mode, field)}
                       />
                     );
@@ -501,9 +516,17 @@ const styles = StyleSheet.create({
   thresholdLabel: {
     ...typography.body,
   },
+  modeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginBottom: spacing.sm,
+  },
   modeLabel: {
     ...typography.bodyBold,
-    marginBottom: spacing.sm,
+  },
+  fieldCount: {
+    ...typography.caption,
   },
   fieldGrid: {
     flexDirection: 'row',

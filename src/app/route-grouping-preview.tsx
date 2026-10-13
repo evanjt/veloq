@@ -187,7 +187,9 @@ function RouteGroupingPreviewScreenContent() {
           const saved = t('settings.previewKeepRefused');
           inform({
             title: t('settings.previewKeepRefusedTitle'),
-            message: reasonKey ? `${saved} ${t(reasonKey)}` : saved,
+            message: reasonKey
+              ? t('common.sentencePair', { first: saved, second: t(reasonKey) })
+              : saved,
           });
           return;
         }

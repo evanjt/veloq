@@ -109,6 +109,12 @@ pub mod settings_keys {
     pub const EXPORT_HOME_LNG: &str = "__export_home_lng";
     pub const EXPORT_PRIVACY_RADIUS_M: &str = "__export_privacy_radius_m";
 
+    /// The athlete's fitness model events as intervals.icu answers them, the
+    /// dated fitness and fatigue days among them. One small list read whole,
+    /// so it is a key rather than a table. It belongs to the athlete, so a
+    /// clear takes it.
+    pub const FITNESS_MODEL_EVENTS: &str = "__fitness_model_events";
+
     /// When the last sync finished, written by the app's sync health. It
     /// belongs to the library that synced, so a clear takes it.
     pub const SYNC_LAST_SUCCESS_AT: &str = "sync.last_success_at";

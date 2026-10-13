@@ -29,6 +29,7 @@ import { NetworkProvider } from '@/shared/app/NetworkContext';
 import { useResolvedColorScheme } from '@/shared/app/ThemeProvider';
 import { NavigationThemeProvider } from '@/shared/app/NavigationThemeProvider';
 import { startMemoryPressureListener } from '@/shared/app/memoryPressure';
+import { startLanguageFollower } from '@/shared/app/LanguageStore';
 import {
   registerEngineReclaimer,
   registerImageCacheReclaimer,
@@ -116,7 +117,7 @@ import {
 // Registers the background insight task at module scope (required by TaskManager)
 import { registerBackgroundNotificationTask } from '@/features/insights';
 import { debug } from '@/shared/debug/debug';
-import { initialiseApp } from '@/shared/app/launch';
+import { initialiseApp, retryStartupAreas } from '@/shared/app/launch';
 import { releaseSplash } from '@/shared/app/splash';
 import { openLibrary } from '@/shared/storage/routeDbLocation';
 import { StartupErrorBanner, type StartupArea } from '@/shared/ui/StartupErrorBanner';
@@ -184,6 +185,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       for (const off of reclaimers) off();
     };
   }, []);
+
+  // The phone's language, and the platform's per-app one, can change while the
+  // app is in the background.
+  useEffect(() => startLanguageFollower(), []);
 
   // Trigger route re-detection when sync date range expands
   useRouteReoptimisation();
@@ -630,6 +635,9 @@ export default function RootLayout() {
                     {startupError ? (
                       <StartupErrorBanner
                         areas={startupError}
+                        onRetry={() => {
+                          void retryStartupAreas(startupError).then(setStartupError);
+                        }}
                         onDismiss={() => setStartupError(null)}
                       />
                     ) : null}

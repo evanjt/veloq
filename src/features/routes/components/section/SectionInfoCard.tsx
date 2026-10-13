@@ -9,7 +9,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Card, Shimmer } from '@/shared/ui';
 import { useTranslation } from 'react-i18next';
-import { formatAxisDate } from '@/shared/format/format';
+import { formatFullDate } from '@/shared/format/format';
 import { formatAttemptFigure, type AttemptBasis } from '@/features/routes/lib/attemptBasis';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import type { DirectionStats } from '@/types';
@@ -89,12 +89,12 @@ export function SectionInfoCard({
   }[] = [
     {
       label: t('sections.firstVisited', 'First'),
-      value: formatAxisDate(firstDate, false),
+      value: formatFullDate(firstDate),
       testID: 'section-first',
     },
     {
       label: t('sections.lastVisited', 'Last'),
-      value: formatAxisDate(lastDate, false),
+      value: formatFullDate(lastDate),
       testID: 'section-last',
     },
   ];

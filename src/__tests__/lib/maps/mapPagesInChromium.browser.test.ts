@@ -151,6 +151,7 @@ const PAGES: PageUnderTest[] = [
         camera: { center: [7.66, 45.976], zoom: 12 },
         interaction: { scroll: true, zoom: true, rotate: true, pitch: true },
         devicePixelRatio: 1,
+        reduceMotion: false,
         regionChangeThrottleMs: 100,
         longPressMs: 500,
       }),
@@ -173,6 +174,7 @@ const PAGES: PageUnderTest[] = [
         routeColor: '#e4572e',
         showHeatmap: false,
         devicePixelRatio: 1,
+        reduceMotion: false,
       }),
     drive: (page) =>
       driveInteractivePage(page, (style) =>

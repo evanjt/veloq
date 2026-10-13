@@ -765,8 +765,8 @@ function FeedScreenContent() {
   // The cards above the feed, pinned at ordinary text sizes.
   const headCards = (
     <>
-      <StreamConsentCard />
       <View testID="home-pinned-cards" style={styles.homeCards}>
+        <StreamConsentCard />
         <RestoreOfferCard />
         <NotificationOptInCard libraryCount={allActivities.length} />
         <SupportCard />
@@ -856,8 +856,8 @@ function FeedScreenContent() {
       {/* Hidden WebView for generating 3D terrain snapshots - deferred to avoid startup cost */}
       {snapshotWebViewReady && (
         <ComponentErrorBoundary
-          componentName="3D Terrain Snapshots"
-          showRetry={false}
+          part="terrainSnapshots"
+          debugName="3D Terrain Snapshots"
           onError={() => setSnapshotWebViewReady(false)}
         >
           <TerrainSnapshotWebView ref={snapshotRef} suspended={!isFeedFocused} />
@@ -871,8 +871,10 @@ const styles = StyleSheet.create({
   // The list opens with its filter section scrolled exactly past, so the gap
   // above the first activity card is this padding. Pinned, it sits outside the
   // scroll; past the dense cap the cards scroll and it sits above the filters.
+  // The side inset is the activity card's margin, so the pinned cards and the
+  // list share one edge, and no pinned card adds a margin of its own.
   homeCards: {
-    paddingHorizontal: layout.screenPadding,
+    paddingHorizontal: CARD_MARGIN,
     paddingBottom: CARD_MARGIN,
     gap: spacing.sm,
   },

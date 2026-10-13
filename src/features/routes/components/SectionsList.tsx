@@ -517,6 +517,7 @@ export const SectionsList = memo(function SectionsList({
             await removeSection(item.id);
           } catch (error) {
             log.error('Failed to delete section:', error);
+            inform({ title: t('sections.deleteFailedTitle'), message: t('sections.deleteFailed') });
           }
         },
       });

@@ -49,7 +49,7 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
   // also the period the decoupling ride is picked from.
   const periodCoverage = useRangeCoverage(days);
 
-  const { eftpTrend, eftpCoverage, eftpChanges, storedRunPace, storedSwimPace } =
+  const { eftpTrend, eftpCoverage, eftpChanges, storedRunPace, storedSwimPace, librarySport } =
     useFitnessScreenRead();
 
   const { data: sportSettings } = useSportSettings();
@@ -100,6 +100,7 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
     eftpChanges,
     storedRunPace,
     storedSwimPace,
+    librarySport,
     currentFTP,
     runSettings,
     runPaceCurve,

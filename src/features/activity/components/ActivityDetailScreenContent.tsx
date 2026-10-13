@@ -39,6 +39,7 @@ import { useWellnessForDate } from '@/features/wellness';
 import { useGpxExport, useDebugStore, useMapPreferences } from '@/features/settings';
 import { useActivityMapChoices } from '../hooks/useActivityMapChoices';
 import { routeOverlayLine } from '../lib/routeOverlayLine';
+import { ActivitySummaryStrip } from './ActivitySummaryStrip';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import { waitEnded } from '@/shared/native/engineBodies';
@@ -488,7 +489,7 @@ export function ActivityDetailScreenContent({
 
       {/* Strength Training hero - body diagrams with overlay (back button, name, date, duration) */}
       {isStrength && (
-        <ComponentErrorBoundary componentName="Muscle Groups">
+        <ComponentErrorBoundary part="muscleGroups" debugName="Muscle Groups">
           <MuscleGroupView
             activityId={id}
             activity={activity}
@@ -528,6 +529,11 @@ export function ActivityDetailScreenContent({
           highlightedSectionId={highlightedSectionId}
           onSectionMarkerPress={isRouteMatchingOn ? handleSectionMarkerPress : undefined}
         />
+      )}
+
+      {/* No map to carry the date and stats, so they sit under the header */}
+      {!hasGpsData && !isStrength && (
+        <ActivitySummaryStrip activity={activity} isMetric={isMetric} isDark={isDark} />
       )}
 
       {/* Activity description */}
@@ -574,6 +580,7 @@ export function ActivityDetailScreenContent({
           maxHR={detail?.maxHR}
           maxHrSource={detail?.maxHrSource}
           fitnessImpact={detail?.fitnessImpact}
+          summary={detail?.summary}
           newGround={newGround}
           hrZones={detail?.hrZones}
           powerZones={detail?.powerZones}

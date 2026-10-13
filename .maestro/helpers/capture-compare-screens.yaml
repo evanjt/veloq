@@ -1,0 +1,97 @@
+# The eight screens the screen compare holds, in the theme THEME names. The
+# capture names are the screens in .maestro/goldens/masks.json. Each capture
+# waits for the screen's content and for animations to end, since a capture
+# taken mid-transition differs from its golden for no reason in the build.
+appId: com.veloq.app.dev
+---
+- openLink: "veloq://display-settings"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "settings-theme-toggle"
+    timeout: 10000
+- runFlow:
+    when:
+      true: ${THEME === 'light'}
+    commands:
+      - tapOn:
+          id: "theme-button-light"
+- runFlow:
+    when:
+      true: ${THEME === 'dark'}
+    commands:
+      - tapOn:
+          id: "theme-button-dark"
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "screenshots/compare/${THEME}/display-settings"
+
+- openLink: "veloq://"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "screenshots/compare/${THEME}/feed"
+
+- runFlow:
+    file: navigate-to-fitness.yaml
+- extendedWaitUntil:
+    visible:
+      id: "fitness-ctl-value"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "screenshots/compare/${THEME}/fitness"
+
+- runFlow:
+    file: navigate-to-training.yaml
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "screenshots/compare/${THEME}/health"
+
+- runFlow:
+    file: navigate-to-map.yaml
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: "screenshots/compare/${THEME}/map"
+
+- runFlow:
+    file: navigate-to-routes.yaml
+- extendedWaitUntil:
+    visible:
+      id: "routes-list"
+    timeout: 10000
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "screenshots/compare/${THEME}/routes"
+
+- openLink: "veloq://activity/demo-test-0"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: "screenshots/compare/${THEME}/activity-detail"
+
+- runFlow:
+    file: navigate-to-settings.yaml
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "screenshots/compare/${THEME}/settings"

@@ -1,17 +1,17 @@
 /**
  * The zone ramp has one owner. Power and heart rate read the same seven
- * intervals.icu steps through `zoneColour`, and the dark scheme reads its own
- * fill ladder, so no surface can paint the light steps on a dark ground.
+ * intervals.icu steps through `zoneColour`, and each scheme reads its own fill
+ * ladder, so no surface can paint one scheme's steps on the other's ground.
  */
 
-import { zoneColors, zoneColorsDark } from '@/theme/colors';
+import { zoneColors, zoneColorsDark, zoneColorsLight } from '@/theme/colors';
 import { zoneColour } from '@/theme/zoneColour';
 
 const ZONES = [1, 2, 3, 4, 5, 6, 7];
 
 describe('training zone ramp', () => {
-  it('gives the light scheme every step of the theme ramp, in order', () => {
-    expect(ZONES.map((z) => zoneColour(z, false, 'fill'))).toEqual(Object.values(zoneColors));
+  it('gives the light scheme the light fill ladder, in order', () => {
+    expect(ZONES.map((z) => zoneColour(z, false, 'fill'))).toEqual(Object.values(zoneColorsLight));
   });
 
   it('gives the dark scheme the dark fill ladder, in order', () => {

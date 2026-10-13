@@ -62,6 +62,7 @@ function panel(props: Partial<React.ComponentProps<typeof PerformanceChartPanel>
       chartData={CHART_DATA}
       activityType="Ride"
       isDark={false}
+      forwardColour="#0D9488"
       bestForwardRecord={{ bestTime: 310, activityDate: new Date(2026, 5, 1) }}
       bestReverseRecord={null}
       bestForwardIsRecord={false}
@@ -375,6 +376,7 @@ describe('the route page chart', () => {
         histograms={HISTOGRAMS}
         sportType="Ride"
         isDark={false}
+        forwardColour="#0D9488"
         bestForwardRecord={null}
         bestReverseRecord={null}
         bestForwardIsRecord={false}

@@ -38,6 +38,7 @@ function buildConfig(showHeatmap: boolean): Map3DHtmlConfig {
     routeColor: '#FF6B35',
     showHeatmap,
     devicePixelRatio: 2,
+    reduceMotion: false,
   };
 }
 

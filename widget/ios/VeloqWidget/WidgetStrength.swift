@@ -53,6 +53,7 @@ struct StrengthTopRow: View {
       Circle()
         .fill(color)
         .frame(width: 8, height: 8)
+        .widgetAccentable()
         .unspoken()
       Text(muscle.name)
         .measuredText("muscle name")
@@ -78,6 +79,7 @@ struct StrengthTopRow: View {
 
 struct StrengthWidgetView: View {
   @Environment(\.colorScheme) private var colorScheme
+  @Environment(\.widgetRenderingMode) private var renderingMode
   let entry: StrengthEntry
   let family: WidgetFamily
 
@@ -101,7 +103,6 @@ struct StrengthWidgetView: View {
     }
     .environment(\.snapshotNow, entry.date)
     .widgetURL(content?.url)
-    .widgetTextSize()
     .widgetBackground(
       LinearGradient(
         colors: [palette.surface, palette.background],
@@ -119,7 +120,9 @@ struct StrengthWidgetView: View {
   private func bodies(_ content: StrengthContent, _ palette: WidgetPalette) -> some View {
     HStack(spacing: WidgetTheme.Layout.gap) {
       ForEach(Array(content.sides.enumerated()), id: \.offset) { _, side in
-        BodyView(female: content.female, side: side, shades: content.shades, palette: palette)
+        BodyView(
+          female: content.female, side: side, shades: content.shades, palette: palette,
+          accented: renderingMode == .accented)
       }
     }
     .spoken("body", content.bodyLabel)
@@ -153,7 +156,7 @@ struct StrengthWidgetView: View {
       if let words = content.emptyText {
         Text(words)
           .measuredText("empty window")
-          .widgetFont(size == .large ? .value : .label, weight: .semibold, shrinks: true)
+          .widgetProseFont(size == .large ? .value : .label, weight: .semibold, shrinks: true)
           .foregroundColor(palette.textPrimary)
           .multilineTextAlignment(.center)
           .lineLimit(4)
@@ -165,7 +168,9 @@ struct StrengthWidgetView: View {
           VStack(alignment: .leading, spacing: 4) {
             ForEach(Array(content.top.enumerated()), id: \.offset) { _, muscle in
               StrengthTopRow(
-                muscle: muscle, color: palette.strengthFill(content.shades[muscle.slug]),
+                muscle: muscle,
+                color: palette.strengthFill(
+                  content.shades[muscle.slug], accented: renderingMode == .accented),
                 palette: palette)
             }
           }
@@ -186,6 +191,7 @@ struct VeloqStrengthWidget: Widget {
   var body: some WidgetConfiguration {
     StaticConfiguration(kind: kind, provider: StrengthProvider()) { entry in
       WidgetFamilyReader { StrengthWidgetView(entry: entry, family: $0) }
+        .snapshotLocale(entry.snapshot)
     }
     .configurationDisplayName("Strength")
     .description("The muscles you trained, shaded by sets.")

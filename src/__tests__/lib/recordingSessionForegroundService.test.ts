@@ -17,6 +17,7 @@ import { installRecordingSession } from '@/features/recording/lib/recordingSessi
 import { recording } from '@/theme';
 
 jest.mock('@/features/recording/lib/recordingNotification', () => ({
+  nameRecordingChannel: jest.fn(),
   installRecordingNotificationActions: jest.fn(() => jest.fn()),
   updateRecordingNotification: jest.fn(),
   clearRecordingNotification: jest.fn(),

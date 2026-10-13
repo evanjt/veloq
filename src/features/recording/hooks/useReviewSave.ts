@@ -555,8 +555,8 @@ export function useReviewSave({
   }, [upgradePermissions, handleSave]);
 
   const shareKeptRecording = useCallback(async () => {
-    if (keptRecording) await shareRecordingFit(keptRecording);
-  }, [keptRecording]);
+    if (keptRecording) await shareRecordingFit(keptRecording, t);
+  }, [keptRecording, t]);
 
   return {
     handleSave,

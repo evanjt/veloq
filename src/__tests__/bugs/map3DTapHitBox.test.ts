@@ -32,6 +32,7 @@ const config: Map3DHtmlConfig = {
   routeColor: '#FF6B35',
   showHeatmap: false,
   devicePixelRatio: 2,
+  reduceMotion: false,
 };
 
 function pageScript(html: string): string {

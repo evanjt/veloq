@@ -14,6 +14,8 @@ import { useTheme } from '@/shared/app';
 import { useForeground } from '@/shared/app/useRetryTriggers';
 import { openAppSettings } from '@/shared/app/permissions';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { formatCadence, formatHeartRate, formatPower } from '@/shared/format/format';
+import { useClock, useRecordingStore } from '@/features/recording';
 import {
   useSensorStore,
   startScan,
@@ -26,12 +28,17 @@ import {
   turnOnBluetooth,
   displayedSensorSource,
   metricsSuppliedBy,
+  distinctLabels,
+  isUnnamed,
+  nearestFirst,
+  signalLevel,
 } from '@/features/sensors';
 import type {
   DiscoveredSensor,
   KnownSensor,
   SensorAvailability,
   SensorKind,
+  SignalLevel,
 } from '@/features/sensors';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
@@ -41,6 +48,23 @@ const KIND_ICONS: Record<SensorKind, React.ComponentProps<typeof MaterialCommuni
     power: 'lightning-bolt',
     cadence: 'rotate-right',
   };
+
+const SIGNAL_ICONS: Record<
+  SignalLevel,
+  React.ComponentProps<typeof MaterialCommunityIcons>['name']
+> = {
+  1: 'signal-cellular-1',
+  2: 'signal-cellular-2',
+  3: 'signal-cellular-3',
+};
+
+const RECORDING_KIND = { heartRate: 'heartrate', power: 'power', cadence: 'cadence' } as const;
+
+const FORMAT_SAMPLE: Record<SensorKind, (value: number) => string> = {
+  heartRate: formatHeartRate,
+  power: formatPower,
+  cadence: formatCadence,
+};
 
 interface Notice {
   testID: string;
@@ -140,6 +164,7 @@ function SensorSettingsScreenContent() {
   const scanFinished = useSensorStore((s) => s.scanFinished);
   const activeSources = useSensorStore((s) => s.activeSources);
   const suppliedKinds = useSensorStore((s) => s.suppliedKinds);
+  const latestSensor = useRecordingStore((s) => s.latestSensor);
 
   useEffect(() => {
     if (!isLoaded) {
@@ -199,7 +224,29 @@ function SensorSettingsScreenContent() {
   const sharedMetric = (['heartRate', 'power', 'cadence'] as const).some(
     (kind) => [...pairedMetrics.values()].filter((kinds) => kinds.includes(kind)).length > 1
   );
-  const discoverable = discovered.filter((d) => !pairedIds.has(d.id));
+  const discoverable = nearestFirst(discovered.filter((d) => !pairedIds.has(d.id)));
+  const readableName = (sensor: { id: string; name: string; kinds: SensorKind[] }) =>
+    isUnnamed(sensor)
+      ? t('sensors.unnamed', { kind: t(`sensors.kinds.${sensor.kinds[0] ?? 'heartRate'}`) })
+      : sensor.name;
+  const pairedLabels = distinctLabels(
+    knownSensors.map((s) => ({ id: s.id, label: readableName(s) }))
+  );
+  const discoveredLabels = distinctLabels(
+    discoverable.map((s) => ({ id: s.id, label: readableName(s) }))
+  );
+
+  // The metrics a connected sensor is the recorded source of, each with the
+  // value it last sent from the recording store's one live copy.
+  const liveSamples = (sensor: KnownSensor) =>
+    connections[sensor.id]?.status === 'connected'
+      ? (pairedMetrics.get(sensor.id) ?? []).flatMap((kind) => {
+          const sample = latestSensor[RECORDING_KIND[kind]];
+          return activeSources[kind] === sensor.id && sample ? [{ kind, sample }] : [];
+        })
+      : [];
+  const showsLiveSample = knownSensors.some((s) => liveSamples(s).length > 0);
+  const now = useClock(showsLiveSample);
   const bleAvailable = isBleAvailable();
   const blocking = availabilityNotice(availability, t);
   const foundNothing = !blocking && !scanning && scanFinished && discoverable.length === 0;
@@ -240,7 +287,7 @@ function SensorSettingsScreenContent() {
             label={t(`sensors.kinds.${kind}`)}
             accessibilityLabel={t('sensors.recordFrom', {
               kind: t(`sensors.kinds.${kind}`),
-              name: sensor.name,
+              name: pairedLabels.get(sensor.id) ?? sensor.name,
             })}
             selected={isSource}
             icon={
@@ -296,9 +343,21 @@ function SensorSettingsScreenContent() {
                 >
                   <View style={styles.cardBody}>
                     <Text style={[styles.cardTitle, { color: textPrimary }]} numberOfLines={1}>
-                      {sensor.name}
+                      {pairedLabels.get(sensor.id)}
                     </Text>
                     {renderSources(sensor)}
+                    {liveSamples(sensor).map(({ kind, sample }) => (
+                      <Text
+                        key={kind}
+                        testID={`sensor-live-${sensor.id}-${kind}`}
+                        style={[styles.liveText, { color: textPrimary }]}
+                      >
+                        {t('sensors.lastSample', {
+                          value: FORMAT_SAMPLE[kind](sample.value),
+                          seconds: Math.max(0, Math.round((now - sample.at) / 1000)),
+                        })}
+                      </Text>
+                    ))}
                     <Text style={[styles.statusText, { color: statusColor }]}>
                       {connection
                         ? t(`sensors.status.${connection.status}`)
@@ -368,30 +427,52 @@ function SensorSettingsScreenContent() {
               />
               <Text style={[styles.purpose, { color: textSecondary }]}>{t('sensors.purpose')}</Text>
 
-              {discoverable.map((sensor) => (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`${t('sensors.pair')}: ${sensor.name}`}
-                  key={sensor.id}
-                  testID={`sensor-discovered-${sensor.id}`}
-                  style={pressable([
-                    styles.card,
-                    { backgroundColor: surface, borderColor: border },
-                  ])}
-                  android_ripple={pressRipple}
-                  onPress={() => handlePair(sensor)}
-                >
-                  <View style={styles.cardBody}>
-                    <Text style={[styles.cardTitle, { color: textPrimary }]} numberOfLines={1}>
-                      {sensor.name}
+              {discoverable.map((sensor) => {
+                const label = discoveredLabels.get(sensor.id) ?? sensor.name;
+                const level = signalLevel(sensor.rssi);
+                const signalLabel =
+                  level == null ? null : t('sensors.signal', { dbm: Math.round(sensor.rssi ?? 0) });
+                return (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={[`${t('sensors.pair')}: ${label}`, signalLabel]
+                      .filter(Boolean)
+                      .join(', ')}
+                    key={sensor.id}
+                    testID={`sensor-discovered-${sensor.id}`}
+                    style={pressable([
+                      styles.card,
+                      { backgroundColor: surface, borderColor: border },
+                    ])}
+                    android_ripple={pressRipple}
+                    onPress={() => handlePair(sensor)}
+                  >
+                    <View style={styles.cardBody}>
+                      <Text style={[styles.cardTitle, { color: textPrimary }]} numberOfLines={1}>
+                        {label}
+                      </Text>
+                      {renderKinds(sensor.kinds, textSecondary)}
+                    </View>
+                    {level != null && (
+                      <View
+                        testID={`sensor-signal-${sensor.id}`}
+                        accessible
+                        accessibilityLabel={signalLabel ?? undefined}
+                        style={styles.signal}
+                      >
+                        <MaterialCommunityIcons
+                          name={SIGNAL_ICONS[level]}
+                          size={18}
+                          color={textSecondary}
+                        />
+                      </View>
+                    )}
+                    <Text style={[styles.pairText, { color: accentText }]}>
+                      {t('sensors.pair', 'Pair')}
                     </Text>
-                    {renderKinds(sensor.kinds, textSecondary)}
-                  </View>
-                  <Text style={[styles.pairText, { color: accentText }]}>
-                    {t('sensors.pair', 'Pair')}
-                  </Text>
-                </Pressable>
-              ))}
+                  </Pressable>
+                );
+              })}
 
               {scanning && discoverable.length === 0 && (
                 <Text style={[styles.searchingLine, { color: textSecondary }]}>
@@ -460,6 +541,14 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.fontSize,
     fontWeight: '600',
     marginTop: spacing.xxs,
+  },
+  liveText: {
+    ...typography.caption,
+    fontVariant: ['tabular-nums'],
+    marginTop: spacing.xxs,
+  },
+  signal: {
+    marginRight: spacing.sm,
   },
   pairText: {
     fontSize: typography.bodySmall.fontSize,

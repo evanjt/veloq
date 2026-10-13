@@ -456,6 +456,59 @@ fn grave_restore_survives_restart() {
     );
 }
 
+/// Scenario: corridor A sits in its grave while more applies run than the
+/// tombstone horizon, then A's evidence returns.
+/// Expected behaviour: the tombstone is kept through the horizon and dropped
+/// on the step after it, its grave in the same apply, so graves and
+/// tombstones both read empty. The returning ground mints a fresh real id and
+/// never re-issues A's, which the ledger still holds.
+#[test]
+fn an_expired_tombstone_takes_its_grave_with_it() {
+    const HORIZON: u64 = 3;
+    let mut run = run_graves_scenario(false);
+    run.engine.section_identity_set_tombstone_horizon(HORIZON);
+    let (stamps, retired_at) = run.engine.section_identity_tombstone_clock();
+    assert_eq!(
+        stamps.iter().map(|(_, s)| *s).collect::<Vec<_>>(),
+        vec![Some(retired_at)],
+        "scenario fault: one tombstone, retired on the last apply"
+    );
+
+    for i in 1..=HORIZON + 1 {
+        let filler = filler_act("age", 50 + i as i64);
+        ingest_step(&mut run.engine, "age", &[&filler]);
+        assert_graves_eq_tombstones(&run.engine, &format!("age {i}"));
+        let (tombstones, steps) = run.engine.section_identity_tombstone_clock();
+        assert_eq!(steps, retired_at + i, "scenario fault: one step per apply");
+        if i <= HORIZON {
+            assert_eq!(tombstones.len(), 1, "age {i}: dropped inside the horizon");
+        } else {
+            assert!(tombstones.is_empty(), "age {i}: kept past the horizon");
+        }
+    }
+    assert!(run.engine.section_identity_grave_rows().is_empty());
+    assert!(
+        run.engine
+            .section_ids_a_mint_must_avoid()
+            .contains(&run.id_a),
+        "the expired id left the ledger, so a mint could re-issue it"
+    );
+
+    let restore: Vec<&LifecycleActivity> = run
+        .rides_a
+        .iter()
+        .filter(|a| run.fp_a.activity_ids.contains(&a.id))
+        .collect();
+    let snap = ingest_step(&mut run.engine, "return", &restore).snapshot;
+    let returned = sections_on(&snap, &run.ground_a);
+    assert_eq!(returned.len(), 1, "the returning ground forms one section");
+    assert_ne!(
+        returned[0], run.id_a,
+        "an expired id came back, so its tombstone was still read"
+    );
+    assert_graves_eq_tombstones(&run.engine, "after return");
+}
+
 /// Scenario: corridor A is tombstoned, then a durable custom claim lands on
 /// its ground (the only public relinquish trigger once the DB row is gone).
 /// Expected behaviour: identity ownership has passed to the durable row, so

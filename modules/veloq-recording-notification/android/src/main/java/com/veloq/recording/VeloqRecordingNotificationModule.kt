@@ -1,10 +1,12 @@
 package com.veloq.recording
 
 import android.app.ActivityManager
+import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.PowerManager
 import android.graphics.Color
 import android.util.Log
 import androidx.core.app.NotificationCompat
@@ -16,11 +18,6 @@ import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import org.json.JSONObject
-
-// Must match BACKGROUND_LOCATION_TASK in src/features/recording/lib/backgroundLocation.ts.
-// expo-location names the foreground service's channel "<appId>:<taskName>"
-// (LocationTaskService.onStartCommand), which is the only handle it exposes.
-private const val LOCATION_TASK_NAME = "veloq-background-location"
 
 // The service expo-location runs the location task in. Named rather than derived
 // because `getRunningServices` reports a class name and nothing else identifies
@@ -94,7 +91,27 @@ class VeloqRecordingNotificationModule : Module() {
       }
     }
 
+    // Synchronous, so the channel exists before the location service starts and
+    // creates its own. Creating a channel is one binder call.
+    Function("nameChannel") { name: String, description: String ->
+      val spec = RecordingChannel.spec(context.packageName, name, description) ?: return@Function
+      val manager = context.getSystemService(NotificationManager::class.java) ?: return@Function
+      manager.createNotificationChannel(
+        NotificationChannel(spec.id, spec.name, spec.importance).apply {
+          this.description = spec.description
+        }
+      )
+    }
+
     Function("clearInterrupted") { onWorker { InterruptedRideNotifier.cancel(context) } }
+
+    // Whether the athlete has exempted the app from battery optimisation, so the
+    // record screen asks only while a long ride can still be killed. A binder
+    // call into the power service and nothing more, so it runs on the caller.
+    Function("batteryOptimisationExempt") {
+      val power = context.getSystemService(PowerManager::class.java)
+      power?.isIgnoringBatteryOptimizations(context.packageName) == true
+    }
 
     Function("drainPendingActions") { RecordingActionReceiver.drainPending(context) }
 

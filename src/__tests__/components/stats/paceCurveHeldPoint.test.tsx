@@ -9,11 +9,13 @@
  */
 
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { useUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { formatDistance, formatDuration } from '@/shared/format/format';
 import { PaceCurveChart } from '@/features/stats/components/PaceCurveChart';
+import { layout } from '@/theme';
 
 interface Curve {
   distances: number[];
@@ -120,6 +122,18 @@ function expectHeader(distance: number, time: number, activity: string | null) {
 beforeEach(() => {
   useUnitPreference.setState({ unitPreference: 'metric' });
   chartProps.current = null;
+});
+
+describe('the pace curve activity row', () => {
+  it('opens the activity from a tap-target row whose label carries no arrow', async () => {
+    await render(<PaceCurveChart days={42} />);
+
+    const row = screen.getByRole('button', { name: 'Harbour long loop' });
+    expect(StyleSheet.flatten(row.props.style).minHeight).toBeGreaterThanOrEqual(
+      layout.minTapTarget
+    );
+    expect(screen.queryAllByText(/→/, { includeHiddenElements: true })).toEqual([]);
+  });
 });
 
 describe('the pace curve held point', () => {

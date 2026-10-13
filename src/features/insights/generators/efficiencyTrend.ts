@@ -1,6 +1,6 @@
 import { EfficiencyDirection, type EfficiencyTrend } from 'veloqrs';
 
-import type { Insight } from '../types';
+import type { DataPoint, Insight } from '../types';
 import { INSIGHTS_CONFIG, confidenceFrom, maxPerCategoryFor } from '../lib/config';
 import { sparkline } from '../lib/sparkline';
 
@@ -71,6 +71,13 @@ export function generateEfficiencyTrendInsights(
     const hrChange = Math.abs(Math.round(trend.hrChangeBpm));
     const firstEffort = trend.points[0];
     const lastEffort = trend.points[trend.points.length - 1];
+    const heartRateChange: DataPoint = {
+      key: 'hrChange',
+      label: t('insights.data.hrChange'),
+      value: `${declining ? '+' : '-'}${hrChange}`,
+      unit: 'bpm',
+      context: declining ? 'neutral' : 'good',
+    };
 
     insights.push({
       id: `efficiency_trend-${trend.sectionId}-${trend.sportType}`,
@@ -131,14 +138,9 @@ export function generateEfficiencyTrendInsights(
           direction: trend.trendSlope < 0 ? 'down' : trend.trendSlope > 0 ? 'up' : 'flat',
           verdict: declining ? 'declined' : 'improved',
         },
+        hero: heartRateChange,
         dataPoints: [
-          {
-            key: 'hrChange',
-            label: t('insights.data.hrChange'),
-            value: `${declining ? '+' : '-'}${hrChange}`,
-            unit: 'bpm',
-            context: declining ? ('neutral' as const) : ('good' as const),
-          },
+          heartRateChange,
           {
             key: 'effortCount',
             label: t('insights.data.efforts'),

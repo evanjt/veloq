@@ -457,11 +457,7 @@ export function BaseMapView({
       {/* 3D Map - rendered when 3D mode is on, fades in when ready */}
       {/* Error boundary prevents a 3D crash from taking out the entire map */}
       {is3DMode && has3DRoute && (
-        <ComponentErrorBoundary
-          componentName="3D Map"
-          showRetry={false}
-          onError={() => setIs3DMode(false)}
-        >
+        <ComponentErrorBoundary part="map3d" debugName="3D Map" onError={() => setIs3DMode(false)}>
           <Animated.View
             style={[styles.mapLayer, styles.map3DLayer, { opacity: map3DOpacity }]}
             pointerEvents={is3DReady ? 'auto' : 'none'}

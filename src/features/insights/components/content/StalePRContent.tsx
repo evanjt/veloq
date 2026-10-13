@@ -17,16 +17,10 @@ import { useSectionDetail } from '@/shared/native/useSectionDetail';
 import { tapTo } from '@/shared/app/navigation';
 import { formatDuration } from '@/shared/format/format';
 import { SectionInsightMap } from './SectionInsightMap';
-import {
-  colors,
-  darkColors,
-  spacing,
-  opacity,
-  insightToneColor,
-  layout,
-  typography,
-} from '@/theme';
+import { InsightHistoryChart } from '../InsightHistoryChart';
+import { colors, darkColors, spacing, insightToneColor, typography } from '@/theme';
 import type { ActivityType, Insight, SupportingSection } from '@/types';
+import { SheetContext } from './SheetContext';
 import { composeAccessibilityLabel, ErrorState, Row } from '@/shared/ui';
 
 interface StalePRContentProps {
@@ -119,8 +113,8 @@ const TopSectionMap = React.memo(function TopSectionMap({ sectionId }: { section
 
 /**
  * Detail content for stale PR / opportunity insights.
- * Shows section map + context copy + tappable section list. Its numbers sit under
- * the sheet's "How was this calculated?".
+ * Shows section map + the card's efforts + context copy + tappable section list.
+ * Its numbers sit under the sheet's "How was this calculated?".
  */
 export const StalePRContent = React.memo(function StalePRContent({ insight }: StalePRContentProps) {
   const { isDark } = useTheme();
@@ -138,17 +132,12 @@ export const StalePRContent = React.memo(function StalePRContent({ insight }: St
     <View style={styles.container}>
       {topSectionId ? <TopSectionMap sectionId={topSectionId} /> : null}
 
-      <View style={[styles.contextCard, isDark && styles.contextCardDark]}>
-        <Text style={[styles.contextHeading, isDark && styles.contextHeadingDark]}>
-          {contextCopy.heading}
-        </Text>
-        <Text style={[styles.contextBody, isDark && styles.contextBodyDark]}>
-          {contextCopy.body}
-        </Text>
-        <Text style={[styles.contextMeta, isDark && styles.contextMetaDark]}>
-          {contextCopy.meta}
-        </Text>
-      </View>
+      <InsightHistoryChart
+        history={insight.supportingData?.history}
+        color={insightToneColor('opportunity', isDark)}
+      />
+
+      <SheetContext heading={contextCopy.heading} body={contextCopy.body} meta={contextCopy.meta} />
 
       {sections.length > 0 ? (
         <View>
@@ -195,38 +184,6 @@ export const StalePRContent = React.memo(function StalePRContent({ insight }: St
 const styles = StyleSheet.create({
   container: {
     gap: spacing.sm,
-  },
-  contextCard: {
-    backgroundColor: opacity.overlay.subtle,
-    borderRadius: layout.borderRadiusMd,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
-  contextCardDark: {
-    backgroundColor: opacity.overlayDark.light,
-  },
-  contextHeading: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  contextHeadingDark: {
-    color: darkColors.textPrimary,
-  },
-  contextBody: {
-    fontSize: typography.bodyCompact.fontSize,
-    lineHeight: 18,
-    color: colors.textPrimary,
-  },
-  contextBodyDark: {
-    color: darkColors.textPrimary,
-  },
-  contextMeta: {
-    fontSize: typography.caption.fontSize,
-    color: colors.textSecondary,
-  },
-  contextMetaDark: {
-    color: darkColors.textSecondary,
   },
   sectionContent: {
     flex: 1,

@@ -15,16 +15,11 @@ import {
 import { Button } from '@/shared/ui/Button';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import {
-  formatDistance,
-  formatDuration,
-  formatElevation,
-  formatHeartRate,
-  getIntlLocale,
-} from '@/shared/format/format';
+import { formatDateTime } from '@/shared/format/format';
 import {
   recordingActions,
   RecordingMap,
+  recordingStats,
   shareRecordingFit,
   useRecordingLibrary,
   useVisibleRecording,
@@ -32,7 +27,7 @@ import {
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import * as haptics from '@/shared/ui/haptics';
 import { goBack } from '@/shared/app/navigation';
-import { confirmAction } from '@/shared/ui/dialog';
+import { confirmAction, inform } from '@/shared/ui/dialog';
 
 function RecordingDetailScreenContent() {
   const { t } = useTranslation();
@@ -67,8 +62,8 @@ function RecordingDetailScreenContent() {
 
   const handleShare = useCallback(async () => {
     if (!entry || !recordingActions(entry, uploadingId).canShare) return;
-    setFitAvailable(await shareRecordingFit(entry));
-  }, [entry, uploadingId, setFitAvailable]);
+    setFitAvailable(await shareRecordingFit(entry, t));
+  }, [entry, uploadingId, setFitAvailable, t]);
 
   const handleDelete = useCallback(() => {
     if (!entry) return;
@@ -76,7 +71,7 @@ function RecordingDetailScreenContent() {
       title: t('recording.library.deleteConfirmTitle', 'Delete recording?'),
       message: t('recording.library.deleteConfirmMessage', {
         sport: t(`activityTypes.${entry.activityType}`, entry.activityType),
-        startTime: new Date(entry.startTime).toLocaleString(getIntlLocale()),
+        startTime: formatDateTime(entry.startTime),
         defaultValue:
           'This permanently removes the {{sport}} recording from {{startTime}} from this device.',
       }),
@@ -85,7 +80,15 @@ function RecordingDetailScreenContent() {
       destructive: true,
       onConfirm: async () => {
         haptics.medium();
-        await remove(entry.id);
+        try {
+          await remove(entry.id);
+        } catch {
+          inform({
+            title: t('recording.library.deleteFailedTitle'),
+            message: t('recording.library.deleteFailed'),
+          });
+          return;
+        }
         goBack();
       },
     });
@@ -136,34 +139,26 @@ function RecordingDetailScreenContent() {
 
   const { isUploading, canUpload, canShare } = recordingActions(entry, uploadingId, fitAvailable);
 
+  // The saved row keeps neither the elapsed time nor the average power.
   const stats: { label: string; value: string }[] = [
     {
       label: t('recording.library.recorded', 'Recorded'),
-      value: new Date(entry.startTime).toLocaleString(getIntlLocale()),
+      value: formatDateTime(entry.startTime),
     },
-    {
-      label: t('recording.library.duration', 'Duration'),
-      value: formatDuration(entry.durationSeconds),
-    },
+    ...recordingStats(
+      {
+        activityType: entry.activityType,
+        movingSeconds: entry.durationSeconds,
+        elapsedSeconds: null,
+        distanceMeters: entry.distanceMeters,
+        elevationGain: entry.elevationGain,
+        avgHeartrate: entry.avgHeartrate,
+        avgPower: null,
+      },
+      isMetric,
+      t
+    ),
   ];
-  if (entry.distanceMeters > 0) {
-    stats.push({
-      label: t('recording.library.distance', 'Distance'),
-      value: formatDistance(entry.distanceMeters, isMetric),
-    });
-  }
-  if (entry.elevationGain != null && entry.elevationGain > 0) {
-    stats.push({
-      label: t('recording.elevation', 'Elevation'),
-      value: formatElevation(entry.elevationGain, isMetric),
-    });
-  }
-  if (entry.avgHeartrate != null && entry.avgHeartrate > 0) {
-    stats.push({
-      label: t('recording.avgHrLabel', 'Avg HR'),
-      value: formatHeartRate(entry.avgHeartrate),
-    });
-  }
 
   return (
     <ScreenSafeAreaView hasNativeHeader style={[styles.container, { backgroundColor: bg }]}>

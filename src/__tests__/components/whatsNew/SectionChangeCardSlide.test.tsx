@@ -81,11 +81,11 @@ describe('SectionChangeCardSlide', () => {
       const { getByTestId, queryByTestId } = await render(<SectionChangeCardSlide />);
       expect(queryByTestId('change-card-progress')).toBeNull();
       const line = getByTestId('change-card-counts');
-      expect(line).toHaveTextContent(/"current":40/);
-      expect(line).toHaveTextContent(/"proposed":42/);
-      expect(line).toHaveTextContent(/"new":4/);
-      expect(line).toHaveTextContent(/"changed":3/);
-      expect(line).toHaveTextContent(/"gone":2/);
+      expect(line).toHaveTextContent(/"current\\?":40\b/);
+      expect(line).toHaveTextContent(/"proposed\\?":42\b/);
+      expect(line).toHaveTextContent(/"new\\?":4\b/);
+      expect(line).toHaveTextContent(/"changed\\?":3\b/);
+      expect(line).toHaveTextContent(/"gone\\?":2\b/);
     });
 
     it('reads a catalogue that came through untouched as unchanged', async () => {

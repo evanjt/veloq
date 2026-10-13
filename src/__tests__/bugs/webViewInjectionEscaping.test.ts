@@ -67,6 +67,7 @@ describe('a value interpolated into injected JavaScript', () => {
         routeColor: hostile,
         showHeatmap: false,
         devicePixelRatio: 2,
+        reduceMotion: false,
       });
       const literal = /'line-color': (".*"),\n\s*'line-width': 3,/.exec(html)![1];
       expect(eval(`(${literal})`)).toBe(hostile);

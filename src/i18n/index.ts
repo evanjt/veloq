@@ -12,15 +12,17 @@ function pickerSelectable(locale: SupportedLocale): SupportedLocale {
   return locale === 'es' ? 'es-419' : locale;
 }
 
-/**
- * Get the best matching locale from device settings
- */
-export function getDeviceLocale(): SupportedLocale {
-  const deviceLocales = getLocales();
+/** A language the platform reports, as `getLocales` gives it. */
+export type PlatformLocale = { languageTag: string; languageCode?: string | null };
 
-  for (const locale of deviceLocales) {
+/**
+ * The supported locale closest to the first language in the list the app ships,
+ * British English when none is.
+ */
+export function matchLocale(locales: readonly PlatformLocale[]): SupportedLocale {
+  for (const locale of locales) {
     const tag = locale.languageTag; // e.g., 'en-AU', 'es-MX'
-    const lang = locale.languageCode; // e.g., 'en', 'es'
+    const lang = locale.languageCode ?? tag.split('-')[0]; // e.g., 'en', 'es'
 
     // Check for exact match first
     if (SUPPORTED_LOCALES.includes(tag as SupportedLocale)) {
@@ -40,6 +42,13 @@ export function getDeviceLocale(): SupportedLocale {
 
   // Default to British English (standard English, not a dialect)
   return 'en-GB';
+}
+
+/**
+ * Get the best matching locale from device settings
+ */
+export function getDeviceLocale(): SupportedLocale {
+  return matchLocale(getLocales());
 }
 
 /**

@@ -57,6 +57,13 @@ describe('the preview section card header', () => {
     );
     expect(getByText('Section 7')).toBeTruthy();
   });
+
+  it('counts the proposal in traversals', async () => {
+    const { getByText } = await render(
+      <PreviewSectionPopover section={row({ visits: 3 })} newNumber={1} onClose={() => {}} />
+    );
+    expect(getByText('3 traversals')).toBeTruthy();
+  });
 });
 
 describe('previewNewNumber', () => {

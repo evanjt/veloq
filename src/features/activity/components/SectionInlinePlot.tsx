@@ -116,7 +116,7 @@ export function sectionCardAccessibilityLabel(
         : showDirection && t(isReverse ? 'sections.reverse' : 'sections.forward'),
       formatDistance(encounter.distanceMeters, isMetric),
       encounter.historyTimes.length > 0 &&
-        t('sections.visitsCount', { count: encounter.visitCount }),
+        t('sections.traversalsCount', { count: encounter.visitCount }),
       encounter.lapTime > 0 && formatLap(encounter.lapPace, encounter.lapTime, sportType, isMetric),
       !encounter.isComplete && !isPartialDirection && t('sections.partial'),
       encounter.isComplete && encounter.isPr && t('a11y.personalRecord'),
@@ -328,7 +328,7 @@ export const SectionInlinePlot = memo(
                       <RNText style={[styles.meta, isDark && styles.textSecondary]}>
                         {formatDistance(encounter.distanceMeters, isMetric)}
                         {encounter.historyTimes.length > 0 &&
-                          ` · ${t('sections.visitsCount', { count: encounter.visitCount })}`}
+                          ` · ${t('sections.traversalsCount', { count: encounter.visitCount })}`}
                         {encounter.lapTime > 0 && (
                           <>
                             <RNText style={[styles.meta, isDark && styles.textSecondary]}>

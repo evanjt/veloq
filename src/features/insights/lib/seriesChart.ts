@@ -4,6 +4,8 @@ import type { Domain, PlacedLabel } from '@/shared/charts';
 export interface SeriesSample {
   value: number;
   date?: number | null | undefined;
+  /** A total still accruing, such as the running week's. */
+  partial?: boolean | undefined;
 }
 
 /** A sample as the chart draws it: `x` is the date, or the order for an undated series. */
@@ -14,6 +16,7 @@ export interface SeriesDatum {
   date: number | null;
   /** Position in the series the caller passed, before any sample was dropped. */
   index: number;
+  partial: boolean;
 }
 
 export interface SeriesChartModel {
@@ -30,6 +33,8 @@ interface SeriesChartOptions {
   formatDate: (epochSeconds: number) => string;
   /** Draw the lowest value at the top, for a time where lower is better. */
   invert?: boolean;
+  /** Keep zero inside the value range, for bars that stand on it. */
+  fromZero?: boolean;
 }
 
 /** Share of the span added above and below the data, and either side of the dates. */
@@ -55,7 +60,7 @@ function decimalsFor(span: number, magnitude: number): number {
  */
 export function seriesChartModel(
   samples: readonly SeriesSample[],
-  { formatDate, invert = false }: SeriesChartOptions
+  { formatDate, invert = false, fromZero = false }: SeriesChartOptions
 ): SeriesChartModel | null {
   const usable = samples
     .map((sample, index) => ({ sample, index }))
@@ -73,16 +78,20 @@ export function seriesChartModel(
     value: sample.value,
     date: dated ? (sample.date as number) : null,
     index,
+    partial: sample.partial === true,
   }));
   data.sort((a, b) => a.x - b.x);
 
   const values = data.map((d) => d.value);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const min = fromZero ? Math.min(0, ...values) : Math.min(...values);
+  const max = fromZero ? Math.max(0, ...values) : Math.max(...values);
   const magnitude = Math.max(Math.abs(min), Math.abs(max));
   const span = max - min;
   const pad = (span > 0 ? span : Math.max(magnitude, 1)) * Y_PAD;
-  const yDomain: Domain = invert ? [max + pad, min - pad] : [min - pad, max + pad];
+  // A bar's length is its value, so the edge it stands on gets no padding.
+  const bottom = fromZero && min === 0 ? 0 : min - pad;
+  const top = fromZero && max === 0 ? 0 : max + pad;
+  const yDomain: Domain = invert ? [max + pad, min - pad] : [bottom, top];
 
   const xs = data.map((d) => d.x);
   const first = Math.min(...xs);

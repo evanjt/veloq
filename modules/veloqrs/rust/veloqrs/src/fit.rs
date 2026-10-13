@@ -93,6 +93,17 @@ fn decode(data: &[u8]) -> Result<Vec<fitparser::FitDataRecord>, FitParseError> {
     .map_err(|e| FitParseError::Decode(e.to_string()))
 }
 
+/// What a recording's FIT holds for its provisional row.
+#[derive(Debug, Clone, Default)]
+pub struct FitRecording {
+    /// The positions the records hold, in order, in degrees.
+    pub track: Vec<crate::GpsPoint>,
+    /// The session's wall-clock span in seconds, pauses included.
+    pub elapsed_seconds: Option<f64>,
+    /// The session's top speed in metres per second.
+    pub max_speed: Option<f64>,
+}
+
 /// The positions a FIT file records, in order, in degrees.
 ///
 /// A record with no fix carries no position and is skipped, which is how an
@@ -100,29 +111,72 @@ fn decode(data: &[u8]) -> Result<Vec<fitparser::FitDataRecord>, FitParseError> {
 /// unreadable file is an error, so a caller never takes it for a ride that
 /// stayed indoors.
 pub fn parse_fit_track(data: &[u8]) -> Result<Vec<crate::GpsPoint>, FitParseError> {
+    parse_fit_recording(data).map(|recording| recording.track)
+}
+
+/// The track and the session totals a FIT file records, from one decode.
+///
+/// The totals are the first session message's. A file with no session leaves
+/// them unset rather than zero, so a caller keeps what it already had.
+pub fn parse_fit_recording(data: &[u8]) -> Result<FitRecording, FitParseError> {
     if data.is_empty() {
         return Err(FitParseError::Empty);
     }
     let records = decode(data)?;
-    let mut track = Vec::new();
+    let mut recording = FitRecording::default();
+    let mut session_read = false;
     for record in &records {
-        if record.kind() != fitparser::profile::MesgNum::Record {
-            continue;
-        }
-        let mut lat = None;
-        let mut lng = None;
-        for field in record.fields() {
-            match field.name() {
-                "position_lat" => lat = semicircles_to_degrees(field.value()),
-                "position_long" => lng = semicircles_to_degrees(field.value()),
-                _ => {}
+        match record.kind() {
+            fitparser::profile::MesgNum::Record => {
+                let mut lat = None;
+                let mut lng = None;
+                for field in record.fields() {
+                    match field.name() {
+                        "position_lat" => lat = semicircles_to_degrees(field.value()),
+                        "position_long" => lng = semicircles_to_degrees(field.value()),
+                        _ => {}
+                    }
+                }
+                if let (Some(lat), Some(lng)) = (lat, lng) {
+                    recording.track.push(crate::GpsPoint::new(lat, lng));
+                }
             }
-        }
-        if let (Some(lat), Some(lng)) = (lat, lng) {
-            track.push(crate::GpsPoint::new(lat, lng));
+            fitparser::profile::MesgNum::Session if !session_read => {
+                session_read = true;
+                let mut max_speed = None;
+                let mut enhanced_max_speed = None;
+                for field in record.fields() {
+                    match field.name() {
+                        "total_elapsed_time" => {
+                            recording.elapsed_seconds = finite_number(field.value())
+                        }
+                        "max_speed" => max_speed = finite_number(field.value()),
+                        "enhanced_max_speed" => enhanced_max_speed = finite_number(field.value()),
+                        _ => {}
+                    }
+                }
+                // The decoder widens a 16-bit speed into its enhanced field, so
+                // the enhanced one is the reading when both are present.
+                recording.max_speed = enhanced_max_speed.or(max_speed);
+            }
+            _ => {}
         }
     }
-    Ok(track)
+    Ok(recording)
+}
+
+/// A scaled FIT number as a finite, non-negative float.
+fn finite_number(value: &fitparser::Value) -> Option<f64> {
+    let number = match value {
+        fitparser::Value::Float64(v) => *v,
+        fitparser::Value::Float32(v) => f64::from(*v),
+        fitparser::Value::UInt8(v) => f64::from(*v),
+        fitparser::Value::UInt16(v) => f64::from(*v),
+        fitparser::Value::UInt32(v) => f64::from(*v),
+        fitparser::Value::SInt64(v) => *v as f64,
+        _ => return None,
+    };
+    (number.is_finite() && number >= 0.0).then_some(number)
 }
 
 /// A FIT position is a signed 32-bit count of 2^-31 half turns.
@@ -440,6 +494,19 @@ pub(crate) mod tests {
                 "point {i} read as {point:?}"
             );
         }
+    }
+
+    /// Scenario: a ride paused for part of its span is saved and never
+    /// uploaded, so the provisional row is the only row it will have.
+    ///
+    /// Expected behaviour: the session's wall-clock span and top speed come
+    /// back out of the file the app's own writer produced.
+    #[test]
+    fn the_session_totals_come_back_out_of_a_fit_the_app_wrote() {
+        let recording = super::parse_fit_recording(&super::recorded_ride_fit()).unwrap();
+        assert_eq!(recording.track.len(), 30);
+        assert_eq!(recording.elapsed_seconds, Some(58.0));
+        assert_eq!(recording.max_speed, Some(5.0));
     }
 
     #[test]

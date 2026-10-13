@@ -284,7 +284,7 @@ describe('RouteSettingsStore', () => {
 
 describe('SportPreferenceStore', () => {
   beforeEach(async () => {
-    useSportPreference.setState({ primarySport: 'Cycling', isLoaded: false });
+    useSportPreference.setState({ primarySport: 'Cycling', isChosen: false, isLoaded: false });
     await AsyncStorage.clear();
     jest.clearAllMocks();
   });
@@ -293,6 +293,63 @@ describe('SportPreferenceStore', () => {
     it('rejects invalid sport - falls back to default', async () => {
       await AsyncStorage.setItem(SPORT_PREFERENCE_KEY, 'Skiing');
       await useSportPreference.getState().initialise();
+      expect(useSportPreference.getState().primarySport).toBe('Cycling');
+    });
+  });
+
+  describe('adoptLibrarySport()', () => {
+    it('takes the library dominant sport when nothing was chosen', async () => {
+      await useSportPreference.getState().initialise();
+      await useSportPreference.getState().adoptLibrarySport('Running');
+      expect(useSportPreference.getState().primarySport).toBe('Running');
+      expect(useSportPreference.getState().isChosen).toBe(false);
+      expect(await AsyncStorage.getItem(SPORT_PREFERENCE_KEY)).toBeNull();
+    });
+
+    it('keeps a stored choice whatever the library holds', async () => {
+      await AsyncStorage.setItem(SPORT_PREFERENCE_KEY, 'Cycling');
+      await useSportPreference.getState().initialise();
+      await useSportPreference.getState().adoptLibrarySport('Running');
+      expect(useSportPreference.getState().primarySport).toBe('Cycling');
+      expect(useSportPreference.getState().isChosen).toBe(true);
+    });
+
+    it('starts the next launch on the adopted default before any read', async () => {
+      await useSportPreference.getState().initialise();
+      await useSportPreference.getState().adoptLibrarySport('Swimming');
+      useSportPreference.setState({ primarySport: 'Cycling', isChosen: false, isLoaded: false });
+      await useSportPreference.getState().initialise();
+      expect(useSportPreference.getState().primarySport).toBe('Swimming');
+      expect(useSportPreference.getState().isChosen).toBe(false);
+    });
+
+    it('follows the library while the sport is still a default', async () => {
+      await useSportPreference.getState().initialise();
+      await useSportPreference.getState().adoptLibrarySport('Running');
+      await useSportPreference.getState().adoptLibrarySport('Swimming');
+      expect(useSportPreference.getState().primarySport).toBe('Swimming');
+    });
+
+    it('leaves the sport alone when the library names none', async () => {
+      await useSportPreference.getState().initialise();
+      await useSportPreference.getState().adoptLibrarySport('Running');
+      await useSportPreference.getState().adoptLibrarySport(null);
+      await useSportPreference.getState().adoptLibrarySport('Skiing');
+      expect(useSportPreference.getState().primarySport).toBe('Running');
+    });
+
+    it('stops following the library once the athlete chooses', async () => {
+      await useSportPreference.getState().initialise();
+      await useSportPreference.getState().adoptLibrarySport('Running');
+      await useSportPreference.getState().setPrimarySport('Cycling');
+      await useSportPreference.getState().adoptLibrarySport('Running');
+      expect(useSportPreference.getState().primarySport).toBe('Cycling');
+      expect(useSportPreference.getState().isChosen).toBe(true);
+    });
+
+    it('waits for the stored choice before adopting', async () => {
+      await AsyncStorage.setItem(SPORT_PREFERENCE_KEY, 'Swimming');
+      await useSportPreference.getState().adoptLibrarySport('Running');
       expect(useSportPreference.getState().primarySport).toBe('Cycling');
     });
   });

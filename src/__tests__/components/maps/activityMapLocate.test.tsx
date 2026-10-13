@@ -164,7 +164,7 @@ describe('locating the user on the inline activity map', () => {
     expect(eased).toHaveLength(1);
     expect(eased[0]).toContain(`"center":[${FIX[0]},${FIX[1]}]`);
     expect(eased[0]).toContain(`"zoom":${LOCATE_ZOOM}`);
-    expect(eased[0]).toContain(`"duration":${LOCATE_EASE_MS}`);
+    expect(eased[0]).toContain(`(window._veloqReduceMotion ? 0 : ${LOCATE_EASE_MS})`);
   });
 
   it('mounts the dot source empty, then holds a point at the fix', async () => {

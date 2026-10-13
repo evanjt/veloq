@@ -5,8 +5,10 @@ import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.icu.text.DisplayContext
+import android.icu.text.RelativeDateTimeFormatter
+import android.icu.util.ULocale
 import android.net.Uri
-import android.text.format.DateUtils
 import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
@@ -232,17 +234,27 @@ object WidgetRenderer {
     }
     val now = System.currentTimeMillis()
     val stale = SnapshotAge.isStale(seconds, now)
+    val locale = SnapshotAge.locale(snap?.locale, Locale.getDefault())
     val age =
       if (stale) {
-        SnapshotAge.absolute(seconds, ZoneId.systemDefault(), Locale.getDefault())
+        SnapshotAge.absolute(seconds, ZoneId.systemDefault(), locale)
       } else {
-        DateUtils.getRelativeTimeSpanString(
-          seconds * 1000L, now, DateUtils.MINUTE_IN_MILLIS, DateUtils.FORMAT_ABBREV_RELATIVE)
+        relativeAge(SnapshotAge.span(seconds, now), locale)
       }
     v.setViewVisibility(id, View.VISIBLE)
     v.setTextViewText(id, if (asOf == null) age else "$asOf · $age")
     p.textColor(v, id, if (stale) R.color.widget_warning else R.color.widget_text_secondary)
   }
+
+  /** "5 min. ago" in the snapshot's language, which the platform's relative span cannot take. */
+  private fun relativeAge(span: SnapshotAge.Span, locale: Locale): String =
+    RelativeDateTimeFormatter.getInstance(
+        ULocale.forLocale(locale), null, RelativeDateTimeFormatter.Style.SHORT,
+        DisplayContext.CAPITALIZATION_NONE)
+      .format(
+        span.count.toDouble(), RelativeDateTimeFormatter.Direction.LAST,
+        if (span.hours) RelativeDateTimeFormatter.RelativeUnit.HOURS
+        else RelativeDateTimeFormatter.RelativeUnit.MINUTES)
 
   /** The age and the action share a row; the action keeps a full finger-sized target. */
   internal fun bindRefresh(context: Context, v: RemoteViews, snap: WidgetSnapshot?) {

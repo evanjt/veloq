@@ -214,8 +214,7 @@ async function generatedInfoPlist(): Promise<Record<string, unknown>> {
   return exp.ios.infoPlist;
 }
 
-const appJson = require('@/../app.json');
-const bundleLocalizations: string[] = appJson.expo.ios.infoPlist.CFBundleLocalizations;
+const bundleLocalizations: string[] = strings.appleLanguages();
 
 /** The locale bundle an Apple language is generated from. */
 const localeOf = (language: string): string =>

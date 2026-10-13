@@ -1,11 +1,12 @@
-import React from 'react';
-import { View, Linking, Platform, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { AppState, View, Linking, Platform, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { colors, colorWithOpacity, spacing, layout, typography, themePalette } from '@/theme';
+import { batteryOptimisationExempt } from '@/features/recording/lib/recordingNotification';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { Button } from '@/shared/ui/Button';
 import { IconButton } from '@/shared/ui/IconButton';
@@ -14,6 +15,7 @@ import { IconButton } from '@/shared/ui/IconButton';
  * One-time, dismissable Android nudge to exempt Veloq from battery
  * optimisation so long recordings are not killed in the background. Opens the
  * system battery-optimisation list (never the per-app dialog directly).
+ * Shown only while Android reports the app is not exempt.
  */
 export function BatteryOptimisationNudge() {
   const { t } = useTranslation();
@@ -22,8 +24,9 @@ export function BatteryOptimisationNudge() {
   const dismissed = useRecordingPreferences((s) => s.batteryOptDismissed);
   const isLoaded = useRecordingPreferences((s) => s.isLoaded);
   const dismiss = useRecordingPreferences((s) => s.dismissBatteryOptNudge);
+  const exempt = useBatteryOptimisationExempt();
 
-  if (Platform.OS !== 'android' || dismissed || !isLoaded) return null;
+  if (Platform.OS !== 'android' || dismissed || !isLoaded || exempt) return null;
 
   const openBatterySettings = () => {
     Linking.sendIntent('android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS').catch(() => {
@@ -69,6 +72,26 @@ export function BatteryOptimisationNudge() {
       </IconButton>
     </View>
   );
+}
+
+/**
+ * The exemption is granted and revoked in system settings, which the nudge
+ * itself opens, so it is read again on every return to the app. A read raises
+ * no dialog.
+ */
+function useBatteryOptimisationExempt(): boolean {
+  const android = Platform.OS === 'android';
+  const [exempt, setExempt] = useState(() => android && batteryOptimisationExempt() === true);
+
+  useEffect(() => {
+    if (!android) return undefined;
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next === 'active') setExempt(batteryOptimisationExempt() === true);
+    });
+    return () => subscription.remove();
+  }, [android]);
+
+  return exempt;
 }
 
 const styles = StyleSheet.create({

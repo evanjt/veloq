@@ -25,6 +25,7 @@ jest.mock('@/features/maps/lib/heatmapGeneration', () => ({
 }));
 
 let mockPathname = '/map';
+let mockGlobalStyle = 'light';
 
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
@@ -35,7 +36,7 @@ jest.mock('expo-router', () => ({
 jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({
     preferences: { defaultStyle: 'light' },
-    getGlobalMapStyle: () => 'light',
+    getGlobalMapStyle: () => mockGlobalStyle,
     setGlobalMapStyle: jest.fn(),
     getStyleForActivity: () => 'light',
   }),
@@ -381,6 +382,21 @@ describe('RegionalMapView', () => {
 
     expect(onAttributionChange).toHaveBeenCalled();
     expect(screen.queryByText(onAttributionChange.mock.calls[0][0])).toBeNull();
+  });
+
+  it('reports with the credit whether the basemap under it is dark', async () => {
+    const onAttributionChange = jest.fn();
+    await renderRegional({ onAttributionChange });
+    expect(onAttributionChange).toHaveBeenLastCalledWith(expect.any(String), false);
+
+    mockGlobalStyle = 'satellite';
+    try {
+      const onSatellite = jest.fn();
+      await renderRegional({ onAttributionChange: onSatellite });
+      expect(onSatellite).toHaveBeenLastCalledWith(expect.any(String), true);
+    } finally {
+      mockGlobalStyle = 'light';
+    }
   });
 
   describe('degenerate input', () => {

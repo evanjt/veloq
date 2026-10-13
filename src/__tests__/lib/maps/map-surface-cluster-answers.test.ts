@@ -19,6 +19,7 @@ const config: MapSurfaceHtmlConfig = {
   camera: { center: [7.448, 46.949], zoom: 12 },
   interaction: { scroll: true, zoom: true, rotate: true, pitch: false },
   devicePixelRatio: 2,
+  reduceMotion: false,
   regionChangeThrottleMs: 100,
   longPressMs: 500,
 };

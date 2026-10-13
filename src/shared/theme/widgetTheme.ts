@@ -208,6 +208,8 @@ export const widgetLayout = {
   supportingRow: 40,
   /** The same row when an entry also draws a caption under its value. */
   supportingRowCaptioned: 52,
+  /** The box an Insights row's glyph is drawn in, beside a title at `widgetType.label`. */
+  insightGlyph: 14,
 } as const;
 
 /**
@@ -228,11 +230,11 @@ export const widgetType = {
 
 /**
  * How the widget type follows the reader's text size. Each step grows with the iOS text
- * style nearest its default size. The widgets and the Live Activity are data-dense, so they
- * follow the setting up to `maxScale` times each step's default size and no further, on iOS
- * and in the labels Android paints into a chart bitmap, which the system cannot scale.
- * `iosLargest` is the largest standard iOS size whose body text stays inside that; the
- * caption styles grow faster than body, so each step is capped at `maxScale` as well.
+ * style nearest its default size. A figure, a label or a caption is data-dense, so it follows
+ * the setting up to `maxScale` times its step's default size and no further, on iOS and in the
+ * labels Android paints into a chart bitmap, which the system cannot scale. A line of prose,
+ * an insight, an activity's name or comparison, an empty state, follows the setting however
+ * large, as prose does on the app's screens.
  */
 export const widgetTextScale = {
   styles: {
@@ -243,7 +245,6 @@ export const widgetTextScale = {
     caption: 'caption2',
     floor: 'caption2',
   } satisfies Record<keyof typeof widgetType, string>,
-  iosLargest: 'xxLarge',
   maxScale: 1.3,
 } as const;
 
@@ -261,4 +262,17 @@ export const widgetChart = {
   bandAccentedOpacities: [0.12, 0.3],
   /** The line drawn at each band boundary. */
   bandBoundary: 0.5,
+} as const;
+
+/**
+ * How the Strength widget's body keeps its set ramp without hue. A tinted or clear Home Screen
+ * draws the body in one colour, so there each shade is one colour at its own alpha.
+ */
+export const widgetBody = {
+  /** A trained part's alpha for each shade on the ramp, the lightest first. */
+  accentedOpacities: [0.35, 0.5, 0.65, 0.8, 1],
+  /** An untrained part's alpha, under the lightest shade, so the silhouette stays. */
+  accentedUntrainedOpacity: 0.15,
+  /** The hairline drawn round an untrained part. */
+  accentedOutline: 0.5,
 } as const;

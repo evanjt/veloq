@@ -6,7 +6,7 @@ import {
   paceUnitLabel,
   swimPaceUnitLabel,
 } from '@/shared/format/format';
-import type { HistoryMark, Insight, FtpTrend, PaceTrend, TFunc } from '../types';
+import type { DataPoint, HistoryMark, Insight, FtpTrend, PaceTrend, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { INSIGHTS_CONFIG, confidenceFrom } from '../lib/config';
 import type { InsightTone } from '@/theme';
@@ -103,6 +103,13 @@ function addPaceMilestoneInsight(
   )
     return;
 
+  const current: DataPoint = {
+    label: t('insights.data.currentPace'),
+    value: options.formatValue(pace.latestPace),
+    unit: options.paceUnit,
+    context: declining ? 'neutral' : 'good',
+    date: daySeconds(pace.latestDate),
+  };
   insights.push(
     makeInsight({
       id: options.id,
@@ -140,14 +147,9 @@ function addPaceMilestoneInsight(
           direction: declining ? 'down' : 'up',
           verdict: declining ? 'declined' : 'improved',
         },
+        hero: current,
         dataPoints: [
-          {
-            label: t('insights.data.currentPace'),
-            value: options.formatValue(pace.latestPace),
-            unit: options.paceUnit,
-            context: declining ? 'neutral' : 'good',
-            date: daySeconds(pace.latestDate),
-          },
+          current,
           {
             label: t('insights.data.previousPace'),
             value: options.formatValue(pace.previousPace),
@@ -196,6 +198,13 @@ export function generateFitnessMilestoneInsights(
       ? INSIGHTS_CONFIG.thresholds.minFtpDeclineWatts
       : INSIGHTS_CONFIG.thresholds.minFtpChangeWatts;
     if (Math.sign(delta) === (declining ? -1 : 1) && Math.abs(delta) >= minChange) {
+      const currentFtp: DataPoint = {
+        label: t('insights.data.currentFtp'),
+        value: Math.round(ftp.latestFtp),
+        unit: 'W',
+        context: declining ? 'neutral' : 'good',
+        date: daySeconds(ftp.latestDate),
+      };
       insights.push(
         makeInsight({
           id: 'fitness_milestone-ftp',
@@ -232,14 +241,9 @@ export function generateFitnessMilestoneInsights(
               direction: declining ? 'down' : 'up',
               verdict: declining ? 'declined' : 'improved',
             },
+            hero: currentFtp,
             dataPoints: [
-              {
-                label: t('insights.data.currentFtp'),
-                value: Math.round(ftp.latestFtp),
-                unit: 'W',
-                context: declining ? 'neutral' : 'good',
-                date: daySeconds(ftp.latestDate),
-              },
+              currentFtp,
               {
                 label: t('insights.data.previousFtp'),
                 value: Math.round(ftp.previousFtp),

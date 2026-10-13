@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { tapTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, opacity, layout, typography } from '@/theme';
-import type { Insight } from '@/types';
+import type { DataPoint, Insight } from '@/types';
 import { pressable, pressRipple } from '@/shared/ui';
 import { CollapsibleSection } from '@/shared/ui/CollapsibleSection';
 import { DataPointRow } from './DataPointRow';
@@ -17,6 +17,15 @@ import type { TFunc } from '../types';
 
 interface MethodologySectionProps {
   insight: Insight;
+  /** Runs before the data link opens its screen, so a routed sheet can close first. */
+  onLeave?: (() => void) | undefined;
+}
+
+/** Whether a row is the figure the sheet already leads with. */
+function isHero(row: DataPoint, hero: DataPoint | undefined): boolean {
+  return (
+    hero != null && row.label === hero.label && row.value === hero.value && row.unit === hero.unit
+  );
 }
 
 /**
@@ -26,6 +35,7 @@ interface MethodologySectionProps {
  */
 export const MethodologySection = React.memo(function MethodologySection({
   insight,
+  onLeave,
 }: MethodologySectionProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
@@ -37,7 +47,11 @@ export const MethodologySection = React.memo(function MethodologySection({
   const formula = supportingData?.formula ?? methodology?.formula;
   const algorithmDescription = supportingData?.algorithmDescription;
   const description = methodology?.description ?? null;
-  const dataPoints = supportingData?.dataPoints?.length ? supportingData.dataPoints : null;
+  // The figure the sheet leads with is drawn once, above the fold.
+  const rows = (supportingData?.dataPoints ?? []).filter(
+    (row) => !isHero(row, supportingData?.hero)
+  );
+  const dataPoints = rows.length ? rows : null;
   const ranking = insight.meta?.ranking;
   const dataTarget = insightDataTarget(insight);
   const timeMethod = timeMethodKey(insight);
@@ -97,6 +111,7 @@ export const MethodologySection = React.memo(function MethodologySection({
           {dataTarget ? (
             <DataLink
               target={dataTarget}
+              onLeave={onLeave}
               label={dataLinkLabel(insight, dataTarget, t as unknown as TFunc)}
               isDark={isDark}
             />
@@ -125,14 +140,19 @@ const FormulaBlock = React.memo(function FormulaBlock({
 /** The row that opens the screen the card's numbers were taken from. */
 const DataLink = React.memo(function DataLink({
   target,
+  onLeave,
   label,
   isDark,
 }: {
   target: string;
+  onLeave: (() => void) | undefined;
   label: string;
   isDark: boolean;
 }) {
-  const handlePress = useCallback(() => tapTo(target), [target]);
+  const handlePress = useCallback(() => {
+    onLeave?.();
+    tapTo(target);
+  }, [onLeave, target]);
 
   return (
     <Pressable

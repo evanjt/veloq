@@ -152,6 +152,7 @@ async function scatterCircles(recordsSettled: boolean) {
       chartData={POINTS}
       activityType="Ride"
       isDark={false}
+      forwardColour="#0D9488"
       bestForwardRecord={null}
       bestReverseRecord={null}
       bestForwardIsRecord={false}
