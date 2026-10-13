@@ -76,7 +76,7 @@ function TimerHeaderInner({
       <View>
         {status === 'idle' && <RecordingCloseButton />}
         <ElapsedTime textPrimary={textPrimary} autoPaused={autoPaused} />
-        {autoPaused && (
+        {autoPaused ? (
           <Text
             testID="recording-autopause"
             style={[styles.autoPauseLabel, { color: textSecondary }]}
@@ -84,7 +84,7 @@ function TimerHeaderInner({
           >
             {t('recording.autoPaused')} · {t('recording.autoPausedHint')}
           </Text>
-        )}
+        ) : null}
       </View>
       <View style={styles.headerRight}>
         <Pressable

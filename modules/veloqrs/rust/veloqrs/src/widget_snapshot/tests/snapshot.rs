@@ -717,8 +717,28 @@ fn mirrors_the_in_app_summary_card_settings_as_a_ready_to_render_block() {
             spoken: "eFTP 251".to_string(),
         }
     );
-    assert_eq!(card.entries[2].value, "6.5h");
+    assert_eq!(card.entries[2].value, "6 h 30 min");
     assert_eq!(card.sparkline, "fitnessForm");
+}
+
+/// Scenario: the week's hours printed as "6.5h", decimal hours with an English
+/// letter, under every locale and against the app card's hours and minutes.
+///
+/// Expected behaviour: the week is written from the duration units the app
+/// passes in the context, as hours and minutes.
+#[test]
+fn writes_the_week_in_the_duration_units_the_context_carries() {
+    let raw = make_raw();
+    let mut ctx = context(&raw);
+    ctx.strings.insert(
+        "units.hoursMinutes".to_string(),
+        "{{hours}}時間{{minutes}}分".to_string(),
+    );
+    ctx.strings
+        .insert("units.hoursValue".to_string(), "{{value}}時間".to_string());
+    let card = compose(&data_of(&raw), &ctx, CLOCK).summary_card.unwrap();
+    let week = card.entries.iter().find(|e| e.id == "weekHours").unwrap();
+    assert_eq!(week.value, "6時間30分");
 }
 
 #[test]
@@ -830,6 +850,11 @@ fn has_no_outline_for_a_missing_short_or_degenerate_track() {
     assert_eq!(route_outline(&stationary, ROUTE_OUTLINE_MAX_POINTS), None);
     let junk = [gps(f64::NAN, 8.0), gps(47.0, f64::NAN)];
     assert_eq!(route_outline(&junk, ROUTE_OUTLINE_MAX_POINTS), None);
+    let off_the_world = [gps(95.0, 8.0), gps(96.0, 190.0)];
+    assert_eq!(
+        route_outline(&off_the_world, ROUTE_OUTLINE_MAX_POINTS),
+        None
+    );
 }
 
 // ---------------------------------------------------------------------------

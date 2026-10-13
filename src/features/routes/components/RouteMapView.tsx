@@ -256,11 +256,11 @@ export function RouteMapView({
           released={!screenFocused || isFullscreen}
           onPress={onPress ? () => onPress() : undefined}
         />
-        {showExpandIcon && (
+        {showExpandIcon ? (
           <View style={styles.expandOverlay}>
             <MaterialCommunityIcons name="fullscreen" size={20} color={colors.textOnDark} />
           </View>
-        )}
+        ) : null}
       </Pressable>
 
       <Modal

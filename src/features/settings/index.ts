@@ -30,6 +30,7 @@ export { cleanUpRetiredBackupSettings } from './lib/autobackup/autoBackup';
 export { excludeLocalBackupsFromDeviceBackup } from './lib/autobackup/backends/localBackend';
 export { applyPlatformRecord } from './lib/platformRecordOffer';
 export { applyHeldImport } from './lib/heldImport';
+export { applyOpenedBackup, receiveOpenedBackup } from './lib/openedBackup';
 export { offerRestorePrompt } from './lib/restorePrompt';
 export { useLastBackupTimestamp, useAutoBackupEnabled } from './hooks/useLastBackupTimestamp';
 export { resumeRecordImport } from './lib/backup';

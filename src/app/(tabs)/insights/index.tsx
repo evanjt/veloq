@@ -21,7 +21,6 @@ import {
   type RoutesSortOption,
   SectionsList,
   type SectionsSortOption,
-  SyncDebugTab,
   useRoutesScreenData,
   DEFAULT_SECTION_HIDE_FLAGS,
   groupSortFor,
@@ -38,7 +37,6 @@ import type { StrengthPeriod } from '@/types';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
 import { progressLine } from '@/features/maps';
-import { useDebugStore } from '@/features/settings';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useSyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
 import {
@@ -53,7 +51,7 @@ import {
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { inform } from '@/shared/ui/dialog';
 
-type TabType = 'insights' | 'strength' | 'routes' | 'sections' | 'debug';
+type TabType = 'insights' | 'strength' | 'routes' | 'sections';
 
 function RouteTabEngineState({
   isDark,
@@ -144,8 +142,6 @@ function InsightsScreenContent() {
   const routeSettings = useRouteSettings((s) => s.settings);
   const isRouteMatchingEnabled = routeSettings.enabled;
 
-  const debugEnabled = useDebugStore((s) => s.enabled);
-
   const {
     data: routesData,
     status: routesStatus,
@@ -216,19 +212,15 @@ function InsightsScreenContent() {
       });
     }
 
-    if (debugEnabled) {
-      result.push({ key: 'debug', label: 'Sync', icon: 'bug-outline' });
-    }
-
     return result;
-  }, [debugEnabled, hasStrength, isRouteMatchingEnabled, t]);
+  }, [hasStrength, isRouteMatchingEnabled, t]);
 
   const availableTabKeys = useMemo(() => new Set(tabs.map((entry) => entry.key)), [tabs]);
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     // Deep-link from home insight chip - always lands on insights tab.
     if (insightId) return 'insights';
     if (tab === 'strength' && hasStrength) return 'strength';
-    if (tab === 'routes' || tab === 'sections' || tab === 'debug' || tab === 'insights') {
+    if (tab === 'routes' || tab === 'sections' || tab === 'insights') {
       return tab;
     }
     return 'insights';
@@ -543,8 +535,7 @@ function InsightsScreenContent() {
   );
 
   // One page per tab, in the tabs' own order. The strip renders page N for
-  // tab N, so pages built on conditions of their own put the routes page
-  // under the Sync tab whenever route matching was off.
+  // tab N, so pages built on conditions of their own land under the wrong tab.
   const tabPages = useMemo(
     () =>
       tabs.map((tab) => {
@@ -561,12 +552,6 @@ function InsightsScreenContent() {
             return routesPage;
           case 'sections':
             return sectionsPage;
-          case 'debug':
-            return (
-              <View key="debug" style={styles.routeTabPage}>
-                <SyncDebugTab />
-              </View>
-            );
           default:
             return insightsPage;
         }

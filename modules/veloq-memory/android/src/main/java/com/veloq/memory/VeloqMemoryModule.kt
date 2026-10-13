@@ -20,7 +20,7 @@ class VeloqMemoryModule : Module() {
   private val context: Context
     get() = appContext.reactContext ?: throw Exceptions.ReactContextLost()
 
-  private var callbacks: ComponentCallbacks2? = null
+  private val trimCallbacks = CallbackRegistration<ComponentCallbacks2>()
 
   override fun definition() = ModuleDefinition {
     Name("VeloqMemory")
@@ -39,8 +39,7 @@ class VeloqMemoryModule : Module() {
     }
 
     OnStartObserving("onTrimMemory") {
-      if (callbacks != null) return@OnStartObserving
-      val registered =
+      trimCallbacks.register(::applicationCallbacks) {
         object : ComponentCallbacks2 {
           override fun onTrimMemory(level: Int) {
             sendEvent("onTrimMemory", mapOf("level" to level))
@@ -53,18 +52,22 @@ class VeloqMemoryModule : Module() {
             sendEvent("onTrimMemory", mapOf("level" to ComponentCallbacks2.TRIM_MEMORY_COMPLETE))
           }
         }
-      context.applicationContext.registerComponentCallbacks(registered)
-      callbacks = registered
+      }
     }
 
-    OnStopObserving("onTrimMemory") {
-      callbacks?.let { context.applicationContext.unregisterComponentCallbacks(it) }
-      callbacks = null
-    }
+    OnStopObserving("onTrimMemory") { trimCallbacks.unregister() }
 
-    OnDestroy {
-      callbacks?.let { context.applicationContext.unregisterComponentCallbacks(it) }
-      callbacks = null
+    OnDestroy { trimCallbacks.unregister() }
+  }
+
+  private fun applicationCallbacks(): CallbackHost<ComponentCallbacks2> {
+    val application = context.applicationContext
+    return object : CallbackHost<ComponentCallbacks2> {
+      override fun register(callback: ComponentCallbacks2) =
+        application.registerComponentCallbacks(callback)
+
+      override fun unregister(callback: ComponentCallbacks2) =
+        application.unregisterComponentCallbacks(callback)
     }
   }
 }

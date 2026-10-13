@@ -222,6 +222,14 @@ export enum FfiCatalogueEmptyReason_Tags {
   NoneFound = 'NoneFound',
 }
 
+/** The tags of `FfiMapEmptyReason` as generated, held to the source by the same test. */
+export enum FfiMapEmptyReason_Tags {
+  NoActivities = 'NoActivities',
+  Filtered = 'Filtered',
+  TracksPending = 'TracksPending',
+  NoGps = 'NoGps',
+}
+
 /** The tags of `FfiDetectionHold` as generated, held to the source by the same test. */
 export enum FfiDetectionHold_Tags {
   ElevationPaused = 'ElevationPaused',
@@ -356,6 +364,7 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     FfiReferenceSource,
     FfiCatalogueEmptyReason_Tags,
     FfiDetectionHold_Tags,
+    FfiMapEmptyReason_Tags,
     isRetryableInit,
     hasOpened,
     isRetryableStart,

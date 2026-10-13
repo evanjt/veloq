@@ -81,7 +81,7 @@ export function SwitchRow({
         android_ripple={pressRipple}
         style={pressable([styles.target, INSETS[inset].target])}
       >
-        {icon && <MaterialCommunityIcons name={icon} size={22} color={iconColor} />}
+        {icon ? <MaterialCommunityIcons name={icon} size={22} color={iconColor} /> : null}
         <View style={styles.label}>
           <Text testID={titleTestID} style={[styles.title, { color: labelColor }]}>
             {title}

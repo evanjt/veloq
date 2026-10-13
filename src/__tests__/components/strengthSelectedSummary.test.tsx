@@ -82,7 +82,7 @@ describe('selected muscle summary', () => {
   it('shows weighted sets and volume beside the name', async () => {
     await draw(volume);
     expect(screen.getByTestId('strength-selected-summary').props.children).toBe(
-      '· 12.5 strength.setsCount · 3420 kg'
+      '· 12.5 strength.setsCount · 3,420 kg'
     );
   });
 
@@ -90,7 +90,7 @@ describe('selected muscle summary', () => {
     mockIsMetric = false;
     await draw(volume);
     expect(screen.getByTestId('strength-selected-summary').props.children).toBe(
-      '· 12.5 strength.setsCount · 7540 lbs'
+      '· 12.5 strength.setsCount · 7,540 lbs'
     );
   });
 
@@ -98,7 +98,7 @@ describe('selected muscle summary', () => {
     await draw(volume);
     expect(
       screen.getByRole('button', {
-        name: 'strength.clearMuscle(strength.muscles.abs), 12.5 strength.setsCount · 3420 kg',
+        name: 'strength.clearMuscle(strength.muscles.abs), 12.5 strength.setsCount · 3,420 kg',
       })
     ).toBeTruthy();
   });

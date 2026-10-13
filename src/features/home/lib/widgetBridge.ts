@@ -3,7 +3,7 @@
  *
  * The native module `VeloqWidget` is `modules/veloq-widget`: an App Group write and
  * a WidgetCenter reload on iOS, a `filesDir` write and an AppWidgetManager update on
- * Android. `requireOptionalNativeModule` returns null where it is absent, on web and
+ * Android, and the recent sports on a long press of the app icon on both. `requireOptionalNativeModule` returns null where it is absent, on web and
  * in tests, and every entry point here then does nothing.
  */
 import { requireOptionalNativeModule } from 'expo-modules-core';
@@ -30,7 +30,7 @@ interface VeloqWidgetModule {
   /** Delete the snapshot file, so the widgets draw their placeholder. */
   clearSnapshot(): void;
   reloadWidgets(): void;
-  /** Android only: the recent sports as launcher shortcuts. Absent on iOS. */
+  /** The recent sports as Android launcher shortcuts and iOS Home Screen quick actions. */
   publishRecordShortcuts?(shortcuts: WidgetRecordShortcut[]): void;
 }
 

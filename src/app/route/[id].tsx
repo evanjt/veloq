@@ -110,6 +110,7 @@ function RouteDetailScreenContent() {
   const debugEnabled = useDebugStore((s) => s.enabled);
   const { getPageMetrics } = useFFITimer();
   const { exportGpx, exporting: gpxExporting } = useGpxExport();
+  const exportAnchor = useRef<View>(null);
 
   // The chart's scrub lives outside this component, so a new index renders the
   // map and not the screen. Nothing here reads it.
@@ -341,7 +342,7 @@ function RouteDetailScreenContent() {
           />
         ) : null}
 
-        {showSportChips && (
+        {showSportChips ? (
           <SportTypeSelector
             options={sportCounts.map(({ sportType, count }) => ({ type: sportType, count }))}
             selectedType={effectiveSportType}
@@ -351,7 +352,7 @@ function RouteDetailScreenContent() {
               setSelectedSportType(selectedSportType === st ? undefined : st);
             }}
           />
-        )}
+        ) : null}
 
         {!!engineGroup?.activityIds.length && (
           <SectionContentArea
@@ -392,8 +393,9 @@ function RouteDetailScreenContent() {
         )}
 
         <View style={styles.listFooterContainer}>
-          {representativePoints && representativePoints.length > 0 && (
+          {representativePoints && representativePoints.length > 0 ? (
             <Button
+              ref={exportAnchor}
               testID="route-export-gpx"
               label={gpxExporting ? t('export.exporting') : t('export.gpx')}
               loading={gpxExporting}
@@ -408,16 +410,17 @@ function RouteDetailScreenContent() {
                     longitude: p.lng,
                   })),
                   sport: effectiveSportType,
+                  anchor: exportAnchor,
                 })
               }
               disabled={gpxExporting}
               style={styles.exportGpxButton}
             />
-          )}
+          ) : null}
 
           <DataRangeFooter days={cacheDays} isDark={isDark} />
 
-          {debugEnabled && engineGroup && (
+          {debugEnabled && engineGroup ? (
             <RouteDetailDebugPanel
               engineGroup={engineGroup}
               routeStats={routeStats}
@@ -426,7 +429,7 @@ function RouteDetailScreenContent() {
               isDark={isDark}
               isMetric={isMetric}
             />
-          )}
+          ) : null}
         </View>
       </ScrollView>
     </View>

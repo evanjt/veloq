@@ -23,6 +23,7 @@ import type { ZoneDistribution } from '@/types';
 import type { FtpTrendView } from '../../lib/ftpTrendView';
 import type { RangeCoverage } from 'veloqrs';
 import { ABSENT } from '@/shared/format/absent';
+import { formatPercent } from '@/shared/format';
 
 interface FitnessTrendSectionsProps {
   sportMode: PrimarySport;
@@ -159,14 +160,14 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                   <Text style={[styles.headerValue, { color: sportText.Cycling }]}>
                     {headerFtp} {t('units.watts')}
                   </Text>
-                  {ftpTrend && (
+                  {ftpTrend ? (
                     <MaterialCommunityIcons
                       name={trendIcon('ftp', ftpTrend)}
                       size={16}
                       color={verdictColor(verdictRung(trendVerdict('ftp', ftpTrend)), isDark)}
                       style={styles.trendIcon}
                     />
-                  )}
+                  ) : null}
                 </View>
               ) : null
             }
@@ -234,7 +235,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                         : ABSENT}
                     </Text>
                   </View>
-                  {runLthr && (
+                  {runLthr ? (
                     <>
                       <View style={styles.thresholdDivider} />
                       <View style={styles.thresholdItem}>
@@ -246,7 +247,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                         </Text>
                       </View>
                     </>
-                  )}
+                  ) : null}
                 </View>
               )}
             </View>
@@ -267,7 +268,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
             headerRight={
               decouplingSource ? (
                 <Text style={[styles.headerValue, { color: sportText.Cycling }]}>
-                  {decouplingSource.decoupling.toFixed(1)}%
+                  {formatPercent(decouplingSource.decoupling, 1)}
                 </Text>
               ) : null
             }

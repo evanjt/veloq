@@ -30,7 +30,7 @@ describe('the About Insights body', () => {
     expect(aboutInsightsBody(t, 'insights')).toBe('insights.aboutBody\n\ninsights.aboutRanking');
   });
 
-  it.each(['strength', 'routes', 'sections', 'debug'] as const)(
+  it.each(['strength', 'routes', 'sections'] as const)(
     'says nothing about ranking on the %s tab',
     (tab) => {
       expect(aboutInsightsBody(t, tab)).toBe('insights.aboutBody');

@@ -44,7 +44,7 @@ describe('formatRouteStanding', () => {
         { currentRank: 3, attemptCount: 4, percentileRank: 25, gapToBestSeconds: 14 },
         t
       )
-    ).toBe('routes.standingRank|{"rank":3,"total":4,"gap":"14s"}');
+    ).toBe('routes.standingRank|{"rank":3,"total":4,"gap":"14 s"}');
   });
 
   it('adds the percentile at five or more attempts', () => {

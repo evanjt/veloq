@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 
 import type { Athlete } from '@/types';
 import { getEngine } from '@/shared/native/engine';
+import { DEMO_ATHLETE_ID, sourceFor, type AuthMethod } from '@/shared/app/source';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 import {
   CREDENTIAL_KEYCHAIN_OPTIONS,
@@ -44,11 +45,7 @@ function isValidCredential(credential: string | null): credential is string {
   return credential !== null && credential.trim().length > 0;
 }
 
-// Demo mode athlete ID
-export const DEMO_ATHLETE_ID = 'demo';
-
-// Auth method type
-export type AuthMethod = 'oauth' | 'apiKey' | 'demo' | null;
+export { DEMO_ATHLETE_ID, type AuthMethod } from '@/shared/app/source';
 
 /**
  * Hand the current credential to the Rust sync service, the single owner of
@@ -97,7 +94,7 @@ export async function releasePushRegistration(
 ): Promise<void> {
   try {
     const { athleteId, authMethod } = useAuthStore.getState();
-    if (!athleteId || authMethod !== 'oauth') return;
+    if (!athleteId || !sourceFor({ authMethod })?.can.push) return;
     const {
       getNotificationPreferences,
       resolvePendingUnregisterAthleteId,

@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { debug } from '@/shared/debug/debug';
 import { getStoredCredentials } from '@/shared/app/AuthStore';
+import { sourceFor } from '@/shared/app/source';
 import { OAUTH } from '@/features/auth/light';
 import { TIME } from '@/shared/app/time';
 
@@ -83,7 +84,7 @@ export function authorizationHeader(
   >
 ): string | null {
   const { accessToken, authMethod } = credentials;
-  if (authMethod === 'oauth' && accessToken?.trim()) {
+  if (sourceFor({ authMethod })?.can.push && accessToken?.trim()) {
     return `Bearer ${accessToken.trim()}`;
   }
   return null;

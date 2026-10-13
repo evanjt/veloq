@@ -1,6 +1,9 @@
 import { composeRouteOutline, type RouteTrack } from '@/shared/geo/routePreview';
 import type { RecordingStatus } from '@/features/recording/types';
-import { LIVE_ACTIVITY_STALE_MS } from '@/features/recording/lib/constants';
+import {
+  LIVE_ACTIVITY_ENDED_DISMISS_MS,
+  LIVE_ACTIVITY_STALE_MS,
+} from '@/features/recording/lib/constants';
 
 /**
  * ActivityKit rejects a ContentState whose encoded form exceeds 4 KB, and the
@@ -16,7 +19,8 @@ export interface LiveActivityTrace {
 }
 
 export interface LiveActivityContentState {
-  status: 'recording' | 'paused';
+  /** `ended` is the final state a stopped ride's card is left on, frozen at the stop. */
+  status: 'recording' | 'paused' | 'ended';
   /**
    * Wall-clock ms the card counts up from. It is the start less the paused time,
    * so `Text(timerInterval:)` runs on its own and the card keeps ticking while
@@ -31,8 +35,11 @@ export interface LiveActivityContentState {
   distanceLabel: string;
   speedLabel: string;
   trace: LiveActivityTrace | null;
+  /** The line an ended card shows in place of the controls, translated here. Null while live. */
+  endedLabel: string | null;
   /**
-   * Wall-clock ms after which the card is stale. Each push moves it on, so it is
+   * Wall-clock ms after which the card is stale. On an ended card it is the moment
+   * the card is dismissed, so the stopped-recording line never replaces the totals. Each push moves it on, so it is
    * reached only once the process stops pushing, which is how a ride the system
    * killed stops counting on the lock screen instead of running for hours.
    */
@@ -47,6 +54,8 @@ export interface ContentStateInput {
   distanceLabel: string;
   speedLabel: string;
   gps: RouteTrack;
+  /** Set for the final state of a stopped ride: the line it shows until it is dismissed. */
+  endedLabel?: string | undefined;
 }
 
 /**
@@ -112,15 +121,17 @@ export function fitContentState(
 export function buildContentState(input: ContentStateInput): LiveActivityContentState {
   const movingMs = Math.max(0, input.movingMs);
   const paused = input.status === 'paused';
+  const ended = input.endedLabel !== undefined;
   const preview = composeRouteOutline(input.gps);
 
   return fitContentState({
-    status: paused ? 'paused' : 'recording',
+    status: ended ? 'ended' : paused ? 'paused' : 'recording',
     timerFrom: input.now - movingMs,
     frozenElapsedS: Math.round(movingMs / 1000),
     distanceLabel: input.distanceLabel,
     speedLabel: input.speedLabel,
     trace: preview ? { points: preview.points, aspect: preview.aspect } : null,
-    staleAt: input.now + LIVE_ACTIVITY_STALE_MS,
+    endedLabel: input.endedLabel ?? null,
+    staleAt: input.now + (ended ? LIVE_ACTIVITY_ENDED_DISMISS_MS : LIVE_ACTIVITY_STALE_MS),
   });
 }

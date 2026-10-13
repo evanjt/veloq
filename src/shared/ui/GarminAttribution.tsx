@@ -48,11 +48,11 @@ export function DeviceAttribution({ deviceName }: DeviceAttributionProps) {
           {t('attribution.recordedWith', { device: deviceName })}
         </Text>
       </View>
-      {isGarmin && (
+      {isGarmin ? (
         <Text style={[styles.attributionText, isDark && styles.attributionTextDark]}>
           {t('attribution.garminTrademark')}
         </Text>
-      )}
+      ) : null}
     </View>
   );
 }

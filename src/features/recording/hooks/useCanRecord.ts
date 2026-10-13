@@ -1,4 +1,5 @@
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { sourceFor } from '@/shared/app/source';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 
 type CanRecordResult = {
@@ -28,17 +29,13 @@ export function useCanRecord(): CanRecordResult {
 
   // Nobody is signed in, so the ride has nowhere to go. Every one-tap surface
   // reaches the recording screen directly, so this is the case that matters.
-  if (authMethod == null) {
+  const source = sourceFor({ authMethod });
+  if (source == null) {
     return { canRecord: false, reason: 'not_signed_in' };
   }
 
-  // API key users always have full permissions - can't scope API keys
-  if (authMethod === 'apiKey') {
-    return { canRecord: true, reason: 'ok' };
-  }
-
-  // Demo users can always record
-  if (authMethod === 'demo') {
+  // An API key carries no scopes, and a demo athlete never uploads.
+  if (!source.can.scoped) {
     return { canRecord: true, reason: 'ok' };
   }
 

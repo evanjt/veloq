@@ -59,7 +59,9 @@
       ],
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
       ]
     },
     "web": {
@@ -81,6 +83,22 @@
       "./src/plugins/with-android-bluetooth",
       "./src/plugins/with-plain-lan-transport",
       "./src/plugins/with-android-new-intent",
+      "./src/plugins/with-backup-file-types",
+      [
+        "expo-sharing",
+        {
+          "ios": {
+            "enabled": false
+          },
+          "android": {
+            "enabled": true,
+            "singleShareMimeTypes": [
+              "application/zip",
+              "application/octet-stream"
+            ]
+          }
+        }
+      ],
       "./src/plugins/with-android-restricted-resizability",
       [
         "react-native-cloud-storage",

@@ -613,13 +613,13 @@ function FeedScreenContent() {
         </View>
 
         {/* The engine's count of what the filters leave, whichever filter is on */}
-        {filtered && (
+        {filtered ? (
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, isDark && styles.textLight]}>
               {t('feed.activitiesCount', { count: search.matchedCount })}
             </Text>
           </View>
-        )}
+        ) : null}
       </>
     ),
     [
@@ -771,7 +771,7 @@ function FeedScreenContent() {
         <NotificationOptInCard libraryCount={allActivities.length} />
         <SupportCard />
         <PendingUploadsCard />
-        {summaryCard.enabled && !standingBy && (
+        {summaryCard.enabled && !standingBy ? (
           <SummaryCard
             profileUrl={profileUrl}
             onProfilePress={navigateToSettings}
@@ -796,7 +796,7 @@ function FeedScreenContent() {
             supportingMetrics={supportingMetrics}
             isLoading={summaryLoading}
           />
-        )}
+        ) : null}
       </View>
     </>
   );
@@ -854,7 +854,7 @@ function FeedScreenContent() {
       <RecordFAB />
 
       {/* Hidden WebView for generating 3D terrain snapshots - deferred to avoid startup cost */}
-      {snapshotWebViewReady && (
+      {snapshotWebViewReady ? (
         <ComponentErrorBoundary
           part="terrainSnapshots"
           debugName="3D Terrain Snapshots"
@@ -862,7 +862,7 @@ function FeedScreenContent() {
         >
           <TerrainSnapshotWebView ref={snapshotRef} suspended={!isFeedFocused} />
         </ComponentErrorBoundary>
-      )}
+      ) : null}
     </ScreenSafeAreaView>
   );
 }

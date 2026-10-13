@@ -46,6 +46,7 @@ fn conversion_directory(destination: &Path) -> Result<tempfile::TempDir, String>
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct RecordPayload {
     pub(crate) version: u32,
+    #[serde(default)]
     pub(crate) athlete_id: Option<String>,
     pub(crate) entries: Vec<RecordRow>,
     /// The intervals.icu id each device-minted key the entries name was
@@ -59,6 +60,7 @@ pub(crate) struct RecordPayload {
 pub(crate) struct RecordRow {
     pub(crate) table: String,
     pub(crate) values: Map<String, Value>,
+    #[serde(default)]
     pub(crate) ground: Option<RecordGround>,
 }
 
@@ -169,11 +171,11 @@ fn rows(db: &Connection, table: &str, filter: &str) -> Result<Vec<RecordRow>, St
         .map_err(|e| e.to_string())
 }
 
-fn string<'a>(values: &'a Map<String, Value>, key: &str) -> Option<&'a str> {
+pub(crate) fn string<'a>(values: &'a Map<String, Value>, key: &str) -> Option<&'a str> {
     values.get(key).and_then(Value::as_str)
 }
 
-fn integer(values: &Map<String, Value>, key: &str) -> Option<i64> {
+pub(crate) fn integer(values: &Map<String, Value>, key: &str) -> Option<i64> {
     values.get(key).and_then(Value::as_i64)
 }
 
@@ -467,10 +469,19 @@ const RECORD_INTERNAL_SETTINGS: &[&str] = &[
     "__auto_backup_enabled",
 ];
 
+/// The settings the front end writes that belong to this install rather than
+/// to the athlete. The upload grant is the scope of this install's OAuth
+/// token, which only the server that granted it can state, so a restore keeps
+/// the value already here.
+const DEVICE_SETTINGS: &[&str] = &["veloq-upload-permission"];
+
 /// Whether a settings row under `key` belongs in a record backup. The writer
 /// and the restore both ask this, so a file the writer never produced cannot
 /// place a key the writer would have left out.
 pub(crate) fn is_record_setting(key: &str) -> bool {
+    if DEVICE_SETTINGS.contains(&key) {
+        return false;
+    }
     !key.starts_with("__")
         || key.starts_with(super::activities::ACTIVITY_WINDOW_KEY_PREFIX)
         || RECORD_INTERNAL_SETTINGS.contains(&key)
@@ -514,8 +525,8 @@ fn setting(db: &Connection, key: &str) -> Result<Option<String>, String> {
     .map_err(|e| e.to_string())
 }
 
-/// The upload id of every device-minted key the entries name. A key never
-/// uploaded has none and is left out.
+/// The upload id of every key minted here that the entries name, a recording
+/// or an import. A key never uploaded has none and is left out.
 fn upstream_ids(
     db: &Connection,
     entries: &[RecordRow],
@@ -524,7 +535,7 @@ fn upstream_ids(
     for row in entries {
         let mut value = serde_json::to_value(row).map_err(|e| e.to_string())?;
         super::record_restore::for_each_activity_key(&mut value, &mut |key| {
-            if super::activities::is_local_activity_key(key) {
+            if super::origin::origin_of(key).minted_here() {
                 keys.insert(key.clone());
             }
         });
@@ -674,19 +685,22 @@ pub(crate) fn read_record_zip(path: &str) -> Result<RecordPayload, String> {
         return Err(too_large());
     }
     let payload: RecordPayload = serde_json::from_slice(&json).map_err(|e| e.to_string())?;
-    if payload.version > RECORD_VERSION {
-        return Err(format!(
-            "Record backup version {} is newer than supported version {}",
-            payload.version, RECORD_VERSION
-        ));
-    }
-    if payload.version != RECORD_VERSION {
-        return Err(format!(
-            "Unsupported record backup version {}",
-            payload.version
-        ));
-    }
+    check_record_version(payload.version)?;
     Ok(payload)
+}
+
+/// Refuse a record format this build cannot restore, whichever path the
+/// payload arrived by.
+pub(crate) fn check_record_version(version: u32) -> Result<(), String> {
+    if version > RECORD_VERSION {
+        return Err(format!(
+            "Record backup version {version} is newer than supported version {RECORD_VERSION}"
+        ));
+    }
+    if version != RECORD_VERSION {
+        return Err(format!("Unsupported record backup version {version}"));
+    }
+    Ok(())
 }
 
 /// Export a live database without exposing its mirror tables, refusing the

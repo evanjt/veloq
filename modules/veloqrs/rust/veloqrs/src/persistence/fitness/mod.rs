@@ -80,8 +80,9 @@ impl PersistentEngine {
         Ok(())
     }
 
-    /// The engine's own write for rows that arrive over the bridge, which
-    /// carry no zone seconds.
+    /// The test seed path: writes rows built as the record the screen reads
+    /// return. Those carry no zone seconds, so every zone column is replaced
+    /// with NULL; nothing in production writes through it.
     pub fn set_activity_metrics_extended(
         &mut self,
         metrics: Vec<crate::FfiActivityMetrics>,

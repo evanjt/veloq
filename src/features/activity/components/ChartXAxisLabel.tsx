@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { colors, darkColors, typography } from '@/theme';
 import { DenseText } from '@/shared/ui/DenseText';
 import { formatDuration } from '@/shared/format/format';
+import { formatDecimal } from '@/shared/format';
 
 interface ChartXAxisLabelProps {
   xAxisMode: 'distance' | 'time';
@@ -30,7 +31,7 @@ export const ChartXAxisLabel = React.memo(function ChartXAxisLabel({
         {t('activity.chartHint', 'Hold to scrub • Hold chip for axis')}
       </DenseText>
       <DenseText style={[styles.xLabel, isDark && styles.xLabelDark]}>
-        {xAxisMode === 'time' ? formatDuration(maxX) : maxX.toFixed(1)}
+        {xAxisMode === 'time' ? formatDuration(maxX) : formatDecimal(maxX, 1)}
       </DenseText>
     </View>
   );

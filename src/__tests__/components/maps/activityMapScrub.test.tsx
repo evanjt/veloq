@@ -252,6 +252,7 @@ describe('scrubbing the chart on the charts tab', () => {
         activity={activity}
         activityId={activity.id}
         coordinates={COORDINATES}
+        hasStoredTrack={false}
         isMetric={true}
         debugEnabled={false}
         mapHeight={360}
@@ -361,5 +362,63 @@ describe('scrubbing the 3D activity map', () => {
     expect(moves.length).toBeGreaterThan(0);
     expect(moves[moves.length - 1]).toContain(`${COORDS[5][0]}, ${COORDS[5][1]}`);
     expect(page.injected.filter((s) => /fitBounds|jumpTo|easeTo/.test(s))).toEqual([]);
+  });
+});
+
+describe('the activity line on the 2D map', () => {
+  const map = (hasStoredTrack: boolean, highlightIndex: number | null = null) => (
+    <SafeAreaProvider initialMetrics={METRICS}>
+      <ActivityMapView
+        activityType="Ride"
+        activityId="i9001"
+        hasStoredTrack={hasStoredTrack}
+        coordinates={COORDINATES}
+        highlightIndex={highlightIndex}
+      />
+    </SafeAreaProvider>
+  );
+
+  const routeData = () => {
+    const sent = mockPatches.find((p) => p.patch?.sources);
+    const sources = sent?.patch?.sources as Record<string, { data: unknown }> | undefined;
+    return sources?.route?.data;
+  };
+
+  const surface = () => {
+    const page = mockPages.get('maplibre-map');
+    if (!page) throw new Error('the 2D surface did not mount');
+    return page;
+  };
+
+  it('names the engine URL when the engine holds the track', async () => {
+    await render(map(true));
+    await ready(surface());
+
+    expect(routeData()).toEqual(expect.stringMatching(/veloq-geo\/track\/i9001\?v=0$/));
+  });
+
+  it('sends the line inline when the engine holds no track', async () => {
+    await render(map(false));
+    await ready(surface());
+
+    const data = routeData() as GeoJSON.Feature<GeoJSON.LineString>;
+    expect(data.geometry.coordinates).toHaveLength(COORDINATES.length);
+  });
+
+  it('keeps the URL through a scrub, sending the highlight alone', async () => {
+    const view = await render(map(true, 0));
+    await ready(surface());
+    mockPatches.length = 0;
+
+    for (const index of TICKS) {
+      await view.rerender(map(true, index));
+      await act(() => {
+        jest.advanceTimersByTime(20);
+      });
+    }
+
+    for (const { patch } of mockPatches) {
+      if (patch?.sources) expect(Object.keys(patch.sources as object)).toEqual(['highlight']);
+    }
   });
 });

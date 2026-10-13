@@ -38,6 +38,7 @@ export function GlobalDataSync() {
   const syncStateChanged = useSyncDateRange((s) => s.syncStateChanged);
   const isExpansionLocked = useSyncDateRange((s) => s.isExpansionLocked);
   const delayedUnlockExpansion = useSyncDateRange((s) => s.delayedUnlockExpansion);
+  const syncGeneration = useSyncDateRange((s) => s.syncGeneration);
 
   // Log the user out when the Rust transport reports an expired OAuth session.
   useSyncAuthExpiry();
@@ -117,12 +118,13 @@ export function GlobalDataSync() {
   // Unlock expansion once the sync has stopped, however it stopped (with a
   // delay to let the UI stabilise). A pass that errors, and an athlete with
   // nothing stored, both have to release the latch: neither ever reaches
-  // 'complete', and the slider would stay locked for the session.
+  // 'complete', and the slider would stay locked for the session. Only a run
+  // started after the reset that set the latch counts.
   useEffect(() => {
-    if (isExpansionLocked && syncSettledForExpansion(progress.status, activityCount)) {
+    if (isExpansionLocked && syncSettledForExpansion(progress, activityCount, syncGeneration)) {
       delayedUnlockExpansion();
     }
-  }, [progress.status, activityCount, isExpansionLocked, delayedUnlockExpansion]);
+  }, [progress, activityCount, isExpansionLocked, syncGeneration, delayedUnlockExpansion]);
 
   return null;
 }

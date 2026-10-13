@@ -1,21 +1,10 @@
 package __PKG__.widget
 
 import android.content.Context
+import com.veloq.WidgetSnapshotFile
 import org.json.JSONArray
 import org.json.JSONObject
-import java.io.File
 import kotlin.math.roundToInt
-
-/**
- * The pre-computed, pre-formatted snapshot the JS side writes to filesDir. The widget
- * only renders this, it never computes. Parsing is exhaustively null-safe: any missing
- * or malformed field degrades to a neutral default rather than crashing the host.
- * Version skew happens in both directions, so every field added after schema 2 is
- * nullable with a hide/neutral default.
- *
- * Shape mirrors `src/features/home/lib/widgetSnapshot.ts` (schema version 16).
- */
-private const val SNAPSHOT_FILE = "widget-snapshot.json"
 
 data class Metric(
   val value: Double,
@@ -129,6 +118,16 @@ data class ChartLabels(
   val form: String? = null,
 )
 
+/**
+ * The days each chart spans, as its caption reads: "30 days". Null for a chart too short to
+ * draw, and on a snapshot written before the captions.
+ */
+data class ChartSpans(
+  val fitness: String? = null,
+  val hrv: String? = null,
+  val form: String? = null,
+)
+
 /** Ready-to-render mirror of the in-app summary card, following the app settings. */
 data class SummaryCard(
   val hero: SummaryEntry,
@@ -148,6 +147,15 @@ data class FormHistory(val values: List<Float?>, val asPercent: Boolean, val zon
 /** One recent sport: the id a deep link needs and the name a surface shows. */
 data class RecordShortcut(val type: String, val label: String, val url: String)
 
+/**
+ * The pre-computed, pre-formatted snapshot the JS side writes to filesDir. The widget
+ * only renders this, it never computes. Parsing is exhaustively null-safe: any missing
+ * or malformed field degrades to a neutral default rather than crashing the host.
+ * Version skew happens in both directions, so every field added after schema 2 is
+ * nullable with a hide/neutral default.
+ *
+ * Shape mirrors `src/features/home/lib/widgetSnapshot.ts` (schema version 16).
+ */
 data class WidgetSnapshot(
   val form: Metric,
   val fitness: Metric,
@@ -228,6 +236,7 @@ data class WidgetSnapshot(
   /** The metrics the card offers as its hero, in its picker's order. Empty before the list. */
   val summaryHeroes: List<String> = emptyList(),
   val chartLabels: ChartLabels = ChartLabels(),
+  val chartSpans: ChartSpans = ChartSpans(),
 ) {
   /** The one a single-sport surface starts. */
   val lastRecordingType: String?
@@ -239,7 +248,7 @@ data class WidgetSnapshot(
 
     fun read(context: Context): WidgetSnapshot? {
       return try {
-        val file = File(context.filesDir, SNAPSHOT_FILE)
+        val file = WidgetSnapshotFile.file(context.filesDir)
         if (!file.exists()) return null
         parse(JSONObject(file.readText()))
       } catch (_: Exception) {
@@ -306,12 +315,19 @@ data class WidgetSnapshot(
         insights = parseInsights(root),
         strength = parseStrength(root),
         chartLabels = parseChartLabels(display),
+        chartSpans = parseChartSpans(display),
       )
     }
 
     private fun parseChartLabels(display: JSONObject): ChartLabels {
       val c = display.optJSONObject("chartLabels") ?: return ChartLabels()
       return ChartLabels(
+        fitness = optText(c, "fitness"), hrv = optText(c, "hrv"), form = optText(c, "form"))
+    }
+
+    private fun parseChartSpans(display: JSONObject): ChartSpans {
+      val c = display.optJSONObject("chartSpans") ?: return ChartSpans()
+      return ChartSpans(
         fitness = optText(c, "fitness"), hrv = optText(c, "hrv"), form = optText(c, "form"))
     }
 

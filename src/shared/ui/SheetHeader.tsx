@@ -15,14 +15,20 @@
  * a gesture with nothing on screen to show it and at the full detent there is
  * no outside to tap. On Android it draws nothing, for the reason above.
  *
+ * In the iOS top bar the title holds one line, centred, and the actions keep
+ * their full width, so a long title truncates before a label wraps. A subtitle
+ * leaves the bar and runs the full width under it, as a top bar carries only
+ * a title.
+ *
  * `SheetHeader` goes above the content and `SheetActions` below it, both given
  * the same `onCancel` and `confirm`. On each platform exactly one of them
  * draws the actions, so a sheet route never decides the placement itself.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Platform,
+  type LayoutChangeEvent,
   Pressable,
   StyleSheet,
   View,
@@ -102,65 +108,96 @@ export function SheetHeader({
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const palette = isDark ? darkColors : colors;
+  const [slots, setSlots] = useState({ leading: 0, trailing: 0 });
   const inRow =
     actionsInTitleRow() &&
     (onCancel !== undefined || confirm !== undefined || onClose !== undefined);
 
-  const heading = (
-    <View style={[styles.heading, inRow && styles.barHeading]}>
-      {leading}
-      <View style={styles.headingText}>
-        <Text
-          testID={titleTestID ?? (testID && `${testID}-title`)}
-          accessibilityRole="header"
-          style={[styles.title, inRow && styles.barTitle, { color: palette.textPrimary }]}
-        >
-          {title}
-        </Text>
-        {subtitle ? (
-          <Text
-            testID={testID && `${testID}-subtitle`}
-            style={[styles.subtitle, inRow && styles.barTitle, { color: palette.textSecondary }]}
-          >
-            {subtitle}
-          </Text>
-        ) : null}
-      </View>
-    </View>
+  const titleText = (
+    <Text
+      testID={titleTestID ?? (testID && `${testID}-title`)}
+      accessibilityRole="header"
+      numberOfLines={inRow ? 1 : undefined}
+      style={[styles.title, inRow && styles.barTitle, { color: palette.textPrimary }]}
+    >
+      {title}
+    </Text>
   );
+  const subtitleText = subtitle ? (
+    <Text
+      testID={testID ? `${testID}-subtitle` : undefined}
+      style={[styles.subtitle, { color: palette.textSecondary }]}
+    >
+      {subtitle}
+    </Text>
+  ) : null;
 
   if (!inRow) {
     return (
       <View testID={testID} style={[styles.row, style]}>
-        {heading}
+        <View style={styles.heading}>
+          {leading}
+          <View style={styles.headingText}>
+            {titleText}
+            {subtitleText}
+          </View>
+        </View>
       </View>
     );
   }
 
+  // The slots keep their content's width, so the title is centred by
+  // giving the narrower slot's side the difference.
+  const measure = (slot: 'leading' | 'trailing') => (event: LayoutChangeEvent) => {
+    const width = event.nativeEvent.layout.width;
+    setSlots((prev) => (prev[slot] === width ? prev : { ...prev, [slot]: width }));
+  };
+  const side = Math.max(slots.leading, slots.trailing);
+
   return (
-    <View testID={testID} style={[styles.row, style]}>
-      <View style={styles.leading}>
-        {onCancel && (
-          <BarButton label={t('common.cancel')} onPress={onCancel} testID={cancelTestID} />
-        )}
+    <View testID={testID} style={[styles.bar, style]}>
+      <View style={styles.barRow}>
+        <View style={styles.slot} onLayout={measure('leading')}>
+          {onCancel ? (
+            <BarButton label={t('common.cancel')} onPress={onCancel} testID={cancelTestID} />
+          ) : null}
+        </View>
+        <View
+          style={[
+            styles.heading,
+            styles.barHeading,
+            { marginStart: side - slots.leading, marginEnd: side - slots.trailing },
+          ]}
+        >
+          {leading}
+          <View style={styles.headingText}>{titleText}</View>
+        </View>
+        <View style={styles.slot} onLayout={measure('trailing')}>
+          {confirm ? (
+            <BarButton
+              label={confirm.label}
+              onPress={confirm.onPress}
+              disabled={confirm.disabled}
+              testID={confirm.testID}
+              bold
+            />
+          ) : null}
+          {onClose ? (
+            <IconButton
+              testID={closeTestID}
+              onPress={onClose}
+              accessibilityLabel={t('common.close')}
+            >
+              <MaterialCommunityIcons
+                name="close"
+                size={CLOSE_GLYPH}
+                color={palette.textSecondary}
+              />
+            </IconButton>
+          ) : null}
+        </View>
       </View>
-      {heading}
-      <View style={styles.trailing}>
-        {confirm && (
-          <BarButton
-            label={confirm.label}
-            onPress={confirm.onPress}
-            disabled={confirm.disabled}
-            testID={confirm.testID}
-            bold
-          />
-        )}
-        {onClose && (
-          <IconButton testID={closeTestID} onPress={onClose} accessibilityLabel={t('common.close')}>
-            <MaterialCommunityIcons name="close" size={CLOSE_GLYPH} color={palette.textSecondary} />
-          </IconButton>
-        )}
-      </View>
+      {subtitleText}
     </View>
   );
 }
@@ -178,14 +215,14 @@ export function SheetActions({
 
   return (
     <View testID={testID} style={[styles.actions, style]}>
-      {onCancel && (
+      {onCancel ? (
         <Button
           {...(cancelTestID !== undefined && { testID: cancelTestID })}
           label={t('common.cancel')}
           onPress={onCancel}
           variant="ghost"
         />
-      )}
+      ) : null}
       <Button
         {...(confirm.testID !== undefined && { testID: confirm.testID })}
         label={confirm.label}
@@ -222,7 +259,7 @@ function BarButton({ label, onPress, bold = false, disabled = false, testID }: B
       style={pressable([styles.barButton, disabled && styles.inert])}
     >
       <Text
-        testID={testID && `${testID}-label`}
+        testID={testID ? `${testID}-label` : undefined}
         style={[bold ? styles.barLabelBold : styles.barLabel, { color: tint }]}
       >
         {label}
@@ -248,10 +285,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  // Between the leading and trailing slots the heading takes only its own width.
+  bar: {
+    gap: spacing.xxs,
+    paddingHorizontal: layout.screenPadding,
+    paddingVertical: spacing.sm,
+  },
+  barRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    minHeight: layout.minTapTarget,
+  },
+  // Between the two slots the heading takes what they leave and centres in it.
   barHeading: {
-    flex: 0,
-    flexShrink: 1,
+    justifyContent: 'center',
   },
   headingText: {
     flexShrink: 1,
@@ -263,15 +310,12 @@ const styles = StyleSheet.create({
   barTitle: {
     textAlign: 'center',
   },
-  leading: {
-    flex: 1,
-    alignItems: 'flex-start',
-  },
-  trailing: {
-    flex: 1,
-    alignItems: 'flex-end',
+  // An action never narrows below its label; the title gives way instead.
+  slot: {
+    flexShrink: 0,
   },
   barButton: {
+    flexShrink: 0,
     justifyContent: 'center',
     minHeight: controlHeight.button,
     minWidth: controlHeight.button,

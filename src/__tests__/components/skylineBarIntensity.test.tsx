@@ -97,7 +97,9 @@ describe('the zone skyline', () => {
       <SkylineBar skylineBytes={skyline([600, 300, 600, 300], [2, 4, 2, 4])} isDark={false} />
     );
 
-    expect(getByLabelText('Time in Power Zones: Z2 Endurance 20m, Z4 Threshold 10m')).toBeTruthy();
+    expect(
+      getByLabelText('Time in Power Zones: Z2 Endurance 20 min, Z4 Threshold 10 min')
+    ).toBeTruthy();
   });
 
   it('names heart rate zones from the heart rate list', async () => {
@@ -106,7 +108,7 @@ describe('the zone skyline', () => {
     );
 
     expect(
-      getByLabelText('Time in HR Zones: Z1 Recovery 30m, Z5 Super-threshold 1m 30s')
+      getByLabelText('Time in HR Zones: Z1 Recovery 30 min, Z5 Super-threshold 1 min 30 s')
     ).toBeTruthy();
   });
 

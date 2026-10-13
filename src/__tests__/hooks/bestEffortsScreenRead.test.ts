@@ -111,7 +111,7 @@ describe('season bests', () => {
     });
 
     await waitFor(() => expect(engine.syncPowerCurve).toHaveBeenCalledWith('Ride', 42));
-    expect(result.current.efforts[0]).toMatchObject({ label: '5m', value: null });
+    expect(result.current.efforts[0]).toMatchObject({ label: '5 min', value: null });
     expect(engine.syncPaceCurve).not.toHaveBeenCalled();
   });
 

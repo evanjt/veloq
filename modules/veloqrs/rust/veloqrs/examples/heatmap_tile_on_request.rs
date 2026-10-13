@@ -2,9 +2,9 @@
 //! drawn it: the read of the tracks that reach it, the draw and the write,
 //! timed at the densest z15, z16 and z17 tile of a 500-activity library.
 //!
-//! The densest tile is the largest PNG the pass drew at that zoom, so it is
-//! the tile with the most ink, which is the slowest one to draw. Each run
-//! removes it and asks for it again through the reader the map uses.
+//! The densest tile is the one the most tracks walk through at that zoom,
+//! which is the slowest one to draw. Each run removes it and asks for it
+//! again through the reader the map uses.
 //!
 //! Usage:
 //!   cargo run --release -p veloqrs --features synthetic \
@@ -13,14 +13,17 @@
 //! For a handset, build with `cargo ndk -t arm64-v8a`, push the binary from
 //! `target/aarch64-linux-android/release/examples/` and run it there.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use tempfile::TempDir;
+use tracematch::GpsPoint;
 use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
 use veloqrs::persistence::persistent_engine_ffi::{TILE_GENERATION_HANDLE, persistent_engine_init};
 use veloqrs::persistence::tiles::{heatmap_tile_bytes, take_on_request_counts};
 use veloqrs::persistence::with_persistent_engine;
+use veloqrs::tiles::tiles_along_track;
 
 /// The 500-activity shape the heatmap benches build.
 fn corpus() -> LifecycleCorpus {
@@ -51,30 +54,24 @@ fn drain_pass() -> u32 {
     }
 }
 
-/// The largest PNG the pass drew at `z`, as its `(x, y)` and path.
-fn densest_tile(tiles_dir: &Path, z: u8) -> (u32, u32, PathBuf) {
-    let mut best: Option<(u64, u32, u32, PathBuf)> = None;
-    for column in std::fs::read_dir(tiles_dir.join(z.to_string()))
-        .expect("the pass drew this zoom")
-        .flatten()
-    {
-        let x: u32 = column
-            .file_name()
-            .to_string_lossy()
-            .parse()
-            .expect("column");
-        for tile in std::fs::read_dir(column.path()).expect("column").flatten() {
-            let name = tile.file_name().to_string_lossy().into_owned();
-            let Some(y) = name.strip_suffix(".png") else {
-                continue;
-            };
-            let size = tile.metadata().expect("tile").len();
-            if best.as_ref().is_none_or(|(most, ..)| size > *most) {
-                best = Some((size, x, y.parse().expect("row"), tile.path()));
-            }
+/// The tile at `z` the most tracks walk through, as its `(x, y)` and path.
+/// The pass draws nothing this deep, so the count of tracks stands in for the
+/// ink: the tile with the most tracks is the slowest one to draw.
+fn densest_tile(tiles_dir: &Path, tracks: &[Vec<GpsPoint>], z: u8) -> (u32, u32, PathBuf) {
+    let mut counts: HashMap<(u32, u32), usize> = HashMap::new();
+    for track in tracks {
+        for tile in tiles_along_track(track, z) {
+            *counts.entry(tile).or_default() += 1;
         }
     }
-    let (_, x, y, path) = best.expect("a tile with heat in it");
+    let ((x, y), _) = counts
+        .into_iter()
+        .max_by_key(|&((x, y), n)| (n, std::cmp::Reverse((x, y))))
+        .expect("a tile with a track in it");
+    let path = tiles_dir
+        .join(z.to_string())
+        .join(x.to_string())
+        .join(format!("{y}.png"));
     (x, y, path)
 }
 
@@ -107,12 +104,17 @@ fn main() {
         baseline.len()
     );
 
+    let stored: Vec<Vec<GpsPoint>> = baseline.iter().map(|a| a.gps_points.clone()).collect();
     for z in [15u8, 16, 17] {
-        let (x, y, path) = densest_tile(&tiles_dir, z);
+        let (x, y, path) = densest_tile(&tiles_dir, &stored, z);
         let mut times = Vec::with_capacity(repeats);
         let mut tracks = 0;
         for _ in 0..repeats {
-            std::fs::remove_file(&path).expect("tile removed");
+            match std::fs::remove_file(&path) {
+                Ok(()) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => panic!("the tile could not be removed: {e}"),
+            }
             take_on_request_counts();
             let start = Instant::now();
             let bytes = heatmap_tile_bytes(z, x, y);

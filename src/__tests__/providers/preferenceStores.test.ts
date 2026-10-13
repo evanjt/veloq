@@ -15,6 +15,7 @@
 import React from 'react';
 import { renderHook, act, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Localization from 'expo-localization';
 import { eachCorruptPayloadRecovers } from '../__shared__/storeCorruptionHelper';
 
 // UnitPreferenceStore
@@ -139,12 +140,55 @@ describe('UnitPreferenceStore', () => {
       expect(await AsyncStorage.getItem('veloq-resolved-unit-system')).toBe('metric');
     });
 
-    it('falls back to locale when auto + no profile', () => {
-      useUnitPreference.setState({
-        unitPreference: 'auto',
-        intervalsPreferences: null,
+    describe('auto with no profile reads the platform measurement system', () => {
+      const getLocales = Localization.getLocales as jest.Mock;
+      const withLocale = (regionCode: string | null, measurementSystem: unknown) => {
+        getLocales.mockReturnValue([
+          { languageTag: 'en', languageCode: 'en', regionCode, measurementSystem },
+        ]);
+        useUnitPreference.setState({ unitPreference: 'auto', intervalsPreferences: null });
+      };
+
+      afterEach(() => {
+        getLocales.mockReset();
+        getLocales.mockReturnValue([
+          { languageTag: 'en-US', languageCode: 'en', regionCode: 'US' },
+        ]);
       });
-      expect(typeof resolveIsMetric()).toBe('boolean');
+
+      it('takes the system setting over the region', () => {
+        withLocale('AU', 'us');
+        expect(resolveIsMetric()).toBe(false);
+        withLocale('AU', 'uk');
+        expect(resolveIsMetric()).toBe(false);
+        withLocale('US', 'metric');
+        expect(resolveIsMetric()).toBe(true);
+      });
+
+      it('falls back to the region when the system is not reported', () => {
+        withLocale('US', null);
+        expect(resolveIsMetric()).toBe(false);
+        withLocale('AU', undefined);
+        expect(resolveIsMetric()).toBe(true);
+        withLocale(null, null);
+        expect(resolveIsMetric()).toBe(true);
+      });
+
+      it('resolves metric when there is no locale at all', () => {
+        getLocales.mockReturnValue([]);
+        useUnitPreference.setState({ unitPreference: 'auto', intervalsPreferences: null });
+        expect(resolveIsMetric()).toBe(true);
+      });
+
+      it('lets the intervals.icu preference win over the system setting', () => {
+        withLocale('AU', 'us');
+        useUnitPreference.getState().setIntervalsPreferences({
+          measurementPreference: 'meters',
+          fahrenheit: false,
+          windSpeed: 'KMH',
+        });
+        expect(resolveIsMetric()).toBe(true);
+      });
     });
   });
 

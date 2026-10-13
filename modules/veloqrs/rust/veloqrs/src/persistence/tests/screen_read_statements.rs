@@ -497,6 +497,49 @@ fn map_screen_data_names_each_route_line_and_counts_its_activities() {
 }
 
 #[test]
+fn map_screen_data_gives_each_route_line_the_route_list_distance() {
+    let mut engine = seeded(SMALL);
+    // Each activity's distance differs, so a line carrying another route's
+    // figure, or none, reads wrong.
+    let metrics = (0..SMALL)
+        .map(|i| crate::ActivityMetrics {
+            activity_id: format!("a{i}"),
+            date: NOW - (i as i64) * DAY,
+            distance: 10_000.0 + i as f64 * 37.0,
+            ..Default::default()
+        })
+        .collect();
+    engine.set_activity_metrics(metrics).expect("metrics");
+    let listed: std::collections::HashMap<String, f64> =
+        crate::persistence::routes::pooled::group_summaries(&engine.db)
+            .into_iter()
+            .map(|group| (group.group_id, group.distance_meters))
+            .collect();
+
+    let lines = engine
+        .map_screen_data(
+            NOW - 365 * DAY,
+            NOW,
+            vec![],
+            crate::MapDistanceBand::All,
+            true,
+            true,
+            false,
+            String::new(),
+        )
+        .route_lines
+        .expect("the layer is on")
+        .routes
+        .expect("an unstamped read ships the lines");
+    assert!(!lines.is_empty(), "the seed draws no route");
+    for line in &lines {
+        let distance = listed.get(&line.route_id).copied().expect("a listed route");
+        assert!(distance > 0.0);
+        assert_eq!(line.distance_meters, distance, "{}", line.route_id);
+    }
+}
+
+#[test]
 fn test_map_screen_data_section_overlay_gate() {
     let engine = seeded(SMALL);
     let count = engine.get_section_count();

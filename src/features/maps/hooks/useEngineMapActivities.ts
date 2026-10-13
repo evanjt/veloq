@@ -2,7 +2,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import type { ActivityBoundsItem } from '@/types';
-import type { FfiRouteLineLayer, MapDistanceBand } from 'veloqrs';
+import type { FfiMapEmptyReason, FfiRouteLineLayer, MapDistanceBand } from 'veloqrs';
 import type { RouteLineLayerInput } from '@/features/maps/lib/routeLineCollection';
 import { createLayerHold } from '@/features/maps/lib/mapLayerHold';
 import { createSectionLineCache, type MapSection } from '@/features/maps/lib/sectionLineCollection';
@@ -53,6 +53,8 @@ interface UseEngineMapActivitiesReturn {
   sections: MapSection[];
   /** The overlay's lines, the same object while the engine's stamp is unchanged */
   sectionsGeoJSON: GeoJSON.FeatureCollection;
+  /** Why the map draws no activity, as the engine names it; undefined while it draws one */
+  emptyReason: FfiMapEmptyReason | undefined;
   /** The screen read threw, so nothing above describes the library */
   isError: boolean;
   /** What the screen read threw, when it did */
@@ -99,6 +101,7 @@ export function useEngineMapActivities({
     routeLines,
     sectionCount,
     sectionOverlay,
+    emptyReason,
     isError,
     error,
   } = useMemo(() => {
@@ -115,6 +118,7 @@ export function useEngineMapActivities({
       routeLines: routeHold.take(undefined),
       sectionCount: 0,
       sectionOverlay: sectionCache.overlay(undefined),
+      emptyReason: undefined as FfiMapEmptyReason | undefined,
     });
     if (!enabled) return empty();
 
@@ -174,6 +178,7 @@ export function useEngineMapActivities({
       routeLines: routeHold.take(data.routeLines),
       sectionCount: sectionsEnabled ? data.sectionCount : 0,
       sectionOverlay: sectionCache.overlay(sectionsEnabled ? data.sections : undefined),
+      emptyReason: data.emptyReason,
     };
   }, [
     enabled,
@@ -202,6 +207,7 @@ export function useEngineMapActivities({
     sectionCount,
     sections: sectionOverlay.sections,
     sectionsGeoJSON: sectionOverlay.collection,
+    emptyReason,
     isError,
     error,
     refetch,

@@ -232,6 +232,9 @@
     "disconnectMessage": "アプリからAPI認証情報が削除されます。アプリを使用するには再度入力が必要です。",
     "disconnectOffline": "オフラインです。ログイン方法はどちらも通信が必要なため、回線が戻るまで再度サインインできません。",
     "disconnectTitle": "アカウントを切断",
+    "leaveDemoTitle": "デモを終了しますか？",
+    "leaveDemoMessage": "サンプルのライドを閉じてサインイン画面に戻ります。デモの内容は保存されません。",
+    "leaveDemoConfirm": "終了",
     "failedToClear": "キャッシュのクリアに失敗しました。再試行してください。",
     "failedToDisconnect": "切断に失敗しました。再試行してください。",
     "accountChangeTitle": "別のアカウントが検出されました",
@@ -378,6 +381,8 @@
     "scanQrTitle": "Nextcloud QRコードをスキャン",
     "scanQrInstructions": "Nextcloudで設定 → セキュリティ → 新しいアプリパスワードを作成に移動し、表示されたQRコードをスキャンしてください。",
     "invalidQrCode": "有効なNextcloud QRコードではありません",
+    "torchOn": "ライトをオン",
+    "torchOff": "ライトをオフ",
     "cameraPermissionNeeded": "QRコードのスキャンにはカメラへのアクセスが必要です",
     "enterDetailsInstead": "詳細を手動で入力",
     "fillAllFields": "すべてのフィールドを入力してください",
@@ -403,7 +408,8 @@
   },
   "bestEffortsScreen": {
     "title": "ベストエフォート",
-    "seasonSubtitle": "過去{{days}}日間の自己ベスト記録。",
+    "seasonSubtitle_one": "過去{{count}}日間の自己ベスト記録。",
+    "seasonSubtitle_other": "過去{{count}}日間の自己ベスト記録。",
     "allTimeSubtitle": "キャッシュされた全履歴の自己ベスト記録。",
     "powerBests": "パワー",
     "paceBests": "ペース",
@@ -1029,7 +1035,8 @@
     "sectionPrSheet": {
       "fromPrevious": "前回比 −{{delta}}",
       "previous": "前回: {{date}} の {{time}}",
-      "efforts": "{{n}}回の記録",
+      "efforts_one": "{{count}}回の記録",
+      "efforts_other": "{{count}}回の記録",
       "fasterThan": "記録の{{percent}}%より速い",
       "allEfforts": "すべての記録 ({{n}})"
     },
@@ -1113,6 +1120,7 @@
     "subtitle": "intervals.icuに接続",
     "termsOfService": "利用規約",
     "title": "Veloq",
+    "demoCaption": "サンプルのライドです。何も保存されず、アプリを閉じるとデモは終了します。",
     "tryDemo": "デモを試す",
     "useApiKey": "APIキーを使用"
   },
@@ -1126,7 +1134,20 @@
     "showFilters": "すべてのフィルターを表示",
     "hideFilters": "フィルターを減らす",
     "searchCount": "{{total}} 件中 {{shown}} 件",
-    "searchFilteredBy": "絞り込み: {{filters}}"
+    "searchFilteredBy": "絞り込み: {{filters}}",
+    "emptyNoActivities": "この期間のアクティビティはありません",
+    "emptyNoActivitiesHint": "期間を広げると見つかるかもしれません。",
+    "emptyNoActivitiesAllTimeHint": "同期する日付範囲を広げると、古いアクティビティが地図に表示されます。",
+    "emptyShowAllTime": "全期間を表示",
+    "emptyFiltered": "条件に合うアクティビティはありません",
+    "emptyFilteredHint_one": "この期間の{{count}}件のアクティビティにトラックがあります。",
+    "emptyFilteredHint_other": "この期間の{{count}}件のアクティビティにトラックがあります。",
+    "emptyClearFilters": "フィルターをクリア",
+    "emptyTracksPending": "トラックをダウンロード中",
+    "emptyTracksPendingHint_one": "{{count}}件のトラックがまだダウンロードされていません。届き次第ここに表示されます。",
+    "emptyTracksPendingHint_other": "{{count}}件のトラックがまだダウンロードされていません。届き次第ここに表示されます。",
+    "emptyNoGps": "この期間のGPSトラックはありません",
+    "emptyNoGpsHint": "室内、トレーナー、プールのセッションには描くルートがありません。"
   },
   "maps": {
     "threeDUnavailable": "地形には接続が必要です。平面の地図を表示しています。",
@@ -1168,8 +1189,6 @@
     "tapSelectStart": "タップして開始点を選択",
     "toggleStyle": "マップスタイルを切り替え",
     "viewDetails": "詳細を表示",
-    "viewRouteDetails": "ルートの詳細を表示",
-    "viewSectionDetails": "セクションの詳細を表示",
     "zoomToActivity": "アクティビティにズーム",
     "gradientTick": "{{value}}%",
     "keyRecent": "最近",
@@ -1313,7 +1332,7 @@
       "avgPower": "平均パワー",
       "avgSpeed": "平均速度",
       "cadence": "ケイデンス",
-      "calories": "カロリー",
+      "calories": "カロリー（推定）",
       "distance": "距離",
       "elapsedTime": "経過時間",
       "elevation": "標高",
@@ -1491,6 +1510,7 @@
     "tileOrder": "タイルの順番",
     "tileOrderDescription": "タイルをタップすると表示する項目を選べます。記録画面でタイルを長押ししても同じ操作ができます。",
     "tileSlotLabel": "タイル{{number}}、{{field}}",
+    "endedCard": "停止しました。Veloqを開いて保存してください。",
     "interruptedNotice": {
       "body": "アクティビティ中にシステムがVeloqを終了したため、記録が停止しました。タップして再開します。",
       "card": "記録が停止しました。Veloqを開いて再開します。",
@@ -1501,7 +1521,9 @@
       "description": "記録中のアクティビティと操作ボタンを表示します。",
       "name": "記録"
     },
-    "recentTypes": "最近"
+    "recentTypes": "最近",
+    "caloriesMethod": "センサーがある場合は平均心拍数から年齢{{age}}歳と仮定して推定し、ない場合はスポーツと移動時間から推定します。",
+    "caloriesDefaultWeight": "プロフィールに体重がないため、{{weight}} kgと仮定しています。"
   },
   "routeDetail": {
     "routeNotFound": "ルートが見つかりません"
@@ -1673,7 +1695,8 @@
     "correlationStrengthVeryStrong": "非常に強い",
     "correlationFasterWhenHigher": "値が高いほど速い",
     "correlationFasterWhenLower": "値が低いほど速い",
-    "correlationAttempts": "{{n}}回",
+    "correlationAttempts_one": "{{count}}回",
+    "correlationAttempts_other": "{{count}}回",
     "correlationNotEnoughData": "データ不足、n {{n}}",
     "correlationNotEnoughDataOfFloor": "データ不足、n {{n}}／{{floor}}",
     "correlationCollapsed": "データ不足、最大のn {{n}}／{{floor}}",
@@ -1816,6 +1839,7 @@
     "exploreMapStyle": "探索マップ",
     "dialect": "方言",
     "disconnectAccount": "アカウントを切断",
+    "leaveDemo": "デモを終了",
     "display": "表示",
     "largeHistoryConfirm": "それでもダウンロード",
     "largeHistoryMessage_one": "ここまで遡ると最大で約 {{count}} 件のアクティビティをダウンロードします。時間がかかり、この量では動作が遅くなる場合があります。",
@@ -2191,7 +2215,13 @@
     "metres": "m",
     "seconds": "秒",
     "rpm": "rpm",
-    "spm": "spm"
+    "spm": "spm",
+    "hours": "時間",
+    "hoursValue": "{{value}}時間",
+    "minutesValue": "{{value}}分",
+    "secondsValue": "{{value}}秒",
+    "hoursMinutes": "{{hours}}時間{{minutes}}分",
+    "minutesSeconds": "{{minutes}}分{{seconds}}秒"
   },
   "spoken": {
     "noValue": "値なし",
@@ -2287,7 +2317,8 @@
       "recutRunningPhase": "区間を再解析しています: {{phase}}",
       "diffTotals": "{{current}} 件の区間が {{proposed}} 件になりました。",
       "diffBreakdown": "新規 {{new}} 件、変更 {{changed}} 件、引退 {{gone}} 件。",
-      "diffUnchanged": "{{sections}} 件の区間はすべて再解析後も変わりませんでした。",
+      "diffUnchanged_one": "{{count}} 件の区間はすべて再解析後も変わりませんでした。",
+      "diffUnchanged_other": "{{count}} 件の区間はすべて再解析後も変わりませんでした。",
       "recutFailed": "再解析は完了しませんでした。区間はそのままで、次回の起動時にもう一度実行されます。",
       "recutFailedAfterApply": "区間は再解析されましたが、変更内容の概要は保存されませんでした。次回の起動時にもう一度書き込まれます。",
       "settingsReset": "セクション検出の設定は検証済みの値にリセットされました: {{changes}}。セクション変更のプレビューから「保持」を選ぶと以前の値に戻せます。",
@@ -2369,7 +2400,6 @@
     "pairsInfoThresholds": "ステータス: バランス良好 ≤ 1.35×、要観察 〜2×、不均衡 2×超。",
     "pairsInfoMinSignal": "片側あたり重み付き4セット未満のペアはスキップされます。",
     "exercisesTargeting": "{{muscle}}を対象とするエクササイズ",
-    "exerciseSets": "{{sets}}セット",
     "exerciseWorkoutCount_one": "{{count}}回のワークアウト",
     "exerciseWorkoutCount_other": "{{count}}回のワークアウト",
     "totalVolume": "合計ボリューム",
@@ -2721,8 +2751,8 @@
     }
   },
   "permissions": {
-    "locationWhenInUse": "Veloqは、アクティビティマップの表示、ルートの追跡、アクティビティの記録に位置情報を使用します。",
-    "locationBackground": "Veloqは、アプリがフォアグラウンドにないときもアクティビティの記録を続けるため、バックグラウンドで位置情報を使用します。",
+    "locationWhenInUse": "Veloqは、アクティビティの記録、マップ上での現在地の表示、近くのルートと区間の並べ替えに位置情報を使用します。アクティビティをアップロードしない限り、位置情報はこの端末から出ません。",
+    "locationBackground": "Siri、コントロールセンター、ウィジェットから開始したアクティビティを、アプリを開かずにVeloqで記録できるようにします。",
     "bluetooth": "Veloqは、記録中に心拍数・パワー・ケイデンスセンサーと接続するためにBluetoothを使用します。",
     "camera": "Veloqは、NextcloudのアプリパスワードのQRコードを読み取るためにカメラを使用します。",
     "microphone": "Veloqは音声を録音しません。カメラはQRコードの読み取りにのみ使用します。",

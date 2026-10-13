@@ -33,6 +33,8 @@ export interface GpsSyncProgress {
    * the surfaces keep showing the message until `detectionApplied` lands.
    */
   analysingInBackground?: boolean;
+  /** The `syncGeneration` the run that wrote this started at. */
+  generation?: number;
 }
 
 /**
@@ -216,6 +218,11 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
         `[SyncDateRange] Reset to ${DEFAULT_ACTIVITY_DAYS} days (${range.oldest} - ${range.newest}), ` +
           `expansion LOCKED, generation ${current.syncGeneration} -> ${newGeneration}`
       );
+    }
+    // An unlock already pending was earned by the state this reset replaces.
+    if (_unlockTimeoutId) {
+      clearTimeout(_unlockTimeoutId);
+      _unlockTimeoutId = null;
     }
     set({
       ...range,

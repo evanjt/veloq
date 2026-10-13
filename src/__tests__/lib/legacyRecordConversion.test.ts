@@ -116,6 +116,23 @@ describe('legacy record conversion', () => {
     expect(keys).toEqual(['veloq-theme-preference']);
   });
 
+  it("leaves this install's upload grant out of a converted backup", () => {
+    const record = convertLegacyBackupToRecord(
+      JSON.stringify({
+        ...legacy,
+        preferences: {
+          'veloq-theme-preference': 'dark',
+          'veloq-upload-permission': '{"hasWritePermission":true}',
+        },
+      })
+    );
+    const keys = record.entries
+      .filter((entry) => entry.table === 'settings')
+      .map((entry) => entry.values.key);
+
+    expect(keys).toEqual(['veloq-theme-preference']);
+  });
+
   it('carries each disabled and superseded id as its own unplaced record', () => {
     const record = convertLegacyBackupToRecord(
       JSON.stringify({

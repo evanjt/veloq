@@ -144,7 +144,7 @@ export const ClusterCountOverlay = React.forwardRef<
           accessibilityLabel={t('sections.activitiesCount', { count: cluster.count })}
           style={[styles.countHitbox, { left: cluster.x - 16, top: cluster.y - 8 }]}
         >
-          {visible && <Text style={styles.countLabelVisible}>{cluster.count}</Text>}
+          {visible ? <Text style={styles.countLabelVisible}>{cluster.count}</Text> : null}
         </View>
       ))}
     </View>

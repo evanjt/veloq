@@ -29,6 +29,7 @@ import {
   formatDuration,
 } from '@/shared/format/format';
 import { tapTo } from '@/shared/app/navigation';
+import { formatDecimal } from '@/shared/format';
 
 interface PaceCurveChartProps {
   sport?: string;
@@ -256,7 +257,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
       <CardHeader
         title={t('stats.paceCurve')}
         accessory={
-          isRunning && (
+          isRunning ? (
             <View style={styles.gapToggle}>
               <Text style={styles.gapLabel}>{t('stats.gap')}</Text>
               <Switch
@@ -265,7 +266,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
                 accessibilityLabel={t('stats.gap')}
               />
             </View>
-          )
+          ) : null
         }
       />
 
@@ -293,7 +294,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
       </View>
 
       {/* The activity that set the effort the header shows. */}
-      {selectedActivity && (
+      {selectedActivity ? (
         <Row
           inset="none"
           behaviour="navigate"
@@ -306,7 +307,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
             </Text>
           </View>
         </Row>
-      )}
+      ) : null}
 
       <CurveChart
         data={chartData}
@@ -324,7 +325,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
       {/* The rule the chart draws, named. The power and swim curves carry the
           same row; without it the dashed line crosses the curve saying nothing,
           and the figure sits in the model line among D' and R². */}
-      {criticalSpeedPace && (
+      {criticalSpeedPace ? (
         <View style={styles.legend}>
           <View style={[styles.legendDash, { backgroundColor: CS_LINE_COLOR }]} />
           <Text testID="pace-curve-cs-legend" style={styles.legendText}>
@@ -332,7 +333,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
             {paceUnitLabel(isMetric)}
           </Text>
         </View>
-      )}
+      ) : null}
 
       {/* Model info */}
       <View style={styles.footer}>
@@ -343,15 +344,16 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
               ? `${formatFullDate(curve.startDate)} - ${formatFullDate(curve.endDate)}`
               : ''}
           </Text>
-          {criticalSpeedPace && (
+          {criticalSpeedPace ? (
             <Text style={styles.modelStats}>
               {t('metrics.cs')} {formatPaceFromSecsPerKm(criticalSpeedPace, isMetric)}
-              {paceUnitLabel(isMetric)} ({curve?.criticalSpeed?.toFixed(2)}{' '}
+              {paceUnitLabel(isMetric)} (
+              {curve?.criticalSpeed != null ? formatDecimal(curve.criticalSpeed, 2) : ''}{' '}
               {t('units.metresPerSecond')})
-              {curve?.dPrime ? `  D' ${curve.dPrime.toFixed(0)} ${t('units.metres')}` : ''}
-              {curve?.r2 ? `  R² ${curve.r2.toFixed(4)}` : ''}
+              {curve?.dPrime ? `  D' ${formatDecimal(curve.dPrime, 0)} ${t('units.metres')}` : ''}
+              {curve?.r2 ? `  R² ${formatDecimal(curve.r2, 4)}` : ''}
             </Text>
-          )}
+          ) : null}
         </View>
       </View>
     </View>

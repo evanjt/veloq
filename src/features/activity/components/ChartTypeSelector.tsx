@@ -179,7 +179,7 @@ export function ChartTypeSelector({
               <MaterialCommunityIcons name={config.icon} size={11} color={textColor} />
               <DenseText style={[styles.chipLabel, { color: textColor }]}>{label}</DenseText>
             </View>
-            {metric && (
+            {metric ? (
               <View style={styles.chipValueContainer}>
                 {/* Hidden max-width text to reserve stable chip width */}
                 <DenseText style={[styles.chipValue, styles.chipValueHidden]} numberOfLines={1}>
@@ -199,7 +199,7 @@ export function ChartTypeSelector({
                   {metric.unit ? ` ${metric.unit}` : ''}
                 </DenseText>
               </View>
-            )}
+            ) : null}
           </Pressable>
         );
       })}

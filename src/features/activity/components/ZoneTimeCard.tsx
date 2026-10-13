@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { colors, darkColors, typography, spacing } from '@/theme';
 import { ZoneHistogram, type ZoneBand } from '@/shared/charts';
 import { ChartErrorBoundary, CardHeader } from '@/shared/ui';
-import { formatDuration, formatDurationHuman } from '@/shared/format/format';
+import { formatDurationHuman } from '@/shared/format/format';
 
 /** One zone as the engine resolved it, in the unit the card's formatter prints. */
 export interface ZoneTimeBand {
@@ -80,10 +80,10 @@ export function ZoneTimeCard({
         )}
         <View style={styles.totalsRow}>
           <Text style={[styles.label, isDark && styles.labelDark]}>
-            {zoneTotalLabel(formatDuration(zoneTotal))}
+            {zoneTotalLabel(formatDurationHuman(zoneTotal))}
           </Text>
           <Text style={[styles.label, isDark && styles.labelDark]}>
-            {t('activity.movingTime', { duration: formatDuration(movingTime) })}
+            {t('activity.movingTime', { duration: formatDurationHuman(movingTime) })}
           </Text>
         </View>
         <ZoneHistogram bands={histogram} />

@@ -1,6 +1,7 @@
 import { calendarDaysBetween, getMonday } from '@/shared/format/format';
 import { trendVerdict, verdictRung, type TrendMetric } from '@/shared/format/trend';
 import type { VerdictRung } from '@/theme/colors';
+import { formatSignedPercentage } from '@/shared/format';
 
 export type WindowRange = 'week' | 'month' | '3m' | '6m' | 'year';
 
@@ -129,10 +130,11 @@ export function seasonChange(
   pct: number
 ): { text: string; rung: VerdictRung } {
   const whole = Math.round(Math.abs(pct)) * Math.sign(pct);
-  if (whole === 0) return { text: '0%', rung: 'neutral' };
+  const text = formatSignedPercentage(pct, 0);
+  if (whole === 0) return { text, rung: 'neutral' };
   const direction = whole > 0 ? 'up' : 'down';
   return {
-    text: `${whole > 0 ? '+' : ''}${whole}%`,
+    text,
     rung: verdictRung(trendVerdict(SEASON_METRIC[metric], direction)),
   };
 }

@@ -74,7 +74,7 @@ export const ChartYAxisLabel = React.memo(function ChartYAxisLabel({
         {formatYAxisValue(yAxisSeries.range.min, yAxisSeries)}
       </DenseText>
       {/* Avg label - on the dashed average line */}
-      {yAxisAvgInfo && (
+      {yAxisAvgInfo ? (
         <DenseText
           style={[
             styles.yLabel,
@@ -94,7 +94,7 @@ export const ChartYAxisLabel = React.memo(function ChartYAxisLabel({
         >
           {formatYAxisValue(yAxisAvgInfo.raw, yAxisSeries)}
         </DenseText>
-      )}
+      ) : null}
     </>
   );
 });

@@ -1,16 +1,13 @@
 import React, { memo, useMemo, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Text, Animated } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, typography, spacing, layout, shadows } from '@/theme';
 import { formatDistance, formatDuration, formatFullDateWithWeekday } from '@/shared/format/format';
-import { useMetricSystem, useTheme } from '@/shared/app';
-import { getActivityTypeConfig } from '../../lib/activityCategories';
+import { useMetricSystem } from '@/shared/app';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import type { ActivityBoundsItem, ActivityMapData } from '@/types';
-import { Button, IconButton } from '@/shared/ui';
 import { useFocusOnAppear } from '@/shared/ui/useFocusOnAppear';
 import { motionSpring, motionTiming } from '@/shared/ui/reduceMotion';
+import { MapPopup } from './MapPopup';
 
 const FADE_IN_MS = 100;
 
@@ -18,8 +15,6 @@ export interface SelectedActivity {
   activity: ActivityBoundsItem;
   mapData: ActivityMapData | null;
   isLoading: boolean;
-  /** Pre-computed GeoJSON coordinates [lng, lat][] for instant route rendering */
-  routeCoords?: [number, number][] | undefined;
 }
 
 interface ActivityPopupProps {
@@ -43,18 +38,11 @@ export const ActivityPopup = memo(function ActivityPopup({
 }: ActivityPopupProps) {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
-  const { isDark } = useTheme();
 
   const activityType = selected?.activity.type;
   const activityDate = selected?.activity.date;
   const activityDistance = selected?.activity.distance;
   const activityDuration = selected?.activity.duration;
-
-  // Memoize config lookup
-  const config = useMemo(
-    () => (activityType ? getActivityTypeConfig(activityType) : null),
-    [activityType]
-  );
 
   // Memoize icon name
   const activityIcon = useMemo(
@@ -116,150 +104,32 @@ export const ActivityPopup = memo(function ActivityPopup({
   }
 
   return (
-    <Animated.View
+    <MapPopup
       testID="activity-popup"
-      style={[
-        styles.popup,
-        isDark && styles.popupDark,
-        { bottom, opacity, transform: [{ translateY }] },
+      titleTestID="activity-popup-title"
+      closeTestID="activity-popup-close"
+      container={Animated.View}
+      style={{ bottom, opacity, transform: [{ translateY }] }}
+      titleRef={titleRef}
+      title={selected?.activity.name ?? ''}
+      subtitle={formattedDate}
+      stats={[
+        {
+          key: 'sport',
+          icon: activityIcon,
+          value: activityType ? t(`activityTypes.${activityType}`, activityType) : '',
+        },
+        { key: 'distance', icon: 'map-marker-distance', value: formattedDistance },
+        {
+          key: 'time',
+          icon: 'clock-outline',
+          value: formattedDuration ? t('activity.movingTime', { duration: formattedDuration }) : '',
+        },
       ]}
-      pointerEvents="auto"
-    >
-      <View style={styles.popupHeader}>
-        <View style={styles.popupInfo}>
-          <Text
-            ref={titleRef}
-            testID="activity-popup-title"
-            style={[styles.popupTitle, isDark && styles.popupTitleDark]}
-            numberOfLines={1}
-          >
-            {selected?.activity.name ?? ''}
-          </Text>
-          <Text style={[styles.popupDate, isDark && styles.popupDateDark]}>{formattedDate}</Text>
-        </View>
-        <Button
-          testID="activity-popup-view-details"
-          onPress={onViewDetails}
-          label={t('maps.viewDetails')}
-          variant="ghost"
-          size="sm"
-          icon={<MaterialCommunityIcons name="chevron-right" size={18} color={colors.primary} />}
-        />
-        <View style={styles.popupHeaderButtons}>
-          <IconButton
-            testID="activity-popup-zoom"
-            onPress={onZoom}
-            variant="ghost"
-            accessibilityLabel={t('maps.zoomToActivity')}
-          >
-            <MaterialCommunityIcons name="crosshairs-gps" size={22} color={colors.primary} />
-          </IconButton>
-          <IconButton
-            testID="activity-popup-close"
-            onPress={onClose}
-            variant="ghost"
-            accessibilityLabel={t('maps.closePopup')}
-          >
-            <MaterialCommunityIcons
-              name="close"
-              size={22}
-              color={isDark ? darkColors.textSecondary : colors.textSecondary}
-            />
-          </IconButton>
-        </View>
-      </View>
-
-      <View style={[styles.popupStats, isDark && styles.popupStatsDark]}>
-        <View style={styles.popupStat}>
-          <MaterialCommunityIcons
-            name={activityIcon}
-            size={20}
-            color={config?.color ?? colors.primary}
-          />
-          <Text style={[styles.popupStatValue, isDark && styles.popupStatValueDark]}>
-            {activityType ? t(`activityTypes.${activityType}`, activityType) : ''}
-          </Text>
-        </View>
-        <View style={styles.popupStat}>
-          <MaterialCommunityIcons name="map-marker-distance" size={20} color={colors.chartBlue} />
-          <Text style={[styles.popupStatValue, isDark && styles.popupStatValueDark]}>
-            {formattedDistance}
-          </Text>
-        </View>
-        <View style={styles.popupStat}>
-          <MaterialCommunityIcons name="clock-outline" size={20} color={colors.chartAmber} />
-          <Text style={[styles.popupStatValue, isDark && styles.popupStatValueDark]}>
-            {formattedDuration}
-          </Text>
-        </View>
-      </View>
-    </Animated.View>
+      viewDetails={{ testID: 'activity-popup-view-details', onPress: onViewDetails }}
+      zoom={{ testID: 'activity-popup-zoom', label: t('maps.zoomToActivity'), onPress: onZoom }}
+      closeLabel={t('maps.closePopup')}
+      onClose={onClose}
+    />
   );
-});
-
-const styles = StyleSheet.create({
-  popup: {
-    position: 'absolute',
-    left: spacing.md,
-    right: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    ...shadows.modal,
-  },
-  popupDark: {
-    backgroundColor: darkColors.surfaceCard,
-  },
-  popupHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xsPlus,
-  },
-  popupHeaderButtons: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  popupInfo: {
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  popupTitle: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  popupTitleDark: {
-    color: darkColors.textPrimary,
-  },
-  popupDate: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-    marginTop: spacing.xxs,
-  },
-  popupDateDark: {
-    color: darkColors.textSecondary,
-  },
-  popupStats: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.xsPlus,
-  },
-  popupStatsDark: {},
-  popupStat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  popupStatValue: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '500',
-    color: colors.textPrimary,
-  },
-  popupStatValueDark: {
-    color: darkColors.textPrimary,
-  },
 });

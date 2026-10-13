@@ -260,13 +260,15 @@ pub enum UploadTransition {
         intervals_activity_id: Option<String>,
     },
     /// A retriable failure: the attempt is counted, and after the last one the
-    /// ride parks as `failed`.
+    /// ride parks as `failed`. The FIT is kept either way.
     Failed { install: f64, error: String },
     /// A rejection automatic retries cannot fix. The ride parks as `failed`.
     Rejected { install: f64, error: String },
     /// The grant lacks write permission.
     PermissionBlocked { install: f64 },
-    /// A credential was refused. The ride waits with its attempts intact.
+    /// A credential was refused. The ride waits with its attempts intact,
+    /// because a 401 says nothing about the ride, and keeps the error so the
+    /// library can say why it is waiting.
     HeldForAuth { install: f64, error: String },
     /// The transport failed, before or after the request reached
     /// intervals.icu. The ride waits with its attempts intact, stamped so the
@@ -607,66 +609,10 @@ impl PersistentEngine {
         Ok(true)
     }
 
-    // The per-destination writers below apply the named transition and drop
-    // its answer, so legality has the one table until their callers move.
-
-    pub fn set_recording_uploading(&self, id: &str) -> SqlResult<()> {
-        self.transition_recording(id, &UploadTransition::Begin, 0)?;
-        Ok(())
-    }
-
-    pub fn set_recording_uploaded(
-        &self,
-        id: &str,
-        intervals_activity_id: Option<&str>,
-    ) -> SqlResult<()> {
-        let landed = UploadTransition::Uploaded {
-            install: 0.0,
-            intervals_activity_id: intervals_activity_id.map(str::to_string),
-        };
-        self.transition_recording(id, &landed, 0)?;
-        Ok(())
-    }
-
-    /// A retriable failure. The entry stays `pending` until the automatic
-    /// retries are exhausted, then parks as `failed` for a manual retry. The
-    /// FIT is kept either way. Answers the attempts counted against it.
-    ///
-    /// Like every outcome but the success, it writes only over a row still
-    /// `uploading`. A sign-in hold can take the row while the request is in
-    /// flight, and a late outcome that set it `pending` again would send one
-    /// athlete's ride under the next athlete's credentials.
-    pub fn set_recording_upload_failed(&self, id: &str, error: &str, now: i64) -> SqlResult<u32> {
-        let failed = UploadTransition::Failed {
-            install: 0.0,
-            error: error.to_string(),
-        };
-        Ok(self.transition_recording(id, &failed, now)?.retry_count)
-    }
-
-    /// A server-side rejection that automatic retries cannot fix.
-    pub fn set_recording_rejected(&self, id: &str, error: &str, now: i64) -> SqlResult<()> {
-        let rejected = UploadTransition::Rejected {
-            install: 0.0,
-            error: error.to_string(),
-        };
-        self.transition_recording(id, &rejected, now)?;
-        Ok(())
-    }
-
-    pub fn set_recording_permission_blocked(&self, id: &str, now: i64) -> SqlResult<()> {
-        self.transition_recording(
-            id,
-            &UploadTransition::PermissionBlocked { install: 0.0 },
-            now,
-        )?;
-        Ok(())
-    }
-
     /// Release every ride the last launch left mid-upload, and answer how many.
     ///
-    /// `set_recording_uploading` is written before the request goes out and
-    /// only a returned outcome moves it on, so an app kill leaves the row at
+    /// A `Begin` is written before the request goes out and only a returned
+    /// outcome moves it on, so an app kill leaves the row at
     /// `uploading`, where the manual affordance is hidden and the automatic
     /// retry does not look. The attempt is counted, the same as any other that
     /// did not report back: a kill that keeps happening would otherwise retry
@@ -736,39 +682,6 @@ impl PersistentEngine {
         )?;
         crate::net::connectivity::nudge();
         Ok(changed as u32)
-    }
-
-    /// The transport failed before intervals.icu was reached.
-    ///
-    /// The ride stays in the queue with its attempt counter untouched, for the
-    /// same reason a 401 does: a request that never arrived says nothing about
-    /// the ride, and a device that spends a week out of signal would otherwise
-    /// spend all five attempts on cold launches and park a ride the server has
-    /// never seen. `last_attempt_at` *is* stamped, so the ordinary backoff
-    /// still applies and a failing transport cannot become a hot loop.
-    pub fn hold_recording_for_network(&self, id: &str, error: &str, now: i64) -> SqlResult<()> {
-        let held = UploadTransition::HeldForNetwork {
-            install: 0.0,
-            error: error.to_string(),
-        };
-        self.transition_recording(id, &held, now)?;
-        Ok(())
-    }
-
-    /// A credential was refused while this ride was uploading.
-    ///
-    /// The ride goes back in the queue exactly as it was: the attempt counter
-    /// and the last attempt are untouched, because a 401 says nothing about the
-    /// ride and spending one of its five attempts on a dead credential would
-    /// retire a recording the server never saw. The error is kept so the
-    /// library can say why it is waiting.
-    pub fn hold_recording_for_auth(&self, id: &str, error: &str) -> SqlResult<()> {
-        let held = UploadTransition::HeldForAuth {
-            install: 0.0,
-            error: error.to_string(),
-        };
-        self.transition_recording(id, &held, 0)?;
-        Ok(())
     }
 
     /// An athlete has signed in: stop auto-uploading everything that is not
@@ -1171,8 +1084,12 @@ mod tests {
     fn rejected_upload_reuses_the_provisional_row_on_manual_retry() {
         let (_dir, mut e) = engine();
         uploaded_recording(&mut e);
-        e.set_recording_rejected("r1", "intervals.icu no longer has the activity", 2_000)
-            .unwrap();
+        apply(
+            &e,
+            "r1",
+            rejected("intervals.icu no longer has the activity"),
+            2_000,
+        );
         let row = e.get_recording("r1").unwrap().unwrap();
         assert_eq!(row.upload_status, "failed");
         assert_eq!(row.intervals_activity_id, None);
@@ -1182,8 +1099,7 @@ mod tests {
         assert!(row.last_error.unwrap().contains("intervals.icu"));
         assert!(e.next_pending_recording(1_000_000).unwrap().is_none());
         assert_eq!(e.intervals_id("local-r1"), None);
-        e.set_recording_rejected("r1", "still missing", 3_000)
-            .unwrap();
+        refuse(&e, "r1", rejected("still missing"), 3_000);
         assert!(e.record_upload("local-r1", "i-new").unwrap());
         assert_eq!(
             e.activity_id_for_intervals_id("i-new").as_deref(),
@@ -1197,7 +1113,10 @@ mod tests {
         let (_dir, mut e) = engine();
         uploaded_recording(&mut e);
         e.db.execute_batch("CREATE TRIGGER fail_rejection BEFORE UPDATE ON recordings BEGIN SELECT RAISE(ABORT, 'injected failure'); END;").unwrap();
-        assert!(e.set_recording_rejected("r1", "missing", 2_000).is_err());
+        assert!(
+            e.transition_recording("r1", &rejected("missing"), 2_000)
+                .is_err()
+        );
         assert_eq!(e.intervals_id("local-r1").as_deref(), Some("i-old"));
         assert_eq!(
             e.get_recording("r1").unwrap().unwrap().upload_status,
@@ -1211,14 +1130,15 @@ mod tests {
         uploaded_recording(&mut e);
         e.db.execute("UPDATE activities SET intervals_id = 'i-other'", [])
             .unwrap();
-        e.set_recording_rejected("r1", "missing", 2_000).unwrap();
+        apply(&e, "r1", rejected("missing"), 2_000);
         assert_eq!(e.intervals_id("local-r1").as_deref(), Some("i-other"));
-        e.set_recording_rejected("absent", "missing", 2_000)
-            .unwrap();
+        assert_eq!(
+            refuse(&e, "absent", rejected("missing"), 2_000).refusal,
+            Some(UploadRefusal::NoRecording)
+        );
         e.insert_recording(&entry("manual", 1_000, "pending"))
             .unwrap();
-        e.set_recording_rejected("manual", "invalid", 2_000)
-            .unwrap();
+        apply(&e, "manual", rejected("invalid"), 2_000);
         assert_eq!(
             e.get_recording("manual").unwrap().unwrap().upload_status,
             "failed"
@@ -1317,9 +1237,8 @@ mod tests {
         assert_eq!(pooled::next_due_at(&e.db).unwrap(), None, "nothing pending");
 
         e.insert_recording(&entry("a", 1_000, "pending")).unwrap();
-        e.set_recording_uploading("a").unwrap();
-        e.set_recording_upload_failed("a", "network", 100_000)
-            .unwrap();
+        apply(&e, "a", UploadTransition::Begin, 0);
+        apply(&e, "a", failed("network"), 100_000);
         assert_eq!(
             pooled::next_due_at(&e.db).unwrap(),
             Some(100_000 + BACKOFF_BASE_MS * 2)
@@ -1339,10 +1258,8 @@ mod tests {
         e.insert_recording(&entry("r1", 1_000, "pending")).unwrap();
 
         for attempt in 1..MAX_AUTO_RETRIES {
-            e.set_recording_uploading("r1").unwrap();
-            let count = e
-                .set_recording_upload_failed("r1", "network", 10_000)
-                .unwrap();
+            apply(&e, "r1", UploadTransition::Begin, 0);
+            let count = apply(&e, "r1", failed("network"), 10_000).retry_count;
             assert_eq!(count, attempt);
             assert_eq!(
                 e.get_recording("r1").unwrap().unwrap().upload_status,
@@ -1350,10 +1267,8 @@ mod tests {
             );
         }
 
-        e.set_recording_uploading("r1").unwrap();
-        let count = e
-            .set_recording_upload_failed("r1", "network", 10_000)
-            .unwrap();
+        apply(&e, "r1", UploadTransition::Begin, 0);
+        let count = apply(&e, "r1", failed("network"), 10_000).retry_count;
         assert_eq!(count, MAX_AUTO_RETRIES);
         let read = e.get_recording("r1").unwrap().unwrap();
         assert_eq!(read.upload_status, "failed");
@@ -1366,9 +1281,8 @@ mod tests {
         e.insert_recording(&entry("r1", 1_000, "pending")).unwrap();
         assert!(e.next_pending_recording(0).unwrap().is_some());
 
-        e.set_recording_uploading("r1").unwrap();
-        e.set_recording_upload_failed("r1", "network", 100_000)
-            .unwrap();
+        apply(&e, "r1", UploadTransition::Begin, 0);
+        apply(&e, "r1", failed("network"), 100_000);
         assert!(
             e.next_pending_recording(100_000 + BACKOFF_BASE_MS - 1)
                 .unwrap()
@@ -1437,7 +1351,7 @@ mod tests {
         held.last_attempt_at = Some(900.0);
         e.insert_recording(&held).unwrap();
 
-        e.hold_recording_for_auth("held", "unauthorized").unwrap();
+        apply(&e, "held", held_for_auth("unauthorized"), 0);
 
         let row = e.get_recording("held").unwrap().unwrap();
         assert_eq!(row.upload_status, "pending");
@@ -1457,14 +1371,13 @@ mod tests {
     #[test]
     fn an_unreachable_network_never_parks_the_ride() {
         let (_dir, e) = engine();
-        e.insert_recording(&entry("ride", 1_000, "uploading"))
+        e.insert_recording(&entry("ride", 1_000, "pending"))
             .unwrap();
 
         for i in 0..(MAX_AUTO_RETRIES + 3) {
             let now = 100_000 + i as i64 * BACKOFF_BASE_MS * 64;
-            e.set_recording_uploading("ride").unwrap();
-            e.hold_recording_for_network("ride", "Network request failed", now)
-                .unwrap();
+            apply(&e, "ride", UploadTransition::Begin, 0);
+            apply(&e, "ride", held_for_network("Network request failed"), now);
 
             let row = e.get_recording("ride").unwrap().unwrap();
             assert_eq!(
@@ -1500,8 +1413,7 @@ mod tests {
         e.insert_recording(&entry("ride", 1_000, "uploading"))
             .unwrap();
 
-        e.hold_recording_for_network("ride", "offline", 100_000)
-            .unwrap();
+        apply(&e, "ride", held_for_network("offline"), 100_000);
 
         assert!(
             e.next_pending_recording(100_000 + BACKOFF_BASE_MS - 1)
@@ -1651,30 +1563,25 @@ mod tests {
     /// in the queue, where B's credentials would send it.
     #[test]
     fn a_late_outcome_does_not_undo_a_hold() {
-        type Outcome = fn(&PersistentEngine, &str);
-        let outcomes: [(&str, Outcome); 4] = [
-            ("failed", |e, id| {
-                e.set_recording_upload_failed(id, "500", 5_000).unwrap();
-            }),
-            ("network", |e, id| {
-                e.hold_recording_for_network(id, "offline", 5_000).unwrap();
-            }),
-            ("auth", |e, id| {
-                e.hold_recording_for_auth(id, "401").unwrap();
-            }),
-            ("blocked", |e, id| {
-                e.set_recording_permission_blocked(id, 5_000).unwrap();
-            }),
+        let outcomes = [
+            ("failed", failed("500")),
+            ("network", held_for_network("offline")),
+            ("auth", held_for_auth("401")),
+            (
+                "blocked",
+                UploadTransition::PermissionBlocked { install: ATTEMPT },
+            ),
         ];
         for (name, outcome) in outcomes {
             let (_dir, e) = engine();
             let mut ride = entry("ride", 1_000, "pending");
             ride.athlete_id = Some("iA".to_string());
             e.insert_recording(&ride).unwrap();
-            e.set_recording_uploading("ride").unwrap();
+            apply(&e, "ride", UploadTransition::Begin, 0);
             e.hold_recordings_of_other_athletes("iB").unwrap();
 
-            outcome(&e, "ride");
+            let answer = refuse(&e, "ride", outcome, 5_000);
+            assert_eq!(answer.refusal, Some(UploadRefusal::IllegalTransition));
 
             assert_eq!(
                 e.get_recording("ride").unwrap().unwrap().upload_status,
@@ -1693,10 +1600,10 @@ mod tests {
         let mut ride = entry("ride", 1_000, "pending");
         ride.athlete_id = Some("iA".to_string());
         e.insert_recording(&ride).unwrap();
-        e.set_recording_uploading("ride").unwrap();
+        apply(&e, "ride", UploadTransition::Begin, 0);
         e.hold_recordings_of_other_athletes("iB").unwrap();
 
-        e.set_recording_uploaded("ride", Some("i9")).unwrap();
+        apply(&e, "ride", landed("i9"), 0);
         let row = e.get_recording("ride").unwrap().unwrap();
         assert_eq!(row.upload_status, "uploaded");
         assert_eq!(row.intervals_activity_id.as_deref(), Some("i9"));
@@ -1754,9 +1661,8 @@ mod tests {
     fn a_requeue_clears_the_retry_state_the_failure_left() {
         let (_dir, e) = engine();
         e.insert_recording(&entry("r1", 1_000, "pending")).unwrap();
-        e.set_recording_uploading("r1").unwrap();
-        e.set_recording_upload_failed("r1", "network", 100_000)
-            .unwrap();
+        apply(&e, "r1", UploadTransition::Begin, 0);
+        apply(&e, "r1", failed("network"), 100_000);
 
         e.transition_recording("r1", &UploadTransition::Requeue, 0)
             .unwrap();
@@ -1771,11 +1677,10 @@ mod tests {
     fn a_successful_upload_clears_the_error_the_last_attempt_left() {
         let (_dir, e) = engine();
         e.insert_recording(&entry("r1", 1_000, "pending")).unwrap();
-        e.set_recording_uploading("r1").unwrap();
-        e.set_recording_upload_failed("r1", "network", 100_000)
-            .unwrap();
+        apply(&e, "r1", UploadTransition::Begin, 0);
+        apply(&e, "r1", failed("network"), 100_000);
 
-        e.set_recording_uploaded("r1", Some("i12345")).unwrap();
+        apply(&e, "r1", landed("i12345"), 0);
         let read = e.get_recording("r1").unwrap().unwrap();
         assert_eq!(read.upload_status, "uploaded");
         assert_eq!(read.intervals_activity_id.as_deref(), Some("i12345"));
@@ -1789,7 +1694,7 @@ mod tests {
     fn a_launch_releases_a_ride_the_last_one_was_still_uploading() {
         let (_dir, e) = engine();
         e.insert_recording(&entry("r1", 1_000, "pending")).unwrap();
-        e.set_recording_uploading("r1").unwrap();
+        apply(&e, "r1", UploadTransition::Begin, 0);
 
         assert_eq!(e.release_stranded_uploads(200_000).unwrap(), 1);
         let read = e.get_recording("r1").unwrap().unwrap();
@@ -1806,7 +1711,7 @@ mod tests {
         e.insert_recording(&entry("r1", 1_000, "pending")).unwrap();
 
         for launch in 0..MAX_AUTO_RETRIES {
-            e.set_recording_uploading("r1").unwrap();
+            apply(&e, "r1", UploadTransition::Begin, 0);
             e.release_stranded_uploads(200_000 + launch as i64).unwrap();
         }
 
@@ -1844,7 +1749,7 @@ mod tests {
         {
             let e = PersistentEngine::new(path.to_str().unwrap()).unwrap();
             e.insert_recording(&entry("r1", 1_000, "pending")).unwrap();
-            e.set_recording_uploading("r1").unwrap();
+            apply(&e, "r1", UploadTransition::Begin, 0);
         }
 
         let e = PersistentEngine::new(path.to_str().unwrap()).unwrap();
@@ -1870,6 +1775,69 @@ mod tests {
 
     fn status_of(e: &PersistentEngine, id: &str) -> String {
         e.get_recording(id).unwrap().unwrap().upload_status
+    }
+
+    /// Apply a transition the test expects the table to allow.
+    fn apply(
+        e: &PersistentEngine,
+        id: &str,
+        transition: UploadTransition,
+        now: i64,
+    ) -> FfiUploadTransitionAnswer {
+        let answer = e.transition_recording(id, &transition, now).unwrap();
+        assert!(
+            answer.applied,
+            "{transition:?} on {id} was refused: {:?} from {:?}",
+            answer.refusal, answer.found
+        );
+        answer
+    }
+
+    /// Apply a transition the test expects the table to refuse.
+    fn refuse(
+        e: &PersistentEngine,
+        id: &str,
+        transition: UploadTransition,
+        now: i64,
+    ) -> FfiUploadTransitionAnswer {
+        let answer = e.transition_recording(id, &transition, now).unwrap();
+        assert!(!answer.applied, "{transition:?} on {id} was applied");
+        answer
+    }
+
+    fn failed(error: &str) -> UploadTransition {
+        UploadTransition::Failed {
+            install: ATTEMPT,
+            error: error.to_string(),
+        }
+    }
+
+    fn rejected(error: &str) -> UploadTransition {
+        UploadTransition::Rejected {
+            install: ATTEMPT,
+            error: error.to_string(),
+        }
+    }
+
+    fn held_for_network(error: &str) -> UploadTransition {
+        UploadTransition::HeldForNetwork {
+            install: ATTEMPT,
+            error: error.to_string(),
+        }
+    }
+
+    fn held_for_auth(error: &str) -> UploadTransition {
+        UploadTransition::HeldForAuth {
+            install: ATTEMPT,
+            error: error.to_string(),
+        }
+    }
+
+    fn landed(intervals_activity_id: &str) -> UploadTransition {
+        UploadTransition::Uploaded {
+            install: ATTEMPT,
+            intervals_activity_id: Some(intervals_activity_id.to_string()),
+        }
     }
 
     #[test]
@@ -1955,10 +1923,8 @@ mod tests {
             .transition_recording("r1", &UploadTransition::Begin, 2_000)
             .unwrap();
         assert!(!answer.applied);
+        assert_eq!(answer.refusal, Some(UploadRefusal::IllegalTransition));
         assert_eq!(answer.found.as_deref(), Some("localOnly"));
-        assert_eq!(status_of(&e, "r1"), "localOnly");
-
-        e.set_recording_uploading("r1").unwrap();
         assert_eq!(status_of(&e, "r1"), "localOnly");
     }
 

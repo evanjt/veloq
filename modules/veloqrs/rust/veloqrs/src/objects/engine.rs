@@ -500,9 +500,7 @@ impl VeloqEngine {
             .await
             .map_err(|e| VeloqError::Database { msg: e.to_string() })?
             .map_err(|msg| VeloqError::Database { msg })?;
-        let json = serde_json::to_string(&payload)
-            .map_err(|e| VeloqError::Database { msg: e.to_string() })?;
-        self.restore_record_json(json).await
+        restore_record_payload(payload).await
     }
 
     /// Run the checks a restore of the record ZIP at `path` would run, the
@@ -513,9 +511,7 @@ impl VeloqEngine {
             .spawn_blocking(move || {
                 let payload = crate::persistence::record_backup::read_record_zip(&path)
                     .map_err(|msg| VeloqError::Database { msg })?;
-                let json = serde_json::to_string(&payload)
-                    .map_err(|e| VeloqError::Database { msg: e.to_string() })?;
-                crate::persistence::record_restore::check_record_rows_json(&json)
+                crate::persistence::record_restore::check_record_rows(&payload)
                     .map_err(|msg| VeloqError::Database { msg })?;
                 let imported = payload.athlete_id.as_deref();
                 refuse_another_signed_in_athlete(imported)?;
@@ -535,37 +531,9 @@ impl VeloqEngine {
         &self,
         json: String,
     ) -> Result<FfiRecordRestoreResult, VeloqError> {
-        let payload: serde_json::Value =
-            serde_json::from_str(&json).map_err(|e| VeloqError::Database { msg: e.to_string() })?;
-        refuse_another_signed_in_athlete(
-            payload
-                .get("athlete_id")
-                .and_then(serde_json::Value::as_str),
-        )?;
-        // A paused import this one carries is held to the same check.
-        let paused = crate::runtime::ASYNC_RUNTIME
-            .spawn_blocking(|| {
-                with_reader(crate::persistence::record_restore::paused_import_athlete_from_conn)
-            })
-            .await
-            .map_err(|e| VeloqError::Database { msg: e.to_string() })??
+        let payload = crate::persistence::record_restore::parse_record_payload(&json)
             .map_err(|msg| VeloqError::Database { msg })?;
-        refuse_another_signed_in_athlete(paused.as_deref())?;
-        let result = crate::persistence::with_persistent_engine_blocking(move |engine| {
-            engine.restore_record_json(&json)
-        })
-        .await
-        .ok_or(VeloqError::NotInitialized)?
-        .map_err(|msg| VeloqError::Database { msg })?;
-        crate::objects::observer::notify(crate::objects::observer::Announcement::ActivitiesStored);
-        crate::objects::observer::notify(crate::objects::observer::Announcement::GroupsChanged);
-        crate::objects::observer::notify(crate::objects::observer::Announcement::DetectionApplied);
-        crate::objects::observer::notify(crate::objects::observer::Announcement::SyncSettled);
-        Ok(FfiRecordRestoreResult {
-            placed: result.placed,
-            unplaced: result.unplaced,
-            missing_activity_ids: result.missing_activity_ids,
-        })
+        restore_record_payload(payload).await
     }
 
     /// Drop what an import left at the athlete's word. Without `waiting` it is
@@ -706,6 +674,38 @@ impl VeloqEngine {
             },
         }
     }
+}
+
+/// Apply a parsed record payload off the JS thread, for both the JSON and the
+/// zip path, refusing a record or a paused import of another signed-in athlete.
+async fn restore_record_payload(
+    payload: crate::persistence::record_backup::RecordPayload,
+) -> Result<FfiRecordRestoreResult, VeloqError> {
+    refuse_another_signed_in_athlete(payload.athlete_id.as_deref())?;
+    // A paused import this one carries is held to the same check.
+    let paused = crate::runtime::ASYNC_RUNTIME
+        .spawn_blocking(|| {
+            with_reader(crate::persistence::record_restore::paused_import_athlete_from_conn)
+        })
+        .await
+        .map_err(|e| VeloqError::Database { msg: e.to_string() })??
+        .map_err(|msg| VeloqError::Database { msg })?;
+    refuse_another_signed_in_athlete(paused.as_deref())?;
+    let result = crate::persistence::with_persistent_engine_blocking(move |engine| {
+        engine.restore_record_payload(payload)
+    })
+    .await
+    .ok_or(VeloqError::NotInitialized)?
+    .map_err(|msg| VeloqError::Database { msg })?;
+    crate::objects::observer::notify(crate::objects::observer::Announcement::ActivitiesStored);
+    crate::objects::observer::notify(crate::objects::observer::Announcement::GroupsChanged);
+    crate::objects::observer::notify(crate::objects::observer::Announcement::DetectionApplied);
+    crate::objects::observer::notify(crate::objects::observer::Announcement::SyncSettled);
+    Ok(FfiRecordRestoreResult {
+        placed: result.placed,
+        unplaced: result.unplaced,
+        missing_activity_ids: result.missing_activity_ids,
+    })
 }
 
 /// What an export answers once its worker has ended. A library wiped while it

@@ -350,7 +350,7 @@ export const SectionInlinePlot = memo(
                           {t('sections.partial')}
                         </Text>
                       )}
-                      {encounter.isComplete && encounter.isPr && (
+                      {encounter.isComplete && encounter.isPr ? (
                         <View
                           testID={`section-inline-trophy-${suffix}`}
                           accessible
@@ -360,8 +360,8 @@ export const SectionInlinePlot = memo(
                         >
                           <MaterialCommunityIcons name="trophy" size={11} color={brand.gold} />
                         </View>
-                      )}
-                      {encounter.isComplete && (encounter.rank === 2 || encounter.rank === 3) && (
+                      ) : null}
+                      {encounter.isComplete && (encounter.rank === 2 || encounter.rank === 3) ? (
                         <View
                           testID={`section-inline-place-${suffix}`}
                           accessible
@@ -384,10 +384,10 @@ export const SectionInlinePlot = memo(
                             }
                           />
                         </View>
-                      )}
+                      ) : null}
                     </View>
                   </View>
-                  {encounter.historyTimes.length > 0 && sparklineData && (
+                  {encounter.historyTimes.length > 0 && sparklineData ? (
                     <View testID={`section-inline-sparkline-${suffix}`}>
                       <SectionSparkline
                         data={sparklineData}
@@ -397,7 +397,7 @@ export const SectionInlinePlot = memo(
                         highlightActivityId={activityId}
                       />
                     </View>
-                  )}
+                  ) : null}
                 </View>
               );
             })}

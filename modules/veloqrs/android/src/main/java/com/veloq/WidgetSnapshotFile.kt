@@ -7,26 +7,51 @@ import android.content.Intent
 import java.io.File
 
 /**
- * The widget snapshot file, for a writer with no JavaScript. The app writes the
- * same file through the `VeloqWidget` module, and the providers read it from
- * `filesDir` and never compute during rendering. Native workers can replace it.
+ * The widget snapshot file and its one writer. The app's `VeloqWidget` module and
+ * the native workers both write through here, and the providers read the path
+ * from here, from `filesDir`, and never compute during rendering.
  */
-internal object WidgetSnapshotFile {
+object WidgetSnapshotFile {
   const val NAME = "widget-snapshot.json"
 
+  /** A write's temporary file is `widget-snapshot<random>.tmp` beside the snapshot. */
+  private const val TEMP_PREFIX = "widget-snapshot"
+  private const val TEMP_SUFFIX = ".tmp"
+
+  /** Where the snapshot lives under a `filesDir`. */
+  @JvmStatic
+  fun file(dir: File): File = File(dir, NAME)
+
+  fun write(context: Context, json: String) = write(context.filesDir, json)
+
   /**
-   * Write through a temporary file and a rename, so a provider redrawing at the
-   * same moment never reads half a snapshot.
+   * Write through a temporary file of its own and a rename, so a provider
+   * redrawing at the same moment never reads half a snapshot. The JavaScript
+   * thread and the workers write from one process, so the lock orders them and
+   * one writer's rename never moves another's unfinished file into place.
    */
-  fun write(context: Context, json: String) {
-    val dir = context.filesDir
-    val tmp = File(dir, "$NAME.tmp")
-    val dest = File(dir, NAME)
-    tmp.writeText(json)
-    if (!tmp.renameTo(dest)) {
-      dest.writeText(json)
+  @Synchronized
+  fun write(dir: File, json: String) {
+    val tmp = File.createTempFile(TEMP_PREFIX, TEMP_SUFFIX, dir)
+    try {
+      tmp.writeText(json)
+      if (!tmp.renameTo(file(dir))) file(dir).writeText(json)
+    } finally {
       tmp.delete()
     }
+  }
+
+  fun clear(context: Context) = clear(context.filesDir)
+
+  /**
+   * Delete the snapshot and any temporary file a killed write left, so the
+   * providers draw their placeholder rather than the previous athlete's ride.
+   */
+  @Synchronized
+  fun clear(dir: File) {
+    file(dir).delete()
+    dir.listFiles { f -> f.name.startsWith(TEMP_PREFIX) && f.name.endsWith(TEMP_SUFFIX) }
+      ?.forEach { it.delete() }
   }
 
   /**

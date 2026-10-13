@@ -21,6 +21,9 @@ mod activity_intervals_id;
 #[path = "../activity_metrics_heatmap.rs"]
 mod activity_metrics_heatmap;
 
+#[path = "../activity_origin_queues.rs"]
+mod activity_origin_queues;
+
 #[path = "../activity_range_coverage.rs"]
 mod activity_range_coverage;
 

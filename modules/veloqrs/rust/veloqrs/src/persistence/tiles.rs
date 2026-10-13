@@ -22,7 +22,7 @@ use tracematch::{Bounds, GpsPoint};
 
 /// Tile format version - increment when tile size, zoom range, or rendering changes.
 /// Triggers automatic cache clear + regeneration on app upgrade.
-pub(crate) const TILE_FORMAT_VERSION: &str = "9";
+pub(crate) const TILE_FORMAT_VERSION: &str = "10";
 
 /// Marker file written to the tiles directory when new data arrives.
 /// Cleared after tile generation completes. Prevents redundant generation on app restart.
@@ -438,10 +438,10 @@ fn heatmap_source() -> Option<Arc<HeatmapSource>> {
 ///
 /// Latitude, longitude and the zoom the camera is at. The pass otherwise
 /// writes every zoom in full before the next one, so on a fresh install the
-/// z14-17 tiles of the viewport on screen are behind the whole lower sweep:
-/// 758 of the demo library's 1,508 tiles are z17 alone. Set from the map when
-/// the camera settles and cleared when it leaves, and read once per pass, so
-/// a camera that moves mid-pass changes the next one rather than this one.
+/// deepest tiles it draws of the viewport on screen are behind the whole
+/// lower sweep. Set from the map when the camera settles and cleared when it
+/// leaves, and read once per pass, so a camera that moves mid-pass changes
+/// the next one rather than this one.
 static TILE_PRIORITY: RwLock<Option<(f64, f64, u8)>> = RwLock::new(None);
 
 /// Draw the ground around this point, at this zoom, before the rest.
@@ -483,11 +483,14 @@ const PRIORITY_WINDOW_TILES: f64 = 2.0;
 /// zoom shown, carried to every other zoom as the same ground. Three bands
 /// and not a distance, because a distance orders tiles the athlete cannot see
 /// as finely as the ones they can, and the point is only to get the screen
-/// drawn first.
+/// drawn first. A camera deeper than the pass draws counts as at the pass's
+/// deepest zoom: the map draws its own zoom on request, and the pass's part
+/// of the screen is the ground below it.
 fn priority_rank(coord: (u8, u32, u32), priority: Option<(f64, f64, u8)>) -> u8 {
     let Some((lat, lon, zoom)) = priority else {
         return 0;
     };
+    let zoom = zoom.min(tiles::HeatmapConfig::DEFAULT.pass_max_zoom);
     let (z, x, y) = coord;
     // In world units, where the whole map is 0 to 1 each way, so tiles at any
     // zoom compare with the window drawn at the zoom shown.
@@ -514,13 +517,20 @@ fn priority_rank(coord: (u8, u32, u32), priority: Option<(f64, f64, u8)>) -> u8 
     if z.abs_diff(zoom) <= 1 { 0 } else { 1 }
 }
 
-/// The lowest zoom a missing tile is drawn at when the map asks for it.
+/// The lowest zoom a missing tile is drawn at when the map asks for it: the
+/// first zoom the pass leaves undrawn.
 ///
 /// Deep tiles are most of the tree and each holds only the tracks that pass
 /// through it, so one is drawn in the time the map waits for it. A shallower
 /// tile holds more of the library the higher it goes, so a miss there stays a
 /// hole the pass fills.
-pub const ON_REQUEST_MIN_ZOOM: u8 = 15;
+pub const ON_REQUEST_MIN_ZOOM: u8 = ON_REQUEST_ZOOMS.0;
+
+/// The zooms drawn on request, read off the one heatmap configuration.
+const ON_REQUEST_ZOOMS: (u8, u8) = {
+    let config = tiles::HeatmapConfig::DEFAULT;
+    (config.pass_max_zoom + 1, config.max_zoom)
+};
 
 /// One heatmap tile's PNG bytes, or `None` when the athlete has the heatmap
 /// off, the tile holds no heat, or it is shallower than
@@ -537,7 +547,7 @@ pub fn heatmap_tile_bytes(z: u8, x: u32, y: u32) -> Option<Vec<u8>> {
     if let Some(drawn) = read_drawn_tile(base, z, x, y) {
         return drawn;
     }
-    if !(ON_REQUEST_MIN_ZOOM..=tiles::HeatmapConfig::default().max_zoom).contains(&z) {
+    if !(ON_REQUEST_ZOOMS.0..=ON_REQUEST_ZOOMS.1).contains(&z) {
         return None;
     }
     count_on_request(|c| c.misses += 1);
@@ -1470,7 +1480,7 @@ fn plan_tiles(
         if track.is_empty() {
             continue;
         }
-        for z in config.min_zoom..=config.max_zoom {
+        for z in config.min_zoom..=config.pass_max_zoom {
             if let Some(ground) = swept {
                 let reach = tiles::reach_range_for_bounds(
                     bounds.min_lat,
@@ -1681,7 +1691,7 @@ fn background_generate_tiles(
         total,
         activities.len(),
         config.min_zoom,
-        config.max_zoom,
+        config.pass_max_zoom,
         load_ms,
         plan_ms,
     );
@@ -2001,9 +2011,10 @@ mod tests {
         let (cold, cold_sweeps) = plan_tiles(&activities, &tracks, &config, None);
         let (planned, sweeps) = plan_tiles(&activities, &tracks, &config, Some(&ground));
 
-        assert_eq!(cold_sweeps, 41 * 17);
+        assert_eq!(cold_sweeps, 41 * usize::from(config.pass_max_zoom));
         let high = tiles::HeatmapConfig {
             min_zoom: 12,
+            pass_max_zoom: 17,
             max_zoom: 17,
         };
         let (_, high_sweeps) = plan_tiles(&activities, &tracks, &high, Some(&ground));
@@ -2060,11 +2071,15 @@ mod tests {
         let (cold, _) = plan_tiles(&activities, &tracks, &config, None);
         let (planned, sweeps) = plan_tiles(&activities, &tracks, &config, Some(&ground));
 
-        assert!(sweeps < 40 * 17);
+        assert!(sweeps < 40 * usize::from(config.pass_max_zoom));
         for (key, got) in &planned {
             assert_eq!(got.len(), cold[key].len(), "tile {key:?}");
         }
-        assert!(planned.keys().any(|k| k.0 == 17));
+        assert!(planned.keys().any(|k| k.0 == config.pass_max_zoom));
+        assert!(
+            planned.keys().all(|k| k.0 <= config.pass_max_zoom),
+            "the box's deep ground was planned for a pass"
+        );
     }
 
     /// Scenario: a set already owed for another reason, such as a format
@@ -2135,8 +2150,8 @@ mod tests {
         assert_eq!(priority_rank(elsewhere, priority), 2, "ground nobody is on");
     }
 
-    /// Scenario: a fresh install with the map open at z16 over a town while
-    /// the pass runs. A phone screen at z16 spans several tiles each way, and
+    /// Scenario: a fresh install with the map open at z14 over a town while
+    /// the pass runs. A phone screen at z14 spans several tiles each way, and
     /// only the one under the centre was put first, so the rest of the screen
     /// queued behind every lower zoom of the whole library.
     ///
@@ -2144,7 +2159,7 @@ mod tests {
     /// screen sorts before any lower-zoom tile outside the window.
     #[test]
     fn the_rest_of_the_screen_is_drawn_before_lower_zooms_elsewhere() {
-        let (lat, lon, zoom) = (46.233, 7.36, 16u8);
+        let (lat, lon, zoom) = (46.233, 7.36, 14u8);
         let centre = (
             zoom,
             crate::tiles::lon_to_tile_x(lon, zoom).floor() as u32,
@@ -2217,6 +2232,31 @@ mod tests {
 
         publish_heatmap_source(None);
         assert!(served.is_none(), "a temp file was served as a tile");
+    }
+
+    /// Scenario: the map is open at z16 while a fresh library's pass runs.
+    /// The pass draws nothing deeper than z14, and a window ranked at z16
+    /// put z14 one band down with every other zoom of the same ground.
+    ///
+    /// Expected behaviour: the z14 ground under the camera, and the zoom
+    /// either side of it, sort into the first band.
+    #[test]
+    fn a_camera_deeper_than_the_pass_puts_the_deepest_drawn_zoom_first() {
+        let (lat, lon) = (46.233, 7.36);
+        let here = |z: u8| {
+            (
+                z,
+                crate::tiles::lon_to_tile_x(lon, z).floor() as u32,
+                crate::tiles::lat_to_tile_y(lat, z).floor() as u32,
+            )
+        };
+        let priority = Some((lat, lon, 16));
+
+        assert_eq!(priority_rank(here(14), priority), 0);
+        assert_eq!(priority_rank(here(13), priority), 0);
+        assert_eq!(priority_rank(here(8), priority), 1);
+        let elsewhere = (14u8, here(14).1 + 40, here(14).2 + 40);
+        assert_eq!(priority_rank(elsewhere, priority), 2);
     }
 
     /// With no camera set nothing is preferred, which is the pass a sync runs

@@ -36,6 +36,27 @@ function testIdsInOrder(node: Node | Node[] | null): string[] {
   return [...own, ...children.flatMap(testIdsInOrder)];
 }
 
+/** The chain of nodes from the root down to the one carrying `testID`. */
+function pathTo(node: Node, testID: string): Node[] | null {
+  if (node.props.testID === testID) return [node];
+  for (const child of node.children ?? []) {
+    if (typeof child === 'string') continue;
+    const below = pathTo(child, testID);
+    if (below) return [node, ...below];
+  }
+  return null;
+}
+
+/** The deepest node holding both testIDs. */
+function commonAncestor(root: Node, a: string, b: string): Node {
+  const toA = pathTo(root, a);
+  const toB = pathTo(root, b);
+  if (!toA || !toB) throw new Error(`${a} or ${b} is not rendered`);
+  let i = 0;
+  while (i < toA.length && i < toB.length && toA[i] === toB[i]) i++;
+  return toA[i - 1]!;
+}
+
 function styleOf(node: { props: { style?: unknown } }): Record<string, unknown> {
   const style = node.props.style;
   const resolved =
@@ -166,6 +187,33 @@ describe('SheetHeader', () => {
     expect(screen.getByTestId('sheet-header-subtitle').props.children).toBe('Kept as one');
     expect(screen.getAllByRole('header')).toHaveLength(1);
   });
+
+  it.each([
+    ['onCancel', { closeTestID: undefined }, 'sheet-cancel'],
+    ['onClose', { onCancel: undefined, confirm: undefined, onClose: jest.fn() }, 'sheet-close'],
+  ] as const)(
+    'puts a long subtitle under the iOS title row rather than between its %s slots',
+    async (_slot, props, control) => {
+      Platform.OS = 'ios';
+      await renderSheet({
+        ...props,
+        closeTestID: 'sheet-close',
+        subtitle: 'A sentence long enough to fill the whole width of the sheet on its own',
+      });
+
+      const root = screen.toJSON() as Node;
+      const shared = commonAncestor(root, control, 'sheet-header-subtitle');
+      expect(styleOf(shared).flexDirection ?? 'column').toBe('column');
+      const order = testIdsInOrder(root);
+      expect(order.indexOf(control)).toBeLessThan(order.indexOf('sheet-header-subtitle'));
+
+      const title = screen.getByTestId('sheet-header-title');
+      expect(title.props.numberOfLines).toBe(1);
+      const toControl = pathTo(root, control)!;
+      const slot = toControl[toControl.indexOf(shared) + 2]!;
+      expect(styleOf(slot).flexShrink).toBe(0);
+    }
+  );
 
   it.each(['ios', 'android'] as const)('answers Cancel and the confirm on %s', async (os) => {
     Platform.OS = os;

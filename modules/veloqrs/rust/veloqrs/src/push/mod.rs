@@ -525,7 +525,7 @@ fn activity_push_run(
         crate::objects::current_transport().ok_or_else(|| "no credentials set".to_string())??;
     // The upstream id is a read, so it comes off the pool rather than the
     // engine lock, which a sync page may be holding.
-    let upstream = crate::persistence::read_pool::with_read_conn(|conn| {
+    let stored = crate::persistence::read_pool::with_read_conn(|conn| {
         conn.query_row(
             "SELECT intervals_id FROM activities WHERE id = ?",
             [activity_id],
@@ -534,8 +534,9 @@ fn activity_push_run(
         .ok()
         .flatten()
     })
-    .flatten()
-    .unwrap_or_else(|| activity_id.to_string());
+    .flatten();
+    let upstream =
+        crate::persistence::origin::upstream_or_key(activity_id, stored.as_deref()).to_string();
     let body = crate::runtime::block_on(crate::net::endpoints::fetch_activity_body(
         &transport,
         &upstream,

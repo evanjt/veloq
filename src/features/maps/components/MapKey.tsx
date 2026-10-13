@@ -103,7 +103,7 @@ export function MapKeyRamp({
           />
         ))}
       </View>
-      {ticks && (
+      {ticks ? (
         <View style={styles.ticks}>
           {ticks.map(({ at, label }) => (
             <View
@@ -122,13 +122,13 @@ export function MapKeyRamp({
             </View>
           ))}
         </View>
-      )}
-      {ends && (
+      ) : null}
+      {ends ? (
         <View style={styles.ends}>
           <Text style={[textStyle, styles.endText]}>{ends[0]}</Text>
           <Text style={[textStyle, styles.endText, styles.endTextLast]}>{ends[1]}</Text>
         </View>
-      )}
+      ) : null}
     </View>
   );
 }

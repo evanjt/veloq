@@ -176,7 +176,7 @@ export function CurveChart<T extends ChartSample>({
             }
             return (
               <>
-                {area && (
+                {area ? (
                   <CurveArea points={points.y} y0={bounds.bottom} curve={curve}>
                     <LinearGradient
                       start={vec(0, bounds.top)}
@@ -184,8 +184,8 @@ export function CurveChart<T extends ChartSample>({
                       colors={[`${color}30`, `${color}05`]}
                     />
                   </CurveArea>
-                )}
-                {showReference && (
+                ) : null}
+                {showReference ? (
                   <SkiaLine
                     p1={vec(bounds.left, yFor(referenceLine.value))}
                     p2={vec(bounds.right, yFor(referenceLine.value))}
@@ -194,7 +194,7 @@ export function CurveChart<T extends ChartSample>({
                   >
                     <DashPathEffect intervals={[6, 4]} />
                   </SkiaLine>
-                )}
+                ) : null}
                 <CurveLine
                   points={points.y}
                   color={chartColors.casing}
@@ -202,19 +202,20 @@ export function CurveChart<T extends ChartSample>({
                   curve={curve}
                 />
                 <CurveLine points={points.y} color={color} strokeWidth={1.5} curve={curve} />
-                {pointColor &&
-                  points.y.map((p, i) =>
-                    i === marker?.index ? null : (
-                      <Circle key={i} cx={p.x} cy={p.y} r={3} color={pointColor} />
+                {pointColor
+                  ? points.y.map((p, i) =>
+                      i === marker?.index ? null : (
+                        <Circle key={i} cx={p.x} cy={p.y} r={3} color={pointColor} />
+                      )
                     )
-                  )}
-                {marker && marked && (
+                  : null}
+                {marker && marked ? (
                   <>
                     <Circle cx={marked.x} cy={marked.y} r={7} color={marker.color} opacity={0.3} />
                     <Circle cx={marked.x} cy={marked.y} r={5} color={marker.color} />
                     <Circle cx={marked.x} cy={marked.y} r={2.5} color={ink.white} />
                   </>
-                )}
+                ) : null}
               </>
             );
           }}

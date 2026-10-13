@@ -22,7 +22,9 @@
     "clearCacheMessage": "Esto borrará todos los datos de actividades en caché, trazas de actividad y datos de coincidencia de rutas, luego comenzará a recargar. Puede tardar unos minutos."
   },
   "bestEffortsScreen": {
-    "seasonSubtitle": "Marcas personales de los últimos {{days}} días.",
+    "seasonSubtitle_one": "Marcas personales del último {{count}} día.",
+    "seasonSubtitle_many": "Marcas personales de los últimos {{count}} días.",
+    "seasonSubtitle_other": "Marcas personales de los últimos {{count}} días.",
     "allTimeSubtitle": "Marcas personales en todo tu historial en caché."
   },
   "cache": {

@@ -21,7 +21,7 @@ export function DataSourcesSection() {
     <>
       <ListSectionHeader>{t('settings.dataSources')}</ListSectionHeader>
       <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
-        {isDemoMode && (
+        {isDemoMode ? (
           <>
             <SwitchRow
               title={t('settings.hideDemoBanner')}
@@ -37,7 +37,7 @@ export function DataSourcesSection() {
             </View>
             <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
           </>
-        )}
+        ) : null}
 
         <View style={styles.dataSourcesContent}>
           <Text style={[styles.dataSourcesText, isDark && settingsStyles.textSecondary]}>

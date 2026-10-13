@@ -489,11 +489,11 @@ function LicenseSectionCard({ section, isDark, testID }: LicenseSectionCardProps
       }
     >
       <View style={styles.sectionContent}>
-        {section.description && (
+        {section.description ? (
           <Text style={[styles.sectionDescription, { color: themeColors.textSecondary }]}>
             {section.description}
           </Text>
-        )}
+        ) : null}
         {section.entries.map((entry, index) => (
           <LicenseEntryRow
             key={entry.name}
@@ -554,7 +554,7 @@ function LicenseEntryRow({ entry, isDark, isLast, testID }: LicenseEntryRowProps
             {entry.license}
           </Text>
         </Pressable>
-        {entry.repository && (
+        {entry.repository ? (
           <IconButton
             accessibilityRole="link"
             accessibilityLabel={`${t('licenses.openRepository')}: ${entry.name}`}
@@ -566,20 +566,20 @@ function LicenseEntryRow({ entry, isDark, isLast, testID }: LicenseEntryRowProps
               color={themeColors.textSecondary}
             />
           </IconButton>
-        )}
+        ) : null}
       </View>
-      {entry.description && (
+      {entry.description ? (
         <Text style={[styles.entryDescription, { color: themeColors.textSecondary }]}>
           {entry.description}
         </Text>
-      )}
-      {showLicense && licenseText && (
+      ) : null}
+      {showLicense && licenseText ? (
         <Animated.View entering={FadeIn} style={styles.licenseTextContainer(isDark)}>
           <Text style={[styles.licenseText, { color: themeColors.textSecondary }]}>
             {licenseText}
           </Text>
         </Animated.View>
-      )}
+      ) : null}
     </View>
   );
 }

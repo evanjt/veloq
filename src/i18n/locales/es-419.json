@@ -55,7 +55,9 @@
     "scanQrInstructions": "En Nextcloud, ve a Configuración → Seguridad → Crear nueva contraseña de app, luego escanea el código QR mostrado."
   },
   "bestEffortsScreen": {
-    "seasonSubtitle": "Records personales de los últimos {{days}} días.",
+    "seasonSubtitle_one": "Records personales del último {{count}} día.",
+    "seasonSubtitle_many": "Records personales de los últimos {{count}} días.",
+    "seasonSubtitle_other": "Records personales de los últimos {{count}} días.",
     "allTimeSubtitle": "Records personales en todo tu historial almacenado.",
     "climbingBests": "Escalada"
   },

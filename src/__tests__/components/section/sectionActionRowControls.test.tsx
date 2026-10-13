@@ -88,6 +88,59 @@ describe('SectionActionRow controls', () => {
   });
 });
 
+/**
+ * Scenario: one glyph stood for permanent Delete and reversible Remove, and
+ * one pin for Pinned and for Accepted.
+ *
+ * Expected behaviour: each control draws a glyph of its own, and only the
+ * permanent delete draws the bin.
+ */
+describe('SectionActionRow glyphs', () => {
+  type Node = { props: { name?: string } };
+  type Found = { findAll: (p: (n: Node) => boolean) => Node[] };
+
+  function glyph(element: Found): string | undefined {
+    return element.findAll((n) => typeof n.props.name === 'string')[0]?.props.name;
+  }
+
+  it('draws the bin only for the permanent delete', async () => {
+    const custom = await renderRow('custom');
+    const del = glyph(custom.getByRole('button', { name: 'sections.deleteSection' }));
+    await custom.unmount();
+
+    const auto = await renderRow('auto');
+    const remove = glyph(auto.getByRole('button', { name: 'sections.removeSection' }));
+
+    expect(del).toBe('delete-outline');
+    expect(remove).toBeDefined();
+    expect(remove).not.toMatch(/^delete/);
+  });
+
+  it('draws Pinned, Accepted and Accept with different glyphs', async () => {
+    const pinned = await renderRow('auto', { pinnedVersion: 2 });
+    const pin = glyph(pinned.getByTestId('section-pinned-version'));
+    await pinned.unmount();
+
+    const accepted = await renderRow('auto', {
+      section: { sectionType: 'auto', isUserDefined: true } as unknown as FrequentSection,
+    });
+    const acceptedGlyph = glyph(accepted.getByTestId('section-accepted'));
+    await accepted.unmount();
+
+    const offer = await renderRow('auto');
+    const acceptGlyph = glyph(offer.getByRole('button', { name: 'sections.acceptSection' }));
+
+    expect(new Set([pin, acceptedGlyph, acceptGlyph]).size).toBe(3);
+    expect(acceptedGlyph).not.toMatch(/^pin/);
+    expect(acceptGlyph).not.toMatch(/^pin/);
+  });
+
+  it('draws the partly excluded chip with the exclusion glyph', async () => {
+    const { getByTestId } = await renderRow('auto', { partlyExcluded: true });
+    expect(glyph(getByTestId('section-partly-excluded'))).toBe('eye-off-outline');
+  });
+});
+
 describe('SectionTrimOverlay reset control', () => {
   const props = {
     pointCount: 100,
@@ -176,5 +229,71 @@ describe('SectionTrimOverlay step buttons', () => {
     }
     expect(startLater).not.toBeDisabled();
     expect(chevronColour(startLater)).toBe(colors.primary);
+  });
+});
+
+/**
+ * Scenario: on a short section the handles may close to fewer points than a
+ * section can hold, and Save then failed in a dialog after the tap.
+ *
+ * Expected behaviour: Save is disabled while the kept range is under the
+ * minimum, with the reason beside it; at the minimum it is live again.
+ */
+describe('SectionTrimOverlay minimum kept range', () => {
+  const props = {
+    pointCount: 60,
+    startIndex: 10,
+    endIndex: 13,
+    trimmedDistance: 40,
+    originalDistance: 600,
+    isSaving: false,
+    canReset: false,
+    isExpandMode: false,
+    onStartChange: jest.fn(),
+    onEndChange: jest.fn(),
+    onConfirm: jest.fn(),
+    onCancel: jest.fn(),
+    onReset: jest.fn(),
+    onToggleExpand: jest.fn(),
+  };
+
+  it('disables Save and names the reason when four points are kept', async () => {
+    const onConfirm = jest.fn();
+    const { getByTestId, getByText } = await render(
+      <SectionTrimOverlay {...props} onConfirm={onConfirm} />
+    );
+    const save = getByTestId('section-trim-confirm');
+
+    expect(save).toBeDisabled();
+    expect(getByText('sections.trimTooShort')).toBeTruthy();
+    await fireEvent.press(save);
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('enables Save with no reason when five points are kept', async () => {
+    const onConfirm = jest.fn();
+    const { getByTestId, queryByText } = await render(
+      <SectionTrimOverlay {...props} endIndex={14} onConfirm={onConfirm} />
+    );
+    const save = getByTestId('section-trim-confirm');
+
+    expect(save).not.toBeDisabled();
+    expect(queryByText('sections.trimTooShort')).toBeNull();
+    await fireEvent.press(save);
+    expect(onConfirm).toHaveBeenCalledTimes(1);
+  });
+
+  it('holds the same minimum in expand mode', async () => {
+    const { getByTestId, getByText } = await render(
+      <SectionTrimOverlay
+        {...props}
+        isExpandMode
+        sectionStartInWindow={5}
+        sectionEndInWindow={40}
+      />
+    );
+
+    expect(getByTestId('section-trim-confirm')).toBeDisabled();
+    expect(getByText('sections.trimTooShort')).toBeTruthy();
   });
 });

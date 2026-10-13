@@ -43,7 +43,6 @@ jest.mock('@/features/routes/components/SectionsList', () => ({ SectionsList: ()
 jest.mock('@/features/routes/components/DateRangeSummary', () => ({
   DateRangeSummary: () => null,
 }));
-jest.mock('@/features/routes/components/SyncDebugTab', () => ({ SyncDebugTab: () => null }));
 jest.mock('@/features/routes/hooks/useCustomSections', () => ({
   useSectionCommands: () => ({ removeSection: jest.fn() }),
 }));

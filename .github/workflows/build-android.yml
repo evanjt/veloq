@@ -304,8 +304,10 @@ jobs:
           ABIS: ${{ inputs.abis }}
         run: |
           cd android && ./gradlew :veloqrs:testDebugUnitTest \
+            :veloq-memory:testDebugUnitTest \
             :veloq-recording-notification:testDebugUnitTest \
             :veloq-backup-exclusion:testDebugUnitTest \
+            :veloq-widget:testDebugUnitTest \
             -PreactNativeArchitectures="$ABIS" \
             --no-daemon
 

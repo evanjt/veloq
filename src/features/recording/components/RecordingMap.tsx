@@ -329,7 +329,7 @@ function RecordingMapInner({
       {/* Map controls (live mode only) */}
       {!fitBounds && (
         <View style={styles.controls}>
-          {onOpenRoutePicker && (
+          {onOpenRoutePicker ? (
             <Pressable
               testID="recording-map-route-overlay"
               style={pressable([
@@ -348,7 +348,7 @@ function RecordingMapInner({
                 color={routeOverlay ? colors.textOnDark : darkColors.textPrimary}
               />
             </Pressable>
-          )}
+          ) : null}
           <Pressable
             testID="recording-map-style"
             style={pressable(styles.controlButton)}

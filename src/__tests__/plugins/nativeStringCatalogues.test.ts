@@ -288,6 +288,27 @@ describe('the iOS permission prompts', () => {
     expect(drifted).toEqual([]);
   });
 
+  it('names the uses that read the position, and no use that reads none', () => {
+    const whenInUse = String(infoPlist.NSLocationWhenInUseUsageDescription);
+    expect(whenInUse).not.toMatch(/activity maps/i);
+    expect(whenInUse).toMatch(/record/i);
+    expect(whenInUse).toMatch(/on the map/i);
+    expect(whenInUse).toMatch(/near you/i);
+    expect(whenInUse).toMatch(/stays on this phone/i);
+  });
+
+  it('asks for Always with the reason the prompt appears, a ride started away from the app', () => {
+    for (const key of [
+      'NSLocationAlwaysAndWhenInUseUsageDescription',
+      'NSLocationAlwaysUsageDescription',
+    ]) {
+      const always = String(infoPlist[key]);
+      expect(always).toMatch(/Siri/);
+      expect(always).toMatch(/Control Centre/);
+      expect(always).toMatch(/widget/i);
+    }
+  });
+
   it('reads back a purpose string carrying a quote, a backslash and a newline unchanged', () => {
     const bundles = strings.loadLocaleBundles();
     const tricky = `Veloq nutzt die „Kamera" \\ für\nQR-Codes`;

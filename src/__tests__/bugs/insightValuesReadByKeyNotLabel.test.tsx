@@ -96,7 +96,9 @@ describe.each(['de-DE', 'it', 'ja', 'en-AU'] as const)('insight values in %s', (
     ).find((i) => i.category === 'strength_balance');
     if (!balance) throw new Error('no balance card');
 
-    expect(balance.subtitle).toMatch(/ 2\.4x$/);
+    // The decimal is the language's own: a comma in German and Italian.
+    const decimal = locale === 'de-DE' || locale === 'it' ? ',' : '.';
+    expect(balance.subtitle?.endsWith(` 2${decimal}4x`)).toBe(true);
   });
 
   it('shows the latest HRV and the average on the HRV sheet', async () => {

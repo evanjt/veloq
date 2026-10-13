@@ -24,6 +24,7 @@ import { writeRideBackup } from './rideBackup';
 import { BACKUP_INTERVAL_MS, LIVE_ACTIVITY_REFRESH_MS, SERVICE_WATCH_MS } from './constants';
 import {
   beginLiveActivity,
+  dismissEndedLiveActivity,
   finishLiveActivity,
   installLiveActivityControls,
   reapOrphanedLiveActivities,
@@ -392,6 +393,9 @@ export function installRecordingSession(): () => void {
 
   const unsubscribe = useRecordingStore.subscribe((state, previous) => {
     if (state.status !== previous.status || state.mode !== previous.mode) react(state.status);
+    // A stopped ride leaves its card up, asking to be saved. Saving or discarding
+    // answers it, and both settle the store back to idle.
+    if (previous.status === 'stopped' && state.status === 'idle') dismissEndedLiveActivity();
   });
   const stopListening = installLiveActivityControls();
 

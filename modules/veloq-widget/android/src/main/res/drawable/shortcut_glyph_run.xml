@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The run icon from Material Design Icons (Apache License 2.0), the glyph the app's sport chips draw. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+  android:width="24dp"
+  android:height="24dp"
+  android:viewportWidth="24"
+  android:viewportHeight="24">
+  <path
+    android:fillColor="@color/veloq_shortcut_glyph"
+    android:pathData="M13.5 5.484Q14.297 5.484 14.906 4.898Q15.516 4.312 15.516 3.492Q15.516 2.672 14.93 2.086Q14.344 1.5 13.5 1.5Q12.656 1.5 12.07 2.086Q11.484 2.672 11.484 3.492Q11.484 4.312 12.07 4.898Q12.656 5.484 13.5 5.484ZM9.891 19.359 10.875 15 12.984 17.016V23.016H15V15.516L12.891 13.5L13.5 10.5Q14.484 11.672 15.938 12.328Q17.391 12.984 18.984 12.984V11.016Q17.578 11.016 16.453 10.336Q15.328 9.656 14.672 8.578L13.688 6.984Q13.031 6 12 6Q11.859 6 11.602 6.047Q11.344 6.094 11.203 6.094L6 8.297V12.984H8.016V9.562L9.797 8.859L8.203 17.016L3.281 15.984L2.906 18Z" />
+</vector>

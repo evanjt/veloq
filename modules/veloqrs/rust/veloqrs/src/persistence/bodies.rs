@@ -403,8 +403,13 @@ impl PersistentEngine {
     }
 
     /// Every activity in the library with no interval body, newest first, except a
-    /// device-minted key no upload has given a server id: upstream has no such
-    /// activity to ask for.
+    /// key minted here, a recording or an import, that no upload has given a
+    /// server id: upstream has no such activity to ask for.
+    ///
+    /// The predicate is `origin::intervals_upstream` over the stored id on the
+    /// activity row or the body. Demo rows are in, since that function names
+    /// them: demo mode holds no credential and never runs the sync that drains
+    /// this queue, so they cost nothing.
     ///
     /// The sync's prefetch queue, derived rather than stored: an id that was
     /// fetched has a row and leaves the queue, so a killed pass resumes by
@@ -414,7 +419,7 @@ impl PersistentEngine {
             "SELECT m.activity_id FROM activity_metrics m
              LEFT JOIN interval_bodies b ON b.activity_id = m.activity_id
              WHERE b.activity_id IS NULL
-               AND (m.activity_id NOT LIKE 'local-%'
+               AND ((m.activity_id NOT LIKE 'local-%' AND m.activity_id NOT LIKE 'src-%')
                     OR EXISTS (SELECT 1 FROM activities a
                                WHERE a.id = m.activity_id AND a.intervals_id IS NOT NULL)
                     OR EXISTS (SELECT 1 FROM activity_bodies ab

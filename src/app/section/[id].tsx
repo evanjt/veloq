@@ -134,6 +134,7 @@ function SectionDetailScreenContent() {
   const debugEnabled = useDebugStore((s) => s.enabled);
   const { getPageMetrics } = useFFITimer();
   const { exportGpx, exporting: gpxExporting } = useGpxExport();
+  const exportAnchor = useRef<View>(null);
 
   // Nearby sections and merge candidates
   const mergeCandidates = detail?.mergeCandidates ?? [];
@@ -437,7 +438,7 @@ function SectionDetailScreenContent() {
           )}
 
           {/* Trim panel - replaces chart when trimming */}
-          {isTrimming && (
+          {isTrimming ? (
             <SectionTrimOverlay
               pointCount={effectivePointCount || section.polyline?.length || 0}
               startIndex={trimStart}
@@ -456,10 +457,10 @@ function SectionDetailScreenContent() {
               onReset={resetBounds}
               onToggleExpand={toggleExpand}
             />
-          )}
+          ) : null}
 
           {/* Sport type pills */}
-          {!isTrimming && showSportChips && (
+          {!isTrimming && showSportChips ? (
             <SportTypeSelector
               options={sportCounts.map(({ sportType, count }) => ({ type: sportType, count }))}
               selectedType={effectiveSportType}
@@ -469,7 +470,7 @@ function SectionDetailScreenContent() {
                 setSelectedSportType(selectedSportType === st ? undefined : st);
               }}
             />
-          )}
+          ) : null}
 
           {/* Content below hero - hidden during trim */}
           {!isTrimming && (
@@ -530,6 +531,7 @@ function SectionDetailScreenContent() {
             <View style={styles.listFooterContainer}>
               {section?.polyline?.length > 0 && (
                 <Button
+                  ref={exportAnchor}
                   testID="section-export-gpx"
                   label={gpxExporting ? t('export.exporting') : t('export.gpx')}
                   loading={gpxExporting}
@@ -548,6 +550,7 @@ function SectionDetailScreenContent() {
                         longitude: p.lng,
                       })),
                       sport: effectiveSportType,
+                      anchor: exportAnchor,
                     })
                   }
                   disabled={gpxExporting}
@@ -555,13 +558,13 @@ function SectionDetailScreenContent() {
                 />
               )}
               <DataRangeFooter days={cacheDays} isDark={isDark} />
-              {debugEnabled && section && (
+              {debugEnabled && section ? (
                 <SectionDebugPanel
                   section={section}
                   pageMetrics={getPageMetrics()}
                   isDark={isDark}
                 />
-              )}
+              ) : null}
             </View>
           )}
         </ScrollView>

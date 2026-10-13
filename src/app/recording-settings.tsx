@@ -38,6 +38,7 @@ import { SettingsNavRow } from '@/features/settings';
 import { DEFAULT_AUTO_PAUSE_KMH, type SportCategory } from '@/shared/recording';
 import type { DataFieldType } from '@/types';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { formatDecimal } from '@/shared/format';
 
 const GPS_MODES: GpsAccuracyMode[] = ['high', 'balanced', 'batterySaver'];
 
@@ -134,7 +135,7 @@ function RecordingSettingsScreenContent() {
     [isMetric]
   );
   const formatDelay = useCallback(
-    (ms: number) => `${(ms / 1000).toFixed(1)} ${t('units.seconds')}`,
+    (ms: number) => `${formatDecimal(ms / 1000, 1)} ${t('units.seconds')}`,
     [t]
   );
   const formatThreshold = useCallback(
@@ -303,7 +304,7 @@ function RecordingSettingsScreenContent() {
               testID="settings-auto-pause"
             />
 
-            {autoPauseEnabled && (
+            {autoPauseEnabled ? (
               <View style={styles.thresholdList}>
                 <View style={[styles.thresholdRow, { borderTopColor: border }]}>
                   <Text style={[styles.thresholdLabel, { color: textPrimary }]}>
@@ -355,7 +356,7 @@ function RecordingSettingsScreenContent() {
                   );
                 })}
               </View>
-            )}
+            ) : null}
           </View>
         </View>
 
@@ -401,7 +402,7 @@ function RecordingSettingsScreenContent() {
                         testID={`settings-field-${mode}-${field}`}
                         label={t(`recording.fields.${field}`)}
                         selected={isSelected}
-                        disabled={atCap && !isSelected}
+                        disabled={atCap ? !isSelected : false}
                         onPress={() => handleToggleField(mode, field)}
                       />
                     );

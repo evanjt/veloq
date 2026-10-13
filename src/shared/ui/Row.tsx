@@ -23,6 +23,8 @@ interface RowBaseProps {
    * a list inside a card.
    */
   inset?: 'row' | 'none' | undefined;
+  /** The row's target, for a sheet that anchors to the control that opened it. */
+  ref?: React.Ref<View>;
 }
 
 /**
@@ -67,13 +69,14 @@ export function Row({
   behaviour,
   busy,
   inset = 'row',
+  ref,
 }: RowProps) {
   const { isDark } = useTheme();
   const glyphColour = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   if (!onPress) {
     return (
-      <View testID={testID} style={[styles.row, inset === 'none' && styles.flush]}>
+      <View ref={ref} testID={testID} style={[styles.row, inset === 'none' && styles.flush]}>
         {children}
         {accessory}
       </View>
@@ -82,6 +85,7 @@ export function Row({
 
   const target = (
     <Pressable
+      ref={ref}
       testID={testID}
       accessibilityRole={behaviour === 'external' ? 'link' : 'button'}
       accessibilityLabel={accessibilityLabel}

@@ -117,7 +117,7 @@ export const SectionPRContent = React.memo(function SectionPRContent({
             {effortCount != null && effortCount > 1 ? (
               <View style={[styles.contextChip, isDark && styles.contextChipDark]}>
                 <Text style={[styles.contextText, isDark && styles.contextTextDark]}>
-                  {t('insights.sectionPrSheet.efforts', { n: effortCount })}
+                  {t('insights.sectionPrSheet.efforts', { count: effortCount })}
                 </Text>
               </View>
             ) : null}

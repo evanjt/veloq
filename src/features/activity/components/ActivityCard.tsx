@@ -346,14 +346,14 @@ export const ActivityCard = React.memo(
               </RNText>
             </View>
           )}
-          {activity.has_weather && activity.average_weather_temp != null && (
+          {activity.has_weather && activity.average_weather_temp != null ? (
             <View style={styles.secondaryStat}>
               <MaterialCommunityIcons name="weather-partly-cloudy" size={14} color={colors.info} />
               <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
                 {formatTemperature(activity.average_weather_temp, isMetric)}
               </RNText>
             </View>
-          )}
+          ) : null}
         </Pressable>
       </ScrollView>
     );
@@ -558,7 +558,7 @@ export const ActivityCard = React.memo(
                     {formatRelativeDateTime(activity.start_date_local)}
                   </RNText>
                 </View>
-                {routeHighlight && showsRouteChip && (
+                {routeHighlight && showsRouteChip ? (
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={composeAccessibilityLabel(
@@ -603,7 +603,7 @@ export const ActivityCard = React.memo(
                       </RNText>
                     ) : null}
                   </Pressable>
-                )}
+                ) : null}
               </View>
             </LinearGradient>
 
@@ -675,7 +675,7 @@ export const ActivityCard = React.memo(
                 {/* Right column: ground coverage, section trend indicators + PR counts. */}
                 {newGround?.badge || showsSectionChip ? (
                   <View style={styles.rightColumn}>
-                    {newGround?.badge && (
+                    {newGround?.badge ? (
                       <View
                         testID={`activity-card-${activity.id}-new-ground-pill`}
                         style={[styles.trendPill, styles.newGroundPill]}
@@ -693,8 +693,8 @@ export const ActivityCard = React.memo(
                             : t('activity.mostlyNewGround')}
                         </RNText>
                       </View>
-                    )}
-                    {sectionHighlights && showsSectionChip && (
+                    ) : null}
+                    {sectionHighlights && showsSectionChip ? (
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={composeAccessibilityLabel(
@@ -777,7 +777,7 @@ export const ActivityCard = React.memo(
                           );
                         })()}
                       </Pressable>
-                    )}
+                    ) : null}
                   </View>
                 ) : null}
               </Pressable>

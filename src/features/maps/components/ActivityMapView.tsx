@@ -23,6 +23,7 @@ import { useMapPreferences } from '@/features/settings/light';
 import { useSectionCreation } from '@/features/maps/hooks/useSectionCreation';
 import { useMapCamera } from '@/features/maps/hooks/useMapCamera';
 import { useMapLayers } from '@/features/maps/hooks/useMapLayers';
+import { useStoredTrackUrl } from '@/features/maps/hooks/useStoredTrackUrl';
 import { useMapFullscreen } from '@/features/maps/hooks/useMapFullscreen';
 import { useThrottledValue } from '@/features/maps/hooks/useThrottledValue';
 import { useTerrainFallback } from '@/features/maps/hooks/useTerrainFallback';
@@ -116,6 +117,8 @@ interface ActivityMapViewProps {
   activityType: ActivityType;
   /** Activity ID - used to resolve per-activity map style overrides */
   activityId?: string | undefined;
+  /** Whether the engine holds the track, so the line is drawn from the engine's URL */
+  hasStoredTrack?: boolean | undefined;
   height?: number | undefined;
   showStyleToggle?: boolean | undefined;
   /** Show map attribution (default: true) */
@@ -180,6 +183,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   coordinates: providedCoordinates,
   activityType,
   activityId,
+  hasStoredTrack,
   height = 300,
   showStyleToggle = false,
   showAttribution = true,
@@ -285,6 +289,10 @@ export const ActivityMapView = memo(function ActivityMapView({
     map3DRef,
   });
 
+  // The line comes from the engine whenever it holds the track, so the page
+  // fetches it rather than taking it as text on every mount.
+  const trackUrl = useStoredTrackUrl(activityId, hasStoredTrack ?? false);
+
   // ----- Layer GeoJSON preparation -----
   const {
     routeGeoJSON,
@@ -308,6 +316,7 @@ export const ActivityMapView = memo(function ActivityMapView({
     highlightIndex,
     activeTab,
     streams,
+    trackUrl,
   });
 
   const inline3DCollections = useMemo(
@@ -823,7 +832,7 @@ export const ActivityMapView = memo(function ActivityMapView({
     <View style={[styles.outerContainer, { height }]}>
       <View style={styles.container}>
         {/* The snapshot the feed drew, under everything, until a surface is up. */}
-        {posterUri && !surfaceReady && (
+        {posterUri && !surfaceReady ? (
           <Image
             accessibilityIgnoresInvertColors
             testID={ACTIVITY_MAP_POSTER_TEST_ID}
@@ -832,12 +841,12 @@ export const ActivityMapView = memo(function ActivityMapView({
             style={styles.mapLayer}
             resizeMode="cover"
           />
-        )}
+        ) : null}
 
         {/* 2D Map layer. Unmounted, not hidden, whenever another surface is the
             one being looked at: a hidden WebView keeps its GL context and its
             tile textures, which is the whole cost of having it. */}
-        {show2DSurface && (
+        {show2DSurface ? (
           <View style={styles.mapLayer}>
             <View
               style={[styles.map, { opacity: mapReady || mapFailed ? 1 : 0 }]}
@@ -865,11 +874,11 @@ export const ActivityMapView = memo(function ActivityMapView({
               />
             </View>
           </View>
-        )}
+        ) : null}
 
         {/* 3D Map layer */}
         {/* Error boundary prevents a 3D crash from taking out the entire map */}
-        {is3DMode && hasRoute && !isFullscreen && (
+        {is3DMode && hasRoute && !isFullscreen ? (
           <ComponentErrorBoundary part="map3d" debugName="3D Map" onError={handleMap3DFailed}>
             <Animated.View
               style={[styles.mapLayer, styles.map3DLayer, { opacity: map3DOpacity }]}
@@ -900,32 +909,32 @@ export const ActivityMapView = memo(function ActivityMapView({
               />
             </Animated.View>
           </ComponentErrorBoundary>
-        )}
+        ) : null}
 
         {/* 3D loading spinner */}
-        {is3DMode && !is3DReady && !isFullscreen && !posterUri && (
+        {is3DMode && !is3DReady && !isFullscreen && !posterUri ? (
           <View style={styles.loadingOverlay} pointerEvents="none" testID="activity-map-3d-loading">
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
-        )}
+        ) : null}
 
         {terrainNotice}
 
         {/* Attribution - uses ref-based updates to avoid map re-renders */}
-        {(showAttribution || isFullscreen) && (
+        {showAttribution || isFullscreen ? (
           <AttributionOverlay
             ref={attributionRef}
             initialAttribution={initialAttributionRef.current}
             isDark={isDarkStyle(mapStyle)}
             onClearanceChange={onAttributionClearanceChange}
           />
-        )}
+        ) : null}
       </View>
 
-      {gradientActive && !isFullscreen && <GradientMapKey isDark={isDark} top={keyTop} />}
+      {gradientActive && !isFullscreen ? <GradientMapKey isDark={isDark} top={keyTop} /> : null}
 
       {/* Control buttons - rendered OUTSIDE map container for reliable touch handling */}
-      {showStyleToggle && !isFullscreen && (
+      {showStyleToggle && !isFullscreen ? (
         <ActivityMapControls
           isDark={isDark}
           mapStyle={mapStyle}
@@ -945,7 +954,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           onOpenFullscreen={openFullscreen}
           mapHeight={height}
         />
-      )}
+      ) : null}
 
       {/* Fullscreen modal using BaseMapView */}
       <Modal
@@ -972,7 +981,7 @@ export const ActivityMapView = memo(function ActivityMapView({
       </Modal>
 
       {/* Section creation overlay */}
-      {creationMode && (
+      {creationMode ? (
         <SectionCreationOverlay
           state={externalCreationState ?? creationState}
           startIndex={startIndex}
@@ -986,7 +995,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           onReset={handleCreationReset}
           onDismissError={onCreationErrorDismiss}
         />
-      )}
+      ) : null}
     </View>
   );
 });

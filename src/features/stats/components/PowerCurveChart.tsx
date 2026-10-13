@@ -16,10 +16,12 @@ import {
 import { powerChartSeries } from '../lib/curveChartSeries';
 import { usePowerCurve } from '../hooks/usePowerCurve';
 import { formatDurationHuman, formatEnergy, formatPower } from '@/shared/format/format';
+import { getCurrentLanguage } from '@/i18n';
 import { formatWeightRounded } from '@/shared/format/weight';
 import { RangeCoverage } from 'veloqrs';
 import { BodyNotDownloaded, CardHeader, EmptyState, ErrorState, ToggleButton } from '@/shared/ui';
 import { CurveLoadingPlaceholder } from './CurveLoadingPlaceholder';
+import { formatDecimal } from '@/shared/format';
 
 interface PowerCurveChartProps {
   sport?: string | undefined;
@@ -33,13 +35,28 @@ interface PowerCurveChartProps {
 }
 
 const FTP_LINE_COLOR = colorWithOpacity(colors.chartGuideLine, 0.6);
-const X_LABELS: PlacedLabel[] = [
-  { label: '5s', value: Math.log10(5) },
-  { label: '1m', value: Math.log10(60) },
-  { label: '5m', value: Math.log10(300) },
-  { label: '20m', value: Math.log10(1200) },
-  { label: '1h', value: Math.log10(3600) },
-];
+const X_TICKS_S = [5, 60, 300, 1200, 3600];
+
+let axisLabels: { language: string; labels: PlacedLabel[] } | null = null;
+
+/**
+ * The log duration axis ticks, written by the duration formatter in the
+ * locale's units. Kept per language, so the chart's label placement sees the
+ * same array on every render until the language changes.
+ */
+export function powerCurveAxisLabels(): PlacedLabel[] {
+  const language = getCurrentLanguage();
+  if (!axisLabels || axisLabels.language !== language) {
+    axisLabels = {
+      language,
+      labels: X_TICKS_S.map((secs) => ({
+        label: formatDurationHuman(secs),
+        value: Math.log10(secs),
+      })),
+    };
+  }
+  return axisLabels.labels;
+}
 
 interface ChartPoint {
   x: number;
@@ -67,7 +84,7 @@ const MODEL_LABELS: Record<string, string> = {
 
 /** `260 W` or `3.25 W/kg`, the way the header, the axis and the FTP line print a value. */
 function formatValue(value: number, perKg: boolean, unit: string): string {
-  return perKg ? `${value.toFixed(2)} ${unit}` : formatPower(value);
+  return perKg ? `${formatDecimal(value, 2)} ${unit}` : formatPower(value);
 }
 
 export const PowerCurveChart = React.memo(function PowerCurveChart({
@@ -79,6 +96,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
 }: PowerCurveChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const xLabels = powerCurveAxisLabels();
   const isMetric = useMetricSystem();
   const styles = themedStyles(makeStyles, isDark);
   const chartColors = useChartColors();
@@ -230,7 +248,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
         }
       />
 
-      {perKgAvailable && (
+      {perKgAvailable ? (
         <View style={styles.unitToggle}>
           <ToggleButton
             testID="power-curve-unit-watts"
@@ -245,14 +263,14 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
             onPress={() => setPerKgWanted(true)}
           />
         </View>
-      )}
+      ) : null}
 
       <CurveChart
         data={chartData}
         yDomain={yDomain}
         color={lineColor}
         referenceLine={referenceLine}
-        xLabels={X_LABELS}
+        xLabels={xLabels}
         formatY={formatY}
         topAxisTestID="power-curve-axis-top"
         onSelect={setTooltipData}
@@ -277,7 +295,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
       )}
 
       {/* FTP Legend */}
-      {ftpValue && (
+      {ftpValue ? (
         <View style={styles.legend}>
           <View style={[styles.legendDash, { backgroundColor: FTP_LINE_COLOR }]} />
           <Text testID="power-curve-ftp-legend" style={styles.legendText}>
@@ -289,7 +307,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
               : t('statsScreen.ftpLabel', { value: formatValue(ftpValue, false, unit) })}
           </Text>
         </View>
-      )}
+      ) : null}
     </View>
   );
 });

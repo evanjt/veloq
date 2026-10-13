@@ -1,7 +1,8 @@
 import Foundation
 
-/// The widget snapshot in the App Group container: its location, and the one
-/// write both the foreground bridge and the background refresh go through.
+/// The App Group container's two files: the widget snapshot, with the one
+/// write the foreground bridge, the background refresh and the push extension
+/// go through, and the library every one of them opens.
 ///
 /// Shared-container coordinates are infrastructure constants (not theme). They
 /// are mirrored by the widget extension's snapshot reader. The App Group is
@@ -19,9 +20,10 @@ enum WidgetSnapshotFile {
   }
 
   /// The library, or nil when the container is unreachable or the file is not
-  /// there yet. Opening a path with nothing at it would create an empty
-  /// database, so the answer is to write nothing and wait for the app to move
-  /// the library into the container.
+  /// there yet. Absent is the ordinary case on the launch after an upgrade: the
+  /// app moves the file out of `Documents`, where no extension can see it, on
+  /// its next start. Opening a path with nothing at it would create an empty
+  /// database, so the answer is to write nothing and wait for the move.
   static var databasePath: String? {
     guard
       let container = FileManager.default.containerURL(

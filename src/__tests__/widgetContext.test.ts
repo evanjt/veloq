@@ -11,6 +11,7 @@ import {
   composeWidgetContext,
   WIDGET_STRING_KEYS,
   widgetDateWords,
+  widgetNumberWords,
 } from '@/features/home/lib/widgetSnapshot';
 import type { Insight, InsightCategory } from '@/features/insights';
 
@@ -110,6 +111,37 @@ describe('the date words', () => {
     const parts = widgetDateWords('en-US').monthDayYear.parts.map((p) => p.type);
 
     expect(parts.filter((t) => t !== 'literal')).toEqual(['month', 'day', 'year']);
+  });
+});
+
+describe('the number separators', () => {
+  it('are the locale decimal and group marks', () => {
+    expect(widgetNumberWords('de-DE')).toEqual({
+      decimal: ',',
+      group: '.',
+      minimumGroupingDigits: 1,
+    });
+    expect(widgetNumberWords('en-AU')).toEqual({
+      decimal: '.',
+      group: ',',
+      minimumGroupingDigits: 1,
+    });
+  });
+
+  it('leave a four digit number ungrouped where the locale does', () => {
+    expect(widgetNumberWords('es-ES').minimumGroupingDigits).toBe(2);
+  });
+
+  it('are carried in the context the engine composes with', () => {
+    const numbers = { decimal: ',', group: '.', minimumGroupingDigits: 1 };
+    const context = composeWidgetContext({
+      locale: 'de-DE',
+      isMetric: true,
+      dates: NO_DATES,
+      numbers,
+    });
+
+    expect(context.numbers).toEqual(numbers);
   });
 });
 

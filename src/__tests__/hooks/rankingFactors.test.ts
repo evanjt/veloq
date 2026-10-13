@@ -8,11 +8,8 @@
  * beyond -100% is kept, and no change is unavailable rather than 0%.
  */
 
-import {
-  formatSignedPercent,
-  rankingFactors,
-  type RankingFactor,
-} from '@/features/insights/lib/rankingFactors';
+import { rankingFactors, type RankingFactor } from '@/features/insights/lib/rankingFactors';
+import { formatSignedPercent } from '@/shared/format';
 import type { SectionRankingScores } from '@/features/insights/types';
 
 const MEDIAN_OF_THREE = 0;
@@ -34,8 +31,8 @@ describe('formatSignedPercent', () => {
   it.each([
     [0.14, '+14%'],
     [0, '0%'],
-    [-0.14, '−14%'],
-    [-1.5, '−150%'],
+    [-0.14, '-14%'],
+    [-1.5, '-150%'],
     [-0.001, '0%'],
     [0.004, '0%'],
     [-0, '0%'],
@@ -76,7 +73,7 @@ describe('rankingFactors', () => {
       ranking({ improvementChange: -0.14, improvementBasis: FIRST_TO_LAST }),
       'improvement'
     );
-    expect(f).toMatchObject({ change: '−14%', basis: 'firstToLast' });
+    expect(f).toMatchObject({ change: '-14%', basis: 'firstToLast' });
   });
 
   it('keeps a change beyond -100%', () => {
@@ -84,7 +81,7 @@ describe('rankingFactors', () => {
       ranking({ improvementChange: -1.5, improvementBasis: MEDIAN_OF_THREE }),
       'improvement'
     );
-    expect(f?.change).toBe('−150%');
+    expect(f?.change).toBe('-150%');
   });
 
   it('reports a measured zero as 0%', () => {

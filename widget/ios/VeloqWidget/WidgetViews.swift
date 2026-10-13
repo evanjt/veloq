@@ -596,18 +596,27 @@ struct SummaryWidgetView: View {
               content: content, palette: palette, formZone: formZone,
               valueStep: .metric)
               .frame(maxWidth: .infinity, alignment: .leading)
-            SummaryChartView(kind: content.chart, snapshot: snapshot, palette: palette)
-              .frame(maxWidth: .infinity)
-              .frame(height: 48)
+            SummaryChartView(
+              kind: content.chart, caption: content.chartCaption, snapshot: snapshot,
+              palette: palette
+            )
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
           }
           Divider().background(palette.border)
           SummarySupportingRow(
             entries: content.supporting, palette: palette, formZone: formZone)
           if let zones = content.formZones {
             Divider().background(palette.border)
-            FormZoneChartView(chart: zones, palette: palette)
-              .spoken("form chart", snapshot.display.chartLabels?.form)
-              .frame(maxHeight: .infinity)
+            VStack(alignment: .leading, spacing: 2) {
+              if let caption = content.formCaption {
+                FormCaptionRow(caption: caption, palette: palette)
+              }
+              FormZoneChartView(chart: zones, palette: palette)
+                .frame(maxHeight: .infinity)
+            }
+            .spoken("form chart", snapshot.display.chartLabels?.form)
+            .frame(maxHeight: .infinity)
           } else {
             Spacer(minLength: 0)
           }
@@ -664,9 +673,11 @@ private struct SummaryHero: View {
 }
 
 /// The chart beside the hero: nothing when the placement or the card hides it, or when the
-/// snapshot holds no series for it.
+/// snapshot holds no series for it. A caption under it names its series and the days it spans,
+/// inside the same height.
 private struct SummaryChartView: View {
   let kind: SummaryChartKind
+  var caption: ChartCaption? = nil
   let snapshot: WidgetSnapshot
   let palette: WidgetPalette
 
@@ -675,11 +686,128 @@ private struct SummaryChartView: View {
     case .none:
       EmptyView()
     case .fitnessForm:
-      FitnessChartView(snapshot: snapshot, palette: palette)
-        .spoken("chart", snapshot.display.chartLabels?.fitness)
+      VStack(alignment: .leading, spacing: 2) {
+        FitnessChartView(snapshot: snapshot, palette: palette)
+        if let caption {
+          ChartCaptionRow(caption: caption, palette: palette)
+        }
+      }
+      .spoken("chart", snapshot.display.chartLabels?.fitness)
     case .hrv:
-      SingleTrendChart(values: snapshot.sparklines.hrv, color: palette.primary, palette: palette)
-        .spoken("chart", snapshot.display.chartLabels?.hrv)
+      VStack(alignment: .leading, spacing: 2) {
+        SingleTrendChart(values: snapshot.sparklines.hrv, color: palette.primary, palette: palette)
+        if let caption {
+          ChartCaptionRow(caption: caption, palette: palette)
+        }
+      }
+      .spoken("chart", snapshot.display.chartLabels?.hrv)
+    }
+  }
+}
+
+/// A short stroke drawn as a chart line is, cased and dashed alike, so a legend entry reads as
+/// its line without its colour.
+private struct LegendStroke: View {
+  let color: Color
+  let casing: Color
+  var dash: [CGFloat] = []
+
+  var body: some View {
+    let line = Path { p in
+      p.move(to: CGPoint(x: 1, y: 3))
+      p.addLine(to: CGPoint(x: 11, y: 3))
+    }
+    ZStack {
+      line.stroke(casing, style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: dash))
+      line.stroke(color, style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: dash))
+    }
+    .frame(width: 12, height: 6)
+  }
+}
+
+/// The chart's series, fitness solid and fatigue dashed as their lines are, and the days it spans:
+/// on one line where it fits, else the span under the series, else each on a line of its own.
+private struct ChartCaptionRow: View {
+  let caption: ChartCaption
+  let palette: WidgetPalette
+
+  var body: some View {
+    ViewThatFits(in: .horizontal) {
+      HStack(spacing: 6) {
+        HStack(spacing: 6) { series }
+        Spacer(minLength: 0)
+        span
+      }
+      VStack(alignment: .leading, spacing: 1) {
+        HStack(spacing: 6) { series }
+        span
+      }
+      VStack(alignment: .leading, spacing: 1) {
+        series
+        span
+      }
+    }
+  }
+
+  private var series: some View {
+    ForEach(Array(caption.series.enumerated()), id: \.offset) { index, name in
+      HStack(spacing: 3) {
+        if index == 0 {
+          LegendStroke(color: palette.chartFitness, casing: palette.chartCasing)
+            .widgetAccentable()
+        } else {
+          LegendStroke(
+            color: palette.chartFatigue, casing: palette.chartCasing,
+            dash: WidgetTheme.Chart.fatigueDash)
+        }
+        Text(name)
+          .measuredText("chart series")
+          .widgetFont(.caption, shrinks: true)
+          .foregroundColor(palette.textSecondary)
+          .lineLimit(1)
+      }
+    }
+  }
+
+  @ViewBuilder
+  private var span: some View {
+    if let span = caption.span, !span.isEmpty {
+      Text(span)
+        .measuredText("chart span")
+        .widgetFont(.caption, shrinks: true)
+        .foregroundColor(palette.textSecondary)
+        .lineLimit(1)
+    }
+  }
+}
+
+/// The form chart's name, the zone today sits in and the days it spans, over the chart.
+private struct FormCaptionRow: View {
+  let caption: FormChartCaption
+  let palette: WidgetPalette
+
+  var body: some View {
+    HStack(spacing: 6) {
+      Text(caption.title.uppercased())
+        .measuredText("form chart title")
+        .widgetFont(.caption, shrinks: true)
+        .foregroundColor(palette.textSecondary)
+        .lineLimit(1)
+      if let zone = caption.zone {
+        Text(zone)
+          .measuredText("form chart zone")
+          .widgetFont(.caption, weight: .semibold, shrinks: true)
+          .foregroundColor(palette.textPrimary)
+          .lineLimit(1)
+      }
+      Spacer(minLength: 0)
+      if let span = caption.span, !span.isEmpty {
+        Text(span)
+          .measuredText("chart span")
+          .widgetFont(.caption, shrinks: true)
+          .foregroundColor(palette.textSecondary)
+          .lineLimit(1)
+      }
     }
   }
 }
@@ -746,7 +874,8 @@ private extension FormZoneChart {
   }
 }
 
-/// Form over six weeks against its five zone bands. A day with no value breaks the line.
+/// Form over six weeks against its five zone bands, each bound labelled in the left gutter. A
+/// day with no value breaks the line.
 ///
 /// A line marks each boundary between two bands in every mode. Drawn in one colour the bands
 /// would all take one tint at one alpha, so there they alternate between two alphas instead.
@@ -754,6 +883,18 @@ private struct FormZoneChartView: View {
   @Environment(\.widgetRenderingMode) private var renderingMode
   let chart: FormZoneChart
   let palette: WidgetPalette
+  @ScaledMetric(relativeTo: WidgetTheme.TypeStep.caption.style)
+  private var axisScaled = WidgetTheme.TypeStep.caption.size
+  private var axisFontSize: CGFloat { WidgetTheme.TypeStep.caption.capped(axisScaled) }
+
+  /// The four values where one zone meets the next, low to high.
+  private var bounds: [Double] { chart.bands.dropFirst().map(\.from) }
+
+  /// The gutter the bound labels stand in, sized as the hero chart's axis gutter is.
+  private var gutter: CGFloat {
+    let chars = bounds.map { String(Int($0.rounded())).count }.max() ?? 0
+    return CGFloat(chars) * (axisFontSize * 0.62) + 4
+  }
 
   private func bandOpacity(_ index: Int) -> Double {
     guard renderingMode == .accented else { return WidgetTheme.Chart.bandOpacity }
@@ -763,39 +904,53 @@ private struct FormZoneChartView: View {
 
   var body: some View {
     GeometryReader { geo in
+      let left = gutter
+      let width = max(geo.size.width - left, 1)
+      let height = geo.size.height
       ZStack(alignment: .topLeading) {
         ForEach(Array(chart.bands.enumerated()), id: \.element.zone) { index, band in
           Rectangle()
             .fill(palette.formFill(band.zone).opacity(bandOpacity(index)))
             .frame(
-              width: geo.size.width,
-              height: chart.y(band.from, height: geo.size.height)
-                - chart.y(band.to, height: geo.size.height)
+              width: width,
+              height: chart.y(band.from, height: height) - chart.y(band.to, height: height)
             )
-            .offset(y: chart.y(band.to, height: geo.size.height))
+            .offset(x: left, y: chart.y(band.to, height: height))
         }
-        boundaries(in: geo.size)
+        boundaries(left: left, width: width, height: height)
           .stroke(palette.textSecondary, lineWidth: WidgetTheme.Chart.bandBoundary)
-        line(in: geo.size)
+        line(left: left, width: width, height: height)
           .stroke(
             palette.textPrimary,
             style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+        ForEach(bounds.indices, id: \.self) { i in
+          Text(String(Int(bounds[i].rounded())))
+            .measuredText("zone bound")
+            .font(.system(size: axisFontSize))
+            .foregroundColor(palette.textSecondary)
+            .position(
+              x: (left - 4) / 2,
+              // Held half a line inside, so a bound near the floor or ceiling stays in the chart.
+              y: min(
+                max(chart.y(bounds[i], height: height), axisFontSize * 0.6),
+                height - axisFontSize * 0.6))
+        }
       }
     }
   }
 
   /// Every edge two bands share, which leaves out the chart's floor and ceiling.
-  private func boundaries(in size: CGSize) -> Path {
+  private func boundaries(left: CGFloat, width: CGFloat, height: CGFloat) -> Path {
     var path = Path()
-    for band in chart.bands.dropFirst() {
-      let y = chart.y(band.from, height: size.height)
-      path.move(to: CGPoint(x: 0, y: y))
-      path.addLine(to: CGPoint(x: size.width, y: y))
+    for bound in bounds {
+      let y = chart.y(bound, height: height)
+      path.move(to: CGPoint(x: left, y: y))
+      path.addLine(to: CGPoint(x: left + width, y: y))
     }
     return path
   }
 
-  private func line(in size: CGSize) -> Path {
+  private func line(left: CGFloat, width: CGFloat, height: CGFloat) -> Path {
     var path = Path()
     var open = false
     let last = max(chart.values.count - 1, 1)
@@ -805,7 +960,7 @@ private struct FormZoneChartView: View {
         continue
       }
       let point = CGPoint(
-        x: size.width * CGFloat(i) / CGFloat(last), y: chart.y(value, height: size.height))
+        x: left + width * CGFloat(i) / CGFloat(last), y: chart.y(value, height: height))
       if open {
         path.addLine(to: point)
       } else {

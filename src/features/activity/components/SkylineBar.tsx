@@ -54,7 +54,9 @@ export const SkylineBar = React.memo(function SkylineBar({
         const showDivider = i > 0 && prevZone !== interval.zone;
         return (
           <React.Fragment key={i}>
-            {showDivider && <View style={[styles.divider, { backgroundColor: dividerColor }]} />}
+            {showDivider ? (
+              <View style={[styles.divider, { backgroundColor: dividerColor }]} />
+            ) : null}
             <View
               testID={`skyline-segment-${i}`}
               style={{

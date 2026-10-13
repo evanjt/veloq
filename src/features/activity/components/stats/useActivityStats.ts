@@ -40,6 +40,7 @@ import { colors, darkColors } from '@/theme';
 import { FEELS_LIKE_THRESHOLD } from '@/constants';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { formFromLoads } from '@/shared/math';
+import { formatDecimal, formatPercent, formatSigned } from '@/shared/format';
 
 // Explanation keys for each metric - educational, not interpretive
 const METRIC_EXPLANATION_KEYS: Record<string, string> = {
@@ -169,18 +170,17 @@ export function useActivityStats({
     }
 
     if (fitnessImpact) {
-      const signed = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(1)}`;
       result.push({
         title: t('activity.stats.fitnessImpact'),
-        value: signed(fitnessImpact.fitness),
+        value: formatSigned(fitnessImpact.fitness, 1),
         icon: 'chart-line',
         color: green,
         context: t('activity.stats.fitnessImpactContext'),
         explanation: t('activity.explanations.fitnessImpact'),
         details: [
-          { label: t('activity.stats.fitnessCTL'), value: signed(fitnessImpact.fitness) },
-          { label: t('activity.stats.fatigueATL'), value: signed(fitnessImpact.fatigue) },
-          { label: t('activity.stats.formTSB'), value: signed(fitnessImpact.form) },
+          { label: t('activity.stats.fitnessCTL'), value: formatSigned(fitnessImpact.fitness, 1) },
+          { label: t('activity.stats.fatigueATL'), value: formatSigned(fitnessImpact.fatigue, 1) },
+          { label: t('activity.stats.formTSB'), value: formatSigned(fitnessImpact.form, 1) },
         ],
       });
     }
@@ -513,13 +513,13 @@ export function useActivityStats({
           activity.icu_efficiency_factor
             ? {
                 label: t('activity.stats.efficiencyFactor'),
-                value: activity.icu_efficiency_factor.toFixed(2),
+                value: formatDecimal(activity.icu_efficiency_factor, 2),
               }
             : null,
           decoupling !== null
             ? {
                 label: t('activity.stats.decoupling'),
-                value: `${decoupling.toFixed(1)}%`,
+                value: formatPercent(decoupling, 1),
               }
             : null,
         ].filter(Boolean) as { label: string; value: string }[],

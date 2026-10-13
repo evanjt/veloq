@@ -57,7 +57,7 @@ export interface SwipeableTab {
   label: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   count?: number;
-  /** Free-form badge text shown in place of `count` (e.g. "−12s", "+5s"). */
+  /** Free-form badge text shown in place of `count` (e.g. "-12s", "+5s"). */
   badgeText?: string;
   /** Visual tone for `badgeText`. Ignored when `count` is used. */
   badgeTone?: 'neutral' | 'positive' | 'negative' | 'pr';
@@ -137,11 +137,11 @@ function TabContent({
       >
         {tab.label}
       </Text>
-      {paint && (
+      {paint ? (
         <View style={[styles.tabBadge, { backgroundColor: paint.fill }]}>
           <Text style={[styles.tabBadgeText, { color: paint.ink }]}>{badge}</Text>
         </View>
-      )}
+      ) : null}
     </View>
   );
 }

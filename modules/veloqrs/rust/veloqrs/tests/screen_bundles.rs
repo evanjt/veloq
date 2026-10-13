@@ -261,6 +261,22 @@ fn activity_detail_matches_the_calls_it_replaces() {
     );
 }
 
+/// The map draws the line from the engine's URL only when there is a stored
+/// track to answer it. An activity known by its metrics alone, which is one
+/// whose streams carry no usable line, keeps its line inline.
+#[test]
+fn activity_detail_says_whether_the_engine_holds_the_track() {
+    let _serial_state = crate::serial_state();
+    let mut s = populated();
+    s.engine
+        .set_activity_metrics_extended(vec![metrics("m1", 1_700_172_800)])
+        .expect("set metrics");
+
+    assert!(s.engine.activity_detail_data("a1", 2).has_gps_track);
+    assert!(!s.engine.activity_detail_data("m1", 2).has_gps_track);
+    assert!(!s.engine.activity_detail_data("absent", 2).has_gps_track);
+}
+
 /// Scenario: the detail screen opens on an activity that traverses a section
 /// with members.
 ///

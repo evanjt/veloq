@@ -12,7 +12,7 @@ import type {
 } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { ACTIVE_WINDOW_DAYS, INSIGHTS_CONFIG, confidenceFrom } from '../lib/config';
-import { formatDurationCompact, formatLoad } from '@/shared/format/format';
+import { formatDurationHuman, formatLoad } from '@/shared/format/format';
 import { fitnessTarget, rangeCovering } from '@/shared/app/fitnessEntry';
 import { sparkline } from '../lib/sparkline';
 import {
@@ -22,6 +22,7 @@ import {
   verdictRung,
   type TrendMetric,
 } from '@/shared/format/trend';
+import { formatSignedPercent } from '@/shared/format';
 
 /** A week against the week before it. */
 const WEEK_OVER_WEEK_DAYS = 14;
@@ -61,20 +62,9 @@ function comparisonTrend(comparison: PeriodComparison): {
   return { metric, trend: { direction, verdict: trendVerdict(metric, direction) } };
 }
 
-/**
- * A ratio as the change the card prints: signed on either side of zero, bare
- * at zero. Both branches print it in the same slot, and the week-on-week one
- * used to drop the minus, so a 29% fall read as a 29% rise.
- */
-export function signedPercent(ratio: number): string {
-  const percent = Math.round(Math.abs(ratio) * 100);
-  if (percent === 0) return '0%';
-  return `${ratio > 0 ? '+' : '-'}${percent}%`;
-}
-
 /** A comparison's total as the caption states it, in the unit it was compared in. */
 function captionValue(value: number, useTss: boolean): string {
-  return useTss ? formatLoad(value) : formatDurationCompact(value);
+  return useTss ? formatLoad(value) : formatDurationHuman(value);
 }
 
 /** A weekly bar's value, which `displayValue` holds in minutes for time, as the caption states it. */
@@ -125,12 +115,12 @@ export function generatePeriodComparisonInsights(
     ? t('insights.loadBody', {
         currentTss: Math.round(cur.totalTss),
         previousTss: Math.round(prev.totalTss),
-        currentDuration: formatDurationCompact(cur.totalDuration),
-        previousDuration: formatDurationCompact(prev.totalDuration),
+        currentDuration: formatDurationHuman(cur.totalDuration),
+        previousDuration: formatDurationHuman(prev.totalDuration),
       })
     : t('insights.volumeBody', {
-        current: formatDurationCompact(cur.totalDuration),
-        previous: formatDurationCompact(prev.totalDuration),
+        current: formatDurationHuman(cur.totalDuration),
+        previous: formatDurationHuman(prev.totalDuration),
       });
 
   // Both weeks' activities are what the comparison rests on: a week against
@@ -177,7 +167,7 @@ export function generatePeriodComparisonInsights(
       },
       change: {
         label: t('insights.data.change'),
-        value: signedPercent(ratio),
+        value: formatSignedPercent(ratio),
         context: 'neutral',
       },
     },
@@ -314,7 +304,7 @@ function generateLastWeekVsAverageInsight(
           },
           change: {
             label: t('insights.data.change'),
-            value: signedPercent(ratio),
+            value: formatSignedPercent(ratio),
             context: 'neutral',
           },
         },

@@ -13,6 +13,7 @@ import { sectionWithSport } from '../lib/cardSport';
 import { markedActivity, sparkline } from '../lib/sparkline';
 import { sectionPairKey } from '../lib/sectionIdentity';
 import { TIME } from '@/shared/app/time';
+import { formatDecimal, formatSignedPercentage } from '@/shared/format';
 
 /**
  * Stale PR / Opportunity Detection
@@ -101,15 +102,20 @@ function displayUnit(opportunity: StalePROpportunity, isMetric: boolean): string
   return opportunity.unit === '/100m' ? swimPaceUnitLabel(isMetric) : paceUnitLabel(isMetric);
 }
 
+/** The engine's gain, to the tenth it carries, and whole when it is whole. */
+function gainText(percent: number): string {
+  return formatSignedPercentage(percent, Number.isInteger(percent) ? 0 : 1);
+}
+
 function gainFormula(
   metricLabel: string,
   opportunity: StalePROpportunity,
   digits: number,
   t: TFunc
 ): string {
-  const current = opportunity.currentValue.toFixed(digits);
-  const previous = opportunity.previousValue.toFixed(digits);
-  return `${t('insights.stalePr.metricGain', { metric: metricLabel })} = (${current} - ${previous}) / ${previous} = +${opportunity.gainPercent}%`;
+  const current = formatDecimal(opportunity.currentValue, digits);
+  const previous = formatDecimal(opportunity.previousValue, digits);
+  return `${t('insights.stalePr.metricGain', { metric: metricLabel })} = (${current} - ${previous}) / ${previous} = ${gainText(opportunity.gainPercent)}`;
 }
 
 /**
@@ -199,7 +205,7 @@ export function stalePROpportunityToInsight(
         },
         {
           label: t('insights.stalePr.metricGain', { metric: metricLabel }),
-          value: `+${opportunity.gainPercent}%`,
+          value: gainText(opportunity.gainPercent),
           context: 'good',
         },
         {

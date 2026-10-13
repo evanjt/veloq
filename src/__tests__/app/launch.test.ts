@@ -521,7 +521,9 @@ describe('backup temporary files', () => {
     await exportRecordBackup();
 
     expect([...mockFiles]).toEqual(['file:///cache/exports/veloq-backup-2026-09-02.zip']);
-    expect(shareExistingFile).toHaveBeenLastCalledWith([...mockFiles][0], 'application/zip');
+    expect(shareExistingFile).toHaveBeenLastCalledWith([...mockFiles][0], 'zip', {
+      anchor: undefined,
+    });
   });
 
   it('launches without waiting for a sweep queued behind an open share sheet', async () => {

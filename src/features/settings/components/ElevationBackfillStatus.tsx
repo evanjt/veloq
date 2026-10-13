@@ -105,7 +105,7 @@ export function ElevationBackfillStatus() {
     <View>
       {status}
 
-      {pausable && (
+      {pausable ? (
         <Button
           testID="elevation-backfill-pause"
           label={t('settings.elevationBackfillPause')}
@@ -117,9 +117,9 @@ export function ElevationBackfillStatus() {
             <MaterialCommunityIcons name="pause-circle-outline" size={16} color={colors.primary} />
           }
         />
-      )}
+      ) : null}
 
-      {isPaused && (
+      {isPaused ? (
         <Button
           testID="elevation-backfill-resume"
           label={t('settings.elevationBackfillResume')}
@@ -131,16 +131,16 @@ export function ElevationBackfillStatus() {
             <MaterialCommunityIcons name="play-circle-outline" size={16} color={colors.primary} />
           }
         />
-      )}
+      ) : null}
 
-      {routeMatchingEnabled && phase !== 'complete' && phase !== 'paused' && (
+      {routeMatchingEnabled && phase !== 'complete' && phase !== 'paused' ? (
         <Text
           style={[styles.line, styles.centred, { color: textSecondary }]}
           testID="elevation-backfill-explainer"
         >
           {t('settings.elevationBackfillExplainer')}
         </Text>
-      )}
+      ) : null}
 
       <Button
         testID="elevation-backfill-why"

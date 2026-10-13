@@ -174,7 +174,7 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
         onPress={() => setShowWebdav((shown) => !shown)}
         disabled={busy}
       />
-      {showWebdav && (
+      {showWebdav ? (
         <>
           <WebdavConfigForm
             onConfigChange={() => setEntries(null)}
@@ -207,7 +207,7 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
             />
           ))}
         </>
-      )}
+      ) : null}
       {isGoogleDriveSupported() && (
         <>
           <Button

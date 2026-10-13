@@ -125,15 +125,15 @@ export function ProgressRow({
     <View style={styles.row}>
       <View style={styles.labels}>
         <Text style={labelStyle ?? [styles.label, isDark && styles.labelDark]}>{label}</Text>
-        {known && <ProgressBar done={done} total={total} label={label} testID={barTestID} />}
-        {known && counts !== undefined && (
+        {known ? <ProgressBar done={done} total={total} label={label} testID={barTestID} /> : null}
+        {known && counts !== undefined ? (
           <Text
             testID={countsTestID}
             style={detailStyle ?? [styles.detail, isDark && styles.detailDark]}
           >
             {counts}
           </Text>
-        )}
+        ) : null}
         {children}
       </View>
       {action}

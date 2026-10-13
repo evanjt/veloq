@@ -7,7 +7,9 @@
  * an anchored popup whose items scroll inside the window at 200 per cent text,
  * never a fixed-width card in a react-native Modal. A card that draws no map,
  * one with no GPS track or a weight-training card, offers no map style, 3D
- * terrain or reset, on either platform.
+ * terrain or reset, on either platform. Share links to intervals.icu only with
+ * the id the feed read hands over, never the row key, and is not offered when
+ * intervals.icu holds no page for the activity.
  */
 
 import React from 'react';
@@ -87,6 +89,7 @@ const activity = {
   name: 'Morning ride',
   type: 'Ride',
   stream_types: ['latlng'],
+  intervalsWebId: 'i901',
 } as unknown as Activity;
 
 const renderMenu = (visible: boolean, shown: Activity = activity, hasMap = true) =>
@@ -147,7 +150,7 @@ describe('sharing from the card menu', () => {
     expect(share).toHaveBeenCalledTimes(1);
     expect(share.mock.calls[0][0]).toMatchObject({
       message: 'Morning ride',
-      url: 'https://intervals.icu/activities/a1',
+      url: 'https://intervals.icu/activities/i901',
     });
     expect(share.mock.calls[0][1]).toEqual({ subject: 'Morning ride' });
   });
@@ -161,7 +164,7 @@ describe('sharing from the card menu', () => {
 
     expect(share).toHaveBeenCalledTimes(1);
     expect(share.mock.calls[0][0]).toMatchObject({
-      message: 'Morning ride\nhttps://intervals.icu/activities/a1',
+      message: 'Morning ride\nhttps://intervals.icu/activities/i901',
       title: 'Morning ride',
     });
   });
@@ -186,6 +189,43 @@ describe('sharing from the card menu', () => {
     await fireEvent.press(nativeAction('activity.share'));
 
     expect(warn).not.toHaveBeenCalled();
+  });
+});
+
+describe.each(['ios', 'android'] as const)('sharing on %s with no intervals.icu page', (os) => {
+  beforeEach(() => jest.replaceProperty(Platform, 'OS', os));
+  afterEach(() => jest.restoreAllMocks());
+
+  const shareOffered = () =>
+    screen.queryAllByText('activity.share').length > 0 ||
+    screen.queryByLabelText('activity.share') !== null;
+
+  it('offers no Share for a recording intervals.icu has not named', async () => {
+    await renderMenu(os === 'android', { ...activity, id: 'local-ride-7', intervalsWebId: null });
+
+    expect(shareOffered()).toBe(false);
+    expect(screen.getAllByText('activity.viewDetails').length).toBeGreaterThan(0);
+  });
+
+  it('offers no Share for a body the feed read did not name', async () => {
+    const { intervalsWebId: _dropped, ...unnamed } = activity;
+    await renderMenu(os === 'android', unnamed as Activity);
+
+    expect(shareOffered()).toBe(false);
+  });
+
+  it('shares the id the feed read names for an uploaded recording, not its row key', async () => {
+    const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: Share.sharedAction });
+    await renderMenu(os === 'android', { ...activity, id: 'local-ride-8', intervalsWebId: 'i900' });
+
+    await fireEvent.press(
+      os === 'ios' ? nativeAction('activity.share') : screen.getByLabelText('activity.share')
+    );
+
+    expect(share).toHaveBeenCalledTimes(1);
+    const sent = JSON.stringify(share.mock.calls[0][0]);
+    expect(sent).toContain('https://intervals.icu/activities/i900');
+    expect(sent).not.toContain('local-ride-8');
   });
 });
 
@@ -246,6 +286,7 @@ const noTrack = {
   name: 'Treadmill run',
   type: 'Run',
   stream_types: ['heartrate'],
+  intervalsWebId: 'i902',
 } as unknown as Activity;
 
 const weights = {
@@ -253,6 +294,7 @@ const weights = {
   name: 'Leg day',
   type: 'WeightTraining',
   stream_types: [],
+  intervalsWebId: 'i903',
 } as unknown as Activity;
 
 describe.each([

@@ -65,17 +65,33 @@ struct Library {
     served: std::path::PathBuf,
 }
 
+fn tracks() -> [(&'static str, Vec<GpsPoint>); 3] {
+    [
+        ("near-1", line(45.0, 6.0)),
+        ("near-2", line(45.0003, 6.0)),
+        ("far", line(45.4, 6.4)),
+    ]
+}
+
+/// The tile as the pass draws one: every track whose walk at its zoom holds
+/// it, stroked into one canvas.
+fn drawn_as_the_pass_draws(z: u8, x: u32, y: u32) -> Vec<u8> {
+    let placed: Vec<veloqrs::tiles::ProjectedTrack> = tracks()
+        .iter()
+        .map(|(_, track)| veloqrs::tiles::ProjectedTrack::new(track))
+        .filter(|track| track.tiles_along(z).contains(&(x, y)))
+        .collect();
+    veloqrs::tiles::draw_heatmap_tile(z, x, y, &placed.iter().collect::<Vec<_>>())
+        .expect("the tracks ink the tile")
+}
+
 /// Two tracks side by side and one 50 km away, a full pass over them in
 /// one set, and a second set at the same format version that no pass has
 /// drawn into.
 fn library() -> Library {
     let dir = TempDir::new().unwrap();
     let mut engine = engine(&dir);
-    for (id, track) in [
-        ("near-1", line(45.0, 6.0)),
-        ("near-2", line(45.0003, 6.0)),
-        ("far", line(45.4, 6.4)),
-    ] {
+    for (id, track) in tracks() {
         engine
             .add_activity(id.into(), track, "Walk".into())
             .expect("stored");
@@ -122,8 +138,7 @@ fn a_deep_tile_on_a_track_is_drawn_as_the_pass_draws_it_and_kept() {
     let _serial = serial();
     let lib = library();
     let (x, y) = tile_at(ON_TRACK, 16);
-    let by_pass = fs::read(tile_file(&lib.drawn_by_pass, 16, x, y, "png"))
-        .expect("the pass drew the tile under the tracks");
+    let by_pass = drawn_as_the_pass_draws(16, x, y);
 
     let served = heatmap_tile_bytes(16, x, y).expect("the tile is drawn on request");
 
@@ -183,11 +198,10 @@ fn a_missing_tile_below_the_deep_zooms_is_left_to_the_pass() {
 fn every_deep_zoom_is_drawn_on_request() {
     let _serial_state = super::serial_state();
     let _serial = serial();
-    let lib = library();
+    let _lib = library();
     for z in [15u8, 17] {
         let (x, y) = tile_at(ON_TRACK, z);
-        let by_pass = fs::read(tile_file(&lib.drawn_by_pass, z, x, y, "png"))
-            .expect("the pass drew the tile under the tracks");
+        let by_pass = drawn_as_the_pass_draws(z, x, y);
         let served = heatmap_tile_bytes(z, x, y).expect("drawn on request");
         assert_eq!(pixels(&served), pixels(&by_pass), "z{z}");
     }

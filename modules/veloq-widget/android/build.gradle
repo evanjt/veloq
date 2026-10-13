@@ -13,3 +13,11 @@ android {
     versionName "0.1.0"
   }
 }
+
+dependencies {
+  // The snapshot file has one writer, in the engine module, which the native
+  // workers share. The app autolinks that module, so this one only compiles
+  // against it.
+  compileOnly project(':veloqrs')
+  testImplementation "junit:junit:4.13.2"
+}

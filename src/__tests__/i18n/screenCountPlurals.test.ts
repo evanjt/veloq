@@ -12,6 +12,10 @@ const KEYS = [
   'routes.customCount',
   'sections.removedCount',
   'sections.pointsCount',
+  'insights.sectionPrSheet.efforts',
+  'sections.correlationAttempts',
+  'bestEffortsScreen.seasonSubtitle',
+  'whatsNew.v040.diffUnchanged',
 ] as const;
 
 async function translatorFor(locale: string) {
@@ -52,11 +56,16 @@ describe('screen count plurals', () => {
 
   it('Polish provides one, few and many forms', async () => {
     const t = await translatorFor('pl');
-    const bundle = resolvedLocale('pl') as unknown as Record<string, Record<string, string>>;
+    const bundle = resolvedLocale('pl') as unknown as Record<string, unknown>;
     for (const key of KEYS) {
-      const [group, name] = key.split('.');
+      const path = key.split('.');
+      const name = path.pop() as string;
+      const group = path.reduce(
+        (node, part) => (node as Record<string, unknown>)[part],
+        bundle as unknown
+      ) as Record<string, string>;
       for (const suffix of ['one', 'few', 'many', 'other']) {
-        expect(bundle[group][`${name}_${suffix}`]).toContain('{{count}}');
+        expect(group[`${name}_${suffix}`]).toContain('{{count}}');
       }
       const form = (count: number) => t(key, count).replace(String(count), '#');
       expect(form(1)).not.toBe(form(2));
@@ -69,5 +78,20 @@ describe('screen count plurals', () => {
   it('fractional sets use the other form', async () => {
     const t = await translatorFor('en-GB');
     expect(t('strength.setsCount', 1.5)).toBe('1.5 sets');
+  });
+
+  it('reads one effort, attempt and day in the singular in English', async () => {
+    const t = await translatorFor('en-GB');
+    expect(t('insights.sectionPrSheet.efforts', 1)).toBe('1 effort');
+    expect(t('sections.correlationAttempts', 1)).toBe('1 attempt');
+    expect(t('bestEffortsScreen.seasonSubtitle', 1)).toBe('Personal records from the last 1 day.');
+    expect(t('insights.sectionPrSheet.efforts', 4)).toBe('4 efforts');
+  });
+
+  it('puts the Polish count before its noun in the form the number selects', async () => {
+    const t = await translatorFor('pl');
+    expect(t('sections.correlationAttempts', 3)).toBe('3 próby');
+    expect(t('sections.correlationAttempts', 5)).toBe('5 prób');
+    expect(t('insights.sectionPrSheet.efforts', 22)).toBe('22 próby');
   });
 });

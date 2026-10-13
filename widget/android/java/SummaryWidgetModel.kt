@@ -19,6 +19,16 @@ sealed class SummaryChart {
   data class Single(val values: List<Float>) : SummaryChart()
 }
 
+/**
+ * The words drawn under the chart beside the hero: its series in the order its lines are drawn
+ * apart, solid then dashed, and the days it spans. A single series is named by the hero beside
+ * it, so it lists none.
+ */
+data class ChartCaption(val series: List<String>, val span: String?)
+
+/** The words drawn over the form chart: its name, the zone the latest day sits in, its span. */
+data class FormChartCaption(val title: String, val zone: String?, val span: String?)
+
 /** One form zone of the large chart: where it starts and ends in the chart's unit. */
 data class FormBand(val zone: String, val from: Float, val to: Float)
 
@@ -204,6 +214,29 @@ object SummaryWidget {
         }
       else -> SummaryChart.None
     }
+
+  /** The series [chart] draws, named as the snapshot names them, and the days it spans. */
+  fun chartCaption(snap: WidgetSnapshot, chart: SummaryChart): ChartCaption? =
+    when (chart) {
+      SummaryChart.None -> null
+      is SummaryChart.Dual -> {
+        val fitness = snap.metricLabels["fitness"] ?: "Fitness"
+        val fatigue = snap.metricLabels["fatigue"] ?: "Fatigue"
+        ChartCaption(
+          series = if (chart.fatigue.size >= 2) listOf(fitness, fatigue) else listOf(fitness),
+          span = snap.chartSpans.fitness,
+        )
+      }
+      is SummaryChart.Single -> ChartCaption(series = emptyList(), span = snap.chartSpans.hrv)
+    }
+
+  /** The form chart's name, today's zone and its span. */
+  fun formCaption(snap: WidgetSnapshot): FormChartCaption =
+    FormChartCaption(
+      title = snap.metricLabels["form"] ?: "Form",
+      zone = snap.formZoneLabel?.takeIf { it.isNotEmpty() },
+      span = snap.chartSpans.form,
+    )
 
   /** The large chart, absent without two measured days or without the four zone bounds. */
   fun formZones(snap: WidgetSnapshot): FormZoneChart? {

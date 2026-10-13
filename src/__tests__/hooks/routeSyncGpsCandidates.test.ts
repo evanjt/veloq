@@ -9,6 +9,7 @@
  * bodies decide.
  */
 import { act, renderHook } from '@testing-library/react-native';
+import type { ActivityBodiesPage } from 'veloqrs';
 import { stubIdleScheduler, type IdleScheduler } from '../__shared__/idleScheduler';
 
 import { useRouteDataSync } from '@/features/routes/hooks/useRouteDataSync';
@@ -34,7 +35,15 @@ jest.mock('@/features/routes/hooks/useGpsDataFetcher', () => ({
 }));
 
 const pendingSeen: string[][] = [];
-const mockGetActivityBodies = jest.fn((_oldest: number, _newest: number): string[] => []);
+const page = (bodies: string[]): ActivityBodiesPage => ({
+  bodies,
+  intervalsIds: bodies.map(() => undefined),
+  matchedCount: bodies.length,
+  hasMore: false,
+});
+const mockGetActivityBodies = jest.fn(
+  (_oldest: number, _newest: number): ActivityBodiesPage | undefined => page([])
+);
 const mockGetGpsFetchCandidates = jest.fn();
 
 let idle: IdleScheduler;
@@ -117,16 +126,18 @@ describe('the tracks a route sync owes', () => {
   it('asks the fixtures, not the engine, in demo mode', async () => {
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: true });
     mockGetActivityBodies.mockReturnValue(
-      [
-        { id: 'stored', stream_types: ['latlng'], type: 'Ride' },
-        {
-          id: 'fresh',
-          stream_types: ['latlng'],
-          type: 'Run',
-          start_date_local: '2026-03-16T06:30:00',
-        },
-        { id: 'pool', stream_types: ['time'], type: 'Swim' },
-      ].map((body) => JSON.stringify(body))
+      page(
+        [
+          { id: 'stored', stream_types: ['latlng'], type: 'Ride' },
+          {
+            id: 'fresh',
+            stream_types: ['latlng'],
+            type: 'Run',
+            start_date_local: '2026-03-16T06:30:00',
+          },
+          { id: 'pool', stream_types: ['time'], type: 'Swim' },
+        ].map((body) => JSON.stringify(body))
+      )
     );
 
     await renderHook(() => useRouteDataSync(true));

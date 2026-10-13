@@ -260,7 +260,7 @@ function DetectionPreviewScreenContent() {
           onToggleRemoved={() => setShowRemoved((v) => !v)}
           onSelect={setSelected}
         />
-        {selected && (
+        {selected ? (
           <View style={styles.popover} pointerEvents="box-none">
             <PreviewSectionPopover
               section={selected}
@@ -268,7 +268,7 @@ function DetectionPreviewScreenContent() {
               onClose={() => setSelected(null)}
             />
           </View>
-        )}
+        ) : null}
       </View>
 
       <View
@@ -294,9 +294,9 @@ function DetectionPreviewScreenContent() {
 
         <PreviewParamPanel params={params} onChange={setParams} onCommit={handleCommit} />
 
-        {result && <PreviewDiffStrip counts={result.counts} />}
+        {result ? <PreviewDiffStrip counts={result.counts} /> : null}
 
-        {result && <PreviewRunCost pool={result.pool} elapsedMs={result.elapsedMs} />}
+        {result ? <PreviewRunCost pool={result.pool} elapsedMs={result.elapsedMs} /> : null}
 
         {running ? (
           <View>
@@ -314,18 +314,18 @@ function DetectionPreviewScreenContent() {
               testID="preview-progress"
               fillTestID="preview-progress-fill"
             />
-            {lapsed && (
+            {lapsed ? (
               <Text style={[styles.notice, { color: textSecondary }]} testID="preview-slow">
                 {t('settings.runSlow')}
               </Text>
-            )}
+            ) : null}
           </View>
         ) : (
           // One row, so a result does not cost a second. Keep takes the accent
           // once there is something to keep, and Preview steps back to
           // secondary rather than competing with it.
           <View style={styles.actionRow}>
-            {result && (
+            {result ? (
               <Button
                 variant="secondary"
                 style={styles.actionBtn}
@@ -333,7 +333,7 @@ function DetectionPreviewScreenContent() {
                 label={t('settings.previewDiscard')}
                 testID="preview-discard-button"
               />
-            )}
+            ) : null}
             <Button
               variant={previewIsNext ? 'primary' : 'secondary'}
               style={styles.actionBtn}
@@ -349,7 +349,7 @@ function DetectionPreviewScreenContent() {
               label={t('settings.previewRun')}
               testID="preview-run-button"
             />
-            {result && (
+            {result ? (
               <Button
                 style={styles.actionBtn}
                 onPress={handleKeep}
@@ -357,15 +357,15 @@ function DetectionPreviewScreenContent() {
                 label={t('settings.previewKeep')}
                 testID="preview-keep-button"
               />
-            )}
+            ) : null}
           </View>
         )}
 
-        {currentFailed && (
+        {currentFailed ? (
           <Text style={[styles.notice, { color: danger }]} testID="preview-current-failed">
             {t('settings.previewCurrentFailed')}
           </Text>
-        )}
+        ) : null}
         {status === 'error' && (
           <Text style={[styles.notice, { color: danger }]}>{t('settings.previewFailed')}</Text>
         )}
@@ -374,24 +374,24 @@ function DetectionPreviewScreenContent() {
             {t('settings.previewPoolUnusable')}
           </Text>
         )}
-        {refusalKey && (
+        {refusalKey ? (
           <Text style={[styles.notice, { color: textSecondary }]} testID="preview-refusal">
             {t(refusalKey)}
           </Text>
-        )}
-        {migrating && (
+        ) : null}
+        {migrating ? (
           <Text style={[styles.notice, { color: textSecondary }]} testID="preview-migrating">
             {t('settings.previewMigrating')}
           </Text>
-        )}
-        {migrating && result && (
+        ) : null}
+        {migrating && result ? (
           <Text
             style={[styles.notice, { color: textSecondary }]}
             testID="preview-keep-after-upgrade"
           >
             {t('settings.previewKeepAfterUpgrade')}
           </Text>
-        )}
+        ) : null}
         {awaitingDetection !== null && awaitingDetection > 0 && (
           <Text style={[styles.notice, { color: textSecondary }]} testID="preview-stale-catalogue">
             {t('settings.previewStaleCatalogue', { count: awaitingDetection })}

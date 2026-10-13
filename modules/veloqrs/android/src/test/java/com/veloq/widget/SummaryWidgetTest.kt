@@ -438,4 +438,59 @@ class SummaryWidgetTest {
     assertEquals("→", SummaryWidget.trendArrow(""))
     assertEquals("→", SummaryWidget.trendArrow("sideways"))
   }
+
+  private fun withSpans(): JSONObject.() -> Unit = {
+    getJSONObject("display").put(
+      "chartSpans",
+      JSONObject()
+        .put("fitness", "3 days")
+        .put("hrv", "3 days")
+        .put("form", "42 days"),
+    )
+  }
+
+  /**
+   * Scenario: the chart beside the hero draws two lines and the large size draws form over its
+   * zones, neither of which says on its own what it is or how many days it spans.
+   *
+   * Expected behaviour: the caption names fitness and fatigue in the order their lines are told
+   * apart and the days they span, and the form chart names itself, today's zone and its span,
+   * all in the snapshot's words.
+   */
+  @Test
+  fun the_fitness_chart_names_its_two_series_and_its_span() {
+    val snap = snapshot(card("form"), withSpans())
+    val chart = SummaryWidget.chart(snap, SummaryWidget.card(snap, followCard))
+    assertEquals(
+      ChartCaption(series = listOf("Fitness", "Fatigue"), span = "3 days"),
+      SummaryWidget.chartCaption(snap, chart),
+    )
+  }
+
+  @Test
+  fun an_hrv_chart_is_named_by_its_hero_and_captioned_with_its_span() {
+    val snap = snapshot(card("hrv", sparkline = "hrv"), withSpans())
+    val chart = SummaryWidget.chart(snap, SummaryWidget.card(snap, followCard))
+    assertEquals(
+      ChartCaption(series = emptyList(), span = "3 days"),
+      SummaryWidget.chartCaption(snap, chart),
+    )
+  }
+
+  @Test
+  fun no_chart_has_no_caption_and_a_snapshot_before_the_spans_has_no_span() {
+    val snap = snapshot(card("form"))
+    assertNull(SummaryWidget.chartCaption(snap, SummaryChart.None))
+    val chart = SummaryWidget.chart(snap, SummaryWidget.card(snap, followCard))
+    assertNull(SummaryWidget.chartCaption(snap, chart)!!.span)
+  }
+
+  @Test
+  fun the_form_chart_names_itself_todays_zone_and_its_span() {
+    val snap = snapshot(card("form"), withSpans())
+    assertEquals(
+      FormChartCaption(title = "Form", zone = "Grey zone", span = "42 days"),
+      SummaryWidget.formCaption(snap),
+    )
+  }
 }

@@ -144,7 +144,7 @@ describe('SectionDeltaChart', () => {
 
   it('shows the whole-section figure only where the engine gave an end delta', async () => {
     const withEnd = await render(chart({ highlightedActivityId: 'older' }));
-    expect(withEnd.getByTestId('section-delta-end').props.children).toContain('"time":"8s"');
+    expect(withEnd.getByTestId('section-delta-end').props.children).toContain('"time":"8 s"');
     await withEnd.unmount();
 
     const partial = lap('partial', 3, [NaN, 0, 2, 3]);

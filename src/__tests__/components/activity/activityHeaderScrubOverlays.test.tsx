@@ -52,6 +52,7 @@ const header = (activeTab: string, highlightIndex: number | null) => (
     activity={activity}
     activityId={activity.id}
     coordinates={[]}
+    hasStoredTrack={false}
     isMetric={true}
     debugEnabled={false}
     mapHeight={360}

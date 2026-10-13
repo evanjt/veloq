@@ -16,7 +16,7 @@ import { colors, darkColors, spacing, typography } from '@/theme';
 import { NextcloudQrScanner } from './NextcloudQrScanner';
 import { InfoButton } from './InfoButton';
 import { webdavTestMessage } from '../lib/autobackup/webdavTestMessage';
-import { parseNextcloudLogin } from '../lib/autobackup/nextcloudLogin';
+import type { NextcloudLogin } from '../lib/autobackup/nextcloudLogin';
 
 interface WebdavConfigFormProps {
   /** The stored credentials changed, so whatever lists backends should read them again. */
@@ -141,14 +141,7 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
         : null;
 
   const handleQrScanned = useCallback(
-    (data: string) => {
-      const login = parseNextcloudLogin(data);
-      if (!login) {
-        setConnectionResult('error');
-        setConnectionError(t('backup.invalidQrCode', 'Not a valid Nextcloud QR code'));
-        setShowQrScanner(false);
-        return;
-      }
+    (login: NextcloudLogin) => {
       const { url: webdavEndpoint, user, password } = login;
       setWebdavUrl(webdavEndpoint);
       setWebdavUser(user);
@@ -163,7 +156,7 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
       setConnectionResult(null);
       void storeWebdav(webdavEndpoint, user, password, webdavPlainLan);
     },
-    [t, urlProblemText, webdavPlainLan, storeWebdav]
+    [urlProblemText, webdavPlainLan, storeWebdav]
   );
 
   const handleTestConnection = useCallback(async () => {
@@ -222,7 +215,7 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
           textContentType="URL"
           autoComplete="url"
         />
-        {plainHttp && (
+        {plainHttp ? (
           <SwitchRow
             inset="none"
             title={t('backup.webdavPlainLan', 'Allow an unencrypted server on my own network')}
@@ -230,7 +223,7 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
             onValueChange={handleTogglePlainLan}
             testID="backup-webdav-plain-lan"
           />
-        )}
+        ) : null}
         <TextField
           testID="backup-webdav-username"
           label={t('backup.username')}

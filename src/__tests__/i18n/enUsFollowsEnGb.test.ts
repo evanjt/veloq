@@ -42,6 +42,7 @@ const SPELLING = [
   'phaseNames.cancelled',
   'phaseNames.diffing',
   'phaseNames.draining',
+  'permissions.locationBackground',
   'recording.batteryOptNudge',
   'recording.splitAnnouncementKm',
   'recording.splitReachedKm',

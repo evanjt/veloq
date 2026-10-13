@@ -5,7 +5,8 @@ import 'intl-pluralrules';
 
 import { SUPPORTED_LOCALES, LOCALE_FALLBACKS, type SupportedLocale } from './types';
 
-import { localesToLoad, loadLocale } from './localeBundles';
+import { localesToLoad, loadLocale, ROOT_LOCALE } from './localeBundles';
+import { PSEUDO_LOCALE, pseudoResource, registeredLocales } from './pseudoLocale';
 
 // Neutral 'es' has no picker entry, so a Spanish match with no table row takes the Español default variant.
 function pickerSelectable(locale: SupportedLocale): SupportedLocale {
@@ -87,7 +88,7 @@ export async function initialiseI18n(savedLocale?: SupportedLocale | null): Prom
     fallbackLng: LOCALE_FALLBACKS[locale] || ['en-GB'],
 
     // Tell i18next which locales are valid
-    supportedLngs: SUPPORTED_LOCALES as unknown as string[],
+    supportedLngs: registeredLocales(__DEV__),
     nonExplicitSupportedLngs: false,
     cleanCode: false,
     lowerCaseLng: false,
@@ -121,11 +122,26 @@ export async function changeLanguage(locale: SupportedLocale): Promise<void> {
 }
 
 /**
+ * Show the pseudo-locale, built from the reference table, in a development
+ * build. It is not saved as the athlete's language, so a relaunch, or
+ * `changeLanguage` with a real locale, puts the saved one back.
+ */
+export async function showPseudoLocale(): Promise<void> {
+  if (!__DEV__) return;
+  if (!i18n.hasResourceBundle(PSEUDO_LOCALE, 'translation')) {
+    i18n.addResourceBundle(PSEUDO_LOCALE, 'translation', pseudoResource(loadLocale(ROOT_LOCALE)));
+  }
+  ensureLocaleLoaded(ROOT_LOCALE);
+  i18n.options.fallbackLng = [ROOT_LOCALE];
+  await i18n.changeLanguage(PSEUDO_LOCALE);
+}
+
+/**
  * Get the current language
  */
 export function getCurrentLanguage(): SupportedLocale {
   return i18n.language as SupportedLocale;
 }
 
-export { i18n };
+export { i18n, PSEUDO_LOCALE };
 export * from './types';

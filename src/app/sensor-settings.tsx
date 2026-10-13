@@ -316,11 +316,11 @@ function SensorSettingsScreenContent() {
           <ListSectionHeader inset={false}>
             {t('sensors.paired', 'Paired sensors')}
           </ListSectionHeader>
-          {sharedMetric && (
+          {sharedMetric ? (
             <Text style={[styles.sourceHint, { color: textSecondary }]}>
               {t('sensors.chooseSourceHint')}
             </Text>
-          )}
+          ) : null}
           {knownSensors.length === 0 ? (
             <EmptyState
               variant="inline"
@@ -474,11 +474,11 @@ function SensorSettingsScreenContent() {
                 );
               })}
 
-              {scanning && discoverable.length === 0 && (
+              {scanning && discoverable.length === 0 ? (
                 <Text style={[styles.searchingLine, { color: textSecondary }]}>
                   {t('sensors.searching', 'Searching for nearby sensors…')}
                 </Text>
-              )}
+              ) : null}
             </>
           )}
         </View>

@@ -11,7 +11,7 @@ import type { TFunction } from 'i18next';
 
 import { openExternal } from '@/shared/app/openExternal';
 import { getCrashLog, formatCrashLog } from '@/shared/debug/crashLog';
-import { shareFile } from '@/features/settings/lib/shareFile';
+import { shareFile, type ShareAnchor } from '@/features/settings/lib/shareFile';
 import { inform } from '@/shared/ui/dialog';
 import { informShareFailed } from '@/shared/ui/shareFailure';
 
@@ -21,7 +21,9 @@ export const GITHUB_ISSUES_URL = 'https://github.com/evanjt/veloq/issues/new';
 export const GITHUB_SPONSORS_URL = 'https://github.com/sponsors/evanjt';
 /** What leaves the device and why, linked from sign-in, notifications and About. */
 export const VELOQ_PRIVACY_URL = 'https://veloq.fit/privacy';
-const REPOSITORY_URL = 'https://github.com/evanjt/veloq';
+export const REPOSITORY_URL = 'https://github.com/evanjt/veloq';
+export const LICENCE_URL = 'https://github.com/evanjt/veloq/blob/main/LICENSE';
+export const TRACEMATCH_URL = 'https://github.com/evanjt/tracematch';
 
 const PLAY_STORE_URL = 'market://details?id=com.veloq.app';
 const APP_STORE_URL = 'itms-apps://apps.apple.com/app/id6757836732';
@@ -58,7 +60,7 @@ export function openForum(): Promise<boolean> {
  */
 export async function shareCrashLog(
   t: TFunction,
-  { quiet = false }: { quiet?: boolean } = {}
+  { quiet = false, anchor }: { quiet?: boolean; anchor?: ShareAnchor | undefined } = {}
 ): Promise<boolean> {
   const entries = await getCrashLog();
   if (!entries.length) {
@@ -68,12 +70,18 @@ export async function shareCrashLog(
   try {
     await shareFile({
       content: formatCrashLog(entries),
-      filename: 'veloq-crash-log.txt',
-      mimeType: 'text/plain',
+      name: 'veloq-crash-log',
+      kind: 'text',
+      anchor,
     });
     return true;
   } catch (error) {
     if (!quiet) informShareFailed(error, t);
     return false;
   }
+}
+
+/** `shareCrashLog` from a control, pointing the iPad sheet at it. */
+export async function offerCrashLog(t: TFunction, anchor?: ShareAnchor): Promise<void> {
+  await shareCrashLog(t, { anchor });
 }

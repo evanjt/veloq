@@ -45,7 +45,7 @@
   "src/features/routes/components/SectionMapView.tsx": 6,
   "src/features/routes/components/SectionTrimOverlay.tsx": 4,
   "src/features/routes/components/SectionsListFiltersBar.tsx": 4,
-  "src/features/routes/components/SyncDebugTab.tsx": 1,
+  "src/features/routes/components/SyncDebugSection.tsx": 1,
   "src/features/routes/components/TodayBanner.tsx": 1,
   "src/features/routes/components/performance/RoutePerformanceSection.tsx": 1,
   "src/features/routes/components/preview/GroupingParamPanel.tsx": 1,

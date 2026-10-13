@@ -593,6 +593,46 @@ fn trackless_local_and_demo_rows_are_never_candidates() {
     }
 }
 
+/// A ride imported from a file has a key from the reserved source prefix and
+/// was never upstream, so the server not naming it says nothing. The census
+/// is non-empty: an empty one returns before reading any candidate.
+#[test]
+fn an_imported_row_with_a_track_is_never_a_candidate() {
+    let dir = TempDir::new().expect("tempdir");
+    let mut engine = engine_with(&dir, &["kept", "src-file-a"]);
+
+    let removed = engine.reconcile_against_census(&census(&["kept"]), "9999-12-31");
+
+    assert!(removed.is_empty(), "removed {removed:?}");
+    assert_eq!(
+        stored(&engine),
+        vec!["kept".to_string(), "src-file-a".to_string()]
+    );
+    let intervals_id: Option<String> = conn(&dir)
+        .query_row(
+            "SELECT intervals_id FROM activities WHERE id = 'src-file-a'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("imported row");
+    assert_eq!(
+        intervals_id, None,
+        "an imported key is not its own upstream id"
+    );
+}
+
+#[test]
+fn an_imported_row_with_no_track_is_never_a_candidate() {
+    let dir = TempDir::new().expect("tempdir");
+    let mut engine = engine_with(&dir, &["kept"]);
+    store_trackless(&dir, "src-file-b", "Ride", "2025-01-01");
+
+    let removed = engine.reconcile_against_census(&census(&["kept"]), "9999-12-31");
+
+    assert!(removed.is_empty(), "removed {removed:?}");
+    assert_eq!(keyed_rows(&dir, "src-file-b"), 2);
+}
+
 /// A trackless activity sits in no section, so removing one costs the library
 /// no re-detection.
 #[test]

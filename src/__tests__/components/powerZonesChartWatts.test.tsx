@@ -51,8 +51,8 @@ it('labels the FTP with its unit and totals the zone time beside moving time', a
   const view = await render(<PowerZonesChart powerZones={bands} ftp={155} movingTime={1200} />);
 
   expect(view.getByText('activity.ftp:{"value":"155 W"}')).toBeTruthy();
-  expect(view.getByText('activity.powerZoneTotal:{"duration":"16:40"}')).toBeTruthy();
-  expect(view.getByText('activity.movingTime:{"duration":"20:00"}')).toBeTruthy();
+  expect(view.getByText('activity.powerZoneTotal:{"duration":"16 min 40 s"}')).toBeTruthy();
+  expect(view.getByText('activity.movingTime:{"duration":"20 min"}')).toBeTruthy();
 });
 
 it('leaves the FTP label out when the activity has none', async () => {

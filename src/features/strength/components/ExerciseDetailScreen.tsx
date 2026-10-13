@@ -119,7 +119,7 @@ function ExerciseDetailScreen() {
                 >
                   <View style={styles.session}>
                     <Text style={[styles.sessionTitle, isDark && styles.textDark]}>{title}</Text>
-                    <Text style={isDark && styles.textDark}>{bestSet}</Text>
+                    <Text style={isDark ? styles.textDark : null}>{bestSet}</Text>
                     <Text style={[styles.method, isDark && styles.secondaryDark]}>{estimate}</Text>
                   </View>
                 </Row>

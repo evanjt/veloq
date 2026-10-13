@@ -1,4 +1,5 @@
 import type { CalendarEvent, WorkoutDoc, WorkoutStep } from '@/types';
+import { formatDurationHuman } from '@/shared/format/format';
 
 /**
  * A step's target as the plan supplied it, a single value being a range of
@@ -169,7 +170,16 @@ export function formatTarget(t: StepTarget): string {
   return `${text} (${targetRange(t.absolute.low, t.absolute.high)} ${t.absolute.units})`;
 }
 
+/** A plan line's duration as the screen shows it, in the locale's units. */
 export function formatLineDuration(seconds: number): string {
+  return formatDurationHuman(seconds);
+}
+
+/**
+ * A plan line's duration in the workout syntax the uploaded description is
+ * read back with ("1m30s"), which is not translated.
+ */
+function workoutSyntaxDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   if (m === 0) return `${s}s`;
@@ -181,7 +191,7 @@ export function planText(lines: readonly PlanLine[]): string {
   return lines
     .map((l) =>
       l.durationSeconds != null
-        ? `${l.text} ${formatLineDuration(l.durationSeconds)}`.trim()
+        ? `${l.text} ${workoutSyntaxDuration(l.durationSeconds)}`.trim()
         : l.text
     )
     .join('\n');

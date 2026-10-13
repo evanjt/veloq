@@ -17,14 +17,13 @@ import { INTERVALS_URLS } from '@/features/auth';
 import { DIVIDER_INSET } from '@/features/settings';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { tapTo } from '@/shared/app/navigation';
-import { VELOQ_PRIVACY_URL } from '@/shared/app/supportLinks';
+import {
+  LICENCE_URL,
+  REPOSITORY_URL,
+  TRACEMATCH_URL,
+  VELOQ_PRIVACY_URL,
+} from '@/shared/app/supportLinks';
 import { buildCommit, formatVersionLine } from '@/shared/format/buildStamp';
-
-const VELOQ_URLS = {
-  github: 'https://github.com/evanjt/veloq',
-  license: 'https://github.com/evanjt/veloq/blob/main/LICENSE',
-  tracematch: 'https://github.com/evanjt/tracematch',
-};
 
 function AboutScreenContent() {
   const { t } = useTranslation();
@@ -96,7 +95,7 @@ function AboutScreenContent() {
             testID="about-link-license"
             icon="license"
             label={t('about.openSource')}
-            url={VELOQ_URLS.license}
+            url={LICENCE_URL}
           />
           <View style={styles.linkDivider(isDark)} />
           <Row
@@ -117,14 +116,14 @@ function AboutScreenContent() {
             testID="about-link-source"
             icon="github"
             label={t('about.sourceCode')}
-            url={VELOQ_URLS.github}
+            url={REPOSITORY_URL}
           />
           <View style={styles.linkDivider(isDark)} />
           <ExternalLinkRow
             testID="about-link-tracematch"
             icon="code-braces"
             label={t('about.tracematchSource')}
-            url={VELOQ_URLS.tracematch}
+            url={TRACEMATCH_URL}
           />
         </View>
 

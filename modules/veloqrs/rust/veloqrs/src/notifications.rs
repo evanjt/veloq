@@ -35,7 +35,7 @@ const MIN_PLACE_NAME: usize = 6;
 
 const SEPARATOR: &str = " - ";
 
-/// The seventeen templates a sentence is built from, taken off whatever the last
+/// The templates a sentence is built from, taken off whatever the last
 /// push stored.
 ///
 /// A struct rather than the stored map: a rung that reaches for a key the
@@ -63,6 +63,8 @@ pub struct Templates {
     pub ftp_milestone: String,
     /// `{{delta}}`, already carrying its unit.
     pub pace_milestone: String,
+    /// `{{value}}` whole seconds in the locale's unit, for a delta under a minute.
+    pub seconds_value: String,
 }
 
 /// The enriched notification for one activity, and the same finding whole.
@@ -257,11 +259,12 @@ fn compose(detail: &str, activity_name: &str) -> String {
     format!("{detail}{SEPARATOR}{}", trim(activity_name, room))
 }
 
-/// Format a time difference compactly: "12s" under a minute, "1:05" at or
-/// above. Unsigned; the surrounding wording carries direction.
-fn format_duration_delta(seconds: u32) -> String {
+/// Format a time difference compactly: "12 s" under a minute, in the unit the
+/// bundle carries, and "1:05" at or above. Unsigned; the surrounding wording
+/// carries direction.
+fn format_duration_delta(seconds: u32, strings: &Templates) -> String {
     if seconds < 60 {
-        return format!("{seconds}s");
+        return interpolate(&strings.seconds_value, &[("value", &seconds.to_string())]);
     }
     let hours = seconds / 3600;
     let minutes = (seconds % 3600) / 60;
@@ -291,7 +294,10 @@ fn render(
             &|place| match improvement_seconds {
                 Some(delta) => interpolate(
                     &strings.route_pr_delta,
-                    &[("name", place), ("delta", &format_duration_delta(*delta))],
+                    &[
+                        ("name", place),
+                        ("delta", &format_duration_delta(*delta, strings)),
+                    ],
                 ),
                 None => interpolate(&strings.route_pr, &[("name", place)]),
             },
@@ -305,7 +311,10 @@ fn render(
             &|place| match improvement_seconds {
                 Some(delta) => interpolate(
                     &strings.section_pr_delta,
-                    &[("name", place), ("delta", &format_duration_delta(*delta))],
+                    &[
+                        ("name", place),
+                        ("delta", &format_duration_delta(*delta, strings)),
+                    ],
                 ),
                 None => interpolate(&strings.section_pr, &[("name", place)]),
             },
@@ -338,7 +347,7 @@ fn render(
         } => Some(match improvement_seconds {
             Some(delta) => interpolate(
                 &strings.route_pr_unnamed_delta,
-                &[("delta", &format_duration_delta(*delta))],
+                &[("delta", &format_duration_delta(*delta, strings))],
             ),
             None => strings.route_pr_unnamed.clone(),
         }),
@@ -349,7 +358,10 @@ fn render(
             &|place| match gap_seconds {
                 Some(delta) => interpolate(
                     &strings.faster_on_route_delta,
-                    &[("name", place), ("delta", &format_duration_delta(*delta))],
+                    &[
+                        ("name", place),
+                        ("delta", &format_duration_delta(*delta, strings)),
+                    ],
                 ),
                 None => interpolate(&strings.faster_on_route, &[("name", place)]),
             },
@@ -657,6 +669,13 @@ pub fn resolve_highlight_pooled(
 /// string in the bundle that says so without claiming anything.
 pub const RECORDED_TITLE_KEY: &str = "notifications.activityRecorded.title";
 
+/// The seconds unit a delta under a minute is written with.
+pub const SECONDS_VALUE_KEY: &str = "units.secondsValue";
+
+/// What a bundle stored before the seconds unit joined it is read with: the SI
+/// symbol, rather than no notification until the app is next opened.
+const SECONDS_VALUE_FALLBACK: &str = "{{value}} s";
+
 /// The templates the last push stored, as the renderer wants them.
 ///
 /// `None` when a key is missing, which is a bundle written by an older or
@@ -682,6 +701,7 @@ pub fn templates_from_stored(stored: &NotificationTemplates) -> Option<Templates
         faster_on_route_delta: at("notifications.activityBody.fasterOnRouteDelta")?,
         ftp_milestone: at("insights.ftpIncrease")?,
         pace_milestone: at("insights.paceImproved")?,
+        seconds_value: at(SECONDS_VALUE_KEY).unwrap_or_else(|| SECONDS_VALUE_FALLBACK.to_string()),
     })
 }
 

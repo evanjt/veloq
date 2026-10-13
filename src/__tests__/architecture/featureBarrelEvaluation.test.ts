@@ -244,7 +244,7 @@ const ROUTES_NAMES = [
   'SectionTrimOverlay',
   'shouldShowSportChips',
   'SportTypeSelector',
-  'SyncDebugTab',
+  'SyncDebugSection',
   'toActivityType',
   'TodayBanner',
   'toPerformanceRecord',

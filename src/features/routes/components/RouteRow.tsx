@@ -134,7 +134,7 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
               {displayName}
             </Text>
             {/* Show sport type icons for all activity types in this route */}
-            {isRouteGroup(route) && route.sportTypes && route.sportTypes.length > 0 && (
+            {isRouteGroup(route) && route.sportTypes && route.sportTypes.length > 0 ? (
               <View style={styles.sportTypeIcons}>
                 <SportIcons
                   sportTypes={route.sportTypes}
@@ -142,13 +142,13 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 />
               </View>
-            )}
+            ) : null}
           </View>
           <View style={styles.metaRow}>
-            {distanceText && (
+            {distanceText ? (
               <Text style={[styles.metaText, isDark && styles.textSecondary]}>{distanceText}</Text>
-            )}
-            {proximityText && (
+            ) : null}
+            {proximityText ? (
               <View style={styles.proximityTag}>
                 <MaterialCommunityIcons
                   name="map-marker-distance"
@@ -159,8 +159,8 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
                   {proximityText}
                 </Text>
               </View>
-            )}
-            {matchText && (
+            ) : null}
+            {matchText ? (
               <Text
                 style={[
                   styles.matchPercent,
@@ -169,7 +169,7 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
               >
                 {matchText}
               </Text>
-            )}
+            ) : null}
           </View>
         </View>
 

@@ -8,7 +8,7 @@ import { useTheme } from '@/shared/app';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { pressable, pressRipple, SheetHeader } from '@/shared/ui';
-import { ALL_DATA_FIELDS } from '@/features/recording';
+import { ALL_DATA_FIELDS, CALORIES_ASSUMED_AGE, useCaloriesWeight } from '@/features/recording';
 import { brand, colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
 import type { DataFieldType } from '@/types';
 import { tapBack } from '@/shared/app/navigation';
@@ -27,9 +27,11 @@ function FieldPickerSheetContent() {
   const { isDark } = useTheme();
   const { input, resolve } = useSheetRequest<FieldPickerSheetInput, DataFieldType>();
   const selectedField = input?.selectedField ?? null;
+  const caloriesWeight = useCaloriesWeight();
 
   const surface = isDark ? darkColors.surface : colors.surface;
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
+  const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const accentText = isDark ? darkColors.linkTeal : colors.linkTeal;
   const border = isDark ? darkColors.border : colors.border;
 
@@ -45,6 +47,7 @@ function FieldPickerSheetContent() {
         data={ALL_DATA_FIELDS}
         keyExtractor={(item) => item}
         style={styles.list}
+        initialNumToRender={ALL_DATA_FIELDS.length}
         renderItem={({ item }) => {
           const isSelected = item === selectedField;
           return (
@@ -60,13 +63,25 @@ function FieldPickerSheetContent() {
               android_ripple={pressRipple}
               onPress={() => resolve(item)}
             >
-              <Text
-                style={[styles.rowText, { color: isSelected ? accentText : textPrimary }]}
-                numberOfLines={1}
-              >
-                {t(`recording.fields.${item}`)}
-              </Text>
-              {isSelected && <MaterialCommunityIcons name="check" size={18} color={brand.teal} />}
+              <View style={styles.rowLabel}>
+                <Text
+                  style={[styles.rowText, { color: isSelected ? accentText : textPrimary }]}
+                  numberOfLines={1}
+                >
+                  {t(`recording.fields.${item}`)}
+                </Text>
+                {item === 'calories' ? (
+                  <Text style={[styles.rowNote, { color: textSecondary }]}>
+                    {t('recording.caloriesMethod', { age: CALORIES_ASSUMED_AGE })}
+                    {caloriesWeight.assumed
+                      ? ` ${t('recording.caloriesDefaultWeight', { weight: caloriesWeight.weightKg })}`
+                      : null}
+                  </Text>
+                ) : null}
+              </View>
+              {isSelected ? (
+                <MaterialCommunityIcons name="check" size={18} color={brand.teal} />
+              ) : null}
             </Pressable>
           );
         }}
@@ -96,7 +111,14 @@ const styles = StyleSheet.create({
   rowSelected: {
     backgroundColor: colorWithOpacity(brand.teal, 0.08),
   },
+  rowLabel: {
+    flex: 1,
+    paddingVertical: spacing.xs,
+  },
   rowText: {
     ...typography.body,
+  },
+  rowNote: {
+    ...typography.caption,
   },
 });

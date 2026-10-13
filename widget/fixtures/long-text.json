@@ -5,6 +5,11 @@
       "form": "Formstatus de +475 à +1358 sur 42 jours, actuellement Transizione",
       "hrv": "心率变异性 fra 62 til 58 over 30 dage"
     },
+    "chartSpans": {
+      "fitness": "30 giorni",
+      "form": "42 giorni",
+      "hrv": "30 giorni"
+    },
     "formZone": "Transizione",
     "impactLine": "Formstatus +1784 → +1571 · +12345 TSS",
     "metricLabels": {
@@ -969,9 +974,9 @@
         "colorKey": "default",
         "id": "weekHours",
         "label": "Semaine",
-        "spoken": "Semaine 183.3h, verbessert",
+        "spoken": "Semaine 183 h 19 min, verbessert",
         "trendDir": "up",
-        "value": "183.3h",
+        "value": "183 h 19 min",
         "verdict": "improved"
       }
     ],
@@ -1046,9 +1051,9 @@
       "colorKey": "default",
       "id": "weekHours",
       "label": "Semaine",
-      "spoken": "Semaine 183.3h, verbessert",
+      "spoken": "Semaine 183 h 19 min, verbessert",
       "trendDir": "up",
-      "value": "183.3h",
+      "value": "183 h 19 min",
       "verdict": "improved"
     },
     {

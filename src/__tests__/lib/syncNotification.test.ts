@@ -52,10 +52,10 @@ async function onPlatform(os: string, run: () => Promise<void>) {
 describe('the activity notification names its own channel', () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it('sends an activity notification on veloq-insights', async () => {
+  it('sends an activity notification on the activity channel', async () => {
     await onPlatform('android', () => presentActivityNotification('a1', 'Ride', 'Done'));
 
-    expect(lastCall().trigger).toEqual({ channelId: 'veloq-insights' });
+    expect(lastCall().trigger).toEqual({ channelId: 'veloq-activity' });
   });
 
   it('leaves the trigger null on iOS', async () => {

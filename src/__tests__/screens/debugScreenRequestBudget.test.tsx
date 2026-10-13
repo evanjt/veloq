@@ -45,6 +45,10 @@ const budget = () => ({
 
 const mockRequestBudget = jest.fn(budget);
 
+// The sync tools read the activity cache and have a test of their own.
+jest.mock('@/features/routes/components/SyncDebugSection', () => ({
+  SyncDebugSection: () => null,
+}));
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
     EngineClient: {

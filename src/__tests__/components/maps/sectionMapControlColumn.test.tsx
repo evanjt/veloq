@@ -1,0 +1,115 @@
+/**
+ * Scenario: the section detail hero is a fraction of the window height, so on a short window it
+ * is shorter than the five round buttons stacked from below the status bar and the header.
+ *
+ * Expected behaviour: the control column is bounded by the hero and wraps into further columns,
+ * so no button hangs past the map over the action row beneath it.
+ */
+
+import React from 'react';
+import { StyleSheet } from 'react-native';
+import { render, screen } from '@testing-library/react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+
+import { initialiseI18n } from '@/i18n';
+import { SectionMapView } from '@/features/routes/components/SectionMapView';
+import { layout, spacing } from '@/theme';
+import type { FrequentSection, RoutePoint } from '@/types';
+
+jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
+
+jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
+  useMapPreferences: () => ({
+    preferences: { defaultStyle: 'light' },
+    getStyleForActivity: () => 'light',
+  }),
+}));
+
+jest.mock('@/shared/app', () => ({
+  useTheme: () => ({ isDark: false }),
+  useMetricSystem: () => true,
+}));
+
+jest.mock('expo-location', () => ({
+  ...jest.requireActual('expo-location'),
+  requestForegroundPermissionsAsync: jest.fn().mockResolvedValue({ status: 'denied' }),
+  getCurrentPositionAsync: jest.fn(),
+  Accuracy: { Balanced: 3 },
+}));
+
+const INSET_TOP = 24;
+const METRICS = {
+  frame: { x: 0, y: 0, width: 411, height: 701 },
+  insets: { top: INSET_TOP, left: 0, right: 0, bottom: 0 },
+};
+
+const POLYLINE: RoutePoint[] = [
+  { lat: 46.948, lng: 7.447 },
+  { lat: 46.949, lng: 7.448 },
+  { lat: 46.95, lng: 7.449 },
+];
+
+const SECTION: FrequentSection = {
+  id: 'section-1',
+  sectionType: 'auto',
+  name: 'Harbour loop',
+  sportTypes: ['Ride'],
+  polyline: POLYLINE,
+  distanceMeters: 1200,
+  activityIds: ['a1'],
+  visitCount: 7,
+  createdAt: '2026-01-15T10:00:00Z',
+};
+
+const STEP = layout.minTapTarget + spacing.sm;
+
+function renderMap(props: Partial<React.ComponentProps<typeof SectionMapView>>) {
+  return render(
+    <SafeAreaProvider initialMetrics={METRICS}>
+      <SectionMapView section={SECTION} interactive insetTop={INSET_TOP} {...props} />
+    </SafeAreaProvider>
+  );
+}
+
+function controlColumn() {
+  const style = StyleSheet.flatten(screen.getByTestId('section-map-controls').props.style);
+  const top = style.top as number;
+  const maxHeight = style.maxHeight as number;
+  const shown = screen.getByTestId('section-map-controls').props.children;
+  const count = React.Children.toArray(shown).length;
+  const perColumn = Math.floor((maxHeight + spacing.sm) / STEP);
+  return { style, top, maxHeight, count, perColumn };
+}
+
+describe('the section hero map control column', () => {
+  beforeAll(async () => {
+    await initialiseI18n('en-AU');
+  });
+
+  it('keeps every button inside a 294 dp hero with all five shown', async () => {
+    await renderMap({ height: 294, enableFullscreen: true });
+    const { style, top, maxHeight, count, perColumn } = controlColumn();
+
+    expect(count).toBe(5);
+    expect(style.flexWrap).toBe('wrap');
+    expect(top + maxHeight).toBeLessThanOrEqual(294);
+    // The buttons that fit one bounded column end inside the hero, and the rest wrap beside it.
+    expect(top + perColumn * STEP - spacing.sm).toBeLessThanOrEqual(294);
+    expect(perColumn).toBeLessThan(count);
+  });
+
+  it('stays one column on a hero tall enough for every button', async () => {
+    await renderMap({ height: 600, enableFullscreen: true });
+    const { top, maxHeight, count, perColumn } = controlColumn();
+
+    expect(perColumn).toBeGreaterThanOrEqual(count);
+    expect(top + maxHeight).toBeLessThanOrEqual(600);
+  });
+
+  it('counts only the buttons it shows, so trimming frees the full-screen slot', async () => {
+    await renderMap({ height: 294, enableFullscreen: true, trimRange: { start: 0, end: 2 } });
+    expect(screen.queryByTestId('section-map-fullscreen')).toBeNull();
+    const { top, maxHeight } = controlColumn();
+    expect(top + maxHeight).toBeLessThanOrEqual(294);
+  });
+});

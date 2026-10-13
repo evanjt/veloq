@@ -12,9 +12,13 @@ import { renderHook } from '@testing-library/react-native';
 
 import { useSummaryCardData } from '@/features/home/hooks/useSummaryCardData';
 import { useDashboardPreferences } from '@/features/settings/stores/summaryCardPreferences';
+import { formatDurationHuman } from '@/shared/format/format';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
-jest.mock('@/i18n', () => ({ i18n: { t: (key: string) => key } }));
+jest.mock('@/i18n', () => ({
+  i18n: { t: (key: string) => key },
+  getCurrentLanguage: () => 'en-GB',
+}));
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
 jest.mock('@/shared/app/useAthlete', () => ({ useAthlete: () => ({ data: undefined }) }));
 jest.mock('@/shared/app/useSportSettings', () => ({
@@ -77,5 +81,13 @@ describe('the summary card supporting metrics', () => {
     for (const metric of metrics(empty, ['hrv', 'rhr', 'ftp', 'thresholdPace'])) {
       expect(metric.unit).toBeUndefined();
     }
+  });
+
+  it('write the week total as hours and minutes, not decimal hours', () => {
+    const week = { ...BUNDLE, currentWeek: { count: 4, totalDuration: 23400 } };
+    const [hours] = metrics(week, ['weekHours']);
+
+    expect(hours.value).toBe(formatDurationHuman(23400));
+    expect(hours.value).not.toBe('6.5h');
   });
 });

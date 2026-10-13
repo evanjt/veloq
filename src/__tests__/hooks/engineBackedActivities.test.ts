@@ -43,6 +43,16 @@ const engine = {
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
+/** A feed page of these bodies, none of them named upstream unless told otherwise. */
+function page(bodies: string[], intervalsIds?: (string | null)[]) {
+  return {
+    bodies,
+    intervalsIds: intervalsIds ?? bodies.map(() => null),
+    matchedCount: bodies.length,
+    hasMore: false,
+  };
+}
+
 let client: QueryClient;
 
 function wrapper({ children }: { children: React.ReactNode }) {
@@ -53,7 +63,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
-  engine.getActivityBodies.mockReturnValue([]);
+  engine.getActivityBodies.mockReturnValue(page([]));
   engine.getSetting.mockReturnValue(null);
   engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Started);
   mockIsOnline = true;
@@ -66,10 +76,12 @@ afterEach(() => {
 
 describe('useActivities', () => {
   it('parses stored bodies, keeping fields no Rust type models', async () => {
-    engine.getActivityBodies.mockReturnValue([
-      JSON.stringify({ id: 'a2', name: 'Newer', futureField: 'kept', calories: 900 }),
-      JSON.stringify({ id: 'a1', name: 'Older' }),
-    ]);
+    engine.getActivityBodies.mockReturnValue(
+      page([
+        JSON.stringify({ id: 'a2', name: 'Newer', futureField: 'kept', calories: 900 }),
+        JSON.stringify({ id: 'a1', name: 'Older' }),
+      ])
+    );
 
     const { result } = await renderHook(() => useActivities({ days: 30 }), { wrapper });
 
@@ -81,12 +93,39 @@ describe('useActivities', () => {
   });
 
   it('drops a corrupt row rather than failing the whole window', async () => {
-    engine.getActivityBodies.mockReturnValue(['{broken', JSON.stringify({ id: 'a1' })]);
+    engine.getActivityBodies.mockReturnValue(
+      page(['{broken', JSON.stringify({ id: 'a1' })], [null, 'i1'])
+    );
 
     const { result } = await renderHook(() => useActivities({ days: 30 }), { wrapper });
 
     await waitFor(() => expect(result.current.data?.length).toBe(1));
     expect(result.current.data?.[0].id).toBe('a1');
+    expect(result.current.data?.[0].intervalsWebId).toBe('i1');
+  });
+
+  it('carries the id a web link may name, as the engine answers it, onto each activity', async () => {
+    engine.getActivityBodies.mockReturnValue(
+      page(
+        [
+          JSON.stringify({ id: 'i901', name: 'Synced' }),
+          JSON.stringify({ id: 'demo-ride-1', name: 'Demo' }),
+          JSON.stringify({ id: 'local-ride-1', name: 'Unsent' }),
+          JSON.stringify({ id: 'local-ride-2', name: 'Uploaded' }),
+        ],
+        ['i901', null, null, 'i900']
+      )
+    );
+
+    const { result } = renderHook(() => useActivities({ days: 30 }), { wrapper });
+
+    await waitFor(() => expect(result.current.data?.length).toBe(4));
+    expect(result.current.data?.map((a) => [a.id, a.intervalsWebId])).toEqual([
+      ['i901', 'i901'],
+      ['demo-ride-1', null],
+      ['local-ride-1', null],
+      ['local-ride-2', 'i900'],
+    ]);
   });
 
   it('asks the engine to fill the window it is about to read', async () => {
@@ -361,7 +400,9 @@ describe('useInfiniteActivities', () => {
 
 describe('useRangeActivities', () => {
   it('reads March 2024 from the engine with no scrolling and asks for nothing outside it', async () => {
-    engine.getActivityBodies.mockReturnValue([JSON.stringify({ id: 'mar', name: 'March ride' })]);
+    engine.getActivityBodies.mockReturnValue(
+      page([JSON.stringify({ id: 'mar', name: 'March ride' })])
+    );
     const range = { oldest: '2024-03-01', newest: '2024-03-31' };
 
     const { result } = await renderHook(() => useRangeActivities(range), { wrapper });

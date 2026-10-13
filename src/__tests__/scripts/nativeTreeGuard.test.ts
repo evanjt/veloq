@@ -9,7 +9,8 @@
  * that gives the tree an installation of its own, and lets a self-contained
  * tree through. It also refuses an installation whose worklets repair never
  * ran, since that build keeps a vsync loop alive while Android caches the app
- * and gets it killed for CPU.
+ * and gets it killed for CPU, and one whose screens sheet width patch never
+ * ran, since that build draws every sheet across the full width of a tablet.
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -19,6 +20,7 @@ import path from 'node:path';
 import { gitFreeEnv, runGit } from '../__shared__/gitFixture';
 
 const worklets = require('../../../scripts/patch-worklets-lifecycle');
+const screens = require('../../../scripts/patch-screens-sheet-width');
 
 const projectRoot = path.join(__dirname, '../../..');
 const script = path.join(projectRoot, 'scripts/check-native-tree.mjs');
@@ -217,6 +219,37 @@ describe('the native build tree check', () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('react-native-worklets');
     expect(result.stderr).toContain('node scripts/patch-worklets-lifecycle.js');
+  });
+
+  /** The installed screens package's patched file copied into `root`, patched or as it ships. */
+  function installScreens(root: string, patched: boolean): void {
+    const from = path.join(projectRoot, 'node_modules', 'react-native-screens');
+    const to = path.join(root, 'node_modules', 'react-native-screens');
+    fs.mkdirSync(path.dirname(path.join(to, screens.FILE)), { recursive: true });
+    fs.copyFileSync(path.join(from, 'package.json'), path.join(to, 'package.json'));
+    const shipped = screens.unpatchSource(fs.readFileSync(path.join(from, screens.FILE), 'utf8'));
+    fs.writeFileSync(path.join(to, screens.FILE), patched ? screens.patchSource(shipped) : shipped);
+  }
+
+  it('lets an installation carrying the screens sheet width patch through', () => {
+    const { main } = pair();
+    installScreens(main, true);
+
+    const result = check(main);
+
+    expect(result.stderr).toBe('');
+    expect(result.status).toBe(0);
+  });
+
+  it('refuses an installation whose screens sheet width patch never ran', () => {
+    const { main } = pair();
+    installScreens(main, false);
+
+    const result = check(main);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('react-native-screens');
+    expect(result.stderr).toContain('node scripts/patch-screens-sheet-width.js');
   });
 
   it('refuses an installation whose worklets lifecycle repair never ran before the build lock', () => {

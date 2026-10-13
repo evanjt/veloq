@@ -12,6 +12,7 @@ jest.mock('@/features/recording/lib/liveActivity/controller', () => ({
   beginLiveActivity: jest.fn(),
   refreshLiveActivity: jest.fn(),
   finishLiveActivity: jest.fn(),
+  dismissEndedLiveActivity: jest.fn(),
   reapOrphanedLiveActivities: jest.fn(),
   installLiveActivityControls: jest.fn(() => jest.fn()),
 }));
@@ -61,6 +62,15 @@ describe('recording session drives the live activity', () => {
 
     useRecordingStore.getState().stopRecording();
     expect(jest.mocked(controller).finishLiveActivity).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears the ended card when the stopped ride is saved or discarded', () => {
+    useRecordingStore.getState().startRecording('Ride', 'indoor');
+    useRecordingStore.getState().stopRecording();
+    expect(jest.mocked(controller).dismissEndedLiveActivity).not.toHaveBeenCalled();
+
+    useRecordingStore.getState().reset();
+    expect(jest.mocked(controller).dismissEndedLiveActivity).toHaveBeenCalledTimes(1);
   });
 
   it('refreshes the card on its own tick, not on every GPS fix', () => {

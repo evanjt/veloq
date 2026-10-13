@@ -73,6 +73,12 @@ export interface Activity {
   average_temp?: number | undefined;
   // Skyline chart - compact protobuf encoding of interval zones/durations
   skyline_chart_bytes?: string | undefined;
+  /**
+   * Not from intervals.icu: the id a web link to intervals.icu may name, as the
+   * engine's feed read answers it. Null for a demo row and for a recording no
+   * server has named, absent on a body not read through the feed.
+   */
+  intervalsWebId?: string | null | undefined;
 }
 
 export interface ActivityDetail extends Activity {

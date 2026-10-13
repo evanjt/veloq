@@ -38,12 +38,12 @@ describe('formatClimbValue', () => {
   it('writes a short window as W/kg and a long one as m/h', () => {
     expect(formatClimbValue(best(15, 1800, 4.905), true, units)).toBe('4.91 W/kg');
     expect(formatClimbValue(best(60, 900, 2.4525), true, units)).toBe('2.45 W/kg');
-    expect(formatClimbValue(best(300, 1234.4, 3.363), true, units)).toBe('1234 m/h');
+    expect(formatClimbValue(best(300, 1234.4, 3.363), true, units)).toBe('1,234 m/h');
     expect(formatClimbValue(best(1200, 800, 2.18), true, units)).toBe('800 m/h');
   });
 
   it('writes a long window in feet per hour when imperial', () => {
-    expect(formatClimbValue(best(600, 1000, 2.7), false, units)).toBe('3281 ft/h');
+    expect(formatClimbValue(best(600, 1000, 2.7), false, units)).toBe('3,281 ft/h');
   });
 
   it('draws the absent mark, never NaN, for a window nobody measured', () => {

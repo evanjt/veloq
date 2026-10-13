@@ -16,8 +16,8 @@ beforeAll(async () => {
 
 describe('formatPrDelta', () => {
   it('reads whole seconds under a minute', () => {
-    expect(formatPrDelta(59)).toBe('PR+59s');
-    expect(formatPrDelta(1)).toBe('PR+1s');
+    expect(formatPrDelta(59)).toBe('PR+59 s');
+    expect(formatPrDelta(1)).toBe('PR+1 s');
   });
 
   it('reads M:SS from a minute up', () => {
@@ -29,14 +29,14 @@ describe('formatPrDelta', () => {
   it('never shows a fractional second or a seconds field of 60', () => {
     expect(formatPrDelta(65.5)).toBe('PR+1:06');
     expect(formatPrDelta(59.6)).toBe('PR+1:00');
-    expect(formatPrDelta(5.4)).toBe('PR+5s');
+    expect(formatPrDelta(5.4)).toBe('PR+5 s');
   });
 });
 
 describe('formatPrImprovement', () => {
   it('reads a signed gap in whole seconds under a minute', () => {
-    expect(formatPrImprovement(14)).toBe('-14s');
-    expect(formatPrImprovement(1)).toBe('-1s');
+    expect(formatPrImprovement(14)).toBe('-14 s');
+    expect(formatPrImprovement(1)).toBe('-1 s');
   });
 
   it('reads M:SS from a minute up', () => {

@@ -72,7 +72,7 @@ function MergeConfirmSheetContent() {
         onPress={() => setChosenPrimaryId(section.id)}
       >
         <View style={[styles.radio, { borderColor: isSelected ? accent : textSecondary }]}>
-          {isSelected && <View style={[styles.radioInner, { backgroundColor: accent }]} />}
+          {isSelected ? <View style={[styles.radioInner, { backgroundColor: accent }]} /> : null}
         </View>
         <View style={styles.optionContent}>
           <Text style={[styles.optionName, { color: textPrimary }]} numberOfLines={1}>

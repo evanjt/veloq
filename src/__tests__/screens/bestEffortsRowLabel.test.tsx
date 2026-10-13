@@ -85,7 +85,7 @@ describe('a Best Efforts row tied to a cached activity', () => {
     render(<BestEffortsScreen />);
 
     const row = screen.getByTestId('best-efforts-row-Cycling-300');
-    expect(row.props.accessibilityLabel).toBe('5m, 312 W, Lantern Loop, 3 March');
+    expect(row.props.accessibilityLabel).toBe('5 min, 312 W, Lantern Loop, 3 March');
   });
 
   it('speaks the pace and the elapsed time a run row draws', () => {

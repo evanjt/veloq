@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The dumbbell icon from Material Design Icons (Apache License 2.0), the glyph the app's sport chips draw. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+  android:width="24dp"
+  android:height="24dp"
+  android:viewportWidth="24"
+  android:viewportHeight="24">
+  <path
+    android:fillColor="@color/veloq_shortcut_glyph"
+    android:pathData="M20.578 14.859 21.984 13.453 20.578 12 17.016 15.562 8.438 6.984 12 3.422 10.547 2.016 9.141 3.422 7.688 2.016 5.578 4.125 4.125 2.719 2.719 4.125 4.125 5.578 2.016 7.688 3.422 9.141 2.016 10.547 3.422 12 6.984 8.438 15.562 17.016 12 20.578 13.453 21.984 14.859 20.578 16.312 21.984 18.422 19.875 19.875 21.281 21.281 19.875 19.875 18.422 21.984 16.312Z" />
+</vector>

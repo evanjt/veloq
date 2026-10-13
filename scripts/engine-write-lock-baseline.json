@@ -4,7 +4,7 @@
   "modules/veloqrs/rust/veloqrs/src/net/elevation_backfill.rs": 13,
   "modules/veloqrs/rust/veloqrs/src/net/stream_backfill.rs": 5,
   "modules/veloqrs/rust/veloqrs/src/net/upload_recording.rs": 1,
-  "modules/veloqrs/rust/veloqrs/src/objects/activities.rs": 11,
+  "modules/veloqrs/rust/veloqrs/src/objects/activities.rs": 10,
   "modules/veloqrs/rust/veloqrs/src/objects/detection.rs": 7,
   "modules/veloqrs/rust/veloqrs/src/objects/engine.rs": 8,
   "modules/veloqrs/rust/veloqrs/src/objects/error.rs": 1,

@@ -373,16 +373,20 @@ export function ActivityDetailScreenContent({
   }, []);
 
   // Handle GPX export
-  const handleExportGpx = useCallback(() => {
-    if (activity) {
-      exportGpx({
-        name: activity.name || 'Activity',
-        points: coordinates,
-        time: activity.start_date_local,
-        sport: activity.type,
-      });
-    }
-  }, [activity, coordinates, exportGpx]);
+  const handleExportGpx = useCallback(
+    (anchor: React.RefObject<View | null>) => {
+      if (activity) {
+        exportGpx({
+          name: activity.name || 'Activity',
+          points: coordinates,
+          time: activity.start_date_local,
+          sport: activity.type,
+          anchor,
+        });
+      }
+    },
+    [activity, coordinates, exportGpx]
+  );
 
   // Over the map, the strength diagrams, or the skeleton standing in for them, the header is
   // transparent and draws no title. Every other state takes the opaque header. Either way the
@@ -488,7 +492,7 @@ export function ActivityDetailScreenContent({
       {showsHero ? <MapHeroStatusBar scrolledPastHero={false} isDark={isDark} /> : null}
 
       {/* Strength Training hero - body diagrams with overlay (back button, name, date, duration) */}
-      {isStrength && (
+      {isStrength ? (
         <ComponentErrorBoundary part="muscleGroups" debugName="Muscle Groups">
           <MuscleGroupView
             activityId={id}
@@ -499,14 +503,15 @@ export function ActivityDetailScreenContent({
             exerciseSets={exerciseSets}
           />
         </ComponentErrorBoundary>
-      )}
+      ) : null}
 
       {/* Hero Map Section - hidden for non-GPS activities */}
-      {hasGpsData && (
+      {hasGpsData ? (
         <ActivityHeader
           activity={activity}
           activityId={id}
           coordinates={coordinates}
+          hasStoredTrack={detail?.hasGpsTrack ?? false}
           streams={streams}
           isMetric={isMetric}
           debugEnabled={debugEnabled}
@@ -529,7 +534,7 @@ export function ActivityDetailScreenContent({
           highlightedSectionId={highlightedSectionId}
           onSectionMarkerPress={isRouteMatchingOn ? handleSectionMarkerPress : undefined}
         />
-      )}
+      ) : null}
 
       {/* No map to carry the date and stats, so they sit under the header */}
       {!hasGpsData && !isStrength && (
@@ -584,6 +589,7 @@ export function ActivityDetailScreenContent({
           newGround={newGround}
           hrZones={detail?.hrZones}
           powerZones={detail?.powerZones}
+          intervalsId={detail?.intervalsId}
           transitionSettled={transitionSettled}
           onPointSelect={handlePointSelect}
           onInteractionChange={handleInteractionChange}
@@ -591,7 +597,7 @@ export function ActivityDetailScreenContent({
         />
 
         {/* Tab 2: Exercises (only for strength activities) */}
-        {isStrength && (
+        {isStrength ? (
           <ScrollView
             style={styles.exercisesTab}
             contentContainerStyle={styles.exercisesTabContent}
@@ -604,16 +610,16 @@ export function ActivityDetailScreenContent({
               exerciseGroups={detail?.exerciseGroups}
             />
           </ScrollView>
-        )}
+        ) : null}
 
         {/* Tab 3: Routes (only for GPS activities) */}
-        {hasGpsData && detailReadFailed && (
+        {hasGpsData && detailReadFailed ? (
           <ActivityDetailReadFailed error={detailError} onRetry={refreshDetail} />
-        )}
-        {hasGpsData && detailReadFailed && (
+        ) : null}
+        {hasGpsData && detailReadFailed ? (
           <ActivityDetailReadFailed error={detailError} onRetry={refreshDetail} />
-        )}
-        {hasGpsData && !detailReadFailed && (
+        ) : null}
+        {hasGpsData && !detailReadFailed ? (
           <ActivityRoutesSection
             activityId={activity.id}
             activityType={activity.type}
@@ -621,10 +627,10 @@ export function ActivityDetailScreenContent({
             cacheDays={cacheDays}
             isDark={isDark}
           />
-        )}
+        ) : null}
 
         {/* Tab 3: Sections (only for GPS activities) */}
-        {hasGpsData && !detailReadFailed && (
+        {hasGpsData && !detailReadFailed ? (
           <ActivitySectionsSection
             activityId={id}
             sportType={activity.type}
@@ -644,7 +650,7 @@ export function ActivityDetailScreenContent({
             onScan={handleScan}
             onRematch={handleRematch}
           />
-        )}
+        ) : null}
       </SwipeableTabs>
     </View>
   );

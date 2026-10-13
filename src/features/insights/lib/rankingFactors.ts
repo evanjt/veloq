@@ -1,4 +1,4 @@
-import { getIntlLocale } from '@/shared/format/format';
+import { formatDecimal, formatSignedPercent } from '@/shared/format/number';
 import type { SectionRankingScores } from '../types';
 
 export type RankingFactorKind = 'recency' | 'improvement' | 'anomaly' | 'engagement';
@@ -21,19 +21,9 @@ export interface RankingFactor {
 const MEDIAN_OF_THREE = 0;
 const FIRST_TO_LAST = 1;
 
-/** A signed fraction as a whole percentage: +14%, 0%, −150%. A rounded zero has no sign. */
-export function formatSignedPercent(fraction: number): string {
-  const rounded = Math.round(fraction * 100);
-  if (rounded === 0) return '0%';
-  return `${rounded > 0 ? '+' : '−'}${Math.abs(rounded)}%`;
-}
-
 /** A bounded engine score on its 0 to 1 scale, to two decimal places. */
 function formatScore(score: number): string {
-  return score.toLocaleString(getIntlLocale(), {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+  return formatDecimal(score, 2);
 }
 
 function basisKind(basis: SectionRankingScores['improvementBasis']): ImprovementBasisKind | null {

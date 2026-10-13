@@ -134,19 +134,19 @@ export const SectionInsightMap = React.memo(function SectionInsightMap({
               strokeJoin="round"
             />
             {/* Start point */}
-            {startPoint && (
+            {startPoint ? (
               <>
                 <Circle cx={startPoint.x} cy={startPoint.y} r={5} color={lineColor} />
                 <Circle cx={startPoint.x} cy={startPoint.y} r={3} color={ink.white} />
               </>
-            )}
+            ) : null}
             {/* End point */}
-            {endPoint && (
+            {endPoint ? (
               <>
                 <Circle cx={endPoint.x} cy={endPoint.y} r={5} color={lineColor} />
                 <Circle cx={endPoint.x} cy={endPoint.y} r={2} color={ink.white} />
               </>
-            )}
+            ) : null}
           </Canvas>
         ) : null}
       </View>

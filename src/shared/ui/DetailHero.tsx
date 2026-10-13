@@ -184,11 +184,11 @@ export function HeroNameRow({ name, nameTestID, icon, editable, accessory }: Her
 
   return (
     <View style={styles.nameRow}>
-      {icon && (
+      {icon ? (
         <View style={[styles.typeIcon, { backgroundColor: icon.color }]}>
           <MaterialCommunityIcons name={icon.name} size={16} color={colors.textOnDark} />
         </View>
-      )}
+      ) : null}
       {editable?.isEditing ? (
         <View style={styles.editNameContainer}>
           <TextField

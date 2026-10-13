@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import type { PreviewResult } from 'veloqrs';
+import { formatDecimal } from '@/shared/format';
 
 interface PreviewRunCostProps {
   pool: PreviewResult['pool'];
@@ -25,7 +26,7 @@ interface PreviewRunCostProps {
 
 /** Milliseconds under a second, so a fast run does not read as `0.0 s`. */
 function formatElapsed(ms: number): string {
-  return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`;
+  return ms < 1000 ? `${Math.round(ms)} ms` : `${formatDecimal(ms / 1000, 1)} s`;
 }
 
 export function PreviewRunCost({ pool, elapsedMs }: PreviewRunCostProps) {

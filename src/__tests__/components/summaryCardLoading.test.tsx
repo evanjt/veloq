@@ -11,7 +11,10 @@ import { render } from '@testing-library/react-native';
 import { SummaryCard, type SummaryCardProps } from '@/features/home/components/SummaryCard';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
-jest.mock('@/i18n', () => ({ i18n: { t: (key: string) => key } }));
+jest.mock('@/i18n', () => ({
+  i18n: { t: (key: string) => key },
+  getCurrentLanguage: () => 'en-GB',
+}));
 
 const metrics = [
   { label: 'FTP', value: '-', navigationTarget: '/a' },

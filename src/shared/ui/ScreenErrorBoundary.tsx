@@ -1,4 +1,4 @@
-import React, { Component, ReactNode } from 'react';
+import React, { Component, ReactNode, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -10,7 +10,7 @@ import { StatusLine } from './StatusLine';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
 import { tapBack } from '@/shared/app/navigation';
-import { shareCrashLog } from '@/shared/app/supportLinks';
+import { offerCrashLog } from '@/shared/app/supportLinks';
 import { isTabBarRoute } from './tabBarClearance';
 
 interface Props {
@@ -72,6 +72,7 @@ interface FallbackProps {
 function ScreenErrorFallback({ error, onRetry }: FallbackProps) {
   const { isDark, colors: themeColors } = useTheme();
   const { t } = useTranslation();
+  const crashLogAnchor = useRef<View>(null);
   // Back always leaves a stack screen, to the Feed when nothing is behind it. On a tab the Feed
   // may be the screen that threw, so Back there needs history to go back to.
   const offersBack = !isTabBarRoute(useSegments()) || router.canGoBack();
@@ -92,13 +93,13 @@ function ScreenErrorFallback({ error, onRetry }: FallbackProps) {
       <Text accessibilityRole="header" style={[styles.title, { color: themeColors.text }]}>
         {title}
       </Text>
-      {__DEV__ && error?.message && (
+      {__DEV__ && error?.message ? (
         <Text style={[styles.devError, { color: themeColors.textSecondary }]} numberOfLines={4}>
           {error.message}
         </Text>
-      )}
+      ) : null}
       <View style={styles.buttons}>
-        {offersBack && (
+        {offersBack ? (
           <Button
             label={t('common.back')}
             variant="secondary"
@@ -106,15 +107,16 @@ function ScreenErrorFallback({ error, onRetry }: FallbackProps) {
             onPress={() => tapBack()}
             style={styles.button}
           />
-        )}
+        ) : null}
         <Button label={t('common.retry')} size="sm" onPress={onRetry} style={styles.button} />
       </View>
       <Button
+        ref={crashLogAnchor}
         testID="error-share-crash-log"
         label={t('support.shareCrashLog')}
         variant="ghost"
         size="sm"
-        onPress={() => void shareCrashLog(t)}
+        onPress={() => void offerCrashLog(t, crashLogAnchor)}
         style={styles.shareButton}
       />
     </StatusLine>

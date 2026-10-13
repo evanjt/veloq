@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { sourceFor } from '@/shared/app/source';
 import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { useNotificationPermission } from '@/shared/app/permissions/notifications';
 import { colors, darkColors, layout, spacing, typography } from '@/theme';
@@ -34,7 +35,6 @@ export function NotificationSection() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const authMethod = useAuthStore((s) => s.authMethod);
-  const isOAuth = authMethod === 'oauth';
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const { enabled, privacyAccepted, categories, setEnabled, acceptPrivacy, setCategoryEnabled } =
     useNotificationPreferences();
@@ -45,7 +45,7 @@ export function NotificationSection() {
   // dialog, so the switch alone cannot turn on.
   const [blocked, setBlocked] = useState(false);
 
-  const canEnable = isOAuth && !isDemoMode;
+  const canEnable = sourceFor({ authMethod, isDemoMode })?.can.push === true;
 
   // The athlete's choice is kept when the system setting is turned off, so a
   // re-grant there brings notifications back; the notice says why none arrive
@@ -114,7 +114,7 @@ export function NotificationSection() {
           testID="settings-notifications-toggle"
         />
 
-        {notice && (
+        {notice ? (
           <View style={styles.notice}>
             <PermissionNotice
               testID="settings-notifications-blocked"
@@ -124,7 +124,7 @@ export function NotificationSection() {
               onAllow={turnOnWithPermission}
             />
           </View>
-        )}
+        ) : null}
 
         {CATEGORIES.map((category) => (
           <SwitchRow

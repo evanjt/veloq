@@ -16,7 +16,12 @@ import { useTranslation } from 'react-i18next';
 import * as haptics from '@/shared/ui/haptics';
 import { colors, darkColors, typography, spacing, layout, ink, slopToMinTapTarget } from '@/theme';
 import { formatDistance } from '@/shared/format/format';
-import { stepTrimBound, trimMinGap, type TrimBound } from '@/shared/math/trimRange';
+import {
+  keepsEnoughPoints,
+  stepTrimBound,
+  trimMinGap,
+  type TrimBound,
+} from '@/shared/math/trimRange';
 import { useMetricSystem, useTheme } from '@/shared/app';
 import { Button, IconButton, ToggleButton, pressable, pressRipple, Spinner } from '@/shared/ui';
 import {
@@ -289,6 +294,8 @@ export function SectionTrimOverlay({
   const isTrimmed = hasWindowMarkers
     ? startIndex !== sectionStartInWindow || endIndex !== sectionEndInWindow
     : startIndex > 0 || endIndex < maxIndex;
+  const tooShort = !keepsEnoughPoints(startIndex, endIndex);
+  const canSave = isTrimmed && !tooShort;
 
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -316,9 +323,9 @@ export function SectionTrimOverlay({
             <Text style={[styles.infoValue, { color: isTrimmed ? accentText : textColor }]}>
               {formatDistance(trimmedDistance, isMetric)}
             </Text>
-            {isTrimmed && (
+            {isTrimmed ? (
               <Text style={[styles.infoMuted, { color: mutedColor }]}>{percentage}%</Text>
-            )}
+            ) : null}
           </>
         )}
         <Text style={[styles.infoMuted, { color: mutedColor }]}>
@@ -332,7 +339,7 @@ export function SectionTrimOverlay({
           onPress={onToggleExpand}
           disabled={isSaving}
         />
-        {canReset && (
+        {canReset ? (
           <IconButton
             accessibilityLabel={t('sections.resetBounds')}
             onPress={onReset}
@@ -340,13 +347,13 @@ export function SectionTrimOverlay({
           >
             <MaterialCommunityIcons name="refresh" size={16} color={colors.primary} />
           </IconButton>
-        )}
+        ) : null}
       </View>
 
       {/* Full-width slider - handles + track driven by SharedValues (60fps) */}
       <View style={styles.sliderContainer} onLayout={onTrackLayout}>
         <View style={[styles.trackBackground, isDark && styles.trackBackgroundDark]} />
-        {hasWindowMarkers && (
+        {hasWindowMarkers ? (
           <View
             style={[
               styles.trackSection,
@@ -356,7 +363,7 @@ export function SectionTrimOverlay({
               },
             ]}
           />
-        )}
+        ) : null}
         <Animated.View style={[styles.trackActive, trackActiveStyle]} />
         <GestureDetector gesture={startGesture}>
           <Animated.View style={[styles.handle, startHandleStyle]}>
@@ -435,6 +442,15 @@ export function SectionTrimOverlay({
         {t('sections.trimPrecisionHint', 'Drag handle up or down for finer control')}
       </Text>
 
+      {tooShort ? (
+        <Text
+          testID="section-trim-too-short"
+          style={[styles.reason, { color: isDark ? darkColors.errorDeep : colors.errorDeep }]}
+        >
+          {t('sections.trimTooShort', 'Section must have at least 5 points')}
+        </Text>
+      ) : null}
+
       {/* Action buttons */}
       <View style={styles.actions}>
         <Button
@@ -450,13 +466,13 @@ export function SectionTrimOverlay({
           testID="section-trim-confirm"
           label={t('common.save')}
           onPress={onConfirm}
-          disabled={!isTrimmed || isSaving}
+          disabled={!canSave || isSaving}
           style={styles.actionBtn}
           icon={
             <MaterialCommunityIcons
               name="check"
               size={18}
-              color={isTrimmed ? colors.textOnPrimary : mutedColor}
+              color={canSave ? colors.textOnPrimary : mutedColor}
             />
           }
         />
@@ -558,6 +574,10 @@ const styles = StyleSheet.create({
     ...typography.caption,
     textAlign: 'center',
     opacity: 0.7,
+  },
+  reason: {
+    ...typography.caption,
+    textAlign: 'center',
   },
   actions: {
     flexDirection: 'row',

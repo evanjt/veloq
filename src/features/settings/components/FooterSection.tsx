@@ -82,7 +82,7 @@ export function FooterSection() {
         </Text>
       </Pressable>
 
-      {(debugUnlocked || debugEnabled) && (
+      {debugUnlocked || debugEnabled ? (
         <SwitchRow
           title={t('settings.debugMode')}
           description={t('settings.debugModeDescription')}
@@ -90,8 +90,8 @@ export function FooterSection() {
           onValueChange={setDebugEnabled}
           testID="settings-debug-switch"
         />
-      )}
-      {debugEnabled && (
+      ) : null}
+      {debugEnabled ? (
         <Row
           testID="settings-developer-dashboard-link"
           behaviour="navigate"
@@ -107,7 +107,7 @@ export function FooterSection() {
             </Text>
           </View>
         </Row>
-      )}
+      ) : null}
     </>
   );
 }

@@ -19,6 +19,22 @@ jobs:
     outputs:
       run_id: ${{ steps.find.outputs.run_id }}
     steps:
+      - name: Checkout (for the version check)
+        uses: actions/checkout@v7
+
+      # The store builds take their version name from app.json, so a tag that
+      # names another version would publish binaries under the wrong release.
+      - name: Check the tag names the app version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          APP_VERSION=$(jq -r '.expo.version' app.json)
+          if [ "$TAG" != "$APP_VERSION" ]; then
+            echo "::error::Tag $TAG differs from app.json version $APP_VERSION."
+            exit 1
+          fi
+          node scripts/check-module-version.mjs
+
       - name: Find or wait for the tag's build
         id: find
         env:

@@ -65,8 +65,9 @@ it('shares the file the engine built, named as the engine named it', async () =>
   ]);
   expect(mockShare).toHaveBeenCalledWith({
     content: '<gpx/>',
-    filename: 'Morning_ride.gpx',
-    mimeType: 'application/gpx+xml',
+    name: 'Morning_ride.gpx',
+    kind: 'gpx',
+    anchor: undefined,
   });
 });
 

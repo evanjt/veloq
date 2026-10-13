@@ -109,14 +109,14 @@ export function CollapsibleSection({
         android_ripple={pressRipple}
       >
         <View style={styles.headerLeft}>
-          {icon && (
+          {icon ? (
             <MaterialCommunityIcons
               name={icon}
               size={22}
               color={isDark ? darkColors.textSecondary : colors.textSecondary}
               style={styles.icon}
             />
-          )}
+          ) : null}
           <View>
             <Text
               style={[
@@ -126,7 +126,7 @@ export function CollapsibleSection({
             >
               {title}
             </Text>
-            {subtitle && (
+            {subtitle ? (
               <Text
                 style={[
                   styles.subtitle,
@@ -137,7 +137,7 @@ export function CollapsibleSection({
               >
                 {subtitle}
               </Text>
-            )}
+            ) : null}
           </View>
         </View>
         {headerRight}
@@ -148,14 +148,14 @@ export function CollapsibleSection({
         />
       </Pressable>
 
-      {showDivider && (
+      {showDivider ? (
         <View
           style={[
             styles.divider,
             { backgroundColor: isDark ? darkColors.divider : colors.divider },
           ]}
         />
-      )}
+      ) : null}
 
       <Animated.View style={contentStyle}>
         <View onLayout={onContentLayout} style={styles.content}>

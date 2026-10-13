@@ -1,4 +1,5 @@
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { sourceFor } from '@/shared/app/source';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 
 /**
@@ -11,5 +12,5 @@ export function useWriteAccessMissing(): boolean {
   const authMethod = useAuthStore((s) => s.authMethod);
   const hasWritePermission = useUploadPermissionStore((s) => s.hasWritePermission);
   const isLoaded = useUploadPermissionStore((s) => s.isLoaded);
-  return isLoaded && authMethod === 'oauth' && hasWritePermission !== true;
+  return isLoaded && sourceFor({ authMethod })?.can.scoped === true && hasWritePermission !== true;
 }

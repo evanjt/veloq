@@ -89,6 +89,16 @@ impl AuthKind {
             _ => None,
         }
     }
+
+    /// The scheme `secret` is sent under. Every door that turns a credential
+    /// into a request goes through here, so the held credential and a
+    /// candidate under check carry the same header.
+    pub(crate) fn auth_method(self, secret: &str) -> AuthMethod<'_> {
+        match self {
+            AuthKind::OAuth => AuthMethod::Bearer(secret),
+            AuthKind::ApiKey => AuthMethod::ApiKey(secret),
+        }
+    }
 }
 
 /// Credentials held in Rust RAM only (TypeScript owns SecureStore). Cleared on
@@ -519,10 +529,8 @@ impl SyncService {
     #[cfg(test)]
     fn auth_header(&self) -> Option<String> {
         let g = self.creds.lock().unwrap_or_else(|e| e.into_inner());
-        g.as_ref().map(|c| match c.method {
-            AuthKind::OAuth => governor::format_auth_header(AuthMethod::Bearer(&c.secret)),
-            AuthKind::ApiKey => governor::format_auth_header(AuthMethod::ApiKey(&c.secret)),
-        })
+        g.as_ref()
+            .map(|c| governor::format_auth_header(c.method.auth_method(&c.secret)))
     }
 
     /// The athlete id the held credential belongs to, if any.
@@ -542,11 +550,7 @@ impl SyncService {
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .clone();
-        let auth = match creds.method {
-            AuthKind::OAuth => AuthMethod::Bearer(&creds.secret),
-            AuthKind::ApiKey => AuthMethod::ApiKey(&creds.secret),
-        };
-        let transport = Transport::new(base, auth)
+        let transport = Transport::new(base, creds.method.auth_method(&creds.secret))
             .map_err(|e| SyncFailure::new(FfiSyncErrorReason::NotConfigured, e))?;
         Ok((transport, creds.athlete_id.clone()))
     }
@@ -1010,14 +1014,10 @@ pub(crate) async fn upstream_id(install: u64, activity_id: &str) -> Option<Strin
 }
 
 /// The id a URL may name for `activity_id`, given the intervals id stored for
-/// it. A device-minted key that no upload has named has no id upstream, so it
+/// it. A key minted here that no upload has named has no id upstream, so it
 /// is never turned into a URL.
 fn resolve_upstream(activity_id: &str, stored: Option<String>) -> Option<String> {
-    match stored {
-        Some(id) => Some(id),
-        None if crate::persistence::activities::is_local_activity_key(activity_id) => None,
-        None => Some(activity_id.to_string()),
-    }
+    crate::persistence::origin::intervals_upstream(activity_id, stored)
 }
 
 #[cfg(test)]
@@ -1040,6 +1040,11 @@ mod upstream_resolution_tests {
     #[test]
     fn a_server_key_with_no_row_falls_back_to_itself() {
         assert_eq!(resolve_upstream("i5", None), Some("i5".to_string()));
+    }
+
+    #[test]
+    fn an_imported_key_with_no_stored_server_id_names_nothing_upstream() {
+        assert_eq!(resolve_upstream("src-file-a", None), None);
     }
 }
 
@@ -1520,11 +1525,7 @@ pub(crate) async fn validate_credentials_detached(
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .clone();
-    let auth = match kind {
-        AuthKind::OAuth => AuthMethod::Bearer(&secret),
-        AuthKind::ApiKey => AuthMethod::ApiKey(&secret),
-    };
-    let transport = match Transport::new(base, auth) {
+    let transport = match Transport::new(base, kind.auth_method(&secret)) {
         Ok(t) => t,
         Err(e) => return FfiCallOutcome::internal(e),
     };
@@ -5401,6 +5402,19 @@ mod tests {
         assert_eq!(athlete, "i1");
     }
 
+    #[test]
+    fn signed_in_transport_draws_on_the_process_governor() {
+        for kind in [AuthKind::OAuth, AuthKind::ApiKey] {
+            let svc = SyncService::new();
+            svc.set_credentials(kind, "secret".into(), "i7".into());
+            let (t, _) = svc.build_transport().unwrap();
+            assert!(
+                Arc::ptr_eq(t.governor(), &crate::governor::GOVERNOR),
+                "a {kind:?} transport must spend the one process request budget",
+            );
+        }
+    }
+
     /// Answer every endpoint the profile slice fetches with `status`.
     fn mock_profile_slice(server: &MockServer, status: u16) {
         server.mock(|when, then| {
@@ -8384,6 +8398,103 @@ mod tests {
         assert_eq!(AuthKind::parse("oauth"), Some(AuthKind::OAuth));
         assert_eq!(AuthKind::parse("API_KEY"), Some(AuthKind::ApiKey));
         assert_eq!(AuthKind::parse("nonsense"), None);
+    }
+
+    #[test]
+    fn auth_kind_names_the_scheme_its_secret_is_sent_under() {
+        use governor::format_auth_header;
+        assert_eq!(
+            format_auth_header(AuthKind::OAuth.auth_method("tok-b")),
+            "Bearer tok-b"
+        );
+        assert_eq!(
+            format_auth_header(AuthKind::ApiKey.auth_method("key-b")),
+            format_auth_header(AuthMethod::ApiKey("key-b"))
+        );
+        assert_eq!(
+            format_auth_header(AuthKind::OAuth.auth_method("")),
+            "Bearer "
+        );
+        assert_eq!(
+            format_auth_header(AuthKind::ApiKey.auth_method("")),
+            "Basic QVBJX0tFWTo="
+        );
+    }
+
+    /// Scenario: a held credential reaches the network through the sync
+    /// service's transport, and a candidate one through the detached check
+    /// sign-in runs before anything is held.
+    ///
+    /// Expected behaviour: both send the same `Authorization` bytes for the
+    /// same scheme and secret, and a mock that wants the other scheme refuses
+    /// either door.
+    #[test]
+    fn both_credential_doors_send_the_same_header() {
+        let _serial = crate::test_globals::serial_global_state();
+        let cases = [
+            (
+                AuthKind::OAuth,
+                "oauth",
+                "tok-a",
+                "Bearer tok-a".to_string(),
+            ),
+            (
+                AuthKind::ApiKey,
+                "api_key",
+                "key-a",
+                governor::format_auth_header(AuthMethod::ApiKey("key-a")),
+            ),
+        ];
+        assert_eq!(cases[1].3, "Basic QVBJX0tFWTprZXktYQ==");
+
+        for (kind, word, secret, wanted) in &cases {
+            let server = MockServer::start();
+            server.mock(|when, then| {
+                when.method(GET)
+                    .path("/athlete/me")
+                    .header("authorization", wanted.as_str());
+                then.status(200).json_body(json!({"id": "i7"}));
+            });
+
+            let svc = SyncService::new();
+            *svc.base_url.lock().unwrap() = server.base_url();
+            svc.set_credentials(*kind, (*secret).into(), "i7".into());
+            let (t, _) = svc.build_transport().expect("a held credential");
+            let athlete =
+                crate::runtime::block_on(endpoints::fetch_current_athlete(&t, Lane::Interactive))
+                    .expect("the held credential's header");
+            assert_eq!(athlete.id, "i7");
+
+            let _base = test_base_url(server.base_url());
+            let outcome = crate::runtime::block_on(validate_credentials_detached(
+                (*word).into(),
+                (*secret).into(),
+            ));
+            assert_eq!(outcome.kind, FfiCallKind::Ok, "{word}: {}", outcome.message);
+            assert_eq!(outcome.id.as_deref(), Some("i7"));
+        }
+
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET)
+                .path("/athlete/me")
+                .header("authorization", "Bearer key-a");
+            then.status(200).json_body(json!({"id": "i7"}));
+        });
+        let svc = SyncService::new();
+        *svc.base_url.lock().unwrap() = server.base_url();
+        svc.set_credentials(AuthKind::ApiKey, "key-a".into(), "i7".into());
+        let (t, _) = svc.build_transport().expect("a held credential");
+        assert!(
+            crate::runtime::block_on(endpoints::fetch_current_athlete(&t, Lane::Interactive))
+                .is_err()
+        );
+        let _base = test_base_url(server.base_url());
+        let outcome = crate::runtime::block_on(validate_credentials_detached(
+            "api_key".into(),
+            "key-a".into(),
+        ));
+        assert_ne!(outcome.kind, FfiCallKind::Ok);
     }
 
     #[test]

@@ -50,7 +50,7 @@ export function BodyNotDownloaded({
   return (
     <StatusLine tone="info" message={message} testID={testID} style={style}>
       <Text style={textStyle}>{message}</Text>
-      {reason && <Text style={textStyle}>{t(reason)}</Text>}
+      {reason ? <Text style={textStyle}>{t(reason)}</Text> : null}
       {waitEnded(status) && <RetryButton onPress={onRetry} testID={`${testID}-retry`} />}
     </StatusLine>
   );

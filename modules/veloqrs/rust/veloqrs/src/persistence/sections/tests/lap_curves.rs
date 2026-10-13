@@ -1333,3 +1333,59 @@ mod stored {
         assert_eq!(detail.missing_time_stream_ids, ["unstreamed"]);
     }
 }
+
+/// Scenario: the record and an attempt both start 4 m past the section's start
+/// and stop 4 m short of its end, the way a recording's first and last fixes
+/// fall a few metres inside the line, and a third lap joins 60 m in.
+///
+/// Expected behaviour: a lap within a grid step and one sample of an end is
+/// clocked from that end, so the first and last 100 m splits are drawn, while
+/// the lap joining 60 m in still has no first split.
+#[test]
+fn a_lap_starting_and_ending_a_few_metres_inside_the_line_has_both_end_splits() {
+    let inside = |speed: fn(f64) -> f64| ride(4.0, LENGTH - 4.0, false, speed);
+    let quick = |_: f64| 5.0;
+    let fading = |travelled: f64| if travelled < 500.0 { 5.0 } else { 4.0 };
+    let reference = Lap::new("reference", 0, "same", inside(quick));
+    let attempt = Lap::new("attempt", 1, "same", inside(fading));
+    let lap_time_gap = attempt.time() - reference.time();
+    let mut joined = Lap::new(
+        "joined",
+        2,
+        "same",
+        ride(60.0, LENGTH - 4.0, false, |_| 3.0),
+    );
+    joined.coverage = 0.93;
+    let curves = curves_of(&[reference, attempt, joined], None).expect("curves");
+    let forward = curves.forward.as_ref().expect("forward deltas");
+    assert_eq!(forward.reference_activity_id, "reference");
+
+    let attempt = lap(forward, "attempt");
+    assert_eq!(attempt.split_delta_secs.len(), 10);
+    for (bin, split) in attempt.split_delta_secs.iter().enumerate() {
+        assert!(split.is_finite(), "split {bin} is {split}");
+    }
+    assert_near(attempt.split_delta_secs[0], 0.0, 0.5, "first split");
+    assert_near(
+        attempt.split_delta_secs[9],
+        100.0 / 4.0 - 100.0 / 5.0,
+        1.0,
+        "last split",
+    );
+    assert_near(
+        attempt
+            .end_delta_secs
+            .expect("a lap within the slack of both ends is whole"),
+        lap_time_gap,
+        0.5,
+        "end delta",
+    );
+
+    let joined = lap(forward, "joined");
+    assert!(
+        joined.split_delta_secs[0].is_nan(),
+        "joined 60 m in, so no first split"
+    );
+    assert!(joined.split_delta_secs[1..].iter().all(|s| s.is_finite()));
+    assert!(joined.end_delta_secs.is_none());
+}

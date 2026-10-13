@@ -3,43 +3,22 @@ import { useTranslation } from 'react-i18next';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import {
-  restoreBackup,
-  RESTORE_REFUSAL_KEYS,
-  restoreDatabaseBackup,
-  restoreRecordBackup,
   exportRecordBackup,
   hasPendingRecordExport,
-  importWaitsForSignIn,
   pendingRecordExportSettled,
   resumePendingRecordExport,
   type DatabaseRestoreResult,
   type RecordExportOutcome,
 } from '@/features/settings/lib/backup';
-import { holdImportWhileSignedOut, isHeldWhileSignedOut } from '@/features/settings/lib/heldImport';
+import { importBackupFile } from '@/features/settings/lib/importBackupFile';
+import type { ShareAnchor } from '@/features/settings/lib/shareFile';
 import { isPickerCopy } from '@/shared/storage/cacheFiles';
-import { confirmAction, inform } from '@/shared/ui/dialog';
-import { showRestoreNotice } from '../lib/restoreNotice';
+import { inform } from '@/shared/ui/dialog';
 
-/** Ask before a backup replaces stored preferences and names. */
-export function confirmLegacyImport(copy: {
-  title: string;
-  message: string;
-  cancel: string;
-}): Promise<boolean> {
-  return new Promise((resolve) => {
-    confirmAction({
-      title: copy.title,
-      message: copy.message,
-      confirmLabel: copy.title,
-      cancelLabel: copy.cancel,
-      destructive: true,
-      onConfirm: () => resolve(true),
-      onCancel: () => resolve(false),
-    });
-  });
-}
+export { confirmLegacyImport } from '@/features/settings/lib/importBackupFile';
 
-export function useExportRecordBackup() {
+/** `anchor` is the control the export starts from, which the share sheet points at on iPad. */
+export function useExportRecordBackup(anchor?: ShareAnchor) {
   const [exporting, setExporting] = useState(false);
   const [stillRunning, setStillRunning] = useState(false);
   const running = useRef(false);
@@ -67,7 +46,7 @@ export function useExportRecordBackup() {
             waiting.current = false;
             if (!live.current) return;
             try {
-              await take(await resumePendingRecordExport());
+              await take(await resumePendingRecordExport(anchor));
             } catch {
               setStillRunning(false);
               inform({ title: t('backup.notSavedTitle'), message: t('backup.exportError') });
@@ -78,16 +57,16 @@ export function useExportRecordBackup() {
         setStillRunning(false);
       }
     },
-    [t]
+    [anchor, t]
   );
 
   useEffect(() => {
     if (!hasPendingRecordExport()) return;
-    resumePendingRecordExport().then(settle, () => {
+    resumePendingRecordExport(anchor).then(settle, () => {
       setStillRunning(false);
       inform({ title: t('backup.notSavedTitle'), message: t('backup.exportError') });
     });
-  }, [settle, t]);
+  }, [anchor, settle, t]);
 
   /**
    * Answers what became of the export: `busy` when one was already running,
@@ -98,7 +77,7 @@ export function useExportRecordBackup() {
     running.current = true;
     setExporting(true);
     try {
-      const outcome = await exportRecordBackup();
+      const outcome = await exportRecordBackup(anchor);
       await settle(outcome);
       return outcome;
     } catch {
@@ -109,7 +88,7 @@ export function useExportRecordBackup() {
       running.current = false;
       if (live.current) setExporting(false);
     }
-  }, [settle, t]);
+  }, [anchor, settle, t]);
 
   return { exportRecordBackup: doExport, exporting, stillRunning };
 }
@@ -141,72 +120,7 @@ export function useImportDatabaseBackup() {
       if (isPickerCopy(fileUri)) pickedCopy = fileUri;
       const fileName = result.assets[0].name ?? '';
 
-      // An older backup picked signed out is held for sign-in below; anything else needs the engine now.
-      if (importWaitsForSignIn() && !isHeldWhileSignedOut(fileName)) {
-        inform({ title: t('backup.notRestoredTitle'), message: t('backup.signInRequired') });
-        return { success: false, activityCount: 0, signInRequired: true };
-      }
-
-      const confirmed = await confirmLegacyImport({
-        title: t('backup.importBackup'),
-        message: t('backup.legacyImportMessage'),
-        cancel: t('common.cancel'),
-      });
-      if (!confirmed) return null;
-
-      // Signed out, an older backup waits for the sign-in that lets it land.
-      if (await holdImportWhileSignedOut(fileUri, fileName)) {
-        showRestoreNotice('held', t);
-        return { success: false, activityCount: 0 };
-      }
-
-      // Auto-detect legacy .veloq JSON files
-      if (fileName.endsWith('.veloq')) {
-        const json = await FileSystem.readAsStringAsync(fileUri, {
-          encoding: FileSystem.EncodingType.UTF8,
-        });
-
-        const legacyResult = await restoreBackup(json);
-        if (legacyResult.failed) {
-          const message = legacyResult.signInRequired
-            ? t('backup.signInRequired')
-            : (legacyResult.error ?? t('backup.importError'));
-          inform({ title: t('backup.notRestoredTitle'), message });
-          return { success: false, activityCount: 0, error: legacyResult.error ?? message };
-        }
-
-        showRestoreNotice('restored', t);
-
-        return {
-          success: true,
-          activityCount: 0,
-        };
-      }
-
-      if (fileName.endsWith('.zip')) {
-        await restoreRecordBackup(fileUri);
-        showRestoreNotice('restored', t);
-        return { success: true, activityCount: 0 };
-      }
-
-      const restoreResult = await restoreDatabaseBackup(fileUri);
-
-      if (restoreResult.success) {
-        showRestoreNotice('restored', t);
-      } else {
-        inform({
-          title: t('backup.notRestoredTitle'),
-          message: restoreResult.signInRequired
-            ? t('backup.signInRequired')
-            : restoreResult.athleteIdMismatch
-              ? t('backup.backupDifferentAccount')
-              : restoreResult.reason
-                ? t(RESTORE_REFUSAL_KEYS[restoreResult.reason])
-                : (restoreResult.error ?? t('backup.importError')),
-        });
-      }
-
-      return restoreResult;
+      return await importBackupFile(fileUri, fileName, t);
     } catch (error) {
       const msg = error instanceof Error ? error.message : t('backup.importError');
       inform({ title: t('backup.notRestoredTitle'), message: msg });

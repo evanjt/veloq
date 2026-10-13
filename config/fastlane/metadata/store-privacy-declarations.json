@@ -114,6 +114,12 @@
         "note": "The camera reads a QR code on the device. No image leaves it."
       },
       {
+        "what": "Backup shared into the app",
+        "carriers": ["plugin:expo-sharing"],
+        "reason": "onDevice",
+        "note": "A backup another app shares into this one is read and restored on the device. Nothing leaves it."
+      },
+      {
         "what": "Donations",
         "carriers": ["plugin:react-native-iap"],
         "reason": "onDevice",
@@ -230,6 +236,12 @@
         "carriers": ["plugin:expo-camera"],
         "reason": "onDevice",
         "note": "The camera reads a QR code on the device. No image leaves it."
+      },
+      {
+        "what": "Backup shared into the app",
+        "carriers": ["plugin:expo-sharing"],
+        "reason": "onDevice",
+        "note": "A backup another app shares into this one is read and restored on the device. Nothing leaves it."
       },
       {
         "what": "Donations",

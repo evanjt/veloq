@@ -14,6 +14,7 @@ import {
 } from '@/theme';
 import { formatDuration } from '@/shared/format/format';
 import { Button } from '@/shared/ui';
+import { formatDecimal } from '@/shared/format';
 
 interface ChartDistanceIndicatorProps {
   xAxisMode: 'distance' | 'time';
@@ -60,8 +61,8 @@ export const ChartDistanceIndicator = React.memo(
         xAxisMode === 'time'
           ? formatDuration(scrub ?? maxX)
           : scrub !== null
-            ? `${scrub.toFixed(2)} ${xUnit}`
-            : `${maxX.toFixed(1)} ${xUnit}`;
+            ? `${formatDecimal(scrub, 2)} ${xUnit}`
+            : `${formatDecimal(maxX, 1)} ${xUnit}`;
 
       if (canToggleXAxis && onXAxisModeToggle) {
         return (

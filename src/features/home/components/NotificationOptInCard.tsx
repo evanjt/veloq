@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { sourceFor } from '@/shared/app/source';
 import { openExternal } from '@/shared/app/openExternal';
 import { VELOQ_PRIVACY_URL } from '@/shared/app/supportLinks';
 import {
@@ -44,9 +45,11 @@ export function NotificationOptInCard({ libraryCount }: NotificationOptInCardPro
   // Waits out the tour and the restore offer, so a first launch asks one thing at a time.
   const { notificationCard: mayShow } = useLaunchSurfaces(libraryCount);
 
-  const isOAuth = authMethod === 'oauth';
   const shouldOptIn =
-    isOAuth && !isDemoMode && !notificationsEnabled && !dismissed && isPromptLoaded;
+    sourceFor({ authMethod, isDemoMode })?.can.push === true &&
+    !notificationsEnabled &&
+    !dismissed &&
+    isPromptLoaded;
 
   // The owed notice is the one thing the card must say, so it is never collapsed.
   const disclosed = owed || expanded;
@@ -119,7 +122,7 @@ export function NotificationOptInCard({ libraryCount }: NotificationOptInCardPro
             accessibilityState={{ expanded }}
           />
         )}
-        {disclosed && (
+        {disclosed ? (
           <>
             <Text style={[styles.description, isDark && styles.descriptionDark]}>
               {t(owed ? 'notifications.privacy.briefEnabled' : 'notifications.privacy.brief')}
@@ -131,9 +134,9 @@ export function NotificationOptInCard({ libraryCount }: NotificationOptInCardPro
               }}
             />
           </>
-        )}
+        ) : null}
 
-        {!owed && blocked && (
+        {!owed && blocked ? (
           <PermissionNotice
             testID="notification-optin-blocked"
             outcome="blocked"
@@ -141,7 +144,7 @@ export function NotificationOptInCard({ libraryCount }: NotificationOptInCardPro
             reason={t('permissionNotice.notificationsOff')}
             onAllow={turnOn}
           />
-        )}
+        ) : null}
 
         {/* Actions */}
         <View style={styles.actions}>

@@ -150,7 +150,7 @@ export function PerformanceChartPanel({
           onChange={setPlotType}
         />
       )}
-      {hasForward && hasReverse && (
+      {hasForward && hasReverse ? (
         <ChipSelector
           style={styles.control}
           options={DIRECTIONS.map((value) => ({
@@ -165,7 +165,7 @@ export function PerformanceChartPanel({
             onActivitySelect?.(null);
           }}
         />
-      )}
+      ) : null}
       {shownPlot === 'delta' && deltas && curves ? (
         <SectionDeltaChart
           deltas={deltas}

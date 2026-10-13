@@ -25,7 +25,7 @@ export function SectionDetailLinks({
 
   return (
     <View style={styles.group}>
-      {hasLaps && (
+      {hasLaps ? (
         <Button
           testID="section-open-laps"
           label={t('sections.laps')}
@@ -33,7 +33,7 @@ export function SectionDetailLinks({
           icon={<MaterialCommunityIcons name="repeat" size={20} color={iconColor} />}
           onPress={onOpenLaps}
         />
-      )}
+      ) : null}
       <Button
         testID="section-open-history"
         label={

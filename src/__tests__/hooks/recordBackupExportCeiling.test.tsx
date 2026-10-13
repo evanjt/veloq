@@ -90,10 +90,9 @@ it('reports still running at the ceiling and shares once the slot holder ends', 
 
   expect(Alert.alert).not.toHaveBeenCalled();
   expect(shareExistingFile).toHaveBeenCalledTimes(1);
-  expect(shareExistingFile).toHaveBeenCalledWith(
-    expect.stringMatching(/\.zip$/),
-    'application/zip'
-  );
+  expect(shareExistingFile).toHaveBeenCalledWith(expect.stringMatching(/\.zip$/), 'zip', {
+    anchor: undefined,
+  });
   expect(result.current.stillRunning).toBe(false);
 });
 

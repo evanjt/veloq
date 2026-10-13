@@ -291,14 +291,14 @@ export function SectionHistoryPanel({
                 {formatFullDate(ledgerDate(e.at))}
               </Text>
               <Text style={[styles.kind, isDark && styles.textDark]}>{kindLine(e, d)}</Text>
-              {e.kind === 'formed' && d.splitFrom && (
+              {e.kind === 'formed' && d.splitFrom ? (
                 <View style={styles.block}>
                   <Text style={[styles.label, isDark && styles.textDark]}>
                     {t('sectionHistory.splitFrom')}
                   </Text>
                   <SplitTarget link={d.splitFrom} isDark={isDark} direction="from" />
                 </View>
-              )}
+              ) : null}
               {e.kind === 'split' && d.splitInto.length > 0 && (
                 <View style={styles.block}>
                   <Text style={[styles.label, isDark && styles.textDark]}>

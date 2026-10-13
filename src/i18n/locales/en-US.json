@@ -74,6 +74,9 @@
     "splitAnnouncementKm": "Kilometer {{index}}, {{pace}}",
     "splitReachedKm": "Kilometer {{index}}"
   },
+  "permissions": {
+    "locationBackground": "Lets Veloq record an activity you start from Siri, Control Center or a widget without opening the app first."
+  },
   "routes": {
     "createSection": "Create section"
   },

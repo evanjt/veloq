@@ -35,7 +35,6 @@ function config(): MapSurfaceHtmlConfig {
     devicePixelRatio: 2,
     reduceMotion: false,
     regionChangeThrottleMs: 100,
-    longPressMs: 500,
   };
 }
 

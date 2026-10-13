@@ -33,7 +33,8 @@ afterAll(() => {
 
 it('compiles every source the extension compiles, and nothing a package cannot build', () => {
   const sources = readdirSync(join(out, 'Sources', 'VeloqWidget')).sort();
-  expect(sources).toEqual([...widgetSwiftFiles(projectRoot)].sort());
+  // The bridge module's quick-action builder imports UIKit alone, and its test is a widget test.
+  expect(sources).toEqual([...widgetSwiftFiles(projectRoot), 'RecordQuickActions.swift'].sort());
 });
 
 it('keeps the bundles and drops the entry point, which would be the test bundle one', () => {

@@ -47,9 +47,17 @@ public final class VeloqLiveActivityModule: Module {
       else { return nil }
 
       // One card per recording. A second request would leave the first on the lock
-      // screen with a clock nothing updates.
-      if let existing = Activity<VeloqRecordingAttributes>.activities.first {
+      // screen with a clock nothing updates. A stopped ride's card still on screen
+      // is not that card: a resumed ride clears it and takes a live one.
+      let activities = Activity<VeloqRecordingAttributes>.activities
+      if let existing = activities.first(where: { $0.activityState == .active }) {
         return existing.id
+      }
+      let ended = activities.filter { $0.activityState != .active }
+      if !ended.isEmpty {
+        Task {
+          for activity in ended { await activity.end(nil, dismissalPolicy: .immediate) }
+        }
       }
       return try? Activity.request(
         attributes: attributes,
@@ -71,9 +79,26 @@ public final class VeloqLiveActivityModule: Module {
       }
     }
 
-    Function("end") {
+    // A final state leaves the card up on those figures until its stale date, then
+    // the system dismisses it. Without one the card goes at once.
+    Function("end") { (finalStateJson: String?) in
       guard #available(iOS 16.2, *) else { return }
-      Task { await endAll() }
+      guard
+        let json = finalStateJson,
+        let state = decode(VeloqRecordingAttributes.ContentState.self, from: json),
+        let dismissAt = state.staleDate
+      else {
+        Task { await endAll() }
+        return
+      }
+      Task {
+        for activity in Activity<VeloqRecordingAttributes>.activities {
+          await activity.end(
+            ActivityContent(state: state, staleDate: state.staleDate),
+            dismissalPolicy: .after(dismissAt)
+          )
+        }
+      }
     }
 
     Function("endAll") {
@@ -88,8 +113,8 @@ private func decode<T: Decodable>(_ type: T.Type, from json: String) -> T? {
   return try? JSONDecoder().decode(type, from: data)
 }
 
-/// Dismiss immediately rather than leaving the card up: a finished ride is a card
-/// counting nothing, and the next launch's reap would be the only thing to clear it.
+/// Dismiss immediately, ended or not: an orphan at launch is a card counting nothing,
+/// and a stopped ride's card is cleared once the ride is saved or discarded.
 @available(iOS 16.2, *)
 private func endAll() async {
   for activity in Activity<VeloqRecordingAttributes>.activities {

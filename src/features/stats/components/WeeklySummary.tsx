@@ -116,7 +116,7 @@ function TrendCell({
       style={[styles.trendArrow, { color: verdictColor(cell.rung, isDark) }]}
     >
       {cell.glyph}
-      {cell.pct && <RNText style={styles.trendPct}> {cell.pct}</RNText>}
+      {cell.pct ? <RNText style={styles.trendPct}> {cell.pct}</RNText> : null}
     </Text>
   );
 }
@@ -395,14 +395,14 @@ export function WeeklySummary({
           >
             {rangeTexts.previous}
           </Text>
-          {partlyNotDownloaded && (
+          {partlyNotDownloaded ? (
             <Text
               testID="weekly-summary-partial"
               style={[styles.comparisonLabel, isDark && styles.textDark]}
             >
               {t('stats.rangePartlyDownloaded')}
             </Text>
-          )}
+          ) : null}
         </>
       )}
     </View>

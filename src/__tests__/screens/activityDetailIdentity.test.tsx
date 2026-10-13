@@ -331,7 +331,9 @@ describe('activity detail screen', () => {
     mockRouteHighlights.set('act-1', { isPr: true, prImprovementSeconds: 12 });
     const view = await render(<ActivityDetailScreen />);
     await act(async () => {});
-    expect(capturedTabs.current.find((tab) => tab.key === 'routes')?.badgeText).toBe('Record -12s');
+    expect(capturedTabs.current.find((tab) => tab.key === 'routes')?.badgeText).toBe(
+      'Record -12 s'
+    );
 
     mockRouteHighlights.set('act-1', { isPr: true });
     await view.rerender(<ActivityDetailScreen />);

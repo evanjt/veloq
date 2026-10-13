@@ -6,6 +6,11 @@
       "form": "Form -11 to -8 over 42 days, now Grey Zone",
       "hrv": "HRV 62 to 58 over 30 days"
     },
+    "chartSpans": {
+      "fitness": "30 days",
+      "form": "42 days",
+      "hrv": "30 days"
+    },
     "demoLabel": "Demo Mode",
     "formZone": "Grey Zone",
     "impactLine": "Form -5 → -6 · +88 TSS",
@@ -979,9 +984,9 @@
         "colorKey": "default",
         "id": "weekHours",
         "label": "Week",
-        "spoken": "Week 2.6h, improved",
+        "spoken": "Week 2 h 38 min, improved",
         "trendDir": "up",
-        "value": "2.6h",
+        "value": "2 h 38 min",
         "verdict": "improved"
       }
     ],
@@ -1056,9 +1061,9 @@
       "colorKey": "default",
       "id": "weekHours",
       "label": "Week",
-      "spoken": "Week 2.6h, improved",
+      "spoken": "Week 2 h 38 min, improved",
       "trendDir": "up",
-      "value": "2.6h",
+      "value": "2 h 38 min",
       "verdict": "improved"
     },
     {

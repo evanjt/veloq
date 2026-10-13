@@ -118,14 +118,14 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
         </Text>
       </View>
 
-      {notDownloaded && (
+      {notDownloaded ? (
         <Text
           testID="zone-distribution-partial"
           style={[styles.partial, isDark && styles.textDark]}
         >
           {t('stats.rangePartlyDownloaded')}
         </Text>
-      )}
+      ) : null}
     </View>
   );
 });

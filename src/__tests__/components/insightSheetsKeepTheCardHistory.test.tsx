@@ -116,7 +116,7 @@ describe('the section trend sheet', () => {
           'section-trend-change'
         ).props.children
     );
-    expect(printed).toEqual(['+12%', '−5%']);
+    expect(printed).toEqual(['+12%', '-5%']);
   });
 
   it('prints no change on a row the engine compared nothing on, as its bar is absent', async () => {

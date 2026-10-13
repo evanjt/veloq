@@ -374,12 +374,8 @@ async function seedAthleteA() {
   mockTray.add('activity-i999');
   mockTray.add('server-push-i999');
   mockScheduled.add('activity-i1000');
-  await shareFile({
-    content: '<gpx/>',
-    filename: 'Evening_Ride.gpx',
-    mimeType: 'application/gpx+xml',
-  });
-  await shareFile({ content: 'crash', filename: 'veloq-crash-log.txt', mimeType: 'text/plain' });
+  await shareFile({ content: '<gpx/>', name: 'Evening_Ride.gpx', kind: 'gpx' });
+  await shareFile({ content: 'crash', name: 'veloq-crash-log', kind: 'text' });
   await exportRecordBackup();
   for (const uri of BACKUP_FILES.filter((u) => u.endsWith('.meta.json'))) {
     mockFiles.set(uri, JSON.stringify({ id: uri.split('/').pop(), timestamp: '2026-09-30' }));
@@ -713,7 +709,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
     writers: [
       'src/shared/native/engine.ts',
       'modules/veloq-app-group/ios/VeloqAppGroupModule.swift',
-      'push/ios/VeloqPushExtension/VeloqPushPayload.swift',
+      'modules/veloq-widget/ios/WidgetSnapshotFile.swift',
       'modules/veloqrs/android/src/main/java/com/veloq/ActivityPushWorker.kt',
       `${RUST}/persistence/mod.rs`,
       `${RUST}/persistence/regroup.rs`,
@@ -846,9 +842,10 @@ const DEVICE_WRITES: DeviceWrite[] = [
   },
   {
     confirm: [],
-    where: 'cache/restores/, every restore copy and a WebDAV download',
+    where: 'cache/restores/, every restore copy, a file opened into the app and a WebDAV download',
     writers: [
       'src/features/settings/lib/backup.ts',
+      'src/features/settings/lib/openedBackup.ts',
       'src/features/settings/lib/autobackup/backends/webdavBackend.ts',
       'src/features/settings/lib/autobackup/backends/googleDriveBackend.ts',
     ],
@@ -880,7 +877,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
       'src/features/settings/lib/shareFile.ts',
       'src/features/settings/lib/bulkExport.ts',
     ],
-    holds: 'backups, activity exports, GPX, the crash log',
+    holds: 'backups, activity exports, GPX, the crash log, a shared copy of a recording',
     wiped: { files: ['file:///cache/exports/veloq-activities-2026-10-01.zip'] },
   },
   {
@@ -1132,7 +1129,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
   },
   {
     confirm: [],
-    where: 'the veloq-insights channel and the background insight task registration',
+    where: 'the veloq-activity channel and the background insight task registration',
     writers: [
       'src/features/insights/backgroundInsightTask.ts',
       'src/features/settings/lib/notificationService.ts',
@@ -1415,7 +1412,9 @@ function seed(entry: DeviceWrite) {
   if (seeds.widget) {
     writeWidgetSnapshot({
       json: JSON.stringify({ latest: { activityId: 'i999', name: 'Morning Ride' } }),
-      launcherShortcuts: [{ type: 'Ride', label: 'Ride', url: 'veloq://record?type=Ride' }],
+      launcherShortcuts: [
+        { type: 'Ride', label: 'Ride', url: 'veloq://record?type=Ride', glyph: 'ride' },
+      ],
     });
   }
   if (seeds.tray) mockTray.add('activity-i999');

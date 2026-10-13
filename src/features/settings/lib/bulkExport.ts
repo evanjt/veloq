@@ -14,7 +14,7 @@ import { withAwakeDeadline } from '@/shared/async/awakeDeadline';
 import { getEngine } from '@/shared/native/engine';
 import { formatLocalDate } from '@/shared/format/format';
 import { exportFileUri } from '@/shared/storage/cacheFiles';
-import { shareExistingFile } from '@/features/settings/lib/shareFile';
+import { shareExistingFile, type ShareAnchor } from '@/features/settings/lib/shareFile';
 import { BulkExportFormat } from 'veloqrs';
 import type { BulkExportKind } from '@/features/settings/lib/bulkExportFormat';
 
@@ -79,11 +79,10 @@ export type BulkExportOutcome =
  */
 let pendingExport: (Destination & StartedExport) | null = null;
 
-/** Where an export writes, and what the share sheet is told it is. */
+/** Where an export writes. The GPX export is a zip of tracks, and the share sheet is told so. */
 interface Destination {
   uri: string;
-  mimeType: string;
-  uti: string;
+  shareKind: 'zip' | 'geojson';
   kind: BulkExportKind;
 }
 
@@ -176,27 +175,31 @@ const plain = (uri: string) => (uri.startsWith('file://') ? uri.slice(7) : uri);
 
 export async function bulkExportActivities(
   onProgress?: (progress: BulkExportProgress) => void,
-  timeoutMs?: number
+  timeoutMs?: number,
+  anchor?: ShareAnchor
 ): Promise<BulkExportOutcome> {
   const destUri = await exportFileUri(`veloq-activities-${formatLocalDate(new Date())}.zip`);
   return exportTo(
     BulkExportFormat.Gpx,
-    { uri: destUri, mimeType: 'application/zip', uti: 'public.zip-archive', kind: 'gpx' },
+    { uri: destUri, shareKind: 'zip', kind: 'gpx' },
     onProgress,
-    timeoutMs
+    timeoutMs,
+    anchor
   );
 }
 
 export async function bulkExportActivitiesGeoJson(
   onProgress?: (progress: BulkExportProgress) => void,
-  timeoutMs?: number
+  timeoutMs?: number,
+  anchor?: ShareAnchor
 ): Promise<BulkExportOutcome> {
   const destUri = await exportFileUri(`veloq-activities-${formatLocalDate(new Date())}.geojson`);
   return exportTo(
     BulkExportFormat.GeoJson,
-    { uri: destUri, mimeType: 'application/geo+json', uti: 'public.json', kind: 'geojson' },
+    { uri: destUri, shareKind: 'geojson', kind: 'geojson' },
     onProgress,
-    timeoutMs
+    timeoutMs,
+    anchor
   );
 }
 
@@ -204,11 +207,12 @@ async function exportTo(
   format: BulkExportFormat,
   destination: Destination,
   onProgress?: (progress: BulkExportProgress) => void,
-  timeoutMs?: number
+  timeoutMs?: number,
+  anchor?: ShareAnchor
 ): Promise<BulkExportOutcome> {
   // A run already going holds Rust's export slot, so a second start would only
   // be refused. The tap is answered with that run instead.
-  if (pendingExport) return resumePendingBulkExport(onProgress);
+  if (pendingExport) return resumePendingBulkExport(onProgress, anchor);
 
   // The run is recorded as it starts rather than when the wait lapses, so a
   // screen that comes back inside the first minute sees it too.
@@ -229,14 +233,15 @@ async function exportTo(
   if (outcome.state === 'running') return { state: 'still-running' };
   if (pendingExport !== slot) return { state: 'nothing-pending' };
   pendingExport = null;
-  return finish(outcome, destination, onProgress);
+  return finish(outcome, destination, onProgress, anchor);
 }
 
 /** Share the finished file, saying so while the share sheet is up. */
 async function finish(
   written: ExportResult,
   destination: Destination,
-  onProgress?: (progress: BulkExportProgress) => void
+  onProgress?: (progress: BulkExportProgress) => void,
+  anchor?: ShareAnchor
 ): Promise<BulkExportOutcome> {
   onProgress?.({
     phase: 'sharing',
@@ -244,7 +249,7 @@ async function finish(
     total: written.exported,
     sizeBytes: written.totalBytes,
   });
-  await shareAndDelete(destination);
+  await shareAndDelete(destination, anchor);
 
   return completed(written, destination.kind);
 }
@@ -254,8 +259,8 @@ function completed(written: ExportResult, kind: BulkExportKind): BulkExportOutco
   return { state: 'complete', exported, noTrack, trimmed, failed, kind };
 }
 
-async function shareAndDelete(destination: Destination): Promise<void> {
-  await shareExistingFile(destination.uri, destination.mimeType, { uti: destination.uti });
+async function shareAndDelete(destination: Destination, anchor?: ShareAnchor): Promise<void> {
+  await shareExistingFile(destination.uri, destination.shareKind, { anchor });
   await FileSystem.deleteAsync(destination.uri, { idempotent: true });
 }
 
@@ -312,7 +317,8 @@ export function pendingBulkExportSettled(): Promise<void> {
  * first wait, because the file it was writing is not there to share.
  */
 export async function resumePendingBulkExport(
-  onProgress?: (progress: BulkExportProgress) => void
+  onProgress?: (progress: BulkExportProgress) => void,
+  anchor?: ShareAnchor
 ): Promise<BulkExportOutcome> {
   const owed = pendingExport;
   if (!owed) return { state: 'nothing-pending' };
@@ -323,5 +329,5 @@ export async function resumePendingBulkExport(
   const written = owed.result();
   if (!written) throw owed.failure();
 
-  return finish(written, owed, onProgress);
+  return finish(written, owed, onProgress, anchor);
 }

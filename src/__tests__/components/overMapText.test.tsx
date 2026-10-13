@@ -89,6 +89,7 @@ it('uses one shadow geometry and full type roles for map text', async () => {
       activity={detail}
       activityId={detail.id}
       coordinates={[]}
+      hasStoredTrack={false}
       isMetric={true}
       debugEnabled={false}
       mapHeight={320}

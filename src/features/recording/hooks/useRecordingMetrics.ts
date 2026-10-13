@@ -2,9 +2,11 @@ import { useMemo } from 'react';
 
 import { freshValue, useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useClock } from '@/features/recording/hooks/useTimer';
-import { useAuthStore } from '@/shared/app/AuthStore';
 import { pausedSecondsBetween } from '@/features/recording/lib/pausedTime';
-import { athleteWeightKg } from '@/features/recording/lib/athleteWeight';
+import {
+  CALORIES_ASSUMED_AGE,
+  useCaloriesWeight,
+} from '@/features/recording/hooks/useCaloriesWeight';
 
 // MET values for calorie estimation
 const MET_VALUES: Record<string, number> = {
@@ -14,8 +16,6 @@ const MET_VALUES: Record<string, number> = {
   swimming: 7,
   default: 6,
 };
-
-const DEFAULT_WEIGHT_KG = 70;
 
 function getMet(activityType: string): number {
   const lower = activityType.toLowerCase();
@@ -61,7 +61,7 @@ export function useRecordingMetrics(): {
   const pauseIntervals = useRecordingStore((s) => s.pauseIntervals);
   const startTime = useRecordingStore((s) => s.startTime);
   const openPauseStart = useRecordingStore((s) => (s.status === 'paused' ? s._pauseStart : null));
-  const athleteWeight = useAuthStore((s) => athleteWeightKg(s.athlete));
+  const { weightKg } = useCaloriesWeight();
 
   return useMemo(() => {
     // The tiles read the sensors, not the recorded streams. A stream starts at
@@ -117,14 +117,14 @@ export function useRecordingMetrics(): {
 
     // Calories estimation. With a heart-rate sensor, use the HR-based energy
     // expenditure regression (Keytel et al., Journal of Sports Sciences, 2005;
-    // age assumed 35 as the athlete's age is not available locally). Without
+    // the age is assumed as the athlete's is not available locally). Without
     // HR, fall back to duration_hours * weight_kg * MET.
-    const weightKg = athleteWeight ?? DEFAULT_WEIGHT_KG;
     const durationHours = movingSeconds / 3600;
     let calories: number;
     if (totals.heartrateCount >= 30) {
       const avgHr = totals.heartrateSum / totals.heartrateCount;
-      const kcalPerMin = (-55.0969 + 0.6309 * avgHr + 0.1988 * weightKg + 0.2017 * 35) / 4.184;
+      const kcalPerMin =
+        (-55.0969 + 0.6309 * avgHr + 0.1988 * weightKg + 0.2017 * CALORIES_ASSUMED_AGE) / 4.184;
       calories = Math.round(Math.max(0, kcalPerMin) * (movingSeconds / 60));
     } else {
       const met = getMet(activityType ?? 'Other');
@@ -164,6 +164,6 @@ export function useRecordingMetrics(): {
     pauseIntervals,
     openPauseStart,
     startTime,
-    athleteWeight,
+    weightKg,
   ]);
 }

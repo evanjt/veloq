@@ -20,6 +20,7 @@ import type { FfiDepartedRide, SectionBoundsEdit } from 'veloqrs';
 import type { FrequentSection, RoutePoint } from '@/types';
 import { announceDepartedRides } from '../lib/departedRides';
 import { confirmAction, inform } from '@/shared/ui/dialog';
+import { keepsEnoughPoints } from '@/shared/math/trimRange';
 
 /** Padded window context for expand mode */
 interface ExpandContext {
@@ -288,8 +289,8 @@ export function useSectionTrim(
   const confirmTrim = useCallback(async () => {
     if (!section?.id || editInFlight.current) return;
 
-    // Validate minimum points
-    if (trimEnd - trimStart + 1 < 5) {
+    // The overlay disables Save below the minimum, so this only catches a stale press.
+    if (!keepsEnoughPoints(trimStart, trimEnd)) {
       inform({
         title: t('sections.trimFailedTitle'),
         message: t('sections.trimTooShort', 'Section must have at least 5 points'),

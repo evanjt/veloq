@@ -556,11 +556,11 @@ export const SectionsList = memo(function SectionsList({
     if (regularSections.length === 0) return null;
     return (
       <View>
-        {hasMore && (
+        {hasMore ? (
           <View style={styles.loadingMore}>
             <ActivityIndicator size="small" color={colors.primary} />
           </View>
-        )}
+        ) : null}
         <Button
           testID="sections-retired-link"
           variant="ghost"
@@ -602,13 +602,13 @@ export const SectionsList = memo(function SectionsList({
           onAcceptAll={handleAcceptAll}
           onRescan={handleRescan}
         />
-        {onSportChange && (sportOptions.length > 1 || sportType !== undefined) && (
+        {onSportChange && (sportOptions.length > 1 || sportType !== undefined) ? (
           <SportFilterChips
             options={sportOptions}
             selectedType={sportType}
             onSelect={onSportChange}
           />
-        )}
+        ) : null}
         <SectionsListFiltersBar
           regularSectionsCount={regularSections.length}
           sortOption={sortOption}

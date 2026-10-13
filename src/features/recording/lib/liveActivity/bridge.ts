@@ -22,7 +22,7 @@ interface VeloqLiveActivityModule {
   isSupported(): boolean;
   start(attributesJson: string, stateJson: string): string | null;
   update(stateJson: string): void;
-  end(): void;
+  end(finalStateJson: string | null): void;
   endAll(): void;
 }
 
@@ -71,10 +71,14 @@ export function updateNativeLiveActivity(stateJson: string): void {
   guard('update', () => mod.update(stateJson));
 }
 
-export function endNativeLiveActivity(): void {
+/**
+ * End the card. With a final state it stays up on those figures until the state's
+ * stale date, then dismisses itself; with none it is gone at once.
+ */
+export function endNativeLiveActivity(finalStateJson: string | null): void {
   const mod = native();
   if (!mod) return;
-  guard('end', () => mod.end());
+  guard('end', () => mod.end(finalStateJson));
 }
 
 /**
@@ -90,7 +94,10 @@ export function onLiveActivityControl(
   return () => subscription?.remove();
 }
 
-/** End every card this app owns, whoever started it. Used to reap orphans at launch. */
+/**
+ * End every card this app owns at once, whoever started it and whether or not it
+ * has ended already. Reaps orphans at launch and clears a stopped ride's card.
+ */
 export function endAllNativeLiveActivities(): void {
   const mod = native();
   if (!mod) return;

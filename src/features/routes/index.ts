@@ -29,7 +29,7 @@ export {
   SectionsList,
   SectionTrimOverlay,
   SportTypeSelector,
-  SyncDebugTab,
+  SyncDebugSection,
   TodayBanner,
 } from './components';
 export { type RoutesSortOption } from './components/RoutesList';

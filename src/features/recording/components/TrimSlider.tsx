@@ -262,7 +262,7 @@ export function TrimSlider({
           {t('recording.trimActivity', 'Trim Activity')}
         </Text>
         <View style={styles.rangeRow}>
-          {isTrimmed && (
+          {isTrimmed ? (
             <MaterialCommunityIcons
               name="content-cut"
               size={14}
@@ -270,7 +270,7 @@ export function TrimSlider({
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
             />
-          )}
+          ) : null}
           <Text
             testID="review-trim-range"
             style={[styles.timeRange, { color: textPrimary }, isTrimmed && styles.timeRangeTrimmed]}

@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { buildGpxFile } from '@/shared/native/gpxFile';
-import { shareFile } from '@/features/settings/lib/shareFile';
+import { shareFile, type ShareAnchor } from '@/features/settings/lib/shareFile';
 import type { LatLng } from '@/shared/geo/polyline';
 import { inform } from '@/shared/ui/dialog';
 
@@ -10,6 +10,8 @@ interface ExportParams {
   points: LatLng[];
   time?: string;
   sport?: string | undefined;
+  /** The control the export starts from, which the share sheet points at on iPad. */
+  anchor?: ShareAnchor | undefined;
 }
 
 export function useGpxExport() {
@@ -17,7 +19,7 @@ export function useGpxExport() {
   const { t } = useTranslation();
 
   const exportGpx = useCallback(
-    async ({ name, points, time, sport }: ExportParams) => {
+    async ({ name, points, time, sport, anchor }: ExportParams) => {
       if (exporting) return;
       setExporting(true);
       try {
@@ -26,11 +28,7 @@ export function useGpxExport() {
           inform({ title: t('export.failedTitle'), message: t('export.gpxTrimmedAway') });
           return;
         }
-        await shareFile({
-          content: file.content,
-          filename: file.filename,
-          mimeType: 'application/gpx+xml',
-        });
+        await shareFile({ content: file.content, name: file.filename, kind: 'gpx', anchor });
       } catch {
         inform({ title: t('export.failedTitle'), message: t('export.error') });
       } finally {

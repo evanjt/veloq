@@ -108,7 +108,7 @@ export function ChartCanvas<T, K extends string>({
 
   return (
     <View style={[styles.fill, style]} onLayout={onLayout}>
-      {frame && (
+      {frame ? (
         <Canvas style={StyleSheet.absoluteFill}>
           {gridLineYs(frame.bounds, grid).map((y) => (
             <SkiaLine
@@ -121,7 +121,7 @@ export function ChartCanvas<T, K extends string>({
           ))}
           {children(frame)}
         </Canvas>
-      )}
+      ) : null}
     </View>
   );
 }

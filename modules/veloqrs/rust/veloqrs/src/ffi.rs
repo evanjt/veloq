@@ -939,7 +939,11 @@ fn start_fetch_and_store_run(
                 let fetched = crate::runtime::block_on(async {
                     let requests = chunk.iter().map(|activity_id| {
                         let transport = fetcher.transport().clone();
-                        let named = upstream.get(activity_id).unwrap_or(activity_id).clone();
+                        let named = crate::persistence::origin::upstream_or_key(
+                            activity_id,
+                            upstream.get(activity_id).map(String::as_str),
+                        )
+                        .to_string();
                         async move {
                             let result = crate::net::endpoints::fetch_time_stream(
                                 &transport,

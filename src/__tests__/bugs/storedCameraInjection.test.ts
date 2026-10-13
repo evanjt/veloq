@@ -27,7 +27,6 @@ function surfaceConfig(camera: MapSurfaceHtmlConfig['camera']): MapSurfaceHtmlCo
     devicePixelRatio: 2,
     reduceMotion: false,
     regionChangeThrottleMs: 100,
-    longPressMs: 500,
   };
 }
 

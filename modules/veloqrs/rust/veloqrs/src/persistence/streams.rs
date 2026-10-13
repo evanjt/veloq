@@ -196,6 +196,11 @@ pub(crate) struct BackfillEstimate {
 /// the census says upstream holds a series for it. An activity upstream holds
 /// a track for that this device has not stored yet belongs to the track fetch,
 /// which widens for it.
+///
+/// Whether a row is upstream is `origin::intervals_upstream` over
+/// `activities.intervals_id` alone, so a key minted here whose id sits only on
+/// its body waits. Demo rows are in, since that function names them: demo mode
+/// holds no credential and runs no backfill, so they cost nothing.
 pub(crate) const STREAM_GAP_FROM_WHERE: &str = "FROM activities a
                LEFT JOIN gps_tracks g ON g.activity_id = a.id
                LEFT JOIN activity_stream_backfill b ON b.activity_id = a.id
@@ -206,7 +211,8 @@ pub(crate) const STREAM_GAP_FROM_WHERE: &str = "FROM activities a
                            AND c.has_series = 1 AND c.has_latlng = 0))
                 AND NOT EXISTS (
                         SELECT 1 FROM activity_streams s WHERE s.activity_id = a.id)
-                AND (a.id NOT LIKE 'local-%' OR a.intervals_id IS NOT NULL)
+                AND ((a.id NOT LIKE 'local-%' AND a.id NOT LIKE 'src-%')
+                     OR a.intervals_id IS NOT NULL)
                 AND COALESCE(b.attempts, 0) < ?1
                 AND (?2 IS NULL
                      OR (a.start_date IS NOT NULL

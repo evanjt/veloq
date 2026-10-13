@@ -179,7 +179,7 @@ describe('EngineInitBanner', () => {
       await fireEvent.press(getByText('support.shareCrashLog'));
       await waitFor(() => expect(shareFile).toHaveBeenCalledTimes(1));
       expect(shareFile).toHaveBeenCalledWith(
-        expect.objectContaining({ content: 'formatted log', mimeType: 'text/plain' })
+        expect.objectContaining({ content: 'formatted log', kind: 'text' })
       );
       await fireEvent.press(getByText('support.forum'));
       expect(WebBrowser.openBrowserAsync).toHaveBeenCalledWith(

@@ -1,14 +1,12 @@
 import React, { memo, useRef } from 'react';
-import { View, StyleSheet, Text } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { useMetricSystem, useTheme } from '@/shared/app';
+import { useMetricSystem } from '@/shared/app';
 import { formatDistance } from '@/shared/format/format';
-import { colors, darkColors, typography, spacing, layout, shadows } from '@/theme';
 import { SportIcons } from '@/shared/activity/SportIcons';
 import type { FrequentSection } from '@/types';
-import { Button, IconButton } from '@/shared/ui';
 import { useFocusOnAppear } from '@/shared/ui/useFocusOnAppear';
+import { MapPopup, MAP_POPUP_STAT_ICON_SIZE } from './MapPopup';
 
 interface SectionPopupProps {
   section: FrequentSection;
@@ -24,7 +22,6 @@ export const SectionPopup = memo(function SectionPopup({
   onViewDetails,
 }: SectionPopupProps) {
   const { t } = useTranslation();
-  const { isDark } = useTheme();
   const titleRef = useRef<Text>(null);
   useFocusOnAppear(titleRef, section.id);
   const isMetric = useMetricSystem();
@@ -33,131 +30,45 @@ export const SectionPopup = memo(function SectionPopup({
   const displayName = section.name ?? section.id;
 
   return (
-    <View testID="section-popup" style={[styles.popup, isDark && styles.popupDark, { bottom }]}>
-      <View style={styles.popupHeader}>
-        <View style={styles.popupInfo}>
-          <Text
-            ref={titleRef}
-            testID="section-popup-title"
-            style={[styles.popupTitle, isDark && styles.popupTitleDark]}
-            numberOfLines={1}
-          >
-            {displayName}
-          </Text>
-          <Text style={[styles.popupDate, isDark && styles.popupDateDark]}>
-            {t('sections.traversalsCount', { count: section.visitCount })} •{' '}
-            {formatDistance(section.distanceMeters, isMetric)}
-          </Text>
-        </View>
-        {onViewDetails && (
-          <Button
-            testID="section-popup-view-details"
-            onPress={onViewDetails}
-            label={t('maps.viewSectionDetails')}
-            variant="ghost"
-            size="sm"
-            icon={<MaterialCommunityIcons name="chevron-right" size={18} color={colors.primary} />}
-          />
-        )}
-        <IconButton
-          testID="section-popup-close"
-          onPress={onClose}
-          variant="ghost"
-          accessibilityLabel={t('maps.closeSectionPopup')}
-        >
-          <MaterialCommunityIcons
-            name="close"
-            size={22}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-        </IconButton>
-      </View>
-
-      <View style={[styles.popupStats, isDark && styles.popupStatsDark]}>
-        {/* Every sport that has taken the ground, in one colour: none is the section's. */}
-        <View style={styles.popupStat}>
-          <SportIcons
-            sportTypes={section.sportTypes}
-            size={20}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-        </View>
-        <View style={styles.popupStat}>
-          <MaterialCommunityIcons name="run" size={20} color={colors.chartBlue} />
-          <Text style={[styles.popupStatValue, isDark && styles.popupStatValueDark]}>
-            {t('sections.activitiesCount', { count: section.activityIds.length })}
-          </Text>
-        </View>
-        <View style={styles.popupStat}>
-          <MaterialCommunityIcons name="map-marker-path" size={20} color={colors.chartAmber} />
-          <Text style={[styles.popupStatValue, isDark && styles.popupStatValueDark]}>
-            {t('sections.routesCountLabel', { count: section.routeIds?.length ?? 0 })}
-          </Text>
-        </View>
-      </View>
-    </View>
+    <MapPopup
+      testID="section-popup"
+      titleTestID="section-popup-title"
+      closeTestID="section-popup-close"
+      style={{ bottom }}
+      titleRef={titleRef}
+      title={displayName}
+      subtitle={`${t('sections.traversalsCount', { count: section.visitCount })} · ${formatDistance(
+        section.distanceMeters,
+        isMetric
+      )}`}
+      stats={[
+        // Every sport that has taken the ground, in one colour: none is the section's.
+        {
+          key: 'sports',
+          renderIcon: (color) => (
+            <SportIcons
+              sportTypes={section.sportTypes}
+              size={MAP_POPUP_STAT_ICON_SIZE}
+              color={color}
+            />
+          ),
+        },
+        {
+          key: 'activities',
+          icon: 'run',
+          value: t('sections.activitiesCount', { count: section.activityIds.length }),
+        },
+        {
+          key: 'routes',
+          icon: 'map-marker-path',
+          value: t('sections.routesCountLabel', { count: section.routeIds?.length ?? 0 }),
+        },
+      ]}
+      viewDetails={
+        onViewDetails ? { testID: 'section-popup-view-details', onPress: onViewDetails } : undefined
+      }
+      closeLabel={t('maps.closeSectionPopup')}
+      onClose={onClose}
+    />
   );
-});
-
-const styles = StyleSheet.create({
-  popup: {
-    position: 'absolute',
-    left: spacing.md,
-    right: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    ...shadows.modal,
-  },
-  popupDark: {
-    backgroundColor: darkColors.surfaceCard,
-  },
-  popupHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xsPlus,
-  },
-  popupInfo: {
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  popupTitle: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  popupTitleDark: {
-    color: darkColors.textPrimary,
-  },
-  popupDate: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-    marginTop: spacing.xxs,
-  },
-  popupDateDark: {
-    color: darkColors.textSecondary,
-  },
-  popupStats: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.xsPlus,
-  },
-  popupStatsDark: {},
-  popupStat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  popupStatValue: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '500',
-    color: colors.textPrimary,
-  },
-  popupStatValueDark: {
-    color: darkColors.textPrimary,
-  },
 });

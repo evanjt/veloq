@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { FLOW_ADD_ONE, markFlow } from '@/shared/debug/flowTiming';
+import { markAddOneOnTrackStored } from '@/shared/debug/flowTiming';
 import { runWhenIdle } from '@/shared/async/runWhenIdle';
-import { useRouteSyncProgress } from './useRouteSyncProgress';
+import { stampedProgressWriter, useRouteSyncProgress } from './useRouteSyncProgress';
 import { useRouteSyncContext, resetGlobalSyncState } from './useRouteSyncContext';
 import { feedHeadIds } from '@/shared/activity/feedHead';
 import { headFirst } from '@/features/routes/lib/gpsFetchOrder';
@@ -13,8 +13,9 @@ import { getNativeModule } from '@/shared/native/engine';
 import { readLibraryCount } from '@/shared/native/libraryCount';
 import { engineErrorTag } from '@/shared/native/engineError';
 import { engine, hasStarted, startOutcome, StartOutcome, type StartVerdict } from 'veloqrs';
-import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import { getSyncGeneration, useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
+import { useEngineReady } from '@/shared/native/useEngineReady';
 import { useReconnect } from '@/shared/app/useRetryTriggers';
 import { readActivities } from '@/shared/native/storedActivities';
 import type { SyncProgress } from './useRouteSyncProgress';
@@ -96,7 +97,12 @@ function readActivityCount(): number | null {
  */
 export function useRouteDataSync(enabled: boolean = true): UseRouteDataSyncResult {
   // Extracted hooks
-  const { progress, isSyncing, updateProgress, isMountedRef } = useRouteSyncProgress();
+  const {
+    progress,
+    isSyncing,
+    updateProgress: writeProgress,
+    isMountedRef,
+  } = useRouteSyncProgress();
   const setGpsSyncProgress = useSyncDateRange((s) => s.setGpsSyncProgress);
   const setGpsSyncPendingIds = useSyncDateRange((s) => s.setGpsSyncPendingIds);
 
@@ -133,6 +139,12 @@ export function useRouteDataSync(enabled: boolean = true): UseRouteDataSyncResul
     markSyncComplete,
   } = useRouteSyncContext();
   const { fetchDemoGps, fetchApiGps } = useGpsDataFetcher();
+
+  // The add-one span starts where a track lands, not at this sync's download:
+  // the engine also stores tracks while it pulls an activity's streams, and
+  // then this sync finds nothing to fetch.
+  const readyEngine = useEngineReady();
+  useEffect(() => (readyEngine ? markAddOneOnTrackStored(readyEngine) : undefined), [readyEngine]);
 
   // Counter to force a re-sync after an engine reset, a reconnection, or a
   // run this one refused.
@@ -171,6 +183,7 @@ export function useRouteDataSync(enabled: boolean = true): UseRouteDataSyncResul
 
     // Create abort controller for this sync operation
     const abortController = createAbortController();
+    const updateProgress = stampedProgressWriter(writeProgress, getSyncGeneration());
 
     try {
       // Get native module
@@ -365,8 +378,6 @@ export function useRouteDataSync(enabled: boolean = true): UseRouteDataSyncResul
         log.log(`[RouteDataSync] Starting GPS fetch for ${withGps.length} activities...`);
       }
 
-      if (withGps.length === 1) markFlow(FLOW_ADD_ONE);
-
       // Fetch GPS data (demo or real API mode)
       if (isDemo) {
         await fetchDemoGps(withGps, {
@@ -424,7 +435,7 @@ export function useRouteDataSync(enabled: boolean = true): UseRouteDataSyncResul
     isDemoModeRef,
     isOnlineRef,
     isMountedRef,
-    updateProgress,
+    writeProgress,
     canStartSync,
     createAbortController,
     markSyncComplete,

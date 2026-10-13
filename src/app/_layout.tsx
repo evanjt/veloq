@@ -78,6 +78,7 @@ import {
   captureQuarantineReport,
   LibraryRebuiltNotice,
   applyHeldImport,
+  applyOpenedBackup,
   applyPlatformRecord,
   offerRestorePrompt,
   onAppForeground,
@@ -295,9 +296,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
             // library. The count is read before the launch sync stores any.
             // With no zip to apply, or one the engine refused, the library
             // stays empty, so the athlete is offered the other routes once.
-            // A backup picked before signing in goes first, and answers both.
+            // A backup picked before signing in goes first, and answers both,
+            // then one opened into the app from outside while it launched.
             const launchCount = stats?.activityCount ?? 0;
             applyHeldImport(i18n.t)
+              .then(() => applyOpenedBackup(i18n.t))
               .then(() => applyPlatformRecord(launchCount, i18n.t))
               .then(() => offerRestorePrompt(launchCount, () => run.live))
               .catch(() => {});

@@ -4,30 +4,34 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
-import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import com.veloq.recording.LiveRide
 import __PKG__.R
 
 /**
- * Record in the Quick Settings shade, reachable with the phone locked. The tile
- * is the same deep link every other record surface uses, so one rule decides the
- * sport, and its label is the snapshot's, so the tile holds no i18n and no
- * sport-to-name map.
+ * Record in the Quick Settings shade, reachable with the phone locked. Idle, the
+ * tile is the same deep link every other record surface uses, so one rule
+ * decides the sport, and its label is the snapshot's, so the tile holds no
+ * sport-to-name map. While a ride records it shows that and opens the ride.
+ *
+ * The tile is not an active tile, so Android binds it and calls
+ * `onStartListening` each time the shade shows it, and every opening reads the
+ * ride afresh.
  */
 class RecordTileService : TileService() {
   override fun onStartListening() {
-    val snap = WidgetSnapshot.read(this)
+    val face = face()
     qsTile?.apply {
-      label = snap?.launcherShortcuts?.firstOrNull()?.label ?: getString(R.string.app_name)
-      state = Tile.STATE_INACTIVE
+      label = face.label
+      state = face.state
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) subtitle = face.subtitle
       updateTile()
     }
   }
 
   override fun onClick() {
-    val snap = WidgetSnapshot.read(this)
     val intent =
-      Intent(Intent.ACTION_VIEW, Uri.parse(WidgetRenderer.recordUrl(snap)))
+      Intent(Intent.ACTION_VIEW, Uri.parse(face().url))
         .apply {
           `package` = packageName
           addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -45,5 +49,16 @@ class RecordTileService : TileService() {
       @Suppress("DEPRECATION")
       startActivityAndCollapse(intent)
     }
+  }
+
+  private fun face(): RecordTileFace {
+    val snap = WidgetSnapshot.read(this)
+    return RecordTile.face(
+      LiveRide.recording(this),
+      snap,
+      getString(R.string.app_name),
+      getString(R.string.widget_recording),
+      WidgetRenderer.recordUrl(snap),
+    )
   }
 }

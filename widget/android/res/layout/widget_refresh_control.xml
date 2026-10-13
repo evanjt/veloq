@@ -1,12 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
-<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- The refresh action: a 24dp symbol in a 48dp target, sized in dp so a font scale cannot grow it
+     out of the target, and a progress indicator in its place while a refresh runs. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
   android:id="@+id/widget_refresh"
-  android:layout_width="wrap_content"
-  android:layout_height="wrap_content"
-  android:minWidth="48dp"
-  android:minHeight="48dp"
-  android:gravity="center"
-  android:text="↻"
-  android:textSize="24sp"
-  android:textColor="@color/widget_text_secondary"
-  android:contentDescription="@string/widget_refresh" />
+  android:layout_width="48dp"
+  android:layout_height="48dp"
+  android:contentDescription="@string/widget_refresh">
+  <ImageView
+    android:id="@+id/widget_refresh_icon"
+    android:layout_width="24dp"
+    android:layout_height="24dp"
+    android:layout_gravity="center"
+    android:src="@drawable/widget_refresh"
+    android:tint="@color/widget_text_secondary"
+    android:importantForAccessibility="no" />
+  <ProgressBar
+    android:id="@+id/widget_refresh_busy"
+    style="?android:attr/progressBarStyleSmall"
+    android:layout_width="20dp"
+    android:layout_height="20dp"
+    android:layout_gravity="center"
+    android:indeterminate="true"
+    android:indeterminateTint="@color/widget_text_secondary"
+    android:visibility="gone"
+    android:importantForAccessibility="no" />
+</FrameLayout>

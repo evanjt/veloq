@@ -98,6 +98,7 @@ function summary(sample) {
   b.line('sum_line', hero.id === 'form' ? sample.display?.formZone : null);
   b.set('sum_line', 'textColor', heroColor);
   b.gone.add('sum_sparkline');
+  b.gone.add('sum_chart_caption');
   ageRow(b, sample, 'med_updated');
   for (let i = 0; i < 4; i++) {
     const entry = card.entries[i];

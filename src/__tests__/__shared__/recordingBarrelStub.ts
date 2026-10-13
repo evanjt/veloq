@@ -34,6 +34,7 @@ const SOURCES: Record<string, string> = {
   initialiseRecordingPreferences: 'stores/RecordingPreferencesStore',
   useClock: 'hooks/useTimer',
   useRecordingStore: 'stores/RecordingStore',
+  CALORIES_ASSUMED_AGE: 'hooks/useCaloriesWeight',
   SENSOR_STALE_MS: 'stores/RecordingStore',
   useRecordingLiveStore: 'stores/RecordingLiveStore',
   useUploadPermissionStore: 'stores/UploadPermissionStore',

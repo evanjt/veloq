@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useBestEfforts, type BestEffortsSport } from './useBestEfforts';
 import {
+  formatDurationHuman,
   formatPaceCompact,
   formatPower,
   formatSwimPace,
@@ -67,6 +68,8 @@ export function bestEffortsOf(
   t: TFunction
 ): BestEffort[] {
   const row = data?.sports.find((s) => s.sport === BEST_EFFORTS_SPORT[sport]);
+  // Power checkpoints are durations, written in the locale's units; pace
+  // checkpoints are distances and keep the read's label.
   return (row?.efforts ?? []).map((e) => ({
     label: bestEffortCheckpointLabel(e, t),
     value: e.value ?? null,
@@ -83,7 +86,7 @@ export function climbBestsOf(
 ): ClimbBest[] {
   const row = data?.climbing.find((c) => c.sport === BEST_EFFORTS_SPORT[sport]);
   return (row?.bests ?? []).map((b) => ({
-    label: b.label,
+    label: formatDurationHuman(b.windowS),
     windowS: b.windowS,
     vam: b.vam ?? null,
     wattsPerKg: b.wattsPerKg ?? null,
@@ -116,9 +119,9 @@ export function useSeasonBests({ sport, days }: UseSeasonBestsOptions): UseSeaso
     if (efforts.length === 0) return null;
 
     if (sport === 'Cycling') {
-      // Show 5m power as the headline
+      // Show five-minute power as the headline
       const fiveMin = efforts.find((e) => e.checkpoint === 300);
-      if (fiveMin?.value) return `5m: ${formatPower(fiveMin.value)}`;
+      if (fiveMin?.value) return `${fiveMin.label}: ${formatPower(fiveMin.value)}`;
       // Fallback to first non-null
       const first = efforts.find((e) => e.value !== null);
       if (first?.value) return `${first.label}: ${formatPower(first.value)}`;

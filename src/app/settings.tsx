@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { sourceFor, type AuthMethod } from '@/shared/app/source';
 import { useRouteSettings } from '@/features/routes';
 import { useRecordingPreferences } from '@/features/recording';
 import { useSensorStore } from '@/features/sensors';
@@ -34,7 +35,7 @@ import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 interface AccountRowProps {
   athlete?: { name?: string; profile?: string; profile_medium?: string } | undefined;
-  authMethod: string | null;
+  authMethod: AuthMethod;
   profileImageError: boolean;
   onProfileImageError: () => void;
   isDark: boolean;
@@ -52,10 +53,11 @@ function AccountRow({
   const hasValidProfileUrl =
     profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
 
+  const scheme = sourceFor({ authMethod })?.scheme;
   const badgeLabel =
-    authMethod === 'oauth'
+    scheme === 'oauth'
       ? 'OAuth'
-      : authMethod === 'apiKey'
+      : scheme === 'apiKey'
         ? t('settings.authApiKey')
         : t('settings.authDemo');
 

@@ -134,4 +134,25 @@ describe('the locale bundle guard', () => {
   it('reads a regional bundle through its base, so an empty override passes', () => {
     expect(check({ 'en-US': {} }).status).toBe(0);
   });
+
+  it('refuses an English count named other than count before a plural noun', () => {
+    const result = check({
+      'en-GB': { kiln: { ...ENGLISH.kiln, fired: '{{n}} firings' } },
+      fr: { kiln: { ...FRENCH.kiln, fired: '{{n}} cuissons' } },
+      pl: { kiln: { ...POLISH.kiln, fired: 'Wypały: {{n}}' } },
+      ja: { kiln: { ...JAPANESE.kiln, fired: '{{n}}回' } },
+    });
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('en-GB: kiln.fired puts {{n}} before a plural noun');
+  });
+
+  it('passes a count beside a value that is not a plural noun', () => {
+    const result = check({
+      'en-GB': { kiln: { ...ENGLISH.kiln, door: '{{state}} is open' } },
+      fr: { kiln: { ...FRENCH.kiln, door: '{{state}} est ouverte' } },
+      pl: { kiln: { ...POLISH.kiln, door: '{{state}} jest otwarte' } },
+      ja: { kiln: { ...JAPANESE.kiln, door: '{{state}}は開いています' } },
+    });
+    expect(result.status).toBe(0);
+  });
 });

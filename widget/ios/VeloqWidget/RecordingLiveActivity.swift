@@ -13,6 +13,11 @@ import WidgetKit
 /// process has stopped pushing. Then the clock freezes at the last push and the card
 /// says the recording stopped, because a clock that keeps counting after the system
 /// killed the app tells the rider a dead recording is live.
+///
+/// A stopped ride ends the card on a final state rather than removing it, so a rider
+/// who pockets the phone at the stop still sees the totals and that the ride was kept.
+/// That card has no control and its stale date is its dismissal, so it never reads
+/// as a stopped recording.
 @available(iOS 16.2, *)
 struct VeloqRecordingLiveActivity: Widget {
   var body: some WidgetConfiguration {
@@ -39,7 +44,9 @@ struct VeloqRecordingLiveActivity: Widget {
           // was diagonally opposite the clock, holding a row open on its own.
           HStack(spacing: WidgetTheme.Layout.gap) {
             VStack(alignment: .trailing, spacing: 2) {
-              if context.isStale, let stopped = context.attributes.stoppedLabel {
+              if !context.state.isEnded, context.isStale,
+                let stopped = context.attributes.stoppedLabel
+              {
                 Text(stopped)
                   .widgetFont(.label, weight: .semibold)
                   .multilineTextAlignment(.trailing)
@@ -53,9 +60,9 @@ struct VeloqRecordingLiveActivity: Widget {
                   .foregroundStyle(RecordingCardStyle.secondaryText)
               }
             }
-            // A pause sent to a process that is gone does nothing, so a stale card
-            // offers only the tap that opens the app.
-            if !context.isStale {
+            // A pause sent to a process that is gone does nothing, so a stale or ended
+            // card offers only the tap that opens the app.
+            if !context.isStale && !context.state.isEnded {
               RecordingControl(state: context.state)
             }
           }
@@ -74,7 +81,7 @@ struct VeloqRecordingLiveActivity: Widget {
         }
       } compactLeading: {
         RecordingGlyph(
-          isPaused: context.state.isPaused, isStale: context.isStale,
+          state: context.state, isStale: context.isStale,
           stoppedLabel: context.attributes.stoppedLabel)
       } compactTrailing: {
         RecordingClock(
@@ -85,7 +92,7 @@ struct VeloqRecordingLiveActivity: Widget {
         )
       } minimal: {
         RecordingGlyph(
-          isPaused: context.state.isPaused, isStale: context.isStale,
+          state: context.state, isStale: context.isStale,
           stoppedLabel: context.attributes.stoppedLabel)
       }
       .widgetURL(URL(string: "veloq://record"))
@@ -109,7 +116,7 @@ private struct RecordingLockScreenView: View {
           .widgetFont(.caption, weight: .semibold)
           .foregroundStyle(RecordingCardStyle.secondaryText)
         RecordingClock(state: state, isStale: isStale, step: .hero)
-        if isStale, let stopped = attributes.stoppedLabel {
+        if !state.isEnded, isStale, let stopped = attributes.stoppedLabel {
           Text(stopped)
             .widgetFont(.label, weight: .semibold)
             .foregroundStyle(WidgetTheme.Record.foreground)
@@ -119,6 +126,11 @@ private struct RecordingLockScreenView: View {
             .foregroundStyle(RecordingCardStyle.secondaryText)
             .accessibilityLabel(Text("Distance"))
             .accessibilityValue(Text(verbatim: "\(state.distanceLabel), \(state.speedLabel)"))
+          if state.isEnded, let ended = state.endedLabel {
+            Text(ended)
+              .widgetFont(.label, weight: .semibold)
+              .foregroundStyle(WidgetTheme.Record.foreground)
+          }
         }
       }
       Spacer(minLength: 0)
@@ -129,7 +141,7 @@ private struct RecordingLockScreenView: View {
           .unspoken()
           .frame(width: 72, height: 56)
       }
-      if !isStale {
+      if !isStale && !state.isEnded {
         RecordingControl(state: state)
       }
     }
@@ -141,7 +153,7 @@ private struct RecordingLockScreenView: View {
 /// The elapsed clock. `Text(timerInterval:)` while recording, because a card whose
 /// clock is pushed stops the moment the process suspends; a frozen string while
 /// paused, because a timer that keeps running through a pause is simply wrong, and
-/// once stale, because no process is recording any more.
+/// once ended or stale, because no process is recording any more.
 @available(iOS 16.2, *)
 private struct RecordingClock: View {
   let state: VeloqRecordingAttributes.ContentState
@@ -166,7 +178,7 @@ private struct RecordingClock: View {
 
   var body: some View {
     Group {
-      if state.isPaused || isStale {
+      if state.isFrozen || isStale {
         Text(frozenLabel)
       } else {
         Text(timerInterval: state.timerStart...Date.distantFuture, countsDown: false)
@@ -182,7 +194,7 @@ private struct RecordingClock: View {
   }
 
   private var spokenValue: Text {
-    state.isPaused || isStale
+    state.isFrozen || isStale
       ? Text(verbatim: frozenLabel)
       : Text(timerInterval: state.timerStart...Date.distantFuture, countsDown: false)
   }
@@ -219,14 +231,21 @@ private struct RecordingTrace: View {
 
 @available(iOS 16.2, *)
 private struct RecordingGlyph: View {
-  let isPaused: Bool
+  let state: VeloqRecordingAttributes.ContentState
   let isStale: Bool
   /// What a stale card says, from the app. Nil on a card started by an older build.
   let stoppedLabel: String?
   @Environment(\.colorScheme) private var colorScheme
 
+  private var isPaused: Bool { state.isPaused }
+
   var body: some View {
-    if isStale {
+    if state.isEnded {
+      Image(systemName: "checkmark.circle.fill")
+        .foregroundStyle(WidgetTheme.Record.accent(colorScheme))
+        .accessibilityLabel(Text(verbatim: state.endedLabel ?? ""))
+        .accessibilityHidden(state.endedLabel == nil)
+    } else if isStale {
       Image(systemName: "exclamationmark.circle.fill")
         .foregroundStyle(RecordingCardStyle.stale)
         .accessibilityLabel(Text(verbatim: stoppedLabel ?? ""))

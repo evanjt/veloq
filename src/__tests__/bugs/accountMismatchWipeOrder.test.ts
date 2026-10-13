@@ -41,7 +41,10 @@ jest.mock('@/shared/native/engine', () => ({
 }));
 
 // No locale is loaded here, so the translator answers with the key it was asked.
-jest.mock('@/i18n', () => ({ i18n: { t: (key: string) => key } }));
+jest.mock('@/i18n', () => ({
+  i18n: { t: (key: string) => key },
+  getCurrentLanguage: () => 'en-GB',
+}));
 
 jest.mock('@/shared/app/AuthStore', () => ({
   DEMO_ATHLETE_ID: 'demo',

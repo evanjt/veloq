@@ -235,6 +235,13 @@ const GUARDS = [
       'a control under the navigation bar, on the screen edge with no inset, or padded by the inset twice',
   },
   {
+    name: 'lint:rendered-decimals',
+    kind: 'correctness',
+    cmd: node('lint-rendered-decimals.mjs'),
+    catches:
+      'a rendered number written with a period decimal and no grouping under a language that writes them otherwise',
+  },
+  {
     name: 'lint:untyped-require',
     kind: 'correctness',
     cmd: node('lint-untyped-require.mjs'),
@@ -845,7 +852,7 @@ const GUARDS = [
     kind: 'correctness',
     cmd: node('lint-sharing-owner.mjs'),
     catches:
-      'a second share path that skips the owner, so on Android the file reaches only the share chooser with no save to the device',
+      'a second share path that skips the owner, so on Android the file reaches only the share chooser with no save to the device, the file goes out under its storage id or a generic type, the iPad popover points at nothing, or a missing share sheet fails silently',
   },
   {
     name: 'lint:switch-owner',

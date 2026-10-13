@@ -366,7 +366,7 @@ export function TimelineSlider({
                       { left: pixelPos - 0.5 },
                     ]}
                   />
-                  {point.showLabel && (
+                  {point.showLabel ? (
                     <Text
                       style={[
                         styles.tickLabelBase,
@@ -377,7 +377,7 @@ export function TimelineSlider({
                     >
                       {labelText}
                     </Text>
-                  )}
+                  ) : null}
                 </React.Fragment>
               );
             })}

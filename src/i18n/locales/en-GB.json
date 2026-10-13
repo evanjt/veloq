@@ -121,7 +121,7 @@
     "movingTime": "Moving time: {{duration}}",
     "timeInHRZones": "Time in HR Zones",
     "timeInPowerZones": "Time in Power Zones",
-    "viewDetails": "View Details",
+    "viewDetails": "View details",
     "viewInIntervalsICU": "View in intervals.icu",
     "whatIsThis": "What is this?",
     "muscle": {
@@ -232,6 +232,9 @@
     "disconnectMessage": "This will remove your API credentials from the app. You will need to enter them again to use the app.",
     "disconnectOffline": "You are offline. Both ways back in need a connection, so you will not be able to sign in again until the network returns.",
     "disconnectTitle": "Disconnect Account",
+    "leaveDemoTitle": "Leave demo?",
+    "leaveDemoMessage": "The sample rides close and you return to sign-in. Nothing from the demo is kept.",
+    "leaveDemoConfirm": "Leave",
     "failedToClear": "Failed to clear cache. Please try again.",
     "failedToDisconnect": "Failed to disconnect. Please try again.",
     "accountChangeTitle": "Different account detected",
@@ -378,6 +381,8 @@
     "scanQrTitle": "Scan Nextcloud QR Code",
     "scanQrInstructions": "In Nextcloud, go to Settings → Security → Create new app password, then scan the QR code shown.",
     "invalidQrCode": "Not a valid Nextcloud QR code",
+    "torchOn": "Turn torch on",
+    "torchOff": "Turn torch off",
     "cameraPermissionNeeded": "Camera access is required to scan QR codes",
     "enterDetailsInstead": "Enter details instead",
     "fillAllFields": "Please fill in all fields",
@@ -403,7 +408,8 @@
   },
   "bestEffortsScreen": {
     "title": "Best Efforts",
-    "seasonSubtitle": "Personal records from the last {{days}} days.",
+    "seasonSubtitle_one": "Personal records from the last {{count}} day.",
+    "seasonSubtitle_other": "Personal records from the last {{count}} days.",
     "allTimeSubtitle": "Personal records across your cached history.",
     "powerBests": "Power",
     "paceBests": "Pace",
@@ -1029,7 +1035,8 @@
     "sectionPrSheet": {
       "fromPrevious": "−{{delta}} from previous",
       "previous": "Previous: {{time}} on {{date}}",
-      "efforts": "{{n}} efforts",
+      "efforts_one": "{{count}} effort",
+      "efforts_other": "{{count}} efforts",
       "fasterThan": "Faster than {{percent}}% of efforts",
       "allEfforts": "All efforts ({{n}})"
     },
@@ -1113,6 +1120,7 @@
     "subtitle": "Connect to intervals.icu",
     "termsOfService": "Terms of Service",
     "title": "Veloq",
+    "demoCaption": "Sample rides. Nothing is kept, and the demo ends when the app closes.",
     "tryDemo": "Try Demo",
     "useApiKey": "Use API Key instead"
   },
@@ -1126,7 +1134,20 @@
     "showFilters": "Show all filters",
     "hideFilters": "Show fewer filters",
     "searchCount": "{{shown}} of {{total}}",
-    "searchFilteredBy": "filtered by {{filters}}"
+    "searchFilteredBy": "filtered by {{filters}}",
+    "emptyNoActivities": "No activities in this period",
+    "emptyNoActivitiesHint": "A longer period may hold some.",
+    "emptyNoActivitiesAllTimeHint": "Sync a wider date range to bring older activities onto the map.",
+    "emptyShowAllTime": "Show all time",
+    "emptyFiltered": "No activities match these filters",
+    "emptyFilteredHint_one": "{{count}} activity in this period has a track.",
+    "emptyFilteredHint_other": "{{count}} activities in this period have a track.",
+    "emptyClearFilters": "Clear filters",
+    "emptyTracksPending": "Tracks still downloading",
+    "emptyTracksPendingHint_one": "{{count}} track is still to download. It appears here when it arrives.",
+    "emptyTracksPendingHint_other": "{{count}} tracks are still to download. Each appears here as it arrives.",
+    "emptyNoGps": "No GPS tracks in this period",
+    "emptyNoGpsHint": "Indoor, trainer and pool sessions have no route to draw."
   },
   "maps": {
     "threeDUnavailable": "Terrain needs a connection. Showing the flat map.",
@@ -1173,9 +1194,7 @@
     "tapSelectEnd": "Tap to select end point",
     "tapSelectStart": "Tap to select start point",
     "toggleStyle": "Toggle map style",
-    "viewDetails": "View Details",
-    "viewRouteDetails": "View route details",
-    "viewSectionDetails": "View section details",
+    "viewDetails": "View details",
     "zoomToActivity": "Zoom to activity",
     "periodThisYear": "This year"
   },
@@ -1313,7 +1332,7 @@
       "avgPower": "Avg Power",
       "avgSpeed": "Avg Speed",
       "cadence": "Cadence",
-      "calories": "Calories",
+      "calories": "Calories (est.)",
       "distance": "Distance",
       "elapsedTime": "Elapsed Time",
       "elevation": "Elevation",
@@ -1491,6 +1510,7 @@
     "tileOrder": "Tile order",
     "tileOrderDescription": "Tap a tile to choose the field it shows. On the recording screen, holding a tile does the same.",
     "tileSlotLabel": "Tile {{number}}, {{field}}",
+    "endedCard": "Stopped. Open Veloq to save.",
     "interruptedNotice": {
       "body": "The system closed Veloq during your activity, so it stopped recording. Tap to resume.",
       "card": "Recording stopped. Open Veloq to resume.",
@@ -1501,7 +1521,9 @@
       "description": "Shows the activity being recorded, with its controls.",
       "name": "Recording"
     },
-    "recentTypes": "Recent"
+    "recentTypes": "Recent",
+    "caloriesMethod": "Estimated from average heart rate with a sensor, at an assumed age of {{age}}, otherwise from the sport and moving time.",
+    "caloriesDefaultWeight": "Your profile has no weight, so it assumes {{weight}} kg."
   },
   "routeDetail": {
     "routeNotFound": "Route not found"
@@ -1682,7 +1704,8 @@
     "correlationStrengthVeryStrong": "Very strong",
     "correlationFasterWhenHigher": "Faster when higher",
     "correlationFasterWhenLower": "Faster when lower",
-    "correlationAttempts": "{{n}} attempts",
+    "correlationAttempts_one": "{{count}} attempt",
+    "correlationAttempts_other": "{{count}} attempts",
     "correlationNotEnoughData": "not enough data, n {{n}}",
     "correlationNotEnoughDataOfFloor": "not enough data, n {{n}} of {{floor}}",
     "correlationCollapsed": "not enough data, largest n {{n}} of {{floor}}",
@@ -1816,6 +1839,7 @@
     "exploreMapStyle": "Explore Map",
     "dialect": "Dialect",
     "disconnectAccount": "Disconnect Account",
+    "leaveDemo": "Leave demo",
     "display": "Display",
     "largeHistoryConfirm": "Download anyway",
     "largeHistoryMessage_one": "Reaching back this far downloads up to about {{count}} activity. It will take a while, and the app is not guaranteed to stay quick with that much stored.",
@@ -2191,7 +2215,13 @@
     "metres": "m",
     "seconds": "s",
     "rpm": "rpm",
-    "spm": "spm"
+    "spm": "spm",
+    "hours": "h",
+    "hoursValue": "{{value}} h",
+    "minutesValue": "{{value}} min",
+    "secondsValue": "{{value}} s",
+    "hoursMinutes": "{{hours}} h {{minutes}} min",
+    "minutesSeconds": "{{minutes}} min {{seconds}} s"
   },
   "spoken": {
     "noValue": "no value",
@@ -2287,7 +2317,8 @@
       "recutRunningPhase": "Re-analysing your sections: {{phase}}",
       "diffTotals": "{{current}} sections became {{proposed}}.",
       "diffBreakdown": "{{new}} new, {{changed}} changed, {{gone}} retired.",
-      "diffUnchanged": "All {{sections}} sections came through the re-analysis unchanged.",
+      "diffUnchanged_one": "The {{count}} section came through the re-analysis unchanged.",
+      "diffUnchanged_other": "All {{count}} sections came through the re-analysis unchanged.",
       "recutFailed": "The re-analysis did not finish. Your sections are unchanged and it runs again next launch.",
       "recutFailedAfterApply": "Your sections were re-analysed, but the summary of what changed was not saved. It is written again next launch.",
       "settingsReset": "Your section detection settings were reset to the validated values: {{changes}}. Preview section changes, then Keep, puts the earlier ones back.",
@@ -2369,7 +2400,6 @@
     "pairsInfoThresholds": "Status: balanced ≤ 1.35×, watch up to 2×, imbalanced above 2×.",
     "pairsInfoMinSignal": "Pairs with fewer than 4 weighted sets per side are skipped.",
     "exercisesTargeting": "Exercises targeting {{muscle}}",
-    "exerciseSets": "{{sets}} sets",
     "exerciseWorkoutCount_one": "{{count}} workout",
     "exerciseWorkoutCount_other": "{{count}} workouts",
     "totalVolume": "Total volume",
@@ -2721,8 +2751,8 @@
     }
   },
   "permissions": {
-    "locationWhenInUse": "Veloq uses your location to display activity maps, track routes, and record fitness activities.",
-    "locationBackground": "Veloq uses your location in the background to continue recording fitness activities when the app is not in the foreground.",
+    "locationWhenInUse": "Veloq uses your location to record activities, show where you are on the map and sort routes and sections near you. It stays on this phone unless you upload an activity.",
+    "locationBackground": "Lets Veloq record an activity you start from Siri, Control Centre or a widget without opening the app first.",
     "bluetooth": "Veloq uses Bluetooth to connect to heart rate, power, and cadence sensors during recording.",
     "camera": "Veloq uses the camera to scan the QR code of a Nextcloud app password.",
     "microphone": "Veloq does not record sound. The camera is used only to scan QR codes.",

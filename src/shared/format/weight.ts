@@ -1,4 +1,5 @@
 import { ABSENT } from './absent';
+import { formatDecimal, formatDecimalTrimmed } from './number';
 
 export const KG_TO_LB = 2.20462;
 
@@ -15,15 +16,15 @@ export function weightUnitLabel(isMetric: boolean): string {
 export function formatWeight(kg: number, isMetric: boolean): string {
   if (!Number.isFinite(kg)) return ABSENT;
   const value = toDisplayWeight(kg, isMetric);
-  const text = value % 1 === 0 ? `${value}` : value.toFixed(1);
+  const text = value % 1 === 0 ? formatDecimal(value, 0) : formatDecimal(value, 1);
   return `${text} ${weightUnitLabel(isMetric)}`;
 }
 
 export function formatWeightRounded(kg: number, isMetric: boolean): string {
-  return `${Math.round(toDisplayWeight(kg, isMetric))} ${weightUnitLabel(isMetric)}`;
+  return `${formatDecimal(Math.round(toDisplayWeight(kg, isMetric)), 0)} ${weightUnitLabel(isMetric)}`;
 }
 
 /** One decimal, no space before the unit, for the home card's narrow slot. */
 export function formatWeightCompact(kg: number, isMetric: boolean): string {
-  return `${Math.round(toDisplayWeight(kg, isMetric) * 10) / 10}${weightUnitLabel(isMetric)}`;
+  return `${formatDecimalTrimmed(toDisplayWeight(kg, isMetric), 1)}${weightUnitLabel(isMetric)}`;
 }

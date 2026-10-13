@@ -241,9 +241,6 @@ void uniffi_veloqrs_fn_method_activitymanager_set_curve_body(
 void uniffi_veloqrs_fn_method_activitymanager_set_interval_body(
     /*handle*/ uint64_t ptr, RustBuffer activity_id, RustBuffer raw,
     RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_method_activitymanager_set_metrics(
-    /*handle*/ uint64_t ptr, RustBuffer metrics,
-    RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_activitymanager_set_time_streams(
     /*handle*/ uint64_t ptr, RustBuffer activity_ids, RustBuffer all_times,
     RustBuffer offsets, RustCallStatus *uniffi_out_err);
@@ -1176,7 +1173,6 @@ uniffi_veloqrs_checksum_method_activitymanager_replace_calendar_events();
 uint16_t uniffi_veloqrs_checksum_method_activitymanager_save_provisional();
 uint16_t uniffi_veloqrs_checksum_method_activitymanager_set_curve_body();
 uint16_t uniffi_veloqrs_checksum_method_activitymanager_set_interval_body();
-uint16_t uniffi_veloqrs_checksum_method_activitymanager_set_metrics();
 uint16_t uniffi_veloqrs_checksum_method_activitymanager_set_time_streams();
 uint16_t
 uniffi_veloqrs_checksum_method_activitymanager_upsert_activity_bodies();
@@ -5888,18 +5884,6 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_fn_method_activitymanager_set_interval_body(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_activitymanager_set_metrics"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_method_activitymanager_set_metrics"),
-          2,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_activitymanager_set_metrics(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_method_activitymanager_set_time_streams"] =
@@ -10730,18 +10714,6 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_method_activitymanager_set_interval_body(
                 rt, thisVal, args, count);
       });
-  props["ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_metrics"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                        "activitymanager_set_metrics"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_method_activitymanager_set_metrics(
-                    rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_time_"
         "streams"] = jsi::Function::createFromHostFunction(
       rt,
@@ -14943,22 +14915,6 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_set_interval_body(
                                                         args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return jsi::Value::undefined();
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_set_metrics(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  uniffi_veloqrs_fn_method_activitymanager_set_metrics(
-      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
-                                                        args[0]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
@@ -20613,14 +20569,6 @@ jsi::Value NativeVeloqrs::
         size_t count) {
   auto value =
       uniffi_veloqrs_checksum_method_activitymanager_set_interval_body();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_activitymanager_set_metrics(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_activitymanager_set_metrics();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

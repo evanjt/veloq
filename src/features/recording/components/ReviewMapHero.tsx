@@ -50,7 +50,7 @@ function ReviewMapHeroInner({
       />
 
       {/* Trim slider overlaid at bottom of map */}
-      {canTrim && (
+      {canTrim ? (
         <View testID="review-trim" style={styles.trimOverlay}>
           <TrimSlider
             totalDuration={totalDuration}
@@ -61,7 +61,7 @@ function ReviewMapHeroInner({
             onTrimCommit={onTrimCommit}
           />
         </View>
-      )}
+      ) : null}
     </View>
   );
 }

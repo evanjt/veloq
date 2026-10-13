@@ -233,6 +233,9 @@
     "disconnectMessage": "Cela supprimera vos identifiants API de l'application. Vous devrez les saisir à nouveau pour utiliser l'application.",
     "disconnectOffline": "Tu es hors ligne. Les deux façons de revenir demandent une connexion, tu ne pourras donc pas te reconnecter avant le retour du réseau.",
     "disconnectTitle": "Déconnecter le compte",
+    "leaveDemoTitle": "Quitter la démo ?",
+    "leaveDemoMessage": "Les sorties d'exemple se ferment et vous revenez à la connexion. Rien de la démo n'est conservé.",
+    "leaveDemoConfirm": "Quitter",
     "failedToClear": "Échec de l'effacement du cache. Veuillez réessayer.",
     "failedToDisconnect": "Échec de la déconnexion. Veuillez réessayer.",
     "accountChangeTitle": "Compte différent détecté",
@@ -379,6 +382,8 @@
     "scanQrTitle": "Scanner le QR Code Nextcloud",
     "scanQrInstructions": "Dans Nextcloud, allez dans Paramètres → Sécurité → Créer un mot de passe d'application, puis scannez le QR code affiché.",
     "invalidQrCode": "QR code Nextcloud invalide",
+    "torchOn": "Allumer la lampe torche",
+    "torchOff": "Éteindre la lampe torche",
     "cameraPermissionNeeded": "L'accès à la caméra est nécessaire pour scanner les QR codes",
     "enterDetailsInstead": "Saisir les informations à la place",
     "fillAllFields": "Veuillez remplir tous les champs",
@@ -404,7 +409,9 @@
   },
   "bestEffortsScreen": {
     "title": "Meilleurs efforts",
-    "seasonSubtitle": "Records personnels des {{days}} derniers jours.",
+    "seasonSubtitle_one": "Records personnels du dernier {{count}} jour.",
+    "seasonSubtitle_many": "Records personnels des {{count}} derniers jours.",
+    "seasonSubtitle_other": "Records personnels des {{count}} derniers jours.",
     "allTimeSubtitle": "Records personnels sur l'ensemble de votre historique en cache.",
     "powerBests": "Puissance",
     "paceBests": "Allure",
@@ -1046,7 +1053,9 @@
     "sectionPrSheet": {
       "fromPrevious": "−{{delta}} par rapport au précédent",
       "previous": "Précédent : {{time}} le {{date}}",
-      "efforts": "{{n}} efforts",
+      "efforts_one": "{{count}} effort",
+      "efforts_many": "{{count}} efforts",
+      "efforts_other": "{{count}} efforts",
       "fasterThan": "Plus rapide que {{percent}}% des efforts",
       "allEfforts": "Tous les efforts ({{n}})"
     },
@@ -1130,6 +1139,7 @@
     "subtitle": "Connexion à intervals.icu",
     "termsOfService": "Conditions d'Utilisation",
     "title": "Veloq",
+    "demoCaption": "Sorties d'exemple. Rien n'est conservé, et la démo se termine à la fermeture de l'application.",
     "tryDemo": "Essayer la Démo",
     "useApiKey": "Utiliser la Clé API"
   },
@@ -1143,7 +1153,20 @@
     "showFilters": "Afficher tous les filtres",
     "hideFilters": "Afficher moins de filtres",
     "searchCount": "{{shown}} sur {{total}}",
-    "searchFilteredBy": "filtré par {{filters}}"
+    "searchFilteredBy": "filtré par {{filters}}",
+    "emptyNoActivities": "Aucune activité sur cette période",
+    "emptyNoActivitiesHint": "Une période plus longue en contient peut-être.",
+    "emptyNoActivitiesAllTimeHint": "Synchronisez une plage de dates plus large pour afficher des activités plus anciennes sur la carte.",
+    "emptyShowAllTime": "Tout afficher",
+    "emptyFiltered": "Aucune activité ne correspond à ces filtres",
+    "emptyFilteredHint_one": "{{count}} activité de cette période a une trace.",
+    "emptyFilteredHint_other": "{{count}} activités de cette période ont une trace.",
+    "emptyClearFilters": "Effacer les filtres",
+    "emptyTracksPending": "Traces en cours de téléchargement",
+    "emptyTracksPendingHint_one": "{{count}} trace reste à télécharger. Elle apparaîtra ici dès son arrivée.",
+    "emptyTracksPendingHint_other": "{{count}} traces restent à télécharger. Chacune apparaîtra ici dès son arrivée.",
+    "emptyNoGps": "Aucune trace GPS sur cette période",
+    "emptyNoGpsHint": "Les séances en intérieur, sur home trainer et en piscine n'ont pas de parcours à tracer."
   },
   "maps": {
     "threeDUnavailable": "Le relief nécessite une connexion. Carte plate affichée.",
@@ -1186,8 +1209,6 @@
     "tapSelectStart": "Appuyez pour sélectionner le point de départ",
     "toggleStyle": "Changer le style de carte",
     "viewDetails": "Voir les détails",
-    "viewRouteDetails": "Voir les détails de la route",
-    "viewSectionDetails": "Voir les détails de la section",
     "zoomToActivity": "Zoom sur l'activité",
     "gradientTick": "{{value}} %",
     "keyRecent": "Récent",
@@ -1331,7 +1352,7 @@
       "avgPower": "Puiss Moy",
       "avgSpeed": "Vit Moy",
       "cadence": "Cadence",
-      "calories": "Calories",
+      "calories": "Calories (est.)",
       "distance": "Distance",
       "elapsedTime": "Temps écoulé",
       "elevation": "Dénivelé",
@@ -1511,6 +1532,7 @@
     "tileOrder": "Ordre des cases",
     "tileOrderDescription": "Touchez une case pour choisir la donnée qu'elle affiche. Sur l'écran d'enregistrement, un appui long sur une case fait de même.",
     "tileSlotLabel": "Case {{number}}, {{field}}",
+    "endedCard": "Arrêtée. Ouvrez Veloq pour enregistrer.",
     "interruptedNotice": {
       "body": "Le système a fermé Veloq pendant votre activité, l'enregistrement s'est donc arrêté. Touchez pour reprendre.",
       "card": "Enregistrement arrêté. Ouvrez Veloq pour reprendre.",
@@ -1521,7 +1543,9 @@
       "description": "Affiche l'activité en cours d'enregistrement, avec ses commandes.",
       "name": "Enregistrement"
     },
-    "recentTypes": "Récents"
+    "recentTypes": "Récents",
+    "caloriesMethod": "Estimées à partir de la fréquence cardiaque moyenne avec un capteur, pour un âge supposé de {{age}} ans, sinon à partir du sport et du temps en mouvement.",
+    "caloriesDefaultWeight": "Votre profil n’a pas de poids, {{weight}} kg sont donc supposés."
   },
   "routeDetail": {
     "routeNotFound": "Itinéraire non trouvé"
@@ -1699,7 +1723,9 @@
     "correlationStrengthVeryStrong": "Très fort",
     "correlationFasterWhenHigher": "Plus rapide quand c'est plus élevé",
     "correlationFasterWhenLower": "Plus rapide quand c'est plus bas",
-    "correlationAttempts": "{{n}} essais",
+    "correlationAttempts_one": "{{count}} essai",
+    "correlationAttempts_many": "{{count}} essais",
+    "correlationAttempts_other": "{{count}} essais",
     "correlationNotEnoughData": "données insuffisantes, n {{n}}",
     "correlationNotEnoughDataOfFloor": "données insuffisantes, n {{n}} sur {{floor}}",
     "correlationCollapsed": "données insuffisantes, n maximal {{n}} sur {{floor}}",
@@ -1851,6 +1877,7 @@
     "exploreMapStyle": "Carte d'exploration",
     "dialect": "Dialecte",
     "disconnectAccount": "Déconnecter le compte",
+    "leaveDemo": "Quitter la démo",
     "display": "Affichage",
     "largeHistoryConfirm": "Télécharger quand même",
     "largeHistoryMessage_one": "Remonter aussi loin télécharge jusqu'à environ {{count}} activité. Cela prendra du temps, et l'application n'est pas garantie de rester rapide avec autant de données.",
@@ -2244,7 +2271,13 @@
     "metres": "m",
     "seconds": "s",
     "rpm": "tr/min",
-    "spm": "pas/min"
+    "spm": "pas/min",
+    "hours": "h",
+    "hoursValue": "{{value}} h",
+    "minutesValue": "{{value}} min",
+    "secondsValue": "{{value}} s",
+    "hoursMinutes": "{{hours}} h {{minutes}} min",
+    "minutesSeconds": "{{minutes}} min {{seconds}} s"
   },
   "spoken": {
     "noValue": "aucune valeur",
@@ -2341,7 +2374,9 @@
       "recutRunningPhase": "Nouvelle analyse de tes tronçons : {{phase}}",
       "diffTotals": "{{current}} tronçons sont devenus {{proposed}}.",
       "diffBreakdown": "{{new}} nouveaux, {{changed}} modifiés, {{gone}} retirés.",
-      "diffUnchanged": "Les {{sections}} tronçons sont ressortis inchangés de la nouvelle analyse.",
+      "diffUnchanged_one": "Le {{count}} tronçon est ressorti inchangé de la nouvelle analyse.",
+      "diffUnchanged_many": "Les {{count}} tronçons sont ressortis inchangés de la nouvelle analyse.",
+      "diffUnchanged_other": "Les {{count}} tronçons sont ressortis inchangés de la nouvelle analyse.",
       "recutFailed": "La nouvelle analyse ne s'est pas terminée. Tes tronçons sont inchangés et elle repart au prochain lancement.",
       "recutFailedAfterApply": "Tes tronçons ont été réanalysés, mais le résumé des changements n'a pas été enregistré. Il sera réécrit au prochain lancement.",
       "settingsReset": "Vos réglages de détection des sections ont été remis aux valeurs validées : {{changes}}. Prévisualiser les changements de sections puis Conserver rétablit les précédents.",
@@ -2423,7 +2458,6 @@
     "pairsInfoThresholds": "Statut : équilibré ≤ 1,35×, à surveiller jusqu'à 2×, déséquilibré au-delà de 2×.",
     "pairsInfoMinSignal": "Les paires avec moins de 4 séries lestées par côté sont ignorées.",
     "exercisesTargeting": "Exercices ciblant {{muscle}}",
-    "exerciseSets": "{{sets}} séries",
     "exerciseWorkoutCount_one": "{{count}} séance",
     "exerciseWorkoutCount_other": "{{count}} séances",
     "totalVolume": "Volume total",
@@ -2786,8 +2820,8 @@
     }
   },
   "permissions": {
-    "locationWhenInUse": "Veloq utilise votre position pour afficher les cartes d'activités, suivre les itinéraires et enregistrer vos activités sportives.",
-    "locationBackground": "Veloq utilise votre position en arrière-plan pour continuer à enregistrer vos activités sportives lorsque l'app n'est pas au premier plan.",
+    "locationWhenInUse": "Veloq utilise votre position pour enregistrer vos activités, vous situer sur la carte et trier les parcours et sections proches de vous. Elle reste sur ce téléphone, sauf si vous envoyez une activité.",
+    "locationBackground": "Permet à Veloq d'enregistrer une activité lancée depuis Siri, le Centre de contrôle ou un widget sans ouvrir l'app au préalable.",
     "bluetooth": "Veloq utilise le Bluetooth pour se connecter aux capteurs de fréquence cardiaque, de puissance et de cadence pendant l'enregistrement.",
     "camera": "Veloq utilise l'appareil photo pour scanner le code QR d'un mot de passe d'application Nextcloud.",
     "microphone": "Veloq n'enregistre pas de son. L'appareil photo sert uniquement à scanner des codes QR.",

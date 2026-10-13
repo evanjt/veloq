@@ -118,7 +118,7 @@ function addPaceMilestoneInsight(
       icon: options.icon as Insight['icon'],
       iconTone: declining ? 'neutral' : options.iconTone,
       title: t(declining ? 'insights.paceChange' : 'insights.paceImproved', {
-        delta: `${declining ? '−' : ''}${Math.abs(deltaSecs)}s${options.paceUnit}`,
+        delta: `${declining ? '-' : ''}${Math.abs(deltaSecs)}s${options.paceUnit}`,
       }),
       subtitle: t('insights.caption.fromTo', {
         previous: `${options.formatValue(pace.previousPace)}${options.paceUnit}`,
@@ -214,7 +214,7 @@ export function generateFitnessMilestoneInsights(
           iconTone: declining ? 'neutral' : 'positive',
           title: t(declining ? 'insights.ftpChange' : 'insights.ftpIncrease', {
             current: formatPower(ftp.latestFtp),
-            change: `${declining ? '−' : ''}${formatPower(Math.abs(delta))}`,
+            change: `${declining ? '-' : ''}${formatPower(Math.abs(delta))}`,
           }),
           subtitle: t('insights.caption.fromTo', {
             previous: formatPower(ftp.previousFtp),

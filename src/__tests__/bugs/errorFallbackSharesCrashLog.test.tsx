@@ -13,10 +13,13 @@ import { router } from 'expo-router';
 
 import { ScreenErrorBoundary } from '@/shared/ui/ScreenErrorBoundary';
 import { GlobalErrorBoundary } from '@/shared/ui/GlobalErrorBoundary';
-import { shareCrashLog } from '@/shared/app/supportLinks';
+import { offerCrashLog, shareCrashLog } from '@/shared/app/supportLinks';
 
 jest.mock('@/shared/debug/boundaryCrash', () => ({ recordBoundaryCrash: jest.fn() }));
-jest.mock('@/shared/app/supportLinks', () => ({ shareCrashLog: jest.fn(async () => {}) }));
+jest.mock('@/shared/app/supportLinks', () => ({
+  shareCrashLog: jest.fn(async () => {}),
+  offerCrashLog: jest.fn(async () => {}),
+}));
 jest.mock('@/shared/app', () => {
   const { colors } = jest.requireActual('@/theme');
   return { useTheme: () => ({ isDark: false, colors }) };
@@ -31,6 +34,7 @@ let consoleError: jest.SpyInstance;
 
 beforeEach(() => {
   (shareCrashLog as jest.Mock).mockClear();
+  (offerCrashLog as jest.Mock).mockClear();
   consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
   jest.spyOn(router, 'canGoBack').mockReturnValue(false);
 });
@@ -49,7 +53,7 @@ describe('the error fallbacks', () => {
     );
 
     await fireEvent.press(getByTestId('error-share-crash-log'));
-    expect(shareCrashLog).toHaveBeenCalledTimes(1);
+    expect(offerCrashLog).toHaveBeenCalledTimes(1);
   });
 
   it('offer the crash log when the whole app threw', async () => {

@@ -8,12 +8,16 @@
 import { AppState, I18nManager } from 'react-native';
 import { getCalendars } from 'expo-localization';
 
-import { i18n, getCurrentLanguage } from '@/i18n';
+import { i18n } from '@/i18n';
 import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
 import type { ActivityType } from '@/types';
 import { TIME } from '@/shared/app/time';
 
 import { ABSENT } from './absent';
+import { getIntlLocale } from './locale';
+import { formatDecimal, formatDecimalTrimmed } from './number';
+
+export { getIntlLocale };
 
 // Unit conversion constants
 export const KM_TO_MI = 0.621371;
@@ -30,27 +34,6 @@ export const YARDS_100_IN_METRES = 91.44;
 // value, so they only ever reject garbage, never a legitimate pace or duration.
 const MAX_PACE_SECONDS = 100 * 3600; // 100 h per km/mile/100m - non-physical
 export const MAX_DURATION_SECONDS = 1e9; // ~31 years
-
-/**
- * Map app locale codes to valid Intl/BCP 47 locale codes for date formatting.
- *
- * Some locales have custom codes that don't match standard BCP 47 format.
- * This function maps them to valid locale codes for use with Intl.DateTimeFormat.
- *
- * ```ts
- * getIntlLocale(); // "zh-CN" for "zh-Hans"
- * ```
- */
-export function getIntlLocale(): string {
-  const locale = getCurrentLanguage();
-
-  // Map custom locale codes to valid Intl codes
-  const localeMap: Record<string, string> = {
-    'zh-Hans': 'zh-CN', // Simplified Chinese script → China region
-  };
-
-  return localeMap[locale] || locale;
-}
 
 let hourCycle: 'h23' | 'h12' | undefined;
 let hourCycleRead = false;
@@ -99,7 +82,7 @@ function readHourCycle(): 'h23' | 'h12' | undefined {
 export function formatDistance(meters: number, isMetric = true): string {
   const parts = distanceParts(meters, isMetric);
   if (!parts) return ABSENT;
-  return `${parts.value.toFixed(parts.decimals)} ${parts.unit}`;
+  return `${formatDecimal(parts.value, parts.decimals)} ${parts.unit}`;
 }
 
 /** The unit a distance is shown in, chosen by its size and the unit system. */
@@ -154,45 +137,87 @@ export function formatDuration(seconds: number): string {
 }
 
 /**
- * Format a time difference compactly: "12s" under a minute, "1:05" at or
+ * The SI forms the duration templates fall back to before a bundle is loaded,
+ * when i18next answers nothing or the key itself.
+ */
+const DURATION_UNIT_FALLBACK = {
+  'units.hours': 'h',
+  'units.hoursValue': '{{value}} h',
+  'units.minutesValue': '{{value}} min',
+  'units.secondsValue': '{{value}} s',
+  'units.hoursMinutes': '{{hours}} h {{minutes}} min',
+  'units.minutesSeconds': '{{minutes}} min {{seconds}} s',
+} as const;
+
+type DurationUnitKey = keyof typeof DURATION_UNIT_FALLBACK;
+
+function durationUnit(key: DurationUnitKey, params: Record<string, number | string> = {}): string {
+  const text: unknown = i18n.t(key, params);
+  if (typeof text === 'string' && text !== '' && text !== key) return text;
+  return Object.entries(params).reduce<string>(
+    (out, [name, value]) => out.replace(`{{${name}}}`, String(value)),
+    DURATION_UNIT_FALLBACK[key]
+  );
+}
+
+/**
+ * Whole seconds in the locale's unit: "12 s" in English, "12秒" in Japanese.
+ * Every duration that names its units is written through these templates, so
+ * a minute is "min" and never the metre's "m".
+ */
+export function formatSecondsValue(seconds: number): string {
+  return durationUnit('units.secondsValue', { value: seconds });
+}
+
+/** Whole minutes in the locale's unit: "45 min". */
+export function formatMinutesValue(minutes: number): string {
+  return durationUnit('units.minutesValue', { value: minutes });
+}
+
+/** Whole hours in the locale's unit: "2 h". */
+export function formatHoursValue(hours: number): string {
+  return durationUnit('units.hoursValue', { value: hours });
+}
+
+/** The hour symbol on its own, for an axis or a total read in decimal hours. */
+export function hoursUnitLabel(): string {
+  return durationUnit('units.hours');
+}
+
+/**
+ * Format a time difference compactly: "12 s" under a minute, "1:05" at or
  * above. Unsigned; the surrounding wording carries direction.
  */
 export function formatDurationDelta(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0 || seconds > MAX_DURATION_SECONDS) return ABSENT;
   const total = Math.round(seconds);
   if (total < 60) {
-    return `${total}s`;
+    return formatSecondsValue(total);
   }
   return formatDuration(total);
 }
 
 /**
- * Format duration in human-readable form: "45s", "5m 30s", "1h 30m".
- * Drops zero trailing components (e.g., "5m" not "5m 0s").
+ * Format duration in human-readable form: "45 s", "5 min 30 s", "1 h 30 min",
+ * in the locale's units. Drops zero trailing components ("5 min", not
+ * "5 min 0 s"), and seconds once there are hours.
  */
 export function formatDurationHuman(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0 || seconds > MAX_DURATION_SECONDS) return ABSENT;
   const totalSeconds = Math.round(seconds);
-  if (totalSeconds < 60) return `${totalSeconds}s`;
+  if (totalSeconds < 60) return formatSecondsValue(totalSeconds);
   const mins = Math.floor(totalSeconds / 60);
   const secs = totalSeconds % 60;
-  if (mins < 60) return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+  if (mins < 60) {
+    return secs > 0
+      ? durationUnit('units.minutesSeconds', { minutes: mins, seconds: secs })
+      : formatMinutesValue(mins);
+  }
   const hrs = Math.floor(mins / 60);
   const remainingMins = mins % 60;
-  return remainingMins > 0 ? `${hrs}h ${remainingMins}m` : `${hrs}h`;
-}
-
-/**
- * Format duration where the space is tight: "1h30", "1h", "45m". Distinct
- * from `formatDurationHuman`, which spaces its parts out.
- */
-export function formatDurationCompact(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) return ABSENT;
-  if (seconds === 0) return '0m';
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  if (hours > 0) return minutes > 0 ? `${hours}h${String(minutes).padStart(2, '0')}` : `${hours}h`;
-  return `${minutes}m`;
+  return remainingMins > 0
+    ? durationUnit('units.hoursMinutes', { hours: hrs, minutes: remainingMins })
+    : formatHoursValue(hrs);
 }
 
 /**
@@ -233,18 +258,18 @@ export function splitMinSec(totalSeconds: number): { minutes: number; seconds: n
 
 /**
  * The route PR+ badge: how far behind the record an attempt finished, as
- * whole seconds under a minute and `M:SS` from a minute up, worded by the
+ * whole seconds in the locale's unit under a minute and `M:SS` from a minute up, worded by the
  * locale around the delta.
  */
 export function formatPrDelta(seconds: number): string {
   const whole = Math.round(seconds);
-  const delta = whole >= 60 ? formatMinSec(whole) : `${whole}s`;
+  const delta = whole >= 60 ? formatMinSec(whole) : formatSecondsValue(whole);
   // English when the translator has no bundle, as the date words below do.
   return i18n.t('activity.prDelta', { delta }) || `PR+${delta}`;
 }
 
 /**
- * How much a route PR beat the previous best by, signed: `-14s` under a
+ * How much a route PR beat the previous best by, signed: `-14 s` under a
  * minute and `-M:SS` from a minute up. Null when there is no improvement to
  * show (a first attempt, or under half a second).
  */
@@ -252,7 +277,7 @@ export function formatPrImprovement(seconds: number | null | undefined): string 
   if (seconds == null) return null;
   const whole = Math.round(seconds);
   if (whole <= 0) return null;
-  return whole >= 60 ? `-${formatMinSec(whole)}` : `-${whole}s`;
+  return whole >= 60 ? `-${formatMinSec(whole)}` : `-${formatSecondsValue(whole)}`;
 }
 
 /**
@@ -412,7 +437,7 @@ export function formatSpeed(metersPerSecond: number, isMetric: boolean): string 
   const value = isMetric ? metersPerSecond * MPS_TO_KPH : metersPerSecond * MPS_TO_MPH;
   // An extreme finite speed can overflow the conversion to Infinity.
   if (!Number.isFinite(value)) return ABSENT;
-  return `${value.toFixed(1)} ${isMetric ? 'km/h' : 'mph'}`;
+  return `${formatDecimal(value, 1)} ${isMetric ? 'km/h' : 'mph'}`;
 }
 
 /**
@@ -422,7 +447,7 @@ export function formatSpeed(metersPerSecond: number, isMetric: boolean): string 
 export function formatElevation(meters: number | undefined | null, isMetric = true): string {
   const value = elevationValue(meters, isMetric);
   if (value == null) return ABSENT;
-  return `${value} ${isMetric ? 'm' : 'ft'}`;
+  return `${formatDecimal(value, 0)} ${isMetric ? 'm' : 'ft'}`;
 }
 
 /** The whole metres, or feet when imperial, `formatElevation` prints. Null for no value. */
@@ -490,7 +515,7 @@ export function formatHeartRateRange(lowBpm: number, highBpm: number | null): st
 /** Joules as kilojoules to one decimal, `12.8 kJ`, a whole number left whole. */
 export function formatEnergy(joules: number): string {
   if (!Number.isFinite(joules) || joules < 0) return ABSENT;
-  return `${(joules / 1000).toFixed(1).replace(/\.0$/, '')} kJ`;
+  return `${formatDecimalTrimmed(joules / 1000, 1)} kJ`;
 }
 
 /** Heart rate variability in milliseconds, `52 ms`. */
@@ -797,13 +822,13 @@ export function formatLoad(load: number): string {
  */
 export function formatCalories(kcal: number): string {
   if (!Number.isFinite(kcal) || kcal < 0) return ABSENT;
-  return `${Math.round(kcal).toLocaleString(getIntlLocale())} kcal`;
+  return `${formatDecimal(kcal, 0)} kcal`;
 }
 
 /** An energy rate in kilocalories per hour, `546 kcal/h`. */
 export function formatCalorieRate(kcalPerHour: number): string {
   if (!Number.isFinite(kcalPerHour) || kcalPerHour < 0) return ABSENT;
-  return `${Math.round(kcalPerHour).toLocaleString(getIntlLocale())} kcal/h`;
+  return `${formatDecimal(kcalPerHour, 0)} kcal/h`;
 }
 
 /**
@@ -860,7 +885,9 @@ export function formatTimeDelta(deltaSeconds: number): string | null {
   const seconds = totalSeconds % 60;
   const sign = deltaSeconds > 0 ? '+' : '-';
   return isolateNumeric(
-    minutes > 0 ? `${sign}${minutes}:${seconds.toString().padStart(2, '0')}` : `${sign}${seconds}s`
+    minutes > 0
+      ? `${sign}${minutes}:${seconds.toString().padStart(2, '0')}`
+      : `${sign}${formatSecondsValue(seconds)}`
   );
 }
 
@@ -932,10 +959,10 @@ export function getSunday(date: Date): Date {
  */
 export function formatFileSize(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes < 0) return '0 B';
-  if (bytes < 1000) return `${bytes} B`;
-  if (bytes < 1000 ** 2) return `${(bytes / 1000).toFixed(1)} KB`;
-  if (bytes < 1000 ** 3) return `${(bytes / 1000 ** 2).toFixed(1)} MB`;
-  return `${(bytes / 1000 ** 3).toFixed(1)} GB`;
+  if (bytes < 1000) return `${formatDecimal(bytes, 0)} B`;
+  if (bytes < 1000 ** 2) return `${formatDecimal(bytes / 1000, 1)} KB`;
+  if (bytes < 1000 ** 3) return `${formatDecimal(bytes / 1000 ** 2, 1)} MB`;
+  return `${formatDecimal(bytes / 1000 ** 3, 1)} GB`;
 }
 
 /**

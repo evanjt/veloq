@@ -34,13 +34,13 @@ export function StatDetailSheet({ stat, isDark, onClose }: StatDetailSheetProps)
           </Text>
         </View>
 
-        {stat.context && (
+        {stat.context ? (
           <View style={[styles.contextBanner, { backgroundColor: `${stat.color}15` }]}>
             <Text style={styles.contextBannerText}>{stat.context}</Text>
           </View>
-        )}
+        ) : null}
 
-        {stat.explanation && (
+        {stat.explanation ? (
           <View style={styles.explanationBox}>
             <View style={styles.explanationHeader}>
               <MaterialCommunityIcons
@@ -52,9 +52,9 @@ export function StatDetailSheet({ stat, isDark, onClose }: StatDetailSheetProps)
             </View>
             <Text style={styles.explanationText}>{stat.explanation}</Text>
           </View>
-        )}
+        ) : null}
 
-        {stat.details && stat.details.length > 0 && (
+        {stat.details && stat.details.length > 0 ? (
           <View style={styles.detailsList}>
             {stat.details.map((detail, i) => (
               <View key={i} style={styles.detailRow}>
@@ -63,7 +63,7 @@ export function StatDetailSheet({ stat, isDark, onClose }: StatDetailSheetProps)
               </View>
             ))}
           </View>
-        )}
+        ) : null}
       </View>
     </View>
   );

@@ -314,14 +314,14 @@ export function SectionScatterChart({
   return (
     <View style={[styles.container, isDark && styles.containerDark, containerStyle]}>
       {/* Eye toggle for excluded activities */}
-      {!mini && hasExcluded && onToggleShowExcluded && (
+      {!mini && hasExcluded && onToggleShowExcluded ? (
         <ExcludedActivitiesToggle
           isDark={isDark}
           showExcluded={!!showExcluded}
           onToggle={onToggleShowExcluded}
         />
-      )}
-      {!mini && controlledDirection === undefined && hasForward && hasReverse && (
+      ) : null}
+      {!mini && controlledDirection === undefined && hasForward && hasReverse ? (
         <ChipSelector
           style={styles.directionControl}
           options={(['forward', 'reverse'] as const).map((direction) => ({
@@ -337,7 +337,7 @@ export function SectionScatterChart({
             onActivitySelect?.(null);
           }}
         />
-      )}
+      ) : null}
       {/* Forward stats row above chart */}
       {!mini && selectedDirection === 'forward' && forwardPoints.length > 0 && (
         <StatsRow
@@ -369,7 +369,7 @@ export function SectionScatterChart({
                 return (
                   <>
                     {/* Confidence bands (drawn first, behind everything) */}
-                    {trendPaths.band && (
+                    {trendPaths.band ? (
                       <Path
                         path={trendPaths.band}
                         color={
@@ -378,9 +378,9 @@ export function SectionScatterChart({
                         style="fill"
                         opacity={0.08}
                       />
-                    )}
+                    ) : null}
                     {/* Trend lines */}
-                    {trendPaths.line && (
+                    {trendPaths.line ? (
                       <Path
                         path={trendPaths.line}
                         color={
@@ -390,7 +390,7 @@ export function SectionScatterChart({
                         strokeWidth={2}
                         opacity={0.6}
                       />
-                    )}
+                    ) : null}
 
                     {/* Scatter points */}
                     {(() => {
@@ -496,7 +496,7 @@ export function SectionScatterChart({
                       return (
                         <>
                           {dots}
-                          {hp && (
+                          {hp ? (
                             <React.Fragment key="highlighted-activity">
                               <Circle
                                 cx={hp.x}
@@ -513,7 +513,7 @@ export function SectionScatterChart({
                                 color={highlightMarkColor}
                               />
                             </React.Fragment>
-                          )}
+                          ) : null}
                         </>
                       );
                     })()}

@@ -50,6 +50,7 @@ import {
   type Camera3DState,
   buildUserLocationCollection,
   useLocateUser,
+  mapControlColumnLayout,
 } from '@/features/maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CompassArrow, ComponentErrorBoundary, HERO_HEADER_HEIGHT } from '@/shared/ui';
@@ -299,12 +300,7 @@ export const SectionMapView = memo(function SectionMapView({
     } else {
       surfaceRef.current?.resetOrientation();
     }
-    motionTiming(bearingAnim, {
-      toValue: 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  }, [is3DMode, is3DReady, bearingAnim]);
+  }, [is3DMode, is3DReady]);
 
   const handleGetLocation = useCallback(
     () => locate(is3DMode && is3DReady ? map3DRef.current : surfaceRef.current),
@@ -520,6 +516,9 @@ export const SectionMapView = memo(function SectionMapView({
   const showExpandOverlay = enableFullscreen && !interactive;
   // Fullscreen button is part of control stack when interactive
   const isTrimming = !!trimRange;
+  // Style, compass and location always show; 3D needs a line, full screen is off while trimming.
+  const controlCount = 3 + (hasRoute ? 1 : 0) + (enableFullscreen && !isTrimming ? 1 : 0);
+  const { maxHeight: controlsMaxHeight } = mapControlColumnLayout(controlCount, height, overlayTop);
 
   return (
     <>
@@ -529,10 +528,10 @@ export const SectionMapView = memo(function SectionMapView({
           <View testID="section-map-container" style={styles.container}>
             {/* 2D Map layer. Unmounted once the 3D layer covers it, because a
                 hidden WebView holds its GL context and tile textures. */}
-            {show2DSurface && <View style={styles.mapLayer}>{mapContent}</View>}
+            {show2DSurface ? <View style={styles.mapLayer}>{mapContent}</View> : null}
 
             {/* 3D Map layer */}
-            {is3DMode && hasRoute && (
+            {is3DMode && hasRoute ? (
               <ComponentErrorBoundary
                 part="map3d"
                 debugName="3D Map"
@@ -558,23 +557,23 @@ export const SectionMapView = memo(function SectionMapView({
                   />
                 </Animated.View>
               </ComponentErrorBoundary>
-            )}
+            ) : null}
 
             {/* 3D loading spinner */}
-            {is3DMode && !is3DReady && (
+            {is3DMode && !is3DReady ? (
               <View style={styles.loadingOverlay} testID="section-map-3d-loading">
                 <ActivityIndicator size="large" color={colors.primary} />
               </View>
-            )}
+            ) : null}
 
             {terrainNotice}
           </View>
 
           {/* Control buttons - rendered OUTSIDE map container for reliable touch handling */}
-          {showControls && (
+          {showControls ? (
             <View
               testID="section-map-controls"
-              style={[styles.controlsContainer, { top: overlayTop }]}
+              style={[styles.controlsContainer, { top: overlayTop, maxHeight: controlsMaxHeight }]}
             >
               {/* Style toggle */}
               <Pressable
@@ -593,7 +592,7 @@ export const SectionMapView = memo(function SectionMapView({
               </Pressable>
 
               {/* 3D toggle */}
-              {hasRoute && (
+              {hasRoute ? (
                 <Pressable
                   testID="section-map-3d-toggle"
                   accessibilityRole="button"
@@ -619,7 +618,7 @@ export const SectionMapView = memo(function SectionMapView({
                     }
                   />
                 </Pressable>
-              )}
+              ) : null}
 
               {/* Compass */}
               <Pressable
@@ -667,7 +666,7 @@ export const SectionMapView = memo(function SectionMapView({
               </Pressable>
 
               {/* Fullscreen expand (hidden during trim mode) */}
-              {enableFullscreen && !isTrimming && (
+              {enableFullscreen && !isTrimming ? (
                 <Pressable
                   testID="section-map-fullscreen"
                   accessibilityRole="button"
@@ -682,14 +681,14 @@ export const SectionMapView = memo(function SectionMapView({
                     color={isDark ? colors.textOnDark : colors.textSecondary}
                   />
                 </Pressable>
-              )}
+              ) : null}
             </View>
-          )}
+          ) : null}
 
           {/* The layers drawn over the section's own line, named. */}
-          {interactive && hasLegendLayers(inlineLegendLayers) && (
+          {interactive && hasLegendLayers(inlineLegendLayers) ? (
             <SectionMapLegend isDark={isDark} top={overlayTop} {...inlineLegendLayers} />
-          )}
+          ) : null}
         </View>
       ) : (
         // Non-interactive map - tap anywhere to fullscreen
@@ -703,11 +702,11 @@ export const SectionMapView = memo(function SectionMapView({
           android_ripple={pressRipple}
         >
           {mapContent}
-          {showExpandOverlay && (
+          {showExpandOverlay ? (
             <View style={styles.expandOverlay}>
               <MaterialCommunityIcons name="fullscreen" size={20} color={colors.textOnDark} />
             </View>
-          )}
+          ) : null}
         </Pressable>
       )}
 

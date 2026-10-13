@@ -13,6 +13,9 @@
 // locale's CLDR rules select for a whole number, read through the locale's own fallback chain
 // short of the root. A key that resolves to its English form is the defect, so English does not
 // fill it in. The chain is `LOCALE_FALLBACKS` in `src/i18n/types.ts`.
+//
+// Count names: i18next selects a plural form only for a placeholder named `count`, so an `en-GB`
+// string whose one placeholder sits before a plural noun under another name reads "1 efforts".
 
 import ts from 'typescript';
 import { refuseEmptyListing, trackedText, treeSources } from './lib/indexedSources.mjs';
@@ -24,6 +27,8 @@ const LOCALES_DIR = 'src/i18n/locales';
 const TYPES_FILE = 'src/i18n/types.ts';
 const REFERENCE = 'en-GB';
 const PLURAL_SUFFIX = /_(zero|one|two|few|many|other)$/;
+// Words ending in s after a value that are not plural nouns.
+const NOT_PLURAL = new Set(['is', 'was', 'has', 'does', 'as', 'its', 'vs', 'this', 'thus']);
 // The counts a screen interpolates are whole numbers well inside this range.
 const COUNT_RANGE = 10000;
 
@@ -113,6 +118,21 @@ const countBases = [...reference.keys()]
   .map((key) => key.slice(0, -'_other'.length));
 
 const failures = [];
+
+for (const [key, value] of reference) {
+  if (PLURAL_SUFFIX.test(key)) continue;
+  const names = placeholders(value);
+  if (names.size !== 1) continue;
+  const [name] = names;
+  if (name === 'count') continue;
+  const escaped = name.replace(/\./g, '\\.');
+  const word = value.match(new RegExp(`\\{\\{\\s*${escaped}\\s*\\}\\} ([a-z]+)\\b`))?.[1];
+  if (word && /[^s]s$/.test(word) && !NOT_PLURAL.has(word)) {
+    failures.push(
+      `${REFERENCE}: ${key} puts {{${name}}} before a plural noun, so it reads "1 ${word}": name it {{count}} and give it plural forms`
+    );
+  }
+}
 
 for (const [locale, bundle] of bundles) {
   if (locale === REFERENCE) continue;

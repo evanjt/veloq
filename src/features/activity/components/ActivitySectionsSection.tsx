@@ -617,23 +617,23 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         )}
 
         {/* Scan results */}
-        {hasScanned && filteredScanMatches.length > 0 && (
+        {hasScanned && filteredScanMatches.length > 0 ? (
           <View style={styles.scanResultsContainer}>
             <Text style={[styles.scanResultsTitle, isDark && { color: darkColors.textPrimary }]}>
               {t('sections.nearbySectionsCount', { count: filteredScanMatches.length })}
             </Text>
             {filteredScanMatches.map(renderScanMatch)}
           </View>
-        )}
+        ) : null}
 
         {/* Scan performed but no new results */}
-        {hasScanned && filteredScanMatches.length === 0 && (
+        {hasScanned && filteredScanMatches.length === 0 ? (
           <View style={styles.scanNoResults}>
             <Text style={[styles.scanNoResultsText, isDark && { color: darkColors.textSecondary }]}>
               {t('sections.noMatchesFound')}
             </Text>
           </View>
-        )}
+        ) : null}
 
         {coordinates.length > 0 && !sectionCreationMode && (
           <Button

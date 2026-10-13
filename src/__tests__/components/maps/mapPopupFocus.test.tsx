@@ -156,7 +156,12 @@ describe('section and route popup focus', () => {
   it('moves focus to the route title', async () => {
     await render(
       <RoutePopup
-        route={{ routeId: 'canal-loop', name: 'Canal loop', activityCount: 4 }}
+        route={{
+          routeId: 'canal-loop',
+          name: 'Canal loop',
+          activityCount: 4,
+          distanceMeters: 8400,
+        }}
         bottom={0}
         onClose={jest.fn()}
         onViewDetails={jest.fn()}

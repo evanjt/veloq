@@ -144,7 +144,9 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
           <Text style={styles.text} testID="sync-progress-message">
             {displayInfo.text}
           </Text>
-          {displayInfo.countText && <Text style={styles.countText}>{displayInfo.countText}</Text>}
+          {displayInfo.countText ? (
+            <Text style={styles.countText}>{displayInfo.countText}</Text>
+          ) : null}
         </View>
         {libraryLines.length > 0 && (
           <View style={styles.libraryLines} testID="sync-library-coverage">

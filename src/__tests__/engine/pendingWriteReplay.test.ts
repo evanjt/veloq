@@ -32,7 +32,6 @@ const mockSettings = {
 };
 const mockFitness = { savePaceSnapshot: jest.fn(), upsertWellness: jest.fn() };
 const mockActivities = {
-  setMetrics: jest.fn(),
   setCurveBody: jest.fn(),
   setTimeStreams: jest.fn(),
   upsertActivityBodies: jest.fn(),

@@ -229,7 +229,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
       />
 
       {/* CSS Legend */}
-      {cssPace && (
+      {cssPace ? (
         <View style={styles.legend}>
           <View style={[styles.legendDash, { backgroundColor: CSS_LINE_COLOR }]} />
           <Text style={styles.legendText}>
@@ -237,7 +237,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
             {swimPaceUnitLabel(isMetric)}
           </Text>
         </View>
-      )}
+      ) : null}
     </View>
   );
 }

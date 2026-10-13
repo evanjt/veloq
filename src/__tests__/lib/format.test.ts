@@ -13,7 +13,6 @@ import {
   formatDistance,
   formatFullDate,
   formatDuration,
-  formatDurationCompact,
   formatDurationOrNull,
   formatShortDateWithYear,
   formatDurationDelta,
@@ -33,6 +32,8 @@ import {
   formatRelativeDate,
   calendarDaysBetween,
   formatTimeDelta,
+  formatPrDelta,
+  formatPrImprovement,
   formatPerformanceDelta,
   speedToSecsPerKm,
   getMonday,
@@ -40,6 +41,7 @@ import {
 } from '@/shared/format/format';
 import { ABSENT } from '@/shared/format/absent';
 import { formatWeight } from '@/shared/format/weight';
+import { initialiseI18n } from '@/i18n';
 
 describe('formatDistance', () => {
   it('shows meters below 1km, kilometers above', () => {
@@ -116,12 +118,12 @@ describe('formatRelativeDate', () => {
 describe('formatTimeDelta', () => {
   it('formats positive deltas (slower)', () => {
     expect(formatTimeDelta(90)).toBe('+1:30');
-    expect(formatTimeDelta(5)).toBe('+5s');
+    expect(formatTimeDelta(5)).toBe('+5 s');
   });
 
   it('formats negative deltas (faster)', () => {
     expect(formatTimeDelta(-90)).toBe('-1:30');
-    expect(formatTimeDelta(-5)).toBe('-5s');
+    expect(formatTimeDelta(-5)).toBe('-5 s');
   });
 
   it('returns null for sub-second deltas', () => {
@@ -151,7 +153,7 @@ describe('formatPerformanceDelta', () => {
       currentSpeed: 4,
       bestSpeed: 5,
     });
-    expect(result.deltaDisplay).toBe('+50s');
+    expect(result.deltaDisplay).toBe('+50 s');
     expect(result.isFaster).toBe(false);
   });
 
@@ -172,7 +174,7 @@ describe('formatPerformanceDelta', () => {
       isMetric: true,
       timeDelta: 30,
     });
-    expect(result.deltaDisplay).toBe('+30s');
+    expect(result.deltaDisplay).toBe('+30 s');
     expect(result.isFaster).toBe(false);
   });
 
@@ -191,7 +193,7 @@ describe('formatPerformanceDelta', () => {
 
   it('leaves a time delta unchanged under imperial units', () => {
     const result = formatPerformanceDelta({ isBest: false, isMetric: false, timeDelta: 30 });
-    expect(result.deltaDisplay).toBe('+30s');
+    expect(result.deltaDisplay).toBe('+30 s');
   });
 
   it('returns null for missing data', () => {
@@ -364,9 +366,9 @@ describe('formatTimeDelta edge cases', () => {
 
 describe('formatDurationDelta', () => {
   it.each([
-    [0, '0s'],
-    [12, '12s'],
-    [59, '59s'],
+    [0, '0 s'],
+    [12, '12 s'],
+    [59, '59 s'],
     [59.6, '1:00'],
     [60, '1:00'],
     [65, '1:05'],
@@ -379,12 +381,12 @@ describe('formatDurationDelta', () => {
 });
 
 /**
- * BUG: formatDurationHuman(59.5) returned "60s" instead of "1m" - the "< 60"
+ * BUG: formatDurationHuman(59.5) returned "60s" instead of one minute - the "< 60"
  * branch ran before rounding. Locked here so the fix stays in place.
  */
 describe('formatDurationHuman boundary', () => {
-  it('59.5 seconds rolls over to 1m', () => {
-    expect(formatDurationHuman(59.5)).toMatch(/^1m$/);
+  it('59.5 seconds rolls over to 1 min', () => {
+    expect(formatDurationHuman(59.5)).toBe('1 min');
   });
 });
 
@@ -503,18 +505,37 @@ describe('extreme finite magnitudes do not leak scientific-notation garbage', ()
 // The four formatters four features had each written for themselves, now
 // with one home. Related behaviour lives beside the rest of the hub.
 
-describe('formatDurationCompact', () => {
-  it.each([
-    [5400, '1h30', 'hours and minutes'],
-    [3600, '1h', 'hours only'],
-    [2700, '45m', 'minutes only'],
-    [3660, '1h01', 'minutes padded with leading zero'],
-    [0, '0m', 'zero'],
-    [-100, ABSENT, 'negative'],
-    [NaN, ABSENT, 'NaN'],
-    [Infinity, ABSENT, 'Infinity'],
-  ])('formats %p as %p (%s)', (seconds, expected) => {
-    expect(formatDurationCompact(seconds)).toBe(expected);
+describe("durations in the locale's units", () => {
+  beforeEach(async () => {
+    await initialiseI18n('en-AU');
+  });
+
+  it('writes minutes as min, never as the metre symbol', () => {
+    expect(formatDurationHuman(330)).toContain('min');
+    expect(formatDurationHuman(330)).not.toMatch(/\dm\b/);
+    expect(formatDurationHuman(330)).toBe('5 min 30 s');
+    expect(formatDurationHuman(5430)).toBe('1 h 30 min');
+  });
+
+  it('writes French units under fr', async () => {
+    await initialiseI18n('fr');
+    expect(formatDurationHuman(5430)).toBe('1 h 30 min');
+    expect(formatDurationHuman(45)).toBe('45 s');
+  });
+
+  it('writes Japanese units under ja', async () => {
+    await initialiseI18n('ja');
+    expect(formatDurationHuman(5430)).toBe('1時間30分');
+    expect(formatDurationHuman(330)).toBe('5分30秒');
+    expect(formatDurationDelta(12)).toBe('12秒');
+    expect(formatTimeDelta(-5)).toContain('5秒');
+    expect(formatPrImprovement(14)).toBe('-14秒');
+  });
+
+  it('writes the same seconds unit in every short form', () => {
+    expect(formatDurationDelta(12)).toBe('12 s');
+    expect(formatPrDelta(12)).toBe('PR+12 s');
+    expect(formatPrImprovement(14)).toBe('-14 s');
   });
 });
 

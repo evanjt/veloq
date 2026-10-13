@@ -127,7 +127,7 @@ export function PreviewCentrePicker({
         })}
         <View style={styles.tail} />
       </ScrollView>
-      {showStart && (
+      {showStart ? (
         <LinearGradient
           testID="preview-centre-fade-start"
           pointerEvents="none"
@@ -136,8 +136,8 @@ export function PreviewCentrePicker({
           end={{ x: 1, y: 0 }}
           style={[styles.fade, styles.fadeStart]}
         />
-      )}
-      {showEnd && (
+      ) : null}
+      {showEnd ? (
         <LinearGradient
           testID="preview-centre-fade-end"
           pointerEvents="none"
@@ -146,7 +146,7 @@ export function PreviewCentrePicker({
           end={{ x: 0, y: 0 }}
           style={[styles.fade, styles.fadeEnd]}
         />
-      )}
+      ) : null}
     </View>
   );
 }

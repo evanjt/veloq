@@ -97,7 +97,7 @@ describe('the app crash screen in a release build', () => {
     });
 
     expect(shareFile).toHaveBeenCalledWith(
-      expect.objectContaining({ content: 'orchard fell', mimeType: 'text/plain' })
+      expect.objectContaining({ content: 'orchard fell', kind: 'text' })
     );
   });
 

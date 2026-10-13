@@ -39,7 +39,7 @@ describe('ActivityStatsCard elevation', () => {
   it('converts metres to feet for an imperial athlete', async () => {
     (useMetricSystem as jest.Mock).mockReturnValue(false);
     const { getByText } = await renderCard();
-    expect(getByText('2008 ft ↑')).toBeTruthy();
+    expect(getByText('2,008 ft ↑')).toBeTruthy();
   });
 
   it('shows metres for a metric athlete', async () => {

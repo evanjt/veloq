@@ -153,7 +153,6 @@ const PAGES: PageUnderTest[] = [
         devicePixelRatio: 1,
         reduceMotion: false,
         regionChangeThrottleMs: 100,
-        longPressMs: 500,
       }),
     drive: (page) => driveInteractivePage(page, (style) => buildSetStyleScript(style)),
   },

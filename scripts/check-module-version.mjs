@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Every copy of the release version must agree with the app's. The engine
 // stamps its exports with its crate version, so the crate and its lock entry
-// are copies too.
+// are copies too, and the store builds take their version name from app.json.
+// Both stores refuse a build number they have already seen, so the iOS build
+// number and the Android version code move together.
 import { resolve } from 'node:path';
 
 import { trackedText } from './lib/indexedSources.mjs';
@@ -35,4 +37,21 @@ if ([module, lockedModule, crate, lockedCrate].some((v) => v !== app)) {
   );
   process.exit(1);
 }
-console.log(`check-module-version: ${app}`);
+
+const expo = JSON.parse(trackedText(root, 'app.json')).expo;
+const buildNumber = expo?.ios?.buildNumber;
+const versionCode = expo?.android?.versionCode;
+if (expo?.version !== app) {
+  console.error(
+    `check-module-version: app.json version ${expo?.version}, app version ${app} differ`
+  );
+  process.exit(1);
+}
+if (!Number.isInteger(versionCode) || buildNumber !== String(versionCode)) {
+  console.error(
+    `check-module-version: iOS build number ${buildNumber}, ` +
+      `Android version code ${versionCode} differ`
+  );
+  process.exit(1);
+}
+console.log(`check-module-version: ${app} (${versionCode})`);

@@ -23,6 +23,7 @@ import { spokenVerdict } from '@/shared/format/spoken';
 import { trendVerdict, verdictRung, type TrendDirection } from '@/shared/format/trend';
 import { ChartCanvas, CurveArea, CurveLine, useChartColors } from '@/shared/charts';
 import { EmptyState } from '@/shared/ui/EmptyState';
+import { formatSignedPercentage } from '@/shared/format';
 
 /** One daily eFTP estimate: the local day and the watts. */
 interface FtpSeriesPoint {
@@ -160,8 +161,8 @@ export function FTPTrendChart({
           </View>
           {lookbackDays ? (
             <Text style={styles.changeSubtext}>
-              {ftpChange > 0 ? '+' : ''}
-              {changePercent.toFixed(1)}% {t('stats.fromDaysAgo', { count: lookbackDays })}
+              {formatSignedPercentage(changePercent, 1)}{' '}
+              {t('stats.fromDaysAgo', { count: lookbackDays })}
             </Text>
           ) : null}
         </View>
@@ -190,12 +191,12 @@ export function FTPTrendChart({
                 </CurveArea>
                 <CurveLine points={points.y} color={chartColors.casing} strokeWidth={2.5} />
                 <CurveLine points={points.y} color={chartColors.ftp} strokeWidth={1.5} />
-                {last && (
+                {last ? (
                   <>
                     <Circle cx={last.x} cy={last.y} r={6} color={chartColors.ftp} />
                     <Circle cx={last.x} cy={last.y} r={3} color={colors.textOnDark} />
                   </>
-                )}
+                ) : null}
               </>
             );
           }}

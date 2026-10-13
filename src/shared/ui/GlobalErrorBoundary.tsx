@@ -129,14 +129,14 @@ function GlobalErrorFallback({ error, onRetry }: { error: Error | null; onRetry:
         {title}
       </Text>
       <Text style={[styles.body, { color: palette.detail }]}>{body}</Text>
-      {rideLine && (
+      {rideLine ? (
         <Text style={[styles.body, styles.rideLine, { color: palette.title }]}>{rideLine}</Text>
-      )}
-      {__DEV__ && error?.message && (
+      ) : null}
+      {__DEV__ && error?.message ? (
         <Text style={[styles.devError, { color: palette.message }]}>{error.message}</Text>
-      )}
+      ) : null}
       <View style={styles.actions}>
-        {live && (
+        {live ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={stopLabel}
@@ -146,7 +146,7 @@ function GlobalErrorFallback({ error, onRetry }: { error: Error | null; onRetry:
           >
             <Text style={actionText}>{stopLabel}</Text>
           </Pressable>
-        )}
+        ) : null}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={retryLabel}
@@ -166,7 +166,7 @@ function GlobalErrorFallback({ error, onRetry }: { error: Error | null; onRetry:
         >
           <Text style={actionText}>{shareLabel}</Text>
         </Pressable>
-        {__DEV__ && (
+        {__DEV__ ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Reload"
@@ -180,13 +180,13 @@ function GlobalErrorFallback({ error, onRetry }: { error: Error | null; onRetry:
           >
             <Text style={actionText}>Reload</Text>
           </Pressable>
-        )}
+        ) : null}
       </View>
-      {shareFailed && (
+      {shareFailed ? (
         <Text style={[styles.body, styles.rideLine, { color: palette.message }]}>
           {fallbackText('errorState.shareFailed', "Couldn't share the crash log.")}
         </Text>
-      )}
+      ) : null}
     </StatusLine>
   );
 }

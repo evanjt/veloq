@@ -47,6 +47,7 @@ import {
 } from '../../lib/detectionParams';
 import type { ParamEditorSheetInput } from '../../lib/paramEditorSheet';
 import { distanceEditorUnit, toEditorText, type EditorUnit } from '../../lib/paramUnits';
+import { formatDecimal } from '@/shared/format';
 
 interface PreviewParamPanelProps {
   params: PreviewParams;
@@ -148,8 +149,8 @@ export function PreviewParamPanel({
       )}
       {row(
         'divergenceThreshold',
-        t('settings.sectionSameTraffic', { value: params.divergenceThreshold.toFixed(2) }),
-        params.divergenceThreshold.toFixed(2)
+        t('settings.sectionSameTraffic', { value: formatDecimal(params.divergenceThreshold, 2) }),
+        formatDecimal(params.divergenceThreshold, 2)
       )}
 
       <View style={styles.presetRow}>

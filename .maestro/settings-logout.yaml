@@ -52,26 +52,16 @@ onFlowComplete:
 - tapOn:
     id: "settings-logout-button"
 
-# Wait for the destructive alert button. en-AU translates "Disconnect" to
-# "Pull the plug", so check both.
+# Wait for the destructive alert button. In demo the row reads "Leave demo"
+# and its confirm "Leave".
 - extendedWaitUntil:
-    visible: "Disconnect"
+    visible: "Leave"
     timeout: 8000
     optional: true
 
 - takeScreenshot: "screenshots/settings-logout-dialog"
 
-- runFlow:
-    when:
-      visible: "Disconnect"
-    commands:
-      - tapOn: "Disconnect"
-
-- runFlow:
-    when:
-      visible: "Pull the plug"
-    commands:
-      - tapOn: "Pull the plug"
+- tapOn: "Leave"
 
 # Verify we return to login screen (async: cancel queries + clear caches + clear credentials)
 - extendedWaitUntil:

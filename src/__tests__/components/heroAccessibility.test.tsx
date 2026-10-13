@@ -47,6 +47,7 @@ async function renderActivityHeader(shown: ActivityDetail = activity) {
       activity={shown}
       activityId={shown.id}
       coordinates={[]}
+      hasStoredTrack={false}
       isMetric={true}
       debugEnabled={false}
       mapHeight={320}

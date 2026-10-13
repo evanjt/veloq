@@ -7,7 +7,7 @@
  * rather than a new one to diff.
  */
 import { decodeCoordsFlat } from 'veloqrs/src/coords';
-import { routePalette } from '@/theme';
+import { routePalette, routePaletteIndex } from '@/theme/colors';
 import { EMPTY_FEATURE_COLLECTION } from './coordinates';
 
 export interface RouteLineInput {
@@ -16,6 +16,8 @@ export interface RouteLineInput {
   /** The name the route is shown under, read with the map */
   name: string;
   activityCount: number;
+  /** The representative's distance in metres, as the route list shows it */
+  distanceMeters: number;
   polyline: ArrayBuffer;
 }
 
@@ -45,7 +47,7 @@ function buildCollection(layer: RouteLineLayerInput): GeoJSON.FeatureCollection 
       properties: {
         id: route.routeId,
         number: route.routeNumber ?? null,
-        color: routePalette[features.length % routePalette.length],
+        color: routePalette[routePaletteIndex(route.routeId)],
       },
       geometry: { type: 'LineString', coordinates },
     });

@@ -1,12 +1,14 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use rusqlite::{Connection, OptionalExtension, params};
-use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde_json::Value;
 use tracematch::GpsPoint;
 use tracematch::sections::{NamedCandidate, score_named_candidate, select_candidate, trim_core};
 
-use super::activities::names_upstream_activity;
+use super::origin::names_upstream_activity;
+use super::record_backup::{
+    RecordGround, RecordPayload, RecordRow, check_record_version, integer, string,
+};
 use super::{PersistentEngine, codec, sections};
 
 #[cfg(test)]
@@ -65,37 +67,6 @@ pub(crate) fn check_record_athlete_from_conn(
         return Err("Record belongs to another athlete".to_string());
     }
     Ok(())
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct RecordPayload {
-    version: u32,
-    #[serde(default)]
-    athlete_id: Option<String>,
-    entries: Vec<RecordRow>,
-    /// The intervals.icu id each device-minted key the entries name was
-    /// uploaded as. An older backup carries none.
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    upstream_ids: BTreeMap<String, String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct RecordRow {
-    table: String,
-    values: Map<String, Value>,
-    #[serde(default)]
-    ground: Option<RecordGround>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct RecordGround {
-    rep_activity_id: Option<String>,
-    rep_start_index: Option<i64>,
-    rep_end_index: Option<i64>,
-    point_count: Option<i64>,
-    polyline_json: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    activity_ids: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -227,11 +198,16 @@ impl PersistentEngine {
     /// library as it was and the import paused, and an import of no entries
     /// resumes it.
     pub fn restore_record_json(&mut self, json: &str) -> Result<RestoreRecordResult, String> {
-        let payload: RecordPayload =
-            serde_json::from_str(json).map_err(|e| format!("Unreadable record payload: {e}"))?;
-        if payload.version != 1 {
-            return Err(format!("Unsupported record version {}", payload.version));
-        }
+        self.restore_record_payload(parse_record_payload(json)?)
+    }
+
+    /// Restore a payload already parsed, as a record zip is: the same checks
+    /// and placement as [`Self::restore_record_json`].
+    pub(crate) fn restore_record_payload(
+        &mut self,
+        payload: RecordPayload,
+    ) -> Result<RestoreRecordResult, String> {
+        check_record_version(payload.version)?;
         check_record_athlete_from_conn(&self.db, payload.athlete_id.as_deref())?;
         for row in &payload.entries {
             check_record_row(row)?;
@@ -1088,10 +1064,13 @@ fn check_record_row(row: &RecordRow) -> Result<(), String> {
     }
 }
 
+/// Parse record JSON into the one payload type both restore paths take.
+pub(crate) fn parse_record_payload(json: &str) -> Result<RecordPayload, String> {
+    serde_json::from_str(json).map_err(|e| format!("Unreadable record payload: {e}"))
+}
+
 /// The content check a restore of this payload runs, writing nothing.
-pub(crate) fn check_record_rows_json(json: &str) -> Result<(), String> {
-    let payload: RecordPayload =
-        serde_json::from_str(json).map_err(|e| format!("Unreadable record payload: {e}"))?;
+pub(crate) fn check_record_rows(payload: &RecordPayload) -> Result<(), String> {
     payload.entries.iter().try_for_each(check_record_row)
 }
 
@@ -1228,14 +1207,6 @@ fn lowest_free_number(conn: &Connection, store: NumberStore) -> Result<u32, Stri
         candidate = number + 1;
     }
     Ok(candidate)
-}
-
-fn string<'a>(values: &'a Map<String, Value>, key: &str) -> Option<&'a str> {
-    values.get(key)?.as_str()
-}
-
-fn integer(values: &Map<String, Value>, key: &str) -> Option<i64> {
-    values.get(key)?.as_i64()
 }
 
 fn record_activity_ids(row: &RecordRow) -> Vec<String> {
@@ -3225,6 +3196,72 @@ mod tests {
     }
 
     #[test]
+    fn test_payload_read_from_a_zip_places_a_route_name_by_its_members() {
+        use crate::persistence::record_backup::{
+            RECORD_VERSION, RecordGround, RecordPayload, RecordRow,
+        };
+        let dir = TempDir::new().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("routes-payload.db").to_str().unwrap()).unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type)
+                 VALUES ('local-route', 'ride-b', '[\"ride-b\",\"ride-a\"]', 'Ride')",
+                [],
+            )
+            .unwrap();
+        let values = json!({"route_id": "old-route", "custom_name": "Harbour loop"});
+        let payload = RecordPayload {
+            version: RECORD_VERSION,
+            athlete_id: None,
+            entries: vec![RecordRow {
+                table: "route_names".to_string(),
+                values: values.as_object().unwrap().clone(),
+                ground: Some(RecordGround {
+                    rep_activity_id: Some("ride-a".to_string()),
+                    rep_start_index: None,
+                    rep_end_index: None,
+                    point_count: None,
+                    polyline_json: None,
+                    activity_ids: Some(vec!["ride-a".to_string(), "ride-b".to_string()]),
+                }),
+            }],
+            upstream_ids: Default::default(),
+        };
+        let result = engine.restore_record_payload(payload).unwrap();
+        assert_eq!(result.unplaced, 0);
+        let name: String = engine
+            .db
+            .query_row(
+                "SELECT custom_name FROM route_names WHERE route_id = 'local-route'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(name, "Harbour loop");
+    }
+
+    #[test]
+    fn test_record_json_is_held_to_the_record_format_version() {
+        use crate::persistence::record_backup::RECORD_VERSION;
+        let dir = TempDir::new().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("version.db").to_str().unwrap()).unwrap();
+        let rows = json!([{"table": "settings", "values": {"key": "units", "value": "miles"}}]);
+        engine
+            .restore_record_json(&json!({"version": RECORD_VERSION, "entries": rows}).to_string())
+            .unwrap();
+        assert_eq!(
+            engine.get_setting("units").unwrap().as_deref(),
+            Some("miles")
+        );
+        let newer = json!({"version": RECORD_VERSION + 1, "entries": []}).to_string();
+        let error = engine.restore_record_json(&newer).unwrap_err();
+        assert!(error.contains("newer than supported"), "{error}");
+    }
+
+    #[test]
     fn test_route_name_waits_when_no_local_group_shares_a_member() {
         let dir = TempDir::new().unwrap();
         let mut engine =
@@ -3605,6 +3642,42 @@ mod tests {
         assert_eq!(
             setting("__activity_window_oldest:i1").as_deref(),
             Some("2020-01-01")
+        );
+    }
+
+    /// Scenario: a backup taken on an install holding the upload grant is
+    /// restored on one signed in without it.
+    ///
+    /// Expected behaviour: the grant belongs to this install's token, so the
+    /// restore leaves the current value as it was.
+    #[test]
+    fn test_restore_keeps_this_install_upload_grant() {
+        let dir = TempDir::new().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("grant.db").to_str().unwrap()).unwrap();
+        engine
+            .set_setting("veloq-upload-permission", r#"{"hasWritePermission":false}"#)
+            .unwrap();
+        let record = json!({"version": 1, "entries": [
+            {"table": "settings", "values": {"key": "units", "value": "imperial"}},
+            {"table": "settings", "values": {
+                "key": "veloq-upload-permission",
+                "value": r#"{"hasWritePermission":true}"#
+            }}
+        ]});
+        let result = engine.restore_record_json(&record.to_string()).unwrap();
+        assert_eq!(result.unplaced, 0);
+        assert!(!paused(&engine));
+        assert_eq!(
+            engine.get_setting("units").unwrap().as_deref(),
+            Some("imperial")
+        );
+        assert_eq!(
+            engine
+                .get_setting("veloq-upload-permission")
+                .unwrap()
+                .as_deref(),
+            Some(r#"{"hasWritePermission":false}"#)
         );
     }
 

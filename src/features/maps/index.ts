@@ -31,6 +31,7 @@ export { Map3DWebView, type Map3DWebViewRef } from './components/Map3DWebView';
 export { MapKey, MapKeyRamp, MapKeySwatch } from './components/MapKey';
 export { type MapCameraState, MapSurface, type MapSurfaceRef } from './components/MapSurface';
 export { RegionalMapView } from './components/RegionalMapView';
+export { MapEmptyState } from './components/MapEmptyState';
 export { MapNameSearch } from './components/MapNameSearch';
 export { type CreationState } from './components/SectionCreationOverlay';
 export {

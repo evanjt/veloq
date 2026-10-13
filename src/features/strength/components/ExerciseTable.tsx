@@ -109,11 +109,11 @@ export function ExerciseTable({
                 onPress={() => tapTo(`/exercise/${group.exerciseCategory}`)}
               />
             </View>
-            {group.bestSet && (
+            {group.bestSet ? (
               <Text style={[styles.subtitle, isDark && styles.textSecondaryDark]}>
                 {t('strength.bestSet')}: {formatBestSet(group.bestSet, isMetric, t)}
               </Text>
-            )}
+            ) : null}
             {group.restSeconds.length > 0 && (
               <Text style={[styles.subtitle, isDark && styles.textSecondaryDark]}>
                 {t('strength.restBetweenSets')}: {group.restSeconds.map(formatDuration).join(' · ')}

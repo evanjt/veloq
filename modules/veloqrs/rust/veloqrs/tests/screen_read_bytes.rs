@@ -205,6 +205,7 @@ fn activity_detail(v: FfiActivityDetailData) -> Lowered {
         exercise_groups => |v: &FfiActivityDetailData| v.exercise_groups.len(),
         fitness_impact,
         activity_count,
+        has_gps_track,
         section_count,
         route_groups => |v: &FfiActivityDetailData| v.route_groups.len(),
         representative_signature,
@@ -220,6 +221,7 @@ fn activity_detail(v: FfiActivityDetailData) -> Lowered {
         hr_zones => |v: &FfiActivityDetailData| v.hr_zones.len(),
         power_zones => |v: &FfiActivityDetailData| v.power_zones.len(),
         ledger_changes => |v: &FfiActivityDetailData| v.ledger_changes.len(),
+        intervals_id,
     )
 }
 
@@ -293,6 +295,7 @@ fn map_screen(v: FfiMapScreenData) -> Lowered {
         sections => |v: &FfiMapScreenData| {
             v.sections.as_ref().and_then(|l| l.sections.as_ref()).map_or(0, Vec::len)
         },
+        empty_reason,
     )
 }
 

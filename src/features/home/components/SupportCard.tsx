@@ -165,7 +165,7 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
 
         {/* Mounted only while open: the panel is as tall as its buttons at any text
             size, and a collapsed one leaves no purchase button for a screen reader. */}
-        {tipsExpanded && (
+        {tipsExpanded ? (
           <Animated.View entering={FadeIn.duration(250)} exiting={FadeOut.duration(150)}>
             {isAvailable ? (
               <View testID="support-card-tip-buttons">
@@ -186,7 +186,7 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
               />
             )}
           </Animated.View>
-        )}
+        ) : null}
 
         <Animated.View layout={LinearTransition.duration(250)} style={styles.dismissRow}>
           <Button

@@ -319,7 +319,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
                 ) : (
                   <View testID="activity-heatmap-placeholder" style={styles.grid} />
                 )}
-                {highlightPos && (
+                {highlightPos ? (
                   <View
                     style={[
                       styles.highlightCell,
@@ -331,7 +331,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
                       },
                     ]}
                   />
-                )}
+                ) : null}
               </View>
             </View>
           </ScrollView>

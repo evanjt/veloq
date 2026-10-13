@@ -5,6 +5,10 @@
 //! points: cold start (scenario A) and full year expansion (scenario E).
 //! Guards the Tier 1.1 loop-inversion rewrite from accidentally dropping
 //! tiles we used to emit.
+//!
+//! The pass draws the zooms below the on-request floor and nothing deeper, so
+//! the fixtures are the full set as it stood when the pass drew every zoom,
+//! restricted to those zooms.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -66,7 +70,37 @@ fn generate_and_collect(engine: &mut PersistentEngine, tmp: &TempDir) -> BTreeSe
         }
     }
     recurse(&tiles_dir, &tiles_dir, &mut out);
+    report_and_check_zooms(&tiles_dir);
     out
+}
+
+/// Print the tiles and bytes the pass wrote at each zoom, and refuse any file
+/// at a zoom the map draws on request.
+fn report_and_check_zooms(tiles_dir: &Path) {
+    let floor = veloqrs::persistence::tiles::ON_REQUEST_MIN_ZOOM;
+    let mut zooms: Vec<u8> = std::fs::read_dir(tiles_dir)
+        .expect("tiles dir")
+        .flatten()
+        .filter_map(|e| e.file_name().to_string_lossy().parse::<u8>().ok())
+        .collect();
+    zooms.sort_unstable();
+    for z in zooms {
+        let (mut files, mut bytes) = (0usize, 0u64);
+        for column in std::fs::read_dir(tiles_dir.join(z.to_string()))
+            .expect("zoom dir")
+            .flatten()
+        {
+            for tile in std::fs::read_dir(column.path()).expect("column").flatten() {
+                files += 1;
+                bytes += tile.metadata().map(|m| m.len()).unwrap_or(0);
+            }
+        }
+        println!("[heatmap_tile_set] z{z}: {files} files, {bytes} bytes");
+        assert!(
+            z < floor,
+            "the pass wrote {files} files at z{z}, which the map draws on request"
+        );
+    }
 }
 
 fn fixture_path(name: &str) -> PathBuf {

@@ -38,7 +38,7 @@ export const ShaderWarmup = React.memo(function ShaderWarmup() {
           <Line p1={vec(0, 0)} p2={vec(1, 1)} color={shaderWarmup.line} strokeWidth={1} />
 
           {/* Area (Path + LinearGradient) - fitness chart, HRV sparkline */}
-          {warmupPath && (
+          {warmupPath ? (
             <Path path={warmupPath}>
               <LinearGradient
                 start={vec(0, 0)}
@@ -46,7 +46,7 @@ export const ShaderWarmup = React.memo(function ShaderWarmup() {
                 colors={[shaderWarmup.gradientStart, shaderWarmup.gradientEnd]}
               />
             </Path>
-          )}
+          ) : null}
 
           {/* Shadow-backed rect - form-zone chart */}
           <Rect x={0} y={0} width={1} height={1} color={shaderWarmup.rect}>

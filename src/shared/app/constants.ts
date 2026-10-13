@@ -42,6 +42,11 @@ export const INTERVALS_URLS = {
   settings: 'https://intervals.icu/settings',
   /** Developer Settings section for API key */
   developerSettings: 'https://intervals.icu/settings#developer',
+  fitnessPage: 'https://intervals.icu/fitness',
+  subscription: 'https://intervals.icu/settings/subscription',
+  athletePage: (athleteId: string) => `https://intervals.icu/athlete/${athleteId}/activities`,
+  /** Built from the id its caller holds, which says nothing of the row's origin. */
+  activityPage: (activityId: string) => `https://intervals.icu/activities/${activityId}`,
 } as const;
 
 /**

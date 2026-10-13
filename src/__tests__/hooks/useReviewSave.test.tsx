@@ -343,10 +343,7 @@ describe('useReviewSave', () => {
     expect(result.current.keptRecording).toEqual(expect.objectContaining({ id: 'rec-1' }));
 
     await act(() => result.current.shareKeptRecording());
-    expect(mockShareFit).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'rec-1' }),
-      expect.any(Function)
-    );
+    expect(mockShareFit).toHaveBeenCalledWith(expect.objectContaining({ id: 'rec-1' }), undefined);
   });
 
   it('leaves the detail out when the refusal carries none', async () => {

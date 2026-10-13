@@ -20,7 +20,7 @@ const DEBUG_SCREENS = [
   'src/app/debug.tsx',
   'src/features/insights/components/InsightDebugPanel.tsx',
   'src/features/routes/components/DebugInfoPanel.tsx',
-  'src/features/routes/components/SyncDebugTab.tsx',
+  'src/features/routes/components/SyncDebugSection.tsx',
 ];
 
 function treeWith(files: Record<string, string>, { debugScreens = DEBUG_SCREENS } = {}) {

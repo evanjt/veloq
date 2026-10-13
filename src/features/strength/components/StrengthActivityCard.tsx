@@ -167,14 +167,14 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
             </RNText>
           </View>
         )}
-        {activity.has_weather && activity.average_weather_temp != null && (
+        {activity.has_weather && activity.average_weather_temp != null ? (
           <View style={styles.secondaryStat}>
             <MaterialCommunityIcons name="weather-partly-cloudy" size={14} color={colors.info} />
             <RNText style={[styles.secondaryStatValue, { color: compactMutedColor }]}>
               {formatTemperature(activity.average_weather_temp, isMetric)}
             </RNText>
           </View>
-        )}
+        ) : null}
       </Pressable>
     </ScrollView>
   );

@@ -48,7 +48,12 @@ beforeEach(() => {
   jest.clearAllMocks();
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
-  engine.searchActivityBodies.mockReturnValue({ bodies: [], matchedCount: 0, hasMore: false });
+  engine.searchActivityBodies.mockReturnValue({
+    bodies: [],
+    intervalsIds: [],
+    matchedCount: 0,
+    hasMore: false,
+  });
   useAuthStore.setState({ isAuthenticated: true, athleteId: 'i1' });
 });
 
@@ -68,6 +73,7 @@ describe('useFeedSearch', () => {
   it('reads the engine with the trimmed text and no sport when only text is set', async () => {
     engine.searchActivityBodies.mockReturnValue({
       bodies: [body('old')],
+      intervalsIds: [null],
       matchedCount: 1,
       hasMore: false,
     });
@@ -117,6 +123,7 @@ describe('useFeedSearch', () => {
   it('has the first page in the render that asked for it, so the list never blanks', async () => {
     engine.searchActivityBodies.mockReturnValue({
       bodies: [body('old')],
+      intervalsIds: [null],
       matchedCount: 1,
       hasMore: false,
     });
@@ -130,6 +137,7 @@ describe('useFeedSearch', () => {
 
     engine.searchActivityBodies.mockReturnValue({
       bodies: [body('older')],
+      intervalsIds: [null],
       matchedCount: 1,
       hasMore: false,
     });
@@ -155,10 +163,11 @@ describe('useFeedSearch', () => {
     engine.searchActivityBodies
       .mockReturnValueOnce({
         bodies: Array.from({ length: 30 }, (_, i) => body(`p1-${i}`)),
+        intervalsIds: Array.from({ length: 30 }, () => null),
         matchedCount: 31,
         hasMore: true,
       })
-      .mockReturnValueOnce({ bodies: [], matchedCount: 31, hasMore: false });
+      .mockReturnValueOnce({ bodies: [], intervalsIds: [], matchedCount: 31, hasMore: false });
     const { result } = await render('ferry', null, MARCH_2024);
 
     await waitFor(() => expect(result.current.activities).toHaveLength(30));
@@ -227,10 +236,16 @@ describe('useFeedSearch', () => {
     engine.searchActivityBodies
       .mockReturnValueOnce({
         bodies: Array.from({ length: 30 }, (_, i) => body(`p1-${i}`)),
+        intervalsIds: Array.from({ length: 30 }, () => null),
         matchedCount: 31,
         hasMore: true,
       })
-      .mockReturnValueOnce({ bodies: [body('p2-0')], matchedCount: 31, hasMore: false });
+      .mockReturnValueOnce({
+        bodies: [body('p2-0')],
+        intervalsIds: [null],
+        matchedCount: 31,
+        hasMore: false,
+      });
 
     const { result } = await render('', 'Swimming');
 
@@ -256,6 +271,7 @@ describe('useFeedSearch', () => {
   it('drops a body that will not parse rather than failing the page', async () => {
     engine.searchActivityBodies.mockReturnValue({
       bodies: ['{broken', body('kept')],
+      intervalsIds: [null, 'i7'],
       matchedCount: 2,
       hasMore: false,
     });
@@ -263,6 +279,7 @@ describe('useFeedSearch', () => {
     const { result } = await render('ferry', null);
 
     await waitFor(() => expect(result.current.activities.map((a) => a.id)).toEqual(['kept']));
+    expect(result.current.activities[0].intervalsWebId).toBe('i7');
   });
 
   it('is an error rather than an empty match when the engine is not open', async () => {

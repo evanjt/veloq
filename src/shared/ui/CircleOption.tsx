@@ -102,7 +102,7 @@ export function CircleOptionRow<T extends string>({
               ]}
             >
               <View
-                testID={optionTestID && `${optionTestID}-circle`}
+                testID={optionTestID ? `${optionTestID}-circle` : undefined}
                 style={[
                   styles.circle,
                   { width: size, height: size, borderRadius: size / 2 },

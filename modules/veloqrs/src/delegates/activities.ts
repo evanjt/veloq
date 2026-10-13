@@ -272,7 +272,9 @@ export function getActivityBody(host: DelegateHost, activityId: string): string 
 }
 
 /**
- * Untyped activity bodies over an inclusive timestamp window, newest first.
+ * Untyped activity bodies over an inclusive timestamp window, newest first,
+ * with the intervals.icu id a web link may name beside each. Undefined when
+ * the engine is not ready.
  *
  * The feed and detail screens read fields no Rust type models (calories,
  * weather, stream_types), so they parse these rather than a
@@ -282,17 +284,15 @@ export function getActivityBodies(
   host: DelegateHost,
   oldestTs: number,
   newestTs: number
-): string[] {
-  if (!host.ready) return [];
-  return (
-    readActivityBodies(host, 'getActivityBodies', {
-      oldestTs,
-      newestTs,
-      needle: '',
-      sportGroups: [],
-      offset: 0,
-    })?.bodies ?? []
-  );
+): FfiActivityBodiesPage | undefined {
+  if (!host.ready) return undefined;
+  return readActivityBodies(host, 'getActivityBodies', {
+    oldestTs,
+    newestTs,
+    needle: '',
+    sportGroups: [],
+    offset: 0,
+  });
 }
 
 /** A feed search: the text and the chip, paged, over every stored activity. */

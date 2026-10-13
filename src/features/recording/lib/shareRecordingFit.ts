@@ -1,33 +1,21 @@
-import type { TFunction } from 'i18next';
-
 import { recordingFitExists } from '@/features/recording/lib/storage/recordingLibrary';
-import { shareExistingFile } from '@/features/settings/light';
-import { informShareFailed } from '@/shared/ui/shareFailure';
+import { shareCopyAs, type ShareAnchor } from '@/features/settings/light';
+import { formatLocalDate } from '@/shared/format/format';
 import type { RecordingLibraryEntry } from '@/types';
 
 /**
  * Send a recording's FIT file where the athlete chooses, answering whether the
- * file is still on the device. A send that fails or a device with no share
- * sheet says so; a sheet closed without a target is not a failure.
+ * file is still on the device. The file on disk is named by its storage id, so
+ * a copy goes out under the recording's name and local date. Rejects when it
+ * could not be shared, so the caller can say so.
  */
 export async function shareRecordingFit(
   entry: RecordingLibraryEntry,
-  t: TFunction
+  anchor?: ShareAnchor
 ): Promise<boolean> {
   if (entry.kind !== 'fit' || !entry.fitPath) return false;
-  let available = false;
-  try {
-    available = await recordingFitExists(entry);
-  } catch {
-    return false;
-  }
-  if (!available) return false;
-  try {
-    await shareExistingFile(entry.fitPath, 'application/octet-stream', {
-      name: `${entry.name}.fit`,
-    });
-  } catch (error) {
-    informShareFailed(error, t);
-  }
+  if (!(await recordingFitExists(entry))) return false;
+  const name = `${entry.name} ${formatLocalDate(new Date(entry.startTime))}`;
+  await shareCopyAs(entry.fitPath, 'fit', name, anchor);
   return true;
 }
