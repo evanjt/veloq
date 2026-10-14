@@ -21,7 +21,7 @@ import { FitnessMilestoneContent } from '@/features/insights/components/content/
 import { MethodologySection } from '@/features/insights/components/MethodologySection';
 import { generateFitnessMilestoneInsights } from '@/features/insights/generators/fitnessMilestone';
 import type { Insight, InsightCategory, TFunc } from '@/features/insights/types';
-import { formatEpochDayUtc, formatShortDate } from '@/shared/format/format';
+import { formatEpochDayUtc, formatLocalDate, formatShortDate } from '@/shared/format/format';
 import type { Activity, WellnessData } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -99,9 +99,10 @@ describe('the fitness and form chart headers at rest', () => {
     { id: '2026-06-13', ctl: 41, atl: 49 },
     { id: '2026-06-14', ctl: 42, atl: 47 },
   ] as WellnessData[];
+  // The charts read today on the local clock, which is the 18th at UTC+14.
   const endingToday = [
     ...endingThreeDaysAgo,
-    { id: '2026-06-17', ctl: 43, atl: 45 },
+    { id: formatLocalDate(new Date()), ctl: 43, atl: 45 },
   ] as WellnessData[];
 
   it('names the newest row by its date when it is not today', async () => {
