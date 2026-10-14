@@ -107,7 +107,7 @@ jobs:
 
       - name: Upload report
         if: ${{ !cancelled() && steps.measured.outputs.cache-matched-key == '' }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: rust-coverage
           path: modules/veloqrs/rust/coverage.json
