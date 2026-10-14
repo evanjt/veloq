@@ -161,7 +161,8 @@ enum SummaryWidgetModel {
       return nil
     case .fitnessForm:
       let series =
-        snapshot.sparklines.fatigue.count >= 2 ? [labels.fitness, labels.fatigue] : [labels.fitness]
+        (snapshot.sparklines.fatigue?.count ?? 0) >= 2
+        ? [labels.fitness, labels.fatigue] : [labels.fitness]
       return ChartCaption(series: series, span: spans?.fitness)
     case .hrv:
       return ChartCaption(series: [], span: spans?.hrv)

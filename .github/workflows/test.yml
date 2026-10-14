@@ -27,7 +27,9 @@ jobs:
     # five minutes over the slowest figure. A run past it needs its logs read
     # to tell a slow runner from a stuck suite. A cancelled run saves no Jest
     # cache, so a cap under the cold figure keeps every later run cold too.
-    timeout-minutes: 15
+    # At 1,816 suites a cold run passed 1,563 by the fifteen-minute cap, so
+    # it needs about 18 minutes and the cap is 25.
+    timeout-minutes: 25
     # The app project runs under the zones furthest east and west of UTC, so a
     # formatter that mixes UTC and local fields fails here and not only for
     # athletes at those offsets.
