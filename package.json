@@ -93,6 +93,7 @@
     "check:licences": "node scripts/check-license-coverage.mjs",
     "check:build-inputs": "node scripts/check-build-inputs.mjs",
     "check:module-version": "node scripts/check-module-version.mjs",
+    "check:maestro-flows": "node scripts/check-maestro-flows.mjs",
     "check:production-console": "node scripts/check-production-console.mjs",
     "check:worklets": "node scripts/patch-worklets-lifecycle.js --check",
     "check:sheet-width": "node scripts/patch-screens-sheet-width.js --check",
