@@ -21,7 +21,7 @@ tags:
     timeout: 10000
 - copyTextFrom:
     id: "param-editor-input"
-- evalScript: ${output.target = maestro.copiedText.trim() == '4' ? '5' : '4'}
+- evalScript: "${output.target = maestro.copiedText.trim() == '4' ? '5' : '4'}"
 - tapOn:
     id: "param-editor-input"
 - eraseText: 10

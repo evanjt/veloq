@@ -67,6 +67,13 @@ const GUARDS = [
     catches: 'an app release carrying a veloqrs pod with a stale version and source tag',
   },
   {
+    name: 'check:maestro-flows',
+    kind: 'correctness',
+    cmd: node('check-maestro-flows.mjs'),
+    catches:
+      'a Maestro flow that is not valid YAML, which stops the whole suite on both platforms before any flow runs',
+  },
+  {
     name: 'check:licences',
     kind: 'correctness',
     cmd: node('check-license-coverage.mjs'),
