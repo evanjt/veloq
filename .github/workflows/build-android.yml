@@ -458,7 +458,7 @@ jobs:
           fi
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.apk.outputs.name }}
           path: artifacts/*.apk
@@ -473,7 +473,7 @@ jobs:
 
       - name: Upload widget capture test
         if: inputs.widget-captures
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.captures.outputs.name }}
           path: modules/veloqrs/android/build/outputs/apk/androidTest/debug/veloqrs-debug-androidTest.apk
@@ -532,7 +532,7 @@ jobs:
 
       - name: Upload AAB artifact
         if: env.RELEASE_BUILD == 'true'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: android-aab-${{ steps.version.outputs.filename }}
           path: artifacts/*.aab

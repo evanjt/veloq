@@ -133,7 +133,7 @@ jobs:
 
       - name: Upload screenshots
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: screenshots-android
           path: screenshots-flat/
@@ -141,7 +141,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: maestro-android-report
           path: |
@@ -151,7 +151,7 @@ jobs:
 
       - name: Upload diagnostic logs
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: android-logcat
           path: |
@@ -214,7 +214,7 @@ jobs:
 
       - name: Upload widget captures
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: widget-captures-android
           path: widget-captures/
@@ -329,7 +329,7 @@ jobs:
 
       - name: Upload screenshots
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: screenshots-ios-${{ matrix.shard.name }}
           path: screenshots-flat/
@@ -337,7 +337,7 @@ jobs:
 
       - name: Upload diagnostic logs
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ios-sim-logs-${{ matrix.shard.name }}
           path: |
@@ -347,7 +347,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: maestro-ios-report-${{ matrix.shard.name }}
           path: |
@@ -390,7 +390,7 @@ jobs:
 
       - name: Upload widget captures
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: widget-captures-ios
           path: widget-captures-ios/

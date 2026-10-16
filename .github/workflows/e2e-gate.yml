@@ -151,7 +151,7 @@ jobs:
 
       - name: Upload Maestro debug output
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-gate-debug
           path: /tmp/maestro-artifacts
@@ -163,7 +163,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-gate-report
           path: |
@@ -263,7 +263,7 @@ jobs:
 
       - name: Upload Maestro debug output
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-map-debug
           path: /tmp/maestro-map-artifacts
@@ -275,7 +275,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-map-report
           path: |
@@ -337,7 +337,7 @@ jobs:
 
       - name: Upload Maestro debug output
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-ios-map-debug
           path: /tmp/maestro-ios-map-artifacts
@@ -348,7 +348,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-ios-map-report
           path: |
