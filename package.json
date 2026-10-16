@@ -323,7 +323,7 @@
     "pngjs": "^7.0.0",
     "prettier": "^3.4.2",
     "react-dom": "19.2.3",
-    "typescript": "~6.0.3",
+    "typescript": "~7.0.2",
     "typescript-eslint": "^8.71.1",
     "uniffi-bindgen-react-native": "^0.31.0-6"
   },
