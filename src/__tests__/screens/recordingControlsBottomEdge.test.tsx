@@ -4,6 +4,12 @@
  *
  * Expected behaviour: Pause, Stop and Lap, and the unlock track while locked, keep a margin from
  * the screen edge with no inset, and clear the inset exactly once when there is one.
+ *
+ * Scenario: the same screen in a split-screen pane or at a large text size, where the column is
+ * taller than the window.
+ *
+ * Expected behaviour: the controls and the unlock track sit outside the region that gives way, so
+ * the map shrinks and then the region scrolls while they stay on screen.
  */
 
 import React, { type ReactNode } from 'react';
@@ -15,6 +21,8 @@ import RecordingScreen from '@/app/recording/[type]';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { spacing } from '@/theme';
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
+import type { ReactTestInstance } from 'react-test-renderer';
 
 let mockParams: Record<string, string | undefined> = {};
 const mockBodies: string[] = [];
@@ -145,4 +153,82 @@ it('clears a gesture bar once', async () => {
   await unlock();
 
   expect(bottomPaddingAround('control-pause')).toBe(48);
+});
+
+function isInside(node: ReactTestInstance, ancestor: ReactTestInstance): boolean {
+  for (let at: ReactTestInstance | null = node.parent; at; at = at.parent) {
+    if (at === ancestor) return true;
+  }
+  return false;
+}
+
+async function layOut(testID: string, height: number) {
+  await act(async () =>
+    fireEvent(screen.getByTestId(testID), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 360, height } },
+    })
+  );
+}
+
+describe('in a window shorter than the column', () => {
+  it('keeps the unlock track out of the region that gives way', async () => {
+    await render(<RecordingScreen />, { wrapper: withInset(0) });
+
+    const region = screen.getByTestId('recording-column-region');
+    expect(isInside(screen.getByTestId('recording-unlock-slot'), region)).toBe(false);
+    expect(isInside(screen.getByTestId('recording-timer'), region)).toBe(true);
+  });
+
+  it('keeps Stop, Lap and Pause out of the region that gives way', async () => {
+    await render(<RecordingScreen />, { wrapper: withInset(0) });
+    await unlock();
+
+    const region = screen.getByTestId('recording-column-region');
+    for (const control of ['control-stop', 'control-lap', 'control-pause']) {
+      expect(isInside(screen.getByTestId(control), region)).toBe(false);
+    }
+  });
+
+  it('gives the map what is left of a half-screen pane, without scrolling', async () => {
+    await render(<RecordingScreen />, { wrapper: withInset(0) });
+    await unlock();
+    await layOut('recording-column-head', 125);
+    await layOut('recording-column-tiles', 167);
+    await layOut('recording-column-region', 310);
+
+    const region = screen.getByTestId('recording-column-region');
+    expect(region.props.scrollEnabled).toBe(false);
+    expect(StyleSheet.flatten(screen.getByTestId('recording-map-slot').props.style).height).toBe(
+      18
+    );
+  });
+
+  it('scrolls the region with the map at zero, still mounted, once the tiles alone overflow it', async () => {
+    await render(<RecordingScreen />, { wrapper: withInset(0) });
+    await unlock();
+    await layOut('recording-column-head', 125);
+    await layOut('recording-column-tiles', 167);
+    await layOut('recording-column-region', 180);
+
+    expect(screen.getByTestId('recording-column-region').props.scrollEnabled).toBe(true);
+    expect(StyleSheet.flatten(screen.getByTestId('recording-map-slot').props.style).height).toBe(0);
+    expect(screen.getByTestId('recording-map')).toBeTruthy();
+  });
+
+  it('holds the region still while locked, as the lock holds the map', async () => {
+    await render(<RecordingScreen />, { wrapper: withInset(0) });
+    await layOut('recording-column-head', 125);
+    await layOut('recording-column-tiles', 167);
+    await layOut('recording-column-region', 180);
+
+    expect(screen.getByTestId('recording-column-region').props.scrollEnabled).toBe(false);
+  });
+
+  it('caps the timer at the dense text scale', async () => {
+    await render(<RecordingScreen />, { wrapper: withInset(0) });
+
+    expect(screen.getByTestId('recording-timer').props.maxFontSizeMultiplier).toBe(
+      DENSE_TEXT_SCALE
+    );
+  });
 });

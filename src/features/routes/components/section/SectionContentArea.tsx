@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import {
   SectionPerformanceSection,
   type PerformanceSubject,
@@ -150,7 +150,7 @@ export function SectionContentArea({
         >
           <MaterialCommunityIcons
             name="delete-outline"
-            size={18}
+            size={iconSize.md}
             color={isDark ? darkColors.warningAmber : colors.warningAmber}
           />
           <Text
@@ -174,7 +174,7 @@ export function SectionContentArea({
           onPress={onMergePress}
           android_ripple={pressRipple}
         >
-          <MaterialCommunityIcons name="call-merge" size={18} color={colors.info} />
+          <MaterialCommunityIcons name="call-merge" size={iconSize.md} color={colors.info} />
           <Text style={[styles.mergeBannerText, isDark && styles.mergeBannerTextDark]}>
             {t('sections.similarNearbyCount', {
               count: mergeCandidates.length,
@@ -182,7 +182,7 @@ export function SectionContentArea({
           </Text>
           <MaterialCommunityIcons
             name="chevron-right"
-            size={18}
+            size={iconSize.md}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
         </Pressable>

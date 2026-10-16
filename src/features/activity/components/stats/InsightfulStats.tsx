@@ -15,7 +15,7 @@ import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { openExternal } from '@/shared/app/openExternal';
-import { colors, spacing } from '@/theme';
+import { colors, iconSize, spacing } from '@/theme';
 import type { Activity, WellnessData } from '@/types';
 import type { ActivityFitnessImpact, ActivitySummary, MaxHrSource } from 'veloqrs';
 import { useActivityStats } from './useActivityStats';
@@ -96,7 +96,13 @@ export function InsightfulStats({
               variant="ghost"
               size="sm"
               onPress={openInIntervalsICU}
-              icon={<MaterialCommunityIcons name="open-in-new" size={14} color={colors.primary} />}
+              icon={
+                <MaterialCommunityIcons
+                  name="open-in-new"
+                  size={iconSize.sm}
+                  color={colors.primary}
+                />
+              }
             />
           ) : undefined
         }

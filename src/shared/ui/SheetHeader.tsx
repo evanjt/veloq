@@ -44,6 +44,7 @@ import {
   colors,
   controlHeight,
   darkColors,
+  iconSize,
   layout,
   slopToMinTapTarget,
   spacing,
@@ -85,7 +86,6 @@ export interface SheetHeaderProps extends SheetActionsProps {
 }
 
 /** The close glyph, the same in every sheet. */
-const CLOSE_GLYPH = 22;
 
 /** Whether this platform carries a sheet's actions in its title row rather than below it. */
 function actionsInTitleRow(): boolean {
@@ -190,7 +190,7 @@ export function SheetHeader({
             >
               <MaterialCommunityIcons
                 name="close"
-                size={CLOSE_GLYPH}
+                size={iconSize.lg}
                 color={palette.textSecondary}
               />
             </IconButton>

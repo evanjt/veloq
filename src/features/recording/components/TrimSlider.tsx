@@ -15,13 +15,14 @@ import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import {
+  brand,
   colors,
   colorWithOpacity,
   darkColors,
-  spacing,
-  brand,
-  shadows,
+  iconSize,
   layout,
+  shadows,
+  spacing,
   typography,
 } from '@/theme';
 import { formatDuration } from '@/shared/format/format';
@@ -247,7 +248,7 @@ export function TrimSlider({
       >
         <MaterialCommunityIcons
           name={later ? 'chevron-right' : 'chevron-left'}
-          size={20}
+          size={iconSize.md}
           color={textPrimary}
         />
       </IconButton>
@@ -265,7 +266,7 @@ export function TrimSlider({
           {isTrimmed ? (
             <MaterialCommunityIcons
               name="content-cut"
-              size={14}
+              size={iconSize.sm}
               color={textPrimary}
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"

@@ -50,29 +50,10 @@ if (!locked) refuse(`package-lock.json records no ${name} at ${key}`);
 if (installed !== locked) refuse(`${name} ${installed} is installed but package-lock.json records ${locked}`);
 NODE
 
+# One debug host library per Rust source on this machine, built here only when
+# no tree has built it yet.
+LIBRARY=$("$MODULE_DIR/scripts/host-library.sh")
 cd rust
-HOST=$(rustc -vV | sed -n 's/^host: //p')
-if [ -z "$HOST" ]; then
-  echo 'Could not determine the Rust host target' >&2
-  exit 1
-fi
-ARTIFACTS=$(mktemp)
-trap 'rm -f "$ARTIFACTS"' EXIT
-cargo build -p veloqrs --target "$HOST" --message-format=json-render-diagnostics > "$ARTIFACTS"
-LIBRARY=$(node - "$ARTIFACTS" <<'NODE'
-const fs = require('fs');
-const messages = fs.readFileSync(process.argv[2], 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse);
-const libraries = messages
-  .filter(message => message.reason === 'compiler-artifact' && message.target.name === 'veloqrs')
-  .flatMap(message => message.filenames)
-  .filter(filename => /\.(so|dylib)$/.test(filename));
-if (libraries.length !== 1 || !fs.existsSync(libraries[0])) {
-  console.error(`Host library not found in Cargo output: ${libraries.join(', ') || 'no shared library reported'}`);
-  process.exit(1);
-}
-process.stdout.write(libraries[0]);
-NODE
-)
 npx uniffi-bindgen-react-native generate jsi bindings \
   "$LIBRARY" --library \
   --ts-dir "$OUTPUT_DIR/src/generated" --cpp-dir "$OUTPUT_DIR/cpp/generated"

@@ -10,7 +10,7 @@ import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { Row, SheetHeader } from '@/shared/ui';
 import { formatDistance } from '@/shared/format/format';
 import { SportIcons } from '@/shared/activity/SportIcons';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import type { MergeCandidatesSheetInput } from '@/features/routes';
 import { tapBack } from '@/shared/app/navigation';
 
@@ -39,7 +39,7 @@ function MergeCandidatesSheetContent() {
         accessibilityLabel={item.name ?? item.sectionId}
         onPress={() => resolve(item)}
       >
-        <SportIcons sportTypes={item.sportTypes} size={22} color={textSecondary} />
+        <SportIcons sportTypes={item.sportTypes} size={iconSize.lg} color={textSecondary} />
         <View style={styles.rowContent}>
           <Text style={[styles.rowName, { color: textPrimary }]} numberOfLines={1}>
             {item.name ?? item.sectionId}

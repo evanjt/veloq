@@ -14,7 +14,7 @@ import {
   type BackgroundJobRun,
   type BackgroundJobId,
 } from '@/features/settings/hooks/useBackgroundJobs';
-import { colors, darkColors, spacing, typography, layout } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 
 const ICONS: Record<BackgroundJobId, React.ComponentProps<typeof MaterialCommunityIcons>['name']> =
   {
@@ -156,7 +156,7 @@ function JobRow({ job }: { job: BackgroundJob }) {
 
   return (
     <View style={styles.row} testID={`background-job-${job.id}`}>
-      <MaterialCommunityIcons name={ICONS[job.id]} size={22} color={textSecondary} />
+      <MaterialCommunityIcons name={ICONS[job.id]} size={iconSize.md} color={textSecondary} />
       <View style={styles.rowText}>
         <Text style={[styles.title, { color: textPrimary }]}>{t(TITLE_KEYS[job.id])}</Text>
         <Text
@@ -217,7 +217,7 @@ export function BackgroundJobsActivityBar() {
         icon={
           <DisclosureChevron
             expanded={expanded}
-            size={20}
+            size={iconSize.md}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
         }

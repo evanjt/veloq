@@ -1,5 +1,6 @@
 import React from 'react';
-import { Modal, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { FullWindowModal } from '@/shared/ui/FullWindowModal';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
@@ -51,7 +52,7 @@ export const InsightDebugPanel = React.memo(function InsightDebugPanel({
   const onScreen = outcome?.consolidated ?? outcome?.kept ?? [];
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+    <FullWindowModal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={[styles.container, isDark && styles.containerDark]}>
         <View style={styles.header}>
           <Text style={[styles.title, { color: textColor }]}>Insight pipeline debug</Text>
@@ -119,7 +120,7 @@ export const InsightDebugPanel = React.memo(function InsightDebugPanel({
           )}
         </ScrollView>
       </View>
-    </Modal>
+    </FullWindowModal>
   );
 });
 

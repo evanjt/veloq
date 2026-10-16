@@ -25,10 +25,6 @@ jest.mock('@/shared/app/useTheme', () => ({
   useTheme: () => ({ isDark: false }),
 }));
 
-jest.mock('@/shared/native/engine', () => ({
-  getEngine: () => ({ setNetworkOnline: () => {} }),
-}));
-
 jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context'),
   useSafeAreaInsets: () => ({ top: 40, bottom: 0, left: 0, right: 0 }),

@@ -54,3 +54,16 @@ export type { ChartPadding, Domain, ProjectedPoint } from './cartesian';
 
 export { curveLineSvg, curveAreaSvg } from './curvePath';
 export type { CurveKind } from './curvePath';
+
+export {
+  curveSummary,
+  lanesSummary,
+  partsSummary,
+  partsTable,
+  seriesSummary,
+  seriesTable,
+} from './chartSummary';
+export type { ChartTable, SummaryPart, SummaryPoint, SummarySeries } from './chartSummary';
+
+export { ChartSurface } from './ChartSurface';
+export type { ChartSurfaceProps } from './ChartSurface';

@@ -370,6 +370,7 @@
     "backupFailedFolder": "Veloq からバックアップフォルダーにアクセスできなくなりました。フォルダーをもう一度選択してください。",
     "backupFailedIcloud": "Veloq の iCloud Drive がオフになっているか、この iPhone が iCloud にサインインしていません。iPhone の設定でオンにしてください。",
     "backupFailedUnverified": "バックアップを書き込みましたが、確認のために読み戻せませんでした。後でもう一度試します。",
+    "backupFailedAddress": "WebDAVサーバーのアドレスは有効な https:// アドレスである必要があります。バックアップ設定で確認してください。",
     "lastAttemptFailed": "前回の試行は {{date}} に失敗しました",
     "androidLastBackup": "Androidの最終バックアップ: {{date}}、{{size}}",
     "androidBackupNever": "AndroidはまだVeloqをバックアップしていません",
@@ -386,6 +387,7 @@
     "cameraPermissionNeeded": "QRコードのスキャンにはカメラへのアクセスが必要です",
     "enterDetailsInstead": "詳細を手動で入力",
     "fillAllFields": "すべてのフィールドを入力してください",
+    "fillField": "「{{field}}」を入力してください",
     "webdavHttpsRequired": "https:// のアドレスを使ってください。http:// のサーバーにはパスワードと記録アーカイブが暗号化されずに送られます。",
     "webdavInvalidUrl": "有効なサーバーアドレスではありません",
     "webdavSaveFailed": "このデバイスにサーバー情報を保存できませんでした",
@@ -506,7 +508,7 @@
       "title": "問題が発生しました"
     },
     "offline": {
-      "description": "一部の機能が制限される場合があります",
+      "description": "オンラインに戻ると、同期とアップロードが再開されます。",
       "title": "オフラインです"
     },
     "syncError": {
@@ -2776,6 +2778,26 @@
     "offPr": "自己ベストまで{{delta}}",
     "cycleHint": "タップで切り替え",
     "laps": "ラップ数: {{n}}",
-    "elevationLoss": "獲得標高（下り）"
+    "elevationLoss": "獲得標高（下り）",
+    "chartPageForward": "大きく進む",
+    "chartPageBack": "大きく戻る"
+  },
+  "charts": {
+    "showData": "データを表示",
+    "summary": {
+      "title": "{{title}}。",
+      "empty": "{{name}}：データなし。",
+      "single": "{{name}}、{{start}}：{{value}}。",
+      "series": "{{name}}、{{start}}～{{end}}：最新 {{latest}}、範囲 {{min}}～{{max}}、平均 {{average}}。",
+      "curve": "{{name}}、{{start}}～{{end}}：{{start}}で{{first}}、{{end}}で{{last}}、ピーク {{max}}。",
+      "parts": "{{name}}：{{parts}}。"
+    },
+    "column": {
+      "date": "日付",
+      "duration": "継続時間",
+      "distance": "距離",
+      "zone": "ゾーン",
+      "time": "時間"
+    }
   }
 }

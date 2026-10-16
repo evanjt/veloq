@@ -3,6 +3,12 @@
 
 appId: com.veloq.app.dev
 ---
+# The button sits below the fold on a short screen.
+- scrollUntilVisible:
+    element:
+      id: "review-discard-button"
+    direction: DOWN
+
 - tapOn:
     id: "review-discard-button"
 

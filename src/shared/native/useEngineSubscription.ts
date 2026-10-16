@@ -36,22 +36,28 @@ export type EngineEvent =
   | 'cutoverSettled';
 
 /**
- * Returns a trigger value that changes when any subscribed event fires.
+ * Returns a trigger value that changes when any subscribed event fires, and
+ * each time the engine opens after the subscriber mounted.
  *
- * If the engine is not available on first mount, polls until it becomes
- * available and bumps the trigger once it is, to avoid permanently missing
- * events.
+ * The handle exists before it opens, so a subscriber that mounted ahead of the
+ * open holds the same object after it and its subscription is never rebuilt.
+ * Opening announces nothing on any channel either, so the open is a reason to
+ * read again in its own right, as it is for `useEngineRead`.
  */
 export function useEngineSubscription(events: EngineEvent[]): number {
-  return useEventGeneration(events, true);
+  const generation = useEventGeneration(events);
+  const opened = useEngineStatus((s) => s.readyNonce);
+  // Counted from mount, so the trigger starts at zero whatever opened before.
+  const openedAtMount = useRef(opened);
+  // Both terms only rise, so the sum moves whenever either does.
+  return generation + opened - openedAtMount.current;
 }
 
 /**
- * The trigger behind both hooks. `bumpOnArrival` is the late-subscription
- * refresh, which a reader keyed on the open itself does not need: the render
- * that saw the open already read, and a second bump would read again.
+ * The trigger behind both hooks: a count of the announcements on `events`.
+ * An open is not one of them, and each hook adds it on its own terms.
  */
-function useEventGeneration(events: EngineEvent[], bumpOnArrival: boolean): number {
+function useEventGeneration(events: EngineEvent[]): number {
   const [trigger, setTrigger] = useState(0);
 
   // Stable ref for the refresh callback to avoid stale closures
@@ -63,17 +69,12 @@ function useEventGeneration(events: EngineEvent[], bumpOnArrival: boolean): numb
   // below can be keyed on. Memoising it on itself bought nothing.
   const eventKey = events.join(',');
 
-  // A subscription that arrives after the first render can have missed a
-  // change, so it refreshes on arrival. The first one cannot: the render that
-  // saw the engine read the current state.
+  // Null only when the native module never loaded, and that does not change
+  // later, so there is nothing to subscribe to and nothing missed.
   const engine = useEngineReady();
-  const missedRef = useRef(false);
 
   useEffect(() => {
-    if (!engine) {
-      missedRef.current = true;
-      return undefined;
-    }
+    if (!engine) return undefined;
 
     // Rebuilt from the key rather than read from `events`, so the key is the
     // whole dependency and a changed list cannot hide behind an unchanged one.
@@ -81,15 +82,11 @@ function useEventGeneration(events: EngineEvent[], bumpOnArrival: boolean): numb
     const list = eventKey === '' ? [] : (eventKey.split(',') as EngineEvent[]);
     const cb = () => refreshRef.current();
     const unsubscribes = list.map((event) => engine.subscribe(event, cb));
-    if (missedRef.current && bumpOnArrival) {
-      refreshRef.current();
-    }
-    missedRef.current = false;
 
     return () => {
       unsubscribes.forEach((u) => u());
     };
-  }, [eventKey, engine, bumpOnArrival]);
+  }, [eventKey, engine]);
 
   return trigger;
 }
@@ -132,9 +129,8 @@ export function useEngineRead(
   // The handle exists before it opens and answers every read with its empty
   // default, and opening it announces nothing on any channel. So the open is a
   // reason to look again in its own right, or a screen mounted while the
-  // engine was opening keeps the empty answer it got. It also covers a handle
-  // that arrived late, which is why the subscription's own arrival bump is off.
-  const generation = useEventGeneration(events, false);
+  // engine was opening keeps the empty answer it got.
+  const generation = useEventGeneration(events);
   const opened = useEngineStatus((s) => s.readyNonce);
   // Callers pass a fresh array literal every render, so the serialised keys
   // are the identity, the same reasoning as the event key above.

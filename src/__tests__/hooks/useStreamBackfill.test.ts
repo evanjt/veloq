@@ -14,6 +14,16 @@ jest.mock('@/shared/native/engine', () => ({
   getEngine: jest.fn(),
 }));
 
+const mockConsentStreamBackfill = jest.fn();
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    streamBackfill: {
+      consentStreamBackfill: () => mockConsentStreamBackfill(),
+      stopStreamBackfill: () => {},
+    },
+  })
+);
+
 jest.mock('@/shared/native/useSyncStatus', () => ({
   useSyncState: () => 'idle',
 }));
@@ -61,6 +71,7 @@ describe('useStreamBackfill', () => {
     listeners.clear();
     phase = 'idle';
     mockGetEngine.mockReturnValue(engine());
+    mockConsentStreamBackfill.mockReset();
   });
 
   afterEach(() => {
@@ -133,11 +144,7 @@ describe('useStreamBackfill', () => {
 
   describe('a refused start', () => {
     function withConsent(consent: () => StartOutcome) {
-      const base = engine() as unknown as Record<string, unknown>;
-      mockGetEngine.mockReturnValue({
-        ...base,
-        consentStreamBackfill: consent,
-      } as unknown as ReturnType<typeof getEngine>);
+      mockConsentStreamBackfill.mockImplementation(consent);
     }
 
     it.each([

@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Modal,
   View,
   StyleSheet,
   Pressable,
@@ -8,6 +7,7 @@ import {
   type AccessibilityActionEvent,
   type LayoutChangeEvent,
 } from 'react-native';
+import { FullWindowModal } from '@/shared/ui/FullWindowModal';
 import { Text } from 'react-native-paper';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
@@ -340,7 +340,7 @@ export function WhatsNewModal() {
   // `onRequestClose`, and hides the app beneath from TalkBack. iOS keeps the app
   // beneath a transparent modal, so the card marks itself modal for VoiceOver.
   return (
-    <Modal
+    <FullWindowModal
       visible={showModal}
       transparent
       animationType="fade"
@@ -378,7 +378,7 @@ export function WhatsNewModal() {
                       body={t(slide.bodyKey as never)}
                       availableHeight={slideAreaHeight}
                     >
-                      {slide.Component ? <slide.Component /> : null}
+                      <slide.Component />
                     </WhatsNewSlide>
                   </View>
                 ))}
@@ -447,7 +447,7 @@ export function WhatsNewModal() {
           </View>
         </View>
       </GestureHandlerRootView>
-    </Modal>
+    </FullWindowModal>
   );
 }
 

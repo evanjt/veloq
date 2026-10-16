@@ -6,6 +6,7 @@
 
 import * as SecureStore from 'expo-secure-store';
 
+import { addressFailure } from './backends/errors';
 import PLAIN_LAN_SUFFIXES from './plainLanSuffixes.json';
 
 const WEBDAV_URL_KEY = 'veloq-webdav-url';
@@ -66,16 +67,6 @@ export function webdavUrlProblem(url: string, plainLan = false): WebdavUrlProble
   return 'not-https';
 }
 
-const PROBLEM_MESSAGES: Record<WebdavUrlProblem, string> = {
-  empty: 'No WebDAV server address',
-  invalid: 'The WebDAV server address is not a URL',
-  'not-https': 'The WebDAV server address must use https',
-};
-
-export function webdavUrlProblemMessage(problem: WebdavUrlProblem): string {
-  return PROBLEM_MESSAGES[problem];
-}
-
 // In-memory cache (SecureStore is async but we need sync access for isAvailable)
 let _webdavCache: WebdavConfig | null = null;
 
@@ -110,7 +101,10 @@ export async function initWebdavConfig(): Promise<void> {
   }
 }
 
-/** Save WebDAV config to SecureStore and cache. Throws on an address that would send in the clear. */
+/**
+ * Save WebDAV config to SecureStore and cache. Rejects with an `address` failure
+ * for an address that would send in the clear.
+ */
 export async function setWebdavConfig(
   url: string,
   username: string,
@@ -118,7 +112,7 @@ export async function setWebdavConfig(
   plainLan = false
 ): Promise<void> {
   const problem = webdavUrlProblem(url, plainLan);
-  if (problem) throw new Error(webdavUrlProblemMessage(problem));
+  if (problem) throw addressFailure('Save WebDAV server', problem);
   const opts = { keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY };
   await Promise.all([
     SecureStore.setItemAsync(WEBDAV_URL_KEY, url, opts),

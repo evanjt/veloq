@@ -31,7 +31,7 @@ describe('recording flows clean up before they start', () => {
     // route needs the activity type, which the helper does not know.
     expect(helper).toContain('recording-return-pill');
     expect(helper).toContain('control-stop');
-    expect(helper).toContain('review-discard-button');
+    expect(helper).toContain('review-screen');
   });
 
   it.each(recordingFlows)('%s runs the discard helper after the demo setup', (file) => {

@@ -29,7 +29,7 @@ import {
 } from '@/shared/ui';
 import { useSyncState } from '@/shared/native/useSyncStatus';
 import { SyncState } from 'veloqrs';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import type { StrengthPeriod, MuscleVolume } from '@/types';
 import { PERIOD_LABEL_KEYS, DEFAULT_PERIOD } from '@/shared/app/period';
 import { strengthExplanation } from '../lib/aboutCopy';
@@ -183,7 +183,7 @@ export const StrengthTab = React.memo(function StrengthTab({
           <View style={styles.notDownloadedContainer} testID="strength-empty">
             <MaterialCommunityIcons
               name="cloud-download-outline"
-              size={32}
+              size={iconSize.xl}
               color={isDark ? darkColors.textSecondary : colors.textSecondary}
             />
             <BodyNotDownloaded
@@ -210,7 +210,7 @@ export const StrengthTab = React.memo(function StrengthTab({
             <View style={styles.owedRow} testID="strength-period-owed">
               <MaterialCommunityIcons
                 name="cloud-download-outline"
-                size={typography.caption.fontSize}
+                size={iconSize.sm}
                 color={isDark ? darkColors.textSecondary : colors.textSecondary}
               />
               <Text style={[styles.owedText, isDark && styles.owedTextDark]}>

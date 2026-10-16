@@ -13,12 +13,16 @@ import {
 } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 
+import { useTranslation } from 'react-i18next';
+
 import { useTheme } from '@/shared/app';
 import { chartStyles, ink, spacing } from '@/theme';
 
 import { dataExtent, domainContains, placeLabels, type Domain } from './cartesian';
 import { ChartCanvas } from './ChartCanvas';
 import { ChartCrosshair } from './ChartCrosshair';
+import { ChartSurface } from './ChartSurface';
+import { curveSummary, seriesSummary, seriesTable, type SummarySeries } from './chartSummary';
 import { CurveArea, CurveLine } from './CurvePaths';
 import type { CurveKind } from './curvePath';
 import { useChartColors } from './useChartColors';
@@ -38,6 +42,23 @@ export interface PlacedLabel {
   value: number;
 }
 
+/** How the chart is read without being seen: its spoken summary and its Show data table. */
+export interface CurveReading {
+  /** The series' name, which heads the summary, the sheet and the value column. */
+  title: string;
+  /** The x column's header. */
+  xHeader: string;
+  /** The value column's unit, shown in its header. */
+  unit?: string | undefined;
+  formatX: (x: number) => string;
+  /** How a value is spoken and listed, with its unit. Defaults to `formatY`. */
+  formatValue?: (value: number) => string;
+  /** A pace, whose best is its lowest value. */
+  lowerIsBetter?: boolean;
+  /** A series over time reads its latest value, a curve over a duration or distance its ends. */
+  shape: 'series' | 'curve';
+}
+
 export interface CurveChartProps<T extends ChartSample> {
   data: readonly T[];
   yDomain: Domain;
@@ -49,6 +70,7 @@ export interface CurveChartProps<T extends ChartSample> {
   /** Labels placed by data value, so each sits on the value it names. */
   xLabels: readonly PlacedLabel[];
   formatY: (value: number) => string;
+  reading: CurveReading;
   /** Names the top y-axis label, for a caller whose axis unit is under test. */
   topAxisTestID?: string;
   /** How the line runs between samples. Discrete samples read honestly as `linear`. */
@@ -65,6 +87,8 @@ export interface CurveChartProps<T extends ChartSample> {
   /** One bar per sample from zero, for totals over a period, in place of the line. */
   bars?: boolean;
   crosshairMode?: 'point' | 'finger';
+  /** What a screen reader reads for a stepped sample. Defaults to its y value alone. */
+  describePoint?: (point: T) => string;
   onSelect?: (point: T) => void;
   onInteractionChange?: (active: boolean) => void;
   testID?: string;
@@ -101,6 +125,7 @@ export function CurveChart<T extends ChartSample>({
   referenceLine,
   xLabels,
   formatY,
+  reading,
   topAxisTestID,
   curve = 'natural',
   area = false,
@@ -108,20 +133,44 @@ export function CurveChart<T extends ChartSample>({
   marker,
   bars = false,
   crosshairMode = 'point',
+  describePoint,
   onSelect,
   onInteractionChange,
   testID,
 }: CurveChartProps<T>) {
+  const { t } = useTranslation();
   const { isDark } = useTheme();
   const chartColors = useChartColors();
   const { width, onLayout } = useMeasuredWidth();
 
-  const { gesture, crosshairStyle, syncBounds, syncXCoords } = useChartGestures<T>({
-    data: data as T[],
-    onSelect,
-    onInteractionChange,
-    crosshairMode,
-  });
+  const describe = useCallback(
+    (point: T) => (describePoint ? describePoint(point) : formatY(point.y)),
+    [describePoint, formatY]
+  );
+
+  const spoken = useMemo(() => {
+    const series: SummarySeries = {
+      name: reading.title,
+      unit: reading.unit,
+      points: data.map((d) => ({ label: reading.formatX(d.x), value: d.y })),
+      format: reading.formatValue ?? formatY,
+      lowerIsBetter: reading.lowerIsBetter,
+    };
+    const summarise = reading.shape === 'curve' ? curveSummary : seriesSummary;
+    return {
+      summary: summarise(series, t),
+      table: seriesTable(reading.title, reading.xHeader, [series]),
+    };
+  }, [data, reading, formatY, t]);
+
+  const { gesture, crosshairStyle, syncBounds, syncXCoords, accessibilityProps } =
+    useChartGestures<T>({
+      data: data as T[],
+      onSelect,
+      onInteractionChange,
+      crosshairMode,
+      describePoint: describe,
+    });
 
   const x = useCallback((d: T) => d.x, []);
   const series = useMemo(() => ({ y: (d: T) => d.y }), []);
@@ -136,118 +185,137 @@ export function CurveChart<T extends ChartSample>({
   const showReference = referenceLine != null && domainContains(yDomain, referenceLine.value);
 
   return (
-    <GestureDetector gesture={gesture}>
-      <View style={chartStyles.chartWrapper} onLayout={onLayout} testID={testID}>
-        <ChartCanvas
-          data={data}
-          x={x}
-          series={series}
-          xDomain={xDomain}
-          yDomain={yDomain}
-          padding={PADDING}
-          grid={GRID_LINES}
+    <ChartSurface summary={spoken.summary} table={spoken.table}>
+      <GestureDetector gesture={gesture}>
+        <View
+          style={chartStyles.chartWrapper}
+          onLayout={onLayout}
+          testID={testID}
+          {...accessibilityProps}
         >
-          {({ points, bounds, yFor }) => {
-            syncBounds(bounds);
-            syncXCoords(points.y, (p) => p.x);
-            const marked = marker ? points.y[marker.index] : undefined;
-            if (bars) {
-              const zero = yFor(Math.min(Math.max(0, yDomain[0]), yDomain[1]));
-              const width = barWidth(
-                points.y.map((p) => p.x),
-                bounds.right - bounds.left
-              );
+          <ChartCanvas
+            data={data}
+            x={x}
+            series={series}
+            xDomain={xDomain}
+            yDomain={yDomain}
+            padding={PADDING}
+            grid={GRID_LINES}
+          >
+            {({ points, bounds, yFor }) => {
+              syncBounds(bounds);
+              syncXCoords(points.y, (p) => p.x);
+              const marked = marker ? points.y[marker.index] : undefined;
+              if (bars) {
+                const zero = yFor(Math.min(Math.max(0, yDomain[0]), yDomain[1]));
+                const width = barWidth(
+                  points.y.map((p) => p.x),
+                  bounds.right - bounds.left
+                );
+                return (
+                  <>
+                    {points.y.map((p, i) => (
+                      <Rect
+                        key={i}
+                        x={p.x - width / 2}
+                        y={Math.min(p.y, zero)}
+                        width={width}
+                        height={Math.abs(zero - p.y)}
+                        color={color}
+                        opacity={marker && i !== marker.index ? FADED_BAR : 1}
+                        {...(data[i]?.partial
+                          ? { style: 'stroke' as const, strokeWidth: 1.5 }
+                          : {})}
+                      />
+                    ))}
+                  </>
+                );
+              }
               return (
                 <>
-                  {points.y.map((p, i) => (
-                    <Rect
-                      key={i}
-                      x={p.x - width / 2}
-                      y={Math.min(p.y, zero)}
-                      width={width}
-                      height={Math.abs(zero - p.y)}
-                      color={color}
-                      opacity={marker && i !== marker.index ? FADED_BAR : 1}
-                      {...(data[i]?.partial ? { style: 'stroke' as const, strokeWidth: 1.5 } : {})}
-                    />
-                  ))}
+                  {area ? (
+                    <CurveArea points={points.y} y0={bounds.bottom} curve={curve}>
+                      <LinearGradient
+                        start={vec(0, bounds.top)}
+                        end={vec(0, bounds.bottom)}
+                        colors={[`${color}30`, `${color}05`]}
+                      />
+                    </CurveArea>
+                  ) : null}
+                  {showReference ? (
+                    <SkiaLine
+                      p1={vec(bounds.left, yFor(referenceLine.value))}
+                      p2={vec(bounds.right, yFor(referenceLine.value))}
+                      color={referenceLine.color}
+                      strokeWidth={1}
+                    >
+                      <DashPathEffect intervals={[6, 4]} />
+                    </SkiaLine>
+                  ) : null}
+                  <CurveLine
+                    points={points.y}
+                    color={chartColors.casing}
+                    strokeWidth={2.5}
+                    curve={curve}
+                  />
+                  <CurveLine points={points.y} color={color} strokeWidth={1.5} curve={curve} />
+                  {pointColor
+                    ? points.y.map((p, i) =>
+                        i === marker?.index ? null : (
+                          <Circle key={i} cx={p.x} cy={p.y} r={3} color={pointColor} />
+                        )
+                      )
+                    : null}
+                  {marker && marked ? (
+                    <>
+                      <Circle
+                        cx={marked.x}
+                        cy={marked.y}
+                        r={7}
+                        color={marker.color}
+                        opacity={0.3}
+                      />
+                      <Circle cx={marked.x} cy={marked.y} r={5} color={marker.color} />
+                      <Circle cx={marked.x} cy={marked.y} r={2.5} color={ink.white} />
+                    </>
+                  ) : null}
                 </>
               );
-            }
-            return (
-              <>
-                {area ? (
-                  <CurveArea points={points.y} y0={bounds.bottom} curve={curve}>
-                    <LinearGradient
-                      start={vec(0, bounds.top)}
-                      end={vec(0, bounds.bottom)}
-                      colors={[`${color}30`, `${color}05`]}
-                    />
-                  </CurveArea>
-                ) : null}
-                {showReference ? (
-                  <SkiaLine
-                    p1={vec(bounds.left, yFor(referenceLine.value))}
-                    p2={vec(bounds.right, yFor(referenceLine.value))}
-                    color={referenceLine.color}
-                    strokeWidth={1}
-                  >
-                    <DashPathEffect intervals={[6, 4]} />
-                  </SkiaLine>
-                ) : null}
-                <CurveLine
-                  points={points.y}
-                  color={chartColors.casing}
-                  strokeWidth={2.5}
-                  curve={curve}
-                />
-                <CurveLine points={points.y} color={color} strokeWidth={1.5} curve={curve} />
-                {pointColor
-                  ? points.y.map((p, i) =>
-                      i === marker?.index ? null : (
-                        <Circle key={i} cx={p.x} cy={p.y} r={3} color={pointColor} />
-                      )
-                    )
-                  : null}
-                {marker && marked ? (
-                  <>
-                    <Circle cx={marked.x} cy={marked.y} r={7} color={marker.color} opacity={0.3} />
-                    <Circle cx={marked.x} cy={marked.y} r={5} color={marker.color} />
-                    <Circle cx={marked.x} cy={marked.y} r={2.5} color={ink.white} />
-                  </>
-                ) : null}
-              </>
-            );
-          }}
-        </ChartCanvas>
+            }}
+          </ChartCanvas>
 
-        <ChartCrosshair style={crosshairStyle} />
+          <ChartCrosshair style={crosshairStyle} />
 
-        <View style={styles.xAxisPlaced} pointerEvents="none">
-          {placedLabels.map((item) => (
+          <View style={styles.xAxisPlaced} pointerEvents="none">
+            {placedLabels.map((item) => (
+              <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                key={item.label}
+                style={[labelStyle, styles.placedLabel, { left: item.left }]}
+              >
+                {item.label}
+              </Text>
+            ))}
+          </View>
+
+          <View style={styles.yAxis} pointerEvents="none">
             <Text
               maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-              key={item.label}
-              style={[labelStyle, styles.placedLabel, { left: item.left }]}
+              testID={topAxisTestID}
+              style={labelStyle}
             >
-              {item.label}
+              {formatY(yDomain[1])}
             </Text>
-          ))}
+            <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={labelStyle}>
+              {formatY(midY)}
+            </Text>
+            <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={labelStyle}>
+              {formatY(yDomain[0])}
+            </Text>
+          </View>
         </View>
-
-        <View style={styles.yAxis} pointerEvents="none">
-          <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} testID={topAxisTestID} style={labelStyle}>
-            {formatY(yDomain[1])}
-          </Text>
-          <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={labelStyle}>
-            {formatY(midY)}
-          </Text>
-          <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={labelStyle}>
-            {formatY(yDomain[0])}
-          </Text>
-        </View>
-      </View>
-    </GestureDetector>
+      </GestureDetector>
+    </ChartSurface>
   );
 }
 

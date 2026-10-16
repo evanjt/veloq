@@ -15,13 +15,23 @@ import {
   chartStyles,
   darkColors,
   themedStyles,
+  verdictColor,
+  verdictFill,
   type Palette,
 } from '@/theme';
-import { verdictColor, verdictFill } from '@/theme/colors';
-import { formatMonth } from '@/shared/format/format';
+import { formatMonth, formatShortDate } from '@/shared/format/format';
 import { spokenVerdict } from '@/shared/format/spoken';
 import { trendVerdict, verdictRung, type TrendDirection } from '@/shared/format/trend';
-import { ChartCanvas, CurveArea, CurveLine, useChartColors } from '@/shared/charts';
+import {
+  ChartCanvas,
+  ChartSurface,
+  CurveArea,
+  CurveLine,
+  seriesSummary,
+  seriesTable,
+  useChartColors,
+  type SummarySeries,
+} from '@/shared/charts';
 import { EmptyState } from '@/shared/ui/EmptyState';
 import { formatSignedPercentage } from '@/shared/format';
 
@@ -109,6 +119,19 @@ export function FTPTrendChart({
   // named with the judgement it draws instead.
   const changeLabel = `${spokenVerdict(verdict, direction)}, ${Math.abs(ftpChange)} ${t('units.watts')}`;
   const yDomain = useMemo<[number, number]>(() => [minFTP, maxFTP], [minFTP, maxFTP]);
+  const reading = useMemo(() => {
+    const watts = t('units.watts');
+    const series: SummarySeries = {
+      name: t('stats.estimatedFtp'),
+      unit: watts,
+      points: chartData.map((d) => ({ label: formatShortDate(d.date), key: d.date, value: d.y })),
+      format: (v) => `${Math.round(v)} ${watts}`,
+    };
+    return {
+      summary: seriesSummary(series, t),
+      table: seriesTable(series.name, t('charts.column.date'), [series]),
+    };
+  }, [chartData, t]);
 
   // Show empty state if no data
   if (!data || data.length === 0) {
@@ -169,81 +192,83 @@ export function FTPTrendChart({
       </View>
 
       {/* Chart */}
-      <View style={chartStyles.chartWrapper}>
-        <ChartCanvas
-          data={chartData}
-          x={xOf}
-          series={SERIES}
-          yDomain={yDomain}
-          padding={CHART_PADDING}
-          grid={5}
-        >
-          {({ points, bounds }) => {
-            const last = points.y[points.y.length - 1];
-            return (
+      <ChartSurface summary={reading.summary} table={reading.table}>
+        <View style={chartStyles.chartWrapper}>
+          <ChartCanvas
+            data={chartData}
+            x={xOf}
+            series={SERIES}
+            yDomain={yDomain}
+            padding={CHART_PADDING}
+            grid={5}
+          >
+            {({ points, bounds }) => {
+              const last = points.y[points.y.length - 1];
+              return (
+                <>
+                  <CurveArea points={points.y} y0={bounds.bottom}>
+                    <LinearGradient
+                      start={vec(0, bounds.top)}
+                      end={vec(0, bounds.bottom)}
+                      colors={[chartColors.ftp + '60', chartColors.ftp + '10']}
+                    />
+                  </CurveArea>
+                  <CurveLine points={points.y} color={chartColors.casing} strokeWidth={2.5} />
+                  <CurveLine points={points.y} color={chartColors.ftp} strokeWidth={1.5} />
+                  {last ? (
+                    <>
+                      <Circle cx={last.x} cy={last.y} r={6} color={chartColors.ftp} />
+                      <Circle cx={last.x} cy={last.y} r={3} color={colors.textOnDark} />
+                    </>
+                  ) : null}
+                </>
+              );
+            }}
+          </ChartCanvas>
+
+          {/* X-axis labels */}
+          <View style={styles.xAxisOverlay} pointerEvents="none">
+            {chartData.length > 0 && (
               <>
-                <CurveArea points={points.y} y0={bounds.bottom}>
-                  <LinearGradient
-                    start={vec(0, bounds.top)}
-                    end={vec(0, bounds.bottom)}
-                    colors={[chartColors.ftp + '60', chartColors.ftp + '10']}
-                  />
-                </CurveArea>
-                <CurveLine points={points.y} color={chartColors.casing} strokeWidth={2.5} />
-                <CurveLine points={points.y} color={chartColors.ftp} strokeWidth={1.5} />
-                {last ? (
-                  <>
-                    <Circle cx={last.x} cy={last.y} r={6} color={chartColors.ftp} />
-                    <Circle cx={last.x} cy={last.y} r={3} color={colors.textOnDark} />
-                  </>
-                ) : null}
+                <Text
+                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                  style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+                >
+                  {formatMonth(chartData[0].date)}
+                </Text>
+                <Text
+                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                  style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+                >
+                  {formatMonth(chartData[chartData.length - 1].date)}
+                </Text>
               </>
-            );
-          }}
-        </ChartCanvas>
+            )}
+          </View>
 
-        {/* X-axis labels */}
-        <View style={styles.xAxisOverlay} pointerEvents="none">
-          {chartData.length > 0 && (
-            <>
-              <Text
-                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-              >
-                {formatMonth(chartData[0].date)}
-              </Text>
-              <Text
-                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-              >
-                {formatMonth(chartData[chartData.length - 1].date)}
-              </Text>
-            </>
-          )}
+          {/* Y-axis labels */}
+          <View style={styles.yAxisOverlay} pointerEvents="none">
+            <Text
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
+              {Math.round(maxFTP)} {t('units.watts')}
+            </Text>
+            <Text
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
+              {Math.round((minFTP + maxFTP) / 2)} {t('units.watts')}
+            </Text>
+            <Text
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
+              {Math.round(minFTP)} {t('units.watts')}
+            </Text>
+          </View>
         </View>
-
-        {/* Y-axis labels */}
-        <View style={styles.yAxisOverlay} pointerEvents="none">
-          <Text
-            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-            style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-          >
-            {Math.round(maxFTP)} {t('units.watts')}
-          </Text>
-          <Text
-            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-            style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-          >
-            {Math.round((minFTP + maxFTP) / 2)} {t('units.watts')}
-          </Text>
-          <Text
-            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-            style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-          >
-            {Math.round(minFTP)} {t('units.watts')}
-          </Text>
-        </View>
-      </View>
+      </ChartSurface>
     </View>
   );
 }

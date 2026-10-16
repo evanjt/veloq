@@ -88,6 +88,12 @@ provision_submodules() {
 provision_modules() {
   local there="$MAIN/node_modules" here="$TREE/node_modules" entry
   [ -d "$there" ] || return 0
+  # A real install, made because the tree's lockfile is not the main
+  # checkout's, already holds its own `veloqrs`, and links into it would mix
+  # two installs. npm writes `.package-lock.json` into an install it made.
+  if [ -f "$here/.package-lock.json" ] && [ ! -L "$here/.package-lock.json" ]; then
+    return 0
+  fi
   if [ -L "$here" ]; then
     rm "$here"
   fi

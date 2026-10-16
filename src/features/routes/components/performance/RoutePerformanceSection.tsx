@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { useRoutePerformances } from '@/features/routes/hooks/useRoutePerformances';
 import { getActivityColor, getActivityInk } from '@/shared/activity/activityUtils';
 import { formatDuration } from '@/shared/format/format';
-import { colors, darkColors, mapLayerColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, mapLayerColors, spacing, typography } from '@/theme';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
 import { SectionScatterChart, ScatterLegend } from '@/features/routes/components/section';
 import { formatRouteStanding } from '@/features/routes/lib/routeStanding';
@@ -132,7 +132,7 @@ export function RoutePerformanceSection({
         android_ripple={pressRipple}
       >
         <View style={[styles.iconBadge, { borderColor: activityInk }]}>
-          <MaterialCommunityIcons name="map-marker-path" size={12} color={activityInk} />
+          <MaterialCommunityIcons name="map-marker-path" size={iconSize.xs} color={activityInk} />
         </View>
         <View style={styles.headerInfo}>
           <Text style={[styles.routeName, isDark && styles.textLight]} numberOfLines={1}>
@@ -151,7 +151,7 @@ export function RoutePerformanceSection({
                 {isCurrentBest ? (
                   <MaterialCommunityIcons
                     name="trophy"
-                    size={11}
+                    size={iconSize.xs}
                     color={colors.chartGold}
                     style={{ marginLeft: spacing.xxs }}
                   />
@@ -162,7 +162,7 @@ export function RoutePerformanceSection({
         </View>
         <MaterialCommunityIcons
           name="chevron-right"
-          size={20}
+          size={iconSize.md}
           color={isDark ? darkColors.iconFaint : colors.iconFaint}
         />
       </Pressable>

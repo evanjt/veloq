@@ -371,6 +371,7 @@
     "backupFailedFolder": "Veloq ne peut plus accéder au dossier de sauvegarde. Choisissez à nouveau le dossier.",
     "backupFailedIcloud": "iCloud Drive est désactivé pour Veloq, ou cet iPhone n'est pas connecté à iCloud. Activez-le dans les Réglages de l'iPhone.",
     "backupFailedUnverified": "Veloq a écrit la sauvegarde mais n'a pas pu la relire pour la vérifier. Il réessaiera plus tard.",
+    "backupFailedAddress": "L'adresse du serveur WebDAV doit être une adresse https:// valide. Vérifiez-la dans les réglages de sauvegarde.",
     "lastAttemptFailed": "Dernière tentative échouée le {{date}}",
     "androidLastBackup": "Dernière sauvegarde Android : {{date}}, {{size}}",
     "androidBackupNever": "Android n'a pas encore sauvegardé Veloq",
@@ -387,6 +388,7 @@
     "cameraPermissionNeeded": "L'accès à la caméra est nécessaire pour scanner les QR codes",
     "enterDetailsInstead": "Saisir les informations à la place",
     "fillAllFields": "Veuillez remplir tous les champs",
+    "fillField": "Veuillez remplir le champ « {{field}} »",
     "webdavHttpsRequired": "Utilisez une adresse https://. Un serveur http:// recevrait votre mot de passe et l’archive des données sans chiffrement.",
     "webdavInvalidUrl": "Ce n'est pas une adresse de serveur valide",
     "webdavSaveFailed": "Impossible d'enregistrer les informations du serveur sur cet appareil",
@@ -512,7 +514,7 @@
       "title": "Une erreur s'est produite"
     },
     "offline": {
-      "description": "Certaines fonctionnalités peuvent être limitées",
+      "description": "La synchronisation et les envois reprendront dès que vous serez de nouveau en ligne.",
       "title": "Vous êtes hors ligne"
     },
     "syncError": {
@@ -2845,6 +2847,26 @@
     "offPr": "À {{delta}} du record",
     "cycleHint": "Touchez pour changer",
     "laps": "Tours : {{n}}",
-    "elevationLoss": "Dénivelé négatif"
+    "elevationLoss": "Dénivelé négatif",
+    "chartPageForward": "Sauter en avant",
+    "chartPageBack": "Sauter en arrière"
+  },
+  "charts": {
+    "showData": "Afficher les données",
+    "summary": {
+      "title": "{{title}}.",
+      "empty": "{{name}} : aucune donnée.",
+      "single": "{{name}}, {{start}} : {{value}}.",
+      "series": "{{name}}, {{start}} à {{end}} : dernière valeur {{latest}}, plage de {{min}} à {{max}}, moyenne {{average}}.",
+      "curve": "{{name}}, {{start}} à {{end}} : {{first}} à {{start}}, {{last}} à {{end}}, pic {{max}}.",
+      "parts": "{{name}} : {{parts}}."
+    },
+    "column": {
+      "date": "Date",
+      "duration": "Durée",
+      "distance": "Distance",
+      "zone": "Zone",
+      "time": "Temps"
+    }
   }
 }

@@ -16,11 +16,12 @@ import { useSummaryCardData, SummaryCard } from '@/features/home';
 import {
   colors,
   darkColors,
-  spacing,
+  iconSize,
   layout,
-  typography,
-  themedStyles,
   type Palette,
+  spacing,
+  themedStyles,
+  typography,
 } from '@/theme';
 import { ListSectionHeader, Row, SwitchRow, ToggleButtonRow } from '@/shared/ui';
 import { settingsStyles } from './settingsStyles';
@@ -104,7 +105,7 @@ export function SummaryCardSection() {
         {/* Supporting Metrics */}
         <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
         <Row>
-          <MaterialCommunityIcons name="tune-variant" size={22} color={colors.primary} />
+          <MaterialCommunityIcons name="tune-variant" size={iconSize.md} color={colors.primary} />
           <Text style={[styles.actionText, isDark && settingsStyles.textLight]}>
             {t('settings.supportingMetrics')}
           </Text>

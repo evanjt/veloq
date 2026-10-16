@@ -9,7 +9,16 @@ import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { pressable, pressRipple, SheetHeader } from '@/shared/ui';
 import { ALL_DATA_FIELDS, CALORIES_ASSUMED_AGE, useCaloriesWeight } from '@/features/recording';
-import { brand, colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
+import {
+  brand,
+  colors,
+  colorWithOpacity,
+  darkColors,
+  iconSize,
+  layout,
+  spacing,
+  typography,
+} from '@/theme';
 import type { DataFieldType } from '@/types';
 import { tapBack } from '@/shared/app/navigation';
 
@@ -80,7 +89,7 @@ function FieldPickerSheetContent() {
                 ) : null}
               </View>
               {isSelected ? (
-                <MaterialCommunityIcons name="check" size={18} color={brand.teal} />
+                <MaterialCommunityIcons name="check" size={iconSize.md} color={brand.teal} />
               ) : null}
             </Pressable>
           );

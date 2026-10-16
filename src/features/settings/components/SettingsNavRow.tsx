@@ -2,7 +2,7 @@ import React from 'react';
 import { Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, typography, spacing } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { Row } from '@/shared/ui/Row';
 import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
 
@@ -36,7 +36,7 @@ export function SettingsNavRow({
     >
       <MaterialCommunityIcons
         name={icon}
-        size={22}
+        size={iconSize.lg}
         color={isDark ? darkColors.textSecondary : colors.textSecondary}
       />
       <Text style={[styles.title, isDark && styles.titleDark]} numberOfLines={1}>

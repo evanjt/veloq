@@ -2,7 +2,7 @@ import { Animated, View, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-import { colors } from '@/theme';
+import { colors, iconSize } from '@/theme';
 import { CompassArrow, IconButton } from '@/shared/ui';
 import { getStyleIcon, type MapStyleType } from './mapStyles';
 import { useMapControlColumn } from '../lib/mapControlColumnLayout';
@@ -64,7 +64,7 @@ export function ActivityMapControls({
       >
         <MaterialCommunityIcons
           name={getStyleIcon(mapStyle)}
-          size={22}
+          size={iconSize.lg}
           color={isDark ? colors.textOnDark : colors.textSecondary}
         />
       </IconButton>
@@ -81,7 +81,7 @@ export function ActivityMapControls({
         >
           <MaterialCommunityIcons
             name="slope-uphill"
-            size={22}
+            size={iconSize.lg}
             color={
               gradientActive
                 ? colors.textOnPrimary
@@ -104,7 +104,7 @@ export function ActivityMapControls({
         >
           <MaterialCommunityIcons
             name="terrain"
-            size={22}
+            size={iconSize.lg}
             color={
               is3DMode ? colors.textOnPrimary : isDark ? colors.textOnDark : colors.textSecondary
             }
@@ -120,7 +120,7 @@ export function ActivityMapControls({
         onPress={onResetOrientation}
       >
         <CompassArrow
-          size={22}
+          size={iconSize.lg}
           rotation={bearingAnim}
           northColor={colors.error}
           southColor={isDark ? colors.textOnDark : colors.textSecondary}
@@ -149,7 +149,7 @@ export function ActivityMapControls({
         ) : (
           <MaterialCommunityIcons
             name="crosshairs-gps"
-            size={22}
+            size={iconSize.lg}
             color={
               userLocationActive
                 ? colors.textOnPrimary
@@ -172,7 +172,7 @@ export function ActivityMapControls({
         >
           <MaterialCommunityIcons
             name="fullscreen"
-            size={22}
+            size={iconSize.lg}
             color={isDark ? colors.textOnDark : colors.textSecondary}
           />
         </IconButton>

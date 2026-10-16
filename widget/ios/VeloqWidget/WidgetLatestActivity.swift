@@ -161,6 +161,8 @@ struct LatestActivityView: View {
             .measuredText("activity name")
             .widgetProseFont(.label, weight: .semibold, shrinks: fitted)
             .foregroundColor(tint)
+            // A name the column keeps takes every line it wraps to, as the lines under it do.
+            .fixedSize(horizontal: false, vertical: !fitted)
           if latest.isPr == true {
             Circle().fill(palette.gold).frame(width: 6, height: 6)
               .widgetAccentable()

@@ -15,7 +15,15 @@ import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { formatDuration, formatPower, formatFullDate } from '@/shared/format/format';
 import { Button, Card, composeAccessibilityLabel } from '@/shared/ui';
 import { tapTo } from '@/shared/app/navigation';
-import { colors, darkColors, spacing, typography, layout, slopToMinTapTarget } from '@/theme';
+import {
+  colors,
+  darkColors,
+  iconSize,
+  layout,
+  slopToMinTapTarget,
+  spacing,
+  typography,
+} from '@/theme';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
 export interface SectionLapListProps {
@@ -58,7 +66,7 @@ function RecordMark({ testID, isDark, label }: { testID: string; isDark: boolean
     <View testID={testID} accessible accessibilityRole="image" accessibilityLabel={label}>
       <MaterialCommunityIcons
         name="trophy"
-        size={12}
+        size={iconSize.xs}
         color={isDark ? darkColors.chartGoldMark : colors.chartGoldMark}
       />
     </View>
@@ -82,7 +90,7 @@ export function SectionLapList({
       <View style={styles.header}>
         <MaterialCommunityIcons
           name="repeat"
-          size={18}
+          size={iconSize.md}
           color={isDark ? darkColors.textPrimary : colors.textPrimary}
         />
         <Text accessibilityRole="header" style={[styles.title, isDark && styles.textDark]}>
@@ -217,7 +225,7 @@ export function SectionLapList({
                         >
                           <MaterialCommunityIcons
                             name="eye-off-outline"
-                            size={12}
+                            size={iconSize.xs}
                             color={colors.primary}
                           />
                           <Text style={[styles.pillText, isDark && { color: darkColors.linkTeal }]}>

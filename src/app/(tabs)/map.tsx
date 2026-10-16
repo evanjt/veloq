@@ -11,13 +11,16 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useLocalSearchParams } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import {
+  ATTRIBUTION_CLEARANCE,
   AttributionOverlay,
   type AttributionOverlayRef,
   FILTER_CHIP,
   DEFAULT_MAP_PERIOD,
   filterSheetExpandedAfterDrag,
+  filterSheetMaxHeight,
   getPeriodStart,
   MapEmptyState,
   MapNameSearch,
@@ -146,11 +149,23 @@ function MapScreenContent() {
     attributionRef.current?.setAttribution(text);
     setIsDarkBasemap(isDark);
   }, []);
-  // The sheet grows with the filters it shows, so the credit sits on its measured edge.
+  // The sheet grows with the filters it shows, so the credit sits on its measured edge,
+  // and the map's popups clear the sheet and the credit together.
   const [sheetHeight, setSheetHeight] = useState(0);
   const handleSheetLayout = useCallback((event: LayoutChangeEvent) => {
     setSheetHeight(event.nativeEvent.layout.height);
   }, []);
+  const [attributionClearance, setAttributionClearance] = useState(ATTRIBUTION_CLEARANCE);
+  // The raised sheet stops under the map's top controls and its filters scroll past that.
+  const insetTop = useSafeAreaInsets().top;
+  const [screenHeight, setScreenHeight] = useState(0);
+  const handleScreenLayout = useCallback((event: LayoutChangeEvent) => {
+    setScreenHeight(event.nativeEvent.layout.height);
+  }, []);
+  const sheetMaxHeight = filterSheetMaxHeight(screenHeight, insetTop);
+  const [filtersViewport, setFiltersViewport] = useState(0);
+  const [filtersContent, setFiltersContent] = useState(0);
+  const filtersScroll = filtersViewport > 0 && filtersContent > filtersViewport;
 
   // Get sync state from engine cache
   const { isReady, cacheStats } = useActivityBoundsCache();
@@ -288,15 +303,19 @@ function MapScreenContent() {
     });
   };
 
-  const sheetDrag = Gesture.Pan()
-    .runOnJS(true)
-    .activeOffsetY([-SHEET_DRAG_ACTIVATION, SHEET_DRAG_ACTIVATION])
-    .failOffsetX([-SHEET_DRAG_ACTIVATION, SHEET_DRAG_ACTIVATION])
-    .onEnd((event) => {
-      setSheetExpanded(
-        filterSheetExpandedAfterDrag(sheetExpanded, event.translationY, event.velocityY)
-      );
-    });
+  const sheetDrag = () =>
+    Gesture.Pan()
+      .runOnJS(true)
+      .activeOffsetY([-SHEET_DRAG_ACTIVATION, SHEET_DRAG_ACTIVATION])
+      .failOffsetX([-SHEET_DRAG_ACTIVATION, SHEET_DRAG_ACTIVATION])
+      .onEnd((event) => {
+        setSheetExpanded(
+          filterSheetExpandedAfterDrag(sheetExpanded, event.translationY, event.velocityY)
+        );
+      });
+  const handleDrag = sheetDrag();
+  // Once the filters scroll, a vertical drag over them scrolls and only the handle moves the sheet.
+  const filtersDrag = sheetDrag().enabled(!filtersScroll);
 
   // A failed map read is named over the map and its sheet rather than taking
   // the tab away, so the period and filters stay to retry from.
@@ -329,7 +348,7 @@ function MapScreenContent() {
   }
 
   return (
-    <View style={styles.container} testID="map-screen">
+    <View style={styles.container} testID="map-screen" onLayout={handleScreenLayout}>
       {/* Main map view */}
       <ComponentErrorBoundary part="map" debugName="Map">
         <RegionalMapView
@@ -345,6 +364,7 @@ function MapScreenContent() {
           sectionsEnabled={sectionsEnabled}
           selectSectionId={sectionsEnabled ? selectSectionId : undefined}
           keyCategories={keyCategories}
+          bottomClearance={sheetHeight + attributionClearance}
         />
       </ComponentErrorBoundary>
 
@@ -353,7 +373,12 @@ function MapScreenContent() {
         style={[styles.attributionLane, { bottom: sheetHeight }]}
         pointerEvents="box-none"
       >
-        <AttributionOverlay ref={attributionRef} initialAttribution="" isDark={isDarkBasemap} />
+        <AttributionOverlay
+          ref={attributionRef}
+          initialAttribution=""
+          isDark={isDarkBasemap}
+          onClearanceChange={setAttributionClearance}
+        />
       </View>
 
       {emptyReason && !isMapReadError ? (
@@ -367,17 +392,17 @@ function MapScreenContent() {
       ) : null}
 
       {/* Filter sheet: lowered it shows the period chips, raised every filter */}
-      <GestureDetector gesture={sheetDrag}>
-        <Animated.View
-          layout={LinearTransition.duration(SHEET_FADE_MS)}
-          testID="map-filter-sheet"
-          onLayout={handleSheetLayout}
-          style={[
-            styles.infoBar,
-            { paddingBottom: bottomClearance + spacing.md },
-            isDark && styles.infoBarDark,
-          ]}
-        >
+      <Animated.View
+        layout={LinearTransition.duration(SHEET_FADE_MS)}
+        testID="map-filter-sheet"
+        onLayout={handleSheetLayout}
+        style={[
+          styles.infoBar,
+          { paddingBottom: bottomClearance + spacing.md, maxHeight: sheetMaxHeight },
+          isDark && styles.infoBarDark,
+        ]}
+      >
+        <GestureDetector gesture={handleDrag}>
           <Pressable
             testID="map-filter-handle"
             onPress={() => setSheetExpanded((expanded) => !expanded)}
@@ -392,79 +417,92 @@ function MapScreenContent() {
           >
             <View style={[styles.handle, isDark && styles.handleDark]} />
           </Pressable>
+        </GestureDetector>
 
-          {mapReadFailure}
+        <GestureDetector gesture={filtersDrag}>
+          <ScrollView
+            testID="map-filter-scroll"
+            style={styles.filterScroll}
+            scrollEnabled={filtersScroll}
+            showsVerticalScrollIndicator={filtersScroll}
+            bounces={false}
+            keyboardShouldPersistTaps="handled"
+            onLayout={(event) => setFiltersViewport(event.nativeEvent.layout.height)}
+            onContentSizeChange={(_, height) => setFiltersContent(height)}
+          >
+            {mapReadFailure}
 
-          {sheetExpanded ? (
-            <Animated.View
-              entering={FadeIn.duration(SHEET_FADE_MS)}
-              exiting={FadeOut.duration(SHEET_FADE_MS)}
-            >
-              <MapNameSearch
-                needle={nameNeedle}
-                onChangeNeedle={changeNeedle}
-                results={results}
-                total={displayActivities.length}
-                filters={activeFilterNames}
-                onChoose={chooseResult}
-              />
-            </Animated.View>
-          ) : null}
+            {sheetExpanded ? (
+              <Animated.View
+                entering={FadeIn.duration(SHEET_FADE_MS)}
+                exiting={FadeOut.duration(SHEET_FADE_MS)}
+              >
+                <MapNameSearch
+                  needle={nameNeedle}
+                  onChangeNeedle={changeNeedle}
+                  results={results}
+                  total={displayActivities.length}
+                  filters={activeFilterNames}
+                  onChoose={chooseResult}
+                />
+              </Animated.View>
+            ) : null}
 
-          {/* Time period chips */}
-          <FilterChipRow
-            options={PERIOD_OPTIONS.map(({ id, labelKey }) => ({
-              key: id,
-              label: t(labelKey as never),
-            }))}
-            selected={period}
-            onSelect={setPeriod}
-          />
-
-          {sheetExpanded ? (
-            <Animated.View
-              entering={FadeIn.duration(SHEET_FADE_MS)}
-              exiting={FadeOut.duration(SHEET_FADE_MS)}
-            >
-              {/* Distance chips */}
-              <FilterChipRow
-                options={getDistanceOptions(isMetric, t('mapScreen.distanceAny'))}
-                selected={distanceFilter}
-                onSelect={setDistanceFilter}
-              />
-
-              {/* Sport type filter chips */}
-              <SportChipRow
-                chips={categorySorted.map(({ category, count }) => ({
-                  key: category,
-                  label: `maps.activityTypes.${ACTIVITY_CATEGORIES[category]?.labelKey ?? 'other'}`,
-                  count,
-                }))}
-                selected={selectedCategories}
-                onToggle={toggleCategory}
-              />
-            </Animated.View>
-          ) : null}
-
-          {/* Activity count and date range, in either position of the sheet */}
-          <View style={styles.infoRow}>
-            <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-              {t('mapScreen.activitySummary', {
-                count: totalCount,
-                mapped: displayActivities.length,
-                defaultValue: '{{count}} activities · {{mapped}} on the map',
-              })}
-              {dateRangeLabel ? ` · ${dateRangeLabel}` : ''}
-            </Text>
-            <Button
-              label={t('mapScreen.expandRange', 'Expand range')}
-              variant="ghost"
-              size="sm"
-              onPress={() => tapTo('/sync-settings')}
+            {/* Time period chips */}
+            <FilterChipRow
+              options={PERIOD_OPTIONS.map(({ id, labelKey }) => ({
+                key: id,
+                label: t(labelKey as never),
+              }))}
+              selected={period}
+              onSelect={setPeriod}
             />
-          </View>
-        </Animated.View>
-      </GestureDetector>
+
+            {sheetExpanded ? (
+              <Animated.View
+                entering={FadeIn.duration(SHEET_FADE_MS)}
+                exiting={FadeOut.duration(SHEET_FADE_MS)}
+              >
+                {/* Distance chips */}
+                <FilterChipRow
+                  options={getDistanceOptions(isMetric, t('mapScreen.distanceAny'))}
+                  selected={distanceFilter}
+                  onSelect={setDistanceFilter}
+                />
+
+                {/* Sport type filter chips */}
+                <SportChipRow
+                  chips={categorySorted.map(({ category, count }) => ({
+                    key: category,
+                    label: `maps.activityTypes.${ACTIVITY_CATEGORIES[category]?.labelKey ?? 'other'}`,
+                    count,
+                  }))}
+                  selected={selectedCategories}
+                  onToggle={toggleCategory}
+                />
+              </Animated.View>
+            ) : null}
+
+            {/* Activity count and date range, in either position of the sheet */}
+            <View style={styles.infoRow}>
+              <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
+                {t('mapScreen.activitySummary', {
+                  count: totalCount,
+                  mapped: displayActivities.length,
+                  defaultValue: '{{count}} activities · {{mapped}} on the map',
+                })}
+                {dateRangeLabel ? ` · ${dateRangeLabel}` : ''}
+              </Text>
+              <Button
+                label={t('mapScreen.expandRange', 'Expand range')}
+                variant="ghost"
+                size="sm"
+                onPress={() => tapTo('/sync-settings')}
+              />
+            </View>
+          </ScrollView>
+        </GestureDetector>
+      </Animated.View>
     </View>
   );
 }
@@ -521,6 +559,11 @@ const styles = StyleSheet.create({
     backgroundColor: colorWithOpacity(ink.white, 0.92),
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
+  },
+  // The filters keep their own height until the sheet's bound squeezes them.
+  filterScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
   },
   handleRow: {
     alignItems: 'center',

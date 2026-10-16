@@ -37,7 +37,7 @@ import {
   type TrendBandPoint,
 } from '@/features/routes/lib/scatterData';
 import { computeTimeAxisLabels, axisLabelsNeedDay } from '@/features/stats';
-import { colors, darkColors, layout, typography, spacing, themePalette } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, themePalette, typography } from '@/theme';
 import type { FfiSectionTrendCurves } from 'veloqrs';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 import type {
@@ -637,7 +637,7 @@ export function ExcludedActivitiesToggle({
       >
         <MaterialCommunityIcons
           name={showExcluded ? 'eye' : 'eye-off'}
-          size={16}
+          size={iconSize.sm}
           color={isDark ? darkColors.textSecondary : colors.textSecondary}
         />
       </IconButton>

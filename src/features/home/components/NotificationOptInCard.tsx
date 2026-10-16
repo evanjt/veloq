@@ -16,7 +16,7 @@ import {
   requestNotificationPermission,
   useLaunchSurfaces,
 } from '@/features/settings';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { Button, PermissionNotice, TextLink } from '@/shared/ui';
 import { Card } from '@/shared/ui/Card';
 
@@ -81,7 +81,7 @@ export function NotificationOptInCard({ libraryCount }: NotificationOptInCardPro
         >
           <MaterialCommunityIcons
             name="cog-outline"
-            size={16}
+            size={iconSize.sm}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
           <Text style={[styles.hintText, isDark && styles.hintTextDark]}>
@@ -101,7 +101,7 @@ export function NotificationOptInCard({ libraryCount }: NotificationOptInCardPro
         <View style={styles.header}>
           <MaterialCommunityIcons
             name="bell-ring-outline"
-            size={22}
+            size={iconSize.lg}
             color={isDark ? darkColors.textPrimary : colors.textPrimary}
           />
           <Text style={[styles.title, isDark && styles.titleDark]}>

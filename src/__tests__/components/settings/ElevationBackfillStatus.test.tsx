@@ -27,12 +27,14 @@ jest.mock('@/shared/app', () => ({
 
 const mockPauseElevationBackfill = jest.fn();
 const mockResumeElevationBackfill = jest.fn();
-jest.mock('@/shared/native/engine', () => ({
-  getEngine: () => ({
-    pauseElevationBackfill: mockPauseElevationBackfill,
-    resumeElevationBackfill: mockResumeElevationBackfill,
-  }),
-}));
+jest.mock('veloqrs', () =>
+  require('../../__shared__/veloqrsStub').withOverrides({
+    elevation: {
+      pauseElevationBackfill: () => mockPauseElevationBackfill(),
+      resumeElevationBackfill: () => mockResumeElevationBackfill(),
+    },
+  })
+);
 
 const mockUseElevationBackfill = jest.fn();
 jest.mock('@/features/routes/hooks/useElevationBackfill', () => ({

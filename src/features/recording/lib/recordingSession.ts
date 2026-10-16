@@ -16,12 +16,19 @@ import {
   clearRecordingNotification,
   installRecordingNotificationActions,
   locationServiceRunning,
+  startIndoorRecordingService,
+  stopIndoorRecordingService,
   updateRecordingNotification,
 } from './recordingNotification';
 import { fixAltitude, getGpsWatchOptions, getAccuracyRejectThreshold } from './gpsConfig';
 import { buildAutoPauseDetector, evaluateAutoPause, setAutoPauseDetector } from './manualPause';
-import { writeRideBackup } from './rideBackup';
-import { BACKUP_INTERVAL_MS, LIVE_ACTIVITY_REFRESH_MS, SERVICE_WATCH_MS } from './constants';
+import { writeRideBackup, writeRideBackupIfDue } from './rideBackup';
+import {
+  BACKUP_INTERVAL_MS,
+  INDOOR_SAMPLE_MS,
+  LIVE_ACTIVITY_REFRESH_MS,
+  SERVICE_WATCH_MS,
+} from './constants';
 import {
   beginLiveActivity,
   dismissEndedLiveActivity,
@@ -45,6 +52,7 @@ let serviceWatchTimer: Timer | null = null;
 let liveActivityTimer: Timer | null = null;
 let backupArmedFor: string | null = null;
 let serviceStarted = false;
+let indoorServiceStarted = false;
 let sessionUnsubscribes: (() => void)[] = [];
 let installUnsubscribe: (() => void) | null = null;
 let running = false;
@@ -224,9 +232,17 @@ async function handleAppStateChange(next: AppStateStatus): Promise<void> {
   appState = next;
   if (!running) return;
   // The backup timer stops with the screen, so the ride goes to disk on the way
-  // out and the background batches carry it from there.
+  // out, and the background batches or sensor notifications carry it from there.
   if (previous === 'active' && next.match(/inactive|background/)) writeBackup();
-  if (useRecordingStore.getState().mode !== 'gps') return;
+  const { mode } = useRecordingStore.getState();
+  if (mode === 'indoor') {
+    // A start refused at launch is retried from the foreground, the only state
+    // Android lets a foreground service start from.
+    if (next === 'active' && !indoorServiceStarted) startIndoorService();
+    if (previous === 'active' && next !== 'active') updateRecordingNotification();
+    return;
+  }
+  if (mode !== 'gps') return;
 
   if (previous === 'active' && next.match(/inactive|background/)) {
     // The service is already running, so leaving only drops the watch that
@@ -250,7 +266,8 @@ function writeBackup(): void {
  * while the writes land. A failed write is counted on the live store, which
  * the screen shows, because from then on a kill loses everything since the
  * last write that landed.
- * JS timers pause in the background, where each location batch writes instead.
+ * JS timers pause in the background, where each location batch or, indoors,
+ * each sensor notification writes instead.
  * The stopped-state backup is written by the stop handler; clearing happens
  * only on discard or once the recording is safely persisted.
  */
@@ -271,27 +288,67 @@ function armBackups(status: RecordingStatus, laps: number): void {
   backupTimer = setInterval(writeBackup, BACKUP_INTERVAL_MS);
 }
 
-function startSampling(mode: RecordingMode | null): void {
-  if (mode === 'indoor') {
-    indoorTimer = setInterval(() => useRecordingStore.getState().addIndoorSample(), 1000);
-    return;
-  }
-  if (mode !== 'gps') return;
+/**
+ * Keep an indoor ride's process alive out of the foreground. Android freezes a
+ * backgrounded app with no foreground service, sensor connections and all, so
+ * the service is asked for while the screen still holds the foreground. Where
+ * there is no such service, iOS, the Bluetooth background mode does the same.
+ */
+function startIndoorService(): void {
+  indoorServiceStarted = startIndoorRecordingService();
+  if (indoorServiceStarted) updateRecordingNotification();
+}
 
-  // A cold start from a widget, a tile, a shortcut or Siri runs this before
-  // Android has resumed the activity, and on a release build that is fast
-  // enough to matter. Assuming `active` here left the transition into it
-  // looking like no transition at all, so nothing retried the service Android
-  // had just refused and nothing started the watch.
-  // Only `inactive` and `background` mean not-foreground, the same test
-  // `handleAppStateChange` applies. `unknown` is a state React Native reports
-  // before it has decided, and treating it as backgrounded would hold the watch
-  // off a session that is perfectly in front.
+/**
+ * Record an indoor sample from a sensor notification while the tick is paused.
+ * React Native stops JS timers in the background, and sensor notifications are
+ * what still arrives, so each one that lands a sample period after the last
+ * sample records the next, and the backup is written once an interval of them
+ * has passed. In front the tick owns the sampling, so the two never interleave.
+ */
+function sampleFromSensor(): void {
+  if (appState !== 'background') return;
+  const { mode, status, startTime, streams, addIndoorSample } = useRecordingStore.getState();
+  if (mode !== 'indoor' || status !== 'recording' || startTime == null) return;
+  const now = Date.now();
+  const last = streams.time[streams.time.length - 1];
+  if (last !== undefined && now - startTime - last * 1000 < INDOOR_SAMPLE_MS) return;
+  addIndoorSample();
+  void writeRideBackupIfDue(now);
+}
+
+/**
+ * Follow the app in and out of the foreground. A cold start from a widget, a
+ * tile, a shortcut or Siri runs this before Android has resumed the activity,
+ * and on a release build that is fast enough to matter. Assuming `active` here
+ * left the transition into it looking like no transition at all, so nothing
+ * retried the service Android had just refused and nothing started the watch.
+ * Only `inactive` and `background` mean not-foreground, the same test
+ * `handleAppStateChange` applies. `unknown` is a state React Native reports
+ * before it has decided, and treating it as backgrounded would hold the watch
+ * off a session that is perfectly in front.
+ */
+function followAppState(): void {
   const current = AppState.currentState;
   appState = current && /inactive|background/.test(current) ? current : 'active';
   appStateSub = AppState.addEventListener('change', (next) => {
     void handleAppStateChange(next);
   });
+}
+
+function startSampling(mode: RecordingMode | null): void {
+  if (mode !== 'indoor' && mode !== 'gps') return;
+  followAppState();
+
+  if (mode === 'indoor') {
+    indoorTimer = setInterval(
+      () => useRecordingStore.getState().addIndoorSample(),
+      INDOOR_SAMPLE_MS
+    );
+    startIndoorService();
+    return;
+  }
+
   void ensureLocationWatch().catch((e) => log.error('Failed to start location watch:', e));
 }
 
@@ -299,6 +356,10 @@ function stopSampling(): void {
   if (indoorTimer) {
     clearInterval(indoorTimer);
     indoorTimer = null;
+  }
+  if (indoorServiceStarted) {
+    indoorServiceStarted = false;
+    stopIndoorRecordingService();
   }
   disarmServiceWatch();
   serviceStarted = false;
@@ -328,6 +389,7 @@ function startSession(): void {
       // Raw fixes arrive from the foreground watch and from the background
       // task, so auto-pause reads the store rather than either callback.
       if (state.rawSpeed !== previous.rawSpeed) evaluateAutoPause();
+      if (state.latestSensor !== previous.latestSensor) sampleFromSensor();
       if (state.status !== previous.status || state.laps.length !== previous.laps.length) {
         armBackups(state.status, state.laps.length);
         // Pausing swaps the button and stops the clock, so the notification is

@@ -115,6 +115,13 @@ const MAX_TILE_THROTTLE_BACKOFF_MS = 300000;
 const RECYCLE_IDLE_MS = 10000;
 
 /**
+ * How long a rebuilt map has to report ready before its page is restarted. A
+ * rebuild that never loads holds its worker for good, and inside the
+ * watchdog's timeout so a restarted page can still take the queue.
+ */
+const REBUILD_READY_MS = 5000;
+
+/**
  * The drape, its flat stand-in and the selected flat basemap have separate
  * cameras or cache destinations. Each needs its own request even while
  * another mode for the same activity is queued or in flight.
@@ -282,6 +289,9 @@ interface WorkerState {
   viewGenerationRef: { current: number };
   /** The worker spent its renderer restarts, so it has no WebView and takes no work. */
   lostRef: { current: boolean };
+  /** The map is being rebuilt in its page and has not reported ready since. */
+  rebuildingRef: { current: boolean };
+  rebuildDeadlineRef: { current: ReturnType<typeof setTimeout> | null };
   recovery: RendererRecovery;
 }
 
@@ -293,6 +303,17 @@ interface TerrainSnapshotWebViewProps {
    */
   suspended?: boolean;
 }
+
+/**
+ * Stops waiting on a worker's rebuilt map, for a page that reported ready, went
+ * away or is paused with the feed.
+ */
+const clearRebuildDeadline = (worker: WorkerState) => {
+  if (worker.rebuildDeadlineRef.current) {
+    clearTimeout(worker.rebuildDeadlineRef.current);
+    worker.rebuildDeadlineRef.current = null;
+  }
+};
 
 export const TerrainSnapshotWebView = forwardRef<
   TerrainSnapshotWebViewRef,
@@ -328,6 +349,8 @@ export const TerrainSnapshotWebView = forwardRef<
         stylesHeld: new Map(),
         viewGenerationRef: { current: 0 },
         lostRef: { current: false },
+        rebuildingRef: { current: false },
+        rebuildDeadlineRef: { current: null },
         recovery: createRendererRecovery(`snapshot worker ${i}`, () => ({
           forget: () => workerRecoveryRef.current?.forget(worker),
           restart: (how) => workerRecoveryRef.current?.restart(worker, how),
@@ -515,12 +538,26 @@ export const TerrainSnapshotWebView = forwardRef<
     }, earliest - now);
   }, []);
 
+  // Restarts the page of a worker whose rebuilt map has not reported ready in
+  // time, through the same recovery as a page whose renderer died. Only counted
+  // while the feed is on screen, since a page off screen may not draw at all.
+  const armRebuildDeadline = useCallback((worker: WorkerState) => {
+    clearRebuildDeadline(worker);
+    if (disposedRef.current || suspendedRef.current || !worker.rebuildingRef.current) return;
+    worker.rebuildDeadlineRef.current = setTimeout(() => {
+      worker.rebuildDeadlineRef.current = null;
+      if (disposedRef.current || suspendedRef.current || !worker.rebuildingRef.current) return;
+      worker.recovery.stalled();
+    }, REBUILD_READY_MS);
+  }, []);
+
   // Rebuilds the map of every idle worker that has drawn since its map was
   // built. A worker is not ready again until its new map says so, so nothing is
-  // assigned to a map mid-rebuild.
+  // assigned to a map mid-rebuild. A page off screen never finishes a rebuild,
+  // so none starts while the feed is away.
   const recycleIdleWorkers = useCallback(() => {
     recycleTimerRef.current = null;
-    if (disposedRef.current) return;
+    if (disposedRef.current || suspendedRef.current) return;
     if (queueRef.current.length > 0 || workers.some((w) => w.processingRef.current)) return;
     for (const worker of workers) {
       if (!worker.lastRenderRef.current || !worker.mapReadyRef.current) continue;
@@ -528,9 +565,11 @@ export const TerrainSnapshotWebView = forwardRef<
       worker.mapReadyRef.current = false;
       worker.lastRenderRef.current = null;
       worker.mountedAtRef.current = Date.now();
+      worker.rebuildingRef.current = true;
       worker.webViewRef.current?.injectJavaScript(buildRecycleSnapshotMapScript());
+      armRebuildDeadline(worker);
     }
-  }, [workers]);
+  }, [workers, armRebuildDeadline]);
 
   // Restarts the idle countdown whenever the pool settles with nothing to do,
   // and stops it whenever there is work.
@@ -539,7 +578,7 @@ export const TerrainSnapshotWebView = forwardRef<
       clearTimeout(recycleTimerRef.current);
       recycleTimerRef.current = null;
     }
-    if (disposedRef.current) return;
+    if (disposedRef.current || suspendedRef.current) return;
     if (queueRef.current.length > 0 || workers.some((w) => w.processingRef.current)) return;
     if (!workers.some((w) => w.lastRenderRef.current)) return;
     recycleTimerRef.current = setTimeout(recycleIdleWorkers, RECYCLE_IDLE_MS);
@@ -571,6 +610,9 @@ export const TerrainSnapshotWebView = forwardRef<
       clearTimeout(worker.timeoutRef.current);
       worker.timeoutRef.current = null;
     }
+    // The page that comes back sends mapReady as it boots, rebuilt or not.
+    worker.rebuildingRef.current = false;
+    clearRebuildDeadline(worker);
     const current = worker.currentRequestRef.current;
     worker.currentRequestRef.current = null;
     if (current) {
@@ -824,6 +866,8 @@ export const TerrainSnapshotWebView = forwardRef<
         // again costs one injection per style.
         worker.stylesHeld.clear();
         worker.mapReadyRef.current = true;
+        worker.rebuildingRef.current = false;
+        clearRebuildDeadline(worker);
         processNext();
       },
       snapshot: async (data: WebViewBridgeMessage) => {
@@ -1098,12 +1142,20 @@ export const TerrainSnapshotWebView = forwardRef<
     }
     if (!suspended) {
       // Re-arms the staleness timer, which the suspend cleared and which
-      // nothing else would call until the next enqueue.
+      // nothing else would call until the next enqueue. processNext restarts
+      // the idle countdown, and a rebuild caught by the suspend gets its
+      // deadline back.
+      for (const worker of workers) armRebuildDeadline(worker);
       updateWatchdog();
       processNext();
       return;
     }
+    if (recycleTimerRef.current) {
+      clearTimeout(recycleTimerRef.current);
+      recycleTimerRef.current = null;
+    }
     for (const worker of workers) {
+      clearRebuildDeadline(worker);
       worker.processingRef.current = false;
       if (worker.timeoutRef.current) {
         clearTimeout(worker.timeoutRef.current);
@@ -1119,7 +1171,7 @@ export const TerrainSnapshotWebView = forwardRef<
       clearTimeout(stalenessTimerRef.current);
       stalenessTimerRef.current = null;
     }
-  }, [suspended, workers, processNext, updateWatchdog, trace]);
+  }, [suspended, workers, processNext, updateWatchdog, trace, armRebuildDeadline]);
 
   // Clear all pending timers on unmount so callbacks don't fire on a gone component
   useEffect(() => {
@@ -1141,6 +1193,7 @@ export const TerrainSnapshotWebView = forwardRef<
       }
       for (const worker of workers) {
         worker.recovery.cancel();
+        clearRebuildDeadline(worker);
         if (worker.timeoutRef.current) {
           clearTimeout(worker.timeoutRef.current);
           worker.timeoutRef.current = null;

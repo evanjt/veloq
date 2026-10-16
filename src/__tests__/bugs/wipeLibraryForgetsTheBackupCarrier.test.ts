@@ -1039,6 +1039,7 @@ const DEVICE_WRITES: DeviceWrite[] = [
       'the recording foreground notification, the Android channel it posts on, and the iOS Live Activity',
     writers: [
       'modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/VeloqRecordingNotificationModule.kt',
+      'modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/IndoorRecordingService.kt',
       'modules/veloq-live-activity/ios/VeloqLiveActivityModule.swift',
     ],
     holds:

@@ -20,6 +20,19 @@ import {
   webdavBackend,
   testWebdavConnection,
 } from '@/features/settings/lib/autobackup/backends/webdavBackend';
+import { isBackupTransferError } from '@/features/settings/lib/autobackup/backends/errors';
+import { describeBackupFailure } from '@/features/settings/lib/backupFailure';
+
+/** A refused address reaches the backup row as its own line, never as English text. */
+function isAddressFailure(error: unknown): boolean {
+  const described = describeBackupFailure(error);
+  return (
+    isBackupTransferError(error) &&
+    error.permanent &&
+    described.kind === 'key' &&
+    described.key === 'backup.backupFailedAddress'
+  );
+}
 
 // The global mock forgets every write, and the opt-in has to survive a relaunch.
 jest.mock('expo-secure-store', () => {
@@ -52,7 +65,7 @@ afterEach(async () => {
 
 describe('webdavUrlProblem', () => {
   it('accepts https in any case', () => {
-    expect(webdavUrlProblem('https://cloud.example.com/remote.php/dav/files/evan/')).toBeNull();
+    expect(webdavUrlProblem('https://cloud.example.com/remote.php/dav/files/athlete/')).toBeNull();
     expect(webdavUrlProblem('HTTPS://cloud.example.com/dav')).toBeNull();
     expect(webdavUrlProblem('  https://cloud.example.com/dav  ')).toBeNull();
   });
@@ -109,19 +122,19 @@ describe('webdavUrlProblem', () => {
 
 describe('setWebdavConfig', () => {
   it('refuses a plain http address and stores nothing', async () => {
-    await expect(setWebdavConfig('http://cloud.example.com/dav', 'evan', 'pw')).rejects.toThrow(
-      /https/
-    );
+    await expect(
+      setWebdavConfig('http://cloud.example.com/dav', 'athlete', 'pw')
+    ).rejects.toMatchObject({ kind: 'address' });
     expect(getWebdavConfig()).toBeNull();
     await initWebdavConfig();
     expect(getWebdavConfig()).toBeNull();
   });
 
   it('keeps a LAN opt-in with the address it was given for', async () => {
-    await setWebdavConfig('http://192.168.1.20/dav', 'evan', 'pw', true);
+    await setWebdavConfig('http://nas.local/dav', 'athlete', 'pw', true);
     expect(getWebdavConfig()).toEqual({
-      url: 'http://192.168.1.20/dav',
-      username: 'evan',
+      url: 'http://nas.local/dav',
+      username: 'athlete',
       password: 'pw',
       plainLan: true,
     });
@@ -130,31 +143,36 @@ describe('setWebdavConfig', () => {
   });
 
   it('refuses a LAN address without the opt-in', async () => {
-    await expect(setWebdavConfig('http://192.168.1.20/dav', 'evan', 'pw')).rejects.toThrow(/https/);
+    await expect(setWebdavConfig('http://nas.local/dav', 'athlete', 'pw')).rejects.toMatchObject({
+      kind: 'address',
+    });
     expect(getWebdavConfig()).toBeNull();
   });
 });
 
 describe('webdavBackend with a stored http address', () => {
   it('is unavailable and sends nothing', async () => {
-    await setWebdavConfig('http://192.168.1.20/dav', 'evan', 'pw', true);
+    await setWebdavConfig('http://nas.local/dav', 'athlete', 'pw', true);
     (getWebdavConfig() as { plainLan: boolean }).plainLan = false;
     const fetchMock = jest.fn();
     global.fetch = fetchMock as unknown as typeof fetch;
 
     expect(await webdavBackend.isAvailable()).toBe(false);
-    await expect(
-      webdavBackend.upload('/tmp/routes.veloqdb', {
-        timestamp: '2026-09-04T10:00:00.000Z',
-        sizeBytes: 1,
-        appVersion: '0.4.0',
-        schemaVersion: 21,
-        activityCount: 1,
-        athleteId: 'i1',
-      })
-    ).rejects.toThrow(/https/);
-    await expect(webdavBackend.listBackups()).rejects.toThrow(/https/);
-    await expect(webdavBackend.download('x.veloqdb', '/tmp/x')).rejects.toThrow(/https/);
+    const refusals = await Promise.all([
+      webdavBackend
+        .upload('/tmp/routes.veloqdb', {
+          timestamp: '2026-09-04T10:00:00.000Z',
+          sizeBytes: 1,
+          appVersion: '0.4.0',
+          schemaVersion: 21,
+          activityCount: 1,
+          athleteId: 'i1',
+        })
+        .catch((error: unknown) => error),
+      webdavBackend.listBackups().catch((error: unknown) => error),
+      webdavBackend.download('x.veloqdb', '/tmp/x').catch((error: unknown) => error),
+    ]);
+    expect(refusals.map(isAddressFailure)).toEqual([true, true, true]);
     await webdavBackend.delete('x.veloqdb');
     expect(await testWebdavConnection()).toEqual({ kind: 'urlProblem', problem: 'not-https' });
     expect(fetchMock).not.toHaveBeenCalled();

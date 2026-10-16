@@ -370,6 +370,7 @@
     "backupFailedFolder": "Veloq kan ikke længere få adgang til backup-mappen. Vælg mappen igen.",
     "backupFailedIcloud": "iCloud Drive er slået fra for Veloq, eller denne iPhone er ikke logget ind på iCloud. Slå det til i iPhonens Indstillinger.",
     "backupFailedUnverified": "Veloq skrev backuppen, men kunne ikke læse den tilbage for at tjekke den. Den prøver igen senere.",
+    "backupFailedAddress": "WebDAV-serverens adresse skal være en gyldig https://-adresse. Tjek den i backupindstillingerne.",
     "lastAttemptFailed": "Sidste forsøg mislykkedes den {{date}}",
     "androidLastBackup": "Android sikkerhedskopierede sidst {{date}}, {{size}}",
     "androidBackupNever": "Android har ikke sikkerhedskopieret Veloq endnu",
@@ -386,6 +387,7 @@
     "cameraPermissionNeeded": "Kameraadgang er påkrævet for at scanne QR-koder",
     "enterDetailsInstead": "Indtast oplysninger i stedet",
     "fillAllFields": "Udfyld venligst alle felter",
+    "fillField": "Udfyld venligst feltet »{{field}}«",
     "webdavHttpsRequired": "Brug en https://-adresse. En http://-server ville modtage din adgangskode og dit dataarkiv ukrypteret.",
     "webdavInvalidUrl": "Det er ikke en gyldig serveradresse",
     "webdavSaveFailed": "Serveroplysningerne kunne ikke gemmes på denne enhed",
@@ -506,7 +508,7 @@
       "title": "Noget gik galt"
     },
     "offline": {
-      "description": "Nogle funktioner kan være begrænsede",
+      "description": "Synkronisering og uploads fortsætter, når du er online igen.",
       "title": "Du er offline"
     },
     "syncError": {
@@ -2776,6 +2778,26 @@
     "offPr": "{{delta}} fra PR",
     "cycleHint": "Tryk for at skifte",
     "laps": "Omgange: {{n}}",
-    "elevationLoss": "Højdetab"
+    "elevationLoss": "Højdetab",
+    "chartPageForward": "Spring frem",
+    "chartPageBack": "Spring tilbage"
+  },
+  "charts": {
+    "showData": "Vis data",
+    "summary": {
+      "title": "{{title}}.",
+      "empty": "{{name}}: ingen data.",
+      "single": "{{name}}, {{start}}: {{value}}.",
+      "series": "{{name}}, {{start}} til {{end}}: seneste {{latest}}, interval {{min}} til {{max}}, gennemsnit {{average}}.",
+      "curve": "{{name}}, {{start}} til {{end}}: {{first}} ved {{start}}, {{last}} ved {{end}}, top {{max}}.",
+      "parts": "{{name}}: {{parts}}."
+    },
+    "column": {
+      "date": "Dato",
+      "duration": "Varighed",
+      "distance": "Distance",
+      "zone": "Zone",
+      "time": "Tid"
+    }
   }
 }

@@ -5,13 +5,14 @@
  */
 
 import React, { useMemo, useState, useCallback } from 'react';
-import { View, StyleSheet, Pressable, Modal, StatusBar } from 'react-native';
+import { View, StyleSheet, Pressable, StatusBar } from 'react-native';
+import { FullWindowModal } from '@/shared/ui/FullWindowModal';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useIsFocused } from 'expo-router';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { getActivityColor } from '@/shared/activity/activityUtils';
-import { colors, mapLayerColors, spacing, layout, colorWithOpacity, ink } from '@/theme';
+import { colors, colorWithOpacity, iconSize, ink, layout, mapLayerColors, spacing } from '@/theme';
 import { useMapPreferences } from '@/features/settings';
 import {
   BaseMapView,
@@ -224,7 +225,7 @@ export function RouteMapView({
   if (!bounds || displayPoints.length === 0) {
     return (
       <View style={[styles.placeholder, { height, backgroundColor: activityColor + '20' }]}>
-        <MaterialCommunityIcons name="map-marker-off" size={32} color={activityColor} />
+        <MaterialCommunityIcons name="map-marker-off" size={iconSize.xl} color={activityColor} />
       </View>
     );
   }
@@ -258,12 +259,16 @@ export function RouteMapView({
         />
         {showExpandIcon ? (
           <View style={styles.expandOverlay}>
-            <MaterialCommunityIcons name="fullscreen" size={20} color={colors.textOnDark} />
+            <MaterialCommunityIcons
+              name="fullscreen"
+              size={iconSize.md}
+              color={colors.textOnDark}
+            />
           </View>
         ) : null}
       </Pressable>
 
-      <Modal
+      <FullWindowModal
         visible={isFullscreen}
         animationType="fade"
         statusBarTranslucent
@@ -281,7 +286,7 @@ export function RouteMapView({
           overlayImages={ENDPOINT_IMAGES}
           layer3D={fullscreenLayer3D}
         />
-      </Modal>
+      </FullWindowModal>
     </>
   );
 }

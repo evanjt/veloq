@@ -5,7 +5,15 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { colors, colorWithOpacity, spacing, layout, typography, themePalette } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  iconSize,
+  layout,
+  spacing,
+  themePalette,
+  typography,
+} from '@/theme';
 import { batteryOptimisationExempt } from '@/features/recording/lib/recordingNotification';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { Button } from '@/shared/ui/Button';
@@ -46,7 +54,7 @@ export function BatteryOptimisationNudge() {
     >
       <MaterialCommunityIcons
         name="battery-alert-variant-outline"
-        size={20}
+        size={iconSize.md}
         color={palette.warningAmber}
       />
       <View style={styles.body}>
@@ -68,7 +76,7 @@ export function BatteryOptimisationNudge() {
         onPress={dismiss}
         accessibilityLabel={t('common.close', 'Close')}
       >
-        <MaterialCommunityIcons name="close" size={18} color={palette.amberIcon} />
+        <MaterialCommunityIcons name="close" size={iconSize.md} color={palette.amberIcon} />
       </IconButton>
     </View>
   );

@@ -26,9 +26,10 @@ import { useTopBannerHeights, type ShownBanner } from '@/shared/app/topBanner';
 import {
   amberBanner,
   brand,
-  colorWithOpacity,
   colors,
+  colorWithOpacity,
   darkColors,
+  iconSize,
   ink,
   spacing,
   typography,
@@ -87,8 +88,8 @@ function palette(tone: NoticeTone, isDark: boolean): Palette {
     ? { bg: brand.blueDark, text: colors.textOnDark, subtext: ink.white }
     : {
         bg: brand.blue,
-        text: colors.textOnPrimary,
-        subtext: colorWithOpacity(colors.textOnPrimary, 0.85),
+        text: colors.textOnBright,
+        subtext: colorWithOpacity(colors.textOnBright, 0.85),
       };
 }
 
@@ -125,7 +126,7 @@ export function NoticeBanner({
       >
         <View testID={`${testID}-content`} style={styles.content}>
           <View style={styles.headline}>
-            <MaterialCommunityIcons name={icon} size={16} color={ground.text} />
+            <MaterialCommunityIcons name={icon} size={iconSize.sm} color={ground.text} />
             <Text style={[styles.title, { color: ground.text }]}>{title}</Text>
           </View>
           {detail.map((line, index) => (

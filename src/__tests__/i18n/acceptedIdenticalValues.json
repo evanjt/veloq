@@ -94,7 +94,12 @@
     "units.minutesValue": "SI unit symbol for a duration, written the same in every language.",
     "units.secondsValue": "SI unit symbol for a duration, written the same in every language.",
     "units.hoursMinutes": "SI unit symbol for a duration, written the same in every language.",
-    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language."
+    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language.",
+    "charts.summary.title": "Placeholder and full stop only, no translatable words.",
+    "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
+    "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
+    "charts.column.distance": "The same word in this language.",
+    "charts.column.zone": "The same word in this language."
   },
   "de-CH": {
     "activity.stats.maxLabel": "Abbreviation of the German label with the same spelling.",
@@ -182,7 +187,11 @@
     "units.minutesValue": "SI unit symbol for a duration, written the same in every language.",
     "units.secondsValue": "SI unit symbol for a duration, written the same in every language.",
     "units.hoursMinutes": "SI unit symbol for a duration, written the same in every language.",
-    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language."
+    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language.",
+    "charts.summary.title": "Placeholder and full stop only, no translatable words.",
+    "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
+    "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
+    "charts.column.zone": "The same word in this language."
   },
   "de-DE": {
     "about.version": "German word or phrase with the same spelling.",
@@ -296,7 +305,11 @@
     "units.minutesValue": "SI unit symbol for a duration, written the same in every language.",
     "units.secondsValue": "SI unit symbol for a duration, written the same in every language.",
     "units.hoursMinutes": "SI unit symbol for a duration, written the same in every language.",
-    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language."
+    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language.",
+    "charts.summary.title": "Placeholder and full stop only, no translatable words.",
+    "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
+    "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
+    "charts.column.zone": "The same word in this language."
   },
   "es-419": {
     "activity.stats.maxLabel": "Abbreviation of the Spanish label with the same spelling.",
@@ -371,7 +384,10 @@
     "units.minutesValue": "SI unit symbol for a duration, written the same in every language.",
     "units.secondsValue": "SI unit symbol for a duration, written the same in every language.",
     "units.hoursMinutes": "SI unit symbol for a duration, written the same in every language.",
-    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language."
+    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language.",
+    "charts.summary.title": "Placeholder and full stop only, no translatable words.",
+    "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
+    "charts.summary.parts": "Placeholders and punctuation only, no translatable words."
   },
   "es-ES": {
     "activity.stats.maxLabel": "Abbreviation of the Spanish label with the same spelling.",
@@ -451,7 +467,10 @@
     "units.minutesValue": "SI unit symbol for a duration, written the same in every language.",
     "units.secondsValue": "SI unit symbol for a duration, written the same in every language.",
     "units.hoursMinutes": "SI unit symbol for a duration, written the same in every language.",
-    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language."
+    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language.",
+    "charts.summary.title": "Placeholder and full stop only, no translatable words.",
+    "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
+    "charts.summary.parts": "Placeholders and punctuation only, no translatable words."
   },
   "es": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -524,7 +543,10 @@
     "units.minutesValue": "SI unit symbol for a duration, written the same in every language.",
     "units.secondsValue": "SI unit symbol for a duration, written the same in every language.",
     "units.hoursMinutes": "SI unit symbol for a duration, written the same in every language.",
-    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language."
+    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language.",
+    "charts.summary.title": "Placeholder and full stop only, no translatable words.",
+    "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
+    "charts.summary.parts": "Placeholders and punctuation only, no translatable words."
   },
   "fr": {
     "backup.carrierGoogleDrive": "Service and product names.",
@@ -653,7 +675,11 @@
     "units.minutesValue": "SI unit symbol for a duration, written the same in every language.",
     "units.secondsValue": "SI unit symbol for a duration, written the same in every language.",
     "units.hoursMinutes": "SI unit symbol for a duration, written the same in every language.",
-    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language."
+    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language.",
+    "charts.summary.title": "Placeholder and full stop only, no translatable words.",
+    "charts.column.date": "The same word in this language.",
+    "charts.column.distance": "The same word in this language.",
+    "charts.column.zone": "The same word in this language."
   },
   "it": {
     "activity.stats.maxLabel": "Abbreviation of the Italian label with the same spelling.",
@@ -743,7 +769,10 @@
     "units.minutesValue": "SI unit symbol for a duration, written the same in every language.",
     "units.secondsValue": "SI unit symbol for a duration, written the same in every language.",
     "units.hoursMinutes": "SI unit symbol for a duration, written the same in every language.",
-    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language."
+    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language.",
+    "charts.summary.title": "Placeholder and full stop only, no translatable words.",
+    "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
+    "charts.summary.parts": "Placeholders and punctuation only, no translatable words."
   },
   "ja": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -923,7 +952,11 @@
     "units.minutesValue": "SI unit symbol for a duration, written the same in every language.",
     "units.secondsValue": "SI unit symbol for a duration, written the same in every language.",
     "units.hoursMinutes": "SI unit symbol for a duration, written the same in every language.",
-    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language."
+    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language.",
+    "charts.summary.title": "Placeholder and full stop only, no translatable words.",
+    "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
+    "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
+    "charts.column.zone": "The same word in this language."
   },
   "pl": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -1005,7 +1038,10 @@
     "units.minutesValue": "SI unit symbol for a duration, written the same in every language.",
     "units.secondsValue": "SI unit symbol for a duration, written the same in every language.",
     "units.hoursMinutes": "SI unit symbol for a duration, written the same in every language.",
-    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language."
+    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language.",
+    "charts.summary.title": "Placeholder and full stop only, no translatable words.",
+    "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
+    "charts.summary.parts": "Placeholders and punctuation only, no translatable words."
   },
   "pt-BR": {
     "activity.stats.maxLabel": "Abbreviation of the Brazilian Portuguese label with the same spelling.",
@@ -1092,7 +1128,10 @@
     "units.minutesValue": "SI unit symbol for a duration, written the same in every language.",
     "units.secondsValue": "SI unit symbol for a duration, written the same in every language.",
     "units.hoursMinutes": "SI unit symbol for a duration, written the same in every language.",
-    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language."
+    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language.",
+    "charts.summary.title": "Placeholder and full stop only, no translatable words.",
+    "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
+    "charts.summary.parts": "Placeholders and punctuation only, no translatable words."
   },
   "pt": {
     "activity.stats.maxLabel": "Abbreviation of the Portuguese label with the same spelling.",
@@ -1179,7 +1218,10 @@
     "units.minutesValue": "SI unit symbol for a duration, written the same in every language.",
     "units.secondsValue": "SI unit symbol for a duration, written the same in every language.",
     "units.hoursMinutes": "SI unit symbol for a duration, written the same in every language.",
-    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language."
+    "units.minutesSeconds": "SI unit symbol for a duration, written the same in every language.",
+    "charts.summary.title": "Placeholder and full stop only, no translatable words.",
+    "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
+    "charts.summary.parts": "Placeholders and punctuation only, no translatable words."
   },
   "zh-Hans": {
     "backgroundJobs.progressPercent": "Numeric percentage template.",

@@ -25,14 +25,12 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, slopToMinTapTarget, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, slopToMinTapTarget, spacing, typography } from '@/theme';
 
 import { pressable, pressRipple } from './pressFeedback';
 
 /** The two sizes a standalone link is drawn at. */
 export type TextLinkSize = 'bodySmall' | 'caption';
-
-const ICON_SIZE = 14;
 
 const LINK_SLOP: Record<TextLinkSize, ReturnType<typeof slopToMinTapTarget>> = {
   bodySmall: slopToMinTapTarget(typography.bodySmall.lineHeight),
@@ -67,7 +65,13 @@ export function TextLink({
 }: TextLinkProps) {
   const { isDark } = useTheme();
   const tint = isDark ? darkColors.linkTeal : colors.linkTeal;
-  const glyph = icon ? <MaterialCommunityIcons name={icon} size={ICON_SIZE} color={tint} /> : null;
+  const glyph = icon ? (
+    <MaterialCommunityIcons
+      name={icon}
+      size={size === 'caption' ? iconSize.sm : iconSize.md}
+      color={tint}
+    />
+  ) : null;
 
   return (
     <Pressable

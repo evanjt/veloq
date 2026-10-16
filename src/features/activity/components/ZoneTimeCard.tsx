@@ -86,7 +86,7 @@ export function ZoneTimeCard({
             {t('activity.movingTime', { duration: formatDurationHuman(movingTime) })}
           </Text>
         </View>
-        <ZoneHistogram bands={histogram} />
+        <ZoneHistogram title={title} bands={histogram} />
       </View>
     </ChartErrorBoundary>
   );

@@ -1,5 +1,10 @@
 # Stress Test: Rapid Navigation
-# Tests app stability under rapid screen transitions
+# Tests app stability under rapid screen transitions.
+#
+# Every hop waits on the screen it opened, so a link that lands nowhere fails at
+# that hop rather than at the end. No hop checks for the iOS "Open" link prompt:
+# an app in front opens its own scheme without one, and a conditional check that
+# finds nothing waits out Maestro's whole lookup timeout on every hop.
 
 appId: com.veloq.app.dev
 tags:
@@ -14,94 +19,77 @@ tags:
     times: 5
     commands:
       - openLink: "veloq://fitness"
-      - runFlow:
-          when:
-            visible: "Open"
-          commands:
-            - tapOn: "Open"
+      - extendedWaitUntil:
+          visible:
+            id: "fitness-screen"
+          timeout: 15000
       - openLink: "veloq://training"
-      - runFlow:
-          when:
-            visible: "Open"
-          commands:
-            - tapOn: "Open"
+      - extendedWaitUntil:
+          visible:
+            id: "training-screen"
+          timeout: 15000
       - openLink: "veloq://map"
-      - runFlow:
-          when:
-            visible: "Open"
-          commands:
-            - tapOn: "Open"
+      - extendedWaitUntil:
+          visible:
+            id: "map-screen"
+          timeout: 15000
       - openLink: "veloq://"
-      - runFlow:
-          when:
-            visible: "Open"
-          commands:
-            - tapOn: "Open"
+      - extendedWaitUntil:
+          visible:
+            id: "home-screen"
+          timeout: 15000
 
 # Rapid secondary screen access
 - repeat:
     times: 3
     commands:
       - openLink: "veloq://settings"
-      - runFlow:
-          when:
-            visible: "Open"
-          commands:
-            - tapOn: "Open"
+      - extendedWaitUntil:
+          visible:
+            id: "settings-screen"
+          timeout: 15000
       - openLink: "veloq://about"
-      - runFlow:
-          when:
-            visible: "Open"
-          commands:
-            - tapOn: "Open"
+      - extendedWaitUntil:
+          visible:
+            id: "about-screen"
+          timeout: 15000
       - openLink: "veloq://insights"
-      - runFlow:
-          when:
-            visible: "Open"
-          commands:
-            - tapOn: "Open"
+      - extendedWaitUntil:
+          visible:
+            id: "routes-screen"
+          timeout: 15000
       - openLink: "veloq://"
-      - runFlow:
-          when:
-            visible: "Open"
-          commands:
-            - tapOn: "Open"
+      - extendedWaitUntil:
+          visible:
+            id: "home-screen"
+          timeout: 15000
 
 # Rapid activity detail access
 - repeat:
     times: 5
     commands:
       - openLink: "veloq://activity/demo-test-0"
-      - runFlow:
-          when:
-            visible: "Open"
-          commands:
-            - tapOn: "Open"
+      - extendedWaitUntil:
+          visible:
+            id: "activity-detail-screen"
+          timeout: 15000
       - openLink: "veloq://activity/demo-test-1"
-      - runFlow:
-          when:
-            visible: "Open"
-          commands:
-            - tapOn: "Open"
+      - extendedWaitUntil:
+          visible:
+            id: "activity-detail-screen"
+          timeout: 15000
       - openLink: "veloq://activity/demo-test-2"
-      - runFlow:
-          when:
-            visible: "Open"
-          commands:
-            - tapOn: "Open"
+      - extendedWaitUntil:
+          visible:
+            id: "activity-detail-screen"
+          timeout: 15000
       - openLink: "veloq://"
-      - runFlow:
-          when:
-            visible: "Open"
-          commands:
-            - tapOn: "Open"
+      - extendedWaitUntil:
+          visible:
+            id: "home-screen"
+          timeout: 15000
 
-# Verify home is still responsive (longer timeout after rapid navigation)
-- extendedWaitUntil:
-    visible:
-      id: "home-screen"
-    timeout: 60000
-
+# Verify home is still responsive after rapid navigation
 - extendedWaitUntil:
     visible:
       id: "home-activity-list"

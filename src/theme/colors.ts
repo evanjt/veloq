@@ -266,7 +266,11 @@ export const colors = {
   textSecondary: '#52525B',
   textDisabled: '#A1A1AA',
   textOnDark: '#FFFFFF',
-  textOnPrimary: '#18181B', // Dark ink for a filled primary, accent or accentLight control in both themes (4.73:1 on light teal, 9.52:1 on dark teal)
+  textOnPrimary: '#18181B', // Ink on a filled primary control in both themes (4.73:1 on light teal, 9.52:1 on dark teal)
+  // Ink on a bright fill in both themes: gold, success, warning and the light
+  // data hues, where white reads between 2.1:1 and 3:1. It is its own token so
+  // the primary ink can change without moving these.
+  textOnBright: '#18181B',
   // A chevron is often the only thing saying a row opens, and an idle status
   // icon is the only thing saying the GPS is still looking, so both owe 3:1.
   // Same hue, lifted until they hold it on white, background and backgroundAlt.
@@ -303,6 +307,8 @@ export const colors = {
   // surface. Same shape as `successDeep` and `warningAmber` beside it, and the
   // dark counterpart is the dark palette's own error red, 5.65:1.
   errorDeep: '#B91C1C',
+  // The ground of a destructive control, under white ink in both themes.
+  dangerFill: '#B91C1C',
   warning: '#F59E0B',
   warningLight: '#FBBF24',
   // Capacity ladder, between warning and error: a section's point budget and
@@ -555,7 +561,7 @@ export const chartStreamInk: Record<keyof typeof chartStreamColors, 'light' | 'd
 
 /** The ink colour a stream's chip label takes. */
 export function chartInkColor(stream: keyof typeof chartStreamColors): string {
-  return chartStreamInk[stream] === 'light' ? colors.textOnDark : colors.textOnPrimary;
+  return chartStreamInk[stream] === 'light' ? colors.textOnDark : colors.textOnBright;
 }
 
 // The ink a section's index number prints over its disc of section colour, one
@@ -575,7 +581,7 @@ export const sectionPaletteInk: readonly ('light' | 'dark')[] = [
 
 /** The ink colour a section's index number takes on its palette slot. */
 export function sectionNumberInk(slot: number): string {
-  return sectionPaletteInk[slot] === 'light' ? colors.textOnDark : colors.textOnPrimary;
+  return sectionPaletteInk[slot] === 'light' ? colors.textOnDark : colors.textOnBright;
 }
 
 // A list row's swipe actions: each fill with the ink its label and icon take.
@@ -583,9 +589,9 @@ export function sectionNumberInk(slot: number): string {
 // with the theme. White on the error red is 3.76:1, so the destructive action
 // takes the deep red; the amber and green keep their hue and take dark ink.
 export const swipeAction = {
-  destructive: { bg: colors.errorDeep, text: colors.textOnDark },
-  hide: { bg: colors.warning, text: colors.textOnPrimary },
-  restore: { bg: colors.success, text: colors.textOnPrimary },
+  destructive: { bg: colors.dangerFill, text: colors.textOnDark },
+  hide: { bg: colors.warning, text: colors.textOnBright },
+  restore: { bg: colors.success, text: colors.textOnBright },
 } as const;
 
 // Style-picker chip swatches (map style selection): one representative
@@ -872,6 +878,9 @@ export const darkColors = {
   // the text bar on a near-black surface at 5.65:1, so the pair is one token
   // read through isDark and not two hues.
   errorDeep: '#F87171',
+  // White on the dark error red is 2.77:1, so the destructive ground is a
+  // deeper red that holds it.
+  dangerFill: '#C74239',
 
   // Counterpart to light successDeep: on a near-black surface the mark has to
   // be the light tone, not the dark one. 10.17:1 on #18181B.

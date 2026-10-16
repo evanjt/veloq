@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { getIntlLocale } from '@/shared/format/format';
 
 import { confirmLegacyImport, useImportDatabaseBackup } from '../hooks/useBackup';
@@ -27,7 +27,7 @@ import {
 import { icloudBackend, isIcloudSupported } from '../lib/autobackup/backends/icloudBackend';
 import { describeBackupFailure } from '../lib/backupFailure';
 import { restoreBackendEntry } from '../lib/restoreBackendEntry';
-import { WebdavConfigForm } from './WebdavConfigForm';
+import { WebdavConfigForm, type WebdavConfigFormHandle } from './WebdavConfigForm';
 import { inform } from '@/shared/ui/dialog';
 import { showRestoreNotice } from '../lib/restoreNotice';
 
@@ -52,6 +52,7 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
   const [icloudListing, setIcloudListing] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
   const running = useRef(false);
+  const webdavForm = useRef<WebdavConfigFormHandle>(null);
 
   const busy = importing || restoring !== null;
   useEffect(() => {
@@ -66,6 +67,10 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
   const handleList = useCallback(async () => {
     setListing(true);
     try {
+      // The form's own refusal names the field or address at fault, which an
+      // unavailable destination would not.
+      const committed = await webdavForm.current?.commit({ required: true });
+      if (committed?.kind === 'refused') throw new Error(committed.message);
       if (!(await webdavBackend.isAvailable())) {
         throw new Error(t('backup.destinationUnavailable'));
       }
@@ -141,12 +146,13 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
       }
       setRestoring(entry.id);
       try {
-        showRestoreNotice(await restoreBackendEntry(backend, entry, t), t);
+        showRestoreNotice(await restoreBackendEntry(backend, entry), t);
         onRestored?.();
       } catch (error) {
+        const described = describeBackupFailure(error);
         inform({
           title: t('backup.notRestoredTitle'),
-          message: error instanceof Error ? error.message : t('backup.importError'),
+          message: described.kind === 'key' ? t(described.key) : described.message,
         });
       } finally {
         running.current = false;
@@ -177,6 +183,7 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
       {showWebdav ? (
         <>
           <WebdavConfigForm
+            ref={webdavForm}
             onConfigChange={() => setEntries(null)}
             onRemoved={() => setEntries(null)}
           />
@@ -276,7 +283,7 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
       <View testID="restore-chooser-device-backup" style={styles.deviceRow}>
         <MaterialCommunityIcons
           name="cellphone"
-          size={18}
+          size={iconSize.md}
           color={isDark ? darkColors.textSecondary : colors.textSecondary}
         />
         <View style={styles.fill}>

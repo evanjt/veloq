@@ -13,7 +13,16 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ParseKeys } from 'i18next';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, layout, typography, colorWithOpacity, ink } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  darkColors,
+  iconSize,
+  ink,
+  layout,
+  spacing,
+  typography,
+} from '@/theme';
 import { createSharedStyles } from '@/styles';
 import { useTheme } from '@/shared/app';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
@@ -562,7 +571,7 @@ function LicenseEntryRow({ entry, isDark, isLast, testID }: LicenseEntryRowProps
           >
             <MaterialCommunityIcons
               name="open-in-new"
-              size={18}
+              size={iconSize.md}
               color={themeColors.textSecondary}
             />
           </IconButton>

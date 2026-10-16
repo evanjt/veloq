@@ -446,6 +446,13 @@ final class WidgetCaptureTests: XCTestCase {
     }
   }
 
+  /// The locale and zone every placement is drawn in, so a capture reads the same on every Mac
+  /// rather than in the host's own: a date the widget formats itself, such as a stale age line,
+  /// is longest with a 12-hour clock and an hour of two digits, "Dec 5 at 12:53 AM" where a
+  /// 24-hour host in another zone draws "5 Dec at 01:53".
+  private let captureLocale = Locale(identifier: "en_US")
+  private let captureTimeZone = TimeZone(identifier: "UTC")!
+
   /// Draws one placement on the widget's own ground, or in accented mode on none, saves it, and
   /// lists what it cuts off and which expected texts it does not draw.
   private func capture(
@@ -471,6 +478,8 @@ final class WidgetCaptureTests: XCTestCase {
       .environment(\.colorScheme, scheme)
       .environment(\.widgetRenderingMode, mode == .accented ? .accented : .fullColor)
       .environment(\.dynamicTypeSize, textSize)
+      .environment(\.locale, captureLocale)
+      .environment(\.timeZone, captureTimeZone)
     let drawn =
       mode == .accented
       ? AnyView(

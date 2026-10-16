@@ -5,7 +5,15 @@
 import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { darkColors, typography, layout, spacing, themedStyles, type Palette } from '@/theme';
+import {
+  darkColors,
+  iconSize,
+  layout,
+  type Palette,
+  spacing,
+  themedStyles,
+  typography,
+} from '@/theme';
 import { DenseText } from '@/shared/ui/DenseText';
 import { composeAccessibilityLabel, pressable, pressRipple } from '@/shared/ui';
 
@@ -32,7 +40,7 @@ export const StatCard = React.memo(function StatCard({ stat, isDark, onPress }: 
     >
       {/* Icon with colored background */}
       <View style={[styles.iconContainer, { backgroundColor: `${stat.color}20` }]}>
-        <MaterialCommunityIcons name={stat.icon} size={16} color={stat.color} />
+        <MaterialCommunityIcons name={stat.icon} size={iconSize.sm} color={stat.color} />
       </View>
 
       {/* Value and title */}

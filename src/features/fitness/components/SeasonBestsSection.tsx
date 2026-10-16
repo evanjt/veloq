@@ -15,7 +15,16 @@ import {
   SPORT_TEXT_COLORS_DARK,
   type PrimarySport,
 } from '@/features/fitness/stores';
-import { colors, darkColors, layout, spacing, typography, colorWithOpacity, ink } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  darkColors,
+  iconSize,
+  ink,
+  layout,
+  spacing,
+  typography,
+} from '@/theme';
 import {
   bestEffortsHref,
   type BestEffort,
@@ -78,7 +87,7 @@ export function SeasonBestsSection({
       onPress={() => tapTo(bestEffortsHref(period))}
     >
       <Text style={[styles.viewAllText, { color: sportText }]}>{t('bestEffortsScreen.title')}</Text>
-      <MaterialCommunityIcons name="chevron-right" size={18} color={sportColor} />
+      <MaterialCommunityIcons name="chevron-right" size={iconSize.sm} color={sportColor} />
     </Pressable>
   );
 

@@ -10,7 +10,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { tapTo } from '@/shared/app/navigation';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
 import { Card } from '@/shared/ui/Card';
 import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
@@ -120,7 +120,7 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
             <View style={[styles.previewPlaceholder, isDark && styles.previewPlaceholderDark]}>
               <MaterialCommunityIcons
                 name={getActivityIcon(toActivityType(route.type))}
-                size={18}
+                size={iconSize.md}
                 color={isDark ? darkColors.iconFaint : colors.iconFaint}
               />
             </View>
@@ -138,7 +138,7 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
               <View style={styles.sportTypeIcons}>
                 <SportIcons
                   sportTypes={route.sportTypes}
-                  size={12}
+                  size={iconSize.xs}
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 />
               </View>
@@ -152,7 +152,7 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
               <View style={styles.proximityTag}>
                 <MaterialCommunityIcons
                   name="map-marker-distance"
-                  size={10}
+                  size={iconSize.xs}
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 />
                 <Text style={[styles.proximityText, isDark && styles.proximityTextDark]}>
@@ -182,14 +182,14 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
         >
           <MaterialCommunityIcons
             name="map-marker-multiple"
-            size={typography.bodyCompact.fontSize}
+            size={iconSize.sm}
             color={colors.textOnPrimary}
             testID={`route-row-${route.id}-count-glyph`}
           />
           <Text style={styles.countText}>{route.activityCount}</Text>
           <MaterialCommunityIcons
             name={navigable ? 'chevron-right' : 'chevron-down'}
-            size={16}
+            size={iconSize.sm}
             color={
               navigable ? colors.textOnDark : isDark ? colors.neutralLine : colors.textSecondary
             }

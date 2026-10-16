@@ -22,9 +22,10 @@ import { StatCard } from '@/features/activity/components/stats/StatCard';
 
 /**
  * The surfaces that cannot reflow, named rather than felt: the stats grids,
- * the metric chip rows, the chart axis labels and the tab bar. A file added
- * here is a claim that its layout breaks at 200 per cent, and a file that
- * reaches for the cap without being here fails this suite.
+ * the metric chip rows, the chart axis labels, the tab bar, and the live
+ * recording timer and unlock track. A file added here is a claim that its
+ * layout breaks at 200 per cent, and a file that reaches for the cap without
+ * being here fails this suite.
  */
 const DENSE_SURFACES = [
   'src/features/activity/components/ChartTypeSelector.tsx',
@@ -32,6 +33,8 @@ const DENSE_SURFACES = [
   'src/features/activity/components/ChartYAxisLabel.tsx',
   'src/features/activity/components/stats/StatCard.tsx',
   'src/features/recording/components/DataFieldGrid.tsx',
+  'src/features/recording/components/TimerHeader.tsx',
+  'src/features/recording/components/UnlockTrack.tsx',
   'src/shared/charts/CurveChart.tsx',
   'src/features/fitness/components/FitnessChart.tsx',
   'src/features/fitness/components/FormZoneChart.tsx',

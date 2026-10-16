@@ -10,7 +10,15 @@ import { replaceTo, tapTo } from '@/shared/app/navigation';
 import { useBackIntercept } from '@/shared/app/useBackIntercept';
 import { useDiscardGuard } from '@/shared/app/useDiscardGuard';
 import { overMapHeaderOptions } from '@/shared/app/screenHeaders';
-import { colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  darkColors,
+  iconSize,
+  layout,
+  spacing,
+  typography,
+} from '@/theme';
 import { Button, ScreenScrollView, StatusLine, TextField } from '@/shared/ui';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { formatDistance, formatDuration } from '@/shared/format/format';
@@ -271,7 +279,7 @@ function ReviewScreenContent() {
   if (!ownedReview) return null;
 
   return (
-    <View style={[styles.container, { backgroundColor: bg }]}>
+    <View testID="review-screen" style={[styles.container, { backgroundColor: bg }]}>
       {/* A GPS recording opens on a map hero that runs under the status bar, so
           its header is the transparent one the detail heroes take, with the
           platform's back floating over the map. Either way the header back is
@@ -340,11 +348,15 @@ function ReviewScreenContent() {
           android_ripple={pressRipple}
           onPress={() => !isProcessing && openTypePicker()}
         >
-          <MaterialCommunityIcons name={getActivityIcon(type)} size={20} color={activityColor} />
+          <MaterialCommunityIcons
+            name={getActivityIcon(type)}
+            size={iconSize.md}
+            color={activityColor}
+          />
           <Text style={[styles.typeText, { color: textPrimary }]}>
             {t(`activityTypes.${type}`, type)}
           </Text>
-          <MaterialCommunityIcons name="chevron-down" size={18} color={textSecondary} />
+          <MaterialCommunityIcons name="chevron-down" size={iconSize.md} color={textSecondary} />
         </Pressable>
 
         {/* Notes */}
@@ -365,7 +377,7 @@ function ReviewScreenContent() {
           <StatusLine tone="success" message={queuedMessage} style={styles.queuedBanner}>
             <MaterialCommunityIcons
               name="check-circle-outline"
-              size={18}
+              size={iconSize.md}
               color={isDark ? darkColors.successDeep : colors.successDeep}
             />
             <Text
@@ -398,7 +410,7 @@ function ReviewScreenContent() {
           >
             <MaterialCommunityIcons
               name="content-save-alert-outline"
-              size={18}
+              size={iconSize.md}
               color={isDark ? darkColors.warningAmber : colors.warningAmber}
             />
             <Text

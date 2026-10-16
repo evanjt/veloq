@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { colors, darkColors, spacing, ink, layout, typography } from '@/theme';
+import { colors, darkColors, iconSize, ink, layout, spacing, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { Button, IconButton, pressable, pressRipple } from '@/shared/ui';
 import { useActivities } from '@/features/activity';
@@ -62,12 +62,12 @@ function Section({
         accessibilityState={{ expanded: open }}
       >
         <View style={styles.sectionHeaderLeft}>
-          <MaterialCommunityIcons name={icon} size={20} color={colors.primary} />
+          <MaterialCommunityIcons name={icon} size={iconSize.md} color={colors.primary} />
           <Text style={[styles.sectionTitle, { color: textColor }]}>{title}</Text>
         </View>
         <MaterialCommunityIcons
           name={open ? 'chevron-up' : 'chevron-down'}
-          size={20}
+          size={iconSize.md}
           color={mutedColor}
         />
       </Pressable>
@@ -285,7 +285,7 @@ export function SyncDebugSection() {
             icon={
               <MaterialCommunityIcons
                 name={showMissing ? 'chevron-up' : 'chevron-down'}
-                size={16}
+                size={iconSize.sm}
                 color={colors.primary}
               />
             }
@@ -316,7 +316,7 @@ export function SyncDebugSection() {
             icon={
               <MaterialCommunityIcons
                 name={showExtra ? 'chevron-up' : 'chevron-down'}
-                size={16}
+                size={iconSize.sm}
                 color={colors.primary}
               />
             }
@@ -403,7 +403,7 @@ export function SyncDebugSection() {
           variant="secondary"
           style={styles.actionButton}
           onPress={handleForceSync}
-          icon={<MaterialCommunityIcons name="refresh" size={18} color={colors.primary} />}
+          icon={<MaterialCommunityIcons name="refresh" size={iconSize.md} color={colors.primary} />}
           label={FORCE_SYNC_LABEL}
         />
         {forceSyncStatus !== '' && (
@@ -423,7 +423,7 @@ export function SyncDebugSection() {
               >
                 <MaterialCommunityIcons
                   name="minus"
-                  size={16}
+                  size={iconSize.sm}
                   color={isDark ? darkColors.textPrimary : colors.textPrimary}
                 />
               </IconButton>
@@ -435,7 +435,7 @@ export function SyncDebugSection() {
               >
                 <MaterialCommunityIcons
                   name="plus"
-                  size={16}
+                  size={iconSize.sm}
                   color={isDark ? darkColors.textPrimary : colors.textPrimary}
                 />
               </IconButton>
@@ -446,7 +446,9 @@ export function SyncDebugSection() {
             opensConfirm
             onPress={handleRemoveActivities}
             disabled={isRemoving || !apiActivities?.length}
-            icon={<MaterialCommunityIcons name="delete-outline" size={18} color={ink.white} />}
+            icon={
+              <MaterialCommunityIcons name="delete-outline" size={iconSize.md} color={ink.white} />
+            }
             label={isRemoving ? 'Removing...' : `Remove ${removeCount} & Re-sync`}
           />
         </View>
@@ -457,7 +459,7 @@ export function SyncDebugSection() {
             opensConfirm
             onPress={handleHardResync}
             disabled={!engine}
-            icon={<MaterialCommunityIcons name="nuke" size={18} color={ink.white} />}
+            icon={<MaterialCommunityIcons name="nuke" size={iconSize.sm} color={ink.white} />}
             label={HARD_RESYNC_LABEL}
           />
           <Text style={[styles.hintText, { color: mutedColor }]}>

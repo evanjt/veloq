@@ -9,13 +9,14 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { pressable, pressRipple } from '@/shared/ui';
 import {
+  bodyDiagram,
+  brand,
   colors,
   darkColors,
-  spacing,
+  iconSize,
   layout,
-  brand,
+  spacing,
   strengthRamp,
-  bodyDiagram,
   typography,
 } from '@/theme';
 import type { MuscleVolume } from '@/types';
@@ -98,7 +99,7 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
           </Text>
           <MaterialCommunityIcons
             name="close"
-            size={14}
+            size={iconSize.sm}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
         </Pressable>

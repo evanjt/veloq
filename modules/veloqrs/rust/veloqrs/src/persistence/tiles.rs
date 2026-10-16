@@ -24,6 +24,34 @@ use tracematch::{Bounds, GpsPoint};
 /// Triggers automatic cache clear + regeneration on app upgrade.
 pub(crate) const TILE_FORMAT_VERSION: &str = "10";
 
+/// The bytes on disk the tiles drawn on request may hold. About 8,000 deep
+/// tiles of one 4 KiB block each, which is on the order of a hundred distinct
+/// views at the deepest zooms.
+pub(crate) const DEEP_TILE_BUDGET: u64 = 32 * 1024 * 1024;
+
+/// A smaller budget a test sets, so it can pass it without drawing 32 MiB.
+#[cfg(any(test, feature = "synthetic"))]
+static DEEP_TILE_BUDGET_OVERRIDE: AtomicU64 = AtomicU64::new(0);
+
+/// Hold the tiles drawn on request under `bytes` rather than
+/// [`DEEP_TILE_BUDGET`], or under it again with `None`.
+#[cfg(any(test, feature = "synthetic"))]
+#[doc(hidden)]
+pub fn set_deep_tile_budget(bytes: Option<u64>) {
+    DEEP_TILE_BUDGET_OVERRIDE.store(bytes.unwrap_or(0), Ordering::Release);
+}
+
+fn deep_tile_budget() -> u64 {
+    #[cfg(any(test, feature = "synthetic"))]
+    {
+        let set = DEEP_TILE_BUDGET_OVERRIDE.load(Ordering::Acquire);
+        if set > 0 {
+            return set;
+        }
+    }
+    DEEP_TILE_BUDGET
+}
+
 /// Marker file written to the tiles directory when new data arrives.
 /// Cleared after tile generation completes. Prevents redundant generation on app restart.
 pub(crate) const DIRTY_MARKER: &str = ".dirty";
@@ -544,10 +572,14 @@ pub fn heatmap_tile_bytes(z: u8, x: u32, y: u32) -> Option<Vec<u8>> {
     let wipes = TILE_WIPES.load(Ordering::Acquire);
     let source = heatmap_source()?;
     let base = Path::new(&source.dir);
+    let deep = on_request_zooms().contains(&z);
     if let Some(drawn) = read_drawn_tile(base, z, x, y) {
+        if deep {
+            super::deep_tiles::tile_read(base, on_request_zooms(), (z, x, y));
+        }
         return drawn;
     }
-    if !(ON_REQUEST_ZOOMS.0..=ON_REQUEST_ZOOMS.1).contains(&z) {
+    if !deep {
         return None;
     }
     count_on_request(|c| c.misses += 1);
@@ -555,6 +587,7 @@ pub fn heatmap_tile_bytes(z: u8, x: u32, y: u32) -> Option<Vec<u8>> {
     // it wrote, rather than drawing the same tile again beside it.
     let _flight = TileDraw::claim((z, x, y));
     if let Some(drawn) = read_drawn_tile(base, z, x, y) {
+        super::deep_tiles::tile_read(base, on_request_zooms(), (z, x, y));
         return drawn;
     }
     let png = draw_tile_on_request(&source, z, x, y)?;
@@ -562,6 +595,10 @@ pub fn heatmap_tile_bytes(z: u8, x: u32, y: u32) -> Option<Vec<u8>> {
         Kept::Written | Kept::NotWritten => png,
         Kept::Withdrawn => None,
     }
+}
+
+fn on_request_zooms() -> std::ops::RangeInclusive<u8> {
+    ON_REQUEST_ZOOMS.0..=ON_REQUEST_ZOOMS.1
 }
 
 /// What the set holds for a tile: `Some(Some(bytes))` drawn with heat,
@@ -699,7 +736,11 @@ fn keep_tile_drawn_on_request(
         None => tiles::mark_tile_empty(base, z, x, y),
     };
     match written {
-        Ok(()) => Kept::Written,
+        Ok(()) => {
+            // Under the wipe gate, so an eviction never runs beside a clear.
+            super::deep_tiles::tile_drawn(base, on_request_zooms(), (z, x, y), deep_tile_budget());
+            Kept::Written
+        }
         Err(e) => {
             log::warn!("[heatmap] Could not keep the tile drawn on request: {e}");
             Kept::NotWritten
@@ -859,6 +900,16 @@ impl PersistentEngine {
             // Format changed - mark dirty so generation runs
             self.mark_heatmap_dirty();
         }
+
+        // The deep tiles held are counted afresh from the tree, off the
+        // caller, which is the JS thread at launch.
+        super::deep_tiles::forget();
+        let seeded = PathBuf::from(&path);
+        crate::threads::spawn_background("veloq-deeptiles", move || {
+            if heatmap_source().is_some_and(|source| Path::new(&source.dir) == seeded) {
+                super::deep_tiles::seed(&seeded, on_request_zooms());
+            }
+        });
 
         // Only generate if tiles are stale (new data, format change, first time, or cache cleared).
         // Skips the expensive tile enumeration + file-existence checks on normal app restart.
@@ -1028,6 +1079,7 @@ impl PersistentEngine {
         info!("[heatmap] Tiles path cleared - generation disabled");
         self.heatmap_tiles_path = None;
         publish_heatmap_source(None);
+        super::deep_tiles::forget();
     }
 
     /// Hand the map's tile reader the tiles path, the database and the
@@ -1158,6 +1210,7 @@ fn wipe_tile_sets_within_after_stop(
             }
             write_corrupt_record(dir, &[]);
         }
+        super::deep_tiles::forget();
         if let Err(e) = try_write_dirty_marker(dir) {
             failed.push(e);
         }

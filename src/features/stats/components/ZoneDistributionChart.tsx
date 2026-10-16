@@ -107,7 +107,7 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
       />
 
       <View style={styles.bars}>
-        <ZoneHistogram bands={bands} />
+        <ZoneHistogram title={displayTitle} bands={bands} />
       </View>
 
       {/* Total time */}

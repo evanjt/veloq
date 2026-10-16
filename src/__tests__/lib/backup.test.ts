@@ -22,7 +22,7 @@ import {
   restoreDatabaseBackup,
   resumeRecordImport,
 } from '@/features/settings/lib/backup';
-import { i18n } from '@/i18n';
+import { RestoreRefusedError } from '@/features/settings/lib/restoreRefusal';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getSetting, setSetting, removeSetting } from '@/shared/storage';
 import { shareExistingFile } from '@/features/settings/lib/shareFile';
@@ -61,7 +61,7 @@ const mockEngine = {
   discardUnplacedBackupRecords: jest.fn().mockResolvedValue(undefined),
   syncNow: jest.fn().mockReturnValue(0),
 };
-const mockEngineState = { ready: true };
+const mockEngineState = { ready: true, reader: true };
 
 const mockNativeModule = {
   validateBackupDatabase: jest.fn(),
@@ -78,7 +78,7 @@ jest.mock('veloqrs', () =>
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => mockEngine,
   getRouteDbPath: () => '/data/veloq.db',
-  getNativeModule: () => mockNativeModule,
+  getNativeModule: () => (mockEngineState.reader ? mockNativeModule : null),
   isEngineReady: () => mockEngineState.ready,
 }));
 
@@ -197,6 +197,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockSettings.clear();
   mockEngineState.ready = true;
+  mockEngineState.reader = true;
   mockEngine.getActivityCount.mockReturnValue(0);
   mockEngine.getStats.mockReturnValue({ activityCount: 0, libraryCount: 100 });
   jest.spyOn(Alert, 'alert').mockImplementation((_title, _body, buttons) => {
@@ -372,8 +373,7 @@ describe('legacy database conversion', () => {
 
     const result = await restoreDatabaseBackup('content://picked/empty.veloqdb');
 
-    expect(result).toMatchObject({ success: false, reason: 'missing' });
-    expect(result.error).toBeUndefined();
+    expect(result).toEqual({ success: false, activityCount: 0, refusal: 'missing' });
     expect(mockNativeModule.convertLegacyDatabaseToRecordBackup).not.toHaveBeenCalled();
   });
 
@@ -384,8 +384,38 @@ describe('legacy database conversion', () => {
 
     const result = await restoreDatabaseBackup('content://picked/other.veloqdb');
 
-    expect(result).toMatchObject({ success: false, athleteIdMismatch: true });
+    expect(result).toEqual({ success: false, activityCount: 0, refusal: 'differentAccount' });
     expect(mockEngine.destroyEngine).not.toHaveBeenCalled();
+  });
+
+  it('names a converter or engine failure by refusal, not by its English', async () => {
+    mockEngine.restoreRecordZip.mockRejectedValueOnce(
+      Object.assign(new Error('Database error: disk I/O error'), { tag: 'Database' })
+    );
+
+    const result = await restoreDatabaseBackup('content://picked/broken.veloqdb');
+
+    expect(result).toEqual({ success: false, activityCount: 0, refusal: 'failed' });
+  });
+
+  it('names a missing reader by refusal', async () => {
+    mockEngineState.reader = false;
+
+    const result = await restoreDatabaseBackup('content://picked/old.veloqdb');
+
+    expect(result).toEqual({ success: false, activityCount: 0, refusal: 'unavailable' });
+  });
+});
+
+describe('record zip refusals', () => {
+  it('refuses an empty zip as missing rather than with an English sentence', async () => {
+    (FileSystem.getInfoAsync as jest.Mock).mockResolvedValueOnce({ exists: true, size: 0 });
+
+    const refused = restoreRecordBackup('content://picked/empty.zip');
+
+    await expect(refused).rejects.toBeInstanceOf(RestoreRefusedError);
+    await expect(refused).rejects.toMatchObject({ refusal: 'missing' });
+    expect(mockEngine.restoreRecordZip).not.toHaveBeenCalled();
   });
 });
 
@@ -472,7 +502,7 @@ describe('legacy JSON signed-out import', () => {
         ],
       })
     );
-    expect(result).toMatchObject({ failed: true, signInRequired: true });
+    expect(result).toEqual({ refusal: 'signInRequired' });
     expect(mockEngine.restoreRecordJson).not.toHaveBeenCalled();
   });
 
@@ -502,9 +532,9 @@ describe('record zip and .veloqdb signed-out import', () => {
   }
 
   it('refuses a record zip with the sign-in prompt', async () => {
-    await expect(restoreRecordBackup('content://picked/backup.zip')).rejects.toThrow(
-      i18n.t('backup.signInRequired', { defaultValue: 'Sign in before importing a backup.' })
-    );
+    await expect(restoreRecordBackup('content://picked/backup.zip')).rejects.toMatchObject({
+      refusal: 'signInRequired',
+    });
     expectNothingTouched();
   });
 
@@ -517,10 +547,7 @@ describe('record zip and .veloqdb signed-out import', () => {
 
   it('refuses a .veloqdb as sign-in required, not as a raw engine error', async () => {
     const result = await restoreDatabaseBackup('content://picked/old.veloqdb');
-    expect(result).toMatchObject({ success: false, signInRequired: true });
-    expect(result.error).toBe(
-      i18n.t('backup.signInRequired', { defaultValue: 'Sign in before importing a backup.' })
-    );
+    expect(result).toEqual({ success: false, activityCount: 0, refusal: 'signInRequired' });
     expectNothingTouched();
   });
 });

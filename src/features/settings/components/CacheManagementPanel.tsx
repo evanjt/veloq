@@ -2,7 +2,7 @@ import React from 'react';
 import { Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { typography, themePalette } from '@/theme';
+import { iconSize, themePalette, typography } from '@/theme';
 import { Row } from '@/shared/ui/Row';
 
 export interface CacheManagementPanelProps {
@@ -29,7 +29,7 @@ export function CacheManagementPanel({
     >
       <MaterialCommunityIcons
         name="delete-outline"
-        size={22}
+        size={iconSize.lg}
         color={isDemoMode ? palette.textSecondary : palette.error}
       />
       <Text

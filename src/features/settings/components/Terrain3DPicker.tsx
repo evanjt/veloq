@@ -2,7 +2,7 @@ import React from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors } from '@/theme';
+import { colors, darkColors, iconSize } from '@/theme';
 import { CircleOptionRow, type CircleOption } from '@/shared/ui';
 import type { Terrain3DMode } from '@/types';
 
@@ -33,10 +33,10 @@ export function Terrain3DPicker({ value, onValueChange }: Terrain3DPickerProps) 
   const options: CircleOption<Terrain3DMode>[] = MODES.map(({ mode, labelKey, icon }) => ({
     value: mode,
     label: t(labelKey as never) as string,
-    render: (size) => (
+    render: () => (
       <MaterialCommunityIcons
         name={icon}
-        size={Math.round(size * 0.5)}
+        size={iconSize.lg}
         color={mode === value ? palette.primary : palette.textSecondary}
       />
     ),

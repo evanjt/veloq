@@ -35,7 +35,6 @@ function engineWith({
   return {
     isCutoverPending: jest.fn(() => cutoverPending),
     isCutoverRunning: jest.fn(() => cutoverRunning),
-    getElevationBackfillRemaining: jest.fn(() => remaining),
     getRoutesStatusData: jest.fn(() =>
       routesStatus({
         elevation: { phase },

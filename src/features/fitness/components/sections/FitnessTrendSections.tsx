@@ -16,7 +16,16 @@ import {
 import { formatPaceCompact, paceUnitLabel } from '@/shared/format/format';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { PERIOD_LABEL_KEYS } from '@/shared/app/period';
-import { colors, darkColors, spacing, layout, typography, opacity, verdictColor } from '@/theme';
+import {
+  colors,
+  darkColors,
+  iconSize,
+  layout,
+  opacity,
+  spacing,
+  typography,
+  verdictColor,
+} from '@/theme';
 import { trendIcon, trendVerdict, verdictRung, type TrendDirection } from '@/shared/format/trend';
 import { type TimeRange } from '@/features/wellness';
 import type { ZoneDistribution } from '@/types';
@@ -163,7 +172,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                   {ftpTrend ? (
                     <MaterialCommunityIcons
                       name={trendIcon('ftp', ftpTrend)}
-                      size={16}
+                      size={iconSize.sm}
                       color={verdictColor(verdictRung(trendVerdict('ftp', ftpTrend)), isDark)}
                       style={styles.trendIcon}
                     />

@@ -74,6 +74,19 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
     (secsPerKm: number) => formatPaceFromSecsPerKm(secsPerKm, isMetric),
     [isMetric]
   );
+  const reading = useMemo(
+    () => ({
+      title: t('stats.paceCurve'),
+      xHeader: t('charts.column.distance'),
+      unit: paceUnitLabel(isMetric),
+      formatX: (x: number) => formatDistance(10 ** x, isMetric),
+      formatValue: (secsPerKm: number) =>
+        `${formatPaceFromSecsPerKm(secsPerKm, isMetric)}${paceUnitLabel(isMetric)}`,
+      lowerIsBetter: true,
+      shape: 'curve' as const,
+    }),
+    [t, isMetric]
+  );
 
   // GAP toggle state (only for running)
   const [showGap, setShowGap] = useState(false);
@@ -317,7 +330,15 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
         referenceLine={referenceLine}
         xLabels={X_LABELS}
         formatY={formatPaceAxis}
+        reading={reading}
         crosshairMode="finger"
+        describePoint={(p) =>
+          [
+            formatDistance(p.distance, isMetric),
+            formatDuration(p.time),
+            `${formatPaceFromSecsPerKm(p.paceSecsPerKm, isMetric)}${paceUnitLabel(isMetric)}`,
+          ].join(', ')
+        }
         onSelect={handleSelect}
         onInteractionChange={handleInteractionChange}
       />

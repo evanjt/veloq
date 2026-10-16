@@ -18,7 +18,15 @@ import { useTranslation } from 'react-i18next';
 import { useNetwork } from '@/shared/app/NetworkContext';
 import { useFloatingPillTop } from '@/shared/app/TopSafeAreaContext';
 import { useAnnounceOnAppear } from './useAnnounceOnAppear';
-import { offlinePill, typography, spacing, layout, shadows, colorWithOpacity } from '@/theme';
+import {
+  colorWithOpacity,
+  iconSize,
+  layout,
+  offlinePill,
+  shadows,
+  spacing,
+  typography,
+} from '@/theme';
 
 export function OfflineBanner() {
   const { t } = useTranslation();
@@ -45,7 +53,11 @@ export function OfflineBanner() {
       testID="offline-banner"
     >
       <View style={[styles.pill, shadows.elevated]} testID="offline-pill">
-        <MaterialCommunityIcons name="cloud-off-outline" size={16} color={offlinePill.text} />
+        <MaterialCommunityIcons
+          name="cloud-off-outline"
+          size={iconSize.sm}
+          color={offlinePill.text}
+        />
         <Text style={styles.text} numberOfLines={1} testID="offline-banner-text">
           {t('emptyState.offline.title')}
           <Text style={styles.subtitleText}>

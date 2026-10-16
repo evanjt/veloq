@@ -2,11 +2,11 @@
  * Scenario: the scheduled iOS sweep ran every flow tagged tier0 to tier3 in one
  * bare `maestro test` inside a single macOS job. At 120 minutes and then at 180
  * it was cancelled every time, so no complete iOS result was ever seen, and a
- * cancelled job leaves no report behind.
+ * cancelled job leaves a partial report at best.
  *
  * Expected behaviour: the sweep is split into shards by pack tag, every swept
  * flow lands in exactly one shard, each shard's measured flow time fits its
- * timeout with room for the retry pass, each shard runs through `run-suite.sh`
+ * run step's timeout with room for the retry pass, each shard runs through `run-suite.sh`
  * against the simulator, and the summary is red when a shard did not succeed.
  */
 
@@ -21,7 +21,13 @@ const MAESTRO_DIR = path.join(REPO_ROOT, '.maestro');
 
 const yaml = require('js-yaml') as { load: (source: string) => unknown };
 
-type Step = { name?: string; run?: string; env?: Record<string, string>; if?: string };
+type Step = {
+  name?: string;
+  run?: string;
+  env?: Record<string, string>;
+  if?: string;
+  'timeout-minutes'?: number;
+};
 type Shard = { name: string; packs: string; tiers: string };
 type Job = {
   needs?: string | string[];
@@ -135,9 +141,6 @@ const MEASURED_SECONDS: Record<string, number> = {
 /** A flow the measured run never reached counts above nine in ten of those it did. */
 const UNMEASURED_SECONDS = 240;
 
-/** From job start to the first flow in the measured run, about seven minutes. */
-const SETUP_MINUTES = 10;
-
 /** A failed flow is retried once, so half the shard failing costs half again. */
 const RETRY_SHARE = 0.5;
 
@@ -216,7 +219,7 @@ describe('the scheduled iOS sweep', () => {
   it('is split into shards that run side by side', () => {
     expect(shards.length).toBeGreaterThan(1);
     // One shard's failure would otherwise cancel the rest, and a cancelled
-    // shard leaves no report.
+    // shard reports only the flows it finished.
     expect(iosJob.strategy?.['fail-fast']).toBe(false);
     expect(iosJob['runs-on']).toMatch(/^macos/);
   });
@@ -242,9 +245,9 @@ describe('the scheduled iOS sweep', () => {
         (sum, flow) => sum + (MEASURED_SECONDS[flow.name] ?? UNMEASURED_SECONDS),
         0
       );
-      const needed = Math.ceil(SETUP_MINUTES + (seconds / 60) * (1 + RETRY_SHARE));
-      const timeout = iosJob['timeout-minutes'] ?? Infinity;
-      expect(timeout).toBeLessThanOrEqual(SHARD_CEILING_MINUTES);
+      const needed = Math.ceil((seconds / 60) * (1 + RETRY_SHARE));
+      const timeout = runStep?.['timeout-minutes'] ?? Infinity;
+      expect(iosJob['timeout-minutes'] ?? Infinity).toBeLessThanOrEqual(SHARD_CEILING_MINUTES);
       expect(timeout).toBeGreaterThanOrEqual(needed);
     }
   );
@@ -384,5 +387,47 @@ describe('the simulator boot action', () => {
     evaluate('MAESTRO_RESTART_CMD');
     expect(evaluate('MAESTRO_HEALTH_CMD')).toBe(0);
     expect(fs.readFileSync(calls, 'utf8')).toContain(`simctl bootstatus ${UDID}`);
+  });
+});
+
+/**
+ * Scenario: a shard's run step uses the whole job cap, so the runner kills the
+ * job while the post steps are still going. On the iOS shards the slowest of
+ * them, the simulator log capture and the screenshot upload, ran first, and the
+ * test report upload behind them never started, so the shard left no result.
+ *
+ * Expected behaviour: the run step stops early enough to leave the post steps
+ * room inside the job's own timeout, and the report is uploaded and published
+ * before any diagnostics or screenshot step.
+ */
+describe.each([
+  ['e2e-ios', 'Run Maestro tests'],
+  ['e2e-android', 'Run Maestro tests on emulator'],
+])('the %s job at its cap', (jobName, runName) => {
+  const job = workflow.jobs[jobName];
+  const steps = job.steps ?? [];
+  const run = steps.find((step) => step.name === runName);
+
+  /** The steps before the run and after it, about seven minutes and four measured. */
+  const OUTSIDE_RUN_MINUTES = 15;
+
+  it('stops the run with the rest of the job still inside the cap', () => {
+    expect(run).toBeDefined();
+    const runTimeout = run?.['timeout-minutes'] ?? Infinity;
+    const jobTimeout = job['timeout-minutes'] ?? Infinity;
+    expect(jobTimeout).toBeLessThan(Infinity);
+    expect(runTimeout + OUTSIDE_RUN_MINUTES).toBeLessThanOrEqual(jobTimeout);
+  });
+
+  it('uploads and publishes the report before any slower post step', () => {
+    const after = steps.slice(steps.indexOf(run as Step) + 1);
+    const reportSteps = ['Upload test report', 'Publish test results'];
+    const index = (name: string) => after.findIndex((step) => step.name === name);
+    for (const name of reportSteps) expect(index(name)).toBeGreaterThanOrEqual(0);
+    const firstOther = after.findIndex(
+      (step) => !reportSteps.includes(step.name ?? '') && /always\(\)/.test(step.if ?? '')
+    );
+    expect(firstOther).toBeGreaterThanOrEqual(0);
+    for (const name of reportSteps) expect(index(name)).toBeLessThan(firstOther);
   });
 });

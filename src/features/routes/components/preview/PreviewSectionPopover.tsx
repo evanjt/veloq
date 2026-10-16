@@ -10,7 +10,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { formatDistance, formatElevation } from '@/shared/format/format';
-import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
+import { brand, colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import type { PreviewSection, PreviewSectionStatus } from 'veloqrs';
 import { IconButton } from '@/shared/ui';
 import { formatPercent } from '@/shared/format';
@@ -60,7 +60,7 @@ export function PreviewSectionPopover({ section, newNumber, onClose }: PreviewSe
           accessibilityLabel={t('common.close')}
           testID="preview-popover-close"
         >
-          <MaterialCommunityIcons name="close" size={20} color={textSecondary} />
+          <MaterialCommunityIcons name="close" size={iconSize.md} color={textSecondary} />
         </IconButton>
       </View>
 
@@ -72,7 +72,7 @@ export function PreviewSectionPopover({ section, newNumber, onClose }: PreviewSe
         </View>
         {section.pinned ? (
           <View style={[styles.badge, { borderColor: textSecondary }]}>
-            <MaterialCommunityIcons name="pin" size={11} color={textSecondary} />
+            <MaterialCommunityIcons name="pin" size={iconSize.xs} color={textSecondary} />
             <Text style={[styles.badgeText, { color: textSecondary }]}>
               {t('sections.accepted')}
             </Text>

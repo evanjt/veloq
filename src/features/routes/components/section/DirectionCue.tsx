@@ -8,6 +8,7 @@ import React from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { TFunction } from 'i18next';
 
+import { iconSize } from '@/theme';
 export type SectionDirection = 'forward' | 'reverse';
 
 export function directionWord(t: TFunction, direction: SectionDirection): string {
@@ -17,7 +18,7 @@ export function directionWord(t: TFunction, direction: SectionDirection): string
 export function DirectionArrow({
   direction,
   color,
-  size = 14,
+  size = iconSize.sm,
 }: {
   direction: SectionDirection;
   color: string;

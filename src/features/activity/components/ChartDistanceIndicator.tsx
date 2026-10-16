@@ -4,13 +4,14 @@ import * as haptics from '@/shared/ui/haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   colors,
-  darkColors,
-  typography,
-  shadows,
-  layout,
-  spacing,
-  ink,
   colorWithOpacity,
+  darkColors,
+  iconSize,
+  ink,
+  layout,
+  shadows,
+  spacing,
+  typography,
 } from '@/theme';
 import { formatDuration } from '@/shared/format/format';
 import { Button } from '@/shared/ui';
@@ -78,7 +79,7 @@ export const ChartDistanceIndicator = React.memo(
             icon={
               <MaterialCommunityIcons
                 name="swap-horizontal"
-                size={12}
+                size={iconSize.xs}
                 color={isDark ? darkColors.textSecondary : colors.textSecondary}
               />
             }

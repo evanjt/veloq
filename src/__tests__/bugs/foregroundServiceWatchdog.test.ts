@@ -27,6 +27,8 @@ jest.mock('@/features/recording/lib/recordingNotification', () => ({
   updateRecordingNotification: jest.fn(),
   clearRecordingNotification: jest.fn(),
   locationServiceRunning: (...a: unknown[]) => mockLocationServiceRunning(...a),
+  startIndoorRecordingService: jest.fn(() => false),
+  stopIndoorRecordingService: jest.fn(),
 }));
 
 jest.mock('@/features/recording/lib/storage/recordingBackup', () => ({

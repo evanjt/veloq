@@ -21,7 +21,7 @@ import { WellnessTrendsChart } from '@/features/wellness';
 import { useAthleteSummary } from '@/features/fitness';
 import { useWellness, useWellnessCoverage, type TimeRange } from '@/features/wellness';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
 import { getSmoothingDescription, type SmoothingWindow } from '@/shared/math/smoothing';
 import { logScreenRender } from '@/shared/debug/renderTimer';
@@ -204,7 +204,7 @@ function HealthScreenContent() {
           >
             <MaterialCommunityIcons
               name="chart-bell-curve-cumulative"
-              size={18}
+              size={iconSize.md}
               color={smoothingWindow !== 'auto' ? colors.textOnPrimary : themeColors.textSecondary}
             />
           </IconButton>

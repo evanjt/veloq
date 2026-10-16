@@ -24,12 +24,14 @@ private const val RETRY_DELAY_MS = 400L
 private const val MAX_RETRIES = 6
 
 /**
- * Re-posts expo-location's foreground-service notification with the ride on it.
+ * Re-posts the ride's foreground-service notification with the ride on it.
  *
- * Nothing here owns the service. Android identifies a notification by its id and
- * channel, so posting the same pair replaces the content of the one
- * `startForeground` put up while leaving the service's lifecycle to
- * expo-location, which is what the recording's kill-and-restore path depends on.
+ * A GPS ride's service is expo-location's and nothing here owns it. Android
+ * identifies a notification by its id and channel, so posting the same pair
+ * replaces the content of the one `startForeground` put up while leaving the
+ * service's lifecycle to expo-location, which is what the recording's
+ * kill-and-restore path depends on. An indoor ride's service is
+ * [IndoorRecordingService], started and stopped from here.
  */
 class VeloqRecordingNotificationModule : Module() {
   private val context: Context
@@ -109,6 +111,12 @@ class VeloqRecordingNotificationModule : Module() {
       power?.isIgnoringBatteryOptimizations(context.packageName) == true
     }
 
+    Function("startIndoorService") { json: String ->
+      IndoorRecordingService.start(context, JSONObject(json).optString("title"))
+    }
+
+    Function("stopIndoorService") { IndoorRecordingService.stop(context) }
+
     Function("drainPendingActions") { RecordingActionReceiver.drainPending(context) }
 
     // Whether the location foreground service is actually running.
@@ -132,11 +140,15 @@ class VeloqRecordingNotificationModule : Module() {
     if (InterruptedRideNotifier.of(context).armed(notice)) InterruptedRideNotifier.cancel(context)
   }
 
-  /** expo-location's own foreground-service notification, or null when there is none. */
+  /**
+   * The ride's foreground-service notification, expo-location's for a GPS ride
+   * or [IndoorRecordingService]'s for an indoor one, or null when there is none.
+   */
   private fun serviceNotification(): android.service.notification.StatusBarNotification? {
     val manager = context.getSystemService(NotificationManager::class.java) ?: return null
     return manager.activeNotifications.firstOrNull {
-      it.notification.channelId?.endsWith(":$LOCATION_TASK_NAME") == true
+      val channel = it.notification.channelId ?: return@firstOrNull false
+      channel.endsWith(":$LOCATION_TASK_NAME") || channel.endsWith(":$INDOOR_CHANNEL_SUFFIX")
     }
   }
 

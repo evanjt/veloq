@@ -43,6 +43,7 @@ import {
   colors,
   colorWithOpacity,
   darkColors,
+  iconSize,
   layout,
   slopToMinTapTarget,
   spacing,
@@ -524,7 +525,7 @@ function InsightsScreenContent() {
           >
             <MaterialCommunityIcons
               name="information-outline"
-              size={20}
+              size={iconSize.md}
               color={isDark ? darkColors.textSecondary : colors.textSecondary}
             />
           </IconButton>
@@ -577,7 +578,7 @@ function InsightsScreenContent() {
           >
             <MaterialCommunityIcons
               name="map-marker-off-outline"
-              size={14}
+              size={iconSize.sm}
               color={isDark ? darkColors.textSecondary : colors.textSecondary}
             />
             <View>

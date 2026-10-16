@@ -4,7 +4,8 @@
 // in ActivityMapControls, and styles in ActivityMapView.styles.
 
 import React, { useMemo, useState, useRef, useCallback, useEffect, memo } from 'react';
-import { View, Modal, StatusBar, Animated, ActivityIndicator, Image } from 'react-native';
+import { View, StatusBar, Animated, ActivityIndicator, Image } from 'react-native';
+import { FullWindowModal } from '@/shared/ui/FullWindowModal';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useIsFocused } from 'expo-router';
 
@@ -17,7 +18,7 @@ import {
   getTerrainPreviewUri,
   hasTerrainPreview,
 } from '@/features/maps/lib/storage/terrainPreviewCache';
-import { colors, themePalette } from '@/theme';
+import { colors, iconSize, themePalette } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { useMapPreferences } from '@/features/settings/light';
 import { useSectionCreation } from '@/features/maps/hooks/useSectionCreation';
@@ -821,7 +822,11 @@ export const ActivityMapView = memo(function ActivityMapView({
   if (!bounds || validCoordinates.length === 0) {
     return (
       <View style={[styles.placeholder, { height, backgroundColor: palette.background }]}>
-        <MaterialCommunityIcons name="map-marker-off" size={48} color={palette.textSecondary} />
+        <MaterialCommunityIcons
+          name="map-marker-off"
+          size={iconSize.xxl}
+          color={palette.textSecondary}
+        />
       </View>
     );
   }
@@ -957,7 +962,7 @@ export const ActivityMapView = memo(function ActivityMapView({
       ) : null}
 
       {/* Fullscreen modal using BaseMapView */}
-      <Modal
+      <FullWindowModal
         visible={isFullscreen}
         animationType="fade"
         statusBarTranslucent
@@ -978,7 +983,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           onPress={handleFullscreenPress}
           layer3D={fullscreenLayer3D}
         />
-      </Modal>
+      </FullWindowModal>
 
       {/* Section creation overlay */}
       {creationMode ? (

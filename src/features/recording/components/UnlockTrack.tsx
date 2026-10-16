@@ -22,8 +22,17 @@ import { useTranslation } from 'react-i18next';
 import * as haptics from '@/shared/ui/haptics';
 
 import { useTheme } from '@/shared/app';
-import { brand, colors, colorWithOpacity, darkColors, spacing, typography } from '@/theme';
+import {
+  brand,
+  colors,
+  colorWithOpacity,
+  darkColors,
+  iconSize,
+  spacing,
+  typography,
+} from '@/theme';
 import { motionSpring, motionTiming } from '@/shared/ui/reduceMotion';
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 
 const HANDLE_SIZE = 48;
 const TRACK_HEIGHT = 56;
@@ -122,6 +131,9 @@ export function UnlockTrack({ onUnlock, hint = 0 }: { onUnlock: () => void; hint
       }}
     >
       <Animated.Text
+        testID="unlock-track-label"
+        maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+        numberOfLines={1}
         style={[
           styles.label,
           { color: isDark ? darkColors.textSecondary : colors.textSecondary },
@@ -141,7 +153,11 @@ export function UnlockTrack({ onUnlock, hint = 0 }: { onUnlock: () => void; hint
         style={[styles.handle, { transform: [{ translateX }] }]}
         {...panResponder.panHandlers}
       >
-        <MaterialCommunityIcons name="lock-open-outline" size={22} color={colors.textOnPrimary} />
+        <MaterialCommunityIcons
+          name="lock-open-outline"
+          size={iconSize.lg}
+          color={colors.textOnBright}
+        />
       </Animated.View>
     </View>
   );
@@ -160,9 +176,12 @@ const styles = StyleSheet.create({
   trackDark: {
     backgroundColor: colorWithOpacity(colors.textOnDark, 0.12),
   },
+  // Inset past the handle at rest, so a long translation or a large text size
+  // never runs under it.
   label: {
     position: 'absolute',
-    width: '100%',
+    left: spacing.xs + HANDLE_SIZE + spacing.xs,
+    right: spacing.md,
     textAlign: 'center',
     fontSize: typography.bodyMedium.fontSize,
     letterSpacing: 1,

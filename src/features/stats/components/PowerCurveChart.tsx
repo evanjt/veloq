@@ -164,6 +164,16 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
     if (!active) setTooltipData(null);
   }, []);
   const formatY = useCallback((value: number) => formatValue(value, perKg, unit), [perKg, unit]);
+  const reading = useMemo(
+    () => ({
+      title: t('stats.powerCurve'),
+      xHeader: t('charts.column.duration'),
+      unit: perKg ? unit : t('units.watts'),
+      formatX: (x: number) => formatDurationHuman(Math.round(10 ** x)),
+      shape: 'curve' as const,
+    }),
+    [t, perKg, unit]
+  );
   const referenceLine = useMemo(
     () => (ftpValue ? { value: ftpValue, color: FTP_LINE_COLOR } : null),
     [ftpValue]
@@ -272,7 +282,11 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
         referenceLine={referenceLine}
         xLabels={xLabels}
         formatY={formatY}
+        reading={reading}
         topAxisTestID="power-curve-axis-top"
+        describePoint={(p) =>
+          `${formatDurationHuman(p.secs)}, ${formatValue(p.watts, perKg, unit)}`
+        }
         onSelect={setTooltipData}
         onInteractionChange={handleInteractionChange}
       />

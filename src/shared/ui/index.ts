@@ -18,6 +18,7 @@ export type { CardProps, CardVariant, CardPadding } from './Card';
 export { CardHeader } from './CardHeader';
 export type { CardHeaderProps } from './CardHeader';
 export { Row } from './Row';
+export { DataTable, type DataTableProps, type DataTableRow } from './DataTable';
 export { ExternalLinkRow } from './ExternalLinkRow';
 export { ListSectionHeader } from './ListSectionHeader';
 export { composeAccessibilityLabel, type AccessibilityLabelPart } from './accessibilityLabel';
@@ -71,6 +72,7 @@ export { useHeroMapHeight, HERO_MAP_FRACTION } from './useHeroMapHeight';
 export { SignalStatus, signalColor, type SignalLevel } from './SignalStatus';
 export { PermissionNotice, OpenSettingsButton } from './PermissionNotice';
 export { ScreenSafeAreaView } from './ScreenSafeAreaView';
+export { FullWindowModal } from './FullWindowModal';
 export {
   ScreenScrollView,
   screenListInsets,

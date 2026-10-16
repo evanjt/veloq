@@ -28,6 +28,7 @@ export APP_VARIANT
 # Select the device before either lock. Both adb and the device lock use this serial.
 . scripts/device-lock-path.sh
 veloq_refuse_if_ambiguous run-android || exit 2
+veloq_refuse_if_not_test_device run-android || exit 2
 if [ -z "$VELOQ_DEVICE_SERIAL" ]; then
   echo "run-android: connect a device or set ANDROID_SERIAL" >&2
   exit 2

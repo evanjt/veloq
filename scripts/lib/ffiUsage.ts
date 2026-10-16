@@ -440,17 +440,12 @@ export const CLIENT_UNREACHED_ALLOWED: Record<string, string> = {
 
   // The routes status read carries the figure, so a second read is a second
   // poller of one fact.
-  getElevationBackfillRemaining:
-    'no production caller; the routes status read carries the count as elevationRemaining',
   streamRetentionDays:
     'no production caller; the stream history row reads it from its screen data instead',
   streamStoreBytes:
     'no production caller; the stream history row reads it from its screen data instead',
 
   // Starts the engine makes on its own, which no screen offers by hand.
-  startElevationBackfill: 'no production caller; the engine starts the pass itself',
-  startStreamBackfill:
-    'no production caller; the engine starts the pass itself after a settled sync',
   startDetectorCutover: 'no production caller; the engine runs the cutover itself',
 
   // No caller and no reason recorded yet beyond that: each is to be deleted or

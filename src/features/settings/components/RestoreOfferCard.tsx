@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/ui';
 import { Card } from '@/shared/ui/Card';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 
 import { answerRestorePrompt } from '../lib/restorePrompt';
 import { useLaunchSurfaces } from '../hooks/useLaunchSurfaces';
@@ -33,7 +33,7 @@ export function RestoreOfferCard() {
         <View style={styles.header}>
           <MaterialCommunityIcons
             name="backup-restore"
-            size={22}
+            size={iconSize.lg}
             color={isDark ? darkColors.textPrimary : colors.textPrimary}
           />
           <Text style={[styles.title, isDark && styles.titleDark]}>

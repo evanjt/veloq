@@ -28,7 +28,7 @@ import { mapPageBaseUrl } from '@/features/maps/lib/tileTransport';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-import { darkColors, spacing, typography } from '@/theme';
+import { darkColors, iconSize, spacing, typography } from '@/theme';
 import { ComponentErrorBoundary } from '@/shared/ui';
 import { debug } from '@/shared/debug/debug';
 import { useWebViewBridge } from '@/features/maps/hooks/useWebViewBridge';
@@ -610,7 +610,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
           <View style={styles.unavailable} testID={MAP_SURFACE_UNAVAILABLE_TEST_ID}>
             <MaterialCommunityIcons
               name="map-marker-off-outline"
-              size={40}
+              size={iconSize.xxl}
               color={darkColors.textSecondary}
             />
             <Text style={styles.unavailableTitle}>{t('maps.unavailableTitle')}</Text>

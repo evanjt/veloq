@@ -29,9 +29,13 @@ import {
   ChartCanvas,
   ChartCrosshair,
   CurveArea,
+  ChartSurface,
   CurveLine,
+  lanesSummary,
+  seriesTable,
   useChartColors,
   useChartGestures,
+  type SummarySeries,
 } from '@/shared/charts';
 import type { WellnessData } from '@/types';
 import { displayedDay, headerDay } from '../lib/pinnedDay';
@@ -159,6 +163,28 @@ export const FitnessChart = React.memo(function FitnessChart({
     };
   }, [data]);
 
+  // What a screen reader hears and the Show data sheet lists: the lines drawn, day by day.
+  const reading = useMemo(() => {
+    const title = t('fitnessScreen.fitnessAndFatigue');
+    const lane = (key: 'fitness' | 'fatigue', name: string): SummarySeries => ({
+      name,
+      points: chartData.map((d) => ({
+        label: formatShortDate(d.date),
+        key: d.date,
+        value: d[key],
+      })),
+      format: (v) => String(Math.round(v)),
+    });
+    const lanes = [
+      ...(visibleLines.fitness ? [lane('fitness', t('metrics.fitness'))] : []),
+      ...(visibleLines.fatigue ? [lane('fatigue', t('metrics.fatigue'))] : []),
+    ];
+    return {
+      summary: lanesSummary(title, lanes, t),
+      table: seriesTable(title, t('charts.column.date'), lanes),
+    };
+  }, [chartData, visibleLines, t]);
+
   const handleSelect = useCallback((point: ChartDataPoint) => {
     setTooltipData(point);
     onDateSelectRef.current?.(point.date, {
@@ -176,13 +202,29 @@ export const FitnessChart = React.memo(function FitnessChart({
     }
   }, []);
 
-  const { gesture, isActive, crosshairStyle, syncBounds, syncXCoords } =
+  const describePoint = useCallback(
+    (point: ChartDataPoint) => {
+      const form = formatForm(point.form, point.fitness, asPercent);
+      return [
+        formatShortDate(point.date),
+        `${t('metrics.fitness')} ${point.fitness}`,
+        `${t('metrics.fatigue')} ${point.fatigue}`,
+        form === null
+          ? t('systemSurfaces.spoken.noReading', { label: t('metrics.form') })
+          : `${t('metrics.form')} ${form}`,
+      ].join(', ');
+    },
+    [t, asPercent]
+  );
+
+  const { gesture, isActive, crosshairStyle, syncBounds, syncXCoords, accessibilityProps } =
     useChartGestures<ChartDataPoint>({
       data: chartData,
       onSelect: handleSelect,
       onInteractionChange: handleInteractionChange,
       sharedSelectedIdx,
       externalSelectedIdx,
+      describePoint,
     });
 
   // Sync with external selectedDate (from other chart)
@@ -339,90 +381,98 @@ export const FitnessChart = React.memo(function FitnessChart({
         </View>
 
         {/* Chart */}
-        <GestureDetector gesture={gesture}>
-          <View style={chartStyles.chartWrapper}>
-            <ChartCanvas
-              data={chartData}
-              x={xOf}
-              series={SERIES}
-              yDomain={yDomain}
-              padding={CHART_PADDING}
-              grid={5}
+        <ChartSurface summary={reading.summary} table={reading.table} testID="fitness-chart-plot">
+          <GestureDetector gesture={gesture}>
+            <View
+              style={chartStyles.chartWrapper}
+              testID="fitness-chart-surface"
+              {...accessibilityProps}
             >
-              {({ points, bounds }) => {
-                syncBounds(bounds);
-                syncXCoords(points.fitness, (p) => p.x);
-                return (
-                  <>
-                    {visibleLines.fitness ? (
-                      <>
-                        <CurveArea points={points.fitness} y0={bounds.bottom}>
-                          <LinearGradient
-                            start={vec(0, bounds.top)}
-                            end={vec(0, bounds.bottom)}
-                            colors={[chartColors.fitness + '40', chartColors.fitness + '05']}
+              <ChartCanvas
+                data={chartData}
+                x={xOf}
+                series={SERIES}
+                yDomain={yDomain}
+                padding={CHART_PADDING}
+                grid={5}
+              >
+                {({ points, bounds }) => {
+                  syncBounds(bounds);
+                  syncXCoords(points.fitness, (p) => p.x);
+                  return (
+                    <>
+                      {visibleLines.fitness ? (
+                        <>
+                          <CurveArea points={points.fitness} y0={bounds.bottom}>
+                            <LinearGradient
+                              start={vec(0, bounds.top)}
+                              end={vec(0, bounds.bottom)}
+                              colors={[chartColors.fitness + '40', chartColors.fitness + '05']}
+                            />
+                          </CurveArea>
+                          <CurveLine
+                            points={points.fitness}
+                            color={chartColors.casing}
+                            strokeWidth={2.5}
                           />
-                        </CurveArea>
-                        <CurveLine
-                          points={points.fitness}
-                          color={chartColors.casing}
-                          strokeWidth={2.5}
+                          <CurveLine
+                            points={points.fitness}
+                            color={chartColors.fitness}
+                            strokeWidth={1.5}
+                          />
+                        </>
+                      ) : null}
+                      {visibleLines.fatigue ? (
+                        <>
+                          <CurveLine
+                            points={points.fatigue}
+                            color={chartColors.casing}
+                            strokeWidth={2}
+                          />
+                          <CurveLine
+                            points={points.fatigue}
+                            color={chartColors.fatigue}
+                            strokeWidth={1}
+                          />
+                        </>
+                      ) : null}
+                      {markerIndices.map((idx) => (
+                        <Circle
+                          key={chartData[idx].date}
+                          cx={points.fitness[idx].x}
+                          cy={bounds.top + MARKER_RADIUS}
+                          r={MARKER_RADIUS}
+                          color={chartColors.accent}
                         />
-                        <CurveLine
-                          points={points.fitness}
-                          color={chartColors.fitness}
-                          strokeWidth={1.5}
-                        />
-                      </>
-                    ) : null}
-                    {visibleLines.fatigue ? (
-                      <>
-                        <CurveLine
-                          points={points.fatigue}
-                          color={chartColors.casing}
-                          strokeWidth={2}
-                        />
-                        <CurveLine
-                          points={points.fatigue}
-                          color={chartColors.fatigue}
-                          strokeWidth={1}
-                        />
-                      </>
-                    ) : null}
-                    {markerIndices.map((idx) => (
-                      <Circle
-                        key={chartData[idx].date}
-                        cx={points.fitness[idx].x}
-                        cy={bounds.top + MARKER_RADIUS}
-                        r={MARKER_RADIUS}
-                        color={chartColors.accent}
-                      />
-                    ))}
-                  </>
-                );
-              }}
-            </ChartCanvas>
+                      ))}
+                    </>
+                  );
+                }}
+              </ChartCanvas>
 
-            {/* Animated crosshair - runs at native 120Hz using synced point coordinates */}
-            <ChartCrosshair style={crosshairStyle} topOffset={8} />
+              {/* Animated crosshair - runs at native 120Hz using synced point coordinates */}
+              <ChartCrosshair style={crosshairStyle} topOffset={8} />
 
-            {/* X-axis labels */}
-            <View style={styles.xAxisOverlay} pointerEvents="none">
-              <Text
-                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
-              >
-                {chartData.length > 0 ? formatShortDate(chartData[0].date) : ''}
-              </Text>
-              <Text
-                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
-              >
-                {chartData.length > 0 ? formatShortDate(chartData[chartData.length - 1].date) : ''}
-              </Text>
+              {/* X-axis labels */}
+              <View style={styles.xAxisOverlay} pointerEvents="none">
+                <Text
+                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                  style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
+                >
+                  {chartData.length > 0 ? formatShortDate(chartData[0].date) : ''}
+                </Text>
+                <Text
+                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                  style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
+                >
+                  {chartData.length > 0
+                    ? formatShortDate(chartData[chartData.length - 1].date)
+                    : ''}
+                </Text>
+              </View>
             </View>
-          </View>
-        </GestureDetector>
+          </GestureDetector>
+        </ChartSurface>
 
         {/* Legend: each item is a switch that shows or hides its line */}
         <View style={styles.legend}>

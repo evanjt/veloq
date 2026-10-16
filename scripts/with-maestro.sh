@@ -48,6 +48,7 @@ fi
 # path from, so the phone that is locked is the phone that is driven.
 . "$(dirname "$0")/device-lock-path.sh"
 veloq_refuse_if_ambiguous with-maestro || exit 1
+veloq_refuse_if_not_test_device with-maestro || exit 1
 
 # The run drives the serial it holds the lock for, and no other. A caller may
 # name that serial again with `--device` or `--udid`, but a selector that names

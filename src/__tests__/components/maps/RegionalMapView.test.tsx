@@ -8,6 +8,7 @@
 
 import React from 'react';
 import { act, render, fireEvent, screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RegionalMapView } from '@/features/maps/components/RegionalMapView';
 import { TERRAIN_UNAVAILABLE_TEST_ID } from '@/features/maps/components/TerrainUnavailableNotice';
@@ -230,6 +231,22 @@ describe('RegionalMapView', () => {
     } finally {
       back.restore();
     }
+  });
+
+  /**
+   * Scenario: the host's filter sheet is raised, so it and its credit cover the
+   * foot of the map far past where a fixed offset would put a popup.
+   *
+   * Expected behaviour: each popup sits above the clearance the host reports.
+   */
+  it.each([
+    ['activity', { selectActivityId: 'a2' }],
+    ['section', { selectSectionId: 'sec-1' }],
+  ])('sets the %s popup above the raised sheet', async (kind, props) => {
+    await renderRegional({ ...props, bottomClearance: 460 });
+
+    const style = StyleSheet.flatten(screen.getByTestId(`${kind}-popup`).props.style);
+    expect(style.bottom).toBeGreaterThanOrEqual(460);
   });
 
   it('opens no popup for an activity that is not on the map', async () => {

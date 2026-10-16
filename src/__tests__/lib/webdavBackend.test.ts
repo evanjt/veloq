@@ -30,7 +30,7 @@ jest.mock('expo-file-system/legacy', () => ({
   FileSystemUploadType: { BINARY_CONTENT: 0 },
 }));
 
-const SERVER = 'https://cloud.example.com/remote.php/dav/files/evan/';
+const SERVER = 'https://cloud.example.com/remote.php/dav/files/athlete/';
 const uploadAsync = FileSystem.uploadAsync as jest.Mock;
 const downloadAsync = FileSystem.downloadAsync as jest.Mock;
 
@@ -81,7 +81,7 @@ function entryJson(id: string, timestamp: string): string {
 
 beforeEach(async () => {
   jest.clearAllMocks();
-  await setWebdavConfig(SERVER, 'evan', 'app-password');
+  await setWebdavConfig(SERVER, 'athlete', 'app-password');
 });
 
 afterEach(async () => {
@@ -180,9 +180,9 @@ describe('webdavBackend.upload', () => {
 describe('webdavBackend.listBackups', () => {
   it('reads sidecars from a 207 with mixed namespace prefixes and relative hrefs', async () => {
     const xml = propfind([
-      '/remote.php/dav/files/evan/Veloq/',
-      '/remote.php/dav/files/evan/Veloq/veloq-old.veloqdb.meta.json',
-      'https://cloud.example.com/remote.php/dav/files/evan/Veloq/veloq-new.veloqdb.meta.json',
+      '/remote.php/dav/files/athlete/Veloq/',
+      '/remote.php/dav/files/athlete/Veloq/veloq-old.veloqdb.meta.json',
+      'https://cloud.example.com/remote.php/dav/files/athlete/Veloq/veloq-new.veloqdb.meta.json',
     ]);
     const fetchMock = routeFetch({
       PROPFIND: () => response(207, xml),
@@ -197,7 +197,7 @@ describe('webdavBackend.listBackups', () => {
     expect(entries.map((e) => e.id)).toEqual(['veloq-new.veloqdb', 'veloq-old.veloqdb']);
     const fetched = fetchMock.mock.calls.filter(([, init]) => !init?.method).map(([url]) => url);
     expect(fetched).toContain(
-      'https://cloud.example.com/remote.php/dav/files/evan/Veloq/veloq-old.veloqdb.meta.json'
+      'https://cloud.example.com/remote.php/dav/files/athlete/Veloq/veloq-old.veloqdb.meta.json'
     );
   });
 
@@ -237,8 +237,8 @@ describe('webdavBackend.listBackups', () => {
 
   it('skips a corrupt sidecar without losing the rest of the listing', async () => {
     const xml = propfind([
-      '/remote.php/dav/files/evan/Veloq/veloq-broken.veloqdb.meta.json',
-      '/remote.php/dav/files/evan/Veloq/veloq-good.veloqdb.meta.json',
+      '/remote.php/dav/files/athlete/Veloq/veloq-broken.veloqdb.meta.json',
+      '/remote.php/dav/files/athlete/Veloq/veloq-good.veloqdb.meta.json',
     ]);
     routeFetch({
       PROPFIND: () => response(207, xml),
@@ -254,7 +254,7 @@ describe('webdavBackend.listBackups', () => {
   });
 
   it('keeps every valid backup past an undecodable href, a foreign DAV prefix and a null sidecar', async () => {
-    const base = '/remote.php/dav/files/evan/Veloq/';
+    const base = '/remote.php/dav/files/athlete/Veloq/';
     const xml =
       '<?xml version="1.0"?><ns0:multistatus xmlns:ns0="DAV:" xmlns:d="DAV:">' +
       `<ns0:response><ns0:href>${base}100%-done.veloqdb.meta.json</ns0:href></ns0:response>` +
@@ -280,9 +280,9 @@ describe('webdavBackend.listBackups', () => {
 
   it('skips a sidecar that parses but lacks a string id or timestamp', async () => {
     const xml = propfind([
-      '/remote.php/dav/files/evan/Veloq/veloq-array.veloqdb.meta.json',
-      '/remote.php/dav/files/evan/Veloq/veloq-numeric.veloqdb.meta.json',
-      '/remote.php/dav/files/evan/Veloq/veloq-good.veloqdb.meta.json',
+      '/remote.php/dav/files/athlete/Veloq/veloq-array.veloqdb.meta.json',
+      '/remote.php/dav/files/athlete/Veloq/veloq-numeric.veloqdb.meta.json',
+      '/remote.php/dav/files/athlete/Veloq/veloq-good.veloqdb.meta.json',
     ]);
     routeFetch({
       PROPFIND: () => response(207, xml),
@@ -342,7 +342,7 @@ describe('webdavBackend.delete', () => {
 
 describe('webdavBackend credentials', () => {
   it('lists with a UTF-8 Basic header for a password outside Latin-1', async () => {
-    await setWebdavConfig(SERVER, 'anna', 'pałac');
+    await setWebdavConfig(SERVER, 'athlete', 'pałac');
     const fetchMock = routeFetch({
       PROPFIND: () => response(207, propfind([])),
     });
@@ -351,7 +351,7 @@ describe('webdavBackend credentials', () => {
 
     const headers = fetchMock.mock.calls[0][1]?.headers as Record<string, string>;
     expect(headers.Authorization).toBe(
-      `Basic ${Buffer.from('anna:pałac', 'utf8').toString('base64')}`
+      `Basic ${Buffer.from('athlete:pałac', 'utf8').toString('base64')}`
     );
   });
 });

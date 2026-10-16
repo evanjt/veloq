@@ -6,7 +6,16 @@ import { runWhenIdle } from '@/shared/async/runWhenIdle';
 import { tapTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
 import { canDrawProfilePhoto, Shimmer, pressable, pressRipple } from '@/shared/ui';
-import { colors, darkColors, spacing, layout, typography, shadows, opacity } from '@/theme';
+import {
+  colors,
+  darkColors,
+  iconSize,
+  layout,
+  opacity,
+  shadows,
+  spacing,
+  typography,
+} from '@/theme';
 import { SummaryCardSparkline, SPARKLINE_MIN_DAYS, type ScrubValues } from './SummaryCardSparkline';
 import { SummaryCardHRVSparkline } from './SummaryCardHRVSparkline';
 import { Card } from '@/shared/ui/Card';
@@ -42,6 +51,19 @@ interface SupportingMetric {
   accessibilityLabel?: string | undefined;
   /** The route and chart a tap opens. */
   navigationTarget: string;
+}
+
+/**
+ * The last day of a series, as the absent mark when that day carries an earlier day's value
+ * rather than a reading of its own. Each series is indexed by its own length.
+ */
+function latestReading(
+  series: number[] | undefined,
+  read: boolean[] | undefined
+): number | typeof ABSENT | undefined {
+  if (!series || series.length === 0) return undefined;
+  const last = series.length - 1;
+  return read?.[last] === false ? ABSENT : series[last];
 }
 
 /**
@@ -211,20 +233,21 @@ export const SummaryCard = React.memo(function SummaryCard({
   // colour, so it takes that series' text tone.
   const rhrColor = isDark ? darkColors.chartRhrText : colors.chartRhrText;
 
-  // Current HRV sparkline values (latest or scrubbed)
-  const hrvLastIdx = hrvData ? hrvData.length - 1 : 0;
-  // A scrubbed day with no reading of its own reads the absent mark, not the value the
-  // line carries over it from an earlier day.
+  // Current HRV sparkline values (latest or scrubbed). A day with no reading of its own,
+  // scrubbed or today, reads the absent mark, not the value the line carries over it from
+  // an earlier day.
+  const latestHrv = latestReading(hrvData, hrvRead);
+  const latestRhr = latestReading(rhrData, rhrRead);
   const currentHrv = scrubValues
     ? scrubValues.hrv === null
       ? ABSENT
-      : (scrubValues.hrv ?? hrvData?.[hrvLastIdx] ?? 0)
-    : (hrvData?.[hrvLastIdx] ?? 0);
+      : (scrubValues.hrv ?? latestHrv ?? 0)
+    : (latestHrv ?? 0);
   const currentRhr = scrubValues
     ? scrubValues.rhr === null
       ? ABSENT
       : (scrubValues.rhr ?? null)
-    : (rhrData?.[hrvLastIdx] ?? null);
+    : (latestRhr ?? null);
 
   return (
     <View>
@@ -266,7 +289,7 @@ export const SummaryCard = React.memo(function SummaryCard({
                 ) : (
                   <MaterialCommunityIcons
                     name="account"
-                    size={22}
+                    size={iconSize.lg}
                     color={themeColors.textSecondary}
                   />
                 )}
@@ -275,7 +298,7 @@ export const SummaryCard = React.memo(function SummaryCard({
               <View style={[styles.gearBadge, isDark && styles.gearBadgeDark]}>
                 <MaterialCommunityIcons
                   name="cog"
-                  size={10}
+                  size={iconSize.xs}
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 />
               </View>

@@ -13,11 +13,17 @@ import { act, fireEvent, render, renderHook } from '@testing-library/react-nativ
 import { StreamConsentCard } from '@/features/settings/components/StreamConsentCard';
 import { Card } from '@/shared/ui/Card';
 import { useStreamBackfill } from '@/features/settings/hooks/useStreamBackfill';
-import { getEngine } from '@/shared/native/engine';
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
-jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
+jest.mock('veloqrs', () =>
+  require('../../__shared__/veloqrsStub').withOverrides({
+    streamBackfill: {
+      consentStreamBackfill: () => mockConsentStreamBackfill(),
+      stopStreamBackfill: () => mockStopStreamBackfill(),
+    },
+  })
+);
 jest.mock('@/shared/native/useSyncStatus', () => ({ useSyncState: () => null }));
 jest.mock('@/shared/native/routesStatusPoll', () => ({
   readRoutesStatus: jest.fn(),
@@ -45,14 +51,11 @@ function status(phase: string, extra: Record<string, unknown> = {}) {
   };
 }
 
-const engine = {
-  consentStreamBackfill: jest.fn(),
-  stopStreamBackfill: jest.fn(),
-};
+const mockConsentStreamBackfill = jest.fn();
+const mockStopStreamBackfill = jest.fn();
 
 beforeEach(() => {
   jest.clearAllMocks();
-  (getEngine as jest.Mock).mockReturnValue(engine);
 });
 
 describe('StreamConsentCard', () => {
@@ -68,10 +71,10 @@ describe('StreamConsentCard', () => {
     expect(tree.UNSAFE_getByType(Card).props.variant).toBe('raised');
 
     await fireEvent.press(tree.getByTestId('stream-consent-download'));
-    expect(engine.consentStreamBackfill).toHaveBeenCalledTimes(1);
+    expect(mockConsentStreamBackfill).toHaveBeenCalledTimes(1);
 
     await fireEvent.press(tree.getByTestId('stream-consent-decline'));
-    expect(engine.stopStreamBackfill).toHaveBeenCalledTimes(1);
+    expect(mockStopStreamBackfill).toHaveBeenCalledTimes(1);
   });
 
   it('is gone once the answer is given', async () => {
@@ -120,6 +123,6 @@ describe('useStreamBackfill consent', () => {
 
     await act(() => result.current.start());
 
-    expect(engine.consentStreamBackfill).toHaveBeenCalledTimes(1);
+    expect(mockConsentStreamBackfill).toHaveBeenCalledTimes(1);
   });
 });

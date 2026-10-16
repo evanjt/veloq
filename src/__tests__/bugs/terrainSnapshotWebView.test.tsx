@@ -30,6 +30,8 @@ const goneHandlers: (() => void)[] = [];
 /** Which activity each worker was asked to render, in order, by mount slot. */
 const injectedByWorker: string[][] = [[], []];
 let mountIndex = 0;
+/** Pages reloaded in place, which is how a renderer restart comes back off Android. */
+let reloads = 0;
 
 // A getter, because the factory is hoisted above this file's own bindings and
 // the component below is one of them.
@@ -68,7 +70,9 @@ const mockWebView = React.forwardRef(function MockWebView(
       if (named && injectedByWorker[id]) injectedByWorker[id].push(named[1]);
       else if (script === buildRecycleSnapshotMapScript()) injectedByWorker[id]?.push('recycle');
     },
-    reload: () => {},
+    reload: () => {
+      reloads += 1;
+    },
   }));
   return <View />;
 });
@@ -162,6 +166,7 @@ beforeEach(() => {
   mountedEver = 0;
   goneHandlers.length = 0;
   mountIndex = 0;
+  reloads = 0;
   injectedByWorker[0] = [];
   injectedByWorker[1] = [];
   mockCached.clear();
@@ -2318,6 +2323,152 @@ describe('a pool that goes quiet', () => {
 
     post({ type: 'mapReady', workerId: 1 });
     expect(injectedByWorker[1][injectedByWorker[1].length - 1]).toBe('a2');
+  });
+});
+
+/**
+ * Scenario: the athlete leaves the feed just after a burst of previews lands.
+ * The idle countdown was armed by the last render, and a map rebuilt while the
+ * feed is away never reports ready, so on coming back every card waits on two
+ * workers that will never take work, and the watchdog fails them all.
+ *
+ * Expected behaviour: nothing is rebuilt while the feed is away, the countdown
+ * starts again when it returns, and a rebuilt map that never reports ready is
+ * restarted rather than left holding its worker.
+ */
+describe('a pool that goes quiet while the feed is away', () => {
+  const RECYCLE_IDLE_MS = 10000;
+  let ref: React.RefObject<TerrainSnapshotWebViewRef | null>;
+  let view: Awaited<ReturnType<typeof render>>;
+
+  const pool = () => {
+    if (!ref.current) throw new Error('the pool did not mount');
+    return ref.current;
+  };
+
+  const setSuspended = (suspended: boolean) =>
+    view.rerender(<TerrainSnapshotWebView ref={ref} suspended={suspended} />);
+
+  const land = async (workerId: number, activityId: string, gen = 1) => {
+    post({ type: 'snapshot', workerId, activityId, mapStyle: 'light', base64: 'AAAA', gen });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+  };
+
+  const recycles = () => injectedByWorker.flat().filter((entry) => entry === 'recycle').length;
+  /** Gives each worker a render, so both maps have something to rebuild. */
+  const drawOnBoth = () => {
+    pool().requestSnapshot(request('a0'));
+    pool().requestSnapshot(request('a1'));
+  };
+  const landBoth = async () => {
+    await land(0, 'a0');
+    await land(1, 'a1');
+  };
+  /** Renderer restarts, whichever way this platform brings a page back. */
+  const restarts = () => reloads + mountedEver - 2;
+
+  beforeEach(async () => {
+    jest.useFakeTimers();
+    ref = React.createRef<TerrainSnapshotWebViewRef>();
+    view = await render(<TerrainSnapshotWebView ref={ref} suspended={false} />);
+    post({ type: 'mapReady', workerId: 0 });
+    post({ type: 'mapReady', workerId: 1 });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('rebuilds nothing while the feed is away, and renders on return', async () => {
+    watchFailures('b1');
+    pool().requestSnapshot(request('a0'));
+    await land(0, 'a0');
+
+    await setSuspended(true);
+    jest.advanceTimersByTime(RECYCLE_IDLE_MS * 3);
+    expect(recycles()).toBe(0);
+
+    await setSuspended(false);
+    pool().requestSnapshot(request('b1'));
+    expect(rendered()).toEqual(['a0', 'b1']);
+    await land(0, 'b1', 2);
+
+    jest.advanceTimersByTime(STALENESS_TIMEOUT_MS + 1);
+    expect(watchdogFired()).toEqual([]);
+    expect(failures).toEqual([]);
+  });
+
+  it('starts the idle countdown again when the feed returns', async () => {
+    pool().requestSnapshot(request('a0'));
+    await land(0, 'a0');
+    jest.advanceTimersByTime(RECYCLE_IDLE_MS / 2);
+    await setSuspended(true);
+    await setSuspended(false);
+
+    jest.advanceTimersByTime(RECYCLE_IDLE_MS - 1);
+    expect(recycles()).toBe(0);
+    jest.advanceTimersByTime(1);
+    expect(recycles()).toBe(1);
+  });
+
+  it('restarts a rebuilt map that never reports ready, and renders on it', async () => {
+    watchFailures('b1');
+    drawOnBoth();
+    await landBoth();
+    jest.advanceTimersByTime(RECYCLE_IDLE_MS);
+    expect(recycles()).toBe(2);
+
+    pool().requestSnapshot(request('b1'));
+    expect(rendered()).not.toContain('b1');
+    expect(restarts()).toBe(0);
+
+    await act(() => jest.advanceTimersByTime(STALENESS_TIMEOUT_MS - 1000));
+    expect(restarts()).toBe(2);
+    expect(eventsOf('workerGone').map((e) => e.workerId)).toEqual([0, 1]);
+
+    post({ type: 'mapReady', workerId: 0 });
+    expect(rendered()).toEqual(['a0', 'a1', 'b1']);
+    await land(0, 'b1', 2);
+    jest.advanceTimersByTime(STALENESS_TIMEOUT_MS + 1);
+    expect(watchdogFired()).toEqual([]);
+    expect(failures).toEqual([]);
+  });
+
+  it('leaves a rebuilt map alone once it reports ready', async () => {
+    pool().requestSnapshot(request('a0'));
+    await land(0, 'a0');
+    jest.advanceTimersByTime(RECYCLE_IDLE_MS);
+    post({ type: 'mapReady', workerId: 0 });
+
+    await act(() => jest.advanceTimersByTime(STALENESS_TIMEOUT_MS * 2));
+
+    expect(restarts()).toBe(0);
+    expect(eventsOf('workerGone')).toEqual([]);
+  });
+
+  it('restarts a map rebuilt just before the feed left once the feed returns', async () => {
+    watchFailures('b1');
+    drawOnBoth();
+    await landBoth();
+    jest.advanceTimersByTime(RECYCLE_IDLE_MS);
+    await setSuspended(true);
+    await act(() => jest.advanceTimersByTime(STALENESS_TIMEOUT_MS * 4));
+    expect(restarts()).toBe(0);
+
+    await setSuspended(false);
+    pool().requestSnapshot(request('b1'));
+    await act(() => jest.advanceTimersByTime(STALENESS_TIMEOUT_MS - 1000));
+    expect(restarts()).toBe(2);
+
+    post({ type: 'mapReady', workerId: 1 });
+    expect(rendered()).toEqual(['a0', 'a1', 'b1']);
+    await land(1, 'b1', 2);
+    jest.advanceTimersByTime(STALENESS_TIMEOUT_MS + 1);
+    expect(watchdogFired()).toEqual([]);
+    expect(failures).toEqual([]);
   });
 });
 

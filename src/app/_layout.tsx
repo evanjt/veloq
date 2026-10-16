@@ -15,7 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
-import { isRetryableInit } from 'veloqrs';
+import { connectivity, isRetryableInit } from 'veloqrs';
 
 import { pushCredentialsToEngine, useAuthStore } from '@/shared/app/AuthStore';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
@@ -35,7 +35,7 @@ import {
   registerImageCacheReclaimer,
   registerQueryCacheReclaimer,
 } from '@/shared/app/memoryReclaimers';
-import { TopSafeAreaProvider } from '@/shared/app/TopSafeAreaContext';
+import { BeneathTopSlot, TopSafeAreaProvider } from '@/shared/app/TopSafeAreaContext';
 import { QueryProvider, queryClient } from '@/shared/query/QueryProvider';
 import {
   SCREEN_HEADERS,
@@ -547,12 +547,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 }
 
 function pushInteracting(interacting: boolean): void {
-  try {
-    getEngine()?.setInteracting(interacting);
-  } catch {
-    // The native module is not loaded yet. The value is advisory and expires
-    // in Rust, so a dropped push costs slower background work at worst.
-  }
+  connectivity.setInteracting(interacting);
 }
 
 export default function RootLayout() {
@@ -655,46 +650,48 @@ export default function RootLayout() {
                     <TourReturnPill />
                     <RecordingReturnPill />
                     <ShaderWarmup />
-                    <NavigationThemeProvider>
-                      <Stack
-                        screenLayout={sheetScreenLayout}
-                        screenOptions={{
-                          // The iOS edge swipe. Android's back key and gesture are not
-                          // governed by this, and a screen that must hold back does it
-                          // with useBackIntercept.
-                          gestureEnabled: true,
-                          gestureDirection: 'horizontal',
-                          ...themeHeaderColors(isDark),
-                        }}
-                      >
-                        {Object.entries(SCREEN_HEADERS).map(([name, header]) => (
-                          <Stack.Screen
-                            key={name}
-                            name={name}
-                            options={{
-                              headerShown: header !== null,
-                              title: headerTitleOf(header, t),
-                              animation: screenAnimation(name),
-                              // An active recording must not be swipeable away on iOS.
-                              // The edge swipe runs in the same direction as the
-                              // slide-to-unlock track, so a stray palm swipe would
-                              // drop the rider out of the screen mid-ride. The screen has
-                              // no header: during a ride leaving is the stop flow, and
-                              // before one starts the close control is the way off. This
-                              // setting is iOS only; the screen holds Android's back
-                              // itself while it is locked.
-                              gestureEnabled: name !== 'recording/[type]',
-                              ...largeTitleScreenOptions(name, Platform.OS),
-                              ...sheetScreenOptions(name, Platform.OS),
-                              ...(header?.overMap && overMapHeaderOptions({ isDark })),
-                              ...(name === 'recordings/[id]' && {
-                                headerTitle: () => <RecordingTitle />,
-                              }),
-                            }}
-                          />
-                        ))}
-                      </Stack>
-                    </NavigationThemeProvider>
+                    <BeneathTopSlot>
+                      <NavigationThemeProvider>
+                        <Stack
+                          screenLayout={sheetScreenLayout}
+                          screenOptions={{
+                            // The iOS edge swipe. Android's back key and gesture are not
+                            // governed by this, and a screen that must hold back does it
+                            // with useBackIntercept.
+                            gestureEnabled: true,
+                            gestureDirection: 'horizontal',
+                            ...themeHeaderColors(isDark),
+                          }}
+                        >
+                          {Object.entries(SCREEN_HEADERS).map(([name, header]) => (
+                            <Stack.Screen
+                              key={name}
+                              name={name}
+                              options={{
+                                headerShown: header !== null,
+                                title: headerTitleOf(header, t),
+                                animation: screenAnimation(name),
+                                // An active recording must not be swipeable away on iOS.
+                                // The edge swipe runs in the same direction as the
+                                // slide-to-unlock track, so a stray palm swipe would
+                                // drop the rider out of the screen mid-ride. The screen has
+                                // no header: during a ride leaving is the stop flow, and
+                                // before one starts the close control is the way off. This
+                                // setting is iOS only; the screen holds Android's back
+                                // itself while it is locked.
+                                gestureEnabled: name !== 'recording/[type]',
+                                ...largeTitleScreenOptions(name, Platform.OS),
+                                ...sheetScreenOptions(name, Platform.OS),
+                                ...(header?.overMap && overMapHeaderOptions({ isDark })),
+                                ...(name === 'recordings/[id]' && {
+                                  headerTitle: () => <RecordingTitle />,
+                                }),
+                              }}
+                            />
+                          ))}
+                        </Stack>
+                      </NavigationThemeProvider>
+                    </BeneathTopSlot>
                     <BottomTabBar />
                     <NoticeHost />
                   </AuthGate>

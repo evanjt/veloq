@@ -112,3 +112,63 @@ describe('scrubbing the HRV sparkline', () => {
     expect(tree.getByTestId('summary-card-hrv-value')).toHaveTextContent('62 units.ms');
   });
 });
+
+describe('the HRV hero at rest', () => {
+  async function mountAtRest(props: {
+    hrvData: number[];
+    hrvRead?: boolean[];
+    rhrData?: number[];
+    rhrRead?: boolean[];
+  }) {
+    const tree = await render(
+      <SummaryCard
+        onProfilePress={() => {}}
+        heroMetric="hrv"
+        heroValue={ABSENT}
+        heroLabel="metrics.hrv"
+        heroColor="#000"
+        showSparkline
+        supportingMetrics={[]}
+        {...props}
+      />
+    );
+    await settle();
+    await layoutViews(tree, 360, 300);
+    return tree;
+  }
+
+  it('reads the absent mark when today has no reading of its own', async () => {
+    const tree = await mountAtRest({
+      hrvData: [48, 52, 52],
+      hrvRead: [true, true, false],
+      rhrData: [47, 45, 45],
+      rhrRead: [true, true, false],
+    });
+
+    expect(tree.getByTestId('summary-card-hrv-value')).toHaveTextContent(ABSENT, { exact: true });
+    expect(tree.getByTestId('summary-card-rhr-value')).toHaveTextContent(ABSENT, { exact: true });
+  });
+
+  it("reads today's own readings when today has them", async () => {
+    const tree = await mountAtRest({
+      hrvData: [48, 52, 55],
+      hrvRead: [true, false, true],
+      rhrData: [47, 45, 44],
+      rhrRead: [true, false, true],
+    });
+
+    expect(tree.getByTestId('summary-card-hrv-value')).toHaveTextContent('55 units.ms');
+    expect(tree.getByTestId('summary-card-rhr-value')).toHaveTextContent('44 units.bpm');
+  });
+
+  it('reads the last resting heart rate when its series is shorter than the HRV one', async () => {
+    const tree = await mountAtRest({
+      hrvData: [48, 52, 55],
+      hrvRead: [true, true, true],
+      rhrData: [47, 44],
+      rhrRead: [true, true],
+    });
+
+    expect(tree.getByTestId('summary-card-rhr-value')).toHaveTextContent('44 units.bpm');
+  });
+});

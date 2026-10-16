@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Modal, Platform } from 'react-native';
+import React, { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { View, Text, StyleSheet, Platform } from 'react-native';
+import { FullWindowModal } from '@/shared/ui/FullWindowModal';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
@@ -12,21 +13,37 @@ import {
   testWebdavConnection,
   webdavUrlProblem,
 } from '@/features/settings/lib/autobackup';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { NextcloudQrScanner } from './NextcloudQrScanner';
 import { InfoButton } from './InfoButton';
 import { webdavTestMessage } from '../lib/autobackup/webdavTestMessage';
 import type { NextcloudLogin } from '../lib/autobackup/nextcloudLogin';
+
+/** What committing the form left stored. `empty` is a form with no field filled in. */
+export type WebdavCommit =
+  | { kind: 'stored' }
+  | { kind: 'empty' }
+  | { kind: 'refused'; message: string };
+
+export interface WebdavConfigFormHandle {
+  /**
+   * Store what the fields show and resolve once the write lands. A field's blur
+   * is not enough, since a tap on an action while a field has focus reaches the
+   * action first. `required` treats an empty form as refused too.
+   */
+  commit: (options?: { required?: boolean }) => Promise<WebdavCommit>;
+}
 
 interface WebdavConfigFormProps {
   /** The stored credentials changed, so whatever lists backends should read them again. */
   onConfigChange: () => void;
   /** The credentials were removed. */
   onRemoved: () => void;
+  ref?: React.Ref<WebdavConfigFormHandle>;
 }
 
 /** The WebDAV server fields, Nextcloud QR setup and connection test. */
-export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigFormProps) {
+export function WebdavConfigForm({ onConfigChange, onRemoved, ref }: WebdavConfigFormProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
 
@@ -82,36 +99,73 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
     [t]
   );
 
+  const showRefusal = useCallback((message: string): WebdavCommit => {
+    setConnectionResult('error');
+    setConnectionError(message);
+    return { kind: 'refused', message };
+  }, []);
+
   // A refused keychain write leaves nothing stored, so the form says so rather
   // than showing filled fields over an unconfigured backup.
   const storeWebdav = useCallback(
-    async (url: string, user: string, password: string, plainLan: boolean): Promise<boolean> => {
+    async (
+      url: string,
+      user: string,
+      password: string,
+      plainLan: boolean
+    ): Promise<WebdavCommit> => {
       try {
         await setWebdavConfig(url, user, password, plainLan);
       } catch {
-        setConnectionResult('error');
-        setConnectionError(
+        return showRefusal(
           t('backup.webdavSaveFailed', 'Could not save the server details on this device')
         );
-        return false;
       }
       // Refresh the offer list since WebDAV is now configured
       onConfigChange();
-      return true;
+      return { kind: 'stored' };
     },
-    [t, onConfigChange]
+    [t, onConfigChange, showRefusal]
   );
 
-  const handleSaveWebdav = useCallback(async (): Promise<boolean> => {
-    if (!webdavUrl || !webdavUser || !webdavPass) return false;
-    const refused = urlProblemText(webdavUrl, webdavPlainLan);
-    if (refused) {
-      setConnectionResult('error');
-      setConnectionError(refused);
-      return false;
-    }
-    return storeWebdav(webdavUrl, webdavUser, webdavPass, webdavPlainLan);
-  }, [webdavUrl, webdavUser, webdavPass, webdavPlainLan, urlProblemText, storeWebdav]);
+  const commit = useCallback(
+    async ({ required = false }: { required?: boolean } = {}): Promise<WebdavCommit> => {
+      const fields: [string, string][] = [
+        [webdavUrl, t('backup.serverUrl')],
+        [webdavUser, t('backup.username')],
+        [webdavPass, t('backup.password')],
+      ];
+      const missing = fields.filter(([value]) => !value);
+      if (missing.length === fields.length) {
+        return required
+          ? showRefusal(t('backup.fillAllFields', 'Please fill in all fields'))
+          : { kind: 'empty' };
+      }
+      if (missing.length > 0) {
+        return showRefusal(t('backup.fillField', { field: missing[0]?.[1] }));
+      }
+      const refused = urlProblemText(webdavUrl, webdavPlainLan);
+      if (refused) return showRefusal(refused);
+      const stored = getWebdavConfig();
+      if (
+        stored?.url === webdavUrl &&
+        stored.username === webdavUser &&
+        stored.password === webdavPass &&
+        stored.plainLan === webdavPlainLan
+      ) {
+        return { kind: 'stored' };
+      }
+      return storeWebdav(webdavUrl, webdavUser, webdavPass, webdavPlainLan);
+    },
+    [webdavUrl, webdavUser, webdavPass, webdavPlainLan, t, urlProblemText, showRefusal, storeWebdav]
+  );
+  useImperativeHandle(ref, () => ({ commit }), [commit]);
+
+  // A blur stores a complete form and leaves a half-typed one quiet.
+  const handleSaveWebdav = useCallback(async () => {
+    if (!webdavUrl || !webdavUser || !webdavPass) return;
+    await commit();
+  }, [webdavUrl, webdavUser, webdavPass, commit]);
 
   const handleRemoveWebdav = useCallback(async () => {
     await clearWebdavConfig();
@@ -160,15 +214,10 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
   );
 
   const handleTestConnection = useCallback(async () => {
-    if (!webdavUrl || !webdavUser || !webdavPass) {
-      setConnectionResult('error');
-      setConnectionError(t('backup.fillAllFields', 'Please fill in all fields'));
-      return;
-    }
     setTestingConnection(true);
     setConnectionResult(null);
     setConnectionError(null);
-    if (!(await handleSaveWebdav())) {
+    if ((await commit({ required: true })).kind !== 'stored') {
       setTestingConnection(false);
       return;
     }
@@ -180,7 +229,7 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
     }
     setConnectionResult('error');
     setConnectionError(webdavTestMessage(outcome, t, urlProblemText(webdavUrl, webdavPlainLan)));
-  }, [handleSaveWebdav, urlProblemText, webdavUrl, webdavUser, webdavPass, webdavPlainLan, t]);
+  }, [commit, urlProblemText, webdavUrl, webdavPlainLan, t]);
 
   return (
     <>
@@ -190,7 +239,13 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
             label={t('backup.scanNextcloudQr', 'Scan Nextcloud App Password')}
             variant="secondary"
             size="sm"
-            icon={<MaterialCommunityIcons name="qrcode-scan" size={18} color={colors.primary} />}
+            icon={
+              <MaterialCommunityIcons
+                name="qrcode-scan"
+                size={iconSize.md}
+                color={colors.primary}
+              />
+            }
             onPress={() => setShowQrScanner(true)}
           />
           <InfoButton
@@ -286,7 +341,7 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
           </StatusLine>
         </View>
       </View>
-      <Modal
+      <FullWindowModal
         visible={showQrScanner}
         animationType="slide"
         onRequestClose={() => setShowQrScanner(false)}
@@ -297,7 +352,7 @@ export function WebdavConfigForm({ onConfigChange, onRemoved }: WebdavConfigForm
           onClose={() => setShowQrScanner(false)}
           onEnterDetails={enterDetailsInstead}
         />
-      </Modal>
+      </FullWindowModal>
     </>
   );
 }

@@ -15,13 +15,14 @@ import { IconButton } from '@/shared/ui/IconButton';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import {
   colors,
-  darkColors,
-  spacing,
-  shadows,
-  layout,
-  controlHeight,
   colorWithOpacity,
+  controlHeight,
+  darkColors,
+  iconSize,
   ink,
+  layout,
+  shadows,
+  spacing,
   typography,
 } from '@/theme';
 import { CompassArrow } from '@/shared/ui';
@@ -33,9 +34,7 @@ import { RECENCY_FADE } from './regionalMapLayerSpecs';
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 /** The glyph inside a column control. */
-const COLUMN_ICON_SIZE = 20;
 /** The glyph beside a menu row's label. */
-const MENU_ICON_SIZE = 18;
 /** Controls above the layers control, which the menu lines up beside. */
 const CONTROLS_ABOVE_LAYERS = 3;
 /** Steps in the key's recency strip, newest to a year old. */
@@ -118,14 +117,14 @@ function MenuRow({
     >
       <MaterialCommunityIcons
         name={icon}
-        size={MENU_ICON_SIZE}
+        size={iconSize.md}
         color={checked ? palette.primary : palette.textSecondary}
       />
       <Text style={[styles.menuLabel, { color: palette.textPrimary }]}>{label}</Text>
       {isToggle ? (
         <MaterialCommunityIcons
           name="check"
-          size={MENU_ICON_SIZE}
+          size={iconSize.md}
           color={checked ? palette.primary : 'transparent'}
         />
       ) : null}
@@ -253,7 +252,7 @@ export function MapControlStack({
         >
           <MaterialCommunityIcons
             name="terrain"
-            size={COLUMN_ICON_SIZE}
+            size={iconSize.md}
             color={show3D ? colors.textOnPrimary : iconColor}
           />
         </ColumnButton>
@@ -265,7 +264,7 @@ export function MapControlStack({
           accessibilityLabel={t('maps.resetOrientation')}
         >
           <CompassArrow
-            size={COLUMN_ICON_SIZE}
+            size={iconSize.md}
             rotation={bearingAnim}
             northColor={colors.error}
             southColor={iconColor}
@@ -285,7 +284,7 @@ export function MapControlStack({
           ) : (
             <MaterialCommunityIcons
               name="crosshairs-gps"
-              size={COLUMN_ICON_SIZE}
+              size={iconSize.md}
               color={userLocationActive ? colors.textOnPrimary : iconColor}
             />
           )}
@@ -302,7 +301,7 @@ export function MapControlStack({
           >
             <MaterialCommunityIcons
               name="layers-outline"
-              size={COLUMN_ICON_SIZE}
+              size={iconSize.md}
               color={menuOpen ? colors.textOnPrimary : iconColor}
             />
           </ColumnButton>

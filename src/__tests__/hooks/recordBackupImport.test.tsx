@@ -63,8 +63,7 @@ it('explains an account mismatch when a legacy database cannot be converted', as
   (restoreDatabaseBackup as jest.Mock).mockResolvedValue({
     success: false,
     activityCount: 0,
-    athleteIdMismatch: true,
-    error: 'Account mismatch',
+    refusal: 'differentAccount',
   });
   const { result } = await renderHook(() => useImportDatabaseBackup());
 
@@ -85,7 +84,9 @@ it('titles a failed restore for what failed, and back on Android dismisses it', 
   Platform.OS = 'android';
   try {
     mockFileName = 'veloq-backup-2026-09-30.zip';
-    (restoreRecordBackup as jest.Mock).mockRejectedValue(new Error('corrupt'));
+    (restoreRecordBackup as jest.Mock).mockRejectedValue(
+      Object.assign(new Error('Database error: corrupt'), { tag: 'Database' })
+    );
     const { result } = renderHook(() => useImportDatabaseBackup());
 
     await act(async () => {
@@ -95,7 +96,7 @@ it('titles a failed restore for what failed, and back on Android dismisses it', 
     const [title, message, , options] = jest.mocked(Alert.alert).mock.calls.at(-1) ?? [];
     expect(title).not.toBe('common.error');
     expect(title).toBe('backup.notRestoredTitle');
-    expect(message).toBe('corrupt');
+    expect(message).toBe('backup.importError');
     expect(options?.cancelable).toBe(true);
   } finally {
     Platform.OS = originalOs;
@@ -104,6 +105,38 @@ it('titles a failed restore for what failed, and back on Android dismisses it', 
 
 afterEach(() => {
   jest.restoreAllMocks();
+});
+
+it("words the engine's account refusal of a record zip in the athlete's language", async () => {
+  mockFileName = 'veloq-backup-2026-09-30.zip';
+  (restoreRecordBackup as jest.Mock).mockRejectedValue(
+    Object.assign(new Error('Record belongs to another athlete'), { tag: 'Database' })
+  );
+  const { result } = renderHook(() => useImportDatabaseBackup());
+
+  await act(async () => {
+    await result.current.importDatabaseBackup();
+  });
+
+  const [, message] = jest.mocked(Alert.alert).mock.calls.at(-1) ?? [];
+  expect(message).toBe('backup.backupDifferentAccount');
+});
+
+it('words a refused legacy database by its refusal, never by a thrown message', async () => {
+  mockFileName = 'older.veloqdb';
+  (restoreDatabaseBackup as jest.Mock).mockResolvedValue({
+    success: false,
+    activityCount: 0,
+    refusal: 'failed',
+  });
+  const { result } = renderHook(() => useImportDatabaseBackup());
+
+  await act(async () => {
+    await result.current.importDatabaseBackup();
+  });
+
+  const [, message] = jest.mocked(Alert.alert).mock.calls.at(-1) ?? [];
+  expect(message).toBe('backup.importError');
 });
 
 it('reports a legacy record restore and the records still waiting', async () => {

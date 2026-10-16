@@ -4,6 +4,13 @@ export const GPS_WARNING_MS = 20_000;
 // How long to wait before showing GPS alert dialog
 export const GPS_ALERT_MS = 60_000;
 
+/**
+ * The spacing of an indoor ride's samples. The foreground tick fires at this
+ * period, and a sensor notification that arrives while the tick is paused
+ * records a sample only once this much has passed since the last one.
+ */
+export const INDOOR_SAMPLE_MS = 1_000;
+
 // Crash recovery backup interval (15s to finish before iOS ~30s background limit)
 export const BACKUP_INTERVAL_MS = 15_000;
 

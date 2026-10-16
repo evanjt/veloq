@@ -4,7 +4,15 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, typography, slopToMinTapTarget } from '@/theme';
+import {
+  colors,
+  darkColors,
+  iconSize,
+  layout,
+  slopToMinTapTarget,
+  spacing,
+  typography,
+} from '@/theme';
 import { pressable, pressRipple } from '@/shared/ui';
 import type { SectionsSortOption } from './SectionsList';
 
@@ -73,7 +81,7 @@ export function SectionsListFiltersBar({
             >
               <MaterialCommunityIcons
                 name={chip.icon}
-                size={13}
+                size={iconSize.xs}
                 color={
                   isActive
                     ? colors.primary
@@ -111,7 +119,7 @@ export function SectionsListFiltersBar({
         >
           <MaterialCommunityIcons
             name="account"
-            size={13}
+            size={iconSize.xs}
             color={
               !hiddenFilters.custom
                 ? colors.primary
@@ -148,7 +156,7 @@ export function SectionsListFiltersBar({
         >
           <MaterialCommunityIcons
             name={hiddenFilters.disabled ? 'eye-off' : 'eye'}
-            size={13}
+            size={iconSize.xs}
             color={
               !hiddenFilters.disabled
                 ? colors.primary
@@ -185,7 +193,7 @@ export function SectionsListFiltersBar({
         >
           <MaterialCommunityIcons
             name="pin"
-            size={13}
+            size={iconSize.xs}
             color={
               hiddenFilters.unaccepted
                 ? colors.primary

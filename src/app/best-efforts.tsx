@@ -41,7 +41,7 @@ import {
   SPORT_TEXT_COLORS_DARK,
   type PrimarySport,
 } from '@/features/fitness';
-import { colors, darkColors, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
@@ -95,7 +95,7 @@ function SportSection({ sport, efforts, curve, isLoading, isDark }: SportSection
       <View style={styles.cardHeader}>
         <MaterialCommunityIcons
           name={sportIcon(sport)}
-          size={18}
+          size={iconSize.md}
           color={sportColor}
           style={styles.cardHeaderIcon}
         />
@@ -185,7 +185,7 @@ function ClimbingSection({ sport, bests, status, isLoading, isDark }: ClimbingSe
       <View style={styles.cardHeader}>
         <MaterialCommunityIcons
           name={sportIcon(sport)}
-          size={18}
+          size={iconSize.md}
           color={SPORT_COLORS[sport]}
           style={styles.cardHeaderIcon}
         />

@@ -12,11 +12,12 @@ import { MapStylePreviewPicker } from './MapStylePreviewPicker';
 import {
   colors,
   darkColors,
-  spacing,
+  iconSize,
   layout,
-  slopToMinTapTarget,
-  typography,
   opacity,
+  slopToMinTapTarget,
+  spacing,
+  typography,
 } from '@/theme';
 import { Row } from '@/shared/ui/Row';
 import { composeAccessibilityLabel, ListSectionHeader, pressable, pressRipple } from '@/shared/ui';
@@ -130,7 +131,7 @@ export function MapsSection() {
         >
           <MaterialCommunityIcons
             name="image-filter-hdr"
-            size={14}
+            size={iconSize.sm}
             color={mapPreferences.terrain3DMode === 'off' ? colors.textSecondary : colors.primary}
           />
           <Text
@@ -160,7 +161,7 @@ export function MapsSection() {
       {/* Per-activity overrides */}
       <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
       <Row>
-        <MaterialCommunityIcons name="tune-variant" size={22} color={colors.primary} />
+        <MaterialCommunityIcons name="tune-variant" size={iconSize.md} color={colors.primary} />
         <Text style={[styles.actionText, isDark && settingsStyles.textLight]}>
           {t('settings.customiseByActivity')}
         </Text>
@@ -169,7 +170,7 @@ export function MapsSection() {
       <View style={styles.overridesContainer}>
         {/* Explore Map row */}
         <View style={styles.overrideRow}>
-          <MaterialCommunityIcons name="map-outline" size={16} color={colors.primary} />
+          <MaterialCommunityIcons name="map-outline" size={iconSize.md} color={colors.primary} />
           <Text
             style={[styles.overrideLabel, isDark && settingsStyles.textLight]}
             numberOfLines={1}

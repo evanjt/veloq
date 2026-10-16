@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -28,6 +28,7 @@ import {
   useLocationPermission,
   useRecordingScreenState,
   useRecordingScreenColors,
+  useRecordingColumnLayout,
   useRecordingLock,
   useStatusPulseAnimation,
   useGpsWarningClearEffect,
@@ -178,6 +179,7 @@ function RecordingContent({ activityType }: { activityType: ActivityType }) {
   const openReview = useCallback(() => tapTo('/recording/review'), []);
   const openSensorPairing = useCallback(() => tapTo('/sensor-settings'), []);
   const dismissGpsWarning = useCallback(() => setGpsWarning(null), [setGpsWarning]);
+  const column = useRecordingColumnLayout();
   const bottomPadding = bottomClearance;
   const unlockTrackStyle = useMemo(
     () => ({ paddingTop: spacing.sm, paddingBottom: bottomPadding }),
@@ -301,72 +303,91 @@ function RecordingContent({ activityType }: { activityType: ActivityType }) {
   return (
     <View style={[styles.container, { backgroundColor: bg, paddingTop: insets.top }]}>
       {noHeader}
-      <TimerHeader
-        currentActivityType={currentActivityType}
-        status={status}
-        statusPulse={statusPulse}
-        mode={mode}
-        accuracy={accuracy}
-        autoPaused={autoPaused}
-        isLocked={isLocked}
-        textPrimary={textPrimary}
-        textSecondary={textSecondary}
-        border={border}
-        onOpenTypePicker={openTypePicker}
-        onLock={lock}
-      />
-
-      <StatusSlot
-        backgroundTrackingWarning={
-          backgroundTrackingFailed ? t('recording.gpsTrackingError') : null
-        }
-        backupWarning={backupFailing ? t('recording.backupFailing') : null}
-        gpsWarning={gpsWarning}
-        gpsWarningOpensSettings={gpsWarningOpensSettings}
-        sensorIssue={sensorIssue}
-        splitBanner={splitBanner}
-        onDismissGpsWarning={dismissGpsWarning}
-      />
-
-      <WorkoutGuide
-        isMetric={isMetric}
-        isLocked={isLocked}
-        textPrimary={textPrimary}
-        textSecondary={textSecondary}
-        surface={surface}
-        border={border}
-        accent={colors.primary}
-      />
-
-      {/* Main Content Area */}
-      <View style={styles.mainContent} pointerEvents={isLocked ? 'none' : 'auto'}>
-        {mode === 'gps' ? (
-          <RecordingMap
-            coordinates={coordinates}
-            coordinateCount={latlngLength}
-            currentLocation={currentLocation}
-            routeOverlay={overlayPoints}
-            onOpenRoutePicker={openRoutePicker}
-            style={styles.map}
+      {/* The bottom slot sits outside this region, so a short window shrinks the
+          map and then scrolls the region rather than losing the controls. */}
+      <ScrollView
+        testID="recording-column-region"
+        style={styles.columnRegion}
+        contentContainerStyle={styles.columnContent}
+        scrollEnabled={column.scrolls ? !isLocked : false}
+        showsVerticalScrollIndicator={column.scrolls}
+        bounces={false}
+        onLayout={column.onRegionLayout}
+      >
+        <View testID="recording-column-head" onLayout={column.onHeadLayout}>
+          <TimerHeader
+            currentActivityType={currentActivityType}
+            status={status}
+            statusPulse={statusPulse}
+            mode={mode}
+            accuracy={accuracy}
+            autoPaused={autoPaused}
+            isLocked={isLocked}
+            textPrimary={textPrimary}
+            textSecondary={textSecondary}
+            border={border}
+            onOpenTypePicker={openTypePicker}
+            onLock={lock}
           />
-        ) : (
-          <IndoorDisplay
-            activityType={currentActivityType}
+
+          <StatusSlot
+            backgroundTrackingWarning={
+              backgroundTrackingFailed ? t('recording.gpsTrackingError') : null
+            }
+            backupWarning={backupFailing ? t('recording.backupFailing') : null}
+            gpsWarning={gpsWarning}
+            gpsWarningOpensSettings={gpsWarningOpensSettings}
+            sensorIssue={sensorIssue}
+            splitBanner={splitBanner}
+            onDismissGpsWarning={dismissGpsWarning}
+          />
+
+          <WorkoutGuide
+            isMetric={isMetric}
+            isLocked={isLocked}
+            textPrimary={textPrimary}
+            textSecondary={textSecondary}
             surface={surface}
             border={border}
-            textPrimary={textPrimary}
+            accent={colors.primary}
           />
-        )}
-      </View>
+        </View>
 
-      {/* Data Fields */}
-      <ConnectedDataFieldGrid
-        fields={effectiveFields}
-        isMetric={isMetric}
-        activityType={currentActivityType}
-        onLongPressField={isLocked ? undefined : editField}
-        onEmptySensorTap={isLocked ? undefined : openSensorPairing}
-      />
+        {/* The map stays mounted at zero height rather than unmounting */}
+        <View
+          testID="recording-map-slot"
+          style={column.mapHeight === null ? styles.mainContent : { height: column.mapHeight }}
+          pointerEvents={isLocked ? 'none' : 'auto'}
+        >
+          {mode === 'gps' ? (
+            <RecordingMap
+              coordinates={coordinates}
+              coordinateCount={latlngLength}
+              currentLocation={currentLocation}
+              routeOverlay={overlayPoints}
+              onOpenRoutePicker={openRoutePicker}
+              style={styles.map}
+            />
+          ) : (
+            <IndoorDisplay
+              activityType={currentActivityType}
+              surface={surface}
+              border={border}
+              textPrimary={textPrimary}
+            />
+          )}
+        </View>
+
+        <View testID="recording-column-tiles" onLayout={column.onTilesLayout}>
+          <ConnectedDataFieldGrid
+            fields={effectiveFields}
+            isMetric={isMetric}
+            activityType={currentActivityType}
+            onLongPressField={isLocked ? undefined : editField}
+            onEmptySensorTap={isLocked ? undefined : openSensorPairing}
+          />
+        </View>
+      </ScrollView>
 
       {/* Controls, or the unlock track while locked */}
       {isLocked ? (

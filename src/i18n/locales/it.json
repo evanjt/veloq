@@ -371,6 +371,7 @@
     "backupFailedFolder": "Veloq non riesce più ad accedere alla cartella dei backup. Scegli di nuovo la cartella.",
     "backupFailedIcloud": "iCloud Drive è disattivato per Veloq, oppure questo iPhone non ha eseguito l'accesso a iCloud. Attivalo nelle Impostazioni dell'iPhone.",
     "backupFailedUnverified": "Veloq ha scritto il backup ma non è riuscito a rileggerlo per verificarlo. Riproverà più tardi.",
+    "backupFailedAddress": "L'indirizzo del server WebDAV deve essere un indirizzo https:// valido. Controllalo nelle impostazioni di backup.",
     "lastAttemptFailed": "Ultimo tentativo fallito il {{date}}",
     "androidLastBackup": "Ultimo backup Android: {{date}}, {{size}}",
     "androidBackupNever": "Android non ha ancora eseguito il backup di Veloq",
@@ -387,6 +388,7 @@
     "cameraPermissionNeeded": "L'accesso alla fotocamera è necessario per scansionare i codici QR",
     "enterDetailsInstead": "Inserisci i dati a mano",
     "fillAllFields": "Compila tutti i campi",
+    "fillField": "Compila il campo «{{field}}»",
     "webdavHttpsRequired": "Usa un indirizzo https://. Un server http:// riceverebbe la password e l’archivio dei dati senza cifratura.",
     "webdavInvalidUrl": "Non è un indirizzo server valido",
     "webdavSaveFailed": "Impossibile salvare i dati del server su questo dispositivo",
@@ -512,7 +514,7 @@
       "title": "Qualcosa è andato storto"
     },
     "offline": {
-      "description": "Alcune funzionalità potrebbero essere limitate",
+      "description": "Sincronizzazione e caricamenti riprenderanno quando tornerai online.",
       "title": "Sei offline"
     },
     "syncError": {
@@ -2845,6 +2847,26 @@
     "offPr": "A {{delta}} dal record",
     "cycleHint": "Tocca per cambiare",
     "laps": "Giri: {{n}}",
-    "elevationLoss": "Dislivello negativo"
+    "elevationLoss": "Dislivello negativo",
+    "chartPageForward": "Salta avanti",
+    "chartPageBack": "Salta indietro"
+  },
+  "charts": {
+    "showData": "Mostra dati",
+    "summary": {
+      "title": "{{title}}.",
+      "empty": "{{name}}: nessun dato.",
+      "single": "{{name}}, {{start}}: {{value}}.",
+      "series": "{{name}}, da {{start}} a {{end}}: ultimo {{latest}}, intervallo da {{min}} a {{max}}, media {{average}}.",
+      "curve": "{{name}}, da {{start}} a {{end}}: {{first}} a {{start}}, {{last}} a {{end}}, picco {{max}}.",
+      "parts": "{{name}}: {{parts}}."
+    },
+    "column": {
+      "date": "Data",
+      "duration": "Durata",
+      "distance": "Distanza",
+      "zone": "Zona",
+      "time": "Tempo"
+    }
   }
 }

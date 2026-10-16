@@ -63,7 +63,7 @@ import type {
   FfiSectionSportCount,
   FfiSectionTrendCurves,
 } from 'veloqrs';
-import { colors, spacing } from '@/theme';
+import { colors, iconSize, spacing } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 const EMPTY_SPORT_COUNTS: FfiSectionSportCount[] = [];
@@ -400,7 +400,11 @@ function RouteDetailScreenContent() {
               label={gpxExporting ? t('export.exporting') : t('export.gpx')}
               loading={gpxExporting}
               icon={
-                <MaterialCommunityIcons name="download" size={20} color={colors.textOnPrimary} />
+                <MaterialCommunityIcons
+                  name="download"
+                  size={iconSize.md}
+                  color={colors.textOnPrimary}
+                />
               }
               onPress={() =>
                 exportGpx({

@@ -266,9 +266,9 @@ describe('useEngineSubscription', () => {
     await act(() => useEngineStatus.getState().markEngineReady());
     expect(result.current).toBe(1);
 
-    // A second announcement of the same handle is not a second arrival.
+    // A reopen after a clear is a reason to read again, under the same handle.
     await act(() => useEngineStatus.getState().markEngineReady());
-    expect(result.current).toBe(1);
+    expect(result.current).toBe(2);
   });
 
   it('re-reads a memo whose engine arrived late', async () => {

@@ -9,15 +9,19 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import {
   restoreBackup,
-  RESTORE_REFUSAL_KEYS,
   restoreDatabaseBackup,
   restoreRecordBackup,
   importWaitsForSignIn,
   type DatabaseRestoreResult,
 } from './backup';
+import { RESTORE_REFUSAL_KEYS, restoreRefusal, type RestoreRefusal } from './restoreRefusal';
 import { holdImportWhileSignedOut, isHeldWhileSignedOut } from './heldImport';
 import { confirmAction, inform } from '@/shared/ui/dialog';
 import { showRestoreNotice } from './restoreNotice';
+
+function informRefused(refusal: RestoreRefusal, t: TFunction): void {
+  inform({ title: t('backup.notRestoredTitle'), message: t(RESTORE_REFUSAL_KEYS[refusal]) });
+}
 
 /** Ask before a backup replaces stored preferences and names. */
 export function confirmLegacyImport(copy: {
@@ -51,8 +55,8 @@ export async function importBackupFile(
   try {
     // An older backup picked signed out is held for sign-in below; anything else needs the engine now.
     if (importWaitsForSignIn() && !isHeldWhileSignedOut(fileName)) {
-      inform({ title: t('backup.notRestoredTitle'), message: t('backup.signInRequired') });
-      return { success: false, activityCount: 0, signInRequired: true };
+      informRefused('signInRequired', t);
+      return { success: false, activityCount: 0, refusal: 'signInRequired' };
     }
 
     const confirmed = await confirmLegacyImport({
@@ -75,12 +79,9 @@ export async function importBackupFile(
       });
 
       const legacyResult = await restoreBackup(json);
-      if (legacyResult.failed) {
-        const message = legacyResult.signInRequired
-          ? t('backup.signInRequired')
-          : (legacyResult.error ?? t('backup.importError'));
-        inform({ title: t('backup.notRestoredTitle'), message });
-        return { success: false, activityCount: 0, error: legacyResult.error ?? message };
+      if (legacyResult.refusal) {
+        informRefused(legacyResult.refusal, t);
+        return { success: false, activityCount: 0, refusal: legacyResult.refusal };
       }
 
       showRestoreNotice('restored', t);
@@ -102,22 +103,12 @@ export async function importBackupFile(
     if (restoreResult.success) {
       showRestoreNotice('restored', t);
     } else {
-      inform({
-        title: t('backup.notRestoredTitle'),
-        message: restoreResult.signInRequired
-          ? t('backup.signInRequired')
-          : restoreResult.athleteIdMismatch
-            ? t('backup.backupDifferentAccount')
-            : restoreResult.reason
-              ? t(RESTORE_REFUSAL_KEYS[restoreResult.reason])
-              : (restoreResult.error ?? t('backup.importError')),
-      });
+      informRefused(restoreResult.refusal ?? 'failed', t);
     }
 
     return restoreResult;
   } catch (error) {
-    const msg = error instanceof Error ? error.message : t('backup.importError');
-    inform({ title: t('backup.notRestoredTitle'), message: msg });
+    informRefused(restoreRefusal(error), t);
     // empty-on-error: the failure is the alert on the line above; null tells the caller the
     // import did not complete.
     return null;

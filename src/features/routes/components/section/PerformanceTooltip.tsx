@@ -31,12 +31,13 @@ import {
   colors,
   controlHeight,
   darkColors,
+  iconSize,
   layout,
-  typography,
-  spacing,
-  verdictColor,
-  themedStyles,
   type Palette,
+  spacing,
+  themedStyles,
+  typography,
+  verdictColor,
 } from '@/theme';
 import type { PerformanceDataPoint } from '@/types';
 import {
@@ -172,7 +173,7 @@ export function PerformanceTooltip({
               <>
                 <MaterialCommunityIcons
                   name="trophy"
-                  size={13}
+                  size={iconSize.xs}
                   color={isDark ? darkColors.chartGoldMark : colors.chartGoldMark}
                   style={{ marginRight: spacing.xs }}
                 />
@@ -223,7 +224,7 @@ export function PerformanceTooltip({
               <View style={styles.reverseBadge}>
                 <MaterialCommunityIcons
                   name="swap-horizontal"
-                  size={10}
+                  size={iconSize.xs}
                   color={colors.reverseDirection}
                 />
               </View>
@@ -247,7 +248,7 @@ export function PerformanceTooltip({
             <IconButton onPress={setReference} accessibilityLabel={t('sections.setAsReference')}>
               <MaterialCommunityIcons
                 name={selectedPoint.activityId === referenceActivityId ? 'star' : 'star-outline'}
-                size={18}
+                size={iconSize.md}
                 color={
                   selectedPoint.activityId === referenceActivityId
                     ? colors.primary
@@ -258,20 +259,24 @@ export function PerformanceTooltip({
           ) : null}
           {include ? (
             <IconButton accessibilityLabel={t('sections.includeActivity')} onPress={include}>
-              <MaterialCommunityIcons name="undo" size={16} color={colors.primary} />
+              <MaterialCommunityIcons name="undo" size={iconSize.sm} color={colors.primary} />
             </IconButton>
           ) : (
             exclude && (
               <IconButton accessibilityLabel={t('sections.excludeActivity')} onPress={exclude}>
                 <MaterialCommunityIcons
                   name="eye-off-outline"
-                  size={16}
+                  size={iconSize.sm}
                   color={styles.tooltipDate.color}
                 />
               </IconButton>
             )
           )}
-          <MaterialCommunityIcons name="chevron-right" size={14} color={styles.tooltipDate.color} />
+          <MaterialCommunityIcons
+            name="chevron-right"
+            size={iconSize.sm}
+            color={styles.tooltipDate.color}
+          />
         </View>
       </Pressable>
     </View>

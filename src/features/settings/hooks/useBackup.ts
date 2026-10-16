@@ -11,6 +11,7 @@ import {
   type RecordExportOutcome,
 } from '@/features/settings/lib/backup';
 import { importBackupFile } from '@/features/settings/lib/importBackupFile';
+import { RESTORE_REFUSAL_KEYS, restoreRefusal } from '@/features/settings/lib/restoreRefusal';
 import type { ShareAnchor } from '@/features/settings/lib/shareFile';
 import { isPickerCopy } from '@/shared/storage/cacheFiles';
 import { inform } from '@/shared/ui/dialog';
@@ -122,8 +123,10 @@ export function useImportDatabaseBackup() {
 
       return await importBackupFile(fileUri, fileName, t);
     } catch (error) {
-      const msg = error instanceof Error ? error.message : t('backup.importError');
-      inform({ title: t('backup.notRestoredTitle'), message: msg });
+      inform({
+        title: t('backup.notRestoredTitle'),
+        message: t(RESTORE_REFUSAL_KEYS[restoreRefusal(error)]),
+      });
       // empty-on-error: the failure is the alert on the line above; null tells the caller the
       // import did not complete.
       return null;

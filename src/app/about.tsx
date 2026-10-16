@@ -10,7 +10,16 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
-import { colors, darkColors, spacing, layout, typography, colorWithOpacity, brand } from '@/theme';
+import {
+  brand,
+  colors,
+  colorWithOpacity,
+  darkColors,
+  iconSize,
+  layout,
+  spacing,
+  typography,
+} from '@/theme';
 import { createSharedStyles } from '@/styles';
 import { useTheme } from '@/shared/app';
 import { INTERVALS_URLS } from '@/features/auth';
@@ -37,7 +46,7 @@ function AboutScreenContent() {
         <View testID="about-app-info" style={styles.section(isDark)}>
           <View style={styles.appInfo}>
             <View style={styles.appIcon(isDark)}>
-              <MaterialCommunityIcons name="bike-fast" size={40} color={colors.primary} />
+              <MaterialCommunityIcons name="bike-fast" size={iconSize.xxl} color={colors.primary} />
             </View>
             <Text style={[styles.appName, shared.text]}>Veloq</Text>
             <Text style={[styles.appVersion, shared.textSecondary]}>
@@ -106,7 +115,7 @@ function AboutScreenContent() {
           >
             <MaterialCommunityIcons
               name="file-document-multiple"
-              size={22}
+              size={iconSize.lg}
               color={colors.primary}
             />
             <Text style={[styles.linkText, shared.text]}>{t('about.thirdPartyLicenses')}</Text>
@@ -135,19 +144,35 @@ function AboutScreenContent() {
           </Text>
           <View style={styles.attributionLogos}>
             <View style={styles.attributionItem}>
-              <MaterialCommunityIcons name="watch" size={20} color={themeColors.textSecondary} />
+              <MaterialCommunityIcons
+                name="watch"
+                size={iconSize.sm}
+                color={themeColors.textSecondary}
+              />
               <Text style={[styles.attributionName, shared.text]}>Garmin</Text>
             </View>
             <View style={styles.attributionItem}>
-              <MaterialCommunityIcons name="run" size={20} color={themeColors.textSecondary} />
+              <MaterialCommunityIcons
+                name="run"
+                size={iconSize.sm}
+                color={themeColors.textSecondary}
+              />
               <Text style={[styles.attributionName, shared.text]}>Strava</Text>
             </View>
             <View style={styles.attributionItem}>
-              <MaterialCommunityIcons name="watch" size={20} color={themeColors.textSecondary} />
+              <MaterialCommunityIcons
+                name="watch"
+                size={iconSize.sm}
+                color={themeColors.textSecondary}
+              />
               <Text style={[styles.attributionName, shared.text]}>Polar</Text>
             </View>
             <View style={styles.attributionItem}>
-              <MaterialCommunityIcons name="watch" size={20} color={themeColors.textSecondary} />
+              <MaterialCommunityIcons
+                name="watch"
+                size={iconSize.sm}
+                color={themeColors.textSecondary}
+              />
               <Text style={[styles.attributionName, shared.text]}>Wahoo</Text>
             </View>
           </View>

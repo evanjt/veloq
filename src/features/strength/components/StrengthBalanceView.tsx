@@ -9,11 +9,12 @@ import { tapTo } from '@/shared/app/navigation';
 import {
   colors,
   darkColors,
-  spacing,
+  iconSize,
   layout,
+  spacing,
+  typography,
   verdictColor,
   verdictFill,
-  typography,
 } from '@/theme';
 import type { VerdictRung } from '@/theme';
 import type { StrengthBalancePair } from '@/types';
@@ -67,7 +68,7 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
             <IconButton accessibilityLabel={t('strength.pairsInfoTitle')} onPress={openInfo}>
               <MaterialCommunityIcons
                 name="information-outline"
-                size={16}
+                size={iconSize.sm}
                 color={isDark ? darkColors.textSecondary : colors.textSecondary}
               />
             </IconButton>

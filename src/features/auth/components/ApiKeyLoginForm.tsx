@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { CollapsibleSection } from '@/shared/ui/CollapsibleSection';
 import { Button, TextField, TextLink } from '@/shared/ui';
@@ -97,11 +97,17 @@ export const ApiKeyLoginForm = React.memo(function ApiKeyLoginForm({
           onPress={handleSubmit}
           loading={isLoading}
           disabled={!apiKey.trim()}
-          icon={<MaterialCommunityIcons name="login" size={18} color={colors.textOnPrimary} />}
+          icon={
+            <MaterialCommunityIcons name="login" size={iconSize.md} color={colors.textOnPrimary} />
+          }
         />
 
         <View style={styles.localModeNote}>
-          <MaterialCommunityIcons name="shield-check" size={14} color={themeColors.textSecondary} />
+          <MaterialCommunityIcons
+            name="shield-check"
+            size={iconSize.sm}
+            color={themeColors.textSecondary}
+          />
           <Text style={[styles.localModeText, isDark && styles.textSecondary]}>
             {t('login.localModeNote')}
           </Text>
@@ -109,7 +115,7 @@ export const ApiKeyLoginForm = React.memo(function ApiKeyLoginForm({
         <View style={styles.localModeNote}>
           <MaterialCommunityIcons
             name="bell-off-outline"
-            size={14}
+            size={iconSize.sm}
             color={themeColors.textSecondary}
           />
           <Text style={[styles.localModeText, isDark && styles.textSecondary]}>

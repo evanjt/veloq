@@ -44,6 +44,8 @@ exit 0
     ...process.env,
     PATH: `${bin}:${process.env.PATH}`,
     ANDROID_SERIAL: SERIAL,
+    VELOQ_TEST_HANDSETS: SERIAL,
+    VELOQ_ALLOW_HANDSET: '',
     VELOQ_DEVICE_LOCK: path.join(root, `${name}.lock`),
     VELOQ_DEVICE_LOCK_HELD: '',
     VELOQ_DEVICE_LOCK_HANDSET: '1',

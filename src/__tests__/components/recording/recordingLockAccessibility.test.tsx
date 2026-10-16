@@ -9,12 +9,13 @@
  */
 
 import React from 'react';
-import { Animated } from 'react-native';
+import { Animated, StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { initialiseI18n } from '@/i18n';
 import { UnlockTrack } from '@/features/recording/components/UnlockTrack';
 import { TimerHeader } from '@/features/recording/components/TimerHeader';
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
@@ -174,5 +175,24 @@ describe('the padlock in the recording header', () => {
 
     expect(toggle.props.accessibilityLabel).toBe('Lock controls');
     expect(toggle.props.accessibilityState).toEqual(expect.objectContaining({ disabled: true }));
+  });
+});
+
+describe('the unlock track label at a large text size', () => {
+  it('is capped at the dense text scale', async () => {
+    await render(<UnlockTrack onUnlock={jest.fn()} />);
+
+    expect(screen.getByTestId('unlock-track-label').props.maxFontSizeMultiplier).toBe(
+      DENSE_TEXT_SCALE
+    );
+  });
+
+  it('starts past the handle rather than spanning the track under it', async () => {
+    await render(<UnlockTrack onUnlock={jest.fn()} />);
+    const label = StyleSheet.flatten(screen.getByTestId('unlock-track-label').props.style);
+    const handle = StyleSheet.flatten(screen.getByTestId('unlock-track-handle').props.style);
+
+    expect(label.width).toBeUndefined();
+    expect(label.left).toBeGreaterThanOrEqual(handle.width);
   });
 });

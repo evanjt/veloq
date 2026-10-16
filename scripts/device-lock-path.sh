@@ -71,3 +71,54 @@ veloq_refuse_if_ambiguous() {
   echo "$1: you are not driving and serialises nothing (B1176)." >&2
   return 1
 }
+
+# Automated device work runs on an emulator or on a handset designated for
+# testing, never on whatever phone happens to be attached: the rigs behind this
+# lock uninstall the app and clear its data, so landing on someone's own phone
+# wipes a real library. A run that means to use another handset names its
+# serial in `VELOQ_ALLOW_HANDSET`, which admits that serial and no other, so an
+# override left exported in a shell does not carry over to a different phone.
+#
+# The test handsets are `VELOQ_TEST_HANDSETS`, serials separated by whitespace,
+# or else the file below, one serial per line with `#` comments. The file sits
+# outside the repository because a gitignored file is missing from every
+# worktree, and because a handset's serial does not belong in the repository.
+# With neither, only emulators and simulators pass.
+#
+# It reads only the serial derived above and sends nothing to the handset, so a
+# refused phone receives no command at all. An explicit `VELOQ_DEVICE_LOCK`
+# changes where the lock lives and not which handset is reached, so it does not
+# bypass this. Nothing attached passes, since there is no handset to protect.
+veloq_refuse_if_not_test_device() {
+  _veloq_reached="${VELOQ_DEVICE_SERIAL:-}"
+  [ -n "$_veloq_reached" ] || return 0
+  case "$_veloq_reached" in
+  emulator-*) return 0 ;;
+  esac
+  # An iOS simulator, whose UDID is a UUID, is an emulator too. A physical
+  # iPhone's UDID has another shape, so it is held to the allowlist.
+  if printf '%s\n' "$_veloq_reached" |
+    grep -qxE '[0-9A-Fa-f]{8}-([0-9A-Fa-f]{4}-){3}[0-9A-Fa-f]{12}'; then
+    return 0
+  fi
+  [ "${VELOQ_ALLOW_HANDSET:-}" != "$_veloq_reached" ] || return 0
+
+  _veloq_file="${XDG_CONFIG_HOME:-${HOME:-}/.config}/veloq/test-handsets"
+  if [ -n "${VELOQ_TEST_HANDSETS:-}" ]; then
+    _veloq_from=VELOQ_TEST_HANDSETS
+    _veloq_listed=$VELOQ_TEST_HANDSETS
+  else
+    _veloq_from=$_veloq_file
+    _veloq_listed=""
+    [ ! -r "$_veloq_file" ] || _veloq_listed=$(sed 's/#.*//' "$_veloq_file")
+  fi
+  if printf '%s\n' "$_veloq_listed" | tr -s ' \t' '\n\n' | grep -qxF -- "$_veloq_reached"; then
+    return 0
+  fi
+
+  echo "$1: the run would reach $_veloq_reached, which is not a test handset." >&2
+  echo "$1: test handsets are read from $_veloq_from; emulators and simulators always pass." >&2
+  echo "$1: list it there, or admit it for this run only with" >&2
+  echo "$1:   VELOQ_ALLOW_HANDSET=$_veloq_reached" >&2
+  return 1
+}

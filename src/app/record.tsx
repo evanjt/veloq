@@ -18,7 +18,15 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { canTurnOnLocationServices } from '@/shared/app/permissions/locationServices';
-import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  darkColors,
+  iconSize,
+  layout,
+  spacing,
+  typography,
+} from '@/theme';
 import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
 import {
   getRecordingMode,
@@ -206,7 +214,7 @@ function RecordScreenContent() {
               >
                 <MaterialCommunityIcons
                   name="folder-play-outline"
-                  size={22}
+                  size={iconSize.lg}
                   color={textSecondary}
                 />
               </IconButton>
@@ -215,7 +223,11 @@ function RecordScreenContent() {
                 onPress={() => tapTo('/recording-settings')}
                 accessibilityLabel={t('recording.settings')}
               >
-                <MaterialCommunityIcons name="cog-outline" size={22} color={textSecondary} />
+                <MaterialCommunityIcons
+                  name="cog-outline"
+                  size={iconSize.lg}
+                  color={textSecondary}
+                />
               </IconButton>
             </View>
           ),
@@ -289,7 +301,7 @@ function RecordScreenContent() {
           >
             <MaterialCommunityIcons
               name={getActivityIcon(event.type as ActivityType)}
-              size={24}
+              size={iconSize.lg}
               color={getActivityInk(event.type as ActivityType, isDark)}
               style={styles.eventIcon}
             />
@@ -332,7 +344,7 @@ function RecordScreenContent() {
                 icon={
                   <MaterialCommunityIcons
                     name={getActivityIcon(type)}
-                    size={18}
+                    size={iconSize.md}
                     color={getActivityInk(type, isDark)}
                   />
                 }
@@ -346,7 +358,11 @@ function RecordScreenContent() {
             onPress={chooseFromSheet}
             accessibilityRole="button"
           >
-            <MaterialCommunityIcons name="dots-horizontal" size={18} color={textSecondary} />
+            <MaterialCommunityIcons
+              name="dots-horizontal"
+              size={iconSize.md}
+              color={textSecondary}
+            />
             <Text style={[styles.chipLabel, { color: textPrimary }]}>
               {t('recording.moreSports')}
             </Text>
@@ -361,7 +377,7 @@ function RecordScreenContent() {
           icon={
             <MaterialCommunityIcons
               name={mode === 'manual' ? 'pencil' : 'play'}
-              size={22}
+              size={iconSize.lg}
               color={colors.textOnPrimary}
             />
           }
@@ -395,7 +411,7 @@ function SportSurface({
     >
       <MaterialCommunityIcons
         name={getActivityIcon(sport)}
-        size={64}
+        size={iconSize.xxl}
         color={getActivityInk(sport, isDark)}
       />
       <Text style={[styles.sportSurfaceTitle, { color: textPrimary }]}>
@@ -515,7 +531,7 @@ function GpsWarningLine({
         onPress={onDismiss}
         accessibilityLabel={t('common.close')}
       >
-        <MaterialCommunityIcons name="close" size={18} color={tint} />
+        <MaterialCommunityIcons name="close" size={iconSize.md} color={tint} />
       </IconButton>
     </View>
   );

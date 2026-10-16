@@ -6,7 +6,16 @@ import { useMapPreferences } from '@/features/settings/light';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, layout, shadows, controlHeight, ink } from '@/theme';
+import {
+  colors,
+  controlHeight,
+  darkColors,
+  iconSize,
+  ink,
+  layout,
+  shadows,
+  spacing,
+} from '@/theme';
 import { getActivityTypeConfig } from '../lib/activityCategories';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { ComponentErrorBoundary, IconButton } from '@/shared/ui';
@@ -70,6 +79,7 @@ import {
   lngLatFromShort,
   type LngLatBounds,
 } from '../lib/coordinates';
+import { mapTopControlsBottom, popupBottom } from '../lib/filterSheet';
 import { surfaceIsLeaving, useInitialRegionalCamera } from '../hooks/useInitialRegionalCamera';
 import { useStoredTrackUrl } from '../hooks/useStoredTrackUrl';
 import { useSectionChooser } from './regional/useSectionChooser';
@@ -112,6 +122,8 @@ interface RegionalMapViewProps {
   selectSectionId?: string | undefined;
   /** Sport categories among the activities drawn, which the layers menu keys by colour. */
   keyCategories?: readonly string[] | undefined;
+  /** Height the host draws over the foot of the map, as measured, which the popups clear. */
+  bottomClearance?: number;
 }
 
 export function RegionalMapView({
@@ -127,6 +139,7 @@ export function RegionalMapView({
   focusActivityId,
   selectSectionId,
   keyCategories,
+  bottomClearance = 0,
 }: RegionalMapViewProps) {
   const { t } = useTranslation();
   const { getGlobalMapStyle, setGlobalMapStyle } = useMapPreferences();
@@ -147,7 +160,8 @@ export function RegionalMapView({
     toggleHeatmap,
     toggle3D,
   } = useVisibilityToggles();
-  // The info bar covers the foot of the map, so the notice sits where the popups do.
+  const popupFloor = popupBottom(bottomClearance, insets.bottom);
+  // The info bar covers the foot of the map, so the notice sits a fixed height above it.
   const { onTerrainUnavailable, terrainNotice } = useTerrainFallback(
     () => setIs3DMode(false),
     insets.bottom + 250
@@ -697,13 +711,13 @@ export function RegionalMapView({
       >
         <MaterialCommunityIcons
           name={getStyleIcon(mapStyle)}
-          size={20}
+          size={iconSize.md}
           color={isDark ? colors.textOnDark : colors.textSecondary}
         />
       </IconButton>
       {/* The control column, one rung below the style toggle. */}
       <MapControlStack
-        top={insets.top + spacing.smPlus + controlHeight.button + spacing.sm}
+        top={mapTopControlsBottom(insets.top)}
         isDark={isDark}
         is3DMode={is3DMode}
         can3D={can3D}
@@ -728,24 +742,20 @@ export function RegionalMapView({
         keyCategories={keyCategories}
         heatKeyColours={heatKeyColours}
       />
-      {/* Selected activity popup - sits just above the bottom info bar
-          (attribution pill + filter chips). Tuned to leave a small breathing
-          gap above the attribution pill rather than the previous large
-          floating-mid-screen position. */}
+      {/* The popups sit above whatever the host draws over the foot of the map. */}
       {selected ? (
         <ActivityPopup
           selected={selected}
-          bottom={insets.bottom + 250}
+          bottom={popupFloor}
           onZoom={handleZoomToActivity}
           onClose={handleClosePopup}
           onViewDetails={handleViewDetails}
         />
       ) : null}
-      {/* Section popup - same vertical anchor as ActivityPopup. */}
       {selectedSection ? (
         <SectionPopup
           section={selectedSection}
-          bottom={insets.bottom + 250}
+          bottom={popupFloor}
           onClose={() => setSelectedSectionId(null)}
           onViewDetails={() => {
             setSelectedSectionId(null);
@@ -756,7 +766,7 @@ export function RegionalMapView({
       {selectedRoute ? (
         <RoutePopup
           route={selectedRoute}
-          bottom={insets.bottom + 250}
+          bottom={popupFloor}
           onClose={() => setSelectedRouteId(null)}
           onViewDetails={() => {
             setSelectedRouteId(null);

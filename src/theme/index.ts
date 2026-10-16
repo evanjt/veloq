@@ -65,6 +65,7 @@ export { zoneColour, type ZoneColourRole } from './zoneColour';
 export { themePalette, themedStyles, type Palette } from './palette';
 export { spacing, controlHeight, MIN_TAP_TARGET } from './spacing';
 export { layout } from './layout';
+export { iconSize, type IconSize } from './iconSize';
 export { slopToMinTapTarget } from './tapTarget';
 export { typography } from './typography';
 export {

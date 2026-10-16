@@ -75,6 +75,10 @@ const NAMESPACE_WITHOUT_ENGINE =
   "import * as veloqrs from 'veloqrs';\n\nexport const decode = veloqrs.decodeCoords;\n";
 const REQUIRES_VELOQRS_WITHOUT_ENGINE =
   "export function tiles() {\n  const { basemapStore } = require('veloqrs');\n  return basemapStore;\n}\n";
+const IMPORTS_BOUND_DELEGATE =
+  "import { elevation as backfill } from 'veloqrs';\n\nexport const pause = () => backfill.pauseElevationBackfill();\n";
+const READS_BOUND_DELEGATE_OFF_NAMESPACE =
+  "import * as veloqrs from 'veloqrs';\n\nexport const pause = () => veloqrs.elevation.pauseElevationBackfill();\n";
 const SETS_ENGINE_STATICS =
   "const { EngineClient } = require('veloqrs');\nEngineClient.setDebugEnabled(true);\n";
 
@@ -116,6 +120,18 @@ describe('the engine call site ceiling', () => {
     const { code, out } = runGuard(root, 0, 0);
     expect(code).toBe(1);
     expect(out).toContain('src/features/a/useFetcher.ts');
+  });
+
+  it('counts a bound delegate imported from veloqrs, which reaches the same engine', () => {
+    const root = treeWith({
+      'src/features/a/pauseButton.ts': IMPORTS_BOUND_DELEGATE,
+      'src/features/a/pauseLink.ts': READS_BOUND_DELEGATE_OFF_NAMESPACE,
+    });
+
+    const { code, out } = runGuard(root, 0, 0);
+    expect(code).toBe(1);
+    expect(out).toContain('src/features/a/pauseButton.ts');
+    expect(out).toContain('src/features/a/pauseLink.ts');
   });
 
   it('does not count a veloqrs import that takes no engine binding', () => {

@@ -21,7 +21,7 @@ import {
 import { SectionScatterChart } from '@/features/routes/components/section/SectionScatterChart';
 import { PerformanceTooltip } from '@/features/routes/components/section/PerformanceTooltip';
 import type { PerformanceDataPoint } from '@/types';
-import { colors } from '@/theme';
+import { colors, iconSize } from '@/theme';
 import { layoutViews } from '../../__shared__/layoutViews';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
@@ -90,14 +90,14 @@ describe('the calendar card while time streams are outstanding', () => {
     const gold = trophies(tree).filter((icon) => icon.props.color === colors.chartGoldMark);
     expect(gold).toHaveLength(0);
     expect(tree.queryAllByText('PR')).toHaveLength(0);
-    const yearTrophies = trophies(tree).filter((icon) => icon.props.size === 14);
+    const yearTrophies = trophies(tree).filter((icon) => icon.props.size === iconSize.sm);
     expect(yearTrophies).toHaveLength(0);
   });
 
   it('keeps the year-best mark on the month row', async () => {
     const tree = await renderCalendar(false);
 
-    const monthTrophies = trophies(tree).filter((icon) => icon.props.size === 12);
+    const monthTrophies = trophies(tree).filter((icon) => icon.props.size === iconSize.xs);
     expect(monthTrophies.map((icon) => icon.props.color)).toEqual([
       '#3B82F6',
       colors.reverseDirection,
@@ -107,7 +107,7 @@ describe('the calendar card while time streams are outstanding', () => {
   it('draws the overall-record trophies once the streams are in', async () => {
     const tree = await renderCalendar(true);
 
-    expect(trophies(tree).filter((icon) => icon.props.size === 14)).toHaveLength(2);
+    expect(trophies(tree).filter((icon) => icon.props.size === iconSize.sm)).toHaveLength(2);
     expect(trophies(tree).filter((icon) => icon.props.color === colors.chartGoldMark)).toHaveLength(
       2
     );

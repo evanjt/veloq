@@ -19,7 +19,15 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Button } from './Button';
 import { StatusLine, type StatusTone } from './StatusLine';
 import { useTheme } from '@/shared/app';
-import { spacing, layout, colorWithOpacity, ink, typography, themePalette } from '@/theme';
+import {
+  colorWithOpacity,
+  iconSize,
+  ink,
+  layout,
+  spacing,
+  themePalette,
+  typography,
+} from '@/theme';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -132,7 +140,7 @@ function DiscEmptyState({
       >
         <MaterialCommunityIcons
           name={icon}
-          size={compact ? 32 : 48}
+          size={compact ? iconSize.xl : iconSize.xxl}
           color={isDark ? colorWithOpacity(ink.white, 0.4) : colorWithOpacity(ink.black, 0.3)}
         />
       </View>

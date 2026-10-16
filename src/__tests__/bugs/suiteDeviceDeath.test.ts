@@ -9,7 +9,7 @@
  * flow that failed on a step fail the gate the way it always did.
  */
 
-import { execFileSync } from 'child_process';
+import { execFileSync, spawn } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -39,7 +39,8 @@ function fakeMaestro(
   dir: string,
   report: string,
   failAgain: Record<string, string>,
-  killsDevice: string[]
+  killsDevice: string[],
+  hangs: string[] = []
 ): string {
   const bin = path.join(dir, 'maestro');
   fs.writeFileSync(
@@ -65,6 +66,11 @@ if [ "$target" = ".maestro/" ]; then
   exit 1
 fi
 flow=$(basename "$target" .yaml)
+# A flow that hangs leaves its pid where the test can find it and outlasts the test.
+if grep -qxF "\${flow}" "${dir}/hangs"; then
+  echo $$ > "${dir}/hanging"
+  exec sleep 30
+fi
 if [ ! -f "${dir}/alive" ]; then
   printf '<testsuite><testcase name="%s" time="0.03"><failure>Unknown error</failure></testcase></testsuite>' "$flow" > "$out"
   exit 1
@@ -89,6 +95,7 @@ exit 0
       .join('\n') + '\n'
   );
   fs.writeFileSync(path.join(dir, 'kills-device'), killsDevice.join('\n') + '\n');
+  fs.writeFileSync(path.join(dir, 'hangs'), hangs.join('\n') + '\n');
   fs.writeFileSync(path.join(dir, 'alive'), '');
   return bin;
 }
@@ -459,4 +466,68 @@ describe('the device lock', () => {
 
     expect(calls[0]).toContain('held= ');
   });
+});
+
+/**
+ * Scenario: a shard reaches its step timeout during the retry pass, so the
+ * runner terminates `run-suite.sh` partway through. Folding the retries into
+ * the report only at the end of the pass left the uploaded report holding the
+ * first pass, so retries that had already passed still read as failures.
+ *
+ * Expected behaviour: each retry is folded into the report as it finishes, so
+ * a suite terminated mid-pass leaves a report holding every retry it finished,
+ * and the first-pass result for the flow it was cut off in.
+ */
+describe('a suite terminated during the retry pass', () => {
+  it('leaves a report holding the retries it finished', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'run-suite-term-'));
+    const bin = fakeMaestro(
+      dir,
+      junit([
+        { name: 'smoke', time: '61.0', failure: 'Assertion is false: id: home' },
+        { name: 'map-style-switching', time: '38.1', failure: 'Assertion is false: id: map-view' },
+      ]),
+      {},
+      [],
+      ['map-style-switching']
+    );
+    fs.symlinkSync(path.resolve(__dirname, '../../../.maestro'), path.join(dir, '.maestro'));
+    const child = spawn(
+      'bash',
+      [SCRIPT, path.join(dir, 'out.xml'), path.join(dir, 'debug'), '--include-tags=pack-map'],
+      {
+        cwd: dir,
+        stdio: 'ignore',
+        env: {
+          ...process.env,
+          CI: 'true',
+          MAESTRO_BIN: bin,
+          MAESTRO_HEALTH_CMD: 'true',
+        },
+      }
+    );
+    const exited = new Promise<void>((resolve) => child.on('exit', () => resolve()));
+
+    const hanging = path.join(dir, 'hanging');
+    const deadline = Date.now() + 15000;
+    while (!fs.existsSync(hanging) || !fs.readFileSync(hanging, 'utf8').trim()) {
+      if (Date.now() > deadline) throw new Error('the second retry never started');
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    child.kill('SIGTERM');
+    await exited;
+    try {
+      process.kill(Number(fs.readFileSync(hanging, 'utf8').trim()), 'SIGKILL');
+    } catch {
+      // The script took its retry down with it.
+    }
+
+    const report = verdicts(fs.readFileSync(path.join(dir, 'out.xml'), 'utf8'));
+    expect(report.cases).toEqual([
+      { name: 'smoke', failed: false },
+      { name: 'map-style-switching', failed: true },
+    ]);
+    expect(report.tests).toBe(2);
+    expect(report.failures).toBe(1);
+  }, 30000);
 });

@@ -24,16 +24,29 @@ type Handset = {
   debuggable?: boolean;
   zip?: string | null;
   backup?: 'recorded' | 'unmoved' | 'quota';
-  restore?: 'recorded' | 'nothing' | 'altered' | 'unrecorded';
+  restore?: 'recorded' | 'nothing' | 'altered' | 'unrecorded' | 'pref-altered';
   token?: string;
   model?: string;
+  /** `ro.kernel.qemu`, `1` on an emulator and empty on a phone. */
+  qemu?: string;
+  /** Paths under the app's data the transport carries although the rules exclude them. */
+  leaks?: string[];
+  /** Whether the install itself restores, as Android does with automatic restore on. */
+  installRestore?: boolean;
+};
+
+const PREFS = '<map><string name="units">metric</string></map>';
+const TRANSPORTS = {
+  google: 'com.google.android.gms/.backup.BackupTransportService',
+  local: 'com.android.localtransport/.LocalTransport',
 };
 
 /**
- * A directory holding the fake `adb` and a no-op `sleep`. The handset's zip is
- * `zip`, the backed-up copy `cloud`, and each key of the agent's record a file
- * under `record/`, rendered as the agent's preferences XML when read. Every
- * call is logged to `adb.log`.
+ * A directory holding the fake `adb` and a no-op `sleep`. The app's data is the
+ * tree under `data/`, the backed-up set `cloud/`, and each key of the agent's
+ * record a file under `record/`, rendered as the agent's preferences XML when
+ * read. The selected transport is in `transport`. Every call is logged to
+ * `adb.log`.
  */
 function handset(options: Handset = {}): string {
   const {
@@ -45,17 +58,27 @@ function handset(options: Handset = {}): string {
     restore = 'recorded',
     token = '3a5e7b8c1d2f4e6a',
     model = 'Bench Phone',
+    qemu = '',
+    leaks = [],
+    installRestore = false,
   } = options;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'veloq-roundtrip-'));
   const bin = path.join(dir, 'bin');
+  const data = path.join(dir, 'data');
   fs.mkdirSync(bin);
   fs.mkdirSync(path.join(dir, 'record'));
-  if (zip !== null) fs.writeFileSync(path.join(dir, 'zip'), zip);
+  fs.mkdirSync(path.join(data, 'files/backups'), { recursive: true });
+  fs.mkdirSync(path.join(data, 'shared_prefs'));
+  if (zip !== null) fs.writeFileSync(path.join(data, 'files/veloq-decisions.zip'), zip);
+  fs.writeFileSync(path.join(data, 'files/routes.db'), 'SQLite format 3 a library');
+  fs.writeFileSync(path.join(data, 'files/backups/veloq-old.zip'), 'a legacy backup');
+  fs.writeFileSync(path.join(data, 'shared_prefs/bench_settings.xml'), PREFS);
+  fs.writeFileSync(path.join(data, 'shared_prefs/SecureStore.xml'), '<map>a token</map>');
   fs.writeFileSync(path.join(dir, 'record/backedUpAt'), '1700000000000');
   fs.writeFileSync(path.join(dir, 'record/backedUpBytes'), '41000');
+  fs.writeFileSync(path.join(dir, 'transport'), TRANSPORTS[transport]);
+  fs.writeFileSync(path.join(dir, 'enabled'), enabled ? 'enabled' : 'disabled');
 
-  const selected = transport === 'google' ? '  * ' : '    ';
-  const other = transport === 'google' ? '    ' : '  * ';
   fs.writeFileSync(
     path.join(bin, 'adb'),
     `#!/usr/bin/env bash
@@ -63,7 +86,17 @@ echo "$*" >> "${dir}/adb.log"
 args=("$@")
 [ "\${args[0]}" = "-s" ] && args=("\${args[@]:2}")
 call="\${args[*]}"
-record() { echo "$2" > "${dir}/record/$1"; }
+data="${data}"
+record() { mkdir -p "${dir}/record"; echo "$2" > "${dir}/record/$1"; }
+restore() {
+  [ -d "${dir}/cloud" ] && cp -r "${dir}/cloud/." "$data/"
+  case "${restore}" in
+    recorded) record restoredAt 1760000060000 ;;
+    unrecorded) ;;
+    altered) echo "something else" > "$data/files/veloq-decisions.zip"; record restoredAt 1760000060000 ;;
+    pref-altered) echo "<map>imperial</map>" > "$data/shared_prefs/bench_settings.xml"; record restoredAt 1760000060000 ;;
+  esac
+}
 case "$call" in
   *"run-as com.veloq.app.dev"*)
     if [ "${debuggable}" != true ]; then
@@ -72,28 +105,43 @@ case "$call" in
 esac
 case "$call" in
   "shell getprop ro.product.model") echo "${model}" ;;
-  "shell bmgr enabled") echo "Backup Manager currently ${enabled ? 'enabled' : 'disabled'}" ;;
+  "shell getprop ro.kernel.qemu") echo "${qemu}" ;;
+  "shell bmgr enabled") echo "Backup Manager currently $(cat "${dir}/enabled")" ;;
+  "shell bmgr enable true") echo enabled > "${dir}/enabled"; echo "Backup Manager now enabled" ;;
+  "shell bmgr enable false") echo disabled > "${dir}/enabled"; echo "Backup Manager now disabled" ;;
   "shell bmgr list transports")
-    echo "    com.google.android.gms/.backup.migrate.service.D2dTransport"
-    echo "${selected}com.google.android.gms/.backup.BackupTransportService"
-    echo "${other}com.android.localtransport/.LocalTransport" ;;
+    for t in com.google.android.gms/.backup.migrate.service.D2dTransport ${TRANSPORTS.google} ${TRANSPORTS.local}; do
+      if [ "$t" = "$(cat "${dir}/transport")" ]; then echo "  * $t"; else echo "    $t"; fi
+    done ;;
+  "shell bmgr transport "*)
+    echo "Selected transport \${args[3]} (formerly $(cat "${dir}/transport"))"
+    echo "\${args[3]}" > "${dir}/transport" ;;
   "shell am force-stop com.veloq.app.dev") ;;
-  "shell run-as com.veloq.app.dev ls files/veloq-decisions.zip")
-    if [ -f "${dir}/zip" ]; then echo files/veloq-decisions.zip
-    else echo "ls: files/veloq-decisions.zip: No such file or directory"; fi ;;
-  "exec-out run-as com.veloq.app.dev cat files/veloq-decisions.zip") cat "${dir}/zip" ;;
+  "shell run-as com.veloq.app.dev ls -d "*)
+    target="\${args[5]}"
+    if [ -e "$data/$target" ]; then echo "$target"
+    else echo "ls: $target: No such file or directory"; fi ;;
+  "shell run-as com.veloq.app.dev ls "*)
+    target="\${args[4]}"
+    if [ -d "$data/$target" ]; then ls "$data/$target"
+    elif [ -e "$data/$target" ]; then echo "$target"
+    else echo "ls: $target: No such file or directory"; fi ;;
   "exec-out run-as com.veloq.app.dev cat shared_prefs/veloq_auto_backup.xml")
     echo "<?xml version='1.0' encoding='utf-8' standalone='yes' ?>"
     echo "<map>"
     for f in "${dir}"/record/*; do
-      echo "    <long name=\\"$(basename "$f")\\" value=\\"$(cat "$f")\\" />"
+      [ -f "$f" ] && echo "    <long name=\\"$(basename "$f")\\" value=\\"$(cat "$f")\\" />"
     done
     echo "</map>" ;;
+  "exec-out run-as com.veloq.app.dev cat "*) cat "$data/\${args[4]}" ;;
   "shell bmgr backupnow com.veloq.app.dev")
     echo "Running incremental backup for 1 requested packages."
     case "${backup}" in
       recorded)
-        cp "${dir}/zip" "${dir}/cloud"
+        rm -rf "${dir}/cloud"; mkdir -p "${dir}/cloud/files" "${dir}/cloud/shared_prefs"
+        cp "$data/files/veloq-decisions.zip" "${dir}/cloud/files/"
+        cp "$data/shared_prefs/bench_settings.xml" "${dir}/cloud/shared_prefs/"
+        for leak in ${leaks.join(' ')}; do cp -r "$data/$leak" "${dir}/cloud/$leak"; done
         record backedUpAt 1760000000000; record backedUpBytes 52000
         echo "Package com.veloq.app.dev with result: Success" ;;
       quota)
@@ -103,21 +151,22 @@ case "$call" in
       unmoved) echo "Package com.veloq.app.dev with result: Success" ;;
     esac
     echo "Backup finished with result: Success" ;;
-  "shell run-as com.veloq.app.dev rm files/veloq-decisions.zip") rm -f "${dir}/zip" ;;
+  "shell run-as com.veloq.app.dev rm files/veloq-decisions.zip") rm -f "$data/files/veloq-decisions.zip" ;;
   "shell dumpsys backup")
     echo "Backup Manager is enabled / provisioned / not pending init"
     echo "Ancestral: 0"
     echo "Current:   ${token}" ;;
   "shell bmgr restore ${token} com.veloq.app.dev")
-    case "${restore}" in
-      recorded) cp "${dir}/cloud" "${dir}/zip"; record restoredAt 1760000060000 ;;
-      unrecorded) cp "${dir}/cloud" "${dir}/zip" ;;
-      altered) echo "something else" > "${dir}/zip"; record restoredAt 1760000060000 ;;
-      nothing) ;;
-    esac
+    [ "${restore}" = nothing ] || restore
     echo "restoreFinished: 0"
     echo "done" ;;
-  "exec-in run-as com.veloq.app.dev sh -c 'cat > files/veloq-decisions.zip'") cat > "${dir}/zip" ;;
+  "exec-in run-as com.veloq.app.dev sh -c 'cat > files/veloq-decisions.zip'") cat > "$data/files/veloq-decisions.zip" ;;
+  "uninstall com.veloq.app.dev") rm -rf "$data" "${dir}/record"; echo "Success" ;;
+  "install "*)
+    [ -f "\${args[1]}" ] || { echo "adb: \${args[1]} not found"; exit 1; }
+    mkdir -p "$data/files" "$data/shared_prefs"
+    if [ "${installRestore}" = true ] && [ "${restore}" != nothing ]; then restore; fi
+    echo "Performing Streamed Install"; echo "Success" ;;
   *) echo "fake adb: unexpected call: $call" >&2; exit 1 ;;
 esac
 `,
@@ -127,10 +176,14 @@ esac
   return dir;
 }
 
-function run(dir: string, env: Record<string, string> = { ANDROID_SERIAL: HANDSET }) {
+function run(
+  dir: string,
+  env: Record<string, string> = { ANDROID_SERIAL: HANDSET },
+  args: string[] = []
+) {
   const inherited = { ...process.env };
   delete inherited.ANDROID_SERIAL;
-  const result = spawnSync(SCRIPT, [], {
+  const result = spawnSync(SCRIPT, args, {
     encoding: 'utf8',
     env: {
       ...inherited,
@@ -142,13 +195,18 @@ function run(dir: string, env: Record<string, string> = { ANDROID_SERIAL: HANDSE
   });
   const log = path.join(dir, 'adb.log');
   const calls = fs.existsSync(log) ? fs.readFileSync(log, 'utf8').trim().split('\n') : [];
-  const zip = path.join(dir, 'zip');
+  const read = (relative: string) => {
+    const file = path.join(dir, 'data', relative);
+    return fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : null;
+  };
   return {
     status: result.status,
     verdict: result.stdout.trim(),
     stderr: result.stderr,
     calls,
-    zip: fs.existsSync(zip) ? fs.readFileSync(zip, 'utf8') : null,
+    zip: read('files/veloq-decisions.zip'),
+    read,
+    transport: fs.readFileSync(path.join(dir, 'transport'), 'utf8').trim(),
   };
 }
 
@@ -289,6 +347,122 @@ describe('android-backup-roundtrip.sh', () => {
       const { calls } = run(fixture(options));
 
       expect(calls.some((c) => /uninstall|pm clear/.test(c))).toBe(false);
+    }
+  });
+});
+
+describe('android-backup-roundtrip.sh --reinstall', () => {
+  const EMULATOR = 'emulator-5554';
+  const dirs: string[] = [];
+  const fixture = (options?: Handset) => {
+    const dir = handset({ qemu: '1', ...options });
+    dirs.push(dir);
+    fs.writeFileSync(path.join(dir, 'app-debug.apk'), 'an apk');
+    return dir;
+  };
+  const reinstall = (dir: string, serial = EMULATOR, env: Record<string, string> = {}) =>
+    run(dir, { ANDROID_SERIAL: serial, ...env }, ['--reinstall', path.join(dir, 'app-debug.apk')]);
+  const uninstalled = (calls: string[]) => calls.some((c) => c.includes('uninstall'));
+  afterEach(() => {
+    for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('passes when settings and decisions come back and the library, legacy backups and SecureStore do not', () => {
+    const result = reinstall(fixture());
+
+    expect(result.status).toBe(0);
+    expect(result.verdict).toMatch(/^PASS: /);
+    expect(result.verdict.split('\n')).toHaveLength(1);
+    expect(result.verdict).toContain('of the 25 MB cap');
+    expect(result.verdict).toContain(`preferences ${Buffer.byteLength(PREFS)} bytes`);
+    expect(result.calls).toContain('uninstall com.veloq.app.dev');
+    expect(result.calls.some((c) => c.startsWith('install '))).toBe(true);
+    expect(result.calls).toContain('shell bmgr restore 3a5e7b8c1d2f4e6a com.veloq.app.dev');
+    expect(result.zip).toBe(ZIP);
+    expect(result.read('shared_prefs/bench_settings.xml')).toBe(PREFS);
+    expect(result.read('files/routes.db')).toBeNull();
+    expect(result.read('shared_prefs/SecureStore.xml')).toBeNull();
+    expect(result.stderr).toContain('sign in');
+  });
+
+  it('selects LocalTransport for the run and puts the previous transport back', () => {
+    const result = reinstall(fixture({ transport: 'google' }));
+
+    expect(result.status).toBe(0);
+    expect(result.calls).toContain(`shell bmgr transport ${TRANSPORTS.local}`);
+    expect(result.transport).toBe(TRANSPORTS.google);
+  });
+
+  it('runs no second restore when the install restored the zip itself', () => {
+    const result = reinstall(fixture({ installRestore: true }));
+
+    expect(result.status).toBe(0);
+    expect(result.verdict).toMatch(/^PASS: /);
+    expect(restored(result.calls)).toBe(false);
+  });
+
+  it('refuses anything but an emulator before any uninstall, whatever the protected list says', () => {
+    const cases: [string, string][] = [
+      [HANDSET, ''],
+      [HANDSET, '1'],
+      [EMULATOR, ''],
+    ];
+    for (const [serial, qemu] of cases) {
+      const dir = fixture({ qemu });
+      const result = reinstall(dir, serial, { VELOQ_PROTECTED_HANDSETS: '' });
+
+      expect(result.status).toBe(2);
+      expect(result.stderr).toContain('emulator');
+      expect(uninstalled(result.calls)).toBe(false);
+      expect(result.read('files/routes.db')).not.toBeNull();
+    }
+  });
+
+  it('refuses an apk that is not there before reaching the device', () => {
+    const dir = fixture();
+    const result = run(dir, { ANDROID_SERIAL: EMULATOR }, [
+      '--reinstall',
+      path.join(dir, 'gone.apk'),
+    ]);
+
+    expect(result.status).toBe(2);
+    expect(result.calls).toEqual([]);
+  });
+
+  it('fails when the restore carries the library, a legacy backup or SecureStore', () => {
+    for (const leak of ['files/routes.db', 'files/backups', 'shared_prefs/SecureStore.xml']) {
+      const result = reinstall(fixture({ leaks: [leak] }));
+
+      expect(result.status).toBe(1);
+      expect(result.verdict).toMatch(/^FAIL step 5: /);
+      expect(result.verdict).toContain(leak);
+    }
+  });
+
+  it('fails when a preference file comes back altered', () => {
+    const result = reinstall(fixture({ restore: 'pref-altered' }));
+
+    expect(result.status).toBe(1);
+    expect(result.verdict).toMatch(/^FAIL step 5: /);
+    expect(result.verdict).toContain('shared_prefs/bench_settings.xml');
+  });
+
+  it('fails when the restore brings no zip back', () => {
+    const result = reinstall(fixture({ restore: 'nothing' }));
+
+    expect(result.status).toBe(1);
+    expect(result.verdict).toMatch(/^FAIL step 5: /);
+    expect(result.verdict).toContain('veloq-decisions.zip');
+  });
+
+  it('uninstalls nothing without a record zip or a recorded backup, and still puts the transport back', () => {
+    for (const options of [{ zip: null }, { backup: 'unmoved' as const }]) {
+      const result = reinstall(fixture(options));
+
+      expect(result.status).toBe(1);
+      expect(result.verdict).toMatch(/^FAIL step [23]: /);
+      expect(uninstalled(result.calls)).toBe(false);
+      expect(result.transport).toBe(TRANSPORTS.google);
     }
   });
 });

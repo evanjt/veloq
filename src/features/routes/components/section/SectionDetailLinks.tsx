@@ -4,7 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { Button } from '@/shared/ui';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, iconSize, spacing } from '@/theme';
 
 interface SectionDetailLinksProps {
   hasLaps: boolean;
@@ -30,7 +30,7 @@ export function SectionDetailLinks({
           testID="section-open-laps"
           label={t('sections.laps')}
           variant="secondary"
-          icon={<MaterialCommunityIcons name="repeat" size={20} color={iconColor} />}
+          icon={<MaterialCommunityIcons name="repeat" size={iconSize.md} color={iconColor} />}
           onPress={onOpenLaps}
         />
       ) : null}
@@ -42,7 +42,7 @@ export function SectionDetailLinks({
             : t('sectionHistory.title')
         }
         variant="secondary"
-        icon={<MaterialCommunityIcons name="history" size={20} color={iconColor} />}
+        icon={<MaterialCommunityIcons name="history" size={iconSize.md} color={iconColor} />}
         onPress={onOpenHistory}
       />
     </View>

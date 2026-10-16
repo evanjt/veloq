@@ -18,7 +18,14 @@ import {
   themedStyles,
   type Palette,
 } from '@/theme';
-import { useChartColors, useChartGestures } from '@/shared/charts';
+import {
+  ChartSurface,
+  lanesSummary,
+  seriesTable,
+  useChartColors,
+  useChartGestures,
+  type SummarySeries,
+} from '@/shared/charts';
 import { sortByDateId } from '@/shared/activity/activityUtils';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { toDisplayWeight, weightUnitLabel } from '@/shared/format/weight';
@@ -285,6 +292,29 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
 
   const hasAnyData = activeMetrics.length > 0;
 
+  // What a screen reader hears and the Show data sheet lists: each drawn row, day by day.
+  const reading = useMemo(() => {
+    const title = t('wellnessScreen.trends');
+    const lanes: SummarySeries[] = activeMetrics.map((metric) => {
+      const byDay = new Map(metric.data.map((d) => [d.x, d.value]));
+      return {
+        name: metric.label,
+        unit: metric.unit || undefined,
+        points: sortedData.map((day, idx) => ({
+          label: formatShortDate(day.id),
+          key: day.id,
+          value: byDay.get(idx),
+        })),
+        format: (v) =>
+          metric.unit ? `${metric.formatValue(v)} ${metric.unit}` : metric.formatValue(v),
+      };
+    });
+    return {
+      summary: lanesSummary(title, lanes, t),
+      table: seriesTable(title, t('charts.column.date'), lanes),
+    };
+  }, [activeMetrics, sortedData, t]);
+
   // Compute sparkline width from container (metricInfo=75 + metricValues=55 + 2*margin)
   const sparklineWidth = Math.max(0, containerWidth - 75 - 55 - spacing.sm * 2);
 
@@ -319,14 +349,32 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
     [onDateSelect]
   );
 
+  const describeDay = useCallback(
+    (day: WellnessData, idx: number) =>
+      [
+        formatShortDateWithWeekday(day.id),
+        ...activeMetrics.map((metric) => {
+          const reading = wellnessRowReading(metric.data, idx);
+          if (!reading) return t('systemSurfaces.spoken.noReading', { label: metric.label });
+          const value = metric.formatValue(reading.value);
+          return metric.unit
+            ? `${metric.label} ${value} ${metric.unit}`
+            : `${metric.label} ${value}`;
+        }),
+      ].join(', '),
+    [activeMetrics, t]
+  );
+
   const {
     gesture,
     selectedPoint: selectedDay,
     syncXCoords,
+    accessibilityProps,
   } = useChartGestures<WellnessData>({
     data: sortedData,
     onSelect: handleSelect,
     onInteractionChange: handleInteractionChange,
+    describePoint: describeDay,
   });
 
   useEffect(() => {
@@ -501,71 +549,73 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
         {selectedIdx !== null && <Text style={styles.dateHint}>{t('wellness.dragToExplore')}</Text>}
       </View>
 
-      <GestureDetector gesture={gesture}>
-        <View>
-          {activeMetrics.map((metric, i) => (
-            <View
-              key={metric.key}
-              style={[
-                styles.metricRow,
-                isDark && styles.metricRowDark,
-                i === activeMetrics.length - 1 && styles.metricRowLast,
-              ]}
-            >
-              {/* Left: label */}
-              <View style={styles.metricInfo}>
-                <View style={[styles.metricDot, { backgroundColor: metric.color }]} />
-                <Text style={styles.metricLabel}>{metric.label}</Text>
-              </View>
+      <ChartSurface summary={reading.summary} table={reading.table} style={styles.lanes}>
+        <GestureDetector gesture={gesture}>
+          <View testID="wellness-trends-surface" {...accessibilityProps}>
+            {activeMetrics.map((metric, i) => (
+              <View
+                key={metric.key}
+                style={[
+                  styles.metricRow,
+                  isDark && styles.metricRowDark,
+                  i === activeMetrics.length - 1 && styles.metricRowLast,
+                ]}
+              >
+                {/* Left: label */}
+                <View style={styles.metricInfo}>
+                  <View style={[styles.metricDot, { backgroundColor: metric.color }]} />
+                  <Text style={styles.metricLabel}>{metric.label}</Text>
+                </View>
 
-              {/* Center: spacer for sparkline area (canvas is overlaid absolutely) */}
-              <View style={styles.sparklineContainer} />
+                {/* Center: spacer for sparkline area (canvas is overlaid absolutely) */}
+                <View style={styles.sparklineContainer} />
 
-              {/* Right: values */}
-              <View style={styles.metricValues}>
-                <Text style={[styles.metricValue, isDark && styles.textLight]}>
-                  {metricDisplayValues[i]?.displayValue
-                    ? metric.formatValue(metricDisplayValues[i].displayValue.value)
-                    : ABSENT}
-                </Text>
-                <Text style={styles.metricUnit}>{metric.unit}</Text>
-                {!metricDisplayValues[i]?.isSelected &&
-                  metricDisplayValues[i]?.avgValue != null && (
-                    <Text style={styles.metricAvg}>
-                      {t('sections.avg')} {metric.formatValue(metricDisplayValues[i].avgValue)}
-                    </Text>
-                  )}
-                {!metricDisplayValues[i]?.isSelected &&
-                metricDisplayValues[i]?.displayValue &&
-                metricDisplayValues[i].displayValue.date !== newestReadingDate ? (
-                  <Text style={styles.metricAvg}>
-                    {formatShortDate(metricDisplayValues[i].displayValue.date)}
+                {/* Right: values */}
+                <View style={styles.metricValues}>
+                  <Text style={[styles.metricValue, isDark && styles.textLight]}>
+                    {metricDisplayValues[i]?.displayValue
+                      ? metric.formatValue(metricDisplayValues[i].displayValue.value)
+                      : ABSENT}
                   </Text>
-                ) : null}
+                  <Text style={styles.metricUnit}>{metric.unit}</Text>
+                  {!metricDisplayValues[i]?.isSelected &&
+                    metricDisplayValues[i]?.avgValue != null && (
+                      <Text style={styles.metricAvg}>
+                        {t('sections.avg')} {metric.formatValue(metricDisplayValues[i].avgValue)}
+                      </Text>
+                    )}
+                  {!metricDisplayValues[i]?.isSelected &&
+                  metricDisplayValues[i]?.displayValue &&
+                  metricDisplayValues[i].displayValue.date !== newestReadingDate ? (
+                    <Text style={styles.metricAvg}>
+                      {formatShortDate(metricDisplayValues[i].displayValue.date)}
+                    </Text>
+                  ) : null}
+                </View>
               </View>
-            </View>
-          ))}
+            ))}
 
-          {/* Single Skia canvas overlaid on the sparkline column area */}
-          {sparklineWidth > 0 && chartPicture ? (
-            <View
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 75 + spacing.sm,
-                width: sparklineWidth,
-                height: canvasHeight,
-              }}
-              pointerEvents="none"
-            >
-              <Canvas style={{ width: sparklineWidth, height: canvasHeight }}>
-                <Picture picture={chartPicture} />
-                {selectionPicture ? <Picture picture={selectionPicture} /> : null}
-              </Canvas>
-            </View>
-          ) : null}
-        </View>
-      </GestureDetector>
+            {/* Single Skia canvas overlaid on the sparkline column area */}
+            {sparklineWidth > 0 && chartPicture ? (
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 75 + spacing.sm,
+                  width: sparklineWidth,
+                  height: canvasHeight,
+                }}
+                pointerEvents="none"
+              >
+                <Canvas style={{ width: sparklineWidth, height: canvasHeight }}>
+                  <Picture picture={chartPicture} />
+                  {selectionPicture ? <Picture picture={selectionPicture} /> : null}
+                </Canvas>
+              </View>
+            ) : null}
+          </View>
+        </GestureDetector>
+      </ChartSurface>
 
       {/* Period label */}
       <Text style={styles.periodLabel}>{t('wellness.lastDays', { count: data.length })}</Text>
@@ -576,6 +626,10 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
 const makeStyles = (palette: Palette) =>
   StyleSheet.create({
     container: {},
+    // The rows set their own height, so the plot is sized by them rather than filling.
+    lanes: {
+      flex: 0,
+    },
     dateHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',

@@ -92,7 +92,10 @@ function run(dir: string, script: string, args: string[], env: Record<string, st
     TMPDIR: dir,
     VELOQ_DEVICE_LOCK: path.join(dir, 'device.lock'),
     VELOQ_DEVICE_LOCK_HELD: '',
+    // The handset a case pins is the test handset, whatever the machine's allowlist says.
+    VELOQ_TEST_HANDSETS: env.ANDROID_SERIAL ?? '',
   };
+  delete base.VELOQ_ALLOW_HANDSET;
   delete base.ANDROID_SERIAL;
   delete base.DEVICE;
   delete base.VELOQ_DEVICE_SERIAL;

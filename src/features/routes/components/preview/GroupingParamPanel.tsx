@@ -23,7 +23,7 @@ import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { useTheme } from '@/shared/app/useTheme';
 import { formatDistance } from '@/shared/format/format';
 import { pressable, pressRipple } from '@/shared/ui';
-import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
+import { brand, colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import {
   GROUPING_PARAM_RANGES,
   isPastGroupingRange,
@@ -146,7 +146,7 @@ function ParamRow({
         android_ripple={pressRipple}
       >
         <Text style={[styles.paramLabel, { color: txt }]}>{label}</Text>
-        <MaterialCommunityIcons name="pencil" size={typography.caption.fontSize} color={txt} />
+        <MaterialCommunityIcons name="pencil" size={iconSize.sm} color={txt} />
       </Pressable>
       <Slider
         testID={`grouping-slider-${paramKey}`}

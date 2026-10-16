@@ -8,13 +8,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import {
   colors,
+  colorWithOpacity,
   darkColors,
-  spacing,
+  iconSize,
+  ink,
   layout,
   shadows,
+  spacing,
   typography,
-  colorWithOpacity,
-  ink,
 } from '@/theme';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { MapSurface, type MapPressEvent, type MapSurfaceRef } from './MapSurface';
@@ -318,7 +319,7 @@ export function BaseMapView({
         >
           <MaterialCommunityIcons
             name="close"
-            size={24}
+            size={iconSize.lg}
             color={isDark ? colors.textOnDark : colors.textSecondary}
           />
         </IconButton>
@@ -340,7 +341,7 @@ export function BaseMapView({
         >
           <MaterialCommunityIcons
             name={getStyleIcon(mapStyle)}
-            size={24}
+            size={iconSize.lg}
             color={isDark ? colors.textOnDark : colors.textSecondary}
           />
         </IconButton>
@@ -358,7 +359,7 @@ export function BaseMapView({
           >
             <MaterialCommunityIcons
               name="terrain"
-              size={22}
+              size={iconSize.lg}
               color={
                 is3DMode ? colors.textOnPrimary : isDark ? colors.textOnDark : colors.textSecondary
               }
@@ -374,7 +375,7 @@ export function BaseMapView({
             accessibilityLabel={t('maps.resetOrientation')}
           >
             <CompassArrow
-              size={22}
+              size={iconSize.lg}
               rotation={bearingAnim}
               northColor={colors.error}
               southColor={isDark ? colors.textOnDark : colors.textSecondary}
@@ -399,7 +400,7 @@ export function BaseMapView({
             ) : (
               <MaterialCommunityIcons
                 name="crosshairs-gps"
-                size={22}
+                size={iconSize.lg}
                 color={
                   userLocation
                     ? colors.textOnPrimary

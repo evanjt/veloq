@@ -11,14 +11,15 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import {
   colors,
+  colorWithOpacity,
   darkColors,
-  typography,
-  spacing,
+  iconSize,
+  ink,
   layout,
   shadows,
-  colorWithOpacity,
-  ink,
   slopToMinTapTarget,
+  spacing,
+  typography,
 } from '@/theme';
 import { sectionSizeTone, type SizeTone } from '@/features/maps/lib/sectionSizeTone';
 import { formatDistance } from '@/shared/format/format';
@@ -199,8 +200,8 @@ export function SectionCreationOverlay({
         >
           <MaterialCommunityIcons
             name={isError ? 'refresh' : 'close'}
-            size={22}
-            color={isError || isDark ? colors.textOnPrimary : colors.textOnDark}
+            size={iconSize.lg}
+            color={isError ? colors.textOnPrimary : colors.textOnDark}
           />
         </IconButton>
 
@@ -223,7 +224,11 @@ export function SectionCreationOverlay({
             {isCreating ? (
               <ActivityIndicator size="small" color={statusTone.fill} />
             ) : (
-              <MaterialCommunityIcons name={getStatusIcon()} size={18} color={statusTone.fill} />
+              <MaterialCommunityIcons
+                name={getStatusIcon()}
+                size={iconSize.md}
+                color={statusTone.fill}
+              />
             )}
             <Text
               style={[styles.statusText, { color: statusTone.text }]}
@@ -236,7 +241,7 @@ export function SectionCreationOverlay({
             {!isCreating && (hasSelection || isComplete || isError) ? (
               <MaterialCommunityIcons
                 name={shouldExpand ? 'chevron-down' : 'chevron-up'}
-                size={16}
+                size={iconSize.sm}
                 color={palette.textSecondary}
               />
             ) : null}
@@ -256,7 +261,7 @@ export function SectionCreationOverlay({
               >
                 <MaterialCommunityIcons
                   name="bug-outline"
-                  size={14}
+                  size={iconSize.sm}
                   color={palette.textSecondary}
                 />
                 <Text style={[styles.technicalToggleText, mutedText]}>
@@ -266,7 +271,7 @@ export function SectionCreationOverlay({
                 </Text>
                 <MaterialCommunityIcons
                   name={showTechnicalDetails ? 'chevron-up' : 'chevron-down'}
-                  size={14}
+                  size={iconSize.sm}
                   color={palette.textSecondary}
                 />
               </Pressable>
@@ -277,7 +282,7 @@ export function SectionCreationOverlay({
                     <View style={styles.detailRow}>
                       <MaterialCommunityIcons
                         name="code-tags"
-                        size={14}
+                        size={iconSize.sm}
                         color={palette.textSecondary}
                       />
                       <Text style={[styles.technicalText, mutedText]} selectable>
@@ -289,7 +294,7 @@ export function SectionCreationOverlay({
                     <View style={styles.detailRow}>
                       <MaterialCommunityIcons
                         name="identifier"
-                        size={14}
+                        size={iconSize.sm}
                         color={palette.textSecondary}
                       />
                       <Text style={[styles.technicalText, mutedText]} selectable>
@@ -301,7 +306,7 @@ export function SectionCreationOverlay({
                     <View style={styles.detailRow}>
                       <MaterialCommunityIcons
                         name="arrow-expand-horizontal"
-                        size={14}
+                        size={iconSize.sm}
                         color={palette.textSecondary}
                       />
                       <Text style={[styles.technicalText, mutedText]}>
@@ -325,7 +330,11 @@ export function SectionCreationOverlay({
             <Animated.View entering={FadeIn} style={[styles.expandedContent, ruleStyle]}>
               {getProgress() && (
                 <View style={styles.detailRow}>
-                  <MaterialCommunityIcons name="percent" size={14} color={palette.textSecondary} />
+                  <MaterialCommunityIcons
+                    name="percent"
+                    size={iconSize.sm}
+                    color={palette.textSecondary}
+                  />
                   <Text style={[styles.detailText, mutedText]}>{getProgress()}</Text>
                 </View>
               )}
@@ -333,7 +342,7 @@ export function SectionCreationOverlay({
                 <View style={styles.detailRow}>
                   <MaterialCommunityIcons
                     name="map-marker-multiple"
-                    size={14}
+                    size={iconSize.sm}
                     color={palette.textSecondary}
                   />
                   <Text style={[styles.detailText, mutedText]}>
@@ -343,7 +352,11 @@ export function SectionCreationOverlay({
               )}
               {sizeWarning ? (
                 <View style={styles.warningRow}>
-                  <MaterialCommunityIcons name="alert-outline" size={14} color={statusTone.fill} />
+                  <MaterialCommunityIcons
+                    name="alert-outline"
+                    size={iconSize.sm}
+                    color={statusTone.fill}
+                  />
                   <Text style={[styles.detailText, { color: statusTone.text }]}>{sizeWarning}</Text>
                 </View>
               ) : null}
@@ -355,7 +368,7 @@ export function SectionCreationOverlay({
                 onPress={onReset}
                 android_ripple={pressRipple}
               >
-                <MaterialCommunityIcons name="refresh" size={14} color={palette.primary} />
+                <MaterialCommunityIcons name="refresh" size={iconSize.sm} color={palette.primary} />
                 <Text style={[styles.resetText, { color: palette.linkTeal }]}>
                   {t('common.reset' as never)}
                 </Text>
@@ -372,7 +385,7 @@ export function SectionCreationOverlay({
             variant="primary"
             onPress={onConfirm}
           >
-            <MaterialCommunityIcons name="check" size={22} color={colors.textOnPrimary} />
+            <MaterialCommunityIcons name="check" size={iconSize.lg} color={colors.textOnPrimary} />
           </IconButton>
         ) : isError ? (
           <IconButton
@@ -381,11 +394,7 @@ export function SectionCreationOverlay({
             variant="destructive"
             onPress={onCancel}
           >
-            <MaterialCommunityIcons
-              name="close"
-              size={22}
-              color={isDark ? colors.textOnPrimary : colors.textOnDark}
-            />
+            <MaterialCommunityIcons name="close" size={iconSize.lg} color={colors.textOnDark} />
           </IconButton>
         ) : (
           <View style={styles.iconButtonPlaceholder} />

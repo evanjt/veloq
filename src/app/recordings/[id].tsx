@@ -14,7 +14,7 @@ import {
 } from '@/shared/ui';
 import { Button } from '@/shared/ui/Button';
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { formatDateTime } from '@/shared/format/format';
 import {
   recordingActions,
@@ -207,7 +207,7 @@ function RecordingDetailScreenContent() {
               icon={
                 <MaterialCommunityIcons
                   name="cloud-upload-outline"
-                  size={18}
+                  size={iconSize.md}
                   color={colors.textOnPrimary}
                 />
               }
@@ -220,7 +220,13 @@ function RecordingDetailScreenContent() {
               label={t('recording.library.share', 'Share FIT file')}
               variant="secondary"
               onPress={handleShare}
-              icon={<MaterialCommunityIcons name="export-variant" size={18} color={textPrimary} />}
+              icon={
+                <MaterialCommunityIcons
+                  name="export-variant"
+                  size={iconSize.md}
+                  color={textPrimary}
+                />
+              }
             />
           ) : null}
           <Button
@@ -232,8 +238,8 @@ function RecordingDetailScreenContent() {
             icon={
               <MaterialCommunityIcons
                 name="trash-can-outline"
-                size={18}
-                color={colors.textOnPrimary}
+                size={iconSize.md}
+                color={colors.textOnDark}
               />
             }
           />

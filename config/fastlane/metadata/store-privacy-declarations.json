@@ -157,7 +157,7 @@
       },
       {
         "what": "Health and Fitness",
-        "carriers": ["plugin:react-native-ble-plx"],
+        "carriers": ["backgroundMode:bluetooth-central", "plugin:react-native-ble-plx"],
         "reason": "athletesOwnAccount",
         "note": "Heart rate, power and cadence from paired sensors are uploaded only to the athlete's own intervals.icu account."
       }
@@ -227,7 +227,7 @@
         "shared": false,
         "ephemeral": false,
         "holds": [],
-        "carriers": ["plugin:react-native-ble-plx"]
+        "carriers": ["backgroundMode:bluetooth-central", "plugin:react-native-ble-plx"]
       }
     ],
     "notCollected": [

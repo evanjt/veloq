@@ -84,15 +84,26 @@ const PERFORMANCE_CAPACITY: usize = 32;
 const LAP_CURVE_BUDGET: usize = 4 * 1024 * 1024;
 
 /// The curve data an entry holds: four bytes for each point of every lap's
-/// delta and split delta, which is all that grows with the route.
+/// delta and split delta, and for each split of a direction's summary, which
+/// is all that grows with the route.
 fn lap_curve_bytes(curves: &Option<crate::FfiSectionLapCurves>) -> usize {
     let Some(curves) = curves else { return 0 };
-    [&curves.forward, &curves.reverse]
-        .into_iter()
-        .flatten()
+    let directions = || [&curves.forward, &curves.reverse].into_iter().flatten();
+    let laps: usize = directions()
         .flat_map(|direction| &direction.laps)
         .map(|lap| (lap.delta_secs.len() + lap.split_delta_secs.len()) * size_of::<f32>())
-        .sum()
+        .sum();
+    let summaries: usize = directions()
+        .filter_map(|direction| direction.split_summary.as_ref())
+        .map(|summary| {
+            (summary.median_secs.len()
+                + summary.lower_quartile_secs.len()
+                + summary.upper_quartile_secs.len())
+                * size_of::<f32>()
+                + summary.laps.len() * size_of::<u32>()
+        })
+        .sum();
+    laps + summaries
 }
 
 type LapCurves = Arc<Option<crate::FfiSectionLapCurves>>;
@@ -948,9 +959,28 @@ mod tests {
                     .collect(),
                 missing: Vec::new(),
                 peak_delta_secs: 0.0,
+                split_summary: None,
             }),
             reverse: None,
         }
+    }
+
+    /// Scenario: a long route's curves carry each direction's split summary.
+    ///
+    /// Expected behaviour: the byte budget weighs the summary's three float
+    /// arrays and its lap counts beside the laps' curves.
+    #[test]
+    fn the_lap_curve_weight_counts_the_split_summary() {
+        let mut curves = long_route_curves(10, 4_000);
+        let bare = lap_curve_bytes(&Some(curves.clone()));
+        assert_eq!(bare, 10 * (4_000 + 40) * 4);
+        curves.forward.as_mut().unwrap().split_summary = Some(crate::FfiSplitSummary {
+            median_secs: vec![0.0; 40].into(),
+            lower_quartile_secs: vec![0.0; 40].into(),
+            upper_quartile_secs: vec![0.0; 40].into(),
+            laps: vec![10; 40],
+        });
+        assert_eq!(lap_curve_bytes(&Some(curves)), bare + 40 * 4 * 4);
     }
 
     /// Scenario: one session opens 33 long, often-ridden routes in turn, each

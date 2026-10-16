@@ -18,17 +18,18 @@ import {
   formatPrImprovement,
 } from '@/shared/format/format';
 import {
-  colors,
-  darkColors,
-  typography,
-  spacing,
-  layout,
   brand,
-  ink,
-  verdict,
+  colors,
   colorWithOpacity,
+  darkColors,
+  iconSize,
+  ink,
+  layout,
   mapTextShadow,
   slopToMinTapTarget,
+  spacing,
+  typography,
+  verdict,
 } from '@/theme';
 import { useMapPreferences } from '@/features/settings';
 import { type TerrainSnapshotWebViewRef } from '@/features/maps';
@@ -308,7 +309,7 @@ export const ActivityCard = React.memo(
         >
           {!!activity.icu_training_load && (
             <View style={styles.secondaryStat}>
-              <MaterialCommunityIcons name="fire" size={14} color={colors.primary} />
+              <MaterialCommunityIcons name="fire" size={iconSize.sm} color={colors.primary} />
               <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
                 {formatLoad(activity.icu_training_load)}
               </RNText>
@@ -316,7 +317,7 @@ export const ActivityCard = React.memo(
           )}
           {averageHeartRate ? (
             <View style={styles.secondaryStat}>
-              <MaterialCommunityIcons name="heart-pulse" size={14} color={colors.error} />
+              <MaterialCommunityIcons name="heart-pulse" size={iconSize.sm} color={colors.error} />
               <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
                 {formatHeartRate(averageHeartRate)}
               </RNText>
@@ -326,7 +327,7 @@ export const ActivityCard = React.memo(
             <View style={styles.secondaryStat}>
               <MaterialCommunityIcons
                 name="lightning-bolt"
-                size={14}
+                size={iconSize.sm}
                 color={isDark ? darkColors.warningAmber : colors.warningAmber}
               />
               <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
@@ -338,7 +339,7 @@ export const ActivityCard = React.memo(
             <View style={styles.secondaryStat}>
               <MaterialCommunityIcons
                 name="food-apple"
-                size={14}
+                size={iconSize.sm}
                 color={isDark ? darkColors.successDeep : colors.successDeep}
               />
               <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
@@ -348,7 +349,11 @@ export const ActivityCard = React.memo(
           )}
           {activity.has_weather && activity.average_weather_temp != null ? (
             <View style={styles.secondaryStat}>
-              <MaterialCommunityIcons name="weather-partly-cloudy" size={14} color={colors.info} />
+              <MaterialCommunityIcons
+                name="weather-partly-cloudy"
+                size={iconSize.sm}
+                color={colors.info}
+              />
               <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
                 {formatTemperature(activity.average_weather_temp, isMetric)}
               </RNText>
@@ -413,7 +418,11 @@ export const ActivityCard = React.memo(
                 {/* Header: icon + name/date stacked + no-map indicator */}
                 <View style={styles.compactHeader}>
                   <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
-                    <MaterialCommunityIcons name={iconName} size={14} color={colors.textOnDark} />
+                    <MaterialCommunityIcons
+                      name={iconName}
+                      size={iconSize.sm}
+                      color={colors.textOnDark}
+                    />
                   </View>
                   <View style={styles.compactTitleColumn}>
                     <View style={styles.compactNameRow}>
@@ -425,7 +434,7 @@ export const ActivityCard = React.memo(
                       </RNText>
                       <MaterialCommunityIcons
                         name="map-marker-off"
-                        size={14}
+                        size={iconSize.sm}
                         color={activityInk}
                         style={styles.compactNoMapIcon}
                       />
@@ -536,7 +545,11 @@ export const ActivityCard = React.memo(
             >
               <View style={styles.overlayHeader} pointerEvents="box-none">
                 <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
-                  <MaterialCommunityIcons name={iconName} size={14} color={colors.textOnDark} />
+                  <MaterialCommunityIcons
+                    name={iconName}
+                    size={iconSize.sm}
+                    color={colors.textOnDark}
+                  />
                 </View>
                 <View style={styles.overlayTitleColumn}>
                   <RNText
@@ -585,8 +598,8 @@ export const ActivityCard = React.memo(
                       <>
                         <MaterialCommunityIcons
                           name="trophy"
-                          size={PILL_ICON_SIZE}
-                          color={colors.textOnPrimary}
+                          size={iconSize.xs}
+                          color={colors.textOnBright}
                         />
                         {formatPrImprovement(routeHighlight.prImprovementSeconds) != null && (
                           <RNText
@@ -684,7 +697,7 @@ export const ActivityCard = React.memo(
                       >
                         <MaterialCommunityIcons
                           name="compass-outline"
-                          size={PILL_ICON_SIZE}
+                          size={iconSize.xs}
                           color={ink.white}
                         />
                         <RNText style={[styles.trendCount, { color: ink.white }]}>
@@ -727,11 +740,11 @@ export const ActivityCard = React.memo(
                                 >
                                   <MaterialCommunityIcons
                                     name="trophy"
-                                    size={PILL_ICON_SIZE}
-                                    color={colors.textOnPrimary}
+                                    size={iconSize.xs}
+                                    color={colors.textOnBright}
                                   />
                                   <RNText
-                                    style={[styles.trendCount, { color: colors.textOnPrimary }]}
+                                    style={[styles.trendCount, { color: colors.textOnBright }]}
                                   >
                                     {prCount}
                                   </RNText>
@@ -747,7 +760,7 @@ export const ActivityCard = React.memo(
                                 >
                                   <MaterialCommunityIcons
                                     name="trending-up"
-                                    size={PILL_ICON_SIZE}
+                                    size={iconSize.xs}
                                     color={ink.white}
                                   />
                                   <RNText style={[styles.trendCount, { color: ink.white }]}>
@@ -765,7 +778,7 @@ export const ActivityCard = React.memo(
                                 >
                                   <MaterialCommunityIcons
                                     name="trending-down"
-                                    size={PILL_ICON_SIZE}
+                                    size={iconSize.xs}
                                     color={ink.white}
                                   />
                                   <RNText style={[styles.trendCount, { color: ink.white }]}>
@@ -824,9 +837,6 @@ export const ActivityCard = React.memo(
       }
     )
 );
-
-/** Icon size shared by the route chip and the section pills. */
-const PILL_ICON_SIZE = 13;
 
 /** Shape shared by the route chip and the section pills. */
 const PILL_BORDER = 1;
@@ -910,7 +920,7 @@ const styles = StyleSheet.create({
     color: ink.white,
   },
   routeTrendBadgePrText: {
-    color: colors.textOnPrimary,
+    color: colors.textOnBright,
   },
   overlayName: {
     ...typography.cardTitle,

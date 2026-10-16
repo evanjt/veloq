@@ -12,9 +12,10 @@ import { useTheme } from '@/shared/app';
 import {
   colors,
   darkColors,
-  spacing,
-  opacity,
+  iconSize,
   layout,
+  opacity,
+  spacing,
   typography,
   verdictColor,
   verdictFill,
@@ -126,7 +127,7 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
           trendGlyph && trendGlyph !== 'minus' ? (
             <MaterialCommunityIcons
               name={trendGlyph}
-              size={18}
+              size={iconSize.md}
               color={trendColor}
               accessibilityLabel={trend ? spokenVerdict(trend.verdict, trend.direction) : undefined}
             />
@@ -171,7 +172,11 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
             </View>
           </View>
           <View style={styles.comparisonChange}>
-            <MaterialCommunityIcons name={trendGlyph ?? 'minus'} size={16} color={trendColor} />
+            <MaterialCommunityIcons
+              name={trendGlyph ?? 'minus'}
+              size={iconSize.md}
+              color={trendColor}
+            />
             <Text style={[styles.comparisonChangeText, { color: trendColor }]}>
               {String(comparison.change.value)}
               {comparison.change.unit ? ` ${comparison.change.unit}` : ''}
@@ -229,7 +234,7 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
                     ) : null}
                     <MaterialCommunityIcons
                       name={rowTrendIcon(section.trend)}
-                      size={16}
+                      size={iconSize.sm}
                       color={rowTrendColor(section.trend, isDark)}
                     />
                   </View>

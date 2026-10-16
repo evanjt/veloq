@@ -73,7 +73,6 @@ function engine() {
       return state.detection;
     },
     getSectionDetectionProgress: () => state.detectionProgress,
-    getElevationBackfillRemaining: () => state.remaining,
     getRoutesStatusData: () =>
       routesStatus({
         detection: state.detectionProgress,

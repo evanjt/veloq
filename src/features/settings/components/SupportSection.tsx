@@ -15,7 +15,7 @@ import {
   openStorePage,
   offerCrashLog,
 } from '@/shared/app/supportLinks';
-import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, shadows, spacing, typography } from '@/theme';
 import { Button, ExternalLinkRow, ListSectionHeader, pressable, pressRipple } from '@/shared/ui';
 
 export function SupportSection() {
@@ -45,7 +45,7 @@ export function SupportSection() {
             variant="secondary"
             size="sm"
             style={styles.actionButton}
-            icon={<MaterialCommunityIcons name="star" size={20} color={textColor} />}
+            icon={<MaterialCommunityIcons name="star" size={iconSize.md} color={textColor} />}
           />
           <Button
             label={t('support.idea')}
@@ -55,7 +55,13 @@ export function SupportSection() {
             variant="secondary"
             size="sm"
             style={styles.actionButton}
-            icon={<MaterialCommunityIcons name="lightbulb-outline" size={20} color={textColor} />}
+            icon={
+              <MaterialCommunityIcons
+                name="lightbulb-outline"
+                size={iconSize.md}
+                color={textColor}
+              />
+            }
           />
           <Button
             label={t('support.forum')}
@@ -65,7 +71,9 @@ export function SupportSection() {
             variant="secondary"
             size="sm"
             style={styles.actionButton}
-            icon={<MaterialCommunityIcons name="forum-outline" size={20} color={textColor} />}
+            icon={
+              <MaterialCommunityIcons name="forum-outline" size={iconSize.md} color={textColor} />
+            }
           />
         </View>
 
@@ -73,7 +81,7 @@ export function SupportSection() {
 
         {/* Tips */}
         <View style={styles.row}>
-          <MaterialCommunityIcons name="wrench-outline" size={20} color={colors.primary} />
+          <MaterialCommunityIcons name="wrench-outline" size={iconSize.md} color={colors.primary} />
           <Text style={[styles.rowText, { color: textColor }]}>
             {purchaseSuccess ? t('support.thankYou') : t('support.tipTitle')}
           </Text>
@@ -97,7 +105,7 @@ export function SupportSection() {
               }}
               variant="secondary"
               size="sm"
-              icon={<MaterialCommunityIcons name="github" size={18} color={textColor} />}
+              icon={<MaterialCommunityIcons name="github" size={iconSize.md} color={textColor} />}
             />
           ))}
 
@@ -107,7 +115,7 @@ export function SupportSection() {
         {/* The card's own padding is the row's inset, so the row runs to its edges. */}
         <View style={styles.bleed}>
           <ExternalLinkRow url={INTERVALS_URLS.subscription} label={t('settings.subscribe')}>
-            <MaterialCommunityIcons name="heart" size={20} color={colors.chartPink} />
+            <MaterialCommunityIcons name="heart" size={iconSize.md} color={colors.chartPink} />
             <View style={styles.rowTextGroup}>
               <Text style={[styles.rowText, { color: textColor }]}>intervals.icu</Text>
               <Text style={[styles.rowSubtext, { color: mutedColor }]}>
@@ -128,9 +136,9 @@ export function SupportSection() {
           style={pressable(styles.row)}
           android_ripple={pressRipple}
         >
-          <MaterialCommunityIcons name="bug-outline" size={20} color={mutedColor} />
+          <MaterialCommunityIcons name="bug-outline" size={iconSize.md} color={mutedColor} />
           <Text style={[styles.rowText, { color: textColor }]}>{t('support.shareCrashLog')}</Text>
-          <MaterialCommunityIcons name="share-variant" size={18} color={mutedColor} />
+          <MaterialCommunityIcons name="share-variant" size={iconSize.md} color={mutedColor} />
         </Pressable>
       </View>
     </>

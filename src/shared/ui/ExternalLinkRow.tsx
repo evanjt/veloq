@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useTheme } from '@/shared/app';
 import { openExternal } from '@/shared/app/openExternal';
-import { colors, darkColors, typography } from '@/theme';
+import { colors, darkColors, iconSize, typography } from '@/theme';
 import { Row } from './Row';
 
 interface ExternalLinkRowProps {
@@ -32,7 +32,9 @@ export function ExternalLinkRow({ url, label, icon, children, testID }: External
     >
       {children ?? (
         <>
-          {icon ? <MaterialCommunityIcons name={icon} size={22} color={colors.primary} /> : null}
+          {icon ? (
+            <MaterialCommunityIcons name={icon} size={iconSize.md} color={colors.primary} />
+          ) : null}
           <Text
             style={[styles.label, { color: isDark ? darkColors.textPrimary : colors.textPrimary }]}
           >

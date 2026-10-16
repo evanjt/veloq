@@ -18,7 +18,7 @@ import { useCacheDays } from '@/shared/app/useCacheDays';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, typography, swipeAction } from '@/theme';
+import { colors, darkColors, iconSize, spacing, swipeAction, typography } from '@/theme';
 import { useSections } from '@/features/routes/hooks/useSections';
 import { SportFilterChips } from './SportFilterChips';
 import {
@@ -168,7 +168,7 @@ export const SectionListItem = memo(
               <RectButton style={styles.swipeActionButton} onPress={rowAction.run}>
                 <MaterialCommunityIcons
                   name="delete"
-                  size={24}
+                  size={iconSize.lg}
                   color={swipeAction.destructive.text}
                 />
                 <Text style={[styles.swipeActionText, styles.deleteActionText]}>
@@ -190,7 +190,7 @@ export const SectionListItem = memo(
             <RectButton style={styles.swipeActionButton} onPress={rowAction.run}>
               <MaterialCommunityIcons
                 name={isDisabled ? 'undo' : 'delete-outline'}
-                size={24}
+                size={iconSize.lg}
                 color={isDisabled ? swipeAction.restore.text : swipeAction.destructive.text}
               />
               <Text
@@ -566,7 +566,7 @@ export const SectionsList = memo(function SectionsList({
           variant="ghost"
           style={styles.retiredLink}
           onPress={() => tapTo('/section-retired')}
-          icon={<MaterialCommunityIcons name="history" size={16} color={colors.primary} />}
+          icon={<MaterialCommunityIcons name="history" size={iconSize.sm} color={colors.primary} />}
           label={t('sectionHistory.seeRetired')}
         />
         <Button
@@ -574,7 +574,9 @@ export const SectionsList = memo(function SectionsList({
           variant="ghost"
           style={styles.retiredLink}
           onPress={() => tapTo('/named-corridors')}
-          icon={<MaterialCommunityIcons name="tag-outline" size={16} color={colors.primary} />}
+          icon={
+            <MaterialCommunityIcons name="tag-outline" size={iconSize.sm} color={colors.primary} />
+          }
           label={t('namedCorridors.link')}
         />
         <DataRangeFooter days={cacheDays} isDark={isDark} />

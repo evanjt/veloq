@@ -6993,6 +6993,79 @@ const FfiConverterTypeFfiLapDeltaMissing = (() => {
 })();
 
 /**
+ * Each split's distribution of `split_delta_secs` over a direction's laps,
+ * the reference left out, in travel order. A split's median is NaN under
+ * the laps a typical lap needs and its quartiles NaN under the laps a spread
+ * needs.
+ */
+export type FfiSplitSummary = {
+  medianSecs: FfiFloat32Array;
+  lowerQuartileSecs: FfiFloat32Array;
+  upperQuartileSecs: FfiFloat32Array;
+  /**
+   * The laps with a finite delta over each split, which its figures come
+   * from.
+   */
+  laps: Array<number>;
+};
+
+/**
+ * Generated factory for {@link FfiSplitSummary} record objects.
+ */
+export const FfiSplitSummary = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiSplitSummary, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSplitSummary>,
+  });
+})();
+
+const FfiConverterTypeFfiSplitSummary = (() => {
+  type TypeName = FfiSplitSummary;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        medianSecs: FfiConverterTypeFfiFloat32Array.readFromCursor(c),
+        lowerQuartileSecs: FfiConverterTypeFfiFloat32Array.readFromCursor(c),
+        upperQuartileSecs: FfiConverterTypeFfiFloat32Array.readFromCursor(c),
+        laps: FfiConverterSequenceUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterTypeFfiFloat32Array.writeIntoCursor(value.medianSecs, c);
+      FfiConverterTypeFfiFloat32Array.writeIntoCursor(
+        value.lowerQuartileSecs,
+        c,
+      );
+      FfiConverterTypeFfiFloat32Array.writeIntoCursor(
+        value.upperQuartileSecs,
+        c,
+      );
+      FfiConverterSequenceUInt32.writeIntoCursor(value.laps, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterTypeFfiFloat32Array.allocationSize(value.medianSecs) +
+        FfiConverterTypeFfiFloat32Array.allocationSize(
+          value.lowerQuartileSecs,
+        ) +
+        FfiConverterTypeFfiFloat32Array.allocationSize(
+          value.upperQuartileSecs,
+        ) +
+        FfiConverterSequenceUInt32.allocationSize(value.laps)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * One direction's laps measured against its reference, on an axis running
  * in the direction of travel.
  */
@@ -7013,6 +7086,11 @@ export type FfiDirectionDeltas = {
    * reference, 0 when none has a finite delta.
    */
   peakDeltaSecs: number;
+  /**
+   * The typical lap's time against the reference per split, over the laps
+   * other than the reference. `None` when no split has enough laps.
+   */
+  splitSummary?: FfiSplitSummary;
 };
 
 /**
@@ -7042,6 +7120,7 @@ const FfiConverterTypeFfiDirectionDeltas = (() => {
         laps: FfiConverterSequenceTypeFfiLapDelta.readFromCursor(c),
         missing: FfiConverterSequenceTypeFfiLapDeltaMissing.readFromCursor(c),
         peakDeltaSecs: FfiConverterFloat32.readFromCursor(c),
+        splitSummary: FfiConverterOptionalTypeFfiSplitSummary.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -7056,6 +7135,10 @@ const FfiConverterTypeFfiDirectionDeltas = (() => {
         c,
       );
       FfiConverterFloat32.writeIntoCursor(value.peakDeltaSecs, c);
+      FfiConverterOptionalTypeFfiSplitSummary.writeIntoCursor(
+        value.splitSummary,
+        c,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
@@ -7067,7 +7150,10 @@ const FfiConverterTypeFfiDirectionDeltas = (() => {
         FfiConverterSequenceTypeFfiLapDeltaMissing.allocationSize(
           value.missing,
         ) +
-        FfiConverterFloat32.allocationSize(value.peakDeltaSecs)
+        FfiConverterFloat32.allocationSize(value.peakDeltaSecs) +
+        FfiConverterOptionalTypeFfiSplitSummary.allocationSize(
+          value.splitSummary,
+        )
       );
     }
   }
@@ -33909,6 +33995,11 @@ const FfiConverterSequenceTypeFfiLapDeltaMissing = new FfiConverterArray(
   FfiConverterTypeFfiLapDeltaMissing,
 );
 
+// FfiConverter for FfiSplitSummary | undefined
+const FfiConverterOptionalTypeFfiSplitSummary = new FfiConverterOptional(
+  FfiConverterTypeFfiSplitSummary,
+);
+
 // FfiConverter for Array<FfiEfficiencyPoint>
 const FfiConverterSequenceTypeFfiEfficiencyPoint = new FfiConverterArray(
   FfiConverterTypeFfiEfficiencyPoint,
@@ -37171,6 +37262,7 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionTrendCurves,
     FfiConverterTypeFfiSectionWithPolyline,
     FfiConverterTypeFfiSeriesPoint,
+    FfiConverterTypeFfiSplitSummary,
     FfiConverterTypeFfiSportLoad,
     FfiConverterTypeFfiSportMix,
     FfiConverterTypeFfiStalePrOpportunity,

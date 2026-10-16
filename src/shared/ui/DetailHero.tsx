@@ -25,13 +25,14 @@ import {
   colors,
   colorWithOpacity,
   controlHeight,
+  darkColors,
+  iconSize,
+  layout,
+  mapTextShadow,
   opacity,
+  slopToMinTapTarget,
   spacing,
   typography,
-  layout,
-  darkColors,
-  mapTextShadow,
-  slopToMinTapTarget,
 } from '@/theme';
 import { BACK_SWIPE_EDGE_WIDTH } from './backSwipeEdge';
 import { pressable, pressRipple } from './pressFeedback';
@@ -186,7 +187,7 @@ export function HeroNameRow({ name, nameTestID, icon, editable, accessory }: Her
     <View style={styles.nameRow}>
       {icon ? (
         <View style={[styles.typeIcon, { backgroundColor: icon.color }]}>
-          <MaterialCommunityIcons name={icon.name} size={16} color={colors.textOnDark} />
+          <MaterialCommunityIcons name={icon.name} size={iconSize.sm} color={colors.textOnDark} />
         </View>
       ) : null}
       {editable?.isEditing ? (
@@ -216,7 +217,11 @@ export function HeroNameRow({ name, nameTestID, icon, editable, accessory }: Her
           >
             {/* The button sits on a dark scrim over the hero image in both themes, so
                 the mark is the light tone rather than the light theme's. */}
-            <MaterialCommunityIcons name="check" size={20} color={darkColors.successDeep} />
+            <MaterialCommunityIcons
+              name="check"
+              size={iconSize.md}
+              color={darkColors.successDeep}
+            />
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -226,7 +231,7 @@ export function HeroNameRow({ name, nameTestID, icon, editable, accessory }: Her
             style={pressable(styles.editNameButton)}
             android_ripple={pressRipple}
           >
-            <MaterialCommunityIcons name="close" size={20} color={colors.error} />
+            <MaterialCommunityIcons name="close" size={iconSize.md} color={colors.error} />
           </Pressable>
         </View>
       ) : editable ? (
@@ -250,7 +255,7 @@ export function HeroNameRow({ name, nameTestID, icon, editable, accessory }: Her
           </Text>
           <MaterialCommunityIcons
             name="pencil"
-            size={14}
+            size={iconSize.sm}
             color={colorWithOpacity(colors.textOnDark, 0.6)}
             style={styles.editIcon}
           />

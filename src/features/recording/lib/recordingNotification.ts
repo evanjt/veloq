@@ -6,8 +6,10 @@
  * (`backgroundLocation.ts`, `LocationTaskService.kt`). The native module
  * `VeloqRecordingNotification` re-posts onto that same notification id and
  * channel, so the service's lifecycle stays expo-location's and only the
- * content is ours. Everything here no-ops without the module, which is every
- * platform but Android.
+ * content is ours. An indoor ride has no location service, so the module runs
+ * one of its own for it, and the ride's notification goes over that one the
+ * same way. Everything here no-ops without the module, which is every platform
+ * but Android.
  */
 import { requireOptionalNativeModule } from 'expo-modules-core';
 
@@ -92,6 +94,12 @@ interface VeloqRecordingNotificationModule {
   batteryOptimisationExempt(): boolean;
   /** Create or rename the channel expo-location's foreground service posts on. */
   nameChannel(name: string, description: string): void;
+  /**
+   * Start the foreground service that keeps an indoor ride's process alive.
+   * False when Android refused it or its prerequisites are missing.
+   */
+  startIndoorService(json: string): boolean;
+  stopIndoorService(): void;
 }
 
 const VeloqRecordingNotification = requireOptionalNativeModule<VeloqRecordingNotificationModule>(
@@ -117,6 +125,33 @@ export async function locationServiceRunning(): Promise<boolean | null> {
 export function batteryOptimisationExempt(): boolean | null {
   if (!VeloqRecordingNotification?.batteryOptimisationExempt) return null;
   return VeloqRecordingNotification.batteryOptimisationExempt();
+}
+
+/**
+ * Start the foreground service an indoor ride holds while the app is out of the
+ * foreground. An indoor ride has no location service to keep its process alive,
+ * so without this one Android freezes it and every sensor sample is lost until
+ * the rider returns. The ride's own notification is posted over the service's,
+ * the same as for the location service. False where the module is absent.
+ */
+export function startIndoorRecordingService(): boolean {
+  if (!VeloqRecordingNotification?.startIndoorService) return false;
+  try {
+    const title = i18n.t('recording.backgroundNotificationTitle', 'Recording activity');
+    return VeloqRecordingNotification.startIndoorService(JSON.stringify({ title }));
+  } catch (e) {
+    log.warn('startIndoorRecordingService failed:', e);
+    return false;
+  }
+}
+
+export function stopIndoorRecordingService(): void {
+  if (!VeloqRecordingNotification?.stopIndoorService) return;
+  try {
+    VeloqRecordingNotification.stopIndoorService();
+  } catch (e) {
+    log.warn('stopIndoorRecordingService failed:', e);
+  }
 }
 
 /**

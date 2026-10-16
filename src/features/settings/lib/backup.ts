@@ -1,6 +1,6 @@
 /** Record ZIP backup and conversion of earlier backup formats. */
 
-import { i18n } from '@/i18n';
+import { RestoreRefusedError, restoreRefusal, type RestoreRefusal } from './restoreRefusal';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getEngine, getNativeModule, isEngineReady } from '@/shared/native/engine';
 import { formatLocalDate } from '@/shared/format/format';
@@ -208,14 +208,10 @@ async function mirrorRestoredPreferences(
   }
 }
 
-function signInRequiredMessage(): string {
-  return i18n.t('backup.signInRequired', { defaultValue: 'Sign in before importing a backup.' });
-}
-
 /** The engine is closed, so an import has nowhere to go until the athlete signs in. */
-export class SignInRequiredError extends Error {
+export class SignInRequiredError extends RestoreRefusedError {
   constructor() {
-    super(signInRequiredMessage());
+    super('signInRequired');
     this.name = 'SignInRequiredError';
   }
 }
@@ -239,7 +235,7 @@ export async function checkRecordBackup(fileUri: string): Promise<void> {
 export async function restoreRecordBackup(fileUri: string): Promise<RecordRestoreOutcome> {
   const engine = openEngineForImport();
   const info = await FileSystem.getInfoAsync(fileUri);
-  if (!info.exists || info.size === 0) throw new Error('Backup file is empty or missing');
+  if (!info.exists || info.size === 0) throw new RestoreRefusedError('missing');
 
   const copyUri = await restoreCopyUri(`restore-record-${Date.now()}-${++restoreCopySequence}.zip`);
   try {
@@ -350,22 +346,9 @@ export interface DatabaseRestoreResult {
   success: boolean;
   activityCount: number;
   unplacedCount?: number;
-  error?: string;
-  /** Why a refusal that has no engine message was made, for the caller to word in the athlete's locale. */
-  reason?: 'missing' | 'unavailable';
-  /** The engine is closed, so nothing was read or written. */
-  signInRequired?: boolean;
-  /** Warning if the backup's athlete ID doesn't match the currently logged-in user. */
-  athleteIdMismatch?: boolean;
-  /** The athlete ID from the backup (if available). */
-  backupAthleteId?: string | null;
+  /** Why nothing went in, for the caller to word in the athlete's locale. */
+  refusal?: RestoreRefusal;
 }
-
-/** The locale key that words each refusal a restore reports by reason. */
-export const RESTORE_REFUSAL_KEYS = {
-  missing: 'backup.backupMissing',
-  unavailable: 'backup.readerUnavailable',
-} as const;
 
 function restoredLibraryCount(): number {
   const engine = getEngine();
@@ -381,7 +364,7 @@ function restoredLibraryCount(): number {
  */
 export async function convertLegacyDatabaseFile(fileUri: string, recordUri: string): Promise<void> {
   const nativeModule = getNativeModule();
-  if (!nativeModule) throw new Error('Backup reader is unavailable');
+  if (!nativeModule) throw new RestoreRefusedError('unavailable');
   const copyUri = recordUri.replace(/\.zip$/, '.veloqdb');
   try {
     await FileSystem.copyAsync({ from: fileUri, to: copyUri });
@@ -396,20 +379,14 @@ export async function convertLegacyDatabaseFile(fileUri: string, recordUri: stri
 /** Convert an older SQLite file to a record zip, then restore its decisions. */
 export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRestoreResult> {
   if (!getEngine() || !isEngineReady()) {
-    return {
-      success: false,
-      activityCount: 0,
-      error: signInRequiredMessage(),
-      signInRequired: true,
-    };
+    return { success: false, activityCount: 0, refusal: 'signInRequired' };
   }
   const info = await FileSystem.getInfoAsync(fileUri);
   if (!info.exists || info.size === 0) {
-    return { success: false, activityCount: 0, reason: 'missing' };
+    return { success: false, activityCount: 0, refusal: 'missing' };
   }
-  const nativeModule = getNativeModule();
-  if (!nativeModule) {
-    return { success: false, activityCount: 0, reason: 'unavailable' };
+  if (!getNativeModule()) {
+    return { success: false, activityCount: 0, refusal: 'unavailable' };
   }
 
   const recordUri = await restoreCopyUri(
@@ -424,14 +401,8 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       unplacedCount: restored.unplaced,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return {
-      success: false,
-      activityCount: 0,
-      error: message,
-      signInRequired: error instanceof SignInRequiredError,
-      athleteIdMismatch: message.includes('another athlete'),
-    };
+    log.warn('Database restore refused:', error instanceof Error ? error.message : error);
+    return { success: false, activityCount: 0, refusal: restoreRefusal(error) };
   } finally {
     await FileSystem.deleteAsync(recordUri, { idempotent: true }).catch(() => {});
   }
@@ -613,9 +584,8 @@ export function convertLegacyBackupToRecord(json: string): RecordPayload {
 
 export interface RestoreResult {
   unplacedCount?: number;
-  failed?: boolean;
-  signInRequired?: boolean;
-  error?: string;
+  /** Why nothing went in, for the caller to word in the athlete's locale. */
+  refusal?: RestoreRefusal;
 }
 
 /** Whether an import has to wait for a sign-in: a closed engine places no record. */
@@ -627,7 +597,7 @@ export async function restoreBackup(json: string): Promise<RestoreResult> {
   const record = convertLegacyBackupToRecord(json);
   const engine = getEngine();
   if (!engine || importWaitsForSignIn()) {
-    return { failed: true, signInRequired: true, error: signInRequiredMessage() };
+    return { refusal: 'signInRequired' };
   }
   const restored = await engine.restoreRecordJson(JSON.stringify(record));
   requestRecordActivities(engine, restored);

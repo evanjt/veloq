@@ -11,12 +11,13 @@ import {
   colors,
   colorWithOpacity,
   darkColors,
+  iconSize,
+  layout,
   sectionNumberInk,
   sectionPalette,
   sectionPaletteIndex,
   spacing,
   typography,
-  layout,
 } from '@/theme';
 import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
 import { formatDistance, formatDuration, formatSportSpeed } from '@/shared/format/format';
@@ -282,7 +283,7 @@ export const SectionInlinePlot = memo(
               </Text>
               <MaterialCommunityIcons
                 name="chevron-right"
-                size={20}
+                size={iconSize.md}
                 color={isDark ? darkColors.iconFaint : colors.iconFaint}
               />
             </View>
@@ -358,7 +359,11 @@ export const SectionInlinePlot = memo(
                           accessibilityLabel={t('a11y.personalRecord')}
                           style={{ marginLeft: spacing.xxs }}
                         >
-                          <MaterialCommunityIcons name="trophy" size={11} color={brand.gold} />
+                          <MaterialCommunityIcons
+                            name="trophy"
+                            size={iconSize.xs}
+                            color={brand.gold}
+                          />
                         </View>
                       ) : null}
                       {encounter.isComplete && (encounter.rank === 2 || encounter.rank === 3) ? (
@@ -372,7 +377,7 @@ export const SectionInlinePlot = memo(
                         >
                           <MaterialCommunityIcons
                             name="medal"
-                            size={11}
+                            size={iconSize.xs}
                             color={
                               encounter.rank === 2
                                 ? isDark

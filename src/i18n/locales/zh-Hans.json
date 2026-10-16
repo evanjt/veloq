@@ -370,6 +370,7 @@
     "backupFailedFolder": "Veloq 无法再访问备份文件夹。请重新选择该文件夹。",
     "backupFailedIcloud": "Veloq 的 iCloud 云盘已关闭，或此 iPhone 未登录 iCloud。请在 iPhone 的设置中打开。",
     "backupFailedUnverified": "已写入备份，但无法读回进行核对。稍后会重试。",
+    "backupFailedAddress": "WebDAV 服务器地址必须是有效的 https:// 地址。请在备份设置中检查。",
     "lastAttemptFailed": "上次尝试于 {{date}} 失败",
     "androidLastBackup": "Android 上次备份：{{date}}，{{size}}",
     "androidBackupNever": "Android 尚未备份 Veloq",
@@ -386,6 +387,7 @@
     "cameraPermissionNeeded": "扫描二维码需要相机权限",
     "enterDetailsInstead": "改为手动输入",
     "fillAllFields": "请填写所有字段",
+    "fillField": "请填写“{{field}}”",
     "webdavHttpsRequired": "请使用 https:// 地址。http:// 服务器会以未加密的方式收到密码和记录归档。",
     "webdavInvalidUrl": "这不是有效的服务器地址",
     "webdavSaveFailed": "无法在此设备上保存服务器信息",
@@ -506,7 +508,7 @@
       "title": "出错了"
     },
     "offline": {
-      "description": "部分功能可能受限",
+      "description": "恢复联网后，同步和上传将自动继续。",
       "title": "您已离线"
     },
     "syncError": {
@@ -2776,6 +2778,26 @@
     "offPr": "距个人最佳 {{delta}}",
     "cycleHint": "点按切换",
     "laps": "圈数：{{n}}",
-    "elevationLoss": "累计下降"
+    "elevationLoss": "累计下降",
+    "chartPageForward": "向前跳转",
+    "chartPageBack": "向后跳转"
+  },
+  "charts": {
+    "showData": "显示数据",
+    "summary": {
+      "title": "{{title}}。",
+      "empty": "{{name}}：无数据。",
+      "single": "{{name}}，{{start}}：{{value}}。",
+      "series": "{{name}}，{{start}}至{{end}}：最新 {{latest}}，范围 {{min}}至{{max}}，平均 {{average}}。",
+      "curve": "{{name}}，{{start}}至{{end}}：{{start}}时{{first}}，{{end}}时{{last}}，峰值 {{max}}。",
+      "parts": "{{name}}：{{parts}}。"
+    },
+    "column": {
+      "date": "日期",
+      "duration": "时长",
+      "distance": "距离",
+      "zone": "区间",
+      "time": "时间"
+    }
   }
 }

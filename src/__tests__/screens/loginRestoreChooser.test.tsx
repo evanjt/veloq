@@ -17,7 +17,10 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react-n
 import * as FileSystem from 'expo-file-system/legacy';
 
 import LoginScreen from '@/app/login';
-import { clearWebdavConfig } from '@/features/settings/lib/autobackup/webdavConfig';
+import {
+  clearWebdavConfig,
+  getWebdavConfig,
+} from '@/features/settings/lib/autobackup/webdavConfig';
 import { ScreenScrollView } from '@/shared/ui/ScreenScrollView';
 import { i18n, initialiseI18n } from '@/i18n';
 
@@ -211,6 +214,115 @@ describe('restore from backup on the login screen', () => {
       undefined,
       expect.anything()
     );
+  });
+});
+
+describe('restoring from a WebDAV server typed in without leaving the last field', () => {
+  async function typeServer(fields: { url?: string; user?: string; password?: string }) {
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('restore-chooser-webdav'));
+    });
+    if (fields.url !== undefined)
+      await fireEvent.changeText(screen.getByLabelText(i18n.t('backup.serverUrl')), fields.url);
+    if (fields.user !== undefined)
+      await fireEvent.changeText(screen.getByLabelText(i18n.t('backup.username')), fields.user);
+    if (fields.password !== undefined)
+      await fireEvent.changeText(screen.getByLabelText(i18n.t('backup.password')), fields.password);
+  }
+
+  async function pressList() {
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('restore-chooser-list'));
+    });
+  }
+
+  it('stores what the form shows and lists the server, on the first press and the second', async () => {
+    const fetchMock = stubServer();
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    await openChooser();
+    await typeServer({ url: SERVER, user: 'rider', password: 'app-password' });
+
+    await pressList();
+
+    expect(getWebdavConfig()).toEqual({
+      url: SERVER,
+      username: 'rider',
+      password: 'app-password',
+      plainLan: false,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${SERVER}Veloq`,
+      expect.objectContaining({ method: 'PROPFIND' })
+    );
+    expect(screen.getByTestId(`restore-chooser-entry-${BACKUP_ID}`)).toBeTruthy();
+    expect(alert).not.toHaveBeenCalled();
+
+    await pressList();
+
+    const listings = fetchMock.mock.calls.filter(([, init]) => init?.method === 'PROPFIND');
+    expect(listings).toHaveLength(2);
+    expect(screen.getByTestId(`restore-chooser-entry-${BACKUP_ID}`)).toBeTruthy();
+    expect(alert).not.toHaveBeenCalled();
+  });
+
+  it('names the missing field rather than calling the destination unavailable', async () => {
+    const fetchMock = stubServer();
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    await openChooser();
+    await typeServer({ url: SERVER, user: 'rider' });
+
+    await pressList();
+
+    const missing = i18n.t('backup.fillField', { field: i18n.t('backup.password') });
+    expect(missing).not.toBe('backup.fillField');
+    expect(alert).toHaveBeenCalledWith(
+      i18n.t('backup.notListedTitle'),
+      missing,
+      undefined,
+      expect.anything()
+    );
+    expect(alert).not.toHaveBeenCalledWith(
+      expect.anything(),
+      i18n.t('backup.destinationUnavailable'),
+      undefined,
+      expect.anything()
+    );
+    expect(getWebdavConfig()).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('asks for every field when none is filled in', async () => {
+    stubServer();
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    await openChooser();
+    await typeServer({});
+
+    await pressList();
+
+    expect(alert).toHaveBeenCalledWith(
+      i18n.t('backup.notListedTitle'),
+      i18n.t('backup.fillAllFields'),
+      undefined,
+      expect.anything()
+    );
+  });
+
+  it('gives the https refusal for a plain address on the open internet', async () => {
+    const fetchMock = stubServer();
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+    await openChooser();
+    await typeServer({ url: 'http://cloud.example.com/dav/', user: 'rider', password: 'pw' });
+
+    await pressList();
+
+    expect(alert).toHaveBeenCalledWith(
+      i18n.t('backup.notListedTitle'),
+      i18n.t('backup.webdavHttpsRequired'),
+      undefined,
+      expect.anything()
+    );
+    expect(getWebdavConfig()).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 

@@ -10,6 +10,7 @@ import type { ActivityType } from '@/types';
 import type { LatLngShort } from '@/shared/geo/distance';
 import type { SectionDeltaLine } from '../lib/deltaLayout';
 
+import { iconSize } from '@/theme';
 type FinalRouteGroup = NonNullable<ReturnType<typeof buildFinalRouteGroup>>;
 
 interface RouteDetailMapProps {
@@ -59,7 +60,11 @@ export function RouteDetailMap({
             },
           ]}
         >
-          <MaterialCommunityIcons name="map-marker-path" size={48} color={activityColor} />
+          <MaterialCommunityIcons
+            name="map-marker-path"
+            size={iconSize.xxl}
+            color={activityColor}
+          />
         </View>
       )}
     </View>

@@ -11,7 +11,7 @@ import { AppState } from 'react-native';
 import * as Network from 'expo-network';
 import { onlineManager } from '@tanstack/react-query';
 
-import { getEngine } from '@/shared/native/engine';
+import { connectivity } from 'veloqrs';
 
 interface NetworkContextValue {
   /** Whether device has network connectivity */
@@ -61,12 +61,7 @@ export const OFFLINE_BANNER_DELAY_MS = 2500;
  * so a dropped push costs a deferred pass at worst.
  */
 function pushToEngine(online: boolean): void {
-  try {
-    getEngine()?.setNetworkOnline(online);
-  } catch {
-    // The native module is not loaded yet. The next edge or foreground
-    // re-states it, and until then Rust behaves as it did before it had one.
-  }
+  connectivity.setNetworkOnline(online);
 }
 
 export function NetworkProvider({ children }: { children: ReactNode }) {

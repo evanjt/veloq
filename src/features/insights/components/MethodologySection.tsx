@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { tapTo } from '@/shared/app/navigation';
-import { colors, darkColors, spacing, opacity, layout, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
 import type { DataPoint, Insight } from '@/types';
 import { pressable, pressRipple } from '@/shared/ui';
 import { CollapsibleSection } from '@/shared/ui/CollapsibleSection';
@@ -168,7 +168,7 @@ const DataLink = React.memo(function DataLink({
       </Text>
       <MaterialCommunityIcons
         name="chevron-right"
-        size={16}
+        size={iconSize.md}
         color={isDark ? darkColors.textSecondary : colors.textSecondary}
       />
     </Pressable>

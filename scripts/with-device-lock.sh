@@ -31,6 +31,7 @@ fi
 . "$(dirname "$0")/device-lock-path.sh"
 
 veloq_refuse_if_ambiguous with-device-lock || exit 2
+veloq_refuse_if_not_test_device with-device-lock || exit 2
 
 if ! command -v flock >/dev/null 2>&1; then
   echo "with-device-lock: no flock, running without the local lock" >&2

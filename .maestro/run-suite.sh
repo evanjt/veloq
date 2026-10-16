@@ -118,6 +118,34 @@ if printf '%s\n' "$failed" | grep -q ' device$'; then
   restart_device
 fi
 
+# The gate is decided on the retries, and the summary and the junit check read
+# the named report, so the report takes each retry's result in place of the
+# first pass's. Otherwise a suite the retries recovered reads as failed. It is
+# folded after every retry rather than once at the end, because a shard that
+# reaches its step timeout is killed inside this pass, and a report folded only
+# at the end then holds the first pass and reads retries that passed as failures.
+fold_retries() {
+  [ -n "$retried" ] || return 0
+  if command -v node >/dev/null 2>&1; then
+    # Flow names carry no spaces, since each is a file's basename.
+    # shellcheck disable=SC2086
+    node "$(dirname "$0")/merge-retry-reports.mjs" "$report" retry-reports $retried ||
+      echo "Could not fold the retry reports into $report, so it holds the first pass."
+  else
+    echo "No node to fold the retry reports into $report, so it holds the first pass."
+  fi
+}
+
+# Terminated mid-pass, the retry in flight is stopped rather than left driving
+# the device, and the report keeps what the finished retries folded into it.
+retry_pid=""
+stop_retry() {
+  [ -z "$retry_pid" ] || kill "$retry_pid" 2>/dev/null
+  echo "Terminated during the retry pass. $report holds the retries that finished."
+  exit 143
+}
+trap stop_retry INT TERM
+
 mkdir -p retry-reports
 status=0
 retried=""
@@ -136,22 +164,17 @@ while read -r flow verdict; do
   echo "Retrying $file ($verdict)"
   # A report an earlier run left here would otherwise stand in for this retry.
   rm -f "retry-reports/$flow.xml"
-  retried="$retried $flow"
+  # In the background so a terminating signal reaches the trap while the flow
+  # runs, rather than once it ends.
   "$MAESTRO" ${device[@]+"${device[@]}"} test "$file" --debug-output "$debug" \
-    --format junit --output "retry-reports/$flow.xml" --no-ansi || status=1
+    --format junit --output "retry-reports/$flow.xml" --no-ansi < /dev/null &
+  retry_pid=$!
+  wait "$retry_pid" || status=1
+  retry_pid=""
+  retried="$retried $flow"
+  fold_retries
 done <<EOF_FAILED
 $failed
 EOF_FAILED
 
-# The gate is decided on the retries, and the summary and the junit check read
-# the named report, so the report takes each retry's result in place of the
-# first pass's. Otherwise a suite the retries recovered reads as failed.
-if command -v node >/dev/null 2>&1; then
-  # Flow names carry no spaces, since each is a file's basename.
-  # shellcheck disable=SC2086
-  node "$(dirname "$0")/merge-retry-reports.mjs" "$report" retry-reports $retried ||
-    echo "Could not fold the retry reports into $report, so it holds the first pass."
-else
-  echo "No node to fold the retry reports into $report, so it holds the first pass."
-fi
 exit "$status"

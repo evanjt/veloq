@@ -22,6 +22,8 @@ jest.mock('@shopify/react-native-skia', () => ({
   vec: () => ({}),
 }));
 jest.mock('@/shared/charts', () => ({
+  ...jest.requireActual('@/shared/charts/chartSummary'),
+  ChartSurface: ({ children }: { children: React.ReactNode }) => children,
   ChartCanvas: () => null,
   CurveArea: () => null,
   CurveLine: () => null,
