@@ -386,7 +386,7 @@ jobs:
           fi
 
       - name: Upload simulator artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.simulator-artifact.outputs.name }}
           path: upload/*-ios-simulator.zip
@@ -394,7 +394,7 @@ jobs:
 
       - name: Upload build log on failure
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ios-build-log
           path: ios-build.log
@@ -514,7 +514,7 @@ jobs:
 
       - name: Upload build logs on failure
         if: failure() && steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ios-build-logs-${{ steps.version.outputs.filename }}
           path: |
@@ -586,7 +586,7 @@ jobs:
 
       - name: Upload IPA artifact
         if: steps.check_ios_signing.outputs.has_signing == 'true' && env.RELEASE_BUILD == 'true'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ios-ipa-${{ steps.version.outputs.filename }}
           path: artifacts/*.ipa
