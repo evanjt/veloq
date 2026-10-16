@@ -67,7 +67,7 @@ export {
 } from './lib/cameraAngle';
 export { cameraAfter3D, type Camera3DState } from './lib/cameraAfter3D';
 export { computeAttribution } from './lib/computeAttribution';
-export { filterSheetExpandedAfterDrag } from './lib/filterSheet';
+export { filterSheetExpandedAfterDrag, filterSheetMaxHeight } from './lib/filterSheet';
 export {
   USER_LOCATION_SOURCE_ID,
   buildUserLocationCollection,

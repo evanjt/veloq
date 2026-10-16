@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { tapTo } from '@/shared/app/navigation';
 import { formatDuration, formatShortDate, safeGetTime } from '@/shared/format/format';
-import { colors, darkColors, spacing, opacity, brand, layout, typography } from '@/theme';
+import { brand, colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
 import type { SectionPerformanceRecord } from '@/features/routes';
 import { pressable, pressRipple } from '@/shared/ui';
 import { directionEfforts, type DirectionBests } from '@/features/insights/lib/directionBests';
@@ -66,7 +66,11 @@ export const RecentEffortsList = React.memo(function RecentEffortsList({
               <Text style={[styles.time, isDark && styles.timeDark]}>{formatDuration(time)}</Text>
               {isPR ? (
                 <View style={styles.prBadge}>
-                  <MaterialCommunityIcons name="trophy" size={10} color={colors.textOnPrimary} />
+                  <MaterialCommunityIcons
+                    name="trophy"
+                    size={iconSize.xs}
+                    color={colors.textOnBright}
+                  />
                   <Text style={styles.prText}>{t('sections.legendPr')}</Text>
                 </View>
               ) : delta != null ? (
@@ -76,7 +80,7 @@ export const RecentEffortsList = React.memo(function RecentEffortsList({
               ) : null}
               <MaterialCommunityIcons
                 name="chevron-right"
-                size={16}
+                size={iconSize.sm}
                 color={isDark ? darkColors.textSecondary : colors.textSecondary}
               />
             </View>
@@ -154,7 +158,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusSm,
   },
   prText: {
-    color: colors.textOnPrimary,
+    color: colors.textOnBright,
     fontSize: typography.micro.fontSize,
     fontWeight: '700',
   },

@@ -68,13 +68,18 @@ if (!existsSync(submodule) || !existsSync(join(submodule, '.git'))) {
   process.exit(1);
 }
 
-const result = spawnSync('cargo', ['check', '--tests', '-p', 'veloqrs'], {
+// Through the machine's cap on concurrent cargo builds, which queues this
+// behind other trees' builds rather than adding to them.
+const slot = join(__dirname, '..', 'modules', 'veloqrs', 'scripts', 'with-cargo-slot.sh');
+const result = spawnSync(slot, ['cargo', 'check', '--tests', '-p', 'veloqrs'], {
   cwd: join(root, 'modules', 'veloqrs', 'rust'),
   encoding: 'utf-8',
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 
-if (result.error) {
+// The slot script runs cargo with `exec` or as a child, and a shell that cannot
+// find a command exits 127.
+if (result.error || result.status === 127) {
   console.error('Refusing to commit: cargo is not on PATH and Rust files are staged.');
   process.exit(1);
 }

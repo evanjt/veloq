@@ -1,8 +1,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
   <application>
     <!-- Not exported: the only sender is this app's own notification buttons. -->
     <receiver
       android:name=".RecordingActionReceiver"
       android:exported="false" />
+    <!-- Keeps an indoor ride's process alive while the app is out of the foreground. -->
+    <service
+      android:name=".IndoorRecordingService"
+      android:exported="false"
+      android:foregroundServiceType="connectedDevice" />
   </application>
 </manifest>

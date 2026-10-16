@@ -47,6 +47,11 @@ export interface RendererRecoveryActions {
 export interface RendererRecovery {
   /** Wired to both `onRenderProcessGone` and `onContentProcessDidTerminate`. */
   gone: () => void;
+  /**
+   * The page is alive but stopped answering, so it comes back the way a dead
+   * one does and spends a restart doing so.
+   */
+  stalled: () => void;
   /** Cancels a restart still waiting for its turn, for a surface that unmounts. */
   cancel: () => void;
 }
@@ -87,7 +92,7 @@ export function createRendererRecovery(
     cancelTurn = null;
   };
 
-  const gone = () => {
+  const lose = (what: string) => {
     const now = Date.now();
     deaths = deaths.filter((at) => now - at < RENDERER_CRASH_WINDOW_MS);
     const spent = deaths.length >= RENDERER_CRASH_LIMIT;
@@ -96,8 +101,8 @@ export function createRendererRecovery(
       source: 'webview-renderer',
       fatal: false,
       message: spent
-        ? `${surface} renderer gone ${RENDERER_CRASH_LIMIT + 1} times in ${RENDERER_CRASH_WINDOW_MS / 1000} s, left down`
-        : `${surface} renderer gone, ${how === 'remount' ? 'remounting' : 'reloading'}`,
+        ? `${surface} ${what} ${RENDERER_CRASH_LIMIT + 1} times in ${RENDERER_CRASH_WINDOW_MS / 1000} s, left down`
+        : `${surface} ${what}, ${how === 'remount' ? 'remounting' : 'reloading'}`,
     });
     // A restart still waiting belongs to a page that is already gone again.
     cancel();
@@ -113,5 +118,5 @@ export function createRendererRecovery(
     });
   };
 
-  return { gone, cancel };
+  return { gone: () => lose('renderer gone'), stalled: () => lose('page stalled'), cancel };
 }

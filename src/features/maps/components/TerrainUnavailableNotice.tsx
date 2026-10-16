@@ -3,9 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-import { darkColors } from '@/theme/colors';
-import { layout, spacing } from '@/theme/spacing';
-import { typography } from '@/theme/typography';
+import { darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { pressable, pressRipple } from '@/shared/ui';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 
@@ -58,7 +56,11 @@ export function TerrainUnavailableNotice({
       testID={TERRAIN_UNAVAILABLE_TEST_ID}
     >
       <View style={styles.pill}>
-        <MaterialCommunityIcons name="terrain" size={16} color={darkColors.textSecondary} />
+        <MaterialCommunityIcons
+          name="terrain"
+          size={iconSize.md}
+          color={darkColors.textSecondary}
+        />
         <Text style={styles.text}>{message}</Text>
       </View>
     </Pressable>

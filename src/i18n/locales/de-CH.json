@@ -369,6 +369,7 @@
     "backupFailedFolder": "Veloq chunnt nüme an Backup-Ordner ane. Wähl de Ordner nomal us.",
     "backupFailedIcloud": "iCloud Drive isch für Veloq uusgschaltet, oder das iPhone isch nöd bi iCloud aagmeldet. Schalt s i de Iistellige vom iPhone ii.",
     "backupFailedUnverified": "Veloq hät s Backup gschribe, aber nöd zum Prüefe zruggläse chöne. Es probierts spöter nomol.",
+    "backupFailedAddress": "D WebDAV-Serveradrässe muess e gültigi https://-Adrässe sii. Lueg si i de Backup-Iistellige aa.",
     "lastAttemptFailed": "Letschte Versuech am {{date}} hät nöd klappet",
     "androidLastBackup": "Android hät zletscht am {{date}} gsicheret, {{size}}",
     "androidBackupNever": "Android hät Veloq no nöd gsicheret",
@@ -385,6 +386,7 @@
     "cameraPermissionNeeded": "Kamerazuegriff isch nötig zum QR-Codes scanne",
     "enterDetailsInstead": "Date stattdesse iigä",
     "fillAllFields": "Bitte füll alli Fälder us",
+    "fillField": "Bitte füll s Fäld „{{field}}“ us",
     "webdavHttpsRequired": "Verwende eine https://-Adresse. Ein http://-Server würde dein Passwort und die Datensicherung unverschlüsselt erhalten.",
     "webdavInvalidUrl": "Das ist keine gültige Serveradresse",
     "webdavSaveFailed": "Die Serverdaten konnten auf diesem Gerät nicht gespeichert werden",
@@ -505,7 +507,7 @@
       "title": "Siech!"
     },
     "offline": {
-      "description": "Es paar Sache gönd vilicht nöd",
+      "description": "Synchronisierig und Uploads gönd wiiter, sobald du wieder online bisch.",
       "title": "Du bisch offline"
     },
     "syncError": {
@@ -2683,6 +2685,26 @@
     "offPr": "{{delta}} über Bestzeit",
     "cycleHint": "Tippen zum Wechseln",
     "laps": "Runden: {{n}}",
-    "elevationLoss": "Höhenverlust"
+    "elevationLoss": "Höhenverlust",
+    "chartPageForward": "Vorwärts springen",
+    "chartPageBack": "Zurück springen"
+  },
+  "charts": {
+    "showData": "Daten anzeigen",
+    "summary": {
+      "title": "{{title}}.",
+      "empty": "{{name}}: keine Daten.",
+      "single": "{{name}}, {{start}}: {{value}}.",
+      "series": "{{name}}, {{start}} bis {{end}}: zuletzt {{latest}}, Bereich {{min}} bis {{max}}, Durchschnitt {{average}}.",
+      "curve": "{{name}}, {{start}} bis {{end}}: {{first}} bei {{start}}, {{last}} bei {{end}}, Spitze {{max}}.",
+      "parts": "{{name}}: {{parts}}."
+    },
+    "column": {
+      "date": "Datum",
+      "duration": "Dauer",
+      "distance": "Distanz",
+      "zone": "Zone",
+      "time": "Zeit"
+    }
   }
 }

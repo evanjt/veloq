@@ -4,7 +4,16 @@ import { Text } from 'react-native-paper';
 import { Canvas, RoundedRect } from '@shopify/react-native-skia';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, opacity, layout, typography, verdictColor } from '@/theme';
+import {
+  colors,
+  darkColors,
+  iconSize,
+  layout,
+  opacity,
+  spacing,
+  typography,
+  verdictColor,
+} from '@/theme';
 import { verdictRung } from '@/shared/format/trend';
 import { ChartErrorBoundary } from '@/shared/ui';
 import { useChartColors, useMeasuredWidth } from '@/shared/charts';
@@ -177,7 +186,7 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
 
       {/* Change badge */}
       <View style={styles.changeRow}>
-        <MaterialCommunityIcons name={changeIcon as never} size={16} color={changeColor} />
+        <MaterialCommunityIcons name={changeIcon as never} size={iconSize.md} color={changeColor} />
         <Text style={[styles.changeText, { color: changeColor }]}>{changeStr}</Text>
       </View>
     </View>

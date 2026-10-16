@@ -4,10 +4,10 @@ import {
   ScrollView,
   Pressable,
   Platform,
-  Modal,
   StyleSheet,
   type LayoutChangeEvent,
 } from 'react-native';
+import { FullWindowModal } from '@/shared/ui/FullWindowModal';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -70,11 +70,12 @@ import {
   colors,
   controlHeight,
   darkColors,
-  spacing,
+  iconSize,
   layout,
   opacity,
   shadows,
   slopToMinTapTarget,
+  spacing,
   typography,
 } from '@/theme';
 import { ABSENT } from '@/shared/format/absent';
@@ -312,7 +313,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                 >
                   <MaterialCommunityIcons
                     name="fullscreen"
-                    size={16}
+                    size={iconSize.sm}
                     color={isDark ? colors.textOnDark : colors.textPrimary}
                   />
                 </IconButton>
@@ -372,7 +373,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                     accessory={
                       <DisclosureChevron
                         expanded={intervalsExpanded}
-                        size={18}
+                        size={iconSize.md}
                         color={isDark ? darkColors.textSecondary : colors.textSecondary}
                       />
                     }
@@ -463,7 +464,11 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                 loading={gpxExporting}
                 label={t('export.gpx')}
                 icon={
-                  <MaterialCommunityIcons name="download" size={20} color={colors.textOnPrimary} />
+                  <MaterialCommunityIcons
+                    name="download"
+                    size={iconSize.md}
+                    color={colors.textOnPrimary}
+                  />
                 }
               />
             )}
@@ -559,7 +564,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
       </ScrollView>
 
       {/* Fullscreen Chart Modal */}
-      <Modal
+      <FullWindowModal
         visible={isChartFullscreen}
         animationType="fade"
         statusBarTranslucent
@@ -606,7 +611,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
             />
           </SafeAreaProvider>
         </GestureHandlerRootView>
-      </Modal>
+      </FullWindowModal>
     </>
   );
 });
@@ -664,7 +669,7 @@ function FullscreenPlotLayout({
       >
         <MaterialCommunityIcons
           name="close"
-          size={24}
+          size={iconSize.lg}
           color={isDark ? colors.textOnDark : colors.textPrimary}
         />
       </Pressable>

@@ -39,7 +39,16 @@ import {
 } from '@/features/activity/lib/groupSectionEncounters';
 import { tapTo } from '@/shared/app/navigation';
 import { formatDistance } from '@/shared/format/format';
-import { colors, darkColors, spacing, shadows, layout, typography, swipeAction } from '@/theme';
+import {
+  colors,
+  darkColors,
+  iconSize,
+  layout,
+  shadows,
+  spacing,
+  swipeAction,
+  typography,
+} from '@/theme';
 import { debug } from '@/shared/debug/debug';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 import { confirmAction, inform } from '@/shared/ui/dialog';
@@ -468,7 +477,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
           <RectButton style={styles.swipeActionButton} onPress={action.run}>
             <MaterialCommunityIcons
               name={custom ? 'delete' : 'eye-off'}
-              size={24}
+              size={iconSize.lg}
               color={custom ? swipeAction.destructive.text : swipeAction.hide.text}
             />
             <Text
@@ -609,7 +618,9 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
           <Button
             label={t('sections.scanForMore')}
             variant="ghost"
-            icon={<MaterialCommunityIcons name="magnify" size={14} color={colors.primary} />}
+            icon={
+              <MaterialCommunityIcons name="magnify" size={iconSize.sm} color={colors.primary} />
+            }
             onPress={handleScan}
             loading={scanning}
             style={styles.scanLink}
@@ -638,7 +649,9 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         {coordinates.length > 0 && !sectionCreationMode && (
           <Button
             label={t('routes.createSection')}
-            icon={<MaterialCommunityIcons name="plus" size={20} color={colors.textOnPrimary} />}
+            icon={
+              <MaterialCommunityIcons name="plus" size={iconSize.md} color={colors.textOnPrimary} />
+            }
             onPress={() => onSectionCreationModeChange(true)}
             style={styles.createSectionButton}
           />

@@ -26,7 +26,8 @@ use std::collections::HashMap;
 
 use crate::{
     FfiDirectionDeltas, FfiLapDelta, FfiLapDeltaMissing, FfiLapDeltaMissingReason,
-    FfiReferenceSource, FfiSectionLapCurves, GpsPoint, SectionLap, SectionPerformanceResult,
+    FfiReferenceSource, FfiSectionLapCurves, FfiSplitSummary, GpsPoint, SectionLap,
+    SectionPerformanceResult,
 };
 
 /// Metres between two points of a lap's curve. Alignment between laps is good
@@ -491,37 +492,114 @@ fn reference_lap<'a>(
     Some((lap, FfiReferenceSource::Record))
 }
 
+/// The laps a split's median needs. Measured over the laps beside the record,
+/// the median of five names the same costliest 100 m as every lap does in 189
+/// to 200 of 200 subsets, and correlates 0.93 to 0.98 with the median of all.
+pub(crate) const SUMMARY_MIN_LAPS: usize = 5;
+
+/// The laps a split's quartiles need. The interquartile range of five laps
+/// correlates only 0.33 to 0.50 with that of all, and of eight 0.64 to 0.76.
+pub(crate) const SPREAD_MIN_LAPS: usize = 8;
+
+/// Whether `lap` is the reference itself: a lap of the reference's activity
+/// level with it everywhere, as only the reference measured against itself
+/// is. Another lap of the same activity is a lap like any other.
+fn is_reference(lap: &FfiLapDelta, reference_activity_id: &str) -> bool {
+    lap.activity_id == reference_activity_id
+        && lap
+            .delta_secs
+            .iter()
+            .filter(|delta| delta.is_finite())
+            .all(|&delta| delta == 0.0)
+}
+
+/// The value a fraction `p` of the way through `sorted`, linearly interpolated
+/// between the order statistics either side.
+fn quantile(sorted: &[f32], p: f64) -> f32 {
+    let h = (sorted.len() - 1) as f64 * p;
+    let (below, above) = (h.floor() as usize, h.ceil() as usize);
+    let (low, high) = (sorted[below] as f64, sorted[above] as f64);
+    (low + (h - below as f64) * (high - low)) as f32
+}
+
+/// Each split's median and quartiles over the laps other than the reference,
+/// each split over the laps that cover it. `None` when no split reaches
+/// [`SUMMARY_MIN_LAPS`].
+fn split_summary(laps: &[FfiLapDelta], reference_activity_id: &str) -> Option<FfiSplitSummary> {
+    let laps: Vec<&FfiLapDelta> = laps
+        .iter()
+        .filter(|lap| !is_reference(lap, reference_activity_id))
+        .collect();
+    let splits = laps
+        .iter()
+        .map(|lap| lap.split_delta_secs.len())
+        .max()
+        .unwrap_or(0);
+    let mut median = Vec::with_capacity(splits);
+    let mut lower = Vec::with_capacity(splits);
+    let mut upper = Vec::with_capacity(splits);
+    let mut counted = Vec::with_capacity(splits);
+    // One buffer for every split, as a long route has hundreds of them.
+    let mut values: Vec<f32> = Vec::with_capacity(laps.len());
+    for split in 0..splits {
+        values.clear();
+        values.extend(
+            laps.iter()
+                .filter_map(|lap| lap.split_delta_secs.get(split).copied())
+                .filter(|value| value.is_finite()),
+        );
+        values.sort_by(f32::total_cmp);
+        let at = |p, floor| {
+            if values.len() >= floor {
+                quantile(&values, p)
+            } else {
+                f32::NAN
+            }
+        };
+        median.push(at(0.5, SUMMARY_MIN_LAPS));
+        lower.push(at(0.25, SPREAD_MIN_LAPS));
+        upper.push(at(0.75, SPREAD_MIN_LAPS));
+        counted.push(values.len() as u32);
+    }
+    counted
+        .iter()
+        .any(|&n| n as usize >= SUMMARY_MIN_LAPS)
+        .then(|| FfiSplitSummary {
+            median_secs: median.into(),
+            lower_quartile_secs: lower.into(),
+            upper_quartile_secs: upper.into(),
+            laps: counted,
+        })
+}
+
 /// One direction's laps against its reference, with the peak the plot scales
-/// to. `None` without a lap beside the reference, as a direction is worth
-/// drawing only with one.
+/// to and the typical lap per split. `None` without a lap beside the
+/// reference, as a direction is worth drawing only with one.
 fn compared(
     reference_activity_id: String,
     reference_source: FfiReferenceSource,
     laps: Vec<FfiLapDelta>,
     missing: Vec<FfiLapDeltaMissing>,
 ) -> Option<FfiDirectionDeltas> {
-    fn finite(lap: &FfiLapDelta) -> impl Iterator<Item = f32> + '_ {
-        lap.delta_secs
-            .iter()
-            .copied()
-            .filter(|delta| delta.is_finite())
-    }
-    let beside = laps.iter().any(|lap| {
-        lap.activity_id != reference_activity_id || finite(lap).any(|delta| delta != 0.0)
-    });
-    if !beside {
+    if laps
+        .iter()
+        .all(|lap| is_reference(lap, &reference_activity_id))
+    {
         return None;
     }
     let peak_delta_secs = laps
         .iter()
-        .flat_map(finite)
+        .flat_map(|lap| lap.delta_secs.iter().copied())
+        .filter(|delta| delta.is_finite())
         .fold(0.0_f32, |peak, delta| peak.max(delta.abs()));
+    let split_summary = split_summary(&laps, &reference_activity_id);
     Some(FfiDirectionDeltas {
         reference_activity_id,
         reference_source,
         laps,
         missing,
         peak_delta_secs,
+        split_summary,
     })
 }
 

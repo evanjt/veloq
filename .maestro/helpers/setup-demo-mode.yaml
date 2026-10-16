@@ -85,6 +85,15 @@ appId: com.veloq.app.dev
     commands:
       - tapOn: "Close"
 
+# A stopped ride that was never saved or discarded reopens on the review screen
+# at every launch, so a flow that died there would hold every later flow off
+# home. Only a demo session's ride is cleared; a real account's is left as found.
+- runFlow:
+    when:
+      visible:
+        id: "demo-mode-banner"
+    file: discard-recording.yaml
+
 # Final wait for home screen (should be visible now after all dialogs dismissed)
 - extendedWaitUntil:
     visible:
@@ -145,6 +154,11 @@ appId: com.veloq.app.dev
             visible: "Close"
           commands:
             - tapOn: "Close"
+      - runFlow:
+          when:
+            visible:
+              id: "demo-mode-banner"
+          file: discard-recording.yaml
       - extendedWaitUntil:
           visible:
             id: "home-screen"

@@ -54,6 +54,12 @@ describe('the first-run tour', () => {
     ]);
   });
 
+  it('draws a picture under every slide, so none shows an empty field under its text', () => {
+    // Reads the lazy getter's presence without loading the picture's module.
+    const bare = tutorial.filter((s) => !Object.prototype.hasOwnProperty.call(s, 'Component'));
+    expect(bare.map((s) => s.titleKey)).toEqual([]);
+  });
+
   it('holds no slide that opens the section preview', () => {
     expect(tutorial.map((s) => s.showMeRoute)).not.toContain('/detection-preview');
   });

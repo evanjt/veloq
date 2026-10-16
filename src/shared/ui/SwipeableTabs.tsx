@@ -25,8 +25,9 @@ import {
   brand,
   colors,
   darkColors,
-  spacing,
+  iconSize,
   layout,
+  spacing,
   typography,
   verdictColor,
   verdictFill,
@@ -94,15 +95,15 @@ function tabInk(isActive: boolean, isDark: boolean): string {
  * so it takes the verdict ladder's negative rung, its own tone on a tint of it,
  * and reads as one in both themes rather than as a neutral grey.
  */
-function badgePaint(
+export function badgePaint(
   tab: SwipeableTab,
   isActive: boolean,
   isDark: boolean
 ): { fill: string; ink: string } {
   const palette = isDark ? darkColors : colors;
   const tone = tab.badgeText !== undefined ? (tab.badgeTone ?? 'neutral') : null;
-  if (tone === 'pr') return { fill: brand.gold, ink: colors.textOnPrimary };
-  if (tone === 'positive') return { fill: colors.success, ink: colors.textOnPrimary };
+  if (tone === 'pr') return { fill: brand.gold, ink: colors.textOnBright };
+  if (tone === 'positive') return { fill: colors.success, ink: colors.textOnBright };
   if (tone === 'negative') {
     return { fill: verdictFill('negative', isDark), ink: verdictColor('negative', isDark) };
   }
@@ -126,7 +127,7 @@ function TabContent({
   const paint = badge === undefined ? null : badgePaint(tab, isActive, isDark);
   return (
     <View testID={`tab-content-${tab.key}`} style={styles.tabContent} onLayout={onLayout}>
-      <MaterialCommunityIcons name={tab.icon} size={18} color={ink} />
+      <MaterialCommunityIcons name={tab.icon} size={iconSize.md} color={ink} />
       <Text
         // The tabs share the width with `flex: 1`, so a label wider than its
         // share used to wrap mid-word and the icon ended up between the halves:

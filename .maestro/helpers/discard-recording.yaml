@@ -47,15 +47,17 @@ appId: com.veloq.app.dev
 
       - extendedWaitUntil:
           visible:
-            id: "review-discard-button"
+            id: "review-screen"
           timeout: 10000
           optional: true
 
-# Also the landing place of a flow that died on the review screen.
+# Also the landing place of a flow that died on the review screen. The screen
+# and not its discard button is the cue, since the button sits below the fold
+# on a short screen.
 - runFlow:
     when:
       visible:
-        id: "review-discard-button"
+        id: "review-screen"
     commands:
       - runFlow:
           file: confirm-review-discard.yaml

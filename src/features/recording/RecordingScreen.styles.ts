@@ -71,9 +71,16 @@ export const styles = StyleSheet.create({
   statusText: {
     ...typography.captionBold,
   },
+  /** Everything above the bottom slot: shrinks, then scrolls, so the slot never leaves the window. */
+  columnRegion: {
+    flex: 1,
+  },
+  columnContent: {
+    flexGrow: 1,
+  },
+  /** Fills the region until it is measured, then takes the height the layout gives it. */
   mainContent: {
     flex: 1,
-    minHeight: 200,
   },
   map: {
     flex: 1,

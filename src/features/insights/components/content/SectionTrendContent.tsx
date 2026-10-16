@@ -13,7 +13,7 @@ import { Shimmer } from '@/shared/ui/Shimmer';
 import { tapTo } from '@/shared/app/navigation';
 import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration } from '@/shared/format/format';
-import { brand, colors, darkColors, spacing, opacity, layout, typography } from '@/theme';
+import { brand, colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
 import { SheetContext } from './SheetContext';
 import {
@@ -144,7 +144,7 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
               {section.sportType ? (
                 <MaterialCommunityIcons
                   name={getActivityIcon(section.sportType)}
-                  size={14}
+                  size={iconSize.sm}
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
                   style={styles.sportIcon}
                 />
@@ -157,7 +157,11 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
               </Text>
               {section.hasRecentPR ? (
                 <View style={styles.prChip}>
-                  <MaterialCommunityIcons name="trophy" size={10} color={colors.textOnPrimary} />
+                  <MaterialCommunityIcons
+                    name="trophy"
+                    size={iconSize.xs}
+                    color={colors.textOnBright}
+                  />
                 </View>
               ) : null}
             </View>
@@ -180,7 +184,7 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
               ) : null}
               <MaterialCommunityIcons
                 name={rowTrendIcon(section.trend)}
-                size={16}
+                size={iconSize.sm}
                 color={rowTrendColor(section.trend, isDark)}
               />
             </View>
@@ -189,7 +193,7 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
           <View style={styles.chevronButton}>
             <MaterialCommunityIcons
               name={expanded ? 'chevron-up' : 'chevron-down'}
-              size={18}
+              size={iconSize.md}
               color={isDark ? darkColors.textSecondary : colors.textSecondary}
             />
           </View>
@@ -286,7 +290,7 @@ export const SectionTrendContent = React.memo(function SectionTrendContent({
         <Animated.View layout={LinearTransition} style={styles.legend}>
           <MaterialCommunityIcons
             name="trophy"
-            size={12}
+            size={iconSize.xs}
             color={isDark ? darkColors.chartGoldMark : colors.chartGoldMark}
           />
           <Text style={[styles.legendText, isDark && styles.legendTextDark]}>

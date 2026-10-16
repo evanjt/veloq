@@ -78,9 +78,6 @@ import type { SectionDetectionProgress } from './conversions';
 import type { DelegateHost } from './delegates/host';
 import * as activityDelegates from './delegates/activities';
 import * as detectionDelegates from './delegates/detection';
-import * as connectivityDelegates from './delegates/connectivity';
-import * as elevationDelegates from './delegates/elevation';
-import * as streamBackfillDelegates from './delegates/streamBackfill';
 import * as cutoverDelegates from './delegates/cutover';
 import * as routesStatusDelegates from './delegates/routesStatus';
 import type { RoutesStatus } from './delegates/routesStatus';
@@ -653,12 +650,6 @@ class EngineClient implements DelegateHost {
   cancelRouteGroupingPreview = (): void =>
     routeGroupingPreviewDelegates.cancelRouteGroupingPreview(this);
 
-  setNetworkOnline = (online: boolean): void =>
-    connectivityDelegates.setNetworkOnline(this, online);
-
-  setInteracting = (interacting: boolean): void =>
-    connectivityDelegates.setInteracting(this, interacting);
-
   /**
    * Take whatever a push handler wrote from another process while the app was
    * away, and say whether there was anything to take.
@@ -677,20 +668,6 @@ class EngineClient implements DelegateHost {
       return false;
     }
   };
-
-  startElevationBackfill = (): FfiStartOutcome => elevationDelegates.startElevationBackfill(this);
-
-  pauseElevationBackfill = (): void => elevationDelegates.pauseElevationBackfill(this);
-  resumeElevationBackfill = (): boolean => elevationDelegates.resumeElevationBackfill(this);
-  getElevationBackfillRemaining = (): number | null =>
-    elevationDelegates.getElevationBackfillRemaining(this);
-
-  startStreamBackfill = (): FfiStartOutcome => streamBackfillDelegates.startStreamBackfill(this);
-
-  consentStreamBackfill = (): FfiStartOutcome =>
-    streamBackfillDelegates.consentStreamBackfill(this);
-
-  stopStreamBackfill = (): void => streamBackfillDelegates.stopStreamBackfill(this);
 
   isCutoverPending = (): boolean => cutoverDelegates.isCutoverPending(this);
 

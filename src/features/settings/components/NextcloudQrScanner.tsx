@@ -4,7 +4,15 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { spacing, layout, cameraOverlay, typography, colorWithOpacity, ink } from '@/theme';
+import {
+  cameraOverlay,
+  colorWithOpacity,
+  iconSize,
+  ink,
+  layout,
+  spacing,
+  typography,
+} from '@/theme';
 import { permissionOutcome } from '@/shared/app/permissions';
 import { Button, IconButton, PermissionNotice } from '@/shared/ui';
 import { parseNextcloudLogin, type NextcloudLogin } from '../lib/autobackup/nextcloudLogin';
@@ -74,7 +82,7 @@ export function NextcloudQrScanner({
   if (outcome !== 'granted') {
     return (
       <View style={[styles.container, styles.centered]}>
-        <MaterialCommunityIcons name="camera-off" size={48} color={cameraOverlay.hint} />
+        <MaterialCommunityIcons name="camera-off" size={iconSize.xxl} color={cameraOverlay.hint} />
         <PermissionNotice
           testID="nextcloud-scanner-camera"
           outcome={outcome}
@@ -108,7 +116,7 @@ export function NextcloudQrScanner({
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <IconButton accessibilityLabel={t('common.close')} onPress={onClose}>
-          <MaterialCommunityIcons name="close" size={24} color={cameraOverlay.text} />
+          <MaterialCommunityIcons name="close" size={iconSize.lg} color={cameraOverlay.text} />
         </IconButton>
         <Text style={styles.headerTitle}>{t('backup.scanQrTitle', 'Scan Nextcloud QR Code')}</Text>
         <IconButton
@@ -118,7 +126,7 @@ export function NextcloudQrScanner({
         >
           <MaterialCommunityIcons
             name={torchOn ? 'flashlight-off' : 'flashlight'}
-            size={24}
+            size={iconSize.lg}
             color={cameraOverlay.text}
           />
         </IconButton>

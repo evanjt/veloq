@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Image } from 'react-native';
 import { useTheme, useIsOnline } from '@/shared/app';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
-import { colors, darkColors, spacing, typography, layout } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { getStoredCredentials, useAuthStore } from '@/shared/app/AuthStore';
 import { sourceFor } from '@/shared/app/source';
 import { INTERVALS_URLS } from '@/shared/app/constants';
@@ -219,7 +219,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
         ) : (
           <MaterialCommunityIcons
             name="account"
-            size={32}
+            size={iconSize.xl}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
         )}
@@ -281,7 +281,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
         onPress={handleLogout}
         accessibilityLabel={signOutLabel}
       >
-        <MaterialCommunityIcons name="logout" size={22} color={colors.error} />
+        <MaterialCommunityIcons name="logout" size={iconSize.lg} color={colors.error} />
         <Text style={[settingsStyles.actionRowText, { color: errorDeep }]}>{signOutLabel}</Text>
       </Row>
 
@@ -297,7 +297,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
               defaultValue: 'Sign out and delete all data',
             })}
           >
-            <MaterialCommunityIcons name="delete-forever" size={22} color={colors.error} />
+            <MaterialCommunityIcons name="delete-forever" size={iconSize.lg} color={colors.error} />
             <Text style={[settingsStyles.actionRowText, { color: errorDeep }]}>
               {t('settings.disconnectAndClearData', {
                 defaultValue: 'Sign out and delete all data',

@@ -30,7 +30,7 @@ import {
   ScreenSafeAreaView,
   useBottomClearance,
 } from '@/shared/ui';
-import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
+import { brand, colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import {
   usePreviewDetect,
   getPhaseDisplayKey,
@@ -342,7 +342,7 @@ function DetectionPreviewScreenContent() {
               icon={
                 <MaterialCommunityIcons
                   name="magnify-scan"
-                  size={18}
+                  size={iconSize.md}
                   color={previewIsNext ? colors.textOnPrimary : textPrimary}
                 />
               }

@@ -120,11 +120,16 @@ function invoke(
   args: string[],
   { serial = 'emulator-5554', failBuild = false }: Omit<Options, 'tree'> = {}
 ) {
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  // No allowlist from the machine running the suite, so only the emulator is a test handset.
+  delete env.VELOQ_TEST_HANDSETS;
+  delete env.VELOQ_ALLOW_HANDSET;
   const result = spawnSync(path.join(f.dir, 'scripts/run-android.sh'), args, {
     cwd: f.dir,
     encoding: 'utf8',
     env: {
-      ...process.env,
+      ...env,
+      XDG_CONFIG_HOME: f.dir,
       PATH: `${f.bin}:${process.env.PATH}`,
       ANDROID_SERIAL: serial,
       // The caller's own selection, which the arguments override.
@@ -178,6 +183,14 @@ describe('Android build and device locks', () => {
   it('refuses an unpinned handset before building', () => {
     const { result, calls } = run(DEV_METRO, { serial: '' });
     expect(result.status).not.toBe(0);
+    expect(calls).toEqual([]);
+  });
+
+  it('refuses a handset that is not a test handset before building', () => {
+    const { result, calls } = run(DEV_METRO, { serial: '192.0.2.40:5555' });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('192.0.2.40:5555');
+    expect(result.stderr).toContain('VELOQ_ALLOW_HANDSET');
     expect(calls).toEqual([]);
   });
 

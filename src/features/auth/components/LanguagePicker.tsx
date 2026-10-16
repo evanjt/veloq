@@ -5,12 +5,13 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useLanguageStore, languageLabel } from '@/shared/app/LanguageStore';
 import {
+  brand,
   colors,
   darkColors,
-  spacing,
-  brand,
+  iconSize,
   layout,
   slopToMinTapTarget,
+  spacing,
   typography,
 } from '@/theme';
 import { useTheme } from '@/shared/app';
@@ -52,7 +53,7 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
         >
           <MaterialCommunityIcons
             name="translate"
-            size={18}
+            size={iconSize.md}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
           <Text style={[styles.languageButtonText, isDark && styles.textDark]}>
@@ -60,7 +61,7 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
           </Text>
           <MaterialCommunityIcons
             name={showLanguages ? 'chevron-up' : 'chevron-down'}
-            size={18}
+            size={iconSize.md}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
         </Pressable>

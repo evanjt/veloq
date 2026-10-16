@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { IconButton } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors } from '@/theme';
+import { colors, darkColors, iconSize } from '@/theme';
 import { inform } from '@/shared/ui/dialog';
 
 interface InfoButtonProps {
@@ -28,7 +28,7 @@ export function InfoButton({ testID, title, message }: InfoButtonProps) {
     >
       <MaterialCommunityIcons
         name="information-outline"
-        size={20}
+        size={iconSize.md}
         color={isDark ? darkColors.textSecondary : colors.textSecondary}
       />
     </IconButton>

@@ -54,6 +54,10 @@ e2e:
 release-backup-roundtrip serial:
     ANDROID_SERIAL={{serial}} ./scripts/android-backup-roundtrip.sh
 
+# Once per release, on an emulator only: back up through LocalTransport, uninstall, reinstall the apk, restore, check what came back and what did not
+release-backup-reinstall apk serial="emulator-5554":
+    ANDROID_SERIAL={{serial}} ./scripts/android-backup-roundtrip.sh --reinstall {{apk}}
+
 # --- Occasional / manual tools ---
 
 # Compare perf-test results to baseline (run `npm run test:perf:ci` first)

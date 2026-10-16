@@ -370,6 +370,7 @@
     "backupFailedFolder": "Veloq can no longer reach the backup folder. Choose the folder again.",
     "backupFailedIcloud": "iCloud Drive is off for Veloq, or this iPhone is not signed in to iCloud. Turn it on in the iPhone's Settings.",
     "backupFailedUnverified": "Veloq wrote the backup but could not read it back to check it. It will try again later.",
+    "backupFailedAddress": "The WebDAV server address must be a valid https:// address. Check it in Backup settings.",
     "lastAttemptFailed": "Last attempt failed on {{date}}",
     "androidLastBackup": "Android last backed up {{date}}, {{size}}",
     "androidBackupNever": "Android has not backed up Veloq yet",
@@ -386,6 +387,7 @@
     "cameraPermissionNeeded": "Camera access is required to scan QR codes",
     "enterDetailsInstead": "Enter details instead",
     "fillAllFields": "Please fill in all fields",
+    "fillField": "Please fill in the {{field}} field",
     "webdavHttpsRequired": "Use an https:// address. An http:// server would receive your password and record archive unencrypted.",
     "webdavInvalidUrl": "That is not a valid server address",
     "webdavSaveFailed": "Could not save the server details on this device",
@@ -506,7 +508,7 @@
       "title": "Something went wrong"
     },
     "offline": {
-      "description": "Some features may be limited",
+      "description": "Sync and uploads resume when you're back online.",
       "title": "You're offline"
     },
     "syncError": {
@@ -2776,6 +2778,26 @@
     "offPr": "{{delta}} off PR",
     "cycleHint": "Tap to change",
     "laps": "Laps: {{n}}",
-    "elevationLoss": "Elevation loss"
+    "elevationLoss": "Elevation loss",
+    "chartPageForward": "Jump forward",
+    "chartPageBack": "Jump back"
+  },
+  "charts": {
+    "showData": "Show data",
+    "summary": {
+      "title": "{{title}}.",
+      "empty": "{{name}}: no data.",
+      "single": "{{name}}, {{start}}: {{value}}.",
+      "series": "{{name}}, {{start}} to {{end}}: latest {{latest}}, range {{min}} to {{max}}, average {{average}}.",
+      "curve": "{{name}}, {{start}} to {{end}}: {{first}} at {{start}}, {{last}} at {{end}}, peak {{max}}.",
+      "parts": "{{name}}: {{parts}}."
+    },
+    "column": {
+      "date": "Date",
+      "duration": "Duration",
+      "distance": "Distance",
+      "zone": "Zone",
+      "time": "Time"
+    }
   }
 }

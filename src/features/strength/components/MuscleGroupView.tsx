@@ -12,17 +12,18 @@ import type { ExerciseSet } from 'veloqrs';
 import { useMetricSystem } from '@/shared/app';
 import { formatDateTime, formatDuration } from '@/shared/format/format';
 import {
-  colors,
-  spacing,
-  typography,
   brand,
-  loupeChrome,
-  layout,
+  colors,
   colorWithOpacity,
+  iconSize,
   ink,
+  layout,
+  loupeChrome,
   mapTextShadow,
-  themedStyles,
   type Palette,
+  spacing,
+  themedStyles,
+  typography,
 } from '@/theme';
 import type { ActivityDetail } from '@/types';
 
@@ -163,7 +164,7 @@ export function MuscleGroupView({
                     >
                       <MaterialCommunityIcons
                         name="close"
-                        size={12}
+                        size={iconSize.xs}
                         color={styles.detailStat.color}
                       />
                     </IconButton>

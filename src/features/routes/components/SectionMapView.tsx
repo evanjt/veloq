@@ -13,13 +13,14 @@
  */
 
 import React, { useMemo, useRef, useState, useCallback, useEffect, memo } from 'react';
-import { View, Pressable, Modal, StatusBar, Animated, ActivityIndicator } from 'react-native';
+import { View, Pressable, StatusBar, Animated, ActivityIndicator } from 'react-native';
+import { FullWindowModal } from '@/shared/ui/FullWindowModal';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useIsFocused } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { getActivityColor } from '@/shared/activity/activityUtils';
-import { colors, spacing } from '@/theme';
+import { colors, iconSize, spacing } from '@/theme';
 import { useMapPreferences } from '@/features/settings';
 import {
   BaseMapView,
@@ -484,7 +485,7 @@ export const SectionMapView = memo(function SectionMapView({
   if (!bounds || displayPoints.length === 0) {
     return (
       <View style={[styles.placeholder, { height, backgroundColor: activityColor + '20' }]}>
-        <MaterialCommunityIcons name="map-marker-off" size={32} color={activityColor} />
+        <MaterialCommunityIcons name="map-marker-off" size={iconSize.xl} color={activityColor} />
       </View>
     );
   }
@@ -586,7 +587,7 @@ export const SectionMapView = memo(function SectionMapView({
               >
                 <MaterialCommunityIcons
                   name={getStyleIcon(drawnMapStyle)}
-                  size={22}
+                  size={iconSize.lg}
                   color={isDark ? colors.textOnDark : colors.textSecondary}
                 />
               </Pressable>
@@ -608,7 +609,7 @@ export const SectionMapView = memo(function SectionMapView({
                 >
                   <MaterialCommunityIcons
                     name="terrain"
-                    size={22}
+                    size={iconSize.lg}
                     color={
                       is3DMode
                         ? colors.textOnDark
@@ -630,7 +631,7 @@ export const SectionMapView = memo(function SectionMapView({
                 android_ripple={pressRipple}
               >
                 <CompassArrow
-                  size={22}
+                  size={iconSize.lg}
                   rotation={bearingAnim}
                   northColor={colors.error}
                   southColor={isDark ? colors.textOnDark : colors.textSecondary}
@@ -659,7 +660,7 @@ export const SectionMapView = memo(function SectionMapView({
                 ) : (
                   <MaterialCommunityIcons
                     name="crosshairs-gps"
-                    size={22}
+                    size={iconSize.lg}
                     color={isDark ? colors.textOnDark : colors.textSecondary}
                   />
                 )}
@@ -677,7 +678,7 @@ export const SectionMapView = memo(function SectionMapView({
                 >
                   <MaterialCommunityIcons
                     name="fullscreen"
-                    size={22}
+                    size={iconSize.lg}
                     color={isDark ? colors.textOnDark : colors.textSecondary}
                   />
                 </Pressable>
@@ -704,14 +705,18 @@ export const SectionMapView = memo(function SectionMapView({
           {mapContent}
           {showExpandOverlay ? (
             <View style={styles.expandOverlay}>
-              <MaterialCommunityIcons name="fullscreen" size={20} color={colors.textOnDark} />
+              <MaterialCommunityIcons
+                name="fullscreen"
+                size={iconSize.md}
+                color={colors.textOnDark}
+              />
             </View>
           ) : null}
         </Pressable>
       )}
 
       {/* Fullscreen modal using BaseMapView */}
-      <Modal
+      <FullWindowModal
         visible={isFullscreen}
         animationType="fade"
         statusBarTranslucent
@@ -740,7 +745,7 @@ export const SectionMapView = memo(function SectionMapView({
             {...fullscreenLegendLayers}
           />
         )}
-      </Modal>
+      </FullWindowModal>
     </>
   );
 });

@@ -9,7 +9,15 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { sourceFor } from '@/shared/app/source';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
-import { spacing, colors, colorWithOpacity, layout, typography, themePalette } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  iconSize,
+  layout,
+  spacing,
+  themePalette,
+  typography,
+} from '@/theme';
 import { GrantAccessButton } from './GrantAccessButton';
 import { IconButton } from '@/shared/ui/IconButton';
 
@@ -39,7 +47,7 @@ function PermissionUpgradeBannerInner() {
         <View style={styles.row}>
           <MaterialCommunityIcons
             name="shield-lock-outline"
-            size={18}
+            size={iconSize.md}
             color={palette.warningAmber}
           />
           <Text style={[styles.text, { color: palette.amberIcon }]} numberOfLines={2}>
@@ -51,7 +59,7 @@ function PermissionUpgradeBannerInner() {
             onPress={dismissBanner}
             accessibilityLabel={t('common.close', 'Close')}
           >
-            <MaterialCommunityIcons name="close" size={18} color={palette.amberIcon} />
+            <MaterialCommunityIcons name="close" size={iconSize.md} color={palette.amberIcon} />
           </IconButton>
         </View>
         {error ? (

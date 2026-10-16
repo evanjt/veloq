@@ -74,7 +74,8 @@ export const md3DarkScheme: MD3Scheme = {
   error: darkColors.error,
   errorContainer: colors.errorDeep,
   onPrimary: colors.textOnPrimary,
-  onPrimaryContainer: colors.textOnPrimary,
+  // The container is the bright teal, which white reads 3.74:1 on.
+  onPrimaryContainer: colors.textOnBright,
   // Dark ink on the blue: white reads 2.96:1 on it.
   onSecondary: colors.textPrimary,
   onSecondaryContainer: colors.textPrimary,

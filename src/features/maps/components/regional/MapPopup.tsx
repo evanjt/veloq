@@ -3,13 +3,12 @@ import { View, Text, StyleSheet, type StyleProp, type ViewStyle } from 'react-na
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, typography, spacing, layout, shadows } from '@/theme';
+import { colors, darkColors, iconSize, layout, shadows, spacing, typography } from '@/theme';
 import { Button, IconButton } from '@/shared/ui';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 /** The size every stat glyph is drawn at */
-export const MAP_POPUP_STAT_ICON_SIZE = 20;
 
 export interface MapPopupStat {
   key: string;
@@ -93,7 +92,13 @@ export const MapPopup = memo(function MapPopup({
             label={t('maps.viewDetails')}
             variant="ghost"
             size="sm"
-            icon={<MaterialCommunityIcons name="chevron-right" size={18} color={colors.primary} />}
+            icon={
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={iconSize.md}
+                color={colors.primary}
+              />
+            }
           />
         ) : null}
         {zoom ? (
@@ -103,7 +108,11 @@ export const MapPopup = memo(function MapPopup({
             variant="ghost"
             accessibilityLabel={zoom.label}
           >
-            <MaterialCommunityIcons name="crosshairs-gps" size={22} color={colors.primary} />
+            <MaterialCommunityIcons
+              name="crosshairs-gps"
+              size={iconSize.lg}
+              color={colors.primary}
+            />
           </IconButton>
         ) : null}
         <IconButton
@@ -112,7 +121,7 @@ export const MapPopup = memo(function MapPopup({
           variant="ghost"
           accessibilityLabel={closeLabel}
         >
-          <MaterialCommunityIcons name="close" size={22} color={ink} />
+          <MaterialCommunityIcons name="close" size={iconSize.lg} color={ink} />
         </IconButton>
       </View>
 
@@ -122,11 +131,7 @@ export const MapPopup = memo(function MapPopup({
             {stat.renderIcon
               ? stat.renderIcon(ink)
               : stat.icon && (
-                  <MaterialCommunityIcons
-                    name={stat.icon}
-                    size={MAP_POPUP_STAT_ICON_SIZE}
-                    color={ink}
-                  />
+                  <MaterialCommunityIcons name={stat.icon} size={iconSize.md} color={ink} />
                 )}
             {stat.value !== undefined && (
               <Text style={[styles.statValue, isDark && styles.statValueDark]}>{stat.value}</Text>

@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { tapTo } from '@/shared/app/navigation';
 import { Card } from '@/shared/ui/Card';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { getVisibleUnuploadedCount } from '@/features/recording/lib/storage/recordingLibrary';
 
 /** Home banner shown while locally saved recordings are not yet on intervals.icu. */
@@ -44,11 +44,11 @@ function PendingUploadsCardInner() {
       accessibilityLabel={label}
       style={styles.row}
     >
-      <MaterialCommunityIcons name="cloud-upload-outline" size={18} color={tint} />
+      <MaterialCommunityIcons name="cloud-upload-outline" size={iconSize.sm} color={tint} />
       <Text style={[styles.text, { color: tint }]} numberOfLines={1}>
         {label}
       </Text>
-      <MaterialCommunityIcons name="chevron-right" size={18} color={tint} />
+      <MaterialCommunityIcons name="chevron-right" size={iconSize.sm} color={tint} />
     </Card>
   );
 }

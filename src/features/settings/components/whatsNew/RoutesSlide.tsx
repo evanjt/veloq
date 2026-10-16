@@ -7,7 +7,8 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Canvas, Path, Rect } from '@shopify/react-native-skia';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, layout, spacing, colorWithOpacity, ink } from '@/theme';
+import { colors, darkColors, layout, spacing, colorWithOpacity } from '@/theme';
+import { tourPanelColour } from './tourPanel';
 
 const MAP_SIZE = 96;
 const BARS_WIDTH = 120;
@@ -37,7 +38,7 @@ function loopPath(offset: number): string {
 export function RoutesSlide() {
   const { isDark } = useTheme();
   const palette = isDark ? darkColors : colors;
-  const background = isDark ? colorWithOpacity(ink.white, 0.06) : colorWithOpacity(ink.black, 0.04);
+  const background = tourPanelColour(isDark);
 
   const picture = useMemo(() => {
     const best = Math.min(...ROUTE_TIMES);

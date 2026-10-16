@@ -44,6 +44,7 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   textDisabled: 'text',
   textOnDark: 'text',
   textOnPrimary: 'text',
+  textOnBright: 'text',
   warningAmber: 'text',
   amberIcon: 'text',
   successDeep: 'text',
@@ -142,6 +143,7 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   successLight: 'ground',
   successDark: 'ground',
   error: 'ground',
+  dangerFill: 'ground',
   errorLight: 'ground',
   warning: 'ground',
   warningLight: 'ground',
@@ -249,11 +251,13 @@ export const BRAND_FAMILIES: Record<string, TokenFamily> = {
  */
 export const TOKEN_GROUNDS: Record<string, readonly string[]> = {
   // `primary` is no longer under white: the filled teal controls carry the
-  // dark ink, and neither is `info` any more. The one ground left is the
-  // demo banner's dark-mode fill, `secondary`, which carries white at 4.51:1
-  // where dark ink on it is 3.93:1, and the sync pill's fill in both themes.
-  textOnDark: ['secondary', 'appColourPillBackground'],
-  textOnPrimary: ['accent', 'accentLight', 'primary'],
+  // dark ink, and neither is `info` any more. White sits on the demo banner's
+  // dark-mode fill, `secondary`, at 4.51:1 where dark ink on it is 3.93:1, on
+  // the sync pill's fill in both themes and on the destructive fill. Each
+  // filled ground names its own ink, so the primary ink moves alone.
+  textOnDark: ['secondary', 'appColourPillBackground', 'dangerFill'],
+  textOnPrimary: ['primary'],
+  textOnBright: ['accent', 'accentLight', 'primaryLight', 'success', 'warning', 'info'],
 };
 
 /**

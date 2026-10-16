@@ -22,6 +22,7 @@ import { heroStats } from '@/features/routes/lib/heroStats';
 import {
   colors,
   darkColors,
+  iconSize,
   layout,
   opacity,
   slopToMinTapTarget,
@@ -146,12 +147,12 @@ export function SectionHeader({
               android_ripple={pressRipple}
               hitSlop={liftBadgeSlop}
             >
-              <MaterialCommunityIcons name="gondola" size={12} color={colors.textOnDark} />
+              <MaterialCommunityIcons name="gondola" size={iconSize.sm} color={colors.textOnDark} />
               <Text style={styles.liftBadgeText}>{t('sections.liftGround')}</Text>
               {onUnflagLift ? (
                 <MaterialCommunityIcons
                   name="close"
-                  size={12}
+                  size={iconSize.sm}
                   color={colors.textOnDark}
                   testID="section-lift-unflag"
                 />

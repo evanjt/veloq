@@ -9,7 +9,15 @@ import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { pressable, pressRipple, SheetActions, SheetHeader, SheetScrollView } from '@/shared/ui';
 import { formatDistance, formatFullDate } from '@/shared/format/format';
 import { SportIcons } from '@/shared/activity/SportIcons';
-import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  darkColors,
+  iconSize,
+  layout,
+  spacing,
+  typography,
+} from '@/theme';
 import {
   useMergeSections,
   type MergeConfirmSheetInput,
@@ -79,7 +87,7 @@ function MergeConfirmSheetContent() {
             {section.name}
           </Text>
           <View style={styles.optionStats}>
-            <SportIcons sportTypes={section.sportTypes} size={14} color={textSecondary} />
+            <SportIcons sportTypes={section.sportTypes} size={iconSize.sm} color={textSecondary} />
             <Text style={[styles.optionStat, { color: textSecondary }]}>
               {t('sections.traversalsCount', { count: section.visitCount })}
             </Text>

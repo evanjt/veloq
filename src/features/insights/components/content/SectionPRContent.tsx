@@ -14,7 +14,7 @@ import { SectionInsightMap } from './SectionInsightMap';
 import { SectionPerformanceTimeline } from './SectionPerformanceTimeline';
 import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration, formatShortDate } from '@/shared/format/format';
-import { colors, darkColors, spacing, opacity, brand, layout, typography } from '@/theme';
+import { brand, colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
 import { prRecordOf } from '@/features/insights/lib/directionBests';
 import type { Insight } from '@/types';
 
@@ -81,7 +81,7 @@ export const SectionPRContent = React.memo(function SectionPRContent({
               {sportType ? (
                 <MaterialCommunityIcons
                   name={getActivityIcon(sportType)}
-                  size={14}
+                  size={iconSize.sm}
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
                   style={styles.sportIcon}
                 />

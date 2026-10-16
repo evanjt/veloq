@@ -2945,6 +2945,23 @@ pub struct FfiDirectionDeltas {
     /// The largest number of seconds any of `laps` is behind or ahead of the
     /// reference, 0 when none has a finite delta.
     pub peak_delta_secs: f32,
+    /// The typical lap's time against the reference per split, over the laps
+    /// other than the reference. `None` when no split has enough laps.
+    pub split_summary: Option<FfiSplitSummary>,
+}
+
+/// Each split's distribution of `split_delta_secs` over a direction's laps,
+/// the reference left out, in travel order. A split's median is NaN under
+/// the laps a typical lap needs and its quartiles NaN under the laps a spread
+/// needs.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSplitSummary {
+    pub median_secs: FfiFloat32Array,
+    pub lower_quartile_secs: FfiFloat32Array,
+    pub upper_quartile_secs: FfiFloat32Array,
+    /// The laps with a finite delta over each split, which its figures come
+    /// from.
+    pub laps: Vec<u32>,
 }
 
 /// One lap's time against the reference along the section.

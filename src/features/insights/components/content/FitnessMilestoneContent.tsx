@@ -7,12 +7,13 @@ import { useTheme } from '@/shared/app';
 import {
   colors,
   darkColors,
-  spacing,
+  iconSize,
+  layout,
   opacity,
+  spacing,
+  typography,
   verdictColor,
   verdictFill,
-  layout,
-  typography,
 } from '@/theme';
 import { formatEpochDayUtc } from '@/shared/format/format';
 import type { Insight } from '@/types';
@@ -92,7 +93,7 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
       {/* Change badge, under the sheet's figure */}
       {changeStr ? (
         <View style={[styles.changeBadge, { backgroundColor: verdictFill(rung, isDark) }]}>
-          <MaterialCommunityIcons name={glyph} size={16} color={rungColor} />
+          <MaterialCommunityIcons name={glyph} size={iconSize.md} color={rungColor} />
           <Text style={[styles.changeText, { color: rungColor }]}>
             {changeStr} {changeUnit}
           </Text>

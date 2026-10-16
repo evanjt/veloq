@@ -26,7 +26,7 @@ import { useSyncState } from '@/shared/native/useSyncStatus';
 import { useMapPreviewCoordinates } from '../hooks/useMapPreviewCoordinates';
 import { isWithinPreviewRange, onPreviewRangeChange } from '../lib/previewRange';
 import { mapPreviewState } from '../lib/mapPreviewState';
-import { layout, ink, colorWithOpacity } from '@/theme';
+import { colorWithOpacity, iconSize, ink, layout } from '@/theme';
 import { SyncState } from 'veloqrs';
 import type { Activity } from '@/types';
 import type { PreviewTrack } from '@/features/home';
@@ -288,7 +288,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   if (previewState === 'noGps') {
     return (
       <View style={[styles.placeholder, { height, backgroundColor: activityColor + '20' }]}>
-        <MaterialCommunityIcons name="map-marker-off" size={32} color={activityColor} />
+        <MaterialCommunityIcons name="map-marker-off" size={iconSize.xl} color={activityColor} />
       </View>
     );
   }
@@ -311,7 +311,11 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   if (previewState === 'awaitingDownload') {
     return (
       <View style={[styles.placeholder, { height, backgroundColor: activityColor + '20' }]}>
-        <MaterialCommunityIcons name="cloud-download-outline" size={32} color={activityColor} />
+        <MaterialCommunityIcons
+          name="cloud-download-outline"
+          size={iconSize.xl}
+          color={activityColor}
+        />
       </View>
     );
   }
@@ -348,7 +352,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
           <View style={styles.compassOverlay} testID="activity-map-preview-compass">
             <StaticCompassArrow
               bearing={bearing}
-              size={16}
+              size={iconSize.sm}
               southColor={colorWithOpacity(ink.white, 0.7)}
             />
           </View>
@@ -374,7 +378,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   // nothing will ever resolve.
   return (
     <View style={[styles.placeholder, { height, backgroundColor: activityColor + '20' }]}>
-      <MaterialCommunityIcons name="map-marker-off" size={32} color={activityColor} />
+      <MaterialCommunityIcons name="map-marker-off" size={iconSize.xl} color={activityColor} />
     </View>
   );
 });

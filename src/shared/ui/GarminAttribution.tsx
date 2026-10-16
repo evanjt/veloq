@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 
 /**
@@ -41,7 +41,7 @@ export function DeviceAttribution({ deviceName }: DeviceAttributionProps) {
       <View style={styles.deviceRow}>
         <MaterialCommunityIcons
           name="watch"
-          size={14}
+          size={iconSize.sm}
           color={isDark ? darkColors.textSecondary : colors.textSecondary}
         />
         <Text style={[styles.deviceText, isDark && styles.deviceTextDark]}>

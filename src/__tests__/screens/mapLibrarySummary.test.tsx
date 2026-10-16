@@ -27,6 +27,8 @@ jest.mock('expo-router', () => ({
   useSegments: () => ['(tabs)', 'map'],
 }));
 jest.mock('@/features/maps', () => ({
+  ...jest.requireActual('@/features/maps/lib/filterSheet'),
+  ATTRIBUTION_CLEARANCE: 26,
   AttributionOverlay: () => null,
   ACTIVITY_CATEGORIES: {
     Ride: { color: 'blue', labelKey: 'ride', types: ['Ride'] },
@@ -35,8 +37,6 @@ jest.mock('@/features/maps', () => ({
   FILTER_CHIP: { fill: 'teal', ink: 'black' },
   categoryChipColours: () => ({ fill: 'red', ink: 'black' }),
   DEFAULT_MAP_PERIOD: 'all',
-  filterSheetExpandedAfterDrag: jest.requireActual('@/features/maps/lib/filterSheet')
-    .filterSheetExpandedAfterDrag,
   getPeriodStart: (period: string) => new Date(period === 'all' ? '2000-01-01' : '2026-01-01'),
   groupTypesByCategory: (types: string[]) =>
     new Map<string, string[]>([

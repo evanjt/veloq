@@ -14,7 +14,16 @@ import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-nativ
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as haptics from '@/shared/ui/haptics';
-import { colors, darkColors, typography, spacing, layout, ink, slopToMinTapTarget } from '@/theme';
+import {
+  colors,
+  darkColors,
+  iconSize,
+  ink,
+  layout,
+  slopToMinTapTarget,
+  spacing,
+  typography,
+} from '@/theme';
 import { formatDistance } from '@/shared/format/format';
 import {
   keepsEnoughPoints,
@@ -313,7 +322,7 @@ export function SectionTrimOverlay({
       <View style={styles.infoRow}>
         <MaterialCommunityIcons
           name={isExpandMode ? 'arrow-expand-horizontal' : 'content-cut'}
-          size={16}
+          size={iconSize.sm}
           color={isTrimmed ? colors.primary : mutedColor}
         />
         {isSaving ? (
@@ -345,7 +354,7 @@ export function SectionTrimOverlay({
             onPress={onReset}
             disabled={isSaving}
           >
-            <MaterialCommunityIcons name="refresh" size={16} color={colors.primary} />
+            <MaterialCommunityIcons name="refresh" size={iconSize.sm} color={colors.primary} />
           </IconButton>
         ) : null}
       </View>
@@ -395,7 +404,7 @@ export function SectionTrimOverlay({
           >
             <MaterialCommunityIcons
               name="chevron-left"
-              size={16}
+              size={iconSize.sm}
               color={stepInk(startEarlierOut)}
             />
           </Pressable>
@@ -408,7 +417,11 @@ export function SectionTrimOverlay({
             disabled={startLaterOut}
             android_ripple={pressRipple}
           >
-            <MaterialCommunityIcons name="chevron-right" size={16} color={stepInk(startLaterOut)} />
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={iconSize.sm}
+              color={stepInk(startLaterOut)}
+            />
           </Pressable>
         </View>
         <View style={styles.stepGroup}>
@@ -421,7 +434,11 @@ export function SectionTrimOverlay({
             disabled={endEarlierOut}
             android_ripple={pressRipple}
           >
-            <MaterialCommunityIcons name="chevron-left" size={16} color={stepInk(endEarlierOut)} />
+            <MaterialCommunityIcons
+              name="chevron-left"
+              size={iconSize.sm}
+              color={stepInk(endEarlierOut)}
+            />
           </Pressable>
           <Pressable
             style={pressable([styles.stepButton, isDark && styles.stepButtonDark])}
@@ -432,7 +449,11 @@ export function SectionTrimOverlay({
             disabled={endLaterOut}
             android_ripple={pressRipple}
           >
-            <MaterialCommunityIcons name="chevron-right" size={16} color={stepInk(endLaterOut)} />
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={iconSize.sm}
+              color={stepInk(endLaterOut)}
+            />
           </Pressable>
         </View>
       </View>
@@ -460,7 +481,7 @@ export function SectionTrimOverlay({
           onPress={onCancel}
           disabled={isSaving}
           style={styles.actionBtn}
-          icon={<MaterialCommunityIcons name="close" size={18} color={colors.error} />}
+          icon={<MaterialCommunityIcons name="close" size={iconSize.md} color={colors.error} />}
         />
         <Button
           testID="section-trim-confirm"
@@ -471,7 +492,7 @@ export function SectionTrimOverlay({
           icon={
             <MaterialCommunityIcons
               name="check"
-              size={18}
+              size={iconSize.md}
               color={canSave ? colors.textOnPrimary : mutedColor}
             />
           }

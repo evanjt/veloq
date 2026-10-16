@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { getPhaseDisplayKey, useCutoverSummary } from '@/features/routes';
 import { CUTOVER_FAILURE_KEYS } from '../../lib/cutoverPhaseKeys';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import type { CutoverSettings, CutoverSettingsReset } from 'veloqrs';
 
 type Translate = (key: string, vars?: Record<string, unknown>) => string;
@@ -76,7 +76,7 @@ export function SectionChangeCardSlide() {
         <View style={styles.row} testID="change-card-failed">
           <MaterialCommunityIcons
             name="alert-circle-outline"
-            size={18}
+            size={iconSize.md}
             color={isDark ? darkColors.error : colors.error}
           />
           <Text style={[styles.text, isDark && styles.textDark]}>{t(failure.card)}</Text>
@@ -103,7 +103,7 @@ export function SectionChangeCardSlide() {
         <View style={styles.row} testID="change-card-settings-reset">
           <MaterialCommunityIcons
             name="tune-variant"
-            size={18}
+            size={iconSize.md}
             color={isDark ? darkColors.primary : colors.primary}
           />
           <Text style={[styles.text, isDark && styles.textDark]}>

@@ -40,8 +40,12 @@ function isolated(attached: string[] = []): NodeJS.ProcessEnv {
     PATH: `${dir}:${process.env.PATH}`,
     VELOQ_DEVICE_LOCK_DIR: dir,
     VELOQ_DEVICE_LOCK_HANDSET: '0',
+    // The suite's own test handsets, so no allowlist on the machine running it applies.
+    VELOQ_TEST_HANDSETS: `${PINNED} ${OTHER}`,
+    XDG_CONFIG_HOME: dir,
   };
   for (const name of [
+    'VELOQ_ALLOW_HANDSET',
     'ANDROID_SERIAL',
     'VELOQ_DEVICE_SERIAL',
     'VELOQ_DEVICE_LOCK',
@@ -203,6 +207,127 @@ describe('the handset takes a lock of its own', () => {
 });
 
 /**
+ * Scenario: a headless run resolves the lock to a phone nobody designated for
+ * testing, such as someone's own handset left connected to the machine.
+ *
+ * Expected behaviour: the lock refuses before anything reaches the phone. The
+ * rigs behind it uninstall the app or clear its data, so a run that lands on
+ * the wrong handset wipes a real library. Emulators, an allowlisted serial and
+ * a run that names the serial in `VELOQ_ALLOW_HANDSET` pass.
+ */
+describe('a handset that is not a test handset', () => {
+  /** An invented serial on no allowlist. */
+  const UNLISTED = '192.0.2.40:5555';
+  /** An invented serial the allowlist cases list beside it. */
+  const LISTED = '203.0.113.9:5555';
+  const EMULATOR = 'emulator-5554';
+
+  /** One attached handset, no allowlist anywhere, and a lock of the test's own. */
+  function unlisted(attached: string[] = [UNLISTED]): NodeJS.ProcessEnv {
+    const env = isolated(attached);
+    return {
+      ...env,
+      VELOQ_TEST_HANDSETS: '',
+      VELOQ_DEVICE_LOCK: path.join(env.VELOQ_DEVICE_LOCK_DIR!, 'lock'),
+    };
+  }
+
+  function take(env: NodeJS.ProcessEnv, taker = 'scripts/with-device-lock.sh') {
+    return spawnSync(path.join(projectRoot, taker), ['sh', '-c', 'echo ran'], {
+      encoding: 'utf8',
+      env,
+      timeout: 10000,
+    });
+  }
+
+  function expectRefused(run: ReturnType<typeof take>, serial = UNLISTED) {
+    expect(run.stdout).not.toContain('ran');
+    expect(run.status).not.toBe(0);
+    expect(run.stderr).toContain(serial);
+    expect(run.stderr).toContain('VELOQ_ALLOW_HANDSET');
+  }
+
+  it('refuses an attached handset on no allowlist', () => {
+    expectRefused(take(unlisted()));
+  });
+
+  it('refuses through the hand-taken lock too', () => {
+    expectRefused(take(unlisted(), 'scripts/device-lock-shell.sh'));
+  });
+
+  it('sends the refused handset nothing', () => {
+    const env = unlisted();
+    const calls = path.join(env.VELOQ_DEVICE_LOCK_DIR!, 'adb-calls');
+    fs.writeFileSync(
+      path.join(env.VELOQ_DEVICE_LOCK_DIR!, 'adb'),
+      `#!/bin/sh\necho "$*" >> ${calls}\nprintf 'List of devices attached\\n${UNLISTED}\\tdevice\\n'\n`,
+      { mode: 0o755 }
+    );
+    expectRefused(take({ ...env, VELOQ_DEVICE_LOCK_HANDSET: '1' }));
+    expect(fs.readFileSync(calls, 'utf8').trim().split('\n')).toEqual(['devices']);
+  });
+
+  it('runs on an emulator', () => {
+    const run = take(unlisted([EMULATOR]));
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain('ran');
+  });
+
+  it('runs on an iOS simulator, whose UDID is a UUID, and not on a phone-shaped UDID', () => {
+    const simulator = take({
+      ...unlisted(),
+      ANDROID_SERIAL: '00000000-0000-4000-8000-0000000000aa',
+    });
+    expect(simulator.status).toBe(0);
+    expect(simulator.stdout).toContain('ran');
+    expectRefused(
+      take({ ...unlisted(), ANDROID_SERIAL: '00008110-000A1B2C3D4E5F60' }),
+      '00008110-000A1B2C3D4E5F60'
+    );
+  });
+
+  it('runs on a serial listed in VELOQ_TEST_HANDSETS', () => {
+    const run = take({ ...unlisted(), VELOQ_TEST_HANDSETS: `${LISTED} ${UNLISTED}` });
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain('ran');
+  });
+
+  it('runs on a serial listed in the allowlist file, ignoring comment lines', () => {
+    const env = unlisted();
+    delete env.VELOQ_TEST_HANDSETS;
+    const file = path.join(env.XDG_CONFIG_HOME!, 'veloq/test-handsets');
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, `# the bench phone\n${LISTED}\n  ${UNLISTED}  \n`);
+    const run = take(env);
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain('ran');
+
+    fs.writeFileSync(file, `# ${UNLISTED}\n${LISTED}\n`);
+    expectRefused(take(env));
+  });
+
+  it('runs when the run names the serial in VELOQ_ALLOW_HANDSET', () => {
+    const run = take({ ...unlisted(), VELOQ_ALLOW_HANDSET: UNLISTED });
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain('ran');
+  });
+
+  it('still refuses when VELOQ_ALLOW_HANDSET names another serial', () => {
+    expectRefused(take({ ...unlisted(), VELOQ_ALLOW_HANDSET: LISTED }));
+  });
+
+  it('refuses an unlisted ANDROID_SERIAL even with an emulator attached', () => {
+    expectRefused(take({ ...unlisted([EMULATOR, UNLISTED]), ANDROID_SERIAL: UNLISTED }));
+  });
+
+  it('runs as before with nothing attached', () => {
+    const run = take(unlisted([]));
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain('ran');
+  });
+});
+
+/**
  * Scenario: an agent drives `adb` by hand under the documented bare `flock`,
  * then reaches for a `scripts/` helper inside that shell.
  *
@@ -321,16 +446,21 @@ describe('the Maestro wrapper', () => {
       mode: 0o755,
     });
     fs.writeFileSync(path.join(dir, 'maestro'), `#!/bin/sh\necho "$@" > ${ran}\n`, { mode: 0o755 });
-    return {
+    const stub: { env: NodeJS.ProcessEnv; ran: string } = {
       env: {
         ...process.env,
         PATH: `${dir}:${process.env.PATH}`,
         VELOQ_DEVICE_LOCK: path.join(dir, 'lock'),
         VELOQ_DEVICE_LOCK_HELD: '',
         ANDROID_SERIAL: '192.168.1.118:5555',
+        XDG_CONFIG_HOME: dir,
       },
       ran,
     };
+    // The pinned handset is the test handset, whatever the machine's own allowlist says.
+    stub.env.VELOQ_TEST_HANDSETS = stub.env.ANDROID_SERIAL;
+    delete stub.env.VELOQ_ALLOW_HANDSET;
+    return stub;
   }
 
   const HEALTHY = 'List of devices attached\n192.168.1.118:5555\tdevice';

@@ -7,8 +7,8 @@ interface SlideContent {
   bodyKey: string;
   /** MaterialCommunityIcons icon name */
   icon: string;
-  /** Custom component rendered below the text. Omit for a slide of text alone. */
-  Component?: ComponentType;
+  /** The picture drawn below the text. Every slide has one, so none shows an empty field. */
+  Component: ComponentType;
 }
 
 /**
@@ -176,6 +176,9 @@ const TUTORIAL_SLIDES: WhatsNewSlideDefinition[] = [
     titleKey: 'whatsNew.tutorial.firstLoadTitle',
     bodyKey: 'whatsNew.tutorial.firstLoadBody',
     icon: 'cloud-download-outline',
+    get Component() {
+      return require('./FirstLoadSlide').FirstLoadSlide;
+    },
   },
   {
     titleKey: 'whatsNew.tutorial.feedTitle',
@@ -184,11 +187,17 @@ const TUTORIAL_SLIDES: WhatsNewSlideDefinition[] = [
     showMeRoute: '/',
     showMeTip: 'whatsNew.tutorial.feedTip',
     showMeWhen: 'hasActivities',
+    get Component() {
+      return require('./FeedSlide').FeedSlide;
+    },
   },
   {
     titleKey: 'whatsNew.tutorial.activityTitle',
     bodyKey: 'whatsNew.tutorial.activityBody',
     icon: 'chart-line',
+    get Component() {
+      return require('./ActivitySlide').ActivitySlide;
+    },
   },
   MAP_STYLES,
   FITNESS,

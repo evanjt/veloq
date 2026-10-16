@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { Button } from './Button';
 import { StatusLine } from './StatusLine';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
 import { tapBack } from '@/shared/app/navigation';
 import { offerCrashLog } from '@/shared/app/supportLinks';
@@ -87,7 +87,7 @@ function ScreenErrorFallback({ error, onRetry }: FallbackProps) {
     >
       <MaterialCommunityIcons
         name="alert-circle-outline"
-        size={48}
+        size={iconSize.xxl}
         color={isDark ? darkColors.textSecondary : colors.textSecondary}
       />
       <Text accessibilityRole="header" style={[styles.title, { color: themeColors.text }]}>

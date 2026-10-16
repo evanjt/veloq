@@ -131,6 +131,11 @@ const SHEETS: Record<
     input: { title: 'Cadence', value: '88', icon: 'speedometer', color: '#336699' },
     dismiss: 'close',
   },
+  'sheets/chart-data': {
+    load: () => require('@/app/sheets/chart-data').default,
+    input: { title: 'Kiln output', columns: ['Day', 'Output (W)'], rows: [] },
+    dismiss: 'close',
+  },
   'sheets/strength-pairs-info': {
     load: () => require('@/app/sheets/strength-pairs-info').default,
     dismiss: 'close',

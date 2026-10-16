@@ -22,7 +22,15 @@ import type { FfiCatalogueEmptyReason, GroupWithPolyline } from 'veloqrs';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, layout, slopToMinTapTarget, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  iconSize,
+  layout,
+  slopToMinTapTarget,
+  spacing,
+  typography,
+} from '@/theme';
 import { haversineDistance, type LatLngShort } from '@/shared/geo/distance';
 import { filterSummary } from '@/shared/format/filterSummary';
 import {
@@ -283,7 +291,7 @@ export const RoutesList = memo(function RoutesList({
                   >
                     <MaterialCommunityIcons
                       name={chip.icon}
-                      size={13}
+                      size={iconSize.xs}
                       color={
                         isActive
                           ? colors.primary

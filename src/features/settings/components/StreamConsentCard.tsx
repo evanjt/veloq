@@ -19,7 +19,7 @@ import { useTheme } from '@/shared/app';
 import { Button } from '@/shared/ui';
 
 import { useStreamBackfill } from '../hooks/useStreamBackfill';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { Card } from '@/shared/ui/Card';
 
 export function StreamConsentCard() {
@@ -35,7 +35,7 @@ export function StreamConsentCard() {
         <View style={styles.header}>
           <MaterialCommunityIcons
             name="cloud-download-outline"
-            size={22}
+            size={iconSize.lg}
             color={isDark ? darkColors.textPrimary : colors.textPrimary}
           />
           <Text style={[styles.title, isDark && styles.titleDark]}>

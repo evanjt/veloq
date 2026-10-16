@@ -7,7 +7,7 @@ import { useTheme } from '@/shared/app';
 import { tapTo } from '@/shared/app/navigation';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { formatDuration } from '@/shared/format/format';
-import { brand, colors, darkColors, spacing, typography } from '@/theme';
+import { brand, colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import type { Insight, SupportingRoute } from '@/types';
 import { SheetContext } from './SheetContext';
 import { Row } from '@/shared/ui';
@@ -37,7 +37,7 @@ const RouteRow = React.memo(function RouteRow({ route }: { route: SupportingRout
         <View style={styles.nameRow}>
           <MaterialCommunityIcons
             name={getActivityIcon(route.sportType)}
-            size={14}
+            size={iconSize.sm}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
             style={styles.sportIcon}
           />
@@ -45,7 +45,7 @@ const RouteRow = React.memo(function RouteRow({ route }: { route: SupportingRout
             {label}
           </Text>
           {route.isRecentRecord ? (
-            <MaterialCommunityIcons name="trophy" size={14} color={brand.gold} />
+            <MaterialCommunityIcons name="trophy" size={iconSize.sm} color={brand.gold} />
           ) : null}
         </View>
         <Text style={[styles.meta, isDark && styles.metaDark]}>
@@ -74,7 +74,11 @@ const RouteRow = React.memo(function RouteRow({ route }: { route: SupportingRout
           {formatDuration(route.bestTime)}
         </Text>
         {route.trend !== 0 ? (
-          <MaterialCommunityIcons name={rowTrendIcon(route.trend)} size={16} color={lineColor} />
+          <MaterialCommunityIcons
+            name={rowTrendIcon(route.trend)}
+            size={iconSize.sm}
+            color={lineColor}
+          />
         ) : null}
       </View>
     </Row>

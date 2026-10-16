@@ -9,7 +9,7 @@ import { Button } from '@/shared/ui/Button';
 import { IconButton } from '@/shared/ui/IconButton';
 import { OpenSettingsButton } from '@/shared/ui/PermissionNotice';
 import { SignalStatus, signalColor } from '@/shared/ui/SignalStatus';
-import { layout, spacing } from '@/theme';
+import { iconSize, layout, spacing } from '@/theme';
 import { isLiveActivityAvailable, isLiveActivitySupported } from '../lib/liveActivity/bridge';
 import { useRecordingPreferences } from '../stores/RecordingPreferencesStore';
 
@@ -102,7 +102,11 @@ export function OutsideAppNotice({ askOnArrival }: { askOnArrival: boolean }) {
         onPress={() => setDismissed(true)}
         accessibilityLabel={t('common.close')}
       >
-        <MaterialCommunityIcons name="close" size={18} color={signalColor('warn', isDark)} />
+        <MaterialCommunityIcons
+          name="close"
+          size={iconSize.md}
+          color={signalColor('warn', isDark)}
+        />
       </IconButton>
     </View>
   );

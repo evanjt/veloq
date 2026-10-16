@@ -67,10 +67,12 @@
     "backupFailedTransport": "Veloq couldn't reach the server. It'll try again later.",
     "backupFailedFolder": "Veloq can't get to the backup folder any more. Pick the folder again.",
     "backupFailedUnverified": "Veloq wrote the backup but couldn't read it back to check it. It'll try again later.",
+    "backupFailedAddress": "The WebDAV server address has to be a valid https:// address. Check it in Backup settings.",
     "lastAttemptFailed": "Last go failed on {{date}}",
     "invalidQrCode": "That's not a Nextcloud QR code",
     "cameraPermissionNeeded": "Needs camera access to scan QR codes",
     "fillAllFields": "Fill in all the fields, please",
+    "fillField": "Fill in the {{field}} field, please",
     "webdavInvalidUrl": "That's not a valid server address",
     "webdavSaveFailed": "Couldn't save the server details on this device"
   },
@@ -96,7 +98,7 @@
       "title": "Something's gone pear-shaped"
     },
     "offline": {
-      "description": "Some bits won't work while offline"
+      "description": "Sync and uploads kick off again once you're back online."
     },
     "syncError": {
       "title": "Sync's not getting through",

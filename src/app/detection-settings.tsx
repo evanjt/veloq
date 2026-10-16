@@ -14,7 +14,7 @@ import {
   SettingsNavRow,
   DIVIDER_INSET,
 } from '@/features/settings';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { SwitchRow } from '@/shared/ui/SwitchRow';
 import { tapTo } from '@/shared/app/navigation';
@@ -112,7 +112,11 @@ function DetectionSettingsScreenContent() {
               isScanning ? (
                 <ActivityIndicator size="small" color={textSecondary} />
               ) : (
-                <MaterialCommunityIcons name="refresh" size={18} color={colors.textOnPrimary} />
+                <MaterialCommunityIcons
+                  name="refresh"
+                  size={iconSize.md}
+                  color={colors.textOnPrimary}
+                />
               )
             }
             label={isScanning ? t('common.cancel') : t('settings.reanalyzeSections')}

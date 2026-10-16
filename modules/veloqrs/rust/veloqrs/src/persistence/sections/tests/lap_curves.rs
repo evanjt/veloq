@@ -603,6 +603,159 @@ fn a_direction_carries_the_peak_of_the_laps_it_holds() {
     assert_eq!(forward.peak_delta_secs, largest);
 }
 
+/// A lap on a 300 m line whose three 100 m splits are `splits`, its curve
+/// the running sum of them on the split grid, dated `day`.
+fn split_lap(id: &str, start_index: u32, day: i64, splits: [f32; 3]) -> crate::FfiLapDelta {
+    let mut curve = vec![0.0_f32];
+    for split in splits {
+        curve.push(curve.last().unwrap() + split);
+    }
+    crate::FfiLapDelta {
+        activity_id: id.to_string(),
+        start_index,
+        activity_date: (FIRST_DAY + day * DAY) as f64,
+        end_delta_secs: curve.last().copied().filter(|end| end.is_finite()),
+        delta_secs: curve.into(),
+        split_delta_secs: splits.to_vec().into(),
+    }
+}
+
+/// The record, level with itself, and nine laps after it on days 1 to 9. The
+/// sixth is a second lap of the record's own activity, and its last split is
+/// one it did not cover.
+fn record_and_laps(count: usize) -> Vec<crate::FfiLapDelta> {
+    let splits: [(&str, u32, [f32; 3]); 9] = [
+        ("one", 0, [1.0, 4.0, -2.0]),
+        ("two", 0, [3.0, 2.0, 0.0]),
+        ("three", 0, [2.0, 6.0, 1.0]),
+        ("four", 0, [5.0, 1.0, -1.0]),
+        ("five", 0, [4.0, 3.0, 2.0]),
+        ("record", 900, [0.0, 5.0, f32::NAN]),
+        ("seven", 0, [6.0, 7.0, 3.0]),
+        ("eight", 0, [-1.0, 0.0, 4.0]),
+        ("nine", 0, [7.0, 8.0, -3.0]),
+    ];
+    std::iter::once(split_lap("record", 0, 0, [0.0; 3]))
+        .chain(
+            splits
+                .iter()
+                .take(count)
+                .enumerate()
+                .map(|(n, (id, start, s))| split_lap(id, *start, n as i64 + 1, *s)),
+        )
+        .collect()
+}
+
+fn summary_of(laps: Vec<crate::FfiLapDelta>) -> Option<crate::FfiSplitSummary> {
+    compared(
+        "record".to_string(),
+        FfiReferenceSource::Record,
+        laps,
+        Vec::new(),
+    )
+    .expect("laps beside the record")
+    .split_summary
+}
+
+fn assert_floats(actual: &crate::FfiFloat32Array, expected: &[f32], what: &str) {
+    let same = actual.len() == expected.len()
+        && actual
+            .iter()
+            .zip(expected)
+            .all(|(a, e)| (a.is_nan() && e.is_nan()) || (a - e).abs() < 1e-5);
+    assert!(same, "{what}: {:?} is not {expected:?}", &actual[..]);
+}
+
+/// Scenario: six laps beside the record on a 300 m line, one of them a
+/// second lap of the record's own activity and one split it did not cover.
+///
+/// Expected behaviour: each split's median is the hand median over the laps
+/// other than the record, counting only the laps that cover it, and the
+/// quartiles stay NaN under eight laps.
+#[test]
+fn a_direction_carries_the_typical_lap_per_split_without_the_record() {
+    let summary = summary_of(record_and_laps(6)).expect("five laps reach a median");
+    assert_eq!(summary.laps, vec![6, 6, 5]);
+    assert_floats(&summary.median_secs, &[2.5, 3.5, 0.0], "median");
+    assert_floats(&summary.lower_quartile_secs, &[f32::NAN; 3], "lower");
+    assert_floats(&summary.upper_quartile_secs, &[f32::NAN; 3], "upper");
+}
+
+/// Scenario: five laps beside the record, the last split covered by four.
+///
+/// Expected behaviour: the split under five laps has no median while the two
+/// covered by five do.
+#[test]
+fn a_split_under_five_laps_has_no_typical_lap() {
+    let mut laps = record_and_laps(6);
+    laps.remove(1);
+    let summary = summary_of(laps).expect("two splits reach a median");
+    assert_eq!(summary.laps, vec![5, 5, 4]);
+    assert_floats(&summary.median_secs, &[3.0, 3.0, f32::NAN], "median");
+}
+
+/// Scenario: four laps beside the record, and a direction of one lap.
+///
+/// Expected behaviour: no split reaches five laps, so neither carries a
+/// summary.
+#[test]
+fn a_direction_under_five_laps_carries_no_summary() {
+    assert!(summary_of(record_and_laps(4)).is_none());
+    let computed = curves_of(&reference_and_fading(), None).expect("curves");
+    assert!(computed.forward.expect("forward").split_summary.is_none());
+}
+
+/// Scenario: nine laps beside the record, the last split covered by eight.
+///
+/// Expected behaviour: the quartiles are finite at eight laps, linearly
+/// interpolated between the order statistics either side.
+#[test]
+fn eight_laps_give_a_split_its_quartiles() {
+    let summary = summary_of(record_and_laps(9)).expect("summary");
+    assert_eq!(summary.laps, vec![9, 9, 8]);
+    assert_floats(&summary.median_secs, &[3.0, 4.0, 0.5], "median");
+    assert_floats(&summary.lower_quartile_secs, &[1.0, 2.0, -1.25], "lower");
+    assert_floats(&summary.upper_quartile_secs, &[5.0, 6.0, 2.25], "upper");
+}
+
+/// Scenario: a time chip keeps the four newest of six laps.
+///
+/// Expected behaviour: the summary follows the range, so the kept laps are
+/// too few for one.
+#[test]
+fn a_range_carries_the_summary_of_the_laps_it_keeps() {
+    let held = crate::FfiSectionLapCurves {
+        grid_step_m: SPLIT_STEP_M,
+        split_step_m: SPLIT_STEP_M,
+        section_length_m: 300.0,
+        forward: compared(
+            "record".to_string(),
+            FfiReferenceSource::Record,
+            record_and_laps(6),
+            Vec::new(),
+        ),
+        reverse: None,
+    };
+    assert!(
+        held.forward
+            .as_ref()
+            .expect("forward")
+            .split_summary
+            .is_some()
+    );
+    let all = in_range(&held, FIRST_DAY).expect("all");
+    assert_eq!(
+        all.forward
+            .expect("forward")
+            .split_summary
+            .expect("summary")
+            .laps,
+        vec![6, 6, 5]
+    );
+    let newest = in_range(&held, FIRST_DAY + 3 * DAY).expect("four laps");
+    assert!(newest.forward.expect("forward").split_summary.is_none());
+}
+
 /// The curve type crosses the bridge as its values' little-endian bytes and
 /// comes back the same, NaN gaps included, and refuses a partial float.
 #[test]

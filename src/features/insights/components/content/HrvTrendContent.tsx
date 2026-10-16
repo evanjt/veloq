@@ -8,11 +8,12 @@ import { useTheme } from '@/shared/app';
 import {
   colors,
   darkColors,
-  spacing,
-  opacity,
-  layout,
-  typography,
+  iconSize,
   insightToneColor,
+  layout,
+  opacity,
+  spacing,
+  typography,
 } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import { InsightSeriesChart } from '../InsightSeriesChart';
@@ -46,7 +47,11 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
       {/* The average the latest reading, the sheet's figure, is read against */}
       <View style={[styles.statCard, isDark && styles.statCardDark]}>
         <View style={styles.trendRow}>
-          <MaterialCommunityIcons name={insight.icon as never} size={18} color={trendColor} />
+          <MaterialCommunityIcons
+            name={insight.icon as never}
+            size={iconSize.sm}
+            color={trendColor}
+          />
           {avgPoint && avgValue != null && (avgValue !== latestValue || latestValue == null) ? (
             <Text style={[styles.avgText, isDark && styles.avgTextDark]}>
               {avgPoint.label}: {avgValue} {t('units.ms')}

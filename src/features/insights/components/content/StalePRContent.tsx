@@ -18,7 +18,7 @@ import { tapTo } from '@/shared/app/navigation';
 import { formatDuration } from '@/shared/format/format';
 import { SectionInsightMap } from './SectionInsightMap';
 import { InsightHistoryChart } from '../InsightHistoryChart';
-import { colors, darkColors, spacing, insightToneColor, typography } from '@/theme';
+import { colors, darkColors, iconSize, insightToneColor, spacing, typography } from '@/theme';
 import type { ActivityType, Insight, SupportingSection } from '@/types';
 import { SheetContext } from './SheetContext';
 import { composeAccessibilityLabel, ErrorState, Row } from '@/shared/ui';
@@ -156,7 +156,7 @@ export const StalePRContent = React.memo(function StalePRContent({ insight }: St
                     {s.sportType ? (
                       <MaterialCommunityIcons
                         name={getActivityIcon(s.sportType)}
-                        size={14}
+                        size={iconSize.sm}
                         color={isDark ? darkColors.textSecondary : colors.textSecondary}
                         style={styles.sportIcon}
                       />

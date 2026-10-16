@@ -40,7 +40,6 @@ jest.mock('@/shared/app/AuthStore', () => ({
 jest.mock('@/features/settings/lib/autobackup/webdavConfig', () => ({
   getWebdavConfig: () => ({ url: 'https://nas.example/dav', username: 'u', password: 'p' }),
   webdavConfigProblem: () => null,
-  webdavUrlProblemMessage: () => 'bad url',
   normaliseWebdavUrl: (url: string) => url,
 }));
 

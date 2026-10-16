@@ -15,10 +15,22 @@
  * Small charts that fill a tappable card use `scrubActivation: 'drag'` instead.
  * There the surface behind answers the tap, so waiting would only delay the
  * scrub, and the tap is composed exclusively against the pan.
+ *
+ * A screen reader, a switch or a keyboard makes no hold and no drag, so the
+ * surface is also one adjustable element that steps the selection by sample.
+ * A step pins the point the way a tap does: it opens no scrub, so a screen
+ * that locks its scroll while scrubbing stays scrollable, and it fires no
+ * haptic, since the point is already spoken.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ViewStyle } from 'react-native';
+import type {
+  AccessibilityActionEvent,
+  AccessibilityActionInfo,
+  AccessibilityValue,
+  ViewStyle,
+} from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Gesture, ComposedGesture, GestureType } from 'react-native-gesture-handler';
 import {
   useSharedValue,
@@ -53,6 +65,18 @@ export interface ChartBounds {
 
 /** What `GestureDetector` accepts, whether or not a tap was composed in. */
 export type ChartGesture = GestureType | ComposedGesture;
+
+/** Spread on the gesture surface. Empty when the chart has nothing to step. */
+export interface ChartAccessibilityProps {
+  accessible?: boolean;
+  accessibilityRole?: 'adjustable';
+  accessibilityValue?: AccessibilityValue;
+  accessibilityActions?: AccessibilityActionInfo[];
+  onAccessibilityAction?: (event: AccessibilityActionEvent) => void;
+}
+
+/** A page step moves this share of the series, so a year is ten steps end to end. */
+const PAGE_FRACTION = 0.1;
 
 export interface ChartGestureOptions<T> {
   /** Chart data points, index-aligned with the coords given to `syncXCoords`. */
@@ -117,6 +141,12 @@ export interface ChartGestureOptions<T> {
    * best on a dense curve where snapping looks like lag.
    */
   crosshairMode?: 'point' | 'finger' | undefined;
+
+  /**
+   * What a screen reader reads for the selected point: its date or position,
+   * then its values with their units.
+   */
+  describePoint?: ((point: T, index: number) => string) | undefined;
 }
 
 export interface ChartGestureResult<T> {
@@ -147,6 +177,9 @@ export interface ChartGestureResult<T> {
    * map, which matters on a path that fires every frame.
    */
   syncXCoords: <P>(points: readonly P[], getX: (point: P) => number) => void;
+
+  /** The adjustable role, the selected point's value text and the step actions. */
+  accessibilityProps: ChartAccessibilityProps;
 }
 
 // ============================================================================
@@ -171,16 +204,22 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
     onTap,
     tapMaxDuration = CHART_CONFIG.TAP_MAX_DURATION,
     crosshairMode = 'point',
+    describePoint,
   } = options;
 
+  const { t } = useTranslation();
   const [isActive, setIsActive] = useState(false);
   const [selectedPoint, setSelectedPoint] = useState<T | null>(null);
   const lastNotifiedIdx = useRef<number | null>(null);
   const isActiveRef = useRef(false);
+  // The point the adjustable element reads, from any source until a scrub ends.
+  const [heldIndex, setHeldIndex] = useState(-1);
+  const heldIndexRef = useRef(-1);
 
   const touchX = useSharedValue(-1);
   const boundsShared = useSharedValue<ChartBounds>({ left: 0, right: 1, top: 0, bottom: 1 });
   const xCoordsShared = useSharedValue<number[]>([]);
+  const steppedIdx = useSharedValue(-1);
   const fallbackExternalIdx = useSharedValue(-1);
   const externalIdx = externalSelectedIdx ?? fallbackExternalIdx;
 
@@ -228,35 +267,46 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
   // A tap is a one-shot selection, so it never opens or closes an interaction.
   // Only the scrub does, otherwise a tap-only chart would report a scrub that
   // never ends.
-  const applySelection = useCallback((idx: number, source: 'scrub' | 'tap') => {
-    const points = dataRef.current;
+  const applySelection = useCallback(
+    (idx: number, source: 'scrub' | 'tap' | 'step') => {
+      const points = dataRef.current;
 
-    if (idx < 0 || points.length === 0) {
-      if (lastNotifiedIdx.current !== null) {
-        lastNotifiedIdx.current = null;
-        isActiveRef.current = false;
-        setSelectedPoint(null);
-        setIsActive(false);
-        onInteractionChangeRef.current?.(false);
+      // Only a scrub ends. A tap or a step stays selected until the next one.
+      if (idx < 0 || points.length === 0) {
+        if (isActiveRef.current) {
+          lastNotifiedIdx.current = null;
+          heldIndexRef.current = -1;
+          setHeldIndex(-1);
+          isActiveRef.current = false;
+          setSelectedPoint(null);
+          setIsActive(false);
+          onInteractionChangeRef.current?.(false);
+        }
+        return;
       }
-      return;
-    }
 
-    if (source === 'scrub' && idx === lastNotifiedIdx.current) return;
-    lastNotifiedIdx.current = idx;
+      // A scrub that lands where a tap or a step left off still opens.
+      if (source === 'scrub' && isActiveRef.current && idx === lastNotifiedIdx.current) return;
+      lastNotifiedIdx.current = idx;
+      heldIndexRef.current = idx;
+      setHeldIndex(idx);
+      // The finger takes over from a step, so lifting it leaves no stale crosshair.
+      if (source !== 'step') steppedIdx.value = -1;
 
-    if (source === 'scrub' && !isActiveRef.current) {
-      isActiveRef.current = true;
-      setIsActive(true);
-      onInteractionChangeRef.current?.(true);
-    }
+      if (source === 'scrub' && !isActiveRef.current) {
+        isActiveRef.current = true;
+        setIsActive(true);
+        onInteractionChangeRef.current?.(true);
+      }
 
-    const point = points[idx];
-    if (point !== undefined) {
-      setSelectedPoint(point);
-      onSelectRef.current?.(point, idx);
-    }
-  }, []);
+      const point = points[idx];
+      if (point !== undefined) {
+        setSelectedPoint(point);
+        onSelectRef.current?.(point, idx);
+      }
+    },
+    [steppedIdx]
+  );
 
   const handleScrubIndex = useCallback(
     (idx: number) => applySelection(idx, 'scrub'),
@@ -423,7 +473,64 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
     return panGesture;
   }, [enabled, scrubEnabled, scrubActivation, wantsTap, nativeGesture, tapGesture, panGesture]);
 
-  // Priority: the finger, then a sibling chart, then whatever the screen set.
+  // A step starts from whatever is selected, wherever it was set: a sibling
+  // chart's selection is the newest, then this chart's own, then the screen's
+  // pin. With nothing selected, forward starts at the first sample and back at
+  // the newest.
+  const stepBy = useCallback(
+    (delta: number) => {
+      const len = dataRef.current.length;
+      if (len === 0) return;
+      const inRange = (idx: number) => (idx >= 0 && idx < len ? idx : -1);
+      let from = sharedSelectedIdx ? inRange(sharedSelectedIdx.value) : -1;
+      if (from < 0) from = inRange(heldIndexRef.current);
+      if (from < 0) from = inRange(externalIdx.value);
+      const next =
+        from < 0 ? (delta > 0 ? 0 : len - 1) : Math.max(0, Math.min(len - 1, from + delta));
+      if (next === from) return;
+      steppedIdx.value = next;
+      if (sharedSelectedIdx) sharedSelectedIdx.value = next;
+      applySelection(next, 'step');
+    },
+    [applySelection, sharedSelectedIdx, externalIdx, steppedIdx]
+  );
+
+  const steppable = enabled && scrubEnabled && data.length > 0;
+  const heldPoint = heldIndex >= 0 ? data[heldIndex] : undefined;
+  const valueText =
+    heldPoint !== undefined && describePoint ? describePoint(heldPoint, heldIndex) : undefined;
+  const pageLabels = useMemo(
+    () => ({ forward: t('a11y.chartPageForward'), back: t('a11y.chartPageBack') }),
+    [t]
+  );
+
+  const accessibilityProps = useMemo<ChartAccessibilityProps>(() => {
+    if (!steppable) return {};
+    const page = Math.max(1, Math.round(data.length * PAGE_FRACTION));
+    const steps: Record<string, number> = {
+      increment: 1,
+      decrement: -1,
+      pageForward: page,
+      pageBack: -page,
+    };
+    return {
+      accessible: true,
+      accessibilityRole: 'adjustable',
+      ...(valueText !== undefined ? { accessibilityValue: { text: valueText } } : {}),
+      accessibilityActions: [
+        { name: 'increment' },
+        { name: 'decrement' },
+        { name: 'pageForward', label: pageLabels.forward },
+        { name: 'pageBack', label: pageLabels.back },
+      ],
+      onAccessibilityAction: (event) => {
+        const delta = steps[event.nativeEvent.actionName];
+        if (delta !== undefined) stepBy(delta);
+      },
+    };
+  }, [steppable, data.length, valueText, pageLabels, stepBy]);
+
+  // Priority: the finger, then a sibling chart, then a step, then whatever the screen set.
   const crosshairStyle = useAnimatedStyle(() => {
     'worklet';
     const bounds = boundsShared.value;
@@ -436,6 +543,7 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
 
     let idx = selectedIndex.value;
     if (idx < 0 && sharedSelectedIdx) idx = sharedSelectedIdx.value;
+    if (idx < 0) idx = steppedIdx.value;
     if (idx < 0) idx = externalIdx.value;
     if (idx < 0) return { opacity: 0, transform: [{ translateX: 0 }] };
 
@@ -491,6 +599,7 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
     crosshairStyle,
     syncBounds,
     syncXCoords,
+    accessibilityProps,
   };
 }
 

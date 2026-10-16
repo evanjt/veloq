@@ -12,17 +12,51 @@
 #   5. The zip is back byte-identical and the agent recorded the restore.
 #
 # It ends on one line, PASS with the payload size against the 25 MB cap, or
-# FAIL naming the step. It never uninstalls or clears the app, which would
-# wipe the library. A restore leaves the rest of the app's data alone because
-# the manifest names a backup agent, and step 3 is what proves the agent is
-# installed, so nothing is deleted before it passes. A zip the restore did not
+# FAIL naming the step. On a handset it never uninstalls or clears the app,
+# which would wipe the library. A restore leaves the rest of the app's data
+# alone because the manifest names a backup agent, and step 3 is what proves
+# the agent is installed, so nothing is deleted before it passes. A zip the restore did not
 # bring back is put back from the copy taken at step 2.
 #
 #   ANDROID_SERIAL=<test handset> scripts/android-backup-roundtrip.sh
 #
+# With --reinstall it proves what a wiped install gets back instead, on an
+# emulator only, and refuses any other device before touching it:
+#
+#   1. Backup Manager is on and LocalTransport is selected for the run; the
+#      transport and the enabled state before it are put back on exit.
+#   2. The record zip and every preference file the rules carry are hashed.
+#   3. `bmgr backupnow`, as above.
+#   4. The app is uninstalled and the apk installed, then `bmgr restore` runs
+#      unless the install's own restore brought the zip back.
+#   5. The zip and each preference file are back byte-identical, the library,
+#      its sidecars, the legacy backups and SecureStore are not, and the agent
+#      recorded the restore.
+#
+# The in-app half needs a real intervals.icu sign-in, so it is printed after
+# PASS for the operator to walk.
+#
+#   ANDROID_SERIAL=emulator-5554 scripts/android-backup-roundtrip.sh --reinstall <debug apk>
+#
 # VELOQ_PROTECTED_HANDSETS is a comma-separated list of serials or
 # `ro.product.model` values this must never touch, such as a personal phone.
 set -uo pipefail
+
+APK=""
+case "${1:-}" in
+"") ;;
+--reinstall)
+  APK="${2:-}"
+  if [ -z "$APK" ] || [ ! -f "$APK" ]; then
+    echo "android-backup-roundtrip: --reinstall takes the debug apk to install, and ${APK:-none} is not a file" >&2
+    exit 2
+  fi
+  ;;
+*)
+  echo "android-backup-roundtrip: unknown argument $1; the only one is --reinstall <apk>" >&2
+  exit 2
+  ;;
+esac
 
 if [ -z "${ANDROID_SERIAL:-}" ]; then
   echo "android-backup-roundtrip: set ANDROID_SERIAL to the test handset; this deletes app data on it" >&2
@@ -39,8 +73,15 @@ PKG="com.veloq.app.dev"
 ZIP="files/veloq-decisions.zip"
 RECORD="shared_prefs/veloq_auto_backup.xml"
 GOOGLE_TRANSPORT="com.google.android.gms/.backup.BackupTransportService"
+LOCAL_TRANSPORT="com.android.localtransport/.LocalTransport"
+# Preference files the rules exclude: the token store, and the agent's own record.
+UNCARRIED_PREFS="SecureStore.xml veloq_auto_backup.xml"
+# What a restore must never bring onto a wiped install.
+UNCARRIED_PATHS="files/routes.db files/routes.db-wal files/routes.db-shm files/backups shared_prefs/SecureStore.xml"
 CAP_BYTES=$((25 * 1024 * 1024))
 POLLS=30
+# The install restores by itself when automatic restore is on; this long for it.
+INSTALL_POLLS=10
 
 MODEL=$(adb shell getprop ro.product.model 2>/dev/null | tr -d '\r')
 IFS=',' read -r -a PROTECTED <<<"${VELOQ_PROTECTED_HANDSETS:-}"
@@ -51,8 +92,31 @@ for name in ${PROTECTED[@]+"${PROTECTED[@]}"}; do
   fi
 done
 
+# Uninstalling wipes the library, so the reinstall mode reaches nothing but an
+# emulator, by serial and by the kernel's own word, protected list or not.
+if [ -n "$APK" ]; then
+  QEMU=$(adb shell getprop ro.kernel.qemu 2>/dev/null | tr -d '\r')
+  case "$ANDROID_SERIAL" in
+  emulator-*) [ "$QEMU" = 1 ] || NOT_EMULATOR=1 ;;
+  *) NOT_EMULATOR=1 ;;
+  esac
+  if [ -n "${NOT_EMULATOR:-}" ]; then
+    echo "android-backup-roundtrip: --reinstall uninstalls the app, and $ANDROID_SERIAL ($MODEL, ro.kernel.qemu=${QEMU:-unset}) is not an emulator, refusing" >&2
+    exit 2
+  fi
+fi
+
 WORK=$(mktemp -d)
-trap 'rm -rf "$WORK"' EXIT
+PREVIOUS_TRANSPORT=""
+WAS_DISABLED=""
+cleanup() {
+  if [ -n "$PREVIOUS_TRANSPORT" ] && [ "$PREVIOUS_TRANSPORT" != "$LOCAL_TRANSPORT" ]; then
+    adb shell bmgr transport "$PREVIOUS_TRANSPORT" >/dev/null 2>&1
+  fi
+  [ -z "$WAS_DISABLED" ] || adb shell bmgr enable false >/dev/null 2>&1
+  rm -rf "$WORK"
+}
+trap cleanup EXIT
 
 log() { echo "android-backup-roundtrip: $*" >&2; }
 
@@ -81,13 +145,34 @@ put_back() {
   adb exec-in "run-as $PKG sh -c 'cat > $ZIP'" <"$WORK/before.zip"
 }
 
+selected_transport() {
+  adb shell bmgr list transports | tr -d '\r' | sed -n 's/^ *\* *//p'
+}
+
+present() {
+  [ "$(adb shell run-as "$PKG" ls -d "$1" 2>&1 | tr -d '\r')" = "$1" ]
+}
+
 log "1. Backup Manager and transport on $ANDROID_SERIAL ($MODEL)"
-if ! adb shell bmgr enabled | tr -d '\r' | grep -q 'currently enabled'; then
-  fail 1 "Backup Manager is disabled; enable it with adb shell bmgr enable true"
-fi
-SELECTED=$(adb shell bmgr list transports | tr -d '\r' | sed -n 's/^ *\* *//p')
-if [ "$SELECTED" != "$GOOGLE_TRANSPORT" ]; then
-  fail 1 "the selected transport is ${SELECTED:-none}, not $GOOGLE_TRANSPORT; adb shell bmgr transport $GOOGLE_TRANSPORT"
+if [ -n "$APK" ]; then
+  if ! adb shell bmgr enabled | tr -d '\r' | grep -q 'currently enabled'; then
+    WAS_DISABLED=1
+    adb shell bmgr enable true | tr -d '\r' | sed 's/^/   /' >&2
+  fi
+  PREVIOUS_TRANSPORT=$(selected_transport)
+  adb shell bmgr transport "$LOCAL_TRANSPORT" | tr -d '\r' | sed 's/^/   /' >&2
+  SELECTED=$(selected_transport)
+  if [ "$SELECTED" != "$LOCAL_TRANSPORT" ]; then
+    fail 1 "could not select $LOCAL_TRANSPORT, ${SELECTED:-none} is selected"
+  fi
+else
+  if ! adb shell bmgr enabled | tr -d '\r' | grep -q 'currently enabled'; then
+    fail 1 "Backup Manager is disabled; enable it with adb shell bmgr enable true"
+  fi
+  SELECTED=$(selected_transport)
+  if [ "$SELECTED" != "$GOOGLE_TRANSPORT" ]; then
+    fail 1 "the selected transport is ${SELECTED:-none}, not $GOOGLE_TRANSPORT; adb shell bmgr transport $GOOGLE_TRANSPORT"
+  fi
 fi
 
 # Stopped so it does not rewrite the zip between the steps.
@@ -107,6 +192,20 @@ BEFORE_SHA=$(sha "$WORK/before.zip")
 ZIP_BYTES=$(wc -c <"$WORK/before.zip" | tr -d ' ')
 [ "$ZIP_BYTES" -gt 0 ] || fail 2 "$ZIP read back empty"
 log "   $ZIP_BYTES bytes, sha256 $BEFORE_SHA"
+
+PREFS=""
+PREF_BYTES=0
+if [ -n "$APK" ]; then
+  mkdir "$WORK/prefs"
+  for name in $(adb shell run-as "$PKG" ls shared_prefs 2>/dev/null | tr -d '\r'); do
+    case " $UNCARRIED_PREFS " in *" $name "*) continue ;; esac
+    case "$name" in *.xml) ;; *) continue ;; esac
+    adb exec-out run-as "$PKG" cat "shared_prefs/$name" >"$WORK/prefs/$name"
+    PREFS="$PREFS $name"
+    PREF_BYTES=$((PREF_BYTES + $(wc -c <"$WORK/prefs/$name" | tr -d ' ')))
+    log "   shared_prefs/$name, sha256 $(sha "$WORK/prefs/$name")"
+  done
+fi
 
 read_record
 BACKED_BEFORE=$(recorded backedUpAt)
@@ -132,11 +231,75 @@ fi
 PAYLOAD_BYTES=$(recorded backedUpBytes)
 log "   backed up $(when "$BACKED_AT"), $PAYLOAD_BYTES bytes"
 
-log "4. Delete the zip and restore"
-TOKEN=$(adb shell dumpsys backup | tr -d '\r' | sed -n 's/^Current: *\([0-9a-fA-F]*\).*/\1/p' | head -1)
-if [ -z "$TOKEN" ] || [ "$TOKEN" = 0 ]; then
-  fail 4 "dumpsys backup names no current backup set"
+# The token of the current backup set, which `bmgr restore` takes.
+current_token() {
+  TOKEN=$(adb shell dumpsys backup | tr -d '\r' | sed -n 's/^Current: *\([0-9a-fA-F]*\).*/\1/p' | head -1)
+  if [ -z "$TOKEN" ] || [ "$TOKEN" = 0 ]; then
+    fail 4 "dumpsys backup names no current backup set"
+  fi
+}
+
+if [ -n "$APK" ]; then
+  log "4. Uninstall, install $APK and restore"
+  current_token
+  adb uninstall "$PKG" | tr -d '\r' | sed 's/^/   /' >&2
+  if ! adb install "$APK" | tr -d '\r' | tee "$WORK/install.txt" | sed 's/^/   /' >&2 ||
+    ! grep -q '^Success' "$WORK/install.txt"; then
+    fail 4 "adb install $APK did not succeed"
+  fi
+  for _ in $(seq 1 "$INSTALL_POLLS"); do
+    present "$ZIP" && break
+    sleep 1
+  done
+  if ! present "$ZIP"; then
+    adb shell bmgr restore "$TOKEN" "$PKG" | tr -d '\r' | sed 's/^/   /' >&2
+  fi
+
+  log "5. Compare"
+  RESTORED_AT=""
+  for _ in $(seq 1 "$POLLS"); do
+    read_record
+    RESTORED_AT=$(recorded restoredAt)
+    [ -n "$RESTORED_AT" ] && break
+    sleep 1
+  done
+  present "$ZIP" || fail 5 "the restore did not bring $ZIP back"
+  adb exec-out run-as "$PKG" cat "$ZIP" >"$WORK/after.zip"
+  AFTER_SHA=$(sha "$WORK/after.zip")
+  if [ "$AFTER_SHA" != "$BEFORE_SHA" ]; then
+    fail 5 "the restored $ZIP is not byte-identical (sha256 $AFTER_SHA, was $BEFORE_SHA)"
+  fi
+  for name in $PREFS; do
+    present "shared_prefs/$name" || fail 5 "the restore did not bring shared_prefs/$name back"
+    adb exec-out run-as "$PKG" cat "shared_prefs/$name" >"$WORK/after.xml"
+    if [ "$(sha "$WORK/after.xml")" != "$(sha "$WORK/prefs/$name")" ]; then
+      fail 5 "the restored shared_prefs/$name is not byte-identical"
+    fi
+  done
+  for uncarried in $UNCARRIED_PATHS; do
+    if present "$uncarried"; then
+      fail 5 "$uncarried came back with the restore, and the rules exclude it"
+    fi
+  done
+  if [ -z "$RESTORED_AT" ] || [ "$RESTORED_AT" = "$RESTORED_BEFORE" ]; then
+    fail 5 "$ZIP came back but the backup agent recorded no restore"
+  fi
+
+  MB=$(awk -v b="$PAYLOAD_BYTES" 'BEGIN { printf "%.1f", b / 1048576 }')
+  VERDICT="payload $PAYLOAD_BYTES bytes of the 25 MB cap ($MB MB), zip $ZIP_BYTES bytes, preferences $PREF_BYTES bytes in $(echo "$PREFS" | wc -w | tr -d ' ') files"
+  [ "$PAYLOAD_BYTES" -le "$CAP_BYTES" ] || VERDICT="$VERDICT, over the cap"
+  echo "PASS: $VERDICT, reinstalled and restored $(when "$RESTORED_AT")"
+  cat >&2 <<WALK
+android-backup-roundtrip: the in-app half is yours to walk on $ANDROID_SERIAL:
+   1. Launch Veloq and sign in to intervals.icu.
+   2. The restored settings and decisions apply on the empty library.
+   3. A sync refills the library.
+WALK
+  exit 0
 fi
+
+log "4. Delete the zip and restore"
+current_token
 adb shell run-as "$PKG" rm "$ZIP"
 adb shell bmgr restore "$TOKEN" "$PKG" | tr -d '\r' | sed 's/^/   /' >&2
 

@@ -835,6 +835,13 @@ const GUARDS = [
       'a dialog raised with Alert.alert, which Android back and a scrim tap cannot dismiss, a failure notice titled with a bare generic error word, and a confirm button labelled Confirm rather than the action',
   },
   {
+    name: 'lint:modal-owner',
+    kind: 'correctness',
+    cmd: node('lint-modal-owner.mjs'),
+    catches:
+      'a modal opened with Modal from react-native, which under a top banner inherits the stack inset of zero and draws its controls under the status bar',
+  },
+  {
     name: 'lint:notice-owner',
     kind: 'correctness',
     cmd: node('lint-notice-owner.mjs'),
@@ -909,6 +916,13 @@ const GUARDS = [
       'a title styled as a section or card title by hand, with no header role for heading navigation',
   },
   {
+    name: 'lint:icon-sizes',
+    kind: 'style',
+    cmd: node('lint-icon-sizes.mjs'),
+    catches:
+      "an icon drawn at a size the guide does not have, so one screen's glyph reads larger than its neighbour's",
+  },
+  {
     name: 'lint:row-chevrons',
     kind: 'style',
     cmd: node('lint-row-chevrons.mjs'),
@@ -920,6 +934,110 @@ const GUARDS = [
     kind: 'style',
     cmd: node('lint-empty-state-styles.mjs'),
     catches: 'a new hand-rolled empty state style instead of the shared EmptyState',
+  },
+  {
+    name: 'lint:style-font-weight',
+    kind: 'style',
+    cmd: node('lint-style-literals.mjs', '--class', 'font-weight'),
+    catches:
+      'a font weight written by hand instead of read from a typography role, or a weight of 500, which a platform with static font files draws as 400 or 600',
+  },
+  {
+    name: 'lint:style-line-height',
+    kind: 'style',
+    cmd: node('lint-style-literals.mjs', '--class', 'line-height'),
+    catches:
+      'a line height written by hand, which drifts from the size it was paired with in the typography role',
+  },
+  {
+    name: 'lint:style-letter-spacing',
+    kind: 'style',
+    cmd: node('lint-style-literals.mjs', '--class', 'letter-spacing'),
+    catches: 'tracking written by hand instead of read from a typography role',
+  },
+  {
+    name: 'lint:style-font-family',
+    kind: 'style',
+    cmd: node('lint-style-literals.mjs', '--class', 'font-family'),
+    catches: 'a font family named in a component, which bypasses the type scale and a font change',
+  },
+  {
+    name: 'lint:style-font-style',
+    kind: 'style',
+    cmd: node('lint-style-literals.mjs', '--class', 'font-style'),
+    catches: 'italic text, which the design language does not draw',
+  },
+  {
+    name: 'lint:style-border-width',
+    kind: 'style',
+    cmd: node('lint-style-literals.mjs', '--class', 'border-width'),
+    catches: 'a border or rule width written by hand, a fourth hairline weight nobody chose',
+  },
+  {
+    name: 'lint:style-stroke-width',
+    kind: 'style',
+    cmd: node('lint-style-literals.mjs', '--class', 'stroke-width'),
+    catches:
+      'a chart or glyph stroke width written by hand, so two charts draw the same line at two weights',
+  },
+  {
+    name: 'lint:style-icon-size',
+    kind: 'style',
+    cmd: node('lint-style-literals.mjs', '--class', 'icon-size'),
+    catches: 'an icon drawn at a size written by hand, off the icon ladder',
+  },
+  {
+    name: 'lint:style-shadow',
+    kind: 'style',
+    cmd: node('lint-style-literals.mjs', '--class', 'shadow'),
+    catches:
+      'an elevation or shadow written by hand instead of a shadows preset, which drifts between platforms',
+  },
+  {
+    name: 'lint:style-opacity',
+    kind: 'style',
+    cmd: node('lint-style-literals.mjs', '--class', 'opacity'),
+    catches: 'an opacity written by hand instead of an opacity step',
+  },
+  {
+    name: 'lint:style-alpha',
+    kind: 'style',
+    cmd: node('lint-style-literals.mjs', '--class', 'alpha'),
+    catches:
+      'a colour alpha written by hand, through colorWithOpacity or a hex suffix, instead of an opacity step',
+  },
+  {
+    name: 'lint:style-z-index',
+    kind: 'style',
+    cmd: node('lint-style-literals.mjs', '--class', 'z-index'),
+    catches:
+      'a layer written by hand, so two floating pieces can share a layer or cover each other',
+  },
+  {
+    name: 'lint:style-motion',
+    kind: 'style',
+    cmd: node('lint-style-literals.mjs', '--class', 'motion'),
+    catches: 'an animation duration or delay written by hand instead of a named duration',
+  },
+  {
+    name: 'lint:style-containers',
+    kind: 'style',
+    cmd: node('lint-style-literals.mjs', '--class', 'container'),
+    catches:
+      'a card, button, chip, field, banner, sheet header or row drawn by hand outside src/shared/ui',
+  },
+  {
+    name: 'lint:style-theme-imports',
+    kind: 'style',
+    cmd: node('lint-style-literals.mjs', '--class', 'theme-import'),
+    catches: 'a style value imported from inside src/theme rather than its one index',
+  },
+  {
+    name: 'check:style-owners',
+    kind: 'style',
+    cmd: node('check-style-owners.mjs'),
+    catches:
+      'a style property key with no token owner in src/theme and no guard, so a new class of style value arrives unowned',
   },
   {
     name: 'lint:reduce-motion',

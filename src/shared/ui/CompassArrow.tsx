@@ -1,7 +1,7 @@
 import React from 'react';
 import { Animated, View, StyleSheet } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { colors, ink } from '@/theme';
+import { colors, iconSize, ink } from '@/theme';
 
 interface CompassArrowProps {
   /** Size of the compass arrow */
@@ -20,7 +20,7 @@ interface CompassArrowProps {
  * Uses Animated.Value for smooth rotation without re-renders.
  */
 export function CompassArrow({
-  size = 22,
+  size = iconSize.lg,
   rotation,
   northColor = colors.compassNorth,
   southColor = ink.white,
@@ -43,7 +43,7 @@ export function CompassArrow({
 }
 
 interface StaticCompassArrowProps {
-  /** Size of the compass arrow (default 16) */
+  /** Size of the compass arrow */
   size?: number;
   /** Map bearing in degrees - arrow rotates to point north */
   bearing: number;
@@ -62,7 +62,7 @@ interface StaticCompassArrowProps {
  * reattaches the row, inside the draw pass of a scroll frame.
  */
 export function StaticCompassArrow({
-  size = 16,
+  size = iconSize.sm,
   bearing,
   northColor = colors.compassNorth,
   southColor = ink.white,

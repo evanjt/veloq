@@ -378,6 +378,7 @@
     "backupFailedFolder": "Veloq nie ma już dostępu do folderu kopii zapasowych. Wybierz folder ponownie.",
     "backupFailedIcloud": "iCloud Drive jest wyłączony dla Veloq albo ten iPhone nie jest zalogowany do iCloud. Włącz go w Ustawieniach iPhone'a.",
     "backupFailedUnverified": "Veloq zapisał kopię zapasową, ale nie mógł jej odczytać, aby ją sprawdzić. Spróbuje ponownie później.",
+    "backupFailedAddress": "Adres serwera WebDAV musi być prawidłowym adresem https://. Sprawdź go w ustawieniach kopii zapasowej.",
     "lastAttemptFailed": "Ostatnia próba nie powiodła się {{date}}",
     "androidLastBackup": "Ostatnia kopia Androida: {{date}}, {{size}}",
     "androidBackupNever": "Android nie wykonał jeszcze kopii Veloq",
@@ -394,6 +395,7 @@
     "cameraPermissionNeeded": "Dostęp do aparatu jest wymagany do skanowania kodów QR",
     "enterDetailsInstead": "Wpisz dane ręcznie",
     "fillAllFields": "Wypełnij wszystkie pola",
+    "fillField": "Wypełnij pole „{{field}}”",
     "webdavHttpsRequired": "Użyj adresu https://. Serwer http:// otrzymałby hasło i archiwum danych bez szyfrowania.",
     "webdavInvalidUrl": "To nie jest prawidłowy adres serwera",
     "webdavSaveFailed": "Nie udało się zapisać danych serwera na tym urządzeniu",
@@ -524,7 +526,7 @@
       "title": "Coś poszło nie tak"
     },
     "offline": {
-      "description": "Niektóre funkcje mogą być ograniczone",
+      "description": "Synchronizacja i przesyłanie zostaną wznowione, gdy wrócisz do sieci.",
       "title": "Jesteś offline"
     },
     "syncError": {
@@ -3004,6 +3006,26 @@
     "offPr": "{{delta}} od rekordu",
     "cycleHint": "Dotknij, aby zmienić",
     "laps": "Okrążenia: {{n}}",
-    "elevationLoss": "Spadek wysokości"
+    "elevationLoss": "Spadek wysokości",
+    "chartPageForward": "Przeskocz do przodu",
+    "chartPageBack": "Przeskocz do tyłu"
+  },
+  "charts": {
+    "showData": "Pokaż dane",
+    "summary": {
+      "title": "{{title}}.",
+      "empty": "{{name}}: brak danych.",
+      "single": "{{name}}, {{start}}: {{value}}.",
+      "series": "{{name}}, od {{start}} do {{end}}: ostatnio {{latest}}, zakres od {{min}} do {{max}}, średnio {{average}}.",
+      "curve": "{{name}}, od {{start}} do {{end}}: {{first}} przy {{start}}, {{last}} przy {{end}}, szczyt {{max}}.",
+      "parts": "{{name}}: {{parts}}."
+    },
+    "column": {
+      "date": "Data",
+      "duration": "Czas trwania",
+      "distance": "Dystans",
+      "zone": "Strefa",
+      "time": "Czas"
+    }
   }
 }

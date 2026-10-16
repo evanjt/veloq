@@ -25,7 +25,7 @@ import {
   pointFeature,
   pointsBetweenSourceIndices,
 } from '@/features/maps';
-import { colors, darkColors, brand, spacing, layout, colorWithOpacity } from '@/theme';
+import { brand, colors, colorWithOpacity, darkColors, iconSize, layout, spacing } from '@/theme';
 import type { LatLngShort } from '@/shared/geo/distance';
 
 const BRAND_COLOR = brand.tealLight;
@@ -344,7 +344,7 @@ function RecordingMapInner({
             >
               <MaterialCommunityIcons
                 name="map-marker-path"
-                size={20}
+                size={iconSize.md}
                 color={routeOverlay ? colors.textOnDark : darkColors.textPrimary}
               />
             </Pressable>
@@ -357,7 +357,11 @@ function RecordingMapInner({
             accessibilityLabel={t('maps.toggleStyle')}
             android_ripple={pressRipple}
           >
-            <MaterialCommunityIcons name="layers" size={20} color={darkColors.textPrimary} />
+            <MaterialCommunityIcons
+              name="layers"
+              size={iconSize.md}
+              color={darkColors.textPrimary}
+            />
           </Pressable>
           {!isFollowing && (
             <Pressable
@@ -370,7 +374,7 @@ function RecordingMapInner({
             >
               <MaterialCommunityIcons
                 name="crosshairs-gps"
-                size={20}
+                size={iconSize.md}
                 color={darkColors.textPrimary}
               />
             </Pressable>

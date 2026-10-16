@@ -16,6 +16,7 @@ import { stripMarks, stripKey, markFills } from '../lib/stripMarks';
 import { dayLoadReadout } from '../lib/dayLoadReadout';
 import { dayPillTone, groupColor } from '../lib/dayPillTone';
 import { formFromLoads } from '@/shared/math';
+import { formatShortDate } from '@/shared/format/format';
 import { Row } from '@/shared/ui';
 
 import { useSheetOpener } from '@/shared/app/sheetRequest';
@@ -152,15 +153,50 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
     onDateSelectRef.current?.(null, null);
   }, []);
 
-  const { gesture, isActive, crosshairX, crosshairStyle, syncBounds, syncXCoords } =
-    useChartGestures<DotData>({
-      data: dotData,
-      onSelect: handleSelect,
-      onInteractionChange: handleInteractionChange,
-      sharedSelectedIdx,
-      externalSelectedIdx,
-      crosshairMode: 'finger',
-    });
+  const loadByDate = useMemo(
+    () => new Map((dailyLoads ?? []).map((d) => [d.date, d])),
+    [dailyLoads]
+  );
+
+  const describePoint = useCallback(
+    (point: DotData) => {
+      const [first, ...rest] = point.activities;
+      const trained = !first
+        ? t('fitness.restDay')
+        : rest.length === 0
+          ? first.name
+          : t('fitness.activitiesCount', { count: point.activities.length });
+      const readout = dayLoadReadout(loadByDate.get(point.date));
+      const load =
+        readout === null
+          ? []
+          : [
+              `${t('metrics.trainingLoad')} ${
+                readout.total === null ? t('fitness.loadUnavailable') : readout.total
+              }`,
+            ];
+      return [formatShortDate(point.date), trained, ...load].join(', ');
+    },
+    [t, loadByDate]
+  );
+
+  const {
+    gesture,
+    isActive,
+    crosshairX,
+    crosshairStyle,
+    syncBounds,
+    syncXCoords,
+    accessibilityProps,
+  } = useChartGestures<DotData>({
+    data: dotData,
+    onSelect: handleSelect,
+    onInteractionChange: handleInteractionChange,
+    sharedSelectedIdx,
+    externalSelectedIdx,
+    crosshairMode: 'finger',
+    describePoint,
+  });
 
   // Sync with external selectedDate
   React.useEffect(() => {
@@ -249,10 +285,6 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
     [selectedData, persistedActivities]
   );
 
-  const loadByDate = useMemo(
-    () => new Map((dailyLoads ?? []).map((d) => [d.date, d])),
-    [dailyLoads]
-  );
   const getActivitySummary = (acts: typeof displayActivities) => {
     if (acts.length === 0) return null;
     if (acts.length === 1) {
@@ -354,6 +386,8 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
       <GestureDetector gesture={gesture}>
         <View
           style={[styles.chartWrapper, { height }]}
+          testID="activity-dots-surface"
+          {...accessibilityProps}
           onLayout={(e) => {
             setChartWidth(e.nativeEvent.layout.width);
           }}

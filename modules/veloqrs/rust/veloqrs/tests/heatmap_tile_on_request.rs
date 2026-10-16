@@ -267,3 +267,121 @@ fn two_asks_for_one_tile_draw_it_once() {
         "the second ask waits for the first draw and reads it"
     );
 }
+
+/// The bytes the deep zooms hold on disk: each file's allocated blocks, or
+/// its length where the file system reports none for a small file.
+fn deep_bytes_on_disk(base: &std::path::Path) -> u64 {
+    use std::os::unix::fs::MetadataExt;
+    let mut total = 0;
+    for z in 15u8..=17 {
+        let Ok(columns) = fs::read_dir(base.join(z.to_string())) else {
+            continue;
+        };
+        for column in columns.flatten() {
+            for row in fs::read_dir(column.path()).unwrap().flatten() {
+                let meta = row.metadata().unwrap();
+                total += (meta.blocks() * 512).max(meta.len());
+            }
+        }
+    }
+    total
+}
+
+/// Puts the production budget back however the test ends.
+struct DeepTileBudget;
+
+impl DeepTileBudget {
+    fn set(bytes: u64) -> Self {
+        veloqrs::persistence::tiles::set_deep_tile_budget(Some(bytes));
+        DeepTileBudget
+    }
+}
+
+impl Drop for DeepTileBudget {
+    fn drop(&mut self) {
+        veloqrs::persistence::tiles::set_deep_tile_budget(None);
+    }
+}
+
+/// Every deep tile the tracks put ink in, in a fixed order.
+fn deep_tiles_with_heat() -> Vec<(u8, u32, u32)> {
+    let mut tiles: Vec<(u8, u32, u32)> = tracks()
+        .iter()
+        .flat_map(|(_, track)| {
+            let placed = veloqrs::tiles::ProjectedTrack::new(track);
+            (15u8..=17)
+                .flat_map(|z| {
+                    placed
+                        .tiles_along(z)
+                        .into_iter()
+                        .map(move |(x, y)| (z, x, y))
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    tiles.sort_unstable();
+    tiles.dedup();
+    tiles
+}
+
+fn held(base: &std::path::Path, (z, x, y): (u8, u32, u32)) -> bool {
+    tile_file(base, z, x, y, "png").exists() || tile_file(base, z, x, y, "empty").exists()
+}
+
+#[test]
+fn the_deep_tiles_held_stay_under_the_budget_with_the_least_recently_read_removed() {
+    const BUDGET: u64 = 64 * 1024;
+    let _serial_state = super::serial_state();
+    let _serial = serial();
+    let mut lib = library();
+    let _budget = DeepTileBudget::set(BUDGET);
+    let deep = deep_tiles_with_heat();
+    let (oldest, kept_by_reading) = (deep[0], deep[1]);
+
+    let first = heatmap_tile_bytes(oldest.0, oldest.1, oldest.2);
+    heatmap_tile_bytes(kept_by_reading.0, kept_by_reading.1, kept_by_reading.2);
+    for &(z, x, y) in &deep[2..] {
+        heatmap_tile_bytes(z, x, y);
+        assert!(
+            deep_bytes_on_disk(&lib.served) <= BUDGET,
+            "z{z}/{x}/{y} took the deep tiles past the budget: {} bytes",
+            deep_bytes_on_disk(&lib.served)
+        );
+        assert!(held(&lib.served, (z, x, y)), "the tile just served is kept");
+        assert!(
+            held(&lib.served, kept_by_reading),
+            "a tile read after every draw is never the least recently read"
+        );
+        heatmap_tile_bytes(kept_by_reading.0, kept_by_reading.1, kept_by_reading.2);
+    }
+    assert!(
+        !held(&lib.served, oldest),
+        "the tile read longest ago is the first to go"
+    );
+
+    let again = heatmap_tile_bytes(oldest.0, oldest.1, oldest.2);
+    assert_eq!(
+        again.as_deref().map(pixels),
+        first.as_deref().map(pixels),
+        "an evicted tile is drawn again as it was"
+    );
+    assert!(deep_bytes_on_disk(&lib.served) <= BUDGET);
+
+    // Opened again, the index is seeded from the tiles on disk, so a smaller
+    // budget is enforced on the first draw after it.
+    const SMALLER: u64 = 32 * 1024;
+    let _smaller = DeepTileBudget::set(SMALLER);
+    lib.engine
+        .set_heatmap_tiles_path(lib.served.to_str().unwrap().to_string());
+    let missing = *deep
+        .iter()
+        .find(|&&tile| !held(&lib.served, tile))
+        .expect("the budget removed some tile");
+    heatmap_tile_bytes(missing.0, missing.1, missing.2);
+    assert!(held(&lib.served, missing));
+    assert!(
+        deep_bytes_on_disk(&lib.served) <= SMALLER,
+        "the tiles held before the restart count against the budget: {} bytes",
+        deep_bytes_on_disk(&lib.served)
+    );
+}

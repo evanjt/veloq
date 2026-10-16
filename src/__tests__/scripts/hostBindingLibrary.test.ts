@@ -11,10 +11,18 @@ beforeEach(() => {
   for (const dir of ['bin', 'scripts', 'rust/target/release', 'external target/release']) {
     fs.mkdirSync(path.join(root, dir), { recursive: true });
   }
-  fs.copyFileSync(
-    path.join(projectRoot, 'modules/veloqrs/scripts/generate-bindings.sh'),
-    path.join(root, 'scripts/generate-bindings.sh')
-  );
+  for (const script of [
+    'generate-bindings.sh',
+    'host-library.sh',
+    'with-cargo-slot.sh',
+    'rust-inputs.js',
+  ]) {
+    fs.copyFileSync(
+      path.join(projectRoot, 'modules/veloqrs/scripts', script),
+      path.join(root, 'scripts', script)
+    );
+    fs.chmodSync(path.join(root, 'scripts', script), 0o755);
+  }
   executable('scripts/fix-generated.sh', '#!/bin/sh\nexit 0\n');
   install('1.4.0-3');
   lock('1.4.0-3');
@@ -58,12 +66,15 @@ function lock(version: string | null) {
   fs.writeFileSync(path.join(root, 'package-lock.json'), JSON.stringify({ packages }));
 }
 
-function generate(host: string, library: string) {
+function generate(host: string, library: string, cache = path.join(root, 'engine cache')) {
   return spawnSync('bash', ['scripts/generate-bindings.sh'], {
     cwd: root,
     encoding: 'utf8',
     env: {
       ...process.env,
+      VELOQ_ENGINE_CACHE: cache,
+      VELOQ_CARGO_SLOT_DIR: path.join(root, 'slots'),
+      VELOQ_CARGO_SLOT_HELD: '',
       PATH: `${path.join(root, 'bin')}${path.delimiter}${process.env.PATH}`,
       CARGO_TARGET_DIR: path.join(root, 'external target'),
       TEST_HOST: host,
@@ -85,12 +96,25 @@ it.each([
   const result = generate(host, library);
 
   expect(result.status).toBe(0);
-  expect(fs.readFileSync(path.join(root, 'selected-library'), 'utf8')).toBe(library);
+  const selected = fs.readFileSync(path.join(root, 'selected-library'), 'utf8');
+  expect(selected.endsWith(`libveloqrs.${extension}`)).toBe(true);
+  expect(fs.readFileSync(selected, 'utf8')).toBe('host metadata');
   const args = JSON.parse(fs.readFileSync(path.join(root, 'build-args.json'), 'utf8'));
   expect(args.slice(args.indexOf('--target'), args.indexOf('--target') + 2)).toEqual([
     '--target',
     host,
   ]);
+});
+
+it('hands the generator the artifact itself when the machine cache is off', () => {
+  const library = path.join(root, 'external target/release/libveloqrs.so');
+  fs.writeFileSync(library, 'host metadata');
+  fs.writeFileSync(path.join(root, 'rust/target/release/libveloqrs.so'), 'stale metadata');
+
+  const result = generate('x86_64-unknown-linux-gnu', library, 'off');
+
+  expect(result.status).toBe(0);
+  expect(fs.readFileSync(path.join(root, 'selected-library'), 'utf8')).toBe(library);
 });
 
 it('builds the host library in debug, which carries the same metadata as release', () => {

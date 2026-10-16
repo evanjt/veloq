@@ -13,7 +13,15 @@ import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { absentLabel } from '@/shared/format/absent';
-import { colors, colorWithOpacity, darkColors, layout, spacing, typography } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  darkColors,
+  iconSize,
+  layout,
+  spacing,
+  typography,
+} from '@/theme';
 import { pressable, pressRipple } from './pressFeedback';
 
 export type SignalLevel = 'idle' | 'ok' | 'warn' | 'bad';
@@ -90,11 +98,12 @@ export function SignalStatus({
   const { t } = useTranslation();
   const color = signalColor(level, isDark);
   const tint = signalTint(level, isDark);
-  const iconSize = variant === 'line' ? 18 : variant === 'chip' ? 13 : 14;
+  const glyphSize =
+    variant === 'line' ? iconSize.md : variant === 'chip' ? iconSize.xs : iconSize.sm;
 
   const content = (
     <>
-      <MaterialCommunityIcons name={icon} size={iconSize} color={color} />
+      <MaterialCommunityIcons name={icon} size={glyphSize} color={color} />
       {label != null && (
         <Text
           style={[styles.label, variant === 'line' && styles.labelLine, { color }]}

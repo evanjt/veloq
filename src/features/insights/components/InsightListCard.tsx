@@ -6,15 +6,16 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { tapTo } from '@/shared/app/navigation';
 import {
-  colors,
-  darkColors,
-  spacing,
-  colorWithOpacity,
   brand,
+  colors,
+  colorWithOpacity,
+  darkColors,
+  iconSize,
   insightCategoryColor,
-  layout,
-  typography,
   insightToneColor,
+  layout,
+  spacing,
+  typography,
 } from '@/theme';
 import { Card } from '@/shared/ui/Card';
 import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
@@ -77,7 +78,7 @@ export const InsightListCard = React.memo(function InsightListCard({
           >
             <MaterialCommunityIcons
               name={insight.icon as keyof typeof MaterialCommunityIcons.glyphMap}
-              size={15}
+              size={iconSize.sm}
               color={insightToneColor(insight.iconTone, isDark)}
             />
           </View>
@@ -93,7 +94,7 @@ export const InsightListCard = React.memo(function InsightListCard({
           </View>
           <MaterialCommunityIcons
             name="chevron-right"
-            size={16}
+            size={iconSize.sm}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
         </View>

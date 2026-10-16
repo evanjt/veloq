@@ -8,6 +8,7 @@ import type { ActivityType } from '@/types';
 import { styles } from '../RecordingScreen.styles';
 import { useTimer } from '../hooks/useTimer';
 
+import { iconSize } from '@/theme';
 export function IndoorDisplay({
   activityType,
   surface,
@@ -26,7 +27,7 @@ export function IndoorDisplay({
     <View style={[styles.indoorDisplay, { backgroundColor: surface, borderColor: border }]}>
       <MaterialCommunityIcons
         name={getActivityIcon(activityType)}
-        size={48}
+        size={iconSize.xxl}
         color={activityColor}
       />
       <Text style={[styles.indoorTimer, { color: textPrimary }]}>{formattedMoving}</Text>

@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app/useTheme';
 import { openAppSettings } from '@/shared/app/permissions';
-import { colors, darkColors, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { Button } from './Button';
 import { useAnnounceOnAppear } from './useAnnounceOnAppear';
 
@@ -62,7 +62,7 @@ export function PermissionNotice({
         { backgroundColor: isDark ? darkColors.surfaceElevated : colors.surface },
       ]}
     >
-      <MaterialCommunityIcons name={icon} size={20} color={palette.warningAmber} />
+      <MaterialCommunityIcons name={icon} size={iconSize.md} color={palette.warningAmber} />
       <Text style={[styles.reason, { color: palette.textPrimary }]}>{reason}</Text>
       {outcome === 'blocked' ? (
         <OpenSettingsButton testID={`${testID}-settings`} />

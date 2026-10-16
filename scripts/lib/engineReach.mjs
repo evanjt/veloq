@@ -8,11 +8,15 @@
 //
 // The doors: the shared engine module under any path spelling (the alias, a
 // relative path, `require`, a dynamic `import`), the `useEngineReady` hook,
-// the `engine` `veloqrs` exports however it is taken (a named import, a
-// `require` destructure, a property read off the module, a namespace import or
-// a variable holding the module), and `EngineClient.getInstance()`. The
-// class's statics set process-wide switches and hold no instance, so they are
-// not a door.
+// the `engine` `veloqrs` export and the delegate namespaces bound to it,
+// however one is taken (a named import, a `require` destructure, a property
+// read off the module, a namespace import or a variable holding the module),
+// and `EngineClient.getInstance()`. The class's statics set process-wide
+// switches and hold no instance, so they are not a door.
+
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import ts from 'typescript';
 
@@ -23,6 +27,38 @@ export const ENGINE_CANDIDATE_ERE = 'native/engine|veloqrs|getInstance|useEngine
 export const HANDLE_CALLS = new Set(['getEngine', 'getNativeModule', 'useEngineReady']);
 
 const VELOQRS = 'veloqrs';
+
+const BARREL = join(dirname(fileURLToPath(import.meta.url)), '../../modules/veloqrs/src/index.ts');
+
+/**
+ * The `veloqrs` exports that are the engine: `engine` itself and every delegate
+ * namespace the barrel binds to it. Read off the barrel's
+ * `export const x = bindDelegates(` lines, so a namespace added there is a
+ * door here without a second list to keep.
+ */
+export const ENGINE_EXPORTS = new Set(['engine', ...boundNamespaces(readFileSync(BARREL, 'utf8'))]);
+
+export function boundNamespaces(barrel) {
+  const sf = ts.createSourceFile('index.ts', barrel, ts.ScriptTarget.Latest, true);
+  const names = [];
+  for (const stmt of sf.statements) {
+    if (!ts.isVariableStatement(stmt)) continue;
+    if (!stmt.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)) continue;
+    for (const decl of stmt.declarationList.declarations) {
+      const init = decl.initializer;
+      if (
+        ts.isIdentifier(decl.name) &&
+        init &&
+        ts.isCallExpression(init) &&
+        ts.isIdentifier(init.expression) &&
+        init.expression.text === 'bindDelegates'
+      ) {
+        names.push(decl.name.text);
+      }
+    }
+  }
+  return names;
+}
 
 /** The shared engine module, by the alias or by any relative path to it. */
 export const isEngineModuleSpecifier = (spec) => /(^|\/)native\/engine$/.test(spec);
@@ -103,7 +139,7 @@ export function veloqrsBindings(sourceFile) {
       if (named && ts.isNamespaceImport(named)) module.add(named.name.text);
       if (named && ts.isNamedImports(named)) {
         for (const el of named.elements) {
-          if ((el.propertyName ?? el.name).text === 'engine') engine.add(el.name.text);
+          if (ENGINE_EXPORTS.has((el.propertyName ?? el.name).text)) engine.add(el.name.text);
         }
       }
     }
@@ -122,7 +158,7 @@ export function veloqrsBindings(sourceFile) {
         if (ts.isObjectBindingPattern(node.name)) {
           for (const el of node.name.elements) {
             const key = el.propertyName ?? el.name;
-            if (ts.isIdentifier(key) && key.text === 'engine' && ts.isIdentifier(el.name)) {
+            if (ts.isIdentifier(key) && ENGINE_EXPORTS.has(key.text) && ts.isIdentifier(el.name)) {
               engine.add(el.name.text);
             }
           }
@@ -154,12 +190,12 @@ export function isEngineHandleExpression(node) {
   const bindings = veloqrsBindings(n.getSourceFile());
   if (ts.isIdentifier(n)) return bindings.engine.has(n.text);
   if (ts.isPropertyAccessExpression(n)) {
-    return n.name.text === 'engine' && isVeloqrsModule(n.expression, bindings);
+    return ENGINE_EXPORTS.has(n.name.text) && isVeloqrsModule(n.expression, bindings);
   }
   if (ts.isElementAccessExpression(n)) {
     return (
       ts.isStringLiteralLike(n.argumentExpression) &&
-      n.argumentExpression.text === 'engine' &&
+      ENGINE_EXPORTS.has(n.argumentExpression.text) &&
       isVeloqrsModule(n.expression, bindings)
     );
   }

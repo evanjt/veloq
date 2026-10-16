@@ -78,6 +78,19 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
     (secsPer100m: number) => formatMinSec(paceSecondsForUnit(secsPer100m, 'swim', isMetric)),
     [isMetric]
   );
+  const reading = useMemo(
+    () => ({
+      title: t('stats.swimPaceCurve'),
+      xHeader: t('charts.column.distance'),
+      unit: swimPaceUnitLabel(isMetric),
+      formatX: (x: number) => formatDistance(10 ** x, isMetric),
+      formatValue: (secsPer100m: number) =>
+        `${formatPaceAxis(secsPer100m)}${swimPaceUnitLabel(isMetric)}`,
+      lowerIsBetter: true,
+      shape: 'curve' as const,
+    }),
+    [t, isMetric, formatPaceAxis]
+  );
 
   const {
     data: curve,
@@ -223,7 +236,15 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
         referenceLine={referenceLine}
         xLabels={X_LABELS}
         formatY={formatPaceAxis}
+        reading={reading}
         crosshairMode="finger"
+        describePoint={(p) =>
+          [
+            formatDistance(p.distance, isMetric),
+            formatTime(p.time),
+            `${formatSwimPace(p.paceMs, isMetric)}${swimPaceUnitLabel(isMetric)}`,
+          ].join(', ')
+        }
         onSelect={setTooltipData}
         onInteractionChange={handleInteractionChange}
       />

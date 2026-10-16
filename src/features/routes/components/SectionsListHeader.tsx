@@ -6,7 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Button, IconButton, SearchBar } from '@/shared/ui';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { isElevationHold, type DetectionHold } from '@/features/routes/hooks/useDetectionHold';
 import { rescanRefusalKey } from '@/features/routes/lib/rescanRefusal';
 import type { StartVerdict } from 'veloqrs';
@@ -105,7 +105,13 @@ export function SectionsListHeader({
               variant="ghost"
               size="sm"
               onPress={onAcceptAll}
-              icon={<MaterialCommunityIcons name="pin-outline" size={13} color={colors.primary} />}
+              icon={
+                <MaterialCommunityIcons
+                  name="pin-outline"
+                  size={iconSize.xs}
+                  color={colors.primary}
+                />
+              }
               label={t('sections.acceptAllSections')}
             />
           )}
@@ -132,7 +138,7 @@ export function SectionsListHeader({
             ) : (
               <MaterialCommunityIcons
                 name="reload"
-                size={14}
+                size={iconSize.sm}
                 color={
                   rescanDisabled
                     ? isDark
@@ -151,7 +157,7 @@ export function SectionsListHeader({
         <View style={styles.pausedRow} testID="elevation-backfill-row">
           <MaterialCommunityIcons
             name="elevation-rise"
-            size={13}
+            size={iconSize.xs}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
           <Text style={[styles.pausedText, isDark && styles.pausedTextDark]}>{elevationLine}</Text>
@@ -161,7 +167,7 @@ export function SectionsListHeader({
         <View style={styles.pausedRow} testID="rescan-refused">
           <MaterialCommunityIcons
             name="information-outline"
-            size={13}
+            size={iconSize.xs}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
           <Text style={[styles.pausedText, isDark && styles.pausedTextDark]}>{t(refusalKey)}</Text>
@@ -171,7 +177,7 @@ export function SectionsListHeader({
         <View style={styles.pausedRow} testID="detection-paused">
           <MaterialCommunityIcons
             name="pause-circle-outline"
-            size={13}
+            size={iconSize.xs}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
           <Text style={[styles.pausedText, isDark && styles.pausedTextDark]}>

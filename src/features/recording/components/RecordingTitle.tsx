@@ -11,7 +11,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { View } from 'react-native';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { getVisibleRecording } from '@/features/recording/lib/storage/recordingLibrary';
 import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
 import type { RecordingLibraryEntry } from '@/types';
@@ -39,7 +39,7 @@ export function RecordingTitle() {
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
       <MaterialCommunityIcons
         name={getActivityIcon(entry.activityType)}
-        size={22}
+        size={iconSize.lg}
         color={getActivityInk(entry.activityType, isDark)}
       />
       <Text

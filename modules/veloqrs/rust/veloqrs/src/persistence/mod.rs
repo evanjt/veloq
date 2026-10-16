@@ -72,6 +72,7 @@ pub use activities::{
 /// directly decode it the same way the engine wrote it.
 pub mod codec;
 pub mod cutover;
+pub(crate) mod deep_tiles;
 pub(crate) mod empty_reason;
 pub(crate) mod export;
 pub(crate) mod file_lock;

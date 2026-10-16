@@ -121,6 +121,20 @@ describe('the Modal sheet guard', () => {
     expect(runGuard(root, {}).status).toBe(0);
   });
 
+  it('counts a Modal opened through the full-window owner, and not the owner itself', () => {
+    const owner = 'src/shared/ui/FullWindowModal.tsx';
+    const root = treeWith({
+      [owner]: 'export const FullWindowModal = (p) => <Modal {...p} />;\n',
+      [FILE]: 'export const A = () => <FullWindowModal visible />;\n',
+    });
+    const run = runGuard(root, {});
+
+    expect(run.status).toBe(1);
+    expect(run.output).toContain(FILE);
+    expect(run.output).not.toContain(owner);
+    expect(runGuard(root, { [FILE]: REASON }).status).toBe(0);
+  });
+
   it('counts a file under the test tree for nothing', () => {
     const root = treeWith({ 'src/__tests__/a.test.tsx': SHEET });
 

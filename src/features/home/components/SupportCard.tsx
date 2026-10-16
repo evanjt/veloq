@@ -14,7 +14,7 @@ import {
   openStorePage,
 } from '@/shared/app/supportLinks';
 import { useDonation } from '@/shared/app/useDonation';
-import { colors, darkColors, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { TipButtons } from '@/shared/ui/TipButtons';
 import { Card } from '@/shared/ui/Card';
 import { Button, DisclosureChevron, pressable, pressRipple } from '@/shared/ui';
@@ -98,7 +98,7 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
       <Animated.View entering={FadeIn.duration(300)} exiting={FadeOut.duration(200)}>
         <Card variant="raised" style={{ gap: spacing.sm }}>
           <View style={styles.header}>
-            <MaterialCommunityIcons name="heart" size={22} color={colors.primary} />
+            <MaterialCommunityIcons name="heart" size={iconSize.md} color={colors.primary} />
             <Text style={[styles.title, isDark && styles.titleDark]}>{t('support.thankYou')}</Text>
           </View>
         </Card>
@@ -117,7 +117,7 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
     >
       <Card variant="raised" style={{ gap: spacing.sm }}>
         <View style={styles.header}>
-          <MaterialCommunityIcons name="star-outline" size={22} color={textColor} />
+          <MaterialCommunityIcons name="star-outline" size={iconSize.md} color={textColor} />
           <Text style={[styles.title, isDark && styles.titleDark]}>
             {t('support.enjoyingTitle')}
           </Text>
@@ -156,11 +156,11 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
           style={pressable(styles.tipToggle)}
           android_ripple={pressRipple}
         >
-          <MaterialCommunityIcons name="wrench-outline" size={18} color={mutedColor} />
+          <MaterialCommunityIcons name="wrench-outline" size={iconSize.sm} color={mutedColor} />
           <Text style={[styles.tipToggleText, { color: mutedColor }]}>
             {t('support.supportDevelopment')}
           </Text>
-          <DisclosureChevron expanded={tipsExpanded} size={18} color={mutedColor} />
+          <DisclosureChevron expanded={tipsExpanded} size={iconSize.sm} color={mutedColor} />
         </Pressable>
 
         {/* Mounted only while open: the panel is as tall as its buttons at any text
@@ -182,7 +182,7 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
                 onPress={handleSponsor}
                 label={t('support.sponsorGitHub')}
                 variant="secondary"
-                icon={<MaterialCommunityIcons name="github" size={18} color={textColor} />}
+                icon={<MaterialCommunityIcons name="github" size={iconSize.md} color={textColor} />}
               />
             )}
           </Animated.View>
@@ -228,7 +228,7 @@ function ActionButton({
       icon={
         <MaterialCommunityIcons
           name={icon as keyof typeof MaterialCommunityIcons.glyphMap}
-          size={20}
+          size={iconSize.md}
           color={isDark ? darkColors.textPrimary : colors.textPrimary}
         />
       }

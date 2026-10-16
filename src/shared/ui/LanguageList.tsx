@@ -19,6 +19,7 @@ import {
   brand,
   colors,
   darkColors,
+  iconSize,
   layout,
   slopToMinTapTarget,
   spacing,
@@ -83,7 +84,7 @@ export function LanguageList({ language, onSelect }: LanguageListProps) {
           </Pressable>
         )}
         {followsSystem ? (
-          <MaterialCommunityIcons name="check" size={20} color={colors.primary} />
+          <MaterialCommunityIcons name="check" size={iconSize.md} color={colors.primary} />
         ) : null}
       </View>
       {languages.map((lang) => {
@@ -162,7 +163,7 @@ export function LanguageList({ language, onSelect }: LanguageListProps) {
               </View>
             ) : null}
             {showCheck && !lang.variants ? (
-              <MaterialCommunityIcons name="check" size={20} color={colors.primary} />
+              <MaterialCommunityIcons name="check" size={iconSize.md} color={colors.primary} />
             ) : null}
           </View>
         );

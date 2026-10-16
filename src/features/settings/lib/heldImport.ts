@@ -25,6 +25,7 @@ import {
 } from './backup';
 import { inform } from '@/shared/ui/dialog';
 import { showRestoreNotice } from './restoreNotice';
+import { RESTORE_REFUSAL_KEYS, RestoreRefusedError, restoreRefusal } from './restoreRefusal';
 
 const log = debug.create('HeldImport');
 
@@ -121,7 +122,7 @@ async function restoreHeld(jsonUri: string, zipUri: string): Promise<number | nu
       encoding: FileSystem.EncodingType.UTF8,
     });
     const result = await restoreBackup(json);
-    if (result.failed) throw new Error(result.error ?? 'Backup import failed');
+    if (result.refusal) throw new RestoreRefusedError(result.refusal);
     return result.unplacedCount ?? 0;
   }
   if (await exists(zipUri)) return (await restoreRecordBackup(zipUri)).unplaced;
@@ -141,15 +142,12 @@ async function applyHeld(t: TFunction): Promise<boolean> {
     // A record the restore refused is refused again on every try, and one a
     // write failure paused is the engine's to resume, so either way the held
     // file has had its one restore.
-    const message = error instanceof Error ? error.message : '';
-    log.warn('Held import not restored:', message);
+    log.warn('Held import not restored:', error instanceof Error ? error.message : error);
     await discardHeldImport().catch(() => {});
     markPlatformRecordAnswered();
     inform({
       title: t('backup.notRestoredTitle'),
-      message: message.includes('another athlete')
-        ? t('backup.backupDifferentAccount')
-        : t('backup.importError'),
+      message: t(RESTORE_REFUSAL_KEYS[restoreRefusal(error)]),
     });
     return true;
   }

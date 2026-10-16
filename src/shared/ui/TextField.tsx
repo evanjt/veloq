@@ -35,7 +35,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app/useTheme';
-import { colors, darkColors, inputBoundary, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, inputBoundary, layout, spacing, typography } from '@/theme';
 
 import { IconButton } from './IconButton';
 import { secretReveal } from './secretReveal';
@@ -281,7 +281,11 @@ export function TextField({
             accessibilityState={reveal.accessibilityState}
             onPress={toggleReveal}
           >
-            <MaterialCommunityIcons name={reveal.icon} size={20} color={palette.textSecondary} />
+            <MaterialCommunityIcons
+              name={reveal.icon}
+              size={iconSize.md}
+              color={palette.textSecondary}
+            />
           </IconButton>
         ) : null}
       </View>

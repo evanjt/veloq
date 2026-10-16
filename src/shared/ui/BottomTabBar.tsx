@@ -16,7 +16,7 @@ import * as haptics from './haptics';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { colorWithOpacity, colors, darkColors, ink, spacing, typography } from '@/theme';
+import { colors, colorWithOpacity, darkColors, iconSize, ink, spacing, typography } from '@/theme';
 import { PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { navigateTab } from '@/shared/app/navigation';
 import { debug } from '@/shared/debug/debug';
@@ -34,8 +34,6 @@ const MENU_ITEMS = [
   { key: 'insights', icon: 'lightbulb-outline', route: '/insights' },
   { key: 'health', icon: 'heart-pulse', route: '/training' },
 ] as const;
-
-const ICON_SIZE = 26;
 
 // The labels are text and hold 4.5:1, the icons are marks and hold 3:1, both
 // over the worst ground the bar can have: its densest scrim stop over content
@@ -170,7 +168,7 @@ function BottomTabBarComponent() {
                 <View style={styles.iconContainer}>
                   <MaterialCommunityIcons
                     name={item.icon as never}
-                    size={isActive ? ICON_SIZE + 2 : ICON_SIZE}
+                    size={iconSize.lg}
                     color={isActive ? activeIcon : inactiveColor}
                   />
                 </View>
@@ -227,8 +225,8 @@ const styles = StyleSheet.create({
   iconContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: ICON_SIZE + 2,
-    width: ICON_SIZE + 2,
+    height: iconSize.lg,
+    width: iconSize.lg,
   },
   label: {
     fontSize: typography.label.fontSize,

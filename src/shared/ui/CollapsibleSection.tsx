@@ -8,7 +8,7 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, darkColors, layout, typography, spacing } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { DisclosureChevron } from './DisclosureChevron';
 import * as haptics from './haptics';
@@ -112,7 +112,7 @@ export function CollapsibleSection({
           {icon ? (
             <MaterialCommunityIcons
               name={icon}
-              size={22}
+              size={iconSize.lg}
               color={isDark ? darkColors.textSecondary : colors.textSecondary}
               style={styles.icon}
             />
@@ -143,7 +143,7 @@ export function CollapsibleSection({
         {headerRight}
         <DisclosureChevron
           expanded={expanded}
-          size={24}
+          size={iconSize.lg}
           color={isDark ? darkColors.textSecondary : colors.textSecondary}
         />
       </Pressable>

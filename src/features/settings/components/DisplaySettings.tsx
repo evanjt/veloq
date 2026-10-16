@@ -3,7 +3,7 @@ import { View, StyleSheet, Text } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
 import { type PrimarySport } from '@/features/fitness';
 import { languageLabel } from '@/shared/app/LanguageStore';
@@ -52,7 +52,7 @@ function DisplaySettingsComponent({
       <View style={styles.subsectionHeader}>
         <MaterialCommunityIcons
           name="theme-light-dark"
-          size={18}
+          size={iconSize.md}
           color={isDark ? darkColors.textSecondary : colors.textSecondary}
         />
         <Text style={[styles.subsectionLabel, isDark && settingsStyles.textSecondary]}>
@@ -89,7 +89,7 @@ function DisplaySettingsComponent({
       <View style={styles.subsectionHeader}>
         <MaterialCommunityIcons
           name="ruler"
-          size={18}
+          size={iconSize.md}
           color={isDark ? darkColors.textSecondary : colors.textSecondary}
         />
         <Text style={[styles.subsectionLabel, isDark && settingsStyles.textSecondary]}>
@@ -128,7 +128,7 @@ function DisplaySettingsComponent({
       <View style={[styles.subsectionHeader, styles.languageHeader]}>
         <MaterialCommunityIcons
           name="translate"
-          size={18}
+          size={iconSize.md}
           color={isDark ? darkColors.textSecondary : colors.textSecondary}
         />
         <Text style={[styles.subsectionLabel, isDark && settingsStyles.textSecondary]}>
@@ -158,7 +158,7 @@ function DisplaySettingsComponent({
         <View style={styles.subsectionHeader}>
           <MaterialCommunityIcons
             name="run"
-            size={18}
+            size={iconSize.md}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
           <Text style={[styles.subsectionLabel, isDark && settingsStyles.textSecondary]}>

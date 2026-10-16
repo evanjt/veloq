@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { tapTo } from '@/shared/app/navigation';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 
 import { GrantAccessButton } from './GrantAccessButton';
 import { Button } from '@/shared/ui/Button';
@@ -56,7 +56,7 @@ export function RecordingGate({
     <View style={styles.gate} testID={signedOut ? 'recording-gate-signin' : 'recording-gate-scope'}>
       <MaterialCommunityIcons
         name={signedOut ? 'account-lock-outline' : 'shield-lock-outline'}
-        size={48}
+        size={iconSize.xxl}
         color={isDark ? darkColors.warningAmber : colors.warningAmber}
       />
       <Text style={[styles.title, { color: textPrimary }]}>

@@ -36,11 +36,14 @@ struct WidgetRefreshLink: Equatable {
 }
 
 /// The age line with the refresh control at its end, where the size has room for one. A column
-/// too narrow for both on one line puts the control under the age, which keeps the age whole.
+/// too narrow for both on one line puts the control under the age, which keeps the age whole,
+/// or, in a row kept to `oneLine` for a widget with no height for a second line, draws the
+/// control as its glyph beside the age.
 struct SnapshotAgeRow: View {
   let snapshot: WidgetSnapshot?
   let palette: WidgetPalette
   let hasRoom: Bool
+  var oneLine: Bool = false
 
   var body: some View {
     if let link = WidgetRefreshLink.link(snapshot, hasRoom: hasRoom) {
@@ -50,9 +53,18 @@ struct SnapshotAgeRow: View {
           Spacer(minLength: 0)
           RefreshLinkControl(link: link, palette: palette, alignment: .trailing)
         }
-        VStack(alignment: .leading, spacing: 4) {
-          SnapshotAgeLine(snapshot: snapshot, palette: palette)
-          RefreshLinkControl(link: link, palette: palette, alignment: .leading)
+        if oneLine {
+          HStack(spacing: 4) {
+            SnapshotAgeLine(snapshot: snapshot, palette: palette)
+            Spacer(minLength: 0)
+            RefreshLinkControl(
+              link: link, palette: palette, alignment: .trailing, glyphOnly: true)
+          }
+        } else {
+          VStack(alignment: .leading, spacing: 4) {
+            SnapshotAgeLine(snapshot: snapshot, palette: palette)
+            RefreshLinkControl(link: link, palette: palette, alignment: .leading)
+          }
         }
       }
     } else {
@@ -66,6 +78,8 @@ private struct RefreshLinkControl: View {
   let palette: WidgetPalette
   /// The edge the words or the glyph keep inside the target, the row's own edge.
   let alignment: Alignment
+  /// Draws the glyph alone, where the row has no room for the words.
+  var glyphOnly = false
 
   private var glyph: some View {
     Image(systemName: "arrow.up.forward.app")
@@ -78,11 +92,13 @@ private struct RefreshLinkControl: View {
       // The words where the row has room for them, else the glyph alone; the screen reader
       // hears the words either way.
       ViewThatFits(in: .horizontal) {
-        HStack(spacing: 3) {
-          Text(link.label)
-            .measuredText("refresh link")
-            .lineLimit(1)
-          glyph
+        if !glyphOnly {
+          HStack(spacing: 3) {
+            Text(link.label)
+              .measuredText("refresh link")
+              .lineLimit(1)
+            glyph
+          }
         }
         glyph
       }

@@ -12,14 +12,15 @@ import { useTranslation } from 'react-i18next';
 import {
   brand,
   colors,
-  darkColors,
-  spacing,
-  layout,
-  typography,
-  opacity,
-  mapPreviewColors,
   colorWithOpacity,
+  darkColors,
+  iconSize,
   ink,
+  layout,
+  mapPreviewColors,
+  opacity,
+  spacing,
+  typography,
 } from '@/theme';
 import { SportIcons } from '@/shared/activity/SportIcons';
 import { Card } from '@/shared/ui/Card';
@@ -258,7 +259,7 @@ export const SectionRow = memo(function SectionRow({
               {/* The section's own mark: the sports that took it are drawn beside the name. */}
               <MaterialCommunityIcons
                 name="road-variant"
-                size={18}
+                size={iconSize.md}
                 color={isDark ? darkColors.iconFaint : colors.iconFaint}
               />
             </View>
@@ -274,7 +275,7 @@ export const SectionRow = memo(function SectionRow({
             {section.isUserDefined && section.sectionType === 'auto' ? (
               <MaterialCommunityIcons
                 name="pin"
-                size={12}
+                size={iconSize.xs}
                 color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 style={{ marginLeft: spacing.xs }}
               />
@@ -288,7 +289,7 @@ export const SectionRow = memo(function SectionRow({
                 accessibilityLabel={t('sections.latestIsRecord')}
                 style={{ marginLeft: spacing.xs }}
               >
-                <MaterialCommunityIcons name="trophy" size={12} color={brand.gold} />
+                <MaterialCommunityIcons name="trophy" size={iconSize.xs} color={brand.gold} />
               </View>
             ) : null}
             {section.trend != null && section.trend !== 0 && (
@@ -300,7 +301,7 @@ export const SectionRow = memo(function SectionRow({
               >
                 <MaterialCommunityIcons
                   name={section.trend > 0 ? 'trending-up' : 'trending-down'}
-                  size={14}
+                  size={iconSize.sm}
                   color={
                     section.trend > 0
                       ? isDark
@@ -317,7 +318,7 @@ export const SectionRow = memo(function SectionRow({
             <View style={styles.sportIconsRow}>
               <SportIcons
                 sportTypes={section.sportTypes}
-                size={12}
+                size={iconSize.xs}
                 color={isDark ? darkColors.textSecondary : colors.textSecondary}
               />
             </View>
@@ -328,7 +329,7 @@ export const SectionRow = memo(function SectionRow({
               <View style={styles.gainChip}>
                 <MaterialCommunityIcons
                   name={elevation.direction === 'loss' ? 'arrow-bottom-right' : 'arrow-top-right'}
-                  size={10}
+                  size={iconSize.xs}
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 />
                 <Text style={[styles.metaText, isDark && styles.textSecondary]}>
@@ -340,7 +341,7 @@ export const SectionRow = memo(function SectionRow({
               <View style={styles.proximityTag}>
                 <MaterialCommunityIcons
                   name="map-marker-distance"
-                  size={10}
+                  size={iconSize.xs}
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 />
                 <Text style={[styles.proximityText, isDark && styles.proximityTextDark]}>
@@ -359,7 +360,7 @@ export const SectionRow = memo(function SectionRow({
               <View style={[styles.disabledTag, isDark && styles.disabledTagDark]}>
                 <MaterialCommunityIcons
                   name="eye-off"
-                  size={10}
+                  size={iconSize.xs}
                   color={isDark ? darkColors.amberIcon : colors.amberIcon}
                 />
                 <Text style={[styles.disabledTagText, isDark && styles.disabledTagTextDark]}>
@@ -379,12 +380,12 @@ export const SectionRow = memo(function SectionRow({
         >
           <MaterialCommunityIcons
             name="repeat"
-            size={typography.bodyCompact.fontSize}
+            size={iconSize.sm}
             color={colors.textOnPrimary}
             testID={`section-row-${section.id}-count-glyph`}
           />
           <Text style={styles.countText}>{section.visitCount}</Text>
-          <MaterialCommunityIcons name="chevron-right" size={16} color={ink.white} />
+          <MaterialCommunityIcons name="chevron-right" size={iconSize.sm} color={ink.white} />
         </View>
       </Card>
     </View>

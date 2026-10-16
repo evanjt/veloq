@@ -23,15 +23,16 @@ import {
   formatTemperature,
 } from '@/shared/format/format';
 import {
-  colors,
-  darkColors,
-  typography,
-  spacing,
   brand,
-  layout,
+  colors,
   colorWithOpacity,
+  darkColors,
+  iconSize,
   ink,
+  layout,
   mapTextShadow,
+  spacing,
+  typography,
 } from '@/theme';
 import { formatWeightRounded } from '@/shared/format/weight';
 import { spokenDuration } from '@/shared/format/spoken';
@@ -129,7 +130,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
       >
         {!!activity.icu_training_load && (
           <View style={styles.secondaryStat}>
-            <MaterialCommunityIcons name="fire" size={14} color={colors.primary} />
+            <MaterialCommunityIcons name="fire" size={iconSize.sm} color={colors.primary} />
             <RNText style={[styles.secondaryStatValue, { color: compactMutedColor }]}>
               {formatLoad(activity.icu_training_load)}
             </RNText>
@@ -137,7 +138,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
         )}
         {averageHeartRate ? (
           <View style={styles.secondaryStat}>
-            <MaterialCommunityIcons name="heart-pulse" size={14} color={colors.error} />
+            <MaterialCommunityIcons name="heart-pulse" size={iconSize.sm} color={colors.error} />
             <RNText style={[styles.secondaryStatValue, { color: compactMutedColor }]}>
               {formatHeartRate(averageHeartRate)}
             </RNText>
@@ -147,7 +148,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
           <View style={styles.secondaryStat}>
             <MaterialCommunityIcons
               name="lightning-bolt"
-              size={14}
+              size={iconSize.sm}
               color={isDark ? darkColors.warningAmber : colors.warningAmber}
             />
             <RNText style={[styles.secondaryStatValue, { color: compactMutedColor }]}>
@@ -159,7 +160,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
           <View style={styles.secondaryStat}>
             <MaterialCommunityIcons
               name="food-apple"
-              size={14}
+              size={iconSize.sm}
               color={isDark ? darkColors.successDeep : colors.successDeep}
             />
             <RNText style={[styles.secondaryStatValue, { color: compactMutedColor }]}>
@@ -169,7 +170,11 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
         )}
         {activity.has_weather && activity.average_weather_temp != null ? (
           <View style={styles.secondaryStat}>
-            <MaterialCommunityIcons name="weather-partly-cloudy" size={14} color={colors.info} />
+            <MaterialCommunityIcons
+              name="weather-partly-cloudy"
+              size={iconSize.sm}
+              color={colors.info}
+            />
             <RNText style={[styles.secondaryStatValue, { color: compactMutedColor }]}>
               {formatTemperature(activity.average_weather_temp, isMetric)}
             </RNText>
@@ -220,7 +225,11 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
             >
               <View style={styles.overlayHeader}>
                 <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
-                  <MaterialCommunityIcons name={iconName} size={14} color={colors.textOnDark} />
+                  <MaterialCommunityIcons
+                    name={iconName}
+                    size={iconSize.sm}
+                    color={colors.textOnDark}
+                  />
                 </View>
                 <View style={styles.overlayTitleColumn}>
                   <RNText

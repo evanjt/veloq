@@ -73,6 +73,26 @@ import {
 } from './generated/veloqrs';
 
 import { EngineClient } from './EngineClient';
+import { bindDelegates } from './delegates/bind';
+import * as activityDelegates from './delegates/activities';
+import * as connectivityDelegates from './delegates/connectivity';
+import * as cutoverDelegates from './delegates/cutover';
+import * as detectionDelegates from './delegates/detection';
+import * as elevationDelegates from './delegates/elevation';
+import * as fitnessDelegates from './delegates/fitness';
+import * as heatmapDelegates from './delegates/heatmap';
+import * as launchDelegates from './delegates/launch';
+import * as mapsDelegates from './delegates/maps';
+import * as previewDelegates from './delegates/preview';
+import * as recordingDelegates from './delegates/recordings';
+import * as routeGroupingPreviewDelegates from './delegates/routeGroupingPreview';
+import * as routeDelegates from './delegates/routes';
+import * as routesStatusDelegates from './delegates/routesStatus';
+import * as sectionDelegates from './delegates/sections';
+import * as settingsDelegates from './delegates/settings';
+import * as streamBackfillDelegates from './delegates/streamBackfill';
+import * as strengthDelegates from './delegates/strength';
+import * as syncDelegates from './delegates/sync';
 
 // Install the Rust crate into the JS runtime (installs NativeVeloqrs on globalThis)
 const installed = NativeVeloqrs.installRustCrate();
@@ -266,6 +286,32 @@ export type {
 } from './generated/veloqrs';
 
 export const engine = EngineClient.getInstance();
+
+// The engine's TypeScript API: one namespace per delegate, bound to the one
+// host. A component names the delegate it reaches into, and every function is
+// total, answering its typed default until the engine opens. The client's
+// forwards are the older door to the same functions and leave as their call
+// sites move here. `scripts/lib/engineReach.mjs` reads this list to count
+// every file that imports one.
+export const activities = bindDelegates(engine, activityDelegates);
+export const connectivity = bindDelegates(engine, connectivityDelegates);
+export const cutover = bindDelegates(engine, cutoverDelegates);
+export const detection = bindDelegates(engine, detectionDelegates);
+export const elevation = bindDelegates(engine, elevationDelegates);
+export const fitness = bindDelegates(engine, fitnessDelegates);
+export const heatmap = bindDelegates(engine, heatmapDelegates);
+export const launch = bindDelegates(engine, launchDelegates);
+export const maps = bindDelegates(engine, mapsDelegates);
+export const preview = bindDelegates(engine, previewDelegates);
+export const recordings = bindDelegates(engine, recordingDelegates);
+export const routeGroupingPreview = bindDelegates(engine, routeGroupingPreviewDelegates);
+export const routes = bindDelegates(engine, routeDelegates);
+export const routesStatus = bindDelegates(engine, routesStatusDelegates);
+export const sections = bindDelegates(engine, sectionDelegates);
+export const settings = bindDelegates(engine, settingsDelegates);
+export const streamBackfill = bindDelegates(engine, streamBackfillDelegates);
+export const strength = bindDelegates(engine, strengthDelegates);
+export const sync = bindDelegates(engine, syncDelegates);
 
 /**
  * The Rust-owned basemap tile store.

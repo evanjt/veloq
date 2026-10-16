@@ -28,7 +28,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useWindowInsets } from '@/shared/app/TopSafeAreaContext';
 import { useScrollEndInset } from './tabBarClearance';
 
 /** Whether the keyboard has to be cleared by padding, read once like the defaults below. */
@@ -83,7 +83,7 @@ export function KeyboardClearance({ children }: { children: ReactNode }) {
 function KeyboardPadding({ children }: { children: ReactNode }) {
   const ref = useRef<View>(null);
   const keyboard = useRef<KeyboardEvent | null>(null);
-  const { top } = useSafeAreaInsets();
+  const { top } = useWindowInsets();
   const [bottom, setBottom] = useState(0);
 
   const measure = useCallback(() => {

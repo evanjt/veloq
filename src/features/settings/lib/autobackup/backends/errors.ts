@@ -7,7 +7,8 @@
  * not, because the next scheduled attempt will most likely succeed and a
  * standing "your backup is broken" would be a lie. Neither is a copy the
  * carrier took that did not read back the same, `unverified`, which the next
- * trigger sends again.
+ * trigger sends again. An address the athlete stored that may not carry the
+ * credential, `address`, stays until they change it.
  */
 
 export type BackupFailureKind =
@@ -19,9 +20,11 @@ export type BackupFailureKind =
   | 'transport'
   | 'folder_unavailable'
   | 'icloud_unavailable'
-  | 'unverified';
+  | 'unverified'
+  | 'address';
 
 const PERMANENT_KINDS: readonly BackupFailureKind[] = [
+  'address',
   'auth',
   'signin',
   'quota',
@@ -102,7 +105,8 @@ export type BackupFailureMessageKey =
   | 'backup.backupFailedTransport'
   | 'backup.backupFailedFolder'
   | 'backup.backupFailedIcloud'
-  | 'backup.backupFailedUnverified';
+  | 'backup.backupFailedUnverified'
+  | 'backup.backupFailedAddress';
 
 const MESSAGE_KEYS: Record<BackupFailureKind, BackupFailureMessageKey> = {
   auth: 'backup.backupFailedAuth',
@@ -114,6 +118,7 @@ const MESSAGE_KEYS: Record<BackupFailureKind, BackupFailureMessageKey> = {
   folder_unavailable: 'backup.backupFailedFolder',
   icloud_unavailable: 'backup.backupFailedIcloud',
   unverified: 'backup.backupFailedUnverified',
+  address: 'backup.backupFailedAddress',
 };
 
 /** Translation key describing a failure in terms of what the user can do about it. */
@@ -125,4 +130,9 @@ export function failureMessageKey(kind: BackupFailureKind): BackupFailureMessage
 export function transportFailure(operation: string, cause: unknown): BackupTransferError {
   const detail = cause instanceof Error ? cause.message : String(cause);
   return new BackupTransferError(operation, 'transport', `${operation} failed: ${detail}`);
+}
+
+/** A stored server address nothing may be sent to, which is never the server's decision. */
+export function addressFailure(operation: string, problem: string): BackupTransferError {
+  return new BackupTransferError(operation, 'address', `${operation} refused: address ${problem}`);
 }

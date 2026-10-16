@@ -130,9 +130,22 @@ jest.mock('@/features/settings/lib/backup', () => ({
 jest.mock('@/features/settings/components/ExportPrivacyRow', () => ({
   ExportPrivacyRow: () => null,
 }));
+const mockCommit = jest.fn(
+  async (): Promise<{ kind: string; message?: string }> => ({
+    kind: 'empty',
+  })
+);
 jest.mock('@/features/settings/components/WebdavConfigForm', () => ({
-  WebdavConfigForm: ({ onRemoved }: { onRemoved: () => void }) => {
+  WebdavConfigForm: ({
+    onRemoved,
+    ref,
+  }: {
+    onRemoved: () => void;
+    ref?: React.Ref<{ commit: () => Promise<unknown> }>;
+  }) => {
     const { Pressable, Text } = require('react-native');
+    const { useImperativeHandle } = require('react');
+    useImperativeHandle(ref, () => ({ commit: () => mockCommit() }));
     return (
       <Pressable
         testID="webdav-remove"
@@ -266,6 +279,8 @@ beforeEach(() => {
   mockDownload.mockClear();
   mockImportBackup.mockClear();
   mockListBackups.mockClear();
+  mockCommit.mockReset();
+  mockCommit.mockResolvedValue({ kind: 'empty' });
   (performBackup as jest.Mock).mockClear();
   (restoreRecordBackup as jest.Mock).mockClear();
   (restoreDatabaseBackup as jest.Mock).mockReset();
@@ -296,6 +311,7 @@ it('keeps the backup action busy until its run finishes', async () => {
     screen.getByRole('button', { name: 'backup.backupNow' }).props.accessibilityState.busy
   ).toBe(true);
   void fireEvent.press(backupButton);
+  await act(async () => {});
   expect(performBackup).toHaveBeenCalledTimes(1);
 
   await act(async () => finishBackup?.({ wroteZip: true, carriers: {} }));
@@ -314,6 +330,54 @@ it('reports the archive destination and an import path after Back Up Now', async
   expect(screen.getByTestId('backup-success-message')).toHaveTextContent('backup.recordSavedLocal');
   expect(screen.getByTestId('backup-import-button')).toBeTruthy();
   expect(screen.getByTestId('backup-export-button')).toBeTruthy();
+});
+
+it('stores the WebDAV details the form shows before Back Up Now runs', async () => {
+  const order: string[] = [];
+  mockCommit.mockImplementationOnce(async () => {
+    order.push('commit');
+    mockWebdavUrl = 'https://dav.example.org/remote.php/dav/files/athlete';
+    return { kind: 'stored' };
+  });
+  (performBackup as jest.Mock).mockImplementationOnce(async () => {
+    order.push('backup');
+    return { wroteZip: true, carriers: { webdav: { status: 'written' } } };
+  });
+  await render(<BackupSection />);
+
+  await act(async () => {
+    await fireEvent.press(screen.getByTestId('backup-now-button'));
+  });
+
+  expect(order).toEqual(['commit', 'backup']);
+});
+
+it("shows the form's refusal and runs no backup when the WebDAV details cannot be stored", async () => {
+  mockCommit.mockResolvedValueOnce({ kind: 'refused', message: 'backup.webdavHttpsRequired' });
+  await render(<BackupSection />);
+
+  await act(async () => {
+    await fireEvent.press(screen.getByTestId('backup-now-button'));
+  });
+
+  expect(performBackup).not.toHaveBeenCalled();
+  expect(screen.getByTestId('backup-error-message')).toHaveTextContent(
+    'backup.webdavHttpsRequired'
+  );
+});
+
+it('lists the WebDAV server whose details were stored by the same press', async () => {
+  mockCommit.mockImplementationOnce(async () => {
+    mockWebdavUrl = 'https://dav.example.org/remote.php/dav/files/athlete';
+    return { kind: 'stored' };
+  });
+  await render(<BackupSection />);
+
+  await act(async () => {
+    await fireEvent.press(screen.getByTestId('backup-list-button'));
+  });
+
+  expect(mockListBackups).toHaveBeenCalled();
 });
 
 it('names the WebDAV server as the destination after Back Up Now', async () => {
@@ -698,8 +762,7 @@ it('shows an account warning when a selected legacy database belongs to another 
   (restoreDatabaseBackup as jest.Mock).mockResolvedValue({
     success: false,
     activityCount: 0,
-    athleteIdMismatch: true,
-    error: 'Account mismatch',
+    refusal: 'differentAccount',
   });
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   acceptReplacement(alert);

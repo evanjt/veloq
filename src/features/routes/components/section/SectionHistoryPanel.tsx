@@ -15,6 +15,7 @@ import {
   colors,
   controlHeight,
   darkColors,
+  iconSize,
   layout,
   slopToMinTapTarget,
   spacing,
@@ -123,7 +124,7 @@ function Chips({
         >
           <MaterialCommunityIcons
             name="map-marker-path"
-            size={12}
+            size={iconSize.xs}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
           <Text style={[styles.chipText, isDark && styles.textDark]} numberOfLines={1}>
@@ -190,7 +191,7 @@ export function SectionHistoryPanel({
       <View style={styles.header}>
         <MaterialCommunityIcons
           name="history"
-          size={18}
+          size={iconSize.md}
           color={isDark ? darkColors.textPrimary : colors.textPrimary}
         />
         <Text accessibilityRole="header" style={[styles.title, isDark && styles.textDark]}>
@@ -208,7 +209,7 @@ export function SectionHistoryPanel({
             onPress={onUnpin}
             android_ripple={pressRipple}
           >
-            <MaterialCommunityIcons name="pin-off" size={12} color={colors.primary} />
+            <MaterialCommunityIcons name="pin-off" size={iconSize.sm} color={colors.primary} />
             <Text style={[styles.pillText, isDark && { color: darkColors.linkTeal }]}>
               {t('sectionHistory.unpin')}
             </Text>
@@ -264,7 +265,11 @@ export function SectionHistoryPanel({
                     onPress={() => onRevert(v.version)}
                     android_ripple={pressRipple}
                   >
-                    <MaterialCommunityIcons name="undo-variant" size={12} color={colors.primary} />
+                    <MaterialCommunityIcons
+                      name="undo-variant"
+                      size={iconSize.sm}
+                      color={colors.primary}
+                    />
                     <Text style={[styles.pillText, isDark && { color: darkColors.linkTeal }]}>
                       {t('sectionHistory.revert')}
                     </Text>

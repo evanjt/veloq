@@ -21,11 +21,15 @@ import { AppState } from 'react-native';
 import { NetworkProvider, OFFLINE_DEBOUNCE_MS, useNetwork } from '@/shared/app/NetworkContext';
 
 const mockSetNetworkOnline = jest.fn();
-const mockGetEngine = jest.fn(() => ({ setNetworkOnline: mockSetNetworkOnline }));
 
-jest.mock('@/shared/native/engine', () => ({
-  getEngine: () => mockGetEngine(),
-}));
+jest.mock('veloqrs', () =>
+  require('../__shared__/veloqrsStub').withOverrides({
+    connectivity: {
+      setNetworkOnline: (online: boolean) => mockSetNetworkOnline(online),
+      setInteracting: () => {},
+    },
+  })
+);
 
 // Mock expo-network so we can drive addNetworkStateListener and getNetworkStateAsync.
 // jest.mock factory runs before imports; its factory must not reference out-of-scope
@@ -84,8 +88,6 @@ describe('NetworkContext', () => {
     mock.getNetworkStateAsync.mockImplementation(() => new Promise(() => {}));
     (require('expo-network').addNetworkStateListener as jest.Mock).mockClear();
     mockSetNetworkOnline.mockClear();
-    mockGetEngine.mockClear();
-    mockGetEngine.mockImplementation(() => ({ setNetworkOnline: mockSetNetworkOnline }));
     jest.useFakeTimers();
   });
 
@@ -659,21 +661,6 @@ describe('NetworkContext', () => {
       await unmount();
 
       expect(mockSetNetworkOnline).toHaveBeenCalledWith(true);
-    });
-
-    /**
-     * The provider mounts before `initWithPath`, so the module may not be
-     * there yet. A push that throws must not take the provider down with it.
-     */
-    it('survives an engine that is not loaded', async () => {
-      mockGetEngine.mockImplementation(() => null as never);
-      const { result } = await renderHook(() => useNetwork(), { wrapper: wrapperFor });
-
-      await act(() => {
-        getMock().listener!({ isConnected: true, isInternetReachable: true, type: 'WIFI' });
-      });
-
-      expect(result.current.isOnline).toBe(true);
     });
   });
 

@@ -21,6 +21,7 @@ import {
   colorWithOpacity,
   ink,
 } from '@/theme';
+import { tourPanelColour } from './tourPanel';
 import {
   TOUR_DEMO_ATTEMPTS,
   demoDeltaCurves,
@@ -93,7 +94,7 @@ export function SectionPerformanceSlide() {
   const { isDark } = useTheme();
   const { width: gridWidth, onLayout } = useMeasuredWidth();
   const palette = isDark ? darkColors : colors;
-  const background = isDark ? colorWithOpacity(ink.white, 0.06) : colorWithOpacity(ink.black, 0.04);
+  const background = tourPanelColour(isDark);
   const gridColor = isDark ? colorWithOpacity(ink.white, 0.25) : colorWithOpacity(ink.black, 0.2);
   // Two panels to a row of the slide's own width, with the grid's gap between them.
   const panelWidth = Math.max(0, Math.floor((gridWidth - spacing.sm) / 2));

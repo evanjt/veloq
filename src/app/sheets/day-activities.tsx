@@ -17,7 +17,7 @@ import {
   formatDuration,
   formatLoad,
 } from '@/shared/format/format';
-import { colors, darkColors, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import type { ActivityType } from '@/types';
 
 /** The picker for a day with several activities, a sheet route answered with the chosen activity id. */
@@ -72,7 +72,7 @@ function DayActivitiesSheetContent() {
             >
               <MaterialCommunityIcons
                 name={getActivityIcon(activity.type)}
-                size={22}
+                size={iconSize.lg}
                 color={getActivityInk(activity.type, isDark)}
               />
               <View style={styles.info}>

@@ -29,7 +29,7 @@ import {
 } from '@/features/routes';
 import { projectRouteToBox } from '@/shared/geo/routePreview';
 import { formatFullDate } from '@/shared/format/format';
-import { colors, darkColors, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { tapTo } from '@/shared/app/navigation';
 import { confirmAction } from '@/shared/ui/dialog';
@@ -162,7 +162,7 @@ function NamedCorridorsScreenContent() {
                   >
                     <MaterialCommunityIcons
                       name="trash-can-outline"
-                      size={20}
+                      size={iconSize.md}
                       color={colors.error}
                     />
                   </IconButton>

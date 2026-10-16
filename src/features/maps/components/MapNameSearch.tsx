@@ -8,10 +8,8 @@ import { formatDistance, formatShortDateWithYear } from '@/shared/format/format'
 import { spokenDistance } from '@/shared/format/spoken';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { ACTIVITY_CATEGORIES, getActivityCategory } from '@/shared/activity/sportCategories';
-import { colors, darkColors, spacing, typography, layout } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import type { ActivityBoundsItem } from '@/types';
-
-const ICON_SIZE = 18;
 
 interface MapNameSearchProps {
   needle: string;
@@ -81,7 +79,7 @@ export function MapNameSearch({
                 <MaterialCommunityIcons
                   testID={`map-search-result-${a.id}-icon`}
                   name={getActivityIcon(a.type)}
-                  size={ICON_SIZE}
+                  size={iconSize.md}
                   color={category?.color ?? secondary}
                 />
                 <Text numberOfLines={1} style={[styles.resultName, isDark && styles.textOnDark]}>

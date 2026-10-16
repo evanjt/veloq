@@ -23,6 +23,7 @@ import { useTheme } from '@/shared/app';
 import {
   colors as lightColors,
   darkColors,
+  iconSize,
   layout,
   opacity,
   slopToMinTapTarget,
@@ -47,7 +48,7 @@ export function SearchBar({ value, onChangeText, placeholder, testID, style }: S
 
   return (
     <View style={[styles.bar, isDark && styles.barDark, style]}>
-      <MaterialCommunityIcons name="magnify" size={20} color={themeColors.textSecondary} />
+      <MaterialCommunityIcons name="magnify" size={iconSize.md} color={themeColors.textSecondary} />
       <TextInput
         testID={testID}
         style={[styles.input, isDark && styles.inputDark]}
@@ -74,7 +75,7 @@ export function SearchBar({ value, onChangeText, placeholder, testID, style }: S
         >
           <MaterialCommunityIcons
             name="close-circle"
-            size={CLEAR_ICON_SIZE}
+            size={iconSize.md}
             color={themeColors.textSecondary}
           />
         </Pressable>
@@ -83,8 +84,7 @@ export function SearchBar({ value, onChangeText, placeholder, testID, style }: S
   );
 }
 
-const CLEAR_ICON_SIZE = 18;
-const CLEAR_SLOP = slopToMinTapTarget(CLEAR_ICON_SIZE, CLEAR_ICON_SIZE);
+const CLEAR_SLOP = slopToMinTapTarget(iconSize.md, iconSize.md);
 
 const styles = StyleSheet.create({
   bar: {

@@ -12,7 +12,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { formatDateOrDash } from '@/shared/format/format';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { Button } from '@/shared/ui';
 import { tapTo } from '@/shared/app/navigation';
 
@@ -81,7 +81,7 @@ export function DateRangeSummary({
           icon={
             <MaterialCommunityIcons
               name="calendar-expand-horizontal"
-              size={18}
+              size={iconSize.md}
               color={themeColors.primary}
             />
           }

@@ -7,7 +7,15 @@ import { View, Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { SheetHeader } from '@/shared/ui';
-import { opacity, typography, spacing, layout, themedStyles, type Palette } from '@/theme';
+import {
+  iconSize,
+  layout,
+  opacity,
+  type Palette,
+  spacing,
+  themedStyles,
+  typography,
+} from '@/theme';
 import type { StatDetail } from './types';
 
 interface StatDetailSheetProps {
@@ -26,7 +34,7 @@ export function StatDetailSheet({ stat, isDark, onClose }: StatDetailSheetProps)
       <View style={styles.body}>
         <View style={styles.valueRow}>
           <View style={[styles.iconContainer, { backgroundColor: `${stat.color}20` }]}>
-            <MaterialCommunityIcons name={stat.icon} size={28} color={stat.color} />
+            <MaterialCommunityIcons name={stat.icon} size={iconSize.xl} color={stat.color} />
           </View>
           <Text style={styles.value}>
             {stat.value}
@@ -45,7 +53,7 @@ export function StatDetailSheet({ stat, isDark, onClose }: StatDetailSheetProps)
             <View style={styles.explanationHeader}>
               <MaterialCommunityIcons
                 name="information-outline"
-                size={16}
+                size={iconSize.sm}
                 color={styles.explanationTitle.color}
               />
               <Text style={styles.explanationTitle}>{t('activity.whatIsThis')}</Text>

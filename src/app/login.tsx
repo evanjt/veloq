@@ -17,7 +17,15 @@ import { replaceTo } from '@/shared/app/navigation';
 import { openExternal } from '@/shared/app/openExternal';
 import { VELOQ_PRIVACY_URL } from '@/shared/app/supportLinks';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  darkColors,
+  iconSize,
+  layout,
+  spacing,
+  typography,
+} from '@/theme';
 import { useTheme } from '@/shared/app';
 import { createSharedStyles } from '@/styles';
 import { clearAccountData } from '@/shared/storage';
@@ -143,7 +151,7 @@ function LoginScreenContent() {
 
           {error && !sessionNotice ? (
             <StatusLine tone="error" message={error} style={styles.errorContainer}>
-              <MaterialCommunityIcons name="alert-circle" size={20} color={colors.error} />
+              <MaterialCommunityIcons name="alert-circle" size={iconSize.md} color={colors.error} />
               <Text
                 style={[styles.errorText, isDark && styles.errorTextDark]}
                 testID="login-error-text"
@@ -155,7 +163,11 @@ function LoginScreenContent() {
 
           {queuedMessage && !error ? (
             <StatusLine tone="info" message={queuedMessage} style={styles.queuedContainer}>
-              <MaterialCommunityIcons name="cloud-off-outline" size={20} color={colors.secondary} />
+              <MaterialCommunityIcons
+                name="cloud-off-outline"
+                size={iconSize.md}
+                color={colors.secondary}
+              />
               <Text
                 style={[styles.queuedText, isDark && styles.queuedTextDark]}
                 testID="login-queued-text"
@@ -192,7 +204,11 @@ function LoginScreenContent() {
             onPress={handleTryDemo}
             disabled={isLoading || isApiKeyLoading}
             icon={
-              <MaterialCommunityIcons name="play-circle-outline" size={18} color={colors.primary} />
+              <MaterialCommunityIcons
+                name="play-circle-outline"
+                size={iconSize.sm}
+                color={colors.primary}
+              />
             }
           />
           <Text style={[styles.demoCaption, isDark && styles.textDark]}>
@@ -211,7 +227,7 @@ function LoginScreenContent() {
             icon={
               <MaterialCommunityIcons
                 name="database-import-outline"
-                size={18}
+                size={iconSize.md}
                 color={colors.primary}
               />
             }
@@ -244,7 +260,13 @@ function LoginScreenContent() {
             label={t('login.createAccount')}
             variant="ghost"
             onPress={handleCreateAccount}
-            icon={<MaterialCommunityIcons name="open-in-new" size={18} color={colors.primary} />}
+            icon={
+              <MaterialCommunityIcons
+                name="open-in-new"
+                size={iconSize.md}
+                color={colors.primary}
+              />
+            }
             style={styles.createAccountButton}
           />
         </View>
@@ -282,7 +304,11 @@ function LoginScreenContent() {
 
         {/* Security note */}
         <View style={styles.securityNote}>
-          <MaterialCommunityIcons name="shield-lock" size={16} color={themeColors.textSecondary} />
+          <MaterialCommunityIcons
+            name="shield-lock"
+            size={iconSize.sm}
+            color={themeColors.textSecondary}
+          />
           <Text style={[styles.securityText, isDark && styles.textDark]}>
             {t('login.securityNote')}
           </Text>

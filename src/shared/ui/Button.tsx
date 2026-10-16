@@ -113,11 +113,11 @@ export function paint(variant: ButtonVariant, isDark: boolean) {
       };
     case 'destructive':
       return {
-        // White clears the bar only on the deeper red. The dark red is light, so it takes dark ink.
-        backgroundColor: isDark ? palette.error : colors.errorDeep,
-        borderColor: isDark ? palette.error : colors.errorDeep,
+        // A deep red under white in both themes, so the destructive label never changes ink.
+        backgroundColor: palette.dangerFill,
+        borderColor: palette.dangerFill,
         borderWidth: 0,
-        color: isDark ? colors.textOnPrimary : colors.textOnDark,
+        color: colors.textOnDark,
       };
     case 'primary':
     default:

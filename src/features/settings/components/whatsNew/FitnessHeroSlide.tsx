@@ -5,17 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { LinearGradient, Rect, vec } from '@shopify/react-native-skia';
 import { useTheme } from '@/shared/app';
 import { ChartCanvas, CurveArea, CurveLine, useChartColors } from '@/shared/charts';
-import {
-  colors,
-  darkColors,
-  spacing,
-  layout,
-  typography,
-  colorWithOpacity,
-  ink,
-  opacity,
-  zoneColour,
-} from '@/theme';
+import { colors, darkColors, spacing, layout, typography, opacity, zoneColour } from '@/theme';
+import { tourPanelColour } from './tourPanel';
 import {
   FORM_ZONE_BOUNDARIES,
   FORM_ZONE_COLORS,
@@ -63,7 +54,7 @@ export function FitnessHeroSlide() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const chartColors = useChartColors();
-  const cardColor = isDark ? colorWithOpacity(ink.white, 0.06) : colorWithOpacity(ink.black, 0.04);
+  const cardColor = tourPanelColour(isDark);
   const titleColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const formZone = getFormZone(LATEST_FORM);

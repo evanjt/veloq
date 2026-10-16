@@ -7,7 +7,7 @@ import { tapTo } from '@/shared/app/navigation';
 import { useBottomClearance } from '@/shared/ui';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useTheme } from '@/shared/app';
-import { colors, recording, spacing, layout } from '@/theme';
+import { colors, iconSize, layout, recording, spacing } from '@/theme';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 
 /** Floating action button that opens the record screen. Hidden while a session is active. */
@@ -35,7 +35,11 @@ function RecordFABInner() {
       accessibilityRole="button"
       accessibilityLabel={t('recording.startActivity', 'Start Activity')}
     >
-      <MaterialCommunityIcons name="record-circle-outline" size={28} color={colors.textOnDark} />
+      <MaterialCommunityIcons
+        name="record-circle-outline"
+        size={iconSize.xl}
+        color={colors.textOnDark}
+      />
     </Pressable>
   );
 }

@@ -8,7 +8,7 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { sourceFor } from '@/shared/app/source';
 import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { useNotificationPermission } from '@/shared/app/permissions/notifications';
-import { colors, darkColors, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
 import {
   ListSectionHeader,
@@ -159,7 +159,7 @@ export function NotificationSection() {
           >
             <MaterialCommunityIcons
               name="information-outline"
-              size={14}
+              size={iconSize.sm}
               color={isDark ? darkColors.textSecondary : colors.textSecondary}
             />
             <Text style={[styles.privacyText, isDark && settingsStyles.textSecondary]}>

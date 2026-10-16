@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, layout, opacity, spacing } from '@/theme';
+import { colors, darkColors, iconSize, layout, opacity, spacing } from '@/theme';
 import { pressable, pressRipple } from './pressFeedback';
 
 interface RowBaseProps {
@@ -108,14 +108,14 @@ export function Row({
         <MaterialCommunityIcons
           testID="row-chevron"
           name="chevron-right"
-          size={20}
+          size={iconSize.md}
           color={glyphColour}
         />
       ) : behaviour === 'external' ? (
         <MaterialCommunityIcons
           testID="row-external"
           name="open-in-new"
-          size={18}
+          size={iconSize.md}
           color={glyphColour}
         />
       ) : null}

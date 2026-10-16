@@ -42,6 +42,7 @@ export { useInitRecordingEffect } from './hooks/useInitRecordingEffect';
 export { useKmSplitBannerEffect } from './hooks/useKmSplitBannerEffect';
 export { useLocationPermission } from './hooks/useLocationPermission';
 export { usePermissionUpgrade } from './hooks/usePermissionUpgrade';
+export { useRecordingColumnLayout } from './hooks/useRecordingColumnLayout';
 export { useRecordingHandlers } from './hooks/useRecordingHandlers';
 export { useRecordingKeepAwake } from './hooks/useRecordingKeepAwake';
 export { useRecordingLibrary, useVisibleRecording } from './hooks/useRecordingLibrary';

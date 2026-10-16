@@ -83,6 +83,14 @@ const CASES: Record<string, Case> = {
     violation: 'export const a = { ...typography.cardTitle };\n',
     baseline: true,
   },
+  'lint-icon-sizes': {
+    guard: 'lint-icon-sizes.mjs',
+    tree: {},
+    target: 'src/a.tsx',
+    clean: 'export const a = 1;\n',
+    violation: 'export const a = <MaterialCommunityIcons name="x" size={14} />;\n',
+    baseline: true,
+  },
   'lint-row-chevrons': {
     guard: 'lint-row-chevrons.mjs',
     tree: {},

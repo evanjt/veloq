@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { CurveChart } from '@/shared/charts';
@@ -51,6 +52,7 @@ export const InsightSeriesChart = React.memo(function InsightSeriesChart({
   accessory,
   bars = false,
 }: InsightSeriesChartProps) {
+  const { t } = useTranslation();
   const { isDark } = useTheme();
   const [selected, setSelected] = useState<SeriesDatum | null>(null);
 
@@ -62,6 +64,18 @@ export const InsightSeriesChart = React.memo(function InsightSeriesChart({
   const formatY = useCallback(
     (value: number) => formatValue(value, decimals),
     [formatValue, decimals]
+  );
+  // An undated series is placed by its order, so its rows are numbered rather than dated.
+  const dated = model?.data[0]?.date != null;
+  const reading = useMemo(
+    () => ({
+      title,
+      xHeader: dated ? t('charts.column.date') : '#',
+      formatX: dated ? formatDate : (x: number) => String(x + 1),
+      lowerIsBetter: invert,
+      shape: 'series' as const,
+    }),
+    [title, dated, invert, t]
   );
   const onInteractionChange = useCallback((active: boolean) => {
     if (!active) setSelected(null);
@@ -111,6 +125,7 @@ export const InsightSeriesChart = React.memo(function InsightSeriesChart({
           yDomain={model.yDomain}
           xLabels={model.xLabels}
           formatY={formatY}
+          reading={reading}
           color={color}
           curve="linear"
           area
@@ -118,6 +133,11 @@ export const InsightSeriesChart = React.memo(function InsightSeriesChart({
           marker={markerAt}
           {...(pointColor !== undefined && { pointColor })}
           referenceLine={null}
+          describePoint={(d) =>
+            d.date != null
+              ? `${formatDate(d.date)}, ${formatValue(d.value, decimals)}`
+              : formatValue(d.value, decimals)
+          }
           onSelect={setSelected}
           onInteractionChange={onInteractionChange}
         />

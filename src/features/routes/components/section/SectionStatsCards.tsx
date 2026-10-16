@@ -11,7 +11,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { getIntlLocale } from '@/shared/format/format';
 import { formatAttemptFigure, type AttemptBasis } from '@/features/routes/lib/attemptBasis';
-import { colors, darkColors, spacing, typography, slopToMinTapTarget } from '@/theme';
+import { colors, darkColors, iconSize, slopToMinTapTarget, spacing, typography } from '@/theme';
 import { Card, DisclosureChevron, pressable, pressRipple } from '@/shared/ui';
 import { tapTo } from '@/shared/app/navigation';
 import { DirectionArrow, directionWord } from './DirectionCue';
@@ -140,7 +140,7 @@ export function SectionStatsCards({
               >
                 <DisclosureChevron
                   expanded={isYearExpanded}
-                  size={STATS_ICON_SIZE}
+                  size={iconSize.md}
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 />
                 <Text style={[styles.calendarYearText, isDark && styles.textLight]}>
@@ -153,7 +153,7 @@ export function SectionStatsCards({
                       <DirectionArrow
                         direction="forward"
                         color={activityColor}
-                        size={DIRECTION_ARROW_SIZE}
+                        size={iconSize.xs}
                       />
                       {` ${directionWord(t, 'forward')} `}
                       <Text testID={`year-best-forward-${yearData.year}`}>
@@ -163,7 +163,7 @@ export function SectionStatsCards({
                       <DirectionArrow
                         direction="reverse"
                         color={REVERSE_COLOR}
-                        size={DIRECTION_ARROW_SIZE}
+                        size={iconSize.xs}
                       />
                       {` ${directionWord(t, 'reverse')} `}
                       <Text testID={`year-best-reverse-${yearData.year}`}>
@@ -180,24 +180,32 @@ export function SectionStatsCards({
                 </Text>
                 {isYearFwdPr ? (
                   <View style={styles.calendarTrophy}>
-                    <MaterialCommunityIcons name="trophy" size={14} color={activityColor} />
+                    <MaterialCommunityIcons
+                      name="trophy"
+                      size={iconSize.sm}
+                      color={activityColor}
+                    />
                     {yearRev ? (
                       <DirectionArrow
                         direction="forward"
                         color={activityColor}
-                        size={DIRECTION_ARROW_SIZE}
+                        size={iconSize.xs}
                       />
                     ) : null}
                   </View>
                 ) : null}
                 {isYearRevPr ? (
                   <View style={styles.calendarTrophy}>
-                    <MaterialCommunityIcons name="trophy" size={14} color={REVERSE_COLOR} />
+                    <MaterialCommunityIcons
+                      name="trophy"
+                      size={iconSize.sm}
+                      color={REVERSE_COLOR}
+                    />
                     {yearFwd ? (
                       <DirectionArrow
                         direction="reverse"
                         color={REVERSE_COLOR}
-                        size={DIRECTION_ARROW_SIZE}
+                        size={iconSize.xs}
                       />
                     ) : null}
                   </View>
@@ -240,7 +248,7 @@ export function SectionStatsCards({
                                 <DirectionArrow
                                   direction="forward"
                                   color={activityColor}
-                                  size={DIRECTION_ARROW_SIZE}
+                                  size={iconSize.xs}
                                 />
                                 <Text
                                   style={[
@@ -254,7 +262,7 @@ export function SectionStatsCards({
                                 {isMonthFwdYearBest || isMonthFwdOverallPr ? (
                                   <MaterialCommunityIcons
                                     name="trophy"
-                                    size={12}
+                                    size={iconSize.xs}
                                     color={
                                       isMonthFwdOverallPr
                                         ? isDark
@@ -292,7 +300,7 @@ export function SectionStatsCards({
                                 <DirectionArrow
                                   direction="reverse"
                                   color={REVERSE_COLOR}
-                                  size={DIRECTION_ARROW_SIZE}
+                                  size={iconSize.xs}
                                 />
                                 <Text
                                   style={[
@@ -306,7 +314,7 @@ export function SectionStatsCards({
                                 {isMonthRevYearBest || isMonthRevOverallPr ? (
                                   <MaterialCommunityIcons
                                     name="trophy"
-                                    size={12}
+                                    size={iconSize.xs}
                                     color={
                                       isMonthRevOverallPr
                                         ? isDark
@@ -368,7 +376,7 @@ function ReferenceStar({ isReference, isDark, label, onPress }: ReferenceStarPro
       ) : null}
       <MaterialCommunityIcons
         name={isReference ? 'star' : 'star-outline'}
-        size={REFERENCE_STAR_SIZE}
+        size={iconSize.sm}
         color={
           isReference ? colors.primary : isDark ? darkColors.textSecondary : colors.textSecondary
         }
@@ -377,12 +385,9 @@ function ReferenceStar({ isReference, isDark, label, onPress }: ReferenceStarPro
   );
 }
 
-const REFERENCE_STAR_SIZE = 16;
 const REFERENCE_MIN_WIDTH = 24;
-const REFERENCE_HIT_SLOP = slopToMinTapTarget(REFERENCE_STAR_SIZE, REFERENCE_MIN_WIDTH);
-const STATS_ICON_SIZE = 20;
-const DIRECTION_ARROW_SIZE = 12;
-const STATS_LABEL_INSET = spacing.md + STATS_ICON_SIZE + spacing.xs;
+const REFERENCE_HIT_SLOP = slopToMinTapTarget(iconSize.sm, REFERENCE_MIN_WIDTH);
+const STATS_LABEL_INSET = spacing.md + iconSize.md + spacing.xs;
 
 const styles = StyleSheet.create({
   textLight: {

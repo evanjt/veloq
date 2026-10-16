@@ -2,8 +2,8 @@
 // double padding. This context tracks banner state and exposes the right edges.
 
 import React, { createContext, useContext, useMemo, ReactNode } from 'react';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { Edge } from 'react-native-safe-area-context';
+import { SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { Edge, EdgeInsets } from 'react-native-safe-area-context';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncHealth } from '@/shared/native/useSyncHealth';
@@ -139,4 +139,40 @@ function floatingPillTop(inset: number, slot: number, header: number): number {
 export function useScreenSafeAreaEdges(): Edge[] {
   const { screenEdges } = useTopSafeArea();
   return screenEdges;
+}
+
+/** The device's own insets, which a view covering the whole window clears, set beneath the slot. */
+const WindowInsetsContext = createContext<EdgeInsets | null>(null);
+
+/**
+ * The insets the stack is laid out in. A banner in the top slot pads the status bar and pushes
+ * the stack down beneath it, so beneath a filled slot the status bar is already cleared and the
+ * stack sees no top inset: every native header starts flush under the banner and no screen pads
+ * the status bar a second time. A view that covers the whole window, as a modal does, reads the
+ * device's insets back through `WindowInsets`.
+ */
+export function BeneathTopSlot({ children }: { children: ReactNode }) {
+  const { hasTopBanner } = useTopSafeArea();
+  const device = useSafeAreaInsets();
+  const beneath = useMemo(
+    () => (hasTopBanner ? { ...device, top: 0 } : device),
+    [hasTopBanner, device]
+  );
+  return (
+    <WindowInsetsContext.Provider value={device}>
+      <SafeAreaInsetsContext.Provider value={beneath}>{children}</SafeAreaInsetsContext.Provider>
+    </WindowInsetsContext.Provider>
+  );
+}
+
+/** The device's insets, wherever in the tree it is read, for a view laid out against the window. */
+export function useWindowInsets(): EdgeInsets {
+  const local = useSafeAreaInsets();
+  return useContext(WindowInsetsContext) ?? local;
+}
+
+/** Gives its subtree the device's insets, for a view that covers the whole window. */
+export function WindowInsets({ children }: { children: ReactNode }) {
+  const device = useWindowInsets();
+  return <SafeAreaInsetsContext.Provider value={device}>{children}</SafeAreaInsetsContext.Provider>;
 }

@@ -14,7 +14,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { getEngine } from '@/shared/native/engine';
 import { useSyncState } from '@/shared/native/useSyncStatus';
-import { StartOutcome } from 'veloqrs';
+import { StartOutcome, streamBackfill } from 'veloqrs';
 import type { RoutesStatus, StreamBackfillPhase } from 'veloqrs';
 
 import { followRoutesStatus, readRoutesStatus } from '@/shared/native/routesStatusPoll';
@@ -183,7 +183,7 @@ export function useStreamBackfill(): StreamBackfillControls {
   const start = useCallback(() => {
     let outcome: StartOutcome | undefined;
     try {
-      outcome = getEngine()?.consentStreamBackfill?.();
+      outcome = streamBackfill.consentStreamBackfill();
     } catch {
       outcome = StartOutcome.Failed;
     }
@@ -196,7 +196,7 @@ export function useStreamBackfill(): StreamBackfillControls {
   }, []);
 
   const stop = useCallback(() => {
-    getEngine()?.stopStreamBackfill?.();
+    streamBackfill.stopStreamBackfill();
     refresh.current();
   }, []);
 

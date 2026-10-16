@@ -13,7 +13,7 @@ import { ABSENT, absentLabel } from '@/shared/format/absent';
 // graph.
 import { useRouteGroups } from '@/features/routes/light';
 import { useRecordingStore } from '@/features/recording';
-import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
+import { brand, colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import type { ActivityType } from '@/types';
 import { engineErrorKey } from '@/shared/native/engineError';
 import { EmptyState, pressable, pressRipple, SheetHeader } from '@/shared/ui';
@@ -113,7 +113,7 @@ function RouteOverlaySheetContent() {
       >
         <MaterialCommunityIcons
           name="close-circle-outline"
-          size={20}
+          size={iconSize.md}
           color={selectedRouteId == null ? brand.teal : textSecondary}
         />
         <Text
@@ -161,7 +161,7 @@ function RouteOverlaySheetContent() {
               >
                 <MaterialCommunityIcons
                   name="map-marker-path"
-                  size={20}
+                  size={iconSize.md}
                   color={isSelected ? brand.teal : textSecondary}
                 />
                 <View style={styles.rowBody}>
@@ -179,7 +179,7 @@ function RouteOverlaySheetContent() {
                   </Text>
                 </View>
                 {isSelected ? (
-                  <MaterialCommunityIcons name="check" size={20} color={brand.teal} />
+                  <MaterialCommunityIcons name="check" size={iconSize.md} color={brand.teal} />
                 ) : null}
               </Pressable>
             );

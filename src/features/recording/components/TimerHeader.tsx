@@ -4,10 +4,11 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
-import { colors } from '@/theme';
+import { colors, iconSize } from '@/theme';
 import { IconButton } from '@/shared/ui/IconButton';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { useTheme } from '@/shared/app';
 import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
 import type { ActivityType } from '@/types';
@@ -22,6 +23,7 @@ function ElapsedTime({ textPrimary, autoPaused }: { textPrimary: string; autoPau
   return (
     <Text
       testID="recording-timer"
+      maxFontSizeMultiplier={DENSE_TEXT_SCALE}
       style={[styles.timerText, { color: textPrimary }, autoPaused && styles.timerPaused]}
     >
       {formattedElapsed}
@@ -98,13 +100,13 @@ function TimerHeaderInner({
         >
           <MaterialCommunityIcons
             name={getActivityIcon(currentActivityType)}
-            size={16}
+            size={iconSize.sm}
             color={currentActivityColor}
           />
           <Text style={[styles.typeBadgeText, { color: textSecondary }]} numberOfLines={1}>
             {t(`activityTypes.${currentActivityType}`, currentActivityType)}
           </Text>
-          <MaterialCommunityIcons name="chevron-down" size={14} color={textSecondary} />
+          <MaterialCommunityIcons name="chevron-down" size={iconSize.sm} color={textSecondary} />
         </Pressable>
         <View style={styles.statusRow}>
           <IconButton
@@ -116,7 +118,7 @@ function TimerHeaderInner({
           >
             <MaterialCommunityIcons
               name={isLocked ? 'lock' : 'lock-open-variant-outline'}
-              size={16}
+              size={iconSize.sm}
               color={textSecondary}
             />
           </IconButton>

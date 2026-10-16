@@ -5,7 +5,7 @@ import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { ListSectionHeader } from '@/shared/ui/ListSectionHeader';
 import { settingsStyles } from './settingsStyles';
 import { SwitchRow } from '@/shared/ui/SwitchRow';
@@ -48,7 +48,7 @@ export function DataSourcesSection() {
               <View key={name} style={styles.dataSourceItem}>
                 <MaterialCommunityIcons
                   name={name === 'Strava' ? 'run' : 'watch'}
-                  size={20}
+                  size={iconSize.md}
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
                 />
                 <Text style={[styles.dataSourceName, isDark && settingsStyles.textLight]}>

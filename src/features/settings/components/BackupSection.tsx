@@ -68,13 +68,17 @@ import {
 import { onBackupCarrierSignedIn } from '@/features/settings/lib/autobackup/autoBackup';
 import { restoreBackendEntry } from '@/features/settings/lib/restoreBackendEntry';
 import { confirmLegacyImport } from '@/features/settings/hooks/useBackup';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
 import { InfoButton } from './InfoButton';
 import { BulkExportProgress } from './BulkExportProgress';
 import { BULK_EXPORT_FORMAT_NAME } from '@/features/settings/lib/bulkExportFormat';
 import { ExportPrivacyRow } from './ExportPrivacyRow';
-import { WebdavConfigForm } from './WebdavConfigForm';
+import {
+  WebdavConfigForm,
+  type WebdavCommit,
+  type WebdavConfigFormHandle,
+} from './WebdavConfigForm';
 import { describeBackupFailure } from '@/features/settings/lib/backupFailure';
 import { formatFileSize, getIntlLocale } from '@/shared/format/format';
 import { getAndroidAutoBackupStatus } from '@/shared/native/androidAutoBackup';
@@ -374,6 +378,14 @@ export function BackupSection() {
     };
   }, [unplacedGeneration, restoreGeneration]);
 
+  // Every action that reads the WebDAV details stores what the form shows
+  // first, since a tap that leaves a field with focus skips its blur.
+  const webdavForm = useRef<WebdavConfigFormHandle>(null);
+  const commitWebdav = useCallback(
+    async (): Promise<WebdavCommit> => (await webdavForm.current?.commit()) ?? { kind: 'empty' },
+    []
+  );
+
   const describeBackupError = useCallback(
     (error: unknown): string => {
       const described = describeBackupFailure(error);
@@ -388,6 +400,14 @@ export function BackupSection() {
     setBackupError(null);
     setRunResult(null);
     try {
+      // A half-typed server is a destination the athlete meant to include, so
+      // its refusal stops the run rather than leaving WebDAV quietly out.
+      const committed = await commitWebdav();
+      if (committed.kind === 'refused') {
+        setBackupResult('error');
+        setBackupError(committed.message);
+        return;
+      }
       const result = await performBackup(true);
       const success = result.wroteZip;
       setRunResult(result);
@@ -399,7 +419,7 @@ export function BackupSection() {
     } finally {
       setBackingUp(false);
     }
-  }, [describeBackupError, t]);
+  }, [commitWebdav, describeBackupError, t]);
 
   const handleToggleAutoBackup = useCallback(
     async (value: boolean) => {
@@ -419,8 +439,13 @@ export function BackupSection() {
   const handleListBackups = useCallback(async () => {
     setLoadingBackups(true);
     try {
+      const committed = await commitWebdav();
+      if (committed.kind === 'refused') {
+        inform({ title: t('backup.notListedTitle'), message: committed.message });
+        return;
+      }
       const candidates: BackupBackend[] = [
-        ...(webdavSet ? [webdavBackend] : []),
+        ...(getWebdavConfig() !== null ? [webdavBackend] : []),
         ...(folderName ? [folderBackend] : []),
         ...(driveAccount ? [googleDriveBackend] : []),
         ...(icloudSupported ? [icloudBackend] : []),
@@ -452,7 +477,7 @@ export function BackupSection() {
     } finally {
       setLoadingBackups(false);
     }
-  }, [webdavSet, folderName, driveAccount, icloudSupported, icloudOn, describeBackupError, t]);
+  }, [commitWebdav, folderName, driveAccount, icloudSupported, icloudOn, describeBackupError, t]);
 
   const handleRestoreEntry = useCallback(
     async (backend: BackupBackend, entry: BackupEntry) => {
@@ -469,13 +494,10 @@ export function BackupSection() {
       }
       setRestoringEntry(entry.id);
       try {
-        showRestoreNotice(await restoreBackendEntry(backend, entry, t), t);
+        showRestoreNotice(await restoreBackendEntry(backend, entry), t);
         setBackendBackups(null);
       } catch (error) {
-        inform({
-          title: t('backup.notRestoredTitle'),
-          message: error instanceof Error ? error.message : t('backup.importError'),
-        });
+        inform({ title: t('backup.notRestoredTitle'), message: describeBackupError(error) });
       } finally {
         restoreRunning.current = false;
         setRestoringEntry(null);
@@ -484,7 +506,7 @@ export function BackupSection() {
         setRestoreGeneration((generation) => generation + 1);
       }
     },
-    [t]
+    [describeBackupError, t]
   );
 
   const handleResumeImport = useCallback(async () => {
@@ -690,7 +712,7 @@ export function BackupSection() {
         />
         {divider}
         <Row>
-          <MaterialCommunityIcons name="history" size={22} color={iconColor} />
+          <MaterialCommunityIcons name="history" size={iconSize.lg} color={iconColor} />
           <View style={styles.fill}>
             <Text testID="backup-last-run-text" style={labelStyle}>
               {lastBackupText}
@@ -749,7 +771,11 @@ export function BackupSection() {
             />
           }
         >
-          <MaterialCommunityIcons name="cloud-download-outline" size={22} color={iconColor} />
+          <MaterialCommunityIcons
+            name="cloud-download-outline"
+            size={iconSize.lg}
+            color={iconColor}
+          />
           <Text style={labelStyle}>{t('backup.restoreFromDestination')}</Text>
         </Row>
         {backendBackups?.every((group) => group.entries.length === 0) ? (
@@ -800,7 +826,11 @@ export function BackupSection() {
           disabled={dbImporting}
           busy={dbImporting}
         >
-          <MaterialCommunityIcons name="database-import-outline" size={22} color={iconColor} />
+          <MaterialCommunityIcons
+            name="database-import-outline"
+            size={iconSize.lg}
+            color={iconColor}
+          />
           <Text style={labelStyle}>
             {dbImporting ? t('backup.importing') : t('backup.importBackup')}
           </Text>
@@ -809,7 +839,11 @@ export function BackupSection() {
           <>
             {divider}
             <Row>
-              <MaterialCommunityIcons name="pause-circle-outline" size={22} color={iconColor} />
+              <MaterialCommunityIcons
+                name="pause-circle-outline"
+                size={iconSize.lg}
+                color={iconColor}
+              />
               <View style={styles.fill}>
                 <Text testID="backup-import-paused" style={labelStyle}>
                   {t('backup.importPaused')}
@@ -841,7 +875,11 @@ export function BackupSection() {
           <>
             {divider}
             <Row testID="backup-restore-fetch">
-              <MaterialCommunityIcons name="download-outline" size={22} color={iconColor} />
+              <MaterialCommunityIcons
+                name="download-outline"
+                size={iconSize.lg}
+                color={iconColor}
+              />
               <ProgressRow
                 label={t('backup.unplacedActivityPending')}
                 done={fetchDone}
@@ -859,7 +897,7 @@ export function BackupSection() {
           <>
             {divider}
             <Row testID="backup-unplaced-records">
-              <MaterialCommunityIcons name="timer-sand" size={22} color={iconColor} />
+              <MaterialCommunityIcons name="timer-sand" size={iconSize.lg} color={iconColor} />
               <View style={styles.fill}>
                 <Text style={labelStyle}>
                   {t('backup.unplacedRecords', { count: waitingRecords.length })}
@@ -890,7 +928,7 @@ export function BackupSection() {
       <ListSectionHeader>{t('backup.sectionDestinations')}</ListSectionHeader>
       <Card variant="flat" padding="none">
         <Row testID="backup-carrier-device">
-          <MaterialCommunityIcons name="cellphone" size={22} color={iconColor} />
+          <MaterialCommunityIcons name="cellphone" size={iconSize.lg} color={iconColor} />
           <View style={styles.fill}>
             <Text style={labelStyle}>
               {t(Platform.OS === 'ios' ? 'backup.carrierDeviceIos' : 'backup.carrierDeviceAndroid')}
@@ -951,7 +989,7 @@ export function BackupSection() {
         {divider}
         <View testID="backup-carrier-folder">
           <Row>
-            <MaterialCommunityIcons name="folder-outline" size={22} color={iconColor} />
+            <MaterialCommunityIcons name="folder-outline" size={iconSize.lg} color={iconColor} />
             <View style={styles.fill}>
               <Text style={labelStyle}>{t('backup.carrierFolder')}</Text>
               <Text style={detailStyle}>{folderName ?? t('backup.carrierFolderNone')}</Text>
@@ -993,7 +1031,7 @@ export function BackupSection() {
             {divider}
             <View testID="backup-carrier-google-drive">
               <Row>
-                <MaterialCommunityIcons name="google-drive" size={22} color={iconColor} />
+                <MaterialCommunityIcons name="google-drive" size={iconSize.lg} color={iconColor} />
                 <View style={styles.fill}>
                   <Text style={labelStyle}>{t('backup.carrierGoogleDrive')}</Text>
                   <Text testID="backup-google-drive-account" style={detailStyle}>
@@ -1044,7 +1082,7 @@ export function BackupSection() {
         {divider}
         <View testID="backup-carrier-webdav">
           <Row>
-            <MaterialCommunityIcons name="server-network" size={22} color={iconColor} />
+            <MaterialCommunityIcons name="server-network" size={iconSize.lg} color={iconColor} />
             <View style={styles.fill}>
               <Text style={labelStyle}>{t('backup.backendWebdav')}</Text>
               {webdavSet ? (
@@ -1063,7 +1101,11 @@ export function BackupSection() {
               />
             </View>
           ) : null}
-          <WebdavConfigForm onConfigChange={handleWebdavChanged} onRemoved={handleWebdavChanged} />
+          <WebdavConfigForm
+            ref={webdavForm}
+            onConfigChange={handleWebdavChanged}
+            onRemoved={handleWebdavChanged}
+          />
         </View>
       </Card>
 
@@ -1084,7 +1126,11 @@ export function BackupSection() {
             />
           }
         >
-          <MaterialCommunityIcons name="database-export-outline" size={22} color={iconColor} />
+          <MaterialCommunityIcons
+            name="database-export-outline"
+            size={iconSize.lg}
+            color={iconColor}
+          />
           <Text style={labelStyle}>
             {dbExporting ? t('backup.exporting') : t('backup.exportBackup')}
           </Text>
@@ -1100,7 +1146,7 @@ export function BackupSection() {
         ) : null}
         {divider}
         <Row ref={bulkAnchor}>
-          <MaterialCommunityIcons name="map-marker-path" size={22} color={iconColor} />
+          <MaterialCommunityIcons name="map-marker-path" size={iconSize.lg} color={iconColor} />
           {bulkExporting || bulkStillRunning ? (
             <BulkExportProgress
               phase={bulkPhase}

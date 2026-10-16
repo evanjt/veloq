@@ -3,7 +3,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors } from '@/theme';
+import { colors, darkColors, iconSize } from '@/theme';
 import { tapTo } from '@/shared/app/navigation';
 import type { Period } from '@/shared/app/period';
 import { bestEffortsHref } from '@/features/stats';
@@ -23,7 +23,7 @@ export function BestEffortsHeaderButton({ period }: { period: Period }) {
       icon={
         <MaterialCommunityIcons
           name="trophy-outline"
-          size={18}
+          size={iconSize.md}
           color={isDark ? darkColors.textPrimary : colors.textPrimary}
         />
       }

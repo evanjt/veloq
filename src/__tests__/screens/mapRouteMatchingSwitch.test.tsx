@@ -25,6 +25,8 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockParams,
 }));
 jest.mock('@/features/maps', () => ({
+  ...jest.requireActual('@/features/maps/lib/filterSheet'),
+  ATTRIBUTION_CLEARANCE: 26,
   AttributionOverlay: () => null,
   ACTIVITY_CATEGORIES: {
     Ride: { color: 'blue', labelKey: 'ride', types: ['Ride'] },

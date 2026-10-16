@@ -6,8 +6,9 @@ import { formatDistance } from '@/shared/format/format';
 import { SportIcons } from '@/shared/activity/SportIcons';
 import type { FrequentSection } from '@/types';
 import { useFocusOnAppear } from '@/shared/ui/useFocusOnAppear';
-import { MapPopup, MAP_POPUP_STAT_ICON_SIZE } from './MapPopup';
+import { MapPopup } from './MapPopup';
 
+import { iconSize } from '@/theme';
 interface SectionPopupProps {
   section: FrequentSection;
   bottom: number;
@@ -46,11 +47,7 @@ export const SectionPopup = memo(function SectionPopup({
         {
           key: 'sports',
           renderIcon: (color) => (
-            <SportIcons
-              sportTypes={section.sportTypes}
-              size={MAP_POPUP_STAT_ICON_SIZE}
-              color={color}
-            />
+            <SportIcons sportTypes={section.sportTypes} size={iconSize.md} color={color} />
           ),
         },
         {

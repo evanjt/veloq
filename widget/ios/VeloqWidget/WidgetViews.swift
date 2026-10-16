@@ -304,13 +304,16 @@ private struct CasedLine: View {
   }
 }
 
-// Axis rail: gridlines at the series min/max with their values in the left gutter.
+// Axis rail: gridlines at the series min/max with their values in the left gutter. The top value
+// is held half a line from the top, so a chart with less than a line between that and its
+// bottom draws the gridlines alone, since the values would overlap or stand above the chart.
 private struct ChartAxis: View {
   let plot: ChartPlot
   let palette: WidgetPalette
 
   var body: some View {
     let marks = plot.rawMax > plot.rawMin ? [plot.rawMax, plot.rawMin] : [plot.rawMax]
+    let labelled = plot.bottom >= plot.axisFontSize * 1.6
     ForEach(marks.indices, id: \.self) { i in
       let value = marks[i]
       let y = plot.yOf(value)
@@ -319,12 +322,14 @@ private struct ChartAxis: View {
         p.addLine(to: CGPoint(x: plot.right, y: y))
       }
       .stroke(palette.border, lineWidth: 0.5)
-      Text(String(Int(value.rounded())))
-        .measuredText("axis value")
-        .font(.system(size: plot.axisFontSize))
-        .foregroundColor(palette.textSecondary)
-        // Held half a line from the top, so the top label stays inside the chart.
-        .position(x: (plot.left - 4) / 2, y: min(max(y, plot.axisFontSize * 0.6), plot.bottom))
+      if labelled {
+        Text(String(Int(value.rounded())))
+          .measuredText("axis value")
+          .font(.system(size: plot.axisFontSize))
+          .foregroundColor(palette.textSecondary)
+          // Held half a line from the top, so the top label stays inside the chart.
+          .position(x: (plot.left - 4) / 2, y: min(max(y, plot.axisFontSize * 0.6), plot.bottom))
+      }
     }
   }
 }
@@ -537,12 +542,14 @@ struct SnapshotAgeLine: View {
   }
 }
 
+/// A caption on one line, fitted to the column down to the floor: a stale date with a 12-hour
+/// clock is wider than a small widget at the largest text sizes.
 private struct AgeLineStyle: ViewModifier {
   let palette: WidgetPalette
 
   func body(content: Content) -> some View {
     content
-      .widgetFont(.caption)
+      .widgetFont(.caption, shrinks: true)
       .foregroundColor(palette.textSecondary)
       .lineLimit(1)
   }
@@ -590,43 +597,53 @@ struct SummaryWidgetView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .widgetPadding(WidgetTheme.Layout.padding)
       case .medium, .large:
-        VStack(alignment: .leading, spacing: 6) {
-          HStack(alignment: .top, spacing: WidgetTheme.Layout.gap) {
-            SummaryHero(
-              content: content, palette: palette, formZone: formZone,
-              valueStep: .metric)
-              .frame(maxWidth: .infinity, alignment: .leading)
-            SummaryChartView(
-              kind: content.chart, caption: content.chartCaption, snapshot: snapshot,
-              palette: palette
-            )
-            .frame(maxWidth: .infinity)
-            .frame(height: 48)
-          }
-          Divider().background(palette.border)
-          SummarySupportingRow(
-            entries: content.supporting, palette: palette, formZone: formZone)
-          if let zones = content.formZones {
-            Divider().background(palette.border)
-            VStack(alignment: .leading, spacing: 2) {
-              if let caption = content.formCaption {
-                FormCaptionRow(caption: caption, palette: palette)
-              }
-              FormZoneChartView(chart: zones, palette: palette)
-                .frame(maxHeight: .infinity)
-            }
-            .spoken("form chart", snapshot.display.chartLabels?.form)
-            .frame(maxHeight: .infinity)
-          } else {
-            Spacer(minLength: 0)
-          }
-          SnapshotAgeRow(snapshot: snapshot, palette: palette, hasRoom: true)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .widgetPadding(WidgetTheme.Layout.padding)
+        card(content, snapshot, formZone)
+          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+          .widgetPadding(WidgetTheme.Layout.padding)
       }
     } else {
       EmptyWidgetView(palette: palette)
+    }
+  }
+
+  /// The medium and large card: the hero beside its chart, the supporting row, at Large the form
+  /// chart, and the age row. A medium box has no height for a second line under the age, so
+  /// there the refresh link stays beside it.
+  private func card(
+    _ content: SummaryContent, _ snapshot: WidgetSnapshot, _ formZone: String?
+  ) -> some View {
+    VStack(alignment: .leading, spacing: 6) {
+      HStack(alignment: .top, spacing: WidgetTheme.Layout.gap) {
+        SummaryHero(
+          content: content, palette: palette, formZone: formZone,
+          valueStep: .metric)
+          .frame(maxWidth: .infinity, alignment: .leading)
+        SummaryChartView(
+          kind: content.chart, caption: content.chartCaption, snapshot: snapshot,
+          palette: palette
+        )
+        .frame(maxWidth: .infinity)
+        .frame(height: 48)
+      }
+      Divider().background(palette.border)
+      // With no form chart under it the row takes the height left, which costs no second gap
+      // as a spacer would.
+      SummarySupportingRow(
+        entries: content.supporting, palette: palette, formZone: formZone)
+        .frame(maxHeight: content.formZones == nil ? .infinity : nil, alignment: .top)
+      if let zones = content.formZones {
+        Divider().background(palette.border)
+        VStack(alignment: .leading, spacing: 2) {
+          if let caption = content.formCaption {
+            FormCaptionRow(caption: caption, palette: palette)
+          }
+          FormZoneChartView(chart: zones, palette: palette)
+            .frame(maxHeight: .infinity)
+        }
+        .spoken("form chart", snapshot.display.chartLabels?.form)
+        .frame(maxHeight: .infinity)
+      }
+      SnapshotAgeRow(snapshot: snapshot, palette: palette, hasRoom: true, oneLine: size == .medium)
     }
   }
 }
@@ -681,26 +698,40 @@ private struct SummaryChartView: View {
   let snapshot: WidgetSnapshot
   let palette: WidgetPalette
 
+  /// The least height the lines are drawn in. A caption that leaves less, in long words or at a
+  /// large text size, is drawn alone: it still names the series and the span.
+  private let plotMinHeight: CGFloat = 16
+
   var body: some View {
     switch kind {
     case .none:
       EmptyView()
     case .fitnessForm:
-      VStack(alignment: .leading, spacing: 2) {
+      plotted(caption) {
         FitnessChartView(snapshot: snapshot, palette: palette)
-        if let caption {
-          ChartCaptionRow(caption: caption, palette: palette)
-        }
       }
       .spoken("chart", snapshot.display.chartLabels?.fitness)
     case .hrv:
-      VStack(alignment: .leading, spacing: 2) {
+      plotted(caption) {
         SingleTrendChart(values: snapshot.sparklines.hrv, color: palette.primary, palette: palette)
-        if let caption {
-          ChartCaptionRow(caption: caption, palette: palette)
-        }
       }
       .spoken("chart", snapshot.display.chartLabels?.hrv)
+    }
+  }
+
+  @ViewBuilder
+  private func plotted(_ caption: ChartCaption?, _ plot: () -> some View) -> some View {
+    if let caption {
+      ViewThatFits(in: .vertical) {
+        VStack(alignment: .leading, spacing: 2) {
+          plot().frame(minHeight: plotMinHeight)
+          ChartCaptionRow(caption: caption, palette: palette)
+        }
+        ChartCaptionRow(caption: caption, palette: palette)
+          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+      }
+    } else {
+      plot()
     }
   }
 }

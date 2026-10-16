@@ -3,6 +3,7 @@
   "modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/AutoBackupLedger.kt": 1,
   "modules/veloq-backup-exclusion/ios/VeloqBackupExclusionModule.swift": 1,
   "modules/veloq-live-activity/ios/VeloqLiveActivityModule.swift": 1,
+  "modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/IndoorRecordingService.kt": 1,
   "modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/InterruptedRideNotifier.kt": 3,
   "modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/RecordingActionReceiver.kt": 1,
   "modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/VeloqRecordingNotificationModule.kt": 2,

@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { SectionTitle } from '@/shared/ui/SectionTitle';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import {
   TOUR_PICTURE_GAP,
   TOUR_SLIDE_PADDING_TOP,
@@ -49,7 +49,7 @@ export function WhatsNewSlide({
       <View style={styles.header} onLayout={onHeaderLayout} testID="tour-slide-header">
         <MaterialCommunityIcons
           name={icon as keyof typeof MaterialCommunityIcons.glyphMap}
-          size={40}
+          size={iconSize.xxl}
           color={isDark ? darkColors.primary : colors.primary}
         />
         <SectionTitle align="center" style={styles.title}>

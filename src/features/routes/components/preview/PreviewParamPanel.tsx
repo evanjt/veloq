@@ -35,7 +35,7 @@ import { useMetricSystem, useTheme } from '@/shared/app';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { formatDistance } from '@/shared/format/format';
 import { pressable, pressRipple, ToggleButton } from '@/shared/ui';
-import { colors, darkColors, brand, spacing, layout, typography } from '@/theme';
+import { brand, colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import {
   DETECTION_PARAM_RANGES,
   DETECTION_PRESETS,
@@ -221,7 +221,7 @@ function ParamRow({
         android_ripple={pressRipple}
       >
         <Text style={[styles.paramLabel, { color: txt }]}>{label}</Text>
-        <MaterialCommunityIcons name="pencil" size={typography.caption.fontSize} color={txt} />
+        <MaterialCommunityIcons name="pencil" size={iconSize.sm} color={txt} />
       </Pressable>
       <Slider
         testID={`param-slider-${paramKey}`}

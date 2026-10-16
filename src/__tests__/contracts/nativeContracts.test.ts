@@ -633,6 +633,45 @@ const CONTRACTS: Contract[] = [
     a: { file, has: 'Function("clearSnapshot")' },
     b: { file: 'src/features/home/lib/widgetBridge.ts', has: 'VeloqWidget.clearSnapshot()' },
   })),
+  ...['startIndoorService', 'stopIndoorService'].map((name) => ({
+    agree: `the recording notification module defines ${name}, which the bridge calls`,
+    a: {
+      file: 'modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/VeloqRecordingNotificationModule.kt',
+      has: `Function("${name}")`,
+    },
+    b: {
+      file: 'src/features/recording/lib/recordingNotification.ts',
+      has: `VeloqRecordingNotification.${name}(`,
+    },
+  })),
+  {
+    agree: 'the indoor service is declared with the foreground type it starts with',
+    a: {
+      file: 'modules/veloq-recording-notification/android/src/main/AndroidManifest.xml',
+      has: /android:name="\.IndoorRecordingService"[\s\S]*?android:foregroundServiceType="connectedDevice"/,
+    },
+    b: {
+      file: 'modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/IndoorRecordingService.kt',
+      has: 'ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE',
+    },
+  },
+  {
+    agree: 'the app holds the permission the indoor service type needs to start',
+    a: {
+      file: 'modules/veloq-recording-notification/android/src/main/AndroidManifest.xml',
+      has: 'android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE',
+    },
+    b: {
+      file: 'modules/veloq-recording-notification/android/src/main/java/com/veloq/recording/IndoorRecordingService.kt',
+      has: 'ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE',
+    },
+  },
+  {
+    agree:
+      'iOS keeps delivering sensor notifications to a suspended app, which samples an indoor ride from them',
+    a: { file: 'app.json', has: '"bluetooth-central"' },
+    b: { file: 'src/features/recording/lib/recordingSession.ts', has: 'sampleFromSensor()' },
+  },
   ...['serviceRunning', 'clear', 'clearInterrupted', 'batteryOptimisationExempt'].map((name) => ({
     agree: `the recording notification module defines ${name}, which the bridge calls`,
     a: {

@@ -6,24 +6,27 @@
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
-import type { TFunction } from 'i18next';
 
 import { restoreCopyUri } from '@/shared/storage/cacheFiles';
 import type { BackupBackend, BackupEntry } from './autobackup';
-import { RESTORE_REFUSAL_KEYS, restoreDatabaseBackup, restoreRecordBackup } from './backup';
+import { isBackupTransferError } from './autobackup/backends/errors';
+import { restoreDatabaseBackup, restoreRecordBackup } from './backup';
 import { holdImportWhileSignedOut } from './heldImport';
+import { RestoreRefusedError, restoreRefusal } from './restoreRefusal';
 import type { RestoreOutcome } from './restoreNotice';
 
-/** Whether the backup went in or is held for sign-in. Throws with the message to show on failure. */
+/**
+ * Whether the backup went in or is held for sign-in. Rejects with the download's
+ * transfer failure, or with a `RestoreRefusedError` naming why it did not go in.
+ */
 export async function restoreBackendEntry(
   backend: BackupBackend,
-  entry: BackupEntry,
-  t: TFunction
+  entry: BackupEntry
 ): Promise<RestoreOutcome> {
   const destPath = await restoreCopyUri(
     `restore-selected-${Date.now()}${entry.id.endsWith('.zip') ? '.zip' : '.veloqdb'}`
   ).catch(() => {
-    throw new Error(t('backup.importError'));
+    throw new RestoreRefusedError('failed');
   });
   try {
     await backend.download(entry.id, destPath);
@@ -34,15 +37,11 @@ export async function restoreBackendEntry(
       await restoreRecordBackup(destPath);
     } else {
       const result = await restoreDatabaseBackup(destPath);
-      if (result.athleteIdMismatch) {
-        throw new Error(t('backup.backupDifferentAccount'));
-      }
-      if (result.reason) throw new Error(t(RESTORE_REFUSAL_KEYS[result.reason]));
-      if (!result.success) throw new Error(result.error ?? t('backup.importError'));
+      if (!result.success) throw new RestoreRefusedError(result.refusal ?? 'failed');
     }
     return 'restored';
   } catch (error) {
-    throw error instanceof Error ? error : new Error(t('backup.importError'));
+    throw isBackupTransferError(error) ? error : new RestoreRefusedError(restoreRefusal(error));
   } finally {
     await FileSystem.deleteAsync(destPath, { idempotent: true }).catch(() => {});
   }

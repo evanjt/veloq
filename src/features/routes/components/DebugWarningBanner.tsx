@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { amberBanner, redBanner, spacing, layout, typography } from '@/theme';
+import { amberBanner, iconSize, layout, redBanner, spacing, typography } from '@/theme';
 
 interface DebugWarning {
   level: 'warn' | 'error';
@@ -37,7 +37,7 @@ export function DebugWarningBanner({ warnings }: DebugWarningBannerProps) {
           >
             <MaterialCommunityIcons
               name={isError ? 'alert-circle' : 'alert'}
-              size={16}
+              size={iconSize.sm}
               color={isError ? ERROR_BORDER : WARN_BORDER}
             />
             <Text

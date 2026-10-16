@@ -11,11 +11,10 @@ import { backupEntryFromSidecar, type BackupBackend, type BackupEntry } from './
 import {
   getWebdavConfig,
   webdavConfigProblem,
-  webdavUrlProblemMessage,
   type WebdavConfig,
   type WebdavUrlProblem,
 } from '../webdavConfig';
-import { transferFailure, transportFailure } from './errors';
+import { addressFailure, transferFailure, transportFailure } from './errors';
 import { NET_DEADLINE_MS, fetchWithDeadline } from '@/shared/net/fetchWithDeadline';
 import { basicAuthHeader } from '@/shared/net/basicAuth';
 import { debug } from '@/shared/debug/debug';
@@ -25,9 +24,9 @@ const log = debug.create('WebdavBackend');
 const REMOTE_DIR = 'Veloq';
 
 /** The stored config, or the reason nothing may be sent to it. */
-function requireConfig(): WebdavConfig {
+function requireConfig(operation: string): WebdavConfig {
   const problem = webdavConfigProblem();
-  if (problem) throw new Error(webdavUrlProblemMessage(problem));
+  if (problem) throw addressFailure(operation, problem);
   return getWebdavConfig() as WebdavConfig;
 }
 
@@ -169,7 +168,7 @@ export const webdavBackend: BackupBackend = {
   },
 
   async listBackups(): Promise<BackupEntry[]> {
-    const config = requireConfig();
+    const config = requireConfig('List backups');
 
     const headers = authHeaders(config.username, config.password);
     const dirUrl = joinUrl(config.url, REMOTE_DIR);
@@ -217,7 +216,7 @@ export const webdavBackend: BackupBackend = {
   },
 
   async upload(localPath: string, metadata: Omit<BackupEntry, 'id'>): Promise<string> {
-    const config = requireConfig();
+    const config = requireConfig('Upload backup');
 
     const headers = authHeaders(config.username, config.password);
     await ensureRemoteDir(config.url, headers);
@@ -257,7 +256,7 @@ export const webdavBackend: BackupBackend = {
   },
 
   async download(backupId: string, destPath: string): Promise<void> {
-    const config = requireConfig();
+    const config = requireConfig('Download backup');
 
     const headers = authHeaders(config.username, config.password);
     const fileUrl = joinUrl(config.url, REMOTE_DIR, backupId);

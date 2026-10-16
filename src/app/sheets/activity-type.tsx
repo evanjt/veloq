@@ -8,14 +8,15 @@ import { useTheme } from '@/shared/app';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import {
-  colors,
-  darkColors,
-  spacing,
-  layout,
-  typography,
   brand,
+  colors,
   colorWithOpacity,
+  darkColors,
+  iconSize,
   ink,
+  layout,
+  spacing,
+  typography,
 } from '@/theme';
 import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
 import { ACTIVITY_CATEGORIES, useRecordingPreferences } from '@/features/recording';
@@ -130,7 +131,7 @@ function ActivityTypeSheetContent() {
             >
               <MaterialCommunityIcons
                 name={getActivityIcon(item)}
-                size={22}
+                size={iconSize.lg}
                 color={getActivityInk(item, isDark)}
                 style={styles.icon}
               />
@@ -138,7 +139,7 @@ function ActivityTypeSheetContent() {
                 {t(`activityTypes.${item}`, item)}
               </Text>
               {isSelected ? (
-                <MaterialCommunityIcons name="check" size={20} color={brand.teal} />
+                <MaterialCommunityIcons name="check" size={iconSize.md} color={brand.teal} />
               ) : null}
             </Pressable>
           );

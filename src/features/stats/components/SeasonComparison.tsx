@@ -168,10 +168,31 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
   const handleInteractionChange = useCallback((active: boolean) => {
     if (!active) setSelectedMonth(null);
   }, []);
-  const { gesture: panGesture, syncXCoords } = useChartGestures({
+  const metricLabels = {
+    hours: { label: t('stats.hours'), unit: hoursUnitLabel() },
+    distance: { label: t('activity.distance'), unit: longDistanceUnitLabel(isMetric) },
+    tss: { label: t('metrics.load'), unit: '' },
+  };
+
+  const unit = metricLabels[metric].unit;
+  const describeMonth = useCallback(
+    (month: (typeof data)[number]) =>
+      [
+        month.month,
+        `${currentYear - 1} ${formatDecimalTrimmed(month.previous, 1)} ${unit}`.trim(),
+        `${currentYear} ${formatDecimalTrimmed(month.current, 1)} ${unit}`.trim(),
+      ].join(', '),
+    [unit, currentYear]
+  );
+  const {
+    gesture: panGesture,
+    syncXCoords,
+    accessibilityProps,
+  } = useChartGestures({
     data,
     onSelect: handleSelect,
     onInteractionChange: handleInteractionChange,
+    describePoint: describeMonth,
   });
   const monthCentres = useMemo(
     () =>
@@ -199,12 +220,6 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
     const pctChange = percentChange(currentTotal, previousTotal);
     return { currentTotal, previousTotal, pctChange };
   }, [yearCurrent, yearPrevious, metric, isMetric]);
-
-  const metricLabels = {
-    hours: { label: t('stats.hours'), unit: hoursUnitLabel() },
-    distance: { label: t('activity.distance'), unit: longDistanceUnitLabel(isMetric) },
-    tss: { label: t('metrics.load'), unit: '' },
-  };
 
   // Get selected month data for tooltip
   const selectedMonthData = selectedMonth !== null ? data[selectedMonth] : null;
@@ -471,7 +486,12 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
 
       {/* Chart - Skia Picture + gesture overlay */}
       <GestureDetector gesture={panGesture}>
-        <View style={{ height }} onLayout={onChartLayout}>
+        <View
+          style={{ height }}
+          onLayout={onChartLayout}
+          testID="season-chart-surface"
+          {...accessibilityProps}
+        >
           {chartPicture ? (
             <Canvas style={{ width: '100%', height }}>
               <Picture picture={chartPicture} />

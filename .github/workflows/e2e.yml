@@ -75,7 +75,10 @@ jobs:
       - name: Install Maestro
         uses: ./.github/actions/install-maestro
 
+      # Stopped short of the job's cap so the report steps after it still run.
+      # At the cap the runner kills the job and whatever has not started yet.
       - name: Run Maestro tests on emulator
+        timeout-minutes: 105
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
@@ -115,6 +118,24 @@ jobs:
             adb devices -l > /tmp/device-state.txt 2>&1 || true
             pgrep -af qemu >> /tmp/device-state.txt 2>&1 || true
 
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: maestro-android-report
+          path: |
+            maestro-report.xml
+            retry-reports/
+          retention-days: 7
+
+      - name: Publish test results
+        if: always()
+        uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d # v6
+        with:
+          report_paths: maestro-report.xml
+          check_name: E2E Android Results
+          fail_on_failure: false
+
       - name: Filter diagnostic logs
         if: always()
         run: |
@@ -139,16 +160,6 @@ jobs:
           path: screenshots-flat/
           retention-days: 14
 
-      - name: Upload test report
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: maestro-android-report
-          path: |
-            maestro-report.xml
-            retry-reports/
-          retention-days: 7
-
       - name: Upload diagnostic logs
         if: always()
         uses: actions/upload-artifact@v6
@@ -159,14 +170,6 @@ jobs:
             /tmp/logcat-filtered.txt
             /tmp/device-state.txt
           retention-days: 7
-
-      - name: Publish test results
-        if: always()
-        uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d # v6
-        with:
-          report_paths: maestro-report.xml
-          check_name: E2E Android Results
-          fail_on_failure: false
 
       - name: Fail if tests failed
         if: always() && env.MAESTRO_FAILED == 'true'
@@ -235,13 +238,15 @@ jobs:
     # One job ran every flow and was cancelled at 120 minutes and again at 180,
     # so no iOS report was ever seen. Each shard is a set of packs, narrowed by
     # tier where one pack alone is too slow, and holds the flows whose measured
-    # time, plus setup and a retry pass for half of them, fits inside the hour.
+    # time, plus a retry pass for half of them, fits the run step's timeout,
+    # which leaves setup and the report steps room inside the hour.
     # src/__tests__/bugs/e2eIosSweepFinishes.test.ts holds the measurements and
     # refuses a shard that outgrows its timeout or a flow no shard runs.
     timeout-minutes: 60
     strategy:
       # A failed shard must not cancel the others, since a cancelled shard
-      # leaves no report.
+      # reports only the flows it finished, and none if the cancellation
+      # leaves its report steps no time.
       fail-fast: false
       matrix:
         shard:
@@ -285,7 +290,13 @@ jobs:
       # --include-tags and the tiers this shard does not hold, or the dispatch
       # did not ask for, go in --exclude-tags. A shard left with no tier runs
       # nothing and writes no report.
+      #
+      # Stopped short of the job's cap so the report steps after it still run.
+      # On 2026-10-16 a shard's run used the whole hour, the log capture and
+      # screenshot upload took the next three minutes, and the job was killed
+      # before its report was uploaded.
       - name: Run Maestro tests
+        timeout-minutes: 45
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
           PACKS: ${{ matrix.shard.packs }}
@@ -311,6 +322,24 @@ jobs:
           args=(--include-tags="$PACKS")
           [ -z "$exclude" ] || args+=(--exclude-tags="$exclude")
           .maestro/run-suite.sh maestro-report.xml /tmp/maestro-debug "${args[@]}" || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: maestro-ios-report-${{ matrix.shard.name }}
+          path: |
+            maestro-report.xml
+            retry-reports/
+          retention-days: 7
+
+      - name: Publish test results
+        if: always()
+        uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d # v6
+        with:
+          report_paths: maestro-report.xml
+          check_name: E2E iOS Results (${{ matrix.shard.name }})
+          fail_on_failure: false
 
       - name: Capture diagnostic logs
         if: always()
@@ -344,24 +373,6 @@ jobs:
             /tmp/ios-sim-log.txt
             /tmp/VeloqDev*
           retention-days: 7
-
-      - name: Upload test report
-        if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: maestro-ios-report-${{ matrix.shard.name }}
-          path: |
-            maestro-report.xml
-            retry-reports/
-          retention-days: 7
-
-      - name: Publish test results
-        if: always()
-        uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d # v6
-        with:
-          report_paths: maestro-report.xml
-          check_name: E2E iOS Results (${{ matrix.shard.name }})
-          fail_on_failure: false
 
       - name: Fail if tests failed
         if: always() && env.MAESTRO_FAILED == 'true'
@@ -465,9 +476,10 @@ jobs:
               [ -d "$dir" ] || continue
               row "ios ${dir##*/maestro-ios-report-}" "$dir/maestro-report.xml"
             done
-            # A cancelled shard uploads nothing, so the shards above are only
-            # those that wrote a report, and the job result is what says the
-            # rest did not finish.
+            # A shard that did not finish may still have uploaded a report of
+            # the flows it reached, or none at all, so the shards above are
+            # those that uploaded one, and the job result is what says a
+            # shard did not finish.
             if [ "$IOS_RESULT" != "success" ]; then
               echo "| ios | Shards ended $IOS_RESULT: a shard missing above did not finish | :x: |"
             fi

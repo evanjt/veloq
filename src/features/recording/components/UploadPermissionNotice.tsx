@@ -6,12 +6,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useTheme } from '@/shared/app';
 import { StatusLine } from '@/shared/ui/StatusLine';
-import { spacing, typography, themePalette } from '@/theme';
+import { iconSize, spacing, themePalette, typography } from '@/theme';
 import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
 import { useWriteAccessMissing } from '@/features/recording/hooks/useWriteAccessMissing';
 import { GrantAccessButton } from './GrantAccessButton';
-
-const ICON_SIZE = 22;
 
 /**
  * The write-permission state beside the upload setting it decides, with the
@@ -31,7 +29,7 @@ export function UploadPermissionNotice() {
       <View style={styles.row}>
         <MaterialCommunityIcons
           name="shield-alert-outline"
-          size={ICON_SIZE}
+          size={iconSize.lg}
           color={palette.warningAmber}
         />
         <View style={styles.textContainer}>
@@ -85,6 +83,6 @@ const styles = StyleSheet.create({
   errorText: {
     ...typography.caption,
     marginTop: spacing.xs,
-    marginLeft: ICON_SIZE + spacing.sm,
+    marginLeft: iconSize.lg + spacing.sm,
   },
 });

@@ -60,7 +60,7 @@ import { useReadRetry } from '@/shared/native/useEngineSubscription';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { Button, EmptyState, ErrorState, useHeroMapHeight, useBottomClearance } from '@/shared/ui';
 import { type MaterialIconName } from '@/shared/activity/activityUtils';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, iconSize, spacing } from '@/theme';
 import type { RoutePoint } from '@/types';
 import type {
   FfiSectionChartPoint,
@@ -428,7 +428,7 @@ function SectionDetailScreenContent() {
             <View style={styles.rescanRefusal} testID="rescan-refused">
               <MaterialCommunityIcons
                 name="information-outline"
-                size={13}
+                size={iconSize.xs}
                 color={isDark ? darkColors.textSecondary : colors.textSecondary}
               />
               <Text style={[styles.rescanRefusalText, isDark && styles.rescanRefusalTextDark]}>
@@ -538,7 +538,7 @@ function SectionDetailScreenContent() {
                   icon={
                     <MaterialCommunityIcons
                       name="download"
-                      size={20}
+                      size={iconSize.md}
                       color={colors.textOnPrimary}
                     />
                   }

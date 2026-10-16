@@ -8,13 +8,14 @@ import { useTheme } from '@/shared/app';
 import * as haptics from '@/shared/ui/haptics';
 import {
   colors,
+  colorWithOpacity,
   darkColors,
+  iconSize,
+  insightToneColor,
+  layout,
+  opacity,
   spacing,
   typography,
-  opacity,
-  colorWithOpacity,
-  layout,
-  insightToneColor,
 } from '@/theme';
 import { InsightDetailContent } from './content/InsightDetailContent';
 import { MethodologySection } from './MethodologySection';
@@ -69,7 +70,11 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
         titleTestID="insight-detail-title"
         leading={
           <View style={[styles.iconCircle, { backgroundColor: colorWithOpacity(toneColor, 0.12) }]}>
-            <MaterialCommunityIcons name={insight.icon as never} size={16} color={toneColor} />
+            <MaterialCommunityIcons
+              name={insight.icon as never}
+              size={iconSize.sm}
+              color={toneColor}
+            />
           </View>
         }
       />
@@ -103,7 +108,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
           </Text>
           <MaterialCommunityIcons
             name="chevron-right"
-            size={18}
+            size={iconSize.md}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
         </Pressable>

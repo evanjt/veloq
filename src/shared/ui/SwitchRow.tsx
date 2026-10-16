@@ -15,7 +15,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { selection } from './haptics';
 import { pressable, pressRipple } from './pressFeedback';
 import { Switch } from './Switch';
@@ -81,7 +81,7 @@ export function SwitchRow({
         android_ripple={pressRipple}
         style={pressable([styles.target, INSETS[inset].target])}
       >
-        {icon ? <MaterialCommunityIcons name={icon} size={22} color={iconColor} /> : null}
+        {icon ? <MaterialCommunityIcons name={icon} size={iconSize.md} color={iconColor} /> : null}
         <View style={styles.label}>
           <Text testID={titleTestID} style={[styles.title, { color: labelColor }]}>
             {title}

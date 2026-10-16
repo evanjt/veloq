@@ -17,6 +17,10 @@
 // promise nobody holds, so a sheet is converted before it lands rather than
 // listed.
 //
+// A modal opens through `FullWindowModal`, which gives it the window's insets,
+// so `<FullWindowModal` counts as a rendered Modal in the file that opens it,
+// and the owner itself, which only wraps `Modal`, is not counted.
+//
 // Not counted: tests under `src/__tests__/`.
 
 import { readFileSync } from 'node:fs';
@@ -34,10 +38,10 @@ const ROOT = flagValue('--root', join(HERE, '..'));
 const BASELINE_FILE = flagValue('--baseline', join(HERE, 'modal-sheet-baseline.json'));
 const SRC = join(ROOT, 'src');
 
-const EXEMPT = ['src/__tests__/'];
+const EXEMPT = ['src/__tests__/', 'src/shared/ui/FullWindowModal.tsx'];
 
-/** A rendered react-native `Modal`, opening tag only. */
-const RENDERED = /<Modal[\s/>]/;
+/** A rendered react-native `Modal`, directly or through its owner, opening tag only. */
+const RENDERED = /<(?:FullWindow)?Modal[\s/>]/;
 
 const tree = treeView(ROOT, [relative(ROOT, SRC)]);
 

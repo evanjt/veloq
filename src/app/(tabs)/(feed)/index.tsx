@@ -67,7 +67,7 @@ import {
   TerrainSnapshotWebView,
   type TerrainSnapshotWebViewRef,
 } from '@/features/maps';
-import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
 import {
   CARD_MARGIN,
@@ -577,7 +577,7 @@ function FeedScreenContent() {
                 onError={() => setProfileImageFailed(true)}
               />
             ) : (
-              <MaterialCommunityIcons name="account" size={18} color={textSecondary} />
+              <MaterialCommunityIcons name="account" size={iconSize.md} color={textSecondary} />
             )}
           </IconButton>
         ) : null,

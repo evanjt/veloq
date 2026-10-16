@@ -10,6 +10,7 @@
 
 import { describeBackupFailure } from '@/features/settings/lib/backupFailure';
 import { transferFailure } from '@/features/settings/lib/autobackup/backends/errors';
+import { RestoreRefusedError } from '@/features/settings/lib/restoreRefusal';
 
 describe('describing a failed backup', () => {
   it('names the engine variant rather than passing Rust English through', () => {
@@ -35,6 +36,13 @@ describe('describing a failed backup', () => {
     expect(describeBackupFailure(transferFailure('PUT', 403))).toEqual({
       kind: 'key',
       key: 'backup.backupFailedAuth',
+    });
+  });
+
+  it('words a refused restore by its refusal', () => {
+    expect(describeBackupFailure(new RestoreRefusedError('differentAccount'))).toEqual({
+      kind: 'key',
+      key: 'backup.backupDifferentAccount',
     });
   });
 

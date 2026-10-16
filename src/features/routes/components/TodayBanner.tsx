@@ -17,14 +17,15 @@ import { formFromLoads } from '@/shared/math';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { WorkoutStepBar } from './WorkoutStepBar';
 import {
+  brand,
   colors,
   darkColors,
-  spacing,
+  iconSize,
   layout,
   shadows,
-  brand,
-  verdictColor,
+  spacing,
   typography,
+  verdictColor,
 } from '@/theme';
 import type { CalendarEvent } from '@/types';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
@@ -138,7 +139,7 @@ const WorkoutCard = React.memo(function WorkoutCard({
       <Text style={[styles.workoutName, isDark && styles.textLight]}>
         <MaterialCommunityIcons
           name={getActivityIcon(workout.type)}
-          size={typography.body.fontSize}
+          size={iconSize.md}
           color={isDark ? darkColors.textPrimary : colors.textPrimary}
         />{' '}
         {workout.name}
@@ -172,7 +173,7 @@ const SectionHighlights = React.memo(function SectionHighlights({
     <View style={[styles.sectionsContainer, isDark && styles.sectionsContainerDark]}>
       {recentPRCount > 0 && (
         <View style={styles.prSummaryRow}>
-          <MaterialCommunityIcons name="trophy-outline" size={14} color={brand.gold} />
+          <MaterialCommunityIcons name="trophy-outline" size={iconSize.sm} color={brand.gold} />
           <Text style={[styles.prSummaryText, isDark && styles.prGoldDark]}>
             {t('todayBanner.prCountThisWeek', {
               count: recentPRCount,
@@ -213,7 +214,7 @@ const SectionHighlights = React.memo(function SectionHighlights({
             <View style={styles.sectionMeta}>
               {prTimeSecs != null && isRecentPR ? (
                 <View style={styles.prCelebration}>
-                  <MaterialCommunityIcons name="trophy" size={12} color={brand.gold} />
+                  <MaterialCommunityIcons name="trophy" size={iconSize.sm} color={brand.gold} />
                   <Text style={[styles.prTextCelebration, isDark && styles.prGoldDark]}>
                     {t('routes.prTime', { time: formatDuration(prTimeSecs) })}
                   </Text>

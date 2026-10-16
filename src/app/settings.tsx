@@ -30,7 +30,7 @@ import { useUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { tapTo } from '@/shared/app/navigation';
 import { formatFileSize, formatMonthYear, getIntlLocale } from '@/shared/format/format';
 import { getAppStorageSize } from '@/shared/storage/gpsStorage';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 interface AccountRowProps {
@@ -87,7 +87,7 @@ function AccountRow({
           ) : (
             <MaterialCommunityIcons
               name="account"
-              size={22}
+              size={iconSize.lg}
               color={isDark ? darkColors.textSecondary : colors.textSecondary}
             />
           )}

@@ -10,6 +10,7 @@ import {
   colors,
   colorWithOpacity,
   darkColors,
+  iconSize,
   layout,
   slopToMinTapTarget,
   spacing,
@@ -176,7 +177,7 @@ export function ChartTypeSelector({
             delayLongPress={PREVIEW_HOLD_MS}
           >
             <View style={styles.chipLabelRow}>
-              <MaterialCommunityIcons name={config.icon} size={11} color={textColor} />
+              <MaterialCommunityIcons name={config.icon} size={iconSize.xs} color={textColor} />
               <DenseText style={[styles.chipLabel, { color: textColor }]}>{label}</DenseText>
             </View>
             {metric ? (

@@ -10,7 +10,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { PlaceNameKind } from 'veloqrs';
 import { IconButton } from '@/shared/ui';
-import { colors, colorWithOpacity } from '@/theme';
+import { colors, colorWithOpacity, iconSize } from '@/theme';
 import { usePlaceNameLookup } from '../hooks/usePlaceNameLookup';
 
 export interface PlaceNameButtonProps {
@@ -36,7 +36,7 @@ export function PlaceNameButton({ kind, itemId, testID }: PlaceNameButtonProps) 
       ) : (
         <MaterialCommunityIcons
           name="map-marker-outline"
-          size={18}
+          size={iconSize.md}
           color={colorWithOpacity(colors.textOnDark, 0.8)}
         />
       )}

@@ -8,11 +8,21 @@ import * as haptics from '@/shared/ui/haptics';
 
 import { useTheme } from '@/shared/app';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
-import { colors, darkColors, spacing, layout, brand, typography, themePalette } from '@/theme';
+import {
+  brand,
+  colors,
+  darkColors,
+  iconSize,
+  layout,
+  spacing,
+  themePalette,
+  typography,
+} from '@/theme';
 import type { RecordingStatus, RecordingMode } from '@/types';
 
-const BRAND_COLOR = brand.tealLight;
-const RESUME_COLOR = colors.success;
+// Each round button's fill with the ink its glyph takes on it.
+const BRAND_FILL = { fill: brand.tealLight, ink: colors.textOnPrimary };
+const RESUME_FILL = { fill: colors.success, ink: colors.textOnBright };
 
 interface ControlBarProps {
   status: RecordingStatus;
@@ -60,7 +70,7 @@ function ControlBarInner({
             testID="control-save"
             label={t('recording.controls.save')}
             icon="content-save"
-            color={BRAND_COLOR}
+            paint={BRAND_FILL}
             onPress={() => handleHapticPress(onStop)}
           />
         </Animated.View>
@@ -78,7 +88,7 @@ function ControlBarInner({
             testID="control-start"
             label={t('recording.startActivity')}
             icon="play"
-            color={RESUME_COLOR}
+            paint={RESUME_FILL}
             onPress={() => handleHapticPress(onStart)}
           />
         </Animated.View>
@@ -96,7 +106,7 @@ function ControlBarInner({
             testID="control-review"
             label={t('recording.reviewActivity')}
             icon="clipboard-check-outline"
-            color={BRAND_COLOR}
+            paint={BRAND_FILL}
             onPress={() => handleHapticPress(onReview)}
           />
         </Animated.View>
@@ -113,7 +123,7 @@ function ControlBarInner({
             testID="control-resume"
             label={t('recording.controls.resume')}
             icon="play"
-            color={RESUME_COLOR}
+            paint={RESUME_FILL}
             onPress={() => handleHapticPress(onResume)}
           />
 
@@ -147,7 +157,7 @@ function ControlBarInner({
           testID="control-pause"
           label={t('recording.controls.pause')}
           icon="pause"
-          color={BRAND_COLOR}
+          paint={BRAND_FILL}
           onPress={() => handleHapticPress(onPause)}
         />
 
@@ -168,13 +178,13 @@ function ControlBarInner({
 function PrimaryButton({
   label,
   icon,
-  color,
+  paint,
   onPress,
   testID,
 }: {
   label: string;
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-  color: string;
+  paint: { fill: string; ink: string };
   onPress: () => void;
   testID?: string;
 }) {
@@ -183,13 +193,13 @@ function PrimaryButton({
     <View style={styles.buttonContainer}>
       <Pressable
         testID={testID}
-        style={pressable([styles.primaryButton, { backgroundColor: color }])}
+        style={pressable([styles.primaryButton, { backgroundColor: paint.fill }])}
         android_ripple={pressRipple}
         onPress={onPress}
         accessibilityLabel={label}
         accessibilityRole="button"
       >
-        <MaterialCommunityIcons name={icon} size={28} color={colors.textOnPrimary} />
+        <MaterialCommunityIcons name={icon} size={iconSize.xl} color={paint.ink} />
       </Pressable>
       <Text style={[styles.buttonLabel, { color: themePalette(isDark).textSecondary }]}>
         {label}
@@ -224,7 +234,7 @@ function SecondaryButton({
         accessibilityLabel={label}
         accessibilityRole="button"
       >
-        <MaterialCommunityIcons name={icon} size={22} color={textColor} />
+        <MaterialCommunityIcons name={icon} size={iconSize.lg} color={textColor} />
       </Pressable>
       <Text style={[styles.buttonLabel, { color: textColor }]}>{label}</Text>
     </View>

@@ -6,7 +6,15 @@ import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { StatusLine } from '@/shared/ui';
-import { colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  darkColors,
+  iconSize,
+  layout,
+  spacing,
+  typography,
+} from '@/theme';
 import { formatClockOrDate } from '@/shared/format/format';
 import type { SessionExpiryNotice } from '@/features/auth/hooks';
 
@@ -41,7 +49,11 @@ export const SessionExpiredNotice = React.memo(function SessionExpiredNotice({
       testID="login-session-notice"
     >
       <View style={styles.header}>
-        <MaterialCommunityIcons name="account-clock-outline" size={20} color={iconColour} />
+        <MaterialCommunityIcons
+          name="account-clock-outline"
+          size={iconSize.md}
+          color={iconColour}
+        />
         <Text style={[styles.title, isDark && styles.titleDark]}>{title}</Text>
       </View>
       <Text style={[styles.detail, isDark && styles.detailDark]}>{kept}</Text>

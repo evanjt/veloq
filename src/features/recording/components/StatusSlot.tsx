@@ -13,7 +13,15 @@ import { useTranslation } from 'react-i18next';
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
 
 import { tapTo } from '@/shared/app/navigation';
-import { colors, colorWithOpacity, darkColors, layout, spacing, typography } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  darkColors,
+  iconSize,
+  layout,
+  spacing,
+  typography,
+} from '@/theme';
 import { useTheme } from '@/shared/app';
 import { selectStatusMessage, type StatusSlotInput } from '../lib/statusSlot';
 import { OpenSettingsButton, pressable, pressRipple } from '@/shared/ui';
@@ -64,7 +72,7 @@ function StatusSlotInner({
         testID="status-slot-background"
         accessibilityLiveRegion="assertive"
       >
-        <MaterialCommunityIcons name="alert-circle-outline" size={16} color={amber} />
+        <MaterialCommunityIcons name="alert-circle-outline" size={iconSize.sm} color={amber} />
         <Text style={[styles.text, { color: amber }]}>{message.text}</Text>
       </Animated.View>
     );
@@ -82,7 +90,11 @@ function StatusSlotInner({
         testID="status-slot-backup"
         accessibilityLiveRegion="assertive"
       >
-        <MaterialCommunityIcons name="content-save-alert-outline" size={16} color={amber} />
+        <MaterialCommunityIcons
+          name="content-save-alert-outline"
+          size={iconSize.sm}
+          color={amber}
+        />
         <Text style={[styles.text, { color: amber }]}>{message.text}</Text>
       </Animated.View>
     );
@@ -98,11 +110,11 @@ function StatusSlotInner({
         testID="status-slot-gps"
         accessibilityLiveRegion="assertive"
       >
-        <MaterialCommunityIcons name="alert-circle-outline" size={16} color={amber} />
+        <MaterialCommunityIcons name="alert-circle-outline" size={iconSize.sm} color={amber} />
         <Text style={[styles.text, { color: amber }]}>{message.text}</Text>
         {message.opensSettings ? <OpenSettingsButton testID="status-slot-gps-settings" /> : null}
         <IconButton onPress={onDismissGpsWarning} accessibilityLabel={t('common.close', 'Close')}>
-          <MaterialCommunityIcons name="close" size={16} color={amber} />
+          <MaterialCommunityIcons name="close" size={iconSize.sm} color={amber} />
         </IconButton>
       </Animated.View>
     );
@@ -124,9 +136,9 @@ function StatusSlotInner({
           accessibilityRole="button"
           accessibilityLabel={message.text}
         >
-          <MaterialCommunityIcons name="bluetooth" size={16} color={amber} />
+          <MaterialCommunityIcons name="bluetooth" size={iconSize.sm} color={amber} />
           <Text style={[styles.text, { color: amber }]}>{message.text}</Text>
-          <MaterialCommunityIcons name="chevron-right" size={16} color={amber} />
+          <MaterialCommunityIcons name="chevron-right" size={iconSize.sm} color={amber} />
         </Pressable>
       </Animated.View>
     );
@@ -143,7 +155,7 @@ function StatusSlotInner({
       accessible
       accessibilityLabel={message.spoken}
     >
-      <MaterialCommunityIcons name="flag-variant" size={16} color={colors.textOnDark} />
+      <MaterialCommunityIcons name="flag-variant" size={iconSize.sm} color={colors.textOnDark} />
       <Text style={[styles.text, { color: colors.textOnDark }]}>{message.text}</Text>
     </Animated.View>
   );

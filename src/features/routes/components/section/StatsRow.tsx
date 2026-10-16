@@ -17,7 +17,15 @@ import { useTranslation } from 'react-i18next';
 
 import { formatAttemptFigure, type AttemptBasis } from '@/features/routes/lib/attemptBasis';
 import { DirectionArrow, directionWord } from './DirectionCue';
-import { colors, colorWithOpacity, darkColors, typography, layout, spacing } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  darkColors,
+  iconSize,
+  layout,
+  spacing,
+  typography,
+} from '@/theme';
 import type {
   DirectionBestRecord,
   DirectionSummaryStats,
@@ -84,7 +92,7 @@ export function StatsRow({
               <View testID={`stats-row-trophy-${direction}`}>
                 <MaterialCommunityIcons
                   name="trophy"
-                  size={11}
+                  size={iconSize.xs}
                   color={isDark ? darkColors.chartGoldMark : colors.chartGoldMark}
                 />
               </View>

@@ -4,7 +4,7 @@ import Constants from 'expo-constants';
 import { Button, ScreenScrollView, pressable, pressRipple } from '@/shared/ui';
 import { shareText } from '@/features/settings/light';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, darkColors, spacing, layout, typography, themePalette } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, themePalette, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import {
   readBasemapTileCounts,
@@ -87,12 +87,12 @@ function CollapsibleSection({
         android_ripple={pressRipple}
       >
         <View style={styles.sectionHeaderLeft}>
-          <MaterialCommunityIcons name={icon} size={20} color={colors.primary} />
+          <MaterialCommunityIcons name={icon} size={iconSize.md} color={colors.primary} />
           <Text style={[styles.sectionTitle, { color: textColor }]}>{title}</Text>
         </View>
         <MaterialCommunityIcons
           name={open ? 'chevron-up' : 'chevron-down'}
-          size={20}
+          size={iconSize.md}
           color={mutedColor}
         />
       </Pressable>
@@ -359,7 +359,13 @@ function BackgroundNotificationsDebug({
             variant="ghost"
             size="sm"
             style={styles.actionButton}
-            icon={<MaterialCommunityIcons name="delete-outline" size={16} color={colors.primary} />}
+            icon={
+              <MaterialCommunityIcons
+                name="delete-outline"
+                size={iconSize.sm}
+                color={colors.primary}
+              />
+            }
           />
         </>
       ) : (
@@ -670,7 +676,11 @@ function DebugScreenContent() {
                 size="sm"
                 style={styles.actionButton}
                 icon={
-                  <MaterialCommunityIcons name="delete-outline" size={16} color={colors.primary} />
+                  <MaterialCommunityIcons
+                    name="delete-outline"
+                    size={iconSize.sm}
+                    color={colors.primary}
+                  />
                 }
               />
             </>
@@ -818,7 +828,13 @@ function DebugScreenContent() {
           label="Share Debug Snapshot"
           onPress={handleShareSnapshot}
           variant="secondary"
-          icon={<MaterialCommunityIcons name="share-variant" size={18} color={colors.primary} />}
+          icon={
+            <MaterialCommunityIcons
+              name="share-variant"
+              size={iconSize.md}
+              color={colors.primary}
+            />
+          }
         />
 
         <View style={{ height: spacing.xl }} />

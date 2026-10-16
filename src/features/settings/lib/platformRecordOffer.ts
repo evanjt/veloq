@@ -18,6 +18,7 @@ import { isPlatformRecordAnswered, markPlatformRecordAnswered } from './autoback
 import { checkRecordBackup, restoreRecordBackup } from './backup';
 import { inform } from '@/shared/ui/dialog';
 import { showRestoreNotice } from './restoreNotice';
+import { RESTORE_REFUSAL_KEYS, restoreRefusal } from './restoreRefusal';
 
 const log = debug.create('PlatformRecord');
 
@@ -43,13 +44,10 @@ async function restorePlatformRecord(uri: string, t: TFunction): Promise<void> {
     await restoreRecordBackup(uri);
     showRestoreNotice('restored', t);
   } catch (error) {
-    const message = error instanceof Error ? error.message : '';
-    log.warn('Platform record restore refused:', message);
+    log.warn('Platform record restore refused:', error instanceof Error ? error.message : error);
     inform({
       title: t('backup.notRestoredTitle'),
-      message: message.includes('another athlete')
-        ? t('backup.backupDifferentAccount')
-        : t('backup.importError'),
+      message: t(RESTORE_REFUSAL_KEYS[restoreRefusal(error)]),
     });
   }
 }

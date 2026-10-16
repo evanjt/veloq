@@ -21,7 +21,7 @@ import { formatGpsSyncProgress } from '../../lib/syncProgressFormat';
 import { formatLibraryCoverage } from '@/shared/format/libraryCoverage';
 import { useLibraryCoverage } from '@/shared/native/useLibraryCoverage';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
-import { colors, ink, typography, spacing, colorWithOpacity } from '@/theme';
+import { colors, colorWithOpacity, iconSize, ink, spacing, typography } from '@/theme';
 
 interface SyncProgressBannerProps {
   /** Whether the banner is visible */
@@ -138,7 +138,7 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
         <View style={styles.content}>
           <MaterialCommunityIcons
             name={displayInfo.icon as keyof typeof MaterialCommunityIcons.glyphMap}
-            size={16}
+            size={iconSize.sm}
             color={colors.textOnPrimary}
           />
           <Text style={styles.text} testID="sync-progress-message">

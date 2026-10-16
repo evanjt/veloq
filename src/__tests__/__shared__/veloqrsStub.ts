@@ -311,6 +311,29 @@ export const engine = {
 };
 
 /**
+ * The delegate namespaces the barrel binds to the engine, closed like it. Each
+ * function answers undefined, and a test that needs one to answer overrides
+ * the whole namespace by name.
+ */
+export const elevation = {
+  startElevationBackfill: jest.fn(),
+  pauseElevationBackfill: jest.fn(),
+  resumeElevationBackfill: jest.fn(),
+  getElevationBackfillRemaining: jest.fn(),
+};
+
+export const streamBackfill = {
+  startStreamBackfill: jest.fn(),
+  consentStreamBackfill: jest.fn(),
+  stopStreamBackfill: jest.fn(),
+};
+
+export const connectivity = {
+  setNetworkOnline: jest.fn(),
+  setInteracting: jest.fn(),
+};
+
+/**
  * The basemap tile store, closed. `setPath` is what launch hands it, and the
  * reads answer nothing so a caller falls through the way it does before the
  * path is set.
@@ -376,6 +399,9 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     startFetchAndStore,
     takeFetchAndStoreResult,
     engine,
+    elevation,
+    streamBackfill,
+    connectivity,
     basemapStore,
     ...overrides,
   };

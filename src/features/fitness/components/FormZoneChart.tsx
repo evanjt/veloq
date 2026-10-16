@@ -24,9 +24,13 @@ import {
 import {
   ChartCanvas,
   ChartCrosshair,
+  ChartSurface,
   CurveLine,
+  seriesSummary,
+  seriesTable,
   useChartColors,
   useChartGestures,
+  type SummarySeries,
 } from '@/shared/charts';
 import {
   getFormZone,
@@ -87,6 +91,24 @@ export const FormZoneChart = React.memo(function FormZoneChart({
 
   const chartData = useMemo(() => formChartSeries(data ?? [], asPercent), [data, asPercent]);
 
+  // What a screen reader hears and the Show data sheet lists: the form line, day by day.
+  const reading = useMemo(() => {
+    const series: SummarySeries = {
+      name: t('metrics.form'),
+      unit: asPercent ? '%' : undefined,
+      points: chartData.map((d) => ({
+        label: formatShortDate(d.date),
+        key: d.date,
+        value: d.form,
+      })),
+      format: (v) => `${signedForm(Math.round(v))}${asPercent ? '%' : ''}`,
+    };
+    return {
+      summary: seriesSummary(series, t),
+      table: seriesTable(series.name, t('charts.column.date'), [series]),
+    };
+  }, [chartData, asPercent, t]);
+
   const handleSelect = useCallback((point: FormChartPoint) => {
     setSelectedData(point);
     onDateSelectRef.current?.(point.date, {
@@ -104,13 +126,28 @@ export const FormZoneChart = React.memo(function FormZoneChart({
     }
   }, []);
 
-  const { gesture, isActive, crosshairStyle, syncBounds, syncXCoords } =
+  const describePoint = useCallback(
+    (point: FormChartPoint) => {
+      const day = formatShortDate(point.date);
+      if (point.form === null)
+        return `${day}, ${t('systemSurfaces.spoken.noReading', { label: t('metrics.form') })}`;
+      const value = `${signedForm(Math.round(point.form))}${asPercent ? '%' : ''}`;
+      const zone = getFormZone(point.form);
+      return [day, `${t('metrics.form')} ${value}`, ...(zone ? [formZoneLabel(zone)] : [])].join(
+        ', '
+      );
+    },
+    [t, asPercent]
+  );
+
+  const { gesture, isActive, crosshairStyle, syncBounds, syncXCoords, accessibilityProps } =
     useChartGestures<FormChartPoint>({
       data: chartData,
       onSelect: handleSelect,
       onInteractionChange: handleInteractionChange,
       sharedSelectedIdx,
       externalSelectedIdx,
+      describePoint,
     });
 
   // Sync with external selectedDate (from other chart)
@@ -190,71 +227,77 @@ export const FormZoneChart = React.memo(function FormZoneChart({
         </View>
       </View>
 
-      <GestureDetector gesture={gesture}>
-        <View style={[chartStyles.chartWrapper, { height }]}>
-          <ChartCanvas
-            data={chartData}
-            x={xOf}
-            series={SERIES}
-            yDomain={yDomain}
-            padding={CHART_PADDING}
-            grid={5}
+      <ChartSurface summary={reading.summary} table={reading.table} style={styles.plot}>
+        <GestureDetector gesture={gesture}>
+          <View
+            style={[chartStyles.chartWrapper, { height }]}
+            testID="form-chart-surface"
+            {...accessibilityProps}
           >
-            {({ points, bounds, xFor, yFor }) => {
-              syncBounds(bounds);
-              // One coordinate per day, including a gap day, so a drag index is a data index.
-              syncXCoords(chartData, (d) => xFor(d.x));
-              return (
-                <>
-                  {ZONES.map((zone) => (
-                    <ZoneBackground
-                      key={zone}
-                      bounds={bounds}
-                      minY={yFor(FORM_ZONE_BOUNDARIES[zone].max)}
-                      maxY={yFor(FORM_ZONE_BOUNDARIES[zone].min)}
-                      color={FORM_ZONE_COLORS[zone] + (zone === 'greyZone' ? '20' : '30')}
+            <ChartCanvas
+              data={chartData}
+              x={xOf}
+              series={SERIES}
+              yDomain={yDomain}
+              padding={CHART_PADDING}
+              grid={5}
+            >
+              {({ points, bounds, xFor, yFor }) => {
+                syncBounds(bounds);
+                // One coordinate per day, including a gap day, so a drag index is a data index.
+                syncXCoords(chartData, (d) => xFor(d.x));
+                return (
+                  <>
+                    {ZONES.map((zone) => (
+                      <ZoneBackground
+                        key={zone}
+                        bounds={bounds}
+                        minY={yFor(FORM_ZONE_BOUNDARIES[zone].max)}
+                        maxY={yFor(FORM_ZONE_BOUNDARIES[zone].min)}
+                        color={FORM_ZONE_COLORS[zone] + (zone === 'greyZone' ? '20' : '30')}
+                      />
+                    ))}
+                    <SkiaLine
+                      p1={vec(bounds.left, yFor(0))}
+                      p2={vec(bounds.right, yFor(0))}
+                      color={chartColors.zeroLineSolid}
+                      strokeWidth={1}
+                      style="stroke"
                     />
-                  ))}
-                  <SkiaLine
-                    p1={vec(bounds.left, yFor(0))}
-                    p2={vec(bounds.right, yFor(0))}
-                    color={chartColors.zeroLineSolid}
-                    strokeWidth={1}
-                    style="stroke"
-                  />
-                  <CurveLine points={points.form} color={chartColors.casing} strokeWidth={2} />
-                  <CurveLine points={points.form} color={chartColors.formLine} strokeWidth={1} />
-                </>
-              );
-            }}
-          </ChartCanvas>
+                    <CurveLine points={points.form} color={chartColors.casing} strokeWidth={2} />
+                    <CurveLine points={points.form} color={chartColors.formLine} strokeWidth={1} />
+                  </>
+                );
+              }}
+            </ChartCanvas>
 
-          {/* Animated crosshair - runs at native 120Hz using synced point coordinates */}
-          <ChartCrosshair style={crosshairStyle} bottomOffset={4} />
+            {/* Animated crosshair - runs at native 120Hz using synced point coordinates */}
+            <ChartCrosshair style={crosshairStyle} bottomOffset={4} />
 
-          {/* Y-axis labels */}
-          <View style={styles.yAxisOverlay} pointerEvents="none">
-            <Text
-              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-              style={[styles.axisLabel, isDark && styles.axisLabelDark]}
-            >
-              {Math.round(maxForm)}
-            </Text>
-            <Text
-              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-              style={[styles.axisLabel, isDark && styles.axisLabelDark]}
-            >
-              0
-            </Text>
-            <Text
-              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-              style={[styles.axisLabel, isDark && styles.axisLabelDark]}
-            >
-              {Math.round(minForm)}
-            </Text>
+            {/* Y-axis labels */}
+            <View style={styles.yAxisOverlay} pointerEvents="none">
+              <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                style={[styles.axisLabel, isDark && styles.axisLabelDark]}
+              >
+                {Math.round(maxForm)}
+              </Text>
+              <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                style={[styles.axisLabel, isDark && styles.axisLabelDark]}
+              >
+                0
+              </Text>
+              <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                style={[styles.axisLabel, isDark && styles.axisLabelDark]}
+              >
+                {Math.round(minForm)}
+              </Text>
+            </View>
           </View>
-        </View>
-      </GestureDetector>
+        </GestureDetector>
+      </ChartSurface>
 
       {/* Zone legend */}
       <View style={styles.zoneLegend}>
@@ -297,6 +340,10 @@ function ZoneBackground({
 const makeStyles = (palette: Palette) =>
   StyleSheet.create({
     container: {},
+    // The plot sets its own height, so the surface is sized by it rather than filling.
+    plot: {
+      flex: 0,
+    },
     header: {
       flexDirection: 'row',
       justifyContent: 'space-between',

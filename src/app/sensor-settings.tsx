@@ -13,7 +13,7 @@ import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 import { useTheme } from '@/shared/app';
 import { useForeground } from '@/shared/app/useRetryTriggers';
 import { openAppSettings } from '@/shared/app/permissions';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { formatCadence, formatHeartRate, formatPower } from '@/shared/format/format';
 import { useClock, useRecordingStore } from '@/features/recording';
 import {
@@ -267,7 +267,7 @@ function SensorSettingsScreenContent() {
     <View style={styles.kindRow}>
       {kinds.map((kind) => (
         <View key={kind} style={styles.kindItem}>
-          <MaterialCommunityIcons name={KIND_ICONS[kind]} size={14} color={color} />
+          <MaterialCommunityIcons name={KIND_ICONS[kind]} size={iconSize.sm} color={color} />
           <Text style={[styles.kindLabel, { color }]}>{t(`sensors.kinds.${kind}`)}</Text>
         </View>
       ))}
@@ -293,7 +293,7 @@ function SensorSettingsScreenContent() {
             icon={
               <MaterialCommunityIcons
                 name={KIND_ICONS[kind]}
-                size={14}
+                size={iconSize.sm}
                 color={isSource ? colors.textOnPrimary : textSecondary}
               />
             }
@@ -420,7 +420,7 @@ function SensorSettingsScreenContent() {
                 icon={
                   <MaterialCommunityIcons
                     name="bluetooth-connect"
-                    size={18}
+                    size={iconSize.md}
                     color={colors.textOnPrimary}
                   />
                 }
@@ -462,7 +462,7 @@ function SensorSettingsScreenContent() {
                       >
                         <MaterialCommunityIcons
                           name={SIGNAL_ICONS[level]}
-                          size={18}
+                          size={iconSize.md}
                           color={textSecondary}
                         />
                       </View>

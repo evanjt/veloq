@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import type { FrequentSection } from '@/types';
 import { sectionActionChips } from '../../lib/sectionActionChips';
 import { Button, IconButton } from '@/shared/ui';
@@ -58,7 +58,7 @@ export function SectionActionRow({
         icon={
           <MaterialCommunityIcons
             name="content-cut"
-            size={16}
+            size={iconSize.sm}
             color={isDark ? darkColors.textPrimary : colors.textSecondary}
           />
         }
@@ -69,7 +69,7 @@ export function SectionActionRow({
           accessibilityLabel={t('sections.deleteSection')}
           onPress={handleDeleteSection}
         >
-          <MaterialCommunityIcons name="delete-outline" size={16} color={colors.error} />
+          <MaterialCommunityIcons name="delete-outline" size={iconSize.sm} color={colors.error} />
         </IconButton>
       ) : (
         <IconButton
@@ -81,7 +81,7 @@ export function SectionActionRow({
         >
           <MaterialCommunityIcons
             name={isSectionDisabled ? 'undo' : 'minus-circle-outline'}
-            size={16}
+            size={iconSize.sm}
             color={
               isSectionDisabled
                 ? colors.success
@@ -101,7 +101,7 @@ export function SectionActionRow({
         >
           <MaterialCommunityIcons
             name={isRematching ? 'loading' : 'refresh'}
-            size={16}
+            size={iconSize.sm}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
         </IconButton>
@@ -117,7 +117,7 @@ export function SectionActionRow({
           >
             <MaterialCommunityIcons
               name="eye-off-outline"
-              size={14}
+              size={iconSize.sm}
               color={isDark ? darkColors.textSecondary : colors.textSecondary}
             />
             <Text
@@ -139,7 +139,7 @@ export function SectionActionRow({
               { backgroundColor: isDark ? darkColors.surface : colors.surface },
             ]}
           >
-            <MaterialCommunityIcons name="pin" size={14} color={colors.primary} />
+            <MaterialCommunityIcons name="pin" size={iconSize.sm} color={colors.primary} />
             <Text
               numberOfLines={1}
               style={[
@@ -161,7 +161,7 @@ export function SectionActionRow({
           >
             <MaterialCommunityIcons
               name="check-circle"
-              size={14}
+              size={iconSize.sm}
               color={isDark ? darkColors.textSecondary : colors.textSecondary}
             />
             <Text
@@ -184,7 +184,7 @@ export function SectionActionRow({
             icon={
               <MaterialCommunityIcons
                 name="check-circle-outline"
-                size={14}
+                size={iconSize.sm}
                 color={colors.primary}
               />
             }

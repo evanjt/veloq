@@ -7,8 +7,9 @@ import { useTheme } from '@/shared/app';
 import {
   colors,
   darkColors,
-  spacing,
+  iconSize,
   opacity,
+  spacing,
   typography,
   verdictColor,
   type VerdictRung,
@@ -49,7 +50,7 @@ export const DataPointRow = React.memo(function DataPointRow({ dataPoint }: Data
         {mark ? (
           <MaterialCommunityIcons
             name={mark.glyph}
-            size={16}
+            size={iconSize.sm}
             color={verdictColor(mark.rung, isDark)}
             style={styles.verdictGlyph}
           />

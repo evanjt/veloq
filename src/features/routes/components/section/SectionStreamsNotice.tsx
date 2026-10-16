@@ -9,7 +9,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/ui';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 
 export interface SectionStreamsNoticeProps {
   isDark: boolean;
@@ -23,7 +23,7 @@ export function SectionStreamsNotice({ isDark, outstanding, onRetry }: SectionSt
   const tint = isDark ? darkColors.textSecondary : colors.textSecondary;
   return (
     <View testID="section-streams-partial" style={styles.row}>
-      <MaterialCommunityIcons name="cloud-off-outline" size={13} color={tint} />
+      <MaterialCommunityIcons name="cloud-off-outline" size={iconSize.sm} color={tint} />
       <Text style={[styles.text, isDark && styles.textDark]}>
         {t('sections.effortsNotDownloaded', { count: outstanding })}
       </Text>

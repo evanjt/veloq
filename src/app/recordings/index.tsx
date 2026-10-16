@@ -15,7 +15,15 @@ import { Card } from '@/shared/ui/Card';
 import { IconButton } from '@/shared/ui/IconButton';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { tapTo } from '@/shared/app/navigation';
-import { colors, darkColors, spacing, layout, typography, colorWithOpacity } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  darkColors,
+  iconSize,
+  layout,
+  spacing,
+  typography,
+} from '@/theme';
 import { formatDateTime, formatDistance, formatDuration } from '@/shared/format/format';
 import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
 import {
@@ -74,7 +82,7 @@ function RecordingsLibraryScreenContent() {
           >
             <MaterialCommunityIcons
               name={getActivityIcon(item.activityType)}
-              size={26}
+              size={iconSize.lg}
               color={getActivityInk(item.activityType, isDark)}
               style={styles.activityIcon}
             />
@@ -92,7 +100,7 @@ function RecordingsLibraryScreenContent() {
               testID={`recording-status-${item.uploadStatus}`}
               style={[styles.statusChip, { backgroundColor: colorWithOpacity(status.color, 0.12) }]}
             >
-              <MaterialCommunityIcons name={status.icon} size={14} color={status.color} />
+              <MaterialCommunityIcons name={status.icon} size={iconSize.sm} color={status.color} />
               <Text style={[styles.statusText, { color: status.color }]}>{statusText}</Text>
             </View>
             {isUploading ? (
@@ -108,7 +116,7 @@ function RecordingsLibraryScreenContent() {
               >
                 <MaterialCommunityIcons
                   name="cloud-upload-outline"
-                  size={20}
+                  size={iconSize.md}
                   color={colors.primary}
                 />
               </IconButton>

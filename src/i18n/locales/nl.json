@@ -370,6 +370,7 @@
     "backupFailedFolder": "Veloq kan de back-upmap niet meer bereiken. Kies de map opnieuw.",
     "backupFailedIcloud": "iCloud Drive staat uit voor Veloq, of deze iPhone is niet ingelogd bij iCloud. Zet het aan in de Instellingen van de iPhone.",
     "backupFailedUnverified": "Veloq heeft de back-up geschreven, maar kon hem niet teruglezen om te controleren. Het probeert het later opnieuw.",
+    "backupFailedAddress": "Het WebDAV-serveradres moet een geldig https://-adres zijn. Controleer het in de back-upinstellingen.",
     "lastAttemptFailed": "Laatste poging mislukt op {{date}}",
     "androidLastBackup": "Laatste Android-back-up: {{date}}, {{size}}",
     "androidBackupNever": "Android heeft nog geen back-up van Veloq gemaakt",
@@ -386,6 +387,7 @@
     "cameraPermissionNeeded": "Cameratoegang is vereist om QR-codes te scannen",
     "enterDetailsInstead": "Gegevens zelf invoeren",
     "fillAllFields": "Vul alle velden in",
+    "fillField": "Vul het veld ‘{{field}}’ in",
     "webdavHttpsRequired": "Gebruik een https://-adres. Een http://-server ontvangt je wachtwoord en gegevensarchief onversleuteld.",
     "webdavInvalidUrl": "Dat is geen geldig serveradres",
     "webdavSaveFailed": "De servergegevens konden niet op dit apparaat worden opgeslagen",
@@ -506,7 +508,7 @@
       "title": "Er ging iets mis"
     },
     "offline": {
-      "description": "Sommige functies kunnen beperkt zijn",
+      "description": "Synchronisatie en uploads gaan verder zodra je weer online bent.",
       "title": "Je bent offline"
     },
     "syncError": {
@@ -2776,6 +2778,26 @@
     "offPr": "{{delta}} boven PR",
     "cycleHint": "Tik om te wisselen",
     "laps": "Ronden: {{n}}",
-    "elevationLoss": "Hoogteverlies"
+    "elevationLoss": "Hoogteverlies",
+    "chartPageForward": "Vooruit springen",
+    "chartPageBack": "Terug springen"
+  },
+  "charts": {
+    "showData": "Gegevens tonen",
+    "summary": {
+      "title": "{{title}}.",
+      "empty": "{{name}}: geen gegevens.",
+      "single": "{{name}}, {{start}}: {{value}}.",
+      "series": "{{name}}, {{start}} tot {{end}}: laatste {{latest}}, bereik {{min}} tot {{max}}, gemiddeld {{average}}.",
+      "curve": "{{name}}, {{start}} tot {{end}}: {{first}} bij {{start}}, {{last}} bij {{end}}, piek {{max}}.",
+      "parts": "{{name}}: {{parts}}."
+    },
+    "column": {
+      "date": "Datum",
+      "duration": "Duur",
+      "distance": "Afstand",
+      "zone": "Zone",
+      "time": "Tijd"
+    }
   }
 }

@@ -8,7 +8,7 @@ import { usePathname } from 'expo-router';
 
 import { useTheme } from '@/shared/app';
 import { tapTo } from '@/shared/app/navigation';
-import { colors, darkColors, brand, spacing, shadows, layout, typography } from '@/theme';
+import { brand, colors, darkColors, iconSize, layout, shadows, spacing, typography } from '@/theme';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -81,7 +81,11 @@ function RecordingReturnPillInner({ status }: { status: RecordingStatus }) {
       >
         <View style={[styles.dot, { backgroundColor: accent }]} />
         {activityType ? (
-          <MaterialCommunityIcons name={getActivityIcon(activityType)} size={18} color={accent} />
+          <MaterialCommunityIcons
+            name={getActivityIcon(activityType)}
+            size={iconSize.md}
+            color={accent}
+          />
         ) : null}
         <Text style={[styles.elapsed, { color: textPrimary }]}>{formattedElapsed}</Text>
         <Text style={[styles.label, { color: accent }]}>
@@ -91,7 +95,7 @@ function RecordingReturnPillInner({ status }: { status: RecordingStatus }) {
               ? t('recording.status.paused', 'Paused')
               : t('recording.status.recording', 'Recording')}
         </Text>
-        <MaterialCommunityIcons name="chevron-right" size={18} color={accent} />
+        <MaterialCommunityIcons name="chevron-right" size={iconSize.md} color={accent} />
       </Pressable>
     </Animated.View>
   );

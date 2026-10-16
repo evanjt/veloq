@@ -9,6 +9,8 @@
  */
 
 import { EngineClient } from '../../../modules/veloqrs/src/EngineClient';
+import { bindDelegates } from '../../../modules/veloqrs/src/delegates/bind';
+import * as elevationDelegates from '../../../modules/veloqrs/src/delegates/elevation';
 import { engineErrorTag } from '@/shared/native/engineError';
 
 /** The shape a `VeloqError` crosses the binding in. */
@@ -84,7 +86,10 @@ const READS: [string, (client: EngineClient) => unknown][] = [
   ['getBackupMetadata', (c) => c.getBackupMetadata()],
   ['getCutoverDiff', (c) => c.getCutoverDiff()],
   ['sectionDetectionAwaiting', (c) => c.sectionDetectionAwaiting()],
-  ['getElevationBackfillRemaining', (c) => c.getElevationBackfillRemaining()],
+  [
+    'getElevationBackfillRemaining',
+    (c) => bindDelegates(c, elevationDelegates).getElevationBackfillRemaining(),
+  ],
   ['getHeatmapTileProgress', (c) => c.getHeatmapTileProgress()],
   [
     'launchData',

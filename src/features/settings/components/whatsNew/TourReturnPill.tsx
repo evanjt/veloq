@@ -6,7 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, shadows, layout, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, shadows, spacing, typography } from '@/theme';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { Button, useBottomClearance } from '@/shared/ui';
 
@@ -55,7 +55,9 @@ export function TourReturnPill() {
             onPress={resumeTour}
             variant="ghost"
             size="sm"
-            icon={<MaterialCommunityIcons name="arrow-left" size={18} color={primaryColor} />}
+            icon={
+              <MaterialCommunityIcons name="arrow-left" size={iconSize.md} color={primaryColor} />
+            }
           />
 
           <View
@@ -70,7 +72,7 @@ export function TourReturnPill() {
             onPress={handleClose}
             variant="ghost"
             size="sm"
-            icon={<MaterialCommunityIcons name="close" size={16} color={mutedColor} />}
+            icon={<MaterialCommunityIcons name="close" size={iconSize.sm} color={mutedColor} />}
           />
         </View>
       </View>

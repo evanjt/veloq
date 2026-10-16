@@ -11,14 +11,13 @@ import { Card, Shimmer } from '@/shared/ui';
 import { useTranslation } from 'react-i18next';
 import { formatFullDate } from '@/shared/format/format';
 import { formatAttemptFigure, type AttemptBasis } from '@/features/routes/lib/attemptBasis';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import type { DirectionStats } from '@/types';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 import { DirectionArrow, directionWord, type SectionDirection } from './DirectionCue';
 
 const INFO_CARD_PLACEHOLDER_HEIGHT = 96;
 const REVERSE_COLOR = colors.reverseDirection;
-const DIRECTION_ARROW_SIZE = 12;
 
 export interface SectionInfoCardProps {
   /** The oldest included attempt in the range, as the engine dates it. */
@@ -143,7 +142,7 @@ export function SectionInfoCard({
                   <DirectionArrow
                     direction={col.direction}
                     color={col.arrowColor}
-                    size={DIRECTION_ARROW_SIZE}
+                    size={iconSize.xs}
                   />
                 ) : null}
                 <Text style={[styles.label, { color: labelColor }]} numberOfLines={1}>
