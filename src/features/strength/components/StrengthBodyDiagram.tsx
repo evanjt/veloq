@@ -10,7 +10,7 @@ import { useTheme } from '@/shared/app';
 import { Card, pressable, pressRipple, Shimmer, SkeletonFrame } from '@/shared/ui';
 import {
   bodyDiagram,
-  brand,
+  strengthTone,
   colors,
   darkColors,
   iconSize,
@@ -26,6 +26,7 @@ import { BODY_INTRINSIC_H } from '../lib/bodyScale';
 import { muscleName } from '../lib/muscleNames';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { formatWeightRounded } from '@/shared/format/weight';
+import { FitText } from '@/shared/ui/FitText';
 
 const BODY_COLORS: readonly string[] = strengthRamp;
 const BODY_FILL_LIGHT = bodyDiagram.fillLight;
@@ -89,23 +90,21 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
                   styles.subtitleDot,
                   {
                     backgroundColor:
-                      selectedVolume.primarySets > 0 ? brand.tealLight : brand.tealDark,
+                      selectedVolume.primarySets > 0
+                        ? strengthTone.primary
+                        : strengthTone.secondary,
                   },
                 ]}
               />
-              <Text
-                style={[styles.subtitleText, isDark && styles.subtitleTextDark]}
-                numberOfLines={1}
-              >
+              <Text style={[styles.subtitleText, isDark && styles.subtitleTextDark]}>
                 {selectedName}
               </Text>
-              <Text
+              <FitText
                 testID="strength-selected-summary"
                 style={[styles.subtitleText, isDark && styles.subtitleTextDark]}
-                numberOfLines={1}
               >
                 {`· ${selectedSummary}`}
-              </Text>
+              </FitText>
               <MaterialCommunityIcons
                 name="close"
                 size={iconSize.sm}

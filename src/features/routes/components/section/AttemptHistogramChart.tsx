@@ -17,7 +17,7 @@ import { formatDuration } from '@/shared/format/format';
 import { layoutHistogram } from '@/features/routes/lib/histogramLayout';
 import { formatSectionSpeed } from '@/features/routes/lib/sectionSpeedFormat';
 import { useMeasuredWidth } from '@/shared/charts';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { chartStyles, colors, darkColors, spacing, typography } from '@/theme';
 import type { FfiAttemptHistogram } from 'veloqrs';
 import type { ActivityType } from '@/types';
 
@@ -137,12 +137,21 @@ export function AttemptHistogramChart({
                 />
               )}
             </Canvas>
-            <View style={styles.yAxisOverlay} pointerEvents="none">
+            <View
+              style={styles.yAxisOverlay}
+              pointerEvents="none"
+              testID="attempt-histogram-y-axis"
+            >
               {plot.countTicks.map((tick) => (
                 <Text
                   key={tick.count}
                   maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                  style={[styles.axisLabel, isDark && styles.axisLabelDark, { top: tick.y - 14 }]}
+                  style={[
+                    chartStyles.axisLabel,
+                    isDark && chartStyles.axisLabelDark,
+                    styles.yLabel,
+                    { top: tick.y - typography.caption.lineHeight },
+                  ]}
                 >
                   {tick.count}
                 </Text>
@@ -151,12 +160,12 @@ export function AttemptHistogramChart({
           </>
         )}
       </View>
-      <View style={styles.edgeAxis}>
+      <View style={styles.edgeAxis} testID="attempt-histogram-x-axis">
         {edgeLabels.map((label, i) => (
           <Text
             key={i}
             maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-            style={[styles.edgeLabel, isDark && styles.axisLabelDark]}
+            style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
           >
             {label}
           </Text>
@@ -182,7 +191,7 @@ export function AttemptHistogramChart({
       <Text
         testID="attempt-histogram-caption"
         maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-        style={[styles.caption, isDark && styles.axisLabelDark]}
+        style={[styles.caption, isDark && styles.textDark]}
       >
         {t('sections.histogramBinned', { attempts: histogram.binned })}
       </Text>
@@ -190,7 +199,7 @@ export function AttemptHistogramChart({
         <Text
           testID="attempt-histogram-outside-band"
           maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-          style={[styles.caption, isDark && styles.axisLabelDark]}
+          style={[styles.caption, isDark && styles.textDark]}
         >
           {t('sections.histogramOutsideBand', { attempts: histogram.unbinnedOutsideBand })}
         </Text>
@@ -227,7 +236,7 @@ function KeyEntry({
           style={[styles.keyStroke, styles.keySolid, { backgroundColor: color }]}
         />
       )}
-      <Text style={[styles.keyText, isDark && styles.axisLabelDark]}>{label}</Text>
+      <Text style={[styles.keyText, isDark && styles.textDark]}>{label}</Text>
     </View>
   );
 }
@@ -243,18 +252,9 @@ const styles = StyleSheet.create({
   yAxisOverlay: {
     ...StyleSheet.absoluteFill,
   },
-  axisLabel: {
+  yLabel: {
     position: 'absolute',
-    left: CHART_PADDING.left + 2,
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
-  },
-  edgeLabel: {
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
-  },
-  axisLabelDark: {
-    color: darkColors.textSecondary,
+    left: CHART_PADDING.left + spacing.xxs,
   },
   edgeAxis: {
     flexDirection: 'row',
@@ -293,5 +293,8 @@ const styles = StyleSheet.create({
     fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
     marginTop: spacing.xxs,
+  },
+  textDark: {
+    color: darkColors.textSecondary,
   },
 });

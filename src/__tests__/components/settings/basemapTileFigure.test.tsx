@@ -63,10 +63,6 @@ jest.mock('@/shared/storage/gpsStorage', () => ({
   getAthleteFilesSize: async () => 0,
 }));
 
-jest.mock('@/features/settings/hooks/useQueryCacheCount', () => ({
-  useQueryCacheCount: () => 0,
-}));
-
 jest.mock('@/features/activity', () => ({
   useActivityBoundsCache: () => ({
     cacheStats: { totalActivities: 0, oldestDate: null, newestDate: null, lastSync: null },

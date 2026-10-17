@@ -26,6 +26,10 @@ export type SnapshotQueueEventKind =
   | 'workerGone'
   /** An idle worker's map was rebuilt to give its GPU memory back. */
   | 'recycle'
+  /** The background release took a worker's map down. */
+  | 'release'
+  /** A released worker's map was rebuilt on return. */
+  | 'rebuild'
   | 'suspend'
   | 'resume'
   /** The watchdog reached its timeout and chose to keep waiting. */

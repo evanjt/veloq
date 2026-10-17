@@ -66,9 +66,9 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
     reason:
       'the signature hues and their light and dark steps. Read through colors and darkColors, which tokenFamilies covers, never drawn straight',
     series: [
-      'teal',
-      'tealLight',
-      'tealDark',
+      'blue600',
+      'blue550',
+      'blue700',
       'gold',
       'goldLight',
       'goldDark',
@@ -77,6 +77,12 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
       'blueDark',
     ],
   },
+  nativeColours: {
+    kind: 'series',
+    reason:
+      'colours native code posts under, such as the notification light, which no screen draws on a surface',
+    series: ['notificationAccent'],
+  },
   rpeRamp: {
     kind: 'series',
     reason: 'a six-step effort ramp, read against its neighbours and labelled with the number',
@@ -84,6 +90,11 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
   strengthRamp: {
     kind: 'series',
     reason: 'a five-step volume ramp on the body diagram, with a legend',
+  },
+  strengthTone: {
+    kind: 'series',
+    reason:
+      'the strength data hue on the body diagram and its cards, primary and assisting muscles told apart with a legend',
   },
   workoutStepColors: {
     kind: 'series',

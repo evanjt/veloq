@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
-import { Button, CardHeader, EmptyState } from '@/shared/ui';
+import { Button, EmptyState, StatTile } from '@/shared/ui';
 import { Text } from 'react-native-paper';
 import { RangeCoverage } from 'veloqrs';
 import { useTranslation } from 'react-i18next';
@@ -25,9 +25,9 @@ interface DecouplingChartProps {
 }
 
 /**
- * The stored decoupling of one ride, with the ride named so the figure can be
- * found again on its activity screen. It states the measurement and grades
- * nothing.
+ * The stored decoupling of one ride, under the section that titles it, with
+ * the ride named so the figure can be found again on its activity screen. It
+ * states the measurement and grades nothing.
  */
 export function DecouplingChart({ source, height = 150, coverage }: DecouplingChartProps) {
   const { t } = useTranslation();
@@ -36,7 +36,6 @@ export function DecouplingChart({ source, height = 150, coverage }: DecouplingCh
   if (!source) {
     return (
       <View style={styles.container}>
-        <CardHeader title={t('stats.aerobicDecoupling')} />
         <View style={[styles.emptyState, { height }]}>
           {coverage === RangeCoverage.NotFetched ? (
             <EmptyState
@@ -58,13 +57,10 @@ export function DecouplingChart({ source, height = 150, coverage }: DecouplingCh
 
   return (
     <View style={styles.container}>
-      <CardHeader
-        title={t('stats.aerobicDecoupling')}
-        accessory={
-          <Text style={[styles.decouplingValue, isDark && styles.textLight]}>
-            {formatPercent(source.decoupling, 1)}
-          </Text>
-        }
+      <StatTile
+        testID="decoupling-value"
+        label={t('activity.stats.decoupling')}
+        value={formatPercent(source.decoupling, 1)}
       />
 
       <Button
@@ -88,15 +84,8 @@ export function DecouplingChart({ source, height = 150, coverage }: DecouplingCh
 
 const styles = StyleSheet.create({
   container: {},
-  textLight: {
-    color: colors.textOnDark,
-  },
   textDark: {
     color: darkColors.textSecondary,
-  },
-  decouplingValue: {
-    ...typography.screenTitle,
-    color: colors.textPrimary,
   },
   sourceRide: {
     alignSelf: 'flex-start',

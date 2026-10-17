@@ -14,10 +14,17 @@
  * `formatGpsSyncProgress` renders nothing for either terminal status, so it
  * reaches the log and the debug panel and no athlete.
  */
+import { StartOutcome } from 'veloqrs';
 import type { SyncProgress } from '@/features/routes/hooks/useRouteSyncProgress';
 
 /** Why a run ended without storing what it was asked for. */
-export type GpsSyncEnding = 'no-result' | 'no-engine' | 'cancelled' | 'superseded';
+export type GpsSyncEnding =
+  | 'no-result'
+  | 'no-engine'
+  | 'cancelled'
+  | 'superseded'
+  | 'owed'
+  | 'not-started';
 
 interface Ending {
   status: SyncProgress['status'];
@@ -29,7 +36,18 @@ const ENDINGS: Record<GpsSyncEnding, Ending> = {
   'no-engine': { status: 'error', message: 'Engine not available' },
   cancelled: { status: 'idle', message: 'Cancelled' },
   superseded: { status: 'idle', message: 'Sync reset - results discarded' },
+  owed: { status: 'idle', message: 'Pass owed, the engine starts it' },
+  'not-started': { status: 'idle', message: 'Pass not started' },
 };
+
+/**
+ * The ending for a pass the engine did not start. One running, or the network
+ * gone, leaves it owed in the engine, which starts it without being asked
+ * again. Every other refusal has nothing for this run to do.
+ */
+export function passRefusalEnding(outcome: StartOutcome): GpsSyncEnding {
+  return outcome === StartOutcome.Busy || outcome === StartOutcome.Offline ? 'owed' : 'not-started';
+}
 
 export interface GpsSyncEndingContext {
   /** Writes the progress the three surfaces read. */

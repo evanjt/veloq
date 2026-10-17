@@ -227,16 +227,18 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
   const dataRef = useRef(data);
   dataRef.current = data;
 
+  // The worklet captures the count, never the points: the UI runtime copies a
+  // worklet's captures and throws on a point carrying a Date.
+  const pointCount = data.length;
   const selectedIndex = useDerivedValue(() => {
     'worklet';
-    const len = data.length;
-    if (touchX.value < 0 || len === 0) return -1;
+    if (touchX.value < 0 || pointCount === 0) return -1;
 
     const coords = xCoordsShared.value;
-    if (coords.length === len) {
+    if (coords.length === pointCount) {
       let closestIdx = 0;
       let closestDiff = Math.abs(coords[0] - touchX.value);
-      for (let i = 1; i < len; i++) {
+      for (let i = 1; i < pointCount; i++) {
         const diff = Math.abs(coords[i] - touchX.value);
         if (diff < closestDiff) {
           closestDiff = diff;
@@ -250,8 +252,8 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
     const plotWidth = bounds.right - bounds.left;
     if (plotWidth <= 0) return -1;
     const ratio = Math.max(0, Math.min(1, (touchX.value - bounds.left) / plotWidth));
-    return Math.round(ratio * (len - 1));
-  }, [data.length]);
+    return Math.round(ratio * (pointCount - 1));
+  }, [pointCount]);
 
   // A tap is a one-shot selection, so it never opens or closes an interaction.
   // Only the scrub does, otherwise a tap-only chart would report a scrub that

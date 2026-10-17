@@ -7,13 +7,13 @@
  * thread, which cannot reach the TypeScript listener map, so the terminal
  * state observed here is what fans the change out over the engine channel.
  *
- * A sync that settles with an error re-arms the latch, and a reconnect or a
- * return from the background then retries it. Without that the only cure for a
- * transient network failure was a relaunch.
+ * A return from the background starts a sync. A sync that failed for the
+ * connection, and a start the exclusive slot refused, are not asked again from
+ * here: the engine keeps both owed and starts them itself, on the online edge
+ * the network provider pushes and as the slot frees.
  *
- * The same transition announces the settled edge, because the sync holds an
- * exclusive slot while it runs and refuses everything else that asks for one,
- * and asks for a fresh snapshot on the home-screen widget once the thread idles.
+ * The same transition asks for a fresh snapshot on the home-screen widget once
+ * the thread idles.
  *
  * The settle is not the only wake, though. Rust announces each activity step
  * as its rows land, and that is what the first launch's feed and preview fetch
@@ -27,7 +27,7 @@ import { hasStarted, SyncState } from 'veloqrs';
 
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { useForeground, useReconnect } from '@/shared/app/useRetryTriggers';
+import { useForeground } from '@/shared/app/useRetryTriggers';
 
 import { scheduleWidgetSnapshot } from '@/features/home/lib/widgetBridge';
 
@@ -35,13 +35,12 @@ import { cancelSyncRefresh } from './syncRefresh';
 
 import { getEngine } from './engine';
 import { subscribeToFallbackTick } from './eventFallback';
-import { useSyncLastError, useSyncState } from './useSyncStatus';
+import { useSyncState } from './useSyncStatus';
 
 export function useEngineSync(): void {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
   const state = useSyncState();
-  const lastError = useSyncLastError();
   const engineReadyNonce = useEngineStatus((s) => s.readyNonce);
   const startedRef = useRef(false);
   const wasSyncingRef = useRef(false);
@@ -117,20 +116,9 @@ export function useEngineSync(): void {
     }
     if (!wasSyncingRef.current) return;
     wasSyncingRef.current = false;
-    // A start refused because this sync held the exclusive slot never latched,
-    // and the error path below clears the latch for a different reason, so the
-    // two are told apart before it runs.
-    const startWasRefused = !startedRef.current;
-    // An expired credential is not a network problem, so it stays latched and
-    // waits for the re-auth rather than hammering a 401 on every foreground.
-    if (state === SyncState.Idle && lastError) startedRef.current = false;
     // Everything the sync writes hangs off this channel, so one refresh wakes
     // the profile, sport-settings and wellness readers together.
     getEngine()?.triggerRefresh('activities');
-    // Logging out and in as another athlete mid-sync leaves the new athlete's
-    // first `syncNow` refused, and nothing else asks again until a
-    // backgrounding or a network change. The slot is free now, so ask.
-    if (startWasRefused) retry();
     // The widget's other writers are backgrounding and the silent-push task, so
     // without this a foreground sync leaves the home screen on yesterday's
     // numbers. A sync that failed part-way still wrote what it did fetch, so the
@@ -138,9 +126,8 @@ export function useEngineSync(): void {
     // has just woken every reader, and the write is the insights read, the
     // ranking and the composition in one task.
     scheduleWidgetSnapshot();
-  }, [state, lastError]);
+  }, [state]);
 
-  useReconnect(retry);
   useForeground(() => {
     if (state === SyncState.AuthExpired) return;
     startedRef.current = false;

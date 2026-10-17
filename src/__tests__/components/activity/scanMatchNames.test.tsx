@@ -11,6 +11,7 @@ import { render } from '@testing-library/react-native';
 import type { SectionMatch } from 'veloqrs';
 
 import { ActivitySectionsSection } from '@/features/activity/components/ActivitySectionsSection';
+import { Button } from '@/shared/ui/Button';
 import * as sectionDisplayNames from '@/features/routes/lib/sectionDisplayNames';
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
@@ -101,5 +102,22 @@ describe('scan match names', () => {
         name: 'Col des Planches, sections.reverse, 1.2 km, sections.atPosition, sections.matchQuality',
       })
     ).toBeTruthy();
+  });
+
+  it('offers the Add on each result as a small secondary button, leaving Create Section the one primary', async () => {
+    const screen = await renderScan(
+      [scanMatch('s1', 'Col des Planches'), scanMatch('s2', 'Col du Sanetsch')],
+      100
+    );
+
+    const buttons = screen.UNSAFE_getAllByType(Button);
+    const adds = buttons.filter((n) => n.props.label === 'sections.addToSection');
+    expect(adds).toHaveLength(2);
+    for (const add of adds) {
+      expect(add.props.variant).toBe('secondary');
+      expect(add.props.size).toBe('sm');
+    }
+    const primaries = buttons.filter((n) => (n.props.variant ?? 'primary') === 'primary');
+    expect(primaries.map((n) => n.props.label)).toEqual(['routes.createSection']);
   });
 });

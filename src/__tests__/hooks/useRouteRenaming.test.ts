@@ -1,8 +1,9 @@
 /**
  * Scenario: renaming a route to a name another route is shown under.
- * Expected behaviour: the engine refuses it, and the hook puts the shown name
- * back and tells the athlete the name is taken. The hook seeds its name from
- * the route's own shown name and reads no other route's.
+ * Expected behaviour: the engine refuses it, and the field stays open with
+ * what was typed and the reason as its error. The hook seeds its name from the
+ * route's own shown name and reads no other route's. An emptied field clears
+ * the typed name so the route's automatic name comes back.
  */
 
 import { act, renderHook } from '@testing-library/react-native';
@@ -74,22 +75,72 @@ it('restores the shown name and alerts when the engine refuses a rename', async 
   expect(haptics.success).not.toHaveBeenCalled();
 });
 
-it('restores the shown name and says so when the engine finds the name taken', async () => {
+it('keeps the field open with the typed name and the reason when the name is taken', async () => {
   setRouteName.mockImplementation((_id: string, name: string) => {
     throw nameTaken(name);
   });
   const hook = await renderHook(() => useRouteRenaming('route-1', 'Old', t));
+  await act(() => hook.result.current.handleStartEditing());
   await rename(hook, 'River Loop');
 
   expect(setRouteName).toHaveBeenCalledWith('route-1', 'River Loop');
+  expect(hook.result.current.isEditing).toBe(true);
+  expect(hook.result.current.editName).toBe('River Loop');
+  expect(hook.result.current.nameError).toBe('routes.duplicateNameMessage');
   expect(hook.result.current.customName).toBe('Old');
-  expect(Alert.alert).toHaveBeenCalledWith(
-    'routes.duplicateNameTitle',
-    'routes.duplicateNameMessage',
-    undefined,
-    expect.objectContaining({ cancelable: true })
-  );
+  expect(Alert.alert).not.toHaveBeenCalled();
   expect(haptics.success).not.toHaveBeenCalled();
+});
+
+it('drops the reason once the athlete edits the refused name', async () => {
+  setRouteName.mockImplementationOnce((_id: string, name: string) => {
+    throw nameTaken(name);
+  });
+  const hook = await renderHook(() => useRouteRenaming('route-1', 'Old', t));
+  await act(() => hook.result.current.handleStartEditing());
+  await rename(hook, 'River Loop');
+  await act(() => hook.result.current.handleChangeName('River Loop 2'));
+
+  expect(hook.result.current.nameError).toBeNull();
+  await act(() => hook.result.current.handleSaveName());
+  expect(setRouteName).toHaveBeenLastCalledWith('route-1', 'River Loop 2');
+  expect(hook.result.current.isEditing).toBe(false);
+  expect(hook.result.current.customName).toBe('River Loop 2');
+});
+
+it('drops the reason when the edit is cancelled', async () => {
+  setRouteName.mockImplementation((_id: string, name: string) => {
+    throw nameTaken(name);
+  });
+  const hook = await renderHook(() => useRouteRenaming('route-1', 'Old', t));
+  await act(() => hook.result.current.handleStartEditing());
+  await rename(hook, 'River Loop');
+  await act(() => hook.result.current.handleCancelEdit());
+
+  expect(hook.result.current.isEditing).toBe(false);
+  expect(hook.result.current.nameError).toBeNull();
+});
+
+it('keeps the field open with the typed name when the write fails', async () => {
+  setRouteName.mockImplementation(() => {
+    throw new Error('Storage unavailable');
+  });
+  const hook = await renderHook(() => useRouteRenaming('route-1', 'Old', t));
+  await act(() => hook.result.current.handleStartEditing());
+  await rename(hook, 'Hill Climb');
+
+  expect(hook.result.current.isEditing).toBe(true);
+  expect(hook.result.current.editName).toBe('Hill Climb');
+});
+
+it('closes the field once a new name is saved', async () => {
+  const hook = await renderHook(() => useRouteRenaming('route-1', 'Old', t));
+  await act(() => hook.result.current.handleStartEditing());
+  await rename(hook, 'Hill Climb');
+
+  expect(hook.result.current.isEditing).toBe(false);
+  expect(hook.result.current.nameError).toBeNull();
+  expect(hook.result.current.customName).toBe('Hill Climb');
 });
 
 it('writes nothing when the field is saved unchanged', async () => {
@@ -128,12 +179,27 @@ it('seeds the shown name once the detail read arrives', async () => {
   expect(setRouteName).not.toHaveBeenCalled();
 });
 
-it('does nothing when the name is only whitespace', async () => {
-  const hook = await renderHook(() => useRouteRenaming('route-1', 'Old', t));
-  await rename(hook, '   ');
+it.each(['', '   '])(
+  'clears the typed name so the automatic name comes back when the field is %j',
+  async (name) => {
+    const hook = await renderHook(() => useRouteRenaming('route-1', 'River Loop', t));
+    await act(() => hook.result.current.handleStartEditing());
+    await rename(hook, name);
+
+    expect(setRouteName).toHaveBeenCalledWith('route-1', '');
+    expect(hook.result.current.isEditing).toBe(false);
+    expect(hook.result.current.customName).toBeNull();
+    expect(Alert.alert).not.toHaveBeenCalled();
+  }
+);
+
+it('writes nothing when a route with no shown name is saved empty', async () => {
+  const hook = await renderHook(() => useRouteRenaming('route-1', undefined, t));
+  await act(() => hook.result.current.handleStartEditing());
+  await rename(hook, '  ');
 
   expect(setRouteName).not.toHaveBeenCalled();
-  expect(Alert.alert).not.toHaveBeenCalled();
+  expect(hook.result.current.isEditing).toBe(false);
 });
 
 it('saves when the route has no shown name yet', async () => {
@@ -150,10 +216,10 @@ describe('route rename haptics', () => {
     expect(haptics.success).toHaveBeenCalledTimes(1);
   });
 
-  it('fires nothing for a blank name', async () => {
+  it('fires one success when the typed name is cleared', async () => {
     const hook = await renderHook(() => useRouteRenaming('route-1', 'Old', t));
     await rename(hook, '   ');
-    expect(haptics.success).not.toHaveBeenCalled();
+    expect(haptics.success).toHaveBeenCalledTimes(1);
   });
 
   it('fires nothing for an unchanged name', async () => {

@@ -5,6 +5,7 @@ export { BottomPillStack } from './BottomPillStack';
 export { CompassArrow, StaticCompassArrow } from './CompassArrow';
 export { Button, ToggleButton, ToggleButtonRow } from './Button';
 export type {
+  ButtonGlyph,
   ButtonProps,
   ButtonSize,
   ButtonVariant,
@@ -21,6 +22,7 @@ export type { CardProps, CardVariant, CardPadding } from './Card';
 export { CardHeader } from './CardHeader';
 export type { CardHeaderProps } from './CardHeader';
 export { Row } from './Row';
+export { RowDivider, RowGroup, ROW_DIVIDER_INSET, type RowDividerInset } from './RowGroup';
 export { DataTable, type DataTableProps, type DataTableRow } from './DataTable';
 export { ExternalLinkRow } from './ExternalLinkRow';
 export { ListSectionHeader } from './ListSectionHeader';
@@ -41,7 +43,11 @@ export type { SheetActionsProps, SheetConfirm, SheetHeaderProps } from './SheetH
 export { EmptyState } from './EmptyState';
 export { ErrorState, RetryButton } from './ErrorState';
 export { DenseText, DENSE_TEXT_SCALE, denseExtent } from './DenseText';
-export { useLargeText } from './useLargeText';
+export { columnsAtTextScale, useLargeText, useTextScaleColumns } from './useLargeText';
+export { FIT_MIN_FONT_SCALE, FitText } from './FitText';
+export { NameText } from './NameText';
+export { StatTile } from './StatTile';
+export type { StatTileDelta, StatTileLayout, StatTileProps, StatTileSize } from './StatTile';
 export { DeviceAttribution, isGarminDevice } from './GarminAttribution';
 export { SwipeableTabs, type SwipeableTab } from './SwipeableTabs';
 export { pageAccessibility } from './pagerAccessibility';
@@ -71,7 +77,7 @@ export { ScreenErrorBoundary } from './ScreenErrorBoundary';
 export { CollapsibleSection } from './CollapsibleSection';
 export { DisclosureChevron } from './DisclosureChevron';
 export { SectionTitle } from './SectionTitle';
-export { DetailHero, HeroNameRow, HeroStatsRow } from './DetailHero';
+export { DetailHero, HERO_GRADIENT_HEIGHT, HeroNameRow, HeroStatsRow } from './DetailHero';
 export { useHeroHeaderBottom } from './useHeroHeaderBottom';
 export type { HeroStat } from './DetailHero';
 export { useHeroMapHeight, HERO_MAP_FRACTION } from './useHeroMapHeight';
@@ -89,7 +95,13 @@ export {
 export { SheetScrollView } from './SheetScrollView';
 export { TipButtons } from './TipButtons';
 export { canDrawProfilePhoto } from './profileAvatar';
-export { pressable, pressRipple, pressRippleOver, PRESS_OPACITY } from './pressFeedback';
+export {
+  pressable,
+  pressedOpacity,
+  pressRipple,
+  pressRippleOver,
+  PRESS_OPACITY,
+} from './pressFeedback';
 export { BACK_SWIPE_EDGE_WIDTH, startsInBackSwipeEdge } from './backSwipeEdge';
 export { CircleOptionRow, circleOptionSize } from './CircleOption';
 export type { CircleOption, CircleOptionRowProps } from './CircleOption';

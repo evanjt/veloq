@@ -988,6 +988,10 @@ double uniffi_veloqrs_fn_func_start_fetch_and_store(
     RustBuffer activity_ids, RustBuffer sport_types, RustBuffer priority,
     RustCallStatus *uniffi_out_err);
 RustBuffer
+uniffi_veloqrs_fn_func_start_gps_pass(RustBuffer oldest, RustBuffer newest,
+                                      RustBuffer head,
+                                      RustCallStatus *uniffi_out_err);
+RustBuffer
 uniffi_veloqrs_fn_func_start_stream_backfill(RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_func_stop_stream_backfill(
     RustCallStatus *uniffi_out_err);
@@ -1140,6 +1144,7 @@ uint16_t uniffi_veloqrs_checksum_func_set_network_online();
 uint16_t uniffi_veloqrs_checksum_func_start_detector_cutover();
 uint16_t uniffi_veloqrs_checksum_func_start_elevation_backfill();
 uint16_t uniffi_veloqrs_checksum_func_start_fetch_and_store();
+uint16_t uniffi_veloqrs_checksum_func_start_gps_pass();
 uint16_t uniffi_veloqrs_checksum_func_start_stream_backfill();
 uint16_t uniffi_veloqrs_checksum_func_stop_stream_backfill();
 uint16_t uniffi_veloqrs_checksum_func_take_fetch_and_store_result();
@@ -9530,6 +9535,17 @@ NativeVeloqrs::NativeVeloqrs(
             return this->cpp_uniffi_veloqrs_fn_func_start_fetch_and_store(
                 rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_func_start_gps_pass"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_func_start_gps_pass"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_func_start_gps_pass(rt, thisVal,
+                                                                   args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_func_start_stream_backfill"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -10351,6 +10367,17 @@ NativeVeloqrs::NativeVeloqrs(
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_checksum_func_start_fetch_and_store(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_func_start_gps_pass"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_func_start_gps_pass"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_checksum_func_start_gps_pass(
                 rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_func_start_stream_backfill"] =
@@ -19518,6 +19545,21 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_start_fetch_and_store(
 
   return uniffi_jsi::Bridging<double>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_start_gps_pass(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_func_start_gps_pass(
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_start_stream_backfill(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -20285,6 +20327,13 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_start_fetch_and_store(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_func_start_fetch_and_store();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_start_gps_pass(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_func_start_gps_pass();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

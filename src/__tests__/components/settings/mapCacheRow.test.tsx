@@ -77,7 +77,6 @@ const baseProps = {
   routeMatchingEnabled: true,
   dateRangeText: 'range',
   lastSync: null,
-  totalQueries: 1,
   onClearMapCache: jest.fn(),
   routesSize: 100,
   athleteFilesSize: 0,

@@ -21,6 +21,7 @@ import {
   spacing,
   typography,
   stroke,
+  themePalette,
 } from '@/theme';
 import { Button, Card } from '@/shared/ui';
 import type {
@@ -33,6 +34,7 @@ import {
   NO_EVENT_DETAILS,
 } from '@/features/routes/lib/sectionLedger';
 import { tapTo } from '@/shared/app/navigation';
+import { FitText } from '@/shared/ui/FitText';
 
 export const MAX_CHIPS = 6;
 
@@ -128,9 +130,9 @@ function Chips({
             size={iconSize.xs}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
-          <Text style={[styles.chipText, isDark && styles.textDark]} numberOfLines={1}>
+          <FitText style={[styles.chipText, isDark && styles.textDark]}>
             {chipLabel(id, names)}
-          </Text>
+          </FitText>
         </Pressable>
       ))}
       {rest > 0 && <Text style={[styles.more, isDark && styles.textDark]}>+{rest}</Text>}
@@ -210,8 +212,12 @@ export function SectionHistoryPanel({
             onPress={onUnpin}
             android_ripple={pressRipple}
           >
-            <MaterialCommunityIcons name="pin-off" size={iconSize.sm} color={colors.primary} />
-            <Text style={[styles.pillText, isDark && { color: darkColors.linkTeal }]}>
+            <MaterialCommunityIcons
+              name="pin-off"
+              size={iconSize.sm}
+              color={themePalette(isDark).primary}
+            />
+            <Text style={[styles.pillText, isDark && { color: darkColors.actionLink }]}>
               {t('sectionHistory.unpin')}
             </Text>
           </Pressable>
@@ -248,7 +254,7 @@ export function SectionHistoryPanel({
                   onPress={() => onShowVersion(isShown ? null : v.version)}
                   android_ripple={pressRipple}
                 >
-                  <Text style={[styles.pillText, isDark && { color: darkColors.linkTeal }]}>
+                  <Text style={[styles.pillText, isDark && { color: darkColors.actionLink }]}>
                     {isShown ? t('sectionHistory.hideOnMap') : t('sectionHistory.showOnMap')}
                   </Text>
                 </Pressable>
@@ -269,9 +275,9 @@ export function SectionHistoryPanel({
                     <MaterialCommunityIcons
                       name="undo-variant"
                       size={iconSize.sm}
-                      color={colors.primary}
+                      color={themePalette(isDark).primary}
                     />
-                    <Text style={[styles.pillText, isDark && { color: darkColors.linkTeal }]}>
+                    <Text style={[styles.pillText, isDark && { color: darkColors.actionLink }]}>
                       {t('sectionHistory.revert')}
                     </Text>
                   </Pressable>
@@ -429,7 +435,7 @@ const styles = StyleSheet.create({
   },
   pillText: {
     ...typography.caption,
-    color: colors.linkTeal,
+    color: colors.actionLink,
   },
   event: {
     paddingVertical: spacing.sm,

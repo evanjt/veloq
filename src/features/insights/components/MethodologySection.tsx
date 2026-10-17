@@ -163,9 +163,7 @@ const DataLink = React.memo(function DataLink({
       android_ripple={pressRipple}
       onPress={handlePress}
     >
-      <Text style={[styles.linkText, isDark && styles.linkTextDark]} numberOfLines={1}>
-        {label}
-      </Text>
+      <Text style={[styles.linkText, isDark && styles.linkTextDark]}>{label}</Text>
       <MaterialCommunityIcons
         name="chevron-right"
         size={iconSize.md}

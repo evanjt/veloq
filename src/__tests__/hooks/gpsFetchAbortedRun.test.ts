@@ -29,7 +29,11 @@ const mockAddActivities = jest.fn(async () => mockAbortIf('store'));
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
     engine: {
-      startFetchAndStore: jest.fn(() => 1),
+      startGpsPass: jest.fn((_oldest: string, _newest: string, head: string[]) => ({
+        outcome: 1,
+        run: 1,
+        total: head.length,
+      })),
       takeFetchAndStoreResult: () => mockTake(),
       cancelFetchAndStore: jest.fn(),
       getFetchRunProgress: jest.fn(() => null),

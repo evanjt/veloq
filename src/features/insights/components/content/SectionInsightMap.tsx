@@ -2,7 +2,7 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Canvas, Path, Circle } from '@shopify/react-native-skia';
 import { useTheme } from '@/shared/app';
-import { colors, opacity, ink, layout, colorWithOpacity } from '@/theme';
+import { opacity, ink, layout, colorWithOpacity, themePalette } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import type { RoutePoint } from '@/types';
 import type { LayoutChangeEvent } from 'react-native';
@@ -23,9 +23,11 @@ interface SectionInsightMapProps {
  */
 export const SectionInsightMap = React.memo(function SectionInsightMap({
   polyline,
-  lineColor = colors.primary,
+  lineColor: lineColorProp,
 }: SectionInsightMapProps) {
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
+  const lineColor = lineColorProp ?? palette.primary;
   const [mapWidth, setMapWidth] = useState(0);
   const onMapLayout = useCallback((e: LayoutChangeEvent) => {
     setMapWidth(e.nativeEvent.layout.width);

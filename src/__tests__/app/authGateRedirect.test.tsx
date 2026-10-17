@@ -10,9 +10,9 @@
  *
  * The launch is also where an empty library meets what the device holds
  * beside it. A wipe of another athlete's empty library takes that athlete's
- * decisions zip with it, and a zip a device backup brought back is applied,
- * without asking, only when the engine's restore checks would accept it, from
- * the activity count read before the launch sync.
+ * decisions zip with it, and a zip a device backup brought back is offered
+ * with its date, never applied, only when the engine's restore checks would
+ * accept it, from the activity count read before the launch sync.
  *
  * Going to the background is the last moment the process is reliably alive, so
  * the root layout's AppState listener runs the background work (the basemap
@@ -28,8 +28,8 @@ import { render, waitFor } from '@testing-library/react-native';
 import { AuthGate } from '@/app/_layout';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { handleAppBackground } from '@/shared/app/appBackground';
-import { i18n } from '@/i18n';
 import { rememberStoredActivityCount } from '@/shared/storage';
+import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 
 jest.mock('@/shared/storage', () => ({
   ...jest.requireActual('@/shared/storage'),
@@ -133,6 +133,7 @@ beforeEach(() => {
   mockEngineHolder.engine = engine();
   mockEngineHolder.path = '/data/routes.db';
   mockPrompt.mockReturnValue(new Promise<boolean>(() => {}));
+  useWhatsNewStore.getState().setRestoreOffer(null);
   signedIn();
 });
 
@@ -266,30 +267,32 @@ describe('the decisions zip a device backup brought back', () => {
       );
   });
 
-  it('is applied without asking on an empty library the engine would restore it into', async () => {
+  it('is offered with its date on an empty library, and nothing from it is restored', async () => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     const notice = jest.spyOn(Notice, 'showNotice');
-    const translate = jest.spyOn(i18n, 't').mockImplementation(((key: string) => key) as never);
     mockEngineHolder.engine = engine({
       getSetting: heldBy('i1'),
       getActivityCount: jest.fn(() => 0),
       getStats: jest.fn(() => ({ activityCount: 0, libraryCount: 0 })),
       launchData: jest.fn(() => ({ activityCount: 0, libraryCount: 0 })),
+      checkRecordZip: jest.fn(async () => ({ writtenAt: '2026-06-01T08:30:00.000Z' })),
       restoreRecordZip: jest.fn(async () => ({ placed: 3, unplaced: 0, missingActivityIds: [] })),
     });
     await render(<AuthGate>{null}</AuthGate>);
 
-    await waitFor(() => expect(notice).toHaveBeenCalled());
-    translate.mockRestore();
+    await waitFor(() => expect(useWhatsNewStore.getState().restoreOffer).not.toBeNull());
     expect(mockEngineHolder.engine?.checkRecordZip).toHaveBeenCalledWith(
       '/docs/veloq-decisions.zip'
     );
-    expect(mockEngineHolder.engine?.restoreRecordZip).toHaveBeenCalledTimes(1);
-    expect(alert).not.toHaveBeenCalled();
-    expect(notice).toHaveBeenCalledTimes(1);
-    expect(notice).toHaveBeenCalledWith(
-      expect.objectContaining({ message: 'backup.recordRestored' })
+    expect(useWhatsNewStore.getState().restoreOffer).toEqual(
+      expect.objectContaining({
+        source: 'device',
+        entry: expect.objectContaining({ id: ZIP_URI, timestamp: '2026-06-01T08:30:00.000Z' }),
+      })
     );
+    expect(mockEngineHolder.engine?.restoreRecordZip).not.toHaveBeenCalled();
+    expect(alert).not.toHaveBeenCalled();
+    expect(notice).not.toHaveBeenCalled();
   });
 
   it("is not offered when the engine would refuse it as another athlete's", async () => {
@@ -308,6 +311,7 @@ describe('the decisions zip a device backup brought back', () => {
     await waitFor(() => expect(mockEngineHolder.engine?.checkRecordZip).toHaveBeenCalled());
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(alert).not.toHaveBeenCalled();
+    expect(useWhatsNewStore.getState().restoreOffer).toBeNull();
   });
 
   it('is not offered on a library that held activities before the launch sync', async () => {
@@ -319,6 +323,7 @@ describe('the decisions zip a device backup brought back', () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(mockEngineHolder.engine?.checkRecordZip).not.toHaveBeenCalled();
     expect(alert).not.toHaveBeenCalled();
+    expect(useWhatsNewStore.getState().restoreOffer).toBeNull();
   });
 });
 

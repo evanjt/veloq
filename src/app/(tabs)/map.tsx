@@ -495,7 +495,6 @@ function MapScreenContent() {
                 <Text
                   testID="map-filter-summary"
                   style={[styles.infoText, styles.filterSummary, isDark && styles.infoTextDark]}
-                  numberOfLines={1}
                 >
                   {t('mapScreen.searchFilteredBy', { filters: hiddenFilterNames.join(', ') })}
                 </Text>

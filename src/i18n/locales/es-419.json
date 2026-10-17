@@ -39,6 +39,7 @@
     "heldUntilSignIn": "El respaldo se restaurará cuando inicies sesión.",
     "importError": "Error al importar el respaldo.",
     "autoBackup": "Respaldo de seguridad automática",
+    "title": "Respaldo y restauración",
     "autoBackupDescription": "Desactivada: Veloq no crea ninguna respaldo por sí mismo. Activada: el archivo de datos se escribe cada día tras la sincronización en la respaldo del dispositivo y en cada destino configurado abajo.",
     "lastBackup": "Último respaldo: {{date}}",
     "carrierDeviceIos": "Respaldo de iCloud",
@@ -55,9 +56,6 @@
     "scanQrInstructions": "En Nextcloud, ve a Configuración → Seguridad → Crear nueva contraseña de app, luego escanea el código QR mostrado."
   },
   "bestEffortsScreen": {
-    "seasonSubtitle_one": "Records personales del último {{count}} día.",
-    "seasonSubtitle_many": "Records personales de los últimos {{count}} días.",
-    "seasonSubtitle_other": "Records personales de los últimos {{count}} días.",
     "allTimeSubtitle": "Records personales en todo tu historial almacenado.",
     "climbingBests": "Escalada"
   },
@@ -98,8 +96,7 @@
     "fitnessAndFatigue": "Condición física y fatiga",
     "linkFitnessPage": "Página de condición física de intervals.icu",
     "linkTSBManagement": "Gestión del entrenamiento con TSB (Joe Friel)",
-    "linkTrainingLoad": "Monitoreo de carga de entrenamiento (Science2Sport)",
-    "title": "Condición física"
+    "linkTrainingLoad": "Monitoreo de carga de entrenamiento (Science2Sport)"
   },
   "insights": {
     "methodology": {
@@ -176,9 +173,9 @@
   "settings": {
     "heroMetric": "Métrica principal",
     "rangeLockedMessage": "El rango de datos locales se abre cuando termina la primera sincronización. Si nunca empieza, revisa que tengas conexión y hayas iniciado sesión.",
-    "primarySportHintCycling": "eFTP se muestra en el encabezado. La página de rendimiento muestra curva de potencia, zonas de potencia, tendencia eFTP y desacoplamiento.",
-    "primarySportHintRunning": "El ritmo umbral y LTHR se muestran en el encabezado. La página de rendimiento muestra curva de ritmo, potencia de carrera y zonas de FC.",
-    "primarySportHintSwimming": "CSS (velocidad crítica de nado) se muestra en el encabezado. La página de rendimiento muestra curva de ritmo de natación y zonas de FC.",
+    "primarySportHintCycling": "eFTP se muestra en la tarjeta resumen. La pestaña Forma muestra curva de potencia, zonas de potencia, tendencia eFTP y desacoplamiento.",
+    "primarySportHintRunning": "El ritmo umbral y LTHR se muestran en la tarjeta resumen. La pestaña Forma muestra curva de ritmo, potencia de carrera y zonas de FC.",
+    "primarySportHintSwimming": "CSS (velocidad crítica de nado) se muestra en la tarjeta resumen. La pestaña Forma muestra curva de ritmo de natación y zonas de FC.",
     "syncStep": {
       "recordActivities": "Obteniendo las actividades que nombra tu respaldo"
     },

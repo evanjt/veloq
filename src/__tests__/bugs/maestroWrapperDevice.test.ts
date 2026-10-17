@@ -343,3 +343,53 @@ describe('the Maestro wrapper and the other runs on the host', () => {
     expect(runs[1]).toBe(runs[0].replace('start', 'end'));
   });
 });
+
+/**
+ * Scenario: the wrapper is run by hand on the Mac over a non-interactive ssh
+ * session, whose PATH holds none of the directories the Maestro installer
+ * writes to.
+ *
+ * Expected behaviour: the wrapper finds Maestro where the installer puts it,
+ * under the home directory, rather than failing with "maestro: not found".
+ */
+describe('the Maestro wrapper on a shell without Maestro on its path', () => {
+  it('runs the Maestro under the home directory', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'with-maestro-home-'));
+    const bin = path.join(dir, 'bin');
+    const installed = path.join(dir, '.maestro', 'bin');
+    fs.mkdirSync(bin);
+    fs.mkdirSync(installed, { recursive: true });
+    fakeBins(bin, [LOCKED]);
+    fs.renameSync(path.join(bin, 'maestro'), path.join(installed, 'maestro'));
+    // The system tools without a Maestro of their own, which a host may have installed.
+    const system = path.join(dir, 'system');
+    fs.mkdirSync(system);
+    for (const name of fs.readdirSync('/usr/bin')) {
+      if (name !== 'maestro') fs.symlinkSync(path.join('/usr/bin', name), path.join(system, name));
+    }
+    const env: NodeJS.ProcessEnv = {
+      NODE_ENV: 'test',
+      PATH: `${bin}:${system}`,
+      HOME: dir,
+      VELOQ_DEVICE_LOCK_HELD: '1',
+      VELOQ_DEVICE_LOCK_DIR: dir,
+      ANDROID_SERIAL: LOCKED,
+    };
+
+    let status = 0;
+    let stderr = '';
+    try {
+      execFileSync('sh', [SCRIPT, 'test', 'flow.yaml'], { cwd: dir, encoding: 'utf8', env });
+    } catch (e) {
+      const err = e as { status: number; stderr: string };
+      status = err.status;
+      stderr = err.stderr;
+    }
+    const calls = fs.readFileSync(path.join(bin, 'calls.log'), 'utf8');
+    fs.rmSync(dir, { recursive: true, force: true });
+
+    expect(stderr).not.toMatch(/not found/);
+    expect(status).toBe(0);
+    expect(calls.trim()).toBe(`--device ${LOCKED} test flow.yaml`);
+  });
+});

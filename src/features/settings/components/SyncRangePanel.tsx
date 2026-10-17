@@ -13,7 +13,6 @@ import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
 import { activitiesInRange, LARGE_HISTORY_THRESHOLD } from '../lib/historyGate';
 import { settingsStyles } from './settingsStyles';
 import {
-  brand,
   colors,
   colorWithOpacity,
   darkColors,
@@ -21,12 +20,13 @@ import {
   opacity,
   spacing,
   typography,
+  themePalette,
 } from '@/theme';
-import { ListSectionHeader } from '@/shared/ui/ListSectionHeader';
 import { confirmAction, inform } from '@/shared/ui/dialog';
 
 export function SyncRangePanel() {
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const { t } = useTranslation();
 
   // --- Data range state ---
@@ -110,7 +110,6 @@ export function SyncRangePanel() {
 
   return (
     <>
-      <ListSectionHeader>{t('settings.localDataRange')}</ListSectionHeader>
       <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
         {/* Timeline slider */}
         <View style={styles.sliderWrap}>
@@ -131,12 +130,25 @@ export function SyncRangePanel() {
 
         {/* GPS sync progress */}
         {isSyncing || isFetchingExtended || isAnalysingInBackground ? (
-          <View style={[styles.progressRow, isDark && styles.progressRowDark]}>
+          <View
+            style={[
+              styles.progressRow,
+              {
+                backgroundColor: isDark
+                  ? colorWithOpacity(palette.primary, 0.1)
+                  : colorWithOpacity(palette.primary, opacity.tint1),
+              },
+            ]}
+          >
             <View style={[styles.progressBarTrack, isDark && styles.progressBarTrackDark]}>
               <View
+                testID="settings-sync-range-progress-fill"
                 style={[
                   styles.progressBarFill,
-                  { width: `${Math.max(gpsSyncProgress.percent, 2)}%` },
+                  {
+                    width: `${Math.max(gpsSyncProgress.percent, 2)}%`,
+                    backgroundColor: palette.primary,
+                  },
                 ]}
               />
             </View>
@@ -161,10 +173,6 @@ const styles = StyleSheet.create({
   progressRow: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: colorWithOpacity(brand.tealLight, opacity.tint1),
-  },
-  progressRowDark: {
-    backgroundColor: colorWithOpacity(brand.tealLight, 0.1),
   },
   progressBarTrack: {
     height: 4,
@@ -178,7 +186,6 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: colors.primary,
     borderRadius: layout.borderRadiusXs,
   },
   progressText: {

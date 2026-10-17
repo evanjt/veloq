@@ -28,7 +28,7 @@ const PILL_INSET = 4;
 /** Share of the map the pill may claim before it wraps instead of spreading. */
 const PILL_MAX_WIDTH = '62%';
 const PILL_PADDING_VERTICAL = 5;
-const PILL_LINE_HEIGHT = 12;
+const PILL_LINE_HEIGHT = typography.micro.lineHeight;
 
 /**
  * Vertical space a single-line pill claims above the map's bottom edge. Map
@@ -129,8 +129,7 @@ const attributionStyles = StyleSheet.create({
     backgroundColor: colorWithOpacity(darkColors.surfaceElevated, 0.8),
   },
   attributionText: {
-    fontSize: typography.pillLabel.fontSize,
-    lineHeight: PILL_LINE_HEIGHT,
+    ...typography.micro,
     color: colors.textSecondary,
   },
   attributionTextDark: {

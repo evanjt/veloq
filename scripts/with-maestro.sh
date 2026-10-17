@@ -24,6 +24,19 @@
 
 set -eu
 
+# A non-interactive shell on the Mac has neither Maestro nor a JDK on its path.
+# Maestro is looked for where its installer puts it only when the path has
+# none, so one the caller put first still runs.
+if ! command -v maestro >/dev/null 2>&1 && [ -x "$HOME/.maestro/bin/maestro" ]; then
+  PATH=$PATH:$HOME/.maestro/bin
+  export PATH
+fi
+if [ -z "${JAVA_HOME:-}" ] && [ -d /opt/homebrew/opt/openjdk@21 ]; then
+  JAVA_HOME=/opt/homebrew/opt/openjdk@21
+  PATH=$JAVA_HOME/bin:$PATH
+  export JAVA_HOME PATH
+fi
+
 # The handset lock, for the reason every other driver takes it: a flow's
 # `launchApp` force-stops the app and `clearState` wipes its data, so a flow
 # does not share the handset, it resets it.

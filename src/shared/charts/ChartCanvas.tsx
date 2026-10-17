@@ -48,6 +48,8 @@ export interface ChartCanvasProps<T, K extends string> {
   padding?: Partial<ChartPadding>;
   /** Horizontal rules spread over the box, 0 for none. */
   grid?: number;
+  /** Horizontal rules at these y values, the ticks an axis labels, in place of `grid`. */
+  gridValues?: readonly number[] | undefined;
   gridColor?: string;
   style?: StyleProp<ViewStyle>;
   children: (frame: ChartFrame<K>) => React.ReactNode;
@@ -68,6 +70,7 @@ export function ChartCanvas<T, K extends string>({
   yDomain,
   padding,
   grid = 0,
+  gridValues,
   gridColor,
   style,
   children,
@@ -110,7 +113,7 @@ export function ChartCanvas<T, K extends string>({
     <View style={[styles.fill, style]} onLayout={onLayout}>
       {frame ? (
         <Canvas style={StyleSheet.absoluteFill}>
-          {gridLineYs(frame.bounds, grid).map((y) => (
+          {(gridValues ? gridValues.map(frame.yFor) : gridLineYs(frame.bounds, grid)).map((y) => (
             <SkiaLine
               key={y}
               p1={vec(frame.bounds.left, y)}

@@ -1119,6 +1119,12 @@ pub struct FfiBackupScreenData {
     pub home_lng: Option<String>,
     pub radius_m: Option<String>,
     pub suggestion: Option<crate::persistence::SuggestedHome>,
+    /// History rows the latest restore left in its backup file because no
+    /// section here covers their ground.
+    pub not_restored: u32,
+    /// Route names the latest restore gave up on because the grouping here
+    /// merged their routes into one that already took a restored name.
+    pub names_not_restored: u32,
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
@@ -2833,13 +2839,19 @@ pub enum FfiPerformanceSubject {
     Route,
 }
 
-/// Which lap a direction's deltas are measured against.
+/// Which lap a direction's deltas are measured against. The stored curves are
+/// measured against `Record` or `AthleteSet`; the others are references a
+/// chart re-bases onto.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
 pub enum FfiReferenceSource {
     /// The direction's record over the whole included history.
     Record,
     /// The activity the athlete set as the section's reference.
     AthleteSet,
+    /// The lap that held the direction's record before the current one.
+    PreviousRecord,
+    /// The point-by-point median of the laps other than the record.
+    Typical,
 }
 
 /// Why a lap in range has no delta curve.
@@ -2947,6 +2959,18 @@ pub struct FfiDirectionDeltas {
     /// The typical lap's time against the reference per split, over the laps
     /// other than the reference. `None` when no split has enough laps.
     pub split_summary: Option<FfiSplitSummary>,
+    /// The typical lap's delta at each grid point, the median over the laps
+    /// other than the reference that reach it. NaN at a point fewer laps
+    /// reach than a typical lap needs, and `None` when no point has enough.
+    pub typical_delta_secs: Option<FfiFloat32Array>,
+    /// The lap that held the record before the current one, measured against
+    /// the reference like every lap, whatever the range. `None` when the
+    /// record has never been beaten or that lap has no curve.
+    pub previous_record: Option<FfiLapDelta>,
+    /// The reference the chart opens on for the highlighted attempt: the
+    /// athlete's own when set, else the record, else the previous record when
+    /// the highlighted attempt is the record and so level with itself.
+    pub default_reference: FfiReferenceSource,
 }
 
 /// Each split's distribution of `split_delta_secs` over a direction's laps,
@@ -2978,6 +3002,9 @@ pub struct FfiLapDelta {
     /// The change in delta over each split, in travel order. NaN for a split
     /// the lap does not fully cover.
     pub split_delta_secs: FfiFloat32Array,
+    /// The lap's own seconds over each split, on the split grid of
+    /// `split_delta_secs`. NaN for a split the lap does not fully cover.
+    pub split_secs: FfiFloat32Array,
     /// The delta at the end of the section, only for a lap that covers both
     /// of its ends.
     pub end_delta_secs: Option<f32>,

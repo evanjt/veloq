@@ -17,6 +17,7 @@ import {
 import {
   ComponentErrorBoundary,
   DetailHero,
+  HERO_GRADIENT_HEIGHT,
   HeroStatsRow,
   pressable,
   pressRipple,
@@ -30,6 +31,7 @@ import type { LatLng } from '@/shared/geo/polyline';
 import { colors, mapTextShadow, opacity, spacing, typography } from '@/theme';
 import { CONFIRM_HOLD_MS } from '@/shared/ui/holdDurations';
 import { chooseAction, inform } from '@/shared/ui/dialog';
+import { NameText } from '@/shared/ui/NameText';
 
 interface ActivityHeaderProps {
   activity: ActivityDetail;
@@ -147,20 +149,17 @@ export const ActivityHeader = React.memo(function ActivityHeader({
               style={(state) => [pressable()(state), styles.namePressable]}
               android_ripple={pressRipple}
             >
-              <Text style={heroTextStyles.name} numberOfLines={1}>
-                {activity.name}
-              </Text>
+              <NameText style={heroTextStyles.name}>{activity.name}</NameText>
             </Pressable>
           ) : (
-            <Text
+            <NameText
               testID="activity-detail-name"
               accessibilityRole="header"
               pointerEvents="none"
               style={heroTextStyles.name}
-              numberOfLines={1}
             >
               {activity.name}
-            </Text>
+            </NameText>
           )}
 
           <View style={styles.metaRow} pointerEvents="none">
@@ -183,6 +182,7 @@ export const ActivityHeader = React.memo(function ActivityHeader({
           activityId={activity.id}
           streams={streams}
           height={mapHeight}
+          coveredBottom={HERO_GRADIENT_HEIGHT}
           showStyleToggle={!sectionCreationMode}
           showAttribution={true}
           onAttributionClearanceChange={setAttributionClearance}

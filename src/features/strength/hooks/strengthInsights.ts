@@ -36,7 +36,7 @@ function buildStrengthBalanceInsight(
   const dominant = pair.dominantLabel ?? pair.leftLabel;
   const title =
     pair.status === 'one-sided'
-      ? t('insights.strengthBalance.oneSidedTitle', { pair: pair.label })
+      ? t('insights.strengthBalance.allOneSideTitle', { pair: pair.label })
       : t('insights.strengthBalance.dominantTitle', { dominant, pair: pair.label });
   const body =
     pair.status === 'one-sided'
@@ -135,7 +135,7 @@ function buildStrengthProgressionInsight(
   const muscleName = nameOf(muscleSlug, t);
   const title =
     progression.trend === 'up'
-      ? t('insights.strengthProgression.upTitle', { muscle: muscleName })
+      ? t('insights.strengthProgression.volumeUpTitle', { muscle: muscleName })
       : t('insights.strengthProgression.downTitle', { muscle: muscleName });
   // Both averages whatever the baseline: a rise from zero has no percentage,
   // and the two numbers are still the comparison.

@@ -200,3 +200,77 @@ fn a_finished_restore_does_not_hold_its_names_against_the_next() {
     assert_eq!((next.placed, next.names_not_restored), (1, 0));
     assert_eq!(stored_name(&restored, "r_1").as_deref(), Some("Towpath"));
 }
+
+fn screen_totals(engine: &PersistentEngine) -> (u32, u32) {
+    let screen = crate::persistence::screens::backup_screen_data(&engine.db).unwrap();
+    (screen.not_restored, screen.names_not_restored)
+}
+
+fn bare_history(section_id: &str) -> serde_json::Value {
+    serde_json::json!({
+        "table": "section_history",
+        "values": { "section_id": section_id, "at": "2025-01-01 00:00:00",
+            "kind": "archived", "details": "{}" },
+    })
+}
+
+/// Scenario: a restore drops one route name to a merge, later passes run, and
+/// then another backup is imported whose names all place.
+///
+/// Expected behaviour: backup settings reports the drop until the next
+/// import, which reports only its own.
+#[test]
+fn backup_settings_reports_the_names_the_latest_restore_dropped() {
+    let _serial = crate::test_globals::serial_global_state();
+    let mut restored = merged_library();
+    restore_entries(
+        &mut restored,
+        vec![
+            name_entry("old-tow", "Canal tow", &["a", "b"]),
+            name_entry("old-gate", "Lock gate", &["c"]),
+        ],
+    );
+    assert_eq!(screen_totals(&restored), (0, 1));
+
+    restored.retry_record_restore().unwrap();
+    assert_eq!(screen_totals(&restored), (0, 1));
+    restore_entries(&mut restored, vec![]);
+    assert_eq!(
+        screen_totals(&restored),
+        (0, 1),
+        "an empty import is a resume"
+    );
+    restored.discard_unplaced_records().unwrap();
+    assert_eq!(screen_totals(&restored), (0, 1));
+
+    restore_entries(
+        &mut restored,
+        vec![name_entry("old-tow", "Towpath", &["a", "b"])],
+    );
+    assert_eq!(screen_totals(&restored), (0, 0));
+}
+
+/// Scenario: a restore gives up on history whose section no longer exists,
+/// then another backup is imported with nothing given up.
+#[test]
+fn backup_settings_reports_the_history_the_latest_restore_dropped() {
+    let _serial = crate::test_globals::serial_global_state();
+    let mut restored = merged_library();
+    restore_entries(&mut restored, vec![bare_history("gone-one")]);
+    assert_eq!(screen_totals(&restored), (1, 0));
+
+    restored.retry_record_restore().unwrap();
+    assert_eq!(screen_totals(&restored), (1, 0));
+    restore_entries(&mut restored, vec![bare_history("gone-two")]);
+    assert_eq!(
+        screen_totals(&restored),
+        (1, 0),
+        "a new import counts afresh"
+    );
+
+    restore_entries(
+        &mut restored,
+        vec![name_entry("old-tow", "Canal tow", &["a", "b"])],
+    );
+    assert_eq!(screen_totals(&restored), (0, 0));
+}

@@ -63,6 +63,7 @@ import { formatLocalDate, formatDuration } from '@/shared/format/format';
 import type { ActivityTypeSheetInput } from '@/app/sheets/activity-type';
 import type { ActivityType, CalendarEvent } from '@/types';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { NameText } from '@/shared/ui/NameText';
 
 const NO_TRACK: [number, number][] = [];
 
@@ -313,9 +314,7 @@ function RecordScreenContent() {
               style={styles.eventIcon}
             />
             <View style={styles.eventDetails}>
-              <Text style={[styles.eventName, { color: textPrimary }]} numberOfLines={1}>
-                {event.name}
-              </Text>
+              <NameText style={[styles.eventName, { color: textPrimary }]}>{event.name}</NameText>
               {event.moving_time != null && event.moving_time > 0 && (
                 <Text style={[styles.eventMeta, { color: textSecondary }]}>
                   {formatDuration(event.moving_time)}
@@ -325,7 +324,7 @@ function RecordScreenContent() {
             <Text
               style={[
                 styles.followLabel,
-                { color: isDark ? darkColors.linkTeal : colors.linkTeal },
+                { color: isDark ? darkColors.actionLink : colors.actionLink },
               ]}
             >
               {t('recording.followWorkout')}
@@ -348,13 +347,8 @@ function RecordScreenContent() {
                 label={t(`activityTypes.${type}` as never, type) as string}
                 selected={selected}
                 onPress={() => setChosenSport(type)}
-                icon={
-                  <MaterialCommunityIcons
-                    name={getActivityIcon(type)}
-                    size={iconSize.md}
-                    color={getActivityInk(type, isDark)}
-                  />
-                }
+                // The sport's own colour is part of how its chip is told apart.
+                icon={{ name: getActivityIcon(type), ink: getActivityInk(type, isDark) }}
               />
             );
           })}
@@ -381,13 +375,7 @@ function RecordScreenContent() {
           testID="record-start"
           label={t('recording.startSport', { sport: sportLabel })}
           onPress={() => start(sport)}
-          icon={
-            <MaterialCommunityIcons
-              name={mode === 'manual' ? 'pencil' : 'play'}
-              size={iconSize.lg}
-              color={colors.textOnPrimary}
-            />
-          }
+          icon={mode === 'manual' ? 'pencil' : 'play'}
           style={styles.startButton}
         />
       </View>

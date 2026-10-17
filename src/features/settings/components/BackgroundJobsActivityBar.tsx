@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { Button, Card, DisclosureChevron } from '@/shared/ui';
+import { Card, CollapsibleSection, RowGroup } from '@/shared/ui';
 import { getPhaseDisplayKey } from '@/features/routes';
 import { formatClockOrDate } from '@/shared/format/format';
 import {
@@ -14,7 +14,7 @@ import {
   type BackgroundJobRun,
   type BackgroundJobId,
 } from '@/features/settings/hooks/useBackgroundJobs';
-import { colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 
 const ICONS: Record<BackgroundJobId, React.ComponentProps<typeof MaterialCommunityIcons>['name']> =
   {
@@ -187,7 +187,6 @@ function JobRow({ job }: { job: BackgroundJob }) {
 
 export function BackgroundJobsActivityBar() {
   const { t } = useTranslation();
-  const { isDark } = useTheme();
   const jobs = useBackgroundJobs();
   const [expanded, setExpanded] = useState(false);
   const active = jobs.filter((job) => job.state === 'running' || (job.remaining ?? 0) > 0);
@@ -208,30 +207,19 @@ export function BackgroundJobsActivityBar() {
   return (
     <View testID="background-jobs-activity" style={styles.frame}>
       <Card variant="flat" padding="none">
-        <Button
+        <CollapsibleSection
           testID="background-jobs-activity-toggle"
-          label={`${t('backgroundJobs.title')} · ${summary}`}
-          variant="secondary"
-          size="sm"
-          onPress={() => setExpanded((value) => !value)}
+          title={t('backgroundJobs.title')}
+          value={summary}
           expanded={expanded}
-          icon={
-            <DisclosureChevron
-              expanded={expanded}
-              size={iconSize.md}
-              color={isDark ? darkColors.textSecondary : colors.textSecondary}
-            />
-          }
-          style={styles.toggle}
-        />
-        {expanded
-          ? listed.map((job, index) => (
-              <View key={job.id}>
-                {index > 0 ? <View style={[styles.divider, isDark && styles.dividerDark]} /> : null}
-                <JobRow job={job} />
-              </View>
-            ))
-          : null}
+          onToggle={setExpanded}
+        >
+          <RowGroup inset="edge">
+            {listed.map((job) => (
+              <JobRow key={job.id} job={job} />
+            ))}
+          </RowGroup>
+        </CollapsibleSection>
       </Card>
     </View>
   );
@@ -241,9 +229,6 @@ const styles = StyleSheet.create({
   frame: {
     marginHorizontal: layout.screenPadding,
     marginBottom: spacing.sm,
-  },
-  toggle: {
-    minHeight: layout.minTapTarget,
   },
   row: {
     flexDirection: 'row',
@@ -262,13 +247,5 @@ const styles = StyleSheet.create({
   },
   detail: {
     ...typography.bodySmall,
-  },
-  divider: {
-    height: stroke.hairline,
-    backgroundColor: colors.border,
-    marginLeft: spacing.md,
-  },
-  dividerDark: {
-    backgroundColor: darkColors.border,
   },
 });

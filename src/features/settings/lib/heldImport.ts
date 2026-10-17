@@ -24,7 +24,7 @@ import {
   restoreRecordBackup,
 } from './backup';
 import { inform } from '@/shared/ui/dialog';
-import { showRestoreNotice } from './restoreNotice';
+import { showRestoreNotice, type RestoreDrops } from './restoreNotice';
 import { RESTORE_REFUSAL_KEYS, RestoreRefusedError, restoreRefusal } from './restoreRefusal';
 
 const log = debug.create('HeldImport');
@@ -115,17 +115,20 @@ export async function holdImportWhileSignedOut(
   return true;
 }
 
-/** The unplaced count of a held import's restore. Rejects with the restore's refusal. */
-async function restoreHeld(jsonUri: string, zipUri: string): Promise<number | null> {
+/**
+ * What a held import's restore gave up on, or null when nothing is held. Rejects with the
+ * restore's refusal.
+ */
+async function restoreHeld(jsonUri: string, zipUri: string): Promise<RestoreDrops | null> {
   if (await exists(jsonUri)) {
     const json = await FileSystem.readAsStringAsync(jsonUri, {
       encoding: FileSystem.EncodingType.UTF8,
     });
     const result = await restoreBackup(json);
-    if (result.refusal) throw new RestoreRefusedError(result.refusal);
-    return result.unplacedCount ?? 0;
+    if ('refusal' in result) throw new RestoreRefusedError(result.refusal);
+    return result.drops;
   }
-  if (await exists(zipUri)) return (await restoreRecordBackup(zipUri)).unplaced;
+  if (await exists(zipUri)) return restoreRecordBackup(zipUri);
   return null;
 }
 
@@ -135,9 +138,9 @@ async function applyHeld(t: TFunction): Promise<boolean> {
   const zipUri = heldUri(HELD_RECORD_ZIP);
   if (!jsonUri || !zipUri) return false;
 
-  let unplaced: number | null;
+  let drops: RestoreDrops | null;
   try {
-    unplaced = await restoreHeld(jsonUri, zipUri);
+    drops = await restoreHeld(jsonUri, zipUri);
   } catch (error) {
     // A record the restore refused is refused again on every try, and one a
     // write failure paused is the engine's to resume, so either way the held
@@ -151,12 +154,12 @@ async function applyHeld(t: TFunction): Promise<boolean> {
     });
     return true;
   }
-  if (unplaced === null) return false;
+  if (drops === null) return false;
   await discardHeldImport().catch((error) => log.warn('Held import not deleted:', error));
   // The athlete chose this backup, which answers the one restore a first
   // signed-in launch offers.
   markPlatformRecordAnswered();
-  showRestoreNotice('restored', t);
+  showRestoreNotice(drops, t);
   return true;
 }
 

@@ -49,6 +49,7 @@ import {
   spacing,
   typography,
   stroke,
+  themePalette,
 } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { openExplainer } from '@/shared/app/explainer';
@@ -511,7 +512,7 @@ function InsightsScreenContent() {
         <View style={styles.headerActions}>
           <View
             testID="insights-beta-marker"
-            style={[styles.betaMarker, isDark && styles.betaMarkerDark]}
+            style={[styles.betaMarker, { borderColor: themePalette(isDark).primary }]}
           >
             <Text style={[styles.betaText, isDark && styles.betaTextDark]}>
               {t('insights.beta')}
@@ -588,7 +589,7 @@ function InsightsScreenContent() {
               <Text style={[styles.disabledHintText, isDark && styles.textSecondary]}>
                 {t('insights.routesDisabledLine1', 'Routes & sections disabled')}
               </Text>
-              <Text style={[styles.disabledHintLink, isDark && { color: darkColors.linkTeal }]}>
+              <Text style={[styles.disabledHintLink, isDark && { color: darkColors.actionLink }]}>
                 {t('insights.routesDisabledLine2', 'Turn on routes and sections')}
               </Text>
             </View>
@@ -649,23 +650,19 @@ const styles = StyleSheet.create({
   },
   disabledHintLink: {
     ...typography.badge,
-    color: colors.linkTeal,
+    color: colors.actionLink,
   },
   betaMarker: {
     borderWidth: stroke.one,
-    borderColor: colors.primary,
     borderRadius: layout.borderRadiusFull,
     paddingHorizontal: spacing.xs,
   },
-  betaMarkerDark: {
-    borderColor: darkColors.primary,
-  },
   betaText: {
     ...typography.badge,
-    color: colors.linkTeal,
+    color: colors.actionLink,
   },
   betaTextDark: {
-    color: darkColors.linkTeal,
+    color: darkColors.actionLink,
   },
   textSecondary: {
     color: darkColors.textSecondary,

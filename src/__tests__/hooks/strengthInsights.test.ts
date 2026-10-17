@@ -454,3 +454,47 @@ describe('the strength gates', () => {
     expect(progression!.supportingData?.trend).toEqual({ direction: trend, verdict: 'moved' });
   });
 });
+
+describe('the strength titles', () => {
+  it('states a one-sided pair as all its volume on one side', () => {
+    const monthly = makeSummary(
+      [
+        { slug: 'quadriceps', weightedSets: 6 },
+        { slug: 'hamstring', weightedSets: 0 },
+      ],
+      4,
+      [
+        {
+          id: 'quads_hamstrings',
+          leftSlug: 'quadriceps',
+          rightSlug: 'hamstring',
+          leftWeightedSets: 6,
+          rightWeightedSets: 0,
+          dominantSlug: 'quadriceps',
+          ratio: null,
+          status: 'one-sided',
+        },
+      ]
+    );
+
+    const balance = generateStrengthInsights(monthly, [monthly], [], Date.now(), t).find(
+      (insight) => insight.category === 'strength_balance'
+    );
+
+    expect(balance?.title).toMatch(/^insights\.strengthBalance\.allOneSideTitle:/);
+  });
+
+  it('states a rise in volume as volume up', () => {
+    const monthly = makeSummary([{ slug: 'hamstring', weightedSets: 18 }]);
+    const weekly = [makeSummary([{ slug: 'hamstring', weightedSets: 6 }], 1)];
+    const progression = generateStrengthInsights(
+      monthly,
+      weekly,
+      [makeProgression('hamstring', [2, 3, 5, 6])],
+      Date.now(),
+      t
+    ).find((insight) => insight.id === 'strength_progression-hamstring');
+
+    expect(progression?.title).toMatch(/^insights\.strengthProgression\.volumeUpTitle:/);
+  });
+});

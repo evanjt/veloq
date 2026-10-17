@@ -32,14 +32,16 @@ import {
   ChartSurface,
   CurveLine,
   lanesSummary,
+  niceScale,
   seriesTable,
   useChartColors,
   useChartGestures,
+  YAxisLabels,
   type SummarySeries,
 } from '@/shared/charts';
 import type { WellnessData } from '@/types';
 import { displayedDay, headerDay } from '../lib/pinnedDay';
-import { formatForm, formZoneTextColor, formZoneFromLoads } from '../lib';
+import { formatForm, formZoneTextColor, formZoneFromLoads, formZoneLabel } from '../lib';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { eftpChangesOn, formatEftpChange, type EftpChange } from '../lib/eftpChanges';
 import { ABSENT, absentLabel } from '@/shared/format/absent';
@@ -83,6 +85,8 @@ const SERIES = {
 const xOf = (d: ChartDataPoint) => d.x;
 
 const MARKER_RADIUS = 4;
+/** Steps the load axis is cut into, so the gutter carries three or four round values. */
+const Y_INTERVALS = 3;
 
 /** The chart indices of the days that carry a marker, in chart order. */
 function markerIndicesOf(chartData: { date: string }[], markers: EftpChange[]): number[] {
@@ -284,7 +288,9 @@ export const FitnessChart = React.memo(function FitnessChart({
   const fitnessText = displayData ? String(Math.round(displayData.fitness)) : ABSENT;
   const fatigueText = displayData ? String(Math.round(displayData.fatigue)) : ABSENT;
   const rampRate = displayData?.rampRate ?? null;
-  const yDomain: [number, number] = [0, maxFitness * 1.1];
+  const yScale = niceScale([0, maxFitness * 1.1], Y_INTERVALS);
+  const yDomain = yScale.domain;
+  const yTicks = yScale.ticks.map((value) => ({ value, label: String(value) }));
   const markerChanges = tooltipData ? eftpChangesOn(markers, tooltipData.date) : [];
   const markerIndices = markerIndicesOf(chartData, markers);
 
@@ -338,23 +344,37 @@ export const FitnessChart = React.memo(function FitnessChart({
             </View>
             <View style={styles.valueItem}>
               <Text style={styles.valueLabel}>{t('metrics.form')}</Text>
-              <Text
-                testID="fitness-form-value"
-                style={[
-                  styles.valueNumber,
-                  {
-                    color: formZone ? formZoneTextColor(formZone, isDark) : themeColors.text,
-                  },
-                ]}
-                accessibilityLabel={absentLabel(formText, t)}
-              >
-                {formText}
-              </Text>
+              <View style={styles.inlineValue}>
+                <Text
+                  testID="fitness-form-value"
+                  style={[
+                    styles.valueNumber,
+                    {
+                      color: formZone ? formZoneTextColor(formZone, isDark) : themeColors.text,
+                    },
+                  ]}
+                  accessibilityLabel={absentLabel(formText, t)}
+                >
+                  {formText}
+                </Text>
+                {formZone ? (
+                  <Text
+                    testID="fitness-form-zone"
+                    style={[
+                      styles.valueLabel,
+                      styles.inlineCaption,
+                      { color: formZoneTextColor(formZone, isDark) },
+                    ]}
+                  >
+                    {formZoneLabel(formZone)}
+                  </Text>
+                ) : null}
+              </View>
             </View>
             {rampRate != null && (
               <View style={styles.valueItem}>
                 <Text style={styles.valueLabel}>{t('fitnessScreen.rampRate')}</Text>
-                <View style={styles.rampValue}>
+                <View style={styles.inlineValue}>
                   <Text
                     testID="fitness-ramp-value"
                     style={[
@@ -382,96 +402,104 @@ export const FitnessChart = React.memo(function FitnessChart({
 
         {/* Chart */}
         <ChartSurface summary={reading.summary} table={reading.table} testID="fitness-chart-plot">
-          <GestureDetector gesture={gesture}>
-            <View
-              style={chartStyles.chartWrapper}
-              testID="fitness-chart-surface"
-              {...accessibilityProps}
-            >
-              <ChartCanvas
-                data={chartData}
-                x={xOf}
-                series={SERIES}
-                yDomain={yDomain}
-                padding={CHART_PADDING}
-                grid={5}
+          <View style={styles.plotRow}>
+            <YAxisLabels
+              ticks={yTicks}
+              domain={yDomain}
+              padding={CHART_PADDING}
+              testID="fitness-chart-y-axis"
+            />
+            <GestureDetector gesture={gesture}>
+              <View
+                style={chartStyles.chartWrapper}
+                testID="fitness-chart-surface"
+                {...accessibilityProps}
               >
-                {({ points, bounds }) => {
-                  syncBounds(bounds);
-                  syncXCoords(points.fitness, (p) => p.x);
-                  return (
-                    <>
-                      {visibleLines.fitness ? (
-                        <>
-                          <CurveArea
-                            points={points.fitness}
-                            yDomain={yDomain}
-                            y0={bounds.bottom}
-                            color={chartColors.fitness}
-                            isDark={isDark}
-                          />
-                          <CurveLine
-                            points={points.fitness}
-                            color={chartColors.casing}
-                            strokeWidth={2.5}
-                          />
-                          <CurveLine
-                            points={points.fitness}
-                            color={chartColors.fitness}
-                            strokeWidth={1.5}
-                          />
-                        </>
-                      ) : null}
-                      {visibleLines.fatigue ? (
-                        <>
-                          <CurveLine
-                            points={points.fatigue}
-                            color={chartColors.casing}
-                            strokeWidth={2}
-                          />
-                          <CurveLine
-                            points={points.fatigue}
-                            color={chartColors.fatigue}
-                            strokeWidth={1}
-                          />
-                        </>
-                      ) : null}
-                      {markerIndices.map((idx) => (
-                        <Circle
-                          key={chartData[idx].date}
-                          cx={points.fitness[idx].x}
-                          cy={bounds.top + MARKER_RADIUS}
-                          r={MARKER_RADIUS}
-                          color={chartColors.ftp}
-                        />
-                      ))}
-                    </>
-                  );
-                }}
-              </ChartCanvas>
-
-              {/* Animated crosshair - runs at native 120Hz using synced point coordinates */}
-              <ChartCrosshair style={crosshairStyle} topOffset={8} />
-
-              {/* X-axis labels */}
-              <View style={styles.xAxisOverlay} pointerEvents="none">
-                <Text
-                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                  style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
+                <ChartCanvas
+                  data={chartData}
+                  x={xOf}
+                  series={SERIES}
+                  yDomain={yDomain}
+                  padding={CHART_PADDING}
+                  gridValues={yScale.ticks}
                 >
-                  {chartData.length > 0 ? formatShortDate(chartData[0].date) : ''}
-                </Text>
-                <Text
-                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                  style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
-                >
-                  {chartData.length > 0
-                    ? formatShortDate(chartData[chartData.length - 1].date)
-                    : ''}
-                </Text>
+                  {({ points, bounds }) => {
+                    syncBounds(bounds);
+                    syncXCoords(points.fitness, (p) => p.x);
+                    return (
+                      <>
+                        {visibleLines.fitness ? (
+                          <>
+                            <CurveArea
+                              points={points.fitness}
+                              yDomain={yDomain}
+                              y0={bounds.bottom}
+                              color={chartColors.fitness}
+                              isDark={isDark}
+                            />
+                            <CurveLine
+                              points={points.fitness}
+                              color={chartColors.casing}
+                              strokeWidth={2.5}
+                            />
+                            <CurveLine
+                              points={points.fitness}
+                              color={chartColors.fitness}
+                              strokeWidth={1.5}
+                            />
+                          </>
+                        ) : null}
+                        {visibleLines.fatigue ? (
+                          <>
+                            <CurveLine
+                              points={points.fatigue}
+                              color={chartColors.casing}
+                              strokeWidth={2}
+                            />
+                            <CurveLine
+                              points={points.fatigue}
+                              color={chartColors.fatigue}
+                              strokeWidth={1}
+                            />
+                          </>
+                        ) : null}
+                        {markerIndices.map((idx) => (
+                          <Circle
+                            key={chartData[idx].date}
+                            cx={points.fitness[idx].x}
+                            cy={bounds.top + MARKER_RADIUS}
+                            r={MARKER_RADIUS}
+                            color={chartColors.ftp}
+                          />
+                        ))}
+                      </>
+                    );
+                  }}
+                </ChartCanvas>
+
+                {/* Animated crosshair - runs at native 120Hz using synced point coordinates */}
+                <ChartCrosshair style={crosshairStyle} topOffset={8} />
+
+                {/* X-axis labels */}
+                <View style={styles.xAxisOverlay} pointerEvents="none">
+                  <Text
+                    maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                    style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
+                  >
+                    {chartData.length > 0 ? formatShortDate(chartData[0].date) : ''}
+                  </Text>
+                  <Text
+                    maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                    style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
+                  >
+                    {chartData.length > 0
+                      ? formatShortDate(chartData[chartData.length - 1].date)
+                      : ''}
+                  </Text>
+                </View>
               </View>
-            </View>
-          </GestureDetector>
+            </GestureDetector>
+          </View>
         </ChartSurface>
 
         {/* Legend: each item is a switch that shows or hides its line */}
@@ -553,13 +581,21 @@ const makeStyles = (palette: Palette) =>
       color: palette.textSecondary,
       marginBottom: spacing.xxs,
     },
-    rampValue: {
+    // A number with its unit or its zone name beside it on one baseline.
+    inlineValue: {
       flexDirection: 'row',
       alignItems: 'baseline',
+    },
+    inlineCaption: {
+      marginLeft: spacing.xxs,
     },
     valueNumber: {
       fontSize: typography.cardTitle.fontSize,
       fontWeight: '700',
+    },
+    plotRow: {
+      flex: 1,
+      flexDirection: 'row',
     },
     xAxisOverlay: {
       position: 'absolute',

@@ -506,10 +506,80 @@ pub(crate) fn start_fetch_and_store_with_fetcher(
     ) as f64
 }
 
-/// `signed_in_as` is the athlete whose credential the fetcher carries. The run
-/// stops dispatching, storing and asking for time streams once that athlete is
-/// no longer the one signed in, the way a cancel stops it. Only the test seam
-/// above passes `None`, for a fetcher aimed at a mock with no credential held.
+/// What `start_gps_pass` answered.
+#[derive(Debug, Clone, Copy, PartialEq, uniffi::Record)]
+pub struct FfiGpsPassStart {
+    /// `Started`, or why not: `Busy` keeps the pass owed until the running one
+    /// ends, `Offline` keeps it owed until the connection returns, `NotOwed`
+    /// has no track to fetch.
+    pub outcome: crate::objects::start::FfiStartOutcome,
+    /// The fetch run to follow with `get_fetch_run_progress` and
+    /// `take_fetch_and_store_result`, 0 when nothing started.
+    pub run: f64,
+    /// How many tracks the run was given.
+    pub total: u32,
+}
+
+/// Start the GPS track pass over a date range, or keep it owed.
+///
+/// The engine reads the tracks the census still owes over the range and
+/// downloads them in one bulk run, `head` first in its order. One pass runs at
+/// a time: a pass asked for while one runs, or one the connection cost, is kept
+/// owed and started by the engine itself, when the running pass ends or on the
+/// online edge. The caller follows the run it is handed and asks again for
+/// nothing.
+#[uniffi::export]
+pub fn start_gps_pass(oldest: String, newest: String, head: Vec<String>) -> FfiGpsPassStart {
+    init_logging();
+    let started = crate::objects::gps_pass::request(crate::objects::gps_pass::PassRange {
+        oldest,
+        newest,
+        head,
+    });
+    FfiGpsPassStart {
+        outcome: started.outcome,
+        run: started.run as f64,
+        total: started.total,
+    }
+}
+
+/// Start one bulk run for the GPS pass, calling `on_end` with whether the
+/// connection cost it a track once the run has ended, however it ends. `None`
+/// with no credential held.
+pub(crate) fn start_fetch_and_store_pass(
+    activity_ids: Vec<String>,
+    sport_types: Vec<ActivitySportMapping>,
+    on_end: impl FnOnce(bool) + Send + 'static,
+) -> Option<u64> {
+    let Some(Ok((transport, athlete_id))) = crate::objects::current_session() else {
+        return None;
+    };
+    Some(start_fetch_and_store_run_ending(
+        next_fetch_run(),
+        activity_ids,
+        sport_types,
+        crate::http::DownloadPriority::Bulk,
+        crate::http::ActivityFetcher::with_transport(transport),
+        Some(athlete_id),
+        Some(Box::new(on_end)),
+    ))
+}
+
+/// Calls the run's end hook when the fetch thread leaves, a panic included, so
+/// a pass that unwinds still frees the pass slot.
+struct RunEnd {
+    network_lost: bool,
+    on_end: Option<Box<dyn FnOnce(bool) + Send>>,
+}
+
+impl Drop for RunEnd {
+    fn drop(&mut self) {
+        if let Some(on_end) = self.on_end.take() {
+            on_end(self.network_lost);
+        }
+    }
+}
+
 fn start_fetch_and_store_run(
     run: u64,
     activity_ids: Vec<String>,
@@ -517,6 +587,30 @@ fn start_fetch_and_store_run(
     priority: crate::http::DownloadPriority,
     fetcher: crate::http::ActivityFetcher,
     signed_in_as: Option<String>,
+) -> u64 {
+    start_fetch_and_store_run_ending(
+        run,
+        activity_ids,
+        sport_types,
+        priority,
+        fetcher,
+        signed_in_as,
+        None,
+    )
+}
+
+/// `signed_in_as` is the athlete whose credential the fetcher carries. The run
+/// stops dispatching, storing and asking for time streams once that athlete is
+/// no longer the one signed in, the way a cancel stops it. Only the test seam
+/// above passes `None`, for a fetcher aimed at a mock with no credential held.
+fn start_fetch_and_store_run_ending(
+    run: u64,
+    activity_ids: Vec<String>,
+    sport_types: Vec<ActivitySportMapping>,
+    priority: crate::http::DownloadPriority,
+    fetcher: crate::http::ActivityFetcher,
+    signed_in_as: Option<String>,
+    on_end: Option<Box<dyn FnOnce(bool) + Send>>,
 ) -> u64 {
     use crate::elapsed_ms;
     use std::collections::HashMap;
@@ -589,6 +683,12 @@ fn start_fetch_and_store_run(
 
     // Spawn background thread
     crate::threads::spawn_named("veloq-gps", move || {
+        // Declared before the slot so it drops after it: a pass the hook
+        // starts joins a queue this run has already left.
+        let mut ended = RunEnd {
+            network_lost: false,
+            on_end,
+        };
         // The run leaves the queue on the way out of this thread however it
         // leaves. A panic unwinds this one thread and the process carries on,
         // so the tail below is not reached and the only consumer polls forever.
@@ -884,6 +984,13 @@ fn start_fetch_and_store_run(
                     crate::persistence::attempts::now_ms(),
                 );
             }
+            // The last pass says whether the connection is what the run ended
+            // on. A track the budget held back is not: the budget frees on its
+            // own clock, not on the online edge.
+            ended.network_lost = pass_failed.iter().any(|(_, error)| {
+                crate::objects::tracks::network_absent(error)
+                    && !crate::objects::tracks::held_back(error)
+            });
             // A track the budget held back is owed, not failed: it is neither
             // re-offered in this run nor reported as missing.
             offered = Vec::new();
@@ -1251,7 +1358,9 @@ pub struct ElevationBackfillProgress {
 #[uniffi::export]
 pub fn set_network_online(online: bool) {
     init_logging();
-    crate::net::connectivity::set_online(online);
+    if crate::net::connectivity::set_online(online) {
+        crate::objects::sync::reconnected();
+    }
 }
 
 /// Tell the engine whether the athlete is touching the screen.

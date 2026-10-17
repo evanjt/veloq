@@ -15,6 +15,7 @@ import {
   layout,
 } from '@/theme';
 import type { PrimarySport } from '@/features/fitness/stores';
+import { NameText } from '@/shared/ui/NameText';
 
 /** The activity a best was set in, as the label read names it. */
 export interface BestEffortActivity {
@@ -72,9 +73,9 @@ export function BestEffortRow({
       <View style={styles.activityColumn}>
         {activity ? (
           <>
-            <Text style={[styles.activityName, isDark && styles.textDark]} numberOfLines={1}>
+            <NameText style={[styles.activityName, isDark && styles.textDark]}>
               {activity.name}
-            </Text>
+            </NameText>
             <Text style={[styles.secondary, isDark && styles.secondaryDark]}>{activity.date}</Text>
           </>
         ) : (

@@ -23,7 +23,7 @@ import React, {
   useMemo,
   useState,
 } from 'react';
-import { View, StyleSheet, useWindowDimensions } from 'react-native';
+import { AppState, View, StyleSheet, useWindowDimensions } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import { useTheme } from '@/shared/app';
@@ -55,8 +55,15 @@ import {
 } from '@/features/maps/lib/terrainSnapshotEvents';
 import {
   buildRecycleSnapshotMapScript,
+  buildReleaseSnapshotMapScript,
   buildSnapshotWorkerHtml,
 } from '@/features/maps/lib/htmlBuilders';
+import {
+  markNativeReleasedSurface,
+  rebuildReleasedSurfaces,
+  registerReleasableSurface,
+  type ReleasableSurface,
+} from '@/features/maps/lib/mapSurfaceRegistry';
 import {
   buildRenderSnapshotScript,
   type SnapshotRequest,
@@ -293,6 +300,12 @@ interface WorkerState {
   rebuildingRef: { current: boolean };
   rebuildDeadlineRef: { current: ReturnType<typeof setTimeout> | null };
   recovery: RendererRecovery;
+  /** The background release took the map down, and it has not been rebuilt. */
+  releasedRef: { current: boolean };
+  /** The rebuild was asked for while the feed was away, so the resume runs it. */
+  rebuildOwedRef: { current: boolean };
+  /** What the map surface registry releases and rebuilds. */
+  surface: ReleasableSurface;
 }
 
 interface TerrainSnapshotWebViewProps {
@@ -331,6 +344,12 @@ export const TerrainSnapshotWebView = forwardRef<
     restart: (worker: WorkerState, how: RendererRestart) => void;
     exhausted: (worker: WorkerState) => void;
   } | null>(null);
+  // What a worker does when the background release reaches it and when its map
+  // is asked back, kept current like the recovery above.
+  const workerReleaseRef = useRef<{
+    release: (worker: WorkerState, source: 'javascript' | 'native') => void;
+    rebuild: (worker: WorkerState) => void;
+  } | null>(null);
   // Lazy-init worker pool - created once, never recreated
   const workersRef = useRef<WorkerState[] | null>(null);
   if (workersRef.current === null) {
@@ -356,6 +375,12 @@ export const TerrainSnapshotWebView = forwardRef<
           restart: (how) => workerRecoveryRef.current?.restart(worker, how),
           exhausted: () => workerRecoveryRef.current?.exhausted(worker),
         })),
+        releasedRef: { current: false },
+        rebuildOwedRef: { current: false },
+        surface: {
+          release: (source) => workerReleaseRef.current?.release(worker, source),
+          rebuild: () => workerReleaseRef.current?.rebuild(worker),
+        },
       };
       return worker;
     });
@@ -642,6 +667,56 @@ export const TerrainSnapshotWebView = forwardRef<
     },
   };
 
+  workerReleaseRef.current = {
+    // The map goes with its GL context and the page stays. A render it cut
+    // short goes back to the front of the queue, as a pause puts it, and with
+    // no map left in the pool the watchdog stops, since nothing can fail.
+    release: (worker, source) => {
+      if (worker.lostRef.current || worker.releasedRef.current) return;
+      const current = worker.currentRequestRef.current;
+      trace({ kind: 'release', workerId: worker.id, activityId: current?.activityId });
+      if (source === 'javascript') {
+        worker.webViewRef.current?.injectJavaScript(buildReleaseSnapshotMapScript());
+      }
+      worker.releasedRef.current = true;
+      worker.mapReadyRef.current = false;
+      worker.lastRenderRef.current = null;
+      worker.processingRef.current = false;
+      worker.rebuildingRef.current = false;
+      clearRebuildDeadline(worker);
+      if (worker.timeoutRef.current) {
+        clearTimeout(worker.timeoutRef.current);
+        worker.timeoutRef.current = null;
+      }
+      worker.currentRequestRef.current = null;
+      if (current) queueRef.current.unshift(current);
+      if (workers.every((w) => w.releasedRef.current || w.lostRef.current)) {
+        if (stalenessTimerRef.current) {
+          clearTimeout(stalenessTimerRef.current);
+          stalenessTimerRef.current = null;
+        }
+      }
+    },
+    // The map comes back in the same page, as a recycle builds it, and the
+    // worker takes work again once it says it is ready. A page off screen never
+    // finishes a rebuild, so one asked for while the feed is away waits for it.
+    rebuild: (worker) => {
+      if (!worker.releasedRef.current || worker.lostRef.current) return;
+      if (disposedRef.current || suspendedRef.current) {
+        worker.rebuildOwedRef.current = true;
+        return;
+      }
+      worker.releasedRef.current = false;
+      worker.rebuildOwedRef.current = false;
+      trace({ kind: 'rebuild', workerId: worker.id });
+      worker.mountedAtRef.current = Date.now();
+      worker.rebuildingRef.current = true;
+      worker.webViewRef.current?.injectJavaScript(buildRecycleSnapshotMapScript());
+      armRebuildDeadline(worker);
+      updateWatchdog();
+    },
+  };
+
   const processNext = useCallback(() => {
     if (disposedRef.current || suspendedRef.current || scrollHeldRef.current) return;
 
@@ -867,8 +942,22 @@ export const TerrainSnapshotWebView = forwardRef<
         worker.stylesHeld.clear();
         worker.mapReadyRef.current = true;
         worker.rebuildingRef.current = false;
+        // A page that came back in a new view holds a map whether or not it
+        // was released.
+        worker.releasedRef.current = false;
+        worker.rebuildOwedRef.current = false;
         clearRebuildDeadline(worker);
         processNext();
+      },
+      // Android's trim took this worker's map down in its page. In the
+      // foreground nothing waits for a return, so it comes back now.
+      nativeMapReleased: (data: WebViewBridgeMessage) => {
+        if (typeof data.workerId !== 'number') return;
+        const worker = workers[data.workerId];
+        if (!worker) return;
+        if (markNativeReleasedSurface(worker.surface) && AppState.currentState === 'active') {
+          rebuildReleasedSurfaces();
+        }
       },
       snapshot: async (data: WebViewBridgeMessage) => {
         if (typeof data.workerId !== 'number') return;
@@ -1144,7 +1233,11 @@ export const TerrainSnapshotWebView = forwardRef<
       // Re-arms the staleness timer, which the suspend cleared and which
       // nothing else would call until the next enqueue. processNext restarts
       // the idle countdown, and a rebuild caught by the suspend gets its
-      // deadline back.
+      // deadline back. A released map asked back while the feed was away is
+      // rebuilt now.
+      for (const worker of workers) {
+        if (worker.rebuildOwedRef.current) workerReleaseRef.current?.rebuild(worker);
+      }
       for (const worker of workers) armRebuildDeadline(worker);
       updateWatchdog();
       processNext();
@@ -1172,6 +1265,15 @@ export const TerrainSnapshotWebView = forwardRef<
       stalenessTimerRef.current = null;
     }
   }, [suspended, workers, processNext, updateWatchdog, trace, armRebuildDeadline]);
+
+  // Every worker is a map surface to the background release, as long as the
+  // pool is mounted.
+  useEffect(() => {
+    const offs = workers.map((worker) => registerReleasableSurface(worker.surface));
+    return () => {
+      for (const off of offs) off();
+    };
+  }, [workers]);
 
   // Clear all pending timers on unmount so callbacks don't fire on a gone component
   useEffect(() => {

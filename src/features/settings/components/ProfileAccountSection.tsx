@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Image } from 'react-native';
 import { useTheme, useIsOnline } from '@/shared/app';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ChromeIcon } from '@/shared/ui/ChromeIcon';
+import { RowDivider } from '@/shared/ui/RowGroup';
 import { useQueryClient } from '@tanstack/react-query';
 import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { getStoredCredentials, useAuthStore } from '@/shared/app/AuthStore';
@@ -267,7 +268,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
       )}
 
       {/* Logout row - keeps cached data for instant re-login */}
-      <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
+      <RowDivider />
       <Row
         testID="settings-logout-button"
         behaviour="act"
@@ -287,7 +288,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
       {/* Destructive sign-out - wipes activities/GPS/sections too */}
       {!isDemo && (
         <>
-          <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
+          <RowDivider />
           <Row
             testID="settings-logout-clear-button"
             behaviour="act"

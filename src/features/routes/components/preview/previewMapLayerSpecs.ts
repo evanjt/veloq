@@ -107,7 +107,7 @@ export function buildPreviewLayers(): MapLayerSpec[] {
       paint: {
         // 'changed' and 'unchanged' both render teal; the popover status chip
         // carries the distinction.
-        'line-color': ['match', ['get', 'status'], 'new', colors.success, brand.tealLight],
+        'line-color': ['match', ['get', 'status'], 'new', colors.success, brand.blue600],
         'line-opacity': 0.9,
         'line-width': 4,
       },

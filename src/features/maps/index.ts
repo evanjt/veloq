@@ -88,7 +88,12 @@ export {
   pointFeature,
   pointsBetweenSourceIndices,
 } from './lib/coordinates';
-export { type MapCameraSpec, type MapLayerSpec, type MapSourceSpec } from './lib/htmlBuilders';
+export {
+  type MapCameraSpec,
+  type MapLayerSpec,
+  type MapPadding,
+  type MapSourceSpec,
+} from './lib/htmlBuilders';
 export { circlePolygon } from './lib/radiusCircle';
 export { progressLine } from './lib/syncProgressFormat';
 export { TRIM_UPDATE_THROTTLE_MS } from './lib/mapBudgets';
@@ -136,6 +141,7 @@ export {
   mapControlColumnLayout,
   useMapControlColumn,
 } from './lib/mapControlColumnLayout';
+export { visibleMapInset, type MapEdgeInset } from './lib/activityCamera';
 export { buildSectionTrimCollection } from './lib/sectionTrimCollection';
 export {
   initialiseHeatmapPreference,

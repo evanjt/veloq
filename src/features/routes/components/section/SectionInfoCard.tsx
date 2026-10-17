@@ -6,15 +6,15 @@
 import { useMetricSystem } from '@/shared/app';
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
 import { Card, Shimmer } from '@/shared/ui';
 import { useTranslation } from 'react-i18next';
 import { formatFullDate } from '@/shared/format/format';
 import { formatAttemptFigure, type AttemptBasis } from '@/features/routes/lib/attemptBasis';
-import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography, themePalette } from '@/theme';
 import type { DirectionStats } from '@/types';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 import { DirectionArrow, directionWord, type SectionDirection } from './DirectionCue';
+import { FitText } from '@/shared/ui/FitText';
 
 const INFO_CARD_PLACEHOLDER_HEIGHT = 96;
 const REVERSE_COLOR = colors.reverseDirection;
@@ -100,7 +100,7 @@ export function SectionInfoCard({
   const bestLabel = t('sections.best', 'Best');
   const avgLabel = t('sections.avg', 'Avg');
   if (bothDirections) {
-    const forwardColor = activityColor ?? colors.primary;
+    const forwardColor = activityColor ?? themePalette(isDark).primary;
     const entries = [
       [bestLabel, forwardBest, 'section-best-forward', 'forward', forwardColor],
       [bestLabel, reverseBest, 'section-best-reverse', 'reverse', REVERSE_COLOR],
@@ -142,17 +142,11 @@ export function SectionInfoCard({
                     size={iconSize.xs}
                   />
                 ) : null}
-                <Text style={[styles.label, { color: labelColor }]} numberOfLines={1}>
-                  {col.label}
-                </Text>
+                <FitText style={[styles.label, { color: labelColor }]}>{col.label}</FitText>
               </View>
-              <Text
-                testID={col.testID}
-                style={[styles.value, { color: valueColor }]}
-                numberOfLines={1}
-              >
+              <FitText testID={col.testID} style={[styles.value, { color: valueColor }]}>
                 {col.value}
-              </Text>
+              </FitText>
             </View>
           ))}
         </View>

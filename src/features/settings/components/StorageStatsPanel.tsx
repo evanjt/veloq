@@ -22,7 +22,7 @@ import {
 
 import { StreamBackfillRow } from './StreamBackfillRow';
 import { StreamHistoryRow } from './StreamHistoryRow';
-import { Button, composeAccessibilityLabel, pressable, pressRipple } from '@/shared/ui';
+import { Button, composeAccessibilityLabel, pressable, pressRipple, StatTile } from '@/shared/ui';
 import { ABSENT } from '@/shared/format/absent';
 
 /** Every segment the bar can draw. A key, never a literal: the legend and
@@ -67,7 +67,7 @@ function StorageBreakdownBar({
       result.push({
         labelKey: 'settings.storageDatabase',
         bytes: routesSize,
-        color: colors.linkTeal,
+        color: colors.actionLink,
       });
     }
     if (heatmapCacheSize > 0) {
@@ -189,7 +189,6 @@ export interface StorageStatsPanelProps {
   routeMatchingEnabled: boolean;
   dateRangeText: string;
   lastSync: string | null;
-  totalQueries: number;
   onClearMapCache: () => void;
   routesSize: number;
   /** What the Rust tile store holds, or null until it has said. */
@@ -211,7 +210,6 @@ export function StorageStatsPanel({
   routeMatchingEnabled,
   dateRangeText,
   lastSync,
-  totalQueries,
   onClearMapCache,
   routesSize,
   basemapTiles,
@@ -262,72 +260,45 @@ export function StorageStatsPanel({
     <>
       {/* Cache Stats - inline */}
       <View testID="settings-storage-stats" style={styles.statRow}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={composeAccessibilityLabel(t('settings.activities'), totalActivities)}
-          style={pressable(styles.statItem)}
-          onPress={() => tapTo('/map')}
-          android_ripple={pressRipple}
-        >
-          <Text style={[styles.statValue, isDark && styles.textLight]}>{totalActivities}</Text>
-          <Text
-            style={[
-              styles.statLabel,
-              styles.statLabelClickable,
-              isDark && { color: darkColors.linkTeal },
-            ]}
-          >
-            {t('settings.activities')}
-          </Text>
-        </Pressable>
+        <View style={styles.statItem}>
+          <StatTile
+            size="lg"
+            align="center"
+            label={t('settings.activities')}
+            value={totalActivities}
+            accessibilityLabel={composeAccessibilityLabel(
+              t('settings.activities'),
+              totalActivities
+            )}
+            onPress={() => tapTo('/map')}
+          />
+        </View>
         <View style={statDivider} />
-        <Pressable
-          testID="storage-stat-settings.routesCount"
-          accessibilityRole="button"
-          accessibilityLabel={statLabel('settings.routesCount', routeGroupCount)}
-          style={pressable(styles.statItem)}
-          onPress={() => tapTo('/insights?tab=routes')}
-          disabled={!routeMatchingEnabled}
-          android_ripple={pressRipple}
-        >
-          <Text style={[styles.statValue, isDark && styles.textLight]}>
-            {routeMatchingEnabled ? routeGroupCount : ABSENT}
-          </Text>
-          <Text
-            style={[
-              styles.statLabel,
-              routeMatchingEnabled
-                ? [styles.statLabelClickable, isDark && { color: darkColors.linkTeal }]
-                : isDark && styles.textSecondary,
-            ]}
-          >
-            {t('settings.routesCount')}
-          </Text>
-        </Pressable>
+        <View style={styles.statItem}>
+          <StatTile
+            testID="storage-stat-settings.routesCount"
+            size="lg"
+            align="center"
+            label={t('settings.routesCount')}
+            value={routeMatchingEnabled ? routeGroupCount : ABSENT}
+            accessibilityLabel={statLabel('settings.routesCount', routeGroupCount)}
+            onPress={() => tapTo('/insights?tab=routes')}
+            disabled={!routeMatchingEnabled}
+          />
+        </View>
         <View style={statDivider} />
-        <Pressable
-          testID="storage-stat-settings.sectionsCount"
-          accessibilityRole="button"
-          accessibilityLabel={statLabel('settings.sectionsCount', totalSections)}
-          style={pressable(styles.statItem)}
-          onPress={() => tapTo('/insights?tab=sections')}
-          disabled={!routeMatchingEnabled}
-          android_ripple={pressRipple}
-        >
-          <Text style={[styles.statValue, isDark && styles.textLight]}>
-            {routeMatchingEnabled ? totalSections : ABSENT}
-          </Text>
-          <Text
-            style={[
-              styles.statLabel,
-              routeMatchingEnabled
-                ? [styles.statLabelClickable, isDark && { color: darkColors.linkTeal }]
-                : isDark && styles.textSecondary,
-            ]}
-          >
-            {t('settings.sectionsCount')}
-          </Text>
-        </Pressable>
+        <View style={styles.statItem}>
+          <StatTile
+            testID="storage-stat-settings.sectionsCount"
+            size="lg"
+            align="center"
+            label={t('settings.sectionsCount')}
+            value={routeMatchingEnabled ? totalSections : ABSENT}
+            accessibilityLabel={statLabel('settings.sectionsCount', totalSections)}
+            onPress={() => tapTo('/insights?tab=sections')}
+            disabled={!routeMatchingEnabled}
+          />
+        </View>
       </View>
 
       <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
@@ -344,13 +315,6 @@ export function StorageStatsPanel({
         <Text style={[styles.infoValue, isDark && styles.textLight]}>
           {formatDateOrDash(lastSync)}
         </Text>
-      </View>
-
-      <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
-        <Text style={[styles.infoLabel, isDark && styles.textSecondary]}>
-          {t('settings.cachedQueries')}
-        </Text>
-        <Text style={[styles.infoValue, isDark && styles.textLight]}>{totalQueries}</Text>
       </View>
 
       <View style={[styles.infoRow, isDark && styles.infoRowDark]}>
@@ -420,7 +384,7 @@ export function StorageStatsPanel({
               style={[
                 styles.infoValue,
                 styles.statLabelClickable,
-                isDark && { color: darkColors.linkTeal },
+                isDark && { color: darkColors.actionLink },
               ]}
             >
               {formatFileSize(budgetBytes)}
@@ -434,7 +398,10 @@ export function StorageStatsPanel({
           {t('settings.tileCacheLimitHint')}
         </Text>
         <View style={[styles.budgetTrack, isDark && styles.budgetTrackDark]}>
-          <View style={[styles.budgetFill, { flex: usedShare }]} />
+          <View
+            testID="settings-tile-cache-fill"
+            style={{ flex: usedShare, backgroundColor: palette.primary }}
+          />
           <View style={{ flex: 1 - usedShare }} />
         </View>
         <View style={styles.budgetFooter}>
@@ -481,23 +448,13 @@ const styles = StyleSheet.create({
   },
   statItem: {
     flex: 1,
-    alignItems: 'center',
-  },
-  statValue: {
-    ...typography.screenTitle,
-    color: colors.textPrimary,
-  },
-  statLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    marginTop: spacing.xxs,
   },
   statDivider: {
     width: 1,
   },
   statLabelClickable: {
     fontSize: typography.caption.fontSize,
-    color: colors.linkTeal,
+    color: colors.actionLink,
     marginTop: spacing.xxs,
   },
   infoRow: {
@@ -537,9 +494,6 @@ const styles = StyleSheet.create({
   },
   budgetTrackDark: {
     backgroundColor: darkColors.border,
-  },
-  budgetFill: {
-    backgroundColor: colors.primary,
   },
   budgetFooter: {
     flexDirection: 'row',

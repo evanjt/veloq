@@ -4,7 +4,16 @@ import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { formatDuration, safeGetTime } from '@/shared/format/format';
-import { colors, darkColors, spacing, opacity, ink, layout, colorWithOpacity } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  opacity,
+  ink,
+  layout,
+  colorWithOpacity,
+  themePalette,
+} from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import type { SectionPerformanceRecord } from '@/features/routes';
 import {
@@ -33,9 +42,11 @@ const formatTime = (seconds: number) => formatDuration(Math.round(seconds));
 export const SectionPerformanceTimeline = React.memo(function SectionPerformanceTimeline({
   records,
   bests,
-  lineColor = colors.primary,
+  lineColor: lineColorProp,
 }: SectionPerformanceTimelineProps) {
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
+  const lineColor = lineColorProp ?? palette.primary;
   const { t } = useTranslation();
 
   const sorted = useMemo(() => {

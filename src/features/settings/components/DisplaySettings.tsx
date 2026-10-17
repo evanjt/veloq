@@ -13,7 +13,8 @@ import {
   type IntervalsUnitPreferences,
   getIntervalsUnitSystem,
 } from '@/shared/app/UnitPreferenceStore';
-import { LanguageList, ListSectionHeader, ToggleButtonRow } from '@/shared/ui';
+import { LanguageList, ToggleButtonRow } from '@/shared/ui';
+import { RowDivider } from '@/shared/ui/RowGroup';
 
 // LanguageChoice from useLanguageStore: 'system' or an explicit locale
 type LanguageChoice = string;
@@ -83,7 +84,7 @@ function DisplaySettingsComponent({
         />
       </View>
 
-      <View style={[styles.divider, isDark && styles.dividerDark]} />
+      <RowDivider inset="edge" />
 
       {/* Units */}
       <View style={styles.subsectionHeader}>
@@ -122,7 +123,7 @@ function DisplaySettingsComponent({
             : t('settings.unitsImperialHint')}
       </Text>
 
-      <View style={[styles.divider, isDark && styles.dividerDark]} />
+      <RowDivider inset="edge" />
 
       {/* Language */}
       <View style={[styles.subsectionHeader, styles.languageHeader]}>
@@ -150,11 +151,10 @@ function DisplaySettingsComponent({
 
   return (
     <>
-      <ListSectionHeader>{t('settings.display')}</ListSectionHeader>
       <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
         {displayContent}
 
-        <View style={[styles.divider, isDark && styles.dividerDark]} />
+        <RowDivider inset="edge" />
         <View style={styles.subsectionHeader}>
           <MaterialCommunityIcons
             name="run"
@@ -217,15 +217,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.xs,
     textTransform: 'none',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginHorizontal: spacing.md,
-    marginVertical: spacing.xs,
-  },
-  dividerDark: {
-    backgroundColor: darkColors.border,
   },
   embeddedHint: {
     ...typography.caption,

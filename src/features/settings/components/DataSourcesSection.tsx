@@ -6,9 +6,9 @@ import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
-import { ListSectionHeader } from '@/shared/ui/ListSectionHeader';
 import { settingsStyles } from './settingsStyles';
 import { SwitchRow } from '@/shared/ui/SwitchRow';
+import { RowDivider } from '@/shared/ui/RowGroup';
 
 export function DataSourcesSection() {
   const { isDark } = useTheme();
@@ -19,7 +19,6 @@ export function DataSourcesSection() {
 
   return (
     <>
-      <ListSectionHeader>{t('settings.dataSources')}</ListSectionHeader>
       <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
         {isDemoMode ? (
           <>
@@ -35,7 +34,7 @@ export function DataSourcesSection() {
                 {t('attribution.demoData')}
               </Text>
             </View>
-            <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
+            <RowDivider />
           </>
         ) : null}
 

@@ -293,6 +293,7 @@ map keeps its icons and place labels. They are fetched by
 |-------|--------|---------|
 | Sprite sheet `ofm_f384` | OpenFreeMap | MIT |
 | Noto Sans glyph ranges | Google Fonts | SIL Open Font License 1.1 |
+| Manrope glyph ranges, rendered from `assets/fonts/` | The Manrope Project Authors, https://github.com/sharanda/manrope | SIL Open Font License 1.1, text in `assets/fonts/Manrope-OFL.txt` |
 
 Vector tiles are fetched at runtime rather than bundled and carry the
 OpenStreetMap attribution shown on every map surface.

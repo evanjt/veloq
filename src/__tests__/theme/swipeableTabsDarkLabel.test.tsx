@@ -58,6 +58,6 @@ describe('the active tab label', () => {
   });
 
   it('keeps the light link teal in the light theme', async () => {
-    expect(await activeLabelColour(false)).toBe(colors.linkTeal);
+    expect(await activeLabelColour(false)).toBe(colors.actionLink);
   });
 });

@@ -40,6 +40,7 @@ import type {
   SignalLevel,
 } from '@/features/sensors';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { NameText } from '@/shared/ui/NameText';
 
 const KIND_ICONS: Record<SensorKind, React.ComponentProps<typeof MaterialCommunityIcons>['name']> =
   {
@@ -183,7 +184,7 @@ function SensorSettingsScreenContent() {
   useForeground(() => void refreshBleAccess());
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
-  const accentText = isDark ? darkColors.linkTeal : colors.linkTeal;
+  const accentText = isDark ? darkColors.actionLink : colors.actionLink;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bg = isDark ? darkColors.background : colors.background;
 
@@ -287,13 +288,7 @@ function SensorSettingsScreenContent() {
               name: pairedLabels.get(sensor.id) ?? sensor.name,
             })}
             selected={isSource}
-            icon={
-              <MaterialCommunityIcons
-                name={KIND_ICONS[kind]}
-                size={iconSize.sm}
-                color={isSource ? colors.textOnPrimary : textSecondary}
-              />
-            }
+            icon={KIND_ICONS[kind]}
             onPress={() => handleChooseSource(sensor, kind)}
           />
         );
@@ -336,9 +331,9 @@ function SensorSettingsScreenContent() {
                   <Card variant="flat" padding="none" testID={`sensor-paired-${sensor.id}`}>
                     <View style={styles.cardRow}>
                       <View style={styles.cardBody}>
-                        <Text style={[styles.cardTitle, { color: textPrimary }]} numberOfLines={1}>
+                        <NameText style={[styles.cardTitle, { color: textPrimary }]}>
                           {pairedLabels.get(sensor.id)}
-                        </Text>
+                        </NameText>
                         {renderSources(sensor)}
                         {liveSamples(sensor).map(({ kind, sample }) => (
                           <Text
@@ -415,13 +410,7 @@ function SensorSettingsScreenContent() {
                     ? t('sensors.stopScan', 'Stop scanning')
                     : t('sensors.scan', 'Scan for sensors')
                 }
-                icon={
-                  <MaterialCommunityIcons
-                    name="bluetooth-connect"
-                    size={iconSize.md}
-                    color={colors.textOnPrimary}
-                  />
-                }
+                icon="bluetooth-connect"
               />
               <Text style={[styles.purpose, { color: textSecondary }]}>{t('sensors.purpose')}</Text>
 
@@ -444,12 +433,9 @@ function SensorSettingsScreenContent() {
                     >
                       <View style={styles.cardRow}>
                         <View style={styles.cardBody}>
-                          <Text
-                            style={[styles.cardTitle, { color: textPrimary }]}
-                            numberOfLines={1}
-                          >
+                          <NameText style={[styles.cardTitle, { color: textPrimary }]}>
                             {label}
-                          </Text>
+                          </NameText>
                           {renderKinds(sensor.kinds, textSecondary)}
                         </View>
                         {level != null && (

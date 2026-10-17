@@ -10,10 +10,11 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { formatDistance, formatElevation } from '@/shared/format/format';
-import { brand, colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
 import type { PreviewSection, PreviewSectionStatus } from 'veloqrs';
 import { IconButton } from '@/shared/ui';
 import { formatPercent } from '@/shared/format';
+import { NameText } from '@/shared/ui/NameText';
 
 const STATUS_KEYS: Record<PreviewSectionStatus, string> = {
   unchanged: 'settings.previewStatusUnchanged',
@@ -41,7 +42,7 @@ export function PreviewSectionPopover({ section, newNumber, onClose }: PreviewSe
 
   const statusColor: Record<PreviewSectionStatus, string> = {
     unchanged: textSecondary,
-    changed: brand.tealLight,
+    changed: isDark ? darkColors.actionLink : colors.actionLink,
     new: success,
     gone: danger,
   };
@@ -52,9 +53,9 @@ export function PreviewSectionPopover({ section, newNumber, onClose }: PreviewSe
       testID="preview-section-popover"
     >
       <View style={styles.headerRow}>
-        <Text style={[styles.name, { color: textPrimary }]} numberOfLines={1}>
+        <NameText style={[styles.name, { color: textPrimary }]}>
           {section.name ?? t('settings.previewNewSectionName', { number: newNumber ?? 1 })}
-        </Text>
+        </NameText>
         <IconButton
           onPress={onClose}
           accessibilityLabel={t('common.close')}

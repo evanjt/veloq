@@ -2,6 +2,9 @@
  * Scenario: the activity list and the timeline's oldest date are read from
  * SQLite. A window the launch sync did not cover has to be requested once, and
  * a corrupt row must not take the feed down.
+ *
+ * A window that failed for the connection is the engine's to ask again, on the
+ * online edge it is pushed, so the reconnect edge asks nothing from here.
  */
 
 import { StartOutcome } from 'veloqrs';
@@ -72,6 +75,15 @@ beforeEach(() => {
 afterEach(() => {
   client.clear();
 });
+
+/** Drop the connection and bring it back, letting every effect and refetch run. */
+async function reconnect(rerender: (props: object) => Promise<void> | void): Promise<void> {
+  mockIsOnline = false;
+  await act(async () => await rerender({}));
+  mockIsOnline = true;
+  await act(async () => await rerender({}));
+  await act(async () => await new Promise((resolve) => setTimeout(resolve, 0)));
+}
 
 describe('useActivities', () => {
   it('parses stored bodies, keeping fields no Rust type models', async () => {
@@ -176,17 +188,14 @@ describe('useActivities', () => {
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
   });
 
-  it('asks again on the reconnect edge', async () => {
+  it('leaves a window to the engine on the reconnect edge', async () => {
     const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
     const { rerender } = await renderHook(() => useActivities(opts), { wrapper });
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
 
-    mockIsOnline = false;
-    await act(async () => await rerender({}));
-    mockIsOnline = true;
-    await act(async () => await rerender({}));
+    await reconnect(rerender);
 
-    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
+    expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1);
   });
 
   it('keeps an accepted window to one ask while the connection holds', async () => {
@@ -332,16 +341,13 @@ describe('useInfiniteActivities', () => {
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
   });
 
-  it('re-asks for the feed window on the reconnect edge', async () => {
+  it('leaves the feed window to the engine on the reconnect edge', async () => {
     const { rerender } = await renderHook(() => useInfiniteActivities(), { wrapper });
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
 
-    mockIsOnline = false;
-    await act(async () => await rerender({}));
-    mockIsOnline = true;
-    await act(async () => await rerender({}));
+    await reconnect(rerender);
 
-    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
+    expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -373,6 +379,16 @@ describe('useRangeActivities', () => {
     });
     await waitFor(() => expect(result.current.hasNextPage).toBe(false));
     expect(engine.syncActivitiesWindow).toHaveBeenLastCalledWith('2024-03-01', '2024-03-01');
+  });
+
+  it('leaves the range window to the engine on the reconnect edge', async () => {
+    const range = { oldest: '2024-03-01', newest: '2024-03-31' };
+    const { rerender } = await renderHook(() => useRangeActivities(range), { wrapper });
+    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
+
+    await reconnect(rerender);
+
+    expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1);
   });
 
   it('reads nothing while no range is set', async () => {

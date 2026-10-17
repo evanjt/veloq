@@ -118,7 +118,7 @@ function NamedCorridorsScreenContent() {
                     {t('namedCorridors.dormant')}
                   </Text>
                 ) : (
-                  <Text style={[styles.link, isDark && { color: darkColors.linkTeal }]}>
+                  <Text style={[styles.link, isDark && { color: darkColors.actionLink }]}>
                     {onSection(corridor)}
                   </Text>
                 )}
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
   body: { flex: 1, gap: spacing.xs, minHeight: layout.minTapTarget },
   name: { ...typography.body, color: colors.textPrimary },
   meta: { ...typography.caption, color: colors.textSecondary },
-  link: { ...typography.bodySmall, color: colors.linkTeal },
+  link: { ...typography.bodySmall, color: colors.actionLink },
   textDark: { color: darkColors.textPrimary },
   textSecondaryDark: { color: darkColors.textSecondary },
 });

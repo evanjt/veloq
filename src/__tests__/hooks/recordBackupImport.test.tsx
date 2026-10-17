@@ -141,9 +141,10 @@ it('words a refused legacy database by its refusal, never by a thrown message', 
 
 it('reports a legacy record restore and the records still waiting', async () => {
   acceptLegacyPrompt();
-  mockRestore.mockResolvedValue({ unplacedCount: 2 } as unknown as Awaited<
-    ReturnType<typeof restoreBackup>
-  >);
+  mockRestore.mockResolvedValue({
+    unplacedCount: 2,
+    drops: { notRestored: 0, namesNotRestored: 0 },
+  });
   const { result } = await renderHook(() => useImportDatabaseBackup());
 
   const outcome: { current: Awaited<ReturnType<typeof result.current.importDatabaseBackup>> } = {
@@ -169,14 +170,22 @@ describe("the picker's copy of an imported backup", () => {
       () => {
         mockFileName = 'older.veloq';
         acceptLegacyPrompt();
-        mockRestore.mockResolvedValue({} as Awaited<ReturnType<typeof restoreBackup>>);
+        mockRestore.mockResolvedValue({
+          unplacedCount: 0,
+          drops: { notRestored: 0, namesNotRestored: 0 },
+        });
       },
     ],
     [
       'a record zip',
       () => {
         mockFileName = 'veloq-backup-2026-09-30.zip';
-        (restoreRecordBackup as jest.Mock).mockResolvedValue({ placed: 3, unplaced: 0 });
+        (restoreRecordBackup as jest.Mock).mockResolvedValue({
+          placed: 3,
+          unplaced: 0,
+          notRestored: 0,
+          namesNotRestored: 0,
+        });
       },
     ],
     [

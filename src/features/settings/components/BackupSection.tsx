@@ -11,6 +11,7 @@ import {
   StatusLine,
   SwitchRow,
 } from '@/shared/ui';
+import { RowDivider } from '@/shared/ui/RowGroup';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { SyncState, SyncStep } from 'veloqrs';
@@ -85,7 +86,7 @@ import { formatFileSize, getIntlLocale } from '@/shared/format/format';
 import { getAndroidAutoBackupStatus } from '@/shared/native/androidAutoBackup';
 import { androidAutoBackupLines } from '@/features/settings/lib/androidAutoBackupLines';
 import { confirmAction, inform } from '@/shared/ui/dialog';
-import { showRestoreNotice } from '@/features/settings/lib/restoreNotice';
+import { restoreDropLines, showRestoreNotice } from '@/features/settings/lib/restoreNotice';
 
 /** The entries one carrier listed, restored through that carrier. */
 interface CarrierEntries {
@@ -296,6 +297,13 @@ export function BackupSection() {
   const [restoreGeneration, setRestoreGeneration] = useState(0);
   const [unplacedRecords, setUnplacedRecords] = useState<FfiUnplacedRecord[]>([]);
   const [unplacedReadError, setUnplacedReadError] = useState(false);
+  // What the latest restore gave up on stays told after its notice has gone,
+  // since a later pass can add to it.
+  const readRestoreDrops = useEngineRead(['sections', 'detectionApplied'], [restoreGeneration]);
+  const restoreDrops = useMemo(() => {
+    const data = readRestoreDrops((engine) => engine.getBackupScreenData());
+    return data ? restoreDropLines(data, t) : [];
+  }, [readRestoreDrops, t]);
   const [resumingImport, setResumingImport] = useState(false);
   // The engine lists a paused import with the waiting records, and it is
   // shown apart from them because Try again is its action, not theirs.
@@ -517,7 +525,7 @@ export function BackupSection() {
     try {
       const result = await resumeRecordImport();
       if (result) {
-        showRestoreNotice('restored', t);
+        showRestoreNotice(result, t);
       }
     } catch {
       inform({ title: t('backup.notRestoredTitle'), message: t('backup.importPausedError') });
@@ -680,9 +688,7 @@ export function BackupSection() {
   const labelStyle = [settingsStyles.actionRowText, isDark && settingsStyles.textLight];
   const detailStyle = [styles.detail, isDark && settingsStyles.textSecondary];
   const errorLine = errorStyle(isDark);
-  const divider = (
-    <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
-  );
+  const divider = <RowDivider />;
   const anyBusy = restoringEntry !== null;
 
   const info = (...parts: string[]) => parts.join('\n\n');
@@ -905,6 +911,25 @@ export function BackupSection() {
                     disabled={anyBusy}
                   />
                 </View>
+              </View>
+            </Row>
+          </>
+        )}
+        {restoreDrops.length > 0 && (
+          <>
+            {divider}
+            <Row testID="backup-restore-drops">
+              <MaterialCommunityIcons
+                name="information-outline"
+                size={iconSize.lg}
+                color={iconColor}
+              />
+              <View style={styles.fill}>
+                {restoreDrops.map((line) => (
+                  <Text key={line} style={labelStyle}>
+                    {line}
+                  </Text>
+                ))}
               </View>
             </Row>
           </>

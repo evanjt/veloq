@@ -10,7 +10,6 @@ import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { pressable, pressRipple, SheetHeader } from '@/shared/ui';
 import { ALL_DATA_FIELDS, CALORIES_ASSUMED_AGE, useCaloriesWeight } from '@/features/recording';
 import {
-  brand,
   colors,
   colorWithOpacity,
   darkColors,
@@ -19,6 +18,7 @@ import {
   spacing,
   typography,
   stroke,
+  themePalette,
 } from '@/theme';
 import type { DataFieldType } from '@/types';
 import { tapBack } from '@/shared/app/navigation';
@@ -35,13 +35,14 @@ export interface FieldPickerSheetInput {
 function FieldPickerSheetContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const { input, resolve } = useSheetRequest<FieldPickerSheetInput, DataFieldType>();
   const selectedField = input?.selectedField ?? null;
   const caloriesWeight = useCaloriesWeight();
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const accentText = isDark ? darkColors.linkTeal : colors.linkTeal;
+  const accentText = isDark ? darkColors.actionLink : colors.actionLink;
   const border = isDark ? darkColors.border : colors.border;
 
   return (
@@ -67,16 +68,13 @@ function FieldPickerSheetContent() {
               style={pressable([
                 styles.row,
                 { borderBottomColor: border },
-                isSelected && styles.rowSelected,
+                isSelected && { backgroundColor: colorWithOpacity(palette.primary, 0.08) },
               ])}
               android_ripple={pressRipple}
               onPress={() => resolve(item)}
             >
               <View style={styles.rowLabel}>
-                <Text
-                  style={[styles.rowText, { color: isSelected ? accentText : textPrimary }]}
-                  numberOfLines={1}
-                >
+                <Text style={[styles.rowText, { color: isSelected ? accentText : textPrimary }]}>
                   {t(`recording.fields.${item}`)}
                 </Text>
                 {item === 'calories' ? (
@@ -89,7 +87,7 @@ function FieldPickerSheetContent() {
                 ) : null}
               </View>
               {isSelected ? (
-                <MaterialCommunityIcons name="check" size={iconSize.md} color={brand.teal} />
+                <MaterialCommunityIcons name="check" size={iconSize.md} color={palette.primary} />
               ) : null}
             </Pressable>
           );
@@ -116,9 +114,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderBottomWidth: stroke.hairline,
     minHeight: layout.minTapTarget,
-  },
-  rowSelected: {
-    backgroundColor: colorWithOpacity(brand.teal, 0.08),
   },
   rowLabel: {
     flex: 1,

@@ -24,6 +24,7 @@ import {
   computeIntervalBands,
   formatScrubValue,
   seriesAverage,
+  seriesUnit,
   resolveBandColour,
   type ChartMetricValue,
   type EmptyPlotCause,
@@ -206,7 +207,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
         id: s.id,
         label: s.config.label,
         value: formatScrubValue(s.config, s.rawData[originalIdx], isMetric),
-        unit: isMetric ? s.config.unit || '' : s.config.unitImperial || s.config.unit || '',
+        unit: seriesUnit(s.config, isMetric),
         color: s.config.color,
       }));
 
@@ -508,6 +509,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                 chartPaddingBottom={CHART_PADDING.bottom}
                 height={height}
                 isDark={isDark}
+                unit={seriesUnit(yAxisSeries.config, isMetric)}
                 formatYAxisValue={formatYAxisValue}
               />
             ) : null}

@@ -225,3 +225,41 @@ describe('a bars history', () => {
     expect(bottom).toBe(0);
   });
 });
+
+describe('the section changed sheet', () => {
+  const line: InsightHistory = {
+    kind: 'line',
+    points: [
+      { lat: 46.5, lng: 6.6 },
+      { lat: 46.51, lng: 6.61 },
+      { lat: 46.52, lng: 6.6 },
+    ],
+    target: '/section/quarry',
+  };
+
+  it("draws the section's line at the sheet's width, as its card does", async () => {
+    await render(<InsightDetailContent insight={insight('section_changed', line)} />);
+    await layout();
+
+    const drawing = screen.getByTestId('section-changed-line');
+    expect(drawing.props.width).toBe(320);
+  });
+
+  it('opens the section from the drawing', async () => {
+    const { tapTo } = jest.requireMock('@/shared/app/navigation');
+    tapTo.mockClear();
+    await render(<InsightDetailContent insight={insight('section_changed', line)} />);
+    await layout();
+
+    fireEvent.press(screen.getByTestId('section-changed-link'));
+    expect(tapTo).toHaveBeenCalledWith('/section/quarry');
+  });
+
+  it('draws nothing for a section whose line did not arrive', async () => {
+    await render(
+      <InsightDetailContent insight={{ ...insight('section_changed', line), supportingData: {} }} />
+    );
+
+    expect(screen.queryByTestId('section-changed-line')).toBeNull();
+  });
+});

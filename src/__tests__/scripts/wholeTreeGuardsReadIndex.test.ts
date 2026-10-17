@@ -99,6 +99,14 @@ const CASES: Record<string, Case> = {
     violation: 'export const a = <Icon name="chevron-right" />;\n',
     baseline: true,
   },
+  'lint-single-line-text': {
+    guard: 'lint-single-line-text.mjs',
+    tree: {},
+    target: 'src/app/a.tsx',
+    clean: 'export const a = 1;\n',
+    violation: 'export const a = <Text numberOfLines={1}>x</Text>;\n',
+    baseline: true,
+  },
   'lint-modal-sheets': {
     guard: 'lint-modal-sheets.mjs',
     tree: {},

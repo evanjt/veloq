@@ -22,6 +22,7 @@ import { colors, darkColors, iconSize, insightToneColor, spacing, typography } f
 import type { ActivityType, Insight, SupportingSection } from '@/types';
 import { SheetContext } from './SheetContext';
 import { composeAccessibilityLabel, ErrorState, Row } from '@/shared/ui';
+import { NameText } from '@/shared/ui/NameText';
 
 interface StalePRContentProps {
   insight: Insight;
@@ -161,12 +162,9 @@ export const StalePRContent = React.memo(function StalePRContent({ insight }: St
                         style={styles.sportIcon}
                       />
                     ) : null}
-                    <Text
-                      style={[styles.sectionName, isDark && styles.sectionNameDark]}
-                      numberOfLines={1}
-                    >
+                    <NameText style={[styles.sectionName, isDark && styles.sectionNameDark]}>
                       {name}
-                    </Text>
+                    </NameText>
                   </View>
                   {bestTime != null ? (
                     <Text style={[styles.bestTime, isDark && styles.bestTimeDark]}>{bestTime}</Text>

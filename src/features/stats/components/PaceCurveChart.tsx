@@ -17,7 +17,7 @@ import {
 import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { RangeCoverage } from 'veloqrs';
-import { BodyNotDownloaded, CardHeader, ErrorState, Row, Switch, EmptyState } from '@/shared/ui';
+import { BodyNotDownloaded, ErrorState, Row, Switch, EmptyState } from '@/shared/ui';
 import { CurveLoadingPlaceholder } from './CurveLoadingPlaceholder';
 import { paceChartSeries } from '../lib/curveChartSeries';
 import { usePaceCurve } from '../hooks/usePaceCurve';
@@ -33,6 +33,7 @@ import {
 } from '@/shared/format/format';
 import { tapTo } from '@/shared/app/navigation';
 import { formatDecimal } from '@/shared/format';
+import { NameText } from '@/shared/ui/NameText';
 
 interface PaceCurveChartProps {
   sport?: string;
@@ -225,7 +226,6 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
   if (isLoading || awaitingBody) {
     return (
       <View style={[styles.container, { height }]}>
-        <CardHeader title={t('stats.paceCurve')} />
         <CurveLoadingPlaceholder height={height} />
       </View>
     );
@@ -234,7 +234,6 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
   if (error) {
     return (
       <View style={[styles.container, { height }]}>
-        <CardHeader title={t('stats.paceCurve')} />
         <ErrorState
           variant="inline"
           error={error}
@@ -248,7 +247,6 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
   if (chartData.length === 0) {
     return (
       <View style={[styles.container, { height }]}>
-        <CardHeader title={t('stats.paceCurve')} />
         <View style={styles.emptyState}>
           {coverage === RangeCoverage.NotFetched ? (
             <BodyNotDownloaded
@@ -269,24 +267,19 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
 
   return (
     <View style={[styles.container, { height }]}>
-      {/* Header with title and the GAP toggle, which only running has */}
-      <CardHeader
-        title={t('stats.paceCurve')}
-        accessory={
-          isRunning ? (
-            <View style={styles.gapToggle}>
-              <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.gapLabel}>
-                {t('stats.gap')}
-              </Text>
-              <Switch
-                value={showGap}
-                onValueChange={setShowGap}
-                accessibilityLabel={t('stats.gap')}
-              />
-            </View>
-          ) : null
-        }
-      />
+      {/* The GAP toggle, which only running has; the section names the curve. */}
+      {isRunning ? (
+        <View style={styles.gapToggle}>
+          <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.gapLabel}>
+            {t('stats.gap')}
+          </Text>
+          <Switch
+            value={showGap}
+            onValueChange={setShowGap}
+            accessibilityLabel={t('stats.gradeAdjustedPace')}
+          />
+        </View>
+      ) : null}
 
       {/* Values row */}
       <View style={styles.valuesRow}>
@@ -335,9 +328,9 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
           onPress={handleActivityTap}
         >
           <View style={[styles.activityPill, isDark && styles.activityPillDark]}>
-            <Text style={[styles.activityLabel, isDark && styles.textLight]} numberOfLines={1}>
+            <NameText style={[styles.activityLabel, isDark && styles.textLight]}>
               {selectedActivity.name}
-            </Text>
+            </NameText>
           </View>
         </Row>
       ) : null}
@@ -411,8 +404,10 @@ const makeStyles = (palette: Palette) =>
     textLight: { color: colors.textOnDark },
     gapToggle: {
       flexDirection: 'row',
+      alignSelf: 'flex-end',
       alignItems: 'center',
       gap: spacing.xsPlus,
+      marginBottom: spacing.sm,
     },
     gapLabel: {
       ...typography.caption,

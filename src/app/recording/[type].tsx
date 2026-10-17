@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
-import { useMetricSystem } from '@/shared/app';
+import { useMetricSystem, useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { replaceTo, tapTo } from '@/shared/app/navigation';
 import { useBackIntercept } from '@/shared/app/useBackIntercept';
@@ -33,6 +33,7 @@ import {
   useStatusPulseAnimation,
   useGpsWarningClearEffect,
   useKmSplitBannerEffect,
+  useLapBanner,
   useGpsSessionEffect,
   useInitRecordingEffect,
   RecordingCloseButton,
@@ -52,7 +53,7 @@ import {
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { useSensorSession, useSensorIssue } from '@/features/sensors';
 import { useRepresentativeRoute } from '@/features/routes';
-import { colors, spacing } from '@/theme';
+import { colors, spacing, themePalette } from '@/theme';
 import type { ActivityTypeSheetInput } from '@/app/sheets/activity-type';
 import type { FieldPickerSheetInput } from '@/app/sheets/field-picker';
 import type { RouteOverlaySheetInput } from '@/app/sheets/route-overlay';
@@ -121,6 +122,8 @@ function RecordingContent({ activityType }: { activityType: ActivityType }) {
     useRecordingScreenState();
 
   const { textPrimary, textSecondary, bg, surface, border } = useRecordingScreenColors();
+  const { isDark } = useTheme();
+  const palette = themePalette(isDark);
 
   const dataFields = useRecordingPreferences((s) => s.dataFields);
   const setSlotField = useRecordingPreferences((s) => s.setSlotField);
@@ -143,6 +146,7 @@ function RecordingContent({ activityType }: { activityType: ActivityType }) {
 
   const startTime = useRecordingStore((s) => s.startTime);
   useKmSplitBannerEffect({ mode, status, distanceLength, startTime, isMetric, setSplitBanner });
+  const lapBanner = useLapBanner();
 
   const { handlePause, handleResume, handleLap, handleStop, handleChangeType } =
     useRecordingHandlers();
@@ -339,6 +343,7 @@ function RecordingContent({ activityType }: { activityType: ActivityType }) {
             gpsWarningOpensSettings={gpsWarningOpensSettings}
             sensorIssue={sensorIssue}
             splitBanner={splitBanner}
+            lapBanner={lapBanner}
             onDismissGpsWarning={dismissGpsWarning}
           />
 
@@ -349,7 +354,7 @@ function RecordingContent({ activityType }: { activityType: ActivityType }) {
             textSecondary={textSecondary}
             surface={surface}
             border={border}
-            accent={colors.primary}
+            accent={palette.primary}
           />
         </View>
 

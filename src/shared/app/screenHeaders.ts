@@ -6,7 +6,8 @@
  * list. The recorder's route turns the platform's header on itself when it
  * shows the manual or strength form, titled with the sport. Everything else
  * takes the platform's header, titled from one i18n key,
- * which is the rule in `src/shared/ui/CLAUDE.md`. A screen has no header code
+ * which is the rule in `src/shared/ui/CLAUDE.md`. The settings hub titles the
+ * row that opens a screen from the same key, so the two never read differently. A screen has no header code
  * of its own. `overMap` is the header of a map-hero detail screen: transparent
  * and visually untitled, so the platform's back control floats over the hero.
  * A state of that screen with no hero to show takes the opaque header instead,
@@ -70,14 +71,14 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
 
   about: { titleKey: 'about.title', largeTitle: true },
   account: { titleKey: 'settings.account', largeTitle: true },
-  'backup-settings': { titleKey: 'backup.autoBackup', largeTitle: true },
+  'backup-settings': { titleKey: 'backup.title', largeTitle: true },
   'best-efforts': { titleKey: 'bestEffortsScreen.title' },
-  'cache-settings': { titleKey: 'settings.dataCache', largeTitle: true },
+  'cache-settings': { titleKey: 'settings.storage', largeTitle: true },
   'data-sources-settings': { titleKey: 'settings.dataSources', largeTitle: true },
   // No large title: on iOS 26 the dashboard scrolled under a title that never collapsed.
   debug: { title: 'Developer dashboard' },
   'detection-preview': { titleKey: 'settings.previewSections' },
-  'detection-settings': { titleKey: 'settings.sectionDetection', largeTitle: true },
+  'detection-settings': { titleKey: 'settings.routesAndSections', largeTitle: true },
   'display-settings': { titleKey: 'settings.display', largeTitle: true },
   licenses: { titleKey: 'licenses.title', largeTitle: true },
   'map-settings': { titleKey: 'settings.maps', largeTitle: true },
@@ -105,7 +106,7 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
  */
 export const TAB_HEADERS: Record<string, ScreenHeader | null> = {
   '(feed)': { titleKey: 'navigation.feed' },
-  fitness: { titleKey: 'fitnessScreen.title', largeTitle: true },
+  fitness: { titleKey: 'navigation.fitness', largeTitle: true },
   map: null,
   insights: { titleKey: 'insights.title' },
   training: { titleKey: 'healthScreen.title', largeTitle: true },

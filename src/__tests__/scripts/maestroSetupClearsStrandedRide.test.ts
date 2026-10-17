@@ -41,7 +41,7 @@ interface App {
   signedIn: boolean;
   /** A stopped ride that reopens on the review screen at launch. */
   strandedRide: boolean;
-  /** Whether the discard button fits above the fold without scrolling. */
+  /** Whether the login demo button and the discard button fit above the fold without scrolling. */
   tall: boolean;
   /** Whether the review opens on a map hero, which keeps the button below the fold. */
   mapHero: boolean;
@@ -65,7 +65,7 @@ function ids(app: App): string[] {
   const banner = app.demo ? ['demo-mode-banner'] : [];
   switch (app.screen) {
     case 'login':
-      return ['login-screen', 'login-demo-button'];
+      return ['login-screen', ...(app.tall || app.scrolled ? ['login-demo-button'] : [])];
     case 'home':
       return ['home-screen', 'record-fab', ...banner];
     case 'review':
@@ -83,9 +83,7 @@ function ids(app: App): string[] {
 
 /** Ids on the screen, whether or not they are scrolled into view. */
 function idsOnScreen(app: App): string[] {
-  return app.screen === 'review'
-    ? [...ids({ ...app, scrolled: true }), 'review-discard-button']
-    : ids(app);
+  return app.screen === 'none' ? [] : ids({ ...app, scrolled: true });
 }
 
 function texts(app: App): string[] {
@@ -289,6 +287,16 @@ describe('the shared demo setup', () => {
     expect(app.screen).toBe('home');
     expect(app.demo).toBe(true);
   });
+
+  it.each(['Android', 'iOS'] as const)(
+    'enters demo mode on %s when the largest text pushes the demo button below the fold',
+    (platform) => {
+      const app = makeApp({ platform, demo: false, signedIn: false, tall: false });
+      run(app, SETUP);
+      expect(app.screen).toBe('home');
+      expect(app.demo).toBe(true);
+    }
+  );
 
   it('discards a stranded demo ride and reaches home on a tall screen', () => {
     const app = makeApp({ strandedRide: true });

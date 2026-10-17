@@ -2,7 +2,6 @@ import React, { useCallback, useMemo, useEffect, useRef, useState } from 'react'
 import { View, ScrollView } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { logScreenRender } from '@/shared/debug/renderTimer';
-import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { useTranslation } from 'react-i18next';
 import {
   useRouteDetailData,
@@ -63,7 +62,7 @@ import type {
   FfiSectionSportCount,
   FfiSectionTrendCurves,
 } from 'veloqrs';
-import { colors, iconSize, spacing } from '@/theme';
+import { spacing } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
 const EMPTY_SPORT_COUNTS: FfiSectionSportCount[] = [];
@@ -181,7 +180,8 @@ function RouteDetailScreenContent() {
   const {
     isEditing,
     editName,
-    setEditName,
+    handleChangeName,
+    nameError,
     customName,
     nameInputRef,
     handleStartEditing,
@@ -279,13 +279,14 @@ function RouteDetailScreenContent() {
                 editable={{
                   isEditing,
                   editName,
+                  error: nameError,
                   inputRef: nameInputRef,
                   label: t('routes.routeNamePlaceholder'),
                   testIDPrefix: 'route',
                   onStartEdit: handleStartEditing,
                   onSave: handleSaveName,
                   onCancel: handleCancelEdit,
-                  onChange: setEditName,
+                  onChange: handleChangeName,
                 }}
                 accessory={
                   detail?.canNameFromPlaces ? (
@@ -394,9 +395,10 @@ function RouteDetailScreenContent() {
             <Button
               ref={exportAnchor}
               testID="route-export-gpx"
+              variant="secondary"
               label={gpxExporting ? t('export.exporting') : t('export.gpx')}
               loading={gpxExporting}
-              icon={<ChromeIcon name="share" size={iconSize.md} color={colors.textOnPrimary} />}
+              icon={{ chrome: 'share' }}
               onPress={() =>
                 exportGpx({
                   name: displayName,

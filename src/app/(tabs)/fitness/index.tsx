@@ -34,7 +34,7 @@ import {
 import { timeRangeToDays } from '@/features/wellness';
 import { useTheme, useCollapsibleSections } from '@/shared/app';
 import { INTERVALS_URLS } from '@/shared/app/constants';
-import { colors, spacing, layout } from '@/theme';
+import { colors, spacing, layout, themePalette } from '@/theme';
 import { createSharedStyles } from '@/styles';
 
 import {
@@ -88,6 +88,7 @@ function FitnessScreenContent() {
 
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const scrollEndInset = useScrollEndInset({ insetTaken: true });
   const shared = createSharedStyles(isDark);
   // A card that summarised a window links here with it, so the screen opens on
@@ -265,8 +266,8 @@ function FitnessScreenContent() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={onRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
+            tintColor={palette.primary}
+            colors={[palette.primary]}
           />
         }
       >

@@ -113,7 +113,7 @@ export function CircleOptionRow<T extends string>({
             <Text
               style={[
                 styles.label,
-                { color: selected ? palette.linkTeal : palette.textSecondary },
+                { color: selected ? palette.actionLink : palette.textSecondary },
                 selected && styles.labelSelected,
               ]}
             >

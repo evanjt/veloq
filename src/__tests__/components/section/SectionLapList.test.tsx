@@ -77,6 +77,21 @@ describe('SectionLapList', () => {
     expect(getByRole('header', { name: 'sections.laps' })).toBeTruthy();
   });
 
+  it('leaves the title off when the screen around it already carries it', async () => {
+    const { queryByRole, queryByText, getByTestId } = await render(
+      <SectionLapList
+        isDark={false}
+        showTitle={false}
+        records={records}
+        onExcludeLap={jest.fn()}
+        onIncludeLap={jest.fn()}
+      />
+    );
+    expect(getByTestId('section-lap-list')).toBeTruthy();
+    expect(queryByRole('header')).toBeNull();
+    expect(queryByText('sections.laps')).toBeNull();
+  });
+
   it('lists lapped activities only, laps in track order, with an exclude each', async () => {
     const onExcludeLap = jest.fn();
     const { getByTestId, queryByTestId, getByText } = await openAllRender(

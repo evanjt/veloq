@@ -17,7 +17,8 @@
 #
 # A tree an earlier job used is provisioned again for the next, and carries
 # what that job left in its ignored files: an install made for another
-# lockfile, a whole-directory link to the main checkout's, and the generated
+# lockfile, a whole-directory link to the main checkout's, per-entry links into
+# another tree's install, and the generated
 # bindings' declarations built from another branch, which `tsc` reads in place
 # of the bindings this tree holds.
 set -euo pipefail

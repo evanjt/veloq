@@ -1,13 +1,14 @@
 /**
- * Scenario: a symbol layer the app draws over the basemap labels itself with a
- * font stack the app does not carry.
- * Expected behaviour: every symbol layer names a stack from the bundled set, so
- * the glyphs come off disk rather than off the network.
+ * Scenario: a symbol layer, the basemap's own or one the app draws over it,
+ * labels itself with a font stack the app does not carry, or in a face other
+ * than the app's.
+ * Expected behaviour: every symbol layer names a bundled stack, Manrope first
+ * with a Noto face behind it for the glyphs Manrope lacks, so the glyphs come
+ * off disk in the app's face rather than off the network.
  *
  * With no `text-font` MapLibre uses the style spec's default, `Open Sans
- * Regular, Arial Unicode MS Regular`, which is not one of the three carried
- * stacks. The interceptor answers 404 for it and the label draws in the
- * device's own font.
+ * Regular, Arial Unicode MS Regular`, which is not a carried stack. The
+ * interceptor answers 404 for it and the label draws in the device's own font.
  */
 import { BUNDLED_GLYPH_RANGES, BUNDLED_GLYPH_STACKS } from '@/features/maps/lib/bundledGlyphs';
 import {
@@ -17,6 +18,7 @@ import {
 } from '@/features/maps/components/activityMapLayerSpecs';
 import { buildRegionalLayers } from '@/features/maps/components/regional/regionalMapLayerSpecs';
 import type { MapLayerSpec } from '@/features/maps/lib/htmlBuilders/mapSurface';
+import { resolveStyleForWebView } from '@/features/maps/lib/htmlBuilders/styleResolution';
 
 function activityLayers(creationMode: boolean): MapLayerSpec[] {
   return buildActivityLayers({
@@ -49,9 +51,18 @@ function regionalLayers(mapStyle: 'light' | 'dark' | 'satellite'): MapLayerSpec[
   });
 }
 
+/** The layers of every basemap style a map page draws under the app's own. */
+function basemapLayers(): MapLayerSpec[] {
+  return (['light', 'dark', 'satellite'] as const).flatMap((style) => {
+    const inline = resolveStyleForWebView(style).inline as { layers?: MapLayerSpec[] } | null;
+    return inline?.layers ?? [];
+  });
+}
+
 /** Every layer set the app hands to a map surface, under the inputs that draw the most. */
 function everyBuiltLayer(): MapLayerSpec[] {
   return [
+    ...basemapLayers(),
     ...activityLayers(true),
     ...activityLayers(false),
     ...regionalLayers('light'),
@@ -80,15 +91,35 @@ describe('bundled glyph stacks', () => {
     expect(missing).toEqual([]);
   });
 
+  it('finds basemap labels among them, so the base style is checked too', () => {
+    expect(basemapLayers().some((layer) => layer.layout?.['text-field'] !== undefined)).toBe(true);
+  });
+
   it('names only stacks the app carries', () => {
-    const foreign = labelledSymbolLayers().flatMap((layer) => {
-      const stacks = layer.layout?.['text-font'];
-      if (!Array.isArray(stacks)) return [];
-      return stacks
-        .filter((stack) => !BUNDLED_GLYPH_STACKS.includes(stack as string))
-        .map((stack) => `${layer.id}: ${String(stack)}`);
-    });
+    // MapLibre asks for a stack as its names joined with commas, which is the
+    // directory the bundle keeps it under.
+    const foreign = labelledSymbolLayers()
+      .map((layer) => ({ id: layer.id, stack: layer.layout?.['text-font'] }))
+      .filter(
+        ({ stack }) => !Array.isArray(stack) || !BUNDLED_GLYPH_STACKS.includes(stack.join(','))
+      )
+      .map(({ id, stack }) => `${id}: ${JSON.stringify(stack)}`);
     expect(foreign).toEqual([]);
+  });
+
+  it('draws every label in Manrope with a Noto face behind it and none in italic', () => {
+    const offFace = labelledSymbolLayers()
+      .map((layer) => ({ id: layer.id, stack: layer.layout?.['text-font'] as unknown }))
+      .filter(({ stack }) => {
+        if (!Array.isArray(stack) || stack.length !== 2) return true;
+        const [face, fallback] = stack as string[];
+        return (
+          !/^Manrope (Regular|SemiBold|Bold)$/.test(face) ||
+          !/^Noto Sans (Regular|Bold)$/.test(fallback)
+        );
+      })
+      .map(({ id, stack }) => `${id}: ${JSON.stringify(stack)}`);
+    expect(offFace).toEqual([]);
   });
 });
 

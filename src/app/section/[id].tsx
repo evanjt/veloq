@@ -11,7 +11,6 @@ import { useAfterNavigationTransition } from '@/shared/async/useAfterNavigationT
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { FLOW_SECTION_OPEN, completeFlowAfterFrame } from '@/shared/debug/flowTiming';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { useTranslation } from 'react-i18next';
 import {
   useSectionActions,
@@ -60,7 +59,7 @@ import { useReadRetry } from '@/shared/native/useEngineSubscription';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { Button, EmptyState, ErrorState, useHeroMapHeight, useBottomClearance } from '@/shared/ui';
 import { type MaterialIconName } from '@/shared/activity/activityUtils';
-import { colors, darkColors, iconSize, spacing } from '@/theme';
+import { colors, darkColors, iconSize, spacing, themePalette } from '@/theme';
 import type { RoutePoint } from '@/types';
 import type {
   FfiSectionChartPoint,
@@ -106,6 +105,7 @@ function SectionDetailScreenContent() {
     previewVersion?: string;
   }>();
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const bottomClearance = useBottomClearance();
   const mapHeight = useHeroMapHeight();
   const editMapHeight = useHeroMapHeight(EDIT_MAP_FRACTION);
@@ -349,7 +349,7 @@ function SectionDetailScreenContent() {
     );
   }
 
-  const activityColor = colors.primary;
+  const activityColor = palette.primary;
   const iconName: MaterialIconName = 'road-variant';
 
   return (
@@ -532,9 +532,10 @@ function SectionDetailScreenContent() {
                 <Button
                   ref={exportAnchor}
                   testID="section-export-gpx"
+                  variant="secondary"
                   label={gpxExporting ? t('export.exporting') : t('export.gpx')}
                   loading={gpxExporting}
-                  icon={<ChromeIcon name="share" size={iconSize.md} color={colors.textOnPrimary} />}
+                  icon={{ chrome: 'share' }}
                   onPress={() =>
                     exportGpx({
                       name: section.name || 'Section',

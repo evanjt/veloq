@@ -33,7 +33,6 @@ describe('the stats grid card label', () => {
           value: '245',
           context: 'Above your average',
           icon: 'lightning-bolt',
-          color: '#000000',
         }}
         isDark={false}
         onPress={() => {}}
@@ -47,7 +46,7 @@ describe('the stats grid card label', () => {
   it('speaks no empty context', () => {
     const tree = render(
       <StatCard
-        stat={{ title: 'Power', value: '245', icon: 'lightning-bolt', color: '#000000' }}
+        stat={{ title: 'Power', value: '245', icon: 'lightning-bolt' }}
         isDark={false}
         onPress={() => {}}
       />

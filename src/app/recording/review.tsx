@@ -330,12 +330,7 @@ function ReviewScreenContent() {
         />
 
         {/* Compact stat row */}
-        <ActivityStatsCard
-          summary={summary}
-          activityType={type}
-          textPrimary={textPrimary}
-          textSecondary={textSecondary}
-        />
+        <ActivityStatsCard summary={summary} activityType={type} />
 
         {/* Trim delta feedback */}
         {trimDelta ? (

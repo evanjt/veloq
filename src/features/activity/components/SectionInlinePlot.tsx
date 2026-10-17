@@ -34,6 +34,7 @@ import { SectionSparkline } from '@/features/routes';
 import type { SectionEncounter } from 'veloqrs';
 import type { SectionEncounterGroup } from '@/features/activity/lib/groupSectionEncounters';
 import { rowIsUnchanged } from '@/shared/ui/rowMemo';
+import { NameText } from '@/shared/ui/NameText';
 
 interface SectionInlinePlotProps {
   group: SectionEncounterGroup;
@@ -279,9 +280,9 @@ export const SectionInlinePlot = memo(
                   {index + 1}
                 </Text>
               </View>
-              <Text style={[styles.name, isDark && styles.textLight]} numberOfLines={1}>
+              <NameText style={[styles.name, isDark && styles.textLight]}>
                 {group.sectionName}
-              </Text>
+              </NameText>
               <MaterialCommunityIcons
                 name="chevron-right"
                 size={iconSize.md}

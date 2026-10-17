@@ -20,6 +20,7 @@ const mockUnplaced = jest.fn((): { kind: string; name: string | null; reason: st
   { kind: 'section_pins', name: 'Alpine climb', reason: 'activity_unavailable' },
   { kind: 'legacy_section_name', name: 'River bend', reason: 'ground_not_detected' },
 ]);
+const mockScreen = jest.fn(() => ({ notRestored: 0, namesNotRestored: 0 }));
 const mockDownload = jest.fn(async (_id: string, _path: string) => {});
 const mockImportBackup = jest.fn(async () => ({ success: true, activityCount: 0 }));
 const mockListBackups = jest.fn(async () => [
@@ -111,8 +112,18 @@ let mockSyncStatus: Record<string, unknown> | null = null;
 jest.mock('@/shared/native/useSyncStatus', () => ({ useSyncStatus: () => mockSyncStatus }));
 jest.mock('@/shared/native/useActivityCount', () => ({ useActivityCount: () => 402 }));
 jest.mock('@/shared/native/useEngineSubscription', () => ({
-  useEngineRead: () => (read: (engine: { getUnplacedBackupRecords: () => unknown }) => unknown) =>
-    read({ getUnplacedBackupRecords: () => mockUnplaced() }),
+  useEngineRead:
+    () =>
+    (
+      read: (engine: {
+        getUnplacedBackupRecords: () => unknown;
+        getBackupScreenData: () => unknown;
+      }) => unknown
+    ) =>
+      read({
+        getUnplacedBackupRecords: () => mockUnplaced(),
+        getBackupScreenData: () => mockScreen(),
+      }),
   useEngineSubscription: () => mockGeneration,
 }));
 jest.mock('@/shared/native/androidAutoBackup', () => ({
@@ -124,9 +135,21 @@ jest.mock('expo-file-system/legacy', () => ({
   deleteAsync: jest.fn(async () => {}),
 }));
 jest.mock('@/features/settings/lib/backup', () => ({
-  restoreRecordBackup: jest.fn(async () => ({ placed: 2, unplaced: 1, missingActivityIds: [] })),
+  restoreRecordBackup: jest.fn(async () => ({
+    placed: 2,
+    unplaced: 1,
+    missingActivityIds: [],
+    notRestored: 0,
+    namesNotRestored: 0,
+  })),
   restoreDatabaseBackup: jest.fn(),
-  resumeRecordImport: jest.fn(async () => ({ placed: 2, unplaced: 0, missingActivityIds: [] })),
+  resumeRecordImport: jest.fn(async () => ({
+    placed: 2,
+    unplaced: 0,
+    missingActivityIds: [],
+    notRestored: 0,
+    namesNotRestored: 0,
+  })),
   discardRecordImport: jest.fn(async () => {}),
   // Settings is reached signed in, so nothing is held for a sign-in.
   importWaitsForSignIn: () => false,
@@ -276,6 +299,7 @@ beforeEach(() => {
   mockForgetFolder.mockClear();
   mockSyncStatus = null;
   mockUnplaced.mockReset();
+  mockScreen.mockReturnValue({ notRestored: 0, namesNotRestored: 0 });
   mockUnplaced.mockReturnValue([
     { kind: 'section_pins', name: 'Alpine climb', reason: 'activity_unavailable' },
     { kind: 'legacy_section_name', name: 'River bend', reason: 'ground_not_detected' },
@@ -416,6 +440,22 @@ it('shows records still waiting for placement as one line with their count', asy
   expect(screen.getAllByText('backup.unplacedRecords:{"count":114}')).toHaveLength(1);
   expect(screen.queryAllByText(/backup.unplacedGroundNotDetected/)).toHaveLength(0);
   expect(screen.queryAllByText(/backup.unplacedHistory/)).toHaveLength(0);
+});
+
+it('says what the latest restore gave up on after its notice has gone', async () => {
+  mockScreen.mockReturnValue({ notRestored: 26, namesNotRestored: 19 });
+  await render(<BackupSection />);
+
+  const row = await screen.findByTestId('backup-restore-drops');
+  expect(within(row).getByText('backup.namesNotRestored:{"count":19}')).toBeTruthy();
+  expect(within(row).getByText('backup.historyNotRestored:{"count":26}')).toBeTruthy();
+});
+
+it('shows no restore drops line when the latest restore gave up on nothing', async () => {
+  await render(<BackupSection />);
+
+  expect(await screen.findByTestId('backup-unplaced-records')).toBeTruthy();
+  expect(screen.queryByTestId('backup-restore-drops')).toBeNull();
 });
 
 it('names no waiting record on its own line', async () => {

@@ -6,19 +6,24 @@ import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
+  chartStreamColors,
   darkColors,
   iconSize,
   layout,
   type Palette,
   spacing,
   themedStyles,
-  typography,
 } from '@/theme';
-import { DenseText } from '@/shared/ui/DenseText';
-import { composeAccessibilityLabel, pressable, pressRipple } from '@/shared/ui';
+import {
+  composeAccessibilityLabel,
+  KeyDot,
+  StatTile,
+  pressable,
+  pressRipple,
+  useTextScaleColumns,
+} from '@/shared/ui';
 
 import type { StatDetail } from './types';
-import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 
 interface StatCardProps {
   stat: StatDetail;
@@ -26,38 +31,43 @@ interface StatCardProps {
   onPress: (stat: StatDetail) => void;
 }
 
+/** Columns the grid lays out at the default text size. */
+const GRID_COLUMNS = 3;
+
+/** A card's share of its row, leaving room for the grid's gaps between columns. */
+function cardWidth(columns: number): `${number}%` {
+  return columns === 1 ? '100%' : `${Math.floor(100 / columns) - 2}%`;
+}
+
 export const StatCard = React.memo(function StatCard({ stat, isDark, onPress }: StatCardProps) {
   const styles = themedStyles(makeStyles, isDark);
+  const width = cardWidth(useTextScaleColumns(GRID_COLUMNS));
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={composeAccessibilityLabel(stat.title, stat.value, stat.context)}
-      onLongPress={() => onPress(stat)}
       onPress={() => onPress(stat)}
-      delayLongPress={PREVIEW_HOLD_MS}
-      style={pressable(styles.statCard)}
+      style={pressable([styles.statCard, { width }])}
       android_ripple={pressRipple}
     >
-      {/* Icon with colored background */}
-      <View style={[styles.iconContainer, { backgroundColor: `${stat.color}20` }]}>
-        <MaterialCommunityIcons name={stat.icon} size={iconSize.sm} color={stat.color} />
+      {/* The icon names the measure in the secondary ink; only a stream measure
+          carries a colour, as the dot that keys it to its chart line. */}
+      <View style={styles.markRow}>
+        <View testID="stat-icon-disc" style={styles.iconContainer}>
+          <MaterialCommunityIcons name={stat.icon} size={iconSize.sm} color={styles.icon.color} />
+        </View>
+        {stat.stream ? (
+          <KeyDot testID="stat-key-dot" color={chartStreamColors[stat.stream]} />
+        ) : null}
       </View>
 
-      {/* Value and title */}
-      <View style={styles.statContent}>
-        <DenseText style={styles.statValue}>
-          {stat.value}
-          {stat.unit ? <DenseText style={styles.statUnit}> {stat.unit}</DenseText> : null}
-        </DenseText>
-        <DenseText style={styles.statTitle}>{stat.title}</DenseText>
-      </View>
-
-      {/* Context line */}
-      {stat.context ? (
-        <DenseText style={styles.contextText} numberOfLines={1}>
-          {stat.context}
-        </DenseText>
-      ) : null}
+      <StatTile
+        label={stat.title}
+        value={stat.value}
+        unit={stat.unit}
+        caption={stat.context}
+        accessible={false}
+      />
     </Pressable>
   );
 });
@@ -67,39 +77,26 @@ export const StatCard = React.memo(function StatCard({ stat, isDark, onPress }: 
 const makeStyles = (palette: Palette, isDark: boolean) =>
   StyleSheet.create({
     statCard: {
-      width: '31%', // 3 columns with gaps
       backgroundColor: isDark ? darkColors.surfaceElevated : palette.background,
       borderRadius: layout.borderRadiusMd,
       padding: spacing.sm,
       position: 'relative',
     },
+    markRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: spacing.xsPlus,
+    },
     iconContainer: {
       width: 28,
       height: 28,
       borderRadius: layout.borderRadiusSm,
+      backgroundColor: palette.fillNeutral,
       justifyContent: 'center',
       alignItems: 'center',
-      marginBottom: spacing.xsPlus,
     },
-    statContent: {
-      marginBottom: spacing.xxs,
-    },
-    statValue: {
-      fontSize: typography.metricValue.fontSize,
-      fontWeight: '700',
-      color: palette.textPrimary,
-    },
-    statUnit: {
-      fontSize: typography.micro.fontSize,
-      fontWeight: '600',
-      color: palette.textSecondary,
-    },
-    statTitle: {
-      ...typography.micro,
-      color: palette.textSecondary,
-    },
-    contextText: {
-      ...typography.micro,
+    icon: {
       color: palette.textSecondary,
     },
   });

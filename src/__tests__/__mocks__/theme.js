@@ -1,7 +1,7 @@
 // Mock for @/theme to avoid react-native-paper ESM import issues
 module.exports = {
   colors: {
-    primary: '#0D9488',
+    primary: '#2F6699',
     background: '#F5F5F5',
     surface: '#FFFFFF',
     textPrimary: '#1A1A1A',
@@ -13,7 +13,7 @@ module.exports = {
     chartCyan: '#06B6D4',
   },
   darkColors: {
-    primary: '#2DD4BF',
+    primary: '#3D74A8',
     background: '#18181B',
     surface: '#27272A',
     textPrimary: '#FAFAFA',
@@ -22,7 +22,7 @@ module.exports = {
     error: '#F87171',
   },
   brand: {
-    teal: '#0D9488',
+    blue600: '#2F6699',
     gold: '#F59E0B',
   },
   activityTypeColors: {

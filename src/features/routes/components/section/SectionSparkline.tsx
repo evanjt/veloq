@@ -6,7 +6,7 @@
 import React from 'react';
 import { Canvas, Circle, Path, Skia } from '@shopify/react-native-skia';
 import { polylineSvgPath } from '@/shared/charts';
-import { colors, colorWithOpacity } from '@/theme';
+import { colors, colorWithOpacity, themePalette } from '@/theme';
 import type { PerformanceDataPoint } from '@/types';
 
 interface SectionSparklineProps {
@@ -68,11 +68,16 @@ export const SectionSparkline = React.memo(function SectionSparkline({
                 cx={toX(i)}
                 cy={toY(point.speed)}
                 r={5}
-                color={colors.primary}
+                color={themePalette(isDark).primary}
                 style="stroke"
                 strokeWidth={1.5}
               />
-              <Circle cx={toX(i)} cy={toY(point.speed)} r={3} color={colors.primary} />
+              <Circle
+                cx={toX(i)}
+                cy={toY(point.speed)}
+                r={3}
+                color={themePalette(isDark).primary}
+              />
             </React.Fragment>
           );
         }

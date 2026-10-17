@@ -16,13 +16,12 @@
 import React from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { elevation } from 'veloqrs';
 
 import { useTheme } from '@/shared/app';
 import { useElevationBackfill, useRouteSettings } from '@/features/routes';
-import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { Button } from '@/shared/ui';
 import { openExplainer } from '@/shared/app/explainer';
 
@@ -113,13 +112,7 @@ export function ElevationBackfillStatus() {
           variant="ghost"
           size="sm"
           style={styles.action}
-          icon={
-            <MaterialCommunityIcons
-              name="pause-circle-outline"
-              size={iconSize.sm}
-              color={colors.primary}
-            />
-          }
+          icon="pause-circle-outline"
         />
       ) : null}
 
@@ -131,13 +124,7 @@ export function ElevationBackfillStatus() {
           variant="ghost"
           size="sm"
           style={styles.action}
-          icon={
-            <MaterialCommunityIcons
-              name="play-circle-outline"
-              size={iconSize.sm}
-              color={colors.primary}
-            />
-          }
+          icon="play-circle-outline"
         />
       ) : null}
 
@@ -162,13 +149,7 @@ export function ElevationBackfillStatus() {
         variant="ghost"
         size="sm"
         style={styles.action}
-        icon={
-          <MaterialCommunityIcons
-            name="information-outline"
-            size={iconSize.sm}
-            color={textSecondary}
-          />
-        }
+        icon="information-outline"
       />
     </View>
   );

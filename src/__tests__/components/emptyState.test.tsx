@@ -90,7 +90,7 @@ describe('EmptyState with a disc', () => {
       />
     );
 
-    expect(screen.queryByText('Scan')).toBeNull();
+    expect(screen.getByRole('button').props.accessibilityState.busy).toBe(true);
     fireEvent.press(screen.getByRole('button'));
     expect(onAction).not.toHaveBeenCalled();
   });

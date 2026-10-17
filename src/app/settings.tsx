@@ -1,6 +1,12 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
-import { ListSectionHeader, Row, ScreenSafeAreaView, ScreenScrollView } from '@/shared/ui';
+import {
+  ListSectionHeader,
+  Row,
+  RowGroup,
+  ScreenSafeAreaView,
+  ScreenScrollView,
+} from '@/shared/ui';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -28,10 +34,12 @@ import { useLanguageStore, languageLabel } from '@/shared/app/LanguageStore';
 import { useThemePreferenceStore } from '@/shared/app/ThemeProvider';
 import { useUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { tapTo } from '@/shared/app/navigation';
+import { SCREEN_HEADERS, headerTitleOf } from '@/shared/app/screenHeaders';
 import { formatFileSize, formatMonthYear, getIntlLocale } from '@/shared/format/format';
 import { getAppStorageSize } from '@/shared/storage/gpsStorage';
 import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { NameText } from '@/shared/ui/NameText';
 
 interface AccountRowProps {
   athlete?: { name?: string; profile?: string; profile_medium?: string } | undefined;
@@ -87,9 +95,9 @@ function AccountRow({
           )}
         </View>
         <View style={styles.accountInfo}>
-          <Text style={[styles.accountName, isDark && settingsStyles.textLight]} numberOfLines={1}>
+          <NameText style={[styles.accountName, isDark && settingsStyles.textLight]}>
             {athlete?.name || t('settings.account')}
-          </Text>
+          </NameText>
           <Text style={[styles.accountBadge, isDark && settingsStyles.textSecondary]}>
             {badgeLabel}
           </Text>
@@ -99,8 +107,29 @@ function AccountRow({
   );
 }
 
-function RowDivider({ isDark }: { isDark: boolean }) {
-  return <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />;
+interface SpokeRowProps {
+  /** The root-stack route the row opens, which is also where its title comes from. */
+  route: string;
+  icon: React.ComponentProps<typeof SettingsNavRow>['icon'];
+  subtitle?: string | undefined;
+  testID: string;
+}
+
+/**
+ * A hub row titled from the header of the screen it opens, so the row and the
+ * screen cannot carry two names for one place.
+ */
+function SpokeRow({ route, icon, subtitle, testID }: SpokeRowProps) {
+  const { t } = useTranslation();
+  return (
+    <SettingsNavRow
+      icon={icon}
+      title={headerTitleOf(SCREEN_HEADERS[route], t)}
+      subtitle={subtitle}
+      onPress={() => tapTo(`/${route}`)}
+      testID={testID}
+    />
+  );
 }
 
 function SettingsScreenContent() {
@@ -161,7 +190,7 @@ function SettingsScreenContent() {
     });
   }, [oldest, t]);
 
-  // Subtitle: Routes & Sections
+  // Subtitle: Routes & sections
   const routeMatchingEnabled = useRouteSettings((s) => s.settings.enabled);
   const detectionSubtitle = useMemo(
     () => (routeMatchingEnabled ? t('common.on') : t('common.off')),
@@ -200,8 +229,6 @@ function SettingsScreenContent() {
     getAppStorageSize().then(setTotalCacheSize);
   }, []);
 
-  const nav = useCallback((path: string) => () => tapTo(path), []);
-
   return (
     <ScreenSafeAreaView
       testID="settings-screen"
@@ -220,64 +247,73 @@ function SettingsScreenContent() {
           isDark={isDark}
         />
 
+        <RecordingPermissionSection />
+
         {/* Grouped by what the athlete is doing, not by which subsystem owns
               the screen: that is how the heatmap toggle came to sit under sync. */}
         <ListSectionHeader testID="settings-group-shows">
           {t('settings.groupShows', 'Appearance')}
         </ListSectionHeader>
         <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
-          <SettingsNavRow
-            icon="palette-outline"
-            title={t('settings.display')}
-            subtitle={displaySubtitle}
-            onPress={nav('/display-settings')}
-            testID="settings-nav-display"
-          />
-          <RowDivider isDark={isDark} />
-          <SettingsNavRow
-            icon="map"
-            title={t('settings.maps')}
-            subtitle={mapsSubtitle}
-            onPress={nav('/map-settings')}
-            testID="settings-nav-maps"
-          />
-          <RowDivider isDark={isDark} />
-          <SettingsNavRow
-            icon="card-text-outline"
-            title={t('settings.summaryCard')}
-            subtitle={summaryCardEnabled ? t('common.on') : t('common.off')}
-            onPress={nav('/summary-card-settings')}
-            testID="settings-nav-summary-card"
-          />
+          <RowGroup>
+            <SpokeRow
+              route="display-settings"
+              icon="palette-outline"
+              subtitle={displaySubtitle}
+              testID="settings-nav-display"
+            />
+            <SpokeRow
+              route="map-settings"
+              icon="map"
+              subtitle={mapsSubtitle}
+              testID="settings-nav-maps"
+            />
+            <SpokeRow
+              route="summary-card-settings"
+              icon="card-text-outline"
+              subtitle={summaryCardEnabled ? t('common.on') : t('common.off')}
+              testID="settings-nav-summary-card"
+            />
+          </RowGroup>
         </View>
 
+        {/* Notifications report on the activities a sync brings in, and data
+              sources name where those activities come from. */}
         <ListSectionHeader testID="settings-group-collects">
           {t('settings.groupCollects', 'Data & recording')}
         </ListSectionHeader>
         <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
-          <SettingsNavRow
-            icon="sync"
-            title={t('settings.localDataRange', 'Local data range')}
-            subtitle={syncSubtitle}
-            onPress={nav('/sync-settings')}
-            testID="settings-nav-sync"
-          />
-          <RowDivider isDark={isDark} />
-          <SettingsNavRow
-            icon="record-circle-outline"
-            title={t('recording.settings')}
-            subtitle={recordingSubtitle}
-            onPress={nav('/recording-settings')}
-            testID="settings-nav-recording"
-          />
-          <RowDivider isDark={isDark} />
-          <SettingsNavRow
-            icon="bluetooth"
-            title={t('sensors.title')}
-            subtitle={sensorsSubtitle}
-            onPress={nav('/sensor-settings')}
-            testID="settings-nav-sensors"
-          />
+          <RowGroup>
+            <SpokeRow
+              route="sync-settings"
+              icon="sync"
+              subtitle={syncSubtitle}
+              testID="settings-nav-sync"
+            />
+            <SpokeRow
+              route="recording-settings"
+              icon="record-circle-outline"
+              subtitle={recordingSubtitle}
+              testID="settings-nav-recording"
+            />
+            <SpokeRow
+              route="sensor-settings"
+              icon="bluetooth"
+              subtitle={sensorsSubtitle}
+              testID="settings-nav-sensors"
+            />
+            <SpokeRow
+              route="notification-settings"
+              icon="bell-outline"
+              subtitle={notificationsEnabled ? t('common.on') : t('common.off')}
+              testID="settings-nav-notifications"
+            />
+            <SpokeRow
+              route="data-sources-settings"
+              icon="link-variant"
+              testID="settings-nav-data-sources"
+            />
+          </RowGroup>
         </View>
 
         {/* Detection is a computation, but what the athlete manages on that
@@ -286,60 +322,29 @@ function SettingsScreenContent() {
           {t('settings.groupKeeps', 'Library & backup')}
         </ListSectionHeader>
         <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
-          <SettingsNavRow
-            icon="map-marker-path"
-            title={t('settings.routesAndSections', 'Routes & sections')}
-            subtitle={detectionSubtitle}
-            onPress={nav('/detection-settings')}
-            testID="settings-nav-detection"
-          />
-          <RowDivider isDark={isDark} />
-          <SettingsNavRow
-            icon="cloud-sync-outline"
-            title={t('backup.autoBackup')}
-            subtitle={lastBackupText}
-            onPress={nav('/backup-settings')}
-            testID="settings-nav-backup"
-          />
-          <RowDivider isDark={isDark} />
-          <SettingsNavRow
-            icon="database-outline"
-            title={t('settings.cacheAndDatabase', 'Cache & Storage')}
-            subtitle={formatFileSize(totalCacheSize)}
-            onPress={nav('/cache-settings')}
-            testID="settings-nav-cache"
-          />
+          <RowGroup>
+            <SpokeRow
+              route="detection-settings"
+              icon="map-marker-path"
+              subtitle={detectionSubtitle}
+              testID="settings-nav-detection"
+            />
+            <SpokeRow
+              route="backup-settings"
+              icon="cloud-sync-outline"
+              subtitle={lastBackupText}
+              testID="settings-nav-backup"
+            />
+            <SpokeRow
+              route="cache-settings"
+              icon="database-outline"
+              subtitle={formatFileSize(totalCacheSize)}
+              testID="settings-nav-cache"
+            />
+          </RowGroup>
         </View>
 
-        {/* Background jobs is a status screen rather than a preference, and
-              it is here because it is where the app reports on itself. */}
-        <ListSectionHeader testID="settings-group-tells">
-          {t('settings.groupTells', 'Notifications')}
-        </ListSectionHeader>
-        <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
-          <SettingsNavRow
-            icon="bell-outline"
-            title={t('notifications.settings.title')}
-            subtitle={notificationsEnabled ? t('common.on') : t('common.off')}
-            onPress={nav('/notification-settings')}
-            testID="settings-nav-notifications"
-          />
-        </View>
-
-        <RecordingPermissionSection />
-
-        {/* Support inline */}
         <SupportSection />
-
-        {/* Data sources */}
-        <View style={styles.footerArea}>
-          <SettingsNavRow
-            icon="link-variant"
-            title={t('settings.dataSources')}
-            onPress={nav('/data-sources-settings')}
-            testID="settings-nav-data-sources"
-          />
-        </View>
 
         <FooterSection />
       </ScreenScrollView>
@@ -382,10 +387,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textSecondary,
     marginTop: spacing.xxs,
-  },
-  footerArea: {
-    marginTop: spacing.lg,
-    marginHorizontal: layout.screenPadding,
   },
 });
 

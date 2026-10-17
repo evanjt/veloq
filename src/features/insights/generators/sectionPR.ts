@@ -1,4 +1,4 @@
-import { formatDuration } from '@/shared/format/format';
+import { formatDuration, formatLocalDate, formatRelativeDate } from '@/shared/format/format';
 import type { Insight, SectionPR, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { confidenceFrom, maxPerCategoryFor } from '../lib/config';
@@ -37,7 +37,7 @@ export function generateSectionPRInsights(
         title: t('insights.sectionPr', { name: sectionWithSport(pr.sectionName, pr.sportType, t) }),
         subtitle: t('insights.sectionPrSubtitle', {
           time: formatDuration(pr.bestTime),
-          daysAgo: pr.daysAgo,
+          day: formatRelativeDate(formatLocalDate(new Date(now - pr.daysAgo * TIME.DAY))),
         }),
         navigationTarget: `/section/${pr.sectionId}`,
         timestamp: now,

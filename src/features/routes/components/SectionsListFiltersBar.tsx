@@ -13,12 +13,23 @@ import {
   spacing,
   typography,
   stroke,
+  themedStyles,
+  type Palette,
+  themePalette,
 } from '@/theme';
 import { pressable, pressRipple } from '@/shared/ui';
 import type { SectionsSortOption } from './SectionsList';
 
 const CHIP_HEIGHT = typography.caption.lineHeight + 2 * (spacing.xs + stroke.one);
 const chipHitSlop = slopToMinTapTarget(CHIP_HEIGHT);
+
+const activeChipStyles = (palette: Palette) =>
+  StyleSheet.create({
+    chip: {
+      backgroundColor: palette.primary + '15',
+      borderColor: palette.primary,
+    },
+  });
 
 type HiddenFilters = {
   custom: boolean;
@@ -58,6 +69,8 @@ export function SectionsListFiltersBar({
 }: SectionsListFiltersBarProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
+  const active = themedStyles(activeChipStyles, isDark);
 
   return (
     <View style={styles.sortChipRow}>
@@ -70,7 +83,7 @@ export function SectionsListFiltersBar({
               style={pressable([
                 styles.sortChip,
                 isDark && styles.sortChipDark,
-                isActive && styles.sortChipActive,
+                isActive && active.chip,
               ])}
               android_ripple={pressRipple}
               onPress={() => onSortChange(chip.key)}
@@ -84,7 +97,7 @@ export function SectionsListFiltersBar({
                 size={iconSize.xs}
                 color={
                   isActive
-                    ? colors.primary
+                    ? palette.primary
                     : isDark
                       ? darkColors.textSecondary
                       : colors.textSecondary
@@ -95,7 +108,7 @@ export function SectionsListFiltersBar({
                   styles.sortChipLabel,
                   isDark && styles.textSecondary,
                   isActive && styles.sortChipLabelActive,
-                  isActive && isDark && { color: darkColors.linkTeal },
+                  isActive && isDark && { color: darkColors.actionLink },
                 ]}
               >
                 {chip.label}
@@ -108,7 +121,7 @@ export function SectionsListFiltersBar({
           style={pressable([
             styles.sortChip,
             isDark && styles.sortChipDark,
-            !hiddenFilters.custom && styles.sortChipActive,
+            !hiddenFilters.custom && active.chip,
           ])}
           android_ripple={pressRipple}
           onPress={() => onFilterPress('custom')}
@@ -122,7 +135,7 @@ export function SectionsListFiltersBar({
             size={iconSize.xs}
             color={
               !hiddenFilters.custom
-                ? colors.primary
+                ? palette.primary
                 : isDark
                   ? darkColors.textSecondary
                   : colors.textSecondary
@@ -133,7 +146,7 @@ export function SectionsListFiltersBar({
               styles.sortChipLabel,
               isDark && styles.textSecondary,
               !hiddenFilters.custom && styles.sortChipLabelActive,
-              !hiddenFilters.custom && isDark && { color: darkColors.linkTeal },
+              !hiddenFilters.custom && isDark && { color: darkColors.actionLink },
             ]}
           >
             {t('routes.customCount', { count: customCount })}
@@ -145,7 +158,7 @@ export function SectionsListFiltersBar({
           style={pressable([
             styles.sortChip,
             isDark && styles.sortChipDark,
-            !hiddenFilters.disabled && styles.sortChipActive,
+            !hiddenFilters.disabled && active.chip,
           ])}
           android_ripple={pressRipple}
           onPress={() => onFilterPress('disabled')}
@@ -159,7 +172,7 @@ export function SectionsListFiltersBar({
             size={iconSize.xs}
             color={
               !hiddenFilters.disabled
-                ? colors.primary
+                ? palette.primary
                 : isDark
                   ? darkColors.textSecondary
                   : colors.textSecondary
@@ -170,7 +183,7 @@ export function SectionsListFiltersBar({
               styles.sortChipLabel,
               isDark && styles.textSecondary,
               !hiddenFilters.disabled && styles.sortChipLabelActive,
-              !hiddenFilters.disabled && isDark && { color: darkColors.linkTeal },
+              !hiddenFilters.disabled && isDark && { color: darkColors.actionLink },
             ]}
           >
             {t('sections.removedCount', { count: trueDisabledCount })}
@@ -182,7 +195,7 @@ export function SectionsListFiltersBar({
           style={pressable([
             styles.sortChip,
             isDark && styles.sortChipDark,
-            hiddenFilters.unaccepted && styles.sortChipActive,
+            hiddenFilters.unaccepted && active.chip,
           ])}
           android_ripple={pressRipple}
           onPress={() => onFilterPress('unaccepted')}
@@ -196,7 +209,7 @@ export function SectionsListFiltersBar({
             size={iconSize.xs}
             color={
               hiddenFilters.unaccepted
-                ? colors.primary
+                ? palette.primary
                 : isDark
                   ? darkColors.textSecondary
                   : colors.textSecondary
@@ -207,7 +220,7 @@ export function SectionsListFiltersBar({
               styles.sortChipLabel,
               isDark && styles.textSecondary,
               hiddenFilters.unaccepted && styles.sortChipLabelActive,
-              hiddenFilters.unaccepted && isDark && { color: darkColors.linkTeal },
+              hiddenFilters.unaccepted && isDark && { color: darkColors.actionLink },
             ]}
           >
             {t('sections.acceptedOnly')}
@@ -241,16 +254,12 @@ const styles = StyleSheet.create({
   sortChipDark: {
     borderColor: darkColors.border,
   },
-  sortChipActive: {
-    backgroundColor: colors.primary + '15',
-    borderColor: colors.primary,
-  },
   sortChipLabel: {
     ...typography.caption,
     color: colors.textSecondary,
   },
   sortChipLabelActive: {
-    color: colors.linkTeal,
+    color: colors.actionLink,
   },
   textSecondary: {
     color: darkColors.textSecondary,

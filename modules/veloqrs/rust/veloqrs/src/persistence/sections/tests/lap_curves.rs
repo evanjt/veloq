@@ -477,10 +477,10 @@ fn a_direction_holding_only_its_reference_has_no_deltas() {
 
     let after_both = FIRST_DAY + 2 * DAY;
     assert!(
-        in_range(&whole, after_both).is_none(),
+        in_range(&whole, after_both, None).is_none(),
         "the range holds no forward attempt"
     );
-    let ranged = in_range(&whole, FIRST_DAY + DAY).expect("the fading attempt is in range");
+    let ranged = in_range(&whole, FIRST_DAY + DAY, None).expect("the fading attempt is in range");
     let forward = ranged.forward.as_ref().expect("forward deltas");
     assert_eq!(
         forward.reference_activity_id, "steady",
@@ -509,6 +509,7 @@ fn held_curves(curves: Vec<Vec<f32>>) -> crate::FfiSectionLapCurves {
                 end_delta_secs: curve.last().copied(),
                 delta_secs: curve.into(),
                 split_delta_secs: splits.into(),
+                split_secs: Vec::new().into(),
             }
         })
         .collect();
@@ -521,6 +522,8 @@ fn held_curves(curves: Vec<Vec<f32>>) -> crate::FfiSectionLapCurves {
             FfiReferenceSource::Record,
             laps,
             Vec::new(),
+            None,
+            None,
         ),
         reverse: None,
     }
@@ -560,7 +563,8 @@ fn a_range_over_held_curves_shares_them_rather_than_copying() {
         "the fixture is a long route: {lowered} B"
     );
 
-    let (ranged, count, bytes) = crate::test_alloc::allocated_by(|| in_range(&held, FIRST_DAY));
+    let (ranged, count, bytes) =
+        crate::test_alloc::allocated_by(|| in_range(&held, FIRST_DAY, None));
     let ranged = ranged.expect("every attempt is in range");
     assert_eq!(ranged.forward.as_ref().expect("forward").laps.len(), 50);
     assert!(
@@ -585,9 +589,9 @@ fn a_direction_carries_the_peak_of_the_laps_it_holds() {
         curves.forward.as_ref().expect("forward").peak_delta_secs
     };
     assert_eq!(peak(&held), 20.0);
-    assert_eq!(peak(&in_range(&held, FIRST_DAY).expect("all")), 20.0);
+    assert_eq!(peak(&in_range(&held, FIRST_DAY, None).expect("all")), 20.0);
     assert_eq!(
-        peak(&in_range(&held, FIRST_DAY + 2 * DAY).expect("newest")),
+        peak(&in_range(&held, FIRST_DAY + 2 * DAY, None).expect("newest")),
         8.0
     );
 
@@ -617,6 +621,7 @@ fn split_lap(id: &str, start_index: u32, day: i64, splits: [f32; 3]) -> crate::F
         end_delta_secs: curve.last().copied().filter(|end| end.is_finite()),
         delta_secs: curve.into(),
         split_delta_secs: splits.to_vec().into(),
+        split_secs: Vec::new().into(),
     }
 }
 
@@ -652,6 +657,8 @@ fn summary_of(laps: Vec<crate::FfiLapDelta>) -> Option<crate::FfiSplitSummary> {
         FfiReferenceSource::Record,
         laps,
         Vec::new(),
+        None,
+        None,
     )
     .expect("laps beside the record")
     .split_summary
@@ -733,6 +740,8 @@ fn a_range_carries_the_summary_of_the_laps_it_keeps() {
             FfiReferenceSource::Record,
             record_and_laps(6),
             Vec::new(),
+            None,
+            None,
         ),
         reverse: None,
     };
@@ -743,7 +752,7 @@ fn a_range_carries_the_summary_of_the_laps_it_keeps() {
             .split_summary
             .is_some()
     );
-    let all = in_range(&held, FIRST_DAY).expect("all");
+    let all = in_range(&held, FIRST_DAY, None).expect("all");
     assert_eq!(
         all.forward
             .expect("forward")
@@ -752,7 +761,7 @@ fn a_range_carries_the_summary_of_the_laps_it_keeps() {
             .laps,
         vec![6, 6, 5]
     );
-    let newest = in_range(&held, FIRST_DAY + 3 * DAY).expect("four laps");
+    let newest = in_range(&held, FIRST_DAY + 3 * DAY, None).expect("four laps");
     assert!(newest.forward.expect("forward").split_summary.is_none());
 }
 
@@ -1084,6 +1093,48 @@ mod stored {
             forward.reference_activity_id.clone(),
             forward.reference_source,
         )
+    }
+
+    /// Scenario: the section screen opens on the record holder, then on an
+    /// older attempt.
+    ///
+    /// Expected behaviour: the read resolves the reference the chart opens on
+    /// for the highlighted attempt, from the one cached computation.
+    #[test]
+    fn the_section_read_opens_the_record_holder_on_the_previous_record() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let path = dir.path().join("lap_curves_default.db");
+        let db_path = path.to_str().expect("utf-8");
+        crate::persistence::read_pool::bind(db_path);
+        let _engine = engine_with(db_path, &four_records());
+
+        let opened_on = |highlight: &str| {
+            let data = crate::persistence::read_pool::with_read_conn(|conn| {
+                crate::persistence::screens::pooled::section_detail_performance(
+                    conn,
+                    "climb",
+                    0,
+                    None,
+                    Some(highlight),
+                    pooled::CurveRead::Computed,
+                )
+            })
+            .expect("reader");
+            let forward = data.curves.and_then(|c| c.forward).expect("forward deltas");
+            (
+                forward.default_reference,
+                forward.previous_record.map(|lap| lap.activity_id),
+            )
+        };
+        assert_eq!(
+            opened_on("fourth"),
+            (FfiReferenceSource::PreviousRecord, Some("second".into()))
+        );
+        assert_eq!(
+            opened_on("first"),
+            (FfiReferenceSource::Record, Some("second".into()))
+        );
     }
 
     /// Scenario: the athlete sets the slower attempt as the reference, then
@@ -1543,4 +1594,173 @@ fn a_lap_starting_and_ending_a_few_metres_inside_the_line_has_both_end_splits() 
     );
     assert!(joined.split_delta_secs[1..].iter().all(|s| s.is_finite()));
     assert!(joined.end_delta_secs.is_none());
+}
+
+/// A steady lap of the whole section in `secs` seconds, ridden on `day`.
+fn steady_lap(id: &'static str, day: i64, secs: f64) -> Lap {
+    Lap::new(
+        id,
+        day,
+        "same",
+        ride(0.0, LENGTH, false, move |_| LENGTH / secs),
+    )
+}
+
+/// Four attempts in date order: 600 s, a record of 590 s, 595 s, and the
+/// record of 580 s that stands.
+fn four_records() -> Vec<Lap> {
+    vec![
+        steady_lap("first", 0, 600.0),
+        steady_lap("second", 1, 590.0),
+        steady_lap("third", 2, 595.0),
+        steady_lap("fourth", 3, 580.0),
+    ]
+}
+
+/// Scenario: the record moved from 600 s to 590 s, a 595 s attempt came
+/// after, and 580 s holds it now.
+///
+/// Expected behaviour: the previous record is the 590 s lap, with its curve
+/// against the 580 s record, ten seconds behind at the end.
+#[test]
+fn a_direction_carries_the_lap_that_held_the_record_before() {
+    let curves = curves_of(&four_records(), None).expect("curves");
+    let forward = curves.forward.as_ref().expect("forward deltas");
+    assert_eq!(forward.reference_activity_id, "fourth");
+    let previous = forward
+        .previous_record
+        .as_ref()
+        .expect("the record was beaten once before");
+    assert_eq!(previous.activity_id, "second");
+    assert_eq!(previous.activity_date, (FIRST_DAY + DAY) as f64);
+    assert_eq!(previous.delta_secs, lap(forward, "second").delta_secs);
+    assert_near(
+        previous.end_delta_secs.expect("a whole lap"),
+        10.0,
+        0.5,
+        "590 s against 580 s",
+    );
+    assert_near(previous.delta_secs[50], 5.0, 0.5, "halfway");
+}
+
+/// Scenario: the record holder was the first lap ever ridden.
+///
+/// Expected behaviour: no lap held the record before it.
+#[test]
+fn a_record_set_on_the_first_lap_has_no_previous_record() {
+    let curves = curves_of(&reference_and_fading(), None).expect("curves");
+    assert!(curves.forward.expect("forward").previous_record.is_none());
+}
+
+/// Scenario: a time chip keeps only the laps after the previous record.
+///
+/// Expected behaviour: the previous record is held whatever the range, as
+/// the reference a new record is measured against.
+#[test]
+fn the_previous_record_is_held_outside_the_range() {
+    let whole = curves_of(&four_records(), None).expect("curves");
+    let ranged = in_range(&whole, FIRST_DAY + 2 * DAY, None).expect("two laps in range");
+    let forward = ranged.forward.expect("forward");
+    assert!(forward.laps.iter().all(|lap| lap.activity_id != "second"));
+    assert_eq!(forward.previous_record.expect("held").activity_id, "second");
+}
+
+/// Scenario: the screen highlights an attempt, and the athlete may have set
+/// a reference of their own.
+///
+/// Expected behaviour: the record measured against itself says nothing, so
+/// the default is the previous record when the record is highlighted, the
+/// record for any other attempt, and the athlete's own reference whenever
+/// one is set.
+#[test]
+fn the_engine_chooses_the_default_reference_for_the_highlighted_attempt() {
+    let whole = curves_of(&four_records(), None).expect("curves");
+    let default_for = |curves: &crate::FfiSectionLapCurves, highlight| {
+        in_range(curves, FIRST_DAY, highlight)
+            .expect("curves")
+            .forward
+            .expect("forward")
+            .default_reference
+    };
+    assert_eq!(
+        default_for(&whole, Some("fourth")),
+        FfiReferenceSource::PreviousRecord
+    );
+    assert_eq!(
+        default_for(&whole, Some("third")),
+        FfiReferenceSource::Record
+    );
+    assert_eq!(default_for(&whole, None), FfiReferenceSource::Record);
+
+    let set = curves_of(&four_records(), Some("third")).expect("curves");
+    for highlight in [Some("fourth"), Some("third"), None] {
+        assert_eq!(
+            default_for(&set, highlight),
+            FfiReferenceSource::AthleteSet,
+            "highlighting {highlight:?}"
+        );
+    }
+
+    let first_record = curves_of(&reference_and_fading(), None).expect("curves");
+    assert_eq!(
+        default_for(&first_record, Some("steady")),
+        FfiReferenceSource::Record,
+        "with no previous record the record stays the reference"
+    );
+}
+
+fn typical_of(laps: Vec<crate::FfiLapDelta>) -> Option<crate::FfiFloat32Array> {
+    compared(
+        "record".to_string(),
+        FfiReferenceSource::Record,
+        laps,
+        Vec::new(),
+        None,
+        None,
+    )
+    .expect("laps beside the record")
+    .typical_delta_secs
+}
+
+/// Scenario: six laps beside the record on a 300 m line, one a second lap
+/// of the record's own activity that stops short of the end.
+///
+/// Expected behaviour: the typical lap at each point is the hand median of
+/// the laps other than the record that reach it.
+#[test]
+fn a_direction_carries_the_typical_lap_at_every_point() {
+    let typical = typical_of(record_and_laps(6)).expect("six laps reach a median");
+    assert_floats(&typical, &[0.0, 2.5, 5.5, 5.0], "typical");
+}
+
+/// Scenario: five laps beside the record, the last point reached by four.
+///
+/// Expected behaviour: that point has no typical lap and the others do.
+#[test]
+fn a_point_under_five_laps_has_no_typical_lap() {
+    let mut laps = record_and_laps(6);
+    laps.remove(1);
+    let typical = typical_of(laps).expect("three points reach a median");
+    assert_floats(&typical, &[0.0, 3.0, 6.0, f32::NAN], "typical");
+    assert!(typical_of(record_and_laps(4)).is_none());
+}
+
+/// Scenario: the record runs a steady 4 m/s and an attempt fades to 3.2 m/s
+/// at halfway.
+///
+/// Expected behaviour: each lap carries its own time over every 100 m, 25 s
+/// at 4 m/s and 31.25 s at 3.2 m/s, so a split can be put against any other
+/// lap's.
+#[test]
+fn every_lap_carries_its_own_time_per_split() {
+    let curves = curves_of(&reference_and_fading(), None).expect("curves");
+    let forward = curves.forward.as_ref().expect("forward");
+    let steady = &lap(forward, "steady").split_secs;
+    assert_eq!(steady.len(), 10);
+    for (split, secs) in steady.iter().enumerate() {
+        assert_near(*secs, 25.0, 1.0, &format!("steady split {split}"));
+    }
+    let fading = &lap(forward, "fading").split_secs;
+    assert_near(fading[0], 25.0, 1.0, "fading first split");
+    assert_near(fading[9], 31.25, 1.0, "fading last split");
 }

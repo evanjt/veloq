@@ -85,4 +85,14 @@ describe('the running threshold section', () => {
     expect(tree.getAllByText('6:23/mi').length).toBeGreaterThan(0);
     expect(tree.queryByText('3:58/km')).toBeNull();
   });
+
+  it('names critical speed and LTHR under Threshold, not lactate threshold pace', async () => {
+    useUnitPreference.setState({ unitPreference: 'metric' });
+    const tree = await renderRunning({ thresholdPace: 4.2, runLthr: 172 });
+
+    expect(tree.getByText('Threshold')).toBeTruthy();
+    expect(tree.queryByText(/lactate/i)).toBeNull();
+    expect(tree.getByText('Critical speed')).toBeTruthy();
+    expect(tree.getByText('LTHR')).toBeTruthy();
+  });
 });

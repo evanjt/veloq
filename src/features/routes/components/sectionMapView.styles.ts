@@ -1,7 +1,6 @@
 import { StyleSheet } from 'react-native';
 
 import {
-  colors,
   colorWithOpacity,
   darkColors,
   ink,
@@ -75,8 +74,5 @@ export const styles = StyleSheet.create({
   },
   controlButtonDark: {
     backgroundColor: darkColors.surfaceCard,
-  },
-  controlButtonActive: {
-    backgroundColor: colors.primary,
   },
 });

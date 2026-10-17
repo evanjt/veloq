@@ -9,12 +9,21 @@
 // `modules/veloqrs/assets/basemap`, which Android packages as assets and iOS
 // as a resource bundle.
 //
-// The glyph set is deliberately partial. Every range of the three stacks is
-// 104 MB, which is CJK. The ranges below are 1.7 MB and cover Latin, Latin
-// Extended Additional and General Punctuation. The interceptor answers 404 for
-// any other range, which draws as a box.
+// Every label stack is Manrope with a Noto face behind it for what Manrope
+// lacks. Each bundled range file is the Noto range from the glyph host followed
+// by the Manrope range rendered from `assets/fonts`, and the renderer keeps the
+// last glyph it reads for a code point, so Manrope draws wherever it has one.
+// The Manrope ranges are rendered by `build_pbf_glyphs`
+// (`cargo install build_pbf_glyphs`), named by GLYPH_BUILDER or found on PATH.
+//
+// The glyph set is deliberately partial. Every range of the Noto faces is
+// 104 MB, which is CJK. The ranges below cover Latin, Latin Extended
+// Additional and General Punctuation. Rust fetches any other range of the Noto
+// face on a miss.
 
-import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { writeFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, copyFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -24,7 +33,13 @@ const outDir = join(root, 'modules/veloqrs/assets/basemap');
 const ORIGIN = 'https://tiles.openfreemap.org';
 const SPRITE_DIR = 'sprites/ofm_f384';
 const SPRITE_FILES = ['ofm.json', 'ofm.png', 'ofm@2x.json', 'ofm@2x.png'];
-const STACKS = ['Noto Sans Regular', 'Noto Sans Bold', 'Noto Sans Italic'];
+// Each label stack, its Manrope file and its Noto fallback, as
+// `src/features/maps/lib/bundledGlyphs.ts` names them.
+const STACKS = [
+  { face: 'Manrope Regular', file: 'Manrope-Regular', fallback: 'Noto Sans Regular' },
+  { face: 'Manrope Bold', file: 'Manrope-Bold', fallback: 'Noto Sans Bold' },
+];
+const FONT_DIR = join(root, 'assets/fonts');
 const RANGES = ['0-255', '256-511', '512-767', '768-1023', '7680-7935', '8192-8447'];
 
 const FLOOR_DIR = join(root, 'modules/veloqrs/rust/veloqrs/floor');
@@ -74,6 +89,24 @@ async function fetchFloor() {
   console.log(`ground floor ${total} B from planet ${segment}`);
 }
 
+// The Manrope ranges, rendered as signed distance fields into a scratch
+// directory holding one subdirectory per font file.
+function renderManrope() {
+  const scratch = mkdtempSync(join(tmpdir(), 'manrope-glyphs-'));
+  const fonts = join(scratch, 'in');
+  const out = join(scratch, 'out');
+  mkdirSync(fonts);
+  mkdirSync(out);
+  for (const { file } of STACKS)
+    copyFileSync(join(FONT_DIR, `${file}.ttf`), join(fonts, `${file}.ttf`));
+  const builder = process.env.GLYPH_BUILDER ?? 'build_pbf_glyphs';
+  const run = spawnSync(builder, [fonts, out], { stdio: 'inherit' });
+  if (run.error || run.status !== 0) {
+    throw new Error(`${builder} failed: install it with cargo install build_pbf_glyphs`);
+  }
+  return out;
+}
+
 async function main() {
   await fetchFloor();
   // Only the two directories written here: the map renderer sits beside them
@@ -85,12 +118,24 @@ async function main() {
   for (const file of SPRITE_FILES) {
     spriteBytes += await download(`${SPRITE_DIR}/${file}`);
   }
-  for (const stack of STACKS) {
+  const manrope = renderManrope();
+  let glyphBytes = 0;
+  for (const { face, file, fallback } of STACKS) {
+    const dir = join(outDir, 'fonts', `${face},${fallback}`);
+    mkdirSync(dir, { recursive: true });
     for (const range of RANGES) {
-      await download(`fonts/${stack}/${range}.pbf`);
+      const bytes = Buffer.concat([
+        await fetchBytes(`fonts/${fallback}/${range}.pbf`),
+        readFileSync(join(manrope, file, `${range}.pbf`)),
+      ]);
+      writeFileSync(join(dir, `${range}.pbf`), bytes);
+      glyphBytes += bytes.length;
     }
   }
-  console.log(`sprite ${spriteBytes} B, ${STACKS.length} stacks x ${RANGES.length} ranges written`);
+  rmSync(dirname(manrope), { recursive: true, force: true });
+  console.log(
+    `sprite ${spriteBytes} B, ${STACKS.length} stacks x ${RANGES.length} ranges, ${glyphBytes} B written`
+  );
 }
 
 main().catch((err) => {

@@ -38,6 +38,7 @@ export {
   computeIntervalBands,
   formatScrubValue,
   seriesAverage,
+  seriesUnit,
   type DataSeries,
   type SeriesInfo,
   type ChartMetricValue,

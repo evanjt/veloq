@@ -97,9 +97,7 @@ export const ApiKeyLoginForm = React.memo(function ApiKeyLoginForm({
           onPress={handleSubmit}
           loading={isLoading}
           disabled={!apiKey.trim()}
-          icon={
-            <MaterialCommunityIcons name="login" size={iconSize.md} color={colors.textOnPrimary} />
-          }
+          icon="login"
         />
 
         <View style={styles.localModeNote}>

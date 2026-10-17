@@ -1,10 +1,10 @@
 /**
- * Scenario: the app starts a route sync offline, then the network returns.
- * The reconnect effect was keyed on a ref object, which runs once at mount and
- * never again.
+ * Scenario: the app starts a route sync offline with tracks still owed, then
+ * the network returns.
  *
- * Expected behaviour: flipping the network from offline to online runs the
- * sync again, and a render that stays online does not.
+ * Expected behaviour: the offline pass hands the owed tracks to the engine,
+ * which starts the download itself on the online edge. The hook starts
+ * nothing when the network comes back.
  */
 import { act, renderHook } from '@testing-library/react-native';
 import { stubIdleScheduler, type IdleScheduler } from '../__shared__/idleScheduler';
@@ -31,6 +31,7 @@ jest.mock('@/features/routes/hooks/useGpsDataFetcher', () => ({
 }));
 
 const mockPollDetection = jest.fn(() => 'idle');
+const mockStartGpsPass = jest.fn(() => ({ outcome: 8, run: 0, total: 0 }));
 
 let idle: IdleScheduler;
 
@@ -50,6 +51,7 @@ describe('the route sync on reconnect', () => {
         batchFetchExerciseSets: () => 0,
         pollSectionDetection: mockPollDetection,
         getSectionDetectionProgress: () => null,
+        startGpsPass: mockStartGpsPass,
         subscribe: () => () => {},
       },
     });
@@ -60,26 +62,39 @@ describe('the route sync on reconnect', () => {
     jest.restoreAllMocks();
   });
 
-  it('syncs again when the network comes back', async () => {
+  it('hands the tracks owed offline to the engine', async () => {
+    await renderHook(() => useRouteDataSync(true));
+    await act(async () => {});
+
+    expect(mockFetchApiGps).not.toHaveBeenCalled();
+    expect(mockStartGpsPass).toHaveBeenCalledTimes(1);
+    expect((mockStartGpsPass.mock.calls[0] as unknown[])[2]).toEqual(['a1']);
+  });
+
+  it('starts nothing when the network comes back', async () => {
     const { rerender } = await renderHook(() => useRouteDataSync(true));
     await act(async () => {});
-    expect(mockFetchApiGps).not.toHaveBeenCalled();
+    const polls = mockPollDetection.mock.calls.length;
+    const handed = mockStartGpsPass.mock.calls.length;
 
     mockOnline = true;
     await rerender({});
     await act(async () => {});
 
-    expect(mockFetchApiGps).toHaveBeenCalledTimes(1);
+    expect(mockFetchApiGps).not.toHaveBeenCalled();
+    expect(mockPollDetection.mock.calls.length).toBe(polls);
+    expect(mockStartGpsPass.mock.calls.length).toBe(handed);
   });
 
-  it('does not sync again on a render that stays offline', async () => {
-    const { rerender } = await renderHook(() => useRouteDataSync(true));
-    await act(async () => {});
-    const before = mockPollDetection.mock.calls.length;
+  it('hands nothing to the engine when no track is owed', async () => {
+    const { engine } = (getNativeModule as jest.Mock)();
+    (getNativeModule as jest.Mock).mockReturnValue({
+      engine: { ...engine, getGpsFetchCandidates: () => [] },
+    });
 
-    await rerender({});
+    await renderHook(() => useRouteDataSync(true));
     await act(async () => {});
 
-    expect(mockPollDetection.mock.calls.length).toBe(before);
+    expect(mockStartGpsPass).not.toHaveBeenCalled();
   });
 });

@@ -17,6 +17,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useNetwork } from '@/shared/app/NetworkContext';
 import { useFloatingPillTop } from '@/shared/app/TopSafeAreaContext';
+import { DENSE_TEXT_SCALE } from './DenseText';
+import { FitText } from './FitText';
 import { useAnnounceOnAppear } from './useAnnounceOnAppear';
 import {
   colorWithOpacity,
@@ -59,13 +61,17 @@ export function OfflineBanner() {
           size={iconSize.sm}
           color={offlinePill.text}
         />
-        <Text style={styles.text} numberOfLines={1} testID="offline-banner-text">
+        <FitText
+          maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+          style={styles.text}
+          testID="offline-banner-text"
+        >
           {t('emptyState.offline.title')}
           <Text style={styles.subtitleText}>
             {' · '}
             {t('emptyState.offline.description')}
           </Text>
-        </Text>
+        </FitText>
       </View>
     </Animated.View>
   );

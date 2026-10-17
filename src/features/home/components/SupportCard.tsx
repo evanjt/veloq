@@ -23,6 +23,7 @@ import {
   motionPresets,
   spacing,
   typography,
+  themePalette,
 } from '@/theme';
 import { TipButtons } from '@/shared/ui/TipButtons';
 import { Card } from '@/shared/ui/Card';
@@ -55,6 +56,7 @@ export function SupportCard() {
 
 function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const { t } = useTranslation();
   const neverShowAgain = useSupportStore((s) => s.neverShowAgain);
   const remindLater = useSupportStore((s) => s.remindLater);
@@ -110,7 +112,7 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
       <Animated.View {...motionPresets.card}>
         <Card variant="raised" style={{ gap: spacing.sm }}>
           <View style={styles.header}>
-            <MaterialCommunityIcons name="heart" size={iconSize.md} color={colors.primary} />
+            <MaterialCommunityIcons name="heart" size={iconSize.md} color={palette.primary} />
             <Text style={[styles.title, isDark && styles.titleDark]}>{t('support.thankYou')}</Text>
           </View>
         </Card>
@@ -188,7 +190,7 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
                 onPress={handleSponsor}
                 label={t('support.sponsorGitHub')}
                 variant="secondary"
-                icon={<MaterialCommunityIcons name="github" size={iconSize.md} color={textColor} />}
+                icon="github"
               />
             )}
           </Animated.View>
@@ -223,7 +225,6 @@ function ActionButton({
   icon,
   label,
   onPress,
-  isDark,
 }: {
   icon: string;
   label: string;
@@ -236,13 +237,7 @@ function ActionButton({
       variant="secondary"
       onPress={onPress}
       style={styles.actionButton}
-      icon={
-        <MaterialCommunityIcons
-          name={icon as keyof typeof MaterialCommunityIcons.glyphMap}
-          size={iconSize.md}
-          color={isDark ? darkColors.textPrimary : colors.textPrimary}
-        />
-      }
+      icon={icon as keyof typeof MaterialCommunityIcons.glyphMap}
     />
   );
 }

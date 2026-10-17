@@ -27,7 +27,9 @@ function DisplaySettingsScreenContent() {
 
   return (
     <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
-      <ScreenScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
+      <ScreenScrollView
+        contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: spacing.xl }}
+      >
         <DisplaySettings
           themePreference={themePreference}
           onThemeChange={(v) => setThemePreference(v as ThemePreference)}

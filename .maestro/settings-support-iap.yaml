@@ -226,7 +226,7 @@ onFlowComplete:
 # ---- Surface 2: Home feed → SupportCard ----
 
 # Navigate back to home feed; SupportCard should now appear since
-# lastActionDate is 31 days ago, past the 7-day threshold AND dismissCount=0.
+# first use and lastActionDate are 31 days ago with enough days of use, and dismissCount=0.
 - openLink: "veloq://"
 - runFlow:
     when:

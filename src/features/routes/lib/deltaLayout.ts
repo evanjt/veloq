@@ -1,8 +1,9 @@
 /**
  * Pixel layout for the delta plot. The engine decides every lap's seconds won
- * or lost against the reference along the section, and the peak the y axis
- * scales to; this only places them: one path per lap, the zero line, where a
- * distance falls on the x axis and the grid point a touch snaps to.
+ * or lost against the reference along the section, which lap each reference
+ * is and the peak the y axis scales to; this only places them: one path per
+ * lap, the zero line, a curve moved onto another reference, where a distance
+ * falls on the x axis and the grid point a touch snaps to.
  */
 
 import { chartBoundsFor, xForValue, yForValue } from '@/shared/charts';
@@ -76,6 +77,19 @@ export function pickEmphasisedLap(
 export function scrubDeltaSecs(lap: FfiLapDelta | undefined, index: number): number | undefined {
   if (lap === undefined || !Number.isInteger(index) || index < 0) return undefined;
   return index < lap.deltaSecs.length ? lap.deltaSecs[index] : undefined;
+}
+
+/**
+ * A curve measured against another reference on the same grid: the engine
+ * measures every curve against one stored reference, so a lap against any
+ * other is the difference of the two. NaN wherever either curve has no point.
+ */
+export function rebaseCurve(curve: ArrayLike<number>, reference: ArrayLike<number>): Float32Array {
+  const rebased = new Float32Array(curve.length);
+  for (let i = 0; i < curve.length; i += 1) {
+    rebased[i] = i < reference.length ? Number(curve[i]) - Number(reference[i]) : NaN;
+  }
+  return rebased;
 }
 
 /**

@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { Text } from 'react-native-paper';
 import { useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
@@ -14,9 +15,10 @@ import {
   useSectionTimeStreamSync,
   toPerformanceRecord,
   useSectionLaps,
+  scopeLabels,
   withoutRecordMarks,
 } from '@/features/routes';
-import { colors, darkColors, layout, spacing } from '@/theme';
+import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import { ErrorState, ScreenScrollView } from '@/shared/ui';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 
@@ -55,6 +57,14 @@ function SectionLapsScreenContent() {
     const read = performance?.lapRecords.map(toPerformanceRecord) ?? [];
     return outstanding > 0 ? withoutRecordMarks(read) : read;
   }, [performance, outstanding]);
+  const scope = scopeLabels(
+    {
+      sport: performance?.sportType ?? (sport || undefined),
+      sportsOffered: performance?.sportCounts.length ?? 0,
+      range: timeRange,
+    },
+    t
+  );
   const laps = useSectionLaps(id);
   const refresh = useCallback(() => setRefreshKey((key) => key + 1), []);
   const excludeLap = useCallback(
@@ -86,6 +96,15 @@ function SectionLapsScreenContent() {
   return (
     <View style={[styles.screen, isDark && styles.screenDark]}>
       <ScreenScrollView contentContainerStyle={styles.content}>
+        {scope.length > 0 ? (
+          <Text
+            testID="section-laps-scope"
+            accessibilityLabel={scope.join(', ')}
+            style={[styles.scope, isDark && styles.scopeDark]}
+          >
+            {scope.join(' · ')}
+          </Text>
+        ) : null}
         {streamsError ? (
           <ErrorState
             variant="inline"
@@ -112,6 +131,7 @@ function SectionLapsScreenContent() {
         <SectionLapList
           isDark={isDark}
           initiallyExpanded
+          showTitle={false}
           records={records}
           onExcludeLap={excludeLap}
           onIncludeLap={includeLap}
@@ -125,6 +145,8 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   screenDark: { backgroundColor: darkColors.background },
   content: { padding: layout.screenPadding, paddingBottom: spacing.xl },
+  scope: { ...typography.bodySmall, color: colors.textSecondary, marginBottom: spacing.sm },
+  scopeDark: { color: darkColors.textSecondary },
 });
 
 export default withScreenBoundary(SectionLapsScreenContent, 'Section Laps');

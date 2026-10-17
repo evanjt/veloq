@@ -11,6 +11,7 @@ import { act, render } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 
 import { SyncRangePanel } from '@/features/settings/components/SyncRangePanel';
+import { SCREEN_HEADERS } from '@/shared/app/screenHeaders';
 
 // The maps barrel reaches the engine binding, which registers a TurboModule at
 // import time, so the graph this renders cannot load without the stub.
@@ -264,5 +265,14 @@ describe('the history slider gate', () => {
     mockSliderRangeChange?.(new Date('2026-08-01T00:00:00'), new Date());
 
     expect(mockSyncDateRange).not.toHaveBeenCalled();
+  });
+});
+
+describe('the panel under its screen title', () => {
+  it('opens on the slider rather than a header repeating the title', async () => {
+    const view = await render(<SyncRangePanel />);
+
+    const headers = view.queryAllByRole('header').map((node) => node.props.children);
+    expect(headers).not.toContain(SCREEN_HEADERS['sync-settings']?.titleKey);
   });
 });

@@ -1,6 +1,6 @@
 /**
  * Scenario: the form zone label is drawn on the summary card, the today
- * banner and the form chart, and the widget draws the
+ * banner and the fitness chart readout, and the widget draws the
  * same zone from the same catalogue of names.
  *
  * Expected behaviour: every one of them reads the athlete's language. The
@@ -13,7 +13,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react-native';
 
 import { initialiseI18n, changeLanguage } from '@/i18n';
-import { FormZoneChart } from '@/features/fitness/components/FormZoneChart';
+import { FitnessChart } from '@/features/fitness/components/FitnessChart';
 import { formZoneLabel } from '@/features/fitness/lib/fitness';
 import type { WellnessData } from '@/types';
 
@@ -31,21 +31,21 @@ describe('the form zone label', () => {
     await changeLanguage('en-AU');
   });
 
-  it('reads the athlete language on the form chart', async () => {
+  it('reads the athlete language on the fitness chart readout', async () => {
     await changeLanguage('de-DE');
 
-    await render(<FormZoneChart data={DAYS} />);
+    await render(<FitnessChart data={DAYS} />);
 
-    expect(screen.getByTestId('form-chart-zone')).toHaveTextContent('Grauzone', { exact: true });
+    expect(screen.getByTestId('fitness-form-zone')).toHaveTextContent('Grauzone', { exact: true });
     expect(screen.queryByText('Grey zone')).toBeNull();
   });
 
   it('answers in English when that is the language', async () => {
     await changeLanguage('en-AU');
 
-    await render(<FormZoneChart data={DAYS} />);
+    await render(<FitnessChart data={DAYS} />);
 
-    expect(screen.getByTestId('form-chart-zone')).toHaveTextContent('Grey zone', { exact: true });
+    expect(screen.getByTestId('fitness-form-zone')).toHaveTextContent('Grey zone', { exact: true });
   });
 
   it('names every zone in the athlete language, not just the one on screen', async () => {

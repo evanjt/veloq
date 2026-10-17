@@ -236,10 +236,10 @@ const styles = StyleSheet.create({
   },
   settingsLinkText: {
     ...typography.bodyCompact,
-    color: colors.linkTeal,
+    color: colors.actionLink,
   },
   settingsLinkTextDark: {
-    color: darkColors.linkTeal,
+    color: darkColors.actionLink,
   },
   variantChips: {
     flexDirection: 'row',

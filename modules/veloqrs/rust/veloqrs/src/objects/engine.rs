@@ -27,6 +27,12 @@ pub struct FfiRecordRestoreResult {
     pub placed: u32,
     pub unplaced: u32,
     pub missing_activity_ids: Vec<String>,
+    /// History rows the latest restore left in its backup file, every pass
+    /// so far included.
+    pub not_restored: u32,
+    /// Route names the latest restore gave up on to a merged route, every
+    /// pass so far included.
+    pub names_not_restored: u32,
 }
 
 /// What a check of a record zip learnt about the zip, once it found nothing
@@ -704,12 +710,18 @@ async fn restore_record_payload(
         .map_err(|e| VeloqError::Database { msg: e.to_string() })??
         .map_err(|msg| VeloqError::Database { msg })?;
     refuse_another_signed_in_athlete(paused.as_deref())?;
-    let result = crate::persistence::with_persistent_engine_blocking(move |engine| {
-        engine.restore_record_payload(payload)
-    })
-    .await
-    .ok_or(VeloqError::NotInitialized)?
-    .map_err(|msg| VeloqError::Database { msg })?;
+    let (result, not_restored, names_not_restored) =
+        crate::persistence::with_persistent_engine_blocking(move |engine| {
+            let result = engine.restore_record_payload(payload)?;
+            Ok::<_, String>((
+                result,
+                engine.not_restored_history_count()?,
+                engine.not_restored_name_count()?,
+            ))
+        })
+        .await
+        .ok_or(VeloqError::NotInitialized)?
+        .map_err(|msg| VeloqError::Database { msg })?;
     crate::objects::observer::notify(crate::objects::observer::Announcement::ActivitiesStored);
     crate::objects::observer::notify(crate::objects::observer::Announcement::GroupsChanged);
     crate::objects::observer::notify(crate::objects::observer::Announcement::DetectionApplied);
@@ -718,6 +730,8 @@ async fn restore_record_payload(
         placed: result.placed,
         unplaced: result.unplaced,
         missing_activity_ids: result.missing_activity_ids,
+        not_restored,
+        names_not_restored,
     })
 }
 

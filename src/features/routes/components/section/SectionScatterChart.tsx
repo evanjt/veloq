@@ -37,7 +37,7 @@ import {
   type TrendBandPoint,
 } from '@/features/routes/lib/scatterData';
 import { computeTimeAxisLabels, axisLabelsNeedDay } from '@/features/stats';
-import { colors, darkColors, iconSize, spacing, themePalette, typography } from '@/theme';
+import { chartStyles, colors, darkColors, iconSize, spacing, themePalette } from '@/theme';
 import type { FfiSectionTrendCurves } from 'veloqrs';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 import type {
@@ -541,16 +541,16 @@ export function SectionScatterChart({
 
         {/* Y-axis labels */}
         {!mini && (
-          <View style={styles.yAxisOverlay} pointerEvents="none">
+          <View style={styles.yAxisOverlay} pointerEvents="none" testID="section-scatter-y-axis">
             <Text
               maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-              style={[styles.axisLabel, isDark && styles.axisLabelDark]}
+              style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
             >
               {useTimeAxis ? formatDuration(minTime) : formatSpeedValue(maxSpeed)}
             </Text>
             <Text
               maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-              style={[styles.axisLabel, isDark && styles.axisLabelDark]}
+              style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
             >
               {useTimeAxis ? formatDuration(maxTime) : formatSpeedValue(minSpeed)}
             </Text>
@@ -566,8 +566,8 @@ export function SectionScatterChart({
               maxFontSizeMultiplier={DENSE_TEXT_SCALE}
               key={idx}
               style={[
-                styles.timeAxisLabel,
-                isDark && styles.axisLabelDark,
+                chartStyles.axisLabel,
+                isDark && chartStyles.axisLabelDark,
                 idx === 0 && styles.timeAxisLabelFirst,
                 idx === 1 && styles.timeAxisLabelMiddle,
                 idx === timeAxisLabels.length - 1 && styles.timeAxisLabelLast,
@@ -681,10 +681,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: CHART_PADDING.left,
     paddingBottom: spacing.xs,
   },
-  timeAxisLabel: {
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
-  },
   timeAxisLabelFirst: {
     textAlign: 'left',
   },
@@ -693,12 +689,5 @@ const styles = StyleSheet.create({
   },
   timeAxisLabelLast: {
     textAlign: 'right',
-  },
-  axisLabel: {
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
-  },
-  axisLabelDark: {
-    color: darkColors.textSecondary,
   },
 });

@@ -1,27 +1,14 @@
-import React, { useMemo, useRef, useCallback, useState } from 'react';
+import React, { useMemo, useRef, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 
-import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { EmptyState } from '@/shared/ui/EmptyState';
 import { useTranslation } from 'react-i18next';
 import { Line as SkiaLine, Rect, vec } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue } from 'react-native-reanimated';
-import {
-  chartStyles,
-  colors,
-  colorWithOpacity,
-  darkColors,
-  ink,
-  layout,
-  opacity,
-  type Palette,
-  spacing,
-  themedStyles,
-  typography,
-} from '@/theme';
+import { chartStyles, layout, type Palette, spacing, themedStyles, typography } from '@/theme';
 import {
   ChartCanvas,
   ChartCrosshair,
@@ -31,12 +18,12 @@ import {
   seriesTable,
   useChartColors,
   useChartGestures,
+  YAxisLabels,
   type SummarySeries,
 } from '@/shared/charts';
 import {
-  getFormZone,
+  formZoneFromLoads,
   FORM_ZONE_COLORS,
-  formZoneTextColor,
   FORM_ZONE_MARK_COLORS,
   formZoneLabel,
   FORM_ZONE_BOUNDARIES,
@@ -44,11 +31,9 @@ import {
   type FormChartPoint,
   type FormZone,
 } from '@/features/fitness/lib/fitness';
-import { displayedDay, headerDay } from '@/features/fitness/lib/pinnedDay';
-import { formatLocalDate, formatShortDate } from '@/shared/format/format';
+import { formatShortDate } from '@/shared/format/format';
 import type { WellnessData } from '@/types';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
-import { ABSENT } from '@/shared/format/absent';
 
 interface FormZoneChartProps {
   data: WellnessData[];
@@ -63,7 +48,11 @@ interface FormZoneChartProps {
   onInteractionChange?: (isInteracting: boolean) => void;
 }
 
-const CHART_PADDING = { top: 4, bottom: 4 } as const;
+// Half a label line above the top tick and below the bottom one, so each centres on its value.
+const CHART_PADDING = {
+  top: typography.caption.lineHeight / 2,
+  bottom: typography.caption.lineHeight / 2,
+} as const;
 const signedForm = (n: number) => (n > 0 ? `+${n}` : String(n === 0 ? 0 : n));
 const SERIES = { form: (d: FormChartPoint) => d.form };
 const xOf = (d: FormChartPoint) => d.x;
@@ -81,7 +70,6 @@ export const FormZoneChart = React.memo(function FormZoneChart({
   const { isDark } = useTheme();
   const styles = themedStyles(makeStyles, isDark);
   const chartColors = useChartColors();
-  const [selectedData, setSelectedData] = useState<FormChartPoint | null>(null);
   const onDateSelectRef = useRef(onDateSelect);
   const onInteractionChangeRef = useRef(onInteractionChange);
   onDateSelectRef.current = onDateSelect;
@@ -111,7 +99,6 @@ export const FormZoneChart = React.memo(function FormZoneChart({
   }, [chartData, asPercent, t]);
 
   const handleSelect = useCallback((point: FormChartPoint) => {
-    setSelectedData(point);
     onDateSelectRef.current?.(point.date, {
       fitness: point.fitness,
       fatigue: point.fatigue,
@@ -122,7 +109,6 @@ export const FormZoneChart = React.memo(function FormZoneChart({
   const handleInteractionChange = useCallback((active: boolean) => {
     onInteractionChangeRef.current?.(active);
     if (!active) {
-      setSelectedData(null);
       onDateSelectRef.current?.(null, null);
     }
   }, []);
@@ -133,7 +119,8 @@ export const FormZoneChart = React.memo(function FormZoneChart({
       if (point.form === null)
         return `${day}, ${t('systemSurfaces.spoken.noReading', { label: t('metrics.form') })}`;
       const value = `${signedForm(Math.round(point.form))}${asPercent ? '%' : ''}`;
-      const zone = getFormZone(point.form);
+      // Zoned as the fitness readout zones the day, on the rounded loads it prints.
+      const zone = formZoneFromLoads(point.fitness, point.fatigue, asPercent);
       return [day, `${t('metrics.form')} ${value}`, ...(zone ? [formZoneLabel(zone)] : [])].join(
         ', '
       );
@@ -154,19 +141,13 @@ export const FormZoneChart = React.memo(function FormZoneChart({
   // Sync with external selectedDate (from other chart)
   React.useEffect(() => {
     if (selectedDate && chartData.length > 0 && !isActive) {
-      const idx = chartData.findIndex((d) => d.date === selectedDate);
-      // A pinned day with no row has nothing to show, which is not the last
-      // day selected or the newest one.
-      setSelectedData(idx >= 0 ? chartData[idx] : null);
-      externalSelectedIdx.value = idx;
+      externalSelectedIdx.value = chartData.findIndex((d) => d.date === selectedDate);
     } else if (!selectedDate && !isActive) {
-      setSelectedData(null);
       externalSelectedIdx.value = -1;
     }
   }, [selectedDate, chartData, isActive, externalSelectedIdx]);
 
-  const newest = chartData[chartData.length - 1];
-  if (!newest) {
+  if (chartData.length === 0) {
     return <EmptyState variant="inline" title={t('fitness.noData')} />;
   }
 
@@ -175,129 +156,75 @@ export const FormZoneChart = React.memo(function FormZoneChart({
   const minForm = Math.min(-35, ...formValues);
   const maxForm = Math.max(30, ...formValues);
   const yDomain: [number, number] = [minForm, maxForm];
-
-  const header = headerDay({
-    selectedDate,
-    isActive,
-    selectedRowDate: selectedData?.date,
-    newestDate: newest.date,
-    today: formatLocalDate(new Date()),
-  });
-  const displayData = displayedDay({
-    selectedDate,
-    isActive,
-    selected: selectedData,
-    newest,
-  });
-  // The series already carries the athlete's unit at full precision, so the thresholds apply as they are.
-  const formZone = displayData && displayData.form !== null ? getFormZone(displayData.form) : null;
-  const formText =
-    displayData && displayData.form !== null
-      ? `${signedForm(Math.round(displayData.form))}${asPercent ? '%' : ''}`
-      : ABSENT;
+  // The ends and zero, each on its own value, so zero sits on the zero line.
+  // The unit, when form is a percentage, is printed once, on the top label.
+  const yTicks = [Math.round(maxForm), 0, Math.round(minForm)].map((value, i) => ({
+    value,
+    label: `${signedForm(value)}${asPercent && i === 0 ? '%' : ''}`,
+  }));
 
   return (
     <View style={styles.container}>
-      {/* Header with values - always visible */}
-      <View style={styles.header}>
-        <View style={styles.dateContainer}>
-          <Text testID="form-chart-day" style={[styles.dateText, isDark && styles.textLight]}>
-            {header.isToday ? t('time.today') : formatShortDate(header.date)}
-          </Text>
-        </View>
-        <View style={styles.valuesRow}>
-          <Text
-            testID="form-chart-value"
-            style={[
-              styles.formValue,
-              formZone
-                ? { color: formZoneTextColor(formZone, isDark) }
-                : isDark && styles.textLight,
-            ]}
-          >
-            {formText}
-          </Text>
-          {formZone ? (
-            <Text
-              testID="form-chart-zone"
-              style={[styles.zoneText, { color: formZoneTextColor(formZone, isDark) }]}
-            >
-              {formZoneLabel(formZone)}
-            </Text>
-          ) : null}
-        </View>
-      </View>
-
       <ChartSurface summary={reading.summary} table={reading.table} style={styles.plot}>
-        <GestureDetector gesture={gesture}>
-          <View
-            style={[chartStyles.chartWrapper, { height }]}
-            testID="form-chart-surface"
-            {...accessibilityProps}
-          >
-            <ChartCanvas
-              data={chartData}
-              x={xOf}
-              series={SERIES}
-              yDomain={yDomain}
-              padding={CHART_PADDING}
-              grid={5}
+        <View style={styles.plotRow}>
+          <YAxisLabels
+            ticks={yTicks}
+            domain={yDomain}
+            padding={CHART_PADDING}
+            testID="form-chart-y-axis"
+          />
+          <GestureDetector gesture={gesture}>
+            <View
+              style={[chartStyles.chartWrapper, { height }]}
+              testID="form-chart-surface"
+              {...accessibilityProps}
             >
-              {({ points, bounds, xFor, yFor }) => {
-                syncBounds(bounds);
-                // One coordinate per day, including a gap day, so a drag index is a data index.
-                syncXCoords(chartData, (d) => xFor(d.x));
-                return (
-                  <>
-                    {ZONES.map((zone) => (
-                      <ZoneBackground
-                        key={zone}
-                        bounds={bounds}
-                        minY={yFor(FORM_ZONE_BOUNDARIES[zone].max)}
-                        maxY={yFor(FORM_ZONE_BOUNDARIES[zone].min)}
-                        color={FORM_ZONE_COLORS[zone] + (zone === 'greyZone' ? '20' : '30')}
+              <ChartCanvas
+                data={chartData}
+                x={xOf}
+                series={SERIES}
+                yDomain={yDomain}
+                padding={CHART_PADDING}
+                gridValues={yTicks.map((tick) => tick.value)}
+              >
+                {({ points, bounds, xFor, yFor }) => {
+                  syncBounds(bounds);
+                  // One coordinate per day, including a gap day, so a drag index is a data index.
+                  syncXCoords(chartData, (d) => xFor(d.x));
+                  return (
+                    <>
+                      {ZONES.map((zone) => (
+                        <ZoneBackground
+                          key={zone}
+                          bounds={bounds}
+                          minY={yFor(FORM_ZONE_BOUNDARIES[zone].max)}
+                          maxY={yFor(FORM_ZONE_BOUNDARIES[zone].min)}
+                          color={FORM_ZONE_COLORS[zone] + (zone === 'greyZone' ? '20' : '30')}
+                        />
+                      ))}
+                      <SkiaLine
+                        p1={vec(bounds.left, yFor(0))}
+                        p2={vec(bounds.right, yFor(0))}
+                        color={chartColors.zeroLineSolid}
+                        strokeWidth={1}
+                        style="stroke"
                       />
-                    ))}
-                    <SkiaLine
-                      p1={vec(bounds.left, yFor(0))}
-                      p2={vec(bounds.right, yFor(0))}
-                      color={chartColors.zeroLineSolid}
-                      strokeWidth={1}
-                      style="stroke"
-                    />
-                    <CurveLine points={points.form} color={chartColors.casing} strokeWidth={2} />
-                    <CurveLine points={points.form} color={chartColors.formLine} strokeWidth={1} />
-                  </>
-                );
-              }}
-            </ChartCanvas>
+                      <CurveLine points={points.form} color={chartColors.casing} strokeWidth={2} />
+                      <CurveLine
+                        points={points.form}
+                        color={chartColors.formLine}
+                        strokeWidth={1}
+                      />
+                    </>
+                  );
+                }}
+              </ChartCanvas>
 
-            {/* Animated crosshair - runs at native 120Hz using synced point coordinates */}
-            <ChartCrosshair style={crosshairStyle} bottomOffset={4} />
-
-            {/* Y-axis labels */}
-            <View style={styles.yAxisOverlay} pointerEvents="none">
-              <Text
-                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                style={[styles.axisLabel, isDark && styles.axisLabelDark]}
-              >
-                {Math.round(maxForm)}
-              </Text>
-              <Text
-                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                style={[styles.axisLabel, isDark && styles.axisLabelDark]}
-              >
-                0
-              </Text>
-              <Text
-                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                style={[styles.axisLabel, isDark && styles.axisLabelDark]}
-              >
-                {Math.round(minForm)}
-              </Text>
+              {/* Animated crosshair - runs at native 120Hz using synced point coordinates */}
+              <ChartCrosshair style={crosshairStyle} bottomOffset={4} />
             </View>
-          </View>
-        </GestureDetector>
+          </GestureDetector>
+        </View>
       </ChartSurface>
 
       {/* Zone legend */}
@@ -345,50 +272,8 @@ const makeStyles = (palette: Palette) =>
     plot: {
       flex: 0,
     },
-    header: {
+    plotRow: {
       flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: spacing.sm,
-    },
-    dateContainer: {
-      flex: 1,
-    },
-    dateText: {
-      ...typography.bodySmallBold,
-      color: colors.textPrimary,
-    },
-    textLight: {
-      color: colors.textOnDark,
-    },
-    valuesRow: {
-      flexDirection: 'row',
-      alignItems: 'baseline',
-      gap: spacing.sm,
-    },
-    formValue: {
-      ...typography.statsValueLarge,
-    },
-    zoneText: {
-      ...typography.caption,
-    },
-    yAxisOverlay: {
-      position: 'absolute',
-      top: 4,
-      bottom: 4,
-      left: 2,
-      justifyContent: 'space-between',
-    },
-    axisLabel: {
-      fontSize: typography.pillLabel.fontSize,
-      color: palette.textSecondary,
-      backgroundColor: colorWithOpacity(ink.white, opacity.pressed),
-      paddingHorizontal: spacing.xxs,
-      borderRadius: layout.borderRadiusXs,
-    },
-    axisLabelDark: {
-      color: darkColors.textPrimary,
-      backgroundColor: darkColors.surfaceOverlay,
     },
     zoneLegend: {
       flexDirection: 'row',

@@ -20,11 +20,12 @@ export interface SizeTone {
 }
 
 /**
- * Every fill the bands use. Exported so a test can assert the text half is never
- * one of them, which is the mistake this module exists to stop repeating.
+ * Every fill the bands use that is under the text bar on the light pill.
+ * Exported so a test can assert the text half is never one of them, which is
+ * the mistake this module exists to stop repeating. The unselected band's blue
+ * is not among them: it is the light link colour too, 6.03:1 on white.
  */
 export const STATUS_FILLS = [
-  colors.primary,
   colors.success,
   colors.cautionYellow,
   colors.cautionOrange,
@@ -38,7 +39,7 @@ export const STATUS_FILLS = [
  */
 export function sectionSizeTone(pointCount: number | null, isDark = false): SizeTone {
   const p = isDark ? darkColors : colors;
-  if (pointCount === null) return { fill: p.primary, text: p.linkTeal };
+  if (pointCount === null) return { fill: p.primary, text: p.actionLink };
   if (pointCount < 2000) return { fill: p.success, text: p.successDeep };
   if (pointCount < 5000) return { fill: colors.cautionYellow, text: p.cautionYellowText };
   if (pointCount < 7000) return { fill: colors.cautionOrange, text: p.cautionOrangeText };

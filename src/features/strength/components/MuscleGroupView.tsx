@@ -11,7 +11,7 @@ import type { ExerciseSet } from 'veloqrs';
 import { useMetricSystem } from '@/shared/app';
 import { formatDateTime, formatDuration } from '@/shared/format/format';
 import {
-  brand,
+  strengthTone,
   colors,
   colorWithOpacity,
   iconSize,
@@ -22,7 +22,6 @@ import {
   mapTextShadow,
   opacity,
   spacing,
-  stroke,
   themedStyles,
   type Palette,
   typography,
@@ -34,7 +33,9 @@ import { useMuscleDetail } from '../hooks/useMuscleDetail';
 import { formatWeight } from '@/shared/format/weight';
 import { BodyPairWithLoupe } from './BodyPairWithLoupe';
 import { IconButton, useHeroHeaderBottom } from '@/shared/ui';
+import { RowDivider } from '@/shared/ui/RowGroup';
 import { ErrorState } from '@/shared/ui/ErrorState';
+import { NameText } from '@/shared/ui/NameText';
 
 interface MuscleGroupViewProps {
   activityId: string;
@@ -45,8 +46,8 @@ interface MuscleGroupViewProps {
   exerciseSets?: ExerciseSet[];
 }
 
-const PRIMARY_COLOR = brand.tealLight;
-const SECONDARY_COLOR = brand.tealDark;
+const PRIMARY_COLOR = strengthTone.primary;
+const SECONDARY_COLOR = strengthTone.secondary;
 const BODY_COLORS: readonly string[] = [SECONDARY_COLOR, PRIMARY_COLOR] as const;
 
 export function MuscleGroupView({
@@ -146,7 +147,9 @@ export function MuscleGroupView({
 
               {muscleDetail ? (
                 <>
-                  <View style={styles.detailDivider} />
+                  <View style={styles.detailDividerGap}>
+                    <RowDivider inset="none" />
+                  </View>
                   <View style={styles.detailHeaderRow}>
                     <View
                       style={[
@@ -157,9 +160,7 @@ export function MuscleGroupView({
                         },
                       ]}
                     />
-                    <Text style={styles.detailName} numberOfLines={1}>
-                      {muscleDetail.name}
-                    </Text>
+                    <Text style={styles.detailName}>{muscleDetail.name}</Text>
                     <IconButton
                       accessibilityLabel={t('common.close', 'Close')}
                       onPress={() => setSelectedMuscle(null)}
@@ -202,9 +203,7 @@ export function MuscleGroupView({
                               },
                             ]}
                           />
-                          <Text style={styles.detailExName} numberOfLines={1}>
-                            {ex.name}
-                          </Text>
+                          <NameText style={styles.detailExName}>{ex.name}</NameText>
                         </View>
                         <Text style={styles.detailExSub}>
                           {t('activity.muscle.setCount', { count: ex.sets })} ·{' '}
@@ -231,13 +230,12 @@ export function MuscleGroupView({
         pointerEvents="none"
       />
       <View style={styles.infoOverlay} pointerEvents="none">
-        <Text
+        <NameText
           accessibilityRole="header"
           style={[styles.activityName, !isDark && styles.activityNameLight]}
-          numberOfLines={1}
         >
           {activity.name}
-        </Text>
+        </NameText>
         <View style={styles.metaRow}>
           <Text style={[styles.activityDate, !isDark && styles.activityDateLight]}>
             {formatDateTime(activity.start_date_local)}
@@ -296,11 +294,8 @@ const makeStyles = (palette: Palette, isDark: boolean) =>
       color: palette.textSecondary,
       marginTop: spacing.xs,
     },
-    detailDivider: {
-      width: '100%',
-      height: stroke.hairline,
-      backgroundColor: palette.divider,
-      marginVertical: spacing.xs,
+    detailDividerGap: {
+      paddingVertical: spacing.xs,
     },
     detailHeaderRow: {
       flexDirection: 'row',

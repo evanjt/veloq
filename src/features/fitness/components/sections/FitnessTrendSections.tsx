@@ -4,7 +4,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Card, CollapsibleSection, Shimmer, SkeletonFrame } from '@/shared/ui';
+import { Card, CollapsibleSection, Shimmer, SkeletonFrame, StatTile } from '@/shared/ui';
 import { ZoneDistributionChart, FTPTrendChart, DecouplingChart } from '@/features/stats';
 import { type DecouplingSource } from '@/features/activity';
 import { useTheme } from '@/shared/app';
@@ -228,7 +228,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
           <Card variant="flat" padding="none">
             <CollapsibleSection
               testID="fitness-section-threshold"
-              title={t('statsScreen.lactateThreshold')}
+              title={t('statsScreen.threshold')}
               icon="heart-pulse"
               expanded={trendsExpanded}
               onToggle={onTrendsToggle}
@@ -257,27 +257,30 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                 ) : (
                   <View style={styles.thresholdRow}>
                     <View style={styles.thresholdItem}>
-                      <Text style={[styles.thresholdLabel, isDark && styles.thresholdLabelDark]}>
-                        {t('statsScreen.pace')}
-                      </Text>
-                      <Text style={[styles.thresholdValue, { color: sportText.Running }]}>
-                        {thresholdPace
-                          ? `${formatPaceCompact(thresholdPace, isMetric)}${paceUnitLabel(isMetric)}`
-                          : ABSENT}
-                      </Text>
+                      <StatTile
+                        testID="fitness-threshold-pace"
+                        align="center"
+                        label={t('statsScreen.criticalSpeed')}
+                        value={
+                          thresholdPace
+                            ? `${formatPaceCompact(thresholdPace, isMetric)}${paceUnitLabel(isMetric)}`
+                            : ABSENT
+                        }
+                        valueColor={sportText.Running}
+                      />
                     </View>
                     {runLthr ? (
                       <>
                         <View style={styles.thresholdDivider} />
                         <View style={styles.thresholdItem}>
-                          <Text
-                            style={[styles.thresholdLabel, isDark && styles.thresholdLabelDark]}
-                          >
-                            {t('statsScreen.heartRate')}
-                          </Text>
-                          <Text style={[styles.thresholdValue, { color: sportText.Running }]}>
-                            {runLthr} {t('units.bpm')}
-                          </Text>
+                          <StatTile
+                            testID="fitness-threshold-hr"
+                            align="center"
+                            label={t('statsScreen.lthr')}
+                            value={runLthr}
+                            unit={t('units.bpm')}
+                            valueColor={sportText.Running}
+                          />
                         </View>
                       </>
                     ) : null}
@@ -301,7 +304,9 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
               onToggle={onEfficiencyToggle}
               estimatedHeight={DECOUPLING_HEIGHT}
               headerRight={
-                decouplingSource ? (
+                // The open section's tile prints the figure, so the header carries it only
+                // while the section is closed.
+                decouplingSource && !efficiencyExpanded ? (
                   <Text style={[styles.headerValue, { color: sportText.Cycling }]}>
                     {formatPercent(decouplingSource.decoupling, 1)}
                   </Text>
@@ -363,12 +368,6 @@ const styles = StyleSheet.create({
   },
   thresholdItem: {
     flex: 1,
-    alignItems: 'center',
-  },
-  thresholdLabel: {
-    ...typography.label,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
   },
   thresholdEmpty: {
     ...typography.bodySmall,
@@ -377,9 +376,6 @@ const styles = StyleSheet.create({
   },
   thresholdLabelDark: {
     color: darkColors.textSecondary,
-  },
-  thresholdValue: {
-    ...typography.statsValue,
   },
   thresholdDivider: {
     width: 1,

@@ -8,7 +8,6 @@ import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { RangeCoverage } from 'veloqrs';
 import {
-  brand,
   chartStyles,
   colors,
   colorWithOpacity,
@@ -21,6 +20,7 @@ import {
   themedStyles,
   typography,
   verdictColor,
+  themePalette,
 } from '@/theme';
 import {
   useTrainingScreenData,
@@ -39,7 +39,7 @@ import {
   metersToLongDistance,
 } from '@/shared/format/format';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
-import { useChartGestures } from '@/shared/charts';
+import { niceScale, useChartColors, useChartGestures, YAxisLabels } from '@/shared/charts';
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { formatDecimalTrimmed } from '@/shared/format';
 
@@ -102,6 +102,13 @@ function metricValue(
 const BAR_WIDTH = 8;
 const BAR_GAP = 2;
 const BAR_RADIUS = 4; // spacing.xs
+/** The strip under the bars the month letters sit in. */
+const MONTH_STRIP = 20;
+/** Room kept above the tallest bar for its tick label. */
+const BAR_HEADROOM = 10;
+const PLOT_PADDING = { top: BAR_HEADROOM, bottom: MONTH_STRIP } as const;
+/** Steps the value axis is cut into, so the gutter carries three or four round values. */
+const Y_INTERVALS = 2;
 
 /** Where the bar pair for a month is centred, in a chart `width` wide. */
 function monthCentreX(width: number, monthIndex: number): number {
@@ -112,6 +119,7 @@ function monthCentreX(width: number, monthIndex: number): number {
 export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const styles = themedStyles(makeStyles, isDark);
   const isMetric = useMetricSystem();
   const [metric, setMetric] = useState<'hours' | 'distance' | 'tss'>('hours');
@@ -208,9 +216,13 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
   const maxValue = useMemo(() => {
     return Math.max(...data.flatMap((d) => [d.current, d.previous]));
   }, [data]);
+  const chartColors = useChartColors();
+  // The bars are scaled to the round top of the axis, so each gridline is the value its label names.
+  const yScale = useMemo(() => niceScale([0, maxValue], Y_INTERVALS), [maxValue]);
+  const axisMax = yScale.domain[1];
 
   // Color constants
-  const colorCurrent = colors.primary;
+  const colorCurrent = palette.primary;
   const colorPrevious = isDark
     ? colorWithOpacity(darkColors.chartPreviousSeason, 0.8)
     : colorWithOpacity(colors.chartPreviousSeason, opacity.pressed);
@@ -241,8 +253,8 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
     if (w === 0 || maxValue === 0) return null;
 
     const chartHeight = height;
-    const labelSpace = 20; // space for month labels below bars
-    const barAreaHeight = chartHeight - labelSpace;
+    const barAreaHeight = chartHeight - MONTH_STRIP;
+    const barSpan = barAreaHeight - BAR_HEADROOM;
 
     const recorder = Skia.PictureRecorder();
     const canvas = recorder.beginRecording(Skia.XYWHRect(0, 0, w, chartHeight));
@@ -258,7 +270,16 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
 
     const dotPaint = Skia.Paint();
     dotPaint.setAntiAlias(true);
-    dotPaint.setColor(Skia.Color(colors.primary));
+    dotPaint.setColor(Skia.Color(colorCurrent));
+
+    const gridPaint = Skia.Paint();
+    gridPaint.setAntiAlias(true);
+    gridPaint.setColor(Skia.Color(chartColors.grid));
+    gridPaint.setStrokeWidth(StyleSheet.hairlineWidth);
+    for (const tick of yScale.ticks) {
+      const y = barAreaHeight - (tick / axisMax) * barSpan;
+      canvas.drawLine(0, y, w, y, gridPaint);
+    }
 
     for (let idx = 0; idx < 12; idx++) {
       const d = data[idx];
@@ -274,7 +295,7 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
             : colorWithOpacity(ink.black, 0.08)
           : isDark
             ? colorWithOpacity(ink.white, 0.08)
-            : colorWithOpacity(brand.tealLight, 0.08);
+            : colorWithOpacity(colorCurrent, 0.08);
         highlightPaint.setColor(Skia.Color(hlColor));
         canvas.drawRRect(
           Skia.RRectXY(
@@ -295,7 +316,7 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
       const barOpacity = selectedMonth !== null && !isSelected ? 0.4 : 1.0;
 
       // Draw previous bar (left)
-      const previousHeight = maxValue > 0 ? (d.previous / maxValue) * (barAreaHeight - 10) : 0;
+      const previousHeight = (d.previous / axisMax) * barSpan;
       barPaint.setColor(Skia.Color(colorPrevious));
       barPaint.setAlphaf(barOpacity);
       if (previousHeight > 0) {
@@ -312,7 +333,7 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
       }
 
       // Draw current bar (right)
-      const currentHeight = maxValue > 0 ? (d.current / maxValue) * (barAreaHeight - 10) : 0;
+      const currentHeight = (d.current / axisMax) * barSpan;
       barPaint.setColor(Skia.Color(colorCurrent));
       barPaint.setAlphaf(barOpacity);
       if (currentHeight > 0) {
@@ -326,7 +347,7 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
 
       // Draw current month indicator dot (below label area)
       if (isCurrentMonth && !isSelected) {
-        dotPaint.setColor(Skia.Color(colors.primary));
+        dotPaint.setColor(Skia.Color(colorCurrent));
         canvas.drawCircle(groupCenterX, chartHeight - 2, 2, dotPaint);
       }
     }
@@ -335,6 +356,9 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
   }, [
     data,
     maxValue,
+    yScale,
+    axisMax,
+    chartColors.grid,
     height,
     isDark,
     selectedMonth,
@@ -354,6 +378,14 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
   }, [data, currentMonth, selectedMonth]);
 
   const notDownloaded = coverage === RangeCoverage.NotFetched;
+  // The unit is printed once, on the top label.
+  const yTicks = yScale.ticks.map((value, i) => ({
+    value,
+    label:
+      i === yScale.ticks.length - 1
+        ? `${formatDecimalTrimmed(value, 1)} ${unit}`.trim()
+        : formatDecimalTrimmed(value, 1),
+  }));
 
   if (readError != null) {
     return (
@@ -487,39 +519,47 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
       </View>
 
       {/* Chart - Skia Picture + gesture overlay */}
-      <GestureDetector gesture={panGesture}>
-        <View
-          style={{ height }}
-          onLayout={onChartLayout}
-          testID="season-chart-surface"
-          {...accessibilityProps}
-        >
-          {chartPicture ? (
-            <Canvas style={{ width: '100%', height }}>
-              <Picture picture={chartPicture} />
-            </Canvas>
-          ) : null}
-          {/* Month labels overlay */}
-          <View style={styles.monthLabelsRow} pointerEvents="none">
-            {monthLabels.map((m, idx) => (
-              <Text
-                key={idx}
-                testID={`season-month-label-${idx}`}
-                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                style={[
-                  styles.monthLabel,
-                  isDark && chartStyles.textDark,
-                  m.isCurrentMonth && styles.currentMonthLabel,
-                  m.isCurrentMonth && isDark && { color: darkColors.linkTeal },
-                  m.isSelected && styles.selectedMonthLabel,
-                ]}
-              >
-                {m.letter}
-              </Text>
-            ))}
+      <View style={[styles.plotRow, { height }]}>
+        <YAxisLabels
+          ticks={yTicks}
+          domain={yScale.domain}
+          padding={PLOT_PADDING}
+          testID="season-chart-y-axis"
+        />
+        <GestureDetector gesture={panGesture}>
+          <View
+            style={styles.plot}
+            onLayout={onChartLayout}
+            testID="season-chart-surface"
+            {...accessibilityProps}
+          >
+            {chartPicture ? (
+              <Canvas style={{ width: '100%', height }}>
+                <Picture picture={chartPicture} />
+              </Canvas>
+            ) : null}
+            {/* Month labels overlay */}
+            <View style={styles.monthLabelsRow} pointerEvents="none">
+              {monthLabels.map((m, idx) => (
+                <Text
+                  key={idx}
+                  testID={`season-month-label-${idx}`}
+                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                  style={[
+                    styles.monthLabel,
+                    isDark && chartStyles.textDark,
+                    m.isCurrentMonth && styles.currentMonthLabel,
+                    m.isCurrentMonth && isDark && { color: darkColors.actionLink },
+                    m.isSelected && styles.selectedMonthLabel,
+                  ]}
+                >
+                  {m.letter}
+                </Text>
+              ))}
+            </View>
           </View>
-        </View>
-      </GestureDetector>
+        </GestureDetector>
+      </View>
 
       {notDownloaded ? (
         <Text testID="season-comparison-partial" style={styles.partial}>
@@ -602,6 +642,12 @@ const makeStyles = (palette: Palette) =>
     tooltipDiff: {
       ...typography.pillValue,
     },
+    plotRow: {
+      flexDirection: 'row',
+    },
+    plot: {
+      flex: 1,
+    },
     monthLabelsRow: {
       position: 'absolute',
       bottom: 0,
@@ -618,7 +664,7 @@ const makeStyles = (palette: Palette) =>
     },
     currentMonthLabel: {
       fontWeight: '700',
-      color: colors.linkTeal,
+      color: colors.actionLink,
     },
     selectedMonthLabel: {
       fontWeight: '700',

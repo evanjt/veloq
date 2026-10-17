@@ -13,11 +13,21 @@ import { ABSENT, absentLabel } from '@/shared/format/absent';
 // graph.
 import { useRouteGroups } from '@/features/routes/light';
 import { useRecordingStore } from '@/features/recording';
-import { brand, colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
+import {
+  colors,
+  darkColors,
+  iconSize,
+  layout,
+  spacing,
+  typography,
+  stroke,
+  themePalette,
+} from '@/theme';
 import type { ActivityType } from '@/types';
 import { engineErrorKey } from '@/shared/native/engineError';
 import { EmptyState, pressable, pressRipple, SheetHeader } from '@/shared/ui';
 import { tapBack } from '@/shared/app/navigation';
+import { NameText } from '@/shared/ui/NameText';
 
 /**
  * The saved-route picker for the live recording map, a sheet route opened with `openSheet` and
@@ -35,6 +45,7 @@ const NO_OVERLAPS: Record<string, number> = {};
 function RouteOverlaySheetContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const isMetric = useMetricSystem();
   const { input, resolve } = useSheetRequest<RouteOverlaySheetInput, string | null>();
   const selectedRouteId = input?.selectedRouteId ?? null;
@@ -90,7 +101,7 @@ function RouteOverlaySheetContent() {
   }, [groups, distanceBucket, overlaps]);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
-  const accentText = isDark ? darkColors.linkTeal : colors.linkTeal;
+  const accentText = isDark ? darkColors.actionLink : colors.actionLink;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const border = isDark ? darkColors.border : colors.border;
 
@@ -113,7 +124,7 @@ function RouteOverlaySheetContent() {
         <MaterialCommunityIcons
           name="close-circle-outline"
           size={iconSize.md}
-          color={selectedRouteId == null ? brand.teal : textSecondary}
+          color={selectedRouteId == null ? palette.primary : textSecondary}
         />
         <Text
           style={[styles.rowTitle, { color: selectedRouteId == null ? accentText : textPrimary }]}
@@ -171,15 +182,14 @@ function RouteOverlaySheetContent() {
                 <MaterialCommunityIcons
                   name="map-marker-path"
                   size={iconSize.md}
-                  color={isSelected ? brand.teal : textSecondary}
+                  color={isSelected ? palette.primary : textSecondary}
                 />
                 <View style={styles.rowBody}>
-                  <Text
+                  <NameText
                     style={[styles.rowTitle, { color: isSelected ? accentText : textPrimary }]}
-                    numberOfLines={1}
                   >
                     {item.name}
-                  </Text>
+                  </NameText>
                   <Text
                     style={[styles.rowMeta, { color: textSecondary }]}
                     accessibilityLabel={absentLabel(meta, t)}
@@ -188,7 +198,7 @@ function RouteOverlaySheetContent() {
                   </Text>
                 </View>
                 {isSelected ? (
-                  <MaterialCommunityIcons name="check" size={iconSize.md} color={brand.teal} />
+                  <MaterialCommunityIcons name="check" size={iconSize.md} color={palette.primary} />
                 ) : null}
               </Pressable>
             );

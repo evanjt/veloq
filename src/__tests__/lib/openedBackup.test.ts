@@ -67,7 +67,12 @@ beforeEach(() => {
   jest.mocked(importWaitsForSignIn).mockReturnValue(false);
   jest.mocked(getStoredCredentials).mockReturnValue({ athleteId: 'i1001' } as never);
   jest.mocked(getResolvedSharedPayloadsAsync).mockResolvedValue([]);
-  imported.mockResolvedValue({ success: true, activityCount: 0 });
+  imported.mockResolvedValue({
+    success: true,
+    activityCount: 0,
+    unplacedCount: 0,
+    drops: { notRestored: 0, namesNotRestored: 0 },
+  });
 });
 
 describe('which links are files', () => {

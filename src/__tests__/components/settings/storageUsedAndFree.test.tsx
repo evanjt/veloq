@@ -43,7 +43,6 @@ function panel(freeStorage: number | null, athleteFilesSize = 0, routeMatchingEn
       routeMatchingEnabled={routeMatchingEnabled}
       dateRangeText="range"
       lastSync={null}
-      totalQueries={1}
       onClearMapCache={jest.fn()}
       routesSize={300_000_000}
       terrainCacheSize={0}

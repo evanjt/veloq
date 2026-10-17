@@ -24,11 +24,16 @@ const mockEngineState = { ready: false };
 const mockConvert = jest.fn(async (_source: string, dest: string) => {
   mockFiles.set(`file://${dest}`, 'record-zip');
 });
-const mockRestoreBackup = jest.fn(async (_json: string) => ({ unplacedCount: 2 }));
+const mockRestoreBackup = jest.fn(async (_json: string) => ({
+  unplacedCount: 2,
+  drops: { notRestored: 0, namesNotRestored: 0 },
+}));
 const mockRestoreRecordBackup = jest.fn(async (_uri: string) => ({
   placed: 3,
   unplaced: 1,
   missingActivityIds: [],
+  notRestored: 0,
+  namesNotRestored: 0,
 }));
 const mockMarkAnswered = jest.fn();
 

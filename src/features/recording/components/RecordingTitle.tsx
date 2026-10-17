@@ -6,7 +6,6 @@
 
 import { useEffect, useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
-import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { View } from 'react-native';
 
@@ -15,6 +14,7 @@ import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { getVisibleRecording } from '@/features/recording/lib/storage/recordingLibrary';
 import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
 import type { RecordingLibraryEntry } from '@/types';
+import { NameText } from '@/shared/ui/NameText';
 
 export function RecordingTitle() {
   const { isDark } = useTheme();
@@ -42,15 +42,14 @@ export function RecordingTitle() {
         size={iconSize.lg}
         color={getActivityInk(entry.activityType, isDark)}
       />
-      <Text
-        numberOfLines={1}
+      <NameText
         style={{
           fontSize: typography.cardTitle.fontSize,
           color: isDark ? darkColors.textPrimary : colors.textPrimary,
         }}
       >
         {entry.name}
-      </Text>
+      </NameText>
     </View>
   );
 }

@@ -8,8 +8,6 @@ import {
   type LayoutChangeEvent,
 } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import type {
   ActivityLedgerChange,
   SectionMatch as FfiSectionMatch,
@@ -17,7 +15,7 @@ import type {
 } from 'veloqrs';
 import type { LatLng } from '@/shared/geo/polyline';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
-import { Gesture, GestureDetector, RectButton } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { runOnJS, useSharedValue } from 'react-native-reanimated';
 import * as haptics from '@/shared/ui/haptics';
 import { useGestureCallback } from '@/shared/ui/useGestureCallback';
@@ -25,7 +23,13 @@ import { useTranslation } from 'react-i18next';
 import { SectionInlinePlot } from './SectionInlinePlot';
 import { ActivityLedgerChanges } from './ActivityLedgerChanges';
 import { findRowIndexAtPageY } from './scrubHitTest';
-import { DataRangeFooter, removeSectionWithUndo } from '@/features/routes';
+import {
+  DataRangeFooter,
+  removeSectionWithUndo,
+  SectionSwipeAction,
+  sectionSwipeAction,
+  sectionSwipeKind,
+} from '@/features/routes';
 import {
   Button,
   Card,
@@ -43,16 +47,7 @@ import {
 } from '@/features/activity/lib/groupSectionEncounters';
 import { tapTo } from '@/shared/app/navigation';
 import { formatDistance } from '@/shared/format/format';
-import {
-  colors,
-  darkColors,
-  duration,
-  iconSize,
-  shadows,
-  spacing,
-  swipeAction,
-  typography,
-} from '@/theme';
+import { colors, darkColors, duration, shadows, spacing, typography } from '@/theme';
 import { debug } from '@/shared/debug/debug';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 import { confirmAction, inform } from '@/shared/ui/dialog';
@@ -510,10 +505,12 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   // The swipe button and the screen reader's action are one action, so the
   // label and the handler cannot drift apart.
   const sectionAction = useCallback(
-    (group: SectionEncounterGroup): AccessibleAction =>
-      group.sectionType === 'custom'
-        ? { name: 'delete', label: t('common.delete'), run: () => handleDelete(group) }
-        : { name: 'hide', label: t('common.hide'), run: () => handleDisable(group.sectionId) },
+    (group: SectionEncounterGroup): AccessibleAction => {
+      const kind = sectionSwipeKind(group.sectionType, false);
+      return sectionSwipeAction(kind, t, () =>
+        kind === 'delete' ? handleDelete(group) : handleDisable(group.sectionId)
+      );
+    },
     [handleDelete, handleDisable, t]
   );
   const sectionActions = useCallback(
@@ -534,36 +531,13 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         extrapolate: 'clamp',
       });
 
-      const custom = group.sectionType === 'custom';
       const action = sectionAction(group);
       return (
-        <Animated.View
-          style={[
-            styles.swipeAction,
-            custom ? styles.deleteSwipeAction : styles.disableSwipeAction,
-            { opacity },
-          ]}
-        >
-          <RectButton style={styles.swipeActionButton} onPress={action.run}>
-            {custom ? (
-              <ChromeIcon name="delete" size={iconSize.lg} color={swipeAction.destructive.text} />
-            ) : (
-              <MaterialCommunityIcons
-                name="eye-off"
-                size={iconSize.lg}
-                color={swipeAction.hide.text}
-              />
-            )}
-            <Text
-              style={[
-                styles.swipeActionText,
-                custom ? styles.deleteSwipeActionText : styles.disableSwipeActionText,
-              ]}
-            >
-              {action.label}
-            </Text>
-          </RectButton>
-        </Animated.View>
+        <SectionSwipeAction
+          kind={sectionSwipeKind(group.sectionType, false)}
+          action={action}
+          opacity={opacity}
+        />
       );
     },
     [sectionAction]
@@ -671,6 +645,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
               </Pressable>
               <Button
                 label={t('sections.addToSection')}
+                variant="secondary"
                 size="sm"
                 onPress={() => handleRematch(match.sectionId)}
               />
@@ -693,9 +668,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
           <Button
             label={t('sections.scanForMore')}
             variant="ghost"
-            icon={
-              <MaterialCommunityIcons name="magnify" size={iconSize.sm} color={colors.primary} />
-            }
+            icon="magnify"
             onPress={handleScan}
             loading={scanning}
             style={styles.scanLink}
@@ -724,9 +697,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         {coordinates.length > 0 && !sectionCreationMode && (
           <Button
             label={t('routes.createSection')}
-            icon={
-              <MaterialCommunityIcons name="plus" size={iconSize.md} color={colors.textOnPrimary} />
-            }
+            icon="plus"
             onPress={() => onSectionCreationModeChange(true)}
             style={styles.createSectionButton}
           />
@@ -804,33 +775,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     marginBottom: spacing.md,
     ...shadows.elevated,
-  },
-  swipeAction: {
-    width: 80,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  swipeActionButton: {
-    flex: 1,
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  swipeActionText: {
-    ...typography.captionBold,
-  },
-  deleteSwipeAction: {
-    backgroundColor: swipeAction.destructive.bg,
-  },
-  deleteSwipeActionText: {
-    color: swipeAction.destructive.text,
-  },
-  disableSwipeAction: {
-    backgroundColor: swipeAction.hide.bg,
-  },
-  disableSwipeActionText: {
-    color: swipeAction.hide.text,
   },
   scanLink: {
     marginHorizontal: spacing.md,

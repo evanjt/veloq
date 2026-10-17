@@ -48,7 +48,8 @@ interface MapPreferencesContextValue {
   preferences: MapPreferences;
   isLoaded: boolean;
   setDefaultStyle: (style: MapStyleType) => Promise<void>;
-  setGlobalMapStyle: (style: MapStyleType) => Promise<void>;
+  /** The Explore Map's own style, or null to follow the default style again. */
+  setGlobalMapStyle: (style: MapStyleType | null) => Promise<void>;
   getGlobalMapStyle: () => MapStyleType;
   setActivityGroupStyle: (
     activityTypes: ActivityType[],
@@ -272,9 +273,10 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
   );
 
   const setGlobalMapStyle = useCallback(
-    async (style: MapStyleType) => {
+    async (style: MapStyleType | null) => {
       setPreferences((prev) => {
-        const newPrefs = { ...prev, globalMapStyle: style };
+        const { globalMapStyle: _cleared, ...rest } = prev;
+        const newPrefs: MapPreferences = style === null ? rest : { ...rest, globalMapStyle: style };
         savePreferences(newPrefs).catch((error) => {
           if (__DEV__) {
             console.warn('[MapPreferences] Failed to persist:', error);

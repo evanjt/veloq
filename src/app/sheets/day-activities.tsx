@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
@@ -19,6 +18,8 @@ import {
 } from '@/shared/format/format';
 import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import type { ActivityType } from '@/types';
+import { NameText } from '@/shared/ui/NameText';
+import { FitText } from '@/shared/ui/FitText';
 
 /** The picker for a day with several activities, a sheet route answered with the chosen activity id. */
 
@@ -75,12 +76,10 @@ function DayActivitiesSheetContent() {
                 color={getActivityInk(activity.type, isDark)}
               />
               <View style={styles.info}>
-                <Text style={[styles.name, { color: textPrimary }]} numberOfLines={1}>
-                  {activity.name}
-                </Text>
-                <Text style={[styles.details, { color: textSecondary }]} numberOfLines={1}>
+                <NameText style={[styles.name, { color: textPrimary }]}>{activity.name}</NameText>
+                <FitText style={[styles.details, { color: textSecondary }]}>
                   {details.join(' · ')}
-                </Text>
+                </FitText>
               </View>
             </Row>
           );

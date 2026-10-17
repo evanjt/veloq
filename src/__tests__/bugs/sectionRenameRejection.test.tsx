@@ -82,20 +82,30 @@ describe('a refused section rename', () => {
     }
   );
 
-  it('tells the athlete the name is taken rather than to try again', async () => {
+  it('hands the taken reason back for the field rather than raising a dialog', async () => {
     mockRenameSection.mockRejectedValueOnce(new SectionRenameError('taken', 'nameTaken'));
     const hook = await mount();
 
+    let outcome: unknown;
     await act(async () => {
-      hook.result.current.handleSaveName('Taken');
+      outcome = await hook.result.current.handleSaveName('Taken');
     });
 
-    expect(Alert.alert).toHaveBeenCalledWith(
-      'sections.renameFailedTitle',
-      'sections.nameTaken',
-      undefined,
-      expect.objectContaining({ cancelable: true })
-    );
+    expect(outcome).toEqual({ saved: false, reason: 'sections.nameTaken' });
+    expect(hook.result.current.customName).toBe('Old climb');
+    expect(Alert.alert).not.toHaveBeenCalled();
+  });
+
+  it('reports a saved name as saved', async () => {
+    mockRenameSection.mockResolvedValueOnce(undefined);
+    const hook = await mount();
+
+    let outcome: unknown;
+    await act(async () => {
+      outcome = await hook.result.current.handleSaveName('New climb');
+    });
+
+    expect(outcome).toEqual({ saved: true });
   });
 
   it('restores the old name when clearing it is refused', async () => {

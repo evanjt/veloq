@@ -16,7 +16,6 @@ import { engine, hasStarted, startOutcome, StartOutcome, type StartVerdict } fro
 import { getSyncGeneration, useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { useEngineReady } from '@/shared/native/useEngineReady';
-import { useReconnect } from '@/shared/app/useRetryTriggers';
 import { readActivities } from '@/shared/native/storedActivities';
 import type { SyncProgress } from './useRouteSyncProgress';
 import { backfillTimeStreams, timeStreamsProgress } from '@/features/routes/lib/timeStreamBackfill';
@@ -29,7 +28,6 @@ import {
 import { scalePercent } from '@/features/routes/lib/scalePercent';
 import { endGpsSync } from '@/features/routes/lib/gpsSyncEnding';
 import { routeSyncPlan } from '@/features/routes/lib/routeSyncPlan';
-import { deferSyncRun, takeDeferredSyncRun } from '@/features/routes/lib/deferredSyncRun';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('RouteDataSync');
@@ -66,6 +64,29 @@ export function requestOwedStrengthFiles(
 }
 
 /**
+ * Hand the engine a GPS pass this sync cannot run itself: one is already
+ * running here, or the network is gone. The engine starts it, or keeps it owed
+ * and starts it when its running pass ends or the connection returns, so
+ * nothing on this side asks again.
+ */
+function handGpsPassToEngine(
+  native: { engine: typeof engine } | null,
+  oldest: string,
+  newest: string,
+  head: string[]
+): void {
+  if (!native) return;
+  try {
+    native.engine.startGpsPass(oldest, newest, head);
+  } catch (error) {
+    console.warn(
+      '[RouteDataSync] Could not hand the pass to the engine:',
+      engineErrorTag(error) ?? error
+    );
+  }
+}
+
+/**
  * How many activities the library holds, tracks or not, or null while there is
  * no engine to ask. The GPS-backed count is zero before the first track lands,
  * which is exactly when the pass is owed.
@@ -87,9 +108,11 @@ function readActivityCount(): number | null {
  * which then starts section detection.
  *
  * Runs on every `activities` announcement, a change of the selected range, an
- * engine reset, a reconnection, or a manual `syncActivities` call. It reads no
- * activity body to decide that: the engine owns the candidates and the count.
- * `enabled` turns off only the automatic trigger.
+ * engine reset, or a manual `syncActivities` call. It reads no activity body to
+ * decide that: the engine owns the candidates and the count. A pass it cannot
+ * run, because one is running or the network is gone, it hands to the engine,
+ * which keeps it owed and starts it itself. `enabled` turns off only the
+ * automatic trigger.
  *
  * Progress lives in `useRouteSyncProgress`, the lifecycle refs in
  * `useRouteSyncContext` and the fetching in `useGpsDataFetcher`. This file is
@@ -146,8 +169,7 @@ export function useRouteDataSync(enabled: boolean = true): UseRouteDataSyncResul
   const readyEngine = useEngineReady();
   useEffect(() => (readyEngine ? markAddOneOnTrackStored(readyEngine) : undefined), [readyEngine]);
 
-  // Counter to force a re-sync after an engine reset, a reconnection, or a
-  // run this one refused.
+  // Counter to force a re-sync after an engine reset.
   const [syncTrigger, setSyncTrigger] = useState(0);
 
   /**
@@ -170,14 +192,17 @@ export function useRouteDataSync(enabled: boolean = true): UseRouteDataSyncResul
     }
 
     // Prevent concurrent syncs. The activities that arrived while one was
-    // running are owed a pass: the announcement that brought them has
-    // already been spent, so a refusal used to lose them until a reconnect
-    // or a wipe asked again.
+    // running are owed a pass, and the announcement that brought them has
+    // already been spent, so the engine keeps the pass owed and starts it
+    // itself. Demo mode downloads nothing.
     if (!canStartSync()) {
       if (__DEV__) {
         log.log('[RouteDataSync] Blocked: sync already in progress');
       }
-      deferSyncRun();
+      if (!isDemo) {
+        const { oldest, newest } = useSyncDateRange.getState();
+        handGpsPassToEngine(getNativeModule(), oldest, newest, [...feedHeadIds()]);
+      }
       return;
     }
 
@@ -231,6 +256,17 @@ export function useRouteDataSync(enabled: boolean = true): UseRouteDataSyncResul
       // Offline only the fetching half has nothing to do. The seeding, the
       // drain and a dirty detection are local compute over stored tracks.
       const plan = routeSyncPlan({ online, isDemo, newGpsCount: withGps.length });
+
+      // The tracks still owed offline are the engine's to fetch when the
+      // connection returns, so it is told now rather than asked again then.
+      if (plan.oweGpsToEngine) {
+        handGpsPassToEngine(
+          nativeModule,
+          oldest,
+          newest,
+          withGps.map((c) => c.activityId)
+        );
+      }
 
       // Batch-fetch FIT files for WeightTraining activities not yet processed.
       // The engine keeps the queue: the sport is a column there, so filtering
@@ -423,12 +459,6 @@ export function useRouteDataSync(enabled: boolean = true): UseRouteDataSyncResul
       // one card asking for a track early, which is what it did before this
       // gate existed.
       setGpsSyncPendingIds([]);
-      // The mutex is free again, so whatever was refused while this run held
-      // it gets the pass it was owed, against the activities as they stand
-      // now rather than as they stood when it was refused.
-      if (takeDeferredSyncRun()) {
-        setSyncTrigger((prev) => prev + 1);
-      }
     }
   }, [
     isAuthenticatedRef,
@@ -443,11 +473,6 @@ export function useRouteDataSync(enabled: boolean = true): UseRouteDataSyncResul
     fetchDemoGps,
     fetchApiGps,
   ]);
-
-  // Trigger resync when coming back online. This has to key on the network
-  // value: an effect keyed on `isOnlineRef` ran at mount and never again,
-  // because a ref object's identity never changes.
-  useReconnect(() => setSyncTrigger((prev) => prev + 1));
 
   // Listen for engine reset (cache clear) and force a resync
   useEffect(() => {

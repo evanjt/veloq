@@ -671,11 +671,11 @@ describe('ground-token-text', () => {
     "  surface: 'ground',",
     "  chartGreen: 'ground',",
     "  primary: 'mark',",
-    "  linkTeal: 'text',",
+    "  actionLink: 'text',",
     '};',
     'export const BRAND_FAMILIES: Record<string, TokenFamily> = {',
-    "  teal: 'mark',",
-    "  tealLight: 'mark',",
+    "  blue550: 'mark',",
+    "  blue600: 'mark',",
     "  gold: 'mark',",
     '};',
   ].join('\n');
@@ -684,14 +684,14 @@ describe('ground-token-text', () => {
     const root = fixture({
       'src/theme/tokenFamilies.ts': FAMILIES,
       'src/features/a/Link.tsx':
-        'const s = StyleSheet.create({ link: { color: colors.primary }, ok: { color: colors.linkTeal } });\n',
+        'const s = StyleSheet.create({ link: { color: colors.primary }, ok: { color: colors.actionLink } });\n',
     });
 
     const { status, output } = runRule('ground-token-text', root);
 
     expect(status).toBe(1);
     expect(output).toContain('src/features/a/Link.tsx  colours text with colors.primary');
-    expect(output).not.toContain('linkTeal');
+    expect(output).not.toContain('actionLink');
   });
 
   it('fails a ground token in a StyleSheet colour', () => {
@@ -797,7 +797,7 @@ describe('ground-token-text', () => {
     const root = fixture({
       'src/theme/tokenFamilies.ts': FAMILIES,
       'src/features/a/Banner.tsx': [
-        'const s = StyleSheet.create({ pr: { color: brand.tealLight } });',
+        'const s = StyleSheet.create({ pr: { color: brand.blue600 } });',
         '<Text style={{ color: brand.gold }} />',
         '<Text style={{ color: SPORT_COLORS.Ride }} />',
         '<Text style={[s.pill, { color: ACTIVITY_CATEGORIES[group]?.color }]} />',
@@ -807,7 +807,7 @@ describe('ground-token-text', () => {
     const { status, output } = runRule('ground-token-text', root);
 
     expect(status).toBe(1);
-    expect(output).toContain('src/features/a/Banner.tsx  colours text with brand.tealLight');
+    expect(output).toContain('src/features/a/Banner.tsx  colours text with brand.blue600');
     expect(output).toContain('src/features/a/Banner.tsx  colours text with brand.gold');
     expect(output).toContain('src/features/a/Banner.tsx  colours text with SPORT_COLORS.Ride');
     expect(output).toContain('src/features/a/Banner.tsx  colours text with ACTIVITY_CATEGORIES');
@@ -817,7 +817,7 @@ describe('ground-token-text', () => {
     const root = fixture({
       'src/theme/tokenFamilies.ts': FAMILIES,
       'src/features/a/Row.tsx': [
-        '<Text style={[s.row, { color: isSelected ? brand.teal : textPrimary }]} />',
+        '<Text style={[s.row, { color: isSelected ? brand.blue550 : textPrimary }]} />',
         '<Text style={{ color: isDark ? darkColors.textPrimary : colors.chartGreen }} />',
       ].join('\n'),
     });
@@ -825,7 +825,7 @@ describe('ground-token-text', () => {
     const { status, output } = runRule('ground-token-text', root);
 
     expect(status).toBe(1);
-    expect(output).toContain('src/features/a/Row.tsx  colours text with brand.teal');
+    expect(output).toContain('src/features/a/Row.tsx  colours text with brand.blue550');
     expect(output).toContain('src/features/a/Row.tsx  colours text with colors.chartGreen');
     expect(output).not.toContain('textPrimary');
   });
@@ -845,10 +845,10 @@ describe('ground-token-text', () => {
     const root = fixture({
       'src/theme/tokenFamilies.ts': FAMILIES,
       'src/features/a/Chip.tsx': [
-        'const s = StyleSheet.create({ badge: { backgroundColor: brand.gold, borderColor: brand.teal } });',
+        'const s = StyleSheet.create({ badge: { backgroundColor: brand.gold, borderColor: brand.blue550 } });',
         '<Icon name="trophy" color={brand.gold} style={s.icon} />',
         '<Text style={{ color: ACTIVITY_CATEGORIES[group].selectedInk }} />',
-        '<Text style={{ color: isDark ? darkColors.linkTeal : colors.linkTeal }} />',
+        '<Text style={{ color: isDark ? darkColors.actionLink : colors.actionLink }} />',
       ].join('\n'),
     });
 
@@ -885,7 +885,7 @@ describe('dark-counterpart', () => {
   const FAMILIES = [
     'export const TOKEN_FAMILIES: Record<string, TokenFamily> = {',
     "  textPrimary: 'text',",
-    "  linkTeal: 'text',",
+    "  actionLink: 'text',",
     "  sameInBoth: 'text',",
     "  surface: 'ground',",
     "  background: 'ground',",
@@ -894,8 +894,8 @@ describe('dark-counterpart', () => {
     '};',
   ].join('\n');
   const COLOURS = [
-    'export const colors = { linkTeal: "#00796B", sameInBoth: "#111111", surface: "#FFF", background: "#FAFAFA", border: "#EEE", fill: "#123456" };',
-    'export const darkColors = { linkTeal: brand.tealDark, sameInBoth: "#111111", surface: "#000", background: "#0D0D0D", border: "#222", fill: "#654321" };',
+    'export const colors = { actionLink: "#2F6699", sameInBoth: "#111111", surface: "#FFF", background: "#FAFAFA", border: "#EEE", fill: "#123456" };',
+    'export const darkColors = { actionLink: brand.blueLight, sameInBoth: "#111111", surface: "#000", background: "#0D0D0D", border: "#222", fill: "#654321" };',
   ].join('\n');
 
   const theme = {
@@ -907,7 +907,7 @@ describe('dark-counterpart', () => {
     const root = fixture({
       ...theme,
       'src/features/a/Tabs.tsx': [
-        'const s = StyleSheet.create({ active: { color: colors.linkTeal } });',
+        'const s = StyleSheet.create({ active: { color: colors.actionLink } });',
         'const Tabs = ({ isDark }) => <Text style={[s.active, isDark && s.dark]} />;',
       ].join('\n'),
     });
@@ -915,7 +915,7 @@ describe('dark-counterpart', () => {
     const { status, output } = runRule('dark-counterpart', root);
 
     expect(status).toBe(1);
-    expect(output).toContain('src/features/a/Tabs.tsx:1  draws colors.linkTeal');
+    expect(output).toContain('src/features/a/Tabs.tsx:1  draws colors.actionLink');
   });
 
   it('fails a ground or a border drawn in the light value only', () => {
@@ -985,8 +985,8 @@ describe('dark-counterpart', () => {
     const root = fixture({
       ...theme,
       'src/features/a/Tabs.tsx': [
-        'const s = StyleSheet.create({ active: { color: colors.linkTeal } });',
-        'const Tabs = ({ isDark }) => <Text style={[s.active, isDark && { color: darkColors.linkTeal }]} />;',
+        'const s = StyleSheet.create({ active: { color: colors.actionLink } });',
+        'const Tabs = ({ isDark }) => <Text style={[s.active, isDark && { color: darkColors.actionLink }]} />;',
       ].join('\n'),
     });
 
@@ -1001,7 +1001,7 @@ describe('dark-counterpart', () => {
         'const A = ({ isDark }) => <Text style={s.a} />;',
       ].join('\n'),
       'src/features/a/Light.tsx':
-        'const s = StyleSheet.create({ a: { color: colors.linkTeal } });\n',
+        'const s = StyleSheet.create({ a: { color: colors.actionLink } });\n',
     });
 
     expect(runRule('dark-counterpart', root).status).toBe(0);
@@ -1036,7 +1036,7 @@ describe('dark-counterpart', () => {
       'src/theme/tokenFamilies.ts': real('src/theme/tokenFamilies.ts'),
       'src/theme/colors.ts': real('src/theme/colors.ts'),
       'src/features/a/Tabs.tsx': [
-        'const s = StyleSheet.create({ active: { color: colors.linkTeal } });',
+        'const s = StyleSheet.create({ active: { color: colors.actionLink } });',
         'const Tabs = ({ isDark }) => <Text style={s.active} />;',
       ].join('\n'),
     });

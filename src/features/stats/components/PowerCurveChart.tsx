@@ -20,7 +20,7 @@ import { formatDurationHuman, formatEnergy, formatPower } from '@/shared/format/
 import { getCurrentLanguage } from '@/i18n';
 import { formatWeightRounded } from '@/shared/format/weight';
 import { RangeCoverage } from 'veloqrs';
-import { BodyNotDownloaded, CardHeader, EmptyState, ErrorState, ToggleButton } from '@/shared/ui';
+import { BodyNotDownloaded, EmptyState, ErrorState, ToggleButton } from '@/shared/ui';
 import { CurveLoadingPlaceholder } from './CurveLoadingPlaceholder';
 import { formatDecimal } from '@/shared/format';
 
@@ -185,7 +185,6 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
   if (isLoading || awaitingBody) {
     return (
       <View style={[styles.container, { height }]} testID="power-curve-loading">
-        <CardHeader title={t('stats.powerCurve')} />
         <CurveLoadingPlaceholder height={height} />
       </View>
     );
@@ -194,7 +193,6 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
   if (error) {
     return (
       <View style={[styles.container, { height }]}>
-        <CardHeader title={t('stats.powerCurve')} />
         <ErrorState
           variant="inline"
           error={error}
@@ -208,7 +206,6 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
   if (chartData.length === 0) {
     return (
       <View style={[styles.container, { height }]}>
-        <CardHeader title={t('stats.powerCurve')} />
         <View style={styles.emptyState}>
           {coverage === RangeCoverage.NotFetched ? (
             <BodyNotDownloaded
@@ -232,38 +229,33 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
 
   return (
     <View style={[styles.container, { height }]} testID="power-curve-chart">
-      {/* Header with values */}
-      <CardHeader
-        title={t('stats.powerCurve')}
-        accessory={
-          <View style={styles.valuesRow}>
-            <View style={styles.valueItem}>
-              <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.valueLabel}>
-                {t('stats.time')}
-              </Text>
-              <Text
-                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                testID="power-curve-duration"
-                style={[styles.valueNumber, isDark && styles.textLight]}
-              >
-                {formatDurationHuman(displayData.secs)}
-              </Text>
-            </View>
-            <View style={styles.valueItem}>
-              <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.valueLabel}>
-                {t('activity.power')}
-              </Text>
-              <Text
-                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                testID="power-curve-watts"
-                style={[styles.valueNumber, isDark && styles.textLight]}
-              >
-                {formatValue(displayData.watts, perKg, unit)}
-              </Text>
-            </View>
-          </View>
-        }
-      />
+      {/* The scrubbed point, or the longest effort at rest; the section names the curve. */}
+      <View style={styles.valuesRow}>
+        <View style={styles.valueItem}>
+          <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.valueLabel}>
+            {t('stats.time')}
+          </Text>
+          <Text
+            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+            testID="power-curve-duration"
+            style={[styles.valueNumber, isDark && styles.textLight]}
+          >
+            {formatDurationHuman(displayData.secs)}
+          </Text>
+        </View>
+        <View style={styles.valueItem}>
+          <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.valueLabel}>
+            {t('activity.power')}
+          </Text>
+          <Text
+            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+            testID="power-curve-watts"
+            style={[styles.valueNumber, isDark && styles.textLight]}
+          >
+            {formatValue(displayData.watts, perKg, unit)}
+          </Text>
+        </View>
+      </View>
 
       {perKgAvailable ? (
         <View style={styles.unitToggle}>
@@ -348,7 +340,9 @@ const makeStyles = (palette: Palette) =>
     textLight: { color: colors.textOnDark },
     valuesRow: {
       flexDirection: 'row',
+      alignSelf: 'flex-end',
       gap: spacing.md,
+      marginBottom: spacing.sm,
     },
     valueItem: {
       alignItems: 'flex-end',

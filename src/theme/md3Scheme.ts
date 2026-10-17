@@ -16,8 +16,8 @@ const DISABLED_FILL = 0.12;
 const DISABLED_LABEL = 0.38;
 
 export const md3LightScheme: MD3Scheme = {
-  primary: brand.tealLight,
-  primaryContainer: brand.teal,
+  primary: colors.primary,
+  primaryContainer: colors.primaryLight,
   secondary: brand.blueDark,
   secondaryContainer: brand.blue,
   tertiary: brand.goldDark,
@@ -28,7 +28,6 @@ export const md3LightScheme: MD3Scheme = {
   background: colors.background,
   error: colors.error,
   errorContainer: colors.errorBg,
-  // Dark ink on the teal: white reads 3.74:1 on it, short of the 4.5:1 a label owes.
   onPrimary: colors.textOnPrimary,
   onPrimaryContainer: colors.textPrimary,
   onSecondary: ink.white,
@@ -45,7 +44,7 @@ export const md3LightScheme: MD3Scheme = {
   outlineVariant: colors.borderLight,
   inverseSurface: colors.gray800,
   inverseOnSurface: colors.gray100,
-  inversePrimary: brand.tealDark,
+  inversePrimary: darkColors.primaryLight,
   shadow: ink.black,
   scrim: ink.black,
   backdrop: opacity.overlay.scrim,
@@ -61,8 +60,8 @@ export const md3LightScheme: MD3Scheme = {
 };
 
 export const md3DarkScheme: MD3Scheme = {
-  primary: brand.tealDark,
-  primaryContainer: brand.teal,
+  primary: darkColors.primary,
+  primaryContainer: darkColors.primaryLight,
   secondary: brand.blue,
   secondaryContainer: brand.blueLight,
   tertiary: brand.gold,
@@ -74,7 +73,7 @@ export const md3DarkScheme: MD3Scheme = {
   error: darkColors.error,
   errorContainer: colors.errorDeep,
   onPrimary: colors.textOnPrimary,
-  // The container is the bright teal, which white reads 3.74:1 on.
+  // The container is the light blue step, which white reads 2.23:1 on.
   onPrimaryContainer: colors.textOnBright,
   // Dark ink on the blue: white reads 2.96:1 on it.
   onSecondary: colors.textPrimary,
@@ -91,9 +90,8 @@ export const md3DarkScheme: MD3Scheme = {
   outlineVariant: darkColors.divider,
   inverseSurface: colors.gray100,
   inverseOnSurface: colors.gray800,
-  // The light theme's teal reads 3.74:1 on a light inverse surface, so the
-  // action takes its deeper hover step.
-  inversePrimary: brand.tealHover,
+  // The light theme's own primary, on a light inverse surface.
+  inversePrimary: colors.primary,
   shadow: ink.black,
   scrim: ink.black,
   backdrop: opacity.overlay.scrim,

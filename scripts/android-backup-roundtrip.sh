@@ -283,7 +283,7 @@ if [ -n "$APK" ]; then
   cat >&2 <<WALK
 android-backup-roundtrip: the in-app half is yours to walk on $ANDROID_SERIAL:
    1. Launch Veloq and sign in to intervals.icu.
-   2. The restored record zip's settings and decisions apply on the empty library.
+   2. The feed offers this device's backup with its date, and none of its settings or decisions read back before Restore.
    3. A sync refills the library.
 WALK
   exit 0

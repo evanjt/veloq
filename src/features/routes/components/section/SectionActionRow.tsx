@@ -1,13 +1,14 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography, themePalette } from '@/theme';
 import type { FrequentSection } from '@/types';
 import { sectionActionChips } from '../../lib/sectionActionChips';
+import { SectionActionGlyph } from '../SectionSwipeAction';
 import { Button, IconButton } from '@/shared/ui';
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
+import { FitText } from '@/shared/ui/FitText';
 
 export interface SectionActionRowProps {
   isDark: boolean;
@@ -56,13 +57,7 @@ export function SectionActionRow({
         size="sm"
         label={t('sections.editBounds')}
         onPress={startTrim}
-        icon={
-          <MaterialCommunityIcons
-            name="content-cut"
-            size={iconSize.sm}
-            color={isDark ? darkColors.textPrimary : colors.textSecondary}
-          />
-        }
+        icon="content-cut"
       />
       {section.sectionType === 'custom' ? (
         <IconButton
@@ -70,7 +65,7 @@ export function SectionActionRow({
           accessibilityLabel={t('sections.deleteSection')}
           onPress={handleDeleteSection}
         >
-          <ChromeIcon name="delete" size={iconSize.sm} color={colors.error} />
+          <SectionActionGlyph kind="delete" size={iconSize.sm} color={colors.error} />
         </IconButton>
       ) : (
         <IconButton
@@ -80,8 +75,8 @@ export function SectionActionRow({
           }
           onPress={handleToggleDisable}
         >
-          <MaterialCommunityIcons
-            name={isSectionDisabled ? 'undo' : 'minus-circle-outline'}
+          <SectionActionGlyph
+            kind={isSectionDisabled ? 'restore' : 'remove'}
             size={iconSize.sm}
             color={
               isSectionDisabled
@@ -121,15 +116,15 @@ export function SectionActionRow({
               size={iconSize.sm}
               color={isDark ? darkColors.textSecondary : colors.textSecondary}
             />
-            <Text
-              numberOfLines={1}
+            <FitText
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
               style={[
                 styles.actionPillText,
                 { color: isDark ? darkColors.textSecondary : colors.textSecondary },
               ]}
             >
               {t('sections.partlyExcluded')}
-            </Text>
+            </FitText>
           </View>
         ) : null}
         {chips.pinned ? (
@@ -140,16 +135,20 @@ export function SectionActionRow({
               { backgroundColor: isDark ? darkColors.surface : colors.surface },
             ]}
           >
-            <MaterialCommunityIcons name="pin" size={iconSize.sm} color={colors.primary} />
-            <Text
-              numberOfLines={1}
+            <MaterialCommunityIcons
+              name="pin"
+              size={iconSize.sm}
+              color={themePalette(isDark).primary}
+            />
+            <FitText
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
               style={[
                 styles.actionPillText,
-                { color: isDark ? darkColors.linkTeal : colors.linkTeal },
+                { color: isDark ? darkColors.actionLink : colors.actionLink },
               ]}
             >
               {t('sections.pinned')}
-            </Text>
+            </FitText>
           </View>
         ) : null}
         {chips.accept === 'accepted' && (
@@ -165,15 +164,15 @@ export function SectionActionRow({
               size={iconSize.sm}
               color={isDark ? darkColors.textSecondary : colors.textSecondary}
             />
-            <Text
-              numberOfLines={1}
+            <FitText
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
               style={[
                 styles.actionPillText,
                 { color: isDark ? darkColors.textSecondary : colors.textSecondary },
               ]}
             >
               {t('sections.accepted')}
-            </Text>
+            </FitText>
           </View>
         )}
         {chips.accept === 'offer' && (
@@ -182,13 +181,7 @@ export function SectionActionRow({
             size="sm"
             label={t('sections.acceptSection')}
             onPress={handleAcceptSection}
-            icon={
-              <MaterialCommunityIcons
-                name="check-circle-outline"
-                size={iconSize.sm}
-                color={colors.primary}
-              />
-            }
+            icon="check-circle-outline"
           />
         )}
       </View>

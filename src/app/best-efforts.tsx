@@ -268,7 +268,7 @@ function BestEffortsScreenContent() {
         <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>
           {period === 'all'
             ? t('bestEffortsScreen.allTimeSubtitle')
-            : t('bestEffortsScreen.seasonSubtitle', { count: days })}
+            : t('bestEffortsScreen.windowSubtitle', { count: days })}
         </Text>
 
         {error != null ? (
@@ -303,10 +303,6 @@ function BestEffortsScreenContent() {
             ))}
           </>
         )}
-
-        <Text style={[styles.footerNote, isDark && styles.footerNoteDark]}>
-          {t('bestEffortsScreen.sourceNote')}
-        </Text>
       </ScrollView>
     </ScreenSafeAreaView>
   );
@@ -365,19 +361,10 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   activityMissing: {
-    ...typography.micro,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   activityMissingDark: {
-    color: darkColors.textSecondary,
-  },
-  footerNote: {
-    ...typography.micro,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: spacing.sm,
-  },
-  footerNoteDark: {
     color: darkColors.textSecondary,
   },
 });

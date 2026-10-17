@@ -1,8 +1,44 @@
 import { createActivitySeededRandom } from '@/data/demo/random';
+import { haversineDistance } from '@/shared/geo/distance';
 
 import type { ApiActivityStreams } from './types';
 import { getActivity } from './activities';
 import { getActivityMap } from './maps';
+
+/**
+ * Seconds at each point of `track`, covered at the activity's average speed.
+ * An activity with no distance or no moving time spreads its moving time, or
+ * one second a point, over the track's own length.
+ *
+ * A lap time is the stream's gap between two points of the track, so the time
+ * follows the ground covered rather than the count of points. A fixed step per
+ * point makes a sparse stretch of track, a gap of a kilometre between two
+ * samples, read as hundreds of kilometres an hour, and every section on it a
+ * record for whichever ride holds the sparsest track.
+ */
+function timeAlongTrack(track: [number, number][], distance: number, movingTime: number): number[] {
+  const along: number[] = [];
+  let length = 0;
+  let previous: [number, number] | undefined;
+  for (const point of track) {
+    if (previous) length += haversineDistance(...previous, ...point);
+    along.push(length);
+    previous = point;
+  }
+  const seconds = movingTime > 0 ? movingTime : track.length - 1;
+  const metres = distance > 0 && movingTime > 0 ? distance : length;
+  const speed = metres > 0 && seconds > 0 ? metres / seconds : 1;
+  // A recorded stream gains at least a second a sample, so points closer than a
+  // second's ride apart take the next second and the stream rejoins the ground
+  // covered at the next gap wide enough.
+  const times: number[] = [];
+  let last = -1;
+  for (const metresAlong of along) {
+    last = Math.max(last + 1, Math.round(metresAlong / speed));
+    times.push(last);
+  }
+  return times;
+}
 
 export function getActivityStreams(id: string): ApiActivityStreams | null {
   const activity = getActivity(id);
@@ -20,7 +56,9 @@ export function getActivityStreams(id: string): ApiActivityStreams | null {
   const interval = Math.ceil(duration / points);
 
   const streams: ApiActivityStreams = {
-    time: Array.from({ length: points }, (_, i) => i * interval),
+    time: track
+      ? timeAlongTrack(track, activity.distance, duration)
+      : Array.from({ length: points }, (_, i) => i * interval),
   };
 
   // Heart rate stream - always include for activities with HR data

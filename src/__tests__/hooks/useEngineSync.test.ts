@@ -5,8 +5,10 @@
  * the life of the process, so a relaunch was the only cure.
  *
  * Expected behaviour: the latch holds only when the call actually started a
- * sync, the engine-ready bump brings the effect back to retry, and a sync that
- * settled with an error retries on the next reconnect or foreground.
+ * sync, the engine-ready bump brings the effect back to retry, and a return
+ * from the background starts a sync. A sync that failed for the connection, or
+ * a start the exclusive slot refused, is the engine's to start again, so
+ * neither the reconnect nor the settle asks from here.
  */
 
 import { act, renderHook } from '@testing-library/react-native';
@@ -275,7 +277,7 @@ describe('useEngineSync', () => {
     expect(syncNow).not.toHaveBeenCalled();
   });
 
-  it('retries on reconnect after a sync settled with an error', async () => {
+  it('leaves a sync that settled with an error to the engine on reconnect', async () => {
     const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
@@ -299,7 +301,7 @@ describe('useEngineSync', () => {
     mockIsOnline = true;
     await act(async () => await rerender(undefined));
 
-    expect(syncNow).toHaveBeenCalledTimes(2);
+    expect(syncNow).toHaveBeenCalledTimes(1);
   });
 
   it('retries on foreground after a sync settled with an error', async () => {
@@ -528,10 +530,10 @@ describe('useEngineSync', () => {
    * in flight. `clear_credentials` only soft-cancels, so the old sync still
    * holds the exclusive slot and the new athlete's first `syncNow` is refused.
    *
-   * Expected behaviour: the refused start is asked again when the slot frees,
-   * rather than waiting for a backgrounding or a network change.
+   * Expected behaviour: the engine keeps the refused start owed and starts it
+   * when the slot frees, so the settle asks nothing from here.
    */
-  it('starts again when a sync that refused the start settles', async () => {
+  it('leaves a start the slot refused to the engine when the sync settles', async () => {
     const syncNow = jest
       .fn()
       .mockReturnValueOnce(StartOutcome.Busy)
@@ -553,7 +555,7 @@ describe('useEngineSync', () => {
     mockStatus = settled();
     await act(async () => await rerender(undefined));
 
-    expect(syncNow).toHaveBeenCalledTimes(2);
+    expect(syncNow).toHaveBeenCalledTimes(1);
   });
 
   /**
@@ -577,7 +579,7 @@ describe('useEngineSync', () => {
     expect(engine?.triggerRefresh).toHaveBeenCalledWith('activities');
   });
 
-  it('leaves a sync that settled with an error to the reconnect, not an immediate retry', async () => {
+  it('asks nothing on the settle of a sync that failed', async () => {
     // The credential may be the thing that failed, and asking again straight
     // away hammers a 401 on every settle.
     const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);

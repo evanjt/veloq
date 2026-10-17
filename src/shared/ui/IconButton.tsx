@@ -21,7 +21,8 @@ import {
 import { useTheme } from '@/shared/app';
 import { controlHeight, layout, opacity, slopToMinTapTarget } from '@/theme';
 
-import { paint, pressedOpacity, ripple, type ButtonVariant } from './Button';
+import { paint, type ButtonVariant } from './Button';
+import { pressRipple, pressedOpacity } from './pressFeedback';
 
 export interface IconButtonProps {
   /** What a screen reader announces. Required: an icon has no text of its own. */
@@ -64,7 +65,7 @@ export function IconButton({
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ ...accessibilityState, disabled }}
       hitSlop={compact ? COMPACT_SLOP : ICON_SLOP}
-      android_ripple={disabled ? undefined : ripple}
+      android_ripple={disabled ? undefined : pressRipple}
       disabled={disabled}
       onPress={onPress}
       onPressIn={onPressIn}

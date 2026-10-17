@@ -26,6 +26,7 @@ import {
   opacity,
   spacing,
   typography,
+  themePalette,
 } from '@/theme';
 import { formatDateTime, formatDistance, formatDuration } from '@/shared/format/format';
 import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
@@ -37,6 +38,8 @@ import {
 } from '@/features/recording';
 import type { RecordingLibraryEntry } from '@/types';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { NameText } from '@/shared/ui/NameText';
+import { FitText } from '@/shared/ui/FitText';
 
 /** Enough placeholder rows to fill a phone screen while the library is read. */
 const PLACEHOLDER_ROWS = 6;
@@ -88,6 +91,7 @@ function RecordingRowsSkeleton() {
 function RecordingsLibraryScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const scrollEndInset = useScrollEndInset({ insetTaken: true });
   const isMetric = useMetricSystem();
   const { entries, isLoading, error, refresh, uploadNow, uploadingId } = useRecordingLibrary();
@@ -137,14 +141,12 @@ function RecordingsLibraryScreenContent() {
               style={styles.activityIcon}
             />
             <View style={styles.cardBody}>
-              <Text style={[styles.cardTitle, { color: textPrimary }]} numberOfLines={1}>
-                {item.name}
-              </Text>
-              <Text style={[styles.cardMeta, { color: textSecondary }]} numberOfLines={1}>
+              <NameText style={[styles.cardTitle, { color: textPrimary }]}>{item.name}</NameText>
+              <FitText style={[styles.cardMeta, { color: textSecondary }]}>
                 {dateText}
                 {distanceText ? ` · ${distanceText}` : ''}
                 {durationText ? ` · ${durationText}` : ''}
-              </Text>
+              </FitText>
             </View>
             <View
               testID={`recording-status-${item.uploadStatus}`}
@@ -170,7 +172,7 @@ function RecordingsLibraryScreenContent() {
                 <MaterialCommunityIcons
                   name="cloud-upload-outline"
                   size={iconSize.md}
-                  color={colors.primary}
+                  color={palette.primary}
                 />
               </IconButton>
             ) : null}
@@ -178,7 +180,7 @@ function RecordingsLibraryScreenContent() {
         </View>
       );
     },
-    [meta, textPrimary, textSecondary, isMetric, isDark, t, uploadNow, uploadingId]
+    [meta, textPrimary, textSecondary, isMetric, isDark, palette.primary, t, uploadNow, uploadingId]
   );
 
   return (

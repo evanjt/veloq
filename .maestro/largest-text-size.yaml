@@ -1,5 +1,5 @@
 # Largest system text size, over the screens that carry the most text at once.
-# The bar in src/shared/ui/CLAUDE.md says font scaling is honoured and capped
+# The bar in src/shared/ui/AGENTS.md says font scaling is honoured and capped
 # only on named dense surfaces, and nothing here checks that at the size where
 # it breaks: every other flow runs at the device default.
 #

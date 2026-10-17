@@ -3,7 +3,16 @@ import { View, Text, StyleSheet, type StyleProp, type ViewStyle } from 'react-na
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, iconSize, layout, shadows, spacing, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  iconSize,
+  layout,
+  shadows,
+  spacing,
+  typography,
+  themePalette,
+} from '@/theme';
 import { Button, IconButton } from '@/shared/ui';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -63,6 +72,7 @@ export const MapPopup = memo(function MapPopup({
 }: MapPopupProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const ink = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   return (
@@ -73,11 +83,14 @@ export const MapPopup = memo(function MapPopup({
     >
       <View style={styles.header}>
         <View style={styles.info}>
+          {/* The shape of NameText, on react-native's Text so the focus ref reaches the native node. */}
           <Text
             ref={titleRef}
             testID={titleTestID}
             style={[styles.title, isDark && styles.titleDark]}
-            numberOfLines={1}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+            accessibilityLabel={title}
           >
             {title}
           </Text>
@@ -92,13 +105,7 @@ export const MapPopup = memo(function MapPopup({
             label={t('maps.viewDetails')}
             variant="ghost"
             size="sm"
-            icon={
-              <MaterialCommunityIcons
-                name="chevron-right"
-                size={iconSize.md}
-                color={colors.primary}
-              />
-            }
+            icon="chevron-right"
           />
         ) : null}
         {zoom ? (
@@ -111,7 +118,7 @@ export const MapPopup = memo(function MapPopup({
             <MaterialCommunityIcons
               name="crosshairs-gps"
               size={iconSize.lg}
-              color={colors.primary}
+              color={palette.primary}
             />
           </IconButton>
         ) : null}

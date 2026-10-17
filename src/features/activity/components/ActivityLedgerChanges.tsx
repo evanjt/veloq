@@ -8,6 +8,7 @@ import { formatFullDate } from '@/shared/format/format';
 import { FIXED_LABEL_LEDGER_KINDS, ledgerDate } from '@/features/routes';
 import { Card, CardHeader, Row } from '@/shared/ui';
 import { spacing, typography, themedStyles, type Palette } from '@/theme';
+import { NameText } from '@/shared/ui/NameText';
 
 interface ActivityLedgerChangesProps {
   changes: readonly ActivityLedgerChange[];
@@ -45,9 +46,7 @@ export function ActivityLedgerChanges({ changes, isDark }: ActivityLedgerChanges
                 behaviour="navigate"
               >
                 <View style={styles.rowText}>
-                  <Text style={styles.name} numberOfLines={1}>
-                    {name}
-                  </Text>
+                  <NameText style={styles.name}>{name}</NameText>
                   {change.sectionName != null && kindLabel != null && (
                     <Text style={styles.detail}>{kindLabel}</Text>
                   )}

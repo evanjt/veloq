@@ -25,17 +25,18 @@ import { useTheme } from '@/shared/app';
 import {
   colors,
   darkColors,
-  brand,
   spacing,
   layout,
   typography,
   slopToMinTapTarget,
   stroke,
+  themePalette,
 } from '@/theme';
 import { fallbackLetter } from '@/features/routes/lib/labelPreviewCentres';
 import type { CentreLabel } from '@/features/routes/lib/labelPreviewCentres';
 import type { PreviewCentre } from 'veloqrs';
 import { pressable, pressRipple } from '@/shared/ui';
+import { FitText } from '@/shared/ui/FitText';
 
 const CHIP_MIN_HEIGHT = 44;
 
@@ -54,6 +55,7 @@ export function PreviewCentrePicker({
 }: PreviewCentrePickerProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
@@ -102,7 +104,7 @@ export function PreviewCentrePicker({
               style={pressable([
                 styles.chip,
                 { backgroundColor: surface, borderColor: border },
-                active && styles.chipActive,
+                active && { backgroundColor: palette.primary, borderColor: palette.primary },
               ])}
               hitSlop={slopToMinTapTarget(CHIP_MIN_HEIGHT)}
               android_ripple={pressRipple}
@@ -112,14 +114,16 @@ export function PreviewCentrePicker({
               accessibilityState={{ selected: active }}
               testID={`preview-centre-${centre.binKey}`}
             >
-              <Text
-                style={[styles.chipLabel, { color: active ? colors.textOnDark : textPrimary }]}
-                numberOfLines={1}
+              <FitText
+                style={[styles.chipLabel, { color: active ? colors.textOnPrimary : textPrimary }]}
               >
                 {label}
-              </Text>
+              </FitText>
               <Text
-                style={[styles.chipDetail, { color: active ? colors.textOnDark : textSecondary }]}
+                style={[
+                  styles.chipDetail,
+                  { color: active ? colors.textOnPrimary : textSecondary },
+                ]}
               >
                 {detail}
               </Text>
@@ -165,10 +169,6 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusSm,
     borderWidth: stroke.hairline,
     justifyContent: 'center',
-  },
-  chipActive: {
-    backgroundColor: brand.tealLight,
-    borderColor: brand.tealLight,
   },
   chipLabel: {
     ...typography.bodySmall,

@@ -452,7 +452,7 @@ const FILL_SERIES = ['sectionPalette', 'routePalette', 'rpeRamp', 'strengthRamp'
  * dark theme, whether it colours text, fills a view or outlines one.
  */
 const DARK_COUNTERPART_TOKENS = [
-  'linkTeal',
+  'actionLink',
   'textSecondary',
   'errorDeep',
   'error',

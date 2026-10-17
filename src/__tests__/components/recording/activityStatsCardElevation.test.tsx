@@ -13,6 +13,7 @@ import { useMetricSystem } from '@/shared/app';
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
 jest.mock('@/shared/app', () => ({
   useMetricSystem: jest.fn(() => true),
+  useTheme: () => ({ isDark: false }),
 }));
 
 function renderCard() {
@@ -29,8 +30,6 @@ function renderCard() {
         hasGps: true,
       }}
       activityType="Ride"
-      textPrimary="#000"
-      textSecondary="#000"
     />
   );
 }

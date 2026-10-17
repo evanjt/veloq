@@ -12,7 +12,7 @@ import { useCallback } from 'react';
 import { i18n } from '@/i18n';
 import { getNativeModule } from '@/shared/native/engine';
 import { engineErrorTag } from '@/shared/native/engineError';
-import { engine, DownloadPriority, type ActivitySportMapping } from 'veloqrs';
+import { engine, StartOutcome, type ActivitySportMapping } from 'veloqrs';
 import { getSyncGeneration, useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import type { SyncProgress } from './useRouteSyncProgress';
@@ -31,7 +31,11 @@ import {
   pollDownloadProgress,
   runProgressReader,
 } from '@/features/routes/lib/gpsDownloadPoll';
-import { endGpsSync, type GpsSyncEnding } from '@/features/routes/lib/gpsSyncEnding';
+import {
+  endGpsSync,
+  passRefusalEnding,
+  type GpsSyncEnding,
+} from '@/features/routes/lib/gpsSyncEnding';
 
 const log = debug.create('GpsDataFetcher');
 
@@ -401,9 +405,8 @@ export function useGpsDataFetcher() {
         });
       }
 
-      // Build sport type mapping for Rust
+      // The order the pass fetches in. The engine reads the candidates itself.
       const activityIds = candidates.map((c) => c.activityId);
-      const sportTypes = candidates;
 
       if (__DEV__) {
         log.log(`[fetchApiGps] Starting fetch+store for ${activityIds.length} activities...`);
@@ -426,10 +429,16 @@ export function useGpsDataFetcher() {
       const downloadBudget = isRouteMatchingEnabled() ? 50 : 100;
 
       const runDownload = async (ids: string[]) => {
-        // The run id is what makes the result ours. One slot was shared by
-        // this sync, the headless push task and the map's own download, and a
-        // push arriving mid-sync took whichever result landed first.
-        const run = engine.startFetchAndStore(ids, sportTypes, DownloadPriority.Bulk);
+        // The engine reads the tracks still owed over the range and downloads
+        // them, these first. A pass it cannot start now it keeps owed and
+        // starts itself, so a refusal here is the end of this run and nothing
+        // asks again. The run id is what makes the result ours: a silent push
+        // arriving mid-sync starts its own run.
+        const { oldest, newest } = useSyncDateRange.getState();
+        const pass = engine.startGpsPass(oldest, newest, ids);
+        if (pass.outcome !== StartOutcome.Started) return pass.outcome;
+        const run = pass.run;
+        const total = pass.total;
 
         // Poll this run's own progress every 100ms. Rust fetches each
         // activity's map and then its time stream, and only clears `active`
@@ -445,13 +454,13 @@ export function useGpsDataFetcher() {
           read: runProgressReader(run, (r) => engine.getFetchRunProgress(r)),
           isActive: owns,
           onProgress: (progress) => {
-            const completed = Math.min(progress.completed, activityIds.length);
-            const gpsFraction = activityIds.length > 0 ? completed / activityIds.length : 0;
+            const completed = Math.min(progress.completed, total);
+            const gpsFraction = total > 0 ? completed / total : 0;
             const combined = Math.round(gpsFraction * downloadBudget);
             updateProgress({
               status: 'fetching',
               completed,
-              total: activityIds.length,
+              total,
               percent: combined,
               message: i18n.t('cache.downloadingGpsProgress'),
             });
@@ -482,6 +491,8 @@ export function useGpsDataFetcher() {
       // A run a newer sync aborted while it waited is not a failure, and the
       // progress it would write now belongs to that sync, whatever came back.
       if (!owns()) return ending('cancelled');
+
+      if (typeof result === 'number') return ending(passRefusalEnding(result));
 
       if (!result) {
         // The store thread died: the poll saw the download go inactive and the

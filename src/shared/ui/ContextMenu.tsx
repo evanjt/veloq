@@ -145,7 +145,7 @@ function MenuRow({
         <MaterialCommunityIcons
           name="check"
           size={iconSize.md}
-          color={item.checked ? brand.teal : 'transparent'}
+          color={item.checked ? brand.blue550 : 'transparent'}
         />
       ) : null}
     </Pressable>

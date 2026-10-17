@@ -10,7 +10,6 @@ import {
 import { FullWindowModal } from '@/shared/ui/FullWindowModal';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
   SafeAreaProvider,
@@ -77,7 +76,6 @@ import {
   layers,
   layout,
   opacity,
-  shadows,
   slopToMinTapTarget,
   spacing,
   typography,
@@ -479,11 +477,12 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
               <Button
                 ref={exportAnchor}
                 testID="activity-export-gpx"
+                variant="secondary"
                 style={styles.exportGpxButton}
                 onPress={() => onExportGpx(exportAnchor)}
                 loading={gpxExporting}
                 label={t('export.gpx')}
-                icon={<ChromeIcon name="share" size={iconSize.md} color={colors.textOnPrimary} />}
+                icon={{ chrome: 'share' }}
               />
             )}
 
@@ -851,6 +850,5 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
     marginTop: spacing.lg,
     marginBottom: spacing.md,
-    ...shadows.elevated,
   },
 });

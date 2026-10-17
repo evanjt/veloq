@@ -1,7 +1,7 @@
 /**
  * The recording screen's single transient status slot. Shows at most one
- * message at a time (refused foreground service > failing crash backup > GPS
- * warning > sensor issue > km-split toast) with an animated swap, replacing the old stack of independent
+ * message at a time (lap press > refused foreground service > failing crash
+ * backup > GPS warning > sensor issue > km-split toast) with an animated swap, replacing the old stack of independent
  * banners.
  */
 
@@ -44,6 +44,7 @@ function StatusSlotInner({
   gpsWarningOpensSettings,
   sensorIssue,
   splitBanner,
+  lapBanner,
   onDismissGpsWarning,
 }: StatusSlotProps) {
   const { t } = useTranslation();
@@ -55,6 +56,7 @@ function StatusSlotInner({
     gpsWarningOpensSettings,
     sensorIssue,
     splitBanner,
+    lapBanner,
   });
   // A rider with the phone mounted or pocketed learns the slot by ear. A fault
   // interrupts, through an assertive live region on Android; a split waits.
@@ -149,13 +151,14 @@ function StatusSlotInner({
     );
   }
 
+  // A lap and a split are the ride's own marks, drawn alike under the lap flag.
   return (
     <Animated.View
-      key="split"
+      key={message.kind}
       entering={ENTERING}
       exiting={EXITING}
       style={[styles.row, styles.splitRow]}
-      testID="status-slot-split"
+      testID={`status-slot-${message.kind}`}
       accessibilityLiveRegion="polite"
       accessible
       accessibilityLabel={message.spoken}

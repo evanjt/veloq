@@ -35,7 +35,16 @@ import { useMetricSystem, useTheme } from '@/shared/app';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { formatDistance } from '@/shared/format/format';
 import { pressable, pressRipple, ToggleButton } from '@/shared/ui';
-import { brand, colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
+import {
+  colors,
+  darkColors,
+  iconSize,
+  layout,
+  spacing,
+  typography,
+  stroke,
+  themePalette,
+} from '@/theme';
 import {
   DETECTION_PARAM_RANGES,
   DETECTION_PRESETS,
@@ -237,9 +246,9 @@ function ParamRow({
         step={step}
         onValueChange={onChange}
         onSlidingComplete={onRelease}
-        minimumTrackTintColor={brand.tealLight}
+        minimumTrackTintColor={themePalette(isDark).primary}
         maximumTrackTintColor={trackBg}
-        thumbTintColor={brand.tealLight}
+        thumbTintColor={themePalette(isDark).primary}
       />
       {isPastTestedRange(paramKey, value) && (
         <Text testID={`param-range-note-${paramKey}`} style={[styles.paramLabel, { color: txt }]}>

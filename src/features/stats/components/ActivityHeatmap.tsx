@@ -21,7 +21,16 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { RangeCoverage } from 'veloqrs';
-import { colors, darkColors, typography, spacing, contributionRamp, layout, stroke } from '@/theme';
+import {
+  colors,
+  darkColors,
+  typography,
+  spacing,
+  contributionRamp,
+  layout,
+  stroke,
+  themePalette,
+} from '@/theme';
 import { useTrainingScreenData } from '../hooks/useEngineStats';
 import { useWindowCoverage } from '@/shared/native/useRangeCoverage';
 import {
@@ -108,6 +117,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
     useImperativeHandle(ref, () => ({ setHighlight }), []);
     const { t } = useTranslation();
     const { isDark } = useTheme();
+    const palette = themePalette(isDark);
     const intensityColors = isDark ? INTENSITY_COLORS : INTENSITY_COLORS_LIGHT;
     const scrollRef = useRef<ScrollView>(null);
 
@@ -412,6 +422,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
                         top: highlightPos.y - 2,
                         width: CELL_SIZE + 4,
                         height: CELL_SIZE + 4,
+                        borderColor: palette.primary,
                       },
                     ]}
                   />
@@ -557,7 +568,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     borderRadius: layout.borderRadiusXs,
     borderWidth: stroke.two,
-    borderColor: colors.primary,
   },
   emptyState: {
     alignItems: 'center',

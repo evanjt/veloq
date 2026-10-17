@@ -375,9 +375,7 @@ function ReferenceStar({ isReference, isDark, label, onPress }: ReferenceStarPro
       <MaterialCommunityIcons
         name={isReference ? 'star' : 'star-outline'}
         size={iconSize.sm}
-        color={
-          isReference ? colors.primary : isDark ? darkColors.textSecondary : colors.textSecondary
-        }
+        color={isReference ? themePalette(isDark).primary : themePalette(isDark).textSecondary}
       />
     </Pressable>
   );

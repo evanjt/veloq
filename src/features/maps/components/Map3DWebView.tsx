@@ -143,6 +143,8 @@ interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
     },
     gesture: boolean
   ) => void;
+  /** Padding a fit of the route leaves, one number or one per edge, so the route clears what covers the map. */
+  fitPadding?: MapPadding | undefined;
   /** Saved camera override - if provided, skips fitBounds and uses this on first load */
   initialCamera?:
     | {
@@ -207,6 +209,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       onTerrainUnavailable,
       onBearingChange,
       onCameraStateChange,
+      fitPadding,
       initialCamera,
       onMapClick,
       onSectionClick,
@@ -282,6 +285,10 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     // the page for every selection.
     const routeColorRef = useRef(routeColor);
     routeColorRef.current = routeColor;
+    // Read by the page memo and the route swap, so a cover that moves frames the next fit
+    // without rebuilding the page.
+    const fitPaddingRef = useRef(fitPadding);
+    fitPaddingRef.current = fitPadding;
     const routeGradientRef = useRef(routeGradient);
     routeGradientRef.current = routeGradient;
     // The gradient the page holds. A page that was rebuilt or restyled holds none.
@@ -401,7 +408,9 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       }
       if (drawn.coordinates === coords && drawn.color === color) return;
       drawnRouteRef.current = { coordinates: coords, color };
-      webViewRef.current.injectJavaScript(buildSetRouteScript(coords, boundsRef.current, color));
+      webViewRef.current.injectJavaScript(
+        buildSetRouteScript(coords, boundsRef.current, color, fitPaddingRef.current)
+      );
     }, []);
 
     // Handle messages from WebView - dispatch via the shared 3D bridge.
@@ -838,6 +847,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         heatmapGeneration: heatmapGenerationRef.current,
         devicePixelRatio: Math.min(PixelRatio.get(), 2), // Cap at 2x for 3D terrain
         reduceMotion: pageReduceMotionRef.current,
+        fitPadding: fitPaddingRef.current,
       });
       // `mapStyle` is read above and deliberately not a dependency: it is
       // applied by setStyle() injection, and listing it here would regenerate

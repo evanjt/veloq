@@ -28,14 +28,12 @@ export { RestoreChooser } from './components/RestoreChooser';
 export { captureQuarantineReport } from './lib/quarantineReport';
 export { cleanUpRetiredBackupSettings } from './lib/autobackup/autoBackup';
 export { excludeLocalBackupsFromDeviceBackup } from './lib/autobackup/backends/localBackend';
-export { applyPlatformRecord } from './lib/platformRecordOffer';
-export { applyHeldImport } from './lib/heldImport';
 export { applyOpenedBackup, receiveOpenedBackup } from './lib/openedBackup';
-export { offerRestorePrompt } from './lib/restorePrompt';
+export { runLaunchRestores } from './lib/launchRestore';
 export { useLastBackupTimestamp, useAutoBackupEnabled } from './hooks/useLastBackupTimestamp';
 export { resumeRecordImport } from './lib/backup';
 export { sweepIdleBackupFiles } from './lib/backupCache';
-export { DIVIDER_INSET, settingsStyles } from './components/settingsStyles';
+export { settingsStyles } from './components/settingsStyles';
 export { StreamConsentCard } from './components/StreamConsentCard';
 export { useDebugStore, initialiseDebugStore } from './stores/DebugStore';
 export {

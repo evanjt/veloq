@@ -231,6 +231,8 @@ export enum RangeCoverage {
 export enum FfiReferenceSource {
   Record,
   AthleteSet,
+  PreviousRecord,
+  Typical,
 }
 
 /** The tags of `FfiCatalogueEmptyReason` as generated, held to the source by the same test. */
@@ -302,9 +304,16 @@ export const startFetchAndStore = jest.fn(() => 0);
 export const takeFetchAndStoreResult = jest.fn(() => undefined);
 export const cancelFetchAndStore = jest.fn(() => true);
 export const getFetchRunProgress = jest.fn(() => ({ active: false, completed: 0, total: 0 }));
+/** A GPS pass the engine started, as run 0 over the ids it was handed. */
+export const startGpsPass = jest.fn((_oldest?: string, _newest?: string, head: string[] = []) => ({
+  outcome: StartOutcome.Started,
+  run: 0,
+  total: head.length,
+}));
 /** The fetch-and-store calls as the engine client carries them, for a test that overrides `engine`. */
 export const fetchCalls = {
   startFetchAndStore,
+  startGpsPass,
   takeFetchAndStoreResult,
   cancelFetchAndStore,
   getFetchRunProgress,

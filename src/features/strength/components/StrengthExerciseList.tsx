@@ -4,13 +4,14 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { colors, darkColors, spacing, layout, brand, typography, stroke } from '@/theme';
+import { colors, darkColors, spacing, layout, strengthTone, typography, stroke } from '@/theme';
 import type { MuscleVolume, ExerciseSummary } from '@/types';
 import { formatWeightRounded as formatWeight } from '@/shared/format/weight';
 import { Row } from '@/shared/ui';
 
 import { muscleName } from '../lib/muscleNames';
 import { tapTo } from '@/shared/app/navigation';
+import { NameText } from '@/shared/ui/NameText';
 
 interface StrengthExerciseListProps {
   selectedVolume: MuscleVolume;
@@ -48,9 +49,9 @@ export const StrengthExerciseList = React.memo(function StrengthExerciseList({
           >
             <View style={styles.dot} />
             <View style={styles.content}>
-              <Text style={[styles.name, isDark && styles.nameDark]} numberOfLines={1}>
+              <NameText style={[styles.name, isDark && styles.nameDark]}>
                 {exercise.exerciseName}
-              </Text>
+              </NameText>
               <Text style={[styles.meta, isDark && styles.metaDark]}>
                 {t('strength.setsCount', { count: exercise.totalSets })} ·{' '}
                 {t('strength.exerciseWorkoutCount', { count: exercise.activityCount })}
@@ -78,7 +79,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: layout.borderRadiusFull,
-    backgroundColor: brand.tealLight,
+    backgroundColor: strengthTone.primary,
   },
   content: { flex: 1 },
   name: { ...typography.bodyMedium, color: colors.textPrimary },

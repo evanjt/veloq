@@ -45,9 +45,7 @@ function PendingUploadsCardInner() {
       style={styles.row}
     >
       <MaterialCommunityIcons name="cloud-upload-outline" size={iconSize.sm} color={tint} />
-      <Text style={[styles.text, { color: tint }]} numberOfLines={1}>
-        {label}
-      </Text>
+      <Text style={[styles.text, { color: tint }]}>{label}</Text>
       <MaterialCommunityIcons name="chevron-right" size={iconSize.sm} color={tint} />
     </Card>
   );

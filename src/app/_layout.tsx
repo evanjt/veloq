@@ -78,10 +78,7 @@ import { EngineInitBanner } from '@/shared/app/EngineInitBanner';
 import {
   captureQuarantineReport,
   LibraryRebuiltNotice,
-  applyHeldImport,
-  applyOpenedBackup,
-  applyPlatformRecord,
-  offerRestorePrompt,
+  runLaunchRestores,
   onAppForeground,
   initWebdavConfig,
   MapPreferencesProvider,
@@ -293,18 +290,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           if (useAuthStore.getState().isDemoMode) {
             seedDemoEngine();
           } else {
-            // A phone set up from a device backup has the record zip and no
-            // library. The count is read before the launch sync stores any.
-            // With no zip to apply, or one the engine refused, the library
-            // stays empty, so the athlete is offered the other routes once.
-            // A backup picked before signing in goes first, and answers both,
-            // then one opened into the app from outside while it launched.
+            // The count is read before the launch sync stores any, so an
+            // empty library is offered a backup it can see.
             const launchCount = stats?.activityCount ?? 0;
-            applyHeldImport(i18n.t)
-              .then(() => applyOpenedBackup(i18n.t))
-              .then(() => applyPlatformRecord(launchCount, i18n.t))
-              .then(() => offerRestorePrompt(launchCount, () => run.live))
-              .catch(() => {});
+            runLaunchRestores(launchCount, i18n.t, () => run.live).catch(() => {});
           }
           // Initialise SyncDateRangeStore from engine's actual cached data
           if (seedSyncRange(stats, initialiseRange) && __DEV__) {

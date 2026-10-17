@@ -3,6 +3,12 @@ export { RouteRow } from './RouteRow';
 export { RoutePerformanceSection } from './performance/RoutePerformanceSection';
 export { RouteMapView } from './RouteMapView';
 export { SectionRow } from './SectionRow';
+export {
+  SectionSwipeAction,
+  sectionSwipeAction,
+  sectionSwipeKind,
+  type SectionSwipeKind,
+} from './SectionSwipeAction';
 export { SectionsList } from './SectionsList';
 export { SectionMapView } from './SectionMapView';
 export { DateRangeSummary } from './DateRangeSummary';

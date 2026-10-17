@@ -1,6 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { brand } from '@/theme';
+import { nativeColours } from '@/theme';
 import { debug } from '@/shared/debug/debug';
 import {
   isForSignedInAthlete,
@@ -78,7 +78,7 @@ function nameInsightsChannel(): void {
     name,
     description: i18n.t(CHANNEL_DESCRIPTION_KEY),
     importance: Notifications.AndroidImportance.DEFAULT,
-    lightColor: brand.tealLight,
+    lightColor: nativeColours.notificationAccent,
   }).catch((e: unknown) => log.warn('could not create the insights channel', e));
 }
 

@@ -21,6 +21,7 @@ import {
   opacity,
   spacing,
   typography,
+  themePalette,
 } from '@/theme';
 import { SportIcons } from '@/shared/activity/SportIcons';
 import { Card } from '@/shared/ui/Card';
@@ -37,6 +38,7 @@ import {
   ROW_PREVIEW_HEIGHT,
   ROW_PREVIEW_WIDTH,
 } from '@/features/routes/lib/rowLayout';
+import { NameText } from '@/shared/ui/NameText';
 
 interface SectionRowProps {
   section: Section;
@@ -62,6 +64,7 @@ export const SectionRow = memo(function SectionRow({
 }: SectionRowProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const isMetric = useMetricSystem();
   // Unique ID for SVG gradient to avoid collisions between multiple instances
   const uniqueId = useId();
@@ -130,7 +133,7 @@ export const SectionRow = memo(function SectionRow({
   const hasSectionPolyline = sectionPolylineString.length > 0;
 
   // The app's own colour: ground has no sport to colour it by.
-  const activityColor = colors.primary;
+  const activityColor = palette.primary;
 
   // Background colors for map-like appearance
   const preview = isDark ? mapPreviewColors.dark : mapPreviewColors.light;
@@ -269,9 +272,9 @@ export const SectionRow = memo(function SectionRow({
         {/* Section info */}
         <View style={styles.infoContainer}>
           <View style={styles.nameRow}>
-            <Text style={[styles.sectionName, isDark && styles.textLight]} numberOfLines={1}>
+            <NameText style={[styles.sectionName, isDark && styles.textLight]}>
               {section.name}
-            </Text>
+            </NameText>
             {section.isUserDefined && section.sectionType === 'auto' ? (
               <MaterialCommunityIcons
                 name="pin"
@@ -373,7 +376,7 @@ export const SectionRow = memo(function SectionRow({
 
         {/* Visit count badge */}
         <View
-          style={styles.countBadge}
+          style={[styles.countBadge, { backgroundColor: palette.primary }]}
           accessible
           accessibilityLabel={countLabel}
           testID={`section-row-${section.id}-count`}
@@ -446,7 +449,6 @@ const styles = StyleSheet.create({
   countBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary,
     borderRadius: layout.borderRadius,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xxs,

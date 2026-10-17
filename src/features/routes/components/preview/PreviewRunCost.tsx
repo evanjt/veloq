@@ -56,7 +56,7 @@ export function PreviewRunCost({ pool, elapsedMs }: PreviewRunCostProps) {
 
 const styles = StyleSheet.create({
   wrap: {
-    gap: spacing.chart.xs,
+    gap: spacing.xxs,
     paddingHorizontal: spacing.xs,
   },
   line: {

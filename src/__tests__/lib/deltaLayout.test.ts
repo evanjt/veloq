@@ -10,6 +10,7 @@ import {
   layoutDelta,
   layoutSplitSummary,
   pickEmphasisedLap,
+  rebaseCurve,
   scrubDeltaSecs,
   snapScrubIndex,
   splitAtDistance,
@@ -42,6 +43,7 @@ function deltas(laps: FfiLapDelta[]): FfiDirectionDeltas {
   return {
     referenceActivityId: 'ref',
     referenceSource: 0,
+    defaultReference: 0,
     laps,
     missing: [],
     peakDeltaSecs,
@@ -278,5 +280,27 @@ describe('splitAtDistance', () => {
   it('names no split without any', () => {
     expect(splitAtDistance(100, 100, 0)).toBeUndefined();
     expect(splitAtDistance(100, 0, 4)).toBeUndefined();
+  });
+});
+
+describe('rebaseCurve', () => {
+  const previousRecord = Float32Array.from([0, 2, 5, 10]);
+
+  it('measures a lap against another reference as the difference of the two curves', () => {
+    const rebased = rebaseCurve(Float32Array.from([0, 1, 1, 4]), previousRecord);
+    expect(Array.from(rebased)).toEqual([0, -1, -4, -6]);
+  });
+
+  it('puts the new reference level with itself everywhere', () => {
+    expect(Array.from(rebaseCurve(previousRecord, previousRecord))).toEqual([0, 0, 0, 0]);
+  });
+
+  it('keeps a point either curve does not reach as a gap', () => {
+    const rebased = rebaseCurve(Float32Array.from([NaN, 3, 4, 6]), Float32Array.from([0, 2, NaN]));
+    expect(Number.isNaN(rebased[0])).toBe(true);
+    expect(rebased[1]).toBe(1);
+    expect(Number.isNaN(rebased[2])).toBe(true);
+    expect(Number.isNaN(rebased[3])).toBe(true);
+    expect(rebased).toHaveLength(4);
   });
 });

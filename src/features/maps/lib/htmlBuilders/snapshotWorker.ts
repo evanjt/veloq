@@ -74,6 +74,31 @@ export function heartbeatScript(): string {
 }
 
 /**
+ * Names the worker on the release Android's trim posts, which carries no id,
+ * and abandons the render that release cut short, as `_releaseMap` does.
+ */
+function nativeReleaseScript(): string {
+  return `
+    (function() {
+      var bridge = window.ReactNativeWebView;
+      if (!bridge) return;
+      var post = bridge.postMessage.bind(bridge);
+      bridge.postMessage = function(payload) {
+        var type = null;
+        try {
+          type = JSON.parse(payload).type;
+        } catch (e) {
+          // Not our JSON, so not the release.
+        }
+        if (type !== 'nativeMapReleased') return post(payload);
+        window._releaseMap();
+        return post(JSON.stringify({ type: 'nativeMapReleased', workerId: window._workerId }));
+      };
+    })();
+  `;
+}
+
+/**
  * Build the complete HTML string for a terrain snapshot worker WebView.
  *
  * The `workerId` is embedded directly into the page so postMessage
@@ -220,7 +245,23 @@ ${terrainVisibilityScript()}
       window._bootMap();
     };
 
+    // The background release: the map goes with its GL context, and a render
+    // in flight is abandoned, since the pool has put it back on its queue. The
+    // page and the styles it holds stay, and a recycle brings the map back.
+    window._releaseMap = function() {
+      window._snapshotGen = -1;
+      if (window._heartbeat) window._heartbeat.stop();
+      try { if (window.map) window.map.remove(); } catch (e) {}
+      window.map = null;
+      window._currentBaseStyle = null;
+      window._currentBaseMode = null;
+    };
+    // Android's trim reaches a page carrying this marker with its own release.
+    window._veloqReleasableMap = true;
+
 ${heartbeatScript()}
+
+${nativeReleaseScript()}
 
 ${snapshotRenderScript()}
   </script>
@@ -228,7 +269,15 @@ ${snapshotRenderScript()}
 </html>`;
 }
 
-/** Rebuilds a worker's map, sent by the pool once it has been idle a while. */
+/** Takes a worker's map down for the background release. */
+export function buildReleaseSnapshotMapScript(): string {
+  return 'window._releaseMap && window._releaseMap(); true;';
+}
+
+/**
+ * Rebuilds a worker's map, sent by the pool once it has been idle a while and
+ * when a released map comes back.
+ */
 export function buildRecycleSnapshotMapScript(): string {
   return 'window._recycleMap && window._recycleMap(); true;';
 }

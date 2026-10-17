@@ -41,8 +41,8 @@
       "hrChange": "Modeled change at average pace"
     },
     "efficiencyTrend": {
-      "changeSubtitle": "Modeled +{{hrChange}} bpm at average pace over {{efforts}} efforts",
-      "changeBody": "Over {{efforts}} efforts on {{name}}, heart rate times pace increased. At the average pace this is a modeled +{{hrChange}} bpm; measured heart rate may differ.",
+      "changeSubtitle": "Modeled {{hrChange}} bpm at average pace over {{efforts}} efforts",
+      "changeBody": "Over {{efforts}} efforts on {{name}}, heart rate times pace increased. At the average pace this is a modeled {{hrChange}} bpm; measured heart rate may differ.",
       "subtitle": "Modeled {{hrChange}} bpm at average pace over {{efforts}} efforts",
       "body": "Over {{efforts}} efforts on {{name}}, heart rate times pace has improved. At your average pace that is a modeled {{hrChange}} bpm; your heart rate itself may not have changed."
     },

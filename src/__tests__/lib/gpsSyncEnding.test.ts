@@ -8,10 +8,22 @@
  * panel and the routes list spinner until the next sync replaces it, which is
  * the next foreground or reconnect at the earliest.
  */
-import { endGpsSync, type GpsSyncEnding } from '@/features/routes/lib/gpsSyncEnding';
+import {
+  endGpsSync,
+  passRefusalEnding,
+  type GpsSyncEnding,
+} from '@/features/routes/lib/gpsSyncEnding';
+import { StartOutcome } from 'veloqrs';
 import type { SyncProgress } from '@/features/routes/hooks/useRouteSyncProgress';
 
-const ENDINGS: GpsSyncEnding[] = ['no-result', 'no-engine', 'cancelled', 'superseded'];
+const ENDINGS: GpsSyncEnding[] = [
+  'no-result',
+  'no-engine',
+  'cancelled',
+  'superseded',
+  'owed',
+  'not-started',
+];
 
 function end(ending: GpsSyncEnding, over: Partial<Parameters<typeof endGpsSync>[1]> = {}) {
   const written: SyncProgress[] = [];
@@ -67,6 +79,22 @@ describe('a GPS download run that stores nothing', () => {
 
       expect(written).toHaveLength(0);
       expect(result.syncedIds).toEqual([]);
+    }
+  );
+});
+
+describe('a GPS pass the engine did not start', () => {
+  it.each([StartOutcome.Busy, StartOutcome.Offline])(
+    'is owed to the engine on outcome %s',
+    (outcome) => {
+      expect(passRefusalEnding(outcome)).toBe('owed');
+    }
+  );
+
+  it.each([StartOutcome.NotOwed, StartOutcome.NotConfigured, StartOutcome.NotReady])(
+    'is not started on outcome %s',
+    (outcome) => {
+      expect(passRefusalEnding(outcome)).toBe('not-started');
     }
   );
 });

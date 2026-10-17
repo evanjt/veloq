@@ -61,12 +61,13 @@ export function useTheme(): Theme {
   const colorScheme = useResolvedColorScheme();
   const isDark = colorScheme === 'dark';
   const preferOpaqueChrome = useOpaqueChromeStore((s) => s.preferOpaqueChrome);
+  const palette = themePalette(isDark);
 
   const themeColors: ThemeColors = {
-    // Core brand - Teal primary (mode-aware), Blue secondary, Gold for achievements
-    primary: isDark ? brand.tealDark : brand.tealLight,
-    primaryDark: isDark ? brand.tealHoverDark : brand.tealHover,
-    primaryLight: isDark ? brand.teal : brand.tealDark,
+    // Core brand: the theme's primary, Blue secondary, Gold for achievements
+    primary: palette.primary,
+    primaryDark: palette.primaryHover,
+    primaryLight: palette.primaryLight,
     secondary: brand.blue,
     secondaryDark: brand.blueDark,
     secondaryLight: brand.blueLight,
@@ -101,7 +102,7 @@ export function useTheme(): Theme {
     isDark,
     preferOpaqueChrome,
     colors: themeColors,
-    palette: themePalette(isDark),
+    palette,
     styles: {
       container: { backgroundColor: themeColors.background },
       card: { backgroundColor: themeColors.card },

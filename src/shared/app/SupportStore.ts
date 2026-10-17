@@ -10,6 +10,9 @@ interface SupportState {
   permanentlyDismissed: boolean;
   isLegacyPurchaser: boolean;
   dismissCount: number;
+  firstUseDate: string | null;
+  lastUseDate: string | null;
+  useDays: number;
   isLoaded: boolean;
   shouldShow: () => boolean;
   getIntervalDays: () => number;
@@ -32,24 +35,39 @@ function intervalForCount(count: number): number {
   return 90;
 }
 
+/** Distinct local days of use before a never-dismissed card first shows. */
+export const FIRST_SHOW_USE_DAYS = 5;
+/** Days since the first use before a never-dismissed card first shows. */
+export const FIRST_SHOW_MIN_DAYS = 14;
+
 interface PersistedData {
   lastActionDate: string | null;
   permanentlyDismissed: boolean;
   isLegacyPurchaser: boolean;
   dismissCount?: number;
+  firstUseDate?: string | null;
+  lastUseDate?: string | null;
+  useDays?: number;
 }
 
-function persist(
-  state: Pick<
-    SupportState,
-    'lastActionDate' | 'permanentlyDismissed' | 'isLegacyPurchaser' | 'dismissCount'
-  >
-): void {
+type PersistedFields =
+  | 'lastActionDate'
+  | 'permanentlyDismissed'
+  | 'isLegacyPurchaser'
+  | 'dismissCount'
+  | 'firstUseDate'
+  | 'lastUseDate'
+  | 'useDays';
+
+function persist(state: Pick<SupportState, PersistedFields>): void {
   const data: PersistedData = {
     lastActionDate: state.lastActionDate,
     permanentlyDismissed: state.permanentlyDismissed,
     isLegacyPurchaser: state.isLegacyPurchaser,
     dismissCount: state.dismissCount,
+    firstUseDate: state.firstUseDate,
+    lastUseDate: state.lastUseDate,
+    useDays: state.useDays,
   };
   setSetting(STORAGE_KEY, JSON.stringify(data)).catch((e) => {
     if (__DEV__) console.warn('[SupportStore] persist failed:', e);
@@ -61,6 +79,9 @@ export const useSupportStore = create<SupportState>((set, get) => ({
   permanentlyDismissed: false,
   isLegacyPurchaser: false,
   dismissCount: 0,
+  firstUseDate: null,
+  lastUseDate: null,
+  useDays: 0,
   isLoaded: false,
 
   getIntervalDays: () => {
@@ -74,6 +95,11 @@ export const useSupportStore = create<SupportState>((set, get) => ({
     if (s.permanentlyDismissed) return false;
     if (s.isLegacyPurchaser) return false;
     if (s.lastActionDate === null) return false;
+    if (s.dismissCount === 0) {
+      if (s.firstUseDate === null) return false;
+      if (s.useDays < FIRST_SHOW_USE_DAYS) return false;
+      if (daysSince(s.firstUseDate) < FIRST_SHOW_MIN_DAYS) return false;
+    }
     return daysSince(s.lastActionDate) >= intervalForCount(s.dismissCount);
   },
 
@@ -118,48 +144,36 @@ export const useSupportStore = create<SupportState>((set, get) => ({
   },
 
   initialise: async () => {
+    const today = formatLocalDate(new Date());
+    let data: PersistedData | null = null;
     try {
       const stored = await getSetting(STORAGE_KEY);
-      if (stored) {
-        const data: PersistedData = JSON.parse(stored);
-        const lastActionDate = data.lastActionDate ?? null;
-        if (lastActionDate === null) {
-          const seeded = formatLocalDate(new Date());
-          set({
-            lastActionDate: seeded,
-            permanentlyDismissed: data.permanentlyDismissed ?? false,
-            isLegacyPurchaser: data.isLegacyPurchaser ?? false,
-            dismissCount: data.dismissCount ?? 0,
-            isLoaded: true,
-          });
-          persist({
-            lastActionDate: seeded,
-            permanentlyDismissed: data.permanentlyDismissed ?? false,
-            isLegacyPurchaser: data.isLegacyPurchaser ?? false,
-            dismissCount: data.dismissCount ?? 0,
-          });
-          return;
-        }
-        set({
-          lastActionDate,
-          permanentlyDismissed: data.permanentlyDismissed ?? false,
-          isLegacyPurchaser: data.isLegacyPurchaser ?? false,
-          dismissCount: data.dismissCount ?? 0,
-          isLoaded: true,
-        });
-        return;
-      }
+      if (stored) data = JSON.parse(stored);
     } catch {
       // Ignore parse errors
     }
-    const seeded = formatLocalDate(new Date());
-    set({ lastActionDate: seeded, dismissCount: 0, isLoaded: true });
-    persist({
-      lastActionDate: seeded,
-      permanentlyDismissed: false,
-      isLegacyPurchaser: false,
-      dismissCount: 0,
-    });
+    // A row stored before the use count existed starts its count from today,
+    // so no installed athlete sees the card sooner than a new install would.
+    const firstUseDate = data?.firstUseDate ?? today;
+    const priorUseDays = data?.firstUseDate ? (data.useDays ?? 0) : 0;
+    const lastUseDate = data?.firstUseDate ? (data.lastUseDate ?? null) : null;
+    const next = {
+      lastActionDate: data?.lastActionDate ?? today,
+      permanentlyDismissed: data?.permanentlyDismissed ?? false,
+      isLegacyPurchaser: data?.isLegacyPurchaser ?? false,
+      dismissCount: data?.dismissCount ?? 0,
+      firstUseDate,
+      lastUseDate: today,
+      useDays: lastUseDate === today ? priorUseDays : priorUseDays + 1,
+    };
+    set({ ...next, isLoaded: true });
+    const changed =
+      data === null ||
+      data.lastActionDate !== next.lastActionDate ||
+      data.firstUseDate !== next.firstUseDate ||
+      data.lastUseDate !== next.lastUseDate ||
+      data.useDays !== next.useDays;
+    if (changed) persist(next);
   },
 }));
 

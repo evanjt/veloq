@@ -1,9 +1,8 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { useQueryClient } from '@tanstack/react-query';
-import { colors, darkColors, iconSize, ink, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { Button, IconButton, pressable, pressRipple } from '@/shared/ui';
 import { useActivities } from '@/features/activity';
@@ -63,7 +62,7 @@ function Section({
         accessibilityState={{ expanded: open }}
       >
         <View style={styles.sectionHeaderLeft}>
-          <MaterialCommunityIcons name={icon} size={iconSize.md} color={colors.primary} />
+          <MaterialCommunityIcons name={icon} size={iconSize.md} color={mutedColor} />
           <Text style={[styles.sectionTitle, { color: textColor }]}>{title}</Text>
         </View>
         <MaterialCommunityIcons
@@ -283,13 +282,7 @@ export function SyncDebugSection() {
             size="sm"
             style={styles.expandButton}
             onPress={() => setShowMissing(!showMissing)}
-            icon={
-              <MaterialCommunityIcons
-                name={showMissing ? 'chevron-up' : 'chevron-down'}
-                size={iconSize.sm}
-                color={colors.primary}
-              />
-            }
+            icon={showMissing ? 'chevron-up' : 'chevron-down'}
             label={`${showMissing ? 'Hide' : 'Show'} missing IDs (${alignment.missingFromEngine.length})`}
           />
         )}
@@ -314,13 +307,7 @@ export function SyncDebugSection() {
             size="sm"
             style={styles.expandButton}
             onPress={() => setShowExtra(!showExtra)}
-            icon={
-              <MaterialCommunityIcons
-                name={showExtra ? 'chevron-up' : 'chevron-down'}
-                size={iconSize.sm}
-                color={colors.primary}
-              />
-            }
+            icon={showExtra ? 'chevron-up' : 'chevron-down'}
             label={`${showExtra ? 'Hide' : 'Show'} extra IDs (${alignment.extraInEngine.length})`}
           />
         )}
@@ -404,7 +391,7 @@ export function SyncDebugSection() {
           variant="secondary"
           style={styles.actionButton}
           onPress={handleForceSync}
-          icon={<MaterialCommunityIcons name="refresh" size={iconSize.md} color={colors.primary} />}
+          icon="refresh"
           label={FORCE_SYNC_LABEL}
         />
         {forceSyncStatus !== '' && (
@@ -447,7 +434,7 @@ export function SyncDebugSection() {
             opensConfirm
             onPress={handleRemoveActivities}
             disabled={isRemoving || !apiActivities?.length}
-            icon={<ChromeIcon name="delete" size={iconSize.md} color={ink.white} />}
+            icon={{ chrome: 'delete' }}
             label={isRemoving ? 'Removing...' : `Remove ${removeCount} & Re-sync`}
           />
         </View>
@@ -458,7 +445,7 @@ export function SyncDebugSection() {
             opensConfirm
             onPress={handleHardResync}
             disabled={!engine}
-            icon={<MaterialCommunityIcons name="nuke" size={iconSize.sm} color={ink.white} />}
+            icon="nuke"
             label={HARD_RESYNC_LABEL}
           />
           <Text style={[styles.hintText, { color: mutedColor }]}>

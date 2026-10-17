@@ -67,7 +67,7 @@ export function StrengthSlide() {
         </Text>
         {SPLIT_PAIRS.map((pair) => (
           <View key={pair.id} style={styles.pair}>
-            <Text style={[styles.pairName, { color: primaryColor }]} numberOfLines={1}>
+            <Text style={[styles.pairName, { color: primaryColor }]}>
               {balancePairName(pair.id, t)}
             </Text>
             <StrengthBalanceScale
@@ -75,12 +75,8 @@ export function StrengthSlide() {
               rightWeightedSets={pair.rightSets}
             />
             <View style={styles.sides}>
-              <Text style={[styles.side, { color: mutedColor }]} numberOfLines={1}>
-                {muscleName(pair.left, t)}
-              </Text>
-              <Text style={[styles.side, { color: mutedColor }]} numberOfLines={1}>
-                {muscleName(pair.right, t)}
-              </Text>
+              <Text style={[styles.side, { color: mutedColor }]}>{muscleName(pair.left, t)}</Text>
+              <Text style={[styles.side, { color: mutedColor }]}>{muscleName(pair.right, t)}</Text>
             </View>
           </View>
         ))}

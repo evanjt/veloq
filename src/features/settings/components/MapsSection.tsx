@@ -18,10 +18,11 @@ import {
   slopToMinTapTarget,
   spacing,
   typography,
-  stroke,
+  themePalette,
 } from '@/theme';
 import { Row } from '@/shared/ui/Row';
-import { composeAccessibilityLabel, ListSectionHeader, pressable, pressRipple } from '@/shared/ui';
+import { RowDivider } from '@/shared/ui/RowGroup';
+import { composeAccessibilityLabel, pressable, pressRipple } from '@/shared/ui';
 import { HeatmapRow } from './HeatmapRow';
 import { groupStyleState, groupTerrainState } from '../lib/mapStyleGroupState';
 import { settingsStyles } from './settingsStyles';
@@ -56,13 +57,13 @@ const TERRAIN_LABELS: Record<string, string> = {
 
 export function MapsSection() {
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const isMetric = useMetricSystem();
   const { t } = useTranslation();
   const {
     preferences: mapPreferences,
     setDefaultStyle,
     setGlobalMapStyle,
-    getGlobalMapStyle,
     setActivityGroupStyle,
     setTerrain3DMode,
     setTerrain3DModeGroup,
@@ -74,10 +75,10 @@ export function MapsSection() {
   };
 
   const cycleGlobalMapStyle = async () => {
-    const current = getGlobalMapStyle();
-    const idx = MAP_STYLES.indexOf(current);
-    const next = MAP_STYLES[(idx + 1) % MAP_STYLES.length];
-    await setGlobalMapStyle(next);
+    const current = mapPreferences.globalMapStyle ?? 'default';
+    const idx = MAP_STYLES_WITH_DEFAULT.indexOf(current);
+    const next = MAP_STYLES_WITH_DEFAULT[(idx + 1) % MAP_STYLES_WITH_DEFAULT.length];
+    await setGlobalMapStyle(next === 'default' ? null : next);
     await clearTerrainPreviews();
   };
 
@@ -113,7 +114,7 @@ export function MapsSection() {
 
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const pillBg = isDark ? darkColors.surfaceElevated : colors.background;
-  const exploreStyle = getGlobalMapStyle();
+  const exploreStyleKey = STYLE_LABELS[mapPreferences.globalMapStyle ?? 'default'];
 
   const mapsContent = (
     <>
@@ -133,13 +134,13 @@ export function MapsSection() {
           <MaterialCommunityIcons
             name="image-filter-hdr"
             size={iconSize.sm}
-            color={mapPreferences.terrain3DMode === 'off' ? colors.textSecondary : colors.primary}
+            color={mapPreferences.terrain3DMode === 'off' ? palette.textSecondary : palette.primary}
           />
           <Text
             style={[
               styles.terrain3DBadgeText,
               mapPreferences.terrain3DMode !== 'off' && styles.terrain3DBadgeActive,
-              mapPreferences.terrain3DMode !== 'off' && isDark && { color: darkColors.linkTeal },
+              mapPreferences.terrain3DMode !== 'off' && isDark && { color: darkColors.actionLink },
             ]}
           >
             {t('settings.terrain3DMode', { mode: terrain3DLabel })}
@@ -160,9 +161,9 @@ export function MapsSection() {
       <HeatmapRow />
 
       {/* Per-activity overrides */}
-      <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
+      <RowDivider />
       <Row>
-        <MaterialCommunityIcons name="tune-variant" size={iconSize.md} color={colors.primary} />
+        <MaterialCommunityIcons name="tune-variant" size={iconSize.md} color={palette.primary} />
         <Text style={[styles.actionText, isDark && settingsStyles.textLight]}>
           {t('settings.customiseByActivity')}
         </Text>
@@ -171,33 +172,28 @@ export function MapsSection() {
       <View style={styles.overridesContainer}>
         {/* Explore Map row */}
         <View style={styles.overrideRow}>
-          <MaterialCommunityIcons name="map-outline" size={iconSize.md} color={colors.primary} />
-          <Text
-            style={[styles.overrideLabel, isDark && settingsStyles.textLight]}
-            numberOfLines={1}
-          >
+          <MaterialCommunityIcons name="map-outline" size={iconSize.md} color={palette.primary} />
+          <Text style={[styles.overrideLabel, isDark && settingsStyles.textLight]}>
             {t('settings.exploreMapStyle')}
           </Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${t('settings.exploreMapStyle')}: ${t((STYLE_LABELS[exploreStyle] ?? 'settings.light') as 'settings.light')}`}
+            accessibilityLabel={`${t('settings.exploreMapStyle')}: ${t(exploreStyleKey as 'settings.default')}`}
             style={pressable([styles.pill, { backgroundColor: pillBg }])}
             hitSlop={pillSlop}
+            testID="map-style-pill-explore"
             onPress={cycleGlobalMapStyle}
             android_ripple={pressRipple}
           >
             <Text style={[styles.pillText, { color: mutedColor }]}>
-              {t((STYLE_LABELS[exploreStyle] ?? 'settings.light') as 'settings.light')}
+              {t(exploreStyleKey as 'settings.default')}
             </Text>
           </Pressable>
         </View>
 
-        <View
-          style={[
-            styles.overrideDivider,
-            { backgroundColor: isDark ? darkColors.border : colors.border },
-          ]}
-        />
+        <View style={styles.overrideDividerGap}>
+          <RowDivider inset="none" />
+        </View>
 
         {/* Per-activity-group rows */}
         {MAP_ACTIVITY_GROUPS.map(({ key, labelKey, types }) => {
@@ -222,10 +218,7 @@ export function MapsSection() {
 
           return (
             <View key={key} style={styles.overrideRow}>
-              <Text
-                style={[styles.overrideLabel, isDark && settingsStyles.textLight]}
-                numberOfLines={1}
-              >
+              <Text style={[styles.overrideLabel, isDark && settingsStyles.textLight]}>
                 {t(labelKey as 'sportFamilies.ride')}
               </Text>
               <Pressable
@@ -264,13 +257,17 @@ export function MapsSection() {
     </>
   );
 
+  // The screen's large title already says Maps, so the one card carries no label.
   return (
-    <>
-      <ListSectionHeader>{t('settings.maps')}</ListSectionHeader>
-      <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
-        {mapsContent}
-      </View>
-    </>
+    <View
+      style={[
+        settingsStyles.sectionCard,
+        isDark && settingsStyles.sectionCardDark,
+        styles.untitledCard,
+      ]}
+    >
+      {mapsContent}
+    </View>
   );
 }
 
@@ -279,6 +276,10 @@ const PILL_HEIGHT = typography.caption.lineHeight + 2 * spacing.xs;
 const pillSlop = slopToMinTapTarget(PILL_HEIGHT);
 
 const styles = StyleSheet.create({
+  // The gap a section label would have left above the card.
+  untitledCard: {
+    marginTop: spacing.lg,
+  },
   styleHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -306,7 +307,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   terrain3DBadgeActive: {
-    color: colors.linkTeal,
+    color: colors.actionLink,
   },
   actionText: {
     ...typography.body,
@@ -339,9 +340,8 @@ const styles = StyleSheet.create({
     ...typography.caption,
     fontSize: typography.caption.fontSize,
   },
-  overrideDivider: {
-    height: stroke.hairline,
-    marginVertical: spacing.xs,
+  overrideDividerGap: {
+    paddingVertical: spacing.xs,
   },
   terrainHint: {
     ...typography.caption,

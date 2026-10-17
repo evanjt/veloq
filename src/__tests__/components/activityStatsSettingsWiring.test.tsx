@@ -14,7 +14,6 @@ import { render, renderHook } from '@testing-library/react-native';
 import { InsightfulStats } from '@/features/activity/components/stats/InsightfulStats';
 import { HRZonesChart } from '@/features/activity/components/HRZonesChart';
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
-import { colors } from '@/theme';
 import type { Activity, SportSettings } from '@/types';
 import { MaxHrSource } from 'veloqrs';
 
@@ -119,7 +118,7 @@ describe('the heart rate card over a default max HR', () => {
   it('names the default and grades nothing against it', async () => {
     const card = await heartRateCard(190, MaxHrSource.Default);
     expect(card.context).toBe('activity.stats.percentOfDefaultMaxHR:{"percent":89,"value":190}');
-    expect(card.color).toBe(colors.chartPinkText);
+    expect(card.stream).toBe('heartrate');
     expect(card.details).toContainEqual({
       label: 'activity.stats.percentOfDefaultMaxHRLabel:{"value":190}',
       value: '89%',

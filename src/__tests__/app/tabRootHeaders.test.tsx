@@ -24,7 +24,7 @@ const TABS_DIR = path.resolve(__dirname, '../../app/(tabs)');
 
 const HEADERED: [string, string][] = [
   ['(feed)', 'navigation.feed'],
-  ['fitness', 'fitnessScreen.title'],
+  ['fitness', 'navigation.fitness'],
   ['insights', 'insights.title'],
   ['training', 'healthScreen.title'],
 ];

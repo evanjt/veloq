@@ -14,7 +14,7 @@ const KEYS = [
   'sections.pointsCount',
   'insights.sectionPrSheet.efforts',
   'sections.correlationAttempts',
-  'bestEffortsScreen.seasonSubtitle',
+  'bestEffortsScreen.windowSubtitle',
   'whatsNew.v040.diffUnchanged',
 ] as const;
 
@@ -84,7 +84,7 @@ describe('screen count plurals', () => {
     const t = await translatorFor('en-GB');
     expect(t('insights.sectionPrSheet.efforts', 1)).toBe('1 effort');
     expect(t('sections.correlationAttempts', 1)).toBe('1 attempt');
-    expect(t('bestEffortsScreen.seasonSubtitle', 1)).toBe('Personal records from the last 1 day.');
+    expect(t('bestEffortsScreen.windowSubtitle', 1)).toBe('Bests from the last 1 day.');
     expect(t('insights.sectionPrSheet.efforts', 4)).toBe('4 efforts');
   });
 

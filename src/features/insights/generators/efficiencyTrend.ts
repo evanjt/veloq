@@ -3,6 +3,7 @@ import { EfficiencyDirection, type EfficiencyTrend } from 'veloqrs';
 import type { DataPoint, Insight } from '../types';
 import { INSIGHTS_CONFIG, confidenceFrom, maxPerCategoryFor } from '../lib/config';
 import { sparkline } from '../lib/sparkline';
+import { formatSigned } from '@/shared/format';
 
 /**
  * The slope to three significant figures, which is what the regression over a
@@ -68,13 +69,13 @@ export function generateEfficiencyTrendInsights(
       : minEfforts;
     if (trend.direction === EfficiencyDirection.Flat || trend.effortCount < floor) continue;
 
-    const hrChange = Math.abs(Math.round(trend.hrChangeBpm));
+    const hrChange = formatSigned(trend.hrChangeBpm, 0);
     const firstEffort = trend.points[0];
     const lastEffort = trend.points[trend.points.length - 1];
     const heartRateChange: DataPoint = {
       key: 'hrChange',
       label: t('insights.data.hrChange'),
-      value: `${declining ? '+' : '-'}${hrChange}`,
+      value: hrChange,
       unit: 'bpm',
       context: declining ? 'neutral' : 'good',
     };

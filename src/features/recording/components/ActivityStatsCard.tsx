@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
-import { spacing, typography } from '@/theme';
+import { spacing } from '@/theme';
+import { StatTile } from '@/shared/ui';
 import { useMetricSystem } from '@/shared/app';
 import type { ActivityType } from '@/types';
 import type { ActivitySummary } from '@/features/recording/hooks/useActivitySummary';
@@ -12,8 +12,6 @@ import { recordingStats } from '@/features/recording/lib/recordingStats';
 export interface ActivityStatsCardProps {
   summary: ActivitySummary;
   activityType: ActivityType;
-  textPrimary: string;
-  textSecondary: string;
 }
 
 /**
@@ -21,12 +19,7 @@ export interface ActivityStatsCardProps {
  * time when pauses made it longer, and every distance, gain and average the
  * save will write.
  */
-export function ActivityStatsCard({
-  summary,
-  activityType,
-  textPrimary,
-  textSecondary,
-}: ActivityStatsCardProps) {
+export function ActivityStatsCard({ summary, activityType }: ActivityStatsCardProps) {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
   const stats = recordingStats(
@@ -47,10 +40,11 @@ export function ActivityStatsCard({
     <View style={styles.compactStats}>
       {stats.map((stat) => (
         <View key={stat.key} style={styles.compactStatItem}>
-          <Text style={[styles.compactStatValue, { color: textPrimary }]}>
-            {stat.key === 'elevationGain' ? `${stat.value} ↑` : stat.value}
-          </Text>
-          <Text style={[styles.compactStatLabel, { color: textSecondary }]}>{stat.label}</Text>
+          <StatTile
+            align="center"
+            label={stat.label}
+            value={stat.key === 'elevationGain' ? `${stat.value} ↑` : stat.value}
+          />
         </View>
       ))}
     </View>
@@ -69,12 +63,5 @@ const styles = StyleSheet.create({
   compactStatItem: {
     alignItems: 'center',
     minWidth: '33%',
-  },
-  compactStatValue: {
-    ...typography.metricValue,
-  },
-  compactStatLabel: {
-    ...typography.caption,
-    marginTop: spacing.xxs,
   },
 });

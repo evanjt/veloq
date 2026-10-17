@@ -385,7 +385,9 @@ database, tracks and map cache take, with a clear cache button and how long to k
 days to forever).
 
 For accessibility there are screen reader labels throughout, text scaling, reduce motion,
-readable contrast in both themes and large tap targets. It has had no full accessibility audit.
+readable contrast in both themes and large tap targets. Text follows the system size, except that
+dense surfaces (number grids, chart labels, the tab bar) stop growing at 130 per cent, and past it
+the grids drop columns instead, down to one. It has had no full accessibility audit.
 
 For debugging, tap the version five times, quickly, and switch on `Debug mode`. A developer
 dashboard appears with library stats, sync timeline, map tiles and memory.

@@ -47,8 +47,15 @@ function ControlBarInner({
   const { t } = useTranslation();
   const { isDark } = useTheme();
 
-  const handleHapticPress = useCallback((action: () => void) => {
+  // Ending the ride runs without a confirm, so it alone takes the strong
+  // impact. Lap, pause, resume and start are a change of state, and review
+  // only navigates, which takes none.
+  const endRide = useCallback((action: () => void) => {
     haptics.medium();
+    action();
+  }, []);
+  const changeState = useCallback((action: () => void) => {
+    haptics.selection();
     action();
   }, []);
 
@@ -66,7 +73,7 @@ function ControlBarInner({
             testID="control-save"
             label={t('recording.controls.save')}
             icon="content-save"
-            onPress={() => handleHapticPress(onStop)}
+            onPress={() => endRide(onStop)}
           />
         </Animated.View>
       </View>
@@ -83,7 +90,7 @@ function ControlBarInner({
             testID="control-start"
             label={t('recording.startActivity')}
             icon="play"
-            onPress={() => handleHapticPress(onStart)}
+            onPress={() => changeState(onStart)}
           />
         </Animated.View>
       </View>
@@ -100,7 +107,7 @@ function ControlBarInner({
             testID="control-review"
             label={t('recording.reviewActivity')}
             icon="clipboard-check-outline"
-            onPress={() => handleHapticPress(onReview)}
+            onPress={onReview}
           />
         </Animated.View>
       </View>
@@ -116,7 +123,7 @@ function ControlBarInner({
             testID="control-resume"
             label={t('recording.controls.resume')}
             icon="play"
-            onPress={() => handleHapticPress(onResume)}
+            onPress={() => changeState(onResume)}
           />
 
           <SecondaryButton
@@ -125,7 +132,7 @@ function ControlBarInner({
             icon="stop"
             backgroundColor={secondaryBg}
             textColor={stopColor}
-            onPress={() => handleHapticPress(onStop)}
+            onPress={() => endRide(onStop)}
           />
         </View>
       </View>
@@ -142,14 +149,14 @@ function ControlBarInner({
           icon="flag-variant"
           backgroundColor={secondaryBg}
           textColor={secondaryText}
-          onPress={() => handleHapticPress(onLap)}
+          onPress={() => changeState(onLap)}
         />
 
         <PrimaryButton
           testID="control-pause"
           label={t('recording.controls.pause')}
           icon="pause"
-          onPress={() => handleHapticPress(onPause)}
+          onPress={() => changeState(onPause)}
         />
 
         <SecondaryButton
@@ -158,7 +165,7 @@ function ControlBarInner({
           icon="stop"
           backgroundColor={secondaryBg}
           textColor={stopColor}
-          onPress={() => handleHapticPress(onStop)}
+          onPress={() => endRide(onStop)}
         />
       </View>
     </View>

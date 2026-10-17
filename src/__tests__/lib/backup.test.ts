@@ -52,10 +52,20 @@ const mockEngine = {
   getBackupMetadata: jest.fn().mockReturnValue({ newest_date: 1_760_000_000 }),
   runRecordBackup: jest.fn().mockResolvedValue(undefined),
   checkRecordZip: jest.fn().mockResolvedValue({}),
-  restoreRecordZip: jest.fn().mockResolvedValue({ placed: 2, unplaced: 1, missingActivityIds: [] }),
-  restoreRecordJson: jest
-    .fn()
-    .mockResolvedValue({ placed: 2, unplaced: 1, missingActivityIds: [] }),
+  restoreRecordZip: jest.fn().mockResolvedValue({
+    placed: 2,
+    unplaced: 1,
+    missingActivityIds: [],
+    notRestored: 0,
+    namesNotRestored: 0,
+  }),
+  restoreRecordJson: jest.fn().mockResolvedValue({
+    placed: 2,
+    unplaced: 1,
+    missingActivityIds: [],
+    notRestored: 0,
+    namesNotRestored: 0,
+  }),
   getUnplacedBackupRecords: jest.fn().mockResolvedValue([]),
   discardRecordImport: jest.fn().mockResolvedValue(undefined),
   discardUnplacedBackupRecords: jest.fn().mockResolvedValue(undefined),
@@ -438,6 +448,8 @@ describe('legacy JSON record import', () => {
       placed: 0,
       unplaced: 1,
       missingActivityIds: ['old-ride'],
+      notRestored: 0,
+      namesNotRestored: 0,
     });
 
     const result = await restoreBackup(
@@ -455,7 +467,7 @@ describe('legacy JSON record import', () => {
     );
 
     expect(mockEngine.syncNow).toHaveBeenCalledTimes(1);
-    expect(result.unplacedCount).toBe(1);
+    expect(result).toMatchObject({ unplacedCount: 1 });
   });
 
   it.each([1, 2])('routes readable version %i through record restore', async (version) => {
@@ -472,7 +484,21 @@ describe('legacy JSON record import', () => {
       expect.stringContaining('"rep_activity_id":"ride-1"')
     );
     expect(mockEngine.createSectionFromIndices).not.toHaveBeenCalled();
-    expect(result.unplacedCount).toBe(1);
+    expect(result).toMatchObject({ unplacedCount: 1 });
+  });
+
+  it('carries what the restore gave up on to the notice', async () => {
+    mockEngine.restoreRecordJson.mockResolvedValueOnce({
+      placed: 26,
+      unplaced: 0,
+      missingActivityIds: [],
+      notRestored: 3,
+      namesNotRestored: 19,
+    });
+
+    const result = await restoreBackup(makeValidBackup());
+
+    expect(result).toMatchObject({ drops: { notRestored: 3, namesNotRestored: 19 } });
   });
 
   it('does not write malformed or newer decisions', async () => {

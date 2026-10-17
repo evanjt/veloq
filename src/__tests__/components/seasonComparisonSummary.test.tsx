@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RangeCoverage } from 'veloqrs';
@@ -80,7 +80,7 @@ function renderCard() {
 
 /** Long-press the first month, which opens the tooltip on January. */
 async function scrubJanuary() {
-  const chart = screen.UNSAFE_getAllByType(View).find((node) => node.props.onLayout);
+  const chart = screen.getByTestId('season-chart-surface');
   await act(async () => {
     await fireEvent(chart!, 'layout', { nativeEvent: { layout: { width: 360, height: 200 } } });
   });

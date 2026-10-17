@@ -366,6 +366,12 @@ interface NativeModuleInterface {
     priority: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_func_start_gps_pass(
+    oldest: Uint8Array,
+    newest: Uint8Array,
+    head: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_start_stream_backfill(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
@@ -1805,6 +1811,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_func_start_detector_cutover(): number;
   ubrn_uniffi_veloqrs_checksum_func_start_elevation_backfill(): number;
   ubrn_uniffi_veloqrs_checksum_func_start_fetch_and_store(): number;
+  ubrn_uniffi_veloqrs_checksum_func_start_gps_pass(): number;
   ubrn_uniffi_veloqrs_checksum_func_start_stream_backfill(): number;
   ubrn_uniffi_veloqrs_checksum_func_stop_stream_backfill(): number;
   ubrn_uniffi_veloqrs_checksum_func_take_fetch_and_store_result(): number;

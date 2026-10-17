@@ -63,9 +63,7 @@ export function FitnessHeroSlide() {
   const card = (testID: string, titleKey: string, body: React.ReactNode, aside?: string) => (
     <View testID={testID} style={[styles.card, { backgroundColor: cardColor }]}>
       <View style={styles.cardHeader}>
-        <Text numberOfLines={1} style={[styles.cardTitle, { color: titleColor }]}>
-          {t(titleKey as never)}
-        </Text>
+        <Text style={[styles.cardTitle, { color: titleColor }]}>{t(titleKey as never)}</Text>
         {aside != null && (
           <Text
             style={[

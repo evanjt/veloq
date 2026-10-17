@@ -46,7 +46,10 @@ jest.mock('@/features/routes', () => ({
     data: { section: { activityPortions: [] }, missingTimeStreamIds: [] },
     status: { kind: 'open' },
   }),
-  useSectionDetailPerformance: () => ({ data: { lapRecords: [] }, error: undefined }),
+  useSectionDetailPerformance: () => ({
+    data: { lapRecords: [], sportType: 'Ride', sportCounts: [] },
+    error: undefined,
+  }),
   useSectionTimeStreamSync: () => ({
     ready: true,
     error: undefined,
@@ -55,6 +58,7 @@ jest.mock('@/features/routes', () => ({
   }),
   toPerformanceRecord: (record: unknown) => record,
   withoutRecordMarks: (records: unknown) => records,
+  scopeLabels: () => [],
   useSectionLaps: () => ({ excludeLap: jest.fn(), includeLap: jest.fn() }),
   useSectionLedger: () => ({
     history: [],

@@ -11,6 +11,7 @@
 import { renderHook } from '@testing-library/react-native';
 
 import { useGpsDataFetcher } from '@/features/routes/hooks/useGpsDataFetcher';
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
@@ -36,7 +37,15 @@ jest.mock('@/features/routes/lib/timeStreamBackfill', () => ({
   backfillTimeStreams: jest.fn(async () => ({ total: 0, remaining: 0 })),
 }));
 
-const { engine, startFetchAndStore, takeFetchAndStoreResult } = require('veloqrs');
+const { engine, takeFetchAndStoreResult, StartOutcome } = require('veloqrs');
+const { startGpsPass } = engine;
+
+/** The pass the engine starts, filed under `run`. */
+const started = (run: number) => (_oldest: string, _newest: string, head: string[]) => ({
+  outcome: StartOutcome.Started,
+  run,
+  total: head.length,
+});
 
 const activity = (id: string) => ({ activityId: id, sportType: 'Ride' });
 
@@ -55,13 +64,13 @@ const deps = () => ({
 
 describe('the foreground sync reading a download result', () => {
   beforeEach(() => {
-    startFetchAndStore.mockReset();
+    startGpsPass.mockReset();
     takeFetchAndStoreResult.mockReset();
     engine.triggerRefresh.mockClear();
   });
 
   it('reports the activities of the run it started, whichever run finishes first', async () => {
-    startFetchAndStore.mockReturnValueOnce(1).mockReturnValueOnce(2);
+    startGpsPass.mockImplementationOnce(started(1)).mockImplementationOnce(started(2));
     const results = new Map<number, ReturnType<typeof resultFor>>([
       [1, resultFor(['a1'])],
       [2, resultFor(['b1', 'b2'])],
@@ -83,7 +92,7 @@ describe('the foreground sync reading a download result', () => {
   });
 
   it('does not take a result that belongs to another run as its own', async () => {
-    startFetchAndStore.mockReturnValue(1);
+    startGpsPass.mockImplementation(started(1));
     takeFetchAndStoreResult.mockImplementation((run?: number) =>
       run === 99 ? resultFor(['foreign']) : null
     );
@@ -95,7 +104,7 @@ describe('the foreground sync reading a download result', () => {
   });
 
   it('writes no metrics row from TypeScript and still refreshes the lists', async () => {
-    startFetchAndStore.mockReturnValue(1);
+    startGpsPass.mockImplementation(started(1));
     takeFetchAndStoreResult.mockImplementation((run?: number) =>
       run === 1 ? resultFor(['a1']) : null
     );
@@ -105,5 +114,36 @@ describe('the foreground sync reading a download result', () => {
 
     expect(engine.triggerRefresh).toHaveBeenCalledWith('activities');
     expect(engine.triggerRefresh).toHaveBeenCalledWith('groups');
+  });
+
+  it.each([
+    ['one is already running', 2],
+    ['the network is gone', 8],
+  ])(
+    'ends idle and reads no result when the engine keeps the pass owed because %s',
+    async (_why, outcome) => {
+      startGpsPass.mockImplementation(() => ({ outcome, run: 0, total: 0 }));
+      const progress = deps();
+      const { result } = await renderHook(() => useGpsDataFetcher());
+
+      const ended = await result.current.fetchApiGps([activity('a1')], progress);
+
+      expect(ended.syncedIds).toEqual([]);
+      expect(takeFetchAndStoreResult).not.toHaveBeenCalled();
+      expect(progress.updateProgress).toHaveBeenLastCalledWith(
+        expect.objectContaining({ status: 'idle' })
+      );
+    }
+  );
+
+  it('hands the engine the range and the candidates in the order to fetch them', async () => {
+    startGpsPass.mockImplementation(started(1));
+    takeFetchAndStoreResult.mockImplementation(() => resultFor(['b1', 'a1']));
+    const { result } = await renderHook(() => useGpsDataFetcher());
+
+    await result.current.fetchApiGps([activity('b1'), activity('a1')], deps());
+
+    const { oldest, newest } = useSyncDateRange.getState();
+    expect(startGpsPass).toHaveBeenCalledWith(oldest, newest, ['b1', 'a1']);
   });
 });

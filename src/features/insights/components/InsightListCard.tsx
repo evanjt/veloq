@@ -6,7 +6,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { tapTo } from '@/shared/app/navigation';
 import {
-  brand,
   colors,
   colorWithOpacity,
   darkColors,
@@ -16,6 +15,7 @@ import {
   layout,
   spacing,
   typography,
+  themePalette,
 } from '@/theme';
 import { Card } from '@/shared/ui/Card';
 import { ChangeChip } from '@/shared/ui/ChangeChip';
@@ -24,6 +24,7 @@ import type { DataPoint, Insight } from '@/types';
 import { InsightHistoryGraphic } from './InsightHistoryGraphic';
 import { dataLinkLabel, historyTarget } from '../lib/dataLink';
 import type { TFunc } from '../types';
+import { FitText } from '@/shared/ui/FitText';
 
 interface InsightListCardProps {
   insight: Insight;
@@ -44,6 +45,7 @@ export const InsightListCard = React.memo(function InsightListCard({
   onPress,
 }: InsightListCardProps) {
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const { t } = useTranslation();
   const categoryColor = insightCategoryColor(insight.category, isDark);
   const history = insight.supportingData?.history;
@@ -95,14 +97,12 @@ export const InsightListCard = React.memo(function InsightListCard({
             />
           </View>
           <View style={styles.titleRow}>
-            <Text
-              testID="insight-title"
-              style={[styles.title, isDark && styles.titleDark]}
-              numberOfLines={1}
-            >
+            <Text testID="insight-title" style={[styles.title, isDark && styles.titleDark]}>
               {insight.title}
             </Text>
-            {insight.isNew ? <View style={styles.newDot} /> : null}
+            {insight.isNew ? (
+              <View style={[styles.newDot, { backgroundColor: palette.primary }]} />
+            ) : null}
           </View>
           <MaterialCommunityIcons
             name="chevron-right"
@@ -123,13 +123,9 @@ export const InsightListCard = React.memo(function InsightListCard({
 
         {figure ? (
           <View style={styles.figureRow}>
-            <Text
-              testID="insight-figure"
-              style={[styles.figure, isDark && styles.titleDark]}
-              numberOfLines={1}
-            >
+            <FitText testID="insight-figure" style={[styles.figure, isDark && styles.titleDark]}>
               {figure}
-            </Text>
+            </FitText>
             {change ? (
               <ChangeChip
                 text={change}
@@ -142,9 +138,7 @@ export const InsightListCard = React.memo(function InsightListCard({
         ) : null}
 
         {insight.subtitle ? (
-          <Text style={[styles.caption, isDark && styles.captionDark]} numberOfLines={1}>
-            {insight.subtitle}
-          </Text>
+          <Text style={[styles.caption, isDark && styles.captionDark]}>{insight.subtitle}</Text>
         ) : null}
       </View>
     </Card>
@@ -204,7 +198,6 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: layout.borderRadiusFull,
-    backgroundColor: brand.tealLight,
   },
   caption: {
     fontSize: typography.label.fontSize,

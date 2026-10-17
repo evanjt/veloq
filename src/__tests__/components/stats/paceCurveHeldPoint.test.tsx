@@ -116,7 +116,7 @@ async function release() {
 function expectHeader(distance: number, time: number, activity: string | null) {
   expect(screen.getByText(formatDistance(distance, true))).toBeTruthy();
   expect(screen.getByText(formatDuration(time))).toBeTruthy();
-  if (activity) expect(screen.getByLabelText(activity)).toBeTruthy();
+  if (activity) expect(screen.getByRole('button', { name: activity })).toBeTruthy();
 }
 
 beforeEach(() => {

@@ -16,7 +16,6 @@ import { fireEvent, render, renderHook } from '@testing-library/react-native';
 import { changeLanguage, i18n, initialiseI18n } from '@/i18n';
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
 import { FitnessChart } from '@/features/fitness/components/FitnessChart';
-import { FormZoneChart } from '@/features/fitness/components/FormZoneChart';
 import { FitnessMilestoneContent } from '@/features/insights/components/content/FitnessMilestoneContent';
 import { MethodologySection } from '@/features/insights/components/MethodologySection';
 import { generateFitnessMilestoneInsights } from '@/features/insights/generators/fitnessMilestone';
@@ -92,7 +91,7 @@ describe('the activity cards on a past activity', () => {
   });
 });
 
-describe('the fitness and form chart headers at rest', () => {
+describe('the fitness chart header at rest', () => {
   // The suite's clock reads 17 June 2026.
   const endingThreeDaysAgo = [
     { id: '2026-06-12', ctl: 40, atl: 50 },
@@ -111,21 +110,11 @@ describe('the fitness and form chart headers at rest', () => {
       formatShortDate('2026-06-14'),
       { exact: true }
     );
-
-    const form = await render(<FormZoneChart data={endingThreeDaysAgo} />);
-    expect(form.getByTestId('form-chart-day')).toHaveTextContent(formatShortDate('2026-06-14'), {
-      exact: true,
-    });
   });
 
   it('reads Today when the newest row is today', async () => {
     const fitness = await render(<FitnessChart data={endingToday} />);
     expect(fitness.getByTestId('fitness-chart-day')).toHaveTextContent(t('time.today'), {
-      exact: true,
-    });
-
-    const form = await render(<FormZoneChart data={endingToday} />);
-    expect(form.getByTestId('form-chart-day')).toHaveTextContent(t('time.today'), {
       exact: true,
     });
   });

@@ -33,14 +33,14 @@ const ROLE_COLOURS: Record<ZoneColourRole, Record<'light' | 'dark', Record<Role,
   },
   text: {
     light: {
-      work: colors.linkTeal,
+      work: colors.actionLink,
       recovery: colors.textSecondary,
       warmup: colors.successDeep,
       cooldown: colors.chartPurpleText,
       other: colors.textSecondary,
     },
     dark: {
-      work: darkColors.linkTeal,
+      work: darkColors.actionLink,
       recovery: darkColors.textSecondary,
       warmup: darkColors.successDeep,
       cooldown: darkColors.chartPurpleText,

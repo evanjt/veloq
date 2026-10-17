@@ -537,6 +537,39 @@ export function startFetchAndStore(
 }
 
 /**
+ * Start the GPS track pass over a date range, or keep it owed.
+ *
+ * The engine reads the tracks the census still owes over the range and
+ * downloads them in one bulk run, `head` first in its order. One pass runs at
+ * a time: a pass asked for while one runs, or one the connection cost, is kept
+ * owed and started by the engine itself, when the running pass ends or on the
+ * online edge. The caller follows the run it is handed and asks again for
+ * nothing.
+ */
+export function startGpsPass(
+  oldest: string,
+  newest: string,
+  head: Array<string>,
+): FfiGpsPassStart {
+  const __rb: Uint8Array = uniffiCaller.rustCall(
+    /*caller:*/ (callStatus) => {
+      return nativeModule().ubrn_uniffi_veloqrs_fn_func_start_gps_pass(
+        FfiConverterString.lower(oldest, nativeModule().rustbuffer_alloc),
+        FfiConverterString.lower(newest, nativeModule().rustbuffer_alloc),
+        FfiConverterSequenceString.lower(head, nativeModule().rustbuffer_alloc),
+        callStatus,
+      );
+    },
+    /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+  );
+  try {
+    return FfiConverterTypeFfiGpsPassStart.lift(__rb);
+  } finally {
+    nativeModule().rustbuffer_free(__rb);
+  }
+}
+
+/**
  * Start the stream backfill on a background thread.
  *
  * Unlike the elevation backfill this is not fired at launch: it is tens of
@@ -4606,6 +4639,16 @@ export type FfiBackupScreenData = {
   homeLng?: string;
   radiusM?: string;
   suggestion?: SuggestedHome;
+  /**
+   * History rows the latest restore left in its backup file because no
+   * section here covers their ground.
+   */
+  notRestored: number;
+  /**
+   * Route names the latest restore gave up on because the grouping here
+   * merged their routes into one that already took a restored name.
+   */
+  namesNotRestored: number;
 };
 
 /**
@@ -4634,6 +4677,8 @@ const FfiConverterTypeFfiBackupScreenData = (() => {
         homeLng: FfiConverterOptionalString.readFromCursor(c),
         radiusM: FfiConverterOptionalString.readFromCursor(c),
         suggestion: FfiConverterOptionalTypeSuggestedHome.readFromCursor(c),
+        notRestored: FfiConverterUInt32.readFromCursor(c),
+        namesNotRestored: FfiConverterUInt32.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -4644,13 +4689,17 @@ const FfiConverterTypeFfiBackupScreenData = (() => {
         value.suggestion,
         c,
       );
+      FfiConverterUInt32.writeIntoCursor(value.notRestored, c);
+      FfiConverterUInt32.writeIntoCursor(value.namesNotRestored, c);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterOptionalString.allocationSize(value.homeLat) +
         FfiConverterOptionalString.allocationSize(value.homeLng) +
         FfiConverterOptionalString.allocationSize(value.radiusM) +
-        FfiConverterOptionalTypeSuggestedHome.allocationSize(value.suggestion)
+        FfiConverterOptionalTypeSuggestedHome.allocationSize(value.suggestion) +
+        FfiConverterUInt32.allocationSize(value.notRestored) +
+        FfiConverterUInt32.allocationSize(value.namesNotRestored)
       );
     }
   }
@@ -6800,7 +6849,9 @@ const FfiConverterTypeFfiDetectionProgress = (() => {
 })();
 
 /**
- * Which lap a direction's deltas are measured against.
+ * Which lap a direction's deltas are measured against. The stored curves are
+ * measured against `Record` or `AthleteSet`; the others are references a
+ * chart re-bases onto.
  */
 export enum FfiReferenceSource {
   /**
@@ -6811,6 +6862,14 @@ export enum FfiReferenceSource {
    * The activity the athlete set as the section's reference.
    */
   AthleteSet,
+  /**
+   * The lap that held the direction's record before the current one.
+   */
+  PreviousRecord,
+  /**
+   * The point-by-point median of the laps other than the record.
+   */
+  Typical,
 }
 
 const FfiConverterTypeFfiReferenceSource = (() => {
@@ -6822,6 +6881,10 @@ const FfiConverterTypeFfiReferenceSource = (() => {
           return FfiReferenceSource.Record;
         case 2:
           return FfiReferenceSource.AthleteSet;
+        case 3:
+          return FfiReferenceSource.PreviousRecord;
+        case 4:
+          return FfiReferenceSource.Typical;
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
       }
@@ -6832,6 +6895,10 @@ const FfiConverterTypeFfiReferenceSource = (() => {
           return c.writeI32(1);
         case FfiReferenceSource.AthleteSet:
           return c.writeI32(2);
+        case FfiReferenceSource.PreviousRecord:
+          return c.writeI32(3);
+        case FfiReferenceSource.Typical:
+          return c.writeI32(4);
       }
     }
     allocationSize(value: TypeName): number {
@@ -6915,6 +6982,11 @@ export type FfiLapDelta = {
    */
   splitDeltaSecs: FfiFloat32Array;
   /**
+   * The lap's own seconds over each split, on the split grid of
+   * `split_delta_secs`. NaN for a split the lap does not fully cover.
+   */
+  splitSecs: FfiFloat32Array;
+  /**
    * The delta at the end of the section, only for a lap that covers both
    * of its ends.
    */
@@ -6948,6 +7020,7 @@ const FfiConverterTypeFfiLapDelta = (() => {
         activityDate: FfiConverterFloat64.readFromCursor(c),
         deltaSecs: FfiConverterTypeFfiFloat32Array.readFromCursor(c),
         splitDeltaSecs: FfiConverterTypeFfiFloat32Array.readFromCursor(c),
+        splitSecs: FfiConverterTypeFfiFloat32Array.readFromCursor(c),
         endDeltaSecs: FfiConverterOptionalFloat32.readFromCursor(c),
       };
     }
@@ -6957,6 +7030,7 @@ const FfiConverterTypeFfiLapDelta = (() => {
       FfiConverterFloat64.writeIntoCursor(value.activityDate, c);
       FfiConverterTypeFfiFloat32Array.writeIntoCursor(value.deltaSecs, c);
       FfiConverterTypeFfiFloat32Array.writeIntoCursor(value.splitDeltaSecs, c);
+      FfiConverterTypeFfiFloat32Array.writeIntoCursor(value.splitSecs, c);
       FfiConverterOptionalFloat32.writeIntoCursor(value.endDeltaSecs, c);
     }
     allocationSize(value: TypeName): number {
@@ -6966,6 +7040,7 @@ const FfiConverterTypeFfiLapDelta = (() => {
         FfiConverterFloat64.allocationSize(value.activityDate) +
         FfiConverterTypeFfiFloat32Array.allocationSize(value.deltaSecs) +
         FfiConverterTypeFfiFloat32Array.allocationSize(value.splitDeltaSecs) +
+        FfiConverterTypeFfiFloat32Array.allocationSize(value.splitSecs) +
         FfiConverterOptionalFloat32.allocationSize(value.endDeltaSecs)
       );
     }
@@ -7183,6 +7258,24 @@ export type FfiDirectionDeltas = {
    * other than the reference. `None` when no split has enough laps.
    */
   splitSummary?: FfiSplitSummary;
+  /**
+   * The typical lap's delta at each grid point, the median over the laps
+   * other than the reference that reach it. NaN at a point fewer laps
+   * reach than a typical lap needs, and `None` when no point has enough.
+   */
+  typicalDeltaSecs?: FfiFloat32Array;
+  /**
+   * The lap that held the record before the current one, measured against
+   * the reference like every lap, whatever the range. `None` when the
+   * record has never been beaten or that lap has no curve.
+   */
+  previousRecord?: FfiLapDelta;
+  /**
+   * The reference the chart opens on for the highlighted attempt: the
+   * athlete's own when set, else the record, else the previous record when
+   * the highlighted attempt is the record and so level with itself.
+   */
+  defaultReference: FfiReferenceSource;
 };
 
 /**
@@ -7213,6 +7306,10 @@ const FfiConverterTypeFfiDirectionDeltas = (() => {
         missing: FfiConverterSequenceTypeFfiLapDeltaMissing.readFromCursor(c),
         peakDeltaSecs: FfiConverterFloat32.readFromCursor(c),
         splitSummary: FfiConverterOptionalTypeFfiSplitSummary.readFromCursor(c),
+        typicalDeltaSecs:
+          FfiConverterOptionalTypeFfiFloat32Array.readFromCursor(c),
+        previousRecord: FfiConverterOptionalTypeFfiLapDelta.readFromCursor(c),
+        defaultReference: FfiConverterTypeFfiReferenceSource.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -7231,6 +7328,18 @@ const FfiConverterTypeFfiDirectionDeltas = (() => {
         value.splitSummary,
         c,
       );
+      FfiConverterOptionalTypeFfiFloat32Array.writeIntoCursor(
+        value.typicalDeltaSecs,
+        c,
+      );
+      FfiConverterOptionalTypeFfiLapDelta.writeIntoCursor(
+        value.previousRecord,
+        c,
+      );
+      FfiConverterTypeFfiReferenceSource.writeIntoCursor(
+        value.defaultReference,
+        c,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
@@ -7245,6 +7354,15 @@ const FfiConverterTypeFfiDirectionDeltas = (() => {
         FfiConverterFloat32.allocationSize(value.peakDeltaSecs) +
         FfiConverterOptionalTypeFfiSplitSummary.allocationSize(
           value.splitSummary,
+        ) +
+        FfiConverterOptionalTypeFfiFloat32Array.allocationSize(
+          value.typicalDeltaSecs,
+        ) +
+        FfiConverterOptionalTypeFfiLapDelta.allocationSize(
+          value.previousRecord,
+        ) +
+        FfiConverterTypeFfiReferenceSource.allocationSize(
+          value.defaultReference,
         )
       );
     }
@@ -8683,6 +8801,172 @@ const FfiConverterTypeFfiFocusRange = (() => {
         FfiConverterFloat64.allocationSize(value.high) +
         FfiConverterUInt32.allocationSize(value.slowCount) +
         FfiConverterUInt32.allocationSize(value.fastCount)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Why a start was refused, or that it was not refused at all.
+ *
+ * The wire carries the variant's position, so the order here is the contract:
+ * append, never reorder. The discriminants start at one so no member is falsy.
+ */
+export enum FfiStartOutcome {
+  /**
+   * The job is running.
+   */
+  Started = 1,
+  /**
+   * Something else holds the exclusive slot. Asking again once it frees
+   * starts the job unchanged.
+   */
+  Busy = 2,
+  /**
+   * A stage that does finish holds the work back: an elevation backfill
+   * mid-flight, or a detector cutover still owed.
+   */
+  Held = 3,
+  /**
+   * The engine is not open yet. Nothing is wrong, the caller is early.
+   */
+  NotReady = 4,
+  /**
+   * The athlete has to change something before this can run: there is no
+   * credential to sign the call with, or the work is switched off in
+   * Settings. No amount of waiting helps.
+   */
+  NotConfigured = 5,
+  /**
+   * There is no work to do. Refusing is the correct answer and will stay
+   * the correct answer.
+   */
+  NotOwed = 6,
+  /**
+   * The start threw rather than refusing. Rust never answers with this: it
+   * is the verdict TypeScript records when the FFI call itself fails, so a
+   * caught error is still a reason and not another bare `false`.
+   */
+  Failed = 7,
+  /**
+   * The device is offline, and the work needs the network. Only the
+   * elevation backfill sleeps on a connectivity edge. For every other
+   * caller this is a refusal to show, and the retry is the athlete's.
+   */
+  Offline = 8,
+}
+
+const FfiConverterTypeFfiStartOutcome = (() => {
+  type TypeName = FfiStartOutcome;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiStartOutcome.Started;
+        case 2:
+          return FfiStartOutcome.Busy;
+        case 3:
+          return FfiStartOutcome.Held;
+        case 4:
+          return FfiStartOutcome.NotReady;
+        case 5:
+          return FfiStartOutcome.NotConfigured;
+        case 6:
+          return FfiStartOutcome.NotOwed;
+        case 7:
+          return FfiStartOutcome.Failed;
+        case 8:
+          return FfiStartOutcome.Offline;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiStartOutcome.Started:
+          return c.writeI32(1);
+        case FfiStartOutcome.Busy:
+          return c.writeI32(2);
+        case FfiStartOutcome.Held:
+          return c.writeI32(3);
+        case FfiStartOutcome.NotReady:
+          return c.writeI32(4);
+        case FfiStartOutcome.NotConfigured:
+          return c.writeI32(5);
+        case FfiStartOutcome.NotOwed:
+          return c.writeI32(6);
+        case FfiStartOutcome.Failed:
+          return c.writeI32(7);
+        case FfiStartOutcome.Offline:
+          return c.writeI32(8);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * What `start_gps_pass` answered.
+ */
+export type FfiGpsPassStart = {
+  /**
+   * `Started`, or why not: `Busy` keeps the pass owed until the running one
+   * ends, `Offline` keeps it owed until the connection returns, `NotOwed`
+   * has no track to fetch.
+   */
+  outcome: FfiStartOutcome;
+  /**
+   * The fetch run to follow with `get_fetch_run_progress` and
+   * `take_fetch_and_store_result`, 0 when nothing started.
+   */
+  run: number;
+  /**
+   * How many tracks the run was given.
+   */
+  total: number;
+};
+
+/**
+ * Generated factory for {@link FfiGpsPassStart} record objects.
+ */
+export const FfiGpsPassStart = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiGpsPassStart, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiGpsPassStart>,
+  });
+})();
+
+const FfiConverterTypeFfiGpsPassStart = (() => {
+  type TypeName = FfiGpsPassStart;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        outcome: FfiConverterTypeFfiStartOutcome.readFromCursor(c),
+        run: FfiConverterFloat64.readFromCursor(c),
+        total: FfiConverterUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterTypeFfiStartOutcome.writeIntoCursor(value.outcome, c);
+      FfiConverterFloat64.writeIntoCursor(value.run, c);
+      FfiConverterUInt32.writeIntoCursor(value.total, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterTypeFfiStartOutcome.allocationSize(value.outcome) +
+        FfiConverterFloat64.allocationSize(value.run) +
+        FfiConverterUInt32.allocationSize(value.total)
       );
     }
   }
@@ -13536,6 +13820,16 @@ export type FfiRecordRestoreResult = {
   placed: number;
   unplaced: number;
   missingActivityIds: Array<string>;
+  /**
+   * History rows the latest restore left in its backup file, every pass
+   * so far included.
+   */
+  notRestored: number;
+  /**
+   * Route names the latest restore gave up on to a merged route, every
+   * pass so far included.
+   */
+  namesNotRestored: number;
 };
 
 /**
@@ -13565,18 +13859,24 @@ const FfiConverterTypeFfiRecordRestoreResult = (() => {
         placed: FfiConverterUInt32.readFromCursor(c),
         unplaced: FfiConverterUInt32.readFromCursor(c),
         missingActivityIds: FfiConverterSequenceString.readFromCursor(c),
+        notRestored: FfiConverterUInt32.readFromCursor(c),
+        namesNotRestored: FfiConverterUInt32.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterUInt32.writeIntoCursor(value.placed, c);
       FfiConverterUInt32.writeIntoCursor(value.unplaced, c);
       FfiConverterSequenceString.writeIntoCursor(value.missingActivityIds, c);
+      FfiConverterUInt32.writeIntoCursor(value.notRestored, c);
+      FfiConverterUInt32.writeIntoCursor(value.namesNotRestored, c);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterUInt32.allocationSize(value.placed) +
         FfiConverterUInt32.allocationSize(value.unplaced) +
-        FfiConverterSequenceString.allocationSize(value.missingActivityIds)
+        FfiConverterSequenceString.allocationSize(value.missingActivityIds) +
+        FfiConverterUInt32.allocationSize(value.notRestored) +
+        FfiConverterUInt32.allocationSize(value.namesNotRestored)
       );
     }
   }
@@ -18628,108 +18928,6 @@ const FfiConverterTypeFfiSportLoad = (() => {
         FfiConverterOptionalString.allocationSize(value.sportGroup) +
         FfiConverterOptionalFloat64.allocationSize(value.load)
       );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * Why a start was refused, or that it was not refused at all.
- *
- * The wire carries the variant's position, so the order here is the contract:
- * append, never reorder. The discriminants start at one so no member is falsy.
- */
-export enum FfiStartOutcome {
-  /**
-   * The job is running.
-   */
-  Started = 1,
-  /**
-   * Something else holds the exclusive slot. Asking again once it frees
-   * starts the job unchanged.
-   */
-  Busy = 2,
-  /**
-   * A stage that does finish holds the work back: an elevation backfill
-   * mid-flight, or a detector cutover still owed.
-   */
-  Held = 3,
-  /**
-   * The engine is not open yet. Nothing is wrong, the caller is early.
-   */
-  NotReady = 4,
-  /**
-   * The athlete has to change something before this can run: there is no
-   * credential to sign the call with, or the work is switched off in
-   * Settings. No amount of waiting helps.
-   */
-  NotConfigured = 5,
-  /**
-   * There is no work to do. Refusing is the correct answer and will stay
-   * the correct answer.
-   */
-  NotOwed = 6,
-  /**
-   * The start threw rather than refusing. Rust never answers with this: it
-   * is the verdict TypeScript records when the FFI call itself fails, so a
-   * caught error is still a reason and not another bare `false`.
-   */
-  Failed = 7,
-  /**
-   * The device is offline, and the work needs the network. Only the
-   * elevation backfill sleeps on a connectivity edge. For every other
-   * caller this is a refusal to show, and the retry is the athlete's.
-   */
-  Offline = 8,
-}
-
-const FfiConverterTypeFfiStartOutcome = (() => {
-  type TypeName = FfiStartOutcome;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      switch (c.readI32()) {
-        case 1:
-          return FfiStartOutcome.Started;
-        case 2:
-          return FfiStartOutcome.Busy;
-        case 3:
-          return FfiStartOutcome.Held;
-        case 4:
-          return FfiStartOutcome.NotReady;
-        case 5:
-          return FfiStartOutcome.NotConfigured;
-        case 6:
-          return FfiStartOutcome.NotOwed;
-        case 7:
-          return FfiStartOutcome.Failed;
-        case 8:
-          return FfiStartOutcome.Offline;
-        default:
-          throw new UniffiInternalError.UnexpectedEnumCase();
-      }
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      switch (value) {
-        case FfiStartOutcome.Started:
-          return c.writeI32(1);
-        case FfiStartOutcome.Busy:
-          return c.writeI32(2);
-        case FfiStartOutcome.Held:
-          return c.writeI32(3);
-        case FfiStartOutcome.NotReady:
-          return c.writeI32(4);
-        case FfiStartOutcome.NotConfigured:
-          return c.writeI32(5);
-        case FfiStartOutcome.NotOwed:
-          return c.writeI32(6);
-        case FfiStartOutcome.Failed:
-          return c.writeI32(7);
-        case FfiStartOutcome.Offline:
-          return c.writeI32(8);
-      }
-    }
-    allocationSize(value: TypeName): number {
-      return 4;
     }
   }
   return new FFIConverter();
@@ -34772,6 +34970,16 @@ const FfiConverterOptionalTypeFfiSplitSummary = new FfiConverterOptional(
   FfiConverterTypeFfiSplitSummary,
 );
 
+// FfiConverter for FfiFloat32Array | undefined
+const FfiConverterOptionalTypeFfiFloat32Array = new FfiConverterOptional(
+  FfiConverterTypeFfiFloat32Array,
+);
+
+// FfiConverter for FfiLapDelta | undefined
+const FfiConverterOptionalTypeFfiLapDelta = new FfiConverterOptional(
+  FfiConverterTypeFfiLapDelta,
+);
+
 // FfiConverter for Array<FfiEfficiencyPoint>
 const FfiConverterSequenceTypeFfiEfficiencyPoint = new FfiConverterArray(
   FfiConverterTypeFfiEfficiencyPoint,
@@ -35555,6 +35763,13 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_start_fetch_and_store",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_gps_pass() !== 390
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_start_gps_pass",
     );
   }
   if (
@@ -37933,6 +38148,7 @@ export default Object.freeze({
     FfiConverterTypeFfiFloat32Array,
     FfiConverterTypeFfiFocusRange,
     FfiConverterTypeFfiFtpTrend,
+    FfiConverterTypeFfiGpsPassStart,
     FfiConverterTypeFfiGpsPoint,
     FfiConverterTypeFfiGroupSort,
     FfiConverterTypeFfiGroupSummariesResult,

@@ -79,29 +79,31 @@ export async function importBackupFile(
       });
 
       const legacyResult = await restoreBackup(json);
-      if (legacyResult.refusal) {
+      if ('refusal' in legacyResult) {
         informRefused(legacyResult.refusal, t);
         return { success: false, activityCount: 0, refusal: legacyResult.refusal };
       }
 
-      showRestoreNotice('restored', t);
+      showRestoreNotice(legacyResult.drops, t);
 
       return {
         success: true,
         activityCount: 0,
+        unplacedCount: legacyResult.unplacedCount,
+        drops: legacyResult.drops,
       };
     }
 
     if (fileName.endsWith('.zip')) {
-      await restoreRecordBackup(fileUri);
-      showRestoreNotice('restored', t);
-      return { success: true, activityCount: 0 };
+      const restored = await restoreRecordBackup(fileUri);
+      showRestoreNotice(restored, t);
+      return { success: true, activityCount: 0, unplacedCount: restored.unplaced, drops: restored };
     }
 
     const restoreResult = await restoreDatabaseBackup(fileUri);
 
     if (restoreResult.success) {
-      showRestoreNotice('restored', t);
+      showRestoreNotice(restoreResult.drops, t);
     } else {
       informRefused(restoreResult.refusal ?? 'failed', t);
     }

@@ -12,10 +12,9 @@ import { View, StyleSheet } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { INTERVALS_URLS } from '@/shared/app/constants';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { openExternal } from '@/shared/app/openExternal';
-import { colors, iconSize, spacing } from '@/theme';
+import { spacing } from '@/theme';
 import type { Activity, WellnessData } from '@/types';
 import type { ActivityFitnessImpact, ActivitySummary, MaxHrSource } from 'veloqrs';
 import { useActivityStats } from './useActivityStats';
@@ -60,7 +59,6 @@ export function InsightfulStats({
   const { stats } = useActivityStats({
     activity,
     wellness,
-    isDark,
     isMetric,
     maxHR,
     maxHrSource,
@@ -96,13 +94,7 @@ export function InsightfulStats({
               variant="ghost"
               size="sm"
               onPress={openInIntervalsICU}
-              icon={
-                <MaterialCommunityIcons
-                  name="open-in-new"
-                  size={iconSize.sm}
-                  color={colors.primary}
-                />
-              }
+              icon="open-in-new"
             />
           ) : undefined
         }

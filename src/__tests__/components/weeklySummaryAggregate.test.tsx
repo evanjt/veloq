@@ -77,10 +77,10 @@ describe('WeeklySummary', () => {
     const view = await render(<WeeklySummary />, { wrapper });
 
     await waitFor(() => expect(view.getByTestId('weekly-summary-duration')).toBeTruthy());
-    expect(view.getByTestId('weekly-summary-duration-trend')).toHaveTextContent('↑ 50%');
+    expect(view.getByTestId('weekly-summary-duration-delta')).toHaveTextContent('↑ 50%');
     expect(view.getByText('vs last week so far')).toBeTruthy();
     // A flat move is drawn with no percentage.
-    expect(view.getByTestId('weekly-summary-count-trend')).toHaveTextContent('→', {
+    expect(view.getByTestId('weekly-summary-count-delta')).toHaveTextContent('→', {
       exact: true,
     });
   });
@@ -109,9 +109,9 @@ describe('WeeklySummary', () => {
     await fireEvent.press(view.getByTestId('weekly-summary-range-year'));
 
     await waitFor(() => expect(view.getByText('40')).toBeTruthy());
-    expect(view.getByTestId('weekly-summary-count-trend')).toHaveTextContent('↓ 20%');
+    expect(view.getByTestId('weekly-summary-count-delta')).toHaveTextContent('↓ 20%');
     // Nothing the year has no earlier total of is judged.
-    expect(view.queryByTestId('weekly-summary-duration-trend')).toBeNull();
+    expect(view.queryByTestId('weekly-summary-duration-delta')).toBeNull();
     expect(engine.getTrainingScreenData).toHaveBeenCalledTimes(1);
   });
 });
