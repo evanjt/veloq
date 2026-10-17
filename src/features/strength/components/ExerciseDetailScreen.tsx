@@ -27,7 +27,7 @@ import { colors, darkColors, spacing, typography } from '@/theme';
 import { readExerciseDetailData } from '../hooks/useStrengthScreenData';
 import { exerciseTrendSamples } from '../lib/exerciseTrend';
 import { formatBestSet } from '../lib/formatting';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 
 function ExerciseDetailScreen() {
   const { category } = useLocalSearchParams<{ category: string }>();
@@ -53,7 +53,7 @@ function ExerciseDetailScreen() {
       contentContainerStyle={styles.content}
     >
       <Stack.Screen options={{ title: data?.exerciseName || t('strength.history') }} />
-      {isLoading ? <ActivityIndicator color={colors.primary} /> : null}
+      {isLoading ? <ActivityIndicator color={colors.actionPrimary} /> : null}
       {isError ? (
         <ErrorState
           error={error}
@@ -94,7 +94,7 @@ function ExerciseDetailScreen() {
               <Card key={session.activityId} variant="flat" padding="none">
                 <Row
                   behaviour="navigate"
-                  onPress={() => tapTo(`/activity/${session.activityId}`)}
+                  onPress={() => navigateTo(`/activity/${session.activityId}`)}
                   accessibilityLabel={composeAccessibilityLabel(title, bestSet, estimate)}
                 >
                   <View style={styles.session}>
@@ -115,8 +115,8 @@ function ExerciseDetailScreen() {
 export default withScreenBoundary(ExerciseDetailScreen, 'ExerciseDetail');
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  screenDark: { backgroundColor: darkColors.background },
+  screen: { flex: 1, backgroundColor: colors.surfacePage },
+  screenDark: { backgroundColor: darkColors.surfacePage },
   content: { padding: spacing.md, gap: spacing.sm },
   method: { color: colors.textSecondary },
   secondaryDark: { color: darkColors.textSecondary },

@@ -37,6 +37,7 @@ pub fn backup_screen_data(
         suggestion,
         not_restored: count(crate::persistence::record_restore::NOT_RESTORED_KEY)?,
         names_not_restored: count(crate::persistence::record_restore::NAMES_NOT_RESTORED_KEY)?,
+        record_backup_run: crate::objects::record_backup_run().map(|run| run as f64),
     })
 }
 
@@ -177,15 +178,12 @@ const FEED_SPARKLINE_DAYS: u32 = 30;
 /// pass an identity rather than changing the outline it draws. `max_points` of
 /// zero means the whole track, which is what a caller that wants no cap asks
 /// for.
-fn stride_track(points: Vec<crate::GpsPoint>, max_points: u32) -> Vec<crate::FfiGpsPoint> {
+fn stride_track(points: Vec<crate::GpsPoint>, max_points: u32) -> Vec<crate::GpsPoint> {
     strided(&points, max_points as usize)
-        .into_iter()
-        .map(crate::FfiGpsPoint::from)
-        .collect()
 }
 
-/// The rule itself, over the points rather than the FFI record, so the section
-/// thumbnail below draws the same outline as the widget.
+/// The rule itself, over a borrowed slice, so the section thumbnail below
+/// draws the same outline as the widget.
 fn strided(points: &[crate::GpsPoint], max_points: usize) -> Vec<crate::GpsPoint> {
     if max_points == 0 || points.len() <= max_points {
         return points.to_vec();
@@ -847,25 +845,7 @@ impl super::PersistentEngine {
     /// one: the screen does not read it, and computing it here keeps the record
     /// one shape everywhere.
     fn matched_section(s: crate::sections::Section) -> crate::FfiSectionWithPolyline {
-        let bounds = s
-            .polyline
-            .iter()
-            .fold(None, |acc: Option<crate::FfiBounds>, p| {
-                Some(match acc {
-                    None => crate::FfiBounds {
-                        min_lat: p.latitude,
-                        max_lat: p.latitude,
-                        min_lng: p.longitude,
-                        max_lng: p.longitude,
-                    },
-                    Some(b) => crate::FfiBounds {
-                        min_lat: b.min_lat.min(p.latitude),
-                        max_lat: b.max_lat.max(p.latitude),
-                        min_lng: b.min_lng.min(p.longitude),
-                        max_lng: b.max_lng.max(p.longitude),
-                    },
-                })
-            });
+        let bounds = crate::Bounds::from_points(&s.polyline);
         crate::FfiSectionWithPolyline {
             id: s.id,
             name: s.name,
@@ -2557,15 +2537,7 @@ pub mod pooled {
                     &names,
                 )
                 .into_iter()
-                .map(|c| crate::FfiActivityLedgerChange {
-                    event_id: c.event_id as f64,
-                    section_id: c.section_id,
-                    section_name: c.section_name,
-                    section_type: c.section_type,
-                    at: c.at,
-                    kind: c.kind,
-                    relation: c.relation,
-                })
+                .map(Into::into)
                 .collect(),
             intervals_id: crate::persistence::activities::intervals_web_id(
                 activity_id,
@@ -3547,7 +3519,7 @@ pub mod pooled {
                 date: row.get(3)?,
                 distance: row.get(4)?,
                 duration: row.get(5)?,
-                bounds: crate::FfiBounds {
+                bounds: crate::Bounds {
                     min_lat: row.get(6)?,
                     max_lat: row.get(7)?,
                     min_lng: row.get(8)?,

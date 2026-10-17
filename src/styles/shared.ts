@@ -44,7 +44,7 @@ const buildSharedStyles = (isDark: boolean) => {
     /** Full-screen container with theme background */
     container: {
       flex: 1,
-      backgroundColor: isDark ? darkColors.background : colors.background,
+      backgroundColor: isDark ? darkColors.surfacePage : colors.surfacePage,
     },
 
     /** ScrollView content container with standard padding */
@@ -58,7 +58,7 @@ const buildSharedStyles = (isDark: boolean) => {
       flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: isDark ? darkColors.background : colors.background,
+      backgroundColor: isDark ? darkColors.surfacePage : colors.surfacePage,
     },
 
     // =========================================================================

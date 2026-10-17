@@ -22,7 +22,7 @@ jest.unmock('expo-router/react-navigation');
 let mockHeld = true;
 const onBack = jest.fn();
 
-let app: ReturnType<typeof renderRouter>;
+let app: Awaited<ReturnType<typeof renderRouter>>;
 
 function HeldScreen() {
   useBackIntercept(mockHeld, onBack);
@@ -35,7 +35,7 @@ function stackPaths(): string[] {
 }
 
 async function renderHeldOverHome() {
-  app = renderRouter(
+  app = await renderRouter(
     {
       _layout: () => <Stack />,
       index: () => <Text>home</Text>,

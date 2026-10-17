@@ -47,6 +47,8 @@ function fixture(): Fixture {
     `case "$*" in *check-native-tree*) exit 0;; *app-identity*) exec "${process.execPath}" "$@";; esac\necho "node $*" >> "${log}"\ncase "$*" in *bundle-android*) exit 23;; esac`
   );
   spy('npx', `echo "npx $*" >> "${log}"`);
+  // No handset answers, so a device build compiles for the fallback ABI.
+  spy('adb', 'exit 1');
   spy(
     'npm',
     `if [ "$2" = "bundle:android" ]; then exec sh -c '${packageJson.scripts['bundle:android']}'; fi\nexit 0`
@@ -117,7 +119,7 @@ describe('Android artifact recipes wait for the build lock', () => {
       23,
       [
         'node scripts/prepare-native.mjs --platform android',
-        'node scripts/check-toolchain.mjs --platform android',
+        'node scripts/check-toolchain.mjs --platform android --print-java-home',
         'node scripts/sync-android-widgets.mjs',
         'node scripts/bundle-android.mjs',
       ],
@@ -127,10 +129,13 @@ describe('Android artifact recipes wait for the build lock', () => {
       23,
       [
         'node scripts/prepare-native.mjs --platform android',
-        'node scripts/check-toolchain.mjs --platform android',
+        'node scripts/check-toolchain.mjs --platform android --print-java-home',
         'node scripts/sync-android-widgets.mjs',
         'node scripts/build-record.js snapshot android release',
-        'gradlew assembleRelease',
+        'gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a ' +
+          '-Pandroid.enableMinifyInReleaseBuilds=false ' +
+          '-Pandroid.enableShrinkResourcesInReleaseBuilds=false ' +
+          '-Pandroid.enablePngCrunchInReleaseBuilds=false',
       ],
     ],
     [
@@ -138,10 +143,10 @@ describe('Android artifact recipes wait for the build lock', () => {
       23,
       [
         'node scripts/prepare-native.mjs --platform android',
-        'node scripts/check-toolchain.mjs --platform android',
+        'node scripts/check-toolchain.mjs --platform android --print-java-home',
         'node scripts/sync-android-widgets.mjs',
         'node scripts/build-record.js snapshot android release',
-        'gradlew assembleRelease',
+        'gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a',
       ],
     ],
     ['bundle:android', 23, ['node scripts/bundle-android.mjs']],
@@ -164,4 +169,48 @@ describe('Android artifact recipes wait for the build lock', () => {
     },
     30000
   );
+});
+
+describe('The debug recipe compiles the engine with the local Rust profile', () => {
+  async function debugBuildProfile(callerProfile?: string) {
+    const f = fixture();
+    try {
+      fs.writeFileSync(
+        path.join(f.cwd, 'bin/node'),
+        `#!/bin/sh\ncase "$*" in *app-identity*) exec "${process.execPath}" "$@";; esac\nexit 0\n`,
+        { mode: 0o755 }
+      );
+      fs.writeFileSync(
+        path.join(f.cwd, 'android/gradlew'),
+        `#!/bin/sh\necho "gradlew $* \${VELOQRS_RUST_PROFILE:-unset}" >> "${f.log}"\n`,
+        { mode: 0o755 }
+      );
+      const env = { ...f.env };
+      delete env.VELOQRS_RUST_PROFILE;
+      if (callerProfile !== undefined) env.VELOQRS_RUST_PROFILE = callerProfile;
+      const recipe = spawn('sh', ['-c', packageJson.scripts['android:debug']], {
+        cwd: f.cwd,
+        env,
+        stdio: 'ignore',
+      });
+      const status = await new Promise<number | null>((resolve) => recipe.on('close', resolve));
+      return { status, calls: writers(f.log) };
+    } finally {
+      fs.rmSync(f.cwd, { recursive: true, force: true });
+    }
+  }
+
+  it('selects release-dev when the caller selects nothing', async () => {
+    const { status, calls } = await debugBuildProfile();
+    expect(status).toBe(0);
+    expect(calls).toEqual([
+      'gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a release-dev',
+    ]);
+  }, 30000);
+
+  it('keeps the profile the caller exported', async () => {
+    const { status, calls } = await debugBuildProfile('release');
+    expect(status).toBe(0);
+    expect(calls).toEqual(['gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a release']);
+  }, 30000);
 });

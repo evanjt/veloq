@@ -139,6 +139,12 @@ pub struct FfiSyncStatus {
     /// milliseconds, when it ended on a refusal or a deferral from the
     /// request budget. The engine resumes it itself at this time.
     pub retry_at_ms: Option<f64>,
+    /// The track work running beside the sync or after it: the GPS download,
+    /// section detection or the heatmap pass, whichever comes first in that
+    /// order, or `None` when none of them is running. Independent of `state`,
+    /// which is the metadata sync's alone, so a pass the engine starts by
+    /// itself after the sync has settled is reported all the same.
+    pub tracks: Option<super::track_stage::FfiTrackStage>,
 }
 
 /// Why the last sync failed, as the kind the banner branches on.
@@ -1058,6 +1064,9 @@ impl SyncService {
     }
 
     pub fn snapshot(&self) -> FfiSyncStatus {
+        // Read before the service's own lock, so no slot lock is ever taken
+        // under it.
+        let tracks = super::track_stage::read();
         let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         FfiSyncStatus {
             state: inner.state,
@@ -1071,6 +1080,7 @@ impl SyncService {
             last_error_reason: inner.last_error_reason,
             last_success_at: read_last_success_at(),
             retry_at_ms: inner.retry_at.map(|at| at.timestamp_millis() as f64),
+            tracks,
         }
     }
 }

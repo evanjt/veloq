@@ -29,7 +29,8 @@
 // is the one the build was asked for. Verifying never reads APP_VARIANT: an
 // install asks for an identity with --identity, or takes the one the record
 // names, which writing proved was the one asked for. Unless told otherwise it
-// asks for the Rust profile in VELOQRS_RUST_PROFILE (release by default), and
+// asks for the Rust profile in VELOQRS_RUST_PROFILE (release-dev by default for
+// a debug build, which is what the debug recipes compile, release otherwise), and
 // the features in VELOQRS_CARGO_FEATURES, as the Rust build reads them.
 
 const fs = require('node:fs');
@@ -97,13 +98,28 @@ function parse(argv, env) {
     else if (flag === '--device-abis') options.expect.deviceAbis = list(value);
     else throw new BuildRecordError(`unknown argument ${flag}`);
   }
-  // A release build and production both build Rust release, as the Rust build decides.
-  options.expect.profile ??=
-    options.expect.applicationId === IDENTITIES.production.appId ||
-    variant.toLowerCase() === 'release'
-      ? 'release'
-      : env.VELOQRS_RUST_PROFILE || 'release';
+  // With no identity asked for, the profile follows the identity the record names.
+  if (!options.expect.profile) {
+    if (options.expect.applicationId || variant.toLowerCase() === 'release') {
+      options.expect.profile = rustProfile(variant, options.expect.applicationId, env);
+    } else {
+      options.expect.profileFor = (applicationId) => rustProfile(variant, applicationId, env);
+    }
+  }
   return options;
+}
+
+/**
+ * The Rust profile a build of `variant` and `applicationId` compiles. A release
+ * build and production both build Rust release, as the Rust build decides. A
+ * debug build is made by `npm run android` or `npm run android:debug`, which
+ * compile release-dev unless the caller selected a profile.
+ */
+function rustProfile(variant, applicationId, env) {
+  if (applicationId === IDENTITIES.production.appId || variant.toLowerCase() === 'release') {
+    return 'release';
+  }
+  return env.VELOQRS_RUST_PROFILE || 'release-dev';
 }
 
 // Under the Rust build directory, which git ignores and no build reads as input.

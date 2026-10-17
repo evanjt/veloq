@@ -432,9 +432,7 @@ impl ActivityFetcher {
         activity_id: &str,
         lane: Lane,
     ) -> Result<Vec<u8>, NetError> {
-        self.transport
-            .get_bytes(&format!("/activity/{}/file", activity_id), &[], lane)
-            .await
+        crate::net::endpoints::fetch_original_file(&self.transport, activity_id, lane).await
     }
 }
 
@@ -733,20 +731,15 @@ impl ActivityFetcher {
             error: Some(error),
         };
 
-        let bytes = match transport
-            .get_bytes(
-                &format!("/activity/{}/streams.json", upstream),
-                &[(
-                    "types",
-                    if wide {
-                        crate::net::endpoints::DEFAULT_STREAM_TYPES
-                    } else {
-                        crate::net::endpoints::TRACK_STREAM_TYPES
-                    },
-                )],
-                lane,
-            )
-            .await
+        let types = if wide {
+            crate::net::endpoints::DEFAULT_STREAM_TYPES
+        } else {
+            crate::net::endpoints::TRACK_STREAM_TYPES
+        };
+        let bytes = match crate::net::endpoints::fetch_streams_bytes(
+            transport, upstream, types, lane,
+        )
+        .await
         {
             Ok(b) => b,
             // Unauthorized is worth naming: it means the whole batch will fail

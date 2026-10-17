@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ScrollView } from 'react-native-gesture-handler';
 import { useTheme } from '@/shared/app';
 import { SectionTitle } from '@/shared/ui/SectionTitle';
@@ -12,6 +12,7 @@ import {
   tourCardWidth,
   tourSlideLayout,
 } from '../../lib/tourSlideFit';
+import { Icon } from '@/shared/ui/Icon';
 
 interface WhatsNewSlideProps {
   icon: string;
@@ -62,10 +63,10 @@ export function WhatsNewSlide({
         testID="tour-slide-text"
       >
         <View style={styles.header} onLayout={onHeaderLayout} testID="tour-slide-header">
-          <MaterialCommunityIcons
+          <Icon
             name={icon as keyof typeof MaterialCommunityIcons.glyphMap}
             size={iconSize.xxl}
-            color={isDark ? darkColors.primary : colors.primary}
+            color={isDark ? darkColors.actionPrimary : colors.actionPrimary}
           />
           <SectionTitle align="center" style={styles.title}>
             {title}

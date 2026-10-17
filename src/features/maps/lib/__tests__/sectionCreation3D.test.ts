@@ -24,7 +24,7 @@ const html = buildMap3DHtml({
   terrainExaggeration: 1,
   initStyle: 'light',
   mapStyle: 'light',
-  routeColor: colors.success,
+  routeColor: colors.successFill,
   showHeatmap: false,
   devicePixelRatio: 1,
   reduceMotion: false,
@@ -43,7 +43,7 @@ describe('3D section creation layers', () => {
 
   it('use the colour 2D uses for the line, hidden until creation starts', () => {
     const [line, marker] = sectionCreation3DLayers(false);
-    expect(line).toMatchObject({ paint: { 'line-color': colors.success } });
+    expect(line).toMatchObject({ paint: { 'line-color': colors.successFill } });
     expect(line!.layout.visibility).toBe('none');
     expect(marker!.layout.visibility).toBe('none');
     expect(sectionCreation3DLayers(true)[0]!.layout).not.toHaveProperty('visibility');

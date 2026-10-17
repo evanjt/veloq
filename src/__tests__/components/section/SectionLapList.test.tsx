@@ -5,10 +5,10 @@ import { layout, opacity } from '@/theme';
 import { SectionLapList } from '@/features/routes/components/section/SectionLapList';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
-const mockTapTo = jest.fn();
+const mockNavigateTo = jest.fn();
 jest.mock('@/shared/app/navigation', () => ({
   ...jest.requireActual('@/shared/app/navigation'),
-  tapTo: (...args: unknown[]) => mockTapTo(...args),
+  navigateTo: (...args: unknown[]) => mockNavigateTo(...args),
 }));
 
 jest.mock('react-i18next', () => ({
@@ -385,7 +385,7 @@ describe('SectionLapList', () => {
     });
 
     it('opens the activity from its summary row', () => {
-      mockTapTo.mockClear();
+      mockNavigateTo.mockClear();
       const { getByTestId } = render(
         <SectionLapList
           isDark={false}
@@ -397,7 +397,7 @@ describe('SectionLapList', () => {
       const row = getByTestId('section-lap-summary-a');
       expect(row.props.accessibilityRole).toBe('button');
       fireEvent.press(row);
-      expect(mockTapTo).toHaveBeenCalledWith('/activity/a');
+      expect(mockNavigateTo).toHaveBeenCalledWith('/activity/a');
     });
   });
 });

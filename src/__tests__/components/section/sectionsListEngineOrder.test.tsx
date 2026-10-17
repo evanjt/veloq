@@ -1,7 +1,7 @@
 import React from 'react';
 import { Alert } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
-import Swipeable from 'react-native-gesture-handler/Swipeable';
+import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 
 import { initialiseI18n } from '@/i18n';
 import { SectionsList } from '@/features/routes/components/SectionsList';

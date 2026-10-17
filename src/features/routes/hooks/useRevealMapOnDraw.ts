@@ -1,5 +1,5 @@
 import { useEffect, type RefObject } from 'react';
-import type { ScrollView } from 'react-native';
+import type { ScrollViewInstance } from 'react-native';
 
 import { isReduceMotionOn } from '@/shared/ui/reduceMotion';
 
@@ -8,7 +8,7 @@ import { isReduceMotionOn } from '@/shared/ui/reduceMotion';
  * something new to draw. Clearing the target leaves the page where it is.
  */
 export function useRevealMapOnDraw(
-  scrollRef: RefObject<Pick<ScrollView, 'scrollTo'> | null>,
+  scrollRef: RefObject<Pick<ScrollViewInstance, 'scrollTo'> | null>,
   drawTarget: unknown
 ): void {
   useEffect(() => {

@@ -1,0 +1,34 @@
+name: Dependabot refresh
+
+# A Dependabot pull request that failed on a red main keeps that result after
+# main goes green, since a re-run reuses the old merge. After each green Test
+# on main, ask the ones behind it to rebase. The comment goes out under
+# AUTOMERGE_PAT, the account that arms their auto-merge, because Dependabot
+# acts on a command from a user with write access.
+on:
+  workflow_run:
+    workflows: [Test]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Ask stale Dependabot pull requests to rebase
+        run: node scripts/dependabot-refresh.mjs
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.AUTOMERGE_PAT }}

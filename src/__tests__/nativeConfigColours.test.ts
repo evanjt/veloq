@@ -67,13 +67,13 @@ function load(tokens?: Record<string, string>) {
 }
 
 describe('the colours native code draws before the app runs', () => {
-  it('are the tokens for the app colour and the light primary in the resolved config', () => {
+  it('are the brand ground and the light primary in the resolved config', () => {
     const { brand } = load();
     const resolved = getConfig(projectRoot, { skipSDKVersionRequirement: true }).exp;
     expect(nativeColours(resolved)).toEqual({
-      adaptiveIcon: brand.blue,
-      splash: brand.blue,
-      splashDark: brand.blue,
+      adaptiveIcon: brand.blue600,
+      splash: brand.blue600,
+      splashDark: brand.blue600,
       notification: brand.blue600,
     });
   });
@@ -81,9 +81,9 @@ describe('the colours native code draws before the app runs', () => {
   it('come from the app config, not from the static config', () => {
     const { brand, appConfig } = load();
     expect(nativeColours(appConfig({ config: staticConfigWithoutColours() }))).toEqual({
-      adaptiveIcon: brand.blue,
-      splash: brand.blue,
-      splashDark: brand.blue,
+      adaptiveIcon: brand.blue600,
+      splash: brand.blue600,
+      splashDark: brand.blue600,
       notification: brand.blue600,
     });
   });
@@ -92,6 +92,8 @@ describe('the colours native code draws before the app runs', () => {
     const { appConfig } = load({
       appColour: '#123456',
       appColourDeep: '#0A1B2C',
+      markGold: '#FEDCBA',
+      markGoldDeep: '#EDCBA9',
       notificationAccent: '#654321',
     });
     expect(nativeColours(appConfig({ config: staticConfigWithoutColours() }))).toEqual({

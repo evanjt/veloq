@@ -46,7 +46,7 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
 }: SectionPerformanceTimelineProps) {
   const { isDark } = useTheme();
   const palette = themePalette(isDark);
-  const lineColor = lineColorProp ?? palette.primary;
+  const lineColor = lineColorProp ?? palette.actionPrimary;
   const { t } = useTranslation();
 
   const sorted = useMemo(() => {
@@ -64,7 +64,7 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
 
   // The 5 px dot among the faint ones is the only thing that says best record,
   // so it is a mark and owes 3:1 rather than the amber chart tone.
-  const bestMarkColor = isDark ? darkColors.chartGoldMark : colors.chartGoldMark;
+  const bestMarkColor = isDark ? darkColors.achievement : colors.achievement;
   const bestIndex = sorted.findIndex((e) => e.isPr);
   const marker = useMemo(
     () => (bestIndex >= 0 ? { index: bestIndex, color: bestMarkColor } : null),

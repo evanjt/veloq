@@ -339,7 +339,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
 const makeStyles = (palette: Palette) =>
   StyleSheet.create({
     container: {},
-    textLight: { color: colors.textOnDark },
+    textLight: { color: colors.textOnFill },
     valuesRow: {
       flexDirection: 'row',
       alignSelf: 'flex-end',

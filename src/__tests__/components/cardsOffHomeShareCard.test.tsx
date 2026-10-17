@@ -49,7 +49,7 @@ function expectDarkCard(view: Rendered) {
     props: { style?: unknown };
   };
   const ground = style(host);
-  expect(ground.backgroundColor).toBe(darkColors.surfaceCard);
+  expect(ground.backgroundColor).toBe(darkColors.surfaceRaised);
   expect(ground.borderRadius).toBe(layout.borderRadius);
   expect(ground.margin).toBeUndefined();
   expect(ground.marginHorizontal).toBeUndefined();

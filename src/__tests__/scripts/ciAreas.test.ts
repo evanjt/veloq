@@ -162,6 +162,13 @@ describe('ciAreas', () => {
     });
   });
 
+  it.each(['.github/workflows/build-android.yml', '.github/ci-init.gradle'])(
+    'reads %s, which the Android build runs, as workflows and native',
+    (path) => {
+      expect(classify([path])).toEqual({ ...NONE, workflows: true, native: true });
+    }
+  );
+
   it('reads another workflow as workflows alone', () => {
     expect(classify(['.github/workflows/deploy-website.yml'])).toEqual({
       ...NONE,
@@ -187,6 +194,10 @@ describe('ciAreas', () => {
     'app.config.js',
     'modules/veloq-focus/index.ts',
     'expo-modules/lantern/ios/Module.swift',
+    'react-native.config.js',
+    'scripts/lib/app-identity.js',
+    'scripts/lib/build-stamp.js',
+    'src/theme/appColours.json',
   ])('reads %s as native and app code', (path) => {
     expect(classify([path])).toEqual({ ...NONE, native: true, appJs: true });
   });

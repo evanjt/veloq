@@ -26,7 +26,7 @@ import {
   type MergeConfirmSheetResult,
   type MergeSectionInfo,
 } from '@/features/routes';
-import { tapBack } from '@/shared/app/navigation';
+import { goBack } from '@/shared/app/navigation';
 import { NameText } from '@/shared/ui/NameText';
 
 /**
@@ -48,7 +48,7 @@ function MergeConfirmSheetContent() {
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const border = isDark ? darkColors.border : colors.border;
-  const accent = isDark ? darkColors.primary : colors.primary;
+  const accent = isDark ? darkColors.actionPrimary : colors.actionPrimary;
 
   const primary = input?.primary;
   const secondary = input?.secondary;
@@ -102,7 +102,7 @@ function MergeConfirmSheetContent() {
   };
 
   const actions = {
-    onCancel: () => tapBack(),
+    onCancel: () => goBack(),
     cancelTestID: 'merge-confirm-cancel',
     confirm: {
       label: t('sections.merge'),

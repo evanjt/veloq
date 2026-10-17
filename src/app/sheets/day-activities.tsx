@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
@@ -8,7 +7,8 @@ import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { composeAccessibilityLabel, Row, SheetHeader } from '@/shared/ui';
-import { tapBack } from '@/shared/app/navigation';
+import { Icon } from '@/shared/ui/Icon';
+import { goBack } from '@/shared/app/navigation';
 import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
 import {
   formatClockTime,
@@ -50,7 +50,7 @@ function DayActivitiesSheetContent() {
     <View style={styles.sheet}>
       <SheetHeader
         title={t('fitness.selectActivity')}
-        onCancel={() => tapBack()}
+        onCancel={() => goBack()}
         cancelTestID="day-activities-cancel"
       />
       <ScrollView contentContainerStyle={styles.list}>
@@ -70,7 +70,7 @@ function DayActivitiesSheetContent() {
               accessibilityLabel={composeAccessibilityLabel(activity.name, ...details)}
               onPress={() => resolve(activity.id)}
             >
-              <MaterialCommunityIcons
+              <Icon
                 name={getActivityIcon(activity.type)}
                 size={iconSize.lg}
                 color={getActivityInk(activity.type, isDark)}

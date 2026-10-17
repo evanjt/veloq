@@ -83,7 +83,7 @@ export function buildSectionLayers(input: SectionLayerInput): MapLayerSpec[] {
       type: 'line',
       source: 'shadow',
       layout: roundLine,
-      paint: { 'line-color': colors.gray500, 'line-opacity': 0.5, 'line-width': 3 },
+      paint: { 'line-color': colors.iconSecondary, 'line-opacity': 0.5, 'line-width': 3 },
     },
   ];
 

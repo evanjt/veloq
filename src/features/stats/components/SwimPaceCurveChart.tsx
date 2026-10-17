@@ -276,7 +276,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
 const makeStyles = (palette: Palette) =>
   StyleSheet.create({
     container: {},
-    textLight: { color: colors.textOnDark },
+    textLight: { color: colors.textOnFill },
     valuesRow: {
       flexDirection: 'row',
       alignSelf: 'flex-end',

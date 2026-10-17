@@ -50,7 +50,7 @@ export function FeedSlide() {
               strokeWidth={TRACK_STROKE}
               strokeJoin="round"
               strokeCap="round"
-              color={palette.primary}
+              color={palette.actionPrimary}
             />
           </Canvas>
           <View style={styles.lines}>

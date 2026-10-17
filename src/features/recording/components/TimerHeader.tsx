@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Pressable, Animated } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { colors, iconSize, recording } from '@/theme';
@@ -18,6 +17,7 @@ import { RecordingCloseButton } from './RecordingCloseButton';
 import { styles } from '../RecordingScreen.styles';
 import { useTimer } from '../hooks/useTimer';
 import { FitText } from '@/shared/ui/FitText';
+import { Icon } from '@/shared/ui/Icon';
 
 /** The clock reads in the secondary ink while auto-pause holds it, and in the primary ink otherwise. */
 function ElapsedTime({ color }: { color: string }) {
@@ -100,7 +100,7 @@ function TimerHeaderInner({
           accessibilityRole="button"
           accessibilityHint={t('recording.changeType')}
         >
-          <MaterialCommunityIcons
+          <Icon
             name={getActivityIcon(currentActivityType)}
             size={iconSize.sm}
             color={currentActivityColor}
@@ -108,7 +108,7 @@ function TimerHeaderInner({
           <FitText style={[styles.typeBadgeText, { color: textSecondary }]}>
             {t(`activityTypes.${currentActivityType}`, currentActivityType)}
           </FitText>
-          <MaterialCommunityIcons name="chevron-down" size={iconSize.sm} color={textSecondary} />
+          <Icon name="chevron-down" size={iconSize.sm} color={textSecondary} />
         </Pressable>
         <View style={styles.statusRow}>
           <IconButton
@@ -118,7 +118,7 @@ function TimerHeaderInner({
             disabled={isLocked}
             accessibilityLabel={t('recording.lockControls')}
           >
-            <MaterialCommunityIcons
+            <Icon
               name={isLocked ? 'lock' : 'lock-open-variant-outline'}
               size={iconSize.sm}
               color={textSecondary}
@@ -141,7 +141,7 @@ function TimerHeaderInner({
                     backgroundColor:
                       status === 'recording'
                         ? recording[isDark ? 'dark' : 'light']
-                        : colors.warning,
+                        : colors.warningFill,
                     opacity: statusPulse,
                   },
                 ]}

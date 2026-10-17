@@ -300,6 +300,18 @@ export function readBulkExportProgress(): { current: number; total: number } | n
   return { current: progress.visited, total: progress.total };
 }
 
+/**
+ * Ask the running export to stop. Rust finishes the activity in hand, removes
+ * the partial file and rejects the run with `Cancelled`, so nothing is shared.
+ * Answers whether an export was still running to stop.
+ */
+export function cancelBulkExport(): boolean {
+  const engine = getEngine();
+  const run = engine?.bulkExportProgress().run;
+  if (!engine || run === undefined) return false;
+  return engine.cancelRun(run);
+}
+
 /** The format a lapsed export is writing, for a screen that comes back to it. */
 export function pendingBulkExportKind(): BulkExportKind | null {
   return pendingExport?.kind ?? null;

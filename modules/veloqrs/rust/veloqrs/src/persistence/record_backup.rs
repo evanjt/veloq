@@ -4,6 +4,8 @@ use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use rusqlite::{Connection, OpenFlags, OptionalExtension, types::ValueRef};
 use serde::{Deserialize, Serialize};
@@ -669,10 +671,26 @@ pub(crate) fn write_record_zip(payload: &RecordPayload, path: &str) -> Result<()
     Ok(())
 }
 
+/// Whether the athlete stopped the run, as the error that ends it.
+fn stop_if_cancelled(cancel: &AtomicBool) -> Result<(), String> {
+    if cancel.load(Ordering::SeqCst) {
+        return Err(super::export::JOB_CANCELLED.to_string());
+    }
+    Ok(())
+}
+
 /// Publish under the engine lock so a wipe either removes or refuses the zip.
-fn write_record_zip_for(install: u64, payload: &RecordPayload, path: &str) -> Result<(), String> {
+/// A stop that lands while the lock is awaited drops the temporary unrenamed,
+/// so the destination keeps whatever it held before.
+fn write_record_zip_for(
+    install: u64,
+    payload: &RecordPayload,
+    path: &str,
+    cancel: &AtomicBool,
+) -> Result<(), String> {
     let temporary = stage_record_zip(payload, path)?;
     super::with_persistent_engine_for(install, |_| {
+        stop_if_cancelled(cancel)?;
         temporary
             .persist(path)
             .map(|_| ())
@@ -727,7 +745,9 @@ fn write_record_from_database(
     install: u64,
     source_path: &str,
     dest_path: &str,
+    cancel: &AtomicBool,
 ) -> Result<(), String> {
+    stop_if_cancelled(cancel)?;
     let payload = {
         // Taken before the connection opens so it drops after it closes: the
         // read is one snapshot, and the suspension waits for it to end.
@@ -743,7 +763,8 @@ fn write_record_from_database(
         db.execute_batch("COMMIT").map_err(|e| e.to_string())?;
         payload
     };
-    write_record_zip_for(install, &payload, dest_path)
+    stop_if_cancelled(cancel)?;
+    write_record_zip_for(install, &payload, dest_path, cancel)
 }
 
 /// Migrate an older SQLite backup in a temporary copy, then export its record.
@@ -770,12 +791,20 @@ impl PersistentEngine {
     ///
     /// `install` is the library the backup was asked of, and the zip is only
     /// put in place while it is still the one open.
-    pub fn record_backup_background(&self, dest_path: &str, install: u64) -> super::BackupHandle {
+    ///
+    /// `cancel` is the run's own latch. Set, the worker stops at its next stage
+    /// and the destination is left as it was.
+    pub fn record_backup_background(
+        &self,
+        dest_path: &str,
+        install: u64,
+        cancel: Arc<AtomicBool>,
+    ) -> super::BackupHandle {
         let source_path = self.db_path.clone();
         let dest_path = dest_path.to_string();
         let (tx, rx) = std::sync::mpsc::channel();
         crate::threads::spawn_named("veloq-record", move || {
-            let result = write_record_from_database(install, &source_path, &dest_path);
+            let result = write_record_from_database(install, &source_path, &dest_path, &cancel);
             let _ = tx.send(result);
         });
         super::BackupHandle { receiver: rx }
@@ -839,6 +868,7 @@ mod tests {
             install,
             source.to_str().unwrap(),
             destination.to_str().unwrap(),
+            &std::sync::atomic::AtomicBool::new(false),
         );
 
         assert!(outcome.is_err());
@@ -862,6 +892,7 @@ mod tests {
             install,
             source.to_str().unwrap(),
             destination.to_str().unwrap(),
+            &std::sync::atomic::AtomicBool::new(false),
         )
         .unwrap();
 
@@ -870,6 +901,56 @@ mod tests {
             vec!["veloq-decisions.zip".to_string()]
         );
         read_record_zip(destination.to_str().unwrap()).unwrap();
+    }
+
+    /// Scenario: the athlete stops a record backup while it waits to put its
+    /// zip in place.
+    /// Expected behaviour: it answers cancelled and leaves neither the zip nor
+    /// its temporary behind.
+    #[test]
+    fn test_record_backup_cancelled_while_running_leaves_nothing_behind() {
+        let _guard = crate::test_globals::serial_global_state();
+        let library = crate::test_globals::init_global_engine("record-source.db");
+        let source = library.path().join("record-source.db");
+        let install = crate::persistence::engine_install();
+        let documents = tempfile::tempdir().unwrap();
+        let destination = documents.path().join("veloq-decisions.zip");
+        let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+
+        // The lock holds the worker short of its rename, so the stop lands on
+        // a run that is certainly still going.
+        let (holding, held) = std::sync::mpsc::channel();
+        let (release, released) = std::sync::mpsc::channel::<()>();
+        let writer = std::thread::spawn(move || {
+            crate::persistence::with_persistent_engine(|_| {
+                holding.send(()).ok();
+                released.recv().ok();
+            })
+            .expect("engine");
+        });
+        held.recv().expect("the writer took the lock");
+        let worker = {
+            let cancel = std::sync::Arc::clone(&cancel);
+            let source = source.to_str().unwrap().to_string();
+            let destination = destination.to_str().unwrap().to_string();
+            std::thread::spawn(move || {
+                super::write_record_from_database(install, &source, &destination, &cancel)
+            })
+        };
+        cancel.store(true, std::sync::atomic::Ordering::SeqCst);
+        release.send(()).ok();
+        writer.join().expect("writer thread");
+        let outcome = worker.join().expect("record worker");
+
+        assert_eq!(
+            outcome.err().as_deref(),
+            Some(crate::persistence::export::JOB_CANCELLED)
+        );
+        assert!(
+            files_in(documents.path()).is_empty(),
+            "{:?}",
+            files_in(documents.path())
+        );
     }
 
     #[test]

@@ -1,16 +1,16 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 
 import { GrantAccessButton } from './GrantAccessButton';
 import { Button } from '@/shared/ui/Button';
 import { SectionTitle } from '@/shared/ui/SectionTitle';
+import { Icon } from '@/shared/ui/Icon';
 
 interface RecordingGateProps {
   /** Why recording is blocked. `ok` never reaches here. */
@@ -49,15 +49,15 @@ export function RecordingGate({
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const errorText = isDark ? darkColors.errorDeep : colors.errorDeep;
+  const errorText = isDark ? darkColors.errorText : colors.errorText;
   const signedOut = reason === 'not_signed_in';
 
   return (
     <View style={styles.gate} testID={signedOut ? 'recording-gate-signin' : 'recording-gate-scope'}>
-      <MaterialCommunityIcons
+      <Icon
         name={signedOut ? 'account-lock-outline' : 'shield-lock-outline'}
         size={iconSize.xxl}
-        color={isDark ? darkColors.warningAmber : colors.warningAmber}
+        color={isDark ? darkColors.warningText : colors.warningText}
       />
       <SectionTitle align="center" style={styles.title}>
         {signedOut
@@ -70,7 +70,7 @@ export function RecordingGate({
       {signedOut ? (
         <Button
           testID="recording-gate-signin-action"
-          onPress={() => tapTo('/login')}
+          onPress={() => navigateTo('/login')}
           label={t('recording.signInAction')}
           variant="ghost"
         />

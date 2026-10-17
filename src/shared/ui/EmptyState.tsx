@@ -15,7 +15,8 @@
 import React, { ComponentProps } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Icon } from './Icon';
 import { Button } from './Button';
 import { StatusLine, type StatusTone } from './StatusLine';
 import { useTheme } from '@/shared/app';
@@ -139,7 +140,7 @@ function DiscEmptyState({
           compact && styles.iconContainerCompact,
         ]}
       >
-        <MaterialCommunityIcons
+        <Icon
           name={icon}
           size={compact ? iconSize.xl : iconSize.xxl}
           color={

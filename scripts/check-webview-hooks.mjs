@@ -28,7 +28,7 @@ import { join, resolve } from 'node:path';
 import { trackedText } from './lib/indexedSources.mjs';
 
 const PACKAGE = 'react-native-webview';
-const VERSION = '13.16.1';
+const VERSION = '14.0.1';
 const IMPL = 'apple/RNCWebViewImpl.m';
 const MANAGER_HEADER = 'apple/RNCWebViewManager.h';
 const MANAGER = 'android/src/newarch/com/reactnativecommunity/webview/RNCWebViewManager.java';

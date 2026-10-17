@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { getEngine } from '@/shared/native/engine';
+import { readRoutesStatus } from '@/shared/native/routesStatusPoll';
 import { getPhaseDisplayKey, useCutoverSummary } from '@/features/routes';
 import { CUTOVER_FAILURE_KEYS } from '../lib/cutoverPhaseKeys';
 import { colors, darkColors, spacing, typography } from '@/theme';
@@ -47,11 +48,13 @@ export function CutoverStatus() {
 
   const stop = useCallback(() => {
     setStopping(true);
-    getEngine()?.cancelDetectorCutover?.();
+    // The id is read at the tap, so the stop reaches the run on screen and no later one.
+    const run = readRoutesStatus()?.cutover.run;
+    if (run != null) getEngine()?.cancelRun(run);
   }, []);
 
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const danger = isDark ? darkColors.error : colors.error;
+  const danger = isDark ? darkColors.errorText : colors.errorText;
 
   if (isRunning) {
     const phaseKey = getPhaseDisplayKey(phase);

@@ -29,6 +29,10 @@ pub enum VeloqError {
     /// a section's is.
     #[error("Another route is already named {name}")]
     RouteNameTaken { name: String },
+    /// The athlete stopped the job before it finished. Not a failure: nothing
+    /// was written, and a caller says it was cancelled.
+    #[error("Cancelled")]
+    Cancelled,
 }
 
 /// Execute a closure with a **write lock** on the persistent engine.

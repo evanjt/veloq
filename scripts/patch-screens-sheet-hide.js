@@ -12,7 +12,7 @@ const path = require('node:path');
 const { createHash } = require('node:crypto');
 
 const FILE = 'android/src/main/java/com/swmansion/rnscreens/bottomsheet/SheetDelegate.kt';
-const VERSION = '4.28.0';
+const VERSION = '4.30.0';
 const EXPECTED = '6fa84feaed18a2751d12951e88a67aa35234f0bd9e70474b05f3a7f1dff70029';
 const hash = (source) => createHash('sha256').update(source).digest('hex');
 

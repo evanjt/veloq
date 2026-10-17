@@ -6,7 +6,16 @@
  */
 
 import { useMemo } from 'react';
-import { brand, colors, darkColors, colorWithOpacity, ink, themePalette, opacity } from '@/theme';
+import {
+  brand,
+  chartStreamColour,
+  colors,
+  darkColors,
+  colorWithOpacity,
+  ink,
+  themePalette,
+  opacity,
+} from '@/theme';
 import { useResolvedColorScheme } from '@/shared/app/ThemeProvider';
 
 export interface ChartColorScheme {
@@ -66,15 +75,15 @@ export function useChartColors(): ChartColorScheme {
 
   return useMemo(
     () => ({
-      // Fitness metrics - brand colors
-      fitness: isDark ? darkColors.chartFitness : brand.blue,
-      fatigue: isDark ? darkColors.chartFatigue : colors.fatigue,
+      // Fitness metrics
+      fitness: isDark ? darkColors.fitness : colors.fitness,
+      fatigue: isDark ? darkColors.fatigue : colors.fatigue,
       form: isDark ? darkColors.chartForm : brand.gold,
 
       // Activity metrics
-      heartRate: isDark ? darkColors.chartHR : colors.error,
-      cadence: isDark ? darkColors.chartCadence : colors.chartPurple,
-      elevation: isDark ? darkColors.chartElevation : colors.gray600,
+      heartRate: chartStreamColour('heartrate', isDark),
+      cadence: chartStreamColour('cadence', isDark),
+      elevation: chartStreamColour('elevation', isDark),
 
       // Wellness metrics
       hrv: isDark ? darkColors.chartHrv : colors.chartHrv,
@@ -83,17 +92,17 @@ export function useChartColors(): ChartColorScheme {
       sleepScore: isDark ? darkColors.chartSleepScore : colors.chartSleepScore,
       weight: isDark ? darkColors.chartWeight : colors.chartWeight,
 
-      // Single-series curve charts, stable across themes. Each curve belongs to
-      // one sport and draws in that sport's colour, as every other screen does.
-      ftp: colors.chartFtp,
+      // Single-series curve charts. Each curve belongs to one sport and draws
+      // in that sport's colour, as every other screen does; FTP is power.
+      ftp: isDark ? darkColors.chartFtp : colors.chartFtp,
       powerCurve: colors.ride,
       paceCurve: colors.run,
       swimCurve: colors.swim,
 
       // General chart colors
-      primary: themePalette(isDark).primary,
+      primary: themePalette(isDark).actionPrimary,
       secondary: isDark ? brand.blueLight : brand.blue,
-      accent: themePalette(isDark).primary,
+      accent: themePalette(isDark).actionPrimary,
 
       // Chart UI elements
       grid: isDark
@@ -102,7 +111,7 @@ export function useChartColors(): ChartColorScheme {
       gridFaint: isDark ? darkColors.chartGridFaint : colors.chartGridFaint,
       axis: isDark ? darkColors.textSecondary : colors.textSecondary,
       label: isDark ? darkColors.textSecondary : colors.textSecondary,
-      tooltip: isDark ? darkColors.surfaceElevated : colors.surface,
+      tooltip: isDark ? darkColors.surfaceRaised : colors.surface,
       tooltipText: isDark ? darkColors.textPrimary : colors.textPrimary,
       casing: isDark ? darkColors.chartCasing : colors.chartCasing,
       zeroLine: isDark ? darkColors.chartZeroLine : colors.chartZeroLine,
@@ -112,8 +121,8 @@ export function useChartColors(): ChartColorScheme {
       dotMuted: isDark ? darkColors.chartDotMuted : colors.chartDotMuted,
 
       // The one form zone a chart names for itself. The rest go through
-      // `FORM_ZONE_COLORS`, which is where a zone's colour is decided.
-      formHighRisk: colors.formHighRisk,
+      // `formZoneColor`, which is where a zone's colour is decided.
+      formHighRisk: isDark ? darkColors.formHighRisk : colors.formHighRisk,
     }),
     [isDark]
   );

@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { useMetricSystem, useTheme } from '@/shared/app';
-import { tapBack } from '@/shared/app/navigation';
+import { goBack } from '@/shared/app/navigation';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { formatDistance } from '@/shared/format/format';
@@ -34,7 +34,7 @@ function SectionChooserSheetContent() {
     <View style={styles.sheet} testID="section-chooser">
       <SheetHeader
         title={t('maps.chooseSection')}
-        onCancel={() => tapBack()}
+        onCancel={() => goBack()}
         cancelTestID="section-chooser-cancel"
       />
       <ScrollView>

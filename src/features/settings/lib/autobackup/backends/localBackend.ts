@@ -9,6 +9,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { backupEntryFromSidecar, type BackupBackend, type BackupEntry } from './types';
 import { safeGetTime } from '@/shared/format/format';
 import { excludeFromBackup } from '@/shared/native/backupExclusion';
+import { BACKUP_NAME_PREFIX } from './backupName';
 
 /** Resolve the backup directory at call time (not module load time). */
 function getBackupDir(): string {
@@ -18,11 +19,11 @@ function getBackupDir(): string {
 }
 
 /**
- * The share sheet's copy of a record zip, `veloq-backup-<date>.zip`. It is
+ * The share sheet's copy of a record zip, named by `backupFileName`. It is
  * written under the cache's exports directory, which the wipe deletes whole,
  * and older builds wrote it at the cache root, which is matched here.
  */
-export const SHARE_COPY_PREFIX = 'veloq-backup-';
+export const SHARE_COPY_PREFIX = BACKUP_NAME_PREFIX;
 
 /**
  * The restore copies older builds wrote at the cache root, before restores had

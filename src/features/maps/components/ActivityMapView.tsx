@@ -6,7 +6,6 @@
 import React, { useMemo, useState, useRef, useCallback, useEffect, memo } from 'react';
 import { View, StatusBar, Animated, Image, useWindowDimensions } from 'react-native';
 import { FullWindowModal } from '@/shared/ui/FullWindowModal';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useIsFocused } from 'expo-router';
 
 import { getActivityColor } from '@/shared/activity/activityUtils';
@@ -29,6 +28,7 @@ import { useMapFullscreen } from '@/features/maps/hooks/useMapFullscreen';
 import { useThrottledValue } from '@/features/maps/hooks/useThrottledValue';
 import { useTerrainFallback } from '@/features/maps/hooks/useTerrainFallback';
 import { ComponentErrorBoundary } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import {
   featureCollection,
   lngLatFromLatLngPoint,
@@ -324,6 +324,7 @@ export const ActivityMapView = memo(function ActivityMapView({
     activeTab,
     streams,
     trackUrl,
+    mapStyle,
   });
 
   const inline3DCollections = useMemo(
@@ -852,12 +853,8 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   if (!bounds || validCoordinates.length === 0) {
     return (
-      <View style={[styles.placeholder, { height, backgroundColor: palette.background }]}>
-        <MaterialCommunityIcons
-          name="map-marker-off"
-          size={iconSize.xxl}
-          color={palette.textSecondary}
-        />
+      <View style={[styles.placeholder, { height, backgroundColor: palette.surfacePage }]}>
+        <Icon name="map-marker-off" size={iconSize.xxl} color={palette.textSecondary} />
       </View>
     );
   }
@@ -958,7 +955,9 @@ export const ActivityMapView = memo(function ActivityMapView({
         ) : null}
       </View>
 
-      {gradientActive && !isFullscreen ? <GradientMapKey isDark={isDark} top={keyTop} /> : null}
+      {gradientActive && !isFullscreen ? (
+        <GradientMapKey isDark={isDark} mapStyle={mapStyle} top={keyTop} />
+      ) : null}
 
       {/* Control buttons - rendered OUTSIDE map container for reliable touch handling */}
       {showStyleToggle && !isFullscreen ? (

@@ -342,7 +342,7 @@ export function WhatsNewModal() {
 
   const bgColor = isDark ? darkColors.surface : colors.surface;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const primaryColor = isDark ? darkColors.primary : colors.primary;
+  const primaryColor = isDark ? darkColors.actionPrimary : colors.actionPrimary;
 
   const canToggleMode = missedSlides.length > 0;
 

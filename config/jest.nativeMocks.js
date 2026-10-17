@@ -48,9 +48,31 @@ function mockViewWithHandle(displayName, fallbackTestID, buildHandle) {
   return Component;
 }
 
-// The icon set pulls in expo-font, which resolves expo-asset at import time.
-// expo-asset is not installed, so importing any icon breaks the module graph
-// before a component even renders.
+// A glyph renders a Text on device, which takes the accessibility props it is
+// given, so the icon mock keeps them and a test can tell a hidden glyph from a
+// read one.
+const ICON_ACCESSIBILITY_PROPS = [
+  "accessible",
+  "accessibilityElementsHidden",
+  "accessibilityLabel",
+  "accessibilityRole",
+  "importantForAccessibility",
+];
+
+function mockIcon(displayName) {
+  const Component = React.forwardRef(function MockIcon(props, ref) {
+    const forwarded = viewProps(props, "icon");
+    for (const key of ICON_ACCESSIBILITY_PROPS) {
+      if (props[key] !== undefined) forwarded[key] = props[key];
+    }
+    return React.createElement(View, { ref, ...forwarded }, props.children);
+  });
+  Component.displayName = displayName;
+  return Component;
+}
+
+// The icon set loads its font through expo-font and expo-asset on mount, and
+// under Jest the asset registry holds no font, so a mounted icon throws.
 jest.mock("@expo/vector-icons", () => {
   const iconSets = [
     "AntDesign",
@@ -69,12 +91,18 @@ jest.mock("@expo/vector-icons", () => {
     "SimpleLineIcons",
     "Zocial",
   ];
-  const exports = { createIconSet: () => mockView("Icon", "icon") };
+  const exports = { createIconSet: () => mockIcon("Icon") };
   for (const name of iconSets) {
-    exports[name] = mockView(name, "icon");
+    exports[name] = mockIcon(name);
   }
   return exports;
 });
+
+// The one icon set Paper loads by its own path, for the icons its fields draw.
+jest.mock("@expo/vector-icons/MaterialCommunityIcons", () => ({
+  __esModule: true,
+  default: mockIcon("MaterialCommunityIcons"),
+}));
 
 jest.mock("react-native-webview", () => ({
   WebView: mockViewWithHandle("WebView", "webview", () => ({

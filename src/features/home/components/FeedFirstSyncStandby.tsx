@@ -43,7 +43,7 @@ export function FeedFirstSyncStandby() {
     <View style={styles.container} testID="feed-first-sync-standby">
       <ActivityIndicator
         size="large"
-        color={colors.primary}
+        color={colors.actionPrimary}
         accessible
         accessibilityRole="progressbar"
         accessibilityLabel={t('feed.firstSyncTitle')}

@@ -1,7 +1,6 @@
 import React, { memo } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { useTheme } from '@/shared/app';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
@@ -14,6 +13,7 @@ import {
   getIntervalsUnitSystem,
 } from '@/shared/app/UnitPreferenceStore';
 import { LanguageList, ToggleButtonRow } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { RowDivider } from '@/shared/ui/RowGroup';
 
 // LanguageChoice from useLanguageStore: 'system' or an explicit locale
@@ -51,7 +51,7 @@ function DisplaySettingsComponent({
     <>
       {/* Appearance */}
       <View style={styles.subsectionHeader}>
-        <MaterialCommunityIcons
+        <Icon
           name="theme-light-dark"
           size={iconSize.md}
           color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -88,7 +88,7 @@ function DisplaySettingsComponent({
 
       {/* Units */}
       <View style={styles.subsectionHeader}>
-        <MaterialCommunityIcons
+        <Icon
           name="ruler"
           size={iconSize.md}
           color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -127,7 +127,7 @@ function DisplaySettingsComponent({
 
       {/* Language */}
       <View style={[styles.subsectionHeader, styles.languageHeader]}>
-        <MaterialCommunityIcons
+        <Icon
           name="translate"
           size={iconSize.md}
           color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -156,7 +156,7 @@ function DisplaySettingsComponent({
 
         <RowDivider inset="edge" />
         <View style={styles.subsectionHeader}>
-          <MaterialCommunityIcons
+          <Icon
             name="run"
             size={iconSize.md}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}

@@ -9,12 +9,15 @@
  *
  * Android takes the ripple and no opacity, iOS the reverse, which is why the
  * ripple prop is undefined off Android rather than a second component.
+ *
+ * Keyboard focus is answered here too, by `focusRing`, which `PressTarget`
+ * draws while it holds focus.
  */
 
 import { Platform } from 'react-native';
 import type { PressableStateCallbackType, StyleProp, ViewStyle } from 'react-native';
 
-import { opacity } from '@/theme';
+import { colors, darkColors, opacity, spacing, stroke } from '@/theme';
 
 /** How far a press fades on iOS, the theme's pressed step. */
 export const PRESS_OPACITY = opacity.pressed;
@@ -60,4 +63,34 @@ export function pressable(
     style,
     pressed && Platform.OS !== 'android' ? { opacity: PRESS_OPACITY } : null,
   ];
+}
+
+/** How wide the keyboard focus ring is drawn. */
+export const FOCUS_RING_WIDTH = stroke.two;
+
+/** How far outside the control's edge the focus ring sits, clear of its ground. */
+export const FOCUS_RING_OFFSET = spacing.xxs;
+
+/**
+ * The ring a control draws while it holds keyboard focus.
+ *
+ * Android's only focus answer on a `Pressable` is the ripple's focused wash, a
+ * grey step near 1.2:1 drawn as a square over rounded controls, so the ring is
+ * drawn beside it in `focusRing`. An outline draws outside the box, follows its
+ * radius and moves no layout. iOS draws nothing of ours: Full Keyboard Access
+ * may draw its own, and a second ring over the system's is the failure to
+ * avoid.
+ */
+export function focusRing(
+  focused: boolean,
+  isDark: boolean,
+  os: typeof Platform.OS
+): ViewStyle | null {
+  if (!focused || os !== 'android') return null;
+  return {
+    outlineWidth: FOCUS_RING_WIDTH,
+    outlineStyle: 'solid',
+    outlineColor: (isDark ? darkColors : colors).focusRing,
+    outlineOffset: FOCUS_RING_OFFSET,
+  };
 }

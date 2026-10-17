@@ -24,11 +24,11 @@ import React, {
   useState,
 } from 'react';
 import { AppState, View, StyleSheet, useWindowDimensions } from 'react-native';
-import { WebView } from 'react-native-webview';
 
 import { useTheme } from '@/shared/app';
 
-import { veloqWebViewNativeConfig } from '@/features/maps/lib/veloqWebView';
+import { WebView } from 'react-native-webview';
+import { veloqWebViewNativeConfig, type WebViewHandle } from '@/features/maps/lib/veloqWebView';
 import { mapPageBaseUrl } from '@/features/maps/lib/tileTransport';
 
 import type { MapStyleType } from './mapStyles';
@@ -264,7 +264,7 @@ export interface TerrainSnapshotWebViewRef {
 
 interface WorkerState {
   id: number;
-  webViewRef: { current: WebView | null };
+  webViewRef: { current: WebViewHandle | null };
   processingRef: { current: boolean };
   mapReadyRef: { current: boolean };
   /**
@@ -1380,8 +1380,8 @@ export const TerrainSnapshotWebView = forwardRef<
               key={`${worker.id}:${worker.viewGenerationRef.current}`}
               style={StyleSheet.absoluteFill}
             >
-              <WebView
-                ref={worker.webViewRef as React.RefObject<WebView>}
+              <WebView<object>
+                ref={worker.webViewRef as React.RefObject<WebViewHandle>}
                 source={{
                   html: workerHtmls[worker.id],
                   baseUrl: mapPageBaseUrl(),

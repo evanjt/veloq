@@ -1,11 +1,11 @@
 import React from 'react';
 import { StyleSheet, Pressable } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useIsFocused } from 'expo-router';
 
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { useBottomClearance } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { useFootCover } from '@/shared/ui/bottomPills';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useTheme } from '@/shared/app';
@@ -39,15 +39,11 @@ function RecordFABInner() {
         },
       ])}
       android_ripple={pressRipple}
-      onPress={() => tapTo('/record')}
+      onPress={() => navigateTo('/record')}
       accessibilityRole="button"
       accessibilityLabel={t('recording.startActivity', 'Start activity')}
     >
-      <MaterialCommunityIcons
-        name="record-circle-outline"
-        size={iconSize.xl}
-        color={colors.textOnDark}
-      />
+      <Icon name="record-circle-outline" size={iconSize.xl} color={colors.textOnFill} />
     </Pressable>
   );
 }

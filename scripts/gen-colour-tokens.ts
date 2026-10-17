@@ -50,9 +50,14 @@ const HEAT_STOPS: HeatStop[] = [
 
 // Native code draws these before any JavaScript runs: the adaptive icon, the
 // splash and the notification accent, through app.config.js and the icon generator.
+// The brand ground is a blue-600 to blue-700 gradient under a gold-300 to
+// gold-400 mark. Native grounds take one flat colour, so they take the
+// gradient's first stop.
 const APP_COLOURS: Record<string, string> = {
-  appColour: 'blue-400',
-  appColourDeep: 'blue-500',
+  appColour: 'blue-600',
+  appColourDeep: 'blue-700',
+  markGold: 'gold-300',
+  markGoldDeep: 'gold-400',
   notificationAccent: 'blue-600',
 };
 

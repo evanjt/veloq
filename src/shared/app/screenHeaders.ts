@@ -138,7 +138,7 @@ export const TAB_TITLE_KEYS: Record<string, ParseKeys> = {
  * eye cannot see. Not fully transparent, because that packs to 0 and the Android header reads a
  * title colour of 0 as unset and draws its default colour instead.
  */
-export const OVER_MAP_TITLE_COLOR = colorWithOpacity(colors.textOnDark, 1 / 255);
+export const OVER_MAP_TITLE_COLOR = colorWithOpacity(colors.textOnFill, 1 / 255);
 
 /**
  * The transition a root-stack route opens with. The tabs switch instantly. Every
@@ -363,7 +363,7 @@ export function mapHeroChrome({
 }): { tint: string; statusBarStyle: 'light' | 'dark'; headerBackgroundColor: string } {
   if (!scrolledPastHero) {
     return {
-      tint: colors.textOnDark,
+      tint: colors.textOnFill,
       statusBarStyle: 'light',
       headerBackgroundColor: 'transparent',
     };

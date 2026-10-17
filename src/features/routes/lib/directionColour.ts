@@ -6,5 +6,5 @@ import { colors, darkColors } from '@/theme';
  * is a fixed pink and the pair has to read the same whatever the sport.
  */
 export function forwardDirectionColour(isDark: boolean): string {
-  return isDark ? darkColors.primary : colors.primary;
+  return isDark ? darkColors.actionPrimary : colors.actionPrimary;
 }

@@ -113,7 +113,7 @@ it('the strength loupe fires one light impact when its hold is recognised', asyn
 
 describe('the chart type chips', () => {
   const available = [
-    { id: 'heartrate', label: 'HR', icon: 'heart', color: '#ff0000', ink: '#ffffff' },
+    { id: 'heartrate', label: 'HR', icon: 'heart', stream: 'heartrate' },
   ] as unknown as ChartConfig[];
 
   async function chips() {

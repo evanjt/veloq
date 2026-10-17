@@ -41,6 +41,7 @@ async function renderLayers() {
         sectionOverlays: overlays,
         highlightIndex: null,
         activeTab: 'charts',
+        mapStyle: 'light',
       })
     )
   ).result.current;

@@ -29,14 +29,12 @@ import React, { useState } from 'react';
 import {
   Platform,
   type LayoutChangeEvent,
-  Pressable,
   StyleSheet,
   View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
@@ -52,9 +50,10 @@ import {
   typography,
 } from '@/theme';
 
+import { Icon } from './Icon';
 import { Button, paint } from './Button';
 import { IconButton } from './IconButton';
-import { pressable, pressRipple } from './pressFeedback';
+import { PressTarget } from './PressTarget';
 
 export interface SheetConfirm {
   label: string;
@@ -85,8 +84,6 @@ export interface SheetHeaderProps extends SheetActionsProps {
   /** The title's own id, where a flow names it. Otherwise it is `testID` with `-title`. */
   titleTestID?: string | undefined;
 }
-
-/** The close glyph, the same in every sheet. */
 
 /** Whether this platform carries a sheet's actions in its title row rather than below it. */
 function actionsInTitleRow(): boolean {
@@ -188,12 +185,9 @@ export function SheetHeader({
               testID={closeTestID}
               onPress={onClose}
               accessibilityLabel={t('common.close')}
+              style={{ backgroundColor: palette.fillNeutral }}
             >
-              <MaterialCommunityIcons
-                name="close"
-                size={iconSize.lg}
-                color={palette.textSecondary}
-              />
+              <Icon name="close" size={iconSize.lg} color={palette.iconSecondary} />
             </IconButton>
           ) : null}
         </View>
@@ -248,7 +242,7 @@ function BarButton({ label, onPress, bold = false, disabled = false, testID }: B
   const tint = paint('ghost', isDark).color;
 
   return (
-    <Pressable
+    <PressTarget
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={label}
@@ -256,8 +250,7 @@ function BarButton({ label, onPress, bold = false, disabled = false, testID }: B
       hitSlop={BAR_SLOP}
       disabled={disabled}
       onPress={onPress}
-      android_ripple={pressRipple}
-      style={pressable([styles.barButton, disabled && styles.inert])}
+      style={[styles.barButton, disabled && styles.inert]}
     >
       <Text
         testID={testID ? `${testID}-label` : undefined}
@@ -265,7 +258,7 @@ function BarButton({ label, onPress, bold = false, disabled = false, testID }: B
       >
         {label}
       </Text>
-    </Pressable>
+    </PressTarget>
   );
 }
 

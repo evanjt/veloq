@@ -23,8 +23,10 @@ function paeth(a, b, c) {
 }
 
 /**
- * The image in `bytes` as `{ width, height, rgba }`, `rgba` holding four bytes a
- * pixel, row by row. Throws on anything that is not a PNG this can read.
+ * The image in `bytes` as `{ width, height, rgba, alpha }`, `rgba` holding four
+ * bytes a pixel, row by row, and `alpha` whether the file itself carries
+ * transparency rather than having it filled in at 255. Throws on anything that
+ * is not a PNG this can read.
  */
 export function decodePng(bytes) {
   if (bytes.length < 8 || !bytes.subarray(0, 8).equals(SIGNATURE)) {
@@ -106,5 +108,6 @@ export function decodePng(bytes) {
     }
     previous = row;
   }
-  return { width, height, rgba };
+  const alpha = colourType === 4 || colourType === 6 || (colourType === 3 && !!transparency);
+  return { width, height, rgba, alpha };
 }

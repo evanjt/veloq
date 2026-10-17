@@ -41,9 +41,7 @@ it('draws the season summary with a visible dark region tint', async () => {
     const summary = screen
       .UNSAFE_getAllByType(View)
       .find((view) => StyleSheet.flatten(view.props.style)?.minHeight === 44);
-    expect(StyleSheet.flatten(summary?.props.style)?.backgroundColor).toBe(
-      darkColors.regionTintIdle
-    );
+    expect(StyleSheet.flatten(summary?.props.style)?.backgroundColor).toBe(darkColors.stateHover);
   });
 
   const chart = view.UNSAFE_getAllByType(View).find((node) => node.props.onLayout);
@@ -54,9 +52,7 @@ it('draws the season summary with a visible dark region tint', async () => {
   const selected = screen
     .UNSAFE_getAllByType(View)
     .find((node) => StyleSheet.flatten(node.props.style)?.minHeight === 44);
-  expect(StyleSheet.flatten(selected?.props.style)?.backgroundColor).toBe(
-    darkColors.regionTintActive
-  );
+  expect(StyleSheet.flatten(selected?.props.style)?.backgroundColor).toBe(darkColors.statePressed);
   await view.unmount();
   client.clear();
 });

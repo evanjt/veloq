@@ -126,7 +126,9 @@ export {
   FfiPlaceNameOutcome as PlaceNameOutcome,
   FfiSyncErrorReason as SyncErrorReason,
   FfiSyncStep as SyncStep,
+  FfiTrackStep as TrackStep,
 } from './generated/veloqrs';
+export type { FfiTrackStage as TrackStage } from './generated/veloqrs';
 
 // The verdict every start answers with, and the one place that says which
 // refusals lift on their own. See `delegates/start.ts`.

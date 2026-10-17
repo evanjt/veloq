@@ -5,6 +5,8 @@
  * Expected behaviour: the JavaScript crash stays shareable, and the renderer
  * deaths keep only their newest few.
  */
+import { makeDocumentsDirectory } from '../__shared__/documentsDirectory';
+
 const mockStore = new Map<string, string>();
 jest.mock('@react-native-async-storage/async-storage', () => ({
   __esModule: true,
@@ -17,7 +19,10 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
-beforeEach(() => mockStore.clear());
+beforeEach(() => {
+  mockStore.clear();
+  makeDocumentsDirectory();
+});
 
 describe('renderer deaths in the crash log', () => {
   it('never displace a JavaScript crash', async () => {

@@ -25,11 +25,16 @@ function contrastRatio(a: string, b: string): number {
 
 describe('the secondary button edge', () => {
   it.each([
-    ['light', false, [colors.surface, colors.background, colors.backgroundAlt]],
+    ['light', false, [colors.surface, colors.surfacePage, colors.surfaceInput]],
     [
       'dark',
       true,
-      [darkColors.surface, darkColors.surfaceCard, darkColors.background, darkColors.backgroundAlt],
+      [
+        darkColors.surface,
+        darkColors.surfaceRaised,
+        darkColors.surfacePage,
+        darkColors.surfaceInput,
+      ],
     ],
   ] as const)('is a one-point stroke holding 3:1 in the %s theme', (_, isDark, grounds) => {
     const skin = paint('secondary', isDark);

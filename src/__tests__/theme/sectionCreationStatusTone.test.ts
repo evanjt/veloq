@@ -20,8 +20,8 @@ const AA_TEXT = 4.5;
 /** The light pill is `ink.white` at 95 per cent over the map. */
 const PILL = '#FFFFFF';
 
-/** The dark pill is `darkColors.surfaceOverlay`, over the dark surface. */
-const DARK_PILL = '#18181B';
+/** The dark pill is the raised surface. */
+const DARK_PILL = darkColors.surfaceRaised;
 
 function channels(hex: string): [number, number, number] {
   const srgb = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
@@ -56,10 +56,6 @@ describe('the section-creation status tone', () => {
     expect(contrastRatio(sectionSizeTone(count, true).fill, DARK_PILL)).toBeGreaterThanOrEqual(3);
   });
 
-  it('draws the dark pill from the dark overlay surface', () => {
-    expect(darkColors.surfaceOverlay).toBe('rgba(24, 24, 27, 0.95)');
-  });
-
   it('never hands a fill back as the text tone', () => {
     for (const count of COUNTS) {
       expect(STATUS_FILLS).not.toContain(sectionSizeTone(count).text);
@@ -73,9 +69,9 @@ describe('the section-creation status tone', () => {
   });
 
   it('still bands on the same counts, so the fix did not move the thresholds', () => {
-    expect(sectionSizeTone(1_999).fill).toBe(colors.success);
-    expect(sectionSizeTone(2_000).fill).toBe(colors.cautionYellow);
-    expect(sectionSizeTone(5_000).fill).toBe(colors.cautionOrange);
-    expect(sectionSizeTone(7_000).fill).toBe(colors.error);
+    expect(sectionSizeTone(1_999).fill).toBe(colors.successFill);
+    expect(sectionSizeTone(2_000).fill).toBe(colors.iconSecondary);
+    expect(sectionSizeTone(5_000).fill).toBe(colors.warningFill);
+    expect(sectionSizeTone(7_000).fill).toBe(colors.dangerFill);
   });
 });

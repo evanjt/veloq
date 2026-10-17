@@ -1,5 +1,5 @@
 /**
- * Scenario: a fill-only token (`colors.success`, `colors.warning`) reached a
+ * Scenario: a fill-only token (`colors.successFill`, `colors.warningFill`) reached a
  * mark through a local, a record entry or a prop other than `color`, so the
  * same-line check never saw it.
  *
@@ -45,7 +45,7 @@ function runOn(
 it('fails a fill token held in a local and drawn as a text colour', () => {
   const { status, output } = runOn(
     [
-      'const statusColor = connected ? colors.success : colors.warning;',
+      'const statusColor = connected ? colors.successFill : colors.warningFill;',
       'const a = <Text style={{ color: statusColor }}>x</Text>;',
       '',
     ].join('\n')
@@ -59,8 +59,8 @@ it('fails a fill token held in a record and read into a mark', () => {
   const { status, output } = runOn(
     [
       'const LEVELS = {',
-      '  ok: colors.success,',
-      '  warn: colors.warning,',
+      '  ok: colors.successFill,',
+      '  warn: colors.warningFill,',
       '};',
       'const color = LEVELS[level];',
       'const a = <Icon name="x" color={color} />;',
@@ -74,7 +74,7 @@ it('fails a fill token held in a record and read into a mark', () => {
 
 it('fails a fill token passed as iconColor', () => {
   const { status, output } = runOn(
-    ['const tone = colors.warning;', '<IconButton iconColor={tone} />;', ''].join('\n')
+    ['const tone = colors.warningFill;', '<IconButton iconColor={tone} />;', ''].join('\n')
   );
 
   expect(status).toBe(1);
@@ -82,8 +82,8 @@ it('fails a fill token passed as iconColor', () => {
 });
 
 it.each([
-  ['iconColor', '<IconButton icon="check" iconColor={colors.success} />;'],
-  ['tint', 'const a = { tint: colors.warning };'],
+  ['iconColor', '<IconButton icon="check" iconColor={colors.successFill} />;'],
+  ['tint', 'const a = { tint: colors.warningFill };'],
 ])('fails a fill token written straight into %s', (_prop, line) => {
   const { status, output } = runOn(`${line}\n`);
 
@@ -94,7 +94,7 @@ it.each([
 it('leaves a fill token used only as a ground alone', () => {
   const { status } = runOn(
     [
-      'const ground = colors.success;',
+      'const ground = colors.successFill;',
       'const a = <View style={{ backgroundColor: ground }} />;',
       '',
     ].join('\n')
@@ -105,7 +105,7 @@ it('leaves a fill token used only as a ground alone', () => {
 
 it('checks the sport filter chips like any other file', () => {
   const { status, output } = runOn(
-    'const a = <Text style={{ color: colors.success }}>x</Text>;\n',
+    'const a = <Text style={{ color: colors.successFill }}>x</Text>;\n',
     'src/features/maps/components/ActivityTypeFilter.tsx'
   );
 
@@ -115,7 +115,7 @@ it('checks the sport filter chips like any other file', () => {
 
 it('judges a fill token washed at a hand-written alpha as a mark', () => {
   const { status, output } = runOn(
-    'const a = { borderColor: colorWithOpacity(colors.success, 0.6) };\n'
+    'const a = { borderColor: colorWithOpacity(colors.successFill, 0.6) };\n'
   );
 
   expect(status).toBe(1);
@@ -124,7 +124,7 @@ it('judges a fill token washed at a hand-written alpha as a mark', () => {
 
 it('leaves a border washed at a tint step alone', () => {
   const { status } = runOn(
-    'const a = { borderColor: colorWithOpacity(colors.success, opacity.tint2) };\n'
+    'const a = { borderColor: colorWithOpacity(colors.successFill, opacity.tint2) };\n'
   );
 
   expect(status).toBe(0);

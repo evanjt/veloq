@@ -63,6 +63,7 @@ describe('the progress row names the format being written', () => {
         total={0}
         sizeBytes={0}
         isDark={false}
+        onCancel={jest.fn()}
       />
     );
 
@@ -78,6 +79,7 @@ describe('the progress row names the format being written', () => {
         total={0}
         sizeBytes={0}
         isDark={false}
+        onCancel={jest.fn()}
       />
     );
 

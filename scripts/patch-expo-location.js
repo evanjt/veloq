@@ -51,11 +51,11 @@ const EDITS = [
   },
   {
     file: `${SOURCE}/taskConsumers/LocationTaskConsumer.kt`,
-    from: ['          task.result?.let { handleLocationUpdate(listOf(it)) }\n'],
+    from: ['            location?.let { handleLocationUpdate(listOf(it)) }\n'],
     to:
-      '          task.result?.let {\n' +
-      `            ${SEA_LEVEL}.add(context, listOf(it)) { fixes -> if (mTask != null) handleLocationUpdate(fixes) }\n` +
-      '          }\n',
+      '            location?.let {\n' +
+      `              ${SEA_LEVEL}.add(context, listOf(it)) { fixes -> if (mTask != null) handleLocationUpdate(fixes) }\n` +
+      '            }\n',
   },
 ];
 

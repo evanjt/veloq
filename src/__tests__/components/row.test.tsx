@@ -24,7 +24,7 @@ describe('Row', () => {
     expect(StyleSheet.flatten(row.props.style) as object).toMatchObject({
       minHeight: layout.minTapTarget,
     });
-    expect(getByTestId('row-chevron')).toBeTruthy();
+    expect(getByTestId('row-chevron', { includeHiddenElements: true })).toBeTruthy();
     await fireEvent.press(row);
     expect(onPress).toHaveBeenCalledTimes(1);
   });
@@ -70,7 +70,7 @@ describe('Row', () => {
     expect(StyleSheet.flatten(row.props.style) as object).toMatchObject({
       minHeight: layout.minTapTarget,
     });
-    expect(queryByTestId('row-chevron')).toBeNull();
+    expect(queryByTestId('row-chevron', { includeHiddenElements: true })).toBeNull();
     await fireEvent.press(row);
     expect(onPress).toHaveBeenCalledTimes(1);
   });
@@ -83,7 +83,7 @@ describe('Row', () => {
     );
 
     expect(queryByRole('button')).toBeNull();
-    expect(queryByTestId('row-chevron')).toBeNull();
+    expect(queryByTestId('row-chevron', { includeHiddenElements: true })).toBeNull();
     const style = StyleSheet.flatten(getByTestId('row').props.style) as Record<string, unknown>;
     expect(style.borderWidth).toBeUndefined();
     expect(style.borderTopWidth).toBeUndefined();
@@ -99,6 +99,6 @@ describe('SettingsNavRow', () => {
     expect(StyleSheet.flatten(getByTestId('settings-row').props.style) as object).toMatchObject({
       minHeight: layout.minTapTarget,
     });
-    expect(getAllByTestId('row-chevron')).toHaveLength(1);
+    expect(getAllByTestId('row-chevron', { includeHiddenElements: true })).toHaveLength(1);
   });
 });

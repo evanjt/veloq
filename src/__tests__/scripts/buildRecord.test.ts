@@ -55,14 +55,22 @@ describe('the build record', () => {
     expect(verify(root).problems).toEqual([]);
   });
 
-  it('verifies a local-profile APK only when the install selects that profile', () => {
+  it('verifies a debug APK against the local profile its recipe builds, unless the install selects another', () => {
     const apk = build(root, { profile: 'release-dev' });
     record.writeRecord(root, apk, { variant: 'debug' });
 
-    const selected = parse(['verify', 'debug'], { VELOQRS_RUST_PROFILE: 'release-dev' });
     const defaulted = parse(['verify', 'debug'], {});
-    expect(verify(root, selected.expect).problems).toEqual([]);
-    expect(verify(root, defaulted.expect).problems.join('\n')).toMatch(/profile/);
+    const selected = parse(['verify', 'debug'], { VELOQRS_RUST_PROFILE: 'release' });
+    expect(verify(root, defaulted.expect).problems).toEqual([]);
+    expect(verify(root, selected.expect).problems.join('\n')).toMatch(/profile/);
+  });
+
+  it('refuses a debug APK built with release when the install selects nothing', () => {
+    record.writeRecord(root, build(root), { variant: 'debug' });
+
+    expect(verify(root, parse(['verify', 'debug'], {}).expect).problems.join('\n')).toMatch(
+      /the Rust profile is release, the install asked for release-dev/
+    );
   });
 
   it('expects release for a release APK even with a local profile selected', () => {

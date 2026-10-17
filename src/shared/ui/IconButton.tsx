@@ -10,19 +10,14 @@
  */
 
 import React from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  type AccessibilityState,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { StyleSheet, type AccessibilityState, type StyleProp, type ViewStyle } from 'react-native';
 
 import { useTheme } from '@/shared/app';
 import { controlHeight, gapBetweenTargets, layout, opacity, slopToMinTapTarget } from '@/theme';
 
 import { paint, type ButtonVariant } from './Button';
-import { pressRipple, pressedOpacity } from './pressFeedback';
+import { pressedOpacity } from './pressFeedback';
+import { PressTarget } from './PressTarget';
 
 export interface IconButtonProps {
   /** What a screen reader announces. Required: an icon has no text of its own. */
@@ -59,14 +54,14 @@ export function IconButton({
   const skin = paint(variant, isDark);
 
   return (
-    <Pressable
+    <PressTarget
       testID={testID}
       accessibilityRole={accessibilityRole}
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ ...accessibilityState, disabled }}
       hitSlop={compact ? COMPACT_SLOP : ICON_SLOP}
-      android_ripple={disabled ? undefined : pressRipple}
       disabled={disabled}
+      fade={false}
       onPress={onPress}
       onPressIn={onPressIn}
       style={({ pressed }) => [
@@ -82,7 +77,7 @@ export function IconButton({
       ]}
     >
       {children}
-    </Pressable>
+    </PressTarget>
   );
 }
 

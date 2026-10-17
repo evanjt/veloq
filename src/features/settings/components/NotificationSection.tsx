@@ -1,7 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -10,7 +9,8 @@ import { useNotificationPreferences } from '@/features/settings/stores/Notificat
 import { useNotificationPermission } from '@/shared/app/permissions/notifications';
 import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
-import { pressable, pressRipple, PermissionNotice, SwitchRow } from '@/shared/ui';
+import { PermissionNotice, pressable, pressRipple, SwitchRow } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { confirmAction } from '@/shared/ui/dialog';
 import { openExternal } from '@/shared/app/openExternal';
 import { VELOQ_PRIVACY_URL } from '@/shared/app/supportLinks';
@@ -150,7 +150,7 @@ export function NotificationSection() {
             style={pressable(styles.privacyRow)}
             android_ripple={pressRipple}
           >
-            <MaterialCommunityIcons
+            <Icon
               name="information-outline"
               size={iconSize.sm}
               color={isDark ? darkColors.textSecondary : colors.textSecondary}

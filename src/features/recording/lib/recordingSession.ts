@@ -330,7 +330,7 @@ function sampleFromSensor(): void {
  */
 function followAppState(): void {
   const current = AppState.currentState;
-  appState = current && /inactive|background/.test(current) ? current : 'active';
+  appState = current === 'inactive' || current === 'background' ? current : 'active';
   appStateSub = AppState.addEventListener('change', (next) => {
     void handleAppStateChange(next);
   });

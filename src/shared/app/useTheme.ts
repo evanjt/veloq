@@ -65,37 +65,37 @@ export function useTheme(): Theme {
 
   const themeColors: ThemeColors = {
     // Core brand: the theme's primary, Blue secondary, Gold for achievements
-    primary: palette.primary,
-    primaryDark: palette.primaryHover,
-    primaryLight: palette.primaryLight,
+    primary: palette.actionPrimary,
+    primaryDark: palette.actionPrimaryHover,
+    primaryLight: palette.actionSecondary,
     secondary: brand.blue,
     secondaryDark: brand.blueDark,
     secondaryLight: brand.blueLight,
 
     // Surfaces
-    background: isDark ? darkColors.background : colors.background,
+    background: isDark ? darkColors.surfacePage : colors.surfacePage,
     surface: isDark ? darkColors.surface : colors.surface,
-    card: isDark ? darkColors.surfaceCard : colors.surface,
+    card: isDark ? darkColors.surfaceRaised : colors.surface,
 
     // Text
     text: isDark ? darkColors.textPrimary : colors.textPrimary,
     textSecondary: isDark ? darkColors.textSecondary : colors.textSecondary,
 
     // Semantic
-    success: isDark ? darkColors.success : colors.success,
-    error: isDark ? darkColors.error : colors.error,
-    warning: isDark ? darkColors.warning : colors.warning,
+    success: isDark ? darkColors.successText : colors.successText,
+    error: isDark ? darkColors.errorText : colors.errorText,
+    warning: isDark ? darkColors.warningText : colors.warningText,
 
     // Borders
     border: isDark ? darkColors.border : colors.border,
-    divider: isDark ? darkColors.divider : colors.divider,
+    divider: isDark ? darkColors.border : colors.border,
 
     // Activity colors (same in both modes)
     ride: colors.ride,
 
     // Chart colors
-    fitness: brand.blue,
-    fatigue: colors.fatigue,
+    fitness: palette.fitness,
+    fatigue: palette.fatigue,
   };
 
   return {

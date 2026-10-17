@@ -24,17 +24,17 @@ export function uploadStatusTone(isDark: boolean): Record<RecordingUploadStatus,
     },
     pending: {
       icon: 'cloud-upload-outline',
-      color: isDark ? darkColors.infoText : colors.infoText,
+      color: isDark ? darkColors.actionLink : colors.actionLink,
     },
-    uploading: { icon: 'cloud-upload', color: isDark ? darkColors.infoText : colors.infoText },
+    uploading: { icon: 'cloud-upload', color: isDark ? darkColors.actionLink : colors.actionLink },
     uploaded: {
       icon: 'cloud-check-outline',
-      color: isDark ? darkColors.successChipText : colors.successChipText,
+      color: isDark ? darkColors.successText : colors.successText,
     },
-    failed: { icon: 'cloud-alert', color: isDark ? darkColors.errorDeep : colors.errorDeep },
+    failed: { icon: 'cloud-alert', color: isDark ? darkColors.errorText : colors.errorText },
     permissionBlocked: {
       icon: 'shield-lock-outline',
-      color: isDark ? darkColors.warningAmber : colors.warningAmber,
+      color: isDark ? darkColors.warningText : colors.warningText,
     },
   };
 }

@@ -113,6 +113,16 @@ describe('buildStyleOverlayScript', () => {
     expect(routes.data.features).toHaveLength(1);
   });
 
+  it('carries the route lines across a swap when they were sent as the engine URL', () => {
+    const url = 'https://maps.example/veloq-geo/route-lines/all?v=7';
+    const { sources, layers } = overlaysAfter({ routesGeoJSON: url });
+
+    expect(sources['routes-source']).toEqual({ type: 'geojson', data: url });
+    expect(layers.map((l) => l.id)).toEqual(
+      expect.arrayContaining(['routes-layer-outline', 'routes-layer'])
+    );
+  });
+
   it('keeps a collection a later send left out and drops one sent empty', () => {
     const { sources } = overlaysAfter(
       { routesGeoJSON: lines(1), sectionsGeoJSON: lines(1), tracesGeoJSON: lines(1) },

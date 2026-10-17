@@ -1,5 +1,5 @@
 import React, { Component, ReactNode, useState } from 'react';
-import { Appearance, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Appearance, StyleSheet, Text, View } from 'react-native';
 import { initialWindowMetrics } from 'react-native-safe-area-context';
 import { i18n } from '@/i18n';
 import { endRecordingSession } from '@/features/recording/lib/endRecordingSession';
@@ -8,7 +8,7 @@ import { shareCrashLog } from '@/shared/app/supportLinks';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
 import { settleForcedRenderCrash } from '@/shared/debug/forcedRenderCrash';
 import { errorScreen, layout, typography, spacing, stroke } from '@/theme';
-import { pressable, pressRipple } from './pressFeedback';
+import { PressTarget } from './PressTarget';
 import { StatusLine } from './StatusLine';
 
 interface Props {
@@ -71,7 +71,8 @@ function GlobalErrorFallback({ error, onRetry }: { error: Error | null; onRetry:
   const status = useRecordingStore((state) => state.status);
   const [stoppedHere, setStoppedHere] = useState(false);
   const [shareFailed, setShareFailed] = useState(false);
-  const palette = Appearance.getColorScheme() === 'light' ? errorScreen.light : errorScreen.dark;
+  const dark = Appearance.getColorScheme() !== 'light';
+  const palette = dark ? errorScreen.dark : errorScreen.light;
   const insets = initialWindowMetrics?.insets;
   const live = status === 'recording' || status === 'paused';
 
@@ -137,41 +138,41 @@ function GlobalErrorFallback({ error, onRetry }: { error: Error | null; onRetry:
       ) : null}
       <View style={styles.actions}>
         {live ? (
-          <Pressable
+          <PressTarget
             accessibilityRole="button"
             accessibilityLabel={stopLabel}
-            style={pressable(actionStyle)}
-            android_ripple={pressRipple}
+            style={actionStyle}
+            dark={dark}
             onPress={() => void stopRide()}
           >
             <Text style={actionText}>{stopLabel}</Text>
-          </Pressable>
+          </PressTarget>
         ) : null}
-        <Pressable
+        <PressTarget
           accessibilityRole="button"
           accessibilityLabel={retryLabel}
-          style={pressable(actionStyle)}
-          android_ripple={pressRipple}
+          style={actionStyle}
+          dark={dark}
           onPress={onRetry}
         >
           <Text style={actionText}>{retryLabel}</Text>
-        </Pressable>
-        <Pressable
+        </PressTarget>
+        <PressTarget
           testID="error-share-crash-log"
           accessibilityRole="button"
           accessibilityLabel={shareLabel}
-          style={pressable(actionStyle)}
-          android_ripple={pressRipple}
+          style={actionStyle}
+          dark={dark}
           onPress={() => void shareLog()}
         >
           <Text style={actionText}>{shareLabel}</Text>
-        </Pressable>
+        </PressTarget>
         {__DEV__ ? (
-          <Pressable
+          <PressTarget
             accessibilityRole="button"
             accessibilityLabel="Reload"
-            style={pressable(actionStyle)}
-            android_ripple={pressRipple}
+            style={actionStyle}
+            dark={dark}
             onPress={() => {
               // DevSettings is only available in dev builds
               const DevSettings = require('react-native').DevSettings;
@@ -179,7 +180,7 @@ function GlobalErrorFallback({ error, onRetry }: { error: Error | null; onRetry:
             }}
           >
             <Text style={actionText}>Reload</Text>
-          </Pressable>
+          </PressTarget>
         ) : null}
       </View>
       {shareFailed ? (

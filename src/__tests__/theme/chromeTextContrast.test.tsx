@@ -65,12 +65,12 @@ const THEMES = [
 ] as const;
 
 const SURFACES = {
-  light: [colors.surface, colors.background, colors.backgroundAlt],
+  light: [colors.surface, colors.surfacePage, colors.surfaceInput],
   dark: [
-    darkColors.background,
+    darkColors.surfacePage,
     darkColors.surface,
-    darkColors.surfaceElevated,
-    darkColors.surfaceCard,
+    darkColors.surfaceRaised,
+    darkColors.surfaceRaised,
   ],
 };
 
@@ -139,7 +139,7 @@ describe('the swipeable tab strip badges', () => {
 
   it.each(THEMES)('clear 4.5:1 on their own fill in the $name theme', async (theme) => {
     const { getByText } = await renderStrip(theme.isDark);
-    const page = theme.palette.background;
+    const page = theme.palette.surfacePage;
 
     const failing = ['11', '22', '+12s', '-5s', 'PR', '3'].flatMap((text) => {
       const node = getByText(text);
@@ -158,7 +158,7 @@ describe('the swipeable tab strip badges', () => {
     const colour = StyleSheet.flatten(getByText('+12s').props.style).color;
 
     expect(colour).not.toBe(theme.palette.textSecondary);
-    expect(colour).not.toBe(colors.textOnPrimary);
+    expect(colour).not.toBe(colors.textOnFill);
   });
 
   it.each(THEMES)(
@@ -192,7 +192,7 @@ describe('the Garmin trademark line', () => {
   it.each(THEMES)('clears 4.5:1 on the data sources card in the $name theme', async (theme) => {
     mockIsDark = theme.isDark;
     const { getByText } = await render(<DataSourcesSection />);
-    const card = theme.isDark ? darkColors.surfaceCard : colors.surface;
+    const card = theme.isDark ? darkColors.surfaceRaised : colors.surface;
 
     const colour = renderedTextColour(getByText('attribution.garminTrademark').props.style, card);
 

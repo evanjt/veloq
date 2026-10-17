@@ -52,17 +52,17 @@ const THEMES = [
     name: 'light',
     palette: colors,
     paper: md3LightScheme,
-    surfaces: [colors.surface, colors.background, colors.backgroundAlt],
+    surfaces: [colors.surface, colors.surfacePage, colors.surfaceInput],
   },
   {
     name: 'dark',
     palette: darkColors,
     paper: md3DarkScheme,
     surfaces: [
-      darkColors.background,
+      darkColors.surfacePage,
       darkColors.surface,
-      darkColors.surfaceElevated,
-      darkColors.surfaceCard,
+      darkColors.surfaceRaised,
+      darkColors.surfaceRaised,
     ],
   },
 ] as const;
@@ -70,8 +70,8 @@ const THEMES = [
 describe.each(THEMES)('the $name action roles', ({ palette, paper, surfaces }) => {
   it('label a filled primary control in the light ink at 4.5:1', () => {
     // One ink serves the filled primary in both themes.
-    expect(luminance(colors.textOnPrimary)).toBeGreaterThan(luminance(palette.primary));
-    expect(contrast(colors.textOnPrimary, palette.primary)).toBeGreaterThanOrEqual(AA_TEXT);
+    expect(luminance(colors.textOnFill)).toBeGreaterThan(luminance(palette.actionPrimary));
+    expect(contrast(colors.textOnFill, palette.actionPrimary)).toBeGreaterThanOrEqual(AA_TEXT);
   });
 
   it('label a filled Paper primary at 4.5:1', () => {
@@ -87,11 +87,11 @@ describe.each(THEMES)('the $name action roles', ({ palette, paper, surfaces }) =
 
   it('carry no teal', () => {
     const roles = {
-      primary: palette.primary,
-      primaryHover: palette.primaryHover,
-      primaryLight: palette.primaryLight,
+      primary: palette.actionPrimary,
+      primaryHover: palette.actionPrimaryHover,
+      primaryLight: palette.actionSecondary,
       actionLink: palette.actionLink,
-      chartAccentText: palette.chartAccentText,
+      chartAccentText: palette.actionLink,
       paperPrimary: paper.primary,
       paperPrimaryContainer: paper.primaryContainer,
       paperInversePrimary: paper.inversePrimary,
@@ -102,5 +102,5 @@ describe.each(THEMES)('the $name action roles', ({ palette, paper, surfaces }) =
 
 it('gives native code the blue as the notification accent', () => {
   expect(isTeal(nativeColours.notificationAccent)).toBe(false);
-  expect(nativeColours.notificationAccent).toBe(colors.primary);
+  expect(nativeColours.notificationAccent).toBe(colors.actionPrimary);
 });

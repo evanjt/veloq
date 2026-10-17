@@ -1,9 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Written by scripts/generate-app-icons.mjs: change the palette there and rerun it. -->
   <defs>
-    <linearGradient id="goldtr" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#FFD700;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#FFA500;stop-opacity:1" />
+    <linearGradient id="mark" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#E8C96E"/>
+      <stop offset="100%" stop-color="#D4AF37"/>
     </linearGradient>
   </defs>
-  <text x="256" y="340" font-family="Verdana, Geneva, sans-serif" font-size="280" font-weight="bold" fill="url(#goldtr)" text-anchor="middle">vq</text>
+  <path transform="translate(87.58 340) scale(0.28 -0.28)" fill="url(#mark)"
+        d="M208 0 0 546H158L260 224Q265 208 272.5 180.5Q280 153 282 134H286Q288 154 295.5 179.5Q303 205 309 223L413 546H571L363 0ZM979 -11Q979 8 980 30Q981 52 984 71H978Q957 37 920.5 13.5Q884 -10 824 -10Q732 -10 675 61.5Q618 133 618 272Q618 412 676 484Q734 556 827 556Q887 556 924 533Q961 510 984 476H988L1002 546H1130V-240H979ZM878 109Q939 109 963.5 144.5Q988 180 988 253V274Q988 353 964.5 395.5Q941 438 875 438Q823 438 797.5 394Q772 350 772 270Q772 109 878 109Z"/>
 </svg>

@@ -17,14 +17,14 @@ type Role = Extract<BandColourToken, { kind: 'role' }>['role'];
 const ROLE_COLOURS: Record<ZoneColourRole, Record<'light' | 'dark', Record<Role, string>>> = {
   fill: {
     light: {
-      work: colors.primary,
+      work: colors.actionPrimary,
       recovery: colors.chartBandNeutral,
       warmup: colors.chartBandWarmup,
       cooldown: colors.chartBandCooldown,
       other: colors.chartBandNeutral,
     },
     dark: {
-      work: darkColors.primary,
+      work: darkColors.actionPrimary,
       recovery: colors.chartBandNeutral,
       warmup: colors.chartBandWarmup,
       cooldown: colors.chartBandCooldown,
@@ -35,14 +35,14 @@ const ROLE_COLOURS: Record<ZoneColourRole, Record<'light' | 'dark', Record<Role,
     light: {
       work: colors.actionLink,
       recovery: colors.textSecondary,
-      warmup: colors.successDeep,
+      warmup: colors.successText,
       cooldown: colors.chartPurpleText,
       other: colors.textSecondary,
     },
     dark: {
       work: darkColors.actionLink,
       recovery: darkColors.textSecondary,
-      warmup: darkColors.successDeep,
+      warmup: darkColors.successText,
       cooldown: darkColors.chartPurpleText,
       other: darkColors.textSecondary,
     },

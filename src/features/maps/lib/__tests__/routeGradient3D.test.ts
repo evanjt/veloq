@@ -14,9 +14,9 @@ const expression = [
   ['linear'],
   ['line-progress'],
   0,
-  colors.success,
+  colors.successFill,
   1,
-  colors.error,
+  colors.dangerFill,
 ];
 
 describe('3D route gradient', () => {
@@ -42,7 +42,7 @@ describe('3D route gradient', () => {
       terrainExaggeration: 1,
       initStyle: 'light',
       mapStyle: 'light',
-      routeColor: colors.success,
+      routeColor: colors.successFill,
       showHeatmap: false,
       devicePixelRatio: 1,
       reduceMotion: false,

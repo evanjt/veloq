@@ -2,7 +2,7 @@ import React, { type ReactNode } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { composeAccessibilityLabel, Row, Shimmer, SkeletonFrame } from '@/shared/ui';
 import {
   colors,
@@ -93,7 +93,7 @@ export function BestEffortRow({
           testID={testID}
           inset="none"
           behaviour="navigate"
-          onPress={() => tapTo(`/activity/${activity.id}`)}
+          onPress={() => navigateTo(`/activity/${activity.id}`)}
           accessibilityLabel={composeAccessibilityLabel(
             label,
             value,

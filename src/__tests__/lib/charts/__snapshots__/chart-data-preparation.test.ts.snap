@@ -1,4 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`buildChartData golden matches the golden for a metric distance axis 1`] = `
 {
@@ -189,7 +189,6 @@ exports[`buildChartData golden matches the golden for a metric distance axis 1`]
   "pointCount": 180,
   "seriesInfo": [
     {
-      "color": "#FB923C",
       "id": "power",
       "isPreview": false,
       "range": {
@@ -198,9 +197,9 @@ exports[`buildChartData golden matches the golden for a metric distance axis 1`]
         "range": 183,
       },
       "rawDataLength": 900,
+      "stream": "power",
     },
     {
-      "color": "#EF4444",
       "id": "heartrate",
       "isPreview": false,
       "range": {
@@ -209,9 +208,9 @@ exports[`buildChartData golden matches the golden for a metric distance axis 1`]
         "range": 48,
       },
       "rawDataLength": 900,
+      "stream": "heartrate",
     },
     {
-      "color": "#8B5CF6",
       "id": "elevation",
       "isPreview": false,
       "range": {
@@ -220,6 +219,7 @@ exports[`buildChartData golden matches the golden for a metric distance axis 1`]
         "range": 105.70000000000005,
       },
       "rawDataLength": 900,
+      "stream": "elevation",
     },
   ],
 }
@@ -414,7 +414,6 @@ exports[`buildChartData golden matches the golden for an imperial time axis with
   "pointCount": 180,
   "seriesInfo": [
     {
-      "color": "#FB923C",
       "id": "power",
       "isPreview": false,
       "range": {
@@ -423,9 +422,9 @@ exports[`buildChartData golden matches the golden for an imperial time axis with
         "range": 183,
       },
       "rawDataLength": 900,
+      "stream": "power",
     },
     {
-      "color": "#EF4444",
       "id": "heartrate",
       "isPreview": false,
       "range": {
@@ -434,9 +433,9 @@ exports[`buildChartData golden matches the golden for an imperial time axis with
         "range": 48,
       },
       "rawDataLength": 900,
+      "stream": "heartrate",
     },
     {
-      "color": "#8B5CF6",
       "id": "elevation",
       "isPreview": true,
       "range": {
@@ -445,6 +444,7 @@ exports[`buildChartData golden matches the golden for an imperial time axis with
         "range": 105.70000000000005,
       },
       "rawDataLength": 900,
+      "stream": "elevation",
     },
   ],
 }

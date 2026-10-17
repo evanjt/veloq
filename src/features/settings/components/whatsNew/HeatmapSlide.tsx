@@ -115,7 +115,7 @@ export function HeatmapSlide() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const palette = isDark ? INTENSITY_COLORS : INTENSITY_COLORS_LIGHT;
-  const primaryColor = isDark ? darkColors.primary : colors.primary;
+  const primaryColor = isDark ? darkColors.actionPrimary : colors.actionPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const dashLineColor = isDark
     ? colorWithOpacity(ink.white, opacity.tint4)

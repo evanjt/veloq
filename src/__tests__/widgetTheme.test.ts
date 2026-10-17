@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { bodyDiagram, colors, darkColors, insightToneColor, strengthRamp } from '@/theme/colors';
+import { bodyDiagram, colors, darkColors, insightToneColor, sequentialRamp } from '@/theme/colors';
 import { widgetPalette, widgetRecord, widgetType } from '@/shared/theme/widgetTheme';
 
 // Scenario: the widget natives render only from these resolved palettes (via the
@@ -22,12 +22,15 @@ function contrastRatio(a: string, b: string): number {
 
 describe('widgetPalette', () => {
   it('carries the five form zone colours from the canonical tokens', () => {
-    for (const p of [widgetPalette.light, widgetPalette.dark]) {
-      expect(p.formHighRisk).toBe(colors.formHighRisk);
-      expect(p.formOptimal).toBe(colors.formOptimal);
-      expect(p.formGreyZone).toBe(colors.formGreyZone);
-      expect(p.formFresh).toBe(colors.formFresh);
-      expect(p.formTransition).toBe(colors.formTransition);
+    for (const [p, palette] of [
+      [widgetPalette.light, colors],
+      [widgetPalette.dark, darkColors],
+    ] as const) {
+      expect(p.formHighRisk).toBe(palette.formHighRisk);
+      expect(p.formOptimal).toBe(palette.formOptimal);
+      expect(p.formGreyZone).toBe(palette.formGreyZone);
+      expect(p.formFresh).toBe(palette.formFresh);
+      expect(p.formTransition).toBe(palette.formTransition);
     }
   });
 
@@ -47,12 +50,12 @@ describe('widgetPalette', () => {
 
   it('carries the fatigue purple per scheme', () => {
     expect(widgetPalette.light.fatigue).toBe(colors.fatigue);
-    expect(widgetPalette.dark.fatigue).toBe(darkColors.chartFatigue);
+    expect(widgetPalette.dark.fatigue).toBe(darkColors.fatigue);
   });
 
   it('carries one warning amber per scheme, from the canonical tokens, for a stale age line', () => {
-    expect(widgetPalette.light.warning).toBe(colors.warningAmber);
-    expect(widgetPalette.dark.warning).toBe(darkColors.warningAmber);
+    expect(widgetPalette.light.warning).toBe(colors.warningText);
+    expect(widgetPalette.dark.warning).toBe(darkColors.warningText);
     expect(widgetPalette.light.warning).not.toBe(widgetPalette.dark.warning);
   });
 
@@ -118,10 +121,8 @@ describe('widgetPalette', () => {
   it('carries the body fill and the five-step strength ramp the body diagram draws, on both platforms', () => {
     expect(widgetPalette.light.bodyFill).toBe(bodyDiagram.fillLight);
     expect(widgetPalette.dark.bodyFill).toBe(bodyDiagram.fillDark);
-    for (const p of [widgetPalette.light, widgetPalette.dark]) {
-      expect(p.strengthRamp).toHaveLength(5);
-      expect(p.strengthRamp).toEqual([...strengthRamp]);
-    }
+    expect(widgetPalette.light.strengthRamp).toEqual(sequentialRamp.light);
+    expect(widgetPalette.dark.strengthRamp).toEqual(sequentialRamp.dark);
 
     const root = join(__dirname, '../..');
     const read = (file: string) => readFileSync(join(root, file), 'utf8');
@@ -129,18 +130,22 @@ describe('widgetPalette', () => {
     const night = read('widget/android/res/values-night/widget_theme.xml');
     expect(light).toContain(`<color name="widget_body_fill">${bodyDiagram.fillLight}</color>`);
     expect(night).toContain(`<color name="widget_body_fill">${bodyDiagram.fillDark}</color>`);
-    strengthRamp.forEach((hex, i) => {
+    sequentialRamp.light.forEach((hex, i) => {
       expect(light).toContain(`<color name="widget_strength_ramp_${i + 1}">${hex}</color>`);
+    });
+    sequentialRamp.dark.forEach((hex, i) => {
       expect(night).toContain(`<color name="widget_strength_ramp_${i + 1}">${hex}</color>`);
     });
 
     const swift = read('widget/ios/VeloqWidget/WidgetTheme.swift');
     expect(swift).toContain(`static let bodyFill = Color(hex: "${bodyDiagram.fillLight}")`);
     expect(swift).toContain(`static let bodyFill = Color(hex: "${bodyDiagram.fillDark}")`);
-    const ramp = `static let strengthRamp = [${strengthRamp
-      .map((hex) => `Color(hex: "${hex}")`)
-      .join(', ')}]`;
-    expect(swift.split(ramp)).toHaveLength(3);
+    for (const ramp of [sequentialRamp.light, sequentialRamp.dark]) {
+      const line = `static let strengthRamp = [${ramp
+        .map((hex) => `Color(hex: "${hex}")`)
+        .join(', ')}]`;
+      expect(swift.split(line)).toHaveLength(2);
+    }
   });
 
   /**
@@ -186,7 +191,7 @@ describe('widgetPalette', () => {
 
 describe('widgetRecord', () => {
   it('draws a white foreground, with dark chrome distinct from the light', () => {
-    expect(widgetRecord.foreground).toBe(colors.textOnDark);
+    expect(widgetRecord.foreground).toBe(colors.textOnFill);
     expect(widgetRecord.dark).not.toEqual(widgetRecord.light);
   });
 

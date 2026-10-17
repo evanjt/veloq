@@ -715,7 +715,7 @@ const makeStyles = (palette: Palette) =>
       paddingVertical: spacing.xl,
     },
     textLight: {
-      color: colors.textOnDark,
+      color: colors.textOnFill,
     },
     metricRow: {
       flexDirection: 'row',

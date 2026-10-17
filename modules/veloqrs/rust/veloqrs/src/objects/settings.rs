@@ -183,9 +183,8 @@ impl SettingsManager {
         name: String,
         sport: Option<String>,
         time: Option<String>,
-        points: Vec<crate::ffi_types::FfiGpsPoint>,
+        points: Vec<crate::GpsPoint>,
     ) -> Result<Option<crate::persistence::export::GpxFile>, VeloqError> {
-        let points: Vec<crate::GpsPoint> = points.into_iter().map(Into::into).collect();
         with_reader(|conn| {
             crate::persistence::export::single_gpx_file_from(
                 conn,

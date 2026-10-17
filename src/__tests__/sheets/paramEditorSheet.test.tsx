@@ -208,7 +208,9 @@ describe.each(['param', 'grouping'] as const)('%s editor sheet chrome', (kind) =
   it('draws Save as the primary button on Android', async () => {
     Platform.OS = 'android';
     const { prefix } = await openPanel(kind);
-    expect(styleOf(screen.getByTestId(`${prefix}-save`)).backgroundColor).toBe(colors.primary);
+    expect(styleOf(screen.getByTestId(`${prefix}-save`)).backgroundColor).toBe(
+      colors.actionPrimary
+    );
     expect(styleOf(screen.getByTestId(`${prefix}-cancel`)).backgroundColor).toBe('transparent');
   });
 });

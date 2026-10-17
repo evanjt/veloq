@@ -19,6 +19,7 @@ pub const CYCLING: &[&str] = &[
     "MountainBikeRide",
     "GravelRide",
     "EBikeRide",
+    "EMountainBikeRide",
     "TrackRide",
     "Cyclocross",
     "Handcycle",
@@ -67,6 +68,7 @@ pub const POWER: &[&str] = &[
     "MountainBikeRide",
     "GravelRide",
     "EBikeRide",
+    "EMountainBikeRide",
     "TrackRide",
     "Cyclocross",
     "Handcycle",
@@ -146,6 +148,7 @@ pub const FAMILIES: &[(&str, &[&str])] = &[
 pub const SHADE_2: &[&str] = &[
     "GravelRide",
     "MountainBikeRide",
+    "EMountainBikeRide",
     "Cyclocross",
     "TrailRun",
     "Rowing",
@@ -263,8 +266,13 @@ pub fn family_of(sport: &str) -> Vec<&str> {
 }
 
 /// Sports whose elevation is not the athlete's own climbing: assisted, or simulated.
-pub(crate) const UNPOWERED_ELEVATION_EXCLUDED: &[&str] =
-    &["EBikeRide", "VirtualRide", "VirtualRun", "Treadmill"];
+pub(crate) const UNPOWERED_ELEVATION_EXCLUDED: &[&str] = &[
+    "EBikeRide",
+    "EMountainBikeRide",
+    "VirtualRide",
+    "VirtualRun",
+    "Treadmill",
+];
 
 /// The sports a climbing best for `sport` counts: its family less the assisted
 /// and virtual ones. Hike and Walk are their own family, so a run never counts them.
@@ -298,6 +306,18 @@ mod tests {
         assert!(!climbing_family("Run").contains(&"Treadmill"));
         assert_eq!(climbing_family("Hike"), vec!["Walk", "Hike"]);
         assert_eq!(climbing_family("Kayaking"), vec!["Kayaking"]);
+    }
+
+    /// An electric mountain bike is ridden, measures power and is drawn as a
+    /// ride, and its assisted climbing counts toward no climbing best.
+    #[test]
+    fn an_electric_mountain_bike_is_cycling_with_assisted_climbing() {
+        assert!(is_cycling("EMountainBikeRide"));
+        assert!(measures_power("EMountainBikeRide"));
+        assert_eq!(sport_family("EMountainBikeRide"), "Ride");
+        assert!(family_of("MountainBikeRide").contains(&"EMountainBikeRide"));
+        assert!(!climbing_family("Ride").contains(&"EMountainBikeRide"));
+        assert!(!climbing_family("EMountainBikeRide").contains(&"EMountainBikeRide"));
     }
 
     #[test]
@@ -448,7 +468,7 @@ mod tests {
             assert_eq!(sport_family(sport), holders[0], "{sport}");
         }
         let total: usize = FAMILIES.iter().map(|(_, sports)| sports.len()).sum();
-        assert_eq!(total, 54);
+        assert_eq!(total, 55);
     }
 
     #[test]

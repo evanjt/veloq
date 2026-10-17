@@ -1,22 +1,22 @@
 import React, { useCallback, useMemo } from 'react';
 import { View, FlatList, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import {
-  ScreenSafeAreaView,
   EmptyState,
   ErrorState,
-  useScrollEndInset,
-  screenListInsets,
   readableColumn,
+  screenListInsets,
+  ScreenSafeAreaView,
+  useScrollEndInset,
 } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { Card } from '@/shared/ui/Card';
 import { Shimmer, SkeletonFrame } from '@/shared/ui/Shimmer';
 import { IconButton } from '@/shared/ui/IconButton';
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import {
   colors,
   colorWithOpacity,
@@ -98,7 +98,7 @@ function RecordingsLibraryScreenContent() {
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const bg = isDark ? darkColors.background : colors.background;
+  const bg = isDark ? darkColors.surfacePage : colors.surfacePage;
   const meta = useMemo(() => uploadStatusTone(isDark), [isDark]);
 
   const renderEntry = useCallback(
@@ -127,14 +127,14 @@ function RecordingsLibraryScreenContent() {
             padding="sm"
             style={styles.entryCard}
             testID={`recording-entry-${item.id}`}
-            onPress={() => tapTo(`/recordings/${item.id}`)}
+            onPress={() => navigateTo(`/recordings/${item.id}`)}
             accessibilityRole="button"
             accessibilityLabel={label}
             actions={
               offerUpload ? [{ name: 'uploadNow', label: uploadLabel, run: upload }] : undefined
             }
           >
-            <MaterialCommunityIcons
+            <Icon
               name={getActivityIcon(item.activityType)}
               size={iconSize.lg}
               color={getActivityInk(item.activityType, isDark)}
@@ -155,12 +155,12 @@ function RecordingsLibraryScreenContent() {
                 { backgroundColor: colorWithOpacity(status.color, opacity.tint2) },
               ]}
             >
-              <MaterialCommunityIcons name={status.icon} size={iconSize.sm} color={status.color} />
+              <Icon name={status.icon} size={iconSize.sm} color={status.color} />
               <Text style={[styles.statusText, { color: status.color }]}>{statusText}</Text>
             </View>
             {isUploading ? (
               <View testID={`recording-uploading-${item.id}`} style={styles.rowAction}>
-                <ActivityIndicator size="small" color={colors.primary} />
+                <ActivityIndicator size="small" color={colors.actionPrimary} />
               </View>
             ) : null}
             {offerUpload ? (
@@ -169,10 +169,10 @@ function RecordingsLibraryScreenContent() {
                 onPress={upload}
                 accessibilityLabel={uploadLabel}
               >
-                <MaterialCommunityIcons
+                <Icon
                   name="cloud-upload-outline"
                   size={iconSize.md}
-                  color={palette.primary}
+                  color={palette.actionPrimary}
                 />
               </IconButton>
             ) : null}
@@ -180,7 +180,17 @@ function RecordingsLibraryScreenContent() {
         </View>
       );
     },
-    [meta, textPrimary, textSecondary, isMetric, isDark, palette.primary, t, uploadNow, uploadingId]
+    [
+      meta,
+      textPrimary,
+      textSecondary,
+      isMetric,
+      isDark,
+      palette.actionPrimary,
+      t,
+      uploadNow,
+      uploadingId,
+    ]
   );
 
   return (
@@ -206,7 +216,7 @@ function RecordingsLibraryScreenContent() {
           ListHeaderComponent={
             entries.some((e) => e.uploadStatus === 'permissionBlocked') ? (
               <PermissionUpgradeBanner />
-            ) : null
+            ) : undefined
           }
           contentContainerStyle={[
             readableColumn,

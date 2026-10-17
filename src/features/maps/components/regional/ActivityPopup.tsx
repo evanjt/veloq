@@ -1,5 +1,5 @@
 import React, { memo, useMemo, useEffect, useRef } from 'react';
-import { Text, Animated } from 'react-native';
+import { Animated, type TextInstance } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { formatDistance, formatDuration, formatFullDateWithWeekday } from '@/shared/format/format';
 import { useMetricSystem } from '@/shared/app';
@@ -73,7 +73,7 @@ export const ActivityPopup = memo(function ActivityPopup({
   // Animate opacity for smooth show/hide
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(12)).current;
-  const titleRef = useRef<Text>(null);
+  const titleRef = useRef<TextInstance>(null);
   useFocusOnAppear(titleRef, selected?.activity.id, FADE_IN_MS);
 
   useEffect(() => {
@@ -109,7 +109,6 @@ export const ActivityPopup = memo(function ActivityPopup({
       testID="activity-popup"
       titleTestID="activity-popup-title"
       closeTestID="activity-popup-close"
-      container={Animated.View}
       style={{ bottom, opacity, transform: [{ translateY }] }}
       titleRef={titleRef}
       title={selected?.activity.name ?? ''}

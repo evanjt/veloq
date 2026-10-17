@@ -71,11 +71,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     backgroundColor: colors.surface,
     borderBottomWidth: stroke.hairline,
-    borderBottomColor: colors.divider,
+    borderBottomColor: colors.border,
   },
   containerDark: {
     backgroundColor: darkColors.surface,
-    borderBottomColor: darkColors.divider,
+    borderBottomColor: darkColors.border,
   },
   date: {
     ...typography.bodyCompact,

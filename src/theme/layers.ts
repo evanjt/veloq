@@ -31,12 +31,12 @@ export const layers = {
 
 /**
  * Each floating piece's own value inside the floating band, so no two share a
- * layer and none reaches the tab bar. The return pills share one stack, which
- * takes one layer; the record button floats inside the feed screen.
+ * layer and none reaches the tab bar. The status pills share one stack at the
+ * top and the return pills one at the foot, each taking one layer; the record
+ * button floats inside the feed screen.
  */
 export const floatingLayers = {
   recordButton: layers.floating,
-  syncPill: layers.floating + 1,
-  offlinePill: layers.floating + 2,
-  returnPills: layers.floating + 3,
+  statusPills: layers.floating + 1,
+  returnPills: layers.floating + 2,
 } as const;

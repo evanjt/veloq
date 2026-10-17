@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import {
@@ -16,6 +16,7 @@ import {
   stroke,
 } from '@/theme';
 import type { DataPoint } from '@/types';
+import { Icon } from '@/shared/ui/Icon';
 
 type Verdict = NonNullable<DataPoint['context']>;
 
@@ -49,7 +50,7 @@ export const DataPointRow = React.memo(function DataPointRow({ dataPoint }: Data
     <View style={styles.container} accessible accessibilityLabel={label}>
       <View style={styles.row}>
         {mark ? (
-          <MaterialCommunityIcons
+          <Icon
             name={mark.glyph}
             size={iconSize.sm}
             color={verdictColor(mark.rung, isDark)}

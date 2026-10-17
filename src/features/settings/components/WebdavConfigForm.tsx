@@ -320,7 +320,7 @@ export function WebdavConfigForm({ onConfigChange, onRemoved, ref }: WebdavConfi
               <Text
                 style={[
                   styles.connectionSuccess,
-                  { color: isDark ? darkColors.successDeep : colors.successDeep },
+                  { color: isDark ? darkColors.successText : colors.successText },
                 ]}
               >
                 {connectionStatus}
@@ -373,9 +373,9 @@ const styles = StyleSheet.create({
   },
   connectionError: {
     ...typography.caption,
-    color: colors.errorDeep,
+    color: colors.errorText,
   },
   connectionErrorDark: {
-    color: darkColors.errorDeep,
+    color: darkColors.errorText,
   },
 });

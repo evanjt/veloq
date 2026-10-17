@@ -294,10 +294,11 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_init_callback_vtable_engineobserver(
     vtable: UniffiVTableCallbackInterfaceVeloqrsEngineObserver,
   ): void;
-  ubrn_uniffi_veloqrs_fn_func_cancel_detector_cutover(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): void;
   ubrn_uniffi_veloqrs_fn_func_cancel_fetch_and_store(
+    run: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_func_cancel_run(
     run: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
@@ -1195,11 +1196,6 @@ interface NativeModuleInterface {
     version: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_geometry_versions(
-    uniffiSelf: bigint,
-    sectionId: Uint8Array,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_history(
     uniffiSelf: bigint,
     sectionId: Uint8Array,
@@ -1789,8 +1785,8 @@ interface NativeModuleInterface {
     destPath: Uint8Array,
   ): bigint;
   ubrn_ffi_veloqrs_uniffi_contract_version(): number;
-  ubrn_uniffi_veloqrs_checksum_func_cancel_detector_cutover(): number;
   ubrn_uniffi_veloqrs_checksum_func_cancel_fetch_and_store(): number;
+  ubrn_uniffi_veloqrs_checksum_func_cancel_run(): number;
   ubrn_uniffi_veloqrs_checksum_func_compute_polyline_overlap(): number;
   ubrn_uniffi_veloqrs_checksum_func_consent_stream_backfill(): number;
   ubrn_uniffi_veloqrs_checksum_func_convert_legacy_database_to_record_backup(): number;
@@ -1971,7 +1967,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_activities(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_extension_track(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_version_coords(): number;
-  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_versions(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_history(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_map_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_named_corridors(): number;

@@ -1,11 +1,18 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, Pressable, Image } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { runWhenIdle } from '@/shared/async/runWhenIdle';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
-import { canDrawProfilePhoto, KeyDot, Shimmer, pressable, pressRipple } from '@/shared/ui';
+import {
+  canDrawProfilePhoto,
+  KeyDot,
+  pressable,
+  pressRipple,
+  Shimmer,
+  TextSeparator,
+} from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import {
   colors,
   darkColors,
@@ -211,7 +218,9 @@ export const SummaryCard = React.memo(function SummaryCard({
   const currentForm = scrubValues ? scrubValues.form : (formData?.[lastIdx] ?? 0);
   const asPercent = useFormPreference((s) => s.formAsPercent) === true;
   const currentFormZone = getFormZone(currentForm, currentFitness, asPercent);
-  const currentFormKey = currentFormZone ? summaryFormZoneColor(currentFormZone) : undefined;
+  const currentFormKey = currentFormZone
+    ? summaryFormZoneColor(currentFormZone, isDark)
+    : undefined;
   const displayValue =
     scrubValues !== null
       ? isHrvMode
@@ -275,16 +284,12 @@ export const SummaryCard = React.memo(function SummaryCard({
                     onError={() => setProfileImageError(true)}
                   />
                 ) : (
-                  <MaterialCommunityIcons
-                    name="account"
-                    size={iconSize.lg}
-                    color={themeColors.textSecondary}
-                  />
+                  <Icon name="account" size={iconSize.lg} color={themeColors.textSecondary} />
                 )}
               </View>
               {/* Gear badge */}
               <View style={[styles.gearBadge, isDark && styles.gearBadgeDark]}>
-                <MaterialCommunityIcons
+                <Icon
                   name="cog"
                   size={iconSize.xs}
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -469,13 +474,13 @@ export const SummaryCard = React.memo(function SummaryCard({
           ) : null}
 
           {/* Supporting metrics row - each metric tappable */}
-          <View style={styles.supportingRow}>
+          <View testID="summary-card-supporting" style={styles.supportingRow}>
             {supportingMetrics.slice(0, 4).map((metric, index) => (
               <React.Fragment key={metric.label}>
                 {index > 0 && (
-                  <Text style={[styles.metricDivider, isDark && styles.metricDividerDark]}>
-                    {'\u00B7'}
-                  </Text>
+                  <TextSeparator
+                    style={[styles.metricDivider, isDark && styles.metricDividerDark]}
+                  />
                 )}
                 <Pressable
                   accessibilityRole="button"
@@ -483,7 +488,7 @@ export const SummaryCard = React.memo(function SummaryCard({
                   accessibilityLabel={isLoading ? metric.name : metric.accessibilityLabel}
                   style={pressable(styles.supportingMetric)}
                   android_ripple={pressRipple}
-                  onPress={() => tapTo(metric.navigationTarget)}
+                  onPress={() => navigateTo(metric.navigationTarget)}
                 >
                   <Text style={[styles.metricLabel, { color: labelInk }]}>{metric.label}</Text>
                   {isLoading ? (
@@ -543,7 +548,7 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: layout.borderRadiusFull,
     overflow: 'hidden',
-    backgroundColor: colors.divider,
+    backgroundColor: colors.border,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: stroke.one,
@@ -568,7 +573,7 @@ const styles = StyleSheet.create({
     ...shadows.pill,
   },
   gearBadgeDark: {
-    backgroundColor: darkColors.surfaceElevated,
+    backgroundColor: darkColors.surfaceRaised,
     borderColor: darkColors.border,
     ...shadows.none,
   },

@@ -22,7 +22,7 @@ jest.mock('@/shared/app', () => ({
   useMetricSystem: () => true,
   useTheme: () => ({ isDark: false }),
 }));
-jest.mock('@/shared/app/navigation', () => ({ tapTo: jest.fn(), navigateTo: jest.fn() }));
+jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 
 beforeAll(async () => {
   await initialiseI18n('en-AU');

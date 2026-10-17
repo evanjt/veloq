@@ -4,7 +4,9 @@
  * first that handles the press, as the Android module does, and answers whether
  * any did.
  */
-import { BackHandler, type HardwareBackPressEvent } from 'react-native';
+import { BackHandler } from 'react-native';
+
+type HardwareBackPressEvent = Parameters<Parameters<typeof BackHandler.addEventListener>[1]>[0];
 
 export interface HardwareBack {
   press: () => boolean;

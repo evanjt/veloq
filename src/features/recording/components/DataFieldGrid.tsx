@@ -212,7 +212,7 @@ const DataFieldTile = React.memo(function DataFieldTile({
           backgroundColor: zoned
             ? colorWithOpacity(zoneColour(zone, isDark, 'fill'), opacity.tint3)
             : isDark
-              ? darkColors.surfaceElevated
+              ? darkColors.surfaceRaised
               : colors.surface,
           borderColor: isDark ? darkColors.border : colors.border,
         },

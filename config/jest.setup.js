@@ -82,12 +82,39 @@ jest.mock("veloqrs", () =>
 // `shared/app`, which the same barrels pull in.
 jest.mock("react-native-iap", () => ({ useIAP: () => ({}), ErrorCode: {} }));
 
+// The gesture handler's native module, which Jest does not load, answered by the
+// library's own stand-in.
+jest.mock("react-native-gesture-handler/lib/module/RNGestureHandlerModule", () => ({
+  __esModule: true,
+  ...jest.requireActual("react-native-gesture-handler/lib/module/RNGestureHandlerModule"),
+  ...require("react-native-gesture-handler/lib/module/mocks/module"),
+}));
+
 // A gesture root installs the handler's native module on its first render, and
 // there is none under Jest. A modal carries its own root, since Android gives it
 // a window of its own, so the root renders as a plain View here.
 jest.mock("react-native-gesture-handler", () => ({
   ...jest.requireActual("react-native-gesture-handler"),
   GestureHandlerRootView: require("react-native").View,
+}));
+
+// A gesture detector refuses to mount without a gesture root above it. The app's
+// root layout carries one, and a component rendered on its own here has none, so
+// every render stands where the app's do.
+jest.mock("react-native-gesture-handler/lib/module/GestureHandlerRootViewContext", () => ({
+  __esModule: true,
+  ...jest.requireActual("react-native-gesture-handler/lib/module/GestureHandlerRootViewContext"),
+  default: require("react").createContext(true),
+}));
+
+// The gesture handler binds itself to the worklet UI runtime as it loads, and
+// Jest runs no UI runtime to bind to.
+jest.mock("react-native-gesture-handler/lib/module/handlers/gestures/installUIRuntimeBindings", () => ({
+  __esModule: true,
+  ...jest.requireActual(
+    "react-native-gesture-handler/lib/module/handlers/gestures/installUIRuntimeBindings",
+  ),
+  installUIRuntimeBindings: () => undefined,
 }));
 
 // Mock expo-localization for device locale simulation

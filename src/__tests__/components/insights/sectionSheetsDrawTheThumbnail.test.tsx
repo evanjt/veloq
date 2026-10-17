@@ -22,7 +22,7 @@ import type { Insight } from '@/types';
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
-jest.mock('@/shared/app/navigation', () => ({ tapTo: jest.fn(), navigateTo: jest.fn() }));
+jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 
 const LOOP = [
   { lat: 46.52, lng: 6.56 },
@@ -95,7 +95,7 @@ describe.each(SHEETS)('the %s sheet', (_name, Sheet) => {
     const drawn = previews();
     expect(drawn).toHaveLength(1);
     expect(drawn[0].props.width).toBe(SHEET_WIDTH);
-    expect(drawn[0].props.color).toBe(themePalette(false).primary);
+    expect(drawn[0].props.color).toBe(themePalette(false).actionPrimary);
     expect(drawn[0].props.points).toHaveLength(LOOP.length);
   });
 

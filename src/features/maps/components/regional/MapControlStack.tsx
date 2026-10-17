@@ -9,7 +9,7 @@
 
 import React, { useState } from 'react';
 import { View, Pressable, StyleSheet, Text, Animated, ActivityIndicator } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { IconButton } from '@/shared/ui/IconButton';
 import { RowDivider } from '@/shared/ui/RowGroup';
@@ -28,6 +28,7 @@ import {
   themePalette,
 } from '@/theme';
 import { CompassArrow } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { useBackDismiss } from '@/shared/app/useBackDismiss';
 import { MapKeyRamp, MapKeySwatch } from '../MapKey';
 import { ACTIVITY_CATEGORIES, type SportFamily } from '../../lib/activityCategories';
@@ -78,7 +79,10 @@ function ColumnButton({
       <IconButton
         testID={testID}
         variant="ghost"
-        style={[styles.columnButton, active && { backgroundColor: themePalette(isDark).primary }]}
+        style={[
+          styles.columnButton,
+          active && { backgroundColor: themePalette(isDark).actionPrimary },
+        ]}
         onPress={onPress}
         disabled={disabled}
         accessibilityLabel={accessibilityLabel}
@@ -118,17 +122,17 @@ function MenuRow({
       accessibilityState={isToggle ? { checked } : undefined}
       android_ripple={pressRipple}
     >
-      <MaterialCommunityIcons
+      <Icon
         name={icon}
         size={iconSize.md}
-        color={checked ? palette.primary : palette.textSecondary}
+        color={checked ? palette.actionPrimary : palette.textSecondary}
       />
       <Text style={[styles.menuLabel, { color: palette.textPrimary }]}>{label}</Text>
       {isToggle ? (
-        <MaterialCommunityIcons
+        <Icon
           name="check"
           size={iconSize.md}
-          color={checked ? palette.primary : 'transparent'}
+          color={checked ? palette.actionPrimary : 'transparent'}
         />
       ) : null}
     </Pressable>
@@ -215,7 +219,7 @@ export function MapControlStack({
   const { t } = useTranslation();
   const [layersOpen, setLayersOpen] = useState(false);
   const show3D = is3DMode && can3D;
-  const iconColor = isDark ? colors.textOnDark : colors.textSecondary;
+  const iconColor = isDark ? colors.textOnFill : colors.textSecondary;
   const palette = isDark ? darkColors : colors;
 
   const hasActivities = activityCount > 0;
@@ -253,11 +257,7 @@ export function MapControlStack({
           onPress={closing(onToggle3D)}
           accessibilityLabel={show3D ? t('maps.disable3D') : t('maps.enable3D')}
         >
-          <MaterialCommunityIcons
-            name="terrain"
-            size={iconSize.md}
-            color={show3D ? colors.textOnPrimary : iconColor}
-          />
+          <Icon name="terrain" size={iconSize.md} color={show3D ? colors.textOnFill : iconColor} />
         </ColumnButton>
 
         <ColumnButton
@@ -269,7 +269,7 @@ export function MapControlStack({
           <CompassArrow
             size={iconSize.md}
             rotation={bearingAnim}
-            northColor={colors.error}
+            northColor={colors.compassNorth}
             southColor={iconColor}
           />
         </ColumnButton>
@@ -285,10 +285,10 @@ export function MapControlStack({
           {locationLoading ? (
             <ActivityIndicator size="small" color={iconColor} />
           ) : (
-            <MaterialCommunityIcons
+            <Icon
               name={LOCATE_GLYPH}
               size={iconSize.md}
-              color={userLocationActive ? colors.textOnPrimary : iconColor}
+              color={userLocationActive ? colors.textOnFill : iconColor}
             />
           )}
         </ColumnButton>
@@ -302,10 +302,10 @@ export function MapControlStack({
             onPress={() => setLayersOpen((open) => !open)}
             accessibilityLabel={t('maps.layers')}
           >
-            <MaterialCommunityIcons
+            <Icon
               name="layers-outline"
               size={iconSize.md}
-              color={menuOpen ? colors.textOnPrimary : iconColor}
+              color={menuOpen ? colors.textOnFill : iconColor}
             />
           </ColumnButton>
         ) : null}
@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
     ...shadows.mapOverlay,
   },
   surfaceDark: {
-    backgroundColor: darkColors.surfaceCard,
+    backgroundColor: darkColors.surfaceRaised,
   },
   columnButton: {
     width: controlHeight.button,

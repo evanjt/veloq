@@ -6,7 +6,7 @@
 import React from 'react';
 import { Canvas, Circle, Path, Skia } from '@shopify/react-native-skia';
 import { polylineSvgPath } from '@/shared/charts';
-import { colors, colorWithOpacity, themePalette } from '@/theme';
+import { colors, colorWithOpacity, ink, themePalette } from '@/theme';
 import type { PerformanceDataPoint } from '@/types';
 
 interface SectionSparklineProps {
@@ -44,11 +44,11 @@ export const SectionSparkline = React.memo(function SectionSparkline({
   );
 
   const dotColor = isDark
-    ? colorWithOpacity(colors.textOnDark, 0.6)
-    : colorWithOpacity(colors.shadowBlack, 0.35);
+    ? colorWithOpacity(colors.textOnFill, 0.6)
+    : colorWithOpacity(ink.black, 0.35);
   const lineColor = isDark
-    ? colorWithOpacity(colors.textOnDark, 0.35)
-    : colorWithOpacity(colors.shadowBlack, 0.15);
+    ? colorWithOpacity(colors.textOnFill, 0.35)
+    : colorWithOpacity(ink.black, 0.15);
 
   return (
     <Canvas style={{ width, height }}>
@@ -68,7 +68,7 @@ export const SectionSparkline = React.memo(function SectionSparkline({
                 cx={toX(i)}
                 cy={toY(point.speed)}
                 r={5}
-                color={themePalette(isDark).primary}
+                color={themePalette(isDark).actionPrimary}
                 style="stroke"
                 strokeWidth={1.5}
               />
@@ -76,7 +76,7 @@ export const SectionSparkline = React.memo(function SectionSparkline({
                 cx={toX(i)}
                 cy={toY(point.speed)}
                 r={3}
-                color={themePalette(isDark).primary}
+                color={themePalette(isDark).actionPrimary}
               />
             </React.Fragment>
           );

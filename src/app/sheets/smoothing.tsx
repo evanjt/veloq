@@ -7,7 +7,7 @@ import { useTheme } from '@/shared/app';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { SheetHeader, ToggleButton } from '@/shared/ui';
-import { tapBack } from '@/shared/app/navigation';
+import { goBack } from '@/shared/app/navigation';
 import {
   SMOOTHING_PRESETS,
   getAutoSmoothingHint,
@@ -35,7 +35,7 @@ function SmoothingSheetContent() {
       <SheetHeader
         title={t('wellness.smoothingTitle' as never)}
         subtitle={t('wellness.smoothingDescription' as never)}
-        onCancel={() => tapBack()}
+        onCancel={() => goBack()}
         cancelTestID="smoothing-cancel"
       />
       <View style={styles.options}>

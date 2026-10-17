@@ -9,7 +9,6 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet, type ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { Circle, Path, Skia } from '@shopify/react-native-skia';
@@ -47,6 +46,7 @@ import type {
 import { StatsRow } from './StatsRow';
 import { PerformanceTooltip } from './PerformanceTooltip';
 import { IconButton, ToggleButtonRow } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 
 const CHART_HEIGHT = 120;
 const CHART_PADDING = { left: 12, right: 8, top: 12, bottom: 12 } as const;
@@ -136,7 +136,7 @@ export function SectionScatterChart({
   const palette = themePalette(isDark);
   // The ring is the only thing that says "personal best" or "this activity",
   // so it is a mark and owes 3:1 rather than a chart tone.
-  const prMarkColor = isDark ? darkColors.chartGoldMark : colors.chartGoldMark;
+  const prMarkColor = isDark ? darkColors.achievement : colors.achievement;
   const highlightMarkColor = isDark ? darkColors.chartGreenMark : colors.chartGreenMark;
 
   const effectiveHeight = mini ? MINI_HEIGHT : CHART_HEIGHT;
@@ -637,7 +637,7 @@ export function ExcludedActivitiesToggle({
         accessibilityState={{ selected: showExcluded }}
         onPress={onToggle}
       >
-        <MaterialCommunityIcons
+        <Icon
           name={showExcluded ? 'eye' : 'eye-off'}
           size={iconSize.sm}
           color={isDark ? darkColors.textSecondary : colors.textSecondary}

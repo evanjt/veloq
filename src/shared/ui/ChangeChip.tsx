@@ -1,8 +1,8 @@
 import React from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
+import { Icon } from './Icon';
 import { DENSE_TEXT_SCALE } from './DenseText';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { iconSize, layout, spacing, typography, verdictColor, verdictFill } from '@/theme';
 import {
   verdictIcon,
@@ -31,7 +31,7 @@ export function ChangeChip({ text, trend, isDark, style, testID }: ChangeChipPro
       style={[styles.chip, { backgroundColor: verdictFill(rung, isDark) }, style]}
       testID={testID}
     >
-      <MaterialCommunityIcons name={glyph} size={iconSize.md} color={color} />
+      <Icon name={glyph} size={iconSize.md} color={color} />
       <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={[styles.text, { color }]}>
         {text}
       </Text>

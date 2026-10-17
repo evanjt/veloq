@@ -84,7 +84,7 @@ async function settle() {
 }
 
 async function feedHeaderHeight(): Promise<number> {
-  renderRouter(APP, { initialUrl: '/' });
+  await renderRouter(APP, { initialUrl: '/' });
   await settle();
   return reading('feed-header-height');
 }
@@ -106,7 +106,7 @@ describe('the stack beneath the top slot', () => {
 
   it('gives a headerless screen no top inset under a banner, and the window inset when the slot is empty', async () => {
     bannerShown = true;
-    renderRouter(APP, { initialUrl: '/' });
+    await renderRouter(APP, { initialUrl: '/' });
     await settle();
     await act(() => router.navigate('/map'));
     await settle();
@@ -114,7 +114,7 @@ describe('the stack beneath the top slot', () => {
     screen.unmount();
 
     bannerShown = false;
-    renderRouter(APP, { initialUrl: '/' });
+    await renderRouter(APP, { initialUrl: '/' });
     await settle();
     await act(() => router.navigate('/map'));
     await settle();
@@ -123,7 +123,7 @@ describe('the stack beneath the top slot', () => {
 
   it('gives a modal the whole window inset, since it covers the banner and the status bar', async () => {
     bannerShown = true;
-    renderRouter(APP, { initialUrl: '/' });
+    await renderRouter(APP, { initialUrl: '/' });
     await settle();
     await act(() => router.navigate('/map'));
     await settle();

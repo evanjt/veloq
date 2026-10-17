@@ -1,14 +1,15 @@
 /**
- * The route-line layer the map read returns, as the GeoJSON collection the map draws.
+ * The route-line layer the map read returns, and what the map's `routes` source is given
+ * for it.
  *
  * The engine pre-builds the lines and stamps them with the route group generation they
- * came from. The cache keeps the collection it decoded while the generation is
- * unchanged, so a filter change that re-reads the map hands MapLibre the same object
- * rather than a new one to diff.
+ * came from, and answers them as GeoJSON at a `veloq-geo` URL on the map page's origin.
+ * The source names that URL, so the lines are written once in Rust and parsed in
+ * MapLibre's worker rather than decoded and stringified on the JS thread. The generation
+ * is the URL's revision, so a regroup is a new URL and an unchanged layer is the same one.
  */
-import { decodeCoordsFlat } from 'veloqrs/src/coords';
-import { routePalette, routePaletteIndex } from '@/theme/colors';
 import { EMPTY_FEATURE_COLLECTION } from './coordinates';
+import { nativeGeoUrl } from './tileTransport';
 
 export interface RouteLineInput {
   routeId: string;
@@ -26,50 +27,13 @@ export interface RouteLineLayerInput {
   routes: RouteLineInput[];
 }
 
-function buildCollection(layer: RouteLineLayerInput): GeoJSON.FeatureCollection {
-  const features: GeoJSON.Feature[] = [];
-  for (const route of layer.routes) {
-    const flat = decodeCoordsFlat(route.polyline);
-    const coordinates: number[][] = [];
-    for (let at = 0; at + 1 < flat.length; at += 2) {
-      const lat = flat[at];
-      const lng = flat[at + 1];
-      // A non-finite pair in a LineString crashes the iOS renderer.
-      if (lat === undefined || lng === undefined) continue;
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
-      coordinates.push([lng, lat]);
-    }
-    // One point is not a line, and the renderer crashes on it.
-    if (coordinates.length < 2) continue;
-    features.push({
-      type: 'Feature',
-      id: route.routeId,
-      properties: {
-        id: route.routeId,
-        number: route.routeNumber ?? null,
-        color: routePalette[routePaletteIndex(route.routeId)],
-      },
-      geometry: { type: 'LineString', coordinates },
-    });
-  }
-  return { type: 'FeatureCollection', features };
-}
-
-export function createRouteLineCache() {
-  let generation: number | null = null;
-  let held: GeoJSON.FeatureCollection = EMPTY_FEATURE_COLLECTION;
-  return {
-    collection(layer: RouteLineLayerInput | undefined): GeoJSON.FeatureCollection {
-      if (!layer) {
-        generation = null;
-        held = EMPTY_FEATURE_COLLECTION;
-        return held;
-      }
-      if (generation !== layer.generation) {
-        held = buildCollection(layer);
-        generation = layer.generation;
-      }
-      return held;
-    },
-  };
+/**
+ * The `routes` source's data: the engine's URL for a current layer, the empty collection
+ * when there is none, which is also the layer switched off.
+ */
+export function routeLinesSourceData(
+  layer: Pick<RouteLineLayerInput, 'generation'> | undefined
+): GeoJSON.FeatureCollection | string {
+  if (!layer) return EMPTY_FEATURE_COLLECTION;
+  return nativeGeoUrl('route-lines', 'all', layer.generation);
 }

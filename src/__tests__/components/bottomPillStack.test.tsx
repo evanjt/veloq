@@ -20,6 +20,7 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { BottomPillStack } from '@/shared/ui/BottomPillStack';
 import { useBottomPills } from '@/shared/ui/bottomPills';
 import { TAB_BAR_SAFE_PADDING, bottomPillStack } from '@/shared/ui/tabBarClearance';
+import { filterSheetFootCover } from '@/features/maps/lib/filterSheet';
 import { layout, spacing } from '@/theme';
 
 let mockFocused = true;
@@ -35,7 +36,7 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 34, left: 0, right: 0 }),
 }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
-jest.mock('@/shared/app/navigation', () => ({ tapTo: jest.fn() }));
+jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 
 type Rendered = Awaited<ReturnType<typeof render>>;
 
@@ -65,6 +66,18 @@ describe('bottomPillStack', () => {
 
   it('places nothing when no pill shows', () => {
     expect(bottomPillStack({ clearance: 114, cover: 0, heights: [] })).toEqual([]);
+  });
+
+  it('lifts the whole stack over the map tab sheet and its credit, as measured', () => {
+    // The sheet's own padding already holds the clearance, so the cover is what reaches past it.
+    const cover = filterSheetFootCover(380, 24, 114);
+    expect(bottomPillStack({ clearance: 114, cover, heights: [44] })).toEqual([
+      380 + 24 + spacing.md,
+    ]);
+  });
+
+  it('reports no cover from a sheet not laid out yet', () => {
+    expect(filterSheetFootCover(0, 24, 114)).toBe(0);
   });
 });
 

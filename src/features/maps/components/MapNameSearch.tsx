@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useMetricSystem, useTheme } from '@/shared/app';
 import { composeAccessibilityLabel, Row, SearchBar } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { formatDistance, formatShortDateWithYear } from '@/shared/format/format';
 import { spokenDistance } from '@/shared/format/spoken';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
@@ -76,7 +76,7 @@ export function MapNameSearch({
                 )}
                 onPress={() => onChoose(a.id)}
               >
-                <MaterialCommunityIcons
+                <Icon
                   testID={`map-search-result-${a.id}-icon`}
                   name={getActivityIcon(a.type)}
                   size={iconSize.md}
@@ -109,12 +109,12 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.surface,
   },
   textOnDark: {
-    color: colors.textOnDark,
+    color: colors.textOnFill,
   },
   results: {
     marginBottom: spacing.sm,
     borderRadius: layout.borderRadiusMd,
-    backgroundColor: colors.gray100,
+    backgroundColor: colors.fillNeutral,
   },
   count: {
     ...typography.bodyCompact,

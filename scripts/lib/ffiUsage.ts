@@ -454,7 +454,6 @@ export const CLIENT_UNREACHED_ALLOWED: Record<string, string> = {
   getMapSections: 'no production caller; not yet deleted or wired',
   getAllSectionNames: 'no production caller; not yet deleted or wired',
   getSectionHistory: 'no production caller; not yet deleted or wired',
-  getSectionGeometryVersions: 'no production caller; not yet deleted or wired',
   getPinnedSectionVersion: 'no production caller; not yet deleted or wired',
   getSectionReferenceInfo: 'no production caller; not yet deleted or wired',
   queryViewport: 'no production caller; not yet deleted or wired',

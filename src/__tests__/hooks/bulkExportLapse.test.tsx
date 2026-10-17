@@ -79,7 +79,7 @@ const diskFull = { tag: 'Database', inner: { msg: 'disk full' } };
 let alert: jest.SpyInstance;
 
 /** The athlete reads the tally and shares anyway: the button that is not Cancel. */
-function pressShare(_title: string, _message?: string, buttons?: AlertButton[]) {
+function pressShare(_title?: string | null, _message?: string | null, buttons?: AlertButton[]) {
   buttons?.find((button) => button.style !== 'cancel')?.onPress?.();
 }
 

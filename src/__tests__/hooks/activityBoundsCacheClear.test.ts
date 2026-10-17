@@ -52,9 +52,9 @@ jest.mock('@tanstack/react-query', () => ({
 }));
 
 jest.mock('@/shared/app/SyncDateRangeStore', () => ({
-  useSyncDateRange: (selector: (s: unknown) => unknown) =>
-    selector({ lastSyncTimestamp: null, expandRange: jest.fn() }),
+  useSyncDateRange: (selector: (s: unknown) => unknown) => selector({ expandRange: jest.fn() }),
 }));
+jest.mock('@/shared/native/useSyncStatus', () => ({ useLastSyncSuccessAt: () => null }));
 
 function setEngineCount(count: number) {
   mockEngine.getActivityCount.mockReturnValue(count);

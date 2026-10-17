@@ -46,7 +46,7 @@ jest.mock('@/shared/app/navigation', () => ({
   navigateTo: jest.fn(),
   replaceTo: (...a: unknown[]) => mockReplace(...a),
   returnTo: (...a: unknown[]) => mockReturnTo(...a),
-  tapBack: jest.fn(),
+  goBack: jest.fn(),
 }));
 jest.mock('@/shared/native/engine', () => ({ getEngine: () => null }));
 jest.mock('@/shared/ui/haptics', () => ({

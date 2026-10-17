@@ -116,7 +116,7 @@ fn library(detected: bool) -> PersistentEngine {
     engine.set_time_streams_flat(&ids, &times, &offsets);
     if detected {
         engine.sections.retain(|s| s.is_user_defined);
-        engine.sections.push(detected_line());
+        engine.sections.push(detected_line().into());
         engine.save_sections_with_events(&[]).unwrap();
     }
     engine.recompute_activity_indicators().unwrap();

@@ -5,10 +5,10 @@
  */
 
 import React from 'react';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { TFunction } from 'i18next';
 
 import { iconSize } from '@/theme';
+import { Icon } from '@/shared/ui/Icon';
 export type SectionDirection = 'forward' | 'reverse';
 
 export function directionWord(t: TFunction, direction: SectionDirection): string {
@@ -25,10 +25,6 @@ export function DirectionArrow({
   size?: number;
 }) {
   return (
-    <MaterialCommunityIcons
-      name={direction === 'forward' ? 'arrow-right' : 'arrow-left'}
-      size={size}
-      color={color}
-    />
+    <Icon name={direction === 'forward' ? 'arrow-right' : 'arrow-left'} size={size} color={color} />
   );
 }

@@ -6,7 +6,14 @@ import { useTranslation } from 'react-i18next';
 import { Canvas, Group, Rect } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
-import { ChartCrosshair, useChartGestures } from '@/shared/charts';
+import {
+  ChartCrosshair,
+  ChartSurface,
+  daysTable,
+  stripSummary,
+  useChartGestures,
+  type SummaryDay,
+} from '@/shared/charts';
 import { colors, darkColors, spacing, layout, typography, stroke } from '@/theme';
 import { sortByDateId } from '@/shared/activity/activityUtils';
 import { getActivityCategory, sportFamilyLabel } from '@/shared/activity/sportCategories';
@@ -143,6 +150,21 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
     setSelectedData(null);
     onDateSelectRef.current?.(null, null);
   }, []);
+
+  // What a screen reader hears and the Show data sheet lists: the days marked, and what fell on each.
+  const reading = useMemo(() => {
+    const title = t('fitness.daysTrained');
+    const days: SummaryDay[] = dotData.map((day) => ({
+      label: formatShortDate(day.date),
+      key: day.date,
+      count: day.activities.length,
+      cells: [day.activities.map((activity) => activity.name).join(', ')],
+    }));
+    return {
+      summary: stripSummary(title, days, t),
+      table: daysTable(title, [t('charts.column.date'), t('charts.column.activities')], days),
+    };
+  }, [dotData, t]);
 
   const loadByDate = useMemo(
     () => new Map((dailyLoads ?? []).map((d) => [d.date, d])),
@@ -364,45 +386,47 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
         </Row>
       )}
 
-      <GestureDetector gesture={gesture}>
-        <View
-          style={[styles.chartWrapper, { height }]}
-          testID="activity-dots-surface"
-          {...accessibilityProps}
-          onLayout={(e) => {
-            setChartWidth(e.nativeEvent.layout.width);
-          }}
-        >
-          {chartWidth > 0 && (
-            <Canvas style={styles.canvas}>
-              <Group>
-                {marks.map((mark) => {
-                  const total = mark.height * height;
-                  let top = height - total;
-                  return markFills(mark, mutedColor, groupColor).map((fill, n) => {
-                    const y = top;
-                    const fillHeight = fill.fraction * total;
-                    top += fillHeight;
-                    return (
-                      <Rect
-                        key={`${mark.dates[0]}-${n}`}
-                        x={mark.x}
-                        y={y}
-                        width={mark.width}
-                        height={fillHeight}
-                        color={fill.color}
-                      />
-                    );
-                  });
-                })}
-              </Group>
-            </Canvas>
-          )}
+      <ChartSurface summary={reading.summary} table={reading.table} testID="activity-dots-plot">
+        <GestureDetector gesture={gesture}>
+          <View
+            style={[styles.chartWrapper, { height }]}
+            testID="activity-dots-surface"
+            {...accessibilityProps}
+            onLayout={(e) => {
+              setChartWidth(e.nativeEvent.layout.width);
+            }}
+          >
+            {chartWidth > 0 && (
+              <Canvas style={styles.canvas}>
+                <Group>
+                  {marks.map((mark) => {
+                    const total = mark.height * height;
+                    let top = height - total;
+                    return markFills(mark, mutedColor, groupColor).map((fill, n) => {
+                      const y = top;
+                      const fillHeight = fill.fraction * total;
+                      top += fillHeight;
+                      return (
+                        <Rect
+                          key={`${mark.dates[0]}-${n}`}
+                          x={mark.x}
+                          y={y}
+                          width={mark.width}
+                          height={fillHeight}
+                          color={fill.color}
+                        />
+                      );
+                    });
+                  })}
+                </Group>
+              </Canvas>
+            )}
 
-          {/* Crosshair */}
-          <ChartCrosshair style={crosshairStyle} topOffset={0} bottomOffset={0} />
-        </View>
-      </GestureDetector>
+            {/* Crosshair */}
+            <ChartCrosshair style={crosshairStyle} topOffset={0} bottomOffset={0} />
+          </View>
+        </GestureDetector>
+      </ChartSurface>
 
       {key.groups.length > 0 || key.noLoad ? (
         <View>
@@ -478,7 +502,7 @@ const styles = StyleSheet.create({
   },
   restBox: {
     paddingHorizontal: 0,
-    borderColor: colors.transparent,
+    borderColor: 'transparent',
   },
   activityPillText: {
     ...typography.captionBold,

@@ -30,7 +30,7 @@ export function ScatterLegend({
   showTrend = false,
   trendColor: trendColorProp,
 }: ScatterLegendProps) {
-  const trendColor = trendColorProp ?? themePalette(isDark).primary;
+  const trendColor = trendColorProp ?? themePalette(isDark).actionPrimary;
   const { t } = useTranslation();
   const [showMethod, setShowMethod] = useState(false);
 
@@ -126,11 +126,11 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusFull,
   },
   prSwatch: {
-    borderColor: colors.chartGoldMark,
+    borderColor: colors.achievement,
     borderWidth: stroke.two,
   },
   prSwatchDark: {
-    borderColor: darkColors.chartGoldMark,
+    borderColor: darkColors.achievement,
   },
   reverseSwatch: {
     backgroundColor: colors.reverseDirection,

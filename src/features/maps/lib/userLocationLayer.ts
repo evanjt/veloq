@@ -37,7 +37,7 @@ export function buildUserLocationLayers(hasUserLocation: boolean): MapLayerSpec[
       source: USER_LOCATION_SOURCE_ID,
       paint: {
         'circle-radius': 12,
-        'circle-color': colors.primary,
+        'circle-color': colors.actionPrimary,
         'circle-opacity': hasUserLocation ? 0.3 : 0,
       },
     },
@@ -47,10 +47,10 @@ export function buildUserLocationLayers(hasUserLocation: boolean): MapLayerSpec[
       source: USER_LOCATION_SOURCE_ID,
       paint: {
         'circle-radius': 6,
-        'circle-color': colors.primary,
+        'circle-color': colors.actionPrimary,
         'circle-opacity': hasUserLocation ? 1 : 0,
         'circle-stroke-width': 2,
-        'circle-stroke-color': colors.textOnDark,
+        'circle-stroke-color': colors.textOnFill,
       },
     },
   ];

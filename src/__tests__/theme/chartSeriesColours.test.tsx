@@ -6,7 +6,9 @@
  * uses, and the feed card drew HRV and resting HR in a pink and a verdict red
  * the wellness charts do not use.
  *
- * Expected behaviour: every activity stream has a hue no other stream has, the
+ * Expected behaviour: every measurement stream has a hue no other stream has,
+ * speed and pace being one measurement and elevation and temperature grey
+ * context, the
  * curve charts draw in the sport colours, and the feed card draws HRV and
  * resting HR in the wellness series colours of the theme it is in, naming each
  * line in text colour rather than its own.
@@ -36,17 +38,34 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-describe('activity stream hues', () => {
-  it('gives no two streams the same hue', () => {
+describe.each(['light', 'dark'] as const)('activity stream hues, %s', (theme) => {
+  const streams = chartStreamColors[theme];
+
+  it('gives no two measurements the same hue', () => {
+    const measurements = [
+      'power',
+      'heartrate',
+      'cadence',
+      'speed',
+      'gap',
+      'wbal',
+      'elevation',
+      'grade',
+    ] as const;
     const owners = new Map<string, string>();
     const shared: string[] = [];
-    for (const [stream, hue] of Object.entries(chartStreamColors)) {
-      const first = owners.get(hue.toUpperCase());
+    for (const stream of measurements) {
+      const hue = streams[stream].toUpperCase();
+      const first = owners.get(hue);
       if (first) shared.push(`${stream} repeats ${first}`);
-      else owners.set(hue.toUpperCase(), stream);
+      else owners.set(hue, stream);
     }
 
     expect(shared).toEqual([]);
+  });
+
+  it('draws pace in the speed hue, one measurement in two units', () => {
+    expect(streams.pace).toBe(streams.speed);
   });
 });
 

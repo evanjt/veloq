@@ -429,7 +429,7 @@ export function snapshotRenderScript(): string {
                   id: 'start-end-fill', type: 'circle', source: 'start-end-markers',
                   paint: {
                     'circle-radius': 5,
-                    'circle-color': ['case', ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.success, 0.75))}, ${jsLiteral(colorWithOpacity(colors.error, 0.75))}],
+                    'circle-color': ['case', ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.successFill, 0.75))}, ${jsLiteral(colorWithOpacity(colors.dangerFill, 0.75))}],
                   },
                 });
                 window._rn_log('Route layers added via API');
@@ -550,7 +550,7 @@ export function snapshotRenderScript(): string {
                   id: 'start-end-fill', type: 'circle', source: 'start-end-markers',
                   paint: {
                     'circle-radius': 5,
-                    'circle-color': ['case', ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.success, 0.75))}, ${jsLiteral(colorWithOpacity(colors.error, 0.75))}],
+                    'circle-color': ['case', ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.successFill, 0.75))}, ${jsLiteral(colorWithOpacity(colors.dangerFill, 0.75))}],
                   },
                 });
               }

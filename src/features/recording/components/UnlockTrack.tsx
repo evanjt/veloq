@@ -17,7 +17,6 @@ import {
   PanResponder,
   type AccessibilityActionEvent,
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as haptics from '@/shared/ui/haptics';
 
@@ -28,6 +27,7 @@ import {
   darkColors,
   duration,
   iconSize,
+  ink,
   layout,
   opacity,
   spacing,
@@ -36,6 +36,7 @@ import {
 } from '@/theme';
 import { motionSpring, motionTiming } from '@/shared/ui/reduceMotion';
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
+import { Icon } from '@/shared/ui/Icon';
 
 const HANDLE_SIZE = 48;
 const TRACK_HEIGHT = 56;
@@ -158,14 +159,13 @@ export function UnlockTrack({ onUnlock, hint = 0 }: { onUnlock: () => void; hint
       </Animated.Text>
       <Animated.View
         testID="unlock-track-handle"
-        style={[styles.handle, { backgroundColor: palette.primary, transform: [{ translateX }] }]}
+        style={[
+          styles.handle,
+          { backgroundColor: palette.actionPrimary, transform: [{ translateX }] },
+        ]}
         {...panResponder.panHandlers}
       >
-        <MaterialCommunityIcons
-          name="lock-open-outline"
-          size={iconSize.lg}
-          color={colors.textOnPrimary}
-        />
+        <Icon name="lock-open-outline" size={iconSize.lg} color={colors.textOnFill} />
       </Animated.View>
     </View>
   );
@@ -176,13 +176,13 @@ const styles = StyleSheet.create({
     height: TRACK_HEIGHT,
     borderRadius: layout.borderRadiusFull,
     marginHorizontal: spacing.lg,
-    backgroundColor: colorWithOpacity(colors.shadowBlack, opacity.tint1),
+    backgroundColor: colorWithOpacity(ink.black, opacity.tint1),
     justifyContent: 'center',
     paddingHorizontal: spacing.xs,
     overflow: 'hidden',
   },
   trackDark: {
-    backgroundColor: colorWithOpacity(colors.textOnDark, opacity.tint2),
+    backgroundColor: colorWithOpacity(colors.textOnFill, opacity.tint2),
   },
   // Inset past the handle at rest, so a long translation or a large text size
   // never runs under it.

@@ -7,15 +7,21 @@
  */
 
 import React from 'react';
-import { Animated, StyleSheet } from 'react-native';
-import { RectButton } from 'react-native-gesture-handler';
+import { StyleSheet } from 'react-native';
+import { LegacyRectButton as RectButton } from 'react-native-gesture-handler';
+import Animated, {
+  Extrapolation,
+  interpolate,
+  useAnimatedStyle,
+  type SharedValue,
+} from 'react-native-reanimated';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { TFunction } from 'i18next';
 
 import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import type { AccessibleAction } from '@/shared/ui/accessibleActions';
 import { iconSize, spacing, swipeAction, typography } from '@/theme';
+import { Icon } from '@/shared/ui/Icon';
 
 export type SectionSwipeKind = 'remove' | 'restore' | 'delete';
 
@@ -54,20 +60,24 @@ export function SectionActionGlyph({
   return glyph === 'chrome:delete' ? (
     <ChromeIcon name="delete" size={size} color={color} />
   ) : (
-    <MaterialCommunityIcons name={glyph} size={size} color={color} />
+    <Icon name={glyph} size={size} color={color} />
   );
 }
 
 interface SectionSwipeActionProps {
   kind: SectionSwipeKind;
   action: AccessibleAction;
-  opacity: Animated.AnimatedInterpolation<number> | number;
+  /** How far the row has been dragged, negative to the left; the action fades in with it. */
+  drag: SharedValue<number>;
 }
 
-export function SectionSwipeAction({ kind, action, opacity }: SectionSwipeActionProps) {
+export function SectionSwipeAction({ kind, action, drag }: SectionSwipeActionProps) {
   const { fill } = SECTION_SWIPE_ACTIONS[kind];
+  const fade = useAnimatedStyle(() => ({
+    opacity: interpolate(drag.value, [-80, -40, 0], [1, 0.8, 0], Extrapolation.CLAMP),
+  }));
   return (
-    <Animated.View style={[styles.action, { backgroundColor: fill.bg, opacity }]}>
+    <Animated.View style={[styles.action, { backgroundColor: fill.bg }, fade]}>
       <RectButton style={styles.button} onPress={action.run}>
         <SectionActionGlyph kind={kind} size={iconSize.lg} color={fill.text} />
         <Text style={[styles.label, { color: fill.text }]}>{action.label}</Text>

@@ -58,7 +58,7 @@ jest.mock('@/shared/app', () => ({
 jest.mock('@/shared/app/navigation', () => ({
   navigateTo: jest.fn(),
   replaceTo: jest.fn(),
-  tapBack: jest.fn(),
+  goBack: jest.fn(),
 }));
 jest.mock('@/shared/native/engine', () => ({ getEngine: () => null }));
 jest.mock('@/features/settings/lib/pushTokenRegistration', () => ({

@@ -10,8 +10,14 @@
 import { act, renderHook } from '@testing-library/react-native';
 
 import { getEngine } from '@/shared/native/engine';
-import { useSyncLastError, useSyncState, useSyncStatus } from '@/shared/native/useSyncStatus';
-import { SyncState, type SyncStatus } from 'veloqrs';
+import {
+  TRACK_STAGE_REREAD_MS,
+  useSyncLastError,
+  useSyncState,
+  useSyncStatus,
+  useTrackStage,
+} from '@/shared/native/useSyncStatus';
+import { SyncState, TrackStep, type SyncStatus, type TrackStage } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
@@ -149,4 +155,66 @@ it('does not re-render a last-error consumer for progress while the error is unc
   await act(() => engine.announce('syncSettled'));
   expect(result.current).toBe('offline');
   expect(renders).toBe(first + 1);
+});
+
+function downloading(completed: number, total: number): TrackStage {
+  return {
+    step: TrackStep.Downloading,
+    completed,
+    total,
+    percent: Math.round((completed / total) * 100),
+  };
+}
+
+function settledWith(tracks: TrackStage | undefined): SyncStatus {
+  return { ...status(SyncState.Idle, 3), tracks } as SyncStatus;
+}
+
+it('follows a GPS pass the engine started after the sync settled, and stops with it', async () => {
+  const engine = fakeEngine(settledWith(undefined));
+  mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
+  const { result } = await renderHook(() => useTrackStage());
+  expect(result.current).toBeNull();
+
+  engine.setSnapshot(settledWith(downloading(0, 12)));
+  await act(() => engine.announce('syncProgress'));
+  expect(result.current).toEqual(downloading(0, 12));
+
+  // The pass announces only that it started, so its progress is read on the timer.
+  engine.setSnapshot(settledWith(downloading(6, 12)));
+  await act(() => {
+    jest.advanceTimersByTime(TRACK_STAGE_REREAD_MS);
+  });
+  expect(result.current).toEqual(downloading(6, 12));
+
+  engine.setSnapshot(settledWith(undefined));
+  await act(() => {
+    jest.advanceTimersByTime(TRACK_STAGE_REREAD_MS);
+  });
+  expect(result.current).toBeNull();
+
+  const reads = engine.getSyncStatus.mock.calls.length;
+  await act(() => {
+    jest.advanceTimersByTime(30_000);
+  });
+  expect(engine.getSyncStatus).toHaveBeenCalledTimes(reads);
+});
+
+it('wakes no reader for a timed read that found the stage where it was', async () => {
+  const engine = fakeEngine(settledWith(downloading(2, 12)));
+  mockGetEngine.mockReturnValue(engine as unknown as ReturnType<typeof getEngine>);
+  let renders = 0;
+  await renderHook(() => {
+    renders += 1;
+    return useSyncStatus();
+  });
+  const first = renders;
+
+  engine.setSnapshot(settledWith(downloading(2, 12)));
+  await act(() => {
+    jest.advanceTimersByTime(TRACK_STAGE_REREAD_MS * 4);
+  });
+
+  expect(engine.getSyncStatus.mock.calls.length).toBeGreaterThan(1);
+  expect(renders).toBe(first);
 });

@@ -5,8 +5,8 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { duration, easing } from '@/theme';
+import { Icon } from './Icon';
 
 interface DisclosureChevronProps {
   /** Whether what the control opens is open. */
@@ -37,7 +37,7 @@ export function DisclosureChevron({ expanded, size, color }: DisclosureChevronPr
 
   return (
     <Animated.View style={style}>
-      <MaterialCommunityIcons name="chevron-down" size={size} color={color} />
+      <Icon name="chevron-down" size={size} color={color} />
     </Animated.View>
   );
 }

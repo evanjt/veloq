@@ -180,7 +180,7 @@ describe('section scatter trend paths', () => {
       // between the first and the last, whatever styling the ring gives it.
       const xs = [...new Set(rendered.map((circle) => circle.cx as number))].sort((a, b) => a - b);
       expect(xs).toHaveLength(3);
-      const ring = rendered.find((circle) => circle.color === colors.chartGoldMark);
+      const ring = rendered.find((circle) => circle.color === colors.achievement);
       expect(ring).toBeDefined();
       expect(ring?.cx).toBeCloseTo((xs[0] + xs[2]) / 2);
     }

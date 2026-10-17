@@ -318,6 +318,32 @@ describe('Expo SDK dependency guard', () => {
     ).toBe(0);
   });
 
+  it('refuses a worklets runtime that keeps scheduling frames while Android caches the app', () => {
+    const early = runGuard({
+      bundled: { 'react-native-worklets': '0.10.1' },
+      declared: { 'react-native-worklets': '0.10.1' },
+      locked: { 'react-native-worklets': '0.10.1' },
+    });
+    expect(early.status).toBe(1);
+    expect(early.output).toContain('react-native-worklets');
+    expect(early.output).toContain('0.13.0');
+
+    const fixed = {
+      bundled: { 'react-native-worklets': '0.13.0' },
+      declared: { 'react-native-worklets': '0.13.0' },
+      locked: { 'react-native-worklets': '0.13.0' },
+    };
+    expect(runGuard(fixed).status).toBe(0);
+    expect(runGuard({ ...fixed, locked: { 'react-native-worklets': '0.12.2' } }).status).toBe(1);
+    expect(
+      runGuard({
+        bundled: { 'react-native-worklets': '0.14.0' },
+        declared: { 'react-native-worklets': '0.14.0' },
+        locked: { 'react-native-worklets': '0.14.0' },
+      }).status
+    ).toBe(0);
+  });
+
   it('lets Expo skip only a package the guard holds above the SDK', () => {
     const fixture = {
       bundled: { 'react-native-screens': '~4.26.0', 'expo-example': '~57.0.2' },

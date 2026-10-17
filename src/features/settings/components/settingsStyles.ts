@@ -10,7 +10,7 @@ export const settingsStyles = StyleSheet.create({
     overflow: 'hidden' as const,
   },
   sectionCardDark: {
-    backgroundColor: darkColors.surfaceCard,
+    backgroundColor: darkColors.surfaceRaised,
   },
 
   // Text inside action row
@@ -30,7 +30,7 @@ export const settingsStyles = StyleSheet.create({
 
   // Standard dark mode text overrides
   textLight: {
-    color: colors.textOnDark,
+    color: colors.textOnFill,
   },
   textSecondary: {
     color: darkColors.textSecondary,

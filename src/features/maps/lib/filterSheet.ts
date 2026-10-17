@@ -46,3 +46,17 @@ export function filterSheetMaxHeight(screenHeight: number, insetTop: number): nu
 export function popupBottom(clearance: number, insetBottom: number): number {
   return Math.max(clearance, insetBottom) + spacing.sm;
 }
+
+/**
+ * How far the filter sheet and the credit on its edge reach past the bottom clearance, the cover
+ * the bottom pill stack rises over. The sheet's padding already holds the clearance, so only what
+ * reaches above it counts. A sheet not laid out yet covers nothing.
+ */
+export function filterSheetFootCover(
+  sheetHeight: number,
+  attributionClearance: number,
+  clearance: number
+): number {
+  if (sheetHeight <= 0) return 0;
+  return Math.max(0, sheetHeight + attributionClearance - clearance);
+}

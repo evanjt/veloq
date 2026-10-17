@@ -2,9 +2,10 @@
  * Scenario: a sync runs, or the device is offline, while a headered tab root is in
  * front. The pills mount at the root, above the stack, and float over the page.
  *
- * Expected behaviour: a pill starts `spacing.xs` below the status bar, over the
+ * Expected behaviour: the stack starts `spacing.xs` below the status bar, over the
  * header the tab root draws rather than below its bottom edge, and below a banner
- * in the top slot when one is up. The map, which has no header, reads the same.
+ * in the top slot when one is up, with the sync pill below the offline pill. The
+ * map, which has no header, reads the same.
  */
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
@@ -16,10 +17,9 @@ import TabsLayout from '@/app/(tabs)/_layout';
 import FeedLayout from '@/app/(tabs)/(feed)/_layout';
 import { useTopBannerHeights } from '@/shared/app/topBanner';
 import { getEngine } from '@/shared/native/engine';
-import { OfflineBanner } from '@/shared/ui/OfflineBanner';
-import { SyncProgressStrip } from '@/shared/ui/SyncProgressStrip';
+import { FloatingPillStack } from '@/shared/ui/FloatingPillStack';
 import { spacing } from '@/theme';
-import { act, renderRouter, screen } from 'expo-router/testing-library';
+import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 
 // The shared setup stubs the router for render tests; this suite needs the real one.
 jest.mock('expo-router', () => ({ ...jest.requireActual('expo-router') }));
@@ -66,8 +66,7 @@ function Root() {
   return (
     <>
       <Stack screenOptions={{ headerShown: false }} />
-      <SyncProgressStrip />
-      <OfflineBanner />
+      <FloatingPillStack />
     </>
   );
 }
@@ -80,8 +79,24 @@ const APP = {
   '(tabs)/map': () => <Text>map</Text>,
 };
 
+const PILL_HEIGHT = 32;
+
 function pillTop(testID: string): number {
   return StyleSheet.flatten(screen.getByTestId(testID).props.style).top;
+}
+
+/** The offline pill draws first and the sync pill below it, once both have laid out. */
+async function layOutPills() {
+  for (const testID of ['floating-pill-offline', 'floating-pill-sync']) {
+    await fireEvent(screen.getByTestId(testID), 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 360, height: PILL_HEIGHT } },
+    });
+  }
+}
+
+function expectStackedFrom(first: number) {
+  expect(pillTop('floating-pill-offline')).toBe(first);
+  expect(pillTop('floating-pill-sync')).toBe(first + PILL_HEIGHT + spacing.xs);
 }
 
 async function settle() {
@@ -97,30 +112,31 @@ beforeEach(() => {
 
 describe('the pills on the tab roots', () => {
   it('start under the status bar, over the native header of a headered tab root', async () => {
-    renderRouter(APP, { initialUrl: '/' });
+    await renderRouter(APP, { initialUrl: '/' });
     await settle();
 
+    await layOutPills();
+
     expect(feedHeaderHeight()).toBeGreaterThan(TOP_INSET + spacing.xs);
-    expect(pillTop('sync-progress-strip')).toBe(TOP_INSET + spacing.xs);
-    expect(pillTop('offline-banner')).toBe(TOP_INSET + spacing.xs);
+    expectStackedFrom(TOP_INSET + spacing.xs);
   });
 
   it('start below a banner in the slot, over the header beneath it', async () => {
-    renderRouter(APP, { initialUrl: '/' });
+    await renderRouter(APP, { initialUrl: '/' });
     await settle();
+    await layOutPills();
     await act(async () => useTopBannerHeights.getState().setHeight('syncError', 96));
 
-    expect(pillTop('sync-progress-strip')).toBe(96 + spacing.xs);
-    expect(pillTop('offline-banner')).toBe(96 + spacing.xs);
+    expectStackedFrom(96 + spacing.xs);
   });
 
   it('start at the same place on the map, which has no header', async () => {
-    renderRouter(APP, { initialUrl: '/' });
+    await renderRouter(APP, { initialUrl: '/' });
     await settle();
     await act(() => router.navigate('/map'));
     await settle();
+    await layOutPills();
 
-    expect(pillTop('sync-progress-strip')).toBe(TOP_INSET + spacing.xs);
-    expect(pillTop('offline-banner')).toBe(TOP_INSET + spacing.xs);
+    expectStackedFrom(TOP_INSET + spacing.xs);
   });
 });

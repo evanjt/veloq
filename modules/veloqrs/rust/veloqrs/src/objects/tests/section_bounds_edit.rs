@@ -353,8 +353,9 @@ fn a_revert_runs_as_a_section_edit_and_pins_the_version() {
     assert_ne!(stored_polyline(&id), drawn);
 
     let versions = sections
-        .get_geometry_versions(id.clone())
-        .expect("versions");
+        .get_detail_data(id.clone())
+        .expect("versions")
+        .geometry_versions;
     assert!(versions.len() >= 2, "a trim stores a second version");
     let first = versions
         .iter()

@@ -113,7 +113,7 @@ const isDashed = (mark: Record<string, unknown>) =>
   );
 
 const barsOf = (drawn: Record<string, unknown>[]) =>
-  drawn.filter((r) => r.color === colors.primary);
+  drawn.filter((r) => r.color === colors.actionPrimary);
 
 describe('PerformanceChartPanel', () => {
   afterEach(() => jest.restoreAllMocks());
@@ -229,7 +229,7 @@ describe('PerformanceChartPanel', () => {
     await layoutViews(tree, 400, 300);
 
     const green = lines.filter((l) => l.color === colors.chartGreenMark);
-    const gold = lines.filter((l) => l.color === colors.chartGoldMark);
+    const gold = lines.filter((l) => l.color === colors.achievement);
     expect(green).toHaveLength(1);
     expect(gold).toHaveLength(1);
     // 305 s and 310 s both fall in the first 30 s bin, 300 to 330.
@@ -274,7 +274,7 @@ describe('AttemptHistogramChart', () => {
     expect(bars).toHaveLength(2);
     expect(Number(bars[0].height) / Number(bars[1].height)).toBeCloseTo(3 / 2);
     const green = lines.find((l) => l.color === colors.chartGreenMark)!;
-    const gold = lines.find((l) => l.color === colors.chartGoldMark)!;
+    const gold = lines.find((l) => l.color === colors.achievement)!;
     expect(markX(green)).toBeLessThan(Number(bars[0].x) + Number(bars[0].width));
     expect(markX(gold)).toBeGreaterThan(Number(bars[1].x));
   });
@@ -293,7 +293,7 @@ describe('AttemptHistogramChart', () => {
     );
     await layoutViews(tree, 400, 300);
 
-    const record = drawn.find((l) => l.color === colors.chartGoldMark);
+    const record = drawn.find((l) => l.color === colors.achievement);
     const attempt = drawn.find((l) => l.color === colors.chartGreenMark);
     expect(record).toBeDefined();
     expect(attempt).toBeDefined();

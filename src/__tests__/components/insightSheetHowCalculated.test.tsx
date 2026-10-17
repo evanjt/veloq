@@ -18,12 +18,12 @@ import type { TFunc } from '@/features/insights/types';
 import { InsightDetailSheet } from '@/features/insights/components/InsightDetailSheet';
 import { generateStalePRInsights } from '@/features/insights/generators/stalePr';
 import { generatePeriodComparisonInsights } from '@/features/insights/generators/periodComparison';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import type { Insight } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
-jest.mock('@/shared/app/navigation', () => ({ tapTo: jest.fn(), navigateTo: jest.fn() }));
+jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 jest.mock('@/shared/native/useSectionDetail', () => ({
   useSectionDetail: () => ({ section: null }),
 }));
@@ -90,7 +90,7 @@ describe('the How was this calculated disclosure on an insight sheet', () => {
   beforeAll(() => initialiseI18n('en-GB'));
   beforeEach(() => {
     changeLanguage('en-GB');
-    jest.mocked(tapTo).mockClear();
+    jest.mocked(navigateTo).mockClear();
   });
 
   it.each([
@@ -139,8 +139,8 @@ describe('the How was this calculated disclosure on an insight sheet', () => {
     await fireEvent.press(screen.getByRole('header', { name: HOW }));
     await fireEvent.press(screen.getByTestId('insight-data-link'));
 
-    expect(tapTo).toHaveBeenCalledTimes(1);
-    expect(tapTo).toHaveBeenCalledWith('/section/quarry?activityId=quarry-2');
+    expect(navigateTo).toHaveBeenCalledTimes(1);
+    expect(navigateTo).toHaveBeenCalledWith('/section/quarry?activityId=quarry-2');
   });
 
   it('names where the data link goes', async () => {
@@ -157,6 +157,6 @@ describe('the How was this calculated disclosure on an insight sheet', () => {
     await fireEvent.press(screen.getByRole('header', { name: HOW }));
     await fireEvent.press(screen.getByTestId('insight-data-link'));
 
-    expect(jest.mocked(tapTo).mock.calls[0][0]).toMatch(/^\/fitness\?/);
+    expect(jest.mocked(navigateTo).mock.calls[0][0]).toMatch(/^\/fitness\?/);
   });
 });

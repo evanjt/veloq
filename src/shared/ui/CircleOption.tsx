@@ -9,7 +9,6 @@
 
 import React, { useState } from 'react';
 import {
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -20,7 +19,7 @@ import {
 
 import { useTheme } from '@/shared/app';
 import { colors, controlHeight, darkColors, layout, spacing, typography, stroke } from '@/theme';
-import { pressable, pressRipple } from './pressFeedback';
+import { PressTarget } from './PressTarget';
 
 const GAP = spacing.sm;
 /** The smallest circle that still reads as a picture, as tall as a button. */
@@ -78,15 +77,14 @@ export function CircleOptionRow<T extends string>({
         const selected = option.value === value;
         const optionTestID = testIDPrefix && `${testIDPrefix}-${option.value}`;
         return (
-          <Pressable
+          <PressTarget
             key={option.value}
             testID={optionTestID}
             accessibilityRole="button"
             accessibilityLabel={option.label}
             accessibilityState={{ selected }}
             onPress={() => onValueChange(option.value)}
-            android_ripple={pressRipple}
-            style={pressable(styles.option)}
+            style={styles.option}
           >
             <View
               style={[
@@ -119,7 +117,7 @@ export function CircleOptionRow<T extends string>({
             >
               {option.label}
             </Text>
-          </Pressable>
+          </PressTarget>
         );
       })}
     </View>

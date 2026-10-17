@@ -20,6 +20,16 @@
 
 set -eu
 
+# Every library's native code is CMake, and a regeneration or an `npm ci`
+# deletes its `.cxx` output, so each such build compiles it all again. CMake
+# reads the launcher from the environment when it configures, so handing it
+# ccache here reaches every library with no Gradle change, as CI does. A
+# launcher the caller chose is kept, and a machine without ccache gets none.
+if command -v ccache >/dev/null 2>&1; then
+  export CMAKE_C_COMPILER_LAUNCHER="${CMAKE_C_COMPILER_LAUNCHER:-ccache}"
+  export CMAKE_CXX_COMPILER_LAUNCHER="${CMAKE_CXX_COMPILER_LAUNCHER:-ccache}"
+fi
+
 # Already inside a lock this script took, so take nothing: a flock is held per
 # open file description, and a second take blocks the child on its own parent.
 # `android:debug` runs `bundle:android` inside the lock and relies on this.

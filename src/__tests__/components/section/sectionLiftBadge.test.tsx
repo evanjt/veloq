@@ -27,6 +27,7 @@ jest.mock('@/features/routes/components/SectionMapView', () => ({
 // The barrel pulls react-native-iap in through useDonation, so it is replaced
 // rather than spread: the header only needs the unit preference from it.
 jest.mock('@/shared/app', () => ({
+  ...jest.requireActual('@/shared/app'),
   useMetricSystem: () => true,
 }));
 
@@ -99,13 +100,13 @@ describe('section lift badge', () => {
     const tree = await renderHeader({ ...BASE, isLift: true });
 
     expect(tree.getByTestId('section-lift-badge')).toBeTruthy();
-    expect(tree.queryByTestId('section-lift-unflag')).toBeNull();
+    expect(tree.queryByTestId('section-lift-unflag', { includeHiddenElements: true })).toBeNull();
   });
 
   it('offers the unflag affordance only alongside a handler', async () => {
     const tree = await renderHeader({ ...BASE, isLift: true }, jest.fn());
 
-    expect(tree.getByTestId('section-lift-unflag')).toBeTruthy();
+    expect(tree.getByTestId('section-lift-unflag', { includeHiddenElements: true })).toBeTruthy();
   });
 });
 

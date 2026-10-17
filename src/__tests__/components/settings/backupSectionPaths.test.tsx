@@ -163,6 +163,7 @@ jest.mock('@/features/settings/lib/backup', () => ({
   // Settings is reached signed in, so nothing is held for a sign-in.
   importWaitsForSignIn: () => false,
   discardUnplacedRecords: jest.fn(async () => {}),
+  cancelRecordBackup: jest.fn(() => true),
 }));
 jest.mock('@/features/settings/components/ExportPrivacyRow', () => ({
   ExportPrivacyRow: () => null,
@@ -331,7 +332,7 @@ afterEach(() => {
   jest.restoreAllMocks();
 });
 
-it('keeps the backup action busy until its run finishes', async () => {
+it('holds the backup action as Cancel until its run finishes, starting no second run', async () => {
   let finishBackup:
     | ((result: { wroteZip: boolean; carriers: Record<string, never> }) => void)
     | undefined;
@@ -343,19 +344,14 @@ it('keeps the backup action busy until its run finishes', async () => {
   );
   await render(<BackupSection />);
 
-  const backupButton = screen.getByRole('button', { name: 'backup.backupNow' });
-  void fireEvent.press(backupButton);
-  expect(
-    screen.getByRole('button', { name: 'backup.backupNow' }).props.accessibilityState.busy
-  ).toBe(true);
-  void fireEvent.press(backupButton);
+  void fireEvent.press(screen.getByRole('button', { name: 'backup.backupNow' }));
+  void fireEvent.press(screen.getByRole('button', { name: 'common.cancel' }));
   await act(async () => {});
   expect(performBackup).toHaveBeenCalledTimes(1);
 
   await act(async () => finishBackup?.({ wroteZip: true, carriers: {} }));
-  expect(
-    screen.getByRole('button', { name: 'backup.backupNow' }).props.accessibilityState.busy
-  ).toBe(false);
+  expect(screen.getByRole('button', { name: 'backup.backupNow' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'common.cancel' })).toBeNull();
 });
 
 it('reports the archive destination and an import path after Back Up Now', async () => {
@@ -1109,7 +1105,7 @@ describe('carriers', () => {
     await render(<BackupSection />);
 
     const failure = screen.getByTestId('backup-carrier-failure-folder');
-    expect(StyleSheet.flatten(failure.props.style).color).toBe(darkColors.errorDeep);
+    expect(StyleSheet.flatten(failure.props.style).color).toBe(darkColors.errorText);
   });
 
   it('groups the restore list by carrier and restores from the carrier of the entry', async () => {
@@ -1301,7 +1297,7 @@ describe("the device row on Android reads what Android's backup did", () => {
     await render(<BackupSection />);
 
     const quota = screen.getByTestId('backup-carrier-device-quota');
-    expect(StyleSheet.flatten(quota.props.style).color).toBe(darkColors.errorDeep);
+    expect(StyleSheet.flatten(quota.props.style).color).toBe(darkColors.errorText);
   });
 
   it('says when Veloq was restored from an Android backup', async () => {

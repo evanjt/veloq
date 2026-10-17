@@ -12,7 +12,7 @@
 import React from 'react';
 import { Modal, StyleSheet } from 'react-native';
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native';
-import { advanceAnimationByTime, getAnimatedStyle } from 'react-native-reanimated';
+import { advanceAnimationByTime, getAnimatedStyle } from '../__shared__/reanimatedJest';
 import { WhatsNewModal } from '@/features/settings/components/whatsNew/WhatsNewModal';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { MapPreferencesProvider } from '@/features/settings/stores/MapPreferencesContext';
@@ -211,7 +211,7 @@ describe('the tour when the window changes width', () => {
   });
 
   const rowOffset = () =>
-    StyleSheet.flatten(getAnimatedStyle(screen.getByTestId('whats-new-slide-row'))).transform?.[0];
+    StyleSheet.flatten(getAnimatedStyle(screen.getByTestId('whats-new-slide-row')))?.transform?.[0];
 
   it('keeps the current slide in view after a fold, split or rotation', () => {
     openTour();

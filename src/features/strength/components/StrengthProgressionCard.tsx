@@ -279,9 +279,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     paddingTop: spacing.sm,
     borderTopWidth: stroke.hairline,
-    borderTopColor: colors.divider,
+    borderTopColor: colors.border,
   },
   childrenSlotDark: {
-    borderTopColor: darkColors.divider,
+    borderTopColor: darkColors.border,
   },
 });

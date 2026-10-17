@@ -7,14 +7,14 @@
  */
 
 import React, { useCallback } from 'react';
-import { AccessibilityActionEvent, Pressable, StyleSheet, View } from 'react-native';
+import { AccessibilityActionEvent, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app/useTheme';
 import { mapSheetStopName, useMapSheetStop } from '@/shared/app/mapSheetStop';
 import { colors, darkColors, layout, slopToMinTapTarget, spacing } from '@/theme';
 
-import { pressable, pressRipple } from './pressFeedback';
+import { PressTarget } from './PressTarget';
 
 const STOP_ACTIONS = [{ name: 'increment' }, { name: 'decrement' }];
 
@@ -43,10 +43,9 @@ export function MapSheetHandle({ sheetKey, drawn }: { sheetKey: string; drawn: b
   );
 
   return (
-    <Pressable
+    <PressTarget
       testID="map-sheet-handle"
-      style={pressable([styles.handleArea, !drawn && styles.undrawn])}
-      android_ripple={pressRipple}
+      style={[styles.handleArea, !drawn && styles.undrawn]}
       onPress={tapHandle}
       hitSlop={drawn ? slopToMinTapTarget(HANDLE_AREA_HEIGHT) : undefined}
       accessible
@@ -62,7 +61,7 @@ export function MapSheetHandle({ sheetKey, drawn }: { sheetKey: string; drawn: b
           style={[styles.handle, { backgroundColor: palette.track }]}
         />
       ) : null}
-    </Pressable>
+    </PressTarget>
   );
 }
 

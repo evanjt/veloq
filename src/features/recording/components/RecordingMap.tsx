@@ -1,7 +1,6 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import type { ViewStyle } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useIsFocused } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
@@ -40,8 +39,9 @@ import {
 } from '@/theme';
 import type { LatLngShort } from '@/shared/geo/distance';
 import { LOCATE_GLYPH } from '@/features/maps';
+import { Icon } from '@/shared/ui/Icon';
 
-const EXCLUDED_COLOR = colorWithOpacity(colors.neutralLine, opacity.disabled);
+const EXCLUDED_COLOR = colorWithOpacity(colors.iconMuted, opacity.disabled);
 const POSITION_DOT_COLOR = colors.secondary;
 const POSITION_DOT_HALO = colors.surface;
 const OVERLAY_COLOR = brand.blue;
@@ -360,10 +360,10 @@ function RecordingMapInner({
               accessibilityState={{ selected: !!routeOverlay }}
               android_ripple={pressRipple}
             >
-              <MaterialCommunityIcons
+              <Icon
                 name="map-marker-path"
                 size={iconSize.md}
-                color={routeOverlay ? colors.textOnDark : darkColors.textPrimary}
+                color={routeOverlay ? colors.textOnFill : darkColors.textPrimary}
               />
             </Pressable>
           ) : null}
@@ -375,11 +375,7 @@ function RecordingMapInner({
             accessibilityLabel={t('maps.toggleStyle')}
             android_ripple={pressRipple}
           >
-            <MaterialCommunityIcons
-              name="layers"
-              size={iconSize.md}
-              color={darkColors.textPrimary}
-            />
+            <Icon name="layers" size={iconSize.md} color={darkColors.textPrimary} />
           </Pressable>
           {!isFollowing && (
             <Pressable
@@ -390,11 +386,7 @@ function RecordingMapInner({
               accessibilityLabel={t('maps.goToLocation')}
               android_ripple={pressRipple}
             >
-              <MaterialCommunityIcons
-                name={LOCATE_GLYPH}
-                size={iconSize.md}
-                color={darkColors.textPrimary}
-              />
+              <Icon name={LOCATE_GLYPH} size={iconSize.md} color={darkColors.textPrimary} />
             </Pressable>
           )}
         </View>
@@ -408,7 +400,7 @@ export const RecordingMap = React.memo(RecordingMapInner);
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: darkColors.background,
+    backgroundColor: darkColors.surfacePage,
   },
   controls: {
     position: 'absolute',

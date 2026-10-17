@@ -119,7 +119,7 @@ describe('SheetHeader', () => {
     expect(order.indexOf('sheet-actions')).toBeLessThan(order.indexOf('sheet-cancel'));
     expect(order.indexOf('sheet-cancel')).toBeLessThan(order.indexOf('sheet-confirm'));
 
-    expect(styleOf(screen.getByTestId('sheet-confirm')).backgroundColor).toBe(colors.primary);
+    expect(styleOf(screen.getByTestId('sheet-confirm')).backgroundColor).toBe(colors.actionPrimary);
     expect(styleOf(screen.getByTestId('sheet-cancel')).backgroundColor).toBe('transparent');
   });
 
@@ -167,6 +167,25 @@ describe('SheetHeader', () => {
 
     await fireEvent.press(screen.getByTestId('sheet-close'));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('draws the iOS close as a 40 square on the neutral fill with a 24 glyph in the secondary icon colour', async () => {
+    Platform.OS = 'ios';
+    await renderSheet({
+      onCancel: undefined,
+      confirm: undefined,
+      onClose: jest.fn(),
+      closeTestID: 'sheet-close',
+    });
+
+    const close = screen.getByTestId('sheet-close');
+    const ground = styleOf(close);
+    expect(ground.backgroundColor).toBe(colors.fillNeutral);
+    expect(ground.minWidth).toBe(40);
+    expect(ground.minHeight).toBe(40);
+    const glyph = close.findByProps({ name: 'close' });
+    expect(glyph.props.size).toBe(24);
+    expect(glyph.props.color).toBe(colors.iconSecondary);
   });
 
   it('draws no close on Android, where drag, scrim and back dismiss the sheet', async () => {

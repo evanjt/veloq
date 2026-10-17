@@ -65,8 +65,6 @@ jest.mock('@/shared/app/SyncDateRangeStore', () => ({
     selector({
       oldest: '2026-06-03',
       extendedFetch: { phase: 'idle', since: 0 },
-      isGpsSyncing: false,
-      gpsSyncProgress: { percent: 0, message: '', completed: 0, total: 0 },
       isExpansionLocked: false,
     }),
 }));

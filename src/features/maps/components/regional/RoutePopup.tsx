@@ -1,5 +1,5 @@
 import React, { memo, useRef } from 'react';
-import { Text } from 'react-native';
+import type { TextInstance } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useMetricSystem } from '@/shared/app';
 import { formatDistance } from '@/shared/format/format';
@@ -31,7 +31,7 @@ export const RoutePopup = memo(function RoutePopup({
 }: RoutePopupProps) {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
-  const titleRef = useRef<Text>(null);
+  const titleRef = useRef<TextInstance>(null);
   useFocusOnAppear(titleRef, route.routeId);
 
   // The engine names every route it draws; the id stands in only for a read

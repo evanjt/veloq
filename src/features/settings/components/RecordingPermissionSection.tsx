@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { useWriteAccessMissing } from '@/features/recording';
 import { SettingsNavRow } from './SettingsNavRow';
 import { settingsStyles } from './settingsStyles';
@@ -31,7 +31,7 @@ export function RecordingPermissionSection() {
         icon="shield-alert-outline"
         tone="warning"
         title={t('recording.permissionNeeded', 'Permission needed to upload activities')}
-        onPress={() => tapTo('/recording-settings')}
+        onPress={() => navigateTo('/recording-settings')}
         testID="settings-recording-permission-link"
       />
     </View>

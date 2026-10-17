@@ -679,8 +679,6 @@ class EngineClient implements DelegateHost {
 
   startDetectorCutover = (): FfiStartOutcome => cutoverDelegates.startDetectorCutover(this);
 
-  cancelDetectorCutover = (): void => cutoverDelegates.cancelDetectorCutover(this);
-
   getChangeCardSupport = () => cutoverDelegates.getChangeCardSupport(this);
 
   /**
@@ -875,8 +873,6 @@ class EngineClient implements DelegateHost {
     sectionDelegates.includeSectionLap(this, sectionId, activityId, startIndex);
 
   getSectionHistory = (sectionId: string) => sectionDelegates.getSectionHistory(this, sectionId);
-  getSectionGeometryVersions = (sectionId: string) =>
-    sectionDelegates.getSectionGeometryVersions(this, sectionId);
   getSectionGeometryVersionPolyline = (sectionId: string, version: number) =>
     sectionDelegates.getSectionGeometryVersionPolyline(this, sectionId, version);
   unpinSection = (sectionId: string) => sectionDelegates.unpinSection(this, sectionId);
@@ -1337,9 +1333,19 @@ class EngineClient implements DelegateHost {
     await this.engine.writeClearSnapshot(destPath);
   }
 
+  /** Rejects with `Cancelled` when `cancelRun` stopped it, writing nothing. */
   async runRecordBackup(destPath: string): Promise<void> {
     if (!this.ready) throw new Error('Engine not initialised');
     await this.engine.runRecordBackup(destPath);
+  }
+
+  /**
+   * Ask one bulk export, record backup or detector cutover to stop, by the id
+   * its screen read names. Whether that run was still going.
+   */
+  cancelRun(run: number): boolean {
+    if (!this.ready) return false;
+    return this.timed('cancelRun', () => generated.cancelRun(run));
   }
 
   /**
@@ -1427,8 +1433,8 @@ class EngineClient implements DelegateHost {
     };
   }
 
-  /** How far the running export has got, or nothing running. */
-  bulkExportProgress(): { running: boolean; visited: number; total: number } {
+  /** How far the running export has got, and its id for `cancelRun`, or nothing running. */
+  bulkExportProgress(): { running: boolean; run?: number; visited: number; total: number } {
     if (!this.ready) return { running: false, visited: 0, total: 0 };
     return this.timed('bulkExportProgress', () => this.engine.bulkExportProgress());
   }

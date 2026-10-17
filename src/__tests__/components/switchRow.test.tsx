@@ -234,11 +234,11 @@ describe('switch colours', () => {
 
   it('draws the Android on track solid in the on role under a white thumb', () => {
     expect(switchColors(false, true, 'android')).toEqual({
-      thumbColor: colors.textOnPrimary,
+      thumbColor: colors.textOnFill,
       trackColor: { true: colors.controlOn, false: colors.controlBoundary },
     });
     expect(switchColors(true, true, 'android')).toEqual({
-      thumbColor: colors.textOnPrimary,
+      thumbColor: colors.textOnFill,
       trackColor: { true: darkColors.controlOn, false: darkColors.controlBoundary },
     });
   });

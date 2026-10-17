@@ -81,6 +81,19 @@ pub fn cancel_fetch_and_store(run: f64) -> bool {
     crate::http::cancel_download(crate::ffi_types::uint_from_wire(run))
 }
 
+/// Ask one bulk export, record backup or detector cutover to stop, by the id
+/// its screen read names. Returns whether that run was still going.
+///
+/// An export stops at its next activity, or its next stage for the backup,
+/// removes what it had written and answers `Cancelled`. The cutover stops at
+/// its next step boundary and is still owed, so the next launch runs it again.
+/// The id belongs to the run and ends with it, so a stop cannot reach a later
+/// one.
+#[uniffi::export]
+pub fn cancel_run(run: f64) -> bool {
+    crate::objects::cancel_stoppable_run(crate::ffi_types::uint_from_wire(run))
+}
+
 /// Progress for one fetch run, by the id `start_fetch_and_store` returned.
 ///
 /// The global read answers for the queue head and reports active for
@@ -1547,6 +1560,8 @@ pub struct CutoverProgress {
     pub phase: String,
     /// Whether a run holds the slot right now.
     pub running: bool,
+    /// The running cutover's id, for `cancel_run`.
+    pub run: Option<f64>,
 }
 
 /// Every background-job figure the routes and settings screens poll, in one
@@ -1659,53 +1674,25 @@ pub fn start_detector_cutover() -> crate::objects::FfiStartOutcome {
     crate::persistence::cutover::start_cutover()
 }
 
-/// Ask the running cutover to stop at its next step boundary.
-///
-/// The cut is a cold detect over the whole library, spawned unattended at
-/// launch, and the only lever before this was a force-quit, which the
-/// in-flight token undid on the next launch anyway. Stopping costs the run's
-/// work and nothing else: the migration is still owed and the next launch runs
-/// it again from the top.
-#[uniffi::export]
-pub fn cancel_detector_cutover() {
-    crate::persistence::cutover::cancel_cutover();
-}
-
 /// How far the running cutover has got. Read by [`get_routes_status_data`],
 /// which is what TypeScript polls.
 pub fn get_cutover_progress() -> CutoverProgress {
     CutoverProgress {
         phase: crate::persistence::cutover::cutover_phase().to_string(),
         running: crate::persistence::cutover::cutover_running(),
+        run: crate::persistence::cutover::cutover_run().map(|run| run as f64),
     }
 }
 
 /// Which claims the change card may make on this build.
 #[uniffi::export]
-pub fn get_change_card_support() -> crate::FfiChangeCardSupport {
-    let s = crate::objects::error::with_reader(|conn| {
+pub fn get_change_card_support() -> crate::persistence::cutover::ChangeCardSupport {
+    crate::objects::error::with_reader(|conn| {
         crate::persistence::cutover::change_card_support_from(conn).ok()
     })
     .ok()
-    .flatten();
-    let s = s.unwrap_or(crate::persistence::cutover::ChangeCardSupport {
-        deterministic: false,
-        same_result_drip_or_batch: false,
-        ledger: false,
-        revert: false,
-        retired: false,
-        pinned_survive: false,
-        same_on_every_device: false,
-    });
-    crate::FfiChangeCardSupport {
-        deterministic: s.deterministic,
-        same_result_drip_or_batch: s.same_result_drip_or_batch,
-        ledger: s.ledger,
-        revert: s.revert,
-        retired: s.retired,
-        pinned_survive: s.pinned_survive,
-        same_on_every_device: s.same_on_every_device,
-    }
+    .flatten()
+    .unwrap_or(crate::persistence::cutover::ChangeCardSupport::NONE)
 }
 
 /// The stored cutover diff, if any.

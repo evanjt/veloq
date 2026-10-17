@@ -26,7 +26,7 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockParams,
 }));
 jest.mock('@/shared/app/navigation', () => ({
-  tapTo: (target: unknown) => {
+  navigateTo: (target: unknown) => {
     mockOrder.push('navigate');
     mockNavigate(target);
   },

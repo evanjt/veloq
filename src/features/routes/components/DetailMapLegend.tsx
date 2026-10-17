@@ -90,7 +90,7 @@ export function DetailMapLegend({
       ) : null}
       {showEarlierVersion ? (
         <MapKeySwatch
-          swatch={colors.gray500}
+          swatch={colors.iconSecondary}
           label={t('sections.legendEarlierVersion')}
           isDark={isDark}
         />

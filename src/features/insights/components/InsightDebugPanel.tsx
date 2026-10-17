@@ -129,11 +129,11 @@ const DEBUG_SCROLL_BOTTOM_PADDING = spacing.xl * 2;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfacePage,
     paddingTop: spacing.xl,
   },
   containerDark: {
-    backgroundColor: darkColors.background,
+    backgroundColor: darkColors.surfacePage,
   },
   header: {
     flexDirection: 'row',

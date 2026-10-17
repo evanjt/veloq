@@ -21,7 +21,6 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 // After the layout: the testing library mocks reanimated for every later import,
 // and that mock lacks the logger the root layout configures at load.
 import { act, renderRouter, screen } from 'expo-router/testing-library';
-import { store } from 'expo-router/build/global-state/router-store';
 
 // The shared setup stubs the router for render tests; this suite needs the real one.
 jest.mock('expo-router', () => ({ ...jest.requireActual('expo-router') }));
@@ -102,10 +101,18 @@ const APP = {
 
 type NavState = { index?: number; routes: { name: string; state?: NavState }[] };
 
+let app: Awaited<ReturnType<typeof renderRouter>>;
+
+/** The app rendered at a link, kept so the state helpers read its router. */
+async function open(options: { initialUrl: string }) {
+  app = await renderRouter(APP, options);
+  return app;
+}
+
 /** The route names from the root down to the screen in front. */
 function focusedChain(): string[] {
   const chain: string[] = [];
-  let state = store.navigationRef.getRootState() as unknown as NavState | undefined;
+  let state = app.getRouterState() as unknown as NavState | undefined;
   while (state) {
     const route = state.routes[state.index ?? state.routes.length - 1];
     if (!route) break;
@@ -142,7 +149,7 @@ beforeEach(() => {
   });
 });
 
-async function expectFeedInFront(result: ReturnType<typeof renderRouter>) {
+async function expectFeedInFront(result: Awaited<ReturnType<typeof renderRouter>>) {
   expect(result.getPathname()).toBe('/');
   expect(focusedChain()).toEqual(['__root', '(tabs)', '(feed)', 'index']);
   expect(screen.getByText('feed')).toBeVisible();
@@ -151,7 +158,7 @@ async function expectFeedInFront(result: ReturnType<typeof renderRouter>) {
 it.each([['/fitness'], ['/training'], ['/map'], ['/insights']])(
   'a root link after a link to %s brings the Feed to the front',
   async (tab) => {
-    const result = renderRouter(APP, { initialUrl: '/' });
+    const result = await open({ initialUrl: '/' });
     await settle();
     expect(mockUrlListeners.length).toBeGreaterThan(0);
 
@@ -166,7 +173,7 @@ it.each([['/fitness'], ['/training'], ['/map'], ['/insights']])(
 it.each([['/settings'], ['/about'], ['/activity/a1']])(
   'a root link over the stack screen %s pops it and brings the Feed to the front',
   async (stackScreen) => {
-    const result = renderRouter(APP, { initialUrl: '/' });
+    const result = await open({ initialUrl: '/' });
     await settle();
 
     await openLink('/insights');
@@ -179,7 +186,7 @@ it.each([['/settings'], ['/about'], ['/activity/a1']])(
 );
 
 it('the Feed is in front after every root link in a run of rapid links', async () => {
-  const result = renderRouter(APP, { initialUrl: '/' });
+  const result = await open({ initialUrl: '/' });
   await settle();
 
   for (let cycle = 0; cycle < 2; cycle++) {

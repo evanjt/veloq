@@ -72,7 +72,7 @@ export function RoutesSlide() {
               style="stroke"
               strokeWidth={1.5}
               strokeJoin="round"
-              color={colorWithOpacity(palette.primary, FAINT_OPACITY)}
+              color={colorWithOpacity(palette.actionPrimary, FAINT_OPACITY)}
             />
           ))}
         </Canvas>
@@ -86,7 +86,11 @@ export function RoutesSlide() {
               y={bar.y}
               width={bar.width}
               height={bar.height}
-              color={bar.best ? palette.primary : colorWithOpacity(palette.primary, FAINT_OPACITY)}
+              color={
+                bar.best
+                  ? palette.actionPrimary
+                  : colorWithOpacity(palette.actionPrimary, FAINT_OPACITY)
+              }
             />
           ))}
         </Canvas>

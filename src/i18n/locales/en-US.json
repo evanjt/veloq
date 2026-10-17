@@ -128,5 +128,8 @@
     "metres_other": "{{value}} meters",
     "kilometres_one": "{{value}} kilometer",
     "kilometres_other": "{{value}} kilometers"
+  },
+  "common": {
+    "cancelled": "Canceled"
   }
 }

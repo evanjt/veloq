@@ -16,7 +16,7 @@ export const SECTION_CREATION_MARKER_STROKE_WIDTH = 2;
 
 /** Line colour; the activity map draws it with no casing. */
 export const sectionCreationLinePaint = {
-  'line-color': colors.success,
+  'line-color': colors.successFill,
   'line-width': SECTION_CREATION_LINE_WIDTH,
 } as const;
 

@@ -1,7 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { View, Image, StyleSheet, ActivityIndicator } from 'react-native';
 import { useIsFocused } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getActivityColor } from '@/shared/activity/activityUtils';
 import { getMapLibreBounds } from '@/shared/geo/polyline';
 import { useMapPreferences } from '@/features/settings';
@@ -20,6 +19,7 @@ import {
   type TerrainSnapshotWebViewRef,
 } from '@/features/maps';
 import { StaticCompassArrow } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { useIsOnline } from '@/shared/app/NetworkContext';
 import { useReconnect } from '@/shared/app/useRetryTriggers';
 import { useSyncState } from '@/shared/native/useSyncStatus';
@@ -294,7 +294,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
           { height, backgroundColor: colorWithOpacity(activityColor, opacity.tint2) },
         ]}
       >
-        <MaterialCommunityIcons name="map-marker-off" size={iconSize.xl} color={activityColor} />
+        <Icon name="map-marker-off" size={iconSize.xl} color={activityColor} />
       </View>
     );
   }
@@ -327,11 +327,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
           { height, backgroundColor: colorWithOpacity(activityColor, opacity.tint2) },
         ]}
       >
-        <MaterialCommunityIcons
-          name="cloud-download-outline"
-          size={iconSize.xl}
-          color={activityColor}
-        />
+        <Icon name="cloud-download-outline" size={iconSize.xl} color={activityColor} />
       </View>
     );
   }
@@ -404,7 +400,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
         { height, backgroundColor: colorWithOpacity(activityColor, opacity.tint2) },
       ]}
     >
-      <MaterialCommunityIcons name="map-marker-off" size={iconSize.xl} color={activityColor} />
+      <Icon name="map-marker-off" size={iconSize.xl} color={activityColor} />
     </View>
   );
 });

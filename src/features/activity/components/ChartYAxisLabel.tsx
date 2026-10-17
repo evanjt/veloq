@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { type LayoutChangeEvent } from 'react-native';
+import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import { DenseText } from '@/shared/ui/DenseText';
-import { chartStyles, stroke } from '@/theme';
+import { chartStreamColour, chartStyles, stroke } from '@/theme';
 import type { SeriesInfo } from '@/features/stats';
 
 interface ChartYAxisLabelProps {
@@ -27,7 +27,9 @@ const DEFAULT_LABEL_HEIGHT = 14;
 /**
  * Y-axis min/max/avg labels overlaid on the chart. Rendered as absolutely
  * positioned Text rather than Victory axis ticks so they can sit exactly on
- * the Skia reference lines drawn by the parent.
+ * the Skia reference lines drawn by the parent. A screen reader skips them:
+ * read alone they are numbers with no name, and the plot's summary carries
+ * each stream's range in its unit.
  */
 export const ChartYAxisLabel = React.memo(function ChartYAxisLabel({
   yAxisSeries,
@@ -47,11 +49,19 @@ export const ChartYAxisLabel = React.memo(function ChartYAxisLabel({
   const labelStyle = [chartStyles.chartLabelOnData, isDark && chartStyles.chartLabelOnDataDark];
   const max = formatYAxisValue(yAxisSeries.range.max, yAxisSeries);
   const accent = showYAxisAccent
-    ? { borderLeftWidth: stroke.two, borderLeftColor: yAxisSeries.config.color }
+    ? {
+        borderLeftWidth: stroke.two,
+        borderLeftColor: chartStreamColour(yAxisSeries.config.stream, isDark),
+      }
     : null;
 
   return (
-    <>
+    <View
+      style={StyleSheet.absoluteFill}
+      pointerEvents="none"
+      importantForAccessibility="no-hide-descendants"
+      accessibilityElementsHidden
+    >
       {/* Max label - on the max reference line at chart top */}
       <DenseText
         style={[labelStyle, accent, { position: 'absolute', left: 4, top: chartPaddingTop }]}
@@ -94,6 +104,6 @@ export const ChartYAxisLabel = React.memo(function ChartYAxisLabel({
           {formatYAxisValue(yAxisAvgInfo.raw, yAxisSeries)}
         </DenseText>
       ) : null}
-    </>
+    </View>
   );
 });

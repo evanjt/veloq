@@ -27,7 +27,6 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Slider from '@react-native-community/slider';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { PreviewParams } from 'veloqrs';
 
@@ -35,6 +34,7 @@ import { useMetricSystem, useTheme } from '@/shared/app';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { formatDistance } from '@/shared/format/format';
 import { pressable, pressRipple, ToggleButton } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import {
   colors,
   darkColors,
@@ -230,7 +230,7 @@ function ParamRow({
         android_ripple={pressRipple}
       >
         <Text style={[styles.paramLabel, { color: txt }]}>{label}</Text>
-        <MaterialCommunityIcons name="pencil" size={iconSize.sm} color={txt} />
+        <Icon name="pencil" size={iconSize.sm} color={txt} />
       </Pressable>
       <Slider
         testID={`param-slider-${paramKey}`}
@@ -246,9 +246,9 @@ function ParamRow({
         step={step}
         onValueChange={onChange}
         onSlidingComplete={onRelease}
-        minimumTrackTintColor={themePalette(isDark).primary}
+        minimumTrackTintColor={themePalette(isDark).actionPrimary}
         maximumTrackTintColor={trackBg}
-        thumbTintColor={themePalette(isDark).primary}
+        thumbTintColor={themePalette(isDark).actionPrimary}
       />
       {isPastTestedRange(paramKey, value) && (
         <Text testID={`param-range-note-${paramKey}`} style={[styles.paramLabel, { color: txt }]}>

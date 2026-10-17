@@ -1,15 +1,15 @@
 import React, { Component, ReactNode, useRef } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, type ViewInstance } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useSegments } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
+import { Icon } from './Icon';
 import { Button } from './Button';
 import { StatusLine } from './StatusLine';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
-import { tapBack } from '@/shared/app/navigation';
+import { goBack } from '@/shared/app/navigation';
 import { offerCrashLog } from '@/shared/app/supportLinks';
 import { isTabBarRoute } from './tabBarClearance';
 
@@ -72,7 +72,7 @@ interface FallbackProps {
 function ScreenErrorFallback({ error, onRetry }: FallbackProps) {
   const { isDark, colors: themeColors } = useTheme();
   const { t } = useTranslation();
-  const crashLogAnchor = useRef<View>(null);
+  const crashLogAnchor = useRef<ViewInstance>(null);
   // Back always leaves a stack screen, to the Feed when nothing is behind it. On a tab the Feed
   // may be the screen that threw, so Back there needs history to go back to.
   const offersBack = !isTabBarRoute(useSegments()) || router.canGoBack();
@@ -85,7 +85,7 @@ function ScreenErrorFallback({ error, onRetry }: FallbackProps) {
       message={title}
       style={[styles.container, isDark && styles.containerDark]}
     >
-      <MaterialCommunityIcons
+      <Icon
         name="alert-circle-outline"
         size={iconSize.xxl}
         color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -104,7 +104,7 @@ function ScreenErrorFallback({ error, onRetry }: FallbackProps) {
             label={t('common.back')}
             variant="secondary"
             size="sm"
-            onPress={() => tapBack()}
+            onPress={() => goBack()}
             style={styles.button}
           />
         ) : null}
@@ -126,13 +126,13 @@ function ScreenErrorFallback({ error, onRetry }: FallbackProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfacePage,
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,
   },
   containerDark: {
-    backgroundColor: darkColors.background,
+    backgroundColor: darkColors.surfacePage,
   },
   title: {
     ...typography.cardTitle,

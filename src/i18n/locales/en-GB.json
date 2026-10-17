@@ -44,7 +44,7 @@
     "explanations": {
       "conditions": "Temperature from weather data or your device sensor.",
       "energy": "Estimated energy expenditure from heart rate, power, and duration.",
-      "fitnessImpact": "Compared with a rest day, this activity adds load × (1 − e^(−1/42)) to fitness and load × (1 − e^(−1/7)) to fatigue. Strength training adds fatigue only. Form impact is fitness minus fatigue.",
+      "fitnessImpact": "Compared with a rest day, this activity adds load × (1 − e^(−1/{{fitnessDays}})) to fitness and load × (1 − e^(−1/{{fatigueDays}})) to fatigue. Strength training adds fatigue only. Form impact is fitness minus fatigue.",
       "heartRate": "Average heart rate during the activity.",
       "newGround": "The share of the map tiles this activity touched that no earlier activity had touched. Tiles are about 150 to 300 m across, depending on latitude, so this is tile coverage and not distance on new roads.",
       "activityEftp": "The eFTP is intervals.icu's power model estimate for this activity.",
@@ -488,6 +488,7 @@
     "back": "Back",
     "close": "Close",
     "cancel": "Cancel",
+    "cancelled": "Cancelled",
     "clearSearch": "Clear search",
     "clearFilters": "Clear filters",
     "quoted": "“{{text}}”",
@@ -2819,15 +2820,29 @@
       "single": "{{name}}, {{start}}: {{value}}.",
       "series": "{{name}}, {{start}} to {{end}}: latest {{latest}}, range {{min}} to {{max}}, average {{average}}.",
       "curve": "{{name}}, {{start}} to {{end}}: {{first}} at {{start}}, {{last}} at {{end}}, peak {{max}}.",
-      "parts": "{{name}}: {{parts}}."
+      "parts": "{{name}}: {{parts}}.",
+      "dayActive": "{{name}}, {{start}}: active.",
+      "dayRest": "{{name}}, {{start}}: no activity.",
+      "noActivity": "{{name}}, {{start}} to {{end}}: no activity.",
+      "daysActive_one": "{{name}}, {{start}} to {{end}}: active on {{active}} of {{count}} day.",
+      "daysActive_other": "{{name}}, {{start}} to {{end}}: active on {{active}} of {{count}} days.",
+      "longestBreak": "Longest break {{gap}}.",
+      "dayCount_one": "{{count}} day",
+      "dayCount_other": "{{count}} days",
+      "peakDay": "Peak {{value}} on {{day}}."
     },
     "column": {
       "date": "Date",
       "duration": "Duration",
       "distance": "Distance",
       "zone": "Zone",
-      "time": "Time"
-    }
+      "time": "Time",
+      "month": "Month",
+      "activities": "Activities",
+      "muscle": "Muscle",
+      "sets": "Weighted sets"
+    },
+    "activityPlot": "Activity chart"
   },
   "sportFamilies": {
     "ride": "Cycling",

@@ -86,7 +86,7 @@ fn engine_with_one_section_let_go() -> PersistentEngine {
             .unwrap();
         engine
             .sections
-            .push(auto_section(&format!("auto-{k}"), line(lng), &[&ride]));
+            .push(auto_section(&format!("auto-{k}"), line(lng), &[&ride]).into());
     }
     for ride in ["kept", "excluded"] {
         engine
@@ -95,7 +95,7 @@ fn engine_with_one_section_let_go() -> PersistentEngine {
     }
     engine
         .sections
-        .push(auto_section(READMITTED, line(LNG), &["kept", "excluded"]));
+        .push(auto_section(READMITTED, line(LNG), &["kept", "excluded"]).into());
     engine.save_sections_with_events(&[]).unwrap();
     engine
         .exclude_activity_from_section(READMITTED, "excluded")

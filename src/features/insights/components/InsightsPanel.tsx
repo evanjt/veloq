@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View, type ScrollViewInstance } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
@@ -64,7 +64,7 @@ export const InsightsPanel = React.memo(function InsightsPanel({
 }: InsightsPanelProps) {
   const { isDark } = useTheme();
   const scrollEndInset = useScrollEndInset();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   useScrollToTopOnReselect('/insights', scrollRef);
   const { t } = useTranslation();
   const [debugOpen, setDebugOpen] = useState(false);

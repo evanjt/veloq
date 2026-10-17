@@ -67,6 +67,7 @@ use crate::{FrequentSection, GpsPoint, SectionPortion};
 use chrono::Utc;
 use rusqlite::{Result as SqlResult, params, types::Type};
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use super::schema::{SECTION_SUMMARY_BULK_KEY, recount_section_summaries};
 use super::{PersistentEngine, SectionSummary, codec};
@@ -870,6 +871,7 @@ impl PersistentEngine {
                     }
                 })
                 .filter(|s: &FrequentSection| !s.id.is_empty())
+                .map(Arc::new)
                 .collect();
         }
 
@@ -900,6 +902,7 @@ impl PersistentEngine {
         let _ = self.backfill_section_coverage();
 
         self.refresh_superseded_ids();
+        self.share_loaded_sections();
 
         self.sections_dirty = false;
         Ok(())
@@ -931,7 +934,7 @@ impl PersistentEngine {
         section_id: &str,
     ) -> Option<crate::FfiSectionRecalcResult> {
         let idx = self.sections.iter().position(|s| s.id == section_id)?;
-        let mut section = self.sections[idx].clone();
+        let section = Arc::clone(&self.sections[idx]);
         if section.is_user_defined || section.activity_ids.is_empty() {
             return None;
         }
@@ -951,9 +954,13 @@ impl PersistentEngine {
                 distance_meters: distance,
             };
             let unchanged = section.polyline == polyline;
-            section.polyline = polyline;
-            section.distance_meters = distance;
-            self.sections[idx] = section;
+            drop(section);
+            if !unchanged {
+                self.edit_sections([idx], |_, section| {
+                    section.polyline = polyline.clone();
+                    section.distance_meters = distance;
+                });
+            }
             if !unchanged && let Err(err) = self.save_sections() {
                 log::warn!(
                     "veloqrs: [recalculate_section_polyline] save_sections failed: {}",
@@ -968,15 +975,17 @@ impl PersistentEngine {
         // covers keeps the line it has.
         let (activity_id, range, polyline) = self.slice_of_member_track(&section)?;
         let distance = tracematch::matching::calculate_route_distance(&polyline);
-        section.representative_activity_id = activity_id;
-        section.representative_range = Some(range);
-        section.polyline = polyline;
-        section.distance_meters = distance;
         let result = crate::FfiSectionRecalcResult {
             section_id: section.id.clone(),
             distance_meters: distance,
         };
-        self.sections[idx] = section;
+        drop(section);
+        self.edit_sections([idx], |_, section| {
+            section.representative_activity_id = activity_id.clone();
+            section.representative_range = Some(range);
+            section.polyline = polyline.clone();
+            section.distance_meters = distance;
+        });
         if let Err(err) = self.save_sections() {
             log::warn!(
                 "veloqrs: [recalculate_section_polyline] save_sections failed: {}",
@@ -1157,7 +1166,7 @@ impl PersistentEngine {
     /// catalogue, superseded entries included: they are still detection priors,
     /// so dropping them here would re-mint their ground under a new id. Reads
     /// that answer a user use [`get_visible_sections`](Self::get_visible_sections).
-    pub fn get_sections(&self) -> &[FrequentSection] {
+    pub fn get_sections(&self) -> &[Arc<FrequentSection>] {
         &self.sections
     }
 
@@ -1184,6 +1193,7 @@ impl PersistentEngine {
         self.sections
             .iter()
             .filter(|s| !self.superseded_ids.contains(&s.id))
+            .map(|s| &**s)
             .collect()
     }
 
@@ -1232,9 +1242,12 @@ impl PersistentEngine {
         pooled::catalogue_sections(&self.db, sport_type, min_visits)
     }
 
+    /// An accepted section leaves the registry's care, so the flag is set on
+    /// the visible copy alone and the registry row keeps the auto payload it
+    /// relinquishes.
     pub fn mark_section_accepted_in_memory(&mut self, section_id: &str) {
         if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
-            section.is_user_defined = true;
+            Arc::make_mut(section).is_user_defined = true;
         }
     }
 
@@ -1448,6 +1461,7 @@ impl PersistentEngine {
         };
 
         // Find and update existing section, or append if new
+        let updated_section = Arc::new(updated_section);
         if let Some(existing) = self.sections.iter_mut().find(|s| s.id == section_id) {
             *existing = updated_section;
             log::debug!(
@@ -1590,9 +1604,12 @@ impl PersistentEngine {
         self.section_cache.clear();
     }
 
+    /// The visible copies alone, as for one accepted section.
     pub fn mark_all_auto_sections_accepted(&mut self) {
         for section in &mut self.sections {
-            section.is_user_defined = true;
+            if !section.is_user_defined {
+                Arc::make_mut(section).is_user_defined = true;
+            }
         }
     }
 
@@ -1813,12 +1830,13 @@ impl PersistentEngine {
         for idx in unranged {
             match self.slice_of_member_track(&self.sections[idx]) {
                 Some((activity_id, range, polyline)) => {
-                    let section = &mut self.sections[idx];
-                    section.distance_meters =
-                        tracematch::matching::calculate_route_distance(&polyline);
-                    section.representative_activity_id = activity_id;
-                    section.representative_range = Some(range);
-                    section.polyline = polyline;
+                    let distance = tracematch::matching::calculate_route_distance(&polyline);
+                    self.edit_sections([idx], |_, section| {
+                        section.distance_meters = distance;
+                        section.representative_activity_id = activity_id.clone();
+                        section.representative_range = Some(range);
+                        section.polyline = polyline.clone();
+                    });
                 }
                 None => refused.push(idx),
             }
@@ -2047,6 +2065,7 @@ impl PersistentEngine {
             .sections
             .iter()
             .filter(|s| !s.is_user_defined)
+            .map(|s| &**s)
             .collect();
         // Section id closes the order: it is unique, so a section new to the
         // catalogue takes the same number on every run.

@@ -319,7 +319,7 @@ describe('on Android, signed in to Google Drive', () => {
     const files = driveFiles();
     expect(files).toHaveLength(1);
     expect(files[0].parents).toEqual(['appDataFolder']);
-    expect(files[0].name).toMatch(/^veloq-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z\.zip$/);
+    expect(files[0].name).toMatch(/^veloq-backup-\d{4}-\d{2}-\d{2}-\d{6}\.zip$/);
     expect(files[0].bytes).toEqual(MOCK_ZIP_BYTES);
     expect(mockDrive.requests).toContain(`GET /drive/v3/files/${[...mockDrive.files.keys()][0]}`);
     expect(getDestinationLastBackup('googleDrive')).not.toBeNull();

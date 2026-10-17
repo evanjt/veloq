@@ -30,8 +30,8 @@ function contrastRatio(a: string, b: string): number {
 }
 
 const SURFACES = {
-  light: [colors.surface, colors.background, colors.backgroundAlt],
-  dark: [darkColors.surface, darkColors.background, darkColors.surfaceElevated],
+  light: [colors.surface, colors.surfacePage, colors.surfaceInput],
+  dark: [darkColors.surface, darkColors.surfacePage, darkColors.surfaceRaised],
 };
 
 async function valueInk(value: number): Promise<string> {

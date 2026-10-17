@@ -73,7 +73,7 @@ async function plotProps(sectionId: string, sectionType: string, removeSection: 
     renderRightActions: (
       group: SectionEncounterGroup,
       progress: unknown,
-      dragX: { interpolate: (args: unknown) => number }
+      drag: { value: number }
     ) => React.ReactNode;
     actionsFor: (
       group: SectionEncounterGroup
@@ -83,7 +83,7 @@ async function plotProps(sectionId: string, sectionType: string, removeSection: 
 
 async function swipeActions(sectionId: string, sectionType: string, removeSection: jest.Mock) {
   const props = await plotProps(sectionId, sectionType, removeSection);
-  const actions = props.renderRightActions(props.group, null, { interpolate: () => 1 });
+  const actions = props.renderRightActions(props.group, null, { value: -80 });
   if (!React.isValidElement(actions)) throw new Error('Swipe actions were not rendered');
   return await render(actions);
 }

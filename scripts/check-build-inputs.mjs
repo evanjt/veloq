@@ -4,22 +4,23 @@
 // Two lists decide whether a change rebuilds the app, and both are written by
 // hand. `compute-source-hash.js` hashes only the top-level directories it
 // names, and the simulator-app cache is keyed on that hash, so a change under
-// any other directory restores the old app. The pull request native filter in
-// `build.yml` runs the iOS build only for the paths it names, so a change to
-// native iOS source outside them is never compiled before it merges.
+// any other directory restores the old app. A pull request runs the native
+// builds only for a change `scripts/ci-required.mjs` reads as native, from the
+// areas `scripts/ci-areas.mjs` names, so a change to native iOS source it
+// reads as app code alone is never compiled before it merges.
 //
 // So every tracked top-level directory has to be a build input or be left out
 // on purpose, and every tracked iOS native source in a build input has to be
-// matched by the native filter.
+// read as native.
 //
 // Usage: node scripts/check-build-inputs.mjs [--root <dir>]
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { join, matchesGlob, resolve } from 'node:path';
+import { resolve } from 'node:path';
 
-import { load } from 'js-yaml';
+import { ciAreas } from './ci-areas.mjs';
+import { buildsNative } from './ci-required.mjs';
 
 const { buildDirectories, excludedDirectories } = createRequire(import.meta.url)(
   './compute-source-hash.js'
@@ -40,17 +41,9 @@ function trackedFiles() {
     .filter(Boolean);
 }
 
-/** The path globs of the `native` filter in the pull request change detection. */
-function nativeFilter() {
-  const workflow = load(readFileSync(join(root, '.github/workflows/build.yml'), 'utf8'));
-  const steps = workflow?.jobs?.changes?.steps ?? [];
-  const step = steps.find((s) => String(s.uses ?? '').startsWith('dorny/paths-filter'));
-  const filters = step?.with?.filters;
-  const native = (typeof filters === 'string' ? load(filters) : filters)?.native;
-  if (!Array.isArray(native)) {
-    throw new Error('build.yml has no `native` paths filter in its `changes` job');
-  }
-  return native;
+/** Whether a pull request changing only this file runs the native builds. */
+function buildsFile(file) {
+  return buildsNative({ event: 'pull_request', areas: ciAreas({ paths: [file], root }) });
 }
 
 const files = trackedFiles();
@@ -66,11 +59,13 @@ for (const dir of [...directories].sort()) {
   }
 }
 
-const globs = nativeFilter();
 for (const file of files) {
   if (!IOS_SOURCE.test(file) || !buildDirectories.has(file.split('/')[0])) continue;
-  if (!globs.some((glob) => matchesGlob(file, glob))) {
-    problems.push(`${file} is iOS native source the build.yml native filter does not match`);
+  if (!buildsFile(file)) {
+    problems.push(
+      `${file} is iOS native source a pull request builds no native app for: ` +
+        'add its path to the native rules in scripts/ci-areas.mjs'
+    );
   }
 }
 

@@ -18,12 +18,12 @@ function build(dark: boolean): Theme {
   return {
     dark,
     colors: {
-      primary: palette.primary,
-      background: palette.background,
+      primary: palette.actionPrimary,
+      background: palette.surfacePage,
       card: palette.surface,
       text: palette.textPrimary,
       border: palette.border,
-      notification: palette.error,
+      notification: palette.dangerFill,
     },
     fonts,
   };

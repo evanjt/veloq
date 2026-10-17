@@ -1,19 +1,20 @@
 import React, { useState, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 
 import {
   Button,
   Card,
+  InlineNotice,
   ScreenSafeAreaView,
   ScreenScrollView,
-  InlineNotice,
   SectionTitle,
   TextLink,
+  TextSeparator,
 } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { openExternal } from '@/shared/app/openExternal';
 import { VELOQ_PRIVACY_URL } from '@/shared/app/supportLinks';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
@@ -265,7 +266,10 @@ function LoginScreenContent() {
               onPress={handleOpenIntervalsPrivacy}
               size="caption"
             />
-            <Text style={[styles.linkSeparator, isDark && styles.textSecondary]}>|</Text>
+            <TextSeparator
+              mark="bar"
+              style={[styles.linkSeparator, isDark && styles.textSecondary]}
+            />
             <TextLink
               label={t('login.termsOfService')}
               onPress={handleOpenIntervalsTerms}
@@ -276,11 +280,7 @@ function LoginScreenContent() {
 
         {/* Security note */}
         <View style={styles.securityNote}>
-          <MaterialCommunityIcons
-            name="shield-lock"
-            size={iconSize.sm}
-            color={themeColors.textSecondary}
-          />
+          <Icon name="shield-lock" size={iconSize.sm} color={themeColors.textSecondary} />
           <Text style={[styles.securityText, isDark && styles.textDark]}>
             {t('login.securityNote')}
           </Text>

@@ -28,7 +28,7 @@ jest.mock('expo-router', () => ({
   usePathname: () => '/',
 }));
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
-jest.mock('@/shared/app/navigation', () => ({ tapTo: jest.fn() }));
+jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 
 const themes = [
   ['light', false],
@@ -66,7 +66,7 @@ describe('the recording return pill', () => {
     const accent = labelColour(view, 'recording.status.recording');
     expect(accent).toBe(recording[tone]);
     expect(accent).not.toBe(brand.blue);
-    expect(accent).not.toBe((isDark ? darkColors : colors).primary);
+    expect(accent).not.toBe((isDark ? darkColors : colors).actionPrimary);
   });
 
   it.each(themes)('keeps the warning mark while paused in the %s theme', async (_tone, isDark) => {
@@ -75,7 +75,7 @@ describe('the recording return pill', () => {
     const view = await render(<RecordingReturnPill />);
 
     expect(labelColour(view, 'recording.status.paused')).toBe(
-      (isDark ? darkColors : colors).warningAmber
+      (isDark ? darkColors : colors).warningText
     );
   });
 });

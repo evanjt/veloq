@@ -155,15 +155,14 @@ describe('the feed card long-press', () => {
     }
   };
 
-  it('fires one medium haptic on android', () =>
+  it('fires no haptic of its own on android, leaving the open to the menu', () =>
     onOS('android', async () => {
       (Haptics.performAndroidHapticsAsync as jest.Mock).mockClear();
       await renderCard();
 
       await fireEvent(screen.getByTestId('activity-card-a1'), 'longPress');
 
-      expect(Haptics.performAndroidHapticsAsync).toHaveBeenCalledTimes(1);
-      expect(Haptics.performAndroidHapticsAsync).toHaveBeenCalledWith('long-press');
+      expect(Haptics.performAndroidHapticsAsync).not.toHaveBeenCalled();
     }));
 
   it('leaves the hold to the system menu on ios', () =>

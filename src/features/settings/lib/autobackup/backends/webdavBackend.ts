@@ -7,6 +7,7 @@
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
+import { backupFileName, backupNameTimestamp } from './backupName';
 import { backupEntryFromSidecar, type BackupBackend, type BackupEntry } from './types';
 import {
   getWebdavConfig,
@@ -195,10 +196,8 @@ export const webdavBackend: BackupBackend = {
     const xml = await res.text();
     const entries: BackupEntry[] = [];
 
-    // Parse PROPFIND response for .meta.json files
-    const metaFiles = extractHrefs(xml).filter((href) => href.endsWith('.meta.json'));
-
-    for (const metaHref of metaFiles) {
+    const hrefs = extractHrefs(xml);
+    for (const metaHref of hrefs.filter((href) => href.endsWith('.meta.json'))) {
       try {
         const metaUrl = resolveHref(config.url, metaHref);
         if (!metaUrl) continue;
@@ -211,6 +210,18 @@ export const webdavBackend: BackupBackend = {
       }
     }
 
+    // A zip with no sidecar a listing could read, one the athlete put in the
+    // folder among them, lists by the instant its name carries.
+    const listed = new Set(entries.map((entry) => entry.id));
+    for (const href of hrefs) {
+      if (!resolveHref(config.url, href)) continue;
+      const name = href.replace(/\/+$/, '').split('/').pop() ?? '';
+      const timestamp = backupNameTimestamp(name);
+      if (!timestamp || listed.has(name)) continue;
+      listed.add(name);
+      entries.push({ id: name, timestamp, sizeBytes: 0, appVersion: '' });
+    }
+
     entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     return entries;
   },
@@ -221,7 +232,7 @@ export const webdavBackend: BackupBackend = {
     const headers = authHeaders(config.username, config.password);
     await ensureRemoteDir(config.url, headers);
 
-    const filename = `veloq-${metadata.timestamp.replace(/[:.]/g, '-')}.zip`;
+    const filename = backupFileName(metadata.timestamp);
     const fileUrl = joinUrl(config.url, REMOTE_DIR, filename);
 
     // uploadAsync resolves with the status instead of rejecting, so an

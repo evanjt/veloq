@@ -130,7 +130,16 @@ concurrency:
   group: \${{ github.workflow }}-\${{ github.ref }}
   cancel-in-progress: \${{ github.ref != 'refs/heads/main' && github.ref_type != 'tag' }}
 jobs:
+  changes:
+    runs-on: ubuntu-24.04
+    outputs:
+      native: \${{ steps.plan.outputs.native }}
+    steps:
+      - id: plan
+        run: node scripts/ci-required.mjs build-plan
   build-android:
+    needs: changes
+    if: \${{ !cancelled() && needs.changes.outputs.native != 'false' }}
     runs-on: ubuntu-24.04
     steps:
       - name: Setup Gradle
@@ -143,20 +152,34 @@ jobs:
         with:
           key: ndk
           save: \${{ github.ref == 'refs/heads/main' }}
+      - name: Compile the C++
+        env:
+          CMAKE_CXX_COMPILER_LAUNCHER: ccache
+          CCACHE_COMPILERCHECK: content
+        run: cmake --build build
+  bundle-check:
+    needs: changes
+    if: needs.changes.outputs.native == 'false'
+    runs-on: ubuntu-24.04
+    steps:
+      - run: npx expo export --platform android
   e2e-smoke:
     needs: build-android
     runs-on: ubuntu-24.04
     steps:
       - run: maestro test smoke.yaml
   build-required:
-    needs: [build-android, e2e-smoke]
+    needs: [changes, build-android, bundle-check, e2e-smoke]
     if: always()
     runs-on: ubuntu-24.04
     steps:
       - env:
+          CHANGES: \${{ needs.changes.result }}
+          NATIVE: \${{ needs.changes.outputs.native }}
           ANDROID: \${{ needs.build-android.result }}
+          BUNDLE: \${{ needs.bundle-check.result }}
           SMOKE: \${{ needs.e2e-smoke.result }}
-        run: '[ "$ANDROID" = success ] && [ "$SMOKE" = success ]'
+        run: node scripts/ci-required.mjs build-check
 `;
 
 const COVERAGE_YML = `name: Coverage
@@ -378,6 +401,28 @@ runs:
     );
     expect(output).toContain('(job build-android step Setup ccache)');
     expect(output).toContain('ccache-action saves off main');
+  });
+
+  it('refuses a ccache key saved without a timestamp', () => {
+    const output = refused(
+      withEdit(
+        '.github/workflows/build.yml',
+        '          key: ndk\n',
+        '          key: ndk\n          append-timestamp: false\n'
+      )
+    );
+    expect(output).toContain('(job build-android step Setup ccache)');
+    expect(output).toContain('append-timestamp: false');
+  });
+
+  it('refuses a ccache launch that checks the compiler by mtime', () => {
+    for (const check of ['', '          CCACHE_COMPILERCHECK: mtime\n']) {
+      const output = refused(
+        withEdit('.github/workflows/build.yml', '          CCACHE_COMPILERCHECK: content\n', check)
+      );
+      expect(output).toContain('(job build-android step Compile the C++)');
+      expect(output).toContain('Set CCACHE_COMPILERCHECK: content');
+    }
   });
 
   it('refuses an actions/cache/save gated off pull requests but not to main', () => {
@@ -851,6 +896,49 @@ describe('runner images', () => {
   });
 });
 
+describe('test shards', () => {
+  const JEST_RUN = '      - run: npm test\n';
+  const JEST_RUNNER = '  jest:\n    runs-on: ubuntu-24.04\n';
+
+  function sharded(shards: string, run: string): Record<string, string> {
+    const runner = withEdit(
+      '.github/workflows/test.yml',
+      JEST_RUNNER,
+      `  jest:\n    strategy:\n      matrix:\n        shard: ${shards}\n    runs-on: ubuntu-24.04\n`
+    );
+    const before = runner['.github/workflows/test.yml'];
+    return { ...runner, '.github/workflows/test.yml': before.replace(JEST_RUN, run) };
+  }
+
+  it('refuses a shard count past the matrix, which leaves the last shard unrun', () => {
+    const output = refused(
+      sharded('[1, 2]', '      - run: npm test -- --shard=${{ matrix.shard }}/3\n')
+    );
+    expect(output).toContain('.github/workflows/test.yml (job jest');
+    expect(output).toContain('--shard');
+  });
+
+  it('refuses a matrix that skips a shard index', () => {
+    const output = refused(
+      sharded('[1, 3]', '      - run: npm test -- --shard=${{ matrix.shard }}/3\n')
+    );
+    expect(output).toContain('.github/workflows/test.yml (job jest');
+  });
+
+  it('refuses a fixed shard index, which runs one part of the suite', () => {
+    const output = refused(sharded('[1, 2]', '      - run: npm test -- --shard=1/2\n'));
+    expect(output).toContain('.github/workflows/test.yml (job jest');
+  });
+
+  it('accepts a shard count that matches the matrix', () => {
+    const { status, output } = runGuard(
+      fixture(sharded('[1, 2]', '      - run: npm test -- --shard=${{ matrix.shard }}/2\n'))
+    );
+    expect(output).not.toContain('--shard');
+    expect(status).toBe(0);
+  });
+});
+
 describe('caller text spliced into a shell', () => {
   const JEST_RUN = '      - run: npm test\n';
 
@@ -998,6 +1086,55 @@ describe('aggregators', () => {
     );
     expect(output).toContain(
       '(job build-required): needs e2e-smoke and never reads needs.e2e-smoke.result'
+    );
+  });
+
+  const PLANNED = {
+    ...CLEAN,
+    '.github/workflows/test.yml': TEST_YML.replace(
+      '  rust:\n    runs-on: ubuntu-24.04\n',
+      '  plan:\n    runs-on: ubuntu-24.04\n    outputs:\n      rust: ${{ steps.p.outputs.rust }}\n    steps:\n      - id: p\n        run: echo rust=true >> "$GITHUB_OUTPUT"\n  rust:\n    needs: plan\n    if: needs.plan.outputs.rust == \'true\'\n    runs-on: ubuntu-24.04\n'
+    )
+      .replace('needs: [jest, rust, rust-advisories]', 'needs: [plan, jest, rust, rust-advisories]')
+      .replace(
+        '          JEST: ${{ needs.jest.result }}\n',
+        '          PLAN: ${{ needs.plan.result }}\n          JEST: ${{ needs.jest.result }}\n'
+      ),
+  };
+
+  it('refuses a job gated on a plan the aggregator never reads', () => {
+    const output = refused(PLANNED);
+    expect(output).toContain(
+      '(job ci-required): rust runs only on needs.plan.outputs and the aggregator never reads them'
+    );
+  });
+
+  it('accepts a gated job when the aggregator reads the plan it was gated on', () => {
+    const tree = {
+      ...PLANNED,
+      '.github/workflows/test.yml': PLANNED['.github/workflows/test.yml'].replace(
+        '          PLAN: ${{ needs.plan.result }}\n',
+        '          PLAN: ${{ needs.plan.result }}\n          RUST_PLANNED: ${{ needs.plan.outputs.rust }}\n'
+      ),
+    };
+    const { status, output } = runGuard(fixture(tree));
+    expect(output).toContain('Workflow guard: caches write from main only');
+    expect(status).toBe(0);
+  });
+
+  it('refuses a Build aggregator that never reads whether the change was native', () => {
+    const output = refused(
+      withEdit(
+        '.github/workflows/build.yml',
+        '          NATIVE: ${{ needs.changes.outputs.native }}\n',
+        ''
+      )
+    );
+    expect(output).toContain(
+      '(job build-required): build-android runs only on needs.changes.outputs and the aggregator never reads them'
+    );
+    expect(output).toContain(
+      '(job build-required): bundle-check runs only on needs.changes.outputs'
     );
   });
 
@@ -1204,10 +1341,10 @@ describe('release APK architectures', () => {
   const RELEASE_APK = `    steps:
     - name: Build Android APK
       if: env.RELEASE_BUILD == 'true'
-      run: cd android && ./gradlew assembleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a --no-daemon
+      run: cd android && ./gradlew assembleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a --build-cache --no-daemon
     - name: Build Android bundle
       if: env.RELEASE_BUILD == 'true'
-      run: cd android && ./gradlew bundleRelease --no-daemon
+      run: cd android && ./gradlew bundleRelease --build-cache --no-daemon
 `;
   const withSteps = (steps: string) => ({
     ...CLEAN,
@@ -1249,6 +1386,69 @@ ${steps}`,
       withSteps(RELEASE_APK.replace('assembleRelease -P', 'assembleRelease bundleRelease -P'))
     );
     expect(output).toContain('bundleRelease');
+  });
+});
+
+describe('Gradle build cache', () => {
+  const STEPS = `    steps:
+    - name: Run JVM unit tests
+      run: |
+        cd android
+        ./gradlew :engine:testDebugUnitTest \\
+          -PreactNativeArchitectures=arm64-v8a --build-cache --no-daemon
+    - name: Build Android APK
+      run: cd android && ./gradlew assembleRelease --build-cache --no-daemon
+`;
+  const withSteps = (steps: string) => ({
+    ...CLEAN,
+    '.github/workflows/build-android.yml': `name: Build Android
+on:
+  workflow_call:
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    env:
+      APP_VARIANT: \${{ inputs.variant }}
+${steps}`,
+  });
+
+  it('passes every Gradle call that turns the build cache on', () => {
+    const { status } = runGuard(fixture(withSteps(STEPS)));
+    expect(status).toBe(0);
+  });
+
+  it('refuses a Gradle call that leaves the build cache off', () => {
+    const output = refused(
+      withSteps(STEPS.replace('assembleRelease --build-cache', 'assembleRelease'))
+    );
+    expect(output).toContain(
+      '.github/workflows/build-android.yml (job apk step Build Android APK)'
+    );
+    expect(output).toContain('--build-cache');
+  });
+
+  it('reads the flag on a continuation line as part of its call', () => {
+    const output = refused(withSteps(STEPS.replace('arm64-v8a --build-cache', 'arm64-v8a')));
+    expect(output).toContain('(job apk step Run JVM unit tests)');
+  });
+
+  it('refuses each uncached call in a step that carries the flag on another', () => {
+    const output = refused(
+      withSteps(
+        STEPS.replace(
+          'assembleRelease --build-cache --no-daemon',
+          'assembleRelease --build-cache --no-daemon && ./gradlew bundleRelease --no-daemon'
+        )
+      )
+    );
+    expect(output).toContain('(job apk step Build Android APK)');
+  });
+
+  it('does not read --no-build-cache as the flag', () => {
+    const output = refused(
+      withSteps(STEPS.replace('assembleRelease --build-cache', 'assembleRelease --no-build-cache'))
+    );
+    expect(output).toContain('(job apk step Build Android APK)');
   });
 });
 
@@ -1343,7 +1543,7 @@ jobs:
           path: modules/engine/build
           key: rust-\${{ steps.native.outputs.hash }}
       - name: Build APK
-        run: cd android && ./gradlew assembleRelease --no-daemon
+        run: cd android && ./gradlew assembleRelease --build-cache --no-daemon
 `;
   const CALLER = `name: E2E
 on:
@@ -1478,7 +1678,7 @@ jobs:
           key: rust-android-v1
       - name: Build Rust libraries
         id: build-rust
-        run: cd android && ./gradlew :engine:buildRustLibrary --no-daemon
+        run: cd android && ./gradlew :engine:buildRustLibrary --build-cache --no-daemon
       - name: Save Rust libraries
         if: github.ref == 'refs/heads/main' && steps.rust-cache.outputs.cache-hit != 'true' && steps.build-rust.outcome == 'success'
         uses: actions/cache/save@v6
@@ -1486,7 +1686,7 @@ jobs:
           path: modules/engine/build/rust/android
           key: \${{ steps.rust-cache.outputs.cache-primary-key }}
       - name: Build APK
-        run: cd android && ./gradlew assembleRelease --no-daemon
+        run: cd android && ./gradlew assembleRelease --build-cache --no-daemon
 `;
   const CALLER = `name: E2E
 on:
@@ -1673,7 +1873,7 @@ jobs:
           key: android-app-\${{ inputs.variant }}
       - name: Build APK
         if: steps.apk-cache.outputs.cache-hit != 'true'
-        run: cd android && ./gradlew assembleRelease --no-daemon
+        run: cd android && ./gradlew assembleRelease --build-cache --no-daemon
       - name: Check artifact identity
         run: node scripts/build-record.js identity android/app/build/outputs/apk/release/app-release.apk --variant "$APP_VARIANT"
       - name: Upload APK artifact
@@ -1766,7 +1966,7 @@ ${JOB_ENV}    steps:
       - name: Prebuild
         run: npx expo prebuild --platform android
       - name: Build APK
-        run: cd android && ./gradlew assembleRelease --no-daemon
+        run: cd android && ./gradlew assembleRelease --build-cache --no-daemon
 `;
   const files = (definition = DEFINITION) => ({
     ...CLEAN,

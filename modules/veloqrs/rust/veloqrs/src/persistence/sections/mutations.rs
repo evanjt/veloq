@@ -1816,7 +1816,7 @@ mod tests {
         engine.attach_activity_junctions("a1").unwrap();
         engine.load_sections().unwrap();
         let custom = drawn_section(&mut engine).unwrap();
-        let detected: Vec<tracematch::FrequentSection> = engine
+        let detected: Vec<std::sync::Arc<tracematch::FrequentSection>> = engine
             .sections
             .iter()
             .filter(|s| !s.is_user_defined)
@@ -1852,7 +1852,7 @@ mod tests {
         engine.attach_activity_junctions("a1").unwrap();
         engine.load_sections().unwrap();
         let custom = drawn_section(&mut engine).unwrap();
-        let detected: Vec<tracematch::FrequentSection> = engine
+        let detected: Vec<std::sync::Arc<tracematch::FrequentSection>> = engine
             .sections
             .iter()
             .filter(|s| !s.is_user_defined)
@@ -1882,7 +1882,7 @@ mod tests {
         engine.attach_activity_junctions("a1").unwrap();
         engine.load_sections().unwrap();
         let custom = drawn_section(&mut engine).unwrap();
-        let detected: Vec<tracematch::FrequentSection> = engine
+        let detected: Vec<std::sync::Arc<tracematch::FrequentSection>> = engine
             .sections
             .iter()
             .filter(|s| !s.is_user_defined)
@@ -1921,11 +1921,7 @@ mod tests {
                 .is_lift
         );
         assert!(!engine.get_section_by_id("s0").unwrap().enrichment.is_lift);
-        engine
-            .sections
-            .iter_mut()
-            .find(|s| s.id == "s0")
-            .unwrap()
+        std::sync::Arc::make_mut(engine.sections.iter_mut().find(|s| s.id == "s0").unwrap())
             .enrichment
             .is_lift = true;
         engine.save_sections().unwrap();
@@ -1957,11 +1953,7 @@ mod tests {
             .unwrap();
         engine.load_sections().unwrap();
         engine.set_section_is_lift("s0", false).unwrap();
-        engine
-            .sections
-            .iter_mut()
-            .find(|s| s.id == "s0")
-            .unwrap()
+        std::sync::Arc::make_mut(engine.sections.iter_mut().find(|s| s.id == "s0").unwrap())
             .enrichment
             .is_lift = true;
         engine.save_sections().unwrap();

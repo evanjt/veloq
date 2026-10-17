@@ -7,8 +7,9 @@
  */
 
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, StyleSheet, FlatList, Animated } from 'react-native';
-import Swipeable from 'react-native-gesture-handler/Swipeable';
+import { View, StyleSheet, FlatList } from 'react-native';
+import type { SharedValue } from 'react-native-reanimated';
+import Swipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
 import { useDetectionHold } from '@/features/routes/hooks/useDetectionHold';
 import { useElevationBackfill } from '@/features/routes/hooks/useElevationBackfill';
@@ -36,7 +37,7 @@ import { SectionsListHeader } from './SectionsListHeader';
 import { CatalogueEmptyState } from './CatalogueEmptyState';
 import { SectionsListFiltersBar } from './SectionsListFiltersBar';
 import { useSectionCommands } from '@/features/routes/hooks/useCustomSections';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import {
   FLOW_ADD_ONE,
   FLOW_SECTION_OPEN,
@@ -123,7 +124,7 @@ interface SectionListItemProps {
   onSwipeableOpen: (id: string) => void;
   onDelete: (item: FrequentSection) => void;
   onToggleHide: (item: FrequentSection) => void;
-  swipeableRefs: React.MutableRefObject<Map<string, Swipeable | null>>;
+  swipeableRefs: React.MutableRefObject<Map<string, SwipeableMethods | null>>;
   t: (key: string) => string;
 }
 
@@ -154,17 +155,9 @@ export const SectionListItem = memo(
     const rowActions = useMemo(() => [rowAction], [rowAction]);
 
     const renderRightActions = useCallback(
-      (
-        _progress: Animated.AnimatedInterpolation<number>,
-        dragX: Animated.AnimatedInterpolation<number>
-      ) => {
-        const actionOpacity = dragX.interpolate({
-          inputRange: [-80, -40, 0],
-          outputRange: [1, 0.8, 0],
-          extrapolate: 'clamp',
-        });
-        return <SectionSwipeAction kind={swipeKind} action={rowAction} opacity={actionOpacity} />;
-      },
+      (_progress: SharedValue<number>, drag: SharedValue<number>) => (
+        <SectionSwipeAction kind={swipeKind} action={rowAction} drag={drag} />
+      ),
       [swipeKind, rowAction]
     );
 
@@ -277,7 +270,7 @@ export const SectionsList = memo(function SectionsList({
   const elevationBackfill = useElevationBackfill();
 
   // Track open swipeable refs to close them when another opens
-  const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
+  const swipeableRefs = useRef<Map<string, SwipeableMethods | null>>(new Map());
   const openSwipeableRef = useRef<string | null>(null);
 
   // Get cached date range from sync store (consolidated calculation)
@@ -321,7 +314,7 @@ export const SectionsList = memo(function SectionsList({
   // Navigate to section detail page
   const handleSectionPress = useCallback((id: string) => {
     markFlow(FLOW_SECTION_OPEN);
-    tapTo(`/section/${id}`);
+    navigateTo(`/section/${id}`);
   }, []);
 
   // Handle accepting all auto sections
@@ -525,7 +518,7 @@ export const SectionsList = memo(function SectionsList({
           testID="sections-retired-link"
           variant="ghost"
           style={styles.retiredLink}
-          onPress={() => tapTo('/section-retired')}
+          onPress={() => navigateTo('/section-retired')}
           icon="history"
           label={t('sectionHistory.seeRetired')}
         />
@@ -533,7 +526,7 @@ export const SectionsList = memo(function SectionsList({
           testID="sections-named-corridors-link"
           variant="ghost"
           style={styles.retiredLink}
-          onPress={() => tapTo('/named-corridors')}
+          onPress={() => navigateTo('/named-corridors')}
           icon="tag-outline"
           label={t('namedCorridors.link')}
         />
@@ -643,7 +636,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   swipeableContentDark: {
-    backgroundColor: darkColors.background,
+    backgroundColor: darkColors.surfacePage,
   },
   skeletonList: {
     paddingTop: spacing.md,

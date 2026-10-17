@@ -3,35 +3,37 @@
  *
  * Input handling lives here so every list behaves alike: no auto-capitalise,
  * the keyboard follows the app theme, return dismisses it.
+ *
+ * The bar is a solid input well. Focus draws a 2 pt focus ring over its edge,
+ * laid over the bar rather than added to it, so the list below does not move.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Keyboard,
   Platform,
-  Pressable,
   StyleSheet,
   TextInput,
   View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import {
-  colors as lightColors,
+  colors,
   darkColors,
   iconSize,
   layout,
-  opacity,
   slopToMinTapTarget,
   spacing,
+  stroke,
   typography,
 } from '@/theme';
 
-import { pressable, pressRipple } from './pressFeedback';
+import { Icon } from './Icon';
+import { PressTarget } from './PressTarget';
 
 export interface SearchBarProps {
   value: string;
@@ -44,19 +46,23 @@ export interface SearchBarProps {
 
 export function SearchBar({ value, onChangeText, placeholder, testID, style }: SearchBarProps) {
   const { t } = useTranslation();
-  const { isDark, colors: themeColors } = useTheme();
+  const { isDark } = useTheme();
+  const palette = isDark ? darkColors : colors;
+  const [focused, setFocused] = useState(false);
 
   return (
-    <View style={[styles.bar, isDark && styles.barDark, style]}>
-      <MaterialCommunityIcons name="magnify" size={iconSize.md} color={themeColors.textSecondary} />
+    <View style={[styles.bar, { backgroundColor: palette.surfaceInput }, style]}>
+      <Icon name="magnify" size={iconSize.md} color={palette.textSecondary} />
       <TextInput
         testID={testID}
-        style={[styles.input, isDark && styles.inputDark]}
+        style={[styles.input, { color: palette.textPrimary }]}
         accessibilityLabel={placeholder}
         placeholder={placeholder}
-        placeholderTextColor={themeColors.textSecondary}
+        placeholderTextColor={palette.textTertiary}
         value={value}
         onChangeText={onChangeText}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         onSubmitEditing={Keyboard.dismiss}
         returnKeyType="search"
         autoCorrect={false}
@@ -65,21 +71,21 @@ export function SearchBar({ value, onChangeText, placeholder, testID, style }: S
         enablesReturnKeyAutomatically={Platform.OS === 'ios'}
       />
       {value.length > 0 && (
-        <Pressable
+        <PressTarget
           onPress={() => onChangeText('')}
           accessibilityLabel={t('common.clearSearch')}
           accessibilityRole="button"
           hitSlop={CLEAR_SLOP}
-          style={pressable()}
-          android_ripple={pressRipple}
         >
-          <MaterialCommunityIcons
-            name="close-circle"
-            size={iconSize.md}
-            color={themeColors.textSecondary}
-          />
-        </Pressable>
+          <Icon name="close-circle" size={iconSize.md} color={palette.textSecondary} />
+        </PressTarget>
       )}
+      {focused ? (
+        <View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, styles.ring, { borderColor: palette.focusRing }]}
+        />
+      ) : null}
     </View>
   );
 }
@@ -90,13 +96,13 @@ const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: opacity.overlay.light,
     borderRadius: layout.borderRadiusMd,
     paddingHorizontal: layout.cardMargin,
     gap: spacing.sm,
   },
-  barDark: {
-    backgroundColor: opacity.overlayDark.medium,
+  ring: {
+    borderWidth: stroke.two,
+    borderRadius: layout.borderRadiusMd,
   },
   // The field fills the bar's height, so the whole bar takes the tap rather than
   // the one line of text inside it.
@@ -104,10 +110,6 @@ const styles = StyleSheet.create({
     ...typography.bodyMedium,
     flex: 1,
     minHeight: layout.minTapTarget,
-    color: lightColors.textPrimary,
     paddingVertical: 0,
-  },
-  inputDark: {
-    color: darkColors.textPrimary,
   },
 });

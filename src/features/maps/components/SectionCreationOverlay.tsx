@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { Pressable, View, StyleSheet, Text, ActivityIndicator } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import {
   colors,
@@ -29,6 +29,7 @@ import { sectionSizeTone, type SizeTone } from '@/features/maps/lib/sectionSizeT
 import { formatDistance } from '@/shared/format/format';
 import { useMetricSystem, useTheme } from '@/shared/app';
 import { Button, IconButton, pressable, pressRipple } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 import { formatPercent } from '@/shared/format';
 
@@ -156,7 +157,7 @@ export function SectionCreationOverlay({
 
   const { isDark } = useTheme();
   const palette = isDark ? darkColors : colors;
-  const pillStyle = isDark ? { backgroundColor: darkColors.surfaceOverlay } : null;
+  const pillStyle = isDark ? { backgroundColor: darkColors.surfaceRaised } : null;
   const ruleStyle = isDark ? { borderTopColor: darkColors.border } : null;
   const mutedText = { color: palette.textSecondary };
   const detailsStyle = isDark
@@ -171,7 +172,7 @@ export function SectionCreationOverlay({
   // The icon's fill and the line's text tone. Both used to be the one fill, so
   // the line read at 1.47:1 on a pill that is 95 per cent white.
   const statusTone = ((): SizeTone => {
-    if (isError) return { fill: palette.error, text: palette.errorDeep };
+    if (isError) return { fill: palette.dangerFill, text: palette.errorText };
     if (isCreating) return sectionSizeTone(null, isDark);
     if (isComplete) return sectionSizeTone(sectionPointCount, isDark);
     return sectionSizeTone(null, isDark);
@@ -204,10 +205,10 @@ export function SectionCreationOverlay({
           variant={isError ? 'primary' : 'destructive'}
           onPress={isError && onDismissError ? onDismissError : onCancel}
         >
-          <MaterialCommunityIcons
+          <Icon
             name={isError ? 'refresh' : 'close'}
             size={iconSize.lg}
-            color={isError ? colors.textOnPrimary : colors.textOnDark}
+            color={isError ? colors.textOnFill : colors.textOnFill}
           />
         </IconButton>
 
@@ -220,7 +221,7 @@ export function SectionCreationOverlay({
             styles.statusPill,
             pillStyle,
             shouldExpand && styles.statusPillExpanded,
-            isError && [styles.statusPillError, { borderColor: palette.error }],
+            isError && [styles.statusPillError, { borderColor: palette.errorText }],
           ])}
           onPress={toggleExpanded}
           android_ripple={pressRipple}
@@ -230,11 +231,7 @@ export function SectionCreationOverlay({
             {isCreating ? (
               <ActivityIndicator size="small" color={statusTone.fill} />
             ) : (
-              <MaterialCommunityIcons
-                name={getStatusIcon()}
-                size={iconSize.md}
-                color={statusTone.fill}
-              />
+              <Icon name={getStatusIcon()} size={iconSize.md} color={statusTone.fill} />
             )}
             <Text
               style={[styles.statusText, { color: statusTone.text }]}
@@ -245,7 +242,7 @@ export function SectionCreationOverlay({
               {statusText}
             </Text>
             {!isCreating && (hasSelection || isComplete || isError) ? (
-              <MaterialCommunityIcons
+              <Icon
                 name={shouldExpand ? 'chevron-down' : 'chevron-up'}
                 size={iconSize.sm}
                 color={palette.textSecondary}
@@ -275,11 +272,7 @@ export function SectionCreationOverlay({
                 <View style={[styles.technicalDetails, detailsStyle]}>
                   {error.technicalDetails ? (
                     <View style={styles.detailRow}>
-                      <MaterialCommunityIcons
-                        name="code-tags"
-                        size={iconSize.sm}
-                        color={palette.textSecondary}
-                      />
+                      <Icon name="code-tags" size={iconSize.sm} color={palette.textSecondary} />
                       <Text style={[styles.technicalText, mutedText]} selectable>
                         {error.technicalDetails}
                       </Text>
@@ -287,11 +280,7 @@ export function SectionCreationOverlay({
                   ) : null}
                   {error.activityId ? (
                     <View style={styles.detailRow}>
-                      <MaterialCommunityIcons
-                        name="identifier"
-                        size={iconSize.sm}
-                        color={palette.textSecondary}
-                      />
+                      <Icon name="identifier" size={iconSize.sm} color={palette.textSecondary} />
                       <Text style={[styles.technicalText, mutedText]} selectable>
                         {t('routes.errorDetailId', { id: error.activityId })}
                       </Text>
@@ -299,7 +288,7 @@ export function SectionCreationOverlay({
                   ) : null}
                   {error.indices ? (
                     <View style={styles.detailRow}>
-                      <MaterialCommunityIcons
+                      <Icon
                         name="arrow-expand-horizontal"
                         size={iconSize.sm}
                         color={palette.textSecondary}
@@ -325,17 +314,13 @@ export function SectionCreationOverlay({
             <Animated.View entering={FadeIn} style={[styles.expandedContent, ruleStyle]}>
               {getProgress() && (
                 <View style={styles.detailRow}>
-                  <MaterialCommunityIcons
-                    name="percent"
-                    size={iconSize.sm}
-                    color={palette.textSecondary}
-                  />
+                  <Icon name="percent" size={iconSize.sm} color={palette.textSecondary} />
                   <Text style={[styles.detailText, mutedText]}>{getProgress()}</Text>
                 </View>
               )}
               {sectionPointCount !== null && (
                 <View style={styles.detailRow}>
-                  <MaterialCommunityIcons
+                  <Icon
                     name="map-marker-multiple"
                     size={iconSize.sm}
                     color={palette.textSecondary}
@@ -347,11 +332,7 @@ export function SectionCreationOverlay({
               )}
               {sizeWarning ? (
                 <View style={styles.warningRow}>
-                  <MaterialCommunityIcons
-                    name="alert-outline"
-                    size={iconSize.sm}
-                    color={statusTone.fill}
-                  />
+                  <Icon name="alert-outline" size={iconSize.sm} color={statusTone.fill} />
                   <Text style={[styles.detailText, { color: statusTone.text }]}>{sizeWarning}</Text>
                 </View>
               ) : null}
@@ -363,7 +344,7 @@ export function SectionCreationOverlay({
                 onPress={onReset}
                 android_ripple={pressRipple}
               >
-                <MaterialCommunityIcons name="refresh" size={iconSize.sm} color={palette.primary} />
+                <Icon name="refresh" size={iconSize.sm} color={palette.actionPrimary} />
                 <Text style={[styles.resetText, { color: palette.actionLink }]}>
                   {t('common.reset' as never)}
                 </Text>
@@ -380,7 +361,7 @@ export function SectionCreationOverlay({
             variant="primary"
             onPress={onConfirm}
           >
-            <MaterialCommunityIcons name="check" size={iconSize.lg} color={colors.textOnPrimary} />
+            <Icon name="check" size={iconSize.lg} color={colors.textOnFill} />
           </IconButton>
         ) : isError ? (
           <IconButton
@@ -389,7 +370,7 @@ export function SectionCreationOverlay({
             variant="destructive"
             onPress={onCancel}
           >
-            <MaterialCommunityIcons name="close" size={iconSize.lg} color={colors.textOnDark} />
+            <Icon name="close" size={iconSize.lg} color={colors.textOnFill} />
           </IconButton>
         ) : (
           <View style={styles.iconButtonPlaceholder} />

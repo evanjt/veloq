@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { StyleSheet, type ViewInstance } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { spacing } from '@/theme';
@@ -30,7 +30,7 @@ export interface SaveErrorBannerProps {
   onOpenRecording?: (() => void) | undefined;
   /** When provided, offers to share the kept ride's FIT file. */
   /** Takes the share button, which the share sheet points at on iPad. */
-  onShareFit?: ((anchor: React.RefObject<View | null>) => void) | undefined;
+  onShareFit?: ((anchor: React.RefObject<ViewInstance | null>) => void) | undefined;
   /**
    * When provided, shows a "Free up space" button beside Retry, for a save
    * that failed on a device short of space.
@@ -58,7 +58,7 @@ export function SaveErrorBanner({
   onFreeSpace,
 }: SaveErrorBannerProps) {
   const { t } = useTranslation();
-  const shareAnchor = useRef<View>(null);
+  const shareAnchor = useRef<ViewInstance>(null);
 
   if (!errorMessage) return null;
 

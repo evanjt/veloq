@@ -14,7 +14,7 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 
 import { FitnessChart } from '@/features/fitness/components/FitnessChart';
 import type { EftpChange } from '@/features/fitness/lib/eftpChanges';
-import { brand, colors, darkColors } from '@/theme';
+import { colors, darkColors } from '@/theme';
 import type { WellnessData } from '@/types';
 
 const mockScheme = { current: 'light' as 'light' | 'dark' };
@@ -41,8 +41,8 @@ afterEach(() => {
 
 describe('the eFTP marks on the fitness chart', () => {
   it.each([
-    ['light', colors.chartFtp, brand.blue],
-    ['dark', colors.chartFtp, darkColors.chartFitness],
+    ['light', colors.chartFtp, colors.fitness],
+    ['dark', darkColors.chartFtp, darkColors.fitness],
   ] as const)('draw in the power colour in %s', async (scheme, power, fitnessLine) => {
     mockScheme.current = scheme;
     const tree = await render(<FitnessChart data={DAYS} markers={MARKS} />);

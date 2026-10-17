@@ -12,7 +12,7 @@
  */
 
 import { execFileSync } from 'child_process';
-import { mkdtempSync, writeFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import * as path from 'path';
 
@@ -40,6 +40,18 @@ function library(records: Buffer[]): string {
   return at;
 }
 
+/** An APK carrying the library for one ABI only, as a device build for that ABI does. */
+function apk(abi: string, records: Buffer[]): string {
+  const dir = mkdtempSync(path.join(tmpdir(), 'record-apk-'));
+  mkdirSync(path.join(dir, 'lib', abi), { recursive: true });
+  writeFileSync(
+    path.join(dir, 'lib', abi, 'libveloqrs.so'),
+    Buffer.concat([Buffer.alloc(64), ...records, Buffer.alloc(64)])
+  );
+  execFileSync('zip', ['-qr', 'app.apk', 'lib'], { cwd: dir });
+  return path.join(dir, 'app.apk');
+}
+
 function bindings(source: string): string {
   const dir = mkdtempSync(path.join(tmpdir(), 'record-bindings-'));
   const at = path.join(dir, 'veloqrs.ts');
@@ -47,13 +59,17 @@ function bindings(source: string): string {
   return at;
 }
 
-function run(libraryPath: string, bindingsPath: string): { code: number; output: string } {
+function run(
+  libraryPath: string,
+  bindingsPath: string,
+  how: '--library' | 'apk' = '--library'
+): { code: number; output: string } {
+  const source = how === 'apk' ? [libraryPath] : ['--library', libraryPath];
   try {
-    const stdout = execFileSync(
-      'node',
-      [SCRIPT, '--library', libraryPath, '--bindings', bindingsPath],
-      { cwd: REPO, encoding: 'utf8' }
-    );
+    const stdout = execFileSync('node', [SCRIPT, ...source, '--bindings', bindingsPath], {
+      cwd: REPO,
+      encoding: 'utf8',
+    });
     return { code: 0, output: stdout };
   } catch (e) {
     const error = e as { status: number; stdout: string; stderr: string };
@@ -106,4 +122,25 @@ describe('the native record shape guard', () => {
 
     expect(code).toBe(0);
   });
+
+  it.each([['arm64-v8a'], ['x86_64']])(
+    'reads the library from an APK built for %s alone',
+    (abi) => {
+      const stale = run(
+        apk(abi, [record('FfiSummaryCardData', FIVE)]),
+        bindings(SUMMARY_CARD),
+        'apk'
+      );
+      expect(stale.code).toBe(1);
+      expect(stale.output).toContain('the library holds 5 fields, the bindings lift 6');
+
+      const current = run(
+        apk(abi, [record('FfiSummaryCardData', ['wellness', ...FIVE])]),
+        bindings(SUMMARY_CARD),
+        'apk'
+      );
+      expect(current.code).toBe(0);
+      expect(current.output).toContain('no disagreement');
+    }
+  );
 });

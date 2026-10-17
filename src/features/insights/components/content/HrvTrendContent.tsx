@@ -3,7 +3,6 @@ import { View, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Text } from 'react-native-paper';
 
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import {
   colors,
@@ -16,6 +15,7 @@ import {
   typography,
 } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { InsightSeriesChart } from '../InsightSeriesChart';
 import type { Insight } from '@/types';
 import { formatHrv } from '@/shared/format/format';
@@ -47,11 +47,7 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
       {/* The average the latest reading, the sheet's figure, is read against */}
       <View style={[styles.statCard, isDark && styles.statCardDark]}>
         <View style={styles.trendRow}>
-          <MaterialCommunityIcons
-            name={insight.icon as never}
-            size={iconSize.sm}
-            color={trendColor}
-          />
+          <Icon name={insight.icon as never} size={iconSize.sm} color={trendColor} />
           {avgPoint && avgValue != null && (avgValue !== latestValue || latestValue == null) ? (
             <Text style={[styles.avgText, isDark && styles.avgTextDark]}>
               {avgPoint.label}: {avgValue} {t('units.ms')}

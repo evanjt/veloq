@@ -43,7 +43,6 @@ jest.mock('@/shared/app/TopSafeAreaContext', () => ({
 }));
 jest.mock('@/shared/app/navigation', () => ({
   navigateTo: jest.fn(),
-  tapTo: jest.fn(),
   goBack: jest.requireActual('@/shared/app/navigation').goBack,
 }));
 

@@ -699,9 +699,6 @@ RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_extension_track(
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_geometry_version_coords(
     /*handle*/ uint64_t ptr, RustBuffer section_id, double version,
     RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_geometry_versions(
-    /*handle*/ uint64_t ptr, RustBuffer section_id,
-    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_history(
     /*handle*/ uint64_t ptr, RustBuffer section_id,
     RustCallStatus *uniffi_out_err);
@@ -945,11 +942,11 @@ void uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
 void uniffi_veloqrs_fn_method_heatmapmanager_start_cache_size(
     /*handle*/ uint64_t ptr, RustBuffer base_path,
     RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_func_cancel_detector_cutover(
-    RustCallStatus *uniffi_out_err);
 int8_t
 uniffi_veloqrs_fn_func_cancel_fetch_and_store(double run,
                                               RustCallStatus *uniffi_out_err);
+int8_t uniffi_veloqrs_fn_func_cancel_run(double run,
+                                         RustCallStatus *uniffi_out_err);
 RustBuffer
 uniffi_veloqrs_fn_func_consent_stream_backfill(RustCallStatus *uniffi_out_err);
 /*handle*/ uint64_t
@@ -1122,8 +1119,8 @@ void ffi_veloqrs_rust_future_free_void(
     /*handle*/ uint64_t handle);
 void ffi_veloqrs_rust_future_complete_void(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
-uint16_t uniffi_veloqrs_checksum_func_cancel_detector_cutover();
 uint16_t uniffi_veloqrs_checksum_func_cancel_fetch_and_store();
+uint16_t uniffi_veloqrs_checksum_func_cancel_run();
 uint16_t uniffi_veloqrs_checksum_func_consent_stream_backfill();
 uint16_t
 uniffi_veloqrs_checksum_func_convert_legacy_database_to_record_backup();
@@ -1350,7 +1347,6 @@ uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_activities();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_extension_track();
 uint16_t
 uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_version_coords();
-uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_versions();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_history();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_map_sections();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_named_corridors();
@@ -8144,18 +8140,6 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_geometry_version_coords(
                 rt, thisVal, args, count);
       });
-  props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_geometry_versions"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
-                                        "sectionmanager_get_geometry_versions"),
-          2,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_geometry_versions(
-                    rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_history"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -9319,17 +9303,6 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_heatmapmanager_start_cache_size(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_fn_func_cancel_detector_cutover"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_func_cancel_detector_cutover"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_func_cancel_detector_cutover(
-                rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_veloqrs_fn_func_cancel_fetch_and_store"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -9340,6 +9313,17 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_fn_func_cancel_fetch_and_store(
                 rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_func_cancel_run"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_uniffi_veloqrs_fn_func_cancel_run"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_func_cancel_run(rt, thisVal,
+                                                               args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_func_consent_stream_backfill"] =
       jsi::Function::createFromHostFunction(
@@ -10132,18 +10116,6 @@ NativeVeloqrs::NativeVeloqrs(
             return this->cpp_ffi_veloqrs_rust_future_complete_void(rt, thisVal,
                                                                    args, count);
           });
-  props["ubrn_uniffi_veloqrs_checksum_func_cancel_detector_cutover"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_checksum_func_cancel_detector_cutover"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_func_cancel_detector_cutover(
-                    rt, thisVal, args, count);
-          });
   props["ubrn_uniffi_veloqrs_checksum_func_cancel_fetch_and_store"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -10155,6 +10127,17 @@ NativeVeloqrs::NativeVeloqrs(
             return this
                 ->cpp_uniffi_veloqrs_checksum_func_cancel_fetch_and_store(
                     rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_func_cancel_run"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_func_cancel_run"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_checksum_func_cancel_run(
+                rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_func_consent_stream_backfill"] =
       jsi::Function::createFromHostFunction(
@@ -12607,18 +12590,6 @@ NativeVeloqrs::NativeVeloqrs(
              const jsi::Value *args, size_t count) -> jsi::Value {
         return this
             ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_version_coords(
-                rt, thisVal, args, count);
-      });
-  props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_"
-        "versions"] = jsi::Function::createFromHostFunction(
-      rt,
-      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                    "sectionmanager_get_geometry_versions"),
-      0,
-      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-             const jsi::Value *args, size_t count) -> jsi::Value {
-        return this
-            ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_versions(
                 rt, thisVal, args, count);
       });
   props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_history"] =
@@ -17776,22 +17747,6 @@ jsi::Value NativeVeloqrs::
 
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_fn_method_sectionmanager_get_geometry_versions(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_sectionmanager_get_geometry_versions(
-      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
-                                                        args[0]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_history(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -19299,23 +19254,24 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_heatmapmanager_start_cache_size(
 
   return jsi::Value::undefined();
 }
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_cancel_detector_cutover(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  uniffi_veloqrs_fn_func_cancel_detector_cutover(&status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return jsi::Value::undefined();
-}
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_cancel_fetch_and_store(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_func_cancel_fetch_and_store(
+      uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[0]), &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_cancel_run(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_func_cancel_run(
       uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[0]), &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
@@ -20148,18 +20104,17 @@ jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_complete_void(
   return jsi::Value::undefined();
 }
 jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_cancel_detector_cutover(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_func_cancel_detector_cutover();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_cancel_fetch_and_store(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_func_cancel_fetch_and_store();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_cancel_run(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_func_cancel_run();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
@@ -21845,15 +21800,6 @@ jsi::Value NativeVeloqrs::
         size_t count) {
   auto value =
       uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_version_coords();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_versions(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value =
-      uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_versions();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

@@ -117,8 +117,6 @@ jest.mock('@/shared/app/SyncDateRangeStore', () => ({
       oldest: null,
       newest: null,
       extendedFetch: { phase: 'idle' },
-      gpsSyncProgress: { status: 'idle' },
-      isGpsSyncing: false,
     }),
 }));
 jest.mock('@/shared/native/syncRefresh', () => ({ requestSyncRefresh: jest.fn() }));

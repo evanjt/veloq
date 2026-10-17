@@ -9,9 +9,9 @@ import React, {
 } from 'react';
 import { addSectionCreation3DLayersScript } from '@/features/maps/lib/sectionCreationPaint';
 import { AppState, View, StyleSheet, PixelRatio } from 'react-native';
-import { WebView } from 'react-native-webview';
 
-import { veloqWebViewNativeConfig } from '@/features/maps/lib/veloqWebView';
+import { WebView } from 'react-native-webview';
+import { veloqWebViewNativeConfig, type WebViewHandle } from '@/features/maps/lib/veloqWebView';
 import { mapPageBaseUrl } from '@/features/maps/lib/tileTransport';
 
 import { colors, darkColors } from '@/theme';
@@ -79,7 +79,7 @@ interface Map3DWebViewProps {
   /** Initial zoom level - used when no coordinates provided */
   initialZoom?: number | undefined;
   /** GeoJSON for routes layer */
-  routesGeoJSON?: GeoJSON.FeatureCollection | undefined;
+  routesGeoJSON?: GeoJSON.FeatureCollection | string | undefined;
   /** GeoJSON for sections layer */
   sectionsGeoJSON?: GeoJSON.FeatureCollection | undefined;
   /** GeoJSON for traces layer */
@@ -187,7 +187,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     {
       coordinates = EMPTY_COORDS,
       mapStyle,
-      routeColor = colors.primary,
+      routeColor = colors.actionPrimary,
       routeGradient = null,
       initialPitch = 60,
       terrainExaggeration = 1.5,
@@ -224,7 +224,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     },
     ref
   ) {
-    const webViewRef = useRef<WebView>(null);
+    const webViewRef = useRef<WebViewHandle>(null);
     const registeredSurfaceRef = useRef<ReleasableSurface | null>(null);
     const mapReadyRef = useRef(false);
     const releasedRef = useRef(released);
@@ -870,7 +870,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       <View style={styles.container} accessibilityIgnoresInvertColors>
         {!lost && (
           <MapWebViewHost style={styles.webview} accessibilityLabel={accessibilityLabel}>
-            <WebView
+            <WebView<object>
               key={viewKey}
               ref={webViewRef}
               source={{ html, baseUrl: mapPageBaseUrl() }}
@@ -902,7 +902,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: darkColors.background,
+    backgroundColor: darkColors.surfacePage,
   },
   webview: {
     flex: 1,

@@ -142,8 +142,8 @@ function SectionLapsScreenContent() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  screenDark: { backgroundColor: darkColors.background },
+  screen: { flex: 1, backgroundColor: colors.surfacePage },
+  screenDark: { backgroundColor: darkColors.surfacePage },
   content: { padding: layout.screenPadding, paddingBottom: spacing.xl },
   scope: { ...typography.bodySmall, color: colors.textSecondary, marginBottom: spacing.sm },
   scopeDark: { color: darkColors.textSecondary },

@@ -4,13 +4,18 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import {
+  View,
+  ScrollView,
+  StyleSheet,
+  type ScrollViewInstance,
+  type ViewInstance,
+} from 'react-native';
 import { Text } from 'react-native-paper';
 import { Stack, useFocusEffect, useLocalSearchParams, router } from 'expo-router';
 import { useAfterNavigationTransition } from '@/shared/async/useAfterNavigationTransition';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { FLOW_SECTION_OPEN, completeFlowAfterFrame } from '@/shared/debug/flowTiming';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import {
   useSectionActions,
@@ -57,7 +62,8 @@ import { overMapHeaderOptions } from '@/shared/app/screenHeaders';
 import { MapHeroStatusBar, useHeroScrolledPast } from '@/shared/app/MapHeroStatusBar';
 import { useReadRetry } from '@/shared/native/useEngineSubscription';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
-import { Button, EmptyState, ErrorState, useHeroMapHeight, useBottomClearance } from '@/shared/ui';
+import { Button, EmptyState, ErrorState, useBottomClearance, useHeroMapHeight } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { type MaterialIconName } from '@/shared/activity/activityUtils';
 import { colors, darkColors, iconSize, spacing, themePalette } from '@/theme';
 import type { RoutePoint } from '@/types';
@@ -69,7 +75,7 @@ import type {
   FfiSectionTrendCurves,
 } from 'veloqrs';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 
 /** Trimming needs room to place the handles, so the map grows past the hero fraction. */
 const EDIT_MAP_FRACTION = 0.6;
@@ -89,10 +95,6 @@ function SectionDetailScreenContent() {
   useEffect(() => {
     perfEndRef.current?.();
   });
-
-  useEffect(() => {
-    completeFlowAfterFrame(FLOW_SECTION_OPEN);
-  }, []);
 
   const { t } = useTranslation();
   const {
@@ -133,7 +135,7 @@ function SectionDetailScreenContent() {
   const debugEnabled = useDebugStore((s) => s.enabled);
   const { getPageMetrics } = useFFITimer();
   const { exportGpx, exporting: gpxExporting } = useGpxExport();
-  const exportAnchor = useRef<View>(null);
+  const exportAnchor = useRef<ViewInstance>(null);
 
   // Nearby sections and merge candidates
   const mergeCandidates = detail?.mergeCandidates ?? [];
@@ -235,7 +237,7 @@ function SectionDetailScreenContent() {
   });
   const refusalKey = rescanRefusalKey(rescanRefusal);
 
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   // The chart's scrub renders the map without moving the page or screen root.
   const [highlight] = useState(createMapHighlightStore);
   useRevealMapOnDraw(scrollRef, shownVersion);
@@ -268,6 +270,12 @@ function SectionDetailScreenContent() {
   ) {
     setSelectedSportType(undefined);
   }
+  // The open is timed to the frame that draws the visits, which the
+  // performance read carries, not to the mount that shows the header alone.
+  const visitsRead = performance != null;
+  useEffect(() => {
+    if (visitsRead) completeFlowAfterFrame(FLOW_SECTION_OPEN);
+  }, [visitsRead]);
   const effectiveSportType = performance?.sportType ?? selectedSportType;
   const sportCounts = performance?.sportCounts ?? EMPTY_SPORT_COUNTS;
   const showSportChips = shouldShowSportChips(sportCounts);
@@ -349,7 +357,7 @@ function SectionDetailScreenContent() {
     );
   }
 
-  const activityColor = palette.primary;
+  const activityColor = palette.actionPrimary;
   const iconName: MaterialIconName = 'road-variant';
 
   return (
@@ -426,7 +434,7 @@ function SectionDetailScreenContent() {
           )}
           {!isTrimming && refusalKey !== null && (
             <View style={styles.rescanRefusal} testID="rescan-refused">
-              <MaterialCommunityIcons
+              <Icon
                 name="information-outline"
                 size={iconSize.xs}
                 color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -517,12 +525,12 @@ function SectionDetailScreenContent() {
                 hasLaps={lapRecords.some((record) => record.laps.length > 1)}
                 historyCount={ledger.history.length}
                 onOpenLaps={() =>
-                  tapTo({
+                  navigateTo({
                     pathname: '/section/laps/[id]',
                     params: { id, range: sectionTimeRange, sport: effectiveSportType ?? '' },
                   })
                 }
-                onOpenHistory={() => tapTo(`/section/history/${id}`)}
+                onOpenHistory={() => navigateTo(`/section/history/${id}`)}
               />
             </SectionContentArea>
           )}
@@ -569,8 +577,8 @@ function SectionDetailScreenContent() {
 }
 
 const disabledStyles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', backgroundColor: colors.background },
-  containerDark: { backgroundColor: darkColors.background },
+  container: { flex: 1, justifyContent: 'center', backgroundColor: colors.surfacePage },
+  containerDark: { backgroundColor: darkColors.surfacePage },
 });
 
 /** Sections are stored while route matching is off, and none of them opens. */

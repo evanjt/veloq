@@ -2,6 +2,7 @@
  * Chart configuration types for activity detail screen
  */
 
+import type { TFunction } from 'i18next';
 import type { ActivityStreams, ActivityType } from '@/types';
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
@@ -17,7 +18,7 @@ import {
 } from '@/shared/format';
 import { isSwimmingActivity } from '@/shared/activity/activityUtils';
 import { paceMinutesFromSample } from '@/shared/math/kinematics';
-import { chartStreamColors, chartInkColor } from '@/theme';
+import type { ChartStream } from '@/theme';
 import { DEFAULT_AUTO_PAUSE_KMH, stoppedSpeedMs } from '@/shared/recording';
 import { cadenceUnitLabel } from './cadenceUnit';
 
@@ -51,10 +52,8 @@ export interface ChartConfig {
   label: string;
   /** Icon name (MaterialCommunityIcons) */
   icon: IconName;
-  /** Display color */
-  color: string;
-  /** Ink drawn over the colour when it fills a chip */
-  ink: string;
+  /** The stream colour it is drawn and keyed in, resolved per theme by `chartStreamColour` */
+  stream: ChartStream;
   /** Stream key in activity data */
   streamKey?: string;
   /** Unit (metric/imperial) */
@@ -82,14 +81,45 @@ export interface ChartConfig {
   };
 }
 
+type ChartTypeKey =
+  | 'chartTypes.power'
+  | 'chartTypes.hr'
+  | 'chartTypes.cad'
+  | 'chartTypes.speed'
+  | 'chartTypes.pace'
+  | 'chartTypes.gap'
+  | 'chartTypes.elev'
+  | 'chartTypes.grade'
+  | 'chartTypes.wbal'
+  | 'chartTypes.temp';
+
+/** The translation of each stream's short name, where one exists. */
+const CHART_LABEL_KEYS: Partial<Record<ChartTypeId, ChartTypeKey>> = {
+  power: 'chartTypes.power',
+  heartrate: 'chartTypes.hr',
+  cadence: 'chartTypes.cad',
+  speed: 'chartTypes.speed',
+  pace: 'chartTypes.pace',
+  gap: 'chartTypes.gap',
+  elevation: 'chartTypes.elev',
+  grade: 'chartTypes.grade',
+  wbal: 'chartTypes.wbal',
+  temp: 'chartTypes.temp',
+};
+
+/** A stream's short name in the app language, the untranslated label where it has none. */
+export function chartTypeLabel(config: ChartConfig, t: TFunction): string {
+  const key = CHART_LABEL_KEYS[config.id];
+  return key ? t(key) : config.label;
+}
+
 /** Chart configuration registry - labels kept short for compact chip display */
 export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
   power: {
     id: 'power',
     label: 'Power',
     icon: 'lightning-bolt',
-    color: chartStreamColors.power,
-    ink: chartInkColor('power'),
+    stream: 'power',
     streamKey: 'watts',
     unit: 'W',
     getStream: (streams) => streams.watts,
@@ -99,8 +129,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'heartrate',
     label: 'HR',
     icon: 'heart-pulse',
-    color: chartStreamColors.heartrate,
-    ink: chartInkColor('heartrate'),
+    stream: 'heartrate',
     streamKey: 'heartrate',
     unit: 'bpm',
     getStream: (streams) => streams.heartrate,
@@ -110,8 +139,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'cadence',
     label: 'Cad',
     icon: 'rotate-3d',
-    color: chartStreamColors.cadence, // Distinct from amber power
-    ink: chartInkColor('cadence'),
+    stream: 'cadence',
     streamKey: 'cadence',
     // The unit is the sport's, which the engine names: see `chartConfigsFor`.
     getStream: (streams) => streams.cadence,
@@ -121,8 +149,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'speed',
     label: 'Speed',
     icon: 'speedometer',
-    color: chartStreamColors.speed,
-    ink: chartInkColor('speed'),
+    stream: 'speed',
     streamKey: 'velocity_smooth',
     unit: 'km/h',
     unitImperial: 'mph',
@@ -136,8 +163,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'pace',
     label: 'Pace',
     icon: 'clock-outline',
-    color: chartStreamColors.pace, // Visible on dark backgrounds
-    ink: chartInkColor('pace'),
+    stream: 'pace',
     unit: '/km',
     unitImperial: '/mi',
     // Pace is derived from velocity_smooth (m/s -> min/km or min/mi)
@@ -153,8 +179,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'elevation',
     label: 'Elev',
     icon: 'terrain',
-    color: chartStreamColors.elevation, // Pops on both light/dark
-    ink: chartInkColor('elevation'),
+    stream: 'elevation',
     streamKey: 'altitude',
     unit: 'm',
     unitImperial: 'ft',
@@ -167,8 +192,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'grade',
     label: 'Grade',
     icon: 'slope-uphill',
-    color: chartStreamColors.grade,
-    ink: chartInkColor('grade'),
+    stream: 'grade',
     streamKey: 'grade_smooth',
     unit: '%',
     getStream: (streams) => streams.grade_smooth,
@@ -178,8 +202,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'wbal',
     label: "W'bal",
     icon: 'flash-outline',
-    color: chartStreamColors.wbal,
-    ink: chartInkColor('wbal'),
+    stream: 'wbal',
     unit: 'kJ',
     // Sourced from intervals.icu's `w_bal` stream (joules). Displayed in kJ.
     getStream: (streams) => streams.wbal?.map((j) => j / 1000),
@@ -189,8 +212,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'gap',
     label: 'GAP',
     icon: 'trending-up',
-    color: chartStreamColors.gap,
-    ink: chartInkColor('gap'),
+    stream: 'gap',
     unit: '/km',
     unitImperial: '/mi',
     // Sourced from intervals.icu's `ga_velocity` stream (m/s), converted to
@@ -204,8 +226,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'distance',
     label: 'Dist',
     icon: 'map-marker-distance',
-    color: chartStreamColors.distance,
-    ink: chartInkColor('distance'),
+    stream: 'distance',
     unit: 'km',
     unitImperial: 'mi',
     getStream: (streams) => streams.distance?.map((d) => d / 1000),
@@ -216,8 +237,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'temp',
     label: 'Temp',
     icon: 'thermometer',
-    color: chartStreamColors.temp,
-    ink: chartInkColor('temp'),
+    stream: 'temp',
     streamKey: 'temp',
     unit: '°C',
     unitImperial: '°F',
@@ -229,15 +249,13 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'moving_time',
     label: 'Moving time',
     icon: 'clock-outline',
-    color: chartStreamColors.time,
-    ink: chartInkColor('time'),
+    stream: 'time',
   },
   elapsed_time: {
     id: 'elapsed_time',
     label: 'Elapsed time',
     icon: 'clock',
-    color: chartStreamColors.time,
-    ink: chartInkColor('time'),
+    stream: 'time',
   },
 };
 

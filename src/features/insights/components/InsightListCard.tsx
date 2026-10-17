@@ -2,9 +2,9 @@ import React, { useCallback, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import {
   colors,
   colorWithOpacity,
@@ -26,6 +26,7 @@ import { InsightHistoryGraphic } from './InsightHistoryGraphic';
 import { dataLinkLabel, historyTarget } from '../lib/dataLink';
 import type { TFunc } from '../types';
 import { FitText } from '@/shared/ui/FitText';
+import { Icon } from '@/shared/ui/Icon';
 
 interface InsightListCardProps {
   insight: Insight;
@@ -63,7 +64,7 @@ export const InsightListCard = React.memo(function InsightListCard({
   const actions = useMemo(
     () =>
       target && linkLabel
-        ? [{ name: OPEN_PICTURED, label: linkLabel, run: () => tapTo(target) }]
+        ? [{ name: OPEN_PICTURED, label: linkLabel, run: () => navigateTo(target) }]
         : undefined,
     [target, linkLabel]
   );
@@ -94,7 +95,7 @@ export const InsightListCard = React.memo(function InsightListCard({
               { backgroundColor: colorWithOpacity(categoryColor, opacity.tint2) },
             ]}
           >
-            <MaterialCommunityIcons
+            <Icon
               name={insight.icon as keyof typeof MaterialCommunityIcons.glyphMap}
               size={iconSize.sm}
               color={insightToneColor(insight.iconTone, isDark)}
@@ -105,10 +106,10 @@ export const InsightListCard = React.memo(function InsightListCard({
               {insight.title}
             </Text>
             {insight.isNew ? (
-              <View style={[styles.newDot, { backgroundColor: palette.primary }]} />
+              <View style={[styles.newDot, { backgroundColor: palette.actionPrimary }]} />
             ) : null}
           </View>
-          <MaterialCommunityIcons
+          <Icon
             name="chevron-right"
             size={iconSize.sm}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}

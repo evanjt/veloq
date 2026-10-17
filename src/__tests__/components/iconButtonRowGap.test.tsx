@@ -7,7 +7,7 @@
  */
 
 import React, { createRef } from 'react';
-import { Text } from 'react-native';
+import type { TextInstance } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 import type { ReactTestInstance } from 'react-test-renderer';
 
@@ -91,7 +91,7 @@ describe('icon button rows', () => {
         testID="popup"
         titleTestID="popup-title"
         closeTestID="popup-close"
-        titleRef={createRef<Text>()}
+        titleRef={createRef<TextInstance>()}
         title="Harbour loop"
         stats={[]}
         closeLabel="Close"

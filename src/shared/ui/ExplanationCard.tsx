@@ -4,8 +4,8 @@ import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { openExternal } from '@/shared/app/openExternal';
 import { colors, darkColors, layout, opacity, spacing, typography, stroke } from '@/theme';
-import { Button } from './Button';
 import { Card } from './Card';
+import { TextLink } from './TextLink';
 
 /** One line of an explanation: an optional name in bold, then what it means. */
 export interface ExplanationRow {
@@ -28,7 +28,7 @@ export interface Explanation {
 }
 
 interface ExplanationCardProps extends Explanation {
-  /** Further reading, under a heading of its own below the rows. */
+  /** Further reading, under a heading of its own below the rows, each a page outside the app. */
   links?: { heading: string; items: readonly ExplanationLink[] } | undefined;
   testID?: string | undefined;
 }
@@ -66,11 +66,12 @@ export function ExplanationCard({ title, rows, links, testID }: ExplanationCardP
               {links.heading}
             </Text>
             {links.items.map((link) => (
-              <Button
+              <TextLink
                 key={link.key}
                 label={link.label}
-                variant="ghost"
-                size="sm"
+                icon="open-in-new"
+                iconPosition="trailing"
+                style={styles.link}
                 onPress={() => {
                   void openExternal(link.url);
                 }}
@@ -136,5 +137,9 @@ const styles = StyleSheet.create({
   },
   linksHeadingDark: {
     color: darkColors.textSecondary,
+  },
+  link: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
   },
 });

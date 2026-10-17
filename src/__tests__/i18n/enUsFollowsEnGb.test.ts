@@ -24,6 +24,7 @@ const SPELLING = [
   'cache.finalizingHeatmap',
   'cache.syncedStillAnalysing_one',
   'cache.syncedStillAnalysing_other',
+  'common.cancelled',
   'fitness.stripGloss',
   'formZones.greyZone',
   'insights.data.hrChange',

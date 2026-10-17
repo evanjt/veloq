@@ -228,7 +228,7 @@ describe('SectionTrimOverlay step buttons', () => {
       expect(chevronColour(refused)).toBe(colors.textDisabled);
     }
     expect(startLater).not.toBeDisabled();
-    expect(chevronColour(startLater)).toBe(colors.primary);
+    expect(chevronColour(startLater)).toBe(colors.actionPrimary);
   });
 });
 

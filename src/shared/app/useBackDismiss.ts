@@ -23,8 +23,11 @@ import { BackHandler } from 'react-native';
 import {
   NavigationContext,
   NavigationRouteContext,
-  PreventRemoveContext,
+  usePreventRemove,
 } from 'expo-router/react-navigation';
+
+/** Outside a screen there is no removal to hold. */
+function useNoHold(_prevent: boolean, _onPrevented: () => void): void {}
 
 let nextId = 0;
 /** The states holding each stack route, so its swipe returns only when the last one ends. */
@@ -33,7 +36,6 @@ const holders = new Map<string, Set<string>>();
 export function useBackDismiss(active: boolean, onDismiss: () => void): void {
   const navigation = use(NavigationContext);
   const route = use(NavigationRouteContext);
-  const preventRemove = use(PreventRemoveContext);
   const [id] = useState(() => `back-dismiss-${++nextId}`);
 
   const dismissRef = useRef(onDismiss);
@@ -51,31 +53,32 @@ export function useBackDismiss(active: boolean, onDismiss: () => void): void {
     return () => subscription.remove();
   }, [active, navigation]);
 
-  const onStack = navigation?.getState?.()?.type === 'stack';
+  // A navigator's state no longer names its kind; a stack is the navigator that pushes.
+  const onStack = navigation !== undefined && 'push' in navigation;
   const routeKey = route?.key;
-  const setPreventRemove = preventRemove?.setPreventRemove;
+  const holding = active && onStack && !!navigation && !!routeKey;
+
+  // A component sits inside a screen or outside every screen for its whole life, so the
+  // hook taken here is the same one on every render. Every holder hears the held removal
+  // and only the one opened last ends, as on Android.
+  const useHoldRemoval = navigation && route ? usePreventRemove : useNoHold;
+  useHoldRemoval(holding, () => {
+    if (routeKey && [...(holders.get(routeKey) ?? [])].at(-1) === id) dismissRef.current();
+  });
 
   useEffect(() => {
-    if (!active || !onStack || !navigation || !routeKey || !setPreventRemove) return undefined;
-    setPreventRemove(id, routeKey, true);
+    if (!holding || !navigation || !routeKey) return undefined;
     const held = holders.get(routeKey) ?? new Set<string>();
     holders.set(routeKey, held);
-    // Every holder hears the removal and only the one opened last ends, as on Android.
-    const removeListener = navigation.addListener('beforeRemove', (event) => {
-      event.preventDefault();
-      if ([...held].at(-1) === id) dismissRef.current();
-    });
     if (held.size === 0) {
       navigation.setOptions({ gestureEnabled: false, headerBackVisible: false });
     }
     held.add(id);
     return () => {
-      setPreventRemove(id, routeKey, false);
-      removeListener();
       held.delete(id);
       if (held.size > 0) return;
       holders.delete(routeKey);
       navigation.setOptions({ gestureEnabled: true, headerBackVisible: true });
     };
-  }, [active, onStack, navigation, routeKey, setPreventRemove, id]);
+  }, [holding, navigation, routeKey, id]);
 }

@@ -118,10 +118,11 @@ const project = {
   // '..' here would name the directory above the repository.
   rootDir: require('path').join(__dirname, '..'),
   collectCoverageFrom,
-  // react-native-worklets ships .native.ts entry points that assert the native
-  // module is installed. Its resolver strips the native extensions so a
-  // component importing reanimated can be rendered under Jest.
-  resolver: 'react-native-worklets/jest/resolver',
+  // react-native-worklets and react-native-reanimated ship .native.ts entry
+  // points that assert the native module is installed. Reanimated's resolver
+  // strips the native extensions from both, so a component importing
+  // reanimated can be rendered under Jest.
+  resolver: 'react-native-reanimated/jest/resolver',
   modulePathIgnorePatterns: worktreeIgnores,
   moduleNameMapper: {
     '^@/theme$': '<rootDir>/src/__tests__/__mocks__/theme.js',

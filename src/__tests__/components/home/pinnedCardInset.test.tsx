@@ -26,7 +26,7 @@ jest.mock('expo-router', () => ({
   },
 }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
-jest.mock('@/shared/app/navigation', () => ({ tapTo: jest.fn() }));
+jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 jest.mock('@/shared/app/AuthStore', () => ({
   useAuthStore: (select: (s: unknown) => unknown) =>
     select({ authMethod: 'oauth', isDemoMode: false }),

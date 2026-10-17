@@ -5,24 +5,11 @@ use crate::persistence::persistent_engine_ffi::SECTION_DETECTION_HANDLE;
 use crate::persistence::route_grouping_preview::{
     PreviewOutcome as GroupingOutcome, PreviewStrictness, ROUTE_GROUPING_PREVIEW_HANDLE,
 };
-use crate::persistence::sections::preview::{PreviewOverlay, PreviewPoll, SECTION_PREVIEW_HANDLE};
+use crate::persistence::sections::preview::{
+    PreviewCentre, PreviewOverlay, PreviewPoll, SECTION_PREVIEW_HANDLE,
+};
 use log::info;
 use std::sync::Arc;
-
-/// A ranked riding area: one occupied ~5 km bin of the user's library.
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct FfiPreviewCentre {
-    /// "lat_bin:lng_bin" at ~5 km, an order-free ranking key.
-    pub bin_key: String,
-    pub lat: f64,
-    pub lng: f64,
-    /// Sum of section visit counts in the bin, or activity count on fallback.
-    pub visit_total: u32,
-    /// 0 on the activities fallback.
-    pub section_count: u32,
-    /// "sections" | "activities"
-    pub source: String,
-}
 
 #[derive(uniffi::Object)]
 pub struct SectionPreview {
@@ -39,19 +26,9 @@ impl SectionPreview {
     /// Ranked riding areas. Sections substrate (bounds cache + visit_count)
     /// when any auto section carries bounds, activity-bbox bins otherwise
     /// ((0, 0, 0, 0) sentinel filtered). Ordered visit_total DESC, bin_key ASC.
-    pub fn centres(&self, limit: u32) -> Result<Vec<FfiPreviewCentre>, VeloqError> {
+    pub fn centres(&self, limit: u32) -> Result<Vec<PreviewCentre>, VeloqError> {
         with_reader(|conn| {
             crate::persistence::sections::preview::pooled::preview_centres(conn, limit)
-                .into_iter()
-                .map(|c| FfiPreviewCentre {
-                    bin_key: c.bin_key,
-                    lat: c.lat,
-                    lng: c.lng,
-                    visit_total: c.visit_total,
-                    section_count: c.section_count,
-                    source: c.source,
-                })
-                .collect()
         })
     }
 

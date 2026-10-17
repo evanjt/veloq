@@ -14,7 +14,6 @@
 
 import React from 'react';
 import {
-  Pressable,
   StyleSheet,
   type AccessibilityState,
   type StyleProp,
@@ -22,12 +21,13 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, iconSize, slopToMinTapTarget, spacing, typography } from '@/theme';
 
-import { pressable, pressRipple } from './pressFeedback';
+import { Icon } from './Icon';
+import { PressTarget } from './PressTarget';
 
 /** The two sizes a standalone link is drawn at. */
 export type TextLinkSize = 'bodySmall' | 'caption';
@@ -66,28 +66,23 @@ export function TextLink({
   const { isDark } = useTheme();
   const tint = isDark ? darkColors.actionLink : colors.actionLink;
   const glyph = icon ? (
-    <MaterialCommunityIcons
-      name={icon}
-      size={size === 'caption' ? iconSize.sm : iconSize.md}
-      color={tint}
-    />
+    <Icon name={icon} size={size === 'caption' ? iconSize.sm : iconSize.md} color={tint} />
   ) : null;
 
   return (
-    <Pressable
+    <PressTarget
       testID={testID}
       onPress={onPress}
       accessibilityRole={accessibilityRole}
       accessibilityLabel={label}
       accessibilityState={accessibilityState}
       hitSlop={LINK_SLOP[size]}
-      style={pressable([styles.link, { minHeight: typography[size].lineHeight }, style])}
-      android_ripple={pressRipple}
+      style={[styles.link, { minHeight: typography[size].lineHeight }, style]}
     >
       {iconPosition === 'leading' && glyph}
       <Text style={[styles[size], styles.text, { color: tint }]}>{label}</Text>
       {iconPosition === 'trailing' && glyph}
-    </Pressable>
+    </PressTarget>
   );
 }
 

@@ -130,7 +130,7 @@ describe('SectionMapView', () => {
 
       const style = screen.getByTestId('section-map-style-toggle').props.style;
       const resolved = typeof style === 'function' ? style({ pressed: false }) : style;
-      expect(StyleSheet.flatten(resolved).backgroundColor).toBe(darkColors.surfaceCard);
+      expect(StyleSheet.flatten(resolved).backgroundColor).toBe(darkColors.surfaceRaised);
     });
 
     it('keeps the fullscreen status bar glyphs dark for the light map beneath', async () => {

@@ -7,13 +7,17 @@
  * platforms whatever it holds, a numeric pad finishes with Done unless the
  * caller says otherwise, the keyboard follows the theme, a unit is part of the
  * name, an error is shown, announced and replaces the supporting text, and a
- * secret can be shown to check a paste and hidden again.
+ * secret can be shown to check a paste and hidden again. The edge follows the
+ * field's state, a focused field draws a 2 pt focus ring without changing its
+ * size, the placeholder is tertiary text, and Android's outlined field takes
+ * the same radius, edge and text style as iOS.
  */
 import React from 'react';
-import { AccessibilityInfo, Platform } from 'react-native';
-import { fireEvent, render } from '@testing-library/react-native';
+import { AccessibilityInfo, Platform, StyleSheet } from 'react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import type { ReactTestInstance } from 'react-test-renderer';
 
+import { colors, layout, stroke, typography } from '@/theme';
 import { TextField } from '@/shared/ui/TextField';
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
@@ -30,6 +34,19 @@ function liveRegionOf(node: ReactTestInstance): string | undefined {
     if (at.props.accessibilityLiveRegion) return at.props.accessibilityLiveRegion;
   }
   return undefined;
+}
+
+type Flat = Record<string, number | string | undefined>;
+
+function flat(node: ReactTestInstance): Flat {
+  return (StyleSheet.flatten(node.props.style) ?? {}) as Flat;
+}
+
+function hostParent(node: ReactTestInstance): ReactTestInstance {
+  let at = node.parent;
+  while (at && typeof at.type !== 'string') at = at.parent;
+  if (!at) throw new Error('no host parent');
+  return at;
 }
 
 function setOS(os: typeof Platform.OS) {
@@ -207,5 +224,106 @@ describe('TextField on ios', () => {
     );
     const flat = [getByTestId('f').props.style].flat(Infinity).filter(Boolean);
     expect(flat.some((style: { height?: number }) => style.height !== undefined)).toBe(false);
+  });
+});
+
+describe.each(['ios', 'android'] as const)('TextField placeholder on %s', (os) => {
+  beforeEach(() => setOS(os));
+
+  // Android's outlined field shows the placeholder only once focus has lifted the label.
+  it('draws the placeholder in tertiary text', async () => {
+    const { getByTestId } = await render(
+      <TextField
+        label="Harbour"
+        value=""
+        placeholder="Port Lumen"
+        onChangeText={() => {}}
+        testID="f"
+      />
+    );
+    await fireEvent(getByTestId('f'), 'focus');
+    await waitFor(() =>
+      expect(getByTestId('f').props.placeholderTextColor).toBe(colors.textTertiary)
+    );
+  });
+});
+
+describe('TextField edge on ios', () => {
+  beforeEach(() => setOS('ios'));
+
+  it('turns the edge to a 2 pt focus ring on focus without changing the field size', async () => {
+    const { getByTestId } = await render(
+      <TextField label="Harbour" value="" onChangeText={() => {}} testID="f" />
+    );
+    const input = getByTestId('f');
+    const box = hostParent(input);
+    const idleBox = flat(box);
+    const idleInput = flat(input);
+    expect(idleBox.borderColor).toBe(colors.controlBoundary);
+    expect(idleBox.borderWidth).toBe(stroke.one);
+
+    await fireEvent(input, 'focus');
+    const focusedBox = flat(box);
+    const focusedInput = flat(input);
+    expect(focusedBox.borderColor).toBe(colors.focusRing);
+    expect(focusedBox.borderWidth).toBe(stroke.two);
+    // The extra point is taken from the padding inside the edge, so the row keeps its size.
+    expect(Number(focusedBox.borderWidth) + Number(focusedBox.paddingHorizontal)).toBe(
+      Number(idleBox.borderWidth) + Number(idleBox.paddingHorizontal)
+    );
+    expect(Number(focusedBox.borderWidth) + Number(focusedInput.paddingVertical)).toBe(
+      Number(idleBox.borderWidth) + Number(idleInput.paddingVertical)
+    );
+    expect(focusedBox.minHeight).toBe(idleBox.minHeight);
+
+    await fireEvent(input, 'blur');
+    expect(flat(box).borderColor).toBe(colors.controlBoundary);
+  });
+
+  it('keeps the error edge at 1 pt while focused', async () => {
+    const { getByTestId } = await render(
+      <TextField label="Harbour" value="" error="Too far" onChangeText={() => {}} testID="f" />
+    );
+    const input = getByTestId('f');
+    await fireEvent(input, 'focus');
+    expect(flat(hostParent(input)).borderColor).toBe(colors.errorText);
+    expect(flat(hostParent(input)).borderWidth).toBe(stroke.one);
+  });
+});
+
+describe('TextField edge on android', () => {
+  beforeEach(() => setOS('android'));
+
+  it('draws the outline at the shared radius, edged by the field state', async () => {
+    const view = await render(
+      <TextField label="Harbour" value="" onChangeText={() => {}} testID="f" />
+    );
+    const outline = () => flat(view.getByTestId('text-input-outline'));
+    expect(outline().borderRadius).toBe(layout.borderRadiusSm);
+    expect(outline().borderColor).toBe(colors.controlBoundary);
+    expect(outline().borderWidth).toBe(stroke.one);
+
+    await fireEvent(view.getByTestId('f'), 'focus');
+    expect(outline().borderColor).toBe(colors.focusRing);
+    expect(outline().borderWidth).toBe(stroke.two);
+  });
+
+  it('edges a refused field in the error colour at 1 pt', async () => {
+    const view = await render(
+      <TextField label="Harbour" value="" error="Too far" onChangeText={() => {}} testID="f" />
+    );
+    await fireEvent(view.getByTestId('f'), 'focus');
+    const outline = flat(view.getByTestId('text-input-outline'));
+    expect(outline.borderColor).toBe(colors.errorText);
+    expect(outline.borderWidth).toBe(stroke.one);
+  });
+
+  it('sets the input in the body text style', async () => {
+    const { getByTestId } = await render(
+      <TextField label="Harbour" value="" onChangeText={() => {}} testID="f" />
+    );
+    const input = flat(getByTestId('f'));
+    expect(input.fontFamily).toBe(typography.body.fontFamily);
+    expect(input.fontSize).toBe(typography.body.fontSize);
   });
 });

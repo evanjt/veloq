@@ -96,6 +96,37 @@ describe('InsightfulStats', () => {
   });
 });
 
+describe('the fitness impact explanation', () => {
+  const explanation = async (fitnessDays: number, fatigueDays: number) => {
+    const activity = { ...ride, icu_training_load: 100 } as Activity;
+    const fitnessImpact = {
+      fitness: 100 / fitnessDays,
+      fatigue: 100 / fatigueDays,
+      form: 100 / fitnessDays - 100 / fatigueDays,
+      fitnessDays,
+      fatigueDays,
+    };
+    const { result } = await renderHook(() =>
+      useActivityStats({ activity, isMetric: true, fitnessImpact })
+    );
+    const card = result.current.stats.find((stat) => stat.title === 'activity.stats.fitnessImpact');
+    if (!card) throw new Error('no fitness impact card');
+    return card.explanation;
+  };
+
+  it('states the time constants the athlete set', async () => {
+    expect(await explanation(28, 5)).toBe(
+      'activity.explanations.fitnessImpact:{"fitnessDays":28,"fatigueDays":5}'
+    );
+  });
+
+  it('states 42 and 7 when those are the constants in effect', async () => {
+    expect(await explanation(42, 7)).toBe(
+      'activity.explanations.fitnessImpact:{"fitnessDays":42,"fatigueDays":7}'
+    );
+  });
+});
+
 describe('the heart rate card over a default max HR', () => {
   const runner = { ...ride, type: 'Run', average_heartrate: 170 } as Activity;
   const heartRateCard = async (maxHR: number, maxHrSource: MaxHrSource) => {

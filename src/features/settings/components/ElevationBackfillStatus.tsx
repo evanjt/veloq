@@ -32,7 +32,7 @@ export function ElevationBackfillStatus() {
   const routeMatchingEnabled = useRouteSettings((state) => state.settings.enabled);
 
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const danger = isDark ? darkColors.error : colors.error;
+  const danger = isDark ? darkColors.errorText : colors.errorText;
 
   // The phase is a process-global that starts at `idle`, so at rest it says
   // nothing about the library. The outstanding count is the durable fact:

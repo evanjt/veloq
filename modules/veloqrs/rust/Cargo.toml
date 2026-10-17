@@ -17,6 +17,10 @@ resolver = "2"
 # opt-level is deliberately NOT "s" as veloqrs declared. Honouring that costs
 # 2,297 ms on the same median against 700 ms at level 3, so the size it buys is
 # not affordable on a path a sync pays per downloaded activity.
+#
+# lto runs only on a build that asks for one crate type. With the rlib in
+# veloqrs's crate-type list cargo passes no `-C lto` at all, so build-rust.js
+# builds the cdylib alone for Android and the staticlib alone for iOS.
 [profile.release]
 lto = true
 codegen-units = 1

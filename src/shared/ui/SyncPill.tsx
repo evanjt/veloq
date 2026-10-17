@@ -1,17 +1,15 @@
 /**
- * The one place a running sync reports its step.
+ * The one place a running sync reports its step, as a status pill in the
+ * floating stack, so it shows on every route.
  *
- * A slim pill in the app colour, centred just under the top safe-area inset so
- * it clears the camera cutout and the status bar, or under the banners in the
- * top slot when there are any, so it never covers a sync failure's headline. It floats over the page and
- * passes touches through, so showing or hiding it moves nothing underneath. The
- * mark turns slowly, the line holds one row with the label giving way before
- * the counts, and each step stays on screen for a minimum time and cross-fades
- * into the next, so a burst of quick steps reads as a few calm changes.
+ * It draws the app colour as its ground with white words. The ring
+ * turns slowly, the label wraps while the counts stay whole, and each step
+ * stays on screen for a minimum time and cross-fades into the next, so a burst
+ * of quick steps reads as a few calm changes.
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -23,27 +21,20 @@ import { useTranslation } from 'react-i18next';
 import { SyncState } from 'veloqrs';
 
 import { useTheme } from '@/shared/app';
-import { useFloatingPillTop } from '@/shared/app/TopSafeAreaContext';
 import { useReduceMotion } from './reduceMotion';
+import { FloatingPill } from './FloatingPill';
 import { formatSyncProgressParts } from '@/shared/format/syncProgress';
 import { useSyncStatus } from '@/shared/native/useSyncStatus';
-import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 import {
   colors,
   colorWithOpacity,
   darkColors,
   duration,
   easing,
-  floatingLayers,
-  layout,
-  motionPresets,
+  iconSize,
   opacity,
-  spacing,
   stroke,
-  typography,
 } from '@/theme';
-
-const MARK_SIZE = typography.bodyCompact.lineHeight;
 
 /** The least time one step's line stays on screen before the next replaces it. */
 export const SYNC_MESSAGE_HOLD_MS = duration.hold;
@@ -113,90 +104,38 @@ function SyncMark({ color }: { color: string }) {
   );
 }
 
-export function SyncProgressStrip() {
+export function SyncPill() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const top = useFloatingPillTop();
   const status = useSyncStatus();
 
   const syncing = status?.state === SyncState.Syncing;
   const line = useHeldLine(syncing ? formatSyncProgressParts(status, t) : null);
-  useAnnounceOnAppear(line ? (t('settings.syncActivities') as string) : null);
 
   if (!line) return null;
 
-  const fill = (isDark ? darkColors : colors).appColourPillBackground;
-  const ink = colors.textOnDark;
-  const { label, counts } = line;
+  const ground = (isDark ? darkColors : colors).appColourPillBackground;
+  const ink = colors.textOnFill;
 
   return (
-    <View
-      testID="sync-progress-strip"
-      style={[styles.strip, { top }]}
-      pointerEvents="none"
-      accessibilityLiveRegion="polite"
-    >
-      <View testID="sync-progress-pill" style={[styles.pill, { backgroundColor: fill }]}>
-        <SyncMark color={ink} />
-        <View testID="sync-progress-line" style={styles.line}>
-          <Animated.Text
-            key={label}
-            {...motionPresets.pill}
-            style={[styles.text, { color: ink }]}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            testID="sync-progress-message"
-          >
-            {label}
-          </Animated.Text>
-        </View>
-        {counts !== null && (
-          <Animated.Text
-            style={[styles.text, styles.counts, { color: ink }]}
-            numberOfLines={1}
-            testID="sync-progress-counts"
-          >
-            {counts}
-          </Animated.Text>
-        )}
-      </View>
-    </View>
+    <FloatingPill
+      lead={<SyncMark color={ink} />}
+      title={line.label}
+      titleKey={line.label}
+      detail={line.counts}
+      numericDetail
+      fill={{ ground, ink }}
+      announcement={t('settings.syncActivities') as string}
+      testID="sync-progress-pill"
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  strip: {
-    position: 'absolute',
-    left: spacing.md,
-    right: spacing.md,
-    zIndex: floatingLayers.syncPill,
-    alignItems: 'center',
-  },
-  pill: {
-    maxWidth: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: layout.borderRadiusFull,
-  },
   mark: {
-    width: MARK_SIZE / 1.5,
-    height: MARK_SIZE / 1.5,
-    borderRadius: MARK_SIZE,
+    width: iconSize.xs,
+    height: iconSize.xs,
+    borderRadius: iconSize.xs,
     borderWidth: stroke.two,
-  },
-  line: {
-    flexShrink: 1,
-    height: typography.bodyCompact.lineHeight,
-    justifyContent: 'center',
-  },
-  text: {
-    ...typography.bodyCompact,
-  },
-  counts: {
-    flexShrink: 0,
-    fontVariant: ['tabular-nums'],
   },
 });

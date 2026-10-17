@@ -22,6 +22,7 @@ jest.mock('@/features/routes/components/SectionMapView', () => ({
 }));
 
 jest.mock('@/shared/app', () => ({
+  ...jest.requireActual('@/shared/app'),
   useMetricSystem: () => true,
 }));
 

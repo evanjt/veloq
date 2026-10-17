@@ -14,6 +14,7 @@ import Animated from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { chartStyles, darkColors, colors, colorWithOpacity, typography, spacing } from '@/theme';
+import { formZoneColor } from '@/features/fitness';
 import { summarySeriesColor } from '../lib/summaryMetricColour';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { formBarLayout } from '../lib/formBar';
@@ -291,7 +292,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                   y={CHART_HEIGHT}
                   width={rect.width}
                   height={FORM_BAR_HEIGHT}
-                  color={rect.color}
+                  color={rect.zone ? formZoneColor(rect.zone, isDark) : 'transparent'}
                 />
               ))}
               {transitions.map((x, i) => (

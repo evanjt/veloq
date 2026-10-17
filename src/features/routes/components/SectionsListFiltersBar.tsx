@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import {
@@ -20,6 +20,7 @@ import {
   themePalette,
 } from '@/theme';
 import { pressable, pressRipple } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import type { SectionsSortOption } from './SectionsList';
 
 const CHIP_HEIGHT = typography.caption.lineHeight + 2 * (spacing.xs + stroke.one);
@@ -28,8 +29,8 @@ const chipHitSlop = slopToMinTapTarget(CHIP_HEIGHT);
 const activeChipStyles = (palette: Palette) =>
   StyleSheet.create({
     chip: {
-      backgroundColor: colorWithOpacity(palette.primary, opacity.tint1),
-      borderColor: palette.primary,
+      backgroundColor: colorWithOpacity(palette.actionPrimary, opacity.tint1),
+      borderColor: palette.actionPrimary,
     },
   });
 
@@ -94,12 +95,12 @@ export function SectionsListFiltersBar({
               accessibilityLabel={chip.label}
               accessibilityState={{ selected: isActive }}
             >
-              <MaterialCommunityIcons
+              <Icon
                 name={chip.icon}
                 size={iconSize.xs}
                 color={
                   isActive
-                    ? palette.primary
+                    ? palette.actionPrimary
                     : isDark
                       ? darkColors.textSecondary
                       : colors.textSecondary
@@ -132,12 +133,12 @@ export function SectionsListFiltersBar({
           accessibilityLabel={t('routes.customCount', { count: customCount })}
           accessibilityState={{ selected: !hiddenFilters.custom }}
         >
-          <MaterialCommunityIcons
+          <Icon
             name="account"
             size={iconSize.xs}
             color={
               !hiddenFilters.custom
-                ? palette.primary
+                ? palette.actionPrimary
                 : isDark
                   ? darkColors.textSecondary
                   : colors.textSecondary
@@ -169,12 +170,12 @@ export function SectionsListFiltersBar({
           accessibilityLabel={t('sections.removedCount', { count: trueDisabledCount })}
           accessibilityState={{ selected: !hiddenFilters.disabled }}
         >
-          <MaterialCommunityIcons
+          <Icon
             name={hiddenFilters.disabled ? 'eye-off' : 'eye'}
             size={iconSize.xs}
             color={
               !hiddenFilters.disabled
-                ? palette.primary
+                ? palette.actionPrimary
                 : isDark
                   ? darkColors.textSecondary
                   : colors.textSecondary
@@ -206,12 +207,12 @@ export function SectionsListFiltersBar({
           accessibilityLabel={t('sections.acceptedOnly')}
           accessibilityState={{ selected: hiddenFilters.unaccepted }}
         >
-          <MaterialCommunityIcons
+          <Icon
             name="pin"
             size={iconSize.xs}
             color={
               hiddenFilters.unaccepted
-                ? palette.primary
+                ? palette.actionPrimary
                 : isDark
                   ? darkColors.textSecondary
                   : colors.textSecondary

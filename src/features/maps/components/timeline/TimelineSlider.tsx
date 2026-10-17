@@ -324,7 +324,7 @@ export function TimelineSlider({
     right: trackWidth - endPos.value * trackWidth,
   }));
 
-  const primary = themePalette(isDark).primary;
+  const primary = themePalette(isDark).actionPrimary;
   const markFill = { backgroundColor: primary };
   const handleRing = { borderColor: primary };
 
@@ -575,6 +575,6 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   countLabelDark: {
-    color: colors.textOnDark,
+    color: colors.textOnFill,
   },
 });

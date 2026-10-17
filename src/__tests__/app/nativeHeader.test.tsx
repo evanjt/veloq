@@ -513,9 +513,9 @@ describe('map-hero detail header states', () => {
       headerShadowVisible: false,
       headerStyle: { backgroundColor: 'transparent' },
       headerTitleStyle: { color: OVER_MAP_TITLE_COLOR },
-      headerTintColor: colors.textOnDark,
+      headerTintColor: colors.textOnFill,
     });
-    expect(overMapHeaderOptions({ isDark: true }).headerTintColor).toBe(colors.textOnDark);
+    expect(overMapHeaderOptions({ isDark: true }).headerTintColor).toBe(colors.textOnFill);
   });
 
   it('takes the theme surface and text once the hero has scrolled away', () => {

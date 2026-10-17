@@ -16,7 +16,7 @@ import { DENSE_TEXT_SCALE, denseExtent } from '@/shared/ui/DenseText';
 import { RowDivider } from '@/shared/ui/RowGroup';
 import type { ExerciseGroup } from 'veloqrs';
 import { Button, Card, InlineLink, Shimmer, SkeletonFrame } from '@/shared/ui';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 
 /** Set rows the placeholder draws, about one exercise's worth. */
 const PLACEHOLDER_SET_ROWS = 3;
@@ -144,7 +144,7 @@ export function ExerciseTable({
                   label={t('strength.history')}
                   variant="ghost"
                   size="sm"
-                  onPress={() => tapTo(`/exercise/${group.exerciseCategory}`)}
+                  onPress={() => navigateTo(`/exercise/${group.exerciseCategory}`)}
                 />
               </View>
               {group.bestSet ? (
@@ -257,7 +257,7 @@ export function ExerciseTable({
       <View style={styles.infoFrame}>
         <Card variant="flat">
           <View style={styles.infoRow}>
-            <View style={[styles.infoDot, { backgroundColor: colors.primary }]} />
+            <View style={[styles.infoDot, { backgroundColor: colors.actionPrimary }]} />
             <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
               <Trans
                 i18nKey="strength.muscleSource"
@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
   },
   setRowBorder: {
     borderTopWidth: stroke.hairline,
-    borderTopColor: colors.divider,
+    borderTopColor: colors.border,
   },
   setRowBorderDark: {
     borderTopColor: darkColors.border,
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     marginTop: spacing.sm,
     borderTopWidth: stroke.one,
-    borderTopColor: colors.divider,
+    borderTopColor: colors.border,
   },
   totalsRowDark: {
     borderTopColor: darkColors.border,

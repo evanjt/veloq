@@ -14,13 +14,18 @@
  */
 
 import React, { forwardRef } from 'react';
-import { ScrollView, StyleSheet, type ScrollViewProps } from 'react-native';
+import {
+  ScrollView,
+  StyleSheet,
+  type ScrollViewProps,
+  type ScrollViewInstance,
+} from 'react-native';
 
 type SheetScrollViewProps = Omit<ScrollViewProps, 'style'> & {
   footer?: React.ReactNode;
 };
 
-export const SheetScrollView = forwardRef<ScrollView, SheetScrollViewProps>(
+export const SheetScrollView = forwardRef<ScrollViewInstance, SheetScrollViewProps>(
   function SheetScrollView({ footer, ...props }, ref) {
     const scroll = <ScrollView ref={ref} style={styles.sheet} {...props} />;
     if (footer == null) return scroll;

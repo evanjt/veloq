@@ -3,7 +3,6 @@ import { View, StyleSheet, Animated } from 'react-native';
 import { usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useMapPreferences } from '@/features/settings/light';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import {
@@ -19,6 +18,7 @@ import {
 import { getActivityTypeConfig, type SportFamily } from '../lib/activityCategories';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { ComponentErrorBoundary, IconButton } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { type MapStyleType, getNextStyle, getStyleIcon, statusBarStyleForMap } from './mapStyles';
 import { MapSurface, type MapCameraState, type MapSurfaceRef } from './MapSurface';
 import { useDrawnMapStyle } from '@/features/maps/hooks/useDrawnMapStyle';
@@ -37,7 +37,7 @@ import {
   useVisibilityToggles,
 } from '@/features/maps/hooks';
 import {
-  createRouteLineCache,
+  routeLinesSourceData,
   type RouteLineLayerInput,
 } from '@/features/maps/lib/routeLineCollection';
 import { buildSpiderGeoJSON } from '@/features/maps/lib/buildSpiderGeoJSON';
@@ -78,7 +78,7 @@ import { mapTopControlsBottom, popupBottom } from '../lib/filterSheet';
 import { surfaceIsLeaving, useInitialRegionalCamera } from '../hooks/useInitialRegionalCamera';
 import { useStoredTrackUrl } from '../hooks/useStoredTrackUrl';
 import { useSectionChooser } from './regional/useSectionChooser';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 
 /**
  * Global map of every activity, clustered.
@@ -159,10 +159,10 @@ export function RegionalMapView({
     toggle3D,
   } = useVisibilityToggles();
   const popupFloor = popupBottom(bottomClearance, insets.bottom);
-  // The info bar covers the foot of the map, so the notice sits a fixed height above it.
+  // The map fills its tab, so the notice joins the screen's bottom pills above the sheet.
   const { onTerrainUnavailable, terrainNotice } = useTerrainFallback(
     () => setIs3DMode(false),
-    insets.bottom + 250
+    'pillStack'
   );
   // The overlay carries six fields per section. The popup wants the whole
   // record, so it is read for the one section that was tapped.
@@ -221,7 +221,7 @@ export function RegionalMapView({
   const { isDark } = useTheme();
   // The heat ramp as the layer draws it, over the ground of the menu it is keyed in.
   const heatKeyColours = useMemo(
-    () => heatmapKeyColours(mapStyle, isDark ? darkColors.surfaceCard : ink.white),
+    () => heatmapKeyColours(mapStyle, isDark ? darkColors.surfaceRaised : ink.white),
     [mapStyle, isDark]
   );
 
@@ -297,12 +297,15 @@ export function RegionalMapView({
     onAttributionChange?.(attributionText);
   }, [attributionText, onAttributionChange]);
 
-  // The decoded route lines stay the same object while the engine's layer generation is
-  // unchanged, so a filter change hands MapLibre nothing new to diff.
-  const routeLineCache = useRef(createRouteLineCache()).current;
+  // The route lines are the engine's URL for the layer's generation, so a filter change
+  // that re-reads the map hands MapLibre the same string and nothing to fetch.
+  const routeLinesGeneration = showRoutes ? routeLines?.generation : undefined;
   const routesGeoJSON = useMemo(
-    () => routeLineCache.collection(showRoutes ? routeLines : undefined),
-    [routeLineCache, showRoutes, routeLines]
+    () =>
+      routeLinesSourceData(
+        routeLinesGeneration === undefined ? undefined : { generation: routeLinesGeneration }
+      ),
+    [routeLinesGeneration]
   );
 
   // Event handlers
@@ -707,10 +710,10 @@ export function RegionalMapView({
         variant="secondary"
         accessibilityLabel={t('maps.toggleStyle')}
       >
-        <MaterialCommunityIcons
+        <Icon
           name={getStyleIcon(mapStyle)}
           size={iconSize.md}
-          color={isDark ? colors.textOnDark : colors.textSecondary}
+          color={isDark ? colors.textOnFill : colors.textSecondary}
         />
       </IconButton>
       {/* The control column, one rung below the style toggle. */}
@@ -757,7 +760,7 @@ export function RegionalMapView({
           onClose={() => setSelectedSectionId(null)}
           onViewDetails={() => {
             setSelectedSectionId(null);
-            tapTo(`/section/${selectedSection.id}`);
+            navigateTo(`/section/${selectedSection.id}`);
           }}
         />
       ) : null}
@@ -768,7 +771,7 @@ export function RegionalMapView({
           onClose={() => setSelectedRouteId(null)}
           onViewDetails={() => {
             setSelectedRouteId(null);
-            tapTo(`/route/${selectedRoute.routeId}`);
+            navigateTo(`/route/${selectedRoute.routeId}`);
           }}
         />
       ) : null}
@@ -779,7 +782,7 @@ export function RegionalMapView({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: darkColors.background,
+    backgroundColor: darkColors.surfacePage,
   },
   button: {
     position: 'absolute',
@@ -789,7 +792,7 @@ const styles = StyleSheet.create({
     ...shadows.mapOverlay,
   },
   buttonDark: {
-    backgroundColor: darkColors.surfaceCard,
+    backgroundColor: darkColors.surfaceRaised,
   },
   styleButton: {
     right: spacing.md,

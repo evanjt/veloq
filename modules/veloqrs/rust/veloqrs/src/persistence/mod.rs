@@ -177,7 +177,7 @@ pub(crate) fn haversine_distance_meters(lat1: f64, lng1: f64, lat2: f64, lng2: f
 }
 
 fn bounds_center_distance_meters(
-    bounds: Option<&crate::FfiBounds>,
+    bounds: Option<&crate::Bounds>,
     user_lat: f64,
     user_lng: f64,
 ) -> f64 {
@@ -239,7 +239,7 @@ pub struct GroupSummary {
     /// Custom name (user-defined, None if not set)
     pub custom_name: Option<String>,
     /// Bounding box for map display
-    pub bounds: Option<crate::FfiBounds>,
+    pub bounds: Option<crate::Bounds>,
     /// All sport types present in this group's activities
     pub sport_types: Vec<String>,
     /// The representative activity's distance in metres, 0 when it has no
@@ -260,7 +260,7 @@ pub struct MapActivityComplete {
     /// where the athlete rides.
     pub is_virtual: bool,
     /// Bounding box for map display
-    pub bounds: crate::FfiBounds,
+    pub bounds: crate::Bounds,
     /// Where the ride began, for the marker. `None` leaves the caller the
     /// bounds centre, which is where every marker used to start out before the
     /// signatures finished loading and moved it.
@@ -1253,7 +1253,7 @@ pub struct PersistentEngine {
     /// hysteresis-DAMPED visible catalogue the app renders, not the raw detection
     /// batch, `sections::SectionIdentity` remaps ids and debounces churn between
     /// the worker's raw catalogue and this field.
-    sections: Vec<FrequentSection>,
+    sections: Vec<Arc<FrequentSection>>,
 
     /// Sections a custom section has replaced. They stay in `sections` because
     /// supersession only hides: the ground is still a detection prior, and

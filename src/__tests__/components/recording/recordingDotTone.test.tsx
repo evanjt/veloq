@@ -57,7 +57,7 @@ describe('the REC dot', () => {
       await render(<TimerHeader {...props} status={'recording' as never} />);
 
       expect(dotColour()).toBe(recording[theme]);
-      expect(dotColour()).not.toBe(colors.error);
+      expect(dotColour()).not.toBe(colors.errorText);
     }
   );
 
@@ -67,7 +67,7 @@ describe('the REC dot', () => {
       mockIsDark = theme === 'dark';
       await render(<TimerHeader {...props} status={'paused' as never} />);
 
-      expect(dotColour()).toBe(colors.warning);
+      expect(dotColour()).toBe(colors.warningFill);
     }
   );
 });

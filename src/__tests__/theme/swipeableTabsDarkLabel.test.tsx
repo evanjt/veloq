@@ -54,7 +54,7 @@ describe('the active tab label', () => {
   it('clears 4.5:1 on the dark background in the dark theme', async () => {
     const colour = await activeLabelColour(true);
 
-    expect(contrastRatio(colour, darkColors.background)).toBeGreaterThanOrEqual(AA_TEXT);
+    expect(contrastRatio(colour, darkColors.surfacePage)).toBeGreaterThanOrEqual(AA_TEXT);
   });
 
   it('keeps the light link teal in the light theme', async () => {

@@ -6,16 +6,17 @@
  */
 
 import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { absentLabel } from '@/shared/format/absent';
 import { colors, darkColors, iconSize, layout, spacing, stroke, typography } from '@/theme';
+import { Icon } from './Icon';
 import { noticePalette, type NoticePalette, type PaletteTone } from './noticePalette';
-import { pressable, pressRipple } from './pressFeedback';
+import { PressTarget } from './PressTarget';
 
 export type SignalLevel = 'idle' | 'ok' | 'warn' | 'bad';
 
@@ -23,16 +24,16 @@ export type SignalLevel = 'idle' | 'ok' | 'warn' | 'bad';
 // light theme and the light one in the dark theme, never the fill palette.
 const LEVEL_COLORS: Record<'light' | 'dark', Record<SignalLevel, string>> = {
   light: {
-    idle: colors.iconNeutral,
-    ok: colors.successDeep,
-    warn: colors.warningAmber,
-    bad: colors.errorDeep,
+    idle: colors.iconSecondary,
+    ok: colors.successText,
+    warn: colors.warningText,
+    bad: colors.errorText,
   },
   dark: {
-    idle: darkColors.iconNeutral,
-    ok: darkColors.successDeep,
-    warn: darkColors.warningAmber,
-    bad: darkColors.errorDeep,
+    idle: darkColors.iconSecondary,
+    ok: darkColors.successText,
+    warn: darkColors.warningText,
+    bad: darkColors.errorText,
   },
 };
 
@@ -94,7 +95,7 @@ export function SignalStatus({
 
   const content = (
     <>
-      <MaterialCommunityIcons name={icon} size={glyphSize} color={color} />
+      <Icon name={icon} size={glyphSize} color={color} />
       {label != null && (
         <Text
           style={[styles.label, variant === 'line' && styles.labelLine, { color }]}
@@ -121,17 +122,16 @@ export function SignalStatus({
 
   if (onPress) {
     return (
-      <Pressable
+      <PressTarget
         testID={testID}
-        style={pressable(variantStyle)}
-        android_ripple={pressRipple}
+        style={variantStyle}
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel ?? label}
         hitSlop={variant !== 'line' ? { top: 8, bottom: 8, left: 4, right: 4 } : undefined}
       >
         {content}
-      </Pressable>
+      </PressTarget>
     );
   }
 

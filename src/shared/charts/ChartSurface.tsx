@@ -19,8 +19,23 @@ export interface ChartSurfaceProps {
   style?: StyleProp<ViewStyle>;
   /** The plot is the previous data, kept on screen while the new data is read. */
   held?: boolean;
+  /**
+   * False where the plot sits inside a pressable card, so Show data is the plot's action alone
+   * rather than a second press target inside the card, or where the chart places
+   * `ChartShowDataButton` itself, outside a scroll the plot sits in.
+   */
+  showDataButton?: boolean;
   testID?: string;
   children: React.ReactNode;
+}
+
+/** Opens the chart's rows in the table sheet, or null when it has none. */
+function useShowData(table: ChartTable | null): (() => void) | null {
+  const openSheet = useSheetOpener();
+  const showData = useCallback(() => {
+    if (table) void openSheet<ChartTable, never>('sheets/chart-data', table);
+  }, [openSheet, table]);
+  return table != null && table.rows.length > 0 ? showData : null;
 }
 
 /**
@@ -34,16 +49,12 @@ export function ChartSurface({
   table,
   style,
   held = false,
+  showDataButton = true,
   testID,
   children,
 }: ChartSurfaceProps) {
   const { t } = useTranslation();
-  const openSheet = useSheetOpener();
-  const hasRows = table != null && table.rows.length > 0;
-  const showData = useCallback(() => {
-    if (table) void openSheet<ChartTable, never>('sheets/chart-data', table);
-  }, [openSheet, table]);
-  const label = t('charts.showData');
+  const showData = useShowData(table);
   const heldProps = heldRenderProps(held);
 
   return (
@@ -55,21 +66,41 @@ export function ChartSurface({
         accessibilityRole="image"
         accessibilityLabel={summary}
         accessibilityState={heldProps.accessibilityState}
-        {...accessibleActions(hasRows ? [{ name: 'showData', label, run: showData }] : undefined)}
+        {...accessibleActions(
+          showData ? [{ name: 'showData', label: t('charts.showData'), run: showData }] : undefined
+        )}
       >
         {children}
       </View>
-      {hasRows ? (
-        <TextLink
-          label={label}
-          onPress={showData}
-          size="caption"
-          accessibilityRole="button"
-          style={styles.showData}
-          {...(testID ? { testID: `${testID}-show-data` } : {})}
-        />
-      ) : null}
+      {showDataButton ? <ChartShowDataButton table={table} testID={testID} /> : null}
     </>
+  );
+}
+
+/**
+ * The visible Show data button under a chart, nothing when the chart has no rows. `ChartSurface`
+ * draws it; a chart whose plot sits in a scroll draws it under the scroll instead.
+ */
+export function ChartShowDataButton({
+  table,
+  testID,
+}: {
+  table: ChartTable | null;
+  /** The plot's own test id, which the button carries with `-show-data` after it. */
+  testID?: string | undefined;
+}) {
+  const { t } = useTranslation();
+  const showData = useShowData(table);
+  if (!showData) return null;
+  return (
+    <TextLink
+      label={t('charts.showData')}
+      onPress={showData}
+      size="caption"
+      accessibilityRole="button"
+      style={styles.showData}
+      {...(testID ? { testID: `${testID}-show-data` } : {})}
+    />
   );
 }
 

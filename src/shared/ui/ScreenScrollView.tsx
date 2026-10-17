@@ -29,6 +29,8 @@ import {
   type ScrollViewProps,
   type StyleProp,
   type ViewStyle,
+  type ScrollViewInstance,
+  type ViewInstance,
 } from 'react-native';
 import { useWindowInsets } from '@/shared/app/TopSafeAreaContext';
 import { layout } from '@/theme';
@@ -95,7 +97,7 @@ export function KeyboardClearance({ children }: { children: ReactNode }) {
 }
 
 function KeyboardPadding({ children }: { children: ReactNode }) {
-  const ref = useRef<View>(null);
+  const ref = useRef<ViewInstance>(null);
   const keyboard = useRef<KeyboardEvent | null>(null);
   const { top } = useWindowInsets();
   const [bottom, setBottom] = useState(0);
@@ -142,23 +144,24 @@ export function withEndPadding(style: StyleProp<ViewStyle>, extra: number): Styl
   return [style, { paddingBottom: (typeof own === 'number' ? own : 0) + extra }];
 }
 
-export const ScreenScrollView = forwardRef<ScrollView, ScrollViewProps>(function ScreenScrollView(
-  { contentContainerStyle, ...props },
-  ref
-) {
-  const endInset = useScrollEndInset();
-  const column = props.horizontal ? contentContainerStyle : [readableColumn, contentContainerStyle];
-  return (
-    <KeyboardClearance>
-      <ScrollView
-        ref={ref}
-        {...screenListInsets}
-        {...props}
-        contentContainerStyle={withEndPadding(column, endInset)}
-      />
-    </KeyboardClearance>
-  );
-});
+export const ScreenScrollView = forwardRef<ScrollViewInstance, ScrollViewProps>(
+  function ScreenScrollView({ contentContainerStyle, ...props }, ref) {
+    const endInset = useScrollEndInset();
+    const column = props.horizontal
+      ? contentContainerStyle
+      : [readableColumn, contentContainerStyle];
+    return (
+      <KeyboardClearance>
+        <ScrollView
+          ref={ref}
+          {...screenListInsets}
+          {...props}
+          contentContainerStyle={withEndPadding(column, endInset)}
+        />
+      </KeyboardClearance>
+    );
+  }
+);
 
 const styles = StyleSheet.create({
   // Grows and shrinks the way a scroll view does, so wrapping one changes no layout.

@@ -2,17 +2,16 @@
  * The status a GPS download run ends on when it stores nothing.
  *
  * Every exit writes one. A run whose store thread dies returns no result, and
- * returning in silence leaves the last `fetching` standing on the map banner,
- * the settings range panel and the routes list spinner until the next sync
- * replaces it, which is the next foreground or reconnect at the earliest.
+ * returning in silence leaves the run's last `fetching` standing, which the
+ * expansion lock reads as a sync that never settles.
  *
  * A run the athlete cancelled, or one a newer sync took over, is not a
  * failure, so it goes back to idle rather than raising an error a screen would
  * then have to explain. A run that no longer owns the progress, because the
  * screen is gone or a sync reset aborted it, writes nothing at all: the
- * progress belongs to the run that replaced it. The message is diagnostic and not translated:
- * `formatGpsSyncProgress` renders nothing for either terminal status, so it
- * reaches the log and the debug panel and no athlete.
+ * progress belongs to the run that replaced it. The message is diagnostic and
+ * not translated: what the screens show of the download is the engine's track
+ * stage, so it reaches the log and no athlete.
  */
 import { StartOutcome } from 'veloqrs';
 import type { SyncProgress } from '@/features/routes/hooks/useRouteSyncProgress';

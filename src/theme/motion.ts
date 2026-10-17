@@ -48,6 +48,8 @@ export const motionPairs = {
   pill: { enter: duration.exit, exit: duration.quick },
   /** A card arriving in a feed. */
   card: { enter: duration.slow, exit: duration.exit },
+  /** One line of words cross-fading into the next inside a pill that stays. */
+  message: { enter: duration.message, exit: duration.message },
 } as const;
 
 /**
@@ -66,6 +68,10 @@ export const motionPresets = {
   card: {
     entering: FadeIn.duration(motionPairs.card.enter),
     exiting: FadeOut.duration(motionPairs.card.exit),
+  },
+  message: {
+    entering: FadeIn.duration(motionPairs.message.enter),
+    exiting: FadeOut.duration(motionPairs.message.exit),
   },
 };
 

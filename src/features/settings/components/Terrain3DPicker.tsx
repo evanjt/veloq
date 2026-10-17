@@ -1,9 +1,9 @@
 import React from 'react';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, iconSize } from '@/theme';
-import { CircleOptionRow, type CircleOption } from '@/shared/ui';
+import { type CircleOption, CircleOptionRow } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import type { Terrain3DMode } from '@/types';
 
 /** Smaller than the map style circles above it: a setting of the map, not a picture of one. */
@@ -34,10 +34,10 @@ export function Terrain3DPicker({ value, onValueChange }: Terrain3DPickerProps) 
     value: mode,
     label: t(labelKey as never) as string,
     render: () => (
-      <MaterialCommunityIcons
+      <Icon
         name={icon}
         size={iconSize.lg}
-        color={mode === value ? palette.primary : palette.textSecondary}
+        color={mode === value ? palette.actionPrimary : palette.textSecondary}
       />
     ),
   }));

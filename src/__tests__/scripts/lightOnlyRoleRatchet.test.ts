@@ -1,5 +1,5 @@
 /**
- * Scenario: `colors.primary` is the light theme's primary, and a style or a
+ * Scenario: `colors.actionPrimary` is the light theme's primary, and a style or a
  * prop that names it draws the light value on the dark grounds too, where the
  * light primary sits under the 3:1 a mark owes. A `brand.<step>` read is the
  * same hazard by a second route: a ramp step is one value in both themes.
@@ -52,7 +52,7 @@ function runGuard(root: string, baseline: Baseline) {
 
 const FILL_IN_A_SHEET = `
 import { colors } from '@/theme';
-const styles = StyleSheet.create({ fill: { backgroundColor: colors.primary } });
+const styles = StyleSheet.create({ fill: { backgroundColor: colors.actionPrimary } });
 `;
 
 describe('the light-only role ratchet', () => {
@@ -68,7 +68,7 @@ describe('the light-only role ratchet', () => {
     const root = treeWith({
       'src/features/a/Row.tsx': `
 import { colors } from '@/theme';
-export const Row = () => <Icon name="pin" color={colors.primary} />;
+export const Row = () => <Icon name="pin" color={colors.actionPrimary} />;
 `,
     });
 
@@ -93,8 +93,8 @@ export const Check = () => <Icon name="check" color={brand.blue550} />;
       'src/features/a/Themed.tsx': `
 import { colors, darkColors, themePalette } from '@/theme';
 export const A = ({ isDark }) => <Icon color={themePalette(isDark).primary} />;
-export const B = ({ isDark }) => <Icon color={isDark ? darkColors.primary : colors.primary} />;
-export const C = ({ isDark }) => <Icon color={!isDark ? colors.primary : darkColors.primary} />;
+export const B = ({ isDark }) => <Icon color={isDark ? darkColors.actionPrimary : colors.actionPrimary} />;
+export const C = ({ isDark }) => <Icon color={!isDark ? colors.actionPrimary : darkColors.actionPrimary} />;
 `,
     });
 

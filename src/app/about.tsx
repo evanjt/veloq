@@ -8,7 +8,7 @@ import {
   ScreenSafeAreaView,
   ScreenScrollView,
 } from '@/shared/ui';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Icon } from '@/shared/ui/Icon';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
 import { iconSize, layout, spacing, typography } from '@/theme';
@@ -17,7 +17,7 @@ import { useTheme } from '@/shared/app';
 import { INTERVALS_URLS } from '@/features/auth';
 import { DataAttribution, settingsStyles } from '@/features/settings';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import {
   LICENCE_URL,
   REPOSITORY_URL,
@@ -109,13 +109,9 @@ function AboutScreenContent() {
               testID="about-link-licenses"
               behaviour="navigate"
               accessibilityLabel={t('about.thirdPartyLicenses')}
-              onPress={() => tapTo('/licenses')}
+              onPress={() => navigateTo('/licenses')}
             >
-              <MaterialCommunityIcons
-                name="file-document-multiple"
-                size={iconSize.lg}
-                color={themeColors.primary}
-              />
+              <Icon name="file-document-multiple" size={iconSize.lg} color={themeColors.primary} />
               <Text style={[styles.linkText, shared.text]}>{t('about.thirdPartyLicenses')}</Text>
             </Row>
             <ExternalLinkRow

@@ -15,6 +15,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
 import { RangeCoverage } from 'veloqrs';
 
+import ChartDataSheet from '@/app/sheets/chart-data';
 import { ActivityHeatmap } from '@/features/stats/components/ActivityHeatmap';
 import { initialiseI18n } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
@@ -182,5 +183,37 @@ describe('ActivityHeatmap days', () => {
     const view = await renderHeatmap({ drawn: false });
 
     expect(view.queryByTestId(`activity-heatmap-day-${ONE_RIDE}`)).toBeNull();
+  });
+});
+
+describe('ActivityHeatmap read without seeing it', () => {
+  it('speaks the days trained and the longest session, and lists each day with activities', async () => {
+    const view = await renderHeatmap();
+
+    const plot = view.getByTestId('activity-heatmap-plot');
+    expect(plot.props.accessibilityRole).toBe('image');
+    expect(plot.props.accessibilityLabel).toMatch(
+      /^Activity calendar, .+ to Jun 17, 2026: active on 2 of \d+ days\. Peak 1 h 5 min on Jun 16, 2026\.$/
+    );
+
+    await act(async () => {
+      plot.props.onAccessibilityAction({ nativeEvent: { actionName: 'showData' } });
+    });
+    const sheet = pushedRoutes().at(-1);
+    expect(sheet.pathname).toBe('sheets/chart-data');
+    mockParams.request = sheet.params.request;
+    const table = await render(<ChartDataSheet />);
+    expect(table.getAllByTestId(/^chart-data-row-/)).toHaveLength(2);
+  });
+
+  it('keeps each day a control of its own beside the plot', async () => {
+    const view = await renderHeatmap();
+
+    expect(
+      view
+        .getByTestId('activity-heatmap-plot')
+        .findAll((node) => node.props.testID === `activity-heatmap-day-${ONE_RIDE}`)
+    ).toHaveLength(0);
+    expect(view.getByTestId(`activity-heatmap-day-${ONE_RIDE}`)).toBeTruthy();
   });
 });

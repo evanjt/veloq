@@ -1,7 +1,6 @@
 import React, { useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { TFunc } from '../../types';
 import { sectionRowKey, sectionWithSport } from '../../lib/cardSport';
@@ -14,7 +13,7 @@ import {
   isSwimmingActivity,
 } from '@/shared/activity/activityUtils';
 import { useSectionDetail } from '@/shared/native/useSectionDetail';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { formatDuration } from '@/shared/format/format';
 import { SheetTrackDrawing } from './SheetTrackDrawing';
 import { InsightHistoryChart } from '../InsightHistoryChart';
@@ -30,6 +29,7 @@ import {
 import type { ActivityType, Insight, SupportingSection } from '@/types';
 import { SheetContext } from './SheetContext';
 import { composeAccessibilityLabel, ErrorState, Row } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { NameText } from '@/shared/ui/NameText';
 
 interface StalePRContentProps {
@@ -111,7 +111,9 @@ const TopSectionMap = React.memo(function TopSectionMap({ sectionId }: { section
       <ErrorState variant="inline" error={error} onRetry={retry} testID="section-read-failure" />
     );
   }
-  return <SheetTrackDrawing points={section?.polyline} color={themePalette(isDark).primary} />;
+  return (
+    <SheetTrackDrawing points={section?.polyline} color={themePalette(isDark).actionPrimary} />
+  );
 });
 
 /**
@@ -128,7 +130,7 @@ export const StalePRContent = React.memo(function StalePRContent({ insight }: St
   const contextCopy = getContextCopy(sections, dataPoints, t);
 
   const handleSectionPress = useCallback((id: string) => {
-    tapTo(`/section/${id}`);
+    navigateTo(`/section/${id}`);
   }, []);
 
   return (
@@ -157,7 +159,7 @@ export const StalePRContent = React.memo(function StalePRContent({ insight }: St
                 <View style={styles.sectionContent}>
                   <View style={styles.sectionNameRow}>
                     {s.sportType ? (
-                      <MaterialCommunityIcons
+                      <Icon
                         name={getActivityIcon(s.sportType)}
                         size={iconSize.sm}
                         color={isDark ? darkColors.textSecondary : colors.textSecondary}

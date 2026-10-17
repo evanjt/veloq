@@ -114,7 +114,7 @@ export function AttemptHistogramChart({
                   y={bar.y}
                   width={Math.max(0, bar.width - 2)}
                   height={bar.height}
-                  color={palette.primary}
+                  color={palette.actionPrimary}
                   opacity={0.7}
                 />
               ))}
@@ -123,7 +123,7 @@ export function AttemptHistogramChart({
                   p1={vec(recordX, plotTop)}
                   p2={vec(recordX, plotTop + plotHeight)}
                   strokeWidth={MARK_WIDTH}
-                  color={palette.chartGoldMark}
+                  color={palette.achievement}
                 >
                   <DashPathEffect intervals={RECORD_DASH} />
                 </Line>
@@ -182,7 +182,7 @@ export function AttemptHistogramChart({
         )}
         <KeyEntry
           testID="attempt-histogram-record-key"
-          color={palette.chartGoldMark}
+          color={palette.achievement}
           dashed
           label={recordHeld ? t('sections.legendPr') : t('sections.best')}
           isDark={isDark}

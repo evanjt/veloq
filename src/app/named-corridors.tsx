@@ -32,7 +32,7 @@ import { projectRouteToBox } from '@/shared/geo/routePreview';
 import { formatFullDate } from '@/shared/format/format';
 import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { confirmAction } from '@/shared/ui/dialog';
 
 const PREVIEW_WIDTH = 64;
@@ -55,7 +55,7 @@ function FootprintPreview({
       <Polyline
         points={points.map((p) => `${p.x},${p.y}`).join(' ')}
         fill="none"
-        stroke={isDark ? darkColors.textSecondary : colors.primary}
+        stroke={isDark ? darkColors.textSecondary : colors.actionPrimary}
         strokeWidth={2}
       />
     </Svg>
@@ -147,7 +147,7 @@ function NamedCorridorsScreenContent() {
                     // link line, so the target is the block and not one line of it.
                     <Pressable
                       testID={`named-corridor-${corridor.intentId}-open`}
-                      onPress={() => tapTo(`/section/${corridor.sectionId}`)}
+                      onPress={() => navigateTo(`/section/${corridor.sectionId}`)}
                       style={pressable(styles.body)}
                       android_ripple={pressRipple}
                       accessibilityRole="link"
@@ -161,7 +161,7 @@ function NamedCorridorsScreenContent() {
                     onPress={() => confirmRemove(corridor)}
                     accessibilityLabel={t('namedCorridors.delete')}
                   >
-                    <ChromeIcon name="delete" size={iconSize.md} color={colors.error} />
+                    <ChromeIcon name="delete" size={iconSize.md} color={colors.errorText} />
                   </IconButton>
                 </View>
               </Card>
@@ -174,8 +174,8 @@ function NamedCorridorsScreenContent() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  containerDark: { backgroundColor: darkColors.background },
+  container: { flex: 1, backgroundColor: colors.surfacePage },
+  containerDark: { backgroundColor: darkColors.surfacePage },
   content: { padding: layout.screenPadding, gap: spacing.sm },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   body: { flex: 1, gap: spacing.xs, minHeight: layout.minTapTarget },

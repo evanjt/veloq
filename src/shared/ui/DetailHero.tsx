@@ -7,16 +7,9 @@
  */
 
 import React from 'react';
-import {
-  Platform,
-  Pressable,
-  View,
-  StyleSheet,
-  type StyleProp,
-  type ViewStyle,
-} from 'react-native';
+import { Platform, View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -34,8 +27,9 @@ import {
   spacing,
   typography,
 } from '@/theme';
+import { Icon } from './Icon';
 import { BACK_SWIPE_EDGE_WIDTH } from './backSwipeEdge';
-import { pressable, pressRipple } from './pressFeedback';
+import { PressTarget } from './PressTarget';
 import { useBackDismiss } from '@/shared/app/useBackDismiss';
 import { TextField, type TextFieldHandle } from './TextField';
 import { useHeroHeaderBottom } from './useHeroHeaderBottom';
@@ -50,19 +44,19 @@ const noop = () => {};
 export const heroTextStyles = StyleSheet.create({
   name: {
     ...typography.statsValue,
-    color: colors.textOnDark,
+    color: colors.textOnFill,
     textShadowColor: opacity.overlay.full,
     ...mapTextShadow,
   },
   stat: {
     ...typography.bodyCompactBold,
-    color: colors.textOnDark,
+    color: colors.textOnFill,
     textShadowColor: opacity.overlay.full,
     ...mapTextShadow,
   },
   statDivider: {
     ...typography.bodyCompact,
-    color: colorWithOpacity(colors.textOnDark, opacity.disabled),
+    color: colorWithOpacity(colors.textOnFill, opacity.disabled),
     marginHorizontal: spacing.xsPlus,
     textShadowColor: opacity.overlay.full,
     ...mapTextShadow,
@@ -183,7 +177,7 @@ export function HeroNameRow({ name, nameTestID, icon, editable, accessory }: Her
     <View style={styles.nameRow}>
       {icon ? (
         <View style={[styles.typeIcon, { backgroundColor: icon.color }]}>
-          <MaterialCommunityIcons name={icon.name} size={iconSize.sm} color={colors.textOnDark} />
+          <Icon name={icon.name} size={iconSize.sm} color={colors.textOnFill} />
         </View>
       ) : null}
       {editable?.isEditing ? (
@@ -203,56 +197,49 @@ export function HeroNameRow({ name, nameTestID, icon, editable, accessory }: Her
             autoFocus
             selectTextOnFocus
           />
-          <Pressable
+          <PressTarget
             testID={`${editable.testIDPrefix}-rename-save`}
             accessibilityRole="button"
             accessibilityLabel={t('common.save')}
             onPress={editable.onSave}
             hitSlop={EDIT_NAME_SLOP}
-            style={pressable(styles.editNameButton)}
-            android_ripple={pressRipple}
+            style={styles.editNameButton}
           >
             {/* The button sits on a dark scrim over the hero image in both themes, so
                 the mark is the light tone rather than the light theme's. */}
-            <MaterialCommunityIcons
-              name="check"
-              size={iconSize.md}
-              color={darkColors.successDeep}
-            />
-          </Pressable>
-          <Pressable
+            <Icon name="check" size={iconSize.md} color={darkColors.successText} />
+          </PressTarget>
+          <PressTarget
             accessibilityRole="button"
             accessibilityLabel={t('common.cancel')}
             onPress={editable.onCancel}
             hitSlop={EDIT_NAME_SLOP}
-            style={pressable(styles.editNameButton)}
-            android_ripple={pressRipple}
+            style={styles.editNameButton}
           >
-            <MaterialCommunityIcons name="close" size={iconSize.md} color={colors.error} />
-          </Pressable>
+            <Icon name="close" size={iconSize.md} color={colors.errorText} />
+          </PressTarget>
         </View>
       ) : editable ? (
         // A heading that renames when activated: one role per element, and the name is what the
         // headings rotor needs to land on, so the rename is its hint rather than its role.
-        <Pressable
+        <PressTarget
           testID={`${editable.testIDPrefix}-rename-button`}
           accessibilityRole="header"
           accessibilityLabel={name}
           accessibilityHint={t('common.rename')}
           onPress={editable.onStartEdit}
-          style={pressable(styles.nameEditTouchable)}
-          android_ripple={pressRipple}
+          style={styles.nameEditTouchable}
         >
           <NameText testID={nameTestID} style={[heroTextStyles.name, styles.heroName]}>
             {name}
           </NameText>
-          <MaterialCommunityIcons
+          <Icon
             name="pencil"
             size={iconSize.sm}
-            color={colorWithOpacity(colors.textOnDark, 0.6)}
+            color={colorWithOpacity(colors.textOnFill, 0.6)}
             style={styles.editIcon}
           />
-        </Pressable>
+        </PressTarget>
       ) : (
         <NameText
           testID={nameTestID}

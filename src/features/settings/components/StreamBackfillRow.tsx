@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   textLight: {
-    color: colors.textOnDark,
+    color: colors.textOnFill,
   },
   textSecondary: {
     color: darkColors.textSecondary,

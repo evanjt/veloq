@@ -42,7 +42,8 @@ export function TopSafeAreaProvider({
   const hideDemoBanner = useAuthStore((s) => s.hideDemoBanner);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const { offlineBannerShown } = useNetwork();
-  const { lastError } = useSyncHealth();
+  const { lastError, retryAtMs } = useSyncHealth();
+  const syncPaused = (retryAtMs ?? null) !== null;
   const trackFetchNoticeShown = useTrackFetchNotice((s) => s.failedCount > 0 && !s.dismissed);
   const engineInitFailed = useEngineStatus((s) => s.initFailed);
   const value = useMemo(() => {
@@ -53,6 +54,7 @@ export function TopSafeAreaProvider({
       isDemoMode,
       hideDemoBanner,
       lastError: lastError ?? null,
+      syncPaused,
       trackFetchNoticeShown,
       engineInitFailed,
     });
@@ -78,6 +80,7 @@ export function TopSafeAreaProvider({
     isAuthenticated,
     offlineBannerShown,
     lastError,
+    syncPaused,
     trackFetchNoticeShown,
     engineInitFailed,
     insets.top,
@@ -116,20 +119,36 @@ export function useBannerTopPadding(self: ShownBanner): number {
 }
 
 /**
- * Where a pill floating under the status bar starts: below every banner in the
- * top slot, so it never covers one, and under the inset when the slot is empty.
- * It floats over the header a screen draws rather than below it, and passes
- * touches through, so the header's buttons stay pressable beneath it.
+ * Where each status pill in the floating stack starts, given the pills' drawn
+ * heights from the top down: the first below every banner in the top slot, so it
+ * never covers one, or under the inset when the slot is empty, and each after it
+ * below the one above. The stack floats over the header a screen draws rather
+ * than below it, and passes touches through, so the header's buttons stay
+ * pressable beneath it.
  */
-export function useFloatingPillTop(): number {
+export function useFloatingPillTops(heights: readonly number[]): number[] {
   const insets = useSafeAreaInsets();
   const slot = useTopBannerHeights((s) => stackHeight(s.heights));
-  return floatingPillTop(insets.top, slot);
+  return pillStack(insets.top, slot, heights);
 }
 
-/** The pill's top from the status-bar inset and the banner slot's height. */
+/** The first pill's top from the status-bar inset and the banner slot's height. */
 export function floatingPillTop(inset: number, slot: number): number {
   return Math.max(inset, slot) + spacing.xs;
+}
+
+/**
+ * One top per pill, `spacing.xs` apart, each starting below the whole height of
+ * the pill above it, so no two pills overlap however tall their text wraps.
+ */
+export function pillStack(inset: number, slot: number, heights: readonly number[]): number[] {
+  const tops: number[] = [];
+  let next = floatingPillTop(inset, slot);
+  for (const height of heights) {
+    tops.push(next);
+    next += height + spacing.xs;
+  }
+  return tops;
 }
 
 export function useScreenSafeAreaEdges(): Edge[] {

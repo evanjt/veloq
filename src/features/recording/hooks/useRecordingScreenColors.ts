@@ -6,7 +6,7 @@ export function useRecordingScreenColors() {
   return {
     textPrimary: isDark ? darkColors.textPrimary : colors.textPrimary,
     textSecondary: isDark ? darkColors.textSecondary : colors.textSecondary,
-    bg: isDark ? darkColors.background : colors.background,
+    bg: isDark ? darkColors.surfacePage : colors.surfacePage,
     surface: isDark ? darkColors.surface : colors.surface,
     border: isDark ? darkColors.border : colors.border,
   };

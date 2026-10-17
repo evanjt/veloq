@@ -1,14 +1,13 @@
 import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useTodayWorkout, useWorkoutSections, type WorkoutSection } from '@/features/home';
 import {
   formZoneFromLoads,
   formatForm,
-  FORM_ZONE_COLORS,
+  formZoneColor,
   formZoneTextColor,
   formZoneLabel,
 } from '@/features/fitness';
@@ -32,7 +31,8 @@ import {
 import type { CalendarEvent } from '@/types';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { pressable, pressRipple } from '@/shared/ui';
-import { tapTo } from '@/shared/app/navigation';
+import { Icon } from '@/shared/ui/Icon';
+import { navigateTo } from '@/shared/app/navigation';
 import { NameText } from '@/shared/ui/NameText';
 
 const PR_RECENCY_DAYS = 7;
@@ -95,7 +95,7 @@ const ReadinessRow = React.memo(function ReadinessRow({
   const { ctl, atl } = loads;
   const form = formFromLoads(ctl, atl);
   const formZone = formZoneFromLoads(ctl, atl, asPercent);
-  const formColor = formZone ? FORM_ZONE_COLORS[formZone] : 'transparent';
+  const formColor = formZone ? formZoneColor(formZone, isDark) : 'transparent';
   const formTextColor = formZone ? formZoneTextColor(formZone, isDark) : undefined;
   const formLabel = formZone ? formZoneLabel(formZone) : '';
   const formValue = formatForm(form, Math.round(ctl), asPercent);
@@ -140,7 +140,7 @@ const WorkoutCard = React.memo(function WorkoutCard({
   return (
     <View style={[styles.workoutCard, isTomorrow && styles.dimmed]}>
       <Text style={[styles.workoutName, isDark && styles.textLight]}>
-        <MaterialCommunityIcons
+        <Icon
           name={getActivityIcon(workout.type)}
           size={iconSize.md}
           color={isDark ? darkColors.textPrimary : colors.textPrimary}
@@ -176,7 +176,7 @@ const SectionHighlights = React.memo(function SectionHighlights({
     <View style={[styles.sectionsContainer, isDark && styles.sectionsContainerDark]}>
       {recentPRCount > 0 && (
         <View style={styles.prSummaryRow}>
-          <MaterialCommunityIcons name="trophy-outline" size={iconSize.sm} color={brand.gold} />
+          <Icon name="trophy-outline" size={iconSize.sm} color={brand.gold} />
           <Text style={[styles.prSummaryText, isDark && styles.prGoldDark]}>
             {t('todayBanner.prCountThisWeek', {
               count: recentPRCount,
@@ -200,7 +200,7 @@ const SectionHighlights = React.memo(function SectionHighlights({
             key={section.id}
             style={pressable(styles.sectionRow)}
             android_ripple={pressRipple}
-            onPress={() => tapTo(`/section/${section.id}`)}
+            onPress={() => navigateTo(`/section/${section.id}`)}
             accessibilityRole="button"
             accessibilityLabel={section.name}
           >
@@ -216,7 +216,7 @@ const SectionHighlights = React.memo(function SectionHighlights({
             <View style={styles.sectionMeta}>
               {prTimeSecs != null && isRecentPR ? (
                 <View style={styles.prCelebration}>
-                  <MaterialCommunityIcons name="trophy" size={iconSize.sm} color={brand.gold} />
+                  <Icon name="trophy" size={iconSize.sm} color={brand.gold} />
                   <Text style={[styles.prTextCelebration, isDark && styles.prGoldDark]}>
                     {t('routes.prTime', { time: formatDuration(prTimeSecs) })}
                   </Text>
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     ...shadows.card,
   },
   containerDark: {
-    backgroundColor: darkColors.surfaceCard,
+    backgroundColor: darkColors.surfaceRaised,
     borderWidth: stroke.one,
     borderColor: darkColors.border,
     ...shadows.none,
@@ -328,11 +328,11 @@ const styles = StyleSheet.create({
   },
   prSummaryText: {
     ...typography.captionBold,
-    color: colors.chartGoldText,
+    color: colors.achievementText,
     fontVariant: ['tabular-nums'],
   },
   prGoldDark: {
-    color: darkColors.chartGoldText,
+    color: darkColors.achievementText,
   },
   sectionRow: {
     flexDirection: 'row',
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
   },
   prTextCelebration: {
     ...typography.bodyCompactBold,
-    color: colors.chartGoldText,
+    color: colors.achievementText,
     fontVariant: ['tabular-nums'],
   },
   prDelta: {

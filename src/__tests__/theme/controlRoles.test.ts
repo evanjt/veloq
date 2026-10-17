@@ -28,11 +28,11 @@ function contrastRatio(a: string, b: string): number {
 const THEMES = {
   light: {
     palette: colors as Record<string, string>,
-    surfaces: ['surface', 'background', 'backgroundAlt'],
+    surfaces: ['surfacePage', 'surface', 'surfaceRaised', 'surfaceInput'],
   },
   dark: {
     palette: darkColors as Record<string, string>,
-    surfaces: ['background', 'backgroundAlt', 'surface', 'surfaceElevated', 'surfaceCard'],
+    surfaces: ['surfacePage', 'surface', 'surfaceRaised', 'surfaceInput'],
   },
 } as const;
 
@@ -48,7 +48,7 @@ describe('control roles', () => {
     }
 
     it(`${theme} white on controlOn holds 4.5:1`, () => {
-      expect(contrastRatio(colors.textOnPrimary, palette.controlOn)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(colors.textOnFill, palette.controlOn)).toBeGreaterThanOrEqual(4.5);
     });
 
     it.each(surfaces)(`${theme} textTertiary holds 4.5:1 on %s`, (surface) => {

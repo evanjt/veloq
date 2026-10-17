@@ -35,7 +35,7 @@ const platform = Platform.OS;
 
 beforeEach(() => {
   openBrowser.mockReset().mockResolvedValue({ type: 'dismiss' });
-  openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+  openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
 });
 
 afterEach(() => {

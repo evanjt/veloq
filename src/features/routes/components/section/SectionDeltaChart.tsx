@@ -137,7 +137,7 @@ export function SectionDeltaChart({
                       path={lap.path}
                       style="stroke"
                       strokeWidth={FAINT_STROKE}
-                      color={palette.primary}
+                      color={palette.actionPrimary}
                       opacity={FAINT_OPACITY}
                     />
                   ))}

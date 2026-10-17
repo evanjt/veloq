@@ -1,11 +1,12 @@
 /**
- * Global store for sync date range and GPS sync progress.
+ * Global store for the sync date range.
  *
  * When the user extends the timeline slider past the default activity window,
  * this store is updated and GlobalDataSync responds by fetching more data.
  *
- * GPS sync progress is also stored here so all screens can read from a single
- * source of truth (instead of each screen having its own progress state).
+ * The progress of the track work, the GPS download, detection and the
+ * heatmap, is not held here: the engine reports it on its sync status, which
+ * `useTrackStage` reads.
  */
 
 import { create } from 'zustand';
@@ -21,21 +22,6 @@ import {
 } from '@/shared/app/extendedFetch';
 
 const log = debug.create('SyncDateRangeStore');
-
-export interface GpsSyncProgress {
-  status: 'idle' | 'fetching' | 'processing' | 'computing' | 'complete' | 'error';
-  completed: number;
-  total: number;
-  percent: number;
-  message: string;
-  /**
-   * On a 'complete' write: the sync settled but Rust is still detecting, so
-   * the surfaces keep showing the message until `detectionApplied` lands.
-   */
-  analysingInBackground?: boolean;
-  /** The `syncGeneration` the run that wrote this started at. */
-  generation?: number;
-}
 
 /**
  * What `expandRange` did with the request. A refusal is named so the caller
@@ -56,8 +42,6 @@ interface SyncDateRangeState {
   extendedFetch: ExtendedFetchState;
   /** Whether the range has expanded since last sync (triggers route re-optimisation) */
   hasExpanded: boolean;
-  /** GPS sync progress (shared across all screens) */
-  gpsSyncProgress: GpsSyncProgress;
   /**
    * The activities the bulk GPS run is about to fetch a track for.
    *
@@ -72,12 +56,6 @@ interface SyncDateRangeState {
    * after one ends without bringing it a line, asks as it always did.
    */
   gpsSyncPendingIds: ReadonlySet<string>;
-  /** Whether GPS sync is currently in progress */
-  isGpsSyncing: boolean;
-  /** Detection outlived the sync's follow and has not announced its end. */
-  isAnalysingInBackground: boolean;
-  /** Timestamp of last successful GPS sync */
-  lastSyncTimestamp: string | null;
   /**
    * Whether expansion is locked (after reset/clear).
    * When locked, expandRange() refuses with 'locked' until the GPS sync
@@ -106,10 +84,6 @@ interface SyncDateRangeState {
   expirePickup: () => void;
   /** Mark expansion as processed (call after route re-optimisation) */
   markExpansionProcessed: () => void;
-  /** Update GPS sync progress (called from GlobalDataSync) */
-  setGpsSyncProgress: (progress: GpsSyncProgress) => void;
-  /** The run the sync stopped following has landed. */
-  backgroundAnalysisEnded: () => void;
   /** What the bulk GPS run is about to fetch. Cleared when the run ends. */
   setGpsSyncPendingIds: (ids: readonly string[]) => void;
   /** Unlock expansion after a delay (prevents race conditions with UI updates) */
@@ -125,14 +99,6 @@ function getDefaultRange() {
     newest: formatLocalDate(today),
   };
 }
-
-const defaultGpsSyncProgress: GpsSyncProgress = {
-  status: 'idle',
-  completed: 0,
-  total: 0,
-  percent: 0,
-  message: '',
-};
 
 /**
  * Get current sync generation (for use outside React components).
@@ -152,11 +118,7 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
   ...getDefaultRange(),
   extendedFetch: IDLE_EXTENDED_FETCH,
   hasExpanded: false,
-  gpsSyncProgress: defaultGpsSyncProgress,
   gpsSyncPendingIds: EMPTY_PENDING_IDS,
-  isGpsSyncing: false,
-  isAnalysingInBackground: false,
-  lastSyncTimestamp: null,
   isExpansionLocked: false,
   syncGeneration: 0,
 
@@ -183,7 +145,6 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
         oldest: newOldest,
         newest: newNewest,
         hasExpanded: true,
-        gpsSyncProgress: defaultGpsSyncProgress,
       });
 
       if (__DEV__) {
@@ -228,14 +189,9 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
       ...range,
       extendedFetch: IDLE_EXTENDED_FETCH,
       hasExpanded: false,
-      // These belong to the account that just went away: an error status, a
-      // last sync time or a pending id left standing reads as the new
-      // athlete's.
-      gpsSyncProgress: defaultGpsSyncProgress,
+      // These belong to the account that just went away: a pending id left
+      // standing reads as the new athlete's.
       gpsSyncPendingIds: EMPTY_PENDING_IDS,
-      isGpsSyncing: false,
-      isAnalysingInBackground: false,
-      lastSyncTimestamp: null,
       isExpansionLocked: true, // Lock expansion until initial sync completes
       syncGeneration: newGeneration, // Invalidate in-flight fetches
     });
@@ -261,34 +217,6 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
 
   setGpsSyncPendingIds: (ids: readonly string[]) => {
     set({ gpsSyncPendingIds: ids.length === 0 ? EMPTY_PENDING_IDS : new Set(ids) });
-  },
-
-  setGpsSyncProgress: (progress: GpsSyncProgress) => {
-    const isSyncing =
-      progress.status === 'fetching' ||
-      progress.status === 'processing' ||
-      progress.status === 'computing';
-    const updates: Partial<SyncDateRangeState> = {
-      gpsSyncProgress: progress,
-      isGpsSyncing: isSyncing,
-      isAnalysingInBackground:
-        progress.status === 'complete' && progress.analysingInBackground === true,
-    };
-    // A run that has ended holds nothing, so the cards it was covering are
-    // free to ask. Cleared here rather than at each of the three call sites
-    // that end a run, so none of them can forget.
-    if (!isSyncing) updates.gpsSyncPendingIds = EMPTY_PENDING_IDS;
-    // Track timestamp when sync completes successfully
-    // Note: Don't auto-unlock expansion here - let GlobalDataSync call delayedUnlockExpansion
-    // to prevent race conditions with UI updates
-    if (progress.status === 'complete') {
-      updates.lastSyncTimestamp = new Date().toISOString();
-    }
-    set(updates);
-  },
-
-  backgroundAnalysisEnded: () => {
-    set({ isAnalysingInBackground: false });
   },
 
   delayedUnlockExpansion: () => {

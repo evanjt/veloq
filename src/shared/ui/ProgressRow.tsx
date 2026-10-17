@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   labelDark: {
-    color: colors.textOnDark,
+    color: colors.textOnFill,
   },
   detail: {
     ...typography.caption,

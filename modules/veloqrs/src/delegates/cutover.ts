@@ -8,7 +8,6 @@
 
 import {
   isCutoverHeld as ffiIsCutoverHeld,
-  cancelDetectorCutover as ffiCancelDetectorCutover,
   startDetectorCutover as ffiStartDetectorCutover,
   getCutoverDiff as ffiGetCutoverDiff,
   getChangeCardSupport as ffiGetChangeCardSupport,
@@ -92,22 +91,6 @@ export function startDetectorCutover(host: DelegateHost): FfiStartOutcome {
   } catch (e) {
     console.error('[Engine] startDetectorCutover threw:', e);
     return FfiStartOutcome.Failed;
-  }
-}
-
-/**
- * Ask the running cutover to stop at its next step boundary.
- *
- * Costs the run's work and nothing else: the migration is still owed and the
- * next launch runs it again from the top. Safe with nothing running, and safe
- * before the engine is ready, where there is nothing to stop.
- */
-export function cancelDetectorCutover(host: DelegateHost): void {
-  if (!host.ready) return;
-  try {
-    host.timed('cancelDetectorCutover', () => ffiCancelDetectorCutover());
-  } catch (e) {
-    console.error('[Engine] cancelDetectorCutover threw:', e);
   }
 }
 

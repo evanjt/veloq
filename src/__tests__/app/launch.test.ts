@@ -9,10 +9,10 @@
  * marked step by step, and nothing probes the engine for a legacy purchaser.
  */
 
+import type { Config } from '@jest/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import * as FileSystem from 'expo-file-system/legacy';
-import * as format from '@/shared/format/format';
 import { exportRecordBackup } from '@/features/settings/lib/backup';
 import { inBackupSlot } from '@/features/settings/lib/backupSlot';
 import { shareExistingFile } from '@/features/settings/lib/shareFile';
@@ -504,6 +504,19 @@ async function finishBackupWork() {
   await inBackupSlot(async () => {});
 }
 
+// Fake only the clock, so the export's own timers and promises stay real.
+const CLOCK_ONLY: Config.FakeTimersConfig['doNotFake'] = [
+  'setTimeout',
+  'clearTimeout',
+  'setInterval',
+  'clearInterval',
+  'setImmediate',
+  'clearImmediate',
+  'nextTick',
+  'queueMicrotask',
+  'performance',
+];
+
 describe('backup temporary files', () => {
   afterEach(() => jest.restoreAllMocks());
 
@@ -518,16 +531,18 @@ describe('backup temporary files', () => {
   });
 
   it('keeps only the second export across different dates, until another sweep', async () => {
-    jest
-      .spyOn(format, 'formatLocalDate')
-      .mockReturnValueOnce('2026-09-01')
-      .mockReturnValueOnce('2026-09-02');
-    await exportRecordBackup();
-    expect(mockFiles.has('file:///cache/exports/veloq-backup-2026-09-01.zip')).toBe(true);
+    jest.useFakeTimers({ doNotFake: CLOCK_ONLY, now: new Date('2026-09-01T09:30:05') });
+    try {
+      await exportRecordBackup();
+      expect(mockFiles.has('file:///cache/exports/veloq-backup-2026-09-01-093005.zip')).toBe(true);
 
-    await exportRecordBackup();
+      jest.setSystemTime(new Date('2026-09-02T18:04:00'));
+      await exportRecordBackup();
+    } finally {
+      jest.useRealTimers();
+    }
 
-    expect([...mockFiles]).toEqual(['file:///cache/exports/veloq-backup-2026-09-02.zip']);
+    expect([...mockFiles]).toEqual(['file:///cache/exports/veloq-backup-2026-09-02-180400.zip']);
     expect(shareExistingFile).toHaveBeenLastCalledWith([...mockFiles][0], 'zip', {
       anchor: undefined,
     });

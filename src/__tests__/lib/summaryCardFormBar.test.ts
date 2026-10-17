@@ -8,7 +8,7 @@
  * against that day's fitness, the way the hero and the widget do.
  */
 
-import { FORM_ZONE_MARK_COLORS, getFormZone } from '@/features/fitness/lib/fitness';
+import { getFormZone } from '@/features/fitness/lib/fitness';
 import { formBarLayout } from '@/features/home/lib/formBar';
 
 describe('the summary card form bar', () => {
@@ -46,7 +46,6 @@ describe('the summary card form bar', () => {
     const { rects } = formBarLayout([-8], [0], true, 100);
 
     expect(rects[0].zone).toBeNull();
-    expect(rects[0].color).toBe('transparent');
   });
 
   it('keeps the absolute band on that day with the setting off', () => {
@@ -60,15 +59,12 @@ describe('the summary card form bar', () => {
     expect(rects[2].x + rects[2].width - 0.5).toBe(100);
   });
 
-  it('draws each zone in its mark tone, the one that holds 3:1 on the card', () => {
+  it('lays out one rect per zone when each day sits in another zone', () => {
     // One day in each zone, as absolute form on a fitness of 100.
     const form = [-40, -20, 0, 10, 30];
     const fitness = [100, 100, 100, 100, 100];
     const { rects } = formBarLayout(form, fitness, false, 100);
 
     expect(new Set(rects.map((r) => r.zone)).size).toBe(5);
-    for (const rect of rects) {
-      expect(rect.color).toBe(FORM_ZONE_MARK_COLORS[rect.zone!]);
-    }
   });
 });

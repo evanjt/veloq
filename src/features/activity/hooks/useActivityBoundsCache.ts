@@ -12,6 +12,7 @@ import { clearAllGpsTracks, clearBoundsCache } from '@/shared/storage/gpsStorage
 import { getEngine, getRouteDbPath } from '@/shared/native/engine';
 import { engineErrorTag } from '@/shared/native/engineError';
 import { useEngineReady } from '@/shared/native/useEngineReady';
+import { useLastSyncSuccessAt } from '@/shared/native/useSyncStatus';
 import { withDatabaseSnapshot } from '@/features/settings';
 import { formatLocalDate } from '@/shared/format/format';
 import { runDerivedClear } from '@/shared/native/engineClears';
@@ -19,7 +20,7 @@ import { runDerivedClear } from '@/shared/native/engineClears';
 interface CacheStats {
   /** Total number of cached activities in the Rust engine */
   totalActivities: number;
-  /** Last sync timestamp */
+  /** When a sync last finished clean, as the engine records it */
   lastSync: string | null;
   /** Oldest activity date in cache (ISO string) */
   oldestDate: string | null;
@@ -75,7 +76,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     return { oldest: null, newest: null };
   });
 
-  const lastSyncTimestamp = useSyncDateRange((s) => s.lastSyncTimestamp);
+  const lastSync = useLastSyncSuccessAt();
 
   // Counter to force engine re-subscription after clear+reinit
   const [engineGeneration, setEngineGeneration] = useState(0);
@@ -154,12 +155,12 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   const cacheStats: CacheStats = useMemo(() => {
     return {
       totalActivities: activityCount,
-      lastSync: lastSyncTimestamp,
+      lastSync,
       // Use engine's actual date range - represents what's actually cached
       oldestDate: engineDateRange.oldest,
       newestDate: engineDateRange.newest,
     };
-  }, [activityCount, lastSyncTimestamp, engineDateRange]);
+  }, [activityCount, lastSync, engineDateRange]);
 
   // Expand the global sync date range
   const expandRange = useSyncDateRange((s) => s.expandRange);

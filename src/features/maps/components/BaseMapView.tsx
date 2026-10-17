@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, Animated, ActivityIndicator } from 'react-nativ
 import { useTheme } from '@/shared/app';
 // Straight from the context, not the app barrel: a surface mounted with no
 // app shell still has to draw, and the barrel is what such a caller stubs.
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import {
@@ -23,6 +22,7 @@ import {
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { MapSurface, type MapPressEvent, type MapSurfaceRef } from './MapSurface';
 import { CompassArrow, ComponentErrorBoundary, ICON_BUTTON_GAP, IconButton } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import {
   featureCollection,
   lineFeature,
@@ -116,7 +116,7 @@ const NO_LAYERS: MapLayerSpec[] = [];
 
 export function BaseMapView({
   routeCoordinates,
-  routeColor = colors.primary,
+  routeColor = colors.actionPrimary,
   bounds,
   padding = DEFAULT_FIT_PADDING,
   initialStyle,
@@ -321,10 +321,10 @@ export function BaseMapView({
           variant="secondary"
           accessibilityLabel={t('maps.closeMap')}
         >
-          <MaterialCommunityIcons
+          <Icon
             name="close"
             size={iconSize.lg}
-            color={isDark ? colors.textOnDark : colors.textSecondary}
+            color={isDark ? colors.textOnFill : colors.textSecondary}
           />
         </IconButton>
       ) : null}
@@ -343,10 +343,10 @@ export function BaseMapView({
           variant="secondary"
           accessibilityLabel={t('maps.toggleStyle')}
         >
-          <MaterialCommunityIcons
+          <Icon
             name={getStyleIcon(mapStyle)}
             size={iconSize.lg}
-            color={isDark ? colors.textOnDark : colors.textSecondary}
+            color={isDark ? colors.textOnFill : colors.textSecondary}
           />
         </IconButton>
       ) : null}
@@ -361,11 +361,11 @@ export function BaseMapView({
             variant={is3DMode ? 'primary' : 'secondary'}
             accessibilityLabel={is3DMode ? t('maps.disable3D') : t('maps.enable3D')}
           >
-            <MaterialCommunityIcons
+            <Icon
               name="terrain"
               size={iconSize.lg}
               color={
-                is3DMode ? colors.textOnPrimary : isDark ? colors.textOnDark : colors.textSecondary
+                is3DMode ? colors.textOnFill : isDark ? colors.textOnFill : colors.textSecondary
               }
             />
           </IconButton>
@@ -381,8 +381,8 @@ export function BaseMapView({
             <CompassArrow
               size={iconSize.lg}
               rotation={bearingAnim}
-              northColor={colors.error}
-              southColor={isDark ? colors.textOnDark : colors.textSecondary}
+              northColor={colors.compassNorth}
+              southColor={isDark ? colors.textOnFill : colors.textSecondary}
             />
           </IconButton>
         ) : null}
@@ -399,17 +399,17 @@ export function BaseMapView({
             {locationLoading ? (
               <ActivityIndicator
                 size="small"
-                color={isDark ? colors.textOnDark : colors.textSecondary}
+                color={isDark ? colors.textOnFill : colors.textSecondary}
               />
             ) : (
-              <MaterialCommunityIcons
+              <Icon
                 name={LOCATE_GLYPH}
                 size={iconSize.lg}
                 color={
                   userLocation
-                    ? colors.textOnPrimary
+                    ? colors.textOnFill
                     : isDark
-                      ? colors.textOnDark
+                      ? colors.textOnFill
                       : colors.textSecondary
                 }
               />
@@ -492,7 +492,7 @@ export function BaseMapView({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: darkColors.background,
+    backgroundColor: darkColors.surfacePage,
   },
   mapLayer: {
     ...StyleSheet.absoluteFill,
@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
     zIndex: layers.mapOverlay,
   },
   buttonDark: {
-    backgroundColor: darkColors.surfaceCard,
+    backgroundColor: darkColors.surfaceRaised,
   },
   closeButton: {
     left: spacing.md,
@@ -532,7 +532,7 @@ const styles = StyleSheet.create({
     ...shadows.mapOverlay,
   },
   controlButtonDark: {
-    backgroundColor: darkColors.surfaceCard,
+    backgroundColor: darkColors.surfaceRaised,
   },
   attribution: {
     position: 'absolute',
@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusSm,
   },
   attributionPillDark: {
-    backgroundColor: colorWithOpacity(darkColors.surfaceElevated, 0.8),
+    backgroundColor: colorWithOpacity(darkColors.surfaceRaised, 0.8),
   },
   attributionText: {
     fontSize: typography.pillLabel.fontSize,

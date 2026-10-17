@@ -19,7 +19,6 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 // After the layout: the testing library mocks reanimated for every later import,
 // and that mock lacks the logger the root layout configures at load.
 import { act, renderRouter } from 'expo-router/testing-library';
-import { store } from 'expo-router/build/global-state/router-store';
 
 // The shared setup stubs the router for render tests; this suite needs the real one.
 jest.mock('expo-router', () => ({ ...jest.requireActual('expo-router') }));
@@ -80,8 +79,16 @@ const APP = {
 
 type StackState = { index: number; routes: { name: string }[] };
 
+let app: Awaited<ReturnType<typeof renderRouter>>;
+
+/** The app rendered at a link, kept so the state helpers read its router. */
+async function open(options: { initialUrl: string }) {
+  app = await renderRouter(APP, options);
+  return app;
+}
+
 function rootStack(): StackState {
-  const state = store.navigationRef.getRootState() as unknown as {
+  const state = app.getRouterState() as unknown as {
     routes: { name: string; state?: StackState }[];
   };
   // The router wraps the app's root stack in its own `__root` route.
@@ -94,10 +101,16 @@ function routeNames(): string[] {
   return rootStack().routes.map((route) => route.name);
 }
 
+/**
+ * Runs the app until no timer is left. The router queues each navigation for a later pass, so
+ * a redirect the root layout makes as it renders lands one pass after the render that asked.
+ */
 async function settle() {
-  await act(async () => {
-    await jest.runAllTimersAsync();
-  });
+  do {
+    await act(async () => {
+      await jest.runAllTimersAsync();
+    });
+  } while (jest.getTimerCount() > 0);
 }
 
 function signedIn() {
@@ -134,7 +147,7 @@ it.each([
   ['/route/r1', 'route/[id]'],
   ['/record', 'record'],
 ])('a cold link to %s opens over the tab group', async (initialUrl, screen) => {
-  const result = renderRouter(APP, { initialUrl });
+  const result = await open({ initialUrl });
   await settle();
 
   expect(routeNames()).toEqual(['(tabs)', screen]);
@@ -142,14 +155,14 @@ it.each([
 });
 
 it('a plain launch holds the tab group alone', async () => {
-  renderRouter(APP, { initialUrl: '/' });
+  await open({ initialUrl: '/' });
   await settle();
 
   expect(routeNames()).toEqual(['(tabs)']);
 });
 
 it('back from a cold-linked screen lands on the Feed', async () => {
-  const result = renderRouter(APP, { initialUrl: '/activity/i999' });
+  const result = await open({ initialUrl: '/activity/i999' });
   await settle();
 
   expect(router.canGoBack()).toBe(true);
@@ -161,7 +174,7 @@ it('back from a cold-linked screen lands on the Feed', async () => {
 
 it('a held ride resumed at a plain launch keeps the tab group under it', async () => {
   mockResumeHeldRide.mockResolvedValue('/recording/review');
-  renderRouter(APP, { initialUrl: '/' });
+  await open({ initialUrl: '/' });
   await settle();
 
   expect(mockResumeHeldRide).toHaveBeenCalledWith('i1');
@@ -170,7 +183,7 @@ it('a held ride resumed at a plain launch keeps the tab group under it', async (
 
 it('a held ride resumed over a cold link takes its place over the tab group', async () => {
   mockResumeHeldRide.mockResolvedValue('/recording/cycling');
-  const result = renderRouter(APP, { initialUrl: '/record' });
+  const result = await open({ initialUrl: '/record' });
   await settle();
 
   expect(routeNames()).toEqual(['(tabs)', 'recording/[type]']);
@@ -178,7 +191,7 @@ it('a held ride resumed over a cold link takes its place over the tab group', as
 });
 
 it('the record screen swapping itself for the review keeps the tab group under it', async () => {
-  renderRouter(APP, { initialUrl: '/record' });
+  await open({ initialUrl: '/record' });
   await settle();
 
   await act(() => router.replace('/recording/review'));
@@ -188,7 +201,7 @@ it('the record screen swapping itself for the review keeps the tab group under i
 
 it('a signed-out cold link sends the athlete to login without a tab group to go back to', async () => {
   signedOut();
-  const result = renderRouter(APP, { initialUrl: '/activity/i999' });
+  const result = await open({ initialUrl: '/activity/i999' });
   await settle();
 
   expect(result.getPathname()).toBe('/login');
@@ -197,7 +210,7 @@ it('a signed-out cold link sends the athlete to login without a tab group to go 
 
 it('signing in on a cold login screen lands on one tab group', async () => {
   signedOut();
-  const result = renderRouter(APP, { initialUrl: '/login' });
+  const result = await open({ initialUrl: '/login' });
   await settle();
 
   signedIn();
@@ -209,7 +222,7 @@ it('signing in on a cold login screen lands on one tab group', async () => {
 
 it('signing in after a signed-out cold link lands on one tab group', async () => {
   signedOut();
-  const result = renderRouter(APP, { initialUrl: '/section/s1' });
+  const result = await open({ initialUrl: '/section/s1' });
   await settle();
 
   signedIn();

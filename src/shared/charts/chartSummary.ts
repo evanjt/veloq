@@ -171,3 +171,100 @@ export function partsTable(
     rows: parts.map(({ label, value }) => ({ key: label, cells: [label, value] })),
   };
 }
+
+/** One day of a calendar chart: how many activities it holds, and the cells its table row lists. */
+export interface SummaryDay {
+  label: string;
+  /** Tells two days with the same label apart. Defaults to the label. */
+  key?: string;
+  /** Activities on the day. Zero is a day without one, which no table row lists. */
+  count: number;
+  /** The figure the day is coloured by, such as its longest session. */
+  value?: number | null | undefined;
+  /** The cells after the date in the day's table row. */
+  cells: string[];
+}
+
+/** The days in order, their span, and how many hold an activity. */
+function dayRun(name: string, days: readonly SummaryDay[], t: TFunction): string {
+  const first = days[0];
+  const last = days[days.length - 1];
+  if (!first || !last) return t('charts.summary.empty', { name });
+  const active = days.filter((day) => day.count > 0).length;
+  if (days.length === 1) {
+    return t(active > 0 ? 'charts.summary.dayActive' : 'charts.summary.dayRest', {
+      name,
+      start: first.label,
+    });
+  }
+  if (active === 0) {
+    return t('charts.summary.noActivity', { name, start: first.label, end: last.label });
+  }
+  return t('charts.summary.daysActive', {
+    name,
+    start: first.label,
+    end: last.label,
+    active,
+    count: days.length,
+  });
+}
+
+/**
+ * A strip of days marked where any activity fell: the span, how many days hold one, and the
+ * longest run of days between two that do.
+ */
+export function stripSummary(name: string, days: readonly SummaryDay[], t: TFunction): string {
+  const run = dayRun(name, days, t);
+  if (days.length < 2) return run;
+  let longest = 0;
+  let current = 0;
+  let seen = false;
+  for (const day of days) {
+    if (day.count > 0) {
+      if (seen) longest = Math.max(longest, current);
+      seen = true;
+      current = 0;
+    } else {
+      current += 1;
+    }
+  }
+  if (longest === 0) return run;
+  return `${run} ${t('charts.summary.longestBreak', {
+    gap: t('charts.summary.dayCount', { count: longest }),
+  })}`;
+}
+
+/**
+ * A calendar of days shaded by a figure: the span, how many days hold an activity, and the day
+ * with the highest figure.
+ */
+export function heatmapSummary(
+  name: string,
+  days: readonly SummaryDay[],
+  format: (value: number) => string,
+  t: TFunction
+): string {
+  const run = dayRun(name, days, t);
+  let peak: { label: string; value: number } | null = null;
+  for (const day of days) {
+    if (day.count === 0 || !isPlotted(day.value)) continue;
+    if (!peak || day.value > peak.value) peak = { label: day.label, value: day.value };
+  }
+  if (!peak) return run;
+  return `${run} ${t('charts.summary.peakDay', { value: format(peak.value), day: peak.label })}`;
+}
+
+/** The table for a calendar chart: one row per day that holds an activity. */
+export function daysTable(
+  title: string,
+  columns: readonly string[],
+  days: readonly SummaryDay[]
+): ChartTable {
+  return {
+    title,
+    columns: [...columns],
+    rows: days
+      .filter((day) => day.count > 0)
+      .map((day) => ({ key: day.key ?? day.label, cells: [day.label, ...day.cells] })),
+  };
+}

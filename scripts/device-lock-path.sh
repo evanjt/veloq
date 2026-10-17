@@ -136,3 +136,32 @@ veloq_refuse_if_not_test_device() {
   echo "$1:   VELOQ_ALLOW_HANDSET=$_veloq_reached" >&2
   return 1
 }
+
+# The one ABI a device build compiles for: the primary ABI of the handset this
+# run will reach, or arm64-v8a when none answers. A device build left to the
+# generated default of four ABIs compiles the engine and every native library
+# four times over to install on a handset that loads one; release artefacts are
+# not device builds and keep the default.
+#
+# Like `adb devices` above it is a read, made while choosing, and it goes only to
+# a handset the lock would admit: a phone that is not a test handset, or a choice
+# between several, is never asked and gets the fallback.
+veloq_device_abi() {
+  _veloq_abi=""
+  if [ -n "${VELOQ_DEVICE_SERIAL:-}" ] && [ -z "${VELOQ_DEVICE_LOCK_AMBIGUOUS:-}" ] &&
+    veloq_refuse_if_not_test_device device-abi 2>/dev/null; then
+    _veloq_abi=$(ANDROID_SERIAL=$VELOQ_DEVICE_SERIAL adb shell getprop ro.product.cpu.abi 2>/dev/null |
+      tr -d '\r' | head -1 || true)
+  fi
+  # Only an ABI the build targets; anything else would fail a quarter of an
+  # hour into the build rather than here.
+  case "$_veloq_abi" in
+  armeabi-v7a | arm64-v8a | x86 | x86_64) ;;
+  *)
+    [ -z "$_veloq_abi" ] || echo "device-abi: the handset reports $_veloq_abi, building arm64-v8a" >&2
+    _veloq_abi=arm64-v8a
+    ;;
+  esac
+  echo "$_veloq_abi"
+  unset _veloq_abi
+}

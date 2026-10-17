@@ -20,14 +20,14 @@ import { GROUP_KINDS, GROUP_UNDER_BAR, type PairSpec } from '@/theme/groupKinds'
 const BARS = { text: 4.5, mark: 3 } as const;
 
 const LIGHT_SURFACES = [
+  palette.colors.surfacePage,
   palette.colors.surface,
-  palette.colors.background,
-  palette.colors.backgroundAlt,
+  palette.colors.surfaceRaised,
 ];
 const DARK_SURFACES = [
   palette.darkColors.surface,
-  palette.darkColors.surfaceElevated,
-  palette.darkColors.surfaceCard,
+  palette.darkColors.surfaceRaised,
+  palette.darkColors.surfaceRaised,
 ];
 
 function channels(hex: string): [number, number, number] {
@@ -105,8 +105,8 @@ const NOT_A_GROUP = new Set([
   'insightToneColor',
   'colorWithOpacity',
   'sectionPaletteIndex',
-  'routePaletteIndex',
   'sectionPaletteExpression',
+  'routePaletteExpression',
 ]);
 
 const EXPORTED = Object.keys(palette).filter((name) => {

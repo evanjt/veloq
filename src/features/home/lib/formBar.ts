@@ -6,14 +6,13 @@
  * widget's bar read. The two series are positional, oldest first.
  */
 
-import { FORM_ZONE_MARK_COLORS, getFormZone, type FormZone } from '@/features/fitness';
+import { getFormZone, type FormZone } from '@/features/fitness';
 
 export interface FormBarRect {
   x: number;
   width: number;
   /** Null on a day with no fitness under the percentage setting, which draws nothing. */
   zone: FormZone | null;
-  color: string;
 }
 
 /**
@@ -38,7 +37,6 @@ export function formBarLayout(
       x: left,
       width: right - left + 0.5,
       zone,
-      color: zone ? FORM_ZONE_MARK_COLORS[zone] : 'transparent',
     };
   });
   const transitions: number[] = [];

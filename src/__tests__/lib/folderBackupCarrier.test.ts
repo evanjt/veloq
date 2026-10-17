@@ -15,6 +15,10 @@ import {
   getBackupFailures,
   performBackup,
 } from '@/features/settings/lib/autobackup';
+import {
+  backupFileName,
+  backupNameTimestamp,
+} from '@/features/settings/lib/autobackup/backends/backupName';
 import { failureMessageKey } from '@/features/settings/lib/autobackup/backends/errors';
 import {
   folderBackend,
@@ -26,6 +30,8 @@ import {
 const RECORD_URI = 'file:///docs/veloq-decisions.zip';
 const MOCK_ZIP_BYTES = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 7, 7, 7]);
 const TREE_URI = 'content://com.example.documents/tree/primary%3ATraining';
+/** The name the run at the faked clock's instant writes. */
+const RUN_NAME = backupFileName('2026-03-14T06:30:00.000Z');
 const IOS_FOLDER_URI = 'file:///private/var/mobile/Library/Mobile%20Documents/Training/';
 
 const mockSettings = new Map<string, string>();
@@ -203,8 +209,8 @@ function onPlatform(platform: 'ios' | 'android'): void {
 
 /** Whether `name` is a zip a run writes, and the instant it names. */
 function stampOf(name: string): number | null {
-  const m = name.match(/^veloq-(\d{4}-\d{2}-\d{2})T(\d{2})-(\d{2})-(\d{2})-(\d{3})Z\.zip$/);
-  return m ? Date.parse(`${m[1]}T${m[2]}:${m[3]}:${m[4]}.${m[5]}Z`) : null;
+  const timestamp = backupNameTimestamp(name);
+  return timestamp ? Date.parse(timestamp) : null;
 }
 
 /** The native side's iOS folder, by bookmark: a revoked one throws as the module does. */
@@ -346,6 +352,16 @@ describe('on Android, a storage-access folder', () => {
     ]);
   });
 
+  it('lists a zip the athlete saved there from the share sheet', async () => {
+    mockFolder.files.set('veloq-backup-2026-10-10.zip', new Uint8Array(12));
+
+    const entries = await folderBackend.listBackups();
+
+    expect(entries.map((e) => [e.id, e.timestamp, e.sizeBytes])).toEqual([
+      ['veloq-backup-2026-10-10.zip', new Date(2026, 9, 10).toISOString(), 12],
+    ]);
+  });
+
   it('copies a listed zip out for restore', async () => {
     mockFolder.files.set('veloq-2026-01-02T08-00-00-000Z.zip', MOCK_ZIP_BYTES);
 
@@ -405,13 +421,13 @@ describe('on iOS, a Files folder held by bookmark', () => {
     expect(mockNative.writeToBookmarkedFolder).toHaveBeenCalledWith(
       'Ym9va21hcmstMQ==',
       '/docs/veloq-decisions.zip',
-      'veloq-2026-03-14T06-30-00-000Z.zip'
+      RUN_NAME
     );
-    expect(mockFolder.files.get('veloq-2026-03-14T06-30-00-000Z.zip')).toEqual(MOCK_ZIP_BYTES);
+    expect(mockFolder.files.get(RUN_NAME)).toEqual(MOCK_ZIP_BYTES);
     expect(mockNative.readFromBookmarkedFolder).toHaveBeenCalledWith(
       'Ym9va21hcmstMg==',
-      'veloq-2026-03-14T06-30-00-000Z.zip',
-      '/cache/read-backs/folder-veloq-2026-03-14T06-30-00-000Z.zip'
+      RUN_NAME,
+      `/cache/read-backs/folder-${RUN_NAME}`
     );
     expect(mockSettings.get('__backup_folder')).toBe('Ym9va21hcmstMg==');
   });

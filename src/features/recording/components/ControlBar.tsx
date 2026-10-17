@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { View, StyleSheet, Animated, Pressable } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as haptics from '@/shared/ui/haptics';
 
@@ -19,6 +19,7 @@ import {
   typography,
 } from '@/theme';
 import type { RecordingStatus, RecordingMode } from '@/types';
+import { Icon } from '@/shared/ui/Icon';
 
 interface ControlBarProps {
   status: RecordingStatus;
@@ -59,10 +60,10 @@ function ControlBarInner({
     action();
   }, []);
 
-  const secondaryBg = isDark ? darkColors.surfaceElevated : colors.surface;
+  const secondaryBg = isDark ? darkColors.surfaceRaised : colors.surface;
   const secondaryText = isDark ? darkColors.textPrimary : colors.textPrimary;
   // Stop is a word as well as a glyph, so it takes the red's text tone.
-  const stopColor = isDark ? darkColors.errorDeep : colors.errorDeep;
+  const stopColor = isDark ? darkColors.errorText : colors.errorText;
 
   // Manual mode: just a save button
   if (mode === 'manual') {
@@ -198,7 +199,7 @@ function PrimaryButton({
         accessibilityLabel={label}
         accessibilityRole="button"
       >
-        <MaterialCommunityIcons name={icon} size={iconSize.xl} color={colors.textOnDark} />
+        <Icon name={icon} size={iconSize.xl} color={colors.textOnFill} />
       </Pressable>
       <Text style={[styles.buttonLabel, { color: themePalette(isDark).textSecondary }]}>
         {label}
@@ -233,7 +234,7 @@ function SecondaryButton({
         accessibilityLabel={label}
         accessibilityRole="button"
       >
-        <MaterialCommunityIcons name={icon} size={iconSize.lg} color={textColor} />
+        <Icon name={icon} size={iconSize.lg} color={textColor} />
       </Pressable>
       <Text style={[styles.buttonLabel, { color: textColor }]}>{label}</Text>
     </View>

@@ -12,10 +12,9 @@ import { useMetricSystem } from '@/shared/app';
 import React from 'react';
 import { Pressable, View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import {
   formatDuration,
   formatPower,
@@ -43,13 +42,14 @@ import {
 } from '@/theme';
 import type { PerformanceDataPoint } from '@/types';
 import {
+  type AccessibleAction,
   accessibleActions,
   ICON_BUTTON_GAP,
   IconButton,
   pressable,
   pressRipple,
-  type AccessibleAction,
 } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { NameText } from '@/shared/ui/NameText';
 
 /** Scatter chart point - adds the computed X coordinate to the base record. */
@@ -168,17 +168,17 @@ export function PerformanceTooltip({
         accessibilityRole="button"
         accessibilityLabel={rowLabel}
         {...accessibleActions(rowActions)}
-        onPress={() => tapTo(`/activity/${activityId}`)}
+        onPress={() => navigateTo(`/activity/${activityId}`)}
         android_ripple={pressRipple}
       >
         <View style={styles.tooltipLeft}>
           <View style={styles.tooltipNameRow}>
             {recordsSettled && selectedPoint.isBest ? (
               <>
-                <MaterialCommunityIcons
+                <Icon
                   name="trophy"
                   size={iconSize.xs}
-                  color={isDark ? darkColors.chartGoldMark : colors.chartGoldMark}
+                  color={isDark ? darkColors.achievement : colors.achievement}
                   style={{ marginRight: spacing.xs }}
                 />
                 {/* The trophy was the whole message, and gold on white is
@@ -224,11 +224,7 @@ export function PerformanceTooltip({
             ) : null}
             {selectedPoint.direction === 'reverse' && (
               <View style={styles.reverseBadge}>
-                <MaterialCommunityIcons
-                  name="swap-horizontal"
-                  size={iconSize.xs}
-                  color={colors.reverseDirection}
-                />
+                <Icon name="swap-horizontal" size={iconSize.xs} color={colors.reverseDirection} />
               </View>
             )}
           </View>
@@ -248,12 +244,12 @@ export function PerformanceTooltip({
           </Text>
           {setReference ? (
             <IconButton onPress={setReference} accessibilityLabel={t('sections.setAsReference')}>
-              <MaterialCommunityIcons
+              <Icon
                 name={selectedPoint.activityId === referenceActivityId ? 'star' : 'star-outline'}
                 size={iconSize.md}
                 color={
                   selectedPoint.activityId === referenceActivityId
-                    ? themePalette(isDark).primary
+                    ? themePalette(isDark).actionPrimary
                     : styles.tooltipDate.color
                 }
               />
@@ -261,28 +257,16 @@ export function PerformanceTooltip({
           ) : null}
           {include ? (
             <IconButton accessibilityLabel={t('sections.includeActivity')} onPress={include}>
-              <MaterialCommunityIcons
-                name="undo"
-                size={iconSize.sm}
-                color={themePalette(isDark).primary}
-              />
+              <Icon name="undo" size={iconSize.sm} color={themePalette(isDark).actionPrimary} />
             </IconButton>
           ) : (
             exclude && (
               <IconButton accessibilityLabel={t('sections.excludeActivity')} onPress={exclude}>
-                <MaterialCommunityIcons
-                  name="eye-off-outline"
-                  size={iconSize.sm}
-                  color={styles.tooltipDate.color}
-                />
+                <Icon name="eye-off-outline" size={iconSize.sm} color={styles.tooltipDate.color} />
               </IconButton>
             )
           )}
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={iconSize.sm}
-            color={styles.tooltipDate.color}
-          />
+          <Icon name="chevron-right" size={iconSize.sm} color={styles.tooltipDate.color} />
         </View>
       </Pressable>
     </View>
@@ -311,7 +295,7 @@ const makeStyles = (palette: Palette, isDark: boolean) =>
       alignItems: 'center',
       justifyContent: 'space-between',
       // The elevated surface is a role only the dark theme has.
-      backgroundColor: isDark ? darkColors.surfaceElevated : palette.background,
+      backgroundColor: isDark ? darkColors.surfaceRaised : palette.surfacePage,
       padding: spacing.sm,
       borderRadius: layout.borderRadiusSm,
     },
@@ -331,7 +315,7 @@ const makeStyles = (palette: Palette, isDark: boolean) =>
     },
     prTag: {
       ...typography.captionBold,
-      color: palette.chartGoldText,
+      color: palette.achievementText,
       marginRight: spacing.xs,
     },
     lapBadge: {

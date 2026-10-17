@@ -14,6 +14,11 @@
 // CI builds under the Node major `.nvmrc` pins, so a local build under another
 // major runs Metro, the config plugins and the postinstall repairs on a Node
 // the release never sees. That is named as a warning and refuses nothing.
+//
+// A shell with no JAVA_HOME is not refused when the system JVM directory holds
+// a JDK: the first of JDK_CANDIDATES with a `java` binary is chosen and named.
+// `--print-java-home` prints the JDK on stdout, so a build script exports the
+// one this check passed rather than whatever `java` the path finds first.
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -23,6 +28,10 @@ import { fileURLToPath } from 'node:url';
 const TRACEMATCH = 'modules/veloqrs/rust/tracematch';
 const PLATFORMS = ['android', 'ios'];
 const APPLE_TARGETS = ['aarch64-apple-ios', 'aarch64-apple-ios-sim'];
+// The JDK the Android build is made with, then the system default.
+export const JDK_CANDIDATES = ['java-17-openjdk', 'default'];
+// The override is for the tests, which cannot write the system directory.
+const jvmDir = (env) => env.VELOQ_JVM_DIR || '/usr/lib/jvm';
 
 function run(command, args, options) {
   return spawnSync(command, args, { encoding: 'utf8', ...options });
@@ -54,6 +63,20 @@ export function pinnedNodeMajor(root) {
   } catch {
     return null;
   }
+}
+
+/**
+ * The JDK an Android build uses: `home`, and `chosen` when it was found rather
+ * than set. JAVA_HOME wins when set, then the first candidate under the JVM
+ * directory with a `java` binary. Null when there is none.
+ */
+export function javaHome(env) {
+  if (env.JAVA_HOME) return { home: env.JAVA_HOME, chosen: false };
+  for (const name of JDK_CANDIDATES) {
+    const home = join(jvmDir(env), name);
+    if (existsSync(join(home, 'bin', 'java'))) return { home, chosen: true };
+  }
+  return null;
 }
 
 /** A warning when `version` is not the major `root` pins, or null when it is or nothing is pinned. */
@@ -99,7 +122,9 @@ export function missing(root, env, platform) {
         'no Android Rust target installed: rustup target add aarch64-linux-android x86_64-linux-android'
       );
     }
-    if (!env.JAVA_HOME) lines.push('JAVA_HOME is not set: point it at a JDK');
+    if (!javaHome(env)) {
+      lines.push(`JAVA_HOME is not set and ${jvmDir(env)} holds no JDK: point it at a JDK`);
+    }
   } else {
     for (const target of APPLE_TARGETS) {
       if (installed && !installed.includes(target)) {
@@ -120,7 +145,9 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const root = resolve(at === -1 ? process.cwd() : argv[at + 1]);
   const platform = argv[argv.indexOf('--platform') + 1];
   if (!argv.includes('--platform') || !PLATFORMS.includes(platform)) {
-    console.error('usage: check-toolchain.mjs --platform android|ios [--root DIR]');
+    console.error(
+      'usage: check-toolchain.mjs --platform android|ios [--root DIR] [--print-java-home]'
+    );
     process.exit(2);
   }
   const mismatch = nodeMismatch(root, process.env);
@@ -130,5 +157,11 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     console.error('This clone cannot build the app yet:');
     for (const line of lines) console.error(`  ${line}`);
     process.exit(1);
+  }
+  const jdk = platform === 'android' && !process.env.CI ? javaHome(process.env) : null;
+  if (jdk?.chosen) console.error(`JAVA_HOME is not set; using ${jdk.home}`);
+  if (argv.includes('--print-java-home')) {
+    const home = jdk?.home ?? process.env.JAVA_HOME;
+    if (home) console.log(home);
   }
 }

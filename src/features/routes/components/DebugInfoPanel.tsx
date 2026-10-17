@@ -12,7 +12,7 @@ export function DebugInfoPanel({ entries, isDark }: DebugInfoPanelProps) {
     <View
       style={[
         styles.container,
-        { borderColor: isDark ? darkColors.border : colors.divider },
+        { borderColor: isDark ? darkColors.border : colors.border },
         isDark && styles.containerDark,
       ]}
     >
@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   containerDark: {
-    backgroundColor: darkColors.surfaceElevated,
+    backgroundColor: darkColors.surfaceRaised,
   },
   title: {
     ...typography.label,
@@ -73,6 +73,6 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   valueDark: {
-    color: colors.textOnDark,
+    color: colors.textOnFill,
   },
 });

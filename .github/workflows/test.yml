@@ -16,8 +16,47 @@ permissions:
   contents: read
 
 jobs:
+  # Which jobs below this change has to run. Only a Dependabot pull request
+  # skips any: a push to main and every other pull request run them all.
+  # scripts/ci-required.mjs holds the areas each job can see, and CI Required
+  # reads a skipped job against the same areas.
+  changes:
+    name: Detect Changed Areas
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      areas: ${{ steps.plan.outputs.areas }}
+      run: ${{ steps.plan.outputs.run }}
+      zones: ${{ steps.plan.outputs.zones }}
+    env:
+      EVENT: ${{ github.event_name }}
+      AUTHOR: ${{ github.event.pull_request.user.login }}
+    steps:
+      # Two commits: a pull request checks out its merge commit, and the first
+      # parent is the base the change is read against.
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+
+      - name: Decide whether the run is scoped
+        id: scope
+        run: node scripts/ci-required.mjs scope
+
+      # A lockfile bump is native only when the package ships native code,
+      # which is read from the installed tree.
+      - name: Install dependencies
+        if: steps.scope.outputs.scoped == 'true'
+        uses: ./.github/actions/npm-ci
+
+      - name: Plan the jobs
+        id: plan
+        run: node scripts/ci-required.mjs plan
+
   jest:
-    name: Jest (${{ matrix.tz }})
+    name: Jest (${{ matrix.tz }}, ${{ matrix.shard }}/2)
+    needs: changes
+    if: fromJSON(needs.changes.outputs.run).jest
     runs-on: ubuntu-24.04
     # Measured on GitHub runners on 2026-10-07 with a cold Jest cache, 1,115
     # suites: `npm test` took 6m16s on one runner and 9m07s on another, and a
@@ -29,14 +68,21 @@ jobs:
     # cache, so a cap under the cold figure keeps every later run cold too.
     # At 1,816 suites a cold run passed 1,563 by the fifteen-minute cap, so
     # it needs about 18 minutes and the cap is 25.
+    # Warm main runs in mid October still spent 9m16s to 15m15s in the test
+    # step of each zone, against 10 to 13 minutes for every other job, so each
+    # zone runs in two shards. Jest splits the suites by path, and each shard
+    # keeps its own cache, since it transforms only the files its suites reach.
     timeout-minutes: 25
     # The app project runs under the zones furthest east and west of UTC, so a
     # formatter that mixes UTC and local fields fails here and not only for
-    # athletes at those offsets.
+    # athletes at those offsets. A Dependabot bump of a package with no native
+    # code runs the first alone, since a library bump moves no app date code.
     strategy:
       fail-fast: false
       matrix:
-        tz: [Pacific/Kiritimati, America/Los_Angeles]
+        tz: ${{ fromJSON(needs.changes.outputs.zones) }}
+        # The count in `--shard` below is the length of this list.
+        shard: [1, 2]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -55,12 +101,12 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: .jest-cache
-          key: jest-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          key: jest-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-shard${{ matrix.shard }}-${{ github.sha }}
           restore-keys: |
-            jest-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+            jest-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-shard${{ matrix.shard }}-
 
       - name: Run tests
-        run: npm test
+        run: npm test -- --shard=${{ matrix.shard }}/2
         env:
           JEST_WORKERS: 2
           TZ: ${{ matrix.tz }}
@@ -70,10 +116,12 @@ jobs:
         uses: actions/cache/save@v6
         with:
           path: .jest-cache
-          key: jest-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+          key: jest-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-shard${{ matrix.shard }}-${{ github.sha }}
 
   rust:
     name: Rust Tests
+    needs: changes
+    if: fromJSON(needs.changes.outputs.run).rust
     runs-on: ubuntu-24.04
     # Whole job: compile, bench check, nextest and doctests. Measured on
     # GitHub runners in late September 2026: 14m19s on a cold cache, 1m38s of
@@ -149,6 +197,8 @@ jobs:
 
   rust-lint:
     name: Rust Lint
+    needs: changes
+    if: fromJSON(needs.changes.outputs.run).rust-lint
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -187,6 +237,8 @@ jobs:
   # format drift failed two of them.
   js:
     name: JS Checks
+    needs: changes
+    if: fromJSON(needs.changes.outputs.run).js
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -241,6 +293,8 @@ jobs:
 
   verify-bindings:
     name: Verify Bindings
+    needs: changes
+    if: fromJSON(needs.changes.outputs.run).verify-bindings
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -279,28 +333,32 @@ jobs:
           GUARD_WORKERS: 2
 
   rust-advisories:
+    needs: changes
+    if: fromJSON(needs.changes.outputs.run).rust-advisories
     uses: ./.github/workflows/rust-advisories.yml
 
   # The one job branch protection requires from this workflow. A job skipped or
   # cancelled upstream reports neutral, which GitHub renders as passing, so the
-  # result of each is read here instead.
+  # result of each is read here instead, a skip against the areas the change
+  # reaches.
   ci-required:
     name: CI Required
-    needs: [jest, rust, rust-lint, rust-advisories, js, verify-bindings]
+    needs: [changes, jest, rust, rust-lint, rust-advisories, js, verify-bindings]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
       - name: Check results
         env:
+          CHANGES: ${{ needs.changes.result }}
+          AREAS: ${{ needs.changes.outputs.areas }}
           JEST: ${{ needs.jest.result }}
           RUST: ${{ needs.rust.result }}
           RUST_LINT: ${{ needs.rust-lint.result }}
           RUST_ADVISORIES: ${{ needs.rust-advisories.result }}
           JS: ${{ needs.js.result }}
           VERIFY_BINDINGS: ${{ needs.verify-bindings.result }}
-        run: |
-          echo "jest=$JEST rust=$RUST rust-lint=$RUST_LINT rust-advisories=$RUST_ADVISORIES js=$JS verify-bindings=$VERIFY_BINDINGS"
-          for result in "$JEST" "$RUST" "$RUST_LINT" "$RUST_ADVISORIES" "$JS" "$VERIFY_BINDINGS"; do
-            [ "$result" = success ] || { echo "::error::A required check did not pass."; exit 1; }
-          done
+        run: node scripts/ci-required.mjs check

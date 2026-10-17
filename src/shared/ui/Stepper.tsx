@@ -12,11 +12,11 @@
 import React, { useCallback } from 'react';
 import { StyleSheet, View, type AccessibilityActionEvent } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 
+import { Icon } from './Icon';
 import { IconButton } from './IconButton';
 
 export interface StepperScale {
@@ -114,7 +114,7 @@ export function Stepper({
         variant="secondary"
         disabled={atMin}
       >
-        <MaterialCommunityIcons name="minus" size={iconSize.sm} color={textSecondary} />
+        <Icon name="minus" size={iconSize.sm} color={textSecondary} />
       </IconButton>
       <View
         {...id('value')}
@@ -135,7 +135,7 @@ export function Stepper({
         variant="secondary"
         disabled={atMax}
       >
-        <MaterialCommunityIcons name="plus" size={iconSize.sm} color={textSecondary} />
+        <Icon name="plus" size={iconSize.sm} color={textSecondary} />
       </IconButton>
     </View>
   );

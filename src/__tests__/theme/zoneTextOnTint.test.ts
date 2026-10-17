@@ -37,8 +37,8 @@ const FILLS = Object.values(zoneColors);
 
 describe('zone text tones', () => {
   it.each([
-    ['light', false, colors.background, opacity.tint3],
-    ['dark', true, darkColors.background, opacity.tint3],
+    ['light', false, colors.surfacePage, opacity.tint3],
+    ['dark', true, darkColors.surfacePage, opacity.tint3],
   ])('clears 4.5:1 on every zone tint in %s mode', (_name, isDark, ground, alpha) => {
     FILLS.forEach((fill, i) => {
       const tint = over(colorWithOpacity(fill, alpha as number), ground as string);

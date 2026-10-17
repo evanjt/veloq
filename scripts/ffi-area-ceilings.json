@@ -190,7 +190,7 @@
     "VeloqEngine.runBulkExport",
     "VeloqEngine.runRecordBackup",
     "VeloqEngine.writeClearSnapshot",
-    "cancelDetectorCutover",
+    "cancelRun",
     "consentStreamBackfill",
     "convertLegacyDatabaseToRecordBackup",
     "pauseElevationBackfill",

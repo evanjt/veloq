@@ -3,13 +3,13 @@ import {
   I18nManager,
   View,
   StyleSheet,
-  Pressable,
   ScrollView,
   useWindowDimensions,
   type LayoutChangeEvent,
+  type ScrollViewInstance,
 } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -19,6 +19,7 @@ import Animated, {
   Extrapolation,
   runOnJS,
 } from 'react-native-reanimated';
+import { Icon } from './Icon';
 import * as haptics from './haptics';
 import {
   brand,
@@ -34,7 +35,7 @@ import {
   verdictFill,
   stroke,
 } from '@/theme';
-import { pressable, pressRipple } from '@/shared/ui';
+import { PressTarget } from '@/shared/ui/PressTarget';
 import { layoutTabStrip, scrollOffsetToShow } from '@/shared/ui/tabStripLayout';
 import { pagerPanDecision } from '@/shared/ui/pagerPanDecision';
 import { pageAccessibility } from './pagerAccessibility';
@@ -105,12 +106,12 @@ export function badgePaint(
   const palette = isDark ? darkColors : colors;
   const tone = tab.badgeText !== undefined ? (tab.badgeTone ?? 'neutral') : null;
   if (tone === 'pr') return { fill: brand.gold, ink: colors.textOnBright };
-  if (tone === 'positive') return { fill: colors.success, ink: colors.textOnBright };
+  if (tone === 'positive') return { fill: colors.successFill, ink: colors.textOnBright };
   if (tone === 'negative') {
     return { fill: verdictFill('negative', isDark), ink: verdictColor('negative', isDark) };
   }
-  if (tone === null && isActive) return { fill: palette.primary, ink: colors.textOnPrimary };
-  return { fill: isDark ? darkColors.border : colors.gray200, ink: palette.textSecondary };
+  if (tone === null && isActive) return { fill: palette.actionPrimary, ink: colors.textOnFill };
+  return { fill: palette.fillNeutral, ink: palette.textSecondary };
 }
 
 function TabContent({
@@ -129,7 +130,7 @@ function TabContent({
   const paint = badge === undefined ? null : badgePaint(tab, isActive, isDark);
   return (
     <View testID={`tab-content-${tab.key}`} style={styles.tabContent} onLayout={onLayout}>
-      <MaterialCommunityIcons name={tab.icon} size={iconSize.md} color={ink} />
+      <Icon name={tab.icon} size={iconSize.md} color={ink} />
       <Text
         // The tabs share the width with `flex: 1`, so a label wider than its
         // share used to wrap mid-word and the icon ended up between the halves:
@@ -203,7 +204,7 @@ export function SwipeableTabs({
     [tabs, contentWidths, available]
   );
   const { scrolls, widths: tabWidths, offsets: tabOffsets, contentWidth } = stripLayout;
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
 
   const handleContentLayout = useCallback((index: number, event: LayoutChangeEvent) => {
     const { width } = event.nativeEvent.layout;
@@ -411,13 +412,10 @@ export function SwipeableTabs({
             {tabs.map((tab, index) => {
               const isActive = activeTab === tab.key;
               return (
-                <Pressable
+                <PressTarget
                   key={tab.key}
                   testID={`tab-${tab.key}`}
-                  style={pressable(
-                    scrolls ? { ...styles.tab, flex: 0, width: tabWidths[index] } : styles.tab
-                  )}
-                  android_ripple={pressRipple}
+                  style={scrolls ? { ...styles.tab, flex: 0, width: tabWidths[index] } : styles.tab}
                   onPress={() => handleTabPress(tab.key)}
                   accessibilityRole="tab"
                   accessibilityState={{ selected: isActive }}
@@ -429,7 +427,7 @@ export function SwipeableTabs({
                     isDark={isDark}
                     onLayout={(event) => handleContentLayout(index, event)}
                   />
-                </Pressable>
+                </PressTarget>
               );
             })}
             {/* Animated underline indicator */}
@@ -443,13 +441,10 @@ export function SwipeableTabs({
             {tabs.map((tab, index) => {
               const isActive = activeTab === tab.key;
               return (
-                <Pressable
+                <PressTarget
                   key={tab.key}
                   testID={`tab-${tab.key}`}
-                  style={pressable(
-                    scrolls ? { ...styles.tab, flex: 0, width: tabWidths[index] } : styles.tab
-                  )}
-                  android_ripple={pressRipple}
+                  style={scrolls ? { ...styles.tab, flex: 0, width: tabWidths[index] } : styles.tab}
                   onPress={() => handleTabPress(tab.key)}
                   accessibilityRole="tab"
                   accessibilityState={{ selected: isActive }}
@@ -461,7 +456,7 @@ export function SwipeableTabs({
                     isDark={isDark}
                     onLayout={(event) => handleContentLayout(index, event)}
                   />
-                </Pressable>
+                </PressTarget>
               );
             })}
             {/* Animated underline indicator */}
@@ -501,7 +496,7 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     paddingHorizontal: spacing.md,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfacePage,
     borderBottomWidth: stroke.one,
     borderBottomColor: colors.border,
     position: 'relative',
@@ -513,7 +508,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   tabBarDark: {
-    backgroundColor: darkColors.background,
+    backgroundColor: darkColors.surfacePage,
     borderBottomColor: darkColors.border,
   },
   tab: {

@@ -73,8 +73,8 @@ export function StaticCompassArrow({
   const sides = {
     borderLeftWidth: halfWidth,
     borderRightWidth: halfWidth,
-    borderLeftColor: colors.transparent,
-    borderRightColor: colors.transparent,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
   };
   return (
     <View

@@ -163,7 +163,7 @@ pub struct SectionSummary {
     /// Detection scale (e.g., "neighborhood", "city")
     pub scale: Option<String>,
     /// Bounding box for map display
-    pub bounds: Option<crate::FfiBounds>,
+    pub bounds: Option<crate::Bounds>,
     /// Elevation gain (m) over the representative slice; None when unknown
     pub elevation_gain_m: Option<f64>,
     /// Net grade (%) over the representative slice; None when unknown

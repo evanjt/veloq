@@ -32,38 +32,61 @@ export const FAMILY_BARS: Record<TokenFamily, number> = {
 
 /**
  * Every key of `colors` and `darkColors`. The other exports in `colors.ts` are
- * surface-specific pairs that name their own ground, `verdict`, `offlinePill`
+ * surface-specific pairs that name their own ground, `verdict`, `recording`
  * and the rest, and are guarded where they are drawn rather than here.
  */
 export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
-  // Text. The three body tokens, the pairs that sit on a filled ground, and the
-  // variants B927 and B928 cut out of the series and zone hues.
+  // The interface roles, read under each role's own name, in the family
+  // `ROLE_FAMILIES` gives the role.
+  surfacePage: 'ground',
+  surface: 'ground',
+  surfaceRaised: 'ground',
+  surfaceInput: 'ground',
+  fillNeutral: 'ground',
+  stateHover: 'ground',
+  statePressed: 'ground',
   textPrimary: 'text',
   textSecondary: 'text',
+  textTertiary: 'text',
   textDisabled: 'text',
-  textOnDark: 'text',
-  textOnPrimary: 'text',
+  textOnFill: 'text',
   textOnBright: 'text',
-  warningAmber: 'text',
-  amberIcon: 'text',
-  successDeep: 'text',
-  successChipText: 'text',
-  errorDeep: 'text',
-  errorDark: 'mark',
+  iconSecondary: 'mark',
+  iconMuted: 'mark',
+  border: 'ground',
+  cardEdge: 'ground',
+  borderStrong: 'ground',
+  track: 'mark',
+  controlBoundary: 'mark',
+  actionPrimary: 'ground',
+  actionPrimaryHover: 'ground',
+  actionSecondary: 'ground',
   actionLink: 'text',
-  cautionYellowText: 'text',
-  cautionOrangeText: 'text',
-  infoText: 'text',
+  focusRing: 'mark',
+  controlOn: 'mark',
+  achievement: 'mark',
+  achievementText: 'text',
+  compassNorth: 'mark',
+  successText: 'text',
+  successBg: 'ground',
+  successFill: 'ground',
+  warningText: 'text',
+  warningBg: 'ground',
+  warningFill: 'ground',
+  errorText: 'text',
+  errorBg: 'ground',
+  dangerFill: 'ground',
+  infoBg: 'ground',
+
+  // Text: the variants cut out of the series and zone hues.
   rideText: 'text',
   runText: 'text',
   swimText: 'text',
-  chartGoldText: 'text',
   chartFtpText: 'text',
   chartPinkText: 'text',
   chartHrvText: 'text',
   chartRhrText: 'text',
   chartPurpleText: 'text',
-  chartAccentText: 'text',
   fitnessBlueText: 'text',
   fatiguePurpleText: 'text',
   formTransitionText: 'text',
@@ -71,24 +94,9 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   formGreyZoneText: 'text',
   formOptimalText: 'text',
   formHighRiskText: 'text',
-  textTertiary: 'text',
 
-  // Marks. A control's own colour, an icon, a chevron, a ring, a legend swatch.
-  primary: 'mark',
-  controlOn: 'mark',
-  controlBoundary: 'mark',
-  focusRing: 'mark',
-  track: 'mark',
-  iconPrimary: 'mark',
-  iconSecondary: 'mark',
-  iconMuted: 'mark',
-  iconDisabled: 'mark',
-  iconFaint: 'mark',
-  iconNeutral: 'mark',
-  neutralLine: 'mark',
-  compassNorth: 'mark',
+  // Marks: a ring, a legend swatch, a mark tone of a data hue.
   chartFormLine: 'mark',
-  chartGoldMark: 'mark',
   chartSilverMark: 'mark',
   chartBronzeMark: 'mark',
   chartGreenMark: 'mark',
@@ -98,70 +106,10 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   markAmber: 'mark',
   markYellow: 'mark',
   markOrange: 'mark',
-  markFormTransition: 'mark',
-  markFormFresh: 'mark',
-  markFormGreyZone: 'mark',
-  markFormOptimal: 'mark',
 
-  // Grounds: the surfaces themselves and anything drawn as one.
-  surface: 'ground',
-  background: 'ground',
-  backgroundAlt: 'ground',
-  regionTintIdle: 'ground',
-  regionTintActive: 'ground',
-  surfaceElevated: 'ground',
-  surfaceCard: 'ground',
-  surfaceOverlay: 'ground',
-  inputBackground: 'ground',
-  buttonSecondary: 'ground',
-  border: 'ground',
-  borderLight: 'ground',
-  borderAccent: 'ground',
-  divider: 'ground',
-  fillNeutral: 'ground',
-  borderStrong: 'ground',
-  surfaceInput: 'ground',
-  shadowBlack: 'ground',
-  transparent: 'ground',
-  gray50: 'ground',
-  gray100: 'ground',
-  gray200: 'ground',
-  gray300: 'ground',
-  gray400: 'ground',
-  gray500: 'ground',
-  gray600: 'ground',
-  gray700: 'ground',
-  gray800: 'ground',
-  gray900: 'ground',
-
-  // Brand and semantic fills. `success`, `warning` and the caution pair are the
-  // ground under a mark and never the mark itself, which is what B606 settled
-  // when it moved their call sites onto `successDeep` and `warningAmber`.
-  primaryHover: 'ground',
-  primaryLight: 'ground',
-  accent: 'ground',
-  accentLight: 'ground',
+  // Fills that have not folded into a role yet.
   secondary: 'ground',
-  secondaryLight: 'ground',
   appColourPillBackground: 'ground',
-  highlight: 'ground',
-  highlightAlt: 'ground',
-  success: 'ground',
-  successLight: 'ground',
-  successDark: 'ground',
-  error: 'ground',
-  dangerFill: 'ground',
-  errorLight: 'ground',
-  warning: 'ground',
-  warningLight: 'ground',
-  cautionYellow: 'ground',
-  cautionOrange: 'ground',
-  info: 'ground',
-  infoLight: 'ground',
-  errorBg: 'ground',
-  warningBg: 'ground',
-  infoBg: 'ground',
-  successBg: 'ground',
   eventPriorityA: 'ground',
   eventPriorityB: 'ground',
   eventPriorityC: 'ground',
@@ -178,8 +126,6 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   workoutChipFill: 'ground',
   fitness: 'ground',
   fatigue: 'ground',
-  fitnessBlue: 'ground',
-  fatiguePurple: 'ground',
 
   // Chart series and overlays. I170 read every one of these against 1.4.11:
   // the lines sit between labelled axes with the value printed at the crosshair,
@@ -193,7 +139,6 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   chartPink: 'ground',
   chartIndigo: 'ground',
   chartAmber: 'ground',
-  chartGold: 'ground',
   chartRed: 'ground',
   chartCasing: 'ground',
   chartHrv: 'ground',
@@ -212,12 +157,7 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   chartBandCooldown: 'ground',
   chartBandNeutral: 'ground',
   chartZeroLineSolid: 'ground',
-  chartFitness: 'ground',
-  chartFatigue: 'ground',
   chartForm: 'ground',
-  chartHR: 'ground',
-  chartCadence: 'ground',
-  chartElevation: 'ground',
 
   // Map lines and zone fills. A map line is drawn over tiles behind a casing,
   // so the surface it is measured against is not a palette token at all, and the
@@ -390,7 +330,7 @@ export const ROLE_EXEMPTIONS: Record<string, string> = {
  * Every key of `brand`. These hues resolve in neither theme, so none can be a
  * text colour: a blue that reads on white is too dark on near-black, and the
  * gold is 2.10:1 on white. A word in the action blue takes `actionLink`, one in
- * the gold takes `chartGoldText`, each read for the theme it is drawn in. The
+ * the gold takes `achievementText`, each read for the theme it is drawn in. The
  * same holds for every entry of `SPORT_COLORS` and every category colour in
  * `ACTIVITY_CATEGORIES`, which are fills: their words take the sport text
  * variants or the body ink. `ground-token-text` refuses each as a Text colour.
@@ -414,13 +354,10 @@ export const BRAND_FAMILIES: Record<string, TokenFamily> = {
  * is the ground token, in the same theme, that the pair is measured against.
  */
 export const TOKEN_GROUNDS: Record<string, readonly string[]> = {
-  // White sits on the demo banner's dark-mode fill, `secondary`, at 4.51:1
-  // where dark ink on it is 3.93:1, on the sync pill's fill in both themes and
-  // on the destructive fill. The filled primary carries its own white ink.
-  // Each filled ground names its own ink, so the primary ink moves alone.
-  textOnDark: ['secondary', 'appColourPillBackground', 'dangerFill'],
-  textOnPrimary: ['primary'],
-  textOnBright: ['accent', 'accentLight', 'primaryLight', 'success', 'warning', 'info'],
+  // White sits on the filled primary, on the sync pill's fill in both themes
+  // and on the destructive fill. The bright fills take the dark ink instead.
+  textOnFill: ['actionPrimary', 'appColourPillBackground', 'dangerFill'],
+  textOnBright: ['achievement', 'successFill', 'warningFill'],
 };
 
 /**
@@ -432,10 +369,10 @@ export const TOKEN_GROUNDS: Record<string, readonly string[]> = {
 export const TINT_GROUNDS: Record<string, readonly string[]> = {
   textPrimary: ['errorBg', 'warningBg', 'infoBg', 'successBg'],
   textSecondary: ['errorBg', 'warningBg', 'infoBg', 'successBg'],
-  errorDeep: ['errorBg'],
-  warningAmber: ['warningBg'],
-  infoText: ['infoBg'],
-  successDeep: ['successBg'],
+  errorText: ['errorBg'],
+  warningText: ['warningBg'],
+  actionLink: ['infoBg'],
+  successText: ['successBg'],
 };
 
 /**
@@ -444,7 +381,6 @@ export const TINT_GROUNDS: Record<string, readonly string[]> = {
  */
 export const FAMILY_EXEMPTIONS: Record<string, string> = {
   textDisabled: 'WCAG 1.4.3 exempts text on an inactive control.',
-  iconDisabled: 'WCAG 1.4.11 exempts an inactive component, the icon half of textDisabled.',
 };
 
 /**
@@ -453,7 +389,4 @@ export const FAMILY_EXEMPTIONS: Record<string, string> = {
  * shortens, and an entry that has been fixed fails its own test rather than
  * going quiet.
  */
-export const UNDER_BAR: Record<string, string> = {
-  track:
-    "the guide's slider track holds 3:1 on the guide's own surfaces, and is 2.93:1 on backgroundAlt and 2.99:1 on surfaceCard, which the surface roles retire",
-};
+export const UNDER_BAR: Record<string, string> = {};

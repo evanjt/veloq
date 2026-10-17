@@ -40,7 +40,7 @@ import {
 } from '@/shared/charts';
 import type { WellnessData } from '@/types';
 import { displayedDay, headerDay } from '../lib/pinnedDay';
-import { formatForm, FORM_ZONE_MARK_COLORS, formZoneFromLoads, formZoneLabel } from '../lib';
+import { formatForm, formZoneColor, formZoneFromLoads, formZoneLabel } from '../lib';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { eftpChangesOn, formatEftpChange, type EftpChange } from '../lib/eftpChanges';
 import { ABSENT, absentLabel } from '@/shared/format/absent';
@@ -353,7 +353,7 @@ export const FitnessChart = React.memo(function FitnessChart({
                 {formZone ? (
                   <View
                     testID="fitness-form-key"
-                    style={[styles.keyDot, { backgroundColor: FORM_ZONE_MARK_COLORS[formZone] }]}
+                    style={[styles.keyDot, { backgroundColor: formZoneColor(formZone, isDark) }]}
                   />
                 ) : null}
                 <Text style={styles.valueLabel}>{t('metrics.form')}</Text>
@@ -542,7 +542,7 @@ const makeStyles = (palette: Palette) =>
       justifyContent: 'center',
     },
     textLight: {
-      color: colors.textOnDark,
+      color: colors.textOnFill,
     },
     header: {
       flexDirection: 'row',

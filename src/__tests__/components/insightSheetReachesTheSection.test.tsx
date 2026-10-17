@@ -15,12 +15,12 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { changeLanguage, initialiseI18n } from '@/i18n';
 import { InsightDetailSheet } from '@/features/insights/components/InsightDetailSheet';
 import { SectionTrendContent } from '@/features/insights/components/content/SectionTrendContent';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import type { Insight } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
-jest.mock('@/shared/app/navigation', () => ({ tapTo: jest.fn(), navigateTo: jest.fn() }));
+jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 jest.mock('@/features/insights/components/content/SectionPRContent', () => ({
   SectionPRContent: () => null,
 }));
@@ -70,7 +70,7 @@ describe('a section insight sheet', () => {
   beforeAll(() => initialiseI18n('en-GB'));
   beforeEach(() => {
     changeLanguage('en-GB');
-    jest.mocked(tapTo).mockClear();
+    jest.mocked(navigateTo).mockClear();
   });
 
   it('opens the PR section from the data link', async () => {
@@ -79,7 +79,7 @@ describe('a section insight sheet', () => {
     await fireEvent.press(screen.getByTestId('methodology-toggle'));
     await fireEvent.press(screen.getByTestId('insight-data-link'));
 
-    expect(tapTo).toHaveBeenCalledWith('/section/hill');
+    expect(navigateTo).toHaveBeenCalledWith('/section/hill');
   });
 
   it('opens the section of the trend row that was expanded', async () => {
@@ -89,8 +89,8 @@ describe('a section insight sheet', () => {
     await fireEvent.press(screen.getByTestId('section-trend-toggle-flat'));
     await fireEvent.press(screen.getByTestId('section-trend-open-flat'));
 
-    expect(tapTo).toHaveBeenCalledTimes(1);
-    expect(tapTo).toHaveBeenCalledWith('/section/flat');
+    expect(navigateTo).toHaveBeenCalledTimes(1);
+    expect(navigateTo).toHaveBeenCalledWith('/section/flat');
   });
 
   it('expands a trend row without leaving the sheet', async () => {
@@ -98,7 +98,7 @@ describe('a section insight sheet', () => {
 
     await fireEvent.press(screen.getByTestId('section-trend-toggle-hill'));
 
-    expect(tapTo).not.toHaveBeenCalled();
+    expect(navigateTo).not.toHaveBeenCalled();
     expect(screen.getByTestId('section-trend-open-hill')).toBeTruthy();
   });
 

@@ -18,7 +18,7 @@ import { DataAttribution } from '@/features/settings';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
-jest.mock('@/shared/app/navigation', () => ({ tapTo: jest.fn() }));
+jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 jest.mock('@/shared/app/TopSafeAreaContext', () => ({
   ...jest.requireActual('@/shared/app/TopSafeAreaContext'),
   useTopSafeArea: () => ({ hasTopBanner: false, topInset: 0, screenEdges: [] }),

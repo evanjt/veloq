@@ -1,6 +1,6 @@
 /**
- * Scenario: the period comparison sheet coloured its change `colors.success`
- * when the string started with '+' and `colors.warning` otherwise, outside the
+ * Scenario: the period comparison sheet coloured its change `colors.successFill`
+ * when the string started with '+' and `colors.warningFill` otherwise, outside the
  * verdict ladder, so load drew green and amber where the polarity table says
  * it has no judgement. The guard only matched `insightIcon` and `statusBadge`,
  * so this passed it.
@@ -51,7 +51,7 @@ const SHEET = 'src/features/insights/components/content/Sheet.tsx';
 
 it('fails a success or warning colour picked by a ternary on one line', () => {
   const root = fixture({
-    [SHEET]: 'const c = isPositive ? colors.success : colors.warning;\n',
+    [SHEET]: 'const c = isPositive ? colors.successFill : colors.warningFill;\n',
   });
 
   const { status, output } = runGuard(root);
@@ -67,8 +67,8 @@ it('fails a ternary laid out over several lines', () => {
       '  metric == null',
       '    ? colors.textPrimary',
       '    : metric.startsWith("+")',
-      '      ? colors.success',
-      '      : colors.error;',
+      '      ? colors.successFill',
+      '      : colors.errorText;',
       '',
     ].join('\n'),
   });
@@ -82,7 +82,7 @@ it('fails a ternary laid out over several lines', () => {
 
 it('leaves a fixed token alone', () => {
   const root = fixture({
-    [SHEET]: 'const styles = { tint: { backgroundColor: colors.success } };\n',
+    [SHEET]: 'const styles = { tint: { backgroundColor: colors.successFill } };\n',
   });
 
   expect(runGuard(root).status).toBe(0);
@@ -96,7 +96,7 @@ it('still fails a polarity read off the insight icon palette', () => {
 
 it('leaves a light or dark theme pick alone', () => {
   const root = fixture({
-    [SHEET]: 'const danger = isDark ? darkColors.error : colors.error;\n',
+    [SHEET]: 'const danger = isDark ? darkColors.errorText : colors.errorText;\n',
   });
 
   expect(runGuard(root).status).toBe(0);
@@ -107,7 +107,7 @@ describe('outside the insight cards', () => {
 
   it('fails a fill colour picked by a ternary on a good flag', () => {
     const root = fixture({
-      [BADGE]: 'const fill = analysis.isGood ? colors.success : colors.warning;\n',
+      [BADGE]: 'const fill = analysis.isGood ? colors.successFill : colors.warningFill;\n',
     });
 
     const { status, output } = runGuard(root);
@@ -120,7 +120,7 @@ describe('outside the insight cards', () => {
     const root = fixture({
       [BADGE]: [
         'const healthy = analysis.isGood;',
-        'const fill = healthy ? colors.success : colors.warning;',
+        'const fill = healthy ? colors.successFill : colors.warningFill;',
         '',
       ].join('\n'),
     });
@@ -133,7 +133,7 @@ describe('outside the insight cards', () => {
 
   it('fails a ternary on a state that is not listed as one', () => {
     const root = fixture({
-      [BADGE]: 'const fill = connected ? colors.success : colors.warning;\n',
+      [BADGE]: 'const fill = connected ? colors.successFill : colors.warningFill;\n',
     });
 
     const { status, output } = runGuard(root);
@@ -145,7 +145,7 @@ describe('outside the insight cards', () => {
   it('leaves a listed state choice alone', () => {
     const root = fixture({
       'src/features/recording/components/TimerHeader.tsx':
-        'const dot = status === "recording" ? colors.error : colors.warning;\n',
+        'const dot = status === "recording" ? colors.errorText : colors.warningFill;\n',
     });
 
     expect(runGuard(root).status).toBe(0);

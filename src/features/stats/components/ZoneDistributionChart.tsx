@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xxs,
   },
   textLight: {
-    color: colors.textOnDark,
+    color: colors.textOnFill,
   },
   textDark: {
     color: darkColors.textSecondary,

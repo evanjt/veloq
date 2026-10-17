@@ -597,13 +597,9 @@ export function useGpsDataFetcher() {
         // follows a run that is under way.
         //
         // The end arrives on `detectionApplied`, so one subscription covers
-        // the whole run. Past the foreground budget the bar used to freeze on
-        // its last percent, reading as a crash: an INDETERMINATE ongoing
-        // state instead, a zero percent/completed/total triple with
-        // `status: 'computing'`, maps to `indeterminate: true` in
-        // `formatGpsSyncProgress`, so the banner shows a moving marquee
-        // rather than a stuck number. A large-corpus detection legitimately
-        // runs for minutes; this keeps it honest.
+        // the whole run. What the screens show of the run is the engine's
+        // track stage, which follows it to its end whatever this follow's
+        // foreground budget does.
         if (nativeModule.engine.getSectionDetectionProgress() != null) {
           const outcome = await followDetection(nativeModule.engine as unknown as DetectionEngine, {
             isActive: owns,

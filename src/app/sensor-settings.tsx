@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect } from 'react';
 import { View, StyleSheet, Platform, Linking } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 
 import { Card, EmptyState, ScreenSafeAreaView, ScreenScrollView, signalColor } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { Button, ToggleButton } from '@/shared/ui/Button';
 import { ListSectionHeader } from '@/shared/ui/ListSectionHeader';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
@@ -186,7 +187,7 @@ function SensorSettingsScreenContent() {
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const accentText = isDark ? darkColors.actionLink : colors.actionLink;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const bg = isDark ? darkColors.background : colors.background;
+  const bg = isDark ? darkColors.surfacePage : colors.surfacePage;
 
   const handleScan = useCallback(() => {
     if (scanning) {
@@ -265,7 +266,7 @@ function SensorSettingsScreenContent() {
     <View style={styles.kindRow}>
       {kinds.map((kind) => (
         <View key={kind} style={styles.kindItem}>
-          <MaterialCommunityIcons name={KIND_ICONS[kind]} size={iconSize.sm} color={color} />
+          <Icon name={KIND_ICONS[kind]} size={iconSize.sm} color={color} />
           <Text style={[styles.kindLabel, { color }]}>{t(`sensors.kinds.${kind}`)}</Text>
         </View>
       ))}
@@ -445,7 +446,7 @@ function SensorSettingsScreenContent() {
                             accessibilityLabel={signalLabel ?? undefined}
                             style={styles.signal}
                           >
-                            <MaterialCommunityIcons
+                            <Icon
                               name={SIGNAL_ICONS[level]}
                               size={iconSize.md}
                               color={textSecondary}

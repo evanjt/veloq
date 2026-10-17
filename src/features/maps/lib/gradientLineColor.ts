@@ -1,87 +1,89 @@
 /**
- * Gradient-based line coloring helpers for MapLibre `line-gradient`.
+ * Grade-based line colouring helpers for MapLibre `line-gradient`.
  *
- * Maps per-point gradient (% slope) values to colors along a polyline, on the
- * diverging `gradientScale` from the theme: a light neutral on flat ground,
- * darkening blues on descents and darkening oranges on climbs.
+ * Maps per-point grade (% slope) values to the base map's diverging steps along
+ * a polyline: grey within 2 % of flat, then three steps of the base's cool side
+ * on descents and three of its warm side on climbs. Each band is one colour, so
+ * a colour always means one band.
  *
  * Usage:
- *   const stops = buildGradientLineStops(streams.grade_smooth, streams.distance);
- *   <LineLayer style={{ lineGradient: ['interpolate', ['linear'], ['line-progress'], ...stops] }} />
+ *   const stops = buildGradientLineStops(streams.grade_smooth, streams.distance, mapStyle);
+ *   <LineLayer style={{ lineGradient: gradientStepExpression(stops) }} />
  *
  * Requires the GeoJSON source spec to set `lineMetrics: true` so that
  * `line-progress` expressions are available.
  */
 
-import { gradientScale } from '@/theme';
+import { colourTokens } from '@/theme';
+import type { MapStyleType } from '../components/mapStyles';
 
-/** Color stops mapping gradient % to an RGB hex color. */
-export interface GradientStop {
-  /** Slope percent (-30 .. +30) */
-  percent: number;
-  /** Hex color for this stop */
-  color: string;
-}
+/** A step of a base map's diverging ramp, from steep descent to steep climb. */
+export type GradeStep = 'cool-3' | 'cool-2' | 'cool-1' | 'mid' | 'warm-1' | 'warm-2' | 'warm-3';
 
-/** The scale from steep descent to steep climb, flat ground at its middle stop. */
-export const GRADIENT_COLOR_STOPS: readonly GradientStop[] = gradientScale;
+/**
+ * The grade bands from steep descent to steep climb, each ending at `upTo`
+ * percent on its climbing side. Flat ground is the band within 2 % either way.
+ */
+export const GRADE_BANDS: readonly { step: GradeStep; upTo: number }[] = [
+  { step: 'cool-3', upTo: -10 },
+  { step: 'cool-2', upTo: -5 },
+  { step: 'cool-1', upTo: -2 },
+  { step: 'mid', upTo: 2 },
+  { step: 'warm-1', upTo: 5 },
+  { step: 'warm-2', upTo: 10 },
+  { step: 'warm-3', upTo: Infinity },
+];
 
 /** The gradients the map key labels on its ramp. */
-export const GRADIENT_KEY_TICKS: readonly number[] = [-10, 0, 10, 20];
+export const GRADIENT_KEY_TICKS: readonly number[] = [-10, 0, 10];
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
-
-function hexToRgb(hex: string): [number, number, number] {
-  const cleaned = hex.replace('#', '');
-  const r = parseInt(cleaned.slice(0, 2), 16);
-  const g = parseInt(cleaned.slice(2, 4), 16);
-  const b = parseInt(cleaned.slice(4, 6), 16);
-  return [r, g, b];
-}
-
-function rgbToHex(r: number, g: number, b: number): string {
-  const toHex = (v: number) => clamp(Math.round(v), 0, 255).toString(16).padStart(2, '0');
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
-
-/**
- * Return the color for a given gradient percentage by linearly interpolating
- * between the nearest stops in {@link GRADIENT_COLOR_STOPS}.
- */
-export function gradientToColor(percent: number): string {
-  const stops = GRADIENT_COLOR_STOPS;
-  if (!Number.isFinite(percent)) return gradientToColor(0);
-
-  const p = clamp(percent, stops[0].percent, stops[stops.length - 1].percent);
-
-  for (let i = 0; i < stops.length - 1; i++) {
-    const a = stops[i];
-    const b = stops[i + 1];
-    if (p >= a.percent && p <= b.percent) {
-      const t = (p - a.percent) / (b.percent - a.percent);
-      const [ar, ag, ab] = hexToRgb(a.color);
-      const [br, bg, bb] = hexToRgb(b.color);
-      return rgbToHex(ar + (br - ar) * t, ag + (bg - ag) * t, ab + (bb - ab) * t);
-    }
+/** The step a grade falls in. A grade with no value is drawn as flat. */
+export function gradeStep(percent: number): GradeStep {
+  if (!Number.isFinite(percent)) return 'mid';
+  for (const band of GRADE_BANDS) {
+    // A band holds its edge farther from flat, and flat ground both of its own.
+    if (band.upTo < 0 ? percent < band.upTo : percent <= band.upTo) return band.step;
   }
-  return stops[stops.length - 1].color;
+  return 'warm-3';
+}
+
+/** The base map's colour for one step of its diverging ramp. */
+export function gradeStepTokenColour(step: GradeStep, style: MapStyleType): string {
+  return colourTokens.light[`map-${style}-div-${step}`];
+}
+
+/** The base map's colour for a grade. */
+export function gradeStepColour(percent: number, style: MapStyleType): string {
+  return gradeStepTokenColour(gradeStep(percent), style);
 }
 
 /**
- * Build a `line-gradient` interpolation expression body for MapLibre.
+ * The `line-gradient` expression for stops from {@link buildGradientLineStops}:
+ * a `step` over `line-progress`, so each band keeps its colour up to the next.
+ * Runs of one colour fold into their first stop.
+ */
+export function gradientStepExpression(stops: readonly (string | number)[]): unknown[] {
+  const expression: unknown[] = ['step', ['line-progress'], stops[1]];
+  for (let i = 2; i < stops.length; i += 2) {
+    if (stops[i + 1] === expression[expression.length - 1]) continue;
+    expression.push(stops[i], stops[i + 1]);
+  }
+  return expression;
+}
+
+/**
+ * Build the colour stops along the line for MapLibre's `line-gradient`.
  *
- * Produces an alternating sequence of `[progress, color, progress, color, ...]`
- * suitable for feeding into an `['interpolate', ['linear'], ['line-progress'], ...]`
- * expression. `progress` runs from 0 to 1 along the line.
+ * Produces an alternating sequence of `[progress, colour, progress, colour, ...]`
+ * in the base map's diverging steps, for {@link gradientStepExpression}.
+ * `progress` runs from 0 to 1 along the line.
  *
  * `line-progress` is a fraction of the line's length, while the grade stream is
  * sampled by time, so each stop is placed by its share of the distance stream.
  * Index stands in only when distance cannot say where a sample is.
  *
  * To keep the expression size manageable we cap at ~100 stops (downsampling
- * long streams by stride). 100 stops is plenty for a visually smooth gradient.
+ * long streams by stride).
  *
  * `hasPosition` marks the samples that are on the drawn line.
  *
@@ -90,6 +92,7 @@ export function gradientToColor(percent: number): string {
 export function buildGradientLineStops(
   gradient: ArrayLike<number> | undefined,
   distance: ArrayLike<number> | undefined,
+  style: MapStyleType,
   maxStops = 100,
   hasPosition?: boolean[]
 ): (string | number)[] | null {
@@ -101,6 +104,7 @@ export function buildGradientLineStops(
     return buildGradientLineStops(
       Array.prototype.filter.call(gradient, keep) as number[],
       usable ? (Array.prototype.filter.call(distance, keep) as number[]) : undefined,
+      style,
       maxStops
     );
   }
@@ -118,7 +122,7 @@ export function buildGradientLineStops(
   // into the first sample at that distance.
   const push = (progress: number, grade: number) => {
     if (pairs.length > 0 && progress <= (pairs[pairs.length - 2] as number)) return;
-    pairs.push(progress, gradientToColor(grade));
+    pairs.push(progress, gradeStepColour(grade, style));
   };
 
   for (let i = 0; i < n; i += stride) {

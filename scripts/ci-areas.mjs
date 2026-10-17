@@ -36,12 +36,15 @@ export const AREAS = ['appJs', 'native', 'rust', 'oauthProxy', 'fastlane', 'work
 
 const LOCKFILE = 'package-lock.json';
 
-// The workflows and actions the iOS build runs through. Their change is a
-// change to the native build even when no native source moves.
+// The workflows, actions and Gradle init script the native builds run
+// through. Their change is a change to the native build even when no native
+// source moves.
 const NATIVE_BUILD = [
   '.github/workflows/build.yml',
+  '.github/workflows/build-android.yml',
   '.github/workflows/build-ios.yml',
   '.github/actions/',
+  '.github/ci-init.gradle',
 ];
 
 const NATIVE_MARKERS = ['android', 'ios', 'expo-module.config.json', 'react-native.config.js'];
@@ -63,6 +66,11 @@ const RULES = [
   { prefix: 'expo-modules/', areas: ['native', 'appJs'] },
   { prefix: 'app.json', areas: ['native', 'appJs'] },
   { prefix: 'app.config.js', areas: ['native', 'appJs'] },
+  // What app.config.js reads to write the native projects, and autolinking.
+  { prefix: 'scripts/lib/app-identity.js', areas: ['native', 'appJs'] },
+  { prefix: 'scripts/lib/build-stamp.js', areas: ['native', 'appJs'] },
+  { prefix: 'src/theme/appColours.json', areas: ['native', 'appJs'] },
+  { prefix: 'react-native.config.js', areas: ['native', 'appJs'] },
   { prefix: 'docs/', areas: [] },
 ];
 
@@ -127,7 +135,8 @@ export function ciAreas({ paths, base, head, root }) {
   return areas;
 }
 
-function lockfileAt(root, ref) {
+/** The root lockfile at a ref, parsed, or undefined where it is absent. */
+export function lockfileAt(root, ref) {
   try {
     return JSON.parse(
       execFileSync('git', ['show', `${ref}:${LOCKFILE}`], {
@@ -142,6 +151,16 @@ function lockfileAt(root, ref) {
   }
 }
 
+/** The paths `<base>...HEAD` changes, relative to the repository root. */
+export function changedPaths(root, base) {
+  return execFileSync('git', ['diff', '--name-only', '-z', `${base}...HEAD`], {
+    cwd: root,
+    encoding: 'utf8',
+  })
+    .split('\0')
+    .filter(Boolean);
+}
+
 function main(argv) {
   const option = (name) => {
     const at = argv.indexOf(name);
@@ -153,12 +172,7 @@ function main(argv) {
     process.exit(2);
   }
   const root = resolve(option('--root') ?? '.');
-  const paths = execFileSync('git', ['diff', '--name-only', '-z', `${baseRef}...HEAD`], {
-    cwd: root,
-    encoding: 'utf8',
-  })
-    .split('\0')
-    .filter(Boolean);
+  const paths = changedPaths(root, baseRef);
   const areas = ciAreas({
     paths,
     base: lockfileAt(root, baseRef),

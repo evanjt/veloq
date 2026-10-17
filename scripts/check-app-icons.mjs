@@ -15,6 +15,12 @@
 //   ios.icon.tinted          opaque grayscale, since the build flattens it onto white
 //   adaptiveIcon.monochromeImage  one colour on a mostly transparent ground,
 //                                 since the launcher recolours it from its alpha
+//   the expo-splash-screen image  400 wide with an alpha channel, the mark alone
+//                                 on the splash ground native code paints
+//   src/assets/logos/*.svg   no text element, since live text renders in whatever
+//                            font the machine substitutes, and every gradient the
+//                            mark or the ground, stopped at the brand colours
+//                            src/theme/appColours.json holds
 //
 // The images come from scripts/generate-app-icons.mjs.
 //
@@ -26,6 +32,9 @@ import { trackedText, treeSources } from './lib/indexedSources.mjs';
 import { decodePng } from './lib/png.mjs';
 
 const IOS_SIZE = 1024;
+const SPLASH_WIDTH = 400;
+const LOGOS = 'src/assets/logos';
+const APP_COLOURS = 'src/theme/appColours.json';
 
 const rootArg = process.argv.indexOf('--root');
 const root = resolve(rootArg === -1 ? '.' : process.argv[rootArg + 1]);
@@ -149,9 +158,84 @@ if (monochrome === undefined) {
   }
 }
 
+const splashPlugin = (config.plugins ?? []).find(
+  (plugin) => Array.isArray(plugin) && plugin[0] === 'expo-splash-screen'
+);
+if (!splashPlugin) {
+  problems.push('the expo-splash-screen plugin names no splash image');
+} else {
+  const props = splashPlugin[1] ?? {};
+  const splashes = new Map([['expo-splash-screen.image', props.image]]);
+  if (props.dark?.image !== undefined)
+    splashes.set('expo-splash-screen.dark.image', props.dark.image);
+  for (const [key, value] of splashes) {
+    const img = image(key, value);
+    if (!img) continue;
+    if (img.width !== SPLASH_WIDTH) {
+      problems.push(`${key}: ${img.file} is ${img.width} wide, not ${SPLASH_WIDTH}`);
+    }
+    if (!img.alpha) {
+      problems.push(`${key}: ${img.file} has no alpha channel, so the mark sits on a box`);
+    }
+  }
+}
+
+// The gradients the generator draws, by id, and the app colours each stops at.
+const GRADIENTS = {
+  mark: ['markGold', 'markGoldDeep'],
+  ground: ['appColour', 'appColourDeep'],
+};
+
+const appColoursText = trackedText(root, APP_COLOURS);
+const appColours = appColoursText === undefined ? null : JSON.parse(appColoursText);
+if (!appColours)
+  problems.push(`${APP_COLOURS} is not in the tree, so the logos have no brand colours`);
+
+const logos = [...treeSources(root, [LOGOS]).entries()].filter(([file]) => file.endsWith('.svg'));
+if (logos.length === 0) problems.push(`${LOGOS} holds no logo source`);
+for (const [file, bytes] of logos) {
+  const text = bytes.toString('utf8');
+  if (/<text[\s>]/.test(text)) {
+    problems.push(
+      `${file} holds a <text element, which renders in whatever font the machine has; ` +
+        'outline it in scripts/generate-app-icons.mjs'
+    );
+  }
+  for (const [, id, body] of text.matchAll(
+    /<linearGradient\b[^>]*\bid="([^"]*)"[^>]*>([\s\S]*?)<\/linearGradient>/g
+  )) {
+    const keys = GRADIENTS[id];
+    if (!keys) {
+      problems.push(
+        `${file}: gradient ${id} is not one the generator draws (${Object.keys(GRADIENTS).join(', ')})`
+      );
+      continue;
+    }
+    if (!appColours) continue;
+    const stops = [...body.matchAll(/stop-color[=:]\s*"?(#[0-9A-Fa-f]{3,8})/g)].map((m) => m[1]);
+    const missing = keys.filter((key) => typeof appColours[key] !== 'string');
+    if (missing.length > 0) {
+      problems.push(
+        `${file}: ${APP_COLOURS} holds no ${missing.join(' or ')} for the ${id} gradient`
+      );
+      continue;
+    }
+    const want = keys.map((key) => appColours[key]);
+    if (
+      stops.length !== want.length ||
+      stops.some((stop, i) => stop.toUpperCase() !== String(want[i]).toUpperCase())
+    ) {
+      problems.push(
+        `${file}: the ${id} gradient stops at ${stops.join(', ') || 'nothing'}, ` +
+          `not ${want.join(', ')} (${keys.join(', ')} in ${APP_COLOURS})`
+      );
+    }
+  }
+}
+
 if (problems.length > 0) {
   console.error('check-app-icons: the app icon set refused:');
   for (const problem of problems) console.error(`  ${problem}`);
   process.exit(1);
 }
-console.log('check-app-icons: icon set complete and opaque');
+console.log('check-app-icons: icon set complete and opaque, logos outlined in the brand colours');

@@ -22,7 +22,6 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { FullWindowModal } from '@/shared/ui/FullWindowModal';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useIsFocused } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
@@ -72,6 +71,7 @@ import {
 } from '@/features/maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CompassArrow, ComponentErrorBoundary } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import type { FrequentSection, RoutePoint, ActivityType } from '@/types';
 import { toActivityType } from '@/features/routes/types';
 import { onlySport } from '@/shared/activity/sportSet';
@@ -259,7 +259,7 @@ export const SectionMapView = memo(function SectionMapView({
   );
   // Controls and legends over the map follow the app theme, not the base drawn under them.
   const { isDark } = useTheme();
-  const activeControl = { backgroundColor: themePalette(isDark).primary };
+  const activeControl = { backgroundColor: themePalette(isDark).actionPrimary };
 
   // The 2D surface comes down once the 3D layer covers it, so where it was is
   // captured on the way out and handed back to the remount.
@@ -542,7 +542,7 @@ export const SectionMapView = memo(function SectionMapView({
           { height, backgroundColor: colorWithOpacity(activityColor, opacity.tint2) },
         ]}
       >
-        <MaterialCommunityIcons name="map-marker-off" size={iconSize.xl} color={activityColor} />
+        <Icon name="map-marker-off" size={iconSize.xl} color={activityColor} />
       </View>
     );
   }
@@ -634,10 +634,10 @@ export const SectionMapView = memo(function SectionMapView({
                 onPress={toggleMapStyle}
                 android_ripple={pressRipple}
               >
-                <MaterialCommunityIcons
+                <Icon
                   name={getStyleIcon(drawnMapStyle)}
                   size={iconSize.lg}
-                  color={isDark ? colors.textOnDark : colors.textSecondary}
+                  color={isDark ? colors.textOnFill : colors.textSecondary}
                 />
               </Pressable>
 
@@ -665,17 +665,17 @@ export const SectionMapView = memo(function SectionMapView({
                     <ActivityIndicator
                       testID="section-map-3d-busy"
                       size="small"
-                      color={colors.textOnDark}
+                      color={colors.textOnFill}
                     />
                   ) : (
-                    <MaterialCommunityIcons
+                    <Icon
                       name="terrain"
                       size={iconSize.lg}
                       color={
                         is3DMode
-                          ? colors.textOnDark
+                          ? colors.textOnFill
                           : isDark
-                            ? colors.textOnDark
+                            ? colors.textOnFill
                             : colors.textSecondary
                       }
                     />
@@ -695,8 +695,8 @@ export const SectionMapView = memo(function SectionMapView({
                 <CompassArrow
                   size={iconSize.lg}
                   rotation={bearingAnim}
-                  northColor={colors.error}
-                  southColor={isDark ? colors.textOnDark : colors.textSecondary}
+                  northColor={colors.compassNorth}
+                  southColor={isDark ? colors.textOnFill : colors.textSecondary}
                 />
               </Pressable>
 
@@ -717,13 +717,13 @@ export const SectionMapView = memo(function SectionMapView({
                 {locationLoading ? (
                   <ActivityIndicator
                     size="small"
-                    color={isDark ? colors.textOnDark : colors.textSecondary}
+                    color={isDark ? colors.textOnFill : colors.textSecondary}
                   />
                 ) : (
-                  <MaterialCommunityIcons
+                  <Icon
                     name={LOCATE_GLYPH}
                     size={iconSize.lg}
-                    color={isDark ? colors.textOnDark : colors.textSecondary}
+                    color={isDark ? colors.textOnFill : colors.textSecondary}
                   />
                 )}
               </Pressable>
@@ -738,10 +738,10 @@ export const SectionMapView = memo(function SectionMapView({
                   onPress={openFullscreen}
                   android_ripple={pressRipple}
                 >
-                  <MaterialCommunityIcons
+                  <Icon
                     name="fullscreen"
                     size={iconSize.lg}
-                    color={isDark ? colors.textOnDark : colors.textSecondary}
+                    color={isDark ? colors.textOnFill : colors.textSecondary}
                   />
                 </Pressable>
               ) : null}
@@ -773,11 +773,7 @@ export const SectionMapView = memo(function SectionMapView({
           {mapContent}
           {showExpandOverlay ? (
             <View style={styles.expandOverlay}>
-              <MaterialCommunityIcons
-                name="fullscreen"
-                size={iconSize.md}
-                color={colors.textOnDark}
-              />
+              <Icon name="fullscreen" size={iconSize.md} color={colors.textOnFill} />
             </View>
           ) : null}
         </Pressable>

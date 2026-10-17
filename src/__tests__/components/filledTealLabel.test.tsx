@@ -50,8 +50,8 @@ it('paints the selected range label in the ink the fill can carry', async () => 
   const selected = flattened(pill.props.style);
   const label = flattened(getByText('period.short.3m').props.style);
 
-  expect(selected.backgroundColor).toBe(colors.primary);
-  expect(label.color).toBe(colors.textOnPrimary);
+  expect(selected.backgroundColor).toBe(colors.actionPrimary);
+  expect(label.color).toBe(colors.textOnFill);
   expect(contrastRatio(label.color as string, selected.backgroundColor as string)).toBeGreaterThan(
     4.5
   );
@@ -67,7 +67,7 @@ describe('filled teal controls outside the range selector', () => {
     );
     const fill = fillOf(getByRole('button'));
     const ink = flattened(getByText('recording.grantAccess').props.style).color as string;
-    expect(fill).toBe(colors.primary);
+    expect(fill).toBe(colors.actionPrimary);
     expect(contrastRatio(ink, fill)).toBeGreaterThan(4.5);
   });
 
@@ -83,7 +83,7 @@ describe('filled teal controls outside the range selector', () => {
     );
     const fill = fillOf(getByRole('button'));
     const ink = flattened(getByText('common.retry').props.style).color as string;
-    expect(fill).toBe(colors.primary);
+    expect(fill).toBe(colors.actionPrimary);
     expect(contrastRatio(ink, fill)).toBeGreaterThan(4.5);
   });
 });

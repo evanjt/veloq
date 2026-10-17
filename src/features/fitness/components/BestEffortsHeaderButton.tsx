@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/ui';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import type { Period } from '@/shared/app/period';
 import { bestEffortsHref } from '@/features/stats';
 
@@ -14,7 +14,7 @@ export function BestEffortsHeaderButton({ period }: { period: Period }) {
       label={t('bestEffortsScreen.title')}
       variant="ghost"
       size="sm"
-      onPress={() => tapTo(bestEffortsHref(period))}
+      onPress={() => navigateTo(bestEffortsHref(period))}
       icon="trophy-outline"
     />
   );

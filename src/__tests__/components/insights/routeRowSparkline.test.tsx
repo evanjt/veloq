@@ -20,7 +20,7 @@ import type { Insight } from '@/types';
 let mockDark = false;
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: mockDark }) }));
-jest.mock('@/shared/app/navigation', () => ({ tapTo: jest.fn(), navigateTo: jest.fn() }));
+jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 
 beforeAll(() => initialiseI18n('en-GB'));
 beforeEach(() => changeLanguage('en-GB'));

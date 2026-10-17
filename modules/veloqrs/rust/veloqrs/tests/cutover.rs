@@ -1388,7 +1388,7 @@ mod a_cancelled_cutover {
     use super::*;
     use veloqrs::persistence::cutover::{
         PHASE_ARCHIVING, PHASE_DETECTING, PHASE_DRAINING, cancel_cutover, cutover_cancelled,
-        cutover_running, run_cutover, run_cutover_with,
+        cutover_run, cutover_running, run_cutover, run_cutover_with,
     };
 
     fn seeded() -> (TempDir, usize) {
@@ -1479,6 +1479,47 @@ mod a_cancelled_cutover {
             "got {finished:?}"
         );
         assert!(!veloqrs::ffi::is_cutover_pending());
+    }
+
+    /// Scenario: the settings screen stops the cutover by the id the routes
+    /// status read names, through the one cancel every stoppable run shares.
+    /// Expected behaviour: only that id stops it, the run ends cancelled at its
+    /// next boundary, and the id stops nothing once the run has ended.
+    #[test]
+    fn is_stopped_by_its_own_run_id_and_no_other() {
+        let _serial_state = crate::serial_state();
+        let (_dir, _before) = seeded();
+        assert_eq!(cutover_run(), None, "no run before the cutover starts");
+        let seen = std::sync::Mutex::new(None);
+
+        let outcome = run_cutover_with(&|_phase: &str| {
+            let mut seen = seen.lock().unwrap();
+            if seen.is_none() {
+                let run = cutover_run().expect("the running cutover names its id") as f64;
+                assert_eq!(
+                    veloqrs::ffi::get_cutover_progress().run,
+                    Some(run),
+                    "the progress read names another id"
+                );
+                assert!(
+                    !veloqrs::ffi::cancel_run(run + 1.0),
+                    "another id stopped the cutover"
+                );
+                assert!(
+                    veloqrs::ffi::cancel_run(run),
+                    "the running cutover was not found"
+                );
+                *seen = Some(run);
+            }
+            cutover_cancelled()
+        })
+        .expect("cancelled, not failed");
+
+        assert_eq!(outcome, CutoverOutcome::Cancelled);
+        assert!(veloqrs::ffi::is_cutover_pending(), "still owed");
+        assert_eq!(cutover_run(), None, "the id outlived its run");
+        let run = seen.lock().unwrap().expect("the run was asked");
+        assert!(!veloqrs::ffi::cancel_run(run), "a finished run was stopped");
     }
 
     /// The cancel belongs to the run it stopped. A flag left standing would

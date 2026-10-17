@@ -61,7 +61,7 @@ const GUARDS = [
     kind: 'correctness',
     cmd: node('check-build-inputs.mjs'),
     catches:
-      'a directory or iOS source outside the source hash or the native filter, so CI reuses or skips the iOS build',
+      'a directory or iOS source outside the source hash or the native rules of the change classifier, so CI reuses or skips the native builds',
   },
   {
     name: 'check:module-version',
@@ -96,13 +96,6 @@ const GUARDS = [
     cmd: node('check-production-console.mjs'),
     catches:
       'a release bundle shipping debug logs or dropping console errors after a Babel config change',
-  },
-  {
-    name: 'check:worklets',
-    kind: 'correctness',
-    cmd: node('patch-worklets-lifecycle.js', '--check'),
-    catches:
-      'a missing worklets lifecycle repair that leaves vsync running while Android caches the app',
   },
   {
     name: 'check:webview-hooks',
@@ -382,6 +375,13 @@ const GUARDS = [
       'a long engine pass spawned unnamed, so a per-thread sampler reads it as the JavaScript thread',
   },
   {
+    name: 'lint:intervals-paths',
+    kind: 'style',
+    cmd: node('lint-intervals-paths.mjs'),
+    catches:
+      'an intervals.icu request built outside the endpoint module, which a second data source could not be put behind',
+  },
+  {
     name: 'lint:point-shapes',
     kind: 'correctness',
     cmd: node('lint-point-shapes.mjs'),
@@ -521,7 +521,7 @@ const GUARDS = [
     kind: 'correctness',
     cmd: node('lint-workflows.mjs'),
     catches:
-      'a cache written off main, a schedule re-running an unchanged sha or skipping one measured red as green, a superseded main push read as red, a job no aggregator reports, benches linked or left unchecked, a native build copied outside its platform definition, a call passing inputs the definition does not declare, a cache key hashing what the build wrote, a native build whose identity one step sets rather than the job, a Rust lockfile no cargo audit scans on every change and on a schedule, a tag release that skips a store deploy and ends green with nothing uploaded, CI installing an unpinned CocoaPods that writes another Podfile.lock version than the machines, a job on a floating -latest runner whose image moves on a date GitHub sets and changes the generated bindings or a release build with no commit, a third-party action on a tag or branch that whoever holds its repository can move to code run beside the signing keys, an action pinned at a version that runs on Node 20, or a dispatch input, event field or head ref expanded inside a run body or an action script, where the value runs as shell commands',
+      'a cache written off main, a schedule re-running an unchanged sha or skipping one measured red as green, a superseded main push read as red, a job no aggregator reports, a job skipped on what changed that its aggregator reads without the plan, so a required skip passes or every skip fails, benches linked or left unchecked, a native build copied outside its platform definition, a call passing inputs the definition does not declare, a cache key hashing what the build wrote, a native build whose identity one step sets rather than the job, a Rust lockfile no cargo audit scans on every change and on a schedule, a tag release that skips a store deploy and ends green with nothing uploaded, CI installing an unpinned CocoaPods that writes another Podfile.lock version than the machines, a job on a floating -latest runner whose image moves on a date GitHub sets and changes the generated bindings or a release build with no commit, a third-party action on a tag or branch that whoever holds its repository can move to code run beside the signing keys, an action pinned at a version that runs on Node 20, or a dispatch input, event field or head ref expanded inside a run body or an action script, where the value runs as shell commands',
   },
   {
     name: 'lint:counted-translation',
@@ -548,6 +548,13 @@ const GUARDS = [
     cmd: node('lint-source-rules.mjs', '--rule', 'chrome-glyphs'),
     catches:
       "a share or delete action drawn with the other platform's glyph, or with a second glyph for the same role",
+  },
+  {
+    name: 'lint:decorative-icons',
+    kind: 'correctness',
+    cmd: node('lint-source-rules.mjs', '--rule', 'decorative-icons'),
+    catches:
+      'an icon glyph drawn outside the shared Icon, which a screen reader stops on and reads as a private-use character',
   },
   {
     name: 'lint:paper-spinner',
@@ -916,6 +923,13 @@ const GUARDS = [
     kind: 'style',
     cmd: node('lint-haptics-owner.mjs'),
     catches: 'a haptic fired outside the one helper, with its own platform gate or no catch',
+  },
+  {
+    name: 'lint:navigation-haptics',
+    kind: 'correctness',
+    cmd: node('lint-navigation-haptics.mjs'),
+    catches:
+      'a haptic fired again by the navigation helpers, which every press that only opens a screen or goes back reaches',
   },
   {
     name: 'lint:gesture-callbacks',

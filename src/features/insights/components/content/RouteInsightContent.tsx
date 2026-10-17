@@ -1,16 +1,16 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { formatDuration } from '@/shared/format/format';
 import { brand, colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import type { Insight, SupportingRoute } from '@/types';
 import { SheetContext } from './SheetContext';
 import { composeAccessibilityLabel, Row } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import type { TFunc } from '../../types';
 import { sectionWithSport } from '../../lib/cardSport';
 import { rowTrendColor, rowTrendIcon } from '../../lib/rowTrend';
@@ -37,12 +37,12 @@ const RouteRow = React.memo(function RouteRow({ route }: { route: SupportingRout
     <Row
       testID={`route-insight-row-${route.rowKey}`}
       behaviour="navigate"
-      onPress={() => tapTo(route.navigationTarget)}
+      onPress={() => navigateTo(route.navigationTarget)}
       accessibilityLabel={composeAccessibilityLabel(label, range)}
     >
       <View style={styles.rowMain}>
         <View style={styles.nameRow}>
-          <MaterialCommunityIcons
+          <Icon
             name={getActivityIcon(route.sportType)}
             size={iconSize.sm}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -50,7 +50,7 @@ const RouteRow = React.memo(function RouteRow({ route }: { route: SupportingRout
           />
           <NameText style={[styles.name, isDark && styles.nameDark]}>{label}</NameText>
           {route.isRecentRecord ? (
-            <MaterialCommunityIcons name="trophy" size={iconSize.sm} color={brand.gold} />
+            <Icon name="trophy" size={iconSize.sm} color={brand.gold} />
           ) : null}
         </View>
         <Text style={[styles.meta, isDark && styles.metaDark]}>
@@ -82,11 +82,7 @@ const RouteRow = React.memo(function RouteRow({ route }: { route: SupportingRout
           {formatDuration(route.bestTime)}
         </Text>
         {route.trend !== 0 ? (
-          <MaterialCommunityIcons
-            name={rowTrendIcon(route.trend)}
-            size={iconSize.sm}
-            color={trendColor}
-          />
+          <Icon name={rowTrendIcon(route.trend)} size={iconSize.sm} color={trendColor} />
         ) : null}
       </View>
     </Row>

@@ -24,8 +24,9 @@ use std::time::{Duration, Instant};
 /// refetch, so the routing stays on the TypeScript side.
 #[uniffi::export(with_foreign)]
 pub trait EngineObserver: Send + Sync {
-    /// A sync step completed. Carries no payload: the reader takes a status
-    /// snapshot.
+    /// A sync step completed, or a GPS pass, a detection run or a heatmap
+    /// pass started, which the status carries beside the sync. Carries no
+    /// payload: the reader takes a status snapshot.
     fn sync_progress(&self);
     /// A sync reached a terminal state, successful or not.
     fn sync_settled(&self);

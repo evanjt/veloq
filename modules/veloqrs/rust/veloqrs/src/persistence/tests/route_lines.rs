@@ -280,3 +280,130 @@ fn a_library_upgraded_with_stored_groups_reads_its_lines_after_the_load() {
         }]
     );
 }
+
+fn line_of(route_id: &str, number: Option<u32>, points: &[GpsPoint]) -> RouteLine {
+    RouteLine {
+        route_id: route_id.to_string(),
+        number,
+        polyline: crate::persistence::codec::encode_polyline(points),
+    }
+}
+
+fn answered(conn: &Connection) -> serde_json::Value {
+    let text = crate::basemap::route_lines_collection(conn).expect("the layer reads");
+    serde_json::from_str(&text).expect("the answer is JSON")
+}
+
+fn answered_ids(answer: &serde_json::Value) -> Vec<String> {
+    answer["features"]
+        .as_array()
+        .expect("features")
+        .iter()
+        .map(|feature| feature["properties"]["id"].as_str().unwrap().to_string())
+        .collect()
+}
+
+fn answered_positions(feature: &serde_json::Value) -> Vec<(f64, f64)> {
+    feature["geometry"]["coordinates"]
+        .as_array()
+        .expect("positions")
+        .iter()
+        .map(|position| {
+            (
+                position[0].as_f64().expect("lng"),
+                position[1].as_f64().expect("lat"),
+            )
+        })
+        .collect()
+}
+
+#[test]
+fn the_geo_answer_draws_each_route_with_a_line_in_layer_order() {
+    let _serial = crate::test_globals::serial_global_state();
+    let engine = PersistentEngine::in_memory().unwrap();
+    let generation = read_group_generation(&engine.db).unwrap();
+    // A non-finite pair cannot reach the layer, the codec writes it as zero,
+    // so the finite guard is pinned on the writer in `basemap::geo`.
+    let long = track(46.0);
+    let single = vec![GpsPoint::new(47.0, 7.0)];
+    let other = track(48.123_456_7);
+    write_layer(
+        &engine.db,
+        generation,
+        &[
+            line_of("r_1", Some(1), &long),
+            line_of("r_2", Some(2), &single),
+            line_of("r_3", None, &other),
+        ],
+    )
+    .unwrap();
+
+    let answer = answered(&engine.db);
+
+    assert_eq!(answered_ids(&answer), ["r_1", "r_3"]);
+    let features = answer["features"].as_array().expect("features");
+    assert_eq!(features[0]["id"], "r_1");
+    assert_eq!(features[0]["properties"]["number"], 1);
+    assert_eq!(features[1]["properties"]["number"], serde_json::Value::Null);
+    for (feature, points) in [(&features[0], &long), (&features[1], &other)] {
+        let stored = crate::persistence::codec::decode_polyline(
+            &crate::persistence::codec::encode_polyline(points),
+        )
+        .expect("decodes");
+        let drawn = answered_positions(feature);
+        assert_eq!(drawn.len(), stored.len());
+        for ((lng, lat), point) in drawn.iter().zip(&stored) {
+            assert!(
+                (lng - point.longitude).abs() < 1e-6,
+                "{lng} {}",
+                point.longitude
+            );
+            assert!(
+                (lat - point.latitude).abs() < 1e-6,
+                "{lat} {}",
+                point.latitude
+            );
+        }
+    }
+}
+
+#[test]
+fn the_geo_answer_follows_a_regroup_and_is_empty_for_a_stale_layer() {
+    let _serial = crate::test_globals::serial_global_state();
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    library(&mut engine);
+    save(
+        &mut engine,
+        vec![group("r_1", &["a", "b"]), group("r_2", &["c", "d"])],
+    );
+    assert_eq!(answered_ids(&answered(&engine.db)), ["r_1", "r_2"]);
+
+    save(
+        &mut engine,
+        vec![group("r_2", &["c", "d"]), group("r_3", &["e", "f"])],
+    );
+    assert_eq!(answered_ids(&answered(&engine.db)), ["r_2", "r_3"]);
+
+    engine
+        .db
+        .execute(
+            "UPDATE route_line_layer SET generation = generation - 1",
+            [],
+        )
+        .unwrap();
+    assert_eq!(
+        crate::basemap::route_lines_collection(&engine.db).unwrap(),
+        r#"{"type":"FeatureCollection","features":[]}"#
+    );
+}
+
+#[test]
+fn the_geo_answer_is_empty_with_no_layer() {
+    let _serial = crate::test_globals::serial_global_state();
+    let engine = PersistentEngine::in_memory().unwrap();
+
+    assert_eq!(
+        crate::basemap::route_lines_collection(&engine.db).unwrap(),
+        r#"{"type":"FeatureCollection","features":[]}"#
+    );
+}

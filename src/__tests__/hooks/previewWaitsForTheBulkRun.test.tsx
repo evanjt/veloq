@@ -86,21 +86,14 @@ it('asks once the run ends with no line stored', async () => {
   await waitFor(() => expect(engine.getPreviewTrack).toHaveBeenCalled());
   expect(mockRequestStreams).not.toHaveBeenCalled();
 
-  useSyncDateRange.getState().setGpsSyncProgress({
-    status: 'complete',
-    completed: 1,
-    total: 1,
-    percent: 100,
-    message: '',
-  });
+  // The run clears the ids it published on its way out, however it ends.
+  useSyncDateRange.getState().setGpsSyncPendingIds([]);
 
   await waitFor(() => expect(mockRequestStreams).toHaveBeenCalledWith('a1', expect.anything()));
 });
 
-it('opens the gate for good when a run ends without publishing a status', async () => {
-  // An aborted run skips its progress update, so the store never sees a
-  // terminal status. The run clears its own ids on the way out for exactly
-  // this: a gate left standing is a card that never asks for a map again.
+it('opens the gate for good when a run ended before the card mounted', async () => {
+  // A gate left standing is a card that never asks for a map again.
   pending(['a1']);
   useSyncDateRange.getState().setGpsSyncPendingIds([]);
 

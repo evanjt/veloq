@@ -436,6 +436,13 @@ function validateArchive(file) {
   }
 }
 
+// Each platform builds only the crate type it links. Cargo compiles a library
+// once for every type in its crate-type list, and with the rlib in that list it
+// passes no `-C lto` to the cdylib or the staticlib either, so the release
+// profile's LTO would never run. The rlib stays in the list for the tests,
+// benches and examples, which are what link it.
+const LIBRARY_TARGET = ['-p', LIBRARY, '--lib', '--crate-type'];
+
 function featureArgs(features) {
   return features.length ? ['--features', features.join(',')] : [];
 }
@@ -487,10 +494,10 @@ function buildAndroidSelection(selection, out, options, context) {
         String(options.api),
         '-o',
         jniLibs,
-        'build',
+        'rustc',
         ...PROFILES[options.profile].flag,
-        '-p',
-        LIBRARY,
+        ...LIBRARY_TARGET,
+        'cdylib',
         ...featureArgs(options.features),
       ],
       { cwd: context.rustDir, env }
@@ -569,12 +576,12 @@ function buildIosSelection(selection, out, options, context) {
       const result = run(
         'cargo',
         [
-          'build',
+          'rustc',
           ...PROFILES[options.profile].flag,
           '--target',
           triple,
-          '-p',
-          LIBRARY,
+          ...LIBRARY_TARGET,
+          'staticlib',
           ...featureArgs(options.features),
           '--message-format=json-render-diagnostics',
         ],

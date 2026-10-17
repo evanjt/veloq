@@ -197,13 +197,7 @@ pub async fn fetch_streams(
     types: &str,
     dispatch: impl Into<Dispatch>,
 ) -> Result<ParsedStreams, NetError> {
-    let raw: Vec<StreamDto> = t
-        .get_json(
-            &format!("/activity/{}/streams.json", activity_id),
-            &[("types", types)],
-            dispatch,
-        )
-        .await?;
+    let raw = fetch_stream_series(t, activity_id, types, dispatch).await?;
     let parsed = parse_streams(raw);
     if !parsed.misaligned.is_empty() {
         let detail = parsed
@@ -238,13 +232,7 @@ pub async fn fetch_altitude(
     activity_id: &str,
     dispatch: impl Into<Dispatch>,
 ) -> Result<Option<ParsedStreams>, NetError> {
-    let raw: Vec<StreamDto> = t
-        .get_json(
-            &format!("/activity/{}/streams.json", activity_id),
-            &[("types", ELEVATION_STREAM_TYPES)],
-            dispatch,
-        )
-        .await?;
+    let raw = fetch_stream_series(t, activity_id, ELEVATION_STREAM_TYPES, dispatch).await?;
     if !raw
         .iter()
         .any(|s| s.kind == "altitude" || s.kind == "fixed_altitude")
@@ -265,14 +253,46 @@ pub async fn fetch_streams_body(
     types: &str,
     dispatch: impl Into<Dispatch>,
 ) -> Result<String, NetError> {
-    let bytes = t
-        .get_bytes(
-            &format!("/activity/{}/streams.json", activity_id),
-            &[("types", types)],
-            dispatch,
-        )
-        .await?;
-    decode_body(bytes)
+    decode_body(fetch_streams_bytes(t, activity_id, types, dispatch).await?)
+}
+
+/// `GET /activity/{id}/streams.json` as the bytes the server sent, for a
+/// caller that decodes or reduces the answer itself.
+pub async fn fetch_streams_bytes(
+    t: &Transport,
+    activity_id: &str,
+    types: &str,
+    dispatch: impl Into<Dispatch>,
+) -> Result<Vec<u8>, NetError> {
+    t.get_bytes(&streams_path(activity_id), &[("types", types)], dispatch)
+        .await
+}
+
+/// `GET /activity/{id}/streams.json` as the series the server listed, typed
+/// and in its own index space, with nothing reduced.
+pub async fn fetch_stream_series(
+    t: &Transport,
+    activity_id: &str,
+    types: &str,
+    dispatch: impl Into<Dispatch>,
+) -> Result<Vec<StreamDto>, NetError> {
+    t.get_json(&streams_path(activity_id), &[("types", types)], dispatch)
+        .await
+}
+
+fn streams_path(activity_id: &str) -> String {
+    format!("/activity/{}/streams.json", activity_id)
+}
+
+/// `GET /activity/{id}/file`, the original file uploaded for the activity, as
+/// the bytes the server sent.
+pub async fn fetch_original_file(
+    t: &Transport,
+    activity_id: &str,
+    dispatch: impl Into<Dispatch>,
+) -> Result<Vec<u8>, NetError> {
+    t.get_bytes(&format!("/activity/{}/file", activity_id), &[], dispatch)
+        .await
 }
 
 /// `GET /activity/{id}` as the untyped body. The detail screen reads far more
@@ -724,6 +744,84 @@ mod tests {
     fn fast_transport(base: String) -> Transport {
         let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
         Transport::with_governor(base, AuthMethod::ApiKey("k"), gov).unwrap()
+    }
+
+    /// Expected behaviour: the original file is asked for on its own path, and
+    /// its bytes come back as sent, never read as text.
+    #[test]
+    fn the_original_file_comes_back_as_raw_bytes() {
+        let server = MockServer::start();
+        let file: Vec<u8> = vec![0x0e, 0x10, 0xff, 0xfe, 0x00, 0x80, b'.', b'F'];
+        let sent = file.clone();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/activity/i42/file");
+            then.status(200).body(sent);
+        });
+        let t = fast_transport(server.base_url());
+
+        let got =
+            crate::runtime::block_on(fetch_original_file(&t, "i42", Lane::Interactive)).unwrap();
+
+        mock.assert();
+        assert_eq!(got, file);
+    }
+
+    /// Expected behaviour: the streams path carries the types exactly as the
+    /// caller gave them, and the answer comes back as bytes the caller decodes,
+    /// so a body that is not UTF-8 is not refused here.
+    #[test]
+    fn the_streams_bytes_carry_the_types_and_are_not_decoded() {
+        let server = MockServer::start();
+        let body: Vec<u8> = vec![b'[', 0xff, 0xfe, b']'];
+        let sent = body.clone();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/activity/i7/streams.json")
+                .query_param("types", TRACK_STREAM_TYPES);
+            then.status(200).body(sent);
+        });
+        let t = fast_transport(server.base_url());
+
+        let got = crate::runtime::block_on(fetch_streams_bytes(
+            &t,
+            "i7",
+            TRACK_STREAM_TYPES,
+            Lane::Backfill,
+        ))
+        .unwrap();
+
+        mock.assert();
+        assert_eq!(got, body);
+    }
+
+    /// Expected behaviour: the series come back as the server listed them,
+    /// typed but not reduced, so a caller that reduces them itself sees every
+    /// series and its own length.
+    #[test]
+    fn the_stream_series_come_back_unreduced() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/activity/i8/streams.json")
+                .query_param("types", DEFAULT_STREAM_TYPES);
+            then.status(200).body(
+                r#"[{"type":"latlng","data":[1.0,2.0],"data2":[3.0,4.0]},{"type":"watts","data":[100,110,120]}]"#,
+            );
+        });
+        let t = fast_transport(server.base_url());
+
+        let raw = crate::runtime::block_on(fetch_stream_series(
+            &t,
+            "i8",
+            DEFAULT_STREAM_TYPES,
+            Lane::Backfill,
+        ))
+        .unwrap();
+
+        mock.assert();
+        let kinds: Vec<&str> = raw.iter().map(|s| s.kind.as_str()).collect();
+        assert_eq!(kinds, ["latlng", "watts"]);
+        assert_eq!(raw[1].data.len(), 3);
     }
 
     #[test]

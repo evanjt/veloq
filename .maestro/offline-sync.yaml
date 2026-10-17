@@ -1,6 +1,6 @@
 # Offline Sync Flow
 #
-# Exercises the offline banner, pull-to-refresh, and sync-queue code paths
+# Exercises the offline pill, pull-to-refresh, and sync-queue code paths
 # that fire when connectivity is lost/regained.
 #
 # -----------------------------------------------------------------------------
@@ -21,12 +21,12 @@
 #
 # For now this flow exercises the adjacent, testable code paths:
 #   - Pull-to-refresh on the feed (demo mode uses fixtures, no network call).
-#   - Offline banner assertion (offline-banner testID from OfflineBanner.tsx).
+#   - Offline pill assertion (offline-pill testID from StatusPills.tsx).
 #   - Repeated refresh to catch sync-queue regressions (duplicate requests,
 #     stale loading state, NaN propagation on retry).
 #
-# The offline-banner check is soft (`optional: true`) because in demo mode on
-# an online emulator the banner should NOT appear. If someone later wires a
+# The offline-pill check is soft (`optional: true`) because in demo mode on
+# an online emulator the pill should NOT appear. If someone later wires a
 # force-offline deep-link, swap the soft check for `assertVisible`.
 # -----------------------------------------------------------------------------
 
@@ -44,9 +44,9 @@ tags:
       id: "home-activity-list"
     timeout: 15000
 
-# Online state: offline banner must NOT be visible
+# Online state: offline pill must NOT be visible
 - assertNotVisible:
-    id: "offline-banner"
+    id: "offline-pill"
 
 # First pull-to-refresh, the sync queue path runs even in demo mode
 - swipe:
@@ -110,8 +110,8 @@ tags:
 - assertNotVisible:
     text: "undefined"
 
-# Offline banner remains hidden throughout
+# Offline pill remains hidden throughout
 - assertNotVisible:
-    id: "offline-banner"
+    id: "offline-pill"
 
 - takeScreenshot: "screenshots/offline-sync-end"

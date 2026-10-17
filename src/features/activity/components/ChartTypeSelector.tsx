@@ -2,11 +2,18 @@ import React, { useRef, useCallback } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { DenseText } from '@/shared/ui/DenseText';
 import { useTheme } from '@/shared/app';
-import { composeAccessibilityLabel, pressable, pressRipple } from '@/shared/ui';
+import {
+  chipFrame,
+  composeAccessibilityLabel,
+  pressable,
+  pressRipple,
+  selectedChipPaint,
+} from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import * as haptics from '@/shared/ui/haptics';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import {
+  chartStreamColour,
   colors,
   colorWithOpacity,
   darkColors,
@@ -14,39 +21,13 @@ import {
   layout,
   slopToMinTapTarget,
   spacing,
+  stroke,
   typography,
   opacity,
 } from '@/theme';
 import { isolateNumeric } from '@/shared/format';
-import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
+import { chartTypeLabel, type ChartConfig } from '@/features/activity/lib/chartConfig';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
-
-/** Chart type translation key type */
-type ChartTypeKey =
-  | 'chartTypes.power'
-  | 'chartTypes.hr'
-  | 'chartTypes.cad'
-  | 'chartTypes.speed'
-  | 'chartTypes.pace'
-  | 'chartTypes.gap'
-  | 'chartTypes.elev'
-  | 'chartTypes.grade'
-  | 'chartTypes.wbal'
-  | 'chartTypes.temp';
-
-/** Map chart IDs to translation keys */
-const CHART_LABEL_KEYS: Partial<Record<ChartTypeId, ChartTypeKey>> = {
-  power: 'chartTypes.power',
-  heartrate: 'chartTypes.hr',
-  cadence: 'chartTypes.cad',
-  speed: 'chartTypes.speed',
-  pace: 'chartTypes.pace',
-  gap: 'chartTypes.gap',
-  elevation: 'chartTypes.elev',
-  grade: 'chartTypes.grade',
-  wbal: 'chartTypes.wbal',
-  temp: 'chartTypes.temp',
-};
 
 interface ChartMetricDisplay {
   id: string;
@@ -124,21 +105,24 @@ export function ChartTypeSelector({
     <View style={styles.container} testID="chart-type-selector">
       {available.map((config) => {
         const isSelected = selected.includes(config.id);
-        // Use full color when selected, faded color when unselected
-        const bgColor = isSelected
-          ? config.color
-          : colorWithOpacity(config.color, isDark ? opacity.tint4 : opacity.tint2);
-        // Unselected read as the stream's own hue, `chartYellow` at 1.50:1 on
-        // its own 15% tint. The chip keeps the hue as its ground and its dot, and
-        // the label says which stream it is.
+        // Selected, the chip is the app's selected chip, whose ink clears 4.5:1
+        // on its fill where a stream hue under any one ink does not. Unselected,
+        // the stream's tint is the ground under the primary text. The dot says
+        // which stream it is in both states.
+        const frame = chipFrame(
+          isSelected,
+          isDark,
+          colorWithOpacity(
+            chartStreamColour(config.stream, isDark),
+            isDark ? opacity.tint4 : opacity.tint2
+          )
+        );
         const textColor = isSelected
-          ? config.ink
+          ? selectedChipPaint(isDark).ink
           : isDark
             ? darkColors.textPrimary
             : colors.textPrimary;
-        // Use translated label if available, fallback to config.label
-        const labelKey = CHART_LABEL_KEYS[config.id];
-        const label = labelKey ? (t(labelKey) as string) : config.label;
+        const label = chartTypeLabel(config, t);
         // Get metric value for this chip
         const metric = metricValues?.find((m) => m.id === config.id);
         // The chip is one element, so its name carries the value it draws.
@@ -164,11 +148,7 @@ export function ChartTypeSelector({
             accessibilityRole="button"
             accessibilityLabel={composeAccessibilityLabel(label, spokenValue)}
             accessibilityState={{ selected: isSelected }}
-            style={pressable([
-              styles.chip,
-              metric && styles.chipWithValue,
-              { backgroundColor: bgColor },
-            ])}
+            style={pressable([styles.chip, metric && styles.chipWithValue, frame])}
             android_ripple={pressRipple}
             hitSlop={metric ? CHIP_WITH_VALUE_SLOP : CHIP_SLOP}
             onPressIn={handlePressIn}
@@ -178,7 +158,14 @@ export function ChartTypeSelector({
             delayLongPress={PREVIEW_HOLD_MS}
           >
             <View style={styles.chipLabelRow}>
-              <MaterialCommunityIcons name={config.icon} size={iconSize.xs} color={textColor} />
+              <View
+                testID={`chart-type-${config.id}-mark`}
+                style={[
+                  styles.chipMark,
+                  { backgroundColor: chartStreamColour(config.stream, isDark) },
+                ]}
+              />
+              <Icon name={config.icon} size={iconSize.xs} color={textColor} />
               <DenseText style={[styles.chipLabel, { color: textColor }]}>{label}</DenseText>
             </View>
             {metric ? (
@@ -211,7 +198,7 @@ export function ChartTypeSelector({
 
 // The chips wrap into rows only a small gap apart, so each is drawn at its
 // content's height and reaches the tap target through slop.
-const CHIP_HEIGHT = typography.label.lineHeight + 2 * spacing.xs;
+const CHIP_HEIGHT = typography.label.lineHeight + 2 * spacing.xs + 2 * stroke.one;
 const CHIP_WITH_VALUE_HEIGHT = CHIP_HEIGHT + spacing.xxs + typography.badge.lineHeight;
 const CHIP_SLOP = slopToMinTapTarget(CHIP_HEIGHT);
 const CHIP_WITH_VALUE_SLOP = slopToMinTapTarget(CHIP_WITH_VALUE_HEIGHT);
@@ -238,6 +225,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+  },
+  // The data-mark size, so the chip keys its stream as a legend does.
+  chipMark: {
+    width: spacing.sm,
+    height: spacing.sm,
+    borderRadius: layout.borderRadiusXs,
   },
   chipLabel: {
     ...typography.badge,

@@ -24,7 +24,7 @@ fn metrics_from_body(raw: &str, date: i64, id: &str) -> SqlResult<ActivityMetric
 
 struct RemovalMemory {
     identity: super::sections::SectionIdentity,
-    sections: Vec<FrequentSection>,
+    sections: Vec<std::sync::Arc<FrequentSection>>,
     /// The removal took a track, so detection runs again over the rest.
     had_track: bool,
 }

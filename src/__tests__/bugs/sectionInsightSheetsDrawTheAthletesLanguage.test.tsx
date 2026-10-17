@@ -99,7 +99,7 @@ async function sheets(): Promise<string[]> {
   const prText = textOf(pr.toJSON());
   const group = await render(<SectionTrendContent insight={insight('section_trend', 2)} />);
   // The first row's chevron: its sport icon, its trend icon, then the chevron.
-  await fireEvent.press(group.getAllByTestId('icon')[2]);
+  await fireEvent.press(group.getAllByTestId('icon', { includeHiddenElements: true })[2]);
   const groupText = textOf(group.toJSON());
   return [...prText, ...groupText].filter((line) => /[A-Za-z]{4,}/.test(line));
 }

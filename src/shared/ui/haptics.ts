@@ -5,8 +5,8 @@
  * | Class       | iOS feel             | Android feel    | Use it for                                                        |
  * |-------------|----------------------|-----------------|-------------------------------------------------------------------|
  * | `selection` | selection tick       | `Segment_Tick`  | a discrete choice: a tab, a sub-tab, a toggle, a picker           |
- * | `light`     | Light impact         | `Context_Click` | a button tap that acts, a long-press or scrub activation, a snap or boundary crossing |
- * | `medium`    | Medium impact        | `Long_Press`    | a destructive accept, an anchor placed, a refresh started, a card long-press opening its menu |
+ * | `light`     | Light impact         | `Context_Click` | a button tap that acts, a long-press or scrub activation, a snap or boundary crossing, a hold or action that opens a menu |
+ * | `medium`    | Medium impact        | `Long_Press`    | a destructive accept, an anchor placed, a refresh started         |
  * | `success`   | Success notification | `Confirm`       | a save or create that committed                                   |
  *
  * On Android every class goes through the view's haptic feedback, which the

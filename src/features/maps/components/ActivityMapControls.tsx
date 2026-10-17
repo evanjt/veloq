@@ -1,9 +1,9 @@
 import { Animated, View, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { colors, iconSize } from '@/theme';
 import { CompassArrow, IconButton } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { getStyleIcon, type MapStyleType } from './mapStyles';
 import { activityMapControlCount, useMapControlColumn } from '../lib/mapControlColumnLayout';
 import { styles } from './ActivityMapView.styles';
@@ -72,10 +72,10 @@ export function ActivityMapControls({
         variant="secondary"
         onPress={onToggleStyle}
       >
-        <MaterialCommunityIcons
+        <Icon
           name={getStyleIcon(mapStyle)}
           size={iconSize.lg}
-          color={isDark ? colors.textOnDark : colors.textSecondary}
+          color={isDark ? colors.textOnFill : colors.textSecondary}
         />
       </IconButton>
 
@@ -89,15 +89,11 @@ export function ActivityMapControls({
           variant={gradientActive ? 'primary' : 'secondary'}
           onPress={onToggleGradient}
         >
-          <MaterialCommunityIcons
+          <Icon
             name="slope-uphill"
             size={iconSize.lg}
             color={
-              gradientActive
-                ? colors.textOnPrimary
-                : isDark
-                  ? colors.textOnDark
-                  : colors.textSecondary
+              gradientActive ? colors.textOnFill : isDark ? colors.textOnFill : colors.textSecondary
             }
           />
         </IconButton>
@@ -118,14 +114,14 @@ export function ActivityMapControls({
             <ActivityIndicator
               testID="activity-map-3d-busy"
               size="small"
-              color={colors.textOnPrimary}
+              color={colors.textOnFill}
             />
           ) : (
-            <MaterialCommunityIcons
+            <Icon
               name="terrain"
               size={iconSize.lg}
               color={
-                is3DMode ? colors.textOnPrimary : isDark ? colors.textOnDark : colors.textSecondary
+                is3DMode ? colors.textOnFill : isDark ? colors.textOnFill : colors.textSecondary
               }
             />
           )}
@@ -142,8 +138,8 @@ export function ActivityMapControls({
         <CompassArrow
           size={iconSize.lg}
           rotation={bearingAnim}
-          northColor={colors.error}
-          southColor={isDark ? colors.textOnDark : colors.textSecondary}
+          northColor={colors.compassNorth}
+          southColor={isDark ? colors.textOnFill : colors.textSecondary}
         />
       </IconButton>
 
@@ -164,17 +160,17 @@ export function ActivityMapControls({
         {locationLoading ? (
           <ActivityIndicator
             size="small"
-            color={isDark ? colors.textOnDark : colors.textSecondary}
+            color={isDark ? colors.textOnFill : colors.textSecondary}
           />
         ) : (
-          <MaterialCommunityIcons
+          <Icon
             name={LOCATE_GLYPH}
             size={iconSize.lg}
             color={
               userLocationActive
-                ? colors.textOnPrimary
+                ? colors.textOnFill
                 : isDark
-                  ? colors.textOnDark
+                  ? colors.textOnFill
                   : colors.textSecondary
             }
           />
@@ -190,10 +186,10 @@ export function ActivityMapControls({
           variant="secondary"
           onPress={onOpenFullscreen}
         >
-          <MaterialCommunityIcons
+          <Icon
             name="fullscreen"
             size={iconSize.lg}
-            color={isDark ? colors.textOnDark : colors.textSecondary}
+            color={isDark ? colors.textOnFill : colors.textSecondary}
           />
         </IconButton>
       ) : null}

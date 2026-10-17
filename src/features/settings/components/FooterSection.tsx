@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { colors, darkColors, spacing, typography } from '@/theme';
@@ -58,7 +58,7 @@ export function FooterSection() {
       <Row
         behaviour="navigate"
         accessibilityLabel={t('about.title')}
-        onPress={() => tapTo('/about')}
+        onPress={() => navigateTo('/about')}
       >
         <View style={styles.toggleInfo}>
           <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>
@@ -96,7 +96,7 @@ export function FooterSection() {
           testID="settings-developer-dashboard-link"
           behaviour="navigate"
           accessibilityLabel={t('settings.developerDashboard')}
-          onPress={() => tapTo('/debug')}
+          onPress={() => navigateTo('/debug')}
         >
           <View style={styles.toggleInfo}>
             <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>

@@ -8,15 +8,18 @@
  * - A unit sits beside the value and is part of the name.
  * - An error replaces the supporting text under the field, and is spoken: a
  *   polite live region on Android, an announcement on iOS.
- * - The edge is `controlBoundary`, a mark at 3:1 on the theme's surfaces, and
- *   the focused edge `focusRing`.
+ * - The edge comes from `fieldEdge`: `controlBoundary` at rest, a 2 pt
+ *   `focusRing` on focus drawn inside the box so the row keeps its size, and
+ *   the error colour while a value is refused.
+ * - The placeholder is tertiary text, an example rather than a value.
  * - The height is a minimum, so the user's text size grows the field rather than
  *   clipping it, and the keyboard follows the theme.
  * - A secret field carries its own show or hide control, so a paste can be
  *   checked before it is sent.
  *
  * Android draws Paper's outlined field with its floating label, iOS a plain
- * field with the label above it, which is each platform's own form idiom.
+ * field with the label above it, which is each platform's own form idiom. Both
+ * take the same radius, edge and text style.
  * `SearchBar` stays its own control.
  */
 
@@ -30,20 +33,22 @@ import {
   type StyleProp,
   type TextInputProps,
   type ViewStyle,
+  type TextInputInstance,
 } from 'react-native';
 import { Text, TextInput as PaperTextInput } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app/useTheme';
 import { colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
 
+import { fieldEdge } from './fieldEdge';
+import { Icon } from './Icon';
 import { IconButton } from './IconButton';
 import { secretReveal } from './secretReveal';
 import { useAnnounceOnAppear } from './useAnnounceOnAppear';
 
 /** What a caller may do to a field it holds: move focus into it or out. */
-export type TextFieldHandle = Pick<TextInput, 'focus' | 'blur'>;
+export type TextFieldHandle = Pick<TextInputInstance, 'focus' | 'blur'>;
 
 /** The input props a caller passes through unchanged, credentials and autofill among them. */
 type PassThrough = Pick<
@@ -133,16 +138,18 @@ export function TextField({
   const { isDark: themeDark } = useTheme();
   const isDark = themeDark || onDarkGround;
   const palette = isDark ? darkColors : colors;
-  const boundary = palette.controlBoundary;
   const [focused, setFocused] = useState(false);
+  const edge = fieldEdge({ error: !!error, focused, isDark });
   const [revealed, setRevealed] = useState(false);
   const reveal = secureTextEntry ? secretReveal(revealed, t) : null;
   const toggleReveal = useCallback(() => setRevealed((shown) => !shown), []);
   const revealID = testID ? { testID: `${testID}-reveal` } : {};
 
   const input = useRef<TextFieldHandle | null>(null);
-  const setInput = useCallback((node: TextFieldHandle | null) => {
-    input.current = node;
+  // The library's handle type picks its methods off the input component rather than its
+  // instance, so it names none; the node it hands back is the native input either way.
+  const setInput = useCallback((node: object | null) => {
+    input.current = node as TextFieldHandle | null;
   }, []);
   useImperativeHandle(
     ref,
@@ -175,7 +182,7 @@ export function TextField({
     onChangeText,
     accessibilityLabel: unit ? `${label}, ${unit}` : label,
     keyboardAppearance: isDark ? 'dark' : 'light',
-    placeholderTextColor: palette.textSecondary,
+    placeholderTextColor: palette.textTertiary,
     onFocus: () => setFocused(true),
     onBlur: handleBlur,
     // Set only when present: Paper's props refuse an explicit undefined.
@@ -197,7 +204,7 @@ export function TextField({
       {error ? (
         <Text
           testID={testID ? `${testID}-error` : undefined}
-          style={[styles.supporting, { color: palette.errorDeep }]}
+          style={[styles.supporting, { color: palette.errorText }]}
         >
           {error}
         </Text>
@@ -216,10 +223,14 @@ export function TextField({
           mode="outlined"
           label={shownLabel}
           error={!!error}
-          outlineColor={boundary}
+          outlineColor={palette.controlBoundary}
           activeOutlineColor={palette.focusRing}
+          // Paper widens every active outline to 2 pt, an error included, so the edge is set here.
+          outlineStyle={edge}
+          theme={{ roundness: layout.borderRadiusSm, colors: { error: palette.errorText } }}
           textColor={palette.textPrimary}
-          style={{ backgroundColor: palette.surface }}
+          style={[styles.paperField, { backgroundColor: palette.surface }]}
+          contentStyle={styles.paperInput}
           // Paper caps the field's text at 1.5x by default; zero lifts the cap.
           maxFontSizeMultiplier={0}
           right={
@@ -241,7 +252,8 @@ export function TextField({
     );
   }
 
-  const edge = error ? palette.errorDeep : focused ? palette.focusRing : boundary;
+  // The wider focused edge takes its extra point from the padding inside it.
+  const edgeInset = edge.borderWidth - stroke.one;
 
   return (
     <View style={style}>
@@ -257,14 +269,21 @@ export function TextField({
         style={[
           styles.box,
           multiline && styles.boxMultiline,
-          { borderColor: edge, backgroundColor: palette.surface },
+          edge,
+          {
+            paddingHorizontal: spacing.smPlus - edgeInset,
+            backgroundColor: palette.surface,
+          },
         ]}
       >
         <TextInput
           {...inputProps}
           ref={setInput}
           textAlignVertical={multiline ? 'top' : 'center'}
-          style={[styles.input, { color: palette.textPrimary }]}
+          style={[
+            styles.input,
+            { color: palette.textPrimary, paddingVertical: spacing.sm - edgeInset },
+          ]}
         />
         {unit ? (
           <Text
@@ -282,11 +301,7 @@ export function TextField({
             accessibilityState={reveal.accessibilityState}
             onPress={toggleReveal}
           >
-            <MaterialCommunityIcons
-              name={reveal.icon}
-              size={iconSize.md}
-              color={palette.textSecondary}
-            />
+            <Icon name={reveal.icon} size={iconSize.md} color={palette.textSecondary} />
           </IconButton>
         ) : null}
       </View>
@@ -304,9 +319,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: layout.minTapTarget,
-    borderWidth: stroke.one,
     borderRadius: layout.borderRadiusSm,
-    paddingHorizontal: spacing.smPlus,
     gap: spacing.sm,
   },
   boxMultiline: {
@@ -316,7 +329,14 @@ const styles = StyleSheet.create({
   input: {
     ...typography.body,
     flex: 1,
-    paddingVertical: spacing.sm,
+  },
+  // Paper reads the input's size from the field's style and its face from the content style.
+  paperField: {
+    ...typography.body,
+    minHeight: layout.minTapTarget,
+  },
+  paperInput: {
+    fontFamily: typography.body.fontFamily,
   },
   unit: {
     ...typography.body,

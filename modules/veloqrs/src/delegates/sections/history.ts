@@ -13,29 +13,17 @@ import type { LatLngShort } from '../../coords';
 import type {
   FfiRetiredSection,
   FfiSectionChange,
-  FfiSectionGeometryVersion,
   FfiSectionHistoryEvent,
 } from '../../generated/veloqrs';
 import type { DelegateHost } from '../host';
 
 export type SectionHistoryEvent = FfiSectionHistoryEvent;
-export type SectionGeometryVersion = FfiSectionGeometryVersion;
 export type RetiredSection = FfiRetiredSection;
 export type SectionChange = FfiSectionChange;
 
 export function getSectionHistory(host: DelegateHost, sectionId: string): SectionHistoryEvent[] {
   if (!host.ready) return [];
   return host.timed('getHistory', () => host.engine.sections().getHistory(sectionId));
-}
-
-export function getSectionGeometryVersions(
-  host: DelegateHost,
-  sectionId: string
-): SectionGeometryVersion[] {
-  if (!host.ready) return [];
-  return host.timed('getGeometryVersions', () =>
-    host.engine.sections().getGeometryVersions(sectionId)
-  );
 }
 
 /** A stored version's line, or an empty list when it was pruned. */

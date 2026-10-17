@@ -1,10 +1,10 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { StyleSheet, View, type ViewInstance } from 'react-native';
 
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, iconSize, layout, opacity, spacing } from '@/theme';
-import { pressable, pressRipple } from './pressFeedback';
+import { Icon } from './Icon';
+import { PressTarget } from './PressTarget';
 
 interface RowBaseProps {
   children: React.ReactNode;
@@ -24,7 +24,7 @@ interface RowBaseProps {
    */
   inset?: 'row' | 'none' | undefined;
   /** The row's target, for a sheet that anchors to the control that opened it. */
-  ref?: React.Ref<View>;
+  ref?: React.Ref<ViewInstance>;
 }
 
 /**
@@ -84,7 +84,7 @@ export function Row({
   }
 
   const target = (
-    <Pressable
+    <PressTarget
       ref={ref}
       testID={testID}
       accessibilityRole={behaviour === 'external' ? 'link' : 'button'}
@@ -95,31 +95,20 @@ export function Row({
       }
       onPress={onPress}
       disabled={disabled}
-      android_ripple={pressRipple}
-      style={pressable([
+      style={[
         styles.row,
         inset === 'none' && styles.flush,
         accessory != null && styles.besideAccessory,
         disabled && styles.disabled,
-      ])}
+      ]}
     >
       {children}
       {behaviour === 'navigate' ? (
-        <MaterialCommunityIcons
-          testID="row-chevron"
-          name="chevron-right"
-          size={iconSize.md}
-          color={glyphColour}
-        />
+        <Icon testID="row-chevron" name="chevron-right" size={iconSize.md} color={glyphColour} />
       ) : behaviour === 'external' ? (
-        <MaterialCommunityIcons
-          testID="row-external"
-          name="open-in-new"
-          size={iconSize.md}
-          color={glyphColour}
-        />
+        <Icon testID="row-external" name="open-in-new" size={iconSize.md} color={glyphColour} />
       ) : null}
-    </Pressable>
+    </PressTarget>
   );
 
   if (accessory == null) return target;

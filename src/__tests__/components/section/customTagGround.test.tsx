@@ -10,7 +10,7 @@ jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides
 
 jest.mock('@/theme/colors', () => {
   const actual = jest.requireActual('@/theme/colors');
-  return { ...actual, darkColors: { ...actual.darkColors, chartFatigue: '#112233' } };
+  return { ...actual, darkColors: { ...actual.darkColors, fatigue: '#112233' } };
 });
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
@@ -51,7 +51,7 @@ async function tagGround(): Promise<unknown> {
 
 describe('the dark Custom tag ground', () => {
   it('does not follow the dark fatigue series', async () => {
-    expect(darkColors.chartFatigue).toBe('#112233');
+    expect(darkColors.fatigue).toBe('#112233');
     expect(await tagGround()).toBe(colorWithOpacity('#C084FC', opacity.tint2));
   });
 });

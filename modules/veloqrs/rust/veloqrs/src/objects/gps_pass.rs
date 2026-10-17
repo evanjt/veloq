@@ -53,14 +53,39 @@ impl PassStart {
     }
 }
 
+/// The pass holding the slot.
+struct Running {
+    range: PassRange,
+    /// Which taking of the slot this is, so a start that returns after its own
+    /// pass has already ended cannot name its run against a later one.
+    taken: u64,
+    /// The fetch run downloading it, once its start has returned.
+    run: Option<u64>,
+}
+
 #[derive(Default)]
 struct PassState {
-    /// The range of the pass downloading now.
-    running: Option<PassRange>,
+    /// The pass downloading now.
+    running: Option<Running>,
+    /// How many times the slot has been taken.
+    taken: u64,
     /// A pass asked for while one ran, started when it ends.
     owed: Option<PassRange>,
     /// A pass the connection cost, started on the online edge.
     owed_to_reconnect: Option<PassRange>,
+}
+
+impl PassState {
+    /// Take the slot for `range`, answering which taking it is.
+    fn take_slot(&mut self, range: PassRange) -> u64 {
+        self.taken += 1;
+        self.running = Some(Running {
+            range,
+            taken: self.taken,
+            run: None,
+        });
+        self.taken
+    }
 }
 
 fn owe_into(slot: &mut Option<PassRange>, range: PassRange) {
@@ -97,7 +122,7 @@ impl GpsPassService {
     /// downloading and this one starts when it ends; `Offline` means it starts
     /// when the connection returns.
     pub(crate) fn request(&self, range: PassRange) -> PassStart {
-        {
+        let taken = {
             let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
             if inner.running.is_some() {
                 owe_into(&mut inner.owed, range);
@@ -107,23 +132,46 @@ impl GpsPassService {
                 owe_into(&mut inner.owed_to_reconnect, range);
                 return PassStart::refused(FfiStartOutcome::Offline);
             }
-            inner.running = Some(range.clone());
-        }
-        self.begin(range)
+            inner.take_slot(range.clone())
+        };
+        self.begin(range, taken)
     }
 
     /// Start a pass the slot has already been taken for, and give the slot
     /// back if it did not start.
-    fn begin(&self, range: PassRange) -> PassStart {
+    ///
+    /// The slot is not held across the start, so the pass can end before the
+    /// start returns. The run is named only against the taking it was started
+    /// for, and a taking that has already ended keeps nothing.
+    fn begin(&self, range: PassRange, taken: u64) -> PassStart {
         let started = (self.start)(&range);
-        if started.outcome != FfiStartOutcome::Started {
-            let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
-            inner.running = None;
+        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let ours = inner.running.as_mut().filter(|r| r.taken == taken);
+        if started.outcome == FfiStartOutcome::Started {
+            if let Some(running) = ours {
+                running.run = Some(started.run);
+                drop(inner);
+                // The sync status carries the download from here. The screens
+                // that render it read again on this, so nothing has to poll
+                // while no pass is downloading.
+                super::observer::notify(super::observer::Announcement::SyncProgress);
+            }
+        } else {
+            if ours.is_some() {
+                inner.running = None;
+            }
             if started.outcome == FfiStartOutcome::Offline {
                 owe_into(&mut inner.owed_to_reconnect, range);
             }
         }
         started
+    }
+
+    /// The fetch run of the pass downloading now, or `None` when no pass holds
+    /// the slot or its start has not returned yet.
+    pub(crate) fn running_run(&self) -> Option<u64> {
+        let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        inner.running.as_ref().and_then(|r| r.run)
     }
 
     /// The running pass ended. `network_lost` says a track failed because the
@@ -134,7 +182,7 @@ impl GpsPassService {
             if let Some(ended) = inner.running.take()
                 && network_lost
             {
-                owe_into(&mut inner.owed_to_reconnect, ended);
+                owe_into(&mut inner.owed_to_reconnect, ended.range);
             }
         }
         self.start_owed();
@@ -153,7 +201,7 @@ impl GpsPassService {
 
     /// Start the owed pass if the slot is free. Offline it waits for the edge.
     fn start_owed(&self) {
-        let range = {
+        let (range, taken) = {
             let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
             if inner.running.is_some() {
                 return;
@@ -165,10 +213,10 @@ impl GpsPassService {
                 owe_into(&mut inner.owed_to_reconnect, range);
                 return;
             }
-            inner.running = Some(range.clone());
-            range
+            let taken = inner.take_slot(range.clone());
+            (range, taken)
         };
-        self.begin(range);
+        self.begin(range, taken);
     }
 }
 
@@ -242,6 +290,14 @@ static GPS_PASSES: LazyLock<Arc<GpsPassService>> = LazyLock::new(|| {
 /// Ask for a pass over the range. See [`GpsPassService::request`].
 pub(crate) fn request(range: PassRange) -> PassStart {
     GPS_PASSES.request(range)
+}
+
+/// How far the pass downloading now has got, as tracks done of tracks given,
+/// or `None` when no pass is downloading.
+pub(crate) fn running_download() -> Option<(u32, u32)> {
+    let run = GPS_PASSES.running_run()?;
+    let (completed, total, active) = crate::http::run_download_progress(run);
+    active.then_some((completed, total))
 }
 
 /// The connection came back. Pushed from `objects::sync::reconnected`.

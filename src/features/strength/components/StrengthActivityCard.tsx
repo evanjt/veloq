@@ -1,7 +1,12 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
-import { View, ScrollView, StyleSheet, Pressable, Text as RNText } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import * as haptics from '@/shared/ui/haptics';
+import {
+  View,
+  ScrollView,
+  StyleSheet,
+  Pressable,
+  Text as RNText,
+  type ScrollViewInstance,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 
@@ -46,10 +51,11 @@ import {
   pressRipple,
   useLargeText,
 } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { Card } from '@/shared/ui/Card';
 import { contextMenuHoldIsNative } from '@/shared/ui/ContextMenu';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { NameText } from '@/shared/ui/NameText';
 
 /** Aggregated muscle/exercise data for a strength activity */
@@ -89,11 +95,10 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
   const averagePower = activity.icu_average_watts;
 
   const handlePress = useCallback(() => {
-    tapTo(`/activity/${activity.id}`);
+    navigateTo(`/activity/${activity.id}`);
   }, [activity.id]);
 
   const handleLongPress = useCallback(() => {
-    haptics.medium();
     setMenuVisible(true);
   }, []);
 
@@ -106,7 +111,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
     [handleLongPress, t]
   );
 
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const hasFlashed = useRef(false);
 
   const handleContentSizeChange = useCallback((_contentWidth: number, _contentHeight: number) => {
@@ -146,7 +151,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
       >
         {!!activity.icu_training_load && (
           <View style={styles.secondaryStat}>
-            <MaterialCommunityIcons name="fire" size={iconSize.sm} color={palette.primary} />
+            <Icon name="fire" size={iconSize.sm} color={palette.actionPrimary} />
             <RNText style={[styles.secondaryStatValue, { color: compactMutedColor }]}>
               {formatLoad(activity.icu_training_load)}
             </RNText>
@@ -154,7 +159,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
         )}
         {averageHeartRate ? (
           <View style={styles.secondaryStat}>
-            <MaterialCommunityIcons name="heart-pulse" size={iconSize.sm} color={colors.error} />
+            <Icon name="heart-pulse" size={iconSize.sm} color={colors.errorText} />
             <RNText style={[styles.secondaryStatValue, { color: compactMutedColor }]}>
               {formatHeartRate(averageHeartRate)}
             </RNText>
@@ -162,10 +167,10 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
         ) : null}
         {averagePower ? (
           <View style={styles.secondaryStat}>
-            <MaterialCommunityIcons
+            <Icon
               name="lightning-bolt"
               size={iconSize.sm}
-              color={isDark ? darkColors.warningAmber : colors.warningAmber}
+              color={isDark ? darkColors.warningText : colors.warningText}
             />
             <RNText style={[styles.secondaryStatValue, { color: compactMutedColor }]}>
               {formatPower(averagePower)}
@@ -174,10 +179,10 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
         ) : null}
         {!!activity.calories && (
           <View style={styles.secondaryStat}>
-            <MaterialCommunityIcons
+            <Icon
               name="food-apple"
               size={iconSize.sm}
-              color={isDark ? darkColors.successDeep : colors.successDeep}
+              color={isDark ? darkColors.successText : colors.successText}
             />
             <RNText style={[styles.secondaryStatValue, { color: compactMutedColor }]}>
               {formatCalories(activity.calories)}
@@ -186,11 +191,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
         )}
         {activity.has_weather && activity.average_weather_temp != null ? (
           <View style={styles.secondaryStat}>
-            <MaterialCommunityIcons
-              name="weather-partly-cloudy"
-              size={iconSize.sm}
-              color={colors.info}
-            />
+            <Icon name="weather-partly-cloudy" size={iconSize.sm} color={colors.actionLink} />
             <RNText style={[styles.secondaryStatValue, { color: compactMutedColor }]}>
               {formatTemperature(activity.average_weather_temp, isMetric)}
             </RNText>
@@ -247,11 +248,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
             >
               <View style={styles.overlayHeader}>
                 <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
-                  <MaterialCommunityIcons
-                    name={iconName}
-                    size={iconSize.sm}
-                    color={colors.textOnDark}
-                  />
+                  <Icon name={iconName} size={iconSize.sm} color={colors.textOnFill} />
                 </View>
                 <View style={styles.overlayTitleColumn}>
                   <NameText
@@ -362,10 +359,10 @@ const styles = StyleSheet.create({
   strengthPanel: {
     position: 'relative',
     height: 240,
-    backgroundColor: colors.gray100,
+    backgroundColor: colors.fillNeutral,
   },
   flowPanel: {
-    backgroundColor: colors.gray100,
+    backgroundColor: colors.fillNeutral,
   },
   flowHeader: {
     paddingTop: spacing.smPlus,
@@ -382,7 +379,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   strengthPanelDark: {
-    backgroundColor: darkColors.backgroundAlt,
+    backgroundColor: darkColors.surfaceInput,
   },
   strengthCenter: {
     ...StyleSheet.absoluteFill,

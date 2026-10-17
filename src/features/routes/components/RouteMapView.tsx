@@ -7,7 +7,6 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet, Pressable, StatusBar } from 'react-native';
 import { FullWindowModal } from '@/shared/ui/FullWindowModal';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useIsFocused } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -46,6 +45,7 @@ import {
 import type { ActivityType, RouteGroup, RoutePoint } from '@/types';
 import type { SectionDeltaLine } from '../lib/deltaLayout';
 import { DetailMapLegend, hasLegendLayers, type DetailMapLegendLayers } from './DetailMapLegend';
+import { Icon } from '@/shared/ui/Icon';
 
 /** Minimal route group type for map display - only needs points and distance for signature */
 type RouteGroupForMap = Omit<RouteGroup, 'signature'> & {
@@ -266,7 +266,7 @@ export function RouteMapView({
           { height, backgroundColor: colorWithOpacity(activityColor, opacity.tint2) },
         ]}
       >
-        <MaterialCommunityIcons name="map-marker-off" size={iconSize.xl} color={activityColor} />
+        <Icon name="map-marker-off" size={iconSize.xl} color={activityColor} />
       </View>
     );
   }
@@ -300,11 +300,7 @@ export function RouteMapView({
         />
         {showExpandIcon ? (
           <View style={styles.expandOverlay}>
-            <MaterialCommunityIcons
-              name="fullscreen"
-              size={iconSize.md}
-              color={colors.textOnDark}
-            />
+            <Icon name="fullscreen" size={iconSize.md} color={colors.textOnFill} />
           </View>
         ) : null}
         {/* The layers drawn over the route's own line, named. */}

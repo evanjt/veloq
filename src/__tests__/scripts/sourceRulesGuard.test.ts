@@ -705,7 +705,7 @@ describe('ground-token-text', () => {
     "  textPrimary: 'text',",
     "  surface: 'ground',",
     "  chartGreen: 'ground',",
-    "  primary: 'mark',",
+    "  actionPrimary: 'ground',",
     "  actionLink: 'text',",
     '};',
     'export const BRAND_FAMILIES: Record<string, TokenFamily> = {',
@@ -715,17 +715,17 @@ describe('ground-token-text', () => {
     '};',
   ].join('\n');
 
-  it('fails a mark token in a StyleSheet colour, and passes its text variant', () => {
+  it('fails a ground token in a StyleSheet colour, and passes its text variant', () => {
     const root = fixture({
       'src/theme/tokenFamilies.ts': FAMILIES,
       'src/features/a/Link.tsx':
-        'const s = StyleSheet.create({ link: { color: colors.primary }, ok: { color: colors.actionLink } });\n',
+        'const s = StyleSheet.create({ link: { color: colors.actionPrimary }, ok: { color: colors.actionLink } });\n',
     });
 
     const { status, output } = runRule('ground-token-text', root);
 
     expect(status).toBe(1);
-    expect(output).toContain('src/features/a/Link.tsx  colours text with colors.primary');
+    expect(output).toContain('src/features/a/Link.tsx  colours text with colors.actionPrimary');
     expect(output).not.toContain('actionLink');
   });
 
@@ -923,14 +923,14 @@ describe('dark-counterpart', () => {
     "  actionLink: 'text',",
     "  sameInBoth: 'text',",
     "  surface: 'ground',",
-    "  background: 'ground',",
+    "  surfacePage: 'ground',",
     "  border: 'ground',",
     "  fill: 'mark',",
     '};',
   ].join('\n');
   const COLOURS = [
-    'export const colors = { actionLink: "#2F6699", sameInBoth: "#111111", surface: "#FFF", background: "#FAFAFA", border: "#EEE", fill: "#123456" };',
-    'export const darkColors = { actionLink: brand.blueLight, sameInBoth: "#111111", surface: "#000", background: "#0D0D0D", border: "#222", fill: "#654321" };',
+    'export const colors = { actionLink: "#2F6699", sameInBoth: "#111111", surface: "#FFF", surfacePage: "#FAFAFA", border: "#EEE", fill: "#123456" };',
+    'export const darkColors = { actionLink: brand.blueLight, sameInBoth: "#111111", surface: "#000", surfacePage: "#0D0D0D", border: "#222", fill: "#654321" };',
   ].join('\n');
 
   const theme = {
@@ -958,7 +958,7 @@ describe('dark-counterpart', () => {
       ...theme,
       'src/features/a/Row.tsx': [
         'const s = StyleSheet.create({',
-        '  row: { backgroundColor: colors.background, borderBottomColor: colors.border },',
+        '  row: { backgroundColor: colors.surfacePage, borderBottomColor: colors.border },',
         '});',
         'const Row = ({ isDark }) => <View style={[s.row, isDark && s.dark]} />;',
       ].join('\n'),
@@ -967,7 +967,7 @@ describe('dark-counterpart', () => {
     const { status, output } = runRule('dark-counterpart', root);
 
     expect(status).toBe(1);
-    expect(output).toContain('src/features/a/Row.tsx:2  draws colors.background');
+    expect(output).toContain('src/features/a/Row.tsx:2  draws colors.surfacePage');
     expect(output).toContain('src/features/a/Row.tsx:2  draws colors.border');
   });
 
@@ -976,8 +976,8 @@ describe('dark-counterpart', () => {
       ...theme,
       'src/features/a/Pill.tsx': [
         'const s = StyleSheet.create({',
-        '  pill: { backgroundColor: colors.background },',
-        '  pillDark: { backgroundColor: darkColors.surfaceElevated },',
+        '  pill: { backgroundColor: colors.surfacePage },',
+        '  pillDark: { backgroundColor: darkColors.surfaceRaised },',
         '});',
         'const Pill = ({ isDark }) => <View style={[s.pill, isDark && s.pillDark]} />;',
       ].join('\n'),
@@ -1044,12 +1044,11 @@ describe('dark-counterpart', () => {
 
   it.each([
     ['textSecondary', 'color'],
-    ['errorDeep', 'color'],
-    ['amberIcon', 'color'],
-    ['error', 'color'],
-    ['background', 'backgroundColor'],
+    ['errorText', 'color'],
+    ['warningText', 'color'],
+    ['surfacePage', 'backgroundColor'],
     ['border', 'borderColor'],
-    ['divider', 'borderBottomColor'],
+    ['border', 'borderBottomColor'],
   ])('refuses a light-only %s in a file that reads isDark', (token, property) => {
     const root = fixture({
       'src/theme/tokenFamilies.ts': real('src/theme/tokenFamilies.ts'),
@@ -1124,7 +1123,7 @@ describe('dimmed-text', () => {
         'const s = StyleSheet.create({',
         '  label: { color: colors.textSecondary },',
         '  wash: { backgroundColor: colorWithOpacity(ink.black, 0.08), opacity: 0.5 },',
-        '  shadow: { color: colors.textOnDark, textShadowColor: colorWithOpacity(ink.black, 0.6) },',
+        '  shadow: { color: colors.textOnFill, textShadowColor: colorWithOpacity(ink.black, 0.6) },',
         '});',
         'const series = [{ color: colorWithOpacity(colors.textPrimary, 0.4) }];',
       ].join('\n'),
@@ -1144,14 +1143,14 @@ describe('dimmed-text', () => {
 
   it('fails a measured entry whose style has stopped dimming, so the measurement cannot go stale', () => {
     const root = fixture({
-      'src/shared/ui/OfflineBanner.tsx':
-        'const s = StyleSheet.create({ subtitleText: { color: colors.textPrimary } });\n',
+      'src/shared/ui/DetailHero.tsx':
+        'const s = StyleSheet.create({ statDivider: { color: colors.textPrimary } });\n',
     });
 
     const { status, output } = runRule('dimmed-text', root);
 
     expect(status).toBe(1);
-    expect(output).toContain('subtitleText no longer dims');
+    expect(output).toContain('statDivider no longer dims');
   });
 });
 
@@ -1206,7 +1205,7 @@ describe('disabled-ink-content', () => {
   it('fails a line token drawn as an icon in either theme', () => {
     expect(
       rule(
-        'const I = ({ isDark }) => <Icon color={isDark ? darkColors.border : colors.divider} />;\n'
+        'const I = ({ isDark }) => <Icon color={isDark ? darkColors.border : colors.border} />;\n'
       ).status
     ).toBe(1);
   });
@@ -1214,7 +1213,7 @@ describe('disabled-ink-content', () => {
   it('passes a line token as a border and a fill, and leaves the test tree alone', () => {
     const root = fixture({
       'src/features/a/Row.tsx': [
-        'const s = StyleSheet.create({ row: { borderColor: colors.border, backgroundColor: colors.divider } });',
+        'const s = StyleSheet.create({ row: { borderColor: colors.border, backgroundColor: colors.border } });',
         'const series = { color: colors.textDisabled };',
       ].join('\n'),
       'src/features/a/__tests__/Row.test.tsx': '<Icon color={colors.textDisabled} />;\n',
@@ -1437,6 +1436,18 @@ describe('shared-ui-accessibility', () => {
     expect(output).toContain('accessibilityLabel');
   });
 
+  it('fails a PressTarget with no role or label, since the shared controls render through it', () => {
+    const root = fixture({
+      'src/shared/ui/Chip.tsx': `${labelled(10)}\n<PressTarget onPress={() => go()}>x</PressTarget>\n`,
+    });
+
+    const { status, output } = runRule('shared-ui-accessibility', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('Chip.tsx:11  has no accessibilityRole');
+    expect(output).toContain('Chip.tsx:11  has no accessibilityLabel');
+  });
+
   it('passes a pressable that spreads its props, and reads past a > inside a prop', () => {
     const root = fixture({
       'src/shared/ui/Chip.tsx': `${labelled(10)}\n<Pressable {...props}>x</Pressable>\n`,
@@ -1487,9 +1498,8 @@ describe('shared-ui-accessibility', () => {
 describe('banner-live-region', () => {
   const BANNERS = [
     'src/shared/ui/NoticeBanner.tsx',
-    'src/shared/ui/OfflineBanner.tsx',
+    'src/shared/ui/FloatingPill.tsx',
     'src/features/recording/components/SaveErrorBanner.tsx',
-    'src/shared/ui/SyncProgressStrip.tsx',
     'src/features/maps/components/timeline/SyncProgressBanner.tsx',
     'src/shared/ui/SyncErrorBanner.tsx',
     'src/shared/ui/StartupErrorBanner.tsx',
@@ -1501,7 +1511,7 @@ describe('banner-live-region', () => {
     'src/features/recording/components/TimerHeader.tsx',
   ];
   const SHARED = BANNERS[0];
-  const DRAWN = BANNERS[5];
+  const DRAWN = BANNERS[4];
   const STATUS_OWNER = 'src/shared/ui/StatusLine.tsx';
   const INLINE_OWNER = 'src/shared/ui/InlineNotice.tsx';
   const STATUS = [
@@ -2047,5 +2057,40 @@ describe('large-title-scroll', () => {
 
       expect(runRule('large-title-scroll', root).output).toContain('src/app/about.tsx');
     });
+  });
+});
+
+describe('decorative-icons', () => {
+  it('fails an icon glyph drawn directly outside the shared UI, and names its line', () => {
+    const root = fixture({
+      'src/features/kennel/Leash.tsx':
+        "import { MaterialCommunityIcons } from '@expo/vector-icons';\n" +
+        'export const Leash = () => <MaterialCommunityIcons name="dog" size={16} color={c} />;\n',
+    });
+
+    const { status, output } = runRule('decorative-icons', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/features/kennel/Leash.tsx:2');
+  });
+
+  it('passes the shared icon, a type read off the icon set and a direct use inside the shared UI', () => {
+    const root = fixture({
+      'src/features/kennel/Leash.tsx':
+        "import type { MaterialCommunityIcons } from '@expo/vector-icons';\n" +
+        'type Glyph = keyof typeof MaterialCommunityIcons.glyphMap;\n' +
+        'export const Leash = ({ g }: { g: Glyph }) => <Icon name={g} size={16} color={c} />;\n',
+      'src/shared/ui/Icon.tsx': 'export const Icon = (p) => <MaterialCommunityIcons {...p} />;\n',
+    });
+
+    expect(runRule('decorative-icons', root).status).toBe(0);
+  });
+
+  it('ignores tests, which draw the icon set to find it', () => {
+    const root = fixture({
+      'src/__tests__/leash.test.tsx': 'render(<MaterialCommunityIcons name="dog" />);\n',
+    });
+
+    expect(runRule('decorative-icons', root).status).toBe(0);
   });
 });

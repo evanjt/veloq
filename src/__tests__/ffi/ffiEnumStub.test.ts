@@ -19,6 +19,7 @@ import {
   SyncErrorReason,
   SyncState,
   SyncStep,
+  TrackStep,
   UploadOutcome,
 } from '../__shared__/veloqrsStub';
 
@@ -37,6 +38,7 @@ describe('the binding stub enums', () => {
     for (const value of Object.values(membersOf(SyncState))) expect(value).toBeGreaterThan(0);
     for (const value of Object.values(membersOf(SyncErrorReason))) expect(value).toBeGreaterThan(0);
     for (const value of Object.values(membersOf(SyncStep))) expect(value).toBeGreaterThan(0);
+    for (const value of Object.values(membersOf(TrackStep))) expect(value).toBeGreaterThan(0);
     for (const value of Object.values(membersOf(BulkExportFormat)))
       expect(value).toBeGreaterThan(0);
     for (const value of Object.values(membersOf(StartOutcome))) expect(value).toBeGreaterThan(0);

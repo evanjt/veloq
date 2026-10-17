@@ -1,6 +1,7 @@
 import type { MD3Theme } from 'react-native-paper';
 
 import { brand, colorWithOpacity, colors, darkColors, ink, opacity } from './colors';
+import { colourTokens } from './colourTokens.generated';
 
 type MD3Scheme = MD3Theme['colors'];
 
@@ -16,19 +17,19 @@ const DISABLED_FILL = 0.12;
 const DISABLED_LABEL = 0.38;
 
 export const md3LightScheme: MD3Scheme = {
-  primary: colors.primary,
-  primaryContainer: colors.primaryLight,
+  primary: colors.actionPrimary,
+  primaryContainer: colors.actionSecondary,
   secondary: brand.blueDark,
   secondaryContainer: brand.blue,
   tertiary: brand.goldDark,
   tertiaryContainer: brand.gold,
   surface: colors.surface,
-  surfaceVariant: colors.backgroundAlt,
+  surfaceVariant: colors.surfaceInput,
   surfaceDisabled: colorWithOpacity(colors.textPrimary, DISABLED_FILL),
-  background: colors.background,
-  error: colors.error,
+  background: colors.surfacePage,
+  error: colors.errorText,
   errorContainer: colors.errorBg,
-  onPrimary: colors.textOnPrimary,
+  onPrimary: colors.textOnFill,
   onPrimaryContainer: colors.textPrimary,
   onSecondary: ink.white,
   onSecondaryContainer: colors.textPrimary,
@@ -38,13 +39,13 @@ export const md3LightScheme: MD3Scheme = {
   onSurfaceVariant: colors.textSecondary,
   onSurfaceDisabled: colorWithOpacity(colors.textPrimary, DISABLED_LABEL),
   onError: colors.textPrimary,
-  onErrorContainer: colors.errorDeep,
+  onErrorContainer: colors.errorText,
   onBackground: colors.textPrimary,
   outline: colors.border,
-  outlineVariant: colors.borderLight,
-  inverseSurface: colors.gray800,
-  inverseOnSurface: colors.gray100,
-  inversePrimary: darkColors.primaryLight,
+  outlineVariant: colors.border,
+  inverseSurface: colourTokens.light['neutral-800'],
+  inverseOnSurface: colourTokens.light['neutral-50'],
+  inversePrimary: darkColors.actionLink,
   shadow: ink.black,
   scrim: ink.black,
   backdrop: opacity.overlay.scrim,
@@ -60,21 +61,21 @@ export const md3LightScheme: MD3Scheme = {
 };
 
 export const md3DarkScheme: MD3Scheme = {
-  primary: darkColors.primary,
-  primaryContainer: darkColors.primaryLight,
+  primary: darkColors.actionPrimary,
+  primaryContainer: darkColors.actionSecondary,
   secondary: brand.blue,
   secondaryContainer: brand.blueLight,
   tertiary: brand.gold,
   tertiaryContainer: brand.goldLight,
   surface: darkColors.surface,
-  surfaceVariant: darkColors.surfaceElevated,
+  surfaceVariant: darkColors.surfaceRaised,
   surfaceDisabled: colorWithOpacity(darkColors.textPrimary, DISABLED_FILL),
-  background: darkColors.background,
-  error: darkColors.error,
-  errorContainer: colors.errorDeep,
-  onPrimary: colors.textOnPrimary,
+  background: darkColors.surfacePage,
+  error: darkColors.errorText,
+  errorContainer: colors.errorText,
+  onPrimary: colors.textOnFill,
   // The container is the light blue step, which white reads 2.23:1 on.
-  onPrimaryContainer: colors.textOnBright,
+  onPrimaryContainer: darkColors.textPrimary,
   // Dark ink on the blue: white reads 2.96:1 on it.
   onSecondary: colors.textPrimary,
   onSecondaryContainer: colors.textPrimary,
@@ -87,11 +88,11 @@ export const md3DarkScheme: MD3Scheme = {
   onErrorContainer: darkColors.textPrimary,
   onBackground: darkColors.textPrimary,
   outline: darkColors.border,
-  outlineVariant: darkColors.divider,
-  inverseSurface: colors.gray100,
-  inverseOnSurface: colors.gray800,
+  outlineVariant: darkColors.border,
+  inverseSurface: colourTokens.light['neutral-50'],
+  inverseOnSurface: colourTokens.light['neutral-800'],
   // The light theme's own primary, on a light inverse surface.
-  inversePrimary: colors.primary,
+  inversePrimary: colors.actionPrimary,
   shadow: ink.black,
   scrim: ink.black,
   backdrop: opacity.overlay.scrim,
@@ -99,9 +100,9 @@ export const md3DarkScheme: MD3Scheme = {
   elevation: {
     level0: 'transparent',
     level1: darkColors.surface,
-    level2: darkColors.surfaceElevated,
-    level3: darkColors.surfaceCard,
-    level4: darkColors.surfaceCard,
-    level5: darkColors.surfaceCard,
+    level2: darkColors.surfaceRaised,
+    level3: darkColors.surfaceRaised,
+    level4: darkColors.surfaceRaised,
+    level5: darkColors.surfaceRaised,
   },
 };

@@ -794,7 +794,7 @@ pub(crate) mod pooled {
                 row.get::<_, Option<f64>>(13)?,
             ) {
                 (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) => {
-                    Some(crate::FfiBounds {
+                    Some(crate::Bounds {
                         min_lat,
                         max_lat,
                         min_lng,
@@ -878,7 +878,7 @@ pub(crate) mod pooled {
                 row.get::<_, Option<f64>>(11)?,
             ) {
                 (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) => {
-                    Some(crate::FfiBounds {
+                    Some(crate::Bounds {
                         min_lat,
                         max_lat,
                         min_lng,

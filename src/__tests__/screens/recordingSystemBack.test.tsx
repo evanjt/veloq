@@ -63,10 +63,10 @@ jest.mock('@/features/recording/components/ConnectedDataFieldGrid', () => ({
   ConnectedDataFieldGrid: () => null,
 }));
 
-let app: ReturnType<typeof renderRouter>;
+let app: Awaited<ReturnType<typeof renderRouter>>;
 
 async function renderRecordingStack(path: string) {
-  app = renderRouter(
+  app = await renderRouter(
     {
       _layout: () => <Stack />,
       index: () => <Text>feed</Text>,

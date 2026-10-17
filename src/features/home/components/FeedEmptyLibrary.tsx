@@ -13,7 +13,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { SYNC_ERROR_REASON_KEY } from '@/shared/format/syncErrorReason';
 import { useSyncLastErrorReason } from '@/shared/native/useSyncStatus';
 import { EmptyState } from '@/shared/ui/EmptyState';
@@ -47,7 +47,7 @@ export function FeedEmptyLibrary({ state, onRetry }: FeedEmptyLibraryProps) {
           title={t('feed.emptyLibrary.authExpiredTitle')}
           description={t('emptyState.syncError.reason.unauthorized')}
           actionLabel={t('feed.emptyLibrary.signInAgain')}
-          onAction={() => tapTo('/login')}
+          onAction={() => navigateTo('/login')}
         />
       );
     case 'failed':
@@ -67,7 +67,7 @@ export function FeedEmptyLibrary({ state, onRetry }: FeedEmptyLibraryProps) {
           title={t('feed.emptyLibrary.emptyTitle')}
           description={t('feed.emptyLibrary.emptyBody')}
           actionLabel={t('feed.emptyLibrary.record')}
-          onAction={() => tapTo('/record')}
+          onAction={() => navigateTo('/record')}
         />
       );
   }

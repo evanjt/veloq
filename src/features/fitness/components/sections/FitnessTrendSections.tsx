@@ -3,8 +3,8 @@ import { curveHeaderValue } from '@/features/fitness/lib/curveHeaderValue';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Card, CollapsibleSection, Shimmer, SkeletonFrame, StatTile } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { ZoneDistributionChart, FTPTrendChart, DecouplingChart } from '@/features/stats';
 import { type DecouplingSource } from '@/features/activity';
 import { useTheme } from '@/shared/app';
@@ -192,7 +192,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                       {headerFtp} {t('units.watts')}
                     </Text>
                     {ftpTrend ? (
-                      <MaterialCommunityIcons
+                      <Icon
                         name={trendIcon('ftp', ftpTrend)}
                         size={iconSize.sm}
                         color={verdictColor(verdictRung(trendVerdict('ftp', ftpTrend)), isDark)}

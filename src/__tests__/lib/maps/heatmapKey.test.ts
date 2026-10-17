@@ -33,7 +33,7 @@ describe('heatmapKeyColours', () => {
   });
 
   it.each<MapStyleType>(['dark', 'satellite'])('lightens with density on the %s map', (style) => {
-    const steps = luminances(style, darkColors.surfaceCard);
+    const steps = luminances(style, darkColors.surfaceRaised);
     expect(steps.length).toBeGreaterThan(2);
     for (let i = 1; i < steps.length; i++) {
       expect(steps[i]).toBeGreaterThan(steps[i - 1]);

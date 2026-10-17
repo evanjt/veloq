@@ -12,13 +12,14 @@ import { StyleSheet } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 
 import { layout } from '@/theme';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { Card } from '@/shared/ui/Card';
 import { SupportingDataSection } from '@/features/insights/components/SupportingDataSection';
 import { StalePRContent } from '@/features/insights/components/content/StalePRContent';
 import { EfficiencyTrendContent } from '@/features/insights/components/content/EfficiencyTrendContent';
 import { SectionTrendContent } from '@/features/insights/components/content/SectionTrendContent';
 import type { Insight, SupportingSection } from '@/types';
+import { Icon } from '@/shared/ui/Icon';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => ({
@@ -27,7 +28,7 @@ jest.mock('react-i18next', () => ({
 }));
 jest.mock('@/shared/app/navigation', () => ({
   ...jest.requireActual('@/shared/app/navigation'),
-  tapTo: jest.fn(),
+  navigateTo: jest.fn(),
 }));
 jest.mock('@/shared/native/useSectionDetail', () => ({
   useSectionDetail: () => ({ section: null }),
@@ -54,7 +55,8 @@ function rootStyle(node: { props: { style?: unknown } }) {
 /** Every chevron drawn, each named by the testID it carries. */
 function chevronIds(tree: Awaited<ReturnType<typeof render>>) {
   return tree
-    .UNSAFE_queryAllByProps({ name: 'chevron-right' })
+    .UNSAFE_queryAllByType(Icon)
+    .filter((node) => node.props.name === 'chevron-right')
     .map((node) => node.props.testID as string | undefined);
 }
 
@@ -68,7 +70,7 @@ function expectSectionRows(tree: Awaited<ReturnType<typeof render>>, names: stri
 }
 
 beforeEach(() => {
-  jest.mocked(tapTo).mockClear();
+  jest.mocked(navigateTo).mockClear();
 });
 
 describe('section rows in the insight sheets', () => {
@@ -76,14 +78,14 @@ describe('section rows in the insight sheets', () => {
     const tree = await render(<SupportingDataSection data={{ sections: SECTIONS }} />);
     expectSectionRows(tree, ['Quarry Hill', 'Dockside']);
     await fireEvent.press(tree.getByRole('button', { name: 'Dockside' }));
-    expect(tapTo).toHaveBeenCalledWith('/section/dock');
+    expect(navigateTo).toHaveBeenCalledWith('/section/dock');
   });
 
   it('draws the stale record sections as shared rows that open the section', async () => {
     const tree = await render(<StalePRContent insight={insight(SECTIONS)} />);
     expectSectionRows(tree, ['Quarry Hill', 'Dockside']);
     await fireEvent.press(tree.getByRole('button', { name: 'Quarry Hill' }));
-    expect(tapTo).toHaveBeenCalledWith('/section/hill');
+    expect(navigateTo).toHaveBeenCalledWith('/section/hill');
   });
 
   it('leaves the efficiency section to the sheet data link rather than a row of its own', async () => {

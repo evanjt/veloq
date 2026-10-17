@@ -23,7 +23,6 @@ const engine = {
   excludeSectionLap: jest.fn(() => true),
   includeSectionLap: jest.fn(() => true),
   getSectionHistory: jest.fn(() => []),
-  getSectionGeometryVersions: jest.fn(() => []),
   getPinnedSectionVersion: jest.fn(() => null),
   runSectionBoundsEdit: jest.fn((): Promise<unknown[] | null> => Promise.resolve([])),
   unpinSection: jest.fn(() => true),
@@ -60,7 +59,6 @@ describe('the ledger comes from the bundle', () => {
     expect(result.current.pinnedVersion).toBe(2);
     expect(result.current.versions.map((v) => v.version)).toEqual([2, 1]);
     expect(engine.getSectionHistory).not.toHaveBeenCalled();
-    expect(engine.getSectionGeometryVersions).not.toHaveBeenCalled();
     expect(engine.getPinnedSectionVersion).not.toHaveBeenCalled();
   });
 
@@ -69,7 +67,6 @@ describe('the ledger comes from the bundle', () => {
 
     expect(result.current.history).toEqual([]);
     expect(engine.getSectionHistory).not.toHaveBeenCalled();
-    expect(engine.getSectionGeometryVersions).not.toHaveBeenCalled();
     expect(engine.getPinnedSectionVersion).not.toHaveBeenCalled();
   });
 
@@ -92,7 +89,6 @@ describe('the ledger comes from the bundle', () => {
     });
     expect(engine.unpinSection).toHaveBeenCalledWith('sec1');
     expect(engine.getSectionHistory).not.toHaveBeenCalled();
-    expect(engine.getSectionGeometryVersions).not.toHaveBeenCalled();
     expect(engine.getPinnedSectionVersion).not.toHaveBeenCalled();
 
     await rerender({

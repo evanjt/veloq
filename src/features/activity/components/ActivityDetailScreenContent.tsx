@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   useWindowDimensions,
+  type ViewInstance,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import {
@@ -389,7 +390,7 @@ export function ActivityDetailScreenContent({
 
   // Handle GPX export
   const handleExportGpx = useCallback(
-    (anchor: React.RefObject<View | null>) => {
+    (anchor: React.RefObject<ViewInstance | null>) => {
       if (activity) {
         exportGpx({
           name: activity.name || 'Activity',
@@ -700,10 +701,10 @@ const BOTTOM_BAR_HEIGHT = 80;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfacePage,
   },
   containerDark: {
-    backgroundColor: darkColors.background,
+    backgroundColor: darkColors.surfacePage,
   },
   loadingContainer: {
     flex: 1,
@@ -730,11 +731,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     backgroundColor: colors.surface,
     borderBottomWidth: stroke.hairline,
-    borderBottomColor: colors.divider,
+    borderBottomColor: colors.border,
   },
   descriptionContainerDark: {
     backgroundColor: darkColors.surface,
-    borderBottomColor: darkColors.divider,
+    borderBottomColor: darkColors.border,
   },
   descriptionText: {
     ...typography.bodySmall,

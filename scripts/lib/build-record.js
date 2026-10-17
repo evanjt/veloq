@@ -470,7 +470,8 @@ function summarise(record) {
 /**
  * The reasons `apk` is not the build asked for, empty when it is. `expect`
  * names the package, the Rust profile and features, and the handset's ABIs
- * when one is attached.
+ * when one is attached. With no profile named, `profileFor` gives the one the
+ * recorded package was built with.
  */
 function verifyRecord(root, apk, expect) {
   const file = recordPath(apk);
@@ -533,10 +534,9 @@ function verifyRecord(root, apk, expect) {
       `the build is ${record.application?.id}, the install asked for ${expect.applicationId}`
     );
   }
-  if (expect.profile && record.rust?.profile !== expect.profile) {
-    problems.push(
-      `the Rust profile is ${record.rust?.profile}, the install asked for ${expect.profile}`
-    );
+  const profile = expect.profile ?? expect.profileFor?.(record.application?.id);
+  if (profile && record.rust?.profile !== profile) {
+    problems.push(`the Rust profile is ${record.rust?.profile}, the install asked for ${profile}`);
   }
   const wanted = [...new Set(expect.features ?? [])].sort().join(',');
   const built = [...(record.rust?.features ?? [])].sort().join(',');

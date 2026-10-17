@@ -8,7 +8,7 @@ import { SheetHeader, ToggleButton } from '@/shared/ui';
 import { formatFileSize } from '@/shared/format/format';
 import { BYTES_PER_BUDGET_MB, TILE_CACHE_BUDGET_CHOICES_MB } from '@/features/maps';
 import { spacing } from '@/theme';
-import { tapBack } from '@/shared/app/navigation';
+import { goBack } from '@/shared/app/navigation';
 
 export interface TileCacheBudgetSheetInput {
   budgetMb: number;
@@ -22,7 +22,7 @@ function TileCacheBudgetSheetContent() {
     <View testID="settings-tile-cache-picker" style={styles.sheet}>
       <SheetHeader
         title={t('settings.tileCacheLimit')}
-        onCancel={() => tapBack()}
+        onCancel={() => goBack()}
         cancelTestID="settings-tile-cache-cancel"
       />
       {TILE_CACHE_BUDGET_CHOICES_MB.map((mb) => {

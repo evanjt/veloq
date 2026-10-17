@@ -12,7 +12,6 @@ import { useMetricSystem } from '@/shared/app';
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { formatAttemptFigure, type AttemptBasis } from '@/features/routes/lib/attemptBasis';
@@ -31,6 +30,7 @@ import type {
   DirectionBestRecord,
   DirectionSummaryStats,
 } from '@/features/routes/lib/performanceTypes';
+import { Icon } from '@/shared/ui/Icon';
 
 export interface StatsRowProps {
   direction: 'forward' | 'reverse';
@@ -93,10 +93,10 @@ export function StatsRow({
           <View style={styles.prBadge}>
             {bestIsRecord ? (
               <View testID={`stats-row-trophy-${direction}`}>
-                <MaterialCommunityIcons
+                <Icon
                   name="trophy"
                   size={iconSize.xs}
-                  color={isDark ? darkColors.chartGoldMark : colors.chartGoldMark}
+                  color={isDark ? darkColors.achievement : colors.achievement}
                 />
               </View>
             ) : null}
@@ -171,10 +171,10 @@ const styles = StyleSheet.create({
   },
   prTime: {
     ...typography.captionBold,
-    color: colors.chartGoldText,
+    color: colors.achievementText,
   },
   prTimeDark: {
-    color: darkColors.chartGoldText,
+    color: darkColors.achievementText,
   },
   textLight: {
     color: darkColors.textPrimary,

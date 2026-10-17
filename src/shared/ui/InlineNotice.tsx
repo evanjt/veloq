@@ -15,16 +15,17 @@
  */
 
 import React, { type ReactNode } from 'react';
-import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { iconSize, layout, spacing, stroke, typography } from '@/theme';
+import { Icon } from './Icon';
 import { IconButton } from './IconButton';
 import { noticePalette, type NoticeTone } from './noticePalette';
-import { pressable, pressRipple } from './pressFeedback';
+import { PressTarget } from './PressTarget';
 import { joinStatusMessage } from './StatusLine';
 import { useAnnounceOnAppear } from './useAnnounceOnAppear';
 
@@ -81,7 +82,7 @@ export function InlineNotice({
   const content = (
     <>
       <View style={styles.row}>
-        <MaterialCommunityIcons name={icon} size={iconSize.sm} color={ground.icon} />
+        <Icon name={icon} size={iconSize.sm} color={ground.icon} />
         <View style={styles.text}>
           <Text style={[styles.title, { color: ground.text }]}>{title}</Text>
           {lines.map((line, index) => (
@@ -91,9 +92,7 @@ export function InlineNotice({
           ))}
         </View>
         {action}
-        {onPress ? (
-          <MaterialCommunityIcons name="chevron-right" size={iconSize.sm} color={ground.subtext} />
-        ) : null}
+        {onPress ? <Icon name="chevron-right" size={iconSize.sm} color={ground.subtext} /> : null}
         {onDismiss ? (
           <IconButton
             accessibilityLabel={t('common.close', { defaultValue: 'Close' })}
@@ -101,7 +100,7 @@ export function InlineNotice({
             compact
             testID={testID ? `${testID}-dismiss` : undefined}
           >
-            <MaterialCommunityIcons name="close" size={iconSize.sm} color={ground.subtext} />
+            <Icon name="close" size={iconSize.sm} color={ground.subtext} />
           </IconButton>
         ) : null}
       </View>
@@ -113,17 +112,16 @@ export function InlineNotice({
 
   if (onPress) {
     return (
-      <Pressable
+      <PressTarget
         testID={testID}
-        style={pressable(groundStyle)}
-        android_ripple={pressRipple}
+        style={groundStyle}
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={spoken ?? title}
         accessibilityLiveRegion={liveRegion}
       >
         {content}
-      </Pressable>
+      </PressTarget>
     );
   }
 

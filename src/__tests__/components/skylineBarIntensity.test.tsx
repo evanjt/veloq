@@ -9,12 +9,24 @@
 
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { render } from '@testing-library/react-native';
+import { act, render, screen } from '@testing-library/react-native';
 import type { ReactTestInstance } from 'react-test-renderer';
 
+import ChartDataSheet from '@/app/sheets/chart-data';
 import { initialiseI18n } from '@/i18n';
 import { SkylineBar } from '@/features/activity/components/SkylineBar';
 import { skylineSegmentHeight } from '@/features/activity/lib/skylineIntensity';
+
+const mockPush = jest.fn();
+let mockParams: { request?: string } = {};
+
+jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
+jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
+  router: { push: (...a: unknown[]) => mockPush(...a), canGoBack: () => true, back: jest.fn() },
+  useLocalSearchParams: () => mockParams,
+}));
 
 function encodeVarint(value: number): number[] {
   const bytes: number[] = [];
@@ -101,6 +113,24 @@ describe('the zone skyline', () => {
     expect(heightOf(getByLabelText(/^Time in power zones/))).toBe(16);
   });
 
+  it('opens its zone times as a table from an action, with no second button inside the card', async () => {
+    await render(<SkylineBar skylineBytes={skyline([600, 300, 600], [2, 4, 2])} isDark={false} />);
+
+    const bar = screen.getByRole('image', { name: /^Time in power zones/ });
+    expect(bar.props.accessibilityLabel).toMatch(/^Time in power zones: Z2 .+, Z4 .+\.$/);
+    expect(screen.queryByRole('button', { name: 'Show data' })).toBeNull();
+    expect(bar.props.accessibilityActions).toEqual([{ name: 'showData', label: 'Show data' }]);
+
+    await act(async () => {
+      bar.props.onAccessibilityAction({ nativeEvent: { actionName: 'showData' } });
+    });
+    const call = mockPush.mock.calls.at(-1)?.[0];
+    expect(call?.pathname).toBe('sheets/chart-data');
+    mockParams = { request: call.params.request };
+    await render(<ChartDataSheet />);
+    expect(screen.getAllByTestId(/^chart-data-row-/)).toHaveLength(2);
+  });
+
   it('lifts the easiest zone to a 6 floor and the hardest to the full height', () => {
     const heights = [1, 2, 3, 4, 5, 6, 7].map((zone) => skylineSegmentHeight(zone, 16));
 
@@ -127,7 +157,7 @@ describe('the zone skyline', () => {
     );
 
     expect(
-      getByLabelText('Time in power zones: Z2 Endurance 20 min, Z4 Threshold 10 min')
+      getByLabelText('Time in power zones: Z2 Endurance 20 min, Z4 Threshold 10 min.')
     ).toBeTruthy();
   });
 
@@ -137,7 +167,7 @@ describe('the zone skyline', () => {
     );
 
     expect(
-      getByLabelText('Time in HR zones: Z1 Recovery 30 min, Z5 Super-threshold 1 min 30 s')
+      getByLabelText('Time in HR zones: Z1 Recovery 30 min, Z5 Super-threshold 1 min 30 s.')
     ).toBeTruthy();
   });
 

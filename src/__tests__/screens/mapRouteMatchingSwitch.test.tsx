@@ -22,6 +22,7 @@ jest.mock('react-i18next', () => ({
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   useRouter: () => ({ push: jest.fn() }),
+  useIsFocused: () => true,
   useLocalSearchParams: () => mockParams,
 }));
 jest.mock('@/features/maps', () => ({

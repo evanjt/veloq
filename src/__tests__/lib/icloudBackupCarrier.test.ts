@@ -25,7 +25,7 @@ import {
 import { icloudBackend } from '@/features/settings/lib/autobackup/backends/icloudBackend';
 
 const MOCK_ZIP_BYTES = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 7, 7, 7, 7]);
-const BACKUP_NAME = /^veloq-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z\.zip$/;
+const BACKUP_NAME = /^veloq-backup-\d{4}-\d{2}-\d{2}-\d{6}\.zip$/;
 
 const mockSettings = new Map<string, string>();
 /** Every file on the device by uri, the record zip among them. */

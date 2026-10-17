@@ -13,7 +13,7 @@ const path = require('node:path');
 const { createHash } = require('node:crypto');
 
 const FILE = 'android/src/main/java/com/swmansion/rnscreens/ScreenStackFragment.kt';
-const VERSION = '4.28.0';
+const VERSION = '4.30.0';
 const EXPECTED = 'bc1e41a12139946bdd11aa502486df93c1d75fb05f6fd5463946a10044d38bcb';
 const hash = (source) => createHash('sha256').update(source).digest('hex');
 

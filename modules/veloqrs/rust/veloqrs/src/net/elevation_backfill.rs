@@ -74,7 +74,7 @@
 
 use crate::governor::Lane;
 use crate::net::endpoints::{
-    DEFAULT_STREAM_TYPES, TRACK_STREAM_TYPES, fetch_altitude, fetch_streams,
+    DEFAULT_STREAM_TYPES, TRACK_STREAM_TYPES, fetch_altitude, fetch_stream_series, fetch_streams,
 };
 use crate::net::transport::{NetError, Transport};
 use crate::net::types::{
@@ -949,13 +949,13 @@ async fn fetch_batch(
                         Err(e) => Fetched::Failed(e),
                     }
                 }
-                Ask::Wide => match transport
-                    .get_json::<Vec<StreamDto>>(
-                        &format!("/activity/{}/streams.json", named),
-                        &[("types", DEFAULT_STREAM_TYPES)],
-                        Lane::Backfill,
-                    )
-                    .await
+                Ask::Wide => match fetch_stream_series(
+                    transport,
+                    named,
+                    DEFAULT_STREAM_TYPES,
+                    Lane::Backfill,
+                )
+                .await
                 {
                     Ok(raw) => reduce_wide(raw),
                     Err(e) => Fetched::Failed(e),

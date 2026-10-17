@@ -21,15 +21,15 @@ import React, {
   useState,
 } from 'react';
 import { ActivityIndicator, AppState, PixelRatio, StyleSheet, Text, View } from 'react-native';
-import { WebView } from 'react-native-webview';
 
-import { veloqWebViewNativeConfig } from '@/features/maps/lib/veloqWebView';
+import { WebView } from 'react-native-webview';
+import { veloqWebViewNativeConfig, type WebViewHandle } from '@/features/maps/lib/veloqWebView';
 import { mapPageBaseUrl } from '@/features/maps/lib/tileTransport';
 import { useTranslation } from 'react-i18next';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { darkColors, iconSize, spacing, typography } from '@/theme';
 import { ComponentErrorBoundary } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { debug } from '@/shared/debug/debug';
 import { useWebViewBridge } from '@/features/maps/hooks/useWebViewBridge';
 import { useRendererRecovery } from '@/features/maps/hooks/useRendererRecovery';
@@ -226,7 +226,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
   ref
 ) {
   const { t } = useTranslation();
-  const webViewRef = useRef<WebView>(null);
+  const webViewRef = useRef<WebViewHandle>(null);
   const registeredSurfaceRef = useRef<ReleasableSurface | null>(null);
   const readyRef = useRef(false);
   const releasedRef = useRef(released);
@@ -575,7 +575,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
       <View style={styles.container} accessibilityIgnoresInvertColors>
         {!lost && (
           <MapWebViewHost style={styles.webview} accessibilityLabel={accessibilityLabel}>
-            <WebView
+            <WebView<object>
               key={viewKey}
               ref={webViewRef}
               testID={testID}
@@ -614,7 +614,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
         ) : null}
         {unavailable ? (
           <View style={styles.unavailable} testID={MAP_SURFACE_UNAVAILABLE_TEST_ID}>
-            <MaterialCommunityIcons
+            <Icon
               name="map-marker-off-outline"
               size={iconSize.xxl}
               color={darkColors.textSecondary}
@@ -631,7 +631,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: darkColors.background,
+    backgroundColor: darkColors.surfacePage,
   },
   webview: {
     flex: 1,
@@ -651,7 +651,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: spacing.lg,
-    backgroundColor: darkColors.background,
+    backgroundColor: darkColors.surfacePage,
   },
   unavailableTitle: {
     ...typography.cardTitle,

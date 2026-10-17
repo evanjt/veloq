@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { TerrainUnavailableNotice } from '../components/TerrainUnavailableNotice';
+import {
+  TerrainUnavailableNotice,
+  type TerrainNoticePlacement,
+} from '../components/TerrainUnavailableNotice';
+import { BottomPillSlot } from '@/shared/ui/BottomPillStack';
+import { layers } from '@/theme';
 
 /**
  * The one rule every 3D host follows when the page drew without DEM tiles: the
@@ -9,10 +14,15 @@ import { TerrainUnavailableNotice } from '../components/TerrainUnavailableNotice
  *
  * `leave3D` is the host's own way out of 3D mode, the same landing as a page
  * that failed outright. The returned handler goes to `Map3DWebView`'s
- * `onTerrainUnavailable`, and `terrainNotice` is rendered over the map, lifted
- * by `noticeBottom` when the host covers the foot of its map.
+ * `onTerrainUnavailable`, and `terrainNotice` is rendered over the map. An
+ * embedded map keeps it at its own foot, beside what it explains. A map that
+ * fills a tab puts it in the bottom pill stack, above whatever covers the foot
+ * of the screen and the pills below it.
  */
-export function useTerrainFallback(leave3D: () => void, noticeBottom?: number) {
+export function useTerrainFallback(
+  leave3D: () => void,
+  placement: TerrainNoticePlacement = 'mapFoot'
+) {
   const [shown, setShown] = useState(false);
 
   // Hosts pass a fresh arrow each render; the handler handed to the WebView stays stable.
@@ -28,9 +38,17 @@ export function useTerrainFallback(leave3D: () => void, noticeBottom?: number) {
 
   const dismiss = useCallback(() => setShown(false), []);
 
-  const terrainNotice = shown ? (
-    <TerrainUnavailableNotice onDismiss={dismiss} bottom={noticeBottom} />
+  const notice = shown ? (
+    <TerrainUnavailableNotice onDismiss={dismiss} placement={placement} />
   ) : null;
+  const terrainNotice =
+    notice && placement === 'pillStack' ? (
+      <BottomPillSlot pill="terrain" layer={layers.mapOverlay}>
+        {notice}
+      </BottomPillSlot>
+    ) : (
+      notice
+    );
 
   return { onTerrainUnavailable, terrainNotice };
 }

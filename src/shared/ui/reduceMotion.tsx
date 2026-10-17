@@ -120,7 +120,7 @@ export function motionSpring(
  */
 export function motionLoop(
   animation: Animated.CompositeAnimation,
-  config?: Animated.LoopAnimationConfig
+  config?: Parameters<typeof Animated.loop>[1]
 ): Animated.CompositeAnimation {
   if (!isReduceMotionOn()) return Animated.loop(animation, config);
   return animation;

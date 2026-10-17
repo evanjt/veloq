@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 
 import { useSheetRequest } from '@/shared/app/sheetRequest';
-import { tapBack } from '@/shared/app/navigation';
+import { goBack } from '@/shared/app/navigation';
 import type { ChartTable } from '@/shared/charts/chartSummary';
 import { DataTable, SheetHeader, SheetScrollView } from '@/shared/ui';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
@@ -16,7 +16,7 @@ function ChartDataSheetContent() {
 
   return (
     <SheetScrollView contentContainerStyle={styles.content}>
-      <SheetHeader title={input.title} onClose={() => tapBack()} closeTestID="chart-data-close" />
+      <SheetHeader title={input.title} onClose={() => goBack()} closeTestID="chart-data-close" />
       <DataTable columns={input.columns} rows={input.rows} rowTestIDPrefix="chart-data-row-" />
     </SheetScrollView>
   );

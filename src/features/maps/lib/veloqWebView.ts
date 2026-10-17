@@ -8,7 +8,15 @@
  * nothing else about a mount changes.
  */
 import { Platform, requireNativeComponent } from 'react-native';
+import type { WebView as LibraryWebView } from 'react-native-webview';
 import type { WebViewNativeConfig } from 'react-native-webview/lib/WebViewTypes';
+
+/**
+ * What a mounted WebView's ref holds: its injection and reload commands. The library's class
+ * declares the extra props a caller may add as `undefined` by default, and its props intersected
+ * with `undefined` are `never`, so a mount names this extra-props type: `<WebView<object> ...>`.
+ */
+export type WebViewHandle = LibraryWebView<object>;
 
 /**
  * Agreed with `VeloqWebViewManager.NAME` on Android and the manager's

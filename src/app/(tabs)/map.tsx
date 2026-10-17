@@ -9,7 +9,7 @@ import {
   type LayoutChangeEvent,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { useLocalSearchParams } from 'expo-router';
+import { useIsFocused, useLocalSearchParams } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
@@ -20,6 +20,7 @@ import {
   FILTER_CHIP,
   DEFAULT_MAP_PERIOD,
   filterSheetExpandedAfterDrag,
+  filterSheetFootCover,
   filterSheetMaxHeight,
   getPeriodStart,
   MapEmptyState,
@@ -40,6 +41,7 @@ import {
   pressable,
   pressRipple,
 } from '@/shared/ui';
+import { useFootCover } from '@/shared/ui/bottomPills';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useActivityBoundsCache } from '@/features/activity';
 import { useRouteSettings } from '@/features/routes';
@@ -70,7 +72,7 @@ import {
 } from '@/shared/activity/sportCategories';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { formatMonthYear } from '@/shared/format/format';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 
 // Stable date references - creating new Date() in the component body triggers
 // useEngineMapActivities useMemo on every render, causing cascading re-renders
@@ -162,6 +164,13 @@ function MapScreenContent() {
     setSheetHeight(event.nativeEvent.layout.height);
   }, []);
   const [attributionClearance, setAttributionClearance] = useState(ATTRIBUTION_CLEARANCE);
+  // The bottom pills rise over the sheet and its credit while the tab is in front.
+  const pillClearance = useBottomClearance({ insetTaken: false });
+  const focused = useIsFocused();
+  useFootCover(
+    'mapSheet',
+    focused ? filterSheetFootCover(sheetHeight, attributionClearance, pillClearance) : null
+  );
   // The raised sheet stops under the map's top controls and its filters scroll past that.
   const insetTop = useSafeAreaInsets().top;
   const [screenHeight, setScreenHeight] = useState(0);
@@ -402,7 +411,7 @@ function MapScreenContent() {
           reason={emptyReason}
           allTime={period === DEFAULT_MAP_PERIOD}
           onShowAllTime={() => setPeriod(DEFAULT_MAP_PERIOD)}
-          onExpandRange={() => tapTo('/sync-settings')}
+          onExpandRange={() => navigateTo('/sync-settings')}
           onClearFilters={clearFilters}
         />
       ) : null}
@@ -525,7 +534,7 @@ function MapScreenContent() {
                 label={t('mapScreen.expandRange', 'Expand range')}
                 variant="ghost"
                 size="sm"
-                onPress={() => tapTo('/sync-settings')}
+                onPress={() => navigateTo('/sync-settings')}
               />
             </View>
           </ScrollView>
@@ -552,16 +561,16 @@ const FILTER_SHEET_LAYER = layers.raised;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: darkColors.background,
+    backgroundColor: darkColors.surfacePage,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfacePage,
   },
   loadingContainerDark: {
-    backgroundColor: darkColors.background,
+    backgroundColor: darkColors.surfacePage,
   },
   loadingShimmer: {
     alignSelf: 'stretch',
@@ -611,7 +620,7 @@ const styles = StyleSheet.create({
     backgroundColor: colorWithOpacity(ink.white, opacity.tint4),
   },
   infoBarDark: {
-    backgroundColor: colorWithOpacity(darkColors.backgroundAlt, 0.92),
+    backgroundColor: colorWithOpacity(darkColors.surfaceInput, 0.92),
   },
   // A horizontal scroller clips its children, so the row is as tall as the
   // chips' tap targets or the slop above and below would take no touch.

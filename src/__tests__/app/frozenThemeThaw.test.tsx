@@ -78,7 +78,7 @@ function ThemeHookProbe() {
 
 function ChartColorsProbe() {
   const chart = useChartColors();
-  const scheme: Scheme = chart.fitness === darkColors.chartFitness ? 'dark' : 'light';
+  const scheme: Scheme = chart.fitness === darkColors.fitness ? 'dark' : 'light';
   useLedger('useChartColors', scheme);
   return <Text testID="useChartColors">{scheme}</Text>;
 }
@@ -109,7 +109,7 @@ function Tab({ frozen }: { frozen: boolean }) {
 }
 
 const painted = (api: Awaited<ReturnType<typeof render>>, scheme: Scheme) => {
-  const background = scheme === 'dark' ? darkColors.background : colors.background;
+  const background = scheme === 'dark' ? darkColors.surfacePage : colors.surfacePage;
   expect(api.getByTestId('useTheme').props.children).toBe(`${scheme}:${background}`);
   for (const name of PROBES.filter((n) => n !== 'useTheme')) {
     expect(api.getByTestId(name).props.children).toBe(scheme);

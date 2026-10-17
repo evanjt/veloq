@@ -23,13 +23,13 @@ function contrastRatio(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-const LIGHT_SURFACES = [colors.surface, colors.background, colors.backgroundAlt];
+const LIGHT_SURFACES = [colors.surface, colors.surfacePage, colors.surfaceInput];
 const DARK_SURFACES = [
-  darkColors.background,
-  darkColors.backgroundAlt,
+  darkColors.surfacePage,
+  darkColors.surfaceInput,
   darkColors.surface,
-  darkColors.surfaceElevated,
-  darkColors.surfaceCard,
+  darkColors.surfaceRaised,
+  darkColors.surfaceRaised,
 ];
 const TYPES = Object.keys(activityTypeColors) as ActivityType[];
 

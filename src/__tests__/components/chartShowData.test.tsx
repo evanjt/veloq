@@ -8,14 +8,19 @@
  */
 
 import React from 'react';
+import { View } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import ChartDataSheet from '@/app/sheets/chart-data';
+import { CombinedPlot } from '@/features/activity/components/CombinedPlot';
+import { CHART_CONFIGS } from '@/features/activity/lib/chartConfig';
+import { ActivityDotsChart } from '@/features/fitness/components/ActivityDotsChart';
 import { FitnessChart } from '@/features/fitness/components/FitnessChart';
+import { StrengthBodyDiagram } from '@/features/strength/components/StrengthBodyDiagram';
 import { WellnessTrendsChart } from '@/features/wellness/components/WellnessTrendsChart';
 import { CurveChart } from '@/shared/charts';
 import { initialiseI18n } from '@/i18n';
-import type { WellnessData } from '@/types';
+import type { Activity, ActivityStreams, MuscleVolume, WellnessData } from '@/types';
 
 const mockPush = jest.fn();
 let mockParams: { request?: string } = {};
@@ -49,6 +54,66 @@ const CURVE = [
   { x: 300, y: 320 },
   { x: 1200, y: 270 },
 ];
+
+jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => true }));
+jest.mock('react-native-body-highlighter', () => ({
+  ...jest.requireActual('react-native-body-highlighter'),
+  __esModule: true,
+  default: () => null,
+}));
+jest.mock('expo-linear-gradient', () => ({
+  ...jest.requireActual('expo-linear-gradient'),
+  LinearGradient: () => null,
+}));
+jest.mock('@/theme', () => {
+  const real = jest.requireActual('@/theme/colors');
+  return {
+    ...jest.requireActual('@/theme'),
+    bodyDiagram: real.bodyDiagram,
+    sequentialRamp: real.sequentialRamp,
+    loupeChrome: real.loupeChrome,
+  };
+});
+
+// Five days, two of them with a session and a two-day break between.
+const STRIP_DAYS = [
+  { id: '2026-05-01', ctl: 30, atl: 30 },
+  { id: '2026-05-02', ctl: 30, atl: 30 },
+  { id: '2026-05-03', ctl: 30, atl: 30 },
+  { id: '2026-05-04', ctl: 30, atl: 30 },
+  { id: '2026-05-05', ctl: 30, atl: 30 },
+] as WellnessData[];
+const STRIP_ACTIVITIES = [
+  { id: 'g1', name: 'Glaze run', type: 'Run', start_date_local: '2026-05-01T07:00:00' },
+  { id: 'g2', name: 'Kiln ride', type: 'Ride', start_date_local: '2026-05-04T07:00:00' },
+  { id: 'g3', name: 'Clay swim', type: 'Swim', start_date_local: '2026-05-04T18:00:00' },
+] as Activity[];
+
+const volume = (slug: string, weightedSets: number): MuscleVolume => ({
+  slug,
+  primarySets: weightedSets,
+  secondarySets: 0,
+  weightedSets,
+  totalReps: 10,
+  volumeKg: 100,
+  exerciseNames: [],
+  shade: 3,
+});
+
+// Ten samples a kilometre apart, power climbing by 10 W from 200 W.
+const KILN_RIDE: ActivityStreams = {
+  time: Float64Array.from({ length: 10 }, (_, i) => i * 120),
+  distance: Float64Array.from({ length: 10 }, (_, i) => i * 1000),
+  watts: Float64Array.from({ length: 10 }, (_, i) => 200 + i * 10),
+};
+
+/** Lays out the first view that measures itself, as a chart's box would be on screen. */
+async function layOut(width = 320) {
+  const box = screen.UNSAFE_getAllByType(View).find((node) => node.props.onLayout);
+  await act(async () => {
+    await fireEvent(box!, 'layout', { nativeEvent: { layout: { width, height: 180 } } });
+  });
+}
 
 beforeAll(async () => {
   await initialiseI18n();
@@ -130,6 +195,71 @@ describe('a chart can be read without seeing it', () => {
     expect(plot().props.accessibilityLabel).toMatch(/HRV.*latest 70.*Resting HR.*latest 48/);
     const rows = await openThroughButton();
     expect(rows).toHaveLength(4);
+  });
+
+  it('speaks each drawn activity stream in its unit and opens one row per plotted point', async () => {
+    await render(
+      <CombinedPlot
+        streams={KILN_RIDE}
+        elevationGain={0}
+        selectedCharts={['power']}
+        chartConfigs={CHART_CONFIGS}
+      />
+    );
+    await layOut();
+    expect(plot().props.accessibilityLabel).toBe(
+      'Activity chart. Power, 0.00 km to 9.00 km: latest 290 W, range 200 W to 290 W, average 245 W.'
+    );
+    const rows = await openThroughAction();
+    expect(rows).toHaveLength(10);
+    expect(screen.getByText('Power (W)')).toBeTruthy();
+  });
+
+  it('keeps the activity chart axis values from a screen reader', async () => {
+    await render(
+      <CombinedPlot
+        streams={KILN_RIDE}
+        elevationGain={0}
+        selectedCharts={['power']}
+        chartConfigs={CHART_CONFIGS}
+      />
+    );
+    await layOut();
+    expect(screen.getByTestId('activity-plot-y-max', { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.queryByTestId('activity-plot-y-max')).toBeNull();
+    expect(screen.queryByText('245')).toBeNull();
+  });
+
+  it('speaks the days trained with its longest break and lists each day trained', async () => {
+    await render(<ActivityDotsChart data={STRIP_DAYS} activities={STRIP_ACTIVITIES} />);
+    expect(plot().props.accessibilityLabel).toBe(
+      'Days trained, May 1 to May 5: active on 2 of 5 days. Longest break 2 days.'
+    );
+    const rows = await openThroughButton();
+    expect(rows).toHaveLength(2);
+    expect(screen.getByText('Kiln ride, Clay swim')).toBeTruthy();
+  });
+
+  it('speaks each trained muscle and opens one row per muscle', async () => {
+    await render(
+      <StrengthBodyDiagram
+        bodyData={[]}
+        volumes={[volume('chest', 4), volume('abs', 9)]}
+        gender="male"
+        maxWeightedSets={9}
+        selectedVolume={null}
+        tappableSlugs={new Set(['chest', 'abs'])}
+        onMuscleTap={jest.fn()}
+        onMuscleScrub={jest.fn()}
+        onClearSelection={jest.fn()}
+      />
+    );
+    expect(screen.getByTestId('strength-body-plot').props.accessibilityLabel).toMatch(
+      /^Muscle group volume: Abs 9 sets, Chest 4 sets\.$/
+    );
+    expect(screen.getByRole('adjustable')).toBeTruthy();
+    const rows = await openThroughButton();
+    expect(rows).toHaveLength(2);
   });
 
   it('offers no table when the chart has nothing to plot', async () => {

@@ -41,6 +41,6 @@ export const styles = StyleSheet.create({
     ...shadows.modal,
   },
   controlButtonDark: {
-    backgroundColor: darkColors.surfaceCard,
+    backgroundColor: darkColors.surfaceRaised,
   },
 });

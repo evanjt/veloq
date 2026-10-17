@@ -1,10 +1,9 @@
 import React, { useCallback, useRef } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable, type ViewInstance } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { INTERVALS_URLS } from '@/shared/app/constants';
 import { useTranslation } from 'react-i18next';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { openExternal } from '@/shared/app/openExternal';
 import { useDonation } from '@/shared/app/useDonation';
@@ -26,6 +25,7 @@ import {
   pressable,
   pressRipple,
 } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 
 export function SupportSection() {
   const { isDark } = useTheme();
@@ -33,7 +33,7 @@ export function SupportSection() {
   const { t } = useTranslation();
   const { products, isAvailable, isPurchasing, purchaseSuccess, purchase } = useDonation();
 
-  const crashLogAnchor = useRef<View>(null);
+  const crashLogAnchor = useRef<ViewInstance>(null);
   const handleShareCrashLog = useCallback(() => offerCrashLog(t, crashLogAnchor), [t]);
 
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
@@ -85,11 +85,7 @@ export function SupportSection() {
 
           {/* Tips */}
           <View style={styles.row}>
-            <MaterialCommunityIcons
-              name="wrench-outline"
-              size={iconSize.md}
-              color={palette.primary}
-            />
+            <Icon name="wrench-outline" size={iconSize.md} color={palette.actionPrimary} />
             <Text style={[styles.rowText, { color: textColor }]}>
               {purchaseSuccess ? t('support.thankYou') : t('support.tipTitle')}
             </Text>
@@ -124,7 +120,7 @@ export function SupportSection() {
           {/* The card's own padding is the row's inset, so the row runs to its edges. */}
           <View style={styles.bleed}>
             <ExternalLinkRow url={INTERVALS_URLS.subscription} label={t('settings.subscribe')}>
-              <MaterialCommunityIcons name="heart" size={iconSize.md} color={colors.chartPink} />
+              <Icon name="heart" size={iconSize.md} color={colors.chartPink} />
               <View style={styles.rowTextGroup}>
                 <Text style={[styles.rowText, { color: textColor }]}>intervals.icu</Text>
                 <Text style={[styles.rowSubtext, { color: mutedColor }]}>
@@ -147,7 +143,7 @@ export function SupportSection() {
             style={pressable(styles.row)}
             android_ripple={pressRipple}
           >
-            <MaterialCommunityIcons name="bug-outline" size={iconSize.md} color={mutedColor} />
+            <Icon name="bug-outline" size={iconSize.md} color={mutedColor} />
             <Text style={[styles.rowText, { color: textColor }]}>{t('support.shareCrashLog')}</Text>
             <ChromeIcon name="share" size={iconSize.md} color={mutedColor} />
           </Pressable>

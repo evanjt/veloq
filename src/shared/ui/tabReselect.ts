@@ -15,7 +15,7 @@ export type TabRoute = '/' | '/fitness' | '/map' | '/insights' | '/training';
 
 /** A list scrolls by offset, a scroll view by position: either can be sent back. */
 type Scrollable =
-  | { scrollToOffset(params: { offset: number; animated?: boolean | null }): void }
+  | { scrollToOffset(params: { offset: number; animated?: boolean | undefined }): void }
   | { scrollTo(params: { y: number; animated?: boolean }): void };
 
 const listeners = new Map<TabRoute, Set<() => void>>();

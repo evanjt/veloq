@@ -10,9 +10,11 @@
  *
  * `src/theme/colourRoles.json` says how the keys of `colors` and `darkColors`
  * relate to the tokens: which role each folds into, in which themes it already
- * reads that role, and which keys are dropped. A key the file does not account
- * for, a role nothing reads and nobody reserved, or a key that claims a role it
- * no longer matches all fail the check.
+ * reads that role, and which keys are dropped. Its interface roles are read
+ * under their own names only, so no role carries a second key. A key the file
+ * does not account for, a role nothing reads and nobody reserved, a key that
+ * claims a role it no longer matches, or an interface role read under another
+ * name all fail the check.
  */
 
 export const THEMES = ['light', 'dark'] as const;
@@ -40,6 +42,12 @@ export interface RoleEntry {
 }
 
 export interface RoleMap {
+  /**
+   * The interface roles, which the palette names its keys after: the key that
+   * reads `text-primary` is `textPrimary`, in both themes, and no other key
+   * reads it, so a role has one name wherever it is drawn.
+   */
+  interface?: string[];
   keys: Record<string, RoleEntry>;
   /** Token names, or prefixes ending in `*`, kept for a reader still to come. */
   reserved: Record<string, string>;
@@ -138,6 +146,11 @@ function aliasedNames(file: TokenFile): Set<string> {
   return names;
 }
 
+/** The palette key an interface role is read under: `text-on-fill` is `textOnFill`. */
+export function roleKey(role: string): string {
+  return role.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase());
+}
+
 /** The keys of `colors` and `darkColors` that read a role, with the role's value. */
 export function roleColours(resolved: ResolvedTokens, map: RoleMap): ResolvedTokens {
   const out: ResolvedTokens = { light: {}, dark: {} };
@@ -201,6 +214,26 @@ export function checkColourRoles(
           `${key} in ${theme} is ${have}, not ${entry.role} ${want}, so it was overridden`
         );
       }
+    }
+  }
+
+  const interfaceRoles = new Set(map.interface ?? []);
+  for (const role of interfaceRoles) {
+    if (!tokens.has(role)) problems.push(`the interface role ${role} is not a token`);
+  }
+  for (const [key, entry] of Object.entries(map.keys)) {
+    if (!entry.role || !interfaceRoles.has(entry.role)) continue;
+    const name = roleKey(entry.role);
+    const from = entry.from ?? [];
+    if (key !== name && from.length > 0) {
+      problems.push(
+        `${key} reads the interface role ${entry.role}, which the palette names ${name}`
+      );
+    } else if (key === name && from.length < THEMES.length) {
+      const read = from.length > 0 ? `in ${from.join(' and ')} only` : 'in neither theme';
+      problems.push(
+        `${key} is the interface role ${entry.role} and reads it ${read}, not in both themes`
+      );
     }
   }
 

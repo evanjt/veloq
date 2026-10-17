@@ -54,7 +54,7 @@ describe('error fallback colours', () => {
     );
     const { ground, text } = fallbackColours();
 
-    expect(ground).toBe(darkColors.background);
+    expect(ground).toBe(darkColors.surfacePage);
     expect(text).toContain(darkColors.textSecondary);
   });
 });

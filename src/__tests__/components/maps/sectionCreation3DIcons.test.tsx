@@ -174,7 +174,7 @@ describe('3D section creation markers', () => {
       terrainExaggeration: 1,
       initStyle: 'light',
       mapStyle: 'light',
-      routeColor: colors.success,
+      routeColor: colors.successFill,
       showHeatmap: false,
       devicePixelRatio: 1,
       reduceMotion: false,

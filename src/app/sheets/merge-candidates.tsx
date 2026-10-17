@@ -26,7 +26,7 @@ import {
   ROW_PREVIEW_WIDTH,
   type MergeCandidatesSheetInput,
 } from '@/features/routes';
-import { tapBack } from '@/shared/app/navigation';
+import { goBack } from '@/shared/app/navigation';
 import { NameText } from '@/shared/ui/NameText';
 
 /**
@@ -53,7 +53,7 @@ function CandidatePreview({ candidate, isDark }: { candidate: MergeCandidate; is
         <TrackPreview
           testID={`merge-candidate-preview-${candidate.sectionId}`}
           points={points}
-          color={themePalette(isDark).primary}
+          color={themePalette(isDark).actionPrimary}
           isDark={isDark}
         />
       ) : null}
@@ -106,7 +106,7 @@ function MergeCandidatesSheetContent() {
     <View style={styles.sheet}>
       <SheetHeader
         title={t('sections.mergeCandidatesTitle')}
-        onCancel={() => tapBack()}
+        onCancel={() => goBack()}
         cancelTestID="merge-candidates-cancel"
       />
       <View style={styles.body}>

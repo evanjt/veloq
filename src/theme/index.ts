@@ -2,7 +2,7 @@ import { MD3LightTheme, MD3DarkTheme, configureFonts } from 'react-native-paper'
 
 import { md3DarkScheme, md3LightScheme } from './md3Scheme';
 import { faceWeight, typeface } from './typography';
-export type { VerdictRung, InsightTone } from './colors';
+export type { VerdictRung, InsightTone, ChartStream, SportFamilyName } from './colors';
 
 export {
   colors,
@@ -24,15 +24,15 @@ export {
   insightCategoryColors,
   insightCategoryColor,
   rpeRamp,
-  strengthRamp,
+  sequentialRamp,
+  divergingRamp,
+  sportFamilyColours,
   strengthTone,
   workoutStepColors,
   mapPreviewColors,
   mapLayerColors,
-  gradientScale,
   chartStreamColors,
-  chartStreamInk,
-  chartInkColor,
+  chartStreamColour,
   sectionPaletteInk,
   sectionNumberInk,
   swipeAction,
@@ -44,7 +44,6 @@ export {
   verdictFill,
   insightToneColor,
   recording,
-  offlinePill,
   contributionRamp,
   errorScreen,
   bodyDiagram,
@@ -56,8 +55,8 @@ export {
   sectionPalette,
   routePalette,
   sectionPaletteIndex,
-  routePaletteIndex,
   sectionPaletteExpression,
+  routePaletteExpression,
 } from './colors';
 export { colourTokens, heatmapTileStops, type ColourToken } from './colourTokens.generated';
 export { zoneColour, type ZoneColourRole } from './zoneColour';

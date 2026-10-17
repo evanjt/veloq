@@ -3,15 +3,15 @@ import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { Stack, useFocusEffect, router, useLocalSearchParams } from 'expo-router';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import {
   IconButton,
   InlineNotice,
   ScreenSafeAreaView,
-  SwipeableTabs,
   type SwipeableTab,
+  SwipeableTabs,
 } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { aboutInsightsBody, InsightsPanel, StrengthTab, useInsights } from '@/features/insights';
 import {
   DateRangeSummary,
@@ -34,9 +34,10 @@ import { strengthPeriodOf, useStrengthTabState } from '@/features/strength';
 import type { StrengthPeriod } from '@/types';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
-import { progressLine } from '@/features/maps';
+import { formatTrackStage } from '@/features/maps';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useSyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
+import { useTrackStage } from '@/shared/native/useSyncStatus';
 import {
   colors,
   darkColors,
@@ -176,9 +177,8 @@ function InsightsScreenContent() {
   const syncOldest = useSyncDateRange((s) => s.oldest);
   const syncNewest = useSyncDateRange((s) => s.newest);
   const isFetchingExtended = useSyncDateRange((s) => isExtendedFetchRunning(s.extendedFetch));
-  const dataSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
-  const isDataSyncing = useSyncDateRange((s) => s.isGpsSyncing);
-  const isAnalysingInBackground = useSyncDateRange((s) => s.isAnalysingInBackground);
+  const trackStage = useTrackStage();
+  const isDataSyncing = trackStage !== null;
 
   const tabs = useMemo<SwipeableTab[]>(() => {
     const result: SwipeableTab[] = [
@@ -328,31 +328,16 @@ function InsightsScreenContent() {
   }, [routesData?.activityCount, syncOldest, syncNewest]);
 
   const timelineSyncProgress = useMemo(() => {
-    // Phase 1: Fetching activity list from API (before GPS sync starts)
-    if (isFetchingExtended && !isDataSyncing) {
-      return { message: t('mapScreen.loadingActivities') as string, phase: 1 };
+    // The track work the engine reports, then the window download before it.
+    if (trackStage) {
+      const line = formatTrackStage(trackStage, t);
+      return { message: line.countText ? `${line.text} (${line.countText})` : line.text };
     }
-    // Phase 2: Downloading GPS data
-    if (dataSyncProgress.status === 'fetching') {
-      const countText =
-        dataSyncProgress.total > 0
-          ? ` (${dataSyncProgress.completed}/${dataSyncProgress.total})`
-          : '';
-      return {
-        message: `${t('routesScreen.downloadingGps')}${countText}` as string,
-        phase: 2,
-      };
-    }
-    // Phase 3: Analysing routes (section detection)
-    if (dataSyncProgress.status === 'computing') {
-      const stage = t('cache.analyzingRoutes') as string;
-      return { message: progressLine(stage, dataSyncProgress.percent, t), phase: 3 };
-    }
-    if (isAnalysingInBackground) {
-      return { message: dataSyncProgress.message, phase: 3 };
+    if (isFetchingExtended) {
+      return { message: t('mapScreen.loadingActivities') as string };
     }
     return null;
-  }, [dataSyncProgress, isDataSyncing, isAnalysingInBackground, isFetchingExtended, t]);
+  }, [trackStage, isFetchingExtended, t]);
 
   const renderSharedRouteState = useCallback(
     () => (
@@ -522,7 +507,7 @@ function InsightsScreenContent() {
         <View style={styles.headerActions}>
           <View
             testID="insights-beta-marker"
-            style={[styles.betaMarker, { borderColor: themePalette(isDark).primary }]}
+            style={[styles.betaMarker, { borderColor: themePalette(isDark).actionPrimary }]}
           >
             <Text style={[styles.betaText, isDark && styles.betaTextDark]}>
               {t('insights.beta')}
@@ -538,7 +523,7 @@ function InsightsScreenContent() {
               })
             }
           >
-            <MaterialCommunityIcons
+            <Icon
               name="information-outline"
               size={iconSize.md}
               color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -624,10 +609,10 @@ function InsightsScreenContent() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfacePage,
   },
   containerDark: {
-    backgroundColor: darkColors.background,
+    backgroundColor: darkColors.surfacePage,
   },
   headerActions: {
     flexDirection: 'row',

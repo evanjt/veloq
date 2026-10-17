@@ -8,7 +8,7 @@
  * mid-sync.
  */
 
-import type { GpsSyncProgress } from '@/shared/app/SyncDateRangeStore';
+import type { SyncProgress } from '@/features/routes/hooks/useRouteSyncProgress';
 
 /**
  * Whether the GPS sync has stopped for good since the reset that set the
@@ -19,7 +19,7 @@ import type { GpsSyncProgress } from '@/shared/app/SyncDateRangeStore';
  * nothing about the new state.
  */
 export function syncSettledForExpansion(
-  progress: Pick<GpsSyncProgress, 'status' | 'generation'>,
+  progress: Pick<SyncProgress, 'status' | 'generation'>,
   activityCount: number | null,
   lockGeneration: number
 ): boolean {

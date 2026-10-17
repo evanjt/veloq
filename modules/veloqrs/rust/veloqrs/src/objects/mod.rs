@@ -21,11 +21,13 @@ pub mod start;
 pub mod strength;
 pub(crate) mod sync;
 mod tiles;
+pub mod track_stage;
 pub(crate) mod tracks;
 
 pub use coverage::RangeCoverage;
 pub use detection::DetectionManager;
 pub use engine::VeloqEngine;
+pub(crate) use engine::{cancel_stoppable_run, next_stoppable_run, record_backup_run};
 pub use error::VeloqError;
 pub use init::FfiInitOutcome;
 pub use library::LibraryCoverage;

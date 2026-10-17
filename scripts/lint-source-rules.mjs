@@ -444,7 +444,7 @@ const GROUND_TEXT_BASELINE = [];
  * ramps and thumbs, so a member is held to being told apart from its
  * neighbours and not to any text bar.
  */
-const FILL_SERIES = ['sectionPalette', 'routePalette', 'rpeRamp', 'strengthRamp'];
+const FILL_SERIES = ['sectionPalette', 'routePalette', 'rpeRamp', 'sequentialRamp'];
 
 /**
  * Tokens whose light value is read through the static `colors` object and whose
@@ -454,12 +454,10 @@ const FILL_SERIES = ['sectionPalette', 'routePalette', 'rpeRamp', 'strengthRamp'
 const DARK_COUNTERPART_TOKENS = [
   'actionLink',
   'textSecondary',
-  'errorDeep',
-  'error',
-  'amberIcon',
-  'background',
+  'errorText',
+  'warningText',
+  'surfacePage',
   'border',
-  'divider',
 ];
 
 /**
@@ -470,9 +468,6 @@ const DARK_COUNTERPART_TOKENS = [
  * measurement of something that has since changed.
  */
 const DIMMED_TEXT_MEASURED = {
-  'src/shared/ui/OfflineBanner.tsx': {
-    subtitleText: 'pill ink at 0.8 on the pill fill, 4.90:1',
-  },
   'src/shared/ui/DetailHero.tsx': {
     statDivider: 'the dot between two stats, which carries no information of its own',
   },
@@ -485,7 +480,7 @@ const DIMMED_TEXT_MEASURED = {
  */
 const METRICS_WRITE_BASELINE = [];
 
-const DISABLED_INK = /\b(?:colors|darkColors)\.(?:textDisabled|divider|border)\b/;
+const DISABLED_INK = /\b(?:colors|darkColors)\.(?:textDisabled|border)\b/;
 const NAMES_DISABLED = /disabled/i;
 
 /**
@@ -780,7 +775,7 @@ const RULES = {
             ts.isJsxAttribute(node) &&
             node.name.getText(sf) === 'name' &&
             node.initializer &&
-            node.parent.parent.tagName.getText(sf) === 'MaterialCommunityIcons'
+            ['MaterialCommunityIcons', 'Icon'].includes(node.parent.parent.tagName.getText(sf))
           ) {
             literals(node.initializer);
           } else if (ts.isPropertyAssignment(node) && node.name.getText(sf) === 'icon') {
@@ -1461,7 +1456,7 @@ const RULES = {
       }
       return out;
     },
-    fix: 'leave the screen with goBack or tapBack from @/shared/app/navigation',
+    fix: 'leave the screen with goBack from @/shared/app/navigation',
   },
 
   // A form field is drawn by the shared TextField, which carries the visible
@@ -1537,8 +1532,9 @@ const RULES = {
   },
 
   // Every pressable in the shared components carries a role and a label, so a
-  // screen that adopts one inherits both. A tag spreading `{...props}` takes
-  // them from its caller. A file with tab children also declares the tablist
+  // screen that adopts one inherits both, and that includes a `PressTarget`,
+  // which the shared controls render through. A tag spreading `{...props}`
+  // takes them from its caller. A file with tab children also declares the tablist
   // that lets a screen reader count them.
   'shared-ui-accessibility': {
     pathspec: ['src/shared/ui'],
@@ -1555,7 +1551,7 @@ const RULES = {
             `${file}:1  has accessibilityRole="tab" children and no accessibilityRole="tablist" container`
           );
         for (const match of text.matchAll(
-          /<(TouchableOpacity|Pressable|AnimatedPressable|Text)\b/g
+          /<(TouchableOpacity|Pressable|PressTarget|AnimatedPressable|Text)\b/g
         )) {
           // The opening tag ends at the first `>` outside a brace-delimited prop.
           let depth = 0;
@@ -1637,9 +1633,8 @@ const RULES = {
       }
       const bannerFiles = [
         'src/shared/ui/NoticeBanner.tsx',
-        'src/shared/ui/OfflineBanner.tsx',
+        'src/shared/ui/FloatingPill.tsx',
         'src/features/recording/components/SaveErrorBanner.tsx',
-        'src/shared/ui/SyncProgressStrip.tsx',
         'src/features/maps/components/timeline/SyncProgressBanner.tsx',
         'src/shared/ui/SyncErrorBanner.tsx',
         'src/shared/ui/StartupErrorBanner.tsx',
@@ -1721,6 +1716,25 @@ const RULES = {
   // element around it. The snapshot workers are never seen, since they render
   // behind the content at near-zero opacity, and their output reaches the
   // screen through an `Image` this holds.
+  // The icon set renders a text holding a private-use character, so a glyph
+  // drawn with it directly is a stop of its own for a screen reader, which
+  // reads it as nothing or as the codepoint. `Icon` in the shared UI draws it
+  // hidden unless it is given a label, and every glyph outside that directory
+  // goes through it.
+  'decorative-icons': {
+    pathspec: ['src'],
+    check(sources) {
+      const out = [];
+      for (const [file, text] of sources) {
+        if (!file.endsWith('.tsx') || TESTS.test(file) || file.startsWith('src/shared/ui/'))
+          continue;
+        out.push(...linesMatching(file, text, /<MaterialCommunityIcons\b/));
+      }
+      return out;
+    },
+    fix: 'draw the glyph with Icon from @/shared/ui, and give it an accessibilityLabel only when nothing beside it says what it means',
+  },
+
   'invert-colors-opt-out': {
     pathspec: ['src'],
     check(sources) {

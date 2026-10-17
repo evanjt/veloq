@@ -66,8 +66,8 @@ describe.each<AuthMethod>(['oauth', 'apiKey'])('a %s session', (authMethod) => {
 
   it('draws only the delete row in the error red', async () => {
     await render(<ProfileAccountSection athlete={{ name: 'Rider' }} />);
-    expect(iconIn('settings-logout-button')?.props.color).not.toBe(colors.error);
-    expect(iconIn('settings-logout-clear-button')?.props.color).toBe(colors.error);
+    expect(iconIn('settings-logout-button')?.props.color).not.toBe(colors.errorText);
+    expect(iconIn('settings-logout-clear-button')?.props.color).toBe(colors.errorText);
   });
 
   it('names the sign-in method without the protocol', async () => {

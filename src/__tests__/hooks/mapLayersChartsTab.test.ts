@@ -29,6 +29,7 @@ const useLayers = (activeTab: string, highlightIndex: number | null) =>
     sectionOverlays: overlays,
     highlightIndex,
     activeTab,
+    mapStyle: 'light',
   });
 
 const sectionIds = (collection: GeoJSON.FeatureCollection) => [

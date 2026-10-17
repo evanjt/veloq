@@ -61,7 +61,7 @@ export function PreviewCentrePicker({
   const showStart = overflows && offset > 1;
   const showEnd = overflows && offset < content - viewport - 1;
 
-  const fade = isDark ? darkColors.background : colors.background;
+  const fade = isDark ? darkColors.surfacePage : colors.surfacePage;
   const fadeStops = [fade, `${fade}00`] as const;
 
   return (
@@ -93,7 +93,10 @@ export function PreviewCentrePicker({
               style={pressable([
                 styles.chip,
                 { backgroundColor: surface, borderColor: border },
-                active && { backgroundColor: palette.primary, borderColor: palette.primary },
+                active && {
+                  backgroundColor: palette.actionPrimary,
+                  borderColor: palette.actionPrimary,
+                },
               ])}
               android_ripple={pressRipple}
               onPress={() => onSelect(centre)}
@@ -103,15 +106,12 @@ export function PreviewCentrePicker({
               testID={`preview-centre-${centre.binKey}`}
             >
               <FitText
-                style={[styles.chipLabel, { color: active ? colors.textOnPrimary : textPrimary }]}
+                style={[styles.chipLabel, { color: active ? colors.textOnFill : textPrimary }]}
               >
                 {label}
               </FitText>
               <Text
-                style={[
-                  styles.chipDetail,
-                  { color: active ? colors.textOnPrimary : textSecondary },
-                ]}
+                style={[styles.chipDetail, { color: active ? colors.textOnFill : textSecondary }]}
               >
                 {detail}
               </Text>

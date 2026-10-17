@@ -54,7 +54,7 @@ function expectFlatCard(
   parent: { props: { style?: unknown } }
 ) {
   const style = flat(node);
-  expect(style.backgroundColor).toBe(darkColors.surfaceCard);
+  expect(style.backgroundColor).toBe(darkColors.surfaceRaised);
   expect(style.borderRadius).toBe(layout.borderRadius);
   expect(style.shadowOpacity).toBeUndefined();
   expect(style.elevation).toBeUndefined();

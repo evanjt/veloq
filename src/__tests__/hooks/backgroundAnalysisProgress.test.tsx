@@ -1,21 +1,28 @@
 /**
- * Scenario: a sync settles while detection is still running in Rust, so the
- * progress write is 'complete' with the still-analysing message.
+ * Scenario: a sync settles while detection is still running in Rust, and
+ * nothing on the TypeScript side is following the run any more.
  *
- * Expected behaviour: the sync settles (timestamp stamped) but the surfaces
- * where it started keep showing that the analysis is running, until the run
- * announces its end.
+ * Expected behaviour: the range panel on sync settings keeps showing that the
+ * analysis is running for as long as the engine's sync status carries it, and
+ * drops it when the status no longer does.
  */
 import React from 'react';
 import { act, render } from '@testing-library/react-native';
 
-import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { formatGpsSyncProgress } from '@/features/maps/lib/syncProgressFormat';
 import { SyncRangePanel } from '@/features/settings/components/SyncRangePanel';
+import { getEngine } from '@/shared/native/engine';
+import { TRACK_STAGE_REREAD_MS } from '@/shared/native/useSyncStatus';
+import { SyncState, TrackStep, type SyncStatus, type TrackStage } from 'veloqrs';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 
-jest.mock('@/features/maps', () => ({ TimelineSlider: () => null }));
+jest.mock('@/shared/native/engine', () => ({
+  getEngine: jest.fn(),
+}));
+jest.mock('@/features/maps', () => ({
+  ...jest.requireActual('@/features/maps/lib/syncProgressFormat'),
+  TimelineSlider: () => null,
+}));
 jest.mock('@/features/activity', () => ({
   useActivityBoundsCache: () => ({
     cacheStats: { oldestDate: null, totalActivities: 0 },
@@ -29,77 +36,56 @@ jest.mock('@/features/settings/hooks/useActivityYearCounts', () => ({
   useActivityYearCounts: () => ({ data: [] }),
 }));
 
-const t = ((key: string) => key) as never;
-
-const stillAnalysing = {
-  status: 'complete' as const,
-  completed: 2,
-  total: 2,
-  percent: 100,
-  message: 'Synced 2 activities. Still analysing routes',
-  analysingInBackground: true,
+const analysing: TrackStage = {
+  step: TrackStep.Analysing,
+  completed: 3,
+  total: 8,
+  percent: 40,
 };
 
-const settled = { ...stillAnalysing, analysingInBackground: false, message: 'Synced' };
+let tracks: TrackStage | undefined;
+const listeners = new Map<string, Set<() => void>>();
 
-beforeEach(async () => {
-  await act(() => useSyncDateRange.getState().setGpsSyncProgress(settled));
-});
+function settledSync(): SyncStatus {
+  return { state: SyncState.Idle, completed: 4, total: 4, inFlight: 0, tracks } as SyncStatus;
+}
 
-describe('the store', () => {
-  it('settles the sync but holds the analysing state live', async () => {
-    await act(() => useSyncDateRange.getState().setGpsSyncProgress(stillAnalysing));
-    const s = useSyncDateRange.getState();
-
-    expect(s.lastSyncTimestamp).not.toBeNull();
-    expect(s.isAnalysingInBackground).toBe(true);
-  });
-
-  it('drops it when the run announces its end', async () => {
-    await act(() => useSyncDateRange.getState().setGpsSyncProgress(stillAnalysing));
-    await act(() => useSyncDateRange.getState().backgroundAnalysisEnded());
-
-    expect(useSyncDateRange.getState().isAnalysingInBackground).toBe(false);
-  });
-
-  it('drops it when a new sync starts', async () => {
-    await act(() => useSyncDateRange.getState().setGpsSyncProgress(stillAnalysing));
-    await act(() =>
-      useSyncDateRange
-        .getState()
-        .setGpsSyncProgress({ ...settled, status: 'fetching', percent: 0, message: '' })
-    );
-
-    expect(useSyncDateRange.getState().isAnalysingInBackground).toBe(false);
-  });
-
-  it('is not raised by an ordinary completion', () => {
-    expect(useSyncDateRange.getState().isAnalysingInBackground).toBe(false);
+beforeEach(() => {
+  jest.useFakeTimers();
+  tracks = undefined;
+  listeners.clear();
+  (getEngine as jest.Mock).mockReturnValue({
+    getSyncStatus: () => settledSync(),
+    subscribe: (channel: string, listener: () => void) => {
+      if (!listeners.has(channel)) listeners.set(channel, new Set());
+      listeners.get(channel)!.add(listener);
+      return () => listeners.get(channel)?.delete(listener);
+    },
   });
 });
 
-describe('formatGpsSyncProgress', () => {
-  it('renders the still-analysing message as live', () => {
-    const info = formatGpsSyncProgress(stillAnalysing, false, t);
-
-    expect(info?.text).toBe(stillAnalysing.message);
-    expect(info?.indeterminate).toBe(true);
-  });
-
-  it('renders nothing for an ordinary completion', () => {
-    expect(formatGpsSyncProgress(settled, false, t)).toBeNull();
-  });
+afterEach(() => {
+  jest.useRealTimers();
 });
 
-describe('SyncRangePanel', () => {
-  it('shows the still-analysing message until the run ends', async () => {
-    const { queryByText } = await render(<SyncRangePanel />);
-    expect(queryByText(/Still analysing routes/)).toBeNull();
+function progressFill(screen: Awaited<ReturnType<typeof render>>) {
+  return screen.queryByTestId('settings-sync-range-progress-fill');
+}
 
-    await act(() => useSyncDateRange.getState().setGpsSyncProgress(stillAnalysing));
-    expect(queryByText(/Still analysing routes/)).not.toBeNull();
+it('shows detection the engine is running after the sync settled, until it ends', async () => {
+  const screen = await render(<SyncRangePanel />);
+  expect(progressFill(screen)).toBeNull();
 
-    await act(() => useSyncDateRange.getState().backgroundAnalysisEnded());
-    expect(queryByText(/Still analysing routes/)).toBeNull();
+  tracks = analysing;
+  await act(() => listeners.get('syncProgress')?.forEach((listener) => listener()));
+  expect(progressFill(screen)).not.toBeNull();
+  expect(progressFill(screen)?.props.style).toEqual(
+    expect.arrayContaining([expect.objectContaining({ width: '40%' })])
+  );
+
+  tracks = undefined;
+  await act(() => {
+    jest.advanceTimersByTime(TRACK_STAGE_REREAD_MS);
   });
+  expect(progressFill(screen)).toBeNull();
 });

@@ -18,7 +18,7 @@ import { Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-nativ
 import { Text } from 'react-native-paper';
 import { Canvas, Circle, Path, Rect } from '@shopify/react-native-skia';
 
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { formatShortDate } from '@/shared/format/format';
 import { ChartErrorBoundary, pressable, pressRipple } from '@/shared/ui';
 import { fitTrackToBox, normaliseTrackPoints } from '@/shared/ui/TrackPreview';
@@ -331,7 +331,7 @@ export const InsightHistoryGraphic = React.memo(function InsightHistoryGraphic({
   }, []);
   const target = history.kind === 'changes' ? undefined : history.target;
   const onPress = useCallback(
-    () => (target ? tapTo(target) : onOpenSheet()),
+    () => (target ? navigateTo(target) : onOpenSheet()),
     [target, onOpenSheet]
   );
 

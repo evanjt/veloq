@@ -7,8 +7,8 @@ import {
   ScreenSafeAreaView,
   ScreenScrollView,
 } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { logScreenRender } from '@/shared/debug/renderTimer';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useAthlete } from '@/shared/app/useAthlete';
@@ -33,7 +33,7 @@ import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useLanguageStore, languageLabel } from '@/shared/app/LanguageStore';
 import { useThemePreferenceStore } from '@/shared/app/ThemeProvider';
 import { useUnitPreference } from '@/shared/app/UnitPreferenceStore';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { SCREEN_HEADERS, headerTitleOf } from '@/shared/app/screenHeaders';
 import { formatFileSize, formatMonthYear, getIntlLocale } from '@/shared/format/format';
 import { getAppStorageSize } from '@/shared/storage/gpsStorage';
@@ -75,7 +75,7 @@ function AccountRow({
         testID="settings-account-row"
         behaviour="navigate"
         accessibilityLabel={athlete?.name || t('settings.account')}
-        onPress={() => tapTo('/account')}
+        onPress={() => navigateTo('/account')}
       >
         <View style={[styles.accountPhoto, isDark && styles.accountPhotoDark]}>
           {hasValidProfileUrl && !profileImageError ? (
@@ -87,7 +87,7 @@ function AccountRow({
               onError={onProfileImageError}
             />
           ) : (
-            <MaterialCommunityIcons
+            <Icon
               name="account"
               size={iconSize.lg}
               color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -126,7 +126,7 @@ function SpokeRow({ route, icon, subtitle, testID }: SpokeRowProps) {
       icon={icon}
       title={headerTitleOf(SCREEN_HEADERS[route], t)}
       subtitle={subtitle}
-      onPress={() => tapTo(`/${route}`)}
+      onPress={() => navigateTo(`/${route}`)}
       testID={testID}
     />
   );
@@ -355,10 +355,10 @@ function SettingsScreenContent() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfacePage,
   },
   containerDark: {
-    backgroundColor: darkColors.background,
+    backgroundColor: darkColors.surfacePage,
   },
   accountCard: {
     marginTop: spacing.md,
@@ -368,13 +368,13 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: layout.borderRadiusFull,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfacePage,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
   },
   accountPhotoDark: {
-    backgroundColor: darkColors.surfaceElevated,
+    backgroundColor: darkColors.surfaceRaised,
   },
   accountInfo: {
     flex: 1,

@@ -4,7 +4,7 @@
  */
 
 import type { TFunction } from 'i18next';
-import type { GpsSyncProgress } from '@/shared/app/SyncDateRangeStore';
+import { TrackStep, type TrackStage } from 'veloqrs';
 
 export interface SyncDisplayInfo {
   icon: string;
@@ -16,7 +16,7 @@ export interface SyncDisplayInfo {
 }
 
 /**
- * A stage's line with the overall figure. The stage string carries its own
+ * A stage's line with its figure. The stage string carries its own
  * punctuation and never a number, so the line holds one percentage, and none
  * before there is progress to show.
  */
@@ -24,68 +24,28 @@ export function progressLine(stage: string, percent: number, t: TFunction): stri
   return percent > 0 ? (t('cache.stageProgress', { stage, percent }) as string) : stage;
 }
 
+/** How each step of the track work is drawn: its icon and the key naming it. */
+const TRACK_STEPS = {
+  [TrackStep.Downloading]: { icon: 'download-outline', stageKey: 'routesScreen.downloadingGps' },
+  [TrackStep.Analysing]: { icon: 'map-marker-path', stageKey: 'cache.analyzingRoutes' },
+  [TrackStep.DrawingHeatmap]: { icon: 'map-marker-path', stageKey: 'cache.finalizingHeatmap' },
+} as const satisfies Record<TrackStep, { icon: string; stageKey: string }>;
+
 /**
- * Format GPS sync progress (downloading tracks + analysing routes) for display.
- * Returns null when there's nothing to show (idle, error, a complete with nothing left running).
+ * The line for the track work the engine reports: the GPS download, section
+ * detection or the heatmap pass. The percent is the stage's own, and only the
+ * download carries a count, since its items are the tracks the athlete is
+ * waiting for. Detection weights its phases, so it has a figure before its
+ * items are counted and is indeterminate only before its first.
  */
-export function formatGpsSyncProgress(
-  progress: GpsSyncProgress,
-  isFetchingActivities: boolean,
-  t: TFunction
-): SyncDisplayInfo | null {
-  // Loading activities from API (no real progress yet)
-  if (
-    isFetchingActivities &&
-    progress.status !== 'fetching' &&
-    progress.status !== 'processing' &&
-    progress.status !== 'computing'
-  ) {
-    return {
-      icon: 'cloud-download-outline',
-      text: t('mapScreen.loadingActivities') as string,
-      percent: 0,
-      countText: null,
-      indeterminate: true,
-    };
-  }
-
-  // The sync settled while Rust is still detecting: say so until it lands.
-  if (progress.status === 'complete' && progress.analysingInBackground) {
-    return {
-      icon: 'map-marker-path',
-      text: progress.message,
-      percent: 0,
-      countText: null,
-      indeterminate: true,
-    };
-  }
-
-  // Downloading GPS tracks
-  if (progress.status === 'fetching') {
-    return {
-      icon: 'download-outline',
-      text: progressLine(t('routesScreen.downloadingGps') as string, progress.percent, t),
-      percent: progress.percent,
-      countText: progress.total > 0 ? `${progress.completed}/${progress.total}` : null,
-      indeterminate: progress.completed === 0 && progress.total === 0,
-    };
-  }
-
-  // Analysing routes (section detection)
-  if (progress.status === 'computing' || progress.status === 'processing') {
-    // A caller's message names its stage (the heatmap pass, say) and drops the
-    // count suffix, whose figures belong to the download.
-    const hasCustomMessage = Boolean(progress.message);
-    const stage = progress.message || (t('cache.analyzingRoutes') as string);
-    return {
-      icon: 'map-marker-path',
-      text: progressLine(stage, progress.percent, t),
-      percent: progress.percent,
-      countText:
-        !hasCustomMessage && progress.total > 0 ? `${progress.completed}/${progress.total}` : null,
-      indeterminate: progress.percent === 0 && progress.completed === 0 && progress.total === 0,
-    };
-  }
-
-  return null;
+export function formatTrackStage(stage: TrackStage, t: TFunction): SyncDisplayInfo {
+  const { icon, stageKey } = TRACK_STEPS[stage.step];
+  const downloading = stage.step === TrackStep.Downloading;
+  return {
+    icon,
+    text: progressLine(t(stageKey) as string, stage.percent, t),
+    percent: stage.percent,
+    countText: downloading && stage.total > 0 ? `${stage.completed}/${stage.total}` : null,
+    indeterminate: stage.step === TrackStep.Analysing ? stage.percent === 0 : stage.total === 0,
+  };
 }

@@ -18,8 +18,8 @@ const JUDGEMENT_TONES = new Set(
       verdict[rung].light,
       verdict[rung].dark,
     ]),
-    colors.error,
-    darkColors.error,
+    colors.errorText,
+    darkColors.errorText,
   ].map((hex) => hex.toUpperCase())
 );
 
@@ -39,7 +39,7 @@ describe('insight category colours', () => {
   });
 
   it("falls back to the theme's primary for a category it does not know", () => {
-    expect(insightCategoryColor('unheard_of', false)).toBe(colors.primary);
-    expect(insightCategoryColor('unheard_of', true)).toBe(darkColors.primary);
+    expect(insightCategoryColor('unheard_of', false)).toBe(colors.actionPrimary);
+    expect(insightCategoryColor('unheard_of', true)).toBe(darkColors.actionPrimary);
   });
 });

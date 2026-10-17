@@ -130,9 +130,9 @@ impl PersistentEngine {
                     params![name, section_id],
                 )
                 .map_err(|e| e.to_string())?;
-            if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
-                section.name = name.map(str::to_string);
-            }
+            self.edit_section(section_id, |section| {
+                section.name = name.map(str::to_string)
+            });
         } else {
             match name {
                 Some(n) => {
@@ -160,9 +160,7 @@ impl PersistentEngine {
                             params![section_id],
                         )
                         .map_err(|e| e.to_string())?;
-                    if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
-                        section.name = None;
-                    }
+                    self.edit_section(section_id, |section| section.name = None);
                 }
             }
             // The list reads the cached overlay and never refreshes it, so
