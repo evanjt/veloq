@@ -10,7 +10,7 @@
  * set: on iOS that is the only way an action can open a menu.
  */
 
-import React, { type ComponentProps } from 'react';
+import React, { useEffect, useState, type ComponentProps } from 'react';
 import {
   Platform,
   Pressable,
@@ -21,7 +21,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Link, type Href } from 'expo-router';
-import { Menu, Text } from 'react-native-paper';
+import { Menu, Text, useTheme as usePaperTheme } from 'react-native-paper';
 
 import { useTheme } from '@/shared/app';
 import { useWindowInsets } from '@/shared/app/TopSafeAreaContext';
@@ -64,6 +64,27 @@ export interface ContextMenuGroup {
 
 export type ContextMenuEntry = ContextMenuAction | ContextMenuGroup;
 
+/** A row of the anchored popup, which draws no system symbol and may draw no glyph. */
+export type MenuPopupAction = Omit<ContextMenuAction, 'icon' | 'systemIcon'> & {
+  icon?: IconName | undefined;
+};
+
+export type MenuPopupEntry =
+  | MenuPopupAction
+  | { key: string; label: string; items: MenuPopupAction[] };
+
+export interface MenuPopupProps {
+  /** Names the list, read first. */
+  title: string;
+  entries: MenuPopupEntry[];
+  visible: boolean;
+  onDismiss: () => void;
+  /** A choice closes the list, for a control whose value the source itself shows. */
+  closeOnSelect?: boolean;
+  /** What the popup is anchored to. */
+  children: React.ReactElement;
+}
+
 export interface ContextMenuProps {
   /** Names the menu, the source's own name. */
   title: string;
@@ -85,7 +106,9 @@ export function contextMenuHoldIsNative(os: typeof Platform.OS = Platform.OS): b
   return os === 'ios';
 }
 
-function isGroup(entry: ContextMenuEntry): entry is ContextMenuGroup {
+function isGroup(entry: ContextMenuEntry): entry is ContextMenuGroup;
+function isGroup(entry: MenuPopupEntry): entry is Extract<MenuPopupEntry, { items: unknown }>;
+function isGroup(entry: ContextMenuEntry | MenuPopupEntry) {
   return 'items' in entry;
 }
 
@@ -95,6 +118,33 @@ function isGroup(entry: ContextMenuEntry): entry is ContextMenuGroup {
  */
 export function contextMenuMaxHeight(windowHeight: number, top: number, bottom: number): number {
   return Math.max(0, windowHeight - top - bottom - 2 * spacing.md);
+}
+
+/**
+ * How long the popup's own close runs, at the paper theme's animation scale of
+ * one. A popup mounted closed runs that close once, and when it ends it
+ * unmounts the list, undoing any open that came before.
+ */
+const POPUP_CLOSE_MS = 250;
+
+/** A frame past the close, so the open lands after it rather than beside it. */
+const FRAME_MS = 16;
+
+/**
+ * Whether the popup may open yet. A popup mounted open may at once; one
+ * mounted closed waits out its first close, and an open asked for meanwhile
+ * opens when that ends.
+ */
+function useOpenAllowed(mountedVisible: boolean): boolean {
+  const { animation } = usePaperTheme();
+  const [allowed, setAllowed] = useState(mountedVisible);
+  const wait = POPUP_CLOSE_MS * animation.scale + FRAME_MS;
+  useEffect(() => {
+    if (allowed) return undefined;
+    const timer = setTimeout(() => setAllowed(true), wait);
+    return () => clearTimeout(timer);
+  }, [allowed, wait]);
+  return allowed;
 }
 
 /** The widest the popup draws, and never closer than a margin to either edge. */
@@ -117,11 +167,13 @@ function raisedEdge(isDark: boolean) {
 function MenuRow({
   item,
   onDismiss,
+  closeOnSelect,
   textColor,
   mutedColor,
 }: {
-  item: ContextMenuAction;
+  item: MenuPopupAction;
   onDismiss: () => void;
+  closeOnSelect: boolean;
   textColor: string;
   mutedColor: string;
 }) {
@@ -133,13 +185,15 @@ function MenuRow({
       accessibilityState={checkable ? { checked: !!item.checked } : undefined}
       onPress={() => {
         // A choice stays open so its new state is seen, an action leaves.
-        if (!checkable) onDismiss();
+        if (!checkable || closeOnSelect) onDismiss();
         item.onPress();
       }}
       style={pressable(styles.row)}
       android_ripple={pressRipple}
     >
-      <MaterialCommunityIcons name={item.icon} size={iconSize.md} color={mutedColor} />
+      {item.icon ? (
+        <MaterialCommunityIcons name={item.icon} size={iconSize.md} color={mutedColor} />
+      ) : null}
       <Text style={[styles.rowLabel, { color: textColor }]}>{item.label}</Text>
       {checkable ? (
         <MaterialCommunityIcons
@@ -152,7 +206,18 @@ function MenuRow({
   );
 }
 
-function AnchoredMenu({ title, entries, visible, onDismiss, children }: ContextMenuProps) {
+/**
+ * The anchored popup on its own: the list a hold opens on Android, and the list
+ * a control opens from a tap on both platforms.
+ */
+export function MenuPopup({
+  title,
+  entries,
+  visible,
+  onDismiss,
+  closeOnSelect = false,
+  children,
+}: MenuPopupProps) {
   const { isDark } = useTheme();
   const window = useWindowDimensions();
   const insets = useWindowInsets();
@@ -160,10 +225,11 @@ function AnchoredMenu({ title, entries, visible, onDismiss, children }: ContextM
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const hairline = isDark ? darkColors.divider : colors.divider;
+  const openAllowed = useOpenAllowed(visible);
 
   return (
     <Menu
-      visible={visible}
+      visible={openAllowed ? visible : false}
       onDismiss={onDismiss}
       anchor={children}
       testID="context-menu"
@@ -198,6 +264,7 @@ function AnchoredMenu({ title, entries, visible, onDismiss, children }: ContextM
                   key={item.key}
                   item={item}
                   onDismiss={onDismiss}
+                  closeOnSelect={closeOnSelect}
                   textColor={textColor}
                   mutedColor={mutedColor}
                 />
@@ -208,6 +275,7 @@ function AnchoredMenu({ title, entries, visible, onDismiss, children }: ContextM
               key={entry.key}
               item={entry}
               onDismiss={onDismiss}
+              closeOnSelect={closeOnSelect}
               textColor={textColor}
               mutedColor={mutedColor}
             />
@@ -238,7 +306,8 @@ function TriggerSource({ children }: { children: React.ReactNode }) {
 }
 
 export function ContextMenu(props: ContextMenuProps) {
-  const anchored = <AnchoredMenu {...props} />;
+  const { href: _href, ...popup } = props;
+  const anchored = <MenuPopup {...popup} />;
   if (!contextMenuHoldIsNative()) return anchored;
 
   return (

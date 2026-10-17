@@ -64,7 +64,13 @@ export function ProgressBar({ done, total, label, color, testID, fillTestID }: P
     >
       <View
         testID={fillTestID}
-        style={[styles.fill, { backgroundColor: color ?? colors.primary, width: `${percent}%` }]}
+        style={[
+          styles.fill,
+          {
+            backgroundColor: color ?? (isDark ? darkColors : colors).controlOn,
+            width: `${percent}%`,
+          },
+        ]}
       />
     </View>
   );

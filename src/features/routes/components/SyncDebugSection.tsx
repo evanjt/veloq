@@ -4,7 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
-import { Button, IconButton, pressable, pressRipple } from '@/shared/ui';
+import { Button, pressable, pressRipple, Stepper } from '@/shared/ui';
 import { useActivities } from '@/features/activity';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
@@ -20,6 +20,9 @@ import { confirmAction, inform } from '@/shared/ui/dialog';
 
 const FORCE_SYNC_LABEL = 'Force Sync';
 const HARD_RESYNC_LABEL = 'Hard Re-sync';
+const REMOVE_COUNT_LABEL = 'Remove Activities';
+// A count of activities, one per press.
+const COUNT_SCALE = { perStored: 1, step: 1 };
 
 // ============================================================================
 // Reusable UI (matches debug.tsx patterns)
@@ -401,33 +404,20 @@ export function SyncDebugSection() {
         <View style={styles.removeSection}>
           <View style={styles.stepperRow}>
             <Text style={[styles.stepperLabel, isDark && styles.textLight]}>
-              Remove Activities:
+              {REMOVE_COUNT_LABEL}
             </Text>
-            <View style={styles.stepper}>
-              <IconButton
-                variant="secondary"
-                onPress={() => setRemoveCount(Math.max(1, removeCount - 1))}
-                accessibilityLabel={i18n.t('stats.fewerActivities')}
-              >
-                <MaterialCommunityIcons
-                  name="minus"
-                  size={iconSize.sm}
-                  color={isDark ? darkColors.textPrimary : colors.textPrimary}
-                />
-              </IconButton>
-              <Text style={[styles.stepperValue, isDark && styles.textLight]}>{removeCount}</Text>
-              <IconButton
-                variant="secondary"
-                onPress={() => setRemoveCount(Math.min(50, removeCount + 1))}
-                accessibilityLabel={i18n.t('stats.moreActivities')}
-              >
-                <MaterialCommunityIcons
-                  name="plus"
-                  size={iconSize.sm}
-                  color={isDark ? darkColors.textPrimary : colors.textPrimary}
-                />
-              </IconButton>
-            </View>
+            <Stepper
+              testID="sync-debug-remove-count"
+              accessibilityLabel={REMOVE_COUNT_LABEL}
+              decrementLabel={i18n.t('stats.fewerActivities')}
+              incrementLabel={i18n.t('stats.moreActivities')}
+              value={removeCount}
+              min={1}
+              max={50}
+              scale={COUNT_SCALE}
+              format={String}
+              onChange={setRemoveCount}
+            />
           </View>
           <Button
             variant="destructive"
@@ -500,10 +490,9 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   statValue: {
-    fontSize: typography.bodyCompact.fontSize,
+    ...typography.bodyCompactBold,
     fontFamily: typography.code.fontFamily,
     color: colors.textPrimary,
-    fontWeight: '600',
     flexShrink: 1,
     textAlign: 'right',
   },
@@ -565,19 +554,6 @@ const styles = StyleSheet.create({
   stepperLabel: {
     ...typography.bodySmallBold,
     color: colors.textPrimary,
-  },
-  stepper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  stepperValue: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '700',
-    fontFamily: typography.code.fontFamily,
-    color: colors.textPrimary,
-    minWidth: 28,
-    textAlign: 'center',
   },
   hardResyncSection: {
     marginTop: spacing.md,

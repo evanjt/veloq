@@ -17,30 +17,68 @@
  * Going to the background is the last moment the process is reliably alive, so
  * the root layout's AppState listener runs the background work (the basemap
  * sidecar flush, the autobackup check, the widget refresh) then and only then.
+ *
+ * A sign-in from the login screen, by either route, lands on the Feed once: the
+ * root layout is the one owner of the way in, so the hook that signed the
+ * athlete in issues no navigation of its own beside it, and the login screen is
+ * not remounted on the way.
  */
 import React from 'react';
 import { Alert, AppState } from 'react-native';
 import * as Notice from '@/shared/ui/Notice';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as SecureStore from 'expo-secure-store';
-import { render, waitFor } from '@testing-library/react-native';
+import { act, render, waitFor } from '@testing-library/react-native';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { CallKind, validateCredentials } from 'veloqrs';
 
 import { AuthGate } from '@/app/_layout';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { handleAppBackground } from '@/shared/app/appBackground';
+import * as storage from '@/shared/storage';
 import { rememberStoredActivityCount } from '@/shared/storage';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
+import { useApiKeyLogin } from '@/features/auth/hooks/useApiKeyLogin';
+import { useOAuthLogin } from '@/features/auth/hooks/useOAuthLogin';
+import * as oauth from '@/features/auth/lib/oauth';
 
 jest.mock('@/shared/storage', () => ({
   ...jest.requireActual('@/shared/storage'),
   rememberStoredActivityCount: jest.fn(async () => undefined),
 }));
 
-const mockDismissTo = jest.fn();
-jest.mock('expo-router', () => ({
-  ...jest.requireActual('expo-router'),
-  useSegments: () => ['login'],
-  useRouter: () => ({ replace: jest.fn(), dismissTo: mockDismissTo }),
+// One router, as expo-router hands out: the hooks reach it through the module's
+// `router` and the root layout through `useRouter`.
+jest.mock('expo-router', () => {
+  const router = {
+    replace: jest.fn(),
+    dismissTo: jest.fn(),
+    dismissAll: jest.fn(),
+    push: jest.fn(),
+    navigate: jest.fn(),
+    canGoBack: jest.fn(() => false),
+  };
+  return {
+    ...jest.requireActual('expo-router'),
+    router,
+    useSegments: () => ['login'],
+    useRouter: () => router,
+  };
+});
+const mockRouter = jest.requireMock<{ router: Record<string, jest.Mock> }>('expo-router').router;
+const mockDismissTo = mockRouter.dismissTo;
+
+jest.mock('veloqrs', () => ({
+  ...require('../__shared__/veloqrsStub').withOverrides(),
+  validateCredentials: jest.fn(),
+}));
+jest.mock('@/features/auth/lib/loginLibrary', () => ({
+  resolveLoginLibrary: jest.fn(async () => 'keep'),
+}));
+jest.mock('@/shared/app/NetworkContext', () => ({
+  ...jest.requireActual('@/shared/app/NetworkContext'),
+  useNetwork: () => ({ isOnline: true }),
+  useIsOnline: () => true,
 }));
 
 const mockPrompt = jest.fn();
@@ -328,7 +366,9 @@ describe('the decisions zip a device backup brought back', () => {
 });
 
 it('runs the background work when the app goes to the background, and not on a return', async () => {
-  const addListener = jest.spyOn(AppState, 'addEventListener');
+  // react-native's own mock, read rather than spied: restoring a spy on a mock
+  // strips its implementation, and every later render then gets no subscription.
+  const addListener = jest.mocked(AppState.addEventListener);
   await render(<AuthGate>{null}</AuthGate>);
   await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/'));
 
@@ -343,5 +383,101 @@ it('runs the background work when the app goes to the background, and not on a r
 
   fire('background');
   expect(handleAppBackground).toHaveBeenCalledTimes(1);
-  addListener.mockRestore();
+});
+
+describe('a sign-in from the login screen', () => {
+  let mounts: number;
+  let screen: { oauth: () => Promise<void>; apiKey: (key: string) => Promise<void> };
+
+  function LoginScreen() {
+    const setError = React.useCallback(() => {}, []);
+    const { handleOAuthLogin } = useOAuthLogin({ setError });
+    const { handleApiKeyLogin } = useApiKeyLogin({ setError });
+    screen = { oauth: handleOAuthLogin, apiKey: handleApiKeyLogin };
+    React.useEffect(() => {
+      mounts += 1;
+    }, []);
+    return null;
+  }
+
+  async function renderLogin() {
+    await render(
+      <QueryClientProvider client={new QueryClient()}>
+        <AuthGate>
+          <LoginScreen />
+        </AuthGate>
+      </QueryClientProvider>
+    );
+  }
+
+  /** Every navigation that took the athlete to the Feed, whichever call made it. */
+  function toFeed(): number {
+    return [mockRouter.replace, mockDismissTo, mockRouter.push, mockRouter.navigate]
+      .flatMap((call) => call.mock.calls)
+      .filter(([path]) => path === '/').length;
+  }
+
+  beforeEach(() => {
+    mounts = 0;
+    useAuthStore.setState({
+      isLoading: false,
+      isAuthenticated: false,
+      authMethod: null,
+      apiKey: null,
+      accessToken: null,
+      athleteId: null,
+      isDemoMode: false,
+    } as never);
+    jest.spyOn(storage, 'clearAuthOnly').mockResolvedValue(undefined);
+    jest.spyOn(storage, 'clearAccountData').mockResolvedValue(undefined);
+  });
+
+  it('through intervals.icu lands on the Feed once', async () => {
+    jest.spyOn(oauth, 'isOAuthConfigured').mockReturnValue(true);
+    jest.spyOn(oauth, 'getAppRedirectUri').mockReturnValue('veloq://oauth/callback');
+    jest.spyOn(oauth, 'startOAuthFlow').mockResolvedValue({
+      outcome: 'success',
+      url: 'veloq://oauth/callback?success=true&code=onetime&state=s',
+    } as never);
+    jest.spyOn(oauth, 'handleOAuthCallback').mockResolvedValue({
+      access_token: 'token',
+      athlete_id: 'i1',
+      athlete_name: 'Ana',
+      scope: 'ACTIVITY:READ',
+    } as never);
+    await renderLogin();
+
+    await act(() => screen.oauth());
+
+    await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/'));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 150)));
+    expect(useAuthStore.getState().authMethod).toBe('oauth');
+    expect(toFeed()).toBe(1);
+    expect(mounts).toBe(1);
+  });
+
+  it('with an API key lands on the Feed once', async () => {
+    jest.mocked(validateCredentials).mockResolvedValue({ kind: CallKind.Ok, id: 'i1' } as never);
+    await renderLogin();
+
+    await act(() => screen.apiKey('a-valid-key'));
+
+    await waitFor(() => expect(mockDismissTo).toHaveBeenCalledWith('/'));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 150)));
+    expect(useAuthStore.getState().authMethod).toBe('apiKey');
+    expect(toFeed()).toBe(1);
+    expect(mounts).toBe(1);
+  });
+
+  it('holds the way in while the athlete is asked whose library it is', async () => {
+    mockEngineHolder.engine = engine({ getSetting: jest.fn(() => 'i-other') });
+    jest.mocked(validateCredentials).mockResolvedValue({ kind: CallKind.Ok, id: 'i1' } as never);
+    await renderLogin();
+
+    await act(() => screen.apiKey('a-valid-key'));
+
+    await waitFor(() => expect(mockPrompt).toHaveBeenCalled());
+    await act(() => new Promise((resolve) => setTimeout(resolve, 150)));
+    expect(toFeed()).toBe(0);
+  });
 });

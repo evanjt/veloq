@@ -1,11 +1,9 @@
 import React from 'react';
-import { StyleSheet, View, Pressable } from 'react-native';
-import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { ChromeIcon } from '@/shared/ui/ChromeIcon';
+import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
-import { colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
+import { Button } from '@/shared/ui/Button';
+import { InlineNotice } from '@/shared/ui/InlineNotice';
+import { layout, spacing } from '@/theme';
 import {
   SectionPerformanceSection,
   type PerformanceSubject,
@@ -78,7 +76,7 @@ export interface SectionContentAreaProps {
   /** The range and sport hold excluded attempts the eye toggle can show. */
   hasExcluded: boolean;
   sectionTimeRange: SectionTimeRange;
-  onActivitySelect: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
+  onActivitySelect: (activityId: string | null, activityPoints?: RoutePoint[], date?: Date) => void;
   onExcludeActivity: (activityId: string) => void;
   onIncludeActivity: (activityId: string) => void;
   onSetAsReference: (activityId: string) => void;
@@ -139,54 +137,33 @@ export function SectionContentArea({
 
   return (
     <View style={styles.contentSection}>
-      {/* Disabled banner */}
       {isSectionDisabled && onToggleDisable ? (
-        <Pressable
+        <InlineNotice
           testID="section-disabled-banner"
-          style={pressable([styles.disabledBanner, isDark && styles.disabledBannerDark])}
-          accessibilityRole="button"
-          accessibilityLabel={t('sections.restoreSection')}
-          onPress={onToggleDisable}
-          android_ripple={pressRipple}
-        >
-          <ChromeIcon
-            name="delete"
-            size={iconSize.md}
-            color={isDark ? darkColors.warningAmber : colors.warningAmber}
-          />
-          <Text
-            style={[
-              styles.disabledBannerText,
-              { color: isDark ? darkColors.warningAmber : colors.warningAmber },
-            ]}
-          >
-            {t('sections.removedBanner')}
-          </Text>
-        </Pressable>
+          tone="warning"
+          icon="delete"
+          title={t('sections.sectionRemoved')}
+          action={
+            <Button
+              testID="section-disabled-banner-restore"
+              label={t('sections.restoreSection')}
+              onPress={onToggleDisable}
+              variant="ghost"
+              size="sm"
+            />
+          }
+        />
       ) : null}
 
-      {/* Merge candidates banner */}
       {mergeCandidates && mergeCandidates.length > 0 && onMergePress ? (
-        <Pressable
+        <InlineNotice
           testID="section-merge-banner"
-          style={pressable([styles.mergeBanner, isDark && styles.mergeBannerDark])}
-          accessibilityRole="button"
-          accessibilityLabel={t('sections.mergeCandidatesTitle')}
+          tone="info"
+          icon="call-merge"
+          title={t('sections.similarNearbyCount', { count: mergeCandidates.length })}
           onPress={onMergePress}
-          android_ripple={pressRipple}
-        >
-          <MaterialCommunityIcons name="call-merge" size={iconSize.md} color={colors.info} />
-          <Text style={[styles.mergeBannerText, isDark && styles.mergeBannerTextDark]}>
-            {t('sections.similarNearbyCount', {
-              count: mergeCandidates.length,
-            })}
-          </Text>
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={iconSize.md}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-        </Pressable>
+          announce={false}
+        />
       ) : null}
 
       {/* Performance chart with eye toggle */}
@@ -267,47 +244,5 @@ const styles = StyleSheet.create({
     padding: layout.screenPadding,
     paddingTop: spacing.lg,
     gap: spacing.md,
-  },
-  disabledBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.warning + '15',
-    borderWidth: stroke.one,
-    borderColor: colors.warning + '30',
-    borderRadius: layout.borderRadius,
-    padding: spacing.md,
-  },
-  disabledBannerDark: {
-    backgroundColor: colors.warning + '20',
-    borderColor: colors.warning + '40',
-  },
-  // The colour is the consumer's: amber has to be the deep tone on white and
-  // the light tone on near-black, and a stylesheet cannot read the theme.
-  disabledBannerText: {
-    ...typography.bodySmall,
-    flex: 1,
-  },
-  mergeBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.info + '10',
-    borderWidth: stroke.one,
-    borderColor: colors.info + '25',
-    borderRadius: layout.borderRadius,
-    padding: spacing.md,
-  },
-  mergeBannerDark: {
-    backgroundColor: colors.info + '15',
-    borderColor: colors.info + '30',
-  },
-  mergeBannerText: {
-    ...typography.bodySmall,
-    flex: 1,
-    color: colors.infoText,
-  },
-  mergeBannerTextDark: {
-    color: darkColors.infoText,
   },
 });

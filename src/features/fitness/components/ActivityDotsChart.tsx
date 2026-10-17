@@ -181,6 +181,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
     accessibilityProps,
   } = useChartGestures<DotData>({
     data: dotData,
+    accessibilityLabel: t('fitness.daysTrained'),
     onSelect: handleSelect,
     onInteractionChange: handleInteractionChange,
     sharedSelectedIdx,
@@ -434,8 +435,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
 const styles = StyleSheet.create({
   container: {},
   stripTitle: {
-    ...typography.bodySmall,
-    fontWeight: '600',
+    ...typography.bodySmallBold,
     color: colors.textPrimary,
     marginBottom: spacing.xs,
   },

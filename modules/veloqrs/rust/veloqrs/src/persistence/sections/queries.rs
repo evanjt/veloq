@@ -1154,6 +1154,14 @@ pub(crate) mod pooled {
             .collect();
         matches.sort_by_key(|(_, portion)| portion.start_index);
         let names = crate::persistence::sections::named::pooled::overlay_names(conn);
+        // Distance ridden to each point, so a pass is placed along the ride in
+        // metres rather than as a share of points, which recording density skews.
+        let ridden: Vec<f64> = std::iter::once(0.0)
+            .chain(track.windows(2).scan(0.0, |total, pair| {
+                *total += tracematch::geo_utils::haversine_distance(&pair[0], &pair[1]);
+                Some(*total)
+            }))
+            .collect();
 
         matches
             .into_iter()
@@ -1176,6 +1184,10 @@ pub(crate) mod pooled {
                     match_quality,
                     same_direction: portion.direction != tracematch::Direction::Reverse,
                     distance_meters: portion.distance_meters,
+                    start_distance_meters: ridden
+                        .get(portion.start_index as usize)
+                        .copied()
+                        .unwrap_or(0.0),
                 }
             })
             .collect()

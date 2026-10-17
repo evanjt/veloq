@@ -17,6 +17,7 @@ export {
   FitnessChartCard,
   PerformanceCurveSection,
   FitnessTrendSections,
+  FitnessDefinitionsCard,
 } from './components/sections';
 
 export {

@@ -53,6 +53,7 @@ import {
   pressable,
   pressRipple,
   pressRippleOver,
+  useLargeText,
 } from '@/shared/ui';
 import { Card } from '@/shared/ui/Card';
 import { contextMenuHoldIsNative } from '@/shared/ui/ContextMenu';
@@ -109,7 +110,7 @@ const WHITE_TEXT = {
   text: ink.white,
   textSecondary: colorWithOpacity(ink.white, 0.85),
   dot: colorWithOpacity(ink.white, opacity.disabled),
-  divider: colorWithOpacity(ink.white, 0.15),
+  divider: colorWithOpacity(ink.white, opacity.tint2),
   secondaryText: colorWithOpacity(ink.white, 0.9),
   shadow: colorWithOpacity(ink.black, 0.8),
 };
@@ -118,8 +119,8 @@ const WHITE_TEXT = {
 const DARK_TEXT = {
   text: colors.textPrimary,
   textSecondary: colors.textSecondary,
-  dot: colorWithOpacity(ink.black, 0.25),
-  divider: colorWithOpacity(ink.black, 0.1),
+  dot: colorWithOpacity(ink.black, opacity.tint4),
+  divider: colorWithOpacity(ink.black, opacity.tint2),
   secondaryText: colors.textSecondary,
   shadow: colorWithOpacity(ink.white, 0.8),
 };
@@ -211,6 +212,7 @@ export const ActivityCard = React.memo(
     const palette = themePalette(isDark);
     const isMetric = useMetricSystem();
     const [menuVisible, setMenuVisible] = useState(false);
+    const largeText = useLargeText();
     const averageHeartRate = activity.average_heartrate;
     const averagePower = activity.icu_average_watts;
     useEffect(() => {
@@ -289,8 +291,19 @@ export const ActivityCard = React.memo(
     const compactMutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
     const compactDotColor = isDark
       ? colorWithOpacity(ink.white, opacity.tint4)
-      : colorWithOpacity(ink.black, 0.25);
-    const compactDividerColor = isDark ? darkColors.border : colorWithOpacity(ink.black, 0.1);
+      : colorWithOpacity(ink.black, opacity.tint4);
+    const compactDividerColor = isDark
+      ? darkColors.border
+      : colorWithOpacity(ink.black, opacity.tint2);
+    // Text on the card's own surface, where nothing behind it needs a shadow.
+    const surfaceText = {
+      text: compactTextColor,
+      textSecondary: compactMutedColor,
+      dot: compactDotColor,
+      divider: compactDividerColor,
+      secondaryText: compactMutedColor,
+      shadow: 'transparent',
+    };
 
     // Shared secondary stats row used by both compact and full card
     const secondaryStatsRow = (textColor: string) => (
@@ -499,126 +512,351 @@ export const ActivityCard = React.memo(
       );
     }
 
+    // Past the dense cap the text outgrows any fixed box, so the name sits above
+    // the map and the stats below it, on the card's own surface, and the card
+    // grows with them. Below the cap both ride the full-bleed map over its scrims.
+    const textTheme = largeText ? surfaceText : theme;
+    const StatValue = largeText ? FitText : RNText;
+
+    const cardLabel = activityCardA11yLabel(
+      {
+        activity,
+        isMetric,
+        sectionHighlights,
+        routeHighlight,
+        newGround,
+      },
+      t
+    );
+
+    const routeChip =
+      routeHighlight && showsRouteChip ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={composeAccessibilityLabel(
+            t('activityDetail.tabs.route'),
+            routeHighlight.routeName,
+            routeChipSpeech(routeHighlight, t)
+          )}
+          testID={`activity-card-${activity.id}-route-chip`}
+          onPress={() => openActivity('routes')}
+          hitSlop={CHIP_SLOP}
+          style={pressable([
+            styles.routeTrendBadge,
+            largeText && styles.flowRouteChip,
+            routeHighlight.isPr
+              ? isDark
+                ? styles.routeTrendBadgePrDark
+                : styles.routeTrendBadgePrLight
+              : preferOpaqueChrome
+                ? styles.routeTrendBadgeDeltaOpaque
+                : styles.routeTrendBadgeDelta,
+          ])}
+          android_ripple={pressRipple}
+        >
+          {routeHighlight.isPr ? (
+            <>
+              <MaterialCommunityIcons
+                name="trophy"
+                size={iconSize.xs}
+                color={colors.textOnBright}
+              />
+              {formatPrImprovement(routeHighlight.prImprovementSeconds) != null && (
+                <RNText
+                  testID={`activity-card-${activity.id}-route-improvement`}
+                  style={[styles.routeTrendBadgeText, styles.routeTrendBadgePrText]}
+                >
+                  {formatPrImprovement(routeHighlight.prImprovementSeconds)}
+                </RNText>
+              )}
+            </>
+          ) : routeHighlight.timeDeltaSeconds != null ? (
+            <RNText style={styles.routeTrendBadgeText}>
+              {formatPrDelta(routeHighlight.timeDeltaSeconds)}
+            </RNText>
+          ) : null}
+        </Pressable>
+      ) : null;
+
+    // Sport icon + name/date stacked, with the route trend beside them over the
+    // map and under them in flow.
+    const header = (
+      <>
+        <View style={styles.overlayHeader} pointerEvents="box-none">
+          <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
+            <MaterialCommunityIcons name={iconName} size={iconSize.sm} color={colors.textOnDark} />
+          </View>
+          <View style={styles.overlayTitleColumn}>
+            <NameText
+              style={[
+                styles.overlayName,
+                { color: textTheme.text, textShadowColor: textTheme.shadow },
+              ]}
+            >
+              {activity.name}
+            </NameText>
+            <FitText
+              style={[
+                styles.overlayDateSubtitle,
+                { color: textTheme.textSecondary, textShadowColor: textTheme.shadow },
+              ]}
+            >
+              {formatRelativeDateTime(activity.start_date_local)}
+            </FitText>
+          </View>
+          {largeText ? null : routeChip}
+        </View>
+        {largeText ? routeChip : null}
+      </>
+    );
+
+    // All stats unified: the primary row, the zone strip and the secondary row.
+    const statsBlock = (
+      <>
+        {/* Primary stats: a second touch area for the card's own press,
+              spoken in the card's label. The section chip inside is
+              reached through the card's actions. */}
+        <Pressable
+          accessible={false}
+          accessibilityRole="none"
+          onPress={handlePress}
+          style={pressable([styles.primaryRow, largeText && styles.flowPrimaryRow])}
+          android_ripple={pressRipple}
+        >
+          <View
+            style={[styles.primaryStats, largeText && styles.flowPrimaryStats]}
+            importantForAccessibility="no-hide-descendants"
+            accessibilityElementsHidden
+          >
+            {stats.distance != null && (
+              <>
+                <StatValue
+                  testID={`activity-card-${activity.id}-distance`}
+                  style={[
+                    styles.primaryStatValue,
+                    { color: textTheme.text, textShadowColor: textTheme.shadow },
+                  ]}
+                >
+                  {stats.distance}
+                </StatValue>
+                <RNText style={[styles.statDot, { color: textTheme.dot }]}>·</RNText>
+              </>
+            )}
+            <StatValue
+              testID={`activity-card-${activity.id}-duration`}
+              style={[
+                styles.primaryStatValue,
+                { color: textTheme.text, textShadowColor: textTheme.shadow },
+              ]}
+            >
+              {stats.duration}
+            </StatValue>
+            {stats.elevation != null && (
+              <>
+                <RNText style={[styles.statDot, { color: textTheme.dot }]}>·</RNText>
+                <StatValue
+                  testID={`activity-card-${activity.id}-elevation`}
+                  style={[
+                    styles.primaryStatValue,
+                    { color: textTheme.text, textShadowColor: textTheme.shadow },
+                  ]}
+                >
+                  {stats.elevation}
+                </StatValue>
+              </>
+            )}
+          </View>
+          {/* Right column: ground coverage, section trend indicators + PR counts. */}
+          {newGround?.badge || showsSectionChip ? (
+            <View style={[styles.rightColumn, largeText && styles.flowRightColumn]}>
+              {newGround?.badge ? (
+                <View
+                  testID={`activity-card-${activity.id}-new-ground-pill`}
+                  style={[styles.trendPill, styles.newGroundPill]}
+                  importantForAccessibility="no-hide-descendants"
+                  accessibilityElementsHidden
+                >
+                  <MaterialCommunityIcons
+                    name="compass-outline"
+                    size={iconSize.xs}
+                    color={ink.white}
+                  />
+                  <RNText style={[styles.trendCount, { color: ink.white }]}>
+                    {newGround.badge === 'entirelyNew'
+                      ? t('activity.newGround')
+                      : t('activity.mostlyNewGround')}
+                  </RNText>
+                </View>
+              ) : null}
+              {sectionHighlights && showsSectionChip ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={composeAccessibilityLabel(
+                    t('activityDetail.tabs.sections'),
+                    sectionCounts.prs > 0 && t('a11y.prs', { n: sectionCounts.prs }),
+                    sectionCounts.faster > 0 && t('a11y.faster', { n: sectionCounts.faster }),
+                    sectionCounts.slower > 0 && t('a11y.slower', { n: sectionCounts.slower })
+                  )}
+                  testID={`activity-card-${activity.id}-section-chip`}
+                  onPress={() => openActivity('sections')}
+                  hitSlop={CHIP_SLOP}
+                  style={pressable(styles.trendBadge)}
+                  android_ripple={pressRipple}
+                >
+                  {(() => {
+                    const { faster: improving, slower: declining, prs: prCount } = sectionCounts;
+                    return (
+                      <>
+                        {prCount > 0 && (
+                          <View
+                            testID={`activity-card-${activity.id}-pr-pill`}
+                            style={[
+                              styles.trendPill,
+                              isDark ? styles.prPillDark : styles.prPillLight,
+                            ]}
+                          >
+                            <MaterialCommunityIcons
+                              name="trophy"
+                              size={iconSize.xs}
+                              color={colors.textOnBright}
+                            />
+                            <RNText style={[styles.trendCount, { color: colors.textOnBright }]}>
+                              {prCount}
+                            </RNText>
+                          </View>
+                        )}
+                        {improving > 0 && (
+                          <View
+                            testID={`activity-card-${activity.id}-improving-pill`}
+                            style={[
+                              styles.trendPill,
+                              isDark ? styles.improvingPillDark : styles.improvingPillLight,
+                            ]}
+                          >
+                            <MaterialCommunityIcons
+                              name="trending-up"
+                              size={iconSize.xs}
+                              color={ink.white}
+                            />
+                            <RNText style={[styles.trendCount, { color: ink.white }]}>
+                              {improving}
+                            </RNText>
+                          </View>
+                        )}
+                        {declining > 0 && (
+                          <View
+                            testID={`activity-card-${activity.id}-declining-pill`}
+                            style={[
+                              styles.trendPill,
+                              isDark ? styles.decliningPillDark : styles.decliningPillLight,
+                            ]}
+                          >
+                            <MaterialCommunityIcons
+                              name="trending-down"
+                              size={iconSize.xs}
+                              color={ink.white}
+                            />
+                            <RNText style={[styles.trendCount, { color: ink.white }]}>
+                              {declining}
+                            </RNText>
+                          </View>
+                        )}
+                      </>
+                    );
+                  })()}
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
+        </Pressable>
+        {activity.skyline_chart_bytes ? (
+          <SkylineBar skylineBytes={activity.skyline_chart_bytes} isDark={isDark} />
+        ) : (
+          <View style={[styles.dividerLine, { backgroundColor: textTheme.divider }]} />
+        )}
+        {secondaryStatsRow(textTheme.secondaryText)}
+      </>
+    );
+
+    const mapPreview = (
+      <ActivityMapPreview
+        activity={activity}
+        height={CARD_HEIGHT}
+        index={index}
+        snapshotRef={snapshotRef}
+        snapshotReady={snapshotReady}
+        startupTrack={startupTrack}
+      />
+    );
+
+    // Tap and hold for the whole card. The name and the stats sit above it so
+    // their own chips take the tap, and a press anywhere else lands here.
+    const pressOverlay = (
+      <Pressable
+        testID={`activity-card-${activity.id}`}
+        onPress={handlePress}
+        onLongPress={onHold}
+        delayLongPress={PREVIEW_HOLD_MS}
+        style={pressable(styles.pressableOverlay)}
+        android_ripple={pressRipple}
+        accessibilityRole="button"
+        accessibilityLabel={cardLabel}
+        {...cardActions}
+      />
+    );
+
+    if (largeText) {
+      return withMenu(
+        <View style={styles.cardWrapper}>
+          <Card variant="raised" padding="none" testID={`activity-card-${activity.id}-container`}>
+            <View style={styles.flowContainer}>
+              {pressOverlay}
+              {/* Read through the overlay's label and actions, so the name is heard once. */}
+              <View
+                testID={`activity-card-${activity.id}-header`}
+                style={styles.flowHeader}
+                pointerEvents="box-none"
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+              >
+                {header}
+              </View>
+              <View style={styles.flowMap}>{mapPreview}</View>
+              <View
+                testID="activity-card-bottom"
+                style={styles.flowBottom}
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+              >
+                {statsBlock}
+              </View>
+            </View>
+          </Card>
+        </View>,
+        true
+      );
+    }
+
     return withMenu(
       <View style={styles.cardWrapper}>
         <Card variant="raised" padding="none" testID={`activity-card-${activity.id}-container`}>
           <View style={styles.mapContainer}>
-            <ActivityMapPreview
-              activity={activity}
-              height={240}
-              index={index}
-              snapshotRef={snapshotRef}
-              snapshotReady={snapshotReady}
-              startupTrack={startupTrack}
-            />
+            {mapPreview}
+            {pressOverlay}
 
-            {/* Pressable overlay for tap/long-press */}
-            <Pressable
-              testID={`activity-card-${activity.id}`}
-              onPress={handlePress}
-              onLongPress={onHold}
-              delayLongPress={PREVIEW_HOLD_MS}
-              style={pressable(styles.pressableOverlay)}
-              android_ripple={pressRipple}
-              accessibilityRole="button"
-              accessibilityLabel={activityCardA11yLabel(
-                {
-                  activity,
-                  isMetric,
-                  sectionHighlights,
-                  routeHighlight,
-                  newGround,
-                },
-                t
-              )}
-              {...cardActions}
-            />
-
-            {/* Top gradient: sport icon + name/date stacked + route trend. Read
-                through the overlay's label and actions, so the name is heard once. */}
+            {/* Top gradient. Read through the overlay's label and actions, so
+                the name is heard once. */}
             <LinearGradient
+              testID={`activity-card-${activity.id}-header`}
               colors={theme.top as [string, string, string]}
               style={styles.topOverlay}
               pointerEvents="box-none"
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
             >
-              <View style={styles.overlayHeader} pointerEvents="box-none">
-                <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
-                  <MaterialCommunityIcons
-                    name={iconName}
-                    size={iconSize.sm}
-                    color={colors.textOnDark}
-                  />
-                </View>
-                <View style={styles.overlayTitleColumn}>
-                  <NameText
-                    style={[
-                      styles.overlayName,
-                      { color: theme.text, textShadowColor: theme.shadow },
-                    ]}
-                  >
-                    {activity.name}
-                  </NameText>
-                  <FitText
-                    style={[
-                      styles.overlayDateSubtitle,
-                      { color: theme.textSecondary, textShadowColor: theme.shadow },
-                    ]}
-                  >
-                    {formatRelativeDateTime(activity.start_date_local)}
-                  </FitText>
-                </View>
-                {routeHighlight && showsRouteChip ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={composeAccessibilityLabel(
-                      t('activityDetail.tabs.route'),
-                      routeHighlight.routeName,
-                      routeChipSpeech(routeHighlight, t)
-                    )}
-                    testID={`activity-card-${activity.id}-route-chip`}
-                    onPress={() => openActivity('routes')}
-                    hitSlop={CHIP_SLOP}
-                    style={pressable([
-                      styles.routeTrendBadge,
-                      routeHighlight.isPr
-                        ? isDark
-                          ? styles.routeTrendBadgePrDark
-                          : styles.routeTrendBadgePrLight
-                        : preferOpaqueChrome
-                          ? styles.routeTrendBadgeDeltaOpaque
-                          : styles.routeTrendBadgeDelta,
-                    ])}
-                    android_ripple={pressRipple}
-                  >
-                    {routeHighlight.isPr ? (
-                      <>
-                        <MaterialCommunityIcons
-                          name="trophy"
-                          size={iconSize.xs}
-                          color={colors.textOnBright}
-                        />
-                        {formatPrImprovement(routeHighlight.prImprovementSeconds) != null && (
-                          <RNText
-                            testID={`activity-card-${activity.id}-route-improvement`}
-                            style={[styles.routeTrendBadgeText, styles.routeTrendBadgePrText]}
-                          >
-                            {formatPrImprovement(routeHighlight.prImprovementSeconds)}
-                          </RNText>
-                        )}
-                      </>
-                    ) : routeHighlight.timeDeltaSeconds != null ? (
-                      <RNText style={styles.routeTrendBadgeText}>
-                        {formatPrDelta(routeHighlight.timeDeltaSeconds)}
-                      </RNText>
-                    ) : null}
-                  </Pressable>
-                ) : null}
-              </View>
+              {header}
             </LinearGradient>
 
-            {/* Bottom: all stats unified */}
             <View
               testID="activity-card-bottom"
               style={styles.bottomSection}
@@ -630,174 +868,7 @@ export const ActivityCard = React.memo(
                 style={StyleSheet.absoluteFill}
                 pointerEvents="none"
               />
-              {/* Primary stats: a second touch area for the card's own press,
-                    spoken in the card's label. The section chip inside is
-                    reached through the card's actions. */}
-              <Pressable
-                accessible={false}
-                accessibilityRole="none"
-                onPress={handlePress}
-                style={pressable(styles.primaryRow)}
-                android_ripple={pressRipple}
-              >
-                <View
-                  style={styles.primaryStats}
-                  importantForAccessibility="no-hide-descendants"
-                  accessibilityElementsHidden
-                >
-                  {stats.distance != null && (
-                    <>
-                      <RNText
-                        testID={`activity-card-${activity.id}-distance`}
-                        style={[
-                          styles.primaryStatValue,
-                          { color: theme.text, textShadowColor: theme.shadow },
-                        ]}
-                      >
-                        {stats.distance}
-                      </RNText>
-                      <RNText style={[styles.statDot, { color: theme.dot }]}>·</RNText>
-                    </>
-                  )}
-                  <RNText
-                    testID={`activity-card-${activity.id}-duration`}
-                    style={[
-                      styles.primaryStatValue,
-                      { color: theme.text, textShadowColor: theme.shadow },
-                    ]}
-                  >
-                    {stats.duration}
-                  </RNText>
-                  {stats.elevation != null && (
-                    <>
-                      <RNText style={[styles.statDot, { color: theme.dot }]}>·</RNText>
-                      <RNText
-                        testID={`activity-card-${activity.id}-elevation`}
-                        style={[
-                          styles.primaryStatValue,
-                          { color: theme.text, textShadowColor: theme.shadow },
-                        ]}
-                      >
-                        {stats.elevation}
-                      </RNText>
-                    </>
-                  )}
-                </View>
-                {/* Right column: ground coverage, section trend indicators + PR counts. */}
-                {newGround?.badge || showsSectionChip ? (
-                  <View style={styles.rightColumn}>
-                    {newGround?.badge ? (
-                      <View
-                        testID={`activity-card-${activity.id}-new-ground-pill`}
-                        style={[styles.trendPill, styles.newGroundPill]}
-                        importantForAccessibility="no-hide-descendants"
-                        accessibilityElementsHidden
-                      >
-                        <MaterialCommunityIcons
-                          name="compass-outline"
-                          size={iconSize.xs}
-                          color={ink.white}
-                        />
-                        <RNText style={[styles.trendCount, { color: ink.white }]}>
-                          {newGround.badge === 'entirelyNew'
-                            ? t('activity.newGround')
-                            : t('activity.mostlyNewGround')}
-                        </RNText>
-                      </View>
-                    ) : null}
-                    {sectionHighlights && showsSectionChip ? (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={composeAccessibilityLabel(
-                          t('activityDetail.tabs.sections'),
-                          sectionCounts.prs > 0 && t('a11y.prs', { n: sectionCounts.prs }),
-                          sectionCounts.faster > 0 && t('a11y.faster', { n: sectionCounts.faster }),
-                          sectionCounts.slower > 0 && t('a11y.slower', { n: sectionCounts.slower })
-                        )}
-                        testID={`activity-card-${activity.id}-section-chip`}
-                        onPress={() => openActivity('sections')}
-                        hitSlop={CHIP_SLOP}
-                        style={pressable(styles.trendBadge)}
-                        android_ripple={pressRipple}
-                      >
-                        {(() => {
-                          const {
-                            faster: improving,
-                            slower: declining,
-                            prs: prCount,
-                          } = sectionCounts;
-                          return (
-                            <>
-                              {prCount > 0 && (
-                                <View
-                                  testID={`activity-card-${activity.id}-pr-pill`}
-                                  style={[
-                                    styles.trendPill,
-                                    isDark ? styles.prPillDark : styles.prPillLight,
-                                  ]}
-                                >
-                                  <MaterialCommunityIcons
-                                    name="trophy"
-                                    size={iconSize.xs}
-                                    color={colors.textOnBright}
-                                  />
-                                  <RNText
-                                    style={[styles.trendCount, { color: colors.textOnBright }]}
-                                  >
-                                    {prCount}
-                                  </RNText>
-                                </View>
-                              )}
-                              {improving > 0 && (
-                                <View
-                                  testID={`activity-card-${activity.id}-improving-pill`}
-                                  style={[
-                                    styles.trendPill,
-                                    isDark ? styles.improvingPillDark : styles.improvingPillLight,
-                                  ]}
-                                >
-                                  <MaterialCommunityIcons
-                                    name="trending-up"
-                                    size={iconSize.xs}
-                                    color={ink.white}
-                                  />
-                                  <RNText style={[styles.trendCount, { color: ink.white }]}>
-                                    {improving}
-                                  </RNText>
-                                </View>
-                              )}
-                              {declining > 0 && (
-                                <View
-                                  testID={`activity-card-${activity.id}-declining-pill`}
-                                  style={[
-                                    styles.trendPill,
-                                    isDark ? styles.decliningPillDark : styles.decliningPillLight,
-                                  ]}
-                                >
-                                  <MaterialCommunityIcons
-                                    name="trending-down"
-                                    size={iconSize.xs}
-                                    color={ink.white}
-                                  />
-                                  <RNText style={[styles.trendCount, { color: ink.white }]}>
-                                    {declining}
-                                  </RNText>
-                                </View>
-                              )}
-                            </>
-                          );
-                        })()}
-                      </Pressable>
-                    ) : null}
-                  </View>
-                ) : null}
-              </Pressable>
-              {activity.skyline_chart_bytes ? (
-                <SkylineBar skylineBytes={activity.skyline_chart_bytes} isDark={isDark} />
-              ) : (
-                <View style={[styles.dividerLine, { backgroundColor: theme.divider }]} />
-              )}
-              {secondaryStatsRow(theme.secondaryText)}
+              {statsBlock}
             </View>
           </View>
         </Card>
@@ -862,6 +933,41 @@ const styles = StyleSheet.create({
     position: 'relative',
     height: CARD_HEIGHT,
   },
+  // Past the dense cap: name, map and stats stacked in the card's flow.
+  flowContainer: {
+    position: 'relative',
+  },
+  flowHeader: {
+    paddingTop: spacing.smPlus,
+    paddingHorizontal: spacing.smPlus,
+    paddingBottom: spacing.sm,
+    zIndex: ABOVE_PRESS_OVERLAY,
+  },
+  flowMap: {
+    height: CARD_HEIGHT,
+  },
+  flowBottom: {
+    paddingTop: spacing.xs,
+    zIndex: ABOVE_PRESS_OVERLAY,
+  },
+  flowRouteChip: {
+    alignSelf: 'flex-start',
+    marginLeft: 0,
+    marginTop: spacing.xs,
+  },
+  flowPrimaryRow: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    paddingTop: 0,
+  },
+  flowPrimaryStats: {
+    flexWrap: 'wrap',
+  },
+  flowRightColumn: {
+    alignItems: 'flex-start',
+    marginLeft: 0,
+    marginTop: spacing.xxs,
+  },
   pressableOverlay: {
     ...StyleSheet.absoluteFill,
     zIndex: layers.raised,
@@ -908,7 +1014,7 @@ const styles = StyleSheet.create({
   },
   routeTrendBadgeDelta: {
     backgroundColor: colorWithOpacity(ink.black, 0.55),
-    borderColor: colorWithOpacity(ink.white, 0.2),
+    borderColor: colorWithOpacity(ink.white, opacity.tint3),
   },
   // Reduce Transparency or a contrast setting: the same dark chip in both
   // themes, holding its own contrast rather than taking it from the map.
@@ -1010,13 +1116,11 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
   },
   primaryStatValue: {
-    ...typography.body,
-    fontWeight: '700',
+    ...typography.bodyBold,
     ...mapTextShadow,
   },
   statDot: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '700',
+    ...typography.cardTitle,
     marginHorizontal: spacing.xsPlus,
   },
   dividerLine: {
@@ -1078,8 +1182,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xxs,
   },
   compactStatValue: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '700',
+    ...typography.bodyBold,
     letterSpacing: -0.3,
   },
 });

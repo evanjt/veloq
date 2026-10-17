@@ -174,6 +174,24 @@ fn an_empty_library_answers_no_trend_and_no_speed() {
     assert_eq!(read.swim_pace_trend.latest_pace, None);
 }
 
+#[test]
+fn the_fitness_screen_read_carries_the_fitness_and_fatigue_days_in_effect_today() {
+    let engine = PersistentEngine::in_memory().unwrap();
+    let defaults = fitness_screen_data(engine.cold_connection(), TODAY);
+    assert_eq!((defaults.fitness_days, defaults.fatigue_days), (42, 7));
+
+    engine
+        .set_setting(
+            crate::persistence::settings_keys::FITNESS_MODEL_EVENTS,
+            r#"[{"category":"FITNESS_DAYS","start_date_local":"2026-01-01T00:00:00","ctl_days":28,"atl_days":5},
+                {"category":"FITNESS_DAYS","start_date_local":"2026-12-01T00:00:00","ctl_days":35,"atl_days":10}]"#,
+        )
+        .unwrap();
+
+    let read = fitness_screen_data(engine.cold_connection(), TODAY);
+    assert_eq!((read.fitness_days, read.fatigue_days), (28, 5));
+}
+
 fn insert_activities(
     engine: &PersistentEngine,
     prefix: &str,

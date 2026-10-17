@@ -22,7 +22,7 @@ import {
 } from '@/theme';
 import { Row } from '@/shared/ui/Row';
 import { RowDivider } from '@/shared/ui/RowGroup';
-import { composeAccessibilityLabel, pressable, pressRipple } from '@/shared/ui';
+import { composeAccessibilityLabel, pressable, pressRipple, SelectButton } from '@/shared/ui';
 import { HeatmapRow } from './HeatmapRow';
 import { groupStyleState, groupTerrainState } from '../lib/mapStyleGroupState';
 import { settingsStyles } from './settingsStyles';
@@ -40,6 +40,7 @@ export const MAP_ACTIVITY_GROUPS: {
 
 const MAP_STYLES: MapStyleType[] = ['light', 'dark', 'satellite'];
 const MAP_STYLES_WITH_DEFAULT = ['default', ...MAP_STYLES] as const;
+type MapStyleChoice = (typeof MAP_STYLES_WITH_DEFAULT)[number];
 const TERRAIN_MODES: Terrain3DMode[] = ['off', 'smart', 'always'];
 
 const STYLE_LABELS: Record<string, string> = {
@@ -74,23 +75,20 @@ export function MapsSection() {
     await clearTerrainPreviews();
   };
 
-  const cycleGlobalMapStyle = async () => {
-    const current = mapPreferences.globalMapStyle ?? 'default';
-    const idx = MAP_STYLES_WITH_DEFAULT.indexOf(current);
-    const next = MAP_STYLES_WITH_DEFAULT[(idx + 1) % MAP_STYLES_WITH_DEFAULT.length];
-    await setGlobalMapStyle(next === 'default' ? null : next);
+  const chooseGlobalMapStyle = async (choice: MapStyleChoice) => {
+    await setGlobalMapStyle(choice === 'default' ? null : choice);
     await clearTerrainPreviews();
   };
 
-  const cycleActivityGroupStyle = async (types: ActivityType[]) => {
-    const current = mapPreferences.activityTypeStyles[types[0]] ?? 'default';
-    const idx = MAP_STYLES_WITH_DEFAULT.indexOf(
-      current as (typeof MAP_STYLES_WITH_DEFAULT)[number]
-    );
-    const next = MAP_STYLES_WITH_DEFAULT[(idx + 1) % MAP_STYLES_WITH_DEFAULT.length];
-    await setActivityGroupStyle(types, next === 'default' ? null : (next as MapStyleType));
+  const chooseActivityGroupStyle = async (types: ActivityType[], choice: MapStyleChoice) => {
+    await setActivityGroupStyle(types, choice === 'default' ? null : choice);
     await clearTerrainPreviews();
   };
+
+  const styleOptions = MAP_STYLES_WITH_DEFAULT.map((value) => ({
+    value,
+    label: t(STYLE_LABELS[value] as 'settings.default'),
+  }));
 
   const cycleTerrain3DMode = async () => {
     const idx = TERRAIN_MODES.indexOf(mapPreferences.terrain3DMode);
@@ -114,7 +112,6 @@ export function MapsSection() {
 
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const pillBg = isDark ? darkColors.surfaceElevated : colors.background;
-  const exploreStyleKey = STYLE_LABELS[mapPreferences.globalMapStyle ?? 'default'];
 
   const mapsContent = (
     <>
@@ -176,19 +173,13 @@ export function MapsSection() {
           <Text style={[styles.overrideLabel, isDark && settingsStyles.textLight]}>
             {t('settings.exploreMapStyle')}
           </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${t('settings.exploreMapStyle')}: ${t(exploreStyleKey as 'settings.default')}`}
-            style={pressable([styles.pill, { backgroundColor: pillBg }])}
-            hitSlop={pillSlop}
+          <SelectButton
             testID="map-style-pill-explore"
-            onPress={cycleGlobalMapStyle}
-            android_ripple={pressRipple}
-          >
-            <Text style={[styles.pillText, { color: mutedColor }]}>
-              {t(exploreStyleKey as 'settings.default')}
-            </Text>
-          </Pressable>
+            accessibilityLabel={t('settings.exploreMapStyle')}
+            value={mapPreferences.globalMapStyle ?? 'default'}
+            options={styleOptions}
+            onChange={chooseGlobalMapStyle}
+          />
         </View>
 
         <View style={styles.overrideDividerGap}>
@@ -203,9 +194,6 @@ export function MapsSection() {
             mapPreferences.terrain3DModeByType,
             mapPreferences.terrain3DMode
           );
-          const styleKey = style.mixed
-            ? 'settings.mixed'
-            : (STYLE_LABELS[style.value] ?? 'settings.default');
           const terrainKey = terrain.mixed
             ? 'settings.mixed'
             : (TERRAIN_LABELS[terrain.value] ?? 'settings.terrain3DSmart');
@@ -221,19 +209,14 @@ export function MapsSection() {
               <Text style={[styles.overrideLabel, isDark && settingsStyles.textLight]}>
                 {t(labelKey as 'sportFamilies.ride')}
               </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`${t(labelKey as 'sportFamilies.ride')}: ${t(styleKey as 'settings.default')}`}
-                style={pressable([styles.pill, { backgroundColor: pillBg }])}
-                hitSlop={pillSlop}
+              <SelectButton
                 testID={`map-style-pill-${key}`}
-                onPress={() => cycleActivityGroupStyle(types)}
-                android_ripple={pressRipple}
-              >
-                <Text style={[styles.pillText, { color: mutedColor }]}>
-                  {t(styleKey as 'settings.default')}
-                </Text>
-              </Pressable>
+                accessibilityLabel={sportName}
+                value={style.mixed ? null : style.value}
+                unmatchedLabel={t('settings.mixed')}
+                options={styleOptions}
+                onChange={(choice) => chooseActivityGroupStyle(types, choice)}
+              />
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={composeAccessibilityLabel(sportName, terrainText)}

@@ -13,8 +13,9 @@ const WEEK_LOADS = [0, 70, 45, 90, 0, 150, 80];
 /** Eight weeks: a build, a recovery week, a harder build and a taper. */
 const WEEK_SCALES = [1, 1.1, 0.7, 1.1, 1.2, 1.3, 1.35, 0.4];
 const START_LOAD = 50;
-const FITNESS_DAYS = 42;
-const FATIGUE_DAYS = 7;
+/** The demo block's time constants, which the slide's definitions state. */
+export const TOUR_FITNESS_DAYS = 42;
+export const TOUR_FATIGUE_DAYS = 7;
 
 /**
  * The demo block the slide draws: fitness and fatigue as the 42 and 7 day
@@ -27,8 +28,8 @@ export function tourTrainingBlock(): TourDay[] {
   const days: TourDay[] = [];
   WEEK_SCALES.forEach((scale, week) => {
     WEEK_LOADS.forEach((load, weekday) => {
-      fitness += (load * scale - fitness) / FITNESS_DAYS;
-      fatigue += (load * scale - fatigue) / FATIGUE_DAYS;
+      fitness += (load * scale - fitness) / TOUR_FITNESS_DAYS;
+      fatigue += (load * scale - fatigue) / TOUR_FATIGUE_DAYS;
       days.push({
         x: week * WEEK_LOADS.length + weekday,
         fitness: Math.round(fitness),

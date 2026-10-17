@@ -55,8 +55,7 @@ export const heroTextStyles = StyleSheet.create({
     ...mapTextShadow,
   },
   stat: {
-    ...typography.bodyCompact,
-    fontWeight: '600',
+    ...typography.bodyCompactBold,
     color: colors.textOnDark,
     textShadowColor: opacity.overlay.full,
     ...mapTextShadow,

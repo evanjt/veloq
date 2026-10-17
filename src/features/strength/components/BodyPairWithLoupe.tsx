@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
   loupeClip: {
     width: LOUPE_SIZE,
     height: LOUPE_SIZE,
-    borderRadius: LOUPE_SIZE / 2,
+    borderRadius: layout.borderRadiusFull,
     overflow: 'hidden',
     borderWidth: stroke.three,
     borderColor: strengthTone.primary,

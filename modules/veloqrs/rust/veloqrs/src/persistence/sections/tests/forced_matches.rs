@@ -384,6 +384,41 @@ fn the_scan_offers_each_pass_the_force_match_writes() {
     assert_eq!(offered, rows(&engine, &sid, "twice"));
 }
 
+/// The scan says where along the ride each pass starts as the distance ridden
+/// to its first point, not as a share of the track's points.
+#[test]
+fn the_scan_places_each_pass_at_the_distance_ridden_to_its_start() {
+    let (mut engine, sid) = engine_with_section(true);
+    add_ride(&mut engine, "twice", out_and_back(0.0));
+    let step_m = tracematch::geo_utils::haversine_distance(
+        &GpsPoint::new(LAT, LNG),
+        &GpsPoint::new(LAT + STEP_DEG, LNG),
+    );
+
+    let starts: Vec<(bool, f64)> = engine
+        .match_activity_to_sections("twice")
+        .into_iter()
+        .filter(|m| m.section_id == sid)
+        .map(|m| (m.same_direction, m.start_distance_meters))
+        .collect();
+
+    // Out: 40 steps of ground before the line. Back: the 280 steps out, the
+    // one step turning round, and the 40 steps back to the line's far end.
+    let expected = [(true, 40.0 * step_m), (false, 321.0 * step_m)];
+    assert_eq!(
+        starts.len(),
+        expected.len(),
+        "one pass each way: {starts:?}"
+    );
+    for ((direction, start), (want_direction, want)) in starts.iter().zip(expected) {
+        assert_eq!(*direction, want_direction);
+        assert!(
+            (start - want).abs() <= step_m,
+            "pass starts at {start} m, expected about {want} m"
+        );
+    }
+}
+
 /// Storing the ride again re-attaches it across the catalogue, and a section
 /// it was attached to by hand keeps the rows the relaxed cut gave it rather
 /// than the strict cut's, which start at other indices.

@@ -232,8 +232,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   rowTitle: {
-    ...typography.body,
-    fontWeight: '600',
+    ...typography.bodyBold,
   },
   rowMeta: {
     ...typography.caption,

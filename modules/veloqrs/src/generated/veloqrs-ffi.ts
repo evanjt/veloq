@@ -330,10 +330,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_func_get_routes_status_data(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_func_is_cutover_pending(
-    uniffi_out_err: UniffiRustCallStatus,
-  ): number;
-  ubrn_uniffi_veloqrs_fn_func_is_cutover_running(
+  ubrn_uniffi_veloqrs_fn_func_is_cutover_held(
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
   ubrn_uniffi_veloqrs_fn_func_pause_elevation_backfill(
@@ -352,6 +349,7 @@ interface NativeModuleInterface {
   ): void;
   ubrn_uniffi_veloqrs_fn_func_set_network_online(
     online: number,
+    foregrounded: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
   ubrn_uniffi_veloqrs_fn_func_start_detector_cutover(
@@ -1648,9 +1646,9 @@ interface NativeModuleInterface {
     uniffiSelf: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_veloqengine_check_record_zip(
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_check_record(
     uniffiSelf: bigint,
-    path: Uint8Array,
+    source: Uint8Array,
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_veloqengine_clear_observer(
     uniffiSelf: bigint,
@@ -1801,8 +1799,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_func_get_elevation_backfill_remaining(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_fetch_run_progress(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_routes_status_data(): number;
-  ubrn_uniffi_veloqrs_checksum_func_is_cutover_pending(): number;
-  ubrn_uniffi_veloqrs_checksum_func_is_cutover_running(): number;
+  ubrn_uniffi_veloqrs_checksum_func_is_cutover_held(): number;
   ubrn_uniffi_veloqrs_checksum_func_pause_elevation_backfill(): number;
   ubrn_uniffi_veloqrs_checksum_func_resume_elevation_backfill(): number;
   ubrn_uniffi_veloqrs_checksum_func_set_engine_log_level(): number;
@@ -2063,7 +2060,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_constructor_veloqengine_create(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_activities(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_progress(): number;
-  ubrn_uniffi_veloqrs_checksum_method_veloqengine_check_record_zip(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_check_record(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear_observer(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_dashboard_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_destroy(): number;

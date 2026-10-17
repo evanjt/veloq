@@ -30,6 +30,7 @@ function scanMatch(sectionId: string, sectionName: string | undefined): SectionM
     matchQuality: 0.95,
     sameDirection: true,
     distanceMeters: 1200,
+    startDistanceMeters: 0,
   } as SectionMatch;
 }
 
@@ -83,7 +84,9 @@ describe('scan match names', () => {
   it('speaks the name with the distance, position and match quality the row draws', () => {
     const screen = renderScan([scanMatch('s1', 'Col des Planches')]);
 
-    expect(screen.getByRole('button', { name: 'Col des Planches, 1.2 km' })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Col des Planches, 1.2 km, sections.startsAt' })
+    ).toBeTruthy();
   });
 
   it('speaks a reverse match as the reverse word, not the arrow glyph', () => {
@@ -99,7 +102,7 @@ describe('scan match names', () => {
     expect(screen.getByText('Col des Planches \u21A9')).toBeTruthy();
     expect(
       screen.getByRole('button', {
-        name: 'Col des Planches, sections.reverse, 1.2 km, sections.atPosition, sections.matchQuality',
+        name: 'Col des Planches, sections.reverse, 1.2 km, sections.startsAt, sections.matchQuality',
       })
     ).toBeTruthy();
   });

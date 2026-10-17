@@ -3,9 +3,9 @@
  * no JVM call. A reqwest release past the held line pulls the platform verifier
  * on every rustls path, and on Android that verifier needs a Kotlin component and
  * a JNI initialisation the engine does not have, so the build compiles and every
- * HTTPS request fails on the handset. Dependabot groups cargo minor bumps, and a
- * 0.x minor step is exactly that release, so the grouped pull request fails and
- * holds back every other cargo update with it.
+ * HTTPS request fails on the handset. Dependabot opens a pull request for each
+ * cargo minor bump, and a 0.x minor step is exactly that release, so that pull
+ * request fails every month.
  *
  * Expected behaviour: the guard fails when the workspace lockfile carries
  * rustls-platform-verifier, and when the cargo Dependabot entry stops ignoring
@@ -63,8 +63,8 @@ function dependabot(cargoIgnore: string[]): string {
     '    schedule:',
     '      interval: "monthly"',
     '    groups:',
-    '      cargo-minor-patch:',
-    '        update-types: ["minor", "patch"]',
+    '      cargo-patch:',
+    '        update-types: ["patch"]',
     ...(cargoIgnore.length > 0 ? ['    ignore:', ...cargoIgnore] : []),
     '',
   ].join('\n');

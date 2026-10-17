@@ -74,6 +74,18 @@ describe('SheetFrame on Android', () => {
     expect(frameStyle().paddingBottom).toBe(48);
   });
 
+  it('draws the handle in the track colour, as a slider track is drawn', async () => {
+    await render(
+      <SheetFrame name="sheets/insight">
+        <Text>body</Text>
+      </SheetFrame>
+    );
+    const handle = screen.getByTestId('sheet-handle', { includeHiddenElements: true });
+    expect(StyleSheet.flatten(handle.props.children.props.style).backgroundColor).toBe(
+      colors.track
+    );
+  });
+
   it('hides the handle from assistive technology, since it carries no action', async () => {
     await render(
       <SheetFrame name="sheets/field-picker">

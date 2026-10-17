@@ -210,7 +210,7 @@ const DataFieldTile = React.memo(function DataFieldTile({
         {
           width,
           backgroundColor: zoned
-            ? colorWithOpacity(zoneColour(zone, isDark, 'fill'), isDark ? 0.28 : opacity.tint3)
+            ? colorWithOpacity(zoneColour(zone, isDark, 'fill'), opacity.tint3)
             : isDark
               ? darkColors.surfaceElevated
               : colors.surface,
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
   },
   zone: {
     flexShrink: 0,
-    fontWeight: '700',
+    fontWeight: typography.captionBold.fontWeight,
     marginLeft: spacing.xs,
   },
 });

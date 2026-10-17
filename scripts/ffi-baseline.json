@@ -126,10 +126,7 @@
     "hasStrengthData": {
       "p95Ms": 0.4
     },
-    "isCutoverPending": {
-      "p95Ms": 0
-    },
-    "isCutoverRunning": {
+    "isCutoverHeld": {
       "p95Ms": 0
     },
     "launchData@launch": {

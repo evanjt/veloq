@@ -1,7 +1,8 @@
 /**
  * Aerobic efficiency on a section or a route: heart rate per unit of speed across every
- * counted effort that carried both signals, oldest to newest. The engine computes the
- * series and the regression in the performance read, this only plots them.
+ * counted effort in the page's range that carried both signals, oldest to newest. The
+ * engine computes the series and the regression in the performance read, this only
+ * plots them.
  */
 
 import React, { useMemo } from 'react';
@@ -142,11 +143,9 @@ export function SectionEfficiencyCard({ trend, isDark }: SectionEfficiencyCardPr
       variant="flat"
       testID="section-efficiency-card"
       accessibilityRole="summary"
+      title={t('sections.aerobicEfficiency')}
       style={{ gap: spacing.xs }}
     >
-      <Text accessibilityRole="header" style={[styles.heading, isDark && styles.headingDark]}>
-        {t('sections.aerobicEfficiency')}
-      </Text>
       <View style={styles.detailLine}>
         <Text
           testID="section-efficiency-detail"
@@ -211,13 +210,6 @@ export function SectionEfficiencyCard({ trend, isDark }: SectionEfficiencyCardPr
 }
 
 const styles = StyleSheet.create({
-  heading: {
-    ...typography.cardTitle,
-    color: colors.textPrimary,
-  },
-  headingDark: {
-    color: darkColors.textPrimary,
-  },
   detailLine: {
     flexDirection: 'row',
     alignItems: 'center',

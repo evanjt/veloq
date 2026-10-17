@@ -80,8 +80,7 @@ const makeStyles = (palette: Palette) =>
       flex: 1,
     },
     name: {
-      fontSize: typography.bodyMedium.fontSize,
-      fontWeight: '600',
+      ...typography.bodyBold,
       color: palette.textPrimary,
     },
     detail: {

@@ -69,7 +69,6 @@ beforeEach(() => {
   jest.mocked(getResolvedSharedPayloadsAsync).mockResolvedValue([]);
   imported.mockResolvedValue({
     success: true,
-    activityCount: 0,
     unplacedCount: 0,
     drops: { notRestored: 0, namesNotRestored: 0 },
   });
@@ -136,7 +135,7 @@ describe('restoring an opened file', () => {
 
   it('hands a file of no known kind over under its own name, for the import to refuse', async () => {
     mockHead = 'iVBORw0KGgo';
-    imported.mockResolvedValueOnce({ success: false, activityCount: 0, refusal: 'missing' });
+    imported.mockResolvedValueOnce({ success: false, refusal: 'missing' });
     receiveOpenedBackup('content://mail.provider/attachments/0.1/BEST/false');
 
     await applyOpenedBackup(t);

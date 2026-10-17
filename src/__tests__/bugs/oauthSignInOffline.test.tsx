@@ -38,7 +38,6 @@ jest.mock('@tanstack/react-query', () => ({
   ...jest.requireActual('@tanstack/react-query'),
   useQueryClient: () => ({}),
 }));
-jest.mock('@/shared/app/navigation', () => ({ replaceTo: jest.fn() }));
 jest.mock('@/shared/app/SyncDateRangeStore', () => ({
   useSyncDateRange: () => jest.fn(),
 }));

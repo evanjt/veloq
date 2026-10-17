@@ -21,6 +21,7 @@ import { gitFreeEnv, runGit } from '../__shared__/gitFixture';
 
 const worklets = require('../../../scripts/patch-worklets-lifecycle');
 const screens = require('../../../scripts/patch-screens-sheet-width');
+const screensHide = require('../../../scripts/patch-screens-sheet-hide');
 
 const projectRoot = path.join(__dirname, '../../..');
 const script = path.join(projectRoot, 'scripts/check-native-tree.mjs');
@@ -221,14 +222,23 @@ describe('the native build tree check', () => {
     expect(result.stderr).toContain('node scripts/patch-worklets-lifecycle.js');
   });
 
-  /** The installed screens package's patched file copied into `root`, patched or as it ships. */
-  function installScreens(root: string, patched: boolean): void {
+  /**
+   * The installed screens package's patched files copied into `root`, each patched or as it
+   * ships: the sheet width patch per `patched`, the sheet hide patch per `hidePatched`.
+   */
+  function installScreens(root: string, patched: boolean, hidePatched: boolean = patched): void {
     const from = path.join(projectRoot, 'node_modules', 'react-native-screens');
     const to = path.join(root, 'node_modules', 'react-native-screens');
-    fs.mkdirSync(path.dirname(path.join(to, screens.FILE)), { recursive: true });
+    fs.mkdirSync(path.dirname(path.join(to, 'package.json')), { recursive: true });
     fs.copyFileSync(path.join(from, 'package.json'), path.join(to, 'package.json'));
-    const shipped = screens.unpatchSource(fs.readFileSync(path.join(from, screens.FILE), 'utf8'));
-    fs.writeFileSync(path.join(to, screens.FILE), patched ? screens.patchSource(shipped) : shipped);
+    for (const [patch, on] of [
+      [screens, patched],
+      [screensHide, hidePatched],
+    ] as const) {
+      fs.mkdirSync(path.dirname(path.join(to, patch.FILE)), { recursive: true });
+      const shipped = patch.unpatchSource(fs.readFileSync(path.join(from, patch.FILE), 'utf8'));
+      fs.writeFileSync(path.join(to, patch.FILE), on ? patch.patchSource(shipped) : shipped);
+    }
   }
 
   it('lets an installation carrying the screens sheet width patch through', () => {
@@ -250,6 +260,17 @@ describe('the native build tree check', () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('react-native-screens');
     expect(result.stderr).toContain('node scripts/patch-screens-sheet-width.js');
+  });
+
+  it('refuses an installation whose screens sheet hide patch never ran', () => {
+    const { main } = pair();
+    installScreens(main, true, false);
+
+    const result = check(main);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('sheet hide patch');
+    expect(result.stderr).toContain('node scripts/patch-screens-sheet-hide.js');
   });
 
   it('refuses an installation whose worklets lifecycle repair never ran before the build lock', () => {

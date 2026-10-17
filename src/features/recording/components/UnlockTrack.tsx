@@ -28,6 +28,7 @@ import {
   darkColors,
   duration,
   iconSize,
+  layout,
   opacity,
   spacing,
   typography,
@@ -173,9 +174,9 @@ export function UnlockTrack({ onUnlock, hint = 0 }: { onUnlock: () => void; hint
 const styles = StyleSheet.create({
   track: {
     height: TRACK_HEIGHT,
-    borderRadius: TRACK_HEIGHT / 2,
+    borderRadius: layout.borderRadiusFull,
     marginHorizontal: spacing.lg,
-    backgroundColor: colorWithOpacity(colors.shadowBlack, 0.08),
+    backgroundColor: colorWithOpacity(colors.shadowBlack, opacity.tint1),
     justifyContent: 'center',
     paddingHorizontal: spacing.xs,
     overflow: 'hidden',
@@ -196,7 +197,7 @@ const styles = StyleSheet.create({
   handle: {
     width: HANDLE_SIZE,
     height: HANDLE_SIZE,
-    borderRadius: HANDLE_SIZE / 2,
+    borderRadius: layout.borderRadiusFull,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -16,7 +16,7 @@ import { Button } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 
-import { confirmLegacyImport, useImportDatabaseBackup } from '../hooks/useBackup';
+import { useImportDatabaseBackup } from '../hooks/useBackup';
 import { webdavBackend, type BackupBackend, type BackupEntry } from '../lib/autobackup/backends';
 import {
   googleDriveBackend,
@@ -135,19 +135,13 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
     async (backend: BackupBackend, entry: BackupEntry) => {
       if (running.current) return;
       running.current = true;
-      const confirmed = await confirmLegacyImport({
-        title: t('backup.importBackup'),
-        message: t('backup.legacyImportMessage'),
-        cancel: t('common.cancel'),
-      });
-      if (!confirmed) {
-        running.current = false;
-        return;
-      }
       setRestoring(entry.id);
       try {
-        showRestoreNotice(await restoreBackendEntry(backend, entry), t);
-        onRestored?.();
+        const outcome = await restoreBackendEntry(backend, entry, t);
+        if (outcome !== 'declined') {
+          showRestoreNotice(outcome, t);
+          onRestored?.();
+        }
       } catch (error) {
         const described = describeBackupFailure(error);
         inform({

@@ -126,6 +126,8 @@ const MIGRATED_KEYS = [
   'veloq-route-settings',
   'veloq-heatmap-enabled',
   'veloq-map-routes-visible',
+  'veloq-map-heatmap-visible',
+  'veloq-map-activities-visible',
   'dashboard_summary_card',
   'veloq-debug-mode',
   'veloq-tile-cache',

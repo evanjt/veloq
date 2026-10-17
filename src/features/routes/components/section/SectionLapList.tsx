@@ -15,17 +15,7 @@ import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { formatDuration, formatPower, formatFullDate } from '@/shared/format/format';
 import { Button, Card, composeAccessibilityLabel } from '@/shared/ui';
 import { tapTo } from '@/shared/app/navigation';
-import {
-  colors,
-  darkColors,
-  iconSize,
-  layout,
-  opacity,
-  slopToMinTapTarget,
-  spacing,
-  typography,
-  themePalette,
-} from '@/theme';
+import { colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 import { NameText } from '@/shared/ui/NameText';
 import { FitText } from '@/shared/ui/FitText';
@@ -42,8 +32,6 @@ export interface SectionLapListProps {
 }
 
 const RECENT_ACTIVITIES = 3;
-
-const pillHitSlop = slopToMinTapTarget(typography.caption.lineHeight + spacing.xxs * 2);
 
 function bestLapTime(r: SectionPerformanceRecord): number | null {
   let best: number | null = null;
@@ -198,49 +186,29 @@ export function SectionLapList({
                         </Text>
                       ) : null}
                       {excluded ? (
-                        <Pressable
-                          testID={`section-lap-undo-${id}`}
-                          style={pressable([styles.pill, isDark && styles.pillDark])}
-                          accessibilityRole="button"
-                          accessibilityLabel={t('sections.undoExcludeLap', {
-                            n: i + 1,
-                          })}
-                          onPress={() => onIncludeLap(lap.activityId, lap.startIndex)}
-                          hitSlop={pillHitSlop}
-                          android_ripple={pressRipple}
-                        >
-                          <Text style={[styles.pillMuted, isDark && styles.textSecondaryDark]}>
+                        <>
+                          <Text style={[styles.excludedTag, isDark && styles.textSecondaryDark]}>
                             {t('sections.lapExcluded')}
                           </Text>
-                          <Text
-                            style={[styles.pillText, isDark && { color: darkColors.actionLink }]}
-                          >
-                            {t('sections.undoExclude')}
-                          </Text>
-                        </Pressable>
-                      ) : (
-                        <Pressable
-                          testID={`section-lap-exclude-${id}`}
-                          style={pressable([styles.pill, isDark && styles.pillDark])}
-                          accessibilityRole="button"
-                          accessibilityLabel={t('sections.excludeLapNumber', {
-                            n: i + 1,
-                          })}
-                          onPress={() => onExcludeLap(lap.activityId, lap.startIndex)}
-                          hitSlop={pillHitSlop}
-                          android_ripple={pressRipple}
-                        >
-                          <MaterialCommunityIcons
-                            name="eye-off-outline"
-                            size={iconSize.xs}
-                            color={themePalette(isDark).primary}
+                          <Button
+                            testID={`section-lap-undo-${id}`}
+                            label={t('sections.undoExclude')}
+                            accessibilityLabel={t('sections.undoExcludeLap', { n: i + 1 })}
+                            variant="ghost"
+                            size="sm"
+                            onPress={() => onIncludeLap(lap.activityId, lap.startIndex)}
                           />
-                          <Text
-                            style={[styles.pillText, isDark && { color: darkColors.actionLink }]}
-                          >
-                            {t('sections.excludeLap')}
-                          </Text>
-                        </Pressable>
+                        </>
+                      ) : (
+                        <Button
+                          testID={`section-lap-exclude-${id}`}
+                          label={t('sections.excludeLap')}
+                          accessibilityLabel={t('sections.excludeLapNumber', { n: i + 1 })}
+                          variant="ghost"
+                          size="sm"
+                          icon="eye-off-outline"
+                          onPress={() => onExcludeLap(lap.activityId, lap.startIndex)}
+                        />
                       )}
                     </View>
                   );
@@ -288,18 +256,7 @@ const styles = StyleSheet.create({
   lapLabel: { ...typography.bodySmall, color: colors.textPrimary, flex: 1 },
   lapTime: { ...typography.metricValue, color: colors.textPrimary },
   lapPower: { ...typography.caption, color: colors.textSecondary },
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
-    borderRadius: layout.borderRadiusLg,
-    backgroundColor: colors.background,
-  },
-  pillDark: { backgroundColor: darkColors.surfaceElevated },
-  pillText: { ...typography.caption, color: colors.actionLink },
-  pillMuted: { ...typography.caption, color: colors.textSecondary },
+  excludedTag: { ...typography.caption, color: colors.textSecondary },
   textDark: { color: darkColors.textPrimary },
   textSecondaryDark: { color: darkColors.textSecondary },
 });

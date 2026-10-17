@@ -1,11 +1,11 @@
 import { useTabFirstFrame } from '@/shared/debug/tabSwitchTiming';
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
-import { View, StyleSheet, RefreshControl } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
 import { ScrollView } from 'react-native-gesture-handler';
 import {
   Card,
   ChartSkeleton,
-  ExplanationCard,
   screenListInsets,
   readableColumn,
   ScreenSafeAreaView,
@@ -14,11 +14,11 @@ import {
 } from '@/shared/ui';
 import { logScreenRender, logMemory } from '@/shared/debug/renderTimer';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
-import { useTranslation } from 'react-i18next';
 import {
   FitnessChartCard,
   PerformanceCurveSection,
   FitnessTrendSections,
+  FitnessDefinitionsCard,
   TimeRangeSelector,
   SportToggleSelector,
   BestEffortsHeaderButton,
@@ -27,14 +27,12 @@ import {
   useFitnessComputations,
   useFitnessScreenData,
   useFitnessWindow,
-  FORM_ZONE_COLORS,
   useSportPreference,
   type PrimarySport,
 } from '@/features/fitness';
 import { timeRangeToDays } from '@/features/wellness';
 import { useTheme, useCollapsibleSections } from '@/shared/app';
-import { INTERVALS_URLS } from '@/shared/app/constants';
-import { colors, spacing, layout, themePalette } from '@/theme';
+import { spacing, layout } from '@/theme';
 import { createSharedStyles } from '@/styles';
 
 import {
@@ -86,9 +84,7 @@ function FitnessScreenContent() {
     };
   }, []);
 
-  const { t } = useTranslation();
   const { isDark } = useTheme();
-  const palette = themePalette(isDark);
   const scrollEndInset = useScrollEndInset({ insetTaken: true });
   const shared = createSharedStyles(isDark);
   // A card that summarised a window links here with it, so the screen opens on
@@ -156,6 +152,7 @@ function FitnessScreenContent() {
   const {
     wellness,
     wellnessCoverage,
+    wellnessHeld,
     activities,
     dailyLoads,
     powerZones,
@@ -167,6 +164,8 @@ function FitnessScreenContent() {
     storedRunPace,
     storedSwimPace,
     librarySport,
+    fitnessDays,
+    fatigueDays,
     currentFTP,
     runSettings,
     runPaceCurve,
@@ -262,14 +261,7 @@ function FitnessScreenContent() {
         ]}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!chartInteracting}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={onRefresh}
-            tintColor={palette.primary}
-            colors={[palette.primary]}
-          />
-        }
+        refreshControl={<ScreenRefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
       >
         {/* Time range selector */}
         <TimeRangeSelector
@@ -295,6 +287,7 @@ function FitnessScreenContent() {
               onInteractionChange={handleInteractionChange}
               readError={isError ? error : undefined}
               onRetry={retryWellness}
+              held={wellnessHeld}
             />
           ) : (
             <View style={styles.chartPlaceholder}>
@@ -357,49 +350,7 @@ function FitnessScreenContent() {
               />
             </View>
 
-            <ExplanationCard
-              title={t('fitnessScreen.understandingMetrics')}
-              rows={[
-                {
-                  key: 'fitness',
-                  label: t('activity.stats.fitnessCTL'),
-                  text: t('fitnessScreen.fitnessDescription'),
-                  dotColor: colors.fitnessBlue,
-                },
-                {
-                  key: 'fatigue',
-                  label: t('activity.stats.fatigueATL'),
-                  text: t('fitnessScreen.fatigueDescription'),
-                  dotColor: colors.fatiguePurple,
-                },
-                {
-                  key: 'form',
-                  label: t('activity.stats.formTSB'),
-                  text: t('fitnessScreen.formDescription'),
-                  dotColor: FORM_ZONE_COLORS.optimal,
-                },
-              ]}
-              links={{
-                heading: t('fitnessScreen.learnMore'),
-                items: [
-                  {
-                    key: 'fitnessPage',
-                    label: t('fitnessScreen.linkFitnessPage'),
-                    url: INTERVALS_URLS.fitnessPage,
-                  },
-                  {
-                    key: 'trainingLoad',
-                    label: t('fitnessScreen.linkTrainingLoad'),
-                    url: 'https://www.sciencetosport.com/monitoring-training-load/',
-                  },
-                  {
-                    key: 'tsbManagement',
-                    label: t('fitnessScreen.linkTSBManagement'),
-                    url: 'https://www.joefrielsblog.com/2015/12/managing-training-using-tsb.html',
-                  },
-                ],
-              }}
-            />
+            <FitnessDefinitionsCard fitnessDays={fitnessDays} fatigueDays={fatigueDays} />
           </>
         ) : null}
       </ScrollView>

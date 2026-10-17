@@ -50,9 +50,38 @@ describe('tap target guard', () => {
         export const Chip = () => <Pressable style={pressable(styles.chip)} hitSlop={slop} />;
       `).status
     ).toBe(0);
-    expect(check('<Pressable style={pressable({ minWidth: 48, minHeight: 48 })} />').status).toBe(
-      0
+    expect(
+      check(
+        '<Pressable style={pressable({ minWidth: layout.minTapTarget, minHeight: layout.minTapTarget })} />'
+      ).status
+    ).toBe(0);
+  });
+
+  it('refuses a control drawn at one platform minimum as a literal', () => {
+    const styled = check(`
+      const styles = StyleSheet.create({ disc: { width: 44, height: 44 } });
+      export const Disc = () => <IconButton style={styles.disc} onPress={go} />;
+    `);
+    expect(styled.status).toBe(1);
+    expect(styled.output).toContain('src/features/example/Chip.tsx:3: width 44, height 44');
+
+    const constant = check(`
+      const TALL = 48;
+      export const Pill = () => (
+        <Pressable hitSlop={PILL_SLOP} style={pressable([{ minHeight: TALL }, on && styles.on])} />
+      );
+    `);
+    expect(constant.status).toBe(1);
+    expect(constant.output).toContain('minHeight 48');
+
+    const pressedState = check(
+      '<Pressable onPress={go} hitSlop={SLOP} style={({ pressed }) => [{ height: 44 }, pressed && styles.down]} />'
     );
+    expect(pressedState.status).toBe(1);
+  });
+
+  it('accepts a literal minimum on a view that takes no press', () => {
+    expect(check('<View style={{ minHeight: 44 }} />').status).toBe(0);
   });
 
   it('refuses a short dimension held in a local constant', () => {

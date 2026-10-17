@@ -81,6 +81,8 @@ jest.mock('@/features/settings', () => ({
     .settingsStyles,
   SupportSection: () => null,
   FooterSection: () => null,
+  DataAttribution: jest.requireActual('@/features/settings/components/DataAttribution')
+    .DataAttribution,
 }));
 
 beforeEach(() => {

@@ -322,6 +322,7 @@ function RouteDetailScreenContent() {
           <RouteDetailMap
             routeGroup={routeGroup}
             highlight={highlight}
+            pageActivityId={navActivityId}
             signatures={signatures}
             hasMapData={hasMapData}
             activityColor={activityColor}

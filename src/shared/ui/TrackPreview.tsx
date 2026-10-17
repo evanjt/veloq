@@ -26,10 +26,13 @@ export interface NormalisedPoint {
  * Coordinates into the unit square with their geographic shape kept: longitude
  * is compressed by cos(latitude), one scale serves both axes and the shorter
  * axis is centred, so the longer one spans 0..1. y is flipped for the screen.
+ * A coordinate that is not a finite number is dropped rather than drawn.
  */
 export function normaliseTrackPoints(points: LatLngShort[]): NormalisedPoint[] {
   return projectRouteToBox(
-    points.map((p) => ({ latitude: p.lat, longitude: p.lng })),
+    points
+      .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng))
+      .map((p) => ({ latitude: p.lat, longitude: p.lng })),
     1,
     1,
     0

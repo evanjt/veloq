@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, RefreshControl } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
@@ -77,7 +77,7 @@ const record = (id: string, name: string): SectionWithPolyline =>
     disabled: false,
   }) as unknown as SectionWithPolyline;
 
-function renderList() {
+function renderList(refresh: { onRefresh?: () => void; refreshing?: boolean } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
@@ -94,6 +94,7 @@ function renderList() {
         acceptedAutoCount={0}
         customSectionCount={2}
         retiredSectionCount={0}
+        {...refresh}
       />
     </QueryClientProvider>
   );
@@ -132,5 +133,23 @@ describe('the sections tab over its screen read', () => {
     expect(mockCalls).toContain('deleteSection');
     expect(mockCalls).not.toContain('getSectionsByType');
     alert.mockRestore();
+  });
+
+  it('offers pull to refresh when given a handler, and the pull calls it', async () => {
+    const onRefresh = jest.fn();
+    const tree = await renderList({ onRefresh, refreshing: true });
+    const control = tree.UNSAFE_getByType(RefreshControl);
+
+    expect(control.props.refreshing).toBe(true);
+    await act(async () => {
+      control.props.onRefresh();
+    });
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers no refresh without a handler', async () => {
+    const tree = await renderList();
+
+    expect(tree.UNSAFE_queryAllByType(RefreshControl)).toHaveLength(0);
   });
 });

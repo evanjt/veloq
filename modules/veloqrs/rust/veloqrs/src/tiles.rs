@@ -44,25 +44,14 @@ impl Default for HeatmapConfig {
 // Colour Gradient LUT
 // ============================================================================
 
-/// Pre-computed 256-entry colour lookup table mapping intensity to RGBA.
-/// Gradient: transparent → deep teal → brand teal → pale teal highlight.
+/// Pre-computed 256-entry colour lookup table mapping intensity to RGBA, from the
+/// generated ramp in `heatmap_ramp.rs`, which the colour token file owns.
 /// Alpha starts high enough that the light map, which darkens the colour channels
 /// in its paint, keeps the faintest stop at 3:1 over its land and roads. The light
 /// paint inverts lightness, so the ramp darkens as density rises there.
 fn build_colour_lut() -> [[u8; 4]; 256] {
     let mut lut = [[0u8; 4]; 256];
-
-    // Gradient stops: (intensity, r, g, b, a)
-    let stops: &[(f32, f32, f32, f32, f32)] = &[
-        (0.0, 0.0, 0.0, 0.0, 0.0),          // transparent
-        (0.04, 13.0, 148.0, 136.0, 176.0),  // subtle teal (#0D9488)
-        (0.14, 16.0, 163.0, 150.0, 190.0),  // visible teal
-        (0.32, 20.0, 184.0, 166.0, 205.0),  // brand teal (#14B8A6)
-        (0.58, 45.0, 212.0, 191.0, 220.0),  // bright teal (#2DD4BF)
-        (0.80, 94.0, 234.0, 212.0, 232.0),  // light teal (#5EEAD4)
-        (0.94, 153.0, 246.0, 228.0, 242.0), // pale teal
-        (1.0, 204.0, 251.0, 241.0, 248.0),  // very pale teal highlight
-    ];
+    let stops = crate::heatmap_ramp::HEATMAP_STOPS;
 
     for (i, entry) in lut.iter_mut().enumerate().skip(1) {
         let t = i as f32 / 255.0;
@@ -1985,17 +1974,21 @@ mod tests {
             })
             .collect();
 
-        // Taken from tiles drawn each in buffers of their own.
-        let drawn_alone = [
-            Some(17_166_743_885_195_298_038),
-            Some(13_466_028_557_253_361_804),
-            Some(9_611_053_799_648_995_420),
-            None,
-            Some(1_418_176_144_483_572_282),
-            Some(14_453_261_032_681_244_101),
-            Some(13_466_028_557_253_361_804),
-            Some(17_166_743_885_195_298_038),
-        ];
+        // The same tiles, each drawn in buffers of its own.
+        let drawn_alone: Vec<Option<u64>> = run
+            .iter()
+            .map(|(tracks, (z, x, y))| {
+                let tracks: Vec<&ProjectedTrack> = tracks.iter().collect();
+                pixel_digest(draw_heatmap_tile_on(
+                    &mut TileCanvas::new(),
+                    *z,
+                    *x,
+                    *y,
+                    &tracks,
+                ))
+            })
+            .collect();
+        assert_eq!(drawn_alone.iter().filter(|d| d.is_none()).count(), 1);
         assert_eq!(digests, drawn_alone);
     }
 

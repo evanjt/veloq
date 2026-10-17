@@ -1,5 +1,12 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { View, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
+import {
+  Platform,
+  View,
+  ScrollView,
+  StyleSheet,
+  ActivityIndicator,
+  useWindowDimensions,
+} from 'react-native';
 import { Text } from 'react-native-paper';
 import {
   BodyNotDownloaded,
@@ -59,6 +66,7 @@ import { useAthlete } from '@/shared/app/useAthlete';
 import { colors, darkColors, spacing, typography, stroke } from '@/theme';
 import { noHeroHeaderOptions, overMapHeaderOptions } from '@/shared/app/screenHeaders';
 import { MapHeroStatusBar } from '@/shared/app/MapHeroStatusBar';
+import { LARGE_TEXT_PINNED_FRACTION, useLargeText } from '@/shared/ui/useLargeText';
 
 /** Stable empty list so the custom-sections hook keeps skipping its own read. */
 const NO_CUSTOM_SECTIONS: NativeSection[] = [];
@@ -84,6 +92,8 @@ export function ActivityDetailScreenContent({
   const isMetric = useMetricSystem();
   const debugEnabled = useDebugStore((s) => s.enabled);
   const mapHeight = useHeroMapHeight();
+  const largeText = useLargeText();
+  const { height: windowHeight } = useWindowDimensions();
 
   const {
     data: activity,
@@ -169,6 +179,8 @@ export function ActivityDetailScreenContent({
   );
 
   const hasGpsData = coordinates.length > 0;
+  const pinnedScrollMaxHeight =
+    windowHeight * LARGE_TEXT_PINNED_FRACTION - (hasGpsData ? mapHeight : 0);
   const isRouteMatchingOn = useRouteSettings((s) => s.settings.enabled);
   const isStrength = activity?.type === 'WeightTraining';
   const { data: exerciseSets } = useExerciseSets(id || '', activity?.type ?? '');
@@ -402,7 +414,7 @@ export function ActivityDetailScreenContent({
     () =>
       showsHero
         ? overMapHeaderOptions({ title: headerTitle, isDark })
-        : noHeroHeaderOptions({ title: headerTitle, isDark }),
+        : noHeroHeaderOptions({ title: headerTitle, isDark, os: Platform.OS }),
     [showsHero, headerTitle, isDark]
   );
 
@@ -484,14 +496,8 @@ export function ActivityDetailScreenContent({
     );
   }
 
-  return (
-    <View
-      testID="activity-detail-screen"
-      style={[styles.container, isDark && styles.containerDark]}
-    >
-      <Stack.Screen options={headerOptions} />
-      {showsHero ? <MapHeroStatusBar scrolledPastHero={false} isDark={isDark} /> : null}
-
+  const strengthHero = (
+    <>
       {/* Strength Training hero - body diagrams with overlay (back button, name, date, duration) */}
       {isStrength ? (
         <ComponentErrorBoundary part="muscleGroups" debugName="Muscle Groups">
@@ -505,6 +511,36 @@ export function ActivityDetailScreenContent({
           />
         </ComponentErrorBoundary>
       ) : null}
+    </>
+  );
+
+  const pinnedText = (
+    <>
+      {/* No map to carry the date and stats, so they sit under the header */}
+      {!hasGpsData && !isStrength && (
+        <ActivitySummaryStrip activity={activity} isMetric={isMetric} isDark={isDark} />
+      )}
+
+      {/* Activity description */}
+      {activity.description ? (
+        <View style={[styles.descriptionContainer, isDark && styles.descriptionContainerDark]}>
+          <Text style={[styles.descriptionText, isDark && styles.descriptionTextDark]}>
+            {activity.description}
+          </Text>
+        </View>
+      ) : null}
+    </>
+  );
+
+  return (
+    <View
+      testID="activity-detail-screen"
+      style={[styles.container, isDark && styles.containerDark]}
+    >
+      <Stack.Screen options={headerOptions} />
+      {showsHero ? <MapHeroStatusBar scrolledPastHero={false} isDark={isDark} /> : null}
+
+      {largeText ? null : strengthHero}
 
       {/* Hero Map Section - hidden for non-GPS activities */}
       {hasGpsData ? (
@@ -537,19 +573,19 @@ export function ActivityDetailScreenContent({
         />
       ) : null}
 
-      {/* No map to carry the date and stats, so they sit under the header */}
-      {!hasGpsData && !isStrength && (
-        <ActivitySummaryStrip activity={activity} isMetric={isMetric} isDark={isDark} />
+      {/* Past the dense cap the text under the map grows past the window, so it scrolls in a
+          bounded block and the tabs keep a region. The map stays out of it to keep its gestures. */}
+      {largeText ? (
+        <ScrollView
+          testID="activity-detail-pinned-scroll"
+          style={[styles.pinnedScroll, { maxHeight: pinnedScrollMaxHeight }]}
+        >
+          {strengthHero}
+          {pinnedText}
+        </ScrollView>
+      ) : (
+        pinnedText
       )}
-
-      {/* Activity description */}
-      {activity.description ? (
-        <View style={[styles.descriptionContainer, isDark && styles.descriptionContainerDark]}>
-          <Text style={[styles.descriptionText, isDark && styles.descriptionTextDark]}>
-            {activity.description}
-          </Text>
-        </View>
-      ) : null}
 
       {/* Swipeable Tabs: Charts, Routes, Sections */}
       <SwipeableTabs
@@ -685,6 +721,9 @@ const styles = StyleSheet.create({
   exercisesTabContent: {
     paddingTop: spacing.sm,
     paddingBottom: spacing.xl + BOTTOM_BAR_HEIGHT,
+  },
+  pinnedScroll: {
+    flexGrow: 0,
   },
   descriptionContainer: {
     paddingHorizontal: spacing.md,

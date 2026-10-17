@@ -1,9 +1,10 @@
 /**
- * Scenario: an athlete picks an older settings-and-names backup. Its values
- * replace stored preferences and custom names.
+ * Scenario: an athlete picks a backup. Its values replace stored preferences
+ * and custom names.
  *
- * Expected behaviour: nothing is read or written until the athlete accepts a
- * dialog naming what is replaced; declining leaves everything untouched.
+ * Expected behaviour: the file is read and checked first, and nothing is
+ * written until the athlete accepts a dialog naming what is replaced, on a
+ * button that says so; declining leaves everything untouched.
  */
 import { act, renderHook } from '@testing-library/react-native';
 import { Alert, type AlertButton } from 'react-native';
@@ -13,26 +14,44 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import { useImportDatabaseBackup } from '@/features/settings/hooks/useBackup';
 import {
+  convertLegacyDatabaseFile,
   restoreBackup,
-  restoreDatabaseBackup,
   restoreRecordBackup,
 } from '@/features/settings/lib/backup';
-import { holdImportWhileSignedOut } from '@/features/settings/lib/heldImport';
+import { discardHeldImport, holdImportWhileSignedOut } from '@/features/settings/lib/heldImport';
 import { i18n, initialiseI18n } from '@/i18n';
 
 jest.mock('@/features/settings/lib/backup', () => ({
-  restoreBackup: jest.fn(async () => ({ unplacedCount: 0 })),
-  restoreDatabaseBackup: jest.fn(),
+  SignInRequiredError: class extends Error {},
+  checkRecordBackup: (uri: string) => mockChecks.checkRecordBackup(uri),
+  checkLegacyBackup: (json: string) => mockChecks.checkLegacyBackup(json),
+  convertLegacyDatabaseFile: jest.fn(async () => {}),
+  restoreBackup: jest.fn(async () => ({
+    unplacedCount: 0,
+    drops: { notRestored: 0, namesNotRestored: 0 },
+  })),
   restoreRecordBackup: jest.fn(),
   exportRecordBackup: jest.fn(),
   importWaitsForSignIn: () => !mockEngineState.ready,
 }));
 jest.mock('@/features/settings/lib/heldImport', () => ({
   holdImportWhileSignedOut: jest.fn(async () => false),
+  discardHeldImport: jest.fn(async () => {}),
   isHeldWhileSignedOut: jest.requireActual('@/features/settings/lib/heldImport')
     .isHeldWhileSignedOut,
 }));
 const mockEngineState = { ready: true };
+const mockCheck = {
+  writtenAt: null,
+  namesAccount: false,
+  names: 2,
+  settings: 5,
+  decisions: 0,
+};
+const mockChecks = {
+  checkRecordBackup: jest.fn(async (_uri: string) => mockCheck),
+  checkLegacyBackup: jest.fn(async (_json: string) => mockCheck),
+};
 jest.mock('@/shared/native/engine', () => ({
   isEngineReady: () => mockEngineState.ready,
 }));
@@ -44,6 +63,7 @@ jest.mock('expo-file-system/legacy', () => ({
   ...jest.requireActual('expo-file-system/legacy'),
   cacheDirectory: 'file:///cache/',
   deleteAsync: jest.fn().mockResolvedValue(undefined),
+  getInfoAsync: jest.fn().mockResolvedValue({ exists: true, size: 512 }),
   readAsStringAsync: jest.fn().mockResolvedValue('{}'),
 }));
 
@@ -71,7 +91,7 @@ function pressButton(label: string) {
   return button!.onPress?.();
 }
 
-it('reads and restores nothing until the confirmation is accepted', async () => {
+it('checks the file first, and restores nothing until the confirmation is accepted', async () => {
   jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
   const { result } = await renderHook(() => useImportDatabaseBackup());
 
@@ -81,14 +101,32 @@ it('reads and restores nothing until the confirmation is accepted', async () => 
     await Promise.resolve();
   });
 
-  expect(FileSystem.readAsStringAsync).not.toHaveBeenCalled();
+  expect(mockChecks.checkLegacyBackup).toHaveBeenCalledTimes(1);
   expect(restoreBackup).not.toHaveBeenCalled();
 
   await act(async () => {
-    pressButton(i18n.t('backup.importBackup'));
+    pressButton(i18n.t('backup.replaceSettings'));
     await pending;
   });
   expect(restoreBackup).toHaveBeenCalledTimes(1);
+});
+
+it('names what the backup holds in the confirmation', async () => {
+  jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+  const { result } = await renderHook(() => useImportDatabaseBackup());
+
+  await act(async () => {
+    void result.current.importDatabaseBackup();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+
+  const call = (Alert.alert as jest.Mock).mock.calls.find(
+    (args) => args[0] === i18n.t('backup.importBackup')
+  );
+  expect(call?.[1]).toContain(i18n.t('backup.checkedNames', { value: 2 }));
+  expect(call?.[1]).toContain(i18n.t('backup.checkedSettings', { value: 5 }));
+  expect(call?.[1]).toContain(i18n.t('backup.checkedUndated'));
+  expect(call?.[1]).toContain(i18n.t('backup.checkedNoAccount'));
 });
 
 it('changes nothing when the confirmation is declined', async () => {
@@ -105,7 +143,6 @@ it('changes nothing when the confirmation is declined', async () => {
     await pending;
   });
 
-  expect(FileSystem.readAsStringAsync).not.toHaveBeenCalled();
   expect(restoreBackup).not.toHaveBeenCalled();
 });
 
@@ -115,8 +152,12 @@ describe.each(['veloq-backup-2026-09-30.zip', 'older.veloqdb'])('a picked %s', (
       canceled: false,
       assets: [{ uri: `file:///cache/DocumentPicker/${name}`, name }],
     });
-    (restoreRecordBackup as jest.Mock).mockResolvedValue({ placed: 1, unplaced: 0 });
-    (restoreDatabaseBackup as jest.Mock).mockResolvedValue({ success: true, activityCount: 0 });
+    (restoreRecordBackup as jest.Mock).mockResolvedValue({
+      placed: 1,
+      unplaced: 0,
+      notRestored: 0,
+      namesNotRestored: 0,
+    });
   });
 
   async function startImport() {
@@ -125,24 +166,22 @@ describe.each(['veloq-backup-2026-09-30.zip', 'older.veloqdb'])('a picked %s', (
     let pending!: Promise<unknown>;
     await act(async () => {
       pending = result.current.importDatabaseBackup();
-      await Promise.resolve();
+      await new Promise((resolve) => setTimeout(resolve, 0));
     });
     return { pending };
   }
 
-  it('restores nothing until the confirmation is accepted', async () => {
+  it('is checked, and restores nothing until the confirmation is accepted', async () => {
     const { pending } = await startImport();
+    expect(mockChecks.checkRecordBackup).toHaveBeenCalledTimes(1);
+    expect(convertLegacyDatabaseFile).toHaveBeenCalledTimes(name.endsWith('.veloqdb') ? 1 : 0);
     expect(restoreRecordBackup).not.toHaveBeenCalled();
-    expect(restoreDatabaseBackup).not.toHaveBeenCalled();
 
     await act(async () => {
-      pressButton(i18n.t('backup.importBackup'));
+      pressButton(i18n.t('backup.replaceSettings'));
       await pending;
     });
-    expect(
-      (restoreRecordBackup as jest.Mock).mock.calls.length +
-        (restoreDatabaseBackup as jest.Mock).mock.calls.length
-    ).toBe(1);
+    expect(restoreRecordBackup).toHaveBeenCalledTimes(1);
   });
 
   it('restores nothing and deletes the picked copy when declined', async () => {
@@ -152,7 +191,6 @@ describe.each(['veloq-backup-2026-09-30.zip', 'older.veloqdb'])('a picked %s', (
       await pending;
     });
     expect(restoreRecordBackup).not.toHaveBeenCalled();
-    expect(restoreDatabaseBackup).not.toHaveBeenCalled();
     expect(FileSystem.deleteAsync).toHaveBeenCalledWith(`file:///cache/DocumentPicker/${name}`, {
       idempotent: true,
     });
@@ -171,27 +209,32 @@ describe.each(['old.veloq', 'older.veloqdb', 'veloq-backup-2026-09-30.zip'])(
       mockEngineState.ready = false;
     });
 
-    it('is held for sign-in after the confirmation, and restores nothing', async () => {
+    async function startHeldImport() {
       jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
       const { result } = await renderHook(() => useImportDatabaseBackup());
       let pending!: Promise<unknown>;
       await act(async () => {
         pending = result.current.importDatabaseBackup();
-        await Promise.resolve();
+        await new Promise((resolve) => setTimeout(resolve, 0));
       });
-      expect(holdImportWhileSignedOut).not.toHaveBeenCalled();
+      return { pending };
+    }
 
-      await act(async () => {
-        pressButton(i18n.t('backup.importBackup'));
-        await pending;
-      });
-
+    it('is held for sign-in once its checks pass and the confirmation is accepted', async () => {
+      const { pending } = await startHeldImport();
       expect(holdImportWhileSignedOut).toHaveBeenCalledWith(
         `file:///cache/DocumentPicker/${name}`,
         name
       );
+
+      await act(async () => {
+        pressButton(i18n.t('backup.replaceSettings'));
+        await pending;
+      });
+
+      expect(discardHeldImport).not.toHaveBeenCalled();
       expect(restoreBackup).not.toHaveBeenCalled();
-      expect(restoreDatabaseBackup).not.toHaveBeenCalled();
+      expect(restoreRecordBackup).not.toHaveBeenCalled();
       expect(Notice.showNotice).toHaveBeenCalledWith(
         expect.objectContaining({ message: i18n.t('backup.heldUntilSignIn') })
       );
@@ -201,6 +244,17 @@ describe.each(['old.veloq', 'older.veloqdb', 'veloq-backup-2026-09-30.zip'])(
         undefined,
         expect.anything()
       );
+    });
+
+    it('declined, keeps nothing held', async () => {
+      const { pending } = await startHeldImport();
+      await act(async () => {
+        pressButton(i18n.t('common.cancel'));
+        await pending;
+      });
+
+      expect(discardHeldImport).toHaveBeenCalledTimes(1);
+      expect(Notice.showNotice).not.toHaveBeenCalled();
     });
   }
 );
@@ -230,7 +284,7 @@ describe.each(['notes.json'])('a picked %s while signed out', (name) => {
     expect(outcome).toMatchObject({ success: false });
     expect(restoreBackup).not.toHaveBeenCalled();
     expect(restoreRecordBackup).not.toHaveBeenCalled();
-    expect(restoreDatabaseBackup).not.toHaveBeenCalled();
+    expect(mockChecks.checkRecordBackup).not.toHaveBeenCalled();
     expect(FileSystem.deleteAsync).toHaveBeenCalled();
   });
 });

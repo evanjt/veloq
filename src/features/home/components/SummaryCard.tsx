@@ -603,8 +603,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   heroSubText: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '400',
+    ...typography.caption,
   },
   heroValue: {
     ...typography.statsValueLarge,

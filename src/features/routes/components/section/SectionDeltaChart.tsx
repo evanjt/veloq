@@ -6,11 +6,12 @@
  * the engine's numbers.
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Path, Rect } from '@shopify/react-native-skia';
+import { GestureDetector } from 'react-native-gesture-handler';
 
 import { useMetricSystem } from '@/shared/app';
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
@@ -23,10 +24,10 @@ import {
   layoutDelta,
   pickEmphasisedLap,
   scrubDeltaSecs,
-  snapScrubIndex,
+  scrubStops,
   type DeltaFrame,
 } from '@/features/routes/lib/deltaLayout';
-import { useMeasuredWidth } from '@/shared/charts';
+import { useChartGestures, useMeasuredWidth } from '@/shared/charts';
 import { chartStyles, colors, darkColors, spacing, typography } from '@/theme';
 import { FfiReferenceSource, type FfiDirectionDeltas } from 'veloqrs';
 
@@ -58,7 +59,6 @@ export function SectionDeltaChart({
   const isMetric = useMetricSystem();
   const { width: chartWidth, onLayout } = useMeasuredWidth();
   const palette = isDark ? darkColors : colors;
-  const [scrubX, setScrubX] = useState<number | null>(null);
 
   const frame: DeltaFrame = useMemo(
     () => ({ width: chartWidth, height: CHART_HEIGHT, padding: CHART_PADDING }),
@@ -71,15 +71,37 @@ export function SectionDeltaChart({
   const emphasisedLap = pickEmphasisedLap(deltas.laps, highlightedActivityId);
   const referenceLap = deltas.laps.find((lap) => lap.activityId === deltas.referenceActivityId);
 
-  const scrub = scrubX === null ? null : snapScrubIndex(scrubX, plot, gridStepM);
-  const scrubSecs = scrub === null ? undefined : scrubDeltaSecs(emphasisedLap, scrub.index);
-  const scrubReading =
-    scrub !== null && scrubSecs !== undefined && Number.isFinite(scrubSecs)
-      ? t(scrubSecs < 0 ? 'sections.deltaReadoutAhead' : 'sections.deltaReadoutBehind', {
-          distance: formatDistance(scrub.distanceM, isMetric),
-          time: formatDurationDelta(Math.abs(scrubSecs)),
-        })
-      : null;
+  const stops = useMemo(() => scrubStops(sectionLengthM, gridStepM), [sectionLengthM, gridStepM]);
+  const readStop = useCallback(
+    (stop: (typeof stops)[number]) => {
+      const secs = scrubDeltaSecs(emphasisedLap, stop.index);
+      return secs !== undefined && Number.isFinite(secs)
+        ? t(secs < 0 ? 'sections.deltaReadoutAhead' : 'sections.deltaReadoutBehind', {
+            distance: formatDistance(stop.distanceM, isMetric),
+            time: formatDurationDelta(Math.abs(secs)),
+          })
+        : null;
+    },
+    [emphasisedLap, isMetric, t]
+  );
+  const describeStop = useCallback(
+    (stop: (typeof stops)[number]) => readStop(stop) ?? formatDistance(stop.distanceM, isMetric),
+    [readStop, isMetric]
+  );
+  const {
+    gesture,
+    selectedPoint: scrub,
+    syncXCoords,
+    accessibilityProps,
+  } = useChartGestures({
+    data: stops,
+    describePoint: describeStop,
+    accessibilityLabel: t('sections.plotDelta'),
+  });
+  useEffect(() => {
+    if (chartWidth > 0) syncXCoords(stops, (stop) => plot.xForDistance(stop.distanceM));
+  }, [chartWidth, stops, plot, syncXCoords]);
+  const scrubReading = scrub === null ? null : readStop(scrub);
 
   const referenceLabel = t(
     deltas.referenceSource === FfiReferenceSource.Record
@@ -93,102 +115,92 @@ export function SectionDeltaChart({
   const plotLeft = CHART_PADDING.left;
   const plotRight = chartWidth - CHART_PADDING.right;
 
-  const touchX = (event: { nativeEvent: { locationX: number } }) =>
-    setScrubX(event.nativeEvent.locationX);
-
   return (
     <View testID="section-delta-chart" style={[styles.container]}>
-      <View
-        style={styles.plot}
-        onLayout={onLayout}
-        onStartShouldSetResponder={() => true}
-        onMoveShouldSetResponder={() => true}
-        onResponderGrant={touchX}
-        onResponderMove={touchX}
-        onResponderRelease={() => setScrubX(null)}
-        onResponderTerminate={() => setScrubX(null)}
-      >
-        {chartWidth > 0 && (
-          <>
-            <Canvas style={StyleSheet.absoluteFill}>
-              <Rect
-                x={plotLeft}
-                y={plot.zeroY}
-                width={plotRight - plotLeft}
-                height={ZERO_LINE_THICKNESS}
-                color={palette.border}
-              />
-              {plot.laps
-                .filter((lap) => !lap.emphasised && lap.path !== '')
-                .map((lap) => (
-                  <Path
-                    key={`${lap.activityId}-${lap.startIndex}`}
-                    path={lap.path}
-                    style="stroke"
-                    strokeWidth={FAINT_STROKE}
-                    color={palette.primary}
-                    opacity={FAINT_OPACITY}
-                  />
-                ))}
-              {plot.laps
-                .filter((lap) => lap.emphasised && lap.path !== '')
-                .map((lap) => (
-                  <Path
-                    key={`${lap.activityId}-${lap.startIndex}`}
-                    path={lap.path}
-                    style="stroke"
-                    strokeWidth={FULL_STROKE}
-                    strokeJoin="round"
-                    color={palette.chartGreenMark}
-                  />
-                ))}
-              {scrub !== null && (
+      <GestureDetector gesture={gesture}>
+        <View style={styles.plot} onLayout={onLayout} {...accessibilityProps}>
+          {chartWidth > 0 && (
+            <>
+              <Canvas style={StyleSheet.absoluteFill}>
                 <Rect
-                  x={plot.xForDistance(scrub.distanceM)}
-                  y={CHART_PADDING.top}
-                  width={SCRUB_THICKNESS}
-                  height={CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom}
-                  color={palette.textSecondary}
+                  x={plotLeft}
+                  y={plot.zeroY}
+                  width={plotRight - plotLeft}
+                  height={ZERO_LINE_THICKNESS}
+                  color={palette.border}
                 />
-              )}
-            </Canvas>
-            <View style={styles.yAxisOverlay} pointerEvents="none" testID="section-delta-y-axis">
-              <Text
-                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                style={[
-                  chartStyles.axisLabel,
-                  isDark && chartStyles.axisLabelDark,
-                  styles.yLabel,
-                  { top: CHART_PADDING.top },
-                ]}
-              >
-                {`+${formatDurationDelta(plot.extentSecs)}`}
-              </Text>
-              <Text
-                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                style={[
-                  chartStyles.axisLabel,
-                  isDark && chartStyles.axisLabelDark,
-                  styles.yLabel,
-                  { top: CHART_HEIGHT - CHART_PADDING.bottom - typography.caption.lineHeight },
-                ]}
-              >
-                {`-${formatDurationDelta(plot.extentSecs)}`}
-              </Text>
-            </View>
-          </>
-        )}
-      </View>
+                {plot.laps
+                  .filter((lap) => !lap.emphasised && lap.path !== '')
+                  .map((lap) => (
+                    <Path
+                      key={`${lap.activityId}-${lap.startIndex}`}
+                      path={lap.path}
+                      style="stroke"
+                      strokeWidth={FAINT_STROKE}
+                      color={palette.primary}
+                      opacity={FAINT_OPACITY}
+                    />
+                  ))}
+                {plot.laps
+                  .filter((lap) => lap.emphasised && lap.path !== '')
+                  .map((lap) => (
+                    <Path
+                      key={`${lap.activityId}-${lap.startIndex}`}
+                      path={lap.path}
+                      style="stroke"
+                      strokeWidth={FULL_STROKE}
+                      strokeJoin="round"
+                      color={palette.chartGreenMark}
+                    />
+                  ))}
+                {scrub !== null && (
+                  <Rect
+                    x={plot.xForDistance(scrub.distanceM)}
+                    y={CHART_PADDING.top}
+                    width={SCRUB_THICKNESS}
+                    height={CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom}
+                    color={palette.textSecondary}
+                  />
+                )}
+              </Canvas>
+              <View style={styles.yAxisOverlay} pointerEvents="none" testID="section-delta-y-axis">
+                <Text
+                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                  style={[
+                    chartStyles.chartLabel,
+                    isDark && chartStyles.chartLabelDark,
+                    styles.yLabel,
+                    { top: CHART_PADDING.top },
+                  ]}
+                >
+                  {`+${formatDurationDelta(plot.extentSecs)}`}
+                </Text>
+                <Text
+                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                  style={[
+                    chartStyles.chartLabel,
+                    isDark && chartStyles.chartLabelDark,
+                    styles.yLabel,
+                    { top: CHART_HEIGHT - CHART_PADDING.bottom - typography.caption.lineHeight },
+                  ]}
+                >
+                  {`-${formatDurationDelta(plot.extentSecs)}`}
+                </Text>
+              </View>
+            </>
+          )}
+        </View>
+      </GestureDetector>
       <View style={styles.edgeAxis} testID="section-delta-x-axis">
         <Text
           maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-          style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
+          style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}
         >
           {formatDistance(0, isMetric)}
         </Text>
         <Text
           maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-          style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
+          style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}
         >
           {formatDistance(sectionLengthM, isMetric)}
         </Text>

@@ -9,6 +9,7 @@ import { useFocusOnAppear } from '@/shared/ui/useFocusOnAppear';
 import { MapPopup } from './MapPopup';
 
 import { iconSize } from '@/theme';
+import { ACTIVITY_COUNT_GLYPH } from '@/features/maps/lib/mapGlyphs';
 interface SectionPopupProps {
   section: FrequentSection;
   bottom: number;
@@ -52,7 +53,7 @@ export const SectionPopup = memo(function SectionPopup({
         },
         {
           key: 'activities',
-          icon: 'run',
+          icon: ACTIVITY_COUNT_GLYPH,
           value: t('sections.activitiesCount', { count: section.activityIds.length }),
         },
         {

@@ -1,19 +1,17 @@
 import { useTabFirstFrame } from '@/shared/debug/tabSwitchTiming';
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { Stack, useFocusEffect, router, useLocalSearchParams } from 'expo-router';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import {
   IconButton,
+  InlineNotice,
   ScreenSafeAreaView,
   SwipeableTabs,
-  pressable,
-  pressRipple,
   type SwipeableTab,
 } from '@/shared/ui';
-import { onPullRefresh } from '@/shared/ui/haptics';
 import { aboutInsightsBody, InsightsPanel, StrengthTab, useInsights } from '@/features/insights';
 import {
   DateRangeSummary,
@@ -41,11 +39,9 @@ import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useSyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
 import {
   colors,
-  colorWithOpacity,
   darkColors,
   iconSize,
   layout,
-  slopToMinTapTarget,
   spacing,
   typography,
   stroke,
@@ -319,8 +315,6 @@ function InsightsScreenContent() {
     [requestPermission, userLocation]
   );
 
-  const handleRefresh = useMemo(() => onPullRefresh(requestRefresh), [requestRefresh]);
-
   const { oldestSyncedDate, newestSyncedDate, activityCount } = useMemo(() => {
     const count = routesData?.activityCount ?? 0;
     if (count === 0) {
@@ -400,16 +394,28 @@ function InsightsScreenContent() {
         form={form}
         initialInsightId={insightId}
         onInsightOpened={handleInsightOpened}
+        onRefresh={requestRefresh}
+        refreshing={isDataSyncing}
       />
     ),
-    [insights, failed, retry, hrvWithheldSince, form, insightId, handleInsightOpened]
+    [
+      insights,
+      failed,
+      retry,
+      hrvWithheldSince,
+      form,
+      insightId,
+      handleInsightOpened,
+      requestRefresh,
+      isDataSyncing,
+    ]
   );
 
   const routesPage = useMemo(
     () => (
       <View key="routes" style={styles.routeTabPage}>
         <RoutesList
-          onRefresh={handleRefresh}
+          onRefresh={requestRefresh}
           isRefreshing={isDataSyncing}
           batchGroups={routesData?.groups ?? []}
           onLoadMore={loadMoreGroups}
@@ -433,7 +439,7 @@ function InsightsScreenContent() {
       </View>
     ),
     [
-      handleRefresh,
+      requestRefresh,
       isDataSyncing,
       routesData,
       routesLoadError,
@@ -477,6 +483,8 @@ function InsightsScreenContent() {
           loadError={routesLoadError}
           onRetry={retryRoutesRead}
           emptyReason={routesData?.sectionEmptyReason}
+          onRefresh={requestRefresh}
+          refreshing={isDataSyncing}
         />
       </View>
     ),
@@ -501,6 +509,8 @@ function InsightsScreenContent() {
       clearSectionFilters,
       routesLoadError,
       retryRoutesRead,
+      requestRefresh,
+      isDataSyncing,
     ]
   );
 
@@ -552,6 +562,8 @@ function InsightsScreenContent() {
                 key="strength"
                 awaitingDownload={strengthTab === 'awaiting' || strengthTab === 'downloading'}
                 linkedPeriod={strengthPeriodLink}
+                onRefresh={requestRefresh}
+                refreshing={isDataSyncing}
               />
             );
           case 'routes':
@@ -562,7 +574,16 @@ function InsightsScreenContent() {
             return insightsPage;
         }
       }),
-    [tabs, insightsPage, routesPage, sectionsPage, strengthTab, strengthPeriodLink]
+    [
+      tabs,
+      insightsPage,
+      routesPage,
+      sectionsPage,
+      strengthTab,
+      strengthPeriodLink,
+      requestRefresh,
+      isDataSyncing,
+    ]
   );
 
   return (
@@ -573,27 +594,15 @@ function InsightsScreenContent() {
       <Stack.Screen options={headerOptions} />
       {!isRouteMatchingEnabled && (
         <View style={styles.disabledHintRow}>
-          <Pressable
-            accessibilityRole="button"
+          <InlineNotice
+            testID="routes-disabled-hint"
+            tone="neutral"
+            icon="map-marker-off-outline"
+            title={t('insights.routesDisabledLine1', 'Routes & sections disabled')}
+            detail={t('insights.routesDisabledLine2', 'Turn on routes and sections')}
             onPress={() => useRouteSettings.getState().setEnabled(true)}
-            style={pressable(styles.disabledHint)}
-            hitSlop={slopToMinTapTarget(DISABLED_HINT_HEIGHT)}
-            android_ripple={pressRipple}
-          >
-            <MaterialCommunityIcons
-              name="map-marker-off-outline"
-              size={iconSize.sm}
-              color={isDark ? darkColors.textSecondary : colors.textSecondary}
-            />
-            <View>
-              <Text style={[styles.disabledHintText, isDark && styles.textSecondary]}>
-                {t('insights.routesDisabledLine1', 'Routes & sections disabled')}
-              </Text>
-              <Text style={[styles.disabledHintLink, isDark && { color: darkColors.actionLink }]}>
-                {t('insights.routesDisabledLine2', 'Turn on routes and sections')}
-              </Text>
-            </View>
-          </Pressable>
+            announce={false}
+          />
         </View>
       )}
 
@@ -612,10 +621,6 @@ function InsightsScreenContent() {
   );
 }
 
-// Two caption lines inside the pill's padding.
-const DISABLED_HINT_HEIGHT =
-  typography.caption.lineHeight + typography.label.lineHeight + 2 * spacing.xxs;
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -630,27 +635,8 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   disabledHintRow: {
-    flexDirection: 'row',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-  },
-  disabledHint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xxs,
-    minHeight: DISABLED_HINT_HEIGHT,
-    borderRadius: layout.borderRadiusMd,
-    backgroundColor: colorWithOpacity(colors.warning, 0.1),
-  },
-  disabledHintText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  disabledHintLink: {
-    ...typography.badge,
-    color: colors.actionLink,
   },
   betaMarker: {
     borderWidth: stroke.one,
@@ -663,9 +649,6 @@ const styles = StyleSheet.create({
   },
   betaTextDark: {
     color: darkColors.actionLink,
-  },
-  textSecondary: {
-    color: darkColors.textSecondary,
   },
   routeTabPage: {
     flex: 1,

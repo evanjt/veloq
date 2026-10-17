@@ -8,7 +8,8 @@
  * bottom inset. `sheetFrame` decides those two per route and platform. The handle is decorative:
  * the stack sheet takes no detent from JavaScript after it opens, so the
  * handle has no action to offer a screen reader, and scrolling the content
- * expands the sheet while back dismisses it.
+ * expands the sheet while back dismisses it. A map sheet moves between its stops
+ * by being presented again, so it draws `MapSheetHandle` instead.
  */
 
 import React from 'react';
@@ -22,7 +23,7 @@ import {
   sheetHasDetents,
   sheetSurface,
 } from '@/shared/app/screenHeaders';
-import { colors, colorWithOpacity, darkColors, layout, opacity, spacing } from '@/theme';
+import { colors, darkColors, layout, spacing } from '@/theme';
 
 export function SheetFrame({ name, children }: { name: string; children: React.ReactNode }) {
   const { isDark } = useTheme();
@@ -45,12 +46,7 @@ export function SheetFrame({ name, children }: { name: string; children: React.R
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
         >
-          <View
-            style={[
-              styles.handle,
-              { backgroundColor: colorWithOpacity(palette.textSecondary, opacity.dim) },
-            ]}
-          />
+          <View style={[styles.handle, { backgroundColor: palette.track }]} />
         </View>
       ) : null}
       {children}
@@ -79,7 +75,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
   },
-  // Material's drag handle, 32 by 4.
+  // Material's drag handle, 32 by 4, in the colour of a slider's track.
   handle: {
     width: spacing.xl,
     height: spacing.xs,

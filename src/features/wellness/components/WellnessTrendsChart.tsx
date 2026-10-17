@@ -18,6 +18,7 @@ import {
   themedStyles,
   type Palette,
   stroke,
+  chartStyles,
 } from '@/theme';
 import {
   ChartSurface,
@@ -56,6 +57,8 @@ interface WellnessTrendsChartProps {
    * empty state into "not downloaded". Absent, the chart claims nothing.
    */
   coverage?: RangeCoverage | undefined;
+  /** The data is the previous range's, kept on screen while the new range is read. */
+  held?: boolean;
 }
 
 interface MetricChartData {
@@ -145,6 +148,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
   smoothingWindow = 'auto',
   onDateSelect,
   coverage,
+  held = false,
 }: WellnessTrendsChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -378,6 +382,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
     accessibilityProps,
   } = useChartGestures<WellnessData>({
     data: sortedData,
+    accessibilityLabel: t('wellnessScreen.trends'),
     onSelect: handleSelect,
     onInteractionChange: handleInteractionChange,
     describePoint: describeDay,
@@ -463,7 +468,9 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
     linePaint.setStrokeWidth(1);
     linePaint.setColor(
       Skia.Color(
-        isDark ? colorWithOpacity(ink.white, opacity.tint4) : colorWithOpacity(ink.black, 0.2)
+        isDark
+          ? colorWithOpacity(ink.white, opacity.tint4)
+          : colorWithOpacity(ink.black, opacity.tint3)
       )
     );
 
@@ -571,7 +578,12 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
         )}
       </View>
 
-      <ChartSurface summary={reading.summary} table={reading.table} style={styles.lanes}>
+      <ChartSurface
+        summary={reading.summary}
+        table={reading.table}
+        style={styles.lanes}
+        held={held}
+      >
         <GestureDetector gesture={gesture}>
           <View testID="wellness-trends-surface" {...accessibilityProps}>
             {activeMetrics.map((metric, i) => (
@@ -589,7 +601,14 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
                 {/* Left: label */}
                 <View style={styles.metricInfo}>
                   <View style={[styles.metricDot, { backgroundColor: metric.color }]} />
-                  <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.metricLabel}>
+                  <Text
+                    maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                    style={[
+                      chartStyles.chartLabelStrong,
+                      styles.metricLabel,
+                      isDark && chartStyles.chartLabelStrongDark,
+                    ]}
+                  >
                     {metric.label}
                   </Text>
                 </View>
@@ -601,6 +620,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
                 <View style={styles.metricValues}>
                   <Text
                     maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                    testID={`wellness-value-${metric.key}`}
                     style={[styles.metricValue, isDark && styles.textLight]}
                   >
                     {metricDisplayValues[i]?.displayValue
@@ -660,7 +680,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
 /** A row's height at the default text size; a row grows past it when its values need more. */
 const MIN_ROW_HEIGHT = 50;
 /** The label column fits about nine characters of the label at the cap, and wraps past that. */
-const LABEL_COLUMN_WIDTH = denseExtent(typography.badge.fontSize, 5.4);
+const LABEL_COLUMN_WIDTH = denseExtent(typography.caption.fontSize, 5.4);
 /** The value column fits a five-figure reading such as "103.4" at the cap. */
 const VALUE_COLUMN_WIDTH = denseExtent(typography.pillValue.fontSize, 3);
 /** Where the sparkline canvas starts: past the label column and the sparkline's own margin. */
@@ -685,7 +705,7 @@ const makeStyles = (palette: Palette) =>
       color: colors.textPrimary,
     },
     dateHint: {
-      ...typography.micro,
+      ...typography.caption,
       color: palette.textSecondary,
     },
     emptyState: {
@@ -720,10 +740,9 @@ const makeStyles = (palette: Palette) =>
       borderRadius: layout.borderRadiusXs,
       marginRight: spacing.xs,
     },
+    // The lane title names its line, keyed by the dot beside it.
     metricLabel: {
-      ...typography.badge,
       flexShrink: 1,
-      color: palette.textSecondary,
     },
     sparklineContainer: {
       flex: 1,
@@ -738,17 +757,16 @@ const makeStyles = (palette: Palette) =>
       color: colors.textPrimary,
     },
     metricUnit: {
-      fontSize: typography.pillLabel.fontSize,
+      ...typography.caption,
       color: palette.textSecondary,
-      marginTop: -spacing.xxs,
     },
     metricAvg: {
-      ...typography.micro,
+      ...typography.caption,
       color: palette.textSecondary,
       marginTop: spacing.xxs,
     },
     periodLabel: {
-      ...typography.micro,
+      ...typography.caption,
       color: palette.textSecondary,
       textAlign: 'center',
       marginTop: spacing.sm,

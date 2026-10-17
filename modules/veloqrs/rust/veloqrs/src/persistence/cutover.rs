@@ -474,6 +474,13 @@ pub fn cutover_running() -> bool {
     CUTOVER_RUNNING.load(Ordering::SeqCst)
 }
 
+/// Whether the cutover holds detection: a run is in flight, or the cut is
+/// still owed. A run's token moves on before it gives the slot back, so the
+/// owed read alone answers no while the run is still applying.
+pub fn cutover_held() -> bool {
+    cutover_running() || cutover_pending()
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CutoverState {
     /// Token absent or unrecognised: never cut over.
@@ -524,6 +531,11 @@ pub(crate) mod pooled {
     /// the method check would wave it through as finished when in fact it died
     /// mid-run. A never-seen token is owed only while the stored catalogue was
     /// cut by another detector, so a catalogue this build cut is left alone.
+    /// [`super::cutover_held`] on a connection the caller already holds.
+    pub(crate) fn cutover_holds_detection(conn: &Connection) -> bool {
+        super::cutover_running() || cutover_is_owed(conn)
+    }
+
     pub(crate) fn cutover_is_owed(conn: &Connection) -> bool {
         match cutover_state(conn) {
             CutoverState::InFlight => true,
@@ -1550,6 +1562,10 @@ mod anchoring_tests;
 #[cfg(test)]
 #[path = "tests/cutover_ledger.rs"]
 mod ledger_tests;
+
+#[cfg(test)]
+#[path = "tests/cutover_held.rs"]
+mod held_tests;
 
 #[cfg(test)]
 mod tests {

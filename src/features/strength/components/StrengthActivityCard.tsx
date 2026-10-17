@@ -35,10 +35,17 @@ import {
   spacing,
   typography,
   themePalette,
+  opacity,
 } from '@/theme';
 import { formatWeightRounded } from '@/shared/format/weight';
 import { spokenDuration } from '@/shared/format/spoken';
-import { accessibleActions, composeAccessibilityLabel, pressable, pressRipple } from '@/shared/ui';
+import {
+  accessibleActions,
+  composeAccessibilityLabel,
+  pressable,
+  pressRipple,
+  useLargeText,
+} from '@/shared/ui';
 import { Card } from '@/shared/ui/Card';
 import { contextMenuHoldIsNative } from '@/shared/ui/ContextMenu';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
@@ -75,6 +82,9 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
   const palette = themePalette(isDark);
   const isMetric = useMetricSystem();
   const [menuVisible, setMenuVisible] = useState(false);
+  // Past the dense cap the text outgrows the fixed panel, so the name, the
+  // diagram and the stats stack in flow and the panel grows with them.
+  const largeText = useLargeText();
   const averageHeartRate = activity.average_heartrate;
   const averagePower = activity.icu_average_watts;
 
@@ -111,7 +121,9 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
 
   const compactTextColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const compactMutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const compactDividerColor = isDark ? darkColors.border : colorWithOpacity(ink.black, 0.1);
+  const compactDividerColor = isDark
+    ? darkColors.border
+    : colorWithOpacity(ink.black, opacity.tint2);
 
   const secondaryStatsRow = (
     <ScrollView
@@ -197,7 +209,12 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
     >
       <View style={styles.cardWrapper}>
         <Card variant="raised" padding="none">
-          <View style={[styles.strengthPanel, isDark && styles.strengthPanelDark]}>
+          <View
+            style={[
+              largeText ? styles.flowPanel : styles.strengthPanel,
+              isDark && styles.strengthPanelDark,
+            ]}
+          >
             {/* Pressable overlay */}
             <Pressable
               testID={`activity-card-${activity.id}`}
@@ -222,7 +239,8 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
 
             {/* Top: icon + name + date */}
             <View
-              style={styles.topOverlay}
+              testID={`activity-card-${activity.id}-header`}
+              style={largeText ? styles.flowHeader : styles.topOverlay}
               pointerEvents="none"
               importantForAccessibility="no-hide-descendants"
               accessibilityElementsHidden
@@ -258,7 +276,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
 
             {/* Center: body diagrams + stats */}
             <View
-              style={styles.strengthCenter}
+              style={largeText ? styles.flowCenter : styles.strengthCenter}
               importantForAccessibility="no-hide-descendants"
               accessibilityElementsHidden
             >
@@ -311,7 +329,8 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
             {/* Bottom: secondary stats only. Its press opens the activity the
               overlay already opens, so it is not a second stop. */}
             <View
-              style={styles.strengthBottom}
+              testID={`activity-card-${activity.id}-bottom`}
+              style={largeText ? undefined : styles.strengthBottom}
               accessibilityElementsHidden
               importantForAccessibility="no-hide-descendants"
             >
@@ -345,6 +364,23 @@ const styles = StyleSheet.create({
     height: 240,
     backgroundColor: colors.gray100,
   },
+  flowPanel: {
+    backgroundColor: colors.gray100,
+  },
+  flowHeader: {
+    paddingTop: spacing.smPlus,
+    paddingHorizontal: spacing.smPlus,
+    paddingBottom: spacing.sm,
+    zIndex: ABOVE_PRESS_OVERLAY,
+  },
+  flowCenter: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.smPlus,
+    paddingVertical: spacing.sm,
+  },
   strengthPanelDark: {
     backgroundColor: darkColors.backgroundAlt,
   },
@@ -364,8 +400,7 @@ const styles = StyleSheet.create({
   },
   strengthStatRow: {},
   strengthStatValue: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '700',
+    ...typography.bodyBold,
   },
   strengthStatLabel: {
     fontSize: typography.micro.fontSize,

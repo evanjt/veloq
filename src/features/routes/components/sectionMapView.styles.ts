@@ -11,10 +11,6 @@ import {
   spacing,
 } from '@/theme';
 
-// The loading veil covers the 3D map, which is raised over the 2D one. The
-// layer scale has no rung between raised and sticky.
-const ABOVE_3D_MAP = layers.raised + 1;
-
 export const styles = StyleSheet.create({
   outerContainer: {
     position: 'relative',
@@ -29,14 +25,6 @@ export const styles = StyleSheet.create({
   },
   map3DLayer: {
     zIndex: layers.raised,
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFill,
-    zIndex: ABOVE_3D_MAP,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colorWithOpacity(ink.black, opacity.tint4),
-    borderRadius: layout.borderRadius,
   },
   placeholder: {
     justifyContent: 'center',
@@ -66,7 +54,7 @@ export const styles = StyleSheet.create({
   controlButton: {
     width: layout.minTapTarget,
     height: layout.minTapTarget,
-    borderRadius: layout.minTapTarget / 2,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: colorWithOpacity(ink.white, 0.95),
     justifyContent: 'center',
     alignItems: 'center',

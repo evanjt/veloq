@@ -30,7 +30,7 @@ async function renderChart() {
   const onSelect = jest.fn();
   const onInteractionChange = jest.fn();
   const { result } = await renderHook(() =>
-    useChartGestures({ data: DAYS, onSelect, onInteractionChange })
+    useChartGestures({ data: DAYS, accessibilityLabel: 'Kiln heat', onSelect, onInteractionChange })
   );
   await act(async () => {
     result.current.syncXCoords(DAYS, (d) => d.x * 10);

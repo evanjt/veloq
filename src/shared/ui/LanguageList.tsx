@@ -19,13 +19,13 @@ import {
   colors,
   darkColors,
   iconSize,
-  inputBoundary,
   layout,
   slopToMinTapTarget,
   spacing,
   typography,
   stroke,
 } from '@/theme';
+import { ToggleButton } from './Button';
 import { pressable, pressRipple } from './pressFeedback';
 
 interface LanguageListProps {
@@ -44,6 +44,7 @@ interface LanguageListProps {
 export function LanguageList({ language, onSelect }: LanguageListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const checkInk = isDark ? darkColors.actionLink : colors.actionLink;
   const languages = getAvailableLanguages().flatMap((group) => group.languages);
   const hasDialect = languages.some((lang) => lang.variants?.some((v) => v.isDialect));
 
@@ -86,7 +87,7 @@ export function LanguageList({ language, onSelect }: LanguageListProps) {
           </Pressable>
         )}
         {followsSystem ? (
-          <MaterialCommunityIcons name="check" size={iconSize.md} color={colors.primary} />
+          <MaterialCommunityIcons name="check" size={iconSize.md} color={checkInk} />
         ) : null}
       </View>
       {languages.map((lang) => {
@@ -121,45 +122,24 @@ export function LanguageList({ language, onSelect }: LanguageListProps) {
                       isEnglishVariant(language) &&
                       getEnglishVariantValue(language) === variant.value);
                   return (
-                    <Pressable
+                    <ToggleButton
                       key={variant.value}
-                      style={pressable([
-                        styles.variantChip,
-                        isDark && styles.variantChipDark,
-                        variant.isDialect && !isVariantSelected && styles.variantChipDialect,
-                        variant.isDialect &&
-                          !isVariantSelected &&
-                          isDark &&
-                          styles.variantChipDialectDark,
-                        isVariantSelected && styles.variantChipSelected,
-                      ])}
-                      android_ripple={pressRipple}
+                      label={variant.label}
+                      selected={isVariantSelected}
+                      outlined={variant.isDialect === true}
                       onPress={() => onSelect(variant.value)}
-                      hitSlop={VARIANT_CHIP_SLOP}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: isVariantSelected }}
                       accessibilityLabel={
                         variant.isDialect
                           ? `${variant.label}, ${t('settings.dialect')}`
                           : variant.label
                       }
-                    >
-                      <Text
-                        style={[
-                          styles.variantChipText,
-                          isVariantSelected && styles.variantChipTextSelected,
-                          isDark && !isVariantSelected && styles.textSecondary,
-                        ]}
-                      >
-                        {variant.label}
-                      </Text>
-                    </Pressable>
+                    />
                   );
                 })}
               </View>
             ) : null}
             {showCheck && !lang.variants ? (
-              <MaterialCommunityIcons name="check" size={iconSize.md} color={colors.primary} />
+              <MaterialCommunityIcons name="check" size={iconSize.md} color={checkInk} />
             ) : null}
           </View>
         );
@@ -187,16 +167,6 @@ export function LanguageList({ language, onSelect }: LanguageListProps) {
     </View>
   );
 }
-
-const VARIANT_CHIP_GAP = spacing.xsPlus;
-const VARIANT_CHIP_HEIGHT = typography.bodyCompact.lineHeight + 2 * (spacing.xs + stroke.one);
-// Side by side, each chip reaches half the gap so the two targets meet without
-// overlapping.
-const VARIANT_CHIP_SLOP = {
-  ...slopToMinTapTarget(VARIANT_CHIP_HEIGHT),
-  left: VARIANT_CHIP_GAP / 2,
-  right: VARIANT_CHIP_GAP / 2,
-};
 
 // The label's line inside its padding. The row's own padding holds the slop
 // that lifts it to the tap target, so neighbouring rows are not reached.
@@ -241,39 +211,17 @@ const styles = StyleSheet.create({
   settingsLinkTextDark: {
     color: darkColors.actionLink,
   },
+  // Adjacent small targets keep 8 pt between their drawn edges.
   variantChips: {
     flexDirection: 'row',
-    gap: VARIANT_CHIP_GAP,
+    gap: spacing.sm,
     marginLeft: 'auto',
   },
-  variantChip: {
-    paddingHorizontal: spacing.smPlus,
-    paddingVertical: spacing.xs,
-    borderRadius: layout.borderRadiusMd,
-    backgroundColor: colors.background,
-    borderWidth: stroke.one,
-    borderColor: colors.border,
-  },
-  variantChipDark: {
-    backgroundColor: darkColors.surfaceElevated,
-    borderColor: darkColors.border,
-  },
-  variantChipSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
   variantChipDialect: {
-    borderColor: inputBoundary.light,
+    borderColor: colors.controlBoundary,
   },
   variantChipDialectDark: {
-    borderColor: inputBoundary.dark,
-  },
-  variantChipText: {
-    ...typography.bodyCompactBold,
-    color: colors.textSecondary,
-  },
-  variantChipTextSelected: {
-    color: colors.textOnPrimary,
+    borderColor: darkColors.controlBoundary,
   },
   dialectKey: {
     flexDirection: 'row',
@@ -284,16 +232,16 @@ const styles = StyleSheet.create({
     borderTopWidth: stroke.one,
     borderTopColor: colors.border,
   },
+  // A small copy of an unselected dialect chip: its ground, its shape and its outline.
   dialectKeySwatch: {
     width: spacing.lg,
     height: spacing.md,
-    borderRadius: layout.borderRadiusSm,
-    backgroundColor: colors.background,
+    borderRadius: layout.borderRadiusFull,
+    backgroundColor: colors.fillNeutral,
     borderWidth: stroke.one,
   },
   dialectKeySwatchDark: {
-    backgroundColor: darkColors.surfaceElevated,
-    borderColor: darkColors.border,
+    backgroundColor: darkColors.fillNeutral,
   },
   dialectKeyText: {
     ...typography.caption,

@@ -200,8 +200,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   timelineValue: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '700',
+    ...typography.metricValue,
     color: colors.textPrimary,
   },
   timelineValueDark: {

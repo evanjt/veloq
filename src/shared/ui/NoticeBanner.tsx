@@ -25,26 +25,14 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useBannerTopPadding } from '@/shared/app/TopSafeAreaContext';
 import { useTopBannerHeights, type ShownBanner } from '@/shared/app/topBanner';
-import {
-  colors,
-  controlHeight,
-  darkColors,
-  iconSize,
-  motionPresets,
-  spacing,
-  stroke,
-  typography,
-} from '@/theme';
+import { controlHeight, iconSize, motionPresets, spacing, stroke, typography } from '@/theme';
 import { Button } from './Button';
 import { IconButton } from './IconButton';
 import { useAnnounceOnAppear } from './useAnnounceOnAppear';
 import { useLargeText } from './useLargeText';
+import { noticePalette, type NoticeTone } from './noticePalette';
 
-/**
- * A failure, a notice the athlete may act on, a state they chose, or a wait
- * that ends on its own.
- */
-export type NoticeTone = 'error' | 'warning' | 'info' | 'neutral';
+export { noticePalette, type NoticePalette, type NoticeTone } from './noticePalette';
 
 export interface NoticeAction {
   label: string;
@@ -63,34 +51,6 @@ interface NoticeBannerProps {
   actions?: readonly NoticeAction[];
   onDismiss?: () => void;
   testID: string;
-}
-
-export interface NoticePalette {
-  bg: string;
-  /** An edge under the ground, for the one tone whose ground is the page colour. */
-  border?: string;
-  text: string;
-  subtext: string;
-  icon: string;
-}
-
-/**
- * Each tone is its status tint with the body ink on it and the tone's own
- * text colour as the icon, so a failure, a caution and a notice differ by hue
- * and each still pairs its colour with an icon and words. Neutral is the
- * surface, edged so it parts from the page under it. The pairs are measured in
- * `TINT_GROUNDS`.
- */
-export function noticePalette(tone: NoticeTone, isDark: boolean): NoticePalette {
-  const p = isDark ? darkColors : colors;
-  const ink = { text: p.textPrimary, subtext: p.textSecondary };
-  const grounds: Record<NoticeTone, Omit<NoticePalette, 'text' | 'subtext'>> = {
-    error: { bg: p.errorBg, icon: p.errorDeep },
-    warning: { bg: p.warningBg, icon: p.warningAmber },
-    info: { bg: p.infoBg, icon: p.infoText },
-    neutral: { bg: p.surface, border: p.border, icon: p.textSecondary },
-  };
-  return { ...grounds[tone], ...ink };
 }
 
 export function NoticeBanner({
@@ -133,7 +93,7 @@ export function NoticeBanner({
         ]}
       >
         <View testID={`${testID}-content`} style={[styles.content, stacked && styles.stacked]}>
-          <View style={styles.headline}>
+          <View style={[styles.headline, !stacked && styles.headlineBeside]}>
             <MaterialCommunityIcons name={icon} size={iconSize.sm} color={ground.icon} />
             <View style={styles.text}>
               <Text style={[styles.title, { color: ground.text }]}>{title}</Text>
@@ -191,10 +151,15 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
   },
   headline: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  // Beside the controls the text takes the width they leave. Stacked, the
+  // column's height is its content, so a flex child would grow from nothing
+  // into no spare height and draw at zero.
+  headlineBeside: {
+    flex: 1,
   },
   text: {
     flex: 1,

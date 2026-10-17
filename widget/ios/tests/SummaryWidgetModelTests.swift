@@ -71,9 +71,10 @@ final class SummaryWidgetModelTests: XCTestCase {
         ChartCaption(series: [labels.fitness, labels.fatigue], span: "30 days"))
     }
     let large = SummaryWidgetModel.content(snapshot, placement: .followCard, size: .large)
+    let zone = try XCTUnwrap(snapshot.display.formZone)
     XCTAssertEqual(
       large.formCaption,
-      FormChartCaption(title: labels.form, zone: "Grey Zone", span: "42 days"))
+      FormChartCaption(title: labels.form, zone: zone, span: "42 days"))
   }
 
   func testSmallHasNoRoomForACaptionAndMediumNoFormChart() throws {

@@ -1192,6 +1192,36 @@ pub(crate) fn check_record_rows(payload: &RecordPayload) -> Result<(), String> {
     payload.entries.iter().try_for_each(check_record_row)
 }
 
+/// How many rows of each kind a record would place.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub(crate) struct RecordCounts {
+    /// Route names, section names, and hand-cut sections that carry a name.
+    pub(crate) names: u32,
+    pub(crate) settings: u32,
+    /// Every other row.
+    pub(crate) decisions: u32,
+}
+
+pub(crate) fn record_counts(payload: &RecordPayload) -> RecordCounts {
+    let mut counts = RecordCounts::default();
+    for row in &payload.entries {
+        let named = match row.table.as_str() {
+            "route_names" | "legacy_section_name" => true,
+            "sections" => string(&row.values, "name").is_some_and(|name| !name.is_empty()),
+            _ => false,
+        };
+        let count = if named {
+            &mut counts.names
+        } else if row.table == "settings" {
+            &mut counts.settings
+        } else {
+            &mut counts.decisions
+        };
+        *count = count.saturating_add(1);
+    }
+    counts
+}
+
 /// Rows an earlier build stored, paused or waiting, less any that fail on
 /// content: such a row can never be placed, and carried along it would stop
 /// every later import.

@@ -62,6 +62,10 @@ interface RouteMapViewProps {
   highlightedActivityId?: string | null | undefined;
   /** Specific lap points to highlight (takes precedence over highlightedActivityId) */
   highlightedLapPoints?: RoutePoint[] | undefined;
+  /** When the highlighted attempt was ridden, which the map key names it by. */
+  highlightedActivityDate?: Date | undefined;
+  /** The activity the page was opened from, the only one the key calls "This activity". */
+  pageActivityId?: string | undefined;
   /** Enable tap to fullscreen */
   enableFullscreen?: boolean | undefined;
   /** Callback when map is tapped (only if enableFullscreen is false) */
@@ -81,6 +85,8 @@ export function RouteMapView({
   interactive = false,
   highlightedActivityId = null,
   highlightedLapPoints,
+  highlightedActivityDate,
+  pageActivityId,
   enableFullscreen = false,
   onPress,
   activitySignatures = {},
@@ -168,6 +174,11 @@ export function RouteMapView({
     showDelta: deltaLineStops !== null,
   };
   const fullscreenLegendLayers: DetailMapLegendLayers = { showActivity, showDelta: false };
+  const pickedAttempt = {
+    activityId: highlightedActivityId,
+    date: highlightedActivityDate,
+    pageActivityId,
+  };
 
   // Markers follow whatever is highlighted, falling back to the route itself.
   const endpoints = useMemo(() => {
@@ -249,7 +260,12 @@ export function RouteMapView({
 
   if (!bounds || displayPoints.length === 0) {
     return (
-      <View style={[styles.placeholder, { height, backgroundColor: activityColor + '20' }]}>
+      <View
+        style={[
+          styles.placeholder,
+          { height, backgroundColor: colorWithOpacity(activityColor, opacity.tint2) },
+        ]}
+      >
         <MaterialCommunityIcons name="map-marker-off" size={iconSize.xl} color={activityColor} />
       </View>
     );
@@ -297,6 +313,7 @@ export function RouteMapView({
             isDark={isDark}
             top={headerBottom + spacing.sm}
             testID="route-map-legend"
+            pickedAttempt={pickedAttempt}
             {...inlineLegendLayers}
           />
         ) : null}
@@ -325,6 +342,7 @@ export function RouteMapView({
             isDark={isDark}
             top={fullscreenInsets.top + spacing.sm}
             testID="route-map-legend"
+            pickedAttempt={pickedAttempt}
             {...fullscreenLegendLayers}
           />
         ) : null}

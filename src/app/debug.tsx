@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, RefreshControl, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
+import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
 import Constants from 'expo-constants';
 import { Button, ScreenScrollView, pressable, pressRipple } from '@/shared/ui';
 import { shareText } from '@/features/settings/light';
@@ -543,7 +544,7 @@ function DebugScreenContent() {
       <ScreenScrollView
         style={[styles.container, isDark && styles.containerDark]}
         contentContainerStyle={[styles.content, { paddingBottom: spacing.md }]}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        refreshControl={<ScreenRefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {/* Engine Stats */}
         <CollapsibleSection title="Engine Stats" icon="database" isDark={isDark}>
@@ -883,10 +884,9 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   statValue: {
-    fontSize: typography.bodyCompact.fontSize,
+    ...typography.bodyCompactBold,
     fontFamily: typography.code.fontFamily,
     color: colors.textPrimary,
-    fontWeight: '600',
   },
   textSecondary: {
     color: darkColors.textSecondary,
@@ -904,10 +904,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   tableHeaderText: {
-    fontSize: typography.label.fontSize,
+    ...typography.label,
     fontFamily: typography.code.fontFamily,
-    fontWeight: '600',
-    textTransform: 'uppercase',
   },
   tableRow: {
     flexDirection: 'row',

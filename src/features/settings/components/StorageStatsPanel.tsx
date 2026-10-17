@@ -118,7 +118,7 @@ function StorageBreakdownBar({
 
   const freeColor = isDark
     ? colorWithOpacity(ink.white, opacity.tint2)
-    : colorWithOpacity(ink.black, 0.08);
+    : colorWithOpacity(ink.black, opacity.tint1);
   const totalDevice = freeStorage !== null ? totalCacheBytes + freeStorage : 0;
   const deviceUsagePct = totalDevice > 0 ? (totalCacheBytes / totalDevice) * 100 : 0;
 

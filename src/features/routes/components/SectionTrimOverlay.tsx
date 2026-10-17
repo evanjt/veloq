@@ -16,6 +16,8 @@ import { useTranslation } from 'react-i18next';
 import * as haptics from '@/shared/ui/haptics';
 import { useGestureCallback } from '@/shared/ui/useGestureCallback';
 import {
+  colorWithOpacity,
+  opacity,
   colors,
   darkColors,
   iconSize,
@@ -53,7 +55,7 @@ const STEP_BUTTON_HEIGHT = 28;
 /** The parts of the slider drawn in the theme's primary. */
 const primaryStyles = (palette: Palette) =>
   StyleSheet.create({
-    trackSection: { backgroundColor: palette.primary + '30' },
+    trackSection: { backgroundColor: colorWithOpacity(palette.primary, opacity.tint3) },
     trackActive: { backgroundColor: palette.primary },
     handleInner: { borderColor: palette.primary },
     handleBar: { backgroundColor: palette.primary },
@@ -63,9 +65,9 @@ const primaryStyles = (palette: Palette) =>
       borderRadius: layout.borderRadiusSm,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: palette.primary + '15',
+      backgroundColor: colorWithOpacity(palette.primary, opacity.tint1),
     },
-    stepButtonDark: { backgroundColor: palette.primary + '25' },
+    stepButtonDark: { backgroundColor: colorWithOpacity(palette.primary, opacity.tint2) },
   });
 
 interface SectionTrimOverlayProps {
@@ -538,8 +540,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   infoValue: {
-    ...typography.body,
-    fontWeight: '600',
+    ...typography.bodyBold,
   },
   infoMuted: {
     ...typography.caption,
@@ -554,7 +555,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: TRACK_HEIGHT,
-    borderRadius: TRACK_HEIGHT / 2,
+    borderRadius: layout.borderRadiusFull,
     backgroundColor: colors.border,
   },
   trackBackgroundDark: {
@@ -563,12 +564,12 @@ const styles = StyleSheet.create({
   trackSection: {
     position: 'absolute',
     height: TRACK_HEIGHT,
-    borderRadius: TRACK_HEIGHT / 2,
+    borderRadius: layout.borderRadiusFull,
   },
   trackActive: {
     position: 'absolute',
     height: TRACK_HEIGHT,
-    borderRadius: TRACK_HEIGHT / 2,
+    borderRadius: layout.borderRadiusFull,
   },
   handle: {
     position: 'absolute',

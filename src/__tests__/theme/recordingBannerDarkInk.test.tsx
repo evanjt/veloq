@@ -1,10 +1,10 @@
 /**
- * Scenario: the battery nudge and the upload permission banner tint their
- * ground amber over the dark background in the dark theme, and drew their words
- * and close mark in the light theme's deep amber, about 2:1 on that ground.
+ * Scenario: the battery nudge and the upload permission banner sit on an amber
+ * ground in the dark theme, and drew their words and close mark in the light
+ * theme's deep amber, about 2:1 on that ground.
  *
  * Expected behaviour: with the dark theme active, every text colour each banner
- * resolves clears 4.5:1 on its tinted ground, and every icon 3:1. The buttons
+ * resolves clears 4.5:1 on the warning ground, and every icon 3:1. The buttons
  * draw on their own fill and are measured with the button.
  */
 
@@ -14,9 +14,9 @@ import { render, screen } from '@testing-library/react-native';
 
 import { BatteryOptimisationNudge } from '@/features/recording/components/BatteryOptimisationNudge';
 import { PermissionUpgradeBanner } from '@/features/recording/components/PermissionUpgradeBanner';
-import { colors, colorWithOpacity, darkColors } from '@/theme';
+import { noticePalette } from '@/shared/ui/NoticeBanner';
 
-import { over, textCount, themed, underBar } from '../__shared__/drawnContrast';
+import { textCount, themed, underBar } from '../__shared__/drawnContrast';
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').fallbackOrKey());
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: true }) }));
@@ -44,8 +44,8 @@ jest.mock('@/features/recording/hooks/usePermissionUpgrade', () => ({
   }),
 }));
 
-/** The amber tint both banners lay over the dark background. */
-const AMBER_GROUND = over(colorWithOpacity(colors.warning, 0.18), darkColors.background);
+/** The warning ground both banners sit on in the dark theme. */
+const AMBER_GROUND = noticePalette('warning', true).bg;
 
 describe('the recording banners in the dark theme', () => {
   const originalOS = Platform.OS;

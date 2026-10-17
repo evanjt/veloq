@@ -187,8 +187,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   balanceHeroBadgeText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '700',
+    ...typography.captionBold,
     color: colors.textSecondary,
   },
   balanceHeroText: {
@@ -231,8 +230,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   balanceStatusText: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '700',
+    ...typography.badge,
     color: colors.textSecondary,
   },
   balanceBadgeTextDark: {
@@ -256,8 +254,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   balanceRatioText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '700',
+    ...typography.captionBold,
     color: colors.textPrimary,
     marginTop: spacing.xsPlus,
   },

@@ -43,6 +43,7 @@ const mockStrip: {
 } = { tabs: [], pages: [] };
 jest.mock('@/shared/ui', () => ({
   IconButton: jest.requireActual('@/shared/ui/IconButton').IconButton,
+  InlineNotice: jest.requireActual('@/shared/ui/InlineNotice').InlineNotice,
   pressable: (style: unknown) => style,
   ScreenErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
   ScreenSafeAreaView: ({ children }: { children: React.ReactNode }) => children,

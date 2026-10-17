@@ -18,7 +18,6 @@ import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 
 import { inform } from '@/shared/ui/dialog';
 
-import { confirmLegacyImport } from '../lib/importBackupFile';
 import { backupEntryLabel } from '../lib/backupEntryLabel';
 import { describeBackupFailure } from '../lib/backupFailure';
 import { answerRestorePrompt, restoreFoundBackup, type BackupSource } from '../lib/restorePrompt';
@@ -45,15 +44,11 @@ export function RestoreOfferCard() {
     if (!found || running.current) return;
     running.current = true;
     try {
-      const confirmed = await confirmLegacyImport({
-        title: t('backup.importBackup'),
-        message: t('backup.legacyImportMessage'),
-        cancel: t('common.cancel'),
-      });
-      if (!confirmed) return;
       setBusy(true);
+      const outcome = await restoreFoundBackup(found, t);
+      if (outcome === 'declined') return;
       // Answered here rather than by the card, which the athlete may have left.
-      showRestoreNotice(await restoreFoundBackup(found), t);
+      showRestoreNotice(outcome, t);
       answerRestorePrompt();
     } catch (error) {
       const described = describeBackupFailure(error);
@@ -131,8 +126,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   title: {
-    ...typography.body,
-    fontWeight: '600',
+    ...typography.bodyBold,
     color: colors.textPrimary,
   },
   titleDark: {

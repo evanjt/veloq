@@ -7,6 +7,7 @@ import { CompassArrow, IconButton } from '@/shared/ui';
 import { getStyleIcon, type MapStyleType } from './mapStyles';
 import { activityMapControlCount, useMapControlColumn } from '../lib/mapControlColumnLayout';
 import { styles } from './ActivityMapView.styles';
+import { LOCATE_GLYPH } from '@/features/maps/lib/mapGlyphs';
 
 interface ActivityMapControlsProps {
   isDark: boolean;
@@ -16,6 +17,8 @@ interface ActivityMapControlsProps {
   gradientActive: boolean;
   onToggleGradient: () => void;
   is3DMode: boolean;
+  /** Terrain is loading: the 3D control is busy and ignores presses until it ends. */
+  is3DLoading: boolean;
   hasRoute: boolean;
   onToggle3D: () => void;
   bearingAnim: Animated.Value;
@@ -38,6 +41,7 @@ export function ActivityMapControls({
   gradientActive,
   onToggleGradient,
   is3DMode,
+  is3DLoading,
   hasRoute,
   onToggle3D,
   bearingAnim,
@@ -104,17 +108,27 @@ export function ActivityMapControls({
         <IconButton
           testID="activity-map-3d-toggle"
           accessibilityLabel={is3DMode ? t('maps.disable3D') : t('maps.enable3D')}
+          accessibilityState={{ selected: is3DMode, busy: is3DLoading }}
           style={[styles.controlButton, isDark && !is3DMode && styles.controlButtonDark]}
           variant={is3DMode ? 'primary' : 'secondary'}
           onPress={onToggle3D}
+          disabled={is3DLoading}
         >
-          <MaterialCommunityIcons
-            name="terrain"
-            size={iconSize.lg}
-            color={
-              is3DMode ? colors.textOnPrimary : isDark ? colors.textOnDark : colors.textSecondary
-            }
-          />
+          {is3DLoading ? (
+            <ActivityIndicator
+              testID="activity-map-3d-busy"
+              size="small"
+              color={colors.textOnPrimary}
+            />
+          ) : (
+            <MaterialCommunityIcons
+              name="terrain"
+              size={iconSize.lg}
+              color={
+                is3DMode ? colors.textOnPrimary : isDark ? colors.textOnDark : colors.textSecondary
+              }
+            />
+          )}
         </IconButton>
       ) : null}
 
@@ -154,7 +168,7 @@ export function ActivityMapControls({
           />
         ) : (
           <MaterialCommunityIcons
-            name="crosshairs-gps"
+            name={LOCATE_GLYPH}
             size={iconSize.lg}
             color={
               userLocationActive

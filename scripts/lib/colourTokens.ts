@@ -1,0 +1,342 @@
+/**
+ * The colour token file, resolved, checked and written out to every consumer.
+ *
+ * `src/theme/tokens.json` is the design system's own token file, committed as
+ * it was taken. Each colour token holds a value per theme, either a colour or
+ * `{another-token}`. Code cannot read the file directly on every target: the
+ * engine is Rust, `app.config.js` runs before the bundle exists, and the
+ * palette in `colors.ts` is typed. So one generator resolves it once and writes
+ * a table each of them can read, and `--check` refuses a table that has drifted.
+ *
+ * `src/theme/colourRoles.json` says how the keys of `colors` and `darkColors`
+ * relate to the tokens: which role each folds into, in which themes it already
+ * reads that role, and which keys are dropped. A key the file does not account
+ * for, a role nothing reads and nobody reserved, or a key that claims a role it
+ * no longer matches all fail the check.
+ */
+
+export const THEMES = ['light', 'dark'] as const;
+export type Theme = (typeof THEMES)[number];
+
+export interface TokenFile {
+  color: {
+    themes: { id: string }[];
+    tokens: { name: string; value: Partial<Record<string, string>> }[];
+  };
+}
+
+/** Every colour token's final value in each theme, by name. */
+export type ResolvedTokens = Record<Theme, Record<string, string>>;
+
+export interface RoleEntry {
+  /** The token the key folds into. */
+  role?: string;
+  /** Other roles the key's readers split across when it folds. */
+  also?: string[];
+  /** The themes in which the key is read from `role` now, not hand-written. */
+  from?: Theme[];
+  /** Why the key goes without a role. */
+  drop?: string;
+}
+
+export interface RoleMap {
+  keys: Record<string, RoleEntry>;
+  /** Token names, or prefixes ending in `*`, kept for a reader still to come. */
+  reserved: Record<string, string>;
+}
+
+/** One stop of the heatmap tile ramp: a token at an intensity and an alpha. */
+export interface HeatStop {
+  intensity: number;
+  token: string;
+  alpha: number;
+}
+
+const ALIAS = /^\{([a-z0-9-]+)\}$/;
+const HEX = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+const RGBA = /^rgba\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(0|1|0?\.\d+|1\.0+)\s*\)$/;
+
+/** A colour in the one spelling the generated files carry, or null if it is not one. */
+export function normaliseColour(value: string): string | null {
+  const hex = HEX.exec(value)?.[1];
+  if (hex !== undefined) {
+    const digits =
+      hex.length === 3
+        ? hex
+            .split('')
+            .map((d) => d + d)
+            .join('')
+        : hex;
+    return `#${digits.toUpperCase()}`;
+  }
+  const rgba = RGBA.exec(value);
+  if (rgba) {
+    const [, red = '', green = '', blue = '', alpha = ''] = rgba;
+    const [r, g, b] = [Number(red), Number(green), Number(blue)];
+    if (r > 255 || g > 255 || b > 255) return null;
+    return `rgba(${r}, ${g}, ${b}, ${Number(alpha)})`;
+  }
+  return null;
+}
+
+/**
+ * Every token's value in both themes, aliases followed. Throws on the first
+ * token with no value in a theme, an alias to nothing, an alias cycle or a
+ * value that is not a colour, because a table written around a gap draws
+ * something nobody chose.
+ */
+export function resolveColourTokens(file: TokenFile): ResolvedTokens {
+  const themes = file.color.themes.map((t) => t.id).sort();
+  if (themes.join() !== [...THEMES].sort().join()) {
+    throw new Error(`the token file's themes are ${themes.join(', ')}, not light and dark`);
+  }
+  const raw = new Map<string, Partial<Record<string, string>>>();
+  for (const token of file.color.tokens) {
+    if (raw.has(token.name)) throw new Error(`token ${token.name} is defined twice`);
+    raw.set(token.name, token.value);
+  }
+
+  const resolved: ResolvedTokens = { light: {}, dark: {} };
+  for (const theme of THEMES) {
+    const resolve = (name: string, chain: string[]): string => {
+      if (chain.includes(name)) {
+        throw new Error(`token ${chain[0]} aliases in a cycle: ${[...chain, name].join(' -> ')}`);
+      }
+      const value = raw.get(name)?.[theme];
+      if (typeof value !== 'string' || value.trim() === '') {
+        throw new Error(
+          chain.length === 0
+            ? `token ${name} has no ${theme} value`
+            : `token ${chain[0]} aliases ${name}, which has no ${theme} value`
+        );
+      }
+      const alias = ALIAS.exec(value.trim())?.[1];
+      if (alias !== undefined) {
+        if (!raw.has(alias)) {
+          throw new Error(`token ${name} aliases {${alias}}, which is not a token`);
+        }
+        return resolve(alias, [...chain, name]);
+      }
+      const colour = normaliseColour(value.trim());
+      if (!colour) throw new Error(`token ${name} has ${theme} value ${value}, not a colour`);
+      return colour;
+    };
+    for (const name of raw.keys()) resolved[theme][name] = resolve(name, []);
+  }
+  return resolved;
+}
+
+/** The token names other tokens alias, in either theme. */
+function aliasedNames(file: TokenFile): Set<string> {
+  const names = new Set<string>();
+  for (const token of file.color.tokens) {
+    for (const value of Object.values(token.value)) {
+      const alias = typeof value === 'string' ? ALIAS.exec(value.trim())?.[1] : undefined;
+      if (alias !== undefined) names.add(alias);
+    }
+  }
+  return names;
+}
+
+/** The keys of `colors` and `darkColors` that read a role, with the role's value. */
+export function roleColours(resolved: ResolvedTokens, map: RoleMap): ResolvedTokens {
+  const out: ResolvedTokens = { light: {}, dark: {} };
+  for (const [key, entry] of Object.entries(map.keys)) {
+    for (const theme of entry.from ?? []) {
+      const value = entry.role ? resolved[theme][entry.role] : undefined;
+      if (value === undefined) {
+        throw new Error(`${key} reads role ${entry.role ?? '(none)'}, which is not a token`);
+      }
+      out[theme][key] = value;
+    }
+  }
+  return out;
+}
+
+/**
+ * Everything wrong between the token file, the role map and the palettes as
+ * `colors.ts` builds them. `readers` are the tokens a generated output reads
+ * outside the palette, the heatmap ramp and the native app colours.
+ */
+export function checkColourRoles(
+  file: TokenFile,
+  resolved: ResolvedTokens,
+  map: RoleMap,
+  palettes: Record<Theme, Record<string, string>>,
+  readers: readonly string[]
+): string[] {
+  const problems: string[] = [];
+  const tokens = new Set(Object.keys(resolved.light));
+  const paletteKeys = new Set([...Object.keys(palettes.light), ...Object.keys(palettes.dark)]);
+
+  for (const key of paletteKeys) {
+    if (!(key in map.keys))
+      problems.push(`colors key ${key} is neither mapped to a role nor dropped`);
+  }
+  for (const [key, entry] of Object.entries(map.keys)) {
+    if (!paletteKeys.has(key)) {
+      problems.push(`the role map lists ${key}, which neither colors nor darkColors has`);
+      continue;
+    }
+    if (entry.role && entry.drop) {
+      problems.push(`${key} both folds into ${entry.role} and is dropped`);
+    }
+    if (!entry.role && !entry.drop)
+      problems.push(`${key} names neither a role nor a reason to drop`);
+    for (const role of [entry.role, ...(entry.also ?? [])]) {
+      if (role !== undefined && !tokens.has(role)) {
+        problems.push(`${key} folds into ${role}, which is not a token`);
+      }
+    }
+    for (const theme of entry.from ?? []) {
+      if (!entry.role || !tokens.has(entry.role)) continue;
+      const have = palettes[theme][key];
+      const want = resolved[theme][entry.role];
+      if (have === undefined) {
+        problems.push(
+          `${key} reads ${entry.role} in ${theme}, but the ${theme} palette has no ${key}`
+        );
+      } else if (normaliseColour(have) !== want) {
+        problems.push(
+          `${key} in ${theme} is ${have}, not ${entry.role} ${want}, so it was overridden`
+        );
+      }
+    }
+  }
+
+  const reservations = Object.keys(map.reserved);
+  const reserved = (name: string) =>
+    reservations.some((r) => (r.endsWith('*') ? name.startsWith(r.slice(0, -1)) : r === name));
+  for (const r of reservations) {
+    const matches = [...tokens].some((name) =>
+      r.endsWith('*') ? name.startsWith(r.slice(0, -1)) : r === name
+    );
+    if (!matches) problems.push(`the reservation ${r} matches no token`);
+  }
+  const read = new Set<string>([...aliasedNames(file), ...readers]);
+  for (const entry of Object.values(map.keys)) {
+    if (entry.role) read.add(entry.role);
+    for (const role of entry.also ?? []) read.add(role);
+  }
+  for (const name of tokens) {
+    if (!read.has(name) && !reserved(name)) {
+      problems.push(`role ${name} has no reader and is not reserved`);
+    }
+  }
+  return problems;
+}
+
+const GEN = 'GENERATED by scripts/gen-colour-tokens.ts from src/theme/tokens.json. Do not edit.';
+const RUN = 'Run: npm run gen:colour-tokens';
+
+function rgb(colour: string): [number, number, number] {
+  if (!colour.startsWith('#') || colour.length !== 7) {
+    throw new Error(`the heatmap ramp needs an opaque hex colour, not ${colour}`);
+  }
+  return [1, 3, 5].map((at) => parseInt(colour.slice(at, at + 2), 16)) as [number, number, number];
+}
+
+/** The heatmap ramp's stops as RGBA bytes, faintest first. */
+export function heatStopBytes(
+  resolved: ResolvedTokens,
+  stops: readonly HeatStop[]
+): { intensity: number; rgba: [number, number, number, number] }[] {
+  let last = 0;
+  return stops.map((stop) => {
+    if (!(stop.intensity > last && stop.intensity <= 1)) {
+      throw new Error(`heatmap stop ${stop.token} at ${stop.intensity} is out of order`);
+    }
+    last = stop.intensity;
+    const colour = resolved.dark[stop.token];
+    if (colour === undefined) throw new Error(`heatmap stop ${stop.token} is not a token`);
+    return { intensity: stop.intensity, rgba: [...rgb(colour), stop.alpha] };
+  });
+}
+
+const quoteKey = (key: string) => (/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(key) ? key : `'${key}'`);
+
+function tsRecord(record: Record<string, string>, indent: string): string {
+  return Object.entries(record)
+    .map(([key, value]) => `${indent}${quoteKey(key)}: '${value}',`)
+    .join('\n');
+}
+
+/** `src/theme/colourTokens.generated.ts`. */
+export function renderTypeScript(
+  resolved: ResolvedTokens,
+  roles: ResolvedTokens,
+  stops: readonly HeatStop[]
+): string {
+  const heat = heatStopBytes(resolved, stops)
+    .map((s) => `  { intensity: ${s.intensity}, rgba: [${s.rgba.join(', ')}] },`)
+    .join('\n');
+  const themed = (record: ResolvedTokens) =>
+    THEMES.map((theme) => `  ${theme}: {\n${tsRecord(record[theme], '    ')}\n  },`).join('\n');
+  return `// ${GEN} ${RUN}
+
+/** Every colour token in each theme, aliases resolved. */
+export const colourTokens = {
+${themed(resolved)}
+} as const;
+
+export type ColourToken = keyof typeof colourTokens.light;
+
+/** The keys of \`colors\` and \`darkColors\` that read a role, per \`colourRoles.json\`. */
+export const roleColours = {
+${themed(roles)}
+} as const;
+
+/**
+ * The colour stops the engine paints heatmap tiles with, as intensity and RGBA
+ * bytes, faintest first. The transparent zero stop is left out.
+ */
+export const heatmapTileStops = [
+${heat}
+] as const;
+`;
+}
+
+const rustFloat = (n: number) => (Number.isInteger(n) ? `${n}.0` : `${n}`);
+
+/** `modules/veloqrs/rust/veloqrs/src/heatmap_ramp.rs`. */
+export function renderRustHeatRamp(resolved: ResolvedTokens, stops: readonly HeatStop[]): string {
+  const rows = heatStopBytes(resolved, stops).map(
+    (s) => `    (${[s.intensity, ...s.rgba].map(rustFloat).join(', ')}),`
+  );
+  return `// ${GEN} ${RUN}
+
+/// The heatmap tile ramp as \`(intensity, r, g, b, a)\`, faintest first, from
+/// the transparent zero stop to the densest. Colours are the dark map's heat
+/// tokens: one tile set serves every map style, and the light map's raster
+/// paint inverts lightness so the same ramp darkens with density there.
+pub(crate) const HEATMAP_STOPS: &[(f32, f32, f32, f32, f32)] = &[
+    (0.0, 0.0, 0.0, 0.0, 0.0),
+${rows.join('\n')}
+];
+`;
+}
+
+/** `src/theme/appColours.json`, the colours native code draws before any JavaScript runs. */
+export function renderAppColours(
+  resolved: ResolvedTokens,
+  sources: Record<string, string>
+): string {
+  const out: Record<string, string> = {};
+  for (const [key, token] of Object.entries(sources)) {
+    const value = resolved.light[token];
+    if (value === undefined)
+      throw new Error(`app colour ${key} reads ${token}, which is not a token`);
+    out[key] = value;
+  }
+  return `${JSON.stringify(out, null, 2)}\n`;
+}
+
+/** The outputs whose committed text is not what the token file generates, in order. */
+export function staleOutputs(
+  expected: Record<string, string>,
+  committed: (path: string) => string | null | undefined
+): string[] {
+  return Object.entries(expected)
+    .filter(([path, text]) => committed(path) !== text)
+    .map(([path]) => path);
+}

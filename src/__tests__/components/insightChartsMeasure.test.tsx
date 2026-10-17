@@ -1,7 +1,6 @@
 /**
- * Scenario: the HRV trend chart, the section PR timeline and the section
- * minimap each size themselves from an onLayout that sat inside the subtree
- * they withheld until the width was known, so the width never arrived.
+ * Scenario: the HRV trend chart and the section PR timeline each size
+ * themselves from an onLayout that sat inside the subtree they withheld until the width was known, so the width never arrived.
  *
  * Expected behaviour: the measuring wrapper mounts with the data, a layout
  * event draws the chart, and too little data still draws nothing.
@@ -14,7 +13,6 @@ import { Canvas } from '@shopify/react-native-skia';
 
 import { HrvTrendContent } from '@/features/insights/components/content/HrvTrendContent';
 import { SectionPerformanceTimeline } from '@/features/insights/components/content/SectionPerformanceTimeline';
-import { SectionInsightMap } from '@/features/insights/components/content/SectionInsightMap';
 import type { Insight } from '@/features/insights/types';
 import { NO_BESTS } from '@/features/insights/lib/directionBests';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
@@ -68,12 +66,6 @@ function record(id: string, day: number, bestTime: number): SectionPerformanceRe
   } as unknown as SectionPerformanceRecord;
 }
 
-const POLYLINE = [
-  { lat: -37.8, lng: 144.9 },
-  { lat: -37.81, lng: 144.91 },
-  { lat: -37.82, lng: 144.93 },
-];
-
 describe('insight charts measure outside the chart branch', () => {
   it('draws the HRV trend once laid out', async () => {
     const tree = await render(<HrvTrendContent insight={hrvInsight([50, 55, 52, 58])} />);
@@ -101,19 +93,6 @@ describe('insight charts measure outside the chart branch', () => {
   it('draws no timeline from one effort', async () => {
     const tree = await render(
       <SectionPerformanceTimeline records={[record('a', 1, 300)]} bests={NO_BESTS} />
-    );
-    expect(tree.toJSON()).toBeNull();
-  });
-
-  it('draws the section map once laid out', async () => {
-    const tree = await render(<SectionInsightMap polyline={POLYLINE} />);
-    await layout(tree);
-    expect(canvases(tree)).toHaveLength(1);
-  });
-
-  it('draws no map from fewer than two usable points', async () => {
-    const tree = await render(
-      <SectionInsightMap polyline={[POLYLINE[0], { lat: Number.NaN, lng: Number.NaN }]} />
     );
     expect(tree.toJSON()).toBeNull();
   });

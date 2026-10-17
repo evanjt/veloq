@@ -10,11 +10,12 @@ export type {
   ButtonSize,
   ButtonVariant,
   ToggleButtonProps,
+  ToggleButtonRowOption,
   ToggleButtonRowProps,
 } from './Button';
+export { SelectButton, selectLabel } from './SelectButton';
+export type { SelectButtonProps, SelectOption } from './SelectButton';
 export { ChangeChip } from './ChangeChip';
-export { ChipSelector } from './ChipSelector';
-export type { ChipOption, ChipSelectorProps } from './ChipSelector';
 export { Card } from './Card';
 export { KeyDot } from './KeyDot';
 export { accessibleActions, type AccessibleAction } from './accessibleActions';
@@ -32,7 +33,7 @@ export { Switch, switchColors } from './Switch';
 export type { SwitchColors, SwitchProps } from './Switch';
 export { SwitchRow } from './SwitchRow';
 export type { SwitchRowInset, SwitchRowProps } from './SwitchRow';
-export { IconButton } from './IconButton';
+export { ICON_BUTTON_GAP, IconButton } from './IconButton';
 export { ChromeIcon, chromeMenuIcon, type ChromeRole } from './ChromeIcon';
 export { secretReveal, type SecretReveal } from './secretReveal';
 export type { IconButtonProps } from './IconButton';
@@ -83,6 +84,7 @@ export type { HeroStat } from './DetailHero';
 export { useHeroMapHeight, HERO_MAP_FRACTION } from './useHeroMapHeight';
 export { SIGNAL_LINE_RADIUS, SignalStatus, signalColor, type SignalLevel } from './SignalStatus';
 export { PermissionNotice, OpenSettingsButton } from './PermissionNotice';
+export { InlineNotice, type InlineNoticeProps } from './InlineNotice';
 export { ScreenSafeAreaView } from './ScreenSafeAreaView';
 export { FullWindowModal } from './FullWindowModal';
 export {
@@ -108,6 +110,8 @@ export type { CircleOption, CircleOptionRowProps } from './CircleOption';
 export { SearchBar, type SearchBarProps } from './SearchBar';
 export { TextField, type TextFieldHandle, type TextFieldProps } from './TextField';
 export { Spinner, type SpinnerProps } from './Spinner';
+export { HeldRender, heldRenderProps } from './HeldRender';
+export { ScreenRefreshControl, type ScreenRefreshControlProps } from './ScreenRefreshControl';
 export {
   InlineLink,
   TextLink,

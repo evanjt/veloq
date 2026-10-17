@@ -71,7 +71,7 @@ final class LastActivityWidgetModelTests: XCTestCase {
     var json = try XCTUnwrap(
       JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
     var impact = try XCTUnwrap(json["impact"] as? [String: Any])
-    let words = ["greyZone": "Grey Zone", "fresh": "Fresh"]
+    let words = ["greyZone": "Grey zone", "fresh": "Fresh"]
     impact["formBeforeZone"] = beforeZone
     impact["formBeforeZoneText"] = words[beforeZone]
     impact["formAfterZone"] = afterZone
@@ -86,7 +86,7 @@ final class LastActivityWidgetModelTests: XCTestCase {
       LastActivityWidgetModel.content(
         snapshot(beforeZone: "greyZone", afterZone: "fresh"), size: .medium))
     let form = try XCTUnwrap(content.form)
-    XCTAssertEqual(form.beforeZoneText, "Grey Zone")
+    XCTAssertEqual(form.beforeZoneText, "Grey zone")
     XCTAssertEqual(form.afterZoneText, "Fresh")
   }
 
@@ -113,5 +113,20 @@ final class LastActivityWidgetModelTests: XCTestCase {
     let last = try XCTUnwrap(LastActivityWidgetModel.fallbacks(content).last)
     XCTAssertEqual(last.name, "Harbour Loop")
     XCTAssertNotNil(last.figures)
+  }
+
+  func testThisActivityCarriesTheReticleAndTheRecordItsGoldDotCombinedByShape() {
+    XCTAssertEqual(
+      LastActivityDot(current: false, record: false).mark,
+      LastActivityDotMark(fill: .earlier, full: false, reticle: false))
+    XCTAssertEqual(
+      LastActivityDot(current: false, record: true).mark,
+      LastActivityDotMark(fill: .record, full: true, reticle: false))
+    XCTAssertEqual(
+      LastActivityDot(current: true, record: false).mark,
+      LastActivityDotMark(fill: .earlier, full: true, reticle: true))
+    XCTAssertEqual(
+      LastActivityDot(current: true, record: true).mark,
+      LastActivityDotMark(fill: .record, full: true, reticle: true))
   }
 }

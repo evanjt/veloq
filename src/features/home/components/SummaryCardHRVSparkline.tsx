@@ -5,7 +5,7 @@ import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { darkColors, colors, colorWithOpacity, typography, spacing } from '@/theme';
+import { chartStyles, darkColors, colors, colorWithOpacity, typography, spacing } from '@/theme';
 import { summarySeriesColor } from '../lib/summaryMetricColour';
 import { buildMonotoneSvg, useChartColors, useChartGestures } from '@/shared/charts';
 import { SPARKLINE_MIN_DAYS, type ScrubValues } from './SummaryCardSparkline';
@@ -115,6 +115,7 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
 
   const { gesture, crosshairStyle, syncBounds } = useChartGestures<number>({
     data: hrvData,
+    accessibilityLabel: t('metrics.hrv'),
     scrubEnabled: !!onScrub,
     scrubActivation: 'drag',
     tapMaxDuration: 500,
@@ -166,8 +167,6 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
   const rhrHue = summarySeriesColor('rhr', isDark);
   const hrvLineColor = isDark ? hrvHue : colorWithOpacity(hrvHue, 0.85);
   const rhrLineColor = isDark ? rhrHue : colorWithOpacity(rhrHue, 0.65);
-  const hrvTextColor = isDark ? darkColors.chartHrvText : colors.chartHrvText;
-  const rhrTextColor = isDark ? darkColors.chartRhrText : colors.chartRhrText;
 
   return (
     <GestureDetector gesture={gesture}>
@@ -175,12 +174,16 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
         <View style={styles.chartRow}>
           {showLabels ? (
             <View style={[styles.labelColumn, { width: labelWidth }]}>
-              <RNText style={[styles.inlineLabel, { color: hrvTextColor }]}>
+              <RNText
+                style={[chartStyles.chartLabelStrong, isDark && chartStyles.chartLabelStrongDark]}
+              >
                 {t('metrics.hrv')}
               </RNText>
               <View style={{ flex: 1 }} />
               {hasRhr ? (
-                <RNText style={[styles.inlineLabel, { color: rhrTextColor }]}>
+                <RNText
+                  style={[chartStyles.chartLabelStrong, isDark && chartStyles.chartLabelStrongDark]}
+                >
                   {t('metrics.rhr')}
                 </RNText>
               ) : null}
@@ -275,16 +278,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: spacing.xxs,
   },
-  inlineLabel: {
-    fontSize: typography.pillLabel.fontSize,
-    fontWeight: '400',
-  },
   rangeLabel: {
+    ...typography.caption,
     position: 'absolute',
-    top: -12,
+    top: -typography.caption.lineHeight,
     right: 2,
-    fontSize: typography.pillLabel.fontSize,
-    fontWeight: '400',
   },
   crosshair: {
     position: 'absolute',

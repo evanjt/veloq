@@ -6,10 +6,17 @@
  * Expected behaviour: a re-render with the same detail passes the same
  * `preComputed` objects to `useSectionMatches` and `useSectionOverlays`, so
  * the hooks' memoisation holds across a scrub.
+ *
+ * Scenario: the system text size is past the dense cap on a short window, and
+ * the activity carries a long description.
+ * Expected behaviour: the map hero stays pinned, the text under it scrolls in
+ * a block bounded so the hero and the block leave the tabs part of the window.
+ * Below the cap the description stays pinned as it was.
  */
 
 import React from 'react';
-import { act, render } from '@testing-library/react-native';
+import { act, render, within } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 
 import type { Section } from '@/types';
 import type { SectionOverlay } from '@/features/maps/components/ActivityMapView';
@@ -24,6 +31,13 @@ import type { SectionEncounter } from 'veloqrs';
 import { encodeTrack } from '../__shared__/trackBytes';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+
+const mockWindow = { width: 360, height: 640, scale: 3, fontScale: 1 };
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+  ...jest.requireActual('react-native/Libraries/Utilities/useWindowDimensions'),
+  __esModule: true,
+  default: () => mockWindow,
+}));
 
 let mockSearchParams: { id: string; tab?: string } = { id: 'act-1' };
 // The options each `Stack.Screen` the screen renders hands its navigation item, merged in order.
@@ -319,6 +333,7 @@ describe('activity detail screen', () => {
     mockRepresentativeId = null;
     mockScreenOptions = {};
     delete mockActivity.description;
+    mockWindow.fontScale = 1;
   });
   afterEach(() => jest.restoreAllMocks());
 
@@ -340,6 +355,35 @@ describe('activity detail screen', () => {
 
     const text = view.getByText(description);
     expect(text.props.numberOfLines).toBeUndefined();
+  });
+
+  it('past the dense cap scrolls the text under the hero in a block that leaves the tabs room', async () => {
+    const description = Array.from(
+      { length: 40 },
+      (_, line) => `Line ${line + 1} of the harbour loop notes.`
+    ).join('\n');
+    mockActivity.description = description;
+    mockWindow.fontScale = 2;
+
+    const view = await render(<ActivityDetailScreen />);
+    await act(async () => {});
+
+    const block = view.getByTestId('activity-detail-pinned-scroll');
+    expect(within(block).getByText(description)).toBeTruthy();
+    const { maxHeight } = StyleSheet.flatten(block.props.style);
+    const heroHeight = 300;
+    expect(typeof maxHeight).toBe('number');
+    expect(heroHeight + (maxHeight as number)).toBeLessThan(mockWindow.height * 0.75);
+  });
+
+  it('below the dense cap keeps the description pinned under the hero', async () => {
+    mockActivity.description = 'Harbour loop, light wind.';
+
+    const view = await render(<ActivityDetailScreen />);
+    await act(async () => {});
+
+    expect(view.getByText('Harbour loop, light wind.')).toBeTruthy();
+    expect(view.queryByTestId('activity-detail-pinned-scroll')).toBeNull();
   });
 
   it('shows the translated route record badge with and without an improvement', async () => {

@@ -98,6 +98,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
   const {
     data: curve,
     isLoading,
+    isPlaceholderData,
     error,
     coverage,
     bodyStatus,
@@ -354,6 +355,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
         }
         onSelect={handleSelect}
         onInteractionChange={handleInteractionChange}
+        held={isPlaceholderData}
       />
 
       {/* The rule the chart draws, named. The power and swim curves carry the
@@ -432,7 +434,7 @@ const makeStyles = (palette: Palette) =>
 
     activityPill: {
       flexShrink: 1,
-      backgroundColor: colorWithOpacity(colors.run, 0.15),
+      backgroundColor: colorWithOpacity(colors.run, opacity.tint2),
       paddingHorizontal: layout.borderRadius,
       paddingVertical: spacing.xs,
       borderRadius: layout.borderRadius,
@@ -440,7 +442,7 @@ const makeStyles = (palette: Palette) =>
       borderColor: colorWithOpacity(colors.run, opacity.tint4),
     },
     activityPillDark: {
-      backgroundColor: colorWithOpacity(colors.run, 0.2),
+      backgroundColor: colorWithOpacity(colors.run, opacity.tint3),
       borderColor: colorWithOpacity(colors.run, opacity.dim),
     },
     activityLabel: {

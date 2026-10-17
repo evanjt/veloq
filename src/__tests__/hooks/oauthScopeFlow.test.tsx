@@ -26,7 +26,6 @@ jest.mock('@tanstack/react-query', () => ({
   ...jest.requireActual('@tanstack/react-query'),
   useQueryClient: () => ({}),
 }));
-jest.mock('@/shared/app/navigation', () => ({ replaceTo: jest.fn() }));
 let mockIsOnline = true;
 jest.mock('@/shared/app/NetworkContext', () => ({
   useNetwork: () => ({ isOnline: mockIsOnline }),

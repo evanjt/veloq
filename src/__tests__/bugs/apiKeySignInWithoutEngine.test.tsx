@@ -13,14 +13,12 @@ import { CallKind, validateCredentials } from 'veloqrs';
 
 import { useApiKeyLogin } from '@/features/auth/hooks/useApiKeyLogin';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { replaceTo } from '@/shared/app/navigation';
 
 jest.mock('veloqrs', () => ({
   ...require('../__shared__/veloqrsStub').withOverrides(),
   validateCredentials: jest.fn(),
 }));
 
-jest.mock('@/shared/app/navigation', () => ({ replaceTo: jest.fn() }));
 jest.mock('@/shared/storage', () => ({
   clearAccountData: jest.fn(async () => undefined),
   clearAuthOnly: jest.fn(async () => undefined),
@@ -80,10 +78,10 @@ describe('API key sign-in with no engine open', () => {
     expect(setError).not.toHaveBeenCalledWith('login.connectionFailed');
   });
 
-  it('goes on into the app', async () => {
+  it('signs the athlete in with the key', async () => {
     await signIn();
 
-    expect(replaceTo).toHaveBeenCalledWith('/');
+    expect(useAuthStore.getState().setCredentials).toHaveBeenCalledWith('a-valid-key', '900001');
   });
 
   it('still names a rejected key as invalid rather than as a connection failure', async () => {

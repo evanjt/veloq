@@ -20,7 +20,7 @@ import { Switch as PaperSwitch } from 'react-native-paper';
 
 import { Switch, SwitchRow, switchColors } from '@/shared/ui';
 import { KeyboardFocusBlock } from '@/shared/ui/KeyboardFocusBlock';
-import { colors, colorWithOpacity, darkColors, opacity, switchTrackOff } from '@/theme';
+import { colors, darkColors, opacity } from '@/theme';
 
 jest.mock('expo-haptics', () => ({
   ...jest.requireActual('expo-haptics'),
@@ -210,21 +210,36 @@ describe('KeyboardFocusBlock', () => {
 });
 
 describe('switch colours', () => {
-  it('tints only the on track on iOS, from the theme primary, and leaves the thumb to the system', () => {
-    expect(switchColors(false, true, 'ios')).toEqual({ trackColor: { true: colors.primary } });
-    expect(switchColors(true, false, 'ios')).toEqual({ trackColor: { true: darkColors.primary } });
-  });
-
-  it('draws the Android off track with the mark tone of each theme', () => {
-    expect(switchColors(false, false, 'android').trackColor.false).toBe(switchTrackOff.light);
-    expect(switchColors(true, false, 'android').trackColor.false).toBe(switchTrackOff.dark);
-  });
-
-  it('draws the Android on state from the primary of each theme', () => {
-    expect(switchColors(false, true, 'android')).toEqual({
-      thumbColor: colors.primary,
-      trackColor: { true: colorWithOpacity(colors.primary, 0.5), false: switchTrackOff.light },
+  it('tints the iOS on track with the on role and the off track with the control edge, and leaves the thumb to the system', () => {
+    expect(switchColors(false, true, 'ios')).toEqual({
+      trackColor: { true: colors.controlOn, false: colors.controlBoundary },
+      ios_backgroundColor: colors.controlBoundary,
     });
-    expect(switchColors(true, true, 'android').thumbColor).toBe(darkColors.primary);
+    expect(switchColors(true, false, 'ios')).toEqual({
+      trackColor: { true: darkColors.controlOn, false: darkColors.controlBoundary },
+      ios_backgroundColor: darkColors.controlBoundary,
+    });
+  });
+
+  it('draws the Android off track with the control edge and a surface thumb on it', () => {
+    expect(switchColors(false, false, 'android')).toEqual({
+      thumbColor: colors.surface,
+      trackColor: { true: colors.controlOn, false: colors.controlBoundary },
+    });
+    expect(switchColors(true, false, 'android')).toEqual({
+      thumbColor: darkColors.surface,
+      trackColor: { true: darkColors.controlOn, false: darkColors.controlBoundary },
+    });
+  });
+
+  it('draws the Android on track solid in the on role under a white thumb', () => {
+    expect(switchColors(false, true, 'android')).toEqual({
+      thumbColor: colors.textOnPrimary,
+      trackColor: { true: colors.controlOn, false: colors.controlBoundary },
+    });
+    expect(switchColors(true, true, 'android')).toEqual({
+      thumbColor: colors.textOnPrimary,
+      trackColor: { true: darkColors.controlOn, false: darkColors.controlBoundary },
+    });
   });
 });

@@ -84,35 +84,3 @@ export const useTopBannerHeights = create<TopBannerHeights>((set) => ({
 export function stackHeight(heights: Partial<Record<ShownBanner, number>>): number {
   return Object.values(heights).reduce((sum, height) => sum + (height ?? 0), 0);
 }
-
-interface ShownHeaderHeights {
-  /** The header height of each focused screen that reports one, by route key. */
-  heights: Record<string, number>;
-  /** Records a focused screen's header height, and drops it with `null` as it blurs or goes. */
-  setHeight(routeKey: string, height: number | null): void;
-}
-
-/**
- * How tall the native header of the screen in front is drawn.
- *
- * The stack sits beneath the banners in the top slot and its header draws in
- * the band a floating pill would otherwise take, so the pills read it to sit
- * below the header. Only the navigator knows the header's height, since the
- * platform sizes it, and it reports it through the screen.
- */
-export const useShownHeaderHeights = create<ShownHeaderHeights>((set) => ({
-  heights: {},
-  setHeight: (routeKey, height) =>
-    set((state) => {
-      if ((state.heights[routeKey] ?? null) === height) return state;
-      const heights = { ...state.heights };
-      if (height === null) delete heights[routeKey];
-      else heights[routeKey] = height;
-      return { heights };
-    }),
-}));
-
-/** The tallest header in front, or 0 when the screen in front draws none. */
-export function shownHeaderHeight(heights: Record<string, number>): number {
-  return Object.values(heights).reduce((tallest, height) => Math.max(tallest, height), 0);
-}

@@ -28,8 +28,16 @@ EOF
 
 # A ref pinning the tracematch submodule at a commit no published branch or tag
 # holds breaks every fresh checkout of it, and a release tag's workflow with it.
+# A gate/ ref pushed to the iOS gate's remote is published nowhere: the Mac
+# builds it against its own checkout of the submodule, and scripts/ios-gate.sh
+# checks the pin there before it pushes.
+gate_remote=${VELOQ_IOS_GATE_REMOTE:-$(git config --get veloq.iosGateRemote || true)}
+pinned=$refs
+if [ -n "$gate_remote" ] && [ "$1" = "$gate_remote" ]; then
+  pinned=$(printf '%s\n' "$refs" | awk '$3 !~ /^refs\/heads\/gate\//')
+fi
 ./scripts/check-submodule-pin-pushed.sh <<EOF || exit 1
-$refs
+$pinned
 EOF
 
 # Check if we're pushing a tag (version release)

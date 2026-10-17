@@ -1,15 +1,13 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import React, { useCallback } from 'react';
+import { Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { tapTo } from '@/shared/app/navigation';
 import { pressable, pressRipple } from '@/shared/ui';
-import { TrackPreview, normaliseTrackPoints } from '@/shared/ui/TrackPreview';
 import { insightCategoryColor } from '@/theme';
 import type { Insight, TFunc } from '../../types';
 import { dataLinkLabel } from '../../lib/dataLink';
-
-const DRAWING_HEIGHT = 150;
+import { SheetTrackDrawing } from './SheetTrackDrawing';
 
 interface SectionChangedContentProps {
   insight: Insight;
@@ -25,20 +23,16 @@ export const SectionChangedContent = React.memo(function SectionChangedContent({
 }: SectionChangedContentProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const [width, setWidth] = useState(0);
-  const onLayout = useCallback((event: LayoutChangeEvent) => {
-    setWidth(Math.round(event.nativeEvent.layout.width));
-  }, []);
 
   const history = insight.supportingData?.history;
   const line = history?.kind === 'line' ? history : undefined;
-  const points = useMemo(() => normaliseTrackPoints(line?.points ?? []), [line]);
   const target = line?.target;
   const onPress = useCallback(() => {
     if (target) tapTo(target);
   }, [target]);
 
-  if (!line || points.length < 2) return null;
+  const drawable = line?.points.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
+  if (!line || !drawable || drawable.length < 2) return null;
 
   return (
     <Pressable
@@ -49,24 +43,11 @@ export const SectionChangedContent = React.memo(function SectionChangedContent({
       android_ripple={pressRipple}
       style={pressable()}
     >
-      <View style={styles.drawing} onLayout={onLayout}>
-        {width > 0 ? (
-          <TrackPreview
-            testID="section-changed-line"
-            points={points}
-            color={insightCategoryColor(insight.category, isDark)}
-            isDark={isDark}
-            width={width}
-            height={DRAWING_HEIGHT}
-          />
-        ) : null}
-      </View>
+      <SheetTrackDrawing
+        testID="section-changed-line"
+        points={line.points}
+        color={insightCategoryColor(insight.category, isDark)}
+      />
     </Pressable>
   );
-});
-
-const styles = StyleSheet.create({
-  drawing: {
-    height: DRAWING_HEIGHT,
-  },
 });

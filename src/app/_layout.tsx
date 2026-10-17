@@ -44,7 +44,7 @@ import {
   overMapHeaderOptions,
   screenAnimation,
   sheetScreenOptions,
-  themeHeaderColors,
+  stackHeaderOptions,
 } from '@/shared/app/screenHeaders';
 import {
   adoptOwnerlessRecordingBackup,
@@ -651,7 +651,7 @@ export default function RootLayout() {
                             // with useBackIntercept.
                             gestureEnabled: true,
                             gestureDirection: 'horizontal',
-                            ...themeHeaderColors(isDark),
+                            ...stackHeaderOptions(Platform.OS, isDark),
                           }}
                         >
                           {Object.entries(SCREEN_HEADERS).map(([name, header]) => (

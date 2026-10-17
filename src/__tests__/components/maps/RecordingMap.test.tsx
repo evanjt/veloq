@@ -11,6 +11,9 @@ import React from 'react';
 import { render, fireEvent, screen } from '@testing-library/react-native';
 import { RecordingMap } from '@/features/recording/components/RecordingMap';
 
+// The map page is hidden from screen readers, so a query reaching it includes hidden elements.
+const MAP_PAGE = { includeHiddenElements: true };
+
 // The binding registers a TurboModule at import time. A hook on this screen's
 // import path compares against one of its generated enums, so the stub is the
 // module here.
@@ -37,7 +40,7 @@ const HERE = { latitude: 46.948, longitude: 7.447 };
 // A pan reaches React Native as a bridge message from the map surface, so the
 // test posts the same message the page would.
 async function panTheMap() {
-  await fireEvent(screen.getByTestId('maplibre-map'), 'message', {
+  await fireEvent(screen.getByTestId('maplibre-map', MAP_PAGE), 'message', {
     nativeEvent: {
       data: JSON.stringify({
         type: 'regionDidChange',
@@ -59,7 +62,7 @@ describe('RecordingMap', () => {
   it('mounts with a live track and a current position', async () => {
     await render(<RecordingMap coordinates={TRACK} currentLocation={HERE} />);
 
-    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+    expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
   });
 
   it('offers recentring only once the user has panned away', async () => {
@@ -122,7 +125,7 @@ describe('RecordingMap', () => {
       />
     );
 
-    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+    expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
     expect(screen.queryByTestId('recording-map-route-overlay')).toBeNull();
     expect(screen.queryByTestId('recording-map-recenter')).toBeNull();
   });
@@ -162,7 +165,7 @@ describe('RecordingMap', () => {
 
     it.each(cases)('survives %s', async (_label, props) => {
       await expect((async () => render(<RecordingMap {...props} />))()).resolves.not.toThrow();
-      expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+      expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
     });
   });
 });

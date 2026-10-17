@@ -12,7 +12,6 @@ import {
   discardRecordImport,
   discardUnplacedRecords,
   restoreRecordBackup,
-  restoreDatabaseBackup,
   resumeRecordImport,
 } from '@/features/settings/lib/backup';
 
@@ -22,7 +21,7 @@ const mockUnplaced = jest.fn((): { kind: string; name: string | null; reason: st
 ]);
 const mockScreen = jest.fn(() => ({ notRestored: 0, namesNotRestored: 0 }));
 const mockDownload = jest.fn(async (_id: string, _path: string) => {});
-const mockImportBackup = jest.fn(async () => ({ success: true, activityCount: 0 }));
+const mockImportBackup = jest.fn(async () => ({ success: true }));
 const mockListBackups = jest.fn(async () => [
   {
     id: 'veloq-2026-09-30.zip',
@@ -132,8 +131,17 @@ jest.mock('@/shared/native/androidAutoBackup', () => ({
 jest.mock('expo-file-system/legacy', () => ({
   ...jest.requireActual('expo-file-system/legacy'),
   cacheDirectory: 'file:///cache/',
+  getInfoAsync: jest.fn(async () => ({ exists: true, size: 4096 })),
   deleteAsync: jest.fn(async () => {}),
 }));
+const mockCheckRecordBackup = jest.fn(async (_uri: string) => ({
+  writtenAt: '2026-09-30T10:00:00.000Z',
+  namesAccount: true,
+  names: 1,
+  settings: 4,
+  decisions: 2,
+}));
+
 jest.mock('@/features/settings/lib/backup', () => ({
   restoreRecordBackup: jest.fn(async () => ({
     placed: 2,
@@ -142,7 +150,8 @@ jest.mock('@/features/settings/lib/backup', () => ({
     notRestored: 0,
     namesNotRestored: 0,
   })),
-  restoreDatabaseBackup: jest.fn(),
+  checkRecordBackup: (uri: string) => mockCheckRecordBackup(uri),
+  convertLegacyDatabaseFile: jest.fn(async () => {}),
   resumeRecordImport: jest.fn(async () => ({
     placed: 2,
     unplaced: 0,
@@ -312,7 +321,7 @@ beforeEach(() => {
   mockCommit.mockResolvedValue({ kind: 'empty' });
   (performBackup as jest.Mock).mockClear();
   (restoreRecordBackup as jest.Mock).mockClear();
-  (restoreDatabaseBackup as jest.Mock).mockReset();
+  mockCheckRecordBackup.mockClear();
   (resumeRecordImport as jest.Mock).mockClear();
   (discardRecordImport as jest.Mock).mockClear();
   (discardUnplacedRecords as jest.Mock).mockClear();
@@ -852,11 +861,9 @@ it('shows an account warning when a selected legacy database belongs to another 
       appVersion: '0.3.0',
     },
   ]);
-  (restoreDatabaseBackup as jest.Mock).mockResolvedValue({
-    success: false,
-    activityCount: 0,
-    refusal: 'differentAccount',
-  });
+  mockCheckRecordBackup.mockRejectedValueOnce(
+    Object.assign(new Error('Record belongs to another athlete'), { tag: 'Database' })
+  );
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   acceptReplacement(alert);
   await render(<BackupSection />);
@@ -876,7 +883,7 @@ it('shows an account warning when a selected legacy database belongs to another 
 });
 
 it.each(['veloq-2026-09-30.zip', 'older.veloqdb'])(
-  'downloads and restores nothing from %s when the replacement is declined',
+  'downloads and checks %s before asking, and restores nothing when the replacement is declined',
   async (id) => {
     mockWebdavUrl = 'https://dav.example.org/remote.php/dav/files/athlete';
     mockListBackups.mockResolvedValueOnce([
@@ -895,13 +902,15 @@ it.each(['veloq-2026-09-30.zip', 'older.veloqdb'])(
 
     expect(alert).toHaveBeenCalledWith(
       'backup.importBackup',
-      'backup.legacyImportMessage',
+      expect.stringContaining('backup.legacyImportMessage'),
       expect.any(Array),
       expect.anything()
     );
-    expect(mockDownload).not.toHaveBeenCalled();
+    expect(mockDownload).toHaveBeenCalledTimes(1);
+    expect(mockCheckRecordBackup.mock.invocationCallOrder[0]).toBeLessThan(
+      alert.mock.invocationCallOrder.at(-1) ?? 0
+    );
     expect(restoreRecordBackup).not.toHaveBeenCalled();
-    expect(restoreDatabaseBackup).not.toHaveBeenCalled();
   }
 );
 

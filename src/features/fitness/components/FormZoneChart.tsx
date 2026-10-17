@@ -46,6 +46,8 @@ interface FormZoneChartProps {
     values: { fitness: number; fatigue: number; form: number } | null
   ) => void;
   onInteractionChange?: (isInteracting: boolean) => void;
+  /** The data is the previous range's, kept on screen while the new range is read. */
+  held?: boolean;
 }
 
 // Half a label line above the top tick and below the bottom one, so each centres on its value.
@@ -65,6 +67,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
   sharedSelectedIdx,
   onDateSelect,
   onInteractionChange,
+  held = false,
 }: FormZoneChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -131,6 +134,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
   const { gesture, isActive, crosshairStyle, syncBounds, syncXCoords, accessibilityProps } =
     useChartGestures<FormChartPoint>({
       data: chartData,
+      accessibilityLabel: t('metrics.form'),
       onSelect: handleSelect,
       onInteractionChange: handleInteractionChange,
       sharedSelectedIdx,
@@ -165,7 +169,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
 
   return (
     <View style={styles.container}>
-      <ChartSurface summary={reading.summary} table={reading.table} style={styles.plot}>
+      <ChartSurface summary={reading.summary} table={reading.table} style={styles.plot} held={held}>
         <View style={styles.plotRow}>
           <YAxisLabels
             ticks={yTicks}
@@ -293,7 +297,7 @@ const makeStyles = (palette: Palette) =>
       marginRight: spacing.xs,
     },
     zoneLabel: {
-      fontSize: typography.pillLabel.fontSize,
+      ...typography.caption,
       color: palette.textSecondary,
     },
   });

@@ -284,6 +284,15 @@ describe('a Start tap is answered at once', () => {
     await fireEvent.press(screen.getByTestId('record-start'));
     expect(replaceTo).toHaveBeenCalledWith('/recording/Yoga?from=entry');
   });
+
+  it('offers the rest of the sports from a Button named More', async () => {
+    await render(<RecordScreen />);
+
+    expect(screen.getByTestId('record-sport-more-label')).toHaveTextContent('More');
+    expect(screen.getByRole('button', { name: 'More' })).toBe(
+      screen.getByTestId('record-sport-more')
+    );
+  });
 });
 
 function notificationsAre(response: { status: string; canAskAgain: boolean }) {

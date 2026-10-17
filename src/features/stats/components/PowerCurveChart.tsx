@@ -106,6 +106,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
   const {
     data: curve,
     isLoading,
+    isPlaceholderData,
     error,
     coverage,
     bodyStatus,
@@ -288,6 +289,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
         }
         onSelect={setTooltipData}
         onInteractionChange={handleInteractionChange}
+        held={isPlaceholderData}
       />
 
       {/*

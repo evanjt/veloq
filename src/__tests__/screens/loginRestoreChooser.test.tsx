@@ -195,7 +195,7 @@ describe('restore from backup on the login screen', () => {
     await act(async () => {
       const confirm = alert.mock.calls
         .at(-1)?.[2]
-        ?.find((button) => button.text === i18n.t('backup.importBackup'));
+        ?.find((button) => button.text === i18n.t('backup.replaceSettings'));
       confirm?.onPress?.();
     });
 

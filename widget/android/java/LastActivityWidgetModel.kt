@@ -9,6 +9,28 @@ data class FormChange(
   val afterZone: String?,
 )
 
+/** The fill of an attempt dot. Neither is the sport's colour: which attempt it is goes by shape. */
+enum class AttemptFill {
+  EARLIER,
+  RECORD,
+}
+
+/**
+ * How one attempt dot is drawn. The record is a gold dot at full size and this activity carries the
+ * reticle, so a record set by this activity is the reticle round the gold dot: the two marks combine
+ * by shape and each keeps one meaning. Every other attempt is a small dot.
+ */
+data class AttemptMark(val fill: AttemptFill, val full: Boolean, val reticle: Boolean) {
+  companion object {
+    fun of(dot: AttemptDot): AttemptMark =
+      AttemptMark(
+        fill = if (dot.record) AttemptFill.RECORD else AttemptFill.EARLIER,
+        full = dot.record || dot.current,
+        reticle = dot.current,
+      )
+  }
+}
+
 /**
  * What the Last activity widget draws at one size. A null field is not drawn, so a size that has
  * no room for a line and a snapshot that has nothing for it look alike to the renderer.

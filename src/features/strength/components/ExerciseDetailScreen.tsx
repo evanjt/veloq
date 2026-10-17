@@ -22,7 +22,7 @@ import {
   ScreenScrollView,
 } from '@/shared/ui';
 import { InsightSeriesChart } from '@/features/insights';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 
 import { readExerciseDetailData } from '../hooks/useStrengthScreenData';
 import { exerciseTrendSamples } from '../lib/exerciseTrend';
@@ -122,5 +122,5 @@ const styles = StyleSheet.create({
   secondaryDark: { color: darkColors.textSecondary },
   textDark: { color: darkColors.textPrimary },
   session: { flex: 1, gap: spacing.xs },
-  sessionTitle: { fontWeight: '600', color: colors.textPrimary },
+  sessionTitle: { ...typography.bodySmallBold, color: colors.textPrimary },
 });

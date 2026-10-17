@@ -28,8 +28,9 @@ import {
   type AttemptBasis,
 } from '@/features/routes/lib/attemptBasis';
 import {
+  colorWithOpacity,
+  opacity,
   colors,
-  controlHeight,
   darkColors,
   iconSize,
   layout,
@@ -43,6 +44,7 @@ import {
 import type { PerformanceDataPoint } from '@/types';
 import {
   accessibleActions,
+  ICON_BUTTON_GAP,
   IconButton,
   pressable,
   pressRipple,
@@ -328,21 +330,19 @@ const makeStyles = (palette: Palette, isDark: boolean) =>
       flex: 1,
     },
     prTag: {
-      fontSize: typography.caption.fontSize,
-      fontWeight: '700',
+      ...typography.captionBold,
       color: palette.chartGoldText,
       marginRight: spacing.xs,
     },
     lapBadge: {
-      backgroundColor: palette.textSecondary + '20',
+      backgroundColor: colorWithOpacity(palette.textSecondary, opacity.tint2),
       paddingHorizontal: spacing.xs,
       paddingVertical: spacing.xxs,
       borderRadius: layout.borderRadiusXs,
       marginLeft: spacing.xs,
     },
     lapBadgeText: {
-      fontSize: typography.micro.fontSize,
-      fontWeight: '700',
+      ...typography.badge,
       color: palette.textSecondary,
     },
     tooltipDelta: {
@@ -360,12 +360,11 @@ const makeStyles = (palette: Palette, isDark: boolean) =>
     reverseBadge: {
       padding: spacing.xxs,
     },
-    // The reference and exclude buttons sit side by side. The gap is at least
-    // the hit slop each lends its neighbour, so the two targets never overlap.
+    // The reference and exclude buttons sit side by side.
     tooltipRight: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: Math.max(spacing.xxs, layout.minTapTarget - controlHeight.button),
+      gap: ICON_BUTTON_GAP,
     },
     tooltipSpeed: {
       ...typography.pillValue,

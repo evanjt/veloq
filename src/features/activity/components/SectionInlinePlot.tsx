@@ -19,6 +19,7 @@ import {
   spacing,
   typography,
   stroke,
+  opacity,
 } from '@/theme';
 import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
 import { formatDistance, formatDuration, formatSportSpeed } from '@/shared/format/format';
@@ -464,7 +465,7 @@ const styles = StyleSheet.create({
   // The border is the only thing saying this card is the one being viewed, so
   // it takes the mark tone rather than the series one.
   cardHighlighted: {
-    backgroundColor: colorWithOpacity(colors.markCyan, 0.15),
+    backgroundColor: colorWithOpacity(colors.markCyan, opacity.tint2),
     borderColor: colors.markCyan,
   },
   header: {
@@ -482,9 +483,8 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   numberLabel: {
+    ...typography.metricValue,
     textAlign: 'center',
-    fontSize: typography.metricValue.fontSize,
-    fontWeight: '700',
   },
   name: {
     ...typography.bodyBold,
@@ -540,8 +540,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   timeValue: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '700',
+    ...typography.badge,
     color: colors.textPrimary,
   },
 });

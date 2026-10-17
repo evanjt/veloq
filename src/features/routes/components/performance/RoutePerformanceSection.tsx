@@ -287,8 +287,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   timeValue: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '700',
+    ...typography.badge,
     color: colors.textPrimary,
   },
   lineKey: {

@@ -62,6 +62,10 @@ export const layout = {
   borderRadiusXxl: 28, // 28 - Android bottom sheet top corners
   borderRadiusFull: 9999, // Circles
   recordFabSize: 56, // Floating record button diameter
+  // The app icon drawn inside the app, with the home screen's corner: the
+  // system masks an icon at about 22.5 % of its side.
+  appIconSize: 80,
+  borderRadiusAppIcon: 18,
   // The widest a single column of screen content is drawn. A wider window,
   // a tablet or a phone in landscape, centres the column in it. It matches
   // Material's 640 dp cap on a modal bottom sheet, so a sheet and the screen

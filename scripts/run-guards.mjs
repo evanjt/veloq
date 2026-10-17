@@ -557,6 +557,13 @@ const GUARDS = [
       "Paper's ActivityIndicator, a drawn Material arc that puts a second spinner style beside the system indicator on iOS",
   },
   {
+    name: 'lint:bare-refresh-control',
+    kind: 'style',
+    cmd: node('lint-source-rules.mjs', '--rule', 'bare-refresh-control'),
+    catches:
+      "a screen's own pull-to-refresh control, which draws Android's light disc and default arc in the dark theme and skips the pull haptic",
+  },
+  {
     name: 'lint:lone-spinner-in-padding',
     kind: 'style',
     cmd: node('lint-source-rules.mjs', '--rule', 'lone-spinner-in-padding'),
@@ -667,6 +674,13 @@ const GUARDS = [
     kind: 'correctness',
     cmd: node('lint-unused-styles.mjs'),
     catches: 'a StyleSheet key with no local or imported reader after a UI change',
+  },
+  {
+    name: 'check:colour-tokens',
+    kind: 'correctness',
+    cmd: tsx('gen-colour-tokens.ts', '--check'),
+    catches:
+      'a colour table drifting from the committed token file, a token missing a theme, a palette key mapped to no role, or a role nothing reads',
   },
   {
     name: 'check:widget-theme',
@@ -1077,6 +1091,13 @@ const GUARDS = [
       'a colour alpha written by hand, through colorWithOpacity or a hex suffix, instead of an opacity step',
   },
   {
+    name: 'lint:style-status-tints',
+    kind: 'style',
+    cmd: node('lint-style-literals.mjs', '--class', 'status-tint'),
+    catches:
+      'a notice ground or edge tinted from a status hue by hand, which disagrees with the banner of its tone',
+  },
+  {
     name: 'lint:style-z-index',
     kind: 'style',
     cmd: node('lint-style-literals.mjs', '--class', 'z-index'),
@@ -1207,6 +1228,13 @@ const GUARDS = [
     cmd: node('lint-widget-layouts.mjs'),
     catches:
       'a widget layout holding a view a launcher refuses to inflate, or a match_parent child beside weighted columns squeezing them to 0 wide',
+  },
+  {
+    name: 'lint:widget-face',
+    kind: 'correctness',
+    cmd: node('lint-widget-face.mjs'),
+    catches:
+      "a widget label that names no font family or a platform one, which a launcher draws in the phone's own sans beside labels in the app's face",
   },
   {
     name: 'lint:widget-kotlin-arity',

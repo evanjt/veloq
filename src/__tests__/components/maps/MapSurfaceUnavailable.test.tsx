@@ -18,6 +18,9 @@ import {
   MAP_SURFACE_UNAVAILABLE_TEST_ID,
 } from '@/features/maps/components/MapSurface';
 
+// The map page is hidden from screen readers, so a query reaching it includes hidden elements.
+const MAP_PAGE = { includeHiddenElements: true };
+
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
 jest.mock('@/shared/app', () => ({
@@ -37,7 +40,7 @@ function renderSurface(props: Partial<React.ComponentProps<typeof MapSurface>> =
 }
 
 const post = (message: object) =>
-  fireEvent(screen.getByTestId(MAP_SURFACE_TEST_ID), 'message', {
+  fireEvent(screen.getByTestId(MAP_SURFACE_TEST_ID, MAP_PAGE), 'message', {
     nativeEvent: { data: JSON.stringify(message) },
   });
 
@@ -62,7 +65,7 @@ describe('MapSurface basemap availability', () => {
     const onMapFailed = jest.fn();
     await renderSurface({ onMapFailed });
 
-    await fireEvent(screen.getByTestId(MAP_SURFACE_TEST_ID), 'error', {
+    await fireEvent(screen.getByTestId(MAP_SURFACE_TEST_ID, MAP_PAGE), 'error', {
       nativeEvent: { description: 'net::ERR_NAME_NOT_RESOLVED' },
     });
 
@@ -74,7 +77,7 @@ describe('MapSurface basemap availability', () => {
     const onMapFailed = jest.fn();
     await renderSurface({ onMapFailed });
 
-    await fireEvent(screen.getByTestId(MAP_SURFACE_TEST_ID), 'httpError', {
+    await fireEvent(screen.getByTestId(MAP_SURFACE_TEST_ID, MAP_PAGE), 'httpError', {
       nativeEvent: { statusCode: 503, url: 'https://veloq.fit/' },
     });
 
@@ -101,7 +104,9 @@ describe('MapSurface basemap availability', () => {
 
     await post({ type: 'mapFailed', reason: 'ready timeout' });
     await post({ type: 'mapFailed', reason: 'page error' });
-    await fireEvent(screen.getByTestId(MAP_SURFACE_TEST_ID), 'error', { nativeEvent: {} });
+    await fireEvent(screen.getByTestId(MAP_SURFACE_TEST_ID, MAP_PAGE), 'error', {
+      nativeEvent: {},
+    });
 
     expect(onMapFailed).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId(MAP_SURFACE_UNAVAILABLE_TEST_ID)).toBeTruthy();

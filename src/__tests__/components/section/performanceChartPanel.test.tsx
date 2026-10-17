@@ -151,7 +151,9 @@ describe('PerformanceChartPanel', () => {
     const tree = await render(panel());
 
     for (const id of ['chart-plot-scatter', 'section-chart-direction-reverse']) {
-      expect(StyleSheet.flatten(tree.getByTestId(id).props.style).borderWidth).toBeUndefined();
+      const style = StyleSheet.flatten(tree.getByTestId(id).props.style);
+      expect(style.borderColor).not.toBe(colors.controlBoundary);
+      expect([colors.controlOn, colors.fillNeutral]).toContain(style.backgroundColor);
     }
   });
 

@@ -6,22 +6,28 @@
  * here beyond placing the engine's numbers.
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Rect, RoundedRect } from '@shopify/react-native-skia';
+import { GestureDetector } from 'react-native-gesture-handler';
 
 import { useMetricSystem } from '@/shared/app';
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { formatDistance, formatDurationDelta } from '@/shared/format/format';
+import { layoutSplitSummary, type DeltaFrame } from '@/features/routes/lib/deltaLayout';
+import { useChartGestures, useMeasuredWidth } from '@/shared/charts';
 import {
-  layoutSplitSummary,
-  splitAtDistance,
-  type DeltaFrame,
-} from '@/features/routes/lib/deltaLayout';
-import { useMeasuredWidth } from '@/shared/charts';
-import { colors, darkColors, layout, mapLayerColors, spacing, stroke, typography } from '@/theme';
+  chartStyles,
+  colors,
+  darkColors,
+  layout,
+  mapLayerColors,
+  spacing,
+  stroke,
+  typography,
+} from '@/theme';
 import { FfiReferenceSource, type FfiSplitSummary } from 'veloqrs';
 
 const CHART_HEIGHT = 160;
@@ -47,7 +53,6 @@ export function SectionDeltaSummaryChart({
   const isMetric = useMetricSystem();
   const { width: chartWidth, onLayout } = useMeasuredWidth();
   const palette = isDark ? darkColors : colors;
-  const [scrubX, setScrubX] = useState<number | null>(null);
 
   const frame: DeltaFrame = useMemo(
     () => ({ width: chartWidth, height: CHART_HEIGHT, padding: CHART_PADDING }),
@@ -59,132 +64,148 @@ export function SectionDeltaSummaryChart({
   );
 
   const vsRecord = referenceSource === FfiReferenceSource.Record;
-  const splitCount = summary.medianSecs.length;
-  const scrubSplit =
-    scrubX === null
-      ? undefined
-      : splitAtDistance(plot.distanceForX(scrubX), splitStepM, splitCount);
-  const scrubSecs = scrubSplit === undefined ? undefined : summary.medianSecs[scrubSplit];
-  const scrubBar = plot.bars.find((bar) => bar.index === scrubSplit);
-  const scrubReading =
-    scrubSplit !== undefined && scrubSecs !== undefined && Number.isFinite(scrubSecs)
-      ? t(
-          scrubSecs < 0
-            ? vsRecord
-              ? 'sections.deltaTypicalFasterThanRecord'
-              : 'sections.deltaTypicalFasterThanReference'
-            : vsRecord
-              ? 'sections.deltaTypicalSlowerThanRecord'
-              : 'sections.deltaTypicalSlowerThanReference',
-          {
-            from: formatDistance(scrubSplit * splitStepM, isMetric),
-            to: formatDistance(Math.min((scrubSplit + 1) * splitStepM, sectionLengthM), isMetric),
-            time: formatDurationDelta(Math.abs(scrubSecs)),
-          }
-        )
-      : null;
+  const splits = useMemo(
+    () => Array.from(summary.medianSecs, (_, index) => index),
+    [summary.medianSecs]
+  );
+  const splitRange = useCallback(
+    (split: number) => ({
+      from: formatDistance(split * splitStepM, isMetric),
+      to: formatDistance(Math.min((split + 1) * splitStepM, sectionLengthM), isMetric),
+    }),
+    [splitStepM, sectionLengthM, isMetric]
+  );
+  const readSplit = useCallback(
+    (split: number) => {
+      const secs = summary.medianSecs[split];
+      if (secs === undefined || !Number.isFinite(secs)) return null;
+      return t(
+        secs < 0
+          ? vsRecord
+            ? 'sections.deltaTypicalFasterThanRecord'
+            : 'sections.deltaTypicalFasterThanReference'
+          : vsRecord
+            ? 'sections.deltaTypicalSlowerThanRecord'
+            : 'sections.deltaTypicalSlowerThanReference',
+        { ...splitRange(split), time: formatDurationDelta(Math.abs(secs)) }
+      );
+    },
+    [summary.medianSecs, vsRecord, splitRange, t]
+  );
+  const describeSplit = useCallback(
+    (split: number) => readSplit(split) ?? splitRange(split).from,
+    [readSplit, splitRange]
+  );
+  const {
+    gesture,
+    selectedPoint: scrubSplit,
+    syncXCoords,
+    accessibilityProps,
+  } = useChartGestures({
+    data: splits,
+    describePoint: describeSplit,
+    accessibilityLabel: t('sections.plotDelta'),
+  });
+  useEffect(() => {
+    if (chartWidth > 0) syncXCoords(plot.splitCentres, (x) => x);
+  }, [chartWidth, plot, syncXCoords]);
+  const scrubBar =
+    scrubSplit === null ? undefined : plot.bars.find((bar) => bar.index === scrubSplit);
+  const scrubReading = scrubSplit === null ? null : readSplit(scrubSplit);
 
   const attempts = summary.laps.reduce((most, laps) => Math.max(most, laps), 0);
   const plotLeft = CHART_PADDING.left;
   const plotRight = chartWidth - CHART_PADDING.right;
 
-  const touchX = (event: { nativeEvent: { locationX: number } }) =>
-    setScrubX(event.nativeEvent.locationX);
-
   return (
     <View testID="section-delta-summary-chart" style={styles.container}>
-      <View
-        style={styles.plot}
-        onLayout={onLayout}
-        onStartShouldSetResponder={() => true}
-        onMoveShouldSetResponder={() => true}
-        onResponderGrant={touchX}
-        onResponderMove={touchX}
-        onResponderRelease={() => setScrubX(null)}
-        onResponderTerminate={() => setScrubX(null)}
-      >
-        {chartWidth > 0 && (
-          <>
-            <Canvas style={StyleSheet.absoluteFill}>
-              <Rect
-                x={plotLeft}
-                y={plot.zeroY}
-                width={plotRight - plotLeft}
-                height={stroke.one}
-                color={palette.border}
-              />
-              {plot.bars.map((bar) => (
-                <RoundedRect
-                  key={bar.index}
-                  x={bar.left}
-                  y={bar.top}
-                  width={bar.right - bar.left}
-                  height={bar.bottom - bar.top}
-                  r={Math.min(
-                    layout.borderRadiusXs,
-                    (bar.right - bar.left) / 2,
-                    (bar.bottom - bar.top) / 2
-                  )}
-                  color={bar.lost ? mapLayerColors.deltaLost : mapLayerColors.deltaWon}
+      <GestureDetector gesture={gesture}>
+        <View style={styles.plot} onLayout={onLayout} {...accessibilityProps}>
+          {chartWidth > 0 && (
+            <>
+              <Canvas style={StyleSheet.absoluteFill}>
+                <Rect
+                  x={plotLeft}
+                  y={plot.zeroY}
+                  width={plotRight - plotLeft}
+                  height={stroke.one}
+                  color={palette.border}
                 />
-              ))}
-              {plot.bars.map((bar) =>
-                bar.whisker === null ? null : (
+                {plot.bars.map((bar) => (
+                  <RoundedRect
+                    key={bar.index}
+                    x={bar.left}
+                    y={bar.top}
+                    width={bar.right - bar.left}
+                    height={bar.bottom - bar.top}
+                    r={Math.min(
+                      layout.borderRadiusXs,
+                      (bar.right - bar.left) / 2,
+                      (bar.bottom - bar.top) / 2
+                    )}
+                    color={bar.lost ? mapLayerColors.deltaLost : mapLayerColors.deltaWon}
+                  />
+                ))}
+                {plot.bars.map((bar) =>
+                  bar.whisker === null ? null : (
+                    <Rect
+                      key={`whisker-${bar.index}`}
+                      x={(bar.left + bar.right - stroke.one) / 2}
+                      y={bar.whisker.top}
+                      width={stroke.one}
+                      height={bar.whisker.bottom - bar.whisker.top}
+                      color={palette.textSecondary}
+                    />
+                  )
+                )}
+                {scrubBar !== undefined && (
                   <Rect
-                    key={`whisker-${bar.index}`}
-                    x={(bar.left + bar.right - stroke.one) / 2}
-                    y={bar.whisker.top}
+                    x={(scrubBar.left + scrubBar.right - stroke.one) / 2}
+                    y={CHART_PADDING.top}
                     width={stroke.one}
-                    height={bar.whisker.bottom - bar.whisker.top}
+                    height={CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom}
                     color={palette.textSecondary}
                   />
-                )
-              )}
-              {scrubBar !== undefined && (
-                <Rect
-                  x={(scrubBar.left + scrubBar.right - stroke.one) / 2}
-                  y={CHART_PADDING.top}
-                  width={stroke.one}
-                  height={CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom}
-                  color={palette.textSecondary}
-                />
-              )}
-            </Canvas>
-            <View style={styles.yAxisOverlay} pointerEvents="none">
-              <Text
-                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                style={[
-                  styles.axisLabel,
-                  isDark && styles.axisLabelDark,
-                  { top: CHART_PADDING.top },
-                ]}
-              >
-                {`+${formatDurationDelta(plot.extentSecs)}`}
-              </Text>
-              <Text
-                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                style={[
-                  styles.axisLabel,
-                  isDark && styles.axisLabelDark,
-                  { top: CHART_HEIGHT - CHART_PADDING.bottom - 14 },
-                ]}
-              >
-                {`-${formatDurationDelta(plot.extentSecs)}`}
-              </Text>
-            </View>
-          </>
-        )}
-      </View>
+                )}
+              </Canvas>
+              <View style={styles.yAxisOverlay} pointerEvents="none">
+                <Text
+                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                  style={[
+                    chartStyles.chartLabel,
+                    styles.axisLabel,
+                    isDark && chartStyles.chartLabelDark,
+                    { top: CHART_PADDING.top },
+                  ]}
+                >
+                  {`+${formatDurationDelta(plot.extentSecs)}`}
+                </Text>
+                <Text
+                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                  style={[
+                    chartStyles.chartLabel,
+                    styles.axisLabel,
+                    isDark && chartStyles.chartLabelDark,
+                    { top: CHART_HEIGHT - CHART_PADDING.bottom - typography.caption.lineHeight },
+                  ]}
+                >
+                  {`-${formatDurationDelta(plot.extentSecs)}`}
+                </Text>
+              </View>
+            </>
+          )}
+        </View>
+      </GestureDetector>
       <View style={styles.edgeAxis}>
         <Text
           maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-          style={[styles.edgeLabel, isDark && styles.axisLabelDark]}
+          style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}
         >
           {formatDistance(0, isMetric)}
         </Text>
         <Text
           maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-          style={[styles.edgeLabel, isDark && styles.axisLabelDark]}
+          style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}
         >
           {formatDistance(sectionLengthM, isMetric)}
         </Text>
@@ -193,7 +214,7 @@ export function SectionDeltaSummaryChart({
         <Text
           testID="section-delta-summary-scrub"
           maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-          style={[styles.caption, isDark && styles.axisLabelDark]}
+          style={[chartStyles.chartLabel, styles.caption, isDark && chartStyles.chartLabelDark]}
         >
           {scrubReading}
         </Text>
@@ -201,7 +222,7 @@ export function SectionDeltaSummaryChart({
       <Text
         testID="section-delta-summary-caption"
         maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-        style={[styles.caption, isDark && styles.axisLabelDark]}
+        style={[chartStyles.chartLabel, styles.caption, isDark && chartStyles.chartLabelDark]}
       >
         {t(vsRecord ? 'sections.deltaTypicalVsRecord' : 'sections.deltaTypicalVsReference', {
           distance: formatDistance(splitStepM, isMetric),
@@ -210,7 +231,7 @@ export function SectionDeltaSummaryChart({
       <Text
         testID="section-delta-summary-attempts"
         maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-        style={[styles.caption, isDark && styles.axisLabelDark]}
+        style={[chartStyles.chartLabel, styles.caption, isDark && chartStyles.chartLabelDark]}
       >
         {t('sections.deltaTypicalAttempts', { count: attempts })}
       </Text>
@@ -232,15 +253,6 @@ const styles = StyleSheet.create({
   axisLabel: {
     position: 'absolute',
     left: CHART_PADDING.left + 2,
-    ...typography.micro,
-    color: colors.textSecondary,
-  },
-  axisLabelDark: {
-    color: darkColors.textSecondary,
-  },
-  edgeLabel: {
-    ...typography.micro,
-    color: colors.textSecondary,
   },
   edgeAxis: {
     flexDirection: 'row',
@@ -249,8 +261,6 @@ const styles = StyleSheet.create({
   },
   caption: {
     textAlign: 'center',
-    ...typography.micro,
-    color: colors.textSecondary,
     marginTop: spacing.xxs,
   },
 });

@@ -339,6 +339,8 @@ fn fitness(v: FfiFitnessScreenData) -> Lowered {
         run_pace_trend,
         swim_pace_trend,
         sport_mix,
+        fitness_days,
+        fatigue_days,
     )
 }
 

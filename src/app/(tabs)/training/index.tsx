@@ -1,6 +1,6 @@
 import { useTabFirstFrame } from '@/shared/debug/tabSwitchTiming';
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
-import { View, StyleSheet, RefreshControl } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {
@@ -41,7 +41,7 @@ import { useSheetOpener } from '@/shared/app/sheetRequest';
 import type { SmoothingSheetInput } from '@/app/sheets/smoothing';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { useScrollToTopOnReselect } from '@/shared/ui/tabReselect';
-import { onPullRefresh } from '@/shared/ui/haptics';
+import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
 
 const trainingChartCard = (chart: TrainingChart) => TRAINING_CHART_CARD[chart];
 
@@ -114,6 +114,7 @@ function HealthScreenContent() {
     data: wellness,
     isLoading: wellnessLoading,
     isFetching: wellnessFetching,
+    isPlaceholderData: wellnessHeld,
     isError: isWellnessError,
     error: wellnessError,
     refetch: refetchWellness,
@@ -125,19 +126,15 @@ function HealthScreenContent() {
   const isFetching = wellnessFetching;
 
   // Handle pull-to-refresh - invalidate all training-related queries
-  const onRefresh = useMemo(
-    () =>
-      onPullRefresh(async () => {
-        setIsRefreshing(true);
-        requestRefresh();
-        await Promise.all([
-          refetchWellness(),
-          queryClient.invalidateQueries({ queryKey: queryKeys.stats.all }),
-        ]);
-        setIsRefreshing(false);
-      }),
-    [refetchWellness, queryClient, requestRefresh]
-  );
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    requestRefresh();
+    await Promise.all([
+      refetchWellness(),
+      queryClient.invalidateQueries({ queryKey: queryKeys.stats.all }),
+    ]);
+    setIsRefreshing(false);
+  }, [refetchWellness, queryClient, requestRefresh]);
 
   const retryWellness = useCallback(() => {
     void refetchWellness();
@@ -164,14 +161,7 @@ function HealthScreenContent() {
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: layout.screenPadding }]}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={onRefresh}
-            tintColor={themeColors.primary}
-            colors={[themeColors.primary]}
-          />
-        }
+        refreshControl={<ScreenRefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
       >
         {/* Activity Heatmap - promoted to top (Skia Picture, lightweight) */}
         <View style={styles.frame}>
@@ -241,6 +231,7 @@ function HealthScreenContent() {
                 timeRange={timeRange}
                 smoothingWindow={smoothingWindow}
                 onDateSelect={handleDateSelect}
+                held={wellnessHeld}
               />
             )}
           </Card>

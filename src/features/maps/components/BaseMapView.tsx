@@ -22,7 +22,7 @@ import {
 } from '@/theme';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { MapSurface, type MapPressEvent, type MapSurfaceRef } from './MapSurface';
-import { CompassArrow, ComponentErrorBoundary, IconButton } from '@/shared/ui';
+import { CompassArrow, ComponentErrorBoundary, ICON_BUTTON_GAP, IconButton } from '@/shared/ui';
 import {
   featureCollection,
   lineFeature,
@@ -44,6 +44,7 @@ import {
   buildUserLocationLayers,
 } from '@/features/maps/lib/userLocationLayer';
 import { motionTiming } from '@/shared/ui/reduceMotion';
+import { LOCATE_GLYPH } from '@/features/maps/lib/mapGlyphs';
 
 /** Room left around fitted bounds, in pixels. Extra on top for the controls. */
 const DEFAULT_FIT_PADDING = { top: 80, right: 40, bottom: 40, left: 40 } as const;
@@ -402,7 +403,7 @@ export function BaseMapView({
               />
             ) : (
               <MaterialCommunityIcons
-                name="crosshairs-gps"
+                name={LOCATE_GLYPH}
                 size={iconSize.lg}
                 color={
                   userLocation
@@ -503,7 +504,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: layout.minTapTarget,
     height: layout.minTapTarget,
-    borderRadius: layout.minTapTarget / 2,
+    borderRadius: layout.borderRadiusFull,
     ...shadows.mapOverlay,
     zIndex: layers.mapOverlay,
   },
@@ -518,15 +519,16 @@ const styles = StyleSheet.create({
   },
   controlStack: {
     position: 'absolute',
-    right: spacing.md + 52, // Position to left of style toggle button (44px button + 8px gap)
+    // To the left of the style toggle, one control and the gap between two away.
+    right: spacing.md + layout.minTapTarget + ICON_BUTTON_GAP,
     flexDirection: 'row', // Horizontal layout to reduce vertical occlusion
-    gap: spacing.sm,
+    gap: ICON_BUTTON_GAP,
     zIndex: layers.mapOverlay,
   },
   controlButton: {
     width: layout.minTapTarget,
     height: layout.minTapTarget,
-    borderRadius: layout.minTapTarget / 2,
+    borderRadius: layout.borderRadiusFull,
     ...shadows.mapOverlay,
   },
   controlButtonDark: {

@@ -1,12 +1,10 @@
 import React, { useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
-import { colors, colorWithOpacity, darkColors, spacing, layout, typography } from '@/theme';
-import { useTheme } from '@/shared/app';
+import { spacing } from '@/theme';
 import { Button } from '@/shared/ui/Button';
-import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
+import { InlineNotice } from '@/shared/ui/InlineNotice';
 import { GrantAccessButton } from './GrantAccessButton';
 
 export interface SaveErrorBannerProps {
@@ -60,44 +58,31 @@ export function SaveErrorBanner({
   onFreeSpace,
 }: SaveErrorBannerProps) {
   const { t } = useTranslation();
-  const { isDark } = useTheme();
   const shareAnchor = useRef<View>(null);
-
-  useAnnounceOnAppear(errorMessage);
 
   if (!errorMessage) return null;
 
   return (
-    <View style={styles.errorBanner} accessibilityLiveRegion="assertive">
-      <Text style={[styles.errorBannerText, isDark && styles.errorBannerTextDark]}>
-        {errorMessage}
-      </Text>
-      {!!detail && (
-        <Text style={[styles.detailText, isDark && styles.detailTextDark]}>{detail}</Text>
-      )}
+    <InlineNotice
+      testID="save-error-banner"
+      tone="error"
+      icon="alert-circle-outline"
+      title={errorMessage}
+      detail={detail}
+      style={styles.banner}
+    >
       {showPermissionFix ? (
         <GrantAccessButton onPress={onUpgradePermissions} loading={isOAuthLoading} />
       ) : null}
       {!showPermissionFix && onFreeSpace ? (
-        <Button
-          style={styles.retryButton}
-          variant="secondary"
-          label={t('common.freeUpSpace')}
-          onPress={onFreeSpace}
-        />
+        <Button variant="secondary" label={t('common.freeUpSpace')} onPress={onFreeSpace} />
       ) : null}
       {!showPermissionFix && onRetry ? (
-        <Button
-          style={styles.retryButton}
-          label={t('common.retry', 'Retry')}
-          onPress={onRetry}
-          loading={isRetrying}
-        />
+        <Button label={t('common.retry', 'Retry')} onPress={onRetry} loading={isRetrying} />
       ) : null}
       {onOpenRecording ? (
         <Button
           testID="save-error-open-recording"
-          style={styles.retryButton}
           label={t('recording.openInRecordings', 'Open my recordings')}
           onPress={onOpenRecording}
         />
@@ -106,42 +91,17 @@ export function SaveErrorBanner({
         <Button
           ref={shareAnchor}
           testID="save-error-share-fit"
-          style={styles.retryButton}
           variant="secondary"
           label={t('recording.library.share', 'Share FIT file')}
           onPress={() => onShareFit(shareAnchor)}
         />
       ) : null}
-    </View>
+    </InlineNotice>
   );
 }
 
 const styles = StyleSheet.create({
-  errorBanner: {
-    backgroundColor: colorWithOpacity(colors.error, 0.1),
-    borderRadius: layout.borderRadiusSm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  errorBannerText: {
-    ...typography.caption,
-    color: colors.errorDeep,
-    textAlign: 'center',
-  },
-  errorBannerTextDark: {
-    color: darkColors.errorDeep,
-  },
-  detailText: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: spacing.xs,
-  },
-  detailTextDark: {
-    color: darkColors.textSecondary,
-  },
-  retryButton: {
+  banner: {
     marginTop: spacing.sm,
   },
 });

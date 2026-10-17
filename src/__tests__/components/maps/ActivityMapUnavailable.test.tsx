@@ -22,6 +22,9 @@ import {
 } from '@/features/maps/components/MapSurface';
 import type { LatLng } from '@/shared/geo/polyline';
 
+// The map page is hidden from screen readers, so a query reaching it includes hidden elements.
+const MAP_PAGE = { includeHiddenElements: true };
+
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
 jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
@@ -63,7 +66,7 @@ function renderActivityMap() {
 }
 
 const post = (message: object) =>
-  fireEvent(screen.getByTestId(MAP_SURFACE_TEST_ID), 'message', {
+  fireEvent(screen.getByTestId(MAP_SURFACE_TEST_ID, MAP_PAGE), 'message', {
     nativeEvent: { data: JSON.stringify(message) },
   });
 

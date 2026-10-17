@@ -99,7 +99,7 @@ fn detection_hold(conn: &Connection) -> Option<FfiDetectionHold> {
             remaining: saturating_u32(remaining),
         });
     }
-    if super::cutover::cutover_running() || super::cutover::pooled::cutover_is_owed(conn) {
+    if super::cutover::pooled::cutover_holds_detection(conn) {
         return Some(FfiDetectionHold::Cutover);
     }
     None

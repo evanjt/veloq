@@ -126,7 +126,7 @@ describe('chrome surfaces sit on their radius rung', () => {
     expect(flat(screen.getByTestId('line')).borderRadius).toBe(layout.borderRadiusMd);
   });
 
-  it('rounds the permission notice at the inline-control rung', async () => {
+  it('rounds the permission notice at the card rung, as every in-screen notice', async () => {
     await render(
       <PermissionNotice
         outcome="askable"
@@ -136,7 +136,7 @@ describe('chrome surfaces sit on their radius rung', () => {
         testID="notice"
       />
     );
-    expect(flat(screen.getByTestId('notice')).borderRadius).toBe(layout.borderRadiusMd);
+    expect(flat(screen.getByTestId('notice')).borderRadius).toBe(layout.borderRadius);
   });
 
   it('rounds a tab count badge fully', async () => {

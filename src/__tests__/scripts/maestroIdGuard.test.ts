@@ -113,6 +113,14 @@ describe('resolving a flow id against the tree', () => {
 
     expect(resolves(screen, 'activity-detail-content')).toBe(true);
   });
+
+  it('takes a templated id carried in an options object', () => {
+    const row =
+      'options={TIDES.map((tide) => ({ value: tide.id, testID: `tide-pick-${tide.id}` }))}';
+
+    expect(resolves(row, 'tide-pick-neap')).toBe(true);
+    expect(resolves(row, 'tide-picker-neap')).toBe(false);
+  });
 });
 
 describe('the guard over a tree', () => {

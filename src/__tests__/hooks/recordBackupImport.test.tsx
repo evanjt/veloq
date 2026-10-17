@@ -5,8 +5,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import { useImportDatabaseBackup } from '@/features/settings/hooks/useBackup';
 import {
+  convertLegacyDatabaseFile,
   restoreBackup,
-  restoreDatabaseBackup,
   restoreRecordBackup,
 } from '@/features/settings/lib/backup';
 
@@ -26,16 +26,29 @@ jest.mock('expo-file-system/legacy', () => ({
   ...jest.requireActual('expo-file-system/legacy'),
   cacheDirectory: 'file:///cache/',
   EncodingType: { UTF8: 'utf8' },
+  getInfoAsync: jest.fn(async () => ({ exists: true, size: 512 })),
   readAsStringAsync: jest.fn(async () => '{"version":1}'),
   deleteAsync: jest.fn(async () => undefined),
+}));
+const mockCheck = { writtenAt: null, namesAccount: true, names: 0, settings: 1, decisions: 0 };
+const mockChecks = {
+  checkRecordBackup: jest.fn(async (_uri: string) => mockCheck),
+  checkLegacyBackup: jest.fn(async (_json: string) => mockCheck),
+};
+jest.mock('@/shared/storage/cacheFiles', () => ({
+  ...jest.requireActual('@/shared/storage/cacheFiles'),
+  restoreCopyUri: async (name: string) => `file:///cache/restores/${name}`,
 }));
 // Signed in throughout, so nothing is held for a sign-in.
 jest.mock('@/features/settings/lib/heldImport', () => ({
   holdImportWhileSignedOut: jest.fn(async () => false),
 }));
 jest.mock('@/features/settings/lib/backup', () => ({
+  SignInRequiredError: class extends Error {},
+  checkRecordBackup: (uri: string) => mockChecks.checkRecordBackup(uri),
+  checkLegacyBackup: (json: string) => mockChecks.checkLegacyBackup(json),
+  convertLegacyDatabaseFile: jest.fn(async () => {}),
   restoreBackup: jest.fn(),
-  restoreDatabaseBackup: jest.fn(),
   restoreRecordBackup: jest.fn(),
   importWaitsForSignIn: () => false,
 }));
@@ -58,13 +71,11 @@ beforeEach(() => {
   acceptLegacyPrompt();
 });
 
-it('explains an account mismatch when a legacy database cannot be converted', async () => {
+it("explains an account mismatch when a legacy database's record is for another account", async () => {
   mockFileName = 'older.veloqdb';
-  (restoreDatabaseBackup as jest.Mock).mockResolvedValue({
-    success: false,
-    activityCount: 0,
-    refusal: 'differentAccount',
-  });
+  mockChecks.checkRecordBackup.mockRejectedValueOnce(
+    Object.assign(new Error('Record belongs to another athlete'), { tag: 'Database' })
+  );
   const { result } = await renderHook(() => useImportDatabaseBackup());
 
   await act(async () => {
@@ -124,11 +135,7 @@ it("words the engine's account refusal of a record zip in the athlete's language
 
 it('words a refused legacy database by its refusal, never by a thrown message', async () => {
   mockFileName = 'older.veloqdb';
-  (restoreDatabaseBackup as jest.Mock).mockResolvedValue({
-    success: false,
-    activityCount: 0,
-    refusal: 'failed',
-  });
+  jest.mocked(convertLegacyDatabaseFile).mockRejectedValueOnce(new Error('file is not a database'));
   const { result } = renderHook(() => useImportDatabaseBackup());
 
   await act(async () => {
@@ -192,7 +199,12 @@ describe("the picker's copy of an imported backup", () => {
       'a whole-database copy',
       () => {
         mockFileName = 'older.veloqdb';
-        (restoreDatabaseBackup as jest.Mock).mockResolvedValue({ success: true, activityCount: 0 });
+        (restoreRecordBackup as jest.Mock).mockResolvedValue({
+          placed: 1,
+          unplaced: 0,
+          notRestored: 0,
+          namesNotRestored: 0,
+        });
       },
     ],
     [

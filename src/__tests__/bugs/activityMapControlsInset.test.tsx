@@ -40,6 +40,7 @@ function renderControls(handlers: Partial<React.ComponentProps<typeof ActivityMa
           gradientActive={false}
           onToggleGradient={jest.fn()}
           is3DMode={false}
+          is3DLoading={false}
           hasRoute={true}
           onToggle3D={jest.fn()}
           bearingAnim={new Animated.Value(0)}

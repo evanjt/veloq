@@ -10,6 +10,7 @@
     android:padding="@dimen/widget_padding">
 
     <TextView
+      android:fontFamily="@font/widget_manrope"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
       android:paddingBottom="@dimen/widget_gap"
@@ -17,6 +18,7 @@
       android:textSize="@dimen/widget_text_label" />
 
     <TextView
+      android:fontFamily="@font/widget_manrope"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
       android:paddingTop="@dimen/widget_gap"
@@ -31,6 +33,7 @@
       android:orientation="vertical" />
 
     <TextView
+      android:fontFamily="@font/widget_manrope"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
       android:paddingTop="@dimen/widget_padding"
@@ -45,6 +48,7 @@
       android:orientation="vertical" />
 
     <TextView
+      android:fontFamily="@font/widget_manrope"
       android:id="@+id/summary_configure_supporting_title"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"

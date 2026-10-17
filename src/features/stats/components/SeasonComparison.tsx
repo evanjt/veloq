@@ -200,6 +200,7 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
     accessibilityProps,
   } = useChartGestures({
     data,
+    accessibilityLabel: t('stats.seasonComparison'),
     onSelect: handleSelect,
     onInteractionChange: handleInteractionChange,
     describePoint: describeMonth,
@@ -291,11 +292,11 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
       if (isCurrentMonth || isSelected) {
         const hlColor = isSelected
           ? isDark
-            ? colorWithOpacity(ink.white, 0.15)
-            : colorWithOpacity(ink.black, 0.08)
+            ? colorWithOpacity(ink.white, opacity.tint2)
+            : colorWithOpacity(ink.black, opacity.tint1)
           : isDark
-            ? colorWithOpacity(ink.white, 0.08)
-            : colorWithOpacity(colorCurrent, 0.08);
+            ? colorWithOpacity(ink.white, opacity.tint1)
+            : colorWithOpacity(colorCurrent, opacity.tint1);
         highlightPaint.setColor(Skia.Color(hlColor));
         canvas.drawRRect(
           Skia.RRectXY(
@@ -620,8 +621,7 @@ const makeStyles = (palette: Palette) =>
       color: colors.textPrimary,
     },
     tooltipMonth: {
-      fontSize: typography.body.fontSize,
-      fontWeight: '700',
+      ...typography.bodyBold,
       color: colors.textPrimary,
       minWidth: 40,
     },
@@ -663,11 +663,11 @@ const makeStyles = (palette: Palette) =>
       flex: 1,
     },
     currentMonthLabel: {
-      fontWeight: '700',
+      fontWeight: typography.label.fontWeight,
       color: colors.actionLink,
     },
     selectedMonthLabel: {
-      fontWeight: '700',
+      fontWeight: typography.label.fontWeight,
       color: colors.textPrimary,
     },
     emptyState: {

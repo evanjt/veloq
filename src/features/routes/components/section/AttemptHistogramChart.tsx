@@ -147,8 +147,8 @@ export function AttemptHistogramChart({
                   key={tick.count}
                   maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                   style={[
-                    chartStyles.axisLabel,
-                    isDark && chartStyles.axisLabelDark,
+                    chartStyles.chartLabel,
+                    isDark && chartStyles.chartLabelDark,
                     styles.yLabel,
                     { top: tick.y - typography.caption.lineHeight },
                   ]}
@@ -165,7 +165,7 @@ export function AttemptHistogramChart({
           <Text
             key={i}
             maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-            style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
+            style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}
           >
             {label}
           </Text>

@@ -7,7 +7,6 @@
  */
 
 import React from 'react';
-import { View } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 import { Path } from '@shopify/react-native-skia';
 
@@ -15,7 +14,18 @@ import { SectionDeltaChart } from '@/features/routes/components/section/SectionD
 import { SectionDeltaSummaryChart } from '@/features/routes/components/section/SectionDeltaSummaryChart';
 import { PerformanceChartPanel } from '@/features/routes/components/section/PerformanceChartPanel';
 import type { PerformanceDataPoint } from '@/types';
+import { light as lightHaptic } from '@/shared/ui/haptics';
 import { layoutViews } from '../../__shared__/layoutViews';
+import {
+  capturePans,
+  pressAndLift,
+  release,
+  scrub,
+  scrubPan,
+  touchAndMove,
+  touchAt,
+} from '../../__shared__/chartScrub';
+import { SCRUB_SLOP } from '@/shared/charts/scrubPanDecision';
 import type {
   FfiDirectionDeltas,
   FfiLapDelta,
@@ -29,6 +39,10 @@ jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
 jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => true }));
+jest.mock('@/shared/ui/haptics', () => ({
+  ...jest.requireActual('@/shared/ui/haptics'),
+  light: jest.fn(),
+}));
 
 const GRID_STEP_M = 50;
 const SECTION_LENGTH_M = 400;
@@ -366,11 +380,15 @@ describe('SectionDeltaSummaryChart', () => {
     );
   }
 
-  async function scrubAt(tree: Awaited<ReturnType<typeof render>>, metres: number) {
-    const plot = tree
-      .UNSAFE_getAllByType(View)
-      .find((node) => node.props.onResponderGrant !== undefined)!;
-    await fireEvent(plot, 'responderGrant', { nativeEvent: { locationX: xAtMetres(metres) } });
+  let pans: ReturnType<typeof capturePans>;
+  beforeEach(() => {
+    jest.clearAllMocks();
+    pans = capturePans();
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  async function scrubAt(_tree: Awaited<ReturnType<typeof render>>, metres: number) {
+    await scrub(scrubPan(pans), xAtMetres(metres));
   }
 
   it('names the record and the split it is shown per, and the attempts behind it', async () => {
@@ -424,5 +442,108 @@ describe('SectionDeltaSummaryChart', () => {
     await scrubAt(tree, 150);
 
     expect(tree.queryByTestId('section-delta-summary-scrub')).toBeNull();
+  });
+
+  it('shows no readout for a touch that goes down and lifts without moving', async () => {
+    const tree = await render(summaryChart());
+    await layoutViews(tree, 400, 300);
+
+    await pressAndLift(scrubPan(pans), xAtMetres(150), 50);
+
+    expect(tree.queryByTestId('section-delta-summary-scrub')).toBeNull();
+    expect(lightHaptic).not.toHaveBeenCalled();
+  });
+
+  it('shows the readout and ticks once when a horizontal move passes the slop', async () => {
+    const tree = await render(summaryChart());
+    await layoutViews(tree, 400, 300);
+
+    await scrub(scrubPan(pans), xAtMetres(150), [xAtMetres(160), xAtMetres(250)]);
+
+    expect(tree.getByTestId('section-delta-summary-scrub').props.children).toContain(
+      '"from":"200 m"'
+    );
+    expect(lightHaptic).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails the scrub on a vertical move, leaving the touch to the page', async () => {
+    const tree = await render(summaryChart());
+    await layoutViews(tree, 400, 300);
+
+    const x = xAtMetres(150);
+    const mgr = await touchAndMove(scrubPan(pans), touchAt(x), [touchAt(x, 0, SCRUB_SLOP + 4)]);
+
+    expect(mgr.fail).toHaveBeenCalled();
+    expect(mgr.activate).not.toHaveBeenCalled();
+    expect(tree.queryByTestId('section-delta-summary-scrub')).toBeNull();
+    expect(lightHaptic).not.toHaveBeenCalled();
+  });
+
+  it('clears the readout when the finger lifts', async () => {
+    const tree = await render(summaryChart());
+    await layoutViews(tree, 400, 300);
+    const pan = scrubPan(pans);
+
+    await scrub(pan, xAtMetres(150));
+    await release(pan);
+
+    expect(tree.queryByTestId('section-delta-summary-scrub')).toBeNull();
+  });
+});
+
+describe('SectionDeltaChart scrub', () => {
+  // 400 px wide with 12 px left and 8 px right padding: 0.95 px a metre.
+  const xAtMetres = (m: number) => 12 + m * 0.95;
+
+  let pans: ReturnType<typeof capturePans>;
+  beforeEach(() => {
+    jest.clearAllMocks();
+    pans = capturePans();
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it('shows no readout for a touch that goes down and lifts without moving', async () => {
+    const tree = await render(chart());
+    await layoutViews(tree, 400, 300);
+
+    await pressAndLift(scrubPan(pans), xAtMetres(200), 50);
+
+    expect(tree.queryByTestId('section-delta-scrub')).toBeNull();
+    expect(lightHaptic).not.toHaveBeenCalled();
+  });
+
+  it('reads the emphasised attempt at the nearest 100 m and ticks once on a horizontal scrub', async () => {
+    const tree = await render(chart());
+    await layoutViews(tree, 400, 300);
+
+    await scrub(scrubPan(pans), xAtMetres(130), [xAtMetres(160)]);
+
+    // The newest attempt is 4 s ahead at 200 m, grid index 4.
+    expect(tree.getByTestId('section-delta-scrub').props.children).toBe(
+      'sections.deltaReadoutAhead:{"distance":"200 m","time":"4 s"}'
+    );
+    expect(lightHaptic).toHaveBeenCalledTimes(1);
+  });
+
+  it('holds the readout to the section past its far end', async () => {
+    const tree = await render(chart());
+    await layoutViews(tree, 400, 300);
+
+    await scrub(scrubPan(pans), 399);
+
+    expect(tree.getByTestId('section-delta-scrub').props.children).toBe(
+      'sections.deltaReadoutAhead:{"distance":"400 m","time":"8 s"}'
+    );
+  });
+
+  it('fails the scrub on a vertical move', async () => {
+    const tree = await render(chart());
+    await layoutViews(tree, 400, 300);
+
+    const x = xAtMetres(200);
+    const mgr = await touchAndMove(scrubPan(pans), touchAt(x), [touchAt(x, 0, SCRUB_SLOP + 4)]);
+
+    expect(mgr.fail).toHaveBeenCalled();
+    expect(tree.queryByTestId('section-delta-scrub')).toBeNull();
   });
 });

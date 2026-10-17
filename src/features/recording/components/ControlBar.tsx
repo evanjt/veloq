@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   secondaryButton: {
     width: layout.minTapTarget,
     height: layout.minTapTarget,
-    borderRadius: layout.minTapTarget / 2,
+    borderRadius: layout.borderRadiusFull,
     justifyContent: 'center',
     alignItems: 'center',
   },

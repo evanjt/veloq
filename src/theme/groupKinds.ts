@@ -233,24 +233,6 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
     reason:
       'drawn once off screen to compile the shaders, never seen. Primary red on purpose, so a frame that does reach the screen is obvious',
   },
-  switchTrackOff: {
-    kind: 'mark',
-    reason:
-      "the off track is the boundary that shows an off switch is there at all, so it is a mark at 3:1 against each mode's surfaces, the same bar as the on state's tint",
-    marks: [
-      { paths: ['light'], theme: 'light' },
-      { paths: ['dark'], theme: 'dark' },
-    ],
-  },
-  inputBoundary: {
-    kind: 'mark',
-    reason:
-      'the outline of a text field, the one thing that says where to type, drawn on the theme surface',
-    marks: [
-      { paths: ['light'], theme: 'light' },
-      { paths: ['dark'], theme: 'dark' },
-    ],
-  },
   cameraOverlay: {
     kind: 'pair',
     reason: 'the QR scanner chrome over the camera feed, fixed rather than themed',

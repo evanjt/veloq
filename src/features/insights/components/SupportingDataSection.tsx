@@ -301,8 +301,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   comparisonValue: {
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '700',
+    ...typography.metricValue,
     color: colors.textPrimary,
   },
   comparisonValueDark: {

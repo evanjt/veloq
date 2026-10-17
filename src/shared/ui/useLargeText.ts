@@ -15,6 +15,12 @@ export function useLargeText(): boolean {
   return useWindowDimensions().fontScale > DENSE_TEXT_SCALE;
 }
 
+/**
+ * Share of the window a screen's pinned block may take past the dense cap. What
+ * does not fit scrolls inside the block, so the content under it keeps a region.
+ */
+export const LARGE_TEXT_PINNED_FRACTION = 0.6;
+
 /** Past this text size even a reduced grid stops fitting, and it falls to one column. */
 const SINGLE_COLUMN_SCALE = 2;
 

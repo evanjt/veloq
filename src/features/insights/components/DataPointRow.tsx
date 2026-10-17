@@ -96,8 +96,7 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
   },
   value: {
-    fontSize: typography.bodyMedium.fontSize,
-    fontWeight: '600',
+    ...typography.bodyBold,
     color: colors.textPrimary,
   },
   valueDark: {

@@ -7,8 +7,7 @@
  */
 
 import {
-  isCutoverPending as ffiIsCutoverPending,
-  isCutoverRunning as ffiIsCutoverRunning,
+  isCutoverHeld as ffiIsCutoverHeld,
   cancelDetectorCutover as ffiCancelDetectorCutover,
   startDetectorCutover as ffiStartDetectorCutover,
   getCutoverDiff as ffiGetCutoverDiff,
@@ -51,28 +50,17 @@ export interface CutoverDiff {
 }
 
 /**
- * Whether the migration is still owed. False once it has run, and false for a
- * user who reverted, so it is safe to check on every launch.
- * An engine that is not ready answers false, never true: a cutover must never
- * be started off a half-open engine.
+ * Whether the cutover holds detection: still owed, or a run in flight. False
+ * once it has run, and false for a user who reverted, so it is safe to check
+ * on every launch. An engine that is not ready answers false, never true: a
+ * cutover must never be started off a half-open engine.
  */
-export function isCutoverPending(host: DelegateHost): boolean {
+export function isCutoverHeld(host: DelegateHost): boolean {
   if (!host.ready) return false;
   try {
-    return host.timed('isCutoverPending', () => ffiIsCutoverPending());
+    return host.timed('isCutoverHeld', () => ffiIsCutoverHeld());
   } catch (e) {
-    console.error('[Engine] isCutoverPending threw:', e);
-    return false;
-  }
-}
-
-/** Whether a cutover run is in flight. */
-export function isCutoverRunning(host: DelegateHost): boolean {
-  if (!host.ready) return false;
-  try {
-    return host.timed('isCutoverRunning', () => ffiIsCutoverRunning());
-  } catch (e) {
-    console.error('[Engine] isCutoverRunning threw:', e);
+    console.error('[Engine] isCutoverHeld threw:', e);
     return false;
   }
 }

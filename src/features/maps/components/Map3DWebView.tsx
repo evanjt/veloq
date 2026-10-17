@@ -56,6 +56,7 @@ import { pageOpensAt } from '@/features/maps/lib/settledCamera';
 import type { MapStyleType } from './mapStyles';
 import { jsLiteral } from '@/features/maps/lib/webViewLiterals';
 import { useReduceMotion } from '@/shared/ui/reduceMotion';
+import { MapWebViewHost } from './MapWebViewHost';
 
 // Stable empty array to prevent unnecessary re-renders when coordinates prop is undefined
 const EMPTY_COORDS: [number, number][] = [];
@@ -111,6 +112,8 @@ interface Map3DWebViewProps {
    * and rebuilds it at the camera it settled on when it turns false.
    */
   released?: boolean | undefined;
+  /** What the map shows, for a screen reader. Omitted, the map is hidden from it. */
+  accessibilityLabel?: string | undefined;
 }
 
 export interface Map3DWebViewRef {
@@ -217,6 +220,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       sectionCreationGeoJSON,
       sectionCreationStart,
       sectionCreationEnd,
+      accessibilityLabel,
     },
     ref
   ) {
@@ -865,28 +869,30 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     return (
       <View style={styles.container} accessibilityIgnoresInvertColors>
         {!lost && (
-          <WebView
-            key={viewKey}
-            ref={webViewRef}
-            source={{ html, baseUrl: mapPageBaseUrl() }}
-            style={styles.webview}
-            scrollEnabled={false}
-            bounces={false}
-            overScrollMode="never"
-            nestedScrollEnabled={true}
-            javaScriptEnabled={true}
-            domStorageEnabled={true}
-            startInLoadingState={false}
-            showsVerticalScrollIndicator={false}
-            showsHorizontalScrollIndicator={false}
-            originWhitelist={['*']}
-            mixedContentMode="always"
-            nativeConfig={veloqWebViewNativeConfig}
-            onMessage={handleMessage}
-            onError={handleWebViewError}
-            onContentProcessDidTerminate={onRendererGone}
-            onRenderProcessGone={onRendererGone}
-          />
+          <MapWebViewHost style={styles.webview} accessibilityLabel={accessibilityLabel}>
+            <WebView
+              key={viewKey}
+              ref={webViewRef}
+              source={{ html, baseUrl: mapPageBaseUrl() }}
+              style={styles.webview}
+              scrollEnabled={false}
+              bounces={false}
+              overScrollMode="never"
+              nestedScrollEnabled={true}
+              javaScriptEnabled={true}
+              domStorageEnabled={true}
+              startInLoadingState={false}
+              showsVerticalScrollIndicator={false}
+              showsHorizontalScrollIndicator={false}
+              originWhitelist={['*']}
+              mixedContentMode="always"
+              nativeConfig={veloqWebViewNativeConfig}
+              onMessage={handleMessage}
+              onError={handleWebViewError}
+              onContentProcessDidTerminate={onRendererGone}
+              onRenderProcessGone={onRendererGone}
+            />
+          </MapWebViewHost>
         )}
       </View>
     );

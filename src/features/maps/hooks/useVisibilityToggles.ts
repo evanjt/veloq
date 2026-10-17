@@ -39,8 +39,25 @@ interface UseVisibilityTogglesResult {
 }
 
 export function useVisibilityToggles(): UseVisibilityTogglesResult {
-  const [showActivities, setShowActivities] = useState(true);
-  const [showHeatmap, setShowHeatmap] = useState(true);
+  // The layers menu's checks are kept by the map layer preference store, so they survive a remount.
+  const showActivities = useHeatmapPreference((s) => s.activitiesVisible);
+  const setActivitiesVisible = useHeatmapPreference((s) => s.setActivitiesVisible);
+  const setShowActivities: Dispatch<SetStateAction<boolean>> = useCallback(
+    (next) => {
+      const current = useHeatmapPreference.getState().activitiesVisible;
+      setActivitiesVisible(typeof next === 'function' ? next(current) : next);
+    },
+    [setActivitiesVisible]
+  );
+  const showHeatmap = useHeatmapPreference((s) => s.heatmapVisible);
+  const setHeatmapVisible = useHeatmapPreference((s) => s.setHeatmapVisible);
+  const setShowHeatmap: Dispatch<SetStateAction<boolean>> = useCallback(
+    (next) => {
+      const current = useHeatmapPreference.getState().heatmapVisible;
+      setHeatmapVisible(typeof next === 'function' ? next(current) : next);
+    },
+    [setHeatmapVisible]
+  );
   const showSections = useHeatmapPreference((s) => s.sectionsVisible);
   const setSectionsVisible = useHeatmapPreference((s) => s.setSectionsVisible);
   const setShowSections: Dispatch<SetStateAction<boolean>> = useCallback(
@@ -64,7 +81,7 @@ export function useVisibilityToggles(): UseVisibilityTogglesResult {
 
   const toggleHeatmap = useCallback(() => {
     setShowHeatmap((current) => !current);
-  }, []);
+  }, [setShowHeatmap]);
 
   const toggle3D = useCallback(() => {
     setIs3DMode((current) => !current);

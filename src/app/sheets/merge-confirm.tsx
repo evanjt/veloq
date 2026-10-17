@@ -18,6 +18,7 @@ import {
   spacing,
   typography,
   stroke,
+  opacity,
 } from '@/theme';
 import {
   useMergeSections,
@@ -73,7 +74,7 @@ function MergeConfirmSheetContent() {
         style={pressable([
           styles.option,
           { borderColor: isSelected ? accent : border },
-          isSelected && { backgroundColor: colorWithOpacity(accent, 0.08) },
+          isSelected && { backgroundColor: colorWithOpacity(accent, opacity.tint1) },
         ])}
         android_ripple={pressRipple}
         accessibilityRole="button"

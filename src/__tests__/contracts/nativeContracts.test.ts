@@ -62,6 +62,7 @@ import {
 } from '../__shared__/bindingSurface';
 
 const nativeStrings = require('@/../src/plugins/nativeStrings.js');
+const androidWidgetPlugin = require('@/../src/plugins/with-android-widget.js');
 
 const ROOT = path.join(__dirname, '../../..');
 const read = (rel: string) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -519,6 +520,31 @@ const CONTRACTS: Contract[] = [
   },
 
   // Native module functions the JavaScript bridge calls.
+  {
+    agree: 'the iOS accessibility module defines the Button Shapes read the button calls',
+    a: {
+      file: 'modules/veloq-accessibility/ios/VeloqAccessibilityModule.swift',
+      has: 'Function("buttonShapes")',
+    },
+    b: { file: 'src/shared/ui/buttonShapes.ts', has: 'native?.buttonShapes()' },
+  },
+  {
+    agree:
+      'the Android accessibility module defines the same read, so it answers rather than throws',
+    a: {
+      file: 'modules/veloq-accessibility/android/src/main/java/com/veloq/accessibility/VeloqAccessibilityModule.kt',
+      has: 'Function("buttonShapes")',
+    },
+    b: { file: 'src/shared/ui/buttonShapes.ts', has: 'native?.buttonShapes()' },
+  },
+  {
+    agree: 'the iOS accessibility module sends the change event the button follows',
+    a: {
+      file: 'modules/veloq-accessibility/ios/VeloqAccessibilityModule.swift',
+      has: 'sendEvent("onButtonShapesChange", ["enabled": enabled])',
+    },
+    b: { file: 'src/shared/ui/buttonShapes.ts', has: "addListener?.('onButtonShapesChange'" },
+  },
   {
     agree: 'the Android push module has the name the wipe looks up',
     a: { file: `${TILE_ANDROID}/VeloqPushModule.kt`, has: 'Name("VeloqPush")' },
@@ -1621,7 +1647,14 @@ function androidStringReads(): string[] {
       'modules/veloqrs/android/src/main/java/com/veloq/ActivityNotificationPoster.kt'
     ).matchAll(/appString\(context, "(\w+)"\)/g),
   ].map((m) => m[1]);
-  return [...widget, ...poster].filter((name) => name !== 'app_name');
+  const app: { receiver: { $: Record<string, string> }[] } = { receiver: [] };
+  androidWidgetPlugin.applyReceivers(app);
+  const manifest = app.receiver.flatMap((r) =>
+    (r.$['android:label'] ?? '').startsWith('@string/')
+      ? [r.$['android:label'].replace('@string/', '')]
+      : []
+  );
+  return [...widget, ...poster, ...manifest].filter((name) => name !== 'app_name');
 }
 
 /** The generated `export enum Name { A = 1, B = 2 }`, as `A=1` entries. */
@@ -2110,9 +2143,7 @@ describe('the light heatmap paint agrees with the contrast test that gates it', 
 
 // The layers menu keys the heatmap with the ramp the engine paints its tiles in.
 it('keys the heatmap in the colour stops the engine paints its tiles with', () => {
-  const lut = read(`${RUST}/tiles.rs`).match(
-    /fn build_colour_lut[\s\S]*?let stops[^=]*= &\[([\s\S]*?)\];/
-  );
+  const lut = read(`${RUST}/heatmap_ramp.rs`).match(/const HEATMAP_STOPS[^=]*= &\[([\s\S]*?)\];/);
   expect(lut).not.toBeNull();
   const stops = [...(lut?.[1] ?? '').replace(/\/\/.*$/gm, '').matchAll(/\(([^)]*)\)/g)]
     .map((match) => match[1].split(',').map(Number))

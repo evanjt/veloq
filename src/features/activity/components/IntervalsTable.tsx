@@ -21,6 +21,7 @@ import {
   themedStyles,
   type Palette,
   stroke,
+  opacity,
 } from '@/theme';
 import type { ActivityInterval, ActivityType } from '@/types';
 import { ABSENT, absentLabel } from '@/shared/format/absent';
@@ -149,22 +150,18 @@ const makeStyles = (palette: Palette, isDark: boolean) =>
     intervalRowRecovery: {},
     intervalRowBorder: {
       borderTopWidth: stroke.hairline,
-      borderTopColor: colorWithOpacity(isDark ? ink.white : ink.black, 0.08),
+      borderTopColor: colorWithOpacity(isDark ? ink.white : ink.black, opacity.tint1),
     },
     indexText: {
-      ...typography.tableValue,
-      fontSize: typography.caption.fontSize,
-      lineHeight: typography.caption.lineHeight,
-      fontWeight: '600',
+      ...typography.captionBold,
+      fontVariant: typography.tableValue.fontVariant,
       color: palette.textSecondary,
       width: 18,
       textAlign: 'center',
     },
     typeText: {
-      fontSize: typography.micro.fontSize,
-      fontWeight: '600',
+      ...typography.label,
       color: palette.textSecondary,
-      textTransform: 'uppercase',
       width: 40,
     },
     statsRow: {

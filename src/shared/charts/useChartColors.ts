@@ -6,7 +6,7 @@
  */
 
 import { useMemo } from 'react';
-import { brand, colors, darkColors, colorWithOpacity, ink, themePalette } from '@/theme';
+import { brand, colors, darkColors, colorWithOpacity, ink, themePalette, opacity } from '@/theme';
 import { useResolvedColorScheme } from '@/shared/app/ThemeProvider';
 
 export interface ChartColorScheme {
@@ -96,7 +96,9 @@ export function useChartColors(): ChartColorScheme {
       accent: themePalette(isDark).primary,
 
       // Chart UI elements
-      grid: isDark ? colorWithOpacity(ink.white, 0.08) : colorWithOpacity(ink.black, 0.08),
+      grid: isDark
+        ? colorWithOpacity(ink.white, opacity.tint1)
+        : colorWithOpacity(ink.black, opacity.tint1),
       gridFaint: isDark ? darkColors.chartGridFaint : colors.chartGridFaint,
       axis: isDark ? darkColors.textSecondary : colors.textSecondary,
       label: isDark ? darkColors.textSecondary : colors.textSecondary,

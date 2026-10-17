@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react-native';
 import type { ReactTestInstance } from 'react-test-renderer';
 import { StyleSheet } from 'react-native';
 import { SectionRow } from '@/features/routes/components/SectionRow';
-import { darkColors, colorWithOpacity } from '@/theme/colors';
+import { darkColors, colorWithOpacity, opacity } from '@/theme/colors';
 import type { FrequentSection } from '@/types';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
@@ -52,6 +52,6 @@ async function tagGround(): Promise<unknown> {
 describe('the dark Custom tag ground', () => {
   it('does not follow the dark fatigue series', async () => {
     expect(darkColors.chartFatigue).toBe('#112233');
-    expect(await tagGround()).toBe(colorWithOpacity('#C084FC', 0.15));
+    expect(await tagGround()).toBe(colorWithOpacity('#C084FC', opacity.tint2));
   });
 });

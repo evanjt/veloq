@@ -16,9 +16,17 @@ import {
 import { useSectionDetail } from '@/shared/native/useSectionDetail';
 import { tapTo } from '@/shared/app/navigation';
 import { formatDuration } from '@/shared/format/format';
-import { SectionInsightMap } from './SectionInsightMap';
+import { SheetTrackDrawing } from './SheetTrackDrawing';
 import { InsightHistoryChart } from '../InsightHistoryChart';
-import { colors, darkColors, iconSize, insightToneColor, spacing, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  iconSize,
+  insightToneColor,
+  spacing,
+  themePalette,
+  typography,
+} from '@/theme';
 import type { ActivityType, Insight, SupportingSection } from '@/types';
 import { SheetContext } from './SheetContext';
 import { composeAccessibilityLabel, ErrorState, Row } from '@/shared/ui';
@@ -103,13 +111,7 @@ const TopSectionMap = React.memo(function TopSectionMap({ sectionId }: { section
       <ErrorState variant="inline" error={error} onRetry={retry} testID="section-read-failure" />
     );
   }
-  if (!section?.polyline || section.polyline.length < 2) return null;
-  return (
-    <SectionInsightMap
-      polyline={section.polyline}
-      lineColor={insightToneColor('opportunity', isDark)}
-    />
-  );
+  return <SheetTrackDrawing points={section?.polyline} color={themePalette(isDark).primary} />;
 });
 
 /**

@@ -180,6 +180,14 @@ export const STYLE_CLASSES = [
     instead: 'colorWithOpacity(token, opacity.<step>)',
   },
   {
+    name: 'status-tint',
+    keys: [],
+    owner: ['colors', 'darkColors'],
+    guard: 'lint:style-status-tints',
+    instead:
+      'InlineNotice or NoticeBanner from src/shared/ui, or noticePalette, which reads the errorBg, warningBg and infoBg grounds',
+  },
+  {
     name: 'z-index',
     keys: ['zIndex'],
     owner: ['layers', 'floatingLayers'],
@@ -199,7 +207,7 @@ export const STYLE_CLASSES = [
     owner: [],
     guard: 'lint:style-containers',
     instead:
-      'Card, Button, ChipSelector, TextField, NoticeBanner, SheetHeader or Row from src/shared/ui',
+      'Card, Button, ToggleButtonRow, TextField, NoticeBanner, SheetHeader or Row from src/shared/ui',
   },
   {
     name: 'theme-import',
@@ -307,6 +315,57 @@ const unwrap = (expr) => {
   }
   return at;
 };
+
+/** A colour read naming a status hue: `colors.warning`, `palette.errorDeep`. */
+const STATUS_HUE = /(^|\.)(warning|error|info)[A-Za-z]*$/;
+
+/**
+ * Each status hue in `expr` given an alpha by hand: `colorWithOpacity` on one,
+ * a two-digit hex appended with `+`, or the same in a template. Both branches
+ * of a conditional count, and the fallback of `??` and `||`.
+ */
+function statusTints(expr, sf) {
+  const value = unwrap(expr);
+  if (!value) return [];
+  if (ts.isConditionalExpression(value)) {
+    return [...statusTints(value.whenTrue, sf), ...statusTints(value.whenFalse, sf)];
+  }
+  if (ts.isBinaryExpression(value)) {
+    const op = value.operatorToken.kind;
+    if (op === ts.SyntaxKind.QuestionQuestionToken || op === ts.SyntaxKind.BarBarToken) {
+      return [...statusTints(value.left, sf), ...statusTints(value.right, sf)];
+    }
+    const right = unwrap(value.right);
+    if (
+      op === ts.SyntaxKind.PlusToken &&
+      STATUS_HUE.test(unwrap(value.left).getText(sf)) &&
+      ts.isStringLiteralLike(right) &&
+      /^[0-9A-Fa-f]{2}$/.test(right.text)
+    ) {
+      return [`${unwrap(value.left).getText(sf)} + '${right.text}'`];
+    }
+    return [];
+  }
+  if (
+    ts.isCallExpression(value) &&
+    calleeName(value) === 'colorWithOpacity' &&
+    value.arguments[0] &&
+    STATUS_HUE.test(unwrap(value.arguments[0]).getText(sf))
+  ) {
+    return [`colorWithOpacity(${unwrap(value.arguments[0]).getText(sf)}, …)`];
+  }
+  if (
+    ts.isTemplateExpression(value) &&
+    value.head.text === '' &&
+    value.templateSpans.length === 1 &&
+    STATUS_HUE.test(value.templateSpans[0].expression.getText(sf)) &&
+    /^[0-9A-Fa-f]{2}$/.test(value.templateSpans[0].literal.text)
+  ) {
+    const span = value.templateSpans[0];
+    return [`\`\${${span.expression.getText(sf)}}${span.literal.text}\``];
+  }
+  return [];
+}
 
 /**
  * The literals a value is written as: the value itself, either branch of a
@@ -597,7 +656,31 @@ export function literalSites(sf, className) {
           const tail = node.templateSpans[node.templateSpans.length - 1]?.literal.text ?? '';
           if (/^[0-9A-Fa-f]{2}$/.test(tail)) at(node, `\`\${…}${tail}\``);
         }
+        // The same alpha concatenated onto a colour: `c + '33'`. On an rgba
+        // token it yields an invalid colour and nothing says so.
+        if (
+          ts.isBinaryExpression(node) &&
+          node.operatorToken.kind === ts.SyntaxKind.PlusToken &&
+          ts.isStringLiteralLike(node.right) &&
+          /^[0-9A-Fa-f]{2}$/.test(node.right.text) &&
+          !ts.isStringLiteralLike(node.left)
+        ) {
+          at(node, `… + '${node.right.text}'`);
+        }
         break;
+      case 'status-tint': {
+        // A ground or an edge tinted from a status hue by hand, in a style or
+        // in a constant a style reads.
+        const key = ts.isPropertyAssignment(node) ? keyName(node.name) : null;
+        const value =
+          key === 'backgroundColor' || key === 'borderColor'
+            ? node.initializer
+            : ts.isVariableDeclaration(node)
+              ? node.initializer
+              : null;
+        for (const text of statusTints(value, sf)) at(node, text);
+        break;
+      }
       case 'shadow':
         if (ts.isCallExpression(node) && calleeName(node) === 'createShadow') {
           for (const v of literals(node.arguments[0])) at(node, `createShadow(${v})`);

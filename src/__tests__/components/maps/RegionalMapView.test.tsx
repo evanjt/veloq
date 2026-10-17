@@ -16,6 +16,9 @@ import { decodeCoords } from 'veloqrs';
 import type { ActivityBoundsItem } from '@/types';
 import { stubHardwareBack } from '../../__shared__/hardwareBack';
 
+// The map page is hidden from screen readers, so a query reaching it includes hidden elements.
+const MAP_PAGE = { includeHiddenElements: true };
+
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
 const mockClearHeatmapView = jest.fn();
@@ -154,7 +157,7 @@ describe('RegionalMapView', () => {
   it('mounts a map with activity overlays', async () => {
     await renderRegional();
 
-    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+    expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
     await fireEvent.press(screen.getByTestId('map-layers'));
     expect(screen.getByTestId('map-toggle-activities')).toBeTruthy();
   });
@@ -174,7 +177,7 @@ describe('RegionalMapView', () => {
     await fireEvent.press(screen.getByTestId('map-layers'));
 
     expect(screen.queryByTestId('map-fit-all')).toBeNull();
-    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+    expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
   });
 
   it('keeps the overlay toggles pressable', async () => {
@@ -186,7 +189,7 @@ describe('RegionalMapView', () => {
       await expect((async () => fireEvent.press(screen.getByTestId(id)))()).resolves.not.toThrow();
     }
 
-    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+    expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
   });
 
   /**
@@ -270,13 +273,13 @@ describe('RegionalMapView', () => {
   it('swaps in the terrain view when 3D is enabled', async () => {
     await renderRegional();
 
-    expect(screen.queryByTestId('webview')).toBeNull();
+    expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
 
     await fireEvent.press(screen.getByTestId('map-toggle-3d'));
-    expect(screen.getByTestId('webview')).toBeTruthy();
+    expect(screen.getByTestId('webview', MAP_PAGE)).toBeTruthy();
 
     await fireEvent.press(screen.getByTestId('map-toggle-3d'));
-    expect(screen.queryByTestId('webview')).toBeNull();
+    expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
   });
 
   it('falls back to the 2D map and says why when the terrain page has no elevation tiles', async () => {
@@ -285,20 +288,20 @@ describe('RegionalMapView', () => {
     await fireEvent.press(screen.getByTestId('map-toggle-3d'));
     expect(screen.queryByTestId(TERRAIN_UNAVAILABLE_TEST_ID)).toBeNull();
 
-    await fireEvent(screen.getByTestId('webview'), 'message', {
+    await fireEvent(screen.getByTestId('webview', MAP_PAGE), 'message', {
       nativeEvent: {
         data: JSON.stringify({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' }),
       },
     });
 
-    expect(screen.queryByTestId('webview')).toBeNull();
-    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+    expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
+    expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
     expect(screen.getByTestId(TERRAIN_UNAVAILABLE_TEST_ID)).toBeTruthy();
   });
 
   it('tears the surface down when the tab loses focus and rebuilds it on return', async () => {
     const view = await renderRegional();
-    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+    expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
 
     mockPathname = '/activity/a1';
     await view.rerender(
@@ -306,7 +309,7 @@ describe('RegionalMapView', () => {
         <RegionalMapView activities={[activity('a1'), activity('a2')]} />
       </SafeAreaProvider>
     );
-    expect(screen.queryByTestId('maplibre-map')).toBeNull();
+    expect(screen.queryByTestId('maplibre-map', MAP_PAGE)).toBeNull();
 
     mockPathname = '/map';
     await view.rerender(
@@ -314,7 +317,7 @@ describe('RegionalMapView', () => {
         <RegionalMapView activities={[activity('a1'), activity('a2')]} />
       </SafeAreaProvider>
     );
-    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+    expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
   });
 
   /**
@@ -381,7 +384,7 @@ describe('RegionalMapView', () => {
   it('takes the terrain view down with the tab too', async () => {
     const view = await renderRegional();
     await fireEvent.press(screen.getByTestId('map-toggle-3d'));
-    expect(screen.getByTestId('webview')).toBeTruthy();
+    expect(screen.getByTestId('webview', MAP_PAGE)).toBeTruthy();
 
     mockPathname = '/activity/a1';
     await view.rerender(
@@ -390,7 +393,7 @@ describe('RegionalMapView', () => {
       </SafeAreaProvider>
     );
 
-    expect(screen.queryByTestId('webview')).toBeNull();
+    expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
   });
 
   it('reports attribution changes to the caller', async () => {
@@ -449,7 +452,7 @@ describe('RegionalMapView', () => {
 
     it.each(cases)('survives %s', async (_label, props) => {
       await expect((async () => renderRegional(props))()).resolves.not.toThrow();
-      expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+      expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
     });
   });
 });

@@ -13,10 +13,17 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import { LanguagePicker } from '@/features/auth/components/LanguagePicker';
 import { useLanguageStore } from '@/shared/app/LanguageStore';
 import { LanguageList } from '@/shared/ui/LanguageList';
-import { brand, colors, inputBoundary } from '@/theme';
+import { brand, colors, controlHeight, darkColors, layout } from '@/theme';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
+
+jest.mock('@/shared/ui/haptics', () => ({
+  selection: jest.fn(),
+  light: jest.fn(),
+  medium: jest.fn(),
+  success: jest.fn(),
+}));
 
 let mockIsDark = false;
 jest.mock('@/shared/app', () => ({
@@ -40,7 +47,9 @@ function expectNoGold(style: { borderColor?: unknown; backgroundColor?: unknown 
 describe.each([
   ['light', false],
   ['dark', true],
-] as const)('dialect mark in the %s theme', (mode, isDark) => {
+] as const)('dialect mark in the %s theme', (_mode, isDark) => {
+  const palette = isDark ? darkColors : colors;
+
   beforeEach(() => {
     mockIsDark = isDark;
   });
@@ -50,7 +59,7 @@ describe.each([
     const dialect = styleOf(screen.getByLabelText('CH, settings.dialect'));
     const plain = styleOf(screen.getByLabelText('GB'));
     expectNoGold(dialect);
-    expect(dialect.borderColor).toBe(inputBoundary[mode]);
+    expect(dialect.borderColor).toBe(palette.controlBoundary);
     expect(dialect.borderWidth).toBe(plain.borderWidth);
     expect(dialect.backgroundColor).toBe(plain.backgroundColor);
   });
@@ -60,8 +69,8 @@ describe.each([
     const selectedDialect = styleOf(screen.getByLabelText('AU, settings.dialect'));
     const unselectedPlain = styleOf(screen.getByLabelText('GB'));
     expectNoGold(selectedDialect);
-    expect(selectedDialect.backgroundColor).toBe(colors.primary);
-    expect(selectedDialect.borderColor).toBe(colors.primary);
+    expect(selectedDialect.backgroundColor).toBe(palette.controlOn);
+    expect(selectedDialect.borderColor).toBe(palette.focusRing);
     expect(selectedDialect.borderWidth).toBe(unselectedPlain.borderWidth);
   });
 
@@ -73,7 +82,7 @@ describe.each([
     });
     const swatchStyle = styleOf(swatch);
     expectNoGold(swatchStyle);
-    expect(swatchStyle.borderColor).toBe(inputBoundary[mode]);
+    expect(swatchStyle.borderColor).toBe(palette.controlBoundary);
   });
 
   it('marks the login button for a chosen dialect without gold', async () => {
@@ -83,8 +92,34 @@ describe.each([
     const screen = await render(<LanguagePicker />);
     const button = styleOf(screen.getByTestId('login-language-button'));
     expectNoGold(button);
-    expect(button.borderColor).toBe(inputBoundary[mode]);
+    expect(button.borderColor).toBe(palette.controlBoundary);
     await fireEvent.press(screen.getByTestId('login-language-button'));
     expect(screen.getByLabelText('AU, settings.dialect')).toBeTruthy();
+  });
+});
+
+describe('variant chips', () => {
+  const haptics = jest.requireMock('@/shared/ui/haptics') as Record<string, jest.Mock>;
+
+  beforeEach(() => {
+    mockIsDark = false;
+    jest.clearAllMocks();
+  });
+
+  it('draws a variant as the shared selector chip', async () => {
+    const screen = await render(<LanguageList language="de-DE" onSelect={jest.fn()} />);
+    const plain = styleOf(screen.getByLabelText('GB'));
+    expect(plain.borderRadius).toBe(layout.borderRadiusFull);
+    expect(plain.minHeight).toBe(controlHeight.chip);
+  });
+
+  it('ticks once when a press chooses a variant, and not on the chosen one', async () => {
+    const onSelect = jest.fn();
+    const screen = await render(<LanguageList language="en-GB" onSelect={onSelect} />);
+    await fireEvent.press(screen.getByLabelText('GB'));
+    expect(haptics.selection).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByLabelText('AU, settings.dialect'));
+    expect(haptics.selection).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenLastCalledWith('en-AU');
   });
 });

@@ -7,10 +7,11 @@
  * thread, which cannot reach the TypeScript listener map, so the terminal
  * state observed here is what fans the change out over the engine channel.
  *
- * A return from the background starts a sync. A sync that failed for the
- * connection, and a start the exclusive slot refused, are not asked again from
- * here: the engine keeps both owed and starts them itself, on the online edge
- * the network provider pushes and as the slot frees.
+ * This hook starts the session's first sync and nothing after it. A return
+ * from the background, a sync that failed for the connection, and a start the
+ * exclusive slot refused are not asked again from here: the network provider
+ * pushes the return and the online edge, the engine keeps the refused and
+ * failed runs owed, and Rust decides what each of them starts.
  *
  * The same transition asks for a fresh snapshot on the home-screen widget once
  * the thread idles.
@@ -27,7 +28,6 @@ import { hasStarted, SyncState } from 'veloqrs';
 
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { useForeground } from '@/shared/app/useRetryTriggers';
 
 import { scheduleWidgetSnapshot } from '@/features/home/lib/widgetBridge';
 
@@ -44,8 +44,9 @@ export function useEngineSync(): void {
   const engineReadyNonce = useEngineStatus((s) => s.readyNonce);
   const startedRef = useRef(false);
   const wasSyncingRef = useRef(false);
-  const [retryNonce, setRetryNonce] = useState(0);
-  const retry = () => setRetryNonce((nonce) => nonce + 1);
+  // Bumped by a wipe, the one thing after launch that asks this hook to start
+  // a sync, since it empties the library the latch says is being filled.
+  const [resetNonce, setResetNonce] = useState(0);
 
   useEffect(() => {
     if (!isAuthenticated || isDemoMode || startedRef.current) return;
@@ -55,10 +56,10 @@ export function useEngineSync(): void {
     // first call reaches a null handle and refuses without touching Rust.
     // Latching on the verdict keeps the retry alive until the ready nonce
     // brings the effect back with a real engine.
-    // The profile is left to the engine's age gate: this runs on every
-    // foreground, and a pull to refresh is what forces it.
+    // The profile is left to the engine's age gate, and a pull to refresh is
+    // what forces it.
     startedRef.current = hasStarted(engine.syncNow(false));
-  }, [isAuthenticated, isDemoMode, engineReadyNonce, retryNonce]);
+  }, [isAuthenticated, isDemoMode, engineReadyNonce, resetNonce]);
 
   // Re-arm on logout so the next session syncs again. A pull-to-refresh held
   // for the settle that never came goes with it: the next athlete did not ask
@@ -104,7 +105,7 @@ export function useEngineSync(): void {
       // The wipe is the sync this hook is about to start, so a pull held from
       // before it has nothing left to refresh.
       cancelSyncRefresh();
-      retry();
+      setResetNonce((nonce) => nonce + 1);
     });
     return () => unsubscribe?.();
   }, [engineReadyNonce]);
@@ -127,10 +128,4 @@ export function useEngineSync(): void {
     // ranking and the composition in one task.
     scheduleWidgetSnapshot();
   }, [state]);
-
-  useForeground(() => {
-    if (state === SyncState.AuthExpired) return;
-    startedRef.current = false;
-    retry();
-  });
 }

@@ -1,5 +1,10 @@
 # Monthly, three open at most per ecosystem: Dependabot sent 372 of 484 pull
 # request runs, and each one pays the full build.
+#
+# Patch updates share one group per ecosystem, which the auto-merge workflow
+# merges once it passes. Minors and majors open one pull request each and are
+# never auto-merged: a group reports one member's update type, and one bad
+# member holds back every other update in it.
 version: 2
 updates:
   - package-ecosystem: "npm"
@@ -12,8 +17,8 @@ updates:
       jest-expo:
         patterns: ["jest-expo"]
         update-types: ["minor", "patch"]
-      npm-minor-patch:
-        update-types: ["minor", "patch"]
+      npm-patch:
+        update-types: ["patch"]
     ignore:
       # Expo SDK and native peers pin these as a set. Group-bumping them breaks the
       # build (react/react-test-renderer must match exactly; react-native bumps
@@ -41,6 +46,21 @@ updates:
       # react-native-iap peers on a nitro range, and legacy-peer-deps lets a lone
       # iap bump install past it. Move the two together.
       - dependency-name: "react-native-iap"
+      # typescript-eslint peers typescript below 6.1, so a major fails lint.
+      # Move it once typescript-eslint accepts the new major.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      # jest-expo depends on the Jest 29 packages, so a lone Jest major runs two
+      # Jest versions side by side. Move both once jest-expo does.
+      - dependency-name: "jest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/jest"
+        update-types: ["version-update:semver-major"]
+      # 14 renders through the separate test-renderer package rather than
+      # react-test-renderer, so it is a migration of every component test, not
+      # a version bump.
+      - dependency-name: "@testing-library/react-native"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "npm"
     directory: "/oauth-proxy"
@@ -48,8 +68,8 @@ updates:
       interval: "monthly"
     open-pull-requests-limit: 3
     groups:
-      oauth-proxy-minor-patch:
-        update-types: ["minor", "patch"]
+      oauth-proxy-patch:
+        update-types: ["patch"]
 
   - package-ecosystem: "cargo"
     directory: "/modules/veloqrs/rust"
@@ -57,8 +77,8 @@ updates:
       interval: "monthly"
     open-pull-requests-limit: 3
     groups:
-      cargo-minor-patch:
-        update-types: ["minor", "patch"]
+      cargo-patch:
+        update-types: ["patch"]
     ignore:
       # uniffi metadata format must match uniffi-bindgen-react-native, whose
       # 0.31.x releases pin uniffi =0.31. A lone crate bump fails Verify
@@ -73,7 +93,7 @@ updates:
       # 0.13 drops the `rustls-tls` feature, and every rustls path there pulls
       # rustls-platform-verifier, which on Android needs a Kotlin component, a
       # Proguard rule and a JNI init before the first request. Take it together
-      # with the jni 0.22 move and that wiring, never through the grouped PR.
+      # with the jni 0.22 move and that wiring, never through a Dependabot PR.
       # scripts/lint-tls-verifier-hold.mjs holds this ignore in place.
       - dependency-name: "reqwest"
         update-types: ["version-update:semver-minor"]
@@ -90,8 +110,8 @@ updates:
       interval: "monthly"
     open-pull-requests-limit: 3
     groups:
-      bundler-minor-patch:
-        update-types: ["minor", "patch"]
+      bundler-patch:
+        update-types: ["patch"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -99,8 +119,9 @@ updates:
       interval: "monthly"
     open-pull-requests-limit: 3
     groups:
-      gha-all:
+      gha-patch:
         patterns: ["*"]
+        update-types: ["patch"]
     ignore:
       # The toolchain is pinned in rust-toolchain.toml, and a Jest test holds each
       # dtolnay/rust-toolchain step to it. Bump them together with a fresh

@@ -219,8 +219,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
   },
   title: {
-    fontSize: typography.sectionTitle.fontSize,
-    fontWeight: '600',
+    ...typography.sectionTitle,
     textAlign: 'center',
     marginBottom: spacing.smPlus,
   },

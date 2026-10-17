@@ -843,6 +843,53 @@ const RULES = {
   // A first load of content whose shape is known draws a placeholder in that
   // shape. A spinner alone in a box sized by its padding is replaced by
   // content of another height, so everything below it moves on arrival.
+  'bare-refresh-control': {
+    pathspec: ['src'],
+    check(sources) {
+      const out = [];
+      for (const [file, text] of sources) {
+        if (!/\.tsx?$/.test(file) || TESTS.test(file) || file.startsWith('src/shared/ui/'))
+          continue;
+        if (!text.includes('RefreshControl')) continue;
+        const kind = file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+        const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, kind);
+        const at = (node) => sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
+        for (const statement of sf.statements) {
+          if (
+            !ts.isImportDeclaration(statement) ||
+            statement.moduleSpecifier.text !== 'react-native'
+          ) {
+            continue;
+          }
+          const bindings = statement.importClause?.namedBindings;
+          if (!bindings) continue;
+          if (ts.isNamedImports(bindings)) {
+            for (const spec of bindings.elements) {
+              if ((spec.propertyName ?? spec.name).text === 'RefreshControl')
+                out.push(`${file}:${at(spec)}  imports RefreshControl from react-native`);
+            }
+          } else if (ts.isNamespaceImport(bindings)) {
+            const namespace = bindings.name.text;
+            const visit = (node) => {
+              if (
+                ts.isPropertyAccessExpression(node) &&
+                ts.isIdentifier(node.expression) &&
+                node.expression.text === namespace &&
+                node.name.text === 'RefreshControl'
+              ) {
+                out.push(`${file}:${at(node)}  draws ${namespace}.RefreshControl`);
+              }
+              ts.forEachChild(node, visit);
+            };
+            visit(sf);
+          }
+        }
+      }
+      return out;
+    },
+    fix: "pass ScreenRefreshControl from '@/shared/ui', which takes the theme's colours and the pull haptic",
+  },
+
   'lone-spinner-in-padding': {
     pathspec: ['src'],
     check(sources) {
@@ -1206,14 +1253,31 @@ const RULES = {
           'src/theme/tokenFamilies.ts and src/theme/colors.ts  need TOKEN_FAMILIES, colors and darkColors for this rule to read',
         ];
       }
-      const initialisers = (literal) =>
+      // The keys that read a role are spread in from the generated token table,
+      // so their values are read there.
+      const generated = sources.get('src/theme/colourTokens.generated.ts');
+      const roles = generated === undefined ? null : objectLiteral(generated, 'roleColours');
+      if (/\.\.\.roleColours\./.test(sources.get('src/theme/colors.ts') ?? '') && !roles) {
+        return [
+          'src/theme/colourTokens.generated.ts  needs roleColours, which colors.ts spreads, for this rule to read',
+        ];
+      }
+      const roleTheme = (theme) => {
+        const property = roles?.properties.find(
+          (p) => ts.isPropertyAssignment(p) && propertyName(p) === theme
+        );
+        return property && ts.isObjectLiteralExpression(property.initializer)
+          ? property.initializer.properties
+          : [];
+      };
+      const initialisers = (literal, theme) =>
         new Map(
-          literal.properties
+          [...roleTheme(theme), ...literal.properties]
             .filter((p) => ts.isPropertyAssignment(p))
             .map((p) => [propertyName(p), p.initializer.getText()])
         );
-      const lightValues = initialisers(light);
-      const darkValues = initialisers(dark);
+      const lightValues = initialisers(light, 'light');
+      const darkValues = initialisers(dark, 'dark');
       const classified = new Set(
         families.properties.filter((p) => ts.isPropertyAssignment(p)).map(propertyName)
       );
@@ -1528,14 +1592,15 @@ const RULES = {
   // through a live region on its outer view, iOS through an announcement when
   // it mounts. Each listed banner declares both, or draws the shared
   // NoticeBanner, which is listed and declares both for it. A result, error or
-  // fallback that appears in place does the same through `StatusLine`, which
-  // carries both, so each listed file renders one, and so does every error
-  // boundary under src/shared/ui, including one added later.
+  // fallback that appears in place does the same through `StatusLine` or
+  // `InlineNotice`, which each carry both, so each listed file renders one, and
+  // so does every error boundary under src/shared/ui, including one added later.
   'banner-live-region': {
     pathspec: ['src'],
     check(sources) {
       const out = [];
       const statusOwner = 'src/shared/ui/StatusLine.tsx';
+      const inlineOwner = 'src/shared/ui/InlineNotice.tsx';
       const statusFiles = [
         'src/app/login.tsx',
         'src/app/detection-settings.tsx',
@@ -1548,13 +1613,15 @@ const RULES = {
         'src/shared/ui/ErrorState.tsx',
         'src/shared/ui/BodyNotDownloaded.tsx',
       ];
-      const owner = sources.get(statusOwner);
-      if (owner === undefined) out.push(`${statusOwner}  is gone, and every status line with it`);
-      else if (
-        !owner.includes('accessibilityLiveRegion=') ||
-        !owner.includes('useAnnounceOnAppear(')
-      )
-        out.push(`${statusOwner}  no longer carries both a live region and an announcement`);
+      for (const ownerFile of [statusOwner, inlineOwner]) {
+        const owner = sources.get(ownerFile);
+        if (owner === undefined) out.push(`${ownerFile}  is gone, and every status it drew`);
+        else if (
+          !owner.includes('accessibilityLiveRegion=') ||
+          !owner.includes('useAnnounceOnAppear(')
+        )
+          out.push(`${ownerFile}  no longer carries both a live region and an announcement`);
+      }
       const boundaries = [...sources.keys()].filter((file) =>
         /^src\/shared\/ui\/[A-Za-z]+ErrorBoundary\.tsx$/.test(file)
       );
@@ -1565,7 +1632,8 @@ const RULES = {
           out.push(`${file}  is gone: remove it from this list`);
           continue;
         }
-        if (!text.includes('<StatusLine')) out.push(`${file}  shows a status outside a StatusLine`);
+        if (!text.includes('<StatusLine') && !text.includes('<InlineNotice'))
+          out.push(`${file}  shows a status outside a StatusLine`);
       }
       const bannerFiles = [
         'src/shared/ui/NoticeBanner.tsx',
@@ -1588,14 +1656,18 @@ const RULES = {
           out.push(`${file}  is fixed: remove it from this list`);
           continue;
         }
-        if (file !== 'src/shared/ui/NoticeBanner.tsx' && text.includes('<NoticeBanner')) continue;
+        if (
+          file !== 'src/shared/ui/NoticeBanner.tsx' &&
+          (text.includes('<NoticeBanner') || text.includes('<InlineNotice'))
+        )
+          continue;
         if (!text.includes('accessibilityLiveRegion='))
           out.push(`${file}  has no accessibilityLiveRegion`);
         if (!text.includes('useAnnounceOnAppear(')) out.push(`${file}  never announces on iOS`);
       }
       return out;
     },
-    fix: 'draw the banner with NoticeBanner, or give its view an accessibilityLiveRegion and call useAnnounceOnAppear with its text; draw a result, error or fallback inside a StatusLine',
+    fix: 'draw the banner with NoticeBanner, or give its view an accessibilityLiveRegion and call useAnnounceOnAppear with its text; draw a result, error or fallback inside a StatusLine or an InlineNotice',
   },
 
   // A chip whose look depends on a selected or active flag also says so to a

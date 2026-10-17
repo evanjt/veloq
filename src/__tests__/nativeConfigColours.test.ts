@@ -4,8 +4,8 @@
  * app config at prebuild.
  *
  * Expected behaviour: each is the token the app renders the same role with, and the app config
- * reads it from the token rather than holding a copy, so a palette change moves the native
- * config with it.
+ * reads it from the generated app colours rather than holding a copy, so a palette change moves
+ * the native config with it. The generator writes those and the palette from one token file.
  */
 
 import path from 'path';
@@ -88,15 +88,12 @@ describe('the colours native code draws before the app runs', () => {
     });
   });
 
-  it('follow a palette change made in the one token file', () => {
-    const { brand, appConfig } = load({
+  it('follow a change to the app colours the token generator writes', () => {
+    const { appConfig } = load({
       appColour: '#123456',
       appColourDeep: '#0A1B2C',
       notificationAccent: '#654321',
     });
-    expect(brand.blue).toBe('#123456');
-    expect(brand.blueDark).toBe('#0A1B2C');
-    expect(brand.blue600).toBe('#654321');
     expect(nativeColours(appConfig({ config: staticConfigWithoutColours() }))).toEqual({
       adaptiveIcon: '#123456',
       splash: '#123456',

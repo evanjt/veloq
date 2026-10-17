@@ -429,8 +429,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   runText: {
-    ...typography.body,
-    fontWeight: '600',
+    ...typography.bodyBold,
   },
   notice: {
     ...typography.bodySmall,

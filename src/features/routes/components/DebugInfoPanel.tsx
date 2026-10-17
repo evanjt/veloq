@@ -46,12 +46,9 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.surfaceElevated,
   },
   title: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
+    ...typography.label,
     fontFamily: typography.code.fontFamily,
     color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
     marginBottom: spacing.xs,
   },
   titleDark: {

@@ -282,10 +282,7 @@ export function TrimSlider({
               importantForAccessibility="no-hide-descendants"
             />
           ) : null}
-          <Text
-            testID="review-trim-range"
-            style={[styles.timeRange, { color: textPrimary }, isTrimmed && styles.timeRangeTrimmed]}
-          >
+          <Text testID="review-trim-range" style={[styles.timeRange, { color: textPrimary }]}>
             {formatDuration(startTime)} - {formatDuration(endTime)}
           </Text>
         </View>
@@ -295,10 +292,7 @@ export function TrimSlider({
       <View style={styles.sliderContainer} onLayout={onTrackLayout} testID="review-trim-track">
         {/* Background track */}
         <View
-          style={[
-            styles.trackBg,
-            { backgroundColor: isDark ? darkColors.inputTrack : colors.inputTrack },
-          ]}
+          style={[styles.trackBg, { backgroundColor: isDark ? darkColors.track : colors.track }]}
         />
 
         {/* Active range */}
@@ -409,9 +403,6 @@ const styles = StyleSheet.create({
     ...typography.captionBold,
     fontVariant: ['tabular-nums'],
   },
-  timeRangeTrimmed: {
-    fontWeight: '700',
-  },
   sliderContainer: {
     height: HANDLE_SIZE + 8,
     justifyContent: 'center',
@@ -421,12 +412,12 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: TRACK_HEIGHT,
-    borderRadius: TRACK_HEIGHT / 2,
+    borderRadius: layout.borderRadiusFull,
   },
   trackActive: {
     position: 'absolute',
     height: TRACK_HEIGHT,
-    borderRadius: TRACK_HEIGHT / 2,
+    borderRadius: layout.borderRadiusFull,
   },
   handle: {
     position: 'absolute',

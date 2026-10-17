@@ -20,9 +20,12 @@ import { Snackbar } from 'react-native-paper';
 
 import { useTabBarClearance } from './tabBarClearance';
 
-/** How long a notice stays when its caller names no duration. */
+/** How long a notice without an action stays when its caller names no duration. */
 export const NOTICE_DEFAULT_MS = 4000;
-/** For a notice of a sentence or more, which takes longer to read. */
+/**
+ * How long a notice with an action stays when its caller names no duration, and the duration for a
+ * notice of a sentence or more, which takes longer to read.
+ */
 export const NOTICE_LONG_MS = 7000;
 
 export interface NoticeAction {
@@ -33,7 +36,10 @@ export interface NoticeAction {
 export interface NoticeArgs {
   message: string;
   action?: NoticeAction;
-  /** Milliseconds on screen. A screen reader holds a notice with an action open past it. */
+  /**
+   * Milliseconds on screen, by default 7 seconds with an action and 4 without. A screen reader
+   * holds a notice with an action open past it.
+   */
   duration?: number;
 }
 
@@ -62,10 +68,16 @@ function getCurrent(): Notice | null {
   return current;
 }
 
+/** How long a notice stays: the caller's duration, else longer when it offers an action. */
+export function noticeDuration({ action, duration }: NoticeArgs): number {
+  return duration ?? (action ? NOTICE_LONG_MS : NOTICE_DEFAULT_MS);
+}
+
 /** Show a notice, replacing any on screen. Returns its id, which `hideNotice` takes. */
-export function showNotice({ message, action, duration = NOTICE_DEFAULT_MS }: NoticeArgs): number {
+export function showNotice(args: NoticeArgs): number {
+  const { message, action } = args;
   const id = nextId++;
-  publish({ id, message, action, duration });
+  publish({ id, message, action, duration: noticeDuration(args) });
   AccessibilityInfo.announceForAccessibility(message);
   return id;
 }

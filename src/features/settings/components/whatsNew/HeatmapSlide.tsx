@@ -21,6 +21,7 @@ import {
   typography,
   colorWithOpacity,
   ink,
+  opacity,
 } from '@/theme';
 
 const COLS = 7;
@@ -117,8 +118,8 @@ export function HeatmapSlide() {
   const primaryColor = isDark ? darkColors.primary : colors.primary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const dashLineColor = isDark
-    ? colorWithOpacity(ink.white, 0.25)
-    : colorWithOpacity(ink.black, 0.15);
+    ? colorWithOpacity(ink.white, opacity.tint4)
+    : colorWithOpacity(ink.black, opacity.tint2);
 
   const selectedCellX = SELECTED_COL * (CELL_SIZE + GAP);
   const selectedCellY = SELECTED_ROW * (CELL_SIZE + GAP);

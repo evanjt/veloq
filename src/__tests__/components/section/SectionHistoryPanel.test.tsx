@@ -304,3 +304,38 @@ describe('the activity chips', () => {
     expect(router.push).toHaveBeenCalledWith('/activity/act_a');
   });
 });
+
+/**
+ * Scenario: the panel's small actions each drew a pill of their own, with a glyph picked by hand.
+ *
+ * Expected behaviour: each is the shared small Button, which draws its own label and glyph, and
+ * a screen reader reaches it as a button by its name.
+ */
+describe('SectionHistoryPanel actions', () => {
+  it('draws unpin, show and revert as Buttons named by their labels', async () => {
+    const { getByTestId, getByRole } = await renderPanel({ pinnedVersion: 2 });
+    expect(getByTestId('section-history-unpin-label')).toHaveTextContent('sectionHistory.unpin');
+    expect(getByRole('button', { name: 'sectionHistory.unpin' })).toBe(
+      getByTestId('section-history-unpin')
+    );
+    expect(getByTestId('section-version-1-show-label')).toHaveTextContent(
+      'sectionHistory.showOnMap'
+    );
+    expect(getByTestId('section-version-1-revert-label')).toHaveTextContent(
+      'sectionHistory.revert'
+    );
+    expect(getByRole('button', { name: 'sectionHistory.revertVersion:1' })).toBe(
+      getByTestId('section-version-1-revert')
+    );
+  });
+
+  it('draws each activity chip as a Button named by the activity', async () => {
+    const { getByTestId, getByRole } = await renderPanel({
+      activityNames: { act_a: 'Sunday hills' },
+    });
+    expect(getByTestId('section-history-around-2-act_a-label')).toHaveTextContent('Sunday hills');
+    expect(getByRole('button', { name: 'Sunday hills' })).toBe(
+      getByTestId('section-history-around-2-act_a')
+    );
+  });
+});

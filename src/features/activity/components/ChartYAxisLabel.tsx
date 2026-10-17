@@ -44,7 +44,7 @@ export const ChartYAxisLabel = React.memo(function ChartYAxisLabel({
   // labels on their lines. The default is the height at the standard size.
   const [labelHeight, setLabelHeight] = useState(DEFAULT_LABEL_HEIGHT);
   const onLayout = (e: LayoutChangeEvent) => setLabelHeight(e.nativeEvent.layout.height);
-  const labelStyle = [chartStyles.axisLabelOnData, isDark && chartStyles.axisLabelOnDataDark];
+  const labelStyle = [chartStyles.chartLabelOnData, isDark && chartStyles.chartLabelOnDataDark];
   const max = formatYAxisValue(yAxisSeries.range.max, yAxisSeries);
   const accent = showYAxisAccent
     ? { borderLeftWidth: stroke.two, borderLeftColor: yAxisSeries.config.color }

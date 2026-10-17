@@ -665,7 +665,7 @@ const styles = {
   entryCount: {
     ...typography.caption,
     marginRight: spacing.sm,
-    backgroundColor: colorWithOpacity(colors.neutralLine, 0.2),
+    backgroundColor: colorWithOpacity(colors.neutralLine, opacity.tint3),
     paddingHorizontal: spacing.xs,
     paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusXs,
@@ -711,7 +711,7 @@ const styles = {
   licenseTextContainer: (isDark: boolean) => ({
     marginTop: spacing.sm,
     padding: spacing.sm,
-    backgroundColor: colorWithOpacity(ink.black, isDark ? opacity.tint4 : 0.05),
+    backgroundColor: colorWithOpacity(ink.black, isDark ? opacity.tint4 : opacity.tint1),
     borderRadius: layout.borderRadiusXs,
   }),
   licenseText: {

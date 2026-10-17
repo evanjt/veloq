@@ -7,14 +7,10 @@ import { useTheme } from '@/shared/app';
 import { ChartCanvas, CurveArea, CurveLine, useChartColors } from '@/shared/charts';
 import { colors, darkColors, spacing, layout, typography, opacity, zoneColour } from '@/theme';
 import { tourPanelColour } from './tourPanel';
+import { FORM_ZONE_BOUNDARIES, FORM_ZONE_COLORS, type FormZone } from '@/features/fitness';
 import {
-  FORM_ZONE_BOUNDARIES,
-  FORM_ZONE_COLORS,
-  formZoneTextColor,
-  getFormZone,
-  type FormZone,
-} from '@/features/fitness';
-import {
+  TOUR_FATIGUE_DAYS,
+  TOUR_FITNESS_DAYS,
   tourPowerCurve,
   tourTrainingBlock,
   tourZoneShares,
@@ -58,22 +54,12 @@ export function FitnessHeroSlide() {
   const cardColor = tourPanelColour(isDark);
   const titleColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const formZone = getFormZone(LATEST_FORM);
 
   const card = (testID: string, titleKey: string, body: React.ReactNode, aside?: string) => (
     <View testID={testID} style={[styles.card, { backgroundColor: cardColor }]}>
       <View style={styles.cardHeader}>
         <Text style={[styles.cardTitle, { color: titleColor }]}>{t(titleKey as never)}</Text>
-        {aside != null && (
-          <Text
-            style={[
-              styles.cardAside,
-              { color: formZone ? formZoneTextColor(formZone, isDark) : titleColor },
-            ]}
-          >
-            {aside}
-          </Text>
-        )}
+        {aside != null && <Text style={[styles.cardAside, { color: titleColor }]}>{aside}</Text>}
       </View>
       <View style={styles.plot}>{body}</View>
     </View>
@@ -83,14 +69,21 @@ export function FitnessHeroSlide() {
     {
       key: 'fitnessScreen.fitnessDescription',
       name: 'metrics.fitness',
+      days: TOUR_FITNESS_DAYS,
       dot: chartColors.fitness,
     },
     {
       key: 'fitnessScreen.fatigueDescription',
       name: 'metrics.fatigue',
+      days: TOUR_FATIGUE_DAYS,
       dot: chartColors.fatigue,
     },
-    { key: 'fitnessScreen.formDescription', name: 'metrics.form', dot: FORM_ZONE_COLORS.optimal },
+    {
+      key: 'fitnessScreen.formDescription',
+      name: 'metrics.form',
+      days: undefined,
+      dot: FORM_ZONE_COLORS.optimal,
+    },
   ];
 
   return (
@@ -177,9 +170,7 @@ export function FitnessHeroSlide() {
           <View style={styles.zones}>
             {ZONE_SHARES.map(({ zone, percent }) => (
               <View key={zone} style={styles.zoneRow}>
-                <Text style={[styles.zoneLabel, { color: zoneColour(zone, isDark, 'text') }]}>
-                  {`Z${zone}`}
-                </Text>
+                <Text style={[styles.zoneLabel, { color: titleColor }]}>{`Z${zone}`}</Text>
                 <View
                   style={[
                     styles.zoneTrack,
@@ -209,7 +200,7 @@ export function FitnessHeroSlide() {
               <Text style={[styles.explanationName, { color: titleColor }]}>
                 {t(line.name as never)}
               </Text>{' '}
-              {t(line.key as never)}
+              {t(line.key as never, { days: line.days })}
             </Text>
           </View>
         ))}
@@ -245,8 +236,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   cardAside: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '700',
+    ...typography.badge,
   },
   plot: {
     height: 52,
@@ -261,9 +251,8 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   zoneLabel: {
+    ...typography.badge,
     width: 18,
-    fontSize: typography.micro.fontSize,
-    fontWeight: '700',
   },
   zoneTrack: {
     flex: 1,
@@ -294,6 +283,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   explanationName: {
-    fontWeight: '600',
+    fontWeight: typography.captionBold.fontWeight,
   },
 });

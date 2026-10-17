@@ -133,8 +133,8 @@ function DiscEmptyState({
           styles.iconContainer,
           {
             backgroundColor: isDark
-              ? colorWithOpacity(ink.white, 0.1)
-              : colorWithOpacity(ink.black, 0.05),
+              ? colorWithOpacity(ink.white, opacity.tint2)
+              : colorWithOpacity(ink.black, opacity.tint1),
           },
           compact && styles.iconContainerCompact,
         ]}
@@ -213,13 +213,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   title: {
-    fontSize: typography.statsValue.fontSize,
-    fontWeight: '600',
+    ...typography.cardTitle,
     textAlign: 'center',
     marginBottom: spacing.xs,
   },
   titleCompact: {
-    fontSize: typography.body.fontSize,
+    ...typography.bodyBold,
   },
   description: {
     ...typography.bodySmall,
@@ -240,8 +239,7 @@ const styles = StyleSheet.create({
     gap: INLINE_SPACING,
   },
   inlineTitle: {
-    ...typography.bodySmall,
-    fontWeight: '600',
+    ...typography.bodySmallBold,
     textAlign: 'center',
   },
   inlineDescription: {

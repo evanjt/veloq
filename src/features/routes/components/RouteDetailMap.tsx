@@ -10,13 +10,15 @@ import type { ActivityType } from '@/types';
 import type { LatLngShort } from '@/shared/geo/distance';
 import type { SectionDeltaLine } from '../lib/deltaLayout';
 
-import { iconSize } from '@/theme';
+import { colorWithOpacity, iconSize, opacity } from '@/theme';
 type FinalRouteGroup = NonNullable<ReturnType<typeof buildFinalRouteGroup>>;
 
 interface RouteDetailMapProps {
   routeGroup: FinalRouteGroup;
   /** The chart's scrubbed attempt. Only this map reads it, so a scrub never renders the screen. */
   highlight: MapHighlightStore;
+  /** The activity the page was opened from, the only one the map key calls "This activity". */
+  pageActivityId?: string | undefined;
   signatures: Record<string, { points: LatLngShort[] }>;
   hasMapData: boolean;
   activityColor: string;
@@ -28,6 +30,7 @@ interface RouteDetailMapProps {
 export function RouteDetailMap({
   routeGroup,
   highlight,
+  pageActivityId,
   signatures,
   hasMapData,
   activityColor,
@@ -35,7 +38,7 @@ export function RouteDetailMap({
   deltaLine,
 }: RouteDetailMapProps) {
   const mapHeight = useHeroMapHeight();
-  const { activityId, lapPoints } = useMapHighlight(highlight);
+  const { activityId, lapPoints, date } = useMapHighlight(highlight);
   return (
     <View testID="route-detail-map" style={styles.mapContainer}>
       {hasMapData ? (
@@ -46,6 +49,8 @@ export function RouteDetailMap({
           interactive={false}
           highlightedActivityId={activityId}
           highlightedLapPoints={lapPoints}
+          highlightedActivityDate={date}
+          pageActivityId={pageActivityId}
           enableFullscreen={true}
           activitySignatures={signatures}
           deltaLine={deltaLine}
@@ -56,7 +61,7 @@ export function RouteDetailMap({
             styles.mapPlaceholder,
             {
               height: mapHeight,
-              backgroundColor: activityColor + '20',
+              backgroundColor: colorWithOpacity(activityColor, opacity.tint2),
             },
           ]}
         >

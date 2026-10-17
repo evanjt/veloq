@@ -189,11 +189,7 @@ function BottomTabBarComponent() {
                 </View>
                 <Text
                   maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                  style={[
-                    styles.label,
-                    { color: isActive ? activeLabel : inactiveColor },
-                    isActive && styles.labelActive,
-                  ]}
+                  style={[styles.label, { color: isActive ? activeLabel : inactiveColor }]}
                   numberOfLines={1}
                 >
                   {label}
@@ -246,8 +242,5 @@ const styles = StyleSheet.create({
   label: {
     ...typography.badge,
     marginTop: spacing.xs,
-  },
-  labelActive: {
-    fontWeight: '700',
   },
 });

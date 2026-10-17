@@ -10,7 +10,7 @@ import { formatDuration } from '@/shared/format/format';
 import { brand, colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import type { Insight, SupportingRoute } from '@/types';
 import { SheetContext } from './SheetContext';
-import { Row } from '@/shared/ui';
+import { composeAccessibilityLabel, Row } from '@/shared/ui';
 import type { TFunc } from '../../types';
 import { sectionWithSport } from '../../lib/cardSport';
 import { rowTrendColor, rowTrendIcon } from '../../lib/rowTrend';
@@ -24,15 +24,21 @@ const RouteRow = React.memo(function RouteRow({ route }: { route: SupportingRout
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const efforts = route.recentEfforts?.map((p) => p.value) ?? [];
-  const lineColor = rowTrendColor(route.trend, isDark);
+  const trendColor = rowTrendColor(route.trend, isDark);
   const label = sectionWithSport(route.routeName, route.sportType, t as unknown as TFunc);
+  // The line draws the efforts in the series colour and spans their own range,
+  // so the row prints that range; the verdict stays on the glyph.
+  const range =
+    efforts.length >= 3
+      ? `${formatDuration(Math.min(...efforts))}-${formatDuration(Math.max(...efforts))}`
+      : null;
 
   return (
     <Row
       testID={`route-insight-row-${route.rowKey}`}
       behaviour="navigate"
       onPress={() => tapTo(route.navigationTarget)}
-      accessibilityLabel={label}
+      accessibilityLabel={composeAccessibilityLabel(label, range)}
     >
       <View style={styles.rowMain}>
         <View style={styles.nameRow}>
@@ -60,13 +66,16 @@ const RouteRow = React.memo(function RouteRow({ route }: { route: SupportingRout
             .join(' · ')}
         </Text>
       </View>
-      {efforts.length >= 3 ? (
-        <SparklineChart
-          data={efforts}
-          color={lineColor}
-          width={STRIP_WIDTH}
-          height={STRIP_HEIGHT}
-        />
+      {range ? (
+        <View style={styles.strip}>
+          <SparklineChart
+            data={efforts}
+            color={isDark ? darkColors.chartSeries : colors.chartSeries}
+            width={STRIP_WIDTH}
+            height={STRIP_HEIGHT}
+          />
+          <Text style={[styles.range, isDark && styles.rangeDark]}>{range}</Text>
+        </View>
       ) : null}
       <View style={styles.rowEnd}>
         <Text style={[styles.bestTime, isDark && styles.bestTimeDark]}>
@@ -76,7 +85,7 @@ const RouteRow = React.memo(function RouteRow({ route }: { route: SupportingRout
           <MaterialCommunityIcons
             name={rowTrendIcon(route.trend)}
             size={iconSize.sm}
-            color={lineColor}
+            color={trendColor}
           />
         ) : null}
       </View>
@@ -120,6 +129,9 @@ const styles = StyleSheet.create({
   nameDark: { color: darkColors.textPrimary },
   meta: { ...typography.caption, color: colors.textSecondary },
   metaDark: { color: darkColors.textSecondary },
+  strip: { alignItems: 'center' },
+  range: { ...typography.caption, color: colors.textSecondary },
+  rangeDark: { color: darkColors.textSecondary },
   rowEnd: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   bestTime: {
     ...typography.bodyCompactBold,

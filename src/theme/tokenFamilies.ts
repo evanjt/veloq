@@ -71,9 +71,14 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   formGreyZoneText: 'text',
   formOptimalText: 'text',
   formHighRiskText: 'text',
+  textTertiary: 'text',
 
   // Marks. A control's own colour, an icon, a chevron, a ring, a legend swatch.
   primary: 'mark',
+  controlOn: 'mark',
+  controlBoundary: 'mark',
+  focusRing: 'mark',
+  track: 'mark',
   iconPrimary: 'mark',
   iconSecondary: 'mark',
   iconMuted: 'mark',
@@ -115,7 +120,7 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   divider: 'ground',
   fillNeutral: 'ground',
   borderStrong: 'ground',
-  inputTrack: 'ground',
+  surfaceInput: 'ground',
   shadowBlack: 'ground',
   transparent: 'ground',
   gray50: 'ground',
@@ -227,6 +232,161 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
 };
 
 /**
+ * Every colour role in the token file, by the same three families. The ramp
+ * steps (`neutral-*`, `blue-*`, `gold-*`) are not roles, only what roles are
+ * built from, and the `map-*` tokens are drawn over map tiles rather than a
+ * palette surface, so neither is listed. A role the token file adds has to be
+ * put in a family before the contrast test passes.
+ */
+export const ROLE_FAMILIES: Record<string, TokenFamily> = {
+  'surface-page': 'ground',
+  surface: 'ground',
+  'surface-raised': 'ground',
+  'surface-input': 'ground',
+  'fill-neutral': 'ground',
+  'state-hover': 'ground',
+  'state-pressed': 'ground',
+  scrim: 'ground',
+  'text-primary': 'text',
+  'text-secondary': 'text',
+  'text-tertiary': 'text',
+  'text-disabled': 'text',
+  'text-on-fill': 'text',
+  'text-on-bright': 'text',
+  'text-on-gold': 'text',
+  'icon-secondary': 'mark',
+  'icon-muted': 'mark',
+  border: 'ground',
+  'card-edge': 'ground',
+  'border-strong': 'ground',
+  track: 'mark',
+  'control-boundary': 'mark',
+  'action-primary': 'ground',
+  'action-primary-hover': 'ground',
+  'action-secondary': 'ground',
+  'action-link': 'text',
+  'focus-ring': 'mark',
+  'control-on': 'mark',
+  'brand-blue': 'ground',
+  achievement: 'mark',
+  'achievement-text': 'text',
+  'achievement-bg': 'ground',
+  'achievement-on-bg': 'text',
+  'section-badge': 'ground',
+  'section-badge-ink': 'text',
+  'compass-north': 'mark',
+  'success-text': 'text',
+  'success-bg': 'ground',
+  'success-fill': 'ground',
+  'warning-text': 'text',
+  'warning-bg': 'ground',
+  'warning-fill': 'ground',
+  'error-text': 'text',
+  'error-bg': 'ground',
+  'danger-fill': 'ground',
+  record: 'ground',
+  'info-bg': 'ground',
+  'sport-ride': 'mark',
+  'sport-winter': 'mark',
+  'sport-run': 'mark',
+  'sport-water': 'mark',
+  'sport-foot': 'mark',
+  'sport-strength': 'mark',
+  'sport-ride-2': 'mark',
+  'sport-ride-3': 'mark',
+  'sport-winter-2': 'mark',
+  'sport-winter-3': 'mark',
+  'sport-run-2': 'mark',
+  'sport-run-3': 'mark',
+  'sport-water-2': 'mark',
+  'sport-water-3': 'mark',
+  'sport-foot-2': 'mark',
+  'sport-foot-3': 'mark',
+  'sport-strength-2': 'mark',
+  'sport-strength-3': 'mark',
+  'sport-other': 'mark',
+  'data-seq-1': 'mark',
+  'data-seq-2': 'mark',
+  'data-seq-3': 'mark',
+  'data-seq-4': 'mark',
+  'data-seq-5': 'mark',
+  'data-div-cool-1': 'mark',
+  'data-div-cool-2': 'mark',
+  'data-div-cool-3': 'mark',
+  'data-div-warm-1': 'mark',
+  'data-div-warm-2': 'mark',
+  'data-div-warm-3': 'mark',
+  'data-div-mid': 'mark',
+  'chart-series': 'mark',
+  'chart-muted': 'ground',
+  'chart-grid': 'ground',
+  'chart-axis': 'mark',
+  'chart-reference': 'mark',
+  'chart-crosshair': 'mark',
+  'direction-forward': 'mark',
+  'direction-reverse': 'mark',
+  'stream-power': 'mark',
+  'stream-heartrate': 'mark',
+  'stream-cadence': 'mark',
+  'stream-speed': 'mark',
+  'stream-gap': 'mark',
+  'stream-wbal': 'mark',
+  'stream-context': 'ground',
+  'stream-context-line': 'mark',
+  'zone-1': 'mark',
+  'zone-2': 'mark',
+  'zone-3': 'mark',
+  'zone-4': 'mark',
+  'zone-5': 'mark',
+  'zone-6': 'mark',
+  'zone-7': 'mark',
+  'fitness-ctl': 'mark',
+  'fatigue-atl': 'mark',
+};
+
+/** The surfaces every text and mark role is measured on, in its own theme. */
+export const ROLE_SURFACES = ['surface-page', 'surface', 'surface-raised'] as const;
+
+/**
+ * Inks drawn on a fill rather than on a surface, measured on the fills they
+ * name and nowhere else.
+ */
+export const ROLE_FILLS: Record<string, readonly string[]> = {
+  'text-on-fill': ['action-primary', 'action-primary-hover', 'brand-blue', 'danger-fill', 'record'],
+  'text-on-bright': ['achievement', 'success-fill', 'warning-fill'],
+  'text-on-gold': ['achievement'],
+  'section-badge-ink': ['section-badge'],
+  'achievement-on-bg': ['achievement-bg'],
+};
+
+/**
+ * Roles drawn on a tint or a well as well as on the surfaces, measured on both:
+ * a status text on its own tint, the body inks on the input well and the
+ * notice tints.
+ */
+export const ROLE_TINTS: Record<string, readonly string[]> = {
+  'text-primary': [
+    'surface-input',
+    'fill-neutral',
+    'success-bg',
+    'warning-bg',
+    'error-bg',
+    'info-bg',
+  ],
+  'text-secondary': ['surface-input', 'fill-neutral'],
+  'text-tertiary': ['surface-input'],
+  'success-text': ['success-bg'],
+  'warning-text': ['warning-bg'],
+  'error-text': ['error-bg'],
+  'action-link': ['info-bg'],
+};
+
+/** Roles the standard lets off, with the clause. */
+export const ROLE_EXEMPTIONS: Record<string, string> = {
+  'text-disabled': 'WCAG 1.4.3 exempts text on an inactive control.',
+};
+
+/**
  * Every key of `brand`. These hues resolve in neither theme, so none can be a
  * text colour: a blue that reads on white is too dark on near-black, and the
  * gold is 2.10:1 on white. A word in the action blue takes `actionLink`, one in
@@ -293,4 +453,7 @@ export const FAMILY_EXEMPTIONS: Record<string, string> = {
  * shortens, and an entry that has been fixed fails its own test rather than
  * going quiet.
  */
-export const UNDER_BAR: Record<string, string> = {};
+export const UNDER_BAR: Record<string, string> = {
+  track:
+    "the guide's slider track holds 3:1 on the guide's own surfaces, and is 2.93:1 on backgroundAlt and 2.99:1 on surfaceCard, which the surface roles retire",
+};

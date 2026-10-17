@@ -3,6 +3,7 @@ import { View, ScrollView, StyleSheet, Pressable, ActivityIndicator, Platform } 
 import { Text } from 'react-native-paper';
 import {
   Button,
+  ICON_BUTTON_GAP,
   IconButton,
   ToggleButton,
   ScreenSafeAreaView,
@@ -352,22 +353,14 @@ function RecordScreenContent() {
               />
             );
           })}
-          <Pressable
+          <Button
             testID="record-sport-more"
-            style={pressable([styles.chip, { borderColor: border }])}
-            android_ripple={pressRipple}
+            label={t('recording.moreSports')}
+            variant="secondary"
+            size="sm"
+            opensMenu
             onPress={chooseFromSheet}
-            accessibilityRole="button"
-          >
-            <MaterialCommunityIcons
-              name="dots-horizontal"
-              size={iconSize.md}
-              color={textSecondary}
-            />
-            <Text style={[styles.chipLabel, { color: textPrimary }]}>
-              {t('recording.moreSports')}
-            </Text>
-          </Pressable>
+          />
         </ScrollView>
 
         {/* One Start, labelled with what it starts */}
@@ -539,6 +532,7 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: ICON_BUTTON_GAP,
   },
   surface: {
     flex: 1,
@@ -617,20 +611,8 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
   },
   chipRow: {
-    gap: spacing.sm,
-  },
-  chip: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    minHeight: layout.minTapTarget,
-    paddingHorizontal: spacing.md,
-    borderRadius: layout.borderRadiusFull,
-    borderWidth: stroke.hairline,
-    overflow: 'hidden',
-  },
-  chipLabel: {
-    ...typography.bodySmall,
+    gap: spacing.sm,
   },
   startButton: {
     minHeight: layout.minTapTarget + spacing.md,

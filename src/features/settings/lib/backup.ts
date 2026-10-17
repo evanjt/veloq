@@ -1,6 +1,6 @@
 /** Record ZIP backup and conversion of earlier backup formats. */
 
-import { RestoreRefusedError, restoreRefusal, type RestoreRefusal } from './restoreRefusal';
+import { RestoreRefusedError, type RestoreRefusal } from './restoreRefusal';
 import type { RestoreDrops } from './restoreNotice';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getEngine, getNativeModule, isEngineReady } from '@/shared/native/engine';
@@ -33,7 +33,6 @@ import { initialiseTheme } from '@/shared/app/ThemeProvider';
 import { initialiseUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { z } from 'zod';
 import { debug } from '@/shared/debug/debug';
-import { readLibraryCount } from '@/shared/native/libraryCount';
 import { queryClient } from '@/shared/query/QueryProvider';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -223,18 +222,43 @@ function openEngineForImport(): NonNullable<ReturnType<typeof getEngine>> {
   return engine;
 }
 
+/** What the engine read from a backup that it found nothing to refuse in. */
+export interface RestoreCheck {
+  /** When the backup was written, as an ISO string, or null for one that names no time. */
+  writtenAt: string | null;
+  /** Whether the backup names this account. One naming another account is refused. */
+  namesAccount: boolean;
+  names: number;
+  settings: number;
+  decisions: number;
+}
+
+function restoreCheck(check: Awaited<ReturnType<RecordEngine['checkRecordZip']>>): RestoreCheck {
+  return { ...check, writtenAt: check.writtenAt ?? null };
+}
+
+type RecordEngine = ReturnType<typeof openEngineForImport>;
+
 /**
  * Run the checks `restoreRecordBackup` would run on a record zip, and restore
- * nothing. Rejects with the restore's own refusal, and otherwise resolves with
- * when the zip was written, as an ISO string, or null for a zip that names no
- * time.
+ * nothing. Rejects with the restore's own refusal.
  */
-export async function checkRecordBackup(fileUri: string): Promise<string | null> {
+export async function checkRecordBackup(fileUri: string): Promise<RestoreCheck> {
   const engine = openEngineForImport();
-  const check = await engine.checkRecordZip(
-    fileUri.startsWith('file://') ? fileUri.slice(7) : fileUri
+  return restoreCheck(
+    await engine.checkRecordZip(fileUri.startsWith('file://') ? fileUri.slice(7) : fileUri)
   );
-  return check.writtenAt ?? null;
+}
+
+/**
+ * Run the checks `restoreBackup` would run on a `.veloq` file's text, and
+ * restore nothing. Rejects for a file that does not convert, or with the
+ * restore's own refusal.
+ */
+export async function checkLegacyBackup(json: string): Promise<RestoreCheck> {
+  const record = convertLegacyBackupToRecord(json);
+  const engine = openEngineForImport();
+  return restoreCheck(await engine.checkRecordJson(JSON.stringify(record)));
 }
 
 /** Import a picked record zip through the engine's versioned restore path. */
@@ -349,18 +373,12 @@ export async function reinitialiseAllStores(): Promise<void> {
 }
 
 export type DatabaseRestoreResult =
-  | { success: true; activityCount: number; unplacedCount: number; drops: RestoreDrops }
+  | { success: true; unplacedCount: number; drops: RestoreDrops }
   | {
       success: false;
-      activityCount: 0;
       /** Why nothing went in, for the caller to word in the athlete's locale. */
       refusal?: RestoreRefusal;
     };
-
-function restoredLibraryCount(): number {
-  const engine = getEngine();
-  return engine ? readLibraryCount(engine) : 0;
-}
 
 /**
  * Write the record zip an older SQLite file converts to at `recordUri`.
@@ -380,39 +398,6 @@ export async function convertLegacyDatabaseFile(fileUri: string, recordUri: stri
     await nativeModule.convertLegacyDatabaseToRecordBackup(sourcePath, recordPath);
   } finally {
     await FileSystem.deleteAsync(copyUri, { idempotent: true }).catch(() => {});
-  }
-}
-
-/** Convert an older SQLite file to a record zip, then restore its decisions. */
-export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRestoreResult> {
-  if (!getEngine() || !isEngineReady()) {
-    return { success: false, activityCount: 0, refusal: 'signInRequired' };
-  }
-  const info = await FileSystem.getInfoAsync(fileUri);
-  if (!info.exists || info.size === 0) {
-    return { success: false, activityCount: 0, refusal: 'missing' };
-  }
-  if (!getNativeModule()) {
-    return { success: false, activityCount: 0, refusal: 'unavailable' };
-  }
-
-  const recordUri = await restoreCopyUri(
-    `restore-legacy-${Date.now()}-${++restoreCopySequence}.zip`
-  );
-  try {
-    await convertLegacyDatabaseFile(fileUri, recordUri);
-    const restored = await restoreRecordBackup(recordUri);
-    return {
-      success: true,
-      activityCount: restoredLibraryCount(),
-      unplacedCount: restored.unplaced,
-      drops: restored,
-    };
-  } catch (error) {
-    log.warn('Database restore refused:', error instanceof Error ? error.message : error);
-    return { success: false, activityCount: 0, refusal: restoreRefusal(error) };
-  } finally {
-    await FileSystem.deleteAsync(recordUri, { idempotent: true }).catch(() => {});
   }
 }
 

@@ -19,12 +19,14 @@ import type { DelegateHost } from './host';
 
 /**
  * Tell Rust what the network looks like. Call on every transition and on
- * foreground. The value is advisory in Rust and expires, so a dropped push
- * costs a deferred pass at worst, never a stranded queue.
+ * foreground, with `foregrounded` set only on the reading taken as the app
+ * returns from the background: Rust decides what a return starts. The online
+ * value is advisory in Rust and expires, so a dropped push costs a deferred
+ * pass at worst, never a stranded queue.
  */
-export function setNetworkOnline(host: DelegateHost, online: boolean): void {
+export function setNetworkOnline(host: DelegateHost, online: boolean, foregrounded = false): void {
   try {
-    host.timed('setNetworkOnline', () => ffiSetNetworkOnline(online));
+    host.timed('setNetworkOnline', () => ffiSetNetworkOnline(online, foregrounded));
   } catch (e) {
     console.error('[Engine] setNetworkOnline threw:', e);
   }

@@ -4,9 +4,9 @@
 // written inline, invisible to a theme change and wrong in one of the two
 // themes.
 //
-// Demanding zero would fail every commit: 148 of them stand across 63 files.
-// So this is a ratchet, the shape `lint-feature-imports.mjs` uses.
-// `scripts/rgba-baseline.json` holds the count each file still carries. A file
+// It is a ratchet, the shape `lint-feature-imports.mjs` uses, and it has
+// reached zero: `scripts/rgba-baseline.json` is empty, so any literal fails.
+// The baseline holds the count each file still carries. A file
 // above its baseline fails, a file the baseline never listed fails, and a file
 // the tree has already beaten fails with the number to paste back, so ground a
 // sweep takes cannot be given away again.

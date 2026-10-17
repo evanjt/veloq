@@ -30,6 +30,7 @@ import React from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -40,18 +41,16 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useTheme } from '@/shared/app';
+import { useButtonShapes } from '@/shared/ui/buttonShapes';
 import { ChromeIcon, type ChromeRole } from '@/shared/ui/ChromeIcon';
 import { DisclosureChevron } from '@/shared/ui/DisclosureChevron';
 import * as haptics from '@/shared/ui/haptics';
 import { pressRipple, pressedOpacity } from '@/shared/ui/pressFeedback';
 import {
-  colorWithOpacity,
   colors,
   controlHeight,
   darkColors,
   iconSize,
-  ink as inkTone,
-  inputBoundary,
   layout,
   opacity,
   slopToMinTapTarget,
@@ -107,6 +106,11 @@ export interface ButtonProps {
    * open. With no `icon` of its own it draws the disclosure chevron.
    */
   expanded?: boolean;
+  /**
+   * The button opens a list of choices and reads the current one, so its
+   * chevron trails the label as a menu's does rather than leading it.
+   */
+  opensMenu?: boolean;
   /** Sits before the label, inside the same tap target. */
   icon?: ButtonGlyph;
   style?: StyleProp<ViewStyle>;
@@ -116,23 +120,28 @@ export interface ButtonProps {
   ref?: React.Ref<View>;
 }
 
-/** The ground, the border and the text, per variant and per theme. */
-export function paint(variant: ButtonVariant, isDark: boolean) {
+/**
+ * The ground, the border and the text, per variant and per theme. With Button
+ * Shapes on, a ghost button takes the secondary edge, since it has no ground to
+ * read as a control.
+ */
+export function paint(variant: ButtonVariant, isDark: boolean, shapes = false) {
   const palette = isDark ? darkColors : colors;
   switch (variant) {
     case 'secondary':
       return {
         backgroundColor: palette.surface,
-        // A control's edge is a mark rather than a divider, so it takes the field edge at 3:1.
-        borderColor: isDark ? inputBoundary.dark : inputBoundary.light,
+        // A control's edge is a mark rather than a divider, so it takes the control edge at 3:1.
+        borderColor: palette.controlBoundary,
         borderWidth: stroke.one,
         color: palette.textPrimary,
       };
     case 'ghost':
       return {
         backgroundColor: 'transparent',
-        borderColor: 'transparent',
-        borderWidth: 0,
+        // The edge is always there at its width, so turning the setting on moves no layout.
+        borderColor: shapes ? palette.controlBoundary : 'transparent',
+        borderWidth: stroke.one,
         // A label with no ground of its own is text on the page, so it takes the accent's text role.
         color: palette.actionLink,
       };
@@ -180,6 +189,7 @@ export function Button({
   loading = false,
   opensConfirm = false,
   expanded,
+  opensMenu = false,
   icon,
   style,
   testID,
@@ -187,7 +197,7 @@ export function Button({
   ref,
 }: ButtonProps) {
   const { isDark } = useTheme();
-  const skin = paint(variant, isDark);
+  const skin = paint(variant, isDark, useButtonShapes());
   const inert = disabled || loading;
   const glyphSize = GLYPH_SIZE[size];
   // A destructive button acts on press, so it carries the weight of the act itself.
@@ -232,7 +242,7 @@ export function Button({
       >
         {icon !== undefined ? (
           <Glyph glyph={icon} size={glyphSize} color={skin.color} />
-        ) : expanded !== undefined ? (
+        ) : expanded !== undefined && !opensMenu ? (
           <DisclosureChevron expanded={expanded} size={glyphSize} color={skin.color} />
         ) : null}
         <Text
@@ -245,6 +255,9 @@ export function Button({
         >
           {label}
         </Text>
+        {opensMenu ? (
+          <DisclosureChevron expanded={!!expanded} size={glyphSize} color={skin.color} />
+        ) : null}
       </View>
       {loading ? (
         <View
@@ -263,6 +276,12 @@ export function Button({
   );
 }
 
+/** A selected chip's own ground and the label set on it. */
+export interface ChipAccent {
+  fill: string;
+  ink: string;
+}
+
 export interface ToggleButtonProps {
   label: string;
   onPress: () => void;
@@ -271,12 +290,21 @@ export interface ToggleButtonProps {
   selected?: boolean;
   disabled?: boolean;
   size?: ButtonSize;
-  /** The ground when selected, for an option that stands for a sport or a series. */
-  fill?: string;
-  /** The label on `fill`, which has to clear 4.5:1 on it. */
-  ink?: string;
+  /**
+   * The ground and label when selected, for an exception to the selected
+   * colours. They come as a pair, so a fill never takes an ink chosen for
+   * another ground; the ink has to clear 4.5:1 on the fill.
+   */
+  accent?: ChipAccent;
+  /** A leading dot in this colour, in both states, for an option that stands for a sport or a series. */
+  mark?: string;
   /** A number after the label, drawn smaller in the label's ink, such as how many items the option holds. */
   count?: number;
+  /**
+   * Unselected, the chip carries the neutral control outline, for an option set apart from its
+   * neighbours by a key beside the row. Selected, it is the plain selected chip.
+   */
+  outlined?: boolean;
   /** What a tap does, when the label alone does not say it. Defaults to the label. */
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
@@ -288,10 +316,16 @@ export interface ToggleButtonProps {
  *
  * Every selector draws this one chip, whether it sits in a filter row, a
  * section page's plot switch or a settings row, so a row of them reads as one
- * control. The chosen chip is a solid fill against a faint wash, a step in
- * lightness as well as in hue, so the state survives greyscale and colour
- * blindness, and it is on `accessibilityState.selected` so a screen reader
+ * control. The chosen chip is filled in `controlOn` against the neutral fill
+ * and outlined in `focusRing`, the selected outline. In light the fill alone
+ * steps 5:1 or more from the neutral fill; in dark it steps under 3:1 on a
+ * card, so the outline is the cue that survives greyscale and colour
+ * blindness. Every chip carries the same border width, so choosing one does
+ * not move the row. It is on `accessibilityState.selected` so a screen reader
  * reads it at all. Colour alone is not a state.
+ *
+ * A press that chooses an unselected chip ticks the `selection` haptic; a press on the chosen one
+ * changes nothing and stays still.
  */
 export function ToggleButton({
   label,
@@ -300,16 +334,23 @@ export function ToggleButton({
   selected = false,
   disabled = false,
   size = 'sm',
-  fill,
-  ink,
+  accent,
+  mark,
   count,
+  outlined = false,
   accessibilityLabel,
   style,
   testID,
 }: ToggleButtonProps) {
   const { isDark } = useTheme();
   const palette = isDark ? darkColors : colors;
-  const labelInk = selected ? (ink ?? colors.textOnPrimary) : palette.textSecondary;
+  const labelInk = selected ? (accent?.ink ?? colors.textOnPrimary) : palette.textSecondary;
+  const handlePress = selected
+    ? onPress
+    : () => {
+        haptics.selection();
+        onPress();
+      };
 
   return (
     <Pressable
@@ -320,18 +361,29 @@ export function ToggleButton({
       hitSlop={CHIP_SLOP[size]}
       android_ripple={disabled ? undefined : pressRipple}
       disabled={disabled}
-      onPress={onPress}
+      onPress={handlePress}
       style={({ pressed }) => [
         styles.chip,
         size === 'sm' ? styles.chipSm : styles.chipMd,
         {
-          backgroundColor: selected ? (fill ?? palette.primary) : chipWash(isDark),
+          backgroundColor: selected ? (accent?.fill ?? palette.controlOn) : palette.fillNeutral,
+          borderColor: selected
+            ? (accent?.fill ?? palette.focusRing)
+            : outlined
+              ? palette.controlBoundary
+              : 'transparent',
           opacity: disabled ? opacity.disabled : pressedOpacity(pressed),
         },
         style,
       ]}
     >
       <View style={styles.row}>
+        {mark !== undefined ? (
+          <View
+            testID={testID ? `${testID}-mark` : undefined}
+            style={[styles.chipMark, { backgroundColor: mark }]}
+          />
+        ) : null}
         {icon !== undefined ? (
           <Glyph glyph={icon} size={GLYPH_SIZE[size]} color={labelInk} />
         ) : null}
@@ -357,44 +409,68 @@ export function ToggleButton({
   );
 }
 
-/**
- * The ground of a chip that is not chosen, under a `textSecondary` label. In
- * dark, white at 0.15 over `surfaceCard` lifted it until the label read
- * 3.78:1. White at 0.05 keeps the selected blue 3.16:1 from it on `surface`,
- * where 0.08 left 2.89:1, so the chosen chip still steps in lightness.
- */
-function chipWash(isDark: boolean): string {
-  return isDark ? opacity.overlayDark.light : colorWithOpacity(inkTone.black, 0.08);
+export interface ToggleButtonRowOption<T extends string> {
+  value: T;
+  label: string;
+  testID?: string;
+  /** A leading dot in the series colour, for an option that stands for a series. */
+  mark?: string;
+  /** The selected chip's own fill and the ink set on it, always as a pair. */
+  accent?: ChipAccent;
 }
 
 export interface ToggleButtonRowProps<T extends string> {
-  options: readonly { value: T; label: string; testID?: string }[];
+  options: readonly ToggleButtonRowOption<T>[];
   value: T;
   onValueChange: (value: T) => void;
+  /**
+   * `fill` shares the width equally between the chips, for two or three short options that
+   * belong side by side. `hug` sizes each chip to its label and scrolls the row sideways when
+   * the chips are wider than it, so no chip is clipped and no label is cut.
+   */
+  layout?: 'fill' | 'hug';
   style?: StyleProp<ViewStyle>;
 }
 
-/** A row of `ToggleButton`, one per option, with exactly one selected. */
+/**
+ * A row of `ToggleButton`, one per option, with exactly one selected. A press on the chosen
+ * option reports nothing, since nothing changed.
+ */
 export function ToggleButtonRow<T extends string>({
   options,
   value,
   onValueChange,
+  layout: rowLayout = 'fill',
   style,
 }: ToggleButtonRowProps<T>) {
-  return (
-    <View style={[styles.toggleRow, style]}>
-      {options.map((option) => (
-        <ToggleButton
-          key={option.value}
-          {...(option.testID && { testID: option.testID })}
-          label={option.label}
-          selected={option.value === value}
-          onPress={() => onValueChange(option.value)}
-          style={styles.toggleCell}
-        />
-      ))}
-    </View>
-  );
+  const chips = options.map((option) => (
+    <ToggleButton
+      key={option.value}
+      {...(option.testID && { testID: option.testID })}
+      label={option.label}
+      selected={option.value === value}
+      {...(option.mark && { mark: option.mark })}
+      {...(option.accent && { accent: option.accent })}
+      onPress={() => {
+        if (option.value !== value) onValueChange(option.value);
+      }}
+      {...(rowLayout === 'fill' && { style: styles.toggleCell })}
+    />
+  ));
+
+  if (rowLayout === 'hug') {
+    return (
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={style}
+        contentContainerStyle={styles.toggleRow}
+      >
+        {chips}
+      </ScrollView>
+    );
+  }
+  return <View style={[styles.toggleRow, style]}>{chips}</View>;
 }
 
 const BUTTON_HEIGHT = {
@@ -415,9 +491,10 @@ const CHIP_SLOP = {
 } as const;
 
 const styles = StyleSheet.create({
+  // Adjacent small targets keep 8 pt between their drawn edges.
   toggleRow: {
     flexDirection: 'row',
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   toggleCell: {
     flex: 1,
@@ -464,6 +541,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: layout.borderRadiusFull,
+    borderWidth: stroke.one,
     overflow: 'hidden',
     gap: spacing.xs,
   },
@@ -476,8 +554,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   chipLabel: {
-    ...typography.bodyCompact,
-    fontWeight: '600',
+    ...typography.bodyCompactBold,
+  },
+  // The data-mark size, so a chip keys its series as a legend does.
+  chipMark: {
+    width: spacing.sm,
+    height: spacing.sm,
+    borderRadius: layout.borderRadiusXs,
   },
   chipCount: {
     ...typography.caption,

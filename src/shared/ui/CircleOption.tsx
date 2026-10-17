@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 
 import { useTheme } from '@/shared/app';
-import { colors, controlHeight, darkColors, spacing, typography, stroke } from '@/theme';
+import { colors, controlHeight, darkColors, layout, spacing, typography, stroke } from '@/theme';
 import { pressable, pressRipple } from './pressFeedback';
 
 const GAP = spacing.sm;
@@ -94,8 +94,8 @@ export function CircleOptionRow<T extends string>({
                 {
                   width: size + stroke.two * 2,
                   height: size + stroke.two * 2,
-                  borderRadius: size / 2 + stroke.two,
-                  borderColor: selected ? palette.primary : 'transparent',
+                  borderRadius: layout.borderRadiusFull,
+                  borderColor: selected ? palette.focusRing : 'transparent',
                 },
               ]}
             >
@@ -103,7 +103,7 @@ export function CircleOptionRow<T extends string>({
                 testID={optionTestID ? `${optionTestID}-circle` : undefined}
                 style={[
                   styles.circle,
-                  { width: size, height: size, borderRadius: size / 2 },
+                  { width: size, height: size, borderRadius: layout.borderRadiusFull },
                   { backgroundColor: palette.border },
                 ]}
               >

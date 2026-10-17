@@ -88,6 +88,9 @@ pub mod fit;
 // Raster tile generation for activity heatmaps
 pub mod tiles;
 
+// The heatmap colour ramp, generated from the colour token file
+pub(crate) mod heatmap_ramp;
+
 // Files written through a temp file and a rename
 pub(crate) mod atomic_file;
 

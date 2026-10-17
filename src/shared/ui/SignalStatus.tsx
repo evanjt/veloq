@@ -13,15 +13,8 @@ import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { absentLabel } from '@/shared/format/absent';
-import {
-  colors,
-  colorWithOpacity,
-  darkColors,
-  iconSize,
-  layout,
-  spacing,
-  typography,
-} from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, stroke, typography } from '@/theme';
+import { noticePalette, type NoticePalette, type PaletteTone } from './noticePalette';
 import { pressable, pressRipple } from './pressFeedback';
 
 export type SignalLevel = 'idle' | 'ok' | 'warn' | 'bad';
@@ -47,35 +40,27 @@ export function signalColor(level: SignalLevel, isDark: boolean): string {
   return LEVEL_COLORS[isDark ? 'dark' : 'light'][level];
 }
 
-// The ground behind a level is the fill hue, which is a ground and not a mark.
-// The deep green is 4.76:1 on the screen background before any tint, so the
-// tint stays at 6% to keep the label above the 4.5:1 text bar.
-export const SIGNAL_TINT_ALPHA = 0.06;
-
-const LEVEL_TINTS: Record<'light' | 'dark', Record<SignalLevel, string>> = {
-  light: {
-    idle: colors.iconNeutral,
-    ok: colors.success,
-    warn: colors.warning,
-    bad: colors.error,
-  },
-  dark: {
-    idle: darkColors.iconNeutral,
-    ok: darkColors.success,
-    warn: darkColors.warning,
-    bad: darkColors.error,
-  },
+const LEVEL_TONES: Record<SignalLevel, PaletteTone> = {
+  idle: 'neutral',
+  ok: 'success',
+  warn: 'warning',
+  bad: 'error',
 };
+
+/**
+ * The ground behind a level is the notice palette's ground for its tone, so a
+ * chip or a line and a notice of one tone show one tint, and each mark is
+ * measured on it in `TINT_GROUNDS`. Idle is the surface, edged.
+ */
+export function signalGround(level: SignalLevel, isDark: boolean): NoticePalette {
+  return noticePalette(LEVEL_TONES[level], isDark);
+}
 
 /**
  * The corner radius of the line variant. A row that wraps the line with a
  * control beside it clips to this radius so the tint reads as one shape.
  */
 export const SIGNAL_LINE_RADIUS = layout.borderRadiusMd;
-
-export function signalTint(level: SignalLevel, isDark: boolean): string {
-  return LEVEL_TINTS[isDark ? 'dark' : 'light'][level];
-}
 
 interface SignalStatusProps {
   level: SignalLevel;
@@ -103,7 +88,7 @@ export function SignalStatus({
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const color = signalColor(level, isDark);
-  const tint = signalTint(level, isDark);
+  const ground = signalGround(level, isDark);
   const glyphSize =
     variant === 'line' ? iconSize.md : variant === 'chip' ? iconSize.xs : iconSize.sm;
 
@@ -123,11 +108,15 @@ export function SignalStatus({
     </>
   );
 
+  const groundStyle = [
+    { backgroundColor: ground.bg },
+    ground.border !== undefined && { borderWidth: stroke.hairline, borderColor: ground.border },
+  ];
   const variantStyle =
     variant === 'line'
-      ? [styles.line, { backgroundColor: colorWithOpacity(tint, SIGNAL_TINT_ALPHA) }]
+      ? [styles.line, ...groundStyle]
       : variant === 'chip'
-        ? [styles.chip, { backgroundColor: colorWithOpacity(tint, SIGNAL_TINT_ALPHA) }]
+        ? [styles.chip, ...groundStyle]
         : styles.micro;
 
   if (onPress) {

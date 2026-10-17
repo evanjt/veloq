@@ -5,10 +5,21 @@
  */
 
 import React from 'react';
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 
 import { MapKey, MapKeySwatch } from '@/features/maps';
+import { formatFullDate } from '@/shared/format/format';
 import { colors, mapLayerColors } from '@/theme';
+
+/** The attempt drawn over the subject's line, which the activity row names. */
+export interface PickedAttempt {
+  activityId?: string | null | undefined;
+  /** When it was ridden, absent when the pick carried no date. */
+  date?: Date | undefined;
+  /** The activity the page was opened from, the one "This activity" means. */
+  pageActivityId?: string | undefined;
+}
 
 export interface DetailMapLegendLayers {
   /** A picked activity trace or lap is drawn over the subject's line. */
@@ -21,6 +32,8 @@ export interface DetailMapLegendLayers {
 
 export interface DetailMapLegendProps extends DetailMapLegendLayers {
   isDark: boolean;
+  /** The attempt the activity row names; absent names it as the selected attempt. */
+  pickedAttempt?: PickedAttempt | undefined;
   /** Where the map's top-left corner is free, below the inset and the hero header. */
   top: number;
   /** The key's own id; each row's id extends it. */
@@ -36,10 +49,22 @@ export function hasLegendLayers({
   return showActivity || showEarlierVersion || showDelta;
 }
 
+/**
+ * "This activity" means the activity the page was opened from and no other, so
+ * any other attempt picked on the chart is named by its date.
+ */
+function pickedAttemptLabel(t: TFunction, pickedAttempt: PickedAttempt | undefined): string {
+  const { activityId, date, pageActivityId } = pickedAttempt ?? {};
+  if (activityId && activityId === pageActivityId) return t('sections.legendThisActivity');
+  if (date) return formatFullDate(date);
+  return t('sections.legendSelectedAttempt');
+}
+
 export function DetailMapLegend({
   isDark,
   top,
   testID,
+  pickedAttempt,
   showActivity,
   showEarlierVersion = false,
   showDelta,
@@ -59,7 +84,7 @@ export function DetailMapLegend({
       {showActivity ? (
         <MapKeySwatch
           swatch={colors.chartCyan}
-          label={t('sections.legendThisActivity')}
+          label={pickedAttemptLabel(t, pickedAttempt)}
           isDark={isDark}
         />
       ) : null}

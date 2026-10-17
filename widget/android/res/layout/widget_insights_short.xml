@@ -22,6 +22,7 @@
     android:src="@drawable/widget_tone_dot" />
 
   <TextView
+    android:fontFamily="@font/widget_manrope"
     android:id="@+id/ins_title0"
     android:layout_width="0dp"
     android:layout_height="match_parent"

@@ -72,7 +72,12 @@ import type {
   FfiRecordRestoreResult,
   FfiUnplacedRecord,
 } from './generated/veloqrs';
-import { FfiInitOutcome, FfiStartOutcome, RangeCoverage } from './generated/veloqrs';
+import {
+  FfiInitOutcome,
+  FfiRecordSource,
+  FfiStartOutcome,
+  RangeCoverage,
+} from './generated/veloqrs';
 import * as generated from './generated/veloqrs';
 
 import type { SectionDetectionProgress } from './conversions';
@@ -670,9 +675,7 @@ class EngineClient implements DelegateHost {
     }
   };
 
-  isCutoverPending = (): boolean => cutoverDelegates.isCutoverPending(this);
-
-  isCutoverRunning = (): boolean => cutoverDelegates.isCutoverRunning(this);
+  isCutoverHeld = (): boolean => cutoverDelegates.isCutoverHeld(this);
 
   startDetectorCutover = (): FfiStartOutcome => cutoverDelegates.startDetectorCutover(this);
 
@@ -1341,11 +1344,17 @@ class EngineClient implements DelegateHost {
 
   /**
    * Rejects with the restore's own refusal, without restoring anything, and
-   * otherwise resolves with when the zip was written.
+   * otherwise resolves with when the zip was written and what it would place.
    */
   async checkRecordZip(path: string): Promise<FfiRecordCheck> {
     if (!this.ready) throw new Error('Engine not initialised');
-    return this.engine.checkRecordZip(path);
+    return this.engine.checkRecord(FfiRecordSource.Zip.new({ path }));
+  }
+
+  /** The same check as `checkRecordZip`, of record JSON such as an older file converts to. */
+  async checkRecordJson(json: string): Promise<FfiRecordCheck> {
+    if (!this.ready) throw new Error('Engine not initialised');
+    return this.engine.checkRecord(FfiRecordSource.Json.new({ json }));
   }
 
   async restoreRecordZip(path: string): Promise<FfiRecordRestoreResult> {

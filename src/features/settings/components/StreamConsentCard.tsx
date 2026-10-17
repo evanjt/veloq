@@ -73,8 +73,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   title: {
-    ...typography.body,
-    fontWeight: '600',
+    ...typography.bodyBold,
     color: colors.textPrimary,
   },
   titleDark: {

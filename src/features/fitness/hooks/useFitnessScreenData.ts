@@ -33,7 +33,15 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
 
   const days = timeRangeToDays(timeRange);
 
-  const { data: wellness, isLoading, isFetching, isError, error, refetch } = useWellness(timeRange);
+  const {
+    data: wellness,
+    isLoading,
+    isFetching,
+    isPlaceholderData: wellnessHeld,
+    isError,
+    error,
+    refetch,
+  } = useWellness(timeRange);
   const wellnessCoverage = useWellnessCoverage(timeRange);
 
   const { data: activities, isLoading: loadingActivities } = useActivities({
@@ -49,8 +57,16 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
   // also the period the decoupling ride is picked from.
   const periodCoverage = useRangeCoverage(days);
 
-  const { eftpTrend, eftpCoverage, eftpChanges, storedRunPace, storedSwimPace, librarySport } =
-    useFitnessScreenRead();
+  const {
+    eftpTrend,
+    eftpCoverage,
+    eftpChanges,
+    storedRunPace,
+    storedSwimPace,
+    librarySport,
+    fitnessDays,
+    fatigueDays,
+  } = useFitnessScreenRead();
 
   const { data: sportSettings } = useSportSettings();
   const cyclingSettings = getSettingsForSport(sportSettings, 'Ride');
@@ -90,6 +106,7 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
   return {
     wellness,
     wellnessCoverage,
+    wellnessHeld,
     activities,
     dailyLoads,
     powerZones,
@@ -101,6 +118,8 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
     storedRunPace,
     storedSwimPace,
     librarySport,
+    fitnessDays,
+    fatigueDays,
     currentFTP,
     runSettings,
     runPaceCurve,

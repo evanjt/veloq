@@ -8,6 +8,7 @@ import { spacing, opacity, stroke } from '@/theme';
 import { Card } from '@/shared/ui/Card';
 import { CardHeader } from '@/shared/ui/CardHeader';
 import { ErrorState } from '@/shared/ui/ErrorState';
+import { HeldRender } from '@/shared/ui/HeldRender';
 import type { DayLoad, RangeCoverage } from 'veloqrs';
 import type { WellnessData, Activity } from '@/types';
 import { FitnessChart, FormZoneChart, ActivityDotsChart } from '..';
@@ -31,6 +32,8 @@ interface FitnessChartCardProps {
   /** What the wellness read threw, shown with a Retry in place of the charts. */
   readError?: unknown;
   onRetry?: () => void;
+  /** The wellness drawn is the previous range's, kept on screen while the new range is read. */
+  held?: boolean;
 }
 
 export const FitnessChartCard = React.memo(function FitnessChartCard({
@@ -45,6 +48,7 @@ export const FitnessChartCard = React.memo(function FitnessChartCard({
   onInteractionChange,
   readError,
   onRetry,
+  held = false,
 }: FitnessChartCardProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -76,22 +80,25 @@ export const FitnessChartCard = React.memo(function FitnessChartCard({
           sharedSelectedIdx={sharedSelectedIdx}
           onDateSelect={onDateSelect}
           onInteractionChange={onInteractionChange}
+          held={held}
         />
 
         <View
           testID="fitness-activity-dots"
           style={[styles.dotsSection, isDark && styles.dotsSectionDark]}
         >
-          <ActivityDotsChart
-            data={wellness}
-            activities={activities}
-            dailyLoads={dailyLoads}
-            height={32}
-            selectedDate={selectedDate}
-            sharedSelectedIdx={sharedSelectedIdx}
-            onDateSelect={onDateSelect}
-            onInteractionChange={onInteractionChange}
-          />
+          <HeldRender held={held}>
+            <ActivityDotsChart
+              data={wellness}
+              activities={activities}
+              dailyLoads={dailyLoads}
+              height={32}
+              selectedDate={selectedDate}
+              sharedSelectedIdx={sharedSelectedIdx}
+              onDateSelect={onDateSelect}
+              onInteractionChange={onInteractionChange}
+            />
+          </HeldRender>
         </View>
 
         <View
@@ -106,6 +113,7 @@ export const FitnessChartCard = React.memo(function FitnessChartCard({
             sharedSelectedIdx={sharedSelectedIdx}
             onDateSelect={onDateSelect}
             onInteractionChange={onInteractionChange}
+            held={held}
           />
         </View>
       </Card>

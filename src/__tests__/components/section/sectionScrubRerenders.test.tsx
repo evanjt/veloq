@@ -111,6 +111,26 @@ describe('a chart scrub on the section screen', () => {
     expect(mockMapProps).not.toHaveBeenCalled();
   });
 
+  it("hands the map the scrubbed attempt's date, which its key names the attempt by", async () => {
+    const { store } = await setup();
+    const ridden = new Date(2023, 2, 12);
+    await act(() => store.set('a', LAP, ridden));
+    expect(lastMapProps().highlightedActivityDate).toEqual(ridden);
+
+    await act(() => store.set(null));
+    expect(lastMapProps().highlightedActivityDate).toBeUndefined();
+  });
+
+  it('does not render the map again for the same date read into a new object', async () => {
+    const { store } = await setup();
+    await act(() => store.set('a', LAP, new Date(2023, 2, 12)));
+    mockMapProps.mockClear();
+
+    await act(() => store.set('a', LAP, new Date(2023, 2, 12)));
+
+    expect(mockMapProps).not.toHaveBeenCalled();
+  });
+
   it('takes a set that works detached, as a chart calls it', async () => {
     const store = createMapHighlightStore();
     const { set } = store;

@@ -336,6 +336,8 @@ const FIXTURE_SCRIPTS: Record<string, string> = {
   'scripts/run-ios.sh': [
     '#!/bin/sh',
     'echo "run-ios $*" >> "$GATE_FAKE/calls.log"',
+    // CocoaPods refuses to install under a locale that is not UTF-8.
+    'case "${LC_ALL:-${LANG:-}}" in *UTF-8*) ;; *) echo "CocoaPods requires your terminal to be using UTF-8 encoding" >&2; exit 1 ;; esac',
     '[ ! -e "$GATE_FAKE/fail-build" ] || { echo "error: no such module ExpoModulesCore" >&2; exit 65; }',
     '',
   ].join('\n'),
@@ -486,6 +488,10 @@ function gate(f: Fixture, branch = 'main') {
   const noLocale = { ...process.env };
   for (const name of ['LANG', 'LC_ALL', 'LC_CTYPE']) delete noLocale[name];
   // The session's own switches, the simulator lock among them, go with the git pointers.
+  // The locale is the one a non-interactive ssh session to the Mac gets: none.
+  const unlocalised = { ...process.env };
+  delete unlocalised.LC_ALL;
+  delete unlocalised.LC_CTYPE;
   const run = spawnSync(path.join(f.local, 'scripts/ios-gate.sh'), [branch], {
     cwd: f.local,
     env: {
@@ -506,6 +512,40 @@ function head(f: Fixture): string {
 function record(f: Fixture) {
   const file = path.join(f.local, '.ios-gate', `${head(f)}.json`);
   return JSON.parse(fs.readFileSync(file, 'utf8'));
+}
+
+const PIN_PATH = 'modules/veloqrs/rust/tracematch';
+
+/**
+ * Pin the fixture's submodule at a commit published nowhere, held by the Mac's
+ * own checkout of the submodule when `onMac`, and turn on the real pre-push hook.
+ */
+function pinUnpublished(f: Fixture, onMac: boolean): string {
+  const published = path.join(f.root, 'published');
+  fs.mkdirSync(published);
+  runGit(['init', '-q', '--bare', '-b', 'main'], published);
+  const library = onMac ? path.join(f.remote, PIN_PATH) : path.join(f.root, 'library');
+  fs.mkdirSync(library, { recursive: true });
+  runGit(['init', '-q', '-b', 'main'], library);
+  fs.writeFileSync(path.join(library, 'lib.rs'), 'pub fn lib() {}\n');
+  runGit(['add', '-A'], library);
+  runGit(['commit', '-q', '-m', 'library'], library);
+  const sha = runGit(['rev-parse', 'HEAD'], library).trim();
+
+  fs.mkdirSync(path.join(f.local, '.husky'), { recursive: true });
+  fs.copyFileSync(path.join(REPO, '.husky/pre-push'), path.join(f.local, '.husky/pre-push'));
+  for (const script of ['check-no-private-data.sh', 'check-submodule-pin-pushed.sh']) {
+    fs.copyFileSync(path.join(REPO, 'scripts', script), path.join(f.local, 'scripts', script));
+  }
+  fs.writeFileSync(
+    path.join(f.local, '.gitmodules'),
+    `[submodule "${PIN_PATH}"]\n\tpath = ${PIN_PATH}\n\turl = ${published}\n`
+  );
+  runGit(['update-index', '--add', '--cacheinfo', `160000,${sha},${PIN_PATH}`], f.local);
+  runGit(['add', '.gitmodules', '.husky', 'scripts'], f.local);
+  runGit(['commit', '-q', '--no-verify', '-m', 'pin'], f.local);
+  runGit(['config', 'core.hooksPath', '.husky'], f.local);
+  return sha;
 }
 
 describe('scripts/ios-gate.sh', () => {
@@ -633,5 +673,25 @@ describe('scripts/ios-gate.sh', () => {
 
     expect(run.status).not.toBe(0);
     expect(run.out).toMatch(/veloq.iosGateRemote/);
+  });
+
+  it('gates a submodule pin published nowhere when the Mac checkout holds it', () => {
+    pinUnpublished(f, true);
+
+    const run = gate(f);
+
+    expect(run.out).toContain('ios-gate: passed');
+    expect(run.status).toBe(0);
+    expect(runGit(['rev-parse', 'refs/heads/gate/main'], f.remote).trim()).toBe(head(f));
+  });
+
+  it('refuses before pushing a submodule pin neither the Mac holds nor anywhere publishes', () => {
+    const pin = pinUnpublished(f, false);
+
+    const run = gate(f);
+
+    expect(run.status).not.toBe(0);
+    expect(run.out).toContain(pin);
+    expect(runGit(['branch', '--list', 'gate/main'], f.remote).trim()).toBe('');
   });
 });

@@ -8,7 +8,6 @@ import {
   colors,
   darkColors,
   iconSize,
-  inputBoundary,
   layout,
   slopToMinTapTarget,
   spacing,
@@ -103,10 +102,10 @@ const styles = StyleSheet.create({
   },
   // A chosen dialect takes the outline the language list marks dialects with.
   languageButtonDialect: {
-    borderColor: inputBoundary.light,
+    borderColor: colors.controlBoundary,
   },
   languageButtonDialectDark: {
-    borderColor: inputBoundary.dark,
+    borderColor: darkColors.controlBoundary,
   },
   languageButtonText: {
     ...typography.bodySmall,

@@ -35,13 +35,31 @@ pub struct FfiRecordRestoreResult {
     pub names_not_restored: u32,
 }
 
-/// What a check of a record zip learnt about the zip, once it found nothing
-/// the restore would refuse.
+/// A record to check: a record zip on disk, or record JSON such as an older
+/// `.veloq` file converts to.
+#[derive(Debug, Clone, uniffi::Enum)]
+pub enum FfiRecordSource {
+    Zip { path: String },
+    Json { json: String },
+}
+
+/// What a check of a record learnt about it, once it found nothing the
+/// restore would refuse, so the question before a restore can say what the
+/// restore would replace.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiRecordCheck {
-    /// When the zip was written, RFC 3339 in UTC, from its own content.
-    /// `None` for a zip written before records carried the time.
+    /// When the record was written, RFC 3339 in UTC, from its own content.
+    /// `None` for a record written before records carried the time.
     pub written_at: Option<String>,
+    /// Whether the record names the account it was written for. The check
+    /// refuses one naming another account, so a named one is this account's.
+    pub names_account: bool,
+    /// Route and section names the record carries.
+    pub names: u32,
+    /// Settings rows the record carries.
+    pub settings: u32,
+    /// Every other decision: hand-cut sections, pins, exclusions, numbers.
+    pub decisions: u32,
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
@@ -518,15 +536,30 @@ impl VeloqEngine {
         restore_record_payload(payload).await
     }
 
-    /// Run the checks a restore of the record ZIP at `path` would run, the
-    /// version, row content and both athlete checks, and write nothing. Off
-    /// the JS thread, since it inflates the archive. Returns when the zip was
-    /// written, which its file time does not keep through every restore.
-    async fn check_record_zip(&self, path: String) -> Result<FfiRecordCheck, VeloqError> {
+    /// Run the checks a restore of the record would run, the version, row
+    /// content and both athlete checks, and write nothing. Off the JS thread,
+    /// since it inflates an archive. Returns when the record was written,
+    /// which a zip's file time does not keep through every restore, and what
+    /// it would place.
+    async fn check_record(&self, source: FfiRecordSource) -> Result<FfiRecordCheck, VeloqError> {
         crate::runtime::ASYNC_RUNTIME
             .spawn_blocking(move || {
-                let payload = crate::persistence::record_backup::read_record_zip(&path)
-                    .map_err(|msg| VeloqError::Database { msg })?;
+                let payload = match source {
+                    FfiRecordSource::Zip { path } => {
+                        crate::persistence::record_backup::read_record_zip(&path)
+                    }
+                    FfiRecordSource::Json { json } => {
+                        crate::persistence::record_restore::parse_record_payload(&json).and_then(
+                            |payload| {
+                                crate::persistence::record_backup::check_record_version(
+                                    payload.version,
+                                )
+                                .map(|()| payload)
+                            },
+                        )
+                    }
+                }
+                .map_err(|msg| VeloqError::Database { msg })?;
                 crate::persistence::record_restore::check_record_rows(&payload)
                     .map_err(|msg| VeloqError::Database { msg })?;
                 let imported = payload.athlete_id.as_deref();
@@ -537,8 +570,13 @@ impl VeloqEngine {
                     )
                 })?
                 .map_err(|msg| VeloqError::Database { msg })?;
+                let counts = crate::persistence::record_restore::record_counts(&payload);
                 Ok(FfiRecordCheck {
+                    names_account: imported.is_some_and(|id| !id.is_empty()),
                     written_at: payload.written_at,
+                    names: counts.names,
+                    settings: counts.settings,
+                    decisions: counts.decisions,
                 })
             })
             .await
@@ -1096,7 +1134,9 @@ mod tests {
                 .unwrap();
             path.to_str().unwrap().to_string()
         };
-        let check = |path: String| crate::runtime::block_on(VeloqEngine.check_record_zip(path));
+        let check = |path: String| {
+            crate::runtime::block_on(VeloqEngine.check_record(FfiRecordSource::Zip { path }))
+        };
 
         crate::objects::sync::clear_test_credentials();
         assert!(
@@ -1165,6 +1205,92 @@ mod tests {
             unreadable.is_err(),
             "accepted a zip holding a row no library could place"
         );
+        let stored = with_persistent_engine(|e| e.get_setting("units").unwrap()).unwrap();
+        assert_eq!(stored, None, "the check wrote the record");
+    }
+
+    /// Scenario: the athlete picks a backup to restore, and the question that
+    /// asks before it replaces anything has to say what the backup holds.
+    ///
+    /// Expected behaviour: the check of a zip and of the same record as JSON
+    /// both return when it was written, whether it names an account, and how
+    /// many names, settings and other decisions it would place. A JSON record
+    /// naming no account says so, and JSON that is not a record is refused.
+    #[test]
+    fn record_check_says_what_the_record_would_place() {
+        let _guard = serial_global_state();
+        let tmp = init_global_engine("record-check-counts.db");
+        crate::objects::sync::set_credentials_from_native("api_key", "test-secret", "athlete-1")
+            .unwrap();
+        let record = serde_json::json!({
+            "version": 1,
+            "athlete_id": "athlete-1",
+            "written_at": "2026-10-01T12:00:00.000Z",
+            "entries": [
+                {"table": "settings", "values": {"key": "units", "value": "miles"}},
+                {"table": "settings", "values": {"key": "theme", "value": "dark"}},
+                {"table": "route_names", "values": {"route_id": "r1", "custom_name": "Ridge loop"}},
+                {"table": "legacy_section_name", "values": {"section_id": "s1", "name": "Quarry climb"}},
+                {"table": "sections", "values": {"id": "c1", "name": "Harbour sprint",
+                    "section_type": "custom", "sport_type": "Ride",
+                    "source_activity_id": "a1", "start_index": 0, "end_index": 4}},
+                {"table": "sections", "values": {"id": "c2", "name": null,
+                    "section_type": "custom", "sport_type": "Ride",
+                    "source_activity_id": "a1", "start_index": 5, "end_index": 9}},
+                {"table": "section_pins", "values": {"section_id": "c1"}}
+            ]
+        });
+        let zip_path = tmp.path().join("counted.zip");
+        crate::persistence::record_backup::write_record_zip(
+            &serde_json::from_value(record.clone()).unwrap(),
+            zip_path.to_str().unwrap(),
+        )
+        .unwrap();
+        let check =
+            |source: FfiRecordSource| crate::runtime::block_on(VeloqEngine.check_record(source));
+        let from_zip = check(FfiRecordSource::Zip {
+            path: zip_path.to_str().unwrap().to_string(),
+        });
+        let from_json = check(FfiRecordSource::Json {
+            json: record.to_string(),
+        });
+        let unnamed = check(FfiRecordSource::Json {
+            json: serde_json::json!({"version": 1, "athlete_id": null, "entries": []}).to_string(),
+        });
+        let not_a_record = check(FfiRecordSource::Json {
+            json: "{\"hello\": 1}".to_string(),
+        });
+        crate::objects::sync::clear_test_credentials();
+
+        for (label, checked) in [("zip", from_zip), ("json", from_json)] {
+            let checked = checked.unwrap_or_else(|e| panic!("refused the {label}: {e:?}"));
+            assert_eq!(
+                checked.written_at.as_deref(),
+                Some("2026-10-01T12:00:00.000Z"),
+                "the {label} check lost the time"
+            );
+            assert!(checked.names_account, "the {label} check lost the account");
+            assert_eq!(
+                checked.names, 3,
+                "{label}: a route, a section and a hand-cut name"
+            );
+            assert_eq!(checked.settings, 2, "{label}: two settings");
+            assert_eq!(
+                checked.decisions, 2,
+                "{label}: an unnamed hand-cut and a pin"
+            );
+        }
+        let unnamed = unnamed.unwrap();
+        assert!(
+            !unnamed.names_account,
+            "an anonymous record named an account"
+        );
+        assert_eq!(unnamed.written_at, None);
+        assert_eq!(
+            (unnamed.names, unnamed.settings, unnamed.decisions),
+            (0, 0, 0)
+        );
+        assert!(not_a_record.is_err(), "accepted JSON that is not a record");
         let stored = with_persistent_engine(|e| e.get_setting("units").unwrap()).unwrap();
         assert_eq!(stored, None, "the check wrote the record");
     }

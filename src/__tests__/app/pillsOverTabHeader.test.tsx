@@ -1,11 +1,10 @@
 /**
- * Scenario: a sync runs while a headered tab root is in front. The pill mounts at
- * the root, above the stack, and floated just under the status bar, which is the
- * band the tab root's native header draws its title in.
+ * Scenario: a sync runs, or the device is offline, while a headered tab root is in
+ * front. The pills mount at the root, above the stack, and float over the page.
  *
- * Expected behaviour: on a headered tab root the pill sits below the header's
- * bottom edge, below a banner in the top slot as well, and on the map, which
- * has no header, it goes back under the status bar.
+ * Expected behaviour: a pill starts `spacing.xs` below the status bar, over the
+ * header the tab root draws rather than below its bottom edge, and below a banner
+ * in the top slot when one is up. The map, which has no header, reads the same.
  */
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
@@ -17,6 +16,7 @@ import TabsLayout from '@/app/(tabs)/_layout';
 import FeedLayout from '@/app/(tabs)/(feed)/_layout';
 import { useTopBannerHeights } from '@/shared/app/topBanner';
 import { getEngine } from '@/shared/native/engine';
+import { OfflineBanner } from '@/shared/ui/OfflineBanner';
 import { SyncProgressStrip } from '@/shared/ui/SyncProgressStrip';
 import { spacing } from '@/theme';
 import { act, renderRouter, screen } from 'expo-router/testing-library';
@@ -30,6 +30,10 @@ jest.mock('@/shared/app/useTheme', () => ({ useTheme: () => ({ isDark: false }) 
 jest.mock('@/shared/app', () => ({
   ...jest.requireActual('@/shared/app'),
   useTheme: () => ({ isDark: false }),
+}));
+
+jest.mock('@/shared/app/NetworkContext', () => ({
+  useNetwork: () => ({ isOnline: false, offlineBannerShown: true }),
 }));
 
 const TOP_INSET = 47;
@@ -63,6 +67,7 @@ function Root() {
     <>
       <Stack screenOptions={{ headerShown: false }} />
       <SyncProgressStrip />
+      <OfflineBanner />
     </>
   );
 }
@@ -75,8 +80,8 @@ const APP = {
   '(tabs)/map': () => <Text>map</Text>,
 };
 
-function pillTop(): number {
-  return StyleSheet.flatten(screen.getByTestId('sync-progress-strip').props.style).top;
+function pillTop(testID: string): number {
+  return StyleSheet.flatten(screen.getByTestId(testID).props.style).top;
 }
 
 async function settle() {
@@ -90,29 +95,32 @@ beforeEach(() => {
   useTopBannerHeights.setState({ heights: {} });
 });
 
-describe('the sync pill on the tab roots', () => {
-  it('sits below the native header of a headered tab root', async () => {
+describe('the pills on the tab roots', () => {
+  it('start under the status bar, over the native header of a headered tab root', async () => {
     renderRouter(APP, { initialUrl: '/' });
     await settle();
 
-    expect(feedHeaderHeight()).toBeGreaterThan(TOP_INSET);
-    expect(pillTop()).toBeGreaterThanOrEqual(feedHeaderHeight());
+    expect(feedHeaderHeight()).toBeGreaterThan(TOP_INSET + spacing.xs);
+    expect(pillTop('sync-progress-strip')).toBe(TOP_INSET + spacing.xs);
+    expect(pillTop('offline-banner')).toBe(TOP_INSET + spacing.xs);
   });
 
-  it('sits below the header when a banner pushes the stack down', async () => {
+  it('start below a banner in the slot, over the header beneath it', async () => {
     renderRouter(APP, { initialUrl: '/' });
     await settle();
     await act(async () => useTopBannerHeights.getState().setHeight('syncError', 96));
 
-    expect(pillTop()).toBeGreaterThanOrEqual(96 + feedHeaderHeight());
+    expect(pillTop('sync-progress-strip')).toBe(96 + spacing.xs);
+    expect(pillTop('offline-banner')).toBe(96 + spacing.xs);
   });
 
-  it('goes back under the status bar on the map, which has no header', async () => {
+  it('start at the same place on the map, which has no header', async () => {
     renderRouter(APP, { initialUrl: '/' });
     await settle();
     await act(() => router.navigate('/map'));
     await settle();
 
-    expect(pillTop()).toBe(TOP_INSET + spacing.xs);
+    expect(pillTop('sync-progress-strip')).toBe(TOP_INSET + spacing.xs);
+    expect(pillTop('offline-banner')).toBe(TOP_INSET + spacing.xs);
   });
 });

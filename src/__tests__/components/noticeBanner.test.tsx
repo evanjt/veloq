@@ -160,6 +160,40 @@ describe('the banner layout', () => {
     );
   });
 
+  it('keeps the title its height once the row stacks past the large-text cap', async () => {
+    mockFontScale = 2;
+    await render(
+      <NoticeBanner
+        slot="syncError"
+        tone="info"
+        icon="information"
+        title="Ferry runs on the winter timetable"
+        actions={[{ label: 'Details', onPress: jest.fn(), testID: 'ferry-details' }]}
+        testID="ferry-banner"
+      />
+    );
+
+    // A flex child of a column whose height is its content grows from a basis
+    // of zero into no spare height, so it lays out at zero and its text is
+    // clipped away. Every column between the content and the title has to size
+    // that child by its content.
+    const content = screen.getByTestId('ferry-banner-content');
+    const chain = [];
+    for (let node = screen.getByText('Ferry runs on the winter timetable'); node !== content; ) {
+      if (typeof node.type === 'string') chain.push(node);
+      if (!node.parent) throw new Error('the title is not inside the banner content');
+      node = node.parent;
+    }
+    chain.push(content);
+
+    for (let i = 0; i + 1 < chain.length; i++) {
+      const direction = StyleSheet.flatten(chain[i + 1].props.style)?.flexDirection ?? 'column';
+      if (direction === 'column') {
+        expect(StyleSheet.flatten(chain[i].props.style)?.flex ?? 0).toBe(0);
+      }
+    }
+  });
+
   it('paints the ground from the tone palette', async () => {
     await render(
       <NoticeBanner slot="syncError" tone="info" icon="information" title="Demo" testID="demo-x" />

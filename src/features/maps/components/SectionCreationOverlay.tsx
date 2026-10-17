@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import {
   colors,
   colorWithOpacity,
+  controlHeight,
   darkColors,
   iconSize,
   ink,
@@ -27,7 +28,7 @@ import {
 import { sectionSizeTone, type SizeTone } from '@/features/maps/lib/sectionSizeTone';
 import { formatDistance } from '@/shared/format/format';
 import { useMetricSystem, useTheme } from '@/shared/app';
-import { IconButton, pressable, pressRipple } from '@/shared/ui';
+import { Button, IconButton, pressable, pressRipple } from '@/shared/ui';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 import { formatPercent } from '@/shared/format';
 
@@ -256,30 +257,19 @@ export function SectionCreationOverlay({
           {shouldExpand && isError && error ? (
             <Animated.View entering={FadeIn} style={[styles.expandedContent, ruleStyle]}>
               {/* Technical details toggle */}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ expanded: showTechnicalDetails }}
-                style={pressable(styles.technicalToggle)}
-                hitSlop={slopToMinTapTarget(EXPANDED_ROW_HEIGHT)}
-                onPress={() => setShowTechnicalDetails(!showTechnicalDetails)}
-                android_ripple={pressRipple}
-              >
-                <MaterialCommunityIcons
-                  name="bug-outline"
-                  size={iconSize.sm}
-                  color={palette.textSecondary}
-                />
-                <Text style={[styles.technicalToggleText, mutedText]}>
-                  {showTechnicalDetails
+              <Button
+                testID="section-creation-technical-toggle"
+                label={
+                  showTechnicalDetails
                     ? t('common.hideDetails' as never)
-                    : t('common.showDetails' as never)}
-                </Text>
-                <MaterialCommunityIcons
-                  name={showTechnicalDetails ? 'chevron-up' : 'chevron-down'}
-                  size={iconSize.sm}
-                  color={palette.textSecondary}
-                />
-              </Pressable>
+                    : t('common.showDetails' as never)
+                }
+                variant="ghost"
+                size="sm"
+                expanded={showTechnicalDetails}
+                style={styles.technicalToggle}
+                onPress={() => setShowTechnicalDetails(!showTechnicalDetails)}
+              />
 
               {showTechnicalDetails ? (
                 <View style={[styles.technicalDetails, detailsStyle]}>
@@ -409,7 +399,8 @@ export function SectionCreationOverlay({
   );
 }
 
-const STATUS_PILL_MIN_HEIGHT = 44;
+// The pill sits level with the icon buttons beside it.
+const STATUS_PILL_MIN_HEIGHT = controlHeight.button;
 // A caption line inside the padding of the expanded card's two text controls.
 const EXPANDED_ROW_HEIGHT = typography.caption.lineHeight + 2 * spacing.xs;
 
@@ -427,15 +418,14 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     gap: spacing.sm,
   },
+  // Drawn in IconButton's own square, which its hit slop lifts to the minimum.
   iconButton: {
-    width: 44,
-    height: 44,
     borderRadius: layout.borderRadiusFull,
     ...shadows.elevated,
   },
   iconButtonPlaceholder: {
-    width: 44,
-    height: 44,
+    width: controlHeight.button,
+    height: controlHeight.button,
   },
   statusPill: {
     flex: 1,
@@ -460,8 +450,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   statusText: {
-    ...typography.body,
-    fontWeight: '600',
+    ...typography.bodyBold,
     color: colors.textPrimary,
     flexShrink: 1,
   },
@@ -496,22 +485,14 @@ const styles = StyleSheet.create({
     minHeight: EXPANDED_ROW_HEIGHT,
   },
   resetText: {
-    ...typography.caption,
-    fontWeight: '600',
+    ...typography.captionBold,
   },
+  // The toggle sits at the start of the details it opens, not centred under the status.
   technicalToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.xs,
-    minHeight: EXPANDED_ROW_HEIGHT,
-  },
-  technicalToggleText: {
-    ...typography.caption,
-    flex: 1,
+    alignSelf: 'flex-start',
   },
   technicalDetails: {
-    backgroundColor: colorWithOpacity(ink.black, 0.03),
+    backgroundColor: colorWithOpacity(ink.black, opacity.tint1),
     borderRadius: layout.borderRadiusXs,
     padding: spacing.sm,
     gap: spacing.xs,

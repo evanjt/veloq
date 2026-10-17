@@ -33,7 +33,11 @@ export function ExternalLinkRow({ url, label, icon, children, testID }: External
       {children ?? (
         <>
           {icon ? (
-            <MaterialCommunityIcons name={icon} size={iconSize.md} color={colors.primary} />
+            <MaterialCommunityIcons
+              name={icon}
+              size={iconSize.md}
+              color={isDark ? darkColors.actionLink : colors.actionLink}
+            />
           ) : null}
           <Text
             style={[styles.label, { color: isDark ? darkColors.textPrimary : colors.textPrimary }]}

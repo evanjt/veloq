@@ -18,6 +18,7 @@ import {
   typography,
   stroke,
   themePalette,
+  opacity,
 } from '@/theme';
 import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
 import { useRecordingPreferences } from '@/features/recording';
@@ -130,7 +131,7 @@ function ActivityTypeSheetContent() {
               style={pressable([
                 styles.row,
                 { borderBottomColor: border },
-                isSelected && { backgroundColor: colorWithOpacity(palette.primary, 0.08) },
+                isSelected && { backgroundColor: colorWithOpacity(palette.primary, opacity.tint1) },
               ])}
               onPress={() => resolve(item)}
               android_ripple={pressRipple}
@@ -164,7 +165,7 @@ const styles = StyleSheet.create({
   },
   headerBordered: {
     borderBottomWidth: stroke.hairline,
-    borderBottomColor: colorWithOpacity(ink.black, 0.2),
+    borderBottomColor: colorWithOpacity(ink.black, opacity.tint3),
   },
   headerBorderedDark: {
     borderBottomColor: darkColors.border,

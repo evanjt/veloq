@@ -4,11 +4,13 @@ name: Rust Advisories
 # on every change, and the weekly run catches an advisory published against a
 # lockfile that has not changed. A warning (unmaintained, unsound, yanked) fails
 # too: one that cannot be fixed yet is ignored in .cargo/audit.toml beside the
-# lockfile, with its reason.
+# lockfile, with its reason. A pull request fails only for an advisory its
+# lockfile has and the base lockfile lacks, so one published overnight turns
+# main red and leaves every unrelated pull request alone.
 on:
   workflow_call:
   schedule:
-    - cron: "0 5 * * 1"
+    - cron: '0 5 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -30,5 +32,28 @@ jobs:
           tool: cargo-audit@0.22.2
 
       - name: Scan the lockfile
+        if: github.event_name != 'pull_request'
         working-directory: modules/veloqrs/rust
         run: cargo audit --deny warnings
+
+      - name: Setup Node
+        if: github.event_name == 'pull_request'
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+
+      # cargo audit exits 1 when it finds anything, so its exit code is not
+      # read. The comparison refuses a report that did not parse, which is how
+      # a scan that failed outright still fails the job.
+      - name: Scan for advisories the base lockfile lacks
+        if: github.event_name == 'pull_request'
+        working-directory: modules/veloqrs/rust
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --depth=1 origin "$BASE_SHA"
+          git show "$BASE_SHA:modules/veloqrs/rust/Cargo.lock" > "$RUNNER_TEMP/base.lock"
+          cargo audit --json --file "$RUNNER_TEMP/base.lock" > "$RUNNER_TEMP/base.json" || true
+          cargo audit --json > "$RUNNER_TEMP/head.json" || true
+          node "$GITHUB_WORKSPACE/scripts/new-advisories.mjs" "$RUNNER_TEMP/base.json" "$RUNNER_TEMP/head.json"

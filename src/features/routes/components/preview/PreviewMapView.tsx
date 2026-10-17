@@ -500,7 +500,6 @@ const styles = StyleSheet.create({
     borderWidth: stroke.one,
   },
   legendText: {
-    ...typography.caption,
-    fontWeight: '600',
+    ...typography.captionBold,
   },
 });

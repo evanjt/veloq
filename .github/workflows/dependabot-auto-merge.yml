@@ -19,7 +19,9 @@ jobs:
 
       # Patch only. A minor of a 0.x crate or package is a breaking API change,
       # and a grouped update reports the versions of one member, so no version
-      # test makes a minor safe to merge unread.
+      # test makes a minor safe to merge unread. Every group of several packages
+      # in dependabot.yml takes patch updates only, so a patch-reported group is
+      # patches throughout.
       - name: Enable auto-merge for patch bumps
         if: steps.meta.outputs.update-type == 'version-update:semver-patch'
         run: gh pr merge --auto --squash "$PR_URL"

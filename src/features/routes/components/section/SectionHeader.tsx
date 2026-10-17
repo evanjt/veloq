@@ -65,6 +65,8 @@ export interface SectionHeaderProps {
   shadowTrack?: [number, number][] | undefined;
   /** The chart's scrubbed attempt. Only the map reads it, so a scrub never renders the header. */
   highlight: MapHighlightStore;
+  /** The activity the page was opened from, the only one the map key calls "This activity". */
+  pageActivityId?: string | undefined;
   /** The attempt the chart's delta plot shows, which colours the section line. */
   deltaLine?: SectionDeltaLine | null | undefined;
   allActivityTraces?: Record<string, RoutePoint[]> | undefined;
@@ -103,6 +105,7 @@ export function SectionHeader({
   customName,
   shadowTrack,
   highlight,
+  pageActivityId,
   deltaLine,
   allActivityTraces,
   onUnflagLift,
@@ -172,6 +175,7 @@ export function SectionHeader({
       {mapReady ? (
         <HighlightedSectionMap
           highlight={highlight}
+          pageActivityId={pageActivityId}
           section={section}
           sportType={sportType}
           height={mapHeight}
@@ -212,8 +216,7 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlay.scrim,
   },
   liftBadgeText: {
-    ...typography.caption,
+    ...typography.captionBold,
     color: colors.textOnDark,
-    fontWeight: '600',
   },
 });

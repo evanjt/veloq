@@ -409,19 +409,15 @@ const styles = StyleSheet.create({
     borderTopColor: darkColors.border,
   },
   totalsLabel: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    ...typography.sectionHeader,
     color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   totalsValues: {
     flexDirection: 'row',
     gap: spacing.md,
   },
   totalsValue: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '700',
+    ...typography.bodyBold,
     color: colors.textPrimary,
   },
   // Info card (matches fitness tab "Understanding the metrics" pattern)
@@ -449,7 +445,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   infoHighlight: {
-    fontWeight: '600',
+    fontWeight: typography.captionBold.fontWeight,
     color: colors.textPrimary,
   },
   infoHighlightDark: {

@@ -63,6 +63,19 @@ esac
 sha=$(git rev-parse --verify --quiet "$branch^{commit}") || refuse "there is no commit $branch"
 echo "ios-gate: $branch is $sha, gated on $host"
 
+# The Mac builds the submodule from its own checkout of it, and from the
+# published repository only when that checkout lacks the pin, so the pin is
+# checked against both before anything is pushed. A directory with no `.git`
+# of its own would send git to the repository above it.
+pin_path=modules/veloqrs/rust/tracematch
+pin=$(git ls-tree "$sha" -- "$pin_path" | awk '$1 == "160000" { print $3 }')
+if [ -n "$pin" ] &&
+  ! ssh "$host" "[ -e '$repo/$pin_path/.git' ] && git -C '$repo/$pin_path' cat-file -e '$pin^{commit}'" 2>/dev/null &&
+  ! echo "refs/heads/gate/$branch $sha refs/heads/gate/$branch 0000000000000000000000000000000000000000" |
+  "$here/check-submodule-pin-pushed.sh"; then
+  refuse "the Mac's $repo/$pin_path lacks the pin $pin and it is published nowhere: push it to the Mac's checkout or publish it"
+fi
+
 git push --force --quiet "$remote" "$sha:refs/heads/gate/$branch"
 
 run=$(ssh "$host" mktemp -d)

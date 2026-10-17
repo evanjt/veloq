@@ -18,14 +18,23 @@ import { onlineManager } from '@tanstack/react-query';
 
 import { AppState } from 'react-native';
 
-import { NetworkProvider, OFFLINE_DEBOUNCE_MS, useNetwork } from '@/shared/app/NetworkContext';
+import {
+  FOREGROUND_REREAD_MS,
+  NetworkProvider,
+  OFFLINE_DEBOUNCE_MS,
+  useNetwork,
+} from '@/shared/app/NetworkContext';
 
 const mockSetNetworkOnline = jest.fn();
+const mockReturnPushed = jest.fn();
 
 jest.mock('veloqrs', () =>
   require('../__shared__/veloqrsStub').withOverrides({
     connectivity: {
-      setNetworkOnline: (online: boolean) => mockSetNetworkOnline(online),
+      setNetworkOnline: (online: boolean, foregrounded?: boolean) => {
+        mockSetNetworkOnline(online);
+        if (foregrounded) mockReturnPushed(online);
+      },
       setInteracting: () => {},
     },
   })
@@ -88,6 +97,7 @@ describe('NetworkContext', () => {
     mock.getNetworkStateAsync.mockImplementation(() => new Promise(() => {}));
     (require('expo-network').addNetworkStateListener as jest.Mock).mockClear();
     mockSetNetworkOnline.mockClear();
+    mockReturnPushed.mockClear();
     jest.useFakeTimers();
   });
 
@@ -647,6 +657,91 @@ describe('NetworkContext', () => {
         });
 
         expect(mockSetNetworkOnline).toHaveBeenCalledWith(false);
+      });
+    });
+
+    /**
+     * Scenario: the athlete leaves the app and comes back. What a return
+     * starts is the engine's to decide, so the provider's push on the way
+     * back up says it is one.
+     *
+     * Expected behaviour: only an `active` after a `background` is marked a
+     * return. iOS drops to `inactive` for a notification shade, and the clock
+     * re-states what it holds every quarter hour, and neither is a return.
+     */
+    describe('a return from the background', () => {
+      it('marks the push on the way back up as a return', async () => {
+        await renderHook(() => useNetwork(), { wrapper: wrapperFor });
+
+        await act(() => {
+          appStateListeners.forEach((l) => l('background'));
+        });
+        expect(mockReturnPushed).not.toHaveBeenCalled();
+        await act(() => {
+          appStateListeners.forEach((l) => l('active'));
+        });
+
+        expect(mockReturnPushed).toHaveBeenCalledTimes(1);
+        expect(mockReturnPushed).toHaveBeenCalledWith(true);
+      });
+
+      it('marks each return once, not the active that follows a flicker', async () => {
+        await renderHook(() => useNetwork(), { wrapper: wrapperFor });
+
+        await act(() => {
+          appStateListeners.forEach((l) => l('background'));
+          appStateListeners.forEach((l) => l('active'));
+          appStateListeners.forEach((l) => l('inactive'));
+          appStateListeners.forEach((l) => l('active'));
+        });
+
+        expect(mockReturnPushed).toHaveBeenCalledTimes(1);
+      });
+
+      it('does not mark a pass through inactive as a return', async () => {
+        await renderHook(() => useNetwork(), { wrapper: wrapperFor });
+        mockSetNetworkOnline.mockClear();
+
+        await act(() => {
+          appStateListeners.forEach((l) => l('inactive'));
+          appStateListeners.forEach((l) => l('active'));
+        });
+
+        expect(mockSetNetworkOnline).toHaveBeenCalled();
+        expect(mockReturnPushed).not.toHaveBeenCalled();
+      });
+
+      it('does not mark the quarter-hour re-read as a return', async () => {
+        const original = Object.getOwnPropertyDescriptor(AppState, 'currentState');
+        Object.defineProperty(AppState, 'currentState', { value: 'active', configurable: true });
+        try {
+          await renderHook(() => useNetwork(), { wrapper: wrapperFor });
+          mockSetNetworkOnline.mockClear();
+
+          await act(() => {
+            jest.advanceTimersByTime(FOREGROUND_REREAD_MS);
+          });
+
+          expect(mockSetNetworkOnline).toHaveBeenCalled();
+          expect(mockReturnPushed).not.toHaveBeenCalled();
+        } finally {
+          if (original) Object.defineProperty(AppState, 'currentState', original);
+        }
+      });
+
+      it('carries the reading it holds, offline included', async () => {
+        await renderHook(() => useNetwork(), { wrapper: wrapperFor });
+        await act(() => {
+          getMock().listener!({ isConnected: false, isInternetReachable: false, type: 'NONE' });
+          jest.advanceTimersByTime(OFFLINE_DEBOUNCE_MS);
+        });
+
+        await act(() => {
+          appStateListeners.forEach((l) => l('background'));
+          appStateListeners.forEach((l) => l('active'));
+        });
+
+        expect(mockReturnPushed).toHaveBeenCalledWith(false);
       });
     });
 

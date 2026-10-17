@@ -300,8 +300,7 @@ const styles = StyleSheet.create({
     gap: spacing.xxs,
   },
   countText: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '700',
+    ...typography.bodyCompactBold,
     color: colors.textOnPrimary,
   },
   textLight: {

@@ -20,6 +20,7 @@
     android:gravity="center">
 
     <TextView
+      android:fontFamily="@font/widget_manrope"
       android:id="@+id/ins_empty"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
@@ -30,6 +31,7 @@
       android:textColor="@color/widget_text_primary" />
 
     <TextView
+      android:fontFamily="@font/widget_manrope"
       android:id="@+id/ins_empty_hint"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
@@ -62,6 +64,7 @@
       android:orientation="vertical">
 
       <TextView
+        android:fontFamily="@font/widget_manrope"
         android:id="@+id/ins_title0"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -72,6 +75,7 @@
         android:textColor="@color/widget_text_primary" />
 
       <TextView
+        android:fontFamily="@font/widget_manrope"
         android:id="@+id/ins_subtitle0"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -105,6 +109,7 @@
       android:orientation="vertical">
 
       <TextView
+        android:fontFamily="@font/widget_manrope"
         android:id="@+id/ins_title1"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -115,6 +120,7 @@
         android:textColor="@color/widget_text_primary" />
 
       <TextView
+        android:fontFamily="@font/widget_manrope"
         android:id="@+id/ins_subtitle1"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -148,6 +154,7 @@
       android:orientation="vertical">
 
       <TextView
+        android:fontFamily="@font/widget_manrope"
         android:id="@+id/ins_title2"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -158,6 +165,7 @@
         android:textColor="@color/widget_text_primary" />
 
       <TextView
+        android:fontFamily="@font/widget_manrope"
         android:id="@+id/ins_subtitle2"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -191,6 +199,7 @@
       android:orientation="vertical">
 
       <TextView
+        android:fontFamily="@font/widget_manrope"
         android:id="@+id/ins_title3"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -201,6 +210,7 @@
         android:textColor="@color/widget_text_primary" />
 
       <TextView
+        android:fontFamily="@font/widget_manrope"
         android:id="@+id/ins_subtitle3"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -212,6 +222,7 @@
   </LinearLayout>
 
   <TextView
+    android:fontFamily="@font/widget_manrope"
     android:id="@+id/ins_more"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -226,6 +237,7 @@
     android:orientation="horizontal"
     android:gravity="center_vertical">
     <TextView
+      android:fontFamily="@font/widget_manrope"
       android:id="@+id/ins_updated"
       android:layout_width="0dp"
       android:layout_height="wrap_content"

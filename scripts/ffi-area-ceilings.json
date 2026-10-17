@@ -160,8 +160,7 @@
     "cancelFetchAndStore",
     "getCutoverDiff",
     "getFetchRunProgress",
-    "isCutoverPending",
-    "isCutoverRunning",
+    "isCutoverHeld",
     "startGpsPass",
     "takeFetchAndStoreResult"
   ],
@@ -181,7 +180,7 @@
     "SyncManager.cancel",
     "SyncManager.syncNow",
     "VeloqEngine.bulkExportProgress",
-    "VeloqEngine.checkRecordZip",
+    "VeloqEngine.checkRecord",
     "VeloqEngine.clearObserver",
     "VeloqEngine.destroy",
     "VeloqEngine.discardRecordImport",

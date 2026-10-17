@@ -4,7 +4,9 @@
  * own colour.
  *
  * Expected behaviour: a key names each of those layers while it is drawn,
- * inline and full screen, and the route alone draws no key.
+ * inline and full screen, and the route alone draws no key. The picked attempt
+ * is "This activity" only when the page was opened from it, and otherwise is
+ * named by its date.
  */
 
 import React from 'react';
@@ -13,6 +15,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { initialiseI18n, changeLanguage } from '@/i18n';
 import { RouteMapView } from '@/features/routes/components/RouteMapView';
+import { formatFullDate } from '@/shared/format/format';
 import type { RoutePoint } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
@@ -63,6 +66,8 @@ const DELTA_LINE = {
   direction: 'forward' as const,
 };
 
+const PICKED_DATE = new Date(2023, 2, 12, 8, 30);
+
 function renderRoute(props: Partial<React.ComponentProps<typeof RouteMapView>> = {}) {
   return render(
     <SafeAreaProvider initialMetrics={METRICS}>
@@ -100,34 +105,60 @@ describe('the route detail map key', () => {
     expect(screen.queryByText('This activity')).toBeNull();
   });
 
-  it('names the picked attempt while one is drawn', async () => {
-    await renderRoute({ highlightedActivityId: 'a1' });
+  it('names an attempt picked on the chart by its date while it is drawn', async () => {
+    await renderRoute({
+      highlightedActivityId: 'a2',
+      highlightedActivityDate: PICKED_DATE,
+      pageActivityId: 'a1',
+    });
 
     expect(screen.getByTestId('route-map-legend')).toBeTruthy();
-    expect(screen.getByText('This activity')).toBeTruthy();
+    expect(screen.getByText(formatFullDate(PICKED_DATE))).toBeTruthy();
+    expect(screen.queryByText('This activity')).toBeNull();
     expect(screen.queryByTestId('route-map-legend-delta')).toBeNull();
   });
 
-  it('names the picked lap, which draws in the same colour', async () => {
-    await renderRoute({ highlightedLapPoints: POINTS.slice(1, 3) });
+  it('names the picked attempt this activity when the page was opened from it', async () => {
+    await renderRoute({
+      highlightedActivityId: 'a1',
+      highlightedActivityDate: PICKED_DATE,
+      pageActivityId: 'a1',
+    });
 
     expect(screen.getByText('This activity')).toBeTruthy();
   });
 
+  it('names a picked lap with no date the selected attempt, in the same colour', async () => {
+    await renderRoute({ highlightedLapPoints: POINTS.slice(1, 3) });
+
+    expect(screen.getByText('Selected attempt')).toBeTruthy();
+    expect(screen.queryByText('This activity')).toBeNull();
+  });
+
   it('names both layers when both are drawn', async () => {
-    await renderRoute({ deltaLine: DELTA_LINE, highlightedActivityId: 'a1' });
+    await renderRoute({
+      deltaLine: DELTA_LINE,
+      highlightedActivityId: 'a1',
+      pageActivityId: 'a1',
+    });
 
     expect(screen.getByTestId('route-map-legend-delta')).toBeTruthy();
     expect(screen.getByText('This activity')).toBeTruthy();
   });
 
   it('names the picked attempt full screen, where the line carries no delta colouring', async () => {
-    await renderRoute({ deltaLine: DELTA_LINE, highlightedActivityId: 'a1' });
+    await renderRoute({
+      deltaLine: DELTA_LINE,
+      highlightedActivityId: 'a2',
+      highlightedActivityDate: PICKED_DATE,
+      pageActivityId: 'a1',
+    });
 
     await fireEvent.press(screen.getByTestId('route-map-container'));
 
     expect(screen.getAllByTestId('route-map-legend')).toHaveLength(2);
     expect(screen.getAllByTestId('route-map-legend-delta')).toHaveLength(1);
-    expect(screen.getAllByText('This activity')).toHaveLength(2);
+    expect(screen.getAllByText(formatFullDate(PICKED_DATE))).toHaveLength(2);
+    expect(screen.queryByText('This activity')).toBeNull();
   });
 });
