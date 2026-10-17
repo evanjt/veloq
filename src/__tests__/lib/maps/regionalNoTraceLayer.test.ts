@@ -21,7 +21,6 @@ const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: 
 
 function layers(overrides: Partial<Parameters<typeof buildRegionalLayers>[0]> = {}) {
   return buildRegionalLayers({
-    isDark: false,
     mapStyle: 'light',
     showActivities: true,
     showSections: true,

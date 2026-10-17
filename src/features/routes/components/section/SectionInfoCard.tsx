@@ -129,10 +129,7 @@ export function SectionInfoCard({
   for (let i = 0; i < columns.length; i += 2) rows.push(columns.slice(i, i + 2));
 
   return (
-    <Card variant="flat">
-      <Text style={[styles.title, { color: isDark ? darkColors.textPrimary : colors.textPrimary }]}>
-        {t('recording.summary', 'Summary')}
-      </Text>
+    <Card variant="flat" testID="section-summary" title={t('recording.summary', 'Summary')}>
       {rows.map((row, r) => (
         <View key={r} style={styles.row} testID={`section-summary-row-${r}`}>
           {row.map((col, i) => (
@@ -165,10 +162,6 @@ export function SectionInfoCard({
 }
 
 const styles = StyleSheet.create({
-  title: {
-    ...typography.bodySmallBold,
-    marginBottom: spacing.sm,
-  },
   row: {
     flexDirection: 'row',
     marginBottom: spacing.sm,

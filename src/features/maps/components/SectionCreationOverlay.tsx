@@ -15,13 +15,14 @@ import {
   darkColors,
   iconSize,
   ink,
+  layers,
   layout,
   opacity,
   shadows,
   slopToMinTapTarget,
   spacing,
-  typography,
   stroke,
+  typography,
 } from '@/theme';
 import { sectionSizeTone, type SizeTone } from '@/features/maps/lib/sectionSizeTone';
 import { formatDistance } from '@/shared/format/format';
@@ -416,7 +417,7 @@ const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFill,
     justifyContent: 'flex-end',
-    zIndex: 200,
+    zIndex: layers.overlay,
   },
   bottomBar: {
     flexDirection: 'row',

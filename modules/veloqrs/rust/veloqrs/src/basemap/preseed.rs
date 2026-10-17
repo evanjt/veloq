@@ -436,14 +436,25 @@ pub fn seed_terrain_background(centres: Vec<(f64, f64)>) {
     });
 }
 
-/// Seed the ground around these bounds, on a thread of its own.
+/// Whether the pre-seed pins this source as part of the ground.
+pub(super) fn is_ground_source(source: &str) -> bool {
+    GROUND_SOURCES.contains(&source)
+}
+
+/// Seed the ground around every activity's bounds, on a thread of its own.
 ///
-/// Spawned where the heatmap pass is, because the two key on the same fact: a
-/// sync that stored a track is what moves an athlete's bounds. Paced well under
+/// The one way the pass starts, so its triggers cannot drift apart. A sync
+/// that stored a track starts it, because that is what moves an athlete's
+/// bounds. A segment change that demoted pinned ground starts it too, because
+/// otherwise nothing fetches the new segment's copies until the athlete next
+/// rides, and the demoted ones are evicted as opportunistic meanwhile.
+///
+/// The bounds are read on the pass's own thread from a pooled connection, so
+/// neither the caller nor the pass waits on the engine lock. Paced well under
 /// what a map pan asks for, since it is background work on someone else's
 /// servers.
-pub fn seed_ground_background(bounds: Vec<Bounds>) {
-    if bounds.is_empty() || super::store().is_none() {
+pub fn start_ground_preseed() {
+    if super::store().is_none() {
         return;
     }
     if RUNNING.swap(true, Ordering::SeqCst) {
@@ -453,6 +464,20 @@ pub fn seed_ground_background(bounds: Vec<Bounds>) {
     crate::threads::spawn_named("veloq-seed", move || {
         let _running = RunningGuard;
         let Some(store) = super::store() else { return };
+        let bounds = crate::persistence::read_pool::with_read_conn(|conn| {
+            crate::persistence::activities::pooled::activity_bounds(conn)
+        });
+        let bounds = match bounds {
+            Some(Ok(bounds)) => bounds,
+            Some(Err(e)) => {
+                log::warn!("[basemap] pre-seed could not read the activity bounds: {e}");
+                return;
+            }
+            None => return,
+        };
+        if bounds.is_empty() {
+            return;
+        }
         let sources = ground_sources();
         if sources.is_empty() {
             log::info!("[basemap] No ground template has been handed over, nothing to pre-seed");

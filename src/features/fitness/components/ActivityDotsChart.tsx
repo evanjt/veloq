@@ -9,7 +9,7 @@ import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS } from 'react
 import { ChartCrosshair, useChartGestures } from '@/shared/charts';
 import { colors, darkColors, spacing, layout, typography, stroke } from '@/theme';
 import { sortByDateId } from '@/shared/activity/activityUtils';
-import { ACTIVITY_CATEGORIES, getActivityCategory } from '@/shared/activity/sportCategories';
+import { getActivityCategory, sportFamilyLabel } from '@/shared/activity/sportCategories';
 import type { DayLoad } from 'veloqrs';
 import type { Activity, WellnessData } from '@/types';
 import { stripMarks, stripKey, markFills } from '../lib/stripMarks';
@@ -409,11 +409,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
             {key.groups.map((group) => (
               <View key={group} testID={`fitness-strip-key-${group}`} style={styles.keyItem}>
                 <View style={[styles.keySwatch, { backgroundColor: groupColor(group) }]} />
-                <Text style={keyTextStyle}>
-                  {t(
-                    `maps.activityTypes.${ACTIVITY_CATEGORIES[group]?.labelKey ?? 'other'}` as 'maps.activityTypes.ride'
-                  )}
-                </Text>
+                <Text style={keyTextStyle}>{t(sportFamilyLabel(group))}</Text>
               </View>
             ))}
             {key.noLoad ? (

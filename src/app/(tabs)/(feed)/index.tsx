@@ -241,7 +241,7 @@ function FeedScreenContent() {
     heroMetric,
     heroValue,
     heroLabel,
-    heroColor,
+    heroKeyColor,
     heroZone,
     heroTrend,
     heroAccessibilityLabel,
@@ -784,7 +784,7 @@ function FeedScreenContent() {
             heroMetric={heroMetric}
             heroValue={heroValue}
             heroLabel={heroLabel}
-            heroColor={heroColor}
+            heroKeyColor={heroKeyColor}
             heroZone={heroZone}
             heroTrend={heroTrend}
             heroAccessibilityLabel={heroAccessibilityLabel}

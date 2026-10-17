@@ -8,8 +8,8 @@ import { useNotificationPermission } from '@/shared/app/permissions/notification
 import { Button } from '@/shared/ui/Button';
 import { IconButton } from '@/shared/ui/IconButton';
 import { OpenSettingsButton } from '@/shared/ui/PermissionNotice';
-import { SignalStatus, signalColor } from '@/shared/ui/SignalStatus';
-import { iconSize, layout, spacing } from '@/theme';
+import { SIGNAL_LINE_RADIUS, SignalStatus, signalColor } from '@/shared/ui/SignalStatus';
+import { iconSize, spacing } from '@/theme';
 import { isLiveActivityAvailable, isLiveActivitySupported } from '../lib/liveActivity/bridge';
 import { useRecordingPreferences } from '../stores/RecordingPreferencesStore';
 
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
   line: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: layout.borderRadiusSm,
+    borderRadius: SIGNAL_LINE_RADIUS,
     overflow: 'hidden',
     paddingRight: spacing.xs,
   },

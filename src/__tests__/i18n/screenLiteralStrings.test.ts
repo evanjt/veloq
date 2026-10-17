@@ -17,7 +17,7 @@ const locales = fs
   .map((f) => f.replace('.json', ''));
 
 const KEYS = [
-  'recording.categories.walking',
+  'sportFamilies.foot',
   'recording.fieldModeGps',
   'recording.fieldModeIndoor',
   'mapScreen.distanceAny',

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const { addBlockedPermissions } = require('@expo/config-plugins/build/android/Permissions');
+const { addBlockedPermissions } = require('expo/config-plugins').AndroidConfig.Permissions;
 
 const BLOCKED = [
   'SYSTEM_ALERT_WINDOW',

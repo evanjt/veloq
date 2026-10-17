@@ -1,34 +1,28 @@
 /**
- * The feed's sport chips.
+ * The feed's sport chips, one per family.
  *
- * Which chip an activity answers to is the engine's rule, applied where the
- * search runs over the whole library: cycling, running and swimming name their
- * families and Other takes everything else, so no sport is left under no chip.
+ * Which family an activity is in is the engine's rule, applied where the
+ * search runs over the whole library, and Other takes every sport no family
+ * lists, so no sport is left under no chip.
  */
 
-import { FeedSportGroup } from 'veloqrs';
+import type { EngineSportFamily } from 'veloqrs';
 
-import { FEED_GROUPS, type FeedGroup } from '@/shared/activity/sportCategories';
+import { toEngineSportFamily } from '@/shared/activity/engineSportFamily';
+import {
+  SPORT_FAMILY_LABELS,
+  SPORT_FAMILY_ORDER,
+  type SportFamily,
+} from '@/shared/activity/sportCategories';
 
-export { FEED_GROUPS };
-export type { FeedGroup };
+export type FeedGroup = SportFamily;
 
-const SPORT_GROUP: Record<FeedGroup, FeedSportGroup> = {
-  Cycling: FeedSportGroup.Cycling,
-  Running: FeedSportGroup.Running,
-  Swimming: FeedSportGroup.Swimming,
-  Other: FeedSportGroup.Other,
-};
+export const FEED_GROUPS: readonly FeedGroup[] = SPORT_FAMILY_ORDER;
 
 /** Each chip's label, as a translation key. */
-export const FEED_GROUP_LABELS = {
-  Cycling: 'feed.groups.cycling',
-  Running: 'feed.groups.running',
-  Swimming: 'feed.groups.swimming',
-  Other: 'feed.groups.other',
-} as const satisfies Record<FeedGroup, string>;
+export const FEED_GROUP_LABELS = SPORT_FAMILY_LABELS;
 
 /** The engine's name for a chip. */
-export function feedSportGroup(group: FeedGroup): FeedSportGroup {
-  return SPORT_GROUP[group];
+export function feedSportGroup(group: FeedGroup): EngineSportFamily {
+  return toEngineSportFamily(group);
 }

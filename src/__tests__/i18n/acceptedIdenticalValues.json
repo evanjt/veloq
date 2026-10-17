@@ -1,5 +1,6 @@
 {
   "da": {
+    "backup.entryAppVersion": "Danish word or phrase with the same spelling.",
     "activityDetail.routePrBadge": "PR is the conventional abbreviation for personal record.",
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
     "activityTypes.Badminton": "Danish sport name or established sport loanword.",
@@ -195,6 +196,7 @@
     "charts.column.zone": "The same word in this language."
   },
   "de-DE": {
+    "backup.entryAppVersion": "German word or phrase with the same spelling.",
     "about.version": "German word or phrase with the same spelling.",
     "activity.stats.fitnessCTL": "Established German loanword or technical term.",
     "activity.stats.formTSB": "Established German loanword or technical term.",
@@ -548,6 +550,7 @@
     "charts.summary.parts": "Placeholders and punctuation only, no translatable words."
   },
   "fr": {
+    "backup.entryAppVersion": "French word or phrase with the same spelling.",
     "backup.carrierGoogleDrive": "Service and product names.",
     "backup.carrierIcloud": "Service and product names.",
     "maps.layerRoutes": "Routes has the same spelling in French and English.",
@@ -557,6 +560,7 @@
     "about.version": "French word or phrase with the same spelling.",
     "activity.calories": "French word or phrase with the same spelling.",
     "activity.distance": "French word or phrase with the same spelling.",
+    "activity.xAxis.distance": "French word or phrase with the same spelling.",
     "activity.stats.conditions": "French word or phrase with the same spelling.",
     "activity.stats.fatigueATL": "French fatigue label, with the conventional ATL abbreviation where present.",
     "activity.stats.max": "Abbreviation of the French label with the same spelling.",
@@ -637,6 +641,8 @@
     "systemSurfaces.action": "French word or phrase with the same spelling.",
     "systemSurfaces.sport": "French word or phrase with the same spelling.",
     "trainingScreen.sections": "French word or phrase with the same spelling.",
+    "trainingScreen.sectionsListCount_one": "French word or phrase with the same spelling.",
+    "trainingScreen.sectionsListCount_other": "French word or phrase with the same spelling.",
     "units.bpm": "Conventional measurement unit symbol.",
     "units.bpmSecondsPerKm": "Conventional measurement unit symbol.",
     "units.feetPerHour": "SI or imperial unit symbol, written the same in every language.",
@@ -907,6 +913,8 @@
     "support.forum": "Dutch word or phrase with the same spelling.",
     "systemSurfaces.sport": "Established Dutch loanword or technical term.",
     "trainingScreen.routes": "Dutch word or phrase with the same spelling.",
+    "trainingScreen.routesListCount_one": "Dutch word or phrase with the same spelling.",
+    "trainingScreen.routesListCount_other": "Dutch word or phrase with the same spelling.",
     "units.bpm": "Conventional measurement unit symbol.",
     "units.bpmSecondsPerKm": "Conventional measurement unit symbol.",
     "units.feetPerHour": "SI or imperial unit symbol, written the same in every language.",

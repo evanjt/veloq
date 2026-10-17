@@ -67,6 +67,7 @@ import {
   OfflineBanner,
   SyncErrorBanner,
   TrackFetchNotice,
+  BottomPillStack,
   BottomTabBar,
   NoticeHost,
   GlobalErrorBoundary,
@@ -647,8 +648,9 @@ export default function RootLayout() {
                     <DemoBanner />
                     <LibraryRebuiltNotice />
                     <WhatsNewModal />
-                    <TourReturnPill />
-                    <RecordingReturnPill />
+                    <BottomPillStack
+                      pills={{ recording: <RecordingReturnPill />, tour: <TourReturnPill /> }}
+                    />
                     <ShaderWarmup />
                     <BeneathTopSlot>
                       <NavigationThemeProvider>

@@ -12,10 +12,11 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { RangeCoverage } from 'veloqrs';
 
 import { ActivityHeatmap } from '@/features/stats/components/ActivityHeatmap';
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { changeLanguage, initialiseI18n } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
 import { CLOCK_EDGES, localDay } from '../__shared__/clockEdges';
@@ -70,6 +71,22 @@ describe('ActivityHeatmap', () => {
 
     await waitFor(() => expect(view.getByTestId('activity-heatmap-count')).toBeTruthy());
     expect(heatmapDays).toHaveBeenCalled();
+  });
+
+  it('caps the weekday, month and legend labels, which sit at the cell pitch', async () => {
+    const view = await render(<ActivityHeatmap />, { wrapper });
+
+    await waitFor(() => expect(view.getByTestId('activity-heatmap-count')).toBeTruthy());
+    const labels = [
+      view.getByTestId('activity-heatmap-count'),
+      ...['activity-heatmap-gutter', 'activity-heatmap-scroll', 'activity-heatmap-legend'].flatMap(
+        (id) => view.getByTestId(id).findAllByType(Text)
+      ),
+    ];
+    expect(labels.length).toBeGreaterThan(10);
+    for (const label of labels) {
+      expect(label.props.maxFontSizeMultiplier).toBe(DENSE_TEXT_SCALE);
+    }
   });
 
   it('shows the empty state when the cache holds no day, rather than waiting for an array', async () => {

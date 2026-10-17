@@ -32,10 +32,6 @@ jest.mock('@/features/activity', () => ({
   useActivityLabels: () => ({ labels: new Map(), error: null, refetch: jest.fn() }),
 }));
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
-jest.mock('@/features/fitness/hooks', () => ({
-  ...jest.requireActual('@/features/fitness/hooks'),
-  useAthleteSummary: jest.fn(() => ({ data: undefined, isLoading: true, error: null })),
-}));
 jest.mock('@/features/strength/hooks/useStrengthScreenData', () => ({
   ...jest.requireActual('@/features/strength/hooks/useStrengthScreenData'),
   useStrengthScreenData: () => ({
@@ -124,7 +120,7 @@ describe('season bests while the read is pending', () => {
 
 describe('the weekly summary while its totals load', () => {
   it('draws the four-cell stats grid as placeholders', async () => {
-    await render(withQueries(<WeeklySummary summaryLoading={true} />));
+    await render(withQueries(<WeeklySummary />));
 
     expect(screen.getByTestId('weekly-summary-skeleton')).toBeTruthy();
     expect(

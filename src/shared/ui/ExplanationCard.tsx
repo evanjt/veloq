@@ -88,8 +88,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   title: {
-    ...typography.bodySmall,
-    fontWeight: '600',
+    ...typography.cardTitle,
     color: colors.textPrimary,
     marginBottom: spacing.md,
   },
@@ -111,13 +110,12 @@ const styles = StyleSheet.create({
     flex: 1,
     ...typography.caption,
     color: colors.textSecondary,
-    lineHeight: 18,
   },
   textDark: {
     color: darkColors.textSecondary,
   },
   highlight: {
-    fontWeight: '600',
+    ...typography.captionBold,
   },
   highlightDark: {
     color: darkColors.textPrimary,
@@ -132,12 +130,9 @@ const styles = StyleSheet.create({
     borderTopColor: opacity.overlayDark.medium,
   },
   linksHeading: {
-    ...typography.label,
-    fontWeight: '600',
+    ...typography.sectionHeader,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   linksHeadingDark: {
     color: darkColors.textSecondary,

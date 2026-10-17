@@ -87,32 +87,31 @@
         android:orientation="vertical"
         android:visibility="gone">
 
+        <!-- One series to a line, since two translated names side by side outgrow the column. -->
         <LinearLayout
           android:id="@+id/sum_series"
           android:layout_width="match_parent"
           android:layout_height="wrap_content"
-          android:orientation="horizontal"
-          android:gravity="center_vertical">
+          android:orientation="vertical">
 
           <TextView
             android:id="@+id/sum_series_fitness"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:drawableStart="@drawable/widget_legend_fitness"
             android:drawablePadding="3dp"
-            android:maxLines="1"
+            android:maxLines="2"
             android:ellipsize="end"
             android:textSize="@dimen/widget_text_caption"
             android:textColor="@color/widget_text_secondary" />
 
           <TextView
             android:id="@+id/sum_series_fatigue"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
             android:drawableStart="@drawable/widget_legend_fatigue"
             android:drawablePadding="3dp"
-            android:maxLines="1"
+            android:maxLines="2"
             android:ellipsize="end"
             android:textSize="@dimen/widget_text_caption"
             android:textColor="@color/widget_text_secondary" />

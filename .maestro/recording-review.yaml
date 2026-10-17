@@ -54,6 +54,21 @@ onFlowComplete:
       id: "recording-timer"
     timeout: 10000
 
+# The review draws its map and trim only for a ride with a track. An Android
+# emulator reports fixes of its own, and an iOS simulator reports none until it
+# is given a route, so there the ride is driven along a short one.
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - travel:
+          points:
+            - 51.4769,-0.0005
+            - 51.4775,-0.0015
+            - 51.4781,-0.0025
+            - 51.4787,-0.0035
+          speed: 10
+
 # Unlock the screen (the lock auto-engages on recording start)
 - runFlow:
     file: helpers/unlock-recording.yaml
@@ -61,19 +76,8 @@ onFlowComplete:
 - runFlow:
     file: helpers/end-recording.yaml
 
-# Verify all review fields are visible
-- assertVisible:
-    id: "review-activity-name"
-
-- assertVisible:
-    id: "review-activity-type"
-
-- assertVisible:
-    id: "review-discard-button"
-
-- takeScreenshot: "screenshots/recording-review-fields"
-
-# Verify trim section is visible
+# The map hero and its trim open the screen, and with them the fields below
+# the name sit below the fold.
 - assertVisible:
     id: "review-trim"
 
@@ -90,7 +94,28 @@ onFlowComplete:
 
 - takeScreenshot: "screenshots/recording-review-name-entered"
 
+- runFlow:
+    file: helpers/dismiss-keyboard.yaml
+
+# Verify the rest of the review fields
+- runFlow:
+    file: helpers/scroll-review-to.yaml
+    env:
+      TARGET: review-activity-type
+
+- runFlow:
+    file: helpers/scroll-review-to.yaml
+    env:
+      TARGET: review-discard-button
+
+- takeScreenshot: "screenshots/recording-review-fields"
+
 # Tap save, in demo mode this succeeds and navigates home
+- runFlow:
+    file: helpers/scroll-review-to.yaml
+    env:
+      TARGET: review-save-button
+
 - tapOn:
     id: "review-save-button"
 

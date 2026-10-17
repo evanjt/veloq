@@ -288,6 +288,7 @@ fn reads(small: Ids, large: Ids) -> Vec<(&'static str, Read)> {
                     year_previous: span(730),
                     month_current: span(30),
                     month_previous: span(60),
+                    now_wall_seconds: NOW as f64,
                 }))
             }),
         ),

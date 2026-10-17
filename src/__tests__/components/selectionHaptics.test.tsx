@@ -15,7 +15,7 @@ import { PaperProvider } from 'react-native-paper';
 
 import { SwipeableTabs } from '@/shared/ui';
 import { ActivityCardContextMenu } from '@/features/activity/components/ActivityCardContextMenu';
-import { ChartDistanceIndicator } from '@/features/activity/components/ChartDistanceIndicator';
+import { ChartXAxisSwitch } from '@/features/activity/components/ChartXAxisSwitch';
 import type { Activity } from '@/types';
 
 jest.mock('expo-haptics', () => ({
@@ -123,24 +123,22 @@ describe('selection haptics', () => {
     expect(mockClearActivityOverride).toHaveBeenCalledWith('a1');
   });
 
-  it('switching the x-axis mode fires one selection and no impact', async () => {
-    const onToggle = jest.fn();
-    const { getByText } = await render(
-      <ChartDistanceIndicator
-        xAxisMode="distance"
-        maxX={12.3}
-        xUnit="km"
-        isDark={false}
-        canToggleXAxis
-        onXAxisModeToggle={onToggle}
-      />
+  it('switching the x-axis mode fires one selection, and pressing the active one fires none', async () => {
+    const onChange = jest.fn();
+    const { getByTestId } = await render(
+      <ChartXAxisSwitch value="distance" onValueChange={onChange} />
     );
 
-    await fireEvent.press(getByText('12.3 km'));
+    await fireEvent.press(getByTestId('chart-x-axis-time'));
 
     expect(Haptics.selectionAsync).toHaveBeenCalledTimes(1);
     expect(Haptics.impactAsync).not.toHaveBeenCalled();
-    expect(onToggle).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith('time');
+
+    await fireEvent.press(getByTestId('chart-x-axis-distance'));
+
+    expect(Haptics.selectionAsync).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledTimes(1);
   });
 
   it('switching a sub-tab fires one selection, and pressing the active one fires none', async () => {

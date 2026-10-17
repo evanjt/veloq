@@ -22,8 +22,7 @@
     "Soccer": "Soccer"
   },
   "alerts": {
-    "clearCacheMessage": "This clears out all cached activity data, activity tracks and route matching data, then starts to reload. Might take a few minutes.",
-    "disconnectMessage": "This takes your API credentials out of the app. You'll need to pop them in again to use it.",
+    "clearCacheMessage": "This clears out all cached activity data, activity tracks and route matching data, then starts to reload. Might take a few minutes. The local data range goes back to the last 90 days.",
     "disconnectOffline": "You're offline. Both ways back in need a connection, so you won't be able to sign in again till the network's back.",
     "failedToClear": "Couldn't clear the cache. Give it another go.",
     "failedToDisconnect": "Couldn't disconnect. Give it another go.",
@@ -354,7 +353,7 @@
   },
   "wellness": {
     "noTrendData": "No trend data yet",
-    "trendHint": "HRV, sleep and resting HR trends will turn up here once there's data logged"
+    "trendHint": "Wellness from intervals.icu (HRV, resting HR, sleep, sleep score, weight) turns up here once it's logged."
   },
   "strength": {
     "noWorkouts": "No gym sessions in the last {{period}}",

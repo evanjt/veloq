@@ -35,6 +35,8 @@ export interface MapControlColumnLayout {
   columns: number;
   /** Height the column is bounded by, so no button leaves the map. */
   maxHeight: number;
+  /** Width the column is drawn at. Layout sizes a wrapping column to its first column only, so the rest would land off the map. */
+  width: number;
   /** Width from the map's right edge that the column occupies; text beside it stays clear of this. */
   footprint: number;
 }
@@ -48,12 +50,17 @@ export function mapControlColumnLayout(
   mapHeight: number,
   top: number
 ): MapControlColumnLayout {
-  if (count <= 0) return { columns: 0, maxHeight: 0, footprint: 0 };
+  if (count <= 0) return { columns: 0, maxHeight: 0, width: 0, footprint: 0 };
   const step = layout.minTapTarget + spacing.sm;
   const maxHeight = Math.max(step, mapHeight - top - layout.cardMargin);
   const perColumn = Math.max(1, Math.floor((maxHeight + spacing.sm) / step));
   const columns = Math.ceil(count / perColumn);
-  return { columns, maxHeight, footprint: layout.cardMargin + columns * step };
+  return {
+    columns,
+    maxHeight,
+    width: columns * step - spacing.sm,
+    footprint: layout.cardMargin + columns * step,
+  };
 }
 
 export interface MapControlColumn extends MapControlColumnLayout {

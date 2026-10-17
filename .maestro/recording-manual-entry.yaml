@@ -65,11 +65,22 @@ onFlowComplete:
 
 - takeScreenshot: "screenshots/recording-manual-entry-form"
 
-# Navigate back to record type picker then to home
-- back
+# Navigate back to home. The form replaces the record screen on its way in, so
+# one back can already land on the feed, and a second is taken only if not.
+- runFlow:
+    file: helpers/go-back.yaml
 
-# Back again from record picker to home
-- back
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 3000
+    optional: true
+
+- runFlow:
+    when:
+      notVisible:
+        id: "home-screen"
+    file: helpers/go-back.yaml
 
 # Verify return to home screen
 - extendedWaitUntil:

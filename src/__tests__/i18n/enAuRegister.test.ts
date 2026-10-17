@@ -28,10 +28,10 @@ const DESTRUCTIVE_LABELS = [
   'activity.resetToDefault',
   'alerts.clearCacheTitle',
   'alerts.clearReload',
-  'alerts.disconnect',
   'alerts.disconnectAndClearConfirm',
   'alerts.disconnectAndClearTitle',
-  'alerts.disconnectTitle',
+  'alerts.signOut',
+  'alerts.signOutTitle',
   'alerts.accountChangeContinue',
   'backup.clearAndSync',
   'backup.deviceLibraryDifferentAccount',
@@ -50,9 +50,9 @@ const DESTRUCTIVE_LABELS = [
   'sensors.forget',
   'settings.clearAllReload',
   'settings.clearCache',
-  'settings.disconnectAccount',
   'settings.disconnectAndClearData',
   'settings.previewDiscard',
+  'settings.signOut',
   'settings.streamHistoryReset',
 ];
 
@@ -61,8 +61,8 @@ const DESTRUCTIVE_LABELS = [
  * the kinds of data it deletes and where they come back from.
  */
 const CONFIRMATION_NAMES: Record<string, RegExp[]> = {
-  'alerts.clearCacheMessage': [/activity data/, /tracks/, /route matching/, /reload/],
-  'alerts.disconnectMessage': [/API credentials/, /again/],
+  'alerts.clearCacheMessage': [/activity data/, /tracks/, /route matching/, /reload/, /90 days/],
+  'alerts.signOutMessage': [/library/, /settings/, /this phone/, /again/],
   'alerts.disconnectAndClearMessage': [
     /signs you out/,
     /library/,

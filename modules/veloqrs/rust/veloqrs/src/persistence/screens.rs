@@ -1633,6 +1633,62 @@ pub(crate) fn week_trends(
     )
 }
 
+/// One total against the same total of an earlier period, or none when the
+/// earlier one is not a positive number. The move is judged through the trend
+/// table on the values as printed, `(current, previous)`, so the arrow never
+/// disagrees with the two numbers, and sized from the raw totals.
+fn stat_trend(
+    metric: &str,
+    printed: (f64, f64),
+    current: f64,
+    previous: f64,
+) -> Option<crate::FfiStatTrend> {
+    if !(previous.is_finite() && previous > 0.0 && current.is_finite()) {
+        return None;
+    }
+    let glyph = crate::trend_table::glyph(metric, Some(printed.0), Some(printed.1))?;
+    let percent =
+        (glyph != "→").then(|| (((current - previous) / previous).abs() * 100.0).round() as u32);
+    Some(crate::FfiStatTrend { glyph, percent })
+}
+
+/// A period against the one before it, with the four totals judged once.
+/// Hours are judged to the tenth, as [`week_trends`] judges them for the home
+/// card, distance in kilometres and load in whole points.
+pub(crate) fn summary_comparison(
+    conn: &rusqlite::Connection,
+    (current_start, current_end, previous_start, previous_end): (i64, i64, i64, i64),
+) -> rusqlite::Result<crate::FfiSummaryComparison> {
+    use crate::persistence::fitness::derivations::pooled::try_period_stats;
+    let current = try_period_stats(conn, current_start, current_end)?;
+    let previous = try_period_stats(conn, previous_start, previous_end)?;
+    let range = |start: i64, end: i64| crate::FfiTimestampRange {
+        start_ts: start as f64,
+        end_ts: end as f64,
+    };
+    let (count, prev_count) = (f64::from(current.count), f64::from(previous.count));
+    let (km, prev_km) = (
+        current.total_distance / 1000.0,
+        previous.total_distance / 1000.0,
+    );
+    let (load, prev_load) = (current.total_tss.round(), previous.total_tss.round());
+    Ok(crate::FfiSummaryComparison {
+        current: range(current_start, current_end),
+        previous: range(previous_start, previous_end),
+        count: stat_trend("weekCount", (count, prev_count), count, prev_count),
+        duration: stat_trend(
+            "weekHours",
+            (week_hours(&current), week_hours(&previous)),
+            current.total_duration,
+            previous.total_duration,
+        ),
+        distance: stat_trend("weekDistance", (km, prev_km), km, prev_km),
+        load: stat_trend("weekTss", (load, prev_load), load, prev_load),
+        current_stats: current,
+        previous_stats: previous,
+    })
+}
+
 /// The tail of a series, oldest first, capped.
 ///
 /// Every insight card draws a graphic of its own history, and the points come
@@ -1843,13 +1899,14 @@ pub mod pooled {
 
     /// Everything the training tab paints with that stays fixed while it is
     /// mounted: the heatmap days, the monthly rows, and the year and month to
-    /// date against the same spans of last year.
+    /// date against the same spans of last year, and each of the weekly card's
+    /// ranges to now against the same elapsed span of the period before.
     ///
     /// Every part is an aggregate of `activity_metrics`, or of the heatmap
     /// cache the metrics writer keeps beside it, so the `activities` event is
     /// the one that makes it stale. The weekly card's range is chosen with a
-    /// tap while the screen stays mounted, so its totals are not here: a tap
-    /// would otherwise re-read a year of days to get two numbers.
+    /// tap, so all five ranges are here and a tap reads nothing; each is two
+    /// indexed sums.
     pub fn training_screen_data(
         conn: &Connection,
         windows: &crate::FfiTrainingScreenWindows,
@@ -1864,6 +1921,11 @@ pub mod pooled {
             try_period_stats(conn, start, end)
         };
         let (months_start, months_end) = span(&windows.months);
+        let [week, month, three_months, six_months, year] =
+            crate::widget_snapshot::summary_period_bounds(crate::ffi_types::int_from_wire(
+                windows.now_wall_seconds,
+            ))
+            .map(|bounds| super::summary_comparison(conn, bounds));
         Ok(crate::FfiTrainingScreenData {
             heatmap: activity_heatmap(conn, &windows.heatmap_first_day, &windows.heatmap_last_day)?,
             months: monthly_stats(conn, months_start, months_end)?,
@@ -1871,6 +1933,13 @@ pub mod pooled {
             year_previous: totals(&windows.year_previous)?,
             month_current: totals(&windows.month_current)?,
             month_previous: totals(&windows.month_previous)?,
+            comparisons: crate::FfiSummaryComparisons {
+                week: week?,
+                month: month?,
+                three_months: three_months?,
+                six_months: six_months?,
+                year: year?,
+            },
         })
     }
 
@@ -3237,15 +3306,13 @@ pub mod pooled {
         let holds = |held: Option<f64>| stamp.is_some() && held == stamp;
         let window = map_activities_filtered(conn, start_date, end_date);
         let mapped = window.len() as u32;
-        let category_counts = crate::sport::DISPLAY_GROUPS
-            .iter()
-            .map(|(category, _)| crate::ffi_types::FfiMapCategoryCount {
-                category: (*category).into(),
+        let category_counts = crate::FfiSportFamily::ALL
+            .into_iter()
+            .map(|family| crate::ffi_types::FfiMapCategoryCount {
+                family,
                 count: window
                     .iter()
-                    .filter(|activity| {
-                        crate::sport::display_group(&activity.sport_type) == *category
-                    })
+                    .filter(|activity| crate::FfiSportFamily::of(&activity.sport_type) == family)
                     .count() as u32,
             })
             .collect();
@@ -6380,7 +6447,7 @@ mod tests {
                 oldest_ts: None,
                 newest_ts: None,
                 needle: String::new(),
-                sport_groups: Vec::new(),
+                sport_families: Vec::new(),
                 offset: 0,
                 limit: None,
             },
@@ -6606,7 +6673,7 @@ mod tests {
             screen
                 .category_counts
                 .iter()
-                .find(|c| c.category == "Ride")
+                .find(|c| c.family == crate::FfiSportFamily::Ride)
                 .unwrap()
                 .count,
             2
@@ -6615,7 +6682,7 @@ mod tests {
             screen
                 .category_counts
                 .iter()
-                .find(|c| c.category == "Run")
+                .find(|c| c.family == crate::FfiSportFamily::Run)
                 .unwrap()
                 .count,
             1
@@ -6624,7 +6691,7 @@ mod tests {
             screen
                 .category_counts
                 .iter()
-                .find(|c| c.category == "Other")
+                .find(|c| c.family == crate::FfiSportFamily::Other)
                 .unwrap()
                 .count,
             1

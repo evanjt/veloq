@@ -7,15 +7,19 @@
  * title and described by its description, that toggles from a tap anywhere on it
  * with one selection haptic. The switch inside it is hidden from assistive
  * technology so it is not a second stop, and still toggles from its own thumb.
+ * It sits in a container that takes it out of keyboard focus too, since
+ * Android's native switch is focusable and takes no prop that turns it off, so a
+ * keyboard user meets one stop per row and not a second that draws nothing.
  */
 
 import React from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
 import { Switch as PaperSwitch } from 'react-native-paper';
 
 import { Switch, SwitchRow, switchColors } from '@/shared/ui';
+import { KeyboardFocusBlock } from '@/shared/ui/KeyboardFocusBlock';
 import { colors, colorWithOpacity, darkColors, opacity, switchTrackOff } from '@/theme';
 
 jest.mock('expo-haptics', () => ({
@@ -93,6 +97,17 @@ describe('SwitchRow', () => {
     expect(Haptics.selectionAsync).toHaveBeenCalledTimes(1);
   });
 
+  it('holds its own switch out of keyboard focus, so the row is the one stop', async () => {
+    await renderRow();
+    const thumb = screen.UNSAFE_getByType(PaperSwitch);
+
+    let holder = thumb.parent;
+    while (holder && holder.type !== KeyboardFocusBlock) holder = holder.parent;
+
+    expect(holder).not.toBeNull();
+    expect(screen.getByTestId('night-lights')).not.toBe(holder);
+  });
+
   it('does nothing while disabled, and says so', async () => {
     const onValueChange = await renderRow({ disabled: true });
 
@@ -156,6 +171,41 @@ describe('Switch', () => {
 
     expect(onValueChange).toHaveBeenCalledWith(true);
     expect(Haptics.selectionAsync).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('KeyboardFocusBlock', () => {
+  // The module object itself, which the component reads at render; a namespace
+  // import would be a copy the spy never reaches.
+  const expoModulesCore = require('expo-modules-core');
+  const originalOs = Platform.OS;
+  afterEach(() => {
+    Platform.OS = originalOs;
+    jest.restoreAllMocks();
+  });
+
+  it('is the native focus-blocking view on Android', async () => {
+    Platform.OS = 'android';
+    const NativeBlock = () => null;
+    const requireView = jest
+      .spyOn(expoModulesCore, 'requireNativeViewManager')
+      .mockReturnValue(NativeBlock);
+
+    await render(<KeyboardFocusBlock testID="holder" />);
+
+    expect(requireView).toHaveBeenCalledWith('VeloqFocus');
+    expect(screen.UNSAFE_getByType(NativeBlock).props.testID).toBe('holder');
+    expect(screen.UNSAFE_queryAllByType(View)).toHaveLength(0);
+  });
+
+  it('is a plain view on iOS, which has no such native view', async () => {
+    Platform.OS = 'ios';
+    const requireView = jest.spyOn(expoModulesCore, 'requireNativeViewManager');
+
+    await render(<KeyboardFocusBlock testID="holder" />);
+
+    expect(requireView).not.toHaveBeenCalled();
+    expect(screen.getByTestId('holder').type).toBe('View');
   });
 });
 

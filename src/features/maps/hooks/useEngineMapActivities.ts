@@ -6,6 +6,8 @@ import type { FfiMapEmptyReason, FfiRouteLineLayer, MapDistanceBand } from 'velo
 import type { RouteLineLayerInput } from '@/features/maps/lib/routeLineCollection';
 import { createLayerHold } from '@/features/maps/lib/mapLayerHold';
 import { createSectionLineCache, type MapSection } from '@/features/maps/lib/sectionLineCollection';
+import { fromEngineSportFamily } from '@/shared/activity/engineSportFamily';
+import type { SportFamily } from '@/shared/activity/sportCategories';
 
 export type { MapSection } from '@/features/maps/lib/sectionLineCollection';
 
@@ -44,7 +46,7 @@ interface UseEngineMapActivitiesReturn {
   /** Available sport types from engine data */
   availableTypes: string[];
   /** Counts in the date window, before sport and distance filters */
-  categoryCounts: { category: string; count: number }[];
+  categoryCounts: { category: SportFamily; count: number }[];
   /** Routes the map can draw, whether or not the layer was asked for */
   routeCount: number;
   /** The route-line layer, present only when asked for and current */
@@ -173,7 +175,10 @@ export function useEngineMapActivities({
       activities: items,
       availableTypes: data.availableSportTypes,
       activityCount: data.activityCount,
-      categoryCounts: data.categoryCounts,
+      categoryCounts: data.categoryCounts.map(({ family, count }) => ({
+        category: fromEngineSportFamily(family),
+        count,
+      })),
       routeCount: data.routeCount,
       routeLines: routeHold.take(data.routeLines),
       sectionCount: sectionsEnabled ? data.sectionCount : 0,

@@ -4,8 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { useStableBy } from '@/shared/app/useStableBy';
 import { useWellnessGeneration } from '@/features/wellness';
-import { formatForm, getFormZone, formZoneTextColor } from '@/features/fitness';
-import { summaryMetricTextColor } from '@/features/home/lib/summaryMetricColour';
+import { formatForm, getFormZone } from '@/features/fitness';
+import { summaryFormZoneColor, summarySeriesColor } from '@/features/home/lib/summaryMetricColour';
 import { useDashboardPreferences, type MetricId } from '@/features/settings';
 import { summaryCardTarget } from '@/features/home/lib/summaryCardTargets';
 import {
@@ -19,7 +19,6 @@ import { spokenDuration, spokenPace, spokenSwimPace } from '@/shared/format/spok
 import { formatWeightCompact } from '@/shared/format/weight';
 import { ABSENT } from '@/shared/format/absent';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
-import { verdictColor } from '@/theme';
 import type { WellnessSparklines } from 'veloqrs';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
@@ -60,7 +59,8 @@ export interface SummaryCardData {
   heroMetric: string;
   heroValue: number | string;
   heroLabel: string;
-  heroColor: string;
+  /** The colour of the key dot beside the hero value, absent while it has no series to key. */
+  heroKeyColor?: string | undefined;
   heroZone?: string | undefined;
   heroTrend?: TrendGlyph | undefined;
   heroAccessibilityLabel: string;
@@ -327,12 +327,9 @@ export function useSummaryCardData(
     quickStats.form == null
       ? undefined
       : getFormZone(quickStats.form, quickStats.fitness, asPercent);
-  // The hero value and the zone label are text, so they take the text variant
-  // rather than the band fill they used to.
+  // The form hero's key dot takes its zone's mark, and none before a form reading.
   const isDark = useResolvedColorScheme() === 'dark';
-  const formColor = formZone
-    ? formZoneTextColor(formZone, isDark)
-    : verdictColor('positive', isDark);
+  const formKeyColor = formZone ? summaryFormZoneColor(formZone) : undefined;
 
   // A metric's spoken name, its value where the card draws it as a clock, and
   // the reading its arrow was judged against, formatted in the athlete's units
@@ -434,7 +431,7 @@ export function useSummaryCardData(
         ? {
             value: quickStats.hrv ?? PLACEHOLDER,
             label: t('metrics.hrv'),
-            color: summaryMetricTextColor('hrv', isDark),
+            keyColor: summarySeriesColor('hrv', isDark),
             trend: quickStats.hrvTrend,
           }
         : summaryCard.heroMetric === 'form'
@@ -444,13 +441,13 @@ export function useSummaryCardData(
                   ? null
                   : formatForm(quickStats.form, quickStats.fitness, asPercent)) ?? PLACEHOLDER,
               label: t('metrics.form'),
-              color: formColor,
+              keyColor: formKeyColor,
               trend: quickStats.formTrend,
             }
           : {
               value: quickStats.fitness ?? PLACEHOLDER,
               label: t('metrics.fitness'),
-              color: summaryMetricTextColor('fitness', isDark),
+              keyColor: summarySeriesColor('fitness', isDark),
               trend: quickStats.fitnessTrend,
             };
     const heroId: MetricId =
@@ -458,7 +455,7 @@ export function useSummaryCardData(
         ? summaryCard.heroMetric
         : 'fitness';
     return { ...hero, accessibilityLabel: describe(heroId, hero.value, hero.trend) };
-  }, [summaryCard.heroMetric, quickStats, t, asPercent, formColor, describe, isDark]);
+  }, [summaryCard.heroMetric, quickStats, t, asPercent, formKeyColor, describe, isDark]);
 
   // Sparklines pulled from Rust (wellness persisted in SQLite via
   // `upsertWellness` in useWellness). Rust does the 30-day slice, CTL/ATL
@@ -526,7 +523,6 @@ export function useSummaryCardData(
           return {
             label: t('metrics.fitness'),
             value: quickStats.fitness ?? PLACEHOLDER,
-            color: summaryMetricTextColor('fitness', isDark),
             trend: quickStats.fitnessTrend,
           };
         case 'form':
@@ -536,7 +532,6 @@ export function useSummaryCardData(
               (quickStats.form == null
                 ? null
                 : formatForm(quickStats.form, quickStats.fitness, asPercent)) ?? PLACEHOLDER,
-            color: formColor,
             trend: quickStats.formTrend,
           };
         case 'hrv':
@@ -544,7 +539,6 @@ export function useSummaryCardData(
             label: t('metrics.hrv'),
             value: quickStats.hrv ?? PLACEHOLDER,
             unit: quickStats.hrv == null ? undefined : t('units.ms'),
-            color: summaryMetricTextColor('hrv', isDark),
             trend: quickStats.hrvTrend,
           };
         case 'rhr':
@@ -552,7 +546,6 @@ export function useSummaryCardData(
             label: t('metrics.rhr'),
             value: quickStats.rhr ?? PLACEHOLDER,
             unit: quickStats.rhr == null ? undefined : t('units.bpm'),
-            color: undefined,
             trend: quickStats.rhrTrend,
           };
         case 'ftp':
@@ -560,7 +553,6 @@ export function useSummaryCardData(
             label: t('metrics.eftp'),
             value: quickStats.ftp ?? PLACEHOLDER,
             unit: quickStats.ftp == null ? undefined : t('units.watts'),
-            color: summaryMetricTextColor('ftp', isDark),
             trend: quickStats.ftpTrend,
           };
         case 'thresholdPace':
@@ -571,7 +563,6 @@ export function useSummaryCardData(
                 ? PLACEHOLDER
                 : formatPaceCompact(quickStats.thresholdPace, isMetric),
             unit: quickStats.thresholdPace == null ? undefined : paceUnitLabel(isMetric),
-            color: summaryMetricTextColor('thresholdPace', isDark),
             trend: quickStats.thresholdPaceTrend,
           };
         case 'css':
@@ -579,28 +570,24 @@ export function useSummaryCardData(
             label: t('metrics.css'),
             value: quickStats.css == null ? PLACEHOLDER : formatSwimPace(quickStats.css, isMetric),
             unit: quickStats.css == null ? undefined : swimPaceUnitLabel(isMetric),
-            color: summaryMetricTextColor('css', isDark),
             trend: quickStats.cssTrend,
           };
         case 'weekHours':
           return {
             label: t('metrics.week'),
             value: formatDurationHuman(quickStats.weekSeconds),
-            color: undefined,
             trend: quickStats.weekHoursTrend,
           };
         case 'weekCount':
           return {
             label: '#',
             value: quickStats.weekCount,
-            color: undefined,
             trend: quickStats.weekCountTrend,
           };
         case 'weight':
           return {
             label: '\u2696\uFE0F',
             value: formattedWeight,
-            color: undefined,
             trend: quickStats.weightTrend,
           };
         default: {
@@ -613,11 +600,9 @@ export function useSummaryCardData(
   }, [
     summaryCard.supportingMetrics,
     quickStats,
-    formColor,
     formattedWeight,
     isMetric,
     asPercent,
-    isDark,
     t,
     describe,
     spokenOf,
@@ -657,7 +642,7 @@ export function useSummaryCardData(
       heroMetric: summaryCard.heroMetric,
       heroValue: stableHeroData.value,
       heroLabel: stableHeroData.label,
-      heroColor: stableHeroData.color,
+      heroKeyColor: stableHeroData.keyColor,
       heroZone:
         summaryCard.heroMetric === 'form' && formZone ? t(`formZones.${formZone}`) : undefined,
       heroTrend: stableHeroData.trend,

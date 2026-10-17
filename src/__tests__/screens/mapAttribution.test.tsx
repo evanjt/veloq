@@ -1,7 +1,7 @@
 /**
  * Scenario: the Map tab credits its basemap over the map, above the filter sheet.
  * Expected behaviour: one bounded attribution pill, the shared overlay, sitting on
- * the sheet's measured top edge and themed by the basemap rather than the app. The
+ * the sheet's measured top edge and themed by the app rather than the basemap. The
  * map's popups clear the sheet and the credit as measured, and the sheet never
  * grows past the space under the map's top controls.
  */
@@ -147,20 +147,20 @@ describe('map tab attribution', () => {
     expect(view.getByTestId('map-filter-scroll')).toBeTruthy();
   });
 
-  it('themes the pill by the basemap, not by the app theme', async () => {
-    mockBasemapDark = true;
-    mockAppDark = false;
-    const onDarkMap = await render(<MapScreen />);
-    expect(
-      StyleSheet.flatten(onDarkMap.getByTestId('map-attribution-text').props.style).color
-    ).toBe(darkColors.textSecondary);
-    onDarkMap.unmount();
-
+  it('themes the pill by the app, not by the basemap drawn under it', async () => {
     mockBasemapDark = false;
     mockAppDark = true;
-    const onLightMap = await render(<MapScreen />);
+    const darkAppOnLightMap = await render(<MapScreen />);
     expect(
-      StyleSheet.flatten(onLightMap.getByTestId('map-attribution-text').props.style).color
+      StyleSheet.flatten(darkAppOnLightMap.getByTestId('map-attribution-text').props.style).color
+    ).toBe(darkColors.textSecondary);
+    darkAppOnLightMap.unmount();
+
+    mockBasemapDark = true;
+    mockAppDark = false;
+    const lightAppOnDarkMap = await render(<MapScreen />);
+    expect(
+      StyleSheet.flatten(lightAppOnDarkMap.getByTestId('map-attribution-text').props.style).color
     ).not.toBe(darkColors.textSecondary);
   });
 });

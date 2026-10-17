@@ -23,7 +23,7 @@ import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useTimer } from '@/features/recording/hooks/useTimer';
-import { pressable, pressRipple, useBottomClearance } from '@/shared/ui';
+import { pressable, pressRipple } from '@/shared/ui';
 import { sessionReturnRoute } from '@/features/recording/lib/sessionReturnRoute';
 import type { RecordingStatus } from '@/types';
 
@@ -61,8 +61,6 @@ export function RecordingReturnPill() {
 function RecordingReturnPillInner({ status }: { status: RecordingStatus }) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  // Floats absolute, so a safe area around it does not lift it by its padding.
-  const bottomClearance = useBottomClearance({ insetTaken: false });
   const activityType = useRecordingStore((s) => s.activityType);
   const { formattedElapsed } = useTimer();
   const paused = status === 'paused';
@@ -72,14 +70,9 @@ function RecordingReturnPillInner({ status }: { status: RecordingStatus }) {
   const bgColor = isDark ? darkColors.surfaceElevated : colors.surface;
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const accent = paused ? (isDark ? darkColors.warningAmber : colors.warningAmber) : brand.teal;
-  const bottomOffset = bottomClearance + spacing.sm;
 
   return (
-    <Animated.View
-      style={[styles.container, { bottom: bottomOffset }]}
-      {...motionPresets.pill}
-      pointerEvents="box-none"
-    >
+    <Animated.View style={styles.container} {...motionPresets.pill} pointerEvents="box-none">
       <Pressable
         testID="recording-return-pill"
         style={pressable([styles.pill, { backgroundColor: bgColor }, shadows.elevated])}
@@ -112,11 +105,8 @@ function RecordingReturnPillInner({ status }: { status: RecordingStatus }) {
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
+    alignSelf: 'stretch',
     alignItems: 'center',
-    zIndex: 999,
   },
   pill: {
     flexDirection: 'row',

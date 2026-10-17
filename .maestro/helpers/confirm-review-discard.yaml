@@ -3,11 +3,11 @@
 
 appId: com.veloq.app.dev
 ---
-# The button sits below the fold on a short screen.
-- scrollUntilVisible:
-    element:
-      id: "review-discard-button"
-    direction: DOWN
+# The button sits below the fold on a short screen, and under a map hero.
+- runFlow:
+    file: scroll-review-to.yaml
+    env:
+      TARGET: review-discard-button
 
 - tapOn:
     id: "review-discard-button"
@@ -16,8 +16,24 @@ appId: com.veloq.app.dev
     visible: "Discard this recording\\?"
     timeout: 5000
 
-# The screen's own button carries the same label, so take the one nearest
-# under the alert's title.
-- tapOn:
-    text: "Discard"
-    below: "Discard this recording\\?"
+# The screen's own button carries the same label. On Android the one under the
+# alert's title is the alert's. On iOS the title anchors on the alert's whole
+# frame and the screen's button comes first in the hierarchy, so a tap below
+# the title lands behind the alert. There the alert's accept is the one above
+# the screen's button, which sits at the foot of the review once scrolled to.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn:
+          text: "Discard"
+          below: "Discard this recording\\?"
+
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          text: "Discard"
+          above:
+            id: "review-discard-button"

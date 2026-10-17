@@ -269,6 +269,27 @@ pub(crate) mod pooled {
     /// over rows: a user-defined section keeps its own name, an auto one
     /// shows its overlay name over the one its row stores, and a section with
     /// neither is left out.
+    /// The name one section is shown under, on the precedence
+    /// `all_section_names` gives it, without resolving every other section.
+    pub(crate) fn section_name(conn: &Connection, section_id: &str) -> Option<String> {
+        let (own, user_defined): (Option<String>, bool) = conn
+            .query_row(
+                "SELECT name, is_user_defined FROM sections WHERE id = ?",
+                [section_id],
+                |row| Ok((row.get(0)?, row.get::<_, Option<i32>>(1)?.unwrap_or(0) != 0)),
+            )
+            .ok()?;
+        let shown = || {
+            crate::persistence::sections::named::pooled::overlay_names_for(conn, &[section_id])
+                .remove(section_id)
+        };
+        if user_defined {
+            own.or_else(shown)
+        } else {
+            shown().or(own)
+        }
+    }
+
     pub(crate) fn all_section_names(conn: &Connection) -> HashMap<String, String> {
         let shown = crate::persistence::sections::named::pooled::overlay_names(conn);
         let Ok(mut stmt) = conn.prepare("SELECT id, name, is_user_defined FROM sections") else {

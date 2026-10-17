@@ -149,7 +149,7 @@ describe('tap-target floor', () => {
       />
     );
 
-    const chip = screen.getByTestId('home-filter-cycling');
+    const chip = screen.getByTestId('home-filter-ride');
     expect(reach(chip).height).toBeGreaterThanOrEqual(layout.minTapTarget);
   });
 
@@ -297,7 +297,6 @@ describe('tap-target floor', () => {
         onProfilePress={jest.fn()}
         heroValue={42}
         heroLabel="Fitness"
-        heroColor="#000"
         showSparkline={false}
         supportingMetrics={[{ label: 'Form', value: '-3', navigationTarget: '/fitness' }]}
       />

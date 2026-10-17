@@ -8,14 +8,17 @@ import { type FfiMapEmptyReason, FfiMapEmptyReason_Tags, MapDistanceBand } from 
 const mockUseMap = jest.fn();
 const mockRefetchMapRead = jest.fn();
 const mockMapView = jest.fn((_props: unknown) => null);
-const mockTranslate = jest.fn((key: string, options?: { count?: number; mapped?: number }) => {
-  if (key === 'mapScreen.activitySummary') return `${options?.count}:${options?.mapped}`;
-  if (key.startsWith('maps.activityTypes.')) {
-    const category = key.split('.').at(-1) ?? '';
-    return category[0].toUpperCase() + category.slice(1);
+const mockTranslate = jest.fn(
+  (key: string, options?: { count?: number; mapped?: number; filters?: string }) => {
+    if (key === 'mapScreen.activitySummary') return `${options?.count}:${options?.mapped}`;
+    if (key === 'mapScreen.searchFilteredBy') return `filtered by ${options?.filters}`;
+    if (key.startsWith('sportFamilies.') || key.startsWith('maps.activityTypes.')) {
+      const category = key.split('.').at(-1) ?? '';
+      return category[0].toUpperCase() + category.slice(1);
+    }
+    return key;
   }
-  return key;
-});
+);
 
 jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
@@ -44,7 +47,10 @@ jest.mock('@/features/maps', () => ({
       ['Run', types.filter((type) => type === 'Run')],
     ]),
   MapEmptyState: jest.requireActual('@/features/maps/components/MapEmptyState').MapEmptyState,
-  MapNameSearch: () => null,
+  MapNameSearch: ({ onChangeNeedle }: { onChangeNeedle: (text: string) => void }) => {
+    const { TextInput } = require('react-native');
+    return <TextInput testID="map-search-input" onChangeText={onChangeNeedle} />;
+  },
   PERIOD_OPTIONS: [
     { id: 'all', labelKey: 'all' },
     { id: '1m', labelKey: '1m' },
@@ -72,7 +78,9 @@ jest.mock('@/shared/debug/renderTimer', () => ({ logScreenRender: () => () => {}
 jest.mock('@/shared/ui', () => {
   const { Text } = require('react-native');
   return {
-    Button: ({ label }: { label: string }) => <Text>{label}</Text>,
+    Button: ({ label, onPress }: { label: string; onPress?: () => void }) => (
+      <Text onPress={onPress}>{label}</Text>
+    ),
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
     ScreenErrorBoundary: ({ children }: { children: React.ReactNode }) => children,
     ErrorState: jest.requireActual('@/shared/ui/ErrorState').ErrorState,
@@ -135,6 +143,44 @@ describe('map library summary', () => {
     expect(mockUseMap).toHaveBeenLastCalledWith(
       expect.objectContaining({ distanceBand: MapDistanceBand.Short })
     );
+  });
+
+  it('names the distance, sport and name filters on the lowered sheet and clears them there', async () => {
+    const view = await render(<MapScreen />);
+    expect(view.queryByTestId('map-filter-summary')).toBeNull();
+    expect(view.queryByText('mapScreen.emptyClearFilters')).toBeNull();
+
+    await fireEvent.press(view.getByTestId('map-filter-handle'));
+    await fireEvent.press(view.getByText('5–10km'));
+    await fireEvent.press(view.getByText('Run', { exact: false }));
+    expect(view.queryByTestId('map-filter-summary')).toBeNull();
+    await fireEvent.press(view.getByTestId('map-filter-handle'));
+
+    expect(view.getByTestId('map-filter-summary').props.children).toBe('filtered by 5–10km, Run');
+    await fireEvent.press(view.getByText('mapScreen.emptyClearFilters'));
+    expect(mockUseMap).toHaveBeenLastCalledWith(
+      expect.objectContaining({ distanceBand: MapDistanceBand.All, selectedTypes: new Set() })
+    );
+    expect(view.queryByTestId('map-filter-summary')).toBeNull();
+    expect(view.queryByText('mapScreen.emptyClearFilters')).toBeNull();
+  });
+
+  it('names a typed name on the lowered sheet and clears it there', async () => {
+    const view = await render(<MapScreen />);
+    await fireEvent.press(view.getByTestId('map-filter-handle'));
+    await fireEvent.changeText(view.getByTestId('map-search-input'), '  harbour loop ');
+    await fireEvent.press(view.getByTestId('map-filter-handle'));
+
+    expect(view.getByTestId('map-filter-summary').props.children).toBe('filtered by harbour loop');
+    await fireEvent.press(view.getByText('mapScreen.emptyClearFilters'));
+    expect(mockUseMap).toHaveBeenLastCalledWith(expect.objectContaining({ nameNeedle: '' }));
+    expect(view.queryByTestId('map-filter-summary')).toBeNull();
+  });
+
+  it('leaves the lowered sheet without a filter line when only the period is chosen', async () => {
+    const view = await render(<MapScreen />);
+    await fireEvent.press(view.getByText('1m'));
+    expect(view.queryByTestId('map-filter-summary')).toBeNull();
   });
 
   it('shows the full library while mapped activities arrive and narrows the mapped count', async () => {

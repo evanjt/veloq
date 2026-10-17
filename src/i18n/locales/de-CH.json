@@ -36,6 +36,10 @@
     "calories": "Kalorii",
     "chartHint": "Halte zum Scrolle • Chip halte für d Achse",
     "distance": "Distanz",
+    "xAxis": {
+      "distance": "Distanz",
+      "time": "Zeit"
+    },
     "duration": "Duur",
     "explanations": {
       "conditions": "Temperatur vom Grät oder Wetter.",
@@ -223,14 +227,14 @@
   },
   "alerts": {
     "cacheCleared": "Cache gleert",
-    "clearCacheMessage": "Das löscht alli zwüschegspicherte Aktivitätsdate, Aktivitätsspure und Routeabgleich-Date und fangt s Neulade a. Das cha es paar Minute dauere.",
+    "clearCacheMessage": "Das löscht alli zwüschegspicherte Aktivitätsdate, Aktivitätsspure und Routeabgleich-Date und fangt s Neulade a. Das cha es paar Minute dauere. De lokal Datezitruum gaht zrugg uf di letschte 90 Täg.",
     "clearCacheOffline": "Du bisch offline. S Neulade bruucht e Verbindig, dini Aktivitäte, Charte und Route bliibed also leer, bis s Netz zrugg isch.",
     "clearCacheTitle": "Cache lösche und nöi lade?",
     "clearReload": "Lösche und nöi lade",
-    "disconnect": "Trenne",
-    "disconnectMessage": "Das entfernt dini API-Zuegangsdate us de App. Du muesch si nomol iigee, zum d App z nutze.",
+    "signOut": "Usmälde",
+    "signOutMessage": "Dini Bibliothek, Näme und Iistellige bliibed uf däm Handy. Mäld di wieder aa, zum z synchronisiere.",
     "disconnectOffline": "Du bist offline. Beide Anmeldewege brauchen eine Verbindung, du kannst dich also erst wieder anmelden, wenn das Netz zurück ist.",
-    "disconnectTitle": "Konto trenne?",
+    "signOutTitle": "Usmälde?",
     "leaveDemoTitle": "Demo verlah?",
     "leaveDemoMessage": "D Biispiilfahrte gönd zue und du chunsch zrugg zur Amäldig. Nüt us de Demo wird gspeicheret.",
     "leaveDemoConfirm": "Verlah",
@@ -355,6 +359,7 @@
     "restoreOfferRestoring": "Wird wiederhergestellt…",
     "entryActivities_one": "{{count}} Aktivität",
     "entryActivities_other": "{{count}} Aktivitäten",
+    "entryAppVersion": "Versioon {{version}}",
     "restoreFromFile": "Aus einer Datei wiederherstellen",
     "restoreFromWebdav": "Von WebDAV wiederherstellen",
     "restoreFromGoogleDrive": "Von Google Drive wiederherstellen",
@@ -676,12 +681,6 @@
     "failedToLoad": "Gopferteckel, hät nöd klappet!",
     "firstSyncBody": "Nur beim ersten Laden. Der Feed öffnet sich, sobald die ersten Aktivitäten da sind.",
     "firstSyncTitle": "Deine Aktivitäten werden synchronisiert",
-    "groups": {
-      "cycling": "Velofahre",
-      "running": "Laufe",
-      "swimming": "Schwümme",
-      "other": "Anderi"
-    },
     "range": {
       "last90Days": "Letzte 90 Tage",
       "thisYear": "Dieses Jahr",
@@ -965,9 +964,9 @@
     },
     "strengthBalance": {
       "volumeSplit": "Volume-Uffteilig",
-      "balanced": "Usgliche",
-      "watch": "Beobachte",
-      "imbalanced": "Unusgliche",
+      "bandLow": "Unter 1.35×",
+      "bandMiddle": "1.35× bis 2×",
+      "bandHigh": "2× oder mehr",
       "oneSided": "Eiisitig",
       "lowSignal": "Wenig Date",
       "noSignal": "Kei Date",
@@ -1142,18 +1141,6 @@
     "unavailableHint": "D Charte hät nöd chöne lade. Lueg dini Verbindig aa und probiers nomol.",
     "activitiesCount_one": "{{count}} Aktivität",
     "activitiesCount_other": "{{count}} Aktivitäte",
-    "activityTypes": {
-      "gym": "Fitnessbuude",
-      "hike": "Wanderig",
-      "other": "Suscht öppis",
-      "racket": "Schläger-Züüg",
-      "ride": "Velotour",
-      "run": "Rännerei",
-      "snow": "Schneesport",
-      "swim": "Schwümme",
-      "walk": "Spaziergang",
-      "water": "Wassersport"
-    },
     "closeMap": "Charte zuemache",
     "closePopup": "Zuemache",
     "closeRoutePopup": "Route-Popup schliesse",
@@ -1223,7 +1210,7 @@
     },
     "privacy": {
       "title": "Dateschutz-Hinwiis",
-      "brief": "Dini Athleten-ID und en Push-Token wärded uf üsem Server gspicheret (30-Täg-Ablauf). Benachrichtigunge werded über Apple oder Google gschickt, aber de ganzi Inhalt wird uf dim Grät erstellt. Kei persönlichi Date werded gspicheret. Chasch jederzit deaktiviere.",
+      "brief": "Dini Athleten-ID und en Push-Token wärded uf üsem Server gspicheret (30-Täg-Ablauf). Benachrichtigunge werded über Apple oder Google gschickt, aber de ganzi Inhalt wird uf dim Grät erstellt. Chasch jederzit deaktiviere.",
       "accept": "Verstande",
       "briefEnabled": "Sie erhalten diese Benachrichtigungen. Ihre Athleten-ID und ein Push-Token sind auf unserem Server gespeichert (30 Tage Ablauf), und Benachrichtigungen werden über Expo, dann Apple oder Google, an Ihr Gerät geleitet. Alle Insight-Inhalte werden auf Ihrem Gerät erzeugt. Sie können sie jederzeit ausschalten.",
       "turnOff": "Ausschalten"
@@ -1284,23 +1271,16 @@
     "backgroundNotificationTitle": "Aktivität am ufnäh",
     "categories": {
       "cycling": "Velofahre",
-      "gym": "Fitnessbuude",
-      "other": "Anderi",
-      "racket": "Schläger-Züüg",
-      "running": "Laufe",
-      "swimming": "Schwümme",
-      "water": "Wassersport",
-      "winter": "Wintersport",
-      "walking": "Gehen"
+      "running": "Laufe"
     },
     "changeType": "Aktivitätstyp ändere",
     "continue": "Witerfahre",
     "controls": {
-      "lap": "RUNDI",
-      "pause": "PAUSIERE",
-      "resume": "WITER",
-      "save": "SPICHERE",
-      "stop": "STOPP"
+      "lap": "Rundi",
+      "pause": "Pausiere",
+      "resume": "Witer",
+      "save": "Spichere",
+      "stop": "Stopp"
     },
     "discard": "Verwärfe",
     "discardConfirmMessage": "Si isch nonig gspeicheret und cha nach em Verwärfe nümm zruggholt wärde.",
@@ -1395,7 +1375,7 @@
     "splitReachedMi": "Meile {{index}}",
     "startActivity": "Aktivität starte",
     "status": {
-      "paused": "PAUSIERT",
+      "paused": "Pausiert",
       "recording": "Am Ufnäh"
     },
     "summary": "Zämmefassig",
@@ -1510,8 +1490,8 @@
     "routeNotFound": "Route nöd gfunde"
   },
   "routeIntelligence": {
-    "today": "HÜTT",
-    "tomorrow": "MORN"
+    "today": "Hütt",
+    "tomorrow": "Morn"
   },
   "routes": {
     "activitiesCount_one": "{{count}} Aktivität",
@@ -1659,6 +1639,12 @@
     "aerobicEfficiency": "Aerobi Effizienz",
     "aerobicEfficiencyDetail": "{{efforts}} verglichbari Versüech, modellierti Änderig vo {{hrChange}} bpm bim durchschnittlichä Tempo",
     "aerobicEfficiencyCaption": "{{quantity}}, vom eltschte bis zum neuschte Versüech",
+    "aerobicEfficiencyRange": "Bereich {{min}} bis {{max}}",
+    "aerobicEfficiencyInverted": "Tüüfer wird höcher zeichnet: weniger Puls fürs Tempo",
+    "aerobicEfficiencySpoken": "{{title}}, {{efforts}} passendi Versüech",
+    "efficiencyVerdictImproving": "Wird besser",
+    "efficiencyVerdictFlat": "Kei klari Veränderig",
+    "efficiencyVerdictWorsening": "Wird schlächter",
     "correlationTitle": "Wohlbefinden und Tempo",
     "correlationMethod": "Pearson-r der Rundengeschwindigkeit gegen den Wohlbefindenswert des Tages, 95-%-Intervall, mindestens 10 Versuche mit Wert",
     "correlationFamily_one": "Holm-korrigiert über {{count}} Variable",
@@ -1687,7 +1673,7 @@
     "correlationVarMood": "Stimmung",
     "correlationVarMotivation": "Motivation",
     "setAsReference": "Als Referänz setze",
-    "setAsReferenceConfirm": "Die Aktivität als Referänz bruuche?\n\nDe Abschnitt wird neu mit allne dine Aktivitäte abgliche. Das chan Aktivitäte dezuetuä oder ussenäh.",
+    "setAsReferenceConfirm": "Die Aktivität als Referänz bruuche?\n\nD Linie vom Abschnitt folgt dere Aktivität, und s Delta-Diagramm misst d Ziit vorne oder hine dergäge.\n\nDe Abschnitt wird neu mit allne dine Aktivitäte abgliche, das chan es paar dezuetuä oder ussenäh.",
     "setReferenceError": "Referänz hät nöd chöne gsetzt wärde. De Abschnitt oder d Aktivität hät sich villicht gänderet. Probiers nomol!",
     "editBounds": "Grenze bearbeite",
     "pointsCount_one": "{{count}} Punkt",
@@ -1712,6 +1698,7 @@
     "traversalsCount_other": "{{count}} Durchfahrte",
     "calendarActivities_one": "{{count}} Aktivität",
     "calendarActivities_other": "{{count}} Aktivitäten",
+    "calendarTitle": "Nach Jahr",
     "scanForMatches": "Nach Überiistimmige sueche",
     "rematchActivities": "Aktivitäte neu zuordne",
     "scanForMore": "Nach meh Abschnitt sueche",
@@ -1777,6 +1764,7 @@
     "trimFailedTitle": "Abschnitt nöd zuegschnitte, Siech",
     "deleteFailedTitle": "Abschnitt nöd glöscht",
     "sectionRemoved": "Abschnitt entfernt",
+    "attemptExcluded": "Versuech usgschlosse",
     "removeFailedTitle": "Abschnitt nöd entfernt",
     "removeFailed": "De Abschnitt het nöd chönne entfernt wärde.",
     "restoreFailedTitle": "Abschnitt nöd widerhergstellt",
@@ -1811,7 +1799,7 @@
     "defaultStyle": "Standard",
     "exploreMapStyle": "Erkundigscharte",
     "dialect": "Dialekt",
-    "disconnectAccount": "Konto trenne",
+    "signOut": "Usmälde",
     "leaveDemo": "Demo verlah",
     "display": "Anzeige",
     "largeHistoryConfirm": "Trotzdem lade",
@@ -1819,6 +1807,7 @@
     "largeHistoryMessage_other": "So wit zrugg ladet bis zu öppe {{count}} Aktivitäte. Das duuret es Wiili, und d'App bliibt mit so vill Date nöd garantiert schnäll.",
     "largeHistoryTitle": "Das isch en grosse Download",
     "localDataRange": "Lokale Datumsberiich",
+    "localDataRangeEnd": "Ändi vom lokale Datumsberiich",
     "heroMetric": "Hauptmetrik",
     "hideDemoBanner": "Demo-Banner verstecke",
     "hideDemoBannerHint": "Banner wägg für Screenshots",
@@ -2054,6 +2043,7 @@
     "groupingLegendDropped": "Bleiben allein",
     "groupingFailed": "Die Gruppierung wurde nicht fertig. Bewege einen Regler, um es erneut zu versuchen.",
     "authApiKey": "API-Schlüssel",
+    "authOAuth": "Aagmäldet mit intervals.icu",
     "authDemo": "Demomodus",
     "scopeChats": "Unterhaltungen",
     "scopeLibrary": "Bibliothek",
@@ -2101,7 +2091,7 @@
     "rangeNotDownloaded": "No nöd abeglade",
     "rangePartlyDownloaded": "En Teil vom Zytruum isch no nöd abeglade",
     "calendarRange": "{{start}} bis {{end}}",
-    "seasonComparison": "Saison-Vergliich",
+    "seasonComparison": "Johresvergliich",
     "sixCalendarMonths": "6 Mön.",
     "swimPaceCurve": "Schwümmtempokurve",
     "thisMonth": "De Monet",
@@ -2111,7 +2101,7 @@
     "time": "Ziit",
     "totalTime": "Totalziit",
     "vsLastMonth": "vs letschte Monet",
-    "vsLastWeek": "vs letscht Wuche",
+    "vsLastWeek": "vs letscht Wuche bis jetzt",
     "vsLastYear": "vs letschts Jahr",
     "vsPrevious3Months": "vs vorheri 3 Mönet",
     "vsPrevious6Months": "vs vorheri 6 Mönet",
@@ -2164,7 +2154,14 @@
   },
   "trainingScreen": {
     "routes": "Route",
-    "countOfTotal": "{{shown}} von {{total}}",
+    "routesListCount_one": "{{count}} Route",
+    "routesListCount_other": "{{count}} Route",
+    "routesListCountOfTotal_one": "{{shown}} von {{count}} Route",
+    "routesListCountOfTotal_other": "{{shown}} von {{count}} Route",
+    "sectionsListCount_one": "{{count}} Abschnitt",
+    "sectionsListCount_other": "{{count}} Abschnitt",
+    "sectionsListCountOfTotal_one": "{{shown}} von {{count}} Abschnitt",
+    "sectionsListCountOfTotal_other": "{{shown}} von {{count}} Abschnitt",
     "sections": "Abschnitt"
   },
   "units": {
@@ -2192,11 +2189,11 @@
     "smoothingAverage_one": "{{count}}-Tage-Durchschnitt",
     "smoothingAverage_other": "{{count}}-Tage-Durchschnitt",
     "smoothingDescription": "Glättig aawände zum täglichi Schwankige z reduziere",
-    "smoothingHint": "Auto bruucht optimali Glättig",
+    "smoothingHint": "Auto: kei Glättig für {{r7d}}, en {{d1m}}-Täg-Schnitt für {{r1m}}, {{d3m}} Täg für {{r3m}}, {{d6m}} für {{r6m}} und {{d1y}} für {{r1y}}.",
     "smoothingNone": "Keine",
     "smoothingRaw": "Rohdaten",
     "smoothingTitle": "Glättig",
-    "trendHint": "Trends chömed wenn Date iigeh wärded",
+    "trendHint": "Wellness us intervals.icu (HRV, Ruhepuls, Schlaf, Schlafwert, Gwicht) chunnt da, sobald si erfasst isch.",
     "weight": "Gwicht",
     "sleepDuration": "{{hours}} Std. {{minutes}} Min."
   },
@@ -2325,7 +2322,7 @@
     "balanceFootnote": "Verhältnis vergliicht gwichteti Sätz, wobii primäri Arbet als 1.0 und sekundäri als 0.5 zählt.",
     "pairsInfoTitle": "Balance-Methode",
     "pairsInfoIntro": "Die Antagoniste-Paar werde verglichä:",
-    "pairsInfoThresholds": "Status: balancirt ≤ 1.35×, im Aug bhalte bis 2×, im Ungliichgwicht über 2×.",
+    "pairsInfoThresholds": "Bereiche: unter 1.35×, 1.35× bis 2×, 2× oder mehr.",
     "pairsInfoMinSignal": "Paar mit weniger als 4 gwichtete Sätz pro Site werde übersprunge.",
     "exercisesTargeting": "Übige für {{muscle}}",
     "exerciseWorkoutCount_one": "{{count}} Workout",
@@ -2725,5 +2722,14 @@
       "zone": "Zone",
       "time": "Zeit"
     }
+  },
+  "sportFamilies": {
+    "ride": "Velofahre",
+    "winter": "Wintersport",
+    "run": "Laufe",
+    "water": "Wassersport",
+    "foot": "z Fuess",
+    "strength": "Chraft",
+    "other": "Anderi"
   }
 }

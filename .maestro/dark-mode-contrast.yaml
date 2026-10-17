@@ -27,6 +27,26 @@ tags:
     visible:
       id: "theme-button-dark"
     timeout: 15000
+    optional: true
+
+# Straight after the demo setup the link can be taken while the app is still
+# settling on the feed, which leaves the feed in front. Open it once more.
+- runFlow:
+    when:
+      notVisible:
+        id: "theme-button-dark"
+    commands:
+      - openLink: "veloq://display-settings"
+      - runFlow:
+          when:
+            visible: "Open"
+          commands:
+            - tapOn: "Open"
+
+- extendedWaitUntil:
+    visible:
+      id: "theme-button-dark"
+    timeout: 15000
 
 - tapOn:
     id: "theme-button-dark"

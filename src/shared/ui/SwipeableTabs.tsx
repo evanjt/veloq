@@ -141,7 +141,10 @@ function TabContent({
         {tab.label}
       </Text>
       {paint ? (
-        <View style={[styles.tabBadge, { backgroundColor: paint.fill }]}>
+        <View
+          testID={`tab-badge-${tab.key}`}
+          style={[styles.tabBadge, { backgroundColor: paint.fill }]}
+        >
           <Text style={[styles.tabBadgeText, { color: paint.ink }]}>{badge}</Text>
         </View>
       ) : null}
@@ -527,7 +530,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   tabBadge: {
-    borderRadius: layout.borderRadiusSm,
+    borderRadius: layout.borderRadiusFull,
     paddingHorizontal: spacing.xsPlus,
     paddingVertical: spacing.xxs,
     minWidth: 22,

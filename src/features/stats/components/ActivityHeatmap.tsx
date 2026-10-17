@@ -45,6 +45,7 @@ import {
 } from '../lib/heatmapGrid';
 import { CardHeader } from '@/shared/ui/CardHeader';
 import { EmptyState } from '@/shared/ui/EmptyState';
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 
 interface ActivityHeatmapProps {
   /**
@@ -311,6 +312,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
           subtitle={labels.range}
           accessory={
             <Text
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
               testID="activity-heatmap-count"
               style={[styles.subtitle, isDark && styles.textDark]}
             >
@@ -321,9 +323,10 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
 
         <View style={styles.body}>
           {/* Fixed gutter: the year in view and the weekday names */}
-          <View style={styles.gutter}>
+          <View testID="activity-heatmap-gutter" style={styles.gutter}>
             <View style={styles.monthLabels}>
               <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                 testID="activity-heatmap-year"
                 style={[styles.yearLabel, styles.monthLabelAbsolute, isDark && styles.textLight]}
               >
@@ -333,6 +336,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
             {labels.weekdays.map((day, idx) => (
               <Text
                 key={idx}
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                 numberOfLines={1}
                 style={[styles.dayLabel, isDark && styles.textDark, { height: HEATMAP_PITCH }]}
               >
@@ -361,12 +365,23 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
                       key={m.col}
                       style={[styles.monthLabelContainer, { left: m.col * HEATMAP_PITCH }]}
                     >
-                      <Text style={[styles.yearLabel, isDark && styles.textLight]}>{m.year}</Text>
-                      <Text style={[styles.monthLabel, isDark && styles.textDark]}>{m.name}</Text>
+                      <Text
+                        maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                        style={[styles.yearLabel, isDark && styles.textLight]}
+                      >
+                        {m.year}
+                      </Text>
+                      <Text
+                        maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                        style={[styles.monthLabel, isDark && styles.textDark]}
+                      >
+                        {m.name}
+                      </Text>
                     </View>
                   ) : (
                     <Text
                       key={m.col}
+                      maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                       style={[
                         styles.monthLabel,
                         styles.monthLabelAbsolute,
@@ -417,8 +432,11 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
         )}
 
         {/* Legend: the measure the colour stands for, and its bins */}
-        <View style={styles.legend}>
-          <Text style={[styles.legendTitle, isDark && styles.textDark]}>
+        <View testID="activity-heatmap-legend" style={styles.legend}>
+          <Text
+            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+            style={[styles.legendTitle, isDark && styles.textDark]}
+          >
             {t('stats.longestSession')}
           </Text>
           {LEGEND_BINS.map((key, idx) => (
@@ -433,7 +451,12 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
                   },
                 ]}
               />
-              <Text style={[styles.legendLabel, isDark && styles.textDark]}>{t(key)}</Text>
+              <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                style={[styles.legendLabel, isDark && styles.textDark]}
+              >
+                {t(key)}
+              </Text>
             </View>
           ))}
         </View>
@@ -497,7 +520,7 @@ const styles = StyleSheet.create({
     fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
     textAlign: 'right',
-    lineHeight: typography.caption.lineHeight,
+    lineHeight: HEATMAP_PITCH,
   },
   legend: {
     flexDirection: 'row',

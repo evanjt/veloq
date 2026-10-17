@@ -10,7 +10,13 @@ import {
   pressable,
   pressRipple,
 } from '@/shared/ui';
-import { OpenSettingsButton, SignalStatus, signalColor, type SignalLevel } from '@/shared/ui';
+import {
+  OpenSettingsButton,
+  SIGNAL_LINE_RADIUS,
+  SignalStatus,
+  signalColor,
+  type SignalLevel,
+} from '@/shared/ui';
 import { Stack } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as haptics from '@/shared/ui/haptics';
@@ -567,7 +573,7 @@ const styles = StyleSheet.create({
   warningLine: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: layout.borderRadiusSm,
+    borderRadius: SIGNAL_LINE_RADIUS,
     overflow: 'hidden',
     paddingRight: spacing.xs,
   },

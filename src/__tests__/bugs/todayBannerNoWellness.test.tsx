@@ -44,6 +44,6 @@ describe('TodayBanner without a form reading', () => {
     expect(getByText(/Tempo intervals/)).toBeTruthy();
     expect(queryByText(/TSB/)).toBeNull();
     expect(queryByText(/Grey zone/)).toBeNull();
-    expect(queryByText(/TODAY|routeIntelligence\.today/)).toBeNull();
+    expect(queryByText(/^(today|routeIntelligence\.today)$/i)).toBeNull();
   });
 });

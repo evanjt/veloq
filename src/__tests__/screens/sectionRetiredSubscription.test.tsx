@@ -28,6 +28,7 @@ jest.mock('@/shared/app/TopSafeAreaContext', () => ({
 
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false, colors: { text: '#000', textSecondary: '#666' } }),
+  useMetricSystem: () => true,
   useTopSafeArea: () => ({ hasTopBanner: false, topInset: 0, screenEdges: [] }),
 }));
 
@@ -37,7 +38,15 @@ jest.mock('@/features/routes/lib/sectionDisplayNames', () => ({
 
 const mockListeners = new Map<string, Set<() => void>>();
 const mockGetRetiredSections = jest.fn<
-  { sectionId: string; kind: string; at: string; versions: []; into?: string }[],
+  {
+    sectionId: string;
+    kind: string;
+    at: string;
+    versions: [];
+    into?: string;
+    name?: string;
+    distanceMeters?: number;
+  }[],
   []
 >(() => []);
 
@@ -115,5 +124,29 @@ describe('a retirement merged into another section', () => {
         : card.props.style
     ) as { minHeight?: number };
     expect(style.minHeight).toBeGreaterThanOrEqual(layout.minTapTarget);
+  });
+});
+
+describe('each retired card', () => {
+  it('leads with the name the section last had, so two retirements can be told apart', () => {
+    mockGetRetiredSections.mockReturnValue([
+      { ...retirement('sec-1'), kind: 'dissolved', name: 'Old Quarry', distanceMeters: 1500 },
+      { ...retirement('sec-3'), into: 'sec-2', name: 'Lower Church Hill', distanceMeters: 820 },
+    ]);
+    const screen = render(<SectionRetiredScreen />);
+
+    const quarry = screen.getByText('Old Quarry');
+    expect(quarry.props.numberOfLines).toBe(2);
+    expect(screen.getByText('Lower Church Hill')).toBeTruthy();
+    expect(screen.getByText(/1\.5 km/)).toBeTruthy();
+    expect(screen.getByText(/820 m/)).toBeTruthy();
+  });
+
+  it('falls back to how it left when the ledger kept no name', () => {
+    mockGetRetiredSections.mockReturnValue([{ ...retirement('sec-1'), kind: 'dissolved' }]);
+    const screen = render(<SectionRetiredScreen />);
+
+    expect(screen.getByTestId('section-retired-sec-1')).toBeTruthy();
+    expect(screen.queryByText(/km|\bm\b/)).toBeNull();
   });
 });

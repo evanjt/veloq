@@ -34,6 +34,7 @@ import {
   darkColors,
   duration,
   easing,
+  floatingLayers,
   layout,
   motionPresets,
   opacity,
@@ -168,7 +169,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: spacing.md,
     right: spacing.md,
-    zIndex: 1000,
+    zIndex: floatingLayers.syncPill,
     alignItems: 'center',
   },
   pill: {

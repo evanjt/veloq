@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { CombinedPlot, type ChartMetricValue } from './CombinedPlot';
 import { ChartTypeSelector } from './ChartTypeSelector';
+import { ChartXAxisSwitch, type ChartXAxisMode } from './ChartXAxisSwitch';
 import { HRZonesChart } from './HRZonesChart';
 import { PowerZonesChart } from './PowerZonesChart';
 import { IntervalsTable } from './IntervalsTable';
@@ -73,6 +74,7 @@ import {
   controlHeight,
   darkColors,
   iconSize,
+  layers,
   layout,
   opacity,
   shadows,
@@ -180,7 +182,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   const [previewMetricId, setPreviewMetricId] = useState<ChartTypeId | null>(null);
   const [chartsInitialised, setChartsInitialised] = useState(false);
   const [isChartFullscreen, setIsChartFullscreen] = useState(false);
-  const [xAxisMode, setXAxisMode] = useState<'distance' | 'time'>('distance');
+  const [xAxisMode, setXAxisMode] = useState<ChartXAxisMode>('distance');
   const [chartMetrics, setChartMetrics] = useState<ChartMetricValue[]>([]);
   const [intervalsExpanded, setIntervalsExpanded] = useState(false);
   const [belowFoldMounted, setBelowFoldMounted] = useState(false);
@@ -229,11 +231,6 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
       }
       return [...prev, chartId as ChartTypeId];
     });
-  }, []);
-
-  // Toggle x-axis between distance and time
-  const handleXAxisToggle = useCallback(() => {
-    setXAxisMode((m) => (m === 'distance' ? 'time' : 'distance'));
   }, []);
 
   // Handle chart metrics updates
@@ -330,6 +327,13 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
             {streams && selectedCharts.length > 0 ? (
               <View style={styles.cardFrame}>
                 <Card variant="raised" padding="none">
+                  {canToggleXAxis ? (
+                    <ChartXAxisSwitch
+                      value={effectiveXAxisMode}
+                      onValueChange={setXAxisMode}
+                      style={styles.chartHeader}
+                    />
+                  ) : null}
                   <View style={styles.chartBody}>
                     <CombinedPlot
                       streams={streams}
@@ -341,8 +345,6 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                       onInteractionChange={onInteractionChange}
                       previewMetricId={previewMetricId}
                       xAxisMode={effectiveXAxisMode}
-                      onXAxisModeToggle={handleXAxisToggle}
-                      canToggleXAxis={canToggleXAxis}
                       intervals={intervalsExpanded ? intervalsData?.icu_intervals : undefined}
                       activityType={activity.type}
                       onMetricsChange={handleMetricsChange}
@@ -591,14 +593,23 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
               closeLabel={t('common.close')}
               onClose={closeChartFullscreen}
               controls={
-                <ChartTypeSelector
-                  available={availableCharts}
-                  selected={selectedCharts}
-                  onToggle={handleChartToggle}
-                  onPreviewStart={(id) => setPreviewMetricId(id as ChartTypeId)}
-                  onPreviewEnd={() => setPreviewMetricId(null)}
-                  metricValues={chartMetrics}
-                />
+                <View style={styles.fullscreenControlStack}>
+                  <ChartTypeSelector
+                    available={availableCharts}
+                    selected={selectedCharts}
+                    onToggle={handleChartToggle}
+                    onPreviewStart={(id) => setPreviewMetricId(id as ChartTypeId)}
+                    onPreviewEnd={() => setPreviewMetricId(null)}
+                    metricValues={chartMetrics}
+                  />
+                  {canToggleXAxis ? (
+                    <ChartXAxisSwitch
+                      value={effectiveXAxisMode}
+                      onValueChange={setXAxisMode}
+                      style={styles.fullscreenXAxisSwitch}
+                    />
+                  ) : null}
+                </View>
               }
               renderPlot={(plotHeight) =>
                 streams && selectedCharts.length > 0 ? (
@@ -612,8 +623,6 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                     onInteractionChange={onInteractionChange}
                     previewMetricId={previewMetricId}
                     xAxisMode={effectiveXAxisMode}
-                    onXAxisModeToggle={handleXAxisToggle}
-                    canToggleXAxis={canToggleXAxis}
                     intervals={intervalsExpanded ? intervalsData?.icu_intervals : undefined}
                     activityType={activity.type}
                     onMetricsChange={handleMetricsChange}
@@ -733,6 +742,10 @@ const styles = StyleSheet.create({
   cardFrame: {
     marginBottom: spacing.sm,
   },
+  chartHeader: {
+    paddingHorizontal: spacing.sm,
+    paddingTop: spacing.sm,
+  },
   chartBody: {
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.xs,
@@ -811,7 +824,7 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlay.medium,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10,
+    zIndex: layers.raised,
   },
   fullscreenControls: {
     flexDirection: 'row',
@@ -821,6 +834,14 @@ const styles = StyleSheet.create({
     // Clears the close button on both sides, so the chips stay centred.
     paddingHorizontal: controlHeight.button + spacing.sm,
     paddingBottom: spacing.xs,
+  },
+  fullscreenControlStack: {
+    flex: 1,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  fullscreenXAxisSwitch: {
+    alignSelf: 'stretch',
   },
   fullscreenChartWrapper: {
     flex: 1,

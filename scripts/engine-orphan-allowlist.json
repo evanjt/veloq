@@ -14,6 +14,7 @@
     "get_ftp_trend": "FTP trend as of today, read by the screen-bundle tests the summary card is compared against",
     "get_map_signatures_for_ids": "signature query read by tests",
     "get_merge_candidates": "merge candidate query read by tests",
+    "get_period_stats": "window totals the screen-bundle tests compare the summary card's weeks against",
     "get_ranked_sections": "ranking query read by tests",
     "get_ranked_sections_by_sports": "ranking query read by tests",
     "get_section_calendar_summary": "calendar read the screen-bundle tests compare the screen read against",

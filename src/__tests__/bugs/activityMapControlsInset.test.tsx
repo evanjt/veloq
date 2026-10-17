@@ -4,7 +4,9 @@
  * 56 dp below the inset, so a column placed from a guessed row height puts the top of the first
  * button under the bar, where a tap does nothing.
  *
- * Expected behaviour: the column starts at or below the header's measured bottom edge.
+ * Expected behaviour: the column starts at or below the header's measured bottom edge. A hero too
+ * short for every button wraps the rest into a second column, and the column is drawn wide enough
+ * to hold it, or the full screen button is laid out past the map's edge.
  */
 
 import React from 'react';
@@ -14,6 +16,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { HeaderHeightContext } from 'expo-router/react-navigation';
 
 import { ActivityMapControls } from '@/features/maps/components/ActivityMapControls';
+import { layout, spacing } from '@/theme';
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
@@ -61,6 +64,24 @@ describe('the activity map control column', () => {
     const column = screen.getByTestId('activity-map-controls');
     const top = StyleSheet.flatten(column.props.style).top;
     expect(top).toBeGreaterThanOrEqual(HEADER_BOTTOM);
+  });
+
+  it('is as wide as every column it wraps into, so no button is laid out off the map', async () => {
+    await renderControls({ mapHeight: HEADER_BOTTOM + 200 });
+
+    const style = StyleSheet.flatten(screen.getByTestId('activity-map-controls').props.style);
+    const step = layout.minTapTarget + spacing.sm;
+    const perColumn = Math.floor((style.maxHeight + spacing.sm) / step);
+    expect(perColumn).toBeLessThan(6);
+    const columns = Math.ceil(6 / perColumn);
+    expect(style.width).toBe(columns * step - spacing.sm);
+  });
+
+  it('holds one column when every button fits', async () => {
+    await renderControls({ mapHeight: 2000 });
+
+    const style = StyleSheet.flatten(screen.getByTestId('activity-map-controls').props.style);
+    expect(style.width).toBe(layout.minTapTarget);
   });
 
   it.each([

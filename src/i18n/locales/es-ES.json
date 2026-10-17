@@ -19,7 +19,7 @@
     "Skateboard": "Skateboard"
   },
   "alerts": {
-    "clearCacheMessage": "Esto borrará todos los datos de actividades en caché, trazas de actividad y datos de coincidencia de rutas, luego comenzará a recargar. Puede tardar unos minutos."
+    "clearCacheMessage": "Esto borrará todos los datos de actividades en caché, trazas de actividad y datos de coincidencia de rutas, luego comenzará a recargar. Puede tardar unos minutos. El rango de datos locales vuelve a los últimos 90 días."
   },
   "bestEffortsScreen": {
     "seasonSubtitle_one": "Marcas personales del último {{count}} día.",

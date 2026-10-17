@@ -36,9 +36,9 @@ describe('feed filter chips', () => {
     await renderChips();
 
     for (const testID of [
-      'home-filter-cycling',
-      'home-filter-running',
-      'home-filter-swimming',
+      'home-filter-ride',
+      'home-filter-run',
+      'home-filter-water',
       'home-filter-other',
     ]) {
       expect(screen.getByTestId(testID)).toBeTruthy();
@@ -57,7 +57,7 @@ describe('feed filter chips', () => {
   });
 
   it('lets two sport chips stay selected together', async () => {
-    const selected = new Set<FeedGroup>(['Cycling', 'Other']);
+    const selected = new Set<FeedGroup>(['Ride', 'Other']);
     const onSelect = jest.fn();
     await render(
       <FeedFilterChips
@@ -67,9 +67,9 @@ describe('feed filter chips', () => {
         onSelectRange={jest.fn()}
       />
     );
-    expect(screen.getByTestId('home-filter-cycling').props.accessibilityState.selected).toBe(true);
+    expect(screen.getByTestId('home-filter-ride').props.accessibilityState.selected).toBe(true);
     expect(screen.getByTestId('home-filter-other').props.accessibilityState.selected).toBe(true);
-    await fireEvent.press(screen.getByTestId('home-filter-running'));
-    expect(onSelect).toHaveBeenCalledWith('Running');
+    await fireEvent.press(screen.getByTestId('home-filter-run'));
+    expect(onSelect).toHaveBeenCalledWith('Run');
   });
 });

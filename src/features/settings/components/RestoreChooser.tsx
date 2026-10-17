@@ -15,7 +15,6 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
-import { getIntlLocale } from '@/shared/format/format';
 
 import { confirmLegacyImport, useImportDatabaseBackup } from '../hooks/useBackup';
 import { webdavBackend, type BackupBackend, type BackupEntry } from '../lib/autobackup/backends';
@@ -27,6 +26,7 @@ import {
 import { icloudBackend, isIcloudSupported } from '../lib/autobackup/backends/icloudBackend';
 import { describeBackupFailure } from '../lib/backupFailure';
 import { restoreBackendEntry } from '../lib/restoreBackendEntry';
+import { BackupEntryRow } from './BackupEntryRow';
 import { WebdavConfigForm, type WebdavConfigFormHandle } from './WebdavConfigForm';
 import { inform } from '@/shared/ui/dialog';
 import { showRestoreNotice } from '../lib/restoreNotice';
@@ -201,16 +201,14 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
             </Text>
           )}
           {entries?.map((entry) => (
-            <Button
+            <BackupEntryRow
               key={entry.id}
+              entry={entry}
               testID={`restore-chooser-entry-${entry.id}`}
-              label={t('backup.restoreDatedBackup', {
-                date: new Date(entry.timestamp).toLocaleDateString(getIntlLocale()),
-              })}
-              variant="ghost"
               onPress={() => handleRestore(webdavBackend, entry)}
-              loading={restoring === entry.id}
+              busy={restoring === entry.id}
               disabled={busy}
+              inset="none"
             />
           ))}
         </>
@@ -236,16 +234,14 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
             </Text>
           )}
           {driveEntries?.map((entry) => (
-            <Button
+            <BackupEntryRow
               key={entry.id}
+              entry={entry}
               testID={`restore-chooser-entry-${googleDriveBackend.id}-${entry.id}`}
-              label={t('backup.restoreDatedBackup', {
-                date: new Date(entry.timestamp).toLocaleDateString(getIntlLocale()),
-              })}
-              variant="ghost"
               onPress={() => handleRestore(googleDriveBackend, entry)}
-              loading={restoring === entry.id}
+              busy={restoring === entry.id}
               disabled={busy}
+              inset="none"
             />
           ))}
         </>
@@ -266,16 +262,14 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
             </Text>
           )}
           {icloudEntries?.map((entry) => (
-            <Button
+            <BackupEntryRow
               key={entry.id}
+              entry={entry}
               testID={`restore-chooser-entry-${icloudBackend.id}-${entry.id}`}
-              label={t('backup.restoreDatedBackup', {
-                date: new Date(entry.timestamp).toLocaleDateString(getIntlLocale()),
-              })}
-              variant="ghost"
               onPress={() => handleRestore(icloudBackend, entry)}
-              loading={restoring === entry.id}
+              busy={restoring === entry.id}
               disabled={busy}
+              inset="none"
             />
           ))}
         </>

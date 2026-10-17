@@ -67,6 +67,12 @@ const LEVEL_TINTS: Record<'light' | 'dark', Record<SignalLevel, string>> = {
   },
 };
 
+/**
+ * The corner radius of the line variant. A row that wraps the line with a
+ * control beside it clips to this radius so the tint reads as one shape.
+ */
+export const SIGNAL_LINE_RADIUS = layout.borderRadiusMd;
+
 export function signalTint(level: SignalLevel, isDark: boolean): string {
   return LEVEL_TINTS[isDark ? 'dark' : 'light'][level];
 }
@@ -159,7 +165,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: layout.borderRadiusSm,
+    borderRadius: layout.borderRadiusFull,
   },
   line: {
     flexDirection: 'row',
@@ -167,15 +173,15 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: layout.borderRadiusSm,
+    borderRadius: SIGNAL_LINE_RADIUS,
   },
   label: {
     ...typography.badge,
     fontVariant: ['tabular-nums'],
   },
   labelLine: {
+    ...typography.bodySmallBold,
     flex: 1,
-    fontSize: typography.bodySmall.fontSize,
     fontVariant: undefined,
   },
 });

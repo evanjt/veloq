@@ -54,7 +54,7 @@ function realSession(): Session {
       return true;
     },
     tap: ({ text }) => {
-      if (text === 'Disconnect') signedOut = true;
+      if (text === 'Sign out') signedOut = true;
     },
     launch: () => {},
   };
@@ -234,6 +234,17 @@ function runHook(flow: string, session: Session) {
   return dry.trace;
 }
 
+/** Every target a flow can tap on any branch, whatever is on screen. */
+function everyTap(commands: Command[]): string[] {
+  return commands.flatMap((command) => {
+    if (typeof command === 'string') return [];
+    const [name, arg] = Object.entries(command)[0];
+    if (name === 'tapOn') return [label(selector(arg))];
+    const nested = arg as { commands?: Command[] } | undefined;
+    return name === 'runFlow' || name === 'repeat' ? everyTap(nested?.commands ?? []) : [];
+  });
+}
+
 const RECORDING_FLOWS = fs
   .readdirSync(FLOWS)
   .filter((f) => f.startsWith('recording-') && f.endsWith('.yaml'))
@@ -267,11 +278,21 @@ describe('a demo session', () => {
     expect(result.taps[result.taps.length - 1]).toBe('login-demo-button');
   });
 
-  it('settings-support-iap still resets the support card and the debug switch', () => {
+  it('settings-support-iap still resets the support card', () => {
     const taps = runHook('settings-support-iap.yaml', demoSession(true)).taps;
 
     expect(taps).toContain('debug-support-preset-0d');
-    expect(taps).toContain('settings-debug-switch');
+  });
+
+  it('settings-support-iap opens the dashboard by link and leaves debug mode as it found it', () => {
+    const file = path.join(FLOWS, 'settings-support-iap.yaml');
+    const { header, body } = parse(file);
+    const taps = everyTap([...body, ...((header.onFlowComplete as Command[] | undefined) ?? [])]);
+
+    expect(taps).toContain('debug-support-preset-31d');
+    expect(taps).toContain('debug-support-preset-0d');
+    expect(taps).not.toContain('settings-version-text');
+    expect(taps).not.toContain('settings-debug-switch');
   });
 
   it.each(RECORDING_FLOWS)('%s still discards its own leftover recording', (flow) => {

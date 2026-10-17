@@ -32,6 +32,8 @@ interface InsightSeriesChartProps {
   accessory?: React.ReactNode;
   /** One bar per sample from zero, for totals over a period. */
   bars?: boolean;
+  /** Fills under the line. Off for a bare line over a domain that excludes zero. */
+  area?: boolean;
 }
 
 const formatDate = (epochSeconds: number) => formatShortDate(new Date(epochSeconds * 1000));
@@ -51,6 +53,7 @@ export const InsightSeriesChart = React.memo(function InsightSeriesChart({
   marker,
   accessory,
   bars = false,
+  area = true,
 }: InsightSeriesChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -128,7 +131,7 @@ export const InsightSeriesChart = React.memo(function InsightSeriesChart({
           reading={reading}
           color={color}
           curve="linear"
-          area
+          area={area}
           bars={bars}
           marker={markerAt}
           {...(pointColor !== undefined && { pointColor })}

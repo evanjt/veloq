@@ -15,9 +15,8 @@ import { composite, contrastRatio } from '../../__shared__/contrast';
 // darkest a dark or satellite basemap gets.
 const GROUNDS = ['#FFFFFF', '#F2EFE9', '#000000'];
 
-function clusterLayers(mapStyle: 'light' | 'dark' | 'satellite', isDark: boolean) {
+function clusterLayers(mapStyle: 'light' | 'dark' | 'satellite') {
   const layers = buildRegionalLayers({
-    isDark,
     mapStyle,
     showActivities: true,
     showSections: false,
@@ -40,13 +39,12 @@ function clusterLayers(mapStyle: 'light' | 'dark' | 'satellite', isDark: boolean
   };
 }
 
-describe.each([
-  ['light', false],
-  ['dark', true],
-  ['satellite', false],
-] as const)('the cluster count on the %s basemap', (mapStyle, isDark) => {
-  it.each(GROUNDS)('reaches 4.5:1 against the disc over %s', (ground) => {
-    const { fill, alpha, ink } = clusterLayers(mapStyle, isDark);
-    expect(contrastRatio(ink, composite(fill, ground, alpha))).toBeGreaterThanOrEqual(4.5);
-  });
-});
+describe.each(['light', 'dark', 'satellite'] as const)(
+  'the cluster count on the %s basemap',
+  (mapStyle) => {
+    it.each(GROUNDS)('reaches 4.5:1 against the disc over %s', (ground) => {
+      const { fill, alpha, ink } = clusterLayers(mapStyle);
+      expect(contrastRatio(ink, composite(fill, ground, alpha))).toBeGreaterThanOrEqual(4.5);
+    });
+  }
+);

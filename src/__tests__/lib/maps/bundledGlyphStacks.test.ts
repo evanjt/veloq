@@ -34,7 +34,6 @@ function activityLayers(creationMode: boolean): MapLayerSpec[] {
 
 function regionalLayers(mapStyle: 'light' | 'dark' | 'satellite'): MapLayerSpec[] {
   return buildRegionalLayers({
-    isDark: mapStyle === 'dark',
     mapStyle,
     showActivities: true,
     showSections: true,

@@ -3,9 +3,8 @@
  *
  * `tokenFamilies.ts` covers `colors` and `darkColors`, the two palettes read
  * everywhere. It scoped itself to those deliberately, and `colors.ts` exports
- * two dozen more groups that it does not, so a tone added to `statusBadge` at
- * 2:1 and drawn as a badge label passed every gate. This is the same rule for
- * those groups.
+ * two dozen more groups that it does not, so a badge label tone added at 2:1
+ * on its own fill passed every gate. This is the same rule for those groups.
  *
  * The groups are not palettes of interchangeable tokens, so a family per token
  * does not fit them. Each is one of three kinds:
@@ -13,7 +12,7 @@
  * - `pair` states a foreground and its own ground together, so the pair is
  *   measurable without knowing the screen: the offline pill's text on the
  *   pill's fill. A translucent fill is composited over the theme surface
- *   first, which is where the `0x18` alpha steps in `statusBadge` matter.
+ *   first, which is where the alpha of an eight-digit hex fill matters.
  * - `mark` is drawn on whatever surface the theme gives it, so it answers to
  *   3:1 against the three surfaces of its theme, the same as a mark token.
  * - `series` is told apart from the others in its own group rather than read
@@ -164,19 +163,6 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
       { paths: ['info.dark', 'opportunity.dark'], theme: 'dark' },
     ],
   },
-  statusBadge: {
-    kind: 'pair',
-    reason: 'a translucent fill of a hue with a deeper tone of the same hue as its label',
-    pairs: [
-      { ground: 'good.bg', on: ['good.text'], bar: 'text' },
-      { ground: 'alert.bg', on: ['alert.text'], bar: 'text' },
-      { ground: 'watch.bg', on: ['watch.text'], bar: 'text' },
-      { ground: 'bad.bg', on: ['bad.text'], bar: 'text' },
-      { ground: 'goodStrong.bg', on: ['goodStrong.text'], bar: 'text' },
-      { ground: 'watchStrong.bg', on: ['watchStrong.text'], bar: 'text' },
-      { ground: 'neutralStrong.bg', on: ['neutralStrong.text'], bar: 'text' },
-    ],
-  },
   verdict: {
     kind: 'pair',
     reason:
@@ -234,7 +220,7 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
   shaderWarmup: {
     kind: 'series',
     reason:
-      'drawn once off screen to compile the shaders, never seen. Primary red and green on purpose, so a frame that does reach the screen is obvious',
+      'drawn once off screen to compile the shaders, never seen. Primary red on purpose, so a frame that does reach the screen is obvious',
   },
   switchTrackOff: {
     kind: 'mark',

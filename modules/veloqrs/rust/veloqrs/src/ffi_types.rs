@@ -1095,6 +1095,9 @@ pub struct FfiRetiredSection {
     pub at: String,
     pub into: Option<String>,
     pub versions: Vec<f64>,
+    /// The name it was last shown under.
+    pub name: Option<String>,
+    pub distance_meters: Option<f64>,
 }
 
 /// The claims the change card may make on this build.
@@ -2023,28 +2026,50 @@ pub struct FfiSampleLibrary {
     pub exercise_sets: Vec<FfiExerciseSet>,
 }
 
-/// The feed's sport chips. Cycling, running and swimming are the engine's
-/// families and Other takes every sport outside them, so a sport nobody listed
-/// still answers to a chip.
+/// The family a sport is drawn and filtered in, in stack order. The feed's
+/// chips and the map's counts are one per family, and Other takes every
+/// sport no family lists, so a sport nobody listed still answers to a chip.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
-pub enum FfiFeedGroup {
-    Cycling,
-    Running,
-    Swimming,
+pub enum FfiSportFamily {
+    Ride,
+    Winter,
+    Run,
+    Water,
+    Foot,
+    Strength,
     Other,
 }
 
-impl FfiFeedGroup {
-    /// The one chip a sport answers to.
+impl FfiSportFamily {
+    pub const ALL: [Self; 7] = [
+        Self::Ride,
+        Self::Winter,
+        Self::Run,
+        Self::Water,
+        Self::Foot,
+        Self::Strength,
+        Self::Other,
+    ];
+
+    /// The one family a sport is in.
     pub fn of(sport: &str) -> Self {
-        if crate::sport::is_cycling(sport) {
-            Self::Cycling
-        } else if crate::sport::is_running(sport) {
-            Self::Running
-        } else if crate::sport::is_swimming(sport) {
-            Self::Swimming
-        } else {
-            Self::Other
+        let name = crate::sport::sport_family(sport);
+        Self::ALL
+            .into_iter()
+            .find(|family| family.name() == name)
+            .unwrap_or(Self::Other)
+    }
+
+    /// The family's name in `sport::FAMILIES`.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Ride => "Ride",
+            Self::Winter => "Winter",
+            Self::Run => "Run",
+            Self::Water => "Water",
+            Self::Foot => "Foot",
+            Self::Strength => "Strength",
+            Self::Other => "Other",
         }
     }
 }
@@ -2062,8 +2087,8 @@ pub struct FfiActivityBodiesQuery {
     /// Case-insensitive substring of the activity's name or sport. Empty
     /// matches everything.
     pub needle: String,
-    /// An empty list matches every sport; otherwise any selected group matches.
-    pub sport_groups: Vec<FfiFeedGroup>,
+    /// An empty list matches every sport; otherwise any selected family matches.
+    pub sport_families: Vec<FfiSportFamily>,
     pub offset: u32,
     /// None returns every match from the offset on.
     pub limit: Option<u32>,
@@ -3225,11 +3250,54 @@ pub struct FfiTrainingScreenWindows {
     /// The month to date, and the same span of the month a year before.
     pub month_current: FfiTimestampRange,
     pub month_previous: FfiTimestampRange,
+    /// The instant the weekly card's periods run to, in the wall-clock seconds
+    /// an activity's date is recorded in.
+    pub now_wall_seconds: f64,
+}
+
+/// One total of a period against the same elapsed part of the period before,
+/// judged once in the engine.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiStatTrend {
+    /// The glyph `trend_table::glyph` draws for the move.
+    pub glyph: String,
+    /// The size of the move in whole percent of the earlier total, absent for
+    /// a move inside the deadband.
+    pub percent: Option<u32>,
+}
+
+/// A period to now against the same elapsed span of the period before it,
+/// each window inclusive at both ends. A trend is absent when the earlier
+/// period has none of that total, so nothing is compared with zero.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSummaryComparison {
+    pub current: FfiTimestampRange,
+    pub previous: FfiTimestampRange,
+    pub current_stats: FfiPeriodStats,
+    pub previous_stats: FfiPeriodStats,
+    pub count: Option<FfiStatTrend>,
+    pub duration: Option<FfiStatTrend>,
+    pub distance: Option<FfiStatTrend>,
+    pub load: Option<FfiStatTrend>,
+}
+
+/// Every range the weekly card offers, so a tap between them reads nothing.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSummaryComparisons {
+    /// Monday to now, against the same weekday and hour of last week.
+    pub week: FfiSummaryComparison,
+    /// The calendar month to now.
+    pub month: FfiSummaryComparison,
+    /// This calendar month and the two before it, to now.
+    pub three_months: FfiSummaryComparison,
+    /// This calendar month and the five before it, to now.
+    pub six_months: FfiSummaryComparison,
+    /// The calendar year to now.
+    pub year: FfiSummaryComparison,
 }
 
 /// Everything the training tab paints with that stays fixed while it is
-/// mounted. The weekly card's range is chosen with a tap, so its totals are
-/// their own read.
+/// mounted, the weekly card's every range among it.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiTrainingScreenData {
     /// Days with activities inside the heatmap's window, oldest first.
@@ -3240,6 +3308,8 @@ pub struct FfiTrainingScreenData {
     pub year_previous: FfiPeriodStats,
     pub month_current: FfiPeriodStats,
     pub month_previous: FfiPeriodStats,
+    /// The weekly card's periods to now, each against the same span before.
+    pub comparisons: FfiSummaryComparisons,
 }
 
 // ============================================================================
@@ -3371,7 +3441,7 @@ pub struct FfiRouteLine {
 
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiMapCategoryCount {
-    pub category: String,
+    pub family: FfiSportFamily,
     pub count: u32,
 }
 
@@ -4441,6 +4511,9 @@ pub struct FfiMergeCandidate {
     pub visit_count: u32,
     pub overlap_pct: f64,
     pub center_distance_meters: f64,
+    /// The candidate's line thinned to what a row thumbnail draws, delta+varint
+    /// encoded as `FfiRecentPR.encoded_polyline` is. Empty when it cannot be read.
+    pub encoded_polyline: Vec<u8>,
 }
 
 /// A ride a merge would take out of the section it is merged into. The ride

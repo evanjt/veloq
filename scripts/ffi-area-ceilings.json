@@ -202,7 +202,6 @@
   "features/stats": [
     "FitnessManager.getBestEffortsData",
     "FitnessManager.getPaceCurve",
-    "FitnessManager.getPeriodStats",
     "FitnessManager.getPowerCurve",
     "FitnessManager.getTrainingScreenData",
     "FitnessManager.savePaceSnapshot",

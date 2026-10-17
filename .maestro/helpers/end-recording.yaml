@@ -22,7 +22,9 @@ appId: com.veloq.app.dev
 - tapOn:
     id: "control-stop"
 
+# The screen and not its Save is the cue, since a ride with a track opens on a
+# map hero and Save sits below the fold.
 - extendedWaitUntil:
     visible:
-      id: "review-save-button"
+      id: "review-screen"
     timeout: 10000

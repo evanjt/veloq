@@ -6,7 +6,7 @@ import { RangeCoverage } from 'veloqrs';
 
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { useTranslation } from 'react-i18next';
-import { Circle, LinearGradient, vec } from '@shopify/react-native-skia';
+import { Circle } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue } from 'react-native-reanimated';
 import {
@@ -403,13 +403,13 @@ export const FitnessChart = React.memo(function FitnessChart({
                     <>
                       {visibleLines.fitness ? (
                         <>
-                          <CurveArea points={points.fitness} y0={bounds.bottom}>
-                            <LinearGradient
-                              start={vec(0, bounds.top)}
-                              end={vec(0, bounds.bottom)}
-                              colors={[chartColors.fitness + '40', chartColors.fitness + '05']}
-                            />
-                          </CurveArea>
+                          <CurveArea
+                            points={points.fitness}
+                            yDomain={yDomain}
+                            y0={bounds.bottom}
+                            color={chartColors.fitness}
+                            isDark={isDark}
+                          />
                           <CurveLine
                             points={points.fitness}
                             color={chartColors.casing}
@@ -442,7 +442,7 @@ export const FitnessChart = React.memo(function FitnessChart({
                           cx={points.fitness[idx].x}
                           cy={bounds.top + MARKER_RADIUS}
                           r={MARKER_RADIUS}
-                          color={chartColors.accent}
+                          color={chartColors.ftp}
                         />
                       ))}
                     </>

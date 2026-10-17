@@ -37,6 +37,10 @@
     "calories": "Kalorier",
     "chartHint": "Hold for at skrubbe • Hold chip for akse",
     "distance": "Afstand",
+    "xAxis": {
+      "distance": "Afstand",
+      "time": "Tid"
+    },
     "duration": "Varighed",
     "explanations": {
       "conditions": "Temperatur fra vejrdata eller din enheds sensor.",
@@ -224,14 +228,14 @@
   },
   "alerts": {
     "cacheCleared": "Cache ryddet",
-    "clearCacheMessage": "Dette vil rydde alle cachelagrede aktivitetsdata, aktivitetsspor og rutematchningsdata og derefter starte genindlæsning. Dette kan tage et par minutter.",
+    "clearCacheMessage": "Dette vil rydde alle cachelagrede aktivitetsdata, aktivitetsspor og rutematchningsdata og derefter starte genindlæsning. Dette kan tage et par minutter. Det lokale dataområde går tilbage til de seneste 90 dage.",
     "clearCacheOffline": "Du er offline. Genindlæsningen kræver en forbindelse, så dine aktiviteter, kort og ruter forbliver tomme, indtil netværket er tilbage.",
     "clearCacheTitle": "Ryd og genindlæs cache",
     "clearReload": "Ryd og genindlæs",
-    "disconnect": "Afbryd",
-    "disconnectMessage": "Dette vil fjerne dine API-legitimationsoplysninger fra appen. Du skal indtaste dem igen for at bruge appen.",
+    "signOut": "Log ud",
+    "signOutMessage": "Dit bibliotek, navne og indstillinger bliver på denne telefon. Log ind igen for at synkronisere.",
     "disconnectOffline": "Du er offline. Begge login-metoder kræver en forbindelse, så du kan ikke logge ind igen, før radioen er tilbage.",
-    "disconnectTitle": "Afbryd konto",
+    "signOutTitle": "Log ud?",
     "leaveDemoTitle": "Forlad demo?",
     "leaveDemoMessage": "Eksempelturene lukkes, og du vender tilbage til log ind. Intet fra demoen gemmes.",
     "leaveDemoConfirm": "Forlad",
@@ -356,6 +360,7 @@
     "restoreOfferRestoring": "Gendanner…",
     "entryActivities_one": "{{count}} aktivitet",
     "entryActivities_other": "{{count}} aktiviteter",
+    "entryAppVersion": "Version {{version}}",
     "restoreFromFile": "Gendan fra en fil",
     "restoreFromWebdav": "Gendan fra WebDAV",
     "restoreFromGoogleDrive": "Gendan fra Google Drev",
@@ -677,12 +682,6 @@
     "failedToLoad": "Kunne ikke indlæse aktiviteter",
     "firstSyncBody": "Kun ved første indlæsning. Feedet åbner, når de første aktiviteter er hentet.",
     "firstSyncTitle": "Synkroniserer dine aktiviteter",
-    "groups": {
-      "cycling": "Cykling",
-      "running": "Løb",
-      "swimming": "Svømning",
-      "other": "Andet"
-    },
     "range": {
       "last90Days": "Seneste 90 dage",
       "thisYear": "I år",
@@ -974,9 +973,9 @@
     },
     "strengthBalance": {
       "volumeSplit": "Volumenfordeling",
-      "balanced": "Afbalanceret",
-      "watch": "Hold øje",
-      "imbalanced": "Ubalanceret",
+      "bandLow": "Under 1,35×",
+      "bandMiddle": "1,35× til 2×",
+      "bandHigh": "2× eller mere",
       "oneSided": "Ensidig",
       "lowSignal": "Svagt signal",
       "noSignal": "Intet signal",
@@ -1164,18 +1163,6 @@
     "unavailableHint": "Kortet kunne ikke indlæses. Tjek din forbindelse, og åbn det igen.",
     "activitiesCount_one": "{{count}} aktivitet",
     "activitiesCount_other": "{{count}} aktiviteter",
-    "activityTypes": {
-      "gym": "Fitness",
-      "hike": "Vandring",
-      "other": "Andet",
-      "racket": "Ketcher",
-      "ride": "Cykeltur",
-      "run": "Løbetur",
-      "snow": "Sne",
-      "swim": "Svømmetur",
-      "walk": "Gåtur",
-      "water": "Vand"
-    },
     "closeMap": "Luk kort",
     "closePopup": "Luk aktivitets-popup",
     "closeRoutePopup": "Luk rute-popup",
@@ -1246,7 +1233,7 @@
     },
     "privacy": {
       "title": "Privatlivsmeddelelse",
-      "brief": "Dit atlet-ID og et push-token gemmes på vores server (30 dages udløb). Notifikationer sendes via Apple eller Google, men alt indsigtsindhold genereres på din enhed. Ingen personlige data gemmes. Du kan deaktivere når som helst.",
+      "brief": "Dit atlet-ID og et push-token gemmes på vores server (30 dages udløb). Notifikationer sendes via Apple eller Google, men alt indsigtsindhold genereres på din enhed. Du kan deaktivere når som helst.",
       "accept": "Jeg forstår",
       "briefEnabled": "Du modtager disse notifikationer. Dit atlet-ID og et push-token er gemt på vores server (udløber efter 30 dage), og notifikationer sendes via Expo, derefter Apple eller Google, til din enhed. Alt indhold genereres på din enhed. Du kan slå dem fra når som helst.",
       "turnOff": "Slå fra"
@@ -1310,23 +1297,16 @@
     "backgroundNotificationTitle": "Optager aktivitet",
     "categories": {
       "cycling": "Cykling",
-      "gym": "Fitness og styrke",
-      "other": "Andet",
-      "racket": "Ketchersport",
-      "running": "Løb",
-      "swimming": "Svømning",
-      "water": "Vandsport",
-      "winter": "Vintersport",
-      "walking": "Gang"
+      "running": "Løb"
     },
     "changeType": "Skift aktivitetstype",
     "continue": "Fortsæt",
     "controls": {
-      "lap": "OMGANG",
-      "pause": "PAUSÉR",
-      "resume": "GENOPTAG",
-      "save": "GEM",
-      "stop": "AFSLUT"
+      "lap": "Omgang",
+      "pause": "Pausér",
+      "resume": "Genoptag",
+      "save": "Gem",
+      "stop": "Afslut"
     },
     "discard": "Kassér",
     "discardConfirmMessage": "Den er ikke gemt og kan ikke gendannes, når den er kasseret.",
@@ -1421,7 +1401,7 @@
     "splitReachedMi": "Mil {{index}}",
     "startActivity": "Start aktivitet",
     "status": {
-      "paused": "PAUSERET",
+      "paused": "Pauseret",
       "recording": "Optager"
     },
     "summary": "Oversigt",
@@ -1538,8 +1518,8 @@
     "routeNotFound": "Rute ikke fundet"
   },
   "routeIntelligence": {
-    "today": "I DAG",
-    "tomorrow": "I MORGEN"
+    "today": "I dag",
+    "tomorrow": "I morgen"
   },
   "routes": {
     "timeMethod": "Rutetider bruger bevægelsestid uden stop.",
@@ -1696,6 +1676,12 @@
     "aerobicEfficiency": "Aerob effektivitet",
     "aerobicEfficiencyDetail": "{{efforts}} matchede forsøg, modelleret ændring på {{hrChange}} bpm ved gennemsnitstempo",
     "aerobicEfficiencyCaption": "{{quantity}}, ældste forsøg til nyeste",
+    "aerobicEfficiencyRange": "Spænd {{min}} til {{max}}",
+    "aerobicEfficiencyInverted": "Lavere tegnes højere: mindre puls for tempoet",
+    "aerobicEfficiencySpoken": "{{title}}, {{efforts}} matchede forsøg",
+    "efficiencyVerdictImproving": "Forbedres",
+    "efficiencyVerdictFlat": "Ingen klar ændring",
+    "efficiencyVerdictWorsening": "Forværres",
     "correlationTitle": "Velvære og fart",
     "correlationMethod": "Pearsons r for omgangsfart mod dagens velværeværdi, 95 % interval, mindst 10 forsøg med en værdi",
     "correlationFamily_one": "Holm-justeret over {{count}} variabel",
@@ -1724,7 +1710,7 @@
     "correlationVarMood": "Humør",
     "correlationVarMotivation": "Motivation",
     "setAsReference": "Angiv som reference",
-    "setAsReferenceConfirm": "Brug denne aktivitet som reference?\n\nSektionen vil blive matchet igen mod alle dine aktiviteter. Dette kan tilføje eller fjerne aktiviteter fra denne sektion.",
+    "setAsReferenceConfirm": "Brug denne aktivitet som reference?\n\nSektionens linje følger denne aktivitet, og Delta-grafen måler tid foran eller bagud i forhold til den.\n\nSektionen bliver matchet igen mod alle dine aktiviteter, hvilket kan tilføje eller fjerne nogle.",
     "setReferenceError": "Kunne ikke angive reference. Afsnittet eller aktiviteten kan have ændret sig. Prøv igen.",
     "editBounds": "Rediger grænser",
     "pointsCount_one": "{{count}} punkt",
@@ -1756,6 +1742,7 @@
     "traversalsCount_other": "{{count}} gennemkørsler",
     "calendarActivities_one": "{{count}} aktivitet",
     "calendarActivities_other": "{{count}} aktiviteter",
+    "calendarTitle": "Pr. år",
     "scanForMatches": "Scan efter match",
     "rematchActivities": "Match aktiviteter igen",
     "scanForMore": "Scan efter flere sektioner",
@@ -1821,6 +1808,7 @@
     "trimFailedTitle": "Kunne ikke trimme sektionen",
     "deleteFailedTitle": "Sektion ikke slettet",
     "sectionRemoved": "Sektion fjernet",
+    "attemptExcluded": "Forsøg udelukket",
     "removeFailedTitle": "Sektion ikke fjernet",
     "removeFailed": "Sektionen kunne ikke fjernes.",
     "restoreFailedTitle": "Sektion ikke gendannet",
@@ -1855,7 +1843,7 @@
     "defaultStyle": "Standardstil",
     "exploreMapStyle": "Udforsk kort",
     "dialect": "Dialekt",
-    "disconnectAccount": "Afbryd konto",
+    "signOut": "Log ud",
     "leaveDemo": "Forlad demo",
     "display": "Visning",
     "largeHistoryConfirm": "Hent alligevel",
@@ -1863,6 +1851,7 @@
     "largeHistoryMessage_other": "Så langt tilbage henter op til omkring {{count}} aktiviteter. Det tager et stykke tid, og appen er ikke garanteret at forblive hurtig med så meget gemt.",
     "largeHistoryTitle": "Det er en stor download",
     "localDataRange": "Lokalt datointerval",
+    "localDataRangeEnd": "Slut på lokalt datointerval",
     "heroMetric": "Hovedmetrik",
     "hideDemoBanner": "Skjul demobanner",
     "hideDemoBannerHint": "Skjul banneret til skærmbilleder",
@@ -2098,6 +2087,7 @@
     "groupingLegendDropped": "Står alene",
     "groupingFailed": "Grupperingen blev ikke færdig. Flyt en indstilling for at prøve igen.",
     "authApiKey": "API-nøgle",
+    "authOAuth": "Logget ind med intervals.icu",
     "authDemo": "Demotilstand",
     "scopeChats": "Samtaler",
     "scopeLibrary": "Bibliotek",
@@ -2148,7 +2138,7 @@
     "rangeNotDownloaded": "Ikke hentet endnu",
     "rangePartlyDownloaded": "En del af perioden er ikke hentet endnu",
     "calendarRange": "{{start}} til {{end}}",
-    "seasonComparison": "Sæsonsammenligning",
+    "seasonComparison": "Årssammenligning",
     "sixCalendarMonths": "6 mdr.",
     "swimPaceCurve": "Svømmetempokurve",
     "thisMonth": "Denne måned",
@@ -2158,7 +2148,7 @@
     "time": "Tid",
     "totalTime": "Samlet tid",
     "vsLastMonth": "vs sidste måned",
-    "vsLastWeek": "vs sidste uge",
+    "vsLastWeek": "vs sidste uge indtil nu",
     "vsLastYear": "vs sidste år",
     "vsPrevious3Months": "vs forrige 3 måneder",
     "vsPrevious6Months": "vs forrige 6 måneder",
@@ -2218,7 +2208,14 @@
   },
   "trainingScreen": {
     "routes": "Ruter",
-    "countOfTotal": "{{shown}} af {{total}}",
+    "routesListCount_one": "{{count}} rute",
+    "routesListCount_other": "{{count}} ruter",
+    "routesListCountOfTotal_one": "{{shown}} af {{count}} rute",
+    "routesListCountOfTotal_other": "{{shown}} af {{count}} ruter",
+    "sectionsListCount_one": "{{count}} sektion",
+    "sectionsListCount_other": "{{count}} sektioner",
+    "sectionsListCountOfTotal_one": "{{shown}} af {{count}} sektion",
+    "sectionsListCountOfTotal_other": "{{shown}} af {{count}} sektioner",
     "sections": "Sektioner"
   },
   "units": {
@@ -2285,11 +2282,11 @@
     "smoothingAverage_one": "{{count}}-dages gennemsnit",
     "smoothingAverage_other": "{{count}}-dages gennemsnit",
     "smoothingDescription": "Anvend et glidende gennemsnit for at reducere daglig støj og vise tendenser tydeligere.",
-    "smoothingHint": "Auto bruger optimal udglatning for det valgte tidsinterval",
+    "smoothingHint": "Auto: ingen udglatning for {{r7d}}, et {{d1m}}-dages gennemsnit for {{r1m}}, {{d3m}} dage for {{r3m}}, {{d6m}} for {{r6m}} og {{d1y}} for {{r1y}}.",
     "smoothingNone": "Ingen",
     "smoothingRaw": "Rådata",
     "smoothingTitle": "Dataudglatning",
-    "trendHint": "HRV-, søvn- og hvilepulstendenser vises her, når data logges",
+    "trendHint": "Wellness fra intervals.icu (HRV, hvilepuls, søvn, søvnscore, vægt) vises her, når det er logget.",
     "weight": "Vægt",
     "sleepDuration": "{{hours}} t {{minutes}} min"
   },
@@ -2418,7 +2415,7 @@
     "balanceFootnote": "Forhold sammenligner vægtede sæt, hvor primært arbejde tæller som 1,0 og sekundært arbejde som 0,5.",
     "pairsInfoTitle": "Balancemetode",
     "pairsInfoIntro": "Disse antagonistpar sammenlignes:",
-    "pairsInfoThresholds": "Status: i balance ≤ 1,35×, hold øje op til 2×, ubalance over 2×.",
+    "pairsInfoThresholds": "Intervaller: under 1,35×, 1,35× til 2×, 2× eller mere.",
     "pairsInfoMinSignal": "Par med færre end 4 vægtede sæt pr. side springes over.",
     "exercisesTargeting": "Øvelser der rammer {{muscle}}",
     "exerciseWorkoutCount_one": "{{count}} træning",
@@ -2818,5 +2815,14 @@
       "zone": "Zone",
       "time": "Tid"
     }
+  },
+  "sportFamilies": {
+    "ride": "Cykling",
+    "winter": "Vintersport",
+    "run": "Løb",
+    "water": "Vandsport",
+    "foot": "Til fods",
+    "strength": "Styrke",
+    "other": "Andet"
   }
 }

@@ -1,0 +1,15 @@
+{
+  "name": "veloq-focus",
+  "version": "0.1.0",
+  "description": "A native container on Android whose descendants never take keyboard focus",
+  "homepage": "https://github.com/evanjt/veloq",
+  "license": "MIT",
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  },
+  "devDependencies": {
+    "expo-modules-core": "*"
+  }
+}

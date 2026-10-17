@@ -9,14 +9,16 @@ import * as haptics from '@/shared/ui/haptics';
  * popping the live screen beneath the review with it.
  *
  * `startTime` is the ride the athlete confirmed. An accept that lands after
- * that ride has gone, or another has taken its place, does nothing.
+ * that ride has gone, or another has taken its place, does nothing. Returns
+ * whether the ride was discarded, so the screen knows it is on its way home.
  */
-export function discardReviewedRecording(startTime: number | null): void {
+export function discardReviewedRecording(startTime: number | null): boolean {
   const state = useRecordingStore.getState();
-  if (state.status === 'idle' || state.startTime !== startTime) return;
+  if (state.status === 'idle' || state.startTime !== startTime) return false;
 
   haptics.medium();
   state.reset();
   void clearRecordingBackup();
   returnTo('/');
+  return true;
 }

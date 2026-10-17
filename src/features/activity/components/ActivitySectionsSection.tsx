@@ -38,11 +38,21 @@ import {
 } from '@/shared/ui';
 import {
   groupSectionEncounters,
+  sectionGroupIndex,
   type SectionEncounterGroup,
 } from '@/features/activity/lib/groupSectionEncounters';
 import { tapTo } from '@/shared/app/navigation';
 import { formatDistance } from '@/shared/format/format';
-import { colors, darkColors, iconSize, shadows, spacing, swipeAction, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  duration,
+  iconSize,
+  shadows,
+  spacing,
+  swipeAction,
+  typography,
+} from '@/theme';
 import { debug } from '@/shared/debug/debug';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 import { confirmAction, inform } from '@/shared/ui/dialog';
@@ -73,6 +83,10 @@ interface ActivitySectionsSectionProps {
   onScan: () => void | Promise<void>;
   /** Force-match to a specific section */
   onRematch: (sectionId: string) => boolean;
+  /** A section to bring into view and mark, such as one whose map marker was tapped */
+  focusSectionId?: string | null;
+  /** Called once the focus has been taken, so the same section can be focused again */
+  onFocusHandled?: () => void;
 }
 
 const NO_LEDGER_CHANGES: readonly ActivityLedgerChange[] = [];
@@ -95,6 +109,8 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   hasScanned: scanReturned,
   onScan,
   onRematch,
+  focusSectionId = null,
+  onFocusHandled,
 }: ActivitySectionsSectionProps) {
   const { t } = useTranslation();
   const bottomClearance = useBottomClearance();
@@ -361,6 +377,63 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     rowHeightRef.current = 0;
     rowHeightsRef.current = [];
   }, [groups]);
+
+  // ----- Focus from a map marker -----
+  // The tapped section's card scrolls to the middle and is marked for the hold
+  // duration. The scroll waits a frame, since the tab may mount with the tap,
+  // and neither it nor the hold is cancelled when the parent clears the focus.
+  const focusFrameRef = useRef<number | null>(null);
+  const focusHoldRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const focusRetriesRef = useRef(0);
+
+  const scrollToGroup = useCallback((index: number) => {
+    flatListRef.current?.scrollToIndex({ index, viewPosition: 0.5, animated: true });
+  }, []);
+
+  useEffect(() => {
+    if (!focusSectionId) return;
+    const index = sectionGroupIndex(groups, focusSectionId);
+    if (index === null) return;
+    onHighlightedSectionIdChange(focusSectionId);
+    onFocusHandled?.();
+
+    focusRetriesRef.current = 0;
+    if (focusFrameRef.current != null) cancelAnimationFrame(focusFrameRef.current);
+    focusFrameRef.current = requestAnimationFrame(() => {
+      focusFrameRef.current = null;
+      scrollToGroup(index);
+    });
+
+    if (focusHoldRef.current != null) clearTimeout(focusHoldRef.current);
+    focusHoldRef.current = setTimeout(() => {
+      focusHoldRef.current = null;
+      if (!isScrubbingRef.current) onHighlightedSectionIdChange(null);
+    }, duration.hold);
+  }, [focusSectionId, groups, onFocusHandled, onHighlightedSectionIdChange, scrollToGroup]);
+
+  useEffect(
+    () => () => {
+      if (focusFrameRef.current != null) cancelAnimationFrame(focusFrameRef.current);
+      if (focusHoldRef.current != null) clearTimeout(focusHoldRef.current);
+    },
+    []
+  );
+
+  // Cards differ in height and only the first few are rendered, so a card
+  // further down has no measured offset yet. Jump to its estimated offset,
+  // which renders it, then scroll to it on the next frame.
+  const handleScrollToIndexFailed = useCallback(
+    ({ index, averageItemLength }: { index: number; averageItemLength: number }) => {
+      if (focusRetriesRef.current >= 3) return;
+      focusRetriesRef.current += 1;
+      flatListRef.current?.scrollToOffset({ offset: averageItemLength * index, animated: false });
+      focusFrameRef.current = requestAnimationFrame(() => {
+        focusFrameRef.current = null;
+        scrollToGroup(index);
+      });
+    },
+    [scrollToGroup]
+  );
 
   // Start scrub from a page-Y position (invoked from Pan onStart after activateAfterLongPress).
   const startScrubAt = useCallback(
@@ -709,6 +782,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
           }}
           scrollEventThrottle={16}
           scrollEnabled={!isScrubbing}
+          onScrollToIndexFailed={handleScrollToIndexFailed}
         />
       </View>
     </GestureDetector>

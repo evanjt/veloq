@@ -26,6 +26,7 @@ import {
   controlHeight,
   darkColors,
   iconSize,
+  layers,
   layout,
   mapTextShadow,
   opacity,
@@ -358,7 +359,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingHorizontal: spacing.md,
-    zIndex: 5,
+    zIndex: layers.raised,
   },
   nameRow: {
     flexDirection: 'row',

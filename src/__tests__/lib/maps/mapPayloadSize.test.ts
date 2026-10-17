@@ -157,7 +157,6 @@ function regionalSpecs() {
     heatmapEnabled: false,
   });
   const layers = buildRegionalLayers({
-    isDark: false,
     mapStyle: 'light',
     showActivities: true,
     showSections: true,

@@ -59,8 +59,9 @@ onFlowComplete:
 - takeScreenshot: "screenshots/recordings-library"
 
 # Back to the record screen
-# The header is the platform's now, so leaving is the OS back button.
-- back
+# The header is the platform's now, so leaving is the platform's back.
+- runFlow:
+    file: helpers/go-back.yaml
 
 - extendedWaitUntil:
     visible:

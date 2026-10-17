@@ -1101,7 +1101,7 @@ fn start_fetch_and_store_run(
                 // The ground the athlete's own regions need, pinned, on the
                 // same trigger and for the same reason: a sync that stored a
                 // track is what moves the bounds both passes key on.
-                crate::basemap::seed_ground_background(engine.activity_bounds());
+                crate::basemap::start_ground_preseed();
                 let centres = engine.preview_centres(u32::MAX);
                 crate::basemap::seed_terrain_background(
                     centres

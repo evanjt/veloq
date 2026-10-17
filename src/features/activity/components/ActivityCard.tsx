@@ -24,14 +24,15 @@ import {
   darkColors,
   iconSize,
   ink,
+  layers,
   layout,
   mapTextShadow,
   opacity,
   slopToMinTapTarget,
   spacing,
+  stroke,
   typography,
   verdict,
-  stroke,
 } from '@/theme';
 import { useMapPreferences } from '@/features/settings';
 import { type TerrainSnapshotWebViewRef } from '@/features/maps';
@@ -852,6 +853,10 @@ const pillShape = {
 const PILL_HEIGHT = typography.pillValue.lineHeight + 2 * (spacing.xxs + stroke.one);
 const CHIP_SLOP = slopToMinTapTarget(PILL_HEIGHT);
 
+// The header and footer sit over the press overlay so their own controls take
+// the tap. The layer scale has no rung between raised and sticky.
+const ABOVE_PRESS_OVERLAY = layers.raised + 1;
+
 const styles = StyleSheet.create({
   cardWrapper: {
     marginHorizontal: CARD_MARGIN,
@@ -863,7 +868,7 @@ const styles = StyleSheet.create({
   },
   pressableOverlay: {
     ...StyleSheet.absoluteFill,
-    zIndex: 1,
+    zIndex: layers.raised,
   },
   topOverlay: {
     position: 'absolute',
@@ -873,7 +878,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.smPlus,
     paddingHorizontal: spacing.smPlus,
     paddingBottom: spacing.lg,
-    zIndex: 2,
+    zIndex: ABOVE_PRESS_OVERLAY,
   },
   overlayHeader: {
     flexDirection: 'row',
@@ -936,7 +941,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    zIndex: 2,
+    zIndex: ABOVE_PRESS_OVERLAY,
   },
   primaryRow: {
     flexDirection: 'row',

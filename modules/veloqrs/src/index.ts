@@ -43,6 +43,8 @@ import {
   type FfiClimbBest,
   type FfiTrainingScreenData,
   type FfiTrainingScreenWindows,
+  type FfiSummaryComparison,
+  type FfiStatTrend,
   type FfiFitnessScreenData,
   type FfiPreviewTrack,
   type FfiActivityStreams,
@@ -60,7 +62,7 @@ import {
   type FfiSectionFilters,
   FfiGroupSort,
   FfiSectionSort,
-  FfiFeedGroup,
+  FfiSportFamily,
   type FfiActivityBodiesQuery,
   type FfiActivityBodiesPage,
   type FfiGroupWithPolyline,
@@ -234,6 +236,8 @@ export type ClimbBest = FfiClimbBest;
 // Training screen types
 export type TrainingScreenData = FfiTrainingScreenData;
 export type TrainingScreenWindows = FfiTrainingScreenWindows;
+export type SummaryComparison = FfiSummaryComparison;
+export type StatTrend = FfiStatTrend;
 // Fitness screen types
 export type FitnessScreenData = FfiFitnessScreenData;
 export type PreviewTrack = FfiPreviewTrack;
@@ -258,7 +262,7 @@ export { FfiGroupSort as GroupSort, FfiSectionSort as SectionSort };
 // Feed search over the whole library
 export type ActivityBodiesQuery = FfiActivityBodiesQuery;
 export type ActivityBodiesPage = FfiActivityBodiesPage;
-export { FfiFeedGroup as FeedSportGroup };
+export { FfiSportFamily as EngineSportFamily };
 export type GroupWithPolyline = FfiGroupWithPolyline;
 export type SectionWithPolyline = FfiSectionWithPolyline;
 export type StalePrOpportunity = FfiStalePrOpportunity;

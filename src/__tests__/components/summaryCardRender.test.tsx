@@ -55,7 +55,6 @@ async function renderCard(props: Partial<SummaryCardProps>) {
       onProfilePress={() => {}}
       heroValue={0}
       heroLabel="metrics.fitness"
-      heroColor="#000"
       showSparkline
       supportingMetrics={[]}
       {...props}
@@ -101,15 +100,21 @@ describe('the fitness sparkline', () => {
 });
 
 describe('the HRV hero', () => {
-  it('prints HRV and resting HR in the text tones of their series', async () => {
+  it('prints HRV and resting HR in primary ink, keyed by their series', async () => {
     const card = await renderCard({
       heroMetric: 'hrv',
       hrvData: [55, 58, 61],
       rhrData: [48, 47, 46],
     });
 
-    expect(card.getByTestId('summary-card-hrv-value')).toHaveStyle({ color: colors.chartHrvText });
-    expect(card.getByTestId('summary-card-rhr-value')).toHaveStyle({ color: colors.chartRhrText });
+    expect(card.getByTestId('summary-card-hrv-value')).toHaveStyle({ color: colors.textPrimary });
+    expect(card.getByTestId('summary-card-rhr-value')).toHaveStyle({ color: colors.textPrimary });
+    expect(card.getByTestId('summary-card-key-hrv')).toHaveStyle({
+      backgroundColor: colors.chartHrv,
+    });
+    expect(card.getByTestId('summary-card-key-rhr')).toHaveStyle({
+      backgroundColor: colors.chartRhr,
+    });
   });
 });
 

@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, StyleSheet, Text as RNText } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import {
   Canvas,
   Circle,
@@ -14,11 +14,13 @@ import Animated from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { darkColors, colors, colorWithOpacity, typography, spacing } from '@/theme';
+import { summarySeriesColor } from '../lib/summaryMetricColour';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { formBarLayout } from '../lib/formBar';
 import { riseDayPoints } from '../lib/fitnessChange';
 import { scrubDateLabel } from '../lib/scrubDateLabel';
 import { buildMonotoneSvg, useChartGestures } from '@/shared/charts';
+import { DenseText, denseExtent } from '@/shared/ui/DenseText';
 
 const PLOT_TOP = 2;
 const PLOT_BOTTOM = 2;
@@ -28,6 +30,9 @@ const PLOT_BOTTOM = 2;
  * through it, and a full-width bar that scrubs to one value.
  */
 export const SPARKLINE_MIN_DAYS = 2;
+
+/** The inline label column holds one short word, "Fitness" or "Form", at the cap. */
+const INLINE_LABEL_WIDTH = denseExtent(typography.pillLabel.fontSize, 3.6);
 
 const CHART_HEIGHT = 44;
 const FORM_BAR_HEIGHT = 4;
@@ -108,7 +113,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     return { y: [min - range * 0.06, max + range * 0.04] as [number, number] };
   }, [fitnessData, fatigueSeries]);
 
-  const labelWidth = showLabels ? 42 : 0;
+  const labelWidth = showLabels ? INLINE_LABEL_WIDTH : 0;
   const chartWidth = width - labelWidth;
   const totalHeight = CHART_HEIGHT + FORM_BAR_HEIGHT;
 
@@ -196,8 +201,10 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
 
   const labelColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const casingColor = isDark ? darkColors.chartCasing : colors.chartCasing;
-  const fitnessLineColor = isDark ? colors.fitnessBlue : colorWithOpacity(colors.fitnessBlue, 0.85);
-  const fatigueLineColor = isDark ? colors.chartPink : colorWithOpacity(colors.chartPink, 0.75);
+  const fitnessHue = summarySeriesColor('fitness', isDark);
+  const fatigueHue = summarySeriesColor('fatigue', isDark);
+  const fitnessLineColor = isDark ? fitnessHue : colorWithOpacity(fitnessHue, 0.85);
+  const fatigueLineColor = isDark ? fatigueHue : colorWithOpacity(fatigueHue, 0.75);
 
   const dividerColor = isDark ? darkColors.surface : colors.surface;
 
@@ -208,18 +215,18 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
           {/* Optional inline labels (settings preview only) */}
           {showLabels ? (
             <View style={[styles.labelColumn, { width: labelWidth }]}>
-              <RNText
+              <DenseText
                 style={[
                   styles.inlineLabel,
                   { color: isDark ? darkColors.fitnessBlueText : colors.fitnessBlueText },
                 ]}
               >
                 {t('metrics.fitness')}
-              </RNText>
+              </DenseText>
               <View style={{ flex: 1 }} />
-              <RNText style={[styles.inlineLabel, { color: labelColor }]}>
+              <DenseText style={[styles.inlineLabel, { color: labelColor }]}>
                 {t('metrics.form')}
-              </RNText>
+              </DenseText>
             </View>
           ) : null}
 
@@ -300,14 +307,14 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
             </Canvas>
 
             {/* Time range label */}
-            <RNText
+            <DenseText
               style={[
                 styles.rangeLabel,
                 { color: isDark ? darkColors.textSecondary : colors.textSecondary },
               ]}
             >
               {t('units.daysShort', { days: fitnessData.length })}
-            </RNText>
+            </DenseText>
 
             {/* Crosshair overlay */}
             <Animated.View style={[styles.crosshair, crosshairStyle]} pointerEvents="none">
@@ -346,7 +353,7 @@ const styles = StyleSheet.create({
   },
   rangeLabel: {
     position: 'absolute',
-    top: -12,
+    bottom: '100%',
     right: 2,
     fontSize: typography.pillLabel.fontSize,
     fontWeight: '400',

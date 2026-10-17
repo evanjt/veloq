@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { LinearGradient, Rect, vec } from '@shopify/react-native-skia';
+import { Rect } from '@shopify/react-native-skia';
 import { useTheme } from '@/shared/app';
 import { ChartCanvas, CurveArea, CurveLine, useChartColors } from '@/shared/charts';
 import { colors, darkColors, spacing, layout, typography, opacity, zoneColour } from '@/theme';
@@ -35,9 +35,10 @@ const POWER_SERIES = { watts: (d: { x: number; y: number }) => d.y };
 const dayOf = (d: TourDay) => d.x;
 const secondsOf = (d: { x: number }) => d.x;
 
+// Zero-based like the fitness chart it mirrors, so fitness keeps its wash.
 const LOAD_DOMAIN: [number, number] = [
-  Math.min(...BLOCK.map((d) => Math.min(d.fitness, d.fatigue))) - 5,
-  Math.max(...BLOCK.map((d) => Math.max(d.fitness, d.fatigue))) + 5,
+  0,
+  Math.max(...BLOCK.map((d) => Math.max(d.fitness, d.fatigue))) * 1.1,
 ];
 const FORM_DOMAIN: [number, number] = [-35, 30];
 const POWER_DOMAIN: [number, number] = [0, Math.max(...POWER.map((p) => p.y)) * 1.05];
@@ -109,13 +110,13 @@ export function FitnessHeroSlide() {
           >
             {({ points, bounds }) => (
               <>
-                <CurveArea points={points.fitness} y0={bounds.bottom}>
-                  <LinearGradient
-                    start={vec(0, bounds.top)}
-                    end={vec(0, bounds.bottom)}
-                    colors={[chartColors.fitness + '40', chartColors.fitness + '05']}
-                  />
-                </CurveArea>
+                <CurveArea
+                  points={points.fitness}
+                  yDomain={LOAD_DOMAIN}
+                  y0={bounds.bottom}
+                  color={chartColors.fitness}
+                  isDark={isDark}
+                />
                 <CurveLine points={points.fitness} color={chartColors.fitness} strokeWidth={1.5} />
                 <CurveLine points={points.fatigue} color={chartColors.fatigue} strokeWidth={1} />
               </>

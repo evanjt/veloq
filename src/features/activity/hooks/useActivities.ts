@@ -225,7 +225,7 @@ function readSearchPage(
 ): FeedSearchPage | undefined {
   const page = getEngine()?.searchActivityBodies({
     needle,
-    sportGroups: [...groups].map(feedSportGroup),
+    sportFamilies: [...groups].map(feedSportGroup),
     ...(range && {
       oldestTs: dayStartEpochSeconds(range.oldest),
       newestTs: dayEndEpochSeconds(range.newest),

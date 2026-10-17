@@ -68,7 +68,10 @@ tags:
 - takeScreenshot: "screenshots/strength-muscle-panel"
 - assertVisible:
     id: "strength-selected-summary"
-- assertVisible: "Abs"
+# The selected muscle's row is one control labelled with its name, and on iOS
+# that label hides the name's own text, so the control's label is matched.
+- assertVisible:
+    text: "Clear Abs.*"
 - assertVisible:
     id: "strength-progression-card"
 

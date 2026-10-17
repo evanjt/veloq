@@ -596,3 +596,31 @@ describe('the Record widget label clears AA on its own chrome', () => {
     }
   );
 });
+
+/**
+ * Scenario: the record role is one red on the button, the live dot, the
+ * widgets, the Live Activity and the notifications, with white on it, and the
+ * dot is a mark drawn straight on the screen's own surfaces.
+ *
+ * Expected behaviour: the dark tone is the guide's `#D1352F`, white clears AA
+ * text on each tone, and each tone clears the mark bar on every surface of its
+ * own theme.
+ */
+describe('the record role', () => {
+  it('takes the guide dark value', () => {
+    expect(recording.dark.toUpperCase()).toBe('#D1352F');
+  });
+
+  it.each(['light', 'dark'] as const)('carries white at AA text in %s', (theme) => {
+    expect(contrastRatio('#FFFFFF', recording[theme])).toBeGreaterThanOrEqual(AA_TEXT);
+  });
+
+  it.each([
+    ['light', LIGHT_SURFACES],
+    ['dark', DARK_SURFACES],
+  ] as const)('separates from every %s surface at the mark bar', (theme, surfaces) => {
+    for (const [name, ground] of Object.entries(surfaces)) {
+      expect(`${name} ${contrastRatio(recording[theme], ground) >= AA_MARK}`).toBe(`${name} true`);
+    }
+  });
+});

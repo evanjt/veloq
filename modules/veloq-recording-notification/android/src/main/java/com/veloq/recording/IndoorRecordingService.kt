@@ -41,6 +41,7 @@ class IndoorRecordingService : Service() {
       .setSmallIcon(smallIcon())
       .setContentTitle(title)
       .setCategory(NotificationCompat.CATEGORY_SERVICE)
+      .setVisibility(RecordingChannel.LOCK_SCREEN_VISIBILITY)
       .setOngoing(true)
       .setOnlyAlertOnce(true)
       .setSilent(true)

@@ -8,7 +8,7 @@ import androidx.core.graphics.drawable.IconCompat
 import kotlin.math.roundToInt
 
 /**
- * The icon a launcher shortcut draws for one sport: the sport category's glyph on
+ * The icon a launcher shortcut draws for one sport: its sport family's glyph on
  * the brand fill, as an adaptive icon so the launcher masks it to its own shape.
  * The category key comes with the shortcut, so the app's one sport grouping decides
  * it and nothing here maps a sport.
@@ -18,18 +18,15 @@ internal object RecordShortcutIcons {
   private const val CANVAS_DP = 108f
   private const val GLYPH_DP = 44f
 
-  /** The glyph for a category key; a key this build does not know draws the catch-all. */
+  /** The glyph for a family key; a key this build does not know draws the catch-all. */
   fun glyph(category: String?): Int =
     when (category) {
       "ride" -> R.drawable.shortcut_glyph_ride
+      "winter" -> R.drawable.shortcut_glyph_snow
       "run" -> R.drawable.shortcut_glyph_run
-      "swim" -> R.drawable.shortcut_glyph_swim
-      "walk" -> R.drawable.shortcut_glyph_walk
-      "hike" -> R.drawable.shortcut_glyph_hike
-      "snow" -> R.drawable.shortcut_glyph_snow
-      "water" -> R.drawable.shortcut_glyph_water
-      "gym" -> R.drawable.shortcut_glyph_gym
-      "racket" -> R.drawable.shortcut_glyph_racket
+      "water" -> R.drawable.shortcut_glyph_swim
+      "foot" -> R.drawable.shortcut_glyph_walk
+      "strength" -> R.drawable.shortcut_glyph_gym
       else -> R.drawable.shortcut_glyph_other
     }
 

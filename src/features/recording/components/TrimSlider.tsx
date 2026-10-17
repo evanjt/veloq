@@ -20,11 +20,12 @@ import {
   colorWithOpacity,
   darkColors,
   iconSize,
+  layers,
   layout,
   shadows,
   spacing,
-  typography,
   stroke,
+  typography,
 } from '@/theme';
 import { formatDuration } from '@/shared/format/format';
 import { stepTrimBound, trimMinGap, type TrimBound } from '@/shared/math/trimRange';
@@ -377,6 +378,10 @@ export function TrimSlider({
   );
 }
 
+// The handle last dragged draws over the other where the two meet. The layer
+// scale has no rung between raised and sticky.
+const HANDLE_ON_TOP = layers.raised + 1;
+
 const styles = StyleSheet.create({
   pill: {
     borderRadius: layout.borderRadius,
@@ -428,10 +433,10 @@ const styles = StyleSheet.create({
     height: HANDLE_SIZE,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1,
+    zIndex: layers.raised,
   },
   handleOnTop: {
-    zIndex: 2,
+    zIndex: HANDLE_ON_TOP,
   },
   handleInner: {
     width: 22,

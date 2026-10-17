@@ -29,6 +29,7 @@ import {
   darkColors,
   iconSize,
   ink,
+  layers,
   layout,
   mapTextShadow,
   spacing,
@@ -328,6 +329,10 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
 
 export const StrengthActivityCard = React.memo(StrengthActivityCardInner);
 
+// The header sits over the press overlay so its own controls take the tap.
+// The layer scale has no rung between raised and sticky.
+const ABOVE_PRESS_OVERLAY = layers.raised + 1;
+
 const styles = StyleSheet.create({
   cardWrapper: {
     marginHorizontal: spacing.smPlus,
@@ -373,7 +378,7 @@ const styles = StyleSheet.create({
   },
   pressableOverlay: {
     ...StyleSheet.absoluteFill,
-    zIndex: 1,
+    zIndex: layers.raised,
   },
   topOverlay: {
     position: 'absolute',
@@ -383,7 +388,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.smPlus,
     paddingHorizontal: spacing.smPlus,
     paddingBottom: spacing.lg,
-    zIndex: 2,
+    zIndex: ABOVE_PRESS_OVERLAY,
   },
   overlayHeader: {
     flexDirection: 'row',

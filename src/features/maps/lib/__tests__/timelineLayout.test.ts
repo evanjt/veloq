@@ -1,4 +1,4 @@
-import { createTimelineLayout } from '../timelineLayout';
+import { createTimelineLayout, placeTickLabels } from '../timelineLayout';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const YEAR_MS = 365.25 * DAY_MS;
@@ -288,4 +288,74 @@ describe('quarter labels by recent share', () => {
       for (let i = 1; i < xs.length; i++) expect(xs[i] - xs[i - 1]).toBeGreaterThanOrEqual(28);
     }
   );
+});
+
+describe('tick label placement by measured width', () => {
+  const TRACK = 320;
+  // Widths as a French build measures them at 10 pt: 'Maintenant' is far wider than 'Now'.
+  const frenchWidth = (p: { kind: string }) =>
+    p.kind === 'now' ? 58 : p.kind === 'quarter' ? 30 : 16;
+  const build = (older: number) =>
+    createTimelineLayout({
+      minDate: new Date(maxDate.getTime() - (older + 1) * YEAR_MS),
+      maxDate,
+      trackWidth: TRACK,
+    });
+
+  it.each([0.5, 3, 5, 8, 12, 25])(
+    'keeps every placed label inside the track and clear of its neighbours with %s older years',
+    (older) => {
+      const { snapPoints } = build(older);
+      const placed = placeTickLabels(snapPoints, snapPoints.map(frenchWidth), TRACK);
+      expect(placed.length).toBeGreaterThan(0);
+      const boxes = placed
+        .map((p) => ({ left: p.left, right: p.left + p.width }))
+        .sort((a, b) => a.left - b.left);
+      for (const box of boxes) {
+        expect(box.left).toBeGreaterThanOrEqual(0);
+        expect(box.right).toBeLessThanOrEqual(TRACK);
+      }
+      for (let i = 1; i < boxes.length; i++) {
+        expect(boxes[i].left - boxes[i - 1].right).toBeGreaterThanOrEqual(4);
+      }
+    }
+  );
+
+  it('gives the now label its own measured width, ending at the track end', () => {
+    const { snapPoints } = build(3);
+    const placed = placeTickLabels(snapPoints, snapPoints.map(frenchWidth), TRACK);
+    const now = placed.find((p) => snapPoints[p.index].kind === 'now')!;
+    expect(now.width).toBe(58);
+    expect(now.left).toBe(TRACK - 58);
+  });
+
+  it('centres a label on its tick when it fits', () => {
+    const { snapPoints } = build(3);
+    const placed = placeTickLabels(snapPoints, snapPoints.map(frenchWidth), TRACK);
+    const quarter = placed.find((p) => snapPoints[p.index].kind === 'quarter')!;
+    const px = snapPoints[quarter.index].position * TRACK;
+    expect(quarter.left + quarter.width / 2).toBeCloseTo(px, 6);
+  });
+
+  it('drops the label that would collide with a wide now label and keeps its snap point', () => {
+    const { snapPoints } = build(3);
+    const wide = snapPoints.map((p) => (p.kind === 'now' ? 90 : frenchWidth(p)));
+    const placed = placeTickLabels(snapPoints, wide, TRACK);
+    const last = snapPoints.findLastIndex((p) => p.kind === 'quarter');
+    expect(placed.some((p) => p.index === last)).toBe(false);
+    expect(snapPoints[last].showLabel).toBe(true);
+  });
+
+  it('places nothing it has not measured, and only labels the layout asked for', () => {
+    const { snapPoints } = build(3);
+    const widths = snapPoints.map((p) => (p.kind === 'now' ? undefined : frenchWidth(p)));
+    const placed = placeTickLabels(snapPoints, widths, TRACK);
+    expect(placed.some((p) => snapPoints[p.index].kind === 'now')).toBe(false);
+    expect(placed.every((p) => snapPoints[p.index].showLabel)).toBe(true);
+  });
+
+  it('places nothing on a track not yet laid out', () => {
+    const { snapPoints } = build(3);
+    expect(placeTickLabels(snapPoints, snapPoints.map(frenchWidth), 0)).toEqual([]);
+  });
 });

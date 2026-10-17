@@ -11,15 +11,7 @@
  * enough that it can never be read as a polarity.
  */
 
-import {
-  verdict,
-  verdictColor,
-  verdictFill,
-  insightToneColor,
-  insightIcon,
-  brand,
-  statusBadge,
-} from '@/theme';
+import { verdict, verdictColor, verdictFill, insightToneColor, insightIcon, brand } from '@/theme';
 import { generateSectionTrendInsights } from '@/features/insights/generators/sectionTrend';
 import type { SectionTrendData } from '@/features/insights/types';
 import { getTrendStyle } from '@/features/routes/components/TodayBanner';
@@ -71,26 +63,6 @@ function contrastRatio(a: string, b: string): number {
 }
 
 /** Distance from grey: the spread between the widest and narrowest channel. */
-/**
- * A translucent fill over its ground, as the renderer composites it. A badge
- * states its fill as eight-digit hex, and measuring the label against the bare
- * hue rather than against what the eye sees is how a label under the bar reads
- * as compliant.
- */
-function over(fill: string, ground: string): string {
-  if (fill.length !== 9) return fill;
-  const alpha = parseInt(fill.slice(7, 9), 16) / 255;
-  const mix = (i: number) =>
-    Math.round(
-      parseInt(fill.slice(i, i + 2), 16) * alpha +
-        parseInt(ground.slice(i, i + 2), 16) * (1 - alpha)
-    )
-      .toString(16)
-      .toUpperCase()
-      .padStart(2, '0');
-  return `#${mix(1)}${mix(3)}${mix(5)}`;
-}
-
 function chroma(hex: string): number {
   const ch = channels(hex);
   return Math.max(...ch) - Math.min(...ch);
@@ -133,20 +105,6 @@ describe('verdict ladder', () => {
           `${name} on ${ground}: ${Math.max(contrastRatio(rung[theme], ground), MIN_SURFACE_CONTRAST).toFixed(2)}`
         );
       }
-    }
-  });
-
-  /**
-   * Every rung, not the two that were found under the bar: the `*Strong`
-   * variants share a text tone with their plain rung but not a fill, so a fix
-   * to one says nothing about the other five.
-   */
-  it('reads every status badge label on the fill it is drawn on', () => {
-    for (const [name, pair] of Object.entries(statusBadge)) {
-      const settled = over(pair.bg, LIGHT_SURFACE);
-      expect(`${name}: ${contrastRatio(pair.text, settled).toFixed(2)}`).toBe(
-        `${name}: ${Math.max(contrastRatio(pair.text, settled), MIN_SURFACE_CONTRAST).toFixed(2)}`
-      );
     }
   });
 

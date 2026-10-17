@@ -51,13 +51,15 @@ describe('de-CH register', () => {
     expect(message).toMatch(/Aktivitäts?date/i);
     expect(message).toMatch(/spure?/i);
     expect(message).toMatch(/Routeabgleich|Routenabgleich/i);
+    expect(message).toMatch(/90 Täg/);
   });
 
-  it('disconnect confirmation names the API credentials removed from the app', () => {
+  it('sign-out confirmation names the library and settings it keeps on the phone', () => {
     const ch = new Map(flatten(deCH));
-    const message = ch.get('alerts.disconnectMessage') ?? '';
-    expect(message).toMatch(/API-Zuegangsdate|API-Zugangsdaten/i);
-    expect(message).toMatch(/App/i);
+    const message = ch.get('alerts.signOutMessage') ?? '';
+    expect(message).toMatch(/Bibliothek/);
+    expect(message).toMatch(/Iistellige/);
+    expect(message).toMatch(/Handy/);
   });
 
   it('clear cache action says it reloads after deleting', () => {

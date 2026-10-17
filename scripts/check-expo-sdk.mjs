@@ -56,36 +56,67 @@ function isBelow(candidate, floor) {
   return false;
 }
 
-// A floor holds whatever the SDK bundles. While the bundle sits below it the
-// package is taken outside the SDK as an exact pin on the floor's major and
-// minor, so a repair never brings a new minor's peers in with it.
+function sameLine(a, b) {
+  return a[0] === b[0] && a[1] === b[1];
+}
+
+function lineBelow(a, b) {
+  return a[0] !== b[0] ? a[0] < b[0] : a[1] < b[1];
+}
+
+// A floor holds whatever the SDK bundles. A repair is released once per release
+// line, and a later line can branch before the repair reaches it, so each floor
+// names the first fixed version on every line that carries one. A version passes
+// when its own line is listed and it is at or above that line's fix, or when its
+// line is newer than every listed line. While the bundle fails, the package is
+// taken outside the SDK as an exact pin on the first fixed line at or above the
+// bundle's, so a repair never brings a new minor's peers in with it and never
+// goes back to an older line than the SDK's.
 const FLOORS = {
   'react-native-screens': {
-    version: '4.28.0',
+    fixedIn: ['4.28.0'],
     reason: 'earlier releases initialise native state without a lock and crash Fabric mounting',
   },
   'expo-task-manager': {
-    version: '56.0.24',
+    fixedIn: ['56.0.24', '57.0.7'],
     reason: 'earlier releases keep every task callback and leak the background location service',
   },
   'expo-location': {
-    version: '56.0.24',
+    fixedIn: ['56.0.24', '57.0.10'],
     reason: 'earlier releases leak location watches',
   },
   'react-native-reanimated': {
-    version: '4.3.4',
+    fixedIn: ['4.3.4', '4.5.4'],
     reason:
       'earlier releases crash on withheld exiting animations, deadlock the CSS registry against the Fabric commit and leak a view unmounted mid-animation',
   },
   '@shopify/react-native-skia': {
-    version: '2.9.1',
+    fixedIn: ['2.9.1'],
     reason:
       'earlier releases dereference a null EGL surface on first canvas render, which crash-loops launch on some Android GPUs',
   },
 };
 
-function heldAtFloor(candidate, floor) {
-  return /^\d/.test(candidate) && sharesMajorMinor(candidate, floor);
+function meetsFloor(candidate, floor) {
+  const actual = versionOf(candidate);
+  if (!actual) return false;
+  const fix = floor.fixedIn.find((version) => sameLine(versionOf(version), actual));
+  if (fix) return !isBelow(candidate, fix);
+  return floor.fixedIn.every((version) => lineBelow(versionOf(version), actual));
+}
+
+/** The fixed version a held package is pinned to: the first listed line not older than the bundle's. */
+function heldFix(bundledRange, floor) {
+  const bundledVersion = versionOf(bundledRange);
+  return (
+    floor.fixedIn.find(
+      (version) => bundledVersion && !lineBelow(versionOf(version), bundledVersion)
+    ) ?? floor.fixedIn[floor.fixedIn.length - 1]
+  );
+}
+
+function heldAtFloor(candidate, fix) {
+  return /^\d/.test(candidate) && sharesMajorMinor(candidate, fix) && !isBelow(candidate, fix);
 }
 
 let bundled;
@@ -122,20 +153,17 @@ function lockVersion(name) {
 const mismatches = [];
 const drift = [];
 const belowFloor = [];
+const held = new Set();
 
 for (const [name, floor] of Object.entries(FLOORS)) {
   if (!(name in declared)) continue;
   const resolved = lockVersion(name);
-  if (
-    isBelow(declared[name], floor.version) ||
-    resolved === null ||
-    isBelow(resolved, floor.version)
-  ) {
+  if (!meetsFloor(declared[name], floor) || resolved === null || !meetsFloor(resolved, floor)) {
     belowFloor.push({
       name,
       declared: declared[name],
       resolved: resolved ?? 'missing',
-      floor: floor.version,
+      floor: floor.fixedIn.join(', '),
       reason: floor.reason,
     });
   }
@@ -146,21 +174,26 @@ for (const [name, bundledRange] of Object.entries(bundled)) {
 
   const declaredRange = declared[name];
   const floor = FLOORS[name];
-  const held = floor !== undefined && isBelow(bundledRange, floor.version);
-  const expected = held ? `an exact pin from ${floor.version} on its minor` : bundledRange;
+  const isHeld = floor !== undefined && !meetsFloor(bundledRange, floor);
+  if (isHeld) held.add(name);
+  const fix = isHeld ? heldFix(bundledRange, floor) : null;
+  const expected = isHeld ? `an exact pin from ${fix} on its minor` : bundledRange;
 
-  if (
-    held ? !heldAtFloor(declaredRange, floor.version) : !matchesSdk(declaredRange, bundledRange)
-  ) {
+  if (isHeld ? !heldAtFloor(declaredRange, fix) : !matchesSdk(declaredRange, bundledRange)) {
     mismatches.push({ name, declared: declaredRange, expected });
   }
 
   const resolved = lockVersion(name);
-  const lockExpected = held ? declaredRange : bundledRange;
+  const lockExpected = isHeld ? declaredRange : bundledRange;
   if (resolved === null || !matchesSdk(resolved, lockExpected)) {
     drift.push({ name, declared: declaredRange, resolved: resolved ?? 'missing' });
   }
 }
+
+// Expo's own install check and doctor skip what `expo.install.exclude` lists, so
+// an entry there is a package only this guard judges. It may name only a package
+// held above its bundled version; any other entry would hide an SDK mismatch.
+const strayExcludes = (pkg.expo?.install?.exclude ?? []).filter((name) => !held.has(name));
 
 const nativeVersion = declared['react-native'];
 if (nativeVersion) {
@@ -202,6 +235,13 @@ if (mismatches.length > 0) {
     { key: 'declared', header: 'declared' },
     { key: 'expected', header: 'expected' },
   ]);
+}
+
+if (strayExcludes.length > 0) {
+  failed = true;
+  console.error(
+    `\nExcluded from Expo's install check but not held above the SDK (package.json expo.install.exclude): ${strayExcludes.join(', ')}`
+  );
 }
 
 if (belowFloor.length > 0) {

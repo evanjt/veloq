@@ -13,6 +13,7 @@ import { heatmapRasterPaint } from '@/features/maps/lib/heatmapPaint';
 import { HEATMAP_SOURCE_MINZOOM, heatmapTileTemplate } from '@/features/maps/lib/heatmapTiles';
 import { TRACE_ZOOM_THRESHOLD } from '@/features/maps/lib/mapBudgets';
 import { BUNDLED_TEXT_FONT } from '@/features/maps/lib/bundledGlyphs';
+import { isDarkStyle } from '../mapStyles';
 import {
   USER_LOCATION_SOURCE_ID,
   buildUserLocationLayers,
@@ -93,7 +94,6 @@ export function buildRegionalSources(input: RegionalSourceInput): Record<string,
 }
 
 interface RegionalLayerInput {
-  isDark: boolean;
   mapStyle: 'light' | 'dark' | 'satellite';
   showActivities: boolean;
   showSections: boolean;
@@ -112,7 +112,6 @@ interface RegionalLayerInput {
 
 export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
   const {
-    isDark,
     mapStyle,
     showActivities,
     showSections,
@@ -127,6 +126,8 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
     selectedRouteId,
     routeColor,
   } = input;
+  // The lines are drawn for the base under them, never for the app theme.
+  const isDark = isDarkStyle(mapStyle);
 
   const isSelectedActivity = ['==', ['get', 'id'], selectedActivityId ?? ''];
   const isSelectedSection = ['==', ['get', 'id'], selectedSectionId ?? ''];

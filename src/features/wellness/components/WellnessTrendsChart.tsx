@@ -32,6 +32,7 @@ import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { toDisplayWeight, weightUnitLabel } from '@/shared/format/weight';
 import { formatShortDate, formatShortDateWithWeekday } from '@/shared/format/format';
 import { ABSENT } from '@/shared/format/absent';
+import { DENSE_TEXT_SCALE, denseExtent } from '@/shared/ui/DenseText';
 import {
   smoothDataPoints,
   getEffectiveWindow,
@@ -151,6 +152,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
   const chartColors = useChartColors();
   const isMetric = useMetricSystem();
   const [containerWidth, setContainerWidth] = useState(0);
+  const [rowHeight, setRowHeight] = useState(MIN_ROW_HEIGHT);
 
   // Calculate effective smoothing window
   const effectiveWindow = useMemo(
@@ -316,14 +318,17 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
     };
   }, [activeMetrics, sortedData, t]);
 
-  // Compute sparkline width from container (metricInfo=75 + metricValues=55 + 2*margin)
-  const sparklineWidth = Math.max(0, containerWidth - 75 - 55 - spacing.sm * 2);
+  // The sparkline column is what the label and value columns leave, less its margins.
+  const sparklineWidth = Math.max(
+    0,
+    containerWidth - LABEL_COLUMN_WIDTH - VALUE_COLUMN_WIDTH - spacing.sm * 2
+  );
 
   // Calculate x position to index (for gesture)
-  const leftPadding = 75 + spacing.sm;
+  const leftPadding = SPARKLINE_LEFT;
   const chartWidth = sparklineWidth;
 
-  const sparklineHeight = 50;
+  const sparklineHeight = rowHeight;
 
   // Where each day sits across the whole row, so the shared scrub snaps to the
   // day under the finger and the hold gives the same tick as every other chart.
@@ -512,6 +517,13 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
     setContainerWidth(e.nativeEvent.layout.width);
   }, []);
 
+  // Every row takes the tallest row's height, so the one canvas behind them keeps a sparkline
+  // per row however far the system text size grows the values column.
+  const onRowLayout = useCallback((e: LayoutChangeEvent) => {
+    const measured = Math.ceil(e.nativeEvent.layout.height);
+    setRowHeight((current) => (measured > current ? measured : current));
+  }, []);
+
   const selectedDate = selectedDay?.id ?? null;
 
   if (!data || data.length === 0 || !hasAnyData) {
@@ -542,14 +554,21 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
     <View style={styles.container} onLayout={onLayout}>
       {/* Date header - the scrubbed day, or at rest the newest reading */}
       <View style={styles.dateHeader}>
-        <Text style={[styles.dateText, isDark && styles.textLight]}>
+        <Text
+          maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+          style={[styles.dateText, isDark && styles.textLight]}
+        >
           {selectedDate
             ? formatShortDateWithWeekday(selectedDate)
             : newestReadingDate
               ? formatShortDateWithWeekday(newestReadingDate)
               : t('time.today')}
         </Text>
-        {selectedIdx !== null && <Text style={styles.dateHint}>{t('wellness.dragToExplore')}</Text>}
+        {selectedIdx !== null && (
+          <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.dateHint}>
+            {t('wellness.dragToExplore')}
+          </Text>
+        )}
       </View>
 
       <ChartSurface summary={reading.summary} table={reading.table} style={styles.lanes}>
@@ -558,8 +577,11 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
             {activeMetrics.map((metric, i) => (
               <View
                 key={metric.key}
+                testID={`wellness-row-${metric.key}`}
+                onLayout={onRowLayout}
                 style={[
                   styles.metricRow,
+                  { minHeight: rowHeight },
                   isDark && styles.metricRowDark,
                   i === activeMetrics.length - 1 && styles.metricRowLast,
                 ]}
@@ -567,7 +589,9 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
                 {/* Left: label */}
                 <View style={styles.metricInfo}>
                   <View style={[styles.metricDot, { backgroundColor: metric.color }]} />
-                  <Text style={styles.metricLabel}>{metric.label}</Text>
+                  <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.metricLabel}>
+                    {metric.label}
+                  </Text>
                 </View>
 
                 {/* Center: spacer for sparkline area (canvas is overlaid absolutely) */}
@@ -575,22 +599,27 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
 
                 {/* Right: values */}
                 <View style={styles.metricValues}>
-                  <Text style={[styles.metricValue, isDark && styles.textLight]}>
+                  <Text
+                    maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                    style={[styles.metricValue, isDark && styles.textLight]}
+                  >
                     {metricDisplayValues[i]?.displayValue
                       ? metric.formatValue(metricDisplayValues[i].displayValue.value)
                       : ABSENT}
                   </Text>
-                  <Text style={styles.metricUnit}>{metric.unit}</Text>
+                  <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.metricUnit}>
+                    {metric.unit}
+                  </Text>
                   {!metricDisplayValues[i]?.isSelected &&
                     metricDisplayValues[i]?.avgValue != null && (
-                      <Text style={styles.metricAvg}>
+                      <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.metricAvg}>
                         {t('sections.avg')} {metric.formatValue(metricDisplayValues[i].avgValue)}
                       </Text>
                     )}
                   {!metricDisplayValues[i]?.isSelected &&
                   metricDisplayValues[i]?.displayValue &&
                   metricDisplayValues[i].displayValue.date !== newestReadingDate ? (
-                    <Text style={styles.metricAvg}>
+                    <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.metricAvg}>
                       {formatShortDate(metricDisplayValues[i].displayValue.date)}
                     </Text>
                   ) : null}
@@ -604,7 +633,7 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
                 style={{
                   position: 'absolute',
                   top: 0,
-                  left: 75 + spacing.sm,
+                  left: SPARKLINE_LEFT,
                   width: sparklineWidth,
                   height: canvasHeight,
                 }}
@@ -621,10 +650,21 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
       </ChartSurface>
 
       {/* Period label */}
-      <Text style={styles.periodLabel}>{t('wellness.lastDays', { count: data.length })}</Text>
+      <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.periodLabel}>
+        {t('wellness.lastDays', { count: data.length })}
+      </Text>
     </View>
   );
 });
+
+/** A row's height at the default text size; a row grows past it when its values need more. */
+const MIN_ROW_HEIGHT = 50;
+/** The label column fits about nine characters of the label at the cap, and wraps past that. */
+const LABEL_COLUMN_WIDTH = denseExtent(typography.badge.fontSize, 5.4);
+/** The value column fits a five-figure reading such as "103.4" at the cap. */
+const VALUE_COLUMN_WIDTH = denseExtent(typography.pillValue.fontSize, 3);
+/** Where the sparkline canvas starts: past the label column and the sparkline's own margin. */
+const SPARKLINE_LEFT = LABEL_COLUMN_WIDTH + spacing.sm;
 
 const makeStyles = (palette: Palette) =>
   StyleSheet.create({
@@ -660,7 +700,6 @@ const makeStyles = (palette: Palette) =>
     metricRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      height: 50,
       borderBottomWidth: stroke.hairline,
       borderBottomColor: opacity.overlay.light,
     },
@@ -673,7 +712,7 @@ const makeStyles = (palette: Palette) =>
     metricInfo: {
       flexDirection: 'row',
       alignItems: 'center',
-      width: 75,
+      width: LABEL_COLUMN_WIDTH,
     },
     metricDot: {
       width: spacing.sm,
@@ -683,6 +722,7 @@ const makeStyles = (palette: Palette) =>
     },
     metricLabel: {
       ...typography.badge,
+      flexShrink: 1,
       color: palette.textSecondary,
     },
     sparklineContainer: {
@@ -691,7 +731,7 @@ const makeStyles = (palette: Palette) =>
     },
     metricValues: {
       alignItems: 'flex-end',
-      width: 55,
+      width: VALUE_COLUMN_WIDTH,
     },
     metricValue: {
       ...typography.pillValue,

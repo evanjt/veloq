@@ -5,25 +5,26 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { runWhenIdle } from '@/shared/async/runWhenIdle';
 import { tapTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
-import { canDrawProfilePhoto, Shimmer, pressable, pressRipple } from '@/shared/ui';
+import { canDrawProfilePhoto, KeyDot, Shimmer, pressable, pressRipple } from '@/shared/ui';
 import {
   colors,
   darkColors,
   iconSize,
+  layers,
   layout,
   opacity,
   shadows,
   spacing,
-  typography,
   stroke,
+  typography,
 } from '@/theme';
 import { SummaryCardSparkline, SPARKLINE_MIN_DAYS, type ScrubValues } from './SummaryCardSparkline';
 import { SummaryCardHRVSparkline } from './SummaryCardHRVSparkline';
 import { Card } from '@/shared/ui/Card';
 import { useMeasuredWidth } from '@/shared/charts';
 import { useTranslation } from 'react-i18next';
-import { getFormZone, formatForm, formZoneTextColor } from '@/features/fitness';
-import { summaryMetricTextColor } from '@/features/home/lib/summaryMetricColour';
+import { getFormZone, formatForm } from '@/features/fitness';
+import { summaryFormZoneColor, summarySeriesColor } from '@/features/home/lib/summaryMetricColour';
 import { debug } from '@/shared/debug/debug';
 import type { TrendGlyph } from '@/shared/format/trend';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
@@ -46,7 +47,6 @@ interface SupportingMetric {
   value: string | number;
   /** The unit the value is read in, drawn after it. */
   unit?: string | undefined;
-  color?: string | undefined;
   trend?: TrendGlyph | undefined;
   /** What a screen reader hears: the value, and what its arrow was judged against. */
   accessibilityLabel?: string | undefined;
@@ -79,7 +79,8 @@ export interface SummaryCardProps {
   heroMetric?: string | undefined;
   heroValue: number | string;
   heroLabel: string;
-  heroColor: string;
+  /** The colour of the key dot beside the hero value; no dot without one. */
+  heroKeyColor?: string | undefined;
   heroZone?: string | undefined;
   heroTrend?: TrendGlyph | undefined;
   /** The same for the hero, read when it draws its number and arrow alone. */
@@ -130,7 +131,7 @@ export const SummaryCard = React.memo(function SummaryCard({
   heroMetric = 'fitness',
   heroValue,
   heroLabel,
-  heroColor,
+  heroKeyColor,
   heroZone,
   heroTrend,
   heroAccessibilityLabel,
@@ -194,12 +195,14 @@ export const SummaryCard = React.memo(function SummaryCard({
 
   const fitnessChange = formatSignedChange(fitnessDelta);
 
-  // During scrub, override the hero display
-  // Headline numbers, so they are text and hold 4.5:1. The scrub readout sets
-  // the same values the card does, in the same colours.
-  const fitnessTextColor = summaryMetricTextColor('fitness', isDark);
-  const fatigueTextColor = isDark ? darkColors.chartPinkText : colors.chartPinkText;
-  const hrvTextColor = summaryMetricTextColor('hrv', isDark);
+  // Text is never set in a series colour: a value is primary ink, a label
+  // secondary, and a series value carries a key dot in the colour of its line.
+  const valueInk = isDark ? darkColors.textPrimary : colors.textPrimary;
+  const labelInk = isDark ? darkColors.textSecondary : colors.textSecondary;
+  const fitnessKey = summarySeriesColor('fitness', isDark);
+  const fatigueKey = summarySeriesColor('fatigue', isDark);
+  const hrvKey = summarySeriesColor('hrv', isDark);
+  const rhrKey = summarySeriesColor('rhr', isDark);
 
   // Current fitness sparkline values (latest or scrubbed)
   const lastIdx = fitnessData ? fitnessData.length - 1 : 0;
@@ -208,11 +211,7 @@ export const SummaryCard = React.memo(function SummaryCard({
   const currentForm = scrubValues ? scrubValues.form : (formData?.[lastIdx] ?? 0);
   const asPercent = useFormPreference((s) => s.formAsPercent) === true;
   const currentFormZone = getFormZone(currentForm, currentFitness, asPercent);
-  const currentFormColor = currentFormZone
-    ? formZoneTextColor(currentFormZone, isDark)
-    : isDark
-      ? darkColors.textPrimary
-      : colors.textPrimary;
+  const currentFormKey = currentFormZone ? summaryFormZoneColor(currentFormZone) : undefined;
   const displayValue =
     scrubValues !== null
       ? isHrvMode
@@ -221,18 +220,15 @@ export const SummaryCard = React.memo(function SummaryCard({
           ? (formatForm(scrubValues.form, scrubValues.fitness, asPercent) ?? ABSENT)
           : scrubValues.fitness
       : heroValue;
-  const displayColor =
+  const displayKey =
     scrubValues !== null
       ? isHrvMode
-        ? hrvTextColor
+        ? hrvKey
         : isFormMode
-          ? currentFormColor
-          : fitnessTextColor
-      : heroColor;
+          ? currentFormKey
+          : fitnessKey
+      : heroKeyColor;
   const formattedHeroValue = String(displayValue);
-  // Resting HR is a value and a label beside the line drawn in its series
-  // colour, so it takes that series' text tone.
-  const rhrColor = isDark ? darkColors.chartRhrText : colors.chartRhrText;
 
   // Current HRV sparkline values (latest or scrubbed). A day with no reading of its own,
   // scrubbed or today, reads the absent mark, not the value the line carries over it from
@@ -256,16 +252,7 @@ export const SummaryCard = React.memo(function SummaryCard({
         <View style={styles.cardContent}>
           {/* Scrub date label - top right of card */}
           {scrubValues ? (
-            <Text
-              style={[
-                styles.scrubDate,
-                {
-                  color: isDark ? darkColors.textSecondary : colors.textSecondary,
-                },
-              ]}
-            >
-              {scrubValues.dateLabel}
-            </Text>
+            <Text style={[styles.scrubDate, { color: labelInk }]}>{scrubValues.dateLabel}</Text>
           ) : null}
 
           {/* Top row: Profile + Hero value + zone */}
@@ -331,29 +318,26 @@ export const SummaryCard = React.memo(function SummaryCard({
               ) : fitnessSparkline ? (
                 <View>
                   <View style={styles.heroValueRow}>
-                    <Text
-                      style={[
-                        styles.heroValueFixed,
-                        { color: isFormMode ? currentFormColor : fitnessTextColor },
-                      ]}
-                    >
+                    {isFormMode ? (
+                      currentFormKey ? (
+                        <KeyDot testID="summary-card-key-form" color={currentFormKey} />
+                      ) : null
+                    ) : (
+                      <KeyDot testID="summary-card-key-fitness" color={fitnessKey} />
+                    )}
+                    <Text style={[styles.heroValueFixed, { color: valueInk }]}>
                       {isFormMode
                         ? (formatForm(currentForm, currentFitness, asPercent) ?? ABSENT)
                         : currentFitness}
                     </Text>
-                    <Text
-                      style={[
-                        styles.heroLabel,
-                        { color: isFormMode ? currentFormColor : fitnessTextColor },
-                      ]}
-                    >
+                    <Text style={[styles.heroLabel, { color: labelInk }]}>
                       {t(isFormMode ? 'metrics.form' : 'metrics.fitness')}
                     </Text>
                     {!isFormMode && !scrubValues && fitnessChange !== null && (
                       <Text
                         testID="summary-card-fitness-change"
                         accessibilityHint={t('summaryCardChange.rule')}
-                        style={[styles.heroSubText, { color: fitnessTextColor }]}
+                        style={[styles.heroSubText, { color: labelInk }]}
                       >
                         {t('summaryCardChange.window', {
                           change: fitnessChange,
@@ -364,28 +348,40 @@ export const SummaryCard = React.memo(function SummaryCard({
                   </View>
                   <View style={styles.heroSubLine}>
                     {isFormMode ? (
-                      <Text style={[styles.heroSubText, { color: currentFormColor }]}>
+                      <Text style={[styles.heroSubText, { color: labelInk }]}>
                         {currentFormZone ? t(`formZones.${currentFormZone}`) : ''}
                       </Text>
                     ) : null}
                     {!isFormMode && currentFatigue !== null && (
-                      <Text style={[styles.heroSubText, { color: fatigueTextColor }]}>
-                        {currentFatigue} {t('metrics.fatigue')}
-                      </Text>
+                      <View style={styles.keyedValue}>
+                        <KeyDot testID="summary-card-key-fatigue" color={fatigueKey} />
+                        <Text style={[styles.heroSubText, { color: labelInk }]}>
+                          <Text style={{ color: valueInk }}>{currentFatigue}</Text>{' '}
+                          {t('metrics.fatigue')}
+                        </Text>
+                      </View>
                     )}
                     {!isFormMode && (
-                      <Text style={[styles.heroSubText, { color: currentFormColor }]}>
-                        {formatForm(currentForm, currentFitness, asPercent) ?? ''}{' '}
-                        {currentFormZone ? t(`formZones.${currentFormZone}`) : ''}
-                      </Text>
+                      <View style={styles.keyedValue}>
+                        {currentFormKey ? (
+                          <KeyDot testID="summary-card-key-form" color={currentFormKey} />
+                        ) : null}
+                        <Text style={[styles.heroSubText, { color: labelInk }]}>
+                          <Text style={{ color: valueInk }}>
+                            {formatForm(currentForm, currentFitness, asPercent) ?? ''}
+                          </Text>{' '}
+                          {currentFormZone ? t(`formZones.${currentFormZone}`) : ''}
+                        </Text>
+                      </View>
                     )}
                   </View>
                 </View>
               ) : hrvSparkline ? (
                 <View style={styles.heroValueRow}>
+                  <KeyDot testID="summary-card-key-hrv" color={hrvKey} />
                   <Text
                     testID="summary-card-hrv-value"
-                    style={[styles.heroValueFixed, { color: hrvTextColor }]}
+                    style={[styles.heroValueFixed, { color: valueInk }]}
                     accessibilityLabel={absentLabel(String(currentHrv), t)}
                   >
                     {currentHrv}
@@ -393,14 +389,13 @@ export const SummaryCard = React.memo(function SummaryCard({
                       <Text style={styles.heroUnit}> {t('units.ms')}</Text>
                     ) : null}
                   </Text>
-                  <Text style={[styles.heroLabel, { color: hrvTextColor }]}>
-                    {t('metrics.hrv')}
-                  </Text>
+                  <Text style={[styles.heroLabel, { color: labelInk }]}>{t('metrics.hrv')}</Text>
                   {currentRhr !== null && (
                     <>
+                      <KeyDot testID="summary-card-key-rhr" color={rhrKey} />
                       <Text
                         testID="summary-card-rhr-value"
-                        style={[styles.secondaryValueFixed, { color: rhrColor }]}
+                        style={[styles.secondaryValueFixed, { color: valueInk }]}
                         accessibilityLabel={absentLabel(String(currentRhr), t)}
                       >
                         {currentRhr}
@@ -408,7 +403,7 @@ export const SummaryCard = React.memo(function SummaryCard({
                           <Text style={styles.secondaryUnit}> {t('units.bpm')}</Text>
                         ) : null}
                       </Text>
-                      <Text style={[styles.secondaryLabel, { color: rhrColor }]}>
+                      <Text style={[styles.secondaryLabel, { color: labelInk }]}>
                         {t('metrics.rhr')}
                       </Text>
                     </>
@@ -416,7 +411,8 @@ export const SummaryCard = React.memo(function SummaryCard({
                 </View>
               ) : (
                 <View style={styles.heroValueRow}>
-                  <Text style={[styles.heroValue, { color: displayColor }]}>
+                  {displayKey ? <KeyDot testID="summary-card-key-hero" color={displayKey} /> : null}
+                  <Text style={[styles.heroValue, { color: valueInk }]}>
                     {formattedHeroValue}
                     {isHrvMode && typeof displayValue === 'number' ? (
                       <Text style={styles.heroUnit}> {t('units.ms')}</Text>
@@ -425,11 +421,9 @@ export const SummaryCard = React.memo(function SummaryCard({
                       <Text style={styles.heroTrend}>{heroTrend}</Text>
                     ) : null}
                   </Text>
-                  <Text style={[styles.heroLabel, isDark && styles.textSecondary]}>
-                    {heroLabel}
-                  </Text>
+                  <Text style={[styles.heroLabel, { color: labelInk }]}>{heroLabel}</Text>
                   {isFormMode && heroZone ? (
-                    <Text style={[styles.heroSubText, { color: displayColor }]}>{heroZone}</Text>
+                    <Text style={[styles.heroSubText, { color: labelInk }]}>{heroZone}</Text>
                   ) : null}
                 </View>
               )}
@@ -491,22 +485,14 @@ export const SummaryCard = React.memo(function SummaryCard({
                   android_ripple={pressRipple}
                   onPress={() => tapTo(metric.navigationTarget)}
                 >
-                  <Text style={[styles.metricLabel, isDark && styles.textSecondary]}>
-                    {metric.label}
-                  </Text>
+                  <Text style={[styles.metricLabel, { color: labelInk }]}>{metric.label}</Text>
                   {isLoading ? (
                     <View testID={`summary-card-metric-${index}-shimmer`}>
                       <Shimmer width={SHIMMER_METRIC_WIDTH} height={14} />
                     </View>
                   ) : (
                     <Text
-                      style={[
-                        styles.metricValue,
-                        {
-                          color:
-                            metric.color || (isDark ? darkColors.textPrimary : colors.textPrimary),
-                        },
-                      ]}
+                      style={[styles.metricValue, { color: valueInk }]}
                       accessibilityLabel={absentLabel(String(metric.value), t)}
                     >
                       {metric.value}
@@ -536,7 +522,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: spacing.xs,
     right: spacing.md,
-    zIndex: 1,
+    zIndex: layers.raised,
   },
 
   // Top row - profile + hero inline
@@ -607,6 +593,15 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: 0,
   },
+  // A key dot and the value it keys. The pair wraps and shrinks inside the
+  // line, so large text drops the words below the dot rather than past the card.
+  keyedValue: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    flexShrink: 1,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   heroSubText: {
     fontSize: typography.label.fontSize,
     fontWeight: '400',
@@ -633,7 +628,6 @@ const styles = StyleSheet.create({
   },
   secondaryLabel: {
     ...typography.caption,
-    color: colors.textSecondary,
     flexShrink: 1,
   },
   heroUnit: {
@@ -650,7 +644,6 @@ const styles = StyleSheet.create({
   },
   heroLabel: {
     ...typography.bodySmall,
-    color: colors.textSecondary,
   },
   // Sparkline - own row, full width
   sparklineRow: {
@@ -673,11 +666,9 @@ const styles = StyleSheet.create({
   },
   metricLabel: {
     ...typography.caption,
-    color: colors.textSecondary,
   },
   metricValue: {
     ...typography.captionBold,
-    color: colors.textPrimary,
   },
   metricUnit: {
     ...typography.micro,
@@ -692,11 +683,6 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.xs,
   },
   metricDividerDark: {
-    color: darkColors.textSecondary,
-  },
-
-  // Text color utilities
-  textSecondary: {
     color: darkColors.textSecondary,
   },
 });

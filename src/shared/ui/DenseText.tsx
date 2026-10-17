@@ -19,6 +19,15 @@ import { Text, type TextProps } from 'react-native';
 /** How far a dense surface stretches before its layout stops holding. */
 export const DENSE_TEXT_SCALE = 1.3;
 
+/**
+ * A box on a dense surface sized from the text it holds: `ems` of the role's
+ * font size, at the cap. A fixed column read off a literal fits the default
+ * text size only, and clips the moment the system size goes up.
+ */
+export function denseExtent(fontSize: number, ems: number): number {
+  return Math.ceil(fontSize * ems * DENSE_TEXT_SCALE);
+}
+
 export function DenseText(props: TextProps) {
   return <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} {...props} />;
 }

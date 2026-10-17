@@ -1,3 +1,4 @@
+import { PERIOD_LABEL_KEYS } from '@/shared/app/period';
 import { type TimeRange } from '@/shared/app/timeRange';
 
 export type SmoothingWindow = 'auto' | 'none' | 3 | 7 | 14 | 21 | 28;
@@ -29,6 +30,22 @@ export function getSmoothingPresetLabel(preset: SmoothingWindow, t: Translate): 
   if (preset === 'auto') return t('wellness.smoothingAuto');
   if (preset === 'none') return t('wellness.smoothingNone');
   return t('units.daysShort', { days: preset });
+}
+
+/** The rule Auto follows, stated from the windows above so the note and the chart agree. */
+export function getAutoSmoothingHint(t: Translate): string {
+  const range = (id: TimeRange) => t(PERIOD_LABEL_KEYS.short[id]);
+  return t('wellness.smoothingHint', {
+    r7d: range('7d'),
+    r1m: range('1m'),
+    r3m: range('3m'),
+    r6m: range('6m'),
+    r1y: range('1y'),
+    d1m: DEFAULT_SMOOTHING_WINDOWS['1m'],
+    d3m: DEFAULT_SMOOTHING_WINDOWS['3m'],
+    d6m: DEFAULT_SMOOTHING_WINDOWS['6m'],
+    d1y: DEFAULT_SMOOTHING_WINDOWS['1y'],
+  });
 }
 
 /**

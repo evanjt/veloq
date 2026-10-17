@@ -1,8 +1,7 @@
 /**
  * Scenario: the family table covers `colors` and `darkColors`, 150 tokens, and
- * `colors.ts` exports two dozen more groups it does not. A tone added to
- * `statusBadge` at 2:1 and drawn as a badge label passed every gate, which is the
- * same hole the family table closed for the two palettes.
+ * `colors.ts` exports two dozen more groups it does not. A badge label tone
+ * added at 2:1 on its own fill passed every gate, which is the same hole the family table closed for the two palettes.
  *
  * Expected behaviour: every exported group is classified in `groupKinds.ts` and
  * measured according to its kind. A `pair` states its own ground, so the pair is
@@ -48,8 +47,8 @@ function contrastRatio(a: string, b: string): number {
 }
 
 /**
- * A translucent fill over a ground, as the renderer composites it. `statusBadge`
- * states its fills as eight-digit hex, `#22C55E18`, and measuring the ratio
+ * A translucent fill over a ground, as the renderer composites it. A pair may
+ * state its fill as eight-digit hex, `#22C55E18`, and measuring the ratio
  * against the bare hue rather than against what the eye sees is how a 2:1 label
  * reads as compliant.
  */

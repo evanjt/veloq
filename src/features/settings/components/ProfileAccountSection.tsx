@@ -6,7 +6,7 @@ import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { useQueryClient } from '@tanstack/react-query';
 import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { getStoredCredentials, useAuthStore } from '@/shared/app/AuthStore';
-import { sourceFor } from '@/shared/app/source';
+import { SCHEME_LABEL_KEY, sourceFor } from '@/shared/app/source';
 import { INTERVALS_URLS } from '@/shared/app/constants';
 import { useUploadPermissionStore } from '@/features/recording';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
@@ -88,13 +88,13 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
       return;
     }
     confirmAction({
-      title: t('alerts.disconnectTitle'),
+      title: t('alerts.signOutTitle'),
       message: offlineConfirmMessage(
-        t('alerts.disconnectMessage'),
+        t('alerts.signOutMessage'),
         t('alerts.disconnectOffline'),
         isOnline
       ),
-      confirmLabel: t('alerts.disconnect'),
+      confirmLabel: t('alerts.signOut'),
       cancelLabel: t('common.cancel'),
       destructive: true,
       onConfirm: () => {
@@ -151,20 +151,8 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
   const hasValidProfileUrl =
     profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
 
-  // Get auth method badge text
   const source = sourceFor({ authMethod });
-  const getAuthBadge = (): string => {
-    switch (source?.scheme) {
-      case 'oauth':
-        return 'OAuth';
-      case 'apiKey':
-        return t('settings.authApiKey');
-      case 'demo':
-        return t('settings.authDemo');
-      default:
-        return '';
-    }
-  };
+  const authBadge = source ? t(SCHEME_LABEL_KEY[source.scheme]) : '';
 
   /**
    * Parse OAuth scope string into display-friendly permission summary.
@@ -203,7 +191,11 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
   };
 
   const isDemo = source?.id === 'demo';
-  const signOutLabel = isDemo ? t('settings.leaveDemo') : t('settings.disconnectAccount');
+  const signOutLabel = isDemo ? t('settings.leaveDemo') : t('settings.signOut');
+  // The OAuth label already names intervals.icu, so only an API key session
+  // carries the source beside its method.
+  const accountLine =
+    isDemo || source?.scheme === 'oauth' ? authBadge : `intervals.icu · ${authBadge}`;
   const isOAuth = source?.can.scoped === true;
   const parsedScopes = isOAuth && grantedScopes ? parseScopes(grantedScopes) : [];
   const profile = (
@@ -230,7 +222,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
           {athlete?.name || t('settings.athleteFallback', 'Athlete')}
         </Text>
         <Text style={[styles.profileEmail, isDark && settingsStyles.textSecondary]}>
-          {isDemo ? getAuthBadge() : `intervals.icu · ${getAuthBadge()}`}
+          {accountLine}
         </Text>
         {isOAuth && parsedScopes.length > 0 ? (
           <View style={styles.scopeContainer}>
@@ -282,8 +274,14 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
         onPress={handleLogout}
         accessibilityLabel={signOutLabel}
       >
-        <MaterialCommunityIcons name="logout" size={iconSize.lg} color={colors.error} />
-        <Text style={[settingsStyles.actionRowText, { color: errorDeep }]}>{signOutLabel}</Text>
+        <MaterialCommunityIcons
+          name="logout"
+          size={iconSize.lg}
+          color={isDark ? darkColors.textSecondary : colors.textSecondary}
+        />
+        <Text style={[settingsStyles.actionRowText, isDark && settingsStyles.textLight]}>
+          {signOutLabel}
+        </Text>
       </Row>
 
       {/* Destructive sign-out - wipes activities/GPS/sections too */}

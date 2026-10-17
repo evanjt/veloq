@@ -761,6 +761,14 @@ export function formatAxisDate(date: Date, includeDay: boolean): string {
 }
 
 /**
+ * The year alone, as the app language writes it: two digits where a tick has
+ * room for no more, otherwise in full.
+ */
+export function formatYear(date: Date, twoDigit = false): string {
+  return date.toLocaleDateString(getIntlLocale(), { year: twoDigit ? '2-digit' : 'numeric' });
+}
+
+/**
  * Format month only (e.g., "Jan")
  */
 export function formatMonth(date: Date | string): string {

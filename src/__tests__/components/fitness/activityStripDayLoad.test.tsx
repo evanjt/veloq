@@ -144,11 +144,9 @@ describe('the activity strip title and key', () => {
     const tree = await render(mixed(null, MIXED));
 
     expect(tree.getByRole('header')).toHaveTextContent(/fitness\.daysTrained/);
-    expect(tree.getByTestId('fitness-strip-key-Ride')).toHaveTextContent(
-      /maps\.activityTypes\.ride/
-    );
-    expect(tree.getByTestId('fitness-strip-key-Run')).toHaveTextContent(/maps\.activityTypes\.run/);
-    expect(tree.queryByTestId('fitness-strip-key-Walk')).toBeNull();
+    expect(tree.getByTestId('fitness-strip-key-Ride')).toHaveTextContent(/sportFamilies\.ride/);
+    expect(tree.getByTestId('fitness-strip-key-Run')).toHaveTextContent(/sportFamilies\.run/);
+    expect(tree.queryByTestId('fitness-strip-key-Foot')).toBeNull();
     expect(tree.getByTestId('fitness-strip-key-noLoad')).toHaveTextContent(/fitness\.noLoadKey/);
     expect(tree.getByTestId('fitness-strip-gloss')).toHaveTextContent(/fitness\.stripGloss/);
   });
@@ -172,9 +170,7 @@ describe('the activity strip title and key', () => {
       ])
     );
 
-    expect(tree.getByTestId('fitness-strip-key-Ride')).toHaveTextContent(
-      /maps\.activityTypes\.ride/
-    );
+    expect(tree.getByTestId('fitness-strip-key-Ride')).toHaveTextContent(/sportFamilies\.ride/);
     expect(tree.queryByTestId('fitness-strip-key-VirtualRide')).toBeNull();
     expect(tree.queryByTestId('fitness-strip-key-GravelRide')).toBeNull();
   });

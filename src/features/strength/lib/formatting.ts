@@ -45,16 +45,17 @@ export function formatBalanceRatio(pair: StrengthBalancePair, t: TFunc): string 
 }
 
 const BALANCE_STATUS_LABEL_KEYS = {
-  balanced: 'insights.strengthBalance.balanced',
-  watch: 'insights.strengthBalance.watch',
-  imbalanced: 'insights.strengthBalance.imbalanced',
+  balanced: 'insights.strengthBalance.bandLow',
+  watch: 'insights.strengthBalance.bandMiddle',
+  imbalanced: 'insights.strengthBalance.bandHigh',
   'one-sided': 'insights.strengthBalance.oneSided',
   insufficient: 'insights.strengthBalance.lowSignal',
 } as const satisfies Record<StrengthBalanceStatus, string>;
 
 /**
- * The translation key that names a balance verdict. The insight card and the
- * strength tab both name it, so they take the key from here.
+ * The translation key that names the band a pair's ratio falls in, stated as
+ * the band's bounds rather than a judgement. The insight card and the strength
+ * tab both name it, so they take the key from here.
  */
 export function balanceStatusLabelKey(status: StrengthBalanceStatus) {
   return BALANCE_STATUS_LABEL_KEYS[status];

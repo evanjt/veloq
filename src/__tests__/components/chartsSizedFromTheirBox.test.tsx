@@ -261,7 +261,6 @@ describe('charts sized from their box, not the window', () => {
           onProfilePress={() => {}}
           heroValue={40}
           heroLabel="metrics.fitness"
-          heroColor="#000"
           fitnessData={[38, 39, 40, 41]}
           fatigueData={[40, 41, 42, 43]}
           formData={[-2, -2, -2, -2]}

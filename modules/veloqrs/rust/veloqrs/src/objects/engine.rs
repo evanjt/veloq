@@ -29,6 +29,15 @@ pub struct FfiRecordRestoreResult {
     pub missing_activity_ids: Vec<String>,
 }
 
+/// What a check of a record zip learnt about the zip, once it found nothing
+/// the restore would refuse.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiRecordCheck {
+    /// When the zip was written, RFC 3339 in UTC, from its own content.
+    /// `None` for a zip written before records carried the time.
+    pub written_at: Option<String>,
+}
+
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiUnplacedRecord {
     pub kind: String,
@@ -505,8 +514,9 @@ impl VeloqEngine {
 
     /// Run the checks a restore of the record ZIP at `path` would run, the
     /// version, row content and both athlete checks, and write nothing. Off
-    /// the JS thread, since it inflates the archive.
-    async fn check_record_zip(&self, path: String) -> Result<(), VeloqError> {
+    /// the JS thread, since it inflates the archive. Returns when the zip was
+    /// written, which its file time does not keep through every restore.
+    async fn check_record_zip(&self, path: String) -> Result<FfiRecordCheck, VeloqError> {
         crate::runtime::ASYNC_RUNTIME
             .spawn_blocking(move || {
                 let payload = crate::persistence::record_backup::read_record_zip(&path)
@@ -520,7 +530,10 @@ impl VeloqEngine {
                         conn, imported,
                     )
                 })?
-                .map_err(|msg| VeloqError::Database { msg })
+                .map_err(|msg| VeloqError::Database { msg })?;
+                Ok(FfiRecordCheck {
+                    written_at: payload.written_at,
+                })
             })
             .await
             .map_err(|e| VeloqError::Database { msg: e.to_string() })?
@@ -1080,6 +1093,20 @@ mod tests {
         crate::objects::sync::set_credentials_from_native("api_key", "test-secret", "athlete-1")
             .unwrap();
         let own = check(zip("athlete-1", 1));
+        let dated_path = tmp.path().join("dated.zip");
+        let dated_payload = serde_json::from_value(serde_json::json!({
+            "version": 1,
+            "athlete_id": "athlete-1",
+            "written_at": "2026-10-01T12:00:00.000Z",
+            "entries": []
+        }))
+        .unwrap();
+        crate::persistence::record_backup::write_record_zip(
+            &dated_payload,
+            dated_path.to_str().unwrap(),
+        )
+        .unwrap();
+        let dated = check(dated_path.to_str().unwrap().to_string());
         let other = check(zip("athlete-2", 1));
         let newer = check(zip("athlete-1", 2));
         with_persistent_engine(|e| e.set_setting("__athlete_id", "athlete-3").unwrap());
@@ -1104,6 +1131,12 @@ mod tests {
         assert!(
             own.is_ok(),
             "refused the signed-in athlete's own zip: {own:?}"
+        );
+        assert_eq!(own.unwrap().written_at, None, "an undated zip named a time");
+        assert_eq!(
+            dated.unwrap().written_at.as_deref(),
+            Some("2026-10-01T12:00:00.000Z"),
+            "the check lost the time the zip was written"
         );
         assert!(other.is_err(), "accepted another signed-in athlete's zip");
         assert!(

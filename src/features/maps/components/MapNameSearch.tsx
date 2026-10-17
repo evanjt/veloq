@@ -40,7 +40,6 @@ export function MapNameSearch({
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
-  const secondary = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   const shownOfTotal = t('mapScreen.searchCount', { shown: results.length, total });
   const filteredBy =
@@ -62,7 +61,7 @@ export function MapNameSearch({
             const date = formatShortDateWithYear(new Date(a.date));
             const distance = formatDistance(a.distance, isMetric);
             const category = ACTIVITY_CATEGORIES[getActivityCategory(a.type)];
-            const sport = t(`maps.activityTypes.${category?.labelKey ?? 'other'}` as never);
+            const sport = t(category.label);
             return (
               <Row
                 key={a.id}
@@ -80,7 +79,7 @@ export function MapNameSearch({
                   testID={`map-search-result-${a.id}-icon`}
                   name={getActivityIcon(a.type)}
                   size={iconSize.md}
-                  color={category?.color ?? secondary}
+                  color={category.color}
                 />
                 <Text numberOfLines={1} style={[styles.resultName, isDark && styles.textOnDark]}>
                   {a.name}

@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
-import { colors, iconSize } from '@/theme';
+import { colors, iconSize, recording } from '@/theme';
 import { IconButton } from '@/shared/ui/IconButton';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
@@ -133,10 +133,14 @@ function TimerHeaderInner({
               accessibilityLiveRegion="polite"
             >
               <Animated.View
+                testID="recording-status-dot"
                 style={[
                   styles.statusDot,
                   {
-                    backgroundColor: status === 'recording' ? colors.error : colors.warning,
+                    backgroundColor:
+                      status === 'recording'
+                        ? recording[isDark ? 'dark' : 'light']
+                        : colors.warning,
                     opacity: statusPulse,
                   },
                 ]}
@@ -147,7 +151,7 @@ function TimerHeaderInner({
               >
                 {status === 'recording'
                   ? t('recording.rec', 'REC')
-                  : t('recording.paused', 'PAUSED')}
+                  : t('recording.paused', 'Paused')}
               </Text>
               {mode === 'gps' && <GpsSignalIndicator accuracy={accuracy} />}
             </View>

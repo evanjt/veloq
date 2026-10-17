@@ -4,6 +4,7 @@ import { useMetricSystem, useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import {
   colors,
   typography,
@@ -183,7 +184,7 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
 
   if (isLoading || awaitingBody) {
     return (
-      <View style={[styles.container, { height }]}>
+      <View style={[styles.container, { height }]} testID="power-curve-loading">
         <CardHeader title={t('stats.powerCurve')} />
         <CurveLoadingPlaceholder height={height} />
       </View>
@@ -237,8 +238,11 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
         accessory={
           <View style={styles.valuesRow}>
             <View style={styles.valueItem}>
-              <Text style={styles.valueLabel}>{t('stats.time')}</Text>
+              <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.valueLabel}>
+                {t('stats.time')}
+              </Text>
               <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                 testID="power-curve-duration"
                 style={[styles.valueNumber, isDark && styles.textLight]}
               >
@@ -246,8 +250,11 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
               </Text>
             </View>
             <View style={styles.valueItem}>
-              <Text style={styles.valueLabel}>{t('activity.power')}</Text>
+              <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.valueLabel}>
+                {t('activity.power')}
+              </Text>
               <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                 testID="power-curve-watts"
                 style={[styles.valueNumber, isDark && styles.textLight]}
               >
@@ -301,7 +308,12 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
       {models.length > 0 && (
         <View style={styles.models} testID="power-curve-models">
           {models.map((m) => (
-            <Text key={m.type} testID={`power-curve-model-${m.type}`} style={styles.modelText}>
+            <Text
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+              key={m.type}
+              testID={`power-curve-model-${m.type}`}
+              style={styles.modelText}
+            >
               {`${MODEL_LABELS[m.type] ?? m.type} ${formatPower(m.criticalPower)} ${formatEnergy(m.wPrime)}`}
             </Text>
           ))}
@@ -312,7 +324,11 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
       {ftpValue ? (
         <View style={styles.legend}>
           <View style={[styles.legendDash, { backgroundColor: FTP_LINE_COLOR }]} />
-          <Text testID="power-curve-ftp-legend" style={styles.legendText}>
+          <Text
+            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+            testID="power-curve-ftp-legend"
+            style={styles.legendText}
+          >
             {perKg
               ? t('statsScreen.ftpLabelAtWeight', {
                   value: formatValue(ftpValue, true, unit),

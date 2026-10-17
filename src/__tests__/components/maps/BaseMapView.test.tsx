@@ -10,19 +10,21 @@
 import React from 'react';
 import { render, fireEvent, screen, act, waitFor } from '@testing-library/react-native';
 import * as Location from 'expo-location';
-import { ActivityIndicator, Animated } from 'react-native';
+import { ActivityIndicator, Animated, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { BaseMapView, type BaseMapViewProps } from '@/features/maps/components/BaseMapView';
 import { MapSurface, type MapCameraState } from '@/features/maps/components/MapSurface';
 import { CompassArrow } from '@/shared/ui';
+import { darkColors } from '@/theme';
 
 // The binding registers a TurboModule at import time. A hook on this screen's
 // import path compares against one of its generated enums, so the stub is the
 // module here.
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 
+const mockTheme = { isDark: false };
 jest.mock('@/shared/app', () => ({
-  useTheme: () => ({ isDark: false }),
+  useTheme: () => mockTheme,
 }));
 
 jest.mock('expo-location', () => ({
@@ -150,6 +152,32 @@ function renderMap(props: Partial<BaseMapViewProps> = {}) {
 }
 
 describe('BaseMapView', () => {
+  afterEach(() => {
+    mockTheme.isDark = false;
+  });
+
+  describe('chrome over the map', () => {
+    const groundOf = (testID: string) =>
+      StyleSheet.flatten(screen.getByTestId(testID).props.style).backgroundColor;
+    const attributionColour = () =>
+      StyleSheet.flatten(screen.getByTestId('map-attribution-text').props.style).color;
+
+    it('draws the dark chrome in a dark theme over the light map', async () => {
+      mockTheme.isDark = true;
+      await renderMap({ routeCoordinates: ROUTE, initialStyle: 'light' });
+
+      expect(groundOf('map-style-toggle')).toBe(darkColors.surfaceCard);
+      expect(attributionColour()).toBe(darkColors.textSecondary);
+    });
+
+    it('draws the light chrome in a light theme over the satellite map', async () => {
+      await renderMap({ routeCoordinates: ROUTE, initialStyle: 'satellite' });
+
+      expect(groundOf('map-style-toggle')).not.toBe(darkColors.surfaceCard);
+      expect(attributionColour()).not.toBe(darkColors.textSecondary);
+    });
+  });
+
   it('mounts a map with a route and bounds', async () => {
     await renderMap({ routeCoordinates: ROUTE, bounds: BOUNDS });
 

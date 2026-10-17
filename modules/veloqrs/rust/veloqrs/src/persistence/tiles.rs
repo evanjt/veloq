@@ -921,15 +921,6 @@ impl PersistentEngine {
         }
     }
 
-    /// Every activity's bounding box, for a pass that works off where the
-    /// athlete rides rather than off their tracks.
-    ///
-    /// Cloned under the lock in microseconds, the way the heatmap pass takes
-    /// its own snapshot: neither pass holds the engine while it works.
-    pub fn activity_bounds(&self) -> Vec<Bounds> {
-        self.activity_metadata.values().map(|m| m.bounds).collect()
-    }
-
     /// Start a pass over the catalogue as it stands and park its handle where
     /// the poll and the progress read it. Every pass the engine starts comes
     /// through here, and a thread that holds no engine asks through

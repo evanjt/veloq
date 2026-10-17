@@ -1,6 +1,6 @@
 /**
- * Scenario: the language list marks two variants (CH, AU) as dialects with a gold border and
- * explains that border with a key.
+ * Scenario: the language list marks two variants (CH, AU) as dialects with an outline and
+ * explains that outline with a key.
  * Expected behaviour: the key sits below the last language row rather than inside a row, so it
  * never reads as a label on the first language, and each dialect chip says it is a dialect in
  * its own accessibility label. The login picker and the Display settings draw the same list.

@@ -96,8 +96,11 @@ onFlowComplete:
 - runFlow:
     file: helpers/end-recording.yaml
 
-- assertVisible:
-    id: "review-discard-button"
+# The button sits below the fold under a map hero.
+- runFlow:
+    file: helpers/scroll-review-to.yaml
+    env:
+      TARGET: review-discard-button
 
 - takeScreenshot: "screenshots/recording-review-screen"
 

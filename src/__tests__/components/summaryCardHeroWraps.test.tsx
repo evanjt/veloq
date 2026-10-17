@@ -40,7 +40,6 @@ async function renderCard(props: Partial<SummaryCardProps>) {
       onProfilePress={() => {}}
       heroValue={0}
       heroLabel="metrics.fitness"
-      heroColor="#000"
       showSparkline
       supportingMetrics={[]}
       fitnessData={[52, 55, 61]}

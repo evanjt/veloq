@@ -47,6 +47,7 @@ jest.mock('@/shared/ui', () => ({
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   useSegments: () => ['(tabs)'],
+  useIsFocused: () => true,
 }));
 
 jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));

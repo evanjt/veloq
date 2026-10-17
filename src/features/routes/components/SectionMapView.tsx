@@ -22,6 +22,7 @@ import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { getActivityColor } from '@/shared/activity/activityUtils';
 import { cameraMove, colors, duration, iconSize, spacing } from '@/theme';
 import { useMapPreferences } from '@/features/settings';
+import { useTheme } from '@/shared/app';
 import {
   BaseMapView,
   type BaseMap3DLayer,
@@ -30,7 +31,6 @@ import {
   featureCollection,
   getNextStyle,
   getStyleIcon,
-  isDarkStyle,
   statusBarStyleForMap,
   lngLatFromShort,
   lngLatFromShortPoint,
@@ -212,7 +212,8 @@ export const SectionMapView = memo(function SectionMapView({
   );
 
   const hasRoute = sectionCoords.length > 0;
-  const isDark = isDarkStyle(drawnMapStyle);
+  // Controls and legends over the map follow the app theme, not the base drawn under them.
+  const { isDark } = useTheme();
 
   // The 2D surface comes down once the 3D layer covers it, so where it was is
   // captured on the way out and handed back to the remount.
@@ -518,7 +519,11 @@ export const SectionMapView = memo(function SectionMapView({
   const isTrimming = !!trimRange;
   // Style, compass and location always show; 3D needs a line, full screen is off while trimming.
   const controlCount = 3 + (hasRoute ? 1 : 0) + (enableFullscreen && !isTrimming ? 1 : 0);
-  const { maxHeight: controlsMaxHeight } = mapControlColumnLayout(controlCount, height, overlayTop);
+  const { maxHeight: controlsMaxHeight, width: controlsWidth } = mapControlColumnLayout(
+    controlCount,
+    height,
+    overlayTop
+  );
 
   return (
     <>
@@ -573,7 +578,10 @@ export const SectionMapView = memo(function SectionMapView({
           {showControls ? (
             <View
               testID="section-map-controls"
-              style={[styles.controlsContainer, { top: overlayTop, maxHeight: controlsMaxHeight }]}
+              style={[
+                styles.controlsContainer,
+                { top: overlayTop, maxHeight: controlsMaxHeight, width: controlsWidth },
+              ]}
             >
               {/* Style toggle */}
               <Pressable

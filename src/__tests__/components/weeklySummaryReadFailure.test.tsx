@@ -20,13 +20,8 @@ jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
   useTranslation: () => ({ t: (key: string) => key }),
 }));
-jest.mock('@/features/fitness/hooks', () => ({
-  ...jest.requireActual('@/features/fitness/hooks'),
-  useAthleteSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
-}));
-
 const engine = {
-  getPeriodStats: jest.fn(() => {
+  getTrainingScreenData: jest.fn(() => {
     throw { tag: 'Database', inner: { msg: 'disk' } };
   }),
   rangeCoverage: jest.fn(() => 0),
@@ -53,7 +48,9 @@ it('shows the failure line and Retry, not the empty state, for a thrown read', a
   expect(view.getByText('engine.failure.database')).toBeTruthy();
   expect(view.queryByTestId('weekly-summary-empty')).toBeNull();
 
-  const calls = engine.getPeriodStats.mock.calls.length;
+  const calls = engine.getTrainingScreenData.mock.calls.length;
   await fireEvent.press(view.getByText('common.retry'));
-  await waitFor(() => expect(engine.getPeriodStats.mock.calls.length).toBeGreaterThan(calls));
+  await waitFor(() =>
+    expect(engine.getTrainingScreenData.mock.calls.length).toBeGreaterThan(calls)
+  );
 });

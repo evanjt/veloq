@@ -1,7 +1,6 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import {
   View,
-  Text,
   StyleSheet,
   LayoutChangeEvent,
   Platform,
@@ -21,8 +20,13 @@ import {
   smallElementShadow,
   stroke,
 } from '@/theme';
-import { createTimelineLayout, addCalendarMonths } from '@/features/maps/lib/timelineLayout';
-import { formatMonth, getIntlLocale } from '@/shared/format/format';
+import {
+  createTimelineLayout,
+  addCalendarMonths,
+  placeTickLabels,
+} from '@/features/maps/lib/timelineLayout';
+import { formatMonth, formatYear, getIntlLocale } from '@/shared/format/format';
+import { DenseText, denseExtent } from '@/shared/ui/DenseText';
 
 interface TimelineSliderProps {
   /** Minimum date (oldest activity) */
@@ -58,6 +62,9 @@ const HANDLE_SIZE = 28;
 const HANDLE_HIT_SLOP = Platform.select({ ios: 30, default: 20 });
 const MIN_RANGE = 0.02;
 const STEP_ACTIONS = [{ name: 'increment' }, { name: 'decrement' }];
+/** Tick labels sit under the tick mark, and the row is tall enough for one line at the cap. */
+const TICK_LABEL_TOP = 6;
+const TICK_ROW_HEIGHT = TICK_LABEL_TOP + denseExtent(typography.micro.fontSize, 1.4);
 
 export function TimelineSlider({
   minDate,
@@ -99,12 +106,31 @@ export function TimelineSlider({
   const tickLabels = useMemo(
     () =>
       snapPoints.map((point) => {
-        if (point.kind === 'year') return `'${point.date.getFullYear().toString().slice(-2)}`;
+        if (point.kind === 'year') return formatYear(point.date, true);
         if (point.kind === 'quarter') return formatMonth(point.date);
         return t('time.now');
       }),
     [snapPoints, t]
   );
+
+  // Each label's own width, keyed by its text, so a translation or a larger text size places it
+  // by what it actually takes rather than by a fixed box.
+  const [labelWidths, setLabelWidths] = useState<Record<string, number>>({});
+  const measureLabel = useCallback((text: string, e: LayoutChangeEvent) => {
+    const width = e.nativeEvent.layout.width;
+    setLabelWidths((current) => {
+      const known = current[text];
+      return known !== undefined && Math.abs(known - width) < 0.5
+        ? current
+        : { ...current, [text]: width };
+    });
+  }, []);
+  const placements = useMemo(() => {
+    const widths = tickLabels.map((text) => labelWidths[text]);
+    return new Map(
+      placeTickLabels(snapPoints, widths, trackWidth).map((p) => [p.index, p] as const)
+    );
+  }, [snapPoints, tickLabels, labelWidths, trackWidth]);
 
   const triggerHaptic = useCallback(() => {
     haptics.light();
@@ -343,7 +369,7 @@ export function TimelineSlider({
                   testID="timeline-slider-end-handle"
                   accessible
                   accessibilityRole="adjustable"
-                  accessibilityLabel={t('time.now')}
+                  accessibilityLabel={t('settings.localDataRangeEnd')}
                   accessibilityValue={{ text: formatHandleDate(endDate) }}
                   accessibilityActions={STEP_ACTIONS}
                   onAccessibilityAction={onEndAction}
@@ -366,7 +392,8 @@ export function TimelineSlider({
           <View style={styles.tickContainer}>
             {snapPoints.map((point, index) => {
               const pixelPos = point.position * trackWidth;
-              const labelText = tickLabels[index];
+              const labelText = tickLabels[index] ?? '';
+              const placement = placements.get(index);
 
               return (
                 <React.Fragment key={`${point.kind}-${index}`}>
@@ -378,16 +405,18 @@ export function TimelineSlider({
                     ]}
                   />
                   {point.showLabel ? (
-                    <Text
+                    <DenseText
+                      testID={`timeline-tick-label-${index}`}
+                      onLayout={(e) => measureLabel(labelText, e)}
                       style={[
                         styles.tickLabelBase,
                         isDark && styles.tickLabelDark,
-                        { left: pixelPos - 14, width: 28, textAlign: 'center' },
+                        placement ? { left: placement.left } : styles.tickLabelUnplaced,
                       ]}
                       numberOfLines={1}
                     >
                       {labelText}
-                    </Text>
+                    </DenseText>
                   ) : null}
                 </React.Fragment>
               );
@@ -397,11 +426,11 @@ export function TimelineSlider({
 
         {/* Activity count */}
         <View style={styles.footerRow}>
-          <Text style={[styles.countLabel, isDark && styles.countLabelDark]}>
+          <DenseText style={[styles.countLabel, isDark && styles.countLabelDark]}>
             {isLoading
               ? t('common.loading')
               : t('maps.activitiesCount', { count: activityCount || 0 })}
-          </Text>
+          </DenseText>
         </View>
       </View>
     </View>
@@ -507,7 +536,7 @@ const styles = StyleSheet.create({
   },
   tickContainer: {
     position: 'relative',
-    height: 20,
+    height: TICK_ROW_HEIGHT,
     marginTop: spacing.xxs,
     marginHorizontal: spacing.md,
     overflow: 'visible',
@@ -522,8 +551,12 @@ const styles = StyleSheet.create({
   tickLabelBase: {
     ...typography.micro,
     position: 'absolute',
-    top: 6,
+    top: TICK_LABEL_TOP,
     color: colors.textSecondary,
+  },
+  tickLabelUnplaced: {
+    left: 0,
+    opacity: 0,
   },
   footerRow: {
     flexDirection: 'row',

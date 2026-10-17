@@ -4,7 +4,7 @@ import { SportChipRow, type SportChip } from '@/shared/ui/SportChipRow';
 import type { PrimarySport } from '@/features/fitness/stores';
 import { spacing } from '@/theme';
 
-/** Each sport's chip, drawn with its `ACTIVITY_CATEGORIES` fill and ink. */
+/** Each sport's chip, drawn with its family's fill and ink. */
 const SPORT_CHIPS = [
   {
     key: 'Cycling',
@@ -20,7 +20,7 @@ const SPORT_CHIPS = [
   },
   {
     key: 'Swimming',
-    category: 'Swim',
+    category: 'Water',
     label: 'filters.swimming',
     testID: 'fitness-sport-toggle-Swimming',
   },

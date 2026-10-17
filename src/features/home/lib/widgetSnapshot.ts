@@ -16,7 +16,7 @@ import { getEngine, isEngineReady } from '@/shared/native/engine';
 import { demoLibrary } from '@/shared/app/seedDemoEngine';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { getRecentRecordingTypes, getRecordedRecordingTypes } from '@/shared/recording';
-import { getActivityTypeConfig } from '@/shared/activity/sportCategories';
+import { getActivityCategory } from '@/shared/activity/sportCategories';
 import { activityTypeColors } from '@/theme/colors';
 import { widgetPalette, type WidgetPalette } from '@/shared/theme/widgetTheme';
 import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
@@ -302,7 +302,7 @@ function composeRecordShortcuts(
       type,
       label: label === `activityTypes.${type}` ? type : label,
       url: `veloq://recording/${encodeURIComponent(type)}?${QUICK_START_MARK}`,
-      glyph: getActivityTypeConfig(type)?.labelKey ?? 'other',
+      glyph: getActivityCategory(type).toLowerCase(),
     });
   }
   return out;

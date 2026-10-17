@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The supporting row of the Summary widget: up to four cells split by dividers. -->
+<!-- The supporting row of the Summary widget: up to four cells split by dividers. A label wraps to
+     a second line rather than be cut short, and each value row wraps its content so the trend
+     follows a short value; a long value fills the cell, and its weight then shrinks it onto a
+     second line to leave the arrow its whole glyph. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
   android:layout_width="match_parent"
   android:layout_height="wrap_content"
@@ -18,7 +21,7 @@
       android:id="@+id/sum_cell0_label"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
-      android:maxLines="1"
+      android:maxLines="2"
       android:ellipsize="end"
       android:textSize="@dimen/widget_text_caption"
       android:textColor="@color/widget_text_secondary" />
@@ -33,7 +36,8 @@
         android:id="@+id/sum_cell0_value"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:maxLines="1"
+        android:layout_weight="1"
+        android:maxLines="2"
         android:textSize="@dimen/widget_text_label"
         android:textStyle="bold"
         android:textColor="@color/widget_text_primary" />
@@ -67,7 +71,7 @@
       android:id="@+id/sum_cell1_label"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
-      android:maxLines="1"
+      android:maxLines="2"
       android:ellipsize="end"
       android:textSize="@dimen/widget_text_caption"
       android:textColor="@color/widget_text_secondary" />
@@ -82,7 +86,8 @@
         android:id="@+id/sum_cell1_value"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:maxLines="1"
+        android:layout_weight="1"
+        android:maxLines="2"
         android:textSize="@dimen/widget_text_label"
         android:textStyle="bold"
         android:textColor="@color/widget_text_primary" />
@@ -116,7 +121,7 @@
       android:id="@+id/sum_cell2_label"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
-      android:maxLines="1"
+      android:maxLines="2"
       android:ellipsize="end"
       android:textSize="@dimen/widget_text_caption"
       android:textColor="@color/widget_text_secondary" />
@@ -131,7 +136,8 @@
         android:id="@+id/sum_cell2_value"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:maxLines="1"
+        android:layout_weight="1"
+        android:maxLines="2"
         android:textSize="@dimen/widget_text_label"
         android:textStyle="bold"
         android:textColor="@color/widget_text_primary" />
@@ -165,7 +171,7 @@
       android:id="@+id/sum_cell3_label"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
-      android:maxLines="1"
+      android:maxLines="2"
       android:ellipsize="end"
       android:textSize="@dimen/widget_text_caption"
       android:textColor="@color/widget_text_secondary" />
@@ -180,7 +186,8 @@
         android:id="@+id/sum_cell3_value"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:maxLines="1"
+        android:layout_weight="1"
+        android:maxLines="2"
         android:textSize="@dimen/widget_text_label"
         android:textStyle="bold"
         android:textColor="@color/widget_text_primary" />

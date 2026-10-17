@@ -6,32 +6,32 @@ const path = require('node:path');
 const { createHash } = require('node:crypto');
 
 const FILES = [
-  'android/src/networking/com/swmansion/worklets/WorkletsModule.java',
-  'android/src/no-networking/com/swmansion/worklets/WorkletsModule.java',
+  'android/src/networking/com/swmansion/worklets/WorkletsModule.kt',
+  'android/src/no-networking/com/swmansion/worklets/WorkletsModule.kt',
 ];
-const VERSION = '0.8.3';
+const VERSION = '0.10.1';
 const EXPECTED = {
-  [FILES[0]]: 'ca59f21b3ffe9fc72a024f1db367f3c99eb1428a14d3992a0e07d278b0badafa',
-  [FILES[1]]: '5a61cc85edc92b0e17b6a084a90adced1ee2091d6f50c100d0f320f74921570d',
+  [FILES[0]]: '5fb1c7203fc5a119b2364c9ebae937d0a18538b676de3f240633c1a0d9d15720',
+  [FILES[1]]: '0c68aa5db3aebad144786f10da32eef94d24b2d92a6a648ef9dfa502b3341808',
 };
 const hash = (source) => createHash('sha256').update(source).digest('hex');
-const FIELD = '  private final AtomicBoolean mLifecycleRegistered = new AtomicBoolean(false);\n';
-const INIT = `  @Override
-  public void initialize() {
-    super.initialize();
-    if (!mInvalidated.get() && mLifecycleRegistered.compareAndSet(false, true)) {
-      getReactApplicationContext().addLifecycleEventListener(this);
+const FIELD = '    private val mLifecycleRegistered = AtomicBoolean(false)\n';
+const INIT = `    override fun initialize() {
+        super.initialize()
+        if (!mInvalidated.get() && mLifecycleRegistered.compareAndSet(false, true)) {
+            reactApplicationContext.addLifecycleEventListener(this)
+        }
     }
-  }
 
 `;
-const REMOVE = `    if (mLifecycleRegistered.compareAndSet(true, false)) {
-      getReactApplicationContext().removeLifecycleEventListener(this);
-    }
+const REMOVE = `        if (mLifecycleRegistered.compareAndSet(true, false)) {
+            reactApplicationContext.removeLifecycleEventListener(this)
+        }
 `;
-const FIELD_ANCHOR = '  private final AtomicBoolean mInvalidated = new AtomicBoolean(false);\n';
-const INIT_ANCHOR = '  public void invalidate() {\n';
-const REMOVE_ANCHOR = '    if (mInvalidated.getAndSet(true)) {\n      return;\n    }\n';
+const FIELD_ANCHOR = '    private val mInvalidated = AtomicBoolean(false)\n';
+const INIT_ANCHOR = '    override fun invalidate() {\n';
+const REMOVE_ANCHOR =
+  '        if (mInvalidated.getAndSet(true)) {\n            return\n        }\n';
 
 function replaceOnce(source, anchor, replacement) {
   if (source.indexOf(anchor) === -1 || source.indexOf(anchor) !== source.lastIndexOf(anchor)) {

@@ -1,6 +1,8 @@
-# Leave a pushed screen for the one under it. Android takes the system back.
-# iOS has no system back, and `back` does nothing there, so tap the navigation
-# bar's own back control, which the platform names BackButton.
+# Leave the current screen through the platform's back.
+#
+# Maestro's `back` presses the Android system back and does nothing on iOS,
+# so there the flow taps the native stack header's back button, which UIKit
+# identifies as `BackButton`.
 
 appId: com.veloq.app.dev
 ---
@@ -9,6 +11,7 @@ appId: com.veloq.app.dev
       platform: Android
     commands:
       - back
+
 - runFlow:
     when:
       platform: iOS

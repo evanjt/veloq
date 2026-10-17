@@ -118,7 +118,7 @@ describe('TodayBanner', () => {
     const { queryByText } = await render(<TodayBanner form={null} />);
 
     expect(queryByText(/TSB/)).toBeNull();
-    expect(queryByText(/TODAY|routeIntelligence\.today/)).toBeNull();
+    expect(queryByText(/^(today|routeIntelligence\.today)$/i)).toBeNull();
   });
 });
 

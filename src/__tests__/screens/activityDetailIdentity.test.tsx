@@ -100,7 +100,7 @@ jest.mock('@/shared/ui', () => {
   };
 });
 
-const mockActivity = {
+const mockActivity: { description?: string; [key: string]: unknown } = {
   id: 'act-1',
   name: 'Morning Ride',
   type: 'Ride',
@@ -318,6 +318,7 @@ describe('activity detail screen', () => {
     mockSearchParams = { id: 'act-1' };
     mockRepresentativeId = null;
     mockScreenOptions = {};
+    delete mockActivity.description;
   });
   afterEach(() => jest.restoreAllMocks());
 
@@ -325,6 +326,20 @@ describe('activity detail screen', () => {
     await render(<ActivityDetailScreen />);
     await act(async () => {});
     expect(mockScreenOptions.title).toBe('Morning Ride');
+  });
+
+  it('wraps a long description in full, with no line limit', async () => {
+    const description = Array.from(
+      { length: 12 },
+      (_, line) => `Line ${line + 1} of the harbour loop notes.`
+    ).join('\n');
+    mockActivity.description = description;
+
+    const view = await render(<ActivityDetailScreen />);
+    await act(async () => {});
+
+    const text = view.getByText(description);
+    expect(text.props.numberOfLines).toBeUndefined();
   });
 
   it('shows the translated route record badge with and without an improvement', async () => {

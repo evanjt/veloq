@@ -2363,6 +2363,34 @@ fn launch_clears_the_tiles_path_when_the_heatmap_is_off() {
 // Section detail
 // ============================================================================
 
+/// A candidate row draws where the candidate runs, so the athlete can tell two
+/// numbered sections apart before a merge rewrites one of them.
+#[test]
+fn section_detail_merge_candidates_carry_the_candidate_line() {
+    let _serial_state = crate::serial_state();
+    let s = populated();
+    s.raw
+        .execute_batch(
+            "UPDATE sections SET bounds_min_lat = 46.2, bounds_max_lat = 46.2,
+                    bounds_min_lng = 7.35, bounds_max_lng = 7.36
+             WHERE id IN ('auto1', 'cust1');",
+        )
+        .expect("bounds");
+    let bundle = s.engine.section_detail_data("cust1");
+
+    let candidate = bundle
+        .merge_candidates
+        .iter()
+        .find(|c| c.section_id == "auto1")
+        .expect("a merge candidate");
+    let drawn =
+        veloqrs::persistence::codec::decode_polyline(&candidate.encoded_polyline).expect("decodes");
+    let stored = line(46.2, 7.35, 30);
+    assert_eq!(drawn.len(), stored.len());
+    assert!((drawn[0].latitude - stored[0].latitude).abs() < 1e-5);
+    assert!((drawn[29].longitude - stored[29].longitude).abs() < 1e-5);
+}
+
 #[test]
 fn section_detail_matches_the_calls_it_replaces() {
     let _serial_state = crate::serial_state();

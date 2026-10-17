@@ -19,7 +19,6 @@ import { TRACE_ZOOM_THRESHOLD } from '@/features/maps/lib/mapBudgets';
 
 function layers(selectedActivityId: string | null = null) {
   return buildRegionalLayers({
-    isDark: false,
     mapStyle: 'light',
     showActivities: true,
     showSections: false,

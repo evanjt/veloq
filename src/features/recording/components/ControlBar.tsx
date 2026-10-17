@@ -9,20 +9,16 @@ import * as haptics from '@/shared/ui/haptics';
 import { useTheme } from '@/shared/app';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import {
-  brand,
   colors,
   darkColors,
   iconSize,
   layout,
   spacing,
+  recording,
   themePalette,
   typography,
 } from '@/theme';
 import type { RecordingStatus, RecordingMode } from '@/types';
-
-// Each round button's fill with the ink its glyph takes on it.
-const BRAND_FILL = { fill: brand.tealLight, ink: colors.textOnPrimary };
-const RESUME_FILL = { fill: colors.success, ink: colors.textOnBright };
 
 interface ControlBarProps {
   status: RecordingStatus;
@@ -70,7 +66,6 @@ function ControlBarInner({
             testID="control-save"
             label={t('recording.controls.save')}
             icon="content-save"
-            paint={BRAND_FILL}
             onPress={() => handleHapticPress(onStop)}
           />
         </Animated.View>
@@ -88,7 +83,6 @@ function ControlBarInner({
             testID="control-start"
             label={t('recording.startActivity')}
             icon="play"
-            paint={RESUME_FILL}
             onPress={() => handleHapticPress(onStart)}
           />
         </Animated.View>
@@ -106,7 +100,6 @@ function ControlBarInner({
             testID="control-review"
             label={t('recording.reviewActivity')}
             icon="clipboard-check-outline"
-            paint={BRAND_FILL}
             onPress={() => handleHapticPress(onReview)}
           />
         </Animated.View>
@@ -123,7 +116,6 @@ function ControlBarInner({
             testID="control-resume"
             label={t('recording.controls.resume')}
             icon="play"
-            paint={RESUME_FILL}
             onPress={() => handleHapticPress(onResume)}
           />
 
@@ -157,7 +149,6 @@ function ControlBarInner({
           testID="control-pause"
           label={t('recording.controls.pause')}
           icon="pause"
-          paint={BRAND_FILL}
           onPress={() => handleHapticPress(onPause)}
         />
 
@@ -174,32 +165,33 @@ function ControlBarInner({
   );
 }
 
-// Primary circular action button
+// The one main button in every state takes the record red, whatever it does,
+// so the screen's own action reads as the same control as the button that
+// opened it. White carries on both tones at the text bar.
 function PrimaryButton({
   label,
   icon,
-  paint,
   onPress,
   testID,
 }: {
   label: string;
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-  paint: { fill: string; ink: string };
   onPress: () => void;
   testID?: string;
 }) {
   const { isDark } = useTheme();
+  const fill = isDark ? recording.dark : recording.light;
   return (
     <View style={styles.buttonContainer}>
       <Pressable
         testID={testID}
-        style={pressable([styles.primaryButton, { backgroundColor: paint.fill }])}
+        style={pressable([styles.primaryButton, { backgroundColor: fill }])}
         android_ripple={pressRipple}
         onPress={onPress}
         accessibilityLabel={label}
         accessibilityRole="button"
       >
-        <MaterialCommunityIcons name={icon} size={iconSize.xl} color={paint.ink} />
+        <MaterialCommunityIcons name={icon} size={iconSize.xl} color={colors.textOnDark} />
       </Pressable>
       <Text style={[styles.buttonLabel, { color: themePalette(isDark).textSecondary }]}>
         {label}

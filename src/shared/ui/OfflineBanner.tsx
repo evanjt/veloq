@@ -20,6 +20,7 @@ import { useFloatingPillTop } from '@/shared/app/TopSafeAreaContext';
 import { useAnnounceOnAppear } from './useAnnounceOnAppear';
 import {
   colorWithOpacity,
+  floatingLayers,
   iconSize,
   layout,
   motionPresets,
@@ -76,7 +77,7 @@ const styles = StyleSheet.create({
     left: spacing.md,
     right: spacing.md,
     alignItems: 'center',
-    zIndex: 999,
+    zIndex: floatingLayers.offlinePill,
   },
   pill: {
     flexDirection: 'row',

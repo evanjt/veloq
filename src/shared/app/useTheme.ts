@@ -35,7 +35,6 @@ export interface ThemeColors {
   // Chart colors
   fitness: string;
   fatigue: string;
-  form: string;
 }
 
 export interface Theme {
@@ -96,7 +95,6 @@ export function useTheme(): Theme {
     // Chart colors
     fitness: brand.blue,
     fatigue: colors.fatigue,
-    form: brand.gold,
   };
 
   return {

@@ -27,7 +27,6 @@ function card(props: Partial<SummaryCardProps>) {
       onProfilePress={() => {}}
       heroValue="-"
       heroLabel="Fitness"
-      heroColor="#000"
       showSparkline={false}
       supportingMetrics={metrics}
       {...props}

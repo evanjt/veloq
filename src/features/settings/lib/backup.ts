@@ -224,11 +224,16 @@ function openEngineForImport(): NonNullable<ReturnType<typeof getEngine>> {
 
 /**
  * Run the checks `restoreRecordBackup` would run on a record zip, and restore
- * nothing. Rejects with the restore's own refusal.
+ * nothing. Rejects with the restore's own refusal, and otherwise resolves with
+ * when the zip was written, as an ISO string, or null for a zip that names no
+ * time.
  */
-export async function checkRecordBackup(fileUri: string): Promise<void> {
+export async function checkRecordBackup(fileUri: string): Promise<string | null> {
   const engine = openEngineForImport();
-  await engine.checkRecordZip(fileUri.startsWith('file://') ? fileUri.slice(7) : fileUri);
+  const check = await engine.checkRecordZip(
+    fileUri.startsWith('file://') ? fileUri.slice(7) : fileUri
+  );
+  return check.writtenAt ?? null;
 }
 
 /** Import a picked record zip through the engine's versioned restore path. */
@@ -462,6 +467,8 @@ interface RecordEntry {
     rep_end_index: number | null;
     point_count: number | null;
     polyline_json: string | null;
+    /** A route's member rides, which the restore finds the local route by. */
+    activity_ids?: string[];
   } | null;
 }
 
@@ -511,6 +518,9 @@ function legacyIdList(value: unknown): string[] {
   return list.filter((id): id is string => typeof id === 'string' && id !== '');
 }
 
+/** The suffix the old grouping gave a route split off another route's ride. */
+const LEGACY_SPLIT_ROUTE_SUFFIX = '_split';
+
 /** Convert a readable `.veloq` file into the record restore's input. */
 export function convertLegacyBackupToRecord(json: string): RecordPayload {
   let parsed: unknown;
@@ -558,11 +568,23 @@ export function convertLegacyBackupToRecord(json: string): RecordPayload {
   for (const [id, name] of Object.entries(backup.sectionNames ?? {})) {
     entries.push({ table: 'legacy_section_name', values: { section_id: id, name }, ground: null });
   }
+  // An old route id is the id of a ride in that route, so the name is placed
+  // by the local route holding that ride. A split's id names a ride of the
+  // route it split from, so a split name carries no ground and stays unplaced.
   for (const [routeId, customName] of Object.entries(backup.routeNames ?? {})) {
     entries.push({
       table: 'route_names',
       values: { route_id: routeId, custom_name: customName },
-      ground: null,
+      ground: routeId.endsWith(LEGACY_SPLIT_ROUTE_SUFFIX)
+        ? null
+        : {
+            rep_activity_id: routeId,
+            activity_ids: [routeId],
+            rep_start_index: null,
+            rep_end_index: null,
+            point_count: null,
+            polyline_json: null,
+          },
     });
   }
   for (const [key, table] of LEGACY_SECTION_STATE_TABLES) {

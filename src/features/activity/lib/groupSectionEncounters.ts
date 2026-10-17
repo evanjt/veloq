@@ -56,3 +56,16 @@ export function sectionRowLabels(
 ): Map<string, string> {
   return new Map(groups.map((group, index) => [group.sectionId, String(index + 1)]));
 }
+
+/**
+ * The card a section is drawn on, or null when the list does not hold it.
+ * The index counts groups, so a section crossed both ways is one card, the
+ * same card its map marker is numbered after.
+ */
+export function sectionGroupIndex(
+  groups: Pick<SectionEncounterGroup, 'sectionId'>[],
+  sectionId: string
+): number | null {
+  const index = groups.findIndex((group) => group.sectionId === sectionId);
+  return index === -1 ? null : index;
+}

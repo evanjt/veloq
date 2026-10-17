@@ -5,9 +5,19 @@
  * screen, fails, and every later flow fails with it before its own cleanup
  * runs. On a short screen the discard button also sits below the fold.
  *
+ * A ride with a track opens on a map hero over the top of the screen, and only
+ * the form under it scrolls, so a scroll that swipes from the centre of the
+ * screen pans the map and never reaches the button.
+ *
  * Expected behaviour: the shared setup discards a stranded demo ride and
- * reaches home, on a tall screen and a short one. A real account's ride is
+ * reaches home, on a tall screen and a short one, with a map hero or without. A real account's ride is
  * never touched, and setup still refuses that session.
+ *
+ * On iOS the alert's accept and the screen's own Discard button share a label.
+ * Maestro there takes the first match in the hierarchy, where the screen comes
+ * before the alert, and the alert's title anchors on the alert's whole frame,
+ * so a tap "below the title" lands on the screen's button behind the alert and
+ * the alert stays up.
  *
  * The real flow files run through a small interpreter of the Maestro commands
  * they use, against a model of the screens they meet. A command the model does
@@ -25,6 +35,7 @@ const HELPERS = resolve(__dirname, '../../../.maestro/helpers');
 type Screen = 'none' | 'login' | 'home' | 'review';
 
 interface App {
+  platform: 'Android' | 'iOS';
   screen: Screen;
   demo: boolean;
   signedIn: boolean;
@@ -32,12 +43,22 @@ interface App {
   strandedRide: boolean;
   /** Whether the discard button fits above the fold without scrolling. */
   tall: boolean;
+  /** Whether the review opens on a map hero, which keeps the button below the fold. */
+  mapHero: boolean;
   scrolled: boolean;
   alert: boolean;
   discarded: number;
 }
 
-type Selector = string | { id?: string; text?: string; below?: string; optional?: boolean };
+type Selector =
+  | string
+  | {
+      id?: string;
+      text?: string;
+      below?: string;
+      above?: Selector;
+      optional?: boolean;
+    };
 type Command = string | Record<string, unknown>;
 
 function ids(app: App): string[] {
@@ -52,7 +73,7 @@ function ids(app: App): string[] {
         'review-screen',
         'review-activity-name',
         'review-save-button',
-        ...(app.tall || app.scrolled ? ['review-discard-button'] : []),
+        ...((app.tall && !app.mapHero) || app.scrolled ? ['review-discard-button'] : []),
         ...banner,
       ];
     default:
@@ -104,12 +125,8 @@ function tap(app: App, selector: Selector) {
     app.screen = 'home';
   } else if (typeof selector === 'object' && selector.id === 'review-discard-button') {
     app.alert = true;
-  } else if (
-    app.alert &&
-    typeof selector === 'object' &&
-    selector.text === 'Discard' &&
-    selector.below !== undefined
-  ) {
+  } else if (app.alert && typeof selector === 'object' && selector.text === 'Discard') {
+    if (!acceptResolvesToAlert(app, selector)) return;
     app.alert = false;
     app.strandedRide = false;
     app.discarded += 1;
@@ -119,8 +136,22 @@ function tap(app: App, selector: Selector) {
   }
 }
 
+/**
+ * Whether a tap on the label Discard, with the alert up, resolves to the alert's
+ * accept rather than to the screen's own button behind it.
+ */
+function acceptResolvesToAlert(app: App, selector: { below?: string; above?: Selector }): boolean {
+  // The alert sits over the screen's button, so only the alert's accept is above it.
+  if (typeof selector.above === 'object' && selector.above.id === 'review-discard-button') {
+    return true;
+  }
+  if (selector.below !== undefined) return app.platform === 'Android';
+  throw new Error(`unmodelled Discard tap ${JSON.stringify(selector)}`);
+}
+
 function conditionHolds(app: App, when: Record<string, unknown>): boolean {
   return Object.entries(when).every(([kind, value]) => {
+    if (kind === 'platform') return value === app.platform;
     if (kind === 'visible') return visible(app, value as Selector);
     if (kind === 'notVisible') return !visible(app, value as Selector);
     if (kind === 'true') {
@@ -131,8 +162,11 @@ function conditionHolds(app: App, when: Record<string, unknown>): boolean {
   });
 }
 
-function readFlow(file: string): Command[] {
-  const documents = loadAll(readFileSync(file, 'utf8'));
+function readFlow(file: string, env: Record<string, string> = {}): Command[] {
+  const source = readFileSync(file, 'utf8').replace(/\$\{(\w+)\}/g, (whole, name: string) =>
+    name in env ? env[name] : whole
+  );
+  const documents = loadAll(source);
   return documents[documents.length - 1] as Command[];
 }
 
@@ -151,12 +185,13 @@ function run(app: App, file: string, commands: Command[] = readFlow(file)) {
         const flow = args as {
           when?: Record<string, unknown>;
           file?: string;
+          env?: Record<string, string>;
           commands?: Command[];
         };
         if (flow.when && !conditionHolds(app, flow.when)) break;
         if (flow.file) {
           const nested = join(dirname(file), flow.file);
-          run(app, nested);
+          run(app, nested, readFlow(nested, flow.env));
         } else {
           run(app, file, flow.commands ?? []);
         }
@@ -179,9 +214,30 @@ function run(app: App, file: string, commands: Command[] = readFlow(file)) {
         const scroll = args as { element: Selector; optional?: boolean };
         const target = scroll.element;
         const id = typeof target === 'string' ? undefined : target.id;
-        if (id && idsOnScreen(app).includes(id)) app.scrolled = true;
+        // It swipes from the centre of the screen, which a map hero covers.
+        const formMoves = app.screen !== 'review' || !app.mapHero;
+        if (id && formMoves && idsOnScreen(app).includes(id)) app.scrolled = true;
         else if (!visible(app, target) && !scroll.optional) {
           throw new Error(`Element not found while scrolling: ${JSON.stringify(target)}`);
+        }
+        break;
+      }
+      case 'swipe': {
+        const swipe = args as { start: string; end: string };
+        const startY = Number(swipe.start.split(',')[1].trim().replace('%', ''));
+        // The form is the lower part of the review, under the map hero.
+        if (app.screen === 'review' && startY > 50) app.scrolled = true;
+        break;
+      }
+      case 'repeat': {
+        const loop = args as {
+          while?: Record<string, unknown>;
+          times?: number;
+          commands: Command[];
+        };
+        for (let i = 0; i < (loop.times ?? Infinity); i += 1) {
+          if (loop.while && !conditionHolds(app, loop.while)) break;
+          run(app, file, loop.commands);
         }
         break;
       }
@@ -203,11 +259,13 @@ function run(app: App, file: string, commands: Command[] = readFlow(file)) {
 
 function makeApp(overrides: Partial<App>): App {
   return {
+    platform: 'Android',
     screen: 'none',
     demo: true,
     signedIn: true,
     strandedRide: false,
     tall: true,
+    mapHero: false,
     scrolled: false,
     alert: false,
     discarded: 0,
@@ -263,12 +321,37 @@ describe('the shared demo setup', () => {
   });
 });
 
-describe('the review discard helper', () => {
+describe.each(['Android', 'iOS'] as const)('the review discard helper on %s', (platform) => {
   it('scrolls to a discard button below the fold before tapping it', () => {
-    const app = makeApp({ strandedRide: true, tall: false });
+    const app = makeApp({ platform, strandedRide: true, tall: false });
     launch(app);
     run(app, join(HELPERS, 'confirm-review-discard.yaml'));
     expect(app.strandedRide).toBe(false);
     expect(app.screen).toBe('home');
+  });
+
+  it('reaches a discard button under a map hero, which a centre swipe only pans', () => {
+    const app = makeApp({ platform, strandedRide: true, mapHero: true });
+    launch(app);
+    run(app, join(HELPERS, 'confirm-review-discard.yaml'));
+    expect(app.discarded).toBe(1);
+    expect(app.screen).toBe('home');
+  });
+
+  it("takes the alert's accept and not the screen's own Discard behind it", () => {
+    const app = makeApp({ platform, strandedRide: true });
+    launch(app);
+    run(app, join(HELPERS, 'confirm-review-discard.yaml'));
+    expect(app.alert).toBe(false);
+    expect(app.discarded).toBe(1);
+  });
+});
+
+describe('the shared demo setup on iOS', () => {
+  it('discards a stranded demo ride and reaches home', () => {
+    const app = makeApp({ platform: 'iOS', strandedRide: true, tall: false });
+    run(app, SETUP);
+    expect(app.screen).toBe('home');
+    expect(app.discarded).toBe(1);
   });
 });

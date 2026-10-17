@@ -75,70 +75,129 @@ pub const POWER: &[&str] = &[
     "VirtualRow",
 ];
 
-pub const DISPLAY_RIDE: &[&str] = CYCLING;
-pub const DISPLAY_RUN: &[&str] = RUNNING;
-pub const DISPLAY_SWIM: &[&str] = SWIMMING;
-pub const DISPLAY_WALK: &[&str] = &["Walk"];
-pub const DISPLAY_HIKE: &[&str] = &["Hike", "Snowshoe"];
-pub const DISPLAY_SNOW: &[&str] = &[
+// The families every activity is drawn in, one list each in stack order. A
+// family is a colour, not a count: it folds the counting families above
+// (cycling into ride, swimming into water, walking into foot) and places
+// every other sport intervals.icu names. A sport no list holds is Other.
+
+pub const FAMILY_RIDE: &[&str] = CYCLING;
+pub const FAMILY_WINTER: &[&str] = &[
     "AlpineSki",
+    "Snowboard",
     "NordicSki",
     "BackcountrySki",
-    "Snowboard",
     "RollerSki",
+    "Snowshoe",
+    "IceSkate",
 ];
-pub const DISPLAY_WATER: &[&str] = &[
+pub const FAMILY_RUN: &[&str] = RUNNING;
+pub const FAMILY_WATER: &[&str] = &[
+    "Swim",
+    "OpenWaterSwim",
     "Rowing",
     "VirtualRow",
     "Kayaking",
     "Canoeing",
-    "Surfing",
-    "Kitesurf",
-    "Windsurf",
     "StandUpPaddling",
     "Sail",
+    "Windsurf",
+    "Kitesurf",
+    "Surfing",
 ];
-pub const DISPLAY_GYM: &[&str] = &[
+pub const FAMILY_FOOT: &[&str] = &["Walk", "Hike", "Wheelchair"];
+pub const FAMILY_STRENGTH: &[&str] = &[
     "Workout",
     "WeightTraining",
     "Yoga",
     "Pilates",
     "Crossfit",
+    "HighIntensityIntervalTraining",
     "Elliptical",
     "StairStepper",
-    "HighIntensityIntervalTraining",
-    "IceSkate",
-    "InlineSkate",
-    "Skateboard",
 ];
-pub const DISPLAY_RACKET: &[&str] = &[
+pub const FAMILY_OTHER: &[&str] = &[
     "Tennis",
     "Badminton",
     "Pickleball",
     "Racquetball",
     "Squash",
     "TableTennis",
-];
-pub const DISPLAY_OTHER: &[&str] = &["Soccer", "Golf", "RockClimbing", "Wheelchair", "Other"];
-
-pub const DISPLAY_GROUPS: &[(&str, &[&str])] = &[
-    ("Ride", DISPLAY_RIDE),
-    ("Run", DISPLAY_RUN),
-    ("Swim", DISPLAY_SWIM),
-    ("Walk", DISPLAY_WALK),
-    ("Hike", DISPLAY_HIKE),
-    ("Snow", DISPLAY_SNOW),
-    ("Water", DISPLAY_WATER),
-    ("Gym", DISPLAY_GYM),
-    ("Racket", DISPLAY_RACKET),
-    ("Other", DISPLAY_OTHER),
+    "Soccer",
+    "Golf",
+    "RockClimbing",
+    "InlineSkate",
+    "Skateboard",
+    "Other",
 ];
 
-pub fn display_group(sport: &str) -> &'static str {
-    DISPLAY_GROUPS
+/// Every family by name, in the order a stack of them is drawn.
+pub const FAMILIES: &[(&str, &[&str])] = &[
+    ("Ride", FAMILY_RIDE),
+    ("Winter", FAMILY_WINTER),
+    ("Run", FAMILY_RUN),
+    ("Water", FAMILY_WATER),
+    ("Foot", FAMILY_FOOT),
+    ("Strength", FAMILY_STRENGTH),
+    ("Other", FAMILY_OTHER),
+];
+
+/// Sub-sports drawn in their family's second fixed shade: off-road riding,
+/// trail running, paddling and rowing, hiking, nordic and snowshoe, mobility.
+pub const SHADE_2: &[&str] = &[
+    "GravelRide",
+    "MountainBikeRide",
+    "Cyclocross",
+    "TrailRun",
+    "Rowing",
+    "VirtualRow",
+    "Kayaking",
+    "Canoeing",
+    "StandUpPaddling",
+    "Hike",
+    "NordicSki",
+    "BackcountrySki",
+    "RollerSki",
+    "Snowshoe",
+    "Yoga",
+    "Pilates",
+];
+
+/// Sub-sports drawn in their family's third fixed shade: indoor riding and
+/// running, wind and wave, skating, conditioning.
+pub const SHADE_3: &[&str] = &[
+    "VirtualRide",
+    "TrackRide",
+    "VirtualRun",
+    "Treadmill",
+    "Sail",
+    "Windsurf",
+    "Kitesurf",
+    "Surfing",
+    "IceSkate",
+    "Crossfit",
+    "HighIntensityIntervalTraining",
+    "Elliptical",
+    "StairStepper",
+];
+
+/// The family a sport is drawn in. A sport no family lists is Other.
+pub fn sport_family(sport: &str) -> &'static str {
+    FAMILIES
         .iter()
         .find(|(_, sports)| sports.contains(&sport))
-        .map_or("Other", |(group, _)| group)
+        .map_or("Other", |(family, _)| family)
+}
+
+/// The sport's fixed shade within its family, 1 to 3. The base shade is 1,
+/// and the only one drawn where families mix.
+pub fn sport_shade(sport: &str) -> u8 {
+    if SHADE_3.contains(&sport) {
+        3
+    } else if SHADE_2.contains(&sport) {
+        2
+    } else {
+        1
+    }
 }
 
 pub fn is_cycling(sport: &str) -> bool {
@@ -349,32 +408,118 @@ mod tests {
     }
 
     /// A chip claims its family and Other takes the rest, so a sport the
-    /// athlete takes up next year is under a chip the day it syncs. Four
-    /// hand-written lists left open-water swims under no chip at all.
+    /// athlete takes up next year is under a chip the day it syncs.
     #[test]
     fn every_sport_answers_to_one_feed_chip_and_other_takes_the_rest() {
-        use crate::FfiFeedGroup;
+        use crate::FfiSportFamily;
+        for (name, sports) in FAMILIES {
+            for sport in *sports {
+                assert_eq!(FfiSportFamily::of(sport).name(), *name, "{sport}");
+            }
+        }
+        for sport in ["", "RideTheWind", "Rungby", "Padel"] {
+            assert_eq!(FfiSportFamily::of(sport), FfiSportFamily::Other, "{sport}");
+        }
+        assert_eq!(FfiSportFamily::of("Snowshoe"), FfiSportFamily::Winter);
+        assert_eq!(FfiSportFamily::of("OpenWaterSwim"), FfiSportFamily::Water);
+    }
+
+    /// Every sport the engine names sits in exactly one family, and the
+    /// families together are the whole list. A sport in none would draw grey
+    /// on one screen and answer to a chip on another.
+    #[test]
+    fn every_named_sport_sits_in_exactly_one_family() {
+        let named: Vec<&str> = [CYCLING, RUNNING, WALKING, SWIMMING, POWER, VIRTUAL]
+            .concat()
+            .into_iter()
+            .chain(
+                FAMILIES
+                    .iter()
+                    .flat_map(|(_, sports)| sports.iter().copied()),
+            )
+            .collect();
+        for sport in named {
+            let holders: Vec<&str> = FAMILIES
+                .iter()
+                .filter(|(_, sports)| sports.contains(&sport))
+                .map(|(family, _)| *family)
+                .collect();
+            assert_eq!(holders.len(), 1, "{sport} sits in {holders:?}");
+            assert_eq!(sport_family(sport), holders[0], "{sport}");
+        }
+        let total: usize = FAMILIES.iter().map(|(_, sports)| sports.len()).sum();
+        assert_eq!(total, 54);
+    }
+
+    #[test]
+    fn the_families_stack_in_their_fixed_order() {
+        let names: Vec<&str> = FAMILIES.iter().map(|(family, _)| *family).collect();
+        assert_eq!(
+            names,
+            [
+                "Ride", "Winter", "Run", "Water", "Foot", "Strength", "Other"
+            ]
+        );
+    }
+
+    #[test]
+    fn a_sport_takes_its_family_and_fixed_shade() {
+        assert_eq!(sport_family("IceSkate"), "Winter");
+        assert_eq!(sport_shade("IceSkate"), 3);
+        assert_eq!(sport_family("Snowshoe"), "Winter");
+        assert_eq!(sport_shade("Snowshoe"), 2);
+        assert_eq!(sport_family("Hike"), "Foot");
+        assert_eq!(sport_shade("Hike"), 2);
+        assert_eq!(sport_family("Walk"), "Foot");
+        assert_eq!(sport_shade("Walk"), 1);
+        assert_eq!(sport_family("Wheelchair"), "Foot");
+        assert_eq!(sport_family("Swim"), "Water");
+        assert_eq!(sport_family("Rowing"), "Water");
+        assert_eq!(sport_family("InlineSkate"), "Other");
+        assert_eq!(sport_family("Skateboard"), "Other");
+        assert_eq!(sport_family("Tennis"), "Other");
+        assert_eq!(sport_family("Yoga"), "Strength");
+        assert_eq!(sport_shade("Ride"), 1);
+        assert_eq!(sport_shade("GravelRide"), 2);
+        assert_eq!(sport_shade("VirtualRide"), 3);
+    }
+
+    /// Every cycling, running, walking and swimming sport is drawn with the
+    /// family its numbers are counted in.
+    #[test]
+    fn the_counting_families_fold_whole_into_one_drawn_family() {
         for sport in CYCLING {
-            assert_eq!(FfiFeedGroup::of(sport), FfiFeedGroup::Cycling, "{sport}");
+            assert_eq!(sport_family(sport), "Ride", "{sport}");
         }
         for sport in RUNNING {
-            assert_eq!(FfiFeedGroup::of(sport), FfiFeedGroup::Running, "{sport}");
+            assert_eq!(sport_family(sport), "Run", "{sport}");
+        }
+        for sport in WALKING {
+            assert_eq!(sport_family(sport), "Foot", "{sport}");
         }
         for sport in SWIMMING {
-            assert_eq!(FfiFeedGroup::of(sport), FfiFeedGroup::Swimming, "{sport}");
+            assert_eq!(sport_family(sport), "Water", "{sport}");
         }
-        for sport in WALKING
-            .iter()
-            .chain(DISPLAY_SNOW)
-            .chain(DISPLAY_GYM)
-            .chain(DISPLAY_RACKET)
-            .chain(&["Snowshoe", "Rowing", "Kitesurf", "RockClimbing", ""])
-        {
-            assert_eq!(FfiFeedGroup::of(sport), FfiFeedGroup::Other, "{sport}");
+    }
+
+    /// A sport intervals.icu adds next year is drawn as Other with the base
+    /// shade the day it syncs, and a prefix claims nothing longer than itself.
+    #[test]
+    fn an_unknown_sport_is_other_at_the_base_shade() {
+        for sport in ["", "Padel", "Hockey", "RideTheWind", "Rungby", "ride"] {
+            assert_eq!(sport_family(sport), "Other", "{sport}");
+            assert_eq!(sport_shade(sport), 1, "{sport}");
         }
-        // A prefix claims nothing longer than itself.
-        assert_eq!(FfiFeedGroup::of("RideTheWind"), FfiFeedGroup::Other);
-        assert_eq!(FfiFeedGroup::of("Rungby"), FfiFeedGroup::Other);
+    }
+
+    #[test]
+    fn a_shade_names_a_sport_of_a_family_and_other_has_none() {
+        for sport in SHADE_2.iter().chain(SHADE_3) {
+            assert_ne!(sport_family(sport), "Other", "{sport}");
+        }
+        for sport in SHADE_2 {
+            assert!(!SHADE_3.contains(sport), "{sport} has two shades");
+        }
     }
 
     #[test]

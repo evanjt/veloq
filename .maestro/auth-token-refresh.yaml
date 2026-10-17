@@ -15,7 +15,7 @@
 #
 # In demo mode the OAuth session-expiry code path can't be exercised directly
 # because there is no real token to invalidate. We use the manual logout
-# button (settings → account → disconnect) as the session-expiry proxy, since
+# button (settings → account → sign out) as the session-expiry proxy, since
 # both code paths ultimately call `clearCredentials()` on the AuthStore.
 #
 # -----------------------------------------------------------------------------
@@ -40,7 +40,7 @@ tags:
   - tier2
   - pack-auth
 
-# Recovery: if this flow leaves us on the login screen (Disconnect tapped but
+# Recovery: if this flow leaves us on the login screen (Sign out tapped but
 # demo re-entry didn't complete), hop back into demo mode so subsequent flows
 # have a clean starting point.
 onFlowComplete:

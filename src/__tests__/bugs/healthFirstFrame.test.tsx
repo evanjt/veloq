@@ -16,6 +16,7 @@ import TrainingScreen from '@/app/(tabs)/training';
 import { HEATMAP_PITCH, HEATMAP_WEEKS } from '@/features/stats/lib/heatmapGrid';
 import { initialiseI18n } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
+import { noComparisons } from '../__shared__/trainingScreenRead';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -79,6 +80,7 @@ const engine = {
     yearPrevious: totals,
     monthCurrent: totals,
     monthPrevious: totals,
+    comparisons: noComparisons(windows.nowWallSeconds),
   }),
 };
 

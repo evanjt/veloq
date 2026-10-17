@@ -46,6 +46,29 @@ export function bottomClearance(onTabs: boolean, inset: number, insetTaken: bool
   return fromEdge - (insetTaken ? inset : 0);
 }
 
+interface PillStackInput {
+  /** The bottom clearance of the screen, as `bottomClearance` gives it for a floating view. */
+  clearance: number;
+  /** How tall what the screen draws over its foot reaches, such as the record button. */
+  cover: number;
+  /** Each shown pill's height, nearest the bottom first. */
+  heights: readonly number[];
+}
+
+/**
+ * Where each bottom pill sits: the first `spacing.md` above the clearance and the cover, each next
+ * one its neighbour's height plus `spacing.xs` above, so no two pills draw on one spot.
+ */
+export function bottomPillStack({ clearance, cover, heights }: PillStackInput): number[] {
+  const bottoms: number[] = [];
+  let next = clearance + cover + spacing.md;
+  for (const height of heights) {
+    bottoms.push(next);
+    next += height + spacing.xs;
+  }
+  return bottoms;
+}
+
 /**
  * The padding a scroll view's content ends with: the tab bar on a tab screen, and the inset on
  * Android, which insets no scroll view while the app draws edge to edge. iOS insets a scroll view

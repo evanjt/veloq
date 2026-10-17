@@ -25,7 +25,7 @@
   },
   "alerts": {
     "cacheCleared": "Caché borrada",
-    "clearCacheMessage": "Esto borrará todos los datos de actividades en caché, trazas de actividad y datos de coincidencia de rutas, luego comenzará a recargar. Puede tardar unos minutos.",
+    "clearCacheMessage": "Esto borrará todos los datos de actividades en caché, trazas de actividad y datos de coincidencia de rutas, luego comenzará a recargar. Puede tardar unos minutos. El rango de datos locales vuelve a los últimos 90 días.",
     "accountChangeMessage": "Este dispositivo tiene datos en caché de otra cuenta ({{cachedAthleteId}}). Iniciar sesión con una cuenta diferente eliminará permanentemente esos datos. Regresa e inicia sesión en esa cuenta para conservarlos.",
     "accountChangeDemoMessage": "Este dispositivo tiene datos en caché de otra cuenta ({{cachedAthleteId}}). Continuar en modo demo eliminará permanentemente esos datos. Regresa e inicia sesión en esa cuenta primero para conservarlos.",
     "accountChangeUnknownDemoMessage": "Este dispositivo tiene una biblioteca de otra cuenta. Continuar en modo demo la eliminará permanentemente. Para conservarla, regresa e inicia sesión con esa cuenta primero."
@@ -213,7 +213,7 @@
     }
   },
   "strength": {
-    "pairsInfoThresholds": "Estado: equilibrado ≤ 1.35×, observar hasta 2×, desequilibrado por encima de 2×.",
+    "pairsInfoThresholds": "Rangos: menos de 1.35×, de 1.35× a 2×, 2× o más.",
     "recentAvg": "Promedio reciente",
     "earlierAvg": "Promedio anterior"
   },

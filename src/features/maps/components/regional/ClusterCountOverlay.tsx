@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AccessibilityInfo, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, StyleSheet, View } from 'react-native';
 import { colors, typography } from '@/theme';
+import { DenseText, denseExtent } from '@/shared/ui/DenseText';
 import type { MapSurfaceRef } from '../MapSurface';
 import { CLUSTER_CIRCLE_LAYER_ID } from './regionalMapLayerSpecs';
 
@@ -39,6 +40,10 @@ interface ClusterPoint {
 
 /** Give the first paint time to settle before the first query. */
 const INITIAL_QUERY_DELAY_MS = 250;
+
+/** A count's box, centred on its cluster: up to four figures wide and one line high, at the cap. */
+const COUNT_WIDTH = denseExtent(typography.caption.fontSize, 2.6);
+const COUNT_HEIGHT = denseExtent(typography.caption.fontSize, 1.4);
 
 /**
  * Whether the nodes are worth the round trip into the page.
@@ -142,9 +147,12 @@ export const ClusterCountOverlay = React.forwardRef<
           key={`cluster-${cluster.id}`}
           testID={`map-cluster-count-${cluster.id}`}
           accessibilityLabel={t('sections.activitiesCount', { count: cluster.count })}
-          style={[styles.countHitbox, { left: cluster.x - 16, top: cluster.y - 8 }]}
+          style={[
+            styles.countHitbox,
+            { left: cluster.x - COUNT_WIDTH / 2, top: cluster.y - COUNT_HEIGHT / 2 },
+          ]}
         >
-          {visible ? <Text style={styles.countLabelVisible}>{cluster.count}</Text> : null}
+          {visible ? <DenseText style={styles.countLabelVisible}>{cluster.count}</DenseText> : null}
         </View>
       ))}
     </View>
@@ -157,8 +165,9 @@ const styles = StyleSheet.create({
   },
   countHitbox: {
     position: 'absolute',
-    width: 32,
-    height: 16,
+    width: COUNT_WIDTH,
+    height: COUNT_HEIGHT,
+    justifyContent: 'center',
   },
   countLabelVisible: {
     ...typography.captionBold,

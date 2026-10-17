@@ -29,7 +29,7 @@ import {
 import { CompassArrow } from '@/shared/ui';
 import { useBackDismiss } from '@/shared/app/useBackDismiss';
 import { MapKeyRamp, MapKeySwatch } from '../MapKey';
-import { ACTIVITY_CATEGORIES } from '../../lib/activityCategories';
+import { ACTIVITY_CATEGORIES, type SportFamily } from '../../lib/activityCategories';
 import { RECENCY_FADE } from './regionalMapLayerSpecs';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -179,7 +179,7 @@ interface MapControlStackProps {
   /** Callback to fit all activities in view */
   onFitAll: () => void;
   /** Sport categories whose dots the map draws, keyed by their colour while activities show. */
-  keyCategories?: readonly string[] | undefined;
+  keyCategories?: readonly SportFamily[] | undefined;
   /** The heatmap ramp as the layer draws it, faintest first, keyed while the heatmap shows. */
   heatKeyColours?: readonly string[] | undefined;
 }
@@ -332,14 +332,13 @@ export function MapControlStack({
             <View style={styles.menuKey}>
               {keyCategories.map((category) => {
                 const config = ACTIVITY_CATEGORIES[category];
-                if (!config) return null;
                 return (
                   <MapKeySwatch
                     key={category}
                     testID={`map-key-category-${category}`}
                     swatch={config.color}
                     shape="dot"
-                    label={t(`maps.activityTypes.${config.labelKey}` as never)}
+                    label={t(config.label)}
                     isDark={isDark}
                   />
                 );

@@ -18,6 +18,7 @@ jest.mock('react-i18next', () => require('../__shared__/i18nMock').fallbackOrKey
 jest.mock('@expo/vector-icons', () => ({ MaterialCommunityIcons: () => null }));
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
+  Stack: require('../__shared__/nativeHeaderStandIn').Stack,
   useLocalSearchParams: () => ({ id: 'section-1', category: '3' }),
 }));
 jest.mock('react-native-safe-area-context', () => ({

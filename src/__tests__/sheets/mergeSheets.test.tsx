@@ -5,13 +5,14 @@
  * Expected behaviour: a tapped candidate resolves the caller with it, the confirmation resolves
  * with the kept and merged ids for the chosen direction, the rides a merge would leave out are
  * named for that direction, distances follow the unit setting, every sport of a section is drawn,
- * and closing without a choice cancels.
+ * each candidate row draws the line the engine carries for it, and closing without a choice
+ * cancels.
  */
 import React from 'react';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Platform, ScrollView } from 'react-native';
 import { fireEvent, render, screen, within } from '@testing-library/react-native';
-import type { MergeCandidate } from 'veloqrs';
+import { decodeCoords, type MergeCandidate } from 'veloqrs';
 
 import MergeCandidatesSheet from '@/app/sheets/merge-candidates';
 import MergeConfirmSheet from '@/app/sheets/merge-confirm';
@@ -53,6 +54,7 @@ const candidate = (overrides: Partial<MergeCandidate> = {}): MergeCandidate =>
     distanceMeters: 900,
     overlapPct: 0.5,
     centerDistanceMeters: 120,
+    encodedPolyline: new Uint8Array([1, 2, 3]).buffer,
     ...overrides,
   }) as MergeCandidate;
 
@@ -106,6 +108,8 @@ beforeEach(() => {
   mockPreviewDropped.mockReset();
   mockPreviewDropped.mockReturnValue([]);
   mockIsMetric = true;
+  jest.mocked(decodeCoords).mockReset();
+  jest.mocked(decodeCoords).mockReturnValue([]);
 });
 
 describe('merge candidates sheet', () => {
@@ -143,6 +147,32 @@ describe('merge candidates sheet', () => {
   it('keeps its scroll view where the iOS sheet sizes it', async () => {
     await openCandidates([candidate()]);
     expect(sheetScrollPlacement(screen.toJSON())).not.toBe('nested');
+  });
+
+  it('draws a picture of each candidate from the line the engine carries', async () => {
+    const lines = new Map<ArrayBuffer, { latitude: number; longitude: number }[]>();
+    const first = candidate({ sectionId: 'sec-b', encodedPolyline: new ArrayBuffer(3) });
+    const second = candidate({ sectionId: 'sec-c', encodedPolyline: new ArrayBuffer(5) });
+    lines.set(first.encodedPolyline, [
+      { latitude: 46.2, longitude: 7.35 },
+      { latitude: 46.21, longitude: 7.36 },
+    ]);
+    lines.set(second.encodedPolyline, [
+      { latitude: 47.0, longitude: 8.0 },
+      { latitude: 47.0, longitude: 8.02 },
+      { latitude: 47.01, longitude: 8.03 },
+    ]);
+    jest.mocked(decodeCoords).mockImplementation((bytes) => lines.get(bytes) ?? []);
+    await openCandidates([first, second]);
+    expect(screen.getByTestId('merge-candidate-preview-sec-b')).toBeTruthy();
+    expect(screen.getByTestId('merge-candidate-preview-sec-c')).toBeTruthy();
+  });
+
+  it('keeps a candidate whose line cannot be read, without a picture', async () => {
+    jest.mocked(decodeCoords).mockReturnValue([]);
+    await openCandidates([candidate({ encodedPolyline: new ArrayBuffer(0) })]);
+    expect(screen.getByTestId('merge-candidate-sec-b')).toBeTruthy();
+    expect(screen.queryByTestId('merge-candidate-preview-sec-b')).toBeNull();
   });
 
   it('draws every sport of a candidate', async () => {

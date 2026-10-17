@@ -37,8 +37,8 @@ pub use fetch::{FILL_PACE, TileFetchError, TileFetcher};
 pub use geo::geo_answer;
 pub use preseed::{
     GROUND_BUDGET_BYTES, GROUND_ZOOMS, PlannedTile, PreseedSource, SeedOutcome, TERRAIN_ZOOMS,
-    plan_area_preseed, plan_preseed, seed_ground_background, seed_preseed, seed_ranked_preseed,
-    seed_terrain_background,
+    plan_area_preseed, plan_preseed, seed_preseed, seed_ranked_preseed, seed_terrain_background,
+    start_ground_preseed,
 };
 pub use store::{SourceTileCounts, TileCounts, TileStore, is_kept_offline};
 
@@ -367,9 +367,9 @@ pub fn resolve_template_with(
 /// dropping it would leave an offline map with no template at all, and an old
 /// dated segment still serves tiles at this origin. A refresh that names a
 /// different template drops the tiles this source holds opportunistically and
-/// demotes its pinned ones to superseded, so the next pre-seed fetches the new
-/// segment's tiles over them. A demoted tile keeps serving until it is evicted
-/// or replaced.
+/// demotes its pinned ones to superseded, and a demoted ground source starts
+/// the pre-seed, which fetches the new segment's tiles over them. A demoted
+/// tile keeps serving until it is evicted or replaced.
 pub fn resolve_template_at(
     source: &str,
     now: u64,
@@ -462,10 +462,15 @@ fn finish_resolve(
                 && let Some(store) = store()
             {
                 match store.supersede(source) {
-                    Ok((dropped, demoted)) => log::info!(
-                        "[basemap] {source} moved off {}, dropped {dropped} tiles, demoted {demoted} pinned tiles",
-                        held.template
-                    ),
+                    Ok((dropped, demoted)) => {
+                        log::info!(
+                            "[basemap] {source} moved off {}, dropped {dropped} tiles, demoted {demoted} pinned tiles",
+                            held.template
+                        );
+                        if demoted > 0 && preseed::is_ground_source(source) {
+                            start_ground_preseed();
+                        }
+                    }
                     Err(e) => log::warn!("[basemap] {source} kept tiles of the old run: {e}"),
                 }
             }

@@ -12,6 +12,7 @@ import {
   formatDateTime,
   formatRelativeDateTime,
   formatShortDateWithYear,
+  formatYear,
 } from '@/shared/format/format';
 
 const MID_JANUARY = new Date(2024, 0, 15, 12, 0);
@@ -52,6 +53,20 @@ describe('axis dates under French', () => {
 
   it('reads a tooltip day in the same order as the axis beside it', () => {
     expect(formatShortDateWithYear(MID_JANUARY)).toBe(formatAxisDate(MID_JANUARY, true));
+  });
+});
+
+describe('a year tick', () => {
+  it('reads two digits with no apostrophe in English', () => {
+    expect(formatYear(MID_JANUARY, true)).toBe('24');
+    expect(formatYear(MID_JANUARY)).toBe('2024');
+  });
+
+  it('takes the year form of the app language', async () => {
+    await changeLanguage('ja');
+    const label = formatYear(MID_JANUARY, true);
+    expect(label).toBe(new Intl.DateTimeFormat('ja', { year: '2-digit' }).format(MID_JANUARY));
+    expect(label).toContain('年');
   });
 });
 

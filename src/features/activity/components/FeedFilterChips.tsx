@@ -6,9 +6,12 @@ import { FEED_GROUPS, FEED_GROUP_LABELS, type FeedGroup } from '../lib/feedActiv
 import { FEED_RANGE_LABELS, FEED_RANGE_PRESETS, type FeedRangePreset } from '../lib/feedRange';
 
 const FEED_TEST_IDS: Record<FeedGroup, { testID: string }> = {
-  Cycling: { testID: 'home-filter-cycling' },
-  Running: { testID: 'home-filter-running' },
-  Swimming: { testID: 'home-filter-swimming' },
+  Ride: { testID: 'home-filter-ride' },
+  Winter: { testID: 'home-filter-winter' },
+  Run: { testID: 'home-filter-run' },
+  Water: { testID: 'home-filter-water' },
+  Foot: { testID: 'home-filter-foot' },
+  Strength: { testID: 'home-filter-strength' },
   Other: { testID: 'home-filter-other' },
 };
 

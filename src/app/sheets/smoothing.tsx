@@ -8,7 +8,11 @@ import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { SheetHeader, ToggleButton } from '@/shared/ui';
 import { tapBack } from '@/shared/app/navigation';
-import { SMOOTHING_PRESETS, getSmoothingPresetLabel } from '@/shared/math/smoothing';
+import {
+  SMOOTHING_PRESETS,
+  getAutoSmoothingHint,
+  getSmoothingPresetLabel,
+} from '@/shared/math/smoothing';
 import type { SmoothingWindow } from '@/shared/math/smoothing';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 
@@ -49,7 +53,7 @@ function SmoothingSheetContent() {
         })}
       </View>
       <Text style={[styles.hint, { color: textSecondary }]}>
-        {t('wellness.smoothingHint' as never)}
+        {getAutoSmoothingHint(t as never)}
       </Text>
     </View>
   );

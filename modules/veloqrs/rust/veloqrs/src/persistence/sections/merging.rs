@@ -179,6 +179,10 @@ impl PersistentEngine {
             )
             .unwrap_or(0);
 
+        let mut retirement = serde_json::Map::new();
+        retirement.insert("into".into(), serde_json::json!(primary_id));
+        super::history::pooled::retirement_snapshot_on(&tx, secondary_id, &mut retirement);
+
         // Delete secondary section; its number stays with its id
         tx.execute(
             "DELETE FROM sections WHERE id = ?",
@@ -202,7 +206,7 @@ impl PersistentEngine {
             None,
             None,
         )?;
-        let into = serde_json::json!({ "into": primary_id }).to_string();
+        let into = serde_json::Value::Object(retirement).to_string();
         super::history::append_history_on(&tx, secondary_id, "merged", Some(&into), None, None)?;
 
         tx.commit()?;
@@ -369,18 +373,20 @@ pub(crate) mod pooled {
         (portions, unmatched)
     }
 
-    /// One section's stored line, flattened the way the overlap takes it.
-    fn stored_line_flat(conn: &Connection, section_id: &str) -> Vec<f64> {
-        match super::super::geometry::stored_line(conn, section_id) {
-            Ok(points) => points
-                .iter()
-                .flat_map(|p| [p.latitude, p.longitude])
-                .collect(),
-            Err(e) => {
-                log::error!("veloqrs: pooled section polyline decode error for {section_id}: {e}");
-                Vec::new()
-            }
-        }
+    /// One section's stored line, empty when it cannot be read.
+    fn stored_line(conn: &Connection, section_id: &str) -> Vec<tracematch::GpsPoint> {
+        super::super::geometry::stored_line(conn, section_id).unwrap_or_else(|e| {
+            log::error!("veloqrs: pooled section polyline decode error for {section_id}: {e}");
+            Vec::new()
+        })
+    }
+
+    /// A line flattened the way the overlap takes it.
+    fn flat(points: &[tracematch::GpsPoint]) -> Vec<f64> {
+        points
+            .iter()
+            .flat_map(|p| [p.latitude, p.longitude])
+            .collect()
     }
 
     pub(crate) fn merge_candidates(
@@ -411,7 +417,7 @@ pub(crate) mod pooled {
             None => return vec![],
         };
 
-        let query_polyline = stored_line_flat(conn, section_id);
+        let query_polyline = flat(&stored_line(conn, section_id));
         if query_polyline.len() < 4 {
             return vec![];
         }
@@ -471,7 +477,8 @@ pub(crate) mod pooled {
                 }
 
                 // Compute polyline overlap
-                let candidate_polyline = stored_line_flat(conn, &id);
+                let candidate_line = stored_line(conn, &id);
+                let candidate_polyline = flat(&candidate_line);
                 let overlap = if candidate_polyline.len() >= 4 {
                     // Both lines come off disk already paired, so the
                     // even-length refusal on the FFI entry cannot fire here.
@@ -496,6 +503,9 @@ pub(crate) mod pooled {
                         visit_count,
                         overlap_pct: overlap,
                         center_distance_meters: center_dist,
+                        encoded_polyline: crate::persistence::screens::preview_line(
+                            &candidate_line,
+                        ),
                     });
                 }
             }

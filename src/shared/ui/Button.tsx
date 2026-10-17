@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
   },
   sm: {
     minHeight: BUTTON_HEIGHT.sm,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
   },
   md: {
@@ -392,7 +392,8 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     textAlign: 'center',
   },
-  labelSm: typography.bodySmall,
+  // Both labels are semibold, so a small button reads as a smaller copy of the medium one.
+  labelSm: typography.bodySmallBold,
   labelMd: typography.bodyBold,
   chip: {
     alignItems: 'center',

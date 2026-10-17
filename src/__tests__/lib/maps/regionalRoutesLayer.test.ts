@@ -13,7 +13,6 @@ const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: 
 
 function layers(showRoutes: boolean) {
   return buildRegionalLayers({
-    isDark: false,
     mapStyle: 'light',
     showActivities: true,
     showSections: true,

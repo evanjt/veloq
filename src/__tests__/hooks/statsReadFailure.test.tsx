@@ -13,7 +13,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { getEngine } from '@/shared/native/engine';
 import { engineErrorTag } from '@/shared/native/engineError';
-import { usePeriodStats, useTrainingScreenData } from '@/features/stats/hooks/useEngineStats';
+import { useTrainingScreenData } from '@/features/stats/hooks/useEngineStats';
+import { noComparisons } from '../__shared__/trainingScreenRead';
 import { useAthleteSummary } from '@/features/fitness/hooks/useAthleteSummary';
 import { useActivityLabels } from '@/features/activity/hooks/useActivityLabels';
 
@@ -36,7 +37,6 @@ const failing = () => {
 
 const engine = {
   subscribe: () => () => undefined,
-  getPeriodStats: jest.fn(failing),
   getTrainingScreenData: jest.fn(failing),
   getWeeklySummaries: jest.fn(failing),
 };
@@ -55,12 +55,6 @@ beforeEach(() => {
 });
 
 describe('stats hooks', () => {
-  it('usePeriodStats reports a thrown read rather than zero totals', async () => {
-    const { result } = await renderHook(() => usePeriodStats(0, 100), { wrapper: wrapper() });
-    await waitFor(() => expect(engineErrorTag(result.current.error)).toBe('Database'));
-    expect(result.current.isPending).toBe(false);
-  });
-
   it('useTrainingScreenData reports a thrown read rather than an empty year', async () => {
     const { result } = await renderHook(() => useTrainingScreenData(), { wrapper: wrapper() });
     await waitFor(() => expect(engineErrorTag(result.current.error)).toBe('Database'));
@@ -82,9 +76,6 @@ describe('stats hooks', () => {
   });
 
   it('a read that answers nothing is not an error', async () => {
-    engine.getPeriodStats.mockImplementation(
-      () => ({ count: 0, totalDuration: 0, totalDistance: 0, totalTss: 0 }) as never
-    );
     const none = { count: 0, totalDuration: 0, totalDistance: 0, totalTss: 0 };
     engine.getTrainingScreenData.mockImplementation(
       () =>
@@ -95,13 +86,11 @@ describe('stats hooks', () => {
           yearPrevious: none,
           monthCurrent: none,
           monthPrevious: none,
+          comparisons: noComparisons(0),
         }) as never
     );
-    const period = await renderHook(() => usePeriodStats(0, 100), { wrapper: wrapper() });
     const training = await renderHook(() => useTrainingScreenData(), { wrapper: wrapper() });
-    await waitFor(() => expect(period.result.current.isPending).toBe(false));
     await waitFor(() => expect(training.result.current.isPending).toBe(false));
-    expect(period.result.current.error).toBeNull();
     expect(training.result.current.error).toBeNull();
   });
 });

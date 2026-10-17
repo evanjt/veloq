@@ -63,7 +63,7 @@ export function SummaryCardSection() {
             heroMetric={summaryCardData.heroMetric}
             heroValue={summaryCardData.heroValue}
             heroLabel={summaryCardData.heroLabel}
-            heroColor={summaryCardData.heroColor}
+            heroKeyColor={summaryCardData.heroKeyColor}
             heroZone={summaryCardData.heroZone}
             heroTrend={summaryCardData.heroTrend}
             heroAccessibilityLabel={summaryCardData.heroAccessibilityLabel}

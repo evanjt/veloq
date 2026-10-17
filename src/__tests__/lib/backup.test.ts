@@ -51,7 +51,7 @@ const mockEngine = {
   setSetting: jest.fn(),
   getBackupMetadata: jest.fn().mockReturnValue({ newest_date: 1_760_000_000 }),
   runRecordBackup: jest.fn().mockResolvedValue(undefined),
-  checkRecordZip: jest.fn().mockResolvedValue(undefined),
+  checkRecordZip: jest.fn().mockResolvedValue({}),
   restoreRecordZip: jest.fn().mockResolvedValue({ placed: 2, unplaced: 1, missingActivityIds: [] }),
   restoreRecordJson: jest
     .fn()

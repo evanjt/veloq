@@ -14,6 +14,7 @@ import { SeasonComparison } from '@/features/stats/components/SeasonComparison';
 import { verdictColor } from '@/theme';
 import { changeLanguage, initialiseI18n } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { capturePans, scrub, scrubPan } from '../__shared__/chartScrub';
 import { trainingScreenRead } from '../__shared__/trainingScreenRead';
 
@@ -115,6 +116,19 @@ describe('SeasonComparison series', () => {
     expect(currentDot).toBeTruthy();
     expect(screen.queryByText('stats.previous')).toBeNull();
     expect(screen.queryByText('stats.current')).toBeNull();
+  });
+});
+
+describe('SeasonComparison month letters', () => {
+  it('caps the twelve letters, which share the chart width in one row', async () => {
+    await renderCard();
+
+    await waitFor(() => expect(screen.getByText('4h')).toBeTruthy());
+    const letters = screen.getAllByTestId(/^season-month-label-/);
+    expect(letters).toHaveLength(12);
+    for (const letter of letters) {
+      expect(letter.props.maxFontSizeMultiplier).toBe(DENSE_TEXT_SCALE);
+    }
   });
 });
 

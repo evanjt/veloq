@@ -17,13 +17,11 @@ import {
   typography,
 } from '@/theme';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
-import { Button, useBottomClearance } from '@/shared/ui';
+import { Button } from '@/shared/ui';
 
 export function TourReturnPill() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  // Floats absolute, so a safe area around it does not lift it by its padding.
-  const bottomClearance = useBottomClearance({ insetTaken: false });
   const tourState = useWhatsNewStore((s) => s.tourState);
   const resumeTour = useWhatsNewStore((s) => s.resumeTour);
   const dismissTour = useWhatsNewStore((s) => s.dismissTour);
@@ -39,10 +37,9 @@ export function TourReturnPill() {
   const bgColor = isDark ? darkColors.surfaceElevated : colors.surface;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const primaryColor = isDark ? darkColors.primary : colors.primary;
-  const bottomOffset = bottomClearance + spacing.sm;
 
   return (
-    <Animated.View style={[styles.container, { bottom: bottomOffset }]} {...motionPresets.pill}>
+    <Animated.View style={styles.container} {...motionPresets.pill}>
       <View style={[styles.pillWrapper, { backgroundColor: bgColor }, shadows.elevated]}>
         {tourState.tip ? (
           <Text
@@ -87,11 +84,8 @@ export function TourReturnPill() {
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
+    alignSelf: 'stretch',
     alignItems: 'center',
-    zIndex: 999,
   },
   pillWrapper: {
     borderRadius: layout.borderRadius,

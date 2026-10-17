@@ -152,7 +152,6 @@ describe.each([
       'RecordingTitle',
       'useRecordingPreferences',
       'useUploadPermissionStore',
-      'ACTIVITY_CATEGORIES',
     ],
   ],
 ])('the %s barrel evaluates whole', (feature, names) => {

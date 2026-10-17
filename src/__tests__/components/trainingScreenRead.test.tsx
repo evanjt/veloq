@@ -17,6 +17,7 @@ import { ActivityHeatmap } from '@/features/stats/components/ActivityHeatmap';
 import { SeasonComparison } from '@/features/stats/components/SeasonComparison';
 import { initialiseI18n } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
+import { noComparisons } from '../__shared__/trainingScreenRead';
 import { CLOCK_EDGES, localDay } from '../__shared__/clockEdges';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -53,10 +54,10 @@ const engine = {
     yearPrevious: totals(1, 2),
     monthCurrent: totals(1, 1),
     monthPrevious: totals(0, 0),
+    comparisons: noComparisons(windows.nowWallSeconds),
   })),
   getActivityHeatmap: jest.fn(() => []),
   getMonthlyStats: jest.fn(() => []),
-  getPeriodStats: jest.fn(() => totals(0, 0)),
 };
 
 function renderCards() {
@@ -91,7 +92,6 @@ describe('the training screen read', () => {
     expect(engine.getTrainingScreenData).toHaveBeenCalledTimes(1);
     expect(engine.getActivityHeatmap).not.toHaveBeenCalled();
     expect(engine.getMonthlyStats).not.toHaveBeenCalled();
-    expect(engine.getPeriodStats).not.toHaveBeenCalled();
   });
 
   it('reads once more when activities change, not once per card', async () => {

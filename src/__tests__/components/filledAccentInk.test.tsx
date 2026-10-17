@@ -1,8 +1,10 @@
 /**
- * Scenario: the sync banner, the recording controls, the unlock handle and the
- * map control column each draw content on a filled teal or success ground.
- * White measures 2.28:1 to 3.74:1 on those fills, under the 4.5:1 text and the
- * 3:1 icons owe, while `colors.textOnPrimary` is the ink they can carry.
+ * Scenario: the sync banner, the unlock handle and the map control column each
+ * draw content on a filled teal ground. White measures 2.28:1 to 3.74:1 on those
+ * fills, under the 4.5:1 text and the 3:1 icons owe, while
+ * `colors.textOnPrimary` is the ink they can carry. The recording control bar's
+ * main button takes the record red in every state and theme, and its Stop and
+ * Lap stay secondary.
  *
  * Expected behaviour: every text and glyph on such a fill reaches 4.5:1
  * against it, drawn at full opacity.
@@ -17,11 +19,16 @@ import { SyncProgressBanner } from '@/features/maps/components/timeline/SyncProg
 import { ControlBar } from '@/features/recording/components/ControlBar';
 import { UnlockTrack } from '@/features/recording/components/UnlockTrack';
 import { MapControlStack } from '@/features/maps/components/regional/MapControlStack';
-import { colors } from '@/theme';
+import { brand, colors, darkColors, recording } from '@/theme';
 import { contrastRatio } from '../__shared__/contrast';
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
-jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
+let mockIsDark = false;
+jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: mockIsDark }) }));
+
+afterEach(() => {
+  mockIsDark = false;
+});
 
 jest.mock('@/shared/app/SyncDateRangeStore', () => ({
   useSyncDateRange: (selector: (state: unknown) => unknown) =>
@@ -74,19 +81,52 @@ describe('the recording control bar', () => {
     onReview: jest.fn(),
   };
 
-  it.each([
-    ['idle', 'control-start'],
-    ['paused', 'control-resume'],
-    ['recording', 'control-pause'],
-    ['stopped', 'control-review'],
-  ] as const)('draws the %s primary glyph in an ink its fill can carry', async (status, testID) => {
-    const { getByTestId } = await render(<ControlBar {...bar} status={status} />);
-    const button = getByTestId(testID);
-    const fill = flat(button.props.style).backgroundColor as string;
-    const [glyph] = button.findAllByType(MaterialCommunityIcons);
+  const primaries = [
+    ['idle', 'gps', 'control-start'],
+    ['paused', 'gps', 'control-resume'],
+    ['recording', 'gps', 'control-pause'],
+    ['stopped', 'gps', 'control-review'],
+    ['idle', 'manual', 'control-save'],
+  ] as const;
+  const themes = [false, true] as const;
+  const notRecordFills = [
+    colors.success,
+    darkColors.success,
+    brand.teal,
+    brand.tealLight,
+    brand.tealDark,
+  ].map((c) => c.toUpperCase());
 
-    expect([colors.success, colors.primary]).toContain(fill);
-    expect(contrastRatio(glyph.props.color, fill)).toBeGreaterThanOrEqual(4.5);
+  describe.each(themes)('with dark %s', (isDark) => {
+    beforeEach(() => {
+      mockIsDark = isDark;
+    });
+
+    it.each(primaries)(
+      'fills the %s %s main button with the record red and a glyph it carries',
+      async (status, mode, testID) => {
+        const { getByTestId } = await render(
+          <ControlBar {...bar} mode={mode as never} status={status} />
+        );
+        const button = getByTestId(testID);
+        const fill = flat(button.props.style).backgroundColor as string;
+        const [glyph] = button.findAllByType(MaterialCommunityIcons);
+
+        expect(fill).toBe(isDark ? recording.dark : recording.light);
+        expect(notRecordFills).not.toContain(fill.toUpperCase());
+        expect(contrastRatio(glyph.props.color, fill)).toBeGreaterThanOrEqual(4.5);
+      }
+    );
+
+    it('keeps Stop in the red text tone and Lap in the primary text tone', async () => {
+      const { getByTestId } = await render(<ControlBar {...bar} status="recording" />);
+      const palette = isDark ? darkColors : colors;
+      const [stopGlyph] = getByTestId('control-stop').findAllByType(MaterialCommunityIcons);
+      const [lapGlyph] = getByTestId('control-lap').findAllByType(MaterialCommunityIcons);
+
+      expect(stopGlyph.props.color).toBe(palette.errorDeep);
+      expect(lapGlyph.props.color).toBe(palette.textPrimary);
+    });
   });
 });
 

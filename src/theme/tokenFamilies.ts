@@ -32,9 +32,8 @@ export const FAMILY_BARS: Record<TokenFamily, number> = {
 
 /**
  * Every key of `colors` and `darkColors`. The other exports in `colors.ts` are
- * surface-specific pairs that name their own ground, `statusBadge`, `verdict`,
- * `offlinePill` and the rest, and are guarded where they are drawn rather than
- * here.
+ * surface-specific pairs that name their own ground, `verdict`, `offlinePill`
+ * and the rest, and are guarded where they are drawn rather than here.
  */
 export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   // Text. The three body tokens, the pairs that sit on a filled ground, and the
@@ -88,6 +87,7 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   chartSilverMark: 'mark',
   chartBronzeMark: 'mark',
   chartGreenMark: 'mark',
+  chartSeries: 'mark',
   markCyan: 'mark',
   markGreen: 'mark',
   markAmber: 'mark',

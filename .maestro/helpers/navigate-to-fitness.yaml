@@ -7,7 +7,9 @@ appId: com.veloq.app.dev
       visible: "Open"
     commands:
       - tapOn: "Open"
+# The first open after a cold launch mounts the whole tab and can pass ten
+# seconds on a simulator.
 - extendedWaitUntil:
     visible:
       id: "fitness-screen"
-    timeout: 10000
+    timeout: 30000

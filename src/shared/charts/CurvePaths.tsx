@@ -1,6 +1,8 @@
 import React, { useMemo } from 'react';
 import { Path, Skia } from '@shopify/react-native-skia';
 
+import { areaFillsFromZero, areaWashOpacity } from './areaFill';
+import type { Domain } from './cartesian';
 import { curveAreaSvg, curveLineSvg, type CurveKind } from './curvePath';
 import type { XY } from './svgPath';
 
@@ -32,32 +34,35 @@ export function CurveLine({
 
 interface CurveAreaProps {
   points: readonly XY[];
-  /** Pixel y the area closes down to. */
+  /** The y domain the points were projected on. No area is drawn unless it starts at zero. */
+  yDomain: Domain;
+  /** Pixel y the area closes down to, the plot's zero. */
   y0: number;
+  /** The line's colour, which the wash takes. */
+  color: string;
+  isDark: boolean;
   curve?: CurveKind;
-  color?: string;
-  opacity?: number;
-  /** A shader such as `LinearGradient`, painted instead of `color`. */
-  children?: React.ReactNode;
 }
 
-/** The filled area between a curve and a horizontal baseline, inside a Skia canvas. */
+/**
+ * The flat wash between a curve and the zero baseline, inside a Skia canvas.
+ * It draws nothing on a domain that does not start at zero, and the caller
+ * draws the line over it.
+ */
 export function CurveArea({
   points,
+  yDomain,
   y0,
-  curve = 'natural',
   color,
-  opacity = 1,
-  children,
+  isDark,
+  curve = 'natural',
 }: CurveAreaProps) {
+  const fills = areaFillsFromZero(yDomain);
   const path = useMemo(() => {
+    if (!fills) return null;
     const d = curveAreaSvg(points, y0, curve);
     return d ? Skia.Path.MakeFromSVGString(d) : null;
-  }, [points, y0, curve]);
+  }, [fills, points, y0, curve]);
   if (!path) return null;
-  return (
-    <Path path={path} style="fill" {...(color !== undefined && { color })} opacity={opacity}>
-      {children}
-    </Path>
-  );
+  return <Path path={path} style="fill" color={color} opacity={areaWashOpacity(isDark)} />;
 }

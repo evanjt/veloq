@@ -1,17 +1,13 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, Text as RNText } from 'react-native';
-import { Canvas, Path, Skia, vec, LinearGradient } from '@shopify/react-native-skia';
+import { Canvas, Path, Skia } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { darkColors, colors, colorWithOpacity, typography, spacing } from '@/theme';
-import {
-  buildMonotoneSvg,
-  buildMonotoneAreaSvg,
-  useChartColors,
-  useChartGestures,
-} from '@/shared/charts';
+import { summarySeriesColor } from '../lib/summaryMetricColour';
+import { buildMonotoneSvg, useChartColors, useChartGestures } from '@/shared/charts';
 import { SPARKLINE_MIN_DAYS, type ScrubValues } from './SummaryCardSparkline';
 import { scrubDateLabel } from '../lib/scrubDateLabel';
 
@@ -132,8 +128,8 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
   }, [syncBounds, chartWidth]);
 
   // Direct-Skia paths (replaces Victory CartesianChart): same monotoneX geometry,
-  // no chart-tree mount cost. Area baseline matches the original <Area y0={CHART_HEIGHT}>
-  // (a data-space value, kept for pixel parity).
+  // no chart-tree mount cost. HRV is normalised from its own minimum, so it is a
+  // bare line with no area under it.
   const skiaPaths = useMemo(() => {
     const plotHeight = CHART_HEIGHT - PLOT_TOP - PLOT_BOTTOM;
     const hrvSvg = buildMonotoneSvg(
@@ -154,19 +150,9 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
           plotHeight
         )
       : null;
-    const areaSvg = buildMonotoneAreaSvg(
-      normalised.hrv,
-      HRV_DOMAIN_MIN,
-      HRV_DOMAIN_MAX,
-      chartWidth,
-      PLOT_TOP,
-      plotHeight,
-      CHART_HEIGHT
-    );
     return {
       hrv: hrvSvg ? Skia.Path.MakeFromSVGString(hrvSvg) : null,
       rhr: rhrSvg ? Skia.Path.MakeFromSVGString(rhrSvg) : null,
-      area: areaSvg ? Skia.Path.MakeFromSVGString(areaSvg) : null,
     };
   }, [normalised, chartWidth]);
 
@@ -176,8 +162,10 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
 
   // The wellness series colours, the same two the health charts draw HRV and
   // resting HR in.
-  const hrvLineColor = isDark ? chartColors.hrv : colorWithOpacity(chartColors.hrv, 0.85);
-  const rhrLineColor = isDark ? chartColors.rhr : colorWithOpacity(chartColors.rhr, 0.65);
+  const hrvHue = summarySeriesColor('hrv', isDark);
+  const rhrHue = summarySeriesColor('rhr', isDark);
+  const hrvLineColor = isDark ? hrvHue : colorWithOpacity(hrvHue, 0.85);
+  const rhrLineColor = isDark ? rhrHue : colorWithOpacity(rhrHue, 0.65);
   const hrvTextColor = isDark ? darkColors.chartHrvText : colors.chartHrvText;
   const rhrTextColor = isDark ? darkColors.chartRhrText : colors.chartRhrText;
 
@@ -201,20 +189,6 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
 
           <View style={{ width: chartWidth, height: CHART_HEIGHT }}>
             <Canvas style={{ width: chartWidth, height: CHART_HEIGHT }}>
-              {/* HRV gradient fill */}
-              {skiaPaths.area ? (
-                <Path path={skiaPaths.area} style="fill" opacity={0.15}>
-                  <LinearGradient
-                    start={vec(0, 0)}
-                    end={vec(0, CHART_HEIGHT)}
-                    colors={[
-                      colorWithOpacity(chartColors.hrv, isDark ? 0.38 : 0.25),
-                      'transparent',
-                    ]}
-                  />
-                </Path>
-              ) : null}
-
               {/* RHR line (drawn first so HRV renders on top) */}
               {hasRhr && skiaPaths.rhr ? (
                 <Path

@@ -166,7 +166,7 @@ pub struct SectionLineage {
 
 /// A section the ledger remembers and the catalogue no longer holds: its
 /// last event says how it left, and its stored versions still draw it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RetiredSection {
     pub section_id: String,
     /// dissolved, merged or superseded. A state a record restore still holds
@@ -177,6 +177,11 @@ pub struct RetiredSection {
     pub into: Option<String>,
     /// Surviving geometry versions, newest last.
     pub versions: Vec<i64>,
+    /// The name it was last shown under, so two retirements can be told
+    /// apart. `None` when nothing the ledger kept names it.
+    pub name: Option<String>,
+    /// Its length when it left, else its newest stored line's.
+    pub distance_meters: Option<f64>,
 }
 
 /// A change the ledger recorded on a live section, for the insights feed.
@@ -1768,6 +1773,89 @@ pub(crate) mod pooled {
         Some(head)
     }
 
+    /// What a retirement event records of the section as it left: the name
+    /// it was shown under and its length, read before its row is deleted.
+    pub(crate) fn retirement_snapshot_on(
+        conn: &Connection,
+        section_id: &str,
+        details: &mut serde_json::Map<String, serde_json::Value>,
+    ) {
+        if let Some(name) =
+            crate::persistence::sections::naming::pooled::section_name(conn, section_id)
+        {
+            details.insert("name".into(), serde_json::json!(name));
+        }
+        let distance: Option<f64> = conn
+            .query_row(
+                "SELECT distance_meters FROM sections WHERE id = ?",
+                [section_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .ok()
+            .flatten();
+        if let Some(distance) = distance.filter(|d| *d > 0.0) {
+            details.insert("distance_meters".into(), serde_json::json!(distance));
+        }
+    }
+
+    /// The name of a retired section whose departure recorded none: the
+    /// newest name the athlete gave it, else the label it showed unnamed, its
+    /// geocoded name while geocoding is on or its number.
+    pub(crate) fn retired_name(conn: &Connection, section_id: &str) -> Option<String> {
+        let renamed: Option<Option<String>> = conn
+            .query_row(
+                "SELECT details FROM section_history
+                 WHERE section_id = ? AND kind = ? ORDER BY id DESC LIMIT 1",
+                params![section_id, super::KIND_RENAMED],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .optional()
+            .ok()
+            .flatten()
+            .map(|details| {
+                details
+                    .as_deref()
+                    .and_then(|d| serde_json::from_str::<serde_json::Value>(d).ok())
+                    .and_then(|d| d.get("to").and_then(|v| v.as_str()).map(str::to_string))
+            });
+        if let Some(Some(name)) = renamed {
+            return Some(name);
+        }
+        if let Some(name) = crate::persistence::geocoded_names::shown_geocoded_name(
+            conn,
+            crate::persistence::geocoded_names::NamedKind::Section,
+            section_id,
+        ) {
+            return Some(name);
+        }
+        let number: Option<u32> = conn
+            .query_row(
+                "SELECT number FROM section_numbers WHERE section_id = ?",
+                [section_id],
+                |row| row.get(0),
+            )
+            .optional()
+            .ok()
+            .flatten();
+        number.map(|n| {
+            crate::persistence::sections::numbers::numbered_label(
+                &crate::persistence::get_section_word(),
+                n,
+            )
+        })
+    }
+
+    /// The length of a retired section's newest stored line.
+    pub(crate) fn retired_distance(
+        conn: &Connection,
+        section_id: &str,
+        versions: &[i64],
+    ) -> Option<f64> {
+        let (points, _) = section_geometry_version(conn, section_id, *versions.last()?)?;
+        Some(tracematch::matching::calculate_route_distance(&points)).filter(|d| *d > 0.0)
+    }
+
     fn ledger_retired_sections(conn: &Connection) -> Vec<RetiredSection> {
         let Ok(mut stmt) = conn.prepare(
             "SELECT h.section_id, h.kind, h.at, h.details FROM section_history h
@@ -1799,16 +1887,27 @@ pub(crate) mod pooled {
                     .or_else(|| d.get("superseded_by"))
                     .and_then(|v| v.as_str())
                     .map(str::to_string);
-                let versions = section_geometry_versions(conn, &section_id)
+                let versions: Vec<i64> = section_geometry_versions(conn, &section_id)
                     .into_iter()
                     .map(|v| v.version)
                     .collect();
+                let name = d
+                    .get("name")
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string)
+                    .or_else(|| retired_name(conn, &section_id));
+                let distance_meters = d
+                    .get("distance_meters")
+                    .and_then(|v| v.as_f64())
+                    .or_else(|| retired_distance(conn, &section_id, &versions));
                 RetiredSection {
                     section_id,
                     kind,
                     at,
                     into,
                     versions,
+                    name,
+                    distance_meters,
                 }
             })
             .collect()

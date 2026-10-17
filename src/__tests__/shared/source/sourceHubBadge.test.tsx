@@ -74,7 +74,7 @@ jest.mock('@/features/settings', () => ({
 }));
 
 it.each<[AuthMethod, string]>([
-  ['oauth', 'OAuth'],
+  ['oauth', 'settings.authOAuth'],
   ['apiKey', 'settings.authApiKey'],
   ['demo', 'settings.authDemo'],
   [null, 'settings.authDemo'],

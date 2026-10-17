@@ -38,19 +38,16 @@ enum RecordQuickActions {
     return URL(string: link)
   }
 
-  /// The SF Symbol for a sport category key; a key this build does not know draws
+  /// The SF Symbol for a sport family key; a key this build does not know draws
   /// the catch-all.
   static func symbol(_ category: String?) -> String {
     switch category {
     case "ride": return "figure.outdoor.cycle"
+    case "winter": return "figure.skiing.downhill"
     case "run": return "figure.run"
-    case "swim": return "figure.pool.swim"
-    case "walk": return "figure.walk"
-    case "hike": return "figure.hiking"
-    case "snow": return "figure.skiing.downhill"
-    case "water": return "figure.rower"
-    case "gym": return "dumbbell"
-    case "racket": return "figure.tennis"
+    case "water": return "figure.pool.swim"
+    case "foot": return "figure.walk"
+    case "strength": return "dumbbell"
     default: return "waveform.path.ecg"
     }
   }

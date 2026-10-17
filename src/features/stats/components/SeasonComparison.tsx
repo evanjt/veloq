@@ -40,6 +40,7 @@ import {
 } from '@/shared/format/format';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { useChartGestures } from '@/shared/charts';
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { formatDecimalTrimmed } from '@/shared/format';
 
 interface SeasonComparisonProps {
@@ -503,6 +504,8 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
             {monthLabels.map((m, idx) => (
               <Text
                 key={idx}
+                testID={`season-month-label-${idx}`}
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                 style={[
                   styles.monthLabel,
                   isDark && chartStyles.textDark,

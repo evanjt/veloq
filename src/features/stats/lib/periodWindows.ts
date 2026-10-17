@@ -1,11 +1,9 @@
-import { calendarDaysBetween, getMonday } from '@/shared/format/format';
+import { calendarDaysBetween } from '@/shared/format/format';
 import { trendVerdict, verdictRung, type TrendMetric } from '@/shared/format/trend';
 import type { VerdictRung } from '@/theme/colors';
 import { formatSignedPercentage } from '@/shared/format';
 
-export type WindowRange = 'week' | 'month' | '3m' | '6m' | 'year';
-
-export interface DateRanges {
+interface DateRanges {
   currentStart: Date;
   currentEnd: Date;
   previousStart: Date;
@@ -47,27 +45,6 @@ function windows(
     previousStart,
     previousEnd: previousEndFor(currentStart, today, previousStart, previousNaturalEnd),
   };
-}
-
-/** The two windows a summary range compares, each ending the same elapsed span after its start. */
-export function likeForLikeWindows(range: WindowRange, now: Date): DateRanges {
-  const today = dayOf(now);
-  const y = now.getFullYear();
-  const m = now.getMonth();
-  switch (range) {
-    case 'week': {
-      const start = getMonday(today);
-      return windows(start, today, addDays(start, -7), addDays(start, -1));
-    }
-    case 'month':
-      return windows(new Date(y, m, 1), today, new Date(y, m - 1, 1), new Date(y, m, 0));
-    case '3m':
-      return windows(new Date(y, m - 2, 1), today, new Date(y, m - 5, 1), new Date(y, m - 2, 0));
-    case '6m':
-      return windows(new Date(y, m - 5, 1), today, new Date(y, m - 11, 1), new Date(y, m - 5, 0));
-    default:
-      return windows(new Date(y, 0, 1), today, new Date(y - 1, 0, 1), new Date(y - 1, 11, 31));
-  }
 }
 
 export interface SeasonWindows {

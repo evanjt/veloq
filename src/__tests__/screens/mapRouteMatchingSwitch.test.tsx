@@ -8,7 +8,7 @@ let mockParams: { activity?: string; section?: string } = {};
 const mockMapView = jest.fn((_props: unknown) => null);
 const mockTranslate = jest.fn((key: string, options?: { count?: number; mapped?: number }) => {
   if (key === 'mapScreen.activitySummary') return `${options?.count}:${options?.mapped}`;
-  if (key.startsWith('maps.activityTypes.')) {
+  if (key.startsWith('sportFamilies.')) {
     const category = key.split('.').at(-1) ?? '';
     return category[0].toUpperCase() + category.slice(1);
   }

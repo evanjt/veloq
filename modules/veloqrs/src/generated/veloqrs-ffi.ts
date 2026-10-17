@@ -787,12 +787,6 @@ interface NativeModuleInterface {
     gap: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
-  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_period_stats(
-    uniffiSelf: bigint,
-    startTs: number,
-    endTs: number,
-    uniffi_out_err: UniffiRustCallStatus,
-  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_power_curve(
     uniffiSelf: bigint,
     sport: Uint8Array,
@@ -1897,7 +1891,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_insights_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_interval_body(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_curve(): number;
-  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_period_stats(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_power_curve(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_summary_card_data(): number;

@@ -11,8 +11,16 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { getIntlLocale } from '@/shared/format/format';
 import { formatAttemptFigure, type AttemptBasis } from '@/features/routes/lib/attemptBasis';
-import { colors, darkColors, iconSize, slopToMinTapTarget, spacing, typography } from '@/theme';
-import { Card, DisclosureChevron, pressable, pressRipple } from '@/shared/ui';
+import {
+  colors,
+  darkColors,
+  iconSize,
+  slopToMinTapTarget,
+  spacing,
+  themePalette,
+  typography,
+} from '@/theme';
+import { Card, CardHeader, DisclosureChevron, pressable, pressRipple } from '@/shared/ui';
 import { tapTo } from '@/shared/app/navigation';
 import { DirectionArrow, directionWord } from './DirectionCue';
 
@@ -113,9 +121,16 @@ export function SectionStatsCards({
 
   const forwardPr = recordsSettled ? calendarSummary.forwardPr : undefined;
   const reversePr = recordsSettled ? calendarSummary.reversePr : undefined;
+  // The trophy marks the record and nothing else, in the one gold on every
+  // row. A year's best that is not the record is told by its bold time.
+  const recordGold = themePalette(isDark).chartGoldMark;
 
   return (
     <Card variant="flat" padding="none" testID="section-calendar">
+      {/* The rows run to the card's edge, so the title takes the row inset. */}
+      <View style={styles.calendarHeader}>
+        <CardHeader title={t('sections.calendarTitle')} testID="section-calendar-header" />
+      </View>
       <View style={styles.calendarSection}>
         {calendarSummary.years.map((yearData) => {
           const isYearExpanded = expandedYears.has(yearData.year);
@@ -180,11 +195,7 @@ export function SectionStatsCards({
                 </Text>
                 {isYearFwdPr ? (
                   <View style={styles.calendarTrophy}>
-                    <MaterialCommunityIcons
-                      name="trophy"
-                      size={iconSize.sm}
-                      color={activityColor}
-                    />
+                    <MaterialCommunityIcons name="trophy" size={iconSize.sm} color={recordGold} />
                     {yearRev ? (
                       <DirectionArrow
                         direction="forward"
@@ -196,11 +207,7 @@ export function SectionStatsCards({
                 ) : null}
                 {isYearRevPr ? (
                   <View style={styles.calendarTrophy}>
-                    <MaterialCommunityIcons
-                      name="trophy"
-                      size={iconSize.sm}
-                      color={REVERSE_COLOR}
-                    />
+                    <MaterialCommunityIcons name="trophy" size={iconSize.sm} color={recordGold} />
                     {yearFwd ? (
                       <DirectionArrow
                         direction="reverse"
@@ -232,8 +239,11 @@ export function SectionStatsCards({
                         <Text style={[styles.calendarMonthName, isDark && styles.textSecondary]}>
                           {monthNames[monthData.month - 1]}
                         </Text>
-                        <Text style={[styles.calendarMonthCount, isDark && styles.textSecondary]}>
-                          {monthData.traversalCount}
+                        <Text
+                          style={[styles.calendarMonthCount, isDark && styles.textSecondary]}
+                          numberOfLines={2}
+                        >
+                          {t('sections.traversalsCount', { count: monthData.traversalCount })}
                         </Text>
                         <View style={styles.calendarMonthEntries}>
                           {fwd ? (
@@ -259,17 +269,11 @@ export function SectionStatsCards({
                                 >
                                   {formatBest(fwd)}
                                 </Text>
-                                {isMonthFwdYearBest || isMonthFwdOverallPr ? (
+                                {isMonthFwdOverallPr ? (
                                   <MaterialCommunityIcons
                                     name="trophy"
                                     size={iconSize.xs}
-                                    color={
-                                      isMonthFwdOverallPr
-                                        ? isDark
-                                          ? darkColors.chartGoldMark
-                                          : colors.chartGoldMark
-                                        : activityColor
-                                    }
+                                    color={recordGold}
                                   />
                                 ) : null}
                                 {isMonthFwdOverallPr ? (
@@ -311,17 +315,11 @@ export function SectionStatsCards({
                                 >
                                   {formatBest(rev)}
                                 </Text>
-                                {isMonthRevYearBest || isMonthRevOverallPr ? (
+                                {isMonthRevOverallPr ? (
                                   <MaterialCommunityIcons
                                     name="trophy"
                                     size={iconSize.xs}
-                                    color={
-                                      isMonthRevOverallPr
-                                        ? isDark
-                                          ? darkColors.chartGoldMark
-                                          : colors.chartGoldMark
-                                        : REVERSE_COLOR
-                                    }
+                                    color={recordGold}
                                   />
                                 ) : null}
                                 {isMonthRevOverallPr ? (
@@ -386,6 +384,8 @@ function ReferenceStar({ isReference, isDark, label, onPress }: ReferenceStarPro
 }
 
 const REFERENCE_MIN_WIDTH = 24;
+// Room for "12 traversals" on one line; a longer word wraps to a second.
+const MONTH_COUNT_WIDTH = 72;
 const REFERENCE_HIT_SLOP = slopToMinTapTarget(iconSize.sm, REFERENCE_MIN_WIDTH);
 const STATS_LABEL_INSET = spacing.md + iconSize.md + spacing.xs;
 
@@ -395,6 +395,10 @@ const styles = StyleSheet.create({
   },
   textSecondary: {
     color: darkColors.textSecondary,
+  },
+  calendarHeader: {
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.md,
   },
   calendarSection: {},
   calendarYearRow: {
@@ -436,8 +440,7 @@ const styles = StyleSheet.create({
   calendarMonthCount: {
     ...typography.caption,
     color: colors.textSecondary,
-    width: 24,
-    textAlign: 'center',
+    width: MONTH_COUNT_WIDTH,
   },
   calendarMonthEntries: {
     flex: 1,

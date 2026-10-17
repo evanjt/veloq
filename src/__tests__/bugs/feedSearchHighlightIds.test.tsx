@@ -188,10 +188,11 @@ let mockStartupData:
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 /** The engine's search over the stored library, which here is the loaded feed. */
-const CHIP_TYPES: Record<number, string> = { 0: 'Ride', 1: 'Run', 2: 'Swim' };
+const FAMILY_OF_TYPE: Record<string, number> = { Ride: 0, Run: 2, Swim: 3 };
+const OTHER_FAMILY = 6;
 function searchActivityBodies(query: {
   needle: string;
-  sportGroups: number[];
+  sportFamilies: number[];
   oldestTs?: number;
   offset: number;
   limit?: number;
@@ -199,10 +200,8 @@ function searchActivityBodies(query: {
   const needle = query.needle.toLowerCase();
   const library = query.oldestTs === undefined ? activities : mockRangeActivities;
   const chip = (type: string) =>
-    query.sportGroups.length === 0 ||
-    (query.sportGroups.includes(3)
-      ? !Object.values(CHIP_TYPES).includes(type)
-      : query.sportGroups.some((group) => CHIP_TYPES[group] === type));
+    query.sportFamilies.length === 0 ||
+    query.sportFamilies.includes(FAMILY_OF_TYPE[type] ?? OTHER_FAMILY);
   const matched = library.filter(
     (a) =>
       chip(a.type) &&
@@ -438,7 +437,7 @@ describe('feed search does not re-read the highlight bundle', () => {
     await fireEvent.changeText(screen.getByTestId('native-header-search'), '');
     await waitFor(() => expect(screen.getByTestId('card-a1')).toBeTruthy());
 
-    await fireEvent.press(screen.getByTestId('home-filter-running'));
+    await fireEvent.press(screen.getByTestId('home-filter-run'));
     await waitFor(() => expect(screen.queryByTestId('card-a1')).toBeNull());
 
     expect(getActivityHighlightsBundle.mock.calls.length).toBe(baseline);
@@ -569,7 +568,7 @@ describe('a date range narrows the feed like a search or a sport chip', () => {
     await waitFor(() => expect(screen.getByTestId('card-y1')).toBeTruthy());
     expect(screen.getByText('feed.activitiesCount')).toBeTruthy();
     expect(searchActivityBodiesSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ needle: '', sportGroups: [], limit: 0 })
+      expect.objectContaining({ needle: '', sportFamilies: [], limit: 0 })
     );
   });
 
@@ -598,7 +597,7 @@ describe('a date range narrows the feed like a search or a sport chip', () => {
   it('clears a search and a chip that match nothing in one tap', async () => {
     await renderFeed();
     await fireEvent.changeText(screen.getByTestId('native-header-search'), 'nothing matches this');
-    await fireEvent.press(screen.getByTestId('home-filter-running'));
+    await fireEvent.press(screen.getByTestId('home-filter-run'));
     await waitFor(() => expect(screen.getByTestId('home-empty-state')).toBeTruthy());
 
     await fireEvent.press(screen.getByTestId('home-clear-filters'));

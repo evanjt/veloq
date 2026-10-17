@@ -245,19 +245,6 @@ impl FitnessManager {
         })
     }
 
-    /// Aggregated totals for one date window: count, duration, distance, TSS.
-    fn get_period_stats(
-        &self,
-        start_ts: f64,
-        end_ts: f64,
-    ) -> Result<crate::FfiPeriodStats, VeloqError> {
-        let start_ts = crate::ffi_types::int_from_wire(start_ts);
-        let end_ts = crate::ffi_types::int_from_wire(end_ts);
-        with_reader(|conn| {
-            crate::persistence::fitness::derivations::pooled::period_stats(conn, start_ts, end_ts)
-        })
-    }
-
     /// Recorded activity load per local day over an inclusive window of
     /// wall-clock timestamps, oldest first. A day with activities and no load
     /// reads `Unavailable`, one with only some `Partial`; days with no

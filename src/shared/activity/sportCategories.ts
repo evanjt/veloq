@@ -1,140 +1,120 @@
 import { colors, activityTypeColors } from '@/theme';
 import type { ActivityType } from '@/types';
 import type { MaterialIconName } from '@/shared/activity/activityUtils';
-import { SPORT_DISPLAY_GROUPS } from '@/shared/native/sportTaxonomy.generated';
+import { SPORT_FAMILY_MEMBERS, type SportFamily } from '@/shared/native/sportTaxonomy.generated';
 
-const FEED_GROUP_ORDER = ['Cycling', 'Running', 'Swimming', 'Other'] as const;
-export type FeedGroup = (typeof FEED_GROUP_ORDER)[number];
+export type { SportFamily };
 
-// Activity type label keys for translation
-type ActivityLabelKey =
-  | 'ride'
-  | 'run'
-  | 'swim'
-  | 'walk'
-  | 'hike'
-  | 'snow'
-  | 'water'
-  | 'gym'
-  | 'racket'
-  | 'other';
+/** The families in the order a stack of them is drawn, as the engine declares them. */
+export const SPORT_FAMILY_ORDER = Object.keys(SPORT_FAMILY_MEMBERS) as SportFamily[];
 
-const WATER_COLOR: string = activityTypeColors.Rowing || colors.swim;
+/** Each family's label, as a translation key. */
+export const SPORT_FAMILY_LABELS = {
+  Ride: 'sportFamilies.ride',
+  Winter: 'sportFamilies.winter',
+  Run: 'sportFamilies.run',
+  Water: 'sportFamilies.water',
+  Foot: 'sportFamilies.foot',
+  Strength: 'sportFamilies.strength',
+  Other: 'sportFamilies.other',
+} as const satisfies Record<SportFamily, string>;
+
 const OTHER_COLOR: string = activityTypeColors.Other || colors.swim;
-const SNOW_COLOR: string = activityTypeColors.AlpineSki || colors.swim;
-const RACKET_COLOR: string = activityTypeColors.Tennis || colors.textSecondary;
+const WINTER_COLOR: string = activityTypeColors.AlpineSki || colors.swim;
 
-// Main activity categories (matching theme colors)
-// Note: Labels are translation keys (maps.activityTypes.{key})
-export const ACTIVITY_CATEGORIES: Record<
-  string,
-  {
-    color: string;
-    // Fill and ink of the selected chip, measured against each other rather than against white.
-    selectedFill: string;
-    selectedInk: string;
-    icon: MaterialIconName;
-    labelKey: ActivityLabelKey; // Translation key suffix (e.g., 'ride' -> maps.activityTypes.ride)
-    types: string[]; // API types that belong to this category
-    coarseGroup: FeedGroup;
-  }
+/** How a family draws, until the family colour tokens replace these hues. */
+const FAMILY_LOOK: Record<
+  SportFamily,
+  { color: string; selectedFill: string; selectedInk: string; icon: MaterialIconName }
 > = {
   Ride: {
-    coarseGroup: 'Cycling',
     color: colors.ride,
     selectedFill: colors.ride,
     selectedInk: colors.textPrimary,
     icon: 'bike',
-    labelKey: 'ride',
-    types: [...SPORT_DISPLAY_GROUPS.Ride],
+  },
+  Winter: {
+    color: WINTER_COLOR,
+    selectedFill: WINTER_COLOR,
+    selectedInk: colors.textPrimary,
+    icon: 'ski',
   },
   Run: {
-    coarseGroup: 'Running',
     color: colors.run,
     selectedFill: colors.run,
     selectedInk: colors.textPrimary,
     icon: 'run',
-    labelKey: 'run',
-    types: [...SPORT_DISPLAY_GROUPS.Run],
   },
-  Swim: {
-    coarseGroup: 'Swimming',
+  Water: {
     color: colors.swim,
     selectedFill: colors.swim,
     selectedInk: colors.textPrimary,
     icon: 'swim',
-    labelKey: 'swim',
-    types: [...SPORT_DISPLAY_GROUPS.Swim],
   },
-  Walk: {
-    coarseGroup: 'Other',
+  Foot: {
     color: colors.walk,
     selectedFill: colors.walkChipFill,
     selectedInk: colors.textOnDark,
     icon: 'walk',
-    labelKey: 'walk',
-    types: [...SPORT_DISPLAY_GROUPS.Walk],
   },
-  Hike: {
-    coarseGroup: 'Other',
-    color: colors.hike,
-    selectedFill: colors.hike,
-    selectedInk: colors.textPrimary,
-    icon: 'hiking',
-    labelKey: 'hike',
-    types: [...SPORT_DISPLAY_GROUPS.Hike],
-  },
-  Snow: {
-    coarseGroup: 'Other',
-    color: SNOW_COLOR,
-    selectedFill: SNOW_COLOR,
-    selectedInk: colors.textPrimary,
-    icon: 'ski',
-    labelKey: 'snow',
-    types: [...SPORT_DISPLAY_GROUPS.Snow],
-  },
-  Water: {
-    coarseGroup: 'Other',
-    color: WATER_COLOR,
-    selectedFill: WATER_COLOR,
-    selectedInk: colors.textPrimary,
-    icon: 'rowing',
-    labelKey: 'water',
-    types: [...SPORT_DISPLAY_GROUPS.Water],
-  },
-  Gym: {
-    coarseGroup: 'Other',
+  Strength: {
     color: colors.workout,
     selectedFill: colors.workoutChipFill,
     selectedInk: colors.textOnDark,
     icon: 'dumbbell',
-    labelKey: 'gym',
-    types: [...SPORT_DISPLAY_GROUPS.Gym],
-  },
-  Racket: {
-    coarseGroup: 'Other',
-    color: RACKET_COLOR,
-    selectedFill: RACKET_COLOR,
-    selectedInk: colors.textOnDark,
-    icon: 'tennis',
-    labelKey: 'racket',
-    types: [...SPORT_DISPLAY_GROUPS.Racket],
   },
   Other: {
-    coarseGroup: 'Other',
     color: OTHER_COLOR,
     selectedFill: OTHER_COLOR,
     selectedInk: colors.textOnDark,
     icon: 'heart-pulse',
-    labelKey: 'other',
-    types: [...SPORT_DISPLAY_GROUPS.Other],
   },
 };
 
-/** The coarse view keeps its stable order while sharing category membership. */
-export const FEED_GROUPS: readonly FeedGroup[] = FEED_GROUP_ORDER.filter((group) =>
-  Object.values(ACTIVITY_CATEGORIES).some((category) => category.coarseGroup === group)
+export interface SportFamilyConfig {
+  color: string;
+  // Fill and ink of the selected chip, measured against each other rather than against white.
+  selectedFill: string;
+  selectedInk: string;
+  icon: MaterialIconName;
+  /** The family's label, as a translation key. */
+  label: (typeof SPORT_FAMILY_LABELS)[SportFamily];
+  /** The API types the engine files under this family. */
+  types: string[];
+}
+
+/** Every family, keyed by its engine name, in stack order. */
+export const ACTIVITY_CATEGORIES: Record<SportFamily, SportFamilyConfig> = Object.fromEntries(
+  SPORT_FAMILY_ORDER.map((family) => [
+    family,
+    {
+      ...FAMILY_LOOK[family],
+      label: SPORT_FAMILY_LABELS[family],
+      types: [...SPORT_FAMILY_MEMBERS[family]],
+    },
+  ])
+) as Record<SportFamily, SportFamilyConfig>;
+
+const FAMILY_OF: ReadonlyMap<string, SportFamily> = new Map(
+  SPORT_FAMILY_ORDER.flatMap((family) =>
+    SPORT_FAMILY_MEMBERS[family].map((type) => [type, family] as const)
+  )
 );
+
+/** Whether a string names a family. */
+export function isSportFamily(value: string): value is SportFamily {
+  return Object.prototype.hasOwnProperty.call(SPORT_FAMILY_MEMBERS, value);
+}
+
+/** A family's label as a translation key; a name that is no family reads as Other. */
+export function sportFamilyLabel(family: string): (typeof SPORT_FAMILY_LABELS)[SportFamily] {
+  return SPORT_FAMILY_LABELS[isSportFamily(family) ? family : 'Other'];
+}
+
+/** The family an activity type is drawn in; a type no family lists is Other. */
+export function getActivityCategory(type: string): SportFamily {
+  return FAMILY_OF.get(type) ?? 'Other';
+}
 
 /** Fill and label ink of a selected period or distance chip. */
 export const FILTER_CHIP = { fill: colors.primary, ink: colors.textOnPrimary } as const;
@@ -144,32 +124,21 @@ export function categoryChipColours(
   category: string,
   selected: boolean
 ): { fill: string | null; ink: string } {
+  if (!isSportFamily(category)) return { fill: null, ink: colors.textSecondary };
   const config = ACTIVITY_CATEGORIES[category];
-  if (!config) return { fill: null, ink: colors.textSecondary };
   return selected
     ? { fill: config.selectedFill, ink: config.selectedInk }
     : { fill: null, ink: config.color };
 }
 
-// Map any activity type to its category
-export function getActivityCategory(type: string): string {
-  for (const [category, config] of Object.entries(ACTIVITY_CATEGORIES)) {
-    if (config.types.includes(type)) {
-      return category;
-    }
-  }
-  return 'Other';
+/** The family config of any activity type. */
+export function getActivityTypeConfig(type: ActivityType | string): SportFamilyConfig {
+  return ACTIVITY_CATEGORIES[getActivityCategory(type)];
 }
 
-// Get config for any activity type (returns the category config)
-export function getActivityTypeConfig(type: ActivityType | string) {
-  const category = getActivityCategory(type);
-  return ACTIVITY_CATEGORIES[category];
-}
-
-// Group activity types by category
-export function groupTypesByCategory(types: string[]): Map<string, string[]> {
-  const groups = new Map<string, string[]>();
+/** Activity types grouped by family, each family in the order its types arrive. */
+export function groupTypesByCategory(types: string[]): Map<SportFamily, string[]> {
+  const groups = new Map<SportFamily, string[]>();
 
   for (const type of types) {
     const category = getActivityCategory(type);
