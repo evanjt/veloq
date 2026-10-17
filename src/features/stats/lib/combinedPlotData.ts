@@ -10,8 +10,8 @@
 import { type ChartConfig, type ChartTypeId } from '@/features/activity';
 import { measuresPower } from '@/shared/activity/activityUtils';
 import type { ActivityStreams, ActivityInterval, ActivityType } from '@/types';
-import { CHART_CONFIG } from '@/constants';
 import { finiteExtent, type Extent } from '@/shared/charts/extent';
+import { minMaxBuckets } from '@/shared/charts/minMaxBuckets';
 import { KM_TO_MI, MPS_TO_KPH } from '@/shared/format/format';
 import { paceMinutesFromSpeed, speedFromPaceMinutes } from '@/shared/math/kinematics';
 import { ABSENT } from '@/shared/format/absent';
@@ -197,16 +197,24 @@ export interface IntervalBand {
   isWork: boolean;
 }
 
+/** A distance in metres as km or miles. */
+function distanceInUnit(metres: number, isMetric: boolean): number {
+  const km = metres / 1000;
+  return isMetric ? km : km * KM_TO_MI;
+}
+
 function emptyResult(emptyCause: EmptyPlotCause): ChartDataResult {
   return { chartData: [], seriesInfo: [], indexMap: [], maxX: 1, emptyCause };
 }
 
 /**
- * Downsample + normalise stream data across all selected series.
+ * Thin and normalise stream data across all selected series.
  *
  * For each selected chart, reads the raw stream via `config.getStream`,
  * computes its min/max, then emits normalised [0,1] values alongside an
- * x-axis value (distance in km/mi or time in seconds).
+ * x-axis value (distance in km/mi or time in seconds). `buckets` is the plot
+ * width in layout pixels: each series keeps its extremes per pixel, so a
+ * short spike is drawn at any length of activity.
  *
  * If `previewMetricId` is provided and not already in `selectedCharts`, it
  * is appended as a "preview" series (rendered with reduced opacity at the
@@ -218,7 +226,8 @@ export function buildChartData(
   chartConfigs: Record<ChartTypeId, ChartConfig>,
   isMetric: boolean,
   previewMetricId: ChartTypeId | null | undefined,
-  xAxisMode: 'distance' | 'time'
+  xAxisMode: 'distance' | 'time',
+  buckets: number
 ): ChartDataResult {
   // Choose x-axis source array based on mode
   const xSource = xAxisMode === 'time' ? streams.time || [] : streams.distance || [];
@@ -250,57 +259,50 @@ export function buildChartData(
 
   if (series.length === 0) return emptyResult('noMetrics');
 
-  // Downsample and normalise
-  const maxPoints = CHART_CONFIG.MAX_DATA_POINTS;
-  const step = Math.max(1, Math.floor(xSource.length / maxPoints));
-  const points: Record<string, number>[] = [];
-  const indices: number[] = [];
-
-  // Calculate min/max for each series for normalisation
-  const seriesRanges = series.map((s) => {
+  // Each series with its min/max for normalisation, and its drawn value at
+  // every raw sample, normalised to 0..1. A stopped pace sample is NaN so the
+  // line breaks there.
+  const normalised = series.map((s) => {
     // A stream with no finite sample normalises against a flat range. Its points
     // are non-finite anyway, so the chart draws a gap rather than a floor line.
     // A pace with no moving sample does the same, its stops on the floor.
     const extent = seriesExtent(s.config, s.rawData);
-    if (!extent) return { min: 0, max: 0, range: 1 };
-    return { min: extent.min, max: extent.max, range: extent.max - extent.min || 1 };
+    const range = extent
+      ? { min: extent.min, max: extent.max, range: extent.max - extent.min || 1 }
+      : { min: 0, max: 0, range: 1 };
+    const drawn = new Float64Array(xSource.length);
+    for (let i = 0; i < xSource.length; i++) {
+      const rawVal = s.rawData[i] ?? 0;
+      drawn[i] = isStoppedSample(s.config, rawVal)
+        ? NaN
+        : Math.max(0, Math.min(1, (rawVal - range.min) / range.range));
+    }
+    return { info: { ...s, range }, drawn };
   });
 
-  for (let i = 0; i < xSource.length; i += step) {
-    let xValue: number;
-    if (xAxisMode === 'time') {
-      // Time in seconds (raw)
-      xValue = xSource[i];
-    } else {
-      // Distance in km or miles
-      const distKm = xSource[i] / 1000;
-      xValue = isMetric ? distKm : distKm * KM_TO_MI;
-    }
-
-    const point: Record<string, number> = { x: xValue };
-
-    // Add normalised value for each series (0-1 range)
-    series.forEach((s, idx) => {
-      const rawVal = s.rawData[i] ?? 0;
-      if (isStoppedSample(s.config, rawVal)) {
-        point[s.id] = NaN;
-        return;
-      }
-      const { min, range } = seriesRanges[idx];
-      const normalised = (rawVal - min) / range;
-      point[s.id] = Math.max(0, Math.min(1, normalised));
-    });
-
-    points.push(point);
-    indices.push(i);
+  // Thin each series to its first, lowest, highest and last sample per pixel,
+  // and draw the union so every series keeps its spikes on one shared x.
+  const kept = new Set<number>();
+  for (const { drawn } of normalised) {
+    for (const i of minMaxBuckets(xSource, drawn, buckets)) kept.add(i);
   }
+  const indices = [...kept].sort((a, b) => a - b);
+
+  const points = indices.map((i) => {
+    const xRaw = xSource[i] ?? NaN;
+    const point: Record<string, number> = {
+      x: xAxisMode === 'time' ? xRaw : distanceInUnit(xRaw, isMetric),
+    };
+    for (const { info, drawn } of normalised) point[info.id] = drawn[i] ?? NaN;
+    return point;
+  });
 
   // A non-finite x sample would otherwise carry NaN into the axis domain.
   const computedMaxX = finiteExtent(points.map((p) => p.x))?.max ?? 1;
 
   return {
     chartData: points,
-    seriesInfo: series.map((s, idx) => ({ ...s, range: seriesRanges[idx] })),
+    seriesInfo: normalised.map(({ info }) => info),
     indexMap: indices,
     maxX: computedMaxX,
     emptyCause: null,
@@ -450,12 +452,8 @@ export function computeIntervalBands(
       startX = xSource[startIdx];
       endX = xSource[endIdx];
     } else {
-      const toUnit = (v: number) => {
-        const km = v / 1000;
-        return isMetric ? km : km * KM_TO_MI;
-      };
-      startX = toUnit(xSource[startIdx]);
-      endX = toUnit(xSource[endIdx]);
+      startX = distanceInUnit(xSource[startIdx], isMetric);
+      endX = distanceInUnit(xSource[endIdx], isMetric);
     }
 
     const isWork = interval.type === 'WORK';

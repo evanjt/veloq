@@ -1,14 +1,24 @@
 import React from 'react';
 import { StyleSheet, Pressable, View } from 'react-native';
 import { Text } from 'react-native-paper';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { usePathname } from 'expo-router';
 
 import { useTheme } from '@/shared/app';
 import { tapTo } from '@/shared/app/navigation';
-import { brand, colors, darkColors, iconSize, layout, shadows, spacing, typography } from '@/theme';
+import {
+  brand,
+  colors,
+  darkColors,
+  iconSize,
+  layout,
+  motionPresets,
+  shadows,
+  spacing,
+  typography,
+} from '@/theme';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -67,8 +77,7 @@ function RecordingReturnPillInner({ status }: { status: RecordingStatus }) {
   return (
     <Animated.View
       style={[styles.container, { bottom: bottomOffset }]}
-      entering={FadeIn.duration(250)}
-      exiting={FadeOut.duration(200)}
+      {...motionPresets.pill}
       pointerEvents="box-none"
     >
       <Pressable

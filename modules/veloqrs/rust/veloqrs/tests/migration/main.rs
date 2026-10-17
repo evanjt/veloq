@@ -27,6 +27,9 @@ mod migration_from_released_v12;
 #[path = "../migration_route_numbers.rs"]
 mod migration_route_numbers;
 
+#[path = "../migration_pre_upgrade_copy.rs"]
+mod migration_pre_upgrade_copy;
+
 #[path = "../migration_representative_choice.rs"]
 mod migration_representative_choice;
 

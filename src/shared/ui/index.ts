@@ -10,6 +10,7 @@ export type {
   ToggleButtonProps,
   ToggleButtonRowProps,
 } from './Button';
+export { ChangeChip } from './ChangeChip';
 export { ChipSelector } from './ChipSelector';
 export type { ChipOption, ChipSelectorProps } from './ChipSelector';
 export { Card } from './Card';
@@ -36,7 +37,8 @@ export { SheetActions, SheetHeader } from './SheetHeader';
 export type { SheetActionsProps, SheetConfirm, SheetHeaderProps } from './SheetHeader';
 export { EmptyState } from './EmptyState';
 export { ErrorState, RetryButton } from './ErrorState';
-export { DenseText, DENSE_TEXT_SCALE, useLargeText } from './DenseText';
+export { DenseText, DENSE_TEXT_SCALE } from './DenseText';
+export { useLargeText } from './useLargeText';
 export { DeviceAttribution, isGarminDevice } from './GarminAttribution';
 export { SwipeableTabs, type SwipeableTab } from './SwipeableTabs';
 export { pageAccessibility } from './pagerAccessibility';

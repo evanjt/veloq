@@ -26,9 +26,10 @@ import {
 import { REGIONAL_FIT_PADDING } from './regionalCamera';
 import { REGION_SETTLE_DEBOUNCE_MS } from '@/features/maps/lib/mapBudgets';
 import { tapTo } from '@/shared/app/navigation';
+import { cameraMove } from '@/theme';
 
 /** The ease onto a cluster whose leaves never arrived. */
-const CLUSTER_EXPAND_DURATION_MS = 400;
+const CLUSTER_EXPAND_DURATION_MS = cameraMove.brisk;
 
 /** Points no zoom will pull apart, fanned out: a cluster at max zoom, or stacked starts. */
 export interface SpiderState {
@@ -184,7 +185,7 @@ export function useMapHandlers({
           ne: [normalised.maxLng, normalised.maxLat],
         },
         REGIONAL_FIT_PADDING,
-        500
+        cameraMove.move
       );
     },
     [cameraTarget]
@@ -468,7 +469,7 @@ export function useMapHandlers({
     cameraTarget()?.fitBounds(
       { sw: [minLng, minLat], ne: [maxLng, maxLat] },
       REGIONAL_FIT_PADDING,
-      500
+      cameraMove.move
     );
   }, [activities, cameraTarget]);
 

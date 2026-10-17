@@ -17,6 +17,7 @@ import {
   ink,
   themedStyles,
   type Palette,
+  stroke,
 } from '@/theme';
 import {
   ChartSurface,
@@ -660,7 +661,7 @@ const makeStyles = (palette: Palette) =>
       flexDirection: 'row',
       alignItems: 'center',
       height: 50,
-      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomWidth: stroke.hairline,
       borderBottomColor: opacity.overlay.light,
     },
     metricRowDark: {
@@ -683,7 +684,7 @@ const makeStyles = (palette: Palette) =>
     metricLabel: {
       fontSize: typography.label.fontSize,
       color: palette.textSecondary,
-      fontWeight: '500',
+      fontWeight: '600',
     },
     sparklineContainer: {
       flex: 1,

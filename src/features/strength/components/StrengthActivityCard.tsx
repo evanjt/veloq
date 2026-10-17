@@ -406,7 +406,6 @@ const styles = StyleSheet.create({
   },
   overlayDateSubtitle: {
     ...typography.caption,
-    fontWeight: '500',
     marginTop: spacing.xxs,
     ...mapTextShadow,
   },

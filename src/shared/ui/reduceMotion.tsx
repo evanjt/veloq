@@ -84,18 +84,19 @@ export function ReduceMotionSync() {
   return <ReducedMotionConfig mode={reanimatedMode(enabled)} />;
 }
 
-// React Native's own default when a timing names no duration.
-const TIMING_DEFAULT_MS = 500;
-
-/** `Animated.timing` that lands at once with reduce motion on. */
+/**
+ * `Animated.timing` that lands at once with reduce motion on. The duration is
+ * required, so no timing falls back to React Native's own 500 ms, which is on
+ * no rung of the motion tokens.
+ */
 export function motionTiming(
   value: Animated.Value | Animated.ValueXY,
-  config: Animated.TimingAnimationConfig
+  config: Animated.TimingAnimationConfig & { duration: number }
 ): Animated.CompositeAnimation {
   const reduce = isReduceMotionOn();
   return Animated.timing(value, {
     ...config,
-    duration: motionFor(reduce, config.duration ?? TIMING_DEFAULT_MS),
+    duration: motionFor(reduce, config.duration),
     delay: reduce ? 0 : config.delay,
   });
 }

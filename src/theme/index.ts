@@ -42,8 +42,6 @@ export {
   verdictFill,
   insightToneColor,
   recording,
-  amberBanner,
-  redBanner,
   offlinePill,
   contributionRamp,
   errorScreen,
@@ -66,6 +64,7 @@ export { themePalette, themedStyles, type Palette } from './palette';
 export { spacing, controlHeight, MIN_TAP_TARGET } from './spacing';
 export { layout } from './layout';
 export { iconSize, type IconSize } from './iconSize';
+export { stroke } from './stroke';
 export { slopToMinTapTarget } from './tapTarget';
 export { typography } from './typography';
 export {
@@ -78,6 +77,15 @@ export {
 } from './tokenFamilies';
 export { shadows, createShadow, smallElementShadow, mapTextShadow } from './shadows';
 export { chartStyles } from './chartStyles';
+export {
+  duration,
+  easing,
+  easingCurve,
+  motionPairs,
+  motionPresets,
+  cameraMove,
+  type MotionDuration,
+} from './motion';
 
 export const lightTheme = {
   ...MD3LightTheme,

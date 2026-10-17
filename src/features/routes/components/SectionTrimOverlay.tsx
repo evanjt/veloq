@@ -14,6 +14,7 @@ import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-nativ
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as haptics from '@/shared/ui/haptics';
+import { useGestureCallback } from '@/shared/ui/useGestureCallback';
 import {
   colors,
   darkColors,
@@ -23,6 +24,7 @@ import {
   slopToMinTapTarget,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 import { formatDistance } from '@/shared/format/format';
 import {
@@ -135,6 +137,10 @@ export function SectionTrimOverlay({
   const resetPrecision = useCallback(() => {
     lastPrecision.value = 'normal';
   }, [lastPrecision]);
+  const fireHapticOnJS = useGestureCallback(fireHaptic);
+  const resetPrecisionOnJS = useGestureCallback(resetPrecision);
+  const startChangeOnJS = useGestureCallback(onStartChange);
+  const endChangeOnJS = useGestureCallback(onEndChange);
 
   // ── Step button handlers (JS thread - immediate) ──
   const minGap = useMemo(() => trimMinGap(maxIndex), [maxIndex]);
@@ -186,38 +192,38 @@ export function SectionTrimOverlay({
             const now = Date.now();
             if (now - lastEmitTime.value >= 150) {
               lastEmitTime.value = now;
-              runOnJS(onStartChange)(Math.round(newFrac * maxIndex));
+              runOnJS(startChangeOnJS)(Math.round(newFrac * maxIndex));
             }
           }
           if (levelChanged) {
             const fireNow = Date.now();
             if (shouldMarkCrossing(fireNow, lastFireTime.value)) {
               lastFireTime.value = fireNow;
-              runOnJS(fireHaptic)(level);
+              runOnJS(fireHapticOnJS)(level);
             }
           }
         })
         .onEnd(() => {
           'worklet';
           isDragging.value = false;
-          runOnJS(onStartChange)(Math.round(startFrac.value * maxIndex));
-          runOnJS(resetPrecision)();
+          runOnJS(startChangeOnJS)(Math.round(startFrac.value * maxIndex));
+          runOnJS(resetPrecisionOnJS)();
         })
         .hitSlop({ top: 15, bottom: 15, left: 15, right: 15 }),
     [
       maxIndex,
       minGapFrac,
-      onStartChange,
+      startChangeOnJS,
       startFrac,
       endFrac,
       prevTransX,
       trackWidthSV,
       lastEmitTime,
       isDragging,
-      fireHaptic,
+      fireHapticOnJS,
       lastPrecision,
       lastFireTime,
-      resetPrecision,
+      resetPrecisionOnJS,
     ]
   );
 
@@ -248,38 +254,38 @@ export function SectionTrimOverlay({
             const now = Date.now();
             if (now - lastEmitTime.value >= 150) {
               lastEmitTime.value = now;
-              runOnJS(onEndChange)(Math.round(newFrac * maxIndex));
+              runOnJS(endChangeOnJS)(Math.round(newFrac * maxIndex));
             }
           }
           if (levelChanged) {
             const fireNow = Date.now();
             if (shouldMarkCrossing(fireNow, lastFireTime.value)) {
               lastFireTime.value = fireNow;
-              runOnJS(fireHaptic)(level);
+              runOnJS(fireHapticOnJS)(level);
             }
           }
         })
         .onEnd(() => {
           'worklet';
           isDragging.value = false;
-          runOnJS(onEndChange)(Math.round(endFrac.value * maxIndex));
-          runOnJS(resetPrecision)();
+          runOnJS(endChangeOnJS)(Math.round(endFrac.value * maxIndex));
+          runOnJS(resetPrecisionOnJS)();
         })
         .hitSlop({ top: 15, bottom: 15, left: 15, right: 15 }),
     [
       maxIndex,
       minGapFrac,
-      onEndChange,
+      endChangeOnJS,
       startFrac,
       endFrac,
       prevTransX,
       trackWidthSV,
       lastEmitTime,
       isDragging,
-      fireHaptic,
+      fireHapticOnJS,
       lastPrecision,
       lastFireTime,
-      resetPrecision,
+      resetPrecisionOnJS,
     ]
   );
 
@@ -560,7 +566,7 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: layout.borderRadiusFull,
     backgroundColor: ink.white,
-    borderWidth: 2,
+    borderWidth: stroke.two,
     borderColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',

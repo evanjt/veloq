@@ -15,12 +15,13 @@ import { queryKeys } from '@/shared/query/queryKeys';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import {
   composeAccessibilityLabel,
+  Card,
   EmptyState,
   ErrorState,
   Row,
   ScreenScrollView,
 } from '@/shared/ui';
-import { colors, darkColors, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import type { ExerciseDetailData } from 'veloqrs';
 
 import { readExerciseDetailData } from '../hooks/useStrengthScreenData';
@@ -111,7 +112,7 @@ function ExerciseDetailScreen() {
                 : formatWeight(session.estimatedOneRepMaxKg, isMetric)
             }`;
             return (
-              <View key={session.activityId} style={[styles.row, isDark && styles.rowDark]}>
+              <Card key={session.activityId} variant="flat" padding="none">
                 <Row
                   behaviour="navigate"
                   onPress={() => tapTo(`/activity/${session.activityId}`)}
@@ -123,7 +124,7 @@ function ExerciseDetailScreen() {
                     <Text style={[styles.method, isDark && styles.secondaryDark]}>{estimate}</Text>
                   </View>
                 </Row>
-              </View>
+              </Card>
             );
           })}
         </>
@@ -143,12 +144,6 @@ const styles = StyleSheet.create({
   method: { color: colors.textSecondary },
   secondaryDark: { color: darkColors.textSecondary },
   textDark: { color: darkColors.textPrimary },
-  row: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadiusMd,
-    overflow: 'hidden',
-  },
   session: { flex: 1, gap: spacing.xs },
   sessionTitle: { fontWeight: '600', color: colors.textPrimary },
-  rowDark: { backgroundColor: darkColors.surface },
 });

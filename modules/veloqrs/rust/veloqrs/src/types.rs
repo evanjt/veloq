@@ -263,8 +263,9 @@ pub struct SectionPerformanceResult {
 // ============================================================================
 
 /// Best performance in one direction for a calendar period.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
+#[uniffi(name = "FfiCalendarDirectionBest")]
 pub struct CalendarDirectionBest {
     /// Number of traversals in this direction
     pub count: u32,
@@ -279,8 +280,9 @@ pub struct CalendarDirectionBest {
 }
 
 /// Best performance in a calendar month, split by direction.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
+#[uniffi(name = "FfiCalendarMonthSummary")]
 pub struct CalendarMonthSummary {
     /// Month number (1-12)
     pub month: u32,
@@ -296,8 +298,9 @@ pub struct CalendarMonthSummary {
 }
 
 /// Best performance in a calendar year, with monthly breakdown.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
+#[uniffi(name = "FfiCalendarYearSummary")]
 pub struct CalendarYearSummary {
     /// Calendar year
     pub year: i32,
@@ -315,8 +318,9 @@ pub struct CalendarYearSummary {
 }
 
 /// Calendar-aligned performance summary for a section.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
+#[uniffi(name = "FfiCalendarSummary")]
 pub struct CalendarSummary {
     /// Year summaries (newest first)
     pub years: Vec<CalendarYearSummary>,

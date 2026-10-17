@@ -64,7 +64,7 @@ beforeEach(() => {
   clearQuarantineReport();
   // A launch past the first, so the notice is the one modal the launch raises.
   useWhatsNewStore.setState({ isLoaded: true, lastSeenVersion: '0.0.1', tourState: null });
-  useWhatsNewStore.setState({ launchModal: null, restoreOffered: false });
+  useWhatsNewStore.setState({ launchModal: null, restoreOffer: null });
   alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
 });
 

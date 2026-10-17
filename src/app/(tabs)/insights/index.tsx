@@ -48,9 +48,10 @@ import {
   slopToMinTapTarget,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { inform } from '@/shared/ui/dialog';
+import { openExplainer } from '@/shared/app/explainer';
 
 type TabType = 'insights' | 'strength' | 'routes' | 'sections';
 
@@ -520,7 +521,10 @@ function InsightsScreenContent() {
             testID="insights-about-button"
             accessibilityLabel={t('insights.aboutTitle')}
             onPress={() =>
-              inform({ title: t('insights.aboutTitle'), message: aboutInsightsBody(t, activeTab) })
+              openExplainer({
+                title: t('insights.aboutTitle'),
+                body: aboutInsightsBody(t, activeTab),
+              })
             }
           >
             <MaterialCommunityIcons
@@ -647,10 +651,10 @@ const styles = StyleSheet.create({
   disabledHintLink: {
     fontSize: typography.label.fontSize,
     color: colors.linkTeal,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   betaMarker: {
-    borderWidth: 1,
+    borderWidth: stroke.one,
     borderColor: colors.primary,
     borderRadius: layout.borderRadiusFull,
     paddingHorizontal: spacing.xs,

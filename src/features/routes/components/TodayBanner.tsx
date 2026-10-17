@@ -26,6 +26,7 @@ import {
   spacing,
   typography,
   verdictColor,
+  stroke,
 } from '@/theme';
 import type { CalendarEvent } from '@/types';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
@@ -265,7 +266,7 @@ const styles = StyleSheet.create({
   },
   containerDark: {
     backgroundColor: darkColors.surfaceCard,
-    borderWidth: 1,
+    borderWidth: stroke.one,
     borderColor: darkColors.border,
     ...shadows.none,
   },
@@ -315,7 +316,7 @@ const styles = StyleSheet.create({
   },
   sectionsContainer: {
     marginTop: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: stroke.hairline,
     borderTopColor: colors.border,
     paddingTop: spacing.sm,
   },

@@ -35,6 +35,7 @@ import {
   shadows,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 import { pressable, pressRipple } from './pressFeedback';
 
@@ -107,7 +108,7 @@ function raisedEdge(isDark: boolean) {
   return isDark
     ? {
         ...shadows.none,
-        borderWidth: StyleSheet.hairlineWidth,
+        borderWidth: stroke.hairline,
         borderColor: darkColors.borderLight,
       }
     : shadows.elevated;
@@ -272,7 +273,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
   },
   group: {
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: stroke.hairline,
   },
   groupLabel: {
     ...typography.sectionHeader,

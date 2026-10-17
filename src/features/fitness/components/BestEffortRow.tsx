@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { tapTo } from '@/shared/app/navigation';
 import { composeAccessibilityLabel, Row } from '@/shared/ui';
-import { colors, darkColors, spacing, typography, colorWithOpacity, ink } from '@/theme';
+import { colors, darkColors, spacing, typography, colorWithOpacity, ink, stroke } from '@/theme';
 
 /** The activity a best was set in, as the label read names it. */
 export interface BestEffortActivity {
@@ -103,7 +103,7 @@ export function BestEffortRow({
 
 const styles = StyleSheet.create({
   rowBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: stroke.hairline,
     borderBottomColor: colorWithOpacity(ink.black, 0.08),
   },
   rowBorderDark: {
@@ -144,8 +144,7 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
   },
   activityName: {
-    ...typography.caption,
-    fontWeight: '500',
+    ...typography.captionBold,
     color: colors.textPrimary,
   },
   textDark: {

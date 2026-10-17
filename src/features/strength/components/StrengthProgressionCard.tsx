@@ -15,6 +15,7 @@ import {
   verdictColor,
   verdictFill,
   typography,
+  stroke,
 } from '@/theme';
 import type { ExerciseSummary, MuscleVolume, StrengthProgression } from '@/types';
 
@@ -331,7 +332,7 @@ const styles = StyleSheet.create({
   childrenSlot: {
     marginTop: spacing.md,
     paddingTop: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: stroke.hairline,
     borderTopColor: colors.divider,
   },
   childrenSlotDark: {

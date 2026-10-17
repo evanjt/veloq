@@ -16,7 +16,7 @@ import React from 'react';
 import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, layout, shadows, spacing } from '@/theme';
+import { colors, darkColors, layout, shadows, spacing, stroke } from '@/theme';
 import { CardHeader } from './CardHeader';
 import { pressable, pressRipple } from './pressFeedback';
 import { accessibleActions, type AccessibleAction } from './accessibleActions';
@@ -95,7 +95,7 @@ export function Card({
     borderRadius: layout.borderRadius,
     ...(variant === 'raised'
       ? isDark
-        ? { ...shadows.none, borderWidth: 1, borderColor: darkColors.border }
+        ? { ...shadows.none, borderWidth: stroke.one, borderColor: darkColors.border }
         : shadows.card
       : null),
   };

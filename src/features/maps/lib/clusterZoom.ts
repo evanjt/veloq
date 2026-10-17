@@ -15,6 +15,8 @@
  * that all start at the same garage door).
  */
 
+import { cameraMove } from '@/theme';
+
 /** Small epsilon - leaves within this span are considered "stacked". */
 const STACKED_LEAF_SPAN_DEG = 0.0002; // ≈20m at most latitudes
 
@@ -120,7 +122,7 @@ export function planClusterZoom(
   }
 
   const leafCount = leaves.length;
-  const durationMs = leafCount < SMALL_CLUSTER_LEAF_COUNT ? 300 : 600;
+  const durationMs = leafCount < SMALL_CLUSTER_LEAF_COUNT ? cameraMove.short : cameraMove.long;
 
   return {
     kind: 'fitBounds',

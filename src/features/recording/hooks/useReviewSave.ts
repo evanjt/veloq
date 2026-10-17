@@ -12,7 +12,7 @@ import { requestSyncRefresh } from '@/shared/native/syncRefresh';
 import { isDeviceLowOnSpace } from '@/shared/storage/freeSpace';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { returnTo } from '@/shared/app/navigation';
+import { returnTo, tapTo } from '@/shared/app/navigation';
 import { clearRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
 import {
   attachEngineActivity,
@@ -30,6 +30,7 @@ import { useUploadPermissionStore } from '@/features/recording/stores/UploadPerm
 import { isOAuthConfigured } from '@/features/auth';
 import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
 import * as haptics from '@/shared/ui/haptics';
+import { NOTICE_LONG_MS, showNotice } from '@/shared/ui/Notice';
 import type { ActivityType, RecordingLibraryEntry } from '@/types';
 import type { RecordingStreams, RecordingLap } from '@/features/recording/types';
 
@@ -79,7 +80,8 @@ export interface UseReviewSave {
   setErrorMessage: (message: string | null) => void;
   /** The server's own words behind a refusal, shown beneath the message as its provenance. */
   errorDetail: string | null;
-  queuedMessage: string | null;
+  /** The save is settled and the review is on its way home, so nothing on it should redirect. */
+  leaving: boolean;
   showPermissionFix: boolean;
   setShowPermissionFix: (show: boolean) => void;
   isOAuthLoading: boolean;
@@ -136,7 +138,7 @@ export function useReviewSave({
   const { t } = useTranslation();
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [queuedMessage, setQueuedMessage] = useState<string | null>(null);
+  const [leaving, setLeaving] = useState(false);
   const [showPermissionFix, setShowPermissionFix] = useState(false);
   const [canRetry, setCanRetry] = useState(false);
   const [errorDetail, setErrorDetail] = useState<string | null>(null);
@@ -161,23 +163,24 @@ export function useReviewSave({
     };
   }, []);
 
+  // The review leaves at once, so a statement of where the ride went is handed to the app
+  // notice, which outlives the screen, is announced, and offers the way to My Recordings.
   const finishAndGoHome = useCallback(
     (message: string | null, stillCurrent: () => boolean) => {
       if (!stillCurrent()) return;
+      setLeaving(true);
       if (message) {
-        setQueuedMessage(message);
         setIsUploading(false);
-        setTimeout(() => {
-          if (!stillCurrent()) return;
-          useRecordingStore.getState().reset();
-          returnTo('/');
-        }, 1500);
-      } else {
-        useRecordingStore.getState().reset();
-        returnTo('/');
+        showNotice({
+          message,
+          action: { label: t('recording.library.title'), onPress: () => tapTo('/recordings') },
+          duration: NOTICE_LONG_MS,
+        });
       }
+      useRecordingStore.getState().reset();
+      returnTo('/');
     },
-    [setQueuedMessage]
+    [t]
   );
 
   const handleSave = useCallback(async () => {
@@ -251,7 +254,6 @@ export function useReviewSave({
     setErrorMessage(null);
     setErrorDetail(null);
     setKeptRecording(null);
-    setQueuedMessage(null);
     setCanRetry(false);
     setLowStorage(false);
     try {
@@ -574,7 +576,7 @@ export function useReviewSave({
     errorMessage,
     setErrorMessage,
     errorDetail,
-    queuedMessage,
+    leaving,
     showPermissionFix,
     setShowPermissionFix,
     isOAuthLoading,

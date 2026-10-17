@@ -8,7 +8,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, stroke } from '@/theme';
 import type { PreviewResult } from 'veloqrs';
 
 interface PreviewDiffStripProps {
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: layout.borderRadiusSm,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: stroke.hairline,
   },
   cell: {
     flexDirection: 'row',

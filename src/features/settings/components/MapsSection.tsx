@@ -18,6 +18,7 @@ import {
   slopToMinTapTarget,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 import { Row } from '@/shared/ui/Row';
 import { composeAccessibilityLabel, ListSectionHeader, pressable, pressRipple } from '@/shared/ui';
@@ -287,8 +288,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
   },
   mapStyleLabel: {
-    ...typography.bodySmall,
-    fontWeight: '500',
+    ...typography.bodySmallBold,
     color: colors.textPrimary,
   },
   terrain3DBadge: {
@@ -324,8 +324,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   overrideLabel: {
-    ...typography.bodySmall,
-    fontWeight: '500',
+    ...typography.bodySmallBold,
     color: colors.textPrimary,
     flex: 1,
     flexShrink: 1,
@@ -341,7 +340,7 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.fontSize,
   },
   overrideDivider: {
-    height: StyleSheet.hairlineWidth,
+    height: stroke.hairline,
     marginVertical: spacing.xs,
   },
   terrainHint: {

@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { Pressable, View, Text, StyleSheet } from 'react-native';
+import { Pressable, View, Text } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { openExternal } from '@/shared/app/openExternal';
 import {
+  Card,
   CollapsibleSection,
   IconButton,
-  ScreenSafeAreaView,
-  ScreenScrollView,
   pressable,
   pressRipple,
+  ScreenSafeAreaView,
+  ScreenScrollView,
 } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ParseKeys } from 'i18next';
@@ -22,6 +23,7 @@ import {
   layout,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 import { createSharedStyles } from '@/styles';
 import { useTheme } from '@/shared/app';
@@ -485,35 +487,38 @@ function LicenseSectionCard({ section, isDark, testID }: LicenseSectionCardProps
   const themeColors = isDark ? darkColors : colors;
 
   return (
-    <CollapsibleSection
-      testID={testID}
-      title={section.titleKey ? t(section.titleKey) : section.title}
-      expanded={expanded}
-      onToggle={setExpanded}
-      style={styles.sectionContainer(isDark)}
-      headerRight={
-        <Text style={[styles.entryCount, { color: themeColors.textSecondary }]}>
-          {section.entries.length}
-        </Text>
-      }
-    >
-      <View style={styles.sectionContent}>
-        {section.description ? (
-          <Text style={[styles.sectionDescription, { color: themeColors.textSecondary }]}>
-            {section.description}
-          </Text>
-        ) : null}
-        {section.entries.map((entry, index) => (
-          <LicenseEntryRow
-            key={entry.name}
-            testID={`license-entry-${index}`}
-            entry={entry}
-            isDark={isDark}
-            isLast={index === section.entries.length - 1}
-          />
-        ))}
-      </View>
-    </CollapsibleSection>
+    <View style={styles.sectionFrame}>
+      <Card variant="flat" padding="none">
+        <CollapsibleSection
+          testID={testID}
+          title={section.titleKey ? t(section.titleKey) : section.title}
+          expanded={expanded}
+          onToggle={setExpanded}
+          headerRight={
+            <Text style={[styles.entryCount, { color: themeColors.textSecondary }]}>
+              {section.entries.length}
+            </Text>
+          }
+        >
+          <View style={styles.sectionContent}>
+            {section.description ? (
+              <Text style={[styles.sectionDescription, { color: themeColors.textSecondary }]}>
+                {section.description}
+              </Text>
+            ) : null}
+            {section.entries.map((entry, index) => (
+              <LicenseEntryRow
+                key={entry.name}
+                testID={`license-entry-${index}`}
+                entry={entry}
+                isDark={isDark}
+                isLast={index === section.entries.length - 1}
+              />
+            ))}
+          </View>
+        </CollapsibleSection>
+      </Card>
+    </View>
   );
 }
 
@@ -641,13 +646,10 @@ const styles = {
     ...typography.bodySmall,
     lineHeight: 20,
   },
-  sectionContainer: (isDark: boolean) => ({
-    backgroundColor: isDark ? darkColors.surface : colors.surface,
+  sectionFrame: {
     marginHorizontal: layout.screenPadding,
     marginBottom: spacing.sm,
-    borderRadius: layout.borderRadius,
-    overflow: 'hidden' as const,
-  }),
+  },
   entryCount: {
     ...typography.caption,
     marginRight: spacing.sm,
@@ -670,7 +672,7 @@ const styles = {
     paddingVertical: spacing.sm,
   },
   entryBorder: (isDark: boolean) => ({
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: stroke.hairline,
     borderBottomColor: isDark ? darkColors.border : colors.border,
   }),
   entryRow: {
@@ -684,8 +686,7 @@ const styles = {
     minHeight: layout.minTapTarget,
   },
   entryName: {
-    ...typography.body,
-    fontWeight: '500' as const,
+    ...typography.bodyBold,
   },
   entryLicense: {
     ...typography.caption,

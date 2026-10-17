@@ -11,7 +11,16 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import * as haptics from '@/shared/ui/haptics';
-import { colors, darkColors, typography, spacing, layout, smallElementShadow } from '@/theme';
+import { useGestureCallback } from '@/shared/ui/useGestureCallback';
+import {
+  colors,
+  darkColors,
+  typography,
+  spacing,
+  layout,
+  smallElementShadow,
+  stroke,
+} from '@/theme';
 import { createTimelineLayout, addCalendarMonths } from '@/features/maps/lib/timelineLayout';
 import { formatMonth, getIntlLocale } from '@/shared/format/format';
 
@@ -125,6 +134,7 @@ export function TimelineSlider({
     },
     [snapToNearest, updateDatesFromPositions, triggerHaptic, startPos, endPos]
   );
+  const snapOnJS = useGestureCallback(applySnapAndUpdate);
 
   // Handle tap on track to move left handle
   const handleTrackTap = useCallback(
@@ -159,6 +169,7 @@ export function TimelineSlider({
       endPos,
     ]
   );
+  const trackTapOnJS = useGestureCallback(handleTrackTap);
 
   const stepStart = useCallback(
     (direction: 1 | -1) => {
@@ -215,7 +226,7 @@ export function TimelineSlider({
 
   // Gestures
   const trackTapGesture = Gesture.Tap().onEnd((e) => {
-    runOnJS(handleTrackTap)(e.x);
+    runOnJS(trackTapOnJS)(e.x);
   });
 
   const startGesture = Gesture.Pan()
@@ -242,7 +253,7 @@ export function TimelineSlider({
       startPos.value = newPos;
     })
     .onEnd(() => {
-      runOnJS(applySnapAndUpdate)(
+      runOnJS(snapOnJS)(
         startPos.value,
         endPos.value,
         expandOnly ? startPosAtGestureStart.value : undefined
@@ -269,7 +280,7 @@ export function TimelineSlider({
       endPos.value = newPos;
     })
     .onEnd(() => {
-      runOnJS(applySnapAndUpdate)(startPos.value, endPos.value);
+      runOnJS(snapOnJS)(startPos.value, endPos.value);
     });
 
   // Animated styles
@@ -435,7 +446,7 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: layout.borderRadiusFull,
     backgroundColor: colors.surface,
-    borderWidth: 2,
+    borderWidth: stroke.two,
     borderColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
@@ -513,7 +524,7 @@ const styles = StyleSheet.create({
     top: 6,
     fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
-    fontWeight: '500',
+    fontWeight: '400',
   },
   footerRow: {
     flexDirection: 'row',

@@ -6,12 +6,13 @@ import { useCallback, useRef, useState } from 'react';
 import * as Location from 'expo-location';
 
 import { askForegroundLocation } from '@/shared/app/permissions';
+import { cameraMove } from '@/theme';
 
 /** A fix younger than this is reused rather than asking the GPS again. */
 export const LOCATION_CACHE_MAX_AGE_MS = 30000;
 
 export const LOCATE_ZOOM = 13;
-export const LOCATE_EASE_MS = 500;
+export const LOCATE_EASE_MS = cameraMove.move;
 
 export interface LocationFix {
   coords: [number, number]; // [lng, lat]

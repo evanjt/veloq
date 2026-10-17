@@ -54,7 +54,6 @@
     "discardImportError": "Couldn't discard the paused import. It's still paused.",
     "unplacedActivityPending": "Fetching the activities your backup mentions",
     "noBackupsAtDestination": "No backups at this destination, sorry.",
-    "restorePromptMessage": "Couldn't find a backup on this phone. If you've got one in a file or on a WebDAV server, you can restore it now.",
     "recordRestored": "Your names, sections and routes are back. Their activities are coming down again.",
     "unplacedRecords_one": "{{count}} saved item can't be applied just yet.",
     "unplacedRecords_other": "{{count}} saved items can't be applied just yet.",

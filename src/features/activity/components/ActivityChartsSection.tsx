@@ -27,6 +27,7 @@ import { InsightfulStats } from './stats';
 import {
   BodyNotDownloaded,
   Button,
+  Card,
   CardHeader,
   ComponentErrorBoundary,
   DeviceAttribution,
@@ -286,13 +287,17 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
         hasPowerZones ? (
           <View style={styles.chartSection}>
             {!streamsDownloaded && (
-              <BodyNotDownloaded
-                testID="streams-not-downloaded"
-                style={[styles.chartCard, isDark && styles.cardDark]}
-                message={t('statsScreen.curveNotDownloaded')}
-                status={streamsStatus}
-                onRetry={() => onRetryStreams?.()}
-              />
+              <View style={styles.cardFrame}>
+                <Card variant="raised" padding="none">
+                  <BodyNotDownloaded
+                    testID="streams-not-downloaded"
+                    style={styles.chartBody}
+                    message={t('statsScreen.curveNotDownloaded')}
+                    status={streamsStatus}
+                    onRetry={() => onRetryStreams?.()}
+                  />
+                </Card>
+              </View>
             )}
             {availableCharts.length > 0 && (
               <View style={styles.chartControls}>
@@ -322,117 +327,129 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
 
             {/* Chart */}
             {streams && selectedCharts.length > 0 ? (
-              <View style={[styles.chartCard, isDark && styles.cardDark]}>
-                <CombinedPlot
-                  streams={streams}
-                  elevationGain={activity.total_elevation_gain}
-                  selectedCharts={selectedCharts}
-                  chartConfigs={effectiveChartConfigs}
-                  height={180}
-                  onPointSelect={onPointSelect}
-                  onInteractionChange={onInteractionChange}
-                  previewMetricId={previewMetricId}
-                  xAxisMode={effectiveXAxisMode}
-                  onXAxisModeToggle={handleXAxisToggle}
-                  canToggleXAxis={canToggleXAxis}
-                  intervals={intervalsExpanded ? intervalsData?.icu_intervals : undefined}
-                  activityType={activity.type}
-                  onMetricsChange={handleMetricsChange}
-                />
+              <View style={styles.cardFrame}>
+                <Card variant="raised" padding="none">
+                  <View style={styles.chartBody}>
+                    <CombinedPlot
+                      streams={streams}
+                      elevationGain={activity.total_elevation_gain}
+                      selectedCharts={selectedCharts}
+                      chartConfigs={effectiveChartConfigs}
+                      height={180}
+                      onPointSelect={onPointSelect}
+                      onInteractionChange={onInteractionChange}
+                      previewMetricId={previewMetricId}
+                      xAxisMode={effectiveXAxisMode}
+                      onXAxisModeToggle={handleXAxisToggle}
+                      canToggleXAxis={canToggleXAxis}
+                      intervals={intervalsExpanded ? intervalsData?.icu_intervals : undefined}
+                      activityType={activity.type}
+                      onMetricsChange={handleMetricsChange}
+                    />
+                  </View>
+                </Card>
               </View>
             ) : null}
 
             {/* Intervals zone bar. Its own source is `icu_intervals`, which is
                 persisted whether or not the streams were ever fetched. */}
             {intervalsOwed ? (
-              <BodyNotDownloaded
-                testID="intervals-not-downloaded"
-                style={[styles.intervalsCard, isDark && styles.cardDark, styles.intervalsPending]}
-                textStyle={[styles.intervalsMessage, isDark && styles.textSecondary]}
-                message={t('activityDetail.intervalsNotDownloaded')}
-                status={intervalsStatus}
-                onRetry={() => onRetryIntervals?.()}
-              />
+              <View style={styles.cardFrame}>
+                <Card variant="raised" padding="none">
+                  <BodyNotDownloaded
+                    testID="intervals-not-downloaded"
+                    style={styles.intervalsPending}
+                    textStyle={[styles.intervalsMessage, isDark && styles.textSecondary]}
+                    message={t('activityDetail.intervalsNotDownloaded')}
+                    status={intervalsStatus}
+                    onRetry={() => onRetryIntervals?.()}
+                  />
+                </Card>
+              </View>
             ) : null}
 
             {hasIntervals ? (
-              <View
-                testID="activity-interval-table"
-                style={[styles.intervalsCard, isDark && styles.cardDark]}
-              >
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('activityDetail.tabs.intervals')}
-                  accessibilityState={{ expanded: intervalsExpanded }}
-                  style={pressable([styles.intervalsBar, isDark && styles.intervalsBarDark])}
-                  android_ripple={pressRipple}
-                  onPress={() => setIntervalsExpanded((v) => !v)}
-                >
-                  <CardHeader
-                    title={t('activityDetail.tabs.intervals')}
-                    accessory={
-                      <DisclosureChevron
-                        expanded={intervalsExpanded}
-                        size={iconSize.md}
-                        color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                      />
-                    }
-                  />
-                  {intervalZoneSummary.length > 0 && (
-                    <View style={styles.intervalsChips}>
-                      {intervalZoneSummary.map((z, i) => (
-                        <View
-                          key={i}
-                          style={[styles.zoneChip, { backgroundColor: z.color + '25' }]}
-                        >
-                          <View style={[styles.zoneDot, { backgroundColor: z.color }]} />
-                          <Text style={[styles.zoneChipText, isDark && styles.zoneChipTextDark]}>
-                            {z.label} {t('units.times', { value: z.count })}{' '}
-                            {formatDurationHuman(z.totalTime)}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  )}
-                </Pressable>
-                {intervalsExpanded && intervalsData?.icu_intervals ? (
-                  <IntervalsTable
-                    intervals={intervalsData.icu_intervals}
-                    activityType={activity.type}
-                    isMetric={isMetric}
-                    isDark={isDark}
-                  />
-                ) : null}
+              <View testID="activity-interval-table" style={styles.cardFrame}>
+                <Card variant="raised" padding="none">
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t('activityDetail.tabs.intervals')}
+                    accessibilityState={{ expanded: intervalsExpanded }}
+                    style={pressable([styles.intervalsBar, isDark && styles.intervalsBarDark])}
+                    android_ripple={pressRipple}
+                    onPress={() => setIntervalsExpanded((v) => !v)}
+                  >
+                    <CardHeader
+                      title={t('activityDetail.tabs.intervals')}
+                      accessory={
+                        <DisclosureChevron
+                          expanded={intervalsExpanded}
+                          size={iconSize.md}
+                          color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                        />
+                      }
+                    />
+                    {intervalZoneSummary.length > 0 && (
+                      <View style={styles.intervalsChips}>
+                        {intervalZoneSummary.map((z, i) => (
+                          <View
+                            key={i}
+                            style={[styles.zoneChip, { backgroundColor: z.color + '25' }]}
+                          >
+                            <View style={[styles.zoneDot, { backgroundColor: z.color }]} />
+                            <Text style={[styles.zoneChipText, isDark && styles.zoneChipTextDark]}>
+                              {z.label} {t('units.times', { value: z.count })}{' '}
+                              {formatDurationHuman(z.totalTime)}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+                  </Pressable>
+                  {intervalsExpanded && intervalsData?.icu_intervals ? (
+                    <IntervalsTable
+                      intervals={intervalsData.icu_intervals}
+                      activityType={activity.type}
+                      isMetric={isMetric}
+                      isDark={isDark}
+                    />
+                  ) : null}
+                </Card>
               </View>
             ) : null}
 
             {/* HR Zones Chart */}
             {hasHrZones ? (
-              <View
-                testID="activity-zone-chart"
-                style={[styles.chartCard, isDark && styles.cardDark]}
-              >
-                <ComponentErrorBoundary part="hrZonesChart" debugName="HR Zones Chart">
-                  <HRZonesChart
-                    hrZones={hrZones}
-                    maxHR={maxHR}
-                    maxHrSource={maxHrSource}
-                    movingTime={activity.moving_time}
-                  />
-                </ComponentErrorBoundary>
+              <View testID="activity-zone-chart" style={styles.cardFrame}>
+                <Card variant="raised" padding="none">
+                  <View style={styles.chartBody}>
+                    <ComponentErrorBoundary part="hrZonesChart" debugName="HR Zones Chart">
+                      <HRZonesChart
+                        hrZones={hrZones}
+                        maxHR={maxHR}
+                        maxHrSource={maxHrSource}
+                        movingTime={activity.moving_time}
+                      />
+                    </ComponentErrorBoundary>
+                  </View>
+                </Card>
               </View>
             ) : null}
 
             {/* Power Zones Chart */}
             {powerZones && hasPowerZones ? (
-              <View style={[styles.chartCard, isDark && styles.cardDark]}>
-                <ComponentErrorBoundary part="powerZonesChart" debugName="Power Zones Chart">
-                  <PowerZonesChart
-                    powerZones={powerZones}
-                    ftp={activity.icu_ftp}
-                    movingTime={activity.moving_time}
-                  />
-                </ComponentErrorBoundary>
+              <View style={styles.cardFrame}>
+                <Card variant="raised" padding="none">
+                  <View style={styles.chartBody}>
+                    <ComponentErrorBoundary part="powerZonesChart" debugName="Power Zones Chart">
+                      <PowerZonesChart
+                        powerZones={powerZones}
+                        ftp={activity.icu_ftp}
+                        movingTime={activity.moving_time}
+                      />
+                    </ComponentErrorBoundary>
+                  </View>
+                </Card>
               </View>
             ) : null}
           </View>
@@ -718,29 +735,17 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: spacing.xs,
   },
-  chartCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.cardPadding,
+  cardFrame: {
+    marginBottom: spacing.sm,
+  },
+  chartBody: {
     paddingHorizontal: spacing.sm,
     paddingTop: spacing.xs,
     paddingBottom: spacing.sm,
-    marginBottom: spacing.sm,
-    ...shadows.card,
     minHeight: 180,
-    overflow: 'hidden',
-  },
-  cardDark: {
-    backgroundColor: darkColors.surface,
   },
   textSecondary: {
     color: darkColors.textSecondary,
-  },
-  intervalsCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.cardPadding,
-    marginBottom: spacing.sm,
-    ...shadows.card,
-    overflow: 'hidden',
   },
   intervalsPending: {
     paddingHorizontal: spacing.sm,

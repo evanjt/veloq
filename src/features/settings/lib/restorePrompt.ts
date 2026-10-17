@@ -18,9 +18,27 @@ import {
   icloudBackend,
   isIcloudSupported,
   webdavBackend,
+  type BackupBackend,
+  type BackupEntry,
 } from './autobackup/backends';
+import { checkRecordBackup, restoreRecordBackup } from './backup';
+import { restoreBackendEntry } from './restoreBackendEntry';
+import type { RestoreOutcome } from './restoreNotice';
 import { getWebdavConfig, initWebdavConfig } from './autobackup/webdavConfig';
 import { useWhatsNewStore } from '../stores/WhatsNewStore';
+
+/** Where a found backup sits. `device` is the device backup's record zip. */
+export type BackupSource = 'device' | 'webdav' | 'googleDrive' | 'icloud';
+
+/**
+ * The backup the offer names and restores. `backend` fetches it, and is null
+ * for the record zip, which is already on the phone.
+ */
+export interface FoundBackup {
+  source: BackupSource;
+  entry: BackupEntry;
+  backend: BackupBackend | null;
+}
 
 /**
  * Whether to offer a restore. `activityCount` is read before the launch sync.
@@ -31,50 +49,87 @@ export function restorePromptDue(activityCount: number, backupFound: boolean): b
   return backupFound && activityCount === 0 && !isPlatformRecordAnswered();
 }
 
+/** The record zip left in the documents directory, when the engine would restore it. */
+async function deviceRecord(): Promise<FoundBackup | null> {
+  const uri = platformRecordUri();
+  if (!uri) return null;
+  const info = await FileSystem.getInfoAsync(uri);
+  if (!info.exists || ('size' in info && !(info.size ?? 0))) return null;
+  // One the engine refuses would only be refused again on Restore.
+  await checkRecordBackup(uri);
+  const size = 'size' in info ? (info.size ?? 0) : 0;
+  const modified = 'modificationTime' in info ? (info.modificationTime ?? 0) : 0;
+  return {
+    source: 'device',
+    backend: null,
+    entry: {
+      id: uri,
+      timestamp: new Date(modified * 1000).toISOString(),
+      sizeBytes: size,
+      appVersion: '',
+    },
+  };
+}
+
+async function newestListed(
+  source: BackupSource,
+  backend: BackupBackend
+): Promise<FoundBackup | null> {
+  const entries = await backend.listBackups();
+  const newest = entries.reduce<BackupEntry | null>(
+    (best, entry) =>
+      best === null || Date.parse(entry.timestamp) > Date.parse(best.timestamp) ? entry : best,
+    null
+  );
+  return newest ? { source, backend, entry: newest } : null;
+}
+
 /**
- * Whether a backup can be seen without asking the athlete for anything: a
- * record zip left in the documents directory that was not applied, or a
- * configured WebDAV server, a signed-in Google Drive or, on iPhone, Veloq's own
- * iCloud Drive folder that lists at least one backup.
+ * The newest backup that can be seen without asking the athlete for anything,
+ * with where it was found, or null: a record zip left in the documents
+ * directory that was not applied, a configured WebDAV server, a signed-in
+ * Google Drive or, on iPhone, Veloq's own iCloud Drive folder. A place that
+ * cannot be read holds none.
  */
-export async function backupIsFound(): Promise<boolean> {
-  try {
-    const uri = platformRecordUri();
-    if (uri) {
-      const info = await FileSystem.getInfoAsync(uri);
-      if (info.exists && (!('size' in info) || (info.size ?? 0) > 0)) return true;
-    }
-  } catch {
-    // An unreadable directory is no backup found.
-  }
-  try {
-    await initWebdavConfig();
-    if (getWebdavConfig() && (await webdavBackend.listBackups()).length > 0) return true;
-  } catch {
-    // A server that cannot be listed is no backup found there.
-  }
-  try {
-    if (
-      (await googleDriveBackend.isAvailable()) &&
-      (await googleDriveBackend.listBackups()).length > 0
-    )
-      return true;
-  } catch {
-    // Drive that cannot be listed is no backup found there.
-  }
-  try {
+export async function findNewestBackup(): Promise<FoundBackup | null> {
+  const lookups: (() => Promise<FoundBackup | null>)[] = [
+    deviceRecord,
+    async () => {
+      await initWebdavConfig();
+      return getWebdavConfig() ? newestListed('webdav', webdavBackend) : null;
+    },
+    async () =>
+      (await googleDriveBackend.isAvailable())
+        ? newestListed('googleDrive', googleDriveBackend)
+        : null,
     // Listed whatever the switch says: a reinstall has forgotten it, and the
     // folder still holds what the earlier install wrote.
-    return isIcloudSupported() && (await icloudBackend.listBackups()).length > 0;
-  } catch {
-    return false;
+    async () => (isIcloudSupported() ? newestListed('icloud', icloudBackend) : null),
+  ];
+  let newest: FoundBackup | null = null;
+  for (const lookup of lookups) {
+    const found = await lookup().catch(() => null);
+    if (
+      found &&
+      (newest === null || Date.parse(found.entry.timestamp) > Date.parse(newest.entry.timestamp))
+    ) {
+      newest = found;
+    }
   }
+  return newest;
+}
+
+/** Restore the backup the offer named, fetching it first unless it is on the phone. */
+export async function restoreFoundBackup(found: FoundBackup): Promise<RestoreOutcome> {
+  if (found.backend) return restoreBackendEntry(found.backend, found.entry);
+  await restoreRecordBackup(found.entry.id);
+  return 'restored';
 }
 
 /** Record that the athlete has been asked, so the offer never returns. */
 export function answerRestorePrompt(): void {
   markPlatformRecordAnswered();
-  useWhatsNewStore.getState().setRestoreOffered(false);
+  useWhatsNewStore.getState().setRestoreOffer(null);
 }
 
 /**
@@ -89,8 +144,8 @@ export async function offerRestorePrompt(
   isCurrent: () => boolean
 ): Promise<void> {
   if (launchCount > 0 || !isCurrent()) return;
-  const found = await backupIsFound();
-  if (isCurrent() && restorePromptDue(launchCount, found)) {
-    useWhatsNewStore.getState().setRestoreOffered(true);
+  const found = await findNewestBackup();
+  if (found && isCurrent() && restorePromptDue(launchCount, true)) {
+    useWhatsNewStore.getState().setRestoreOffer(found);
   }
 }

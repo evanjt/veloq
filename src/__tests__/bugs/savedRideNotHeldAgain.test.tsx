@@ -36,6 +36,7 @@ import { useRecordingPreferences } from '@/features/recording/stores/RecordingPr
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { showNotice } from '@/shared/ui/Notice';
 import type { RecordingStreams } from '@/features/recording/types';
 import type { RecordingLibraryEntry } from '@/types';
 
@@ -59,6 +60,10 @@ jest.mock('expo-file-system/legacy', () => ({
   }),
 }));
 
+jest.mock('@/shared/ui/Notice', () => ({
+  ...jest.requireActual('@/shared/ui/Notice'),
+  showNotice: jest.fn(),
+}));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 jest.mock('@tanstack/react-query', () => ({
@@ -232,7 +237,7 @@ it.each([
     mockUploadRecording.mockResolvedValue({ outcome });
     const review = await renderHook(() => useReviewSave(reviewArgs));
     await act(() => review.result.current.handleSave());
-    expect(review.result.current.queuedMessage).not.toBeNull();
+    expect(showNotice).toHaveBeenCalled();
 
     await holdRecordingOnSignOut('athlete-a');
     signOut();
@@ -249,7 +254,7 @@ it('does not hold a ride saved on the device alone when the athlete signs out in
   await stopRide('athlete-a');
   const review = await renderHook(() => useReviewSave(reviewArgs));
   await act(() => review.result.current.handleSave());
-  expect(review.result.current.queuedMessage).not.toBeNull();
+  expect(showNotice).toHaveBeenCalled();
 
   await holdRecordingOnSignOut('athlete-a');
   signOut();
@@ -433,7 +438,9 @@ describe('a backup that outlived the library save of its ride', () => {
     expect(mockSaveRecording).not.toHaveBeenCalled();
     expect(mockLibraryRows).toHaveLength(1);
     expect(await loadRecordingBackup()).toBeNull();
-    expect(review.result.current.queuedMessage).toBe('recording.savedLocally');
+    expect(showNotice).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'recording.savedLocally' })
+    );
   });
 
   it('is saved when the library still cannot be read at Save', async () => {
@@ -536,10 +543,9 @@ describe('a review left after its upload failed', () => {
     const second = await renderHook(() => useReviewSave(reviewArgs));
     await act(() => second.result.current.handleSave());
     expect(mockSaveRecording).toHaveBeenCalledTimes(1);
-    expect(second.result.current.queuedMessage).toBe('recording.savedLocally');
-    await act(() => {
-      jest.advanceTimersByTime(1500);
-    });
+    expect(showNotice).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'recording.savedLocally' })
+    );
     expect(useRecordingStore.getState().status).toBe('idle');
     expect(router.dismissTo).toHaveBeenCalledWith('/');
   });

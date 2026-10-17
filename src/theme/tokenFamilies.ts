@@ -33,7 +33,7 @@ export const FAMILY_BARS: Record<TokenFamily, number> = {
 /**
  * Every key of `colors` and `darkColors`. The other exports in `colors.ts` are
  * surface-specific pairs that name their own ground, `statusBadge`, `verdict`,
- * `amberBanner` and the rest, and are guarded where they are drawn rather than
+ * `offlinePill` and the rest, and are guarded where they are drawn rather than
  * here.
  */
 export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
@@ -151,6 +151,10 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   cautionOrange: 'ground',
   info: 'ground',
   infoLight: 'ground',
+  errorBg: 'ground',
+  warningBg: 'ground',
+  infoBg: 'ground',
+  successBg: 'ground',
   eventPriorityA: 'ground',
   eventPriorityB: 'ground',
   eventPriorityC: 'ground',
@@ -258,6 +262,21 @@ export const TOKEN_GROUNDS: Record<string, readonly string[]> = {
   textOnDark: ['secondary', 'appColourPillBackground', 'dangerFill'],
   textOnPrimary: ['primary'],
   textOnBright: ['accent', 'accentLight', 'primaryLight', 'success', 'warning', 'info'],
+};
+
+/**
+ * Tokens drawn on a status tint as well as on their theme's surfaces. The
+ * body ink carries a notice's title and detail on every tint, and each tone's
+ * text role is its icon and its words on its own tint. Measured on these and
+ * on the surfaces both.
+ */
+export const TINT_GROUNDS: Record<string, readonly string[]> = {
+  textPrimary: ['errorBg', 'warningBg', 'infoBg', 'successBg'],
+  textSecondary: ['errorBg', 'warningBg', 'infoBg', 'successBg'],
+  errorDeep: ['errorBg'],
+  warningAmber: ['warningBg'],
+  infoText: ['infoBg'],
+  successDeep: ['successBg'],
 };
 
 /**

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { SharedValue } from 'react-native-reanimated';
 
 import { useTheme } from '@/shared/app';
-import { spacing, opacity } from '@/theme';
+import { spacing, opacity, stroke } from '@/theme';
 import { Card } from '@/shared/ui/Card';
 import { CardHeader } from '@/shared/ui/CardHeader';
 import { ErrorState } from '@/shared/ui/ErrorState';
@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
   dotsSection: {
     marginTop: spacing.sm,
     paddingTop: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: stroke.hairline,
     borderTopColor: opacity.overlay.medium,
   },
   dotsSectionDark: {
@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
   formSection: {
     marginTop: spacing.sm,
     paddingTop: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: stroke.hairline,
     borderTopColor: opacity.overlay.medium,
   },
   formSectionDark: {

@@ -12,6 +12,7 @@ import {
   layout,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 import { permissionOutcome } from '@/shared/app/permissions';
 import { Button, IconButton, PermissionNotice } from '@/shared/ui';
@@ -161,7 +162,6 @@ export function NextcloudQrScanner({
 }
 
 const CORNER_SIZE = 24;
-const CORNER_WIDTH = 3;
 
 const styles = StyleSheet.create({
   container: {
@@ -232,29 +232,29 @@ const styles = StyleSheet.create({
   cornerTL: {
     top: 0,
     left: 0,
-    borderTopWidth: CORNER_WIDTH,
-    borderLeftWidth: CORNER_WIDTH,
+    borderTopWidth: stroke.three,
+    borderLeftWidth: stroke.three,
     borderColor: cameraOverlay.text,
   },
   cornerTR: {
     top: 0,
     right: 0,
-    borderTopWidth: CORNER_WIDTH,
-    borderRightWidth: CORNER_WIDTH,
+    borderTopWidth: stroke.three,
+    borderRightWidth: stroke.three,
     borderColor: cameraOverlay.text,
   },
   cornerBL: {
     bottom: 0,
     left: 0,
-    borderBottomWidth: CORNER_WIDTH,
-    borderLeftWidth: CORNER_WIDTH,
+    borderBottomWidth: stroke.three,
+    borderLeftWidth: stroke.three,
     borderColor: cameraOverlay.text,
   },
   cornerBR: {
     bottom: 0,
     right: 0,
-    borderBottomWidth: CORNER_WIDTH,
-    borderRightWidth: CORNER_WIDTH,
+    borderBottomWidth: stroke.three,
+    borderRightWidth: stroke.three,
     borderColor: cameraOverlay.text,
   },
 });

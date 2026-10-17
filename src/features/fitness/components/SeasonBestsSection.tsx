@@ -24,6 +24,7 @@ import {
   layout,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 import {
   bestEffortsHref,
@@ -176,7 +177,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     minHeight: layout.minTapTarget,
     marginTop: spacing.xs,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: stroke.hairline,
     borderTopColor: colorWithOpacity(ink.black, 0.08),
   },
   viewAllRowDark: {

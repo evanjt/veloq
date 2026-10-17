@@ -276,6 +276,6 @@ const styles = StyleSheet.create({
   },
   buttonLabel: {
     fontSize: typography.label.fontSize,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 });

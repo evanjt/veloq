@@ -32,6 +32,9 @@ pub(crate) const PAUSED_IMPORT_KEY: &str = "__record_import_paused";
 /// here yet is keyed by in `route_numbers` and `section_numbers`, in place of
 /// a local id. Holding it there is what keeps every minting path off it.
 pub(crate) const HELD_NUMBER_PREFIX: &str = "restored:";
+/// The local routes and sections a restore has given a number, kept while any
+/// number from that record still waits, so a later pass leaves them alone.
+pub(crate) const RESTORED_NUMBERS_KEY: &str = "__record_restore_numbered";
 
 fn id_set_from_conn(conn: &Connection, key: &str) -> Result<BTreeSet<String>, String> {
     let raw: Option<String> = conn
@@ -299,7 +302,7 @@ impl PersistentEngine {
     /// placed stays, and a paused import is its own to discard.
     pub fn discard_unplaced_records(&mut self) -> Result<(), String> {
         self.in_write_txn(|engine| {
-            for key in [PENDING_KEY, OWED_KEY] {
+            for key in [PENDING_KEY, OWED_KEY, RESTORED_NUMBERS_KEY] {
                 engine.delete_setting(key).map_err(|e| e.to_string())?;
             }
             for store in [NumberStore::Routes, NumberStore::Sections] {
@@ -442,7 +445,7 @@ impl PersistentEngine {
         let mut result = RestoreRecordResult::default();
         let mut pending = Vec::new();
         let mut missing = BTreeSet::new();
-        let mut numbered = BTreeSet::new();
+        let mut numbered = restored_numbers_from_conn(&self.db)?;
         let mut routes_touched = false;
         let mut unavailable = id_set_from_conn(&self.db, UNAVAILABLE_KEY)?;
         let unavailable_before = unavailable.len();
@@ -493,6 +496,20 @@ impl PersistentEngine {
         }
         if routes_touched {
             self.apply_route_names().map_err(|e| e.to_string())?;
+        }
+        if pending.iter().any(is_number_row) {
+            let held: Vec<(NumberStore, String, u32)> = numbered
+                .into_iter()
+                .map(|((store, local), number)| (store, local, number))
+                .collect();
+            self.set_setting(
+                RESTORED_NUMBERS_KEY,
+                &serde_json::to_string(&held).map_err(|e| e.to_string())?,
+            )
+            .map_err(|e| e.to_string())?;
+        } else {
+            self.delete_setting(RESTORED_NUMBERS_KEY)
+                .map_err(|e| e.to_string())?;
         }
         let unresolved_names: BTreeSet<String> = self
             .get_named_corridors()
@@ -735,12 +752,13 @@ impl PersistentEngine {
     /// Whatever local row holds the number now moves to the lowest free one
     /// in the same write, so no read sees two holders. With no ground here
     /// yet the number is held under the record's own key until it lands. A
-    /// local row takes one restored number per placement, so two old numbers
-    /// whose ground resolves to it do not displace each other.
+    /// local row takes one restored number from a record, whichever pass
+    /// placed it, so two old numbers whose ground resolves to it do not
+    /// displace each other.
     fn place_number(
         &self,
         row: &RecordRow,
-        numbered: &mut BTreeSet<(NumberStore, String)>,
+        numbered: &mut BTreeMap<(NumberStore, String), u32>,
     ) -> Result<bool, String> {
         let Some((store, source_id, number)) = number_row(row) else {
             return Ok(true);
@@ -761,7 +779,11 @@ impl PersistentEngine {
                 }
             }
         }
-        .filter(|id| !numbered.contains(&(store, id.clone())));
+        .filter(|id| {
+            numbered
+                .get(&(store, id.clone()))
+                .is_none_or(|restored| *restored == number)
+        });
         let Some(local) = local else {
             hold_number(&self.db, store, &held, number)?;
             return Ok(false);
@@ -773,7 +795,7 @@ impl PersistentEngine {
             )
             .map_err(|e| e.to_string())?;
         hold_number(&self.db, store, &local, number)?;
-        numbered.insert((store, local));
+        numbered.insert((store, local), number);
         Ok(true)
     }
 
@@ -1103,7 +1125,9 @@ fn distinct_rows(rows: Vec<RecordRow>) -> Result<Vec<RecordRow>, String> {
 }
 
 /// The two number stores, each a key column and a number unique across it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 enum NumberStore {
     Routes,
     Sections,
@@ -1148,6 +1172,45 @@ fn number_row(row: &RecordRow) -> Option<(NumberStore, &str, u32)> {
         .and_then(|n| u32::try_from(n).ok())
         .filter(|n| *n > 0)?;
     Some((store, id, number))
+}
+
+/// The local rows an earlier pass gave a restored number, less any that has
+/// since lost it.
+fn restored_numbers_from_conn(
+    conn: &Connection,
+) -> Result<BTreeMap<(NumberStore, String), u32>, String> {
+    let raw: Option<String> = conn
+        .query_row(
+            "SELECT value FROM settings WHERE key = ?",
+            [RESTORED_NUMBERS_KEY],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|e| e.to_string())?;
+    let Some(raw) = raw.filter(|raw| !raw.is_empty()) else {
+        return Ok(BTreeMap::new());
+    };
+    let placed: Vec<(NumberStore, String, u32)> = serde_json::from_str(&raw)
+        .map_err(|e| format!("Unreadable {RESTORED_NUMBERS_KEY}: {e}"))?;
+    let mut numbered = BTreeMap::new();
+    for (store, local, number) in placed {
+        let holds: Option<u32> = conn
+            .query_row(
+                &format!(
+                    "SELECT number FROM {} WHERE {} = ?1",
+                    store.table(),
+                    store.key()
+                ),
+                [&local],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|e| e.to_string())?;
+        if holds == Some(number) {
+            numbered.insert((store, local), number);
+        }
+    }
+    Ok(numbered)
 }
 
 /// Make `holder` the one holder of `number`, giving up any number it held,
@@ -3987,5 +4050,122 @@ mod tests {
         engine
             .discard_paused_import()
             .expect("a discard with nothing paused is a no-op");
+    }
+
+    /// The library a released 0.3.8 build wrote, as a `.veloqdb` copy of it.
+    const RELEASED_V12: &str = include_str!("../../tests/fixtures/v12_demo.sql");
+
+    fn query_strings(engine: &PersistentEngine, sql: &str) -> Vec<String> {
+        engine
+            .db
+            .prepare(sql)
+            .unwrap()
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap()
+    }
+
+    /// Scenario: an athlete moving off 0.3.8 installs fresh, syncs, then
+    /// imports the database backup the old build wrote.
+    /// Expected behaviour: the map and language settings and the route names
+    /// come back, nothing is left waiting, and a route that arrives later
+    /// shows a label no restored route already shows.
+    #[test]
+    fn test_released_v12_database_converted_restores_onto_a_fresh_synced_library() {
+        let _serial = crate::test_globals::serial_global_state();
+        let dir = TempDir::new().unwrap();
+        let legacy_path = dir.path().join("released.veloqdb");
+        let legacy = rusqlite::Connection::open(&legacy_path).unwrap();
+        legacy.execute_batch(RELEASED_V12).unwrap();
+        drop(legacy);
+        let record_path = dir.path().join("record.zip");
+        crate::persistence::record_backup::convert_legacy_database(
+            legacy_path.to_str().unwrap(),
+            record_path.to_str().unwrap(),
+        )
+        .unwrap();
+        let payload =
+            crate::persistence::record_backup::read_record_zip(record_path.to_str().unwrap())
+                .unwrap();
+        let carried = |table: &str| payload.entries.iter().filter(|e| e.table == table).count();
+        assert_eq!(carried("route_names"), 45);
+        assert_eq!(carried("section_numbers"), 42);
+        let settings: Vec<&str> = payload
+            .entries
+            .iter()
+            .filter(|e| e.table == "settings")
+            .filter_map(|e| e.values["key"].as_str())
+            .collect();
+        assert!(settings.contains(&"veloq-map-preferences"), "{settings:?}");
+        assert!(
+            settings.contains(&"veloq-language-preference"),
+            "{settings:?}"
+        );
+        assert!(!settings.contains(&"__settings_migrated"), "{settings:?}");
+
+        let source = PersistentEngine::new(legacy_path.to_str().unwrap()).unwrap();
+        let activities: Vec<(String, String, Option<i64>)> = source
+            .db
+            .prepare("SELECT id, sport_type, start_date FROM activities ORDER BY id")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        let mut fresh =
+            PersistentEngine::new(dir.path().join("fresh.db").to_str().unwrap()).unwrap();
+        for (id, sport, start) in &activities {
+            let track = source.get_gps_track(id).unwrap();
+            fresh
+                .add_activity(id.clone(), track, sport.clone())
+                .unwrap();
+            fresh
+                .update_activity_metadata(id, *start, None, None, None)
+                .unwrap();
+        }
+        let (sections, _) = fresh.detect_sections_background().recv().unwrap();
+        fresh.apply_sections(sections).unwrap();
+
+        let restored = fresh.restore_record_payload(payload).unwrap();
+        assert!(restored.missing_activity_ids.is_empty(), "{restored:?}");
+        assert_eq!(fresh.settle_record_restore().unwrap().unplaced, 0);
+
+        for key in ["veloq-map-preferences", "veloq-language-preference"] {
+            let sql = format!("SELECT value FROM settings WHERE key = '{key}'");
+            assert_eq!(query_strings(&fresh, &sql), query_strings(&source, &sql));
+        }
+        let source_names = query_strings(&source, "SELECT custom_name FROM route_names");
+        let fresh_names = query_strings(&fresh, "SELECT custom_name FROM route_names");
+        assert!(!fresh_names.is_empty());
+        for name in &fresh_names {
+            assert!(source_names.contains(name), "{name} is not a 0.3.8 name");
+        }
+
+        let far: Vec<GpsPoint> = ride()
+            .into_iter()
+            .map(|p| GpsPoint {
+                latitude: p.latitude - 10.0,
+                ..p
+            })
+            .collect();
+        fresh
+            .add_activity("ride-after-import".to_string(), far, "Ride".to_string())
+            .unwrap();
+        let new_route = fresh
+            .get_groups()
+            .iter()
+            .find(|g| g.activity_ids.iter().any(|id| id == "ride-after-import"))
+            .expect("the new ride forms a route")
+            .group_id
+            .clone();
+        let shown = fresh.get_all_route_names();
+        let label = &shown[&new_route];
+        let clashes: Vec<&String> = shown
+            .iter()
+            .filter(|(id, shown)| **id != new_route && *shown == label)
+            .map(|(id, _)| id)
+            .collect();
+        assert!(clashes.is_empty(), "{label} is shown by {clashes:?} too");
     }
 }

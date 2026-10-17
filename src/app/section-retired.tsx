@@ -5,11 +5,11 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
-import { EmptyState, ScreenSafeAreaView, ScreenScrollView } from '@/shared/ui';
+import { Card, EmptyState, ScreenSafeAreaView, ScreenScrollView } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { useEngineRead, useEngineReadState } from '@/shared/native/useEngineSubscription';
 import { EngineReadPlaceholder } from '@/shared/app/EngineUnavailableState';
@@ -76,18 +76,21 @@ function SectionRetiredScreenContent() {
                 accessibilityRole="link"
                 accessibilityLabel={into}
                 android_ripple={pressRipple}
-                style={pressable([styles.card, isDark && styles.cardDark])}
+                style={pressable(styles.target)}
               >
-                {body}
+                <Card variant="flat" style={{ gap: spacing.xs }}>
+                  {body}
+                </Card>
               </Pressable>
             ) : (
-              <View
+              <Card
                 key={r.sectionId}
-                style={[styles.card, isDark && styles.cardDark]}
+                variant="flat"
+                style={{ gap: spacing.xs }}
                 testID={`section-retired-${r.sectionId}`}
               >
                 {body}
-              </View>
+              </Card>
             );
           })
         )}
@@ -103,14 +106,7 @@ const styles = StyleSheet.create({
     padding: layout.screenPadding,
     gap: spacing.sm,
   },
-  card: {
-    minHeight: layout.minTapTarget,
-    padding: layout.cardPadding,
-    borderRadius: layout.borderRadius,
-    backgroundColor: colors.surface,
-    gap: spacing.xs,
-  },
-  cardDark: { backgroundColor: darkColors.surface },
+  target: { minHeight: layout.minTapTarget },
   kind: { ...typography.body, color: colors.textPrimary },
   meta: { ...typography.caption, color: colors.textSecondary },
   link: { ...typography.bodySmall, color: colors.linkTeal },

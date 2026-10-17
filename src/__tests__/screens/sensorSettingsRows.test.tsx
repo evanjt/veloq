@@ -27,6 +27,7 @@ jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
 }));
 jest.mock('@/shared/ui', () => ({
+  Card: jest.requireActual('@/shared/ui/Card').Card,
   ScreenSafeAreaView: require('react-native').View,
   ScreenScrollView: require('react-native').ScrollView,
   EmptyState: () => null,
@@ -79,7 +80,7 @@ const UNNAMED: DiscoveredSensor = {
 };
 
 const discoveredOrder = () =>
-  screen.getAllByTestId(/^sensor-discovered-/).map((row) => row.props.testID);
+  screen.getAllByTestId(/^sensor-discovered-(?!.*-body$)/).map((row) => row.props.testID);
 const rowText = (testID: string) =>
   within(screen.getByTestId(testID))
     .queryAllByText(/./)

@@ -8,14 +8,16 @@
  * and records the height it drew so a pill floating under the status bar sits
  * below it rather than over it.
  *
- * Its actions are the shared `Button`, and a dismiss, when it has one, is
- * labelled Close. The English default covers the launch where the language
+ * It is one row: the tone's icon, the title and any detail, then its action
+ * and an icon close at the trailing edge. Only past the large-text cap does
+ * the row stack, with the controls under the text. The close is labelled
+ * Close, and the English default covers the launch where the language
  * initialiser is the one that failed and the translator has no bundle to read.
  */
 
 import React, { useEffect } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
-import Animated, { SlideInUp, SlideOutUp } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -24,18 +26,19 @@ import { useTheme } from '@/shared/app';
 import { useBannerTopPadding } from '@/shared/app/TopSafeAreaContext';
 import { useTopBannerHeights, type ShownBanner } from '@/shared/app/topBanner';
 import {
-  amberBanner,
-  brand,
   colors,
-  colorWithOpacity,
+  controlHeight,
   darkColors,
   iconSize,
-  ink,
+  motionPresets,
   spacing,
+  stroke,
   typography,
 } from '@/theme';
 import { Button } from './Button';
+import { IconButton } from './IconButton';
 import { useAnnounceOnAppear } from './useAnnounceOnAppear';
+import { useLargeText } from './useLargeText';
 
 /**
  * A failure, a notice the athlete may act on, a state they chose, or a wait
@@ -62,35 +65,32 @@ interface NoticeBannerProps {
   testID: string;
 }
 
-interface Palette {
+export interface NoticePalette {
   bg: string;
+  /** An edge under the ground, for the one tone whose ground is the page colour. */
+  border?: string;
   text: string;
   subtext: string;
+  icon: string;
 }
 
 /**
- * Failures and notices draw on amber. The info tone takes the brand blue with
- * dark ink on the light fill and white on the dark one: white on `brand.blue`
- * is 2.96:1 and dark ink on `brand.blueDark` 3.93:1, so neither ink carries
- * both fills. Measured 2026-09-15: dark ink on blue 5.99:1, white on blueDark
- * 4.51:1, and the subtitle's dark ink at 0.85 is 4.78:1. On the dark fill white
- * has no headroom to give, so the subtitle goes full strength. The neutral tone
- * is the theme's own surface and text, since nothing is wrong.
+ * Each tone is its status tint with the body ink on it and the tone's own
+ * text colour as the icon, so a failure, a caution and a notice differ by hue
+ * and each still pairs its colour with an icon and words. Neutral is the
+ * surface, edged so it parts from the page under it. The pairs are measured in
+ * `TINT_GROUNDS`.
  */
-function palette(tone: NoticeTone, isDark: boolean): Palette {
-  if (tone === 'neutral') {
-    return isDark
-      ? { bg: darkColors.surface, text: darkColors.textPrimary, subtext: darkColors.textSecondary }
-      : { bg: colors.surface, text: colors.textPrimary, subtext: colors.textSecondary };
-  }
-  if (tone !== 'info') return isDark ? amberBanner.dark : amberBanner.light;
-  return isDark
-    ? { bg: brand.blueDark, text: colors.textOnDark, subtext: ink.white }
-    : {
-        bg: brand.blue,
-        text: colors.textOnBright,
-        subtext: colorWithOpacity(colors.textOnBright, 0.85),
-      };
+export function noticePalette(tone: NoticeTone, isDark: boolean): NoticePalette {
+  const p = isDark ? darkColors : colors;
+  const ink = { text: p.textPrimary, subtext: p.textSecondary };
+  const grounds: Record<NoticeTone, Omit<NoticePalette, 'text' | 'subtext'>> = {
+    error: { bg: p.errorBg, icon: p.errorDeep },
+    warning: { bg: p.warningBg, icon: p.warningAmber },
+    info: { bg: p.infoBg, icon: p.infoText },
+    neutral: { bg: p.surface, border: p.border, icon: p.textSecondary },
+  };
+  return { ...grounds[tone], ...ink };
 }
 
 export function NoticeBanner({
@@ -107,7 +107,8 @@ export function NoticeBanner({
   const { isDark } = useTheme();
   const paddingTop = useBannerTopPadding(slot);
   const setHeight = useTopBannerHeights((s) => s.setHeight);
-  const ground = palette(tone, isDark);
+  const ground = noticePalette(tone, isDark);
+  const stacked = useLargeText();
 
   useAnnounceOnAppear([title, ...detail].join('. '));
 
@@ -117,25 +118,34 @@ export function NoticeBanner({
   const hasControls = actions.length > 0 || onDismiss !== undefined;
 
   return (
-    <Animated.View entering={SlideInUp.duration(250)} exiting={SlideOutUp.duration(200)}>
+    <Animated.View {...motionPresets.banner}>
       <View
         testID={testID}
         onLayout={onLayout}
         accessibilityLiveRegion={tone === 'error' ? 'assertive' : 'polite'}
-        style={[styles.container, { paddingTop, backgroundColor: ground.bg }]}
+        style={[
+          styles.container,
+          { paddingTop, backgroundColor: ground.bg },
+          ground.border !== undefined && {
+            borderBottomWidth: stroke.hairline,
+            borderBottomColor: ground.border,
+          },
+        ]}
       >
-        <View testID={`${testID}-content`} style={styles.content}>
+        <View testID={`${testID}-content`} style={[styles.content, stacked && styles.stacked]}>
           <View style={styles.headline}>
-            <MaterialCommunityIcons name={icon} size={iconSize.sm} color={ground.text} />
-            <Text style={[styles.title, { color: ground.text }]}>{title}</Text>
+            <MaterialCommunityIcons name={icon} size={iconSize.sm} color={ground.icon} />
+            <View style={styles.text}>
+              <Text style={[styles.title, { color: ground.text }]}>{title}</Text>
+              {detail.map((line, index) => (
+                <Text key={index} style={[styles.detail, { color: ground.subtext }]}>
+                  {line}
+                </Text>
+              ))}
+            </View>
           </View>
-          {detail.map((line, index) => (
-            <Text key={index} style={[styles.detail, { color: ground.subtext }]}>
-              {line}
-            </Text>
-          ))}
           {hasControls ? (
-            <View style={styles.actions}>
+            <View style={styles.controls}>
               {actions.map((action) => (
                 <Button
                   key={action.label}
@@ -147,13 +157,14 @@ export function NoticeBanner({
                 />
               ))}
               {onDismiss ? (
-                <Button
-                  label={t('common.close', { defaultValue: 'Close' })}
+                <IconButton
+                  accessibilityLabel={t('common.close', { defaultValue: 'Close' })}
                   onPress={onDismiss}
-                  variant="secondary"
-                  size="sm"
+                  compact
                   testID={`${testID}-dismiss`}
-                />
+                >
+                  <MaterialCommunityIcons name="close" size={iconSize.sm} color={ground.subtext} />
+                </IconButton>
               ) : null}
             </View>
           ) : null}
@@ -168,28 +179,37 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   content: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    gap: spacing.xxs,
+    gap: spacing.sm,
+    minHeight: controlHeight.buttonSm + spacing.sm * 2,
+  },
+  stacked: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
   },
   headline: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
+  text: {
+    flex: 1,
+    gap: spacing.xxs,
+  },
   title: {
-    ...typography.bodyCompact,
-    fontWeight: '600',
-    flexShrink: 1,
+    ...typography.bodySmallBold,
   },
   detail: {
     ...typography.caption,
   },
-  actions: {
+  controls: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     justifyContent: 'flex-end',
-    gap: spacing.sm,
-    marginTop: spacing.xs,
+    gap: spacing.xs,
   },
 });

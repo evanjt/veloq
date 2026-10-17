@@ -300,7 +300,7 @@ const styles = StyleSheet.create({
   },
   labelText: {
     fontSize: typography.caption.fontSize,
-    fontWeight: '500',
+    fontWeight: '400',
     flex: 1,
   },
   valueText: {

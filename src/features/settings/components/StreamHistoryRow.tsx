@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
   },
   infoValue: {
     fontSize: typography.bodySmall.fontSize,
-    fontWeight: '500',
+    fontWeight: '600',
     color: colors.textPrimary,
   },
   failure: {

@@ -61,6 +61,12 @@ export const typography = {
     fontWeight: '400' as const,
     lineHeight: 20,
   },
+  bodySmallBold: {
+    fontFamily,
+    fontSize: 14,
+    fontWeight: '600' as const,
+    lineHeight: 20,
+  },
   bodyMedium: {
     fontFamily,
     fontSize: 15,
@@ -71,6 +77,12 @@ export const typography = {
     fontFamily,
     fontSize: 13,
     fontWeight: '400' as const,
+    lineHeight: 18,
+  },
+  bodyCompactBold: {
+    fontFamily,
+    fontSize: 13,
+    fontWeight: '600' as const,
     lineHeight: 18,
   },
 
@@ -127,7 +139,7 @@ export const typography = {
   statsLabel: {
     fontFamily,
     fontSize: 12,
-    fontWeight: '500' as const,
+    fontWeight: '400' as const,
     lineHeight: 16,
     letterSpacing: 0.3,
     textTransform: 'uppercase' as const,
@@ -137,7 +149,7 @@ export const typography = {
   sectionHeader: {
     fontFamily,
     fontSize: 12,
-    fontWeight: '500' as const,
+    fontWeight: '600' as const,
     lineHeight: 16,
     letterSpacing: 0.3,
     textTransform: 'uppercase' as const,
@@ -182,7 +194,7 @@ export const typography = {
   label: {
     fontFamily,
     fontSize: 11,
-    fontWeight: '500' as const,
+    fontWeight: '600' as const,
     lineHeight: 14,
     letterSpacing: 0.4,
     textTransform: 'uppercase' as const,
@@ -190,7 +202,7 @@ export const typography = {
   micro: {
     fontFamily,
     fontSize: 10,
-    fontWeight: '500' as const,
+    fontWeight: '400' as const,
     lineHeight: 12,
     letterSpacing: 0.2,
   },

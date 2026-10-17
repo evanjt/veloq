@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/shared/ui';
 import { formatDistance, formatDuration } from '@/shared/format/format';
-import { layout, spacing, typography } from '@/theme';
+import { layout, spacing, typography, stroke } from '@/theme';
 import { useWorkoutView } from '@/features/recording/hooks/useWorkoutView';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import {
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     padding: spacing.sm,
     gap: spacing.xs,
     borderRadius: layout.borderRadiusSm,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: stroke.hairline,
   },
   header: {
     flexDirection: 'row',

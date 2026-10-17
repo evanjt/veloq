@@ -30,6 +30,7 @@ import {
   spacing,
   typography,
   verdict,
+  stroke,
 } from '@/theme';
 import { useMapPreferences } from '@/features/settings';
 import { type TerrainSnapshotWebViewRef } from '@/features/maps';
@@ -839,17 +840,16 @@ export const ActivityCard = React.memo(
 );
 
 /** Shape shared by the route chip and the section pills. */
-const PILL_BORDER = 1;
 const pillShape = {
   borderRadius: layout.borderRadiusSm,
   paddingHorizontal: spacing.xsPlus,
   paddingVertical: spacing.xxs,
-  borderWidth: PILL_BORDER,
+  borderWidth: stroke.one,
 } as const;
 
 // The chips sit on the card, which is its own press target, so the slop only
 // lifts their height and leaves the card's area beside them alone.
-const PILL_HEIGHT = typography.pillValue.lineHeight + 2 * (spacing.xxs + PILL_BORDER);
+const PILL_HEIGHT = typography.pillValue.lineHeight + 2 * (spacing.xxs + stroke.one);
 const CHIP_SLOP = slopToMinTapTarget(PILL_HEIGHT);
 
 const styles = StyleSheet.create({
@@ -928,7 +928,6 @@ const styles = StyleSheet.create({
   },
   overlayDateSubtitle: {
     ...typography.caption,
-    fontWeight: '500',
     marginTop: spacing.xxs,
     ...mapTextShadow,
   },
@@ -1071,7 +1070,7 @@ const styles = StyleSheet.create({
   },
   compactDateSubtitle: {
     fontSize: typography.caption.fontSize,
-    fontWeight: '500',
+    fontWeight: '400',
     marginTop: spacing.xxs,
   },
   compactPrimaryRow: {

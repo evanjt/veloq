@@ -4,7 +4,7 @@ import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { RangeCoverage } from 'veloqrs';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, typography, spacing } from '@/theme';
+import { colors, darkColors, typography, spacing, stroke } from '@/theme';
 import { ZoneHistogram, type ZoneBand } from '@/shared/charts';
 
 import type { ZoneDistribution } from '@/types';
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: spacing.md,
     paddingTop: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: stroke.hairline,
     borderTopColor: colors.border,
   },
   totalRowDark: {

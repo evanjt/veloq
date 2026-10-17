@@ -501,6 +501,24 @@ describe('the wipe every hand-off takes', () => {
     expect(mockFiles.has('file:///group/notroutes.db.displaced-1')).toBe(true);
   });
 
+  it('takes the copy an upgrade took of the library before migrating it', async () => {
+    await seedAthleteA();
+    mockFiles.set('file:///docs/routes.db', 'live');
+    mockFiles.set('file:///docs/routes.db.pre-upgrade-12', '{}');
+    mockFiles.set('file:///docs/routes.db.pre-upgrade-12-wal', '{}');
+    mockFiles.set('file:///docs/notroutes.db.pre-upgrade-12', 'other');
+
+    await wipeLibrary();
+
+    expect(
+      ['file:///docs/routes.db.pre-upgrade-12', 'file:///docs/routes.db.pre-upgrade-12-wal'].filter(
+        (uri) => mockFiles.has(uri)
+      )
+    ).toEqual([]);
+    expect(mockFiles.has('file:///docs/routes.db')).toBe(true);
+    expect(mockFiles.has('file:///docs/notroutes.db.pre-upgrade-12')).toBe(true);
+  });
+
   it('still wipes the library when an older build left no Documents directory to list', async () => {
     await seedAthleteA();
     const list = jest.mocked(FileSystem.readDirectoryAsync);
@@ -770,6 +788,15 @@ const DEVICE_WRITES: DeviceWrite[] = [
         'file:///docs/routes.db.corrupt-1759219200',
         'file:///docs/routes.db.corrupt-1759219200-wal',
       ],
+    },
+  },
+  {
+    confirm: [],
+    where: 'routes.db.pre-upgrade-<version> and its pair, the library as it was before a migration',
+    writers: [`${RUST}/persistence/pre_upgrade_copy.rs`],
+    holds: 'a whole copy of the library',
+    wiped: {
+      files: ['file:///docs/routes.db.pre-upgrade-12', 'file:///docs/routes.db.pre-upgrade-12-wal'],
     },
   },
   {

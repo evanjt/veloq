@@ -10,13 +10,13 @@ export function historyTarget(insight: Insight): string | undefined {
  * The screen holding the data an insight was computed from, or null for a card
  * that carries none.
  *
- * What the graphic pictures comes first, since that is the series the numbers
- * were taken from: a record opens its section with the record's effort
+ * The series the numbers were taken from comes first, whether or not it was
+ * long enough to draw: a record opens its section with the record's effort
  * highlighted, a fitness card the window it compared. A summary across
  * sections pictures its rows, so it opens the top-ranked one.
  */
 export function insightDataTarget(insight: Insight): string | null {
-  const pictured = historyTarget(insight);
+  const pictured = historyTarget(insight) ?? insight.supportingData?.dataTarget;
   if (pictured) return pictured;
   if (insight.navigationTarget) return insight.navigationTarget;
   const top = insight.supportingData?.sections?.[0];

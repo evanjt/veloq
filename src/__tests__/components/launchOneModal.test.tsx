@@ -68,7 +68,7 @@ function launch() {
 beforeEach(() => {
   mockTake.mockReset().mockReturnValue(null);
   clearQuarantineReport();
-  useWhatsNewStore.setState({ launchModal: null, restoreOffered: false });
+  useWhatsNewStore.setState({ launchModal: null, restoreOffer: null });
   useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
   alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
 });
@@ -114,7 +114,7 @@ describe('one modal per launch', () => {
     expect(useWhatsNewStore.getState().tourState).toBeNull();
     await first.unmount();
 
-    useWhatsNewStore.setState({ launchModal: null, restoreOffered: false });
+    useWhatsNewStore.setState({ launchModal: null, restoreOffer: null });
     await launch();
     expect(useWhatsNewStore.getState().tourState?.mode).toBe('whatsNew');
     expect(alertSpy).toHaveBeenCalledTimes(1);

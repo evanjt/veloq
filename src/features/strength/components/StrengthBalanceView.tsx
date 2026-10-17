@@ -15,6 +15,7 @@ import {
   typography,
   verdictColor,
   verdictFill,
+  stroke,
 } from '@/theme';
 import type { VerdictRung } from '@/theme';
 import type { StrengthBalancePair } from '@/types';
@@ -25,7 +26,7 @@ import {
   formatBalanceRatio,
   type BalanceCopyKey,
 } from '../lib/formatting';
-import { IconButton } from '@/shared/ui';
+import { Card, IconButton } from '@/shared/ui';
 import { StrengthBalanceScale } from './StrengthBalanceScale';
 
 interface StrengthBalanceViewProps {
@@ -58,131 +59,131 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
   if (visibleBalancePairs.length === 0) return null;
 
   return (
-    <View style={[styles.balanceCard, isDark && styles.balanceCardDark]}>
-      <View style={styles.balanceHeader}>
-        <View style={styles.balanceTitleColumn}>
-          <View style={styles.balanceTitleRow}>
-            <Text style={[styles.balanceTitle, isDark && styles.balanceTitleDark]}>
-              {t('insights.strengthBalance.volumeSplit')}
-            </Text>
-            <IconButton accessibilityLabel={t('strength.pairsInfoTitle')} onPress={openInfo}>
-              <MaterialCommunityIcons
-                name="information-outline"
-                size={iconSize.sm}
-                color={isDark ? darkColors.textSecondary : colors.textSecondary}
-              />
-            </IconButton>
-          </View>
-          <Text style={[styles.balanceSubtitle, isDark && styles.balanceSubtitleDark]}>
-            {t('strength.balanceObservedPairs', {
-              period: periodLabel,
-            })}
-          </Text>
-        </View>
-        {featuredBalancePair ? (
-          <View
-            style={[
-              styles.balanceHeroBadge,
-              {
-                backgroundColor: verdictFill(balanceRung(featuredBalancePair.status), isDark, true),
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.balanceHeroBadgeText,
-                { color: verdictColor(balanceRung(featuredBalancePair.status), isDark) },
-              ]}
-            >
-              {formatBalanceRatio(featuredBalancePair, balanceCopy)}
-            </Text>
-          </View>
-        ) : null}
-      </View>
-
-      {featuredBalancePair ? (
-        <Text style={[styles.balanceHeroText, isDark && styles.balanceHeroTextDark]}>
-          {featuredBalancePair.status === 'balanced'
-            ? t('strength.balancedPairsClose')
-            : t('strength.balanceDominant', {
-                dominant: featuredBalancePair.dominantLabel ?? t('strength.oneSide'),
-                other:
-                  featuredBalancePair.dominantSlug === featuredBalancePair.leftSlug
-                    ? featuredBalancePair.rightLabel
-                    : featuredBalancePair.leftLabel,
-                pair: featuredBalancePair.label,
+    <View style={styles.frame}>
+      <Card variant="flat">
+        <View style={styles.balanceHeader}>
+          <View style={styles.balanceTitleColumn}>
+            <View style={styles.balanceTitleRow}>
+              <Text style={[styles.balanceTitle, isDark && styles.balanceTitleDark]}>
+                {t('insights.strengthBalance.volumeSplit')}
+              </Text>
+              <IconButton accessibilityLabel={t('strength.pairsInfoTitle')} onPress={openInfo}>
+                <MaterialCommunityIcons
+                  name="information-outline"
+                  size={iconSize.sm}
+                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                />
+              </IconButton>
+            </View>
+            <Text style={[styles.balanceSubtitle, isDark && styles.balanceSubtitleDark]}>
+              {t('strength.balanceObservedPairs', {
+                period: periodLabel,
               })}
-        </Text>
-      ) : null}
-
-      {visibleBalancePairs.map((pair, index) => (
-        <View
-          key={pair.id}
-          style={[
-            styles.balanceRow,
-            index > 0 && styles.balanceRowBorder,
-            index > 0 && isDark && styles.balanceRowBorderDark,
-          ]}
-        >
-          <View style={styles.balanceRowHeader}>
-            <Text style={[styles.balanceRowTitle, isDark && styles.balanceRowTitleDark]}>
-              {pair.label}
             </Text>
+          </View>
+          {featuredBalancePair ? (
             <View
               style={[
-                styles.balanceStatusBadge,
-                { backgroundColor: verdictFill(balanceRung(pair.status), isDark) },
+                styles.balanceHeroBadge,
+                {
+                  backgroundColor: verdictFill(
+                    balanceRung(featuredBalancePair.status),
+                    isDark,
+                    true
+                  ),
+                },
               ]}
             >
               <Text
                 style={[
-                  styles.balanceStatusText,
-                  { color: verdictColor(balanceRung(pair.status), isDark) },
+                  styles.balanceHeroBadgeText,
+                  { color: verdictColor(balanceRung(featuredBalancePair.status), isDark) },
                 ]}
               >
-                {t(balanceStatusLabelKey(pair.status))}
+                {formatBalanceRatio(featuredBalancePair, balanceCopy)}
               </Text>
             </View>
-          </View>
-
-          <View style={styles.balanceValueRow}>
-            <Text style={[styles.balanceValueText, isDark && styles.balanceValueTextDark]}>
-              {pair.leftLabel} {formatSetCount(pair.leftWeightedSets)}
-            </Text>
-            <Text style={[styles.balanceValueText, isDark && styles.balanceValueTextDark]}>
-              {pair.rightLabel} {formatSetCount(pair.rightWeightedSets)}
-            </Text>
-          </View>
-
-          <View style={styles.balanceScale}>
-            <StrengthBalanceScale
-              leftWeightedSets={pair.leftWeightedSets}
-              rightWeightedSets={pair.rightWeightedSets}
-            />
-          </View>
-
-          <Text style={[styles.balanceRatioText, isDark && styles.balanceRatioTextDark]}>
-            {formatBalanceRatio(pair, balanceCopy)}
-          </Text>
+          ) : null}
         </View>
-      ))}
 
-      <Text style={[styles.balanceFootnote, isDark && styles.balanceFootnoteDark]}>
-        {t('strength.balanceFootnote')}
-      </Text>
+        {featuredBalancePair ? (
+          <Text style={[styles.balanceHeroText, isDark && styles.balanceHeroTextDark]}>
+            {featuredBalancePair.status === 'balanced'
+              ? t('strength.balancedPairsClose')
+              : t('strength.balanceDominant', {
+                  dominant: featuredBalancePair.dominantLabel ?? t('strength.oneSide'),
+                  other:
+                    featuredBalancePair.dominantSlug === featuredBalancePair.leftSlug
+                      ? featuredBalancePair.rightLabel
+                      : featuredBalancePair.leftLabel,
+                  pair: featuredBalancePair.label,
+                })}
+          </Text>
+        ) : null}
+
+        {visibleBalancePairs.map((pair, index) => (
+          <View
+            key={pair.id}
+            style={[
+              styles.balanceRow,
+              index > 0 && styles.balanceRowBorder,
+              index > 0 && isDark && styles.balanceRowBorderDark,
+            ]}
+          >
+            <View style={styles.balanceRowHeader}>
+              <Text style={[styles.balanceRowTitle, isDark && styles.balanceRowTitleDark]}>
+                {pair.label}
+              </Text>
+              <View
+                style={[
+                  styles.balanceStatusBadge,
+                  { backgroundColor: verdictFill(balanceRung(pair.status), isDark) },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.balanceStatusText,
+                    { color: verdictColor(balanceRung(pair.status), isDark) },
+                  ]}
+                >
+                  {t(balanceStatusLabelKey(pair.status))}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.balanceValueRow}>
+              <Text style={[styles.balanceValueText, isDark && styles.balanceValueTextDark]}>
+                {pair.leftLabel} {formatSetCount(pair.leftWeightedSets)}
+              </Text>
+              <Text style={[styles.balanceValueText, isDark && styles.balanceValueTextDark]}>
+                {pair.rightLabel} {formatSetCount(pair.rightWeightedSets)}
+              </Text>
+            </View>
+
+            <View style={styles.balanceScale}>
+              <StrengthBalanceScale
+                leftWeightedSets={pair.leftWeightedSets}
+                rightWeightedSets={pair.rightWeightedSets}
+              />
+            </View>
+
+            <Text style={[styles.balanceRatioText, isDark && styles.balanceRatioTextDark]}>
+              {formatBalanceRatio(pair, balanceCopy)}
+            </Text>
+          </View>
+        ))}
+
+        <Text style={[styles.balanceFootnote, isDark && styles.balanceFootnoteDark]}>
+          {t('strength.balanceFootnote')}
+        </Text>
+      </Card>
     </View>
   );
 });
 
 const styles = StyleSheet.create({
-  balanceCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    padding: spacing.md,
+  frame: {
     marginBottom: spacing.sm,
-  },
-  balanceCardDark: {
-    backgroundColor: darkColors.surface,
   },
   balanceHeader: {
     flexDirection: 'row',
@@ -230,7 +231,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   balanceRowBorder: {
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: stroke.hairline,
     borderTopColor: colors.divider,
   },
   balanceRowBorderDark: {

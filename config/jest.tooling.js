@@ -32,7 +32,7 @@ const toolingSuites = [
   'src/__tests__/bugs/coverageIncludesScreens.test.ts',
   'src/__tests__/bugs/detectorOrderingLintExitCode.test.ts',
   'src/__tests__/bugs/e2eGateWorkflow.test.ts',
-  'src/__tests__/bugs/e2eIosSweepFinishes.test.ts',
+  'src/__tests__/bugs/e2eSweepShardsFinish.test.ts',
   'src/__tests__/bugs/e2eDailySweep.test.ts',
   'src/__tests__/bugs/e2eSweepRestartsTheDevice.test.ts',
   'src/__tests__/bugs/e2eReportsProducerCommit.test.ts',

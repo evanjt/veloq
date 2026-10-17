@@ -22,6 +22,7 @@ import {
   spacing,
   themedStyles,
   typography,
+  stroke,
 } from '@/theme';
 import { ListSectionHeader, Row, SwitchRow, ToggleButtonRow } from '@/shared/ui';
 import { settingsStyles } from './settingsStyles';
@@ -176,10 +177,9 @@ const makeStyles = (palette: Palette) =>
       paddingBottom: spacing.md,
     },
     summaryCardLabel: {
-      ...typography.bodySmall,
+      ...typography.bodySmallBold,
       marginTop: spacing.sm,
       marginBottom: spacing.sm,
-      fontWeight: '500',
       color: colors.textPrimary,
     },
     actionText: {
@@ -193,7 +193,7 @@ const makeStyles = (palette: Palette) =>
       marginBottom: spacing.sm,
     },
     summaryMetricRow: {
-      borderBottomWidth: 1,
+      borderBottomWidth: stroke.one,
       borderBottomColor: palette.border,
     },
     summaryMetricRowDark: {

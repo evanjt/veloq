@@ -4,6 +4,7 @@ import { EXPORTS_DIR } from '@/shared/storage/cacheFiles';
 import { RECORD_TEMP_PREFIX } from '@/shared/storage/platformRecord';
 import { debug } from '@/shared/debug/debug';
 import { inBackupSlot } from './backupSlot';
+import { BULK_EXPORT_EXTENSION, BULK_EXPORT_PREFIX } from './bulkExportFormat';
 import { AUTOBACKUP_SNAPSHOT_PREFIX, SHARE_COPY_PREFIX } from './autobackup/backends/localBackend';
 
 const log = debug.create('BackupCache');
@@ -46,6 +47,30 @@ export async function sweepBackupFiles(): Promise<void> {
   if (docDir) await sweepDirectory(docDir, (name) => name.startsWith(RECORD_TEMP_PREFIX));
 }
 
-export function sweepIdleBackupFiles(): Promise<void> {
-  return inBackupSlot(sweepBackupFiles);
+/**
+ * Delete the archives earlier bulk exports handed to the share sheet. A share
+ * target may read its file after the sheet returns, so each one is kept until
+ * the next export or the next launch. Not part of `sweepBackupFiles`: the
+ * record export runs that while a bulk export may still be writing.
+ */
+export async function sweepBulkExportFiles(): Promise<void> {
+  const cacheDir = FileSystem.cacheDirectory;
+  if (!cacheDir) return;
+  const extensions = Object.values(BULK_EXPORT_EXTENSION).map((extension) => `.${extension}`);
+  await sweepDirectory(
+    `${cacheDir}${EXPORTS_DIR}`,
+    (name) =>
+      name.startsWith(BULK_EXPORT_PREFIX) &&
+      extensions.some((extension) => name.endsWith(extension))
+  );
+}
+
+/**
+ * The launch sweep. The bulk archives go first and outside the backup slot,
+ * since a sweep queued behind a long backup could land on an export started
+ * meanwhile.
+ */
+export async function sweepIdleBackupFiles(): Promise<void> {
+  await sweepBulkExportFiles();
+  await inBackupSlot(sweepBackupFiles);
 }

@@ -83,7 +83,7 @@ jest.mock('@/features/recording/components/ReviewMapHero', () => ({
 jest.mock('@/features/recording/hooks/useReviewSave', () => ({
   useReviewSave: () => ({
     isUploading: false,
-    queuedMessage: null,
+    leaving: false,
     errorMessage: null,
     handleSave: jest.fn(),
     canRetry: false,

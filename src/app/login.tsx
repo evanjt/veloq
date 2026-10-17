@@ -6,9 +6,10 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 
 import {
+  Button,
+  Card,
   ScreenSafeAreaView,
   ScreenScrollView,
-  Button,
   SectionTitle,
   StatusLine,
   TextLink,
@@ -146,129 +147,137 @@ function LoginScreenContent() {
         </View>
 
         {/* Main Login Section */}
-        <View style={[styles.card, isDark && styles.cardDark]}>
-          {sessionNotice ? <SessionExpiredNotice notice={sessionNotice} /> : null}
+        <View style={styles.frame}>
+          <Card variant="flat">
+            {sessionNotice ? <SessionExpiredNotice notice={sessionNotice} /> : null}
 
-          {error && !sessionNotice ? (
-            <StatusLine tone="error" message={error} style={styles.errorContainer}>
-              <MaterialCommunityIcons name="alert-circle" size={iconSize.md} color={colors.error} />
-              <Text
-                style={[styles.errorText, isDark && styles.errorTextDark]}
-                testID="login-error-text"
-              >
-                {error}
+            {error && !sessionNotice ? (
+              <StatusLine tone="error" message={error} style={styles.errorContainer}>
+                <MaterialCommunityIcons
+                  name="alert-circle"
+                  size={iconSize.md}
+                  color={colors.error}
+                />
+                <Text
+                  style={[styles.errorText, isDark && styles.errorTextDark]}
+                  testID="login-error-text"
+                >
+                  {error}
+                </Text>
+              </StatusLine>
+            ) : null}
+
+            {queuedMessage && !error ? (
+              <StatusLine tone="info" message={queuedMessage} style={styles.queuedContainer}>
+                <MaterialCommunityIcons
+                  name="cloud-off-outline"
+                  size={iconSize.md}
+                  color={colors.secondary}
+                />
+                <Text
+                  style={[styles.queuedText, isDark && styles.queuedTextDark]}
+                  testID="login-queued-text"
+                >
+                  {queuedMessage}
+                </Text>
+                <Button
+                  testID="login-discard-queued-key"
+                  label={t('recording.discard')}
+                  variant="ghost"
+                  size="sm"
+                  onPress={discardQueuedKey}
+                />
+              </StatusLine>
+            ) : null}
+
+            {/* OAuth Login */}
+            <OAuthLoginForm onLogin={handleOAuthLogin} isLoading={isLoading} />
+
+            {/* Divider */}
+            <View style={styles.dividerContainer}>
+              <View style={[styles.divider, isDark && styles.dividerDark]} />
+              <Text style={[styles.dividerText, isDark && styles.textDark]}>
+                {t('common.or', { defaultValue: 'or' })}
               </Text>
-            </StatusLine>
-          ) : null}
-
-          {queuedMessage && !error ? (
-            <StatusLine tone="info" message={queuedMessage} style={styles.queuedContainer}>
-              <MaterialCommunityIcons
-                name="cloud-off-outline"
-                size={iconSize.md}
-                color={colors.secondary}
-              />
-              <Text
-                style={[styles.queuedText, isDark && styles.queuedTextDark]}
-                testID="login-queued-text"
-              >
-                {queuedMessage}
-              </Text>
-              <Button
-                testID="login-discard-queued-key"
-                label={t('recording.discard')}
-                variant="ghost"
-                size="sm"
-                onPress={discardQueuedKey}
-              />
-            </StatusLine>
-          ) : null}
-
-          {/* OAuth Login */}
-          <OAuthLoginForm onLogin={handleOAuthLogin} isLoading={isLoading} />
-
-          {/* Divider */}
-          <View style={styles.dividerContainer}>
-            <View style={[styles.divider, isDark && styles.dividerDark]} />
-            <Text style={[styles.dividerText, isDark && styles.textDark]}>
-              {t('common.or', { defaultValue: 'or' })}
-            </Text>
-            <View style={[styles.divider, isDark && styles.dividerDark]} />
-          </View>
-
-          {/* Demo Button */}
-          <Button
-            testID="login-demo-button"
-            label={t('login.tryDemo', { defaultValue: 'Try Demo' })}
-            variant="secondary"
-            onPress={handleTryDemo}
-            disabled={isLoading || isApiKeyLoading}
-            icon={
-              <MaterialCommunityIcons
-                name="play-circle-outline"
-                size={iconSize.sm}
-                color={colors.primary}
-              />
-            }
-          />
-          <Text style={[styles.demoCaption, isDark && styles.textDark]}>
-            {t('login.demoCaption')}
-          </Text>
-
-          {/* Restore from Backup */}
-          <Button
-            testID="login-restore-button"
-            label={t('backup.restoreFromBackup', { defaultValue: 'Restore from Backup' })}
-            variant="ghost"
-            size="sm"
-            onPress={() => setShowRestore((shown) => !shown)}
-            disabled={isLoading || isApiKeyLoading}
-            style={styles.restoreButton}
-            icon={
-              <MaterialCommunityIcons
-                name="database-import-outline"
-                size={iconSize.md}
-                color={colors.primary}
-              />
-            }
-          />
-          {showRestore ? (
-            <View style={styles.restoreChooser}>
-              <RestoreChooser />
+              <View style={[styles.divider, isDark && styles.dividerDark]} />
             </View>
-          ) : null}
 
-          {/* API Key Login */}
-          <ApiKeyLoginForm
-            onLogin={handleApiKeyLogin}
-            isLoading={isApiKeyLoading}
-            disabled={isLoading}
-            onOpenDeveloperSettings={handleOpenDeveloperSettings}
-            prefillApiKey={prefillApiKey}
-          />
+            {/* Demo Button */}
+            <Button
+              testID="login-demo-button"
+              label={t('login.tryDemo', { defaultValue: 'Try Demo' })}
+              variant="secondary"
+              onPress={handleTryDemo}
+              disabled={isLoading || isApiKeyLoading}
+              icon={
+                <MaterialCommunityIcons
+                  name="play-circle-outline"
+                  size={iconSize.sm}
+                  color={colors.primary}
+                />
+              }
+            />
+            <Text style={[styles.demoCaption, isDark && styles.textDark]}>
+              {t('login.demoCaption')}
+            </Text>
+
+            {/* Restore from Backup */}
+            <Button
+              testID="login-restore-button"
+              label={t('backup.restoreFromBackup', { defaultValue: 'Restore from Backup' })}
+              variant="ghost"
+              size="sm"
+              onPress={() => setShowRestore((shown) => !shown)}
+              disabled={isLoading || isApiKeyLoading}
+              style={styles.restoreButton}
+              icon={
+                <MaterialCommunityIcons
+                  name="database-import-outline"
+                  size={iconSize.md}
+                  color={colors.primary}
+                />
+              }
+            />
+            {showRestore ? (
+              <View style={styles.restoreChooser}>
+                <RestoreChooser />
+              </View>
+            ) : null}
+
+            {/* API Key Login */}
+            <ApiKeyLoginForm
+              onLogin={handleApiKeyLogin}
+              isLoading={isApiKeyLoading}
+              disabled={isLoading}
+              onOpenDeveloperSettings={handleOpenDeveloperSettings}
+              prefillApiKey={prefillApiKey}
+            />
+          </Card>
         </View>
 
         {/* New User Section */}
-        <View style={[styles.card, isDark && styles.cardDark]}>
-          <Text style={[styles.newUserTitle, isDark && styles.textLight]}>
-            {t('login.noAccount')}
-          </Text>
-          <Text style={[styles.newUserText, isDark && styles.textDark]}>
-            {t('login.createAccountHint')}
-          </Text>
-          <Button
-            label={t('login.createAccount')}
-            variant="ghost"
-            onPress={handleCreateAccount}
-            icon={
-              <MaterialCommunityIcons
-                name="open-in-new"
-                size={iconSize.md}
-                color={colors.primary}
-              />
-            }
-            style={styles.createAccountButton}
-          />
+        <View style={styles.frame}>
+          <Card variant="flat">
+            <Text style={[styles.newUserTitle, isDark && styles.textLight]}>
+              {t('login.noAccount')}
+            </Text>
+            <Text style={[styles.newUserText, isDark && styles.textDark]}>
+              {t('login.createAccountHint')}
+            </Text>
+            <Button
+              label={t('login.createAccount')}
+              variant="ghost"
+              onPress={handleCreateAccount}
+              icon={
+                <MaterialCommunityIcons
+                  name="open-in-new"
+                  size={iconSize.md}
+                  color={colors.primary}
+                />
+              }
+              style={styles.createAccountButton}
+            />
+          </Card>
         </View>
 
         {/* Disclaimer Footer */}
@@ -344,14 +353,8 @@ const styles = StyleSheet.create({
     fontSize: typography.body.fontSize,
     color: colors.textSecondary,
   },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    padding: layout.cardPadding,
+  frame: {
     marginBottom: spacing.md,
-  },
-  cardDark: {
-    backgroundColor: darkColors.surface,
   },
   errorContainer: {
     flexDirection: 'row',

@@ -41,11 +41,13 @@ import {
   controlHeight,
   darkColors,
   ink as inkTone,
+  inputBoundary,
   layout,
   opacity,
   slopToMinTapTarget,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'destructive';
@@ -99,8 +101,9 @@ export function paint(variant: ButtonVariant, isDark: boolean) {
     case 'secondary':
       return {
         backgroundColor: palette.surface,
-        borderColor: palette.border,
-        borderWidth: StyleSheet.hairlineWidth * 2,
+        // A control's edge is a mark rather than a divider, so it takes the field edge at 3:1.
+        borderColor: isDark ? inputBoundary.dark : inputBoundary.light,
+        borderWidth: stroke.one,
         color: palette.textPrimary,
       };
     case 'ghost':

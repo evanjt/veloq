@@ -11,8 +11,9 @@
 // has already beaten fails with the command that lowers it, so ground a sweep
 // takes cannot be given away again.
 //
-// `--class font-weight` also refuses a weight of 500 anywhere under `src/`,
-// the theme included, held at its own count under `font-weight-500`.
+// `--class font-weight` also refuses a weight of 500 or 800 anywhere under
+// `src/`, the theme included, held at its own count under
+// `font-weight-off-scale`, which stands at zero.
 //
 // Usage: node scripts/lint-style-literals.mjs --class <name> [--root <dir>]
 //        [--baseline <file>] [--write] [--list]
@@ -26,7 +27,7 @@ import {
   STYLE_CLASSES,
   judgedFor,
   literalSites,
-  mediumWeightSites,
+  offScaleWeightSites,
   parse,
 } from './lib/styleValues.mjs';
 
@@ -57,17 +58,17 @@ refuseEmptyListing(sources, `style ${CLASS} guard`);
 /** The counts by baseline key, then file, and the sites behind them. */
 const counts = { [CLASS]: {} };
 const sites = { [CLASS]: {} };
-const MEDIUM = 'font-weight-500';
+const OFF_SCALE = 'font-weight-off-scale';
 if (CLASS === 'font-weight') {
-  counts[MEDIUM] = {};
-  sites[MEDIUM] = {};
+  counts[OFF_SCALE] = {};
+  sites[OFF_SCALE] = {};
 }
 
 for (const [rel, bytes] of sources) {
   if (!/\.tsx?$/.test(rel)) continue;
   const inScope = judgedFor(CLASS, rel);
-  const mediumScope = CLASS === 'font-weight' && !/(^|\/)(__tests__|__mocks__)\//.test(rel);
-  if (!inScope && !mediumScope) continue;
+  const offScaleScope = CLASS === 'font-weight' && !/(^|\/)(__tests__|__mocks__)\//.test(rel);
+  if (!inScope && !offScaleScope) continue;
   const sf = parse(rel, bytes.toString('utf8'));
   if (inScope) {
     const found = literalSites(sf, CLASS);
@@ -76,11 +77,11 @@ for (const [rel, bytes] of sources) {
       sites[CLASS][rel] = found;
     }
   }
-  if (mediumScope && !/\.test\.tsx?$/.test(rel)) {
-    const found = mediumWeightSites(sf);
+  if (offScaleScope && !/\.test\.tsx?$/.test(rel)) {
+    const found = offScaleWeightSites(sf);
     if (found.length > 0) {
-      counts[MEDIUM][rel] = found.length;
-      sites[MEDIUM][rel] = found;
+      counts[OFF_SCALE][rel] = found.length;
+      sites[OFF_SCALE][rel] = found;
     }
   }
 }
@@ -140,7 +141,9 @@ for (const key of Object.keys(counts)) {
   failed = true;
   if (over.length > 0) {
     const instead =
-      key === MEDIUM ? 'a weight of 400 or 600: a 500 resolves to either by platform' : cls.instead;
+      key === OFF_SCALE
+        ? 'a weight of 400, 600 or 700: a 500 resolves to 400 or 600 by platform, and nothing is drawn above 700'
+        : cls.instead;
     console.error(`A hand-written ${key} value above the baseline. Use ${instead}.\n`);
     for (const [file, n, ceiling] of over) {
       console.error(`  ${file}  ${n}, baseline ${ceiling}`);

@@ -14,6 +14,7 @@ import {
   layout,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 import { formatClockOrDate } from '@/shared/format/format';
 import type { SessionExpiryNotice } from '@/features/auth/hooks';
@@ -73,7 +74,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusMd,
     padding: spacing.md,
     marginBottom: spacing.md,
-    borderWidth: 1,
+    borderWidth: stroke.one,
     borderColor: colorWithOpacity(colors.warning, 0.2),
   },
   noticeDark: {

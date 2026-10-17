@@ -1,27 +1,13 @@
 /**
  * Chart-related constants
  *
- * Centralized configuration for chart performance, gesture handling,
- * and visualization parameters.
+ * Gesture thresholds shared by the charts.
  */
 
 /**
- * Chart performance configuration.
- *
- * Controls downsampling and data point limits to maintain
- * smooth performance on mobile devices.
+ * Chart gesture configuration.
  */
 export const CHART_CONFIG = {
-  /**
-   * Maximum number of data points to display.
-   *
-   * Data is downsampled to this limit using interval-based sampling.
-   * 200 points provides good balance between detail and performance.
-   *
-   * @defaultValue 200
-   */
-  MAX_DATA_POINTS: 200,
-
   /**
    * Minimum distance for pan gesture.
    *

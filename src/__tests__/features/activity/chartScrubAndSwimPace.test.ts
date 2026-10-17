@@ -111,7 +111,8 @@ describe('the scrub chip over a missing sample', () => {
       CHART_CONFIGS,
       true,
       null,
-      'distance'
+      'distance',
+      300
     );
     expect(chartData[0].pace).toBeCloseTo(chartData[1].pace);
     expect(Number.isNaN(chartData[2].pace)).toBe(true);
@@ -280,7 +281,15 @@ describe('the idle pace chip over a run with stops', () => {
       distance: [0, 3, 6, 8.5, 8.6],
       velocity_smooth: [3, 3, 2.5, 0.05, 0],
     });
-    const { seriesInfo } = buildChartData(streams, ['pace'], CHART_CONFIGS, true, null, 'distance');
+    const { seriesInfo } = buildChartData(
+      streams,
+      ['pace'],
+      CHART_CONFIGS,
+      true,
+      null,
+      'distance',
+      300
+    );
     expect(seriesInfo[0].range.min).toBeCloseTo(paceMinutesFromSpeed(3), 9);
     expect(seriesInfo[0].range.max).toBeCloseTo(paceMinutesFromSpeed(2.5), 9);
   });

@@ -26,6 +26,7 @@ jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
 }));
 jest.mock('@/shared/ui', () => ({
+  Card: jest.requireActual('@/shared/ui/Card').Card,
   ScreenSafeAreaView: require('react-native').View,
   ScreenScrollView: require('react-native').ScrollView,
   EmptyState: () => null,

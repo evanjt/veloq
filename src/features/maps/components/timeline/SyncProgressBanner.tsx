@@ -21,7 +21,17 @@ import { formatGpsSyncProgress } from '../../lib/syncProgressFormat';
 import { formatLibraryCoverage } from '@/shared/format/libraryCoverage';
 import { useLibraryCoverage } from '@/shared/native/useLibraryCoverage';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
-import { colors, colorWithOpacity, iconSize, ink, spacing, typography } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  duration,
+  easing,
+  iconSize,
+  ink,
+  motionPairs,
+  spacing,
+  typography,
+} from '@/theme';
 
 interface SyncProgressBannerProps {
   /** Whether the banner is visible */
@@ -79,14 +89,19 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
   // so the ease starts again from wherever it had got to.
   const percent = displayInfo?.percent ?? null;
   useEffect(() => {
-    heightFraction.value = withTiming(shouldShow ? 1 : 0, { duration: 200 });
+    heightFraction.value = withTiming(shouldShow ? 1 : 0, {
+      duration: shouldShow ? motionPairs.banner.enter : motionPairs.banner.exit,
+    });
   }, [shouldShow, heightFraction]);
 
   useEffect(() => {
     if (percent === null) return;
     // A longer duration for the progress bar so it interpolates between
     // reported values instead of jumping (600ms is about four poll cycles).
-    progressValue.value = withTiming(percent / 100, { duration: 600 });
+    progressValue.value = withTiming(percent / 100, {
+      duration: duration.message,
+      easing: easing.linear,
+    });
   }, [percent, progressValue]);
 
   // Indeterminate animation
@@ -94,7 +109,11 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
   useEffect(() => {
     if (isIndeterminate) {
       indeterminateOffset.value = 0;
-      indeterminateOffset.value = withRepeat(withTiming(1, { duration: 1500 }), -1, false);
+      indeterminateOffset.value = withRepeat(
+        withTiming(1, { duration: duration.loop, easing: easing.linear }),
+        -1,
+        false
+      );
     } else {
       cancelAnimation(indeterminateOffset);
       indeterminateOffset.value = 0;

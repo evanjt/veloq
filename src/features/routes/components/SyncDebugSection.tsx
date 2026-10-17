@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyCompact.fontSize,
     fontFamily: typography.code.fontFamily,
     color: colors.textPrimary,
-    fontWeight: '500',
+    fontWeight: '600',
     flexShrink: 1,
     textAlign: 'right',
   },
@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
   },
   stepperLabel: {
     fontSize: typography.bodySmall.fontSize,
-    fontWeight: '500',
+    fontWeight: '600',
     color: colors.textPrimary,
   },
   stepper: {

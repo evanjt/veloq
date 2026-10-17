@@ -396,7 +396,7 @@ const GUARDS = [
     kind: 'correctness',
     cmd: node('lint-device-drivers.mjs'),
     catches:
-      'a script driving the handset outside the device lock, or running Maestro bare so a flow lands on the other phone',
+      'a script driving the handset outside the device lock, running Maestro bare so a flow lands on the other phone, or booting an emulator beside the one the host already runs',
   },
   {
     name: 'lint:observer-vtable',
@@ -860,6 +860,13 @@ const GUARDS = [
     kind: 'style',
     cmd: node('lint-haptics-owner.mjs'),
     catches: 'a haptic fired outside the one helper, with its own platform gate or no catch',
+  },
+  {
+    name: 'lint:gesture-callbacks',
+    kind: 'correctness',
+    cmd: node('lint-gesture-callbacks.mjs'),
+    catches:
+      'a worklet handing a callback straight to the JS thread, which keeps every closed screen it belonged to',
   },
   {
     name: 'lint:sharing-owner',

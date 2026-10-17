@@ -187,6 +187,16 @@ export interface InsightSupportingData {
   sections?: SupportingSection[];
   routes?: SupportingRoute[];
   history?: InsightHistory;
+  /**
+   * The screen holding the series the card was read from, kept when the
+   * series is too short to draw so the data link opens the same place.
+   */
+  dataTarget?: string | undefined;
+  /**
+   * The change the card states beside its figure when it has no history to
+   * draw, coloured by `trend`. Absent where the card reports no change.
+   */
+  change?: DataPoint | undefined;
   /** The direction and verdict of the series or comparison the card reports. */
   trend?: SupportingTrend | undefined;
   comparisonData?: {

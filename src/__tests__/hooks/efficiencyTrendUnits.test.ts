@@ -21,7 +21,7 @@ const trend = {
   sectionId: 'quarry-loop',
   sectionName: 'Quarry Loop',
   sportType: 'Run',
-  points: [45200, 44900, 44400, 44100, 43800].map((hrPaceRatio, i) => ({
+  points: [45200, 44900, 44400, 44100, 44000, 43800].map((hrPaceRatio, i) => ({
     date: 1_690_000_000 + i * 7 * 86_400,
     paceSecsPerKm: 300,
     avgHr: hrPaceRatio / 300,

@@ -35,7 +35,7 @@ import { useMetricSystem, useTheme } from '@/shared/app';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { formatDistance } from '@/shared/format/format';
 import { pressable, pressRipple, ToggleButton } from '@/shared/ui';
-import { brand, colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
+import { brand, colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
 import {
   DETECTION_PARAM_RANGES,
   DETECTION_PRESETS,
@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
   card: {
     flex: 1,
     borderRadius: layout.borderRadius,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: stroke.hairline,
   },
   cardContent: {
     flexGrow: 1,

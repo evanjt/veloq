@@ -9,14 +9,18 @@
  * loads: an event per activity would park the writing thread on this one.
  */
 
-import * as FileSystem from 'expo-file-system/legacy';
 import { withAwakeDeadline } from '@/shared/async/awakeDeadline';
 import { getEngine } from '@/shared/native/engine';
 import { formatLocalDate } from '@/shared/format/format';
 import { exportFileUri } from '@/shared/storage/cacheFiles';
 import { shareExistingFile, type ShareAnchor } from '@/features/settings/lib/shareFile';
 import { BulkExportFormat } from 'veloqrs';
-import type { BulkExportKind } from '@/features/settings/lib/bulkExportFormat';
+import {
+  BULK_EXPORT_EXTENSION,
+  BULK_EXPORT_PREFIX,
+  type BulkExportKind,
+} from '@/features/settings/lib/bulkExportFormat';
+import { sweepBulkExportFiles } from '@/features/settings/lib/backupCache';
 
 export type BulkExportPhase = 'generating' | 'sharing';
 
@@ -66,9 +70,22 @@ export interface BulkExportSkips {
 
 /** What an export asked for now answers with. */
 export type BulkExportOutcome =
-  | ({ state: 'complete'; exported: number; kind: BulkExportKind } & BulkExportSkips)
+  | BulkExportTally
   | { state: 'still-running' }
   | { state: 'nothing-pending' };
+
+/** What a finished export wrote and skipped. */
+export type BulkExportTally = {
+  state: 'complete';
+  exported: number;
+  kind: BulkExportKind;
+} & BulkExportSkips;
+
+/**
+ * Asks the athlete whether to share an archive that skipped rides, given what
+ * it holds, and answers true to share it.
+ */
+export type ConfirmSkipped = (tally: BulkExportTally) => Promise<boolean>;
 
 /**
  * The file a lapsed export still owes the athlete, and the write behind it.
@@ -79,10 +96,9 @@ export type BulkExportOutcome =
  */
 let pendingExport: (Destination & StartedExport) | null = null;
 
-/** Where an export writes. The GPX export is a zip of tracks, and the share sheet is told so. */
+/** Where an export writes, and the format the share sheet is told. */
 interface Destination {
   uri: string;
-  shareKind: 'zip' | 'geojson';
   kind: BulkExportKind;
 }
 
@@ -173,46 +189,48 @@ function startExport(
 /** Strip file:// for Rust, which expects a plain filesystem path. */
 const plain = (uri: string) => (uri.startsWith('file://') ? uri.slice(7) : uri);
 
-export async function bulkExportActivities(
+export function bulkExportActivities(
   onProgress?: (progress: BulkExportProgress) => void,
   timeoutMs?: number,
-  anchor?: ShareAnchor
+  anchor?: ShareAnchor,
+  confirmSkipped?: ConfirmSkipped
 ): Promise<BulkExportOutcome> {
-  const destUri = await exportFileUri(`veloq-activities-${formatLocalDate(new Date())}.zip`);
-  return exportTo(
-    BulkExportFormat.Gpx,
-    { uri: destUri, shareKind: 'zip', kind: 'gpx' },
-    onProgress,
-    timeoutMs,
-    anchor
-  );
+  return exportTo(BulkExportFormat.Gpx, 'gpx', onProgress, timeoutMs, anchor, confirmSkipped);
 }
 
-export async function bulkExportActivitiesGeoJson(
+export function bulkExportActivitiesGeoJson(
   onProgress?: (progress: BulkExportProgress) => void,
   timeoutMs?: number,
-  anchor?: ShareAnchor
+  anchor?: ShareAnchor,
+  confirmSkipped?: ConfirmSkipped
 ): Promise<BulkExportOutcome> {
-  const destUri = await exportFileUri(`veloq-activities-${formatLocalDate(new Date())}.geojson`);
   return exportTo(
     BulkExportFormat.GeoJson,
-    { uri: destUri, shareKind: 'geojson', kind: 'geojson' },
+    'geojson',
     onProgress,
     timeoutMs,
-    anchor
+    anchor,
+    confirmSkipped
   );
 }
 
 async function exportTo(
   format: BulkExportFormat,
-  destination: Destination,
+  kind: BulkExportKind,
   onProgress?: (progress: BulkExportProgress) => void,
   timeoutMs?: number,
-  anchor?: ShareAnchor
+  anchor?: ShareAnchor,
+  confirmSkipped?: ConfirmSkipped
 ): Promise<BulkExportOutcome> {
   // A run already going holds Rust's export slot, so a second start would only
   // be refused. The tap is answered with that run instead.
-  if (pendingExport) return resumePendingBulkExport(onProgress, anchor);
+  if (pendingExport) return resumePendingBulkExport(onProgress, anchor, confirmSkipped);
+
+  // The archive an earlier export shared is kept until now, since its share
+  // target may have read it after the sheet returned.
+  await sweepBulkExportFiles();
+  const filename = `${BULK_EXPORT_PREFIX}${formatLocalDate(new Date())}.${BULK_EXPORT_EXTENSION[kind]}`;
+  const destination: Destination = { uri: await exportFileUri(filename), kind };
 
   // The run is recorded as it starts rather than when the wait lapses, so a
   // screen that comes back inside the first minute sees it too.
@@ -233,35 +251,43 @@ async function exportTo(
   if (outcome.state === 'running') return { state: 'still-running' };
   if (pendingExport !== slot) return { state: 'nothing-pending' };
   pendingExport = null;
-  return finish(outcome, destination, onProgress, anchor);
+  return finish(outcome, destination, onProgress, anchor, confirmSkipped);
 }
 
-/** Share the finished file, saying so while the share sheet is up. */
+/**
+ * Hand the finished file over. What it skipped is said before the share sheet
+ * opens, with a way not to send it, so the athlete knows what the archive
+ * holds before it leaves. The file is not deleted after the share: a share
+ * target may read it once the sheet has returned, and the next export or
+ * launch sweeps it.
+ */
 async function finish(
   written: ExportResult,
   destination: Destination,
   onProgress?: (progress: BulkExportProgress) => void,
-  anchor?: ShareAnchor
+  anchor?: ShareAnchor,
+  confirmSkipped?: ConfirmSkipped
 ): Promise<BulkExportOutcome> {
+  const { exported, noTrack, trimmed, failed } = written;
+  const tally: BulkExportTally = {
+    state: 'complete',
+    exported,
+    noTrack,
+    trimmed,
+    failed,
+    kind: destination.kind,
+  };
+  const skipped = noTrack + trimmed + failed > 0;
+  if (skipped && confirmSkipped && !(await confirmSkipped(tally))) return tally;
+
   onProgress?.({
     phase: 'sharing',
-    current: written.exported,
-    total: written.exported,
+    current: exported,
+    total: exported,
     sizeBytes: written.totalBytes,
   });
-  await shareAndDelete(destination, anchor);
-
-  return completed(written, destination.kind);
-}
-
-function completed(written: ExportResult, kind: BulkExportKind): BulkExportOutcome {
-  const { exported, noTrack, trimmed, failed } = written;
-  return { state: 'complete', exported, noTrack, trimmed, failed, kind };
-}
-
-async function shareAndDelete(destination: Destination, anchor?: ShareAnchor): Promise<void> {
-  await shareExistingFile(destination.uri, destination.shareKind, { anchor });
-  await FileSystem.deleteAsync(destination.uri, { idempotent: true });
+  await shareExistingFile(destination.uri, BULK_EXPORT_EXTENSION[destination.kind], { anchor });
+  return tally;
 }
 
 /**
@@ -318,7 +344,8 @@ export function pendingBulkExportSettled(): Promise<void> {
  */
 export async function resumePendingBulkExport(
   onProgress?: (progress: BulkExportProgress) => void,
-  anchor?: ShareAnchor
+  anchor?: ShareAnchor,
+  confirmSkipped?: ConfirmSkipped
 ): Promise<BulkExportOutcome> {
   const owed = pendingExport;
   if (!owed) return { state: 'nothing-pending' };
@@ -329,5 +356,5 @@ export async function resumePendingBulkExport(
   const written = owed.result();
   if (!written) throw owed.failure();
 
-  return finish(written, owed, onProgress, anchor);
+  return finish(written, owed, onProgress, anchor, confirmSkipped);
 }

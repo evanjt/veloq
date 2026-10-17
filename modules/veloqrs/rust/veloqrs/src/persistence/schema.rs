@@ -427,6 +427,18 @@ impl PersistentEngine {
         // rewritten to cover for it.
         Self::refuse_an_overstated_version(conn, current_version)?;
 
+        // Copy the file before anything changes it, and only then: a launch
+        // with nothing to migrate pays nothing, and releases the copy the
+        // last upgrade took.
+        let migration_pending =
+            current_version < Self::SCHEMA_VERSION || applied_migrations < known_migrations;
+        let pre_upgrade_copy = if migration_pending {
+            super::pre_upgrade_copy::take(conn, current_version)
+        } else {
+            super::pre_upgrade_copy::release(conn);
+            None
+        };
+
         // Run all pending migrations
         let migrations_started = std::time::Instant::now();
         if current_version < 4 && applied_migrations < 40 {
@@ -558,6 +570,9 @@ impl PersistentEngine {
             "INSERT OR REPLACE INTO schema_info (key, value) VALUES ('last_migration', datetime('now'))",
             [],
         )?;
+        if let Some(copy) = &pre_upgrade_copy {
+            super::pre_upgrade_copy::record(conn, copy)?;
+        }
 
         // The first launch after an update is the one a user waits on, and a
         // field report of a slow one is unactionable without a split between

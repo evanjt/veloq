@@ -84,6 +84,7 @@
       "./src/plugins/with-android-bluetooth",
       "./src/plugins/with-plain-lan-transport",
       "./src/plugins/with-android-new-intent",
+      "./src/plugins/with-android-back-callback",
       "./src/plugins/with-backup-file-types",
       [
         "expo-sharing",

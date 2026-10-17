@@ -10,7 +10,7 @@
  */
 
 import { act, renderHook } from '@testing-library/react-native';
-import { Alert } from 'react-native';
+import { Alert, type AlertButton } from 'react-native';
 
 import { useBulkExport } from '@/features/settings/hooks/useBulkExport';
 import {
@@ -78,12 +78,22 @@ const diskFull = { tag: 'Database', inner: { msg: 'disk full' } };
 
 let alert: jest.SpyInstance;
 
+/** The athlete reads the tally and shares anyway: the button that is not Cancel. */
+function pressShare(_title: string, _message?: string, buttons?: AlertButton[]) {
+  buttons?.find((button) => button.style !== 'cancel')?.onPress?.();
+}
+
+/** The athlete reads the tally and does not send the archive. */
+function pressCancel(_title: string, _message?: string, buttons?: AlertButton[]) {
+  buttons?.find((button) => button.style === 'cancel')?.onPress?.();
+}
+
 beforeEach(() => {
   jest.useFakeTimers();
   mockRunBulkExport.mockReset();
   mockShare.mockReset().mockResolvedValue(undefined);
   mockProgress = { running: false, visited: 0, total: 0 };
-  alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  alert = jest.spyOn(Alert, 'alert').mockImplementation(pressShare);
 });
 
 afterEach(() => {
@@ -550,6 +560,37 @@ describe('the completion alert names each skip reason', () => {
       '"count":1'
     );
     expect(lines.filter((line) => line.includes('"count":3'))).toHaveLength(1);
+    await unmount();
+  });
+
+  it('is raised before the share sheet opens, with Share and Cancel', async () => {
+    mockRunBulkExport.mockResolvedValueOnce(written({ exported: 400, noTrack: 2 }));
+    const { result, unmount } = await renderHook(() => useBulkExport());
+
+    await act(async () => {
+      await result.current.exportAll();
+    });
+
+    expect(alert).toHaveBeenCalledTimes(1);
+    expect(mockShare).toHaveBeenCalledTimes(1);
+    expect(alert.mock.invocationCallOrder[0]).toBeLessThan(mockShare.mock.invocationCallOrder[0]);
+    const buttons = alert.mock.calls[0][2] as AlertButton[];
+    expect(buttons.map((button) => button.text)).toEqual(['common.cancel', 'export.share']);
+    await unmount();
+  });
+
+  it('sends nothing when the athlete cancels at the tally', async () => {
+    alert.mockImplementation(pressCancel);
+    mockRunBulkExport.mockResolvedValueOnce(written({ exported: 400, trimmed: 1 }));
+    const { result, unmount } = await renderHook(() => useBulkExport());
+
+    await act(async () => {
+      await result.current.exportAll();
+    });
+
+    expect(alert).toHaveBeenCalledTimes(1);
+    expect(mockShare).not.toHaveBeenCalled();
+    expect(result.current.isExporting).toBe(false);
     await unmount();
   });
 

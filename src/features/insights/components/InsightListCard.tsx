@@ -18,8 +18,9 @@ import {
   typography,
 } from '@/theme';
 import { Card } from '@/shared/ui/Card';
+import { ChangeChip } from '@/shared/ui/ChangeChip';
 import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
-import type { Insight } from '@/types';
+import type { DataPoint, Insight } from '@/types';
 import { InsightHistoryGraphic } from './InsightHistoryGraphic';
 import { dataLinkLabel, historyTarget } from '../lib/dataLink';
 import type { TFunc } from '../types';
@@ -27,6 +28,12 @@ import type { TFunc } from '../types';
 interface InsightListCardProps {
   insight: Insight;
   onPress: (insight: Insight) => void;
+}
+
+/** A value as the card prints it, its unit after it. */
+function printed(point: DataPoint | undefined): string | null {
+  if (!point) return null;
+  return point.unit ? `${String(point.value)} ${point.unit}` : String(point.value);
 }
 
 /** The screen-reader action that opens what the graphic pictures. */
@@ -40,6 +47,9 @@ export const InsightListCard = React.memo(function InsightListCard({
   const { t } = useTranslation();
   const categoryColor = insightCategoryColor(insight.category, isDark);
   const history = insight.supportingData?.history;
+  // A card with too short a history to draw states its figure and its change instead.
+  const figure = history ? null : printed(insight.supportingData?.hero);
+  const change = figure ? printed(insight.supportingData?.change) : null;
   const target = historyTarget(insight);
   const linkLabel = useMemo(
     () => (history ? dataLinkLabel(insight, target, t as unknown as TFunc) : null),
@@ -65,6 +75,8 @@ export const InsightListCard = React.memo(function InsightListCard({
       accessibilityLabel={composeAccessibilityLabel(
         insight.title,
         insight.isNew && t('a11y.isNew'),
+        figure,
+        change,
         insight.subtitle
       )}
       actions={actions}
@@ -107,6 +119,26 @@ export const InsightListCard = React.memo(function InsightListCard({
             accessibilityLabel={linkLabel}
             onOpenSheet={handlePress}
           />
+        ) : null}
+
+        {figure ? (
+          <View style={styles.figureRow}>
+            <Text
+              testID="insight-figure"
+              style={[styles.figure, isDark && styles.titleDark]}
+              numberOfLines={1}
+            >
+              {figure}
+            </Text>
+            {change ? (
+              <ChangeChip
+                text={change}
+                trend={insight.supportingData?.trend}
+                isDark={isDark}
+                testID="insight-change"
+              />
+            ) : null}
+          </View>
         ) : null}
 
         {insight.subtitle ? (
@@ -157,6 +189,17 @@ const styles = StyleSheet.create({
   },
   titleDark: {
     color: darkColors.textPrimary,
+  },
+  figureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  figure: {
+    fontSize: typography.metricValue.fontSize,
+    fontWeight: typography.metricValue.fontWeight,
+    color: colors.textPrimary,
+    flexShrink: 1,
   },
   newDot: {
     width: 6,

@@ -7,7 +7,7 @@
 import React, { useMemo, useCallback, useState } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { useTheme } from '@/shared/app';
-import { pressable, pressRipple } from '@/shared/ui';
+import { Card, pressable, pressRipple } from '@/shared/ui';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { tapTo } from '@/shared/app/navigation';
@@ -15,7 +15,16 @@ import { useTranslation } from 'react-i18next';
 import { useRoutePerformances } from '@/features/routes/hooks/useRoutePerformances';
 import { getActivityColor, getActivityInk } from '@/shared/activity/activityUtils';
 import { formatDuration } from '@/shared/format/format';
-import { colors, darkColors, iconSize, layout, mapLayerColors, spacing, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  iconSize,
+  layout,
+  mapLayerColors,
+  spacing,
+  typography,
+  stroke,
+} from '@/theme';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
 import { SectionScatterChart, ScatterLegend } from '@/features/routes/components/section';
 import { formatRouteStanding } from '@/features/routes/lib/routeStanding';
@@ -123,119 +132,115 @@ export function RoutePerformanceSection({
   const standingText = formatRouteStanding(standing, t);
 
   return (
-    <View style={[styles.card, isDark && styles.cardDark]}>
-      <Pressable
-        onPress={handleRoutePress}
-        accessibilityRole="button"
-        accessibilityLabel={routeGroup.name}
-        style={pressable(styles.header)}
-        android_ripple={pressRipple}
-      >
-        <View style={[styles.iconBadge, { borderColor: activityInk }]}>
-          <MaterialCommunityIcons name="map-marker-path" size={iconSize.xs} color={activityInk} />
-        </View>
-        <View style={styles.headerInfo}>
-          <Text style={[styles.routeName, isDark && styles.textLight]} numberOfLines={1}>
-            {routeGroup.name}
-          </Text>
-          <View style={styles.metaRow}>
-            <Text style={[styles.meta, isDark && styles.textSecondary]}>
-              {t('maps.activitiesCount', { count: routeGroup.activityCount })}
+    <View style={styles.frame}>
+      <Card variant="flat" padding="none">
+        <Pressable
+          onPress={handleRoutePress}
+          accessibilityRole="button"
+          accessibilityLabel={routeGroup.name}
+          style={pressable(styles.header)}
+          android_ripple={pressRipple}
+        >
+          <View style={[styles.iconBadge, { borderColor: activityInk }]}>
+            <MaterialCommunityIcons name="map-marker-path" size={iconSize.xs} color={activityInk} />
+          </View>
+          <View style={styles.headerInfo}>
+            <Text style={[styles.routeName, isDark && styles.textLight]} numberOfLines={1}>
+              {routeGroup.name}
             </Text>
-            {bestTimeDisplay ? (
-              <>
-                <Text style={[styles.meta, isDark && styles.textSecondary]}> · </Text>
-                <Text style={[styles.timeValue, isDark && styles.textLight]}>
-                  {bestTimeDisplay}
-                </Text>
-                {isCurrentBest ? (
-                  <MaterialCommunityIcons
-                    name="trophy"
-                    size={iconSize.xs}
-                    color={colors.chartGold}
-                    style={{ marginLeft: spacing.xxs }}
-                  />
-                ) : null}
-              </>
-            ) : null}
+            <View style={styles.metaRow}>
+              <Text style={[styles.meta, isDark && styles.textSecondary]}>
+                {t('maps.activitiesCount', { count: routeGroup.activityCount })}
+              </Text>
+              {bestTimeDisplay ? (
+                <>
+                  <Text style={[styles.meta, isDark && styles.textSecondary]}> · </Text>
+                  <Text style={[styles.timeValue, isDark && styles.textLight]}>
+                    {bestTimeDisplay}
+                  </Text>
+                  {isCurrentBest ? (
+                    <MaterialCommunityIcons
+                      name="trophy"
+                      size={iconSize.xs}
+                      color={colors.chartGold}
+                      style={{ marginLeft: spacing.xxs }}
+                    />
+                  ) : null}
+                </>
+              ) : null}
+            </View>
+          </View>
+          <MaterialCommunityIcons
+            name="chevron-right"
+            size={iconSize.md}
+            color={isDark ? darkColors.iconFaint : colors.iconFaint}
+          />
+        </Pressable>
+
+        <View style={styles.lineKey}>
+          <View style={styles.lineKeyItem}>
+            <View
+              testID="route-key-activity"
+              style={[styles.swatch, { backgroundColor: activityColor }]}
+            />
+            <Text style={[styles.meta, isDark && styles.textSecondary]}>
+              {t('activityDetail.lineKeyActivity')}
+            </Text>
+          </View>
+          <View style={styles.lineKeyItem}>
+            <View
+              testID="route-key-route"
+              style={[styles.swatch, { backgroundColor: mapLayerColors.routeOverlay }]}
+            />
+            <Text style={[styles.meta, isDark && styles.textSecondary]}>
+              {t('activityDetail.lineKeyRoute')}
+            </Text>
           </View>
         </View>
-        <MaterialCommunityIcons
-          name="chevron-right"
-          size={iconSize.md}
-          color={isDark ? darkColors.iconFaint : colors.iconFaint}
-        />
-      </Pressable>
 
-      <View style={styles.lineKey}>
-        <View style={styles.lineKeyItem}>
-          <View
-            testID="route-key-activity"
-            style={[styles.swatch, { backgroundColor: activityColor }]}
-          />
-          <Text style={[styles.meta, isDark && styles.textSecondary]}>
-            {t('activityDetail.lineKeyActivity')}
+        {standingText ? (
+          <Text testID="route-standing" style={[styles.standing, isDark && styles.textSecondary]}>
+            {standingText}
           </Text>
-        </View>
-        <View style={styles.lineKeyItem}>
-          <View
-            testID="route-key-route"
-            style={[styles.swatch, { backgroundColor: mapLayerColors.routeOverlay }]}
-          />
-          <Text style={[styles.meta, isDark && styles.textSecondary]}>
-            {t('activityDetail.lineKeyRoute')}
-          </Text>
-        </View>
-      </View>
+        ) : null}
 
-      {standingText ? (
-        <Text testID="route-standing" style={[styles.standing, isDark && styles.textSecondary]}>
-          {standingText}
-        </Text>
-      ) : null}
-
-      {chartData.length >= 1 && (
-        <View style={styles.chartWrap}>
-          <SectionScatterChart
-            chartData={chartData}
-            trendCurves={trendCurves}
-            onTrendChange={onTrendChange}
-            activityType={activityType}
-            isDark={isDark}
-            forwardColour={forwardColour}
-            useTimeAxis
-            bestForwardRecord={bestForwardRecord}
-            bestReverseRecord={bestReverseRecord}
-            bestForwardIsRecord={bestForwardIsRecord}
-            bestReverseIsRecord={bestReverseIsRecord}
-            forwardStats={forwardStats}
-            reverseStats={reverseStats}
-            highlightedActivityId={activityId}
-          />
-          <ScatterLegend
-            isDark={isDark}
-            showTrend={trendDisplay.visible}
-            trendColor={trendDisplay.reverse ? colors.reverseDirection : forwardColour}
-            showReverse={!!bestReverseRecord}
-            showThisActivity
-            showOutsideBand={chartData.some((d) => d.outsideDistanceBand === true)}
-          />
-        </View>
-      )}
+        {chartData.length >= 1 && (
+          <View style={styles.chartWrap}>
+            <SectionScatterChart
+              chartData={chartData}
+              trendCurves={trendCurves}
+              onTrendChange={onTrendChange}
+              activityType={activityType}
+              isDark={isDark}
+              forwardColour={forwardColour}
+              useTimeAxis
+              bestForwardRecord={bestForwardRecord}
+              bestReverseRecord={bestReverseRecord}
+              bestForwardIsRecord={bestForwardIsRecord}
+              bestReverseIsRecord={bestReverseIsRecord}
+              forwardStats={forwardStats}
+              reverseStats={reverseStats}
+              highlightedActivityId={activityId}
+            />
+            <ScatterLegend
+              isDark={isDark}
+              showTrend={trendDisplay.visible}
+              trendColor={trendDisplay.reverse ? colors.reverseDirection : forwardColour}
+              showReverse={!!bestReverseRecord}
+              showThisActivity
+              showOutsideBand={chartData.some((d) => d.outsideDistanceBand === true)}
+            />
+          </View>
+        )}
+      </Card>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
+  frame: {
     marginHorizontal: spacing.md,
     marginBottom: spacing.md,
-    overflow: 'hidden',
-  },
-  cardDark: {
-    backgroundColor: darkColors.surfaceCard,
   },
   header: {
     flexDirection: 'row',
@@ -246,7 +251,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: layout.borderRadiusFull,
-    borderWidth: 1.5,
+    borderWidth: stroke.one,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.surface,

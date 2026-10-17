@@ -10,7 +10,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
-import { colors, darkColors, spacing, typography, layout } from '@/theme';
+import { colors, darkColors, spacing, typography, layout, stroke } from '@/theme';
 import { Button } from '@/shared/ui';
 
 export interface ScatterLegendProps {
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   },
   prSwatch: {
     borderColor: colors.chartGoldMark,
-    borderWidth: 2,
+    borderWidth: stroke.two,
   },
   prSwatchDark: {
     borderColor: darkColors.chartGoldMark,
@@ -135,14 +135,14 @@ const styles = StyleSheet.create({
   },
   thisActivitySwatch: {
     borderColor: colors.chartGreenMark,
-    borderWidth: 2,
+    borderWidth: stroke.two,
   },
   thisActivitySwatchDark: {
     borderColor: darkColors.chartGreenMark,
   },
   outsideBandSwatch: {
     borderColor: colors.textSecondary,
-    borderWidth: 1.5,
+    borderWidth: stroke.two,
   },
   outsideBandSwatchDark: {
     borderColor: darkColors.textSecondary,
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
   trendSwatch: {
     width: 12,
     height: 2,
-    borderTopWidth: 2,
+    borderTopWidth: stroke.two,
   },
   methodButton: {
     alignSelf: 'center',

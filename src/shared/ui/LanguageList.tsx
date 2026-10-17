@@ -24,6 +24,7 @@ import {
   slopToMinTapTarget,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 import { pressable, pressRipple } from './pressFeedback';
 
@@ -191,10 +192,8 @@ export function LanguageList({ language, onSelect }: LanguageListProps) {
   );
 }
 
-const VARIANT_CHIP_BORDER = 1;
 const VARIANT_CHIP_GAP = spacing.xsPlus;
-const VARIANT_CHIP_HEIGHT =
-  typography.bodyCompact.lineHeight + 2 * (spacing.xs + VARIANT_CHIP_BORDER);
+const VARIANT_CHIP_HEIGHT = typography.bodyCompact.lineHeight + 2 * (spacing.xs + stroke.one);
 // Side by side, each chip reaches half the gap so the two targets meet without
 // overlapping.
 const VARIANT_CHIP_SLOP = {
@@ -216,7 +215,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   languageRowBorder: {
-    borderTopWidth: 1,
+    borderTopWidth: stroke.one,
     borderTopColor: colors.border,
   },
   languageRowDark: {
@@ -256,7 +255,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadiusMd,
     backgroundColor: colors.background,
-    borderWidth: VARIANT_CHIP_BORDER,
+    borderWidth: stroke.one,
     borderColor: colors.border,
   },
   variantChipDark: {
@@ -275,14 +274,13 @@ const styles = StyleSheet.create({
   },
   variantChipDialectSelected: {
     borderColor: brand.gold,
-    borderWidth: 2,
+    borderWidth: stroke.two,
   },
   variantChipDialectSelectedDark: {
     borderColor: brand.goldLight,
   },
   variantChipText: {
-    ...typography.bodyCompact,
-    fontWeight: '500',
+    ...typography.bodyCompactBold,
     color: colors.textSecondary,
   },
   variantChipTextSelected: {
@@ -294,7 +292,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderTopWidth: 1,
+    borderTopWidth: stroke.one,
     borderTopColor: colors.border,
   },
   dialectKeySwatch: {
@@ -302,7 +300,7 @@ const styles = StyleSheet.create({
     height: spacing.md,
     borderRadius: layout.borderRadiusSm,
     backgroundColor: colors.background,
-    borderWidth: 1,
+    borderWidth: stroke.one,
   },
   dialectKeySwatchDark: {
     backgroundColor: darkColors.surfaceElevated,

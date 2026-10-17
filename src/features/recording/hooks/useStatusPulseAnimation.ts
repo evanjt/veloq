@@ -2,13 +2,14 @@ import { useEffect, useRef } from 'react';
 import { Animated } from 'react-native';
 
 import { motionLoop, motionTiming, useReduceMotion } from '@/shared/ui/reduceMotion';
+import { duration } from '@/theme';
 
 import type { RecordingStatus } from '../types';
 
 // Three pulses take 4.8 s, so the dot stops blinking inside the five seconds
 // WCAG 2.2.2 allows and then holds steady beside the REC label.
 const PULSE_CYCLES = 3;
-const HALF_CYCLE_MS = 800;
+const HALF_CYCLE_MS = duration.pulse;
 
 // Status dot that pulses when recording starts or resumes, then holds at full
 // opacity. With the system reduce-motion setting on it never pulses.

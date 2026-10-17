@@ -198,6 +198,7 @@
     "lint:notice-owner": "node scripts/lint-notice-owner.mjs",
     "lint:external-link-owner": "node scripts/lint-external-link-owner.mjs",
     "lint:haptics-owner": "node scripts/lint-haptics-owner.mjs",
+    "lint:gesture-callbacks": "node scripts/lint-gesture-callbacks.mjs",
     "lint:sharing-owner": "node scripts/lint-sharing-owner.mjs",
     "lint:switch-owner": "node scripts/lint-switch-owner.mjs",
     "lint:tap-targets": "node scripts/lint-tap-targets.mjs",

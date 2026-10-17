@@ -114,6 +114,19 @@ describe('the fitness milestone sheet', () => {
     expect(methodText).toContain('30 days');
   });
 
+  it('names eFTP and no bare FTP on the power card when eFTP falls', async () => {
+    const falling = { ...POWER, latestFtp: 240, previousFtp: 252, deltaWatts: -12 };
+    const power = generateFitnessMilestoneInsights(falling, null, null, NOW, t).find(
+      (i) => i.id === 'fitness_milestone-ftp'
+    );
+    if (!power) throw new Error('no falling power milestone');
+    const card = await rendered(<InsightListCard insight={power} onPress={jest.fn()} />);
+
+    expect(power.supportingData?.trend?.direction).toBe('down');
+    expect(card).toContain('eFTP');
+    expect(card).not.toMatch(/(^|[^e])FTP/);
+  });
+
   it('names critical speed on the pace sheet, not a threshold pace', async () => {
     const text = await sheet('fitness_milestone-pace');
 

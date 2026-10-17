@@ -413,6 +413,10 @@ pub(crate) mod test_globals {
         wait_for_regroup_workers();
         crate::persistence::tiles::finish_test_tile_pass();
         clear_detection_handle();
+        // The last holder's engine and read pool stay open on its database
+        // after its TempDir is gone, so a test that opens none of its own
+        // would read that library's settings, such as route matching off.
+        crate::persistence::clear_persistent_engine();
         crate::http::reset_download_queue();
         crate::net::connectivity::reset();
         crate::net::elevation_backfill::reset_pause();

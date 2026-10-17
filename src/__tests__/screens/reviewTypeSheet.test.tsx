@@ -55,7 +55,7 @@ jest.mock('@/features/recording/hooks/useReviewSave', () => ({
   useReviewSave: () => ({
     isUploading: false,
     isProcessing: false,
-    queuedMessage: null,
+    leaving: false,
     saveError: null,
     handleSave: jest.fn(),
     handleDiscard: jest.fn(),

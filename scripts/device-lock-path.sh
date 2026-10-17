@@ -58,6 +58,20 @@ _veloq_serial=$(printf '%s' "$_veloq_serial" | tr -c 'A-Za-z0-9._-' '_')
 VELOQ_DEVICE_LOCK_PATH="${VELOQ_DEVICE_LOCK:-$_veloq_lock_dir/veloq-device-$_veloq_serial.lock}"
 export VELOQ_DEVICE_LOCK_PATH
 
+# The lock for Maestro across the whole host, whichever device a run drives.
+# Maestro reaches its on-device driver through a forward of one fixed host
+# port and takes no option to move it, so two runs on two devices of one host
+# take the forward from each other and every flow on both fails. It sits beside
+# the device lock, so a test that moves the device lock moves this one too.
+VELOQ_MAESTRO_LOCK_PATH="${VELOQ_MAESTRO_LOCK:-$(dirname "$VELOQ_DEVICE_LOCK_PATH")/veloq-maestro.lock}"
+export VELOQ_MAESTRO_LOCK_PATH
+
+# The lock for booting an emulator, one per host. Two emulators, at 3.4 GB and
+# 0.8 GB, beside one native build pushed a 31 GB host into 16 GB of swap, so a
+# host runs one and every session that wants one reuses it.
+VELOQ_EMULATOR_LOCK_PATH="${VELOQ_EMULATOR_LOCK:-$(dirname "$VELOQ_DEVICE_LOCK_PATH")/veloq-emulator.lock}"
+export VELOQ_EMULATOR_LOCK_PATH
+
 # An explicit path is an answer, so the ambiguity above no longer matters.
 [ -z "${VELOQ_DEVICE_LOCK:-}" ] || VELOQ_DEVICE_LOCK_AMBIGUOUS=""
 export VELOQ_DEVICE_LOCK_AMBIGUOUS

@@ -11,8 +11,8 @@
  * does not fit them. Each is one of three kinds:
  *
  * - `pair` states a foreground and its own ground together, so the pair is
- *   measurable without knowing the screen: an amber banner's text on an amber
- *   banner's fill. A translucent fill is composited over the theme surface
+ *   measurable without knowing the screen: the offline pill's text on the
+ *   pill's fill. A translucent fill is composited over the theme surface
  *   first, which is where the `0x18` alpha steps in `statusBadge` matter.
  * - `mark` is drawn on whatever surface the theme gives it, so it answers to
  *   3:1 against the three surfaces of its theme, the same as a mark token.
@@ -201,23 +201,6 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
       { paths: ['light'], theme: 'light' },
       { paths: ['dark'], theme: 'dark' },
     ],
-  },
-  amberBanner: {
-    kind: 'pair',
-    reason: 'the sync-warning banner states its own fill, border, text and subtext, per mode',
-    pairs: [
-      { ground: 'light.bg', on: ['light.text', 'light.subtext'], bar: 'text' },
-      { ground: 'dark.bg', on: ['dark.text', 'dark.subtext'], bar: 'text' },
-    ],
-    // The border is not measured. It edges a filled banner whose own text
-    // carries the message, so it identifies nothing: 1.93:1 against its fill is
-    // the border reading as a tint of the banner, which is what it is for.
-  },
-  redBanner: {
-    kind: 'pair',
-    reason: 'the failure banner, the same shape as amberBanner with one mode',
-    pairs: [{ ground: 'bg', on: ['text'], bar: 'text' }],
-    // The border, as in amberBanner, edges a filled banner and is not measured.
   },
   offlinePill: {
     kind: 'pair',

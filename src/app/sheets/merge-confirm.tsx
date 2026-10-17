@@ -17,6 +17,7 @@ import {
   layout,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 import {
   useMergeSections,
@@ -175,7 +176,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.sm,
     borderRadius: layout.borderRadiusSm,
-    borderWidth: 1,
+    borderWidth: stroke.one,
     gap: spacing.sm,
     minHeight: layout.minTapTarget,
   },
@@ -183,7 +184,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: layout.borderRadiusFull,
-    borderWidth: 2,
+    borderWidth: stroke.two,
     justifyContent: 'center',
     alignItems: 'center',
   },

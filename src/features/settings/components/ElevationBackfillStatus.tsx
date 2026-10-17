@@ -24,7 +24,7 @@ import { useTheme } from '@/shared/app';
 import { useElevationBackfill, useRouteSettings } from '@/features/routes';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { Button } from '@/shared/ui';
-import { inform } from '@/shared/ui/dialog';
+import { openExplainer } from '@/shared/app/explainer';
 
 export function ElevationBackfillStatus() {
   const { t } = useTranslation();
@@ -154,9 +154,9 @@ export function ElevationBackfillStatus() {
         testID="elevation-backfill-why"
         label={t('settings.elevationBackfillWhy')}
         onPress={() =>
-          inform({
+          openExplainer({
             title: t('settings.elevationBackfillWhyTitle'),
-            message: t('settings.elevationBackfillWhyBody'),
+            body: t('settings.elevationBackfillWhyBody'),
           })
         }
         variant="ghost"

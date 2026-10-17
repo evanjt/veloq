@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
   chipLabel: {
     fontSize: typography.label.fontSize,
     lineHeight: typography.label.lineHeight,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   chipValueContainer: {
     alignSelf: 'stretch',

@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     marginRight: spacing.xs,
     fontSize: typography.bodySmall.fontSize,
-    fontWeight: '500',
+    fontWeight: '600',
     color: colors.textPrimary,
   },
   nameDark: { color: darkColors.textPrimary },

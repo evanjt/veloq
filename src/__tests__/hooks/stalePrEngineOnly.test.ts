@@ -53,6 +53,9 @@ describe('generateStalePRInsights', () => {
         { value: 281, date: 1_700_000_000 },
         { value: 274, date: 1_700_600_000 },
         { value: 263, date: 1_701_200_000 },
+        { value: 270, date: 1_701_800_000 },
+        { value: 266, date: 1_702_400_000 },
+        { value: 268, date: 1_703_000_000 },
       ],
     };
 
@@ -69,7 +72,10 @@ describe('generateStalePRInsights', () => {
       ...ROW,
       recentEfforts: [
         { value: 281, date: 1_700_000_000 },
+        { value: 274, date: 1_700_600_000 },
         { value: 263, date: 1_701_200_000 },
+        { value: 270, date: 1_701_800_000 },
+        { value: 266, date: 1_702_400_000 },
       ],
     };
 

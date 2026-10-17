@@ -45,10 +45,10 @@ describe('StartupErrorBanner', () => {
 
   it('calls onDismiss from the dismiss button', async () => {
     const onDismiss = jest.fn();
-    const { getByText } = await render(
+    const { getByLabelText } = await render(
       <StartupErrorBanner areas={['other']} onRetry={() => {}} onDismiss={onDismiss} />
     );
-    await fireEvent.press(getByText('t:common.close'));
+    await fireEvent.press(getByLabelText('t:common.close'));
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 

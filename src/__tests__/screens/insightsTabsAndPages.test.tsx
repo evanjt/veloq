@@ -10,7 +10,8 @@
  */
 
 import React from 'react';
-import { act, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 
 import InsightsScreen from '@/app/(tabs)/insights';
 
@@ -64,8 +65,12 @@ jest.mock('@/shared/ui', () => ({
     return null;
   },
 }));
+const mockOpenExplainer = jest.fn();
+jest.mock('@/shared/app/explainer', () => ({
+  openExplainer: (...a: unknown[]) => mockOpenExplainer(...a),
+}));
 jest.mock('@/features/insights', () => ({
-  aboutInsightsBody: jest.fn(),
+  aboutInsightsBody: () => 'insights.aboutBody',
   InsightsPanel: () => null,
   StrengthTab: () => null,
   useInsights: () => ({ insights: [], markAsSeen: jest.fn() }),
@@ -192,6 +197,22 @@ describe('the Insights screen', () => {
     await render(<InsightsScreen />);
 
     expect(screen.getByRole('button', { name: 'insights.aboutTitle' })).toBeTruthy();
+  });
+
+  it('opens the explanation of the screen in the explainer sheet, not an alert', async () => {
+    Object.assign(mockFlags, { strength: 'hidden', routeMatching: true, debug: false });
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    mockOpenExplainer.mockClear();
+
+    await render(<InsightsScreen />);
+    await fireEvent.press(screen.getByRole('button', { name: 'insights.aboutTitle' }));
+
+    expect(alertSpy).not.toHaveBeenCalled();
+    expect(mockOpenExplainer).toHaveBeenCalledWith({
+      title: 'insights.aboutTitle',
+      body: 'insights.aboutBody',
+    });
+    alertSpy.mockRestore();
   });
 
   it('leaves a failed engine start to the global banner and shows none of its own', async () => {

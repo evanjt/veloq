@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { colors, darkColors, spacing, layout, brand, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, brand, typography, stroke } from '@/theme';
 import type { MuscleVolume, ExerciseSummary } from '@/types';
 import { formatWeightRounded as formatWeight } from '@/shared/format/weight';
 import { Row } from '@/shared/ui';
@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   titleDark: { color: darkColors.textSecondary },
-  itemBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.divider },
+  itemBorder: { borderTopWidth: stroke.hairline, borderTopColor: colors.divider },
   itemBorderDark: { borderTopColor: darkColors.border },
   dot: {
     width: 6,

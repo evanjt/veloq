@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
   },
   contextText: {
     fontSize: typography.caption.fontSize,
-    fontWeight: '500',
+    fontWeight: '400',
     color: colors.textSecondary,
   },
   contextTextDark: {

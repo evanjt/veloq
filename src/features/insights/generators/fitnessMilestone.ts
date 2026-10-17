@@ -110,6 +110,11 @@ function addPaceMilestoneInsight(
     context: declining ? 'neutral' : 'good',
     date: daySeconds(pace.latestDate),
   };
+  const paceChange: DataPoint = {
+    label: t('insights.data.improvement'),
+    value: `${declining ? '' : '+'}${gainPercent}%`,
+    context: declining ? 'neutral' : 'good',
+  };
   insights.push(
     makeInsight({
       id: options.id,
@@ -148,6 +153,7 @@ function addPaceMilestoneInsight(
           verdict: declining ? 'declined' : 'improved',
         },
         hero: current,
+        change: paceChange,
         dataPoints: [
           current,
           {
@@ -156,11 +162,7 @@ function addPaceMilestoneInsight(
             unit: options.paceUnit,
             date: daySeconds(pace.previousDate),
           },
-          {
-            label: t('insights.data.improvement'),
-            value: `${declining ? '' : '+'}${gainPercent}%`,
-            context: declining ? 'neutral' : 'good',
-          },
+          paceChange,
         ],
       },
       methodology: {
@@ -205,6 +207,12 @@ export function generateFitnessMilestoneInsights(
         context: declining ? 'neutral' : 'good',
         date: daySeconds(ftp.latestDate),
       };
+      const ftpChange: DataPoint = {
+        label: t('insights.data.change'),
+        value: `${declining ? '' : '+'}${delta}`,
+        unit: 'W',
+        context: declining ? 'neutral' : 'good',
+      };
       insights.push(
         makeInsight({
           id: 'fitness_milestone-ftp',
@@ -242,6 +250,7 @@ export function generateFitnessMilestoneInsights(
               verdict: declining ? 'declined' : 'improved',
             },
             hero: currentFtp,
+            change: ftpChange,
             dataPoints: [
               currentFtp,
               {
@@ -250,12 +259,7 @@ export function generateFitnessMilestoneInsights(
                 unit: 'W',
                 date: daySeconds(ftp.previousDate),
               },
-              {
-                label: t('insights.data.change'),
-                value: `${declining ? '' : '+'}${delta}`,
-                unit: 'W',
-                context: declining ? 'neutral' : 'good',
-              },
+              ftpChange,
             ],
           },
           methodology: {

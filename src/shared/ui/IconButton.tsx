@@ -2,6 +2,7 @@
  * The icon-only form of `Button`.
  *
  * It is drawn in the button square of `controlHeight` whatever the glyph size,
+ * or the small button's square where a row has no room for the full one,
  * and hit slop lifts that square to the platform minimum, so a small icon is
  * still a tap target without a large disc around it. The label is required in
  * the props type because an icon has no text for a screen reader to fall back
@@ -34,6 +35,8 @@ export interface IconButtonProps {
   accessibilityState?: AccessibilityState;
   /** A button by default; a press that opens a web page is a link. */
   accessibilityRole?: 'button' | 'link';
+  /** Drawn in the small button's square, still lifted to the tap-target minimum. */
+  compact?: boolean;
   style?: StyleProp<ViewStyle>;
   testID?: string | undefined;
 }
@@ -47,6 +50,7 @@ export function IconButton({
   disabled = false,
   accessibilityState,
   accessibilityRole = 'button',
+  compact = false,
   style,
   testID,
 }: IconButtonProps) {
@@ -59,13 +63,14 @@ export function IconButton({
       accessibilityRole={accessibilityRole}
       accessibilityLabel={accessibilityLabel}
       accessibilityState={{ ...accessibilityState, disabled }}
-      hitSlop={ICON_SLOP}
+      hitSlop={compact ? COMPACT_SLOP : ICON_SLOP}
       android_ripple={disabled ? undefined : ripple}
       disabled={disabled}
       onPress={onPress}
       onPressIn={onPressIn}
       style={({ pressed }) => [
         styles.base,
+        compact && styles.compact,
         {
           backgroundColor: skin.backgroundColor,
           borderColor: skin.borderColor,
@@ -81,6 +86,7 @@ export function IconButton({
 }
 
 const ICON_SLOP = slopToMinTapTarget(controlHeight.button, controlHeight.button);
+const COMPACT_SLOP = slopToMinTapTarget(controlHeight.buttonSm, controlHeight.buttonSm);
 
 const styles = StyleSheet.create({
   base: {
@@ -90,5 +96,9 @@ const styles = StyleSheet.create({
     minWidth: controlHeight.button,
     minHeight: controlHeight.button,
     overflow: 'hidden',
+  },
+  compact: {
+    minWidth: controlHeight.buttonSm,
+    minHeight: controlHeight.buttonSm,
   },
 });

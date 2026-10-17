@@ -20,7 +20,7 @@ import { StackActions } from 'expo-router/react-navigation';
 import { testStack } from '../__shared__/testStack';
 
 let mockParams: Record<string, string> = {};
-const mockSave = { isUploading: false, queuedMessage: null as string | null };
+const mockSave = { isUploading: false, leaving: false };
 
 jest.unmock('expo-router/react-navigation');
 jest.mock('expo-router', () => ({
@@ -51,7 +51,7 @@ jest.mock('@/features/recording/components/ReviewMapHero', () => ({ ReviewMapHer
 jest.mock('@/features/recording/hooks/useReviewSave', () => ({
   useReviewSave: () => ({
     isUploading: mockSave.isUploading,
-    queuedMessage: mockSave.queuedMessage,
+    leaving: mockSave.leaving,
     errorMessage: null,
     handleSave: jest.fn(),
     canRetry: false,
@@ -63,7 +63,7 @@ let alertSpy: jest.SpyInstance;
 beforeEach(() => {
   alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   mockSave.isUploading = false;
-  mockSave.queuedMessage = null;
+  mockSave.leaving = false;
   mockParams = {};
   useAuthStore.setState({ isAuthenticated: true, athleteId: 'i1' });
   useRecordingStore.getState().reset();
@@ -154,9 +154,9 @@ describe('a manual entry review with unsaved edits', () => {
     expect(alertSpy).not.toHaveBeenCalled();
   });
 
-  it('asks nothing once the save shows its queued message', async () => {
+  it('asks nothing once the save has settled and the review is leaving', async () => {
     const { view, route, back } = await openReview();
-    mockSave.queuedMessage = 'recording.savedQueued';
+    mockSave.leaving = true;
     await fireEvent.changeText(view.getByTestId('review-notes'), 'Headwind the whole way out');
 
     await back();

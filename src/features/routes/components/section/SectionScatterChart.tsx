@@ -37,7 +37,7 @@ import {
   type TrendBandPoint,
 } from '@/features/routes/lib/scatterData';
 import { computeTimeAxisLabels, axisLabelsNeedDay } from '@/features/stats';
-import { colors, darkColors, iconSize, layout, spacing, themePalette, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, themePalette, typography } from '@/theme';
 import type { FfiSectionTrendCurves } from 'veloqrs';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 import type {
@@ -312,7 +312,7 @@ export function SectionScatterChart({
   if (chartData.length < 1) return null;
 
   return (
-    <View style={[styles.container, isDark && styles.containerDark, containerStyle]}>
+    <View style={[styles.container, containerStyle]}>
       {/* Eye toggle for excluded activities */}
       {!mini && hasExcluded && onToggleShowExcluded ? (
         <ExcludedActivitiesToggle
@@ -647,12 +647,7 @@ export function ExcludedActivitiesToggle({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadiusMd,
     overflow: 'hidden',
-  },
-  containerDark: {
-    backgroundColor: darkColors.surfaceCard,
   },
   eyeToggleRow: {
     flexDirection: 'row',

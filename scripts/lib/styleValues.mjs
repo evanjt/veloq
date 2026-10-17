@@ -28,6 +28,10 @@ import ts from 'typescript';
  */
 
 const BORDER_COLOUR_SIDES = ['Top', 'Bottom', 'Left', 'Right', 'Start', 'End'];
+const BORDER_WIDTH_KEYS = new Set([
+  'borderWidth',
+  ...BORDER_COLOUR_SIDES.map((side) => `border${side}Width`),
+]);
 
 /** @type {StyleClass[]} */
 export const STYLE_CLASSES = [
@@ -128,10 +132,10 @@ export const STYLE_CLASSES = [
   },
   {
     name: 'border-width',
-    keys: ['borderWidth', ...BORDER_COLOUR_SIDES.map((side) => `border${side}Width`)],
-    owner: [],
+    keys: [...BORDER_WIDTH_KEYS],
+    owner: ['stroke'],
     guard: 'lint:style-border-width',
-    instead: 'StyleSheet.hairlineWidth until the stroke tokens land in src/theme',
+    instead: 'stroke.hairline, stroke.one, stroke.two or stroke.three, or 0 for none',
   },
   {
     name: 'stroke-width',
@@ -185,9 +189,9 @@ export const STYLE_CLASSES = [
   {
     name: 'motion',
     keys: ['duration', 'delay', 'withDelay'],
-    owner: [],
+    owner: ['duration', 'easing', 'motionPairs', 'motionPresets', 'cameraMove'],
     guard: 'lint:style-motion',
-    instead: 'a named duration from src/theme',
+    instead: 'duration.<rung>, motionPresets.<pair> or cameraMove.<move> from src/theme',
   },
   {
     name: 'container',
@@ -348,6 +352,41 @@ function literals(expr, { skipOne = false, objects = false } = {}) {
   return [];
 }
 
+/**
+ * The parts of a border width that are not a stroke read, as source text. A
+ * width is drawn from the four in `stroke` or switched off with 0, so a number,
+ * the platform hairline read directly, a local constant and any arithmetic on
+ * them are all a fifth width nobody chose. Either branch of a conditional and
+ * both sides of `??` and `||` are judged.
+ */
+function nonStrokeWidths(expr, sf) {
+  const value = unwrap(expr);
+  if (!value) return [];
+  if (ts.isConditionalExpression(value)) {
+    return [...nonStrokeWidths(value.whenTrue, sf), ...nonStrokeWidths(value.whenFalse, sf)];
+  }
+  if (
+    ts.isBinaryExpression(value) &&
+    (value.operatorToken.kind === ts.SyntaxKind.QuestionQuestionToken ||
+      value.operatorToken.kind === ts.SyntaxKind.BarBarToken)
+  ) {
+    return [...nonStrokeWidths(value.left, sf), ...nonStrokeWidths(value.right, sf)];
+  }
+  if (ts.isNumericLiteral(value) && Number(value.text) === 0) return [];
+  if (ts.isIdentifier(value) && value.text === 'undefined') return [];
+  if (
+    ts.isPropertyAccessExpression(value) &&
+    ts.isIdentifier(value.expression) &&
+    value.expression.text === 'stroke'
+  ) {
+    return [];
+  }
+  // A width handed on from another object's own border width was judged where
+  // that object set it, as a control's skin is.
+  if (ts.isPropertyAccessExpression(value) && BORDER_WIDTH_KEYS.has(value.name.text)) return [];
+  return [value.getText(sf)];
+}
+
 /** A JSX attribute's value expression, a quoted attribute included. */
 function attributeValue(attr) {
   const init = attr.initializer;
@@ -372,7 +411,35 @@ const ANIMATION_CONFIG_CALLS = new Set([
   'spring',
   'decay',
   'configureNext',
+  'motionTiming',
 ]);
+
+/** Camera moves, by the argument count at which the last one is the duration. */
+const CAMERA_CALLS = new Map([
+  ['setCamera', 2],
+  ['fitBounds', 3],
+]);
+
+/** Whether an object is handed straight to a timing call, which counts it already. */
+function isAnimationConfigArgument(object) {
+  let child = object;
+  let parent = object.parent;
+  while (
+    parent &&
+    (ts.isParenthesizedExpression(parent) ||
+      ts.isAsExpression(parent) ||
+      ts.isSatisfiesExpression(parent))
+  ) {
+    child = parent;
+    parent = parent.parent;
+  }
+  return (
+    !!parent &&
+    ts.isCallExpression(parent) &&
+    parent.arguments.includes(child) &&
+    ANIMATION_CONFIG_CALLS.has(calleeName(parent))
+  );
+}
 
 /** The style objects a container name is matched against, by kind. */
 const CONTAINER_KINDS = [
@@ -467,6 +534,23 @@ export function literalSites(sf, className) {
         }
         break;
       case 'motion':
+        // An object naming an easing is an animation config wherever it is
+        // built, so its duration counts even outside a timing call.
+        if (
+          ts.isObjectLiteralExpression(node) &&
+          !isAnimationConfigArgument(node) &&
+          node.properties.some(
+            (p) =>
+              (ts.isPropertyAssignment(p) || ts.isShorthandPropertyAssignment(p)) &&
+              keyName(p.name) === 'easing'
+          )
+        ) {
+          for (const p of node.properties) {
+            const key = ts.isPropertyAssignment(p) ? keyName(p.name) : null;
+            if (key !== 'duration' && key !== 'delay') continue;
+            for (const v of literals(p.initializer)) at(p, `${key}: ${v}`);
+          }
+        }
         if (ts.isCallExpression(node)) {
           const name = calleeName(node);
           if (name && ANIMATION_CONFIG_CALLS.has(name)) {
@@ -478,6 +562,12 @@ export function literalSites(sf, className) {
                 if (key !== 'duration' && key !== 'delay') continue;
                 for (const v of literals(p.initializer)) at(p, `${key}: ${v}`);
               }
+            }
+          }
+          const cameraArity = name ? CAMERA_CALLS.get(name) : undefined;
+          if (cameraArity && node.arguments.length === cameraArity) {
+            for (const v of literals(node.arguments[cameraArity - 1])) {
+              if (/^[0-9.]+$/.test(v)) at(node, `${name}(…, ${v})`);
             }
           }
           const callee = unwrap(node.expression);
@@ -544,7 +634,14 @@ export function literalSites(sf, className) {
     }
 
     if (keys.size > 0 && className !== 'icon-size') {
-      if (ts.isPropertyAssignment(node) && keys.has(keyName(node.name))) {
+      if (className === 'border-width') {
+        const key =
+          ts.isPropertyAssignment(node) || ts.isJsxAttribute(node) ? keyName(node.name) : null;
+        if (key && keys.has(key)) {
+          const value = ts.isJsxAttribute(node) ? attributeValue(node) : node.initializer;
+          for (const v of nonStrokeWidths(value, sf)) at(node, `${key}: ${v}`);
+        }
+      } else if (ts.isPropertyAssignment(node) && keys.has(keyName(node.name))) {
         const key = keyName(node.name);
         const objects = key === 'shadowOffset';
         // `elevation` is also the climb of a ride, in data objects everywhere;
@@ -560,6 +657,7 @@ export function literalSites(sf, className) {
         ts.isJsxAttribute(node) &&
         keys.has(keyName(node.name)) &&
         className !== 'motion' &&
+        className !== 'border-width' &&
         className !== 'colour'
       ) {
         for (const v of literals(attributeValue(node), { skipOne })) {
@@ -574,22 +672,36 @@ export function literalSites(sf, className) {
 }
 
 /**
- * Every font weight of 500, anywhere under `src/` including the theme. A
- * platform with static font files has no 500 face, so it resolves to 400 or
- * 600 depending on the platform, and the same text draws two weights.
+ * The weights a static font file has no face for, by the number or the name
+ * React Native takes for it. A 500 resolves to 400 or 600 depending on the
+ * platform, so the same text draws two weights, and the scale draws nothing
+ * above 700.
  */
-export function mediumWeightSites(sf) {
+const OFF_SCALE_WEIGHTS = new Map([
+  ['500', '500'],
+  ['medium', '500'],
+  ['800', '800'],
+  ['heavy', '800'],
+  ['900', '900'],
+  ['black', '900'],
+]);
+
+/** Every font weight off the scale's 400, 600 and 700, anywhere under `src/` including the theme. */
+export function offScaleWeightSites(sf) {
   const sites = [];
   const visit = (node) => {
     const key =
       ts.isPropertyAssignment(node) || ts.isJsxAttribute(node) ? keyName(node.name) : null;
     if (key === 'fontWeight') {
       const value = ts.isJsxAttribute(node) ? attributeValue(node) : node.initializer;
-      if (literals(value).includes('500')) {
-        sites.push({
-          line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1,
-          text: 'fontWeight: 500',
-        });
+      for (const v of literals(value)) {
+        const weight = OFF_SCALE_WEIGHTS.get(String(v));
+        if (weight) {
+          sites.push({
+            line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1,
+            text: `fontWeight: ${weight}`,
+          });
+        }
       }
     }
     ts.forEachChild(node, visit);

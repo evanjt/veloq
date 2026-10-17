@@ -5365,7 +5365,7 @@ const FfiConverterTypeFfiCalendarEventBody = (() => {
 })();
 
 /**
- * Best performance in a calendar month for FFI.
+ * Best performance in a calendar month, split by direction.
  */
 export type FfiCalendarMonthSummary = {
   /**
@@ -5373,7 +5373,7 @@ export type FfiCalendarMonthSummary = {
    */
   month: number;
   /**
-   * Total traversals (both directions), one per lap
+   * Total traversals in this month (both directions), one per lap
    */
   traversalCount: number;
   /**
@@ -5381,11 +5381,11 @@ export type FfiCalendarMonthSummary = {
    */
   activityCount: number;
   /**
-   * Best forward/same direction performance
+   * Best forward/same direction performance (None if no forward traversals)
    */
   forward?: FfiCalendarDirectionBest;
   /**
-   * Best reverse direction performance
+   * Best reverse direction performance (None if no reverse traversals)
    */
   reverse?: FfiCalendarDirectionBest;
 };
@@ -5454,7 +5454,7 @@ const FfiConverterTypeFfiCalendarMonthSummary = (() => {
 })();
 
 /**
- * Best performance in a calendar year for FFI.
+ * Best performance in a calendar year, with monthly breakdown.
  */
 export type FfiCalendarYearSummary = {
   /**
@@ -5478,7 +5478,7 @@ export type FfiCalendarYearSummary = {
    */
   reverse?: FfiCalendarDirectionBest;
   /**
-   * Monthly breakdowns (only months with traversals)
+   * Monthly breakdowns (only months with traversals, sorted 1-12)
    */
   months: Array<FfiCalendarMonthSummary>;
 };
@@ -5556,7 +5556,7 @@ const FfiConverterTypeFfiCalendarYearSummary = (() => {
 })();
 
 /**
- * Calendar-aligned performance summary for FFI.
+ * Calendar-aligned performance summary for a section.
  */
 export type FfiCalendarSummary = {
   /**

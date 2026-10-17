@@ -35,7 +35,16 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app/useTheme';
-import { colors, darkColors, iconSize, inputBoundary, layout, spacing, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  iconSize,
+  inputBoundary,
+  layout,
+  spacing,
+  typography,
+  stroke,
+} from '@/theme';
 
 import { IconButton } from './IconButton';
 import { secretReveal } from './secretReveal';
@@ -303,7 +312,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     minHeight: layout.minTapTarget,
-    borderWidth: 1,
+    borderWidth: stroke.one,
     borderRadius: layout.borderRadiusSm,
     paddingHorizontal: spacing.smPlus,
     gap: spacing.sm,

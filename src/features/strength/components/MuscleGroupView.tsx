@@ -24,6 +24,7 @@ import {
   spacing,
   themedStyles,
   typography,
+  stroke,
 } from '@/theme';
 import type { ActivityDetail } from '@/types';
 
@@ -297,7 +298,7 @@ const makeStyles = (palette: Palette, isDark: boolean) =>
     },
     detailDivider: {
       width: '100%',
-      height: StyleSheet.hairlineWidth,
+      height: stroke.hairline,
       backgroundColor: palette.divider,
       marginVertical: spacing.xs,
     },

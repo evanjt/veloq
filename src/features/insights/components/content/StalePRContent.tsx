@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
   sectionName: {
     flex: 1,
     fontSize: typography.bodySmall.fontSize,
-    fontWeight: '500',
+    fontWeight: '600',
     color: colors.textPrimary,
   },
   sectionNameDark: {

@@ -110,7 +110,19 @@ describe('the hook reports which format is running', () => {
   });
 
   it('names the format in the alert that reports what was skipped', async () => {
-    bulkExportActivitiesGeoJson.mockResolvedValue(complete('geojson', 2, 1));
+    // The export asks the hook's confirmation before it shares, as the real one does.
+    bulkExportActivitiesGeoJson.mockImplementation(
+      async (_onProgress, _timeout, _anchor, confirm: (tally: unknown) => Promise<boolean>) => {
+        const tally = complete('geojson', 2, 1);
+        await confirm(tally);
+        return tally;
+      }
+    );
+    (Alert.alert as jest.Mock).mockImplementation((_title, _message, buttons) =>
+      (buttons as { style?: string; onPress?: () => void }[] | undefined)
+        ?.find((button) => button.style !== 'cancel')
+        ?.onPress?.()
+    );
     const { result } = await renderHook(() => useBulkExport());
 
     await act(async () => {

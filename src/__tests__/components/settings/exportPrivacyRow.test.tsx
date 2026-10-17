@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import { Alert, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 
 import {
@@ -52,13 +52,15 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
+const mockOpenExplainer = jest.fn();
+jest.mock('@/shared/app/explainer', () => ({
+  openExplainer: (...a: unknown[]) => mockOpenExplainer(...a),
+}));
+
 /** The text the info button holds, which is where the row's description lives. */
 async function describedRadius(tree: Awaited<ReturnType<typeof render>>): Promise<string> {
-  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   await fireEvent.press(tree.getByTestId('export-privacy-info'));
-  const message = String(alert.mock.calls.at(-1)?.[1]);
-  alert.mockRestore();
-  return message;
+  return String(mockOpenExplainer.mock.calls.at(-1)?.[0].body);
 }
 
 function titleColour(tree: Awaited<ReturnType<typeof render>>): unknown {

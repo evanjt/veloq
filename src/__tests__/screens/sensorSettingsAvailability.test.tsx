@@ -15,6 +15,7 @@ jest.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string, fallback?: string) => fallback ?? key }),
 }));
 jest.mock('@/shared/ui', () => ({
+  Card: jest.requireActual('@/shared/ui/Card').Card,
   EmptyState: jest.requireActual('@/shared/ui/EmptyState').EmptyState,
   signalColor: jest.requireActual('@/shared/ui/SignalStatus').signalColor,
   ScreenSafeAreaView: require('react-native').View,

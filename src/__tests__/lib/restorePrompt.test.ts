@@ -15,7 +15,7 @@ import { Platform } from 'react-native';
 
 import {
   answerRestorePrompt,
-  backupIsFound,
+  findNewestBackup,
   restorePromptDue,
 } from '@/features/settings/lib/restorePrompt';
 
@@ -88,20 +88,20 @@ describe('a backup found after a reinstall on iPhone', () => {
   it('is found in Veloq’s iCloud Drive folder with nothing set up', async () => {
     Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true });
     mockIcloudList.mockResolvedValue([zip]);
-    await expect(backupIsFound()).resolves.toBe(true);
+    await expect(findNewestBackup()).resolves.toMatchObject({ source: 'icloud', entry: zip });
   });
 
   it('is not found in an empty folder, or when iCloud cannot be reached', async () => {
     Object.defineProperty(Platform, 'OS', { value: 'ios', configurable: true });
-    await expect(backupIsFound()).resolves.toBe(false);
+    await expect(findNewestBackup()).resolves.toBeNull();
     mockIcloudList.mockRejectedValue(new Error('iCloud is not available'));
-    await expect(backupIsFound()).resolves.toBe(false);
+    await expect(findNewestBackup()).resolves.toBeNull();
   });
 
   it('is never looked for on Android', async () => {
     Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true });
     mockIcloudList.mockResolvedValue([zip]);
-    await expect(backupIsFound()).resolves.toBe(false);
+    await expect(findNewestBackup()).resolves.toBeNull();
     expect(mockIcloudList).not.toHaveBeenCalled();
   });
 });

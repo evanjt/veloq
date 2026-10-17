@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import {
+  Card,
   EmptyState,
   ErrorState,
   ScreenSafeAreaView,
@@ -14,7 +15,7 @@ import {
 } from '@/shared/ui';
 import { Button } from '@/shared/ui/Button';
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, stroke, typography } from '@/theme';
 import { formatDateTime } from '@/shared/format/format';
 import {
   recordingActions,
@@ -52,7 +53,6 @@ function RecordingDetailScreenContent() {
   const errorDeep = isDark ? darkColors.errorDeep : colors.errorDeep;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bg = isDark ? darkColors.background : colors.background;
-  const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
 
   const handleUpload = useCallback(async () => {
@@ -175,26 +175,30 @@ function RecordingDetailScreenContent() {
           </View>
         )}
 
-        <View style={[styles.statsCard, { backgroundColor: surface, borderColor: border }]}>
-          {stats.map((stat) => (
-            <View key={stat.label} style={styles.statRow}>
-              <Text style={[styles.statLabel, { color: textSecondary }]}>{stat.label}</Text>
-              <Text style={[styles.statValue, { color: textPrimary }]}>{stat.value}</Text>
+        <View style={styles.statsFrame}>
+          <Card variant="flat" padding="none">
+            <View style={styles.statsBody}>
+              {stats.map((stat) => (
+                <View key={stat.label} style={styles.statRow}>
+                  <Text style={[styles.statLabel, { color: textSecondary }]}>{stat.label}</Text>
+                  <Text style={[styles.statValue, { color: textPrimary }]}>{stat.value}</Text>
+                </View>
+              ))}
+              <View style={styles.statRow}>
+                <Text style={[styles.statLabel, { color: textSecondary }]}>
+                  {t('recording.library.statusLabel', 'Status')}
+                </Text>
+                <Text style={[styles.statValue, { color: textPrimary }]}>
+                  {t(`recording.library.status.${entry.uploadStatus}`)}
+                </Text>
+              </View>
+              {entry.lastError ? (
+                <Text style={[styles.errorText, { color: errorDeep }]} numberOfLines={3}>
+                  {entry.lastError}
+                </Text>
+              ) : null}
             </View>
-          ))}
-          <View style={styles.statRow}>
-            <Text style={[styles.statLabel, { color: textSecondary }]}>
-              {t('recording.library.statusLabel', 'Status')}
-            </Text>
-            <Text style={[styles.statValue, { color: textPrimary }]}>
-              {t(`recording.library.status.${entry.uploadStatus}`)}
-            </Text>
-          </View>
-          {entry.lastError ? (
-            <Text style={[styles.errorText, { color: errorDeep }]} numberOfLines={3}>
-              {entry.lastError}
-            </Text>
-          ) : null}
+          </Card>
         </View>
 
         <View style={styles.actions}>
@@ -261,13 +265,13 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
     marginBottom: spacing.md,
     borderRadius: layout.borderRadius,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: stroke.hairline,
     overflow: 'hidden',
   },
-  statsCard: {
+  statsFrame: {
     marginHorizontal: spacing.md,
-    borderRadius: layout.borderRadius,
-    borderWidth: StyleSheet.hairlineWidth,
+  },
+  statsBody: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },

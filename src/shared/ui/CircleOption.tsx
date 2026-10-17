@@ -19,11 +19,9 @@ import {
 } from 'react-native';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, typography, stroke } from '@/theme';
 import { pressable, pressRipple } from './pressFeedback';
 
-/** The ring drawn round the chosen circle, on each side. */
-const RING = 3;
 const GAP = spacing.sm;
 /** The smallest circle that still reads as a picture. */
 const MIN_CIRCLE = 40;
@@ -35,7 +33,7 @@ const MIN_CIRCLE = 40;
  */
 export function circleOptionSize(rowWidth: number, count: number, max: number): number {
   if (rowWidth <= 0 || count <= 0) return max;
-  const share = (rowWidth - GAP * (count - 1)) / count - RING * 2;
+  const share = (rowWidth - GAP * (count - 1)) / count - stroke.three * 2;
   return Math.max(MIN_CIRCLE, Math.min(max, Math.floor(share)));
 }
 
@@ -94,9 +92,9 @@ export function CircleOptionRow<T extends string>({
               style={[
                 styles.ring,
                 {
-                  width: size + RING * 2,
-                  height: size + RING * 2,
-                  borderRadius: size / 2 + RING,
+                  width: size + stroke.three * 2,
+                  height: size + stroke.three * 2,
+                  borderRadius: size / 2 + stroke.three,
                   borderColor: selected ? palette.primary : 'transparent',
                 },
               ]}
@@ -140,7 +138,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   ring: {
-    borderWidth: RING,
+    borderWidth: stroke.three,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -151,7 +149,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: typography.caption.fontSize,
-    fontWeight: '500',
+    fontWeight: '400',
     textAlign: 'center',
   },
   labelSelected: {

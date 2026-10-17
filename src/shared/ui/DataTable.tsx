@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, layout, spacing, typography, stroke } from '@/theme';
 
 export interface DataTableRow {
   key: string;
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: layout.screenPadding,
     paddingVertical: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: stroke.hairline,
   },
   header: {
     ...typography.label,

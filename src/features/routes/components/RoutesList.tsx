@@ -30,6 +30,7 @@ import {
   slopToMinTapTarget,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 import { haversineDistance, type LatLngShort } from '@/shared/geo/distance';
 import { filterSummary } from '@/shared/format/filterSummary';
@@ -354,8 +355,7 @@ export const RoutesList = memo(function RoutesList({
   );
 });
 
-const SORT_CHIP_BORDER_WIDTH = 1;
-const SORT_CHIP_HEIGHT = typography.caption.lineHeight + 2 * (spacing.xs + SORT_CHIP_BORDER_WIDTH);
+const SORT_CHIP_HEIGHT = typography.caption.lineHeight + 2 * (spacing.xs + stroke.one);
 const sortChipHitSlop = slopToMinTapTarget(SORT_CHIP_HEIGHT);
 
 const styles = StyleSheet.create({
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     minHeight: SORT_CHIP_HEIGHT,
     borderRadius: layout.borderRadius,
-    borderWidth: SORT_CHIP_BORDER_WIDTH,
+    borderWidth: stroke.one,
     borderColor: colors.border,
   },
   sortChipDark: {

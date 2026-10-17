@@ -1,7 +1,7 @@
 import React, { Component, ReactNode } from 'react';
 import { StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { colors, darkColors, typography, spacing, layout } from '@/theme';
+import { colors, darkColors, typography, spacing, layout, stroke } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: layout.borderRadiusSm,
-    borderWidth: 1,
+    borderWidth: stroke.one,
     borderColor: colors.divider,
   },
   containerDark: {

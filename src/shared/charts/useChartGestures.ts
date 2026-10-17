@@ -43,6 +43,7 @@ import {
   AnimatedStyle,
 } from 'react-native-reanimated';
 import { light as lightHaptic } from '@/shared/ui/haptics';
+import { useGestureCallback } from '@/shared/ui/useGestureCallback';
 import { CHART_CONFIG } from './constants';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 
@@ -312,16 +313,17 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
     (idx: number) => applySelection(idx, 'scrub'),
     [applySelection]
   );
+  const scrubOnJS = useGestureCallback(handleScrubIndex);
 
   useAnimatedReaction(
     () => selectedIndex.value,
     (idx) => {
-      runOnJS(handleScrubIndex)(idx);
+      runOnJS(scrubOnJS)(idx);
       if (sharedSelectedIdx && idx >= 0) {
         sharedSelectedIdx.value = idx;
       }
     },
-    [handleScrubIndex, sharedSelectedIdx]
+    [scrubOnJS, sharedSelectedIdx]
   );
 
   // Manual activation: hold the touch UNDETERMINED until the timer fires so the
@@ -340,11 +342,13 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
       if (haptics) lightHaptic();
     }, activationDelay);
   }, [touchX, gestureInitialX, gestureReady, activationDelay, haptics]);
+  const beginLongPressOnJS = useGestureCallback(beginLongPress);
 
   const cancelLongPress = useCallback(() => {
     clearTimeout(longPressTimer.current);
     gestureReady.value = false;
   }, [gestureReady]);
+  const cancelLongPressOnJS = useGestureCallback(cancelLongPress);
 
   useEffect(() => () => clearTimeout(longPressTimer.current), []);
 
@@ -358,13 +362,13 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
           gestureInitialX.value = e.allTouches[0].x;
           gestureReady.value = false;
           gestureActive.value = false;
-          runOnJS(beginLongPress)();
+          runOnJS(beginLongPressOnJS)();
         })
         .onTouchesMove((e, mgr) => {
           'worklet';
           if (gestureActive.value) return;
           if (Math.abs(e.allTouches[0].absoluteY - gestureStartY.value) > verticalSlop) {
-            runOnJS(cancelLongPress)();
+            runOnJS(cancelLongPressOnJS)();
             mgr.fail();
             return;
           }
@@ -376,7 +380,7 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
         .onTouchesUp((_e, mgr) => {
           'worklet';
           if (gestureActive.value) return;
-          runOnJS(cancelLongPress)();
+          runOnJS(cancelLongPressOnJS)();
           touchX.value = -1;
           mgr.fail();
         })
@@ -394,8 +398,8 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
           gestureActive.value = false;
         }),
     [
-      beginLongPress,
-      cancelLongPress,
+      beginLongPressOnJS,
+      cancelLongPressOnJS,
       gestureStartY,
       gestureInitialX,
       gestureReady,
@@ -441,6 +445,7 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
     },
     [applySelection]
   );
+  const tapOnJS = useGestureCallback(handleTap);
 
   const tapGesture = useMemo(
     () =>
@@ -448,9 +453,9 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
         .maxDuration(tapMaxDuration)
         .onEnd((e) => {
           'worklet';
-          runOnJS(handleTap)(e.x, e.y);
+          runOnJS(tapOnJS)(e.x, e.y);
         }),
-    [handleTap, tapMaxDuration]
+    [tapOnJS, tapMaxDuration]
   );
 
   // A native gesture must be per-instance: it carries a handler tag the native

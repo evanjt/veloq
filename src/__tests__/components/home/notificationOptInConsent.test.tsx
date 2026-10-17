@@ -55,7 +55,7 @@ beforeEach(() => {
   });
   useNotificationPrompt.setState({ isLoaded: true, dismissed: false, showingSettingsHint: false });
   useWhatsNewStore.setState({ tourState: null });
-  useWhatsNewStore.setState({ launchModal: null, restoreOffered: false });
+  useWhatsNewStore.setState({ launchModal: null, restoreOffer: null });
 });
 
 describe('not enabled', () => {
@@ -245,7 +245,13 @@ describe('on a first launch', () => {
   });
 
   it('asks nothing while the restore offer is unanswered', async () => {
-    useWhatsNewStore.setState({ restoreOffered: true });
+    useWhatsNewStore.setState({
+      restoreOffer: {
+        source: 'webdav',
+        backend: null,
+        entry: { id: 'b1', timestamp: '2026-06-08T06:30:00.000Z', sizeBytes: 1, appVersion: '' },
+      },
+    });
     const screen = await render(<NotificationOptInCard libraryCount={1} />);
     expect(screen.queryByText('notifications.prompt.enable')).toBeNull();
   });

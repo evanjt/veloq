@@ -11,7 +11,7 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -22,6 +22,7 @@ import {
   colorWithOpacity,
   iconSize,
   layout,
+  motionPresets,
   offlinePill,
   shadows,
   spacing,
@@ -45,8 +46,7 @@ export function OfflineBanner() {
 
   return (
     <Animated.View
-      entering={FadeIn.duration(200)}
-      exiting={FadeOut.duration(150)}
+      {...motionPresets.pill}
       style={[styles.container, { top }]}
       pointerEvents="none"
       accessibilityLiveRegion="polite"

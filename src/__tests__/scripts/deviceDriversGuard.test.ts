@@ -203,6 +203,38 @@ describe('what is not a driver', () => {
     expect(result.code).toBe(0);
   });
 
+  it('is refused when it boots an emulator itself', () => {
+    const result = guard({
+      'scripts/foo.sh':
+        '#!/bin/sh\n"$ANDROID_HOME/emulator/emulator" -no-window -avd Quarry_Phone &\n',
+    });
+
+    expect(result.code).not.toBe(0);
+    expect(result.out).toContain('scripts/foo.sh');
+    expect(result.out).toContain('boot-emulator.sh');
+  });
+
+  it('is refused when a Node script spawns an emulator itself', () => {
+    const result = guard({
+      'scripts/foo.mjs':
+        "import { spawn } from 'node:child_process';\nspawn('emulator', ['@Quarry_Phone']);\n",
+    });
+
+    expect(result.code).not.toBe(0);
+    expect(result.out).toContain('scripts/foo.mjs');
+  });
+
+  it('passes a script that boots through the emulator lock or only lists the images', () => {
+    const result = guard({
+      'scripts/foo.sh':
+        '#!/bin/sh\nemulator -list-avds\nserial=$(scripts/boot-emulator.sh Quarry_Phone)\n',
+      'scripts/boot-emulator.sh':
+        '#!/bin/sh\nadb devices\nsh -c \'emulator "$@"\' x -avd "$avd" &\nemulator -avd "$avd"\n',
+    });
+
+    expect(result.code).toBe(0);
+  });
+
   it('passes a check that only asks whether the tool is installed', () => {
     const result = guard({
       'scripts/foo.sh':

@@ -13,7 +13,7 @@ import { ABSENT, absentLabel } from '@/shared/format/absent';
 // graph.
 import { useRouteGroups } from '@/features/routes/light';
 import { useRecordingStore } from '@/features/recording';
-import { brand, colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
+import { brand, colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
 import type { ActivityType } from '@/types';
 import { engineErrorKey } from '@/shared/native/engineError';
 import { EmptyState, pressable, pressRipple, SheetHeader } from '@/shared/ui';
@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: stroke.hairline,
     minHeight: layout.minTapTarget,
   },
   rowBody: {

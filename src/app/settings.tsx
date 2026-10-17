@@ -382,8 +382,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   accountName: {
-    ...typography.body,
-    fontWeight: '500',
+    ...typography.bodyBold,
     color: colors.textPrimary,
   },
   accountBadge: {

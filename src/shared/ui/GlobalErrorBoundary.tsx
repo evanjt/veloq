@@ -7,7 +7,7 @@ import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { shareCrashLog } from '@/shared/app/supportLinks';
 import { recordBoundaryCrash } from '@/shared/debug/boundaryCrash';
 import { settleForcedRenderCrash } from '@/shared/debug/forcedRenderCrash';
-import { errorScreen, layout, typography, spacing } from '@/theme';
+import { errorScreen, layout, typography, spacing, stroke } from '@/theme';
 import { pressable, pressRipple } from './pressFeedback';
 import { StatusLine } from './StatusLine';
 
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.smPlus,
     paddingHorizontal: spacing.xl,
     borderRadius: layout.borderRadiusSm,
-    borderWidth: 1,
+    borderWidth: stroke.one,
     alignItems: 'center',
   },
   actionText: {

@@ -16,6 +16,7 @@ import {
   colorWithOpacity,
   ink,
   themePalette,
+  stroke,
 } from '@/theme';
 
 import { StreamBackfillRow } from './StreamBackfillRow';
@@ -503,7 +504,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderTopWidth: 1,
+    borderTopWidth: stroke.one,
     borderTopColor: colors.border,
   },
   infoRowDark: {
@@ -551,7 +552,7 @@ const styles = StyleSheet.create({
   },
   infoValue: {
     fontSize: typography.bodySmall.fontSize,
-    fontWeight: '500',
+    fontWeight: '600',
     color: colors.textPrimary,
   },
   infoValueRow: {
@@ -568,7 +569,7 @@ const styles = StyleSheet.create({
   storageBarContainer: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderTopWidth: 1,
+    borderTopWidth: stroke.one,
   },
   storageBar: {
     flexDirection: 'row',

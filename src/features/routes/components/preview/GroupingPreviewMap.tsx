@@ -14,7 +14,7 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { decodeCoords } from 'veloqrs';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { cameraMove, colors, darkColors, layout, spacing, stroke, typography } from '@/theme';
 import { useTheme } from '@/shared/app/useTheme';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -143,7 +143,7 @@ export function GroupingPreviewMap({
   // A knob move repaints the same routes and leaves the viewport alone. A new
   // area, or the routes read for it landing, is what moves the camera.
   useEffect(() => {
-    if (framing) surfaceRef.current?.fitBounds(framing, spacing.lg, 400);
+    if (framing) surfaceRef.current?.fitBounds(framing, spacing.lg, cameraMove.brisk);
   }, [framing]);
 
   const sources: Record<string, MapSourceSpec> = useMemo(
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     right: spacing.sm,
     top: spacing.sm,
     borderRadius: layout.borderRadius,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: stroke.hairline,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     gap: spacing.xxs,

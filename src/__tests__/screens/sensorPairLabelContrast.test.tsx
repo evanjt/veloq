@@ -25,6 +25,7 @@ jest.mock('@/shared/app', () => ({
   useMetricSystem: () => true,
 }));
 jest.mock('@/shared/ui', () => ({
+  Card: jest.requireActual('@/shared/ui/Card').Card,
   ScreenSafeAreaView: require('react-native').View,
   ScreenScrollView: require('react-native').ScrollView,
   EmptyState: () => null,
@@ -82,7 +83,7 @@ it.each([
   mockIsDark = isDark;
   await render(<SensorSettingsScreen />);
   const card = flat(screen.getByTestId('sensor-discovered-strap-1').props.style);
-  expect(card.backgroundColor).toBe(isDark ? darkColors.surface : colors.surface);
+  expect(card.backgroundColor).toBe(isDark ? darkColors.surfaceCard : colors.surface);
   const label = flat(screen.getByText('Pair').props.style);
   expect(contrast(label.color as string, card.backgroundColor as string)).toBeGreaterThanOrEqual(
     AA_TEXT

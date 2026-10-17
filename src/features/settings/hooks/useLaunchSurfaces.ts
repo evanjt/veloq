@@ -14,7 +14,7 @@ import { useWhatsNewStore } from '../stores/WhatsNewStore';
  */
 export function useLaunchSurfaces(libraryCount = 0): LaunchSurfaces {
   const taken = useWhatsNewStore((s) => s.launchModal);
-  const restoreOffered = useWhatsNewStore((s) => s.restoreOffered);
+  const restoreOffered = useWhatsNewStore((s) => s.restoreOffer !== null);
   const settingsLoaded = useWhatsNewStore((s) => s.isLoaded);
   const lastSeenVersion = useWhatsNewStore((s) => s.lastSeenVersion);
   const tourOpen = useWhatsNewStore((s) => s.tourState !== null);

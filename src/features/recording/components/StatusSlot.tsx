@@ -17,6 +17,7 @@ import {
   colors,
   colorWithOpacity,
   darkColors,
+  duration,
   iconSize,
   layout,
   spacing,
@@ -27,6 +28,10 @@ import { selectStatusMessage, type StatusSlotInput } from '../lib/statusSlot';
 import { OpenSettingsButton, pressable, pressRipple } from '@/shared/ui';
 import { IconButton } from '@/shared/ui/IconButton';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
+
+// Every message drops in and lifts out alike, so a swap reads as one slot.
+const ENTERING = FadeInDown.duration(duration.exit);
+const EXITING = FadeOutUp.duration(duration.quick);
 
 interface StatusSlotProps extends StatusSlotInput {
   onDismissGpsWarning: () => void;
@@ -66,8 +71,8 @@ function StatusSlotInner({
     return (
       <Animated.View
         key="background"
-        entering={FadeInDown.duration(200)}
-        exiting={FadeOutUp.duration(150)}
+        entering={ENTERING}
+        exiting={EXITING}
         style={[styles.row, styles.warnRow]}
         testID="status-slot-background"
         accessibilityLiveRegion="assertive"
@@ -84,8 +89,8 @@ function StatusSlotInner({
     return (
       <Animated.View
         key="backup"
-        entering={FadeInDown.duration(200)}
-        exiting={FadeOutUp.duration(150)}
+        entering={ENTERING}
+        exiting={EXITING}
         style={[styles.row, styles.warnRow]}
         testID="status-slot-backup"
         accessibilityLiveRegion="assertive"
@@ -104,8 +109,8 @@ function StatusSlotInner({
     return (
       <Animated.View
         key="gps"
-        entering={FadeInDown.duration(200)}
-        exiting={FadeOutUp.duration(150)}
+        entering={ENTERING}
+        exiting={EXITING}
         style={[styles.row, styles.warnRow]}
         testID="status-slot-gps"
         accessibilityLiveRegion="assertive"
@@ -124,8 +129,8 @@ function StatusSlotInner({
     return (
       <Animated.View
         key="sensor"
-        entering={FadeInDown.duration(200)}
-        exiting={FadeOutUp.duration(150)}
+        entering={ENTERING}
+        exiting={EXITING}
         testID="status-slot-sensor"
         accessibilityLiveRegion="assertive"
       >
@@ -147,8 +152,8 @@ function StatusSlotInner({
   return (
     <Animated.View
       key="split"
-      entering={FadeInDown.duration(200)}
-      exiting={FadeOutUp.duration(150)}
+      entering={ENTERING}
+      exiting={EXITING}
       style={[styles.row, styles.splitRow]}
       testID="status-slot-split"
       accessibilityLiveRegion="polite"
@@ -181,7 +186,7 @@ const styles = StyleSheet.create({
   text: {
     flex: 1,
     fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '500',
+    fontWeight: '400',
   },
 });
 

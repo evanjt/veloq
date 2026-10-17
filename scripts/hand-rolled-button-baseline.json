@@ -7,7 +7,6 @@
   "src/app/record.tsx": 2,
   "src/app/recording/review.tsx": 1,
   "src/app/section-retired.tsx": 1,
-  "src/app/sensor-settings.tsx": 1,
   "src/app/sheets/activity-type.tsx": 1,
   "src/app/sheets/field-picker.tsx": 1,
   "src/app/sheets/merge-confirm.tsx": 1,
@@ -64,6 +63,7 @@
   "src/features/settings/components/StorageStatsPanel.tsx": 4,
   "src/features/settings/components/SupportSection.tsx": 1,
   "src/features/settings/components/whatsNew/WhatsNewModal.tsx": 1,
+  "src/features/stats/components/ActivityHeatmap.tsx": 1,
   "src/features/strength/components/StrengthActivityCard.tsx": 2,
   "src/features/strength/components/StrengthBodyDiagram.tsx": 1
 }

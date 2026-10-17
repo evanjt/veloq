@@ -327,3 +327,48 @@ fn the_record_backup_carries_the_numbers_of_retired_routes() {
         .collect();
     assert!(carried.contains(&("r_b".to_string(), 2)), "{carried:?}");
 }
+
+#[test]
+fn a_new_route_never_takes_a_number_a_name_already_shows() {
+    let _serial = crate::test_globals::serial_global_state();
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    let _word = RouteWord::set("Route");
+    save(
+        &mut engine,
+        vec![group("r_1", &["a", "b"]), group("r_2", &["c"])],
+    );
+    // Names a restore lays onto routes that already hold their own numbers:
+    // labels a released build minted, and a typed label in another language.
+    for (id, name) in [("r_1", "Route 3"), ("r_2", "Ride Strecke 4")] {
+        engine
+            .db
+            .execute(
+                "INSERT INTO route_names (route_id, custom_name) VALUES (?, ?)",
+                params![id, name],
+            )
+            .unwrap();
+    }
+
+    save(
+        &mut engine,
+        vec![
+            group("r_1", &["a", "b"]),
+            group("r_2", &["c"]),
+            group("r_3", &["d"]),
+            group("r_4", &["e"]),
+        ],
+    );
+
+    let numbers = stored_numbers(&engine);
+    assert_eq!(numbers["r_1"], 1, "a named route was renumbered");
+    assert_eq!(numbers["r_2"], 2, "a named route was renumbered");
+    assert_eq!(numbers["r_3"], 5);
+    assert_eq!(numbers["r_4"], 6);
+    let shown = engine.get_all_route_names();
+    let labels: BTreeSet<&str> = shown.values().map(String::as_str).collect();
+    assert_eq!(
+        labels.len(),
+        shown.len(),
+        "two routes show one label: {shown:?}"
+    );
+}

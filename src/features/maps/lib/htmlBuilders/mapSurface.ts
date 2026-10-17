@@ -25,6 +25,7 @@ import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import type { LngLat, LngLatBounds } from '@/features/maps/lib/coordinates';
 import { MAP_SURFACE_READY_TIMEOUT_MS } from '@/features/maps/lib/mapBudgets';
 import { jsNumber } from '@/features/maps/lib/webViewLiterals';
+import { cameraMove } from '@/theme';
 
 export { SURFACE_HIT_TEST_RADIUS_PX } from './mapSurfaceScripts';
 
@@ -411,7 +412,7 @@ export function buildFitBoundsScript(
   `;
 }
 
-export function buildResetOrientationScript(duration = 500): string {
+export function buildResetOrientationScript(duration: number = cameraMove.move): string {
   return `
     if (window.map) {
       window.map.easeTo({ bearing: 0, pitch: 0, duration: ${motionDurationExpression(duration)} });

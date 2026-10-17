@@ -25,7 +25,7 @@ function trend(overrides: Partial<EfficiencyTrend> = {}): EfficiencyTrend {
     sectionId: 'sec-1',
     sectionName: 'Church Hill',
     sportType: 'Ride',
-    points: [point(0.64), point(0.62), point(0.59), point(0.58)],
+    points: [point(0.66), point(0.65), point(0.64), point(0.62), point(0.59), point(0.58)],
     trendSlope: -0.0004,
     direction: 0,
     hrChangeBpm: -6.2,
@@ -42,7 +42,7 @@ it('carries the HR/pace series onto the insight', () => {
     series: [
       {
         label: 'insights.efficiencyTrend.seriesLabel',
-        points: [0.64, 0.62, 0.59, 0.58].map((value) => ({ date: 1, value })),
+        points: [0.66, 0.65, 0.64, 0.62, 0.59, 0.58].map((value) => ({ date: 1, value })),
       },
     ],
   });

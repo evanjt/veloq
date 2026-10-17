@@ -47,11 +47,47 @@ jobs:
   e2e-android:
     needs: build-android-dev
 
-    name: E2E Android (Maestro)
+    name: E2E Android (Maestro, ${{ matrix.shard.name }})
     # Hosted Ubuntu + KVM (see e2e-gate.yml): hosted macOS can't boot an Android
     # emulator (nested VM, no HVF -> qemu fails with HV_UNSUPPORTED).
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    # One job ran every flow, about 130 minutes before the retry pass, and was
+    # cancelled at its 120 minute cap. Sharded by pack as the iOS job is, each
+    # shard's measured time, the emulator boot and a retry pass for half of it
+    # fits the run step's timeout.
+    # src/__tests__/bugs/e2eSweepShardsFinish.test.ts holds the measurements and
+    # refuses a shard that outgrows its timeout or a flow no shard runs.
+    timeout-minutes: 60
+    strategy:
+      # A failed shard must not cancel the others, since a cancelled shard
+      # reports only the flows it finished.
+      fail-fast: false
+      matrix:
+        shard:
+          - name: map
+            packs: pack-map
+            tiers: tier0,tier1,tier2,tier3
+          - name: routes
+            packs: pack-routes
+            tiers: tier2,tier3
+          - name: settings
+            packs: pack-settings
+            tiers: tier2,tier3
+          - name: routes-settings-core
+            packs: pack-routes,pack-settings
+            tiers: tier0,tier1
+          - name: recording
+            packs: pack-recording
+            tiers: tier0,tier1,tier2,tier3
+          - name: activity-data
+            packs: pack-activity,pack-data
+            tiers: tier0,tier1,tier2,tier3
+          - name: nav-auth-home
+            packs: pack-nav,pack-auth,pack-home,pack-training
+            tiers: tier0,tier1,tier2,tier3
+          - name: fitness-stress
+            packs: pack-fitness,pack-stress
+            tiers: tier0,tier1,tier2,tier3
     steps:
       - uses: actions/checkout@v7
 
@@ -78,10 +114,12 @@ jobs:
       # Stopped short of the job's cap so the report steps after it still run.
       # At the cap the runner kills the job and whatever has not started yet.
       - name: Run Maestro tests on emulator
-        timeout-minutes: 105
+        timeout-minutes: 50
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
+          PACKS: ${{ matrix.shard.packs }}
+          SHARD_TIERS: ${{ matrix.shard.tiers }}
           TIERS: ${{ inputs.tier || 'tier0,tier1,tier2,tier3' }}
         with:
           api-level: 35
@@ -113,8 +151,9 @@ jobs:
             # that death reports in milliseconds. Bare, the sweep called those
             # failures: 78 of 85 on 2026-09-13, 103 of 103 on 08-23. The script
             # tells a death from a failed step, restarts the device once and
-            # gives those flows a clean shot.
-            .maestro/run-suite.sh maestro-report.xml /tmp/maestro-debug --include-tags="$TIERS" || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
+            # gives those flows a clean shot. run-shard.sh selects this shard's
+            # packs and tiers.
+            .maestro/run-shard.sh maestro-report.xml /tmp/maestro-debug || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
             adb devices -l > /tmp/device-state.txt 2>&1 || true
             pgrep -af qemu >> /tmp/device-state.txt 2>&1 || true
 
@@ -122,7 +161,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: maestro-android-report
+          name: maestro-android-report-${{ matrix.shard.name }}
           path: |
             maestro-report.xml
             retry-reports/
@@ -133,7 +172,7 @@ jobs:
         uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d # v6
         with:
           report_paths: maestro-report.xml
-          check_name: E2E Android Results
+          check_name: E2E Android Results (${{ matrix.shard.name }})
           fail_on_failure: false
 
       - name: Filter diagnostic logs
@@ -156,7 +195,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: screenshots-android
+          name: screenshots-android-${{ matrix.shard.name }}
           path: screenshots-flat/
           retention-days: 14
 
@@ -164,7 +203,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: android-logcat
+          name: android-logcat-${{ matrix.shard.name }}
           path: |
             /tmp/logcat.txt
             /tmp/logcat-filtered.txt
@@ -240,7 +279,7 @@ jobs:
     # tier where one pack alone is too slow, and holds the flows whose measured
     # time, plus a retry pass for half of them, fits the run step's timeout,
     # which leaves setup and the report steps room inside the hour.
-    # src/__tests__/bugs/e2eIosSweepFinishes.test.ts holds the measurements and
+    # src/__tests__/bugs/e2eSweepShardsFinish.test.ts holds the measurements and
     # refuses a shard that outgrows its timeout or a flow no shard runs.
     timeout-minutes: 60
     strategy:
@@ -286,10 +325,7 @@ jobs:
         with:
           artifact: ${{ needs.build-ios-dev.outputs.simulator-artifact }}
 
-      # Maestro includes a flow carrying any included tag, so the packs go in
-      # --include-tags and the tiers this shard does not hold, or the dispatch
-      # did not ask for, go in --exclude-tags. A shard left with no tier runs
-      # nothing and writes no report.
+      # run-shard.sh selects this shard's packs and tiers.
       #
       # Stopped short of the job's cap so the report steps after it still run.
       # On 2026-10-16 a shard's run used the whole hour, the log capture and
@@ -303,25 +339,7 @@ jobs:
           SHARD_TIERS: ${{ matrix.shard.tiers }}
           TIERS: ${{ inputs.tier || 'tier0,tier1,tier2,tier3' }}
         run: |
-          exclude=""
-          held=""
-          for tier in tier0 tier1 tier2 tier3; do
-            case ",$TIERS," in *",$tier,"*) asked=1 ;; *) asked=0 ;; esac
-            case ",$SHARD_TIERS," in *",$tier,"*) mine=1 ;; *) mine=0 ;; esac
-            if [ "$asked" = 1 ] && [ "$mine" = 1 ]; then
-              held=1
-            else
-              exclude="$exclude${exclude:+,}$tier"
-            fi
-          done
-          case ",$TIERS," in *",tier4,"* | *",tier5,"*) echo "::warning::Flows past tier3 carry no pack, so no iOS shard runs them." ;; esac
-          if [ -z "$held" ]; then
-            echo "This shard holds none of the tiers asked for ($TIERS)."
-            exit 0
-          fi
-          args=(--include-tags="$PACKS")
-          [ -z "$exclude" ] || args+=(--exclude-tags="$exclude")
-          .maestro/run-suite.sh maestro-report.xml /tmp/maestro-debug "${args[@]}" || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
+          .maestro/run-shard.sh maestro-report.xml /tmp/maestro-debug || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
 
       - name: Upload test report
         if: always()
@@ -432,16 +450,17 @@ jobs:
           path: /tmp/reports/ios
         continue-on-error: true
 
-      - name: Download Android report
+      - name: Download Android reports
         uses: actions/download-artifact@v8
         with:
-          name: maestro-android-report
+          pattern: maestro-android-report-*
           path: /tmp/reports/android
         continue-on-error: true
 
       - name: Generate summary
         env:
           IOS_RESULT: ${{ needs.e2e-ios.result }}
+          ANDROID_RESULT: ${{ needs.e2e-android.result }}
           TESTED_SHA: ${{ github.sha }}
           ANDROID_SOURCE_HASH: ${{ needs.build-android-dev.outputs.source_hash }}
           IOS_SOURCE_HASH: ${{ needs.build-ios-dev.outputs.source_hash }}
@@ -483,7 +502,13 @@ jobs:
             if [ "$IOS_RESULT" != "success" ]; then
               echo "| ios | Shards ended $IOS_RESULT: a shard missing above did not finish | :x: |"
             fi
-            row android /tmp/reports/android/maestro-report.xml
+            for dir in /tmp/reports/android/maestro-android-report-*; do
+              [ -d "$dir" ] || continue
+              row "android ${dir##*/maestro-android-report-}" "$dir/maestro-report.xml"
+            done
+            if [ "$ANDROID_RESULT" != "success" ]; then
+              echo "| android | Shards ended $ANDROID_RESULT: a shard missing above did not finish | :x: |"
+            fi
             for platform in ios android; do
               case "$platform" in
                 ios) producer="$IOS_PRODUCER" ;;

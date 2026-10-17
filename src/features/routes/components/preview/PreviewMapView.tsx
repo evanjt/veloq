@@ -15,6 +15,7 @@ import { useIsFocused } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { decodeCoords } from 'veloqrs';
 import {
+  cameraMove,
   colors,
   darkColors,
   iconSize,
@@ -22,6 +23,7 @@ import {
   slopToMinTapTarget,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 import { useTheme } from '@/shared/app';
 // Straight from the context, not the app barrel: a surface mounted with no
@@ -257,7 +259,7 @@ export function PreviewMapView({
   useEffect(() => {
     if (!bounds || framedArea.current === areaKey) return;
     framedArea.current = areaKey;
-    surfaceRef.current?.fitBounds(bounds, 60, 400);
+    surfaceRef.current?.fitBounds(bounds, 60, cameraMove.brisk);
   }, [bounds, areaKey]);
 
   // Attribution is a licence condition, so the credit line has to name the
@@ -473,7 +475,7 @@ const styles = StyleSheet.create({
     minWidth: STYLE_BUTTON_SIZE,
     minHeight: STYLE_BUTTON_SIZE,
     borderRadius: layout.borderRadiusSm,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: stroke.hairline,
   },
   legend: {
     position: 'absolute',
@@ -490,7 +492,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     minHeight: LEGEND_CHIP_HEIGHT,
     borderRadius: layout.borderRadiusSm,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: stroke.hairline,
   },
   legendChipOff: {
     opacity: 0.6,
@@ -499,7 +501,7 @@ const styles = StyleSheet.create({
     width: 14,
     height: 4,
     borderRadius: layout.borderRadiusFull,
-    borderWidth: 1,
+    borderWidth: stroke.one,
   },
   legendText: {
     ...typography.caption,

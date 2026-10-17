@@ -12,12 +12,12 @@ import {
   slopToMinTapTarget,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 import { pressable, pressRipple } from '@/shared/ui';
 import type { SectionsSortOption } from './SectionsList';
 
-const CHIP_BORDER_WIDTH = 1;
-const CHIP_HEIGHT = typography.caption.lineHeight + 2 * (spacing.xs + CHIP_BORDER_WIDTH);
+const CHIP_HEIGHT = typography.caption.lineHeight + 2 * (spacing.xs + stroke.one);
 const chipHitSlop = slopToMinTapTarget(CHIP_HEIGHT);
 
 type HiddenFilters = {
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadius,
-    borderWidth: CHIP_BORDER_WIDTH,
+    borderWidth: stroke.one,
     borderColor: colors.border,
   },
   sortChipDark: {

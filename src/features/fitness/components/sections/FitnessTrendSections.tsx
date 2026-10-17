@@ -4,7 +4,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { CollapsibleSection, Spinner } from '@/shared/ui';
+import { Card, CollapsibleSection, Spinner } from '@/shared/ui';
 import { ZoneDistributionChart, FTPTrendChart, DecouplingChart } from '@/features/stats';
 import { type DecouplingSource } from '@/features/activity';
 import { useTheme } from '@/shared/app';
@@ -20,9 +20,9 @@ import {
   colors,
   darkColors,
   iconSize,
-  layout,
   opacity,
   spacing,
+  stroke,
   typography,
   verdictColor,
 } from '@/theme';
@@ -106,78 +106,20 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
   return (
     <>
       {/* Training Zones Section */}
-      <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
-        <CollapsibleSection
-          testID="fitness-section-zones"
-          title={t('statsScreen.trainingZones')}
-          icon="chart-bar"
-          expanded={zonesExpanded}
-          onToggle={onZonesToggle}
-          estimatedHeight={sportMode === 'Cycling' ? 400 : 200}
-          headerRight={
-            dominantZone ? (
-              <Text style={[styles.headerValue, { color: sportText[sportMode] }]}>
-                {dominantZone.name}: {dominantZone.percentage}%
-              </Text>
-            ) : null
-          }
-        >
-          <View style={styles.collapsibleContent}>
-            {loadingActivities && !hasActivities ? (
-              <View style={styles.zoneLoadingContainer}>
-                <Spinner />
-              </View>
-            ) : (
-              <>
-                {sportMode === 'Cycling' && (
-                  <View style={styles.zoneSection}>
-                    <ZoneDistributionChart
-                      data={powerZones}
-                      type="power"
-                      periodLabel={t(PERIOD_LABEL_KEYS.short[timeRange] as never)}
-                      coverage={periodCoverage}
-                    />
-                  </View>
-                )}
-                <View style={sportMode === 'Cycling' ? styles.zoneSectionDivided : undefined}>
-                  <ZoneDistributionChart
-                    data={hrZones}
-                    type="hr"
-                    periodLabel={t(PERIOD_LABEL_KEYS.short[timeRange] as never)}
-                    coverage={periodCoverage}
-                  />
-                </View>
-              </>
-            )}
-          </View>
-        </CollapsibleSection>
-      </View>
-
-      {/* Trends Section - eFTP/Threshold (Cycling only) */}
-      {sportMode === 'Cycling' && (
-        <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
+      <View style={styles.frame}>
+        <Card variant="flat" padding="none">
           <CollapsibleSection
-            testID="fitness-section-trends"
-            title={t('statsScreen.eFTPTrend')}
-            icon="trending-up"
-            expanded={trendsExpanded}
-            onToggle={onTrendsToggle}
-            estimatedHeight={220}
+            testID="fitness-section-zones"
+            title={t('statsScreen.trainingZones')}
+            icon="chart-bar"
+            expanded={zonesExpanded}
+            onToggle={onZonesToggle}
+            estimatedHeight={sportMode === 'Cycling' ? 400 : 200}
             headerRight={
-              headerFtp ? (
-                <View style={styles.headerValueRow}>
-                  <Text style={[styles.headerValue, { color: sportText.Cycling }]}>
-                    {headerFtp} {t('units.watts')}
-                  </Text>
-                  {ftpTrend ? (
-                    <MaterialCommunityIcons
-                      name={trendIcon('ftp', ftpTrend)}
-                      size={iconSize.sm}
-                      color={verdictColor(verdictRung(trendVerdict('ftp', ftpTrend)), isDark)}
-                      style={styles.trendIcon}
-                    />
-                  ) : null}
-                </View>
+              dominantZone ? (
+                <Text style={[styles.headerValue, { color: sportText[sportMode] }]}>
+                  {dominantZone.name}: {dominantZone.percentage}%
+                </Text>
               ) : null
             }
           >
@@ -187,111 +129,183 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                   <Spinner />
                 </View>
               ) : (
-                <FTPTrendChart
-                  data={eftpTrend?.series}
-                  change={eftpTrend?.change}
-                  changePercent={eftpTrend?.changePercent}
-                  lookbackDays={eftpTrend?.lookbackDays}
-                  height={180}
-                  coverage={eftpCoverage}
-                />
+                <>
+                  {sportMode === 'Cycling' && (
+                    <View style={styles.zoneSection}>
+                      <ZoneDistributionChart
+                        data={powerZones}
+                        type="power"
+                        periodLabel={t(PERIOD_LABEL_KEYS.short[timeRange] as never)}
+                        coverage={periodCoverage}
+                      />
+                    </View>
+                  )}
+                  <View style={sportMode === 'Cycling' ? styles.zoneSectionDivided : undefined}>
+                    <ZoneDistributionChart
+                      data={hrZones}
+                      type="hr"
+                      periodLabel={t(PERIOD_LABEL_KEYS.short[timeRange] as never)}
+                      coverage={periodCoverage}
+                    />
+                  </View>
+                </>
               )}
             </View>
           </CollapsibleSection>
+        </Card>
+      </View>
+
+      {/* Trends Section - eFTP/Threshold (Cycling only) */}
+      {sportMode === 'Cycling' && (
+        <View style={styles.frame}>
+          <Card variant="flat" padding="none">
+            <CollapsibleSection
+              testID="fitness-section-trends"
+              title={t('statsScreen.eFTPTrend')}
+              icon="trending-up"
+              expanded={trendsExpanded}
+              onToggle={onTrendsToggle}
+              estimatedHeight={220}
+              headerRight={
+                headerFtp ? (
+                  <View style={styles.headerValueRow}>
+                    <Text style={[styles.headerValue, { color: sportText.Cycling }]}>
+                      {headerFtp} {t('units.watts')}
+                    </Text>
+                    {ftpTrend ? (
+                      <MaterialCommunityIcons
+                        name={trendIcon('ftp', ftpTrend)}
+                        size={iconSize.sm}
+                        color={verdictColor(verdictRung(trendVerdict('ftp', ftpTrend)), isDark)}
+                        style={styles.trendIcon}
+                      />
+                    ) : null}
+                  </View>
+                ) : null
+              }
+            >
+              <View style={styles.collapsibleContent}>
+                {loadingActivities && !hasActivities ? (
+                  <View style={styles.zoneLoadingContainer}>
+                    <Spinner />
+                  </View>
+                ) : (
+                  <FTPTrendChart
+                    data={eftpTrend?.series}
+                    change={eftpTrend?.change}
+                    changePercent={eftpTrend?.changePercent}
+                    lookbackDays={eftpTrend?.lookbackDays}
+                    height={180}
+                    coverage={eftpCoverage}
+                  />
+                )}
+              </View>
+            </CollapsibleSection>
+          </Card>
         </View>
       )}
 
       {/* Running Threshold Stats */}
       {sportMode === 'Running' && (
-        <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
-          <CollapsibleSection
-            testID="fitness-section-threshold"
-            title={t('statsScreen.lactateThreshold')}
-            icon="heart-pulse"
-            expanded={trendsExpanded}
-            onToggle={onTrendsToggle}
-            estimatedHeight={100}
-            headerRight={
-              thresholdPace ? (
-                <Text style={[styles.headerValue, { color: sportText.Running }]}>
-                  {formatPaceCompact(thresholdPace, isMetric)}
-                  {paceUnitLabel(isMetric)}
-                </Text>
-              ) : runLthr ? (
-                <Text style={[styles.headerValue, { color: sportText.Running }]}>
-                  {runLthr} {t('units.bpm')}
-                </Text>
-              ) : null
-            }
-          >
-            <View style={styles.collapsibleContent}>
-              {!thresholdPace && !runLthr ? (
-                <Text
-                  testID="fitness-threshold-empty"
-                  style={[styles.thresholdEmpty, isDark && styles.thresholdLabelDark]}
-                >
-                  {t('statsScreen.thresholdInputsMissing')}
-                </Text>
-              ) : (
-                <View style={styles.thresholdRow}>
-                  <View style={styles.thresholdItem}>
-                    <Text style={[styles.thresholdLabel, isDark && styles.thresholdLabelDark]}>
-                      {t('statsScreen.pace')}
-                    </Text>
-                    <Text style={[styles.thresholdValue, { color: sportText.Running }]}>
-                      {thresholdPace
-                        ? `${formatPaceCompact(thresholdPace, isMetric)}${paceUnitLabel(isMetric)}`
-                        : ABSENT}
-                    </Text>
+        <View style={styles.frame}>
+          <Card variant="flat" padding="none">
+            <CollapsibleSection
+              testID="fitness-section-threshold"
+              title={t('statsScreen.lactateThreshold')}
+              icon="heart-pulse"
+              expanded={trendsExpanded}
+              onToggle={onTrendsToggle}
+              estimatedHeight={100}
+              headerRight={
+                thresholdPace ? (
+                  <Text style={[styles.headerValue, { color: sportText.Running }]}>
+                    {formatPaceCompact(thresholdPace, isMetric)}
+                    {paceUnitLabel(isMetric)}
+                  </Text>
+                ) : runLthr ? (
+                  <Text style={[styles.headerValue, { color: sportText.Running }]}>
+                    {runLthr} {t('units.bpm')}
+                  </Text>
+                ) : null
+              }
+            >
+              <View style={styles.collapsibleContent}>
+                {!thresholdPace && !runLthr ? (
+                  <Text
+                    testID="fitness-threshold-empty"
+                    style={[styles.thresholdEmpty, isDark && styles.thresholdLabelDark]}
+                  >
+                    {t('statsScreen.thresholdInputsMissing')}
+                  </Text>
+                ) : (
+                  <View style={styles.thresholdRow}>
+                    <View style={styles.thresholdItem}>
+                      <Text style={[styles.thresholdLabel, isDark && styles.thresholdLabelDark]}>
+                        {t('statsScreen.pace')}
+                      </Text>
+                      <Text style={[styles.thresholdValue, { color: sportText.Running }]}>
+                        {thresholdPace
+                          ? `${formatPaceCompact(thresholdPace, isMetric)}${paceUnitLabel(isMetric)}`
+                          : ABSENT}
+                      </Text>
+                    </View>
+                    {runLthr ? (
+                      <>
+                        <View style={styles.thresholdDivider} />
+                        <View style={styles.thresholdItem}>
+                          <Text
+                            style={[styles.thresholdLabel, isDark && styles.thresholdLabelDark]}
+                          >
+                            {t('statsScreen.heartRate')}
+                          </Text>
+                          <Text style={[styles.thresholdValue, { color: sportText.Running }]}>
+                            {runLthr} {t('units.bpm')}
+                          </Text>
+                        </View>
+                      </>
+                    ) : null}
                   </View>
-                  {runLthr ? (
-                    <>
-                      <View style={styles.thresholdDivider} />
-                      <View style={styles.thresholdItem}>
-                        <Text style={[styles.thresholdLabel, isDark && styles.thresholdLabelDark]}>
-                          {t('statsScreen.heartRate')}
-                        </Text>
-                        <Text style={[styles.thresholdValue, { color: sportText.Running }]}>
-                          {runLthr} {t('units.bpm')}
-                        </Text>
-                      </View>
-                    </>
-                  ) : null}
-                </View>
-              )}
-            </View>
-          </CollapsibleSection>
+                )}
+              </View>
+            </CollapsibleSection>
+          </Card>
         </View>
       )}
 
       {/* Efficiency Section - Decoupling (Cycling only) */}
       {sportMode === 'Cycling' && (
-        <View style={[styles.collapsibleCard, isDark && styles.collapsibleCardDark]}>
-          <CollapsibleSection
-            testID="fitness-section-efficiency"
-            title={t('stats.aerobicDecoupling')}
-            icon="heart-flash"
-            expanded={efficiencyExpanded}
-            onToggle={onEfficiencyToggle}
-            estimatedHeight={160}
-            headerRight={
-              decouplingSource ? (
-                <Text style={[styles.headerValue, { color: sportText.Cycling }]}>
-                  {formatPercent(decouplingSource.decoupling, 1)}
-                </Text>
-              ) : null
-            }
-          >
-            <View style={styles.collapsibleContent}>
-              {loadingActivities && !decouplingSource ? (
-                <View style={styles.zoneLoadingContainer}>
-                  <Spinner />
-                </View>
-              ) : (
-                <DecouplingChart source={decouplingSource} height={120} coverage={periodCoverage} />
-              )}
-            </View>
-          </CollapsibleSection>
+        <View style={styles.frame}>
+          <Card variant="flat" padding="none">
+            <CollapsibleSection
+              testID="fitness-section-efficiency"
+              title={t('stats.aerobicDecoupling')}
+              icon="heart-flash"
+              expanded={efficiencyExpanded}
+              onToggle={onEfficiencyToggle}
+              estimatedHeight={160}
+              headerRight={
+                decouplingSource ? (
+                  <Text style={[styles.headerValue, { color: sportText.Cycling }]}>
+                    {formatPercent(decouplingSource.decoupling, 1)}
+                  </Text>
+                ) : null
+              }
+            >
+              <View style={styles.collapsibleContent}>
+                {loadingActivities && !decouplingSource ? (
+                  <View style={styles.zoneLoadingContainer}>
+                    <Spinner />
+                  </View>
+                ) : (
+                  <DecouplingChart
+                    source={decouplingSource}
+                    height={120}
+                    coverage={periodCoverage}
+                  />
+                )}
+              </View>
+            </CollapsibleSection>
+          </Card>
         </View>
       )}
     </>
@@ -299,14 +313,8 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
 });
 
 const styles = StyleSheet.create({
-  collapsibleCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
+  frame: {
     marginBottom: spacing.sm,
-    overflow: 'hidden',
-  },
-  collapsibleCardDark: {
-    backgroundColor: darkColors.surface,
   },
   collapsibleContent: {
     paddingHorizontal: spacing.md,
@@ -335,7 +343,7 @@ const styles = StyleSheet.create({
   zoneSectionDivided: {
     marginTop: spacing.md,
     paddingTop: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: stroke.hairline,
     borderTopColor: opacity.overlay.medium,
   },
   thresholdRow: {

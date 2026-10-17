@@ -26,6 +26,7 @@ import {
   layout,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
 import {
@@ -589,7 +590,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   panel: {
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: stroke.hairline,
     paddingTop: spacing.md,
     paddingHorizontal: spacing.md,
     gap: spacing.md,
@@ -601,7 +602,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: layout.borderRadius,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: stroke.hairline,
     overflow: 'hidden',
   },
   eventIcon: {
@@ -631,7 +632,7 @@ const styles = StyleSheet.create({
     minHeight: layout.minTapTarget,
     paddingHorizontal: spacing.md,
     borderRadius: layout.borderRadiusFull,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: stroke.hairline,
     overflow: 'hidden',
   },
   chipLabel: {

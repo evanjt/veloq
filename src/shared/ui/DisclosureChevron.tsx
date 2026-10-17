@@ -1,12 +1,12 @@
 import React, { useEffect } from 'react';
 import Animated, {
-  Easing,
   interpolate,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { duration, easing } from '@/theme';
 
 interface DisclosureChevronProps {
   /** Whether what the control opens is open. */
@@ -26,8 +26,8 @@ export function DisclosureChevron({ expanded, size, color }: DisclosureChevronPr
 
   useEffect(() => {
     turn.value = withTiming(expanded ? 1 : 0, {
-      duration: 250,
-      easing: Easing.bezier(0.4, 0, 0.2, 1),
+      duration: duration.standard,
+      easing: easing.standard,
     });
   }, [expanded, turn]);
 

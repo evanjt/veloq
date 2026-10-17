@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, stroke } from '@/theme';
 
 interface DebugInfoPanelProps {
   entries: { label: string; value: string }[];
@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     padding: spacing.sm,
     borderRadius: layout.borderRadiusSm,
-    borderWidth: 1,
+    borderWidth: stroke.one,
     backgroundColor: colors.surface,
   },
   containerDark: {

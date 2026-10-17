@@ -34,7 +34,7 @@ jest.mock('react-i18next', () => ({
   }),
 }));
 
-const PACES = [300, 295, 290, 285, 280];
+const PACES = [300, 295, 290, 285, 282, 280];
 
 function improvingTrend(): EfficiencyTrend {
   return {

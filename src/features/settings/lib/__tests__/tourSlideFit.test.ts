@@ -3,6 +3,8 @@ import {
   tourPictureScale,
   tourPictureSpace,
   tourSlideAreaHeight,
+  tourSlideLayout,
+  TOUR_PICTURE_FLOOR,
 } from '@/features/settings/lib/tourSlideFit';
 
 describe('tourSlideAreaHeight', () => {
@@ -49,6 +51,60 @@ describe('tourPictureScale', () => {
 
   it('leaves an unmeasured picture alone', () => {
     expect(tourPictureScale(0, 100)).toBe(1);
+  });
+});
+
+describe('tourSlideLayout', () => {
+  it('scrolls the text and keeps the picture at its floor when the title and body outgrow the slide', () => {
+    const layout = tourSlideLayout(300, 420, 200);
+    expect(layout.scrolls).toBe(true);
+    expect(layout.pictureScale).toBe(TOUR_PICTURE_FLOOR);
+    expect(layout.pictureScale).toBeGreaterThan(0);
+  });
+
+  it('gives the scrolling text what the floored picture leaves, never a negative height', () => {
+    const layout = tourSlideLayout(400, 600, 200);
+    expect(layout.textHeight).toBe(400 - 24 - 24 - 200 * TOUR_PICTURE_FLOOR);
+    expect(tourSlideLayout(100, 600, 400).textHeight).toBe(0);
+  });
+
+  it('draws everything at its own size without scrolling when it fits', () => {
+    expect(tourSlideLayout(600, 200, 200)).toEqual({
+      pictureScale: 1,
+      scrolls: false,
+      textHeight: undefined,
+    });
+  });
+
+  it('shrinks the picture between the floor and its own size without scrolling', () => {
+    const layout = tourSlideLayout(400, 200, 300);
+    expect(layout.pictureScale).toBeGreaterThan(TOUR_PICTURE_FLOOR);
+    expect(layout.pictureScale).toBeLessThan(1);
+    expect(layout.scrolls).toBe(false);
+  });
+
+  it('fits the picture at the floor exactly, and scrolls one dp under it', () => {
+    const exact = 24 + 200 + 24 + 200 * TOUR_PICTURE_FLOOR;
+    expect(tourSlideLayout(exact, 200, 200)).toMatchObject({
+      pictureScale: TOUR_PICTURE_FLOOR,
+      scrolls: false,
+    });
+    expect(tourSlideLayout(exact - 1, 200, 200)).toMatchObject({
+      pictureScale: TOUR_PICTURE_FLOOR,
+      scrolls: true,
+    });
+  });
+
+  it('neither scrolls nor shrinks before the title and body are laid out', () => {
+    expect(tourSlideLayout(300, 0, 200)).toEqual({
+      pictureScale: 1,
+      scrolls: false,
+      textHeight: undefined,
+    });
+  });
+
+  it('scrolls text that outgrows the slide before the picture is measured', () => {
+    expect(tourSlideLayout(300, 420, 0)).toMatchObject({ pictureScale: 1, scrolls: true });
   });
 });
 

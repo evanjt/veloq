@@ -30,6 +30,7 @@ import {
   layout,
   typography,
   slopToMinTapTarget,
+  stroke,
 } from '@/theme';
 import { fallbackLetter } from '@/features/routes/lib/labelPreviewCentres';
 import type { CentreLabel } from '@/features/routes/lib/labelPreviewCentres';
@@ -162,7 +163,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: layout.borderRadiusSm,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: stroke.hairline,
     justifyContent: 'center',
   },
   chipActive: {

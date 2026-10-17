@@ -24,6 +24,7 @@ import {
   shadows,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 import { CompassArrow } from '@/shared/ui';
 import { useBackDismiss } from '@/shared/app/useBackDismiss';
@@ -458,7 +459,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   menuDivider: {
-    height: StyleSheet.hairlineWidth,
+    height: stroke.hairline,
     backgroundColor: colorWithOpacity(ink.black, 0.1),
     marginVertical: spacing.xs,
   },

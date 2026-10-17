@@ -3,8 +3,9 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { openExternal } from '@/shared/app/openExternal';
-import { colors, darkColors, layout, opacity, spacing, typography } from '@/theme';
+import { colors, darkColors, layout, opacity, spacing, typography, stroke } from '@/theme';
 import { Button } from './Button';
+import { Card } from './Card';
 
 /** One line of an explanation: an optional name in bold, then what it means. */
 export interface ExplanationRow {
@@ -39,56 +40,52 @@ interface ExplanationCardProps extends Explanation {
 export function ExplanationCard({ title, rows, links, testID }: ExplanationCardProps) {
   const { isDark } = useTheme();
   return (
-    <View testID={testID} style={[styles.card, isDark && styles.cardDark]}>
-      <Text style={[styles.title, isDark && styles.titleDark]}>{title}</Text>
+    <View testID={testID} style={styles.frame}>
+      <Card variant="raised">
+        <Text style={[styles.title, isDark && styles.titleDark]}>{title}</Text>
 
-      {rows.map((row) => (
-        <View key={row.key} style={styles.row}>
-          {row.dotColor ? <View style={[styles.dot, { backgroundColor: row.dotColor }]} /> : null}
-          <Text style={[styles.text, isDark && styles.textDark]}>
-            {row.label ? (
-              <>
-                <Text style={[styles.highlight, isDark && styles.highlightDark]}>
-                  {row.label}
-                </Text>{' '}
-              </>
-            ) : null}
-            {row.text}
-          </Text>
-        </View>
-      ))}
+        {rows.map((row) => (
+          <View key={row.key} style={styles.row}>
+            {row.dotColor ? <View style={[styles.dot, { backgroundColor: row.dotColor }]} /> : null}
+            <Text style={[styles.text, isDark && styles.textDark]}>
+              {row.label ? (
+                <>
+                  <Text style={[styles.highlight, isDark && styles.highlightDark]}>
+                    {row.label}
+                  </Text>{' '}
+                </>
+              ) : null}
+              {row.text}
+            </Text>
+          </View>
+        ))}
 
-      {links ? (
-        <View style={[styles.links, isDark && styles.linksDark]}>
-          <Text style={[styles.linksHeading, isDark && styles.linksHeadingDark]}>
-            {links.heading}
-          </Text>
-          {links.items.map((link) => (
-            <Button
-              key={link.key}
-              label={link.label}
-              variant="ghost"
-              size="sm"
-              onPress={() => {
-                void openExternal(link.url);
-              }}
-            />
-          ))}
-        </View>
-      ) : null}
+        {links ? (
+          <View style={[styles.links, isDark && styles.linksDark]}>
+            <Text style={[styles.linksHeading, isDark && styles.linksHeadingDark]}>
+              {links.heading}
+            </Text>
+            {links.items.map((link) => (
+              <Button
+                key={link.key}
+                label={link.label}
+                variant="ghost"
+                size="sm"
+                onPress={() => {
+                  void openExternal(link.url);
+                }}
+              />
+            ))}
+          </View>
+        ) : null}
+      </Card>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    padding: layout.cardPadding,
+  frame: {
     marginBottom: spacing.md,
-  },
-  cardDark: {
-    backgroundColor: darkColors.surface,
   },
   title: {
     ...typography.bodySmall,
@@ -128,7 +125,7 @@ const styles = StyleSheet.create({
   links: {
     marginTop: spacing.md,
     paddingTop: spacing.md,
-    borderTopWidth: 1,
+    borderTopWidth: stroke.one,
     borderTopColor: opacity.overlay.light,
   },
   linksDark: {

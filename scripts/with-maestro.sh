@@ -14,6 +14,13 @@
 # So the preflight says what the run actually met. Clearing it is `adb
 # disconnect <serial>`, which did not always take here: a transport that will
 # not go needs the `adb` server restarted, `adb kill-server`.
+#
+# Two locks are held while Maestro runs, the device lock and then one lock for
+# the whole host, always in that order. The device lock keeps two sessions off
+# one handset. The host lock keeps two sessions off each other on different
+# devices: Maestro forwards one fixed host port to its on-device driver and has
+# no option to move it, so two runs on one host break each other's flows. A run
+# over several devices is one `maestro --shard-split N` process under one lock.
 
 set -eu
 
@@ -82,6 +89,25 @@ done
 case "$previous" in
 --device | --udid) check_selector "" ;;
 esac
+
+# The host lock, taken only once every refusal above has had its say, so a run
+# that would be refused does not queue first. The holder writes itself into the
+# lock file, which a waiter reads to say whom it waits for.
+if [ -z "${VELOQ_MAESTRO_LOCK_HELD:-}" ] && command -v flock >/dev/null 2>&1; then
+  if ! flock -n "$VELOQ_MAESTRO_LOCK_PATH" true 2>/dev/null; then
+    echo "with-maestro: another Maestro run holds this host, waiting for it to end:" >&2
+    echo "with-maestro:   $(cat "$VELOQ_MAESTRO_LOCK_PATH" 2>/dev/null || echo unknown)" >&2
+    echo "with-maestro: Maestro forwards one fixed host port to its driver, so two runs" >&2
+    echo "with-maestro: on one host break each other even on different devices." >&2
+  fi
+  VELOQ_MAESTRO_LOCK_HELD=1
+  export VELOQ_MAESTRO_LOCK_HELD
+  exec flock "$VELOQ_MAESTRO_LOCK_PATH" "$0" "$@"
+fi
+if [ -n "${VELOQ_MAESTRO_LOCK_HELD:-}" ] && [ -w "$VELOQ_MAESTRO_LOCK_PATH" ]; then
+  printf 'pid=%s serial=%s dir=%s since=%s\n' "$$" "${expected:-none}" "$PWD" \
+    "$(date '+%Y-%m-%dT%H:%M:%S')" >"$VELOQ_MAESTRO_LOCK_PATH"
+fi
 
 if [ -z "$named" ] && [ -n "$expected" ]; then
   # `--device` is a global flag, so it goes ahead of the subcommand.

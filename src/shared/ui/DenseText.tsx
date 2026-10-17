@@ -14,24 +14,11 @@
  */
 
 import React from 'react';
-import { Text, useWindowDimensions, type TextProps } from 'react-native';
+import { Text, type TextProps } from 'react-native';
 
 /** How far a dense surface stretches before its layout stops holding. */
 export const DENSE_TEXT_SCALE = 1.3;
 
 export function DenseText(props: TextProps) {
   return <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} {...props} />;
-}
-
-/**
- * Whether the system text size is past the dense cap, where fixed chrome stops
- * fitting and a screen moves what it pins into its scroll instead.
- *
- * Below the cap pinned chrome stays compact; above it a pinned block can take
- * the whole window. It reads the font scale rather than a measured height, so
- * content that grows in place (an expanded row) does not flip the layout and
- * remount it.
- */
-export function useLargeText(): boolean {
-  return useWindowDimensions().fontScale > DENSE_TEXT_SCALE;
 }

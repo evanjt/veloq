@@ -17,12 +17,13 @@ import Animated, {
   useAnimatedStyle,
 } from 'react-native-reanimated';
 import * as haptics from '@/shared/ui/haptics';
+import { useGestureCallback } from '@/shared/ui/useGestureCallback';
 import { useTranslation } from 'react-i18next';
 import { layout, chartStyles, ink, colorWithOpacity } from '@/theme';
 import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
 import type { ActivityStreams, ActivityInterval, ActivityType } from '@/types';
 import { ChartErrorBoundary, EmptyState } from '@/shared/ui';
-import { ChartCanvas, CurveArea, CurveLine } from '@/shared/charts';
+import { ChartCanvas, CurveArea, CurveLine, useMeasuredWidth } from '@/shared/charts';
 import {
   buildChartData,
   computeAllAverages,
@@ -119,11 +120,24 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   // Track last notified index to avoid redundant updates
   const lastNotifiedIdx = useRef<number | null>(null);
 
+  // The plot spans the container, so its width in layout pixels is the
+  // number of buckets the streams are thinned to.
+  const { width: plotWidth, onLayout } = useMeasuredWidth();
+  const buckets = Math.max(1, Math.round(plotWidth));
+
   // Build normalised data for all selected series (+ preview if unselected)
   const { chartData, seriesInfo, indexMap, maxX, emptyCause } = useMemo(
     () =>
-      buildChartData(streams, selectedCharts, chartConfigs, isMetric, previewMetricId, xAxisMode),
-    [streams, selectedCharts, chartConfigs, isMetric, previewMetricId, xAxisMode]
+      buildChartData(
+        streams,
+        selectedCharts,
+        chartConfigs,
+        isMetric,
+        previewMetricId,
+        xAxisMode,
+        buckets
+      ),
+    [streams, selectedCharts, chartConfigs, isMetric, previewMetricId, xAxisMode, buckets]
   );
 
   const series = useSeriesAccessors(seriesInfo);
@@ -235,12 +249,13 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   );
 
   // React to index changes and bridge to JS for metrics updates
+  const scrubOnJS = useGestureCallback(updateMetricsOnJS);
   useAnimatedReaction(
     () => selectedIdx.value,
     (idx) => {
-      runOnJS(updateMetricsOnJS)(idx);
+      runOnJS(scrubOnJS)(idx);
     },
-    [updateMetricsOnJS]
+    [scrubOnJS]
   );
 
   // Gesture handler - updates shared values on UI thread (no JS bridge for position)
@@ -341,9 +356,14 @@ export const CombinedPlot = React.memo(function CombinedPlot({
     );
   }
 
+  // Nothing is drawn until the width the streams are thinned to is known.
+  if (plotWidth === 0) {
+    return <View style={[styles.container, { height }]} onLayout={onLayout} />;
+  }
+
   return (
     <ChartErrorBoundary height={height} chartName="Activity Chart">
-      <View style={[styles.container, { height }]}>
+      <View style={[styles.container, { height }]} onLayout={onLayout}>
         {/* Chart area - full height, metrics displayed in parent chips */}
         <GestureDetector gesture={gesture}>
           <View style={[chartStyles.chartWrapper, { height }]}>

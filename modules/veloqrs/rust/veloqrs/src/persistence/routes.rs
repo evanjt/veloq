@@ -889,7 +889,9 @@ fn route_display_names_for(
 /// A group whose stored name reads as a route word and a number holds that
 /// number first when it is free, so a label kept from a released build never
 /// shows beside an unnamed route minted to the same number. Every other group
-/// takes the lowest number no route has held, in member-count order.
+/// takes the lowest number no route has held and no stored name shows, in
+/// member-count order. A restore lays names onto routes already numbered, so
+/// a name's number is not always the one its own route holds.
 ///
 /// A group numbered here is one the engine has not seen before, so it is also
 /// queued for a geocoded name while geocoding is on.
@@ -918,9 +920,13 @@ pub(super) fn mint_route_numbers(conn: &Connection, groups: &[RouteGroup]) -> Sq
             _ => rest.push(group),
         }
     }
+    let shown: HashSet<u32> = names
+        .values()
+        .filter_map(|name| label_number(name, &route_word))
+        .collect();
     let mut candidate = 1;
     for group in rest {
-        while taken.contains(&candidate) {
+        while taken.contains(&candidate) || shown.contains(&candidate) {
             candidate += 1;
         }
         insert.execute(params![group.group_id, candidate])?;

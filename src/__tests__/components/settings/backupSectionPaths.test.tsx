@@ -102,6 +102,10 @@ jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithVa
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 let mockIsDark = false;
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: mockIsDark }) }));
+const mockOpenExplainer = jest.fn();
+jest.mock('@/shared/app/explainer', () => ({
+  openExplainer: (...a: unknown[]) => mockOpenExplainer(...a),
+}));
 let mockSyncStatus: Record<string, unknown> | null = null;
 jest.mock('@/shared/native/useSyncStatus', () => ({ useSyncStatus: () => mockSyncStatus }));
 jest.mock('@/shared/native/useActivityCount', () => ({ useActivityCount: () => 402 }));
@@ -1249,12 +1253,14 @@ describe('one layout', () => {
     ['backup-info-export', ['backup.notEncryptedWarning']],
   ])('keeps the explanation behind %s', async (testID, keys) => {
     const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    mockOpenExplainer.mockClear();
     await render(<BackupSection />);
 
     await fireEvent.press(screen.getByTestId(testID));
 
-    expect(alert).toHaveBeenCalledTimes(1);
-    const message = String(alert.mock.calls[0]?.[1]);
+    expect(alert).not.toHaveBeenCalled();
+    expect(mockOpenExplainer).toHaveBeenCalledTimes(1);
+    const message = String(mockOpenExplainer.mock.calls[0]?.[0].body);
     for (const key of keys) expect(message).toContain(key);
   });
 

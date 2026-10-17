@@ -13,6 +13,7 @@ import {
   slopToMinTapTarget,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { LanguageList, pressable, pressRipple } from '@/shared/ui';
@@ -77,9 +78,7 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
   );
 });
 
-const BUTTON_BORDER_WIDTH = 1;
-const LANGUAGE_BUTTON_HEIGHT =
-  typography.bodySmall.lineHeight + 2 * (spacing.xs + BUTTON_BORDER_WIDTH);
+const LANGUAGE_BUTTON_HEIGHT = typography.bodySmall.lineHeight + 2 * (spacing.xs + stroke.one);
 
 const styles = StyleSheet.create({
   languagePickerContainer: {
@@ -95,7 +94,7 @@ const styles = StyleSheet.create({
     minHeight: LANGUAGE_BUTTON_HEIGHT,
     borderRadius: layout.borderRadiusSm,
     backgroundColor: colors.surface,
-    borderWidth: BUTTON_BORDER_WIDTH,
+    borderWidth: stroke.one,
     borderColor: colors.border,
   },
   languageButtonDark: {
@@ -104,7 +103,7 @@ const styles = StyleSheet.create({
   },
   languageButtonDialect: {
     borderColor: brand.gold,
-    borderWidth: 2,
+    borderWidth: stroke.two,
   },
   languageButtonDialectDark: {
     borderColor: brand.goldLight,
@@ -118,7 +117,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusMd,
     marginBottom: spacing.md,
     overflow: 'hidden',
-    borderWidth: 1,
+    borderWidth: stroke.one,
     borderColor: colors.border,
   },
   languageDropdownDark: {

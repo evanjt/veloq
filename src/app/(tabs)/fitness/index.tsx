@@ -3,12 +3,13 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMe
 import { View, StyleSheet, RefreshControl } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import {
-  ScreenSafeAreaView,
-  screenListInsets,
-  useScrollEndInset,
+  Card,
   ChartSkeleton,
   ExplanationCard,
+  screenListInsets,
+  ScreenSafeAreaView,
   Spinner,
+  useScrollEndInset,
 } from '@/shared/ui';
 import { logScreenRender, logMemory } from '@/shared/debug/renderTimer';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
@@ -32,7 +33,7 @@ import {
 import { timeRangeToDays } from '@/features/wellness';
 import { useTheme, useCollapsibleSections } from '@/shared/app';
 import { INTERVALS_URLS } from '@/shared/app/constants';
-import { colors, darkColors, spacing, layout } from '@/theme';
+import { colors, spacing, layout } from '@/theme';
 import { createSharedStyles } from '@/styles';
 
 import {
@@ -291,10 +292,11 @@ function FitnessScreenContent() {
               onRetry={retryWellness}
             />
           ) : (
-            <View
-              testID="fitness-chart-placeholder"
-              style={[styles.chartPlaceholder, isDark && styles.chartPlaceholderDark]}
-            />
+            <View style={styles.chartPlaceholder}>
+              <Card variant="flat" padding="none">
+                <View testID="fitness-chart-placeholder" style={styles.chartPlaceholderBody} />
+              </Card>
+            </View>
           )}
         </View>
 
@@ -415,14 +417,10 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   chartPlaceholder: {
-    height: 500,
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    padding: layout.cardPadding,
     marginBottom: spacing.md,
   },
-  chartPlaceholderDark: {
-    backgroundColor: darkColors.surface,
+  chartPlaceholderBody: {
+    height: 500,
   },
   skeletonContainer: {
     flex: 1,

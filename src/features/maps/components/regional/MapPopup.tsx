@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: typography.label.fontSize,
-    fontWeight: '500',
+    fontWeight: '600',
     color: colors.textPrimary,
   },
   statValueDark: {
