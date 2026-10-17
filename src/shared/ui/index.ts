@@ -1,4 +1,4 @@
-export { Shimmer, ActivityCardSkeleton, ChartSkeleton } from './Shimmer';
+export { Shimmer, SkeletonFrame, ActivityCardSkeleton, ChartSkeleton } from './Shimmer';
 export { BottomTabBar } from './BottomTabBar';
 export { useBottomClearance, useScrollEndInset } from './tabBarClearance';
 export { CompassArrow, StaticCompassArrow } from './CompassArrow';
@@ -29,6 +29,7 @@ export type { SwitchColors, SwitchProps } from './Switch';
 export { SwitchRow } from './SwitchRow';
 export type { SwitchRowInset, SwitchRowProps } from './SwitchRow';
 export { IconButton } from './IconButton';
+export { ChromeIcon, chromeMenuIcon, type ChromeRole } from './ChromeIcon';
 export { secretReveal, type SecretReveal } from './secretReveal';
 export type { IconButtonProps } from './IconButton';
 export { Stepper, stepValue } from './Stepper';
@@ -68,7 +69,8 @@ export { ScreenErrorBoundary } from './ScreenErrorBoundary';
 export { CollapsibleSection } from './CollapsibleSection';
 export { DisclosureChevron } from './DisclosureChevron';
 export { SectionTitle } from './SectionTitle';
-export { DetailHero, HeroNameRow, HeroStatsRow, HERO_HEADER_HEIGHT } from './DetailHero';
+export { DetailHero, HeroNameRow, HeroStatsRow } from './DetailHero';
+export { useHeroHeaderBottom } from './useHeroHeaderBottom';
 export type { HeroStat } from './DetailHero';
 export { useHeroMapHeight, HERO_MAP_FRACTION } from './useHeroMapHeight';
 export { SignalStatus, signalColor, type SignalLevel } from './SignalStatus';
@@ -78,6 +80,7 @@ export { FullWindowModal } from './FullWindowModal';
 export {
   ScreenScrollView,
   screenListInsets,
+  readableColumn,
   formKeyboardProps,
   KeyboardClearance,
 } from './ScreenScrollView';

@@ -98,7 +98,7 @@ export function SaveErrorBanner({
         <Button
           testID="save-error-open-recording"
           style={styles.retryButton}
-          label={t('recording.openInRecordings', 'Open in My Recordings')}
+          label={t('recording.openInRecordings', 'Open my recordings')}
           onPress={onOpenRecording}
         />
       ) : null}

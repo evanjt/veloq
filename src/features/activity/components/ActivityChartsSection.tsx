@@ -10,6 +10,7 @@ import {
 import { FullWindowModal } from '@/shared/ui/FullWindowModal';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
   SafeAreaProvider,
@@ -199,8 +200,8 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   }, [streams]);
 
   const effectiveChartConfigs = useMemo(
-    () => (activity ? chartConfigsFor(activity.type) : CHART_CONFIGS),
-    [activity]
+    () => (activity ? chartConfigsFor(activity.type, summary?.cadenceUnit) : CHART_CONFIGS),
+    [activity, summary?.cadenceUnit]
   );
 
   // Determine effective x-axis mode and whether toggle is available
@@ -480,13 +481,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                 onPress={() => onExportGpx(exportAnchor)}
                 loading={gpxExporting}
                 label={t('export.gpx')}
-                icon={
-                  <MaterialCommunityIcons
-                    name="download"
-                    size={iconSize.md}
-                    color={colors.textOnPrimary}
-                  />
-                }
+                icon={<ChromeIcon name="share" size={iconSize.md} color={colors.textOnPrimary} />}
               />
             )}
 
@@ -769,8 +764,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   intervalsMessage: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
+    ...typography.badge,
     color: colors.textSecondary,
   },
   zoneChip: {

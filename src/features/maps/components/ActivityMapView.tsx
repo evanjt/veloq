@@ -59,7 +59,7 @@ import {
 import { AttributionOverlay, type AttributionOverlayRef } from './AttributionOverlay';
 import { ActivityMapControls } from './ActivityMapControls';
 import { GradientMapKey } from './GradientMapKey';
-import { useMapControlColumn } from '../lib/mapControlColumnLayout';
+import { activityMapControlCount, useMapControlColumn } from '../lib/mapControlColumnLayout';
 import {
   buildActivity3DCollections,
   buildActivityLayers,
@@ -138,6 +138,8 @@ interface ActivityMapViewProps {
   /** Measured height the attribution pill claims, so a parent drawing in the
    *  same corner can pad itself clear of however many rows it wraps to. */
   onAttributionClearanceChange?: ((clearance: number) => void) | undefined;
+  /** Buttons the control column draws, so a parent drawing text beside it reserves only their width. */
+  onControlCountChange?: ((count: number) => void) | undefined;
   /** Enable section creation mode */
   creationMode?: boolean | undefined;
   /** Current section creation state (parent-controlled) */
@@ -195,6 +197,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   onStyleChange,
   onAttributionChange,
   onAttributionClearanceChange,
+  onControlCountChange,
   creationMode = false,
   creationState: externalCreationState,
   creationError,
@@ -625,8 +628,20 @@ export const ActivityMapView = memo(function ActivityMapView({
   const endPoint = validCoordinates[validCoordinates.length - 1];
 
   const isDark = isDarkStyle(mapStyle);
+  const hasRoute = routeCoords.length > 0;
+  // The fullscreen modal covers the hero, so its hidden column keeps its reserve and the hero text
+  // does not reflow on the way back.
+  const controlCount = activityMapControlCount({
+    shown: showStyleToggle && bounds != null && validCoordinates.length > 0,
+    hasGradientData,
+    hasRoute,
+    enableFullscreen,
+  });
+  useEffect(() => {
+    onControlCountChange?.(controlCount);
+  }, [controlCount, onControlCountChange]);
   // The key sits opposite the control column, at the same height.
-  const { top: keyTop } = useMapControlColumn(height);
+  const { top: keyTop } = useMapControlColumn(height, controlCount);
 
   const endpointsGeoJSON = useMemo(() => {
     const start = lngLatFromLatLngPoint(startPoint);
@@ -830,8 +845,6 @@ export const ActivityMapView = memo(function ActivityMapView({
       </View>
     );
   }
-
-  const hasRoute = routeCoords.length > 0;
 
   return (
     <View style={[styles.outerContainer, { height }]}>

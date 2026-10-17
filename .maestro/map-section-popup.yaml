@@ -15,10 +15,18 @@ tags:
 # The catalogue is cut after the seed lands, which takes minutes on a gate
 # runner, so the link is followed once the cut has begun. The popup re-reads the
 # section as the cut goes on, and the list order is not fixed while it runs.
+# The link opens the sections tab itself: a tap on the tab can land while the
+# routes link is still being applied, which puts the routes tab back.
+- openLink: "veloq://insights?tab=sections"
 - runFlow:
-    file: helpers/navigate-to-routes.yaml
-- tapOn:
-    text: "Sections"
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "routes-screen"
+    timeout: 10000
 - extendedWaitUntil:
     visible:
       id: "section-row-.*"

@@ -749,7 +749,7 @@ fn the_detail_reads_offer_a_name_only_while_geocoding_is_on_and_nothing_was_type
     let offered = || {
         crate::persistence::read_pool::with_read_conn(|conn| {
             let route = |id: &str| {
-                crate::persistence::screens::pooled::route_detail_data(conn, id, None, 1)
+                crate::persistence::screens::pooled::route_detail_data(conn, id)
                     .can_name_from_places
             };
             let section = |id: &str| {

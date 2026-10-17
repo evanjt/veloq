@@ -10,7 +10,6 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   getApparentTemperature,
-  isCyclingActivity,
   isPaceSport,
   isSwimmingActivity,
 } from '@/shared/activity/activityUtils';
@@ -31,6 +30,7 @@ import {
   formZoneTextColor,
   formZoneLabel,
 } from '@/features/fitness';
+import { cadenceUnitLabel } from '@/features/activity/lib/cadenceUnit';
 import { storedDecoupling } from '@/features/activity/lib/decoupling';
 import type { Activity, WellnessData } from '@/types';
 import { MaxHrSource, type ActivityFitnessImpact, type ActivitySummary } from 'veloqrs';
@@ -305,10 +305,11 @@ export function useActivityStats({
       });
     }
 
-    // Cadence is crank revolutions on a bike and steps or strokes elsewhere.
+    // Cadence comes in the unit the engine gives the sport's cadence in.
     const cadence = summary?.averageCadence;
-    if (cadence != null) {
-      const cadenceUnit = isCyclingActivity(activity.type) ? t('units.rpm') : t('units.spm');
+    if (summary && cadence != null) {
+      const cadenceUnit =
+        cadenceUnitLabel(summary.cadenceUnit) === 'rpm' ? t('units.rpm') : t('units.spm');
       result.push({
         title: t('activity.stats.cadence'),
         value: `${Math.round(cadence)}`,

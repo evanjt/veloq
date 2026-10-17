@@ -223,7 +223,7 @@
     "resumePreviousMessage": "A recording that started {{startTime}} got cut off with {{duration}} of moving time. Discarding deletes it permanently.",
     "savedQueued": "Activity saved. It'll upload by itself once you're back online.",
     "savedQueuedAuth": "Activity saved. It'll upload once you sign in again.",
-    "savedLocally": "Activity saved on this device. Upload it whenever you like from My Recordings.",
+    "savedLocally": "Activity saved on this device. Upload it whenever you like from My recordings.",
     "savedLocallyNoScope": "Ride saved on this device. It uploads once you give it upload access.",
     "library": {
       "empty": "Nothing recorded yet",

@@ -9,13 +9,16 @@ import { ABSENT, absentLabel } from '@/shared/format/absent';
 import { ChartSurface } from './ChartSurface';
 import { partsSummary, partsTable, type SummaryPart } from './chartSummary';
 
-/** One bar of a zone histogram. `percent` is of the whole, 0 to 100. */
+/** One bar of a zone histogram. */
 export interface ZoneBand {
   key: string | number;
   label: string;
   /** The training zone, 1 to 7, which picks the bar's fill and the label's tone. */
   zone: number;
-  percent: number;
+  /** Seconds in the zone, which set the bar's length. */
+  seconds: number;
+  /** The engine's whole-percent share of the time, printed as it is. */
+  share: number;
   /** Bold value beside the bar, the time in zone. */
   primary?: string;
   /** Muted value beneath it, the zone's range. */
@@ -29,9 +32,6 @@ interface ZoneHistogramProps {
   testID?: string;
 }
 
-/** Below this share a band reads as empty and its numbers are replaced by the absent mark. */
-const EMPTY_BELOW_PERCENT = 0.5;
-
 /** Horizontal bars, one per zone, with the share on the left and the time and range on the right. */
 export function ZoneHistogram({ title, bands, testID }: ZoneHistogramProps) {
   const { isDark } = useTheme();
@@ -41,10 +41,10 @@ export function ZoneHistogram({ title, bands, testID }: ZoneHistogramProps) {
   // left out of the sentence.
   const reading = useMemo(() => {
     const parts = bands.map((band): SummaryPart & { filled: boolean } => {
-      const filled = band.percent > EMPTY_BELOW_PERCENT;
+      const filled = band.share > 0;
       return {
         label: band.secondary != null ? `${band.label} ${band.secondary}` : band.label,
-        value: filled ? `${band.primary ?? ABSENT} (${Math.round(band.percent)}%)` : ABSENT,
+        value: filled ? `${band.primary ?? ABSENT} (${band.share}%)` : ABSENT,
         filled,
       };
     });
@@ -58,6 +58,7 @@ export function ZoneHistogram({ title, bands, testID }: ZoneHistogramProps) {
     };
   }, [bands, title, t]);
 
+  const totalSeconds = bands.reduce((sum, band) => sum + band.seconds, 0);
   const compact = bands.length > 5;
   const barHeight = compact ? 14 : 16;
   const rowPadding = compact ? 2 : 3;
@@ -66,8 +67,10 @@ export function ZoneHistogram({ title, bands, testID }: ZoneHistogramProps) {
     <ChartSurface summary={reading.summary} table={reading.table} style={styles.plot}>
       <View testID={testID}>
         {bands.map((band) => {
-          const filled = band.percent > EMPTY_BELOW_PERCENT;
-          const share = filled ? `${Math.round(band.percent)}%` : ABSENT;
+          // A band the engine gives no whole share reads as empty.
+          const filled = band.share > 0;
+          const share = filled ? `${band.share}%` : ABSENT;
+          const length = totalSeconds > 0 ? (band.seconds / totalSeconds) * 100 : 0;
           const primary = filled ? (band.primary ?? ABSENT) : ABSENT;
           return (
             <View key={band.key} style={[styles.row, { paddingVertical: rowPadding }]}>
@@ -101,7 +104,7 @@ export function ZoneHistogram({ title, bands, testID }: ZoneHistogramProps) {
                   style={[
                     styles.bar,
                     {
-                      width: `${Math.min(band.percent, 100)}%`,
+                      width: `${Math.min(length, 100)}%`,
                       backgroundColor: zoneColour(band.zone, isDark, 'fill'),
                       borderRadius: barHeight / 2,
                     },
@@ -152,8 +155,7 @@ const styles = StyleSheet.create({
     width: 22,
   },
   percent: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
+    ...typography.badge,
     width: 32,
     textAlign: 'right',
     color: colors.textPrimary,
@@ -190,8 +192,7 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
   },
   primary: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
+    ...typography.badge,
     color: colors.textPrimary,
   },
   primaryCompact: {

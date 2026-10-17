@@ -210,7 +210,6 @@ const styles = StyleSheet.create({
   },
   info: {
     ...typography.bodySmall,
-    fontStyle: 'italic',
     marginBottom: spacing.md,
     textAlign: 'center',
   },

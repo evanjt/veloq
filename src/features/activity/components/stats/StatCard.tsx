@@ -95,11 +95,11 @@ const makeStyles = (palette: Palette, isDark: boolean) =>
       color: palette.textSecondary,
     },
     statTitle: {
-      fontSize: typography.micro.fontSize,
+      ...typography.micro,
       color: palette.textSecondary,
     },
     contextText: {
-      fontSize: typography.micro.fontSize,
+      ...typography.micro,
       color: palette.textSecondary,
     },
   });

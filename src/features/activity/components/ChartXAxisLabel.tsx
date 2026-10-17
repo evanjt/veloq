@@ -47,18 +47,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   xLabel: {
-    fontSize: typography.micro.fontSize,
-    fontWeight: '400',
+    ...typography.micro,
     color: colors.textSecondary,
   },
   xLabelDark: {
     color: darkColors.textSecondary,
   },
   xAxisHint: {
-    fontSize: typography.micro.fontSize,
-    fontWeight: '400',
+    ...typography.micro,
     color: colors.textSecondary,
-    fontStyle: 'italic',
   },
   xAxisHintDark: {
     color: darkColors.textSecondary,

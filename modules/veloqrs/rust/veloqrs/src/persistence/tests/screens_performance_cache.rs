@@ -14,9 +14,34 @@ fn test_section_detail_performance_repeat_uses_cache() {
                 "missing",
                 14,
                 None,
+                None,
                 crate::persistence::sections::lap_curves::pooled::CurveRead::Held,
             );
             assert!(detail.performances.records.is_empty());
+        })
+        .expect("reader");
+    }
+    assert_eq!(performances::computations(), 1);
+}
+
+/// The highlighted attempt is applied after the cached performances, so two
+/// activities opening the same section share one cached read.
+#[test]
+fn two_highlighted_activities_share_one_cached_read() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _tmp = crate::test_globals::init_global_engine("pooled_performance_highlight.db");
+    performances::reset_test_computations();
+
+    for highlight in ["first-activity", "second-activity"] {
+        crate::persistence::read_pool::with_read_conn(|conn| {
+            pooled::section_detail_performance(
+                conn,
+                "missing",
+                14,
+                None,
+                Some(highlight),
+                crate::persistence::sections::lap_curves::pooled::CurveRead::Held,
+            );
         })
         .expect("reader");
     }

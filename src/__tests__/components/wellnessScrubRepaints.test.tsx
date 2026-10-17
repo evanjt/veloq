@@ -15,7 +15,7 @@ import { Skia } from '@shopify/react-native-skia';
 
 import { WellnessTrendsChart } from '@/features/wellness/components/WellnessTrendsChart';
 import type { WellnessData } from '@/types';
-import { capturePans, holdAndScrub, longPressPan } from '../__shared__/chartScrub';
+import { capturePans, scrub, scrubPan } from '../__shared__/chartScrub';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -53,7 +53,7 @@ describe('wellness trends scrub', () => {
     const atRest = svg.mock.calls.length;
     expect(atRest).toBe(5);
 
-    await holdAndScrub(longPressPan(built), 120, [160, 200]);
+    await scrub(scrubPan(built), 120, [160, 200]);
 
     expect(svg.mock.calls.length).toBe(atRest);
   });
@@ -64,7 +64,7 @@ describe('wellness trends scrub', () => {
     await layout(tree);
 
     const beforeScrub = built.length;
-    await holdAndScrub(longPressPan(built), 120, [160, 200]);
+    await scrub(scrubPan(built), 120, [160, 200]);
 
     expect(built.length).toBe(beforeScrub);
   });

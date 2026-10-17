@@ -12,7 +12,16 @@ import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
 import { activitiesInRange, LARGE_HISTORY_THRESHOLD } from '../lib/historyGate';
 import { settingsStyles } from './settingsStyles';
-import { brand, colors, colorWithOpacity, darkColors, spacing, typography, layout } from '@/theme';
+import {
+  brand,
+  colors,
+  colorWithOpacity,
+  darkColors,
+  layout,
+  opacity,
+  spacing,
+  typography,
+} from '@/theme';
 import { ListSectionHeader } from '@/shared/ui/ListSectionHeader';
 import { confirmAction, inform } from '@/shared/ui/dialog';
 
@@ -152,7 +161,7 @@ const styles = StyleSheet.create({
   progressRow: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: colorWithOpacity(brand.tealLight, 0.06),
+    backgroundColor: colorWithOpacity(brand.tealLight, opacity.tint1),
   },
   progressRowDark: {
     backgroundColor: colorWithOpacity(brand.tealLight, 0.1),
@@ -173,7 +182,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusXs,
   },
   progressText: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   progressTextDark: {

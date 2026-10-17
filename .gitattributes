@@ -1,0 +1,4 @@
+# Two style sweeps lower counts in the one baseline file, so it merges by the
+# lower count per key rather than as text. The driver is named in git config
+# by scripts/install-merge-drivers.mjs, which `prepare` runs.
+scripts/style-literal-baseline.json merge=ratchet-baseline

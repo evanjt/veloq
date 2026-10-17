@@ -37,7 +37,7 @@ describe('the form zone label', () => {
     await render(<FormZoneChart data={DAYS} />);
 
     expect(screen.getByTestId('form-chart-zone')).toHaveTextContent('Grauzone', { exact: true });
-    expect(screen.queryByText('Grey Zone')).toBeNull();
+    expect(screen.queryByText('Grey zone')).toBeNull();
   });
 
   it('answers in English when that is the language', async () => {
@@ -45,7 +45,7 @@ describe('the form zone label', () => {
 
     await render(<FormZoneChart data={DAYS} />);
 
-    expect(screen.getByTestId('form-chart-zone')).toHaveTextContent('Grey Zone', { exact: true });
+    expect(screen.getByTestId('form-chart-zone')).toHaveTextContent('Grey zone', { exact: true });
   });
 
   it('names every zone in the athlete language, not just the one on screen', async () => {
@@ -61,6 +61,6 @@ describe('the form zone label', () => {
   it('falls back to the key rather than an empty label for an unknown locale', async () => {
     await changeLanguage('en-AU');
 
-    expect(formZoneLabel('highRisk')).toBe('High Risk');
+    expect(formZoneLabel('highRisk')).toBe('High risk');
   });
 });

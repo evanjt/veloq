@@ -8,11 +8,13 @@
 
 import {
   layoutDelta,
+  layoutSplitSummary,
   pickEmphasisedLap,
   scrubDeltaSecs,
   snapScrubIndex,
+  splitAtDistance,
 } from '@/features/routes/lib/deltaLayout';
-import type { FfiDirectionDeltas, FfiLapDelta } from 'veloqrs';
+import type { FfiDirectionDeltas, FfiLapDelta, FfiSplitSummary } from 'veloqrs';
 
 const FRAME = { width: 220, height: 120, padding: { left: 10, right: 10, top: 10, bottom: 10 } };
 const GRID_STEP_M = 50;
@@ -182,5 +184,99 @@ describe('snapScrubIndex', () => {
 
     expect(snapScrubIndex(-50, plot, 50)).toEqual({ distanceM: 0, index: 0 });
     expect(snapScrubIndex(10_000, plot, 50)).toEqual({ distanceM: 400, index: 8 });
+  });
+});
+
+function summary(
+  median: number[],
+  lower: number[] = median.map(() => NaN),
+  upper: number[] = median.map(() => NaN)
+): FfiSplitSummary {
+  return {
+    medianSecs: Float32Array.from(median),
+    lowerQuartileSecs: Float32Array.from(lower),
+    upperQuartileSecs: Float32Array.from(upper),
+    laps: median.map(() => 6),
+  } as FfiSplitSummary;
+}
+
+describe('layoutSplitSummary', () => {
+  // A 350 m section in 100 m splits: four splits, the last one 50 m long.
+  const LENGTH_M = 350;
+  const STEP_M = 100;
+  const plotLeft = FRAME.padding.left;
+  const plotWidth = FRAME.width - FRAME.padding.left - FRAME.padding.right;
+  const xAt = (m: number) => plotLeft + (m / LENGTH_M) * plotWidth;
+
+  it('draws time lost above the zero line and time won below it, scaled to the largest median', () => {
+    const plot = layoutSplitSummary(summary([4, -2, NaN, 1]), STEP_M, LENGTH_M, FRAME);
+
+    expect(plot.extentSecs).toBe(4);
+    expect(plot.zeroY).toBe(60);
+    const [lost, won] = plot.bars;
+    expect(lost).toMatchObject({ index: 0, lost: true, top: 10, bottom: 60 });
+    expect(won).toMatchObject({ index: 1, lost: false, top: 60, bottom: 85 });
+  });
+
+  it('draws nothing for a split whose median is NaN', () => {
+    const plot = layoutSplitSummary(summary([4, -2, NaN, 1]), STEP_M, LENGTH_M, FRAME);
+
+    expect(plot.bars.map((bar) => bar.index)).toEqual([0, 1, 3]);
+  });
+
+  it('keeps each bar inside its own split, narrower than the split', () => {
+    const plot = layoutSplitSummary(summary([4, -2, NaN, 1]), STEP_M, LENGTH_M, FRAME);
+
+    const last = plot.bars[2]!;
+    expect(last.left).toBeGreaterThan(xAt(300));
+    expect(last.right).toBeLessThan(xAt(350));
+    expect((last.left + last.right) / 2).toBeCloseTo((xAt(300) + xAt(350)) / 2);
+    const first = plot.bars[0]!;
+    expect(first.right - first.left).toBeLessThan(xAt(100) - xAt(0));
+  });
+
+  it('draws the quartiles as a whisker where both are finite, and none where either is NaN', () => {
+    const plot = layoutSplitSummary(
+      summary([4, -2, NaN, 1], [2, -3, NaN, 0], [6, -1, NaN, NaN]),
+      STEP_M,
+      LENGTH_M,
+      FRAME
+    );
+
+    // The upper quartile of 6 s widens the axis past the largest median.
+    expect(plot.extentSecs).toBe(6);
+    const [lost, won] = plot.bars;
+    expect(lost!.whisker!.top).toBeCloseTo(10);
+    expect(lost!.whisker!.bottom).toBeCloseTo(60 - (2 / 6) * 50);
+    expect(won!.whisker!.top).toBeCloseTo(60 + (1 / 6) * 50);
+    expect(won!.whisker!.bottom).toBeCloseTo(60 + (3 / 6) * 50);
+    expect(plot.bars[2]!.whisker).toBeNull();
+  });
+
+  it('draws no whisker at all when every quartile is NaN', () => {
+    const plot = layoutSplitSummary(summary([4, -2, 1]), STEP_M, 300, FRAME);
+
+    expect(plot.bars.every((bar) => bar.whisker === null)).toBe(true);
+  });
+
+  it('keeps a level summary from collapsing the axis', () => {
+    const plot = layoutSplitSummary(summary([0, 0]), STEP_M, 200, FRAME);
+
+    expect(plot.extentSecs).toBe(1);
+    expect(plot.bars.every((bar) => bar.top === bar.bottom)).toBe(true);
+  });
+});
+
+describe('splitAtDistance', () => {
+  it('names the split a distance falls in, the section end in the last one', () => {
+    expect(splitAtDistance(0, 100, 4)).toBe(0);
+    expect(splitAtDistance(250, 100, 4)).toBe(2);
+    expect(splitAtDistance(350, 100, 4)).toBe(3);
+    expect(splitAtDistance(400, 100, 4)).toBe(3);
+  });
+
+  it('names no split without any', () => {
+    expect(splitAtDistance(100, 100, 0)).toBeUndefined();
+    expect(splitAtDistance(100, 0, 4)).toBeUndefined();
   });
 });

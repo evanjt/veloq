@@ -115,7 +115,7 @@ fn each_chart_carries_a_one_line_summary() {
     assert_eq!(charts.hrv.as_deref(), Some("HRV 55 to 60 over 3 days"));
     assert_eq!(
         charts.form.as_deref(),
-        Some("Form -10 to -8 over 3 days, now Grey Zone")
+        Some("Form -10 to -8 over 3 days, now Grey zone")
     );
 }
 

@@ -61,8 +61,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   terrainLabel: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    ...typography.bodySmallBold,
   },
   terrainPicker: {
     width: '100%',

@@ -20,13 +20,13 @@ jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValue
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 
 const bands = [
-  { zone: 1, minWatts: 0, maxWatts: 85, seconds: 600, percent: 60 },
-  { zone: 2, minWatts: 85, maxWatts: 116, seconds: 300, percent: 30 },
-  { zone: 3, minWatts: 116, maxWatts: 140, seconds: 0, percent: 0 },
-  { zone: 4, minWatts: 140, maxWatts: 163, seconds: 0, percent: 0 },
-  { zone: 5, minWatts: 163, maxWatts: 186, seconds: 0, percent: 0 },
-  { zone: 6, minWatts: 186, maxWatts: 233, seconds: 0, percent: 0 },
-  { zone: 7, minWatts: 233, seconds: 100, percent: 10 },
+  { zone: 1, minWatts: 0, maxWatts: 85, seconds: 600, percent: 60, share: 60 },
+  { zone: 2, minWatts: 85, maxWatts: 116, seconds: 300, percent: 30, share: 30 },
+  { zone: 3, minWatts: 116, maxWatts: 140, seconds: 0, percent: 0, share: 0 },
+  { zone: 4, minWatts: 140, maxWatts: 163, seconds: 0, percent: 0, share: 0 },
+  { zone: 5, minWatts: 163, maxWatts: 186, seconds: 0, percent: 0, share: 0 },
+  { zone: 6, minWatts: 186, maxWatts: 233, seconds: 0, percent: 0, share: 0 },
+  { zone: 7, minWatts: 233, seconds: 100, percent: 10, share: 10 },
 ];
 
 function allText(node: Awaited<ReturnType<typeof render>>): string[] {

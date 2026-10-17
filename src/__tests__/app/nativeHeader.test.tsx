@@ -26,6 +26,7 @@ import {
   sheetFrame,
   sheetHasDetents,
   sheetScreenOptions,
+  sheetSurface,
 } from '@/shared/app/screenHeaders';
 import type { ScreenHeader } from '@/shared/app/screenHeaders';
 import { colors, darkColors } from '@/theme';
@@ -131,33 +132,77 @@ describe('sheet routes', () => {
   it('presents each listed sheet as a formSheet with a grabber and no header', () => {
     expect(Object.keys(SCREEN_SHEETS)).toContain('sheets/activity-type');
     expect(SCREEN_SHEETS['sheets/insight']).toEqual([0.5, 1]);
-    for (const os of ['ios', 'android']) {
+    for (const [os, version] of [
+      ['ios', '26.2'],
+      ['ios', '18.5'],
+      ['android', 35],
+    ] as const) {
       for (const name of Object.keys(SCREEN_SHEETS)) {
-        expect(sheetScreenOptions(name, os)).toMatchObject({
+        expect(sheetScreenOptions(name, os, version)).toMatchObject({
           presentation: 'formSheet',
           sheetGrabberVisible: true,
           headerShown: false,
         });
-        expect(sheetScreenOptions(name, os)?.sheetAllowedDetents).toBe(SCREEN_SHEETS[name]);
+        expect(sheetScreenOptions(name, os, version)?.sheetAllowedDetents).toBe(
+          SCREEN_SHEETS[name]
+        );
       }
     }
   });
 
   it('leaves an ordinary route without sheet options', () => {
-    expect(sheetScreenOptions('settings', 'android')).toBeUndefined();
+    expect(sheetScreenOptions('settings', 'android', 35)).toBeUndefined();
   });
 
   it('rounds the Android sheet top corners to the extra-large radius', () => {
     expect(layout.borderRadiusXxl).toBe(28);
     for (const name of Object.keys(SCREEN_SHEETS)) {
-      expect(sheetScreenOptions(name, 'android')?.sheetCornerRadius).toBe(layout.borderRadiusXxl);
+      expect(sheetScreenOptions(name, 'android', 35)?.sheetCornerRadius).toBe(
+        layout.borderRadiusXxl
+      );
     }
   });
 
   it('leaves the iOS sheet corners to the system', () => {
     for (const name of Object.keys(SCREEN_SHEETS)) {
-      expect(sheetScreenOptions(name, 'ios')).not.toHaveProperty('sheetCornerRadius');
+      expect(sheetScreenOptions(name, 'ios', '26.2')).not.toHaveProperty('sheetCornerRadius');
     }
+  });
+
+  it('clears the sheet container on iOS 26 and later, so the system material is the background', () => {
+    expect(sheetScreenOptions('sheets/smoothing', 'ios', '26.2')?.contentStyle).toEqual({
+      backgroundColor: 'transparent',
+    });
+    expect(sheetScreenOptions('sheets/insight', 'ios', '27.0')?.contentStyle).toEqual({
+      backgroundColor: 'transparent',
+    });
+    expect(sheetScreenOptions('sheets/smoothing', 'ios', '26')?.contentStyle).toEqual({
+      backgroundColor: 'transparent',
+    });
+  });
+
+  it('leaves the navigation theme behind the sheet before iOS 26 and on Android', () => {
+    expect(sheetScreenOptions('sheets/smoothing', 'ios', '18.5')).not.toHaveProperty(
+      'contentStyle'
+    );
+    expect(sheetScreenOptions('sheets/smoothing', 'ios', '25.9')).not.toHaveProperty(
+      'contentStyle'
+    );
+    expect(sheetScreenOptions('sheets/smoothing', 'android', 35)).not.toHaveProperty(
+      'contentStyle'
+    );
+    expect(sheetScreenOptions('sheets/smoothing', 'android', 26)).not.toHaveProperty(
+      'contentStyle'
+    );
+  });
+
+  it('paints the sheet surface everywhere but iOS 26 and later', () => {
+    expect(sheetSurface('ios', '26.0', false)).toBeUndefined();
+    expect(sheetSurface('ios', '26.2', true)).toBeUndefined();
+    expect(sheetSurface('ios', '17.4', true)).toBe(darkColors.surface);
+    expect(sheetSurface('ios', '18.5', false)).toBe(colors.surface);
+    expect(sheetSurface('android', 35, false)).toBe(colors.surface);
+    expect(sheetSurface('android', 26, true)).toBe(darkColors.surface);
   });
 
   it('counts a sheet as resizable only when it rests at more than one detent', () => {

@@ -89,14 +89,12 @@ const styles = StyleSheet.create({
     backgroundColor: offlinePill.bg,
   },
   text: {
+    ...typography.bodyCompactBold,
     flexShrink: 1,
     color: offlinePill.text,
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
   },
   subtitleText: {
+    ...typography.caption,
     color: colorWithOpacity(offlinePill.text, 0.8),
-    fontSize: typography.caption.fontSize,
-    fontWeight: '400',
   },
 });

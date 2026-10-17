@@ -79,11 +79,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xxl,
   },
   body: {
-    fontSize: typography.bodyCompact.fontSize,
+    ...typography.bodyCompact,
     textAlign: 'center',
   },
   step: {
-    fontSize: typography.bodyCompact.fontSize,
+    ...typography.bodyCompact,
     textAlign: 'center',
   },
 });

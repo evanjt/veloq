@@ -1490,8 +1490,10 @@ pub(crate) mod pooled {
         end_ts: i64,
     ) -> crate::FfiZoneDistribution {
         let settings = crate::persistence::fitness::sport_settings_from(conn);
+        let seconds = zone_distribution(conn, sport_type, zone_type, start_ts, end_ts);
         crate::FfiZoneDistribution {
-            seconds: zone_distribution(conn, sport_type, zone_type, start_ts, end_ts),
+            shares: crate::persistence::fitness::whole_shares(&seconds),
+            seconds,
             names: zone_names(settings.as_deref(), sport_type, zone_type),
         }
     }

@@ -7,9 +7,10 @@
 use crate::FfiActivityStreams;
 use crate::net::types::{ParsedStreams, StreamDto, parse_streams};
 
-/// The series in a stream body, or `None` when the body is not a stream array,
-/// which reads as nothing stored so the caller refetches it.
-pub fn chart_streams_from_body(body: &str) -> Option<FfiActivityStreams> {
+/// The series in a stream body for an activity of `sport`, or `None` when the
+/// body is not a stream array, which reads as nothing stored so the caller
+/// refetches it.
+pub fn chart_streams_from_body(body: &str, sport: &str) -> Option<FfiActivityStreams> {
     let raw: Vec<StreamDto> = match serde_json::from_str(body) {
         Ok(raw) => raw,
         Err(error) => {
@@ -17,12 +18,13 @@ pub fn chart_streams_from_body(body: &str) -> Option<FfiActivityStreams> {
             return None;
         }
     };
-    Some(encode_chart_streams(&parse_streams(raw)))
+    Some(encode_chart_streams(&parse_streams(raw), sport))
 }
 
 /// The wire form of parsed streams: little-endian floats per series, and the
-/// engine's track encoding for the coordinates.
-pub fn encode_chart_streams(parsed: &ParsedStreams) -> FfiActivityStreams {
+/// engine's track encoding for the coordinates. Cadence is in the sport's
+/// cadence unit, the one the activity summary gives.
+pub fn encode_chart_streams(parsed: &ParsedStreams, sport: &str) -> FfiActivityStreams {
     let latlng = if parsed.latlng.is_empty() {
         Vec::new()
     } else {
@@ -39,7 +41,12 @@ pub fn encode_chart_streams(parsed: &ParsedStreams) -> FfiActivityStreams {
         altitude: floats(parsed.altitude.iter().copied()),
         heartrate: floats(parsed.heartrate.iter().copied()),
         watts: floats(parsed.watts.iter().copied()),
-        cadence: floats(parsed.cadence.iter().copied()),
+        cadence: floats(
+            parsed
+                .cadence
+                .iter()
+                .map(|c| crate::sport::cadence_per_minute(sport, *c)),
+        ),
         velocity_smooth: floats(parsed.velocity_smooth.iter().copied()),
         distance: floats(parsed.distance.iter().copied()),
         grade_smooth: floats(parsed.grade_smooth.iter().copied()),

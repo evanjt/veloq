@@ -12,12 +12,13 @@
 import React from 'react';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { EfficiencyDirection } from 'veloqrs';
+import { EfficiencyDirection, FfiOffScale } from 'veloqrs';
 import type { FfiCalendarSummary, FfiSectionChartPoint, FfiSectionPerformanceData } from 'veloqrs';
 import SectionDetailScreen from '@/app/section/[id]';
 import RouteDetailScreen from '@/app/route/[id]';
 import { fixtures } from '@/data/demo/fixtures';
 import { getRouteCoordinates } from '@/shared/demo/routes/routes';
+import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 
 const DEMO_ROUTE = 'route-valais-ride-2';
 
@@ -104,6 +105,7 @@ const chartPoints: FfiSectionChartPoint[] = attempts.map((a) => ({
   direction: 'same',
   isBest: a.id === best.id,
   outsideDistanceBand: false,
+  offScale: FfiOffScale.None,
 }));
 
 function calendarOf(): FfiCalendarSummary {
@@ -213,6 +215,14 @@ const demoRead: FfiSectionPerformanceData = {
       })),
       missing: [],
       peakDeltaSecs: Math.max(...attempts.slice(-2).map((a) => Math.abs(a.time - best.time))),
+      // With no attempt chosen the delta plot is the typical attempt's, so it is offered only
+      // where the engine gives one.
+      splitSummary: {
+        medianSecs: Float32Array.from([attempts[attempts.length - 1]!.time - best.time]),
+        lowerQuartileSecs: Float32Array.from([NaN]),
+        upperQuartileSecs: Float32Array.from([NaN]),
+        laps: [5],
+      },
     },
   },
   curvesPending: false,
@@ -234,6 +244,15 @@ const demoRead: FfiSectionPerformanceData = {
     hrChangeBpm: -2,
     effortCount: withHr.length,
   },
+  scatterFocus: {
+    forward: {
+      low: Math.min(...chartPoints.map((p) => p.speed)),
+      high: Math.max(...chartPoints.map((p) => p.speed)),
+      slowCount: 0,
+      fastCount: 0,
+    },
+  },
+  recordProgression: { forward: [], reverse: [] },
 };
 
 /** One ride crossed the section twice, which only a section can hold. */
@@ -328,12 +347,9 @@ const mockEngine = {
       activityIds,
       customName: 'Valais ride',
     },
-    groups: [],
-    performances: { performances: [], activityMetrics: [] },
     distanceMeters: routeLengthM,
     elevationGainMeters: 640,
     encodedRepresentative: new ArrayBuffer(0),
-    routeNames: {},
     excludedActivityIds: [],
     mapSignatures: [],
     missingTimeStreamIds: [],
@@ -442,6 +458,21 @@ describe('the section page and the route page over one demo route', () => {
 
     const routePage = await openPage('route');
     expect(routePage.queryByTestId(route)).not.toBeNull();
+  });
+
+  it('draws the GPX export as a share on both pages, since it opens the share sheet', async () => {
+    const glyphs = (page: Awaited<ReturnType<typeof openPage>>, id: string) =>
+      page
+        .getByTestId(id)
+        .findAll((n) => n.type === ChromeIcon)
+        .map((n) => n.props.name);
+
+    const sectionPage = await openPage('section');
+    expect(glyphs(sectionPage, 'section-export-gpx')).toEqual(['share']);
+    await sectionPage.unmount();
+
+    const routePage = await openPage('route');
+    expect(glyphs(routePage, 'route-export-gpx')).toEqual(['share']);
   });
 
   it.each(SECTION_ONLY)(

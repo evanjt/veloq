@@ -9,16 +9,6 @@
  */
 export const CHART_CONFIG = {
   /**
-   * Minimum distance for pan gesture.
-   *
-   * Minimum movement in pixels before pan gesture is recognised.
-   * Prevents accidental pans from finger tremors.
-   *
-   * @defaultValue 10
-   */
-  PAN_THRESHOLD: 10,
-
-  /**
    * Movement that starts a drag-activated scrub.
    *
    * In pixels. Only used by charts that scrub on movement rather than on a

@@ -46,7 +46,7 @@ describe('StatsRow best', () => {
     const { getByTestId, queryByTestId } = await row(false);
 
     expect(queryByTestId('stats-row-trophy-forward')).toBeNull();
-    expect(getByTestId('stats-row-best-forward').props.children).toBe('4:00 Best');
+    expect(getByTestId('stats-row-best-forward').props.children).toBe('4:00 best');
   });
 
   it('shows the counted attempts and the omitted distance-band attempts', async () => {

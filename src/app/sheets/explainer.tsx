@@ -40,7 +40,6 @@ const makeStyles = (palette: Palette) =>
   StyleSheet.create({
     sheet: {
       paddingBottom: layout.screenPadding,
-      backgroundColor: palette.surface,
     },
     body: {
       paddingHorizontal: layout.screenPadding,

@@ -29,6 +29,7 @@ import {
   darkColors,
   duration,
   iconSize,
+  opacity,
   spacing,
   typography,
 } from '@/theme';
@@ -179,16 +180,16 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   trackDark: {
-    backgroundColor: colorWithOpacity(colors.textOnDark, 0.12),
+    backgroundColor: colorWithOpacity(colors.textOnDark, opacity.tint2),
   },
   // Inset past the handle at rest, so a long translation or a large text size
   // never runs under it.
   label: {
+    ...typography.bodyMedium,
     position: 'absolute',
     left: spacing.xs + HANDLE_SIZE + spacing.xs,
     right: spacing.md,
     textAlign: 'center',
-    fontSize: typography.bodyMedium.fontSize,
     letterSpacing: 1,
   },
   handle: {

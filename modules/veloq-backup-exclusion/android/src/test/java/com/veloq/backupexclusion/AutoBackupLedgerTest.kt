@@ -143,11 +143,10 @@ class AutoBackupLedgerTest {
 
 /**
  * Scenario: the platform hands the agent no payload size, so the agent adds up the files its
- * backup rules carry: every preferences file but the credential store and its own record, and
- * the latest record zip.
+ * backup rules carry, which is the latest record zip alone.
  *
- * Expected behaviour: the sum counts exactly those files, and a phone with none of them yet
- * counts nothing rather than failing.
+ * Expected behaviour: the sum counts the zip and no preferences file, and a phone with no zip
+ * yet counts nothing rather than failing.
  */
 class BackupPayloadTest {
   @get:Rule val dir = TemporaryFolder()
@@ -159,21 +158,20 @@ class BackupPayloadTest {
   }
 
   @Test
-  fun counts_the_preferences_and_the_record_zip() {
-    write("shared_prefs/settings.xml", 300)
-    write("shared_prefs/widgets.xml", 200)
+  fun counts_the_record_zip_and_no_preferences() {
     write("files/veloq-decisions.zip", 4_000)
+    write("shared_prefs/TaskManagerModule.xml", 500)
 
-    assertEquals(4_500L, BackupPayload.bytes(dir.root))
+    assertEquals(4_000L, BackupPayload.bytes(dir.root))
   }
 
   @Test
-  fun leaves_out_the_credential_store_and_the_agents_own_record() {
-    write("shared_prefs/settings.xml", 300)
+  fun counts_nothing_for_preferences_alone() {
+    write("shared_prefs/TaskManagerModule.xml", 300)
     write("shared_prefs/SecureStore.xml", 900)
     write("shared_prefs/${AutoBackupLedger.PREFERENCES}.xml", 700)
 
-    assertEquals(300L, BackupPayload.bytes(dir.root))
+    assertEquals(0L, BackupPayload.bytes(dir.root))
   }
 
   @Test

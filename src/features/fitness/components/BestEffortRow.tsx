@@ -3,8 +3,18 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { tapTo } from '@/shared/app/navigation';
-import { composeAccessibilityLabel, Row } from '@/shared/ui';
-import { colors, darkColors, spacing, typography, colorWithOpacity, ink, stroke } from '@/theme';
+import { composeAccessibilityLabel, Row, Shimmer, SkeletonFrame } from '@/shared/ui';
+import {
+  colors,
+  darkColors,
+  spacing,
+  typography,
+  colorWithOpacity,
+  ink,
+  stroke,
+  layout,
+} from '@/theme';
+import type { PrimarySport } from '@/features/fitness/stores';
 
 /** The activity a best was set in, as the label read names it. */
 export interface BestEffortActivity {
@@ -101,6 +111,61 @@ export function BestEffortRow({
   );
 }
 
+/**
+ * How many rows each list of bests holds once read: the engine reads five
+ * power or run checkpoints, four swim ones and six climbing windows. A
+ * placeholder draws the same count, so the card does not grow when it arrives.
+ */
+export const BEST_EFFORT_ROW_COUNT: Record<PrimarySport | 'climbing', number> = {
+  Cycling: 5,
+  Running: 5,
+  Swimming: 4,
+  climbing: 6,
+};
+
+/** A list of bests while its read is pending, each row the height of the row it becomes. */
+export function BestEffortRowsSkeleton({ rows }: { rows: number }) {
+  const { isDark } = useTheme();
+  return (
+    <SkeletonFrame testID="best-effort-rows-skeleton">
+      {Array.from({ length: rows }, (_, index) => {
+        const isLast = index === rows - 1;
+        return (
+          <View
+            key={index}
+            style={[!isLast && styles.rowBorder, !isLast && isDark && styles.rowBorderDark]}
+          >
+            <Row inset="none">
+              <View style={styles.labelPlaceholder}>
+                <Shimmer
+                  height={typography.bodySmall.lineHeight}
+                  borderRadius={layout.borderRadiusXs}
+                />
+              </View>
+              <View style={styles.valueColumn}>
+                <Shimmer height={typography.body.lineHeight} borderRadius={layout.borderRadiusXs} />
+              </View>
+              <View style={styles.activityColumn}>
+                <Shimmer
+                  width="70%"
+                  height={typography.caption.lineHeight}
+                  borderRadius={layout.borderRadiusXs}
+                />
+                <Shimmer
+                  width="40%"
+                  height={typography.micro.lineHeight}
+                  borderRadius={layout.borderRadiusXs}
+                  style={styles.secondaryPlaceholder}
+                />
+              </View>
+            </Row>
+          </View>
+        );
+      })}
+    </SkeletonFrame>
+  );
+}
+
 const styles = StyleSheet.create({
   rowBorder: {
     borderBottomWidth: stroke.hairline,
@@ -115,6 +180,9 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     minWidth: spacing.xxl,
     flexShrink: 1,
+  },
+  labelPlaceholder: {
+    width: spacing.xxl,
   },
   labelDark: {
     color: darkColors.textSecondary,
@@ -134,6 +202,9 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.xxs,
     fontVariant: ['tabular-nums'],
+  },
+  secondaryPlaceholder: {
+    marginTop: spacing.xxs,
   },
   secondaryDark: {
     color: darkColors.textSecondary,

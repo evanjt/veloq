@@ -7,7 +7,15 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -208,6 +216,44 @@ describe('the runner', () => {
       }
     }
   );
+
+  describe('the kinds of the guards that failed, for a lander', () => {
+    function kindsFailed(guards: Guard[]): { status: number; kinds: string } {
+      const dir = mkdtempSync(join(tmpdir(), 'run-guards-'));
+      try {
+        const file = join(dir, 'guards.json');
+        const report = join(dir, 'kinds');
+        writeFileSync(file, JSON.stringify(guards));
+        const r = spawnSync('node', [RUNNER, '--set', 'land', '--guards', file], {
+          cwd: ROOT,
+          encoding: 'utf8',
+          env: { ...gitFreeEnv(), VELOQ_GUARD_KINDS_REPORT: report },
+        });
+        const status = r.status ?? -1;
+        return { status, kinds: existsSync(report) ? readFileSync(report, 'utf8') : '' };
+      } finally {
+        rmSync(dir, { recursive: true, force: true });
+      }
+    }
+    const of = (kind: string, script: string): Guard => ({ ...guard(kind, script), kind });
+
+    it('writes style alone when only style guards failed', () => {
+      expect(kindsFailed([of('style', 'exit 1'), of('correctness', 'exit 0')])).toEqual({
+        status: 1,
+        kinds: 'style\n',
+      });
+    });
+
+    it('writes every kind that failed, so a correctness failure is never read as style', () => {
+      expect(
+        kindsFailed([of('style', 'exit 1'), of('correctness', 'exit 1'), of('build', 'exit 0')])
+      ).toEqual({ status: 1, kinds: 'correctness style\n' });
+    });
+
+    it('writes nothing when every guard passed', () => {
+      expect(kindsFailed([of('style', 'exit 0')])).toEqual({ status: 0, kinds: '' });
+    });
+  });
 
   it('refuses a set it does not know', () => {
     expect(runner('--set', 'everything', '--list').status).toBe(2);

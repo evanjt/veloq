@@ -210,7 +210,7 @@ export function useReviewSave({
       finishAndGoHome(
         t(
           'recording.savedLocally',
-          'Activity saved on this device. Upload it any time from My Recordings.'
+          'Activity saved on this device. Upload it any time from My recordings.'
         ),
         stillCurrent
       );
@@ -327,7 +327,7 @@ export function useReviewSave({
         finishAndGoHome(
           t(
             'recording.savedLocally',
-            'Activity saved on this device. Upload it any time from My Recordings.'
+            'Activity saved on this device. Upload it any time from My recordings.'
           ),
           stillCurrent
         );
@@ -424,7 +424,7 @@ export function useReviewSave({
             ? t('recording.savedLocallyNoScope')
             : t(
                 'recording.savedLocally',
-                'Activity saved on this device. Upload it any time from My Recordings.'
+                'Activity saved on this device. Upload it any time from My recordings.'
               ),
           stillCurrent
         );
@@ -468,7 +468,7 @@ export function useReviewSave({
           setErrorMessage(
             t(
               'recording.uploadRejected',
-              'intervals.icu refused this file. The ride is kept in My Recordings.'
+              'intervals.icu refused this file. The ride is kept in My recordings.'
             )
           );
           setErrorDetail(result.errorDetail ?? null);

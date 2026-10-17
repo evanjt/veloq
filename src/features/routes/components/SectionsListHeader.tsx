@@ -208,8 +208,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xxs,
   },
   summaryText: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
+    ...typography.bodyCompactBold,
     color: colors.textPrimary,
   },
   summaryTextDark: {
@@ -223,7 +222,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   pausedText: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   pausedTextDark: {

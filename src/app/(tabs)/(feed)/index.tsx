@@ -30,6 +30,7 @@ import { tapTo } from '@/shared/app/navigation';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { onPullRefresh } from '@/shared/ui/haptics';
 import { isReduceMotionOn } from '@/shared/ui/reduceMotion';
+import { useScrollToTopOnReselect } from '@/shared/ui/tabReselect';
 import { useSyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -286,6 +287,11 @@ function FeedScreenContent() {
       listRef.current?.scrollToOffset({ offset: hiddenHeadHeight.current, animated: false });
     }
   }, [isFeedFocused, filtered]);
+  // A reselect opens the list as the tab does, the search and filters hidden above it. A filter
+  // keeps its section in view, where its chips and match count sit above the first result.
+  useScrollToTopOnReselect('/', listRef, () =>
+    filtered ? filterSectionTop.current : hiddenHeadHeight.current
+  );
   // The search field is in the header, so a query typed into it opens the list at the filter
   // section, where the match count and the chips sit above the first result.
   const hasQuery = searchQuery.trim().length > 0;
@@ -803,7 +809,7 @@ function FeedScreenContent() {
 
   // Single layout path - no separate loading tree to avoid component tree swap and layout bounce
   return (
-    <ScreenSafeAreaView hasNativeHeader style={shared.container} testID="home-screen">
+    <ScreenSafeAreaView style={shared.container} testID="home-screen">
       <Stack.Screen options={headerOptions} />
       {!largeText && headCards}
 
@@ -922,7 +928,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   footerText: {
-    fontSize: typography.bodySmall.fontSize,
+    ...typography.bodySmall,
     color: colors.textSecondary,
   },
 });

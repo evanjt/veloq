@@ -27,9 +27,12 @@ tags:
       id: "home-activity-list"
     timeout: 10000
 
-# Verify activity data is actually present after refresh
-- assertVisible:
-    id: "activity-card-demo-test-0"
+# Verify activity data is actually present after refresh. Newer demo rides
+# list above this one, so it can start below the fold.
+- runFlow:
+    file: helpers/reveal.yaml
+    env:
+      ELEMENT: "activity-card-demo-test-0"
 
 - takeScreenshot: "screenshots/pull-to-refresh-home"
 

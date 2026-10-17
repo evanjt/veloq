@@ -1051,8 +1051,6 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_method_routemanager_get_detail_data(
     uniffiSelf: bigint,
     groupId: Uint8Array,
-    currentActivityId: Uint8Array,
-    minGroupActivities: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_routemanager_get_detail_performance(
@@ -1060,6 +1058,7 @@ interface NativeModuleInterface {
     groupId: Uint8Array,
     timeRangeDays: number,
     sportFilter: Uint8Array,
+    highlightActivityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_routemanager_get_performances(
@@ -1179,6 +1178,7 @@ interface NativeModuleInterface {
     sectionId: Uint8Array,
     timeRangeDays: number,
     sportFilter: Uint8Array,
+    highlightActivityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_excluded_activities(
@@ -1278,6 +1278,7 @@ interface NativeModuleInterface {
     id: Uint8Array,
     timeRangeDays: number,
     sportFilter: Uint8Array,
+    highlightActivityId: Uint8Array,
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_match_activity_to_sections(
     uniffiSelf: bigint,

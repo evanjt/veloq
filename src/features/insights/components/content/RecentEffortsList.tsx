@@ -96,8 +96,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   heading: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
+    ...typography.captionBold,
     color: colors.textSecondary,
     marginBottom: spacing.xxs,
   },
@@ -125,24 +124,21 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   date: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
+    ...typography.bodyCompactBold,
     color: colors.textPrimary,
   },
   dateDark: {
     color: darkColors.textPrimary,
   },
   time: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
+    ...typography.bodyCompactBold,
     color: colors.textPrimary,
   },
   timeDark: {
     color: darkColors.textPrimary,
   },
   delta: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '400',
+    ...typography.caption,
     color: colors.textSecondary,
   },
   deltaDark: {

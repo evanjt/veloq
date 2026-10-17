@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { openExternal } from '@/shared/app/openExternal';
 import { Text } from 'react-native-paper';
 import { Trans, useTranslation } from 'react-i18next';
@@ -13,8 +13,11 @@ import { formatBestSet } from '../lib/formatting';
 import { formatWeight } from '@/shared/format/weight';
 import { ABSENT, absentLabel } from '@/shared/format/absent';
 import type { ExerciseGroup } from 'veloqrs';
-import { Button, Card, InlineLink } from '@/shared/ui';
+import { Button, Card, InlineLink, Shimmer, SkeletonFrame } from '@/shared/ui';
 import { tapTo } from '@/shared/app/navigation';
+
+/** Set rows the placeholder draws, about one exercise's worth. */
+const PLACEHOLDER_SET_ROWS = 3;
 
 interface ExerciseTableProps {
   activityId: string;
@@ -58,10 +61,30 @@ export function ExerciseTable({
   if (isLoading) {
     return (
       <View style={styles.frame}>
-        <Card variant="raised" padding="none">
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={colors.primary} />
-          </View>
+        <Card variant="raised">
+          <SkeletonFrame testID="exercise-table-skeleton">
+            <View style={styles.header}>
+              <Shimmer
+                width="40%"
+                height={typography.body.lineHeight}
+                borderRadius={layout.borderRadiusXs}
+              />
+            </View>
+            <Shimmer
+              width="50%"
+              height={typography.bodySmall.lineHeight}
+              borderRadius={layout.borderRadiusXs}
+              style={styles.exerciseNamePlaceholder}
+            />
+            {Array.from({ length: PLACEHOLDER_SET_ROWS }, (_, row) => (
+              <View key={row} style={styles.setRow}>
+                <Shimmer
+                  height={typography.tableValue.lineHeight}
+                  borderRadius={layout.borderRadiusXs}
+                />
+              </View>
+            ))}
+          </SkeletonFrame>
         </Card>
       </View>
     );
@@ -282,20 +305,21 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   title: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
+    ...typography.bodyBold,
     color: colors.textPrimary,
   },
   subtitle: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   subtitleDark: {
     color: darkColors.textSecondary,
   },
+  exerciseNamePlaceholder: {
+    marginVertical: spacing.xs,
+  },
   exerciseName: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    ...typography.bodySmallBold,
     color: colors.textPrimary,
     paddingVertical: spacing.xs,
   },
@@ -323,10 +347,8 @@ const styles = StyleSheet.create({
     borderTopColor: darkColors.border,
   },
   colHeader: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
+    ...typography.label,
     color: colors.textSecondary,
-    textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   colValue: {

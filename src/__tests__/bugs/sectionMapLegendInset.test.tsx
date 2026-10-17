@@ -1,22 +1,22 @@
 /**
  * Scenario: the app draws edge to edge, so the section hero's map starts at
- * y = 0 and runs under the status bar. Only the hero's floating header row
- * takes the top inset. The legend and the map controls are positioned inside
- * the map, so on a handset with a tall status bar the legend's first line sits
- * behind the clock and the rest of it under the back button.
+ * y = 0 and runs under the status bar and the transparent native header. The
+ * legend and the map controls are positioned inside the map, so placed from a
+ * guessed header row they sit partly under the bar, which takes the touches
+ * there: 56 dp below the inset on Android.
  *
  * Expected behaviour: everything the map floats over its own top clears the
- * inset and the header row that carries the back button.
+ * header's measured bottom edge.
  */
 
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { HeaderHeightContext } from 'expo-router/react-navigation';
 
 import { SectionHeader } from '@/features/routes/components/section/SectionHeader';
 import { createMapHighlightStore } from '@/features/routes/lib/mapHighlight';
-import { HERO_HEADER_HEIGHT } from '@/shared/ui';
 import type { FrequentSection, RoutePoint } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
@@ -43,6 +43,7 @@ jest.mock('expo-location', () => ({
 }));
 
 const INSET_TOP = 47;
+const ANDROID_TOOLBAR_HEIGHT = 56;
 
 const METRICS = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -67,26 +68,27 @@ const SECTION: FrequentSection = {
   createdAt: '2026-01-15T10:00:00Z',
 };
 
-function renderHeader(insetTop: number) {
+function renderHeader(headerBottom: number) {
   const highlight = createMapHighlightStore();
   highlight.set(null, POLYLINE);
   return render(
     <SafeAreaProvider initialMetrics={METRICS}>
-      <SectionHeader
-        section={SECTION}
-        insetTop={insetTop}
-        activityColor="#000000"
-        iconName="bike"
-        activityCount={7}
-        mapReady={true}
-        isTrimming={false}
-        isExpandMode={false}
-        trimStart={0}
-        trimEnd={1}
-        customName={null}
-        highlight={highlight}
-        onSaveName={jest.fn()}
-      />
+      <HeaderHeightContext.Provider value={headerBottom}>
+        <SectionHeader
+          section={SECTION}
+          activityColor="#000000"
+          iconName="bike"
+          activityCount={7}
+          mapReady={true}
+          isTrimming={false}
+          isExpandMode={false}
+          trimStart={0}
+          trimEnd={1}
+          customName={null}
+          highlight={highlight}
+          onSaveName={jest.fn()}
+        />
+      </HeaderHeightContext.Provider>
     </SafeAreaProvider>
   );
 }
@@ -95,23 +97,26 @@ function topOf(testID: string): number {
   return StyleSheet.flatten(screen.getByTestId(testID).props.style).top;
 }
 
-describe('the section map keeps its overlays out of the status bar', () => {
-  it('drops the legend below the inset and the back button row', async () => {
-    await renderHeader(INSET_TOP);
+describe('the section map keeps its overlays out from under the header', () => {
+  const headerBottom = INSET_TOP + ANDROID_TOOLBAR_HEIGHT;
 
-    expect(topOf('section-map-legend')).toBeGreaterThanOrEqual(INSET_TOP + HERO_HEADER_HEIGHT);
+  it('drops the legend below the measured header', async () => {
+    await renderHeader(headerBottom);
+
+    expect(topOf('section-map-legend')).toBeGreaterThanOrEqual(headerBottom);
   });
 
-  it('drops the map controls below the same row, rather than a fixed guess', async () => {
-    await renderHeader(INSET_TOP);
+  it('drops the map controls below the same edge, rather than a fixed guess', async () => {
+    await renderHeader(headerBottom);
 
-    expect(topOf('section-map-controls')).toBeGreaterThanOrEqual(INSET_TOP + HERO_HEADER_HEIGHT);
+    expect(topOf('section-map-controls')).toBeGreaterThanOrEqual(headerBottom);
   });
 
-  it('still clears the back button row on a screen with no top inset', async () => {
-    await renderHeader(0);
+  it('follows the header when it grows, as it does in a larger font', async () => {
+    const tallHeader = headerBottom + 32;
+    await renderHeader(tallHeader);
 
-    expect(topOf('section-map-legend')).toBeGreaterThanOrEqual(HERO_HEADER_HEIGHT);
-    expect(topOf('section-map-controls')).toBeGreaterThanOrEqual(HERO_HEADER_HEIGHT);
+    expect(topOf('section-map-legend')).toBeGreaterThanOrEqual(tallHeader);
+    expect(topOf('section-map-controls')).toBeGreaterThanOrEqual(tallHeader);
   });
 });

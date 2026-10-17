@@ -299,12 +299,10 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusFull,
   },
   labelText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '400',
+    ...typography.caption,
     flex: 1,
   },
   valueText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
+    ...typography.captionBold,
   },
 });

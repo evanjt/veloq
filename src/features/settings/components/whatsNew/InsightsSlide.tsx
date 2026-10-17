@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   how: {
-    fontSize: typography.bodySmall.fontSize,
+    ...typography.bodySmall,
     textAlign: 'center',
   },
 });

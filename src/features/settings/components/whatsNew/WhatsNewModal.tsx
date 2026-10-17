@@ -47,6 +47,7 @@ import { useActivityCount } from '@/shared/native/useActivityCount';
 import {
   TOUR_CARD_HEIGHT_RATIO,
   TOUR_FOOTER_GAP,
+  tourCardWidth,
   tourFooterLayout,
   tourSlideAreaHeight,
 } from '../../lib/tourSlideFit';
@@ -68,7 +69,6 @@ const TIMING_CONFIG = { duration: duration.standard, easing: easing.standard };
 // The modal's own fade, which the resume slide waits out so the slide across is seen.
 const ENTER_FADE_MS = duration.slow;
 
-const MODAL_HORIZONTAL_PADDING = spacing.xl;
 const ALL_SLIDES = getAllSlides();
 const TUTORIAL_SLIDES = getTutorialSlides();
 
@@ -90,8 +90,8 @@ export function WhatsNewModal() {
   const [overlayHeight, setOverlayHeight] = useState(0);
   const [chromeHeight, setChromeHeight] = useState(0);
   const slideAreaHeight = tourSlideAreaHeight(overlayHeight || windowHeight, chromeHeight);
-  const contentWidth = windowWidth - MODAL_HORIZONTAL_PADDING * 2;
-  const swipeThreshold = windowWidth * SWIPE_THRESHOLD_RATIO;
+  const contentWidth = tourCardWidth(windowWidth);
+  const swipeThreshold = contentWidth * SWIPE_THRESHOLD_RATIO;
   const reduceMotion = useReduceMotion();
   const isLoaded = useWhatsNewStore((s) => s.isLoaded);
   const lastSeenVersion = useWhatsNewStore((s) => s.lastSeenVersion);

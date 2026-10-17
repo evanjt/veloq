@@ -35,6 +35,7 @@ import {
 
 import { useTheme } from '@/shared/app';
 import * as haptics from '@/shared/ui/haptics';
+import { pressRipple } from '@/shared/ui/pressFeedback';
 import {
   colorWithOpacity,
   colors,
@@ -84,14 +85,11 @@ export interface ButtonProps {
  * for `android_ripple` on iOS is what keeps this one prop rather than two
  * components.
  */
-export const ripple = Platform.select({
-  android: { borderless: false },
-  default: undefined,
-});
+export const ripple = pressRipple;
 
 export function pressedOpacity(pressed: boolean): number {
   if (Platform.OS === 'android') return 1;
-  return pressed ? 0.7 : 1;
+  return pressed ? opacity.pressed : 1;
 }
 
 /** The ground, the border and the text, per variant and per theme. */

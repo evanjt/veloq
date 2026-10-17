@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import type {
   ActivityLedgerChange,
   SectionMatch as FfiSectionMatch,
@@ -471,11 +472,15 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
           ]}
         >
           <RectButton style={styles.swipeActionButton} onPress={action.run}>
-            <MaterialCommunityIcons
-              name={custom ? 'delete' : 'eye-off'}
-              size={iconSize.lg}
-              color={custom ? swipeAction.destructive.text : swipeAction.hide.text}
-            />
+            {custom ? (
+              <ChromeIcon name="delete" size={iconSize.lg} color={swipeAction.destructive.text} />
+            ) : (
+              <MaterialCommunityIcons
+                name="eye-off"
+                size={iconSize.lg}
+                color={swipeAction.hide.text}
+              />
+            )}
             <Text
               style={[
                 styles.swipeActionText,
@@ -739,8 +744,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   swipeActionText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
+    ...typography.captionBold,
   },
   deleteSwipeAction: {
     backgroundColor: swipeAction.destructive.bg,
@@ -789,7 +793,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   scanMatchMeta: {
-    fontSize: typography.bodyCompact.fontSize,
+    ...typography.bodyCompact,
     color: colors.textSecondary,
     marginTop: spacing.xxs,
   },
@@ -799,7 +803,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   scanNoResultsText: {
-    fontSize: typography.bodySmall.fontSize,
+    ...typography.bodySmall,
     color: colors.textSecondary,
   },
 });

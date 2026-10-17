@@ -98,16 +98,8 @@ jest.mock('@/features/routes/hooks/useRouteDetailData', () => ({
         sportTypes: ['Ride'],
         customName: 'Strecke 4',
       },
-      groups: [],
       activityCount: 2,
-      performances: {
-        activityMetrics: [
-          { activityId: 'a1', sportType: 'Ride' },
-          { activityId: 'a2', sportType: 'Ride' },
-        ],
-      },
       encodedRepresentative: new ArrayBuffer(8),
-      routeNames: { r_9: 'Strecke 4' },
       excludedActivityIds: [],
       mapSignatures: [],
       missingTimeStreamIds: [],

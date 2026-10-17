@@ -162,6 +162,54 @@ describe('static-loading-glyph', () => {
   });
 });
 
+describe('chrome-glyphs', () => {
+  it('fails a share or delete glyph drawn on the Material icon outside ChromeIcon', () => {
+    const root = fixture({
+      'src/features/kiln/Firing.tsx': [
+        '<MaterialCommunityIcons name="trash-can-outline" size={16} />',
+        '<MaterialCommunityIcons',
+        "  name={glazed ? 'undo' : 'delete-outline'}",
+        '/>',
+        "<MaterialCommunityIcons name={'export-variant' as keyof typeof MaterialCommunityIcons.glyphMap} />",
+        '',
+      ].join('\n'),
+    });
+
+    const { status, output } = runRule('chrome-glyphs', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/features/kiln/Firing.tsx:1');
+    expect(output).toContain('src/features/kiln/Firing.tsx:3');
+    expect(output).toContain('src/features/kiln/Firing.tsx:5');
+  });
+
+  it('fails a menu entry carrying a share glyph of its own', () => {
+    const root = fixture({
+      'src/features/kiln/KilnMenu.tsx': "const entry = { key: 'send', icon: 'share-variant' };\n",
+    });
+
+    const { status, output } = runRule('chrome-glyphs', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/features/kiln/KilnMenu.tsx:1');
+  });
+
+  it('passes ChromeIcon itself, an action named delete, other glyphs and the test tree', () => {
+    const root = fixture({
+      'src/shared/ui/ChromeIcon.tsx': "const GLYPHS = { delete: { android: 'delete-outline' } };\n",
+      'src/features/kiln/Firing.tsx': [
+        "const action = { name: 'delete', label: t('common.delete') };",
+        '<MaterialCommunityIcons name="leaf" size={16} />',
+        '<ChromeIcon name="delete" size={16} color={ink} />',
+        '',
+      ].join('\n'),
+      'src/__tests__/firing.test.tsx': '<MaterialCommunityIcons name="delete-outline" />\n',
+    });
+
+    expect(runRule('chrome-glyphs', root).status).toBe(0);
+  });
+});
+
 describe('paper-spinner', () => {
   it("fails Paper's ActivityIndicator imported beside its Text, across lines", () => {
     const root = fixture({
@@ -205,6 +253,67 @@ describe('paper-spinner', () => {
     });
 
     expect(runRule('paper-spinner', root).status).toBe(0);
+  });
+});
+
+describe('lone-spinner-in-padding', () => {
+  const PADDED = [
+    "import { View, StyleSheet, ActivityIndicator } from 'react-native';",
+    "import { Spinner } from '@/shared/ui';",
+    'export function Kiln({ busy }: { busy: boolean }) {',
+    '  return busy ? (',
+    '    <View style={styles.loadingContainer}>',
+    '      <Spinner />',
+    '    </View>',
+    '  ) : (',
+    '    <View style={[styles.waiting]}>',
+    '      <ActivityIndicator size="small" />',
+    '    </View>',
+    '  );',
+    '}',
+    'const styles = StyleSheet.create({',
+    '  loadingContainer: { padding: 24, alignItems: "center" },',
+    '  waiting: { paddingVertical: 32, justifyContent: "center" },',
+    '});',
+  ].join('\n');
+
+  it('fails a spinner that is the only child of a padding-only box', () => {
+    const root = fixture({ 'src/features/kiln/Kiln.tsx': PADDED });
+
+    const { status, output } = runRule('lone-spinner-in-padding', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/features/kiln/Kiln.tsx:5');
+    expect(output).toContain('src/features/kiln/Kiln.tsx:9');
+  });
+
+  it('passes a box that is sized, a spinner with words beside it, and the test tree', () => {
+    const root = fixture({
+      'src/features/kiln/Glaze.tsx': [
+        "import { View, Text, StyleSheet } from 'react-native';",
+        "import { Spinner } from '@/shared/ui';",
+        'export function Glaze() {',
+        '  return (',
+        '    <>',
+        '      <View style={styles.centred}>',
+        '        <Spinner />',
+        '      </View>',
+        '      <View style={styles.loadingContainer}>',
+        '        <Spinner />',
+        '        <Text>Firing</Text>',
+        '      </View>',
+        '    </>',
+        '  );',
+        '}',
+        'const styles = StyleSheet.create({',
+        '  centred: { flex: 1, alignItems: "center" },',
+        '  loadingContainer: { padding: 24 },',
+        '});',
+      ].join('\n'),
+      'src/__tests__/kiln.test.tsx': PADDED,
+    });
+
+    expect(runRule('lone-spinner-in-padding', root).status).toBe(0);
   });
 });
 

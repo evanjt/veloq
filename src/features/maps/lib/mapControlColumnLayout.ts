@@ -1,10 +1,34 @@
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-import { HERO_HEADER_HEIGHT } from '@/shared/ui';
+import { useHeroHeaderBottom } from '@/shared/ui';
 import { layout, spacing } from '@/theme';
 
 /** Most buttons the activity map's control column ever holds. */
 export const MAX_MAP_CONTROLS = 6;
+
+export interface ActivityMapControlFlags {
+  /** Whether the column is drawn at all. */
+  shown: boolean;
+  /** Whether the gradient toggle is drawn. */
+  hasGradientData: boolean;
+  /** Whether the 3D toggle is drawn. */
+  hasRoute: boolean;
+  /** Whether the fullscreen button is drawn. */
+  enableFullscreen: boolean;
+}
+
+/**
+ * Buttons the activity map's control column draws: style, compass and location always, then one
+ * for each optional button whose flag is set. The column and the hero text beside it both size
+ * from this, so the reserve is never wider than the buttons.
+ */
+export function activityMapControlCount({
+  shown,
+  hasGradientData,
+  hasRoute,
+  enableFullscreen,
+}: ActivityMapControlFlags): number {
+  if (!shown) return 0;
+  return 3 + Number(hasGradientData) + Number(hasRoute) + Number(enableFullscreen);
+}
 
 export interface MapControlColumnLayout {
   /** Columns the buttons wrap into. */
@@ -38,11 +62,11 @@ export interface MapControlColumn extends MapControlColumnLayout {
 }
 
 /**
- * The column's place in a hero map `mapHeight` tall. The map runs under the status bar and the
- * transparent header is drawn over it, taking the touches there, so the column starts below the
- * inset and the header row.
+ * The place of a column of `count` buttons in a hero map `mapHeight` tall. The map runs under the
+ * status bar and the transparent header is drawn over it, taking the touches there, so the column
+ * starts at the header's measured bottom edge.
  */
-export function useMapControlColumn(mapHeight: number): MapControlColumn {
-  const top = useSafeAreaInsets().top + HERO_HEADER_HEIGHT;
-  return { top, ...mapControlColumnLayout(MAX_MAP_CONTROLS, mapHeight, top) };
+export function useMapControlColumn(mapHeight: number, count: number): MapControlColumn {
+  const top = useHeroHeaderBottom();
+  return { top, ...mapControlColumnLayout(count, mapHeight, top) };
 }

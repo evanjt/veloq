@@ -1,0 +1,33 @@
+# Scroll the screen until ELEMENT is on it and clear of the tab bar. Every swipe
+# starts low on the screen, inside the scrolling content and above the tab bar.
+# scrollUntilVisible swipes from the screen centre instead, and on the feed the
+# fixed cards above the list can sit there, so its swipes move nothing. A row
+# counts as visible as soon as its top edge comes in under the tab bar, so once
+# a swipe has brought it in, one longer swipe lifts it to where a tap on its
+# centre lands on it rather than on the tab bar or the record button.
+appId: com.veloq.app.dev
+---
+- evalScript: ${output.revealSwiped = false}
+- repeat:
+    while:
+      notVisible:
+        id: ${ELEMENT}
+    times: 15
+    commands:
+      - swipe:
+          start: 50%, 85%
+          end: 50%, 65%
+          duration: 400
+      - evalScript: ${output.revealSwiped = true}
+- assertVisible:
+    id: ${ELEMENT}
+- runFlow:
+    when:
+      true: ${output.revealSwiped}
+    commands:
+      - swipe:
+          start: 50%, 85%
+          end: 50%, 55%
+          duration: 400
+      - assertVisible:
+          id: ${ELEMENT}

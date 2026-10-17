@@ -12,6 +12,7 @@ import { Platform, StyleSheet, Text } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 
 import { SheetFrame, sheetScreenLayout } from '@/shared/ui/SheetFrame';
+import { colors } from '@/theme';
 
 const mockInsets = { top: 0, bottom: 48, left: 0, right: 0 };
 
@@ -22,9 +23,15 @@ jest.mock('react-native-safe-area-context', () => ({
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 
 const originalOS = Platform.OS;
+const originalVersion = Platform.Version;
+
+function setVersion(version: string | number) {
+  Object.defineProperty(Platform, 'Version', { configurable: true, get: () => version });
+}
 
 afterEach(() => {
   Platform.OS = originalOS;
+  setVersion(originalVersion);
 });
 
 function frameStyle() {
@@ -34,6 +41,16 @@ function frameStyle() {
 describe('SheetFrame on Android', () => {
   beforeEach(() => {
     Platform.OS = 'android';
+    setVersion(35);
+  });
+
+  it('paints the sheet surface', async () => {
+    await render(
+      <SheetFrame name="sheets/smoothing">
+        <Text>body</Text>
+      </SheetFrame>
+    );
+    expect(frameStyle().backgroundColor).toBe(colors.surface);
   });
 
   it('draws the handle on a resizable sheet and pads past the navigation bar', async () => {
@@ -72,6 +89,27 @@ describe('SheetFrame on Android', () => {
 describe('SheetFrame on iOS', () => {
   beforeEach(() => {
     Platform.OS = 'ios';
+    setVersion('18.5');
+  });
+
+  it('paints the sheet surface before iOS 26', async () => {
+    await render(
+      <SheetFrame name="sheets/smoothing">
+        <Text>body</Text>
+      </SheetFrame>
+    );
+    expect(frameStyle().backgroundColor).toBe(colors.surface);
+  });
+
+  it('paints nothing on iOS 26 and later, so the system material is the one background', async () => {
+    setVersion('26.2');
+    await render(
+      <SheetFrame name="sheets/insight">
+        <Text>body</Text>
+      </SheetFrame>
+    );
+    expect(frameStyle().backgroundColor).toBeUndefined();
+    expect(frameStyle().paddingBottom).toBe(48);
   });
 
   it('leaves the grabber to the system and pads a resizable sheet', async () => {

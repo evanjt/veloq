@@ -2,7 +2,7 @@ export { BodyPairWithLoupe } from './components/BodyPairWithLoupe';
 export { ExerciseTable } from './components/ExerciseTable';
 export { MuscleGroupView } from './components/MuscleGroupView';
 export { StrengthActivityCard, type StrengthCardData } from './components/StrengthActivityCard';
-export { StrengthBodyDiagram } from './components/StrengthBodyDiagram';
+export { StrengthBodyDiagram, StrengthBodyDiagramSkeleton } from './components/StrengthBodyDiagram';
 export { StrengthProgressionCard } from './components/StrengthProgressionCard';
 export { StrengthExerciseList } from './components/StrengthExerciseList';
 export { default as ExerciseDetailScreen } from './components/ExerciseDetailScreen';

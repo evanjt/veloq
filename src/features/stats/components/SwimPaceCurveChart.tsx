@@ -280,8 +280,7 @@ const makeStyles = (palette: Palette) =>
       marginBottom: spacing.xxs,
     },
     valueNumber: {
-      fontSize: typography.bodySmall.fontSize,
-      fontWeight: '700',
+      ...typography.pillValue,
     },
     emptyState: {
       flex: 1,
@@ -292,7 +291,7 @@ const makeStyles = (palette: Palette) =>
       alignItems: 'center',
     },
     notDownloadedText: {
-      fontSize: typography.bodyCompact.fontSize,
+      ...typography.bodyCompact,
       color: palette.textSecondary,
     },
     legend: {

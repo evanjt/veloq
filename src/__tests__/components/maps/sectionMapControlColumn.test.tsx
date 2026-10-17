@@ -38,6 +38,7 @@ jest.mock('expo-location', () => ({
 }));
 
 const INSET_TOP = 24;
+const HEADER_BOTTOM = INSET_TOP + 56;
 const METRICS = {
   frame: { x: 0, y: 0, width: 411, height: 701 },
   insets: { top: INSET_TOP, left: 0, right: 0, bottom: 0 },
@@ -66,7 +67,7 @@ const STEP = layout.minTapTarget + spacing.sm;
 function renderMap(props: Partial<React.ComponentProps<typeof SectionMapView>>) {
   return render(
     <SafeAreaProvider initialMetrics={METRICS}>
-      <SectionMapView section={SECTION} interactive insetTop={INSET_TOP} {...props} />
+      <SectionMapView section={SECTION} interactive headerBottom={HEADER_BOTTOM} {...props} />
     </SafeAreaProvider>
   );
 }

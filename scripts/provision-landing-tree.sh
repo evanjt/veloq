@@ -90,8 +90,9 @@ provision_modules() {
   [ -d "$there" ] || return 0
   # A real install, made because the tree's lockfile is not the main
   # checkout's, already holds its own `veloqrs`, and links into it would mix
-  # two installs. npm writes `.package-lock.json` into an install it made.
-  if [ -f "$here/.package-lock.json" ] && [ ! -L "$here/.package-lock.json" ]; then
+  # two installs. npm writes `.package-lock.json` into an install it made, and a
+  # whole-directory link to the main checkout's shows that file too.
+  if [ ! -L "$here" ] && [ -f "$here/.package-lock.json" ] && [ ! -L "$here/.package-lock.json" ]; then
     return 0
   fi
   if [ -L "$here" ]; then

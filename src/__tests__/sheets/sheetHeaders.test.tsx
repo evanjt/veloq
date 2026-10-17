@@ -11,13 +11,15 @@
 import React from 'react';
 import { Platform, StyleSheet } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
+import type { ReactTestInstance } from 'react-test-renderer';
 
 import { SCREEN_SHEETS } from '@/shared/app/screenHeaders';
 import { openSheet } from '@/shared/app/sheetRequest';
 import { IconButton } from '@/shared/ui/IconButton';
 import { SheetHeader } from '@/shared/ui/SheetHeader';
+import { TextField } from '@/shared/ui/TextField';
 import { i18n, initialiseI18n } from '@/i18n';
-import { typography } from '@/theme';
+import { colors, darkColors, typography } from '@/theme';
 
 const mockPush = jest.fn();
 let mockParams: { request?: string } = {};
@@ -195,11 +197,47 @@ it('covers every sheet route', () => {
 });
 
 const realOS = Platform.OS;
+const realVersion = Platform.Version;
+function setPlatform(os: 'ios' | 'android', version: string | number) {
+  Platform.OS = os;
+  Object.defineProperty(Platform, 'Version', { configurable: true, get: () => version });
+}
 afterEach(() => {
-  Platform.OS = realOS;
+  setPlatform(realOS as 'ios' | 'android', realVersion);
 });
 
 describe.each(Object.keys(SCREEN_SHEETS))('%s', (route) => {
+  it.each([
+    ['ios', '26.2'],
+    ['ios', '18.5'],
+    ['android', 35],
+  ] as const)(
+    'paints no fill at its root on %s %s, leaving the sheet frame the one background',
+    async (os, version) => {
+      setPlatform(os, version);
+      await openRoute(route);
+      const tree = screen.toJSON();
+      const roots = Array.isArray(tree) ? tree : [tree];
+      expect(roots.length).toBeGreaterThan(0);
+      for (const root of roots) {
+        expect(StyleSheet.flatten(root?.props.style)?.backgroundColor).toBeUndefined();
+      }
+      const surfaces = [colors.surface, darkColors.surface];
+      // A text field fills its own box, a control on the sheet rather than the sheet's fill.
+      const insideField = (node: ReactTestInstance) => {
+        for (let up = node.parent; up; up = up.parent) if (up.type === TextField) return true;
+        return false;
+      };
+      const painted = screen.UNSAFE_root.findAll(
+        (node) =>
+          typeof node.type === 'string' &&
+          surfaces.includes(StyleSheet.flatten(node.props.style)?.backgroundColor) &&
+          !insideField(node)
+      );
+      expect(painted).toHaveLength(0);
+    }
+  );
+
   it.each(['ios', 'android'] as const)(
     'has one heading in the sheet-title style on %s',
     async (os) => {

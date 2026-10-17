@@ -43,6 +43,11 @@ function ShimmerHighlight({ color, borderRadius }: { color: string; borderRadius
   );
 }
 
+export function shimmerColours(isDark: boolean): { base: string; highlight: string } {
+  const palette = isDark ? darkColors : colors;
+  return { base: palette.fillNeutral, highlight: palette.borderStrong };
+}
+
 export function Shimmer({
   width = '100%',
   height = 20,
@@ -51,8 +56,7 @@ export function Shimmer({
   animated = true,
 }: ShimmerProps) {
   const { isDark } = useTheme();
-  const baseColor = isDark ? darkColors.surface : colors.border;
-  const highlightColor = isDark ? darkColors.border : colors.divider;
+  const { base: baseColor, highlight: highlightColor } = shimmerColours(isDark);
 
   return (
     <View
@@ -77,7 +81,7 @@ export function Shimmer({
  * grey blocks sit in a hidden wrapper, since hiding them on the root would
  * hide the root as well, so none of them is a focus stop of its own.
  */
-function SkeletonFrame({
+export function SkeletonFrame({
   testID,
   style,
   children,

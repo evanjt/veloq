@@ -95,6 +95,12 @@ const CURVES = {
     referenceSource: 0,
     laps: [lapDelta('k1', 3, [0, 0]), lapDelta('k2', 2, [3, -1])],
     missing: [],
+    splitSummary: {
+      medianSecs: [3, -1],
+      lowerQuartileSecs: [NaN, NaN],
+      upperQuartileSecs: [NaN, NaN],
+      laps: [5, 5],
+    },
   },
 };
 
@@ -200,7 +206,12 @@ describe('section page curves owed', () => {
     expect(mockEngine.getSectionDetailPerformance).toHaveBeenCalled();
     const [, days, sport] = mockEngine.getSectionDetailPerformance.mock.calls[0];
     expect(mockEngine.loadSectionDetailPerformance).toHaveBeenCalledTimes(1);
-    expect(mockEngine.loadSectionDetailPerformance).toHaveBeenCalledWith(SECTION_ID, days, sport);
+    expect(mockEngine.loadSectionDetailPerformance).toHaveBeenCalledWith(
+      SECTION_ID,
+      days,
+      sport,
+      undefined
+    );
     expect(screen.getByTestId('chart-plot-delta')).toBeTruthy();
   });
 
@@ -214,12 +225,14 @@ describe('section page curves owed', () => {
     expect(mockEngine.getSectionDetailPerformance).toHaveBeenLastCalledWith(
       SECTION_ID,
       expect.any(Number),
-      'Run'
+      'Run',
+      undefined
     );
     expect(mockEngine.loadSectionDetailPerformance).toHaveBeenLastCalledWith(
       SECTION_ID,
       expect.any(Number),
-      'Run'
+      'Run',
+      undefined
     );
   });
 

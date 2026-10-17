@@ -6,7 +6,12 @@ import { ScrollView } from 'react-native-gesture-handler';
 import { useTheme } from '@/shared/app';
 import { SectionTitle } from '@/shared/ui/SectionTitle';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
-import { TOUR_PICTURE_GAP, TOUR_SLIDE_PADDING_TOP, tourSlideLayout } from '../../lib/tourSlideFit';
+import {
+  TOUR_PICTURE_GAP,
+  TOUR_SLIDE_PADDING_TOP,
+  tourCardWidth,
+  tourSlideLayout,
+} from '../../lib/tourSlideFit';
 
 interface WhatsNewSlideProps {
   icon: string;
@@ -47,7 +52,7 @@ export function WhatsNewSlide({
   const frameStyle = pictureHeight > 0 ? { height: pictureHeight * scale } : undefined;
 
   return (
-    <View style={[styles.container, { width: windowWidth - spacing.xl * 2 }]}>
+    <View style={[styles.container, { width: tourCardWidth(windowWidth) }]}>
       {/* The handler's own scroll view, so a vertical drag scrolls and a horizontal one turns. */}
       <ScrollView
         style={[styles.text, scrolls ? { maxHeight: textHeight } : undefined]}
@@ -108,7 +113,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   body: {
-    fontSize: typography.bodyMedium.fontSize,
+    ...typography.bodyMedium,
     textAlign: 'center',
     lineHeight: 22,
   },

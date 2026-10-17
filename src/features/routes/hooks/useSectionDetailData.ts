@@ -170,13 +170,15 @@ export function useSectionDetailData(
  * can take longer to compute than a tap may block, so the call serves them
  * only once the engine holds them: while it says they are owed, the same read
  * with the curves is loaded off the JS thread and stands in for this one.
+ * `highlightActivityId` is the attempt the scatter's focus range always holds.
  */
 export function useSectionDetailPerformance(
   sectionId: string | undefined,
   timeRangeDays: number,
   sportFilter: string | undefined,
   enabled: boolean,
-  refreshKey = 0
+  refreshKey = 0,
+  highlightActivityId?: string
 ): { data: SectionPerformanceData | null; error: unknown } {
   const readPerformance = useEngineRead(['sections', 'detectionApplied'], [refreshKey]);
 
@@ -184,16 +186,30 @@ export function useSectionDetailPerformance(
     if (!enabled || !sectionId) return { data: null, error: undefined };
     const result = readPerformance((engine) =>
       attemptEngineRead(
-        () => engine.getSectionDetailPerformance(sectionId, timeRangeDays, sportFilter) ?? null
+        () =>
+          engine.getSectionDetailPerformance(
+            sectionId,
+            timeRangeDays,
+            sportFilter,
+            highlightActivityId
+          ) ?? null
       )
     );
     if (!result) return { data: null, error: undefined };
     return result.ok
       ? { data: result.value, error: undefined }
       : { data: null, error: result.error };
-  }, [sectionId, timeRangeDays, sportFilter, enabled, readPerformance]);
+  }, [sectionId, timeRangeDays, sportFilter, highlightActivityId, enabled, readPerformance]);
 
-  return useLoadedCurves(read, 'section', sectionId, timeRangeDays, sportFilter, enabled);
+  return useLoadedCurves(
+    read,
+    'section',
+    sectionId,
+    timeRangeDays,
+    sportFilter,
+    highlightActivityId,
+    enabled
+  );
 }
 
 /**
@@ -209,6 +225,7 @@ function useLoadedCurves(
   id: string | undefined,
   timeRangeDays: number,
   sportFilter: string | undefined,
+  highlightActivityId: string | undefined,
   ready: boolean
 ): { data: SectionPerformanceData | null; error: unknown } {
   const [loaded, setLoaded] = useState<{
@@ -222,8 +239,8 @@ function useLoadedCurves(
     let live = true;
     const load =
       subject === 'section'
-        ? engine.loadSectionDetailPerformance(id, timeRangeDays, sportFilter)
-        : engine.loadRouteDetailPerformance(id, timeRangeDays, sportFilter);
+        ? engine.loadSectionDetailPerformance(id, timeRangeDays, sportFilter, highlightActivityId)
+        : engine.loadRouteDetailPerformance(id, timeRangeDays, sportFilter, highlightActivityId);
     load
       .then((data) => {
         if (live && data) setLoaded({ for: owed, data });
@@ -235,7 +252,7 @@ function useLoadedCurves(
     return () => {
       live = false;
     };
-  }, [owed, ready, subject, id, timeRangeDays, sportFilter]);
+  }, [owed, ready, subject, id, timeRangeDays, sportFilter, highlightActivityId]);
 
   if (loaded && read.data && loaded.for === read.data) {
     return { data: loaded.data, error: undefined };
@@ -254,14 +271,16 @@ function useLoadedCurves(
  * block, so the call serves them only once the engine holds them: while it
  * says they are owed and `streamsReady` says the streams they are drawn from
  * have landed, the same read with the curves is loaded off the JS thread and
- * stands in for this one.
+ * stands in for this one. `highlightActivityId` is the attempt the scatter's
+ * focus range always holds.
  */
 export function useRouteDetailPerformance(
   groupId: string | undefined,
   timeRangeDays: number,
   sportFilter: string | undefined,
   refreshKey = 0,
-  streamsReady = true
+  streamsReady = true,
+  highlightActivityId?: string
 ): { data: SectionPerformanceData | null; error: unknown } {
   const readPerformance = useEngineRead(['groups', 'detectionApplied'], [refreshKey, streamsReady]);
 
@@ -269,14 +288,28 @@ export function useRouteDetailPerformance(
     if (!groupId) return { data: null, error: undefined };
     const result = readPerformance((engine) =>
       attemptEngineRead(
-        () => engine.getRouteDetailPerformance(groupId, timeRangeDays, sportFilter) ?? null
+        () =>
+          engine.getRouteDetailPerformance(
+            groupId,
+            timeRangeDays,
+            sportFilter,
+            highlightActivityId
+          ) ?? null
       )
     );
     if (!result) return { data: null, error: undefined };
     return result.ok
       ? { data: result.value, error: undefined }
       : { data: null, error: result.error };
-  }, [groupId, timeRangeDays, sportFilter, readPerformance]);
+  }, [groupId, timeRangeDays, sportFilter, highlightActivityId, readPerformance]);
 
-  return useLoadedCurves(read, 'route', groupId, timeRangeDays, sportFilter, streamsReady);
+  return useLoadedCurves(
+    read,
+    'route',
+    groupId,
+    timeRangeDays,
+    sportFilter,
+    highlightActivityId,
+    streamsReady
+  );
 }

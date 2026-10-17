@@ -69,7 +69,12 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
         onClose={handleClose}
         titleTestID="insight-detail-title"
         leading={
-          <View style={[styles.iconCircle, { backgroundColor: colorWithOpacity(toneColor, 0.12) }]}>
+          <View
+            style={[
+              styles.iconCircle,
+              { backgroundColor: colorWithOpacity(toneColor, opacity.tint2) },
+            ]}
+          >
             <MaterialCommunityIcons
               name={insight.icon as never}
               size={iconSize.sm}
@@ -131,9 +136,8 @@ const styles = StyleSheet.create({
   },
   // Text
   body: {
-    fontSize: typography.bodySmall.fontSize,
+    ...typography.bodySmall,
     color: colors.textSecondary,
-    lineHeight: 20,
     paddingHorizontal: layout.screenPadding,
     marginBottom: spacing.sm,
   },
@@ -165,8 +169,7 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlayDark.light,
   },
   navLinkText: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    ...typography.bodySmallBold,
     color: colors.textPrimary,
   },
   navLinkTextDark: {

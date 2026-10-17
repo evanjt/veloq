@@ -179,16 +179,14 @@ const styles = StyleSheet.create({
     marginRight: spacing.xs,
   },
   sectionTitle: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    ...typography.bodySmallBold,
     color: colors.textSecondary,
   },
   sectionTitleDark: {
     color: darkColors.textSecondary,
   },
   deltaText: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
+    ...typography.bodyBold,
     color: colors.chartGoldText,
     fontVariant: ['tabular-nums'],
   },
@@ -196,7 +194,7 @@ const styles = StyleSheet.create({
     color: darkColors.chartGoldText,
   },
   previousText: {
-    fontSize: typography.bodyCompact.fontSize,
+    ...typography.bodyCompact,
     color: colors.textSecondary,
     fontVariant: ['tabular-nums'],
   },
@@ -220,8 +218,7 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlayDark.medium,
   },
   contextText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '400',
+    ...typography.caption,
     color: colors.textSecondary,
   },
   contextTextDark: {

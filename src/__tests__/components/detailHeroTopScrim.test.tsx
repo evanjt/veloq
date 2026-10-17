@@ -11,10 +11,11 @@
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
+import { HeaderHeightContext } from 'expo-router/react-navigation';
 
-import { DetailHero, HERO_HEADER_HEIGHT } from '@/shared/ui/DetailHero';
+import { DetailHero } from '@/shared/ui/DetailHero';
 
-const TOP_INSET = 47;
+const HEADER_BOTTOM = 47 + 44;
 
 jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context'),
@@ -42,9 +43,11 @@ function contrastWithWhite(rgb: number[]) {
 
 const renderHero = () =>
   render(
-    <DetailHero height={320} overlay={<Text>Lake Tekapo loop</Text>}>
-      <Text>map</Text>
-    </DetailHero>
+    <HeaderHeightContext.Provider value={HEADER_BOTTOM}>
+      <DetailHero height={320} overlay={<Text>Lake Tekapo loop</Text>}>
+        <Text>map</Text>
+      </DetailHero>
+    </HeaderHeightContext.Provider>
   );
 
 describe('DetailHero top scrim', () => {
@@ -54,7 +57,7 @@ describe('DetailHero top scrim', () => {
     const scrim = screen.getByTestId('detail-hero-top-scrim');
     const style = StyleSheet.flatten(scrim.props.style);
     expect(style.top).toBe(0);
-    expect(style.height).toBeGreaterThanOrEqual(TOP_INSET + HERO_HEADER_HEIGHT);
+    expect(style.height).toBeGreaterThanOrEqual(HEADER_BOTTOM);
   });
 
   it('takes no touches', async () => {
@@ -70,7 +73,7 @@ describe('DetailHero top scrim', () => {
     const { height } = StyleSheet.flatten(scrim.props.style);
     const colours: number[] = scrim.props.colors;
     const locations: number[] = scrim.props.locations;
-    const headerBottom = (TOP_INSET + HERO_HEADER_HEIGHT) / (height as number);
+    const headerBottom = HEADER_BOTTOM / (height as number);
 
     // Every stop up to the first one at or past the header's bottom edge, so the
     // band between them is an interpolation of passing colours.

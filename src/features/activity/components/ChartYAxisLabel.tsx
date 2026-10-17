@@ -110,8 +110,7 @@ export const ChartYAxisLabel = React.memo(function ChartYAxisLabel({
 
 const styles = StyleSheet.create({
   yLabel: {
-    fontSize: typography.micro.fontSize,
-    fontWeight: '400',
+    ...typography.micro,
     color: colors.textSecondary,
     backgroundColor: colorWithOpacity(ink.white, 0.8),
     paddingHorizontal: spacing.xs,

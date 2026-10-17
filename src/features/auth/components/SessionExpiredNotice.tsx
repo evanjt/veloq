@@ -12,6 +12,7 @@ import {
   darkColors,
   iconSize,
   layout,
+  opacity,
   spacing,
   typography,
   stroke,
@@ -78,7 +79,7 @@ const styles = StyleSheet.create({
     borderColor: colorWithOpacity(colors.warning, 0.2),
   },
   noticeDark: {
-    backgroundColor: colorWithOpacity(colors.warning, 0.12),
+    backgroundColor: colorWithOpacity(colors.warning, opacity.tint2),
     borderColor: colorWithOpacity(colors.warning, 0.28),
   },
   header: {
@@ -97,8 +98,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   detail: {
-    fontSize: typography.bodyCompact.fontSize,
-    lineHeight: 18,
+    ...typography.bodyCompact,
     color: colors.textSecondary,
   },
   detailDark: {

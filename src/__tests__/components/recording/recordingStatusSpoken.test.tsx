@@ -7,7 +7,7 @@
  */
 
 import React from 'react';
-import { Animated } from 'react-native';
+import { Animated, StyleSheet } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 
 import { TimerHeader } from '@/features/recording/components/TimerHeader';
@@ -49,5 +49,23 @@ describe('the recording status badge', () => {
     await render(<TimerHeader {...props} status={'paused' as never} />);
 
     expect(screen.queryByLabelText('Recording')).toBeNull();
+  });
+});
+
+describe('the elapsed clock', () => {
+  it('reads in the secondary ink at full strength while auto-pause holds it', async () => {
+    await render(<TimerHeader {...props} autoPaused status={'recording' as never} />);
+
+    const clock = StyleSheet.flatten(screen.getByTestId('recording-timer').props.style);
+    expect(clock.color).toBe(props.textSecondary);
+    expect(clock.opacity).toBeUndefined();
+  });
+
+  it('reads in the primary ink while it runs', async () => {
+    await render(<TimerHeader {...props} status={'recording' as never} />);
+
+    expect(StyleSheet.flatten(screen.getByTestId('recording-timer').props.style).color).toBe(
+      props.textPrimary
+    );
   });
 });

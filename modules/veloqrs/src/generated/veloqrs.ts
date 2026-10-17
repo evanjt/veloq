@@ -3191,6 +3191,10 @@ export type FfiHrZoneBand = {
    * Share of the total time in zones, 0 to 100
    */
   percent: number;
+  /**
+   * The share as a whole percent, the bands' shares totalling 100
+   */
+  share: number;
 };
 
 /**
@@ -3220,6 +3224,7 @@ const FfiConverterTypeFfiHrZoneBand = (() => {
         maxBpm: FfiConverterUInt32.readFromCursor(c),
         seconds: FfiConverterFloat64.readFromCursor(c),
         percent: FfiConverterFloat64.readFromCursor(c),
+        share: FfiConverterUInt32.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -3228,6 +3233,7 @@ const FfiConverterTypeFfiHrZoneBand = (() => {
       FfiConverterUInt32.writeIntoCursor(value.maxBpm, c);
       FfiConverterFloat64.writeIntoCursor(value.seconds, c);
       FfiConverterFloat64.writeIntoCursor(value.percent, c);
+      FfiConverterUInt32.writeIntoCursor(value.share, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -3235,8 +3241,59 @@ const FfiConverterTypeFfiHrZoneBand = (() => {
         FfiConverterUInt32.allocationSize(value.minBpm) +
         FfiConverterUInt32.allocationSize(value.maxBpm) +
         FfiConverterFloat64.allocationSize(value.seconds) +
-        FfiConverterFloat64.allocationSize(value.percent)
+        FfiConverterFloat64.allocationSize(value.percent) +
+        FfiConverterUInt32.allocationSize(value.share)
       );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The unit a sport's cadence is shown in.
+ */
+export enum FfiCadenceUnit {
+  /**
+   * Crank revolutions a minute, and the stored cycles of a sport no list names.
+   */
+  Rpm,
+  /**
+   * Steps a minute, twice the strides intervals.icu stores.
+   */
+  StepsPerMinute,
+  /**
+   * Strokes a minute, as stored.
+   */
+  StrokesPerMinute,
+}
+
+const FfiConverterTypeFfiCadenceUnit = (() => {
+  type TypeName = FfiCadenceUnit;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiCadenceUnit.Rpm;
+        case 2:
+          return FfiCadenceUnit.StepsPerMinute;
+        case 3:
+          return FfiCadenceUnit.StrokesPerMinute;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiCadenceUnit.Rpm:
+          return c.writeI32(1);
+        case FfiCadenceUnit.StepsPerMinute:
+          return c.writeI32(2);
+        case FfiCadenceUnit.StrokesPerMinute:
+          return c.writeI32(3);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
     }
   }
   return new FFIConverter();
@@ -3264,9 +3321,14 @@ export type FfiActivitySummary = {
    */
   maxSpeed?: number;
   /**
-   * Average cadence, as intervals.icu stored it
+   * Average cadence in `cadence_unit`: steps a minute on foot, where
+   * intervals.icu stores strides
    */
   averageCadence?: number;
+  /**
+   * The unit this sport's cadence is shown in, here and in its stream
+   */
+  cadenceUnit: FfiCadenceUnit;
 };
 
 /**
@@ -3296,6 +3358,7 @@ const FfiConverterTypeFfiActivitySummary = (() => {
         averageSpeed: FfiConverterOptionalFloat64.readFromCursor(c),
         maxSpeed: FfiConverterOptionalFloat64.readFromCursor(c),
         averageCadence: FfiConverterOptionalFloat64.readFromCursor(c),
+        cadenceUnit: FfiConverterTypeFfiCadenceUnit.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -3304,6 +3367,7 @@ const FfiConverterTypeFfiActivitySummary = (() => {
       FfiConverterOptionalFloat64.writeIntoCursor(value.averageSpeed, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.maxSpeed, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.averageCadence, c);
+      FfiConverterTypeFfiCadenceUnit.writeIntoCursor(value.cadenceUnit, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -3311,7 +3375,8 @@ const FfiConverterTypeFfiActivitySummary = (() => {
         FfiConverterOptionalFloat64.allocationSize(value.elapsedTime) +
         FfiConverterOptionalFloat64.allocationSize(value.averageSpeed) +
         FfiConverterOptionalFloat64.allocationSize(value.maxSpeed) +
-        FfiConverterOptionalFloat64.allocationSize(value.averageCadence)
+        FfiConverterOptionalFloat64.allocationSize(value.averageCadence) +
+        FfiConverterTypeFfiCadenceUnit.allocationSize(value.cadenceUnit)
       );
     }
   }
@@ -3342,6 +3407,10 @@ export type FfiPowerZoneBand = {
    * Share of the total time in zones, 0 to 100
    */
   percent: number;
+  /**
+   * The share as a whole percent, the bands' shares totalling 100
+   */
+  share: number;
 };
 
 /**
@@ -3371,6 +3440,7 @@ const FfiConverterTypeFfiPowerZoneBand = (() => {
         maxWatts: FfiConverterOptionalUInt32.readFromCursor(c),
         seconds: FfiConverterFloat64.readFromCursor(c),
         percent: FfiConverterFloat64.readFromCursor(c),
+        share: FfiConverterUInt32.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -3379,6 +3449,7 @@ const FfiConverterTypeFfiPowerZoneBand = (() => {
       FfiConverterOptionalUInt32.writeIntoCursor(value.maxWatts, c);
       FfiConverterFloat64.writeIntoCursor(value.seconds, c);
       FfiConverterFloat64.writeIntoCursor(value.percent, c);
+      FfiConverterUInt32.writeIntoCursor(value.share, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -3386,7 +3457,8 @@ const FfiConverterTypeFfiPowerZoneBand = (() => {
         FfiConverterUInt32.allocationSize(value.minWatts) +
         FfiConverterOptionalUInt32.allocationSize(value.maxWatts) +
         FfiConverterFloat64.allocationSize(value.seconds) +
-        FfiConverterFloat64.allocationSize(value.percent)
+        FfiConverterFloat64.allocationSize(value.percent) +
+        FfiConverterUInt32.allocationSize(value.share)
       );
     }
   }
@@ -4074,6 +4146,9 @@ export type FfiActivityStreams = {
   altitude: ArrayBuffer;
   heartrate: ArrayBuffer;
   watts: ArrayBuffer;
+  /**
+   * Cadence in the sport's cadence unit, so steps a minute on foot.
+   */
   cadence: ArrayBuffer;
   velocitySmooth: ArrayBuffer;
   distance: ArrayBuffer;
@@ -8528,6 +8603,69 @@ const FfiConverterTypeFfiFitnessScreenData = (() => {
         FfiConverterTypeFfiPaceTrend.allocationSize(value.runPaceTrend) +
         FfiConverterTypeFfiPaceTrend.allocationSize(value.swimPaceTrend) +
         FfiConverterTypeFfiSportMix.allocationSize(value.sportMix)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The range a direction's scatter axis draws, in the axis's own unit: metres
+ * per second on a section, seconds on a route.
+ */
+export type FfiFocusRange = {
+  low: number;
+  high: number;
+  /**
+   * Points drawn past the slow end.
+   */
+  slowCount: number;
+  /**
+   * Points drawn past the fast end.
+   */
+  fastCount: number;
+};
+
+/**
+ * Generated factory for {@link FfiFocusRange} record objects.
+ */
+export const FfiFocusRange = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiFocusRange, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiFocusRange>,
+  });
+})();
+
+const FfiConverterTypeFfiFocusRange = (() => {
+  type TypeName = FfiFocusRange;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        low: FfiConverterFloat64.readFromCursor(c),
+        high: FfiConverterFloat64.readFromCursor(c),
+        slowCount: FfiConverterUInt32.readFromCursor(c),
+        fastCount: FfiConverterUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterFloat64.writeIntoCursor(value.low, c);
+      FfiConverterFloat64.writeIntoCursor(value.high, c);
+      FfiConverterUInt32.writeIntoCursor(value.slowCount, c);
+      FfiConverterUInt32.writeIntoCursor(value.fastCount, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterFloat64.allocationSize(value.low) +
+        FfiConverterFloat64.allocationSize(value.high) +
+        FfiConverterUInt32.allocationSize(value.slowCount) +
+        FfiConverterUInt32.allocationSize(value.fastCount)
       );
     }
   }
@@ -13187,6 +13325,141 @@ const FfiConverterTypeFfiQuarantineReport = (() => {
   return new FFIConverter();
 })();
 
+/**
+ * One step of a direction's record progression: an eligible lap strictly
+ * faster than every eligible lap before it.
+ */
+export type FfiRecordStep = {
+  activityId: string;
+  lapId: string;
+  /**
+   * Unix seconds.
+   */
+  activityDate: number;
+  /**
+   * Seconds.
+   */
+  sectionTime: number;
+  /**
+   * Metres per second.
+   */
+  speed: number;
+  /**
+   * Seconds faster than the step before. `None` on the first step.
+   */
+  improvementSecs?: number;
+  /**
+   * Metres per second faster than the step before. `None` on the first
+   * step.
+   */
+  improvementSpeed?: number;
+};
+
+/**
+ * Generated factory for {@link FfiRecordStep} record objects.
+ */
+export const FfiRecordStep = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiRecordStep, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRecordStep>,
+  });
+})();
+
+const FfiConverterTypeFfiRecordStep = (() => {
+  type TypeName = FfiRecordStep;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        activityId: FfiConverterString.readFromCursor(c),
+        lapId: FfiConverterString.readFromCursor(c),
+        activityDate: FfiConverterFloat64.readFromCursor(c),
+        sectionTime: FfiConverterFloat64.readFromCursor(c),
+        speed: FfiConverterFloat64.readFromCursor(c),
+        improvementSecs: FfiConverterOptionalFloat64.readFromCursor(c),
+        improvementSpeed: FfiConverterOptionalFloat64.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.activityId, c);
+      FfiConverterString.writeIntoCursor(value.lapId, c);
+      FfiConverterFloat64.writeIntoCursor(value.activityDate, c);
+      FfiConverterFloat64.writeIntoCursor(value.sectionTime, c);
+      FfiConverterFloat64.writeIntoCursor(value.speed, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.improvementSecs, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.improvementSpeed, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterString.allocationSize(value.lapId) +
+        FfiConverterFloat64.allocationSize(value.activityDate) +
+        FfiConverterFloat64.allocationSize(value.sectionTime) +
+        FfiConverterFloat64.allocationSize(value.speed) +
+        FfiConverterOptionalFloat64.allocationSize(value.improvementSecs) +
+        FfiConverterOptionalFloat64.allocationSize(value.improvementSpeed)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The record progression per direction, oldest step first, over the whole
+ * included history. Empty in a direction that holds no record.
+ */
+export type FfiRecordProgressions = {
+  forward: Array<FfiRecordStep>;
+  reverse: Array<FfiRecordStep>;
+};
+
+/**
+ * Generated factory for {@link FfiRecordProgressions} record objects.
+ */
+export const FfiRecordProgressions = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiRecordProgressions,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRecordProgressions>,
+  });
+})();
+
+const FfiConverterTypeFfiRecordProgressions = (() => {
+  type TypeName = FfiRecordProgressions;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        forward: FfiConverterSequenceTypeFfiRecordStep.readFromCursor(c),
+        reverse: FfiConverterSequenceTypeFfiRecordStep.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterSequenceTypeFfiRecordStep.writeIntoCursor(value.forward, c);
+      FfiConverterSequenceTypeFfiRecordStep.writeIntoCursor(value.reverse, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterSequenceTypeFfiRecordStep.allocationSize(value.forward) +
+        FfiConverterSequenceTypeFfiRecordStep.allocationSize(value.reverse)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
 export type FfiRecordRestoreResult = {
   placed: number;
   unplaced: number;
@@ -13469,6 +13742,182 @@ const FfiConverterTypeFfiRetiredSection = (() => {
         FfiConverterString.allocationSize(value.at) +
         FfiConverterOptionalString.allocationSize(value.into) +
         FfiConverterSequenceFloat64.allocationSize(value.versions)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Everything the route detail screen paints with that one sport and one
+ * range do not change. It carries this route and nothing of any other, so it
+ * stays the same size as the library grows; the attempt times come from the
+ * route detail performance read.
+ */
+export type FfiRouteDetailData = {
+  /**
+   * Total activities held by the engine
+   */
+  activityCount: number;
+  /**
+   * The route itself, or `None` when the ID is unknown. Its `custom_name`
+   * is the name it is shown under.
+   */
+  group?: FfiRouteGroup;
+  /**
+   * The representative activity's distance in meters, the figure the routes
+   * list shows and sorts on. Zero when the route is unknown.
+   */
+  distanceMeters: number;
+  /**
+   * The representative activity's elevation gain in meters, the climbing
+   * the route hero shows beside its distance. Zero when the route is
+   * unknown.
+   */
+  elevationGainMeters: number;
+  /**
+   * Representative activity's polyline, delta+varint encoded
+   */
+  encodedRepresentative: ArrayBuffer;
+  /**
+   * Activities the user excluded from this route
+   */
+  excludedActivityIds: Array<string>;
+  /**
+   * Simplified GPS signatures for the route's activities
+   */
+  mapSignatures: Array<FfiMapSignature>;
+  /**
+   * The route's activities whose time streams still have to be fetched
+   * before the delta curves can draw them
+   */
+  missingTimeStreamIds: Array<string>;
+  /**
+   * Whether the athlete may ask for the route to be named from its
+   * places: geocoding is on and they typed no name for it
+   */
+  canNameFromPlaces: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiRouteDetailData} record objects.
+ */
+export const FfiRouteDetailData = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiRouteDetailData, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRouteDetailData>,
+  });
+})();
+
+const FfiConverterTypeFfiRouteDetailData = (() => {
+  type TypeName = FfiRouteDetailData;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        activityCount: FfiConverterUInt32.readFromCursor(c),
+        group: FfiConverterOptionalTypeFfiRouteGroup.readFromCursor(c),
+        distanceMeters: FfiConverterFloat64.readFromCursor(c),
+        elevationGainMeters: FfiConverterFloat64.readFromCursor(c),
+        encodedRepresentative: FfiConverterArrayBuffer.readFromCursor(c),
+        excludedActivityIds: FfiConverterSequenceString.readFromCursor(c),
+        mapSignatures:
+          FfiConverterSequenceTypeFfiMapSignature.readFromCursor(c),
+        missingTimeStreamIds: FfiConverterSequenceString.readFromCursor(c),
+        canNameFromPlaces: FfiConverterBool.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterUInt32.writeIntoCursor(value.activityCount, c);
+      FfiConverterOptionalTypeFfiRouteGroup.writeIntoCursor(value.group, c);
+      FfiConverterFloat64.writeIntoCursor(value.distanceMeters, c);
+      FfiConverterFloat64.writeIntoCursor(value.elevationGainMeters, c);
+      FfiConverterArrayBuffer.writeIntoCursor(value.encodedRepresentative, c);
+      FfiConverterSequenceString.writeIntoCursor(value.excludedActivityIds, c);
+      FfiConverterSequenceTypeFfiMapSignature.writeIntoCursor(
+        value.mapSignatures,
+        c,
+      );
+      FfiConverterSequenceString.writeIntoCursor(value.missingTimeStreamIds, c);
+      FfiConverterBool.writeIntoCursor(value.canNameFromPlaces, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.activityCount) +
+        FfiConverterOptionalTypeFfiRouteGroup.allocationSize(value.group) +
+        FfiConverterFloat64.allocationSize(value.distanceMeters) +
+        FfiConverterFloat64.allocationSize(value.elevationGainMeters) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedRepresentative) +
+        FfiConverterSequenceString.allocationSize(value.excludedActivityIds) +
+        FfiConverterSequenceTypeFfiMapSignature.allocationSize(
+          value.mapSignatures,
+        ) +
+        FfiConverterSequenceString.allocationSize(value.missingTimeStreamIds) +
+        FfiConverterBool.allocationSize(value.canNameFromPlaces)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One proposed route group at a previewed strictness.
+ */
+export type FfiRouteGroupPreview = {
+  /**
+   * The grouping's own key for this group. It is NOT a stable route id: the
+   * preview never runs the identity remap that assigns one, so this joins
+   * rows within one payload and must never be persisted or matched against
+   * a route id the app holds.
+   */
+  key: string;
+  /**
+   * Member activity ids, sorted.
+   */
+  activityIds: Array<string>;
+};
+
+/**
+ * Generated factory for {@link FfiRouteGroupPreview} record objects.
+ */
+export const FfiRouteGroupPreview = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiRouteGroupPreview,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRouteGroupPreview>,
+  });
+})();
+
+const FfiConverterTypeFfiRouteGroupPreview = (() => {
+  type TypeName = FfiRouteGroupPreview;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        key: FfiConverterString.readFromCursor(c),
+        activityIds: FfiConverterSequenceString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.key, c);
+      FfiConverterSequenceString.writeIntoCursor(value.activityIds, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.key) +
+        FfiConverterSequenceString.allocationSize(value.activityIds)
       );
     }
   }
@@ -13952,208 +14401,6 @@ const FfiConverterTypeFfiRoutePerformanceResult = (() => {
           value.trendCurves,
         ) +
         FfiConverterTypeFfiAttemptHistograms.allocationSize(value.histograms)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * Everything the route detail screen paints with in one call.
- *
- * The performances are unfiltered: the screen derives its sport pills from
- * them and only asks for a filtered read once the user picks a sport.
- */
-export type FfiRouteDetailData = {
-  /**
-   * Total activities held by the engine
-   */
-  activityCount: number;
-  /**
-   * The route itself, or `None` when the ID is unknown
-   */
-  group?: FfiRouteGroup;
-  /**
-   * Route groups above the caller's minimum, most attempts first
-   */
-  groups: Array<FfiRouteGroup>;
-  /**
-   * Every attempt on the route, across sports
-   */
-  performances: FfiRoutePerformanceResult;
-  /**
-   * The representative activity's distance in meters, the figure the routes
-   * list shows and sorts on. Zero when the route is unknown.
-   */
-  distanceMeters: number;
-  /**
-   * The representative activity's elevation gain in meters, the climbing
-   * the route hero shows beside its distance. Zero when the route is
-   * unknown.
-   */
-  elevationGainMeters: number;
-  /**
-   * Representative activity's polyline, delta+varint encoded
-   */
-  encodedRepresentative: ArrayBuffer;
-  /**
-   * User-set route names by route ID
-   */
-  routeNames: Map<string, string>;
-  /**
-   * Activities the user excluded from this route
-   */
-  excludedActivityIds: Array<string>;
-  /**
-   * Simplified GPS signatures for the route's activities
-   */
-  mapSignatures: Array<FfiMapSignature>;
-  /**
-   * The route's activities whose time streams still have to be fetched
-   * before the delta curves can draw them
-   */
-  missingTimeStreamIds: Array<string>;
-  /**
-   * Whether the athlete may ask for the route to be named from its
-   * places: geocoding is on and they typed no name for it
-   */
-  canNameFromPlaces: boolean;
-};
-
-/**
- * Generated factory for {@link FfiRouteDetailData} record objects.
- */
-export const FfiRouteDetailData = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<FfiRouteDetailData, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiRouteDetailData>,
-  });
-})();
-
-const FfiConverterTypeFfiRouteDetailData = (() => {
-  type TypeName = FfiRouteDetailData;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        activityCount: FfiConverterUInt32.readFromCursor(c),
-        group: FfiConverterOptionalTypeFfiRouteGroup.readFromCursor(c),
-        groups: FfiConverterSequenceTypeFfiRouteGroup.readFromCursor(c),
-        performances:
-          FfiConverterTypeFfiRoutePerformanceResult.readFromCursor(c),
-        distanceMeters: FfiConverterFloat64.readFromCursor(c),
-        elevationGainMeters: FfiConverterFloat64.readFromCursor(c),
-        encodedRepresentative: FfiConverterArrayBuffer.readFromCursor(c),
-        routeNames: FfiConverterMapStringString.readFromCursor(c),
-        excludedActivityIds: FfiConverterSequenceString.readFromCursor(c),
-        mapSignatures:
-          FfiConverterSequenceTypeFfiMapSignature.readFromCursor(c),
-        missingTimeStreamIds: FfiConverterSequenceString.readFromCursor(c),
-        canNameFromPlaces: FfiConverterBool.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterUInt32.writeIntoCursor(value.activityCount, c);
-      FfiConverterOptionalTypeFfiRouteGroup.writeIntoCursor(value.group, c);
-      FfiConverterSequenceTypeFfiRouteGroup.writeIntoCursor(value.groups, c);
-      FfiConverterTypeFfiRoutePerformanceResult.writeIntoCursor(
-        value.performances,
-        c,
-      );
-      FfiConverterFloat64.writeIntoCursor(value.distanceMeters, c);
-      FfiConverterFloat64.writeIntoCursor(value.elevationGainMeters, c);
-      FfiConverterArrayBuffer.writeIntoCursor(value.encodedRepresentative, c);
-      FfiConverterMapStringString.writeIntoCursor(value.routeNames, c);
-      FfiConverterSequenceString.writeIntoCursor(value.excludedActivityIds, c);
-      FfiConverterSequenceTypeFfiMapSignature.writeIntoCursor(
-        value.mapSignatures,
-        c,
-      );
-      FfiConverterSequenceString.writeIntoCursor(value.missingTimeStreamIds, c);
-      FfiConverterBool.writeIntoCursor(value.canNameFromPlaces, c);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterUInt32.allocationSize(value.activityCount) +
-        FfiConverterOptionalTypeFfiRouteGroup.allocationSize(value.group) +
-        FfiConverterSequenceTypeFfiRouteGroup.allocationSize(value.groups) +
-        FfiConverterTypeFfiRoutePerformanceResult.allocationSize(
-          value.performances,
-        ) +
-        FfiConverterFloat64.allocationSize(value.distanceMeters) +
-        FfiConverterFloat64.allocationSize(value.elevationGainMeters) +
-        FfiConverterArrayBuffer.allocationSize(value.encodedRepresentative) +
-        FfiConverterMapStringString.allocationSize(value.routeNames) +
-        FfiConverterSequenceString.allocationSize(value.excludedActivityIds) +
-        FfiConverterSequenceTypeFfiMapSignature.allocationSize(
-          value.mapSignatures,
-        ) +
-        FfiConverterSequenceString.allocationSize(value.missingTimeStreamIds) +
-        FfiConverterBool.allocationSize(value.canNameFromPlaces)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
- * One proposed route group at a previewed strictness.
- */
-export type FfiRouteGroupPreview = {
-  /**
-   * The grouping's own key for this group. It is NOT a stable route id: the
-   * preview never runs the identity remap that assigns one, so this joins
-   * rows within one payload and must never be persisted or matched against
-   * a route id the app holds.
-   */
-  key: string;
-  /**
-   * Member activity ids, sorted.
-   */
-  activityIds: Array<string>;
-};
-
-/**
- * Generated factory for {@link FfiRouteGroupPreview} record objects.
- */
-export const FfiRouteGroupPreview = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<
-      FfiRouteGroupPreview,
-      ReturnType<typeof defaults>
-    >(defaults);
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<FfiRouteGroupPreview>,
-  });
-})();
-
-const FfiConverterTypeFfiRouteGroupPreview = (() => {
-  type TypeName = FfiRouteGroupPreview;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        key: FfiConverterString.readFromCursor(c),
-        activityIds: FfiConverterSequenceString.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterString.writeIntoCursor(value.key, c);
-      FfiConverterSequenceString.writeIntoCursor(value.activityIds, c);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterString.allocationSize(value.key) +
-        FfiConverterSequenceString.allocationSize(value.activityIds)
       );
     }
   }
@@ -15545,6 +15792,54 @@ const FfiConverterTypeFfiSampleLibrary = (() => {
 })();
 
 /**
+ * The focus range per direction. `None` for a direction with no point.
+ */
+export type FfiScatterFocus = {
+  forward?: FfiFocusRange;
+  reverse?: FfiFocusRange;
+};
+
+/**
+ * Generated factory for {@link FfiScatterFocus} record objects.
+ */
+export const FfiScatterFocus = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiScatterFocus, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiScatterFocus>,
+  });
+})();
+
+const FfiConverterTypeFfiScatterFocus = (() => {
+  type TypeName = FfiScatterFocus;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        forward: FfiConverterOptionalTypeFfiFocusRange.readFromCursor(c),
+        reverse: FfiConverterOptionalTypeFfiFocusRange.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterOptionalTypeFfiFocusRange.writeIntoCursor(value.forward, c);
+      FfiConverterOptionalTypeFfiFocusRange.writeIntoCursor(value.reverse, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterOptionalTypeFfiFocusRange.allocationSize(value.forward) +
+        FfiConverterOptionalTypeFfiFocusRange.allocationSize(value.reverse)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * An activity row in the section detail read.
  */
 export type FfiSectionActivityRow = {
@@ -15620,6 +15915,57 @@ const FfiConverterTypeFfiSectionActivityRow = (() => {
 })();
 
 /**
+ * Where a scatter point lies against its direction's focus range.
+ */
+export enum FfiOffScale {
+  /**
+   * Inside the range.
+   */
+  None,
+  /**
+   * Past the slow end: below the range on a speed axis, above it on a time
+   * axis.
+   */
+  Slow,
+  /**
+   * Past the fast end.
+   */
+  Fast,
+}
+
+const FfiConverterTypeFfiOffScale = (() => {
+  type TypeName = FfiOffScale;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiOffScale.None;
+        case 2:
+          return FfiOffScale.Slow;
+        case 3:
+          return FfiOffScale.Fast;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiOffScale.None:
+          return c.writeI32(1);
+        case FfiOffScale.Slow:
+          return c.writeI32(2);
+        case FfiOffScale.Fast:
+          return c.writeI32(3);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * One renderable chart point on the section-detail chart. One entry per
  * lap traversal (activities with multiple laps expand into multiple points).
  */
@@ -15667,6 +16013,23 @@ export type FfiSectionChartPoint = {
    * section, and on a route attempt with no stored match.
    */
   matchPercentage?: number;
+  /**
+   * Which side of its direction's focus range the point lies past, so the
+   * scatter draws it at the edge with a flag rather than stretching the
+   * axis.
+   */
+  offScale: FfiOffScale;
+  /**
+   * Seconds behind the direction's record: zero for the record holder,
+   * positive for a slower attempt. `None` for an excluded attempt, one
+   * outside a route's distance band, and in a direction with no record.
+   */
+  recordGapSecs?: number;
+  /**
+   * Metres per second behind the direction's record, signed as
+   * `record_gap_secs` is: positive is slower. `None` where it is.
+   */
+  recordGapSpeed?: number;
 };
 
 /**
@@ -15704,6 +16067,9 @@ const FfiConverterTypeFfiSectionChartPoint = (() => {
         avgPower: FfiConverterOptionalFloat64.readFromCursor(c),
         outsideDistanceBand: FfiConverterBool.readFromCursor(c),
         matchPercentage: FfiConverterOptionalFloat64.readFromCursor(c),
+        offScale: FfiConverterTypeFfiOffScale.readFromCursor(c),
+        recordGapSecs: FfiConverterOptionalFloat64.readFromCursor(c),
+        recordGapSpeed: FfiConverterOptionalFloat64.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -15719,6 +16085,9 @@ const FfiConverterTypeFfiSectionChartPoint = (() => {
       FfiConverterOptionalFloat64.writeIntoCursor(value.avgPower, c);
       FfiConverterBool.writeIntoCursor(value.outsideDistanceBand, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.matchPercentage, c);
+      FfiConverterTypeFfiOffScale.writeIntoCursor(value.offScale, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.recordGapSecs, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.recordGapSpeed, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -15733,7 +16102,10 @@ const FfiConverterTypeFfiSectionChartPoint = (() => {
         FfiConverterBool.allocationSize(value.isBest) +
         FfiConverterOptionalFloat64.allocationSize(value.avgPower) +
         FfiConverterBool.allocationSize(value.outsideDistanceBand) +
-        FfiConverterOptionalFloat64.allocationSize(value.matchPercentage)
+        FfiConverterOptionalFloat64.allocationSize(value.matchPercentage) +
+        FfiConverterTypeFfiOffScale.allocationSize(value.offScale) +
+        FfiConverterOptionalFloat64.allocationSize(value.recordGapSecs) +
+        FfiConverterOptionalFloat64.allocationSize(value.recordGapSpeed)
       );
     }
   }
@@ -17603,6 +17975,17 @@ export type FfiSectionPerformanceData = {
    * whole record, or `None` with fewer than three that carry heart rate.
    */
   efficiencyTrend?: FfiEfficiencyTrend;
+  /**
+   * The range each direction's scatter axis draws, with the points past it
+   * counted. Speed on a section, time on a route.
+   */
+  scatterFocus: FfiScatterFocus;
+  /**
+   * Each direction's record progression over the whole included history,
+   * whatever the range: the screen draws the steps inside the range and
+   * carries the level in from before it.
+   */
+  recordProgression: FfiRecordProgressions;
 };
 
 /**
@@ -17652,6 +18035,9 @@ const FfiConverterTypeFfiSectionPerformanceData = (() => {
         curvesPending: FfiConverterBool.readFromCursor(c),
         efficiencyTrend:
           FfiConverterOptionalTypeFfiEfficiencyTrend.readFromCursor(c),
+        scatterFocus: FfiConverterTypeFfiScatterFocus.readFromCursor(c),
+        recordProgression:
+          FfiConverterTypeFfiRecordProgressions.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -17698,6 +18084,11 @@ const FfiConverterTypeFfiSectionPerformanceData = (() => {
         value.efficiencyTrend,
         c,
       );
+      FfiConverterTypeFfiScatterFocus.writeIntoCursor(value.scatterFocus, c);
+      FfiConverterTypeFfiRecordProgressions.writeIntoCursor(
+        value.recordProgression,
+        c,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
@@ -17734,6 +18125,10 @@ const FfiConverterTypeFfiSectionPerformanceData = (() => {
         FfiConverterBool.allocationSize(value.curvesPending) +
         FfiConverterOptionalTypeFfiEfficiencyTrend.allocationSize(
           value.efficiencyTrend,
+        ) +
+        FfiConverterTypeFfiScatterFocus.allocationSize(value.scatterFocus) +
+        FfiConverterTypeFfiRecordProgressions.allocationSize(
+          value.recordProgression,
         )
       );
     }
@@ -20124,6 +20519,11 @@ export type FfiZoneDistribution = {
    */
   seconds: Array<number>;
   /**
+   * Each zone's share of the time as a whole percent, beside `seconds`,
+   * totalling 100 when any zone holds time and all zero when none does.
+   */
+  shares: Array<number>;
+  /**
    * The names the cached sport settings give the zones, lowest first, never
    * more than `seconds` holds.
    * Empty when the settings do not name them.
@@ -20154,16 +20554,19 @@ const FfiConverterTypeFfiZoneDistribution = (() => {
     readFromCursor(c: Cursor): TypeName {
       return {
         seconds: FfiConverterSequenceFloat64.readFromCursor(c),
+        shares: FfiConverterSequenceUInt32.readFromCursor(c),
         names: FfiConverterSequenceString.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterSequenceFloat64.writeIntoCursor(value.seconds, c);
+      FfiConverterSequenceUInt32.writeIntoCursor(value.shares, c);
       FfiConverterSequenceString.writeIntoCursor(value.names, c);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterSequenceFloat64.allocationSize(value.seconds) +
+        FfiConverterSequenceUInt32.allocationSize(value.shares) +
         FfiConverterSequenceString.allocationSize(value.names)
       );
     }
@@ -22020,6 +22423,7 @@ export enum VeloqError_Tags {
   Busy = "Busy",
   NameTaken = "NameTaken",
   Suspended = "Suspended",
+  RouteNameTaken = "RouteNameTaken",
 }
 export const VeloqError = (() => {
   type NotInitialized__interface = {
@@ -22324,6 +22728,46 @@ export const VeloqError = (() => {
     }
   }
 
+  type RouteNameTaken__interface = {
+    tag: VeloqError_Tags.RouteNameTaken;
+    inner: Readonly<{ name: string }>;
+  };
+  /**
+   * A rename to a name another route is already shown under, refused as
+   * a section's is.
+   */
+  class RouteNameTaken_
+    extends UniffiError
+    implements RouteNameTaken__interface
+  {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "VeloqError";
+    readonly tag = VeloqError_Tags.RouteNameTaken;
+    readonly inner: Readonly<{ name: string }>;
+    constructor(inner: { name: string }) {
+      super("VeloqError", "RouteNameTaken");
+
+      this.inner = Object.freeze(inner);
+    }
+    static new(inner: { name: string }): RouteNameTaken_ {
+      return new RouteNameTaken_(inner);
+    }
+
+    static override instanceOf(obj: any): obj is RouteNameTaken_ {
+      return obj.tag === VeloqError_Tags.RouteNameTaken;
+    }
+    static hasInner(obj: any): obj is RouteNameTaken_ {
+      return RouteNameTaken_.instanceOf(obj);
+    }
+
+    static getInner(obj: RouteNameTaken_): Readonly<{ name: string }> {
+      return obj.inner;
+    }
+  }
+
   function instanceOf(obj: any): obj is VeloqError {
     return obj[uniffiTypeNameSymbol] === "VeloqError";
   }
@@ -22339,6 +22783,7 @@ export const VeloqError = (() => {
     Busy: Busy_,
     NameTaken: NameTaken_,
     Suspended: Suspended_,
+    RouteNameTaken: RouteNameTaken_,
   });
 })();
 export type VeloqError = InstanceType<
@@ -22351,7 +22796,8 @@ export type VeloqError = InstanceType<
     | "TileStore"
     | "Busy"
     | "NameTaken"
-    | "Suspended"]
+    | "Suspended"
+    | "RouteNameTaken"]
 >;
 
 // FfiConverter for enum VeloqError
@@ -22392,6 +22838,10 @@ const FfiConverterTypeVeloqError = (() => {
           });
         case 9:
           return new VeloqError.Suspended();
+        case 10:
+          return new VeloqError.RouteNameTaken({
+            name: FfiConverterString.readFromCursor(c),
+          });
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
       }
@@ -22448,6 +22898,12 @@ const FfiConverterTypeVeloqError = (() => {
           c.writeI32(9);
           return;
         }
+        case VeloqError_Tags.RouteNameTaken: {
+          c.writeI32(10);
+          const inner = value.inner;
+          FfiConverterString.writeIntoCursor(inner.name, c);
+          return;
+        }
         default:
           // Throwing from here means that VeloqError_Tags hasn't matched an ordinal.
           throw new UniffiInternalError.UnexpectedEnumCase();
@@ -22502,6 +22958,12 @@ const FfiConverterTypeVeloqError = (() => {
         }
         case VeloqError_Tags.Suspended: {
           return 4;
+        }
+        case VeloqError_Tags.RouteNameTaken: {
+          const inner = value.inner;
+          let size = 4;
+          size += FfiConverterString.allocationSize(inner.name);
+          return size;
         }
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
@@ -22567,9 +23029,10 @@ export interface ActivityManagerLike {
   /**
    * An activity's chart series for a series selection: from the cached
    * server body, or one rebuilt from the points and times the ingest
-   * already stored. `None` when neither can answer the selection, which is
-   * what makes the caller fetch. The body is parsed here and its series
-   * cross as float buffers, so the JavaScript thread parses nothing.
+   * already stored, with cadence in the unit of the activity's sport.
+   * `None` when neither can answer the selection, which is what makes the
+   * caller fetch. The body is parsed here and its series cross as float
+   * buffers, so the JavaScript thread parses nothing.
    */
   getActivityStreams(
     activityId: string,
@@ -22916,9 +23379,10 @@ export class ActivityManager
   /**
    * An activity's chart series for a series selection: from the cached
    * server body, or one rebuilt from the points and times the ingest
-   * already stored. `None` when neither can answer the selection, which is
-   * what makes the caller fetch. The body is parsed here and its series
-   * cross as float buffers, so the JavaScript thread parses nothing.
+   * already stored, with cadence in the unit of the activity's sport.
+   * `None` when neither can answer the selection, which is what makes the
+   * caller fetch. The body is parsed here and its series cross as float
+   * buffers, so the JavaScript thread parses nothing.
    */
   getActivityStreams(
     activityId: string,
@@ -28047,24 +28511,23 @@ export interface RouteManagerLike {
   excludeActivity(routeId: string, activityId: string) /*throws*/ : void;
   getAll() /*throws*/ : Array<FfiRouteGroup>;
   /**
-   * Everything the route detail screen paints with: engine counts, the
-   * route and the group list it is ranked within, every attempt across
-   * sports, the representative polyline, names, exclusions and signatures.
+   * Everything the route detail screen paints with that one sport and one
+   * range do not change: engine counts, the route and its shown name, the
+   * representative polyline and headline, exclusions and signatures.
    */
-  getDetailData(
-    groupId: string,
-    currentActivityId: string | undefined,
-    minGroupActivities: number,
-  ) /*throws*/ : FfiRouteDetailData;
+  getDetailData(groupId: string) /*throws*/ : FfiRouteDetailData;
   /**
    * The route detail reads that answer one sport and one range, in the
    * section performance read's shape: the chart, calendar, ranged bests,
    * trend, histogram, correlations, sport counts and excluded attempts.
+   * `highlight_activity_id` is the attempt the scatter's focus range always
+   * holds.
    */
   getDetailPerformance(
     groupId: string,
     timeRangeDays: number,
     sportFilter: string | undefined,
+    highlightActivityId: string | undefined,
   ) /*throws*/ : FfiSectionPerformanceData;
   getPerformances(
     groupId: string,
@@ -28175,15 +28638,11 @@ export class RouteManager
   }
 
   /**
-   * Everything the route detail screen paints with: engine counts, the
-   * route and the group list it is ranked within, every attempt across
-   * sports, the representative polyline, names, exclusions and signatures.
+   * Everything the route detail screen paints with that one sport and one
+   * range do not change: engine counts, the route and its shown name, the
+   * representative polyline and headline, exclusions and signatures.
    */
-  getDetailData(
-    groupId: string,
-    currentActivityId: string | undefined,
-    minGroupActivities: number,
-  ): FfiRouteDetailData /*throws*/ {
+  getDetailData(groupId: string): FfiRouteDetailData /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
         FfiConverterTypeVeloqError,
@@ -28192,14 +28651,6 @@ export class RouteManager
         return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_detail_data(
           uniffiTypeRouteManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(groupId, nativeModule().rustbuffer_alloc),
-          FfiConverterOptionalString.lower(
-            currentActivityId,
-            nativeModule().rustbuffer_alloc,
-          ),
-          FfiConverterUInt32.lower(
-            minGroupActivities,
-            nativeModule().rustbuffer_alloc,
-          ),
           callStatus,
         );
       },
@@ -28216,11 +28667,14 @@ export class RouteManager
    * The route detail reads that answer one sport and one range, in the
    * section performance read's shape: the chart, calendar, ranged bests,
    * trend, histogram, correlations, sport counts and excluded attempts.
+   * `highlight_activity_id` is the attempt the scatter's focus range always
+   * holds.
    */
   getDetailPerformance(
     groupId: string,
     timeRangeDays: number,
     sportFilter: string | undefined,
+    highlightActivityId: string | undefined,
   ): FfiSectionPerformanceData /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
@@ -28236,6 +28690,10 @@ export class RouteManager
           ),
           FfiConverterOptionalString.lower(
             sportFilter,
+            nativeModule().rustbuffer_alloc,
+          ),
+          FfiConverterOptionalString.lower(
+            highlightActivityId,
             nativeModule().rustbuffer_alloc,
           ),
           callStatus,
@@ -28650,12 +29108,14 @@ export interface SectionManagerLike {
    * one set of performances and that set is a query, so nothing here needs
    * the memory tier. The delta curves come only once held, since computing
    * them can take longer than a tap may block, and `curves_pending` says
-   * they are owed.
+   * they are owed. `highlight_activity_id` is the attempt the scatter's
+   * focus range always holds.
    */
   getDetailPerformance(
     sectionId: string,
     timeRangeDays: number,
     sportFilter: string | undefined,
+    highlightActivityId: string | undefined,
   ) /*throws*/ : FfiSectionPerformanceData;
   getExcludedActivities(sectionId: string) /*throws*/ : Array<string>;
   getExtensionTrack(sectionId: string) /*throws*/ : FfiSectionExtensionTrack;
@@ -28744,6 +29204,7 @@ export interface SectionManagerLike {
     id: string,
     timeRangeDays: number,
     sportFilter: string | undefined,
+    highlightActivityId: string | undefined,
     asyncOpts_?: { signal: AbortSignal },
   ) /*throws*/ : Promise<FfiSectionPerformanceData>;
   /**
@@ -29106,12 +29567,14 @@ export class SectionManager
    * one set of performances and that set is a query, so nothing here needs
    * the memory tier. The delta curves come only once held, since computing
    * them can take longer than a tap may block, and `curves_pending` says
-   * they are owed.
+   * they are owed. `highlight_activity_id` is the attempt the scatter's
+   * focus range always holds.
    */
   getDetailPerformance(
     sectionId: string,
     timeRangeDays: number,
     sportFilter: string | undefined,
+    highlightActivityId: string | undefined,
   ): FfiSectionPerformanceData /*throws*/ {
     const __rb: Uint8Array = uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
@@ -29127,6 +29590,10 @@ export class SectionManager
           ),
           FfiConverterOptionalString.lower(
             sportFilter,
+            nativeModule().rustbuffer_alloc,
+          ),
+          FfiConverterOptionalString.lower(
+            highlightActivityId,
             nativeModule().rustbuffer_alloc,
           ),
           callStatus,
@@ -29582,6 +30049,7 @@ export class SectionManager
     id: string,
     timeRangeDays: number,
     sportFilter: string | undefined,
+    highlightActivityId: string | undefined,
     asyncOpts_?: { signal: AbortSignal },
   ): Promise<FfiSectionPerformanceData> /*throws*/ {
     const __stack = uniffiIsDebug ? new Error().stack : undefined;
@@ -29602,6 +30070,10 @@ export class SectionManager
             ),
             FfiConverterOptionalString.lower(
               sportFilter,
+              nativeModule().rustbuffer_alloc,
+            ),
+            FfiConverterOptionalString.lower(
+              highlightActivityId,
               nativeModule().rustbuffer_alloc,
             ),
           );
@@ -34195,9 +34667,19 @@ const FfiConverterSequenceTypeFfiPreviewSection = new FfiConverterArray(
   FfiConverterTypeFfiPreviewSection,
 );
 
+// FfiConverter for Array<FfiRecordStep>
+const FfiConverterSequenceTypeFfiRecordStep = new FfiConverterArray(
+  FfiConverterTypeFfiRecordStep,
+);
+
 // FfiConverter for FfiRouteGroup | undefined
 const FfiConverterOptionalTypeFfiRouteGroup = new FfiConverterOptional(
   FfiConverterTypeFfiRouteGroup,
+);
+
+// FfiConverter for Array<FfiMapSignature>
+const FfiConverterSequenceTypeFfiMapSignature = new FfiConverterArray(
+  FfiConverterTypeFfiMapSignature,
 );
 
 // FfiConverter for Array<FfiRoutePerformance>
@@ -34229,17 +34711,6 @@ const FfiConverterSequenceTypeFfiTrendBandPoint = new FfiConverterArray(
 const FfiConverterOptionalSequenceTypeFfiTrendBandPoint =
   new FfiConverterOptional(FfiConverterSequenceTypeFfiTrendBandPoint);
 
-// FfiConverter for Map<string, string>
-const FfiConverterMapStringString = new FfiConverterMap(
-  FfiConverterString,
-  FfiConverterString,
-);
-
-// FfiConverter for Array<FfiMapSignature>
-const FfiConverterSequenceTypeFfiMapSignature = new FfiConverterArray(
-  FfiConverterTypeFfiMapSignature,
-);
-
 // FfiConverter for Array<FfiGroupWithPolyline>
 const FfiConverterSequenceTypeFfiGroupWithPolyline = new FfiConverterArray(
   FfiConverterTypeFfiGroupWithPolyline,
@@ -34262,6 +34733,11 @@ const FfiConverterSequenceTypeFfiWellnessRow = new FfiConverterArray(
 // FfiConverter for Array<FfiActivityBody>
 const FfiConverterSequenceTypeFfiActivityBody = new FfiConverterArray(
   FfiConverterTypeFfiActivityBody,
+);
+
+// FfiConverter for FfiFocusRange | undefined
+const FfiConverterOptionalTypeFfiFocusRange = new FfiConverterOptional(
+  FfiConverterTypeFfiFocusRange,
 );
 
 // FfiConverter for Array<FfiSectionChartPoint>
@@ -34513,6 +34989,12 @@ const FfiConverterSequenceTypeFfiRecordingEntry = new FfiConverterArray(
 // FfiConverter for Array<LiveRouteOverlap>
 const FfiConverterSequenceTypeLiveRouteOverlap = new FfiConverterArray(
   FfiConverterTypeLiveRouteOverlap,
+);
+
+// FfiConverter for Map<string, string>
+const FfiConverterMapStringString = new FfiConverterMap(
+  FfiConverterString,
+  FfiConverterString,
 );
 
 // FfiConverter for Array<FfiNamedCorridor>
@@ -34876,7 +35358,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_streams() !==
-    24316
+    52804
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_activitymanager_get_activity_streams",
@@ -35860,7 +36342,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_detail_data() !==
-    2640
+    17662
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_routemanager_get_detail_data",
@@ -35868,7 +36350,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_detail_performance() !==
-    13909
+    21315
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_routemanager_get_detail_performance",
@@ -36044,7 +36526,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_detail_performance() !==
-    30426
+    657
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_detail_performance",
@@ -36188,7 +36670,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_load_detail_performance() !==
-    9191
+    10933
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_load_detail_performance",
@@ -37112,6 +37594,7 @@ export default Object.freeze({
     FfiConverterTypeFfiBulkExportProgress,
     FfiConverterTypeFfiBulkExportResult,
     FfiConverterTypeFfiCacheScreenData,
+    FfiConverterTypeFfiCadenceUnit,
     FfiConverterTypeFfiCalendarDirectionBest,
     FfiConverterTypeFfiCalendarEventBody,
     FfiConverterTypeFfiCalendarMonthSummary,
@@ -37152,6 +37635,7 @@ export default Object.freeze({
     FfiConverterTypeFfiFeedGroup,
     FfiConverterTypeFfiFitnessScreenData,
     FfiConverterTypeFfiFloat32Array,
+    FfiConverterTypeFfiFocusRange,
     FfiConverterTypeFfiFtpTrend,
     FfiConverterTypeFfiGpsPoint,
     FfiConverterTypeFfiGroupSort,
@@ -37190,6 +37674,7 @@ export default Object.freeze({
     FfiConverterTypeFfiMuscleVolume,
     FfiConverterTypeFfiNamedCorridor,
     FfiConverterTypeFfiNewGroundBadge,
+    FfiConverterTypeFfiOffScale,
     FfiConverterTypeFfiPaceCurve,
     FfiConverterTypeFfiPaceTrend,
     FfiConverterTypeFfiPerformanceSubject,
@@ -37210,7 +37695,9 @@ export default Object.freeze({
     FfiConverterTypeFfiRankedSection,
     FfiConverterTypeFfiRankedSectionsBySport,
     FfiConverterTypeFfiRecentPR,
+    FfiConverterTypeFfiRecordProgressions,
     FfiConverterTypeFfiRecordRestoreResult,
+    FfiConverterTypeFfiRecordStep,
     FfiConverterTypeFfiRecordingEntry,
     FfiConverterTypeFfiReferenceSource,
     FfiConverterTypeFfiRequestBudget,
@@ -37227,6 +37714,7 @@ export default Object.freeze({
     FfiConverterTypeFfiRoutesScreenQuery,
     FfiConverterTypeFfiRoutesStatusData,
     FfiConverterTypeFfiSampleLibrary,
+    FfiConverterTypeFfiScatterFocus,
     FfiConverterTypeFfiSection,
     FfiConverterTypeFfiSectionActivityRow,
     FfiConverterTypeFfiSectionBoundsEdit,

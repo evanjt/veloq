@@ -21,6 +21,7 @@ import {
   iconSize,
   ink,
   layout,
+  opacity,
   spacing,
   typography,
   stroke,
@@ -47,7 +48,7 @@ interface LicenseSection {
 // License data structured for display
 const LICENSE_DATA: LicenseSection[] = [
   {
-    title: 'Core Framework',
+    title: 'Core framework',
     titleKey: 'licenses.sectionCoreFramework',
     entries: [
       { name: 'React', license: 'MIT', repository: 'https://github.com/facebook/react' },
@@ -68,6 +69,7 @@ const LICENSE_DATA: LicenseSection[] = [
       { name: 'expo-crypto', license: 'MIT', repository: 'https://github.com/expo/expo' },
       { name: 'expo-document-picker', license: 'MIT', repository: 'https://github.com/expo/expo' },
       { name: 'expo-file-system', license: 'MIT', repository: 'https://github.com/expo/expo' },
+      { name: 'expo-font', license: 'MIT', repository: 'https://github.com/expo/expo' },
       { name: 'expo-haptics', license: 'MIT', repository: 'https://github.com/expo/expo' },
       { name: 'expo-keep-awake', license: 'MIT', repository: 'https://github.com/expo/expo' },
       { name: 'expo-linear-gradient', license: 'MIT', repository: 'https://github.com/expo/expo' },
@@ -86,12 +88,13 @@ const LICENSE_DATA: LicenseSection[] = [
       { name: 'expo-sharing', license: 'MIT', repository: 'https://github.com/expo/expo' },
       { name: 'expo-splash-screen', license: 'MIT', repository: 'https://github.com/expo/expo' },
       { name: 'expo-status-bar', license: 'MIT', repository: 'https://github.com/expo/expo' },
+      { name: 'expo-symbols', license: 'MIT', repository: 'https://github.com/expo/expo' },
       { name: 'expo-task-manager', license: 'MIT', repository: 'https://github.com/expo/expo' },
       { name: 'expo-web-browser', license: 'MIT', repository: 'https://github.com/expo/expo' },
     ],
   },
   {
-    title: 'Maps & Graphics',
+    title: 'Maps & graphics',
     titleKey: 'licenses.sectionMapsGraphics',
     entries: [
       {
@@ -117,7 +120,7 @@ const LICENSE_DATA: LicenseSection[] = [
     ],
   },
   {
-    title: 'State Management',
+    title: 'State management',
     titleKey: 'licenses.sectionStateManagement',
     entries: [
       { name: 'TanStack Query', license: 'MIT', repository: 'https://github.com/TanStack/query' },
@@ -131,7 +134,7 @@ const LICENSE_DATA: LicenseSection[] = [
     ],
   },
   {
-    title: 'UI Components',
+    title: 'UI components',
     titleKey: 'licenses.sectionUIComponents',
     entries: [
       {
@@ -202,7 +205,7 @@ const LICENSE_DATA: LicenseSection[] = [
     ],
   },
   {
-    title: 'Networking & Utilities',
+    title: 'Networking & utilities',
     titleKey: 'licenses.sectionNetworkingUtilities',
     entries: [
       { name: 'i18next', license: 'MIT', repository: 'https://github.com/i18next/i18next' },
@@ -225,7 +228,7 @@ const LICENSE_DATA: LicenseSection[] = [
     ],
   },
   {
-    title: 'Native Engine (tracematch)',
+    title: 'Native engine (tracematch)',
     titleKey: 'licenses.sectionNativeEngine',
     description: 'Rust dependencies compiled into the native route matching engine.',
     entries: [
@@ -358,7 +361,7 @@ const LICENSE_DATA: LicenseSection[] = [
     ],
   },
   {
-    title: 'Special Licenses',
+    title: 'Special licences',
     titleKey: 'licenses.sectionSpecialLicenses',
     description: 'Dependencies with non-MIT/Apache licenses.',
     entries: [
@@ -396,10 +399,16 @@ const LICENSE_DATA: LicenseSection[] = [
         license: 'Zlib',
         repository: 'https://github.com/orlp/foldhash',
       },
+      {
+        name: 'Manrope',
+        license: 'OFL-1.1',
+        repository: 'https://github.com/sharanda/manrope',
+        description: 'The app typeface. Copyright 2018 The Manrope Project Authors.',
+      },
     ],
   },
   {
-    title: 'Map Data',
+    title: 'Map data',
     titleKey: 'licenses.sectionMapData',
     description: 'Map tiles and geographic data providers.',
     entries: [
@@ -604,7 +613,7 @@ function LicensesScreenContent() {
   const shared = createSharedStyles(isDark);
 
   return (
-    <ScreenSafeAreaView hasNativeHeader testID="licenses-screen" style={shared.container}>
+    <ScreenSafeAreaView testID="licenses-screen" style={shared.container}>
       <ScreenScrollView contentContainerStyle={styles.content}>
         {/* Intro text */}
         <View style={styles.introContainer}>
@@ -666,7 +675,6 @@ const styles = {
   sectionDescription: {
     ...typography.bodySmall,
     marginBottom: spacing.sm,
-    fontStyle: 'italic' as const,
   },
   entryContainer: {
     paddingVertical: spacing.sm,
@@ -700,7 +708,7 @@ const styles = {
   licenseTextContainer: (isDark: boolean) => ({
     marginTop: spacing.sm,
     padding: spacing.sm,
-    backgroundColor: colorWithOpacity(ink.black, isDark ? 0.3 : 0.05),
+    backgroundColor: colorWithOpacity(ink.black, isDark ? opacity.tint4 : 0.05),
     borderRadius: layout.borderRadiusXs,
   }),
   licenseText: {

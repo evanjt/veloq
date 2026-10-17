@@ -4,13 +4,20 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useMetricSystem } from '@/shared/app';
-import { DetailHero, HeroStatsRow, useHeroMapHeight, Spinner } from '@/shared/ui';
+import {
+  DetailHero,
+  HeroStatsRow,
+  useHeroHeaderBottom,
+  useHeroMapHeight,
+  Shimmer,
+  SkeletonFrame,
+} from '@/shared/ui';
 import { PlaceNameKind } from 'veloqrs';
 import { SectionNameEditor } from './SectionNameEditor';
 import { PlaceNameButton } from '../PlaceNameButton';
@@ -21,7 +28,6 @@ import { type MaterialIconName } from '@/shared/activity/activityUtils';
 import { heroStats } from '@/features/routes/lib/heroStats';
 import {
   colors,
-  darkColors,
   iconSize,
   layout,
   opacity,
@@ -35,7 +41,6 @@ import type { Period } from '@/shared/app/period';
 export interface SectionHeaderProps {
   section: FrequentSection;
   mapHeight?: number | undefined;
-  insetTop: number;
   activityColor: string;
   iconName: MaterialIconName;
   /** Traversals the chart plots, absent until the lap times are read. */
@@ -80,7 +85,6 @@ export function sectionHeroName(
 
 export function SectionHeader({
   section,
-  insetTop,
   activityColor,
   iconName,
   activityCount,
@@ -105,6 +109,7 @@ export function SectionHeader({
   canNameFromPlaces = false,
 }: SectionHeaderProps) {
   const heroHeight = useHeroMapHeight();
+  const headerBottom = useHeroHeaderBottom();
   const mapHeight = mapHeightProp ?? heroHeight;
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
@@ -176,12 +181,12 @@ export function SectionHeader({
           allActivityTraces={allActivityTraces}
           trimRange={isTrimming ? { start: trimStart, end: trimEnd } : null}
           extensionTrack={isTrimming && isExpandMode ? expandContextPoints : null}
-          insetTop={insetTop}
+          headerBottom={headerBottom}
         />
       ) : (
-        <View style={[styles.mapPlaceholder, { height: mapHeight }]}>
-          <Spinner size="large" />
-        </View>
+        <SkeletonFrame testID="section-hero-skeleton" style={{ height: mapHeight }}>
+          <Shimmer width="100%" height={mapHeight} borderRadius={0} />
+        </SkeletonFrame>
       )}
     </DetailHero>
   );
@@ -209,11 +214,5 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.textOnDark,
     fontWeight: '600',
-  },
-  mapPlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: darkColors.background,
   },
 });

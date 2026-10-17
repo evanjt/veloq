@@ -36,6 +36,7 @@ import {
   easing,
   layout,
   motionPresets,
+  opacity,
   spacing,
   stroke,
   typography,
@@ -104,7 +105,7 @@ function SyncMark({ color }: { color: string }) {
       testID="sync-progress-mark"
       style={[
         styles.mark,
-        { borderTopColor: color, borderColor: colorWithOpacity(color, 0.3) },
+        { borderTopColor: color, borderColor: colorWithOpacity(color, opacity.tint4) },
         style,
       ]}
     />
@@ -191,8 +192,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   text: {
-    fontSize: typography.bodyCompact.fontSize,
-    lineHeight: typography.bodyCompact.lineHeight,
+    ...typography.bodyCompact,
   },
   counts: {
     flexShrink: 0,

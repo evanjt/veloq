@@ -86,7 +86,6 @@ const WORDING = [
   'maps.tapSelectEnd',
   'maps.tapSelectStart',
   'notifications.privacy.brief',
-  'routes.createSection',
   'sectionHistory.kind_reference_reanchored',
   'wellness.smoothingDescription',
   'wellness.smoothingHint',

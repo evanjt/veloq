@@ -280,7 +280,7 @@ const makeStyles = (palette: Palette) =>
       marginBottom: spacing.sm,
     },
     label: {
-      fontSize: typography.caption.fontSize,
+      ...typography.caption,
       color: palette.textSecondary,
     },
     ftpRow: {
@@ -289,8 +289,7 @@ const makeStyles = (palette: Palette) =>
       gap: spacing.sm,
     },
     ftpValue: {
-      fontSize: typography.headlineNumber.fontSize,
-      fontWeight: '700',
+      ...typography.headlineNumber,
     },
     changeBadge: {
       paddingHorizontal: spacing.sm,
@@ -298,8 +297,7 @@ const makeStyles = (palette: Palette) =>
       borderRadius: layout.borderRadius,
     },
     changeText: {
-      fontSize: typography.caption.fontSize,
-      fontWeight: '600',
+      ...typography.captionBold,
     },
     changeSubtext: {
       fontSize: typography.label.fontSize,

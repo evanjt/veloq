@@ -119,7 +119,7 @@ describe('SectionsList over an engine-ordered page', () => {
     // zero while 63 of the catalogue still await review.
     const tree = await renderList();
 
-    expect(tree.getByText('Accept All')).toBeTruthy();
+    expect(tree.getByText('Accept all')).toBeTruthy();
     expect(tree.getByText('Accepted only')).toBeTruthy();
   });
 

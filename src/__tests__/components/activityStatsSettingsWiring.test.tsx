@@ -128,7 +128,7 @@ describe('the heart rate card over a default max HR', () => {
 });
 
 describe('HRZonesChart', () => {
-  const hrZones = [{ zone: 1, minBpm: 0, maxBpm: 190, seconds: 60, percent: 100 }];
+  const hrZones = [{ zone: 1, minBpm: 0, maxBpm: 190, seconds: 60, percent: 100, share: 100 }];
 
   it('shows the max HR the heart rate card divides by, from the sport settings', async () => {
     const { getByText } = await render(

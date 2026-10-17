@@ -681,7 +681,7 @@ export default function RootLayout() {
                                 // itself while it is locked.
                                 gestureEnabled: name !== 'recording/[type]',
                                 ...largeTitleScreenOptions(name, Platform.OS),
-                                ...sheetScreenOptions(name, Platform.OS),
+                                ...sheetScreenOptions(name, Platform.OS, Platform.Version),
                                 ...(header?.overMap && overMapHeaderOptions({ isDark })),
                                 ...(name === 'recordings/[id]' && {
                                   headerTitle: () => <RecordingTitle />,

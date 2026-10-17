@@ -117,18 +117,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray100,
   },
   count: {
+    ...typography.bodyCompact,
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
-    fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
   },
   resultName: {
+    ...typography.bodySmall,
     flex: 1,
-    fontSize: typography.bodySmall.fontSize,
     color: colors.textPrimary,
   },
   resultDetail: {
-    fontSize: typography.bodyCompact.fontSize,
+    ...typography.bodyCompact,
     color: colors.textSecondary,
   },
   secondaryDark: {

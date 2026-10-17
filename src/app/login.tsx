@@ -205,7 +205,7 @@ function LoginScreenContent() {
             {/* Demo Button */}
             <Button
               testID="login-demo-button"
-              label={t('login.tryDemo', { defaultValue: 'Try Demo' })}
+              label={t('login.tryDemo', { defaultValue: 'Try demo' })}
               variant="secondary"
               onPress={handleTryDemo}
               disabled={isLoading || isApiKeyLoading}
@@ -224,7 +224,7 @@ function LoginScreenContent() {
             {/* Restore from Backup */}
             <Button
               testID="login-restore-button"
-              label={t('backup.restoreFromBackup', { defaultValue: 'Restore from Backup' })}
+              label={t('backup.restoreFromBackup', { defaultValue: 'Restore from backup' })}
               variant="ghost"
               size="sm"
               onPress={() => setShowRestore((shown) => !shown)}
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   subtitle: {
-    fontSize: typography.body.fontSize,
+    ...typography.body,
     color: colors.textSecondary,
   },
   frame: {
@@ -366,9 +366,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   errorText: {
+    ...typography.bodySmall,
     color: colors.errorDeep,
     flex: 1,
-    fontSize: typography.bodySmall.fontSize,
   },
   errorTextDark: {
     color: darkColors.errorDeep,
@@ -383,9 +383,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   queuedText: {
+    ...typography.bodySmall,
     color: colors.textSecondary,
     flex: 1,
-    fontSize: typography.bodySmall.fontSize,
   },
   queuedTextDark: {
     color: darkColors.textSecondary,
@@ -404,14 +404,14 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.border,
   },
   dividerText: {
+    ...typography.bodySmall,
     marginHorizontal: spacing.md,
     color: colors.textSecondary,
-    fontSize: typography.bodySmall.fontSize,
   },
   demoCaption: {
+    ...typography.caption,
     marginTop: spacing.xs,
     color: colors.textSecondary,
-    fontSize: typography.caption.fontSize,
     textAlign: 'center',
   },
   restoreButton: {
@@ -421,13 +421,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   newUserTitle: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
+    ...typography.bodyBold,
     color: colors.textPrimary,
     marginBottom: spacing.xs,
   },
   newUserText: {
-    fontSize: typography.bodySmall.fontSize,
+    ...typography.bodySmall,
     color: colors.textSecondary,
     marginBottom: spacing.sm,
   },
@@ -441,7 +440,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   disclaimerText: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 18,
@@ -471,7 +470,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   securityText: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
   },
 });

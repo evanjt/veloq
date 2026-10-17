@@ -87,7 +87,7 @@ export function generateStableTestActivities(): (ApiActivity & { _routeId: strin
       max_speed: 4.2,
       average_heartrate: 138,
       max_heartrate: 155,
-      average_cadence: 172,
+      average_cadence: 86,
       average_temp: 16,
       calories: 520,
       device_name: 'Demo Device',
@@ -275,7 +275,7 @@ export function generateStableTestActivities(): (ApiActivity & { _routeId: strin
       max_speed: 4.2,
       average_heartrate: 140,
       max_heartrate: 158,
-      average_cadence: 174,
+      average_cadence: 87,
       average_temp: 22,
       calories: 380,
       device_name: 'Demo Device',
@@ -344,15 +344,17 @@ export function generateStableTestActivities(): (ApiActivity & { _routeId: strin
       stream_types: ['time', 'heartrate'],
       _routeId: null,
     },
-    // demo-test-7: today's fast ride on demo-test-0's route. Its moving time is
-    // below every other ride there, so it holds each section's record and is the
-    // newest traversal. The feed PR pill and the sections list record mark
+    // demo-test-7: yesterday evening's fast ride on demo-test-0's route. Its
+    // moving time is below every other ride there, so it holds each section's
+    // record, and it starts after the latest generated evening ride, so it is
+    // the newest traversal. The feed PR pill and the sections list record mark
     // depend on it.
     {
       id: 'demo-test-7',
       start_date_local: (() => {
         const d = new Date(referenceDate);
-        d.setHours(18, 0, 0, 0);
+        d.setDate(d.getDate() - 1);
+        d.setHours(19, 30, 0, 0);
         return formatLocalISOString(d);
       })(),
       type: 'Ride',

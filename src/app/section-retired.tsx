@@ -36,7 +36,7 @@ function SectionRetiredScreenContent() {
   );
 
   return (
-    <ScreenSafeAreaView hasNativeHeader style={[styles.container, isDark && styles.containerDark]}>
+    <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
       <ScreenScrollView
         contentContainerStyle={[styles.content, { paddingBottom: layout.screenPadding }]}
         testID="section-retired-list"

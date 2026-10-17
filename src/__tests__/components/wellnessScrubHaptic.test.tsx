@@ -1,8 +1,8 @@
 /**
- * Scenario: holding the wellness trends chart showed the crosshair with no
- * haptic, where the same hold on the fitness chart gives a light tick.
+ * Scenario: scrubbing the wellness trends chart showed the crosshair with no
+ * haptic, where the same scrub on the fitness chart gives a light tick.
  *
- * Expected behaviour: the hold fires one light impact when it completes, the
+ * Expected behaviour: the scrub fires one light impact when it starts, the
  * date under the finger is reported, and lifting the finger clears it.
  */
 
@@ -13,13 +13,7 @@ import * as Haptics from 'expo-haptics';
 
 import { WellnessTrendsChart } from '@/features/wellness/components/WellnessTrendsChart';
 import type { WellnessData } from '@/types';
-import {
-  capturePans,
-  holdAndScrub,
-  longPressPan,
-  pressAndLift,
-  release,
-} from '../__shared__/chartScrub';
+import { capturePans, scrub, scrubPan, pressAndLift, release } from '../__shared__/chartScrub';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -55,23 +49,23 @@ describe('wellness trends scrub', () => {
     jest.restoreAllMocks();
   });
 
-  it('fires one light impact when the hold completes', async () => {
+  it('fires one light impact when the scrub starts', async () => {
     const built = capturePans();
     const tree = await render(<WellnessTrendsChart data={DAYS} timeRange="1m" />);
     await layout(tree);
 
-    await holdAndScrub(longPressPan(built), 300);
+    await scrub(scrubPan(built), 300);
 
     expect(Haptics.impactAsync).toHaveBeenCalledTimes(1);
     expect(Haptics.impactAsync).toHaveBeenCalledWith('light');
   });
 
-  it('fires no impact for a touch released before the hold completes', async () => {
+  it('fires no impact for a touch lifted without moving', async () => {
     const built = capturePans();
     const tree = await render(<WellnessTrendsChart data={DAYS} timeRange="1m" />);
     await layout(tree);
 
-    await pressAndLift(longPressPan(built), 300, 50);
+    await pressAndLift(scrubPan(built), 300, 50);
 
     expect(Haptics.impactAsync).not.toHaveBeenCalled();
   });
@@ -84,11 +78,11 @@ describe('wellness trends scrub', () => {
     );
     await layout(tree);
 
-    const pan = longPressPan(built);
-    await holdAndScrub(pan, 300);
+    const pan = scrubPan(built);
+    await scrub(pan, 300);
     expect(onDateSelect).toHaveBeenLastCalledWith('2026-06-30');
 
-    await holdAndScrub(pan, 80);
+    await scrub(pan, 80);
     expect(onDateSelect).toHaveBeenLastCalledWith('2026-06-01');
 
     await release(pan);
@@ -105,7 +99,7 @@ describe('wellness trends scrub', () => {
     await layout(tree, 560);
 
     // 360 wide puts day 30 near x=300; at 560 that x is only about two-thirds across.
-    await holdAndScrub(longPressPan(built), 300);
+    await scrub(scrubPan(built), 300);
 
     expect(onDateSelect).toHaveBeenLastCalledWith('2026-06-16');
   });

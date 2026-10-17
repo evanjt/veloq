@@ -35,14 +35,14 @@ tags:
 # The tour row sits in the footer, below the fold.
 - scrollUntilVisible:
     element:
-      text: "App Tour"
+      text: "App tour"
     direction: DOWN
     timeout: 30000
     speed: 40
     visibilityPercentage: 50
 
 - tapOn:
-    text: "App Tour"
+    text: "App tour"
 
 # The 0.4.0 slide is the last in the tour. Walk forward from the first one.
 - repeat:
@@ -106,13 +106,13 @@ tags:
     file: helpers/navigate-to-settings.yaml
 - scrollUntilVisible:
     element:
-      text: "App Tour"
+      text: "App tour"
     direction: DOWN
     timeout: 30000
     speed: 40
     visibilityPercentage: 50
 - tapOn:
-    text: "App Tour"
+    text: "App tour"
 
 - repeat:
     times: 12

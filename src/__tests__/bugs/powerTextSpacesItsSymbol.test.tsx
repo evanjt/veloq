@@ -65,6 +65,7 @@ describe('the power zone chart', () => {
     ...(i + 1 < edges.length ? { maxWatts: edges[i + 1] } : {}),
     seconds: 100,
     percent: 20,
+    share: 20,
   }));
 
   it('prints the FTP setting and each zone range with the symbol spaced', () => {

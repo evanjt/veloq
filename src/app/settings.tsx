@@ -210,7 +210,6 @@ function SettingsScreenContent() {
 
   return (
     <ScreenSafeAreaView
-      hasNativeHeader
       testID="settings-screen"
       style={[styles.container, isDark && styles.containerDark]}
     >
@@ -264,7 +263,7 @@ function SettingsScreenContent() {
         <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
           <SettingsNavRow
             icon="sync"
-            title={t('settings.localDataRange', 'Local Data Range')}
+            title={t('settings.localDataRange', 'Local data range')}
             subtitle={syncSubtitle}
             onPress={nav('/sync-settings')}
             testID="settings-nav-sync"
@@ -295,7 +294,7 @@ function SettingsScreenContent() {
         <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
           <SettingsNavRow
             icon="map-marker-path"
-            title={t('settings.routesAndSections', 'Routes & Sections')}
+            title={t('settings.routesAndSections', 'Routes & sections')}
             subtitle={detectionSubtitle}
             onPress={nav('/detection-settings')}
             testID="settings-nav-detection"

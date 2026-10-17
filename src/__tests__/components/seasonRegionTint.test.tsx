@@ -6,7 +6,7 @@ import { StyleSheet, View } from 'react-native';
 import { SeasonComparison } from '@/features/stats/components/SeasonComparison';
 import { getEngine } from '@/shared/native/engine';
 import { darkColors } from '@/theme';
-import { capturePans, holdAndScrub, longPressPan } from '../__shared__/chartScrub';
+import { capturePans, scrub, scrubPan } from '../__shared__/chartScrub';
 import { trainingScreenRead } from '../__shared__/trainingScreenRead';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -50,7 +50,7 @@ it('draws the season summary with a visible dark region tint', async () => {
   await act(async () => {
     await fireEvent(chart!, 'layout', { nativeEvent: { layout: { width: 360, height: 200 } } });
   });
-  await holdAndScrub(longPressPan(built), 10);
+  await scrub(scrubPan(built), 10);
   const selected = screen
     .UNSAFE_getAllByType(View)
     .find((node) => StyleSheet.flatten(node.props.style)?.minHeight === 44);

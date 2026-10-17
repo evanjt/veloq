@@ -46,7 +46,6 @@ function renderHeader(canNameFromPlaces: boolean, isTrimming = false) {
   return render(
     <SectionHeader
       section={SECTION}
-      insetTop={0}
       activityColor="#000000"
       iconName="bike"
       activityCount={3}

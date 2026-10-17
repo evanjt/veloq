@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
-import { layout } from '@/theme';
+import { layout, opacity } from '@/theme';
 import { SectionLapList } from '@/features/routes/components/section/SectionLapList';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
@@ -109,6 +109,23 @@ describe('SectionLapList', () => {
     expect(getByTestId('section-lap-exclude-a-40')).toBeTruthy();
     await fireEvent.press(getByTestId('section-lap-undo-a-10'));
     expect(onIncludeLap).toHaveBeenCalledWith('a', 10);
+  });
+
+  it('draws an excluded lap out of play at the dimmed step, and a counted lap at full strength', async () => {
+    const { getByTestId } = await openAllRender(
+      <SectionLapList
+        isDark={false}
+        records={[record('a', [40, 10], [10])]}
+        onExcludeLap={jest.fn()}
+        onIncludeLap={jest.fn()}
+      />
+    );
+    expect(StyleSheet.flatten(getByTestId('section-lap-row-a-10').props.style).opacity).toBe(
+      opacity.dim
+    );
+    expect(
+      StyleSheet.flatten(getByTestId('section-lap-row-a-40').props.style).opacity
+    ).toBeUndefined();
   });
 
   it('keeps a two-lap activity listed after one lap is excluded, so it can be undone', async () => {

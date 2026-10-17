@@ -7,10 +7,12 @@
  */
 
 import React from 'react';
+import { View } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 import { Path } from '@shopify/react-native-skia';
 
 import { SectionDeltaChart } from '@/features/routes/components/section/SectionDeltaChart';
+import { SectionDeltaSummaryChart } from '@/features/routes/components/section/SectionDeltaSummaryChart';
 import { PerformanceChartPanel } from '@/features/routes/components/section/PerformanceChartPanel';
 import type { PerformanceDataPoint } from '@/types';
 import { layoutViews } from '../../__shared__/layoutViews';
@@ -19,11 +21,14 @@ import type {
   FfiLapDelta,
   FfiLapDeltaMissing,
   FfiSectionLapCurves,
+  FfiSplitSummary,
 } from 'veloqrs';
+import type { SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
+jest.mock('@/shared/app/useMetricSystem', () => ({ useMetricSystem: () => true }));
 
 const GRID_STEP_M = 50;
 const SECTION_LENGTH_M = 400;
@@ -196,7 +201,10 @@ const CHART_DATA = Array.from({ length: 4 }, (_, i) => ({
   x: i / 3,
 })) as unknown as (PerformanceDataPoint & { x: number })[];
 
-function panel(curves: FfiSectionLapCurves | undefined) {
+function panel(
+  curves: FfiSectionLapCurves | undefined,
+  extra: Partial<React.ComponentProps<typeof PerformanceChartPanel>> = {}
+) {
   return (
     <PerformanceChartPanel
       chartData={CHART_DATA}
@@ -211,24 +219,112 @@ function panel(curves: FfiSectionLapCurves | undefined) {
       reverseStats={null}
       trendCurves={{}}
       curves={curves}
+      {...extra}
     />
   );
 }
 
+const MEDIAN = [9.5, 11.2, 0.4, -2];
+const TYPICAL: FfiSplitSummary = {
+  medianSecs: Float32Array.from(MEDIAN),
+  lowerQuartileSecs: Float32Array.from([NaN, NaN, NaN, NaN]),
+  upperQuartileSecs: Float32Array.from([NaN, NaN, NaN, NaN]),
+  laps: [6, 6, 5, 5],
+};
+const OLDER_SPLITS = [1, 2, 3, 2];
+const SPLIT_LAPS = [
+  lap('ref', 0, LEVEL),
+  lap('older', 1, [0, 1, 2, 3, 4, 5, 6, 7, 8], { splitDeltaSecs: Float32Array.from(OLDER_SPLITS) }),
+  lap('newest', 2, [0, -1, -2, -3, -4, -5, -6, -7, -8], {
+    splitDeltaSecs: Float32Array.from([-1, -2, -3, -2]),
+  }),
+];
+
+function curvesWith(splitSummary: FfiSplitSummary | undefined): FfiSectionLapCurves {
+  return {
+    gridStepM: GRID_STEP_M,
+    splitStepM: 100,
+    sectionLengthM: SECTION_LENGTH_M,
+    forward: direction(SPLIT_LAPS, splitSummary ? { splitSummary } : {}),
+  };
+}
+
+/** The last line the panel reported to the map. */
+function lastLine(onDeltaLineChange: jest.Mock): SectionDeltaLine | null {
+  const calls = onDeltaLineChange.mock.calls;
+  return calls[calls.length - 1]![0] as SectionDeltaLine | null;
+}
+
 describe('PerformanceChartPanel delta plot', () => {
-  it('offers delta when the direction has curves and draws it when chosen', async () => {
+  it('offers delta with an attempt chosen and draws its curve when chosen', async () => {
     const tree = await render(
-      panel({
-        gridStepM: GRID_STEP_M,
-        splitStepM: 100,
-        sectionLengthM: SECTION_LENGTH_M,
-        forward: direction(LAPS),
-      })
+      panel(
+        {
+          gridStepM: GRID_STEP_M,
+          splitStepM: 100,
+          sectionLengthM: SECTION_LENGTH_M,
+          forward: direction(LAPS),
+        },
+        { highlightedActivityId: 'older' }
+      )
     );
 
     await fireEvent.press(tree.getByTestId('chart-plot-delta'));
     expect(tree.getByTestId('section-delta-chart')).toBeTruthy();
     expect(tree.getByTestId('chart-plot-delta').props.accessibilityState.selected).toBe(true);
+  });
+
+  it('with no attempt chosen, offers delta from the typical attempt and hands the map its medians', async () => {
+    const onDeltaLineChange = jest.fn();
+    const tree = await render(panel(curvesWith(TYPICAL), { onDeltaLineChange }));
+
+    await fireEvent.press(tree.getByTestId('chart-plot-delta'));
+
+    expect(tree.getByTestId('section-delta-summary-chart')).toBeTruthy();
+    expect(tree.queryByTestId('section-delta-chart')).toBeNull();
+    const line = lastLine(onDeltaLineChange);
+    expect(Array.from(line!.splits)).toEqual(Array.from(TYPICAL.medianSecs));
+    expect(line).toMatchObject({
+      splitStepM: 100,
+      sectionLengthM: SECTION_LENGTH_M,
+      direction: 'forward',
+    });
+  });
+
+  it('with an attempt chosen, draws that attempt and hands the map its own splits', async () => {
+    const onDeltaLineChange = jest.fn();
+    const tree = await render(
+      panel(curvesWith(TYPICAL), { onDeltaLineChange, highlightedActivityId: 'older' })
+    );
+
+    await fireEvent.press(tree.getByTestId('chart-plot-delta'));
+
+    expect(tree.getByTestId('section-delta-chart')).toBeTruthy();
+    expect(tree.queryByTestId('section-delta-summary-chart')).toBeNull();
+    expect(Array.from(lastLine(onDeltaLineChange)!.splits)).toEqual(OLDER_SPLITS);
+  });
+
+  it('with no attempt chosen and no typical attempt, offers no delta and hands the map nothing', async () => {
+    const onDeltaLineChange = jest.fn();
+    const tree = await render(panel(curvesWith(undefined), { onDeltaLineChange }));
+
+    expect(tree.queryByTestId('chart-plot-delta')).toBeNull();
+    expect(onDeltaLineChange.mock.calls.every(([line]) => line === null)).toBe(true);
+  });
+
+  it('returns to the scatter when the attempt is cleared and no typical attempt exists', async () => {
+    const onDeltaLineChange = jest.fn();
+    const tree = await render(
+      panel(curvesWith(undefined), { onDeltaLineChange, highlightedActivityId: 'older' })
+    );
+    await fireEvent.press(tree.getByTestId('chart-plot-delta'));
+    expect(tree.getByTestId('section-delta-chart')).toBeTruthy();
+
+    await tree.rerender(panel(curvesWith(undefined), { onDeltaLineChange }));
+
+    expect(tree.queryByTestId('section-delta-chart')).toBeNull();
+    expect(tree.queryByTestId('chart-plot-delta')).toBeNull();
+    expect(lastLine(onDeltaLineChange)).toBeNull();
   });
 
   it('offers no delta option when curves is absent', async () => {
@@ -248,5 +344,85 @@ describe('PerformanceChartPanel delta plot', () => {
     );
 
     expect(tree.queryByTestId('chart-plot-delta')).toBeNull();
+  });
+});
+
+describe('SectionDeltaSummaryChart', () => {
+  // 400 px wide with 12 px left and 8 px right padding: 0.95 px a metre.
+  const xAtMetres = (m: number) => 12 + m * 0.95;
+
+  function summaryChart(
+    props: Partial<React.ComponentProps<typeof SectionDeltaSummaryChart>> = {}
+  ) {
+    return (
+      <SectionDeltaSummaryChart
+        summary={TYPICAL}
+        referenceSource={0 as FfiDirectionDeltas['referenceSource']}
+        splitStepM={100}
+        sectionLengthM={SECTION_LENGTH_M}
+        isDark={false}
+        {...props}
+      />
+    );
+  }
+
+  async function scrubAt(tree: Awaited<ReturnType<typeof render>>, metres: number) {
+    const plot = tree
+      .UNSAFE_getAllByType(View)
+      .find((node) => node.props.onResponderGrant !== undefined)!;
+    await fireEvent(plot, 'responderGrant', { nativeEvent: { locationX: xAtMetres(metres) } });
+  }
+
+  it('names the record and the split it is shown per, and the attempts behind it', async () => {
+    const tree = await render(summaryChart());
+
+    expect(tree.getByTestId('section-delta-summary-caption').props.children).toBe(
+      'sections.deltaTypicalVsRecord:{"distance":"100 m"}'
+    );
+    expect(tree.getByTestId('section-delta-summary-attempts').props.children).toBe(
+      'sections.deltaTypicalAttempts:{"count":6}'
+    );
+  });
+
+  it('names a set reference when the reference is not the record', async () => {
+    const tree = await render(
+      summaryChart({ referenceSource: 1 as FfiDirectionDeltas['referenceSource'] })
+    );
+
+    expect(tree.getByTestId('section-delta-summary-caption').props.children).toContain(
+      'sections.deltaTypicalVsReference'
+    );
+  });
+
+  it('reads the split under the touch, its range and how far the typical attempt is behind', async () => {
+    const tree = await render(summaryChart());
+    await layoutViews(tree, 400, 300);
+
+    await scrubAt(tree, 150);
+
+    expect(tree.getByTestId('section-delta-summary-scrub').props.children).toBe(
+      'sections.deltaTypicalSlowerThanRecord:{"from":"100 m","to":"200 m","time":"11 s"}'
+    );
+  });
+
+  it('reads a split the typical attempt wins as faster, the last split ending at the section end', async () => {
+    const tree = await render(summaryChart());
+    await layoutViews(tree, 400, 300);
+
+    await scrubAt(tree, 350);
+
+    expect(tree.getByTestId('section-delta-summary-scrub').props.children).toBe(
+      'sections.deltaTypicalFasterThanRecord:{"from":"300 m","to":"400 m","time":"2 s"}'
+    );
+  });
+
+  it('reads nothing over a split with no typical figure', async () => {
+    const gap: FfiSplitSummary = { ...TYPICAL, medianSecs: Float32Array.from([9.5, NaN, 0.4, -2]) };
+    const tree = await render(summaryChart({ summary: gap }));
+    await layoutViews(tree, 400, 300);
+
+    await scrubAt(tree, 150);
+
+    expect(tree.queryByTestId('section-delta-summary-scrub')).toBeNull();
   });
 });

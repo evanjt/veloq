@@ -10,7 +10,7 @@
 //! Run: `cargo test --test app -p veloqrs -- stale_pr_candidates::`
 
 use rusqlite::{Connection, params};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 use veloqrs::{GpsPoint, PersistentEngine};
 
@@ -26,6 +26,16 @@ fn line() -> Vec<GpsPoint> {
             elevation: Some(500.0),
         })
         .collect()
+}
+
+/// The raw connection that writes the fixture behind the engine's back. It
+/// commits row by row, and with fsync on each commit that is most of a minute
+/// on a real disk for a fixture rebuilt every run.
+fn open_fixture(path: &Path) -> Connection {
+    let db = Connection::open(path).expect("raw open");
+    db.pragma_update(None, "synchronous", "OFF")
+        .expect("fixture connection skips fsync");
+    db
 }
 
 fn insert_section(db: &Connection, id: &str) {
@@ -83,7 +93,7 @@ fn seeded() -> (PersistentEngine, TempDir) {
     let tmp = TempDir::new().expect("temp dir");
     let path: PathBuf = tmp.path().join("test.db");
     let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
-    let db = Connection::open(&path).expect("raw open");
+    let db = open_fixture(&path);
 
     let now = chrono::Utc::now().timestamp();
     for s in 0..POPULATION {
@@ -247,7 +257,7 @@ fn the_ranked_section_names_the_activity_of_its_fastest_lap() {
     let tmp = TempDir::new().expect("temp dir");
     let path: PathBuf = tmp.path().join("best-date.db");
     let engine = PersistentEngine::new(path.to_str().unwrap()).expect("engine");
-    let db = Connection::open(&path).expect("raw open");
+    let db = open_fixture(&path);
 
     let now = chrono::Utc::now().timestamp();
     let record_day = now - 200 * 86_400;

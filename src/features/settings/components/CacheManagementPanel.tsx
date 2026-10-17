@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text, StyleSheet } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { useTranslation } from 'react-i18next';
 import { iconSize, themePalette, typography } from '@/theme';
 import { Row } from '@/shared/ui/Row';
@@ -27,8 +27,8 @@ export function CacheManagementPanel({
       accessibilityLabel={t('settings.clearAllReload')}
       disabled={isDemoMode}
     >
-      <MaterialCommunityIcons
-        name="delete-outline"
+      <ChromeIcon
+        name="delete"
         size={iconSize.lg}
         color={isDemoMode ? palette.textSecondary : palette.error}
       />
@@ -46,7 +46,7 @@ export function CacheManagementPanel({
 
 const styles = StyleSheet.create({
   actionText: {
+    ...typography.body,
     flex: 1,
-    fontSize: typography.body.fontSize,
   },
 });

@@ -3,8 +3,8 @@
  * attempts, measured along its representative line.
  *
  * Expected behaviour: the route chart offers the delta plot, and choosing it
- * hands the route map the emphasised attempt's splits to colour the line by,
- * then takes them back when another plot is chosen. A read with no curves
+ * with no attempt chosen hands the route map the typical attempt's splits to
+ * colour the line by, then takes them back when another plot is chosen. A read with no curves
  * offers no delta plot and colours nothing. A read that leaves its curves
  * owed is loaded again off the JS thread, once the attempts missing a time
  * stream have fetched it, and the loaded curves are offered.
@@ -99,6 +99,9 @@ const lapDelta = (id: string, day: number, splits: number[]) => ({
   endDeltaSecs: splits.reduce((a, b) => a + b, 0),
 });
 
+/** The typical attempt per split, as the engine reports it once enough laps exist. */
+const TYPICAL_SPLITS = [1, -0.5, 2];
+
 const CURVES = {
   gridStepM: 10,
   splitStepM: 100,
@@ -109,6 +112,12 @@ const CURVES = {
     laps: [lapDelta('q1', 0, [0, 0, 0]), lapDelta('q2', 1, [2, -1, 4])],
     missing: [],
     peakDeltaSecs: 5,
+    splitSummary: {
+      medianSecs: Float32Array.from(TYPICAL_SPLITS),
+      lowerQuartileSecs: Float32Array.from([NaN, NaN, NaN]),
+      upperQuartileSecs: Float32Array.from([NaN, NaN, NaN]),
+      laps: [5, 5, 5],
+    },
   },
 };
 
@@ -153,10 +162,7 @@ const mockEngine = {
       sportTypes: ['Ride'],
       customName: 'Quarry Lane',
     },
-    groups: [],
     activityCount: 2,
-    performances: { performances: [], activityMetrics: [] },
-    routeNames: {},
     excludedActivityIds: [],
     mapSignatures: [],
     missingTimeStreamIds: mockMissingStreams,
@@ -185,15 +191,15 @@ beforeEach(() => {
 });
 
 describe('route page delta plot', () => {
-  it('offers the delta plot and colours the route line by the newest attempt', async () => {
+  it('offers the delta plot and colours the route line by the typical attempt', async () => {
     const screen = await render(<RouteDetailScreen />);
 
     expect(lastMapDeltaLine()).toBeFalsy();
     await fireEvent.press(screen.getByTestId('chart-plot-delta'));
 
-    expect(screen.getByTestId('section-delta-chart')).toBeTruthy();
+    expect(screen.getByTestId('section-delta-summary-chart')).toBeTruthy();
     expect(lastMapDeltaLine()).toEqual({
-      splits: Float32Array.from([2, -1, 4]),
+      splits: Float32Array.from(TYPICAL_SPLITS),
       splitStepM: 100,
       sectionLengthM: ROUTE_LENGTH_M,
       direction: 'forward',
@@ -233,9 +239,14 @@ describe('route page curves owed', () => {
     expect(mockStreams.syncTimeStreams).not.toHaveBeenCalled();
     expect(mockEngine.getRouteDetailPerformance).toHaveBeenCalledTimes(1);
     expect(mockEngine.loadRouteDetailPerformance).toHaveBeenCalledTimes(1);
-    expect(mockEngine.loadRouteDetailPerformance).toHaveBeenCalledWith('grp-quarry', 0, undefined);
+    expect(mockEngine.loadRouteDetailPerformance).toHaveBeenCalledWith(
+      'grp-quarry',
+      0,
+      undefined,
+      undefined
+    );
     await fireEvent.press(screen.getByTestId('chart-plot-delta'));
-    expect(lastMapDeltaLine()?.splits).toEqual(Float32Array.from([2, -1, 4]));
+    expect(lastMapDeltaLine()?.splits).toEqual(Float32Array.from(TYPICAL_SPLITS));
   });
 
   it('fetches the missing streams and loads the curves only once they land', async () => {

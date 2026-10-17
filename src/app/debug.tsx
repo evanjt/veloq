@@ -4,6 +4,7 @@ import Constants from 'expo-constants';
 import { Button, ScreenScrollView, pressable, pressRipple } from '@/shared/ui';
 import { shareText } from '@/features/settings/light';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import {
   colors,
   darkColors,
@@ -368,13 +369,7 @@ function BackgroundNotificationsDebug({
             variant="ghost"
             size="sm"
             style={styles.actionButton}
-            icon={
-              <MaterialCommunityIcons
-                name="delete-outline"
-                size={iconSize.sm}
-                color={colors.primary}
-              />
-            }
+            icon={<ChromeIcon name="delete" size={iconSize.sm} color={colors.primary} />}
           />
         </>
       ) : (
@@ -681,13 +676,7 @@ function DebugScreenContent() {
                 variant="ghost"
                 size="sm"
                 style={styles.actionButton}
-                icon={
-                  <MaterialCommunityIcons
-                    name="delete-outline"
-                    size={iconSize.sm}
-                    color={colors.primary}
-                  />
-                }
+                icon={<ChromeIcon name="delete" size={iconSize.sm} color={colors.primary} />}
               />
             </>
           ) : (
@@ -834,13 +823,7 @@ function DebugScreenContent() {
           label="Share Debug Snapshot"
           onPress={handleShareSnapshot}
           variant="secondary"
-          icon={
-            <MaterialCommunityIcons
-              name="share-variant"
-              size={iconSize.md}
-              color={colors.primary}
-            />
-          }
+          icon={<ChromeIcon name="share" size={iconSize.md} color={colors.primary} />}
         />
 
         <View style={{ height: spacing.xl }} />
@@ -881,8 +864,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   sectionTitle: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
+    ...typography.bodyBold,
   },
   sectionContent: {
     paddingHorizontal: spacing.md,
@@ -911,8 +893,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   emptyText: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontStyle: 'italic',
+    ...typography.bodyCompact,
   },
   tableHeader: {
     flexDirection: 'row',

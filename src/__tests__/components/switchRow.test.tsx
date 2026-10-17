@@ -10,13 +10,13 @@
  */
 
 import React from 'react';
-import { Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import * as Haptics from 'expo-haptics';
 import { Switch as PaperSwitch } from 'react-native-paper';
 
 import { Switch, SwitchRow, switchColors } from '@/shared/ui';
-import { colors, colorWithOpacity, darkColors, switchTrackOff } from '@/theme';
+import { colors, colorWithOpacity, darkColors, opacity, switchTrackOff } from '@/theme';
 
 jest.mock('expo-haptics', () => ({
   ...jest.requireActual('expo-haptics'),
@@ -42,6 +42,17 @@ async function renderRow(props: Partial<React.ComponentProps<typeof SwitchRow>> 
     />
   );
   return onValueChange;
+}
+
+/** The opacity an element is drawn at: its own and every host ancestor's, multiplied. */
+function drawnOpacity(element: ReturnType<typeof screen.getByTestId>): number {
+  let product = 1;
+  for (let node: typeof element | null = element; node; node = node.parent) {
+    if (typeof node.type !== 'string') continue;
+    const own = StyleSheet.flatten(node.props.style)?.opacity;
+    if (typeof own === 'number') product *= own;
+  }
+  return product;
 }
 
 describe('SwitchRow', () => {
@@ -91,6 +102,20 @@ describe('SwitchRow', () => {
 
     expect(onValueChange).not.toHaveBeenCalled();
     expect(Haptics.selectionAsync).not.toHaveBeenCalled();
+  });
+
+  it('draws a disabled row at the disabled step over its own label colours', async () => {
+    await renderRow({ disabled: true, titleTestID: 'night-lights-title' });
+
+    const title = screen.getByTestId('night-lights-title');
+    expect(StyleSheet.flatten(title.props.style).color).toBe(colors.textPrimary);
+    expect(drawnOpacity(title)).toBe(opacity.disabled);
+  });
+
+  it('draws an enabled row at full strength', async () => {
+    await renderRow({ titleTestID: 'night-lights-title' });
+
+    expect(drawnOpacity(screen.getByTestId('night-lights-title'))).toBe(1);
   });
 
   it('flips again on the second tap from the value it is given', async () => {

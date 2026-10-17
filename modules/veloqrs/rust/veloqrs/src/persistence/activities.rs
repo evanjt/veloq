@@ -978,6 +978,24 @@ pub(crate) mod pooled {
         })
     }
 
+    /// The sport an activity was recorded as, wherever it is stored: the
+    /// metrics row, else the track's, else the stored body's type. An activity
+    /// with no GPS has no `activities` row, and one stored only as a body has
+    /// no metrics row.
+    pub(crate) fn activity_sport(conn: &Connection, activity_id: &str) -> Option<String> {
+        conn.query_row(
+            "SELECT COALESCE(
+                 (SELECT sport_type FROM activity_metrics WHERE activity_id = ?1),
+                 (SELECT sport_type FROM activities WHERE id = ?1),
+                 (SELECT json_extract(raw, '$.type') FROM activity_bodies
+                  WHERE activity_id = ?1 AND json_valid(raw)))",
+            params![activity_id],
+            |row| row.get::<_, Option<String>>(0),
+        )
+        .ok()
+        .flatten()
+    }
+
     pub(crate) fn activity_body(conn: &Connection, activity_id: &str) -> Option<String> {
         conn.query_row(
             "SELECT raw FROM activity_bodies WHERE activity_id = ?",
@@ -2236,6 +2254,9 @@ impl PersistentEngine {
             super::record_restore::PENDING_KEY,
             super::record_restore::OWED_KEY,
             super::record_restore::RESTORED_NUMBERS_KEY,
+            super::record_restore::RESTORED_NAMES_KEY,
+            super::record_restore::NOT_RESTORED_KEY,
+            super::record_restore::NAMES_NOT_RESTORED_KEY,
             super::record_restore::UNAVAILABLE_KEY,
             super::record_restore::PAUSED_IMPORT_KEY,
             super::settings_keys::EXPORT_HOME_LAT,

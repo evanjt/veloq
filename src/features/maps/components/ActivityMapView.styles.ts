@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { darkColors, spacing, layout, shadows, colorWithOpacity, ink } from '@/theme';
+import { colorWithOpacity, darkColors, ink, layout, opacity, shadows, spacing } from '@/theme';
 
 export const styles = StyleSheet.create({
   outerContainer: {
@@ -22,7 +22,7 @@ export const styles = StyleSheet.create({
     zIndex: 2,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colorWithOpacity(ink.black, 0.3),
+    backgroundColor: colorWithOpacity(ink.black, opacity.tint4),
     borderRadius: layout.borderRadius,
   },
   map: {

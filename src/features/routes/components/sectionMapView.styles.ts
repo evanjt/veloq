@@ -1,6 +1,15 @@
 import { StyleSheet } from 'react-native';
 
-import { colors, darkColors, spacing, layout, shadows, colorWithOpacity, ink } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  darkColors,
+  ink,
+  layout,
+  opacity,
+  shadows,
+  spacing,
+} from '@/theme';
 
 export const styles = StyleSheet.create({
   outerContainer: {
@@ -22,7 +31,7 @@ export const styles = StyleSheet.create({
     zIndex: 2,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colorWithOpacity(ink.black, 0.3),
+    backgroundColor: colorWithOpacity(ink.black, opacity.tint4),
     borderRadius: layout.borderRadius,
   },
   placeholder: {
@@ -34,7 +43,7 @@ export const styles = StyleSheet.create({
     position: 'absolute',
     bottom: spacing.sm,
     right: spacing.sm,
-    backgroundColor: colorWithOpacity(ink.black, 0.5),
+    backgroundColor: colorWithOpacity(ink.black, opacity.disabled),
     borderRadius: layout.borderRadiusSm,
     padding: spacing.xs,
   },

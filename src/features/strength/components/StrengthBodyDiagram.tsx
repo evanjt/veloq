@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { Card, pressable, pressRipple } from '@/shared/ui';
+import { Card, pressable, pressRipple, Shimmer, SkeletonFrame } from '@/shared/ui';
 import {
   bodyDiagram,
   brand,
@@ -22,6 +22,7 @@ import {
 import type { MuscleVolume } from '@/types';
 
 import { BodyPairWithLoupe } from './BodyPairWithLoupe';
+import { BODY_INTRINSIC_H } from '../lib/bodyScale';
 import { muscleName } from '../lib/muscleNames';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { formatWeightRounded } from '@/shared/format/weight';
@@ -29,6 +30,8 @@ import { formatWeightRounded } from '@/shared/format/weight';
 const BODY_COLORS: readonly string[] = strengthRamp;
 const BODY_FILL_LIGHT = bodyDiagram.fillLight;
 const BODY_FILL_DARK = bodyDiagram.fillDark;
+/** The largest scale the figures are drawn at, which sets the card's height. */
+const BODY_MAX_SCALE = 0.6;
 
 interface StrengthBodyDiagramProps {
   bodyData: ExtendedBodyPart[];
@@ -119,7 +122,7 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
             data={bodyData}
             selectedSlug={selectedVolume?.slug ?? null}
             gender={gender}
-            maxScale={0.6}
+            maxScale={BODY_MAX_SCALE}
             colors={BODY_COLORS}
             onMuscleTap={onMuscleTap}
             onMuscleScrub={onMuscleScrub}
@@ -157,6 +160,39 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
   );
 });
 
+/** The body diagram card while the period's first read is pending, laid out as the card it becomes. */
+export function StrengthBodyDiagramSkeleton() {
+  return (
+    <SkeletonFrame testID="strength-body-skeleton" style={styles.frame}>
+      <Card variant="flat" padding="none">
+        <View style={styles.body}>
+          <View style={styles.bodyHeader}>
+            <Shimmer
+              width="50%"
+              height={typography.body.lineHeight}
+              borderRadius={layout.borderRadiusXs}
+            />
+            <Shimmer
+              width="35%"
+              height={typography.label.lineHeight}
+              borderRadius={layout.borderRadiusXs}
+            />
+          </View>
+          <Shimmer
+            width="100%"
+            height={BODY_INTRINSIC_H * BODY_MAX_SCALE}
+            borderRadius={layout.borderRadius}
+            style={styles.figuresPlaceholder}
+          />
+          <View style={styles.scaleBarContainer}>
+            <Shimmer height={styles.scaleBar.height} borderRadius={layout.borderRadiusFull} />
+          </View>
+        </View>
+      </Card>
+    </SkeletonFrame>
+  );
+}
+
 const styles = StyleSheet.create({
   frame: {
     marginBottom: spacing.sm,
@@ -170,9 +206,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
     gap: spacing.xxs,
   },
+  figuresPlaceholder: {
+    marginTop: typography.label.lineHeight + spacing.xs,
+  },
   bodyTitle: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
+    ...typography.bodyBold,
     color: colors.textPrimary,
     textAlign: 'center',
   },
@@ -192,7 +230,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: spacing.xs,
-    fontStyle: 'italic',
   },
   bodyHintDark: {
     color: darkColors.textSecondary,
@@ -221,7 +258,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   scaleLabel: {
-    fontSize: typography.micro.fontSize,
+    ...typography.micro,
     color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: spacing.xs,
@@ -244,7 +281,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xxs,
   },
   scaleValue: {
-    fontSize: typography.micro.fontSize,
+    ...typography.micro,
     color: colors.textSecondary,
   },
   scaleValueDark: {

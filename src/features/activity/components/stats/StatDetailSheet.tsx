@@ -83,7 +83,6 @@ const makeStyles = (palette: Palette, isDark: boolean) => {
   return StyleSheet.create({
     sheet: {
       paddingBottom: layout.screenPadding,
-      backgroundColor: palette.surface,
     },
     body: {
       paddingHorizontal: layout.screenPadding,
@@ -102,14 +101,12 @@ const makeStyles = (palette: Palette, isDark: boolean) => {
       marginRight: spacing.md,
     },
     value: {
+      ...typography.headlineNumber,
       flex: 1,
-      fontSize: typography.headlineNumber.fontSize,
-      fontWeight: '700',
       color: palette.textPrimary,
     },
     unit: {
-      fontSize: typography.body.fontSize,
-      fontWeight: '600',
+      ...typography.bodyBold,
       color: palette.textSecondary,
     },
     contextBanner: {
@@ -118,8 +115,7 @@ const makeStyles = (palette: Palette, isDark: boolean) => {
       marginBottom: spacing.md,
     },
     contextBannerText: {
-      fontSize: typography.bodySmall.fontSize,
-      fontWeight: '600',
+      ...typography.bodySmallBold,
       textAlign: 'center',
       color: palette.textPrimary,
     },
@@ -136,14 +132,12 @@ const makeStyles = (palette: Palette, isDark: boolean) => {
       marginBottom: spacing.xs,
     },
     explanationTitle: {
-      fontSize: typography.caption.fontSize,
-      fontWeight: '600',
+      ...typography.captionBold,
       color: palette.textSecondary,
     },
     explanationText: {
-      fontSize: typography.bodyCompact.fontSize,
+      ...typography.bodyCompact,
       color: palette.textSecondary,
-      lineHeight: 18,
     },
     detailsList: {
       marginBottom: spacing.md,
@@ -156,12 +150,11 @@ const makeStyles = (palette: Palette, isDark: boolean) => {
       borderBottomColor: overlay.light,
     },
     detailLabel: {
-      fontSize: typography.bodySmall.fontSize,
+      ...typography.bodySmall,
       color: palette.textSecondary,
     },
     detailValue: {
-      fontSize: typography.bodySmall.fontSize,
-      fontWeight: '600',
+      ...typography.bodySmallBold,
       color: palette.textPrimary,
     },
   });

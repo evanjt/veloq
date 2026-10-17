@@ -2,13 +2,12 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { useTheme } from '@/shared/app';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { SheetHeader, ToggleButton } from '@/shared/ui';
 import { formatFileSize } from '@/shared/format/format';
 import { BYTES_PER_BUDGET_MB, TILE_CACHE_BUDGET_CHOICES_MB } from '@/features/maps';
-import { colors, darkColors, spacing } from '@/theme';
+import { spacing } from '@/theme';
 import { tapBack } from '@/shared/app/navigation';
 
 export interface TileCacheBudgetSheetInput {
@@ -17,12 +16,10 @@ export interface TileCacheBudgetSheetInput {
 
 function TileCacheBudgetSheetContent() {
   const { t } = useTranslation();
-  const { isDark } = useTheme();
   const { input, resolve } = useSheetRequest<TileCacheBudgetSheetInput, number>();
-  const surface = isDark ? darkColors.surface : colors.surface;
 
   return (
-    <View testID="settings-tile-cache-picker" style={[styles.sheet, { backgroundColor: surface }]}>
+    <View testID="settings-tile-cache-picker" style={styles.sheet}>
       <SheetHeader
         title={t('settings.tileCacheLimit')}
         onCancel={() => tapBack()}

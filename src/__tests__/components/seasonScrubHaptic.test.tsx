@@ -1,8 +1,8 @@
 /**
- * Scenario: holding the season comparison chart showed the month tooltip with
- * no haptic, where the same hold on the fitness chart gives a light tick.
+ * Scenario: scrubbing the season comparison chart showed the month tooltip with
+ * no haptic, where the same scrub on the fitness chart gives a light tick.
  *
- * Expected behaviour: the hold fires one light impact when it completes, the
+ * Expected behaviour: the scrub fires one light impact when it starts, the
  * month under the finger is the one shown, and lifting the finger closes the
  * tooltip.
  */
@@ -16,13 +16,7 @@ import * as Haptics from 'expo-haptics';
 import { SeasonComparison } from '@/features/stats/components/SeasonComparison';
 import { getIntlLocale } from '@/shared/format/format';
 import { getEngine } from '@/shared/native/engine';
-import {
-  capturePans,
-  holdAndScrub,
-  longPressPan,
-  pressAndLift,
-  release,
-} from '../__shared__/chartScrub';
+import { capturePans, scrub, scrubPan, pressAndLift, release } from '../__shared__/chartScrub';
 import { trainingScreenRead } from '../__shared__/trainingScreenRead';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -87,31 +81,31 @@ afterEach(() => {
 });
 
 describe('season comparison scrub', () => {
-  it('fires one light impact when the hold completes', async () => {
+  it('fires one light impact when the scrub starts', async () => {
     await renderChart();
 
-    await holdAndScrub(longPressPan(pans), 10);
+    await scrub(scrubPan(pans), 10);
 
     expect(Haptics.impactAsync).toHaveBeenCalledTimes(1);
     expect(Haptics.impactAsync).toHaveBeenCalledWith('light');
   });
 
-  it('fires no impact for a touch released before the hold completes', async () => {
+  it('fires no impact for a touch lifted without moving', async () => {
     await renderChart();
 
-    await pressAndLift(longPressPan(pans), 10, 50);
+    await pressAndLift(scrubPan(pans), 10, 50);
 
     expect(Haptics.impactAsync).not.toHaveBeenCalled();
   });
 
   it('shows the first and last month at the chart edges and closes on release', async () => {
     await renderChart();
-    const pan = longPressPan(pans);
+    const pan = scrubPan(pans);
 
-    await holdAndScrub(pan, WIDTH - 1);
+    await scrub(pan, WIDTH - 1);
     expect(screen.getByTestId('season-tooltip').props.children).toBe(monthName(11));
 
-    await holdAndScrub(pan, 1);
+    await scrub(pan, 1);
     expect(screen.getByTestId('season-tooltip').props.children).toBe(monthName(0));
 
     await release(pan);
@@ -122,11 +116,11 @@ describe('season comparison scrub', () => {
     await renderChart();
 
     // March spans x 60 to 90 of 360, so 89 is still March and 91 is April.
-    const pan = longPressPan(pans);
-    await holdAndScrub(pan, 89);
+    const pan = scrubPan(pans);
+    await scrub(pan, 89);
     expect(screen.getByTestId('season-tooltip').props.children).toBe(monthName(2));
 
-    await holdAndScrub(pan, 91);
+    await scrub(pan, 91);
     expect(screen.getByTestId('season-tooltip').props.children).toBe(monthName(3));
   });
 });

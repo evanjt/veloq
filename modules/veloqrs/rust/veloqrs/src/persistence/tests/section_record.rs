@@ -59,6 +59,8 @@ fn detail(records: Vec<crate::SectionPerformanceRecord>) -> crate::FfiSectionPer
         Some(SECTION_M),
         None,
         0,
+        crate::FfiPerformanceSubject::Section,
+        None,
         |_, _| Vec::new(),
         |_| Some(std::sync::Arc::new(None)),
         |_| None,

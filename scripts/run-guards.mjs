@@ -14,13 +14,16 @@
 //   environment  the worktree checks alone, `npm run doctor`
 //
 // Usage: node scripts/run-guards.mjs [--set commit|land|all|environment] [--list | --json]
+// GUARD_WORKERS sets how many run at once, 4 when unset.
 // `--guards <file.json>` swaps the list for a test's own, the way `--root` does in
-// the lints.
+// the lints. `VELOQ_GUARD_KINDS_REPORT=<file>` has the kinds of the guards that
+// failed written there, so `merge-gates.sh` can tell a lander when only style
+// guards did.
 
 import { execFileSync, spawn } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { availableParallelism } from 'node:os';
+import { readFileSync, writeFileSync } from 'node:fs';
 
+import { guardWorkers } from './lib/guardWorkers.mjs';
 import { gitFreeEnv } from './lib/indexedSources.mjs';
 
 const node = (script, ...args) => ['node', `scripts/${script}`, ...args];
@@ -79,6 +82,13 @@ const GUARDS = [
     cmd: node('check-license-coverage.mjs'),
     catches:
       'a direct shipped dependency missing its in-app licence or repository and notice entry',
+  },
+  {
+    name: 'check:font-licences',
+    kind: 'correctness',
+    cmd: node('check-font-licences.mjs'),
+    catches:
+      'an embedded font shipped without its OFL text beside it, or a font the expo-font plugin names that the tree lacks',
   },
   {
     name: 'check:production-console',
@@ -533,11 +543,25 @@ const GUARDS = [
     catches: 'a wait drawn as the static loading glyph, which never turns',
   },
   {
+    name: 'lint:chrome-glyphs',
+    kind: 'style',
+    cmd: node('lint-source-rules.mjs', '--rule', 'chrome-glyphs'),
+    catches:
+      "a share or delete action drawn with the other platform's glyph, or with a second glyph for the same role",
+  },
+  {
     name: 'lint:paper-spinner',
     kind: 'style',
     cmd: node('lint-source-rules.mjs', '--rule', 'paper-spinner'),
     catches:
       "Paper's ActivityIndicator, a drawn Material arc that puts a second spinner style beside the system indicator on iOS",
+  },
+  {
+    name: 'lint:lone-spinner-in-padding',
+    kind: 'style',
+    cmd: node('lint-source-rules.mjs', '--rule', 'lone-spinner-in-padding'),
+    catches:
+      'a spinner alone in a box sized by its padding, which the content it waits for replaces at another height and so moves everything below it',
   },
   {
     name: 'lint:coverage-hooks-read',
@@ -709,6 +733,12 @@ const GUARDS = [
     kind: 'style',
     cmd: node('lint-au-spelling.mjs'),
     catches: 'American spelling in our own identifiers and prose',
+  },
+  {
+    name: 'lint:sentence-case',
+    kind: 'style',
+    cmd: node('lint-sentence-case.mjs'),
+    catches: 'a Title Case label beside sentence-case ones, so one term reads two ways',
   },
   {
     name: 'lint:locale-ellipsis',
@@ -941,6 +971,13 @@ const GUARDS = [
     kind: 'style',
     cmd: node('lint-empty-state-styles.mjs'),
     catches: 'a new hand-rolled empty state style instead of the shared EmptyState',
+  },
+  {
+    name: 'lint:font-size-pluck',
+    kind: 'style',
+    cmd: node('lint-font-size-pluck.mjs'),
+    catches:
+      "a text style built from one role's size and a weight of its own, which drops the role's line height, tracking and figures",
   },
   {
     name: 'lint:style-font-weight',
@@ -1258,9 +1295,7 @@ async function main() {
     }
   }
 
-  // Half the cores: the guards share the box with Jest, tsc and ESLint in the
-  // same hook.
-  const limit = Math.max(2, Math.floor(availableParallelism() / 2));
+  const limit = guardWorkers();
   const started = Date.now();
   const results = await runAll(guards, limit);
   const failed = results.filter((r) => r.code !== 0);
@@ -1272,6 +1307,10 @@ async function main() {
   }
   const seconds = ((Date.now() - started) / 1000).toFixed(1);
   if (failed.length > 0) {
+    if (process.env.VELOQ_GUARD_KINDS_REPORT) {
+      const kinds = [...new Set(failed.map((r) => r.guard.kind))].sort();
+      writeFileSync(process.env.VELOQ_GUARD_KINDS_REPORT, `${kinds.join(' ')}\n`);
+    }
     console.error(
       `\nrun-guards: ${failed.length} of ${results.length} ${set} guards failed in ${seconds} s`
     );

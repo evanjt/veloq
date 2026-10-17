@@ -66,7 +66,6 @@ function Root({ currentSection = section }: { currentSection?: FrequentSection }
   return (
     <SectionHeader
       section={currentSection}
-      insetTop={0}
       activityColor="#000000"
       iconName="bike"
       mapReady={true}

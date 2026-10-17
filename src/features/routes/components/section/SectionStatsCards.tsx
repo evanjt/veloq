@@ -406,12 +406,11 @@ const styles = StyleSheet.create({
   },
   calendarYearRowDark: {},
   calendarYearText: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
+    ...typography.bodyBold,
     color: colors.textPrimary,
   },
   calendarYearSubtitle: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
     flex: 1,
   },
@@ -430,12 +429,12 @@ const styles = StyleSheet.create({
   },
   calendarMonthRowDark: {},
   calendarMonthName: {
-    fontSize: typography.bodySmall.fontSize,
+    ...typography.bodySmall,
     color: colors.textSecondary,
     width: 36,
   },
   calendarMonthCount: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
     width: 24,
     textAlign: 'center',
@@ -470,8 +469,7 @@ const styles = StyleSheet.create({
     color: colors.textOnDark,
   },
   calendarMonthTime: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    ...typography.bodySmallBold,
     color: colors.textPrimary,
     flex: 1,
   },

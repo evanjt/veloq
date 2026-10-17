@@ -22,6 +22,21 @@ pub fn latest_version() -> u32 {
     PersistentEngine::migration_scripts().len() as u32
 }
 
+/// Open a connection for writing a fixture, with no fsync on commit.
+///
+/// A seed is rebuilt on every run, so surviving a power cut buys it nothing,
+/// and a seed written one commit at a time spends its run in fsync on a real
+/// disk where tmpfs spends none: tens of seconds a test against a fraction of
+/// one. `synchronous` decides only what reaches the platter, never what another
+/// connection reads, so the engine opening the file afterwards sees the same
+/// database either way.
+pub fn open_seed(path: &Path) -> Connection {
+    let conn = Connection::open(path).expect("open seed database");
+    conn.pragma_update(None, "synchronous", "OFF")
+        .expect("seed connection skips fsync");
+    conn
+}
+
 /// Build a database at `path` holding exactly migrations `1..=n` and nothing
 /// after them, then return an open connection to it.
 ///
@@ -45,7 +60,7 @@ pub fn seed_at_version(path: &Path, n: u32) -> Connection {
     );
 
     let prefix: Vec<M> = scripts[..n as usize].iter().copied().map(M::up).collect();
-    let mut conn = Connection::open(path).expect("open seed database");
+    let mut conn = open_seed(path);
     Migrations::new(prefix)
         .to_latest(&mut conn)
         .unwrap_or_else(|e| panic!("apply migrations 1..={n}: {e}"));

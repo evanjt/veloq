@@ -272,10 +272,9 @@ describe('activity detail for an activity that is not stored', () => {
       mockStackScreen.mockClear();
       answer(overrides);
 
-      const { getByTestId, toJSON, unmount } = await render(<ActivityDetailScreen />);
+      const { toJSON, unmount } = await render(<ActivityDetailScreen />);
 
       expect(lastHeaderOptions()).toMatchObject({ headerTransparent: false });
-      expect(getByTestId('activity-detail-screen').props.hasNativeHeader).toBe(true);
       const root = toJSON() as { props: { testID?: string }; children: unknown[] };
       expect(root.props.testID).toBe('activity-detail-screen');
       expect(root.children).toHaveLength(1);

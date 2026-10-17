@@ -20,6 +20,7 @@ import type { FfiAttemptHistograms, FfiSectionLapCurves } from 'veloqrs';
 import { AttemptHistogramChart } from './AttemptHistogramChart';
 import { ScatterLegend } from './ScatterLegend';
 import { SectionDeltaChart } from './SectionDeltaChart';
+import { SectionDeltaSummaryChart } from './SectionDeltaSummaryChart';
 import { SectionScatterChart, type SectionScatterChartProps } from './SectionScatterChart';
 
 /** The plots the panel can show. A further plot is one more member and one more branch below. */
@@ -44,8 +45,9 @@ export interface PerformanceChartPanelProps extends Omit<
   /** The engine's lap delta curves. Absent where the screen has none, which offers no delta plot. */
   curves?: FfiSectionLapCurves | undefined;
   /**
-   * Called with the attempt the delta plot emphasises while that plot is shown,
-   * and with null otherwise, so the section map can colour its line by it.
+   * Called with what the delta plot shows per split while that plot is shown,
+   * the chosen attempt or else the typical one, and with null otherwise, so the
+   * section map can colour its line by it.
    */
   onDeltaLineChange?: ((line: SectionDeltaLine | null) => void) | undefined;
 }
@@ -97,12 +99,16 @@ export function PerformanceChartPanel({
         : scatterProps.trendCurves.forwardSpeed;
 
   const deltas = curves?.[direction];
+  // With an attempt chosen the plot draws its curve; with none it draws the
+  // typical attempt, which the engine gives only once enough laps exist.
+  const attemptChosen = highlightedActivityId !== undefined;
+  const typical = attemptChosen ? undefined : deltas?.splitSummary;
 
   // A plot whose data has gone stops being shown, and does not return on its
   // own when the data does.
   const available: PerformancePlotType[] = ['scatter'];
   if (histogram) available.push('histogram');
-  if (deltas) available.push('delta');
+  if (deltas && (attemptChosen || typical)) available.push('delta');
   if (!available.includes(plotType)) setPlotType('scatter');
   const shownPlot: PerformancePlotType = available.includes(plotType) ? plotType : 'scatter';
 
@@ -114,25 +120,27 @@ export function PerformanceChartPanel({
   const recordTime = (direction === 'reverse' ? bestReverseRecord : bestForwardRecord)?.bestTime;
   const recordHeld = direction === 'reverse' ? bestReverseIsRecord : bestForwardIsRecord;
 
-  const deltaLap =
-    shownPlot === 'delta' && deltas
-      ? pickEmphasisedLap(deltas.laps, highlightedActivityId)
-      : undefined;
+  const deltaSplits =
+    shownPlot !== 'delta' || !deltas
+      ? undefined
+      : typical
+        ? typical.medianSecs
+        : pickEmphasisedLap(deltas.laps, highlightedActivityId)?.splitDeltaSecs;
   const deltaSplitStepM = curves?.splitStepM;
   const deltaSectionLengthM = curves?.sectionLengthM;
   useEffect(() => {
     if (!onDeltaLineChange) return;
     onDeltaLineChange(
-      deltaLap && deltaSplitStepM !== undefined && deltaSectionLengthM !== undefined
+      deltaSplits && deltaSplitStepM !== undefined && deltaSectionLengthM !== undefined
         ? {
-            splits: deltaLap.splitDeltaSecs,
+            splits: deltaSplits,
             splitStepM: deltaSplitStepM,
             sectionLengthM: deltaSectionLengthM,
             direction,
           }
         : null
     );
-  }, [onDeltaLineChange, deltaLap, deltaSplitStepM, deltaSectionLengthM, direction]);
+  }, [onDeltaLineChange, deltaSplits, deltaSplitStepM, deltaSectionLengthM, direction]);
   // The map keeps no line of its own once the chart is gone.
   useEffect(() => () => onDeltaLineChange?.(null), [onDeltaLineChange]);
 
@@ -166,7 +174,17 @@ export function PerformanceChartPanel({
           }}
         />
       ) : null}
-      {shownPlot === 'delta' && deltas && curves ? (
+      {shownPlot === 'delta' && deltas && curves && typical ? (
+        <Card variant="flat" padding="none">
+          <SectionDeltaSummaryChart
+            summary={typical}
+            referenceSource={deltas.referenceSource}
+            splitStepM={curves.splitStepM}
+            sectionLengthM={curves.sectionLengthM}
+            isDark={isDark}
+          />
+        </Card>
+      ) : shownPlot === 'delta' && deltas && curves ? (
         <Card variant="flat" padding="none">
           <SectionDeltaChart
             deltas={deltas}

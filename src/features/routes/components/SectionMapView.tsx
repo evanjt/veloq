@@ -54,7 +54,7 @@ import {
   mapControlColumnLayout,
 } from '@/features/maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CompassArrow, ComponentErrorBoundary, HERO_HEADER_HEIGHT } from '@/shared/ui';
+import { CompassArrow, ComponentErrorBoundary } from '@/shared/ui';
 import type { FrequentSection, RoutePoint, ActivityType } from '@/types';
 import { toActivityType } from '@/features/routes/types';
 import { onlySport } from '@/shared/activity/sportSet';
@@ -104,11 +104,10 @@ interface SectionMapViewProps {
   /** Extension track for expanding section bounds - shown as faded line beyond the section */
   extensionTrack?: RoutePoint[] | null | undefined;
   /**
-   * Top safe-area inset of the screen the map fills. The map draws edge to
-   * edge, so the legend and the controls are offset by this and the hero's
-   * header row to clear the status bar and the back button.
+   * Bottom edge of whatever covers the map's top, inset and header included.
+   * The map draws edge to edge, so the legend and the controls start below it.
    */
-  insetTop?: number | undefined;
+  headerBottom?: number | undefined;
   /** The attempt the chart's delta plot shows. While set, the section line is coloured by it. */
   deltaLine?: SectionDeltaLine | null | undefined;
 }
@@ -130,7 +129,7 @@ export const SectionMapView = memo(function SectionMapView({
   allActivityTraces,
   trimRange = null,
   extensionTrack = null,
-  insetTop = 0,
+  headerBottom = 0,
   deltaLine = null,
 }: SectionMapViewProps) {
   const { t } = useTranslation();
@@ -139,10 +138,10 @@ export const SectionMapView = memo(function SectionMapView({
   });
   const { getStyleForActivity, preferences } = useMapPreferences();
 
-  // The first row of the map that is not under the status bar or the hero's
-  // back button. Everything floated over the map's top corners starts here.
+  // The first row of the map that is not under the status bar or the header.
+  // Everything floated over the map's top corners starts here.
   const fullscreenInsets = useSafeAreaInsets();
-  const overlayTop = insetTop + HERO_HEADER_HEIGHT + spacing.sm;
+  const overlayTop = headerBottom + spacing.sm;
 
   // The engine sends the sport as a string, so it is read against the one
   // activity vocabulary the app keeps. A sport nothing recognises is `Other`,

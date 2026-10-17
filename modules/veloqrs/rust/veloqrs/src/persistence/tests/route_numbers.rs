@@ -158,6 +158,40 @@ fn a_typed_name_replaces_the_number_on_screen_and_clearing_it_brings_the_number_
 }
 
 #[test]
+fn a_name_another_route_shows_is_refused_and_changes_nothing() {
+    let _serial = crate::test_globals::serial_global_state();
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    let _word = RouteWord::set("Route");
+    save(
+        &mut engine,
+        vec![
+            group("r_1", &["a", "b"]),
+            group("r_2", &["c"]),
+            group("r_3", &["d"]),
+        ],
+    );
+    engine.set_route_name("r_2", Some("Harbour loop")).unwrap();
+
+    // Taken as a typed name, and as the number another route is shown under.
+    assert!(engine.set_route_name("r_1", Some("Harbour loop")).is_err());
+    assert!(engine.set_route_name("r_1", Some("Route 3")).is_err());
+    assert_eq!(engine.get_route_name("r_1").as_deref(), Some("Route 1"));
+    assert_eq!(
+        engine.get_all_route_names().get("r_1").map(String::as_str),
+        Some("Route 1")
+    );
+
+    // A route's own shown name is no clash.
+    engine.set_route_name("r_2", Some("Harbour loop")).unwrap();
+    engine.set_route_name("r_1", Some("Route 1")).unwrap();
+    engine.set_route_name("r_1", Some("Quarry climb")).unwrap();
+    assert_eq!(
+        engine.get_route_name("r_1").as_deref(),
+        Some("Quarry climb")
+    );
+}
+
+#[test]
 fn a_regroup_that_splits_and_merges_leaves_no_two_routes_on_one_number() {
     let _serial = crate::test_globals::serial_global_state();
     let mut engine = PersistentEngine::in_memory().unwrap();

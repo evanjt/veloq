@@ -92,11 +92,10 @@ function RouteOverlaySheetContent() {
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const accentText = isDark ? darkColors.linkTeal : colors.linkTeal;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
 
   return (
-    <View style={[styles.sheet, { backgroundColor: surface }]}>
+    <View style={styles.sheet}>
       <SheetHeader
         title={t('recording.routeOverlay.title', 'Follow a route')}
         onCancel={() => tapBack()}
@@ -124,9 +123,19 @@ function RouteOverlaySheetContent() {
       </Pressable>
 
       {groupsError !== undefined ? (
-        <Text testID="route-groups-failure" style={[styles.failureLine, { color: textSecondary }]}>
-          {t(engineErrorKey(groupsError, 'engine.failure.database'))}
-        </Text>
+        <View style={styles.failureLine}>
+          <MaterialCommunityIcons
+            name="alert-circle-outline"
+            size={iconSize.sm}
+            color={isDark ? darkColors.warningAmber : colors.warningAmber}
+          />
+          <Text
+            testID="route-groups-failure"
+            style={[styles.failureText, { color: textSecondary }]}
+          >
+            {t(engineErrorKey(groupsError, 'engine.failure.database'))}
+          </Text>
+        </View>
       ) : groups.length === 0 ? (
         <EmptyState
           variant="inline"
@@ -217,13 +226,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   rowMeta: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     marginTop: spacing.xxs,
   },
   failureLine: {
-    ...typography.bodySmall,
-    fontStyle: 'italic',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
+  },
+  failureText: {
+    ...typography.bodySmall,
+    flex: 1,
   },
 });

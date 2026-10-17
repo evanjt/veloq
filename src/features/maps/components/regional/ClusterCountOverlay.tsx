@@ -161,9 +161,8 @@ const styles = StyleSheet.create({
     height: 16,
   },
   countLabelVisible: {
+    ...typography.captionBold,
     color: colors.textOnPrimary,
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
     textAlign: 'center',
   },
 });

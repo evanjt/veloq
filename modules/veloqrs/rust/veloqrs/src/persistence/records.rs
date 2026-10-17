@@ -237,6 +237,46 @@ pub fn section_record_lap(
     holds_section_record(lap.time, &record.activity_id, laps).then_some((record, lap))
 }
 
+/// A direction's record progression, oldest step first: each eligible lap
+/// strictly faster than every eligible lap before it, over the whole included
+/// history.
+///
+/// Eligibility is [`section_record_lap`]'s, and so is the tie rule: a lap
+/// equal to the level standing adds no step. The progression ends at the lap
+/// that judgement names, so a direction with no record, a lone outing or a
+/// tie at the top, has none.
+pub fn section_record_progression(
+    result: &crate::SectionPerformanceResult,
+    reverse: bool,
+) -> Vec<crate::FfiRecordStep> {
+    let Some((holder, record_lap)) = section_record_lap(result, reverse) else {
+        return Vec::new();
+    };
+    let mut laps: Vec<_> = record_eligible_laps(result, reverse).collect();
+    // Stable, so two laps of one outing keep the order they were ridden in.
+    laps.sort_by_key(|(record, _)| record.activity_date);
+    let mut steps: Vec<crate::FfiRecordStep> = Vec::new();
+    for (record, lap) in laps {
+        let previous = steps.last();
+        if previous.is_some_and(|step| lap.time >= step.section_time) {
+            continue;
+        }
+        steps.push(crate::FfiRecordStep {
+            activity_id: record.activity_id.clone(),
+            lap_id: lap.id.clone(),
+            activity_date: record.activity_date as f64,
+            section_time: lap.time,
+            speed: lap.pace,
+            improvement_secs: previous.map(|step| step.section_time - lap.time),
+            improvement_speed: previous.map(|step| lap.pace - step.speed),
+        });
+        if record.activity_id == holder.activity_id && lap.id == record_lap.id {
+            break;
+        }
+    }
+    steps
+}
+
 /// The best other outing in a section result's selected sport and direction.
 pub fn section_record_rival(
     result: &crate::SectionPerformanceResult,

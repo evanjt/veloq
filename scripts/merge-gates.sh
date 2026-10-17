@@ -5,9 +5,16 @@ set -e
 # fails the same one. `land-branch.sh` hands over the file and reads it back,
 # so its verdict rests on an exit code and a name, not on scraping the output.
 step=''
+# A guards failure made of style guards alone is named `style-guards`, which the
+# lander knows the candidate brought.
+kinds=$(mktemp)
 record_failure() {
   code=$?
-  [ "$code" -eq 0 ] || [ -z "${VELOQ_GATE_REPORT:-}" ] || echo "$step" >"$VELOQ_GATE_REPORT"
+  if [ "$code" -ne 0 ] && [ -n "${VELOQ_GATE_REPORT:-}" ]; then
+    if [ "$step" = guards ] && [ "$(cat "$kinds")" = style ]; then step=style-guards; fi
+    echo "$step" >"$VELOQ_GATE_REPORT"
+  fi
+  rm -f "$kinds"
 }
 trap record_failure EXIT
 
@@ -70,7 +77,9 @@ npx tsc -b
 step=format
 ./scripts/check-merge-format.sh
 step=guards
+export VELOQ_GUARD_KINDS_REPORT="$kinds"
 npm run audit:guards
+unset VELOQ_GUARD_KINDS_REPORT
 # The guards judge the merged tree, and a branch can add personal data and
 # delete it again, which leaves the tree clean and the blob in main's history.
 step=private-data

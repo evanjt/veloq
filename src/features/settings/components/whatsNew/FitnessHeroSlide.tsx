@@ -242,9 +242,8 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   cardTitle: {
+    ...typography.badge,
     flexShrink: 1,
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
   },
   cardAside: {
     fontSize: typography.label.fontSize,
@@ -292,8 +291,8 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusFull,
   },
   explanation: {
+    ...typography.caption,
     flex: 1,
-    fontSize: typography.caption.fontSize,
   },
   explanationName: {
     fontWeight: '600',

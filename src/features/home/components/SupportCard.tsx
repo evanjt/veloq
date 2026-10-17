@@ -26,7 +26,7 @@ import {
 } from '@/theme';
 import { TipButtons } from '@/shared/ui/TipButtons';
 import { Card } from '@/shared/ui/Card';
-import { Button, DisclosureChevron, pressable, pressRipple } from '@/shared/ui';
+import { Button, DisclosureChevron, pressable, pressRipple, useLargeText } from '@/shared/ui';
 
 /**
  * Whether the card is on screen, and nothing else.
@@ -62,6 +62,9 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
   const { products, isAvailable, isPurchasing, purchaseSuccess, purchase } = useDonation();
 
   const [tipsExpanded, setTipsExpanded] = useState(false);
+  // Past the large-text cap the two dismiss labels cannot share a row, so they
+  // stack and the dot between them goes.
+  const stackDismiss = useLargeText();
 
   const toggleTips = useCallback(() => {
     setTipsExpanded((expanded) => !expanded);
@@ -177,12 +180,7 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
           >
             {isAvailable ? (
               <View testID="support-card-tip-buttons">
-                <TipButtons
-                  products={products}
-                  isPurchasing={isPurchasing}
-                  onTip={handleTip}
-                  isDark={isDark}
-                />
+                <TipButtons products={products} isPurchasing={isPurchasing} onTip={handleTip} />
               </View>
             ) : (
               <Button
@@ -198,7 +196,7 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
 
         <Animated.View
           layout={LinearTransition.duration(duration.standard)}
-          style={styles.dismissRow}
+          style={[styles.dismissRow, stackDismiss && styles.dismissStacked]}
         >
           <Button
             label={t('support.remindLater')}
@@ -206,7 +204,9 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
             size="sm"
             onPress={handleRemindLater}
           />
-          <Text style={[styles.dismissSeparator, isDark && styles.dismissTextDark]}>·</Text>
+          {stackDismiss ? null : (
+            <Text style={[styles.dismissSeparator, isDark && styles.dismissTextDark]}>·</Text>
+          )}
           <Button
             label={t('support.neverShow')}
             variant="ghost"
@@ -291,6 +291,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingTop: spacing.xs,
+  },
+  dismissStacked: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
   },
   dismissSeparator: {
     ...typography.caption,

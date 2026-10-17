@@ -429,7 +429,6 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   secondaryStatValue: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
+    ...typography.captionBold,
   },
 });

@@ -13,7 +13,7 @@ import { render } from '@testing-library/react-native';
 
 import { RecordFAB } from '@/features/recording/components/RecordFAB';
 import { BottomInsetTaken, TAB_BAR_SAFE_PADDING } from '@/shared/ui/tabBarClearance';
-import { brand, colors, darkColors, recording, spacing } from '@/theme';
+import { brand, colors, darkColors, recording, shadows, spacing } from '@/theme';
 
 /** WCAG 2.2 AA for a graphical object, which is what a glyph on a fill is. */
 const AA_GRAPHIC = 3;
@@ -108,7 +108,7 @@ describe('the record button reads as recording', () => {
     const fab = view.getByTestId('record-fab');
 
     expect(fab.props.accessibilityRole).toBe('button');
-    expect(fab.props.accessibilityLabel).toBe('Start Activity');
+    expect(fab.props.accessibilityLabel).toBe('Start activity');
     expect(view.UNSAFE_queryAllByProps({ name: 'record-circle-outline' })).not.toHaveLength(0);
   });
 
@@ -126,6 +126,25 @@ describe('the record button reads as recording', () => {
       24 + TAB_BAR_SAFE_PADDING + spacing.md
     );
   });
+
+  it.each([false, true])(
+    'draws the shared record-button shadow and none of its own (dark %s)',
+    async (isDark) => {
+      const style = await fabStyle(isDark);
+      const shadowKeys = [
+        'elevation',
+        'shadowColor',
+        'shadowOffset',
+        'shadowOpacity',
+        'shadowRadius',
+      ] as const;
+      const drawn = Object.fromEntries(
+        shadowKeys.filter((key) => style[key] !== undefined).map((key) => [key, style[key]])
+      );
+
+      expect(drawn).toEqual(shadows.fab);
+    }
+  );
 
   it('stays hidden while a session is running', async () => {
     session.status = 'recording';

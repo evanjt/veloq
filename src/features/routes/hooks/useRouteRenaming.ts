@@ -7,14 +7,14 @@ import type { TextFieldHandle } from '@/shared/ui/TextField';
 import { inform } from '@/shared/ui/dialog';
 
 /**
- * `routeNames` is the name map the route detail read carries, the one reader
- * of route names on that screen. Undefined while the read is loading.
+ * `shownName` is the name the route detail read gives this route, undefined
+ * while the read is loading. Whether a new name is taken by another route is
+ * the engine's to judge, on the rename itself.
  */
 export function useRouteRenaming(
   id: string | undefined,
-  routeGroupBaseName: string | undefined,
-  t: TFunction,
-  routeNames: Record<string, string> | undefined
+  shownName: string | undefined,
+  t: TFunction
 ) {
   // State for route renaming
   const [isEditing, setIsEditing] = useState(false);
@@ -23,25 +23,21 @@ export function useRouteRenaming(
   const nameInputRef = useRef<TextFieldHandle>(null);
   const openedWithName = useRef<string | null>(null);
 
-  const readNames = useCallback(() => routeNames ?? {}, [routeNames]);
-
   useEffect(() => {
-    if (id) {
-      const names = readNames();
-      if (names[id]) {
-        setCustomName(names[id]);
-      }
+    if (id && shownName) {
+      setCustomName(shownName);
     }
-  }, [id, readNames]);
+  }, [id, shownName]);
 
   // Engine fires 'groups' event which triggers subscribers to refresh
-  const renameRoute = useCallback((routeId: string, name: string) => {
-    setRouteName(routeId, name);
-  }, []);
+  const renameRoute = useCallback(
+    (routeId: string, name: string) => setRouteName(routeId, name),
+    []
+  );
 
   // Handle starting to edit the route name
   const handleStartEditing = useCallback(() => {
-    const currentName = customName || routeGroupBaseName || '';
+    const currentName = customName || shownName || '';
     openedWithName.current = currentName.trim();
     setEditName(currentName);
     setIsEditing(true);
@@ -49,7 +45,7 @@ export function useRouteRenaming(
     setTimeout(() => {
       nameInputRef.current?.focus();
     }, 100);
-  }, [customName, routeGroupBaseName]);
+  }, [customName, shownName]);
 
   // Handle saving the edited route name
   // Uses renameRoute hook which triggers engine event for consistent UI updates
@@ -69,25 +65,20 @@ export function useRouteRenaming(
       return;
     }
 
-    // Uniqueness runs over the engine's name map, the same source the current
-    // name was seeded from. It holds every group's shown name, typed names and
-    // numbered labels alike.
-    const isDuplicate = Object.entries(readNames()).some(
-      ([existingId, name]) => existingId !== id && name === trimmedName
-    );
-
-    if (isDuplicate) {
-      inform({ title: t('routes.duplicateNameTitle'), message: t('routes.duplicateNameMessage') });
-      return;
-    }
-
     // Update local state immediately for instant feedback
     const previousName = customName;
     setCustomName(trimmedName);
 
     // Fire rename synchronously - Rust engine updates immediately
     try {
-      renameRoute(id, trimmedName);
+      if (renameRoute(id, trimmedName) === 'nameTaken') {
+        setCustomName(previousName);
+        inform({
+          title: t('routes.duplicateNameTitle'),
+          message: t('routes.duplicateNameMessage'),
+        });
+        return;
+      }
     } catch (error) {
       setCustomName(previousName);
       inform({ title: t('routes.renameFailedTitle'), message: t('routes.renameFailedMessage') });
@@ -95,7 +86,7 @@ export function useRouteRenaming(
       return;
     }
     haptics.success();
-  }, [customName, editName, id, readNames, renameRoute, t]);
+  }, [customName, editName, id, renameRoute, t]);
 
   // Handle canceling the edit
   const handleCancelEdit = useCallback(() => {

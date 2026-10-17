@@ -10,6 +10,7 @@ import {
   iconSize,
   ink,
   layout,
+  opacity,
   spacing,
   typography,
   stroke,
@@ -119,7 +120,7 @@ export function NextcloudQrScanner({
         <IconButton accessibilityLabel={t('common.close')} onPress={onClose}>
           <MaterialCommunityIcons name="close" size={iconSize.lg} color={cameraOverlay.text} />
         </IconButton>
-        <Text style={styles.headerTitle}>{t('backup.scanQrTitle', 'Scan Nextcloud QR Code')}</Text>
+        <Text style={styles.headerTitle}>{t('backup.scanQrTitle', 'Scan Nextcloud QR code')}</Text>
         <IconButton
           accessibilityLabel={torchOn ? t('backup.torchOff') : t('backup.torchOn')}
           accessibilityState={{ checked: torchOn }}
@@ -180,7 +181,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
-    backgroundColor: colorWithOpacity(ink.black, 0.5),
+    backgroundColor: colorWithOpacity(ink.black, opacity.disabled),
   },
   headerTitle: {
     ...typography.cardTitle,

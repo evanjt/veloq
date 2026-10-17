@@ -28,21 +28,16 @@ tags:
 - runFlow:
     file: helpers/navigate-to-training.yaml
 
-# Verify weekly summary container is visible
-- extendedWaitUntil:
-    visible:
-      id: "weekly-summary"
-    timeout: 10000
-
-# WeeklySummary is below the fold on the training screen. On Android the
-# year button can overlap the tab bar, scroll it into view first.
-- scrollUntilVisible:
-    element:
-      id: "weekly-summary-range-year"
-    direction: DOWN
-    timeout: 15000
-    speed: 40
-    visibilityPercentage: 50
+# WeeklySummary sits below the heatmap and the wellness chart, under the
+# fold on a phone. Reveal it, then its year button clear of the tab bar.
+- runFlow:
+    file: helpers/reveal.yaml
+    env:
+      ELEMENT: "weekly-summary"
+- runFlow:
+    file: helpers/reveal.yaml
+    env:
+      ELEMENT: "weekly-summary-range-year"
 
 - tapOn:
     id: "weekly-summary-range-year"

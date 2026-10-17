@@ -216,11 +216,14 @@ export function getSectionDetailPerformance(
   host: DelegateHost,
   sectionId: string,
   timeRangeDays: number,
-  sportFilter?: string
+  sportFilter?: string,
+  highlightActivityId?: string
 ): FfiSectionPerformanceData | undefined {
   if (!host.ready || !sectionId) return undefined;
   return host.timed('getSectionDetailPerformance', () =>
-    host.engine.sections().getDetailPerformance(sectionId, timeRangeDays, sportFilter)
+    host.engine
+      .sections()
+      .getDetailPerformance(sectionId, timeRangeDays, sportFilter, highlightActivityId)
   );
 }
 
@@ -232,12 +235,19 @@ export async function loadSectionDetailPerformance(
   host: DelegateHost,
   sectionId: string,
   timeRangeDays: number,
-  sportFilter?: string
+  sportFilter?: string,
+  highlightActivityId?: string
 ): Promise<FfiSectionPerformanceData | undefined> {
   if (!host.ready || !sectionId) return undefined;
   return host.timedAsync('loadSectionDetailPerformance', () =>
     host.engine
       .sections()
-      .loadDetailPerformance(FfiPerformanceSubject.Section, sectionId, timeRangeDays, sportFilter)
+      .loadDetailPerformance(
+        FfiPerformanceSubject.Section,
+        sectionId,
+        timeRangeDays,
+        sportFilter,
+        highlightActivityId
+      )
   );
 }

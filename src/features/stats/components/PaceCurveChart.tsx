@@ -5,13 +5,14 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import {
   colors,
-  typography,
-  spacing,
-  layout,
   colorWithOpacity,
-  themedStyles,
+  layout,
+  opacity,
   type Palette,
+  spacing,
   stroke,
+  themedStyles,
+  typography,
 } from '@/theme';
 import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
 import { RangeCoverage } from 'veloqrs';
@@ -392,8 +393,7 @@ const makeStyles = (palette: Palette) =>
       gap: spacing.xsPlus,
     },
     gapLabel: {
-      fontSize: typography.caption.fontSize,
-      fontWeight: '400',
+      ...typography.caption,
       color: palette.textSecondary,
     },
     valuesRow: {
@@ -410,8 +410,7 @@ const makeStyles = (palette: Palette) =>
       marginBottom: spacing.xxs,
     },
     valueNumber: {
-      fontSize: typography.bodySmall.fontSize,
-      fontWeight: '700',
+      ...typography.pillValue,
     },
 
     activityPill: {
@@ -421,15 +420,14 @@ const makeStyles = (palette: Palette) =>
       paddingVertical: spacing.xs,
       borderRadius: layout.borderRadius,
       borderWidth: stroke.one,
-      borderColor: colorWithOpacity(colors.run, 0.3),
+      borderColor: colorWithOpacity(colors.run, opacity.tint4),
     },
     activityPillDark: {
       backgroundColor: colorWithOpacity(colors.run, 0.2),
-      borderColor: colorWithOpacity(colors.run, 0.4),
+      borderColor: colorWithOpacity(colors.run, opacity.dim),
     },
     activityLabel: {
-      fontSize: typography.caption.fontSize,
-      fontWeight: '600',
+      ...typography.captionBold,
       color: colors.textPrimary,
     },
     emptyState: {
@@ -441,7 +439,7 @@ const makeStyles = (palette: Palette) =>
       alignItems: 'center',
     },
     notDownloadedText: {
-      fontSize: typography.bodyCompact.fontSize,
+      ...typography.bodyCompact,
       color: palette.textSecondary,
     },
     legend: {
@@ -467,12 +465,12 @@ const makeStyles = (palette: Palette) =>
       alignItems: 'center',
     },
     dateRange: {
-      fontSize: typography.micro.fontSize,
+      ...typography.micro,
       color: palette.textSecondary,
       marginBottom: spacing.xxs,
     },
     modelStats: {
-      fontSize: typography.micro.fontSize,
+      ...typography.micro,
       color: palette.textSecondary,
     },
   });

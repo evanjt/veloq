@@ -10,7 +10,7 @@
       "form": null,
       "hrv": null
     },
-    "formZone": "Grey Zone",
+    "formZone": "Grey zone",
     "impactLine": null,
     "metricLabels": {
       "fatigue": "Fatigue",
@@ -22,7 +22,7 @@
     },
     "openToRefreshLabel": "Open Veloq to refresh",
     "perWeekSuffix": "/wk",
-    "recordLabel": "Start Activity",
+    "recordLabel": "Start activity",
     "refreshLabel": "Refresh",
     "refreshingLabel": "Refreshing",
     "weekLabel": "Week"
@@ -468,7 +468,7 @@
       },
       {
         "id": "movingTime",
-        "label": "Moving Time",
+        "label": "Moving time",
         "value": "1:30:00"
       },
       {

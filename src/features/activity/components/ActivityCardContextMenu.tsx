@@ -13,6 +13,7 @@ import {
   type ContextMenuAction,
   type ContextMenuEntry,
 } from '@/shared/ui/ContextMenu';
+import { chromeMenuIcon } from '@/shared/ui/ChromeIcon';
 import { tapTo } from '@/shared/app/navigation';
 import { INTERVALS_URLS } from '@/shared/app/constants';
 import { debug } from '@/shared/debug/debug';
@@ -152,8 +153,7 @@ export function ActivityCardContextMenu({
           {
             key: 'share',
             label: t('activity.share'),
-            icon: 'share-variant',
-            systemIcon: 'square.and.arrow.up',
+            ...chromeMenuIcon('share'),
             onPress: () => void handleShare(),
           },
         ]

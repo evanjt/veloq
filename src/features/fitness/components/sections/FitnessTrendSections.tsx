@@ -4,7 +4,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Card, CollapsibleSection, Spinner } from '@/shared/ui';
+import { Card, CollapsibleSection, Shimmer, SkeletonFrame } from '@/shared/ui';
 import { ZoneDistributionChart, FTPTrendChart, DecouplingChart } from '@/features/stats';
 import { type DecouplingSource } from '@/features/activity';
 import { useTheme } from '@/shared/app';
@@ -23,6 +23,7 @@ import {
   opacity,
   spacing,
   stroke,
+  layout,
   typography,
   verdictColor,
 } from '@/theme';
@@ -33,6 +34,25 @@ import type { FtpTrendView } from '../../lib/ftpTrendView';
 import type { RangeCoverage } from 'veloqrs';
 import { ABSENT } from '@/shared/format/absent';
 import { formatPercent } from '@/shared/format';
+
+/**
+ * The content height each section declares to its collapsible, which its
+ * placeholder takes too while the period's activities are read. Cycling
+ * draws a power chart above the heart rate one.
+ */
+const ZONES_HEIGHT_CYCLING = 400;
+const ZONES_HEIGHT = 200;
+const TRENDS_HEIGHT = 220;
+const DECOUPLING_HEIGHT = 160;
+
+/** A chart's place while the activities it is drawn from are read. */
+function ChartPlaceholder({ height }: { height: number }) {
+  return (
+    <SkeletonFrame>
+      <Shimmer height={height} borderRadius={layout.borderRadius} />
+    </SkeletonFrame>
+  );
+}
 
 interface FitnessTrendSectionsProps {
   sportMode: PrimarySport;
@@ -46,7 +66,7 @@ interface FitnessTrendSectionsProps {
   periodCoverage: RangeCoverage;
   loadingActivities: boolean;
   hasActivities: boolean;
-  dominantZone: { name: string; percentage: number } | null;
+  dominantZone: { name: string; share: number } | null;
   zonesExpanded: boolean;
   onZonesToggle: (expanded: boolean) => void;
   // eFTP trend (cycling)
@@ -90,6 +110,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
+  const zonesHeight = sportMode === 'Cycling' ? ZONES_HEIGHT_CYCLING : ZONES_HEIGHT;
   // A headline number is text, and the sport fills are 2.3:1 to 3.6:1 on the
   // light card. The text pair is the same hues at text grade.
   const sportText = isDark ? SPORT_TEXT_COLORS_DARK : SPORT_TEXT_COLORS;
@@ -114,20 +135,18 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
             icon="chart-bar"
             expanded={zonesExpanded}
             onToggle={onZonesToggle}
-            estimatedHeight={sportMode === 'Cycling' ? 400 : 200}
+            estimatedHeight={zonesHeight}
             headerRight={
               dominantZone ? (
                 <Text style={[styles.headerValue, { color: sportText[sportMode] }]}>
-                  {dominantZone.name}: {dominantZone.percentage}%
+                  {dominantZone.name}: {dominantZone.share}%
                 </Text>
               ) : null
             }
           >
             <View style={styles.collapsibleContent}>
               {loadingActivities && !hasActivities ? (
-                <View style={styles.zoneLoadingContainer}>
-                  <Spinner />
-                </View>
+                <ChartPlaceholder height={zonesHeight} />
               ) : (
                 <>
                   {sportMode === 'Cycling' && (
@@ -165,7 +184,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
               icon="trending-up"
               expanded={trendsExpanded}
               onToggle={onTrendsToggle}
-              estimatedHeight={220}
+              estimatedHeight={TRENDS_HEIGHT}
               headerRight={
                 headerFtp ? (
                   <View style={styles.headerValueRow}>
@@ -186,9 +205,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
             >
               <View style={styles.collapsibleContent}>
                 {loadingActivities && !hasActivities ? (
-                  <View style={styles.zoneLoadingContainer}>
-                    <Spinner />
-                  </View>
+                  <ChartPlaceholder height={TRENDS_HEIGHT} />
                 ) : (
                   <FTPTrendChart
                     data={eftpTrend?.series}
@@ -282,7 +299,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
               icon="heart-flash"
               expanded={efficiencyExpanded}
               onToggle={onEfficiencyToggle}
-              estimatedHeight={160}
+              estimatedHeight={DECOUPLING_HEIGHT}
               headerRight={
                 decouplingSource ? (
                   <Text style={[styles.headerValue, { color: sportText.Cycling }]}>
@@ -293,9 +310,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
             >
               <View style={styles.collapsibleContent}>
                 {loadingActivities && !decouplingSource ? (
-                  <View style={styles.zoneLoadingContainer}>
-                    <Spinner />
-                  </View>
+                  <ChartPlaceholder height={DECOUPLING_HEIGHT} />
                 ) : (
                   <DecouplingChart
                     source={decouplingSource}
@@ -332,11 +347,6 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xxs,
     marginRight: spacing.sm,
   },
-  zoneLoadingContainer: {
-    padding: spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   zoneSection: {
     marginBottom: spacing.md,
   },
@@ -369,8 +379,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   thresholdValue: {
-    fontSize: typography.statsValue.fontSize,
-    fontWeight: '700',
+    ...typography.statsValue,
   },
   thresholdDivider: {
     width: 1,

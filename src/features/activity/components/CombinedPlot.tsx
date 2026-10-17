@@ -8,7 +8,7 @@ import {
   DashPathEffect,
   Rect,
 } from '@shopify/react-native-skia';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedReaction,
@@ -19,11 +19,11 @@ import Animated, {
 import * as haptics from '@/shared/ui/haptics';
 import { useGestureCallback } from '@/shared/ui/useGestureCallback';
 import { useTranslation } from 'react-i18next';
-import { layout, chartStyles, ink, colorWithOpacity } from '@/theme';
+import { chartStyles, colorWithOpacity, ink, layout, opacity } from '@/theme';
 import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
 import type { ActivityStreams, ActivityInterval, ActivityType } from '@/types';
 import { ChartErrorBoundary, EmptyState } from '@/shared/ui';
-import { ChartCanvas, CurveArea, CurveLine, useMeasuredWidth } from '@/shared/charts';
+import { ChartCanvas, CurveArea, CurveLine, useMeasuredWidth, useScrubPan } from '@/shared/charts';
 import {
   buildChartData,
   computeAllAverages,
@@ -41,7 +41,6 @@ import {
   type ChartDistanceIndicatorHandle,
 } from './ChartDistanceIndicator';
 import { useSeriesAccessors } from './useSeriesAccessors';
-import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 import { ABSENT } from '@/shared/format/absent';
 
 export type { ChartMetricValue };
@@ -258,23 +257,8 @@ export const CombinedPlot = React.memo(function CombinedPlot({
     [scrubOnJS]
   );
 
-  // Gesture handler - updates shared values on UI thread (no JS bridge for position)
-  // Use activateAfterLongPress to require a brief hold before scrubbing starts
-  // This prevents accidental scrubbing when scrolling the page
-  const gesture = Gesture.Pan()
-    .activateAfterLongPress(PREVIEW_HOLD_MS)
-    .onStart((e) => {
-      'worklet';
-      touchX.value = e.x;
-    })
-    .onUpdate((e) => {
-      'worklet';
-      touchX.value = e.x;
-    })
-    .onEnd(() => {
-      'worklet';
-      touchX.value = -1;
-    });
+  // Position stays on the UI thread; only an index change bridges to JS.
+  const gesture = useScrubPan(touchX);
 
   // Animated crosshair style - follows finger directly for smooth tracking
   const crosshairStyle = useAnimatedStyle(() => {
@@ -454,7 +438,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                             points={run}
                             color={
                               isDark
-                                ? colorWithOpacity(ink.black, 0.5)
+                                ? colorWithOpacity(ink.black, opacity.disabled)
                                 : colorWithOpacity(ink.black, 0.15)
                             }
                             strokeWidth={width + 0.75}
@@ -566,11 +550,11 @@ const styles = StyleSheet.create({
     top: 8,
     bottom: 20,
     width: 2,
-    backgroundColor: colorWithOpacity(ink.black, 0.4),
+    backgroundColor: colorWithOpacity(ink.black, opacity.dim),
     borderRadius: layout.borderRadiusFull,
   },
   crosshairDark: {
-    backgroundColor: colorWithOpacity(ink.white, 0.5),
+    backgroundColor: colorWithOpacity(ink.white, opacity.disabled),
   },
   placeholder: {
     justifyContent: 'center',

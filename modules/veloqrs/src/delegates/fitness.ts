@@ -86,7 +86,7 @@ export function getZoneDistribution(
   startTs: number,
   endTs: number
 ): FfiZoneDistribution {
-  if (!host.ready) return { seconds: [], names: [] };
+  if (!host.ready) return { seconds: [], shares: [], names: [] };
   return host.timed('getZoneDistribution', () =>
     host.engine.fitness().getZoneDistribution(sportType, zoneType, startTs, endTs)
   );

@@ -543,7 +543,7 @@ export interface ZoneDistribution {
   zone: number;
   name: string;
   seconds: number; // Time in this zone
-  percentage: number; // % of total time
+  share: number; // The engine's whole-percent share of the time, the zones totalling 100
 }
 
 // Activity bounds for regional map

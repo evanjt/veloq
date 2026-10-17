@@ -71,9 +71,10 @@
         "plugin:expo-router",
         "plugin:expo-screen-orientation",
         "plugin:expo-splash-screen",
-        "plugin:expo-localization"
+        "plugin:expo-localization",
+        "plugin:expo-font"
       ],
-      "note": "Build settings, navigation, orientation, the splash screen and the device language. None reads user data."
+      "note": "Build settings, navigation, orientation, the splash screen, the device language and the embedded typeface. None reads user data."
     }
   ],
   "appStore": {

@@ -429,6 +429,19 @@ pub(crate) fn chart_from_cutoff(
     perf: &crate::SectionPerformanceResult,
     cutoff_ts: i64,
 ) -> crate::FfiSectionChartData {
+    // Each direction's record, as `stamp_records` judges it: a point's gap is
+    // taken against it, on float time and speed.
+    let records = [false, true].map(|reverse| {
+        crate::persistence::records::section_record_lap(perf, reverse)
+            .map(|(_, lap)| (lap.time, lap.pace))
+    });
+    let gap = |direction: &str, time: f64, speed: f64, outside_band: bool| {
+        let record = records[usize::from(direction == "reverse")].filter(|_| !outside_band);
+        (
+            record.map(|(record_time, _)| time - record_time),
+            record.map(|(_, record_speed)| record_speed - speed),
+        )
+    };
     // One FfiSectionChartPoint per lap traversal.
     let mut points: Vec<crate::FfiSectionChartPoint> = Vec::new();
     for record in &perf.records {
@@ -441,6 +454,8 @@ pub(crate) fn chart_from_cutoff(
             if !record.best_pace.is_finite() || record.best_pace <= 0.0 {
                 continue;
             }
+            let (record_gap_secs, record_gap_speed) =
+                gap(direction, record.best_time, record.best_pace, false);
             points.push(crate::FfiSectionChartPoint {
                 lap_id: record.activity_id.clone(),
                 activity_id: record.activity_id.clone(),
@@ -454,6 +469,9 @@ pub(crate) fn chart_from_cutoff(
                 avg_power: None,
                 outside_distance_band: false,
                 match_percentage: None,
+                off_scale: crate::FfiOffScale::None,
+                record_gap_secs,
+                record_gap_speed,
             });
         } else {
             for lap in &record.laps {
@@ -480,6 +498,8 @@ pub(crate) fn chart_from_cutoff(
                 ) {
                     continue;
                 }
+                let (record_gap_secs, record_gap_speed) =
+                    gap(direction, lap.time, lap.pace, lap.outside_distance_band);
                 points.push(crate::FfiSectionChartPoint {
                     lap_id: lap.id.clone(),
                     activity_id: record.activity_id.clone(),
@@ -497,6 +517,9 @@ pub(crate) fn chart_from_cutoff(
                     avg_power: lap.avg_power,
                     outside_distance_band: lap.outside_distance_band,
                     match_percentage: lap.match_percentage,
+                    off_scale: crate::FfiOffScale::None,
+                    record_gap_secs,
+                    record_gap_speed,
                 });
             }
         }

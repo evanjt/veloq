@@ -6,22 +6,27 @@ const fs = require("fs");
 const path = require("path");
 
 /**
- * Expo config plugin that configures Android Auto Backup to include
- * the latest record zip while excluding sensitive data.
+ * Expo config plugin that configures Android Auto Backup to carry the latest
+ * record zip and nothing else.
  *
  * Two files, because the platform changed which one it reads.
  * `android:fullBackupContent` applies to Android 11 and lower;
  * `android:dataExtractionRules` applies from Android 12, and covers the
- * cloud backup and the device-to-device transfer separately. Both name:
- * - shared preferences (settings)
- * - the latest versioned record zip
- * and both exclude SecureStore (API keys, OAuth tokens) and the backup agent's
- * own record, which describes this phone and would mislead on another.
+ * cloud backup and the device-to-device transfer separately. Both include the
+ * latest versioned record zip alone.
  *
- * Only listed paths are backed up; all others (gps_tracks, terrain_previews,
- * etc.) are excluded implicitly. The exclusions here replace the ones
- * expo-secure-store's own rules carry, because only one file can be named by
- * each attribute and this one is it.
+ * No shared preferences file is carried. Settings live in the engine and travel
+ * inside the zip, and every preferences file left is this install's state:
+ * registered tasks, permission flags, push ids, widget choices keyed by the
+ * launcher's widget ids, a pending interrupted-ride notice, SecureStore's
+ * credentials and the backup agent's record of this phone. A restore lands at
+ * install, before the first launch, so whatever it carries takes effect before
+ * the athlete could accept it. The zip waits in `files/` until they do.
+ *
+ * Only listed paths are backed up; all others (routes.db, gps_tracks,
+ * terrain_previews, etc.) are excluded implicitly. These files replace the
+ * rules expo-secure-store's own plugin carries, because only one file can be
+ * named by each attribute and this one is it.
  */
 
 /**
@@ -31,20 +36,11 @@ const path = require("path");
  */
 const BACKUP_AGENT = "com.veloq.backupexclusion.VeloqBackupAgent";
 
-/** The preferences file the agent keeps its record in. */
-const AGENT_PREFERENCES = "veloq_auto_backup.xml";
-
 const BACKUP_RULES = `<?xml version="1.0" encoding="utf-8"?>
 <!-- Veloq Auto Backup rules for Android 11 and lower -->
 <full-backup-content>
-  <!-- Include shared preferences (app settings) -->
-  <include domain="sharedpref" path="." />
-  <!-- Include the latest record zip -->
+  <!-- The latest record zip, and nothing else -->
   <include domain="file" path="veloq-decisions.zip" />
-  <!-- Exclude sensitive credential storage -->
-  <exclude domain="sharedpref" path="SecureStore" />
-  <!-- Exclude the backup agent's record of this phone's backups -->
-  <exclude domain="sharedpref" path="${AGENT_PREFERENCES}" />
 </full-backup-content>
 `;
 
@@ -52,16 +48,10 @@ const DATA_EXTRACTION_RULES = `<?xml version="1.0" encoding="utf-8"?>
 <!-- Veloq Auto Backup rules for Android 12 and higher -->
 <data-extraction-rules>
   <cloud-backup>
-    <include domain="sharedpref" path="." />
     <include domain="file" path="veloq-decisions.zip" />
-    <exclude domain="sharedpref" path="SecureStore" />
-    <exclude domain="sharedpref" path="${AGENT_PREFERENCES}" />
   </cloud-backup>
   <device-transfer>
-    <include domain="sharedpref" path="." />
     <include domain="file" path="veloq-decisions.zip" />
-    <exclude domain="sharedpref" path="SecureStore" />
-    <exclude domain="sharedpref" path="${AGENT_PREFERENCES}" />
   </device-transfer>
 </data-extraction-rules>
 `;
@@ -70,7 +60,8 @@ const DATA_EXTRACTION_RULES = `<?xml version="1.0" encoding="utf-8"?>
  * Point both attributes at this app's rules. `dataExtractionRules` is
  * overwritten rather than left alone: expo-secure-store's plugin sets it to
  * its own file, which carries shared preferences and nothing else, so leaving
- * it is how the record zip would be omitted from Android 12 backups.
+ * it would carry this install's preferences and omit the record zip from
+ * Android 12 backups.
  *
  * Naming an agent alone would switch the app to key-value backup, which the
  * rules files do not govern; `fullBackupOnly` keeps the full backup they
@@ -120,7 +111,6 @@ function withAndroidBackup(config) {
 
 module.exports = withAndroidBackup;
 module.exports.BACKUP_AGENT = BACKUP_AGENT;
-module.exports.AGENT_PREFERENCES = AGENT_PREFERENCES;
 module.exports.BACKUP_RULES = BACKUP_RULES;
 module.exports.DATA_EXTRACTION_RULES = DATA_EXTRACTION_RULES;
 module.exports.configureManifest = configureManifest;

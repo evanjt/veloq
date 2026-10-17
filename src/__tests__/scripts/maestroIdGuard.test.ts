@@ -52,6 +52,13 @@ describe('resolving a flow id against the tree', () => {
     expect(resolves('<View testID="routes-list" />', 'routes-list')).toBe(true);
   });
 
+  it("takes the id iOS gives a navigation bar's back control, which no component renders", () => {
+    // Maestro's `back` does nothing on iOS, so a flow leaves a pushed screen by
+    // tapping the platform's own control.
+    expect(resolves('<View testID="routes-list" />', 'BackButton')).toBe(true);
+    expect(resolves('<View testID="routes-list" />', 'BackButtons')).toBe(false);
+  });
+
   it('does not take a literal the tree does not render', () => {
     expect(resolves('<View testID="routes-list" />', 'routes-lists')).toBe(false);
     expect(resolves('<View testID="routes-list" />', 'routes')).toBe(false);

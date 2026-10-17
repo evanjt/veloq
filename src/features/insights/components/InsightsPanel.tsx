@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -19,6 +19,7 @@ import { formatRelativeDate } from '@/shared/format/format';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import type { Insight } from '@/types';
 import { CONFIRM_HOLD_MS } from '@/shared/ui/holdDurations';
+import { useScrollToTopOnReselect } from '@/shared/ui/tabReselect';
 import { insightsExplanation } from '../lib/aboutCopy';
 
 interface InsightsPanelProps {
@@ -56,6 +57,8 @@ export const InsightsPanel = React.memo(function InsightsPanel({
 }: InsightsPanelProps) {
   const { isDark } = useTheme();
   const scrollEndInset = useScrollEndInset();
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTopOnReselect('/insights', scrollRef);
   const { t } = useTranslation();
   const [debugOpen, setDebugOpen] = useState(false);
   const openSheet = useSheetOpener();
@@ -82,6 +85,7 @@ export const InsightsPanel = React.memo(function InsightsPanel({
   return (
     <View style={styles.container} testID="insights-panel">
       <ScrollView
+        ref={scrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: layout.screenPadding + scrollEndInset }}
       >
@@ -155,7 +159,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   staleWellness: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
     textAlign: 'center',
     paddingTop: spacing.sm,

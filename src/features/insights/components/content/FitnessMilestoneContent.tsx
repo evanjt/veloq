@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   timelineLabel: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
     marginBottom: spacing.xxs,
   },

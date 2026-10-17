@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import type { FrequentSection } from '@/types';
@@ -69,7 +70,7 @@ export function SectionActionRow({
           accessibilityLabel={t('sections.deleteSection')}
           onPress={handleDeleteSection}
         >
-          <MaterialCommunityIcons name="delete-outline" size={iconSize.sm} color={colors.error} />
+          <ChromeIcon name="delete" size={iconSize.sm} color={colors.error} />
         </IconButton>
       ) : (
         <IconButton
@@ -221,8 +222,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   actionPillText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
+    ...typography.captionBold,
     color: colors.textSecondary,
   },
 });

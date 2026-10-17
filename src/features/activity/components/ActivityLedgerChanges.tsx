@@ -86,7 +86,7 @@ const makeStyles = (palette: Palette) =>
       color: palette.textPrimary,
     },
     detail: {
-      fontSize: typography.bodyCompact.fontSize,
+      ...typography.bodyCompact,
       color: palette.textSecondary,
       marginTop: spacing.xxs,
     },

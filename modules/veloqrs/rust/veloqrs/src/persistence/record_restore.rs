@@ -15,6 +15,10 @@ use super::{PersistentEngine, codec, sections};
 #[path = "tests/restored_numbers.rs"]
 mod restored_number_tests;
 
+#[cfg(test)]
+#[path = "tests/restored_route_names.rs"]
+mod restored_route_name_tests;
+
 /// Restored records still waiting for their activity or ground.
 pub(crate) const PENDING_KEY: &str = "__record_restore_pending";
 /// Activities a restored record names that this library has not fetched yet.
@@ -35,6 +39,13 @@ pub(crate) const HELD_NUMBER_PREFIX: &str = "restored:";
 /// The local routes and sections a restore has given a number, kept while any
 /// number from that record still waits, so a later pass leaves them alone.
 pub(crate) const RESTORED_NUMBERS_KEY: &str = "__record_restore_numbered";
+/// The local routes a restore has given a name, kept while any name from that
+/// record still waits, so a later pass leaves them alone.
+pub(crate) const RESTORED_NAMES_KEY: &str = "__record_restore_named";
+/// How many route names a restore gave up on because the route their ground
+/// resolves to had already taken another restored name: the grouping here
+/// merged routes the backed-up library kept apart.
+pub(crate) const NAMES_NOT_RESTORED_KEY: &str = "__record_restore_names_not_restored";
 
 fn id_set_from_conn(conn: &Connection, key: &str) -> Result<BTreeSet<String>, String> {
     let raw: Option<String> = conn
@@ -85,6 +96,10 @@ pub struct RestoreRecordResult {
     pub unplaced: u32,
     /// History rows given up on in this pass, counted into `NOT_RESTORED_KEY`.
     pub not_restored: u32,
+    /// Route names given up on in this pass because the route their ground
+    /// resolves to already took a restored name, counted into
+    /// `NAMES_NOT_RESTORED_KEY`.
+    pub names_not_restored: u32,
     pub missing_activity_ids: Vec<String>,
 }
 
@@ -272,7 +287,7 @@ impl PersistentEngine {
     /// Every record, the athlete id and the removal of the paused import commit
     /// together or not at all, so a retry finds the import whole.
     fn place_import(&mut self, payload: RecordPayload) -> Result<RestoreRecordResult, String> {
-        self.place_in_txn(|engine| {
+        let result = self.place_in_txn(|engine| {
             let mut entries = engine.pending_record_rows()?;
             entries.extend(payload.entries);
             let entries = distinct_rows(readable_rows(entries))?;
@@ -286,7 +301,12 @@ impl PersistentEngine {
                 .delete_setting(PAUSED_IMPORT_KEY)
                 .map_err(|e| e.to_string())?;
             Ok(result)
-        })
+        })?;
+        // The settings rows are committed, and the engine has to run on what
+        // they now say rather than on what it loaded.
+        self.adopt_stored_detection_configs()
+            .map_err(|e| e.to_string())?;
+        Ok(result)
     }
 
     /// Drop the paused import, at the athlete's word. The library and the
@@ -302,7 +322,12 @@ impl PersistentEngine {
     /// placed stays, and a paused import is its own to discard.
     pub fn discard_unplaced_records(&mut self) -> Result<(), String> {
         self.in_write_txn(|engine| {
-            for key in [PENDING_KEY, OWED_KEY, RESTORED_NUMBERS_KEY] {
+            for key in [
+                PENDING_KEY,
+                OWED_KEY,
+                RESTORED_NUMBERS_KEY,
+                RESTORED_NAMES_KEY,
+            ] {
                 engine.delete_setting(key).map_err(|e| e.to_string())?;
             }
             for store in [NumberStore::Routes, NumberStore::Sections] {
@@ -397,6 +422,15 @@ impl PersistentEngine {
             .unwrap_or(0))
     }
 
+    /// Route names a restore reported as not restored.
+    pub fn not_restored_name_count(&self) -> Result<u32, String> {
+        Ok(self
+            .get_setting(NAMES_NOT_RESTORED_KEY)
+            .map_err(|e| e.to_string())?
+            .and_then(|raw| raw.parse().ok())
+            .unwrap_or(0))
+    }
+
     /// Records awaiting their source activity or a matching local corridor.
     pub fn unplaced_records(&self) -> Result<Vec<UnplacedRecord>, String> {
         unplaced_records_from_conn(&self.db)
@@ -446,6 +480,8 @@ impl PersistentEngine {
         let mut pending = Vec::new();
         let mut missing = BTreeSet::new();
         let mut numbered = restored_numbers_from_conn(&self.db)?;
+        let mut named = restored_names_from_conn(&self.db)?;
+        let name_claims = route_name_claims(&self.db, &entries)?;
         let mut routes_touched = false;
         let mut unavailable = id_set_from_conn(&self.db, UNAVAILABLE_KEY)?;
         let unavailable_before = unavailable.len();
@@ -461,7 +497,7 @@ impl PersistentEngine {
                 _ => None,
             })
             .collect();
-        for row in entries {
+        for (index, row) in entries.into_iter().enumerate() {
             if !super::record_backup::travels(&row.table) {
                 log::warn!(
                     "[record] Skipped a {} row, which no library imports",
@@ -483,6 +519,14 @@ impl PersistentEngine {
             if is_number_row(&row) {
                 if !self.place_number(&row, &mut numbered)? {
                     pending.push(row);
+                }
+                continue;
+            }
+            if row.table == "route_names" {
+                match self.place_route_name(index, &name_claims, &mut named)? {
+                    NamePlacement::Placed => result.placed += 1,
+                    NamePlacement::Merged => result.names_not_restored += 1,
+                    NamePlacement::Waiting => pending.push(row),
                 }
                 continue;
             }
@@ -509,6 +553,16 @@ impl PersistentEngine {
             .map_err(|e| e.to_string())?;
         } else {
             self.delete_setting(RESTORED_NUMBERS_KEY)
+                .map_err(|e| e.to_string())?;
+        }
+        if pending.iter().any(|row| row.table == "route_names") {
+            self.set_setting(
+                RESTORED_NAMES_KEY,
+                &serde_json::to_string(&named).map_err(|e| e.to_string())?,
+            )
+            .map_err(|e| e.to_string())?;
+        } else {
+            self.delete_setting(RESTORED_NAMES_KEY)
                 .map_err(|e| e.to_string())?;
         }
         let unresolved_names: BTreeSet<String> = self
@@ -541,6 +595,11 @@ impl PersistentEngine {
         if result.not_restored > 0 {
             let total = self.not_restored_history_count()? + result.not_restored;
             self.set_setting(NOT_RESTORED_KEY, &total.to_string())
+                .map_err(|e| e.to_string())?;
+        }
+        if result.names_not_restored > 0 {
+            let total = self.not_restored_name_count()? + result.names_not_restored;
+            self.set_setting(NAMES_NOT_RESTORED_KEY, &total.to_string())
                 .map_err(|e| e.to_string())?;
         }
         result.missing_activity_ids = missing.into_iter().collect();
@@ -612,7 +671,6 @@ impl PersistentEngine {
                 Ok(false)
             }
             "sections" => self.place_section(row),
-            "route_names" => self.place_route_name(row),
             "section_activities" => self.place_section_exclusion(row),
             "activity_matches" => self.place_route_exclusion(row),
             _ => Ok(false),
@@ -724,19 +782,39 @@ impl PersistentEngine {
         Ok(true)
     }
 
-    fn place_route_name(&self, row: &RecordRow) -> Result<bool, String> {
-        let Some(name) = string(&row.values, "custom_name") else {
-            return Ok(false);
+    /// Give a restored route name to the local route on its ground.
+    ///
+    /// A local route takes one restored name per restore, whichever pass
+    /// placed it. Where the grouping here merged routes the backed-up library
+    /// kept apart, the name whose old route matches the local one closest is
+    /// written, and the others are given up on rather than written over it.
+    /// A name equal to the one the route took is not lost, so it counts as
+    /// placed.
+    fn place_route_name(
+        &self,
+        index: usize,
+        claims: &RouteNameClaims,
+        named: &mut BTreeMap<String, String>,
+    ) -> Result<NamePlacement, String> {
+        let Some((route_id, name)) = claims.rows.get(&index) else {
+            return Ok(NamePlacement::Waiting);
         };
-        let Some(route_id) = row
-            .ground
-            .as_ref()
-            .map(|ground| route_group(&self.db, ground))
-            .transpose()?
-            .flatten()
-        else {
-            return Ok(false);
+        let taken = match named.get(route_id) {
+            Some(taken) => Some(taken.as_str()),
+            None => claims
+                .winners
+                .get(route_id)
+                .filter(|(_, winner)| *winner != index)
+                .and_then(|(_, winner)| claims.rows.get(winner))
+                .map(|(_, winning)| winning.as_str()),
         };
+        if let Some(taken) = taken {
+            return Ok(if taken == name {
+                NamePlacement::Placed
+            } else {
+                NamePlacement::Merged
+            });
+        }
         self.db
             .execute(
                 "INSERT INTO route_names (route_id, custom_name) VALUES (?, ?)
@@ -744,7 +822,8 @@ impl PersistentEngine {
                 params![route_id, name],
             )
             .map_err(|e| e.to_string())?;
-        Ok(true)
+        named.insert(route_id.clone(), name.clone());
+        Ok(NamePlacement::Placed)
     }
 
     /// Give a restored number back to the route or section on its ground.
@@ -1153,6 +1232,70 @@ impl NumberStore {
             NumberStore::Routes => "route",
             NumberStore::Sections => "section",
         }
+    }
+}
+
+/// What became of a restored route name in one pass.
+enum NamePlacement {
+    Placed,
+    /// Its route already took another restored name, so it is not restored.
+    Merged,
+    Waiting,
+}
+
+/// The route names of one pass, resolved before any is written, so the
+/// closest match to a route wins wherever it sits in the record.
+struct RouteNameClaims {
+    /// The local route and the name of each resolvable row, by record index.
+    rows: BTreeMap<usize, (String, String)>,
+    /// Each claimed route's closest match and the index of the row holding it.
+    winners: BTreeMap<String, (RouteMatch, usize)>,
+}
+
+fn route_name_claims(conn: &Connection, entries: &[RecordRow]) -> Result<RouteNameClaims, String> {
+    let mut claims = RouteNameClaims {
+        rows: BTreeMap::new(),
+        winners: BTreeMap::new(),
+    };
+    for (index, row) in entries.iter().enumerate() {
+        if row.table != "route_names" {
+            continue;
+        }
+        let (Some(name), Some(ground)) = (string(&row.values, "custom_name"), row.ground.as_ref())
+        else {
+            continue;
+        };
+        let Some((route_id, rank)) = route_group_match(conn, ground)? else {
+            continue;
+        };
+        // Ties go to the earlier row, so only a strictly closer match replaces it.
+        if claims
+            .winners
+            .get(&route_id)
+            .is_none_or(|(best, _)| rank > *best)
+        {
+            claims.winners.insert(route_id.clone(), (rank, index));
+        }
+        claims.rows.insert(index, (route_id, name.to_string()));
+    }
+    Ok(claims)
+}
+
+/// The local routes an earlier pass of this restore gave a name, and the name.
+fn restored_names_from_conn(conn: &Connection) -> Result<BTreeMap<String, String>, String> {
+    let raw: Option<String> = conn
+        .query_row(
+            "SELECT value FROM settings WHERE key = ?",
+            [RESTORED_NAMES_KEY],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|e| e.to_string())?;
+    match raw {
+        Some(raw) if !raw.is_empty() => {
+            serde_json::from_str(&raw).map_err(|e| format!("Unreadable {RESTORED_NAMES_KEY}: {e}"))
+        }
+        _ => Ok(BTreeMap::new()),
     }
 }
 
@@ -1704,6 +1847,18 @@ fn store_restored_geometry(
 /// members does, ties to the lowest id. No shared member means no ground here
 /// yet, and the decision waits.
 fn route_group(conn: &Connection, ground: &RecordGround) -> Result<Option<String>, String> {
+    Ok(route_group_match(conn, ground)?.map(|(id, _)| id))
+}
+
+/// How closely a local route matches a restored ground: whether it holds the
+/// old representative, then how many of the old members it shares.
+type RouteMatch = (bool, usize);
+
+/// [`route_group`] with the match that chose it.
+fn route_group_match(
+    conn: &Connection,
+    ground: &RecordGround,
+) -> Result<Option<(String, RouteMatch)>, String> {
     let representative = ground.rep_activity_id.as_deref();
     let mut members: BTreeSet<&str> = ground
         .activity_ids
@@ -1749,7 +1904,7 @@ fn route_group(conn: &Connection, ground: &RecordGround) -> Result<Option<String
             best = Some((holds_representative, shared, id));
         }
     }
-    Ok(best.map(|(_, _, id)| id))
+    Ok(best.map(|(rep, shared, id)| (id, (rep, shared))))
 }
 
 #[derive(Clone, Copy)]
@@ -3660,6 +3815,84 @@ mod tests {
         assert_memory_matches_storage(&engine);
     }
 
+    /// Scenario: a record made under other detection and grouping settings is
+    /// restored into a running engine.
+    ///
+    /// Expected behaviour: the engine adopts the restored settings at once, as
+    /// a change through the settings screen would, so the library is
+    /// re-detected and regrouped under them rather than under the old ones.
+    #[test]
+    fn test_restored_detection_and_matching_settings_reach_the_running_engine() {
+        let dir = TempDir::new().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("config.db").to_str().unwrap()).unwrap();
+        engine
+            .save_processed_activity_ids(&["walk-a".to_string(), "walk-b".to_string()])
+            .unwrap();
+        engine.set_groups_dirty(false);
+        let old_match = engine.match_config.clone();
+        let restored_section = tracematch::SectionConfig {
+            min_activities: 5,
+            ..engine.get_section_config()
+        };
+        let restored_pct = old_match.min_match_percentage + 7.0;
+        let record = json!({"version": 1, "entries": [
+            {"table": "settings", "values": {
+                "key": "__section_config_json",
+                "value": serde_json::to_string(&restored_section).unwrap()}},
+            {"table": "settings", "values": {
+                "key": "__match_min_match_pct", "value": restored_pct.to_string()}}
+        ]});
+        engine.restore_record_json(&record.to_string()).unwrap();
+
+        assert_eq!(engine.get_section_config().min_activities, 5);
+        assert!(engine.processed_activity_ids.is_empty());
+        let stored: i64 = engine
+            .db
+            .query_row("SELECT COUNT(*) FROM processed_activities", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(stored, 0);
+        assert!(engine.sections_dirty);
+        assert_eq!(engine.match_config.min_match_percentage, restored_pct);
+        assert_eq!(
+            engine.match_config.endpoint_threshold,
+            old_match.endpoint_threshold
+        );
+        assert!(engine.groups_are_dirty());
+        assert!(super::super::routes::groups_match_rule_changed(
+            &engine.db,
+            &engine.match_config
+        ));
+    }
+
+    /// Expected behaviour: a record carrying the settings already in force
+    /// leaves the processed set and the grouping alone.
+    #[test]
+    fn test_restored_settings_equal_to_the_running_ones_change_nothing() {
+        let dir = TempDir::new().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("same.db").to_str().unwrap()).unwrap();
+        engine
+            .save_processed_activity_ids(&["walk-a".to_string()])
+            .unwrap();
+        engine.set_groups_dirty(false);
+        let held = engine.get_section_config();
+        let pct = engine.match_config.min_match_percentage;
+        let record = json!({"version": 1, "entries": [
+            {"table": "settings", "values": {
+                "key": "__section_config_json",
+                "value": serde_json::to_string(&held).unwrap()}},
+            {"table": "settings", "values": {
+                "key": "__match_min_match_pct", "value": pct.to_string()}}
+        ]});
+        engine.restore_record_json(&record.to_string()).unwrap();
+
+        assert_eq!(engine.processed_activity_ids.len(), 1);
+        assert!(!engine.groups_are_dirty());
+    }
+
     #[test]
     fn test_restore_places_the_automatic_backup_switch() {
         let dir = TempDir::new().unwrap();
@@ -3742,6 +3975,51 @@ mod tests {
                 .as_deref(),
             Some(r#"{"hasWritePermission":false}"#)
         );
+    }
+
+    /// Scenario: an older backup carrying its library's last sync, the
+    /// server's counts and its prompt state is restored into a library that
+    /// holds its own.
+    ///
+    /// Expected behaviour: the library keeps every one of its own values, and
+    /// a key it lacks is not placed from the file.
+    #[test]
+    fn test_restore_keeps_this_library_sync_and_prompt_state() {
+        use crate::objects::sync::{ACTIVITY_YEAR_COUNTS_KEY, OLDEST_ACTIVITY_DATE_KEY};
+        use crate::persistence::settings::settings_keys::SYNC_LAST_SUCCESS_AT;
+        let dir = TempDir::new().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("synced.db").to_str().unwrap()).unwrap();
+        engine
+            .set_setting(SYNC_LAST_SUCCESS_AT, "2026-03-04T22:05:00Z")
+            .unwrap();
+        let record = json!({"version": 1, "entries": [
+            {"table": "settings", "values": {"key": "units", "value": "imperial"}},
+            {"table": "settings", "values": {"key": SYNC_LAST_SUCCESS_AT, "value": "2026-03-04T21:42:52Z"}},
+            {"table": "settings", "values": {"key": OLDEST_ACTIVITY_DATE_KEY, "value": "2015-01-01"}},
+            {"table": "settings", "values": {"key": ACTIVITY_YEAR_COUNTS_KEY, "value": "{\"2015\":3}"}},
+            {"table": "settings", "values": {"key": "veloq-terrain-override-cleanup-done", "value": "true"}},
+            {"table": "settings", "values": {"key": "veloq-whats-new-seen", "value": "{}"}},
+            {"table": "settings", "values": {"key": "veloq-support-store", "value": "{}"}}
+        ]});
+        let result = engine.restore_record_json(&record.to_string()).unwrap();
+        assert_eq!(result.unplaced, 0);
+        assert!(!paused(&engine));
+        let setting = |key: &str| engine.get_setting(key).unwrap();
+        assert_eq!(setting("units").as_deref(), Some("imperial"));
+        assert_eq!(
+            setting(SYNC_LAST_SUCCESS_AT).as_deref(),
+            Some("2026-03-04T22:05:00Z")
+        );
+        for key in [
+            OLDEST_ACTIVITY_DATE_KEY,
+            ACTIVITY_YEAR_COUNTS_KEY,
+            "veloq-terrain-override-cleanup-done",
+            "veloq-whats-new-seen",
+            "veloq-support-store",
+        ] {
+            assert_eq!(setting(key), None, "{key} was placed from the file");
+        }
     }
 
     /// Scenario: an import is paused, and the athlete picks another file.
@@ -4141,6 +4419,11 @@ mod tests {
         for name in &fresh_names {
             assert!(source_names.contains(name), "{name} is not a 0.3.8 name");
         }
+        assert_eq!(
+            fresh_names.len() as u32 + fresh.not_restored_name_count().unwrap(),
+            45,
+            "every carried route name is either on a route or reported not restored"
+        );
 
         let far: Vec<GpsPoint> = ride()
             .into_iter()

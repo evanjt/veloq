@@ -43,6 +43,9 @@ const mockDiagramProps: { bodyData?: unknown; maxWeightedSets?: number } = {};
 jest.mock('@/features/strength/components/StrengthBodyDiagram', () => {
   const { Pressable, Text } = require('react-native');
   return {
+    StrengthBodyDiagramSkeleton: jest.requireActual(
+      '@/features/strength/components/StrengthBodyDiagram'
+    ).StrengthBodyDiagramSkeleton,
     StrengthBodyDiagram: ({
       onMuscleTap,
       bodyData,

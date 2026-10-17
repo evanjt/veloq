@@ -55,3 +55,40 @@ describe('the font size lint', () => {
     expect(lint(source)).not.toContain('Raw font size');
   });
 });
+
+describe('the italic lint', () => {
+  function lint(source: string): string {
+    try {
+      execFileSync(
+        'npx',
+        [
+          'eslint',
+          '--stdin',
+          '--stdin-filename',
+          'src/italicLintFixture.ts',
+          '--no-warn-ignored',
+          '--format',
+          'json',
+        ],
+        { input: source, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], cwd: ROOT }
+      );
+      return '';
+    } catch (error) {
+      const e = error as { stdout?: string; stderr?: string };
+      return `${e.stdout ?? ''}${e.stderr ?? ''}`;
+    }
+  }
+
+  it('refuses an italic style', () => {
+    expect(lint("export const s = { note: { fontStyle: 'italic' } };\n")).toContain('Italic');
+  });
+
+  it('refuses an italic picked by a condition', () => {
+    const source = "export const f = (a: boolean) => ({ fontStyle: a ? 'italic' : 'normal' });\n";
+    expect(lint(source)).toContain('Italic');
+  });
+
+  it('accepts the normal style', () => {
+    expect(lint("export const s = { note: { fontStyle: 'normal' } };\n")).not.toContain('Italic');
+  });
+});

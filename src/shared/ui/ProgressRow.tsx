@@ -162,14 +162,14 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusXs,
   },
   label: {
-    fontSize: typography.body.fontSize,
+    ...typography.body,
     color: colors.textPrimary,
   },
   labelDark: {
     color: colors.textOnDark,
   },
   detail: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
     marginTop: spacing.xxs,
   },

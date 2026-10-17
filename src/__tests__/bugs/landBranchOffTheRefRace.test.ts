@@ -30,7 +30,8 @@ import { join } from 'node:path';
 
 import { gitFreeEnv, runGit } from '../__shared__/gitFixture';
 
-const SCRIPT = join(__dirname, '../../../scripts/land-branch.sh');
+const REPO = join(__dirname, '../../..');
+const SCRIPT = join(REPO, 'scripts/land-branch.sh');
 
 const boxes: string[] = [];
 
@@ -56,6 +57,16 @@ for at in \${LAND_PAUSE_GATE:-}; do
     while [ ! -e "$LAND_BOX/gate-go.$n" ]; do sleep 0.05; done
   fi
 done
+if [ -e beaten ] && ! grep -q lowered baseline.json; then
+  [ -z "\${VELOQ_GATE_REPORT:-}" ] || echo style-guards > "$VELOQ_GATE_REPORT"
+  echo "gate: the tree has beaten its baseline"
+  exit 1
+fi
+if [ -e brings-gate ]; then
+  [ -z "\${VELOQ_GATE_REPORT:-}" ] || cat brings-gate > "$VELOQ_GATE_REPORT"
+  echo "gate: the $(cat brings-gate) gate fails"
+  exit 1
+fi
 if [ -e suite-fails ]; then
   [ -z "\${VELOQ_GATE_REPORT:-}" ] || echo suites > "$VELOQ_GATE_REPORT"
   echo "gate: a suite fails"
@@ -66,6 +77,19 @@ if git diff --name-only "\${VELOQ_MERGE_BASE:-HEAD}" "\${VELOQ_MERGE_TEST_REVISI
   echo "gate: the selected golden fails"
   exit 1
 fi
+`;
+
+/**
+ * Stands in for the style lowerer: with `beaten` in the tree it writes the
+ * baseline down and names the file and the classes it lowered, as the real one
+ * does.
+ */
+const LOWER = `import { existsSync, writeFileSync } from 'node:fs';
+if (existsSync('beaten')) {
+  writeFileSync('baseline.json', '{ "lowered": true }\\n');
+  console.log('baseline.json\\talpha');
+  console.log('baseline.json\\topacity');
+}
 `;
 
 /** Holds the final fast-forward inside the checkout's own hook. */
@@ -107,6 +131,9 @@ function checkoutWithBranch(): Fixture {
   write(root, 'base.txt', 'base\n');
   write(root, '.gitignore', 'target/\n');
   write(root, 'scripts/merge-gates.sh', GATES, 0o755);
+  write(root, 'scripts/lower-style-baselines.mjs', LOWER);
+  write(root, 'baseline.json', '{}\n');
+  write(root, '.gitattributes', readFileSync(join(REPO, '.gitattributes'), 'utf8'));
   write(box, 'hooks/post-merge', POST_MERGE, 0o755);
   write(box, 'provision.sh', PROVISION, 0o755);
   runGit(['init', '-q', '-b', 'main'], root);
@@ -363,6 +390,109 @@ describe('the candidate is gated before the target moves', () => {
     expect(status).not.toBe(0);
     expect(head(fx.root)).toBe(moved);
     expect(existsSync(join(fx.root, 'landed.txt'))).toBe(false);
+  });
+});
+
+/** The branch `audit/thing` with one more commit carrying `path`. */
+function branchCarries(fx: Fixture, path: string, contents: string): void {
+  runGit(['checkout', '-q', 'audit/thing'], fx.root);
+  commitOn(fx.root, path, contents, `the branch carries ${path}`);
+  runGit(['checkout', '-q', 'main'], fx.root);
+}
+
+const subject = (cwd: string, rev = 'HEAD') =>
+  runGit(['log', '-1', '--format=%s', rev], cwd).trim();
+const gateRuns = (fx: Fixture) => Number(readFileSync(join(fx.box, 'gate-count'), 'utf8'));
+
+describe('the mechanical failures a landing settles or names itself', () => {
+  it('writes a beaten baseline down as its own commit on the candidate, gates that, and lands it', () => {
+    const fx = checkoutWithBranch();
+    branchCarries(fx, 'beaten', 'a sweep\n');
+
+    const { status, output } = land(fx, 'audit/thing');
+
+    expect(status).toBe(0);
+    expect(subject(fx.root)).toBe(
+      'Lower the alpha and opacity baselines to what the tree now holds'
+    );
+    expect(subject(fx.root, 'HEAD^')).toBe("Merge branch 'audit/thing'");
+    expect(readFileSync(join(fx.root, 'baseline.json'), 'utf8')).toBe('{ "lowered": true }\n');
+    expect(gated(fx)).toEqual([{ candidate: head(fx.root), base: expect.any(String) }]);
+    expect(output).toContain('landed audit/thing');
+    expect(runGit(['status', '--porcelain'], fx.landing).trim()).toBe('');
+  });
+
+  it('adds no commit to a candidate that beat no baseline', () => {
+    const fx = checkoutWithBranch();
+
+    expect(land(fx, 'audit/thing').status).toBe(0);
+    expect(subject(fx.root)).toBe("Merge branch 'audit/thing'");
+  });
+
+  it('lowers again after the target moves under the gate, so the candidate that lands is lowered', async () => {
+    const fx = checkoutWithBranch();
+    branchCarries(fx, 'beaten', 'a sweep\n');
+    const a = startLanding(fx, 'audit/thing', { LAND_PAUSE_GATE: '1' });
+    await reached(join(fx.box, 'gate-reached.1'), a);
+    commitOn(fx.root, 'moved.txt', 'main moved\n', 'main moves meanwhile');
+    release(fx, 'gate-go.1');
+
+    const { status } = await a.done;
+
+    expect(status).toBe(0);
+    expect(readFileSync(join(fx.root, 'moved.txt'), 'utf8')).toBe('main moved\n');
+    expect(readFileSync(join(fx.root, 'baseline.json'), 'utf8')).toBe('{ "lowered": true }\n');
+    expect(gated(fx)).toHaveLength(2);
+    expect(gated(fx)[1].candidate).toBe(head(fx.root));
+  });
+
+  it.each(['style-guards', 'format', 'rustfmt'])(
+    'names the %s failure as the candidate’s without re-running the target’s gates',
+    (gate) => {
+      const fx = checkoutWithBranch();
+      branchCarries(fx, 'brings-gate', `${gate}\n`);
+      const before = head(fx.root);
+
+      const { status, output } = land(fx, 'audit/thing');
+
+      expect(status).not.toBe(0);
+      expect(head(fx.root)).toBe(before);
+      expect(gateRuns(fx)).toBe(1);
+      expect(output).toMatch(new RegExp(`the ${gate} gate fails on the candidate`));
+      expect(output).not.toMatch(/running main's own gates/);
+      expect(existsSync(fx.reservation)).toBe(false);
+    }
+  );
+
+  it('still re-runs the target’s gates to attribute any other failure', () => {
+    const fx = checkoutWithBranch();
+    branchCarries(fx, 'brings-gate', 'guards\n');
+
+    const { status, output } = land(fx, 'audit/thing');
+
+    expect(status).not.toBe(0);
+    expect(gateRuns(fx)).toBe(2);
+    expect(output).toMatch(/running main's own gates/);
+  });
+
+  it('lands two sweeps that both lowered the shared style baseline, holding the lower count', () => {
+    const fx = checkoutWithBranch();
+    const file = 'scripts/style-literal-baseline.json';
+    const counts = (a: number, b: number) =>
+      `${JSON.stringify({ alpha: { 'a.tsx': a, 'b.tsx': b } }, null, 2)}\n`;
+    commitOn(fx.root, file, counts(5, 4), 'the shared baseline');
+    runGit(['checkout', '-q', 'audit/thing'], fx.root);
+    runGit(['merge', '-q', '--no-edit', 'main'], fx.root);
+    commitOn(fx.root, file, counts(2, 4), 'one sweep');
+    runGit(['checkout', '-q', 'main'], fx.root);
+    commitOn(fx.root, file, counts(3, 1), 'another sweep');
+
+    const { status, output } = land(fx, 'audit/thing');
+
+    expect({ status, output }).toMatchObject({ status: 0 });
+    expect(JSON.parse(readFileSync(join(fx.root, file), 'utf8'))).toEqual({
+      alpha: { 'a.tsx': 2, 'b.tsx': 1 },
+    });
   });
 });
 

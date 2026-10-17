@@ -46,7 +46,6 @@ async function renderHeader(section: FrequentSection, onUnflagLift?: () => void)
     <SectionHeader
       section={section}
       onUnflagLift={onUnflagLift}
-      insetTop={0}
       activityColor="#000000"
       iconName="bike"
       activityCount={3}
@@ -115,7 +114,6 @@ describe('section traversal count scope', () => {
     return await render(
       <SectionHeader
         section={BASE}
-        insetTop={0}
         activityColor="#000000"
         iconName="bike"
         activityCount={22}

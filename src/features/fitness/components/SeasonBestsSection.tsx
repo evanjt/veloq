@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useActivityLabels } from '@/features/activity';
 import { useTheme } from '@/shared/app';
-import { EmptyState, ErrorState, pressable, pressRipple, Spinner } from '@/shared/ui';
+import { EmptyState, ErrorState, pressable, pressRipple } from '@/shared/ui';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { formatDurationOrNull } from '@/shared/format/format';
 import { formatEffortValue } from '../lib/bestEfforts';
@@ -32,7 +32,7 @@ import {
   type ClimbBest,
   type ClimbStatus,
 } from '@/features/stats';
-import { BestEffortRow } from './BestEffortRow';
+import { BEST_EFFORT_ROW_COUNT, BestEffortRow, BestEffortRowsSkeleton } from './BestEffortRow';
 import { ClimbingBestRows } from './ClimbingBestRows';
 import { ClimbingStatusNote } from './ClimbingStatusNote';
 import { tapTo } from '@/shared/app/navigation';
@@ -95,9 +95,7 @@ export function SeasonBestsSection({
   if (isLoading) {
     return (
       <View>
-        <View style={styles.loadingContainer}>
-          <Spinner />
-        </View>
+        <BestEffortRowsSkeleton rows={BEST_EFFORT_ROW_COUNT[sport]} />
         {viewAll}
       </View>
     );
@@ -156,11 +154,6 @@ export function SeasonBestsSection({
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    padding: spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   climbingTitle: {
     ...typography.bodySmall,
     fontWeight: '600',

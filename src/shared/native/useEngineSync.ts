@@ -27,7 +27,7 @@ import { hasStarted, SyncState } from 'veloqrs';
 
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { emitSyncSettled, useForeground, useReconnect } from '@/shared/app/useRetryTriggers';
+import { useForeground, useReconnect } from '@/shared/app/useRetryTriggers';
 
 import { scheduleWidgetSnapshot } from '@/features/home/lib/widgetBridge';
 
@@ -127,9 +127,6 @@ export function useEngineSync(): void {
     // Everything the sync writes hangs off this channel, so one refresh wakes
     // the profile, sport-settings and wellness readers together.
     getEngine()?.triggerRefresh('activities');
-    // The exclusive slot is free again. Anything the sync refused while it held
-    // it gets its one chance to ask now.
-    emitSyncSettled();
     // Logging out and in as another athlete mid-sync leaves the new athlete's
     // first `syncNow` refused, and nothing else asks again until a
     // backgrounding or a network change. The slot is free now, so ask.

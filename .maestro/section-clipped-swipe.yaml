@@ -45,17 +45,21 @@ tags:
 - assertVisible:
     id: "section-row-0"
 
+# Swipe each row by its id: the list's header wraps to a height that depends on
+# the screen and the language, so a fixed screen height can land on it.
 - swipe:
-    start: 90%, 50%
-    end: 20%, 50%
+    from:
+      id: "section-row-0"
+    direction: LEFT
     duration: 800
 
 - assertVisible:
     text: "Remove"
 
 - swipe:
-    start: 90%, 56%
-    end: 20%, 56%
+    from:
+      id: "section-row-1"
+    direction: LEFT
     duration: 800
 
 - assertVisible:
@@ -64,13 +68,12 @@ tags:
     text: "Remove"
     index: 1
 
+# Removal keeps the section, so it runs at once and offers Undo in a notice.
 - tapOn:
     text: "Remove"
-- assertVisible:
-    text: "Remove Section"
-- tapOn:
-    text: "REMOVE"
-- assertNotVisible:
-    text: "Remove Section"
+- extendedWaitUntil:
+    visible:
+      id: "notice-snackbar"
+    timeout: 5000
 - assertVisible:
     id: "sections-list"

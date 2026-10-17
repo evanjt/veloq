@@ -17,7 +17,7 @@ import { getEngine } from '@/shared/native/engine';
 import { FALLBACK_TICK_MS } from '@/shared/native/eventFallback';
 import { cancelSyncRefresh } from '@/shared/native/syncRefresh';
 import { useEngineSync } from '@/shared/native/useEngineSync';
-import { useSyncSettled } from '@/shared/app/useRetryTriggers';
+import { useActivityWindowRequest } from '@/features/activity/hooks/useActivities';
 import { scheduleWidgetSnapshot } from '@/features/home/lib/widgetBridge';
 import { StartOutcome, SyncState, type SyncStatus } from 'veloqrs';
 
@@ -44,8 +44,6 @@ jest.mock('@/shared/app/useRetryTriggers', () => {
   const actual = jest.requireActual('@/shared/app/useRetryTriggers');
   return {
     useReconnect: actual.useReconnect,
-    useSyncSettled: actual.useSyncSettled,
-    emitSyncSettled: actual.emitSyncSettled,
     useForeground: (callback: () => void) => {
       foregroundCallback = callback;
     },
@@ -349,53 +347,44 @@ describe('useEngineSync', () => {
     expect(syncNow).toHaveBeenCalledTimes(3);
   });
 
-  it('announces the settled edge when a sync leaves the exclusive slot', async () => {
-    // A window refused while the launch sync held the slot has nothing else to
-    // tell it the slot is free again.
-    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
-    mockGetEngine.mockReturnValue(engineWith(syncNow));
-    const settledListener = jest.fn();
-    await renderHook(() => useSyncSettled(settledListener));
+  it.each([
+    ['clean', undefined],
+    ['failed', 'timed out'],
+  ])(
+    'asks for a window the slot refused once, and a %s sync leaving the slot asks nothing again',
+    async (_end, lastError) => {
+      // The engine keeps a window it refused as busy owed and starts it when
+      // the slot frees, so an ask from here on the settled edge would be a
+      // second scheduler for the same work.
+      const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
+      const syncActivitiesWindow = jest.fn().mockReturnValue(StartOutcome.Busy);
+      mockGetEngine.mockReturnValue({
+        ...engineWith(syncNow),
+        syncActivitiesWindow,
+      } as unknown as ReturnType<typeof getEngine>);
+      useAuthStore.setState({ athleteId: 'i1' });
 
-    const { rerender } = await renderHook(() => useEngineSync());
-    mockStatus = {
-      state: SyncState.Syncing,
-      inFlight: 1,
-      completed: 0,
-      total: 1,
-      stepItemsDone: 0,
-      stepItemsTotal: 0,
-    };
-    await act(async () => await rerender(undefined));
-    expect(settledListener).not.toHaveBeenCalled();
+      const { rerender } = await renderHook(() => {
+        useEngineSync();
+        useActivityWindowRequest('2019-03-01', '2019-03-31');
+      });
+      expect(syncActivitiesWindow).toHaveBeenCalledTimes(1);
 
-    mockStatus = settled();
-    await act(async () => await rerender(undefined));
+      mockStatus = {
+        state: SyncState.Syncing,
+        inFlight: 1,
+        completed: 0,
+        total: 1,
+        stepItemsDone: 0,
+        stepItemsTotal: 0,
+      };
+      await act(async () => await rerender(undefined));
+      mockStatus = settled(lastError);
+      await act(async () => await rerender(undefined));
 
-    expect(settledListener).toHaveBeenCalledTimes(1);
-  });
-
-  it('announces the settled edge for a sync that failed, which frees the slot too', async () => {
-    const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
-    mockGetEngine.mockReturnValue(engineWith(syncNow));
-    const settledListener = jest.fn();
-    await renderHook(() => useSyncSettled(settledListener));
-
-    const { rerender } = await renderHook(() => useEngineSync());
-    mockStatus = {
-      state: SyncState.Syncing,
-      inFlight: 1,
-      completed: 0,
-      total: 1,
-      stepItemsDone: 0,
-      stepItemsTotal: 0,
-    };
-    await act(async () => await rerender(undefined));
-    mockStatus = settled('timed out');
-    await act(async () => await rerender(undefined));
-
-    expect(settledListener).toHaveBeenCalledTimes(1);
-  });
+      expect(syncActivitiesWindow).toHaveBeenCalledTimes(1);
+    }
+  );
 
   it('does not retry an expired credential, which no amount of network fixes', async () => {
     const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);

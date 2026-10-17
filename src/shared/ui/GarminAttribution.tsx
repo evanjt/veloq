@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     gap: spacing.xsPlus,
   },
   deviceText: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   deviceTextDark: {

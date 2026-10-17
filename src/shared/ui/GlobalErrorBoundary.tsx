@@ -225,9 +225,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.smPlus,
   },
   body: {
-    fontSize: typography.body.fontSize,
+    ...typography.body,
     textAlign: 'center',
-    lineHeight: 22,
   },
   rideLine: {
     marginTop: spacing.md,
@@ -251,7 +250,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   actionText: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
+    ...typography.bodyBold,
   },
 });

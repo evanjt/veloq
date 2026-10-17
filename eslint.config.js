@@ -31,7 +31,16 @@ const spacingRadiusSelector = {
 };
 const fontSizeSelector = {
   selector: 'Property[key.name="fontSize"] > Literal[raw=/^[0-9.]+$/]',
-  message: 'Raw font size. Use typography.<role>.fontSize from src/theme, or add a role there.',
+  message:
+    'Raw font size. Spread a whole typography role from src/theme, which carries its weight and line height.',
+};
+// Arithmetic on a role's size, or a size held in a constant, draws a size the
+// scale does not have.
+const derivedFontSizeSelector = {
+  selector:
+    'ObjectExpression > Property[key.name="fontSize"]:matches([value.type="BinaryExpression"], [value.type="Identifier"])',
+  message:
+    'Font size computed or held in a constant. Spread a whole typography role from src/theme instead.',
 };
 const textShadowRadiusSelector = {
   selector: 'Property[key.name="textShadowRadius"] > Literal[raw=/^[0-9.]+$/]',
@@ -61,7 +70,13 @@ const arithmeticSpacingSelector = {
   selector: `Property[${spacingKey}] BinaryExpression:matches([left.object.name="spacing"], [right.object.name="spacing"]):matches([left.type="Literal"], [right.type="Literal"], [left.object.name="spacing"][right.object.name="spacing"])`,
   message: 'Spacing arithmetic. Use a spacing.* token or a named layout constant.',
 };
+const italicSelector = {
+  selector: 'Property[key.name="fontStyle"] Literal[value="italic"]',
+  message:
+    'Italic. The type face has no italic, so it draws a synthetic slant. Use colors.textSecondary for a hint or note, or a leading icon for a warning.',
+};
 const scaleSelectors = [
+  italicSelector,
   textShadowRadiusSelector,
   textShadowOffsetSelector,
   radiusSelector,
@@ -69,6 +84,7 @@ const scaleSelectors = [
   spacingRadiusSelector,
   fontSizeSelector,
   conditionalFontSizeSelector,
+  derivedFontSizeSelector,
   spacingSelector,
   conditionalSpacingSelector,
   negativeSpacingSelector,
@@ -363,6 +379,7 @@ module.exports = [
       'src/features/routes/components/SectionTrimOverlay.tsx',
       'src/features/settings/components/whatsNew/WhatsNewModal.tsx',
       'src/shared/charts/useChartGestures.ts',
+      'src/shared/charts/useScrubPan.ts',
       'src/shared/ui/AnimatedPressable.tsx',
       'src/shared/ui/CollapsibleSection.tsx',
       'src/shared/ui/SwipeableTabs.tsx',
@@ -491,6 +508,7 @@ module.exports = [
       'src/features/routes/hooks/useElevationBackfill.ts',
       'src/features/stats/components/SeasonComparison.tsx',
       'src/shared/charts/useChartGestures.ts',
+      'src/shared/charts/useScrubPan.ts',
       'src/shared/native/useEngineSubscription.ts',
     ],
     rules: { 'react-hooks/refs': 'off' },

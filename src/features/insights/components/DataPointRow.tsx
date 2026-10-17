@@ -84,8 +84,8 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   label: {
+    ...typography.bodySmall,
     flex: 1,
-    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
   },
   labelDark: {
@@ -104,8 +104,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   unit: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '400',
+    ...typography.caption,
     color: colors.textSecondary,
   },
   unitDark: {

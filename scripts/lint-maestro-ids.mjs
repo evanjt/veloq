@@ -148,8 +148,15 @@ export function collectFlowIds(files) {
   return byId;
 }
 
+/**
+ * Ids the platform gives its own controls, which no component here renders.
+ * `BackButton` is iOS's navigation bar back control: Maestro's `back` does
+ * nothing on iOS, so a flow leaves a pushed screen by tapping it.
+ */
+const PLATFORM_IDS = new Set(['BackButton']);
+
 export function resolvesInTree(id, { literals, patterns }) {
-  return literals.has(id) || patterns.some((p) => p.pattern.test(id));
+  return PLATFORM_IDS.has(id) || literals.has(id) || patterns.some((p) => p.pattern.test(id));
 }
 
 function main() {

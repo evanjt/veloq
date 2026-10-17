@@ -40,3 +40,40 @@ describe('the demo record activity', () => {
     expect(record!.moving_time).toBeLessThanOrEqual(fastestRival * MARGIN);
   });
 });
+
+type Fixtures = typeof import('@/data/demo/fixtures');
+
+function activitiesOn(day: Date): Routed[] {
+  jest.useFakeTimers({ now: day, doNotFake: ['setTimeout', 'setInterval', 'setImmediate'] });
+  let loaded: Routed[] = [];
+  jest.isolateModules(() => {
+    const fixtures: Fixtures = require('@/data/demo/fixtures');
+    loaded = fixtures.getActivities() as unknown as Routed[];
+  });
+  jest.useRealTimers();
+  return loaded;
+}
+
+describe('the demo library on any day', () => {
+  const days = Array.from({ length: 21 }, (_, i) => new Date(2027, 0, 4 + i, 0, 5));
+
+  it.each(days)('starts no activity on the day it is opened (%s)', (day) => {
+    const startOfDay = new Date(day.getFullYear(), day.getMonth(), day.getDate()).getTime();
+    const late = activitiesOn(day).filter(
+      (a) => new Date(a.start_date_local).getTime() >= startOfDay
+    );
+    expect(late.map((a) => `${a.id} ${a.start_date_local}`)).toEqual([]);
+  });
+
+  it.each(days)('keeps the record ride the newest on its route (%s)', (day) => {
+    const all = activitiesOn(day);
+    const holder = all.find((a) => a.id === RECORD_ID)!;
+    const newer = all.filter(
+      (a) =>
+        a.id !== RECORD_ID &&
+        a._routeId === holder._routeId &&
+        new Date(a.start_date_local).getTime() >= new Date(holder.start_date_local).getTime()
+    );
+    expect(newer.map((a) => `${a.id} ${a.start_date_local}`)).toEqual([]);
+  });
+});

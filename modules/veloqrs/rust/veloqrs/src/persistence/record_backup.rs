@@ -469,11 +469,23 @@ const RECORD_INTERNAL_SETTINGS: &[&str] = &[
     "__auto_backup_enabled",
 ];
 
-/// The settings the front end writes that belong to this install rather than
-/// to the athlete. The upload grant is the scope of this install's OAuth
-/// token, which only the server that granted it can state, so a restore keeps
-/// the value already here.
-const DEVICE_SETTINGS: &[&str] = &["veloq-upload-permission"];
+/// The settings without the `__` prefix that belong to this library or
+/// install rather than to the athlete, so neither a backup writes them nor a
+/// restore places them. The upload grant is the scope of this install's OAuth
+/// token, which only the server that granted it can state. The last clean
+/// sync is a sync this library ran, and the oldest activity date and the
+/// per-year counts are the server's answer, which the next sync writes again.
+/// The terrain cleanup flag, the What's New record and the support prompt's
+/// state are this install's own bookkeeping.
+const DEVICE_SETTINGS: &[&str] = &[
+    "veloq-upload-permission",
+    super::settings_keys::SYNC_LAST_SUCCESS_AT,
+    crate::objects::sync::OLDEST_ACTIVITY_DATE_KEY,
+    crate::objects::sync::ACTIVITY_YEAR_COUNTS_KEY,
+    "veloq-terrain-override-cleanup-done",
+    "veloq-whats-new-seen",
+    "veloq-support-store",
+];
 
 /// Whether a settings row under `key` belongs in a record backup. The writer
 /// and the restore both ask this, so a file the writer never produced cannot
@@ -1237,6 +1249,53 @@ mod tests {
             ),
             "a restored library must start with the health check unspent: {keys:?}"
         );
+    }
+
+    /// Scenario: a library has synced and shown its prompts, and holds an
+    /// athlete's preference beside that state.
+    ///
+    /// Expected behaviour: the preference travels, and the sync's own record
+    /// of this library, the server's counts and this install's prompt state
+    /// stay behind, so an import never states a sync the library did not run.
+    #[test]
+    fn test_record_backup_leaves_this_library_sync_and_prompt_state_behind() {
+        use crate::objects::sync::{ACTIVITY_YEAR_COUNTS_KEY, OLDEST_ACTIVITY_DATE_KEY};
+        use crate::persistence::settings_keys::SYNC_LAST_SUCCESS_AT;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("synced.db");
+        drop(super::PersistentEngine::new(path.to_str().unwrap()).unwrap());
+        let db = Connection::open(&path).unwrap();
+        let local = [
+            SYNC_LAST_SUCCESS_AT,
+            OLDEST_ACTIVITY_DATE_KEY,
+            ACTIVITY_YEAR_COUNTS_KEY,
+            "veloq-terrain-override-cleanup-done",
+            "veloq-whats-new-seen",
+            "veloq-support-store",
+        ];
+        for key in local.iter().chain(&["veloq-resolved-unit-system"]) {
+            db.execute(
+                "INSERT INTO settings (key, value) VALUES (?1, 'stored')",
+                [key],
+            )
+            .unwrap();
+        }
+
+        let payload = collect_record_payload(&db).unwrap();
+        let keys: Vec<String> = payload
+            .entries
+            .iter()
+            .filter(|row| row.table == "settings")
+            .filter_map(|row| super::string(&row.values, "key").map(str::to_string))
+            .collect();
+
+        assert!(keys.contains(&"veloq-resolved-unit-system".to_string()));
+        for key in local {
+            assert!(
+                !keys.contains(&key.to_string()),
+                "{key} travelled: {keys:?}"
+            );
+        }
     }
 
     #[test]

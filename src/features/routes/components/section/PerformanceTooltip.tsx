@@ -318,8 +318,7 @@ const makeStyles = (palette: Palette, isDark: boolean) =>
       alignItems: 'center',
     },
     tooltipName: {
-      fontSize: typography.bodyCompact.fontSize,
-      fontWeight: '600',
+      ...typography.bodyCompactBold,
       color: palette.textPrimary,
       marginBottom: spacing.xxs,
       flex: 1,
@@ -343,8 +342,7 @@ const makeStyles = (palette: Palette, isDark: boolean) =>
       color: palette.textSecondary,
     },
     tooltipDelta: {
-      fontSize: typography.label.fontSize,
-      fontWeight: '600',
+      ...typography.badge,
     },
     tooltipMeta: {
       flexDirection: 'row',
@@ -366,7 +364,6 @@ const makeStyles = (palette: Palette, isDark: boolean) =>
       gap: Math.max(spacing.xxs, layout.minTapTarget - controlHeight.button),
     },
     tooltipSpeed: {
-      fontSize: typography.bodySmall.fontSize,
-      fontWeight: '700',
+      ...typography.pillValue,
     },
   });

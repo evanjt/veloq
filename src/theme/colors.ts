@@ -342,6 +342,10 @@ export const colors = {
   border: '#E4E4E7',
   borderLight: '#F4F4F5',
   divider: '#E4E4E7',
+  // A skeleton pulses from fillNeutral to borderStrong. They must differ, or
+  // the pulse animates one colour and the wait stops moving.
+  fillNeutral: '#EFF1F4',
+  borderStrong: '#CDD2DA',
 
   // Neutral grays (Zinc scale)
   gray50: '#FAFAFA',
@@ -854,6 +858,8 @@ export const darkColors = {
   borderLight: '#3F3F46',
   borderAccent: 'rgba(45, 212, 191, 0.15)', // Subtle teal glow (updated from blue)
   divider: '#27272A',
+  fillNeutral: '#262B34',
+  borderStrong: '#363D48',
 
   // Icon colors
   iconPrimary: '#FAFAFA',
@@ -1029,11 +1035,21 @@ export const glows = {
 // OPACITY SCALE
 // =============================================================================
 
+// The one alpha ladder. A tint, a state and a press each read a step, and no
+// other alpha is drawn. The four tints wash a colour over a ground, faintest
+// first.
 export const opacity = {
+  tint1: 0.06,
+  tint2: 0.12,
+  tint3: 0.18,
+  tint4: 0.3,
+  // A chip or row that is out of play but still part of the layout, drawn fainter than disabled,
+  // and a held render while its data refetches.
+  dim: 0.4,
   // A control that refuses the press, drawn at this opacity on top of reporting itself disabled.
   disabled: 0.5,
-  // A chip or row that is out of play but still part of the layout, drawn fainter than disabled.
-  dimmed: 0.4,
+  // How far a press fades on iOS. Android draws the ripple instead.
+  pressed: 0.7,
   // Light mode overlays (black with opacity)
   overlay: {
     subtle: 'rgba(0, 0, 0, 0.03)',

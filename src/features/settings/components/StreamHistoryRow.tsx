@@ -163,19 +163,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   infoLabel: {
-    fontSize: typography.bodySmall.fontSize,
+    ...typography.bodySmall,
     color: colors.textSecondary,
   },
   infoValue: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    ...typography.bodySmallBold,
     color: colors.textPrimary,
   },
   failure: {
+    ...typography.bodySmall,
     flexShrink: 1,
     marginLeft: spacing.sm,
     textAlign: 'right',
-    fontSize: typography.bodySmall.fontSize,
     color: colors.textSecondary,
   },
   infoValueRow: {

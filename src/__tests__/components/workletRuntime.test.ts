@@ -117,6 +117,20 @@ describe('worklets on the UI runtime', () => {
     expect(decide({ ...pan, startX: BACK_SWIPE_EDGE_WIDTH - 1 })).toBe('fail');
   });
 
+  it('decides a chart scrub pan without reaching module scope', () => {
+    const code = uiRuntimeCode('src/shared/charts/scrubPanDecision.ts').get(
+      'scrubPanDecision_scrubPanDecisionTs1'
+    );
+    expect(code).toBeDefined();
+    const decide = onUiRuntime<[object], string>(code!, { startsInBackSwipeEdge });
+    const pan = { startX: 200, screenWidth: 400, isRTL: false, slop: 8 };
+    expect(decide({ ...pan, translationX: 9, translationY: 2 })).toBe('activate');
+    expect(decide({ ...pan, translationX: 2, translationY: 9 })).toBe('fail');
+    expect(
+      decide({ ...pan, startX: BACK_SWIPE_EDGE_WIDTH - 1, translationX: 9, translationY: 0 })
+    ).toBe('fail');
+  });
+
   it('tests a touch against the back-swipe strip without reaching module scope', () => {
     const code = uiRuntimeCode('src/shared/ui/backSwipeEdge.ts').get(
       'startsInBackSwipeEdge_backSwipeEdgeTs1'

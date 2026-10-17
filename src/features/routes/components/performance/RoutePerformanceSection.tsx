@@ -261,8 +261,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   routeName: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
+    ...typography.bodyBold,
     color: colors.textPrimary,
     marginBottom: spacing.xxs,
   },

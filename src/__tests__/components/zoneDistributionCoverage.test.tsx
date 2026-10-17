@@ -19,8 +19,8 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 
 const ZONES: ZoneDistribution[] = [
-  { zone: 1, name: 'Recovery', seconds: 600, percentage: 50 },
-  { zone: 2, name: 'Endurance', seconds: 600, percentage: 50 },
+  { zone: 1, name: 'Recovery', seconds: 600, share: 50 },
+  { zone: 2, name: 'Endurance', seconds: 600, share: 50 },
 ];
 
 describe('ZoneDistributionChart over a range never downloaded', () => {

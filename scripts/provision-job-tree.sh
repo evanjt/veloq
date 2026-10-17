@@ -14,6 +14,12 @@
 #
 # The main checkout's install serves only a tree on the same lockfile. A tree
 # on another, or beside a main checkout with no install, installs its own.
+#
+# A tree an earlier job used is provisioned again for the next, and carries
+# what that job left in its ignored files: an install made for another
+# lockfile, a whole-directory link to the main checkout's, and the generated
+# bindings' declarations built from another branch, which `tsc` reads in place
+# of the bindings this tree holds.
 set -euo pipefail
 
 unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR
@@ -39,24 +45,52 @@ same_lockfile() {
   cmp -s "$here" "$there"
 }
 
+# The lockfile an install of the tree's own was made from, copied in beside it.
+STAMP="$TREE/node_modules/.provisioned-lockfile"
+
+# npm writes `.package-lock.json` into an install it made, and a whole-directory
+# link to the main checkout's shows that file too.
 own_install() {
-  [ -f "$TREE/node_modules/.package-lock.json" ] && [ ! -L "$TREE/node_modules/.package-lock.json" ]
+  [ ! -L "$TREE/node_modules" ] &&
+    [ -f "$TREE/node_modules/.package-lock.json" ] && [ ! -L "$TREE/node_modules/.package-lock.json" ]
 }
 
-if ! own_install; then
+# An install with no stamp was made by hand, for a lockfile nobody recorded.
+own_install_current() {
+  own_install && [ -f "$STAMP" ] && cmp -s "$STAMP" "$TREE/package-lock.json"
+}
+
+install_own() {
+  rm -rf "$TREE/node_modules"
+  (cd "$TREE" && npm ci)
+  if [ -e "$TREE/package-lock.json" ]; then cp "$TREE/package-lock.json" "$STAMP"; fi
+}
+
+if ! own_install_current; then
   if [ ! -d "$MAIN/node_modules" ]; then
     say "$MAIN has no install to link, so this tree installs its own."
     say "run npm ci in $MAIN to spare the next tree."
-    rm -rf "$TREE/node_modules"
-    (cd "$TREE" && npm ci)
+    install_own
   elif ! same_lockfile; then
     say "this tree's lockfile is not the main checkout's, so it installs its own."
+    install_own
+  elif own_install; then
+    say "this tree's install was made for another lockfile, so it links the main checkout's."
     rm -rf "$TREE/node_modules"
-    (cd "$TREE" && npm ci)
   fi
 fi
 
 "$SCRIPTS/provision-landing-tree.sh" "$TREE" "$MAIN"
+
+# `tsc` reads the generated bindings through the declarations this builds and
+# never rebuilds them itself, so a tree without them, or with another branch's,
+# reports exports missing that its bindings hold. Not fatal: the merge gate
+# builds them again.
+if [ -f "$TREE/tsconfig.generated.json" ] && [ -x "$TREE/node_modules/.bin/tsc" ]; then
+  if ! (cd "$TREE" && node_modules/.bin/tsc -b --force tsconfig.generated.json) >&2; then
+    say "could not build the generated bindings' declarations; run npx tsc -b before tsc --noEmit."
+  fi
+fi
 
 # Not fatal: the bindings check builds what is missing, under the same lock.
 if ! "$TREE/modules/veloqrs/scripts/host-library.sh" >/dev/null; then

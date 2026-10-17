@@ -111,7 +111,7 @@ describe('SectionActionRow glyphs', () => {
     const auto = await renderRow('auto');
     const remove = glyph(auto.getByRole('button', { name: 'sections.removeSection' }));
 
-    expect(del).toBe('delete-outline');
+    expect(del).toBe('delete');
     expect(remove).toBeDefined();
     expect(remove).not.toMatch(/^delete/);
   });

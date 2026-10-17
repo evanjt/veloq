@@ -44,27 +44,18 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
   const displayPeriodLabel = periodLabel || t('stats.last30Days');
 
   // All hooks must be called before any conditional returns
-  // Calculate percentages if data is provided
-  const processedData = useMemo(() => {
-    if (!data || data.length === 0) return [];
-    const totalSeconds = data.reduce((sum, d) => sum + d.seconds, 0);
-    return data.map((d) => ({
-      ...d,
-      percentage: totalSeconds > 0 ? Math.round((d.seconds / totalSeconds) * 100) : 0,
-    }));
-  }, [data]);
-
   const bands = useMemo<ZoneBand[]>(
     () =>
-      processedData.map((zone) => ({
+      (data ?? []).map((zone) => ({
         key: zone.zone,
         label: `Z${zone.zone}`,
         zone: zone.zone,
-        percent: zone.percentage,
+        seconds: zone.seconds,
+        share: zone.share,
         primary: formatDurationHuman(zone.seconds),
         secondary: zone.name,
       })),
-    [processedData]
+    [data]
   );
 
   const notDownloaded = coverage === RangeCoverage.NotFetched;
@@ -114,7 +105,7 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
       <View style={[styles.totalRow, isDark && styles.totalRowDark]}>
         <Text style={[styles.totalLabel, isDark && styles.textDark]}>{t('stats.totalTime')}</Text>
         <Text style={[styles.totalValue, isDark && styles.textLight]}>
-          {formatDurationHuman(processedData.reduce((sum, d) => sum + d.seconds, 0))}
+          {formatDurationHuman(data.reduce((sum, d) => sum + d.seconds, 0))}
         </Text>
       </View>
 
@@ -133,7 +124,7 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
 const styles = StyleSheet.create({
   container: {},
   subtitle: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
     marginTop: spacing.xxs,
   },
@@ -159,16 +150,15 @@ const styles = StyleSheet.create({
     borderTopColor: darkColors.border,
   },
   totalLabel: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   totalValue: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    ...typography.bodySmallBold,
     color: colors.textPrimary,
   },
   partial: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
     marginTop: spacing.sm,
   },

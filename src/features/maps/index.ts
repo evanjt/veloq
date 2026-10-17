@@ -132,6 +132,7 @@ export {
 export { handOverGroundTemplates } from './lib/tileTransport';
 export {
   MAX_MAP_CONTROLS,
+  activityMapControlCount,
   mapControlColumnLayout,
   useMapControlColumn,
 } from './lib/mapControlColumnLayout';

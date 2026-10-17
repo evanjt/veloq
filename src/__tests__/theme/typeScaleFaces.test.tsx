@@ -1,13 +1,15 @@
 /**
  * Scenario: a numeric role draws proportional figures, so a column of lap
- * times or a live readout shifts as its digits change, and a role that names a
- * family the platform does not ship (`SF Mono` on iOS) or a code face beside
- * the system sans (`monospace` on Android) draws a different typeface on each
- * platform for the one token.
- * Expected behaviour: every numeric role carries tabular figures in the system
- * face, the only monospaced face is the `code` role, which asks each platform
- * for its system mono, and the formula box and the intervals table draw
- * through those roles.
+ * times or a live readout shifts as its digits change; a role, a Paper control
+ * or a header title draws the platform's sans while the rest of the screen
+ * draws the app's face; or a style asks for a weight the embedded face does not
+ * ship, so each platform synthesises or substitutes a different one.
+ * Expected behaviour: every role but `code` names Manrope on both platforms at
+ * 400, 600 or 700, every numeric role carries tabular figures, the only
+ * monospaced face is the `code` role, which asks each platform for its system
+ * mono, Paper's typescale and the navigator's title fonts name the same face at
+ * those weights, and the formula box and the intervals table draw through the
+ * roles.
  */
 
 import React from 'react';
@@ -31,6 +33,8 @@ const NUMERIC_ROLES = [
   'metricValue',
   'tableValue',
 ] as const;
+
+const SHIPPED_WEIGHTS = ['400', '600', '700'];
 
 type Scale = Record<string, TextStyle>;
 
@@ -59,12 +63,17 @@ describe('the type scale', () => {
     expect(typography[role].fontVariant).toContain('tabular-nums');
   });
 
-  it.each(['ios', 'android'] as const)('names no family %s does not ship', (os) => {
-    const allowed =
-      os === 'ios' ? [undefined, 'System', 'system-ui', 'ui-monospace'] : [undefined, 'monospace'];
-    const families = Object.entries(scaleOn(os)).map(([role, style]) => [role, style.fontFamily]);
-    for (const [role, family] of families) {
-      expect([role, allowed.includes(family) ? 'allowed' : family]).toEqual([role, 'allowed']);
+  it.each(['ios', 'android'] as const)('draws every role but code in Manrope on %s', (os) => {
+    const families = Object.entries(scaleOn(os))
+      .filter(([role]) => role !== 'code')
+      .map(([role, style]) => [role, style.fontFamily]);
+    expect(families.length).toBeGreaterThan(0);
+    for (const [role, family] of families) expect([role, family]).toEqual([role, 'Manrope']);
+  });
+
+  it.each(['ios', 'android'] as const)('asks only for a weight the face ships on %s', (os) => {
+    for (const [role, style] of Object.entries(scaleOn(os))) {
+      expect([role, SHIPPED_WEIGHTS.includes(String(style.fontWeight))]).toEqual([role, true]);
     }
   });
 
@@ -78,6 +87,61 @@ describe('the type scale', () => {
       .map(([role]) => role);
     expect(others).toEqual([]);
   });
+});
+
+describe('the face beyond the scale', () => {
+  it('maps any requested weight to the nearest the face ships', () => {
+    const { faceWeight } = require('@/theme/typography');
+    const cases: [unknown, string][] = [
+      [undefined, '400'],
+      ['normal', '400'],
+      ['100', '400'],
+      ['400', '400'],
+      ['500', '600'],
+      ['600', '600'],
+      ['650', '700'],
+      ['bold', '700'],
+      ['800', '700'],
+      [900, '700'],
+    ];
+    expect(cases.map(([weight]) => [weight, faceWeight(weight)])).toEqual(cases);
+  });
+
+  it.each(['lightTheme', 'darkTheme'] as const)(
+    'gives every Paper variant in %s the face at a shipped weight',
+    (name) => {
+      const theme = require('@/theme')[name] as { fonts: Record<string, TextStyle> };
+      const variants = Object.entries(theme.fonts);
+      expect(variants.map(([variant]) => variant)).toEqual(
+        expect.arrayContaining(['default', 'bodyLarge', 'labelLarge', 'titleMedium'])
+      );
+      for (const [variant, style] of variants) {
+        expect([variant, style.fontFamily]).toEqual([variant, 'Manrope']);
+        if (variant !== 'default') {
+          expect([variant, SHIPPED_WEIGHTS.includes(String(style.fontWeight))]).toEqual([
+            variant,
+            true,
+          ]);
+        }
+      }
+      expect(theme.fonts.labelLarge.fontWeight).toBe('600');
+    }
+  );
+
+  it.each(['light', 'dark'] as const)(
+    'gives the navigator the face for header titles in %s',
+    (scheme) => {
+      const { navigationTheme } = require('@/theme/navigationTheme');
+      const fonts = navigationTheme(scheme).fonts as Record<string, TextStyle>;
+      expect(Object.keys(fonts).sort()).toEqual(['bold', 'heavy', 'medium', 'regular']);
+      expect(fonts).toEqual({
+        regular: { fontFamily: 'Manrope', fontWeight: '400' },
+        medium: { fontFamily: 'Manrope', fontWeight: '600' },
+        bold: { fontFamily: 'Manrope', fontWeight: '700' },
+        heavy: { fontFamily: 'Manrope', fontWeight: '700' },
+      });
+    }
+  );
 });
 
 describe('surfaces drawing through the scale', () => {

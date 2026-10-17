@@ -201,17 +201,15 @@ const styles = StyleSheet.create({
     marginRight: spacing.xs,
   },
   sectionName: {
+    ...typography.bodySmallBold,
     flex: 1,
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
     color: colors.textPrimary,
   },
   sectionNameDark: {
     color: darkColors.textPrimary,
   },
   bestTime: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
+    ...typography.bodyCompactBold,
     color: colors.textPrimary,
   },
   bestTimeDark: {

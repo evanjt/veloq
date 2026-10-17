@@ -46,6 +46,7 @@ import {
   darkColors,
   iconSize,
   layout,
+  opacity,
   slopToMinTapTarget,
   spacing,
   typography,
@@ -321,7 +322,7 @@ const styles = StyleSheet.create({
     minWidth: controlHeight.button,
   },
   inert: {
-    opacity: 0.5,
+    opacity: opacity.disabled,
   },
   barLabel: typography.body,
   barLabelBold: typography.bodyBold,

@@ -44,7 +44,6 @@ describe('the section header stats', () => {
     const tree = await render(
       <SectionHeader
         section={SECTION}
-        insetTop={0}
         activityColor="#000000"
         iconName="bike"
         activityCount={8}

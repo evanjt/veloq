@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   avgText: {
-    fontSize: typography.bodyCompact.fontSize,
+    ...typography.bodyCompact,
     color: colors.textSecondary,
   },
   avgTextDark: {

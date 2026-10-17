@@ -28,7 +28,8 @@ tags:
     when:
       platform: iOS
     commands:
-      - tapOn: "Search activities..."
+      # The placeholder ends in an ellipsis character, not three full stops.
+      - tapOn: "Search activities…"
 
 # Type search query
 - inputText: "Ride"

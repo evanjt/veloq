@@ -5,7 +5,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack } from 'expo-router';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import type { ExerciseSet } from 'veloqrs';
 
@@ -20,6 +19,7 @@ import {
   layout,
   loupeChrome,
   mapTextShadow,
+  opacity,
   type Palette,
   spacing,
   themedStyles,
@@ -32,7 +32,7 @@ import { useMuscleGroups } from '../hooks/useExerciseSets';
 import { useMuscleDetail } from '../hooks/useMuscleDetail';
 import { formatWeight } from '@/shared/format/weight';
 import { BodyPairWithLoupe } from './BodyPairWithLoupe';
-import { IconButton } from '@/shared/ui';
+import { IconButton, useHeroHeaderBottom } from '@/shared/ui';
 import { ErrorState } from '@/shared/ui/ErrorState';
 
 interface MuscleGroupViewProps {
@@ -58,7 +58,7 @@ export function MuscleGroupView({
 }: MuscleGroupViewProps) {
   const { t } = useTranslation();
   const styles = themedStyles(makeStyles, isDark);
-  const insets = useSafeAreaInsets();
+  const headerBottom = useHeroHeaderBottom();
   const isMetric = useMetricSystem();
   const {
     data: muscleGroups,
@@ -106,7 +106,7 @@ export function MuscleGroupView({
       />
 
       {/* Body diagrams with unified loupe + center column */}
-      <View style={[styles.bodyContainer, { paddingTop: insets.top + 40 }]}>
+      <View style={[styles.bodyContainer, { paddingTop: headerBottom }]}>
         <BodyPairWithLoupe
           data={bodyData}
           selectedSlug={selectedMuscle}
@@ -225,7 +225,7 @@ export function MuscleGroupView({
 
       {/* Bottom gradient + activity info overlay */}
       <LinearGradient
-        colors={['transparent', colorWithOpacity(ink.black, isDark ? 0.7 : 0.15)]}
+        colors={['transparent', colorWithOpacity(ink.black, isDark ? opacity.pressed : 0.15)]}
         style={styles.gradient}
         pointerEvents="none"
       />
@@ -287,14 +287,13 @@ const makeStyles = (palette: Palette, isDark: boolean) =>
       borderRadius: layout.borderRadiusFull,
     },
     legendText: {
-      fontSize: typography.micro.fontSize,
+      ...typography.micro,
       color: palette.textSecondary,
     },
     hintText: {
       fontSize: typography.pillLabel.fontSize,
       color: palette.textSecondary,
       marginTop: spacing.xs,
-      fontStyle: 'italic',
     },
     detailDivider: {
       width: '100%',
@@ -349,7 +348,7 @@ const makeStyles = (palette: Palette, isDark: boolean) =>
       flexShrink: 1,
     },
     detailExSub: {
-      fontSize: typography.micro.fontSize,
+      ...typography.micro,
       color: palette.textSecondary,
       paddingLeft: spacing.sm,
     },
@@ -384,7 +383,7 @@ const makeStyles = (palette: Palette, isDark: boolean) =>
       marginTop: spacing.xs,
     },
     activityDate: {
-      fontSize: typography.bodyCompact.fontSize,
+      ...typography.bodyCompact,
       color: colors.textOnDark,
     },
     activityDateLight: {
@@ -394,7 +393,7 @@ const makeStyles = (palette: Palette, isDark: boolean) =>
       ...typography.bodyCompact,
       fontWeight: '600',
       color: colors.textOnDark,
-      textShadowColor: colorWithOpacity(ink.black, 0.5),
+      textShadowColor: colorWithOpacity(ink.black, opacity.disabled),
       ...mapTextShadow,
     },
     durationStatLight: {

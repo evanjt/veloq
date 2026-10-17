@@ -107,7 +107,7 @@ describe('activityCardA11yLabel', () => {
     const full = { ...activity, calories: 812, icu_training_load: 96 } as Activity;
     expect(activitySecondaryStatLabels(full, true, t)).toEqual([
       'Training load: 96',
-      'Heart Rate: 142 bpm',
+      'Heart rate: 142 bpm',
       'Power: 230 W',
       'Calories: 812 kcal',
     ]);

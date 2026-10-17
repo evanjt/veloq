@@ -24,6 +24,7 @@ import {
   iconSize,
   ink,
   layout,
+  opacity,
   spacing,
   themePalette,
   typography,
@@ -141,7 +142,11 @@ function DiscEmptyState({
         <MaterialCommunityIcons
           name={icon}
           size={compact ? iconSize.xl : iconSize.xxl}
-          color={isDark ? colorWithOpacity(ink.white, 0.4) : colorWithOpacity(ink.black, 0.3)}
+          color={
+            isDark
+              ? colorWithOpacity(ink.white, opacity.dim)
+              : colorWithOpacity(ink.black, opacity.tint4)
+          }
         />
       </View>
 
@@ -217,9 +222,8 @@ const styles = StyleSheet.create({
     fontSize: typography.body.fontSize,
   },
   description: {
-    fontSize: typography.bodySmall.fontSize,
+    ...typography.bodySmall,
     textAlign: 'center',
-    lineHeight: 20,
     maxWidth: 280,
   },
   descriptionCompact: {

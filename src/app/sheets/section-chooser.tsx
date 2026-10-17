@@ -26,12 +26,11 @@ function SectionChooserSheetContent() {
   const isMetric = useMetricSystem();
   const { input, resolve } = useSheetRequest<SectionChooserInput, string>();
 
-  const surface = isDark ? darkColors.surface : colors.surface;
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   return (
-    <View style={[styles.sheet, { backgroundColor: surface }]} testID="section-chooser">
+    <View style={styles.sheet} testID="section-chooser">
       <SheetHeader
         title={t('maps.chooseSection')}
         onCancel={() => tapBack()}
@@ -70,6 +69,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   details: { flex: 1 },
-  name: { fontSize: typography.body.fontSize },
+  name: { ...typography.body },
   distance: { fontSize: typography.label.fontSize },
 });

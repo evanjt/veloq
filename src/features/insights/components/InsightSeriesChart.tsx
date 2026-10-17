@@ -156,12 +156,11 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   readoutValue: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
+    ...typography.bodyCompactBold,
     color: colors.textPrimary,
   },
   readoutDate: {
-    fontSize: typography.micro.fontSize,
+    ...typography.micro,
     color: colors.textSecondary,
   },
   primaryDark: {

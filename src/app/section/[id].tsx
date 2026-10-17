@@ -6,12 +6,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useFocusEffect, useLocalSearchParams, router } from 'expo-router';
 import { useAfterNavigationTransition } from '@/shared/async/useAfterNavigationTransition';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { FLOW_SECTION_OPEN, completeFlowAfterFrame } from '@/shared/debug/flowTiming';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { useTranslation } from 'react-i18next';
 import {
   useSectionActions,
@@ -107,7 +107,6 @@ function SectionDetailScreenContent() {
   }>();
   const { isDark } = useTheme();
   const bottomClearance = useBottomClearance();
-  const insets = useSafeAreaInsets();
   const mapHeight = useHeroMapHeight();
   const editMapHeight = useHeroMapHeight(EDIT_MAP_FRACTION);
 
@@ -259,7 +258,8 @@ function SectionDetailScreenContent() {
     RANGE_DAYS[sectionTimeRange],
     selectedSportType,
     streamsReady,
-    performanceAttempt
+    performanceAttempt,
+    navActivityId
   );
   if (
     performance &&
@@ -372,7 +372,6 @@ function SectionDetailScreenContent() {
           {/* Hero Map Section - expands when editing */}
           <SectionHeader
             section={section}
-            insetTop={insets.top}
             mapHeight={isTrimming ? editMapHeight : mapHeight}
             activityColor={activityColor}
             iconName={iconName}
@@ -535,13 +534,7 @@ function SectionDetailScreenContent() {
                   testID="section-export-gpx"
                   label={gpxExporting ? t('export.exporting') : t('export.gpx')}
                   loading={gpxExporting}
-                  icon={
-                    <MaterialCommunityIcons
-                      name="download"
-                      size={iconSize.md}
-                      color={colors.textOnPrimary}
-                    />
-                  }
+                  icon={<ChromeIcon name="share" size={iconSize.md} color={colors.textOnPrimary} />}
                   onPress={() =>
                     exportGpx({
                       name: section.name || 'Section',

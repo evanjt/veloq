@@ -14,7 +14,7 @@ import { Platform } from 'react-native';
 import { Switch as PaperSwitch } from 'react-native-paper';
 
 import { useTheme } from '@/shared/app';
-import { colors, colorWithOpacity, darkColors, switchTrackOff } from '@/theme';
+import { colors, colorWithOpacity, darkColors, opacity, switchTrackOff } from '@/theme';
 import { selection } from './haptics';
 
 export interface SwitchProps {
@@ -43,7 +43,7 @@ export function switchColors(
   const thumbOff = isDark ? darkColors.textSecondary : colors.surface;
   return {
     thumbColor: value ? primary : thumbOff,
-    trackColor: { true: colorWithOpacity(primary, 0.5), false: trackOff },
+    trackColor: { true: colorWithOpacity(primary, opacity.disabled), false: trackOff },
   };
 }
 

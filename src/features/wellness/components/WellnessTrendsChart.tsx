@@ -457,7 +457,9 @@ export const WellnessTrendsChart = React.memo(function WellnessTrendsChart({
     linePaint.setStyle(1);
     linePaint.setStrokeWidth(1);
     linePaint.setColor(
-      Skia.Color(isDark ? colorWithOpacity(ink.white, 0.3) : colorWithOpacity(ink.black, 0.2))
+      Skia.Color(
+        isDark ? colorWithOpacity(ink.white, opacity.tint4) : colorWithOpacity(ink.black, 0.2)
+      )
     );
 
     const circlePaint = Skia.Paint();
@@ -639,14 +641,12 @@ const makeStyles = (palette: Palette) =>
       paddingHorizontal: spacing.xs,
     },
     dateText: {
-      fontSize: typography.bodySmall.fontSize,
-      fontWeight: '600',
+      ...typography.bodySmallBold,
       color: colors.textPrimary,
     },
     dateHint: {
-      fontSize: typography.micro.fontSize,
+      ...typography.micro,
       color: palette.textSecondary,
-      fontStyle: 'italic',
     },
     emptyState: {
       flex: 1,
@@ -682,9 +682,8 @@ const makeStyles = (palette: Palette) =>
       marginRight: spacing.xs,
     },
     metricLabel: {
-      fontSize: typography.label.fontSize,
+      ...typography.badge,
       color: palette.textSecondary,
-      fontWeight: '600',
     },
     sparklineContainer: {
       flex: 1,
@@ -695,8 +694,7 @@ const makeStyles = (palette: Palette) =>
       width: 55,
     },
     metricValue: {
-      fontSize: typography.bodySmall.fontSize + 1,
-      fontWeight: '700',
+      ...typography.pillValue,
       color: colors.textPrimary,
     },
     metricUnit: {
@@ -705,12 +703,12 @@ const makeStyles = (palette: Palette) =>
       marginTop: -spacing.xxs,
     },
     metricAvg: {
-      fontSize: typography.pillLabel.fontSize - 1,
+      ...typography.micro,
       color: palette.textSecondary,
       marginTop: spacing.xxs,
     },
     periodLabel: {
-      fontSize: typography.micro.fontSize,
+      ...typography.micro,
       color: palette.textSecondary,
       textAlign: 'center',
       marginTop: spacing.sm,

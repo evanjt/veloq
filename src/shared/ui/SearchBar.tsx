@@ -101,9 +101,9 @@ const styles = StyleSheet.create({
   // The field fills the bar's height, so the whole bar takes the tap rather than
   // the one line of text inside it.
   input: {
+    ...typography.bodyMedium,
     flex: 1,
     minHeight: layout.minTapTarget,
-    fontSize: typography.bodyMedium.fontSize,
     color: lightColors.textPrimary,
     paddingVertical: 0,
   },

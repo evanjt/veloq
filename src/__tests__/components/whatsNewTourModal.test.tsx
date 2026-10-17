@@ -17,7 +17,7 @@ import { WhatsNewModal } from '@/features/settings/components/whatsNew/WhatsNewM
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { MapPreferencesProvider } from '@/features/settings/stores/MapPreferencesContext';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { spacing } from '@/theme';
+import { layout, spacing } from '@/theme';
 
 const mockWindow = { width: 750, height: 1334, scale: 2, fontScale: 1 };
 jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
@@ -218,7 +218,8 @@ describe('the tour when the window changes width', () => {
     fireEvent.press(screen.getByRole('button', { name: 'whatsNew.nextButton' }));
     fireEvent.press(screen.getByRole('button', { name: 'whatsNew.nextButton' }));
     act(() => advanceAnimationByTime(300));
-    expect(rowOffset()).toEqual({ translateX: -(750 - spacing.xl * 2) * 2 });
+    // At 750 the card is held to the readable column.
+    expect(rowOffset()).toEqual({ translateX: -layout.maxContentWidth * 2 });
 
     mockWindow.width = 500;
     screen.rerender(tourTree());

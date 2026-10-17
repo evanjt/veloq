@@ -425,6 +425,18 @@ fn activity_detail_carries_only_the_group_this_activity_is_in() {
                 params![id, rep, members],
             )
             .expect("insert group");
+        // Every save, and the backfill at load, writes a match row per member.
+        let members: Vec<String> = serde_json::from_str(members).expect("members");
+        for member in members {
+            s.raw
+                .execute(
+                    "INSERT OR IGNORE INTO activity_matches
+                         (route_id, activity_id, match_percentage, direction)
+                     VALUES (?1, ?2, 100.0, 'same')",
+                    params![id, member],
+                )
+                .expect("insert match");
+        }
     }
     // A minimum of one, so every group in the fixture qualifies and the
     // narrowing is what removes the one this activity is not in.
@@ -992,10 +1004,13 @@ fn route_detail_matches_the_calls_it_replaces() {
         .map(|g| g.group_id.clone())
         .unwrap_or_else(|| "no-group".to_string());
 
-    let bundle = s.engine.route_detail_data(&group_id, None, 1);
+    let bundle = s.engine.route_detail_data(&group_id);
 
     assert_eq!(bundle.activity_count, s.engine.activity_count() as u32);
-    assert_eq!(bundle.route_names, s.engine.get_all_route_names());
+    assert_eq!(
+        bundle.group.as_ref().and_then(|g| g.custom_name.clone()),
+        s.engine.get_route_name(&group_id)
+    );
     assert_eq!(
         bundle.excluded_activity_ids,
         s.engine.get_excluded_route_activity_ids(&group_id)
@@ -1003,12 +1018,6 @@ fn route_detail_matches_the_calls_it_replaces() {
     assert_eq!(
         bundle.group.as_ref().map(|g| g.group_id.clone()),
         Some(group_id.clone())
-    );
-
-    let direct = s.engine.get_route_performances(&group_id, None, None);
-    assert_eq!(
-        bundle.performances.performances.len(),
-        direct.performances.len()
     );
 
     let expected_representative = s
@@ -1020,14 +1029,13 @@ fn route_detail_matches_the_calls_it_replaces() {
 }
 
 #[test]
-fn route_detail_honours_the_group_minimum() {
+fn route_detail_is_empty_for_a_route_that_is_not_there() {
     let _serial_state = crate::serial_state();
     let s = populated();
-    let bundle = s.engine.route_detail_data("no-group", None, 3);
+    let bundle = s.engine.route_detail_data("no-group");
 
     assert!(bundle.group.is_none());
     assert!(bundle.map_signatures.is_empty());
-    assert!(bundle.groups.iter().all(|g| g.activity_ids.len() >= 3));
 }
 
 /// One attempt at the fixture route: its sport, how many days ago, its
@@ -1152,7 +1160,9 @@ fn route_performance_answers_one_sport_in_the_section_shape() {
     let _serial_state = crate::serial_state();
     let s = route_with_attempts();
 
-    let read = s.engine.route_detail_performance("loop", 0, Some("Ride"));
+    let read = s
+        .engine
+        .route_detail_performance("loop", 0, Some("Ride"), None);
     let direct = veloqrs::FfiRoutePerformanceResult::from(s.engine.get_route_performances(
         "loop",
         None,
@@ -1255,8 +1265,12 @@ fn route_performance_ranges_the_chart_and_bests_and_keeps_the_calendar() {
     let _serial_state = crate::serial_state();
     let s = route_with_attempts();
 
-    let whole = s.engine.route_detail_performance("loop", 0, Some("Ride"));
-    let ranged = s.engine.route_detail_performance("loop", 30, Some("Ride"));
+    let whole = s
+        .engine
+        .route_detail_performance("loop", 0, Some("Ride"), None);
+    let ranged = s
+        .engine
+        .route_detail_performance("loop", 30, Some("Ride"), None);
 
     assert_eq!(
         chart_ids(&ranged.chart_data.points),
@@ -1280,7 +1294,9 @@ fn route_performance_answers_the_sport_asked_for() {
     let _serial_state = crate::serial_state();
     let s = route_with_attempts();
 
-    let run = s.engine.route_detail_performance("loop", 0, Some("Run"));
+    let run = s
+        .engine
+        .route_detail_performance("loop", 0, Some("Run"), None);
     let direct = s.engine.get_route_performances("loop", None, Some("Run"));
 
     assert_eq!(run.sport_type.as_deref(), Some("Run"));
@@ -1298,7 +1314,7 @@ fn route_performance_answers_the_sport_asked_for() {
 
     // With none asked, a route more than one sport has taken answers for the
     // one with the most attempts.
-    let unasked = s.engine.route_detail_performance("loop", 0, None);
+    let unasked = s.engine.route_detail_performance("loop", 0, None, None);
     assert_eq!(unasked.sport_type.as_deref(), Some("Ride"));
 }
 
@@ -1307,7 +1323,7 @@ fn route_performance_of_an_unknown_route_is_empty() {
     let _serial_state = crate::serial_state();
     let s = route_with_attempts();
 
-    let read = s.engine.route_detail_performance("no-route", 0, None);
+    let read = s.engine.route_detail_performance("no-route", 0, None, None);
 
     assert!(read.sport_type.is_none());
     assert!(read.sport_counts.is_empty());
@@ -1419,7 +1435,9 @@ fn route_performance_carries_the_efficiency_trend_of_its_counted_attempts() {
         },
     ]);
 
-    let read = s.engine.route_detail_performance("loop", 0, Some("Ride"));
+    let read = s
+        .engine
+        .route_detail_performance("loop", 0, Some("Ride"), None);
     let trend = read
         .efficiency_trend
         .expect("four counted Ride attempts carry heart rate");
@@ -1457,14 +1475,18 @@ fn route_performance_carries_the_efficiency_trend_of_its_counted_attempts() {
     assert!(trend.trend_slope < 0.0);
 
     // A range filters the chart, not the trend.
-    let ranged = s.engine.route_detail_performance("loop", 7, Some("Ride"));
+    let ranged = s
+        .engine
+        .route_detail_performance("loop", 7, Some("Ride"), None);
     assert_eq!(
         format!("{:?}", ranged.efficiency_trend),
         format!("{:?}", Some(&trend))
     );
 
     // Two Run attempts are too few to call a trend.
-    let run = s.engine.route_detail_performance("loop", 0, Some("Run"));
+    let run = s
+        .engine
+        .route_detail_performance("loop", 0, Some("Run"), None);
     assert_eq!(run.sport_type.as_deref(), Some("Run"));
     assert!(run.efficiency_trend.is_none());
 }
@@ -1498,7 +1520,7 @@ fn route_efficiency_trend_is_taken_in_the_latest_direction() {
     let s = route_of(&attempts);
     let trend = s
         .engine
-        .route_detail_performance("loop", 0, Some("Ride"))
+        .route_detail_performance("loop", 0, Some("Ride"), None)
         .efficiency_trend
         .expect("six same-way attempts carry heart rate");
     assert_eq!(trend.effort_count, 6);
@@ -1510,7 +1532,7 @@ fn route_efficiency_trend_is_taken_in_the_latest_direction() {
     let s = route_of(&attempts);
     let trend = s
         .engine
-        .route_detail_performance("loop", 0, Some("Ride"))
+        .route_detail_performance("loop", 0, Some("Ride"), None)
         .efficiency_trend
         .expect("four reverse attempts carry heart rate");
     assert_eq!(trend.effort_count, 4);
@@ -1526,7 +1548,7 @@ fn route_performance_with_two_heart_rate_attempts_has_no_efficiency_trend() {
         ride("ride_c", 10, 290, None),
     ]);
 
-    let read = s.engine.route_detail_performance("loop", 0, None);
+    let read = s.engine.route_detail_performance("loop", 0, None, None);
 
     assert_eq!(read.sport_type.as_deref(), Some("Ride"));
     assert_eq!(read.chart_data.points.len(), 3);
@@ -1584,7 +1606,9 @@ fn section_performance_carries_the_efficiency_trend_of_the_sport_asked_for() {
     s.engine.load().expect("load the catalogue");
 
     for sport in ["Ride", "Run"] {
-        let read = s.engine.section_detail_performance("hill", 0, Some(sport));
+        let read = s
+            .engine
+            .section_detail_performance("hill", 0, Some(sport), None);
         let trend = read
             .efficiency_trend
             .as_ref()
@@ -1599,7 +1623,7 @@ fn section_performance_carries_the_efficiency_trend_of_the_sport_asked_for() {
 
     // With no chip the read answers the sport with the most outings, and the
     // trend is that sport's.
-    let unasked = s.engine.section_detail_performance("hill", 0, None);
+    let unasked = s.engine.section_detail_performance("hill", 0, None, None);
     assert_eq!(unasked.sport_type.as_deref(), Some("Ride"));
     assert_eq!(
         unasked.efficiency_trend.map(|t| t.sport_type).as_deref(),
@@ -2864,7 +2888,7 @@ fn section_detail_reports_the_streams_the_caller_must_fetch() {
 fn section_performance_matches_the_calls_it_replaces() {
     let _serial_state = crate::serial_state();
     let mut s = populated();
-    let bundle = s.engine.section_detail_performance("auto1", 0, None);
+    let bundle = s.engine.section_detail_performance("auto1", 0, None, None);
 
     let calendar = s.engine.get_section_calendar_summary("auto1", None);
     assert_eq!(bundle.calendar_summary.is_some(), calendar.is_some());
@@ -2897,7 +2921,9 @@ fn section_performance_matches_the_calls_it_replaces() {
 fn section_performance_honours_the_sport_filter() {
     let _serial_state = crate::serial_state();
     let mut s = populated();
-    let bundle = s.engine.section_detail_performance("auto1", 0, Some("Run"));
+    let bundle = s
+        .engine
+        .section_detail_performance("auto1", 0, Some("Run"), None);
 
     let direct = s
         .engine

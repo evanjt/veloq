@@ -2,9 +2,10 @@
  * The frame every sheet route renders inside, put there by the root stack's
  * `screenLayout` rather than by each route.
  *
- * It paints the sheet surface, draws Material's drag handle where Android's
- * stack sheet has none, and pads the content clear of the bottom inset.
- * `sheetFrame` decides both per route and platform. The handle is decorative:
+ * It is the sheet's only fill, painting the surface except where the system
+ * draws the sheet's own material (`sheetSurface`), draws Material's drag handle
+ * where Android's stack sheet has none, and pads the content clear of the
+ * bottom inset. `sheetFrame` decides those two per route and platform. The handle is decorative:
  * the stack sheet takes no detent from JavaScript after it opens, so the
  * handle has no action to offer a screen reader, and scrolling the content
  * expands the sheet while back dismisses it.
@@ -15,8 +16,13 @@ import { Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/shared/app';
-import { SCREEN_SHEETS, sheetFrame, sheetHasDetents } from '@/shared/app/screenHeaders';
-import { colors, colorWithOpacity, darkColors, layout, spacing } from '@/theme';
+import {
+  SCREEN_SHEETS,
+  sheetFrame,
+  sheetHasDetents,
+  sheetSurface,
+} from '@/shared/app/screenHeaders';
+import { colors, colorWithOpacity, darkColors, layout, opacity, spacing } from '@/theme';
 
 export function SheetFrame({ name, children }: { name: string; children: React.ReactNode }) {
   const { isDark } = useTheme();
@@ -29,7 +35,7 @@ export function SheetFrame({ name, children }: { name: string; children: React.R
       testID="sheet-frame"
       style={[
         sheetHasDetents(name) && styles.fill,
-        { backgroundColor: palette.surface, paddingBottom },
+        { backgroundColor: sheetSurface(Platform.OS, Platform.Version, isDark), paddingBottom },
       ]}
     >
       {handle ? (
@@ -42,7 +48,7 @@ export function SheetFrame({ name, children }: { name: string; children: React.R
           <View
             style={[
               styles.handle,
-              { backgroundColor: colorWithOpacity(palette.textSecondary, 0.4) },
+              { backgroundColor: colorWithOpacity(palette.textSecondary, opacity.dim) },
             ]}
           />
         </View>

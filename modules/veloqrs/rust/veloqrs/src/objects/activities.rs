@@ -316,21 +316,24 @@ impl ActivityManager {
 
     /// An activity's chart series for a series selection: from the cached
     /// server body, or one rebuilt from the points and times the ingest
-    /// already stored. `None` when neither can answer the selection, which is
-    /// what makes the caller fetch. The body is parsed here and its series
-    /// cross as float buffers, so the JavaScript thread parses nothing.
+    /// already stored, with cadence in the unit of the activity's sport.
+    /// `None` when neither can answer the selection, which is what makes the
+    /// caller fetch. The body is parsed here and its series cross as float
+    /// buffers, so the JavaScript thread parses nothing.
     fn get_activity_streams(
         &self,
         activity_id: String,
         types: String,
     ) -> Result<Option<crate::FfiActivityStreams>, VeloqError> {
         let install = crate::persistence::engine_install();
-        let (body, stale) = with_reader(|conn| {
-            crate::persistence::bodies::pooled::stream_body(conn, &activity_id, &types).map_err(
-                |err| VeloqError::Database {
-                    msg: format!("{}", err),
-                },
-            )
+        let (body, stale, sport) = with_reader(|conn| {
+            let (body, stale) =
+                crate::persistence::bodies::pooled::stream_body(conn, &activity_id, &types)
+                    .map_err(|err| VeloqError::Database {
+                        msg: format!("{}", err),
+                    })?;
+            let sport = crate::persistence::activities::pooled::activity_sport(conn, &activity_id);
+            Ok::<_, VeloqError>((body, stale, sport))
         })??;
         if stale {
             let touched = crate::persistence::try_with_persistent_engine_for(install, |engine| {
@@ -347,7 +350,12 @@ impl ActivityManager {
                 });
             }
         }
-        Ok(body.and_then(|body| crate::net::chart_streams::chart_streams_from_body(&body)))
+        Ok(body.and_then(|body| {
+            crate::net::chart_streams::chart_streams_from_body(
+                &body,
+                sport.as_deref().unwrap_or_default(),
+            )
+        }))
     }
 
     fn set_time_streams(

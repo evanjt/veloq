@@ -45,7 +45,11 @@ tags:
 - tapOn:
     id: "preview-keep-button"
 - assertVisible: "Apply these settings\\?"
-- tapOn: "Confirm"
+# The alert's accept carries the screen button's label, so take the one under
+# the alert's title.
+- tapOn:
+    text: "Keep"
+    below: "Apply these settings\\?"
 
 - extendedWaitUntil:
     visible:

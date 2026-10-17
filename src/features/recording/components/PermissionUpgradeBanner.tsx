@@ -14,6 +14,7 @@ import {
   colorWithOpacity,
   iconSize,
   layout,
+  opacity,
   spacing,
   themePalette,
   typography,
@@ -21,8 +22,8 @@ import {
 import { GrantAccessButton } from './GrantAccessButton';
 import { IconButton } from '@/shared/ui/IconButton';
 
-const AMBER_BG = colorWithOpacity(colors.warning, 0.12);
-const AMBER_BG_DARK = colorWithOpacity(colors.warning, 0.18);
+const AMBER_BG = colorWithOpacity(colors.warning, opacity.tint2);
+const AMBER_BG_DARK = colorWithOpacity(colors.warning, opacity.tint3);
 
 function PermissionUpgradeBannerInner() {
   const { t } = useTranslation();
@@ -93,12 +94,11 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   text: {
+    ...typography.bodyCompact,
     flex: 1,
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '400',
   },
   errorText: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     marginLeft: PERMISSION_ICON_WIDTH + spacing.sm,
   },
 });

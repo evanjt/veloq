@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { View, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -14,6 +14,7 @@ import {
   selectExercises,
   selectProgression,
   StrengthBodyDiagram,
+  StrengthBodyDiagramSkeleton,
   StrengthProgressionCard,
   StrengthExerciseList,
   StrengthBalanceView,
@@ -27,6 +28,7 @@ import {
   ToggleButton,
   useScrollEndInset,
 } from '@/shared/ui';
+import { useScrollToTopOnReselect } from '@/shared/ui/tabReselect';
 import { useSyncState } from '@/shared/native/useSyncStatus';
 import { SyncState } from 'veloqrs';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
@@ -55,6 +57,8 @@ export const StrengthTab = React.memo(function StrengthTab({
 }: StrengthTabProps) {
   const { isDark } = useTheme();
   const scrollEndInset = useScrollEndInset();
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTopOnReselect('/insights', scrollRef);
   const { t } = useTranslation();
   const { data: athlete } = useAthlete();
   const [period, setPeriod] = useState<StrengthPeriod>(linkedPeriod?.period ?? DEFAULT_PERIOD);
@@ -139,6 +143,7 @@ export const StrengthTab = React.memo(function StrengthTab({
 
   return (
     <ScrollView
+      ref={scrollRef}
       testID="strength-tab"
       style={styles.container}
       contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollEndInset + 16 }]}
@@ -158,9 +163,7 @@ export const StrengthTab = React.memo(function StrengthTab({
       </View>
 
       {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={colors.primary} />
-        </View>
+        <StrengthBodyDiagramSkeleton />
       ) : isError ? (
         <View testID="strength-failed">
           <ErrorState
@@ -290,7 +293,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   notDownloadedText: {
-    fontSize: typography.bodyCompact.fontSize,
+    ...typography.bodyCompact,
     color: colors.textSecondary,
     textAlign: 'center',
   },
@@ -305,7 +308,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   owedText: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   owedTextDark: {

@@ -275,7 +275,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonLabel: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
+    ...typography.badge,
   },
 });

@@ -36,6 +36,29 @@ pub const WALKING: &[&str] = &["Walk", "Hike"];
 
 pub const SWIMMING: &[&str] = &["Swim", "OpenWaterSwim"];
 
+/// On foot. intervals.icu stores their cadence as strides a minute, one per
+/// pair of steps, and a step is what an athlete on foot counts.
+pub const STRIDE_CADENCE: &[&str] = &[
+    "Run",
+    "VirtualRun",
+    "TrailRun",
+    "Treadmill",
+    "Walk",
+    "Hike",
+    "Snowshoe",
+];
+
+/// Swum, rowed or paddled. Their cadence is strokes a minute as stored.
+pub const STROKE_CADENCE: &[&str] = &[
+    "Swim",
+    "OpenWaterSwim",
+    "Rowing",
+    "VirtualRow",
+    "Kayaking",
+    "Canoeing",
+    "StandUpPaddling",
+];
+
 /// Sports whose effort is a power number: every cycling sport, and rowing,
 /// which the activity chart already opens on power.
 pub const POWER: &[&str] = &[
@@ -146,6 +169,29 @@ pub fn shows_pace(sport: &str) -> bool {
     RUNNING.contains(&sport) || WALKING.contains(&sport)
 }
 
+/// The unit a sport's cadence is shown in. intervals.icu stores one number
+/// for every sport, cycles a minute, which is a crank revolution on a bike, a
+/// stride on foot and a stroke in the water. A sport no list names keeps the
+/// stored cycles, which is revolutions a minute.
+pub fn cadence_unit(sport: &str) -> crate::FfiCadenceUnit {
+    if STRIDE_CADENCE.contains(&sport) {
+        crate::FfiCadenceUnit::StepsPerMinute
+    } else if STROKE_CADENCE.contains(&sport) {
+        crate::FfiCadenceUnit::StrokesPerMinute
+    } else {
+        crate::FfiCadenceUnit::Rpm
+    }
+}
+
+/// A stored cadence in the sport's [`cadence_unit`]: a stride is two steps,
+/// and every other unit is the stored number.
+pub fn cadence_per_minute(sport: &str, stored: f64) -> f64 {
+    match cadence_unit(sport) {
+        crate::FfiCadenceUnit::StepsPerMinute => stored * 2.0,
+        crate::FfiCadenceUnit::Rpm | crate::FfiCadenceUnit::StrokesPerMinute => stored,
+    }
+}
+
 /// The sports a query for `sport` should match: its family when it has one,
 /// otherwise itself, so an unknown sport still answers for its own rows.
 pub fn family_of(sport: &str) -> Vec<&str> {
@@ -246,6 +292,35 @@ mod tests {
         assert!(measures_power("Rowing"));
         assert!(measures_power("VirtualRow"));
         assert!(!is_cycling("Rowing"));
+    }
+
+    /// Expected behaviour: a run's stored strides a minute show as steps,
+    /// twice the number, while a ride's revolutions and a swim's strokes show
+    /// as stored.
+    #[test]
+    fn cadence_is_steps_on_foot_and_as_stored_elsewhere() {
+        use crate::FfiCadenceUnit::*;
+        assert_eq!(cadence_unit("Run"), StepsPerMinute);
+        assert_eq!(cadence_per_minute("Run", 75.0), 150.0);
+        assert_eq!(cadence_per_minute("Run", 66.3), 132.6);
+        for sport in RUNNING.iter().chain(WALKING) {
+            assert_eq!(cadence_unit(sport), StepsPerMinute, "{sport}");
+            assert_eq!(cadence_per_minute(sport, 80.0), 160.0, "{sport}");
+        }
+        for sport in CYCLING {
+            assert_eq!(cadence_unit(sport), Rpm, "{sport}");
+            assert_eq!(cadence_per_minute(sport, 90.0), 90.0, "{sport}");
+        }
+        for sport in SWIMMING.iter().chain(&["Rowing", "Kayaking"]) {
+            assert_eq!(cadence_unit(sport), StrokesPerMinute, "{sport}");
+            assert_eq!(cadence_per_minute(sport, 28.0), 28.0, "{sport}");
+        }
+        for sport in ["", "Unicycle", "run", "WeightTraining"] {
+            assert_eq!(cadence_unit(sport), Rpm, "{sport}");
+            assert_eq!(cadence_per_minute(sport, 60.0), 60.0, "{sport}");
+        }
+        assert_eq!(cadence_per_minute("Run", 0.0), 0.0);
+        assert!(cadence_per_minute("Run", f64::NAN).is_nan());
     }
 
     #[test]

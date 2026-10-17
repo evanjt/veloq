@@ -1,16 +1,17 @@
 /**
- * SafeAreaView wrapper that automatically handles top safe area based on banner state.
+ * SafeAreaView wrapper that leaves the top edge to whatever already clears the status bar.
  *
- * When a banner (demo, offline, cache loading) is showing at the top of the screen,
- * this component excludes the top edge from safe area to avoid double padding.
- * The banners already handle the top safe area, so screens don't need to.
+ * When a banner (demo, offline, cache loading) is showing at the top of the screen, the banner
+ * owns the top inset. When the navigator shows a native header, transparent or not, the header
+ * owns it. In either case this component excludes the top edge to avoid double padding.
  *
  * Use this instead of SafeAreaView from react-native-safe-area-context in screens.
  */
 
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useContext } from 'react';
 import { StyleProp, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { HeaderShownContext } from 'expo-router/react-navigation';
 import { useScreenSafeAreaEdges } from '@/shared/app/TopSafeAreaContext';
 import { BottomInsetTaken } from './tabBarClearance';
 
@@ -18,21 +19,12 @@ interface ScreenSafeAreaViewProps {
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
   testID?: string;
-  /**
-   * The screen sits under a native stack header, which already clears the
-   * status bar. Taking the top edge as well would pad it a second time.
-   */
-  hasNativeHeader?: boolean;
 }
 
-export function ScreenSafeAreaView({
-  children,
-  style,
-  testID,
-  hasNativeHeader = false,
-}: ScreenSafeAreaViewProps) {
+export function ScreenSafeAreaView({ children, style, testID }: ScreenSafeAreaViewProps) {
   const screenEdges = useScreenSafeAreaEdges();
-  const edges = hasNativeHeader ? screenEdges.filter((edge) => edge !== 'top') : screenEdges;
+  const headerShown = useContext(HeaderShownContext);
+  const edges = headerShown ? screenEdges.filter((edge) => edge !== 'top') : screenEdges;
 
   return (
     <SafeAreaView edges={edges} style={style} testID={testID}>

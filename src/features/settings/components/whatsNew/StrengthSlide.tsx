@@ -105,15 +105,13 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   splitTitle: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    ...typography.bodySmallBold,
   },
   pair: {
     gap: spacing.xs,
   },
   pairName: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
+    ...typography.captionBold,
   },
   sides: {
     flexDirection: 'row',

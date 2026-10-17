@@ -1,12 +1,26 @@
 import { Platform, TextStyle } from 'react-native';
 
-// Each platform draws its own system sans: `System` is San Francisco on iOS,
-// and leaving the family unset on Android keeps the
-// device's system face rather than forcing Roboto over an OEM's choice.
-const fontFamily = Platform.select<string | undefined>({
-  ios: 'System',
-  default: undefined,
-});
+// Manrope is the app's face, embedded at build by the `expo-font` plugin in
+// `app.json` from `assets/fonts/` at these three weights and no others. Both
+// platforms resolve the one family name to the file for a weight: iOS groups
+// the files by their typographic family, Android through the font family XML
+// the plugin writes. A weight between the three draws the nearest file.
+export const typeface = {
+  family: 'Manrope',
+  weights: ['400', '600', '700'],
+} as const;
+
+export type FaceWeight = (typeof typeface.weights)[number];
+
+/** The bundled weight a requested one draws, rounding half up, as a medium label becomes semibold. */
+export function faceWeight(weight: TextStyle['fontWeight']): FaceWeight {
+  const numeric =
+    weight === 'bold' ? 700 : weight === undefined || weight === 'normal' ? 400 : Number(weight);
+  if (!Number.isFinite(numeric) || numeric < 500) return '400';
+  return numeric < 650 ? '600' : '700';
+}
+
+const fontFamily = typeface.family;
 
 // Numbers in a column or a live readout keep one width per digit.
 const tabularFigures: TextStyle['fontVariant'] = ['tabular-nums'];

@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import { View, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, FlatList, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -10,8 +10,10 @@ import {
   ErrorState,
   useScrollEndInset,
   screenListInsets,
+  readableColumn,
 } from '@/shared/ui';
 import { Card } from '@/shared/ui/Card';
+import { Shimmer, SkeletonFrame } from '@/shared/ui/Shimmer';
 import { IconButton } from '@/shared/ui/IconButton';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { tapTo } from '@/shared/app/navigation';
@@ -21,6 +23,7 @@ import {
   darkColors,
   iconSize,
   layout,
+  opacity,
   spacing,
   typography,
 } from '@/theme';
@@ -34,6 +37,53 @@ import {
 } from '@/features/recording';
 import type { RecordingLibraryEntry } from '@/types';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+
+/** Enough placeholder rows to fill a phone screen while the library is read. */
+const PLACEHOLDER_ROWS = 6;
+
+/** The list while the library is read, each row the shape of the recording card it becomes. */
+function RecordingRowsSkeleton() {
+  return (
+    <ScrollView
+      {...screenListInsets}
+      scrollEnabled={false}
+      contentContainerStyle={styles.listContent}
+    >
+      <SkeletonFrame>
+        {Array.from({ length: PLACEHOLDER_ROWS }, (_, row) => (
+          <View key={row} testID="recording-row-skeleton" style={styles.entry}>
+            <Card variant="flat" padding="sm" style={styles.entryCard}>
+              <Shimmer
+                width={iconSize.lg}
+                height={iconSize.lg}
+                borderRadius={layout.borderRadiusFull}
+                style={styles.activityIcon}
+              />
+              <View style={styles.cardBody}>
+                <Shimmer
+                  width="60%"
+                  height={typography.bodyBold.lineHeight}
+                  borderRadius={layout.borderRadiusXs}
+                />
+                <Shimmer
+                  width="80%"
+                  height={typography.caption.lineHeight}
+                  borderRadius={layout.borderRadiusXs}
+                  style={styles.metaPlaceholder}
+                />
+              </View>
+              <Shimmer
+                width={spacing.xxl * 2}
+                height={Math.max(iconSize.sm, typography.label.lineHeight) + 2 * spacing.xs}
+                borderRadius={layout.borderRadiusSm}
+              />
+            </Card>
+          </View>
+        ))}
+      </SkeletonFrame>
+    </ScrollView>
+  );
+}
 
 function RecordingsLibraryScreenContent() {
   const { t } = useTranslation();
@@ -71,7 +121,7 @@ function RecordingsLibraryScreenContent() {
           <Card
             variant="flat"
             padding="sm"
-            style={{ flexDirection: 'row', alignItems: 'center' }}
+            style={styles.entryCard}
             testID={`recording-entry-${item.id}`}
             onPress={() => tapTo(`/recordings/${item.id}`)}
             accessibilityRole="button"
@@ -98,7 +148,10 @@ function RecordingsLibraryScreenContent() {
             </View>
             <View
               testID={`recording-status-${item.uploadStatus}`}
-              style={[styles.statusChip, { backgroundColor: colorWithOpacity(status.color, 0.12) }]}
+              style={[
+                styles.statusChip,
+                { backgroundColor: colorWithOpacity(status.color, opacity.tint2) },
+              ]}
             >
               <MaterialCommunityIcons name={status.icon} size={iconSize.sm} color={status.color} />
               <Text style={[styles.statusText, { color: status.color }]}>{statusText}</Text>
@@ -129,11 +182,9 @@ function RecordingsLibraryScreenContent() {
   );
 
   return (
-    <ScreenSafeAreaView hasNativeHeader style={[styles.container, { backgroundColor: bg }]}>
+    <ScreenSafeAreaView style={[styles.container, { backgroundColor: bg }]}>
       {isLoading ? (
-        <View style={styles.centred}>
-          <ActivityIndicator />
-        </View>
+        <RecordingRowsSkeleton />
       ) : error != null ? (
         <View style={styles.centred}>
           <ErrorState
@@ -155,7 +206,11 @@ function RecordingsLibraryScreenContent() {
               <PermissionUpgradeBanner />
             ) : null
           }
-          contentContainerStyle={[styles.listContent, { paddingBottom: scrollEndInset }]}
+          contentContainerStyle={[
+            readableColumn,
+            styles.listContent,
+            { paddingBottom: scrollEndInset },
+          ]}
           ListEmptyComponent={
             <EmptyState
               icon="record-circle-outline"
@@ -188,6 +243,10 @@ const styles = StyleSheet.create({
   entry: {
     marginBottom: spacing.sm,
   },
+  entryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   activityIcon: {
     marginRight: spacing.sm,
   },
@@ -200,6 +259,9 @@ const styles = StyleSheet.create({
   },
   cardMeta: {
     ...typography.caption,
+    marginTop: spacing.xxs,
+  },
+  metaPlaceholder: {
     marginTop: spacing.xxs,
   },
   rowAction: {
@@ -215,8 +277,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusSm,
   },
   statusText: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
+    ...typography.badge,
   },
 });
 

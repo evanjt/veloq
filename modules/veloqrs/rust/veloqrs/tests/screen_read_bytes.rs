@@ -261,6 +261,10 @@ fn performance(v: FfiSectionPerformanceData) -> Lowered {
         curves,
         curves_pending,
         efficiency_trend,
+        scatter_focus,
+        record_progression => |v: &FfiSectionPerformanceData| {
+            v.record_progression.forward.len() + v.record_progression.reverse.len()
+        },
     )
 }
 
@@ -268,12 +272,9 @@ fn route_detail(v: FfiRouteDetailData) -> Lowered {
     lower!(FfiRouteDetailData, v;
         activity_count,
         group,
-        groups => |v: &FfiRouteDetailData| v.groups.len(),
-        performances => |v: &FfiRouteDetailData| v.performances.performances.len(),
         distance_meters,
         elevation_gain_meters,
         encoded_representative,
-        route_names => |v: &FfiRouteDetailData| v.route_names.len(),
         excluded_activity_ids => |v: &FfiRouteDetailData| v.excluded_activity_ids.len(),
         map_signatures => |v: &FfiRouteDetailData| v.map_signatures.len(),
         missing_time_stream_ids => |v: &FfiRouteDetailData| v.missing_time_stream_ids.len(),
@@ -400,19 +401,16 @@ fn reads() -> Vec<(&'static str, Shape, Read)> {
         }),
         ("section_detail_performance", Shape::Item, |e, ids| {
             measure(
-                || e.section_detail_performance(&ids.section, 365 * 5, None),
+                || e.section_detail_performance(&ids.section, 365 * 5, None, None),
                 performance,
             )
         }),
-        ("route_detail_data", Shape::Listing, |e, ids| {
-            measure(
-                || e.route_detail_data(&ids.group, Some("a1"), 2),
-                route_detail,
-            )
+        ("route_detail_data", Shape::Item, |e, ids| {
+            measure(|| e.route_detail_data(&ids.group), route_detail)
         }),
         ("route_detail_performance", Shape::Item, |e, ids| {
             measure(
-                || e.route_detail_performance(&ids.group, 365 * 5, None),
+                || e.route_detail_performance(&ids.group, 365 * 5, None, None),
                 performance,
             )
         }),

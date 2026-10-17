@@ -3,7 +3,7 @@
   "display": {
     "chartLabels": {
       "fitness": "Fitness 62 to 72 and Fatigue 78 to 80 over 30 days",
-      "form": "Form -11 to -8 over 42 days, now Grey Zone",
+      "form": "Form -11 to -8 over 42 days, now Grey zone",
       "hrv": "HRV 62 to 58 over 30 days"
     },
     "chartSpans": {
@@ -11,8 +11,8 @@
       "form": "42 days",
       "hrv": "30 days"
     },
-    "demoLabel": "Demo Mode",
-    "formZone": "Grey Zone",
+    "demoLabel": "Demo mode",
+    "formZone": "Grey zone",
     "impactLine": "Form -5 → -6 · +88 TSS",
     "metricLabels": {
       "fatigue": "Fatigue",
@@ -24,7 +24,7 @@
     },
     "openToRefreshLabel": "Open Veloq to refresh",
     "perWeekSuffix": "/wk",
-    "recordLabel": "Start Activity",
+    "recordLabel": "Start activity",
     "refreshLabel": "Refresh",
     "refreshingLabel": "Refreshing",
     "weekLabel": "Week"
@@ -91,11 +91,11 @@
     "formAfter": -6.0,
     "formAfterText": "-6",
     "formAfterZone": "greyZone",
-    "formAfterZoneText": "Grey Zone",
+    "formAfterZoneText": "Grey zone",
     "formBefore": -5.0,
     "formBeforeText": "-5",
     "formBeforeZone": "greyZone",
-    "formBeforeZoneText": "Grey Zone",
+    "formBeforeZoneText": "Grey zone",
     "tssAdded": 88.0
   },
   "insights": [
@@ -586,7 +586,7 @@
       },
       {
         "id": "movingTime",
-        "label": "Moving Time",
+        "label": "Moving time",
         "value": "1:30:00"
       },
       {
@@ -883,7 +883,7 @@
       },
       "month": {
         "activityCount": 1,
-        "bodyLabel": "Most trained: Glutes 7 sets, Hamstrings 5 sets, Lower Back 5 sets, Chest 4 sets",
+        "bodyLabel": "Most trained: Glutes 7 sets, Hamstrings 5 sets, Lower back 5 sets, Chest 4 sets",
         "emptyText": null,
         "label": "December",
         "maxWeightedSets": 7.0,
@@ -944,7 +944,7 @@
             "volumeText": "3680 kg"
           },
           {
-            "name": "Lower Back",
+            "name": "Lower back",
             "setsText": "5 sets",
             "slug": "lower-back",
             "volumeText": "3680 kg"

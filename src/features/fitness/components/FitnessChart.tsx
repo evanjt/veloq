@@ -534,8 +534,7 @@ const makeStyles = (palette: Palette) =>
       flex: 1,
     },
     dateText: {
-      fontSize: typography.bodySmall.fontSize,
-      fontWeight: '600',
+      ...typography.bodySmallBold,
       color: colors.textPrimary,
     },
     markerText: {
@@ -550,7 +549,7 @@ const makeStyles = (palette: Palette) =>
       alignItems: 'center',
     },
     valueLabel: {
-      fontSize: typography.micro.fontSize,
+      ...typography.micro,
       color: palette.textSecondary,
       marginBottom: spacing.xxs,
     },
@@ -593,7 +592,7 @@ const makeStyles = (palette: Palette) =>
       color: palette.textSecondary,
     },
     legendItemHidden: {
-      opacity: opacity.dimmed,
+      opacity: opacity.dim,
     },
     legendTextHidden: {
       textDecorationLine: 'line-through',
