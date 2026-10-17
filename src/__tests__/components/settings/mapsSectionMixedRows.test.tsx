@@ -1,6 +1,6 @@
 /**
- * Scenario: per-type map choices saved under an older grouping put Hike and
- * Snowshoe in one row with different terrain modes, and Gym's members on
+ * Scenario: per-type map choices saved before families grouped the rows put Walk
+ * and Hike in one row with different terrain modes, and Strength's members on
  * different styles.
  *
  * Expected behaviour: the row says Mixed for each column that disagrees, opening
@@ -66,7 +66,7 @@ const screen = () => (
   </MapPreferencesProvider>
 );
 
-const GYM_SATELLITE = {
+const STRENGTH_SATELLITE = {
   Workout: 'satellite',
   WeightTraining: 'satellite',
   Yoga: 'satellite',
@@ -79,71 +79,71 @@ beforeEach(() => {
 });
 
 describe('map style rows over split saved values', () => {
-  it('writes nothing on mount, rerender or remount and keeps Snowshoe on always', async () => {
-    seed({ terrain3DModeByType: { Hike: 'off', Snowshoe: 'always' } });
+  it('writes nothing on mount, rerender or remount and keeps Hike on always', async () => {
+    seed({ terrain3DModeByType: { Walk: 'off', Hike: 'always' } });
     const before = mockStore.get(PREFS_KEY);
 
     const first = await render(screen());
-    await waitFor(() => expect(first.getByTestId('map-terrain-pill-Hike')).toBeTruthy());
+    await waitFor(() => expect(first.getByTestId('map-terrain-pill-Foot')).toBeTruthy());
     await first.rerender(screen());
     await first.unmount();
     const second = await render(screen());
-    await waitFor(() => expect(second.getByTestId('map-terrain-pill-Hike')).toBeTruthy());
+    await waitFor(() => expect(second.getByTestId('map-terrain-pill-Foot')).toBeTruthy());
     await act(async () => {});
 
     expect(mockSetSetting).not.toHaveBeenCalled();
     expect(mockStore.get(PREFS_KEY)).toBe(before);
-    expect(saved().terrain3DModeByType.Snowshoe).toBe('always');
+    expect(saved().terrain3DModeByType.Hike).toBe('always');
   });
 
   it('shows Mixed per column and taps one column at a time', async () => {
     seed({
-      activityTypeStyles: GYM_SATELLITE,
-      terrain3DModeByType: { Hike: 'off', Snowshoe: 'always' },
+      activityTypeStyles: STRENGTH_SATELLITE,
+      terrain3DModeByType: { Walk: 'off', Hike: 'always' },
     });
     const view = await render(screen());
-    await waitFor(() => expect(view.getByTestId('map-terrain-pill-Hike')).toBeTruthy());
+    await waitFor(() => expect(view.getByTestId('map-terrain-pill-Foot')).toBeTruthy());
 
     expect(view.getAllByText(/settings\.mixed/).length).toBeGreaterThan(0);
-    expect(view.getByTestId('map-style-pill-Hike')).toHaveTextContent('settings.default');
-    expect(view.getByTestId('map-style-pill-Gym')).toHaveTextContent('settings.mixed');
-    expect(view.getByTestId('map-terrain-pill-Gym')).toHaveTextContent(
+    expect(view.getByTestId('map-style-pill-Foot')).toHaveTextContent('settings.default');
+    expect(view.getByTestId('map-style-pill-Strength')).toHaveTextContent('settings.mixed');
+    expect(view.getByTestId('map-terrain-pill-Strength')).toHaveTextContent(
       'Relief: settings.terrain3DSmart'
     );
-    expect(view.getByTestId('map-terrain-pill-Hike')).toHaveTextContent('Relief: settings.mixed');
+    expect(view.getByTestId('map-terrain-pill-Foot')).toHaveTextContent('Relief: settings.mixed');
 
     await act(async () => {
-      await fireEvent.press(view.getByTestId('map-terrain-pill-Hike'));
+      await fireEvent.press(view.getByTestId('map-terrain-pill-Foot'));
     });
     const afterTerrain = saved();
     expect(afterTerrain.terrain3DModeByType).toEqual({});
-    expect(afterTerrain.activityTypeStyles).toEqual(GYM_SATELLITE);
-    expect(view.getByTestId('map-terrain-pill-Hike')).toHaveTextContent(
+    expect(afterTerrain.activityTypeStyles).toEqual(STRENGTH_SATELLITE);
+    expect(view.getByTestId('map-terrain-pill-Foot')).toHaveTextContent(
       'Relief: settings.terrain3DSmart'
     );
-    expect(view.getByTestId('map-style-pill-Gym')).toHaveTextContent('settings.mixed');
+    expect(view.getByTestId('map-style-pill-Strength')).toHaveTextContent('settings.mixed');
 
     await act(async () => {
-      await fireEvent.press(view.getByTestId('map-style-pill-Gym'));
+      await fireEvent.press(view.getByTestId('map-style-pill-Strength'));
     });
     const afterStyle = saved();
-    const gymStyles = Object.keys(GYM_SATELLITE).filter((tp) => tp !== 'Other');
-    const styles = new Set(gymStyles.map((tp) => afterStyle.activityTypeStyles[tp]));
+    const strengthStyles = Object.keys(STRENGTH_SATELLITE).filter((tp) => tp !== 'Other');
+    const styles = new Set(strengthStyles.map((tp) => afterStyle.activityTypeStyles[tp]));
     expect(styles.size).toBe(1);
     expect(afterStyle.terrain3DModeByType).toEqual(afterTerrain.terrain3DModeByType);
     expect(afterStyle.activityTypeStyles.Other).toBe('satellite');
-    expect(view.getByTestId('map-style-pill-Gym')).not.toHaveTextContent('settings.mixed');
+    expect(view.getByTestId('map-style-pill-Strength')).not.toHaveTextContent('settings.mixed');
   });
 
   it('shows the translated terrain mode in the badge and group rows', async () => {
     seed({});
     const view = await render(screen());
-    await waitFor(() => expect(view.getByTestId('map-terrain-pill-Hike')).toBeTruthy());
+    await waitFor(() => expect(view.getByTestId('map-terrain-pill-Foot')).toBeTruthy());
 
     expect(view.getByLabelText('settings.terrain3D: settings.terrain3DSmart')).toHaveTextContent(
       'Relief: settings.terrain3DSmart'
     );
-    expect(view.getByTestId('map-terrain-pill-Hike')).toHaveTextContent(
+    expect(view.getByTestId('map-terrain-pill-Foot')).toHaveTextContent(
       'Relief: settings.terrain3DSmart'
     );
   });
@@ -151,17 +151,17 @@ describe('map style rows over split saved values', () => {
 
 describe('what a screen reader hears on a terrain pill', () => {
   it('names the sport beside the mode it draws, and says a tap changes it', async () => {
-    seed({ terrain3DModeByType: { Hike: 'off', Snowshoe: 'always' } });
+    seed({ terrain3DModeByType: { Walk: 'off', Hike: 'always' } });
     const view = render(screen());
-    await waitFor(() => expect(view.getByTestId('map-terrain-pill-Hike')).toBeTruthy());
+    await waitFor(() => expect(view.getByTestId('map-terrain-pill-Foot')).toBeTruthy());
 
-    const gym = view.getByTestId('map-terrain-pill-Gym');
-    expect(gym.props.accessibilityLabel).toBe(
-      'maps.activityTypes.gym, Relief: settings.terrain3DSmart'
+    const strength = view.getByTestId('map-terrain-pill-Strength');
+    expect(strength.props.accessibilityLabel).toBe(
+      'sportFamilies.strength, Relief: settings.terrain3DSmart'
     );
-    expect(gym.props.accessibilityHint).toBe('a11y.cycleHint');
-    expect(view.getByTestId('map-terrain-pill-Hike').props.accessibilityLabel).toBe(
-      'maps.activityTypes.hike, Relief: settings.mixed'
+    expect(strength.props.accessibilityHint).toBe('a11y.cycleHint');
+    expect(view.getByTestId('map-terrain-pill-Foot').props.accessibilityLabel).toBe(
+      'sportFamilies.foot, Relief: settings.mixed'
     );
   });
 });

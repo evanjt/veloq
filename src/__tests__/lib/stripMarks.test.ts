@@ -99,7 +99,7 @@ describe('stripMarks', () => {
       ],
       WIDTH
     );
-    const expected = ['Gym', 'Ride', 'Run'].map((group) => ({
+    const expected = ['Ride', 'Run', 'Strength'].map((group) => ({
       group,
       fraction: 1 / 3,
     }));
@@ -140,8 +140,8 @@ describe('stripMarks', () => {
       WIDTH
     );
     expect(mark.segments).toEqual([
-      { group: 'Gym', fraction: 0.5 },
       { group: 'Ride', fraction: 0.5 },
+      { group: 'Strength', fraction: 0.5 },
     ]);
   });
 
@@ -297,13 +297,13 @@ describe('stripKey', () => {
       day(5, [{ type: 'Squash', load: 20 }]),
     ]);
 
-    expect(key.groups).toEqual(['Racket', 'Ride', 'Run']);
+    expect(key.groups).toEqual(['Other', 'Ride', 'Run']);
   });
 
   it('names only the sport that appears for a single-sport window', () => {
     const key = stripKey(days(5, (n) => (n % 2 ? [{ type: 'Swim', load: 40 }] : [])));
 
-    expect(key.groups).toEqual(['Swim']);
+    expect(key.groups).toEqual(['Water']);
   });
 
   it('flags the neutral state without naming a sport that only trained without load', () => {

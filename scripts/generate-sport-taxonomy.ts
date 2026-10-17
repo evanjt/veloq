@@ -1,6 +1,6 @@
 #!/usr/bin/env npx tsx
 /**
- * Write the sport families from the Rust module that owns them.
+ * Write the sport families, drawn families and shades from the Rust module that owns them.
  *
  * Usage:
  *   npx tsx scripts/generate-sport-taxonomy.ts
@@ -12,8 +12,9 @@ import * as path from 'path';
 
 import { trackedText } from './lib/indexedSources.mjs';
 import {
-  readRustSportDisplayGroups,
   readRustSportFamilies,
+  readRustSportFamilyMembers,
+  readRustSportShades,
   renderSportTaxonomy,
 } from './lib/sportTaxonomy';
 
@@ -28,7 +29,8 @@ const source = CHECK
   : fs.readFileSync(path.join(REPO, RUST), 'utf-8');
 const rendered = renderSportTaxonomy(
   readRustSportFamilies(source),
-  readRustSportDisplayGroups(source)
+  readRustSportFamilyMembers(source),
+  readRustSportShades(source)
 );
 
 if (CHECK) {

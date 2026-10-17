@@ -1,0 +1,24 @@
+# Scroll the review screen until the element with id TARGET is in view.
+#
+# A ride with a track opens on a map hero over the top 45 % of the screen, and
+# only the form under it scrolls. `scrollUntilVisible` swipes from the centre
+# of the screen, which is on the map, so it pans the map and the form never
+# moves. These swipes start and end inside the form.
+
+appId: com.veloq.app.dev
+---
+- repeat:
+    while:
+      notVisible:
+        id: ${TARGET}
+    times: 10
+    commands:
+      - swipe:
+          start: 50%, 85%
+          end: 50%, 55%
+          duration: 600
+
+- extendedWaitUntil:
+    visible:
+      id: ${TARGET}
+    timeout: 5000

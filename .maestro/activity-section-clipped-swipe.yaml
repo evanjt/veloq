@@ -1,5 +1,5 @@
 # A clipped encounter card must still reveal and perform its Hide action when
-# it returns to view on Android.
+# it returns to view.
 appId: com.veloq.app.dev
 tags:
   - tier2
@@ -22,8 +22,12 @@ tags:
     optional: true
 - assertVisible:
     id: "activity-sections-list"
-- assertVisible:
-    id: "section-inline-plot-0"
+# A fresh demo library is still detecting its sections when the tab opens, and
+# the cards arrive when detection ends.
+- extendedWaitUntil:
+    visible:
+      id: "section-inline-plot-0"
+    timeout: 300000
 - assertVisible:
     id: "section-inline-plot-1"
 - repeat:
@@ -37,26 +41,32 @@ tags:
     id: "section-inline-plot-0"
 - assertNotVisible:
     id: "section-inline-plot-1"
+# The tab bar sits near 65 % down on a tall screen and a drag from it scrolls
+# nothing, so the drag starts lower, inside the list.
 - repeat:
     times: 12
     commands:
       - swipe:
-          start: 50%, 65%
-          end: 50%, 85%
+          start: 50%, 75%
+          end: 50%, 95%
           duration: 500
 - assertVisible:
     id: "section-inline-plot-0"
 - assertVisible:
     id: "section-inline-plot-1"
+# Swipe each card from its own centre, since a fixed height lands on the tab
+# bar on a taller screen.
 - swipe:
-    start: 80%, 68%
-    end: 20%, 68%
+    from:
+      id: "section-inline-plot-0"
+    direction: LEFT
     duration: 800
 - assertVisible:
     text: "Hide"
 - swipe:
-    start: 80%, 76%
-    end: 20%, 76%
+    from:
+      id: "section-inline-plot-1"
+    direction: LEFT
     duration: 800
 - assertVisible:
     text: "Hide"

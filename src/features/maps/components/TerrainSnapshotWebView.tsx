@@ -1310,13 +1310,17 @@ export const TerrainSnapshotWebView = forwardRef<
   );
 });
 
+// Behind the feed, which draws at the base layer. The layer scale has no rung
+// below the base.
+const BEHIND_FEED = -1;
+
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
     left: 0,
     top: 0,
     height: SNAPSHOT_HEIGHT,
-    zIndex: -1,
+    zIndex: BEHIND_FEED,
   },
   surface: {
     ...StyleSheet.absoluteFill,

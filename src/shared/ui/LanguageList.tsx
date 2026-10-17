@@ -16,10 +16,10 @@ import {
 } from '@/shared/app/LanguageStore';
 import { openAppSettings } from '@/shared/app/permissions/openAppSettings';
 import {
-  brand,
   colors,
   darkColors,
   iconSize,
+  inputBoundary,
   layout,
   slopToMinTapTarget,
   spacing,
@@ -36,8 +36,9 @@ interface LanguageListProps {
 
 /**
  * Every language the app speaks, one row each, with regional variants as chips, after a row
- * that follows the phone's language. Dialect variants carry a gold border, explained by a key
- * below the last row so it never sits beside a language it does not describe. On iOS the system's
+ * that follows the phone's language. Dialect variants carry the neutral control outline, explained
+ * by a key below the last row so it never sits beside a language it does not describe, and a
+ * selected dialect is the same filled chip as any other selection. On iOS the system's
  * own per-app language is on the app's page in the Settings app, so the list links to it.
  */
 export function LanguageList({ language, onSelect }: LanguageListProps) {
@@ -131,12 +132,6 @@ export function LanguageList({ language, onSelect }: LanguageListProps) {
                           isDark &&
                           styles.variantChipDialectDark,
                         isVariantSelected && styles.variantChipSelected,
-                        // A selected dialect keeps its gold border over the teal fill
-                        variant.isDialect && isVariantSelected && styles.variantChipDialectSelected,
-                        variant.isDialect &&
-                          isVariantSelected &&
-                          isDark &&
-                          styles.variantChipDialectSelectedDark,
                       ])}
                       android_ripple={pressRipple}
                       onPress={() => onSelect(variant.value)}
@@ -176,6 +171,7 @@ export function LanguageList({ language, onSelect }: LanguageListProps) {
           accessibilityElementsHidden
         >
           <View
+            testID="language-dialect-key-swatch"
             style={[
               styles.dialectKeySwatch,
               isDark && styles.dialectKeySwatchDark,
@@ -267,17 +263,10 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   variantChipDialect: {
-    borderColor: brand.gold,
+    borderColor: inputBoundary.light,
   },
   variantChipDialectDark: {
-    borderColor: brand.goldLight,
-  },
-  variantChipDialectSelected: {
-    borderColor: brand.gold,
-    borderWidth: stroke.two,
-  },
-  variantChipDialectSelectedDark: {
-    borderColor: brand.goldLight,
+    borderColor: inputBoundary.dark,
   },
   variantChipText: {
     ...typography.bodyCompactBold,

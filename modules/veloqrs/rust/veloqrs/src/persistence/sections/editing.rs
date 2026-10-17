@@ -1459,6 +1459,112 @@ mod tests {
             serde_json::from_str(last.details.as_deref().unwrap()).unwrap();
         assert_eq!(into["into"], "s1");
     }
+
+    #[test]
+    fn a_merged_section_is_retired_under_the_name_and_distance_it_last_had() {
+        let (mut engine, polyline) = engine_with_section(10, "custom");
+        engine
+            .db
+            .execute(
+                "INSERT INTO sections
+                 (id, section_type, sport_type, polyline_json, polyline_blob, distance_meters, name)
+                 VALUES ('s2', 'custom', 'Ride', '[]', ?, 250.0, 'Church Hill')",
+                params![codec::serialize_track_points(&polyline)],
+            )
+            .unwrap();
+        engine.set_section_name("s1", Some("River Road")).unwrap();
+
+        engine.merge_user_sections("s1", "s2").unwrap();
+
+        let retired = engine.retired_sections();
+        let entry = retired.iter().find(|r| r.section_id == "s2").unwrap();
+        assert_eq!(entry.name.as_deref(), Some("Church Hill"));
+        assert_eq!(entry.distance_meters, Some(250.0));
+    }
+
+    fn ledger_row(engine: &PersistentEngine, section_id: &str, kind: &str, details: &str) {
+        engine
+            .db
+            .execute(
+                "INSERT INTO section_history (section_id, kind, details) VALUES (?, ?, ?)",
+                params![section_id, kind, details],
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn a_retirement_recorded_without_a_name_reads_the_last_rename() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        ledger_row(
+            &engine,
+            "gone",
+            KIND_RENAMED,
+            r#"{"from":null,"to":"Old Quarry"}"#,
+        );
+        ledger_row(
+            &engine,
+            "gone",
+            KIND_RENAMED,
+            r#"{"from":"Old Quarry","to":"Quarry Climb"}"#,
+        );
+        ledger_row(&engine, "gone", "dissolved", "{}");
+
+        let retired = engine.retired_sections();
+        assert_eq!(retired[0].name.as_deref(), Some("Quarry Climb"));
+        assert_eq!(retired[0].distance_meters, None);
+    }
+
+    #[test]
+    fn a_retirement_recorded_without_a_name_or_rename_reads_its_numbered_label() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT INTO section_numbers (section_id, number) VALUES ('gone', 7)",
+                [],
+            )
+            .unwrap();
+        ledger_row(&engine, "gone", "dissolved", "{}");
+        ledger_row(&engine, "nameless", "dissolved", "{}");
+
+        let retired = engine.retired_sections();
+        let name_of = |id: &str| {
+            retired
+                .iter()
+                .find(|r| r.section_id == id)
+                .unwrap()
+                .name
+                .clone()
+        };
+        assert_eq!(
+            name_of("gone"),
+            Some(super::super::numbers::numbered_label(
+                &crate::persistence::get_section_word(),
+                7
+            ))
+        );
+        assert_eq!(name_of("nameless"), None);
+    }
+
+    #[test]
+    fn a_name_cleared_before_retirement_is_not_read_back() {
+        let engine = PersistentEngine::in_memory().unwrap();
+        ledger_row(
+            &engine,
+            "gone",
+            KIND_RENAMED,
+            r#"{"from":null,"to":"Old Quarry"}"#,
+        );
+        ledger_row(
+            &engine,
+            "gone",
+            KIND_RENAMED,
+            r#"{"from":"Old Quarry","to":null}"#,
+        );
+        ledger_row(&engine, "gone", "dissolved", "{}");
+
+        assert_eq!(engine.retired_sections()[0].name, None);
+    }
 }
 
 #[cfg(test)]

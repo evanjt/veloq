@@ -5,10 +5,10 @@
 //
 // Four palettes used to answer this question. `insightIcon.positive` and
 // `.caution`, `statusBadge`'s good/alert/watch/bad, and the raw semantic
-// `colors.success`/`warning`/`error`. This guard holds the first two
-// everywhere: reaching them for a polarity fails, and `insightIcon.info` and
-// `.opportunity` are left alone because they are categories rather than
-// polarities and the ladder has no rung for either.
+// `colors.success`/`warning`/`error`. The badge palette is gone, and this
+// guard holds the first everywhere: reaching it for a polarity fails, and
+// `insightIcon.info` and `.opportunity` are left alone because they are
+// categories rather than polarities and the ladder has no rung for either.
 //
 // The third palette is held everywhere in `src/`: a raw `colors.success`,
 // `warning` or `error` picked by a ternary is a verdict taken off the sign of
@@ -34,8 +34,7 @@ const SRC = join(ROOT, 'src');
 const EXEMPT = ['src/theme/colors.ts', 'src/theme/index.ts'];
 
 /** Polarity members only. `info` and `opportunity` are categories. */
-const POLARITY =
-  /\binsightIcon\.(positive|caution)\b|\bstatusBadge\.(good|alert|watch|bad|goodStrong|watchStrong)\b/g;
+const POLARITY = /\binsightIcon\.(positive|caution)\b/g;
 
 /** Where a raw semantic colour picked by a comparison is refused. */
 const COMPARED_SCOPE = 'src/';

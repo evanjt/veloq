@@ -7,7 +7,6 @@
     "orientation": "portrait",
     "icon": "./src/assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "icon": {
         "light": "./src/assets/icon.png",
@@ -45,7 +44,6 @@
         "foregroundImage": "./src/assets/adaptive-icon.png",
         "monochromeImage": "./src/assets/monochrome-icon.png"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": true,
       "permissions": [
         "ACCESS_FINE_LOCATION",

@@ -68,6 +68,7 @@ import type {
   LibraryCoverage,
   FfiDepartedRide,
   FfiMergeOutcome,
+  FfiRecordCheck,
   FfiRecordRestoreResult,
   FfiUnplacedRecord,
 } from './generated/veloqrs';
@@ -1048,9 +1049,6 @@ class EngineClient implements DelegateHost {
   /** The cycling FTP trend across `lookbackDays`, with that window's daily series. */
   getFitnessScreenData = (): FfiFitnessScreenData => fitnessDelegates.getFitnessScreenData(this);
 
-  getPeriodStats = (startTs: number, endTs: number) =>
-    fitnessDelegates.getPeriodStats(this, startTs, endTs);
-
   getDailyActivityLoads = (startTs: number, endTs: number) =>
     fitnessDelegates.getDailyActivityLoads(this, startTs, endTs);
 
@@ -1341,10 +1339,13 @@ class EngineClient implements DelegateHost {
     await this.engine.runRecordBackup(destPath);
   }
 
-  /** Rejects with the restore's own refusal, without restoring anything. */
-  async checkRecordZip(path: string): Promise<void> {
+  /**
+   * Rejects with the restore's own refusal, without restoring anything, and
+   * otherwise resolves with when the zip was written.
+   */
+  async checkRecordZip(path: string): Promise<FfiRecordCheck> {
     if (!this.ready) throw new Error('Engine not initialised');
-    await this.engine.checkRecordZip(path);
+    return this.engine.checkRecordZip(path);
   }
 
   async restoreRecordZip(path: string): Promise<FfiRecordRestoreResult> {

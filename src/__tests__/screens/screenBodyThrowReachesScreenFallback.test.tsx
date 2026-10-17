@@ -25,6 +25,7 @@ jest.mock('@/shared/app/TopSafeAreaContext', () => ({
 
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false, colors: { text: '#000', textSecondary: '#666' } }),
+  useMetricSystem: () => true,
   useTopSafeArea: () => ({ hasTopBanner: false, topInset: 0, screenEdges: [] }),
 }));
 

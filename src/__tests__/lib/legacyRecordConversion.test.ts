@@ -156,6 +156,33 @@ describe('legacy record conversion', () => {
     expect(record.entries.some((entry) => entry.table === 'settings')).toBe(false);
   });
 
+  it('grounds an old route name on the ride its id names, and leaves a split unplaced', () => {
+    const record = convertLegacyBackupToRecord(
+      JSON.stringify({
+        version: 2,
+        routeNames: { 'ride-17': 'Harbour loop', 'ride-17_split': 'Back way' },
+      })
+    );
+    const names = record.entries
+      .filter((entry) => entry.table === 'route_names')
+      .map((entry) => [entry.values.route_id, entry.ground]);
+
+    expect(names).toEqual([
+      [
+        'ride-17',
+        {
+          rep_activity_id: 'ride-17',
+          activity_ids: ['ride-17'],
+          rep_start_index: null,
+          rep_end_index: null,
+          point_count: null,
+          polyline_json: null,
+        },
+      ],
+      ['ride-17_split', null],
+    ]);
+  });
+
   it.each(['not json', '{"a":1}', '[1,""]', 'null'])(
     'ignores an unreadable disabled list %p without failing the import',
     (raw) => {

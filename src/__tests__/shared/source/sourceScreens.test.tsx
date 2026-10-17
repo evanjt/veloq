@@ -34,11 +34,11 @@ beforeEach(() => {
 });
 
 describe.each<[AuthMethod, boolean, boolean, string]>([
-  ['oauth', false, true, 'intervals.icu · OAuth'],
+  ['oauth', false, true, 'settings.authOAuth'],
   ['apiKey', false, false, 'intervals.icu · settings.authApiKey'],
   ['demo', true, false, 'settings.authDemo'],
   [null, false, false, 'intervals.icu · '],
-  ['oauth', true, false, 'intervals.icu · OAuth'],
+  ['oauth', true, false, 'settings.authOAuth'],
 ])('%s, demo flag %s', (authMethod, isDemoMode, toggleEnabled, profileBadge) => {
   beforeEach(() => {
     useAuthStore.setState({ authMethod, isDemoMode, athleteId: 'i1' });

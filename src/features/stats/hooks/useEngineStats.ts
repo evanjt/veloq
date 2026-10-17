@@ -13,12 +13,15 @@ import { LOCAL_READ_QUERY } from '@/shared/query/QueryProvider';
 import type {
   HeatmapDay,
   MonthlyStats as EngineMonthlyStats,
+  StatTrend,
+  SummaryComparison as EngineSummaryComparison,
   TrainingScreenWindows,
 } from 'veloqrs';
 
 import { formatLocalDate, parseDayString } from '@/shared/format/format';
+import type { TrendGlyph } from '@/shared/format/trend';
+import { localWallClockToEpochSeconds } from '@/shared/time/startDate';
 import { getEngine } from '@/shared/native/engine';
-import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { heatmapLayout, type HeatmapLayout } from '../lib/heatmapGrid';
 import { seasonWindows, type SeasonWindows } from '../lib/periodWindows';
@@ -92,8 +95,11 @@ export function trainingWindows(now: Date): TrainingWindows {
   };
 }
 
-/** The windows as the engine takes them, whole local days in its timebase. */
-function engineWindows(w: TrainingWindows): TrainingScreenWindows {
+/**
+ * The windows as the engine takes them, whole local days in its timebase, and
+ * the instant the weekly card's periods run to.
+ */
+function engineWindows(w: TrainingWindows, now: Date): TrainingScreenWindows {
   const days = (start: Date, end: Date) => ({
     startTs: localDayStart(start),
     endTs: localDayEnd(end),
@@ -106,6 +112,67 @@ function engineWindows(w: TrainingWindows): TrainingScreenWindows {
     yearPrevious: days(w.season.yearPrevious.start, w.season.yearPrevious.end),
     monthCurrent: days(w.season.monthCurrent.start, w.season.monthCurrent.end),
     monthPrevious: days(w.season.monthPrevious.start, w.season.monthPrevious.end),
+    nowWallSeconds: localWallClockToEpochSeconds(now),
+  };
+}
+
+/** The weekly card's ranges. */
+export type SummaryRange = 'week' | 'month' | '3m' | '6m' | 'year';
+
+/** The four totals the weekly card compares. */
+export type SummaryStat = keyof PeriodTotals;
+
+/** One total's move against the period before, as the engine judged it. */
+export interface StatMove {
+  glyph: TrendGlyph;
+  /** Whole percent of the earlier total, absent for a move inside the deadband. */
+  percent: number | null;
+}
+
+/** A period to now against the same elapsed span of the period before it. */
+export interface SummaryComparison {
+  currentStart: Date;
+  currentEnd: Date;
+  previousStart: Date;
+  previousEnd: Date;
+  current: PeriodTotals;
+  previous: PeriodTotals;
+  /** Absent for a total the earlier period has none of. */
+  moves: Record<SummaryStat, StatMove | null>;
+}
+
+/** An engine wall-clock second as the local `Date` it names. */
+function wallDate(seconds: number): Date {
+  const d = new Date(seconds * 1000);
+  return new Date(
+    d.getUTCFullYear(),
+    d.getUTCMonth(),
+    d.getUTCDate(),
+    d.getUTCHours(),
+    d.getUTCMinutes(),
+    d.getUTCSeconds()
+  );
+}
+
+function move(trend: StatTrend | undefined): StatMove | null {
+  if (!trend) return null;
+  return { glyph: trend.glyph as TrendGlyph, percent: trend.percent ?? null };
+}
+
+function comparison(read: EngineSummaryComparison): SummaryComparison {
+  return {
+    currentStart: wallDate(read.current.startTs),
+    currentEnd: wallDate(read.current.endTs),
+    previousStart: wallDate(read.previous.startTs),
+    previousEnd: wallDate(read.previous.endTs),
+    current: totals(read.currentStats),
+    previous: totals(read.previousStats),
+    moves: {
+      count: move(read.count),
+      duration: move(read.duration),
+      distance: move(read.distance),
+      tss: move(read.load),
+    },
   };
 }
 
@@ -117,6 +184,8 @@ export interface TrainingScreen {
   yearPrevious: PeriodTotals;
   monthCurrent: PeriodTotals;
   monthPrevious: PeriodTotals;
+  /** The weekly card's every range, or null before the first read. */
+  comparisons: Record<SummaryRange, SummaryComparison> | null;
 }
 
 const NO_TRAINING_SCREEN: TrainingScreen = {
@@ -126,16 +195,19 @@ const NO_TRAINING_SCREEN: TrainingScreen = {
   yearPrevious: NO_TOTALS,
   monthCurrent: NO_TOTALS,
   monthPrevious: NO_TOTALS,
+  comparisons: null,
 };
 
 /**
  * The training tab's one screen read: the heatmap days, the season chart's
- * monthly rows and its to-date totals, all over windows fixed by today's date.
+ * monthly rows and its to-date totals, all over windows fixed by today's date,
+ * and the weekly card's every range to the instant of the read, judged by the
+ * engine.
  *
  * Every card that paints from it calls this, and they share the one query, so
  * the tab costs one engine call on mount and one per `activities` event, the
- * event the read names as what makes it stale. The weekly card's range is
- * chosen with a tap, so its totals stay `usePeriodStats`.
+ * event the read names as what makes it stale. A tap between the weekly
+ * card's ranges reads nothing.
  *
  * `isPending` is true until the first answer, so a card can tell an empty
  * library from one not read yet. `error` is what the read threw.
@@ -170,7 +242,7 @@ export function useTrainingScreenData(): {
     ...LOCAL_READ_QUERY,
     queryKey: queryKeys.stats.training.byDay(day),
     queryFn: (): TrainingScreen => {
-      const read = getEngine()?.getTrainingScreenData(engineWindows(windows));
+      const read = getEngine()?.getTrainingScreenData(engineWindows(windows, new Date()));
       if (!read) return NO_TRAINING_SCREEN;
       return {
         heatmap: read.heatmap,
@@ -183,6 +255,13 @@ export function useTrainingScreenData(): {
         yearPrevious: totals(read.yearPrevious),
         monthCurrent: totals(read.monthCurrent),
         monthPrevious: totals(read.monthPrevious),
+        comparisons: {
+          week: comparison(read.comparisons.week),
+          month: comparison(read.comparisons.month),
+          '3m': comparison(read.comparisons.threeMonths),
+          '6m': comparison(read.comparisons.sixMonths),
+          year: comparison(read.comparisons.year),
+        },
       };
     },
     // SQLite is the source, so a sync decides freshness, not a clock.
@@ -190,25 +269,4 @@ export function useTrainingScreenData(): {
   });
 
   return { windows, data: data ?? NO_TRAINING_SCREEN, isPending, error };
-}
-
-export function usePeriodStats(
-  startTs: number,
-  endTs: number,
-  enabled = true
-): { totals: PeriodTotals; isPending: boolean; error: unknown } {
-  useEngineChannel('activities', queryKeys.stats.period.all);
-
-  const { data, isPending, error } = useQuery({
-    ...LOCAL_READ_QUERY,
-    queryKey: queryKeys.stats.period.byWindow(startTs, endTs),
-    queryFn: () => {
-      const stats = getEngine()?.getPeriodStats?.(startTs, endTs);
-      return stats ? totals(stats) : NO_TOTALS;
-    },
-    staleTime: Infinity,
-    enabled,
-  });
-
-  return { totals: data ?? NO_TOTALS, isPending: enabled && isPending, error };
 }

@@ -14,9 +14,10 @@ type Fixture = {
   bundled: Record<string, string>;
   declared: Record<string, string>;
   locked: Record<string, string>;
+  excluded?: string[];
 };
 
-function runGuard({ bundled, declared, locked }: Fixture) {
+function runGuard({ bundled, declared, locked, excluded }: Fixture) {
   const root = mkdtempSync(join(tmpdir(), 'check-expo-sdk-'));
   try {
     mkdirSync(join(root, 'scripts/lib'), { recursive: true });
@@ -30,7 +31,13 @@ function runGuard({ bundled, declared, locked }: Fixture) {
       join(root, 'node_modules/expo/bundledNativeModules.json'),
       JSON.stringify(bundled)
     );
-    writeFileSync(join(root, 'package.json'), JSON.stringify({ dependencies: declared }));
+    writeFileSync(
+      join(root, 'package.json'),
+      JSON.stringify({
+        dependencies: declared,
+        ...(excluded ? { expo: { install: { exclude: excluded } } } : {}),
+      })
+    );
     writeFileSync(
       join(root, 'package-lock.json'),
       JSON.stringify({
@@ -247,5 +254,88 @@ describe('Expo SDK dependency guard', () => {
     expect(result.status).toBe(1);
     expect(result.output).toContain('expo-location');
     expect(result.output).toContain('56.0.24');
+  });
+
+  it('refuses a later release line that predates the repair on that line', () => {
+    const bundled = { 'react-native-reanimated': '4.5.1' };
+    const result = runGuard({
+      bundled,
+      declared: { 'react-native-reanimated': '4.5.1' },
+      locked: { 'react-native-reanimated': '4.5.1' },
+    });
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('react-native-reanimated');
+    expect(result.output).toContain('4.5.4');
+
+    const repaired = {
+      bundled,
+      declared: { 'react-native-reanimated': '4.5.4' },
+      locked: { 'react-native-reanimated': '4.5.4' },
+    };
+    expect(runGuard(repaired).status).toBe(0);
+    expect(runGuard({ ...repaired, locked: { 'react-native-reanimated': '4.5.3' } }).status).toBe(
+      1
+    );
+    expect(
+      runGuard({
+        bundled,
+        declared: { 'react-native-reanimated': '4.3.4' },
+        locked: { 'react-native-reanimated': '4.3.4' },
+      }).status
+    ).toBe(1);
+    expect(
+      runGuard({
+        bundled: { 'react-native-reanimated': '4.4.3' },
+        declared: { 'react-native-reanimated': '4.4.3' },
+        locked: { 'react-native-reanimated': '4.4.3' },
+      }).status
+    ).toBe(1);
+    expect(
+      runGuard({
+        bundled: { 'react-native-reanimated': '4.6.0' },
+        declared: { 'react-native-reanimated': '4.6.0' },
+        locked: { 'react-native-reanimated': '4.6.0' },
+      }).status
+    ).toBe(0);
+  });
+
+  it('holds the background and location repairs on the SDK 57 release line', () => {
+    const early = runGuard({
+      bundled: { 'expo-task-manager': '~57.0.3', 'expo-location': '~57.0.3' },
+      declared: { 'expo-task-manager': '~57.0.3', 'expo-location': '~57.0.3' },
+      locked: { 'expo-task-manager': '57.0.3', 'expo-location': '57.0.3' },
+    });
+    expect(early.status).toBe(1);
+    expect(early.output).toContain('57.0.7');
+    expect(early.output).toContain('57.0.10');
+
+    expect(
+      runGuard({
+        bundled: { 'expo-task-manager': '~57.0.21', 'expo-location': '~57.0.21' },
+        declared: { 'expo-task-manager': '~57.0.21', 'expo-location': '~57.0.21' },
+        locked: { 'expo-task-manager': '57.0.21', 'expo-location': '57.0.21' },
+      }).status
+    ).toBe(0);
+  });
+
+  it('lets Expo skip only a package the guard holds above the SDK', () => {
+    const fixture = {
+      bundled: { 'react-native-screens': '~4.26.0', 'expo-example': '~57.0.2' },
+      declared: { 'react-native-screens': '4.28.0', 'expo-example': '~57.0.2' },
+      locked: { 'react-native-screens': '4.28.0', 'expo-example': '57.0.2' },
+    };
+    expect(runGuard({ ...fixture, excluded: ['react-native-screens'] }).status).toBe(0);
+
+    const stray = runGuard({ ...fixture, excluded: ['react-native-screens', 'expo-example'] });
+    expect(stray.status).toBe(1);
+    expect(stray.output).toContain('expo-example');
+
+    const released = runGuard({
+      ...fixture,
+      bundled: { ...fixture.bundled, 'react-native-screens': '~4.28.0' },
+      excluded: ['react-native-screens'],
+    });
+    expect(released.status).toBe(1);
+    expect(released.output).toContain('react-native-screens');
   });
 });

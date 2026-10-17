@@ -74,6 +74,7 @@ import { InfoButton } from './InfoButton';
 import { BulkExportProgress } from './BulkExportProgress';
 import { BULK_EXPORT_FORMAT_NAME } from '@/features/settings/lib/bulkExportFormat';
 import { ExportPrivacyRow } from './ExportPrivacyRow';
+import { BackupEntryRow } from './BackupEntryRow';
 import {
   WebdavConfigForm,
   type WebdavCommit,
@@ -797,22 +798,14 @@ export function BackupSection() {
                 <Text style={detailStyle}>{carrierName(t, backend.id)}</Text>
               </View>
               {entries.map((entry) => (
-                <Row
+                <BackupEntryRow
                   key={entry.id}
+                  entry={entry}
                   testID={`backup-entry-${backend.id}-${entry.id}`}
-                  behaviour="act"
                   onPress={() => handleRestoreEntry(backend, entry)}
-                  accessibilityLabel={t('backup.restoreDatedBackup', {
-                    date: new Date(entry.timestamp).toLocaleDateString(getIntlLocale()),
-                  })}
+                  busy={restoringEntry === entry.id}
                   disabled={anyBusy}
-                >
-                  <Text style={labelStyle}>
-                    {t('backup.restoreDatedBackup', {
-                      date: new Date(entry.timestamp).toLocaleDateString(getIntlLocale()),
-                    })}
-                  </Text>
-                </Row>
+                />
               ))}
             </View>
           )

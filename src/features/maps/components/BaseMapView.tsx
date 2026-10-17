@@ -13,6 +13,7 @@ import {
   duration,
   iconSize,
   ink,
+  layers,
   layout,
   opacity,
   shadows,
@@ -30,7 +31,7 @@ import {
   type LngLatBounds,
 } from '@/features/maps/lib/coordinates';
 import type { MapImageSpec, MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
-import { type MapStyleType, isDarkStyle, getNextStyle, getStyleIcon } from './mapStyles';
+import { type MapStyleType, getNextStyle, getStyleIcon } from './mapStyles';
 import { composeBaseMapLayers } from '@/features/maps/lib/baseMapLayers';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 import { cameraAfter3D, type Camera3DState } from '@/features/maps/lib/cameraAfter3D';
@@ -134,9 +135,10 @@ export function BaseMapView({
   onClose,
 }: BaseMapViewProps) {
   const { t } = useTranslation();
-  const { isDark: systemIsDark } = useTheme();
+  // Chrome over the map follows the app theme, whatever base is drawn under it.
+  const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
-  const systemStyle: MapStyleType = systemIsDark ? 'dark' : 'light';
+  const systemStyle: MapStyleType = isDark ? 'dark' : 'light';
 
   const [chosenStyle, setChosenStyle] = useState<MapStyleType>(initialStyle ?? systemStyle);
   const mapStyle = useDrawnMapStyle(chosenStyle);
@@ -155,7 +157,6 @@ export function BaseMapView({
   const bearingAnim = useRef(new Animated.Value(0)).current;
   const map3DOpacity = useRef(new Animated.Value(0)).current;
 
-  const isDark = isDarkStyle(mapStyle);
   const routeCoords = useMemo(
     () => (routeCoordinates ? lngLatFromTuples(routeCoordinates) : []),
     [routeCoordinates]
@@ -277,7 +278,7 @@ export function BaseMapView({
     [routeCoords, overlaySources, userLocationCollection]
   );
 
-  const layers = useMemo<MapLayerSpec[]>(
+  const mapLayers = useMemo<MapLayerSpec[]>(
     () =>
       composeBaseMapLayers({
         routeColor,
@@ -422,7 +423,10 @@ export function BaseMapView({
       {showAttribution ? (
         <View style={[styles.attribution, { bottom: insets.bottom }]} pointerEvents="none">
           <View style={[styles.attributionPill, isDark && styles.attributionPillDark]}>
-            <Text style={[styles.attributionText, isDark && styles.attributionTextDark]}>
+            <Text
+              testID="map-attribution-text"
+              style={[styles.attributionText, isDark && styles.attributionTextDark]}
+            >
               {attributionText}
             </Text>
           </View>
@@ -442,7 +446,7 @@ export function BaseMapView({
             mapStyle={mapStyle}
             initialCamera={cameraAfter3D(camera3DRef.current, cameraOnHide) ?? fitCamera}
             sources={sources}
-            layers={layers}
+            layers={mapLayers}
             images={overlayImages}
             interactiveLayers={interactiveLayers}
             onPress={onPress}
@@ -493,7 +497,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
   },
   map3DLayer: {
-    zIndex: 1,
+    zIndex: layers.raised,
   },
   button: {
     position: 'absolute',
@@ -501,7 +505,7 @@ const styles = StyleSheet.create({
     height: layout.minTapTarget,
     borderRadius: layout.minTapTarget / 2,
     ...shadows.mapOverlay,
-    zIndex: 10,
+    zIndex: layers.mapOverlay,
   },
   buttonDark: {
     backgroundColor: darkColors.surfaceCard,
@@ -517,7 +521,7 @@ const styles = StyleSheet.create({
     right: spacing.md + 52, // Position to left of style toggle button (44px button + 8px gap)
     flexDirection: 'row', // Horizontal layout to reduce vertical occlusion
     gap: spacing.sm,
-    zIndex: 10,
+    zIndex: layers.mapOverlay,
   },
   controlButton: {
     width: layout.minTapTarget,
@@ -535,7 +539,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     paddingBottom: spacing.xs,
     paddingRight: spacing.xsPlus,
-    zIndex: 5,
+    zIndex: layers.mapOverlay,
   },
   attributionPill: {
     backgroundColor: colorWithOpacity(ink.white, opacity.pressed),

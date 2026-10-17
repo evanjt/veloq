@@ -12,6 +12,7 @@ import { findNewestBackup } from '@/features/settings/lib/restorePrompt';
 
 let mockRecord: { exists: boolean; size?: number; modificationTime?: number } = { exists: false };
 let mockRecordRefused = false;
+let mockRecordWrittenAt: string | null = null;
 let mockWebdav: unknown[] = [];
 let mockDrive: unknown[] = [];
 let mockWebdavConfigured = true;
@@ -26,6 +27,7 @@ jest.mock('@/shared/storage/platformRecord', () => ({
 jest.mock('@/features/settings/lib/backup', () => ({
   checkRecordBackup: async () => {
     if (mockRecordRefused) throw new Error('another athlete');
+    return mockRecordWrittenAt;
   },
 }));
 jest.mock('@/features/settings/lib/autobackup/webdavConfig', () => ({
@@ -56,6 +58,7 @@ const entry = (id: string, timestamp: string) => ({
 beforeEach(() => {
   mockRecord = { exists: true, size: 1_200_000, modificationTime: Date.UTC(2026, 5, 1) / 1000 };
   mockRecordRefused = false;
+  mockRecordWrittenAt = null;
   mockWebdav = [
     entry('dav-new.zip', '2026-06-08T06:30:00.000Z'),
     entry('dav-old.zip', '2026-05-01T06:30:00.000Z'),
@@ -85,6 +88,26 @@ describe('the newest backup the restore offer names', () => {
     expect(found?.source).toBe('device');
     expect(found?.backend).toBeNull();
     expect(found?.entry.sizeBytes).toBe(1_200_000);
+    expect(found?.entry.timestamp).toBe('2026-07-01T00:00:00.000Z');
+  });
+
+  it('dates the device backup from the time its record says it was written', async () => {
+    // The platform's restore rewrites the file time: the original seconds read
+    // as milliseconds, a date in January 1970.
+    mockRecord = { exists: true, size: 1_200_000, modificationTime: 1_790_856 };
+    mockRecordWrittenAt = '2026-10-01T12:00:00.000Z';
+    mockWebdav = [entry('dav.zip', '2026-09-30T06:30:00.000Z')];
+    mockDrive = [];
+    const found = await findNewestBackup();
+    expect(found?.source).toBe('device');
+    expect(found?.entry.timestamp).toBe('2026-10-01T12:00:00.000Z');
+  });
+
+  it('dates a record that names no time from its file', async () => {
+    mockRecord = { exists: true, size: 1_200_000, modificationTime: Date.UTC(2026, 6, 1) / 1000 };
+    mockRecordWrittenAt = null;
+    const found = await findNewestBackup();
+    expect(found?.source).toBe('device');
     expect(found?.entry.timestamp).toBe('2026-07-01T00:00:00.000Z');
   });
 

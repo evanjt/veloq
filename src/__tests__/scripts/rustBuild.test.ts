@@ -797,6 +797,37 @@ describe('the command line', () => {
     );
   });
 
+  it('waits for another phase copying the C++ bridge rather than deleting its half-written file', async () => {
+    const builder = installBuilder();
+    const lock = join(moduleDir, 'build/rust/ios/cpp.lock');
+    write(join(lock, 'pid'), String(process.pid));
+    const partial = join(moduleDir, `ios/cpp/generated/veloqrs.hpp.partial-${process.pid}`);
+    write(partial, '// half written\n');
+
+    const child = spawn('node', [builder, 'ios', '--sources-only'], {
+      env,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const exited = new Promise<number | null>((done) => child.on('exit', done));
+    const blocked = await new Promise<boolean>((done) => {
+      child.stdout.on('data', (chunk: Buffer) => {
+        if (chunk.toString().includes('Waiting for another build')) done(true);
+      });
+      exited.then(() => done(false));
+    });
+
+    expect(blocked).toBe(true);
+    expect(existsSync(partial)).toBe(true);
+
+    rmSync(partial);
+    rmSync(lock, { recursive: true, force: true });
+
+    expect(await exited).toBe(0);
+    expect(readFileSync(join(moduleDir, 'ios/cpp/generated/veloqrs.hpp'), 'utf8')).toBe(
+      '// bindings header\n'
+    );
+  });
+
   it('takes over a lock its holder left when it died', async () => {
     const builder = installBuilder();
     const dead = spawnSync('node', ['-e', 'process.stdout.write(String(process.pid))'], {

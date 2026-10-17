@@ -9,11 +9,13 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { render, screen, waitFor, within } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RangeCoverage } from 'veloqrs';
+import { RangeCoverage, type TrainingScreenWindows } from 'veloqrs';
 
 import TrainingScreen from '@/app/(tabs)/training';
 import { i18n, initialiseI18n } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
+import { TIME_RANGES } from '@/shared/app/constants';
+import { noComparisons } from '../__shared__/trainingScreenRead';
 import { typography } from '@/theme';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -64,15 +66,15 @@ const totals = (count: number, hours: number) => ({
 const engine = {
   subscribe: jest.fn(() => () => {}),
   rangeCoverage: jest.fn(() => RangeCoverage.Loaded),
-  getTrainingScreenData: jest.fn(() => ({
+  getTrainingScreenData: jest.fn((windows: TrainingScreenWindows) => ({
     heatmap: [],
     months: [],
     yearCurrent: totals(0, 0),
     yearPrevious: totals(0, 0),
     monthCurrent: totals(0, 0),
     monthPrevious: totals(0, 0),
+    comparisons: noComparisons(windows.nowWallSeconds),
   })),
-  getPeriodStats: jest.fn(() => totals(0, 0)),
   getActivityBodies: jest.fn(() => []),
 };
 
@@ -122,6 +124,29 @@ describe('Health tab card titles', () => {
       const style = flat(header);
       expect(style.fontSize).toBe(typography.cardTitle.fontSize);
       expect(style.fontWeight).toBe(typography.cardTitle.fontWeight);
+    }
+  });
+});
+
+/**
+ * Scenario: the range toggles and the smoothing button drive only the wellness
+ * chart, yet sat in a row of their own directly under the activity calendar.
+ *
+ * Expected behaviour: the controls sit inside the wellness card they drive.
+ */
+describe('Health tab wellness range controls', () => {
+  it('draws the range toggles and the smoothing button inside the wellness card', () => {
+    client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } });
+    render(
+      <QueryClientProvider client={client}>
+        <TrainingScreen />
+      </QueryClientProvider>
+    );
+    const card = within(screen.getByTestId('wellness-trends-chart'));
+
+    expect(card.getByTestId('training-smoothing-button')).toBeTruthy();
+    for (const range of TIME_RANGES) {
+      expect(card.getByText(i18n.t(range.labelKey as never))).toBeTruthy();
     }
   });
 });

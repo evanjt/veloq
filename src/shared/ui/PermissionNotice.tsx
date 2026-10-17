@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: layout.borderRadiusSm,
+    borderRadius: layout.borderRadiusMd,
   },
   reason: {
     ...typography.bodySmall,

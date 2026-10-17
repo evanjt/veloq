@@ -12,13 +12,21 @@
 import { execFileSync } from 'node:child_process';
 
 import React from 'react';
-import { Text } from 'react-native';
-import { act, render } from '@testing-library/react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 
 import { DENSE_TEXT_SCALE, DenseText } from '@/shared/ui/DenseText';
+import { TextLink } from '@/shared/ui/TextLink';
 import { ChartXAxisLabel } from '@/features/activity/components/ChartXAxisLabel';
 import { ChartYAxisLabel } from '@/features/activity/components/ChartYAxisLabel';
 import { StatCard } from '@/features/activity/components/stats/StatCard';
+import { SummaryCardSparkline } from '@/features/home/components/SummaryCardSparkline';
+import { AttributionOverlay } from '@/features/maps/components/AttributionOverlay';
+import { ClusterCountOverlay } from '@/features/maps/components/regional/ClusterCountOverlay';
+import { TimelineSlider } from '@/features/maps/components/timeline/TimelineSlider';
+import { WellnessTrendsChart } from '@/features/wellness/components/WellnessTrendsChart';
+import { ZoneHistogram } from '@/shared/charts/ZoneHistogram';
+import type { WellnessData } from '@/types';
 
 /**
  * The surfaces that cannot reflow, named rather than felt: the stats grids,
@@ -44,14 +52,56 @@ const DENSE_SURFACES = [
   'src/features/routes/components/section/SectionScatterChart.tsx',
   'src/features/stats/components/FTPTrendChart.tsx',
   'src/shared/ui/BottomTabBar.tsx',
+  'src/features/wellness/components/WellnessTrendsChart.tsx',
+  'src/shared/charts/ZoneHistogram.tsx',
+  'src/features/stats/components/ActivityHeatmap.tsx',
+  'src/features/maps/components/timeline/TimelineSlider.tsx',
+  'src/features/stats/components/SeasonComparison.tsx',
+  'src/features/maps/components/regional/ClusterCountOverlay.tsx',
+  'src/features/strength/components/ExerciseTable.tsx',
+  'src/features/home/components/SummaryCardSparkline.tsx',
+  'src/features/stats/components/PowerCurveChart.tsx',
+  'src/features/stats/components/PaceCurveChart.tsx',
+  'src/features/stats/components/SwimPaceCurveChart.tsx',
+  'src/features/maps/components/AttributionOverlay.tsx',
 ];
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
+jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
+jest.mock('expo-haptics', () => ({
+  ...jest.requireActual('expo-haptics'),
+  impactAsync: jest.fn(),
+}));
 
-/** Every `Text` the tree rendered, with the cap it carries. */
+/** Every rendered Text carries the dense cap. */
+function expectAllCapped(tree: Awaited<ReturnType<typeof render>>) {
+  const caps = capsOf(tree);
+  expect(caps.length).toBeGreaterThan(0);
+  expect(caps).toStrictEqual(caps.map(() => DENSE_TEXT_SCALE));
+}
+
+function flatStyle(node: { props: Record<string, unknown> }): Record<string, unknown> {
+  return StyleSheet.flatten(node.props.style as never) ?? {};
+}
+
+const WELLNESS_DAYS: WellnessData[] = Array.from({ length: 30 }, (_, i) => ({
+  id: `2026-06-${String(i + 1).padStart(2, '0')}`,
+  hrv: 60 + (i % 5),
+  restingHR: 50,
+  weight: 71.5,
+}));
+
+/**
+ * Every `Text` the tree rendered, with the cap it carries. A chart's Show data link sits below the
+ * plot in the flow and wraps like any control, so it keeps the full system size and is not counted.
+ */
 function capsOf(tree: Awaited<ReturnType<typeof render>>): (number | undefined)[] {
+  const links = new Set(
+    tree.UNSAFE_queryAllByType(TextLink).flatMap((link) => link.findAllByType(Text))
+  );
   return tree
     .UNSAFE_getAllByType(Text)
+    .filter((node) => !links.has(node))
     .map((node) => node.props.maxFontSizeMultiplier as number | undefined);
 }
 
@@ -89,7 +139,9 @@ describe('the dense text cap', () => {
   });
 
   it('caps the activity plot axis labels and anchors the min label to its measured height', async () => {
-    const x = await render(<ChartXAxisLabel xAxisMode="distance" maxX={10} isDark={false} />);
+    const x = await render(
+      <ChartXAxisLabel xAxisMode="distance" maxX={10} xUnit="km" isDark={false} />
+    );
     expect(capsOf(x).every((cap) => cap === DENSE_TEXT_SCALE)).toBe(true);
 
     const series = { range: { min: 0, max: 10 }, config: { color: '#000000' } } as never;
@@ -122,6 +174,110 @@ describe('the dense text cap', () => {
     expect(tops()).toBeDefined();
     expect(after[1]).toBe(200 - 20 - 40);
     expect(after[2]).toBe(10 + 0.5 * 170 - 20);
+  });
+
+  it('caps every label of a zone histogram, compact and full', async () => {
+    for (const count of [5, 7]) {
+      const bands = Array.from({ length: count }, (_, i) => ({
+        key: i,
+        label: `Z${i + 1}`,
+        zone: i + 1,
+        seconds: 720,
+        share: 20,
+        primary: '12m',
+        secondary: '140-150',
+      }));
+      expectAllCapped(await render(<ZoneHistogram title="Heart rate zones" bands={bands} />));
+    }
+  });
+
+  it('caps every wellness row label and lets each row grow past its resting height', async () => {
+    const tree = await render(<WellnessTrendsChart data={WELLNESS_DAYS} timeRange="1m" />);
+    const container = tree.UNSAFE_getAllByType(View).find((node) => node.props.onLayout);
+    await act(async () => {
+      await fireEvent(container!, 'layout', {
+        nativeEvent: { layout: { width: 360, height: 300 } },
+      });
+    });
+    expectAllCapped(tree);
+
+    const rows = tree.getAllByTestId(/^wellness-row-/);
+    expect(rows.length).toBe(3);
+    for (const row of rows) {
+      const style = flatStyle(row);
+      expect(style.height).toBeUndefined();
+      expect(style.minHeight).toBeGreaterThan(0);
+    }
+  });
+
+  it('caps the timeline tick labels and sizes each to its own text', async () => {
+    const tree = await render(
+      <TimelineSlider
+        minDate={new Date(2022, 0, 1)}
+        maxDate={new Date(2026, 0, 1)}
+        startDate={new Date(2024, 0, 1)}
+        endDate={new Date(2026, 0, 1)}
+        onRangeChange={() => {}}
+      />
+    );
+    await act(async () => {
+      await fireEvent(tree.getByTestId('timeline-slider-track'), 'layout', {
+        nativeEvent: { layout: { width: 320, height: 44 } },
+      });
+    });
+    const ticks = tree.getAllByTestId(/^timeline-tick-label-/);
+    expect(ticks.length).toBeGreaterThan(2);
+    await act(async () => {
+      for (const tick of ticks) {
+        await fireEvent(tick, 'layout', { nativeEvent: { layout: { width: 41, height: 12 } } });
+      }
+    });
+    expectAllCapped(tree);
+
+    const style = flatStyle(tree.getAllByTestId(/^timeline-tick-label-/).at(-1)!);
+    expect(style.width).toBeUndefined();
+    expect(style.left).toBe(320 - 41);
+  });
+
+  it('caps the cluster counts and sizes their box from the capped text', async () => {
+    const surfaceRef = {
+      current: {
+        queryViewportFeatures: jest.fn(async () => [
+          { properties: { cluster_id: 7, point_count: 1234 }, screen: { x: 100, y: 50 } },
+        ]),
+      },
+    } as never;
+    jest.useFakeTimers();
+    const tree = await render(<ClusterCountOverlay surfaceRef={surfaceRef} visible />);
+    await act(async () => {
+      jest.advanceTimersByTime(300);
+    });
+    jest.useRealTimers();
+    expectAllCapped(tree);
+    const box = flatStyle(tree.getByTestId('map-cluster-count-7'));
+    expect(box.width).toBeGreaterThan(32);
+    expect(box.height).toBeGreaterThan(16);
+    expect((box.left as number) + (box.width as number) / 2).toBe(100);
+    expect((box.top as number) + (box.height as number) / 2).toBe(50);
+  });
+
+  it('caps the home sparkline labels', async () => {
+    expectAllCapped(
+      await render(
+        <SummaryCardSparkline
+          fitnessData={[40, 41, 42, 43]}
+          formData={[-5, -3, 0, 2]}
+          width={300}
+          showLabels
+        />
+      )
+    );
+  });
+
+  it('caps the map credit, which still wraps rather than truncating', async () => {
+    const tree = await render(<AttributionOverlay initialAttribution="© OpenStreetMap" />);
+    expectAllCapped(tree);
+    expect(tree.getByTestId('map-attribution-text').props.numberOfLines).toBeUndefined();
   });
 
   it('reaches exactly the named dense surfaces, and no prose one', () => {

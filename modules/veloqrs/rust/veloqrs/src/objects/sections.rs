@@ -593,6 +593,8 @@ impl SectionManager {
                     at: r.at,
                     into: r.into,
                     versions: r.versions.into_iter().map(|v| v as f64).collect(),
+                    name: r.name,
+                    distance_meters: r.distance_meters,
                 })
                 .collect()
         })

@@ -78,4 +78,11 @@ describe('Summary card layout', () => {
       expect(getByTestId(id).props.numberOfLines).toBe(1);
     }
   });
+
+  it('carries the card title as a header, like its peer cards', async () => {
+    const { getByTestId } = await card({ bestForwardRecord: record(550) });
+    const title = getByTestId('section-summary-header-title');
+    expect(title.props.accessibilityRole).toBe('header');
+    expect(title.props.children).toBe('Summary');
+  });
 });

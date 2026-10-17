@@ -290,7 +290,7 @@ export function getActivityBodies(
     oldestTs,
     newestTs,
     needle: '',
-    sportGroups: [],
+    sportFamilies: [],
     offset: 0,
   });
 }
@@ -298,11 +298,11 @@ export function getActivityBodies(
 /** A feed search: the text and the chip, paged, over every stored activity. */
 export type ActivityBodiesSearch = Pick<
   FfiActivityBodiesQuery,
-  'needle' | 'sportGroups' | 'offset' | 'limit' | 'oldestTs' | 'newestTs'
+  'needle' | 'sportFamilies' | 'offset' | 'limit' | 'oldestTs' | 'newestTs'
 >;
 
 /**
- * The feed's search and sport chips over every stored activity, newest first,
+ * The feed's search and sport family chips over every stored activity, newest first,
  * with the count of everything matched. The same engine read as the windowed
  * feed with no window, so a search reaches activities no loaded window holds.
  * Undefined when the engine is not ready.

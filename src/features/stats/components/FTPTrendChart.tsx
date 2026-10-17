@@ -6,7 +6,7 @@ import { RangeCoverage } from 'veloqrs';
 
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { useTranslation } from 'react-i18next';
-import { Circle, LinearGradient, vec } from '@shopify/react-native-skia';
+import { Circle } from '@shopify/react-native-skia';
 import {
   colors,
   typography,
@@ -25,7 +25,6 @@ import { trendVerdict, verdictRung, type TrendDirection } from '@/shared/format/
 import {
   ChartCanvas,
   ChartSurface,
-  CurveArea,
   CurveLine,
   seriesSummary,
   seriesTable,
@@ -202,17 +201,10 @@ export function FTPTrendChart({
             padding={CHART_PADDING}
             grid={5}
           >
-            {({ points, bounds }) => {
+            {({ points }) => {
               const last = points.y[points.y.length - 1];
               return (
                 <>
-                  <CurveArea points={points.y} y0={bounds.bottom}>
-                    <LinearGradient
-                      start={vec(0, bounds.top)}
-                      end={vec(0, bounds.bottom)}
-                      colors={[chartColors.ftp + '60', chartColors.ftp + '10']}
-                    />
-                  </CurveArea>
                   <CurveLine points={points.y} color={chartColors.casing} strokeWidth={2.5} />
                   <CurveLine points={points.y} color={chartColors.ftp} strokeWidth={1.5} />
                   {last ? (

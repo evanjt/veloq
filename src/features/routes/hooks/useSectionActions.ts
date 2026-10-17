@@ -28,6 +28,7 @@ import { renameFailureMessageKey } from '../lib/sectionRenameFailure';
 import { informSectionWriteRefused } from '../lib/sectionWriteRefusal';
 import { removeSectionWithUndo, restoreSection } from '../lib/sectionVisibility';
 import { confirmAction, inform } from '@/shared/ui/dialog';
+import { NOTICE_LONG_MS, showNotice } from '@/shared/ui/Notice';
 import { attemptEngineRead } from '@/shared/native/engineError';
 
 const log = debug.create('SectionActions');
@@ -344,21 +345,6 @@ export function useSectionActions({
   }, [id, isCustomId, isSectionDisabled, t]);
 
   // --- include/exclude actions ---
-  const handleExcludeActivity = useCallback(
-    (activityId: string) => {
-      if (!id) return;
-      const engine = getEngine();
-      if (!engine) return;
-      if (!engine.excludeActivityFromSection(id, activityId)) {
-        informSectionWriteRefused(t);
-        return;
-      }
-      setExcludedActivityIds((prev) => new Set([...prev, activityId]));
-      onSectionRefresh();
-    },
-    [id, onSectionRefresh, t]
-  );
-
   const handleIncludeActivity = useCallback(
     (activityId: string) => {
       if (!id) return;
@@ -376,6 +362,28 @@ export function useSectionActions({
       onSectionRefresh();
     },
     [id, onSectionRefresh, t]
+  );
+
+  // Exclusion is reversible, so it runs at once and the notice offers Undo.
+  const handleExcludeActivity = useCallback(
+    (activityId: string) => {
+      if (!id) return;
+      const engine = getEngine();
+      if (!engine) return;
+      if (!engine.excludeActivityFromSection(id, activityId)) {
+        informSectionWriteRefused(t);
+        return;
+      }
+      haptics.medium();
+      setExcludedActivityIds((prev) => new Set([...prev, activityId]));
+      onSectionRefresh();
+      showNotice({
+        message: t('sections.attemptExcluded'),
+        action: { label: t('common.undo'), onPress: () => handleIncludeActivity(activityId) },
+        duration: NOTICE_LONG_MS,
+      });
+    },
+    [id, onSectionRefresh, t, handleIncludeActivity]
   );
 
   const handleToggleShowExcluded = useCallback(() => {

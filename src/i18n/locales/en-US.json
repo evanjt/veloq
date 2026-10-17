@@ -66,7 +66,7 @@
   },
   "notifications": {
     "privacy": {
-      "brief": "Your athlete ID and a push token will be stored on our server (30-day expiry). Notifications are routed through Apple or Google but all insight content is generated on your device. No personal data is stored. You can disable at any time."
+      "brief": "Your athlete ID and a push token will be stored on our server (30-day expiry). Notifications are routed through Apple or Google but all insight content is generated on your device. You can disable at any time."
     }
   },
   "recording": {
@@ -91,7 +91,7 @@
   },
   "wellness": {
     "smoothingDescription": "Apply a rolling average to smooth out daily variations and show trends more clearly.",
-    "smoothingHint": "Auto selects the best smoothing for the time range",
+    "smoothingHint": "Auto: no smoothing for {{r7d}}, a {{d1m}}-day average for {{r1m}}, {{d3m}} days for {{r3m}}, {{d6m}} for {{r6m}}, and {{d1y}} for {{r1y}}.",
     "smoothingTitle": "Smoothing"
   },
   "whatsNew": {

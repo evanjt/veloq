@@ -19,7 +19,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { WeeklySummary, ActivityHeatmap, SeasonComparison } from '@/features/stats';
 import type { ActivityHeatmapHandle } from '@/features/stats';
 import { WellnessTrendsChart } from '@/features/wellness';
-import { useAthleteSummary } from '@/features/fitness';
 import { useWellness, useWellnessCoverage, type TimeRange } from '@/features/wellness';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
@@ -121,13 +120,6 @@ function HealthScreenContent() {
   } = useWellness(timeRange);
   const wellnessCoverage = useWellnessCoverage(timeRange);
 
-  // Fetch athlete summary for WeeklySummary (lifted from child component)
-  const {
-    data: summaryData,
-    isLoading: summaryLoading,
-    error: summaryError,
-  } = useAthleteSummary(4);
-
   // Combined loading states. Every card on this tab now reads its own engine
   // aggregate, so the tab's own fetching state is the wellness one.
   const isFetching = wellnessFetching;
@@ -140,7 +132,6 @@ function HealthScreenContent() {
         requestRefresh();
         await Promise.all([
           refetchWellness(),
-          queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all }),
           queryClient.invalidateQueries({ queryKey: queryKeys.stats.all }),
         ]);
         setIsRefreshing(false);
@@ -189,32 +180,6 @@ function HealthScreenContent() {
           </Card>
         </View>
 
-        {/* Time range selector with smoothing config */}
-        <View style={styles.timeRangeRow}>
-          <View style={styles.timeRangeContainer}>
-            {TIME_RANGES.map((range) => (
-              <ToggleButton
-                key={range.id}
-                label={t(range.labelKey as never)}
-                selected={timeRange === range.id}
-                onPress={() => setTimeRange(range.id)}
-              />
-            ))}
-          </View>
-          <IconButton
-            accessibilityLabel={t('wellness.smoothingTitle' as never)}
-            variant={smoothingWindow !== 'auto' ? 'primary' : 'secondary'}
-            onPress={pickSmoothing}
-            testID="training-smoothing-button"
-          >
-            <MaterialCommunityIcons
-              name="chart-bell-curve-cumulative"
-              size={iconSize.md}
-              color={smoothingWindow !== 'auto' ? colors.textOnPrimary : themeColors.textSecondary}
-            />
-          </IconButton>
-        </View>
-
         {/* Wellness Trends Chart */}
         <View
           testID="wellness-trends-chart"
@@ -230,6 +195,33 @@ function HealthScreenContent() {
                 </Text>
               }
             />
+            {/* The range and smoothing drive only this chart, so they sit in its card. */}
+            <View style={styles.timeRangeRow}>
+              <View style={styles.timeRangeContainer}>
+                {TIME_RANGES.map((range) => (
+                  <ToggleButton
+                    key={range.id}
+                    label={t(range.labelKey as never)}
+                    selected={timeRange === range.id}
+                    onPress={() => setTimeRange(range.id)}
+                  />
+                ))}
+              </View>
+              <IconButton
+                accessibilityLabel={t('wellness.smoothingTitle' as never)}
+                variant={smoothingWindow !== 'auto' ? 'primary' : 'secondary'}
+                onPress={pickSmoothing}
+                testID="training-smoothing-button"
+              >
+                <MaterialCommunityIcons
+                  name="chart-bell-curve-cumulative"
+                  size={iconSize.md}
+                  color={
+                    smoothingWindow !== 'auto' ? colors.textOnPrimary : themeColors.textSecondary
+                  }
+                />
+              </IconButton>
+            </View>
             {/* Each card names its own failed read, so a wellness failure leaves the
               title, the range pills and the other cards standing. */}
             {isWellnessError ? (
@@ -261,11 +253,7 @@ function HealthScreenContent() {
         {belowFoldReady ? (
           <View onLayout={(event) => onAnchorLayout('week', event)} style={styles.frame}>
             <Card variant="flat">
-              <WeeklySummary
-                summaryData={summaryData}
-                summaryLoading={summaryLoading}
-                summaryError={summaryError}
-              />
+              <WeeklySummary />
             </Card>
           </View>
         ) : null}

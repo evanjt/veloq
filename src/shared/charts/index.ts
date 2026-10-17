@@ -16,7 +16,7 @@ export type { ChartColorScheme } from './useChartColors';
 
 export { useChartInteraction } from './useChartInteraction';
 
-export { buildMonotoneSvg, buildMonotoneAreaSvg } from './sparklinePath';
+export { buildMonotoneSvg } from './sparklinePath';
 
 export { polylineSvgPath, bandSvgPath } from './svgPath';
 export type { XY } from './svgPath';
@@ -34,6 +34,7 @@ export { ChartCanvas } from './ChartCanvas';
 export type { ChartCanvasProps, ChartFrame } from './ChartCanvas';
 
 export { CurveLine, CurveArea } from './CurvePaths';
+export { areaFillsFromZero, areaWashOpacity } from './areaFill';
 
 export { CurveChart } from './CurveChart';
 export type { CurveChartProps, PlacedLabel } from './CurveChart';

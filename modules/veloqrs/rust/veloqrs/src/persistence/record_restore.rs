@@ -247,6 +247,7 @@ impl PersistentEngine {
                     athlete_id: payload.athlete_id.or(paused.athlete_id),
                     entries,
                     upstream_ids: BTreeMap::new(),
+                    written_at: payload.written_at,
                 }
             }
             None => payload,
@@ -1563,11 +1564,16 @@ pub(crate) fn pending_retired_sections(conn: &Connection) -> Vec<sections::Retir
                 at,
                 into: None,
                 versions: vec![state.version],
+                name: None,
+                distance_meters: None,
             }),
         }
     }
     for r in &mut retired {
         r.versions.sort_unstable();
+        r.name = sections::history::pooled::retired_name(conn, &r.section_id);
+        r.distance_meters =
+            sections::history::pooled::retired_distance(conn, &r.section_id, &r.versions);
     }
     retired
 }
@@ -3432,6 +3438,7 @@ mod tests {
         let values = json!({"route_id": "old-route", "custom_name": "Harbour loop"});
         let payload = RecordPayload {
             version: RECORD_VERSION,
+            written_at: None,
             athlete_id: None,
             entries: vec![RecordRow {
                 table: "route_names".to_string(),
@@ -3505,6 +3512,45 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM route_names", [], |r| r.get(0))
             .unwrap();
         assert_eq!(names, 0);
+    }
+
+    #[test]
+    fn legacy_route_name_places_by_the_ride_its_id_names_and_a_split_waits() {
+        let dir = TempDir::new().unwrap();
+        let mut engine =
+            PersistentEngine::new(dir.path().join("legacy-route.db").to_str().unwrap()).unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type)
+                 VALUES ('local-route', 'ride-9', '[\"ride-9\",\"ride-17\"]', 'Ride')",
+                [],
+            )
+            .unwrap();
+        let payload = json!({"version": 1, "entries": [
+            {"table": "route_names",
+             "values": {"route_id": "ride-17", "custom_name": "Harbour loop"},
+             "ground": {"rep_activity_id": "ride-17", "activity_ids": ["ride-17"],
+                "rep_start_index": null, "rep_end_index": null, "point_count": null,
+                "polyline_json": null}},
+            {"table": "route_names",
+             "values": {"route_id": "ride-17_split", "custom_name": "Back way"},
+             "ground": null}
+        ]});
+        let result = engine.restore_record_json(&payload.to_string()).unwrap();
+        assert_eq!((result.placed, result.unplaced), (1, 1));
+        let names: Vec<(String, String)> = engine
+            .db
+            .prepare("SELECT route_id, custom_name FROM route_names")
+            .unwrap()
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        assert_eq!(
+            names,
+            [("local-route".to_string(), "Harbour loop".to_string())]
+        );
     }
 
     #[test]

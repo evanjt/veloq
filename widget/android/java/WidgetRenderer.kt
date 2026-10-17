@@ -51,7 +51,10 @@ object WidgetRenderer {
     }
   }
 
-  /** One row tall: the hero, its trend and its line, with no room left for the chart or the age. */
+  /**
+   * One row tall: the hero, its trend and its line, with no room left for the chart or the age.
+   * The refresh control keeps its place at the end of the hero's row.
+   */
   private fun renderShort(
     context: Context,
     p: WidgetPalette,
@@ -59,11 +62,10 @@ object WidgetRenderer {
     card: SummaryCard,
     widgetId: Int,
   ): RemoteViews {
-    val v = RemoteViews(context.packageName, R.layout.widget_small)
+    val v = RemoteViews(context.packageName, R.layout.widget_short)
     bindHero(p, v, snap, card)
-    v.setViewVisibility(R.id.sum_sparkline, View.GONE)
-    v.setViewVisibility(R.id.small_age, View.GONE)
     bindFitnessTap(context, v, widgetId)
+    bindRefresh(context, v, snap)
     return v
   }
 
@@ -79,8 +81,6 @@ object WidgetRenderer {
     bindHero(p, v, snap, card)
     bindChart(context, p, v, snap, card, chartWidthDp(minWidthDp, 140), 40)
     bindFitnessTap(context, v, widgetId)
-    // A host reapplies these views over the ones it shows, which a short placement left hidden.
-    v.setViewVisibility(R.id.small_age, View.VISIBLE)
     bindUpdatedAt(p, v, R.id.small_updated, snap)
     bindRefresh(context, v, snap)
     return v

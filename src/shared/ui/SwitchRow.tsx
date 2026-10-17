@@ -2,8 +2,9 @@
  * A settings row that turns one thing on or off. The row is a single element
  * with the switch role, named by its title and described by its description, so
  * a screen reader reads one stop and a tap anywhere on the label toggles it. The
- * switch drawn at its end is hidden from assistive technology, since the row
- * already is that control, and still toggles from its own thumb.
+ * switch drawn at its end is hidden from assistive technology and held out of
+ * keyboard focus, since the row already is that control, and still toggles from
+ * its own thumb.
  *
  * An `accessory`, such as an info button, sits between the label and the switch
  * as an element of its own, outside the pressable row, so it stays reachable.
@@ -17,6 +18,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
 import { selection } from './haptics';
+import { KeyboardFocusBlock } from './KeyboardFocusBlock';
 import { pressable, pressRipple } from './pressFeedback';
 import { Switch } from './Switch';
 
@@ -96,12 +98,14 @@ export function SwitchRow({
       </Pressable>
       {accessory}
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-        <Switch
-          value={value}
-          onValueChange={onValueChange}
-          disabled={disabled}
-          accessibilityLabel={title}
-        />
+        <KeyboardFocusBlock>
+          <Switch
+            value={value}
+            onValueChange={onValueChange}
+            disabled={disabled}
+            accessibilityLabel={title}
+          />
+        </KeyboardFocusBlock>
       </View>
     </View>
   );

@@ -53,7 +53,7 @@ describe('the snapshot carries the recent sports as one pre-localised list', () 
         type: 'OpenWaterSwim',
         label: 'OpenWaterSwim',
         url: 'veloq://recording/OpenWaterSwim?from=quickstart',
-        glyph: 'swim',
+        glyph: 'water',
       },
     ]);
   });

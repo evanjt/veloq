@@ -33,7 +33,7 @@ export const MAP_ACTIVITY_GROUPS: {
   types: ActivityType[];
 }[] = Object.entries(ACTIVITY_CATEGORIES).map(([key, config]) => ({
   key,
-  labelKey: `maps.activityTypes.${config.labelKey}`,
+  labelKey: config.label,
   types: config.types as ActivityType[],
 }));
 
@@ -213,7 +213,7 @@ export function MapsSection() {
           const terrainKey = terrain.mixed
             ? 'settings.mixed'
             : (TERRAIN_LABELS[terrain.value] ?? 'settings.terrain3DSmart');
-          const sportName = t(labelKey as 'maps.activityTypes.ride');
+          const sportName = t(labelKey as 'sportFamilies.ride');
           const terrainText = t('settings.terrain3DMode', {
             mode: t(terrainKey as 'settings.terrain3DSmart', {
               defaultValue: 'Smart',
@@ -226,11 +226,11 @@ export function MapsSection() {
                 style={[styles.overrideLabel, isDark && settingsStyles.textLight]}
                 numberOfLines={1}
               >
-                {t(labelKey as 'maps.activityTypes.ride')}
+                {t(labelKey as 'sportFamilies.ride')}
               </Text>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`${t(labelKey as 'maps.activityTypes.ride')}: ${t(styleKey as 'settings.default')}`}
+                accessibilityLabel={`${t(labelKey as 'sportFamilies.ride')}: ${t(styleKey as 'settings.default')}`}
                 style={pressable([styles.pill, { backgroundColor: pillBg }])}
                 hitSlop={pillSlop}
                 testID={`map-style-pill-${key}`}

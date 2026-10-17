@@ -20,7 +20,6 @@ const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: 
 
 function heatmapLayer(overrides: Partial<Parameters<typeof buildRegionalLayers>[0]> = {}) {
   return buildRegionalLayers({
-    isDark: false,
     mapStyle: 'light',
     showActivities: true,
     showSections: true,
@@ -66,7 +65,6 @@ describe('the regional map heatmap layer', () => {
 
   it('is hidden the way every other layer in this builder is', () => {
     const hidden = buildRegionalLayers({
-      isDark: false,
       mapStyle: 'light',
       showActivities: false,
       showSections: true,

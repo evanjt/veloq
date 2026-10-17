@@ -589,14 +589,11 @@ const REFERENCE_LOCALE = 'src/i18n/locales/en-GB.json';
 // under `settings.` unseen.
 const DYNAMIC_PREFIXES = [
   'activityTypes.',
-  'feed.groups.',
   'filters.',
   'formZones.',
   'insights.hrvTrend.',
   'insights.sectionChanged.',
-  'maps.activityTypes.',
   'recording.autoName.',
-  'recording.categories.',
   'recording.fields.',
   'recording.gpsModes.',
   'recording.library.status.',

@@ -93,6 +93,7 @@ onFlowComplete:
 - takeScreenshot: "screenshots/recording-settings-data-fields"
 
 # Navigate back using back button
-- back
+- runFlow:
+    file: helpers/go-back.yaml
 
 - takeScreenshot: "screenshots/recording-settings-complete"

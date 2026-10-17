@@ -25,9 +25,9 @@ tags:
   - tier1
   - pack-settings
 
-# The five-tap unlock and the 31d preset both persist, so without this every
-# later flow opens the feed on "Enjoying Veloq?" and scrolls one card low.
-# It runs on failure too, where the flow may never have reached either.
+# The 31d preset persists, so without this every later flow opens the feed on
+# "Enjoying Veloq?" and scrolls one card low. It runs on failure too, where the
+# flow may never have reached it.
 onFlowComplete:
   # Only a demo session is this flow's to clean up. The hook runs after a
   # failure too, including the shared setup refusing a real account, and that
@@ -37,7 +37,7 @@ onFlowComplete:
         visible:
           id: "demo-mode-banner"
       commands:
-        - openLink: "veloq://settings"
+        - openLink: "veloq://debug"
         - runFlow:
             when:
               visible: "Open"
@@ -46,88 +46,42 @@ onFlowComplete:
         - runFlow:
             when:
               visible:
-                id: "settings-screen"
+                id: "debug-screen"
             commands:
-              - scroll
-              - scrollUntilVisible:
-                  element:
-                    id: "settings-version-text"
-                  direction: DOWN
-                  timeout: 20000
-                  speed: 40
-              # The footer sits under the translucent tab bar, where an element reads
-              # as visible and its tap opens a tab instead. Centre every control.
-              - swipe:
-                  start: 50%, 75%
-                  end: 50%, 45%
-                  duration: 800
-              - runFlow:
-                  when:
-                    visible:
-                      id: "settings-developer-dashboard-link"
+              # Same edge swipes as the body: the FFI table eats centred ones.
+              - repeat:
+                  times: 10
                   commands:
-                    - scrollUntilVisible:
-                        element:
-                          id: "settings-developer-dashboard-link"
-                        direction: DOWN
-                        timeout: 20000
-                        centerElement: true
-                    - tapOn:
-                        id: "settings-developer-dashboard-link"
-                    - extendedWaitUntil:
-                        visible:
-                          id: "debug-screen"
-                        timeout: 30000
-                    # Same edge swipes as the body: the FFI table eats centred ones.
-                    - repeat:
-                        times: 10
-                        commands:
-                          - swipe:
-                              start: 90%, 80%
-                              end: 90%, 25%
-                              duration: 400
-                          - runFlow:
-                              when:
-                                visible:
-                                  id: "debug-section-support-card"
-                              commands:
-                                - assertVisible:
-                                    id: "debug-section-support-card"
+                    - swipe:
+                        start: 90%, 80%
+                        end: 90%, 25%
+                        duration: 400
                     - runFlow:
                         when:
                           visible:
                             id: "debug-section-support-card"
                         commands:
-                          - tapOn:
+                          - assertVisible:
                               id: "debug-section-support-card"
-                          - scrollUntilVisible:
-                              element:
-                                id: "debug-support-preset-0d"
-                              direction: DOWN
-                              timeout: 20000
-                              centerElement: true
-                          # Last shown today, so shouldShow() is false again.
-                          - tapOn:
-                              id: "debug-support-preset-0d"
-                    - openLink: "veloq://settings"
-                    - extendedWaitUntil:
-                        visible:
-                          id: "settings-screen"
-                        timeout: 15000
-                    - scroll
+              - runFlow:
+                  when:
+                    visible:
+                      id: "debug-section-support-card"
+                  commands:
+                    - tapOn:
+                        id: "debug-section-support-card"
                     - scrollUntilVisible:
                         element:
-                          id: "settings-debug-switch"
+                          id: "debug-support-preset-0d"
                         direction: DOWN
                         timeout: 20000
-                        centerElement: true
-                    - runFlow:
-                        when:
-                          visible:
-                            id: "settings-developer-dashboard-link"
-                        commands:
-                          - tapOn:
-                              id: "settings-debug-switch"
+                    - swipe:
+                        start: 90%, 75%
+                        end: 90%, 45%
+                        duration: 800
+                    # Last shown today, so shouldShow() is false again.
+                    - tapOn:
+                        id: "debug-support-preset-0d"
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
@@ -182,64 +136,17 @@ onFlowComplete:
     id: "support-sponsor-button"
     optional: true
 
-# ---- Enable debug mode by tapping version 5 times ----
+# ---- Open the developer dashboard ----
 
-# Navigate to settings hub where version text lives
-- openLink: "veloq://settings"
+# A development build opens the dashboard by its link, with no five-tap unlock
+# and no tap on a footer control that ends the settings page. Debug mode stays
+# as it was found, so there is nothing of it to put back afterwards.
+- openLink: "veloq://debug"
 - runFlow:
     when:
       visible: "Open"
     commands:
       - tapOn: "Open"
-
-- extendedWaitUntil:
-    visible:
-      id: "settings-screen"
-    timeout: 10000
-
-# Prime the scroll container before scrollUntilVisible (matches settings-scroll.yaml).
-- scroll
-
-- scrollUntilVisible:
-    element:
-      id: "settings-version-text"
-    direction: DOWN
-    timeout: 30000
-    speed: 40
-
-# Five taps inside the unlock window; one command so a slow device
-# cannot space them past it.
-- tapOn:
-    id: "settings-version-text"
-    repeat: 5
-    delay: 150
-
-- extendedWaitUntil:
-    visible:
-      id: "settings-debug-switch"
-    timeout: 10000
-
-# Toggle Debug Mode on (idempotent, if it's already on the switch is a no-op)
-# The footer sits under the tab bar until scrolled clear of it.
-- swipe:
-    start: 50%, 75%
-    end: 50%, 45%
-    duration: 800
-- runFlow:
-    when:
-      notVisible:
-        id: "settings-developer-dashboard-link"
-    commands:
-      - tapOn:
-          id: "settings-debug-switch"
-
-- extendedWaitUntil:
-    visible:
-      id: "settings-developer-dashboard-link"
-    timeout: 10000
-
-- tapOn:
-    id: "settings-developer-dashboard-link"
 
 # The debug dashboard mounts engine/FFI stats, which is slow under software GPU.
 - extendedWaitUntil:
@@ -272,14 +179,19 @@ onFlowComplete:
 - tapOn:
     id: "debug-section-support-card"
 
-# Centre the control, not merely its accessibility bounds: an element behind
-# the translucent tab bar can be reported visible while its tap opens a tab.
+# The Support Card section ends the dashboard, so its controls sit near the
+# bottom of a page that cannot scroll them to the centre, and a centring scroll
+# times out with the control in plain view. Scroll it into view, then swipe at
+# the edge (the FFI table eats centred swipes) to lift it as far as the page goes.
 - scrollUntilVisible:
     element:
       id: "debug-support-legacy-toggle"
     direction: DOWN
     timeout: 20000
-    centerElement: true
+- swipe:
+    start: 90%, 75%
+    end: 90%, 45%
+    duration: 800
 
 # Earlier flows seed demo activities and the app then marks the profile a
 # legacy purchaser, which short-circuits the support card ahead of the date
@@ -296,7 +208,6 @@ onFlowComplete:
       id: "debug-support-preset-31d"
     direction: UP
     timeout: 20000
-    centerElement: true
 
 - evalScript: |
     ${var d = new Date(); d.setDate(d.getDate() - 31); output.supportExpectedDate = d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);}

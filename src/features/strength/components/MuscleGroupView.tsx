@@ -16,15 +16,16 @@ import {
   colorWithOpacity,
   iconSize,
   ink,
+  layers,
   layout,
   loupeChrome,
   mapTextShadow,
   opacity,
-  type Palette,
   spacing,
-  themedStyles,
-  typography,
   stroke,
+  themedStyles,
+  type Palette,
+  typography,
 } from '@/theme';
 import type { ActivityDetail } from '@/types';
 
@@ -364,7 +365,7 @@ const makeStyles = (palette: Palette, isDark: boolean) =>
       left: spacing.md,
       right: spacing.md,
       bottom: spacing.md,
-      zIndex: 5,
+      zIndex: layers.raised,
     },
     activityName: {
       ...typography.statsValue,

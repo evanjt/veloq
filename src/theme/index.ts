@@ -37,7 +37,6 @@ export {
   mapStyleSwatch,
   mapStylePreview,
   insightIcon,
-  statusBadge,
   verdict,
   verdictColor,
   verdictFill,
@@ -66,6 +65,7 @@ export { spacing, controlHeight, MIN_TAP_TARGET } from './spacing';
 export { layout } from './layout';
 export { iconSize, type IconSize } from './iconSize';
 export { stroke } from './stroke';
+export { floatingLayers, layers } from './layers';
 export { slopToMinTapTarget } from './tapTarget';
 export { typography } from './typography';
 export {

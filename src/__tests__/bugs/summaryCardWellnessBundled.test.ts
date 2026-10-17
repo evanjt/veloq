@@ -13,7 +13,7 @@ import { renderHook } from '@testing-library/react-native';
 
 import { useSummaryCardData } from '@/features/home/hooks/useSummaryCardData';
 import { useDashboardPreferences } from '@/features/settings/stores/summaryCardPreferences';
-import { formZoneTextColor } from '@/features/fitness/lib/fitness';
+import { FORM_ZONE_MARK_COLORS } from '@/features/fitness/lib/fitness';
 import { getEngine } from '@/shared/native/engine';
 import { ABSENT } from '@/shared/format/absent';
 
@@ -142,7 +142,7 @@ it('keeps missing wellness distinct from measured zero after activities arrive',
 it('withholds the form zone until a form reading arrives', async () => {
   const preferences = useDashboardPreferences.getState().summaryCard;
   useDashboardPreferences.setState({
-    summaryCard: { ...preferences, supportingMetrics: ['fitness', 'form'] },
+    summaryCard: { ...preferences, heroMetric: 'form', supportingMetrics: ['fitness', 'form'] },
   });
   try {
     const { result, rerender } = await renderHook(
@@ -154,16 +154,17 @@ it('withholds the form zone until a form reading arrives', async () => {
         },
       }
     );
-    const greyZone = formZoneTextColor('greyZone', false);
     expect(metric(result.current.supportingMetrics, 'metrics.form')).toMatchObject({
       value: ABSENT,
     });
-    expect(metric(result.current.supportingMetrics, 'metrics.form')?.color).not.toBe(greyZone);
+    expect(result.current.heroZone).toBeUndefined();
+    expect(result.current.heroKeyColor).toBeUndefined();
     await rerender({ wellness: { ...WELLNESS, fitness: 0, form: 0 } });
     expect(metric(result.current.supportingMetrics, 'metrics.form')).toMatchObject({
       value: '0',
-      color: greyZone,
     });
+    expect(result.current.heroZone).toBe('formZones.greyZone');
+    expect(result.current.heroKeyColor).toBe(FORM_ZONE_MARK_COLORS.greyZone);
   } finally {
     useDashboardPreferences.setState({ summaryCard: preferences });
   }

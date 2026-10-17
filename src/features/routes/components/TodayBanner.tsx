@@ -104,8 +104,8 @@ const ReadinessRow = React.memo(function ReadinessRow({
       <View style={[styles.formDot, { backgroundColor: formColor }]} />
       <Text style={[styles.readinessLabel, isDark && styles.textLight]}>
         {isTomorrow
-          ? t('routeIntelligence.tomorrow', 'TOMORROW')
-          : t('routeIntelligence.today', 'TODAY')}
+          ? t('routeIntelligence.tomorrow', 'Tomorrow')
+          : t('routeIntelligence.today', 'Today')}
       </Text>
       <Text style={[styles.readinessValue, { color: formTextColor }]}>
         {formLabel}
@@ -283,9 +283,8 @@ const styles = StyleSheet.create({
     marginRight: spacing.xs,
   },
   readinessLabel: {
-    ...typography.captionBold,
+    ...typography.label,
     color: colors.textSecondary,
-    letterSpacing: 0.5,
     marginRight: spacing.sm,
   },
   readinessValue: {

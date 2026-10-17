@@ -19,6 +19,7 @@ import type {
   FfiPeriodStats,
   FfiStartupData,
   FfiSummaryCardData,
+  FfiSummaryComparison,
   FfiTrainingScreenData,
   FfiTrainingScreenWindows,
   FfiWellnessRow,
@@ -138,22 +139,6 @@ export function getAvailableSportTypes(host: DelegateHost): string[] {
 }
 
 /**
- * Aggregated totals for one window: count, duration, distance, TSS.
- *
- * `activity_metrics` covers exactly what `activity_bodies` covers, since the
- * sync writes both from the same page, so this answers any window the screens
- * hold rather than only the GPS sync range.
- */
-export function getPeriodStats(
-  host: DelegateHost,
-  startTs: number,
-  endTs: number
-): FfiPeriodStats | null {
-  if (!host.ready) return null;
-  return host.timed('getPeriodStats', () => host.engine.fitness().getPeriodStats(startTs, endTs));
-}
-
-/**
  * Recorded activity load per local day over a window, oldest first.
  *
  * A day with activities and no recorded load is `Unavailable` and one with only
@@ -172,14 +157,22 @@ export function getDailyActivityLoads(
 
 /**
  * Everything the training tab paints with that stays fixed while it is
- * mounted: the heatmap days, the monthly rows, and the year and month to date
- * against the same spans of last year. Stale when `activities` fires.
+ * mounted: the heatmap days, the monthly rows, the year and month to date
+ * against the same spans of last year, and the weekly card's every range
+ * against the same elapsed span before it. Stale when `activities` fires.
  */
 export function getTrainingScreenData(
   host: DelegateHost,
   windows: FfiTrainingScreenWindows
 ): FfiTrainingScreenData {
   if (!host.ready) {
+    const now = { startTs: windows.nowWallSeconds, endTs: windows.nowWallSeconds };
+    const empty: FfiSummaryComparison = {
+      current: now,
+      previous: now,
+      currentStats: EMPTY_PERIOD_STATS,
+      previousStats: EMPTY_PERIOD_STATS,
+    };
     return {
       heatmap: [],
       months: [],
@@ -187,6 +180,13 @@ export function getTrainingScreenData(
       yearPrevious: EMPTY_PERIOD_STATS,
       monthCurrent: EMPTY_PERIOD_STATS,
       monthPrevious: EMPTY_PERIOD_STATS,
+      comparisons: {
+        week: empty,
+        month: empty,
+        threeMonths: empty,
+        sixMonths: empty,
+        year: empty,
+      },
     };
   }
   return host.timed('getTrainingScreenData', () =>

@@ -2369,6 +2369,43 @@ pub fn week_bounds(now_wall_seconds: i64) -> (i64, i64, i64, i64) {
     )
 }
 
+/// The weekly card's five periods to now, each against the period before it,
+/// as `(current_start, current_end, previous_start, previous_end)`: the week,
+/// the calendar month, three and six calendar months, and the calendar year.
+///
+/// Every previous window ends the same elapsed span after its own start as the
+/// current one has run, to the second, as [`week_bounds`] does for the week.
+/// It never runs into the current period, so a previous month shorter than
+/// the elapsed part of this one is taken whole.
+pub fn summary_period_bounds(now_wall_seconds: i64) -> [(i64, i64, i64, i64); 5] {
+    use chrono::{Datelike, Months, NaiveDate};
+    let today = chrono::DateTime::from_timestamp(now_wall_seconds, 0)
+        .map_or(NaiveDate::default(), |now| now.date_naive());
+    let first = NaiveDate::from_ymd_opt(today.year(), today.month(), 1).unwrap_or(today);
+    let midnight = |date: NaiveDate| date.and_time(chrono::NaiveTime::MIN).and_utc().timestamp();
+    let months_back = |n: u32| midnight(first.checked_sub_months(Months::new(n)).unwrap_or(first));
+    let bounds = |current_start: i64, previous_start: i64| {
+        let previous_end =
+            (previous_start + (now_wall_seconds - current_start)).min(current_start - 1);
+        (
+            current_start,
+            now_wall_seconds,
+            previous_start,
+            previous_end,
+        )
+    };
+    [
+        week_bounds(now_wall_seconds),
+        bounds(months_back(0), months_back(1)),
+        bounds(months_back(2), months_back(5)),
+        bounds(months_back(5), months_back(11)),
+        bounds(
+            months_back(today.month0()),
+            months_back(today.month0() + 12),
+        ),
+    ]
+}
+
 /// The two strength windows in the wall-clock seconds an activity's date is
 /// recorded in: today and the 29 days before it, as the strength screen
 /// bounds its 30 days, and the calendar month, each from midnight on its first

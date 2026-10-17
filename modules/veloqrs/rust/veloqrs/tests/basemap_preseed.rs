@@ -791,3 +791,132 @@ fn a_seed_that_re_pins_a_browsed_tile_keeps_it_through_the_same_pan() {
         "a tile the seed re-pinned was still evicted as opportunistic"
     );
 }
+
+// ============================================================================
+// A segment change with no sync behind it
+// ============================================================================
+
+/// A TileJSON naming the vector tiles under one dated run.
+fn tilejson(base: &str, run: &str) -> String {
+    format!(r#"{{"tilejson":"3.0.0","tiles":["{base}/planet/{run}/{{z}}/{{x}}/{{y}}.pbf"]}}"#)
+}
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock")
+        .as_secs()
+}
+
+/// A ride inside `home`, stored in the process-wide engine.
+fn ride_at_home() -> TempDir {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("ground.db").to_string_lossy().into_owned();
+    assert!(
+        veloqrs::persistence::persistent_engine_ffi::persistent_engine_init_without_owed_work(path),
+        "the fixture database must open"
+    );
+    let ride: Vec<tracematch::GpsPoint> = (0..200)
+        .map(|i| {
+            let t = i as f64 / 200.0;
+            tracematch::GpsPoint::new(46.60 + t * 0.10, 7.60 + t * 0.20)
+        })
+        .collect();
+    veloqrs::persistence::with_persistent_engine(|engine| {
+        engine
+            .add_activity("home-ride".to_string(), ride, "Ride".to_string())
+            .expect("store the ride");
+    })
+    .expect("the engine is open");
+    dir
+}
+
+/// Scenario: the vector source's TileJSON names a new dated run while the
+/// athlete is not riding, so no sync stores a track.
+/// Expected behaviour: the ground the old run had pinned is fetched again
+/// under the new run and pinned, without waiting for a sync.
+#[test]
+fn a_segment_change_re_pins_the_ground_without_a_sync() {
+    let _serial = super::serial_state();
+    let _engine = ride_at_home();
+    let server = MockServer::start();
+    server.mock(|when, then| {
+        when.method(GET).path_includes("/planet/old/");
+        then.status(200).body(bytes(64, 3));
+    });
+    let new_run = server.mock(|when, then| {
+        when.method(GET).path_includes("/planet/new/");
+        then.status(200).body(bytes(128, 9));
+    });
+    server.mock(|when, then| {
+        when.method(GET).path_includes("/ne2sr/");
+        then.status(200).body(bytes(32, 5));
+    });
+    let base = server.base_url();
+    let dir = TempDir::new().expect("tempdir");
+    veloqrs::basemap::set_path(dir.path().to_string_lossy().into_owned());
+    veloqrs::basemap::forget_resolved_templates();
+    veloqrs::basemap::set_template(VECTOR.to_string(), format!("{base}/planet"));
+    veloqrs::basemap::set_template(
+        GROUND.to_string(),
+        format!("{base}/ne2sr/{{z}}/{{x}}/{{y}}.png"),
+    );
+    let store = veloqrs::basemap::store().expect("store");
+
+    let old = veloqrs::basemap::resolve_template_at(
+        VECTOR,
+        now_secs() - 2 * veloqrs::basemap::TEMPLATE_REFRESH.as_secs(),
+        |_| Ok(tilejson(&base, "old")),
+    )
+    .expect("the old run resolves");
+    let vector = vec![PreseedSource {
+        name: VECTOR.to_string(),
+        template: old,
+        ext: "pbf".to_string(),
+        zooms: GROUND_ZOOMS,
+    }];
+    let planned = plan_preseed(&[home()], &vector);
+    let seeded = veloqrs::runtime::block_on(seed_preseed(
+        &store,
+        &fetcher(),
+        &planned,
+        GROUND_BUDGET_BYTES,
+    ));
+    assert_eq!(seeded.fetched as usize, planned.len());
+
+    veloqrs::basemap::resolve_template_with(VECTOR, |_| Ok(tilejson(&base, "new")))
+        .expect("the new run resolves");
+
+    let deadline = std::time::Instant::now() + Duration::from_secs(30);
+    while planned
+        .iter()
+        .any(|tile| store.get(VECTOR, tile.z, tile.x, tile.y) != Some(bytes(128, 9)))
+    {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "no pass fetched the new run's ground after the segment change: {} requests to it",
+            new_run.calls()
+        );
+        std::thread::sleep(Duration::from_millis(50));
+    }
+    // The pass flushes and checks the budget after its last pin.
+    std::thread::sleep(Duration::from_millis(500));
+
+    let held = store.size();
+    for x in 0..20u32 {
+        store
+            .put(VECTOR, 9, x, 300, "pbf", &bytes(100, 1), false)
+            .expect("put");
+    }
+    store.evict_to(held).expect("evict");
+    for tile in &planned {
+        assert_eq!(
+            store.get(VECTOR, tile.z, tile.x, tile.y),
+            Some(bytes(128, 9)),
+            "{}/{}/{} under the new run is not pinned",
+            tile.z,
+            tile.x,
+            tile.y
+        );
+    }
+}

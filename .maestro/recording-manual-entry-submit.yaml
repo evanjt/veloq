@@ -60,13 +60,16 @@ onFlowComplete:
     id: "manual-entry-duration"
 - eraseText:
     charactersToErase: 10
-- inputText: "01:00:00"
+# The field takes minutes. A clock string is refused on iOS, and on Android the
+# decimal pad drops its colons and enters ten thousand minutes.
+- inputText: "60"
 
 - takeScreenshot: "screenshots/manual-entry-filled"
 
 # Submit to review screen. The button sits under the keyboard and the
 # tab bar until the form is scrolled.
-- hideKeyboard
+- runFlow:
+    file: helpers/dismiss-keyboard.yaml
 - swipe:
     start: 50%, 75%
     end: 50%, 45%

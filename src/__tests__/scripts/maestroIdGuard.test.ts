@@ -99,6 +99,15 @@ describe('resolving a flow id against the tree', () => {
     expect(resolves("<View testID={'route-row-' + index} />", 'route-row-')).toBe(true);
   });
 
+  it('takes an id the operating system draws, which no component renders', () => {
+    expect(resolves('<View testID="routes-list" />', 'BackButton')).toBe(true);
+    expect(resolves('<View testID="routes-list" />', 'Toolbar')).toBe(true);
+  });
+
+  it('does not take a near miss of an id the operating system draws', () => {
+    expect(resolves('<View testID="routes-list" />', 'backButton')).toBe(false);
+  });
+
   it('takes an id handed down through a prop that is not called testID', () => {
     const screen = '<Screen containerTestID="activity-detail-content" />';
 

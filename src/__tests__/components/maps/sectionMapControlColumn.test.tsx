@@ -2,8 +2,8 @@
  * Scenario: the section detail hero is a fraction of the window height, so on a short window it
  * is shorter than the five round buttons stacked from below the status bar and the header.
  *
- * Expected behaviour: the control column is bounded by the hero and wraps into further columns,
- * so no button hangs past the map over the action row beneath it.
+ * Expected behaviour: the control column is bounded by the hero and wraps into further columns to
+ * its left, drawn wide enough to hold them, so no button hangs past the map's bottom or right edge.
  */
 
 import React from 'react';
@@ -92,7 +92,11 @@ describe('the section hero map control column', () => {
     const { style, top, maxHeight, count, perColumn } = controlColumn();
 
     expect(count).toBe(5);
-    expect(style.flexWrap).toBe('wrap');
+    // Further columns wrap to the left, and the column is drawn as wide as all of them, since
+    // layout sizes a wrapping column to its first and the rest would land past the map's edge.
+    expect(style.flexWrap).toBe('wrap-reverse');
+    const columns = Math.ceil(count / perColumn);
+    expect(style.width).toBe(columns * STEP - spacing.sm);
     expect(top + maxHeight).toBeLessThanOrEqual(294);
     // The buttons that fit one bounded column end inside the hero, and the rest wrap beside it.
     expect(top + perColumn * STEP - spacing.sm).toBeLessThanOrEqual(294);

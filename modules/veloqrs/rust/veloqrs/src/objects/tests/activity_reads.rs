@@ -31,7 +31,7 @@ fn window(oldest_ts: i64, newest_ts: i64) -> crate::FfiActivityBodiesPage {
             oldest_ts: Some(oldest_ts as f64),
             newest_ts: Some(newest_ts as f64),
             needle: String::new(),
-            sport_groups: vec![],
+            sport_families: vec![],
             offset: 0,
             limit: None,
         })
@@ -356,7 +356,7 @@ fn seed_library() {
 
 fn search(
     needle: &str,
-    sport_group: Option<crate::FfiFeedGroup>,
+    family: Option<crate::FfiSportFamily>,
     offset: u32,
     limit: u32,
 ) -> crate::FfiActivityBodiesPage {
@@ -365,7 +365,7 @@ fn search(
             oldest_ts: None,
             newest_ts: None,
             needle: needle.into(),
-            sport_groups: sport_group.into_iter().collect(),
+            sport_families: family.into_iter().collect(),
             offset,
             limit: Some(limit),
         })
@@ -405,39 +405,42 @@ fn test_feed_search_reaches_activities_past_the_loaded_windows() {
     let by_type = search("openwater", None, 0, 30);
     assert_eq!(ids(&by_type), vec!["old-swim"]);
 
-    let swims = search("", Some(crate::FfiFeedGroup::Swimming), 0, 30);
+    let swims = search("", Some(crate::FfiSportFamily::Water), 0, 30);
     assert_eq!(ids(&swims), vec!["old-swim"]);
 
-    let cycling = search("", Some(crate::FfiFeedGroup::Cycling), 0, 30);
+    let cycling = search("", Some(crate::FfiSportFamily::Ride), 0, 30);
     assert_eq!(
         ids(&cycling),
         vec!["club-a", "club-b", "club-c", "old-ride"]
     );
 
-    let other = search("", Some(crate::FfiFeedGroup::Other), 0, 30);
-    assert_eq!(ids(&other), vec!["old-walk"]);
+    let foot = search("", Some(crate::FfiSportFamily::Foot), 0, 30);
+    assert_eq!(ids(&foot), vec!["old-walk"]);
 
-    let cycling_and_other = ActivityManager::new()
+    let other = search("", Some(crate::FfiSportFamily::Other), 0, 30);
+    assert!(other.bodies.is_empty());
+
+    let cycling_and_foot = ActivityManager::new()
         .get_activity_bodies(crate::FfiActivityBodiesQuery {
             oldest_ts: None,
             newest_ts: None,
             needle: String::new(),
-            sport_groups: vec![crate::FfiFeedGroup::Cycling, crate::FfiFeedGroup::Other],
+            sport_families: vec![crate::FfiSportFamily::Ride, crate::FfiSportFamily::Foot],
             offset: 0,
             limit: Some(30),
         })
         .unwrap();
     assert_eq!(
-        ids(&cycling_and_other),
+        ids(&cycling_and_foot),
         vec!["club-a", "club-b", "club-c", "old-walk", "old-ride"]
     );
-    assert_eq!(cycling_and_other.matched_count, 5);
+    assert_eq!(cycling_and_foot.matched_count, 5);
 
-    let runs = search("", Some(crate::FfiFeedGroup::Running), 0, 30);
+    let runs = search("", Some(crate::FfiSportFamily::Run), 0, 30);
     assert_eq!(runs.matched_count, 30);
     assert_eq!(ids(&runs)[0], "run0");
 
-    let both = search("lantern", Some(crate::FfiFeedGroup::Running), 0, 30);
+    let both = search("lantern", Some(crate::FfiSportFamily::Run), 0, 30);
     assert!(both.bodies.is_empty());
     assert_eq!(both.matched_count, 0);
     assert!(!both.has_more);
@@ -500,7 +503,7 @@ fn test_feed_window_read_is_bounded_and_unpaged() {
             oldest_ts: Some(NOW - 550.0 * DAY),
             newest_ts: Some(NOW),
             needle: "club".into(),
-            sport_groups: vec![],
+            sport_families: vec![],
             offset: 0,
             limit: None,
         })
@@ -534,7 +537,7 @@ fn test_feed_search_reads_a_body_with_no_metrics_row_and_skips_a_corrupt_one() {
 
     assert_eq!(ids(&search("quarry", None, 0, 30)), vec!["bare"]);
     assert_eq!(
-        ids(&search("", Some(crate::FfiFeedGroup::Swimming), 0, 30)),
+        ids(&search("", Some(crate::FfiSportFamily::Water), 0, 30)),
         vec!["old-swim", "bare"]
     );
 }

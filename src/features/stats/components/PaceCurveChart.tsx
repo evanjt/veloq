@@ -15,6 +15,7 @@ import {
   typography,
 } from '@/theme';
 import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { RangeCoverage } from 'veloqrs';
 import { BodyNotDownloaded, CardHeader, ErrorState, Row, Switch, EmptyState } from '@/shared/ui';
 import { CurveLoadingPlaceholder } from './CurveLoadingPlaceholder';
@@ -274,7 +275,9 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
         accessory={
           isRunning ? (
             <View style={styles.gapToggle}>
-              <Text style={styles.gapLabel}>{t('stats.gap')}</Text>
+              <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.gapLabel}>
+                {t('stats.gap')}
+              </Text>
               <Switch
                 value={showGap}
                 onValueChange={setShowGap}
@@ -288,20 +291,35 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
       {/* Values row */}
       <View style={styles.valuesRow}>
         <View style={styles.valueItem}>
-          <Text style={styles.valueLabel}>{t('activity.distance')}</Text>
-          <Text style={[styles.valueNumber, isDark && styles.textLight]}>
+          <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.valueLabel}>
+            {t('activity.distance')}
+          </Text>
+          <Text
+            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+            style={[styles.valueNumber, isDark && styles.textLight]}
+          >
             {formatDistance(displayData.distance, isMetric)}
           </Text>
         </View>
         <View style={styles.valueItem}>
-          <Text style={styles.valueLabel}>{t('stats.time')}</Text>
-          <Text style={[styles.valueNumber, isDark && styles.textLight]}>
+          <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.valueLabel}>
+            {t('stats.time')}
+          </Text>
+          <Text
+            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+            style={[styles.valueNumber, isDark && styles.textLight]}
+          >
             {formatDuration(displayData.time)}
           </Text>
         </View>
         <View style={styles.valueItem}>
-          <Text style={styles.valueLabel}>{t('metrics.pace')}</Text>
-          <Text style={[styles.valueNumber, isDark && styles.textLight]}>
+          <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.valueLabel}>
+            {t('metrics.pace')}
+          </Text>
+          <Text
+            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+            style={[styles.valueNumber, isDark && styles.textLight]}
+          >
             {formatPaceFromSecsPerKm(displayData.paceSecsPerKm, isMetric)}
             {paceUnitLabel(isMetric)}
           </Text>
@@ -351,7 +369,11 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
       {criticalSpeedPace ? (
         <View style={styles.legend}>
           <View style={[styles.legendDash, { backgroundColor: CS_LINE_COLOR }]} />
-          <Text testID="pace-curve-cs-legend" style={styles.legendText}>
+          <Text
+            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+            testID="pace-curve-cs-legend"
+            style={styles.legendText}
+          >
             {t('metrics.cs')} {formatPaceFromSecsPerKm(criticalSpeedPace, isMetric)}
             {paceUnitLabel(isMetric)}
           </Text>

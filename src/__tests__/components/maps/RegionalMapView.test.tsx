@@ -401,16 +401,16 @@ describe('RegionalMapView', () => {
     expect(screen.queryByText(onAttributionChange.mock.calls[0][0])).toBeNull();
   });
 
-  it('reports with the credit whether the basemap under it is dark', async () => {
+  it('reports its credit alone, with nothing about the base for the caller to theme by', async () => {
     const onAttributionChange = jest.fn();
     await renderRegional({ onAttributionChange });
-    expect(onAttributionChange).toHaveBeenLastCalledWith(expect.any(String), false);
+    expect(onAttributionChange.mock.lastCall).toEqual([expect.any(String)]);
 
     mockGlobalStyle = 'satellite';
     try {
       const onSatellite = jest.fn();
       await renderRegional({ onAttributionChange: onSatellite });
-      expect(onSatellite).toHaveBeenLastCalledWith(expect.any(String), true);
+      expect(onSatellite.mock.lastCall).toEqual([expect.any(String)]);
     } finally {
       mockGlobalStyle = 'light';
     }

@@ -445,6 +445,10 @@ export const colors = {
   // than the chart blue, so the two seasons are told apart by hue and not only
   // by opacity.
   chartPreviousSeason: '#4682DC',
+  // The one colour of a chart that draws a single series, a trend or a small
+  // line in a card. A verdict never colours it: the verdict is said in words
+  // beside the chart.
+  chartSeries: brand.blueDark,
 
   // Neutral chart overlays
   chartGridFaint: 'rgba(0, 0, 0, 0.06)', // Axis gridlines on an insight card
@@ -635,22 +639,6 @@ export const insightIcon = {
   opportunity: { light: '#E65100', dark: '#FF9800' },
 } as const;
 
-// Status badge palette (strength balance/progression chips): translucent fill
-// (hex alpha) with a deeper text tone of the same hue. The *Strong variants
-// carry the denser 0x26 fill used on progression cards.
-export const statusBadge = {
-  good: { bg: '#22C55E18', text: '#15803D' },
-  alert: { bg: '#F9731618', text: '#B45309' },
-  watch: { bg: '#F59E0B18', text: '#B45309' },
-  bad: { bg: '#EF444418', text: '#B91C1C' },
-  // The denser fill takes a deeper text tone than its plain rung: the same
-  // green on the 0x26 fill reads 4.41:1 where it reads 4.64:1 on the 0x18 one,
-  // and the same amber lands exactly on the bar with no headroom.
-  goodStrong: { bg: '#22C55E26', text: '#166534' },
-  watchStrong: { bg: '#F59E0B26', text: '#92400E' },
-  neutralStrong: { bg: '#64748B26', text: '#475569' },
-} as const;
-
 // Verdict ladder: the one palette a good, caution or bad judgement is drawn
 // from. Each rung is text or an icon, so every token clears 4.5:1 against every
 // surface of its own theme, not only against white and #18181B: a verdict is
@@ -678,9 +666,8 @@ export function verdictColor(rung: VerdictRung, isDark: boolean): string {
 
 // A chip wants a translucent fill behind the rung's text, which the ladder has
 // no tone for. Rather than a second set of hues, which is the split this
-// replaces, the fill is the rung itself at the two alpha steps the strength
-// chips already used: 0x18 for a chip and 0x26 for the denser progression
-// card. The text on it stays `verdictColor`, so a chip is one hue at two
+// replaces, the fill is the rung itself at two alpha steps: 0x18 for a chip
+// and 0x26 for the denser progression card. The text on it stays `verdictColor`, so a chip is one hue at two
 // weights and the ladder still decides which hue.
 export function verdictFill(rung: VerdictRung, isDark: boolean, strong = false): string {
   return `${verdictColor(rung, isDark)}${strong ? '26' : '18'}`;
@@ -698,17 +685,17 @@ export function insightToneColor(tone: InsightTone, isDark: boolean): string {
   return verdictColor(tone, isDark);
 }
 
-// Recording, which is its own meaning rather than an accent. The brand teal
-// is what every other action on the feed is painted in, so a record button
-// wearing it reads as one more of them. Red is the convention a record control
-// has carried since tape, and it is the one colour in this palette that is not
-// already spent on something else. Both tones carry the white glyph at AA text
-// and separate from the surface they float over at the graphical-object bar:
-// light 6.22:1 and 5.90:1, dark 4.83:1 and 4.02:1. Dark is the lighter tone,
-// the same way round as every other pair here.
+// The style guide's `record` role, on every recording surface: the record
+// button, the live dot, the widgets, the Live Activity and the notifications.
+// Blue stays the action colour, so record is never action-primary. The export
+// keeps the name `recording` because `record` is already the insight tone for a
+// personal record, in gold. Both tones carry the white glyph at AA text, light
+// 6.22:1 and dark 4.93:1, and hold the graphical-object bar on every surface of
+// their own theme, the worst light 5.60:1 and the worst dark 3.17:1. Dark is the
+// lighter tone, the same way round as every other pair here.
 export const recording = {
   light: '#C1121F',
-  dark: '#DC2626',
+  dark: '#D1352F',
 } as const;
 
 // The offline pill floating under the status bar. A neutral grey, so it reads
@@ -761,8 +748,7 @@ export const bodyDiagram = {
 // The one-frame Skia warmup surface. Primaries on purpose: it compiles the
 // shaders and is never seen.
 export const shaderWarmup = {
-  gradientStart: '#FF0000',
-  gradientEnd: '#00FF00',
+  area: '#FF0000',
   line: '#888888',
   rect: '#333333',
   shadow: '#000000',
@@ -919,6 +905,7 @@ export const darkColors = {
   chartWeight: '#94A3B8', // Slate-400
   chartGuideLine: '#969696',
   chartPreviousSeason: '#6495ED', // Lighter cornflower, to carry on a dark ground
+  chartSeries: brand.blueLight,
 
   // Neutral chart overlays for dark mode
   chartGridFaint: 'rgba(255, 255, 255, 0.06)',

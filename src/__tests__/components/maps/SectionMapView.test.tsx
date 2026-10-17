@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { Animated } from 'react-native';
+import { Animated, StatusBar, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { render, fireEvent, screen, act, waitFor } from '@testing-library/react-native';
 import * as Location from 'expo-location';
@@ -16,6 +16,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SectionMapView } from '@/features/routes/components/SectionMapView';
 import { MapSurface } from '@/features/maps/components/MapSurface';
 import { CompassArrow } from '@/shared/ui';
+import { darkColors } from '@/theme';
 import { TERRAIN_UNAVAILABLE_TEST_ID } from '@/features/maps/components/TerrainUnavailableNotice';
 import type { FrequentSection, RoutePoint } from '@/types';
 
@@ -56,8 +57,9 @@ jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
   }),
 }));
 
+const mockTheme = { isDark: false };
 jest.mock('@/shared/app', () => ({
-  useTheme: () => ({ isDark: false }),
+  useTheme: () => mockTheme,
   useMetricSystem: () => true,
 }));
 
@@ -112,6 +114,32 @@ function renderSection(props: Partial<React.ComponentProps<typeof SectionMapView
 }
 
 describe('SectionMapView', () => {
+  describe('in a dark theme over the light map', () => {
+    beforeEach(() => {
+      mockTheme.isDark = true;
+    });
+    afterEach(() => {
+      mockTheme.isDark = false;
+    });
+
+    it('draws its controls on the dark chrome ground', async () => {
+      await renderSection();
+
+      const style = screen.getByTestId('section-map-style-toggle').props.style;
+      const resolved = typeof style === 'function' ? style({ pressed: false }) : style;
+      expect(StyleSheet.flatten(resolved).backgroundColor).toBe(darkColors.surfaceCard);
+    });
+
+    it('keeps the fullscreen status bar glyphs dark for the light map beneath', async () => {
+      await renderSection({ enableFullscreen: true });
+
+      await fireEvent.press(screen.getByTestId('section-map-fullscreen'));
+
+      const bars = screen.UNSAFE_getAllByType(StatusBar).map((bar) => bar.props.barStyle);
+      expect(bars).toEqual(['dark-content']);
+    });
+  });
+
   it('mounts the interactive container with a map', async () => {
     await renderSection();
 

@@ -2,13 +2,18 @@ import React from 'react';
 import { StyleSheet, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { useIsFocused } from 'expo-router';
 
 import { tapTo } from '@/shared/app/navigation';
 import { useBottomClearance } from '@/shared/ui';
+import { useFootCover } from '@/shared/ui/bottomPills';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useTheme } from '@/shared/app';
-import { colors, iconSize, layout, recording, shadows, spacing } from '@/theme';
+import { colors, floatingLayers, iconSize, layout, recording, shadows, spacing } from '@/theme';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+
+const FAB_OFFSET = spacing.md;
+const FAB_COVER = FAB_OFFSET + layout.recordFabSize;
 
 /** Floating action button that opens the record screen. Hidden while a session is active. */
 function RecordFABInner() {
@@ -17,6 +22,9 @@ function RecordFABInner() {
   // Floats absolute, so a safe area around it does not lift it by its padding.
   const bottomClearance = useBottomClearance({ insetTaken: false });
   const sessionActive = useRecordingStore((s) => s.status === 'recording' || s.status === 'paused');
+  const focused = useIsFocused();
+  // The bottom pills stack above the button while it shows on the screen in front.
+  useFootCover('recordFab', focused && !sessionActive ? FAB_COVER : null);
 
   if (sessionActive) return null;
 
@@ -26,7 +34,7 @@ function RecordFABInner() {
       style={pressable([
         styles.fab,
         {
-          bottom: bottomClearance + spacing.md,
+          bottom: bottomClearance + FAB_OFFSET,
           backgroundColor: isDark ? recording.dark : recording.light,
         },
       ])}
@@ -56,7 +64,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     ...shadows.fab,
-    zIndex: 10,
+    zIndex: floatingLayers.recordButton,
     minWidth: layout.minTapTarget,
     minHeight: layout.minTapTarget,
   },

@@ -144,7 +144,7 @@ describe('compact controls', () => {
         onSelectRange={jest.fn()}
       />
     );
-    const sport = screen.getByTestId('home-filter-cycling');
+    const sport = screen.getByTestId('home-filter-ride');
     const range = screen.getByTestId('home-range-last90Days');
 
     expect(chipShape(range)).toEqual(chipShape(sport));
@@ -173,7 +173,7 @@ describe('compact controls', () => {
     );
 
     expect(chipShape(section.getByTestId('option-a'))).toEqual(
-      chipShape(feed.getByTestId('home-filter-running'))
+      chipShape(feed.getByTestId('home-filter-run'))
     );
   });
 });

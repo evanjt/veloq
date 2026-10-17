@@ -17,18 +17,6 @@ fn test_get_weekly_summaries_writer_held() {
     assert_eq!(weeks.len(), 2);
 }
 
-#[test]
-fn test_get_period_stats_writer_held() {
-    let _serial = serial_global_state();
-    let _tmp = init_global_engine("period_under_a_writer.db");
-    let stats = read_while_writer_holds(|| {
-        FitnessManager::new()
-            .get_period_stats(0.0, 100.0)
-            .expect("period")
-    });
-    assert_eq!(stats.count, 0);
-}
-
 /// Every window of the training screen read, over the whole of 2026.
 fn training_windows() -> crate::FfiTrainingScreenWindows {
     let year = crate::FfiTimestampRange {
@@ -43,6 +31,7 @@ fn training_windows() -> crate::FfiTrainingScreenWindows {
         year_previous: year.clone(),
         month_current: year.clone(),
         month_previous: year,
+        now_wall_seconds: 1_782_000_000.0,
     }
 }
 
@@ -333,15 +322,6 @@ fn test_fitness_reads_pooled_match_locked() {
         "one ride in January's week, a ride and a run in February's"
     );
     assert_eq!(weekly[1].training_load, 100.0);
-
-    let period = fitness
-        .get_period_stats(jan as f64, feb as f64)
-        .expect("period");
-    assert_eq!(period.count, 3);
-    assert_eq!(
-        format!("{period:?}"),
-        locked(&|e| format!("{:?}", e.get_period_stats(jan, feb)))
-    );
 
     let training = fitness
         .get_training_screen_data(training_windows())

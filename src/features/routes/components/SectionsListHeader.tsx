@@ -1,4 +1,4 @@
-import { listCountLabel } from '@/features/routes/lib/listCountLabel';
+import { listCountLabel, SECTION_COUNT_KEYS } from '@/features/routes/lib/listCountLabel';
 import React from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
@@ -94,7 +94,7 @@ export function SectionsListHeader({
         >
           {listCountLabel(
             t,
-            t('trainingScreen.sections'),
+            SECTION_COUNT_KEYS,
             shownSectionCount ?? displaySectionCount,
             displaySectionCount
           )}

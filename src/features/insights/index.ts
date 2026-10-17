@@ -7,9 +7,11 @@ export { MethodologySection } from './components/MethodologySection';
 export { InsightDebugPanel } from './components/InsightDebugPanel';
 export { StrengthTab } from './components/StrengthTab';
 export { InsightDetailContent } from './components/content/InsightDetailContent';
+export { InsightSeriesChart } from './components/InsightSeriesChart';
 
 export { useInsights } from './hooks/useInsights';
 export type { ActivityInfo } from './lib/activityHighlight';
+export type { SeriesSample } from './lib/seriesChart';
 export type { DirectionBests } from './lib/directionBests';
 
 export { generateInsights, getLastInsightOutcome } from './lib/generateInsights';

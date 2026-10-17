@@ -1,7 +1,7 @@
 # Local Backup. Backup Now
 # US-X2: "Backup Now" succeeds with local backend (writes .veloqdb, updates
 #        "Last backup" timestamp, shows success message)
-# US-X3: "not encrypted" warning is always present
+# US-X3: "not encrypted" warning is always reachable from the export row
 #
 # Companion script: scripts/verify-backup-export.sh pulls the file from the
 # emulator and asserts it's a valid SQLite DB with the expected tables.
@@ -27,10 +27,6 @@ tags:
     timeout: 15000
 
 - takeScreenshot: "screenshots/backup-screen-initial"
-
-# US-X3: warning must literally be on screen.
-- assertVisible:
-    text: "Backups are not encrypted.*"
 
 - assertVisible:
     id: "backup-last-run-text"
@@ -61,9 +57,35 @@ tags:
 - assertNotVisible:
     id: "backup-error-message"
 
-# Export as well, since that's a distinct code path.
+# Export as well, since that's a distinct code path. Its row sits below the
+# fold, under the translucent tab bar.
+- scrollUntilVisible:
+    element:
+      id: "backup-export-button"
+    direction: DOWN
+    timeout: 20000
+
+# US-X3: the warning is held behind the export row's info button rather than
+# drawn inline, so open it there and read it on the explainer sheet.
+- swipe:
+    start: 50%, 75%
+    end: 50%, 45%
+    duration: 800
+- tapOn:
+    id: "backup-info-export"
+- extendedWaitUntil:
+    visible:
+      id: "explainer-sheet"
+    timeout: 10000
 - assertVisible:
-    id: "backup-export-button"
+    text: "Backups are not encrypted.*"
+- takeScreenshot: "screenshots/backup-not-encrypted-warning"
+- tapOn:
+    id: "explainer-sheet-close"
+- extendedWaitUntil:
+    notVisible:
+      id: "explainer-sheet"
+    timeout: 10000
 
 - assertNotVisible:
     text: "NaN"

@@ -619,9 +619,19 @@ function writeIfChanged(file, contents) {
 
 /**
  * The UniFFI C++ sources the pod compiles, copied beside the podspec, which
- * can only name files under its own directory.
+ * can only name files under its own directory. Every phase of a parallel
+ * Xcode build copies them, so the copy holds a lock: one phase's sweep of
+ * stale files would otherwise delete another's file before it is renamed in.
  */
-function syncIosCpp(moduleDir) {
+function syncIosCpp(context) {
+  return exclusive(
+    path.join(context.buildRoot, 'ios', 'cpp'),
+    () => copyIosCpp(context.moduleDir),
+    context
+  );
+}
+
+function copyIosCpp(moduleDir) {
   const target = path.join(moduleDir, 'ios', 'cpp');
   const wanted = new Map();
   for (const name of ['veloqrs.h', 'veloqrs.cpp']) {
@@ -642,7 +652,7 @@ function syncIosCpp(moduleDir) {
 }
 
 function buildIos(options, context) {
-  const sources = syncIosCpp(context.moduleDir);
+  const sources = syncIosCpp(context);
   if (options.sourcesOnly) return sources;
   const slices = sortedUnique(options.slices);
   if (slices.length === 0) throw new BuildError('ios needs at least one --slice SDK:ARCH');

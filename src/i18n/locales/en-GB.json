@@ -37,6 +37,10 @@
     "calories": "Calories",
     "chartHint": "Hold to scrub • Hold chip for axis",
     "distance": "Distance",
+    "xAxis": {
+      "distance": "Distance",
+      "time": "Time"
+    },
     "duration": "Duration",
     "explanations": {
       "conditions": "Temperature from weather data or your device sensor.",
@@ -224,14 +228,14 @@
   },
   "alerts": {
     "cacheCleared": "Cache cleared",
-    "clearCacheMessage": "This will clear all cached activity data, activity tracks, and route matching data, then start reloading. This may take a few minutes.",
+    "clearCacheMessage": "This will clear all cached activity data, activity tracks, and route matching data, then start reloading. This may take a few minutes. The local data range goes back to the last 90 days.",
     "clearCacheOffline": "You are offline. The reload needs a connection, so your activities, maps and routes will stay empty until the network returns.",
     "clearCacheTitle": "Clear & reload cache",
     "clearReload": "Clear & reload",
-    "disconnect": "Disconnect",
-    "disconnectMessage": "This will remove your API credentials from the app. You will need to enter them again to use the app.",
+    "signOut": "Sign out",
+    "signOutMessage": "Your library, names and settings stay on this phone. Sign in again to sync.",
     "disconnectOffline": "You are offline. Both ways back in need a connection, so you will not be able to sign in again until the network returns.",
-    "disconnectTitle": "Disconnect account",
+    "signOutTitle": "Sign out?",
     "leaveDemoTitle": "Leave demo?",
     "leaveDemoMessage": "The sample rides close and you return to sign-in. Nothing from the demo is kept.",
     "leaveDemoConfirm": "Leave",
@@ -356,6 +360,7 @@
     "restoreOfferRestoring": "Restoring…",
     "entryActivities_one": "{{count}} activity",
     "entryActivities_other": "{{count}} activities",
+    "entryAppVersion": "Version {{version}}",
     "restoreFromFile": "Restore from a file",
     "restoreFromWebdav": "Restore from WebDAV",
     "restoreFromGoogleDrive": "Restore from Google Drive",
@@ -677,12 +682,6 @@
     "failedToLoad": "Failed to load activities",
     "firstSyncBody": "First load only. The feed opens when the first activities land.",
     "firstSyncTitle": "Syncing your activities",
-    "groups": {
-      "cycling": "Cycling",
-      "running": "Running",
-      "swimming": "Swimming",
-      "other": "Other"
-    },
     "range": {
       "last90Days": "Last 90 days",
       "thisYear": "This year",
@@ -973,9 +972,9 @@
     },
     "strengthBalance": {
       "volumeSplit": "Volume split",
-      "balanced": "Balanced",
-      "watch": "Watch",
-      "imbalanced": "Imbalanced",
+      "bandLow": "Under 1.35×",
+      "bandMiddle": "1.35× to 2×",
+      "bandHigh": "2× or more",
       "oneSided": "One-sided",
       "lowSignal": "Low signal",
       "noSignal": "No signal",
@@ -1164,18 +1163,6 @@
     "unavailableHint": "The map could not load. Check your connection and open it again.",
     "activitiesCount_one": "{{count}} activity",
     "activitiesCount_other": "{{count}} activities",
-    "activityTypes": {
-      "gym": "Gym",
-      "hike": "Hike",
-      "other": "Other",
-      "racket": "Racket",
-      "ride": "Ride",
-      "run": "Run",
-      "snow": "Snow",
-      "swim": "Swim",
-      "walk": "Walk",
-      "water": "Water"
-    },
     "closeMap": "Close map",
     "closePopup": "Close activity popup",
     "closeRoutePopup": "Close route popup",
@@ -1246,7 +1233,7 @@
     },
     "privacy": {
       "title": "Privacy notice",
-      "brief": "Your athlete ID and a push token will be stored on our server (30-day expiry). Notifications are routed through Expo, then Apple or Google, to reach your device. All insight content is generated on your device. No personal data is stored. You can disable at any time.",
+      "brief": "Your athlete ID and a push token will be stored on our server (30-day expiry). Notifications are routed through Expo, then Apple or Google, to reach your device. All insight content is generated on your device. You can disable at any time.",
       "accept": "I understand",
       "briefEnabled": "You are receiving these notifications. Your athlete ID and a push token are stored on our server (30-day expiry), and notifications are routed through Expo, then Apple or Google, to reach your device. All insight content is generated on your device. You can turn them off at any time.",
       "turnOff": "Turn off"
@@ -1310,23 +1297,16 @@
     "backgroundNotificationTitle": "Recording activity",
     "categories": {
       "cycling": "Cycling",
-      "gym": "Gym & fitness",
-      "other": "Other",
-      "racket": "Racket sports",
-      "running": "Running",
-      "swimming": "Swimming",
-      "water": "Water sports",
-      "winter": "Winter sports",
-      "walking": "Walking"
+      "running": "Running"
     },
     "changeType": "Change activity type",
     "continue": "Continue",
     "controls": {
-      "lap": "LAP",
-      "pause": "PAUSE",
-      "resume": "RESUME",
-      "save": "SAVE",
-      "stop": "STOP"
+      "lap": "Lap",
+      "pause": "Pause",
+      "resume": "Resume",
+      "save": "Save",
+      "stop": "Stop"
     },
     "discard": "Discard",
     "discardConfirmMessage": "It has not been saved, and it cannot be recovered once discarded.",
@@ -1421,7 +1401,7 @@
     "splitReachedMi": "Mile {{index}}",
     "startActivity": "Start activity",
     "status": {
-      "paused": "PAUSED",
+      "paused": "Paused",
       "recording": "Recording"
     },
     "summary": "Summary",
@@ -1538,8 +1518,8 @@
     "routeNotFound": "Route not found"
   },
   "routeIntelligence": {
-    "today": "TODAY",
-    "tomorrow": "TOMORROW"
+    "today": "Today",
+    "tomorrow": "Tomorrow"
   },
   "routes": {
     "timeMethod": "Route times use moving time, excluding stops.",
@@ -1705,6 +1685,12 @@
     "aerobicEfficiency": "Aerobic efficiency",
     "aerobicEfficiencyDetail": "{{efforts}} matched efforts, modelled change of {{hrChange}} bpm at average pace",
     "aerobicEfficiencyCaption": "{{quantity}}, oldest effort to newest",
+    "aerobicEfficiencyRange": "Range {{min}} to {{max}}",
+    "aerobicEfficiencyInverted": "Lower is drawn higher: less heart rate for the pace",
+    "aerobicEfficiencySpoken": "{{title}}, {{efforts}} matched efforts",
+    "efficiencyVerdictImproving": "Improving",
+    "efficiencyVerdictFlat": "No clear change",
+    "efficiencyVerdictWorsening": "Worsening",
     "correlationTitle": "Wellness and speed",
     "correlationMethod": "Pearson's r of lap speed against that day's wellness value, 95% interval, at least 10 attempts with a value",
     "correlationFamily_one": "Holm-adjusted across {{count}} variable",
@@ -1733,7 +1719,7 @@
     "correlationVarMood": "Mood",
     "correlationVarMotivation": "Motivation",
     "setAsReference": "Set as reference",
-    "setAsReferenceConfirm": "Use this activity as the reference?\n\nThe section will be re-matched against all your activities. This may add or remove activities from this section.",
+    "setAsReferenceConfirm": "Use this activity as the reference?\n\nThe section's line will follow this activity, and the Delta plot will measure time ahead or behind against it.\n\nThe section will be re-matched against all your activities, which may add or remove some.",
     "setReferenceError": "Failed to set reference. The section or activity may have changed. Please try again.",
     "editBounds": "Edit bounds",
     "pointsCount_one": "{{count}} point",
@@ -1765,6 +1751,7 @@
     "traversalsCount_other": "{{count}} traversals",
     "calendarActivities_one": "{{count}} activity",
     "calendarActivities_other": "{{count}} activities",
+    "calendarTitle": "By year",
     "scanForMatches": "Scan for matches",
     "rematchActivities": "Re-match activities",
     "scanForMore": "Scan for more sections",
@@ -1821,6 +1808,7 @@
     "trimFailedTitle": "Couldn't trim section",
     "deleteFailedTitle": "Section not deleted",
     "sectionRemoved": "Section removed",
+    "attemptExcluded": "Attempt excluded",
     "removeFailedTitle": "Section not removed",
     "removeFailed": "The section could not be removed.",
     "restoreFailedTitle": "Section not restored",
@@ -1855,7 +1843,7 @@
     "defaultStyle": "Default style",
     "exploreMapStyle": "Explore map",
     "dialect": "Dialect",
-    "disconnectAccount": "Disconnect account",
+    "signOut": "Sign out",
     "leaveDemo": "Leave demo",
     "display": "Display",
     "largeHistoryConfirm": "Download anyway",
@@ -1863,6 +1851,7 @@
     "largeHistoryMessage_other": "Reaching back this far downloads up to about {{count}} activities. It will take a while, and the app is not guaranteed to stay quick with that much stored.",
     "largeHistoryTitle": "That's a large download",
     "localDataRange": "Local data range",
+    "localDataRangeEnd": "End of local data range",
     "heroMetric": "Hero metric",
     "hideDemoBanner": "Hide demo banner",
     "hideDemoBannerHint": "Hide the banner for screenshots",
@@ -2098,6 +2087,7 @@
     "groupingLegendDropped": "Left on their own",
     "groupingFailed": "The grouping did not finish. Move a knob to try again.",
     "authApiKey": "API key",
+    "authOAuth": "Signed in with intervals.icu",
     "authDemo": "Demo mode",
     "scopeChats": "Chats",
     "scopeLibrary": "Library",
@@ -2148,7 +2138,7 @@
     "rangeNotDownloaded": "Not downloaded yet",
     "rangePartlyDownloaded": "Part of this range is not downloaded yet",
     "calendarRange": "{{start}} to {{end}}",
-    "seasonComparison": "Season comparison",
+    "seasonComparison": "Year comparison",
     "sixCalendarMonths": "6 mo",
     "swimPaceCurve": "Swim pace curve",
     "thisMonth": "This month",
@@ -2158,7 +2148,7 @@
     "time": "Time",
     "totalTime": "Total time",
     "vsLastMonth": "vs last month",
-    "vsLastWeek": "vs last week",
+    "vsLastWeek": "vs last week so far",
     "vsLastYear": "vs last year",
     "vsPrevious3Months": "vs previous 3 months",
     "vsPrevious6Months": "vs previous 6 months",
@@ -2218,7 +2208,14 @@
   },
   "trainingScreen": {
     "routes": "Routes",
-    "countOfTotal": "{{shown}} of {{total}}",
+    "routesListCount_one": "{{count}} route",
+    "routesListCount_other": "{{count}} routes",
+    "routesListCountOfTotal_one": "{{shown}} of {{count}} route",
+    "routesListCountOfTotal_other": "{{shown}} of {{count}} routes",
+    "sectionsListCount_one": "{{count}} section",
+    "sectionsListCount_other": "{{count}} sections",
+    "sectionsListCountOfTotal_one": "{{shown}} of {{count}} section",
+    "sectionsListCountOfTotal_other": "{{shown}} of {{count}} sections",
     "sections": "Sections"
   },
   "units": {
@@ -2285,11 +2282,11 @@
     "smoothingAverage_one": "{{count}}-day average",
     "smoothingAverage_other": "{{count}}-day average",
     "smoothingDescription": "Apply a rolling average to reduce daily noise and show trends more clearly.",
-    "smoothingHint": "Auto uses optimal smoothing for the selected time range",
+    "smoothingHint": "Auto: no smoothing for {{r7d}}, a {{d1m}}-day average for {{r1m}}, {{d3m}} days for {{r3m}}, {{d6m}} for {{r6m}} and {{d1y}} for {{r1y}}.",
     "smoothingNone": "None",
     "smoothingRaw": "Raw data",
     "smoothingTitle": "Data smoothing",
-    "trendHint": "HRV, sleep, and resting HR trends will appear here when data is logged",
+    "trendHint": "Wellness from intervals.icu (HRV, resting HR, sleep, sleep score, weight) appears here once it is logged.",
     "weight": "Weight",
     "sleepDuration": "{{hours}}h {{minutes}}m"
   },
@@ -2418,7 +2415,7 @@
     "balanceFootnote": "Ratios compare weighted sets, where primary work counts as 1.0 and secondary work counts as 0.5.",
     "pairsInfoTitle": "Balance method",
     "pairsInfoIntro": "These antagonist pairs are compared:",
-    "pairsInfoThresholds": "Status: balanced ≤ 1.35×, watch up to 2×, imbalanced above 2×.",
+    "pairsInfoThresholds": "Bands: under 1.35×, 1.35× to 2×, 2× or more.",
     "pairsInfoMinSignal": "Pairs with fewer than 4 weighted sets per side are skipped.",
     "exercisesTargeting": "Exercises targeting {{muscle}}",
     "exerciseWorkoutCount_one": "{{count}} workout",
@@ -2818,5 +2815,14 @@
       "zone": "Zone",
       "time": "Time"
     }
+  },
+  "sportFamilies": {
+    "ride": "Cycling",
+    "winter": "Winter sports",
+    "run": "Running",
+    "water": "Water sports",
+    "foot": "On foot",
+    "strength": "Strength",
+    "other": "Other"
   }
 }

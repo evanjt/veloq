@@ -5,10 +5,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useLanguageStore, languageLabel } from '@/shared/app/LanguageStore';
 import {
-  brand,
   colors,
   darkColors,
   iconSize,
+  inputBoundary,
   layout,
   slopToMinTapTarget,
   spacing,
@@ -101,12 +101,12 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.surface,
     borderColor: darkColors.border,
   },
+  // A chosen dialect takes the outline the language list marks dialects with.
   languageButtonDialect: {
-    borderColor: brand.gold,
-    borderWidth: stroke.two,
+    borderColor: inputBoundary.light,
   },
   languageButtonDialectDark: {
-    borderColor: brand.goldLight,
+    borderColor: inputBoundary.dark,
   },
   languageButtonText: {
     ...typography.bodySmall,

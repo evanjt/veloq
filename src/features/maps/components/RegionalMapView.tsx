@@ -16,16 +16,10 @@ import {
   shadows,
   spacing,
 } from '@/theme';
-import { getActivityTypeConfig } from '../lib/activityCategories';
+import { getActivityTypeConfig, type SportFamily } from '../lib/activityCategories';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { ComponentErrorBoundary, IconButton } from '@/shared/ui';
-import {
-  type MapStyleType,
-  isDarkStyle,
-  getNextStyle,
-  getStyleIcon,
-  statusBarStyleForMap,
-} from './mapStyles';
+import { type MapStyleType, getNextStyle, getStyleIcon, statusBarStyleForMap } from './mapStyles';
 import { MapSurface, type MapCameraState, type MapSurfaceRef } from './MapSurface';
 import { useDrawnMapStyle } from '@/features/maps/hooks/useDrawnMapStyle';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
@@ -34,6 +28,7 @@ import type { ActivityBoundsItem } from '@/types';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { decodeCoords } from 'veloqrs';
 import { useSectionDetail } from '@/shared/native/useSectionDetail';
+import { useTheme } from '@/shared/app';
 import { useBackDismiss } from '@/shared/app/useBackDismiss';
 import type { MapSection } from '@/features/maps/hooks/useEngineMapActivities';
 import {
@@ -112,8 +107,8 @@ interface RegionalMapViewProps {
   sections?: MapSection[];
   /** The overlay's lines, the same object while the engine's stamp is unchanged */
   sectionsGeoJSON?: GeoJSON.FeatureCollection;
-  /** Called when the credit changes, with whether the basemap it sits on is dark. */
-  onAttributionChange?: (attribution: string, isDarkBasemap: boolean) => void;
+  /** Called when the credit changes. */
+  onAttributionChange?: (attribution: string) => void;
   /** Activity to open the popup for, once it is among `activities`. */
   selectActivityId?: string | undefined;
   /** Activity to open the popup for and fit the camera to, once it is among `activities`. */
@@ -121,7 +116,7 @@ interface RegionalMapViewProps {
   /** Section to open the popup for. */
   selectSectionId?: string | undefined;
   /** Sport categories among the activities drawn, which the layers menu keys by colour. */
-  keyCategories?: readonly string[] | undefined;
+  keyCategories?: readonly SportFamily[] | undefined;
   /** Height the host draws over the foot of the map, as measured, which the popups clear. */
   bottomClearance?: number;
 }
@@ -219,7 +214,8 @@ export function RegionalMapView({
   // ===========================================
   const currentZoomLevel = useRef(10); // Track current zoom for compass updates
 
-  const isDark = isDarkStyle(mapStyle);
+  // Every control over the map follows the app theme; the layers read the base themselves.
+  const { isDark } = useTheme();
   // The heat ramp as the layer draws it, over the ground of the menu it is keyed in.
   const heatKeyColours = useMemo(
     () => heatmapKeyColours(mapStyle, isDark ? darkColors.surfaceCard : ink.white),
@@ -294,10 +290,9 @@ export function RegionalMapView({
     [mapStyle, cameraForAttribution, is3DMode]
   );
 
-  // The caller draws the credit, so it needs the ground too to stay legible on it.
   useEffect(() => {
-    onAttributionChange?.(attributionText, isDark);
-  }, [attributionText, isDark, onAttributionChange]);
+    onAttributionChange?.(attributionText);
+  }, [attributionText, onAttributionChange]);
 
   // The decoded route lines stay the same object while the engine's layer generation is
   // unchanged, so a filter change hands MapLibre nothing new to diff.
@@ -592,7 +587,6 @@ export function RegionalMapView({
   const layers = useMemo(
     () =>
       buildRegionalLayers({
-        isDark,
         mapStyle,
         showActivities,
         showSections,
@@ -608,7 +602,6 @@ export function RegionalMapView({
         routeColor,
       }),
     [
-      isDark,
       mapStyle,
       showActivities,
       showSections,

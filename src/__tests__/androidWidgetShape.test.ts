@@ -84,6 +84,7 @@ describe('the Android widget shape', () => {
     expect(layouts).toEqual(
       expect.arrayContaining([
         'widget_small',
+        'widget_short',
         'widget_medium',
         'widget_large',
         'widget_activity_small',

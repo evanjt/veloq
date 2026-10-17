@@ -208,6 +208,7 @@ class VeloqRecordingNotificationModule : Module() {
       .setContentTitle(payload.optString("title"))
       .setContentText(payload.optString("body"))
       .setCategory(NotificationCompat.CATEGORY_SERVICE)
+      .setVisibility(RecordingChannel.LOCK_SCREEN_VISIBILITY)
       .setOngoing(true)
       .setOnlyAlertOnce(true)
       .setSilent(true)

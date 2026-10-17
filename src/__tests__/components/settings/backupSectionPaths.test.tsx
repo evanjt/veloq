@@ -6,6 +6,7 @@ import { SyncState, SyncStep } from 'veloqrs';
 
 import { BackupSection } from '@/features/settings/components/BackupSection';
 import { darkColors } from '@/theme';
+import { formatDateTime } from '@/shared/format/format';
 import { performBackup } from '@/features/settings/lib/autobackup';
 import {
   discardRecordImport,
@@ -751,6 +752,54 @@ it('starts one restore when a selected archive is tapped twice', async () => {
 
   expect(mockDownload).toHaveBeenCalledTimes(1);
   expect(restoreRecordBackup).toHaveBeenCalledTimes(1);
+});
+
+it('marks only the entry being restored busy, and labels each by its time and size', async () => {
+  mockWebdavUrl = 'https://dav.example.org/remote.php/dav/files/athlete';
+  mockListBackups.mockResolvedValueOnce([
+    {
+      id: 'veloq-2026-09-30T18-10.zip',
+      timestamp: '2026-09-30T18:10:00.000Z',
+      sizeBytes: 2_450_000,
+      appVersion: '0.4.0',
+    },
+    {
+      id: 'veloq-2026-09-30T06-30.zip',
+      timestamp: '2026-09-30T06:30:00.000Z',
+      sizeBytes: 2_400_000,
+      appVersion: '0.4.0',
+    },
+  ]);
+  let finish: () => void = () => {};
+  (restoreRecordBackup as jest.Mock).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = () => resolve({ placed: 2, unplaced: 0, missingActivityIds: [] });
+      })
+  );
+  acceptReplacement(jest.spyOn(Alert, 'alert').mockImplementation(() => {}));
+  await render(<BackupSection />);
+  await act(async () => {
+    await fireEvent.press(screen.getByTestId('backup-list-button'));
+  });
+  const dawn = () => screen.getByTestId('backup-entry-webdav-veloq-2026-09-30T06-30.zip');
+  const evening = () => screen.getByTestId('backup-entry-webdav-veloq-2026-09-30T18-10.zip');
+
+  expect(dawn().props.accessibilityLabel).not.toBe(evening().props.accessibilityLabel);
+  expect(dawn().props.accessibilityLabel).toContain(formatDateTime('2026-09-30T06:30:00.000Z'));
+  expect(evening().props.accessibilityLabel).toContain('2.5 MB');
+
+  await act(async () => {
+    fireEvent.press(dawn());
+  });
+
+  expect(dawn().props.accessibilityState).toMatchObject({ busy: true });
+  expect(evening().props.accessibilityState?.busy).toBeFalsy();
+  expect(evening().props.accessibilityState).toMatchObject({ disabled: true });
+
+  await act(async () => {
+    finish();
+  });
 });
 
 it('shows an account warning when a selected legacy database belongs to another athlete', async () => {

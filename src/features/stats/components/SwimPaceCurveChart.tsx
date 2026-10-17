@@ -4,6 +4,7 @@ import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CurveChart, useChartColors, type PlacedLabel } from '@/shared/charts';
+import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import {
   colors,
   typography,
@@ -207,20 +208,35 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
         accessory={
           <View style={styles.valuesRow}>
             <View style={styles.valueItem}>
-              <Text style={styles.valueLabel}>{t('activity.distance')}</Text>
-              <Text style={[styles.valueNumber, isDark && styles.textLight]}>
+              <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.valueLabel}>
+                {t('activity.distance')}
+              </Text>
+              <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                style={[styles.valueNumber, isDark && styles.textLight]}
+              >
                 {formatDistance(displayData.distance, isMetric)}
               </Text>
             </View>
             <View style={styles.valueItem}>
-              <Text style={styles.valueLabel}>{t('stats.time')}</Text>
-              <Text style={[styles.valueNumber, isDark && styles.textLight]}>
+              <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.valueLabel}>
+                {t('stats.time')}
+              </Text>
+              <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                style={[styles.valueNumber, isDark && styles.textLight]}
+              >
                 {formatTime(displayData.time)}
               </Text>
             </View>
             <View style={styles.valueItem}>
-              <Text style={styles.valueLabel}>{t('metrics.pace')}</Text>
-              <Text style={[styles.valueNumber, isDark && styles.textLight]}>
+              <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.valueLabel}>
+                {t('metrics.pace')}
+              </Text>
+              <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                style={[styles.valueNumber, isDark && styles.textLight]}
+              >
                 {formatSwimPace(displayData.paceMs, isMetric)}
                 {swimPaceUnitLabel(isMetric)}
               </Text>
@@ -253,7 +269,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
       {cssPace ? (
         <View style={styles.legend}>
           <View style={[styles.legendDash, { backgroundColor: CSS_LINE_COLOR }]} />
-          <Text style={styles.legendText}>
+          <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.legendText}>
             {t('metrics.css')} {formatMinSec(paceSecondsForUnit(cssPace, 'swim', isMetric))}
             {swimPaceUnitLabel(isMetric)}
           </Text>

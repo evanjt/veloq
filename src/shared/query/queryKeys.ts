@@ -68,11 +68,6 @@ export const queryKeys = {
       all: ['engine-stats', 'training'] as const,
       byDay: (day: string) => ['engine-stats', 'training', day] as const,
     },
-    period: {
-      all: ['engine-stats', 'period'] as const,
-      byWindow: (startTs: number, endTs: number) =>
-        ['engine-stats', 'period', startTs, endTs] as const,
-    },
   },
 
   athleteSummary: {

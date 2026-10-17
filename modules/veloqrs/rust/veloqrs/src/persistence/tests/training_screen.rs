@@ -66,6 +66,7 @@ fn windows() -> FfiTrainingScreenWindows {
         year_previous: days("2025-01-01", "2025-03-03"),
         month_current: days("2026-03-01", "2026-03-03"),
         month_previous: days("2025-03-01", "2025-03-03"),
+        now_wall_seconds: (day("2026-03-03") + 12 * 3_600) as f64,
     }
 }
 
@@ -201,4 +202,240 @@ fn a_read_that_fails_is_an_error_rather_than_an_empty_year() {
             "with {table} unreadable the screen would draw a year of nothing"
         );
     }
+}
+
+/// The windows with the clock at `hour` on `date`.
+fn windows_at(date: &str, hour: i64) -> FfiTrainingScreenWindows {
+    FfiTrainingScreenWindows {
+        now_wall_seconds: (day(date) + hour * 3_600) as f64,
+        ..windows()
+    }
+}
+
+fn at(id: &str, date: &str, hour: i64, moving_time: u32) -> ActivityMetrics {
+    ActivityMetrics {
+        date: day(date) + hour * 3_600,
+        ..activity(id, date, "Ride", moving_time)
+    }
+}
+
+fn span(r: &FfiTimestampRange) -> (i64, i64) {
+    (r.start_ts as i64, r.end_ts as i64)
+}
+
+#[test]
+fn the_weekly_comparison_ends_last_week_at_the_same_hour_as_now() {
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    engine
+        .set_activity_metrics(vec![
+            at("last-monday", "2026-02-23", 9, 3_600),
+            // Later on the same weekday than now, so not yet matched this week.
+            at("last-wednesday-evening", "2026-02-25", 18, 7_200),
+            at("this-monday", "2026-03-02", 9, 5_400),
+        ])
+        .unwrap();
+
+    // Wednesday 4 March 2026, 09:00.
+    let data = training_screen_data(&engine.db, &windows_at("2026-03-04", 9)).unwrap();
+    let week = &data.comparisons.week;
+
+    assert_eq!(
+        span(&week.current),
+        (day("2026-03-02"), day("2026-03-04") + 9 * 3_600)
+    );
+    assert_eq!(
+        span(&week.previous),
+        (day("2026-02-23"), day("2026-02-25") + 9 * 3_600)
+    );
+    assert_eq!(week.current_stats.total_duration, 5_400.0);
+    assert_eq!(week.previous_stats.total_duration, 3_600.0);
+    let duration = week
+        .duration
+        .as_ref()
+        .expect("last week had time to compare");
+    assert_eq!(
+        duration.glyph, "↑",
+        "1.5 h against 1 h is up, as the home card says"
+    );
+    assert_eq!(duration.percent, Some(50));
+}
+
+#[test]
+fn the_weekly_comparison_matches_the_home_card_window_to_the_second() {
+    let now = day("2026-03-04") + 9 * 3_600 + 17;
+    let (cs, ce, ps, pe) = crate::widget_snapshot::week_bounds(now);
+    let w = FfiTrainingScreenWindows {
+        now_wall_seconds: now as f64,
+        ..windows()
+    };
+    let data = training_screen_data(&PersistentEngine::in_memory().unwrap().db, &w).unwrap();
+
+    assert_eq!(span(&data.comparisons.week.current), (cs, ce));
+    assert_eq!(span(&data.comparisons.week.previous), (ps, pe));
+}
+
+#[test]
+fn every_longer_range_ends_its_previous_window_the_same_span_after_its_start() {
+    let engine = PersistentEngine::in_memory().unwrap();
+    // Tuesday 3 March 2026, 12:00.
+    let data = training_screen_data(&engine.db, &windows_at("2026-03-03", 12)).unwrap();
+    let noon = |date: &str| day(date) + 12 * 3_600;
+    let c = &data.comparisons;
+
+    assert_eq!(
+        span(&c.month.current),
+        (day("2026-03-01"), noon("2026-03-03"))
+    );
+    assert_eq!(
+        span(&c.month.previous),
+        (day("2026-02-01"), noon("2026-02-03"))
+    );
+    assert_eq!(
+        span(&c.three_months.current),
+        (day("2026-01-01"), noon("2026-03-03"))
+    );
+    assert_eq!(
+        span(&c.three_months.previous),
+        (day("2025-10-01"), noon("2025-12-01"))
+    );
+    assert_eq!(
+        span(&c.six_months.current),
+        (day("2025-10-01"), noon("2026-03-03"))
+    );
+    assert_eq!(
+        span(&c.six_months.previous),
+        (day("2025-04-01"), noon("2025-09-01"))
+    );
+    assert_eq!(
+        span(&c.year.current),
+        (day("2026-01-01"), noon("2026-03-03"))
+    );
+    assert_eq!(
+        span(&c.year.previous),
+        (day("2025-01-01"), noon("2025-03-03"))
+    );
+}
+
+#[test]
+fn a_previous_window_never_runs_into_the_current_one() {
+    let engine = PersistentEngine::in_memory().unwrap();
+    // 31 March is further into its month than February ever runs.
+    let data = training_screen_data(&engine.db, &windows_at("2026-03-31", 10)).unwrap();
+
+    assert_eq!(
+        span(&data.comparisons.month.previous),
+        (day("2026-02-01"), day("2026-03-01") - 1),
+        "February whole, ending the second before March starts"
+    );
+}
+
+#[test]
+fn a_period_with_nothing_before_it_is_not_judged_and_a_level_one_has_no_percentage() {
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    engine
+        .set_activity_metrics(vec![
+            at("last-month", "2026-02-02", 9, 3_600),
+            at("this-month", "2026-03-02", 9, 3_600),
+        ])
+        .unwrap();
+    let data = training_screen_data(&engine.db, &windows_at("2026-03-03", 12)).unwrap();
+
+    let month = &data.comparisons.month;
+    for trend in [&month.count, &month.duration, &month.distance, &month.load] {
+        let trend = trend.as_ref().expect("last month has its own to compare");
+        assert_eq!(trend.glyph, "→");
+        assert_eq!(trend.percent, None);
+    }
+    let year = &data.comparisons.year;
+    assert!(year.previous_stats.count == 0);
+    assert!(year.count.is_none() && year.duration.is_none());
+    assert!(year.distance.is_none() && year.load.is_none());
+}
+
+#[test]
+fn hours_are_judged_as_the_card_prints_them() {
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    engine
+        .set_activity_metrics(vec![
+            at("last-monday", "2026-02-23", 8, 3_600),
+            // 1.46 h prints as 1.5 h, a half hour up on 1 h.
+            at("this-monday", "2026-03-02", 8, 5_256),
+        ])
+        .unwrap();
+    let data = training_screen_data(&engine.db, &windows_at("2026-03-04", 9)).unwrap();
+
+    let duration = data.comparisons.week.duration.as_ref().unwrap();
+    assert_eq!(duration.glyph, "↑");
+    assert_eq!(duration.percent, Some(46));
+}
+
+/// One activity on Monday at 08:00 carrying a week's totals.
+fn week_of(id: &str, monday: &str, moving_time: u32, distance: f64, load: f64) -> ActivityMetrics {
+    ActivityMetrics {
+        distance,
+        training_load: Some(load),
+        ..at(id, monday, 8, moving_time)
+    }
+}
+
+/// This week's moves against last week's totals, with the clock on Wednesday.
+fn weekly_moves(last: (u32, f64, f64), this: (u32, f64, f64)) -> crate::FfiSummaryComparison {
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    engine
+        .set_activity_metrics(vec![
+            week_of("last", "2026-02-23", last.0, last.1, last.2),
+            week_of("this", "2026-03-02", this.0, this.1, this.2),
+        ])
+        .unwrap();
+    training_screen_data(&engine.db, &windows_at("2026-03-04", 9))
+        .unwrap()
+        .comparisons
+        .week
+}
+
+fn glyph(trend: &Option<crate::FfiStatTrend>) -> Option<(&str, Option<u32>)> {
+    trend.as_ref().map(|t| (t.glyph.as_str(), t.percent))
+}
+
+#[test]
+fn a_move_inside_each_totals_deadband_is_flat() {
+    // 20 minutes more is under the half-hour deadband, 600 m under a
+    // kilometre, three points of load under five.
+    let week = weekly_moves((18_000, 120_000.0, 300.0), (19_200, 120_600.0, 303.0));
+    assert_eq!(glyph(&week.duration), Some(("→", None)));
+    assert_eq!(glyph(&week.distance), Some(("→", None)));
+    assert_eq!(glyph(&week.load), Some(("→", None)));
+}
+
+#[test]
+fn more_time_and_distance_are_up_and_load_moves_with_no_judgement() {
+    let up = weekly_moves((18_000, 120_000.0, 300.0), (21_600, 132_000.0, 360.0));
+    assert_eq!(glyph(&up.duration), Some(("↑", Some(20))));
+    assert_eq!(glyph(&up.distance), Some(("↑", Some(10))));
+    assert_eq!(glyph(&up.load), Some(("↑", Some(20))));
+
+    let down = weekly_moves((18_000, 120_000.0, 300.0), (14_400, 108_000.0, 240.0));
+    assert_eq!(glyph(&down.duration), Some(("↓", Some(20))));
+    assert_eq!(glyph(&down.distance), Some(("↓", Some(10))));
+    // Load has no polarity, so its glyph is the bare direction.
+    assert_eq!(glyph(&down.load), Some(("↓", Some(20))));
+}
+
+#[test]
+fn one_more_activity_than_last_week_is_a_move_up() {
+    let mut engine = PersistentEngine::in_memory().unwrap();
+    engine
+        .set_activity_metrics(vec![
+            at("last-a", "2026-02-23", 8, 3_600),
+            at("last-b", "2026-02-24", 8, 3_600),
+            at("this-a", "2026-03-02", 8, 3_600),
+            at("this-b", "2026-03-03", 8, 3_600),
+            at("this-c", "2026-03-04", 8, 3_600),
+        ])
+        .unwrap();
+    let week = training_screen_data(&engine.db, &windows_at("2026-03-04", 9))
+        .unwrap()
+        .comparisons
+        .week;
+    assert_eq!(glyph(&week.count), Some(("↑", Some(50))));
 }

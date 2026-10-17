@@ -1171,6 +1171,17 @@ impl ReplaySource<'_> {
             .iter()
             .map(|(pid, r)| (pid.clone(), r.real_id.clone()))
             .collect();
+        // What each pre-step row was shown as, for a retirement whose catalogue
+        // row is no longer there to read.
+        let old_shown: BTreeMap<String, (Option<String>, f64)> = old_rows
+            .iter()
+            .map(|(pid, r)| {
+                (
+                    pid.clone(),
+                    (r.section.name.clone(), r.section.distance_meters),
+                )
+            })
+            .collect();
         let mut new_rows: BTreeMap<String, IdentityRow> = BTreeMap::new();
 
         // Candidates: the pure layer's per-candidate fate drives the branch, so
@@ -1494,6 +1505,19 @@ impl ReplaySource<'_> {
                 continue;
             };
             let mut details = section_era_snapshot_on(source.conn, real_id);
+            super::history::pooled::retirement_snapshot_on(source.conn, real_id, &mut details);
+            if let Some((name, distance)) = old_shown.get(&retirement.id) {
+                if let Some(name) = name {
+                    details
+                        .entry("name")
+                        .or_insert_with(|| serde_json::json!(name));
+                }
+                if *distance > 0.0 {
+                    details
+                        .entry("distance_meters")
+                        .or_insert_with(|| serde_json::json!(distance));
+                }
+            }
             attribute(&mut details, &around_of(&retirement.id), &[]);
             let kind = match &retirement.reason {
                 tracematch::RetireReason::Dissolved => "dissolved",

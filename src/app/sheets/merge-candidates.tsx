@@ -1,23 +1,55 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, FlatList, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import type { MergeCandidate } from 'veloqrs';
+import { decodeCoords, type MergeCandidate } from 'veloqrs';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { Row, SheetHeader } from '@/shared/ui';
+import { TrackPreview, normaliseTrackPoints } from '@/shared/ui/TrackPreview';
 import { formatDistance } from '@/shared/format/format';
 import { SportIcons } from '@/shared/activity/SportIcons';
 import { colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
-import type { MergeCandidatesSheetInput } from '@/features/routes';
+import {
+  ROW_PREVIEW_HEIGHT,
+  ROW_PREVIEW_WIDTH,
+  type MergeCandidatesSheetInput,
+} from '@/features/routes';
 import { tapBack } from '@/shared/app/navigation';
 
 /**
  * The merge candidates list, a sheet route opened with `openSheet` when a section has several
  * candidates and answered with the chosen `MergeCandidate`.
  */
+
+/**
+ * Where the candidate runs, drawn from the line the engine thinned for a row, so two numbered
+ * sections can be told apart before one is merged into the other. The box keeps its size when the
+ * line cannot be read, so the rows stay aligned.
+ */
+function CandidatePreview({ candidate, isDark }: { candidate: MergeCandidate; isDark: boolean }) {
+  const points = useMemo(
+    () =>
+      normaliseTrackPoints(
+        decodeCoords(candidate.encodedPolyline).map((p) => ({ lat: p.latitude, lng: p.longitude }))
+      ),
+    [candidate.encodedPolyline]
+  );
+  return (
+    <View style={styles.preview}>
+      {points.length > 1 ? (
+        <TrackPreview
+          testID={`merge-candidate-preview-${candidate.sectionId}`}
+          points={points}
+          color={colors.primary}
+          isDark={isDark}
+        />
+      ) : null}
+    </View>
+  );
+}
 
 function MergeCandidatesSheetContent() {
   const { t } = useTranslation();
@@ -38,6 +70,7 @@ function MergeCandidatesSheetContent() {
         accessibilityLabel={item.name ?? item.sectionId}
         onPress={() => resolve(item)}
       >
+        <CandidatePreview candidate={item} isDark={isDark} />
         <SportIcons sportTypes={item.sportTypes} size={iconSize.lg} color={textSecondary} />
         <View style={styles.rowContent}>
           <Text style={[styles.rowName, { color: textPrimary }]} numberOfLines={1}>
@@ -101,6 +134,10 @@ const styles = StyleSheet.create({
   },
   row: {
     borderBottomWidth: stroke.hairline,
+  },
+  preview: {
+    width: ROW_PREVIEW_WIDTH,
+    height: ROW_PREVIEW_HEIGHT,
   },
   rowContent: {
     flex: 1,

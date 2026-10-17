@@ -9,17 +9,20 @@
  */
 
 import React, { memo, forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
-import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { useTheme } from '@/shared/app';
 import {
   colors,
   colorWithOpacity,
   darkColors,
   ink,
+  layers,
   layout,
   opacity,
   spacing,
   typography,
 } from '@/theme';
+import { DenseText } from '@/shared/ui/DenseText';
 
 const PILL_INSET = 4;
 /** Share of the map the pill may claim before it wraps instead of spreading. */
@@ -43,15 +46,15 @@ export interface AttributionOverlayRef {
 
 export interface AttributionOverlayProps {
   initialAttribution: string;
-  /** The basemap is dark, so the pill must not be the brightest mark on it. */
-  isDark?: boolean | undefined;
   /** Measured pill height plus its inset, reported whenever the wrap changes. */
   onClearanceChange?: ((clearance: number) => void) | undefined;
 }
 
 export const AttributionOverlay = memo(
   forwardRef<AttributionOverlayRef, AttributionOverlayProps>(
-    ({ initialAttribution, isDark = false, onClearanceChange }, ref) => {
+    ({ initialAttribution, onClearanceChange }, ref) => {
+      // The pill is chrome, so it follows the app theme rather than the base drawn under it.
+      const { isDark } = useTheme();
       const [attribution, setAttribution] = useState(initialAttribution);
       const reportedRef = useRef<number | null>(null);
 
@@ -82,7 +85,7 @@ export const AttributionOverlay = memo(
             ]}
             onLayout={handleLayout}
           >
-            <Text
+            <DenseText
               testID="map-attribution-text"
               style={[
                 attributionStyles.attributionText,
@@ -90,7 +93,7 @@ export const AttributionOverlay = memo(
               ]}
             >
               {attribution}
-            </Text>
+            </DenseText>
           </View>
         </View>
       );
@@ -113,7 +116,7 @@ const attributionStyles = StyleSheet.create({
     maxWidth: PILL_MAX_WIDTH,
     paddingBottom: PILL_INSET,
     paddingRight: spacing.xsPlus,
-    zIndex: 5,
+    zIndex: layers.mapOverlay,
   },
   attributionPill: {
     alignSelf: 'flex-end',

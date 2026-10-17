@@ -36,6 +36,13 @@ tags:
       id: "activity-sections-list"
     timeout: 20000
 
+# A fresh demo library is still detecting its sections when the tab opens, and
+# the rows arrive when detection ends.
+- extendedWaitUntil:
+    visible:
+      id: "section-inline-plot-0"
+    timeout: 300000
+
 - takeScreenshot: "screenshots/sections-scrub-before"
 
 - runFlow:
@@ -82,10 +89,11 @@ tags:
           timeout: 1500
       - takeScreenshot: "screenshots/sections-scrub-row-2"
 
-# Tap somewhere neutral to release any open state, then verify the list
-# is still rendered and hasn't corrupted values.
+# Tap the tab already open to release any open state, then verify the list is
+# still rendered and hasn't corrupted values. A tap on the list itself lands on
+# a row and opens that section.
 - tapOn:
-    id: "activity-sections-list"
+    text: "Sections"
 - waitForAnimationToEnd:
     timeout: 1000
 

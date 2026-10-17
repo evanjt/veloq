@@ -688,6 +688,12 @@ const GUARDS = [
       'a generated binding carrying @ts-nocheck, so a generator change that breaks a caller passes the typecheck',
   },
   {
+    name: 'lint:map-chrome-theme',
+    kind: 'correctness',
+    cmd: node('lint-map-chrome-theme.mjs'),
+    catches: 'map chrome drawn from the base map instead of the app theme',
+  },
+  {
     name: 'lint:engine-client-casts',
     kind: 'correctness',
     cmd: node('lint-engine-client-casts.mjs'),
@@ -765,6 +771,12 @@ const GUARDS = [
     cmd: node('lint-locale-bundles.mjs'),
     catches:
       'a translation that drops or invents a placeholder, or a locale missing a plural form its counts select, which then reads in English',
+  },
+  {
+    name: 'lint:locale-capitals',
+    kind: 'style',
+    cmd: node('lint-locale-capitals.mjs'),
+    catches: 'a label stored in capitals, so the style and the string both claim the case',
   },
   {
     name: 'lint:tab-label-budget',

@@ -35,7 +35,6 @@ import {
   computeAttribution,
   EMPTY_FEATURE_COLLECTION,
   getNextStyle,
-  isDarkStyle,
   getStyleIcon,
   type LngLat,
   type LngLatBounds,
@@ -342,11 +341,7 @@ export function PreviewMapView({
         onRegionDidChange={handleRegionDidChange}
         testID="preview-map"
       />
-      <AttributionOverlay
-        ref={attributionRef}
-        initialAttribution={attribution}
-        isDark={isDarkStyle(mapStyle)}
-      />
+      <AttributionOverlay ref={attributionRef} initialAttribution={attribution} />
       {/* Opposite corner to the legend, which owns the right-hand side. */}
       <Pressable
         style={pressable([

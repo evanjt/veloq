@@ -13,11 +13,9 @@ import {
   layout,
   spacing,
   typography,
-  verdictColor,
   verdictFill,
   stroke,
 } from '@/theme';
-import type { VerdictRung } from '@/theme';
 import type { StrengthBalancePair } from '@/types';
 
 import {
@@ -36,16 +34,9 @@ interface StrengthBalanceViewProps {
 }
 
 /**
- * A balance status is a verdict, so it draws from the one ladder rather than
- * a palette of its own. `watch` is the caution rung, a warning about what
- * comes next; `imbalanced` is a judgement already made, so it is negative.
+ * A split between two muscles has no better side, so the badges draw neutral
+ * and name the band the ratio falls in rather than grading it.
  */
-function balanceRung(status: string): VerdictRung {
-  if (status === 'balanced') return 'positive';
-  if (status === 'watch') return 'caution';
-  return 'negative';
-}
-
 export const StrengthBalanceView = React.memo(function StrengthBalanceView({
   visibleBalancePairs,
   featuredBalancePair,
@@ -85,21 +76,10 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
             <View
               style={[
                 styles.balanceHeroBadge,
-                {
-                  backgroundColor: verdictFill(
-                    balanceRung(featuredBalancePair.status),
-                    isDark,
-                    true
-                  ),
-                },
+                { backgroundColor: verdictFill('neutral', isDark, true) },
               ]}
             >
-              <Text
-                style={[
-                  styles.balanceHeroBadgeText,
-                  { color: verdictColor(balanceRung(featuredBalancePair.status), isDark) },
-                ]}
-              >
+              <Text style={[styles.balanceHeroBadgeText, isDark && styles.balanceBadgeTextDark]}>
                 {formatBalanceRatio(featuredBalancePair, balanceCopy)}
               </Text>
             </View>
@@ -137,15 +117,10 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
               <View
                 style={[
                   styles.balanceStatusBadge,
-                  { backgroundColor: verdictFill(balanceRung(pair.status), isDark) },
+                  { backgroundColor: verdictFill('neutral', isDark) },
                 ]}
               >
-                <Text
-                  style={[
-                    styles.balanceStatusText,
-                    { color: verdictColor(balanceRung(pair.status), isDark) },
-                  ]}
-                >
+                <Text style={[styles.balanceStatusText, isDark && styles.balanceBadgeTextDark]}>
                   {t(balanceStatusLabelKey(pair.status))}
                 </Text>
               </View>
@@ -214,7 +189,7 @@ const styles = StyleSheet.create({
   balanceHeroBadgeText: {
     fontSize: typography.caption.fontSize,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: colors.textSecondary,
   },
   balanceHeroText: {
     ...typography.bodyCompact,
@@ -258,7 +233,10 @@ const styles = StyleSheet.create({
   balanceStatusText: {
     fontSize: typography.label.fontSize,
     fontWeight: '700',
-    color: colors.textPrimary,
+    color: colors.textSecondary,
+  },
+  balanceBadgeTextDark: {
+    color: darkColors.textSecondary,
   },
   balanceValueRow: {
     flexDirection: 'row',

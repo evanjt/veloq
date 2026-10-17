@@ -203,9 +203,9 @@ describe('MapControlStack', () => {
 
       expect(swatchColour('map-key-category-Ride')).toBe(ACTIVITY_CATEGORIES.Ride.color);
       expect(swatchColour('map-key-category-Run')).toBe(ACTIVITY_CATEGORIES.Run.color);
-      expect(within(screen.getByTestId('map-key-category-Ride')).getByText('Ride')).toBeTruthy();
-      expect(within(screen.getByTestId('map-key-category-Run')).getByText('Run')).toBeTruthy();
-      expect(screen.queryByTestId('map-key-category-Swim')).toBeNull();
+      expect(within(screen.getByTestId('map-key-category-Ride')).getByText('Cycling')).toBeTruthy();
+      expect(within(screen.getByTestId('map-key-category-Run')).getByText('Running')).toBeTruthy();
+      expect(screen.queryByTestId('map-key-category-Water')).toBeNull();
     });
 
     it('explains the fade from a recent dot to one a year old or more', async () => {

@@ -49,7 +49,6 @@ async function mount() {
       heroMetric="hrv"
       heroValue={62}
       heroLabel="metrics.hrv"
-      heroColor="#000"
       hrvData={[50, 50, 62]}
       hrvRead={[true, false, true]}
       rhrData={[48, 46, 46]}
@@ -126,7 +125,6 @@ describe('the HRV hero at rest', () => {
         heroMetric="hrv"
         heroValue={ABSENT}
         heroLabel="metrics.hrv"
-        heroColor="#000"
         showSparkline
         supportingMetrics={[]}
         {...props}

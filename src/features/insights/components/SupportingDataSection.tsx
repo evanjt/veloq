@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Canvas, Path, LinearGradient, vec } from '@shopify/react-native-skia';
+import { Canvas, Path } from '@shopify/react-native-skia';
 import { useTranslation } from 'react-i18next';
 import type { TFunc } from '../types';
 import { sectionRowKey, sectionWithSport } from '../lib/cardSport';
@@ -83,19 +83,6 @@ function buildSparklinePath(
     d += ` L ${points[i].x} ${points[i].y}`;
   }
   return d;
-}
-
-function buildSparklineAreaPath(
-  data: number[],
-  width: number,
-  height: number,
-  padding: number
-): string {
-  const linePath = buildSparklinePath(data, width, height, padding);
-  if (!linePath) return '';
-  const stepX = width / (data.length - 1);
-  const lastX = (data.length - 1) * stepX;
-  return `${linePath} L ${lastX} ${height} L 0 ${height} Z`;
 }
 
 export const SupportingDataSection = React.memo(function SupportingDataSection({
@@ -248,7 +235,7 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
   );
 });
 
-/** Inline Skia sparkline with gradient fill */
+/** Inline Skia sparkline, a bare line on the data's own range */
 export const SparklineChart = React.memo(function SparklineChart({
   data,
   color,
@@ -267,22 +254,11 @@ export const SparklineChart = React.memo(function SparklineChart({
     () => buildSparklinePath(data, WIDTH, height, PADDING),
     [data, WIDTH, height]
   );
-  const areaPath = useMemo(
-    () => buildSparklineAreaPath(data, WIDTH, height, PADDING),
-    [data, WIDTH, height]
-  );
 
   if (!linePath) return null;
 
   return (
     <Canvas style={{ width: WIDTH, height }}>
-      <Path path={areaPath} style="fill">
-        <LinearGradient
-          start={vec(0, 0)}
-          end={vec(0, height)}
-          colors={[`${color}40`, `${color}05`]}
-        />
-      </Path>
       <Path path={linePath} style="stroke" strokeWidth={2} color={color} />
     </Canvas>
   );

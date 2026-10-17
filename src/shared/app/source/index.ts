@@ -56,6 +56,16 @@ const SOURCES = Object.freeze({
   }),
 });
 
+/**
+ * What each sign-in method is called on the account card and the Account
+ * screen: the method in the athlete's words, never the protocol's name.
+ */
+export const SCHEME_LABEL_KEY = Object.freeze({
+  oauth: 'settings.authOAuth',
+  apiKey: 'settings.authApiKey',
+  demo: 'settings.authDemo',
+} as const);
+
 export interface AuthInputs {
   authMethod: AuthMethod;
   isDemoMode?: boolean;

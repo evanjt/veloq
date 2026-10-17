@@ -20,7 +20,12 @@ import {
   stroke,
 } from '@/theme';
 import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
-import { ACTIVITY_CATEGORIES, useRecordingPreferences } from '@/features/recording';
+import { useRecordingPreferences } from '@/features/recording';
+import {
+  ACTIVITY_CATEGORIES,
+  SPORT_FAMILY_LABELS,
+  type SportFamily,
+} from '@/shared/activity/sportCategories';
 import type { ActivityType } from '@/types';
 import { pressable, pressRipple, SheetHeader } from '@/shared/ui';
 import { tapBack } from '@/shared/app/navigation';
@@ -30,8 +35,8 @@ import { tapBack } from '@/shared/app/navigation';
  * with the chosen `ActivityType`.
  *
  * Every caller gets the same list: the athlete's recent sports first, then every
- * type from `ACTIVITY_CATEGORIES` under its category. The current type is always
- * listed, under Other when no category holds it, so an activity can always see
+ * type under its sport family, as the engine files it. The current type is always
+ * listed, under Other when no family holds it, so an activity can always see
  * its own sport. `mode` only chooses the title: `recording` before or during a
  * recording, `review` (default) for a completed or manual activity.
  */
@@ -41,7 +46,7 @@ export interface ActivityTypeSheetInput {
   mode?: 'review' | 'recording';
 }
 
-type SectionKey = 'recent' | keyof typeof ACTIVITY_CATEGORIES;
+type SectionKey = 'recent' | SportFamily;
 
 interface TypeSection {
   key: SectionKey;
@@ -56,12 +61,12 @@ function activityTypeSections(
   const sections: TypeSection[] = [];
   if (recent.length > 0) sections.push({ key: 'recent', data: [...recent] });
   const listed = new Set<string>();
-  for (const [key, types] of Object.entries(ACTIVITY_CATEGORIES)) {
+  for (const [key, { types }] of Object.entries(ACTIVITY_CATEGORIES)) {
     types.forEach((type) => listed.add(type));
-    sections.push({ key: key as SectionKey, data: [...types] as ActivityType[] });
+    sections.push({ key: key as SportFamily, data: [...types] as ActivityType[] });
   }
   if (selectedType && !listed.has(selectedType)) {
-    sections.find((section) => section.key === 'other')?.data.push(selectedType);
+    sections.find((section) => section.key === 'Other')?.data.push(selectedType);
   }
   return sections;
 }
@@ -110,7 +115,7 @@ function ActivityTypeSheetContent() {
           >
             {section.key === 'recent'
               ? t('recording.recentTypes')
-              : t(`recording.categories.${section.key}`)}
+              : t(SPORT_FAMILY_LABELS[section.key])}
           </Text>
         )}
         renderItem={({ item, section }) => {

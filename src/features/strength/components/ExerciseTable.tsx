@@ -12,6 +12,7 @@ import { useExerciseSets } from '../hooks/useExerciseSets';
 import { formatBestSet } from '../lib/formatting';
 import { formatWeight } from '@/shared/format/weight';
 import { ABSENT, absentLabel } from '@/shared/format/absent';
+import { DENSE_TEXT_SCALE, denseExtent } from '@/shared/ui/DenseText';
 import type { ExerciseGroup } from 'veloqrs';
 import { Button, Card, InlineLink, Shimmer, SkeletonFrame } from '@/shared/ui';
 import { tapTo } from '@/shared/app/navigation';
@@ -154,20 +155,26 @@ export function ExerciseTable({
               )}
 
               <View style={styles.headerRow}>
-                <Text style={[styles.colHeader, styles.colSet, isDark && styles.textSecondaryDark]}>
+                <Text
+                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                  style={[styles.colHeader, styles.colSet, isDark && styles.textSecondaryDark]}
+                >
                   {t('strength.setColumn')}
                 </Text>
                 <Text
+                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                   style={[styles.colHeader, styles.colReps, isDark && styles.textSecondaryDark]}
                 >
                   {t('strength.repsColumn')}
                 </Text>
                 <Text
+                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                   style={[styles.colHeader, styles.colWeight, isDark && styles.textSecondaryDark]}
                 >
                   {t('strength.weightColumn')}
                 </Text>
                 <Text
+                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                   style={[styles.colHeader, styles.colTime, isDark && styles.textSecondaryDark]}
                 >
                   {t('strength.timeColumn')}
@@ -187,22 +194,28 @@ export function ExerciseTable({
                       setIdx > 0 && isDark && styles.setRowBorderDark,
                     ]}
                   >
-                    <Text style={[styles.colValue, styles.colSet, isDark && styles.textDark]}>
+                    <Text
+                      maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                      style={[styles.colValue, styles.colSet, isDark && styles.textDark]}
+                    >
                       {setIdx + 1}
                     </Text>
                     <Text
+                      maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                       style={[styles.colValue, styles.colReps, isDark && styles.textDark]}
                       accessibilityLabel={absentLabel(reps, t)}
                     >
                       {reps}
                     </Text>
                     <Text
+                      maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                       style={[styles.colValue, styles.colWeight, isDark && styles.textDark]}
                       accessibilityLabel={absentLabel(weight, t)}
                     >
                       {weight}
                     </Text>
                     <Text
+                      maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                       style={[styles.colValue, styles.colTime, isDark && styles.textSecondaryDark]}
                       accessibilityLabel={absentLabel(time, t)}
                     >
@@ -287,6 +300,11 @@ const EXERCISE_DATASET = {
   url: 'https://github.com/yuhonas/free-exercise-db',
 } as const;
 
+/** Column widths in ems of a set row's figures: a set number, a rep count, a time such as "1:30". */
+const SET_COLUMN_EMS = 2;
+const REPS_COLUMN_EMS = 2.75;
+const TIME_COLUMN_EMS = 3.3;
+
 const styles = StyleSheet.create({
   exerciseHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   frame: {
@@ -356,11 +374,11 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   colSet: {
-    width: 36,
+    width: denseExtent(typography.tableValue.fontSize, SET_COLUMN_EMS),
     textAlign: 'center',
   },
   colReps: {
-    width: 50,
+    width: denseExtent(typography.tableValue.fontSize, REPS_COLUMN_EMS),
     textAlign: 'center',
   },
   colWeight: {
@@ -369,7 +387,7 @@ const styles = StyleSheet.create({
     paddingRight: spacing.md,
   },
   colTime: {
-    width: 60,
+    width: denseExtent(typography.tableValue.fontSize, TIME_COLUMN_EMS),
     textAlign: 'right',
   },
   textDark: {

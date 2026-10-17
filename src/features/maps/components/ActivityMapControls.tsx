@@ -50,13 +50,16 @@ export function ActivityMapControls({
   mapHeight,
 }: ActivityMapControlsProps) {
   const { t } = useTranslation();
-  const { top, maxHeight } = useMapControlColumn(
+  const { top, maxHeight, width } = useMapControlColumn(
     mapHeight,
     activityMapControlCount({ shown: true, hasGradientData, hasRoute, enableFullscreen })
   );
 
   return (
-    <View testID="activity-map-controls" style={[styles.controlsContainer, { top, maxHeight }]}>
+    <View
+      testID="activity-map-controls"
+      style={[styles.controlsContainer, { top, maxHeight, width }]}
+    >
       {/* Style toggle */}
       <IconButton
         testID="activity-map-style-toggle"

@@ -14,11 +14,14 @@ appId: com.veloq.app.dev
     commands:
       - tapOn:
           id: "record-sport-more"
+      # The list holds about sixty rows, and on iOS each swipe and the read
+      # after it take about four seconds, so a sport near the end needs most
+      # of a minute to reach.
       - scrollUntilVisible:
           element:
             id: "activity-type-option-${SPORT}"
           direction: DOWN
-          timeout: 10000
+          timeout: 60000
           speed: 40
       - tapOn:
           id: "activity-type-option-${SPORT}"

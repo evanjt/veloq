@@ -367,10 +367,13 @@ export function ActivityDetailScreenContent({
     setSectionCreationError(null);
   }, []);
 
-  // Handle section marker press on map - switch to sections tab
-  const handleSectionMarkerPress = useCallback((_sectionId: string) => {
+  // A section marker tap opens the Sections tab on that section's card
+  const [focusSectionId, setFocusSectionId] = useState<string | null>(null);
+  const handleSectionMarkerPress = useCallback((sectionId: string) => {
     setActiveTab('sections');
+    setFocusSectionId(sectionId);
   }, []);
+  const handleSectionFocusHandled = useCallback(() => setFocusSectionId(null), []);
 
   // Handle GPX export
   const handleExportGpx = useCallback(
@@ -542,10 +545,7 @@ export function ActivityDetailScreenContent({
       {/* Activity description */}
       {activity.description ? (
         <View style={[styles.descriptionContainer, isDark && styles.descriptionContainerDark]}>
-          <Text
-            numberOfLines={3}
-            style={[styles.descriptionText, isDark && styles.descriptionTextDark]}
-          >
+          <Text style={[styles.descriptionText, isDark && styles.descriptionTextDark]}>
             {activity.description}
           </Text>
         </View>
@@ -647,6 +647,8 @@ export function ActivityDetailScreenContent({
             hasScanned={hasScanned}
             onScan={handleScan}
             onRematch={handleRematch}
+            focusSectionId={focusSectionId}
+            onFocusHandled={handleSectionFocusHandled}
           />
         ) : null}
       </SwipeableTabs>

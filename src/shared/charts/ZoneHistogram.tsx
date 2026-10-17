@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, layout, opacity, spacing, typography, zoneColour } from '@/theme';
 import { ABSENT, absentLabel } from '@/shared/format/absent';
+import { DenseText, denseExtent } from '@/shared/ui/DenseText';
 
 import { ChartSurface } from './ChartSurface';
 import { partsSummary, partsTable, type SummaryPart } from './chartSummary';
@@ -31,6 +32,11 @@ interface ZoneHistogramProps {
   bands: readonly ZoneBand[];
   testID?: string;
 }
+
+/** Column widths in ems of their own text: a zone name, a share up to "100%", a time and its range. */
+const LABEL_EMS = 1.6;
+const PERCENT_EMS = 2.5;
+const STATS_EMS = 5.2;
 
 /** Horizontal bars, one per zone, with the share on the left and the time and range on the right. */
 export function ZoneHistogram({ title, bands, testID }: ZoneHistogramProps) {
@@ -74,7 +80,7 @@ export function ZoneHistogram({ title, bands, testID }: ZoneHistogramProps) {
           const primary = filled ? (band.primary ?? ABSENT) : ABSENT;
           return (
             <View key={band.key} style={[styles.row, { paddingVertical: rowPadding }]}>
-              <Text
+              <DenseText
                 style={[
                   styles.label,
                   compact && styles.labelCompact,
@@ -82,8 +88,8 @@ export function ZoneHistogram({ title, bands, testID }: ZoneHistogramProps) {
                 ]}
               >
                 {band.label}
-              </Text>
-              <Text
+              </DenseText>
+              <DenseText
                 style={[
                   styles.percent,
                   compact && styles.percentCompact,
@@ -92,7 +98,7 @@ export function ZoneHistogram({ title, bands, testID }: ZoneHistogramProps) {
                 accessibilityLabel={absentLabel(share, t)}
               >
                 {share}
-              </Text>
+              </DenseText>
               <View
                 style={[
                   styles.track,
@@ -112,7 +118,7 @@ export function ZoneHistogram({ title, bands, testID }: ZoneHistogramProps) {
                 />
               </View>
               <View style={[styles.stats, compact && styles.statsCompact]}>
-                <Text
+                <DenseText
                   style={[
                     styles.primary,
                     compact && styles.primaryCompact,
@@ -121,11 +127,11 @@ export function ZoneHistogram({ title, bands, testID }: ZoneHistogramProps) {
                   accessibilityLabel={absentLabel(primary, t)}
                 >
                   {primary}
-                </Text>
+                </DenseText>
                 {band.secondary != null && (
-                  <Text style={[styles.secondary, isDark && styles.secondaryDark]}>
+                  <DenseText style={[styles.secondary, isDark && styles.secondaryDark]}>
                     {band.secondary}
-                  </Text>
+                  </DenseText>
                 )}
               </View>
             </View>
@@ -148,22 +154,22 @@ const styles = StyleSheet.create({
   label: {
     fontSize: typography.caption.fontSize,
     fontWeight: '700',
-    width: 24,
+    width: denseExtent(typography.caption.fontSize, LABEL_EMS),
   },
   labelCompact: {
     fontSize: typography.label.fontSize,
-    width: 22,
+    width: denseExtent(typography.label.fontSize, LABEL_EMS),
   },
   percent: {
     ...typography.badge,
-    width: 32,
+    width: denseExtent(typography.badge.fontSize, PERCENT_EMS),
     textAlign: 'right',
     color: colors.textPrimary,
     marginRight: spacing.xsPlus,
   },
   percentCompact: {
     fontSize: typography.micro.fontSize,
-    width: 28,
+    width: denseExtent(typography.micro.fontSize, PERCENT_EMS),
     marginRight: spacing.xs,
   },
   textOnDark: {
@@ -183,12 +189,12 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusSm,
   },
   stats: {
-    width: 75,
+    width: denseExtent(typography.badge.fontSize, STATS_EMS),
     marginLeft: spacing.xsPlus,
     alignItems: 'flex-end',
   },
   statsCompact: {
-    width: 65,
+    width: denseExtent(typography.micro.fontSize, STATS_EMS),
     marginLeft: spacing.xs,
   },
   primary: {

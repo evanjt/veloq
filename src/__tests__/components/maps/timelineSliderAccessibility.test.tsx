@@ -7,6 +7,7 @@
 import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 import { TimelineSlider } from '@/features/maps/components/timeline/TimelineSlider';
+import { i18n, initialiseI18n } from '@/i18n';
 
 jest.mock('expo-haptics', () => ({
   ...jest.requireActual('expo-haptics'),
@@ -17,14 +18,16 @@ const minDate = new Date(2020, 0, 1);
 const maxDate = new Date(2026, 0, 1);
 const endDate = new Date(2026, 0, 1);
 
-async function setup(props: { startDate?: Date; expandOnly?: boolean; fixedEnd?: boolean } = {}) {
+async function setup(
+  props: { startDate?: Date; endDate?: Date; expandOnly?: boolean; fixedEnd?: boolean } = {}
+) {
   const onRangeChange = jest.fn();
   const view = await render(
     <TimelineSlider
       minDate={minDate}
       maxDate={maxDate}
       startDate={props.startDate ?? new Date(2024, 2, 31)}
-      endDate={endDate}
+      endDate={props.endDate ?? endDate}
       onRangeChange={onRangeChange}
       expandOnly={props.expandOnly ?? false}
       fixedEnd={props.fixedEnd ?? false}
@@ -102,5 +105,17 @@ describe('TimelineSlider accessibility', () => {
   it('leaves a fixed end handle out of the accessibility tree actions', async () => {
     const { view } = await setup({ fixedEnd: true });
     expect(view.queryByTestId('timeline-slider-end-handle')).toBeNull();
+  });
+
+  it('names the end handle as the end of the range, not now, when the range ends in the past', async () => {
+    await initialiseI18n('en-GB');
+    const { view } = await setup({
+      startDate: new Date(2024, 0, 1),
+      endDate: new Date(2025, 5, 1),
+    });
+    const handle = view.getByTestId('timeline-slider-end-handle');
+    expect(handle.props.accessibilityLabel).not.toBe(i18n.t('time.now'));
+    expect(handle.props.accessibilityLabel).toBe('End of local data range');
+    expect(handle.props.accessibilityValue.text).toMatch(/2025/);
   });
 });

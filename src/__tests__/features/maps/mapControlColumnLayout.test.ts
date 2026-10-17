@@ -43,6 +43,14 @@ describe('mapControlColumnLayout', () => {
     expect(two.footprint).toBe(one.footprint + (two.columns - 1) * (BUTTON + spacing.sm));
   });
 
+  it('is drawn as wide as every column, since layout sizes a wrapping column to its first', () => {
+    const one = mapControlColumnLayout(3, 600, TOP);
+    const two = mapControlColumnLayout(MAX_MAP_CONTROLS, SMALLEST_HERO, TOP);
+    expect(one.width).toBe(BUTTON);
+    expect(two.columns).toBeGreaterThan(1);
+    expect(two.width).toBe(two.columns * BUTTON + (two.columns - 1) * spacing.sm);
+  });
+
   it('reserves nothing for no buttons', () => {
     expect(mapControlColumnLayout(0, 300, TOP).footprint).toBe(0);
   });

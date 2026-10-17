@@ -604,6 +604,11 @@ fn a_dissolved_section_is_listed_as_retired() {
     let snap = ingest_step(&mut engine, "cold", &pool).snapshot;
     let (id_a, _) = section_on(&snap, &corridor_ground(0.0)).expect("corpus fault: corridor A");
     assert!(engine.retired_sections().is_empty(), "nothing has left yet");
+    let shown_before = engine
+        .get_all_section_names()
+        .get(&id_a)
+        .cloned()
+        .expect("a live section always shows a name");
 
     for aid in rides_a.iter().map(|r| r.id.clone()).collect::<Vec<_>>() {
         engine.remove_activity(&aid).expect("remove_activity");
@@ -620,6 +625,14 @@ fn a_dissolved_section_is_listed_as_retired() {
         .expect("the dissolved section is listed");
     assert_eq!(entry.kind, "dissolved");
     assert_eq!(entry.into, None);
+    assert_eq!(entry.name.as_deref(), Some(shown_before.as_str()));
+    let distance = entry
+        .distance_meters
+        .expect("the retired section keeps its length");
+    assert!(
+        (distance - TRUNK_LEN_M).abs() < 0.1 * TRUNK_LEN_M,
+        "it keeps the corridor's length, read {distance}"
+    );
     assert!(
         entry.versions.contains(&1),
         "its birth geometry still draws it"

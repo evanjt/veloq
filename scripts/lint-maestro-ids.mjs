@@ -149,11 +149,11 @@ export function collectFlowIds(files) {
 }
 
 /**
- * Ids the platform gives its own controls, which no component here renders.
- * `BackButton` is iOS's navigation bar back control: Maestro's `back` does
- * nothing on iOS, so a flow leaves a pushed screen by tapping it.
+ * Ids the operating system draws, which no component renders and so no `testID`
+ * can name. On iOS, UIKit identifies a native stack header's back button as
+ * `BackButton` and the bar above a number pad as `Toolbar`.
  */
-const PLATFORM_IDS = new Set(['BackButton']);
+export const PLATFORM_IDS = new Set(['BackButton', 'Toolbar']);
 
 export function resolvesInTree(id, { literals, patterns }) {
   return PLATFORM_IDS.has(id) || literals.has(id) || patterns.some((p) => p.pattern.test(id));

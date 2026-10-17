@@ -75,6 +75,5 @@
   "src/shared/ui/EmptyState.tsx": 3,
   "src/shared/ui/GarminAttribution.tsx": 1,
   "src/shared/ui/GlobalErrorBoundary.tsx": 2,
-  "src/shared/ui/ScreenErrorBoundary.tsx": 1,
-  "src/shared/ui/SignalStatus.tsx": 1
+  "src/shared/ui/ScreenErrorBoundary.tsx": 1
 }

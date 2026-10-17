@@ -1,12 +1,12 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
-import { useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import Svg, { Circle, Polyline } from 'react-native-svg';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
+import { getActivityInk } from '@/shared/activity/activityUtils';
 import { formatEpochDayUtc } from '@/shared/format/format';
 import { formatWeight } from '@/shared/format/weight';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
@@ -21,39 +21,13 @@ import {
   Row,
   ScreenScrollView,
 } from '@/shared/ui';
-import { colors, darkColors, spacing, typography } from '@/theme';
-import type { ExerciseDetailData } from 'veloqrs';
+import { InsightSeriesChart } from '@/features/insights';
+import { colors, darkColors, spacing } from '@/theme';
 
 import { readExerciseDetailData } from '../hooks/useStrengthScreenData';
+import { exerciseTrendSamples } from '../lib/exerciseTrend';
 import { formatBestSet } from '../lib/formatting';
 import { tapTo } from '@/shared/app/navigation';
-
-function Trend({ sessions }: { sessions: ExerciseDetailData['sessions'] }) {
-  const points = sessions
-    .filter((session) => session.estimatedOneRepMaxKg != null)
-    .map((session) => session.estimatedOneRepMaxKg as number);
-  if (points.length < 2) return null;
-  const minimum = Math.min(...points);
-  const maximum = Math.max(...points);
-  const range = Math.max(maximum - minimum, 1);
-  const coords = points.map((value, index) => ({
-    x: 12 + (296 * index) / (points.length - 1),
-    y: 100 - ((value - minimum) / range) * 80,
-  }));
-  return (
-    <Svg width="100%" height={120} viewBox="0 0 320 120" accessibilityRole="image">
-      <Polyline
-        points={coords.map(({ x, y }) => `${x},${y}`).join(' ')}
-        fill="none"
-        stroke={colors.primary}
-        strokeWidth={3}
-      />
-      {coords.map(({ x, y }, index) => (
-        <Circle key={index} cx={x} cy={y} r={4} fill={colors.primary} />
-      ))}
-    </Svg>
-  );
-}
 
 function ExerciseDetailScreen() {
   const { category } = useLocalSearchParams<{ category: string }>();
@@ -68,16 +42,17 @@ function ExerciseDetailScreen() {
     queryFn: () => readExerciseDetailData(exerciseCategory),
     enabled: Number.isInteger(exerciseCategory) && exerciseCategory >= 0,
   });
-  const sessions = data?.sessions ?? [];
+  const sessions = useMemo(() => data?.sessions ?? [], [data]);
+  const trend = useMemo(() => exerciseTrendSamples(sessions), [sessions]);
+  const formatEstimate = useCallback((value: number) => formatWeight(value, isMetric), [isMetric]);
+  const trendColor = getActivityInk('WeightTraining', isDark);
 
   return (
     <ScreenScrollView
       style={[styles.screen, isDark && styles.screenDark]}
       contentContainerStyle={styles.content}
     >
-      <Text variant="headlineSmall" style={[styles.title, isDark && styles.textDark]}>
-        {data?.exerciseName || t('strength.history')}
-      </Text>
+      <Stack.Screen options={{ title: data?.exerciseName || t('strength.history') }} />
       {isLoading ? <ActivityIndicator color={colors.primary} /> : null}
       {isError ? (
         <ErrorState
@@ -96,10 +71,14 @@ function ExerciseDetailScreen() {
       ) : null}
       {sessions.length > 0 ? (
         <>
-          <Text style={[styles.section, isDark && styles.textDark]}>
-            {t('strength.estimatedOneRepMax')}
-          </Text>
-          <Trend sessions={sessions} />
+          <InsightSeriesChart
+            samples={trend}
+            title={t('strength.estimatedOneRepMax')}
+            color={trendColor}
+            pointColor={trendColor}
+            formatValue={formatEstimate}
+            area={false}
+          />
           <Text style={[styles.method, isDark && styles.secondaryDark]}>
             {t('strength.epleyMethod')}
           </Text>
@@ -139,8 +118,6 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   screenDark: { backgroundColor: darkColors.background },
   content: { padding: spacing.md, gap: spacing.sm },
-  title: { color: colors.textPrimary },
-  section: { ...typography.bodyBold, color: colors.textPrimary },
   method: { color: colors.textSecondary },
   secondaryDark: { color: darkColors.textSecondary },
   textDark: { color: darkColors.textPrimary },

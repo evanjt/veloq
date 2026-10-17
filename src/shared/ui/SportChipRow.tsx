@@ -2,7 +2,7 @@ import React from 'react';
 import { ScrollView, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { colors, controlHeight, spacing, slopToMinTapTarget } from '@/theme';
-import { ACTIVITY_CATEGORIES } from '@/shared/activity/sportCategories';
+import { ACTIVITY_CATEGORIES, isSportFamily } from '@/shared/activity/sportCategories';
 import { ToggleButton } from './Button';
 
 export interface SportChip {
@@ -10,7 +10,7 @@ export interface SportChip {
   label: string;
   count?: number;
   testID?: string;
-  /** The `ACTIVITY_CATEGORIES` key whose fill and ink it takes, when that is not `key`. */
+  /** The sport family whose fill and ink it takes, when that is not `key`. */
   category?: string;
 }
 
@@ -49,7 +49,8 @@ export function SportChipRow(props: SportChipRowProps) {
       contentContainerStyle={styles.row}
     >
       {chips.map((chip) => {
-        const category = ACTIVITY_CATEGORIES[chip.category ?? chip.key];
+        const family = chip.category ?? chip.key;
+        const category = isSportFamily(family) ? ACTIVITY_CATEGORIES[family] : undefined;
         return (
           <ToggleButton
             key={chip.key}

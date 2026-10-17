@@ -96,12 +96,15 @@ export enum GroupSort {
   Name = 3,
 }
 
-/** `FfiFeedGroup` as generated, the feed's sport chips as the engine names them. */
-export enum FeedSportGroup {
-  Cycling = 0,
-  Running = 1,
-  Swimming = 2,
-  Other = 3,
+/** `FfiSportFamily` as generated, the families as the engine names them. */
+export enum EngineSportFamily {
+  Ride = 0,
+  Winter = 1,
+  Run = 2,
+  Water = 3,
+  Foot = 4,
+  Strength = 5,
+  Other = 6,
 }
 
 export enum MapDistanceBand {
@@ -389,7 +392,7 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     DownloadPriority,
     BulkExportFormat,
     GroupSort,
-    FeedSportGroup,
+    EngineSportFamily,
     MapDistanceBand,
     FfiNewGroundBadge,
     EfficiencyDirection,

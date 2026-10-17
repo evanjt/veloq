@@ -25,47 +25,57 @@ export interface SportTaxonomy {
   power: readonly string[];
 }
 
-export type SportDisplayGroups = Record<
-  'Ride' | 'Run' | 'Swim' | 'Walk' | 'Hike' | 'Snow' | 'Water' | 'Gym' | 'Racket' | 'Other',
-  readonly string[]
->;
-
-const DISPLAY_NAMES = [
+/** The families an activity is drawn in, in stack order, as `sport.rs` names them. */
+export const FAMILY_NAMES = [
   'Ride',
+  'Winter',
   'Run',
-  'Swim',
-  'Walk',
-  'Hike',
-  'Snow',
   'Water',
-  'Gym',
-  'Racket',
+  'Foot',
+  'Strength',
   'Other',
 ] as const;
 
-/** Read each display group from the same Rust constants used by map counts. */
-export function readRustSportDisplayGroups(source: string): SportDisplayGroups {
-  const families = readRustSportFamilies(source);
-  const aliases: Record<string, readonly string[]> = {
-    CYCLING: families.cycling,
-    RUNNING: families.running,
-    SWIMMING: families.swimming,
-  };
-  const groups: Partial<SportDisplayGroups> = {};
-  for (const name of DISPLAY_NAMES) {
-    const match = source.match(
-      new RegExp(
-        `pub const DISPLAY_${name.toUpperCase()}: &\\[&str\\] = (?:&\\[([\\s\\S]*?)\\]|([A-Z]+));`
-      )
-    );
-    if (!match) throw new Error(`sport.rs declares no display group ${name}`);
-    const sports = match[2]
-      ? aliases[match[2]]
-      : [...match[1].matchAll(/"([^"]*)"/g)].map((entry) => entry[1]);
-    if (!sports?.length) throw new Error(`display group ${name} names no sport`);
-    groups[name] = sports;
+export type SportFamilyMembers = Record<(typeof FAMILY_NAMES)[number], readonly string[]>;
+
+/** The sub-sports drawn in a family's second and third fixed shade. */
+export interface SportShades {
+  2: readonly string[];
+  3: readonly string[];
+}
+
+function readList(source: string, name: string): readonly string[] | null {
+  const match = source.match(
+    new RegExp(`pub const ${name}: &\\[&str\\] = (?:&\\[([\\s\\S]*?)\\]|([A-Z_]+));`)
+  );
+  if (!match) return null;
+  if (match[2]) {
+    const aliased = readList(source, match[2]);
+    if (!aliased)
+      throw new Error(`\`${name}\` names \`${match[2]}\`, which sport.rs does not declare`);
+    return aliased;
   }
-  return groups as SportDisplayGroups;
+  return [...match[1].matchAll(/"([^"]*)"/g)].map((entry) => entry[1]);
+}
+
+/** Read each family's sports from the `FAMILY_<NAME>` lists the engine filters by. */
+export function readRustSportFamilyMembers(source: string): SportFamilyMembers {
+  const members: Partial<SportFamilyMembers> = {};
+  for (const name of FAMILY_NAMES) {
+    const sports = readList(source, `FAMILY_${name.toUpperCase()}`);
+    if (!sports) throw new Error(`sport.rs declares no family ${name}`);
+    if (sports.length === 0) throw new Error(`family ${name} names no sport`);
+    members[name] = sports;
+  }
+  return members as SportFamilyMembers;
+}
+
+/** Read the `SHADE_2` and `SHADE_3` lists. */
+export function readRustSportShades(source: string): SportShades {
+  const second = readList(source, 'SHADE_2');
+  const third = readList(source, 'SHADE_3');
+  if (!second || !third) throw new Error('sport.rs declares no `SHADE_2` or `SHADE_3`');
+  return { 2: second, 3: third };
 }
 
 /** Read every `pub const NAME: &[&str] = &[...]` the taxonomy declares. */
@@ -96,7 +106,8 @@ function renderList(name: string, sports: readonly string[]): string[] {
 /** The generated module, byte for byte. */
 export function renderSportTaxonomy(
   taxonomy: SportTaxonomy,
-  displayGroups: SportDisplayGroups
+  families: SportFamilyMembers,
+  shades: SportShades
 ): string {
   const lines = (Object.keys(taxonomy) as (keyof SportTaxonomy)[]).flatMap((name) =>
     renderList(name, taxonomy[name])
@@ -111,16 +122,22 @@ export function renderSportTaxonomy(
     ...lines,
     '} as const;',
     '',
-    '/** The map and settings display groups, as the engine declares them. */',
-    'export const SPORT_DISPLAY_GROUPS = {',
-    ...DISPLAY_NAMES.flatMap((name) => renderList(name, displayGroups[name])),
+    '/** The families an activity is drawn and filtered in, in stack order. */',
+    'export const SPORT_FAMILY_MEMBERS = {',
+    ...FAMILY_NAMES.flatMap((name) => renderList(name, families[name])),
     '} as const;',
     '',
-    '/** Every sport the display groups name, once each, in group order. */',
+    'export type SportFamily = keyof typeof SPORT_FAMILY_MEMBERS;',
+    '',
+    "/** The sub-sports drawn in their family's second and third fixed shade. */",
+    'export const SPORT_SHADES = {',
+    ...renderList('2', shades[2]),
+    ...renderList('3', shades[3]),
+    '} as const;',
+    '',
+    '/** Every sport the families name, once each, in family order. */',
     'export const ACTIVITY_TYPES = [',
-    ...[...new Set(DISPLAY_NAMES.flatMap((name) => displayGroups[name]))].map(
-      (sport) => `  '${sport}',`
-    ),
+    ...[...new Set(FAMILY_NAMES.flatMap((name) => families[name]))].map((sport) => `  '${sport}',`),
     '] as const;',
     '',
     'export type ActivityType = (typeof ACTIVITY_TYPES)[number];',

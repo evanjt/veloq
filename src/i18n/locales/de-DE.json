@@ -37,6 +37,10 @@
     "calories": "Kalorien",
     "chartHint": "Halten zum Scrubben • Chip halten für Achse",
     "distance": "Distanz",
+    "xAxis": {
+      "distance": "Distanz",
+      "time": "Zeit"
+    },
     "duration": "Dauer",
     "explanations": {
       "conditions": "Temperatur aus Wetterdaten oder deinem Gerätesensor.",
@@ -224,14 +228,14 @@
   },
   "alerts": {
     "cacheCleared": "Cache geleert",
-    "clearCacheMessage": "Dies löscht alle zwischengespeicherten Aktivitätsdaten, Aktivitätsspuren und Routenabgleich-Daten und startet das Neuladen. Dies kann einige Minuten dauern.",
+    "clearCacheMessage": "Dies löscht alle zwischengespeicherten Aktivitätsdaten, Aktivitätsspuren und Routenabgleich-Daten und startet das Neuladen. Dies kann einige Minuten dauern. Der lokale Datenzeitraum wird auf die letzten 90 Tage zurückgesetzt.",
     "clearCacheOffline": "Du bist offline. Das Neuladen braucht eine Verbindung, deine Aktivitäten, Karten und Routen bleiben also leer, bis das Netz zurück ist.",
     "clearCacheTitle": "Cache löschen & neu laden",
     "clearReload": "Löschen & neu laden",
-    "disconnect": "Trennen",
-    "disconnectMessage": "Dies entfernt deine API-Zugangsdaten aus der App. Du musst sie erneut eingeben, um die App zu nutzen.",
+    "signOut": "Abmelden",
+    "signOutMessage": "Deine Bibliothek, Namen und Einstellungen bleiben auf diesem Handy. Melde dich erneut an, um zu synchronisieren.",
     "disconnectOffline": "Du bist offline. Beide Anmeldewege brauchen eine Verbindung, du kannst dich also erst wieder anmelden, wenn das Netz zurück ist.",
-    "disconnectTitle": "Konto trennen",
+    "signOutTitle": "Abmelden?",
     "leaveDemoTitle": "Demo verlassen?",
     "leaveDemoMessage": "Die Beispielfahrten werden geschlossen und du kehrst zur Anmeldung zurück. Nichts aus der Demo wird gespeichert.",
     "leaveDemoConfirm": "Verlassen",
@@ -356,6 +360,7 @@
     "restoreOfferRestoring": "Wird wiederhergestellt…",
     "entryActivities_one": "{{count}} Aktivität",
     "entryActivities_other": "{{count}} Aktivitäten",
+    "entryAppVersion": "Version {{version}}",
     "restoreFromFile": "Aus einer Datei wiederherstellen",
     "restoreFromWebdav": "Von WebDAV wiederherstellen",
     "restoreFromGoogleDrive": "Von Google Drive wiederherstellen",
@@ -677,12 +682,6 @@
     "failedToLoad": "Aktivitäten konnten nicht geladen werden",
     "firstSyncBody": "Nur beim ersten Laden. Der Feed öffnet sich, sobald die ersten Aktivitäten da sind.",
     "firstSyncTitle": "Deine Aktivitäten werden synchronisiert",
-    "groups": {
-      "cycling": "Radfahren",
-      "running": "Laufen",
-      "swimming": "Schwimmen",
-      "other": "Andere"
-    },
     "range": {
       "last90Days": "Letzte 90 Tage",
       "thisYear": "Dieses Jahr",
@@ -974,9 +973,9 @@
     },
     "strengthBalance": {
       "volumeSplit": "Volumenverteilung",
-      "balanced": "Ausgeglichen",
-      "watch": "Beobachten",
-      "imbalanced": "Unausgeglichen",
+      "bandLow": "Unter 1,35×",
+      "bandMiddle": "1,35× bis 2×",
+      "bandHigh": "2× oder mehr",
       "oneSided": "Einseitig",
       "lowSignal": "Wenig Daten",
       "noSignal": "Keine Daten",
@@ -1164,18 +1163,6 @@
     "unavailableHint": "Die Karte konnte nicht geladen werden. Prüfe deine Verbindung und öffne sie erneut.",
     "activitiesCount_one": "{{count}} Aktivität",
     "activitiesCount_other": "{{count}} Aktivitäten",
-    "activityTypes": {
-      "gym": "Fitnessstudio",
-      "hike": "Wanderung",
-      "other": "Andere",
-      "racket": "Rückschlagspiel",
-      "ride": "Radfahrt",
-      "run": "Lauf",
-      "snow": "Wintersport",
-      "swim": "Schwimmen",
-      "walk": "Gehen",
-      "water": "Wassersport"
-    },
     "closeMap": "Karte schließen",
     "closePopup": "Aktivitäts-Popup schließen",
     "closeRoutePopup": "Routen-Popup schließen",
@@ -1246,7 +1233,7 @@
     },
     "privacy": {
       "title": "Datenschutzhinweis",
-      "brief": "Deine Athleten-ID und ein Push-Token werden auf unserem Server gespeichert (30 Tage Ablauf). Benachrichtigungen werden über Apple oder Google geleitet, aber alle Einblicke werden auf deinem Gerät erzeugt. Keine persönlichen Daten werden gespeichert. Du kannst jederzeit deaktivieren.",
+      "brief": "Deine Athleten-ID und ein Push-Token werden auf unserem Server gespeichert (30 Tage Ablauf). Benachrichtigungen werden über Apple oder Google geleitet, aber alle Einblicke werden auf deinem Gerät erzeugt. Du kannst jederzeit deaktivieren.",
       "accept": "Verstanden",
       "briefEnabled": "Du erhältst diese Benachrichtigungen. Deine Athleten-ID und ein Push-Token sind auf unserem Server gespeichert (30 Tage Ablauf), und Benachrichtigungen werden über Expo, dann Apple oder Google, an dein Gerät geleitet. Alle Insight-Inhalte werden auf deinem Gerät erzeugt. Du kannst sie jederzeit ausschalten.",
       "turnOff": "Ausschalten"
@@ -1310,23 +1297,16 @@
     "backgroundNotificationTitle": "Aktivität aufzeichnen",
     "categories": {
       "cycling": "Radfahren",
-      "gym": "Fitness & Training",
-      "other": "Andere",
-      "racket": "Rückschlagspiele",
-      "running": "Laufen",
-      "swimming": "Schwimmen",
-      "water": "Wassersport",
-      "winter": "Wintersport",
-      "walking": "Gehen"
+      "running": "Laufen"
     },
     "changeType": "Aktivitätstyp ändern",
     "continue": "Fortfahren",
     "controls": {
-      "lap": "RUNDE",
-      "pause": "PAUSE",
-      "resume": "WEITER",
-      "save": "SPEICHERN",
-      "stop": "STOPP"
+      "lap": "Runde",
+      "pause": "Pause",
+      "resume": "Weiter",
+      "save": "Speichern",
+      "stop": "Stopp"
     },
     "discard": "Verwerfen",
     "discardConfirmMessage": "Sie wurde nicht gespeichert und kann nach dem Verwerfen nicht wiederhergestellt werden.",
@@ -1421,7 +1401,7 @@
     "splitReachedMi": "Meile {{index}}",
     "startActivity": "Aktivität starten",
     "status": {
-      "paused": "PAUSIERT",
+      "paused": "Pausiert",
       "recording": "Aufnahme"
     },
     "summary": "Zusammenfassung",
@@ -1538,8 +1518,8 @@
     "routeNotFound": "Route nicht gefunden"
   },
   "routeIntelligence": {
-    "today": "HEUTE",
-    "tomorrow": "MORGEN"
+    "today": "Heute",
+    "tomorrow": "Morgen"
   },
   "routes": {
     "timeMethod": "Routenzeiten verwenden Bewegungszeit ohne Pausen.",
@@ -1696,6 +1676,12 @@
     "aerobicEfficiency": "Aerobe Effizienz",
     "aerobicEfficiencyDetail": "{{efforts}} vergleichbare Versuche, modellierte Änderung von {{hrChange}} bpm bei durchschnittlichem Tempo",
     "aerobicEfficiencyCaption": "{{quantity}}, ältester bis neuester Versuch",
+    "aerobicEfficiencyRange": "Bereich {{min}} bis {{max}}",
+    "aerobicEfficiencyInverted": "Niedriger wird höher gezeichnet: weniger Puls für das Tempo",
+    "aerobicEfficiencySpoken": "{{title}}, {{efforts}} passende Versuche",
+    "efficiencyVerdictImproving": "Verbessert sich",
+    "efficiencyVerdictFlat": "Keine klare Veränderung",
+    "efficiencyVerdictWorsening": "Verschlechtert sich",
     "correlationTitle": "Wohlbefinden und Tempo",
     "correlationMethod": "Pearson-r der Rundengeschwindigkeit gegen den Wohlbefindenswert des Tages, 95-%-Intervall, mindestens 10 Versuche mit Wert",
     "correlationFamily_one": "Holm-korrigiert über {{count}} Variable",
@@ -1724,7 +1710,7 @@
     "correlationVarMood": "Stimmung",
     "correlationVarMotivation": "Motivation",
     "setAsReference": "Als Referenz festlegen",
-    "setAsReferenceConfirm": "Diese Aktivität als Referenz verwenden?\n\nDer Abschnitt wird erneut mit all deinen Aktivitäten abgeglichen. Dabei können Aktivitäten hinzugefügt oder entfernt werden.",
+    "setAsReferenceConfirm": "Diese Aktivität als Referenz verwenden?\n\nDie Linie des Abschnitts folgt dieser Aktivität, und das Delta-Diagramm misst den Vorsprung oder Rückstand daran.\n\nDer Abschnitt wird erneut mit all deinen Aktivitäten abgeglichen, wobei einige hinzukommen oder wegfallen können.",
     "setReferenceError": "Referenz konnte nicht gesetzt werden. Der Abschnitt oder die Aktivität hat sich möglicherweise geändert. Bitte versuche es erneut.",
     "editBounds": "Grenzen bearbeiten",
     "pointsCount_one": "{{count}} Punkt",
@@ -1756,6 +1742,7 @@
     "traversalsCount_other": "{{count}} Durchfahrten",
     "calendarActivities_one": "{{count}} Aktivität",
     "calendarActivities_other": "{{count}} Aktivitäten",
+    "calendarTitle": "Nach Jahr",
     "scanForMatches": "Nach Übereinstimmungen suchen",
     "rematchActivities": "Aktivitäten neu zuordnen",
     "scanForMore": "Nach weiteren Abschnitten suchen",
@@ -1821,6 +1808,7 @@
     "trimFailedTitle": "Abschnitt nicht zugeschnitten",
     "deleteFailedTitle": "Abschnitt nicht gelöscht",
     "sectionRemoved": "Abschnitt entfernt",
+    "attemptExcluded": "Versuch ausgeschlossen",
     "removeFailedTitle": "Abschnitt nicht entfernt",
     "removeFailed": "Der Abschnitt konnte nicht entfernt werden.",
     "restoreFailedTitle": "Abschnitt nicht wiederhergestellt",
@@ -1855,7 +1843,7 @@
     "defaultStyle": "Standardstil",
     "exploreMapStyle": "Erkundungskarte",
     "dialect": "Dialekt",
-    "disconnectAccount": "Konto trennen",
+    "signOut": "Abmelden",
     "leaveDemo": "Demo verlassen",
     "display": "Anzeige",
     "largeHistoryConfirm": "Trotzdem laden",
@@ -1863,6 +1851,7 @@
     "largeHistoryMessage_other": "So weit zurück lädt bis zu etwa {{count}} Aktivitäten. Das dauert eine Weile, und die App bleibt mit so vielen Daten nicht garantiert schnell.",
     "largeHistoryTitle": "Das ist ein großer Download",
     "localDataRange": "Lokaler Datumsbereich",
+    "localDataRangeEnd": "Ende des lokalen Datumsbereichs",
     "heroMetric": "Hauptmetrik",
     "hideDemoBanner": "Demo-Banner ausblenden",
     "hideDemoBannerHint": "Banner für Screenshots ausblenden",
@@ -2098,6 +2087,7 @@
     "groupingLegendDropped": "Bleiben allein",
     "groupingFailed": "Die Gruppierung wurde nicht fertig. Bewege einen Regler, um es erneut zu versuchen.",
     "authApiKey": "API-Schlüssel",
+    "authOAuth": "Angemeldet mit intervals.icu",
     "authDemo": "Demomodus",
     "scopeChats": "Unterhaltungen",
     "scopeLibrary": "Bibliothek",
@@ -2148,7 +2138,7 @@
     "rangeNotDownloaded": "Noch nicht heruntergeladen",
     "rangePartlyDownloaded": "Ein Teil des Zeitraums ist noch nicht heruntergeladen",
     "calendarRange": "{{start}} bis {{end}}",
-    "seasonComparison": "Saisonvergleich",
+    "seasonComparison": "Jahresvergleich",
     "sixCalendarMonths": "6 Mon.",
     "swimPaceCurve": "Schwimmtempokurve",
     "thisMonth": "Dieser Monat",
@@ -2158,7 +2148,7 @@
     "time": "Zeit",
     "totalTime": "Gesamtzeit",
     "vsLastMonth": "vs letzter Monat",
-    "vsLastWeek": "vs letzte Woche",
+    "vsLastWeek": "vs letzte Woche bis jetzt",
     "vsLastYear": "vs letztes Jahr",
     "vsPrevious3Months": "vs vorherige 3 Monate",
     "vsPrevious6Months": "vs vorherige 6 Monate",
@@ -2218,7 +2208,14 @@
   },
   "trainingScreen": {
     "routes": "Routen",
-    "countOfTotal": "{{shown}} von {{total}}",
+    "routesListCount_one": "{{count}} Route",
+    "routesListCount_other": "{{count}} Routen",
+    "routesListCountOfTotal_one": "{{shown}} von {{count}} Route",
+    "routesListCountOfTotal_other": "{{shown}} von {{count}} Routen",
+    "sectionsListCount_one": "{{count}} Abschnitt",
+    "sectionsListCount_other": "{{count}} Abschnitte",
+    "sectionsListCountOfTotal_one": "{{shown}} von {{count}} Abschnitt",
+    "sectionsListCountOfTotal_other": "{{shown}} von {{count}} Abschnitte",
     "sections": "Abschnitte"
   },
   "units": {
@@ -2285,11 +2282,11 @@
     "smoothingAverage_one": "{{count}}-Tage-Durchschnitt",
     "smoothingAverage_other": "{{count}}-Tage-Durchschnitt",
     "smoothingDescription": "Gleitenden Durchschnitt anwenden, um tägliche Schwankungen zu reduzieren und Trends klarer zu zeigen.",
-    "smoothingHint": "Auto verwendet optimale Glättung für den gewählten Zeitraum",
+    "smoothingHint": "Auto: keine Glättung für {{r7d}}, ein {{d1m}}-Tage-Mittel für {{r1m}}, {{d3m}} Tage für {{r3m}}, {{d6m}} für {{r6m}} und {{d1y}} für {{r1y}}.",
     "smoothingNone": "Keine",
     "smoothingRaw": "Rohdaten",
     "smoothingTitle": "Datenglättung",
-    "trendHint": "HRV-, Schlaf- und Ruhe-HF-Trends erscheinen hier, wenn Daten protokolliert werden",
+    "trendHint": "Wellness-Daten aus intervals.icu (HRV, Ruhe-HF, Schlaf, Schlafwert, Gewicht) erscheinen hier, sobald sie erfasst sind.",
     "weight": "Gewicht",
     "sleepDuration": "{{hours}} Std. {{minutes}} Min."
   },
@@ -2418,7 +2415,7 @@
     "balanceFootnote": "Verhältnisse vergleichen gewichtete Sätze, wobei primäre Arbeit als 1,0 und sekundäre als 0,5 zählt.",
     "pairsInfoTitle": "Balance-Methode",
     "pairsInfoIntro": "Diese Antagonisten-Paare werden verglichen:",
-    "pairsInfoThresholds": "Status: ausgeglichen ≤ 1,35×, beobachten bis 2×, unausgewogen über 2×.",
+    "pairsInfoThresholds": "Bereiche: unter 1,35×, 1,35× bis 2×, 2× oder mehr.",
     "pairsInfoMinSignal": "Paare mit weniger als 4 gewichteten Sätzen pro Seite werden ausgelassen.",
     "exercisesTargeting": "Übungen für {{muscle}}",
     "exerciseWorkoutCount_one": "{{count}} Training",
@@ -2818,5 +2815,14 @@
       "zone": "Zone",
       "time": "Zeit"
     }
+  },
+  "sportFamilies": {
+    "ride": "Radfahren",
+    "winter": "Wintersport",
+    "run": "Laufen",
+    "water": "Wassersport",
+    "foot": "Zu Fuß",
+    "strength": "Kraft",
+    "other": "Andere"
   }
 }

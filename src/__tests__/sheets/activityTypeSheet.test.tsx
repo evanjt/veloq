@@ -102,9 +102,21 @@ describe('activity type sheet', () => {
     expect(review).toContain('activity-type-option-Snowboard');
   });
 
-  it('lists a current sport that no category holds', async () => {
-    await open({ selectedType: 'Cyclocross', mode: 'review' });
-    expect(selected('activity-type-option-Cyclocross')).toBe(true);
+  it('lists a current sport that no family holds, under Other', async () => {
+    await open({ selectedType: 'Floorball' as ActivityType, mode: 'review' });
+    expect(selected('activity-type-option-Floorball')).toBe(true);
+    const ids = rowIds();
+    expect(ids.indexOf('activity-type-option-Floorball')).toBeGreaterThan(
+      ids.indexOf('activity-type-option-Tennis')
+    );
+  });
+
+  it('files every type under the family the engine names', async () => {
+    await open({ selectedType: 'Ride', mode: 'review' });
+    for (const family of ['Ride', 'Winter', 'Run', 'Water', 'Foot', 'Strength', 'Other']) {
+      expect(screen.getByTestId(`activity-type-section-${family}`)).toBeTruthy();
+    }
+    expect(rowIds()).toContain('activity-type-option-Cyclocross');
   });
 
   it('puts recent sports first, under their own heading', async () => {
@@ -115,7 +127,7 @@ describe('activity type sheet', () => {
     expect(selected('activity-type-recent-Run')).toBe(true);
     expect(ids).toContain('activity-type-option-Tennis');
     expect(screen.getByTestId('activity-type-section-recent')).toBeTruthy();
-    expect(screen.getByTestId('activity-type-section-racket')).toBeTruthy();
+    expect(screen.getByTestId('activity-type-section-Other')).toBeTruthy();
   });
 
   it('draws no recent heading before anything is recorded', async () => {

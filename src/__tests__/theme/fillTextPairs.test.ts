@@ -1,19 +1,14 @@
 /**
- * Scenario: a sport, series or brand hue is a fill, and several screens drew
- * words in it: the summary card's headline numbers in the fitness blue, the
- * HRV pink and the sport colours, the days-trained pill label in its category
- * hue on a tint of itself, between 2.18:1 and 3.31:1. Each colour is chosen
- * behind a function, where no token guard can read it.
+ * Scenario: a sport, series or brand hue is a fill, and the days-trained pill
+ * drew its label in its category hue on a tint of itself, between 2.18:1 and
+ * 3.31:1. The colour is chosen behind a function, where no token guard can
+ * read it.
  *
  * Expected behaviour: every word clears 4.5:1 on the ground it is drawn on, in
  * both themes.
  */
 
 import { colors, darkColors } from '@/theme';
-import {
-  summaryMetricTextColor,
-  SUMMARY_HUED_METRICS,
-} from '@/features/home/lib/summaryMetricColour';
 import { dayPillTone } from '@/features/fitness/lib/dayPillTone';
 import { ACTIVITY_CATEGORIES } from '@/shared/activity/sportCategories';
 
@@ -68,17 +63,6 @@ const THEMES = [
   ['light', false],
   ['dark', true],
 ] as const;
-
-describe('summary card values', () => {
-  it.each(
-    THEMES.flatMap(([name, isDark]) => SUMMARY_HUED_METRICS.map((m) => [name, m, isDark] as const))
-  )('draws the %s %s value at text contrast on every card ground', (name, metric, isDark) => {
-    const ink = summaryMetricTextColor(metric, isDark);
-    for (const ground of SURFACES[name]) {
-      expect(contrast(ink, ground)).toBeGreaterThanOrEqual(AA_TEXT);
-    }
-  });
-});
 
 describe('the days-trained pill', () => {
   const groups = [...Object.keys(ACTIVITY_CATEGORIES), undefined];

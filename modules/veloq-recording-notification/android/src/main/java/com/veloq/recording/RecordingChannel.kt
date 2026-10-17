@@ -1,6 +1,7 @@
 package com.veloq.recording
 
 import android.app.NotificationManager
+import androidx.core.app.NotificationCompat
 
 // Must match BACKGROUND_LOCATION_TASK in src/features/recording/lib/backgroundLocationTask.ts.
 // expo-location names the foreground service's channel "<appId>:<taskName>"
@@ -29,6 +30,14 @@ object RecordingChannel {
    * with no Expo host, then the task name.
    */
   fun id(packageName: String) = "$packageName:$LOCATION_TASK_NAME"
+
+  /**
+   * How the ride's notification shows on a lock screen that hides sensitive content: in full,
+   * figures, clock and buttons, since the phone stays locked for the whole ride and a distance
+   * and an elapsed time are nothing to hide. Set on the notification rather than the channel,
+   * because Android stores a channel created as public as no override.
+   */
+  const val LOCK_SCREEN_VISIBILITY = NotificationCompat.VISIBILITY_PUBLIC
 
   /**
    * Silent, as expo-location makes it: the notification is up for the whole ride and only says

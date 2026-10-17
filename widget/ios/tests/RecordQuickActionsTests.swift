@@ -32,21 +32,21 @@ final class RecordQuickActionsTests: XCTestCase {
     let items = RecordQuickActions.items([
       ["type": " ", "label": "Blank", "url": "veloq://recording/Blank"],
       ["type": "Row", "label": "Row", "url": ""],
-      ["type": "Hike", "label": "", "url": "veloq://recording/Hike?from=quickstart", "glyph": "hike"],
+      ["type": "Hike", "label": "", "url": "veloq://recording/Hike?from=quickstart", "glyph": "foot"],
     ])
     XCTAssertEqual(items.map(\.localizedTitle), ["Hike"])
   }
 
-  func testEachCategoryDrawsItsOwnSymbol() {
-    let categories = ["ride", "run", "swim", "walk", "hike", "snow", "water", "gym", "racket", "other"]
-    let symbols = categories.map { RecordQuickActions.symbol($0) }
-    XCTAssertEqual(Set(symbols).count, categories.count)
+  func testEachFamilyDrawsItsOwnSymbol() {
+    let families = ["ride", "winter", "run", "water", "foot", "strength", "other"]
+    let symbols = families.map { RecordQuickActions.symbol($0) }
+    XCTAssertEqual(Set(symbols).count, families.count)
     for symbol in symbols {
       XCTAssertNotNil(UIImage(systemName: symbol), symbol)
     }
   }
 
-  func testAnUnknownCategoryDrawsTheCatchAll() {
+  func testAnUnknownFamilyDrawsTheCatchAll() {
     XCTAssertEqual(RecordQuickActions.symbol("underwater-basket"), RecordQuickActions.symbol("other"))
     XCTAssertEqual(RecordQuickActions.symbol(nil), RecordQuickActions.symbol("other"))
   }

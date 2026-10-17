@@ -42,7 +42,6 @@ const SOURCES: Record<string, string> = {
   defaultEntrySport: 'lib/recordEntry',
   entrySportChips: 'lib/recordEntry',
   recordingEntryHref: 'lib/recordEntry',
-  ACTIVITY_CATEGORIES: 'lib/recordingModes',
   getRecordingMode: 'lib/recordingModes',
   parsePairedEventId: 'lib/recordingModes',
   parseRecordingType: 'lib/recordingModes',

@@ -5,7 +5,6 @@ import {
   Circle,
   Group,
   Line,
-  LinearGradient,
   Path,
   Rect,
   Shadow,
@@ -18,8 +17,8 @@ import { brand, shaderWarmup } from '@/theme';
  * Mount this once near the root of the app (above the primary tab stack).
  *
  * It renders a 1x1 invisible Skia Canvas containing one primitive of each
- * shape that Victory Native / our charts use: Line, Area (via Path +
- * LinearGradient), Shadow, Circle, Rect, Group. The Metal (iOS) and
+ * shape that Victory Native / our charts use: Line, a flat-filled Path,
+ * Shadow, Circle, Rect, Group. The Metal (iOS) and
  * Skia GPU (Android) shader programs needed for these primitives are
  * compiled the first time they are drawn, so by drawing them during app
  * launch (when the user is not looking at a chart yet) we move the
@@ -37,16 +36,8 @@ export const ShaderWarmup = React.memo(function ShaderWarmup() {
           {/* Line - used by every line chart */}
           <Line p1={vec(0, 0)} p2={vec(1, 1)} color={shaderWarmup.line} strokeWidth={1} />
 
-          {/* Area (Path + LinearGradient) - fitness chart, HRV sparkline */}
-          {warmupPath ? (
-            <Path path={warmupPath}>
-              <LinearGradient
-                start={vec(0, 0)}
-                end={vec(0, 1)}
-                colors={[shaderWarmup.gradientStart, shaderWarmup.gradientEnd]}
-              />
-            </Path>
-          ) : null}
+          {/* Flat-filled path - the wash under a zero-based line */}
+          {warmupPath ? <Path path={warmupPath} style="fill" color={shaderWarmup.area} /> : null}
 
           {/* Shadow-backed rect - form-zone chart */}
           <Rect x={0} y={0} width={1} height={1} color={shaderWarmup.rect}>

@@ -5,4 +5,5 @@ export {
   getActivityCategory,
   getActivityTypeConfig,
   groupTypesByCategory,
+  type SportFamily,
 } from '@/shared/activity/sportCategories';

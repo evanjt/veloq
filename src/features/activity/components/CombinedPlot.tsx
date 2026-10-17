@@ -1,13 +1,7 @@
 import React, { useMemo, useRef, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
-import {
-  LinearGradient,
-  vec,
-  Line as SkiaLine,
-  DashPathEffect,
-  Rect,
-} from '@shopify/react-native-skia';
+import { vec, Line as SkiaLine, DashPathEffect, Rect } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -34,12 +28,8 @@ import {
   type ChartMetricValue,
   type EmptyPlotCause,
 } from '@/features/stats';
-import { ChartXAxisLabel } from './ChartXAxisLabel';
+import { ChartXAxisLabel, type ChartXAxisLabelHandle } from './ChartXAxisLabel';
 import { ChartYAxisLabel } from './ChartYAxisLabel';
-import {
-  ChartDistanceIndicator,
-  type ChartDistanceIndicatorHandle,
-} from './ChartDistanceIndicator';
 import { useSeriesAccessors } from './useSeriesAccessors';
 import { ABSENT } from '@/shared/format/absent';
 
@@ -57,10 +47,6 @@ interface CombinedPlotProps {
   previewMetricId?: ChartTypeId | null | undefined;
   /** X-axis mode: 'distance' (default) or 'time' */
   xAxisMode?: 'distance' | 'time' | undefined;
-  /** Called when user taps the x-axis pill to toggle mode */
-  onXAxisModeToggle?: (() => void) | undefined;
-  /** Whether the x-axis mode can be toggled (has both distance and time data) */
-  canToggleXAxis?: boolean | undefined;
   /** Interval data - when provided, renders zone-colored bands behind the chart */
   intervals?: ActivityInterval[] | undefined;
   /** Activity type - needed for zone color selection (power vs HR) */
@@ -89,8 +75,6 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   onInteractionChange,
   previewMetricId,
   xAxisMode = 'distance',
-  onXAxisModeToggle,
-  canToggleXAxis = false,
   intervals,
   activityType,
   onMetricsChange,
@@ -104,9 +88,10 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   const xValuesShared = useSharedValue<number[]>([]);
   const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
 
-  // The scrub position lives in the pill that draws it. Held here it rendered
-  // the chart root per index, and the root is what rebuilds every Skia path.
-  const indicator = useRef<ChartDistanceIndicatorHandle>(null);
+  // The scrub position lives in the axis label that draws it. Held here it
+  // rendered the chart root per index, and the root is what rebuilds every
+  // Skia path.
+  const xAxisLabel = useRef<ChartXAxisLabelHandle>(null);
 
   const onPointSelectRef = useRef(onPointSelect);
   const onInteractionChangeRef = useRef(onInteractionChange);
@@ -192,7 +177,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
       if (idx < 0 || chartData.length === 0 || seriesInfo.length === 0) {
         if (lastNotifiedIdx.current !== null) {
           isActiveRef.current = false;
-          indicator.current?.setScrub(null);
+          xAxisLabel.current?.setScrub(null);
           lastNotifiedIdx.current = null;
           if (onPointSelectRef.current) onPointSelectRef.current(null);
           if (onInteractionChangeRef.current) onInteractionChangeRef.current(false);
@@ -225,7 +210,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
         color: s.config.color,
       }));
 
-      indicator.current?.setScrub(chartData[idx]?.x ?? 0);
+      xAxisLabel.current?.setScrub(chartData[idx]?.x ?? 0);
 
       // Emit scrub values for selected series + averages for unselected
       if (onMetricsChangeRef.current) {
@@ -410,24 +395,19 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                       );
                     })}
 
-                    {/* Stream area fills - rich gradient beneath lines */}
-                    {seriesInfo.map((series) => {
-                      const isMulti = seriesInfo.length > 1;
-                      const topAlpha = series.isPreview ? '30' : isMulti ? '70' : '90';
-                      const bottomAlpha = series.isPreview ? '08' : isMulti ? '10' : '15';
-                      return (runs[series.id] ?? []).map((run, i) => (
-                        <CurveArea key={`area-${series.id}-${i}`} points={run} y0={bounds.bottom}>
-                          <LinearGradient
-                            start={vec(0, bounds.top)}
-                            end={vec(0, bounds.bottom)}
-                            colors={[
-                              series.config.color + topAlpha,
-                              series.config.color + bottomAlpha,
-                            ]}
-                          />
-                        </CurveArea>
-                      ));
-                    })}
+                    {/* A wash under each stream whose own scale starts at zero */}
+                    {seriesInfo.map((series) =>
+                      (runs[series.id] ?? []).map((run, i) => (
+                        <CurveArea
+                          key={`area-${series.id}-${i}`}
+                          points={run}
+                          yDomain={[series.range.min, series.range.max]}
+                          y0={bounds.bottom}
+                          color={series.config.color}
+                          isDark={isDark}
+                        />
+                      ))
+                    )}
 
                     {/* Stream line strokes - hairline casing for clarity */}
                     {seriesInfo.map((series) => {
@@ -509,8 +489,14 @@ export const CombinedPlot = React.memo(function CombinedPlot({
               pointerEvents="none"
             />
 
-            {/* X-axis labels with hint */}
-            <ChartXAxisLabel xAxisMode={xAxisMode} maxX={maxX} isDark={isDark} />
+            {/* X-axis labels in the bottom gutter, the scrub position between them */}
+            <ChartXAxisLabel
+              ref={xAxisLabel}
+              xAxisMode={xAxisMode}
+              maxX={maxX}
+              xUnit={xUnit}
+              isDark={isDark}
+            />
 
             {/* Y-axis labels sitting on reference lines */}
             {yAxisSeries ? (
@@ -525,17 +511,6 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                 formatYAxisValue={formatYAxisValue}
               />
             ) : null}
-
-            {/* X-axis indicator - overlaid on bottom right of chart */}
-            <ChartDistanceIndicator
-              ref={indicator}
-              xAxisMode={xAxisMode}
-              maxX={maxX}
-              xUnit={xUnit}
-              isDark={isDark}
-              canToggleXAxis={canToggleXAxis}
-              onXAxisModeToggle={onXAxisModeToggle}
-            />
           </View>
         </GestureDetector>
       </View>

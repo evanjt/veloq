@@ -37,6 +37,10 @@
     "calories": "Calories",
     "chartHint": "Maintenez pour parcourir • Maintenez la puce pour l'axe",
     "distance": "Distance",
+    "xAxis": {
+      "distance": "Distance",
+      "time": "Temps"
+    },
     "duration": "Durée",
     "explanations": {
       "conditions": "Température des données météo ou du capteur de votre appareil.",
@@ -225,14 +229,14 @@
   },
   "alerts": {
     "cacheCleared": "Cache vidé",
-    "clearCacheMessage": "Cela effacera toutes les données d'activités en cache, les traces d'activités et les données de correspondance de parcours, puis commencera à recharger. Cela peut prendre quelques minutes.",
+    "clearCacheMessage": "Cela effacera toutes les données d'activités en cache, les traces d'activités et les données de correspondance de parcours, puis commencera à recharger. Cela peut prendre quelques minutes. La plage de données locales revient aux 90 derniers jours.",
     "clearCacheOffline": "Tu es hors ligne. Le rechargement demande une connexion, tes activités, cartes et parcours resteront donc vides jusqu'au retour du réseau.",
     "clearCacheTitle": "Effacer et recharger le cache",
     "clearReload": "Effacer et recharger",
-    "disconnect": "Déconnecter",
-    "disconnectMessage": "Cela supprimera vos identifiants API de l'application. Vous devrez les saisir à nouveau pour utiliser l'application.",
+    "signOut": "Se déconnecter",
+    "signOutMessage": "Votre bibliothèque, les noms et les réglages restent sur ce téléphone. Reconnectez-vous pour synchroniser.",
     "disconnectOffline": "Tu es hors ligne. Les deux façons de revenir demandent une connexion, tu ne pourras donc pas te reconnecter avant le retour du réseau.",
-    "disconnectTitle": "Déconnecter le compte",
+    "signOutTitle": "Se déconnecter ?",
     "leaveDemoTitle": "Quitter la démo ?",
     "leaveDemoMessage": "Les sorties d'exemple se ferment et vous revenez à la connexion. Rien de la démo n'est conservé.",
     "leaveDemoConfirm": "Quitter",
@@ -358,6 +362,7 @@
     "entryActivities_one": "{{count}} activité",
     "entryActivities_many": "{{count}} activités",
     "entryActivities_other": "{{count}} activités",
+    "entryAppVersion": "Version {{version}}",
     "restoreFromFile": "Restaurer depuis un fichier",
     "restoreFromWebdav": "Restaurer depuis WebDAV",
     "restoreFromGoogleDrive": "Restaurer depuis Google Drive",
@@ -693,12 +698,6 @@
     "failedToLoad": "Échec du chargement des activités",
     "firstSyncBody": "Uniquement au premier chargement. Le fil s'ouvre dès les premières activités.",
     "firstSyncTitle": "Synchronisation de vos activités",
-    "groups": {
-      "cycling": "Cyclisme",
-      "running": "Course",
-      "swimming": "Natation",
-      "other": "Autre"
-    },
     "range": {
       "last90Days": "90 derniers jours",
       "thisYear": "Cette année",
@@ -993,9 +992,9 @@
     },
     "strengthBalance": {
       "volumeSplit": "Répartition du volume",
-      "balanced": "Équilibré",
-      "watch": "À surveiller",
-      "imbalanced": "Déséquilibré",
+      "bandLow": "Moins de 1,35×",
+      "bandMiddle": "De 1,35× à 2×",
+      "bandHigh": "2× ou plus",
       "oneSided": "Unilatéral",
       "lowSignal": "Signal faible",
       "noSignal": "Pas de signal",
@@ -1185,18 +1184,6 @@
     "activitiesCount_one": "{{count}} activité",
     "activitiesCount_many": "{{count}} d'activités",
     "activitiesCount_other": "{{count}} activités",
-    "activityTypes": {
-      "gym": "Salle",
-      "hike": "Randonnée",
-      "other": "Autre",
-      "racket": "Raquette",
-      "ride": "Vélo",
-      "run": "Course",
-      "snow": "Neige",
-      "swim": "Natation",
-      "walk": "Marche",
-      "water": "Nautique"
-    },
     "closeMap": "Fermer la carte",
     "closePopup": "Fermer le popup d'activité",
     "closeRoutePopup": "Fermer la popup de route",
@@ -1267,7 +1254,7 @@
     },
     "privacy": {
       "title": "Avis de confidentialité",
-      "brief": "Votre identifiant athlète et un jeton push seront stockés sur notre serveur (expiration à 30 jours). Les notifications transitent par Apple ou Google mais tout le contenu des aperçus est généré sur votre appareil. Aucune donnée personnelle n'est stockée. Vous pouvez désactiver à tout moment.",
+      "brief": "Votre identifiant athlète et un jeton push seront stockés sur notre serveur (expiration à 30 jours). Les notifications transitent par Apple ou Google mais tout le contenu des aperçus est généré sur votre appareil. Vous pouvez désactiver à tout moment.",
       "accept": "J'ai compris",
       "briefEnabled": "Vous recevez ces notifications. Votre identifiant d'athlète et un jeton push sont stockés sur notre serveur (expiration à 30 jours), et les notifications transitent par Expo, puis Apple ou Google, pour atteindre votre appareil. Tout le contenu des analyses est généré sur votre appareil. Vous pouvez les désactiver à tout moment.",
       "turnOff": "Désactiver"
@@ -1331,23 +1318,16 @@
     "backgroundNotificationTitle": "Enregistrement en cours",
     "categories": {
       "cycling": "Cyclisme",
-      "gym": "Salle et fitness",
-      "other": "Autre",
-      "racket": "Sports de raquette",
-      "running": "Course",
-      "swimming": "Natation",
-      "water": "Sports nautiques",
-      "winter": "Sports d'hiver",
-      "walking": "Marche"
+      "running": "Course"
     },
     "changeType": "Changer le type d'activité",
     "continue": "Continuer",
     "controls": {
-      "lap": "TOUR",
-      "pause": "PAUSE",
-      "resume": "REPRENDRE",
-      "save": "ENREG",
-      "stop": "STOP"
+      "lap": "Tour",
+      "pause": "Pause",
+      "resume": "Reprendre",
+      "save": "Enreg.",
+      "stop": "Stop"
     },
     "discard": "Abandonner",
     "discardConfirmMessage": "Il n'a pas été sauvegardé et ne pourra pas être récupéré une fois abandonné.",
@@ -1442,7 +1422,7 @@
     "splitReachedMi": "Mile {{index}}",
     "startActivity": "Démarrer l'activité",
     "status": {
-      "paused": "EN PAUSE",
+      "paused": "En pause",
       "recording": "Enregistrement"
     },
     "summary": "Résumé",
@@ -1561,8 +1541,8 @@
     "routeNotFound": "Itinéraire non trouvé"
   },
   "routeIntelligence": {
-    "today": "AUJOURD'HUI",
-    "tomorrow": "DEMAIN"
+    "today": "Aujourd'hui",
+    "tomorrow": "Demain"
   },
   "routes": {
     "timeMethod": "Les temps de parcours utilisent le temps en mouvement, sans les arrêts.",
@@ -1724,6 +1704,12 @@
     "aerobicEfficiency": "Efficacité aérobie",
     "aerobicEfficiencyDetail": "{{efforts}} passages comparables, variation modélisée de {{hrChange}} bpm à allure moyenne",
     "aerobicEfficiencyCaption": "{{quantity}}, du passage le plus ancien au plus récent",
+    "aerobicEfficiencyRange": "Plage de {{min}} à {{max}}",
+    "aerobicEfficiencyInverted": "Plus bas est tracé plus haut : moins de fréquence cardiaque pour l'allure",
+    "aerobicEfficiencySpoken": "{{title}}, {{efforts}} passages comparables",
+    "efficiencyVerdictImproving": "En progrès",
+    "efficiencyVerdictFlat": "Pas de changement net",
+    "efficiencyVerdictWorsening": "En recul",
     "correlationTitle": "Bien-être et vitesse",
     "correlationMethod": "r de Pearson de la vitesse par tour face à la valeur de bien-être du jour, intervalle à 95 %, au moins 10 passages avec une valeur",
     "correlationFamily_one": "Ajusté selon Holm sur {{count}} variable",
@@ -1754,7 +1740,7 @@
     "correlationVarMood": "Humeur",
     "correlationVarMotivation": "Motivation",
     "setAsReference": "Définir comme référence",
-    "setAsReferenceConfirm": "Utiliser cette activité comme référence ?\n\nLa section sera re-comparée avec toutes vos activités. Cela peut ajouter ou supprimer des activités de cette section.",
+    "setAsReferenceConfirm": "Utiliser cette activité comme référence ?\n\nLe tracé de la section suivra cette activité, et le graphique Écart mesurera l'avance ou le retard par rapport à elle.\n\nLa section sera re-comparée avec toutes vos activités, ce qui peut en ajouter ou en retirer.",
     "setReferenceError": "Échec de la définition de la référence. La section ou l'activité a peut-être changé. Veuillez réessayer.",
     "editBounds": "Modifier les limites",
     "pointsCount_one": "{{count}} point",
@@ -1788,6 +1774,7 @@
     "traversalsCount_other": "{{count}} passages",
     "calendarActivities_one": "{{count}} activité",
     "calendarActivities_other": "{{count}} activités",
+    "calendarTitle": "Par année",
     "scanForMatches": "Rechercher des correspondances",
     "rematchActivities": "Rapprocher à nouveau les activités",
     "scanForMore": "Rechercher d'autres sections",
@@ -1860,6 +1847,7 @@
     "trimFailedTitle": "Impossible de découper la section",
     "deleteFailedTitle": "Section non supprimée",
     "sectionRemoved": "Section supprimée",
+    "attemptExcluded": "Tentative exclue",
     "removeFailedTitle": "Section non supprimée",
     "removeFailed": "Impossible de supprimer la section.",
     "restoreFailedTitle": "Section non restaurée",
@@ -1894,7 +1882,7 @@
     "defaultStyle": "Style par défaut",
     "exploreMapStyle": "Carte d'exploration",
     "dialect": "Dialecte",
-    "disconnectAccount": "Déconnecter le compte",
+    "signOut": "Se déconnecter",
     "leaveDemo": "Quitter la démo",
     "display": "Affichage",
     "largeHistoryConfirm": "Télécharger quand même",
@@ -1903,6 +1891,7 @@
     "largeHistoryMessage_other": "Remonter aussi loin télécharge jusqu'à environ {{count}} activités. Cela prendra du temps, et l'application n'est pas garantie de rester rapide avec autant de données.",
     "largeHistoryTitle": "Téléchargement volumineux",
     "localDataRange": "Plage de données locale",
+    "localDataRangeEnd": "Fin de la plage de données locale",
     "heroMetric": "Métrique Principale",
     "hideDemoBanner": "Masquer la bannière démo",
     "hideDemoBannerHint": "Masquer la bannière pour les captures d'écran",
@@ -2152,6 +2141,7 @@
     "groupingLegendDropped": "Restent seuls",
     "groupingFailed": "Le regroupement n'a pas abouti. Déplace un curseur pour réessayer.",
     "authApiKey": "Clé API",
+    "authOAuth": "Connecté avec intervals.icu",
     "authDemo": "Mode démo",
     "scopeChats": "Discussions",
     "scopeLibrary": "Bibliothèque",
@@ -2204,7 +2194,7 @@
     "rangeNotDownloaded": "Pas encore telecharge",
     "rangePartlyDownloaded": "Une partie de cette période n'est pas encore téléchargée",
     "calendarRange": "Du {{start}} au {{end}}",
-    "seasonComparison": "Comparaison de saisons",
+    "seasonComparison": "Comparaison annuelle",
     "sixCalendarMonths": "6 m.",
     "swimPaceCurve": "Courbe d'allure natation",
     "thisMonth": "Ce mois",
@@ -2214,7 +2204,7 @@
     "time": "Temps",
     "totalTime": "Temps total",
     "vsLastMonth": "vs mois dernier",
-    "vsLastWeek": "vs semaine dernière",
+    "vsLastWeek": "vs semaine dernière jusqu'ici",
     "vsLastYear": "vs année dernière",
     "vsPrevious3Months": "vs 3 mois précédents",
     "vsPrevious6Months": "vs 6 mois précédents",
@@ -2275,7 +2265,18 @@
   },
   "trainingScreen": {
     "routes": "Parcours",
-    "countOfTotal": "{{shown}} sur {{total}}",
+    "routesListCount_one": "{{count}} parcours",
+    "routesListCount_many": "{{count}} de parcours",
+    "routesListCount_other": "{{count}} parcours",
+    "routesListCountOfTotal_one": "{{shown}} sur {{count}} parcours",
+    "routesListCountOfTotal_many": "{{shown}} sur {{count}} de parcours",
+    "routesListCountOfTotal_other": "{{shown}} sur {{count}} parcours",
+    "sectionsListCount_one": "{{count}} section",
+    "sectionsListCount_many": "{{count}} de sections",
+    "sectionsListCount_other": "{{count}} sections",
+    "sectionsListCountOfTotal_one": "{{shown}} sur {{count}} section",
+    "sectionsListCountOfTotal_many": "{{shown}} sur {{count}} de sections",
+    "sectionsListCountOfTotal_other": "{{shown}} sur {{count}} sections",
     "sections": "Sections"
   },
   "units": {
@@ -2343,11 +2344,11 @@
     "smoothingAverage_one": "Moyenne sur {{count}} jour",
     "smoothingAverage_other": "Moyenne sur {{count}} jours",
     "smoothingDescription": "Appliquer une moyenne mobile pour réduire le bruit quotidien et afficher les tendances plus clairement.",
-    "smoothingHint": "Auto utilise le lissage optimal pour la période sélectionnée",
+    "smoothingHint": "Auto : aucun lissage pour {{r7d}}, moyenne sur {{d1m}} jours pour {{r1m}}, {{d3m}} jours pour {{r3m}}, {{d6m}} pour {{r6m}} et {{d1y}} pour {{r1y}}.",
     "smoothingNone": "Aucun",
     "smoothingRaw": "Données brutes",
     "smoothingTitle": "Lissage des données",
-    "trendHint": "Les tendances VFC, sommeil et FC au repos apparaîtront ici lorsque des données seront enregistrées",
+    "trendHint": "Les données de bien-être d'intervals.icu (VFC, FC au repos, sommeil, score de sommeil, poids) apparaissent ici dès qu'elles sont enregistrées.",
     "weight": "Poids",
     "sleepDuration": "{{hours}} h {{minutes}} min"
   },
@@ -2477,7 +2478,7 @@
     "balanceFootnote": "Les ratios comparent les séries lestées, où le travail principal compte pour 1,0 et le travail secondaire pour 0,5.",
     "pairsInfoTitle": "Méthode d'équilibre",
     "pairsInfoIntro": "Ces paires antagonistes sont comparées :",
-    "pairsInfoThresholds": "Statut : équilibré ≤ 1,35×, à surveiller jusqu'à 2×, déséquilibré au-delà de 2×.",
+    "pairsInfoThresholds": "Plages : moins de 1,35×, de 1,35× à 2×, 2× ou plus.",
     "pairsInfoMinSignal": "Les paires avec moins de 4 séries lestées par côté sont ignorées.",
     "exercisesTargeting": "Exercices ciblant {{muscle}}",
     "exerciseWorkoutCount_one": "{{count}} séance",
@@ -2888,5 +2889,14 @@
       "zone": "Zone",
       "time": "Temps"
     }
+  },
+  "sportFamilies": {
+    "ride": "Cyclisme",
+    "winter": "Sports d'hiver",
+    "run": "Course",
+    "water": "Sports nautiques",
+    "foot": "À pied",
+    "strength": "Force",
+    "other": "Autre"
   }
 }

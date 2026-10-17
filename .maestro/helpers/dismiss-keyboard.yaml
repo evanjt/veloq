@@ -1,0 +1,38 @@
+# Put the keyboard away.
+#
+# `hideKeyboard` fails the flow on iOS. A number or decimal pad carries Done on
+# its own toolbar, which is how the athlete puts it away, so the flow taps that.
+# Any other keyboard is a single-line field's, which gives up focus on return.
+# Not for a multi-line field, where return is a new line. Return goes first:
+# it leaves no Done behind, and a tap on Done leaves no keyboard for return.
+
+appId: com.veloq.app.dev
+---
+- runFlow:
+    when:
+      platform: iOS
+      notVisible:
+        text: "Done"
+        childOf:
+          id: "Toolbar"
+    commands:
+      - pressKey: Enter
+
+- runFlow:
+    when:
+      platform: iOS
+      visible:
+        text: "Done"
+        childOf:
+          id: "Toolbar"
+    commands:
+      - tapOn:
+          text: "Done"
+          childOf:
+            id: "Toolbar"
+
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - hideKeyboard

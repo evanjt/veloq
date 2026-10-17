@@ -130,6 +130,7 @@ export type {
 export { type GroupingParams, groupingParamsOf, paintPreview } from './lib/groupingParams';
 export { previewNewNumber } from './lib/previewNewNumber';
 export { previewRefusalKey } from './lib/previewRefusal';
+export { ROW_PREVIEW_HEIGHT, ROW_PREVIEW_WIDTH } from './lib/rowLayout';
 export { informSectionWriteRefused } from './lib/sectionWriteRefusal';
 export { removeSectionWithUndo, restoreSection } from './lib/sectionVisibility';
 export { rescanRefusalKey } from './lib/rescanRefusal';

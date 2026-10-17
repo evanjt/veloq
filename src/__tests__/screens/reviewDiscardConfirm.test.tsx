@@ -9,7 +9,7 @@
  */
 import React from 'react';
 import { Alert, type AlertButton } from 'react-native';
-import { fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 
 import ReviewScreen from '@/app/recording/review';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -19,6 +19,7 @@ import * as haptics from '@/shared/ui/haptics';
 import { inStack } from '../__shared__/testStack';
 
 const mockReplace = jest.fn();
+let mockParams: Record<string, string> = {};
 const mockReturnTo = jest.fn();
 
 jest.mock('expo-router', () => ({
@@ -28,7 +29,7 @@ jest.mock('expo-router', () => ({
     back: jest.fn(),
     replace: (...a: unknown[]) => mockReplace(...a),
   },
-  useLocalSearchParams: () => ({}),
+  useLocalSearchParams: () => mockParams,
   Stack: { Screen: () => null },
 }));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
@@ -82,6 +83,13 @@ const mockClearBackup = clearRecordingBackup as jest.Mock;
 const mockMedium = haptics.medium as jest.Mock;
 let alertSpy: jest.SpyInstance;
 
+function manualEntry() {
+  useRecordingStore.getState().reset();
+  useRecordingStore.getState().startRecording('WeightTraining', 'manual');
+  useRecordingStore.setState({ athleteId: 'i1' });
+  mockParams = { manual: 'true', durationSeconds: '3600' };
+}
+
 function stoppedRide() {
   useRecordingStore.getState().reset();
   useRecordingStore.getState().startRecording('Ride', 'gps');
@@ -99,6 +107,7 @@ async function pressDiscard(review: Awaited<ReturnType<typeof render>>): Promise
 beforeEach(() => {
   jest.clearAllMocks();
   mockUploading = false;
+  mockParams = {};
   alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   useAuthStore.setState({ isAuthenticated: true, athleteId: 'i1' });
   stoppedRide();
@@ -159,6 +168,37 @@ describe('review screen discard', () => {
     expect(mockReplace).not.toHaveBeenCalled();
     expect(mockMedium).toHaveBeenCalledTimes(1);
     expect(haptics.success).not.toHaveBeenCalled();
+  });
+
+  // The accept empties the store, which leaves the screen holding no ride of its own. The
+  // screen sends a review with no ride to the record screen, and that must not race the
+  // accept's own way home: on iOS the replace lands after the pop and the athlete is left
+  // on Start Activity rather than the feed.
+  it.each([
+    ['a stopped ride', stoppedRide],
+    ['a manual entry', manualEntry],
+  ])('goes home and only home on the accept for %s', async (_kind, session) => {
+    session();
+    const review = await render(inStack(<ReviewScreen />));
+    const accept = (await pressDiscard(review)).find((b) => b.style === 'destructive');
+
+    await act(async () => {
+      accept?.onPress?.();
+    });
+
+    expect(useRecordingStore.getState().status).toBe('idle');
+    expect(mockReturnTo).toHaveBeenCalledWith('/');
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('still sends a review whose ride goes some other way to the record screen', async () => {
+    await render(inStack(<ReviewScreen />));
+
+    await act(async () => {
+      useRecordingStore.getState().reset();
+    });
+
+    expect(mockReplace).toHaveBeenCalledWith('/record');
   });
 
   it('does nothing on an accept that lands after the ride has already gone', async () => {

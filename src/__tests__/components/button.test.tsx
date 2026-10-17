@@ -184,6 +184,19 @@ describe('Button', () => {
     expect(styleOf(md('b-label')).fontSize).toBe(typography.body.fontSize);
   });
 
+  it('draws a small button as a smaller copy of the medium one: semibold, padded 12 a side', async () => {
+    const { getByTestId: sm } = await render(
+      <Button label="x" size="sm" onPress={() => {}} testID="b" />
+    );
+    const { getByTestId: md } = await render(<Button label="x" onPress={() => {}} testID="b" />);
+
+    expect(styleOf(sm('b')).paddingHorizontal).toBe(spacing.smPlus);
+    expect(styleOf(sm('b-label')).fontWeight).toBe('600');
+    expect(styleOf(sm('b-label')).fontWeight).toBe(styleOf(md('b-label')).fontWeight);
+    expect(styleOf(md('b')).paddingHorizontal).toBe(spacing.md);
+    expect(styleOf(md('b-label')).fontWeight).toBe(typography.bodyBold.fontWeight);
+  });
+
   it('reaches the platform tap-target minimum through hit slop, at either size', async () => {
     for (const size of ['sm', 'md'] as const) {
       const { getByTestId } = await render(

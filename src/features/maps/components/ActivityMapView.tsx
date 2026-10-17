@@ -51,7 +51,6 @@ import {
 } from './SectionCreationOverlay';
 import {
   type MapStyleType,
-  isDarkStyle,
   getNextStyle,
   MAP_ATTRIBUTIONS,
   statusBarStyleForMap,
@@ -214,8 +213,9 @@ export const ActivityMapView = memo(function ActivityMapView({
   initial3DCamera,
   streams,
 }: ActivityMapViewProps) {
-  // The app's theme, which the placeholder follows; `isDark` below is the map style's.
-  const palette = themePalette(useTheme().isDark);
+  // The placeholder and every control drawn over the map follow the app theme, not the base.
+  const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const { getStyleForActivity } = useMapPreferences();
   const preferredStyle = getStyleForActivity(activityType, activityId);
   const [chosenStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? preferredStyle);
@@ -627,7 +627,6 @@ export const ActivityMapView = memo(function ActivityMapView({
   const startPoint = validCoordinates[0];
   const endPoint = validCoordinates[validCoordinates.length - 1];
 
-  const isDark = isDarkStyle(mapStyle);
   const hasRoute = routeCoords.length > 0;
   // The fullscreen modal covers the hero, so its hidden column keeps its reserve and the hero text
   // does not reflow on the way back.
@@ -943,7 +942,6 @@ export const ActivityMapView = memo(function ActivityMapView({
           <AttributionOverlay
             ref={attributionRef}
             initialAttribution={initialAttributionRef.current}
-            isDark={isDarkStyle(mapStyle)}
             onClearanceChange={onAttributionClearanceChange}
           />
         ) : null}

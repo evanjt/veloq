@@ -1,42 +1,56 @@
 /**
- * Scenario: the Health tab's summary compares a period against the one before
- * it. For every range but the calendar week it summed a parsed array of every
- * activity body in twenty-one months to do it.
+ * Scenario: the Health tab's summary judged its own arrows over windows it
+ * built from whole calendar days, while the home card's engine read ended last
+ * week at the same hour as now. On a Wednesday morning the two disagreed on the
+ * same week, one up and one down.
  *
- * Expected behaviour: those two totals come from the engine, one aggregate read
- * per period. The calendar week still prefers the athlete-summary endpoint,
- * which is what intervals.icu's own week is.
+ * Expected behaviour: the summary paints every range's totals and arrows from
+ * the training screen read, as the engine judged them, and a tap between ranges
+ * reads nothing more.
  */
 
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
+import { RangeCoverage } from 'veloqrs';
 
 import { WeeklySummary } from '@/features/stats/components/WeeklySummary';
+import { initialiseI18n } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
+import { summaryComparison, trainingScreenRead } from '../__shared__/trainingScreenRead';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
-jest.mock('@/features/fitness/hooks', () => ({
-  ...jest.requireActual('@/features/fitness/hooks'),
-  useAthleteSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
-}));
 
-/** What the athlete-summary endpoint gives for the calendar week. */
-const SUMMARY = {
-  currentWeek: { count: 5, moving_time: 9000, distance: 80000, training_load: 120 },
-  previousWeek: { count: 4, moving_time: 7000, distance: 60000, training_load: 100 },
-};
+const stats = (count: number, hours: number, km: number, load: number) => ({
+  count,
+  totalDuration: hours * 3600,
+  totalDistance: km * 1000,
+  totalTss: load,
+});
 
 const engine = {
-  getPeriodStats: jest.fn((startTs: number) => ({
-    count: startTs > 0 ? 3 : 0,
-    totalDuration: 7200,
-    totalDistance: 60000,
-    totalTss: 90,
-  })),
-  getActivityBodies: jest.fn(() => []),
+  getTrainingScreenData: trainingScreenRead({
+    comparisons: (now) => ({
+      week: summaryComparison(now, {
+        currentStats: stats(2, 1.5, 30, 80),
+        previousStats: stats(2, 1, 30, 70),
+        moves: {
+          count: { glyph: '→' },
+          duration: { glyph: '↑', percent: 50 },
+          distance: { glyph: '→' },
+          load: { glyph: '↑', percent: 14 },
+        },
+      }),
+      year: summaryComparison(now, {
+        currentStats: stats(40, 60, 900, 3000),
+        previousStats: stats(50, 80, 1200, 3600),
+        moves: { count: { glyph: '↓', percent: 20 } },
+      }),
+    }),
+  }),
+  rangeCoverage: jest.fn(() => RangeCoverage.Loaded),
   subscribe: jest.fn(() => () => {}),
 };
 
@@ -45,6 +59,10 @@ let client: QueryClient;
 function wrapper({ children }: { children: React.ReactNode }) {
   return React.createElement(QueryClientProvider, { client }, children);
 }
+
+beforeAll(async () => {
+  await initialiseI18n('en-GB');
+});
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -55,45 +73,45 @@ beforeEach(() => {
 });
 
 describe('WeeklySummary', () => {
-  it('reads a year from the engine rather than from parsed bodies', async () => {
+  it('draws the week up when the engine judged it up, with its percentage', async () => {
     const view = await render(<WeeklySummary />, { wrapper });
 
-    await fireEvent.press(view.getByTestId('weekly-summary-range-year'));
-
-    await waitFor(() => expect(engine.getPeriodStats).toHaveBeenCalled());
-    expect(engine.getActivityBodies).not.toHaveBeenCalled();
+    await waitFor(() => expect(view.getByTestId('weekly-summary-duration')).toBeTruthy());
+    expect(view.getByTestId('weekly-summary-duration-trend')).toHaveTextContent('↑ 50%');
+    expect(view.getByText('vs last week so far')).toBeTruthy();
+    // A flat move is drawn with no percentage.
+    expect(view.getByTestId('weekly-summary-count-trend')).toHaveTextContent('→', {
+      exact: true,
+    });
   });
 
-  it('asks for the current period and the one before it, and no more', async () => {
-    const view = await render(<WeeklySummary />, { wrapper });
-    await waitFor(() => expect(engine.getPeriodStats).toHaveBeenCalled());
-    engine.getPeriodStats.mockClear();
-
-    await fireEvent.press(view.getByTestId('weekly-summary-range-year'));
-
-    await waitFor(() => expect(engine.getPeriodStats.mock.calls.length).toBe(2));
-    const windows = engine.getPeriodStats.mock.calls.map((c) => (c as unknown as number[])[0]);
-    expect(new Set(windows).size).toBe(2);
-  });
-
-  it('takes the current week from the athlete summary and the span before it from the engine', async () => {
-    jest
-      .requireMock('@/features/fitness/hooks')
-      .useAthleteSummary.mockReturnValue({ data: SUMMARY, isLoading: false });
-
+  it('asks the engine for the moment it reads, so last week ends at the same hour', async () => {
     await render(<WeeklySummary />, { wrapper });
 
-    await waitFor(() => expect(engine.getPeriodStats).toHaveBeenCalledTimes(1));
-    // Monday 15 June 2026 is the current week, so the previous window starts a week before it.
-    const [startTs] = engine.getPeriodStats.mock.calls[0] as unknown as [number];
-    expect(new Date(startTs * 1000).toISOString()).toBe('2026-06-08T00:00:00.000Z');
+    await waitFor(() => expect(engine.getTrainingScreenData).toHaveBeenCalled());
+    const [windows] = engine.getTrainingScreenData.mock.calls[0];
+    const now = new Date();
+    const wall = Date.UTC(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      now.getHours(),
+      now.getMinutes(),
+      now.getSeconds()
+    );
+    expect(Math.abs(windows.nowWallSeconds * 1000 - wall)).toBeLessThan(5_000);
   });
 
-  it('shows the engine totals for the period', async () => {
+  it('switches range from the one read rather than reading per range', async () => {
     const view = await render(<WeeklySummary />, { wrapper });
+    await waitFor(() => expect(engine.getTrainingScreenData).toHaveBeenCalledTimes(1));
 
     await fireEvent.press(view.getByTestId('weekly-summary-range-year'));
 
-    await waitFor(() => expect(view.getByText('3')).toBeTruthy());
+    await waitFor(() => expect(view.getByText('40')).toBeTruthy());
+    expect(view.getByTestId('weekly-summary-count-trend')).toHaveTextContent('↓ 20%');
+    // Nothing the year has no earlier total of is judged.
+    expect(view.queryByTestId('weekly-summary-duration-trend')).toBeNull();
+    expect(engine.getTrainingScreenData).toHaveBeenCalledTimes(1);
   });
 });

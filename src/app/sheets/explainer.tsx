@@ -22,7 +22,11 @@ function ExplainerSheetContent() {
 
   return (
     <View testID="explainer-sheet" style={styles.sheet}>
-      <SheetHeader title={input.title} onClose={() => tapBack()} />
+      <SheetHeader
+        title={input.title}
+        onClose={() => tapBack()}
+        closeTestID="explainer-sheet-close"
+      />
       <View style={styles.body}>
         {paragraphs.map((paragraph, i) => (
           <Text key={i} style={styles.paragraph}>

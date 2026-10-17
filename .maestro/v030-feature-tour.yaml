@@ -30,10 +30,10 @@ tags:
     duration: 800
 - extendedWaitUntil:
     visible:
-      id: "home-filter-cycling"
+      id: "home-filter-ride"
     timeout: 5000
 - assertVisible:
-    id: "home-filter-running"
+    id: "home-filter-run"
 
 # Scroll feed to see multiple cards
 - swipe:

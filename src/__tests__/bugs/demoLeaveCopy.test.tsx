@@ -4,7 +4,7 @@
  *
  * Expected behaviour: the login screen says so beneath Try Demo before it
  * starts, and in demo the sign-out row reads "Leave demo" with a confirm that
- * names no credentials. A real account keeps the Disconnect row and its copy.
+ * names no credentials. A real account keeps the Sign out row and its copy.
  */
 
 import React from 'react';
@@ -62,7 +62,7 @@ describe('the sign-out row', () => {
     await render(<ProfileAccountSection />);
     const row = screen.getByTestId('settings-logout-button');
     expect(screen.getByText('Leave demo')).toBeTruthy();
-    expect(screen.queryByText(i18n.t('settings.disconnectAccount'))).toBeNull();
+    expect(screen.queryByText(i18n.t('settings.signOut'))).toBeNull();
 
     await fireEvent.press(row);
     const [title, message, buttons] = alert.mock.calls[0];
@@ -72,11 +72,11 @@ describe('the sign-out row', () => {
     expect(buttons?.find((b: { style?: string }) => b.style === 'destructive')?.text).toBe('Leave');
   });
 
-  it('keeps Disconnect and its credentials copy for a real account', async () => {
+  it('keeps Sign out and its copy for a real account', async () => {
     useAuthStore.setState({ authMethod: 'oauth', clearCredentials: jest.fn(async () => {}) });
     await render(<ProfileAccountSection />);
-    expect(screen.getByText(i18n.t('settings.disconnectAccount'))).toBeTruthy();
+    expect(screen.getByText(i18n.t('settings.signOut'))).toBeTruthy();
     await fireEvent.press(screen.getByTestId('settings-logout-button'));
-    expect(alert.mock.calls[0][1]).toBe(i18n.t('alerts.disconnectMessage'));
+    expect(alert.mock.calls[0][1]).toBe(i18n.t('alerts.signOutMessage'));
   });
 });

@@ -22,9 +22,10 @@ import {
   darkColors,
   iconSize,
   ink,
+  layers,
   spacing,
-  typography,
   stroke,
+  typography,
 } from '@/theme';
 import { PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { navigateTab } from '@/shared/app/navigation';
@@ -214,7 +215,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 1000,
+    zIndex: layers.tabBar,
     justifyContent: 'flex-end',
   },
   opaqueSurface: {

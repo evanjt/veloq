@@ -33,13 +33,6 @@ const ALLOWED = [
       'read only by the worklets bundle mode, which the app does not use; Metro runs on expo/metro-config',
   },
   {
-    kind: 'missing',
-    name: '@testing-library/dom',
-    requiredBy: '@testing-library/user-event',
-    reason:
-      'user-event comes in through expo-router for web tests; the suite renders with @testing-library/react-native',
-  },
-  {
     kind: 'invalid',
     name: 'ws',
     requiredBy: '@expo/ws-tunnel',

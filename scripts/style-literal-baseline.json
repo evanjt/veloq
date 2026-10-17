@@ -12,7 +12,6 @@
     "src/app/sheets/merge-confirm.tsx": 1,
     "src/features/activity/components/ActivityCard.tsx": 22,
     "src/features/activity/components/ActivityMapPreview.tsx": 1,
-    "src/features/activity/components/ChartDistanceIndicator.tsx": 1,
     "src/features/activity/components/ChartTypeSelector.tsx": 2,
     "src/features/activity/components/ChartYAxisLabel.tsx": 2,
     "src/features/activity/components/CombinedPlot.tsx": 1,
@@ -23,13 +22,12 @@
     "src/features/auth/components/SessionExpiredNotice.tsx": 3,
     "src/features/fitness/components/BestEffortRow.tsx": 2,
     "src/features/fitness/components/SeasonBestsSection.tsx": 2,
-    "src/features/home/components/SummaryCardHRVSparkline.tsx": 4,
+    "src/features/home/components/SummaryCardHRVSparkline.tsx": 2,
     "src/features/home/components/SummaryCardSparkline.tsx": 2,
     "src/features/insights/components/content/SectionPerformanceTimeline.tsx": 1,
     "src/features/insights/components/InsightHistoryChart.tsx": 1,
     "src/features/insights/components/InsightHistoryGraphic.tsx": 1,
     "src/features/insights/components/InsightListCard.tsx": 1,
-    "src/features/insights/components/SupportingDataSection.tsx": 2,
     "src/features/maps/components/AttributionOverlay.tsx": 1,
     "src/features/maps/components/BaseMapView.tsx": 1,
     "src/features/maps/components/MapEmptyState.tsx": 1,
@@ -66,7 +64,6 @@
     "src/features/strength/components/MuscleGroupView.tsx": 2,
     "src/features/strength/components/StrengthActivityCard.tsx": 1,
     "src/features/wellness/components/WellnessTrendsChart.tsx": 1,
-    "src/shared/charts/CurveChart.tsx": 2,
     "src/shared/charts/useChartColors.ts": 2,
     "src/shared/ui/BottomTabBar.tsx": 10,
     "src/shared/ui/Button.tsx": 1,
@@ -195,10 +192,8 @@
     "src/shared/charts/ZoneHistogram.tsx": 1,
     "src/shared/ui/BottomTabBar.tsx": 1,
     "src/shared/ui/Button.tsx": 1,
-    "src/shared/ui/CircleOption.tsx": 1,
     "src/shared/ui/DetailHero.tsx": 1,
     "src/shared/ui/EmptyState.tsx": 2,
-    "src/shared/ui/ExplanationCard.tsx": 3,
     "src/shared/ui/GlobalErrorBoundary.tsx": 1,
     "src/shared/ui/ScreenErrorBoundary.tsx": 1,
     "src/shared/ui/SwipeableTabs.tsx": 1
@@ -277,10 +272,8 @@
     "src/features/home/components/SummaryCard.tsx": 3,
     "src/features/recording/components/UnlockTrack.tsx": 1,
     "src/features/routes/components/DebugInfoPanel.tsx": 1,
-    "src/features/routes/components/TodayBanner.tsx": 1,
     "src/features/strength/components/ExerciseTable.tsx": 2,
-    "src/features/strength/components/StrengthActivityCard.tsx": 1,
-    "src/shared/ui/ExplanationCard.tsx": 1
+    "src/features/strength/components/StrengthActivityCard.tsx": 1
   },
   "line-height": {
     "src/app/about.tsx": 4,
@@ -299,13 +292,11 @@
     "src/features/strength/components/ExerciseTable.tsx": 1,
     "src/features/strength/components/MuscleGroupView.tsx": 1,
     "src/features/strength/components/StrengthBalanceView.tsx": 2,
-    "src/features/strength/components/StrengthPairsInfoSheet.tsx": 1,
-    "src/shared/ui/ExplanationCard.tsx": 1
+    "src/features/strength/components/StrengthPairsInfoSheet.tsx": 1
   },
   "motion": {},
   "opacity": {
     "src/features/activity/components/CombinedPlot.tsx": 5,
-    "src/features/home/components/SummaryCardHRVSparkline.tsx": 1,
     "src/features/maps/components/TerrainSnapshotWebView.tsx": 1,
     "src/features/recording/components/RpeSlider.tsx": 1,
     "src/features/recording/components/StrengthFollow.tsx": 1,
@@ -316,10 +307,7 @@
     "src/features/routes/lib/groupingLegend.ts": 3,
     "src/shared/charts/CurveChart.tsx": 1
   },
-  "shadow": {
-    "src/features/maps/components/ActivityMapView.styles.ts": 1,
-    "src/features/routes/components/sectionMapView.styles.ts": 1
-  },
+  "shadow": {},
   "stroke-width": {
     "src/app/named-corridors.tsx": 1,
     "src/features/activity/components/CombinedPlot.tsx": 4,
@@ -330,7 +318,6 @@
     "src/features/insights/components/content/SectionInsightMap.tsx": 2,
     "src/features/insights/components/InsightHistoryGraphic.tsx": 1,
     "src/features/insights/components/SupportingDataSection.tsx": 1,
-    "src/features/routes/components/section/SectionEfficiencyCard.tsx": 1,
     "src/features/routes/components/section/SectionScatterChart.tsx": 4,
     "src/features/routes/components/section/SectionSparkline.tsx": 2,
     "src/features/routes/components/SectionRow.tsx": 5,
@@ -341,7 +328,6 @@
     "src/features/settings/components/whatsNew/SectionPerformanceSlide.tsx": 5,
     "src/features/stats/components/FTPTrendChart.tsx": 2,
     "src/features/strength/components/BodyPairWithLoupe.tsx": 1,
-    "src/features/strength/components/ExerciseDetailScreen.tsx": 1,
     "src/shared/charts/CurveChart.tsx": 4,
     "src/shared/ui/ShaderWarmup.tsx": 1,
     "src/shared/ui/TrackPreview.tsx": 5
@@ -353,34 +339,11 @@
     "src/features/maps/lib/routeLineCollection.ts": 1,
     "src/features/maps/lib/sectionLineCollection.ts": 1,
     "src/features/stats/lib/periodWindows.ts": 1,
-    "src/features/stats/lib/weeklyTrend.ts": 1,
     "src/shared/activity/activityUtils.ts": 1,
     "src/shared/app/NavigationThemeProvider.tsx": 1,
     "src/shared/app/screenHeaders.ts": 1,
     "src/shared/format/trend.ts": 1,
     "src/shared/theme/widgetTheme.ts": 2
   },
-  "z-index": {
-    "src/app/(tabs)/map.tsx": 1,
-    "src/features/activity/components/ActivityCard.tsx": 3,
-    "src/features/activity/components/ActivityChartsSection.tsx": 1,
-    "src/features/home/components/SummaryCard.tsx": 1,
-    "src/features/maps/components/ActivityMapView.styles.ts": 3,
-    "src/features/maps/components/AttributionOverlay.tsx": 1,
-    "src/features/maps/components/BaseMapView.tsx": 4,
-    "src/features/maps/components/SectionCreationOverlay.tsx": 1,
-    "src/features/maps/components/TerrainSnapshotWebView.tsx": 1,
-    "src/features/recording/components/RecordFAB.tsx": 1,
-    "src/features/recording/components/RecordingReturnPill.tsx": 1,
-    "src/features/recording/components/TrimSlider.tsx": 2,
-    "src/features/routes/components/sectionMapView.styles.ts": 3,
-    "src/features/settings/components/whatsNew/TourReturnPill.tsx": 1,
-    "src/features/strength/components/BodyPairWithLoupe.tsx": 2,
-    "src/features/strength/components/MuscleGroupView.tsx": 1,
-    "src/features/strength/components/StrengthActivityCard.tsx": 2,
-    "src/shared/ui/BottomTabBar.tsx": 1,
-    "src/shared/ui/DetailHero.tsx": 1,
-    "src/shared/ui/OfflineBanner.tsx": 1,
-    "src/shared/ui/SyncProgressStrip.tsx": 1
-  }
+  "z-index": {}
 }

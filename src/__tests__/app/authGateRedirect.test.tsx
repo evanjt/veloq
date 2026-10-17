@@ -97,7 +97,7 @@ function engine(overrides: Partial<MockEngine> = {}): MockEngine {
     setSyncCredentials: jest.fn(),
     clearSyncCredentials: jest.fn(),
     clear: jest.fn(async () => undefined),
-    checkRecordZip: jest.fn(async () => undefined),
+    checkRecordZip: jest.fn(async () => ({})),
     ...overrides,
   };
 }

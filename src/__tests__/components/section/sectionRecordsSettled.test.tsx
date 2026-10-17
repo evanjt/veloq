@@ -85,8 +85,7 @@ describe('the calendar card while time streams are outstanding', () => {
   it('draws no overall-record trophy on the year row or the month row', async () => {
     const tree = await renderCalendar(false);
 
-    // The month row keeps its year-best trophies, in the direction colours,
-    // and never the gold overall mark or its word.
+    // A year's best is not the record, so it carries no trophy at all.
     const gold = trophies(tree).filter((icon) => icon.props.color === colors.chartGoldMark);
     expect(gold).toHaveLength(0);
     expect(tree.queryAllByText('PR')).toHaveLength(0);
@@ -94,14 +93,10 @@ describe('the calendar card while time streams are outstanding', () => {
     expect(yearTrophies).toHaveLength(0);
   });
 
-  it('keeps the year-best mark on the month row', async () => {
+  it('draws no trophy on the month row, where the year-best keeps its bold time', async () => {
     const tree = await renderCalendar(false);
 
-    const monthTrophies = trophies(tree).filter((icon) => icon.props.size === iconSize.xs);
-    expect(monthTrophies.map((icon) => icon.props.color)).toEqual([
-      '#3B82F6',
-      colors.reverseDirection,
-    ]);
+    expect(trophies(tree)).toHaveLength(0);
   });
 
   it('draws the overall-record trophies once the streams are in', async () => {
@@ -109,7 +104,7 @@ describe('the calendar card while time streams are outstanding', () => {
 
     expect(trophies(tree).filter((icon) => icon.props.size === iconSize.sm)).toHaveLength(2);
     expect(trophies(tree).filter((icon) => icon.props.color === colors.chartGoldMark)).toHaveLength(
-      2
+      4
     );
     expect(tree.getAllByText('PR')).toHaveLength(2);
   });

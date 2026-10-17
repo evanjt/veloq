@@ -54,6 +54,11 @@ pub(crate) struct RecordPayload {
     /// places the record on it.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub(crate) upstream_ids: BTreeMap<String, String>,
+    /// When the record was written, RFC 3339 in UTC. The file's own time is
+    /// not kept by every restore that carries it back, so a record dates
+    /// itself. A record written before this field reads as `None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) written_at: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -632,6 +637,7 @@ pub(crate) fn collect_record_payload(db: &Connection) -> Result<RecordPayload, S
         athlete_id,
         entries,
         upstream_ids,
+        written_at: Some(chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true)),
     })
 }
 
@@ -1344,6 +1350,43 @@ mod tests {
         assert_eq!(zip.len(), 1);
         let entry = zip.by_name("record.json").unwrap();
         assert_eq!(entry.compression(), zip::CompressionMethod::Deflated);
+    }
+
+    /// Scenario: a record zip comes back through the platform's restore, which
+    /// rewrites the file's modification time to a date in January 1970.
+    ///
+    /// Expected behaviour: the zip still says when it was written, from its
+    /// own content, and a zip written before it carried that reads as unknown.
+    #[test]
+    fn test_record_zip_carries_the_time_it_was_written_past_a_lost_file_time() {
+        let db = fixture();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("record.zip");
+        let before = chrono::Utc::now();
+        let payload = collect_record_payload(&db).unwrap();
+        write_record_zip(&payload, path.to_str().unwrap()).unwrap();
+        let after = chrono::Utc::now();
+        std::fs::File::options()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_modified(std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_790_856))
+            .unwrap();
+
+        let read = read_record_zip(path.to_str().unwrap()).unwrap();
+        let written_at = read.written_at.expect("the zip names no time of writing");
+        let written_at = chrono::DateTime::parse_from_rfc3339(&written_at)
+            .unwrap()
+            .with_timezone(&chrono::Utc);
+        let second = chrono::Duration::seconds(1);
+        assert!(
+            written_at >= before - second && written_at <= after + second,
+            "written at {written_at}, between {before} and {after}"
+        );
+
+        let older: super::RecordPayload =
+            serde_json::from_str(r#"{"version":1,"athlete_id":"athlete-1","entries":[]}"#).unwrap();
+        assert_eq!(older.written_at, None);
     }
 
     /// Write a record zip whose one entry inflates to `len` spaces.

@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { sourceFor, type AuthMethod } from '@/shared/app/source';
+import { SCHEME_LABEL_KEY, sourceFor, type AuthMethod } from '@/shared/app/source';
 import { useRouteSettings } from '@/features/routes';
 import { useRecordingPreferences } from '@/features/recording';
 import { useSensorStore } from '@/features/sensors';
@@ -53,13 +53,7 @@ function AccountRow({
   const hasValidProfileUrl =
     profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
 
-  const scheme = sourceFor({ authMethod })?.scheme;
-  const badgeLabel =
-    scheme === 'oauth'
-      ? 'OAuth'
-      : scheme === 'apiKey'
-        ? t('settings.authApiKey')
-        : t('settings.authDemo');
+  const badgeLabel = t(SCHEME_LABEL_KEY[sourceFor({ authMethod })?.scheme ?? 'demo']);
 
   return (
     <View

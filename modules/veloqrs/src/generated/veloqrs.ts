@@ -1476,44 +1476,59 @@ const FfiConverterTypeFfiActivityBodiesPage = (() => {
 })();
 
 /**
- * The feed's sport chips. Cycling, running and swimming are the engine's
- * families and Other takes every sport outside them, so a sport nobody listed
- * still answers to a chip.
+ * The family a sport is drawn and filtered in, in stack order. The feed's
+ * chips and the map's counts are one per family, and Other takes every
+ * sport no family lists, so a sport nobody listed still answers to a chip.
  */
-export enum FfiFeedGroup {
-  Cycling,
-  Running,
-  Swimming,
+export enum FfiSportFamily {
+  Ride,
+  Winter,
+  Run,
+  Water,
+  Foot,
+  Strength,
   Other,
 }
 
-const FfiConverterTypeFfiFeedGroup = (() => {
-  type TypeName = FfiFeedGroup;
+const FfiConverterTypeFfiSportFamily = (() => {
+  type TypeName = FfiSportFamily;
   class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
     readFromCursor(c: Cursor): TypeName {
       switch (c.readI32()) {
         case 1:
-          return FfiFeedGroup.Cycling;
+          return FfiSportFamily.Ride;
         case 2:
-          return FfiFeedGroup.Running;
+          return FfiSportFamily.Winter;
         case 3:
-          return FfiFeedGroup.Swimming;
+          return FfiSportFamily.Run;
         case 4:
-          return FfiFeedGroup.Other;
+          return FfiSportFamily.Water;
+        case 5:
+          return FfiSportFamily.Foot;
+        case 6:
+          return FfiSportFamily.Strength;
+        case 7:
+          return FfiSportFamily.Other;
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
       }
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
       switch (value) {
-        case FfiFeedGroup.Cycling:
+        case FfiSportFamily.Ride:
           return c.writeI32(1);
-        case FfiFeedGroup.Running:
+        case FfiSportFamily.Winter:
           return c.writeI32(2);
-        case FfiFeedGroup.Swimming:
+        case FfiSportFamily.Run:
           return c.writeI32(3);
-        case FfiFeedGroup.Other:
+        case FfiSportFamily.Water:
           return c.writeI32(4);
+        case FfiSportFamily.Foot:
+          return c.writeI32(5);
+        case FfiSportFamily.Strength:
+          return c.writeI32(6);
+        case FfiSportFamily.Other:
+          return c.writeI32(7);
       }
     }
     allocationSize(value: TypeName): number {
@@ -1544,9 +1559,9 @@ export type FfiActivityBodiesQuery = {
    */
   needle: string;
   /**
-   * An empty list matches every sport; otherwise any selected group matches.
+   * An empty list matches every sport; otherwise any selected family matches.
    */
-  sportGroups: Array<FfiFeedGroup>;
+  sportFamilies: Array<FfiSportFamily>;
   offset: number;
   /**
    * None returns every match from the offset on.
@@ -1581,7 +1596,7 @@ const FfiConverterTypeFfiActivityBodiesQuery = (() => {
         oldestTs: FfiConverterOptionalFloat64.readFromCursor(c),
         newestTs: FfiConverterOptionalFloat64.readFromCursor(c),
         needle: FfiConverterString.readFromCursor(c),
-        sportGroups: FfiConverterSequenceTypeFfiFeedGroup.readFromCursor(c),
+        sportFamilies: FfiConverterSequenceTypeFfiSportFamily.readFromCursor(c),
         offset: FfiConverterUInt32.readFromCursor(c),
         limit: FfiConverterOptionalUInt32.readFromCursor(c),
       };
@@ -1590,8 +1605,8 @@ const FfiConverterTypeFfiActivityBodiesQuery = (() => {
       FfiConverterOptionalFloat64.writeIntoCursor(value.oldestTs, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.newestTs, c);
       FfiConverterString.writeIntoCursor(value.needle, c);
-      FfiConverterSequenceTypeFfiFeedGroup.writeIntoCursor(
-        value.sportGroups,
+      FfiConverterSequenceTypeFfiSportFamily.writeIntoCursor(
+        value.sportFamilies,
         c,
       );
       FfiConverterUInt32.writeIntoCursor(value.offset, c);
@@ -1602,7 +1617,9 @@ const FfiConverterTypeFfiActivityBodiesQuery = (() => {
         FfiConverterOptionalFloat64.allocationSize(value.oldestTs) +
         FfiConverterOptionalFloat64.allocationSize(value.newestTs) +
         FfiConverterString.allocationSize(value.needle) +
-        FfiConverterSequenceTypeFfiFeedGroup.allocationSize(value.sportGroups) +
+        FfiConverterSequenceTypeFfiSportFamily.allocationSize(
+          value.sportFamilies,
+        ) +
         FfiConverterUInt32.allocationSize(value.offset) +
         FfiConverterOptionalUInt32.allocationSize(value.limit)
       );
@@ -11198,7 +11215,7 @@ const FfiConverterTypeFfiInsightsParams = (() => {
 })();
 
 export type FfiMapCategoryCount = {
-  category: string;
+  family: FfiSportFamily;
   count: number;
 };
 
@@ -11224,17 +11241,17 @@ const FfiConverterTypeFfiMapCategoryCount = (() => {
   class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
     readFromCursor(c: Cursor): TypeName {
       return {
-        category: FfiConverterString.readFromCursor(c),
+        family: FfiConverterTypeFfiSportFamily.readFromCursor(c),
         count: FfiConverterUInt32.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterString.writeIntoCursor(value.category, c);
+      FfiConverterTypeFfiSportFamily.writeIntoCursor(value.family, c);
       FfiConverterUInt32.writeIntoCursor(value.count, c);
     }
     allocationSize(value: TypeName): number {
       return (
-        FfiConverterString.allocationSize(value.category) +
+        FfiConverterTypeFfiSportFamily.allocationSize(value.family) +
         FfiConverterUInt32.allocationSize(value.count)
       );
     }
@@ -12157,6 +12174,11 @@ export type FfiMergeCandidate = {
   visitCount: number;
   overlapPct: number;
   centerDistanceMeters: number;
+  /**
+   * The candidate's line thinned to what a row thumbnail draws, delta+varint
+   * encoded as `FfiRecentPR.encoded_polyline` is. Empty when it cannot be read.
+   */
+  encodedPolyline: ArrayBuffer;
 };
 
 /**
@@ -12188,6 +12210,7 @@ const FfiConverterTypeFfiMergeCandidate = (() => {
         visitCount: FfiConverterUInt32.readFromCursor(c),
         overlapPct: FfiConverterFloat64.readFromCursor(c),
         centerDistanceMeters: FfiConverterFloat64.readFromCursor(c),
+        encodedPolyline: FfiConverterArrayBuffer.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -12198,6 +12221,7 @@ const FfiConverterTypeFfiMergeCandidate = (() => {
       FfiConverterUInt32.writeIntoCursor(value.visitCount, c);
       FfiConverterFloat64.writeIntoCursor(value.overlapPct, c);
       FfiConverterFloat64.writeIntoCursor(value.centerDistanceMeters, c);
+      FfiConverterArrayBuffer.writeIntoCursor(value.encodedPolyline, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -12207,7 +12231,8 @@ const FfiConverterTypeFfiMergeCandidate = (() => {
         FfiConverterFloat64.allocationSize(value.distanceMeters) +
         FfiConverterUInt32.allocationSize(value.visitCount) +
         FfiConverterFloat64.allocationSize(value.overlapPct) +
-        FfiConverterFloat64.allocationSize(value.centerDistanceMeters)
+        FfiConverterFloat64.allocationSize(value.centerDistanceMeters) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedPolyline)
       );
     }
   }
@@ -13326,6 +13351,53 @@ const FfiConverterTypeFfiQuarantineReport = (() => {
 })();
 
 /**
+ * What a check of a record zip learnt about the zip, once it found nothing
+ * the restore would refuse.
+ */
+export type FfiRecordCheck = {
+  /**
+   * When the zip was written, RFC 3339 in UTC, from its own content.
+   * `None` for a zip written before records carried the time.
+   */
+  writtenAt?: string;
+};
+
+/**
+ * Generated factory for {@link FfiRecordCheck} record objects.
+ */
+export const FfiRecordCheck = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiRecordCheck, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRecordCheck>,
+  });
+})();
+
+const FfiConverterTypeFfiRecordCheck = (() => {
+  type TypeName = FfiRecordCheck;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        writtenAt: FfiConverterOptionalString.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterOptionalString.writeIntoCursor(value.writtenAt, c);
+    }
+    allocationSize(value: TypeName): number {
+      return FfiConverterOptionalString.allocationSize(value.writtenAt);
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * One step of a direction's record progression: an eligible lap strictly
  * faster than every eligible lap before it.
  */
@@ -13697,6 +13769,11 @@ export type FfiRetiredSection = {
   at: string;
   into?: string;
   versions: Array<number>;
+  /**
+   * The name it was last shown under.
+   */
+  name?: string;
+  distanceMeters?: number;
 };
 
 /**
@@ -13726,6 +13803,8 @@ const FfiConverterTypeFfiRetiredSection = (() => {
         at: FfiConverterString.readFromCursor(c),
         into: FfiConverterOptionalString.readFromCursor(c),
         versions: FfiConverterSequenceFloat64.readFromCursor(c),
+        name: FfiConverterOptionalString.readFromCursor(c),
+        distanceMeters: FfiConverterOptionalFloat64.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -13734,6 +13813,8 @@ const FfiConverterTypeFfiRetiredSection = (() => {
       FfiConverterString.writeIntoCursor(value.at, c);
       FfiConverterOptionalString.writeIntoCursor(value.into, c);
       FfiConverterSequenceFloat64.writeIntoCursor(value.versions, c);
+      FfiConverterOptionalString.writeIntoCursor(value.name, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.distanceMeters, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -13741,7 +13822,9 @@ const FfiConverterTypeFfiRetiredSection = (() => {
         FfiConverterString.allocationSize(value.kind) +
         FfiConverterString.allocationSize(value.at) +
         FfiConverterOptionalString.allocationSize(value.into) +
-        FfiConverterSequenceFloat64.allocationSize(value.versions)
+        FfiConverterSequenceFloat64.allocationSize(value.versions) +
+        FfiConverterOptionalString.allocationSize(value.name) +
+        FfiConverterOptionalFloat64.allocationSize(value.distanceMeters)
       );
     }
   }
@@ -19127,6 +19210,62 @@ const FfiConverterTypeFfiStartupData = (() => {
 })();
 
 /**
+ * One total of a period against the same elapsed part of the period before,
+ * judged once in the engine.
+ */
+export type FfiStatTrend = {
+  /**
+   * The glyph `trend_table::glyph` draws for the move.
+   */
+  glyph: string;
+  /**
+   * The size of the move in whole percent of the earlier total, absent for
+   * a move inside the deadband.
+   */
+  percent?: number;
+};
+
+/**
+ * Generated factory for {@link FfiStatTrend} record objects.
+ */
+export const FfiStatTrend = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiStatTrend, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiStatTrend>,
+  });
+})();
+
+const FfiConverterTypeFfiStatTrend = (() => {
+  type TypeName = FfiStatTrend;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        glyph: FfiConverterString.readFromCursor(c),
+        percent: FfiConverterOptionalUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterString.writeIntoCursor(value.glyph, c);
+      FfiConverterOptionalUInt32.writeIntoCursor(value.percent, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.glyph) +
+        FfiConverterOptionalUInt32.allocationSize(value.percent)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * A stored curve and when it was fetched.
  *
  * The two travel together because a curve drawn offline says nothing about
@@ -19273,6 +19412,160 @@ const FfiConverterTypeFfiStrengthScreenData = (() => {
           value.exercises,
         ) +
         FfiConverterUInt32.allocationSize(value.owedCount)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * A period to now against the same elapsed span of the period before it,
+ * each window inclusive at both ends. A trend is absent when the earlier
+ * period has none of that total, so nothing is compared with zero.
+ */
+export type FfiSummaryComparison = {
+  current: FfiTimestampRange;
+  previous: FfiTimestampRange;
+  currentStats: FfiPeriodStats;
+  previousStats: FfiPeriodStats;
+  count?: FfiStatTrend;
+  duration?: FfiStatTrend;
+  distance?: FfiStatTrend;
+  load?: FfiStatTrend;
+};
+
+/**
+ * Generated factory for {@link FfiSummaryComparison} record objects.
+ */
+export const FfiSummaryComparison = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiSummaryComparison,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSummaryComparison>,
+  });
+})();
+
+const FfiConverterTypeFfiSummaryComparison = (() => {
+  type TypeName = FfiSummaryComparison;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        current: FfiConverterTypeFfiTimestampRange.readFromCursor(c),
+        previous: FfiConverterTypeFfiTimestampRange.readFromCursor(c),
+        currentStats: FfiConverterTypeFfiPeriodStats.readFromCursor(c),
+        previousStats: FfiConverterTypeFfiPeriodStats.readFromCursor(c),
+        count: FfiConverterOptionalTypeFfiStatTrend.readFromCursor(c),
+        duration: FfiConverterOptionalTypeFfiStatTrend.readFromCursor(c),
+        distance: FfiConverterOptionalTypeFfiStatTrend.readFromCursor(c),
+        load: FfiConverterOptionalTypeFfiStatTrend.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterTypeFfiTimestampRange.writeIntoCursor(value.current, c);
+      FfiConverterTypeFfiTimestampRange.writeIntoCursor(value.previous, c);
+      FfiConverterTypeFfiPeriodStats.writeIntoCursor(value.currentStats, c);
+      FfiConverterTypeFfiPeriodStats.writeIntoCursor(value.previousStats, c);
+      FfiConverterOptionalTypeFfiStatTrend.writeIntoCursor(value.count, c);
+      FfiConverterOptionalTypeFfiStatTrend.writeIntoCursor(value.duration, c);
+      FfiConverterOptionalTypeFfiStatTrend.writeIntoCursor(value.distance, c);
+      FfiConverterOptionalTypeFfiStatTrend.writeIntoCursor(value.load, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterTypeFfiTimestampRange.allocationSize(value.current) +
+        FfiConverterTypeFfiTimestampRange.allocationSize(value.previous) +
+        FfiConverterTypeFfiPeriodStats.allocationSize(value.currentStats) +
+        FfiConverterTypeFfiPeriodStats.allocationSize(value.previousStats) +
+        FfiConverterOptionalTypeFfiStatTrend.allocationSize(value.count) +
+        FfiConverterOptionalTypeFfiStatTrend.allocationSize(value.duration) +
+        FfiConverterOptionalTypeFfiStatTrend.allocationSize(value.distance) +
+        FfiConverterOptionalTypeFfiStatTrend.allocationSize(value.load)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Every range the weekly card offers, so a tap between them reads nothing.
+ */
+export type FfiSummaryComparisons = {
+  /**
+   * Monday to now, against the same weekday and hour of last week.
+   */
+  week: FfiSummaryComparison;
+  /**
+   * The calendar month to now.
+   */
+  month: FfiSummaryComparison;
+  /**
+   * This calendar month and the two before it, to now.
+   */
+  threeMonths: FfiSummaryComparison;
+  /**
+   * This calendar month and the five before it, to now.
+   */
+  sixMonths: FfiSummaryComparison;
+  /**
+   * The calendar year to now.
+   */
+  year: FfiSummaryComparison;
+};
+
+/**
+ * Generated factory for {@link FfiSummaryComparisons} record objects.
+ */
+export const FfiSummaryComparisons = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiSummaryComparisons,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSummaryComparisons>,
+  });
+})();
+
+const FfiConverterTypeFfiSummaryComparisons = (() => {
+  type TypeName = FfiSummaryComparisons;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        week: FfiConverterTypeFfiSummaryComparison.readFromCursor(c),
+        month: FfiConverterTypeFfiSummaryComparison.readFromCursor(c),
+        threeMonths: FfiConverterTypeFfiSummaryComparison.readFromCursor(c),
+        sixMonths: FfiConverterTypeFfiSummaryComparison.readFromCursor(c),
+        year: FfiConverterTypeFfiSummaryComparison.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterTypeFfiSummaryComparison.writeIntoCursor(value.week, c);
+      FfiConverterTypeFfiSummaryComparison.writeIntoCursor(value.month, c);
+      FfiConverterTypeFfiSummaryComparison.writeIntoCursor(
+        value.threeMonths,
+        c,
+      );
+      FfiConverterTypeFfiSummaryComparison.writeIntoCursor(value.sixMonths, c);
+      FfiConverterTypeFfiSummaryComparison.writeIntoCursor(value.year, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterTypeFfiSummaryComparison.allocationSize(value.week) +
+        FfiConverterTypeFfiSummaryComparison.allocationSize(value.month) +
+        FfiConverterTypeFfiSummaryComparison.allocationSize(value.threeMonths) +
+        FfiConverterTypeFfiSummaryComparison.allocationSize(value.sixMonths) +
+        FfiConverterTypeFfiSummaryComparison.allocationSize(value.year)
       );
     }
   }
@@ -19691,8 +19984,7 @@ const FfiConverterTypeFfiSyncStatus = (() => {
 
 /**
  * Everything the training tab paints with that stays fixed while it is
- * mounted. The weekly card's range is chosen with a tap, so its totals are
- * their own read.
+ * mounted, the weekly card's every range among it.
  */
 export type FfiTrainingScreenData = {
   /**
@@ -19707,6 +19999,10 @@ export type FfiTrainingScreenData = {
   yearPrevious: FfiPeriodStats;
   monthCurrent: FfiPeriodStats;
   monthPrevious: FfiPeriodStats;
+  /**
+   * The weekly card's periods to now, each against the same span before.
+   */
+  comparisons: FfiSummaryComparisons;
 };
 
 /**
@@ -19738,6 +20034,7 @@ const FfiConverterTypeFfiTrainingScreenData = (() => {
         yearPrevious: FfiConverterTypeFfiPeriodStats.readFromCursor(c),
         monthCurrent: FfiConverterTypeFfiPeriodStats.readFromCursor(c),
         monthPrevious: FfiConverterTypeFfiPeriodStats.readFromCursor(c),
+        comparisons: FfiConverterTypeFfiSummaryComparisons.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -19747,6 +20044,10 @@ const FfiConverterTypeFfiTrainingScreenData = (() => {
       FfiConverterTypeFfiPeriodStats.writeIntoCursor(value.yearPrevious, c);
       FfiConverterTypeFfiPeriodStats.writeIntoCursor(value.monthCurrent, c);
       FfiConverterTypeFfiPeriodStats.writeIntoCursor(value.monthPrevious, c);
+      FfiConverterTypeFfiSummaryComparisons.writeIntoCursor(
+        value.comparisons,
+        c,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
@@ -19755,7 +20056,8 @@ const FfiConverterTypeFfiTrainingScreenData = (() => {
         FfiConverterTypeFfiPeriodStats.allocationSize(value.yearCurrent) +
         FfiConverterTypeFfiPeriodStats.allocationSize(value.yearPrevious) +
         FfiConverterTypeFfiPeriodStats.allocationSize(value.monthCurrent) +
-        FfiConverterTypeFfiPeriodStats.allocationSize(value.monthPrevious)
+        FfiConverterTypeFfiPeriodStats.allocationSize(value.monthPrevious) +
+        FfiConverterTypeFfiSummaryComparisons.allocationSize(value.comparisons)
       );
     }
   }
@@ -19787,6 +20089,11 @@ export type FfiTrainingScreenWindows = {
    */
   monthCurrent: FfiTimestampRange;
   monthPrevious: FfiTimestampRange;
+  /**
+   * The instant the weekly card's periods run to, in the wall-clock seconds
+   * an activity's date is recorded in.
+   */
+  nowWallSeconds: number;
 };
 
 /**
@@ -19820,6 +20127,7 @@ const FfiConverterTypeFfiTrainingScreenWindows = (() => {
         yearPrevious: FfiConverterTypeFfiTimestampRange.readFromCursor(c),
         monthCurrent: FfiConverterTypeFfiTimestampRange.readFromCursor(c),
         monthPrevious: FfiConverterTypeFfiTimestampRange.readFromCursor(c),
+        nowWallSeconds: FfiConverterFloat64.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -19830,6 +20138,7 @@ const FfiConverterTypeFfiTrainingScreenWindows = (() => {
       FfiConverterTypeFfiTimestampRange.writeIntoCursor(value.yearPrevious, c);
       FfiConverterTypeFfiTimestampRange.writeIntoCursor(value.monthCurrent, c);
       FfiConverterTypeFfiTimestampRange.writeIntoCursor(value.monthPrevious, c);
+      FfiConverterFloat64.writeIntoCursor(value.nowWallSeconds, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -19839,7 +20148,8 @@ const FfiConverterTypeFfiTrainingScreenWindows = (() => {
         FfiConverterTypeFfiTimestampRange.allocationSize(value.yearCurrent) +
         FfiConverterTypeFfiTimestampRange.allocationSize(value.yearPrevious) +
         FfiConverterTypeFfiTimestampRange.allocationSize(value.monthCurrent) +
-        FfiConverterTypeFfiTimestampRange.allocationSize(value.monthPrevious)
+        FfiConverterTypeFfiTimestampRange.allocationSize(value.monthPrevious) +
+        FfiConverterFloat64.allocationSize(value.nowWallSeconds)
       );
     }
   }
@@ -26005,10 +26315,6 @@ export interface FitnessManagerLike {
     gap: boolean,
   ) /*throws*/ : FfiPaceCurve | undefined;
   /**
-   * Aggregated totals for one date window: count, duration, distance, TSS.
-   */
-  getPeriodStats(startTs: number, endTs: number) /*throws*/ : FfiPeriodStats;
-  /**
    * A stored power curve, parsed, or `None` when that sport and window have
    * never been fetched or the body will not parse. `None` means "ask for
    * it", not "no data".
@@ -26415,31 +26721,6 @@ export class FitnessManager
     );
     try {
       return FfiConverterOptionalTypeFfiPaceCurve.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
-  /**
-   * Aggregated totals for one date window: count, duration, distance, TSS.
-   */
-  getPeriodStats(startTs: number, endTs: number): FfiPeriodStats /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_period_stats(
-          uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
-          FfiConverterFloat64.lower(startTs, nativeModule().rustbuffer_alloc),
-          FfiConverterFloat64.lower(endTs, nativeModule().rustbuffer_alloc),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterTypeFfiPeriodStats.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -32873,12 +33154,13 @@ export interface VeloqEngineLike {
   /**
    * Run the checks a restore of the record ZIP at `path` would run, the
    * version, row content and both athlete checks, and write nothing. Off
-   * the JS thread, since it inflates the archive.
+   * the JS thread, since it inflates the archive. Returns when the zip was
+   * written, which its file time does not keep through every restore.
    */
   checkRecordZip(
     path: string,
     asyncOpts_?: { signal: AbortSignal },
-  ) /*throws*/ : Promise<void>;
+  ) /*throws*/ : Promise<FfiRecordCheck>;
   /**
    * Drop the registered listener. `EngineClient.ts` calls it on its own
    * thread from its two destroy paths, when the engine is wiped or replaced,
@@ -33167,12 +33449,13 @@ export class VeloqEngine
   /**
    * Run the checks a restore of the record ZIP at `path` would run, the
    * version, row content and both athlete checks, and write nothing. Off
-   * the JS thread, since it inflates the archive.
+   * the JS thread, since it inflates the archive. Returns when the zip was
+   * written, which its file time does not keep through every restore.
    */
   async checkRecordZip(
     path: string,
     asyncOpts_?: { signal: AbortSignal },
-  ): Promise<void> /*throws*/ {
+  ): Promise<FfiRecordCheck> /*throws*/ {
     const __stack = uniffiIsDebug ? new Error().stack : undefined;
     try {
       return await uniffiRustCallAsync(
@@ -33183,12 +33466,29 @@ export class VeloqEngine
             FfiConverterString.lower(path, nativeModule().rustbuffer_alloc),
           );
         },
-        /*pollFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_poll_void,
-        /*cancelFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_cancel_void,
+        /*pollFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
         /*completeFunc:*/ nativeModule()
-          .ubrn_ffi_veloqrs_rust_future_complete_void,
-        /*freeFunc:*/ nativeModule().ubrn_ffi_veloqrs_rust_future_free_void,
-        /*liftFunc:*/ (_v) => {},
+          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
+        // Async returns always go through the JS-side converter: the
+        // FFI symbol returns the future handle (u64), and the user-level
+        // RustBuffer comes back via the shared `rust_future_complete_*`
+        // export. The bytes the runtime hands back must be deserialized
+        // here using the per-callable return-type converter.
+        // Borrowed view over foreign memory: the call site owns the free,
+        // as on the sync paths. Unconditional, a no-op where buffers are
+        // already JS-owned.
+        /*liftFunc:*/ (__rb) => {
+          try {
+            return FfiConverterTypeFfiRecordCheck.lift(__rb);
+          } finally {
+            nativeModule().rustbuffer_free(__rb);
+          }
+        },
         /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
         /*asyncOpts:*/ asyncOpts_,
         /*errorHandler:*/ FfiConverterTypeVeloqError.lift.bind(
@@ -34247,9 +34547,9 @@ const FfiConverterSequenceOptionalString = new FfiConverterArray(
   FfiConverterOptionalString,
 );
 
-// FfiConverter for Array<FfiFeedGroup>
-const FfiConverterSequenceTypeFfiFeedGroup = new FfiConverterArray(
-  FfiConverterTypeFfiFeedGroup,
+// FfiConverter for Array<FfiSportFamily>
+const FfiConverterSequenceTypeFfiSportFamily = new FfiConverterArray(
+  FfiConverterTypeFfiSportFamily,
 );
 
 // FfiConverter for number | undefined
@@ -34870,6 +35170,11 @@ const FfiConverterOptionalTypeFfiWellnessSparklines = new FfiConverterOptional(
 // FfiConverter for Array<FfiMuscleExercises>
 const FfiConverterSequenceTypeFfiMuscleExercises = new FfiConverterArray(
   FfiConverterTypeFfiMuscleExercises,
+);
+
+// FfiConverter for FfiStatTrend | undefined
+const FfiConverterOptionalTypeFfiStatTrend = new FfiConverterOptional(
+  FfiConverterTypeFfiStatTrend,
 );
 
 // FfiConverter for FfiSyncStep | undefined
@@ -35938,14 +36243,6 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_curve",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_period_stats() !==
-    34385
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_get_period_stats",
     );
   }
   if (
@@ -37270,7 +37567,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_check_record_zip() !==
-    45774
+    64898
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_check_record_zip",
@@ -37632,7 +37929,6 @@ export default Object.freeze({
     FfiConverterTypeFfiExerciseSession,
     FfiConverterTypeFfiExerciseSet,
     FfiConverterTypeFfiExerciseSummary,
-    FfiConverterTypeFfiFeedGroup,
     FfiConverterTypeFfiFitnessScreenData,
     FfiConverterTypeFfiFloat32Array,
     FfiConverterTypeFfiFocusRange,
@@ -37695,6 +37991,7 @@ export default Object.freeze({
     FfiConverterTypeFfiRankedSection,
     FfiConverterTypeFfiRankedSectionsBySport,
     FfiConverterTypeFfiRecentPR,
+    FfiConverterTypeFfiRecordCheck,
     FfiConverterTypeFfiRecordProgressions,
     FfiConverterTypeFfiRecordRestoreResult,
     FfiConverterTypeFfiRecordStep,
@@ -37751,12 +38048,14 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionWithPolyline,
     FfiConverterTypeFfiSeriesPoint,
     FfiConverterTypeFfiSplitSummary,
+    FfiConverterTypeFfiSportFamily,
     FfiConverterTypeFfiSportLoad,
     FfiConverterTypeFfiSportMix,
     FfiConverterTypeFfiStalePrOpportunity,
     FfiConverterTypeFfiStartOutcome,
     FfiConverterTypeFfiStartResult,
     FfiConverterTypeFfiStartupData,
+    FfiConverterTypeFfiStatTrend,
     FfiConverterTypeFfiStoredCurve,
     FfiConverterTypeFfiStrengthBalancePair,
     FfiConverterTypeFfiStrengthCardSummary,
@@ -37765,6 +38064,8 @@ export default Object.freeze({
     FfiConverterTypeFfiStrengthScreenData,
     FfiConverterTypeFfiStrengthSummary,
     FfiConverterTypeFfiSummaryCardData,
+    FfiConverterTypeFfiSummaryComparison,
+    FfiConverterTypeFfiSummaryComparisons,
     FfiConverterTypeFfiSyncErrorReason,
     FfiConverterTypeFfiSyncStatus,
     FfiConverterTypeFfiSyncStep,

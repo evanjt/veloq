@@ -26,7 +26,7 @@ import { buildRegionalLayers } from '@/features/maps/components/regional/regiona
 import { HEATMAP_TILE_STOPS } from '@/features/maps/lib/heatmapPaint';
 import { LIBERTY_SOURCES } from '@/features/maps/styles/liberty/sources';
 import { widgetPalette } from '@/shared/theme/widgetTheme';
-import { ACTIVITY_CATEGORIES } from '@/shared/activity/sportCategories';
+import { SPORT_FAMILY_ORDER } from '@/shared/activity/sportCategories';
 import { RECORD_PICKER_URL, WIDGET_STRING_KEYS } from '@/features/home/lib/widgetSnapshot';
 import { buildContentState } from '@/features/recording/lib/liveActivity/contentState';
 import { KEYCHAIN_ACCESS_GROUP } from '@/shared/app/credentialKeychain';
@@ -604,27 +604,31 @@ const CONTRACTS: Contract[] = [
     a: { file, has: 'entry["glyph"]' },
     b: {
       file: 'src/features/home/lib/widgetSnapshot.ts',
-      has: 'glyph: getActivityTypeConfig(type)',
+      has: 'glyph: getActivityCategory(type).toLowerCase()',
     },
   })),
-  ...Object.values(ACTIVITY_CATEGORIES)
-    .map((category) => category.labelKey)
-    .filter((key) => key !== 'other')
-    .flatMap((key) => [
+  ...SPORT_FAMILY_ORDER.filter((family) => family !== 'Other').flatMap((family) => {
+    const key = family.toLowerCase();
+    const engine = {
+      file: 'modules/veloqrs/rust/veloqrs/src/sport.rs',
+      has: `("${family}", FAMILY_${family.toUpperCase()})`,
+    };
+    return [
       {
-        agree: `the Android launcher draws its own glyph for the ${key} category`,
+        agree: `the Android launcher draws its own glyph for the ${key} family`,
         a: {
           file: 'modules/veloq-widget/android/src/main/java/com/veloq/widget/RecordShortcutIcons.kt',
-          has: `"${key}" -> R.drawable.shortcut_glyph_${key}`,
+          has: `"${key}" -> R.drawable.shortcut_glyph_`,
         },
-        b: { file: 'src/shared/activity/sportCategories.ts', has: `labelKey: '${key}'` },
+        b: engine,
       },
       {
-        agree: `the iOS quick actions draw their own symbol for the ${key} category`,
+        agree: `the iOS quick actions draw their own symbol for the ${key} family`,
         a: { file: 'modules/veloq-widget/ios/RecordQuickActions.swift', has: `case "${key}":` },
-        b: { file: 'src/shared/activity/sportCategories.ts', has: `labelKey: '${key}'` },
+        b: engine,
       },
-    ]),
+    ];
+  }),
   ...[
     'modules/veloq-widget/android/src/main/java/com/veloq/widget/VeloqWidgetModule.kt',
     'modules/veloq-widget/ios/VeloqWidgetModule.swift',

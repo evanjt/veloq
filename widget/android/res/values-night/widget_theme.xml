@@ -41,7 +41,7 @@
   <color name="widget_strength_ramp_3">#5EEAD4</color>
   <color name="widget_strength_ramp_4">#2DD4BF</color>
   <color name="widget_strength_ramp_5">#0D9488</color>
-  <color name="widget_record_grad_start">#DC2626</color>
-  <color name="widget_record_grad_end">#DC2626</color>
-  <color name="widget_record_accent">#DC2626</color>
+  <color name="widget_record_grad_start">#D1352F</color>
+  <color name="widget_record_grad_end">#D1352F</color>
+  <color name="widget_record_accent">#D1352F</color>
 </resources>

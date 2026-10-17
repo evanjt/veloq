@@ -71,7 +71,6 @@ export { recordingStats } from './lib/recordingStats';
 export { uploadStatusTone } from './lib/uploadStatusTone';
 export type { UploadStatusTone } from './lib/uploadStatusTone';
 export {
-  ACTIVITY_CATEGORIES,
   getRecordingMode,
   parsePairedEventId,
   parseRecordingType,

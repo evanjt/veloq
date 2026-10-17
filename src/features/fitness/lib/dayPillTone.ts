@@ -1,9 +1,9 @@
 import { colors, darkColors } from '@/theme';
-import { ACTIVITY_CATEGORIES } from '@/shared/activity/sportCategories';
+import { ACTIVITY_CATEGORIES, isSportFamily } from '@/shared/activity/sportCategories';
 
-/** A sport group's colour, the one its map filter chip carries. */
+/** A sport family's colour, the one its map filter chip carries. */
 export function groupColor(group: string): string {
-  return ACTIVITY_CATEGORIES[group]?.color ?? colors.textSecondary;
+  return isSportFamily(group) ? ACTIVITY_CATEGORIES[group].color : colors.textSecondary;
 }
 
 /**

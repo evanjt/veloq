@@ -216,7 +216,7 @@ describe('MapNameSearch count and rows', () => {
     expect(label).toBe(
       composeAccessibilityLabel(
         'Harbour loop 0',
-        i18n.t('maps.activityTypes.ride'),
+        i18n.t('sportFamilies.ride'),
         spokenDistance(42_300, true),
         date
       )

@@ -52,6 +52,7 @@ import {
   darkColors,
   duration,
   ink,
+  layers,
   layout,
   slopToMinTapTarget,
   spacing,
@@ -59,7 +60,13 @@ import {
 } from '@/theme';
 import { ToggleButton } from '@/shared/ui/Button';
 import { SportChipRow } from '@/shared/ui/SportChipRow';
-import { ACTIVITY_CATEGORIES, groupTypesByCategory } from '@/shared/activity/sportCategories';
+import {
+  ACTIVITY_CATEGORIES,
+  groupTypesByCategory,
+  isSportFamily,
+  SPORT_FAMILY_LABELS,
+  type SportFamily,
+} from '@/shared/activity/sportCategories';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { formatMonthYear } from '@/shared/format/format';
 import { tapTo } from '@/shared/app/navigation';
@@ -145,10 +152,8 @@ function MapScreenContent() {
   // The map reports its credit as the style and viewport change. It goes to the
   // overlay through its ref, so a new credit does not re-render the map.
   const attributionRef = useRef<AttributionOverlayRef>(null);
-  const [isDarkBasemap, setIsDarkBasemap] = useState(false);
-  const handleAttributionChange = useCallback((text: string, isDark: boolean) => {
+  const handleAttributionChange = useCallback((text: string) => {
     attributionRef.current?.setAttribution(text);
-    setIsDarkBasemap(isDark);
   }, []);
   // The sheet grows with the filters it shows, so the credit sits on its measured edge,
   // and the map's popups clear the sheet and the credit together.
@@ -174,7 +179,7 @@ function MapScreenContent() {
   const newestSyncedDate = cacheStats.newestDate;
 
   // Filter state
-  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [selectedCategories, setSelectedCategories] = useState<Set<SportFamily>>(new Set());
   const [period, setPeriod] = useState<MapPeriod>(DEFAULT_MAP_PERIOD);
   const [distanceFilter, setDistanceFilter] = useState<MapDistanceBand>(MapDistanceBand.All);
   const [nameNeedle, setNameNeedle] = useState('');
@@ -195,9 +200,7 @@ function MapScreenContent() {
 
   const selectedTypes = useMemo(
     () =>
-      new Set(
-        [...selectedCategories].flatMap((category) => ACTIVITY_CATEGORIES[category]?.types ?? [])
-      ),
+      new Set([...selectedCategories].flatMap((category) => ACTIVITY_CATEGORIES[category].types)),
     [selectedCategories]
   );
 
@@ -277,17 +280,19 @@ function MapScreenContent() {
   const results = resultsOpen ? displayActivities.slice(0, MAX_SEARCH_RESULTS) : [];
 
   // The filters narrowing the matches, named as their chips draw them.
-  const activeFilterNames = [
-    ...PERIOD_OPTIONS.filter(({ id }) => id === period && id !== DEFAULT_MAP_PERIOD).map(
-      ({ labelKey }) => t(labelKey as never)
-    ),
+  const periodFilterNames = PERIOD_OPTIONS.filter(
+    ({ id }) => id === period && id !== DEFAULT_MAP_PERIOD
+  ).map(({ labelKey }) => t(labelKey as never));
+  const chipFilterNames = [
     ...getDistanceOptions(isMetric, '')
       .filter(({ key }) => key === distanceFilter && key !== MapDistanceBand.All)
       .map(({ label }) => label),
-    ...[...selectedCategories].map((category) =>
-      t(`maps.activityTypes.${ACTIVITY_CATEGORIES[category]?.labelKey ?? 'other'}` as never)
-    ),
+    ...[...selectedCategories].map((category) => t(SPORT_FAMILY_LABELS[category])),
   ];
+  const activeFilterNames = [...periodFilterNames, ...chipFilterNames];
+  // The lowered sheet hides every filter but the period chips, so it names the rest.
+  const typedNeedle = nameNeedle.trim();
+  const hiddenFilterNames = typedNeedle ? [...chipFilterNames, typedNeedle] : chipFilterNames;
 
   const clearFilters = () => {
     setSelectedCategories(new Set());
@@ -295,7 +300,9 @@ function MapScreenContent() {
     changeNeedle('');
   };
 
-  const toggleCategory = (category: string) => {
+  const toggleCategory = (key: string) => {
+    if (!isSportFamily(key)) return;
+    const category = key;
     setSelectedCategories((previous) => {
       const next = new Set(previous);
       if (next.has(category)) next.delete(category);
@@ -377,7 +384,6 @@ function MapScreenContent() {
         <AttributionOverlay
           ref={attributionRef}
           initialAttribution=""
-          isDark={isDarkBasemap}
           onClearanceChange={setAttributionClearance}
         />
       </View>
@@ -475,13 +481,31 @@ function MapScreenContent() {
                 <SportChipRow
                   chips={categorySorted.map(({ category, count }) => ({
                     key: category,
-                    label: `maps.activityTypes.${ACTIVITY_CATEGORIES[category]?.labelKey ?? 'other'}`,
+                    label: SPORT_FAMILY_LABELS[category],
                     count,
                   }))}
                   selected={selectedCategories}
                   onToggle={toggleCategory}
                 />
               </Animated.View>
+            ) : null}
+
+            {!sheetExpanded && hiddenFilterNames.length > 0 ? (
+              <View style={styles.infoRow}>
+                <Text
+                  testID="map-filter-summary"
+                  style={[styles.infoText, styles.filterSummary, isDark && styles.infoTextDark]}
+                  numberOfLines={1}
+                >
+                  {t('mapScreen.searchFilteredBy', { filters: hiddenFilterNames.join(', ') })}
+                </Text>
+                <Button
+                  label={t('mapScreen.emptyClearFilters')}
+                  variant="ghost"
+                  size="sm"
+                  onPress={clearFilters}
+                />
+              </View>
             ) : null}
 
             {/* Activity count and date range, in either position of the sheet */}
@@ -517,6 +541,10 @@ const HANDLE_SLOP = {
   top: layout.minTapTarget - HANDLE_ROW_HEIGHT - spacing.xs,
   bottom: spacing.xs,
 };
+
+// The filter sheet covers the map, its credit lane and its empty state, which
+// stack at the base. The layer scale has no row for a sheet over a map.
+const FILTER_SHEET_LAYER = layers.raised;
 
 const styles = StyleSheet.create({
   container: {
@@ -556,7 +584,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 10,
+    zIndex: FILTER_SHEET_LAYER,
     backgroundColor: colorWithOpacity(ink.white, 0.92),
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
@@ -602,6 +630,9 @@ const styles = StyleSheet.create({
   },
   infoTextDark: {
     color: darkColors.textSecondary,
+  },
+  filterSummary: {
+    flexShrink: 1,
   },
   attributionLane: {
     position: 'absolute',

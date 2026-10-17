@@ -3,14 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
-import {
-  Circle,
-  DashPathEffect,
-  LinearGradient,
-  Line as SkiaLine,
-  Rect,
-  vec,
-} from '@shopify/react-native-skia';
+import { Circle, DashPathEffect, Line as SkiaLine, Rect, vec } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 
 import { useTranslation } from 'react-i18next';
@@ -234,13 +227,14 @@ export function CurveChart<T extends ChartSample>({
               return (
                 <>
                   {area ? (
-                    <CurveArea points={points.y} y0={bounds.bottom} curve={curve}>
-                      <LinearGradient
-                        start={vec(0, bounds.top)}
-                        end={vec(0, bounds.bottom)}
-                        colors={[`${color}30`, `${color}05`]}
-                      />
-                    </CurveArea>
+                    <CurveArea
+                      points={points.y}
+                      yDomain={yDomain}
+                      y0={bounds.bottom}
+                      color={color}
+                      isDark={isDark}
+                      curve={curve}
+                    />
                   ) : null}
                   {showReference ? (
                     <SkiaLine

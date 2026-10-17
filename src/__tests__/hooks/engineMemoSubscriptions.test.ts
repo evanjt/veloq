@@ -16,7 +16,7 @@ import { useCacheDays } from '@/shared/app/useCacheDays';
 import { useActivityCount } from '@/shared/native/useActivityCount';
 import { useLibraryCoverage } from '@/shared/native/useLibraryCoverage';
 import { useRangeCoverage } from '@/shared/native/useRangeCoverage';
-import { MapDistanceBand, RangeCoverage, SyncState } from 'veloqrs';
+import { EngineSportFamily, MapDistanceBand, RangeCoverage, SyncState } from 'veloqrs';
 import { useEngineSubscription } from '@/shared/native/useEngineSubscription';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useMuscleDetail } from '@/features/strength/hooks/useMuscleDetail';
@@ -91,7 +91,7 @@ const hasStrengthData = jest.fn(() => false);
 const getMapScreenData = jest.fn(() => ({
   activityCount: 1,
   availableSportTypes: ['Ride'],
-  categoryCounts: [{ category: 'Ride', count: 1 }],
+  categoryCounts: [{ family: EngineSportFamily.Ride, count: 1 }],
   activities: [
     {
       activityId: 'act-1',
@@ -535,7 +535,7 @@ describe('useEngineMapActivities', () => {
     getMapScreenData.mockReturnValueOnce({
       activityCount: 292,
       availableSportTypes: ['Ride', 'Run'],
-      categoryCounts: [{ category: 'Ride', count: 0 }],
+      categoryCounts: [{ family: EngineSportFamily.Ride, count: 0 }],
       activities: [],
       emptyReason: { tag: 'Filtered', inner: { mapped: 3 } },
     } as never);

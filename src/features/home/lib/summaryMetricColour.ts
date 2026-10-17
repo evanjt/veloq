@@ -1,27 +1,26 @@
 import { colors, darkColors } from '@/theme';
-import { SPORT_TEXT_COLORS, SPORT_TEXT_COLORS_DARK } from '@/features/fitness';
+import { FORM_ZONE_MARK_COLORS, type FormZone } from '@/features/fitness';
 
-/** The summary card values drawn in a hue of their own rather than the body ink. */
-export const SUMMARY_HUED_METRICS = ['fitness', 'hrv', 'ftp', 'thresholdPace', 'css'] as const;
-
-export type SummaryHuedMetric = (typeof SUMMARY_HUED_METRICS)[number];
+/** The series the summary card's sparklines draw, each keyed by a dot beside its value. */
+export type SummarySeries = 'fitness' | 'fatigue' | 'hrv' | 'rhr';
 
 /**
- * The colour a summary card value is set in. A headline number is text, so it
- * takes the text variant of its series or sport hue for the theme the card is
- * drawn in: the fills themselves sit between 2.18:1 and 3.31:1 on the light card.
- * The sparkline's scrub readout reads the same variants, so a value keeps its
- * colour whether or not the sparkline is shown.
+ * The colour a summary card series is drawn in: its sparkline line and the key
+ * dot beside its value. Text is never set in it; the value beside the dot is
+ * the theme's primary text.
  */
-export function summaryMetricTextColor(metric: SummaryHuedMetric, isDark: boolean): string {
+export function summarySeriesColor(series: SummarySeries, isDark: boolean): string {
   const palette = isDark ? darkColors : colors;
-  const sport = isDark ? SPORT_TEXT_COLORS_DARK : SPORT_TEXT_COLORS;
-  const byMetric: Record<SummaryHuedMetric, string> = {
-    fitness: palette.fitnessBlueText,
-    hrv: palette.chartHrvText,
-    ftp: sport.Cycling,
-    thresholdPace: sport.Running,
-    css: sport.Swimming,
+  const bySeries: Record<SummarySeries, string> = {
+    fitness: colors.fitnessBlue,
+    fatigue: colors.chartPink,
+    hrv: palette.chartHrv,
+    rhr: palette.chartRhr,
   };
-  return byMetric[metric];
+  return bySeries[series];
+}
+
+/** The key dot beside a form value: its zone's mark, the colour the zone bar draws it in. */
+export function summaryFormZoneColor(zone: FormZone): string {
+  return FORM_ZONE_MARK_COLORS[zone];
 }

@@ -467,8 +467,10 @@ class WidgetCaptureTest {
     val room = view.height - view.compoundPaddingTop - view.compoundPaddingBottom
     if (layout.getLineBottom(shown - 1) > room + 1) return "is taller than its box: \"${view.text}\""
     val across = view.width - view.compoundPaddingLeft - view.compoundPaddingRight
+    // A line broken at a space keeps the space at its end, undrawn, so the drawn width is the
+    // line's extent without its trailing whitespace.
     for (line in 0 until shown) {
-      if (layout.getLineWidth(line) > max(across, 0) + 1) {
+      if (layout.getLineMax(line) > max(across, 0) + 1) {
         return "is wider than its box: \"${view.text}\""
       }
     }

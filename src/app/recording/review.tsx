@@ -225,10 +225,14 @@ function ReviewScreenContent() {
     trimStartIndex,
     canTrim,
   });
+  // A discard empties the store on its way home, as a save does, and neither is a
+  // review that lost its ride to be sent to the record screen.
+  const [discarded, setDiscarded] = useState(false);
+  const goingHome = leaving || discarded;
   useEffect(() => {
     const foreignSession = !!recordingAthleteId && recordingAthleteId !== signedInAthleteId;
-    if (!ownedReview && (foreignSession || (!isUploading && !leaving))) replaceTo('/record');
-  }, [ownedReview, recordingAthleteId, signedInAthleteId, isUploading, leaving]);
+    if (!ownedReview && (foreignSession || (!isUploading && !goingHome))) replaceTo('/record');
+  }, [ownedReview, recordingAthleteId, signedInAthleteId, isUploading, goingHome]);
 
   // The alert is the guard against a stray tap, as the unlock swipe is for Stop.
   const handleDiscard = useCallback(() => {
@@ -241,7 +245,9 @@ function ReviewScreenContent() {
       confirmLabel: t('recording.discard', 'Discard'),
       cancelLabel: t('common.cancel', 'Cancel'),
       destructive: true,
-      onConfirm: () => discardReviewedRecording(startTime),
+      onConfirm: () => {
+        if (discardReviewedRecording(startTime)) setDiscarded(true);
+      },
     });
   }, [t, startTime]);
 

@@ -5,13 +5,13 @@
  * library.
  *
  * Expected behaviour: a search or a chip reads the engine with the trimmed
- * text and the chip's engine group, pages on from where the last page ended,
+ * text and the chip's engine family, pages on from where the last page ended,
  * reports the engine's count of every match, answers in the render that asked
  * so the list does not blank between keystrokes, and reads nothing when no
  * filter is on.
  */
 
-import { FeedSportGroup } from 'veloqrs';
+import { EngineSportFamily } from 'veloqrs';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
@@ -83,7 +83,7 @@ describe('useFeedSearch', () => {
     await waitFor(() => expect(result.current.activities.map((a) => a.id)).toEqual(['old']));
     expect(engine.searchActivityBodies).toHaveBeenCalledWith({
       needle: 'ferry',
-      sportGroups: [],
+      sportFamilies: [],
       offset: 0,
       limit: 30,
     });
@@ -91,30 +91,33 @@ describe('useFeedSearch', () => {
   });
 
   it.each([
-    ['Cycling', FeedSportGroup.Cycling],
-    ['Running', FeedSportGroup.Running],
-    ['Swimming', FeedSportGroup.Swimming],
-    ['Other', FeedSportGroup.Other],
-  ] as const)('reads the %s chip as the engine group of that name', async (chip, group) => {
+    ['Ride', EngineSportFamily.Ride],
+    ['Winter', EngineSportFamily.Winter],
+    ['Run', EngineSportFamily.Run],
+    ['Water', EngineSportFamily.Water],
+    ['Foot', EngineSportFamily.Foot],
+    ['Strength', EngineSportFamily.Strength],
+    ['Other', EngineSportFamily.Other],
+  ] as const)('reads the %s chip as the engine family of that name', async (chip, group) => {
     const { result } = await render('', chip);
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(engine.searchActivityBodies).toHaveBeenCalledWith({
       needle: '',
-      sportGroups: [group],
+      sportFamilies: [group],
       offset: 0,
       limit: 30,
     });
   });
 
-  it('passes two selected groups to one whole-library read', async () => {
-    const selected = new Set<FeedGroup>(['Cycling', 'Other']);
+  it('passes two selected families to one whole-library read', async () => {
+    const selected = new Set<FeedGroup>(['Ride', 'Other']);
     const { result } = await renderHook(() => useFeedSearch('', selected), { wrapper });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(engine.searchActivityBodies).toHaveBeenCalledWith({
       needle: '',
-      sportGroups: [FeedSportGroup.Cycling, FeedSportGroup.Other],
+      sportFamilies: [EngineSportFamily.Ride, EngineSportFamily.Other],
       offset: 0,
       limit: 30,
     });
@@ -146,12 +149,12 @@ describe('useFeedSearch', () => {
   });
 
   it('sends the range as an inclusive window of epoch seconds with the chip', async () => {
-    const { result } = await render('', 'Cycling', MARCH_2024);
+    const { result } = await render('', 'Ride', MARCH_2024);
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(engine.searchActivityBodies).toHaveBeenCalledWith({
       needle: '',
-      sportGroups: [FeedSportGroup.Cycling],
+      sportFamilies: [EngineSportFamily.Ride],
       oldestTs: dayStartEpochSeconds('2024-03-01'),
       newestTs: dayEndEpochSeconds('2024-03-31'),
       offset: 0,
@@ -213,7 +216,7 @@ describe('useFeedSearch', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(engine.searchActivityBodies).toHaveBeenCalledWith({
       needle: '',
-      sportGroups: [],
+      sportFamilies: [],
       oldestTs: dayStartEpochSeconds('2024-03-01'),
       newestTs: dayEndEpochSeconds('2024-03-31'),
       offset: 0,
@@ -247,7 +250,7 @@ describe('useFeedSearch', () => {
         hasMore: false,
       });
 
-    const { result } = await render('', 'Swimming');
+    const { result } = await render('', 'Water');
 
     await waitFor(() => expect(result.current.activities).toHaveLength(30));
     expect(result.current.hasNextPage).toBe(true);
@@ -258,7 +261,7 @@ describe('useFeedSearch', () => {
 
     expect(engine.searchActivityBodies).toHaveBeenLastCalledWith({
       needle: '',
-      sportGroups: [FeedSportGroup.Swimming],
+      sportFamilies: [EngineSportFamily.Water],
       offset: 30,
       limit: 30,
     });

@@ -4,8 +4,9 @@
  * the date. Every other period picker uses the same 3M and 6M labels for a
  * trailing span of 90 and 180 days, and the summary shows no dates at all.
  *
- * Expected behaviour: the summary names both windows it compares by their
- * dates, and no chip or heading on a calendar range reads as a trailing period.
+ * Expected behaviour: the summary names both windows the engine compared by
+ * their dates, and no chip or heading on a calendar range reads as a trailing
+ * period.
  */
 
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
@@ -16,26 +17,50 @@ import { RangeCoverage } from 'veloqrs';
 
 import { WeeklySummary } from '@/features/stats/components/WeeklySummary';
 import { initialiseI18n } from '@/i18n';
-import { likeForLikeWindows } from '@/features/stats/lib/periodWindows';
 import { PERIOD_LABEL_KEYS } from '@/shared/app/period';
 import { formatFullDate } from '@/shared/format/format';
 import { getEngine } from '@/shared/native/engine';
+import {
+  summaryComparison,
+  trainingScreenRead,
+  wallSeconds,
+} from '../__shared__/trainingScreenRead';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
-jest.mock('@/features/fitness/hooks', () => ({
-  ...jest.requireActual('@/features/fitness/hooks'),
-  useAthleteSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
-}));
+const STATS = { count: 3, totalDuration: 7200, totalDistance: 60000, totalTss: 90 };
+
+/** The windows the engine answers for 17 June 2026 at noon. */
+const WINDOWS = {
+  '3m': {
+    current: [new Date(2026, 3, 1), new Date(2026, 5, 17, 12)],
+    previous: [new Date(2026, 0, 1), new Date(2026, 2, 19, 12)],
+  },
+  '6m': {
+    current: [new Date(2026, 0, 1), new Date(2026, 5, 17, 12)],
+    previous: [new Date(2025, 6, 1), new Date(2025, 11, 15, 12)],
+  },
+} as const;
+
+const range = ([start, end]: readonly [Date, Date]) => ({
+  startTs: wallSeconds(start),
+  endTs: wallSeconds(end),
+});
 
 const engine = {
-  getPeriodStats: jest.fn(() => ({
-    count: 3,
-    totalDuration: 7200,
-    totalDistance: 60000,
-    totalTss: 90,
-  })),
+  getTrainingScreenData: trainingScreenRead({
+    comparisons: (now) => {
+      const of = (w: (typeof WINDOWS)['3m' | '6m']) =>
+        summaryComparison(now, {
+          current: range(w.current),
+          previous: range(w.previous),
+          currentStats: STATS,
+          previousStats: STATS,
+        });
+      return { threeMonths: of(WINDOWS['3m']), sixMonths: of(WINDOWS['6m']) };
+    },
+  }),
   rangeCoverage: jest.fn(() => RangeCoverage.Loaded),
   subscribe: jest.fn(() => () => {}),
 };
@@ -81,33 +106,17 @@ describe('WeeklySummary calendar windows', () => {
 
       await fireEvent.press(view.getByTestId(`weekly-summary-range-${range}`));
 
-      const windows = likeForLikeWindows(range, new Date());
+      const windows = WINDOWS[range];
       await waitFor(() =>
         expect(view.getByTestId('weekly-summary-previous-range')).toHaveTextContent(
-          rangeText(windows.previousStart, windows.previousEnd)
+          rangeText(windows.previous[0], windows.previous[1])
         )
       );
       expect(view.getByTestId('weekly-summary-header-subtitle')).toHaveTextContent(
-        rangeText(windows.currentStart, windows.currentEnd)
+        rangeText(windows.current[0], windows.current[1])
       );
     }
   );
-
-  it('dates the three-month window from the first of the month two back', async () => {
-    const view = await render(<WeeklySummary />, { wrapper });
-
-    await fireEvent.press(view.getByTestId('weekly-summary-range-3m'));
-
-    // Wednesday 17 June: April, May and June so far, against the same 78 days from 1 January.
-    await waitFor(() =>
-      expect(view.getByTestId('weekly-summary-previous-range')).toHaveTextContent(
-        rangeText(new Date(2026, 0, 1), new Date(2026, 2, 19))
-      )
-    );
-    expect(view.getByTestId('weekly-summary-header-subtitle')).toHaveTextContent(
-      rangeText(new Date(2026, 3, 1), new Date(2026, 5, 17))
-    );
-  });
 
   it.each(['3m', '6m'] as const)(
     'labels the %s chip and heading apart from every trailing period',

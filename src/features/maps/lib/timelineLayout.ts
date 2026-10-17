@@ -189,3 +189,46 @@ export function createTimelineLayout({
     snapToNearest,
   };
 }
+
+export interface TickLabelPlacement {
+  /** The snap point the label names. */
+  index: number;
+  left: number;
+  width: number;
+}
+
+/**
+ * Where each tick label goes, from the width it measured: centred on its tick, held inside the
+ * track, and dropped when it would come within a gap of a label already placed. The now label is
+ * placed first, so a long translation of it pushes out the quarter beside it rather than
+ * overlapping it. A label not yet measured is not placed, and every snap point keeps its snap.
+ */
+export function placeTickLabels(
+  snapPoints: readonly TimelineSnapPoint[],
+  widths: readonly (number | undefined)[],
+  trackWidth: number
+): TickLabelPlacement[] {
+  if (trackWidth <= 0) return [];
+  const candidates = snapPoints
+    .map((point, index) => ({ point, index, width: widths[index] }))
+    .filter(
+      (c): c is { point: TimelineSnapPoint; index: number; width: number } =>
+        c.point.showLabel && c.width !== undefined && c.width > 0
+    )
+    .map(({ point, index, width }) => {
+      const w = Math.min(width, trackWidth);
+      const centred = point.position * trackWidth - w / 2;
+      const left = Math.max(0, Math.min(trackWidth - w, centred));
+      return { index, width: w, left, position: point.position, isNow: point.kind === 'now' };
+    })
+    .sort((a, b) => Number(b.isNow) - Number(a.isNow) || b.position - a.position);
+
+  const placed: TickLabelPlacement[] = [];
+  let leftEdge = Infinity;
+  for (const label of candidates) {
+    if (label.left + label.width + LABEL_GAP_PX > leftEdge + 1e-6) continue;
+    placed.push({ index: label.index, left: label.left, width: label.width });
+    leftEdge = label.left;
+  }
+  return placed.reverse();
+}

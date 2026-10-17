@@ -1,13 +1,13 @@
 /**
- * Scenario: the map's activity-type filter paints each sport group in its own
- * hue. The racket group had no entry of its own and fell through to
- * `colors.success`, the semantic verdict green, so a change to the verdict would
- * have restyled a sport filter.
+ * Scenario: the map's activity-type filter paints each sport family in its own
+ * hue. A family with no entry of its own fell through to `colors.success`, the
+ * semantic verdict green, so a change to the verdict would have restyled a
+ * sport filter.
  *
- * Expected behaviour: no group resolves its colour from a verdict token, and the
- * racket hue does both jobs the chip asks of it. Unselected it is an icon on the
- * card, a mark at 3:1. Selected it is the fill under a white icon and label, so
- * the label owes 4.5:1.
+ * Expected behaviour: no family resolves its colour from a verdict token, and the
+ * Other hue, which takes every sport no family lists, does both jobs the chip
+ * asks of it. Unselected it is an icon on the card, a mark at 3:1. Selected it is
+ * the fill under a white icon and label, so the label owes 4.5:1.
  */
 
 import {
@@ -19,7 +19,7 @@ import { colors } from '@/theme';
 
 const BARS = { text: 4.5, mark: 3 } as const;
 
-/** The verdict palette: what a sport group must never borrow. */
+/** The verdict palette: what a sport family must never borrow. */
 const VERDICT_TOKENS = ['success', 'warning', 'error', 'info'] as const;
 
 function relativeLuminance(hex: string): number {
@@ -34,7 +34,7 @@ function contrastRatio(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-describe('no sport group is painted from the verdict palette', () => {
+describe('no sport family is painted from the verdict palette', () => {
   const verdicts = new Set(VERDICT_TOKENS.map((token) => colors[token].toUpperCase()));
 
   it.each(Object.entries(ACTIVITY_CATEGORIES))('%s', (_name, config) => {
@@ -42,19 +42,19 @@ describe('no sport group is painted from the verdict palette', () => {
   });
 });
 
-describe('the racket hue does both jobs the chip asks of it', () => {
-  const racket = ACTIVITY_CATEGORIES.Racket.color;
+describe('the Other hue does both jobs the chip asks of it', () => {
+  const other = ACTIVITY_CATEGORIES.Other.color;
 
   it('reads as an icon on the unselected chip', () => {
-    expect(contrastRatio(racket, colors.surface)).toBeGreaterThanOrEqual(BARS.mark);
+    expect(contrastRatio(other, colors.surface)).toBeGreaterThanOrEqual(BARS.mark);
   });
 
   it('carries the selected chip label', () => {
-    expect(contrastRatio(colors.textOnDark, racket)).toBeGreaterThanOrEqual(BARS.text);
+    expect(contrastRatio(colors.textOnDark, other)).toBeGreaterThanOrEqual(BARS.text);
   });
 
   it('is its own entry rather than a fallback', () => {
-    expect(racket).not.toBe(colors.success);
+    expect(other).not.toBe(colors.success);
   });
 });
 

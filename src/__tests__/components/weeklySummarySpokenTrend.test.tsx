@@ -9,33 +9,34 @@
 import { render, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
+import { RangeCoverage } from 'veloqrs';
 
 import { initialiseI18n } from '@/i18n';
 import { WeeklySummary } from '@/features/stats/components/WeeklySummary';
 import { getEngine } from '@/shared/native/engine';
+import { summaryComparison, trainingScreenRead } from '../__shared__/trainingScreenRead';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
-jest.mock('@/features/fitness/hooks', () => ({
-  ...jest.requireActual('@/features/fitness/hooks'),
-  useAthleteSummary: jest.fn(() => ({ data: undefined, isLoading: false })),
-}));
 
-/** What the athlete-summary endpoint gives for the calendar week. */
-const SUMMARY = {
-  currentWeek: { count: 5, moving_time: 9000, distance: 80000, training_load: 120 },
-  previousWeek: { count: 4, moving_time: 7000, distance: 60000, training_load: 100 },
-};
-
+/** Five activities against three, and 120 load against 90, as the engine judged them. */
 const engine = {
-  getPeriodStats: jest.fn((startTs: number) => ({
-    count: startTs > 0 ? 3 : 0,
-    totalDuration: 7200,
-    totalDistance: 60000,
-    totalTss: 90,
-  })),
-  getActivityBodies: jest.fn(() => []),
+  getTrainingScreenData: trainingScreenRead({
+    comparisons: (now) => ({
+      week: summaryComparison(now, {
+        currentStats: { count: 5, totalDuration: 9000, totalDistance: 80000, totalTss: 120 },
+        previousStats: { count: 3, totalDuration: 9000, totalDistance: 80000, totalTss: 90 },
+        moves: {
+          count: { glyph: '↑', percent: 67 },
+          duration: { glyph: '→' },
+          distance: { glyph: '→' },
+          load: { glyph: '↑', percent: 33 },
+        },
+      }),
+    }),
+  }),
+  rangeCoverage: jest.fn(() => RangeCoverage.Loaded),
   subscribe: jest.fn(() => () => {}),
 };
 
@@ -59,13 +60,8 @@ beforeEach(() => {
 
 describe('the weekly summary trends for a screen reader', () => {
   it('names each trend with its judgement and no arrow', async () => {
-    jest
-      .requireMock('@/features/fitness/hooks')
-      .useAthleteSummary.mockReturnValue({ data: SUMMARY, isLoading: false });
-
     const view = await render(<WeeklySummary />, { wrapper });
 
-    // Five activities against the engine's three, and 120 load against 90.
     await waitFor(() => expect(view.getByLabelText('improved, 67%')).toBeTruthy());
     expect(view.getByLabelText('rose, 33%')).toBeTruthy();
     expect(view.queryByLabelText(/[↑↓→]/)).toBeNull();

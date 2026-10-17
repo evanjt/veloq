@@ -182,7 +182,7 @@ export const STYLE_CLASSES = [
   {
     name: 'z-index',
     keys: ['zIndex'],
-    owner: [],
+    owner: ['layers', 'floatingLayers'],
     guard: 'lint:style-z-index',
     instead: 'a named layer from src/theme',
   },

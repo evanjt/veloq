@@ -1,18 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { View, StyleSheet, Text as RNText } from 'react-native';
-import {
-  useAthleteSummary,
-  getISOWeekNumber,
-  formatWeekRange,
-  type WeeklySummaryData,
-} from '@/features/fitness';
+import { getISOWeekNumber, formatWeekRange } from '@/features/fitness';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import type { ParseKeys, TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, layout, typography, spacing, verdictColor } from '@/theme';
-import { weeklyTrend, type WeeklyStat } from '@/features/stats/lib/weeklyTrend';
+import { glyphMove, verdictRung, type TrendMetric } from '@/shared/format/trend';
 import { spokenVerdict } from '@/shared/format/spoken';
 import { RangeCoverage } from 'veloqrs';
 import {
@@ -24,10 +19,11 @@ import {
 } from '@/shared/format/format';
 import { useWindowCoverage } from '@/shared/native/useRangeCoverage';
 import {
-  localDayEnd,
-  localDayStart,
-  usePeriodStats,
+  useTrainingScreenData,
   type PeriodTotals,
+  type StatMove,
+  type SummaryRange,
+  type SummaryStat,
 } from '@/features/stats/hooks/useEngineStats';
 import {
   CardHeader,
@@ -38,18 +34,8 @@ import {
   ToggleButton,
 } from '@/shared/ui';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { likeForLikeWindows } from '@/features/stats/lib/periodWindows';
 
-type TimeRange = 'week' | 'month' | '3m' | '6m' | 'year';
-
-interface WeeklySummaryProps {
-  /** Pre-fetched athlete summary data (lifted from parent for data call visibility) */
-  summaryData?: WeeklySummaryData;
-  /** Whether summary data is loading */
-  summaryLoading?: boolean;
-  /** What the summary read threw, when it threw */
-  summaryError?: unknown;
-}
+type TimeRange = SummaryRange;
 
 const TIME_RANGE_IDS: TimeRange[] = ['week', 'month', '3m', '6m', 'year'];
 
@@ -71,6 +57,16 @@ const RANGE_BUTTON_KEYS: Record<TimeRange, ParseKeys> = {
   year: 'stats.year',
 };
 
+/** The trend metric the engine judged each total as, whose polarity reads its glyph back. */
+const STAT_METRIC: Record<SummaryStat, TrendMetric> = {
+  count: 'weekCount',
+  duration: 'weekHours',
+  distance: 'weekDistance',
+  tss: 'weekTss',
+};
+
+const NO_TOTALS: PeriodTotals = { count: 0, duration: 0, distance: 0, tss: 0 };
+
 function getTimeRangeLabel(
   range: TimeRange,
   t: TFunction,
@@ -89,41 +85,28 @@ function getTimeRangeButtonLabel(range: TimeRange, t: TFunction): string {
   return t(RANGE_BUTTON_KEYS[range]);
 }
 
-function getDateRanges(range: TimeRange) {
-  return likeForLikeWindows(range, new Date());
-}
-
-/** The engine's totals, with training load rounded as the cells display it. */
-function rounded(totals: PeriodTotals) {
-  return {
-    count: totals.count,
-    duration: totals.duration,
-    distance: totals.distance,
-    tss: Math.round(totals.tss),
-  };
-}
-
+/** The engine's move for one total, drawn as it was judged. */
 function TrendCell({
   stat,
-  current,
-  previous,
+  move,
   isDark,
 }: {
-  stat: WeeklyStat;
-  current: number;
-  previous: number;
+  stat: SummaryStat;
+  move: StatMove | null;
   isDark: boolean;
 }) {
-  const cell = weeklyTrend(stat, current, previous);
-  if (!cell) return null;
-  const spoken = spokenVerdict(cell.verdict, cell.direction);
+  if (!move) return null;
+  const { verdict, direction } = glyphMove(STAT_METRIC[stat], move.glyph);
+  const pct = move.percent == null ? null : `${move.percent}%`;
+  const spoken = spokenVerdict(verdict, direction);
   return (
     <Text
-      accessibilityLabel={cell.pct ? `${spoken}, ${cell.pct}` : spoken}
-      style={[styles.trendArrow, { color: verdictColor(cell.rung, isDark) }]}
+      testID={`weekly-summary-${stat}-trend`}
+      accessibilityLabel={pct ? `${spoken}, ${pct}` : spoken}
+      style={[styles.trendArrow, { color: verdictColor(verdictRung(verdict), isDark) }]}
     >
-      {cell.glyph}
-      {cell.pct ? <RNText style={styles.trendPct}> {cell.pct}</RNText> : null}
+      {move.glyph}
+      {pct ? <RNText style={styles.trendPct}> {pct}</RNText> : null}
     </Text>
   );
 }
@@ -153,118 +136,62 @@ function StatsGridSkeleton() {
   );
 }
 
-export function WeeklySummary({
-  summaryData: externalSummaryData,
-  summaryLoading: externalSummaryLoading,
-  summaryError: externalSummaryError,
-}: WeeklySummaryProps) {
+export function WeeklySummary() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
   const [timeRange, setTimeRange] = useState<TimeRange>('week');
-
-  // Use externally-provided summary data if available, otherwise fetch internally.
-  // When parent provides data, the internal hook still runs but TanStack Query
-  // deduplicates - same queryKey means zero extra network requests.
-  const {
-    data: internalSummaryData,
-    isLoading: internalSummaryLoading,
-    error: internalSummaryError,
-  } = useAthleteSummary(4);
   const queryClient = useQueryClient();
-  const summaryData = externalSummaryData ?? internalSummaryData;
-  const isLoadingSummary = externalSummaryLoading ?? internalSummaryLoading;
-  const summaryError = externalSummaryError ?? internalSummaryError;
 
-  // The two windows the selected range compares, as the epoch seconds the
-  // engine stores. The current calendar week takes the athlete-summary endpoint
-  // when it has one, so that read is turned off rather than run and discarded.
-  // The previous window is always the engine's, because the endpoint's earlier
-  // week is a whole one and the comparison is the same span of both.
-  const ranges = useMemo(() => getDateRanges(timeRange), [timeRange]);
+  // Every range's two windows, totals and moves come from the training read,
+  // judged once by the engine, so a tap between ranges reads nothing and the
+  // week says what the home card says.
+  const { data, isPending, error: readError } = useTrainingScreenData();
+  const comparison = data.comparisons?.[timeRange] ?? null;
+  const currentStats = comparison?.current ?? NO_TOTALS;
   const rangeTexts = useMemo(
-    () => ({
-      current: t('stats.calendarRange', {
-        start: formatFullDate(ranges.currentStart),
-        end: formatFullDate(ranges.currentEnd),
-      }),
-      previous: t('stats.calendarRange', {
-        start: formatFullDate(ranges.previousStart),
-        end: formatFullDate(ranges.previousEnd),
-      }),
-    }),
-    [ranges, t]
+    () =>
+      comparison
+        ? {
+            current: t('stats.calendarRange', {
+              start: formatFullDate(comparison.currentStart),
+              end: formatFullDate(comparison.currentEnd),
+            }),
+            previous: t('stats.calendarRange', {
+              start: formatFullDate(comparison.previousStart),
+              end: formatFullDate(comparison.previousEnd),
+            }),
+          }
+        : { current: undefined, previous: undefined },
+    [comparison, t]
   );
-  const readsEngine = !(timeRange === 'week' && !!summaryData);
-  const current = usePeriodStats(
-    localDayStart(ranges.currentStart),
-    localDayEnd(ranges.currentEnd),
-    readsEngine
-  );
-  const previous = usePeriodStats(
-    localDayStart(ranges.previousStart),
-    localDayEnd(ranges.previousEnd)
-  );
-  // Whether each period was downloaded, by the census over its own days. The
-  // athlete-summary week is the server's own answer and needs neither.
-  const currentCoverage = useWindowCoverage(
-    formatLocalDate(ranges.currentStart),
-    formatLocalDate(ranges.currentEnd),
-    readsEngine
-  );
-  const previousCoverage = useWindowCoverage(
-    formatLocalDate(ranges.previousStart),
-    formatLocalDate(ranges.previousEnd)
-  );
-  const currentNotDownloaded = readsEngine && currentCoverage === RangeCoverage.NotFetched;
+
+  // Whether each period was downloaded, by the census over its own days.
+  const days = (start?: Date, end?: Date): [string, string] =>
+    start && end ? [formatLocalDate(start), formatLocalDate(end)] : ['', ''];
+  const [currentOldest, currentNewest] = days(comparison?.currentStart, comparison?.currentEnd);
+  const [previousOldest, previousNewest] = days(comparison?.previousStart, comparison?.previousEnd);
+  const currentCoverage = useWindowCoverage(currentOldest, currentNewest, !!comparison);
+  const previousCoverage = useWindowCoverage(previousOldest, previousNewest, !!comparison);
+  const currentNotDownloaded = currentCoverage === RangeCoverage.NotFetched;
   const partlyNotDownloaded = currentNotDownloaded || previousCoverage === RangeCoverage.NotFetched;
 
-  // Compute stats based on time range
-  const { currentStats, previousStats, labels } = useMemo(() => {
+  const labels = useMemo(() => {
     const today = new Date();
-    const currentMonday = getMonday(today);
-    const weekNum = getISOWeekNumber(today);
-    const weekRangeStr = formatWeekRange(currentMonday);
+    return getTimeRangeLabel(
+      timeRange,
+      t,
+      getISOWeekNumber(today),
+      formatWeekRange(getMonday(today))
+    );
+  }, [timeRange, t]);
 
-    // For 'week' range, use API data (matches intervals.icu calendar weeks)
-    if (timeRange === 'week' && summaryData) {
-      const current = summaryData.currentWeek;
+  // The engine read settles in a tick; once it has, the empty-state branch
+  // handles a period with nothing in it rather than spinning indefinitely.
+  const isLoading = isPending;
 
-      return {
-        currentStats: {
-          count: current?.count ?? 0,
-          duration: current?.moving_time ?? 0,
-          distance: current?.distance ?? 0,
-          tss: Math.round(current?.training_load ?? 0),
-        },
-        previousStats: rounded(previous.totals),
-        labels: getTimeRangeLabel(timeRange, t, weekNum, weekRangeStr),
-      };
-    }
-
-    return {
-      currentStats: rounded(current.totals),
-      previousStats: rounded(previous.totals),
-      labels: getTimeRangeLabel(timeRange, t, weekNum, weekRangeStr),
-    };
-  }, [current.totals, previous.totals, timeRange, summaryData, t]);
-
-  // Show loading state: for 'week' the summary endpoint is authoritative. For
-  // other ranges it is the engine read, which settles in a tick; once it has,
-  // the empty-state branch handles a period with nothing in it rather than
-  // spinning indefinitely.
-  const isLoading = timeRange === 'week' ? isLoadingSummary : current.isPending;
-
-  // A thrown read is not a period with nothing in it, so it is named in place of
-  // the totals rather than drawn as zero.
-  const readError =
-    (readsEngine ? current.error : null) ??
-    (timeRange === 'week' ? summaryError : null) ??
-    previous.error ??
-    null;
   const retry = () => {
-    void queryClient.invalidateQueries({ queryKey: queryKeys.stats.period.all });
-    void queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.stats.training.all });
   };
 
   // Show empty state if no activities in current period
@@ -345,12 +272,7 @@ export function WeeklySummary({
                 >
                   {currentStats.count}
                 </Text>
-                <TrendCell
-                  stat="count"
-                  current={currentStats.count}
-                  previous={previousStats.count}
-                  isDark={isDark}
-                />
+                <TrendCell stat="count" move={comparison?.moves.count ?? null} isDark={isDark} />
               </View>
               <Text style={[styles.statLabel, isDark && styles.textDark]}>
                 {t('stats.activities')}
@@ -367,8 +289,7 @@ export function WeeklySummary({
                 </Text>
                 <TrendCell
                   stat="duration"
-                  current={currentStats.duration}
-                  previous={previousStats.duration}
+                  move={comparison?.moves.duration ?? null}
                   isDark={isDark}
                 />
               </View>
@@ -387,8 +308,7 @@ export function WeeklySummary({
                 </Text>
                 <TrendCell
                   stat="distance"
-                  current={currentStats.distance}
-                  previous={previousStats.distance}
+                  move={comparison?.moves.distance ?? null}
                   isDark={isDark}
                 />
               </View>
@@ -403,14 +323,9 @@ export function WeeklySummary({
                   testID="weekly-summary-tss"
                   style={[styles.statValue, isDark && styles.textLight]}
                 >
-                  {currentStats.tss}
+                  {Math.round(currentStats.tss)}
                 </Text>
-                <TrendCell
-                  stat="tss"
-                  current={currentStats.tss}
-                  previous={previousStats.tss}
-                  isDark={isDark}
-                />
+                <TrendCell stat="tss" move={comparison?.moves.tss ?? null} isDark={isDark} />
               </View>
               <Text style={[styles.statLabel, isDark && styles.textDark]}>{t('metrics.load')}</Text>
             </View>

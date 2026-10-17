@@ -37,6 +37,10 @@
     "calories": "Calorias",
     "chartHint": "Segure para deslizar • Segure o chip para o eixo",
     "distance": "Distância",
+    "xAxis": {
+      "distance": "Distância",
+      "time": "Tempo"
+    },
     "duration": "Duração",
     "explanations": {
       "conditions": "Temperatura dos dados meteorológicos ou do sensor do seu dispositivo.",
@@ -225,14 +229,14 @@
   },
   "alerts": {
     "cacheCleared": "Cache limpa",
-    "clearCacheMessage": "Isto irá limpar todos os dados de atividades em cache, trilhos de atividade e dados de correspondência de percursos, depois começará a recarregar. Pode demorar alguns minutos.",
+    "clearCacheMessage": "Isto irá limpar todos os dados de atividades em cache, trilhos de atividade e dados de correspondência de percursos, depois começará a recarregar. Pode demorar alguns minutos. O intervalo de dados locais volta aos últimos 90 dias.",
     "clearCacheOffline": "Estás offline. O recarregamento precisa de rede, por isso as tuas atividades, mapas e percursos ficarão vazios até ela voltar.",
     "clearCacheTitle": "Limpar e recarregar cache",
     "clearReload": "Limpar e recarregar",
-    "disconnect": "Desligar",
-    "disconnectMessage": "Isto irá remover as suas credenciais API da aplicação. Terá de as introduzir novamente para usar a aplicação.",
+    "signOut": "Terminar sessão",
+    "signOutMessage": "A biblioteca, os nomes e as definições ficam neste telemóvel. Inicie sessão novamente para sincronizar.",
     "disconnectOffline": "Estás offline. As duas formas de voltar precisam de rede, por isso não conseguirás entrar até ela voltar.",
-    "disconnectTitle": "Desligar conta",
+    "signOutTitle": "Terminar sessão?",
     "leaveDemoTitle": "Sair da demo?",
     "leaveDemoMessage": "As voltas de exemplo fecham e regressa ao início de sessão. Nada da demo é guardado.",
     "leaveDemoConfirm": "Sair",
@@ -358,6 +362,7 @@
     "entryActivities_one": "{{count}} atividade",
     "entryActivities_many": "{{count}} atividades",
     "entryActivities_other": "{{count}} atividades",
+    "entryAppVersion": "Versão {{version}}",
     "restoreFromFile": "Restaurar a partir de um ficheiro",
     "restoreFromWebdav": "Restaurar a partir de WebDAV",
     "restoreFromGoogleDrive": "Restaurar a partir do Google Drive",
@@ -693,12 +698,6 @@
     "failedToLoad": "Falha ao carregar atividades",
     "firstSyncBody": "Apenas no primeiro carregamento. O feed abre quando chegarem as primeiras atividades.",
     "firstSyncTitle": "A sincronizar as tuas atividades",
-    "groups": {
-      "cycling": "Ciclismo",
-      "running": "Corrida",
-      "swimming": "Natação",
-      "other": "Outro"
-    },
     "range": {
       "last90Days": "Últimos 90 dias",
       "thisYear": "Este ano",
@@ -993,9 +992,9 @@
     },
     "strengthBalance": {
       "volumeSplit": "Distribuição do volume",
-      "balanced": "Equilibrado",
-      "watch": "Vigiar",
-      "imbalanced": "Desequilibrado",
+      "bandLow": "Abaixo de 1,35×",
+      "bandMiddle": "De 1,35× a 2×",
+      "bandHigh": "2× ou mais",
       "oneSided": "Unilateral",
       "lowSignal": "Sinal fraco",
       "noSignal": "Sem sinal",
@@ -1185,18 +1184,6 @@
     "activitiesCount_one": "{{count}} atividade",
     "activitiesCount_many": "{{count}} de atividades",
     "activitiesCount_other": "{{count}} atividades",
-    "activityTypes": {
-      "gym": "Ginásio",
-      "hike": "Caminhada",
-      "other": "Outro",
-      "racket": "Raquete",
-      "ride": "Bicicleta",
-      "run": "Corrida",
-      "snow": "Neve",
-      "swim": "Natação",
-      "walk": "Andar",
-      "water": "Aquático"
-    },
     "closeMap": "Fechar mapa",
     "closePopup": "Fechar popup de atividade",
     "closeRoutePopup": "Fechar popup de rota",
@@ -1267,7 +1254,7 @@
     },
     "privacy": {
       "title": "Aviso de privacidade",
-      "brief": "O seu ID de atleta e um token push serão armazenados no nosso servidor (expira em 30 dias). As notificações são encaminhadas pela Apple ou Google, mas todo o conteúdo dos insights é gerado no seu dispositivo. Nenhum dado pessoal é armazenado. Pode desativar a qualquer momento.",
+      "brief": "O seu ID de atleta e um token push serão armazenados no nosso servidor (expira em 30 dias). As notificações são encaminhadas pela Apple ou Google, mas todo o conteúdo dos insights é gerado no seu dispositivo. Pode desativar a qualquer momento.",
       "accept": "Compreendo",
       "briefEnabled": "Está a receber estas notificações. O seu ID de atleta e um token push estão guardados no nosso servidor (expiram aos 30 dias) e as notificações são encaminhadas pelo Expo, depois pela Apple ou Google, até ao seu dispositivo. Todo o conteúdo das análises é gerado no seu dispositivo. Pode desativá-las a qualquer momento.",
       "turnOff": "Desativar"
@@ -1331,23 +1318,16 @@
     "backgroundNotificationTitle": "A gravar atividade",
     "categories": {
       "cycling": "Ciclismo",
-      "gym": "Ginásio e fitness",
-      "other": "Outro",
-      "racket": "Desportos de raquete",
-      "running": "Corrida",
-      "swimming": "Natação",
-      "water": "Desportos aquáticos",
-      "winter": "Desportos de inverno",
-      "walking": "Caminhada"
+      "running": "Corrida"
     },
     "changeType": "Alterar tipo de atividade",
     "continue": "Continuar",
     "controls": {
-      "lap": "VOLTA",
-      "pause": "PAUSA",
-      "resume": "RETOMAR",
-      "save": "GUARDAR",
-      "stop": "PARAR"
+      "lap": "Volta",
+      "pause": "Pausa",
+      "resume": "Retomar",
+      "save": "Guardar",
+      "stop": "Parar"
     },
     "discard": "Descartar",
     "discardConfirmMessage": "Não foi guardada e não poderá ser recuperada depois de descartada.",
@@ -1442,7 +1422,7 @@
     "splitReachedMi": "Milha {{index}}",
     "startActivity": "Iniciar atividade",
     "status": {
-      "paused": "EM PAUSA",
+      "paused": "Em pausa",
       "recording": "A gravar"
     },
     "summary": "Resumo",
@@ -1561,8 +1541,8 @@
     "routeNotFound": "Percurso não encontrado"
   },
   "routeIntelligence": {
-    "today": "HOJE",
-    "tomorrow": "AMANHÃ"
+    "today": "Hoje",
+    "tomorrow": "Amanhã"
   },
   "routes": {
     "timeMethod": "Os tempos da rota usam o tempo em movimento, sem paragens.",
@@ -1724,6 +1704,12 @@
     "aerobicEfficiency": "Eficiência aeróbia",
     "aerobicEfficiencyDetail": "{{efforts}} passagens comparáveis, variação modelada de {{hrChange}} bpm ao ritmo médio",
     "aerobicEfficiencyCaption": "{{quantity}}, da passagem mais antiga à mais recente",
+    "aerobicEfficiencyRange": "Intervalo de {{min}} a {{max}}",
+    "aerobicEfficiencyInverted": "Mais baixo é desenhado mais acima: menos frequência cardíaca para o ritmo",
+    "aerobicEfficiencySpoken": "{{title}}, {{efforts}} passagens comparáveis",
+    "efficiencyVerdictImproving": "A melhorar",
+    "efficiencyVerdictFlat": "Sem mudança clara",
+    "efficiencyVerdictWorsening": "A piorar",
     "correlationTitle": "Bem-estar e velocidade",
     "correlationMethod": "r de Pearson da velocidade por volta face ao valor de bem-estar desse dia, intervalo de 95%, pelo menos 10 passagens com um valor",
     "correlationFamily_one": "Ajustado por Holm em {{count}} variável",
@@ -1754,7 +1740,7 @@
     "correlationVarMood": "Humor",
     "correlationVarMotivation": "Motivação",
     "setAsReference": "Definir como referência",
-    "setAsReferenceConfirm": "Usar esta atividade como referência?\n\nO troço será novamente comparado com todas as suas atividades. Isto pode adicionar ou remover atividades deste troço.",
+    "setAsReferenceConfirm": "Usar esta atividade como referência?\n\nA linha do troço seguirá esta atividade, e o gráfico Delta medirá o tempo à frente ou atrás em relação a ela.\n\nO troço será novamente comparado com todas as suas atividades, o que pode adicionar ou remover algumas.",
     "setReferenceError": "Falha ao definir referência. O troço ou atividade pode ter mudado. Por favor, tente novamente.",
     "editBounds": "Editar limites",
     "pointsCount_one": "{{count}} ponto",
@@ -1788,6 +1774,7 @@
     "traversalsCount_other": "{{count}} travessias",
     "calendarActivities_one": "{{count}} atividade",
     "calendarActivities_other": "{{count}} atividades",
+    "calendarTitle": "Por ano",
     "scanForMatches": "Procurar correspondências",
     "rematchActivities": "Voltar a associar atividades",
     "scanForMore": "Procurar mais troços",
@@ -1860,6 +1847,7 @@
     "trimFailedTitle": "Não foi possível recortar o troço",
     "deleteFailedTitle": "Troço não eliminado",
     "sectionRemoved": "Troço removido",
+    "attemptExcluded": "Tentativa excluída",
     "removeFailedTitle": "Troço não removido",
     "removeFailed": "Não foi possível remover o troço.",
     "restoreFailedTitle": "Troço não restaurado",
@@ -1894,7 +1882,7 @@
     "defaultStyle": "Estilo predefinido",
     "exploreMapStyle": "Mapa de exploração",
     "dialect": "Dialeto",
-    "disconnectAccount": "Desligar conta",
+    "signOut": "Terminar sessão",
     "leaveDemo": "Sair da demo",
     "display": "Ecrã",
     "largeHistoryConfirm": "Transferir mesmo assim",
@@ -1903,6 +1891,7 @@
     "largeHistoryMessage_other": "Recuar tanto transfere até cerca de {{count}} atividades. Vai demorar, e não é garantido que a app continue rápida com tantos dados.",
     "largeHistoryTitle": "É uma transferência grande",
     "localDataRange": "Intervalo de dados local",
+    "localDataRangeEnd": "Fim do intervalo de dados local",
     "heroMetric": "Métrica Principal",
     "hideDemoBanner": "Ocultar banner demo",
     "hideDemoBannerHint": "Ocultar o banner para capturas de ecrã",
@@ -2152,6 +2141,7 @@
     "groupingLegendDropped": "Ficam sozinhos",
     "groupingFailed": "O agrupamento não terminou. Move um controlo para tentar de novo.",
     "authApiKey": "Chave API",
+    "authOAuth": "Sessão iniciada com intervals.icu",
     "authDemo": "Modo demo",
     "scopeChats": "Conversas",
     "scopeLibrary": "Biblioteca",
@@ -2204,7 +2194,7 @@
     "rangeNotDownloaded": "Ainda não transferido",
     "rangePartlyDownloaded": "Parte deste período ainda não foi transferida",
     "calendarRange": "De {{start}} a {{end}}",
-    "seasonComparison": "Comparação sazonal",
+    "seasonComparison": "Comparação anual",
     "sixCalendarMonths": "6 m.",
     "swimPaceCurve": "Curva de ritmo de natação",
     "thisMonth": "Este mês",
@@ -2214,7 +2204,7 @@
     "time": "Tempo",
     "totalTime": "Tempo total",
     "vsLastMonth": "vs mês passado",
-    "vsLastWeek": "vs semana passada",
+    "vsLastWeek": "vs semana passada até agora",
     "vsLastYear": "vs ano passado",
     "vsPrevious3Months": "vs 3 meses anteriores",
     "vsPrevious6Months": "vs 6 meses anteriores",
@@ -2275,7 +2265,18 @@
   },
   "trainingScreen": {
     "routes": "Percursos",
-    "countOfTotal": "{{shown}} de {{total}}",
+    "routesListCount_one": "{{count}} percurso",
+    "routesListCount_many": "{{count}} de percursos",
+    "routesListCount_other": "{{count}} percursos",
+    "routesListCountOfTotal_one": "{{shown}} de {{count}} percurso",
+    "routesListCountOfTotal_many": "{{shown}} de {{count}} de percursos",
+    "routesListCountOfTotal_other": "{{shown}} de {{count}} percursos",
+    "sectionsListCount_one": "{{count}} troço",
+    "sectionsListCount_many": "{{count}} de troços",
+    "sectionsListCount_other": "{{count}} troços",
+    "sectionsListCountOfTotal_one": "{{shown}} de {{count}} troço",
+    "sectionsListCountOfTotal_many": "{{shown}} de {{count}} de troços",
+    "sectionsListCountOfTotal_other": "{{shown}} de {{count}} troços",
     "sections": "Troços"
   },
   "units": {
@@ -2320,11 +2321,11 @@
     "smoothingAverage_one": "Média de {{count}} dia",
     "smoothingAverage_other": "Média de {{count}} dias",
     "smoothingDescription": "Aplicar uma média móvel para reduzir o ruído diário e mostrar tendências mais claramente.",
-    "smoothingHint": "Auto usa suavização ótima para o intervalo selecionado",
+    "smoothingHint": "Auto: sem suavização para {{r7d}}, média de {{d1m}} dias para {{r1m}}, {{d3m}} dias para {{r3m}}, {{d6m}} para {{r6m}} e {{d1y}} para {{r1y}}.",
     "smoothingNone": "Nenhum",
     "smoothingRaw": "Dados em bruto",
     "smoothingTitle": "Suavização de dados",
-    "trendHint": "As tendências de VFC, sono e FC em repouso aparecerão aqui quando os dados forem registados",
+    "trendHint": "O bem-estar do intervals.icu (VFC, FC em repouso, sono, pontuação do sono, peso) aparece aqui quando é registado.",
     "weight": "Peso",
     "sleepDuration": "{{hours}} h {{minutes}} min"
   },
@@ -2454,7 +2455,7 @@
     "balanceFootnote": "Os rácios comparam séries ponderadas, onde o trabalho primário conta como 1,0 e o secundário como 0,5.",
     "pairsInfoTitle": "Método de equilíbrio",
     "pairsInfoIntro": "Estes pares antagonistas são comparados:",
-    "pairsInfoThresholds": "Estado: equilibrado ≤ 1,35×, observar até 2×, desequilibrado acima de 2×.",
+    "pairsInfoThresholds": "Intervalos: abaixo de 1,35×, de 1,35× a 2×, 2× ou mais.",
     "pairsInfoMinSignal": "Pares com menos de 4 séries ponderadas por lado são ignorados.",
     "exercisesTargeting": "Exercícios para {{muscle}}",
     "exerciseWorkoutCount_one": "{{count}} treino",
@@ -2865,5 +2866,14 @@
       "zone": "Zona",
       "time": "Tempo"
     }
+  },
+  "sportFamilies": {
+    "ride": "Ciclismo",
+    "winter": "Desportos de inverno",
+    "run": "Corrida",
+    "water": "Desportos aquáticos",
+    "foot": "A pé",
+    "strength": "Força",
+    "other": "Outro"
   }
 }

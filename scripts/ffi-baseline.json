@@ -72,9 +72,6 @@
     "getMapScreenData": {
       "p95Ms": 7.4
     },
-    "getPeriodStats": {
-      "p95Ms": 0.2
-    },
     "getPowerCurve": {
       "p95Ms": 1.3
     },

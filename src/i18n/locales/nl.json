@@ -37,6 +37,10 @@
     "calories": "Calorieën",
     "chartHint": "Houd vast om te scrubben • Houd chip vast voor as",
     "distance": "Afstand",
+    "xAxis": {
+      "distance": "Afstand",
+      "time": "Tijd"
+    },
     "duration": "Duur",
     "explanations": {
       "conditions": "Temperatuur uit weergegevens of je apparaatsensor.",
@@ -224,14 +228,14 @@
   },
   "alerts": {
     "cacheCleared": "Cache gewist",
-    "clearCacheMessage": "Dit wist alle gecachte activiteitsgegevens, sporen en route-matching gegevens, en start het herladen. Dit kan enkele minuten duren.",
+    "clearCacheMessage": "Dit wist alle gecachte activiteitsgegevens, sporen en route-matching gegevens, en start het herladen. Dit kan enkele minuten duren. Het lokale gegevensbereik gaat terug naar de laatste 90 dagen.",
     "clearCacheOffline": "Je bent offline. Het herladen heeft een verbinding nodig, dus je activiteiten, kaarten en routes blijven leeg tot het netwerk terug is.",
     "clearCacheTitle": "Cache wissen & herladen",
     "clearReload": "Wissen & herladen",
-    "disconnect": "Loskoppelen",
-    "disconnectMessage": "Dit verwijdert je API-gegevens uit de app. Je moet ze opnieuw invoeren om de app te gebruiken.",
+    "signOut": "Uitloggen",
+    "signOutMessage": "Je bibliotheek, namen en instellingen blijven op deze telefoon. Log opnieuw in om te synchroniseren.",
     "disconnectOffline": "Je bent offline. Beide manieren om terug te komen hebben een verbinding nodig, dus je kunt pas weer inloggen als het netwerk terug is.",
-    "disconnectTitle": "Account loskoppelen",
+    "signOutTitle": "Uitloggen?",
     "leaveDemoTitle": "Demo verlaten?",
     "leaveDemoMessage": "De voorbeeldritten sluiten en je gaat terug naar inloggen. Niets uit de demo wordt bewaard.",
     "leaveDemoConfirm": "Verlaten",
@@ -356,6 +360,7 @@
     "restoreOfferRestoring": "Herstellen…",
     "entryActivities_one": "{{count}} activiteit",
     "entryActivities_other": "{{count}} activiteiten",
+    "entryAppVersion": "Versie {{version}}",
     "restoreFromFile": "Herstellen uit een bestand",
     "restoreFromWebdav": "Herstellen vanaf WebDAV",
     "restoreFromGoogleDrive": "Herstellen vanaf Google Drive",
@@ -677,12 +682,6 @@
     "failedToLoad": "Activiteiten laden mislukt",
     "firstSyncBody": "Alleen bij de eerste keer laden. De feed opent zodra de eerste activiteiten binnen zijn.",
     "firstSyncTitle": "Je activiteiten worden gesynchroniseerd",
-    "groups": {
-      "cycling": "Fietsen",
-      "running": "Hardlopen",
-      "swimming": "Zwemmen",
-      "other": "Anders"
-    },
     "range": {
       "last90Days": "Laatste 90 dagen",
       "thisYear": "Dit jaar",
@@ -974,9 +973,9 @@
     },
     "strengthBalance": {
       "volumeSplit": "Volumeverdeling",
-      "balanced": "Evenwichtig",
-      "watch": "In de gaten houden",
-      "imbalanced": "Onevenwichtig",
+      "bandLow": "Onder 1,35×",
+      "bandMiddle": "1,35× tot 2×",
+      "bandHigh": "2× of meer",
       "oneSided": "Eenzijdig",
       "lowSignal": "Weinig data",
       "noSignal": "Geen data",
@@ -1164,18 +1163,6 @@
     "unavailableHint": "De kaart kon niet laden. Controleer je verbinding en open hem opnieuw.",
     "activitiesCount_one": "{{count}} activiteit",
     "activitiesCount_other": "{{count}} activiteiten",
-    "activityTypes": {
-      "gym": "Sportschool",
-      "hike": "Wandeling",
-      "other": "Overig",
-      "racket": "Racketsport",
-      "ride": "Rit",
-      "run": "Loop",
-      "snow": "Sneeuw",
-      "swim": "Zwem",
-      "walk": "Wandel",
-      "water": "Watersport"
-    },
     "closeMap": "Kaart sluiten",
     "closePopup": "Activiteit-popup sluiten",
     "closeRoutePopup": "Route-popup sluiten",
@@ -1246,7 +1233,7 @@
     },
     "privacy": {
       "title": "Privacymelding",
-      "brief": "Je atleet-ID en een pushtoken worden opgeslagen op onze server (30 dagen geldig). Meldingen worden via Apple of Google verzonden, maar alle inzichtinhoud wordt op je apparaat gegenereerd. Er worden geen persoonlijke gegevens opgeslagen. Je kunt dit op elk moment uitschakelen.",
+      "brief": "Je atleet-ID en een pushtoken worden opgeslagen op onze server (30 dagen geldig). Meldingen worden via Apple of Google verzonden, maar alle inzichtinhoud wordt op je apparaat gegenereerd. Je kunt dit op elk moment uitschakelen.",
       "accept": "Ik begrijp het",
       "briefEnabled": "Je ontvangt deze meldingen. Je atleet-ID en een pushtoken worden op onze server opgeslagen (verloopt na 30 dagen) en meldingen lopen via Expo, daarna Apple of Google, naar je toestel. Alle inzichten worden op je toestel gegenereerd. Je kunt ze op elk moment uitschakelen.",
       "turnOff": "Uitschakelen"
@@ -1310,23 +1297,16 @@
     "backgroundNotificationTitle": "Activiteit opnemen",
     "categories": {
       "cycling": "Fietsen",
-      "gym": "Sportschool & Fitness",
-      "other": "Overig",
-      "racket": "Racketsport",
-      "running": "Hardlopen",
-      "swimming": "Zwemmen",
-      "water": "Watersport",
-      "winter": "Wintersport",
-      "walking": "Wandelen"
+      "running": "Hardlopen"
     },
     "changeType": "Activiteitstype wijzigen",
     "continue": "Doorgaan",
     "controls": {
-      "lap": "RONDE",
-      "pause": "PAUZE",
-      "resume": "HERVAT",
-      "save": "OPSLAAN",
-      "stop": "STOP"
+      "lap": "Ronde",
+      "pause": "Pauze",
+      "resume": "Hervat",
+      "save": "Opslaan",
+      "stop": "Stop"
     },
     "discard": "Verwijderen",
     "discardConfirmMessage": "De opname is niet opgeslagen en kan na het verwijderen niet worden hersteld.",
@@ -1421,7 +1401,7 @@
     "splitReachedMi": "Mijl {{index}}",
     "startActivity": "Activiteit starten",
     "status": {
-      "paused": "GEPAUZEERD",
+      "paused": "Gepauzeerd",
       "recording": "Opnemen"
     },
     "summary": "Samenvatting",
@@ -1538,8 +1518,8 @@
     "routeNotFound": "Route niet gevonden"
   },
   "routeIntelligence": {
-    "today": "VANDAAG",
-    "tomorrow": "MORGEN"
+    "today": "Vandaag",
+    "tomorrow": "Morgen"
   },
   "routes": {
     "timeMethod": "Routetijden gebruiken bewegingstijd, zonder stops.",
@@ -1696,6 +1676,12 @@
     "aerobicEfficiency": "Aerobe efficiëntie",
     "aerobicEfficiencyDetail": "{{efforts}} vergelijkbare pogingen, gemodelleerde verandering van {{hrChange}} bpm bij gemiddeld tempo",
     "aerobicEfficiencyCaption": "{{quantity}}, oudste poging tot nieuwste",
+    "aerobicEfficiencyRange": "Bereik {{min}} tot {{max}}",
+    "aerobicEfficiencyInverted": "Lager wordt hoger getekend: minder hartslag voor het tempo",
+    "aerobicEfficiencySpoken": "{{title}}, {{efforts}} vergelijkbare pogingen",
+    "efficiencyVerdictImproving": "Verbetert",
+    "efficiencyVerdictFlat": "Geen duidelijke verandering",
+    "efficiencyVerdictWorsening": "Verslechtert",
     "correlationTitle": "Welzijn en snelheid",
     "correlationMethod": "Pearson-r van de rondesnelheid tegen de welzijnswaarde van die dag, 95%-interval, minstens 10 pogingen met een waarde",
     "correlationFamily_one": "Holm-gecorrigeerd over {{count}} variabele",
@@ -1724,7 +1710,7 @@
     "correlationVarMood": "Stemming",
     "correlationVarMotivation": "Motivatie",
     "setAsReference": "Als referentie instellen",
-    "setAsReferenceConfirm": "Deze activiteit als referentie gebruiken?\n\nDe sectie wordt opnieuw gematcht met al je activiteiten. Dit kan activiteiten toevoegen aan of verwijderen uit deze sectie.",
+    "setAsReferenceConfirm": "Deze activiteit als referentie gebruiken?\n\nDe lijn van de sectie volgt deze activiteit en de Delta-grafiek meet de voorsprong of achterstand ten opzichte ervan.\n\nDe sectie wordt opnieuw gematcht met al je activiteiten, waardoor er enkele bij kunnen komen of weg kunnen vallen.",
     "setReferenceError": "Referentie instellen mislukt. De sectie of activiteit is mogelijk gewijzigd. Probeer het opnieuw.",
     "editBounds": "Grenzen bewerken",
     "pointsCount_one": "{{count}} punt",
@@ -1756,6 +1742,7 @@
     "traversalsCount_other": "{{count}} passages",
     "calendarActivities_one": "{{count}} activiteit",
     "calendarActivities_other": "{{count}} activiteiten",
+    "calendarTitle": "Per jaar",
     "scanForMatches": "Scannen op overeenkomsten",
     "rematchActivities": "Activiteiten opnieuw koppelen",
     "scanForMore": "Scannen op meer secties",
@@ -1821,6 +1808,7 @@
     "trimFailedTitle": "Sectie niet bijgesneden",
     "deleteFailedTitle": "Sectie niet verwijderd",
     "sectionRemoved": "Sectie verwijderd",
+    "attemptExcluded": "Poging uitgesloten",
     "removeFailedTitle": "Sectie niet verwijderd",
     "removeFailed": "De sectie kon niet worden verwijderd.",
     "restoreFailedTitle": "Sectie niet hersteld",
@@ -1855,7 +1843,7 @@
     "defaultStyle": "Standaardstijl",
     "exploreMapStyle": "Verkenkaart",
     "dialect": "Taalvariant",
-    "disconnectAccount": "Account loskoppelen",
+    "signOut": "Uitloggen",
     "leaveDemo": "Demo verlaten",
     "display": "Weergave",
     "largeHistoryConfirm": "Toch downloaden",
@@ -1863,6 +1851,7 @@
     "largeHistoryMessage_other": "Zo ver terug haalt tot ongeveer {{count}} activiteiten op. Dat duurt even, en de app blijft met zoveel data niet gegarandeerd snel.",
     "largeHistoryTitle": "Dat is een grote download",
     "localDataRange": "Lokaal datumbereik",
+    "localDataRangeEnd": "Einde van lokaal datumbereik",
     "heroMetric": "Hoofdmetriek",
     "hideDemoBanner": "Demo-banner verbergen",
     "hideDemoBannerHint": "Banner verbergen voor screenshots",
@@ -2098,6 +2087,7 @@
     "groupingLegendDropped": "Blijven alleen",
     "groupingFailed": "De groepering is niet afgerond. Verschuif een regelaar om het opnieuw te proberen.",
     "authApiKey": "API-sleutel",
+    "authOAuth": "Ingelogd met intervals.icu",
     "authDemo": "Demomodus",
     "scopeChats": "Gesprekken",
     "scopeLibrary": "Bibliotheek",
@@ -2148,7 +2138,7 @@
     "rangeNotDownloaded": "Nog niet gedownload",
     "rangePartlyDownloaded": "Een deel van deze periode is nog niet gedownload",
     "calendarRange": "{{start}} tot {{end}}",
-    "seasonComparison": "Seizoensvergelijking",
+    "seasonComparison": "Jaarvergelijking",
     "sixCalendarMonths": "6 mnd.",
     "swimPaceCurve": "Zwemtempocurve",
     "thisMonth": "Deze maand",
@@ -2158,7 +2148,7 @@
     "time": "Tijd",
     "totalTime": "Totale tijd",
     "vsLastMonth": "vs vorige maand",
-    "vsLastWeek": "vs vorige week",
+    "vsLastWeek": "vs vorige week tot nu toe",
     "vsLastYear": "vs vorig jaar",
     "vsPrevious3Months": "vs vorige 3 maanden",
     "vsPrevious6Months": "vs vorige 6 maanden",
@@ -2218,7 +2208,14 @@
   },
   "trainingScreen": {
     "routes": "Routes",
-    "countOfTotal": "{{shown}} van {{total}}",
+    "routesListCount_one": "{{count}} route",
+    "routesListCount_other": "{{count}} routes",
+    "routesListCountOfTotal_one": "{{shown}} van {{count}} route",
+    "routesListCountOfTotal_other": "{{shown}} van {{count}} routes",
+    "sectionsListCount_one": "{{count}} sectie",
+    "sectionsListCount_other": "{{count}} secties",
+    "sectionsListCountOfTotal_one": "{{shown}} van {{count}} sectie",
+    "sectionsListCountOfTotal_other": "{{shown}} van {{count}} secties",
     "sections": "Secties"
   },
   "units": {
@@ -2285,11 +2282,11 @@
     "smoothingAverage_one": "Gemiddelde van {{count}} dag",
     "smoothingAverage_other": "Gemiddelde van {{count}} dagen",
     "smoothingDescription": "Pas een voortschrijdend gemiddelde toe om dagelijkse ruis te verminderen en trends duidelijker te tonen.",
-    "smoothingHint": "Auto gebruikt optimale smoothing voor het geselecteerde tijdsbereik",
+    "smoothingHint": "Auto: geen smoothing voor {{r7d}}, een {{d1m}}-daags gemiddelde voor {{r1m}}, {{d3m}} dagen voor {{r3m}}, {{d6m}} voor {{r6m}} en {{d1y}} voor {{r1y}}.",
     "smoothingNone": "Geen",
     "smoothingRaw": "Ruwe gegevens",
     "smoothingTitle": "Gegevensafvlakking",
-    "trendHint": "HRV-, slaap- en rusthartslag-trends verschijnen hier wanneer gegevens worden gelogd",
+    "trendHint": "Wellness uit intervals.icu (HRV, rusthartslag, slaap, slaapscore, gewicht) verschijnt hier zodra het is gelogd.",
     "weight": "Gewicht",
     "sleepDuration": "{{hours}} u {{minutes}} min"
   },
@@ -2418,7 +2415,7 @@
     "balanceFootnote": "Verhoudingen vergelijken gewogen sets, waarbij primair werk als 1,0 en secundair werk als 0,5 telt.",
     "pairsInfoTitle": "Balansmethode",
     "pairsInfoIntro": "Deze antagonistparen worden vergeleken:",
-    "pairsInfoThresholds": "Status: in balans ≤ 1,35×, in de gaten houden tot 2×, onevenwichtig boven 2×.",
+    "pairsInfoThresholds": "Bereiken: onder 1,35×, 1,35× tot 2×, 2× of meer.",
     "pairsInfoMinSignal": "Paren met minder dan 4 gewogen sets per kant worden overgeslagen.",
     "exercisesTargeting": "Oefeningen gericht op {{muscle}}",
     "exerciseWorkoutCount_one": "{{count}} training",
@@ -2818,5 +2815,14 @@
       "zone": "Zone",
       "time": "Tijd"
     }
+  },
+  "sportFamilies": {
+    "ride": "Fietsen",
+    "winter": "Wintersport",
+    "run": "Hardlopen",
+    "water": "Watersport",
+    "foot": "Te voet",
+    "strength": "Kracht",
+    "other": "Overig"
   }
 }

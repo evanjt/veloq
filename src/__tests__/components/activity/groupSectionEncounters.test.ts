@@ -6,7 +6,11 @@
  * name, and each group keeps the order the engine handed them in.
  */
 
-import { groupSectionEncounters } from '@/features/activity/lib/groupSectionEncounters';
+import {
+  groupSectionEncounters,
+  sectionGroupIndex,
+  sectionRowLabels,
+} from '@/features/activity/lib/groupSectionEncounters';
 import type { SectionEncounter } from 'veloqrs';
 
 function encounter(overrides: Partial<SectionEncounter> & { sectionId: string }): SectionEncounter {
@@ -100,5 +104,34 @@ describe('groupSectionEncounters', () => {
     expect(groups).toHaveLength(1);
     expect(groups[0].encounters.map((e) => e.lapTime)).toEqual([100, 110]);
     expect(groups[0].hasBothDirections).toBe(false);
+  });
+});
+
+describe('sectionGroupIndex', () => {
+  const groups = groupSectionEncounters([
+    encounter({ sectionId: 'sec-1', direction: 'same' }),
+    encounter({ sectionId: 'sec-2', direction: 'same' }),
+    encounter({ sectionId: 'sec-1', direction: 'reverse' }),
+    encounter({ sectionId: 'sec-3', direction: 'same' }),
+  ]);
+
+  it('finds the card a section id is drawn on, counting a two-way section once', () => {
+    expect(sectionGroupIndex(groups, 'sec-1')).toBe(0);
+    expect(sectionGroupIndex(groups, 'sec-2')).toBe(1);
+    expect(sectionGroupIndex(groups, 'sec-3')).toBe(2);
+  });
+
+  it('agrees with the label the map marker shows', () => {
+    const labels = sectionRowLabels(groups);
+    for (const group of groups) {
+      expect(String(sectionGroupIndex(groups, group.sectionId)! + 1)).toBe(
+        labels.get(group.sectionId)
+      );
+    }
+  });
+
+  it('returns null for a section the list does not hold', () => {
+    expect(sectionGroupIndex(groups, 'sec-9')).toBeNull();
+    expect(sectionGroupIndex([], 'sec-1')).toBeNull();
   });
 });

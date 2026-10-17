@@ -56,15 +56,17 @@ async function deviceRecord(): Promise<FoundBackup | null> {
   const info = await FileSystem.getInfoAsync(uri);
   if (!info.exists || ('size' in info && !(info.size ?? 0))) return null;
   // One the engine refuses would only be refused again on Restore.
-  await checkRecordBackup(uri);
+  const writtenAt = await checkRecordBackup(uri);
   const size = 'size' in info ? (info.size ?? 0) : 0;
+  // The platform's restore rewrites the file time, so the record's own time
+  // stands where it names one.
   const modified = 'modificationTime' in info ? (info.modificationTime ?? 0) : 0;
   return {
     source: 'device',
     backend: null,
     entry: {
       id: uri,
-      timestamp: new Date(modified * 1000).toISOString(),
+      timestamp: writtenAt ?? new Date(modified * 1000).toISOString(),
       sizeBytes: size,
       appVersion: '',
     },

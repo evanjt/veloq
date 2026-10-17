@@ -4,7 +4,7 @@
  * first that handles the press, as the Android module does, and answers whether
  * any did.
  */
-import { BackHandler } from 'react-native';
+import { BackHandler, type HardwareBackPressEvent } from 'react-native';
 
 export interface HardwareBack {
   press: () => boolean;
@@ -14,7 +14,7 @@ export interface HardwareBack {
 }
 
 export function stubHardwareBack(): HardwareBack {
-  const handlers: (() => boolean | null | undefined)[] = [];
+  const handlers: ((event: HardwareBackPressEvent) => boolean | null | undefined)[] = [];
   const spy = jest.spyOn(BackHandler, 'addEventListener').mockImplementation((_event, handler) => {
     handlers.push(handler);
     return {
@@ -27,8 +27,9 @@ export function stubHardwareBack(): HardwareBack {
 
   return {
     press: () => {
+      const event: HardwareBackPressEvent = { type: 'hardwareBackPress', timeStamp: 0 };
       for (let i = handlers.length - 1; i >= 0; i--) {
-        if (handlers[i]?.()) return true;
+        if (handlers[i]?.(event)) return true;
       }
       return false;
     },

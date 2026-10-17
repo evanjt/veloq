@@ -6,7 +6,7 @@
  * Full group data is only loaded on detail page.
  */
 
-import { listCountLabel } from '@/features/routes/lib/listCountLabel';
+import { listCountLabel, ROUTE_COUNT_KEYS } from '@/features/routes/lib/listCountLabel';
 import React, { memo, useMemo, useRef } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl, Pressable } from 'react-native';
 import { useTheme } from '@/shared/app';
@@ -174,7 +174,7 @@ export const RoutesList = memo(function RoutesList({
   const filtered = searchQuery.trim().length > 0 || sportType !== undefined;
   const routeCountLabel = listCountLabel(
     t,
-    t('trainingScreen.routes'),
+    ROUTE_COUNT_KEYS,
     shownGroupCount ?? routeTotal,
     routeTotal
   );

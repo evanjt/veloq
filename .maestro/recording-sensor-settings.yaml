@@ -84,8 +84,9 @@ onFlowComplete:
 - takeScreenshot: "screenshots/sensor-settings"
 
 # Back out
-# The header is the platform's now, so leaving is the OS back button.
-- back
+# The header is the platform's now, so leaving is the platform's back.
+- runFlow:
+    file: helpers/go-back.yaml
 
 - extendedWaitUntil:
     visible:

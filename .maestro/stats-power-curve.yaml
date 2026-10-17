@@ -15,11 +15,13 @@ tags:
 
 # The power curve is the cycling chart, inside the performance section, which
 # starts collapsed. The demo athlete rides, so the curve has data to draw.
+# The screen above the chips is still drawing its charts on a cold launch, and
+# the scroll stops as soon as they show, so the long budget costs nothing.
 - scrollUntilVisible:
     element:
       id: "fitness-sport-toggle-Cycling"
     direction: DOWN
-    timeout: 10000
+    timeout: 30000
     speed: 40
 
 - tapOn:
@@ -35,14 +37,27 @@ tags:
     speed: 40
     centerElement: true
 
-# The tab stays mounted between flows, so an earlier one may have left it open.
+# The tab stays mounted between flows, so an earlier one may have left it open,
+# and an open section may still be drawing its placeholder.
 - runFlow:
     when:
       notVisible:
         id: "power-curve-chart"
     commands:
-      - tapOn:
-          id: "fitness-section-performance"
+      - runFlow:
+          when:
+            notVisible:
+              id: "power-curve-loading"
+          commands:
+            - tapOn:
+                id: "fitness-section-performance"
+
+# The curve draws a placeholder until its stored body is read, and a scroll
+# that starts before then runs past the chart it is looking for.
+- extendedWaitUntil:
+    notVisible:
+      id: "power-curve-loading"
+    timeout: 30000
 
 - scrollUntilVisible:
     element:

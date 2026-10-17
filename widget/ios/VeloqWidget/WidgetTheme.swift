@@ -90,9 +90,9 @@ enum WidgetTheme {
     }
 
     enum Dark {
-      static let gradientStart = Color(hex: "#DC2626")
-      static let gradientEnd = Color(hex: "#DC2626")
-      static let accent = Color(hex: "#DC2626")
+      static let gradientStart = Color(hex: "#D1352F")
+      static let gradientEnd = Color(hex: "#D1352F")
+      static let accent = Color(hex: "#D1352F")
     }
 
     static let foreground = Color(hex: "#FFFFFF")

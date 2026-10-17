@@ -611,6 +611,23 @@ pub(crate) mod pooled {
         stmt.query_map([], |row| row.get(0))?.collect()
     }
 
+    /// Every activity's bounding box, as the rows the engine's catalogue is
+    /// loaded from hold it, for a pass that works off where the athlete rides
+    /// rather than off their tracks.
+    pub(crate) fn activity_bounds(conn: &Connection) -> SqlResult<Vec<Bounds>> {
+        let mut stmt =
+            conn.prepare_cached("SELECT min_lat, max_lat, min_lng, max_lng FROM activities")?;
+        stmt.query_map([], |row| {
+            Ok(Bounds {
+                min_lat: row.get(0)?,
+                max_lat: row.get(1)?,
+                min_lng: row.get(2)?,
+                max_lng: row.get(3)?,
+            })
+        })?
+        .collect()
+    }
+
     /// Whether the library holds this activity.
     pub(crate) fn has_activity(conn: &Connection, id: &str) -> SqlResult<bool> {
         conn.query_row(
@@ -1049,10 +1066,12 @@ pub(crate) mod pooled {
         query: &crate::FfiActivityBodiesQuery,
     ) -> rusqlite::Result<crate::FfiActivityBodiesPage> {
         let needle = query.needle.trim().to_lowercase();
-        let filtered = !needle.is_empty() || !query.sport_groups.is_empty();
+        let filtered = !needle.is_empty() || !query.sport_families.is_empty();
         let matches = |name: &str, sport: &str| {
-            (query.sport_groups.is_empty()
-                || query.sport_groups.contains(&crate::FfiFeedGroup::of(sport)))
+            (query.sport_families.is_empty()
+                || query
+                    .sport_families
+                    .contains(&crate::FfiSportFamily::of(sport)))
                 && (needle.is_empty()
                     || name.to_lowercase().contains(&needle)
                     || sport.to_lowercase().contains(&needle))

@@ -6,18 +6,17 @@ import org.junit.Test
 /**
  * Scenario: a long press on the launcher icon lists the athlete's recent sports.
  *
- * Expected behaviour: each sport category draws its own glyph, so a ride, a run and a
+ * Expected behaviour: each sport family draws its own glyph, so a ride, a run and a
  * swim differ by more than their label, and a key this build does not know draws the
  * catch-all rather than nothing.
  */
 class RecordShortcutIconsTest {
-  private val categories =
-    listOf("ride", "run", "swim", "walk", "hike", "snow", "water", "gym", "racket", "other")
+  private val families = listOf("ride", "winter", "run", "water", "foot", "strength", "other")
 
   @Test
-  fun every_category_draws_its_own_glyph() {
-    val glyphs = categories.map { RecordShortcutIcons.glyph(it) }
-    assertEquals(categories.size, glyphs.toSet().size)
+  fun every_family_draws_its_own_glyph() {
+    val glyphs = families.map { RecordShortcutIcons.glyph(it) }
+    assertEquals(families.size, glyphs.toSet().size)
   }
 
   @Test
@@ -27,7 +26,7 @@ class RecordShortcutIconsTest {
       setOf(
         RecordShortcutIcons.glyph("ride"),
         RecordShortcutIcons.glyph("run"),
-        RecordShortcutIcons.glyph("swim"),
+        RecordShortcutIcons.glyph("water"),
       ).size,
     )
   }

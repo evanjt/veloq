@@ -102,6 +102,9 @@ const TS_EXEMPT = [
   'default: { initialize:',
   'initialize: jest.fn()',
   'initialize: () => {',
+  // Android's native module lifecycle method, in the Kotlin a dependency patch writes.
+  'override fun initialize()',
+  'super.initialize()',
   // The name uniffi-bindgen generates for the contract check, quoted in a comment.
   'uniffiensureinitialized',
   // expo-notifications' handler result type.
