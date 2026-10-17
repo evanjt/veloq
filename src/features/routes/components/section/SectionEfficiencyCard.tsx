@@ -19,6 +19,7 @@ import {
   type SummarySeries,
   type XY,
 } from '@/shared/charts';
+import { formatSigned } from '@/shared/format';
 import { formatShortDate } from '@/shared/format/format';
 import type { TrendDirection, TrendVerdict } from '@/shared/format/trend';
 import { colors, darkColors, spacing, stroke, typography } from '@/theme';
@@ -132,8 +133,7 @@ export function SectionEfficiencyCard({ trend, isDark }: SectionEfficiencyCardPr
   const linePath =
     vertices.length > 1 ? Skia.Path.MakeFromSVGString(polylineSvgPath(vertices)) : null;
   const latest = vertices[vertices.length - 1];
-  const hrChange = Math.round(trend.hrChangeBpm);
-  const signedHrChange = hrChange > 0 ? `+${hrChange}` : `${hrChange}`;
+  const signedHrChange = formatSigned(trend.hrChangeBpm, 0);
   const seriesColor = isDark ? darkColors.chartSeries : colors.chartSeries;
   const verdict = VERDICTS[trend.direction];
 

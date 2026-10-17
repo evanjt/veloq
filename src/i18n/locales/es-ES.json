@@ -22,9 +22,6 @@
     "clearCacheMessage": "Esto borrará todos los datos de actividades en caché, trazas de actividad y datos de coincidencia de rutas, luego comenzará a recargar. Puede tardar unos minutos. El rango de datos locales vuelve a los últimos 90 días."
   },
   "bestEffortsScreen": {
-    "seasonSubtitle_one": "Marcas personales del último {{count}} día.",
-    "seasonSubtitle_many": "Marcas personales de los últimos {{count}} días.",
-    "seasonSubtitle_other": "Marcas personales de los últimos {{count}} días.",
     "allTimeSubtitle": "Marcas personales en todo tu historial en caché."
   },
   "cache": {
@@ -101,9 +98,9 @@
     "shareDetailsWithDeveloper": "Copiar detalles y compartir con el desarrollador si informas de un problema"
   },
   "settings": {
-    "primarySportHintCycling": "eFTP se muestra en el encabezado. La página de rendimiento muestra Power Curve, zonas de potencia, tendencia eFTP y desacoplamiento.",
-    "primarySportHintRunning": "El ritmo umbral y LTHR se muestran en el encabezado. La página de rendimiento muestra Pace Curve, potencia de carrera y zonas de FC.",
-    "primarySportHintSwimming": "CSS (Critical Swim Speed) se muestra en el encabezado. La página de rendimiento muestra Swim Pace Curve y zonas de FC.",
+    "primarySportHintCycling": "eFTP se muestra en la tarjeta resumen. La pestaña Forma muestra Power Curve, zonas de potencia, tendencia eFTP y desacoplamiento.",
+    "primarySportHintRunning": "El ritmo umbral y LTHR se muestran en la tarjeta resumen. La pestaña Forma muestra Pace Curve, potencia de carrera y zonas de FC.",
+    "primarySportHintSwimming": "CSS (Critical Swim Speed) se muestra en la tarjeta resumen. La pestaña Forma muestra Swim Pace Curve y zonas de FC.",
     "unitsAuto": "Auto",
     "unitsAutoHint": "Usa la configuración regional del dispositivo",
     "unitsImperial": "Imperial",

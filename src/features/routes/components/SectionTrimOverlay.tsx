@@ -25,6 +25,9 @@ import {
   spacing,
   typography,
   stroke,
+  themedStyles,
+  type Palette,
+  themePalette,
 } from '@/theme';
 import { formatDistance } from '@/shared/format/format';
 import {
@@ -46,6 +49,24 @@ const HANDLE_SIZE = 28;
 const TRACK_HEIGHT = 4;
 const STEP_BUTTON_WIDTH = 30;
 const STEP_BUTTON_HEIGHT = 28;
+
+/** The parts of the slider drawn in the theme's primary. */
+const primaryStyles = (palette: Palette) =>
+  StyleSheet.create({
+    trackSection: { backgroundColor: palette.primary + '30' },
+    trackActive: { backgroundColor: palette.primary },
+    handleInner: { borderColor: palette.primary },
+    handleBar: { backgroundColor: palette.primary },
+    stepButton: {
+      width: STEP_BUTTON_WIDTH,
+      height: STEP_BUTTON_HEIGHT,
+      borderRadius: layout.borderRadiusSm,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: palette.primary + '15',
+    },
+    stepButtonDark: { backgroundColor: palette.primary + '25' },
+  });
 
 interface SectionTrimOverlayProps {
   pointCount: number;
@@ -87,6 +108,8 @@ export function SectionTrimOverlay({
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
+  const primary = themedStyles(primaryStyles, isDark);
   const trackWidthSV = useSharedValue(0);
 
   const maxIndex = Math.max(pointCount - 1, 1);
@@ -319,8 +342,8 @@ export function SectionTrimOverlay({
   const startLaterOut = stepped('start', 1) === startIndex;
   const endEarlierOut = stepped('end', -1) === endIndex;
   const endLaterOut = stepped('end', 1) === endIndex;
-  const stepInk = (out: boolean) => (out ? disabledInk : colors.primary);
-  const accentText = isDark ? darkColors.linkTeal : colors.linkTeal;
+  const stepInk = (out: boolean) => (out ? disabledInk : palette.primary);
+  const accentText = isDark ? darkColors.actionLink : colors.actionLink;
 
   return (
     <View testID="section-trim-overlay" style={styles.container}>
@@ -329,7 +352,7 @@ export function SectionTrimOverlay({
         <MaterialCommunityIcons
           name={isExpandMode ? 'arrow-expand-horizontal' : 'content-cut'}
           size={iconSize.sm}
-          color={isTrimmed ? colors.primary : mutedColor}
+          color={isTrimmed ? palette.primary : mutedColor}
         />
         {isSaving ? (
           <Spinner />
@@ -360,7 +383,7 @@ export function SectionTrimOverlay({
             onPress={onReset}
             disabled={isSaving}
           >
-            <MaterialCommunityIcons name="refresh" size={iconSize.sm} color={colors.primary} />
+            <MaterialCommunityIcons name="refresh" size={iconSize.sm} color={palette.primary} />
           </IconButton>
         ) : null}
       </View>
@@ -372,6 +395,7 @@ export function SectionTrimOverlay({
           <View
             style={[
               styles.trackSection,
+              primary.trackSection,
               {
                 left: `${sectionStartFraction * 100}%` as unknown as number,
                 width: `${(sectionEndFraction - sectionStartFraction) * 100}%` as unknown as number,
@@ -379,18 +403,18 @@ export function SectionTrimOverlay({
             ]}
           />
         ) : null}
-        <Animated.View style={[styles.trackActive, trackActiveStyle]} />
+        <Animated.View style={[styles.trackActive, primary.trackActive, trackActiveStyle]} />
         <GestureDetector gesture={startGesture}>
           <Animated.View style={[styles.handle, startHandleStyle]}>
-            <View style={styles.handleInner}>
-              <View style={styles.handleBar} />
+            <View style={[styles.handleInner, primary.handleInner]}>
+              <View style={[styles.handleBar, primary.handleBar]} />
             </View>
           </Animated.View>
         </GestureDetector>
         <GestureDetector gesture={endGesture}>
           <Animated.View style={[styles.handle, endHandleStyle]}>
-            <View style={styles.handleInner}>
-              <View style={styles.handleBar} />
+            <View style={[styles.handleInner, primary.handleInner]}>
+              <View style={[styles.handleBar, primary.handleBar]} />
             </View>
           </Animated.View>
         </GestureDetector>
@@ -400,7 +424,7 @@ export function SectionTrimOverlay({
       <View style={styles.stepRow}>
         <View style={styles.stepGroup}>
           <Pressable
-            style={pressable([styles.stepButton, isDark && styles.stepButtonDark])}
+            style={pressable([primary.stepButton, isDark && primary.stepButtonDark])}
             accessibilityRole="button"
             accessibilityLabel={t('sections.trimStartEarlier')}
             hitSlop={slopToMinTapTarget(STEP_BUTTON_HEIGHT, STEP_BUTTON_WIDTH)}
@@ -415,7 +439,7 @@ export function SectionTrimOverlay({
             />
           </Pressable>
           <Pressable
-            style={pressable([styles.stepButton, isDark && styles.stepButtonDark])}
+            style={pressable([primary.stepButton, isDark && primary.stepButtonDark])}
             accessibilityRole="button"
             accessibilityLabel={t('sections.trimStartLater')}
             hitSlop={slopToMinTapTarget(STEP_BUTTON_HEIGHT, STEP_BUTTON_WIDTH)}
@@ -432,7 +456,7 @@ export function SectionTrimOverlay({
         </View>
         <View style={styles.stepGroup}>
           <Pressable
-            style={pressable([styles.stepButton, isDark && styles.stepButtonDark])}
+            style={pressable([primary.stepButton, isDark && primary.stepButtonDark])}
             accessibilityRole="button"
             accessibilityLabel={t('sections.trimEndEarlier')}
             hitSlop={slopToMinTapTarget(STEP_BUTTON_HEIGHT, STEP_BUTTON_WIDTH)}
@@ -447,7 +471,7 @@ export function SectionTrimOverlay({
             />
           </Pressable>
           <Pressable
-            style={pressable([styles.stepButton, isDark && styles.stepButtonDark])}
+            style={pressable([primary.stepButton, isDark && primary.stepButtonDark])}
             accessibilityRole="button"
             accessibilityLabel={t('sections.trimEndLater')}
             hitSlop={slopToMinTapTarget(STEP_BUTTON_HEIGHT, STEP_BUTTON_WIDTH)}
@@ -487,7 +511,7 @@ export function SectionTrimOverlay({
           onPress={onCancel}
           disabled={isSaving}
           style={styles.actionBtn}
-          icon={<MaterialCommunityIcons name="close" size={iconSize.md} color={colors.error} />}
+          icon="close"
         />
         <Button
           testID="section-trim-confirm"
@@ -495,13 +519,7 @@ export function SectionTrimOverlay({
           onPress={onConfirm}
           disabled={!canSave || isSaving}
           style={styles.actionBtn}
-          icon={
-            <MaterialCommunityIcons
-              name="check"
-              size={iconSize.md}
-              color={canSave ? colors.textOnPrimary : mutedColor}
-            />
-          }
+          icon="check"
         />
       </View>
     </View>
@@ -546,13 +564,11 @@ const styles = StyleSheet.create({
     position: 'absolute',
     height: TRACK_HEIGHT,
     borderRadius: TRACK_HEIGHT / 2,
-    backgroundColor: colors.primary + '30',
   },
   trackActive: {
     position: 'absolute',
     height: TRACK_HEIGHT,
     borderRadius: TRACK_HEIGHT / 2,
-    backgroundColor: colors.primary,
   },
   handle: {
     position: 'absolute',
@@ -567,7 +583,6 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusFull,
     backgroundColor: ink.white,
     borderWidth: stroke.two,
-    borderColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -575,7 +590,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 2,
     borderRadius: layout.borderRadiusFull,
-    backgroundColor: colors.primary,
   },
   stepRow: {
     flexDirection: 'row',
@@ -585,17 +599,6 @@ const styles = StyleSheet.create({
   stepGroup: {
     flexDirection: 'row',
     gap: spacing.xxs,
-  },
-  stepButton: {
-    width: STEP_BUTTON_WIDTH,
-    height: STEP_BUTTON_HEIGHT,
-    borderRadius: layout.borderRadiusSm,
-    backgroundColor: colors.primary + '15',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stepButtonDark: {
-    backgroundColor: colors.primary + '25',
   },
   hint: {
     ...typography.caption,

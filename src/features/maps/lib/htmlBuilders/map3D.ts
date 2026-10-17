@@ -20,7 +20,7 @@ import {
 } from '@/features/maps/components/mapStyles';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import { resolveStyleExpression } from './styleResolution';
-import { SURFACE_HIT_TEST_RADIUS_PX } from './mapSurface';
+import { SURFACE_HIT_TEST_RADIUS_PX, type MapPadding } from './mapSurface';
 import {
   consoleBridgeScript,
   mapLibreHead,
@@ -28,7 +28,7 @@ import {
   terrainVisibilityScript,
   tileProtocolsScript,
 } from './shared';
-import { jsLiteral, jsNumber } from '@/features/maps/lib/webViewLiterals';
+import { jsLiteral, jsNumber, jsPadding } from '@/features/maps/lib/webViewLiterals';
 import { addSectionCreation3DLayersScript } from '@/features/maps/lib/sectionCreationPaint';
 import { heatmapRasterPaint } from '@/features/maps/lib/heatmapPaint';
 import { HEATMAP_SOURCE_MINZOOM, heatmapTileTemplate } from '@/features/maps/lib/heatmapTiles';
@@ -91,6 +91,8 @@ export interface Map3DHtmlConfig {
   devicePixelRatio: number;
   /** The system reduce-motion setting when the page is built. */
   reduceMotion: boolean;
+  /** Padding the first fit leaves, one number or one per edge. Defaults to `TRACK_FIT_PADDING`. */
+  fitPadding?: MapPadding | undefined;
 }
 
 /**
@@ -116,6 +118,7 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
     heatmapGeneration = 0,
     devicePixelRatio,
     reduceMotion,
+    fitPadding,
   } = config;
 
   const coordsJSON = JSON.stringify(coordinates);
@@ -252,7 +255,7 @@ ${terrainVisibilityScript()}
       };
       if (bounds && !${hasSavedCamera}) {
         opts.bounds = [bounds.sw, bounds.ne];
-        opts.fitBoundsOptions = { padding: ${TRACK_FIT_PADDING} };
+        opts.fitBoundsOptions = { padding: ${jsPadding(fitPadding, TRACK_FIT_PADDING)} };
       } else if (center) {
         opts.center = center;
         opts.zoom = savedZoom;

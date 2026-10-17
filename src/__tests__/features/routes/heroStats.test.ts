@@ -10,7 +10,7 @@
  */
 
 import { i18n, initialiseI18n } from '@/i18n';
-import { heroStats } from '@/features/routes/lib/heroStats';
+import { heroStats, scopeLabels } from '@/features/routes/lib/heroStats';
 import type { HeroStat } from '@/shared/ui/DetailHero';
 
 const t = i18n.t.bind(i18n);
@@ -127,5 +127,27 @@ describe('a section hero', () => {
       'Avg grade: 6.7%',
       'Steepest 11.2%',
     ]);
+  });
+});
+
+describe('a scope label', () => {
+  it('names the sport and the range when both narrow the list', () => {
+    expect(scopeLabels({ sport: 'Ride', sportsOffered: 2, range: '1m' }, t)).toEqual([
+      'Ride',
+      t('period.long.1m'),
+    ]);
+  });
+
+  it('names the range alone when one sport is offered', () => {
+    expect(scopeLabels({ sport: 'Run', sportsOffered: 1, range: '1y' }, t)).toEqual(['1 year']);
+  });
+
+  it('names the sport alone over every date', () => {
+    expect(scopeLabels({ sport: 'Ride', sportsOffered: 3, range: 'all' }, t)).toEqual(['Ride']);
+  });
+
+  it('is empty when nothing narrows the list', () => {
+    expect(scopeLabels({ sport: 'Ride', sportsOffered: 1, range: 'all' }, t)).toEqual([]);
+    expect(scopeLabels({ sport: undefined, sportsOffered: 0, range: 'all' }, t)).toEqual([]);
   });
 });

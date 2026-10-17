@@ -17,6 +17,7 @@ import { GpsSignalIndicator } from './GpsSignalIndicator';
 import { RecordingCloseButton } from './RecordingCloseButton';
 import { styles } from '../RecordingScreen.styles';
 import { useTimer } from '../hooks/useTimer';
+import { FitText } from '@/shared/ui/FitText';
 
 /** The clock reads in the secondary ink while auto-pause holds it, and in the primary ink otherwise. */
 function ElapsedTime({ color }: { color: string }) {
@@ -104,9 +105,9 @@ function TimerHeaderInner({
             size={iconSize.sm}
             color={currentActivityColor}
           />
-          <Text style={[styles.typeBadgeText, { color: textSecondary }]} numberOfLines={1}>
+          <FitText style={[styles.typeBadgeText, { color: textSecondary }]}>
             {t(`activityTypes.${currentActivityType}`, currentActivityType)}
-          </Text>
+          </FitText>
           <MaterialCommunityIcons name="chevron-down" size={iconSize.sm} color={textSecondary} />
         </Pressable>
         <View style={styles.statusRow}>

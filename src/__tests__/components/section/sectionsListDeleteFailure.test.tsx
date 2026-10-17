@@ -75,7 +75,7 @@ async function deleteHarbourLoop() {
       retiredSectionCount={0}
     />
   );
-  const row = screen.getByLabelText(/Harbour loop/);
+  const row = screen.getByRole('button', { name: /Harbour loop/ });
   await fireEvent(row, 'accessibilityAction', { nativeEvent: { actionName: 'delete' } });
   const confirm = alert.mock.calls[0][2]?.find((button) => button.style === 'destructive');
   await act(async () => {

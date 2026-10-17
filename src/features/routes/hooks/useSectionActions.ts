@@ -24,7 +24,7 @@ import { useDetectionHold } from '@/features/routes/hooks/useDetectionHold';
 import type { FrequentSection } from '@/types';
 import { debug } from '@/shared/debug/debug';
 import * as haptics from '@/shared/ui/haptics';
-import { renameFailureMessageKey } from '../lib/sectionRenameFailure';
+import { type NameSaveOutcome, renameFailureMessageKey } from '../lib/sectionRenameFailure';
 import { informSectionWriteRefused } from '../lib/sectionWriteRefusal';
 import { removeSectionWithUndo, restoreSection } from '../lib/sectionVisibility';
 import { confirmAction, inform } from '@/shared/ui/dialog';
@@ -84,7 +84,7 @@ export interface UseSectionActionsResult {
 
   // --- actions ---
   /** Commit the rename through the engine. A blank name clears it. */
-  handleSaveName: (name: string) => void;
+  handleSaveName: (name: string) => Promise<NameSaveOutcome>;
   /** Delete a custom section (prompts for confirmation). */
   handleDeleteSection: () => void;
   /** Prompt to set/reset an activity as the section reference. */
@@ -195,29 +195,34 @@ export function useSectionActions({
   }, [id, sectionRefreshKey, preComputedExcludedActivityIds]);
 
   // --- name actions ---
+  // The editor keeps its field open until this settles. A name another section
+  // holds comes back as the field's reason; any other failure is a dialog.
   const handleSaveName = useCallback(
-    (name: string) => {
+    async (name: string): Promise<NameSaveOutcome> => {
       const trimmedName = name.trim();
       if (!id) {
-        return;
+        return { saved: true };
       }
-
-      haptics.success();
 
       // Update local state immediately for instant feedback
       const previousName = customName ?? section?.name ?? null;
       const nextName = trimmedName || null;
       setCustomName(nextName);
 
-      // Fire rename in background - don't await, cache invalidation happens async
-      renameSection(id, trimmedName).catch((error: unknown) => {
+      try {
+        await renameSection(id, trimmedName);
+      } catch (error: unknown) {
         setCustomName((current) => (current === nextName ? previousName : current));
-        inform({
-          title: t('sections.renameFailedTitle'),
-          message: t(renameFailureMessageKey(error)),
-        });
         if (__DEV__) console.error('Failed to save section name:', error);
-      });
+        const messageKey = renameFailureMessageKey(error);
+        if (messageKey === 'sections.nameTaken') {
+          return { saved: false, reason: t(messageKey) };
+        }
+        inform({ title: t('sections.renameFailedTitle'), message: t(messageKey) });
+        return { saved: false, reason: null };
+      }
+      haptics.success();
+      return { saved: true };
     },
     [customName, id, renameSection, section?.name, t]
   );

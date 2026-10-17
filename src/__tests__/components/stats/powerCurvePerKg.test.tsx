@@ -14,6 +14,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { PowerCurveChart } from '@/features/stats/components/PowerCurveChart';
 import { layout } from '@/theme';
 import type { PowerCurve } from '@/types';
+import { layoutViews } from '../../__shared__/layoutViews';
 
 const mockCurve: { current: PowerCurve } = {
   current: {
@@ -62,7 +63,8 @@ describe('the power curve per-kilogram toggle', () => {
   });
 
   it('switches the value, the axis and the FTP line to watts per kilogram', async () => {
-    await render(<PowerCurveChart ftp={300} />);
+    const tree = await render(<PowerCurveChart ftp={300} />);
+    await layoutViews(tree, 300, 200);
 
     await fireEvent.press(screen.getByTestId('power-curve-unit-per-kg'));
 

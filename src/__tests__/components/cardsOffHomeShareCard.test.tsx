@@ -127,7 +127,7 @@ describe('cards off the home scroll', () => {
     const cardGround = style(stats.UNSAFE_getAllByType(Card)[0].children[0] as never);
     const tile = await render(
       <StatCard
-        stat={{ title: 'T', value: '1', icon: 'heart', color: '#000' } as never}
+        stat={{ title: 'T', value: '1', icon: 'heart' } as never}
         isDark
         onPress={jest.fn()}
       />

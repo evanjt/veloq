@@ -10,10 +10,12 @@ import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
 interface SettingsNavRowProps {
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
   title: string;
-  subtitle?: string;
+  subtitle?: string | undefined;
   onPress: () => void;
   /** Greys the row and stops its press. */
   disabled?: boolean;
+  /** `warning` draws the icon in the warning tone, for a row that reports a fixable failure. */
+  tone?: 'warning';
   testID?: string;
 }
 
@@ -23,6 +25,7 @@ export function SettingsNavRow({
   subtitle,
   onPress,
   disabled,
+  tone,
   testID,
 }: SettingsNavRowProps) {
   const { isDark } = useTheme();
@@ -43,7 +46,13 @@ export function SettingsNavRow({
       <MaterialCommunityIcons
         name={icon}
         size={iconSize.lg}
-        color={isDark ? darkColors.textSecondary : colors.textSecondary}
+        color={
+          tone === 'warning'
+            ? (isDark ? darkColors : colors).warningAmber
+            : isDark
+              ? darkColors.textSecondary
+              : colors.textSecondary
+        }
       />
       {stacked ? (
         <View style={styles.stack}>

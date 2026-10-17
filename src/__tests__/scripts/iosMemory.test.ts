@@ -193,9 +193,14 @@ esac`
         NODE_ENV: 'test',
         PATH: `${bin}:${path.dirname(process.execPath)}:/usr/bin:/bin`,
         HOME: root,
+        // The host's Maestro lock sits beside the device lock, so this keeps the
+        // run off the machine's lock and out of the queue behind a real run.
+        VELOQ_DEVICE_LOCK_DIR: root,
       },
     });
   }
+
+  const hasFlock = spawnSync('sh', ['-c', 'command -v flock']).status === 0;
 
   it('writes a record with the summed total at every point', () => {
     const { root, bin } = fakeMac();
@@ -218,6 +223,37 @@ esac`
     for (const flow of flows) expect(flow).toContain(`--device ${UDID} test`);
     expect(fs.readFileSync(path.join(root, 'footprint.log'), 'utf8')).toContain(
       '82657 82669 82670 82671 82672 82687'
+    );
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  (hasFlock ? it : it.skip)(
+    'takes the host Maestro lock under its own root, never the machine one',
+    () => {
+      const { root, bin } = fakeMac();
+      const result = run([UDID, 'com.veloq.app.dev', path.join(root, 'out')], root, bin);
+      expect(result.status).toBe(0);
+      expect(fs.readFileSync(path.join(root, 'veloq-maestro.lock'), 'utf8')).toContain(
+        `serial=${UDID}`
+      );
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  );
+
+  it('fails on a flow that fails, naming it and keeping what Maestro said', () => {
+    const { root, bin } = fakeMac();
+    fs.writeFileSync(
+      path.join(bin, 'maestro'),
+      '#!/bin/sh\necho "Element not found: map-view"\nexit 1\n',
+      { mode: 0o755 }
+    );
+    const out = path.join(root, 'out');
+    const result = run([UDID, 'com.veloq.app.dev', out], root, bin);
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toMatch(/map-comprehensive/);
+    expect(result.stderr).toContain('Element not found: map-view');
+    expect(fs.readFileSync(path.join(out, 'map-comprehensive.maestro.log'), 'utf8')).toContain(
+      'Element not found: map-view'
     );
     fs.rmSync(root, { recursive: true, force: true });
   });

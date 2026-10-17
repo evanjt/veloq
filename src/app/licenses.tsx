@@ -572,7 +572,10 @@ function LicenseEntryRow({ entry, isDark, isLast, testID }: LicenseEntryRowProps
         >
           <Text style={[styles.entryName, { color: themeColors.textPrimary }]}>{entry.name}</Text>
           <Text
-            style={[styles.entryLicense, { color: isDark ? darkColors.linkTeal : colors.linkTeal }]}
+            style={[
+              styles.entryLicense,
+              { color: isDark ? darkColors.actionLink : colors.actionLink },
+            ]}
           >
             {entry.license}
           </Text>

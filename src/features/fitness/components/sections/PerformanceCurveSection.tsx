@@ -157,12 +157,12 @@ export const PerformanceCurveSection = React.memo(function PerformanceCurveSecti
         </Card>
       </View>
 
-      {/* Season Bests Section */}
+      {/* Best efforts over the chosen range */}
       <View style={styles.frame}>
         <Card variant="flat" padding="none">
           <CollapsibleSection
             testID="fitness-section-bests"
-            title={t('statsScreen.seasonBests')}
+            title={t('bestEffortsScreen.title')}
             icon="trophy-outline"
             expanded={bestsExpanded}
             onToggle={onBestsToggle}

@@ -24,6 +24,7 @@ import {
   spacing,
   typography,
   stroke,
+  themePalette,
 } from '@/theme';
 import { haversineDistance, type LatLngShort } from '@/shared/geo/distance';
 import { filterSummary } from '@/shared/format/filterSummary';
@@ -115,6 +116,7 @@ export const RoutesList = memo(function RoutesList({
 }: RoutesListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const listRef = useRef<FlatList<RouteGroup>>(null);
   useScrollToTopOnReselect('/insights', listRef);
 
@@ -276,7 +278,10 @@ export const RoutesList = memo(function RoutesList({
                     style={pressable([
                       styles.sortChip,
                       isDark && styles.sortChipDark,
-                      isActive && styles.sortChipActive,
+                      isActive && {
+                        backgroundColor: palette.primary + '15',
+                        borderColor: palette.primary,
+                      },
                     ])}
                     android_ripple={pressRipple}
                     hitSlop={sortChipHitSlop}
@@ -287,7 +292,7 @@ export const RoutesList = memo(function RoutesList({
                       size={iconSize.xs}
                       color={
                         isActive
-                          ? colors.primary
+                          ? palette.primary
                           : isDark
                             ? darkColors.textSecondary
                             : colors.textSecondary
@@ -298,7 +303,7 @@ export const RoutesList = memo(function RoutesList({
                         styles.sortChipLabel,
                         isDark && styles.textSecondary,
                         isActive && styles.sortChipLabelActive,
-                        isActive && isDark && { color: darkColors.linkTeal },
+                        isActive && isDark && { color: darkColors.actionLink },
                       ]}
                     >
                       {chip.label}
@@ -339,7 +344,7 @@ export const RoutesList = memo(function RoutesList({
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={onRefresh}
-              tintColor={colors.primary}
+              tintColor={palette.primary}
             />
           ) : undefined
         }
@@ -406,16 +411,12 @@ const styles = StyleSheet.create({
   sortChipDark: {
     borderColor: darkColors.border,
   },
-  sortChipActive: {
-    backgroundColor: colors.primary + '15',
-    borderColor: colors.primary,
-  },
   sortChipLabel: {
     ...typography.caption,
     color: colors.textSecondary,
   },
   sortChipLabelActive: {
-    color: colors.linkTeal,
+    color: colors.actionLink,
   },
   emptyList: {
     flexGrow: 1,

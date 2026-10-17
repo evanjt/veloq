@@ -45,6 +45,11 @@ export function formatScrubValue(
   return formatted || ABSENT;
 }
 
+/** The unit a series' values are printed in, under the athlete's unit setting. */
+export function seriesUnit(config: ChartConfig, isMetric: boolean): string {
+  return isMetric ? config.unit || '' : config.unitImperial || config.unit || '';
+}
+
 type Motion = NonNullable<ChartConfig['motion']>;
 
 /** A sample of a speed or pace series in m/s. */
@@ -351,7 +356,7 @@ export function computeAllAverages(
       widest = maxFormatted;
     }
 
-    const unit = isMetric ? config.unit || '' : config.unitImperial || config.unit || '';
+    const unit = seriesUnit(config, isMetric);
 
     results.push({
       id: chartId,

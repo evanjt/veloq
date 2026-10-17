@@ -105,13 +105,7 @@ export function SectionsListHeader({
               variant="ghost"
               size="sm"
               onPress={onAcceptAll}
-              icon={
-                <MaterialCommunityIcons
-                  name="pin-outline"
-                  size={iconSize.xs}
-                  color={colors.primary}
-                />
-              }
+              icon="pin-outline"
               label={t('sections.acceptAllSections')}
             />
           )}

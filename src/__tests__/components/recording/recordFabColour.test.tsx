@@ -85,12 +85,12 @@ describe('the record button reads as recording', () => {
 
   it('paints the recording colour and not the brand accent, in light', async () => {
     expect((await fabStyle(false)).backgroundColor).toBe(recording.light);
-    expect((await fabStyle(false)).backgroundColor).not.toBe(brand.tealLight);
+    expect((await fabStyle(false)).backgroundColor).not.toBe(brand.blue600);
   });
 
   it('paints the recording colour and not the brand accent, in dark', async () => {
     expect((await fabStyle(true)).backgroundColor).toBe(recording.dark);
-    expect((await fabStyle(true)).backgroundColor).not.toBe(brand.tealDark);
+    expect((await fabStyle(true)).backgroundColor).not.toBe(brand.blue550);
   });
 
   it('carries its white glyph in both themes', () => {

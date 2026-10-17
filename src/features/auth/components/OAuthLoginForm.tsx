@@ -1,8 +1,6 @@
 import React from 'react';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/shared/ui';
-import { colors, iconSize } from '@/theme';
 
 interface OAuthLoginFormProps {
   onLogin: () => void;
@@ -21,7 +19,7 @@ export const OAuthLoginForm = React.memo(function OAuthLoginForm({
       label={isLoading ? t('login.connecting') : t('login.loginWithIntervals')}
       onPress={onLogin}
       loading={isLoading}
-      icon={<MaterialCommunityIcons name="login" size={iconSize.md} color={colors.textOnPrimary} />}
+      icon="login"
     />
   );
 });

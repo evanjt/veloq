@@ -39,6 +39,11 @@ export { areaFillsFromZero, areaWashOpacity } from './areaFill';
 export { CurveChart } from './CurveChart';
 export type { CurveChartProps, PlacedLabel } from './CurveChart';
 
+export { YAxisLabels, Y_LABEL_BOX } from './YAxisLabels';
+export type { YAxisLabelsProps } from './YAxisLabels';
+export { axisLabelTops, niceScale } from './axisLabels';
+export type { AxisTick } from './axisLabels';
+
 export { ZoneHistogram } from './ZoneHistogram';
 export type { ZoneBand } from './ZoneHistogram';
 

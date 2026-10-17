@@ -19,6 +19,7 @@ import {
   layout,
   smallElementShadow,
   stroke,
+  themePalette,
 } from '@/theme';
 import {
   createTimelineLayout,
@@ -323,6 +324,10 @@ export function TimelineSlider({
     right: trackWidth - endPos.value * trackWidth,
   }));
 
+  const primary = themePalette(isDark).primary;
+  const markFill = { backgroundColor: primary };
+  const handleRing = { borderColor: primary };
+
   return (
     <View style={styles.wrapper} testID="timeline-slider">
       <View style={[styles.container, isDark && styles.containerDark]}>
@@ -331,7 +336,7 @@ export function TimelineSlider({
           <View style={styles.sliderContainer} onLayout={onLayout} testID="timeline-slider-track">
             <View style={[styles.track, isDark && styles.trackDark]} />
 
-            <Animated.View style={[styles.selectedRange, rangeStyle]} />
+            <Animated.View style={[styles.selectedRange, markFill, rangeStyle]} />
 
             {/* Start handle - bracket style [ for expandable */}
             <GestureDetector gesture={startGesture}>
@@ -347,15 +352,13 @@ export function TimelineSlider({
               >
                 {expandOnly ? (
                   <View style={[styles.bracketHandle, isDark && styles.bracketHandleDark]}>
-                    <View style={[styles.bracketVertical, isDark && styles.bracketLineDark]} />
-                    <View style={[styles.bracketHorizontalTop, isDark && styles.bracketLineDark]} />
-                    <View
-                      style={[styles.bracketHorizontalBottom, isDark && styles.bracketLineDark]}
-                    />
+                    <View style={[styles.bracketVertical, markFill]} />
+                    <View style={[styles.bracketHorizontalTop, markFill]} />
+                    <View style={[styles.bracketHorizontalBottom, markFill]} />
                   </View>
                 ) : (
-                  <View style={[styles.handle, isDark && styles.handleDark]}>
-                    <View style={styles.handleInner} />
+                  <View style={[styles.handle, isDark && styles.handleDark, handleRing]}>
+                    <View style={[styles.handleInner, markFill]} />
                   </View>
                 )}
               </Animated.View>
@@ -374,14 +377,14 @@ export function TimelineSlider({
                   accessibilityActions={STEP_ACTIONS}
                   onAccessibilityAction={onEndAction}
                 >
-                  <View style={[styles.handle, isDark && styles.handleDark]}>
-                    <View style={styles.handleInner} />
+                  <View style={[styles.handle, isDark && styles.handleDark, handleRing]}>
+                    <View style={[styles.handleInner, markFill]} />
                   </View>
                 </Animated.View>
               </GestureDetector>
             ) : (
               <Animated.View style={[styles.handleContainer, endHandleStyle]}>
-                <View style={[styles.lineHandle, isDark && styles.lineHandleDark]} />
+                <View style={[styles.lineHandle, markFill]} />
               </Animated.View>
             )}
           </View>
@@ -460,7 +463,6 @@ const styles = StyleSheet.create({
   selectedRange: {
     position: 'absolute',
     height: 6,
-    backgroundColor: colors.primary,
     borderRadius: layout.borderRadiusFull,
   },
   handleContainer: {
@@ -476,7 +478,6 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusFull,
     backgroundColor: colors.surface,
     borderWidth: stroke.two,
-    borderColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     ...smallElementShadow(),
@@ -485,7 +486,6 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: layout.borderRadiusFull,
-    backgroundColor: colors.primary,
   },
   // Bracket handle [ for expandable start
   bracketHandle: {
@@ -499,7 +499,6 @@ const styles = StyleSheet.create({
     left: 4,
     width: 3,
     height: 24,
-    backgroundColor: colors.primary,
     borderRadius: layout.borderRadiusFull,
   },
   bracketHorizontalTop: {
@@ -508,7 +507,6 @@ const styles = StyleSheet.create({
     top: 0,
     width: 10,
     height: 3,
-    backgroundColor: colors.primary,
     borderRadius: layout.borderRadiusFull,
   },
   bracketHorizontalBottom: {
@@ -517,22 +515,14 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: 10,
     height: 3,
-    backgroundColor: colors.primary,
     borderRadius: layout.borderRadiusFull,
   },
   bracketHandleDark: {},
-  bracketLineDark: {
-    backgroundColor: colors.primary,
-  },
   // Line handle | for fixed end
   lineHandle: {
     width: 3,
     height: 24,
-    backgroundColor: colors.primary,
     borderRadius: layout.borderRadiusFull,
-  },
-  lineHandleDark: {
-    backgroundColor: colors.primary,
   },
   tickContainer: {
     position: 'relative',

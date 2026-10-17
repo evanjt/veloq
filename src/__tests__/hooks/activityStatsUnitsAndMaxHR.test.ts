@@ -11,7 +11,6 @@
 import { renderHook } from '@testing-library/react-native';
 
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
-import { colors, darkColors } from '@/theme';
 import type { Activity } from '@/types';
 import { MaxHrSource } from 'veloqrs';
 
@@ -129,10 +128,7 @@ describe('the Power card', () => {
 });
 
 describe('activity stat card marks', () => {
-  it.each([
-    ['light', false, colors],
-    ['dark', true, darkColors],
-  ])('uses readable %s theme marks for heart rate and power', async (_theme, isDark, palette) => {
+  it('keys heart rate and power to their streams at every value', async () => {
     for (const average_heartrate of [135, 153, 171]) {
       const activity = { ...ride, average_heartrate, icu_average_watts: 220 } as Activity;
       const { result } = await renderHook(() =>
@@ -140,15 +136,14 @@ describe('activity stat card marks', () => {
           activity,
           maxHR: 180,
           maxHrSource: MaxHrSource.SportSettings,
-          isDark,
           isMetric: true,
         })
       );
       const heartRate = result.current.stats.find((item) => item.title === 'activity.heartRate');
       const power = result.current.stats.find((item) => item.title === 'activity.power');
 
-      expect(heartRate?.color).toBe(palette.chartPinkText);
-      expect(power?.color).toBe(palette.chartPurpleText);
+      expect(heartRate?.stream).toBe('heartrate');
+      expect(power?.stream).toBe('power');
     }
   });
 });

@@ -45,6 +45,12 @@ appId: com.veloq.app.dev
       visible:
         id: "login-screen"
     commands:
+      # At the largest text sizes the demo button sits below the fold.
+      - scrollUntilVisible:
+          element:
+            id: "login-demo-button"
+          direction: DOWN
+          timeout: 10000
       - tapOn:
           id: "login-demo-button"
 

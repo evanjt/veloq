@@ -9,17 +9,14 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, FlatList, Animated } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
-import { RectButton } from 'react-native-gesture-handler';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
 import { useDetectionHold } from '@/features/routes/hooks/useDetectionHold';
 import { useElevationBackfill } from '@/features/routes/hooks/useElevationBackfill';
 import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
-import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, iconSize, opacity, spacing, swipeAction, typography } from '@/theme';
+import { colors, darkColors, opacity, spacing } from '@/theme';
 import { useSections } from '@/features/routes/hooks/useSections';
 import { SportFilterChips } from './SportFilterChips';
 import {
@@ -31,6 +28,7 @@ import { filterSummary } from '@/shared/format/filterSummary';
 import { Button, EmptyState, ErrorState, ExplanationCard } from '@/shared/ui';
 import { RowSkeleton } from '@/features/routes/components/RowSkeleton';
 import { SectionRow } from './SectionRow';
+import { SectionSwipeAction, sectionSwipeAction, sectionSwipeKind } from './SectionSwipeAction';
 import { DataRangeFooter } from './DataRangeFooter';
 import { sectionsExplanation } from '@/features/routes/lib/explanationCopy';
 import { SectionsListHeader } from './SectionsListHeader';
@@ -138,18 +136,15 @@ export const SectionListItem = memo(
     swipeableRefs,
     t,
   }: SectionListItemProps) {
-    const isCustom = item.sectionType === 'custom';
-
     // The swipe button and the screen reader's action are one action, so the
     // label and the handler cannot drift apart.
+    const swipeKind = sectionSwipeKind(item.sectionType, isDisabled);
     const rowAction = useMemo<AccessibleAction>(
       () =>
-        isCustom
-          ? { name: 'delete', label: t('common.delete'), run: () => onDelete(item) }
-          : isDisabled
-            ? { name: 'restore', label: t('common.restore'), run: () => onToggleHide(item) }
-            : { name: 'hide', label: t('common.remove'), run: () => onToggleHide(item) },
-      [isCustom, isDisabled, item, onDelete, onToggleHide, t]
+        sectionSwipeAction(swipeKind, t, () =>
+          swipeKind === 'delete' ? onDelete(item) : onToggleHide(item)
+        ),
+      [swipeKind, item, onDelete, onToggleHide, t]
     );
     const rowActions = useMemo(() => [rowAction], [rowAction]);
 
@@ -163,53 +158,9 @@ export const SectionListItem = memo(
           outputRange: [1, 0.8, 0],
           extrapolate: 'clamp',
         });
-
-        if (isCustom) {
-          return (
-            <Animated.View
-              style={[styles.swipeAction, styles.deleteAction, { opacity: actionOpacity }]}
-            >
-              <RectButton style={styles.swipeActionButton} onPress={rowAction.run}>
-                <ChromeIcon name="delete" size={iconSize.lg} color={swipeAction.destructive.text} />
-                <Text style={[styles.swipeActionText, styles.deleteActionText]}>
-                  {rowAction.label}
-                </Text>
-              </RectButton>
-            </Animated.View>
-          );
-        }
-
-        return (
-          <Animated.View
-            style={[
-              styles.swipeAction,
-              isDisabled ? styles.showAction : styles.deleteAction,
-              { opacity: actionOpacity },
-            ]}
-          >
-            <RectButton style={styles.swipeActionButton} onPress={rowAction.run}>
-              {isDisabled ? (
-                <MaterialCommunityIcons
-                  name="undo"
-                  size={iconSize.lg}
-                  color={swipeAction.restore.text}
-                />
-              ) : (
-                <ChromeIcon name="delete" size={iconSize.lg} color={swipeAction.destructive.text} />
-              )}
-              <Text
-                style={[
-                  styles.swipeActionText,
-                  isDisabled ? styles.showActionText : styles.deleteActionText,
-                ]}
-              >
-                {rowAction.label}
-              </Text>
-            </RectButton>
-          </Animated.View>
-        );
+        return <SectionSwipeAction kind={swipeKind} action={rowAction} opacity={actionOpacity} />;
       },
-      [isCustom, isDisabled, rowAction]
+      [swipeKind, rowAction]
     );
 
     return (
@@ -568,7 +519,7 @@ export const SectionsList = memo(function SectionsList({
           variant="ghost"
           style={styles.retiredLink}
           onPress={() => tapTo('/section-retired')}
-          icon={<MaterialCommunityIcons name="history" size={iconSize.sm} color={colors.primary} />}
+          icon="history"
           label={t('sectionHistory.seeRetired')}
         />
         <Button
@@ -576,9 +527,7 @@ export const SectionsList = memo(function SectionsList({
           variant="ghost"
           style={styles.retiredLink}
           onPress={() => tapTo('/named-corridors')}
-          icon={
-            <MaterialCommunityIcons name="tag-outline" size={iconSize.sm} color={colors.primary} />
-          }
+          icon="tag-outline"
           label={t('namedCorridors.link')}
         />
         <DataRangeFooter days={cacheDays} isDark={isDark} />
@@ -683,33 +632,6 @@ const styles = StyleSheet.create({
   },
   swipeableContentDark: {
     backgroundColor: darkColors.background,
-  },
-  swipeAction: {
-    width: 80,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  swipeActionButton: {
-    flex: 1,
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  swipeActionText: {
-    ...typography.captionBold,
-  },
-  deleteAction: {
-    backgroundColor: swipeAction.destructive.bg,
-  },
-  deleteActionText: {
-    color: swipeAction.destructive.text,
-  },
-  showAction: {
-    backgroundColor: swipeAction.restore.bg,
-  },
-  showActionText: {
-    color: swipeAction.restore.text,
   },
   skeletonList: {
     paddingTop: spacing.md,

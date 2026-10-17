@@ -9,8 +9,7 @@
 import { Platform } from 'react-native';
 
 import { opacity } from '@/theme';
-import { pressedOpacity } from '@/shared/ui/Button';
-import { PRESS_OPACITY } from '@/shared/ui/pressFeedback';
+import { PRESS_OPACITY, pressedOpacity } from '@/shared/ui/pressFeedback';
 
 describe('the opacity token', () => {
   it('holds the seven steps of the ladder', () => {

@@ -6,13 +6,14 @@ import { Trans, useTranslation } from 'react-i18next';
 
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { formatDuration } from '@/shared/format/format';
-import { brand, colors, darkColors, layout, spacing, stroke, typography } from '@/theme';
+import { strengthTone, colors, darkColors, layout, spacing, stroke, typography } from '@/theme';
 
 import { useExerciseSets } from '../hooks/useExerciseSets';
 import { formatBestSet } from '../lib/formatting';
 import { formatWeight } from '@/shared/format/weight';
 import { ABSENT, absentLabel } from '@/shared/format/absent';
 import { DENSE_TEXT_SCALE, denseExtent } from '@/shared/ui/DenseText';
+import { RowDivider } from '@/shared/ui/RowGroup';
 import type { ExerciseGroup } from 'veloqrs';
 import { Button, Card, InlineLink, Shimmer, SkeletonFrame } from '@/shared/ui';
 import { tapTo } from '@/shared/app/navigation';
@@ -132,7 +133,11 @@ export function ExerciseTable({
 
           {groups.map((group, groupIdx) => (
             <View key={`${group.name}-${groupIdx}`}>
-              {groupIdx > 0 && <View style={[styles.divider, isDark && styles.dividerDark]} />}
+              {groupIdx > 0 && (
+                <View style={styles.dividerGap}>
+                  <RowDivider inset="none" />
+                </View>
+              )}
               <View style={styles.exerciseHeading}>
                 <Text style={[styles.exerciseName, isDark && styles.textDark]}>{group.name}</Text>
                 <Button
@@ -272,7 +277,7 @@ export function ExerciseTable({
             </Text>
           </View>
           <View style={styles.infoRow}>
-            <View style={[styles.infoDot, { backgroundColor: brand.tealDark }]} />
+            <View style={[styles.infoDot, { backgroundColor: strengthTone.secondary }]} />
             <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
               <Trans
                 i18nKey={hasSex ? 'strength.bodyTypeFromProfile' : 'strength.bodyTypeDefault'}
@@ -341,13 +346,8 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     paddingVertical: spacing.xs,
   },
-  divider: {
-    height: stroke.hairline,
-    backgroundColor: colors.divider,
-    marginVertical: spacing.sm,
-  },
-  dividerDark: {
-    backgroundColor: darkColors.border,
+  dividerGap: {
+    paddingVertical: spacing.sm,
   },
   headerRow: {
     flexDirection: 'row',

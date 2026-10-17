@@ -1,7 +1,7 @@
 /**
  * Veloq Premium Color Palette
  *
- * Primary: Teal (mode-aware) - everyday interactions
+ * Primary: Blue (mode-aware) - everyday interactions, the icon's hue
  * Accent: Gold - achievements, celebrations, PRs only
  * Secondary: Blue - charts, data visualization
  *
@@ -41,27 +41,32 @@ export const ink = {
 // any JavaScript runs, on the adaptive icon, the splash and the notification
 // accent, so they live in a file app.config.js and the icon generator also read.
 export const brand = {
-  // Teal - Primary (buttons, links, CTAs)
-  // Mode-aware: use teal.light for light mode, teal.dark for dark mode
-  teal: '#14B8A6', // Teal-500 - base
-  tealLight: appColours.notificationAccent, // Teal-600 - for light mode (darker for contrast on white)
-  tealDark: '#2DD4BF', // Teal-400 - for dark mode (lighter for contrast on dark)
-  tealHover: '#0F766E', // Teal-700 - light mode hover
-  tealHoverDark: '#14B8A6', // Teal-500 - dark mode hover
+  // The action blue (buttons, links, selected and on states). White reads
+  // 6.03:1 on blue600 and 4.93:1 on blue550, so a filled control is labelled
+  // in white in both themes. blue550 is the dark theme's step: it holds 3:1
+  // as a mark on the dark surfaces, where blue600 does not.
+  blue600: appColours.notificationAccent,
+  blue550: '#3D74A8',
+  blue700: '#255380',
 
   // Gold - Accent (achievements, PRs, celebrations ONLY)
   gold: '#D4AF37',
   goldLight: '#E8C96E',
   goldDark: '#B8942F',
 
-  // Blue - Secondary (charts, data visualization)
+  // Blue - Secondary (charts, data visualization). blueLight is also the
+  // dark theme's link step.
   blue: appColours.appColour,
   blueLight: '#7DB3E3',
   blueDark: appColours.appColourDeep,
 } as const;
 
-// Strength volume heatmap: 5-step teal ramp (light to saturated).
-// Used by the muscle body diagram to encode weighted-set volume per muscle.
+// Colours native code also draws, read from the same file. `notificationAccent`
+// is the LED colour an Android notification channel asks for.
+export const nativeColours = {
+  notificationAccent: appColours.notificationAccent,
+} as const;
+
 // Effort ramp for the RPE slider (easy to maximal, 1-10 mapped in pairs).
 export const rpeRamp = [
   '#22C55E', // green, RPE 1-2
@@ -71,6 +76,9 @@ export const rpeRamp = [
   '#EF4444', // red, RPE 9-10
 ] as const;
 
+// Strength volume heatmap: a 5-step ramp, light to saturated, which the muscle
+// body diagram draws weighted-set volume per muscle in. A data hue, not the
+// action colour.
 export const strengthRamp = [
   '#CCFBF1', // Teal-100
   '#99F6E4', // Teal-200
@@ -78,6 +86,14 @@ export const strengthRamp = [
   '#2DD4BF', // Teal-400
   '#0D9488', // Teal-600
 ] as const;
+
+// Strength's own data hue: worked muscles on the body diagram and the cards
+// beside it. `primary` is a primary muscle and `secondary` an assisting one.
+export const strengthTone = {
+  primary: '#0D9488',
+  secondary: '#2DD4BF',
+  deep: '#0F766E',
+} as const;
 
 // Workout step intensity colors for WorkoutStepBar.
 // warmup/tempo use amber (warning), threshold/VO2 use red (error),
@@ -157,7 +173,7 @@ export function sectionPaletteExpression(): unknown {
 
 // Background gradient and grid for the static route/section map previews
 // (MiniTraceView, RouteRow, SectionRow SVGs) and the Skia feed preview halo.
-// Deliberately muted greens - not the brand teal.
+// Deliberately muted greens.
 export const mapPreviewColors = {
   routeHalo: '#FFFFFF', // White outline under the colored route line (theme-independent)
   light: {
@@ -210,8 +226,8 @@ export const mapLayerColors = {
   /** Live recording position dot. */
   userLocation: '#2196F3',
   /** The export privacy home and the radius trimmed around it. */
-  homeRadius: '#0D9488',
-  homeRadiusFill: 'rgba(13,148,136,0.18)',
+  homeRadius: brand.blue600,
+  homeRadiusFill: 'rgba(47,102,153,0.18)',
 } as const;
 
 // The activity line coloured by gradient, from steep descent to steep climb. It
@@ -235,10 +251,11 @@ export const gradientScale = [
 // =============================================================================
 
 export const colors = {
-  // Primary - Teal (everyday interactions)
-  primary: brand.tealLight, // Teal-600 for light mode (good contrast on white)
-  primaryHover: brand.tealHover, // Teal-700 for hover
-  primaryLight: brand.teal, // Lighter variant
+  // Primary - the action blue. One value serves a fill, a mark and a stroke:
+  // white on it 6.03:1, and 5.42:1 on the worst light surface.
+  primary: brand.blue600,
+  primaryHover: brand.blue700,
+  primaryLight: brand.blueLight,
 
   // Accent - Gold (achievements, PRs only)
   accent: brand.goldDark, // Slightly darker gold for light mode
@@ -266,7 +283,7 @@ export const colors = {
   textSecondary: '#52525B',
   textDisabled: '#A1A1AA',
   textOnDark: '#FFFFFF',
-  textOnPrimary: '#18181B', // Ink on a filled primary control in both themes (4.73:1 on light teal, 9.52:1 on dark teal)
+  textOnPrimary: '#FFFFFF', // Ink on a filled primary control in both themes (6.03:1 on blue600, 4.93:1 on blue550)
   // Ink on a bright fill in both themes: gold, success, warning and the light
   // data hues, where white reads between 2.1:1 and 3:1. It is its own token so
   // the primary ink can change without moving these.
@@ -415,10 +432,9 @@ export const colors = {
   // 1.4.11 exemption.
   chartPinkText: '#BE185D',
   chartPurpleText: '#7E22CE',
-  // The chart accent as text: the eFTP marker label reads in it, and the teal
-  // the dots are drawn in is 3.37:1 on white, which is a mark's bar and not
-  // text's. 4.92:1 on the worst light surface.
-  chartAccentText: '#0F766E',
+  // The chart accent as text: the eFTP marker label reads in it. The action
+  // blue, 5.42:1 on the worst light surface.
+  chartAccentText: brand.blue600,
   fitnessBlueText: '#0F62C4',
   fatiguePurpleText: '#8E24AA',
   chartRed: '#EF4444',
@@ -502,10 +518,10 @@ export const colors = {
   // Workout step colors
   workoutCooldown: '#8B5CF6',
 
-  // Tappable reference link inside an insight's methodology note
-  // Teal-700. The lighter #009688 read 3.30:1, and a link that carries its
-  // affordance in colour owes the text bar twice over.
-  linkTeal: '#00796B',
+  // A tappable link, and an active label that reads as one. A link that
+  // carries its affordance in colour owes the text bar twice over: 5.42:1 on
+  // the worst light surface.
+  actionLink: brand.blue600,
 
   // Compass
   compassNorth: '#E53935',
@@ -722,14 +738,14 @@ export const errorScreen = {
     title: '#18181B',
     detail: '#52525B',
     message: '#B91C1C',
-    action: '#0F766E',
+    action: brand.blue600,
   },
   dark: {
     bg: '#1A1A1A',
     title: '#FFFFFF',
     detail: '#999999',
     message: '#FF6B6B',
-    action: '#0D9488',
+    action: brand.blueLight,
   },
 } as const;
 
@@ -800,10 +816,11 @@ export const loupeChrome = {
 // =============================================================================
 
 export const darkColors = {
-  // Primary - Teal (for dark mode)
-  primary: brand.tealDark, // Teal-400 for dark mode (good contrast on dark)
-  primaryHover: brand.tealHoverDark, // Teal-500 for hover
-  primaryLight: '#5EEAD4', // Teal-300 for subtle highlights
+  // Primary - the action blue's dark step, the same for a fill and a mark:
+  // white on it 4.93:1, and 3.17:1 on the lightest dark surface.
+  primary: brand.blue550,
+  primaryHover: brand.blue600,
+  primaryLight: brand.blueLight,
 
   // Accent - Gold (achievements, PRs only)
   accent: brand.gold, // Full gold for dark mode
@@ -842,7 +859,7 @@ export const darkColors = {
   // Borders
   border: '#27272A',
   borderLight: '#3F3F46',
-  borderAccent: 'rgba(45, 212, 191, 0.15)', // Subtle teal glow (updated from blue)
+  borderAccent: 'rgba(125, 179, 227, 0.15)', // The link blue at a low alpha
   divider: '#27272A',
   fillNeutral: '#262B34',
   borderStrong: '#363D48',
@@ -929,9 +946,9 @@ export const darkColors = {
   // 5.92:1 and 6.55:1 on the worst of the three.
   chartPinkText: '#F472B6',
   chartPurpleText: '#C084FC',
-  // The dark teal is a light tone on a near-black ground and carries as it is,
-  // 8.40:1 on the worst dark surface.
-  chartAccentText: brand.tealDark,
+  // The link step, a light tone on a near-black ground: 7.02:1 on the worst
+  // dark surface.
+  chartAccentText: brand.blueLight,
   fitnessBlueText: '#42A5F5',
   fatiguePurpleText: '#CE93D8',
   rideText: '#4F8FF7',
@@ -939,9 +956,7 @@ export const darkColors = {
   swimText: '#06B6D4',
   // The B959 half. On a near-black ground the caution fills carry as they are,
   // 9.60:1 and 7.26:1, and the info blue's own light step does at 7.02:1. The
-  // tappable link teal had no dark counterpart at all, so a dark theme read the
-  // light one: this is the dark tone the theme already uses for the primary,
-  // 8.40:1 on the worst dark surface.
+  // link takes the same light step, 7.02:1 on the worst dark surface.
   cautionYellowText: '#FFC107',
   cautionOrangeText: '#FF9800',
   infoText: brand.blueLight,
@@ -952,7 +967,7 @@ export const darkColors = {
   warningBg: '#41361D',
   infoBg: '#2A343F',
   successBg: '#213C2D',
-  linkTeal: brand.tealDark,
+  actionLink: brand.blueLight,
 
   // The rest of the form zone text family. Same story: four of the five
   // are the fill, and the red is the one that does not carry, 4.49:1 on
@@ -969,9 +984,9 @@ export const darkColors = {
 // =============================================================================
 
 export const gradients = {
-  // Primary - Teal (for buttons, CTAs)
-  primary: ['#2DD4BF', '#14B8A6'] as const, // Teal gradient
-  primaryLight: ['#5EEAD4', '#2DD4BF'] as const,
+  // Primary - the action blue (for buttons, CTAs)
+  primary: [brand.blue550, brand.blue600] as const,
+  primaryLight: [brand.blueLight, brand.blue550] as const,
 
   // Accent - Gold (achievements only)
   gold: [brand.goldLight, brand.gold] as const,
@@ -1007,8 +1022,6 @@ export const gradients = {
 // =============================================================================
 
 export const glows = {
-  primary: 'rgba(20, 184, 166, 0.4)', // Teal glow for interactive elements
-  teal: 'rgba(20, 184, 166, 0.4)', // Alias
   gold: 'rgba(212, 175, 55, 0.4)', // For achievements only
   accent: 'rgba(212, 175, 55, 0.4)', // Alias
   blue: 'rgba(91, 155, 213, 0.4)',
@@ -1210,7 +1223,7 @@ export const insightCategoryColors: Record<string, { light: string; dark: string
   section_pr: verdict.record,
   fitness_milestone: { light: '#1A8A44', dark: '#4ADE80' },
   period_comparison: { light: brand.blueDark, dark: brand.blue },
-  strength_progression: { light: brand.tealLight, dark: brand.tealDark },
+  strength_progression: { light: strengthTone.primary, dark: strengthTone.secondary },
   strength_balance: { light: '#7C3AED', dark: '#A78BFA' },
   hrv_trend: { light: '#388E3C', dark: '#66BB6A' },
   stale_pr: { light: '#B45309', dark: '#FBBF24' },

@@ -17,6 +17,7 @@ import { formatDuration, formatShortDate } from '@/shared/format/format';
 import { brand, colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
 import { prRecordOf } from '@/features/insights/lib/directionBests';
 import type { Insight } from '@/types';
+import { NameText } from '@/shared/ui/NameText';
 
 interface SectionPRContentProps {
   insight: Insight;
@@ -86,12 +87,9 @@ export const SectionPRContent = React.memo(function SectionPRContent({
                   style={styles.sportIcon}
                 />
               ) : null}
-              <Text
-                style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}
-                numberOfLines={1}
-              >
+              <NameText style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}>
                 {prData.sectionName}
-              </Text>
+              </NameText>
             </View>
           ) : null}
 

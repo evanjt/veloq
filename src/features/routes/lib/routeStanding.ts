@@ -1,6 +1,7 @@
 /**
  * The one-line standing for an activity on its route: where it ranks, how far
- * off the best it is, and at five or more attempts what share it beat.
+ * off the best it is, and at five or more attempts what share it beat. A
+ * record says how much it beat the previous best by.
  * Every number comes from the engine, nothing is re-derived here.
  */
 
@@ -19,6 +20,8 @@ export interface RouteStanding {
   percentileRank: number | null;
   /** Seconds between the current activity and the route best. */
   gapToBestSeconds: number | null;
+  /** Seconds a record beat the previous best by, the engine's route highlight figure. */
+  improvementSeconds: number | null;
 }
 
 /**
@@ -27,11 +30,18 @@ export interface RouteStanding {
  * rank do not describe the same population.
  */
 export function formatRouteStanding(standing: RouteStanding, t: TFunction): string | null {
-  const { currentRank, attemptCount, percentileRank, gapToBestSeconds } = standing;
+  const { currentRank, attemptCount, percentileRank, gapToBestSeconds, improvementSeconds } =
+    standing;
   if (currentRank === null || attemptCount < 2 || currentRank > attemptCount) {
     return null;
   }
   if (currentRank === 1) {
+    if (improvementSeconds !== null && Math.round(improvementSeconds) > 0) {
+      return t('routes.standingBestBy', {
+        total: attemptCount,
+        improvement: formatDurationDelta(improvementSeconds),
+      }) as string;
+    }
     return t('routes.standingBest', { total: attemptCount }) as string;
   }
   if (gapToBestSeconds === null) {

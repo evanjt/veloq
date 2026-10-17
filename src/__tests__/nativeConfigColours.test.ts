@@ -74,7 +74,7 @@ describe('the colours native code draws before the app runs', () => {
       adaptiveIcon: brand.blue,
       splash: brand.blue,
       splashDark: brand.blue,
-      notification: brand.tealLight,
+      notification: brand.blue600,
     });
   });
 
@@ -84,7 +84,7 @@ describe('the colours native code draws before the app runs', () => {
       adaptiveIcon: brand.blue,
       splash: brand.blue,
       splashDark: brand.blue,
-      notification: brand.tealLight,
+      notification: brand.blue600,
     });
   });
 
@@ -96,7 +96,7 @@ describe('the colours native code draws before the app runs', () => {
     });
     expect(brand.blue).toBe('#123456');
     expect(brand.blueDark).toBe('#0A1B2C');
-    expect(brand.tealLight).toBe('#654321');
+    expect(brand.blue600).toBe('#654321');
     expect(nativeColours(appConfig({ config: staticConfigWithoutColours() }))).toEqual({
       adaptiveIcon: '#123456',
       splash: '#123456',

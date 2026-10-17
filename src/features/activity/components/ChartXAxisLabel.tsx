@@ -1,7 +1,7 @@
 import React, { useImperativeHandle, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, typography } from '@/theme';
+import { chartStyles, colors, darkColors, typography } from '@/theme';
 import { DenseText } from '@/shared/ui/DenseText';
 import { formatDuration } from '@/shared/format/format';
 import { formatDecimal } from '@/shared/format';
@@ -57,13 +57,13 @@ export const ChartXAxisLabel = React.memo(
 
     return (
       <View style={styles.xAxis} pointerEvents="none">
-        <DenseText style={[styles.xLabel, isDark && styles.xLabelDark]}>
+        <DenseText style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}>
           {isTime ? '0:00' : '0'}
         </DenseText>
         {scrubLabel !== null ? (
           <DenseText
             testID="chart-x-axis-scrub"
-            style={[styles.xScrub, isDark && styles.xScrubDark]}
+            style={[chartStyles.axisLabel, styles.xScrub, isDark && styles.xScrubDark]}
           >
             {scrubLabel}
           </DenseText>
@@ -72,7 +72,9 @@ export const ChartXAxisLabel = React.memo(
             {t('activity.chartHint', 'Hold to scrub • Hold chip for axis')}
           </DenseText>
         )}
-        <DenseText style={[styles.xLabel, isDark && styles.xLabelDark]}>{maxLabel}</DenseText>
+        <DenseText style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}>
+          {maxLabel}
+        </DenseText>
       </View>
     );
   })
@@ -87,15 +89,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  xLabel: {
-    ...typography.micro,
-    color: colors.textSecondary,
-  },
-  xLabelDark: {
-    color: darkColors.textSecondary,
-  },
   xScrub: {
-    ...typography.micro,
     color: colors.textPrimary,
   },
   xScrubDark: {

@@ -22,6 +22,11 @@ export interface RouteSyncConditions {
 export interface RouteSyncPlan {
   /** Fetch GPS for the activities the engine is missing. */
   fetchGps: boolean;
+  /**
+   * Hand the missing tracks to the engine, which fetches them when the
+   * connection returns. Offline, outside demo mode, with tracks owed.
+   */
+  oweGpsToEngine: boolean;
   /** Ask Rust to pull FIT files for unprocessed strength activities. */
   fetchStrength: boolean;
   /** Backfill time streams for activities with a NULL lap_time. */
@@ -36,6 +41,7 @@ export function routeSyncPlan({ online, isDemo, newGpsCount }: RouteSyncConditio
   const canFetchGps = online || isDemo;
   return {
     fetchGps: canFetchGps && newGpsCount > 0,
+    oweGpsToEngine: !canFetchGps && newGpsCount > 0,
     fetchStrength: online && !isDemo,
     backfillStreams: online && !isDemo,
     // The recovery is the local half, and it runs whenever the pass is not

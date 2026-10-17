@@ -1,10 +1,12 @@
 import React from 'react';
 import { Alert, StyleSheet } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { SectionEncounter } from 'veloqrs';
 
 import { ActivitySectionsSection } from '@/features/activity/components/ActivitySectionsSection';
 import type { SectionEncounterGroup } from '@/features/activity/lib/groupSectionEncounters';
+import { swipeAction } from '@/theme';
 
 const mockSectionInlinePlot = jest.fn((_props: unknown) => null);
 const mockDisableSection = jest.fn(() => true);
@@ -14,6 +16,7 @@ jest.mock('@/features/activity/components/SectionInlinePlot', () => ({
   SectionInlinePlot: (props: unknown) => mockSectionInlinePlot(props),
 }));
 jest.mock('@/features/routes', () => ({
+  ...jest.requireActual('@/features/routes/components/SectionSwipeAction'),
   DataRangeFooter: () => null,
   removeSectionWithUndo: jest.requireActual('@/features/routes/lib/sectionVisibility')
     .removeSectionWithUndo,
@@ -110,11 +113,24 @@ function labelContrast(swipe: ReturnType<typeof render>, label: string): number 
 describe('activity section swipe actions', () => {
   it.each([
     ['custom', 'common.delete'],
-    ['auto', 'common.hide'],
+    ['auto', 'common.remove'],
   ])('draws the %s section action label at 4.5:1 on its fill', async (sectionType, label) => {
     const swipe = await swipeActions('s1', sectionType, jest.fn());
 
     expect(labelContrast(swipe, label)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('draws removing a detected section as the sections list draws it', async () => {
+    const swipe = await swipeActions('s1', 'auto', jest.fn());
+    const text = swipe.getByText('common.remove');
+    let fill: unknown;
+    for (let node = text.parent; node && fill === undefined; node = node.parent) {
+      fill = StyleSheet.flatten(node.props.style)?.backgroundColor;
+    }
+
+    expect(fill).toBe(swipeAction.hide.bg);
+    expect(StyleSheet.flatten(text.props.style).color).toBe(swipeAction.hide.text);
+    expect(swipe.UNSAFE_getByType(MaterialCommunityIcons).props.name).toBe('minus-circle-outline');
   });
 
   it('exposes the scan action and blocks a second press while scanning', async () => {
@@ -199,13 +215,13 @@ describe('activity section swipe actions', () => {
     alert.mockRestore();
   });
 
-  it('only offers Hide for an auto section', async () => {
+  it('only offers Remove for an auto section', async () => {
     const removeSection = jest.fn();
     const swipe = await swipeActions('custom_legacy', 'auto', removeSection);
 
-    expect(swipe.getByText('common.hide')).toBeTruthy();
+    expect(swipe.getByText('common.remove')).toBeTruthy();
     expect(swipe.queryByText('common.delete')).toBeNull();
-    await fireEvent.press(swipe.getByText('common.hide'));
+    await fireEvent.press(swipe.getByText('common.remove'));
     expect(mockDisableSection).toHaveBeenCalledWith('custom_legacy');
     expect(removeSection).not.toHaveBeenCalled();
   });
@@ -216,7 +232,7 @@ describe('activity section swipe actions', () => {
     const [hideAction, ...noMore] = hide.actionsFor(hide.group);
 
     expect(noMore).toEqual([]);
-    expect(hideAction).toMatchObject({ name: 'hide', label: 'common.hide' });
+    expect(hideAction).toMatchObject({ name: 'remove', label: 'common.remove' });
     hideAction.run();
     expect(mockDisableSection).toHaveBeenCalledWith('auto-1');
 

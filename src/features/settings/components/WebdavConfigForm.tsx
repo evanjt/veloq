@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import { FullWindowModal } from '@/shared/ui/FullWindowModal';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { Button, StatusLine, SwitchRow, TextField, type TextFieldHandle } from '@/shared/ui';
@@ -13,7 +12,7 @@ import {
   testWebdavConnection,
   webdavUrlProblem,
 } from '@/features/settings/lib/autobackup';
-import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { NextcloudQrScanner } from './NextcloudQrScanner';
 import { InfoButton } from './InfoButton';
 import { webdavTestMessage } from '../lib/autobackup/webdavTestMessage';
@@ -239,13 +238,7 @@ export function WebdavConfigForm({ onConfigChange, onRemoved, ref }: WebdavConfi
             label={t('backup.scanNextcloudQr', 'Scan Nextcloud app password')}
             variant="secondary"
             size="sm"
-            icon={
-              <MaterialCommunityIcons
-                name="qrcode-scan"
-                size={iconSize.md}
-                color={colors.primary}
-              />
-            }
+            icon="qrcode-scan"
             onPress={() => setShowQrScanner(true)}
           />
           <InfoButton

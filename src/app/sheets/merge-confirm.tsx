@@ -26,6 +26,7 @@ import {
   type MergeSectionInfo,
 } from '@/features/routes';
 import { tapBack } from '@/shared/app/navigation';
+import { NameText } from '@/shared/ui/NameText';
 
 /**
  * The merge confirmation, a sheet route opened with `openSheet` and answered with the section to
@@ -84,9 +85,7 @@ function MergeConfirmSheetContent() {
           {isSelected ? <View style={[styles.radioInner, { backgroundColor: accent }]} /> : null}
         </View>
         <View style={styles.optionContent}>
-          <Text style={[styles.optionName, { color: textPrimary }]} numberOfLines={1}>
-            {section.name}
-          </Text>
+          <NameText style={[styles.optionName, { color: textPrimary }]}>{section.name}</NameText>
           <View style={styles.optionStats}>
             <SportIcons sportTypes={section.sportTypes} size={iconSize.sm} color={textSecondary} />
             <Text style={[styles.optionStat, { color: textSecondary }]}>
@@ -134,15 +133,11 @@ function MergeConfirmSheetContent() {
               {t('sections.mergeDroppedRides', { count: dropped.length })}
             </Text>
             {dropped.slice(0, MAX_NAMED_RIDES).map((ride) => (
-              <Text
-                key={ride.activityId}
-                style={[styles.optionStat, { color: textSecondary }]}
-                numberOfLines={1}
-              >
+              <NameText key={ride.activityId} style={[styles.optionStat, { color: textSecondary }]}>
                 {ride.name
                   ? `${ride.name}, ${formatFullDate(new Date(ride.startDate * 1000))}`
                   : formatFullDate(new Date(ride.startDate * 1000))}
-              </Text>
+              </NameText>
             ))}
             {dropped.length > MAX_NAMED_RIDES && (
               <Text style={[styles.optionStat, { color: textSecondary }]}>

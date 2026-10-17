@@ -1,10 +1,11 @@
 /**
- * Scenario: a tap that opens a screen or goes back is felt, and navigation with no tap behind it
- * (a notification, the end of a recording, a redirect) is silent.
+ * Scenario: a press that only navigates, opening a screen or going back, fires no haptic, and
+ * neither does navigation with no tap behind it (a notification, the end of a recording, a
+ * redirect).
  *
- * Expected behaviour: tapTo and tapBack fire one light impact and then navigate, and navigateTo,
- * replaceTo and navigateTab fire none. A back with nothing behind the screen, as on a screen a cold
- * link opened as the stack root, replaces to the Feed rather than dispatching a pop nothing handles.
+ * Expected behaviour: tapTo and tapBack navigate and fire nothing, on a first call and a second.
+ * A back with nothing behind the screen, as on a screen a cold link opened as the stack root,
+ * replaces to the Feed rather than dispatching a pop nothing handles.
  */
 
 import { router } from 'expo-router';
@@ -40,17 +41,19 @@ afterEach(() => {
   jest.resetAllMocks();
 });
 
-describe('tapTo', () => {
-  it('fires one light impact and then pushes the path', () => {
-    const order: string[] = [];
-    mockedHaptics.light.mockImplementation(() => void order.push('light'));
-    mockedRouter.push.mockImplementation(() => void order.push('push'));
+function expectNoHaptic(): void {
+  expect(mockedHaptics.light).not.toHaveBeenCalled();
+  expect(mockedHaptics.medium).not.toHaveBeenCalled();
+  expect(mockedHaptics.selection).not.toHaveBeenCalled();
+  expect(mockedHaptics.success).not.toHaveBeenCalled();
+}
 
+describe('tapTo', () => {
+  it('pushes the path and fires no haptic', () => {
     tapTo('/activity/a1');
 
-    expect(mockedHaptics.light).toHaveBeenCalledTimes(1);
     expect(mockedRouter.push).toHaveBeenCalledWith('/activity/a1');
-    expect(order).toEqual(['light', 'push']);
+    expectNoHaptic();
   });
 
   it('pushes a pathname with params unchanged', () => {
@@ -60,42 +63,42 @@ describe('tapTo', () => {
       pathname: '/section/[id]',
       params: { id: 's1' },
     });
-    expect(mockedHaptics.light).toHaveBeenCalledTimes(1);
+    expectNoHaptic();
   });
 
-  it('fires once per call on a second tap', () => {
+  it('fires nothing on a second tap either', () => {
     tapTo('/a');
     tapTo('/b');
 
-    expect(mockedHaptics.light).toHaveBeenCalledTimes(2);
     expect(mockedRouter.push).toHaveBeenCalledTimes(2);
+    expectNoHaptic();
   });
 });
 
 describe('tapBack', () => {
-  it('fires one light impact and then goes back', () => {
-    const order: string[] = [];
-    mockedHaptics.light.mockImplementation(() => void order.push('light'));
-    mockedRouter.back.mockImplementation(() => void order.push('back'));
-
+  it('goes back and fires no haptic', () => {
     tapBack();
 
-    expect(mockedHaptics.light).toHaveBeenCalledTimes(1);
     expect(mockedRouter.back).toHaveBeenCalledTimes(1);
-    expect(order).toEqual(['light', 'back']);
+    expectNoHaptic();
   });
 
-  it('fires one light impact and replaces to the Feed when nothing is behind the screen', () => {
+  it('replaces to the Feed and fires no haptic when nothing is behind the screen', () => {
     canGoBack.mockReturnValue(false);
-    const order: string[] = [];
-    mockedHaptics.light.mockImplementation(() => void order.push('light'));
-    mockedRouter.replace.mockImplementation(() => void order.push('replace'));
 
     tapBack();
 
     expect(mockedRouter.back).not.toHaveBeenCalled();
     expect(mockedRouter.replace).toHaveBeenCalledWith('/');
-    expect(order).toEqual(['light', 'replace']);
+    expectNoHaptic();
+  });
+
+  it('fires nothing on a second back either', () => {
+    tapBack();
+    tapBack();
+
+    expect(mockedRouter.back).toHaveBeenCalledTimes(2);
+    expectNoHaptic();
   });
 });
 
@@ -138,8 +141,6 @@ describe('programmatic navigation', () => {
     expect(mockedRouter.push).toHaveBeenCalledWith('/recording/review');
     expect(mockedRouter.replace).toHaveBeenCalledWith('/');
     expect(mockedRouter.navigate).toHaveBeenCalledWith('/map');
-    expect(mockedHaptics.light).not.toHaveBeenCalled();
-    expect(mockedHaptics.selection).not.toHaveBeenCalled();
-    expect(mockedHaptics.medium).not.toHaveBeenCalled();
+    expectNoHaptic();
   });
 });

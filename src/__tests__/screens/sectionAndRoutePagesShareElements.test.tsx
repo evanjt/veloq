@@ -10,6 +10,7 @@
  */
 
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { EfficiencyDirection, FfiOffScale } from 'veloqrs';
@@ -18,6 +19,7 @@ import SectionDetailScreen from '@/app/section/[id]';
 import RouteDetailScreen from '@/app/route/[id]';
 import { fixtures } from '@/data/demo/fixtures';
 import { getRouteCoordinates } from '@/shared/demo/routes/routes';
+import { Button, paint } from '@/shared/ui/Button';
 import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 
 const DEMO_ROUTE = 'route-valais-ride-2';
@@ -205,12 +207,14 @@ const demoRead: FfiSectionPerformanceData = {
     forward: {
       referenceActivityId: best.id,
       referenceSource: 0 as never,
+      defaultReference: 0 as never,
       laps: attempts.slice(-2).map((a) => ({
         activityId: a.id,
         startIndex: 0,
         activityDate: a.date,
         deltaSecs: Float32Array.from([0, a.time - best.time]),
         splitDeltaSecs: Float32Array.from([a.time - best.time]),
+        splitSecs: Float32Array.from([a.time]),
         endDeltaSecs: a.time - best.time,
       })),
       missing: [],
@@ -473,6 +477,24 @@ describe('the section page and the route page over one demo route', () => {
 
     const routePage = await openPage('route');
     expect(glyphs(routePage, 'route-export-gpx')).toEqual(['share']);
+  });
+
+  it('draws the GPX export as a secondary action with no shadow on both pages', async () => {
+    const expectSecondary = (page: Awaited<ReturnType<typeof openPage>>, id: string) => {
+      const exportButton = page.UNSAFE_getAllByType(Button).find((n) => n.props.testID === id)!;
+      expect(exportButton.props.variant).toBe('secondary');
+      const flat = StyleSheet.flatten(exportButton.props.style) ?? {};
+      expect(flat).not.toHaveProperty('elevation');
+      expect(flat).not.toHaveProperty('shadowOpacity');
+      expect(exportButton.findByType(ChromeIcon).props.color).toBe(paint('secondary', false).color);
+    };
+
+    const sectionPage = await openPage('section');
+    expectSecondary(sectionPage, 'section-export-gpx');
+    await sectionPage.unmount();
+
+    const routePage = await openPage('route');
+    expectSecondary(routePage, 'route-export-gpx');
   });
 
   it.each(SECTION_ONLY)(

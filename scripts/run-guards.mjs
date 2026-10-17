@@ -979,6 +979,13 @@ const GUARDS = [
       'a disclosure chevron or typed › drawn beside the shared Row, or one on a row that acts rather than opens',
   },
   {
+    name: 'lint:single-line-text',
+    kind: 'style',
+    cmd: node('lint-single-line-text.mjs'),
+    catches:
+      'a number, date or name held to one line and cut off with an ellipsis, past the recorded baseline, instead of shrinking through FitText or wrapping through NameText',
+  },
+  {
     name: 'lint:empty-state-styles',
     kind: 'style',
     cmd: node('lint-empty-state-styles.mjs'),
@@ -990,6 +997,13 @@ const GUARDS = [
     cmd: node('lint-font-size-pluck.mjs'),
     catches:
       "a text style built from one role's size and a weight of its own, which drops the role's line height, tracking and figures",
+  },
+  {
+    name: 'lint:floor-type-styles',
+    kind: 'style',
+    cmd: node('lint-floor-type-styles.mjs'),
+    catches:
+      'a sentence or a new label set at the 9 or 10px floor, except licence and attribution text',
   },
   {
     name: 'lint:style-font-weight',
@@ -1172,6 +1186,13 @@ const GUARDS = [
     kind: 'style',
     cmd: node('lint-source-rules.mjs', '--rule', 'dark-counterpart'),
     catches: 'a light-only text, ground or border colour drawn in dark mode',
+  },
+  {
+    name: 'lint:light-only-roles',
+    kind: 'style',
+    cmd: node('lint-light-only-roles.mjs'),
+    catches:
+      'a bare light primary drawn on a dark ground, or a raw brand ramp step read outside the theme, in a file whose count only falls',
   },
   {
     name: 'lint:dimmed-text',

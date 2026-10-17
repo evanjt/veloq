@@ -9,9 +9,12 @@
  */
 
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { act, render, screen } from '@testing-library/react-native';
 
 import { ActivityChartsSection } from '@/features/activity/components/ActivityChartsSection';
+import { Button } from '@/shared/ui';
+import { paint } from '@/shared/ui/Button';
 import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import type { ActivityDetail, ActivityStreams } from '@/types';
 
@@ -20,23 +23,10 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 
 jest.mock('@/shared/ui', () => {
-  const { View, Text } = require('react-native');
+  const { View } = require('react-native');
   return {
     Card: jest.requireActual('@/shared/ui/Card').Card,
-    Button: ({
-      label,
-      testID,
-      icon,
-    }: {
-      label: string;
-      testID?: string;
-      icon?: React.ReactNode;
-    }) => (
-      <View testID={testID}>
-        <Text>{label}</Text>
-        {icon}
-      </View>
-    ),
+    Button: jest.requireActual('@/shared/ui/Button').Button,
     IconButton: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     pressable: (style: unknown) => style,
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -187,4 +177,19 @@ it('draws the GPX export as a share, since it opens the share sheet', async () =
     .findAll((n) => n.type === ChromeIcon)
     .map((n) => n.props.name);
   expect(glyphs).toEqual(['share']);
+});
+
+it('draws the GPX export as a secondary action with no shadow, under the one primary on the screen', async () => {
+  await render(section(true));
+  await flushFrame();
+
+  const exportButton = screen
+    .UNSAFE_getAllByType(Button)
+    .find((n) => n.props.testID === 'activity-export-gpx')!;
+  expect(exportButton.props.variant).toBe('secondary');
+  const flat = StyleSheet.flatten(exportButton.props.style) ?? {};
+  expect(flat).not.toHaveProperty('elevation');
+  expect(flat).not.toHaveProperty('shadowOpacity');
+  const icon = screen.getByTestId('activity-export-gpx').findByType(ChromeIcon);
+  expect(icon.props.color).toBe(paint('secondary', false).color);
 });

@@ -27,11 +27,16 @@ pub fn backup_screen_data(
     } else {
         crate::persistence::export::suggest_export_home_from(conn)
     };
+    let count = |key| -> Result<u32, VeloqError> {
+        Ok(setting(key)?.and_then(|raw| raw.parse().ok()).unwrap_or(0))
+    };
     Ok(crate::FfiBackupScreenData {
         home_lat,
         home_lng,
         radius_m,
         suggestion,
+        not_restored: count(crate::persistence::record_restore::NOT_RESTORED_KEY)?,
+        names_not_restored: count(crate::persistence::record_restore::NAMES_NOT_RESTORED_KEY)?,
     })
 }
 
@@ -1437,9 +1442,9 @@ where
     let whole_curves = curves_of(filter.as_deref());
     let curves_pending = whole_curves.is_none();
     let curves = whole_curves.as_deref().and_then(|curves| {
-        curves
-            .as_ref()
-            .and_then(|curves| crate::persistence::sections::lap_curves::in_range(curves, cutoff))
+        curves.as_ref().and_then(|curves| {
+            crate::persistence::sections::lap_curves::in_range(curves, cutoff, highlight)
+        })
     });
     // Over the whole record, like the calendar: a range only filters the chart.
     let efficiency_trend = sport_type.as_deref().and_then(efficiency_of);

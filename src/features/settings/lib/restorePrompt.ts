@@ -1,12 +1,11 @@
 /**
  * The one-time offer to restore on an empty signed-in library.
  *
- * The platform record zip restores itself. A library with no zip to apply, or
- * one the engine refused, is otherwise left empty with no word that a backup in
- * a file or on a WebDAV server exists. The offer is a card on the feed, never a
- * modal over the tour, and it is answered once, by sharing the platform
- * record's marker: a restore or a dismissal both mean the athlete has been
- * asked.
+ * A backup is never applied before the athlete has seen which one it is and
+ * when it was written, the record zip a device backup brought back included.
+ * The offer is a card on the feed, never a modal over the tour, and it is
+ * answered once, by sharing the platform record's marker: a restore or a
+ * dismissal both mean the athlete has been asked.
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
@@ -89,7 +88,7 @@ async function newestListed(
 /**
  * The newest backup that can be seen without asking the athlete for anything,
  * with where it was found, or null: a record zip left in the documents
- * directory that was not applied, a configured WebDAV server, a signed-in
+ * directory, a configured WebDAV server, a signed-in
  * Google Drive or, on iPhone, Veloq's own iCloud Drive folder. A place that
  * cannot be read holds none.
  */
@@ -124,8 +123,7 @@ export async function findNewestBackup(): Promise<FoundBackup | null> {
 /** Restore the backup the offer named, fetching it first unless it is on the phone. */
 export async function restoreFoundBackup(found: FoundBackup): Promise<RestoreOutcome> {
   if (found.backend) return restoreBackendEntry(found.backend, found.entry);
-  await restoreRecordBackup(found.entry.id);
-  return 'restored';
+  return restoreRecordBackup(found.entry.id);
 }
 
 /** Record that the athlete has been asked, so the offer never returns. */

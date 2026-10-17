@@ -23,8 +23,10 @@ import {
   themedStyles,
   typography,
   stroke,
+  themePalette,
 } from '@/theme';
-import { ListSectionHeader, Row, SwitchRow, ToggleButtonRow } from '@/shared/ui';
+import { Row, SwitchRow, ToggleButtonRow } from '@/shared/ui';
+import { RowDivider } from '@/shared/ui/RowGroup';
 import { settingsStyles } from './settingsStyles';
 
 const HERO_LABEL_KEYS = {
@@ -35,6 +37,7 @@ const HERO_LABEL_KEYS = {
 
 export function SummaryCardSection() {
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const styles = themedStyles(makeStyles, isDark);
   const { t } = useTranslation();
   const { summaryCard, setSummaryCardPreferences } = useDashboardPreferences();
@@ -42,7 +45,6 @@ export function SummaryCardSection() {
 
   return (
     <>
-      <ListSectionHeader>{t('settings.summaryCard')}</ListSectionHeader>
       <View
         key={isDark ? 'dark' : 'light'}
         style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}
@@ -104,9 +106,9 @@ export function SummaryCardSection() {
         </View>
 
         {/* Supporting Metrics */}
-        <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
+        <RowDivider />
         <Row>
-          <MaterialCommunityIcons name="tune-variant" size={iconSize.md} color={colors.primary} />
+          <MaterialCommunityIcons name="tune-variant" size={iconSize.md} color={palette.primary} />
           <Text style={[styles.actionText, isDark && settingsStyles.textLight]}>
             {t('settings.supportingMetrics')}
           </Text>

@@ -23,7 +23,16 @@ import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { useTheme } from '@/shared/app/useTheme';
 import { formatDistance } from '@/shared/format/format';
 import { pressable, pressRipple } from '@/shared/ui';
-import { brand, colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
+import {
+  colors,
+  darkColors,
+  iconSize,
+  layout,
+  spacing,
+  typography,
+  stroke,
+  themePalette,
+} from '@/theme';
 import {
   GROUPING_PARAM_RANGES,
   isPastGroupingRange,
@@ -161,9 +170,9 @@ function ParamRow({
         maximumValue={Math.max(max, value)}
         step={step}
         onValueChange={onChange}
-        minimumTrackTintColor={brand.tealLight}
+        minimumTrackTintColor={themePalette(isDark).primary}
         maximumTrackTintColor={trackBg}
-        thumbTintColor={brand.tealLight}
+        thumbTintColor={themePalette(isDark).primary}
       />
       {isPastGroupingRange(paramKey, value) && (
         <Text

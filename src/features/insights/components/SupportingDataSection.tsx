@@ -19,6 +19,7 @@ import {
   typography,
   verdictColor,
   verdictFill,
+  themePalette,
 } from '@/theme';
 import { InsightHistoryChart } from './InsightHistoryChart';
 import { formatDuration } from '@/shared/format/format';
@@ -28,6 +29,7 @@ import { TrackPreview, normaliseTrackPoints } from '@/shared/ui/TrackPreview';
 import { spokenVerdict } from '@/shared/format/spoken';
 import { verdictIcon, verdictRung } from '@/shared/format/trend';
 import type { LatLngShort } from '@/shared/geo/distance';
+import { NameText } from '@/shared/ui/NameText';
 
 const SPARKLINE_HEIGHT = 60;
 
@@ -48,13 +50,14 @@ function SectionPreview({
   points?: LatLngShort[] | undefined;
 }) {
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const normalised = useMemo(() => normaliseTrackPoints(points ?? []), [points]);
   if (normalised.length < 2) return null;
   return (
     <TrackPreview
       testID={`section-preview-${sectionId}`}
       points={normalised}
-      color={colors.primary}
+      color={palette.primary}
       isDark={isDark}
     />
   );
@@ -200,12 +203,9 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
               >
                 <SectionPreview sectionId={section.sectionId} points={section.previewPoints} />
                 <View style={styles.sectionContent}>
-                  <Text
-                    style={[styles.sectionName, isDark && styles.sectionNameDark]}
-                    numberOfLines={1}
-                  >
+                  <NameText style={[styles.sectionName, isDark && styles.sectionNameDark]}>
                     {name}
-                  </Text>
+                  </NameText>
                   <View style={styles.sectionMeta}>
                     {bestTime != null ? (
                       <Text style={[styles.sectionBestTime, isDark && styles.sectionBestTimeDark]}>

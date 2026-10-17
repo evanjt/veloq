@@ -209,13 +209,7 @@ function LoginScreenContent() {
               variant="secondary"
               onPress={handleTryDemo}
               disabled={isLoading || isApiKeyLoading}
-              icon={
-                <MaterialCommunityIcons
-                  name="play-circle-outline"
-                  size={iconSize.sm}
-                  color={colors.primary}
-                />
-              }
+              icon="play-circle-outline"
             />
             <Text style={[styles.demoCaption, isDark && styles.textDark]}>
               {t('login.demoCaption')}
@@ -230,13 +224,7 @@ function LoginScreenContent() {
               onPress={() => setShowRestore((shown) => !shown)}
               disabled={isLoading || isApiKeyLoading}
               style={styles.restoreButton}
-              icon={
-                <MaterialCommunityIcons
-                  name="database-import-outline"
-                  size={iconSize.md}
-                  color={colors.primary}
-                />
-              }
+              icon="database-import-outline"
             />
             {showRestore ? (
               <View style={styles.restoreChooser}>
@@ -268,13 +256,7 @@ function LoginScreenContent() {
               label={t('login.createAccount')}
               variant="ghost"
               onPress={handleCreateAccount}
-              icon={
-                <MaterialCommunityIcons
-                  name="open-in-new"
-                  size={iconSize.md}
-                  color={colors.primary}
-                />
-              }
+              icon="open-in-new"
               style={styles.createAccountButton}
             />
           </Card>

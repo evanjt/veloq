@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, LayoutChangeEvent } from 'react-native';
+import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -23,21 +23,16 @@ import {
 } from '@/features/maps';
 import { engineErrorKey } from '@/shared/native/engineError';
 import { ErrorState } from '@/shared/ui/ErrorState';
+import { RowDivider } from '@/shared/ui/RowGroup';
 import * as haptics from '@/shared/ui/haptics';
-import { useQueryCacheCount } from '../hooks/useQueryCacheCount';
 import { offlineConfirmMessage } from '../lib/offlineConfirmCopy';
-import { ListSectionHeader } from '@/shared/ui/ListSectionHeader';
 import { settingsStyles } from './settingsStyles';
 import { CacheManagementPanel } from './CacheManagementPanel';
 import { StorageStatsPanel } from './StorageStatsPanel';
 import { confirmAction, inform } from '@/shared/ui/dialog';
 import { showNotice } from '@/shared/ui/Notice';
 
-interface DataCacheSectionProps {
-  onLayout?: (event: LayoutChangeEvent) => void;
-}
-
-export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
+export function DataCacheSection() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
@@ -138,8 +133,6 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
     return `${formatDateOrDash(cacheStats.oldestDate)} - ${formatDateOrDash(cacheStats.newestDate)} (${formatDaySpan(days, t as SpanTranslator)})`;
   }, [cacheStats.oldestDate, cacheStats.newestDate, t]);
 
-  const totalQueries = useQueryCacheCount(queryClient);
-
   // Cache sizes state (only routes database now, bounds/GPS are in SQLite)
   const [cacheSizes, setCacheSizes] = useState<{ routes: number }>({
     routes: 0,
@@ -229,50 +222,45 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
     refreshBasemapTiles,
   ]);
 
+  // The facts come first and the wipe sits at their foot, under what it destroys.
   return (
-    <>
-      {/* Data Cache Section - Consolidated */}
-      <View onLayout={onLayout}>
-        <ListSectionHeader>{t('settings.dataCache')}</ListSectionHeader>
-      </View>
-      <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
-        <CacheManagementPanel
-          isDark={isDark}
-          isDemoMode={isDemoMode}
-          onClearCache={handleClearCache}
+    <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
+      {routeGroupsError !== undefined || sectionsError !== undefined ? (
+        <ErrorState
+          variant="inline"
+          error={routeGroupsError ?? sectionsError}
+          onRetry={() => {
+            retryRouteGroups();
+            retrySections();
+          }}
+          testID="route-counts-failure"
         />
+      ) : null}
 
-        {routeGroupsError !== undefined || sectionsError !== undefined ? (
-          <ErrorState
-            variant="inline"
-            error={routeGroupsError ?? sectionsError}
-            onRetry={() => {
-              retryRouteGroups();
-              retrySections();
-            }}
-            testID="route-counts-failure"
-          />
-        ) : null}
+      <StorageStatsPanel
+        isDark={isDark}
+        totalActivities={cacheStats.totalActivities}
+        routeGroupCount={routeGroups.length}
+        totalSections={totalSections}
+        routeMatchingEnabled={routeSettings.enabled}
+        dateRangeText={dateRangeText}
+        lastSync={cacheStats.lastSync}
+        onClearMapCache={handleClearMapCache}
+        routesSize={cacheSizes.routes}
+        basemapTiles={basemapTiles}
+        terrainCacheSize={terrainCacheSize}
+        heatmapCacheSize={heatmapCacheSize}
+        athleteFilesSize={athleteFilesSize}
+        freeStorage={freeStorage}
+        onBudgetApplied={refreshBasemapTiles}
+      />
 
-        <StorageStatsPanel
-          isDark={isDark}
-          totalActivities={cacheStats.totalActivities}
-          routeGroupCount={routeGroups.length}
-          totalSections={totalSections}
-          routeMatchingEnabled={routeSettings.enabled}
-          dateRangeText={dateRangeText}
-          lastSync={cacheStats.lastSync}
-          totalQueries={totalQueries}
-          onClearMapCache={handleClearMapCache}
-          routesSize={cacheSizes.routes}
-          basemapTiles={basemapTiles}
-          terrainCacheSize={terrainCacheSize}
-          heatmapCacheSize={heatmapCacheSize}
-          athleteFilesSize={athleteFilesSize}
-          freeStorage={freeStorage}
-          onBudgetApplied={refreshBasemapTiles}
-        />
-      </View>
-    </>
+      <RowDivider />
+      <CacheManagementPanel
+        isDark={isDark}
+        isDemoMode={isDemoMode}
+        onClearCache={handleClearCache}
+      />
+    </View>
   );
 }

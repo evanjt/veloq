@@ -5,9 +5,12 @@
  * default, so this is not a way to switch font scaling off. It is a stated
  * limit on the few surfaces where a doubled size overlaps or clips instead of
  * reflowing: a grid laid out in fixed columns, a chart axis, a tab label.
- * WCAG 1.4.4 asks for 200 per cent without loss of function, which those
- * surfaces do not meet today and do not meet silently. Everything that can
- * take 200 per cent keeps it, uncapped.
+ * WCAG 1.4.4 asks for 200 per cent without loss of function, and those
+ * surfaces stop growing at 130 per cent instead. That is the one known gap
+ * against it, and it is stated rather than claimed away. Past the cap the
+ * surfaces reflow through `useLargeText` rather than clip: a grid drops
+ * columns, down to one. Everything that can take 200 per cent keeps it,
+ * uncapped.
  *
  * A caller may pass its own `maxFontSizeMultiplier` and it wins, so a single
  * line inside a dense block can opt back out.

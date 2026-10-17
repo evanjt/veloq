@@ -8,11 +8,10 @@
 import React from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { formatDateOrDash } from '@/shared/format/format';
-import { colors, darkColors, duration, iconSize, spacing, stroke, typography } from '@/theme';
+import { colors, darkColors, duration, spacing, stroke, typography } from '@/theme';
 import { Button } from '@/shared/ui';
 import { tapTo } from '@/shared/app/navigation';
 
@@ -78,13 +77,7 @@ export function DateRangeSummary({
           variant="ghost"
           size="sm"
           onPress={handleExpandPress}
-          icon={
-            <MaterialCommunityIcons
-              name="calendar-expand-horizontal"
-              size={iconSize.md}
-              color={themeColors.primary}
-            />
-          }
+          icon="calendar-expand-horizontal"
           label={t('routesScreen.expandDateRange')}
         />
       </View>

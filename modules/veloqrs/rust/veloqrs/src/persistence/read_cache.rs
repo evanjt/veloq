@@ -84,14 +84,22 @@ const PERFORMANCE_CAPACITY: usize = 32;
 const LAP_CURVE_BUDGET: usize = 4 * 1024 * 1024;
 
 /// The curve data an entry holds: four bytes for each point of every lap's
-/// delta and split delta, and for each split of a direction's summary, which
-/// is all that grows with the route.
+/// delta, split delta and split time, of a direction's typical lap, and for
+/// each split of a direction's summary, which is all that grows with the
+/// route. The previous record shares its lap's arrays and adds nothing.
 fn lap_curve_bytes(curves: &Option<crate::FfiSectionLapCurves>) -> usize {
     let Some(curves) = curves else { return 0 };
     let directions = || [&curves.forward, &curves.reverse].into_iter().flatten();
     let laps: usize = directions()
         .flat_map(|direction| &direction.laps)
-        .map(|lap| (lap.delta_secs.len() + lap.split_delta_secs.len()) * size_of::<f32>())
+        .map(|lap| {
+            (lap.delta_secs.len() + lap.split_delta_secs.len() + lap.split_secs.len())
+                * size_of::<f32>()
+        })
+        .sum();
+    let typical: usize = directions()
+        .filter_map(|direction| direction.typical_delta_secs.as_ref())
+        .map(|curve| curve.len() * size_of::<f32>())
         .sum();
     let summaries: usize = directions()
         .filter_map(|direction| direction.split_summary.as_ref())
@@ -103,7 +111,7 @@ fn lap_curve_bytes(curves: &Option<crate::FfiSectionLapCurves>) -> usize {
                 + summary.laps.len() * size_of::<u32>()
         })
         .sum();
-    laps + summaries
+    laps + typical + summaries
 }
 
 type LapCurves = Arc<Option<crate::FfiSectionLapCurves>>;
@@ -954,33 +962,48 @@ mod tests {
                         activity_date: i as f64,
                         delta_secs: vec![0.0; points].into(),
                         split_delta_secs: vec![0.0; points / 100].into(),
+                        split_secs: vec![0.0; points / 100].into(),
                         end_delta_secs: Some(0.0),
                     })
                     .collect(),
                 missing: Vec::new(),
                 peak_delta_secs: 0.0,
                 split_summary: None,
+                typical_delta_secs: None,
+                previous_record: None,
+                default_reference: crate::FfiReferenceSource::Record,
             }),
             reverse: None,
         }
     }
 
-    /// Scenario: a long route's curves carry each direction's split summary.
+    /// Scenario: a long route's curves carry each direction's split summary,
+    /// typical lap and previous record.
     ///
     /// Expected behaviour: the byte budget weighs the summary's three float
-    /// arrays and its lap counts beside the laps' curves.
+    /// arrays and its lap counts, and the typical lap, beside the laps' curves
+    /// and split times.
     #[test]
     fn the_lap_curve_weight_counts_the_split_summary() {
         let mut curves = long_route_curves(10, 4_000);
         let bare = lap_curve_bytes(&Some(curves.clone()));
-        assert_eq!(bare, 10 * (4_000 + 40) * 4);
+        assert_eq!(bare, 10 * (4_000 + 40 + 40) * 4);
         curves.forward.as_mut().unwrap().split_summary = Some(crate::FfiSplitSummary {
             median_secs: vec![0.0; 40].into(),
             lower_quartile_secs: vec![0.0; 40].into(),
             upper_quartile_secs: vec![0.0; 40].into(),
             laps: vec![10; 40],
         });
-        assert_eq!(lap_curve_bytes(&Some(curves)), bare + 40 * 4 * 4);
+        let summarised = lap_curve_bytes(&Some(curves.clone()));
+        assert_eq!(summarised, bare + 40 * 4 * 4);
+        let forward = curves.forward.as_mut().unwrap();
+        forward.typical_delta_secs = Some(vec![0.0; 4_000].into());
+        forward.previous_record = Some(forward.laps[1].clone());
+        assert_eq!(
+            lap_curve_bytes(&Some(curves)),
+            summarised + 4_000 * 4,
+            "the typical lap counts and the previous record shares its lap's arrays"
+        );
     }
 
     /// Scenario: one session opens 33 long, often-ridden routes in turn, each

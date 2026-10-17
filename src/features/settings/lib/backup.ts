@@ -1,6 +1,7 @@
 /** Record ZIP backup and conversion of earlier backup formats. */
 
 import { RestoreRefusedError, restoreRefusal, type RestoreRefusal } from './restoreRefusal';
+import type { RestoreDrops } from './restoreNotice';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getEngine, getNativeModule, isEngineReady } from '@/shared/native/engine';
 import { formatLocalDate } from '@/shared/format/format';
@@ -162,7 +163,7 @@ export async function resumePendingRecordExport(
 
 let restoreCopySequence = 0;
 
-interface RecordRestoreOutcome {
+interface RecordRestoreOutcome extends RestoreDrops {
   placed: number;
   unplaced: number;
   missingActivityIds: string[];
@@ -347,13 +348,14 @@ export async function reinitialiseAllStores(): Promise<void> {
   });
 }
 
-export interface DatabaseRestoreResult {
-  success: boolean;
-  activityCount: number;
-  unplacedCount?: number;
-  /** Why nothing went in, for the caller to word in the athlete's locale. */
-  refusal?: RestoreRefusal;
-}
+export type DatabaseRestoreResult =
+  | { success: true; activityCount: number; unplacedCount: number; drops: RestoreDrops }
+  | {
+      success: false;
+      activityCount: 0;
+      /** Why nothing went in, for the caller to word in the athlete's locale. */
+      refusal?: RestoreRefusal;
+    };
 
 function restoredLibraryCount(): number {
   const engine = getEngine();
@@ -404,6 +406,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       success: true,
       activityCount: restoredLibraryCount(),
       unplacedCount: restored.unplaced,
+      drops: restored,
     };
   } catch (error) {
     log.warn('Database restore refused:', error instanceof Error ? error.message : error);
@@ -604,11 +607,12 @@ export function convertLegacyBackupToRecord(json: string): RecordPayload {
   return { version: 1, athlete_id: null, entries };
 }
 
-export interface RestoreResult {
-  unplacedCount?: number;
-  /** Why nothing went in, for the caller to word in the athlete's locale. */
-  refusal?: RestoreRefusal;
-}
+export type RestoreResult =
+  | { unplacedCount: number; drops: RestoreDrops }
+  | {
+      /** Why nothing went in, for the caller to word in the athlete's locale. */
+      refusal: RestoreRefusal;
+    };
 
 /** Whether an import has to wait for a sign-in: a closed engine places no record. */
 export function importWaitsForSignIn(): boolean {
@@ -626,5 +630,5 @@ export async function restoreBackup(json: string): Promise<RestoreResult> {
   await mirrorRestoredPreferences(engine);
   await reinitialiseAllStores();
   await queryClient.invalidateQueries();
-  return { unplacedCount: restored.unplaced };
+  return { unplacedCount: restored.unplaced, drops: restored };
 }

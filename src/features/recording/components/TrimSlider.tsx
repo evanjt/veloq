@@ -15,7 +15,6 @@ import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import {
-  brand,
   colors,
   colorWithOpacity,
   darkColors,
@@ -26,6 +25,7 @@ import {
   spacing,
   stroke,
   typography,
+  themePalette,
 } from '@/theme';
 import { formatDuration } from '@/shared/format/format';
 import { stepTrimBound, trimMinGap, type TrimBound } from '@/shared/math/trimRange';
@@ -63,6 +63,7 @@ export function TrimSlider({
 }: TrimSliderProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const [trackWidth, setTrackWidth] = useState(0);
   // The handle drawn on top, and so the one that takes a touch both hit areas reach.
   const [lastMoved, setLastMoved] = useState<TrimBound>('end');
@@ -308,7 +309,7 @@ export function TrimSlider({
               {
                 left: startFraction * trackWidth,
                 width: (endFraction - startFraction) * trackWidth,
-                backgroundColor: brand.teal,
+                backgroundColor: palette.primary,
               },
             ]}
           />
@@ -331,8 +332,8 @@ export function TrimSlider({
               accessibilityActions={STEP_ACTIONS}
               onAccessibilityAction={onStartAction}
             >
-              <View style={[styles.handleInner, { borderColor: brand.teal }]}>
-                <View style={[styles.handleBar, { backgroundColor: brand.teal }]} />
+              <View style={[styles.handleInner, { borderColor: palette.primary }]}>
+                <View style={[styles.handleBar, { backgroundColor: palette.primary }]} />
               </View>
             </Animated.View>
           </GestureDetector>
@@ -355,8 +356,8 @@ export function TrimSlider({
               accessibilityActions={STEP_ACTIONS}
               onAccessibilityAction={onEndAction}
             >
-              <View style={[styles.handleInner, { borderColor: brand.teal }]}>
-                <View style={[styles.handleBar, { backgroundColor: brand.teal }]} />
+              <View style={[styles.handleInner, { borderColor: palette.primary }]}>
+                <View style={[styles.handleBar, { backgroundColor: palette.primary }]} />
               </View>
             </Animated.View>
           </GestureDetector>

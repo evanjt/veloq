@@ -22,6 +22,40 @@ import { mapPageBaseUrl } from '@/features/maps/lib/tileTransport';
 
 const ASSET_ROOT = join(__dirname, '../../../../modules/veloqrs/assets/basemap');
 
+/** Reads one protobuf varint at `at`, returning it and the offset after it. */
+function varint(bytes: Buffer, at: number): [number, number] {
+  let value = 0;
+  let shift = 0;
+  let offset = at;
+  for (;;) {
+    const byte = bytes[offset++];
+    value += (byte & 0x7f) * 2 ** shift;
+    if (byte < 0x80) return [value, offset];
+    shift += 7;
+  }
+}
+
+/**
+ * The names of the font stacks a glyph range file holds, in file order. A
+ * range file is a `glyphs` message whose field 1 repeats a `fontstack`, and a
+ * fontstack's field 1 is its name.
+ */
+function stackNames(bytes: Buffer): string[] {
+  const names: string[] = [];
+  let at = 0;
+  while (at < bytes.length) {
+    const [key, afterKey] = varint(bytes, at);
+    const [length, body] = varint(bytes, afterKey);
+    expect(key).toBe((1 << 3) | 2);
+    const [nameKey, afterNameKey] = varint(bytes, body);
+    expect(nameKey).toBe((1 << 3) | 2);
+    const [nameLength, name] = varint(bytes, afterNameKey);
+    names.push(bytes.subarray(name, name + nameLength).toString('utf8'));
+    at = body + length;
+  }
+  return names;
+}
+
 describe('the bundled asset files', () => {
   it('carries every glyph range the styles need at every weight', () => {
     for (const stack of BUNDLED_GLYPH_STACKS) {
@@ -29,6 +63,21 @@ describe('the bundled asset files', () => {
         const file = join(ASSET_ROOT, 'fonts', stack, `${range}.pbf`);
         expect(existsSync(file)).toBe(true);
         expect(readFileSync(file).length).toBeGreaterThan(1024);
+      }
+    }
+  });
+
+  it('keeps the fallback face first and Manrope last in every range, so Manrope wins', () => {
+    // The renderer keeps the last glyph it reads for a code point, so the face
+    // read last is the one drawn wherever both have the glyph.
+    for (const stack of BUNDLED_GLYPH_STACKS) {
+      const [face, fallback] = stack.split(',');
+      for (const range of BUNDLED_GLYPH_RANGES) {
+        const names = stackNames(readFileSync(join(ASSET_ROOT, 'fonts', stack, `${range}.pbf`)));
+        // The host names its Noto range by every face it merged into it,
+        // the fallback first.
+        const order = names.map((name) => (name === face ? face : name.split(', ')[0]));
+        expect({ stack, range, order }).toEqual({ stack, range, order: [fallback, face] });
       }
     }
   });

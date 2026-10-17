@@ -148,6 +148,7 @@ function lap(id: string, day: number, deltaSecs: number[]): FfiLapDelta {
 const DELTAS = {
   referenceActivityId: 'ref',
   referenceSource: 0,
+  defaultReference: 0,
   laps: [lap('ref', 0, [0, 0, 0, 0, 0]), lap('newest', 1, [0, -1, -2, -3, -4])],
   missing: [],
   peakDeltaSecs: 4,

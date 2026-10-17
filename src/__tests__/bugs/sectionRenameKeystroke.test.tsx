@@ -14,6 +14,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { SectionHeader } from '@/features/routes/components/section/SectionHeader';
 import { useSectionActions } from '@/features/routes/hooks/useSectionActions';
 import { createMapHighlightStore } from '@/features/routes/lib/mapHighlight';
+import { SectionRenameError } from '@/features/routes/lib/sectionRenameFailure';
 import type { FrequentSection } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -135,6 +136,40 @@ describe('renaming a section', () => {
     await tree.rerender(<Root currentSection={{ ...section, name: 'Section 1' }} />);
     expect(screen.queryByTestId('section-rename-input')).toBeNull();
     expect(screen.getByText('Section 1')).toBeTruthy();
+  });
+
+  it('keeps the input open with the typed name and the reason when the name is taken', async () => {
+    mockRenameSection.mockRejectedValueOnce(new SectionRenameError('taken', 'nameTaken'));
+    await render(<Root />);
+    await fireEvent.press(screen.getByTestId('section-rename-button'));
+    await fireEvent.changeText(screen.getByTestId('section-rename-input'), 'Taken climb');
+
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('section-rename-save'));
+    });
+
+    expect(screen.getByTestId('section-rename-input').props.value).toBe('Taken climb');
+    expect(screen.getByTestId('section-rename-input-error')).toHaveTextContent(
+      'sections.nameTaken'
+    );
+    expect(Alert.alert).not.toHaveBeenCalled();
+
+    await fireEvent.changeText(screen.getByTestId('section-rename-input'), 'Free climb');
+    expect(screen.queryByTestId('section-rename-input-error')).toBeNull();
+  });
+
+  it('keeps the input open with the typed name when the write fails', async () => {
+    mockRenameSection.mockRejectedValueOnce(new Error('Storage unavailable'));
+    await render(<Root />);
+    await fireEvent.press(screen.getByTestId('section-rename-button'));
+    await fireEvent.changeText(screen.getByTestId('section-rename-input'), 'New loop');
+
+    await act(async () => {
+      await fireEvent.press(screen.getByTestId('section-rename-save'));
+    });
+
+    expect(screen.getByTestId('section-rename-input').props.value).toBe('New loop');
+    expect(Alert.alert).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the old name when the edit is cancelled, and starts the next edit from it', async () => {

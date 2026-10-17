@@ -10,6 +10,7 @@ import { HrvTrendContent } from './HrvTrendContent';
 import { PeriodComparisonContent } from './PeriodComparisonContent';
 import { FitnessMilestoneContent } from './FitnessMilestoneContent';
 import { EfficiencyTrendContent } from './EfficiencyTrendContent';
+import { SectionChangedContent } from './SectionChangedContent';
 import { SupportingDataSection } from '../SupportingDataSection';
 import { InsightHero } from './InsightHero';
 
@@ -46,9 +47,7 @@ export const CONTENT_BY_CATEGORY: Record<
   efficiency_trend: EfficiencyTrendContent,
   strength_progression: SupportingDataOnly,
   strength_balance: SupportingDataOnly,
-  // Carries no supporting data, so this renders nothing between the body and
-  // the method block. That is the screen as designed, not a missing case.
-  section_changed: SupportingDataOnly,
+  section_changed: SectionChangedContent,
 };
 
 /**

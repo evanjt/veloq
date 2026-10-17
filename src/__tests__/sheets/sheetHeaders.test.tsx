@@ -130,7 +130,7 @@ const SHEETS: Record<
   },
   'sheets/stat-detail': {
     load: () => require('@/app/sheets/stat-detail').default,
-    input: { title: 'Cadence', value: '88', icon: 'speedometer', color: '#336699' },
+    input: { title: 'Cadence', value: '88', icon: 'speedometer' },
     dismiss: 'close',
   },
   'sheets/chart-data': {

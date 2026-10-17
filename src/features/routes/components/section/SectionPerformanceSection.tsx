@@ -135,7 +135,7 @@ export function SectionPerformanceSection({
   return (
     <View style={styles.chartSection}>
       <View style={styles.chartHeader}>
-        <Text style={[styles.chartTitle, isDark && styles.chartTitleDark]} numberOfLines={1}>
+        <Text style={[styles.chartTitle, isDark && styles.chartTitleDark]}>
           {t('sections.performanceOverTime')}
         </Text>
         <ChipSelector

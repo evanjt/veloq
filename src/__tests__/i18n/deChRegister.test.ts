@@ -9,8 +9,12 @@
  * Labels, metric labels included, keep the register they were written in and
  * are not held to de-DE: a label may be dialect or standard German.
  *
+ * An oath is aimed at the fault, never at the athlete: "Siech" may stand as
+ * an exclamation, but no string calls the reader one.
+ *
  * Expected behaviour: a Swiss oath in de-DE or in any locale other than
- * de-CH fails this suite, and de-CH keeps its oaths on the error titles.
+ * de-CH fails this suite, de-CH keeps its oaths on the error titles, and no
+ * de-CH string addresses the reader as "Siech".
  */
 import fs from 'fs';
 import path from 'path';
@@ -43,6 +47,13 @@ describe('de-CH register', () => {
     expect(ch.get('errorState.defaultTitle')).toMatch(OATH);
     expect(ch.get('alerts.clearFailedTitle')).toMatch(OATH);
     expect(ch.get('backup.notSavedTitle')).toMatch(OATH);
+  });
+
+  it('never calls the athlete a Siech', () => {
+    const offenders = flatten(deCH)
+      .filter(([, value]) => /,\s*siech\b/i.test(value))
+      .map(([key, value]) => `${key}: ${value}`);
+    expect(offenders).toEqual([]);
   });
 
   it('clear cache confirmation names the activity data, tracks and route matching it deletes', () => {

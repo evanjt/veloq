@@ -2,11 +2,11 @@
  * Scenario: the engine announces its activity steps, so `activities` fires
  * twice during one sync, once when the head window's rows land and once at the
  * settle. The second announcement arrives while the head's tracks are still
- * downloading.
+ * downloading, and the sync refuses a second run.
  *
- * Expected behaviour: the run refused for the one in flight is owed a turn and
- * takes it when that run ends, since the announcement that asked for it is
- * already spent.
+ * Expected behaviour: the refused pass is handed to the engine, which keeps it
+ * owed and starts it when its running pass ends. The hook schedules no run of
+ * its own when the first one ends.
  */
 import { act, renderHook } from '@testing-library/react-native';
 import { stubIdleScheduler, type IdleScheduler } from '../__shared__/idleScheduler';
@@ -35,6 +35,7 @@ jest.mock('@/features/routes/hooks/useGpsDataFetcher', () => ({
 }));
 
 const mockGetNativeModule = getNativeModule as jest.MockedFunction<typeof getNativeModule>;
+const mockStartGpsPass = jest.fn(() => ({ outcome: 2, run: 0, total: 0 }));
 
 /** The ids the engine says still owe a track; an announcement only triggers a run. */
 let owed: string[] = [];
@@ -83,6 +84,7 @@ describe('a run refused while another is in flight', () => {
         getUnprocessedStrengthIds: () => [],
         batchFetchExerciseSets: () => 0,
         pollSectionDetection: () => 'idle',
+        startGpsPass: mockStartGpsPass,
         subscribe: () => () => {},
       },
     } as unknown as ReturnType<typeof getNativeModule>);
@@ -93,10 +95,9 @@ describe('a run refused while another is in flight', () => {
     jest.restoreAllMocks();
   });
 
-  it('takes its turn when that run ends', async () => {
+  it('is handed to the engine, and the hook starts no run of its own after', async () => {
     const first = deferred();
-    const second = deferred();
-    mockFetchApiGps.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    mockFetchApiGps.mockReturnValueOnce(first.promise).mockReturnValueOnce(deferred().promise);
 
     await renderHook(() => useRouteDataSync(true));
     expect(mockFetchApiGps).toHaveBeenCalledTimes(1);
@@ -107,29 +108,10 @@ describe('a run refused while another is in flight', () => {
       announceActivities();
     });
     expect(mockFetchApiGps).toHaveBeenCalledTimes(1);
+    const { oldest, newest } = useSyncDateRange.getState();
+    expect(mockStartGpsPass).toHaveBeenCalledTimes(1);
+    expect((mockStartGpsPass.mock.calls[0] as unknown[]).slice(0, 2)).toEqual([oldest, newest]);
 
-    await act(async () => {
-      first.resolve();
-      await first.promise;
-    });
-
-    expect(mockFetchApiGps).toHaveBeenCalledTimes(2);
-    const [secondRun] = mockFetchApiGps.mock.calls[1] as [{ activityId: string }[]];
-    expect(secondRun.map((c) => c.activityId)).toEqual(['a1', 'a2']);
-  });
-
-  it('drops the debt when the library is wiped under it', async () => {
-    const first = deferred();
-    mockFetchApiGps.mockReturnValueOnce(first.promise).mockReturnValueOnce(deferred().promise);
-
-    await renderHook(() => useRouteDataSync(true));
-    await act(async () => {
-      announceActivities();
-    });
-
-    // Clear and Sync empties SQLite and re-arms the sync itself, so the pass
-    // that was owed is over a library that no longer exists.
-    resetGlobalSyncState();
     await act(async () => {
       first.resolve();
       await first.promise;
@@ -138,39 +120,17 @@ describe('a run refused while another is in flight', () => {
     expect(mockFetchApiGps).toHaveBeenCalledTimes(1);
   });
 
-  it('starts nothing extra when no run was refused', async () => {
+  it('hands nothing to the engine when no run was refused', async () => {
     const only = deferred();
     mockFetchApiGps.mockReturnValueOnce(only.promise);
 
     await renderHook(() => useRouteDataSync(true));
-    expect(mockFetchApiGps).toHaveBeenCalledTimes(1);
-
     await act(async () => {
       only.resolve();
       await only.promise;
     });
 
     expect(mockFetchApiGps).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe('a sync with no native module', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    resetGlobalSyncState();
-    useSyncDateRange.setState({ lastSyncTimestamp: null });
-    useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
-    mockGetNativeModule.mockReturnValue(null as unknown as ReturnType<typeof getNativeModule>);
-  });
-
-  it('ends in error and stamps no last sync', async () => {
-    const { result } = await renderHook(() => useRouteDataSync(true));
-    await act(async () => {
-      await result.current.syncActivities();
-    });
-
-    expect(useSyncDateRange.getState().gpsSyncProgress.status).toBe('error');
-    expect(useSyncDateRange.getState().lastSyncTimestamp).toBeNull();
-    expect(mockFetchApiGps).not.toHaveBeenCalled();
+    expect(mockStartGpsPass).not.toHaveBeenCalled();
   });
 });

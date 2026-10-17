@@ -2,20 +2,10 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import Animated from 'react-native-reanimated';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
 import { useTheme } from '@/shared/app';
-import {
-  colors,
-  darkColors,
-  iconSize,
-  layout,
-  motionPresets,
-  shadows,
-  spacing,
-  typography,
-} from '@/theme';
+import { colors, darkColors, layout, motionPresets, shadows, spacing, typography } from '@/theme';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { Button } from '@/shared/ui';
 
@@ -35,8 +25,6 @@ export function TourReturnPill() {
   };
 
   const bgColor = isDark ? darkColors.surfaceElevated : colors.surface;
-  const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const primaryColor = isDark ? darkColors.primary : colors.primary;
 
   return (
     <Animated.View style={styles.container} {...motionPresets.pill}>
@@ -57,9 +45,7 @@ export function TourReturnPill() {
             onPress={resumeTour}
             variant="ghost"
             size="sm"
-            icon={
-              <MaterialCommunityIcons name="arrow-left" size={iconSize.md} color={primaryColor} />
-            }
+            icon="arrow-left"
           />
 
           <View
@@ -74,7 +60,7 @@ export function TourReturnPill() {
             onPress={handleClose}
             variant="ghost"
             size="sm"
-            icon={<MaterialCommunityIcons name="close" size={iconSize.sm} color={mutedColor} />}
+            icon="close"
           />
         </View>
       </View>

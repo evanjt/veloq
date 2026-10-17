@@ -19,8 +19,19 @@ import { describeBackupFailure } from '@/features/settings/lib/backupFailure';
 const mockEngineState = { ready: false };
 
 jest.mock('@/features/settings/lib/backup', () => ({
-  restoreRecordBackup: jest.fn(async () => ({ placed: 1, unplaced: 0, missingActivityIds: [] })),
-  restoreDatabaseBackup: jest.fn(async () => ({ success: true, activityCount: 0 })),
+  restoreRecordBackup: jest.fn(async () => ({
+    placed: 1,
+    unplaced: 0,
+    missingActivityIds: [],
+    notRestored: 0,
+    namesNotRestored: 19,
+  })),
+  restoreDatabaseBackup: jest.fn(async () => ({
+    success: true,
+    activityCount: 0,
+    unplacedCount: 0,
+    drops: { notRestored: 0, namesNotRestored: 19 },
+  })),
 }));
 jest.mock('@/features/settings/lib/heldImport', () => ({
   holdImportWhileSignedOut: jest.fn(async () => !mockEngineState.ready),
@@ -57,12 +68,12 @@ describe.each(['veloq-2026-10-01.zip', 'veloq-2026-08-01.veloqdb'])('restoring %
     expect(FileSystem.deleteAsync).toHaveBeenCalledWith(dest, { idempotent: true });
   });
 
-  it('signed in, restores it at once', async () => {
+  it('signed in, restores it at once and says what it gave up on', async () => {
     mockEngineState.ready = true;
 
     const outcome = await restoreBackendEntry(backend, entry(id));
 
-    expect(outcome).toBe('restored');
+    expect(outcome).toMatchObject({ notRestored: 0, namesNotRestored: 19 });
     const restored = id.endsWith('.zip') ? restoreRecordBackup : restoreDatabaseBackup;
     expect(restored).toHaveBeenCalledTimes(1);
   });

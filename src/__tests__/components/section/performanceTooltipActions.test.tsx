@@ -54,7 +54,7 @@ async function renderTooltip(point: typeof POINT & { isExcluded?: boolean }) {
       {...handlers}
     />
   );
-  return screen.getByLabelText(/^Harbour loop/);
+  return screen.getByRole('button', { name: /^Harbour loop/ });
 }
 
 async function renderTooltipFor(point: typeof POINT, recordsSettled: boolean) {
@@ -68,7 +68,7 @@ async function renderTooltipFor(point: typeof POINT, recordsSettled: boolean) {
       {...handlers}
     />
   );
-  return screen.getByLabelText(/Harbour loop/);
+  return screen.getByRole('button', { name: /Harbour loop/ });
 }
 
 function actionNames(element: Awaited<ReturnType<typeof renderTooltip>>): string[] {
@@ -151,7 +151,7 @@ describe('the selected attempt row for a screen reader', () => {
       />
     );
 
-    const row = screen.getByLabelText(/^Harbour loop/);
+    const row = screen.getByRole('button', { name: /^Harbour loop/ });
     expect(row.props.accessibilityActions).toBeUndefined();
   });
 });

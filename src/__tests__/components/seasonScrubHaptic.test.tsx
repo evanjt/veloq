@@ -8,7 +8,6 @@
  */
 
 import React from 'react';
-import { View } from 'react-native';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics';
@@ -44,10 +43,7 @@ async function renderChart() {
       <SeasonComparison />
     </QueryClientProvider>
   );
-  await waitFor(() =>
-    expect(screen.UNSAFE_getAllByType(View).some((n) => n.props.onLayout)).toBe(true)
-  );
-  const chart = screen.UNSAFE_getAllByType(View).find((node) => node.props.onLayout);
+  const chart = await waitFor(() => screen.getByTestId('season-chart-surface'));
   await act(async () => {
     await fireEvent(chart!, 'layout', { nativeEvent: { layout: { width: WIDTH, height: 200 } } });
   });

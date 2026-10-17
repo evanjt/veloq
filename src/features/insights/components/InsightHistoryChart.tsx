@@ -47,7 +47,7 @@ interface InsightHistoryChartProps {
  * shared scrubbable chart, bars where the card drew bars and a timeline's
  * fastest effort at the top. The card's mark is the chart's marker. A history
  * with no dated series, a section's line or the section trend's changes, is
- * drawn by the sheet's own rows instead.
+ * drawn by its kind's own sheet content instead.
  */
 export const InsightHistoryChart = React.memo(function InsightHistoryChart({
   history,

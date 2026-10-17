@@ -15,11 +15,12 @@ import {
   iconSize,
   layout,
   spacing,
-  stroke,
   typography,
 } from '@/theme';
 import { useTheme } from '@/shared/app';
+import { composeAccessibilityLabel } from './accessibilityLabel';
 import { DisclosureChevron } from './DisclosureChevron';
+import { FitText } from './FitText';
 import * as haptics from './haptics';
 import { pressable, pressRipple } from './pressFeedback';
 
@@ -40,10 +41,10 @@ interface CollapsibleSectionProps {
   style?: StyleProp<ViewStyle>;
   /** Content height hint (for smoother animations) */
   estimatedHeight?: number;
-  /** Whether to show divider below header */
-  showDivider?: boolean;
   /** Optional content to render on the right side of the header (before chevron) */
   headerRight?: React.ReactNode;
+  /** A short summary drawn at the header's trailing edge and read after the title. */
+  value?: string;
   /** Optional test ID for the header */
   testID?: string;
 }
@@ -57,8 +58,8 @@ export function CollapsibleSection({
   icon,
   style,
   estimatedHeight = 200,
-  showDivider = false,
   headerRight,
+  value,
   testID,
 }: CollapsibleSectionProps) {
   const { isDark } = useTheme();
@@ -111,7 +112,7 @@ export function CollapsibleSection({
       <Pressable
         testID={testID}
         accessibilityRole="header"
-        accessibilityLabel={title}
+        accessibilityLabel={composeAccessibilityLabel(title, value)}
         accessibilityState={{ expanded }}
         onPress={handlePress}
         style={pressable(styles.header)}
@@ -149,6 +150,16 @@ export function CollapsibleSection({
             ) : null}
           </View>
         </View>
+        {value ? (
+          <FitText
+            style={[
+              styles.value,
+              { color: isDark ? darkColors.textSecondary : colors.textSecondary },
+            ]}
+          >
+            {value}
+          </FitText>
+        ) : null}
         {headerRight}
         <DisclosureChevron
           expanded={expanded}
@@ -156,15 +167,6 @@ export function CollapsibleSection({
           color={isDark ? darkColors.textSecondary : colors.textSecondary}
         />
       </Pressable>
-
-      {showDivider ? (
-        <View
-          style={[
-            styles.divider,
-            { backgroundColor: isDark ? darkColors.divider : colors.divider },
-          ]}
-        />
-      ) : null}
 
       <Animated.View style={contentStyle}>
         <View onLayout={onContentLayout} style={styles.content}>
@@ -200,9 +202,10 @@ const styles = StyleSheet.create({
     ...typography.caption,
     marginTop: spacing.xxs,
   },
-  divider: {
-    height: stroke.hairline,
-    marginHorizontal: spacing.md,
+  value: {
+    ...typography.bodySmall,
+    flexShrink: 1,
+    marginHorizontal: spacing.xs,
   },
   content: {
     position: 'absolute',

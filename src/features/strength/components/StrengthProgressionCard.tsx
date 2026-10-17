@@ -11,7 +11,7 @@ import {
   spacing,
   opacity,
   layout,
-  brand,
+  strengthTone,
   verdictColor,
   verdictFill,
   typography,
@@ -23,6 +23,7 @@ import { muscleName as nameOf } from '../lib/muscleNames';
 import { formatSetCount } from '../lib/formatting';
 import { formatWeightRounded as formatWeight } from '@/shared/format/weight';
 import { Card } from '@/shared/ui/Card';
+import { StatTile } from '@/shared/ui/StatTile';
 
 interface StrengthProgressionCardProps {
   selectedVolume: MuscleVolume;
@@ -89,7 +90,7 @@ export const StrengthProgressionCard = React.memo(function StrengthProgressionCa
                           3,
                           (point.weightedSets / maxProgressWeightedSets) * MINI_BAR_HEIGHT
                         ),
-                        backgroundColor: isCurrent ? brand.tealLight : brand.tealDark,
+                        backgroundColor: isCurrent ? strengthTone.primary : strengthTone.secondary,
                       },
                     ]}
                   />
@@ -131,45 +132,31 @@ export const StrengthProgressionCard = React.memo(function StrengthProgressionCa
         {/* Period-driven stats row. The bars above are always 4 weeks; this row
           changes with the period selector (7d / 4w / 3m / 6m). */}
         <View style={styles.statsRow}>
-          <View style={styles.stat}>
-            <Text style={[styles.statValue, isDark && styles.statValueDark]}>
-              {formatSetCount(selectedVolume.weightedSets)}
-            </Text>
-            <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
-              {t('strength.sets')}
-            </Text>
-          </View>
+          <StatTile
+            layout="inline"
+            label={t('strength.sets')}
+            value={formatSetCount(selectedVolume.weightedSets)}
+          />
           {selectedVolume.totalReps > 0 && (
-            <View style={styles.stat}>
-              <Text style={[styles.statValue, isDark && styles.statValueDark]}>
-                {selectedVolume.totalReps}
-              </Text>
-              <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
-                {t('strength.reps')}
-              </Text>
-            </View>
+            <StatTile layout="inline" label={t('strength.reps')} value={selectedVolume.totalReps} />
           )}
           {selectedVolume.volumeKg > 0 && (
-            <View style={styles.stat}>
-              <Text style={[styles.statValue, isDark && styles.statValueDark]}>
-                {formatWeight(selectedVolume.volumeKg, isMetric)}
-              </Text>
-              <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
-                {t('strength.totalVolume')}
-              </Text>
-            </View>
+            <StatTile
+              layout="inline"
+              label={t('strength.totalVolume')}
+              value={formatWeight(selectedVolume.volumeKg, isMetric)}
+            />
           )}
           {exerciseSummary && exerciseSummary.exercises.length > 0 ? (
-            <View style={styles.stat}>
-              <Text style={[styles.statValue, isDark && styles.statValueDark]}>
-                {exerciseSummary.exercises.length}
-              </Text>
-              <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
-                {exerciseSummary.exercises.length === 1
+            <StatTile
+              layout="inline"
+              label={
+                exerciseSummary.exercises.length === 1
                   ? t('strength.exercise')
-                  : t('strength.exercises')}
-              </Text>
-            </View>
+                  : t('strength.exercises')
+              }
+              value={exerciseSummary.exercises.length}
+            />
           ) : null}
           {periodLabel ? (
             <Text style={[styles.periodHint, isDark && styles.periodHintDark]}>
@@ -181,28 +168,25 @@ export const StrengthProgressionCard = React.memo(function StrengthProgressionCa
         {progression ? (
           <View style={styles.metaRow}>
             <View style={[styles.metaBox, isDark && styles.metaBoxDark]}>
-              <Text style={[styles.metaValue, isDark && styles.metaValueDark]}>
-                {formatSetCount(progression.recentAverage)}
-              </Text>
-              <Text style={[styles.metaLabel, isDark && styles.metaLabelDark]}>
-                {t('strength.recentAvg')}
-              </Text>
+              <StatTile
+                align="center"
+                label={t('strength.recentAvg')}
+                value={formatSetCount(progression.recentAverage)}
+              />
             </View>
             <View style={[styles.metaBox, isDark && styles.metaBoxDark]}>
-              <Text style={[styles.metaValue, isDark && styles.metaValueDark]}>
-                {formatSetCount(progression.baselineAverage)}
-              </Text>
-              <Text style={[styles.metaLabel, isDark && styles.metaLabelDark]}>
-                {t('strength.earlierAvg')}
-              </Text>
+              <StatTile
+                align="center"
+                label={t('strength.earlierAvg')}
+                value={formatSetCount(progression.baselineAverage)}
+              />
             </View>
             <View style={[styles.metaBox, isDark && styles.metaBoxDark]}>
-              <Text style={[styles.metaValue, isDark && styles.metaValueDark]}>
-                {formatSetCount(progression.peakWeightedSets)}
-              </Text>
-              <Text style={[styles.metaLabel, isDark && styles.metaLabelDark]}>
-                {t('strength.peakWeek')}
-              </Text>
+              <StatTile
+                align="center"
+                label={t('strength.peakWeek')}
+                value={formatSetCount(progression.peakWeightedSets)}
+              />
             </View>
           </View>
         ) : null}
@@ -270,26 +254,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginTop: spacing.md,
   },
-  stat: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: spacing.xs,
-  },
-  statValue: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  statValueDark: {
-    color: darkColors.textPrimary,
-  },
-  statLabel: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-  },
-  statLabelDark: {
-    color: darkColors.textSecondary,
-  },
   periodHint: {
     fontSize: typography.label.fontSize,
     color: colors.textSecondary,
@@ -312,22 +276,6 @@ const styles = StyleSheet.create({
   },
   metaBoxDark: {
     backgroundColor: opacity.overlayDark.light,
-  },
-  metaValue: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  metaValueDark: {
-    color: darkColors.textPrimary,
-  },
-  metaLabel: {
-    fontSize: typography.label.fontSize,
-    color: colors.textSecondary,
-    marginTop: spacing.xxs,
-  },
-  metaLabelDark: {
-    color: darkColors.textSecondary,
   },
   childrenSlot: {
     marginTop: spacing.md,

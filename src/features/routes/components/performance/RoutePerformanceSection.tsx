@@ -30,15 +30,19 @@ import { SectionScatterChart, ScatterLegend } from '@/features/routes/components
 import { formatRouteStanding } from '@/features/routes/lib/routeStanding';
 import { forwardDirectionColour } from '@/features/routes/lib/directionColour';
 import { ErrorState } from '@/shared/ui/ErrorState';
+import { NameText } from '@/shared/ui/NameText';
 
 interface RoutePerformanceSectionProps {
   activityId: string;
   activityType: ActivityType;
+  /** Seconds this activity's route record beat the previous best by, from the engine's route highlight. */
+  improvementSeconds?: number | null;
 }
 
 export function RoutePerformanceSection({
   activityId,
   activityType,
+  improvementSeconds = null,
 }: RoutePerformanceSectionProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -98,14 +102,22 @@ export function RoutePerformanceSection({
       current && currentDirectionBest && currentDirectionBest.bestTime > 0
         ? current.movingTime - currentDirectionBest.bestTime
         : null;
-    return { currentRank, attemptCount, percentileRank, gapToBestSeconds };
-  }, [performances, activityId, currentDirectionBest, currentRank, attemptCount, percentileRank]);
+    return { currentRank, attemptCount, percentileRank, gapToBestSeconds, improvementSeconds };
+  }, [
+    performances,
+    activityId,
+    currentDirectionBest,
+    currentRank,
+    attemptCount,
+    percentileRank,
+    improvementSeconds,
+  ]);
 
   const handleRoutePress = useCallback(() => {
     if (routeGroup) {
-      tapTo(`/route/${routeGroup.id}`);
+      tapTo(`/route/${routeGroup.id}?activityId=${encodeURIComponent(activityId)}`);
     }
-  }, [routeGroup]);
+  }, [routeGroup, activityId]);
 
   if (error !== undefined) {
     return (
@@ -145,9 +157,9 @@ export function RoutePerformanceSection({
             <MaterialCommunityIcons name="map-marker-path" size={iconSize.xs} color={activityInk} />
           </View>
           <View style={styles.headerInfo}>
-            <Text style={[styles.routeName, isDark && styles.textLight]} numberOfLines={1}>
+            <NameText style={[styles.routeName, isDark && styles.textLight]}>
               {routeGroup.name}
-            </Text>
+            </NameText>
             <View style={styles.metaRow}>
               <Text style={[styles.meta, isDark && styles.textSecondary]}>
                 {t('maps.activitiesCount', { count: routeGroup.activityCount })}

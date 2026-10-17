@@ -39,3 +39,16 @@ export function jsLiteralList(values: readonly string[]): string {
 export function jsNumber(value: unknown, fallback: number | null): string {
   return JSON.stringify(typeof value === 'number' && Number.isFinite(value) ? value : fallback);
 }
+
+/**
+ * Fit padding as a JavaScript literal: one number for every edge, or an object with one per edge.
+ * Each edge goes through `jsNumber`, so a value that is not a finite number becomes the fallback.
+ */
+export function jsPadding(
+  padding: number | { top: number; right: number; bottom: number; left: number } | undefined,
+  fallback: number
+): string {
+  if (padding === undefined || typeof padding === 'number') return jsNumber(padding, fallback);
+  const { top, right, bottom, left } = padding;
+  return `{"top":${jsNumber(top, fallback)},"right":${jsNumber(right, fallback)},"bottom":${jsNumber(bottom, fallback)},"left":${jsNumber(left, fallback)}}`;
+}

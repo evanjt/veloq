@@ -57,15 +57,6 @@ fi
 # Seconds for the map to finish loading before a reading.
 SETTLE=${VELOQ_IOS_MEMORY_SETTLE:-15}
 
-# A non-interactive shell on the Mac has neither Maestro nor a JDK on its path.
-[ -x "$HOME/.maestro/bin/maestro" ] && PATH="$HOME/.maestro/bin:$PATH"
-if [ -z "${JAVA_HOME:-}" ] && [ -d /opt/homebrew/opt/openjdk@21 ]; then
-  JAVA_HOME=/opt/homebrew/opt/openjdk@21
-  PATH="$JAVA_HOME/bin:$PATH"
-  export JAVA_HOME
-fi
-export PATH
-
 mkdir -p "$OUT"
 LABELS=()
 
@@ -100,8 +91,17 @@ for flow in "${FLOWS[@]}"; do
   # The simulator lock is the lock on this device, and `with-maestro.sh` pins
   # the device it reads from `ANDROID_SERIAL`, so Maestro drives this simulator
   # and no other.
-  VELOQ_DEVICE_LOCK_HELD=1 ANDROID_SERIAL=$UDID "$HERE/with-maestro.sh" test "$flow" >/dev/null
-  reading "$(basename "$flow" .yaml)"
+  # `with-maestro.sh` finds Maestro and its JDK on a shell that has neither.
+  # What Maestro says goes to a log beside the readings, and its tail to the
+  # caller when the flow fails.
+  label=$(basename "$flow" .yaml)
+  if ! VELOQ_DEVICE_LOCK_HELD=1 ANDROID_SERIAL=$UDID "$HERE/with-maestro.sh" test "$flow" \
+    >"$OUT/$label.maestro.log" 2>&1; then
+    echo "measure-ios-memory: flow $label failed, the log is $OUT/$label.maestro.log" >&2
+    tail -n 40 "$OUT/$label.maestro.log" >&2
+    exit 1
+  fi
+  reading "$label"
 done
 
 commit=$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)

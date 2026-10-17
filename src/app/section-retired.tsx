@@ -72,7 +72,7 @@ function SectionRetiredScreenContent() {
                   {` · ${t('sectionHistory.versions')}: ${r.versions.length}`}
                 </Text>
                 {into ? (
-                  <Text style={[styles.link, isDark && { color: darkColors.linkTeal }]}>
+                  <Text style={[styles.link, isDark && { color: darkColors.actionLink }]}>
                     {into}
                   </Text>
                 ) : null}
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
   target: { minHeight: layout.minTapTarget },
   title: { ...typography.body, color: colors.textPrimary },
   meta: { ...typography.caption, color: colors.textSecondary },
-  link: { ...typography.bodySmall, color: colors.linkTeal },
+  link: { ...typography.bodySmall, color: colors.actionLink },
   textDark: { color: darkColors.textPrimary },
   textSecondaryDark: { color: darkColors.textSecondary },
 });

@@ -1,20 +1,25 @@
 import React, { useCallback } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useRouteSettings, useSectionRescan, rescanRefusalKey } from '@/features/routes';
-import { Button, Card, ScreenSafeAreaView, ScreenScrollView, StatusLine } from '@/shared/ui';
+import {
+  Button,
+  Card,
+  RowGroup,
+  ScreenSafeAreaView,
+  ScreenScrollView,
+  StatusLine,
+} from '@/shared/ui';
 import {
   BackgroundJobsActivityBar,
   CutoverStatus,
   ElevationBackfillStatus,
   PlaceNamesSwitch,
   SettingsNavRow,
-  DIVIDER_INSET,
 } from '@/features/settings';
-import { colors, darkColors, iconSize, spacing, stroke, typography } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { SwitchRow } from '@/shared/ui/SwitchRow';
 import { tapTo } from '@/shared/app/navigation';
@@ -28,7 +33,6 @@ function DetectionSettingsScreenContent() {
   const setRouteMatchingEnabled = useRouteSettings((s) => s.setEnabled);
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bg = isDark ? darkColors.background : colors.background;
-  const border = isDark ? darkColors.border : colors.border;
   const danger = isDark ? darkColors.error : colors.error;
 
   const {
@@ -88,21 +92,22 @@ function DetectionSettingsScreenContent() {
 
           <View style={styles.previewFrame}>
             <Card variant="flat" padding="none">
-              <SettingsNavRow
-                testID="detection-preview-row"
-                icon="map-search-outline"
-                title={t('settings.previewSections')}
-                onPress={() => tapTo('/detection-preview')}
-                disabled={!routeMatchingEnabled}
-              />
-              <View style={[styles.previewDivider, { backgroundColor: border }]} />
-              <SettingsNavRow
-                testID="route-grouping-preview-row"
-                icon="source-branch"
-                title={t('settings.previewRouteGrouping')}
-                onPress={() => tapTo('/route-grouping-preview')}
-                disabled={!routeMatchingEnabled}
-              />
+              <RowGroup>
+                <SettingsNavRow
+                  testID="detection-preview-row"
+                  icon="map-search-outline"
+                  title={t('settings.previewSections')}
+                  onPress={() => tapTo('/detection-preview')}
+                  disabled={!routeMatchingEnabled}
+                />
+                <SettingsNavRow
+                  testID="route-grouping-preview-row"
+                  icon="source-branch"
+                  title={t('settings.previewRouteGrouping')}
+                  onPress={() => tapTo('/route-grouping-preview')}
+                  disabled={!routeMatchingEnabled}
+                />
+              </RowGroup>
             </Card>
           </View>
 
@@ -110,17 +115,7 @@ function DetectionSettingsScreenContent() {
             variant={isScanning ? 'secondary' : 'primary'}
             style={styles.rescanBtn}
             onPress={isScanning ? cancelScan : handleRescan}
-            icon={
-              isScanning ? (
-                <ActivityIndicator size="small" color={textSecondary} />
-              ) : (
-                <MaterialCommunityIcons
-                  name="refresh"
-                  size={iconSize.md}
-                  color={colors.textOnPrimary}
-                />
-              )
-            }
+            icon={isScanning ? { spinner: true } : 'refresh'}
             label={isScanning ? t('common.cancel') : t('settings.reanalyzeSections')}
             disabled={!routeMatchingEnabled && !isScanning}
             testID="detection-rescan-button"
@@ -198,10 +193,6 @@ const styles = StyleSheet.create({
   },
   previewFrame: {
     marginTop: spacing.md,
-  },
-  previewDivider: {
-    height: stroke.hairline,
-    marginLeft: DIVIDER_INSET,
   },
 });
 

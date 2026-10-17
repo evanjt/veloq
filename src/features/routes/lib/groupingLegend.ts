@@ -8,9 +8,9 @@ export const GROUPING_LAYER_PAINT: Record<
   { colour: string; opacity: number; width: number }
 > = {
   dropped: { colour: mapLayerColors.casing, opacity: 0.5, width: 1.5 },
-  other: { colour: brand.tealLight, opacity: 0.4, width: 2 },
+  other: { colour: brand.blue600, opacity: 0.4, width: 2 },
   merging: { colour: colors.warning, opacity: 0.85, width: 3 },
-  largest: { colour: brand.tealLight, opacity: 1, width: 4 },
+  largest: { colour: brand.blue600, opacity: 1, width: 4 },
 };
 
 type LegendLabelKey =

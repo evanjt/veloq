@@ -4,26 +4,18 @@ import {
   ExternalLinkRow,
   ListSectionHeader,
   Row,
+  RowGroup,
   ScreenSafeAreaView,
   ScreenScrollView,
 } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
-import {
-  brand,
-  colors,
-  colorWithOpacity,
-  darkColors,
-  iconSize,
-  layout,
-  spacing,
-  typography,
-} from '@/theme';
+import { colorWithOpacity, iconSize, layout, spacing, themePalette, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
 import { useTheme } from '@/shared/app';
 import { INTERVALS_URLS } from '@/features/auth';
-import { DIVIDER_INSET, settingsStyles } from '@/features/settings';
+import { settingsStyles } from '@/features/settings';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { tapTo } from '@/shared/app/navigation';
 import {
@@ -49,7 +41,11 @@ function AboutScreenContent() {
         >
           <View style={styles.appInfo}>
             <View style={styles.appIcon(isDark)}>
-              <MaterialCommunityIcons name="bike-fast" size={iconSize.xxl} color={colors.primary} />
+              <MaterialCommunityIcons
+                name="bike-fast"
+                size={iconSize.xxl}
+                color={themeColors.primary}
+              />
             </View>
             <Text style={[styles.appName, shared.text]}>Veloq</Text>
             <Text style={[styles.appVersion, shared.textSecondary]}>
@@ -71,72 +67,70 @@ function AboutScreenContent() {
         {/* intervals.icu Links */}
         <ListSectionHeader>intervals.icu</ListSectionHeader>
         <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
-          <ExternalLinkRow
-            testID="about-link-privacy"
-            icon="shield-account"
-            label={t('about.intervalsPrivacy')}
-            url={INTERVALS_URLS.privacyPolicy}
-          />
-          <View style={styles.linkDivider(isDark)} />
-          <ExternalLinkRow
-            testID="about-link-terms"
-            icon="file-document"
-            label={t('about.intervalsTerms')}
-            url={INTERVALS_URLS.termsOfService}
-          />
-          <View style={styles.linkDivider(isDark)} />
-          <ExternalLinkRow
-            testID="about-link-api-terms"
-            icon="api"
-            label={t('about.intervalsApiTerms')}
-            url={INTERVALS_URLS.apiTerms}
-          />
+          <RowGroup>
+            <ExternalLinkRow
+              testID="about-link-privacy"
+              icon="shield-account"
+              label={t('about.intervalsPrivacy')}
+              url={INTERVALS_URLS.privacyPolicy}
+            />
+            <ExternalLinkRow
+              testID="about-link-terms"
+              icon="file-document"
+              label={t('about.intervalsTerms')}
+              url={INTERVALS_URLS.termsOfService}
+            />
+            <ExternalLinkRow
+              testID="about-link-api-terms"
+              icon="api"
+              label={t('about.intervalsApiTerms')}
+              url={INTERVALS_URLS.apiTerms}
+            />
+          </RowGroup>
         </View>
 
         {/* Veloq Links */}
         <ListSectionHeader>Veloq</ListSectionHeader>
         <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
-          <ExternalLinkRow
-            testID="about-link-veloq-privacy"
-            icon="shield-lock"
-            label={t('about.veloqPrivacy')}
-            url={VELOQ_PRIVACY_URL}
-          />
-          <View style={styles.linkDivider(isDark)} />
-          <ExternalLinkRow
-            testID="about-link-license"
-            icon="license"
-            label={t('about.openSource')}
-            url={LICENCE_URL}
-          />
-          <View style={styles.linkDivider(isDark)} />
-          <Row
-            testID="about-link-licenses"
-            behaviour="navigate"
-            accessibilityLabel={t('about.thirdPartyLicenses')}
-            onPress={() => tapTo('/licenses')}
-          >
-            <MaterialCommunityIcons
-              name="file-document-multiple"
-              size={iconSize.lg}
-              color={colors.primary}
+          <RowGroup>
+            <ExternalLinkRow
+              testID="about-link-veloq-privacy"
+              icon="shield-lock"
+              label={t('about.veloqPrivacy')}
+              url={VELOQ_PRIVACY_URL}
             />
-            <Text style={[styles.linkText, shared.text]}>{t('about.thirdPartyLicenses')}</Text>
-          </Row>
-          <View style={styles.linkDivider(isDark)} />
-          <ExternalLinkRow
-            testID="about-link-source"
-            icon="github"
-            label={t('about.sourceCode')}
-            url={REPOSITORY_URL}
-          />
-          <View style={styles.linkDivider(isDark)} />
-          <ExternalLinkRow
-            testID="about-link-tracematch"
-            icon="code-braces"
-            label={t('about.tracematchSource')}
-            url={TRACEMATCH_URL}
-          />
+            <ExternalLinkRow
+              testID="about-link-license"
+              icon="license"
+              label={t('about.openSource')}
+              url={LICENCE_URL}
+            />
+            <Row
+              testID="about-link-licenses"
+              behaviour="navigate"
+              accessibilityLabel={t('about.thirdPartyLicenses')}
+              onPress={() => tapTo('/licenses')}
+            >
+              <MaterialCommunityIcons
+                name="file-document-multiple"
+                size={iconSize.lg}
+                color={themeColors.primary}
+              />
+              <Text style={[styles.linkText, shared.text]}>{t('about.thirdPartyLicenses')}</Text>
+            </Row>
+            <ExternalLinkRow
+              testID="about-link-source"
+              icon="github"
+              label={t('about.sourceCode')}
+              url={REPOSITORY_URL}
+            />
+            <ExternalLinkRow
+              testID="about-link-tracematch"
+              icon="code-braces"
+              label={t('about.tracematchSource')}
+              url={TRACEMATCH_URL}
+            />
+          </RowGroup>
         </View>
 
         {/* Data Attribution */}
@@ -201,17 +195,10 @@ const getAppIconStyle = (isDark: boolean) => ({
   width: 80,
   height: 80,
   borderRadius: layout.borderRadiusXl,
-  backgroundColor: colorWithOpacity(brand.teal, isDark ? 0.15 : 0.1),
+  backgroundColor: colorWithOpacity(themePalette(isDark).primary, isDark ? 0.15 : 0.1),
   justifyContent: 'center' as const,
   alignItems: 'center' as const,
   marginBottom: spacing.md,
-});
-
-// Theme-aware link divider style helper
-const getLinkDividerStyle = (isDark: boolean) => ({
-  height: 1,
-  backgroundColor: isDark ? darkColors.border : colors.border,
-  marginLeft: DIVIDER_INSET,
 });
 
 const styles = {
@@ -268,13 +255,11 @@ const styles = {
   },
   trademarkText: {
     ...typography.micro,
-    lineHeight: 14,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
   },
   // Theme-aware helpers
   appIcon: getAppIconStyle,
-  linkDivider: getLinkDividerStyle,
 };
 
 export default withScreenBoundary(AboutScreenContent, 'About');

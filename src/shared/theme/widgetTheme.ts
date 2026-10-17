@@ -28,7 +28,7 @@ export interface WidgetPalette {
   surface: string;
   textPrimary: string;
   textSecondary: string;
-  /** Teal: values, accents, selected state. */
+  /** The action blue: values, accents, selected state. */
   primary: string;
   /** Ink on a filled primary control, such as a picker's Save button. */
   textOnPrimary: string;
@@ -85,7 +85,7 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     surface: colors.surface,
     textPrimary: colors.textPrimary,
     textSecondary: colors.textSecondary,
-    primary: brand.tealLight,
+    primary: brand.blue600,
     textOnPrimary: colors.textOnPrimary,
     gold: colors.chartGoldMark,
     blue: brand.blueDark,
@@ -123,7 +123,7 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     surface: darkColors.surfaceCard,
     textPrimary: darkColors.textPrimary,
     textSecondary: darkColors.textSecondary,
-    primary: brand.tealDark,
+    primary: brand.blue550,
     textOnPrimary: colors.textOnPrimary,
     gold: darkColors.chartGoldMark,
     blue: brand.blue,

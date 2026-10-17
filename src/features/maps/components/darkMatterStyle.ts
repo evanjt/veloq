@@ -4,6 +4,8 @@
 // Cartography: Based on CartoDB Dark Matter by Stamen Design (CC0)
 // Improved palette: blue-gray tones for semantic differentiation (2017 CARTO approach)
 
+import { MAP_TEXT_FONT_REGULAR } from '@/features/maps/lib/bundledGlyphs';
+
 export const DARK_MATTER_STYLE = {
   version: 8 as const,
   name: 'Dark Matter',
@@ -89,7 +91,7 @@ export const DARK_MATTER_STYLE = {
       filter: ['==', '$type', 'Point'],
       layout: {
         'text-field': '{name:latin}',
-        'text-font': ['Noto Sans Regular'],
+        'text-font': MAP_TEXT_FONT_REGULAR,
         'text-size': 11,
         'text-letter-spacing': 0.1,
         'text-max-width': 8,
@@ -352,7 +354,7 @@ export const DARK_MATTER_STYLE = {
       layout: {
         'symbol-placement': 'line',
         'text-field': '{name:latin}',
-        'text-font': ['Noto Sans Regular'],
+        'text-font': MAP_TEXT_FONT_REGULAR,
         'text-size': {
           stops: [
             [12, 10],
@@ -469,7 +471,7 @@ export const DARK_MATTER_STYLE = {
       layout: {
         'text-anchor': 'center',
         'text-field': ['coalesce', ['get', 'name_en'], ['get', 'name']],
-        'text-font': ['Noto Sans Regular'],
+        'text-font': MAP_TEXT_FONT_REGULAR,
         'text-justify': 'center',
         'text-size': 10,
         'text-transform': 'uppercase',
@@ -491,7 +493,7 @@ export const DARK_MATTER_STYLE = {
       layout: {
         'text-anchor': 'center',
         'text-field': ['coalesce', ['get', 'name_en'], ['get', 'name']],
-        'text-font': ['Noto Sans Regular'],
+        'text-font': MAP_TEXT_FONT_REGULAR,
         'text-justify': 'center',
         'text-size': 11,
         'text-transform': 'uppercase',
@@ -513,7 +515,7 @@ export const DARK_MATTER_STYLE = {
       layout: {
         'text-anchor': 'left',
         'text-field': ['coalesce', ['get', 'name_en'], ['get', 'name']],
-        'text-font': ['Noto Sans Regular'],
+        'text-font': MAP_TEXT_FONT_REGULAR,
         'text-justify': 'left',
         'text-offset': [0.5, 0.2],
         'text-size': 11,
@@ -536,7 +538,7 @@ export const DARK_MATTER_STYLE = {
       layout: {
         'text-anchor': 'center',
         'text-field': ['coalesce', ['get', 'name_en'], ['get', 'name']],
-        'text-font': ['Noto Sans Regular'],
+        'text-font': MAP_TEXT_FONT_REGULAR,
         'text-justify': 'left',
         'text-size': 12,
         'text-transform': 'uppercase',
@@ -558,7 +560,7 @@ export const DARK_MATTER_STYLE = {
       layout: {
         'text-anchor': 'center',
         'text-field': ['coalesce', ['get', 'name_en'], ['get', 'name']],
-        'text-font': ['Noto Sans Regular'],
+        'text-font': MAP_TEXT_FONT_REGULAR,
         'text-justify': 'left',
         'text-size': 13,
         'text-transform': 'uppercase',
@@ -580,7 +582,7 @@ export const DARK_MATTER_STYLE = {
       layout: {
         'text-anchor': 'center',
         'text-field': ['coalesce', ['get', 'name_en'], ['get', 'name']],
-        'text-font': ['Noto Sans Regular'],
+        'text-font': MAP_TEXT_FONT_REGULAR,
         'text-justify': 'left',
         'text-size': 16,
         'text-transform': 'uppercase',
@@ -601,7 +603,7 @@ export const DARK_MATTER_STYLE = {
       filter: ['all', ['==', '$type', 'Point'], ['==', 'class', 'state']],
       layout: {
         'text-field': ['coalesce', ['get', 'name_en'], ['get', 'name']],
-        'text-font': ['Noto Sans Regular'],
+        'text-font': MAP_TEXT_FONT_REGULAR,
         'text-size': 11,
         'text-transform': 'uppercase',
       },
@@ -622,7 +624,7 @@ export const DARK_MATTER_STYLE = {
       layout: {
         'text-anchor': 'center',
         'text-field': '{name:latin}',
-        'text-font': ['Noto Sans Regular'],
+        'text-font': MAP_TEXT_FONT_REGULAR,
         'text-size': {
           base: 1.4,
           stops: [

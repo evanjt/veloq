@@ -178,24 +178,25 @@ describe('the feed card long-press', () => {
 });
 
 describe('the feed card press', () => {
-  it.each([
-    ['ios', Haptics.impactAsync, 'light'],
-    ['android', Haptics.performAndroidHapticsAsync, 'context-click'],
-  ] as const)('fires one light haptic and opens the activity on %s', async (os, call, constant) => {
-    const originalOS = Platform.OS;
-    Platform.OS = os;
-    (call as jest.Mock).mockClear();
-    (router.push as jest.Mock).mockClear();
-    try {
-      await renderCard();
+  it.each(['ios', 'android'] as const)(
+    'opens the activity and fires no haptic on %s',
+    async (os) => {
+      const originalOS = Platform.OS;
+      Platform.OS = os;
+      (Haptics.impactAsync as jest.Mock).mockClear();
+      (Haptics.performAndroidHapticsAsync as jest.Mock).mockClear();
+      (router.push as jest.Mock).mockClear();
+      try {
+        await renderCard();
 
-      await fireEvent.press(screen.getByTestId('activity-card-a1'));
+        await fireEvent.press(screen.getByTestId('activity-card-a1'));
 
-      expect(call).toHaveBeenCalledTimes(1);
-      expect(call).toHaveBeenCalledWith(constant);
-      expect(router.push).toHaveBeenCalledWith('/activity/a1');
-    } finally {
-      Platform.OS = originalOS;
+        expect(router.push).toHaveBeenCalledWith('/activity/a1');
+        expect(Haptics.impactAsync).not.toHaveBeenCalled();
+        expect(Haptics.performAndroidHapticsAsync).not.toHaveBeenCalled();
+      } finally {
+        Platform.OS = originalOS;
+      }
     }
-  });
+  );
 });

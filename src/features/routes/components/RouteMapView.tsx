@@ -10,7 +10,10 @@ import { FullWindowModal } from '@/shared/ui/FullWindowModal';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useIsFocused } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
+import { useHeroHeaderBottom } from '@/shared/ui/useHeroHeaderBottom';
+import { useTheme } from '@/shared/app';
 import { getActivityColor } from '@/shared/activity/activityUtils';
 import {
   colors,
@@ -42,6 +45,7 @@ import {
 } from '@/features/maps';
 import type { ActivityType, RouteGroup, RoutePoint } from '@/types';
 import type { SectionDeltaLine } from '../lib/deltaLayout';
+import { DetailMapLegend, hasLegendLayers, type DetailMapLegendLayers } from './DetailMapLegend';
 
 /** Minimal route group type for map display - only needs points and distance for signature */
 type RouteGroupForMap = Omit<RouteGroup, 'signature'> & {
@@ -83,7 +87,10 @@ export function RouteMapView({
   deltaLine = null,
 }: RouteMapViewProps) {
   const { t } = useTranslation();
+  const { isDark } = useTheme();
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const headerBottom = useHeroHeaderBottom();
+  const fullscreenInsets = useSafeAreaInsets();
   const screenFocused = useIsFocused();
   const { getStyleForActivity, preferences } = useMapPreferences();
   const chosenStyle = selectedSportType
@@ -152,6 +159,15 @@ export function RouteMapView({
         : null,
     [deltaLine]
   );
+
+  // The inline map draws the route line itself; the fullscreen shell draws it
+  // and carries no delta colouring.
+  const showActivity = highlightedTrace.features.length > 0;
+  const inlineLegendLayers: DetailMapLegendLayers = {
+    showActivity,
+    showDelta: deltaLineStops !== null,
+  };
+  const fullscreenLegendLayers: DetailMapLegendLayers = { showActivity, showDelta: false };
 
   // Markers follow whatever is highlighted, falling back to the route itself.
   const endpoints = useMemo(() => {
@@ -275,6 +291,15 @@ export function RouteMapView({
             />
           </View>
         ) : null}
+        {/* The layers drawn over the route's own line, named. */}
+        {hasLegendLayers(inlineLegendLayers) ? (
+          <DetailMapLegend
+            isDark={isDark}
+            top={headerBottom + spacing.sm}
+            testID="route-map-legend"
+            {...inlineLegendLayers}
+          />
+        ) : null}
       </Pressable>
 
       <FullWindowModal
@@ -295,6 +320,14 @@ export function RouteMapView({
           overlayImages={ENDPOINT_IMAGES}
           layer3D={fullscreenLayer3D}
         />
+        {hasLegendLayers(fullscreenLegendLayers) ? (
+          <DetailMapLegend
+            isDark={isDark}
+            top={fullscreenInsets.top + spacing.sm}
+            testID="route-map-legend"
+            {...fullscreenLegendLayers}
+          />
+        ) : null}
       </FullWindowModal>
     </>
   );

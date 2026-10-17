@@ -10,6 +10,7 @@ import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { ACTIVITY_CATEGORIES, getActivityCategory } from '@/shared/activity/sportCategories';
 import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import type { ActivityBoundsItem } from '@/types';
+import { NameText } from '@/shared/ui/NameText';
 
 interface MapNameSearchProps {
   needle: string;
@@ -81,9 +82,9 @@ export function MapNameSearch({
                   size={iconSize.md}
                   color={category.color}
                 />
-                <Text numberOfLines={1} style={[styles.resultName, isDark && styles.textOnDark]}>
+                <NameText style={[styles.resultName, isDark && styles.textOnDark]}>
                   {a.name}
-                </Text>
+                </NameText>
                 <Text style={[styles.resultDetail, isDark && styles.secondaryDark]}>
                   {distance}
                 </Text>

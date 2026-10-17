@@ -9,6 +9,7 @@ import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { openExternal } from '@/shared/app/openExternal';
 import { useDonation } from '@/shared/app/useDonation';
 import { TipButtons } from '@/shared/ui/TipButtons';
+import { RowDivider } from '@/shared/ui/RowGroup';
 import {
   GITHUB_ISSUES_URL,
   GITHUB_SPONSORS_URL,
@@ -16,7 +17,7 @@ import {
   openStorePage,
   offerCrashLog,
 } from '@/shared/app/supportLinks';
-import { colors, darkColors, iconSize, layout, spacing, stroke, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography, themePalette } from '@/theme';
 import {
   Button,
   Card,
@@ -28,6 +29,7 @@ import {
 
 export function SupportSection() {
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const { t } = useTranslation();
   const { products, isAvailable, isPurchasing, purchaseSuccess, purchase } = useDonation();
 
@@ -36,7 +38,6 @@ export function SupportSection() {
 
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const dividerColor = isDark ? darkColors.border : colors.divider;
 
   return (
     <>
@@ -54,7 +55,7 @@ export function SupportSection() {
               variant="secondary"
               size="sm"
               style={styles.actionButton}
-              icon={<MaterialCommunityIcons name="star" size={iconSize.md} color={textColor} />}
+              icon="star"
             />
             <Button
               label={t('support.idea')}
@@ -64,13 +65,7 @@ export function SupportSection() {
               variant="secondary"
               size="sm"
               style={styles.actionButton}
-              icon={
-                <MaterialCommunityIcons
-                  name="lightbulb-outline"
-                  size={iconSize.md}
-                  color={textColor}
-                />
-              }
+              icon="lightbulb-outline"
             />
             <Button
               label={t('support.forum')}
@@ -80,20 +75,20 @@ export function SupportSection() {
               variant="secondary"
               size="sm"
               style={styles.actionButton}
-              icon={
-                <MaterialCommunityIcons name="forum-outline" size={iconSize.md} color={textColor} />
-              }
+              icon="forum-outline"
             />
           </View>
 
-          <View style={[styles.divider, { backgroundColor: dividerColor }]} />
+          <View style={styles.dividerGap}>
+            <RowDivider inset="none" />
+          </View>
 
           {/* Tips */}
           <View style={styles.row}>
             <MaterialCommunityIcons
               name="wrench-outline"
               size={iconSize.md}
-              color={colors.primary}
+              color={palette.primary}
             />
             <Text style={[styles.rowText, { color: textColor }]}>
               {purchaseSuccess ? t('support.thankYou') : t('support.tipTitle')}
@@ -117,11 +112,13 @@ export function SupportSection() {
                 }}
                 variant="secondary"
                 size="sm"
-                icon={<MaterialCommunityIcons name="github" size={iconSize.md} color={textColor} />}
+                icon="github"
               />
             ))}
 
-          <View style={[styles.divider, { backgroundColor: dividerColor }]} />
+          <View style={styles.dividerGap}>
+            <RowDivider inset="none" />
+          </View>
 
           {/* intervals.icu row */}
           {/* The card's own padding is the row's inset, so the row runs to its edges. */}
@@ -137,7 +134,9 @@ export function SupportSection() {
             </ExternalLinkRow>
           </View>
 
-          <View style={[styles.divider, { backgroundColor: dividerColor }]} />
+          <View style={styles.dividerGap}>
+            <RowDivider inset="none" />
+          </View>
 
           <Pressable
             ref={crashLogAnchor}
@@ -170,9 +169,8 @@ const styles = StyleSheet.create({
   actionButton: {
     flexGrow: 1,
   },
-  divider: {
-    height: stroke.hairline,
-    marginVertical: spacing.sm,
+  dividerGap: {
+    paddingVertical: spacing.sm,
   },
   row: {
     flexDirection: 'row',

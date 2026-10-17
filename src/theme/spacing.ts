@@ -7,9 +7,9 @@
  * one of their call sites was a literal. 28 is Material's extra-large shape,
  * the top corners of an Android bottom sheet.
  *
- * The two micro steps, 2 and 6, are spacing rather than radius. They existed
- * only inside the chart sub-scale and are promoted out of it, because a 2 pt
- * gap on a badge is the same 2 pt gap a chart axis wants.
+ * The two micro steps, 2 and 6, are spacing rather than radius. A chart reads
+ * the same rungs as everything else, because a 2 pt gap on a badge is the same
+ * 2 pt gap a chart axis wants.
  */
 export const spacing = {
   // Base spacing scale (8px base unit)
@@ -26,14 +26,6 @@ export const spacing = {
   lg: 24,
   xl: 32,
   xxl: 48,
-
-  // Chart-specific micro spacing
-  chart: {
-    xs: 2, // Micro spacing (axis padding)
-    sm: 4, // Small gaps (label spacing)
-    md: 6, // Medium gaps (tooltip padding)
-    lg: 8, // Standard chart padding
-  },
 } as const;
 
 /**

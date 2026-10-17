@@ -82,12 +82,14 @@ export function SeasonBestsSection({
     <Pressable
       android_ripple={pressRipple}
       accessibilityRole="button"
-      accessibilityLabel={t('bestEffortsScreen.title')}
+      accessibilityLabel={t('bestEffortsScreen.viewAll')}
       testID="season-bests-view-all"
       style={pressable([styles.viewAllRow, isDark && styles.viewAllRowDark])}
       onPress={() => tapTo(bestEffortsHref(period))}
     >
-      <Text style={[styles.viewAllText, { color: sportText }]}>{t('bestEffortsScreen.title')}</Text>
+      <Text style={[styles.viewAllText, { color: sportText }]}>
+        {t('bestEffortsScreen.viewAll')}
+      </Text>
       <MaterialCommunityIcons name="chevron-right" size={iconSize.sm} color={sportColor} />
     </Pressable>
   );

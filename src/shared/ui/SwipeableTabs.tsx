@@ -88,7 +88,7 @@ interface SwipeableTabsProps {
 /** The ink a tab draws its icon and its label in, one per state. */
 function tabInk(isActive: boolean, isDark: boolean): string {
   const palette = isDark ? darkColors : colors;
-  return isActive ? palette.linkTeal : palette.textSecondary;
+  return isActive ? palette.actionLink : palette.textSecondary;
 }
 
 /**

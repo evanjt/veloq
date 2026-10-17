@@ -132,6 +132,7 @@ export {
 // refusals lift on their own. See `delegates/start.ts`.
 export { FfiStartOutcome as StartOutcome } from './generated/veloqrs';
 export type { FfiStartResult as StartResult } from './generated/veloqrs';
+export type { FfiGpsPassStart as GpsPassStart } from './generated/veloqrs';
 export type StartVerdict =
   | import('./generated/veloqrs').FfiStartOutcome
   | import('./generated/veloqrs').FfiStartResult;

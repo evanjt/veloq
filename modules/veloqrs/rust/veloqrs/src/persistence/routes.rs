@@ -2739,6 +2739,47 @@ mod tests {
         );
     }
 
+    /// Scenario: one loop is named "River loop", then another is renamed to
+    /// that name, and finally the second loop's typed name is cleared.
+    /// Expected behaviour: the duplicate is refused as taken and changes
+    /// nothing, and clearing removes the typed name so the automatic one shows.
+    #[test]
+    fn a_route_name_another_route_shows_is_refused_and_a_cleared_name_is_removed() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        for id in ["r_a", "r_b"] {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type)
+                 VALUES (?, ?, '[\"a\"]', 'Ride')",
+                    params![id, format!("rep_{id}")],
+                )
+                .unwrap();
+        }
+        engine.load_groups().unwrap();
+        engine.set_route_name("r_a", Some("River loop")).unwrap();
+        engine.set_route_name("r_b", Some("Orchard loop")).unwrap();
+
+        assert_eq!(
+            engine.set_route_name("r_b", Some("River loop")),
+            Err(super::RouteNameError::Taken("River loop".into()))
+        );
+        let stored = engine.get_all_route_names();
+        assert_eq!(stored.get("r_b").map(String::as_str), Some("Orchard loop"));
+        assert_eq!(stored.get("r_a").map(String::as_str), Some("River loop"));
+
+        engine.set_route_name("r_b", None).unwrap();
+        let shown = engine.get_route_name("r_b");
+        assert!(shown.is_some());
+        assert_ne!(shown.as_deref(), Some("Orchard loop"));
+        let typed: rusqlite::Result<String> = engine.db.query_row(
+            "SELECT custom_name FROM route_names WHERE route_id = 'r_b'",
+            [],
+            |row| row.get(0),
+        );
+        assert!(matches!(typed, Err(rusqlite::Error::QueryReturnedNoRows)));
+    }
+
     #[test]
     fn renaming_a_warmed_group_updates_its_next_detail_read() {
         let mut engine = PersistentEngine::in_memory().unwrap();

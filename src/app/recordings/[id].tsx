@@ -2,8 +2,6 @@ import React, { useCallback, useRef } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useLocalSearchParams } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -17,7 +15,7 @@ import {
 import { Button } from '@/shared/ui/Button';
 import { Shimmer, SkeletonFrame } from '@/shared/ui/Shimmer';
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { colors, darkColors, iconSize, layout, spacing, stroke, typography } from '@/theme';
+import { colors, darkColors, layout, spacing, stroke, typography } from '@/theme';
 import { formatDateTime } from '@/shared/format/format';
 import {
   recordingActions,
@@ -223,13 +221,7 @@ function RecordingDetailScreenContent() {
               label={t('recording.library.uploadNow', 'Upload now')}
               onPress={handleUpload}
               loading={isUploading}
-              icon={
-                <MaterialCommunityIcons
-                  name="cloud-upload-outline"
-                  size={iconSize.md}
-                  color={colors.textOnPrimary}
-                />
-              }
+              icon="cloud-upload-outline"
             />
           ) : null}
           {canShare ? (
@@ -239,7 +231,7 @@ function RecordingDetailScreenContent() {
               label={t('recording.library.share', 'Share FIT file')}
               variant="secondary"
               onPress={handleShare}
-              icon={<ChromeIcon name="share" size={iconSize.md} color={textPrimary} />}
+              icon={{ chrome: 'share' }}
             />
           ) : null}
           <Button
@@ -248,7 +240,7 @@ function RecordingDetailScreenContent() {
             variant="destructive"
             opensConfirm
             onPress={handleDelete}
-            icon={<ChromeIcon name="delete" size={iconSize.md} color={colors.textOnDark} />}
+            icon={{ chrome: 'delete' }}
           />
         </View>
       </ScrollView>

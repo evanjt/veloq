@@ -15,7 +15,7 @@ import {
   type Palette,
 } from '@/theme';
 import { RangeCoverage } from 'veloqrs';
-import { BodyNotDownloaded, CardHeader, EmptyState, ErrorState } from '@/shared/ui';
+import { BodyNotDownloaded, EmptyState, ErrorState } from '@/shared/ui';
 import { CurveLoadingPlaceholder } from './CurveLoadingPlaceholder';
 import { paceChartSeries } from '../lib/curveChartSeries';
 import { usePaceCurve } from '../hooks/usePaceCurve';
@@ -155,7 +155,6 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
   if (isLoading || awaitingBody) {
     return (
       <View style={[styles.container, { height }]}>
-        <CardHeader title={t('stats.swimPaceCurve')} />
         <CurveLoadingPlaceholder height={height} />
       </View>
     );
@@ -164,7 +163,6 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
   if (error) {
     return (
       <View style={[styles.container, { height }]}>
-        <CardHeader title={t('stats.swimPaceCurve')} />
         <ErrorState
           variant="inline"
           error={error}
@@ -178,7 +176,6 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
   if (chartData.length === 0) {
     return (
       <View style={[styles.container, { height }]}>
-        <CardHeader title={t('stats.swimPaceCurve')} />
         <View style={styles.emptyState}>
           {coverage === RangeCoverage.NotFetched ? (
             <BodyNotDownloaded
@@ -202,48 +199,43 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
 
   return (
     <View style={[styles.container, { height }]}>
-      {/* Header with values */}
-      <CardHeader
-        title={t('stats.swimPaceCurve')}
-        accessory={
-          <View style={styles.valuesRow}>
-            <View style={styles.valueItem}>
-              <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.valueLabel}>
-                {t('activity.distance')}
-              </Text>
-              <Text
-                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                style={[styles.valueNumber, isDark && styles.textLight]}
-              >
-                {formatDistance(displayData.distance, isMetric)}
-              </Text>
-            </View>
-            <View style={styles.valueItem}>
-              <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.valueLabel}>
-                {t('stats.time')}
-              </Text>
-              <Text
-                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                style={[styles.valueNumber, isDark && styles.textLight]}
-              >
-                {formatTime(displayData.time)}
-              </Text>
-            </View>
-            <View style={styles.valueItem}>
-              <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.valueLabel}>
-                {t('metrics.pace')}
-              </Text>
-              <Text
-                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                style={[styles.valueNumber, isDark && styles.textLight]}
-              >
-                {formatSwimPace(displayData.paceMs, isMetric)}
-                {swimPaceUnitLabel(isMetric)}
-              </Text>
-            </View>
-          </View>
-        }
-      />
+      {/* The scrubbed point, or the longest effort at rest; the section names the curve. */}
+      <View style={styles.valuesRow}>
+        <View style={styles.valueItem}>
+          <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.valueLabel}>
+            {t('activity.distance')}
+          </Text>
+          <Text
+            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+            style={[styles.valueNumber, isDark && styles.textLight]}
+          >
+            {formatDistance(displayData.distance, isMetric)}
+          </Text>
+        </View>
+        <View style={styles.valueItem}>
+          <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.valueLabel}>
+            {t('stats.time')}
+          </Text>
+          <Text
+            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+            style={[styles.valueNumber, isDark && styles.textLight]}
+          >
+            {formatTime(displayData.time)}
+          </Text>
+        </View>
+        <View style={styles.valueItem}>
+          <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={styles.valueLabel}>
+            {t('metrics.pace')}
+          </Text>
+          <Text
+            maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+            style={[styles.valueNumber, isDark && styles.textLight]}
+          >
+            {formatSwimPace(displayData.paceMs, isMetric)}
+            {swimPaceUnitLabel(isMetric)}
+          </Text>
+        </View>
+      </View>
 
       <CurveChart
         data={chartData}
@@ -285,7 +277,9 @@ const makeStyles = (palette: Palette) =>
     textLight: { color: colors.textOnDark },
     valuesRow: {
       flexDirection: 'row',
+      alignSelf: 'flex-end',
       gap: spacing.md,
+      marginBottom: spacing.sm,
     },
     valueItem: {
       alignItems: 'flex-end',

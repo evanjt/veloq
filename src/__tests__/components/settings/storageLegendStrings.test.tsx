@@ -56,7 +56,6 @@ function fullPanel() {
       routeMatchingEnabled
       dateRangeText="range"
       lastSync={null}
-      totalQueries={1}
       onClearMapCache={jest.fn()}
       routesSize={1_000_000}
       terrainCacheSize={2_000_000}

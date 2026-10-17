@@ -24,12 +24,17 @@ import {
   slopToMinTapTarget,
   spacing,
   typography,
+  themePalette,
 } from '@/theme';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
+import { NameText } from '@/shared/ui/NameText';
+import { FitText } from '@/shared/ui/FitText';
 
 export interface SectionLapListProps {
   isDark: boolean;
   initiallyExpanded?: boolean;
+  /** Off where the screen's own header already names the laps. */
+  showTitle?: boolean;
   /** Every lap of each activity, the excluded ones flagged. */
   records: SectionPerformanceRecord[];
   onExcludeLap: (activityId: string, startIndex: number) => void;
@@ -77,6 +82,7 @@ function RecordMark({ testID, isDark, label }: { testID: string; isDark: boolean
 export function SectionLapList({
   isDark,
   initiallyExpanded = false,
+  showTitle = true,
   records,
   onExcludeLap,
   onIncludeLap,
@@ -88,16 +94,18 @@ export function SectionLapList({
 
   return (
     <Card variant="flat" testID="section-lap-list">
-      <View style={styles.header}>
-        <MaterialCommunityIcons
-          name="repeat"
-          size={iconSize.md}
-          color={isDark ? darkColors.textPrimary : colors.textPrimary}
-        />
-        <Text accessibilityRole="header" style={[styles.title, isDark && styles.textDark]}>
-          {t('sections.laps')}
-        </Text>
-      </View>
+      {showTitle ? (
+        <View style={styles.header}>
+          <MaterialCommunityIcons
+            name="repeat"
+            size={iconSize.md}
+            color={isDark ? darkColors.textPrimary : colors.textPrimary}
+          />
+          <Text accessibilityRole="header" style={[styles.title, isDark && styles.textDark]}>
+            {t('sections.laps')}
+          </Text>
+        </View>
+      ) : null}
       {!showAll
         ? collapsedActivities(lapped).map((r) => {
             const best = bestLapTime(r);
@@ -123,9 +131,9 @@ export function SectionLapList({
                 android_ripple={pressRipple}
               >
                 <View style={styles.summaryName}>
-                  <Text style={[styles.activityName, isDark && styles.textDark]} numberOfLines={1}>
+                  <NameText style={[styles.activityName, isDark && styles.textDark]}>
                     {r.activityName}
-                  </Text>
+                  </NameText>
                   <Text style={[styles.activityDate, isDark && styles.textSecondaryDark]}>
                     {date}
                   </Text>
@@ -138,28 +146,24 @@ export function SectionLapList({
                   />
                 ) : null}
                 {best !== null ? (
-                  <Text
+                  <FitText
                     style={[styles.lapTime, isDark && styles.textDark]}
-                    numberOfLines={1}
                     accessibilityLabel={bestLap ?? undefined}
                   >
                     {formatDuration(best)}
-                  </Text>
+                  </FitText>
                 ) : null}
-                <Text
-                  style={[styles.lapCount, isDark && styles.textSecondaryDark]}
-                  numberOfLines={1}
-                >
+                <FitText style={[styles.lapCount, isDark && styles.textSecondaryDark]}>
                   {lapCount}
-                </Text>
+                </FitText>
               </Pressable>
             );
           })
         : lapped.map((r) => (
             <View key={r.activityId} style={styles.activity}>
-              <Text style={[styles.activityName, isDark && styles.textDark]} numberOfLines={1}>
+              <NameText style={[styles.activityName, isDark && styles.textDark]}>
                 {r.activityName}
-              </Text>
+              </NameText>
               <Text style={[styles.activityDate, isDark && styles.textSecondaryDark]}>
                 {formatFullDate(r.activityDate)}
               </Text>
@@ -208,7 +212,9 @@ export function SectionLapList({
                           <Text style={[styles.pillMuted, isDark && styles.textSecondaryDark]}>
                             {t('sections.lapExcluded')}
                           </Text>
-                          <Text style={[styles.pillText, isDark && { color: darkColors.linkTeal }]}>
+                          <Text
+                            style={[styles.pillText, isDark && { color: darkColors.actionLink }]}
+                          >
                             {t('sections.undoExclude')}
                           </Text>
                         </Pressable>
@@ -227,9 +233,11 @@ export function SectionLapList({
                           <MaterialCommunityIcons
                             name="eye-off-outline"
                             size={iconSize.xs}
-                            color={colors.primary}
+                            color={themePalette(isDark).primary}
                           />
-                          <Text style={[styles.pillText, isDark && { color: darkColors.linkTeal }]}>
+                          <Text
+                            style={[styles.pillText, isDark && { color: darkColors.actionLink }]}
+                          >
                             {t('sections.excludeLap')}
                           </Text>
                         </Pressable>
@@ -290,7 +298,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   pillDark: { backgroundColor: darkColors.surfaceElevated },
-  pillText: { ...typography.caption, color: colors.linkTeal },
+  pillText: { ...typography.caption, color: colors.actionLink },
   pillMuted: { ...typography.caption, color: colors.textSecondary },
   textDark: { color: darkColors.textPrimary },
   textSecondaryDark: { color: darkColors.textSecondary },

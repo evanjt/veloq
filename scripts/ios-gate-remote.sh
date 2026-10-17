@@ -22,9 +22,14 @@ branch=$3
 gatejs=$here/ios-gate.js
 
 # A non-interactive ssh session gets a login PATH without Homebrew, which is
-# where node, npm and pod live on the Mac, and no JAVA_HOME, which Maestro needs.
+# where node, npm and pod live on the Mac, no JAVA_HOME, which Maestro needs,
+# and no locale, without which `pod install` stops on a Ruby encoding error.
+# The locale is set outright, since one forwarded from the caller may be one
+# the Mac lacks or one that is not UTF-8.
 PATH=/opt/homebrew/bin:$HOME/.cargo/bin:$HOME/.maestro/bin:$PATH
-export PATH
+LANG=en_US.UTF-8
+LC_ALL=en_US.UTF-8
+export PATH LANG LC_ALL
 if [ -z "${JAVA_HOME:-}" ] && [ -d /opt/homebrew/opt/openjdk@21 ]; then
   JAVA_HOME=/opt/homebrew/opt/openjdk@21
   export JAVA_HOME

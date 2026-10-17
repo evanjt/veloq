@@ -26,7 +26,8 @@ pub(crate) const OWED_KEY: &str = "__record_activities_owed";
 /// Activities the server answered 404 for, never asked for again.
 pub(crate) const UNAVAILABLE_KEY: &str = "__record_activities_unavailable";
 /// How many history rows no section of this library could take, once detection
-/// had settled. They are in the backup file and are not restored.
+/// had settled, over the latest restore and its later passes. They are in the
+/// backup file and are not restored.
 pub(crate) const NOT_RESTORED_KEY: &str = "__record_restore_not_restored";
 /// An accepted import whose placement has not committed yet. It is written in
 /// a commit of its own before placement starts and removed in placement's
@@ -42,9 +43,10 @@ pub(crate) const RESTORED_NUMBERS_KEY: &str = "__record_restore_numbered";
 /// The local routes a restore has given a name, kept while any name from that
 /// record still waits, so a later pass leaves them alone.
 pub(crate) const RESTORED_NAMES_KEY: &str = "__record_restore_named";
-/// How many route names a restore gave up on because the route their ground
-/// resolves to had already taken another restored name: the grouping here
-/// merged routes the backed-up library kept apart.
+/// How many route names the latest restore and its later passes gave up on
+/// because the route their ground resolves to had already taken another
+/// restored name: the grouping here merged routes the backed-up library kept
+/// apart.
 pub(crate) const NAMES_NOT_RESTORED_KEY: &str = "__record_restore_names_not_restored";
 
 fn id_set_from_conn(conn: &Connection, key: &str) -> Result<BTreeSet<String>, String> {
@@ -231,6 +233,9 @@ impl PersistentEngine {
             check_record_row(row)?;
         }
         let payload = self.resolve_uploaded_keys(payload)?;
+        // A payload with entries is a new restore, so the not-restored totals
+        // start again; an empty one resumes the restore already under way.
+        let fresh = !payload.entries.is_empty();
         let payload = match paused_import_from_conn(&self.db)? {
             Some(paused) => {
                 if let (Some(earlier), Some(later)) = (&paused.athlete_id, &payload.athlete_id)
@@ -257,7 +262,7 @@ impl PersistentEngine {
             &serde_json::to_string(&payload).map_err(|e| e.to_string())?,
         )
         .map_err(|e| e.to_string())?;
-        self.place_import(payload)
+        self.place_import(payload, fresh)
     }
 
     /// Name each uploaded recording by the id intervals.icu knows it by, unless
@@ -286,9 +291,20 @@ impl PersistentEngine {
     }
 
     /// Every record, the athlete id and the removal of the paused import commit
-    /// together or not at all, so a retry finds the import whole.
-    fn place_import(&mut self, payload: RecordPayload) -> Result<RestoreRecordResult, String> {
+    /// together or not at all, so a retry finds the import whole. A `fresh`
+    /// import clears the not-restored totals in the same transaction, so they
+    /// count the latest restore and every pass after it.
+    fn place_import(
+        &mut self,
+        payload: RecordPayload,
+        fresh: bool,
+    ) -> Result<RestoreRecordResult, String> {
         let result = self.place_in_txn(|engine| {
+            if fresh {
+                for key in [NOT_RESTORED_KEY, NAMES_NOT_RESTORED_KEY] {
+                    engine.delete_setting(key).map_err(|e| e.to_string())?;
+                }
+            }
             let mut entries = engine.pending_record_rows()?;
             entries.extend(payload.entries);
             let entries = distinct_rows(readable_rows(entries))?;

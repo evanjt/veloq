@@ -337,6 +337,34 @@ describe('a tree an earlier job used', () => {
     );
   });
 
+  it('repoints a link set made into another tree’s install at the main checkout’s', () => {
+    const { main, first, second } = fixture();
+    write(main, 'node_modules/@scope/late/index.js', 'module.exports = 2;\n');
+    write(second, 'node_modules/left-pad/index.js', 'module.exports = 0;\n');
+    write(second, 'node_modules/retired/index.js', 'module.exports = 0;\n');
+    write(second, 'node_modules/.package-lock.json', '{ "lockfileVersion": 3 }\n');
+    mkdirSync(join(first, 'node_modules'));
+    for (const entry of ['left-pad', 'retired', '.package-lock.json']) {
+      symlinkSync(join(second, 'node_modules', entry), join(first, 'node_modules', entry));
+    }
+    write(first, 'node_modules/@scope/late/index.js', 'module.exports = 1;\n');
+
+    const { status, output } = provision(first);
+
+    expect(output).not.toMatch(/fatal/);
+    expect(status).toBe(0);
+    const entries = readdirSync(join(first, 'node_modules')).sort();
+    expect(entries).toEqual(readdirSync(join(main, 'node_modules')).sort());
+    for (const entry of entries.filter((name) => name !== 'veloqrs')) {
+      expect(readlinkSync(join(first, 'node_modules', entry))).toBe(
+        join(main, 'node_modules', entry)
+      );
+    }
+    expect(readlinkSync(join(first, 'node_modules/veloqrs'))).toBe(join(first, 'modules/veloqrs'));
+    expect(readFileSync(join(second, 'node_modules/left-pad/index.js'), 'utf8')).toContain('0');
+    expect(count(npmLog())).toBe(0);
+  });
+
   it('reinstalls an install of its own made for an earlier lockfile', () => {
     const { first } = fixture();
     write(first, 'package-lock.json', '{ "lockfileVersion": 3, "packages": { "x": {} } }\n');

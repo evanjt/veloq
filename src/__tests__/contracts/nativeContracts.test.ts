@@ -74,7 +74,9 @@ it('limits native map release to pages with a registered rebuild path', () => {
   expect(manager).toContain(`${marker} && window.map`);
   expect(read('src/features/maps/lib/htmlBuilders/map3D.ts')).toContain(`${marker} = true`);
   expect(read('src/features/maps/lib/htmlBuilders/mapSurface.ts')).toContain(`${marker} = true`);
-  expect(read('src/features/maps/lib/htmlBuilders/snapshotWorker.ts')).not.toContain(marker);
+  expect(read('src/features/maps/lib/htmlBuilders/snapshotWorker.ts')).toContain(
+    `${marker} = true`
+  );
 });
 
 it('uses the Rust launch activity window as the TypeScript default', () => {

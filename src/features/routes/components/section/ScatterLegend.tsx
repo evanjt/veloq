@@ -10,7 +10,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
-import { colors, darkColors, spacing, typography, layout, stroke } from '@/theme';
+import { colors, darkColors, spacing, typography, layout, stroke, themePalette } from '@/theme';
 import { Button } from '@/shared/ui';
 
 export interface ScatterLegendProps {
@@ -28,8 +28,9 @@ export function ScatterLegend({
   showThisActivity,
   showOutsideBand = false,
   showTrend = false,
-  trendColor = colors.primary,
+  trendColor: trendColorProp,
 }: ScatterLegendProps) {
+  const trendColor = trendColorProp ?? themePalette(isDark).primary;
   const { t } = useTranslation();
   const [showMethod, setShowMethod] = useState(false);
 
@@ -84,7 +85,8 @@ export function ScatterLegend({
             size="sm"
             style={styles.methodButton}
             label={t('sections.legendTrend')}
-            icon={<View style={[styles.trendSwatch, { borderColor: trendColor }]} />}
+            // The legend key takes the trend line's own colour, which is what it names.
+            icon={{ name: 'minus', ink: trendColor }}
             onPress={() => setShowMethod((shown) => !shown)}
           />
           <View style={styles.legendItem}>
@@ -146,11 +148,6 @@ const styles = StyleSheet.create({
   },
   outsideBandSwatchDark: {
     borderColor: darkColors.textSecondary,
-  },
-  trendSwatch: {
-    width: 12,
-    height: 2,
-    borderTopWidth: stroke.two,
   },
   methodButton: {
     alignSelf: 'center',

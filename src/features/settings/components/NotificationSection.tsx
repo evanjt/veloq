@@ -10,13 +10,7 @@ import { useNotificationPreferences } from '@/features/settings/stores/Notificat
 import { useNotificationPermission } from '@/shared/app/permissions/notifications';
 import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
-import {
-  ListSectionHeader,
-  pressable,
-  pressRipple,
-  PermissionNotice,
-  SwitchRow,
-} from '@/shared/ui';
+import { pressable, pressRipple, PermissionNotice, SwitchRow } from '@/shared/ui';
 import { confirmAction } from '@/shared/ui/dialog';
 import { openExternal } from '@/shared/app/openExternal';
 import { VELOQ_PRIVACY_URL } from '@/shared/app/supportLinks';
@@ -103,7 +97,6 @@ export function NotificationSection() {
 
   return (
     <>
-      <ListSectionHeader>{t('notifications.settings.title')}</ListSectionHeader>
       <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
         <SwitchRow
           icon="bell-outline"

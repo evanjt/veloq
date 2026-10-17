@@ -28,6 +28,9 @@ export const SERVICE_WATCH_MS = 3_000;
 // Km split banner display duration
 export const SPLIT_BANNER_DURATION_MS = 3_000;
 
+// How long a lap press stays confirmed on screen, a short notice's time.
+export const LAP_BANNER_DURATION_MS = 4_000;
+
 // How often the iOS Live Activity card is pushed a fresh payload. ActivityKit
 // budgets updates, and a 1 Hz card would spend that budget on a distance that
 // changes by metres.

@@ -117,6 +117,15 @@ describe('background jobs last run', () => {
     expect(toggle().props.accessibilityState).toMatchObject({ expanded: false });
   });
 
+  it('opens from a disclosure header carrying the summary, not a button', async () => {
+    runs = [run('detection', { handled: 4 })];
+    const tree = await render(<BackgroundJobsActivityBar />);
+    const toggle = tree.getByTestId('background-jobs-activity-toggle');
+
+    expect(toggle.props.accessibilityRole).toBe('header');
+    expect(toggle.props.accessibilityLabel).toMatch(/^Background jobs, Last run /);
+  });
+
   it('says no change when a complete run changed nothing', async () => {
     runs = [run('streamBackfill', { handled: 12 })];
     const tree = await render(<BackgroundJobsActivityBar />);

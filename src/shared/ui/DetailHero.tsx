@@ -39,10 +39,12 @@ import { pressable, pressRipple } from './pressFeedback';
 import { useBackDismiss } from '@/shared/app/useBackDismiss';
 import { TextField, type TextFieldHandle } from './TextField';
 import { useHeroHeaderBottom } from './useHeroHeaderBottom';
+import { NameText } from './NameText';
 
 type MaterialIconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
-const GRADIENT_HEIGHT = 120;
+/** The band at the hero's bottom that the gradient darkens and the info overlay sits in. */
+export const HERO_GRADIENT_HEIGHT = 120;
 const noop = () => {};
 
 export const heroTextStyles = StyleSheet.create({
@@ -158,6 +160,8 @@ export interface HeroNameRowProps {
   editable?: {
     isEditing: boolean;
     editName: string;
+    /** Why the typed name was refused, shown under the field while it stays open. */
+    error?: string | null;
     inputRef: React.RefObject<TextFieldHandle | null>;
     /** What is being named, shown above the field and read as its name. */
     label: string;
@@ -192,6 +196,7 @@ export function HeroNameRow({ name, nameTestID, icon, editable, accessory }: Her
             onDarkGround
             style={styles.editNameField}
             value={editable.editName}
+            error={editable.error}
             onChangeText={editable.onChange}
             onSubmitEditing={editable.onSave}
             returnKeyType="done"
@@ -239,13 +244,9 @@ export function HeroNameRow({ name, nameTestID, icon, editable, accessory }: Her
           style={pressable(styles.nameEditTouchable)}
           android_ripple={pressRipple}
         >
-          <Text
-            testID={nameTestID}
-            style={[heroTextStyles.name, styles.heroName]}
-            numberOfLines={1}
-          >
+          <NameText testID={nameTestID} style={[heroTextStyles.name, styles.heroName]}>
             {name}
-          </Text>
+          </NameText>
           <MaterialCommunityIcons
             name="pencil"
             size={iconSize.sm}
@@ -254,14 +255,13 @@ export function HeroNameRow({ name, nameTestID, icon, editable, accessory }: Her
           />
         </Pressable>
       ) : (
-        <Text
+        <NameText
           testID={nameTestID}
           accessibilityRole="header"
           style={[heroTextStyles.name, styles.heroName]}
-          numberOfLines={1}
         >
           {name}
-        </Text>
+        </NameText>
       )}
       {editable?.isEditing ? null : accessory}
     </View>
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: GRADIENT_HEIGHT,
+    height: HERO_GRADIENT_HEIGHT,
   },
   infoOverlay: {
     position: 'absolute',

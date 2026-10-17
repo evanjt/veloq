@@ -18,7 +18,7 @@ describe('groupingLegendRows', () => {
     expect(rows.map((r) => r.kind)).toEqual(['largest', 'merging', 'other', 'dropped']);
     const other = rows.find((r) => r.kind === 'other');
     const dropped = rows.find((r) => r.kind === 'dropped');
-    expect(other?.colour).toBe(brand.tealLight);
+    expect(other?.colour).toBe(brand.blue600);
     expect(other?.opacity).toBe(GROUPING_LAYER_PAINT.other.opacity);
     expect(dropped?.colour).toBe(mapLayerColors.casing);
     expect(dropped?.labelKey).toBe('settings.groupingLegendDropped');

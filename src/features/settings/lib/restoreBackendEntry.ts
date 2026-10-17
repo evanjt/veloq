@@ -16,7 +16,7 @@ import { RestoreRefusedError, restoreRefusal } from './restoreRefusal';
 import type { RestoreOutcome } from './restoreNotice';
 
 /**
- * Whether the backup went in or is held for sign-in. Rejects with the download's
+ * Whether the backup is held for sign-in, or what it gave up on once it went in. Rejects with the download's
  * transfer failure, or with a `RestoreRefusedError` naming why it did not go in.
  */
 export async function restoreBackendEntry(
@@ -33,13 +33,10 @@ export async function restoreBackendEntry(
     if (await holdImportWhileSignedOut(destPath, entry.id)) {
       return 'held';
     }
-    if (entry.id.endsWith('.zip')) {
-      await restoreRecordBackup(destPath);
-    } else {
-      const result = await restoreDatabaseBackup(destPath);
-      if (!result.success) throw new RestoreRefusedError(result.refusal ?? 'failed');
-    }
-    return 'restored';
+    if (entry.id.endsWith('.zip')) return await restoreRecordBackup(destPath);
+    const result = await restoreDatabaseBackup(destPath);
+    if (!result.success) throw new RestoreRefusedError(result.refusal ?? 'failed');
+    return result.drops;
   } catch (error) {
     throw isBackupTransferError(error) ? error : new RestoreRefusedError(restoreRefusal(error));
   } finally {

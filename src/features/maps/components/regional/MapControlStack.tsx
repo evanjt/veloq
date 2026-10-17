@@ -12,6 +12,7 @@ import { View, Pressable, StyleSheet, Text, Animated, ActivityIndicator } from '
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { IconButton } from '@/shared/ui/IconButton';
+import { RowDivider } from '@/shared/ui/RowGroup';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import {
   colors,
@@ -24,7 +25,7 @@ import {
   shadows,
   spacing,
   typography,
-  stroke,
+  themePalette,
 } from '@/theme';
 import { CompassArrow } from '@/shared/ui';
 import { useBackDismiss } from '@/shared/app/useBackDismiss';
@@ -76,7 +77,7 @@ function ColumnButton({
       <IconButton
         testID={testID}
         variant="ghost"
-        style={[styles.columnButton, active && styles.columnButtonActive]}
+        style={[styles.columnButton, active && { backgroundColor: themePalette(isDark).primary }]}
         onPress={onPress}
         disabled={disabled}
         accessibilityLabel={accessibilityLabel}
@@ -393,7 +394,9 @@ export function MapControlStack({
           ) : null}
           {hasActivities ? (
             <>
-              <View style={[styles.menuDivider, isDark && styles.menuDividerDark]} />
+              <View style={styles.menuDividerGap}>
+                <RowDivider inset="none" />
+              </View>
               <MenuRow
                 testID="map-fit-all"
                 icon="fit-to-screen-outline"
@@ -430,9 +433,6 @@ const styles = StyleSheet.create({
     height: controlHeight.button,
     borderRadius: layout.borderRadiusFull,
   },
-  columnButtonActive: {
-    backgroundColor: colors.primary,
-  },
   menu: {
     position: 'absolute',
     right: spacing.md + controlHeight.button + spacing.sm,
@@ -457,12 +457,7 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     flexShrink: 1,
   },
-  menuDivider: {
-    height: stroke.hairline,
-    backgroundColor: colorWithOpacity(ink.black, 0.1),
-    marginVertical: spacing.xs,
-  },
-  menuDividerDark: {
-    backgroundColor: colorWithOpacity(ink.white, 0.1),
+  menuDividerGap: {
+    paddingVertical: spacing.xs,
   },
 });

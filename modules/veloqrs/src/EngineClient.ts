@@ -1491,6 +1491,14 @@ class EngineClient implements DelegateHost {
     );
   }
 
+  /**
+   * Start the GPS track pass over a range, or have the engine keep it owed.
+   * The engine starts an owed pass itself, so a refusal is never asked again.
+   */
+  startGpsPass(oldest: string, newest: string, head: string[]): generated.FfiGpsPassStart {
+    return this.timed('startGpsPass', () => generated.startGpsPass(oldest, newest, head));
+  }
+
   cancelFetchAndStore(run: number): boolean {
     return this.timed('cancelFetchAndStore', () => generated.cancelFetchAndStore(run));
   }

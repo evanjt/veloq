@@ -25,7 +25,7 @@
 use std::collections::HashMap;
 
 use crate::{
-    FfiDirectionDeltas, FfiLapDelta, FfiLapDeltaMissing, FfiLapDeltaMissingReason,
+    FfiDirectionDeltas, FfiFloat32Array, FfiLapDelta, FfiLapDeltaMissing, FfiLapDeltaMissingReason,
     FfiReferenceSource, FfiSectionLapCurves, FfiSplitSummary, GpsPoint, SectionLap,
     SectionPerformanceResult,
 };
@@ -387,6 +387,7 @@ fn lap_clock(axis: &Axis, track: &[GpsPoint], times: &[u32], reverse: bool) -> O
 struct Deltas {
     delta_secs: Vec<f32>,
     split_delta_secs: Vec<f32>,
+    split_secs: Vec<f32>,
     end_delta_secs: Option<f32>,
 }
 
@@ -412,11 +413,22 @@ fn lap_deltas(axis: &Axis, lap: &LapClock, reference: &LapClock) -> Option<Delta
     let per_split = (SPLIT_STEP_M / GRID_STEP_M).round() as usize;
     let last = axis.grid.len() - 1;
     let splits = last.div_ceil(per_split);
+    let bounds = |b: usize| (b * per_split, ((b + 1) * per_split).min(last));
     let split_delta_secs = (0..splits)
         .map(|b| {
-            let (s, e) = (b * per_split, ((b + 1) * per_split).min(last));
+            let (s, e) = bounds(b);
             if s >= from && e <= to {
                 (delta[e] - delta[s]) as f32
+            } else {
+                f32::NAN
+            }
+        })
+        .collect();
+    let split_secs = (0..splits)
+        .map(|b| {
+            let (s, e) = bounds(b);
+            if s >= lap.from && e <= lap.to {
+                (lap.times[e] - lap.times[s]) as f32
             } else {
                 f32::NAN
             }
@@ -427,6 +439,7 @@ fn lap_deltas(axis: &Axis, lap: &LapClock, reference: &LapClock) -> Option<Delta
     Some(Deltas {
         delta_secs: delta.iter().map(|d| *d as f32).collect(),
         split_delta_secs,
+        split_secs,
         end_delta_secs: whole.then(|| delta[to] as f32),
     })
 }
@@ -490,6 +503,20 @@ fn reference_lap<'a>(
                 && lap.counts_for_record(best.section_distance)
         })?;
     Some((lap, FfiReferenceSource::Record))
+}
+
+/// The activity and start index of the lap that held a direction's record
+/// before the one holding it now: the step before the last of the record
+/// progression.
+fn previous_record_lap(perf: &SectionPerformanceResult, reverse: bool) -> Option<(&str, u32)> {
+    let progression = crate::persistence::records::section_record_progression(perf, reverse);
+    let step = progression.len().checked_sub(2).map(|i| &progression[i])?;
+    perf.records
+        .iter()
+        .filter(|record| record.activity_id == step.activity_id)
+        .flat_map(|record| &record.laps)
+        .find(|lap| lap.id == step.lap_id)
+        .map(|lap| (lap.activity_id.as_str(), lap.start_index))
 }
 
 /// The laps a split's median needs. Measured over the laps beside the record,
@@ -572,14 +599,72 @@ fn split_summary(laps: &[FfiLapDelta], reference_activity_id: &str) -> Option<Ff
         })
 }
 
+/// The typical lap's delta at each grid point: the median over the laps other
+/// than the reference that reach it, NaN where fewer than
+/// [`SUMMARY_MIN_LAPS`] do. `None` when no point has that many.
+fn typical_curve(laps: &[FfiLapDelta], reference_activity_id: &str) -> Option<FfiFloat32Array> {
+    let laps: Vec<&FfiLapDelta> = laps
+        .iter()
+        .filter(|lap| !is_reference(lap, reference_activity_id))
+        .collect();
+    let points = laps
+        .iter()
+        .map(|lap| lap.delta_secs.len())
+        .max()
+        .unwrap_or(0);
+    let mut typical = Vec::with_capacity(points);
+    let mut reached = false;
+    // One buffer for every point, as a long route has thousands of them.
+    let mut values: Vec<f32> = Vec::with_capacity(laps.len());
+    for point in 0..points {
+        values.clear();
+        values.extend(
+            laps.iter()
+                .filter_map(|lap| lap.delta_secs.get(point).copied())
+                .filter(|value| value.is_finite()),
+        );
+        if values.len() >= SUMMARY_MIN_LAPS {
+            values.sort_by(f32::total_cmp);
+            typical.push(quantile(&values, 0.5));
+            reached = true;
+        } else {
+            typical.push(f32::NAN);
+        }
+    }
+    reached.then(|| typical.into())
+}
+
+/// The reference a chart opens on for `highlight`: the athlete's own when set,
+/// else the record, unless the highlighted attempt is the record, which
+/// measured against itself is level everywhere and says nothing, and a
+/// previous record exists to measure it against instead.
+fn default_reference(
+    reference_activity_id: &str,
+    reference_source: FfiReferenceSource,
+    previous_record: Option<&FfiLapDelta>,
+    highlight: Option<&str>,
+) -> FfiReferenceSource {
+    match reference_source {
+        FfiReferenceSource::Record
+            if previous_record.is_some() && highlight == Some(reference_activity_id) =>
+        {
+            FfiReferenceSource::PreviousRecord
+        }
+        source => source,
+    }
+}
+
 /// One direction's laps against its reference, with the peak the plot scales
-/// to and the typical lap per split. `None` without a lap beside the
-/// reference, as a direction is worth drawing only with one.
+/// to, the typical lap per split and per grid point, the previous record and
+/// the reference the chart opens on for `highlight`. `None` without a lap
+/// beside the reference, as a direction is worth drawing only with one.
 fn compared(
     reference_activity_id: String,
     reference_source: FfiReferenceSource,
     laps: Vec<FfiLapDelta>,
     missing: Vec<FfiLapDeltaMissing>,
+    previous_record: Option<FfiLapDelta>,
+    highlight: Option<&str>,
 ) -> Option<FfiDirectionDeltas> {
     if laps
         .iter()
@@ -593,6 +678,13 @@ fn compared(
         .filter(|delta| delta.is_finite())
         .fold(0.0_f32, |peak, delta| peak.max(delta.abs()));
     let split_summary = split_summary(&laps, &reference_activity_id);
+    let typical_delta_secs = typical_curve(&laps, &reference_activity_id);
+    let default_reference = default_reference(
+        &reference_activity_id,
+        reference_source,
+        previous_record.as_ref(),
+        highlight,
+    );
     Some(FfiDirectionDeltas {
         reference_activity_id,
         reference_source,
@@ -600,6 +692,9 @@ fn compared(
         missing,
         peak_delta_secs,
         split_summary,
+        typical_delta_secs,
+        previous_record,
+        default_reference,
     })
 }
 
@@ -693,13 +788,26 @@ where
                         activity_date: record.activity_date as f64,
                         delta_secs: d.delta_secs.into(),
                         split_delta_secs: d.split_delta_secs.into(),
+                        split_secs: d.split_secs.into(),
                         end_delta_secs: d.end_delta_secs,
                     }),
                     None => missing.push(missed(FfiLapDeltaMissingReason::NotProjectable)),
                 }
             }
         }
-        compared(reference.activity_id.clone(), source, laps, missing)
+        let previous_record = previous_record_lap(perf, reverse).and_then(|(id, start)| {
+            laps.iter()
+                .find(|lap| lap.activity_id == id && lap.start_index == start)
+                .cloned()
+        });
+        compared(
+            reference.activity_id.clone(),
+            source,
+            laps,
+            missing,
+            previous_record,
+            None,
+        )
     };
 
     either(FfiSectionLapCurves {
@@ -712,10 +820,15 @@ where
 }
 
 /// The curves of the laps from `cutoff` on, measured against the reference
-/// the whole history chose. The time chips filter this way, so a chip change
+/// the whole history chose, with the reference a chart opens on for the
+/// highlighted attempt. The time chips filter this way, so a chip change
 /// computes nothing, and a kept lap shares its curve with the held one rather
-/// than copying it.
-pub(crate) fn in_range(curves: &FfiSectionLapCurves, cutoff: i64) -> Option<FfiSectionLapCurves> {
+/// than copying it. The previous record is kept whatever its date.
+pub(crate) fn in_range(
+    curves: &FfiSectionLapCurves,
+    cutoff: i64,
+    highlight: Option<&str>,
+) -> Option<FfiSectionLapCurves> {
     let cutoff = cutoff as f64;
     let ranged = |deltas: &Option<FfiDirectionDeltas>| {
         let deltas = deltas.as_ref()?;
@@ -734,6 +847,8 @@ pub(crate) fn in_range(curves: &FfiSectionLapCurves, cutoff: i64) -> Option<FfiS
                 .filter(|lap| lap.activity_date >= cutoff)
                 .cloned()
                 .collect(),
+            deltas.previous_record.clone(),
+            highlight,
         )
     };
     either(FfiSectionLapCurves {

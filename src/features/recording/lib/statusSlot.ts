@@ -1,6 +1,8 @@
 /**
  * Priority selection for the recording screen's single transient status
- * slot. At most one message shows at a time: a refused foreground service beats
+ * slot. At most one message shows at a time. A lap press comes first, because
+ * it answers the athlete's own press and lasts seconds, and every standing
+ * warning returns once it has gone. Then a refused foreground service beats
  * a failing crash backup, which beats a degraded GPS signal, which beats a
  * sensor issue, which beats a km-split toast. The service comes first because
  * it costs the whole ride the moment the screen goes. A failing backup costs it
@@ -23,9 +25,11 @@ export interface StatusSlotInput {
   gpsWarningOpensSettings?: boolean | undefined;
   sensorIssue: string | null;
   splitBanner: SplitBanner | null;
+  /** The lap just pressed, its number and time, for a few seconds. */
+  lapBanner?: string | null | undefined;
 }
 
-export type StatusMessageKind = 'background' | 'backup' | 'gps' | 'sensor' | 'split';
+export type StatusMessageKind = 'background' | 'backup' | 'gps' | 'sensor' | 'split' | 'lap';
 
 export interface StatusMessage {
   kind: StatusMessageKind;
@@ -42,7 +46,9 @@ export function selectStatusMessage({
   gpsWarningOpensSettings,
   sensorIssue,
   splitBanner,
+  lapBanner,
 }: StatusSlotInput): StatusMessage | null {
+  if (lapBanner) return { kind: 'lap', text: lapBanner, spoken: lapBanner };
   if (backgroundTrackingWarning)
     return {
       kind: 'background',

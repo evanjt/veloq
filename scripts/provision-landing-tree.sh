@@ -85,6 +85,12 @@ provision_submodules() {
 # or patched here, and `veloqrs` pointed at this tree's own module, so `tsc` and
 # the bindings check read the candidate. A whole-directory link would make that
 # one entry the main checkout's, and repointing it would repoint the install.
+#
+# A reused tree can hold entries that are not links into that install: links
+# into another tree's, a patched copy taken from an older install, a package
+# the main checkout has since dropped. Each would serve the packages of another
+# lockfile, so every entry that is not exactly the link this makes is replaced,
+# and every entry the main checkout's install lacks is removed.
 provision_modules() {
   local there="$MAIN/node_modules" here="$TREE/node_modules" entry
   [ -d "$there" ] || return 0
@@ -99,11 +105,21 @@ provision_modules() {
     rm "$here"
   fi
   mkdir -p "$here"
+  for entry in "$here"/* "$here"/.[!.]*; do
+    [ -e "$entry" ] || [ -L "$entry" ] || continue
+    entry=$(basename "$entry")
+    [ "$entry" != veloqrs ] || continue
+    [ -e "$there/$entry" ] || [ -L "$there/$entry" ] || rm -rf "${here:?}/$entry"
+  done
   for entry in "$there"/* "$there"/.[!.]*; do
     [ -e "$entry" ] || [ -L "$entry" ] || continue
     entry=$(basename "$entry")
     [ "$entry" != veloqrs ] || continue
-    [ -e "$here/$entry" ] || [ -L "$here/$entry" ] || ln -s "$there/$entry" "$here/$entry"
+    if [ -L "$here/$entry" ] && [ "$(readlink "$here/$entry")" = "$there/$entry" ]; then
+      continue
+    fi
+    rm -rf "${here:?}/$entry"
+    ln -s "$there/$entry" "$here/$entry"
   done
   if [ -d "$TREE/modules/veloqrs" ] &&
     [ "$(readlink "$here/veloqrs" 2>/dev/null)" != "$TREE/modules/veloqrs" ]; then

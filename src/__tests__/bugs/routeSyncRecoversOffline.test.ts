@@ -44,6 +44,7 @@ describe('online, with work to fetch', () => {
   it('fetches and leaves the recovery to the pass that has nothing to fetch', () => {
     expect(plan).toEqual({
       fetchGps: true,
+      oweGpsToEngine: false,
       fetchStrength: true,
       backfillStreams: true,
       recoverDetection: false,
@@ -52,9 +53,10 @@ describe('online, with work to fetch', () => {
 });
 
 describe('offline', () => {
-  it('runs the local recovery and asks the network for nothing', () => {
+  it('runs the local recovery and owes the new tracks to the engine', () => {
     expect(routeSyncPlan({ online: false, isDemo: false, newGpsCount: 12 })).toEqual({
       fetchGps: false,
+      oweGpsToEngine: true,
       fetchStrength: false,
       backfillStreams: false,
       recoverDetection: true,
@@ -64,6 +66,7 @@ describe('offline', () => {
   it('recovers the same way when there was nothing new to fetch anyway', () => {
     expect(routeSyncPlan({ online: false, isDemo: false, newGpsCount: 0 })).toEqual({
       fetchGps: false,
+      oweGpsToEngine: false,
       fetchStrength: false,
       backfillStreams: false,
       recoverDetection: true,
@@ -75,6 +78,7 @@ describe('demo mode', () => {
   it('fetches its fixtures offline and asks intervals.icu for nothing', () => {
     expect(routeSyncPlan({ online: false, isDemo: true, newGpsCount: 3 })).toEqual({
       fetchGps: true,
+      oweGpsToEngine: false,
       fetchStrength: false,
       backfillStreams: false,
       recoverDetection: false,
@@ -84,6 +88,7 @@ describe('demo mode', () => {
   it('recovers when the fixtures are already in the engine', () => {
     expect(routeSyncPlan({ online: true, isDemo: true, newGpsCount: 0 })).toEqual({
       fetchGps: false,
+      oweGpsToEngine: false,
       fetchStrength: false,
       backfillStreams: false,
       recoverDetection: true,
@@ -95,6 +100,7 @@ describe('online with nothing new', () => {
   it('recovers, backfills and still asks for the strength files', () => {
     expect(routeSyncPlan({ online: true, isDemo: false, newGpsCount: 0 })).toEqual({
       fetchGps: false,
+      oweGpsToEngine: false,
       fetchStrength: true,
       backfillStreams: true,
       recoverDetection: true,
@@ -121,6 +127,7 @@ describe('the hook, offline with a new track', () => {
         batchFetchExerciseSets: () => 0,
         pollSectionDetection: mockPollDetection,
         getSectionDetectionProgress: () => null,
+        startGpsPass: () => ({ outcome: 8, run: 0, total: 0 }),
         subscribe: () => () => {},
       },
     } as unknown as ReturnType<typeof getNativeModule>);

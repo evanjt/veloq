@@ -3,16 +3,24 @@
  * because that is what fetches it, and an athlete looking for it went to Maps.
  *
  * Expected behaviour: the groups name what the athlete is doing, not which
- * subsystem owns the screen, and every row previews the state of its spoke so
- * the hub answers "what is this set to" without opening anything.
+ * subsystem owns the screen, no group holds a single row, and every row
+ * previews the state of its spoke so the hub answers "what is this set to"
+ * without opening anything. A row is titled as the screen it opens is.
  */
 
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 
 import SettingsScreen from '@/app/settings';
+import { SCREEN_HEADERS } from '@/shared/app/screenHeaders';
 import { spacing } from '@/theme';
+
+const mockTapTo = jest.fn();
+jest.mock('@/shared/app/navigation', () => ({
+  ...jest.requireActual('@/shared/app/navigation'),
+  tapTo: (...a: unknown[]) => mockTapTo(...a),
+}));
 
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
@@ -107,19 +115,35 @@ describe('Settings hub grouping', () => {
       'settings-nav-sync',
       'settings-nav-recording',
       'settings-nav-sensors',
+      'settings-nav-notifications',
+      'settings-nav-data-sources',
       'settings-group-keeps',
       'settings-nav-detection',
       'settings-nav-backup',
       'settings-nav-cache',
-      'settings-group-tells',
-      'settings-nav-notifications',
-      'settings-nav-data-sources',
     ]);
+  });
+
+  it('titles every row as the header of the screen it opens', async () => {
+    const screen = await render(<SettingsScreen />);
+    const rows = inRenderOrder(screen.toJSON()).filter((id) => id.startsWith('settings-nav-'));
+
+    const mismatched = rows.flatMap((id) => {
+      mockTapTo.mockClear();
+      const row = screen.getByTestId(id);
+      fireEvent.press(row);
+      const route = String(mockTapTo.mock.calls[0]?.[0]).replace(/^\//, '');
+      const rowTitle = row.findAllByType(Text)[0].props.children;
+      // The suite's translator answers a bare key with the key itself.
+      const headerTitle = SCREEN_HEADERS[route]?.titleKey;
+      return rowTitle === headerTitle ? [] : [{ id, rowTitle, headerTitle }];
+    });
+    expect(mismatched).toEqual([]);
   });
 
   it('gives every spoke a subtitle, so a new row cannot arrive bare', async () => {
     const screen = await render(<SettingsScreen />);
-    // The footer link is not a spoke and carries no preference of its own.
+    // Data sources is attribution and carries no preference of its own.
     const spokes = inRenderOrder(screen.toJSON()).filter(
       (id) => id.startsWith('settings-nav-') && id !== 'settings-nav-data-sources'
     );

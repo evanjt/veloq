@@ -26,9 +26,11 @@ import {
   ChartCanvas,
   ChartSurface,
   CurveLine,
+  niceScale,
   seriesSummary,
   seriesTable,
   useChartColors,
+  YAxisLabels,
   type SummarySeries,
 } from '@/shared/charts';
 import { EmptyState } from '@/shared/ui/EmptyState';
@@ -65,7 +67,13 @@ interface FtpPoint {
   date: string;
 }
 
-const CHART_PADDING = { top: 8 } as const;
+// Half a label line above the top tick, and a label line under the plot for the dates.
+const CHART_PADDING = {
+  top: typography.caption.lineHeight / 2,
+  bottom: typography.caption.lineHeight,
+} as const;
+/** Steps the watts axis is cut into, so the gutter carries three or four round values. */
+const Y_INTERVALS = 2;
 const SERIES = { y: (d: FtpPoint) => d.y };
 const xOf = (d: FtpPoint) => d.x;
 
@@ -117,7 +125,17 @@ export function FTPTrendChart({
   // The triangle is read as "black up-pointing triangle", so the badge is
   // named with the judgement it draws instead.
   const changeLabel = `${spokenVerdict(verdict, direction)}, ${Math.abs(ftpChange)} ${t('units.watts')}`;
-  const yDomain = useMemo<[number, number]>(() => [minFTP, maxFTP], [minFTP, maxFTP]);
+  const yScale = useMemo(() => niceScale([minFTP, maxFTP], Y_INTERVALS), [minFTP, maxFTP]);
+  const yDomain = yScale.domain;
+  const yTicks = useMemo(() => {
+    const watts = t('units.watts');
+    const top = yScale.ticks.length - 1;
+    // The unit is printed once, on the top label.
+    return yScale.ticks.map((value, i) => ({
+      value,
+      label: i === top ? `${value} ${watts}` : String(value),
+    }));
+  }, [yScale, t]);
   const reading = useMemo(() => {
     const watts = t('units.watts');
     const series: SummarySeries = {
@@ -192,72 +210,58 @@ export function FTPTrendChart({
 
       {/* Chart */}
       <ChartSurface summary={reading.summary} table={reading.table}>
-        <View style={chartStyles.chartWrapper}>
-          <ChartCanvas
-            data={chartData}
-            x={xOf}
-            series={SERIES}
-            yDomain={yDomain}
+        <View style={styles.plotRow}>
+          <YAxisLabels
+            ticks={yTicks}
+            domain={yDomain}
             padding={CHART_PADDING}
-            grid={5}
-          >
-            {({ points }) => {
-              const last = points.y[points.y.length - 1];
-              return (
+            testID="ftp-trend-y-axis"
+          />
+          <View style={chartStyles.chartWrapper}>
+            <ChartCanvas
+              data={chartData}
+              x={xOf}
+              series={SERIES}
+              yDomain={yDomain}
+              padding={CHART_PADDING}
+              gridValues={yScale.ticks}
+            >
+              {({ points }) => {
+                const last = points.y[points.y.length - 1];
+                return (
+                  <>
+                    <CurveLine points={points.y} color={chartColors.casing} strokeWidth={2.5} />
+                    <CurveLine points={points.y} color={chartColors.ftp} strokeWidth={1.5} />
+                    {last ? (
+                      <>
+                        <Circle cx={last.x} cy={last.y} r={6} color={chartColors.ftp} />
+                        <Circle cx={last.x} cy={last.y} r={3} color={colors.textOnDark} />
+                      </>
+                    ) : null}
+                  </>
+                );
+              }}
+            </ChartCanvas>
+
+            {/* X-axis labels */}
+            <View style={styles.xAxisOverlay} pointerEvents="none">
+              {chartData.length > 0 && (
                 <>
-                  <CurveLine points={points.y} color={chartColors.casing} strokeWidth={2.5} />
-                  <CurveLine points={points.y} color={chartColors.ftp} strokeWidth={1.5} />
-                  {last ? (
-                    <>
-                      <Circle cx={last.x} cy={last.y} r={6} color={chartColors.ftp} />
-                      <Circle cx={last.x} cy={last.y} r={3} color={colors.textOnDark} />
-                    </>
-                  ) : null}
+                  <Text
+                    maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                    style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
+                  >
+                    {formatMonth(chartData[0].date)}
+                  </Text>
+                  <Text
+                    maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                    style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
+                  >
+                    {formatMonth(chartData[chartData.length - 1].date)}
+                  </Text>
                 </>
-              );
-            }}
-          </ChartCanvas>
-
-          {/* X-axis labels */}
-          <View style={styles.xAxisOverlay} pointerEvents="none">
-            {chartData.length > 0 && (
-              <>
-                <Text
-                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                  style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-                >
-                  {formatMonth(chartData[0].date)}
-                </Text>
-                <Text
-                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                  style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-                >
-                  {formatMonth(chartData[chartData.length - 1].date)}
-                </Text>
-              </>
-            )}
-          </View>
-
-          {/* Y-axis labels */}
-          <View style={styles.yAxisOverlay} pointerEvents="none">
-            <Text
-              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              {Math.round(maxFTP)} {t('units.watts')}
-            </Text>
-            <Text
-              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              {Math.round((minFTP + maxFTP) / 2)} {t('units.watts')}
-            </Text>
-            <Text
-              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
-            >
-              {Math.round(minFTP)} {t('units.watts')}
-            </Text>
+              )}
+            </View>
           </View>
         </View>
       </ChartSurface>
@@ -296,19 +300,16 @@ const makeStyles = (palette: Palette) =>
       color: palette.textSecondary,
       marginTop: spacing.xxs,
     },
+    plotRow: {
+      flex: 1,
+      flexDirection: 'row',
+    },
     xAxisOverlay: {
       position: 'absolute',
       bottom: 0,
       left: spacing.xs,
       right: spacing.xs,
       flexDirection: 'row',
-      justifyContent: 'space-between',
-    },
-    yAxisOverlay: {
-      position: 'absolute',
-      top: spacing.sm,
-      bottom: spacing.md,
-      left: spacing.xs,
       justifyContent: 'space-between',
     },
     emptyState: {

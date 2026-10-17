@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   attributionText: {
-    fontSize: typography.pillLabel.fontSize,
+    ...typography.micro,
     color: colors.textSecondary,
   },
   attributionTextDark: {

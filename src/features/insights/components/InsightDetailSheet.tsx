@@ -5,7 +5,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { tapTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
-import * as haptics from '@/shared/ui/haptics';
 import {
   colors,
   colorWithOpacity,
@@ -35,11 +34,6 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
   const { isDark } = useTheme();
   const { t } = useTranslation();
 
-  const handleClose = useCallback(() => {
-    haptics.light();
-    onClose();
-  }, [onClose]);
-
   const detailTarget = viewInDetailTarget(insight);
   const handleNavigate = useCallback(() => {
     if (detailTarget) {
@@ -66,7 +60,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
       <SheetHeader
         title={insight.title}
         subtitle={insight.subtitle}
-        onClose={handleClose}
+        onClose={onClose}
         titleTestID="insight-detail-title"
         leading={
           <View

@@ -19,7 +19,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { hasStarted } from 'veloqrs';
 import { useTheme } from '@/shared/app';
@@ -30,7 +29,7 @@ import {
   ScreenSafeAreaView,
   useBottomClearance,
 } from '@/shared/ui';
-import { brand, colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, layout, spacing, typography, themePalette } from '@/theme';
 import {
   usePreviewDetect,
   getPhaseDisplayKey,
@@ -57,6 +56,7 @@ import type { PreviewCentre, PreviewParams, PreviewSection } from 'veloqrs';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { goBack, tapBack } from '@/shared/app/navigation';
 import { confirmAction, inform } from '@/shared/ui/dialog';
+import { FitText } from '@/shared/ui/FitText';
 
 const PARAM_KEYS = [
   'proximityThreshold',
@@ -69,6 +69,7 @@ const PARAM_KEYS = [
 function DetectionPreviewScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const bottomClearance = useBottomClearance({ insetTaken: true });
 
   const client = useMemo(() => getEngine(), []);
@@ -129,7 +130,6 @@ function DetectionPreviewScreenContent() {
   const [showRemoved, setShowRemoved] = useState(true);
 
   const bg = isDark ? darkColors.background : colors.background;
-  const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
@@ -301,15 +301,13 @@ function DetectionPreviewScreenContent() {
           <View>
             <View style={[styles.runBtn, { backgroundColor: surface, borderColor: border }]}>
               <ActivityIndicator size="small" color={textSecondary} />
-              <Text style={[styles.runText, { color: textSecondary }]} numberOfLines={1}>
-                {runLabel}
-              </Text>
+              <FitText style={[styles.runText, { color: textSecondary }]}>{runLabel}</FitText>
             </View>
             <ProgressBar
               done={runPercent}
               total={100}
               label={runLabel}
-              color={brand.tealLight}
+              color={palette.primary}
               testID="preview-progress"
               fillTestID="preview-progress-fill"
             />
@@ -338,13 +336,7 @@ function DetectionPreviewScreenContent() {
               style={styles.actionBtn}
               onPress={handlePreview}
               disabled={!selectedCentre}
-              icon={
-                <MaterialCommunityIcons
-                  name="magnify-scan"
-                  size={iconSize.md}
-                  color={previewIsNext ? colors.textOnPrimary : textPrimary}
-                />
-              }
+              icon="magnify-scan"
               label={t('settings.previewRun')}
               testID="preview-run-button"
             />

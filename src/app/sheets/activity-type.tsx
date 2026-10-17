@@ -8,7 +8,6 @@ import { useTheme } from '@/shared/app';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import {
-  brand,
   colors,
   colorWithOpacity,
   darkColors,
@@ -18,6 +17,7 @@ import {
   spacing,
   typography,
   stroke,
+  themePalette,
 } from '@/theme';
 import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
 import { useRecordingPreferences } from '@/features/recording';
@@ -74,6 +74,7 @@ function activityTypeSections(
 function ActivityTypeSheetContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const { input, resolve } = useSheetRequest<ActivityTypeSheetInput, ActivityType>();
   const recent = useRecordingPreferences((state) => state.recentActivityTypes);
   const selectedType = input?.selectedType;
@@ -129,7 +130,7 @@ function ActivityTypeSheetContent() {
               style={pressable([
                 styles.row,
                 { borderBottomColor: border },
-                isSelected && styles.rowSelected,
+                isSelected && { backgroundColor: colorWithOpacity(palette.primary, 0.08) },
               ])}
               onPress={() => resolve(item)}
               android_ripple={pressRipple}
@@ -144,7 +145,7 @@ function ActivityTypeSheetContent() {
                 {t(`activityTypes.${item}`, item)}
               </Text>
               {isSelected ? (
-                <MaterialCommunityIcons name="check" size={iconSize.md} color={brand.teal} />
+                <MaterialCommunityIcons name="check" size={iconSize.md} color={palette.primary} />
               ) : null}
             </Pressable>
           );
@@ -185,9 +186,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     minHeight: layout.minTapTarget,
     borderBottomWidth: stroke.hairline,
-  },
-  rowSelected: {
-    backgroundColor: colorWithOpacity(brand.teal, 0.08),
   },
   icon: {
     width: 28,

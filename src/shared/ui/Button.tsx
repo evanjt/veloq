@@ -17,6 +17,11 @@
  * `controlHeight` and the rest of the platform minimum is hit slop, so the
  * target holds and a button bar does not read as a row of boxes.
  *
+ * **The button owns its glyph.** A caller names the glyph and the button draws
+ * it at the icon rung of its size, `iconSize.sm` beside the small label and
+ * `iconSize.md` beside the medium one, in the label's own ink, so each variant
+ * gets the right colour with no caller input and a control never draws two.
+ *
  * Tokens only. No hex literal and no `fontSize` number, which is what makes
  * converting the eighty-odd call sites mechanical rather than a redesign.
  */
@@ -24,7 +29,6 @@
 import React from 'react';
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -33,14 +37,19 @@ import {
   type ViewStyle,
 } from 'react-native';
 
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
 import { useTheme } from '@/shared/app';
+import { ChromeIcon, type ChromeRole } from '@/shared/ui/ChromeIcon';
+import { DisclosureChevron } from '@/shared/ui/DisclosureChevron';
 import * as haptics from '@/shared/ui/haptics';
-import { pressRipple } from '@/shared/ui/pressFeedback';
+import { pressRipple, pressedOpacity } from '@/shared/ui/pressFeedback';
 import {
   colorWithOpacity,
   colors,
   controlHeight,
   darkColors,
+  iconSize,
   ink as inkTone,
   inputBoundary,
   layout,
@@ -50,9 +59,30 @@ import {
   typography,
   stroke,
 } from '@/theme';
+import { DENSE_TEXT_SCALE } from './DenseText';
+import { FitText } from './FitText';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'destructive';
 export type ButtonSize = 'sm' | 'md';
+
+type MaterialGlyph = keyof typeof MaterialCommunityIcons.glyphMap;
+
+/**
+ * What sits beside a label. The button sizes and colours it; a caller only
+ * names it.
+ *
+ * - A glyph name, drawn in the label's ink.
+ * - `{ chrome }`, an action every app has, in the platform's own glyph.
+ * - `{ name, ink }`, a glyph whose colour carries meaning of its own, such as
+ *   a sport or a chart series. The call site says why.
+ * - `{ spinner: true }`, work running behind a button that still takes a press,
+ *   such as Cancel. A button whose press is refused meanwhile is `loading`.
+ */
+export type ButtonGlyph =
+  | MaterialGlyph
+  | { chrome: ChromeRole }
+  | { name: MaterialGlyph; ink: string }
+  | { spinner: true };
 
 export interface ButtonProps {
   label: string;
@@ -67,29 +97,23 @@ export interface ButtonProps {
    * confirm's accept does, once.
    */
   opensConfirm?: boolean;
-  /** Swaps the label for a spinner and refuses the press, without resizing. */
+  /**
+   * Hides the label under a spinner and refuses the press. The label stays in the
+   * layout, so the button keeps its width.
+   */
   loading?: boolean;
-  /** The button opens and closes something, and this is whether it is open. */
+  /**
+   * The button opens and closes something in place, and this is whether it is
+   * open. With no `icon` of its own it draws the disclosure chevron.
+   */
   expanded?: boolean;
-  /** Sits beside the label, inside the same tap target. */
-  icon?: React.ReactNode;
+  /** Sits before the label, inside the same tap target. */
+  icon?: ButtonGlyph;
   style?: StyleProp<ViewStyle>;
   testID?: string;
   labelTestID?: string;
   /** The pressable, for a sheet that anchors to the control that opened it. */
   ref?: React.Ref<View>;
-}
-
-/**
- * Android takes a ripple and no opacity, iOS the reverse. Passing `undefined`
- * for `android_ripple` on iOS is what keeps this one prop rather than two
- * components.
- */
-export const ripple = pressRipple;
-
-export function pressedOpacity(pressed: boolean): number {
-  if (Platform.OS === 'android') return 1;
-  return pressed ? opacity.pressed : 1;
 }
 
 /** The ground, the border and the text, per variant and per theme. */
@@ -110,7 +134,7 @@ export function paint(variant: ButtonVariant, isDark: boolean) {
         borderColor: 'transparent',
         borderWidth: 0,
         // A label with no ground of its own is text on the page, so it takes the accent's text role.
-        color: palette.linkTeal,
+        color: palette.actionLink,
       };
     case 'destructive':
       return {
@@ -129,6 +153,21 @@ export function paint(variant: ButtonVariant, isDark: boolean) {
         color: colors.textOnPrimary,
       };
   }
+}
+
+/** The glyph rung beside each label size. */
+const GLYPH_SIZE = {
+  sm: iconSize.sm,
+  md: iconSize.md,
+} as const;
+
+function Glyph({ glyph, size, color }: { glyph: ButtonGlyph; size: number; color: string }) {
+  if (typeof glyph === 'string') {
+    return <MaterialCommunityIcons name={glyph} size={size} color={color} />;
+  }
+  if ('chrome' in glyph) return <ChromeIcon name={glyph.chrome} size={size} color={color} />;
+  if ('spinner' in glyph) return <ActivityIndicator size="small" color={color} />;
+  return <MaterialCommunityIcons name={glyph.name} size={size} color={glyph.ink} />;
 }
 
 export function Button({
@@ -150,6 +189,7 @@ export function Button({
   const { isDark } = useTheme();
   const skin = paint(variant, isDark);
   const inert = disabled || loading;
+  const glyphSize = GLYPH_SIZE[size];
   // A destructive button acts on press, so it carries the weight of the act itself.
   const handlePress =
     variant === 'destructive' && !opensConfirm
@@ -171,7 +211,7 @@ export function Button({
         ...(expanded !== undefined && { expanded }),
       }}
       hitSlop={BUTTON_SLOP[size]}
-      android_ripple={inert ? undefined : ripple}
+      android_ripple={inert ? undefined : pressRipple}
       disabled={inert}
       onPress={handlePress}
       style={({ pressed }) => [
@@ -186,27 +226,39 @@ export function Button({
         style,
       ]}
     >
+      <View
+        testID={testID ? `${testID}-content` : undefined}
+        style={[styles.row, loading && styles.hidden]}
+      >
+        {icon !== undefined ? (
+          <Glyph glyph={icon} size={glyphSize} color={skin.color} />
+        ) : expanded !== undefined ? (
+          <DisclosureChevron expanded={expanded} size={glyphSize} color={skin.color} />
+        ) : null}
+        <Text
+          testID={labelTestID ?? (testID && `${testID}-label`)}
+          style={[
+            size === 'sm' ? styles.labelSm : styles.labelMd,
+            styles.label,
+            { color: skin.color },
+          ]}
+        >
+          {label}
+        </Text>
+      </View>
       {loading ? (
-        <ActivityIndicator
-          testID={testID ? `${testID}-spinner` : undefined}
-          color={skin.color}
-          size="small"
-        />
-      ) : (
-        <View style={styles.row}>
-          {icon}
-          <Text
-            testID={labelTestID ?? (testID && `${testID}-label`)}
-            style={[
-              size === 'sm' ? styles.labelSm : styles.labelMd,
-              styles.label,
-              { color: skin.color },
-            ]}
-          >
-            {label}
-          </Text>
+        <View
+          testID={testID ? `${testID}-spinner-frame` : undefined}
+          style={[StyleSheet.absoluteFill, styles.spinnerFrame]}
+          pointerEvents="none"
+        >
+          <ActivityIndicator
+            testID={testID ? `${testID}-spinner` : undefined}
+            color={skin.color}
+            size="small"
+          />
         </View>
-      )}
+      ) : null}
     </Pressable>
   );
 }
@@ -214,7 +266,8 @@ export function Button({
 export interface ToggleButtonProps {
   label: string;
   onPress: () => void;
-  icon?: React.ReactNode;
+  /** Drawn in the label's ink at the size's icon rung, as on `Button`. */
+  icon?: ButtonGlyph;
   selected?: boolean;
   disabled?: boolean;
   size?: ButtonSize;
@@ -265,7 +318,7 @@ export function ToggleButton({
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ selected, disabled }}
       hitSlop={CHIP_SLOP[size]}
-      android_ripple={disabled ? undefined : ripple}
+      android_ripple={disabled ? undefined : pressRipple}
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
@@ -279,15 +332,18 @@ export function ToggleButton({
       ]}
     >
       <View style={styles.row}>
-        {icon}
-        <Text
+        {icon !== undefined ? (
+          <Glyph glyph={icon} size={GLYPH_SIZE[size]} color={labelInk} />
+        ) : null}
+        <FitText
+          maxFontSizeMultiplier={DENSE_TEXT_SCALE}
           testID={testID ? `${testID}-label` : undefined}
-          numberOfLines={1}
           style={[styles.chipLabel, { color: labelInk }]}
         >
           {label}
           {count !== undefined && (
             <Text
+              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
               testID={testID ? `${testID}-count` : undefined}
               style={[styles.chipCount, { color: labelInk }]}
             >
@@ -295,7 +351,7 @@ export function ToggleButton({
               {count}
             </Text>
           )}
-        </Text>
+        </FitText>
       </View>
     </Pressable>
   );
@@ -304,10 +360,11 @@ export function ToggleButton({
 /**
  * The ground of a chip that is not chosen, under a `textSecondary` label. In
  * dark, white at 0.15 over `surfaceCard` lifted it until the label read
- * 3.78:1; at 0.08 the label reads 4.76:1 on the lightest dark surface.
+ * 3.78:1. White at 0.05 keeps the selected blue 3.16:1 from it on `surface`,
+ * where 0.08 left 2.89:1, so the chosen chip still steps in lightness.
  */
 function chipWash(isDark: boolean): string {
-  return colorWithOpacity(isDark ? inkTone.white : inkTone.black, 0.08);
+  return isDark ? opacity.overlayDark.light : colorWithOpacity(inkTone.black, 0.08);
 }
 
 export interface ToggleButtonRowProps<T extends string> {
@@ -385,6 +442,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: spacing.xs,
+  },
+  // Hidden rather than unmounted, so a loading button measures what an idle one does.
+  hidden: {
+    opacity: 0,
+  },
+  spinnerFrame: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   // A label wraps and the button grows at large text sizes rather than cutting
   // its words; shrinking inside the row is what lets it wrap beside an icon.

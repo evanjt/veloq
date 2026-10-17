@@ -33,6 +33,7 @@ import type { CalendarEvent } from '@/types';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { pressable, pressRipple } from '@/shared/ui';
 import { tapTo } from '@/shared/app/navigation';
+import { NameText } from '@/shared/ui/NameText';
 
 const PR_RECENCY_DAYS = 7;
 
@@ -167,7 +168,7 @@ const SectionHighlights = React.memo(function SectionHighlights({
 }) {
   const { t } = useTranslation();
   const displayed = sections.slice(0, 3);
-  const recentPRCount = displayed.filter(
+  const recentPRCount = sections.filter(
     (s) => s.prTimeSecs != null && s.prDaysAgo != null && s.prDaysAgo <= PR_RECENCY_DAYS
   ).length;
 
@@ -203,16 +204,15 @@ const SectionHighlights = React.memo(function SectionHighlights({
             accessibilityRole="button"
             accessibilityLabel={section.name}
           >
-            <Text
+            <NameText
               style={[
                 styles.sectionName,
                 isDark && styles.textLight,
                 isRecentPR && styles.sectionNamePR,
               ]}
-              numberOfLines={1}
             >
               {section.name}
-            </Text>
+            </NameText>
             <View style={styles.sectionMeta}>
               {prTimeSecs != null && isRecentPR ? (
                 <View style={styles.prCelebration}>
@@ -367,16 +367,16 @@ const styles = StyleSheet.create({
   },
   prDelta: {
     ...typography.captionBold,
-    color: colors.linkTeal,
+    color: colors.actionLink,
     fontVariant: ['tabular-nums'],
   },
   prBadgeAccent: {
     ...typography.captionBold,
-    color: colors.linkTeal,
+    color: colors.actionLink,
     fontVariant: ['tabular-nums'],
   },
   accentTextDark: {
-    color: darkColors.linkTeal,
+    color: darkColors.actionLink,
   },
   trendArrow: {
     fontSize: typography.bodyCompact.fontSize,

@@ -9,7 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 
-import { bodyDiagram, brand, duration, layers, layout, loupeChrome, stroke } from '@/theme';
+import { bodyDiagram, strengthTone, duration, layers, layout, loupeChrome, stroke } from '@/theme';
 import { useTheme } from '@/shared/app';
 
 import { BODY_INTRINSIC_H, BODY_INTRINSIC_W, bodyPairLayout } from '../lib/bodyScale';
@@ -451,7 +451,7 @@ const styles = StyleSheet.create({
     borderRadius: LOUPE_SIZE / 2,
     overflow: 'hidden',
     borderWidth: stroke.three,
-    borderColor: brand.tealLight,
+    borderColor: strengthTone.primary,
     backgroundColor: loupeChrome.bgLight,
     justifyContent: 'center',
     alignItems: 'center',

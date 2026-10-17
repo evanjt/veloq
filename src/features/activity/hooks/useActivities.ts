@@ -19,7 +19,6 @@ import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import type { Activity, ActivityDetail, ActivityStreams, IntervalsDTO } from '@/types';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { useReconnect } from '@/shared/app/useRetryTriggers';
 import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
 import { useDetailCoordinates } from './useDetailCoordinates';
 import { parseBodies, readActivities } from '@/shared/native/storedActivities';
@@ -58,10 +57,11 @@ function requestActivityWindow(oldest: string, newest: string): void {
 }
 
 /**
- * Keep asking the engine for a window until it is local, without reading it.
- * The ask goes out when the window changes and on a reconnect. A window
- * refused because the launch sync holds the exclusive slot is not asked again:
- * the engine keeps it owed and starts it when the slot frees.
+ * Ask the engine for a window, without reading it. The ask goes out when the
+ * window or the athlete changes, and nowhere else: a window refused because
+ * the launch sync holds the exclusive slot is kept owed and started as the
+ * slot frees, and one that failed for the connection is started again on the
+ * online edge, both by the engine.
  */
 export function useActivityWindowRequest(oldest: string, newest: string, enabled = true): void {
   const athleteId = useAuthStore((s) => s.athleteId);
@@ -72,10 +72,6 @@ export function useActivityWindowRequest(oldest: string, newest: string, enabled
   }, [enabled, athleteId, oldest, newest]);
 
   useEffect(askForWindow, [askForWindow]);
-
-  // A window accepted while the connection was dropping may have fetched
-  // nothing, and the mount effect never re-runs for an unchanged window.
-  useReconnect(askForWindow);
 }
 
 interface UseActivitiesOptions {
@@ -186,13 +182,6 @@ export function useInfiniteActivities() {
     gcTime: CACHE.HOUR, // 1 hour - keep in memory for navigation
     maxPages: 10,
     enabled: isAuthenticated && !!athleteId,
-  });
-
-  // A reconnect is the point where a window that came back empty is worth
-  // asking for again. The refetch replays every loaded page through the
-  // `queryFn`, and the engine decides which of them still owe a download.
-  useReconnect(() => {
-    void query.refetch();
   });
 
   // All activities flattened from loaded pages
@@ -505,10 +494,6 @@ export function useRangeActivities(range: FeedRange | null) {
     staleTime: Infinity,
     gcTime: CACHE.HOUR,
     enabled: isAuthenticated && !!athleteId && range !== null,
-  });
-
-  useReconnect(() => {
-    if (range) void query.refetch();
   });
 
   const allActivities = useMemo(() => query.data?.pages.flat() ?? [], [query.data]);

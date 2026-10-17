@@ -168,11 +168,16 @@ describe.each(['sections', 'charts'])('scrubbing the 2D activity map on %s', (ta
     return page;
   };
 
-  it('builds the map fitted to the track, with the shared padding', async () => {
+  it('builds the map fitted to the track below the header', async () => {
     await render(map(null));
 
     expect(surface().html).toHaveLength(1);
-    expect(surface().html[0]).toContain(`_fitPadding = ${TRACK_FIT_PADDING}`);
+    const literal = /_fitPadding = (\{[^}]*\})/.exec(surface().html[0])?.[1];
+    expect(literal).toBeDefined();
+    const padding = JSON.parse(literal!) as Record<'top' | 'right' | 'bottom' | 'left', number>;
+    expect(padding.left).toBe(TRACK_FIT_PADDING);
+    expect(padding.top).toBeGreaterThan(TRACK_FIT_PADDING);
+    expect(padding.right).toBe(TRACK_FIT_PADDING);
   });
 
   it('never fits the track a second time, on ready or on scrub', async () => {

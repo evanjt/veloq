@@ -24,19 +24,13 @@ import {
   formatSportSpeed,
   formatTemperature,
 } from '@/shared/format/format';
-import {
-  formZoneFromLoads,
-  formatForm,
-  formZoneTextColor,
-  formZoneLabel,
-} from '@/features/fitness';
+import { formZoneFromLoads, formatForm, formZoneLabel } from '@/features/fitness';
 import { cadenceUnitLabel } from '@/features/activity/lib/cadenceUnit';
 import { storedDecoupling } from '@/features/activity/lib/decoupling';
 import type { Activity, WellnessData } from '@/types';
 import { MaxHrSource, type ActivityFitnessImpact, type ActivitySummary } from 'veloqrs';
 import type { StatDetail } from './types';
 import type { ActivityNewGround } from '../../hooks/useActivitySectionHighlights';
-import { colors, darkColors } from '@/theme';
 import { FEELS_LIKE_THRESHOLD } from '@/constants';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { formFromLoads } from '@/shared/math';
@@ -58,12 +52,6 @@ const METRIC_EXPLANATION_KEYS: Record<string, string> = {
 interface UseActivityStatsOptions {
   activity: Activity;
   wellness?: WellnessData | null | undefined;
-  /**
-   * The theme, for the card marks. Passed in rather than read from the app
-   * shell: this hook is data, and reaching the shell for a colour pulls the
-   * native module into every test that renders a stat.
-   */
-  isDark?: boolean | undefined;
   /**
    * The athlete's unit system, for temperature and wind. Required, so a caller
    * that forgets it is a type error rather than a metric card.
@@ -96,7 +84,6 @@ interface UseActivityStatsResult {
 export function useActivityStats({
   activity,
   wellness,
-  isDark = false,
   isMetric,
   maxHR,
   maxHrSource,
@@ -105,10 +92,6 @@ export function useActivityStats({
   summary,
 }: UseActivityStatsOptions): UseActivityStatsResult {
   const { t } = useTranslation();
-  // The card marks are icons and text on the card surface, so they take the
-  // theme's mark tone rather than the fill tone, which is 2.28:1 on white.
-  const green = isDark ? darkColors.successDeep : colors.successDeep;
-  const amber = isDark ? darkColors.warningAmber : colors.warningAmber;
   // Subscribed, so the form card follows the setting when the athlete record
   // lands after this screen has mounted.
   const asPercent = useFormPreference((s) => s.formAsPercent) === true;
@@ -128,7 +111,6 @@ export function useActivityStats({
         title: t('metrics.trainingLoad'),
         value: `${Math.round(load)}`,
         icon: 'lightning-bolt',
-        color: isDark ? darkColors.chartGoldText : colors.chartGoldText,
         context:
           intensity == null
             ? undefined
@@ -174,7 +156,6 @@ export function useActivityStats({
         title: t('activity.stats.fitnessImpact'),
         value: formatSigned(fitnessImpact.fitness, 1),
         icon: 'chart-line',
-        color: green,
         context: t('activity.stats.fitnessImpactContext'),
         explanation: t('activity.explanations.fitnessImpact'),
         details: [
@@ -193,7 +174,6 @@ export function useActivityStats({
         // Floored, so a ride one tile short of entirely new does not read 100%.
         value: `${Math.floor(newGround.fraction * 100)}%`,
         icon: 'compass-outline',
-        color: green,
         context: t('activity.stats.newGroundContext'),
         explanation: t('activity.explanations.newGround'),
         details: [
@@ -216,7 +196,7 @@ export function useActivityStats({
         title: metric === 'Speed' ? t('activity.stats.speed') : t('activity.stats.pace'),
         value: formatted(avgSpeed),
         icon: 'speedometer',
-        color: isDark ? darkColors.infoText : colors.infoText,
+        stream: metric === 'Speed' ? 'speed' : 'pace',
         context:
           maxSpeed == null ? undefined : t('activity.stats.max', { value: formatted(maxSpeed) }),
         explanation: t(METRIC_EXPLANATION_KEYS[metric] as never),
@@ -254,7 +234,7 @@ export function useActivityStats({
         value: `${Math.round(avgHRValue)}`,
         unit: t('units.bpm'),
         icon: 'heart-pulse',
-        color: isDark ? darkColors.chartPinkText : colors.chartPinkText,
+        stream: 'heartrate',
         context:
           hrPercent === null
             ? undefined
@@ -315,7 +295,7 @@ export function useActivityStats({
         value: `${Math.round(cadence)}`,
         unit: cadenceUnit,
         icon: 'rotate-3d',
-        color: isDark ? darkColors.textSecondary : colors.textSecondary,
+        stream: 'cadence',
         explanation: t(METRIC_EXPLANATION_KEYS['Cadence'] as never),
         details: [
           { label: t('activity.stats.average'), value: `${Math.round(cadence)} ${cadenceUnit}` },
@@ -336,7 +316,6 @@ export function useActivityStats({
         value: `${Math.round(activity.calories)}`,
         unit: t('units.kcal'),
         icon: 'fire',
-        color: amber,
         context: burnRate,
         explanation: t(METRIC_EXPLANATION_KEYS['Energy'] as never),
         details: [
@@ -392,7 +371,6 @@ export function useActivityStats({
         title: t('activity.stats.conditions'),
         value: formatTemperature(temp, isMetric),
         icon: activity.has_weather ? 'weather-partly-cloudy' : 'thermometer',
-        color: isDark ? darkColors.infoText : colors.infoText,
         context: contextStr,
         explanation: t(METRIC_EXPLANATION_KEYS['Conditions'] as never),
         details: [
@@ -421,11 +399,6 @@ export function useActivityStats({
       const form = formFromLoads(wellness.ctl, wellness.atl);
       const fitness = Math.round(wellness.ctl);
       const formZone = formZoneFromLoads(wellness.ctl, wellness.atl, asPercent);
-      const formColor = formZone
-        ? formZoneTextColor(formZone, isDark)
-        : isDark
-          ? darkColors.textPrimary
-          : colors.textPrimary;
       const formText = `${form > 0 ? '+' : ''}${form}`;
       const formValue = formatForm(form, fitness, asPercent) ?? '';
 
@@ -433,8 +406,7 @@ export function useActivityStats({
         title: t('activity.stats.yourForm'),
         value: formValue,
         icon: 'account-heart',
-        color: formColor,
-        // The zone is what the colour says, so the context says it in words.
+        // The tile carries no zone colour, so the context names the zone.
         context: formZone ? formZoneLabel(formZone) : undefined,
         explanation: t(METRIC_EXPLANATION_KEYS['Your Form'] as never),
         details: [
@@ -476,7 +448,7 @@ export function useActivityStats({
         value: `${Math.round(avgPower)}`,
         unit: t('units.watts'),
         icon: 'lightning-bolt-circle',
-        color: isDark ? darkColors.chartPurpleText : colors.chartPurpleText,
+        stream: 'power',
         context: eftp
           ? t('activity.stats.eftpContext', { value: formatPower(eftp) })
           : activity.icu_pm_p_max
@@ -535,9 +507,6 @@ export function useActivityStats({
     newGround,
     summary,
     t,
-    green,
-    amber,
-    isDark,
     isMetric,
     maxHR,
     maxHrSource,

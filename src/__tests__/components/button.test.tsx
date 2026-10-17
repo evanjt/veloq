@@ -13,9 +13,10 @@
 import React from 'react';
 import { Platform } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { Button, ToggleButton } from '@/shared/ui/Button';
-import { colors, darkColors, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { MIN_TAP_TARGET } from '@/theme/spacing';
 
 jest.mock('@/shared/ui/haptics', () => ({
@@ -233,7 +234,80 @@ describe('Button', () => {
 
     expect(onPress).not.toHaveBeenCalled();
     expect(getByTestId('b').props.accessibilityState.busy).toBe(true);
-    expect(queryByText('Save')).toBeNull();
+    expect(getByTestId('b-spinner')).toBeTruthy();
+    expect(queryByText('Save')).not.toBeNull();
+  });
+
+  it('keeps its label in the layout while loading, hidden, with the spinner laid over it', async () => {
+    const { getByTestId } = await render(
+      <Button label="Upload" icon="cloud-upload-outline" loading onPress={() => {}} testID="b" />
+    );
+    const idle = await render(
+      <Button label="Upload" icon="cloud-upload-outline" onPress={() => {}} testID="i" />
+    );
+
+    // The label row is laid out the same way loading or not, so the button keeps its width.
+    expect(styleOf(getByTestId('b-content'))).toEqual({
+      ...styleOf(idle.getByTestId('i-content')),
+      opacity: 0,
+    });
+    expect(styleOf(getByTestId('b-spinner-frame')).position).toBe('absolute');
+    expect(getByTestId('b-spinner').props.color).toBe(styleOf(getByTestId('b-label')).color);
+  });
+
+  it.each([
+    ['sm', iconSize.sm],
+    ['md', iconSize.md],
+  ] as const)('draws a %s glyph at its icon rung in the label colour', async (size, px) => {
+    for (const isDark of [false, true]) {
+      mockIsDark = isDark;
+      for (const variant of ['primary', 'secondary', 'ghost', 'destructive'] as const) {
+        const { getByTestId, UNSAFE_getByType } = await render(
+          <Button
+            label="Sign in"
+            icon="login"
+            size={size}
+            variant={variant}
+            onPress={() => {}}
+            testID="b"
+          />
+        );
+        const glyph = UNSAFE_getByType(MaterialCommunityIcons);
+        expect(glyph.props.name).toBe('login');
+        expect(glyph.props.size).toBe(px);
+        expect(glyph.props.color).toBe(styleOf(getByTestId('b-label')).color);
+      }
+    }
+    mockIsDark = false;
+  });
+
+  it('draws a ToggleButton glyph at the small rung in its label ink, chosen or not', async () => {
+    for (const selected of [false, true]) {
+      const { getByTestId, UNSAFE_getByType } = await render(
+        <ToggleButton
+          label="Heart rate"
+          icon="heart-pulse"
+          selected={selected}
+          onPress={() => {}}
+          testID="t"
+        />
+      );
+      const glyph = UNSAFE_getByType(MaterialCommunityIcons);
+      expect(glyph.props.size).toBe(iconSize.sm);
+      expect(glyph.props.color).toBe(styleOf(getByTestId('t-label')).color);
+    }
+  });
+
+  it('draws a chosen ink only when the glyph asks for one', async () => {
+    const { UNSAFE_getByType } = await render(
+      <Button
+        label="Trend"
+        icon={{ name: 'minus', ink: colors.chartPink }}
+        variant="ghost"
+        onPress={() => {}}
+      />
+    );
+    expect(UNSAFE_getByType(MaterialCommunityIcons).props.color).toBe(colors.chartPink);
   });
 
   it('fires once when it is neither', async () => {

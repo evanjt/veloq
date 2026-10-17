@@ -16,7 +16,7 @@ export interface ZoneBand {
   label: string;
   /** The training zone, 1 to 7, which picks the bar's fill and the label's tone. */
   zone: number;
-  /** Seconds in the zone, which set the bar's length. */
+  /** Seconds in the zone, which set the bar's length against the longest zone. */
   seconds: number;
   /** The engine's whole-percent share of the time, printed as it is. */
   share: number;
@@ -38,16 +38,22 @@ const LABEL_EMS = 1.6;
 const PERCENT_EMS = 2.5;
 const STATS_EMS = 5.2;
 
-/** Horizontal bars, one per zone, with the share on the left and the time and range on the right. */
+/** The shortest bar a zone with any time draws, so no time spent reads as none. */
+const MIN_BAR_WIDTH = 2;
+
+/**
+ * Horizontal bars, one per zone, with the share on the left and the time and range on the right.
+ * The longest zone fills the track and the rest are scaled to it, so short zones stay readable.
+ */
 export function ZoneHistogram({ title, bands, testID }: ZoneHistogramProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
 
-  // Each zone named in full with its time and share. An empty zone is listed in the table and
-  // left out of the sentence.
+  // Each zone named in full with its time and share. A zone with no time is listed in the table
+  // and left out of the sentence.
   const reading = useMemo(() => {
     const parts = bands.map((band): SummaryPart & { filled: boolean } => {
-      const filled = band.share > 0;
+      const filled = band.seconds > 0;
       return {
         label: band.secondary != null ? `${band.label} ${band.secondary}` : band.label,
         value: filled ? `${band.primary ?? ABSENT} (${band.share}%)` : ABSENT,
@@ -64,7 +70,7 @@ export function ZoneHistogram({ title, bands, testID }: ZoneHistogramProps) {
     };
   }, [bands, title, t]);
 
-  const totalSeconds = bands.reduce((sum, band) => sum + band.seconds, 0);
+  const longest = bands.reduce((most, band) => Math.max(most, band.seconds), 0);
   const compact = bands.length > 5;
   const barHeight = compact ? 14 : 16;
   const rowPadding = compact ? 2 : 3;
@@ -73,19 +79,16 @@ export function ZoneHistogram({ title, bands, testID }: ZoneHistogramProps) {
     <ChartSurface summary={reading.summary} table={reading.table} style={styles.plot}>
       <View testID={testID}>
         {bands.map((band) => {
-          // A band the engine gives no whole share reads as empty.
-          const filled = band.share > 0;
+          // Only a zone with no time reads as empty. One the engine rounds to a share of 0 still
+          // prints that share and its time.
+          const filled = band.seconds > 0;
           const share = filled ? `${band.share}%` : ABSENT;
-          const length = totalSeconds > 0 ? (band.seconds / totalSeconds) * 100 : 0;
+          const length = longest > 0 ? (band.seconds / longest) * 100 : 0;
           const primary = filled ? (band.primary ?? ABSENT) : ABSENT;
           return (
             <View key={band.key} style={[styles.row, { paddingVertical: rowPadding }]}>
               <DenseText
-                style={[
-                  styles.label,
-                  compact && styles.labelCompact,
-                  { color: zoneColour(band.zone, isDark, 'text') },
-                ]}
+                style={[styles.label, compact && styles.labelCompact, isDark && styles.textOnDark]}
               >
                 {band.label}
               </DenseText>
@@ -99,20 +102,15 @@ export function ZoneHistogram({ title, bands, testID }: ZoneHistogramProps) {
               >
                 {share}
               </DenseText>
-              <View
-                style={[
-                  styles.track,
-                  { height: barHeight, borderRadius: barHeight / 2 },
-                  isDark && styles.trackDark,
-                ]}
-              >
+              <View style={[styles.track, { height: barHeight }, isDark && styles.trackDark]}>
                 <View
+                  testID={`zone-bar-${band.key}`}
                   style={[
                     styles.bar,
                     {
                       width: `${Math.min(length, 100)}%`,
+                      minWidth: filled ? MIN_BAR_WIDTH : 0,
                       backgroundColor: zoneColour(band.zone, isDark, 'fill'),
-                      borderRadius: barHeight / 2,
                     },
                   ]}
                 />
@@ -151,9 +149,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  // The zone is named in text colour beside its fill, never in the fill's colour.
   label: {
     fontSize: typography.caption.fontSize,
     fontWeight: '700',
+    color: colors.textPrimary,
     width: denseExtent(typography.caption.fontSize, LABEL_EMS),
   },
   labelCompact: {
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
   track: {
     flex: 1,
     backgroundColor: opacity.overlay.medium,
-    borderRadius: layout.borderRadiusSm,
+    borderRadius: layout.borderRadiusXs,
     overflow: 'hidden',
   },
   trackDark: {
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
   },
   bar: {
     height: '100%',
-    borderRadius: layout.borderRadiusSm,
+    borderRadius: layout.borderRadiusXs,
   },
   stats: {
     width: denseExtent(typography.badge.fontSize, STATS_EMS),

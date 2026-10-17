@@ -40,6 +40,7 @@ export { useGpsWarningClearEffect } from './hooks/useGpsWarningClearEffect';
 export { useHrZoneColorEffect } from './hooks/useHrZoneColorEffect';
 export { useInitRecordingEffect } from './hooks/useInitRecordingEffect';
 export { useKmSplitBannerEffect } from './hooks/useKmSplitBannerEffect';
+export { useLapBanner } from './hooks/useLapBanner';
 export { useLocationPermission } from './hooks/useLocationPermission';
 export { usePermissionUpgrade } from './hooks/usePermissionUpgrade';
 export { useRecordingColumnLayout } from './hooks/useRecordingColumnLayout';

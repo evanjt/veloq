@@ -10,6 +10,7 @@ import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { formatDistance } from '@/shared/format/format';
 import { Row, SheetHeader } from '@/shared/ui';
 import { colors, darkColors, spacing, typography } from '@/theme';
+import { NameText } from '@/shared/ui/NameText';
 
 /**
  * The chooser for a map tap where several sections overlap, a sheet route opened with
@@ -48,9 +49,7 @@ function SectionChooserSheetContent() {
               accessibilityLabel={`${section.name}, ${distance}`}
             >
               <View style={styles.details}>
-                <Text style={[styles.name, { color: textPrimary }]} numberOfLines={1}>
-                  {section.name}
-                </Text>
+                <NameText style={[styles.name, { color: textPrimary }]}>{section.name}</NameText>
                 <Text style={[styles.distance, { color: textSecondary }]}>{distance}</Text>
               </View>
             </Row>

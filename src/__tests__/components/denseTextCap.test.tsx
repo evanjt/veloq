@@ -30,7 +30,7 @@ import type { WellnessData } from '@/types';
 
 /**
  * The surfaces that cannot reflow, named rather than felt: the stats grids,
- * the metric chip rows, the chart axis labels, the tab bar, and the live
+ * the metric chip rows, the chips and pills, the chart axis labels, the tab bar, and the live
  * recording timer and unlock track. A file added here is a claim that its
  * layout breaks at 200 per cent, and a file that reaches for the cap without
  * being here fails this suite.
@@ -39,20 +39,20 @@ const DENSE_SURFACES = [
   'src/features/activity/components/ChartTypeSelector.tsx',
   'src/features/activity/components/ChartXAxisLabel.tsx',
   'src/features/activity/components/ChartYAxisLabel.tsx',
-  'src/features/activity/components/stats/StatCard.tsx',
   'src/features/recording/components/DataFieldGrid.tsx',
   'src/features/recording/components/TimerHeader.tsx',
   'src/features/recording/components/UnlockTrack.tsx',
   'src/shared/charts/CurveChart.tsx',
   'src/features/fitness/components/FitnessChart.tsx',
-  'src/features/fitness/components/FormZoneChart.tsx',
   'src/features/routes/components/section/AttemptHistogramChart.tsx',
   'src/features/routes/components/section/SectionDeltaChart.tsx',
   'src/features/routes/components/section/SectionDeltaSummaryChart.tsx',
   'src/features/routes/components/section/SectionScatterChart.tsx',
   'src/features/stats/components/FTPTrendChart.tsx',
   'src/shared/ui/BottomTabBar.tsx',
+  'src/shared/ui/StatTile.tsx',
   'src/features/wellness/components/WellnessTrendsChart.tsx',
+  'src/shared/charts/YAxisLabels.tsx',
   'src/shared/charts/ZoneHistogram.tsx',
   'src/features/stats/components/ActivityHeatmap.tsx',
   'src/features/maps/components/timeline/TimelineSlider.tsx',
@@ -64,6 +64,10 @@ const DENSE_SURFACES = [
   'src/features/stats/components/PaceCurveChart.tsx',
   'src/features/stats/components/SwimPaceCurveChart.tsx',
   'src/features/maps/components/AttributionOverlay.tsx',
+  'src/shared/ui/Button.tsx',
+  'src/shared/ui/ChangeChip.tsx',
+  'src/shared/ui/OfflineBanner.tsx',
+  'src/features/routes/components/section/SectionActionRow.tsx',
 ];
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -127,7 +131,6 @@ describe('the dense text cap', () => {
           title: 'Distance',
           value: '44.2 km',
           icon: 'map-marker-distance',
-          color: '#000000',
         }}
         isDark={false}
         onPress={() => {}}
@@ -154,6 +157,7 @@ describe('the dense text cap', () => {
         chartPaddingBottom={20}
         height={200}
         isDark={false}
+        unit=""
         formatYAxisValue={(v) => String(v)}
       />
     );

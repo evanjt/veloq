@@ -46,6 +46,5 @@
   "src/features/settings/components/StreamHistoryRow.tsx",
   "src/features/settings/components/SyncRangePanel.tsx",
   "src/features/settings/components/WebdavConfigForm.tsx",
-  "src/features/stats/components/WeeklySummary.tsx",
   "src/features/strength/components/StrengthActivityCard.tsx"
 ]

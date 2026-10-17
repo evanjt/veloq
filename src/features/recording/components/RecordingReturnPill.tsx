@@ -9,15 +9,16 @@ import { usePathname } from 'expo-router';
 import { useTheme } from '@/shared/app';
 import { tapTo } from '@/shared/app/navigation';
 import {
-  brand,
   colors,
   darkColors,
   iconSize,
   layout,
   motionPresets,
+  recording,
   shadows,
   spacing,
   typography,
+  themePalette,
 } from '@/theme';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
@@ -61,6 +62,7 @@ export function RecordingReturnPill() {
 function RecordingReturnPillInner({ status }: { status: RecordingStatus }) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const activityType = useRecordingStore((s) => s.activityType);
   const { formattedElapsed } = useTimer();
   const paused = status === 'paused';
@@ -69,7 +71,15 @@ function RecordingReturnPillInner({ status }: { status: RecordingStatus }) {
 
   const bgColor = isDark ? darkColors.surfaceElevated : colors.surface;
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
-  const accent = paused ? (isDark ? darkColors.warningAmber : colors.warningAmber) : brand.teal;
+  // A live ride reads the record role, a paused one the warning mark, and a stopped one the
+  // action colour, since what is left is the tap through to review.
+  const accent = paused
+    ? isDark
+      ? darkColors.warningAmber
+      : colors.warningAmber
+    : stopped
+      ? palette.primary
+      : recording[isDark ? 'dark' : 'light'];
 
   return (
     <Animated.View style={styles.container} {...motionPresets.pill} pointerEvents="box-none">

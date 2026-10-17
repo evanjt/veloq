@@ -23,7 +23,7 @@ import {
   formatTemperature,
 } from '@/shared/format/format';
 import {
-  brand,
+  strengthTone,
   colors,
   colorWithOpacity,
   darkColors,
@@ -34,6 +34,7 @@ import {
   mapTextShadow,
   spacing,
   typography,
+  themePalette,
 } from '@/theme';
 import { formatWeightRounded } from '@/shared/format/weight';
 import { spokenDuration } from '@/shared/format/spoken';
@@ -42,6 +43,7 @@ import { Card } from '@/shared/ui/Card';
 import { contextMenuHoldIsNative } from '@/shared/ui/ContextMenu';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 import { tapTo } from '@/shared/app/navigation';
+import { NameText } from '@/shared/ui/NameText';
 
 /** Aggregated muscle/exercise data for a strength activity */
 export interface StrengthCardData {
@@ -70,6 +72,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
   const { data: athlete } = useAthlete();
   const bodyGender = athlete?.sex === 'F' ? 'female' : 'male';
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const isMetric = useMetricSystem();
   const [menuVisible, setMenuVisible] = useState(false);
   const averageHeartRate = activity.average_heartrate;
@@ -131,7 +134,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
       >
         {!!activity.icu_training_load && (
           <View style={styles.secondaryStat}>
-            <MaterialCommunityIcons name="fire" size={iconSize.sm} color={colors.primary} />
+            <MaterialCommunityIcons name="fire" size={iconSize.sm} color={palette.primary} />
             <RNText style={[styles.secondaryStatValue, { color: compactMutedColor }]}>
               {formatLoad(activity.icu_training_load)}
             </RNText>
@@ -233,15 +236,14 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
                   />
                 </View>
                 <View style={styles.overlayTitleColumn}>
-                  <RNText
+                  <NameText
                     style={[
                       styles.overlayName,
                       { color: compactTextColor, textShadowColor: 'transparent' },
                     ]}
-                    numberOfLines={1}
                   >
                     {activity.name}
-                  </RNText>
+                  </NameText>
                   <RNText
                     style={[
                       styles.overlayDateSubtitle,
@@ -266,14 +268,14 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
                   gender={bodyGender}
                   side="front"
                   scale={0.38}
-                  colors={[brand.tealDark, brand.tealLight]}
+                  colors={[strengthTone.secondary, strengthTone.primary]}
                 />
                 <Body
                   data={strengthData.muscles}
                   gender={bodyGender}
                   side="back"
                   scale={0.38}
-                  colors={[brand.tealDark, brand.tealLight]}
+                  colors={[strengthTone.secondary, strengthTone.primary]}
                 />
               </View>
               <View style={styles.strengthStats}>

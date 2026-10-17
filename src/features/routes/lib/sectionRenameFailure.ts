@@ -1,5 +1,11 @@
 export type SectionRenameFailure = 'nameTaken' | 'failed';
 
+/**
+ * What saving a typed name came to. A refused name carries the line the field
+ * shows under it, or no line when a dialog has already said why.
+ */
+export type NameSaveOutcome = { saved: true } | { saved: false; reason: string | null };
+
 export class SectionRenameError extends Error {
   constructor(
     message: string,

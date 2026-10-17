@@ -59,7 +59,7 @@ const STAT = {
   title: 'Average heart rate',
   value: '142 bpm',
   icon: 'heart-pulse' as const,
-  color: darkColors.secondary,
+  stream: 'heartrate' as const,
   context: 'Above your usual',
   details: [{ label: 'Peak', value: '171 bpm' }],
   explanation: 'The mean of the heart rate stream over moving time.',

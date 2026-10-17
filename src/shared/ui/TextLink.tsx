@@ -64,7 +64,7 @@ export function TextLink({
   testID,
 }: TextLinkProps) {
   const { isDark } = useTheme();
-  const tint = isDark ? darkColors.linkTeal : colors.linkTeal;
+  const tint = isDark ? darkColors.actionLink : colors.actionLink;
   const glyph = icon ? (
     <MaterialCommunityIcons
       name={icon}
@@ -107,7 +107,7 @@ export function InlineLink({ accessibilityLabel, onPress, children, style }: Inl
       onPress={onPress}
       accessibilityRole="link"
       accessibilityLabel={accessibilityLabel}
-      style={[styles.text, { color: isDark ? darkColors.linkTeal : colors.linkTeal }, style]}
+      style={[styles.text, { color: isDark ? darkColors.actionLink : colors.actionLink }, style]}
     >
       {children}
     </Text>

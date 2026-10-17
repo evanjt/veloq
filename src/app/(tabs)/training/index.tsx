@@ -168,8 +168,8 @@ function HealthScreenContent() {
           <RefreshControl
             refreshing={isRefreshing}
             onRefresh={onRefresh}
-            tintColor={colors.primary}
-            colors={[colors.primary]}
+            tintColor={themeColors.primary}
+            colors={[themeColors.primary]}
           />
         }
       >

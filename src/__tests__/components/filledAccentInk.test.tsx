@@ -19,7 +19,7 @@ import { SyncProgressBanner } from '@/features/maps/components/timeline/SyncProg
 import { ControlBar } from '@/features/recording/components/ControlBar';
 import { UnlockTrack } from '@/features/recording/components/UnlockTrack';
 import { MapControlStack } from '@/features/maps/components/regional/MapControlStack';
-import { brand, colors, darkColors, recording } from '@/theme';
+import { brand, colors, darkColors, recording, themePalette } from '@/theme';
 import { contrastRatio } from '../__shared__/contrast';
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
@@ -89,13 +89,9 @@ describe('the recording control bar', () => {
     ['idle', 'manual', 'control-save'],
   ] as const;
   const themes = [false, true] as const;
-  const notRecordFills = [
-    colors.success,
-    darkColors.success,
-    brand.teal,
-    brand.tealLight,
-    brand.tealDark,
-  ].map((c) => c.toUpperCase());
+  const notRecordFills = [colors.success, darkColors.success, brand.blue600, brand.blue550].map(
+    (c) => c.toUpperCase()
+  );
 
   describe.each(themes)('with dark %s', (isDark) => {
     beforeEach(() => {
@@ -176,7 +172,7 @@ describe('the map control column', () => {
         const fill = flat(button.props.style).backgroundColor as string;
         const [glyph] = button.findAllByType(MaterialCommunityIcons);
 
-        expect(fill).toBe(colors.primary);
+        expect(fill).toBe(themePalette(isDark).primary);
         expect(contrastRatio(glyph.props.color, fill)).toBeGreaterThanOrEqual(4.5);
       }
     }

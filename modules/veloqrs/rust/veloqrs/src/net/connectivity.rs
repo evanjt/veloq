@@ -60,19 +60,23 @@ fn edges() -> std::sync::MutexGuard<'static, u64> {
 }
 
 /// Record what TypeScript sees. Called on every transition and on foreground.
-pub fn set_online(online: bool) {
-    set_online_at(online, Instant::now());
+///
+/// True when the push was an online edge, a transition from not online.
+pub fn set_online(online: bool) -> bool {
+    set_online_at(online, Instant::now())
 }
 
 /// [`set_online`] with the moment handed in, so staleness is testable.
-pub fn set_online_at(online: bool, at: Instant) {
+pub fn set_online_at(online: bool, at: Instant) -> bool {
     let was_online = state()
         .replace((online, at))
         .is_some_and(|(online, _)| online);
-    if online && !was_online {
+    let edge = online && !was_online;
+    if edge {
         *edges() += 1;
         ONLINE_EDGE.notify_all();
     }
+    edge
 }
 
 /// Sleep for `wait`, or until the connection comes back, whichever is first.

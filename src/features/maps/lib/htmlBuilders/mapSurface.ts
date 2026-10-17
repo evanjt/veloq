@@ -24,7 +24,7 @@ import { resolveStyleExpression, type WebViewStyleOptions } from './styleResolut
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import type { LngLat, LngLatBounds } from '@/features/maps/lib/coordinates';
 import { MAP_SURFACE_READY_TIMEOUT_MS } from '@/features/maps/lib/mapBudgets';
-import { jsNumber } from '@/features/maps/lib/webViewLiterals';
+import { jsNumber, jsPadding } from '@/features/maps/lib/webViewLiterals';
 import { cameraMove } from '@/theme';
 
 export { SURFACE_HIT_TEST_RADIUS_PX } from './mapSurfaceScripts';
@@ -136,12 +136,6 @@ export interface MapSurfaceHtmlConfig {
   reduceMotion: boolean;
 }
 
-function paddingExpression(padding: MapPadding | undefined, fallback: number): string {
-  if (padding === undefined) return String(fallback);
-  if (typeof padding === 'number') return String(padding);
-  return JSON.stringify(padding);
-}
-
 /** Build the page. Only style, camera and gesture settings force a rebuild. */
 export function buildMapSurfaceHtml(config: MapSurfaceHtmlConfig): string {
   const { styleJSON, url } = resolveStyleExpression(config.style, config.styleOptions);
@@ -194,7 +188,7 @@ ${tileProtocolsScript()}
 
     var _bounds = ${boundsJSON};
     var _center = ${centerJSON};
-    var _fitPadding = ${paddingExpression(camera.padding, 40)};
+    var _fitPadding = ${jsPadding(camera.padding, 40)};
     var _maxZoom = ${jsNumber(camera.maxZoom, null)};
     window._veloqMaxZoom = _maxZoom;
     window._veloqFitPadding = _fitPadding;
@@ -358,7 +352,7 @@ export function buildSetCameraScript(camera: MapCameraSpec, duration = 0): strin
     return `
     if (window.map) {
       window.map.fitBounds(${JSON.stringify([camera.bounds.sw, camera.bounds.ne])}, {
-        padding: ${paddingExpression(camera.padding, 40)},
+        padding: ${jsPadding(camera.padding, 40)},
         ${maxZoom}
         duration: ${motionDurationExpression(duration)},
       });
@@ -404,7 +398,7 @@ export function buildFitBoundsScript(
   return `
     if (window.map) {
       window.map.fitBounds(${JSON.stringify([bounds.sw, bounds.ne])}, {
-        padding: ${paddingExpression(padding, 40)},
+        padding: ${jsPadding(padding, 40)},
         duration: ${motionDurationExpression(duration)},
       });
     }

@@ -15,6 +15,7 @@ import Animated, {
   useSharedValue,
   cancelAnimation,
 } from 'react-native-reanimated';
+import { useTheme } from '@/shared/app';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
 import { formatGpsSyncProgress } from '../../lib/syncProgressFormat';
@@ -31,6 +32,7 @@ import {
   motionPairs,
   spacing,
   typography,
+  themePalette,
 } from '@/theme';
 
 interface SyncProgressBannerProps {
@@ -40,6 +42,8 @@ interface SyncProgressBannerProps {
 
 export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) {
   const { t } = useTranslation();
+  const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   // GPS sync progress from shared store
   const gpsSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
   const isGpsSyncing = useSyncDateRange((s) => s.isGpsSyncing);
@@ -149,7 +153,7 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
 
   return (
     <Animated.View
-      style={[styles.container, containerStyle]}
+      style={[styles.container, { backgroundColor: palette.primary }, containerStyle]}
       accessibilityLiveRegion="polite"
       testID="sync-progress-banner"
     >
@@ -192,7 +196,6 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.primary,
     overflow: 'hidden',
   },
   content: {

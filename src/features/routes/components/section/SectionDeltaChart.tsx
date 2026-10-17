@@ -27,7 +27,7 @@ import {
   type DeltaFrame,
 } from '@/features/routes/lib/deltaLayout';
 import { useMeasuredWidth } from '@/shared/charts';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { chartStyles, colors, darkColors, spacing, typography } from '@/theme';
 import { FfiReferenceSource, type FfiDirectionDeltas } from 'veloqrs';
 
 const CHART_HEIGHT = 160;
@@ -152,12 +152,13 @@ export function SectionDeltaChart({
                 />
               )}
             </Canvas>
-            <View style={styles.yAxisOverlay} pointerEvents="none">
+            <View style={styles.yAxisOverlay} pointerEvents="none" testID="section-delta-y-axis">
               <Text
                 maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                 style={[
-                  styles.axisLabel,
-                  isDark && styles.axisLabelDark,
+                  chartStyles.axisLabel,
+                  isDark && chartStyles.axisLabelDark,
+                  styles.yLabel,
                   { top: CHART_PADDING.top },
                 ]}
               >
@@ -166,9 +167,10 @@ export function SectionDeltaChart({
               <Text
                 maxFontSizeMultiplier={DENSE_TEXT_SCALE}
                 style={[
-                  styles.axisLabel,
-                  isDark && styles.axisLabelDark,
-                  { top: CHART_HEIGHT - CHART_PADDING.bottom - 14 },
+                  chartStyles.axisLabel,
+                  isDark && chartStyles.axisLabelDark,
+                  styles.yLabel,
+                  { top: CHART_HEIGHT - CHART_PADDING.bottom - typography.caption.lineHeight },
                 ]}
               >
                 {`-${formatDurationDelta(plot.extentSecs)}`}
@@ -177,16 +179,16 @@ export function SectionDeltaChart({
           </>
         )}
       </View>
-      <View style={styles.edgeAxis}>
+      <View style={styles.edgeAxis} testID="section-delta-x-axis">
         <Text
           maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-          style={[styles.edgeLabel, isDark && styles.axisLabelDark]}
+          style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
         >
           {formatDistance(0, isMetric)}
         </Text>
         <Text
           maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-          style={[styles.edgeLabel, isDark && styles.axisLabelDark]}
+          style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
         >
           {formatDistance(sectionLengthM, isMetric)}
         </Text>
@@ -195,7 +197,7 @@ export function SectionDeltaChart({
         <Text
           testID="section-delta-scrub"
           maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-          style={[styles.caption, isDark && styles.axisLabelDark]}
+          style={[styles.caption, isDark && styles.textDark]}
         >
           {scrubReading}
         </Text>
@@ -203,7 +205,7 @@ export function SectionDeltaChart({
       <Text
         testID="section-delta-caption"
         maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-        style={[styles.caption, isDark && styles.axisLabelDark]}
+        style={[styles.caption, isDark && styles.textDark]}
       >
         {caption}
       </Text>
@@ -211,7 +213,7 @@ export function SectionDeltaChart({
         <Text
           testID="section-delta-end"
           maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-          style={[styles.caption, isDark && styles.axisLabelDark]}
+          style={[styles.caption, isDark && styles.textDark]}
         >
           {t(endSecs < 0 ? 'sections.deltaEndAhead' : 'sections.deltaEndBehind', {
             time: formatDurationDelta(Math.abs(endSecs)),
@@ -222,7 +224,7 @@ export function SectionDeltaChart({
         <Text
           testID="section-delta-missing"
           maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-          style={[styles.caption, isDark && styles.axisLabelDark]}
+          style={[styles.caption, isDark && styles.textDark]}
         >
           {t('sections.deltaMissing', { attempts: deltas.missing.length })}
         </Text>
@@ -242,18 +244,9 @@ const styles = StyleSheet.create({
   yAxisOverlay: {
     ...StyleSheet.absoluteFill,
   },
-  axisLabel: {
+  yLabel: {
     position: 'absolute',
-    left: CHART_PADDING.left + 2,
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
-  },
-  axisLabelDark: {
-    color: darkColors.textSecondary,
-  },
-  edgeLabel: {
-    fontSize: typography.pillLabel.fontSize,
-    color: colors.textSecondary,
+    left: CHART_PADDING.left + spacing.xxs,
   },
   edgeAxis: {
     flexDirection: 'row',
@@ -265,5 +258,8 @@ const styles = StyleSheet.create({
     fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
     marginTop: spacing.xxs,
+  },
+  textDark: {
+    color: darkColors.textSecondary,
   },
 });

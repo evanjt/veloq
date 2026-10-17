@@ -4,7 +4,6 @@ import Constants from 'expo-constants';
 import { Button, ScreenScrollView, pressable, pressRipple } from '@/shared/ui';
 import { shareText } from '@/features/settings/light';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import {
   colors,
   darkColors,
@@ -24,7 +23,7 @@ import {
 import { getFFIMetricsSummary, clearFFIMetrics } from '@/shared/debug/renderTimer';
 import { freshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
 import { hermesStats } from '@/shared/debug/hermesStats';
-import { useSupportStore, daysSince } from '@/shared/app/SupportStore';
+import { useSupportStore, daysSince, FIRST_SHOW_USE_DAYS } from '@/shared/app/SupportStore';
 import { formatLocalDate } from '@/shared/format/format';
 import { readTaskRuns, clearTaskRuns, type TaskRunEntry } from '@/features/insights';
 import { SyncDebugSection } from '@/features/routes';
@@ -38,6 +37,7 @@ import {
 import { ABSENT } from '@/shared/format/absent';
 import { changeLanguage, i18n, PSEUDO_LOCALE, showPseudoLocale } from '@/i18n';
 import { resolveLanguageToLocale, useLanguageStore } from '@/shared/app/LanguageStore';
+import { FitText } from '@/shared/ui/FitText';
 
 function getEngine() {
   try {
@@ -97,7 +97,7 @@ function CollapsibleSection({
         android_ripple={pressRipple}
       >
         <View style={styles.sectionHeaderLeft}>
-          <MaterialCommunityIcons name={icon} size={iconSize.md} color={colors.primary} />
+          <MaterialCommunityIcons name={icon} size={iconSize.md} color={mutedColor} />
           <Text style={[styles.sectionTitle, { color: textColor }]}>{title}</Text>
         </View>
         <MaterialCommunityIcons
@@ -142,6 +142,8 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
   const lastActionDate = useSupportStore((s) => s.lastActionDate);
   const permanentlyDismissed = useSupportStore((s) => s.permanentlyDismissed);
   const isLegacyPurchaser = useSupportStore((s) => s.isLegacyPurchaser);
+  const firstUseDate = useSupportStore((s) => s.firstUseDate);
+  const useDays = useSupportStore((s) => s.useDays);
   const debugOverride = useSupportStore((s) => s._debugOverride);
 
   const daysUntilShow =
@@ -165,6 +167,8 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
     >
       <StatRow label="Last shown" value={lastActionDate ?? 'never'} isDark={isDark} />
       <StatRow label="Days until next" value={String(daysUntilShow)} isDark={isDark} />
+      <StatRow label="First use" value={firstUseDate ?? 'never'} isDark={isDark} />
+      <StatRow label="Days of use" value={String(useDays)} isDark={isDark} />
       <StatRow label="Dismissed" value={permanentlyDismissed ? 'Yes' : 'No'} isDark={isDark} />
       <StatRow label="Legacy purchaser" value={isLegacyPurchaser ? 'Yes' : 'No'} isDark={isDark} />
 
@@ -189,6 +193,8 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
             onPress={() =>
               debugOverride({
                 lastActionDate: daysAgoLocal(p.days),
+                firstUseDate: daysAgoLocal(p.days),
+                useDays: FIRST_SHOW_USE_DAYS,
                 permanentlyDismissed: false,
                 dismissCount: 0,
               })
@@ -205,6 +211,8 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
           onPress={() =>
             debugOverride({
               lastActionDate: daysAgoLocal(31),
+              firstUseDate: daysAgoLocal(31),
+              useDays: FIRST_SHOW_USE_DAYS,
               permanentlyDismissed: false,
             })
           }
@@ -369,7 +377,7 @@ function BackgroundNotificationsDebug({
             variant="ghost"
             size="sm"
             style={styles.actionButton}
-            icon={<ChromeIcon name="delete" size={iconSize.sm} color={colors.primary} />}
+            icon={{ chrome: 'delete' }}
           />
         </>
       ) : (
@@ -650,12 +658,9 @@ function DebugScreenContent() {
               </View>
               {ffiMethods.map(([name, m]) => (
                 <View key={name} style={styles.tableRow}>
-                  <Text
-                    style={[styles.tableCell, styles.methodCol, { color: textColor }]}
-                    numberOfLines={1}
-                  >
+                  <FitText style={[styles.tableCell, styles.methodCol, { color: textColor }]}>
                     {name}
-                  </Text>
+                  </FitText>
                   <Text style={[styles.tableCell, styles.numCol, { color: textColor }]}>
                     {m.calls}
                   </Text>
@@ -676,7 +681,7 @@ function DebugScreenContent() {
                 variant="ghost"
                 size="sm"
                 style={styles.actionButton}
-                icon={<ChromeIcon name="delete" size={iconSize.sm} color={colors.primary} />}
+                icon={{ chrome: 'delete' }}
               />
             </>
           ) : (
@@ -765,12 +770,9 @@ function DebugScreenContent() {
               </View>
               {tileCounts.map((row) => (
                 <View key={row.source} style={styles.tableRow}>
-                  <Text
-                    style={[styles.tableCell, styles.methodCol, { color: textColor }]}
-                    numberOfLines={1}
-                  >
+                  <FitText style={[styles.tableCell, styles.methodCol, { color: textColor }]}>
                     {row.source}
-                  </Text>
+                  </FitText>
                   <Text style={[styles.tableCell, styles.numCol, { color: textColor }]}>
                     {row.hits}
                   </Text>
@@ -823,7 +825,7 @@ function DebugScreenContent() {
           label="Share Debug Snapshot"
           onPress={handleShareSnapshot}
           variant="secondary"
-          icon={<ChromeIcon name="share" size={iconSize.md} color={colors.primary} />}
+          icon={{ chrome: 'share' }}
         />
 
         <View style={{ height: spacing.xl }} />

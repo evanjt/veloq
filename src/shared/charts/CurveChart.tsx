@@ -9,7 +9,7 @@ import { GestureDetector } from 'react-native-gesture-handler';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { chartStyles, ink, spacing } from '@/theme';
+import { chartStyles, ink, typography } from '@/theme';
 
 import { dataExtent, domainContains, placeLabels, type Domain } from './cartesian';
 import { ChartCanvas } from './ChartCanvas';
@@ -21,6 +21,7 @@ import type { CurveKind } from './curvePath';
 import { useChartColors } from './useChartColors';
 import { useChartGestures } from './useChartGestures';
 import { useMeasuredWidth } from './useMeasuredWidth';
+import { YAxisLabels } from './YAxisLabels';
 
 /** A drawn sample. A `partial` one, a total still accruing, is drawn in outline as a bar. */
 export interface ChartSample {
@@ -87,8 +88,10 @@ export interface CurveChartProps<T extends ChartSample> {
   testID?: string;
 }
 
-const PADDING = { top: spacing.xs } as const;
-const GRID_LINES = 5;
+// The top label is centred on the plot's top edge, so half a line is kept
+// above it; the x labels sit in a strip under the plot rather than over it.
+const X_STRIP = typography.caption.lineHeight;
+const PADDING = { top: typography.caption.lineHeight / 2, bottom: X_STRIP } as const;
 const PLACED_LABEL_HALF_WIDTH = 15;
 /** The share of the gap between neighbouring samples a bar takes. */
 const BAR_FILL = 0.7;
@@ -107,8 +110,8 @@ function barWidth(xs: readonly number[], span: number): number {
 
 /**
  * One line over a log or linear x axis with a casing stroke, an optional
- * reference rule, a scrub crosshair and three y labels. The header, legend
- * and any footer belong to the caller.
+ * reference rule, a scrub crosshair and a y gutter labelling its ends and
+ * middle. The header, legend and any footer belong to the caller.
  */
 export function CurveChart<T extends ChartSample>({
   data,
@@ -173,162 +176,150 @@ export function CurveChart<T extends ChartSample>({
     [xLabels, xDomain, data, x, width]
   );
 
-  const labelStyle = [chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark];
-  const midY = (yDomain[0] + yDomain[1]) / 2;
+  const labelStyle = [chartStyles.axisLabel, isDark && chartStyles.axisLabelDark];
+  const yTicks = useMemo(
+    () =>
+      [yDomain[1], (yDomain[0] + yDomain[1]) / 2, yDomain[0]].map((value, i) => ({
+        value,
+        label: formatY(value),
+        testID: i === 0 ? topAxisTestID : undefined,
+      })),
+    [yDomain, formatY, topAxisTestID]
+  );
+  const gridValues = useMemo(() => yTicks.map((tick) => tick.value), [yTicks]);
   const showReference = referenceLine != null && domainContains(yDomain, referenceLine.value);
 
   return (
     <ChartSurface summary={spoken.summary} table={spoken.table}>
-      <GestureDetector gesture={gesture}>
-        <View
-          style={chartStyles.chartWrapper}
-          onLayout={onLayout}
-          testID={testID}
-          {...accessibilityProps}
-        >
-          <ChartCanvas
-            data={data}
-            x={x}
-            series={series}
-            xDomain={xDomain}
-            yDomain={yDomain}
-            padding={PADDING}
-            grid={GRID_LINES}
-          >
-            {({ points, bounds, yFor }) => {
-              syncBounds(bounds);
-              syncXCoords(points.y, (p) => p.x);
-              const marked = marker ? points.y[marker.index] : undefined;
-              if (bars) {
-                const zero = yFor(Math.min(Math.max(0, yDomain[0]), yDomain[1]));
-                const width = barWidth(
-                  points.y.map((p) => p.x),
-                  bounds.right - bounds.left
-                );
+      <View style={styles.row} testID={testID}>
+        <YAxisLabels ticks={yTicks} domain={yDomain} padding={PADDING} />
+        <GestureDetector gesture={gesture}>
+          <View style={chartStyles.chartWrapper} onLayout={onLayout} {...accessibilityProps}>
+            <ChartCanvas
+              data={data}
+              x={x}
+              series={series}
+              xDomain={xDomain}
+              yDomain={yDomain}
+              padding={PADDING}
+              gridValues={gridValues}
+            >
+              {({ points, bounds, yFor }) => {
+                syncBounds(bounds);
+                syncXCoords(points.y, (p) => p.x);
+                const marked = marker ? points.y[marker.index] : undefined;
+                if (bars) {
+                  const zero = yFor(Math.min(Math.max(0, yDomain[0]), yDomain[1]));
+                  const width = barWidth(
+                    points.y.map((p) => p.x),
+                    bounds.right - bounds.left
+                  );
+                  return (
+                    <>
+                      {points.y.map((p, i) => (
+                        <Rect
+                          key={i}
+                          x={p.x - width / 2}
+                          y={Math.min(p.y, zero)}
+                          width={width}
+                          height={Math.abs(zero - p.y)}
+                          color={color}
+                          opacity={marker && i !== marker.index ? FADED_BAR : 1}
+                          {...(data[i]?.partial
+                            ? { style: 'stroke' as const, strokeWidth: 1.5 }
+                            : {})}
+                        />
+                      ))}
+                    </>
+                  );
+                }
                 return (
                   <>
-                    {points.y.map((p, i) => (
-                      <Rect
-                        key={i}
-                        x={p.x - width / 2}
-                        y={Math.min(p.y, zero)}
-                        width={width}
-                        height={Math.abs(zero - p.y)}
+                    {area ? (
+                      <CurveArea
+                        points={points.y}
+                        yDomain={yDomain}
+                        y0={bounds.bottom}
                         color={color}
-                        opacity={marker && i !== marker.index ? FADED_BAR : 1}
-                        {...(data[i]?.partial
-                          ? { style: 'stroke' as const, strokeWidth: 1.5 }
-                          : {})}
+                        isDark={isDark}
+                        curve={curve}
                       />
-                    ))}
-                  </>
-                );
-              }
-              return (
-                <>
-                  {area ? (
-                    <CurveArea
+                    ) : null}
+                    {showReference ? (
+                      <SkiaLine
+                        p1={vec(bounds.left, yFor(referenceLine.value))}
+                        p2={vec(bounds.right, yFor(referenceLine.value))}
+                        color={referenceLine.color}
+                        strokeWidth={1}
+                      >
+                        <DashPathEffect intervals={[6, 4]} />
+                      </SkiaLine>
+                    ) : null}
+                    <CurveLine
                       points={points.y}
-                      yDomain={yDomain}
-                      y0={bounds.bottom}
-                      color={color}
-                      isDark={isDark}
+                      color={chartColors.casing}
+                      strokeWidth={2.5}
                       curve={curve}
                     />
-                  ) : null}
-                  {showReference ? (
-                    <SkiaLine
-                      p1={vec(bounds.left, yFor(referenceLine.value))}
-                      p2={vec(bounds.right, yFor(referenceLine.value))}
-                      color={referenceLine.color}
-                      strokeWidth={1}
-                    >
-                      <DashPathEffect intervals={[6, 4]} />
-                    </SkiaLine>
-                  ) : null}
-                  <CurveLine
-                    points={points.y}
-                    color={chartColors.casing}
-                    strokeWidth={2.5}
-                    curve={curve}
-                  />
-                  <CurveLine points={points.y} color={color} strokeWidth={1.5} curve={curve} />
-                  {pointColor
-                    ? points.y.map((p, i) =>
-                        i === marker?.index ? null : (
-                          <Circle key={i} cx={p.x} cy={p.y} r={3} color={pointColor} />
+                    <CurveLine points={points.y} color={color} strokeWidth={1.5} curve={curve} />
+                    {pointColor
+                      ? points.y.map((p, i) =>
+                          i === marker?.index ? null : (
+                            <Circle key={i} cx={p.x} cy={p.y} r={3} color={pointColor} />
+                          )
                         )
-                      )
-                    : null}
-                  {marker && marked ? (
-                    <>
-                      <Circle
-                        cx={marked.x}
-                        cy={marked.y}
-                        r={7}
-                        color={marker.color}
-                        opacity={0.3}
-                      />
-                      <Circle cx={marked.x} cy={marked.y} r={5} color={marker.color} />
-                      <Circle cx={marked.x} cy={marked.y} r={2.5} color={ink.white} />
-                    </>
-                  ) : null}
-                </>
-              );
-            }}
-          </ChartCanvas>
+                      : null}
+                    {marker && marked ? (
+                      <>
+                        <Circle
+                          cx={marked.x}
+                          cy={marked.y}
+                          r={7}
+                          color={marker.color}
+                          opacity={0.3}
+                        />
+                        <Circle cx={marked.x} cy={marked.y} r={5} color={marker.color} />
+                        <Circle cx={marked.x} cy={marked.y} r={2.5} color={ink.white} />
+                      </>
+                    ) : null}
+                  </>
+                );
+              }}
+            </ChartCanvas>
 
-          <ChartCrosshair style={crosshairStyle} />
+            <ChartCrosshair style={crosshairStyle} />
 
-          <View style={styles.xAxisPlaced} pointerEvents="none">
-            {placedLabels.map((item) => (
-              <Text
-                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                key={item.label}
-                style={[labelStyle, styles.placedLabel, { left: item.left }]}
-              >
-                {item.label}
-              </Text>
-            ))}
+            <View style={styles.xAxisPlaced} pointerEvents="none">
+              {placedLabels.map((item) => (
+                <Text
+                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                  key={item.label}
+                  style={[labelStyle, styles.placedLabel, { left: item.left }]}
+                >
+                  {item.label}
+                </Text>
+              ))}
+            </View>
           </View>
-
-          <View style={styles.yAxis} pointerEvents="none">
-            <Text
-              maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-              testID={topAxisTestID}
-              style={labelStyle}
-            >
-              {formatY(yDomain[1])}
-            </Text>
-            <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={labelStyle}>
-              {formatY(midY)}
-            </Text>
-            <Text maxFontSizeMultiplier={DENSE_TEXT_SCALE} style={labelStyle}>
-              {formatY(yDomain[0])}
-            </Text>
-          </View>
-        </View>
-      </GestureDetector>
+        </GestureDetector>
+      </View>
     </ChartSurface>
   );
 }
 
 const styles = StyleSheet.create({
+  row: {
+    flex: 1,
+    flexDirection: 'row',
+  },
   xAxisPlaced: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: spacing.md,
+    height: X_STRIP,
   },
   placedLabel: {
     position: 'absolute',
-  },
-  yAxis: {
-    position: 'absolute',
-    top: spacing.xs,
-    bottom: 20,
-    left: spacing.xs,
-    justifyContent: 'space-between',
   },
 });

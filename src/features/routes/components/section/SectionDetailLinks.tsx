@@ -1,10 +1,8 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/shared/app';
 import { Button } from '@/shared/ui';
-import { colors, darkColors, iconSize, spacing } from '@/theme';
+import { spacing } from '@/theme';
 
 interface SectionDetailLinksProps {
   hasLaps: boolean;
@@ -20,9 +18,6 @@ export function SectionDetailLinks({
   onOpenHistory,
 }: SectionDetailLinksProps) {
   const { t } = useTranslation();
-  const { isDark } = useTheme();
-  const iconColor = isDark ? darkColors.textPrimary : colors.textPrimary;
-
   return (
     <View style={styles.group}>
       {hasLaps ? (
@@ -30,7 +25,7 @@ export function SectionDetailLinks({
           testID="section-open-laps"
           label={t('sections.laps')}
           variant="secondary"
-          icon={<MaterialCommunityIcons name="repeat" size={iconSize.md} color={iconColor} />}
+          icon="repeat"
           onPress={onOpenLaps}
         />
       ) : null}
@@ -42,7 +37,7 @@ export function SectionDetailLinks({
             : t('sectionHistory.title')
         }
         variant="secondary"
-        icon={<MaterialCommunityIcons name="history" size={iconSize.md} color={iconColor} />}
+        icon="history"
         onPress={onOpenHistory}
       />
     </View>

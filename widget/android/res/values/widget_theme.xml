@@ -5,8 +5,8 @@
   <color name="widget_surface">#FFFFFF</color>
   <color name="widget_text_primary">#18181B</color>
   <color name="widget_text_secondary">#52525B</color>
-  <color name="widget_primary">#0D9488</color>
-  <color name="widget_text_on_primary">#18181B</color>
+  <color name="widget_primary">#2F6699</color>
+  <color name="widget_text_on_primary">#FFFFFF</color>
   <color name="widget_gold">#8A7224</color>
   <color name="widget_blue">#3A7AB8</color>
   <color name="widget_fatigue">#A855F7</color>

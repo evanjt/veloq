@@ -6,10 +6,8 @@
  */
 
 import React from 'react';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
-import { colors, iconSize } from '@/theme';
 import { Button } from '@/shared/ui/Button';
 
 interface GrantAccessButtonProps {
@@ -30,13 +28,7 @@ export function GrantAccessButton({ onPress, loading, small, testID }: GrantAcce
       size={small ? 'sm' : 'md'}
       onPress={onPress}
       loading={loading}
-      icon={
-        <MaterialCommunityIcons
-          name="shield-lock-outline"
-          size={iconSize.md}
-          color={colors.textOnPrimary}
-        />
-      }
+      icon="shield-lock-outline"
     />
   );
 }

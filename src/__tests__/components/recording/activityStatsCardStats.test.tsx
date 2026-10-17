@@ -14,6 +14,7 @@ import type { ActivitySummary } from '@/features/recording/hooks/useActivitySumm
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
 jest.mock('@/shared/app', () => ({
   useMetricSystem: jest.fn(() => true),
+  useTheme: () => ({ isDark: false }),
 }));
 
 const PAUSED_RIDE: ActivitySummary = {
@@ -28,14 +29,7 @@ const PAUSED_RIDE: ActivitySummary = {
 };
 
 function renderCard(summary: ActivitySummary, activityType: 'Ride' | 'Run' = 'Ride') {
-  return render(
-    <ActivityStatsCard
-      summary={summary}
-      activityType={activityType}
-      textPrimary="#000"
-      textSecondary="#000"
-    />
-  );
+  return render(<ActivityStatsCard summary={summary} activityType={activityType} />);
 }
 
 describe('ActivityStatsCard', () => {

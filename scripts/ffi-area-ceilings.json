@@ -162,7 +162,7 @@
     "getFetchRunProgress",
     "isCutoverPending",
     "isCutoverRunning",
-    "startFetchAndStore",
+    "startGpsPass",
     "takeFetchAndStoreResult"
   ],
   "features/settings": [

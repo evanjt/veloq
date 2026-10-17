@@ -106,6 +106,35 @@ describe('Settings recording permission', () => {
     expect(mockTapTo).toHaveBeenCalledWith('/recording-settings');
   });
 
+  it('puts the notice above every group, under the account card', async () => {
+    const { toJSON } = await render(<SettingsScreen />);
+    const order: string[] = [];
+    const walk = (node: unknown): void => {
+      if (Array.isArray(node)) {
+        node.forEach(walk);
+        return;
+      }
+      if (!node || typeof node !== 'object') {
+        return;
+      }
+      const el = node as { props?: Record<string, unknown>; children?: unknown };
+      const id = el.props?.testID;
+      if (
+        typeof id === 'string' &&
+        /^settings-(account-row|group-|recording-permission)/.test(id)
+      ) {
+        order.push(id);
+      }
+      walk(el.children);
+    };
+    walk(toJSON());
+    expect(order.slice(0, 3)).toEqual([
+      'settings-account-row',
+      'settings-recording-permission-link',
+      'settings-group-shows',
+    ]);
+  });
+
   it('links there when the write scope was explicitly refused', async () => {
     useUploadPermissionStore.setState({ hasWritePermission: false });
     const { getByTestId } = await render(<SettingsScreen />);

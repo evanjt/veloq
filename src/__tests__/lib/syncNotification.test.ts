@@ -31,7 +31,7 @@ jest.mock('expo-notifications', () => ({
 
 jest.mock('@/features/insights', () => jest.requireActual('@/features/insights/lib/pushPayload'));
 jest.mock('@/theme', () => ({
-  brand: { tealLight: '#0D9488' },
+  nativeColours: { notificationAccent: '#2F6699' },
 }));
 
 const lastCall = () => {

@@ -20,8 +20,15 @@ jest.mock('@/shared/native/useSyncStatus', () => ({ useSyncStatus: () => null })
 jest.mock('@/shared/native/useActivityCount', () => ({ useActivityCount: () => 402 }));
 
 jest.mock('@/shared/native/useEngineSubscription', () => ({
-  useEngineRead: () => (read: (engine: { getUnplacedBackupRecords: () => unknown[] }) => unknown) =>
-    read({ getUnplacedBackupRecords: () => [] }),
+  useEngineRead:
+    () =>
+    (
+      read: (engine: {
+        getUnplacedBackupRecords: () => unknown[];
+        getBackupScreenData: () => unknown;
+      }) => unknown
+    ) =>
+      read({ getUnplacedBackupRecords: () => [], getBackupScreenData: () => undefined }),
   useEngineSubscription: () => 0,
 }));
 

@@ -23,7 +23,6 @@ import * as haptics from '@/shared/ui/haptics';
 
 import { useTheme } from '@/shared/app';
 import {
-  brand,
   colors,
   colorWithOpacity,
   darkColors,
@@ -32,6 +31,7 @@ import {
   opacity,
   spacing,
   typography,
+  themePalette,
 } from '@/theme';
 import { motionSpring, motionTiming } from '@/shared/ui/reduceMotion';
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
@@ -50,6 +50,7 @@ const HINT_TRAVEL = HANDLE_SIZE / 2;
 export function UnlockTrack({ onUnlock, hint = 0 }: { onUnlock: () => void; hint?: number }) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const translateX = useRef(new Animated.Value(0)).current;
   const trackWidthRef = useRef(0);
   const hasTriggeredRef = useRef(false);
@@ -156,13 +157,13 @@ export function UnlockTrack({ onUnlock, hint = 0 }: { onUnlock: () => void; hint
       </Animated.Text>
       <Animated.View
         testID="unlock-track-handle"
-        style={[styles.handle, { transform: [{ translateX }] }]}
+        style={[styles.handle, { backgroundColor: palette.primary, transform: [{ translateX }] }]}
         {...panResponder.panHandlers}
       >
         <MaterialCommunityIcons
           name="lock-open-outline"
           size={iconSize.lg}
-          color={colors.textOnBright}
+          color={colors.textOnPrimary}
         />
       </Animated.View>
     </View>
@@ -196,7 +197,6 @@ const styles = StyleSheet.create({
     width: HANDLE_SIZE,
     height: HANDLE_SIZE,
     borderRadius: HANDLE_SIZE / 2,
-    backgroundColor: brand.teal,
     alignItems: 'center',
     justifyContent: 'center',
   },

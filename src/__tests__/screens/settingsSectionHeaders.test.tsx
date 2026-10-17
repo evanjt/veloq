@@ -3,14 +3,14 @@
  * sizes and weights, and most of them uppercased the translated string in
  * JavaScript over a style that already uppercases.
  *
- * Expected behaviour: every group header on the hub, About, Recording settings
- * and Display shares one size, weight, tracking and transform, and carries the
+ * Expected behaviour: every group header on the hub, About and Recording settings
+ * shares one size, weight, tracking and transform, and carries the
  * translation unchanged so case stays presentation. In dark, every Display
  * sub-heading shares one colour and one icon size.
  */
 
 import React from 'react';
-import { StyleSheet, type TextStyle } from 'react-native';
+import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 import { render } from '@testing-library/react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -18,6 +18,7 @@ import SettingsScreen from '@/app/settings';
 import AboutScreen from '@/app/about';
 import RecordingSettingsScreen from '@/app/recording-settings';
 import { DisplaySettings } from '@/features/settings/components/DisplaySettings';
+import { colors, darkColors } from '@/theme';
 
 let mockIsDark = false;
 
@@ -78,7 +79,6 @@ jest.mock('@/features/settings', () => ({
   RecordingPermissionSection: () => null,
   settingsStyles: jest.requireActual('@/features/settings/components/settingsStyles')
     .settingsStyles,
-  DIVIDER_INSET: 0,
   SupportSection: () => null,
   FooterSection: () => null,
 }));
@@ -136,7 +136,6 @@ describe('settings group headers', () => {
       'Appearance',
       'Data & recording',
       'Library & backup',
-      'Notifications',
     ]);
     await collect('about', await render(<AboutScreen />), [
       'about.disclaimerTitle',
@@ -153,7 +152,6 @@ describe('settings group headers', () => {
       'Sensors',
       'recording.settingsUnits',
     ]);
-    await collect('display', await renderDisplay(), ['settings.display']);
 
     expect(looks[0].look.textTransform).toBe('uppercase');
     const odd = looks.filter((l) => JSON.stringify(l.look) !== JSON.stringify(looks[0].look));
@@ -187,4 +185,32 @@ describe('settings group headers', () => {
     );
     expect(iconSizes.size).toBe(1);
   });
+});
+
+describe('settings row dividers', () => {
+  const dividerLooks = (screen: Awaited<ReturnType<typeof render>>) =>
+    screen.getAllByTestId('row-divider').map((d) => {
+      const style = StyleSheet.flatten(d.props.style) as ViewStyle;
+      return { height: style.height, colour: style.backgroundColor, inset: style.marginLeft };
+    });
+
+  it.each([
+    ['light', false, colors.border],
+    ['dark', true, darkColors.border],
+  ])(
+    'separate the hub and About rows with one soft hairline past the icon in %s',
+    async (_n, isDark, colour) => {
+      mockIsDark = isDark;
+      const expected = { height: StyleSheet.hairlineWidth, colour, inset: 48 };
+
+      const hub = await render(<SettingsScreen />);
+      // Three groups of three, five and three rows: one divider between each pair.
+      expect(dividerLooks(hub)).toEqual(Array(2 + 4 + 2).fill(expected));
+      await hub.unmount();
+
+      const about = await render(<AboutScreen />);
+      expect(dividerLooks(about)).toEqual(Array(2 + 4).fill(expected));
+      await about.unmount();
+    }
+  );
 });

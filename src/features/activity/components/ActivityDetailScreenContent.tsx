@@ -622,6 +622,9 @@ export function ActivityDetailScreenContent({
             activityId={activity.id}
             activityType={activity.type}
             hasMatchedRoute={!!matchedRoute}
+            routeImprovementSeconds={
+              routeHighlight?.isPr ? (routeHighlight.prImprovementSeconds ?? null) : null
+            }
             cacheDays={cacheDays}
             isDark={isDark}
           />

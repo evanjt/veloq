@@ -68,7 +68,16 @@ import {
   TerrainSnapshotWebView,
   type TerrainSnapshotWebViewRef,
 } from '@/features/maps';
-import { colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  iconSize,
+  layout,
+  opacity,
+  spacing,
+  themePalette,
+  typography,
+} from '@/theme';
 import { createSharedStyles } from '@/styles';
 import {
   CARD_MARGIN,
@@ -434,8 +443,8 @@ function FeedScreenContent() {
       <RefreshControl
         refreshing={pullRefreshing}
         onRefresh={handleRefresh}
-        colors={[colors.primary]}
-        tintColor={colors.primary}
+        colors={[themePalette(isDark).primary]}
+        tintColor={themePalette(isDark).primary}
         progressBackgroundColor={isDark ? darkColors.surface : colors.surface}
         title={Platform.OS === 'ios' ? t('common.pullToRefresh') : undefined}
         titleColor={
@@ -560,7 +569,7 @@ function FeedScreenContent() {
           setSearchQuery(event.nativeEvent.text),
         onCancelButtonPress: () => setSearchQuery(''),
         onClose: () => setSearchQuery(''),
-        tintColor: colors.primary,
+        tintColor: themePalette(isDark).primary,
         textColor: textPrimary,
         hintTextColor: textSecondary,
         headerIconColor: textPrimary,

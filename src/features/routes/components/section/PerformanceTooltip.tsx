@@ -38,6 +38,7 @@ import {
   themedStyles,
   typography,
   verdictColor,
+  themePalette,
 } from '@/theme';
 import type { PerformanceDataPoint } from '@/types';
 import {
@@ -47,6 +48,7 @@ import {
   pressRipple,
   type AccessibleAction,
 } from '@/shared/ui';
+import { NameText } from '@/shared/ui/NameText';
 
 /** Scatter chart point - adds the computed X coordinate to the base record. */
 type ChartPoint = PerformanceDataPoint & { x: number };
@@ -182,9 +184,7 @@ export function PerformanceTooltip({
                 <Text style={styles.prTag}>{t('sections.legendPr')}</Text>
               </>
             ) : null}
-            <Text style={styles.tooltipName} numberOfLines={1}>
-              {selectedPoint.activityName}
-            </Text>
+            <NameText style={styles.tooltipName}>{selectedPoint.activityName}</NameText>
             {(selectedPoint.lapCount ?? 0) > 1 && (
               <View style={styles.lapBadge}>
                 <Text style={styles.lapBadgeText}>
@@ -251,7 +251,7 @@ export function PerformanceTooltip({
                 size={iconSize.md}
                 color={
                   selectedPoint.activityId === referenceActivityId
-                    ? colors.primary
+                    ? themePalette(isDark).primary
                     : styles.tooltipDate.color
                 }
               />
@@ -259,7 +259,11 @@ export function PerformanceTooltip({
           ) : null}
           {include ? (
             <IconButton accessibilityLabel={t('sections.includeActivity')} onPress={include}>
-              <MaterialCommunityIcons name="undo" size={iconSize.sm} color={colors.primary} />
+              <MaterialCommunityIcons
+                name="undo"
+                size={iconSize.sm}
+                color={themePalette(isDark).primary}
+              />
             </IconButton>
           ) : (
             exclude && (

@@ -23,7 +23,7 @@ export function PreviewDiffStrip({ counts }: PreviewDiffStripProps) {
   const neutral = isDark ? darkColors.textSecondary : colors.textSecondary;
   const success = isDark ? darkColors.successDeep : colors.successDeep;
   const danger = isDark ? darkColors.errorDeep : colors.errorDeep;
-  const changed = isDark ? darkColors.linkTeal : colors.linkTeal;
+  const changed = isDark ? darkColors.actionLink : colors.actionLink;
 
   const cells: { key: string; text: string; color: string }[] = [
     {

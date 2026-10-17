@@ -8,7 +8,6 @@ import {
   type LayoutChangeEvent,
 } from 'react-native';
 import { FullWindowModal } from '@/shared/ui/FullWindowModal';
-import { Text } from 'react-native-paper';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -578,7 +577,7 @@ function NavigationButtons({
         onPress={onShowMe}
         variant="ghost"
         size="sm"
-        icon={<Text>→</Text>}
+        icon="arrow-right"
       />
     </View>
   );

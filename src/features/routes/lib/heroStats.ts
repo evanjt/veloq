@@ -40,6 +40,20 @@ export interface HeroScope {
   range: Period;
 }
 
+/**
+ * The words naming what a list of attempts is narrowed to: the sport when the
+ * read offers more than one, then the range when it is not every date. Empty
+ * when neither narrows it.
+ */
+export function scopeLabels(scope: Omit<HeroScope, 'count'>, t: TFunction): string[] {
+  return [
+    ...(scope.sport && scope.sportsOffered > 1
+      ? [t(`activityTypes.${scope.sport}`, scope.sport)]
+      : []),
+    ...(scope.range !== 'all' ? [t(PERIOD_LABEL_KEYS.long[scope.range])] : []),
+  ];
+}
+
 /** A grade under this reads as level ground, not as a gradient worth stating. */
 const MIN_AVG_GRADE_PERCENT = 1.0;
 
@@ -69,13 +83,7 @@ export function heroStats(
   ];
   if (scope.count != null) {
     const countKey = section ? 'sections.traversalsCount' : 'maps.activitiesCount';
-    const parts = [
-      t(countKey, { count: scope.count }),
-      ...(scope.sport && scope.sportsOffered > 1
-        ? [t(`activityTypes.${scope.sport}`, scope.sport)]
-        : []),
-      ...(scope.range !== 'all' ? [t(PERIOD_LABEL_KEYS.long[scope.range])] : []),
-    ];
+    const parts = [t(countKey, { count: scope.count }), ...scopeLabels(scope, t)];
     stats.push({ text: parts.join(' · '), label: parts.join(', ') });
   }
   if (elevation) {

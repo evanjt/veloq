@@ -24,6 +24,7 @@ import {
 } from '@/theme';
 import type { ActivityInterval, ActivityType } from '@/types';
 import { ABSENT, absentLabel } from '@/shared/format/absent';
+import { FitText } from '@/shared/ui/FitText';
 
 interface IntervalsTableProps {
   intervals: ActivityInterval[];
@@ -73,13 +74,12 @@ export function IntervalsTable({ intervals, activityType, isMetric, isDark }: In
         ]}
       >
         <Text style={styles.indexText}>{index + 1}</Text>
-        <Text
+        <FitText
           style={[styles.typeText, { color: labelColour }]}
-          numberOfLines={1}
           accessibilityLabel={intervalTypeLabel(typeInput, 'long')}
         >
           {typeLabel}
-        </Text>
+        </FitText>
         <View style={styles.statsRow}>
           <Text style={styles.colStat} accessibilityLabel={absentLabel(distance, t)}>
             {distance}

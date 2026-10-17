@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, opacity, layout, brand } from '@/theme';
+import { colors, darkColors, opacity, layout, strengthTone } from '@/theme';
 
 interface StrengthBalanceScaleProps {
   leftWeightedSets: number;
@@ -42,11 +42,11 @@ const styles = StyleSheet.create({
   },
   side: {
     height: '100%',
-    backgroundColor: brand.tealLight,
+    backgroundColor: strengthTone.primary,
   },
   sideSecondary: {
     height: '100%',
-    backgroundColor: brand.tealDark,
+    backgroundColor: strengthTone.secondary,
   },
   gap: {
     width: 2,

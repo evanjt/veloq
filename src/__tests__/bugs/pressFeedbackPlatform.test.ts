@@ -36,6 +36,20 @@ it('gives Android a ripple and no opacity change', () => {
   expect(pressable()(state(true))).toEqual([undefined, null]);
 });
 
+it('gives a control drawn with an opacity of its own no fade on Android', () => {
+  const { pressedOpacity } = load('android');
+
+  expect(pressedOpacity(true)).toBe(1);
+  expect(pressedOpacity(false)).toBe(1);
+});
+
+it('fades a control drawn with an opacity of its own to the press step on iOS', () => {
+  const { pressedOpacity, PRESS_OPACITY } = load('ios');
+
+  expect(pressedOpacity(true)).toBe(PRESS_OPACITY);
+  expect(pressedOpacity(false)).toBe(1);
+});
+
 it('gives iOS a fade and no ripple', () => {
   const { pressRipple, pressable, PRESS_OPACITY } = load('ios');
 

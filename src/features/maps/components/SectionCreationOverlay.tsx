@@ -374,7 +374,7 @@ export function SectionCreationOverlay({
                 android_ripple={pressRipple}
               >
                 <MaterialCommunityIcons name="refresh" size={iconSize.sm} color={palette.primary} />
-                <Text style={[styles.resetText, { color: palette.linkTeal }]}>
+                <Text style={[styles.resetText, { color: palette.actionLink }]}>
                   {t('common.reset' as never)}
                 </Text>
               </Pressable>

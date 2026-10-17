@@ -395,9 +395,18 @@ const FAKES: Record<string, string> = {
     '[ ! -e "$GATE_FAKE/fail-npm" ] || exit 1',
     '',
   ].join('\n'),
+  // Prebuild runs `pod install`, and CocoaPods stops on a Ruby encoding error
+  // unless the locale is UTF-8, which a non-interactive ssh session does not set.
   npx: [
     '#!/bin/sh',
     'echo "npx $*" >> "$GATE_FAKE/calls.log"',
+    'case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in',
+    '*UTF-8* | *utf8*) ;;',
+    '*)',
+    '  echo "invalid byte sequence in US-ASCII (Encoding::CompatibilityError)" >&2',
+    '  exit 1',
+    '  ;;',
+    'esac',
     'if [ -e "$GATE_FAKE/fail-prebuild" ]; then',
     '  echo "[!] Unable to find a specification for ExpoModulesCore" >&2',
     '  exit 1',
@@ -473,11 +482,14 @@ function fixture(): Fixture {
 }
 
 function gate(f: Fixture, branch = 'main') {
+  // A non-interactive ssh session on the Mac carries no locale.
+  const noLocale = { ...process.env };
+  for (const name of ['LANG', 'LC_ALL', 'LC_CTYPE']) delete noLocale[name];
   // The session's own switches, the simulator lock among them, go with the git pointers.
   const run = spawnSync(path.join(f.local, 'scripts/ios-gate.sh'), [branch], {
     cwd: f.local,
     env: {
-      ...gitFreeEnv(),
+      ...gitFreeEnv(noLocale),
       PATH: `${path.join(f.fake, 'bin')}:${process.env.PATH}`,
       HOME: f.home,
       GATE_FAKE: f.fake,

@@ -1,16 +1,7 @@
 import React, { useState } from 'react';
-import { StyleSheet, type LayoutChangeEvent } from 'react-native';
+import { type LayoutChangeEvent } from 'react-native';
 import { DenseText } from '@/shared/ui/DenseText';
-import {
-  colors,
-  darkColors,
-  typography,
-  layout,
-  spacing,
-  ink,
-  colorWithOpacity,
-  stroke,
-} from '@/theme';
+import { chartStyles, stroke } from '@/theme';
 import type { SeriesInfo } from '@/features/stats';
 
 interface ChartYAxisLabelProps {
@@ -21,6 +12,8 @@ interface ChartYAxisLabelProps {
   chartPaddingBottom: number;
   height: number;
   isDark: boolean;
+  /** The series' unit, printed once, on the top label. */
+  unit: string;
   /**
    * Format a raw Y-axis value for display. Normally the series' own
    * formatter; passed in so the parent controls metric/imperial conversion
@@ -44,12 +37,15 @@ export const ChartYAxisLabel = React.memo(function ChartYAxisLabel({
   chartPaddingBottom,
   height,
   isDark,
+  unit,
   formatYAxisValue,
 }: ChartYAxisLabelProps) {
   // Offsets follow the rendered height so a larger system text size keeps the
   // labels on their lines. The default is the height at the standard size.
   const [labelHeight, setLabelHeight] = useState(DEFAULT_LABEL_HEIGHT);
   const onLayout = (e: LayoutChangeEvent) => setLabelHeight(e.nativeEvent.layout.height);
+  const labelStyle = [chartStyles.axisLabelOnData, isDark && chartStyles.axisLabelOnDataDark];
+  const max = formatYAxisValue(yAxisSeries.range.max, yAxisSeries);
   const accent = showYAxisAccent
     ? { borderLeftWidth: stroke.two, borderLeftColor: yAxisSeries.config.color }
     : null;
@@ -58,22 +54,17 @@ export const ChartYAxisLabel = React.memo(function ChartYAxisLabel({
     <>
       {/* Max label - on the max reference line at chart top */}
       <DenseText
-        style={[
-          styles.yLabel,
-          isDark && styles.yLabelDark,
-          accent,
-          { position: 'absolute', left: 4, top: chartPaddingTop },
-        ]}
+        style={[labelStyle, accent, { position: 'absolute', left: 4, top: chartPaddingTop }]}
         pointerEvents="none"
         onLayout={onLayout}
+        testID="activity-plot-y-max"
       >
-        {formatYAxisValue(yAxisSeries.range.max, yAxisSeries)}
+        {unit ? `${max} ${unit}` : max}
       </DenseText>
       {/* Min label - on the min reference line at chart bottom */}
       <DenseText
         style={[
-          styles.yLabel,
-          isDark && styles.yLabelDark,
+          labelStyle,
           accent,
           { position: 'absolute', left: 4, top: height - chartPaddingBottom - labelHeight },
         ]}
@@ -86,8 +77,7 @@ export const ChartYAxisLabel = React.memo(function ChartYAxisLabel({
       {yAxisAvgInfo ? (
         <DenseText
           style={[
-            styles.yLabel,
-            isDark && styles.yLabelDark,
+            labelStyle,
             accent,
             {
               position: 'absolute',
@@ -106,20 +96,4 @@ export const ChartYAxisLabel = React.memo(function ChartYAxisLabel({
       ) : null}
     </>
   );
-});
-
-const styles = StyleSheet.create({
-  yLabel: {
-    ...typography.micro,
-    color: colors.textSecondary,
-    backgroundColor: colorWithOpacity(ink.white, 0.8),
-    paddingHorizontal: spacing.xs,
-    paddingVertical: spacing.xxs,
-    borderRadius: layout.borderRadiusXs,
-    overflow: 'hidden',
-  },
-  yLabelDark: {
-    color: darkColors.textSecondary,
-    backgroundColor: colorWithOpacity(ink.black, 0.6),
-  },
 });

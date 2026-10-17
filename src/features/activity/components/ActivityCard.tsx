@@ -33,6 +33,7 @@ import {
   stroke,
   typography,
   verdict,
+  themePalette,
 } from '@/theme';
 import { useMapPreferences } from '@/features/settings';
 import { type TerrainSnapshotWebViewRef } from '@/features/maps';
@@ -61,6 +62,8 @@ import { freshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
 import { CARD_HEIGHT, CARD_MARGIN } from '@/features/activity/lib/cardLayout';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 import { tapTo } from '@/shared/app/navigation';
+import { NameText } from '@/shared/ui/NameText';
+import { FitText } from '@/shared/ui/FitText';
 
 const log = debug.create('ActivityCard');
 
@@ -205,6 +208,7 @@ export const ActivityCard = React.memo(
     }
     const { t } = useTranslation();
     const { isDark, preferOpaqueChrome } = useTheme();
+    const palette = themePalette(isDark);
     const isMetric = useMetricSystem();
     const [menuVisible, setMenuVisible] = useState(false);
     const averageHeartRate = activity.average_heartrate;
@@ -311,7 +315,7 @@ export const ActivityCard = React.memo(
         >
           {!!activity.icu_training_load && (
             <View style={styles.secondaryStat}>
-              <MaterialCommunityIcons name="fire" size={iconSize.sm} color={colors.primary} />
+              <MaterialCommunityIcons name="fire" size={iconSize.sm} color={palette.primary} />
               <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
                 {formatLoad(activity.icu_training_load)}
               </RNText>
@@ -428,12 +432,9 @@ export const ActivityCard = React.memo(
                   </View>
                   <View style={styles.compactTitleColumn}>
                     <View style={styles.compactNameRow}>
-                      <RNText
-                        style={[styles.compactName, { color: compactTextColor }]}
-                        numberOfLines={1}
-                      >
+                      <NameText style={[styles.compactName, { color: compactTextColor }]}>
                         {activity.name}
-                      </RNText>
+                      </NameText>
                       <MaterialCommunityIcons
                         name="map-marker-off"
                         size={iconSize.sm}
@@ -441,12 +442,9 @@ export const ActivityCard = React.memo(
                         style={styles.compactNoMapIcon}
                       />
                     </View>
-                    <RNText
-                      style={[styles.compactDateSubtitle, { color: compactMutedColor }]}
-                      numberOfLines={1}
-                    >
+                    <FitText style={[styles.compactDateSubtitle, { color: compactMutedColor }]}>
                       {formatRelativeDateTime(activity.start_date_local)}
-                    </RNText>
+                    </FitText>
                   </View>
                 </View>
 
@@ -554,24 +552,22 @@ export const ActivityCard = React.memo(
                   />
                 </View>
                 <View style={styles.overlayTitleColumn}>
-                  <RNText
+                  <NameText
                     style={[
                       styles.overlayName,
                       { color: theme.text, textShadowColor: theme.shadow },
                     ]}
-                    numberOfLines={1}
                   >
                     {activity.name}
-                  </RNText>
-                  <RNText
+                  </NameText>
+                  <FitText
                     style={[
                       styles.overlayDateSubtitle,
                       { color: theme.textSecondary, textShadowColor: theme.shadow },
                     ]}
-                    numberOfLines={1}
                   >
                     {formatRelativeDateTime(activity.start_date_local)}
-                  </RNText>
+                  </FitText>
                 </View>
                 {routeHighlight && showsRouteChip ? (
                   <Pressable
@@ -978,10 +974,10 @@ const styles = StyleSheet.create({
     backgroundColor: brand.gold,
     borderColor: brand.goldLight,
   },
-  // Ground pill - the teal ladder's dark rung, white text on a solid
+  // Ground pill - the action blue's deep step, white text on a solid
   newGroundPill: {
-    backgroundColor: brand.tealHover,
-    borderColor: brand.tealLight,
+    backgroundColor: brand.blue700,
+    borderColor: brand.blue600,
   },
   // Improving pill - solid green
   improvingPillLight: {

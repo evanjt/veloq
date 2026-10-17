@@ -1,9 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 
-// Divider inset: paddingLeft (md=16) + icon width (22) + gap (sm=8) = 46
-export const DIVIDER_INSET = spacing.md + 22 + spacing.sm;
-
 export const settingsStyles = StyleSheet.create({
   // Card container
   sectionCard: {
@@ -21,16 +18,6 @@ export const settingsStyles = StyleSheet.create({
     ...typography.body,
     flex: 1,
     color: colors.textPrimary,
-  },
-
-  // Indented divider (inset past icon)
-  rowDivider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginLeft: DIVIDER_INSET,
-  },
-  rowDividerDark: {
-    backgroundColor: darkColors.border,
   },
 
   // Hint/caption text below controls

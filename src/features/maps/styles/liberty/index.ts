@@ -1,7 +1,7 @@
 // Liberty style adapted for OpenFreeMap tiles
 // Original style: https://github.com/openmaptiles/osm-liberty (BSD license)
 // Tiles: OpenFreeMap (MIT license)
-// Fonts: Noto Sans (SIL Open Font License)
+// Fonts: Manrope over Noto Sans (SIL Open Font License)
 //
 // Embedded locally to avoid CDN serving stale versions with removed fonts.
 // Source: https://tiles.openfreemap.org/styles/liberty (fetched 2026-04-03)

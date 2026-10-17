@@ -6,8 +6,9 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { SheetHeader } from '@/shared/ui';
+import { KeyDot, SheetHeader } from '@/shared/ui';
 import {
+  chartStreamColors,
   iconSize,
   layout,
   opacity,
@@ -34,19 +35,20 @@ export function StatDetailSheet({ stat, isDark, onClose }: StatDetailSheetProps)
       <SheetHeader title={stat.title} onClose={onClose} />
       <View style={styles.body}>
         <View style={styles.valueRow}>
-          <View style={[styles.iconContainer, { backgroundColor: `${stat.color}20` }]}>
-            <MaterialCommunityIcons name={stat.icon} size={iconSize.xl} color={stat.color} />
+          <View testID="stat-icon-disc" style={styles.iconContainer}>
+            <MaterialCommunityIcons name={stat.icon} size={iconSize.xl} color={styles.icon.color} />
           </View>
           <Text style={styles.value}>
             {stat.value}
             {stat.unit ? <Text style={styles.unit}> {stat.unit}</Text> : null}
           </Text>
+          {stat.stream ? <KeyDot color={chartStreamColors[stat.stream]} /> : null}
         </View>
 
         {stat.context ? (
-          <View style={[styles.contextBanner, { backgroundColor: `${stat.color}15` }]}>
-            <Text style={styles.contextBannerText}>{stat.context}</Text>
-          </View>
+          <Text testID="stat-context" style={styles.context}>
+            {stat.context}
+          </Text>
         ) : null}
 
         {stat.explanation ? (
@@ -96,9 +98,13 @@ const makeStyles = (palette: Palette, isDark: boolean) => {
       width: 56,
       height: 56,
       borderRadius: layout.borderRadius,
+      backgroundColor: palette.fillNeutral,
       justifyContent: 'center',
       alignItems: 'center',
       marginRight: spacing.md,
+    },
+    icon: {
+      color: palette.textSecondary,
     },
     value: {
       ...typography.headlineNumber,
@@ -109,15 +115,11 @@ const makeStyles = (palette: Palette, isDark: boolean) => {
       ...typography.bodyBold,
       color: palette.textSecondary,
     },
-    contextBanner: {
-      padding: spacing.sm,
-      borderRadius: layout.borderRadiusMd,
-      marginBottom: spacing.md,
-    },
-    contextBannerText: {
+    context: {
       ...typography.bodySmallBold,
       textAlign: 'center',
       color: palette.textPrimary,
+      marginBottom: spacing.md,
     },
     explanationBox: {
       backgroundColor: overlay.subtle,

@@ -9,6 +9,7 @@ import { Keyboard } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { HeroNameRow, type TextFieldHandle } from '@/shared/ui';
 import type { MaterialIconName } from '@/shared/activity/activityUtils';
+import type { NameSaveOutcome } from '@/features/routes/lib/sectionRenameFailure';
 
 /** Delay before the input takes focus, so the row has mounted it. */
 const FOCUS_DELAY_MS = 100;
@@ -20,8 +21,11 @@ export interface SectionNameEditorProps {
   startText: string;
   iconName: MaterialIconName;
   activityColor: string;
-  /** Called with the typed name, untrimmed, when the athlete saves. */
-  onSaveName: (name: string) => void;
+  /**
+   * Called with the typed name, untrimmed, when the athlete saves. The field
+   * closes once the name is saved and stays open with the reason when not.
+   */
+  onSaveName: (name: string) => Promise<NameSaveOutcome>;
   /** A control drawn beside the name while it is not being edited. */
   accessory?: React.ReactNode;
 }
@@ -37,6 +41,7 @@ export function SectionNameEditor({
   const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
+  const [nameError, setNameError] = useState<string | null>(null);
   const inputRef = useRef<TextFieldHandle>(null);
 
   useEffect(() => {
@@ -48,18 +53,29 @@ export function SectionNameEditor({
 
   const handleStart = useCallback(() => {
     setEditName(startText);
+    setNameError(null);
     setIsEditing(true);
   }, [startText]);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
+    const outcome = await onSaveName(editName);
+    if (!outcome.saved) {
+      setNameError(outcome.reason);
+      return;
+    }
     Keyboard.dismiss();
     setIsEditing(false);
-    onSaveName(editName);
   }, [editName, onSaveName]);
+
+  const handleChange = useCallback((text: string) => {
+    setEditName(text);
+    setNameError(null);
+  }, []);
 
   const handleCancel = useCallback(() => {
     setIsEditing(false);
     setEditName('');
+    setNameError(null);
     Keyboard.dismiss();
   }, []);
 
@@ -70,13 +86,14 @@ export function SectionNameEditor({
       editable={{
         isEditing,
         editName,
+        error: nameError,
         inputRef,
         label: t('sections.sectionNamePlaceholder'),
         testIDPrefix: 'section',
         onStartEdit: handleStart,
         onSave: handleSave,
         onCancel: handleCancel,
-        onChange: setEditName,
+        onChange: handleChange,
       }}
       accessory={accessory}
     />

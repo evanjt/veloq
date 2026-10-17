@@ -409,6 +409,9 @@ struct SyncInner {
     /// answer to whether a sync is running, and to what it was asked to do,
     /// so an interrupt can hand it back.
     running: Option<SyncRequest>,
+    /// The athlete the running job was started for, so a default sync asked
+    /// for by another athlete is not mistaken for one the run covers.
+    running_for: Option<String>,
     cancel: bool,
     /// A credential the profile confirmed as rejected. Set by the park and
     /// cleared only by a credential change, so the running sync's own
@@ -417,18 +420,65 @@ struct SyncInner {
     auth_expired: bool,
     /// A restart waiting for the interrupted run to settle.
     resume: Option<PendingResume>,
-    /// Windows refused because the slot was held, in the order they were
-    /// asked for. Started by the engine as the slot frees, since a refusal
-    /// that is not a network failure is retried by no edge the caller sees.
-    owed: Vec<OwedWindow>,
+    /// Runs refused because the slot was held, in the order they were asked
+    /// for. Started by the engine as the slot frees, since a refusal that is
+    /// not a network failure is retried by no edge the caller sees.
+    owed: Vec<OwedRun>,
+    /// Runs that failed in a way the connection coming back can cure. Moved
+    /// onto `owed` on the online edge and not before, so a run that keeps
+    /// failing costs one attempt per edge rather than a loop.
+    owed_to_reconnect: Vec<OwedRun>,
 }
 
-/// A date window refused while the slot was held, and whose athlete asked.
+impl SyncInner {
+    /// Keep `run` owed to the slot, once.
+    fn owe(&mut self, run: OwedRun) {
+        owe_into(&mut self.owed, run);
+    }
+}
+
+/// Add `run` to `queue` unless it is there already. A default sync already
+/// owed for the same athlete takes the force of either ask.
+fn owe_into(queue: &mut Vec<OwedRun>, run: OwedRun) {
+    if let SyncRequest::Full { force } = run.request
+        && let Some(SyncRequest::Full { force: held }) = queue
+            .iter_mut()
+            .find(|owed| {
+                owed.athlete_id == run.athlete_id
+                    && matches!(owed.request, SyncRequest::Full { .. })
+            })
+            .map(|owed| &mut owed.request)
+    {
+        *held |= force;
+        return;
+    }
+    if !queue.contains(&run) {
+        queue.push(run);
+    }
+}
+
+/// A run the engine still owes, and whose athlete asked for it.
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct OwedWindow {
+struct OwedRun {
     athlete_id: String,
-    oldest: String,
-    newest: String,
+    request: SyncRequest,
+}
+
+/// Whether the connection coming back can cure a run that failed this way.
+///
+/// The server not reached, an answer it could not use, a pause it asked for,
+/// and a 401 the profile check did not confirm are all worth one more run
+/// once the connection returns. A missing credential, a full disk, an
+/// unreadable file, a closed engine and a panic are not: nothing about the
+/// network changed them, and a closed engine's clear restarts its own run.
+fn reconnect_cures(reason: FfiSyncErrorReason) -> bool {
+    matches!(
+        reason,
+        FfiSyncErrorReason::Network
+            | FfiSyncErrorReason::Server
+            | FfiSyncErrorReason::RateLimited
+            | FfiSyncErrorReason::Unauthorized
+    )
 }
 
 /// What a sync was started for: the default pass, or one date window.
@@ -470,10 +520,12 @@ impl Default for SyncInner {
             deferred_until: None,
             install: None,
             running: None,
+            running_for: None,
             cancel: false,
             auth_expired: false,
             resume: None,
             owed: Vec::new(),
+            owed_to_reconnect: Vec::new(),
         }
     }
 }
@@ -484,6 +536,8 @@ pub struct SyncService {
     inner: Mutex<SyncInner>,
     creds: Mutex<Option<Credentials>>,
     base_url: Mutex<String>,
+    /// Starts a default sync the slot refused, once it frees.
+    start_full: Box<dyn Fn(bool) + Send + Sync>,
     /// Starts a window the slot refused, once it frees.
     start_window: Box<dyn Fn(String, String) + Send + Sync>,
 }
@@ -494,13 +548,22 @@ impl SyncService {
         Self::starting_windows_with(|_, _| {})
     }
 
+    #[cfg(test)]
     fn starting_windows_with(
+        start_window: impl Fn(String, String) + Send + Sync + 'static,
+    ) -> Self {
+        Self::starting_with(|_| {}, start_window)
+    }
+
+    fn starting_with(
+        start_full: impl Fn(bool) + Send + Sync + 'static,
         start_window: impl Fn(String, String) + Send + Sync + 'static,
     ) -> Self {
         SyncService {
             inner: Mutex::new(SyncInner::default()),
             creds: Mutex::new(None),
             base_url: Mutex::new(INTERVALS_BASE_URL.to_string()),
+            start_full: Box::new(start_full),
             start_window: Box::new(start_window),
         }
     }
@@ -596,9 +659,11 @@ impl SyncService {
 
     /// Claim the slot for `request`, or name why not.
     ///
-    /// A window refused because the slot is held is kept owed under the same
+    /// A run refused because the slot is held is kept owed under the same
     /// lock, so the finish that frees the slot cannot pass between the
-    /// refusal and the record and leave it unasked.
+    /// refusal and the record and leave it unasked. The one refusal not kept
+    /// is a default sync behind a default sync for the same athlete, which
+    /// fetches what it would have.
     fn claim_slot_for(&self, request: SyncRequest) -> Result<(), FfiStartOutcome> {
         let athlete_id = self.athlete_id();
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
@@ -606,21 +671,21 @@ impl SyncService {
             return Err(FfiStartOutcome::NotConfigured);
         }
         if inner.running.is_some() {
-            if let (SyncRequest::Window { oldest, newest }, Some(athlete_id)) =
-                (request, athlete_id)
-            {
-                let owed = OwedWindow {
-                    athlete_id,
-                    oldest,
-                    newest,
-                };
-                if !inner.owed.contains(&owed) {
-                    inner.owed.push(owed);
+            if let Some(athlete_id) = athlete_id {
+                let covered = matches!(request, SyncRequest::Full { .. })
+                    && matches!(inner.running, Some(SyncRequest::Full { .. }))
+                    && inner.running_for.as_deref() == Some(athlete_id.as_str());
+                if !covered {
+                    inner.owe(OwedRun {
+                        athlete_id,
+                        request,
+                    });
                 }
             }
             return Err(FfiStartOutcome::Busy);
         }
         inner.running = Some(request);
+        inner.running_for = athlete_id;
         inner.install = Some(crate::persistence::engine_install());
         inner.cancel = false;
         inner.state = SyncState::Syncing;
@@ -717,6 +782,7 @@ impl SyncService {
             // the athlete was never told the session was gone.
             if inner.auth_expired && state != SyncState::AuthExpired {
                 inner.running = None;
+                inner.running_for = None;
                 inner.in_flight = 0;
                 inner.step = None;
                 drop(inner);
@@ -724,8 +790,24 @@ impl SyncService {
                 return;
             }
             stamp = install.filter(|_| success && failure.is_none() && state == SyncState::Idle);
+            let ended = inner.running.take();
+            let ended_for = inner.running_for.take();
+            // A run cancelled on purpose is not owed again: a sign-out or a
+            // clear stopped it, and the clear restarts its own.
+            if let (Some(request), Some(athlete_id), Some(failure)) = (ended, ended_for, &failure)
+                && state == SyncState::Idle
+                && !inner.cancel
+                && reconnect_cures(failure.reason)
+            {
+                owe_into(
+                    &mut inner.owed_to_reconnect,
+                    OwedRun {
+                        athlete_id,
+                        request,
+                    },
+                );
+            }
             inner.state = state;
-            inner.running = None;
             inner.in_flight = 0;
             inner.step = None;
             inner.step_items_done = 0;
@@ -750,19 +832,37 @@ impl SyncService {
         {
             (resume.start)();
         }
-        self.start_owed_windows();
+        self.start_owed_runs();
     }
 
-    /// Start the windows the slot refused, oldest ask first, until one of
-    /// them holds it again. The rest wait for that run's finish.
+    /// The connection came back: the runs a failure left owed to it join the
+    /// runs owed to the slot, and start as it frees.
+    ///
+    /// The one place a failed sync or window is asked again. A screen that
+    /// wanted the window asks nothing on the edge itself.
+    pub(crate) fn reconnected(&self) {
+        {
+            let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+            if inner.auth_expired {
+                return;
+            }
+            for run in std::mem::take(&mut inner.owed_to_reconnect) {
+                inner.owe(run);
+            }
+        }
+        self.start_owed_runs();
+    }
+
+    /// Start the runs the slot refused, oldest ask first, until one of them
+    /// holds it again. The rest wait for that run's finish.
     ///
     /// A start that does not take the slot, a window that landed meanwhile
-    /// and answers `NotOwed`, an engine not open, is passed over for the next.
-    /// Nothing starts while the credential is parked or the engine is
-    /// suspended: the resume that ends a suspension restarts the run it cut
-    /// short, and that run's finish comes back here. A window owed for an
-    /// athlete who has since signed out is dropped.
-    fn start_owed_windows(&self) {
+    /// and answers `NotOwed`, a default sync held by a cooldown, an engine not
+    /// open, is passed over for the next. Nothing starts while the credential
+    /// is parked or the engine is suspended: the resume that ends a suspension
+    /// restarts the run it cut short, and that run's finish comes back here.
+    /// A run owed for an athlete who has since signed out is dropped.
+    fn start_owed_runs(&self) {
         if crate::persistence::suspension::is_suspended() {
             return;
         }
@@ -774,8 +874,12 @@ impl SyncService {
                 }
                 inner.owed.remove(0)
             };
-            if self.still_signed_in(&next.athlete_id) {
-                (self.start_window)(next.oldest, next.newest);
+            if !self.still_signed_in(&next.athlete_id) {
+                continue;
+            }
+            match next.request {
+                SyncRequest::Full { force } => (self.start_full)(force),
+                SyncRequest::Window { oldest, newest } => (self.start_window)(oldest, newest),
             }
         }
     }
@@ -980,10 +1084,24 @@ fn stamp_last_success(install: u64) {
 
 /// The process-wide sync service.
 pub static SYNC_SERVICE: LazyLock<SyncService> = LazyLock::new(|| {
-    SyncService::starting_windows_with(|oldest, newest| {
-        start_window_sync(oldest, newest);
-    })
+    SyncService::starting_with(
+        |force| {
+            start_full_sync(force);
+        },
+        |oldest, newest| {
+            start_window_sync(oldest, newest);
+        },
+    )
 });
+
+/// The connection came back. Pushed from the FFI on the online edge.
+///
+/// The one place work the connection cost is asked again: the syncs and
+/// windows the service keeps, and the GPS track pass.
+pub(crate) fn reconnected() {
+    SYNC_SERVICE.reconnected();
+    crate::objects::gps_pass::reconnected();
+}
 
 /// Ask the credential again, on an endpoint a live one always answers.
 ///

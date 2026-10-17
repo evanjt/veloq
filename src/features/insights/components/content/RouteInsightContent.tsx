@@ -15,6 +15,7 @@ import type { TFunc } from '../../types';
 import { sectionWithSport } from '../../lib/cardSport';
 import { rowTrendColor, rowTrendIcon } from '../../lib/rowTrend';
 import { SparklineChart } from '../SupportingDataSection';
+import { NameText } from '@/shared/ui/NameText';
 
 const STRIP_WIDTH = 96;
 const STRIP_HEIGHT = 28;
@@ -41,9 +42,7 @@ const RouteRow = React.memo(function RouteRow({ route }: { route: SupportingRout
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
             style={styles.sportIcon}
           />
-          <Text style={[styles.name, isDark && styles.nameDark]} numberOfLines={1}>
-            {label}
-          </Text>
+          <NameText style={[styles.name, isDark && styles.nameDark]}>{label}</NameText>
           {route.isRecentRecord ? (
             <MaterialCommunityIcons name="trophy" size={iconSize.sm} color={brand.gold} />
           ) : null}

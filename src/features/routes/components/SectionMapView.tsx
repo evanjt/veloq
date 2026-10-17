@@ -13,14 +13,21 @@
  */
 
 import React, { useMemo, useRef, useState, useCallback, useEffect, memo } from 'react';
-import { View, Pressable, StatusBar, Animated, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Pressable,
+  StatusBar,
+  Animated,
+  ActivityIndicator,
+  useWindowDimensions,
+} from 'react-native';
 import { FullWindowModal } from '@/shared/ui/FullWindowModal';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useIsFocused } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { getActivityColor } from '@/shared/activity/activityUtils';
-import { cameraMove, colors, duration, iconSize, spacing } from '@/theme';
+import { cameraMove, colors, duration, iconSize, spacing, themePalette } from '@/theme';
 import { useMapPreferences } from '@/features/settings';
 import { useTheme } from '@/shared/app';
 import {
@@ -52,6 +59,7 @@ import {
   buildUserLocationCollection,
   useLocateUser,
   mapControlColumnLayout,
+  visibleMapInset,
 } from '@/features/maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CompassArrow, ComponentErrorBoundary } from '@/shared/ui';
@@ -62,7 +70,7 @@ import { useSectionMapLayers } from './useSectionMapLayers';
 import { buildSection3DOverlays } from './sectionMap3DOverlays';
 import { buildDeltaLineStops } from '@/features/maps';
 import type { SectionDeltaLine } from '../lib/deltaLayout';
-import { SectionMapLegend, hasLegendLayers } from './section/SectionMapLegend';
+import { DetailMapLegend, hasLegendLayers } from './DetailMapLegend';
 import { buildSectionLayers, buildSectionSources } from './sectionMapLayerSpecs';
 import {
   SECTION_MAP_BOUNDS_PADDING,
@@ -212,8 +220,31 @@ export const SectionMapView = memo(function SectionMapView({
   );
 
   const hasRoute = sectionCoords.length > 0;
+  // Fullscreen button is part of control stack when interactive
+  const isTrimming = !!trimRange;
+  // Style, compass and location always show; 3D needs a line, full screen is off while trimming.
+  const controlCount = 3 + (hasRoute ? 1 : 0) + (enableFullscreen && !isTrimming ? 1 : 0);
+  const {
+    maxHeight: controlsMaxHeight,
+    width: controlsWidth,
+    footprint: controlsFootprint,
+  } = mapControlColumnLayout(controlCount, height, overlayTop);
+  // The section is fitted to what the header and, when it is drawn, the control column leave visible.
+  const { width: mapWidth } = useWindowDimensions();
+  const fitPadding = useMemo(
+    () =>
+      visibleMapInset({
+        width: mapWidth,
+        height,
+        coveredTop: overlayTop,
+        coveredRight: interactive ? controlsFootprint : 0,
+        margin: SECTION_MAP_FIT_PADDING,
+      }),
+    [mapWidth, height, overlayTop, interactive, controlsFootprint]
+  );
   // Controls and legends over the map follow the app theme, not the base drawn under them.
   const { isDark } = useTheme();
+  const activeControl = { backgroundColor: themePalette(isDark).primary };
 
   // The 2D surface comes down once the 3D layer covers it, so where it was is
   // captured on the way out and handed back to the remount.
@@ -247,8 +278,8 @@ export const SectionMapView = memo(function SectionMapView({
     );
     if (!nextBounds) return;
     framedSection.current = frameKey;
-    surfaceRef.current?.fitBounds(nextBounds, SECTION_MAP_FIT_PADDING, cameraMove.move);
-  }, [frameKey, extensionCoords, sectionCoords, isExpanding]);
+    surfaceRef.current?.fitBounds(nextBounds, fitPadding, cameraMove.move);
+  }, [frameKey, extensionCoords, sectionCoords, isExpanding, fitPadding]);
 
   // Reset 3D ready state when toggling off
   useEffect(() => {
@@ -496,7 +527,7 @@ export const SectionMapView = memo(function SectionMapView({
       mapStyle={drawnMapStyle}
       initialCamera={
         cameraAfter3D(camera3DRef.current, cameraOnHide) ?? {
-          ...sectionCameraSpec(bounds),
+          ...sectionCameraSpec(bounds, fitPadding),
           maxZoom: SECTION_MAP_MAX_ZOOM,
         }
       }
@@ -515,15 +546,6 @@ export const SectionMapView = memo(function SectionMapView({
   // Whether to show the interactive control stack (not during trim mode)
   const showControls = interactive;
   const showExpandOverlay = enableFullscreen && !interactive;
-  // Fullscreen button is part of control stack when interactive
-  const isTrimming = !!trimRange;
-  // Style, compass and location always show; 3D needs a line, full screen is off while trimming.
-  const controlCount = 3 + (hasRoute ? 1 : 0) + (enableFullscreen && !isTrimming ? 1 : 0);
-  const { maxHeight: controlsMaxHeight, width: controlsWidth } = mapControlColumnLayout(
-    controlCount,
-    height,
-    overlayTop
-  );
 
   return (
     <>
@@ -551,6 +573,7 @@ export const SectionMapView = memo(function SectionMapView({
                     coordinates={sectionCoords}
                     mapStyle={drawnMapStyle}
                     routeColor={activityColor}
+                    fitPadding={fitPadding}
                     sectionTrimGeoJSON={sectionTrimGeoJSON}
                     highlightedTraceGeoJSON={overlays3D.highlightGeoJSON}
                     released={!screenFocused}
@@ -609,7 +632,7 @@ export const SectionMapView = memo(function SectionMapView({
                   style={pressable([
                     styles.controlButton,
                     isDark && styles.controlButtonDark,
-                    is3DMode && styles.controlButtonActive,
+                    is3DMode && activeControl,
                   ])}
                   onPress={toggle3D}
                   android_ripple={pressRipple}
@@ -650,7 +673,7 @@ export const SectionMapView = memo(function SectionMapView({
                 style={pressable([
                   styles.controlButton,
                   isDark && styles.controlButtonDark,
-                  userLocation !== null && styles.controlButtonActive,
+                  userLocation !== null && activeControl,
                 ])}
                 accessibilityRole="button"
                 accessibilityLabel={t('maps.goToLocation')}
@@ -695,7 +718,12 @@ export const SectionMapView = memo(function SectionMapView({
 
           {/* The layers drawn over the section's own line, named. */}
           {interactive && hasLegendLayers(inlineLegendLayers) ? (
-            <SectionMapLegend isDark={isDark} top={overlayTop} {...inlineLegendLayers} />
+            <DetailMapLegend
+              isDark={isDark}
+              top={overlayTop}
+              testID="section-map-legend"
+              {...inlineLegendLayers}
+            />
           ) : null}
         </View>
       ) : (
@@ -746,8 +774,9 @@ export const SectionMapView = memo(function SectionMapView({
           layer3D={fullscreenLayer3D}
         />
         {hasLegendLayers(fullscreenLegendLayers) && (
-          <SectionMapLegend
+          <DetailMapLegend
             isDark={isDark}
+            testID="section-map-legend"
             top={fullscreenInsets.top + spacing.sm}
             {...fullscreenLegendLayers}
           />

@@ -27,6 +27,10 @@ export {
   RoutePerformanceSection,
   RoutesList,
   SectionsList,
+  SectionSwipeAction,
+  sectionSwipeAction,
+  sectionSwipeKind,
+  type SectionSwipeKind,
   SectionTrimOverlay,
   SportTypeSelector,
   SyncDebugSection,
@@ -136,7 +140,7 @@ export { removeSectionWithUndo, restoreSection } from './lib/sectionVisibility';
 export { rescanRefusalKey } from './lib/rescanRefusal';
 export { createMapHighlightStore } from './lib/mapHighlight';
 export { routeHeadline } from './lib/routeHeadline';
-export { heroStats } from './lib/heroStats';
+export { heroStats, scopeLabels } from './lib/heroStats';
 export { forwardDirectionColour } from './lib/directionColour';
 export {
   DEFAULT_SECTION_HIDE_FLAGS,

@@ -11,13 +11,23 @@ import { Row, SheetHeader } from '@/shared/ui';
 import { TrackPreview, normaliseTrackPoints } from '@/shared/ui/TrackPreview';
 import { formatDistance } from '@/shared/format/format';
 import { SportIcons } from '@/shared/activity/SportIcons';
-import { colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
+import {
+  colors,
+  darkColors,
+  iconSize,
+  layout,
+  spacing,
+  typography,
+  stroke,
+  themePalette,
+} from '@/theme';
 import {
   ROW_PREVIEW_HEIGHT,
   ROW_PREVIEW_WIDTH,
   type MergeCandidatesSheetInput,
 } from '@/features/routes';
 import { tapBack } from '@/shared/app/navigation';
+import { NameText } from '@/shared/ui/NameText';
 
 /**
  * The merge candidates list, a sheet route opened with `openSheet` when a section has several
@@ -43,7 +53,7 @@ function CandidatePreview({ candidate, isDark }: { candidate: MergeCandidate; is
         <TrackPreview
           testID={`merge-candidate-preview-${candidate.sectionId}`}
           points={points}
-          color={colors.primary}
+          color={themePalette(isDark).primary}
           isDark={isDark}
         />
       ) : null}
@@ -73,9 +83,9 @@ function MergeCandidatesSheetContent() {
         <CandidatePreview candidate={item} isDark={isDark} />
         <SportIcons sportTypes={item.sportTypes} size={iconSize.lg} color={textSecondary} />
         <View style={styles.rowContent}>
-          <Text style={[styles.rowName, { color: textPrimary }]} numberOfLines={1}>
+          <NameText style={[styles.rowName, { color: textPrimary }]}>
             {item.name ?? item.sectionId}
-          </Text>
+          </NameText>
           <Text style={[styles.rowMeta, { color: textSecondary }]}>
             {t('sections.traversalsCount', { count: item.visitCount })}
             {' · '}

@@ -1,12 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { View, StyleSheet, Text as RNText } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { getISOWeekNumber, formatWeekRange } from '@/features/fitness';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import type { ParseKeys, TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, layout, typography, spacing, verdictColor } from '@/theme';
+import { colors, darkColors, layout, typography, spacing } from '@/theme';
 import { glyphMove, verdictRung, type TrendMetric } from '@/shared/format/trend';
 import { spokenVerdict } from '@/shared/format/spoken';
 import { RangeCoverage } from 'veloqrs';
@@ -31,7 +31,9 @@ import {
   ErrorState,
   Shimmer,
   SkeletonFrame,
+  StatTile,
   ToggleButton,
+  type StatTileDelta,
 } from '@/shared/ui';
 import { queryKeys } from '@/shared/query/queryKeys';
 
@@ -85,30 +87,16 @@ function getTimeRangeButtonLabel(range: TimeRange, t: TFunction): string {
   return t(RANGE_BUTTON_KEYS[range]);
 }
 
-/** The engine's move for one total, drawn as it was judged. */
-function TrendCell({
-  stat,
-  move,
-  isDark,
-}: {
-  stat: SummaryStat;
-  move: StatMove | null;
-  isDark: boolean;
-}) {
-  if (!move) return null;
+/** The engine's move for one total, stated as it was judged. */
+function statDelta(stat: SummaryStat, move: StatMove | null): StatTileDelta | undefined {
+  if (!move) return undefined;
   const { verdict, direction } = glyphMove(STAT_METRIC[stat], move.glyph);
-  const pct = move.percent == null ? null : `${move.percent}%`;
-  const spoken = spokenVerdict(verdict, direction);
-  return (
-    <Text
-      testID={`weekly-summary-${stat}-trend`}
-      accessibilityLabel={pct ? `${spoken}, ${pct}` : spoken}
-      style={[styles.trendArrow, { color: verdictColor(verdictRung(verdict), isDark) }]}
-    >
-      {move.glyph}
-      {pct ? <RNText style={styles.trendPct}> {pct}</RNText> : null}
-    </Text>
-  );
+  return {
+    glyph: move.glyph,
+    text: move.percent == null ? undefined : `${move.percent}%`,
+    tone: verdictRung(verdict),
+    spoken: spokenVerdict(verdict, direction),
+  };
 }
 
 /** The four-cell stats grid while its totals load, each cell the size of the stat it becomes. */
@@ -264,71 +252,28 @@ export function WeeklySummary() {
         <>
           {/* Stats grid */}
           <View style={styles.statsGrid}>
-            <View style={styles.statItem}>
-              <View style={styles.statValueRow}>
-                <Text
-                  testID="weekly-summary-count"
-                  style={[styles.statValue, isDark && styles.textLight]}
-                >
-                  {currentStats.count}
-                </Text>
-                <TrendCell stat="count" move={comparison?.moves.count ?? null} isDark={isDark} />
-              </View>
-              <Text style={[styles.statLabel, isDark && styles.textDark]}>
-                {t('stats.activities')}
-              </Text>
-            </View>
-
-            <View style={styles.statItem}>
-              <View style={styles.statValueRow}>
-                <Text
-                  testID="weekly-summary-duration"
-                  style={[styles.statValue, isDark && styles.textLight]}
-                >
-                  {formatDurationHuman(currentStats.duration)}
-                </Text>
-                <TrendCell
-                  stat="duration"
-                  move={comparison?.moves.duration ?? null}
-                  isDark={isDark}
+            {(
+              [
+                ['count', String(currentStats.count), t('stats.activities')],
+                ['duration', formatDurationHuman(currentStats.duration), t('activity.duration')],
+                [
+                  'distance',
+                  formatDistance(currentStats.distance, isMetric),
+                  t('activity.distance'),
+                ],
+                ['tss', String(Math.round(currentStats.tss)), t('metrics.load')],
+              ] as const
+            ).map(([stat, value, label]) => (
+              <View key={stat} style={styles.statItem}>
+                <StatTile
+                  testID={`weekly-summary-${stat}`}
+                  size="lg"
+                  label={label}
+                  value={value}
+                  delta={statDelta(stat, comparison?.moves[stat] ?? null)}
                 />
               </View>
-              <Text style={[styles.statLabel, isDark && styles.textDark]}>
-                {t('activity.duration')}
-              </Text>
-            </View>
-
-            <View style={styles.statItem}>
-              <View style={styles.statValueRow}>
-                <Text
-                  testID="weekly-summary-distance"
-                  style={[styles.statValue, isDark && styles.textLight]}
-                >
-                  {formatDistance(currentStats.distance, isMetric)}
-                </Text>
-                <TrendCell
-                  stat="distance"
-                  move={comparison?.moves.distance ?? null}
-                  isDark={isDark}
-                />
-              </View>
-              <Text style={[styles.statLabel, isDark && styles.textDark]}>
-                {t('activity.distance')}
-              </Text>
-            </View>
-
-            <View style={styles.statItem}>
-              <View style={styles.statValueRow}>
-                <Text
-                  testID="weekly-summary-tss"
-                  style={[styles.statValue, isDark && styles.textLight]}
-                >
-                  {Math.round(currentStats.tss)}
-                </Text>
-                <TrendCell stat="tss" move={comparison?.moves.tss ?? null} isDark={isDark} />
-              </View>
-              <Text style={[styles.statLabel, isDark && styles.textDark]}>{t('metrics.load')}</Text>
-            </View>
+            ))}
           </View>
 
           {/* Period comparison label */}
@@ -358,9 +303,6 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: spacing.md,
   },
-  textLight: {
-    color: colors.textOnDark,
-  },
   textDark: {
     color: darkColors.textSecondary,
   },
@@ -377,26 +319,6 @@ const styles = StyleSheet.create({
     width: '50%',
     paddingHorizontal: spacing.xs,
     marginBottom: spacing.md,
-  },
-  statValueRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: spacing.xs,
-  },
-  statValue: {
-    ...typography.statsValueLarge,
-    color: colors.textPrimary,
-  },
-  trendArrow: {
-    ...typography.bodySmallBold,
-  },
-  trendPct: {
-    ...typography.micro,
-  },
-  statLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    marginTop: spacing.xxs,
   },
   comparisonLabel: {
     ...typography.micro,

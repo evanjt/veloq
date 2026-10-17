@@ -26,6 +26,16 @@ export const pressRipple = Platform.select({
 });
 
 /**
+ * The opacity a control drawn with an opacity of its own takes while pressed,
+ * such as `Button`, which also dims when disabled: the fade on iOS, and 1 on
+ * Android, where the ripple is the feedback.
+ */
+export function pressedOpacity(pressed: boolean): number {
+  if (Platform.OS === 'android') return 1;
+  return pressed ? PRESS_OPACITY : 1;
+}
+
+/**
  * The ripple for a `Pressable` whose child paints an opaque ground, such as a
  * `Card`. A ripple is the view's background unless it is a foreground, so the
  * plain one is drawn under the child and never seen.

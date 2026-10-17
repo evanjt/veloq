@@ -28,6 +28,7 @@ import type { TFunc } from '../../types';
 import { sectionRowKey, sectionWithSport } from '../../lib/cardSport';
 import { rowTrendColor, rowTrendIcon, rowTrendWord } from '../../lib/rowTrend';
 import { formatSignedPercent } from '@/shared/format/number';
+import { NameText } from '@/shared/ui/NameText';
 
 interface SectionTrendContentProps {
   insight: Insight;
@@ -149,12 +150,9 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
                   style={styles.sportIcon}
                 />
               ) : null}
-              <Text
-                style={[styles.sectionName, isDark && styles.sectionNameDark]}
-                numberOfLines={1}
-              >
+              <NameText style={[styles.sectionName, isDark && styles.sectionNameDark]}>
                 {name}
-              </Text>
+              </NameText>
               {section.hasRecentPR ? (
                 <View style={styles.prChip}>
                   <MaterialCommunityIcons

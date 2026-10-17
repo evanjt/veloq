@@ -105,44 +105,6 @@ export const shadows = {
   // PREMIUM GLOW EFFECTS (Brand signature)
   // =========================================================================
 
-  /** Teal glow for primary interactive elements (buttons, links) */
-  primaryGlow: Platform.select({
-    ios: {
-      shadowColor: brand.teal,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.35,
-      shadowRadius: 10,
-    },
-    android: {
-      elevation: 4,
-    },
-    default: {
-      shadowColor: brand.teal,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.3,
-      shadowRadius: 10,
-    },
-  }) as ShadowStyle,
-
-  /** Teal glow (alias for primaryGlow) */
-  tealGlow: Platform.select({
-    ios: {
-      shadowColor: brand.teal,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.35,
-      shadowRadius: 10,
-    },
-    android: {
-      elevation: 4,
-    },
-    default: {
-      shadowColor: brand.teal,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.3,
-      shadowRadius: 10,
-    },
-  }) as ShadowStyle,
-
   /** Gold glow for achievements, PRs, and celebration moments ONLY */
   goldGlow: Platform.select({
     ios: {
@@ -178,25 +140,6 @@ export const shadows = {
       shadowOffset: { width: 0, height: 0 },
       shadowOpacity: 0.25,
       shadowRadius: 8,
-    },
-  }) as ShadowStyle,
-
-  /** Subtle teal glow (for hover/focus states) */
-  primaryGlowSubtle: Platform.select({
-    ios: {
-      shadowColor: brand.teal,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.2,
-      shadowRadius: 6,
-    },
-    android: {
-      elevation: 2,
-    },
-    default: {
-      shadowColor: brand.teal,
-      shadowOffset: { width: 0, height: 0 },
-      shadowOpacity: 0.15,
-      shadowRadius: 6,
     },
   }) as ShadowStyle,
 

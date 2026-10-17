@@ -26,6 +26,7 @@ import type { MapHighlightStore } from '@/features/routes/lib/mapHighlight';
 import type { SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
 import { type MaterialIconName } from '@/shared/activity/activityUtils';
 import { heroStats } from '@/features/routes/lib/heroStats';
+import type { NameSaveOutcome } from '@/features/routes/lib/sectionRenameFailure';
 import {
   colors,
   iconSize,
@@ -70,7 +71,7 @@ export interface SectionHeaderProps {
   /** Take the detector's lift flag off. Absent leaves the badge inert. */
   onUnflagLift?: (() => void) | undefined;
   /** Called with the typed name, untrimmed, when the rename is saved. */
-  onSaveName: (name: string) => void;
+  onSaveName: (name: string) => Promise<NameSaveOutcome>;
   /** Whether the detail read lets the athlete ask for a name from the section's places. */
   canNameFromPlaces?: boolean | undefined;
 }
@@ -202,8 +203,8 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.chart.sm,
-    marginTop: spacing.chart.sm,
+    gap: spacing.xs,
+    marginTop: spacing.xs,
     paddingVertical: spacing.xxs,
     minHeight: LIFT_BADGE_HEIGHT,
     paddingHorizontal: spacing.sm,

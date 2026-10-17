@@ -10,7 +10,16 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { tapTo } from '@/shared/app/navigation';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  iconSize,
+  layout,
+  opacity,
+  spacing,
+  typography,
+  themePalette,
+} from '@/theme';
 import { Card } from '@/shared/ui/Card';
 import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
@@ -26,6 +35,7 @@ import {
   ROW_PREVIEW_HEIGHT,
   ROW_PREVIEW_WIDTH,
 } from '@/features/routes/lib/rowLayout';
+import { NameText } from '@/shared/ui/NameText';
 
 interface RouteRowProps {
   /** Route data - can be either DiscoveredRouteInfo (during processing) or RouteGroup (saved) */
@@ -44,6 +54,7 @@ function isRouteGroup(route: DiscoveredRouteInfo | RouteGroup): route is RouteGr
 function RouteRowComponent({ route, navigable = false, distanceFromUser }: RouteRowProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const palette = themePalette(isDark);
   const isMetric = useMetricSystem();
 
   // The routes screen read carries the row's line, already strided to the
@@ -57,7 +68,7 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
 
   // Get activity color for the route type
   // RouteGroup.type is ActivityType, DiscoveredRouteInfo.type is string
-  const activityColor = colors.primary;
+  const activityColor = palette.primary;
 
   // Get preview points from the route's representative.
   const previewPoints = useMemo(() => {
@@ -130,9 +141,9 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
         {/* Route info */}
         <View style={styles.infoContainer}>
           <View style={styles.nameRow}>
-            <Text style={[styles.routeName, isDark && styles.textLight]} numberOfLines={1}>
+            <NameText style={[styles.routeName, isDark && styles.textLight]}>
               {displayName}
-            </Text>
+            </NameText>
             {/* Show sport type icons for all activity types in this route */}
             {isRouteGroup(route) && route.sportTypes && route.sportTypes.length > 0 ? (
               <View style={styles.sportTypeIcons}>
@@ -175,7 +186,7 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
 
         {/* Activity count badge */}
         <View
-          style={styles.countBadge}
+          style={[styles.countBadge, { backgroundColor: palette.primary }]}
           accessible
           accessibilityLabel={countLabel}
           testID={`route-row-${route.id}-count`}
@@ -283,7 +294,6 @@ const styles = StyleSheet.create({
   countBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary,
     borderRadius: layout.borderRadius,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xxs,

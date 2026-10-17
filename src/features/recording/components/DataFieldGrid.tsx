@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import type { ViewStyle } from 'react-native';
-import { Text } from 'react-native-paper';
 
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import * as haptics from '@/shared/ui/haptics';
@@ -33,6 +32,8 @@ import {
 import type { ActivityType, DataFieldType } from '@/types';
 import { isSwimmingActivity } from '@/shared/activity/activityUtils';
 import { accessibleActions, pressable, pressRipple } from '@/shared/ui';
+import { FitText } from '@/shared/ui/FitText';
+import { useTextScaleColumns } from '@/shared/ui/useLargeText';
 import type { SensorKind } from '@/features/sensors';
 import { DELIBERATE_HOLD_MS } from '@/shared/ui/holdDurations';
 import { ABSENT, absentLabel } from '@/shared/format/absent';
@@ -77,6 +78,9 @@ interface DataFieldGridProps {
  * fraction of its size, so the reading stays whole.
  */
 const VALUE_MIN_FONT_SCALE = 0.5;
+
+/** Tiles to a row at the default text size; past the dense cap each takes the full width. */
+const GRID_COLUMNS = 2;
 
 const SENSOR_FIELD_KIND: Partial<Record<DataFieldType, SensorKind>> = {
   heartrate: 'heartRate',
@@ -151,6 +155,8 @@ interface DataFieldTileProps {
   isDark: boolean;
   textColor: string;
   mutedColor: string;
+  /** The tile's share of the row: half, or all of it at large text. */
+  width: `${number}%`;
   onLongPressField?: ((index: number, field: DataFieldType) => void) | undefined;
   onEmptySensorTap?: ((kind: SensorKind) => void) | undefined;
 }
@@ -166,6 +172,7 @@ const DataFieldTile = React.memo(function DataFieldTile({
   isDark,
   textColor,
   mutedColor,
+  width,
   onLongPressField,
   onEmptySensorTap,
 }: DataFieldTileProps) {
@@ -201,6 +208,7 @@ const DataFieldTile = React.memo(function DataFieldTile({
       style={pressable([
         styles.cell,
         {
+          width,
           backgroundColor: zoned
             ? colorWithOpacity(zoneColour(zone, isDark, 'fill'), isDark ? 0.28 : opacity.tint3)
             : isDark
@@ -211,32 +219,28 @@ const DataFieldTile = React.memo(function DataFieldTile({
       ])}
       android_ripple={pressRipple}
     >
-      <Text
+      <FitText
         maxFontSizeMultiplier={DENSE_TEXT_SCALE}
         style={[styles.value, { color: zoned ? zoneColour(zone, isDark, 'text') : textColor }]}
-        numberOfLines={1}
-        adjustsFontSizeToFit
         minimumFontScale={VALUE_MIN_FONT_SCALE}
         accessibilityLabel={absentLabel(value, t)}
       >
         {value}
-      </Text>
+      </FitText>
       <View style={styles.labelRow}>
-        <Text
+        <FitText
           maxFontSizeMultiplier={DENSE_TEXT_SCALE}
           style={[styles.label, { color: mutedColor }]}
-          numberOfLines={1}
         >
           {label}
-        </Text>
+        </FitText>
         {zoned ? (
-          <Text
+          <FitText
             maxFontSizeMultiplier={DENSE_TEXT_SCALE}
             style={[styles.label, styles.zone, { color: zoneColour(zone, isDark, 'text') }]}
-            numberOfLines={1}
           >
             {`Z${zone}`}
-          </Text>
+          </FitText>
         ) : null}
       </View>
     </Pressable>
@@ -255,6 +259,7 @@ function DataFieldGridInner({
 }: DataFieldGridProps) {
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
+  const width = useTextScaleColumns(GRID_COLUMNS) === 1 ? '100%' : '50%';
 
   return (
     <View style={[styles.grid, style]}>
@@ -282,6 +287,7 @@ function DataFieldGridInner({
             isDark={isDark}
             textColor={themeColors.text}
             mutedColor={themeColors.textSecondary}
+            width={width}
             onLongPressField={onLongPressField}
             onEmptySensorTap={onEmptySensorTap}
           />
@@ -299,7 +305,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   cell: {
-    width: '50%',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
     alignItems: 'center',

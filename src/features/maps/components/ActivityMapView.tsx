@@ -4,7 +4,14 @@
 // in ActivityMapControls, and styles in ActivityMapView.styles.
 
 import React, { useMemo, useState, useRef, useCallback, useEffect, memo } from 'react';
-import { View, StatusBar, Animated, ActivityIndicator, Image } from 'react-native';
+import {
+  View,
+  StatusBar,
+  Animated,
+  ActivityIndicator,
+  Image,
+  useWindowDimensions,
+} from 'react-native';
 import { FullWindowModal } from '@/shared/ui/FullWindowModal';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useIsFocused } from 'expo-router';
@@ -36,7 +43,7 @@ import {
 } from '@/features/maps/lib/coordinates';
 import { HIGHLIGHT_THROTTLE_MS, REGION_SETTLE_DEBOUNCE_MS } from '@/features/maps/lib/mapBudgets';
 import { cameraAfter3D } from '@/features/maps/lib/cameraAfter3D';
-import { TRACK_FIT_PADDING } from '@/features/maps/lib/activityCamera';
+import { visibleMapInset } from '@/features/maps/lib/activityCamera';
 import { TROPHY_ICON } from '@/features/maps/lib/mapIcons';
 import { ENDPOINT_IMAGES } from '@/features/maps/lib/endpointLayers';
 import type { ActivityType, ActivityStreams, RoutePoint } from '@/types';
@@ -120,6 +127,8 @@ interface ActivityMapViewProps {
   /** Whether the engine holds the track, so the line is drawn from the engine's URL */
   hasStoredTrack?: boolean | undefined;
   height?: number | undefined;
+  /** Height covered at the map's bottom, such as the hero's name and stats, which a fit keeps the track above. */
+  coveredBottom?: number | undefined;
   showStyleToggle?: boolean | undefined;
   /** Show map attribution (default: true) */
   showAttribution?: boolean | undefined;
@@ -187,6 +196,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   activityId,
   hasStoredTrack,
   height = 300,
+  coveredBottom = 0,
   showStyleToggle = false,
   showAttribution = true,
   initialStyle,
@@ -640,7 +650,20 @@ export const ActivityMapView = memo(function ActivityMapView({
     onControlCountChange?.(controlCount);
   }, [controlCount, onControlCountChange]);
   // The key sits opposite the control column, at the same height.
-  const { top: keyTop } = useMapControlColumn(height, controlCount);
+  const { top: keyTop, footprint: controlFootprint } = useMapControlColumn(height, controlCount);
+  // The track is fitted to what the header, the column and the hero's overlay leave visible.
+  const { width: mapWidth } = useWindowDimensions();
+  const fitPadding = useMemo(
+    () =>
+      visibleMapInset({
+        width: mapWidth,
+        height,
+        coveredTop: keyTop,
+        coveredBottom,
+        coveredRight: controlFootprint,
+      }),
+    [mapWidth, height, keyTop, coveredBottom, controlFootprint]
+  );
 
   const endpointsGeoJSON = useMemo(() => {
     const start = lngLatFromLatLngPoint(startPoint);
@@ -875,7 +898,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                 initialCamera={
                   cameraAfter3D(camera3DRef.current, camera2DOnHide) ?? {
                     bounds: { sw: bounds.sw, ne: bounds.ne },
-                    padding: TRACK_FIT_PADDING,
+                    padding: fitPadding,
                   }
                 }
                 sources={sources}
@@ -906,6 +929,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                 coordinates={routeCoords}
                 mapStyle={mapStyle}
                 routeColor={activityColor}
+                fitPadding={fitPadding}
                 routeGradient={gradientActive ? gradientLineExpression : null}
                 highlightCoordinate={highlightCoordinate}
                 {...inline3DCollections}
