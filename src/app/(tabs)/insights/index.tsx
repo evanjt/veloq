@@ -566,7 +566,6 @@ function InsightsScreenContent() {
 
   return (
     <ScreenSafeAreaView
-      hasNativeHeader
       style={[styles.container, isDark && styles.containerDark]}
       testID="routes-screen"
     >
@@ -587,7 +586,7 @@ function InsightsScreenContent() {
             />
             <View>
               <Text style={[styles.disabledHintText, isDark && styles.textSecondary]}>
-                {t('insights.routesDisabledLine1', 'Routes & Sections disabled')}
+                {t('insights.routesDisabledLine1', 'Routes & sections disabled')}
               </Text>
               <Text style={[styles.disabledHintLink, isDark && { color: darkColors.linkTeal }]}>
                 {t('insights.routesDisabledLine2', 'Turn on routes and sections')}
@@ -645,13 +644,12 @@ const styles = StyleSheet.create({
     backgroundColor: colorWithOpacity(colors.warning, 0.1),
   },
   disabledHintText: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   disabledHintLink: {
-    fontSize: typography.label.fontSize,
+    ...typography.badge,
     color: colors.linkTeal,
-    fontWeight: '600',
   },
   betaMarker: {
     borderWidth: stroke.one,
@@ -663,8 +661,7 @@ const styles = StyleSheet.create({
     borderColor: darkColors.primary,
   },
   betaText: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
+    ...typography.badge,
     color: colors.linkTeal,
   },
   betaTextDark: {

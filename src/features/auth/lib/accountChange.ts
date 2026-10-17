@@ -185,7 +185,7 @@ export function promptAccountMismatch(args: PromptAccountMismatchArgs): Promise<
         useAuthStore.getState().clearCredentials();
         resolve(false);
       },
-      confirmLabel: t('backup.clearAndSync', { defaultValue: 'Clear & Sync' }),
+      confirmLabel: t('backup.clearAndSync', { defaultValue: 'Clear & sync' }),
       destructive: true,
       onConfirm: () => {
         void (async () => {

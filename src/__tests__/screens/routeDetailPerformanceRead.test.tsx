@@ -31,7 +31,7 @@ jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   useIsFocused: () => true,
   Stack: Object.assign(() => null, { Screen: () => null }),
-  useLocalSearchParams: () => ({ id: 'grp-heath' }),
+  useLocalSearchParams: () => mockParams,
   router: { back: jest.fn(), push: jest.fn() },
 }));
 jest.mock('react-native-safe-area-context', () => ({
@@ -154,6 +154,7 @@ function performanceRead(sportCounts: SportCount[], sport: string | undefined) {
   };
 }
 
+let mockParams: { id: string; activityId?: string } = { id: 'grp-heath' };
 let mockSportCounts: SportCount[] = [];
 let mockCounted = true;
 let mockBelowChart: Record<string, unknown> = {};
@@ -170,12 +171,9 @@ const mockEngine = {
       sportTypes: mockSportCounts.map((c) => c.sportType),
       customName: 'Heath Loop',
     },
-    groups: [],
     activityCount: 3,
     distanceMeters: 3000,
     elevationGainMeters: 236,
-    performances: { performances: [], activityMetrics: [] },
-    routeNames: {},
     excludedActivityIds: ['h3'],
     mapSignatures: [],
     missingTimeStreamIds: [],
@@ -199,6 +197,7 @@ jest.mock('@/shared/native/engine', () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockParams = { id: 'grp-heath' };
   mockCounted = true;
   mockBelowChart = {};
 });
@@ -230,7 +229,24 @@ describe('route page on a route ridden and run', () => {
     await render(<RouteDetailScreen />);
 
     expect(mockEngine.getRouteDetailPerformance).toHaveBeenCalledTimes(1);
-    expect(mockEngine.getRouteDetailPerformance).toHaveBeenCalledWith('grp-heath', 0, undefined);
+    expect(mockEngine.getRouteDetailPerformance).toHaveBeenCalledWith(
+      'grp-heath',
+      0,
+      undefined,
+      undefined
+    );
+  });
+
+  it('asks the read to keep the activity the page was opened from on the scatter', async () => {
+    mockParams = { id: 'grp-heath', activityId: 'act-moor' };
+    await render(<RouteDetailScreen />);
+
+    expect(mockEngine.getRouteDetailPerformance).toHaveBeenCalledWith(
+      'grp-heath',
+      0,
+      undefined,
+      'act-moor'
+    );
   });
 
   it('offers the range chips and one pill per sport the read counts', async () => {
@@ -252,6 +268,7 @@ describe('route page on a route ridden and run', () => {
     expect(mockEngine.getRouteDetailPerformance).toHaveBeenLastCalledWith(
       'grp-heath',
       90,
+      undefined,
       undefined
     );
   });
@@ -260,12 +277,18 @@ describe('route page on a route ridden and run', () => {
     const screen = await render(<RouteDetailScreen />);
 
     await fireEvent.press(screen.getByRole('button', { name: 'activityTypes.Run' }));
-    expect(mockEngine.getRouteDetailPerformance).toHaveBeenLastCalledWith('grp-heath', 0, 'Run');
+    expect(mockEngine.getRouteDetailPerformance).toHaveBeenLastCalledWith(
+      'grp-heath',
+      0,
+      'Run',
+      undefined
+    );
 
     await fireEvent.press(screen.getByRole('button', { name: 'activityTypes.Run' }));
     expect(mockEngine.getRouteDetailPerformance).toHaveBeenLastCalledWith(
       'grp-heath',
       0,
+      undefined,
       undefined
     );
   });

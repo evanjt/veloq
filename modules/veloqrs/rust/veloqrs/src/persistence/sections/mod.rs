@@ -33,6 +33,7 @@ pub(crate) mod ranking;
 #[cfg(test)]
 #[path = "tests/save_backstop.rs"]
 mod save_backstop_tests;
+pub(crate) mod scatter_focus;
 pub(crate) mod track_pool;
 pub(crate) mod trend_curve;
 

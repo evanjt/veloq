@@ -239,9 +239,8 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   chipLabel: {
-    fontSize: typography.label.fontSize,
+    ...typography.badge,
     lineHeight: typography.label.lineHeight,
-    fontWeight: '600',
   },
   chipValueContainer: {
     alignSelf: 'stretch',

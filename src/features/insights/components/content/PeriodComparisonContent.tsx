@@ -226,8 +226,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   barValueText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
+    ...typography.captionBold,
     color: colors.textPrimary,
     textAlign: 'center',
   },

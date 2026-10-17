@@ -58,7 +58,6 @@ function DetectionSettingsScreenContent() {
 
   return (
     <ScreenSafeAreaView
-      hasNativeHeader
       testID="detection-settings-screen"
       style={[styles.container, { backgroundColor: bg }]}
     >

@@ -445,11 +445,11 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
 const styles = StyleSheet.create({
   container: {},
   subtitle: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   partial: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
     marginTop: spacing.sm,
   },

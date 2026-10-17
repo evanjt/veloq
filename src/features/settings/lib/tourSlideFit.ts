@@ -1,4 +1,15 @@
-import { spacing } from '@/theme';
+import { layout, spacing } from '@/theme';
+
+/** The space the tour card leaves either side of it in the window. */
+export const TOUR_CARD_MARGIN = spacing.xl;
+
+/**
+ * The tour card's width, which every slide in it shares: the window less its margin on a phone,
+ * and the readable column's width in a wider window, where the card is centred.
+ */
+export function tourCardWidth(windowWidth: number): number {
+  return Math.min(windowWidth - TOUR_CARD_MARGIN * 2, layout.maxContentWidth);
+}
 
 /** The tour card's tallest extent, as a share of the window height. */
 export const TOUR_CARD_HEIGHT_RATIO = 0.8;

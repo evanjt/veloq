@@ -600,7 +600,6 @@ const styles = StyleSheet.create({
   hint: {
     ...typography.caption,
     textAlign: 'center',
-    opacity: 0.7,
   },
   reason: {
     ...typography.caption,

@@ -2,6 +2,7 @@ import React, { useState, memo } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { useTheme, useIsOnline } from '@/shared/app';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { useQueryClient } from '@tanstack/react-query';
 import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { getStoredCredentials, useAuthStore } from '@/shared/app/AuthStore';
@@ -297,7 +298,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
               defaultValue: 'Sign out and delete all data',
             })}
           >
-            <MaterialCommunityIcons name="delete-forever" size={iconSize.lg} color={colors.error} />
+            <ChromeIcon name="delete" size={iconSize.lg} color={colors.error} />
             <Text style={[settingsStyles.actionRowText, { color: errorDeep }]}>
               {t('settings.disconnectAndClearData', {
                 defaultValue: 'Sign out and delete all data',

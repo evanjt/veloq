@@ -11,7 +11,7 @@
 import { renderHook } from '@testing-library/react-native';
 import { useSectionChartData } from '@/features/routes/hooks/useSectionChartData';
 import { useSectionChartDataEnriched } from '@/features/routes/hooks/useSectionChartDataEnriched';
-import type { FfiSectionChartData, FfiSectionChartPoint } from 'veloqrs';
+import { FfiOffScale, type FfiSectionChartData, type FfiSectionChartPoint } from 'veloqrs';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn(() => null) }));
 
@@ -31,6 +31,7 @@ function attempt(
     isBest: false,
     outsideDistanceBand: false,
     matchPercentage: 96,
+    offScale: FfiOffScale.None,
     ...overrides,
   };
 }

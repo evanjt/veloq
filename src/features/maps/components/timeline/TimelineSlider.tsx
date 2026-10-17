@@ -520,11 +520,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.textSecondary,
   },
   tickLabelBase: {
+    ...typography.micro,
     position: 'absolute',
     top: 6,
-    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
-    fontWeight: '400',
   },
   footerRow: {
     flexDirection: 'row',
@@ -533,9 +532,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   countLabel: {
-    fontSize: typography.caption.fontSize,
+    ...typography.captionBold,
     color: colors.textPrimary,
-    fontWeight: '600',
   },
   // Dark mode
   containerDark: {

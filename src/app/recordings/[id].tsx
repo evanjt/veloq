@@ -1,8 +1,9 @@
 import React, { useCallback, useRef } from 'react';
-import { View, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -14,6 +15,7 @@ import {
   useScrollEndInset,
 } from '@/shared/ui';
 import { Button } from '@/shared/ui/Button';
+import { Shimmer, SkeletonFrame } from '@/shared/ui/Shimmer';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { colors, darkColors, iconSize, layout, spacing, stroke, typography } from '@/theme';
 import { formatDateTime } from '@/shared/format/format';
@@ -30,6 +32,9 @@ import * as haptics from '@/shared/ui/haptics';
 import { goBack } from '@/shared/app/navigation';
 import { confirmAction, inform } from '@/shared/ui/dialog';
 import { informShareFailed } from '@/shared/ui/shareFailure';
+
+/** The stats card's usual rows: when it was recorded, distance, time, climb and status. */
+const PLACEHOLDER_STAT_ROWS = 5;
 
 function RecordingDetailScreenContent() {
   const { t } = useTranslation();
@@ -102,21 +107,34 @@ function RecordingDetailScreenContent() {
 
   if (isLoading) {
     return (
-      <ScreenSafeAreaView
-        hasNativeHeader
-        style={[styles.container, styles.center, { backgroundColor: bg }]}
-      >
-        <ActivityIndicator />
+      <ScreenSafeAreaView style={[styles.container, { backgroundColor: bg }]}>
+        <SkeletonFrame testID="recording-detail-skeleton" style={styles.statsFrame}>
+          <Card variant="flat" padding="none">
+            <View style={styles.statsBody}>
+              {Array.from({ length: PLACEHOLDER_STAT_ROWS }, (_, row) => (
+                <View key={row} style={styles.statRow}>
+                  <Shimmer
+                    width="35%"
+                    height={typography.bodySmall.lineHeight}
+                    borderRadius={layout.borderRadiusXs}
+                  />
+                  <Shimmer
+                    width="30%"
+                    height={typography.bodyBold.lineHeight}
+                    borderRadius={layout.borderRadiusXs}
+                  />
+                </View>
+              ))}
+            </View>
+          </Card>
+        </SkeletonFrame>
       </ScreenSafeAreaView>
     );
   }
 
   if (loadError != null) {
     return (
-      <ScreenSafeAreaView
-        hasNativeHeader
-        style={[styles.container, styles.center, { backgroundColor: bg }]}
-      >
+      <ScreenSafeAreaView style={[styles.container, styles.center, { backgroundColor: bg }]}>
         <ErrorState
           error={loadError}
           fallbackKey="engine.failure.database"
@@ -129,10 +147,7 @@ function RecordingDetailScreenContent() {
 
   if (!entry) {
     return (
-      <ScreenSafeAreaView
-        hasNativeHeader
-        style={[styles.container, styles.center, { backgroundColor: bg }]}
-      >
+      <ScreenSafeAreaView style={[styles.container, styles.center, { backgroundColor: bg }]}>
         <EmptyState
           icon="record-circle-outline"
           title={t('recording.library.notFound', 'Recording not found')}
@@ -167,7 +182,7 @@ function RecordingDetailScreenContent() {
   ];
 
   return (
-    <ScreenSafeAreaView hasNativeHeader style={[styles.container, { backgroundColor: bg }]}>
+    <ScreenSafeAreaView style={[styles.container, { backgroundColor: bg }]}>
       <ScrollView contentContainerStyle={{ paddingBottom: spacing.xl + scrollEndInset }}>
         {coordinates.length >= 2 && (
           <View style={[styles.mapContainer, { height: mapHeight, borderColor: border }]}>
@@ -224,13 +239,7 @@ function RecordingDetailScreenContent() {
               label={t('recording.library.share', 'Share FIT file')}
               variant="secondary"
               onPress={handleShare}
-              icon={
-                <MaterialCommunityIcons
-                  name="export-variant"
-                  size={iconSize.md}
-                  color={textPrimary}
-                />
-              }
+              icon={<ChromeIcon name="share" size={iconSize.md} color={textPrimary} />}
             />
           ) : null}
           <Button
@@ -239,13 +248,7 @@ function RecordingDetailScreenContent() {
             variant="destructive"
             opensConfirm
             onPress={handleDelete}
-            icon={
-              <MaterialCommunityIcons
-                name="trash-can-outline"
-                size={iconSize.md}
-                color={colors.textOnDark}
-              />
-            }
+            icon={<ChromeIcon name="delete" size={iconSize.md} color={colors.textOnDark} />}
           />
         </View>
       </ScrollView>

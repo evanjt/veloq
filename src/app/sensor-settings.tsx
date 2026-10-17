@@ -303,7 +303,6 @@ function SensorSettingsScreenContent() {
 
   return (
     <ScreenSafeAreaView
-      hasNativeHeader
       testID="sensor-settings-screen"
       style={[styles.container, { backgroundColor: bg }]}
     >
@@ -502,7 +501,6 @@ const styles = StyleSheet.create({
   },
   searchingLine: {
     ...typography.bodySmall,
-    fontStyle: 'italic',
     paddingVertical: spacing.sm,
   },
   frame: {
@@ -537,11 +535,10 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   kindLabel: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
   },
   statusText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
+    ...typography.captionBold,
     marginTop: spacing.xxs,
   },
   liveText: {
@@ -553,8 +550,7 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   pairText: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '700',
+    ...typography.pillValue,
   },
   scanButton: {
     marginBottom: spacing.xs,

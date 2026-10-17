@@ -80,7 +80,8 @@ tags:
 
 - takeScreenshot: "screenshots/section-lap-excluded"
 
-- back
+- runFlow:
+    file: helpers/go-back.yaml
 
 - extendedWaitUntil:
     visible:
@@ -123,7 +124,8 @@ tags:
       id: "section-lap-undo-demo-test-8-.*"
     timeout: 10000
 
-- back
+- runFlow:
+    file: helpers/go-back.yaml
 
 - extendedWaitUntil:
     visible:

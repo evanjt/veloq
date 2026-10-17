@@ -42,12 +42,11 @@ function DayActivitiesSheetContent() {
   const isMetric = useMetricSystem();
   const { input, resolve } = useSheetRequest<DayActivitiesInput, string>();
 
-  const surface = isDark ? darkColors.surface : colors.surface;
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   return (
-    <View style={[styles.sheet, { backgroundColor: surface }]}>
+    <View style={styles.sheet}>
       <SheetHeader
         title={t('fitness.selectActivity')}
         onCancel={() => tapBack()}
@@ -104,11 +103,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   name: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    ...typography.bodySmallBold,
   },
   details: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     marginTop: spacing.xxs,
   },
 });

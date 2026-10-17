@@ -331,9 +331,8 @@ const styles = StyleSheet.create({
     marginRight: spacing.xs,
   },
   sectionName: {
+    ...typography.bodySmallBold,
     flex: 1,
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
     color: colors.textPrimary,
   },
   sectionNameDark: {
@@ -354,23 +353,21 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   bestTime: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
+    ...typography.bodyCompactBold,
     color: colors.textPrimary,
   },
   bestTimeDark: {
     color: darkColors.textPrimary,
   },
   traversals: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   traversalsDark: {
     color: darkColors.textSecondary,
   },
   change: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
+    ...typography.captionBold,
     fontVariant: ['tabular-nums'],
   },
   expandedContent: {
@@ -387,7 +384,7 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlayDark.light,
   },
   noEfforts: {
-    fontSize: typography.bodyCompact.fontSize,
+    ...typography.bodyCompact,
     color: colors.textSecondary,
     paddingVertical: spacing.xs,
   },
@@ -402,7 +399,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xs,
   },
   legendText: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   legendTextDark: {

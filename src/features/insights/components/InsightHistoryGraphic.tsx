@@ -27,6 +27,7 @@ import {
   colorWithOpacity,
   darkColors,
   mapPreviewColors,
+  opacity,
   spacing,
   typography,
   verdictColor,
@@ -349,8 +350,8 @@ export const InsightHistoryGraphic = React.memo(function InsightHistoryGraphic({
     mark: color,
     markSecond: colorWithOpacity(color, 0.55),
     muted: isDark ? darkColors.chartMutedBar : colors.chartMutedBar,
-    mutedLine: colorWithOpacity(secondary, 0.5),
-    shade: colorWithOpacity(color, 0.12),
+    mutedLine: colorWithOpacity(secondary, opacity.disabled),
+    shade: colorWithOpacity(color, opacity.tint2),
   };
 
   let drawing: React.ReactNode = null;
@@ -438,8 +439,7 @@ const styles = StyleSheet.create({
     paddingVertical: INSET - typography.micro.lineHeight / 2,
   },
   label: {
-    fontSize: typography.micro.fontSize,
-    lineHeight: typography.micro.lineHeight,
+    ...typography.micro,
     fontVariant: ['tabular-nums'],
   },
 });

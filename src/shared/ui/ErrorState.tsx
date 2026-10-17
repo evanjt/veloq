@@ -113,6 +113,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   inlineText: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
   },
 });

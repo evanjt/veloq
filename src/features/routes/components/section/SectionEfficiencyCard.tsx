@@ -11,7 +11,15 @@ import { Canvas, Circle, Path, Skia } from '@shopify/react-native-skia';
 import { useTranslation } from 'react-i18next';
 import { Card } from '@/shared/ui';
 import { polylineSvgPath, type XY } from '@/shared/charts';
-import { colors, darkColors, spacing, typography, colorWithOpacity, verdictColor } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  darkColors,
+  opacity,
+  spacing,
+  typography,
+  verdictColor,
+} from '@/theme';
 import { EfficiencyDirection, type EfficiencyPoint, type EfficiencyTrend } from 'veloqrs';
 
 const CHART_HEIGHT = 56;
@@ -91,7 +99,7 @@ export function SectionEfficiencyCard({ trend, isDark, width = 280 }: SectionEff
             cx={vertex.x}
             cy={vertex.y}
             r={2.5}
-            color={colorWithOpacity(lineColor, 0.7)}
+            color={colorWithOpacity(lineColor, opacity.pressed)}
           />
         ))}
       </Canvas>

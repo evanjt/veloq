@@ -206,7 +206,7 @@ export function ManualEntryForm({
       {above}
       <TextField
         testID="manual-entry-name"
-        label={t('recording.activityName', 'Activity Name')}
+        label={t('recording.activityName', 'Activity name')}
         style={styles.field}
         value={name}
         onChangeText={setName}
@@ -247,7 +247,7 @@ export function ManualEntryForm({
       />
       <TextField
         testID="manual-entry-hr"
-        label={t('recording.avgHr', 'Average Heart Rate (bpm)')}
+        label={t('recording.avgHr', 'Average heart rate (bpm)')}
         error={
           hrError ? t('recording.hrInvalid', 'Please enter a valid heart rate (30-250).') : null
         }

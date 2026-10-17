@@ -75,7 +75,9 @@ export const InsightHistoryChart = React.memo(function InsightHistoryChart({
   if (!series || !points || points.length < 2) return null;
 
   const timeline = kind === 'timeline';
-  const dotColor = isDark ? colorWithOpacity(ink.white, 0.4) : colorWithOpacity(ink.black, 0.2);
+  const dotColor = isDark
+    ? colorWithOpacity(ink.white, opacity.dim)
+    : colorWithOpacity(ink.black, 0.2);
 
   return (
     <ChartErrorBoundary height={CHART_HEIGHT}>

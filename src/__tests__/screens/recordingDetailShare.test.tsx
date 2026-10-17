@@ -138,7 +138,7 @@ it('labels saved recording stats without input units in imperial mode', async ()
 
   expect(await screen.findByText('32:10')).toBeTruthy();
   expect(screen.getByText('3.2 mi')).toBeTruthy();
-  expect(screen.getByText('Moving Time')).toBeTruthy();
+  expect(screen.getByText('Moving time')).toBeTruthy();
   expect(screen.getByText('Distance')).toBeTruthy();
   expect(screen.queryByText('Duration')).toBeNull();
   expect(screen.queryByText('Duration (minutes)')).toBeNull();
@@ -153,7 +153,7 @@ it('shows the average speed of a saved ride and the average pace of a saved run'
   });
   const ride = await render(<RecordingDetailScreen />);
   expect(await screen.findByText('20.0 mph')).toBeTruthy();
-  expect(screen.getByText('Avg Speed')).toBeTruthy();
+  expect(screen.getByText('Avg speed')).toBeTruthy();
   await ride.unmount();
 
   (getVisibleRecording as jest.Mock).mockResolvedValue({
@@ -164,8 +164,8 @@ it('shows the average speed of a saved ride and the average pace of a saved run'
   });
   await render(<RecordingDetailScreen />);
   expect(await screen.findByText('10:00 /mi')).toBeTruthy();
-  expect(screen.getByText('Avg Pace')).toBeTruthy();
-  expect(screen.queryByText('Avg Speed')).toBeNull();
+  expect(screen.getByText('Avg pace')).toBeTruthy();
+  expect(screen.queryByText('Avg speed')).toBeNull();
 });
 
 it.each(['pending', 'uploaded'] as const)('shares a retained %s FIT', async (uploadStatus) => {

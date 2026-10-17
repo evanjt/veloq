@@ -9,14 +9,15 @@ import { BYTES_PER_BUDGET_MB, type BasemapTileSizes, useTileCacheSettings } from
 import { mapCacheTotal } from '../lib/mapCacheTotal';
 import {
   colors,
-  darkColors,
-  spacing,
-  layout,
-  typography,
   colorWithOpacity,
+  darkColors,
   ink,
+  layout,
+  opacity,
+  spacing,
   themePalette,
   stroke,
+  typography,
 } from '@/theme';
 
 import { StreamBackfillRow } from './StreamBackfillRow';
@@ -115,7 +116,9 @@ function StorageBreakdownBar({
 
   if (totalCacheBytes === 0) return null;
 
-  const freeColor = isDark ? colorWithOpacity(ink.white, 0.12) : colorWithOpacity(ink.black, 0.08);
+  const freeColor = isDark
+    ? colorWithOpacity(ink.white, opacity.tint2)
+    : colorWithOpacity(ink.black, 0.08);
   const totalDevice = freeStorage !== null ? totalCacheBytes + freeStorage : 0;
   const deviceUsagePct = totalDevice > 0 ? (totalCacheBytes / totalDevice) * 100 : 0;
 
@@ -481,12 +484,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    fontSize: typography.screenTitle.fontSize,
-    fontWeight: '700',
+    ...typography.screenTitle,
     color: colors.textPrimary,
   },
   statLabel: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
     marginTop: spacing.xxs,
   },
@@ -523,7 +525,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   budgetHint: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   budgetTrack: {
@@ -544,15 +546,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   budgetFooterText: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
   },
   infoLabel: {
-    fontSize: typography.bodySmall.fontSize,
+    ...typography.bodySmall,
     color: colors.textSecondary,
   },
   infoValue: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    ...typography.bodySmallBold,
     color: colors.textPrimary,
   },
   infoValueRow: {

@@ -7,7 +7,7 @@
  */
 
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, StyleSheet, FlatList, Animated, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, FlatList, Animated } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { RectButton } from 'react-native-gesture-handler';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
@@ -17,8 +17,9 @@ import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, iconSize, spacing, swipeAction, typography } from '@/theme';
+import { colors, darkColors, iconSize, opacity, spacing, swipeAction, typography } from '@/theme';
 import { useSections } from '@/features/routes/hooks/useSections';
 import { SportFilterChips } from './SportFilterChips';
 import {
@@ -54,6 +55,7 @@ import { rowIsUnchanged } from '@/shared/ui/rowMemo';
 import { confirmAction, inform } from '@/shared/ui/dialog';
 import { removeSectionWithUndo, restoreSection } from '@/features/routes/lib/sectionVisibility';
 import type { AccessibleAction } from '@/shared/ui/accessibleActions';
+import { useScrollToTopOnReselect } from '@/shared/ui/tabReselect';
 
 const log = debug.create('SectionsList');
 
@@ -156,7 +158,7 @@ export const SectionListItem = memo(
         _progress: Animated.AnimatedInterpolation<number>,
         dragX: Animated.AnimatedInterpolation<number>
       ) => {
-        const opacity = dragX.interpolate({
+        const actionOpacity = dragX.interpolate({
           inputRange: [-80, -40, 0],
           outputRange: [1, 0.8, 0],
           extrapolate: 'clamp',
@@ -164,13 +166,11 @@ export const SectionListItem = memo(
 
         if (isCustom) {
           return (
-            <Animated.View style={[styles.swipeAction, styles.deleteAction, { opacity }]}>
+            <Animated.View
+              style={[styles.swipeAction, styles.deleteAction, { opacity: actionOpacity }]}
+            >
               <RectButton style={styles.swipeActionButton} onPress={rowAction.run}>
-                <MaterialCommunityIcons
-                  name="delete"
-                  size={iconSize.lg}
-                  color={swipeAction.destructive.text}
-                />
+                <ChromeIcon name="delete" size={iconSize.lg} color={swipeAction.destructive.text} />
                 <Text style={[styles.swipeActionText, styles.deleteActionText]}>
                   {rowAction.label}
                 </Text>
@@ -184,15 +184,19 @@ export const SectionListItem = memo(
             style={[
               styles.swipeAction,
               isDisabled ? styles.showAction : styles.deleteAction,
-              { opacity },
+              { opacity: actionOpacity },
             ]}
           >
             <RectButton style={styles.swipeActionButton} onPress={rowAction.run}>
-              <MaterialCommunityIcons
-                name={isDisabled ? 'undo' : 'delete-outline'}
-                size={iconSize.lg}
-                color={isDisabled ? swipeAction.restore.text : swipeAction.destructive.text}
-              />
+              {isDisabled ? (
+                <MaterialCommunityIcons
+                  name="undo"
+                  size={iconSize.lg}
+                  color={swipeAction.restore.text}
+                />
+              ) : (
+                <ChromeIcon name="delete" size={iconSize.lg} color={swipeAction.destructive.text} />
+              )}
               <Text
                 style={[
                   styles.swipeActionText,
@@ -281,6 +285,8 @@ export const SectionsList = memo(function SectionsList({
 }: SectionsListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const listRef = useRef<FlatList<FrequentSection>>(null);
+  useScrollToTopOnReselect('/insights', listRef);
 
   // The list record already carries its polyline, so a row needs no call of
   // its own. The centre is the list's proximity sort, the screen's and not
@@ -556,11 +562,7 @@ export const SectionsList = memo(function SectionsList({
     if (regularSections.length === 0) return null;
     return (
       <View>
-        {hasMore ? (
-          <View style={styles.loadingMore}>
-            <ActivityIndicator size="small" color={colors.primary} />
-          </View>
-        ) : null}
+        {hasMore ? <RowSkeleton /> : null}
         <Button
           testID="sections-retired-link"
           variant="ghost"
@@ -626,6 +628,7 @@ export const SectionsList = memo(function SectionsList({
       </View>
 
       <FlatList
+        ref={listRef}
         testID={regularSections.length > 0 ? 'sections-list' : 'sections-list-empty'}
         style={styles.flatList}
         data={regularSections}
@@ -673,7 +676,7 @@ const styles = StyleSheet.create({
     marginVertical: spacing.xs,
   },
   disabledSection: {
-    opacity: 0.6,
+    opacity: opacity.dim,
   },
   swipeableContent: {
     backgroundColor: colors.surface,
@@ -694,8 +697,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   swipeActionText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
+    ...typography.captionBold,
   },
   deleteAction: {
     backgroundColor: swipeAction.destructive.bg,
@@ -708,10 +710,6 @@ const styles = StyleSheet.create({
   },
   showActionText: {
     color: swipeAction.restore.text,
-  },
-  loadingMore: {
-    paddingVertical: spacing.md,
-    alignItems: 'center',
   },
   skeletonList: {
     paddingTop: spacing.md,

@@ -802,8 +802,9 @@ fn test_excluded_performances_follow_a_commit_behind_the_engine() {
     .unwrap();
     assert_eq!(conn.changes(), 1, "the worker wrote the row");
 
-    let read = with_persistent_engine(|engine| engine.route_detail_performance("r_2", 0, None))
-        .expect("engine");
+    let read =
+        with_persistent_engine(|engine| engine.route_detail_performance("r_2", 0, None, None))
+            .expect("engine");
     let ids: Vec<&str> = read
         .excluded_points
         .iter()

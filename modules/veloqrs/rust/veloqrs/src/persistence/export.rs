@@ -629,10 +629,14 @@ mod snapshot_copy_tests {
         conn.pragma_update(None, "journal_mode", "WAL").unwrap();
         conn.execute_batch("CREATE TABLE bulk (id INTEGER PRIMARY KEY, blob BLOB)")
             .unwrap();
+        // One commit for the whole fill: a commit per row is an fsync per row,
+        // which on a real disk is most of a minute.
+        let fill = conn.unchecked_transaction().unwrap();
         for _ in 0..ROWS {
-            conn.execute("INSERT INTO bulk (blob) VALUES (zeroblob(4096))", [])
+            fill.execute("INSERT INTO bulk (blob) VALUES (zeroblob(4096))", [])
                 .unwrap();
         }
+        fill.commit().unwrap();
         conn
     }
 

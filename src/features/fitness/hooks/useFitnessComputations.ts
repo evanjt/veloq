@@ -14,7 +14,7 @@ interface UseFitnessComputationsArgs {
 
 interface FitnessComputations {
   ftpTrend: TrendDirection | null;
-  dominantZone: { name: string; percentage: number } | null;
+  dominantZone: { name: string; share: number } | null;
 }
 
 /**
@@ -40,10 +40,10 @@ export function useFitnessComputations({
   const dominantZone = useMemo(() => {
     const zones = sportMode === 'Cycling' ? powerZones : hrZones;
     if (!zones || zones.length === 0) return null;
-    const sorted = [...zones].sort((a, b) => b.percentage - a.percentage);
+    const sorted = [...zones].sort((a, b) => b.seconds - a.seconds);
     const top = sorted[0];
-    if (top.percentage === 0) return null;
-    return { name: top.name, percentage: top.percentage };
+    if (top.share === 0) return null;
+    return { name: top.name, share: top.share };
   }, [sportMode, powerZones, hrZones]);
 
   return { ftpTrend, dominantZone };

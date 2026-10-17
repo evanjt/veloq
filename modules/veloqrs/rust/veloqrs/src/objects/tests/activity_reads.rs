@@ -169,6 +169,44 @@ fn test_detail_stream_returns_while_engine_writer_holds() {
     });
 }
 
+/// Expected behaviour: the detail read gives a run's cadence series as steps
+/// a minute, twice the strides its stored stream body holds, the same unit its
+/// summary is given in.
+#[test]
+fn test_run_cadence_stream_crosses_as_steps() {
+    let _serial = serial_global_state();
+    let _dir = init_global_engine("run_cadence_stream.db");
+    let manager = ActivityManager::new();
+    manager
+        .upsert_activity_bodies(vec![crate::FfiActivityBody {
+            activity_id: "r1".into(),
+            date: 50.0,
+            raw: r#"{"id":"r1","type":"Run","average_cadence":75}"#.into(),
+        }])
+        .unwrap();
+    crate::with_persistent_engine(|engine| {
+        engine
+            .set_stream_body(
+                "r1",
+                "cadence,time",
+                r#"[{"type":"time","data":[0,1]},{"type":"cadence","data":[75,80]}]"#,
+            )
+            .unwrap();
+    });
+    let streams = manager
+        .get_activity_streams("r1".into(), "cadence,time".into())
+        .unwrap()
+        .expect("the stored body");
+    let cadence: Vec<f64> = streams
+        .cadence
+        .as_chunks::<8>()
+        .0
+        .iter()
+        .map(|&c| f64::from_le_bytes(c))
+        .collect();
+    assert_eq!(cadence, vec![150.0, 160.0]);
+}
+
 #[test]
 fn test_detail_track_returns_while_engine_writer_holds() {
     let _serial = serial_global_state();

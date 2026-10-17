@@ -85,11 +85,8 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   title: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
+    ...typography.label,
     color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
   },
   titleDark: {
     color: darkColors.textSecondary,
@@ -103,14 +100,14 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   label: {
-    fontSize: typography.bodyCompact.fontSize,
+    ...typography.bodyCompact,
     color: colors.textPrimary,
   },
   labelDark: {
     color: darkColors.textPrimary,
   },
   note: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
     lineHeight: 18,
   },

@@ -26,7 +26,7 @@ function DisplaySettingsScreenContent() {
   const intervalsPreferences = useUnitPreference((s) => s.intervalsPreferences);
 
   return (
-    <ScreenSafeAreaView hasNativeHeader style={[styles.container, isDark && styles.containerDark]}>
+    <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
       <ScreenScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
         <DisplaySettings
           themePreference={themePreference}

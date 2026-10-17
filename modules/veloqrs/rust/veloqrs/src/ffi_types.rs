@@ -92,6 +92,7 @@ pub struct FfiActivityStreams {
     pub altitude: Vec<u8>,
     pub heartrate: Vec<u8>,
     pub watts: Vec<u8>,
+    /// Cadence in the sport's cadence unit, so steps a minute on foot.
     pub cadence: Vec<u8>,
     pub velocity_smooth: Vec<u8>,
     pub distance: Vec<u8>,
@@ -337,6 +338,9 @@ pub struct FfiPeriodComparison {
 pub struct FfiZoneDistribution {
     /// Seconds per zone, lowest zone first. Empty for an unknown zone type.
     pub seconds: Vec<f64>,
+    /// Each zone's share of the time as a whole percent, beside `seconds`,
+    /// totalling 100 when any zone holds time and all zero when none does.
+    pub shares: Vec<u32>,
     /// The names the cached sport settings give the zones, lowest first, never
     /// more than `seconds` holds.
     /// Empty when the settings do not name them.
@@ -1861,6 +1865,75 @@ pub struct FfiSectionChartPoint {
     /// How much of the route the attempt matched, 0 to 100. `None` on a
     /// section, and on a route attempt with no stored match.
     pub match_percentage: Option<f64>,
+    /// Which side of its direction's focus range the point lies past, so the
+    /// scatter draws it at the edge with a flag rather than stretching the
+    /// axis.
+    pub off_scale: FfiOffScale,
+    /// Seconds behind the direction's record: zero for the record holder,
+    /// positive for a slower attempt. `None` for an excluded attempt, one
+    /// outside a route's distance band, and in a direction with no record.
+    pub record_gap_secs: Option<f64>,
+    /// Metres per second behind the direction's record, signed as
+    /// `record_gap_secs` is: positive is slower. `None` where it is.
+    pub record_gap_speed: Option<f64>,
+}
+
+/// Where a scatter point lies against its direction's focus range.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum FfiOffScale {
+    /// Inside the range.
+    None,
+    /// Past the slow end: below the range on a speed axis, above it on a time
+    /// axis.
+    Slow,
+    /// Past the fast end.
+    Fast,
+}
+
+/// The range a direction's scatter axis draws, in the axis's own unit: metres
+/// per second on a section, seconds on a route.
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct FfiFocusRange {
+    pub low: f64,
+    pub high: f64,
+    /// Points drawn past the slow end.
+    pub slow_count: u32,
+    /// Points drawn past the fast end.
+    pub fast_count: u32,
+}
+
+/// The focus range per direction. `None` for a direction with no point.
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct FfiScatterFocus {
+    pub forward: Option<FfiFocusRange>,
+    pub reverse: Option<FfiFocusRange>,
+}
+
+/// One step of a direction's record progression: an eligible lap strictly
+/// faster than every eligible lap before it.
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct FfiRecordStep {
+    pub activity_id: String,
+    pub lap_id: String,
+    /// Unix seconds.
+    pub activity_date: f64,
+    /// Seconds.
+    pub section_time: f64,
+    /// Metres per second.
+    pub speed: f64,
+    /// Seconds faster than the step before. `None` on the first step.
+    pub improvement_secs: Option<f64>,
+    /// Metres per second faster than the step before. `None` on the first
+    /// step.
+    pub improvement_speed: Option<f64>,
+}
+
+/// The record progression per direction, oldest step first, over the whole
+/// included history. Empty in a direction that holds no record.
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct FfiRecordProgressions {
+    pub forward: Vec<FfiRecordStep>,
+    pub reverse: Vec<FfiRecordStep>,
 }
 
 /// Bundled chart payload for the section-detail screen. Rust composes
@@ -2518,8 +2591,22 @@ pub struct FfiActivitySummary {
     pub average_speed: Option<f64>,
     /// Max speed in m/s
     pub max_speed: Option<f64>,
-    /// Average cadence, as intervals.icu stored it
+    /// Average cadence in `cadence_unit`: steps a minute on foot, where
+    /// intervals.icu stores strides
     pub average_cadence: Option<f64>,
+    /// The unit this sport's cadence is shown in, here and in its stream
+    pub cadence_unit: FfiCadenceUnit,
+}
+
+/// The unit a sport's cadence is shown in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum FfiCadenceUnit {
+    /// Crank revolutions a minute, and the stored cycles of a sport no list names.
+    Rpm,
+    /// Steps a minute, twice the strides intervals.icu stores.
+    StepsPerMinute,
+    /// Strokes a minute, as stored.
+    StrokesPerMinute,
 }
 
 /// Where an activity's max HR came from.
@@ -2558,6 +2645,8 @@ pub struct FfiHrZoneBand {
     pub seconds: f64,
     /// Share of the total time in zones, 0 to 100
     pub percent: f64,
+    /// The share as a whole percent, the bands' shares totalling 100
+    pub share: u32,
 }
 
 /// One power zone of a saved activity.
@@ -2573,6 +2662,8 @@ pub struct FfiPowerZoneBand {
     pub seconds: f64,
     /// Share of the total time in zones, 0 to 100
     pub percent: f64,
+    /// The share as a whole percent, the bands' shares totalling 100
+    pub share: u32,
 }
 
 // ============================================================================
@@ -2700,6 +2791,13 @@ pub struct FfiSectionPerformanceData {
     /// Aerobic efficiency over the answered sport's counted efforts across the
     /// whole record, or `None` with fewer than three that carry heart rate.
     pub efficiency_trend: Option<FfiEfficiencyTrend>,
+    /// The range each direction's scatter axis draws, with the points past it
+    /// counted. Speed on a section, time on a route.
+    pub scatter_focus: FfiScatterFocus,
+    /// Each direction's record progression over the whole included history,
+    /// whatever the range: the screen draws the steps inside the range and
+    /// carries the level in from before it.
+    pub record_progression: FfiRecordProgressions,
 }
 
 /// Whose attempts a performance read answers: a section's laps, or a route's
@@ -2931,20 +3029,17 @@ pub struct FfiAttemptHistogram {
 // Route Detail Batch Types
 // ============================================================================
 
-/// Everything the route detail screen paints with in one call.
-///
-/// The performances are unfiltered: the screen derives its sport pills from
-/// them and only asks for a filtered read once the user picks a sport.
+/// Everything the route detail screen paints with that one sport and one
+/// range do not change. It carries this route and nothing of any other, so it
+/// stays the same size as the library grows; the attempt times come from the
+/// route detail performance read.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiRouteDetailData {
     /// Total activities held by the engine
     pub activity_count: u32,
-    /// The route itself, or `None` when the ID is unknown
+    /// The route itself, or `None` when the ID is unknown. Its `custom_name`
+    /// is the name it is shown under.
     pub group: Option<FfiRouteGroup>,
-    /// Route groups above the caller's minimum, most attempts first
-    pub groups: Vec<FfiRouteGroup>,
-    /// Every attempt on the route, across sports
-    pub performances: FfiRoutePerformanceResult,
     /// The representative activity's distance in meters, the figure the routes
     /// list shows and sorts on. Zero when the route is unknown.
     pub distance_meters: f64,
@@ -2954,8 +3049,6 @@ pub struct FfiRouteDetailData {
     pub elevation_gain_meters: f64,
     /// Representative activity's polyline, delta+varint encoded
     pub encoded_representative: Vec<u8>,
-    /// User-set route names by route ID
-    pub route_names: std::collections::HashMap<String, String>,
     /// Activities the user excluded from this route
     pub excluded_activity_ids: Vec<String>,
     /// Simplified GPS signatures for the route's activities

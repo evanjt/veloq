@@ -423,9 +423,10 @@ function generateActivities(): ApiActivity[] {
       max_speed: (distance / movingTime) * (1.2 + rng() * 0.2),
       average_heartrate: Math.max(80, Math.min(195, avgHr)),
       max_heartrate: Math.round(Math.min(200, avgHr * (1.12 + rng() * 0.08))),
+      // Strides a minute on foot, as intervals.icu stores a run's cadence.
       average_cadence:
         template.type === 'Run'
-          ? 168 + Math.round(rng() * 12)
+          ? 84 + Math.round(rng() * 6)
           : template.type === 'Ride' || template.type === 'VirtualRide'
             ? 82 + Math.round(rng() * 16)
             : null,
@@ -456,7 +457,9 @@ function generateActivities(): ApiActivity[] {
     lastRoute = template.route;
   }
 
-  for (let daysAgo = 365; daysAgo >= 0; daysAgo--) {
+  // The library ends the evening before the reference day, so the feed never lists a ride that
+  // starts later than the moment demo mode is opened.
+  for (let daysAgo = 365; daysAgo >= 1; daysAgo--) {
     const date = new Date(referenceDate);
     date.setDate(date.getDate() - daysAgo);
     const dateStr = formatDateId(date);
@@ -587,7 +590,7 @@ function generateActivities(): ApiActivity[] {
       max_speed: (stressTemplate.dist / movingTime) * 1.3,
       average_heartrate: Math.round(stressTemplate.hr * (1.05 - fitnessRatio * 0.05) + (i % 8) - 4),
       max_heartrate: Math.round(stressTemplate.hr * 1.2),
-      average_cadence: 170 + (i % 10),
+      average_cadence: 85 + (i % 5),
       average_temp: 22,
       calories: stressTemplate.tss * 8,
       device_name: 'Demo Device',

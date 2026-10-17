@@ -808,12 +808,14 @@ impl SectionManager {
     /// one set of performances and that set is a query, so nothing here needs
     /// the memory tier. The delta curves come only once held, since computing
     /// them can take longer than a tap may block, and `curves_pending` says
-    /// they are owed.
+    /// they are owed. `highlight_activity_id` is the attempt the scatter's
+    /// focus range always holds.
     fn get_detail_performance(
         &self,
         section_id: String,
         time_range_days: u32,
         sport_filter: Option<String>,
+        highlight_activity_id: Option<String>,
     ) -> Result<crate::FfiSectionPerformanceData, VeloqError> {
         with_reader(|conn| {
             crate::persistence::screens::pooled::section_detail_performance(
@@ -821,6 +823,7 @@ impl SectionManager {
                 &section_id,
                 time_range_days,
                 sport_filter.as_deref(),
+                highlight_activity_id.as_deref(),
                 CurveRead::Held,
             )
         })
@@ -837,12 +840,14 @@ impl SectionManager {
         id: String,
         time_range_days: u32,
         sport_filter: Option<String>,
+        highlight_activity_id: Option<String>,
     ) -> Result<crate::FfiSectionPerformanceData, VeloqError> {
         use crate::persistence::screens::pooled as screens;
         crate::runtime::ASYNC_RUNTIME
             .spawn_blocking(move || {
                 with_reader(|conn| {
                     let sport = sport_filter.as_deref();
+                    let highlight = highlight_activity_id.as_deref();
                     match subject {
                         crate::FfiPerformanceSubject::Section => {
                             screens::section_detail_performance(
@@ -850,6 +855,7 @@ impl SectionManager {
                                 &id,
                                 time_range_days,
                                 sport,
+                                highlight,
                                 CurveRead::Computed,
                             )
                         }
@@ -858,6 +864,7 @@ impl SectionManager {
                             &id,
                             time_range_days,
                             sport,
+                            highlight,
                             CurveRead::Computed,
                         ),
                     }
@@ -887,7 +894,7 @@ mod tests {
 
         let bundle = crate::test_globals::read_while_writer_holds(|| {
             manager
-                .get_detail_performance("no-such-section".to_string(), 0, None)
+                .get_detail_performance("no-such-section".to_string(), 0, None, None)
                 .expect("the bundle reads while a writer holds the engine")
         });
 

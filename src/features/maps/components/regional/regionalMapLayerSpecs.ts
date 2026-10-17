@@ -7,7 +7,7 @@
  * the selected id rather than a rebuilt FeatureCollection, so panning with a
  * selection active does not re-upload every point.
  */
-import { colors, mapLayerColors, colorWithOpacity, ink } from '@/theme';
+import { colors, colorWithOpacity, ink, mapLayerColors, opacity } from '@/theme';
 import type { MapGeoJSONData, MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
 import { heatmapRasterPaint } from '@/features/maps/lib/heatmapPaint';
 import { HEATMAP_SOURCE_MINZOOM, heatmapTileTemplate } from '@/features/maps/lib/heatmapTiles';
@@ -312,7 +312,9 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       type: 'line',
       source: 'spider-legs',
       paint: {
-        'line-color': isDark ? colorWithOpacity(ink.white, 0.5) : colorWithOpacity(ink.black, 0.3),
+        'line-color': isDark
+          ? colorWithOpacity(ink.white, opacity.disabled)
+          : colorWithOpacity(ink.black, opacity.tint4),
         'line-width': 1.5,
         'line-opacity': spiderVisible ? 1 : 0,
       },

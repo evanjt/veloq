@@ -41,6 +41,7 @@ import { useRevealChart } from '@/shared/app/useRevealChart';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import type { SmoothingSheetInput } from '@/app/sheets/smoothing';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { useScrollToTopOnReselect } from '@/shared/ui/tabReselect';
 import { onPullRefresh } from '@/shared/ui/haptics';
 
 const trainingChartCard = (chart: TrainingChart) => TRAINING_CHART_CARD[chart];
@@ -85,6 +86,7 @@ function HealthScreenContent() {
     entryChart,
     trainingChartCard
   );
+  useScrollToTopOnReselect('/training', scrollRef);
 
   // Refresh state for pull-to-refresh
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -163,7 +165,7 @@ function HealthScreenContent() {
   );
 
   return (
-    <ScreenSafeAreaView hasNativeHeader style={shared.container} testID="training-screen">
+    <ScreenSafeAreaView style={shared.container} testID="training-screen">
       <Stack.Screen options={headerOptions} />
       <ScreenScrollView
         ref={scrollRef}

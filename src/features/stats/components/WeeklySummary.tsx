@@ -11,7 +11,7 @@ import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import type { ParseKeys, TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, typography, spacing, verdictColor } from '@/theme';
+import { colors, darkColors, layout, typography, spacing, verdictColor } from '@/theme';
 import { weeklyTrend, type WeeklyStat } from '@/features/stats/lib/weeklyTrend';
 import { spokenVerdict } from '@/shared/format/spoken';
 import { RangeCoverage } from 'veloqrs';
@@ -29,7 +29,14 @@ import {
   usePeriodStats,
   type PeriodTotals,
 } from '@/features/stats/hooks/useEngineStats';
-import { CardHeader, ErrorState, ToggleButton, Spinner, EmptyState } from '@/shared/ui';
+import {
+  CardHeader,
+  EmptyState,
+  ErrorState,
+  Shimmer,
+  SkeletonFrame,
+  ToggleButton,
+} from '@/shared/ui';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { likeForLikeWindows } from '@/features/stats/lib/periodWindows';
 
@@ -118,6 +125,31 @@ function TrendCell({
       {cell.glyph}
       {cell.pct ? <RNText style={styles.trendPct}> {cell.pct}</RNText> : null}
     </Text>
+  );
+}
+
+/** The four-cell stats grid while its totals load, each cell the size of the stat it becomes. */
+function StatsGridSkeleton() {
+  return (
+    <SkeletonFrame testID="weekly-summary-skeleton">
+      <View style={styles.statsGrid}>
+        {[0, 1, 2, 3].map((cell) => (
+          <View key={cell} testID="weekly-summary-skeleton-cell" style={styles.statItem}>
+            <Shimmer
+              width="60%"
+              height={typography.statsValueLarge.lineHeight}
+              borderRadius={layout.borderRadiusXs}
+            />
+            <Shimmer
+              width="40%"
+              height={typography.caption.lineHeight}
+              borderRadius={layout.borderRadiusXs}
+              style={styles.statLabelPlaceholder}
+            />
+          </View>
+        ))}
+      </View>
+    </SkeletonFrame>
   );
 }
 
@@ -299,11 +331,8 @@ export function WeeklySummary({
         </View>
       </View>
 
-      {/* Loading indicator */}
       {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <Spinner />
-        </View>
+        <StatsGridSkeleton />
       ) : (
         <>
           {/* Stats grid */}
@@ -440,31 +469,26 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   statValue: {
-    fontSize: typography.statsValueLarge.fontSize,
-    fontWeight: '700',
+    ...typography.statsValueLarge,
     color: colors.textPrimary,
   },
   trendArrow: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    ...typography.bodySmallBold,
   },
   trendPct: {
-    fontSize: typography.micro.fontSize,
-    fontWeight: '400',
+    ...typography.micro,
   },
   statLabel: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
     marginTop: spacing.xxs,
   },
   comparisonLabel: {
-    fontSize: typography.micro.fontSize,
+    ...typography.micro,
     color: colors.textSecondary,
     marginTop: spacing.xs,
   },
-  loadingContainer: {
-    padding: spacing.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
+  statLabelPlaceholder: {
+    marginTop: spacing.xxs,
   },
 });

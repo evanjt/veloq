@@ -242,7 +242,6 @@ function DetectionPreviewScreenContent() {
 
   return (
     <ScreenSafeAreaView
-      hasNativeHeader
       testID="detection-preview-screen"
       style={[styles.container, { backgroundColor: bg }]}
     >

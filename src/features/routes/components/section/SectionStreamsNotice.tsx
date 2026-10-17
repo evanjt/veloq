@@ -41,8 +41,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   text: {
+    ...typography.caption,
     flex: 1,
-    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   textDark: {

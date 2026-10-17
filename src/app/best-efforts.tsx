@@ -10,7 +10,6 @@ import {
   EmptyState,
   ErrorState,
   ScreenSafeAreaView,
-  Spinner,
   ToggleButtonRow,
   useScrollEndInset,
 } from '@/shared/ui';
@@ -33,7 +32,9 @@ import {
 import { useTheme } from '@/shared/app';
 import { formatDurationOrNull } from '@/shared/format/format';
 import {
+  BEST_EFFORT_ROW_COUNT,
   BestEffortRow,
+  BestEffortRowsSkeleton,
   ClimbingBestRows,
   ClimbingStatusNote,
   formatEffortValue,
@@ -119,9 +120,7 @@ function SportSection({ sport, efforts, curve, isLoading, isDark }: SportSection
         )}
 
         {isLoading || (notFetched && curve.status === 'waiting') ? (
-          <View style={styles.loadingContainer}>
-            <Spinner />
-          </View>
+          <BestEffortRowsSkeleton rows={BEST_EFFORT_ROW_COUNT[sport]} />
         ) : notFetched ? (
           <BodyNotDownloaded
             testID={`best-efforts-not-downloaded-${sport}`}
@@ -202,9 +201,7 @@ function ClimbingSection({ sport, bests, status, isLoading, isDark }: ClimbingSe
         </View>
 
         {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <Spinner />
-          </View>
+          <BestEffortRowsSkeleton rows={BEST_EFFORT_ROW_COUNT.climbing} />
         ) : !hasAnyValue && !hasNote ? (
           <EmptyState variant="inline" title={t('statsScreen.noEffortData')} />
         ) : (
@@ -246,7 +243,6 @@ function BestEffortsScreenContent() {
 
   return (
     <ScreenSafeAreaView
-      hasNativeHeader
       style={[styles.container, isDark && styles.containerDark]}
       testID="best-efforts-screen"
     >
@@ -357,10 +353,6 @@ const styles = StyleSheet.create({
   cardTitleDark: {
     color: darkColors.textPrimary,
   },
-  loadingContainer: {
-    padding: spacing.lg,
-    alignItems: 'center',
-  },
   notDownloaded: {
     padding: spacing.md,
     alignItems: 'center',
@@ -375,7 +367,6 @@ const styles = StyleSheet.create({
   activityMissing: {
     ...typography.micro,
     color: colors.textSecondary,
-    fontStyle: 'italic',
   },
   activityMissingDark: {
     color: darkColors.textSecondary,

@@ -24,7 +24,7 @@ type Handset = {
   debuggable?: boolean;
   zip?: string | null;
   backup?: 'recorded' | 'unmoved' | 'quota';
-  restore?: 'recorded' | 'nothing' | 'altered' | 'unrecorded' | 'pref-altered';
+  restore?: 'recorded' | 'nothing' | 'altered' | 'unrecorded';
   token?: string;
   model?: string;
   /** `ro.kernel.qemu`, `1` on an emulator and empty on a phone. */
@@ -90,14 +90,17 @@ args=("$@")
 [ "\${args[0]}" = "-s" ] && args=("\${args[@]:2}")
 call="\${args[*]}"
 data="${data}"
-record() { mkdir -p "${dir}/record"; echo "$2" > "${dir}/record/$1"; }
+record() {
+  mkdir -p "${dir}/record"; echo "$2" > "${dir}/record/$1"
+  # The agent keeps its record in the app's own preferences, as on a handset.
+  [ -d "$data/shared_prefs" ] && touch "$data/shared_prefs/veloq_auto_backup.xml"
+}
 restore() {
   [ -d "${dir}/cloud" ] && cp -r "${dir}/cloud/." "$data/"
   case "${restore}" in
     recorded) record restoredAt 1760000060000 ;;
     unrecorded) ;;
     altered) echo "something else" > "$data/files/veloq-decisions.zip"; record restoredAt 1760000060000 ;;
-    pref-altered) echo "<map>imperial</map>" > "$data/shared_prefs/bench_settings.xml"; record restoredAt 1760000060000 ;;
   esac
 }
 case "$call" in
@@ -151,7 +154,6 @@ case "$call" in
       recorded)
         rm -rf "${dir}/cloud"; mkdir -p "${dir}/cloud/files" "${dir}/cloud/shared_prefs"
         cp "$data/files/veloq-decisions.zip" "${dir}/cloud/files/"
-        cp "$data/shared_prefs/bench_settings.xml" "${dir}/cloud/shared_prefs/"
         for leak in ${leaks.join(' ')}; do cp -r "$data/$leak" "${dir}/cloud/$leak"; done
         record backedUpAt 1760000000000; record backedUpBytes 52000
         echo "Package com.veloq.app.dev with result: Success" ;;
@@ -401,21 +403,22 @@ describe('android-backup-roundtrip.sh --reinstall', () => {
     for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  it('passes when settings and decisions come back and the library, legacy backups and SecureStore do not', () => {
+  it('passes when the record zip comes back and the library, legacy backups and every preference file do not', () => {
     const result = reinstall(fixture());
 
     expect(result.status).toBe(0);
     expect(result.verdict).toMatch(/^PASS: /);
     expect(result.verdict.split('\n')).toHaveLength(1);
     expect(result.verdict).toContain('of the 25 MB cap');
-    expect(result.verdict).toContain(`preferences ${Buffer.byteLength(PREFS)} bytes`);
+    expect(result.verdict).not.toContain('preferences');
     expect(result.calls).toContain('uninstall com.veloq.app.dev');
     expect(result.calls.some((c) => c.startsWith('install '))).toBe(true);
     expect(result.calls).toContain('shell bmgr restore 3a5e7b8c1d2f4e6a com.veloq.app.dev');
     expect(result.zip).toBe(ZIP);
-    expect(result.read('shared_prefs/bench_settings.xml')).toBe(PREFS);
+    expect(result.read('shared_prefs/bench_settings.xml')).toBeNull();
     expect(result.read('files/routes.db')).toBeNull();
     expect(result.read('shared_prefs/SecureStore.xml')).toBeNull();
+    expect(result.read('shared_prefs/veloq_auto_backup.xml')).not.toBeNull();
     expect(result.stderr).toContain('sign in');
   });
 
@@ -463,22 +466,19 @@ describe('android-backup-roundtrip.sh --reinstall', () => {
     expect(result.calls).toEqual([]);
   });
 
-  it('fails when the restore carries the library, a legacy backup or SecureStore', () => {
-    for (const leak of ['files/routes.db', 'files/backups', 'shared_prefs/SecureStore.xml']) {
+  it('fails when the restore carries the library, a legacy backup or any preference file', () => {
+    for (const leak of [
+      'files/routes.db',
+      'files/backups',
+      'shared_prefs/SecureStore.xml',
+      'shared_prefs/bench_settings.xml',
+    ]) {
       const result = reinstall(fixture({ leaks: [leak] }));
 
       expect(result.status).toBe(1);
       expect(result.verdict).toMatch(/^FAIL step 5: /);
       expect(result.verdict).toContain(leak);
     }
-  });
-
-  it('fails when a preference file comes back altered', () => {
-    const result = reinstall(fixture({ restore: 'pref-altered' }));
-
-    expect(result.status).toBe(1);
-    expect(result.verdict).toMatch(/^FAIL step 5: /);
-    expect(result.verdict).toContain('shared_prefs/bench_settings.xml');
   });
 
   it('fails when the restore brings no zip back', () => {

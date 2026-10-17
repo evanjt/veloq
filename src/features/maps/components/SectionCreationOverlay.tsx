@@ -16,6 +16,7 @@ import {
   iconSize,
   ink,
   layout,
+  opacity,
   shadows,
   slopToMinTapTarget,
   spacing,
@@ -156,7 +157,9 @@ export function SectionCreationOverlay({
   const pillStyle = isDark ? { backgroundColor: darkColors.surfaceOverlay } : null;
   const ruleStyle = isDark ? { borderTopColor: darkColors.border } : null;
   const mutedText = { color: palette.textSecondary };
-  const detailsStyle = isDark ? { backgroundColor: colorWithOpacity(ink.white, 0.06) } : null;
+  const detailsStyle = isDark
+    ? { backgroundColor: colorWithOpacity(ink.white, opacity.tint1) }
+    : null;
 
   const isComplete = state === 'complete';
   const isCreating = state === 'creating';
@@ -520,7 +523,6 @@ const styles = StyleSheet.create({
   },
   helpText: {
     ...typography.caption,
-    fontStyle: 'italic',
     marginTop: spacing.xs,
     textAlign: 'center',
   },

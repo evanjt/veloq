@@ -15,7 +15,6 @@ import {
   useInfiniteActivities,
   useRangeActivities,
 } from '@/features/activity/hooks/useActivities';
-import { emitSyncSettled } from '@/shared/app/useRetryTriggers';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
 import { getEngine } from '@/shared/native/engine';
@@ -212,35 +211,6 @@ describe('useActivities', () => {
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
   });
 
-  it('asks again when the launch sync releases the exclusive slot', async () => {
-    // The ordinary refusal is the launch sync holding the slot, not an offline
-    // failure, and that ends without the user touching anything.
-    engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Busy);
-    const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
-    await renderHook(() => useActivities(opts), { wrapper });
-    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
-
-    engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Started);
-    await act(() => emitSyncSettled());
-
-    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
-    expect(engine.syncActivitiesWindow).toHaveBeenLastCalledWith('2024-01-01', '2024-06-01');
-  });
-
-  it('asks the engine again after a sync settles, because the engine owns the memory', async () => {
-    // The census answers whether a window is already local, so a hook that
-    // remembered an accepted window kept a second copy of that answer, and one
-    // a relaunch emptied.
-    const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
-    await renderHook(() => useActivities(opts), { wrapper });
-    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
-
-    engine.syncActivitiesWindow.mockReturnValue(StartOutcome.NotOwed);
-    await act(() => emitSyncSettled());
-
-    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
-  });
-
   it('names no running download for a window the engine says is not owed', async () => {
     engine.syncActivitiesWindow.mockReturnValue(StartOutcome.NotOwed);
     const accepted = jest.spyOn(useSyncDateRange.getState(), 'windowAccepted');
@@ -251,18 +221,6 @@ describe('useActivities', () => {
 
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
     expect(accepted).not.toHaveBeenCalled();
-  });
-
-  it('stops asking once the hook is gone', async () => {
-    engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Busy);
-    const opts = { oldest: '2024-01-01', newest: '2024-06-01' };
-    const { unmount } = await renderHook(() => useActivities(opts), { wrapper });
-    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
-    await unmount();
-
-    await act(() => emitSyncSettled());
-
-    expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1);
   });
 
   it('runs an open-ended window to today rather than to nothing', async () => {
@@ -364,17 +322,6 @@ describe('useInfiniteActivities', () => {
     });
     await waitFor(() => expect(result.current.hasNextPage).toBe(false));
   });
-  it('re-asks for the feed pages when the launch sync releases the slot', async () => {
-    engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Busy);
-    await renderHook(() => useInfiniteActivities(), { wrapper });
-    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));
-
-    engine.syncActivitiesWindow.mockReturnValue(StartOutcome.Started);
-    await act(() => emitSyncSettled());
-
-    await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(2));
-  });
-
   it('asks again for a feed page after the athlete changes', async () => {
     const { rerender } = await renderHook(() => useInfiniteActivities(), { wrapper });
     await waitFor(() => expect(engine.syncActivitiesWindow).toHaveBeenCalledTimes(1));

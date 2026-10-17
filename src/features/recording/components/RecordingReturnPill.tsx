@@ -99,7 +99,7 @@ function RecordingReturnPillInner({ status }: { status: RecordingStatus }) {
         <Text style={[styles.elapsed, { color: textPrimary }]}>{formattedElapsed}</Text>
         <Text style={[styles.label, { color: accent }]}>
           {stopped
-            ? t('recording.reviewActivity', 'Review Activity')
+            ? t('recording.reviewActivity', 'Review activity')
             : paused
               ? t('recording.status.paused', 'Paused')
               : t('recording.status.recording', 'Recording')}
@@ -137,7 +137,6 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   label: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
+    ...typography.bodyCompactBold,
   },
 });

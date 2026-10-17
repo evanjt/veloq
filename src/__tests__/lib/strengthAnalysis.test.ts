@@ -43,7 +43,7 @@ describe('buildStrengthBalancePairs', () => {
       enginePair('quads_hamstrings', 'quadriceps', 'hamstring', 10, 4, 'imbalanced', 2.5),
     ]);
 
-    expect(pair.label).toBe('Quads vs Hamstrings');
+    expect(pair.label).toBe('Quads vs hamstrings');
     expect(pair.leftLabel).toBe('Quadriceps');
     expect(pair.rightLabel).toBe('Hamstrings');
     expect(pair.dominantLabel).toBe('Quadriceps');

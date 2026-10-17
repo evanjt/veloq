@@ -121,17 +121,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   refusal: {
-    fontSize: typography.bodySmall.fontSize,
+    ...typography.bodySmall,
     color: colors.textSecondary,
     marginTop: spacing.xs,
   },
   infoLabel: {
-    fontSize: typography.bodySmall.fontSize,
+    ...typography.bodySmall,
     color: colors.textSecondary,
   },
   infoValue: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    ...typography.bodySmallBold,
     color: colors.textPrimary,
   },
   infoValueRow: {

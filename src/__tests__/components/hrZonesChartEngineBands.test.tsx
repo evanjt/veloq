@@ -26,11 +26,11 @@ jest.mock('@/shared/app/useSportSettings', () => ({
 }));
 
 const bands = [
-  { zone: 1, minBpm: 0, maxBpm: 140, seconds: 90, percent: 75 },
-  { zone: 2, minBpm: 140, maxBpm: 155, seconds: 30, percent: 25 },
-  { zone: 3, minBpm: 155, maxBpm: 170, seconds: 0, percent: 0 },
-  { zone: 4, minBpm: 170, maxBpm: 185, seconds: 0, percent: 0 },
-  { zone: 5, minBpm: 185, maxBpm: 200, seconds: 0, percent: 0 },
+  { zone: 1, minBpm: 0, maxBpm: 140, seconds: 90, percent: 75, share: 75 },
+  { zone: 2, minBpm: 140, maxBpm: 155, seconds: 30, percent: 25, share: 25 },
+  { zone: 3, minBpm: 155, maxBpm: 170, seconds: 0, percent: 0, share: 0 },
+  { zone: 4, minBpm: 170, maxBpm: 185, seconds: 0, percent: 0, share: 0 },
+  { zone: 5, minBpm: 185, maxBpm: 200, seconds: 0, percent: 0, share: 0 },
 ];
 
 it('renders the engine bands and times as given, with no sport settings read', async () => {

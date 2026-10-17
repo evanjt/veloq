@@ -26,7 +26,7 @@ export function PowerZonesChart({ powerZones, ftp, movingTime }: PowerZonesChart
         min: band.minWatts,
         max: band.maxWatts,
         seconds: band.seconds,
-        percent: band.percent,
+        share: band.share,
       }))}
       formatRange={formatPowerRange}
       chartName="Power Zones"

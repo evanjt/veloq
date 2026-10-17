@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
     borderColor: brand.goldLight,
   },
   languageButtonText: {
-    fontSize: typography.bodySmall.fontSize,
+    ...typography.bodySmall,
     color: colors.textSecondary,
   },
   languageDropdown: {

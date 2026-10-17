@@ -20,6 +20,35 @@ use super::PersistentEngine;
 /// the names shipped beside the seconds never outnumber them.
 pub(crate) const ZONE_COLUMNS: usize = 7;
 
+/// Each zone's share of the total time as a whole percent, the shares totalling
+/// exactly 100 when any zone holds time and all zero when none does.
+///
+/// Rounding each share on its own can total 99 or 101, so this takes the
+/// largest-remainder method: every share is floored, and the points still
+/// missing from 100 go one each to the largest remainders, the lower zone
+/// first where two remainders are equal.
+pub(crate) fn whole_shares(seconds: &[f64]) -> Vec<u32> {
+    let total: f64 = seconds.iter().filter(|s| **s > 0.0).sum();
+    if total <= 0.0 || !total.is_finite() {
+        return vec![0; seconds.len()];
+    }
+    let exact: Vec<f64> = seconds
+        .iter()
+        .map(|s| if *s > 0.0 { s / total * 100.0 } else { 0.0 })
+        .collect();
+    let mut shares: Vec<u32> = exact.iter().map(|e| e.floor() as u32).collect();
+    let spare = 100u32.saturating_sub(shares.iter().sum());
+    let mut order: Vec<usize> = (0..exact.len()).filter(|&i| exact[i] > 0.0).collect();
+    order.sort_by(|&a, &b| {
+        let (ra, rb) = (exact[a] - exact[a].floor(), exact[b] - exact[b].floor());
+        rb.total_cmp(&ra).then(a.cmp(&b))
+    });
+    for &i in order.iter().cycle().take(spare as usize) {
+        shares[i] += 1;
+    }
+    shares
+}
+
 /// Zone seconds padded to the column count the row carries. An absent series
 /// reads as zero everywhere rather than as a gap the aggregates would skip.
 fn zone_seconds(times: Option<&[u32]>, columns: usize) -> Vec<f64> {
@@ -420,6 +449,20 @@ mod tests {
     }
 
     #[test]
+    fn a_periods_zone_shares_come_whole_and_total_one_hundred() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let mut m = extended(5);
+        m.hr_zone_times = Some(vec![600, 600, 600]);
+        engine.set_activity_metrics(vec![m]).unwrap();
+
+        let read =
+            derivations::pooled::zone_distribution_named(&engine.db, "Ride", "hr", 0, i64::MAX);
+
+        assert_eq!(read.shares, vec![34, 33, 33, 0, 0, 0, 0]);
+        assert_eq!(read.shares.len(), read.seconds.len());
+    }
+
+    #[test]
     fn a_page_write_with_no_stats_leaves_the_columns_empty() {
         let mut engine = PersistentEngine::in_memory().unwrap();
 
@@ -557,5 +600,55 @@ mod tests {
             stored_load(&engine, "a5"),
             (Some(88.0), Some(250), Some(0.0))
         );
+    }
+
+    /// Scenario: three zones hold equal time, so every exact share is 33.3.
+    ///
+    /// Expected behaviour: the whole-number shares still total 100, the spare
+    /// point going to the lowest zone among the equal remainders.
+    #[test]
+    fn equal_zones_share_out_to_one_hundred() {
+        assert_eq!(whole_shares(&[1.0, 1.0, 1.0]), vec![34, 33, 33]);
+    }
+
+    #[test]
+    fn seven_zones_with_spread_remainders_total_one_hundred() {
+        let seconds = [611.0, 1_203.0, 947.0, 333.0, 129.0, 58.0, 17.0];
+        let shares = whole_shares(&seconds);
+        assert_eq!(shares.len(), 7);
+        assert_eq!(shares.iter().sum::<u32>(), 100);
+        let total: f64 = seconds.iter().sum();
+        for (share, secs) in shares.iter().zip(seconds) {
+            let exact = secs / total * 100.0;
+            assert!(f64::from(*share) >= exact.floor() && f64::from(*share) <= exact.ceil());
+        }
+        assert_eq!(shares, vec![19, 36, 29, 10, 4, 2, 0]);
+    }
+
+    #[test]
+    fn the_spare_points_go_to_the_largest_remainders() {
+        // Exact shares 12.5, 37.5, 12.5, 37.5 floor to 98, and the two .5
+        // remainders taken first are the lowest zones holding them.
+        assert_eq!(whole_shares(&[1.0, 3.0, 1.0, 3.0]), vec![13, 38, 12, 37]);
+        // 10.2, 20.7, 69.1: only the .7 rounds up.
+        assert_eq!(whole_shares(&[10.2, 20.7, 69.1]), vec![10, 21, 69]);
+    }
+
+    #[test]
+    fn a_zero_total_shares_nothing() {
+        assert_eq!(whole_shares(&[0.0, 0.0, 0.0]), vec![0, 0, 0]);
+        assert_eq!(whole_shares(&[]), Vec::<u32>::new());
+    }
+
+    #[test]
+    fn a_single_zone_holds_the_whole() {
+        assert_eq!(whole_shares(&[42.0]), vec![100]);
+        assert_eq!(whole_shares(&[0.0, 42.0, 0.0]), vec![0, 100, 0]);
+    }
+
+    #[test]
+    fn a_zone_with_no_time_takes_no_spare_point() {
+        let shares = whole_shares(&[1.0, 1.0, 1.0, 0.0]);
+        assert_eq!(shares, vec![34, 33, 33, 0]);
     }
 }

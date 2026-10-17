@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useEffect, useRef, useState } from 'react'
 import { View, ScrollView } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { logScreenRender } from '@/shared/debug/renderTimer';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { useTranslation } from 'react-i18next';
 import {
   useRouteDetailData,
@@ -95,15 +95,11 @@ function RouteDetailScreenContent() {
   const isMetric = useMetricSystem();
   const mapHeight = useHeroMapHeight();
 
-  // One engine call covering the route, its ranking list, every attempt, the
-  // representative polyline, names, exclusions and signatures.
+  // One engine call covering the route and its shown name, the representative
+  // polyline, exclusions and signatures. Attempt times are a read of their own.
   const [detailRefreshKey, setDetailRefreshKey] = useState(0);
   const refreshDetail = useCallback(() => setDetailRefreshKey((k) => k + 1), []);
-  const { data: detail, status: detailStatus } = useRouteDetailData(
-    id,
-    navActivityId,
-    detailRefreshKey
-  );
+  const { data: detail, status: detailStatus } = useRouteDetailData(id, detailRefreshKey);
 
   // Get cached date range from sync store (consolidated calculation)
   const cacheDays = useCacheDays(detail?.activityCount);
@@ -142,7 +138,8 @@ function RouteDetailScreenContent() {
     RANGE_DAYS[routeTimeRange],
     selectedSportType,
     detailRefreshKey,
-    streamsSettled
+    streamsSettled,
+    navActivityId
   );
   if (
     performance &&
@@ -190,7 +187,7 @@ function RouteDetailScreenContent() {
     handleStartEditing,
     handleSaveName,
     handleCancelEdit,
-  } = useRouteRenaming(id, routeGroupBase?.name, t, detail?.routeNames);
+  } = useRouteRenaming(id, engineGroup?.customName, t);
 
   // The representative's length and climbing describe the line on the map,
   // so the sport chip and the range do not move them.
@@ -399,13 +396,7 @@ function RouteDetailScreenContent() {
               testID="route-export-gpx"
               label={gpxExporting ? t('export.exporting') : t('export.gpx')}
               loading={gpxExporting}
-              icon={
-                <MaterialCommunityIcons
-                  name="download"
-                  size={iconSize.md}
-                  color={colors.textOnPrimary}
-                />
-              }
+              icon={<ChromeIcon name="share" size={iconSize.md} color={colors.textOnPrimary} />}
               onPress={() =>
                 exportGpx({
                   name: displayName,

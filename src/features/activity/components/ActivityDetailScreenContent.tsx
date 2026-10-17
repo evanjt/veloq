@@ -428,7 +428,6 @@ export function ActivityDetailScreenContent({
     return (
       <ScreenSafeAreaView
         testID="activity-detail-screen"
-        hasNativeHeader
         style={[styles.container, isDark && styles.containerDark]}
       >
         <Stack.Screen options={headerOptions} />
@@ -468,7 +467,6 @@ export function ActivityDetailScreenContent({
     return (
       <ScreenSafeAreaView
         testID="activity-detail-screen"
-        hasNativeHeader
         style={[styles.container, isDark && styles.containerDark]}
       >
         <Stack.Screen options={headerOptions} />
@@ -695,9 +693,8 @@ const styles = StyleSheet.create({
     borderBottomColor: darkColors.divider,
   },
   descriptionText: {
-    fontSize: typography.bodySmall.fontSize,
+    ...typography.bodySmall,
     color: colors.textSecondary,
-    lineHeight: 20,
   },
   descriptionTextDark: {
     color: darkColors.textSecondary,

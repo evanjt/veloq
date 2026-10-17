@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, View, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { useTranslation } from 'react-i18next';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
@@ -148,8 +149,8 @@ export function SectionContentArea({
           onPress={onToggleDisable}
           android_ripple={pressRipple}
         >
-          <MaterialCommunityIcons
-            name="delete-outline"
+          <ChromeIcon
+            name="delete"
             size={iconSize.md}
             color={isDark ? darkColors.warningAmber : colors.warningAmber}
           />
@@ -159,7 +160,7 @@ export function SectionContentArea({
               { color: isDark ? darkColors.warningAmber : colors.warningAmber },
             ]}
           >
-            {t('sections.removed')} - {t('sections.restoreSection')}
+            {t('sections.removedBanner')}
           </Text>
         </Pressable>
       ) : null}
@@ -284,9 +285,8 @@ const styles = StyleSheet.create({
   // The colour is the consumer's: amber has to be the deep tone on white and
   // the light tone on near-black, and a stylesheet cannot read the theme.
   disabledBannerText: {
+    ...typography.bodySmall,
     flex: 1,
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '400',
   },
   mergeBanner: {
     flexDirection: 'row',
@@ -303,9 +303,8 @@ const styles = StyleSheet.create({
     borderColor: colors.info + '30',
   },
   mergeBannerText: {
+    ...typography.bodySmall,
     flex: 1,
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '400',
     color: colors.infoText,
   },
   mergeBannerTextDark: {

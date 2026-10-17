@@ -208,6 +208,17 @@ describe('node_modules', () => {
     );
   });
 
+  it('replaces a whole-directory link to an install npm made', () => {
+    const fx = fixture();
+    write(fx.checkout, 'node_modules/.package-lock.json', '{ "lockfileVersion": 3 }\n');
+    symlinkSync(join(fx.checkout, 'node_modules'), join(fx.landing, 'node_modules'));
+
+    expect(provision(fx).status).toBe(0);
+
+    expect(lstatSync(join(fx.landing, 'node_modules')).isSymbolicLink()).toBe(false);
+    expect(readlinkSync(link(fx, 'veloqrs'))).toBe(join(fx.landing, 'modules/veloqrs'));
+  });
+
   it('picks up a package the main checkout gained since the last landing', () => {
     const fx = fixture();
     expect(provision(fx).status).toBe(0);

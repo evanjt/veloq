@@ -11,6 +11,8 @@
 
 import React from 'react';
 import { ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { HeaderShownContext } from 'expo-router/react-navigation';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
@@ -31,19 +33,14 @@ jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false }),
   useMetricSystem: () => true,
 }));
+jest.mock('@/shared/app/TopSafeAreaContext', () => ({
+  useScreenSafeAreaEdges: () => ['top', 'bottom', 'left', 'right'],
+}));
 jest.mock('@/shared/ui', () => {
   const { Pressable, Text, View } = require('react-native');
   return {
     Card: jest.requireActual('@/shared/ui/Card').Card,
-    ScreenSafeAreaView: ({
-      children,
-      hasNativeHeader,
-    }: {
-      children: React.ReactNode;
-      hasNativeHeader?: boolean;
-    }) => (
-      <View testID={hasNativeHeader ? 'under-native-header' : 'own-top-inset'}>{children}</View>
-    ),
+    ScreenSafeAreaView: jest.requireActual('@/shared/ui/ScreenSafeAreaView').ScreenSafeAreaView,
     useBottomClearance: () => 0,
     useScrollEndInset: () => 0,
     useHeroMapHeight: () => 300,
@@ -128,6 +125,19 @@ function library(overrides: Partial<ReturnType<typeof useRecordingLibrary>> = {}
   };
 }
 
+/** The recording opened in the stack, which shows its native header. */
+function renderDetail() {
+  return render(
+    <HeaderShownContext.Provider value={true}>
+      <RecordingDetailScreen />
+    </HeaderShownContext.Provider>
+  );
+}
+
+function takesTopInset(): boolean {
+  return screen.UNSAFE_getByType(SafeAreaView).props.edges.includes('top');
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockLibrary.mockReturnValue(library());
@@ -146,31 +156,44 @@ describe('My Recordings', () => {
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the spinner while the load is under way', () => {
+  it('draws placeholder rows while the load is under way', () => {
     mockLibrary.mockReturnValue(library({ isLoading: true }));
 
     render(<RecordingsLibraryScreen />);
 
-    expect(screen.UNSAFE_getByType(ActivityIndicator)).toBeTruthy();
+    expect(
+      screen.getAllByTestId('recording-row-skeleton', { includeHiddenElements: true }).length
+    ).toBeGreaterThan(0);
+    expect(screen.UNSAFE_queryByType(ActivityIndicator)).toBeNull();
     expect(screen.queryByTestId('recordings-read-failure')).toBeNull();
   });
 });
 
 describe('one recording', () => {
+  it('draws the stats card as a placeholder while the read is pending', () => {
+    mockGetVisible.mockReturnValue(new Promise(() => {}));
+
+    renderDetail();
+
+    expect(screen.getByTestId('recording-detail-skeleton')).toBeTruthy();
+    expect(screen.UNSAFE_queryByType(ActivityIndicator)).toBeNull();
+    expect(takesTopInset()).toBe(false);
+  });
+
   it('shows the failure with a Retry when the read rejects, not the spinner', async () => {
     mockGetVisible.mockRejectedValue({ tag: 'Database', message: 'disk I/O error' });
 
-    render(<RecordingDetailScreen />);
+    renderDetail();
 
     await screen.findByTestId('recording-detail-read-failure');
     expect(screen.UNSAFE_queryByType(ActivityIndicator)).toBeNull();
-    expect(screen.getByTestId('under-native-header')).toBeTruthy();
+    expect(takesTopInset()).toBe(false);
   });
 
   it('reads again on Retry and shows the recording', async () => {
     mockGetVisible.mockRejectedValueOnce(new Error('busy')).mockResolvedValue(TEMPO);
 
-    render(<RecordingDetailScreen />);
+    renderDetail();
     fireEvent.press(await screen.findByTestId('recording-detail-read-failure-retry'));
 
     await screen.findByText('Delete');
@@ -181,21 +204,20 @@ describe('one recording', () => {
   it('shows the empty state with Back for a recording that is not there', async () => {
     mockGetVisible.mockResolvedValue(null);
 
-    render(<RecordingDetailScreen />);
+    renderDetail();
     fireEvent.press(await screen.findByText('common.back'));
 
     expect(screen.getByText('Recording not found')).toBeTruthy();
     expect(router.back).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('under-native-header')).toBeTruthy();
+    expect(takesTopInset()).toBe(false);
   });
 
   it('sits under the native header once loaded, as it did while loading', async () => {
     mockGetVisible.mockResolvedValue(TEMPO);
 
-    render(<RecordingDetailScreen />);
+    renderDetail();
     await screen.findByText('Delete');
 
-    expect(screen.getByTestId('under-native-header')).toBeTruthy();
-    expect(screen.queryByTestId('own-top-inset')).toBeNull();
+    expect(takesTopInset()).toBe(false);
   });
 });

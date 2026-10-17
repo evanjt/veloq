@@ -10,7 +10,7 @@
 import { renderHook } from '@testing-library/react-native';
 import { useSectionChartDataEnriched } from '@/features/routes/hooks/useSectionChartDataEnriched';
 import { getEngine } from '@/shared/native/engine';
-import type { FfiSectionChartPoint } from 'veloqrs';
+import { FfiOffScale, type FfiSectionChartPoint } from 'veloqrs';
 import type { PerformanceDataPoint } from '@/types';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
@@ -41,6 +41,7 @@ const excludedPoint: FfiSectionChartPoint = {
   direction: 'reverse',
   isBest: false,
   outsideDistanceBand: false,
+  offScale: FfiOffScale.None,
 };
 
 describe('useSectionChartDataEnriched', () => {

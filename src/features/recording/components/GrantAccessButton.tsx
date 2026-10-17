@@ -21,7 +21,7 @@ interface GrantAccessButtonProps {
 
 export function GrantAccessButton({ onPress, loading, small, testID }: GrantAccessButtonProps) {
   const { t } = useTranslation();
-  const label = t('recording.grantAccess', 'Grant Access');
+  const label = t('recording.grantAccess', 'Grant access');
 
   return (
     <Button

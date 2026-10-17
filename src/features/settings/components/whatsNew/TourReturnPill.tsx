@@ -100,8 +100,7 @@ const styles = StyleSheet.create({
     maxWidth: '85%',
   },
   tipText: {
-    fontSize: typography.bodyCompact.fontSize,
-    lineHeight: 18,
+    ...typography.bodyCompact,
     textAlign: 'center',
     marginBottom: spacing.sm,
   },

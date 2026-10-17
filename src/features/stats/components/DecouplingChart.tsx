@@ -95,8 +95,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   decouplingValue: {
-    fontSize: typography.screenTitle.fontSize,
-    fontWeight: '700',
+    ...typography.screenTitle,
     color: colors.textPrimary,
   },
   sourceRide: {

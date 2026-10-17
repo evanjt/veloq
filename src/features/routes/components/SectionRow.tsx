@@ -429,9 +429,8 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
   },
   sectionName: {
+    ...typography.bodyCompactBold,
     flexShrink: 1,
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
     color: colors.textPrimary,
   },
   metaRow: {
@@ -475,14 +474,14 @@ const styles = StyleSheet.create({
     gap: spacing.xxs,
   },
   proximityText: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   proximityTextDark: {
     color: darkColors.textSecondary,
   },
   customTag: {
-    backgroundColor: colorWithOpacity(colors.chartPurple, 0.12),
+    backgroundColor: colorWithOpacity(colors.chartPurple, opacity.tint2),
     paddingHorizontal: spacing.xsPlus,
     paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusXs,
@@ -502,7 +501,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    backgroundColor: colorWithOpacity(colors.amberIcon, 0.12),
+    backgroundColor: colorWithOpacity(colors.amberIcon, opacity.tint2),
     paddingHorizontal: spacing.xsPlus,
     paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusXs,

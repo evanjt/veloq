@@ -15,7 +15,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
 import { selection } from './haptics';
 import { pressable, pressRipple } from './pressFeedback';
 import { Switch } from './Switch';
@@ -58,10 +58,6 @@ export function SwitchRow({
 }: SwitchRowProps) {
   const { isDark } = useTheme();
   const palette = isDark ? darkColors : colors;
-  // An inactive control's label is exempt from the text bar, so the disabled
-  // state reads as such rather than as a switch that happens to be off.
-  const labelColor = disabled ? palette.textDisabled : palette.textPrimary;
-  const iconColor = disabled ? palette.textDisabled : palette.textSecondary;
 
   const toggle = () => {
     selection();
@@ -69,7 +65,7 @@ export function SwitchRow({
   };
 
   return (
-    <View style={[styles.row, INSETS[inset].row]}>
+    <View style={[styles.row, INSETS[inset].row, disabled && styles.disabled]}>
       <Pressable
         testID={testID}
         accessibilityRole="switch"
@@ -81,9 +77,11 @@ export function SwitchRow({
         android_ripple={pressRipple}
         style={pressable([styles.target, INSETS[inset].target])}
       >
-        {icon ? <MaterialCommunityIcons name={icon} size={iconSize.md} color={iconColor} /> : null}
+        {icon ? (
+          <MaterialCommunityIcons name={icon} size={iconSize.md} color={palette.textSecondary} />
+        ) : null}
         <View style={styles.label}>
-          <Text testID={titleTestID} style={[styles.title, { color: labelColor }]}>
+          <Text testID={titleTestID} style={[styles.title, { color: palette.textPrimary }]}>
             {title}
           </Text>
           {description ? (
@@ -114,6 +112,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  // The whole row fades, switch and label together, so the disabled state reads
+  // as such rather than as a switch that happens to be off.
+  disabled: {
+    opacity: opacity.disabled,
   },
   target: {
     flex: 1,

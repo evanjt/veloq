@@ -159,9 +159,16 @@ export function SwipeableTabs({
   lazy = false,
 }: SwipeableTabsProps) {
   const tabCount = tabs.length;
-  const { width: screenWidth } = useWindowDimensions();
-  const swipeThreshold = screenWidth * SWIPE_THRESHOLD_RATIO;
-  const maxOffset = -screenWidth * (tabCount - 1);
+  const { width: windowWidth } = useWindowDimensions();
+  // A page is as wide as the pager's host, which a readable column or a split window makes
+  // narrower than the window. The window stands in until the host is first measured.
+  const [hostWidth, setHostWidth] = useState<number | null>(null);
+  const pageWidth = hostWidth ?? windowWidth;
+  const handleHostLayout = useCallback((event: LayoutChangeEvent) => {
+    setHostWidth(event.nativeEvent.layout.width);
+  }, []);
+  const swipeThreshold = pageWidth * SWIPE_THRESHOLD_RATIO;
+  const maxOffset = -pageWidth * (tabCount - 1);
 
   // Track which tabs have been visited (for lazy rendering)
   const visitedRef = useRef<Set<number>>(new Set([0])); // First tab always visited
@@ -170,7 +177,7 @@ export function SwipeableTabs({
   const getTabIndex = useCallback((key: string) => tabs.findIndex((t) => t.key === key), [tabs]);
   const initialIndex = Math.max(0, getTabIndex(activeTab));
 
-  const translateX = useSharedValue(-screenWidth * initialIndex);
+  const translateX = useSharedValue(-pageWidth * initialIndex);
   const indicatorProgress = useSharedValue(initialIndex);
   // Track active tab index in shared value for worklet access
   const activeTabIndex = useSharedValue(initialIndex);
@@ -183,7 +190,7 @@ export function SwipeableTabs({
   // Width each tab needs for its icon, label and badge, reported by the
   // content row of each tab, which never shrinks below its natural size.
   const [contentWidths, setContentWidths] = useState<number[]>([]);
-  const available = screenWidth - spacing.md * 2;
+  const available = pageWidth - spacing.md * 2;
   const stripLayout = useMemo(
     () =>
       layoutTabStrip(
@@ -232,15 +239,15 @@ export function SwipeableTabs({
   const exposedIndex = Math.max(0, currentIndex);
 
   // Sync animation with activeTab state changes (e.g., from tab press), and
-  // with the window, since the page offset is a multiple of its width.
+  // with the host, since the page offset is a multiple of its width.
   useEffect(() => {
     const targetIndex = getTabIndex(activeTab);
     if (targetIndex < 0) return;
-    const targetX = -screenWidth * targetIndex;
+    const targetX = -pageWidth * targetIndex;
     activeTabIndex.value = targetIndex;
     translateX.value = withTiming(targetX, TIMING_CONFIG);
     indicatorProgress.value = withTiming(targetIndex, TIMING_CONFIG);
-  }, [activeTab, getTabIndex, screenWidth, translateX, indicatorProgress, activeTabIndex]);
+  }, [activeTab, getTabIndex, pageWidth, translateX, indicatorProgress, activeTabIndex]);
 
   // In the scrolling strip, bring the active tab into view when it changes or
   // when measuring moves it.
@@ -253,11 +260,11 @@ export function SwipeableTabs({
     const x = scrollOffsetToShow(
       spacing.md + offset,
       width,
-      screenWidth,
+      pageWidth,
       contentWidth + spacing.md * 2
     );
     scrollRef.current?.scrollTo({ x, animated: !isReduceMotionOn() });
-  }, [scrolls, activeTab, getTabIndex, tabOffsets, tabWidths, contentWidth, screenWidth]);
+  }, [scrolls, activeTab, getTabIndex, tabOffsets, tabWidths, contentWidth, pageWidth]);
 
   // Memoize pan gesture to prevent recreation on every render
   const panGesture = useMemo(
@@ -284,7 +291,8 @@ export function SwipeableTabs({
             tabCount,
             startX: touchStartX.value,
             translationX: touch.absoluteX - touchStartX.value,
-            screenWidth,
+            // The touch is in window coordinates, and so is the system's back-swipe edge.
+            screenWidth: windowWidth,
             isRTL,
           });
           if (decision === 'activate') {
@@ -294,7 +302,7 @@ export function SwipeableTabs({
         })
         .onUpdate((event) => {
           'worklet';
-          const currentOffset = -screenWidth * activeTabIndex.value;
+          const currentOffset = -pageWidth * activeTabIndex.value;
           let newTranslateX = currentOffset + event.translationX;
           // Clamp between maxOffset and 0
           newTranslateX = Math.max(maxOffset, Math.min(0, newTranslateX));
@@ -305,7 +313,7 @@ export function SwipeableTabs({
         .onEnd((event) => {
           'worklet';
           const velocity = event.velocityX;
-          const currentOffset = -screenWidth * activeTabIndex.value;
+          const currentOffset = -pageWidth * activeTabIndex.value;
           const distance = translateX.value - currentOffset;
 
           let targetTabIndex = activeTabIndex.value;
@@ -321,7 +329,7 @@ export function SwipeableTabs({
             }
           }
 
-          const targetX = -screenWidth * targetTabIndex;
+          const targetX = -pageWidth * targetTabIndex;
           translateX.value = withTiming(targetX, TIMING_CONFIG);
           indicatorProgress.value = withTiming(targetTabIndex, TIMING_CONFIG);
 
@@ -339,7 +347,8 @@ export function SwipeableTabs({
       settleOnTab,
       tabCount,
       maxOffset,
-      screenWidth,
+      pageWidth,
+      windowWidth,
       swipeThreshold,
       gestureEnabled,
     ]
@@ -380,7 +389,7 @@ export function SwipeableTabs({
   );
 
   return (
-    <View style={styles.container}>
+    <View testID="swipeable-tabs" style={styles.container} onLayout={handleHostLayout}>
       {/* Material-style Tab Bar - equal tabs while every label fits, else a scrolling strip of content-sized tabs */}
       <View
         accessibilityRole="tablist"
@@ -456,12 +465,13 @@ export function SwipeableTabs({
       {/* Swipeable Content - N pages */}
       <GestureDetector gesture={panGesture}>
         <Animated.View
-          style={[styles.contentContainer, { width: screenWidth * tabCount }, contentStyle]}
+          style={[styles.contentContainer, { width: pageWidth * tabCount }, contentStyle]}
         >
           {React.Children.toArray(children).map((child, index) => (
             <View
               key={index}
-              style={{ width: screenWidth }}
+              testID={`tab-page-${tabs[index]?.key ?? index}`}
+              style={{ width: pageWidth }}
               {...pageAccessibility(index, exposedIndex)}
             >
               {lazy && !visitedRef.current.has(index) ? null : child}
@@ -511,8 +521,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   tabText: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '400',
+    ...typography.bodySmall,
   },
   tabTextActive: {
     fontWeight: '600',
@@ -525,8 +534,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabBadgeText: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
+    ...typography.badge,
   },
   indicator: {
     position: 'absolute',

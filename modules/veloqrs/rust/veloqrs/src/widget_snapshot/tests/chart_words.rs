@@ -86,5 +86,5 @@ fn the_sample_library_names_its_series_span_and_zone() {
     assert_eq!(display["chartSpans"]["form"], "42 days");
     assert_eq!(display["metricLabels"]["fitness"], "Fitness");
     assert_eq!(display["metricLabels"]["fatigue"], "Fatigue");
-    assert_eq!(display["formZone"], "Grey Zone");
+    assert_eq!(display["formZone"], "Grey zone");
 }

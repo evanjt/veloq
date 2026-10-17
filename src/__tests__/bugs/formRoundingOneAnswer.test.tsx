@@ -87,7 +87,7 @@ describe.each([
 
 describe.each([
   [50.5, 45.6, '+5', 'Fresh'],
-  [60.4, 70.45, '-10', 'Grey Zone'],
+  [60.4, 70.45, '-10', 'Grey zone'],
   [60.4, 90.45, '-30', 'Optimal'],
 ])('ctl %d and atl %d near a zone boundary', (ctl, atl, shown, zoneLabel) => {
   beforeAll(async () => {

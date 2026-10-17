@@ -204,13 +204,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   text: {
+    ...typography.bodyCompactBold,
     color: colors.textOnPrimary,
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
   },
   countText: {
+    ...typography.caption,
     color: colors.textOnPrimary,
-    fontSize: typography.caption.fontSize,
   },
   libraryLines: {
     alignItems: 'center',

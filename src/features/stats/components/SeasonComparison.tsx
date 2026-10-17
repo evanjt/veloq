@@ -8,18 +8,19 @@ import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { RangeCoverage } from 'veloqrs';
 import {
+  brand,
   chartStyles,
   colors,
-  typography,
-  spacing,
-  layout,
-  verdictColor,
   colorWithOpacity,
-  ink,
-  brand,
   darkColors,
-  themedStyles,
+  ink,
+  layout,
+  opacity,
   type Palette,
+  spacing,
+  themedStyles,
+  typography,
+  verdictColor,
 } from '@/theme';
 import {
   useTrainingScreenData,
@@ -211,7 +212,7 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
   const colorCurrent = colors.primary;
   const colorPrevious = isDark
     ? colorWithOpacity(darkColors.chartPreviousSeason, 0.8)
-    : colorWithOpacity(colors.chartPreviousSeason, 0.7);
+    : colorWithOpacity(colors.chartPreviousSeason, opacity.pressed);
 
   // Calculate totals
   const totals = useMemo(() => {
@@ -572,8 +573,7 @@ const makeStyles = (palette: Palette) =>
       marginRight: spacing.xs,
     },
     summaryValue: {
-      fontSize: typography.bodySmall.fontSize,
-      fontWeight: '600',
+      ...typography.bodySmallBold,
       color: colors.textPrimary,
     },
     tooltipMonth: {
@@ -593,13 +593,11 @@ const makeStyles = (palette: Palette) =>
       gap: spacing.xs,
     },
     tooltipValue: {
-      fontSize: typography.bodySmall.fontSize,
-      fontWeight: '600',
+      ...typography.bodySmallBold,
       color: colors.textPrimary,
     },
     tooltipDiff: {
-      fontSize: typography.bodySmall.fontSize,
-      fontWeight: '700',
+      ...typography.pillValue,
     },
     monthLabelsRow: {
       position: 'absolute',
@@ -628,7 +626,7 @@ const makeStyles = (palette: Palette) =>
       justifyContent: 'center',
     },
     partial: {
-      fontSize: typography.caption.fontSize,
+      ...typography.caption,
       color: palette.textSecondary,
       marginTop: spacing.sm,
     },

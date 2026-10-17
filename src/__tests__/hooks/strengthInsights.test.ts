@@ -119,7 +119,7 @@ describe('generateStrengthInsights', () => {
           points: dates.map((date, index) => ({ date, value: index === 1 ? 0 : index + 2 })),
         },
         {
-          label: 'Upper Back',
+          label: 'Upper back',
           points: dates.map((date, index) => ({ date, value: index === 1 ? 0 : index + 1 })),
         },
       ],

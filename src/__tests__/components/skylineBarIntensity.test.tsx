@@ -14,6 +14,7 @@ import type { ReactTestInstance } from 'react-test-renderer';
 
 import { initialiseI18n } from '@/i18n';
 import { SkylineBar } from '@/features/activity/components/SkylineBar';
+import { skylineSegmentHeight } from '@/features/activity/lib/skylineIntensity';
 
 function encodeVarint(value: number): number[] {
   const bytes: number[] = [];
@@ -92,13 +93,41 @@ describe('the zone skyline', () => {
     expect(Math.min(...heights)).toBeGreaterThan(0);
   });
 
+  it('stands the feed strip 16 high', async () => {
+    const { getByLabelText } = await render(
+      <SkylineBar skylineBytes={skyline([600, 300], [2, 4])} isDark={false} />
+    );
+
+    expect(heightOf(getByLabelText(/^Time in power zones/))).toBe(16);
+  });
+
+  it('lifts the easiest zone to a 6 floor and the hardest to the full height', () => {
+    const heights = [1, 2, 3, 4, 5, 6, 7].map((zone) => skylineSegmentHeight(zone, 16));
+
+    expect(heights[0]).toBe(6);
+    expect(heights[6]).toBe(16);
+    for (let i = 1; i < heights.length; i++) {
+      expect(heights[i]).toBeGreaterThan(heights[i - 1] ?? Infinity);
+    }
+  });
+
+  it('clamps a zone outside the scale to its nearest end', () => {
+    expect(skylineSegmentHeight(0, 16)).toBe(6);
+    expect(skylineSegmentHeight(9, 16)).toBe(16);
+  });
+
+  it('never stands a segment taller than a strip shorter than the floor', () => {
+    expect(skylineSegmentHeight(1, 4)).toBe(4);
+    expect(skylineSegmentHeight(7, 4)).toBe(4);
+  });
+
   it('labels the bar with the time in each zone, summed across its segments', async () => {
     const { getByLabelText } = await render(
       <SkylineBar skylineBytes={skyline([600, 300, 600, 300], [2, 4, 2, 4])} isDark={false} />
     );
 
     expect(
-      getByLabelText('Time in Power Zones: Z2 Endurance 20 min, Z4 Threshold 10 min')
+      getByLabelText('Time in power zones: Z2 Endurance 20 min, Z4 Threshold 10 min')
     ).toBeTruthy();
   });
 
@@ -108,7 +137,7 @@ describe('the zone skyline', () => {
     );
 
     expect(
-      getByLabelText('Time in HR Zones: Z1 Recovery 30 min, Z5 Super-threshold 1 min 30 s')
+      getByLabelText('Time in HR zones: Z1 Recovery 30 min, Z5 Super-threshold 1 min 30 s')
     ).toBeTruthy();
   });
 

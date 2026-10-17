@@ -22,6 +22,7 @@ import {
   darkColors,
   iconSize,
   layout,
+  opacity,
   shadows,
   spacing,
   typography,
@@ -282,15 +283,13 @@ const styles = StyleSheet.create({
     marginRight: spacing.xs,
   },
   readinessLabel: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
+    ...typography.captionBold,
     color: colors.textSecondary,
     letterSpacing: 0.5,
     marginRight: spacing.sm,
   },
   readinessValue: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
+    ...typography.captionBold,
   },
   textLight: {
     color: darkColors.textPrimary,
@@ -302,15 +301,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   dimmed: {
-    opacity: 0.6,
+    opacity: opacity.dim,
   },
   workoutName: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
+    ...typography.bodyBold,
     color: colors.textPrimary,
   },
   workoutMeta: {
-    fontSize: typography.bodyCompact.fontSize,
+    ...typography.bodyCompact,
     color: colors.textSecondary,
     marginTop: spacing.xxs,
   },
@@ -330,8 +328,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   prSummaryText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
+    ...typography.captionBold,
     color: colors.chartGoldText,
     fontVariant: ['tabular-nums'],
   },
@@ -346,7 +343,7 @@ const styles = StyleSheet.create({
     minHeight: layout.minTapTarget,
   },
   sectionName: {
-    fontSize: typography.bodyCompact.fontSize,
+    ...typography.bodyCompact,
     color: colors.textPrimary,
     flex: 1,
     marginRight: spacing.sm,
@@ -370,14 +367,12 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   prDelta: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
+    ...typography.captionBold,
     color: colors.linkTeal,
     fontVariant: ['tabular-nums'],
   },
   prBadgeAccent: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
+    ...typography.captionBold,
     color: colors.linkTeal,
     fontVariant: ['tabular-nums'],
   },

@@ -228,9 +228,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   chartTitle: {
+    ...typography.bodyBold,
     flexShrink: 1,
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
     color: colors.textPrimary,
   },
   chartTitleDark: {
@@ -242,9 +241,9 @@ const styles = StyleSheet.create({
     gap: spacing.xxs,
   },
   method: {
+    ...typography.caption,
     paddingHorizontal: spacing.md,
     marginBottom: spacing.sm,
-    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   methodDark: {

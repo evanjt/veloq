@@ -13,7 +13,6 @@ import { render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
 import { TimeRangeSelector } from '@/features/fitness/components/TimeRangeSelector';
-import { TipButtons } from '@/shared/ui/TipButtons';
 import { GrantAccessButton } from '@/features/recording/components/GrantAccessButton';
 import { SaveErrorBanner } from '@/features/recording/components/SaveErrorBanner';
 import { colors } from '@/theme';
@@ -61,23 +60,6 @@ it('paints the selected range label in the ink the fill can carry', async () => 
 describe('filled teal controls outside the range selector', () => {
   const fillOf = (node: { props: { style?: unknown } }) =>
     flattened(node.props.style).backgroundColor as string;
-
-  it('draws the tip price and label in the ink the fill can carry', async () => {
-    const { getByText, getByRole } = await render(
-      <TipButtons
-        products={[{ id: 'tip_small', displayPrice: '$1' }]}
-        isPurchasing={false}
-        onTip={() => {}}
-        isDark={false}
-      />
-    );
-    const fill = fillOf(getByRole('button'));
-    for (const node of [getByText('$1'), getByText('support.tipSmall')]) {
-      const ink = flattened(node.props.style).color as string;
-      expect(fill).toBe(colors.primary);
-      expect(contrastRatio(ink, fill)).toBeGreaterThan(4.5);
-    }
-  });
 
   it('draws the grant access label on the primary fill in dark ink', async () => {
     const { getByText, getByRole } = await render(

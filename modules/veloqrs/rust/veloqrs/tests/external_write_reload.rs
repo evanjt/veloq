@@ -152,7 +152,7 @@ fn an_external_reload_replaces_warmed_section_and_group_reads() {
     assert_eq!(foreground.get_section_by_id("s1").unwrap().visit_count, 1);
     assert_eq!(
         foreground
-            .route_detail_data("r1", None, 1)
+            .route_detail_data("r1")
             .group
             .unwrap()
             .activity_ids,
@@ -171,7 +171,7 @@ fn an_external_reload_replaces_warmed_section_and_group_reads() {
     assert_eq!(foreground.get_section_by_id("s1").unwrap().visit_count, 2);
     assert_eq!(
         foreground
-            .route_detail_data("r1", None, 1)
+            .route_detail_data("r1")
             .group
             .unwrap()
             .activity_ids,

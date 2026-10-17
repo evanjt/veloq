@@ -36,14 +36,12 @@ tags:
 - takeScreenshot: "screenshots/critical-home"
 
 # ── Activity Detail ─────────────────────────────────────
-# Date-generated activities and feed headers can push this fixture below the
-# viewport. Centre the card before tapping so the tab bar cannot intercept it.
-- scrollUntilVisible:
-    element:
-      id: "activity-card-demo-test-0"
-    direction: DOWN
-    timeout: 30000
-    centerElement: true
+# Newer demo rides list above this fixture, so it can start below the fold.
+# The reveal lifts it clear of the tab bar so the tap lands on the card.
+- runFlow:
+    file: helpers/reveal.yaml
+    env:
+      ELEMENT: "activity-card-demo-test-0"
 
 # Tap the card overlay specifically (a regex like activity-card-demo-.* also
 # matches child chips/pills that deep-link to a sub-tab). The tap occasionally

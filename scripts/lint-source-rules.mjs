@@ -118,6 +118,88 @@ function invertUnprotectedSites(file, text) {
 
 const COLOUR_PROPERTY = /^(?:color|backgroundColor|border\w*Color)$/;
 
+// A box these keys alone lay out has no size of its own: its height is the
+// padding around whatever sits inside it.
+const PADDING_ONLY_KEYS = new Set([
+  'padding',
+  'paddingVertical',
+  'paddingHorizontal',
+  'paddingTop',
+  'paddingBottom',
+  'paddingStart',
+  'paddingEnd',
+  'paddingLeft',
+  'paddingRight',
+  'alignItems',
+  'justifyContent',
+]);
+
+const SPINNER_TAGS = new Set(['ActivityIndicator', 'Spinner']);
+
+/** The names of every `StyleSheet.create` entry laid out by padding and alignment alone. */
+function paddingOnlyStyles(sf) {
+  const names = new Set();
+  const visit = (node) => {
+    if (
+      ts.isCallExpression(node) &&
+      node.expression.getText(sf) === 'StyleSheet.create' &&
+      node.arguments[0] &&
+      ts.isObjectLiteralExpression(node.arguments[0])
+    ) {
+      for (const entry of node.arguments[0].properties) {
+        const name = propertyName(entry);
+        if (!name || !ts.isPropertyAssignment(entry)) continue;
+        if (!ts.isObjectLiteralExpression(entry.initializer)) continue;
+        const keys = entry.initializer.properties.map(propertyName);
+        if (keys.length > 0 && keys.every((key) => key !== null && PADDING_ONLY_KEYS.has(key)))
+          names.add(name);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return names;
+}
+
+/** Whether a `style` expression is made only of padding-only `styles.<name>` references. */
+function stylesPaddingOnly(expression, paddingOnly) {
+  const isRef = (node) => ts.isPropertyAccessExpression(node) && paddingOnly.has(node.name.text);
+  if (isRef(expression)) return true;
+  return (
+    ts.isArrayLiteralExpression(expression) &&
+    expression.elements.length > 0 &&
+    expression.elements.every(isRef)
+  );
+}
+
+/** Every element whose only child is a spinner and whose style is padding-only. */
+function loneSpinnerSites(file, text) {
+  const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+  const paddingOnly = paddingOnlyStyles(sf);
+  if (paddingOnly.size === 0) return [];
+  const sites = [];
+  const visit = (node) => {
+    if (ts.isJsxElement(node)) {
+      const style = jsxAttribute(node.openingElement, 'style')?.initializer?.expression;
+      const children = node.children.filter(
+        (child) => !(ts.isJsxText(child) && child.containsOnlyTriviaWhiteSpaces)
+      );
+      const only = children.length === 1 ? children[0] : null;
+      const tag =
+        only && (ts.isJsxSelfClosingElement(only) || ts.isJsxElement(only))
+          ? (ts.isJsxElement(only) ? only.openingElement : only).tagName.getText(sf)
+          : null;
+      if (style && tag && SPINNER_TAGS.has(tag) && stylesPaddingOnly(style, paddingOnly)) {
+        const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf));
+        sites.push(`${file}:${line + 1}  <${tag}> alone in a box sized by its padding`);
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return sites;
+}
+
 /**
  * Every `<colour property>: colors.<token>` in a file, for a token in `tokens`,
  * that nothing pairs with the dark value. A site is paired when the
@@ -665,6 +747,57 @@ const RULES = {
   // A wait has one look per platform: react-native's ActivityIndicator, which is
   // the system indicator on iOS and the Material circle on Android. Paper's is a
   // drawn Material arc, so on iOS it is a second spinner beside the system one.
+  // Share and delete have one glyph per platform, drawn by `ChromeIcon`: the
+  // system symbol on iOS, one Material glyph per role on Android. A Material
+  // glyph for either role anywhere else is the other platform's glyph on iOS,
+  // or a second glyph for the role on Android.
+  'chrome-glyphs': {
+    pathspec: ['src'],
+    check(sources) {
+      const glyphs = new Set([
+        'share-variant',
+        'share-variant-outline',
+        'export-variant',
+        'delete',
+        'delete-outline',
+        'delete-forever',
+        'trash-can-outline',
+      ]);
+      const out = [];
+      for (const [file, text] of sources) {
+        if (!/\.tsx?$/.test(file) || TESTS.test(file)) continue;
+        if (file === 'src/shared/ui/ChromeIcon.tsx') continue;
+        const kind = file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+        const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, kind);
+        const lines = text.split('\n');
+        const report = (node) => {
+          const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line;
+          out.push(`${file}:${line + 1}  ${lines[line].trim()}`);
+        };
+        const literals = (node) => {
+          if (ts.isStringLiteralLike(node) && glyphs.has(node.text)) report(node);
+          ts.forEachChild(node, literals);
+        };
+        const visit = (node) => {
+          if (
+            ts.isJsxAttribute(node) &&
+            node.name.getText(sf) === 'name' &&
+            node.initializer &&
+            node.parent.parent.tagName.getText(sf) === 'MaterialCommunityIcons'
+          ) {
+            literals(node.initializer);
+          } else if (ts.isPropertyAssignment(node) && node.name.getText(sf) === 'icon') {
+            literals(node.initializer);
+          }
+          ts.forEachChild(node, visit);
+        };
+        visit(sf);
+      }
+      return out;
+    },
+    fix: 'draw share and delete with ChromeIcon, and give a menu entry chromeMenuIcon(role)',
+  },
+
   'paper-spinner': {
     pathspec: ['src'],
     check(sources) {
@@ -708,6 +841,22 @@ const RULES = {
       return out;
     },
     fix: "draw the Spinner from '@/shared/ui', which is the platform's own indicator",
+  },
+
+  // A first load of content whose shape is known draws a placeholder in that
+  // shape. A spinner alone in a box sized by its padding is replaced by
+  // content of another height, so everything below it moves on arrival.
+  'lone-spinner-in-padding': {
+    pathspec: ['src'],
+    check(sources) {
+      const out = [];
+      for (const [file, text] of sources) {
+        if (!file.endsWith('.tsx') || TESTS.test(file)) continue;
+        out.push(...loneSpinnerSites(file, text));
+      }
+      return out;
+    },
+    fix: 'draw a skeleton the size of what replaces it, or give the wait a box of that size',
   },
 
   // The coverage hooks key their read on the reader the body calls. A

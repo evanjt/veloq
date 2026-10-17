@@ -215,7 +215,6 @@ function RouteGroupingPreviewScreenContent() {
 
   return (
     <ScreenSafeAreaView
-      hasNativeHeader
       testID="route-grouping-preview-screen"
       style={[styles.container, { backgroundColor: bg }]}
     >

@@ -67,8 +67,7 @@ export const StrengthExerciseList = React.memo(function StrengthExerciseList({
 
 const styles = StyleSheet.create({
   title: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
+    ...typography.bodyCompactBold,
     color: colors.textSecondary,
     marginBottom: spacing.sm,
   },
@@ -82,10 +81,10 @@ const styles = StyleSheet.create({
     backgroundColor: brand.tealLight,
   },
   content: { flex: 1 },
-  name: { fontSize: typography.bodyMedium.fontSize, color: colors.textPrimary },
+  name: { ...typography.bodyMedium, color: colors.textPrimary },
   nameDark: { color: darkColors.textPrimary },
   meta: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
     marginTop: spacing.xxs,
   },

@@ -613,6 +613,20 @@ impl PersistentEngine {
         self.section_config = section_config_from(&self.db)?;
         Ok(())
     }
+
+    /// Put into effect the configs the settings rows hold after something
+    /// other than their setters wrote them, as those setters would: a changed
+    /// section config re-detects the library and a changed strictness
+    /// regroups it. Equal configs change nothing.
+    pub(crate) fn adopt_stored_detection_configs(&mut self) -> SqlResult<()> {
+        let section = section_config_from(&self.db)?;
+        if section != self.section_config {
+            self.adopt_section_config(section);
+        }
+        let matching = match_config_from(&self.db)?;
+        self.adopt_match_strictness(matching.min_match_percentage, matching.endpoint_threshold);
+        Ok(())
+    }
 }
 
 #[cfg(test)]

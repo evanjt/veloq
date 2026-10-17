@@ -236,7 +236,7 @@ export function WebdavConfigForm({ onConfigChange, onRemoved, ref }: WebdavConfi
       <View style={[styles.configBlock, isDark && styles.configBlockDark]}>
         <View style={styles.qrRow}>
           <Button
-            label={t('backup.scanNextcloudQr', 'Scan Nextcloud App Password')}
+            label={t('backup.scanNextcloudQr', 'Scan Nextcloud app password')}
             variant="secondary"
             size="sm"
             icon={
@@ -250,7 +250,7 @@ export function WebdavConfigForm({ onConfigChange, onRemoved, ref }: WebdavConfi
           />
           <InfoButton
             testID="backup-info-nextcloud"
-            title={t('backup.scanNextcloudQr', 'Scan Nextcloud App Password')}
+            title={t('backup.scanNextcloudQr', 'Scan Nextcloud app password')}
             message={t(
               'backup.nextcloudQrHint',
               'Nextcloud → Settings → Security → Create new app password → Scan QR code'

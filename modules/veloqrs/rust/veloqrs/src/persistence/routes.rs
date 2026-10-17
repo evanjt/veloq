@@ -802,6 +802,29 @@ pub(super) fn stored_route_numbers(conn: &Connection) -> SqlResult<HashMap<Strin
         .collect())
 }
 
+/// Why `set_route_name` changed nothing.
+#[derive(Debug, PartialEq, Eq)]
+pub enum RouteNameError {
+    /// Another route is already shown under the name.
+    Taken(String),
+    Failed(String),
+}
+
+impl From<rusqlite::Error> for RouteNameError {
+    fn from(error: rusqlite::Error) -> Self {
+        Self::Failed(error.to_string())
+    }
+}
+
+impl std::fmt::Display for RouteNameError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Taken(name) => write!(f, "Another route is already named {name}"),
+            Self::Failed(msg) => f.write_str(msg),
+        }
+    }
+}
+
 /// The label a route with no typed name is shown under.
 fn numbered_label(route_word: &str, number: u32) -> String {
     format!("{route_word} {number}")
@@ -1144,18 +1167,9 @@ impl PersistentEngine {
     /// same reason `set_section_config` is: re-sending the value already held
     /// is not a reason to regroup a whole library.
     pub fn set_match_strictness(&mut self, min_match_pct: f64, endpoint_threshold: f64) {
-        if self.match_config.min_match_percentage == min_match_pct
-            && self.match_config.endpoint_threshold == endpoint_threshold
-        {
+        if !self.adopt_match_strictness(min_match_pct, endpoint_threshold) {
             return;
         }
-        // Groups from before the rule was stamped were made under the rule
-        // being replaced, and that has to be on record before it goes.
-        if let Err(e) = stamp_groups_match_rule_if_absent(&self.db, &self.match_config) {
-            log::warn!("veloqrs: [set_match_strictness] stamp failed: {}", e);
-        }
-        self.match_config.min_match_percentage = min_match_pct;
-        self.match_config.endpoint_threshold = endpoint_threshold;
         // Logged rather than propagated, like the detector config's own
         // persist: the in-memory rule has already changed, and the loader
         // falls back to the default when a key is absent.
@@ -1177,7 +1191,30 @@ impl PersistentEngine {
                 );
             }
         }
+    }
+
+    /// Put a strictness into effect in memory, for every path that changes
+    /// it: the setter and a restored record. Answers whether it differed from
+    /// the one in force; an equal one changes nothing.
+    pub(crate) fn adopt_match_strictness(
+        &mut self,
+        min_match_pct: f64,
+        endpoint_threshold: f64,
+    ) -> bool {
+        if self.match_config.min_match_percentage == min_match_pct
+            && self.match_config.endpoint_threshold == endpoint_threshold
+        {
+            return false;
+        }
+        // Groups from before the rule was stamped were made under the rule
+        // being replaced, and that has to be on record before it goes.
+        if let Err(e) = stamp_groups_match_rule_if_absent(&self.db, &self.match_config) {
+            log::warn!("veloqrs: [adopt_match_strictness] stamp failed: {}", e);
+        }
+        self.match_config.min_match_percentage = min_match_pct;
+        self.match_config.endpoint_threshold = endpoint_threshold;
         self.set_groups_dirty(true);
+        true
     }
 
     /// The strictness in force, as `(min_match_percentage, endpoint_threshold)`.
@@ -1682,8 +1719,23 @@ impl PersistentEngine {
     /// numbered label in the current language, clears it, so the route is
     /// shown under its geocoded name or its number again and that label
     /// follows the language.
-    pub fn set_route_name(&mut self, route_id: &str, name: Option<&str>) -> SqlResult<()> {
+    ///
+    /// A name another route is shown under, typed, geocoded or numbered, is
+    /// refused and changes nothing, so no two routes read alike.
+    pub fn set_route_name(
+        &mut self,
+        route_id: &str,
+        name: Option<&str>,
+    ) -> Result<(), RouteNameError> {
         let route_word = get_route_word();
+        if let Some(name) = name {
+            let taken = route_display_names(&self.db, &route_word)?
+                .into_iter()
+                .any(|(id, shown)| id != route_id && shown == name);
+            if taken {
+                return Err(RouteNameError::Taken(name.to_string()));
+            }
+        }
         let number: Option<u32> = self
             .db
             .query_row(
@@ -2457,6 +2509,27 @@ pub(crate) mod pooled {
         let mut group = decode_group_row(row)?;
         group.custom_name = names.get(&group.group_id).cloned();
         Ok(group)
+    }
+
+    /// The route group `activity_id` is a member of, found through its match
+    /// rows rather than by decoding every group. Every save writes a match row
+    /// for each member, and the membership is checked against the group, so a
+    /// row a regroup has not yet rewritten names no group it left.
+    pub(crate) fn group_holding(conn: &Connection, activity_id: &str) -> Option<RouteGroup> {
+        let route_ids: Vec<String> = conn
+            .prepare("SELECT route_id FROM activity_matches WHERE activity_id = ?")
+            .and_then(|mut stmt| {
+                stmt.query_map(params![activity_id], |row| row.get(0))?
+                    .collect::<SqlResult<_>>()
+            })
+            .unwrap_or_else(|error| {
+                log::warn!("[routes] routes of {activity_id}: {error:?}");
+                Vec::new()
+            });
+        route_ids
+            .iter()
+            .filter_map(|id| group_by_id(conn, id))
+            .find(|group| group.activity_ids.iter().any(|id| id == activity_id))
     }
 
     /// The stored representative's own track for a route group.

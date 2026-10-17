@@ -49,7 +49,7 @@ export function HRZonesChart({ hrZones, maxHR, maxHrSource, movingTime }: HRZone
         min: band.minBpm,
         max: band.maxBpm,
         seconds: band.seconds,
-        percent: band.percent,
+        share: band.share,
       }))}
       formatRange={formatHeartRateRange}
       chartName="Heart Rate Zones"

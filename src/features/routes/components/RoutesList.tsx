@@ -7,15 +7,8 @@
  */
 
 import { listCountLabel } from '@/features/routes/lib/listCountLabel';
-import React, { memo, useMemo } from 'react';
-import {
-  View,
-  StyleSheet,
-  FlatList,
-  RefreshControl,
-  ActivityIndicator,
-  Pressable,
-} from 'react-native';
+import React, { memo, useMemo, useRef } from 'react';
+import { View, StyleSheet, FlatList, RefreshControl, Pressable } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import type { FfiCatalogueEmptyReason, GroupWithPolyline } from 'veloqrs';
@@ -42,6 +35,7 @@ import {
   pressable,
   pressRipple,
 } from '@/shared/ui';
+import { useScrollToTopOnReselect } from '@/shared/ui/tabReselect';
 import { RowSkeleton } from '@/features/routes/components/RowSkeleton';
 import { RouteRow } from './RouteRow';
 import { CatalogueEmptyState } from './CatalogueEmptyState';
@@ -121,6 +115,8 @@ export const RoutesList = memo(function RoutesList({
 }: RoutesListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const listRef = useRef<FlatList<RouteGroup>>(null);
+  useScrollToTopOnReselect('/insights', listRef);
 
   // The engine searched and ordered the catalogue before it paged it, so the
   // rows arrive ready to render. Searching or sorting again here would read one
@@ -233,11 +229,7 @@ export const RoutesList = memo(function RoutesList({
     if (groups.length === 0) return null;
     return (
       <View>
-        {hasMore ? (
-          <View style={styles.loadingMore}>
-            <ActivityIndicator size="small" color={colors.primary} />
-          </View>
-        ) : null}
+        {hasMore ? <RowSkeleton /> : null}
         <DataRangeFooter days={cacheDays} isDark={isDark} />
         <View style={styles.explanation}>
           <ExplanationCard {...routesExplanation(t)} testID="routes-explanation" />
@@ -318,6 +310,7 @@ export const RoutesList = memo(function RoutesList({
         </View>
       )}
       <FlatList
+        ref={listRef}
         testID="routes-list"
         data={groups}
         keyExtractor={(item) => item.id}
@@ -372,8 +365,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xxs,
   },
   summaryText: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
+    ...typography.bodyCompactBold,
     color: colors.textPrimary,
   },
   summaryTextDark: {
@@ -419,7 +411,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   sortChipLabel: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   sortChipLabelActive: {
@@ -431,10 +423,6 @@ const styles = StyleSheet.create({
   },
   textSecondary: {
     color: darkColors.textSecondary,
-  },
-  loadingMore: {
-    paddingVertical: spacing.md,
-    alignItems: 'center',
   },
   skeletonList: {
     paddingTop: spacing.md,

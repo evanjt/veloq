@@ -19,7 +19,7 @@ import {
 } from '@/features/settings/components/ExportPrivacyRow';
 import { getEngine } from '@/shared/native/engine';
 import type { HomeRadiusMapProps } from '@/features/maps';
-import { colors } from '@/theme';
+import { opacity } from '@/theme';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 // The map is the maps feature's, tested there. Here the row is asked what it
@@ -63,8 +63,19 @@ async function describedRadius(tree: Awaited<ReturnType<typeof render>>): Promis
   return String(mockOpenExplainer.mock.calls.at(-1)?.[0].body);
 }
 
-function titleColour(tree: Awaited<ReturnType<typeof render>>): unknown {
-  return StyleSheet.flatten(tree.getByTestId('export-privacy-title').props.style).color;
+/** The opacity the title is drawn at: its own and every host ancestor's, multiplied. */
+function titleOpacity(tree: Awaited<ReturnType<typeof render>>): number {
+  let product = 1;
+  for (
+    let node: ReturnType<typeof tree.getByTestId> | null = tree.getByTestId('export-privacy-title');
+    node;
+    node = node.parent
+  ) {
+    if (typeof node.type !== 'string') continue;
+    const own = StyleSheet.flatten(node.props.style)?.opacity;
+    if (typeof own === 'number') product *= own;
+  }
+  return product;
 }
 
 const mockGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
@@ -157,7 +168,7 @@ describe('the export privacy row', () => {
     await waitFor(() => expect(tree.getByTestId('export-privacy-switch')).toBeTruthy());
 
     expect(tree.getByTestId('export-privacy-switch')).toBeDisabled();
-    expect(titleColour(tree)).toBe(colors.textDisabled);
+    expect(titleOpacity(tree)).toBe(opacity.disabled);
     // The reason names where the home is set, which is the suggestion and the map below.
     expect(tree.getByTestId('export-privacy-needs-home').props.children).toBe(
       'settings.exportPrivacyNeedsHome'
@@ -184,7 +195,7 @@ describe('the export privacy row', () => {
 
     await waitFor(() => expect(tree.queryByTestId('export-privacy-needs-home')).toBeNull());
     expect(tree.getByTestId('export-privacy-switch')).not.toBeDisabled();
-    expect(titleColour(tree)).toBe(colors.textPrimary);
+    expect(titleOpacity(tree)).toBe(1);
     await fireEvent.press(tree.getByTestId('export-privacy-switch'));
     await waitFor(() => expect(settings.get('__export_privacy_radius_m')).toBe('100'));
   });

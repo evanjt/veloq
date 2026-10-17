@@ -275,6 +275,8 @@ jobs:
 
       - name: Run guard scripts and verify bindings
         run: npm run audit
+        env:
+          GUARD_WORKERS: 2
 
   rust-advisories:
     uses: ./.github/workflows/rust-advisories.yml

@@ -226,9 +226,8 @@ const styles = StyleSheet.create({
     backgroundColor: opacity.overlayDark.light,
   },
   linkText: {
+    ...typography.bodySmallBold,
     flex: 1,
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
     color: colors.textPrimary,
   },
   linkTextDark: {

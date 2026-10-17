@@ -880,26 +880,36 @@ class EngineClient implements DelegateHost {
     sectionDelegates.getPinnedSectionVersion(this, sectionId);
   getRetiredSections = () => sectionDelegates.getRetiredSections(this);
 
-  getRouteDetailData = (
-    groupId: string,
-    currentActivityId: string | undefined,
-    minGroupActivities: number
-  ): routeDelegates.RouteDetailData | undefined =>
-    routeDelegates.getRouteDetailData(this, groupId, currentActivityId, minGroupActivities);
+  getRouteDetailData = (groupId: string): routeDelegates.RouteDetailData | undefined =>
+    routeDelegates.getRouteDetailData(this, groupId);
 
   getRouteDetailPerformance = (
     groupId: string,
     timeRangeDays: number,
-    sportFilter?: string
+    sportFilter?: string,
+    highlightActivityId?: string
   ): FfiSectionPerformanceData | undefined =>
-    routeDelegates.getRouteDetailPerformance(this, groupId, timeRangeDays, sportFilter);
+    routeDelegates.getRouteDetailPerformance(
+      this,
+      groupId,
+      timeRangeDays,
+      sportFilter,
+      highlightActivityId
+    );
 
   loadRouteDetailPerformance = (
     groupId: string,
     timeRangeDays: number,
-    sportFilter?: string
+    sportFilter?: string,
+    highlightActivityId?: string
   ): Promise<FfiSectionPerformanceData | undefined> =>
-    routeDelegates.loadRouteDetailPerformance(this, groupId, timeRangeDays, sportFilter);
+    routeDelegates.loadRouteDetailPerformance(
+      this,
+      groupId,
+      timeRangeDays,
+      sportFilter,
+      highlightActivityId
+    );
 
   getSectionDetailData = (sectionId: string): FfiSectionDetailData | undefined =>
     sectionDelegates.getSectionDetailData(this, sectionId);
@@ -907,16 +917,30 @@ class EngineClient implements DelegateHost {
   getSectionDetailPerformance = (
     sectionId: string,
     timeRangeDays: number,
-    sportFilter?: string
+    sportFilter?: string,
+    highlightActivityId?: string
   ): FfiSectionPerformanceData | undefined =>
-    sectionDelegates.getSectionDetailPerformance(this, sectionId, timeRangeDays, sportFilter);
+    sectionDelegates.getSectionDetailPerformance(
+      this,
+      sectionId,
+      timeRangeDays,
+      sportFilter,
+      highlightActivityId
+    );
 
   loadSectionDetailPerformance = (
     sectionId: string,
     timeRangeDays: number,
-    sportFilter?: string
+    sportFilter?: string,
+    highlightActivityId?: string
   ): Promise<FfiSectionPerformanceData | undefined> =>
-    sectionDelegates.loadSectionDetailPerformance(this, sectionId, timeRangeDays, sportFilter);
+    sectionDelegates.loadSectionDetailPerformance(
+      this,
+      sectionId,
+      timeRangeDays,
+      sportFilter,
+      highlightActivityId
+    );
 
   setTimeStreams = (streams: { activityId: string; times: number[] }[]): void =>
     activityDelegates.setTimeStreams(this, streams);

@@ -84,13 +84,13 @@ function activityWith(extra: Partial<ActivityDetail> = {}): ActivityDetail {
 }
 
 const powerZones: PowerZoneBand[] = [
-  { zone: 1, minWatts: 0, maxWatts: 85, seconds: 10, percent: 1 / 3 },
-  { zone: 2, minWatts: 85, seconds: 20, percent: 2 / 3 },
+  { zone: 1, minWatts: 0, maxWatts: 85, seconds: 10, percent: 1 / 3, share: 33 },
+  { zone: 2, minWatts: 85, seconds: 20, percent: 2 / 3, share: 67 },
 ];
 
 const hrZones: HrZoneBand[] = [
-  { zone: 1, minBpm: 0, maxBpm: 140, seconds: 60, percent: 2 / 3 },
-  { zone: 2, minBpm: 140, maxBpm: 160, seconds: 30, percent: 1 / 3 },
+  { zone: 1, minBpm: 0, maxBpm: 140, seconds: 60, percent: 2 / 3, share: 67 },
+  { zone: 2, minBpm: 140, maxBpm: 160, seconds: 30, percent: 1 / 3, share: 33 },
 ];
 
 function renderSection(props: {

@@ -317,11 +317,8 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.sm,
   },
   comparisonHeader: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
+    ...typography.label,
     color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
     marginBottom: spacing.xs,
   },
   comparisonHeaderDark: {
@@ -336,7 +333,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   comparisonLabel: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
     marginTop: spacing.xxs,
   },
@@ -351,8 +348,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   comparisonChangeText: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    ...typography.bodySmallBold,
     color: colors.textSecondary,
   },
   // Sections
@@ -366,9 +362,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   sectionName: {
+    ...typography.bodySmallBold,
     flex: 1,
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
     color: colors.textPrimary,
     marginRight: spacing.sm,
   },
@@ -381,15 +376,14 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   sectionBestTime: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
+    ...typography.bodyCompactBold,
     color: colors.textPrimary,
   },
   sectionBestTimeDark: {
     color: darkColors.textPrimary,
   },
   sectionTraversals: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   sectionTraversalsDark: {

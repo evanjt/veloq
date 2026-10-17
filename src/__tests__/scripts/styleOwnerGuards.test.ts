@@ -90,6 +90,110 @@ describe('the style class ratchets', () => {
     expect(result.output).toContain('--write');
   });
 
+  describe('lowered at land', () => {
+    const TWO = `const s = StyleSheet.create({ a: { opacity: 0.7 }, b: { opacity: 0.4 } });\n`;
+    const OTHER = 'src/features/garden/BedRow.tsx';
+
+    function lower(root: string, className: string, baseline: object) {
+      const baselineFile = path.join(root, 'baseline.json');
+      fs.writeFileSync(baselineFile, JSON.stringify(baseline));
+      const result = run(LITERALS, [
+        '--class',
+        className,
+        '--root',
+        root,
+        '--baseline',
+        baselineFile,
+        '--lower',
+      ]);
+      return { ...result, baseline: JSON.parse(fs.readFileSync(baselineFile, 'utf8')) };
+    }
+
+    it('passes a tree below its baseline and writes the baseline down to it', () => {
+      const root = treeWith({ [COMPONENT]: TWO, [OTHER]: 'export const B = () => null;\n' });
+
+      const result = lower(root, 'opacity', {
+        opacity: { [COMPONENT]: 5, [OTHER]: 2 },
+        'z-index': { [OTHER]: 3 },
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.output).toMatch(/^lowered opacity$/m);
+      expect(result.baseline).toEqual({
+        opacity: { [COMPONENT]: 2 },
+        'z-index': { [OTHER]: 3 },
+      });
+    });
+
+    it('refuses a tree above its baseline and leaves the baseline as it was', () => {
+      const root = treeWith({ [COMPONENT]: TWO, [OTHER]: 'export const B = () => null;\n' });
+      const baseline = { opacity: { [COMPONENT]: 1, [OTHER]: 2 } };
+
+      const result = lower(root, 'opacity', baseline);
+
+      expect(result.status).toBe(1);
+      expect(result.output).toContain('above the baseline');
+      expect(result.output).not.toMatch(/^lowered/m);
+      expect(result.baseline).toEqual(baseline);
+    });
+
+    it('lowers nothing and says nothing of a tree sitting on its baseline', () => {
+      const root = treeWith({ [COMPONENT]: TWO });
+      const baseline = { opacity: { [COMPONENT]: 2 } };
+
+      const result = lower(root, 'opacity', baseline);
+
+      expect(result.status).toBe(0);
+      expect(result.output).not.toMatch(/^lowered/m);
+      expect(result.baseline).toEqual(baseline);
+    });
+
+    it('lowers the weight held off the scale with its class, under its own key', () => {
+      const root = treeWith({
+        [COMPONENT]: `const s = StyleSheet.create({ a: { fontWeight: '600' } });\n`,
+      });
+
+      const result = lower(root, 'font-weight', {
+        'font-weight': { [COMPONENT]: 1 },
+        'font-weight-off-scale': { [COMPONENT]: 1 },
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.output).toMatch(/^lowered font-weight-off-scale$/m);
+      expect(result.output).not.toMatch(/^lowered font-weight$/m);
+      expect(result.baseline).toEqual({
+        'font-weight': { [COMPONENT]: 1 },
+        'font-weight-off-scale': {},
+      });
+    });
+
+    it('lowers every ratcheted class in one pass, naming the file and each class it lowered', () => {
+      const root = treeWith({ [COMPONENT]: TWO });
+      const baselineFile = path.join(root, 'baseline.json');
+      fs.writeFileSync(
+        baselineFile,
+        JSON.stringify({ opacity: { [COMPONENT]: 3 }, 'z-index': { [COMPONENT]: 1 } })
+      );
+
+      const result = run(path.join(REPO, 'scripts/lower-style-baselines.mjs'), [
+        '--root',
+        root,
+        '--baseline',
+        baselineFile,
+      ]);
+
+      expect(result.status).toBe(0);
+      expect(result.output.trim().split('\n').sort()).toEqual([
+        `${baselineFile}\topacity`,
+        `${baselineFile}\tz-index`,
+      ]);
+      expect(JSON.parse(fs.readFileSync(baselineFile, 'utf8'))).toMatchObject({
+        opacity: { [COMPONENT]: 2 },
+        'z-index': {},
+      });
+    });
+  });
+
   it('counts no token read, no zero and no full opacity', () => {
     const root = treeWith({
       [COMPONENT]: [
@@ -262,7 +366,7 @@ function ownerTree(component: string, overrides: Record<string, string> = {}) {
 const PLAIN = `const s = StyleSheet.create({
   plot: { flexDirection: 'row', padding: spacing.sm, color: colors.text, zIndex: layers.raised },
 });
-export const A = () => <View style={{ width: 4, opacity: opacity.dimmed }} />;
+export const A = () => <View style={{ width: 4, opacity: opacity.dim }} />;
 `;
 
 describe('the style owner check', () => {

@@ -83,8 +83,8 @@ describe('the FTP setting is labelled as the setting', () => {
 
   it("in the activity's power zone chart", () => {
     const bands = [
-      { zone: 1, minWatts: 0, maxWatts: 150, seconds: 100, percent: 50 },
-      { zone: 2, minWatts: 150, maxWatts: 200, seconds: 100, percent: 50 },
+      { zone: 1, minWatts: 0, maxWatts: 150, seconds: 100, percent: 50, share: 50 },
+      { zone: 2, minWatts: 150, maxWatts: 200, seconds: 100, percent: 50, share: 50 },
     ];
 
     render(<PowerZonesChart powerZones={bands} ftp={280} movingTime={200} />);

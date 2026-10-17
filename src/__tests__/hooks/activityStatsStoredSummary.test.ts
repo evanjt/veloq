@@ -10,7 +10,7 @@ import { useActivityStats } from '@/features/activity/components/stats/useActivi
 import { initialiseI18n } from '@/i18n';
 import { formatDuration, formatSportSpeed } from '@/shared/format/format';
 import type { Activity } from '@/types';
-import type { ActivitySummary } from 'veloqrs';
+import { CadenceUnit, type ActivitySummary } from 'veloqrs';
 
 const ride = {
   id: 'ride-summary',
@@ -30,6 +30,7 @@ const rideSummary: ActivitySummary = {
   averageSpeed: 8.2,
   maxSpeed: 15.4,
   averageCadence: 88.5,
+  cadenceUnit: CadenceUnit.Rpm,
 };
 
 function stats(activity: Activity, summary: ActivitySummary | undefined, isMetric = true) {
@@ -81,20 +82,25 @@ describe('the stored summary on the activity stat cards', () => {
   it('shows cadence in the unit of the sport', () => {
     expect(card(stats(ride, rideSummary), 'Cadence')).toMatchObject({ value: '89', unit: 'rpm' });
     const run = { ...ride, type: 'Run' } as Activity;
-    expect(card(stats(run, { ...rideSummary, averageCadence: 172 }), 'Cadence')).toMatchObject({
+    const runSummary = {
+      ...rideSummary,
+      averageCadence: 172,
+      cadenceUnit: CadenceUnit.StepsPerMinute,
+    };
+    expect(card(stats(run, runSummary), 'Cadence')).toMatchObject({
       value: '172',
       unit: 'spm',
     });
   });
 
   it('leaves out what the activity did not measure', () => {
-    const list = stats(ride, { movingTime: 1800 });
+    const list = stats(ride, { movingTime: 1800, cadenceUnit: CadenceUnit.Rpm });
     expect(list.find((s) => s.title === 'Speed')).toBeUndefined();
     expect(list.find((s) => s.title === 'Cadence')).toBeUndefined();
   });
 
   it('shows a speed card with no max when only the average was stored', () => {
-    const list = stats(ride, { averageSpeed: 8.2 });
+    const list = stats(ride, { averageSpeed: 8.2, cadenceUnit: CadenceUnit.Rpm });
     expect(card(list, 'Speed').context).toBeUndefined();
     expect(row(list, 'Speed', 'Max')).toBeUndefined();
     expect(row(list, 'Speed', 'Elapsed time')).toBeUndefined();

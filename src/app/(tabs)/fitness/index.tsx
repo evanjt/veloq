@@ -7,6 +7,7 @@ import {
   ChartSkeleton,
   ExplanationCard,
   screenListInsets,
+  readableColumn,
   ScreenSafeAreaView,
   Spinner,
   useScrollEndInset,
@@ -43,6 +44,7 @@ import {
 } from '@/shared/app/fitnessEntry';
 import { useRevealChart } from '@/shared/app/useRevealChart';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
+import { useScrollToTopOnReselect } from '@/shared/ui/tabReselect';
 
 const NO_ACTIVITIES: NonNullable<ReturnType<typeof useFitnessScreenData>['activities']> = [];
 const NO_WELLNESS: NonNullable<ReturnType<typeof useFitnessScreenData>['wellness']> = [];
@@ -147,6 +149,7 @@ function FitnessScreenContent() {
     fitnessChartAnchor,
     prepareChart
   );
+  useScrollToTopOnReselect('/fitness', scrollRef);
 
   // Gather all screen data via consolidated hook (wellness, activities, zones, curves, bests)
   const {
@@ -233,7 +236,7 @@ function FitnessScreenContent() {
   // Only show full loading on initial load (no data yet)
   if (isLoading && !wellness) {
     return (
-      <ScreenSafeAreaView hasNativeHeader style={shared.container}>
+      <ScreenSafeAreaView style={shared.container}>
         <Stack.Screen options={headerOptions} />
         <View style={styles.skeletonContainer}>
           <ChartSkeleton height={180} />
@@ -244,7 +247,7 @@ function FitnessScreenContent() {
   }
 
   return (
-    <ScreenSafeAreaView hasNativeHeader style={shared.container} testID="fitness-screen">
+    <ScreenSafeAreaView style={shared.container} testID="fitness-screen">
       <Stack.Screen options={headerOptions} />
       <ScrollView
         {...screenListInsets}
@@ -252,6 +255,7 @@ function FitnessScreenContent() {
         onScrollBeginDrag={onScrollBeginDrag}
         style={styles.scrollView}
         contentContainerStyle={[
+          readableColumn,
           styles.scrollContent,
           { paddingBottom: layout.screenPadding + scrollEndInset },
         ]}

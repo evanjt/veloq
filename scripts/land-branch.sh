@@ -183,6 +183,44 @@ gate() {
   (cd "$LANDING" && VELOQ_MERGE_BASE=$base VELOQ_MERGE_TEST_REVISION=$test_revision VELOQ_GATE_REPORT=$report ./scripts/merge-gates.sh)
 }
 
+# A style sweep lowers counts, and a style ratchet fails a tree below its
+# baseline as well as above it, so a candidate that improved the tree failed
+# until someone wrote the baseline down by hand. The candidate's own lowerer
+# does that here, before the gates, and what it wrote becomes a commit on the
+# candidate. A count above its baseline is left for the gate to refuse.
+lower_baselines() {
+  local lowered classes list
+  [ -e "$LANDING/scripts/lower-style-baselines.mjs" ] || return 0
+  if ! lowered=$(cd "$LANDING" && node scripts/lower-style-baselines.mjs); then
+    echo "land-branch: the style lowerer failed, so no baseline was lowered; the gates judge the candidate as it is." >&2
+    return 0
+  fi
+  [ -n "$lowered" ] || return 0
+  printf '%s\n' "$lowered" | cut -f1 | sort -u | (cd "$LANDING" && xargs git add --)
+  git -C "$LANDING" diff --cached --quiet && return 0
+  classes=$(printf '%s\n' "$lowered" | cut -f2 | awk '!seen[$0]++')
+  list=$(printf '%s\n' "$classes" | awk '
+    { item[NR] = $0 }
+    END {
+      for (i = 1; i <= NR; i++) {
+        sep = (i == 1) ? "" : (i == NR) ? " and " : ", "
+        printf "%s%s", sep, item[i]
+      }
+    }')
+  git -C "$LANDING" -c core.hooksPath=/dev/null commit -q -m "Lower the $list baselines to what the tree now holds"
+  echo "land-branch: the candidate beat the $list baselines, written down at $(git -C "$LANDING" rev-parse --short HEAD)"
+}
+
+# Format and style fail on what the candidate's own lines hold, and the target
+# passed the same gates when it landed, so re-running its battery to attribute
+# them spent a quarter of an hour to learn what the gate name already said.
+candidate_brings() {
+  case "$(cat "$1")" in
+    format | rustfmt | style-guards) return 0 ;;
+  esac
+  return 1
+}
+
 # A failure the target already carries is not the branch's to fix, and a lander
 # told otherwise goes hunting through a branch that is fine. So the target's own
 # battery runs in the same tree, and its exit code is the verdict.
@@ -261,6 +299,10 @@ sync_engine_submodule() {
     echo "land-branch: could not check $path out at the pin ${pinned:0:9}; run git submodule update --checkout $path" >&2
 }
 
+# The drivers `.gitattributes` names live in config every worktree shares, so a
+# landing names them before it merges, whatever `prepare` did or did not run.
+(cd "$CHECKOUT" && node "$SCRIPTS/install-merge-drivers.mjs")
+
 base=$(git -C "$CHECKOUT" rev-parse HEAD)
 "$SCRIPTS/check-retired-history.sh" "$base" "$BRANCH" || {
   echo "land-branch: $BRANCH was not landed" >&2
@@ -278,15 +320,22 @@ trap 'rm -f "$report"; release' EXIT
 needs_gate=1
 attempt=1
 while [ "$attempt" -le "$ATTEMPTS" ]; do
-  candidate=$(git -C "$LANDING" rev-parse HEAD)
   if [ "$needs_gate" = 1 ]; then
     provision
+    lower_baselines
+    candidate=$(git -C "$LANDING" rev-parse HEAD)
     if ! gate "$base" "$report"; then
+      if candidate_brings "$report"; then
+        echo "land-branch: the $(cat "$report") gate fails on the candidate, so $TARGET was not moved." >&2
+        echo "land-branch: $TARGET passed it when it landed, so this branch brings the failure, and $TARGET's gates were not re-run." >&2
+        exit 1
+      fi
       judge_against_target "$base" "$report" "$candidate"
       exit 1
     fi
     needs_gate=0
   fi
+  candidate=$(git -C "$LANDING" rev-parse HEAD)
 
   # `post-merge` reads this to tell a gated landing from a bare fast-forward.
   if VELOQ_LANDING_GATED=$candidate git -C "$CHECKOUT" merge --ff-only "$candidate"; then

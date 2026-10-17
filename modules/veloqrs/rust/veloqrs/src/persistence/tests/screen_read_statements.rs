@@ -256,19 +256,17 @@ fn reads(small: Ids, large: Ids) -> Vec<(&'static str, Read)> {
         (
             "section_detail_performance",
             Box::new(move |side, e| {
-                consume(e.section_detail_performance(&for_performance(side).0, 365, None))
+                consume(e.section_detail_performance(&for_performance(side).0, 365, None, None))
             }),
         ),
         (
             "route_detail_data",
-            Box::new(move |side, e| {
-                consume(e.route_detail_data(&for_route(side).1, Some("a1"), 2))
-            }),
+            Box::new(move |side, e| consume(e.route_detail_data(&for_route(side).1))),
         ),
         (
             "route_detail_performance",
             Box::new(move |side, e| {
-                consume(e.route_detail_performance(&for_route_performance(side).1, 365, None))
+                consume(e.route_detail_performance(&for_route_performance(side).1, 365, None, None))
             }),
         ),
         (
@@ -403,6 +401,88 @@ fn no_screen_read_takes_more_steps_than_its_ceiling_for_a_larger_library() {
              rather than looking up, and it blocks the JavaScript thread for every step."
         );
     }
+}
+
+/// A library of `members` activities ridden along one line, so they form one
+/// route.
+fn one_route(members: usize) -> PersistentEngine {
+    let mut engine = PersistentEngine::in_memory().expect("engine");
+    for i in 0..members {
+        let id = format!("a{i}");
+        engine
+            .add_activity(id.clone(), track(0), "Ride".into())
+            .expect("add activity");
+        engine
+            .update_activity_metadata(
+                &id,
+                Some(NOW - (i as i64) * DAY),
+                Some("ride"),
+                Some(12_345.0),
+                Some(3_600),
+            )
+            .expect("metadata");
+    }
+    assert!(
+        !engine.get_groups().is_empty(),
+        "the seed has no route groups"
+    );
+    engine.load().expect("load");
+    engine
+}
+
+/// The route group `activity_id` belongs to.
+fn route_holding(engine: &mut PersistentEngine, activity_id: &str) -> (String, usize) {
+    let group = engine
+        .get_groups()
+        .iter()
+        .find(|group| group.activity_ids.iter().any(|id| id == activity_id))
+        .expect("the activity is on a route")
+        .clone();
+    (group.group_id, group.activity_ids.len())
+}
+
+/// The bytes `value` takes on its way across the FFI.
+fn lowered_bytes<T: uniffi::Lower<crate::UniFfiTag>>(value: T) -> usize {
+    let mut buf = Vec::new();
+    T::write(value, &mut buf);
+    buf.len()
+}
+
+#[test]
+fn route_detail_data_issues_no_more_statements_for_a_well_ridden_route() {
+    let mut few = one_route(3);
+    let mut many = one_route(300);
+    let (few_id, few_members) = route_holding(&mut few, "a0");
+    let (many_id, many_members) = route_holding(&mut many, "a0");
+    assert_eq!((few_members, many_members), (3, 300));
+
+    let a = statements_in(&mut few, |e| consume(e.route_detail_data(&few_id)));
+    let b = statements_in(&mut many, |e| consume(e.route_detail_data(&many_id)));
+    assert!(
+        b <= a,
+        "route_detail_data ran {b} statements on a route of 300 and {a} on a route of 3. \
+         It reads each attempt on its own, and the screen waits for every one."
+    );
+}
+
+#[test]
+fn route_detail_data_carries_the_same_bytes_for_one_route_in_a_larger_library() {
+    let mut small = seeded(SMALL);
+    let mut large = seeded(LARGE);
+    let (small_id, small_members) = route_holding(&mut small, "a0");
+    let (large_id, large_members) = route_holding(&mut large, "a0");
+    assert_eq!(small_members, ACTIVITIES_PER_SECTION);
+    assert_eq!(large_members, ACTIVITIES_PER_SECTION);
+
+    let a = lowered_bytes(small.route_detail_data(&small_id));
+    let b = lowered_bytes(large.route_detail_data(&large_id));
+    assert_eq!(
+        a, b,
+        "one route of {ACTIVITIES_PER_SECTION} activities crossed the FFI in {a} bytes \
+         among {SMALL} activities and {b} among {LARGE}. The read carries something of \
+         every route rather than this one's."
+    );
+    assert!(b <= 8 * 1024, "one route of four crossed in {b} bytes");
 }
 
 #[test]

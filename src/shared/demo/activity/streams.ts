@@ -94,7 +94,9 @@ export function getActivityStreams(id: string): ApiActivityStreams | null {
       return Math.round(Math.max(60, Math.min(120, baseCadence + hillEffect + variation)));
     });
   } else if (activity.type === 'Run') {
-    const baseCadence = activity.average_cadence || 170; // Running cadence in spm
+    // The generator stands in for the engine's stream read, which gives a
+    // run's cadence in steps a minute, twice the strides the activity stores.
+    const baseCadence = (activity.average_cadence || 85) * 2;
     streams.cadence = streams.time.map(() => {
       const variation = (streamRandom() - 0.5) * 6;
       return Math.round(Math.max(150, Math.min(190, baseCadence + variation)));

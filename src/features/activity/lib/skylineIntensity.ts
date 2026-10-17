@@ -3,16 +3,22 @@ import type { SkylineData } from './skylineDecoder';
 /** Zones on the intervals.icu skyline scale, Z1 the easiest. */
 const SKYLINE_ZONE_COUNT = 7;
 
+/** The easiest zone's height, tall enough to see on a feed card. */
+const SKYLINE_SEGMENT_FLOOR = 6;
+
 function clampZone(zone: number): number {
   return Math.min(Math.max(zone, 1), SKYLINE_ZONE_COUNT);
 }
 
 /**
- * Height of one skyline segment, rising with its zone up to `maxHeight` at the
- * top zone, so the bar reads by height as well as by hue.
+ * Height of one skyline segment, rising evenly with its zone from a floor at
+ * Z1 to `maxHeight` at the top zone, so the bar reads by height as well as by
+ * hue and no zone is too thin to see.
  */
 export function skylineSegmentHeight(zone: number, maxHeight: number): number {
-  return (maxHeight * clampZone(zone)) / SKYLINE_ZONE_COUNT;
+  const floor = Math.min(SKYLINE_SEGMENT_FLOOR, maxHeight);
+  const step = (clampZone(zone) - 1) / (SKYLINE_ZONE_COUNT - 1);
+  return floor + (maxHeight - floor) * step;
 }
 
 export interface SkylineZoneTotal {

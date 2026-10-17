@@ -622,11 +622,11 @@ RustBuffer uniffi_veloqrs_fn_method_routemanager_get_all(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_routemanager_get_detail_data(
     /*handle*/ uint64_t ptr, RustBuffer group_id,
-    RustBuffer current_activity_id, uint32_t min_group_activities,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_routemanager_get_detail_performance(
     /*handle*/ uint64_t ptr, RustBuffer group_id, uint32_t time_range_days,
-    RustBuffer sport_filter, RustCallStatus *uniffi_out_err);
+    RustBuffer sport_filter, RustBuffer highlight_activity_id,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_routemanager_get_performances(
     /*handle*/ uint64_t ptr, RustBuffer group_id,
     RustBuffer current_activity_id, RustBuffer sport_type,
@@ -691,7 +691,8 @@ RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_detail_data(
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_detail_performance(
     /*handle*/ uint64_t ptr, RustBuffer section_id, uint32_t time_range_days,
-    RustBuffer sport_filter, RustCallStatus *uniffi_out_err);
+    RustBuffer sport_filter, RustBuffer highlight_activity_id,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_excluded_activities(
     /*handle*/ uint64_t ptr, RustBuffer section_id,
     RustCallStatus *uniffi_out_err);
@@ -743,7 +744,8 @@ RustBuffer uniffi_veloqrs_fn_method_sectionmanager_index_new_activity(
 /*handle*/ uint64_t
 uniffi_veloqrs_fn_method_sectionmanager_load_detail_performance(
     /*handle*/ uint64_t ptr, RustBuffer subject, RustBuffer id,
-    uint32_t time_range_days, RustBuffer sport_filter);
+    uint32_t time_range_days, RustBuffer sport_filter,
+    RustBuffer highlight_activity_id);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_match_activity_to_sections(
     /*handle*/ uint64_t ptr, RustBuffer activity_id,
     RustCallStatus *uniffi_out_err);
@@ -7819,7 +7821,7 @@ NativeVeloqrs::NativeVeloqrs(
           rt,
           jsi::PropNameID::forAscii(
               rt, "ubrn_uniffi_veloqrs_fn_method_routemanager_get_detail_data"),
-          4,
+          2,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
@@ -7831,7 +7833,7 @@ NativeVeloqrs::NativeVeloqrs(
           rt,
           jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
                                         "routemanager_get_detail_performance"),
-          4,
+          5,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
@@ -8114,7 +8116,7 @@ NativeVeloqrs::NativeVeloqrs(
           jsi::PropNameID::forAscii(rt,
                                     "ubrn_uniffi_veloqrs_fn_method_"
                                     "sectionmanager_get_detail_performance"),
-          4,
+          5,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
@@ -8334,7 +8336,7 @@ NativeVeloqrs::NativeVeloqrs(
       rt,
       jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
                                     "sectionmanager_load_detail_performance"),
-      5,
+      6,
       [this](jsi::Runtime &rt, const jsi::Value &thisVal,
              const jsi::Value *args, size_t count) -> jsi::Value {
         return this
@@ -17367,8 +17369,6 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_get_detail_data(
       uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
                                                         args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
-      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[3]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
@@ -17387,6 +17387,7 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_get_detail_performance(
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[4]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
@@ -17761,6 +17762,7 @@ jsi::Value NativeVeloqrs::
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[4]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
@@ -18057,7 +18059,8 @@ jsi::Value NativeVeloqrs::
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[3]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[4]));
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[4]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[5]));
 
   return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
                                                          value);

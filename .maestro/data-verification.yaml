@@ -26,10 +26,12 @@ tags:
 # Navigate to training screen to check weekly summary
 - runFlow:
     file: helpers/navigate-to-training.yaml
-- extendedWaitUntil:
-    visible:
-      id: "weekly-summary"
-    timeout: 10000
+
+# WeeklySummary sits below the heatmap and the wellness chart, under the fold.
+- runFlow:
+    file: helpers/reveal.yaml
+    env:
+      ELEMENT: "weekly-summary"
 
 - takeScreenshot: "screenshots/data-verification-training"
 

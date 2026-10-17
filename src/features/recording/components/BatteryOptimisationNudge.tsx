@@ -10,6 +10,7 @@ import {
   colorWithOpacity,
   iconSize,
   layout,
+  opacity,
   spacing,
   themePalette,
   typography,
@@ -48,7 +49,7 @@ export function BatteryOptimisationNudge() {
       style={[
         styles.container,
         {
-          backgroundColor: colorWithOpacity(colors.warning, isDark ? 0.18 : 0.1),
+          backgroundColor: colorWithOpacity(colors.warning, isDark ? opacity.tint3 : 0.1),
         },
       ]}
     >
@@ -118,7 +119,6 @@ const styles = StyleSheet.create({
     gap: spacing.xxs,
   },
   text: {
-    fontSize: typography.bodyCompact.fontSize,
-    lineHeight: 18,
+    ...typography.bodyCompact,
   },
 });

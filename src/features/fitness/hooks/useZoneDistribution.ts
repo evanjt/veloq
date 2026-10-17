@@ -25,11 +25,13 @@ const SPORT_TO_ENGINE_TYPE: Record<PrimarySport, string> = {
 export type DefaultZoneName = (type: 'power' | 'hr', zone: number) => string | undefined;
 
 /**
- * One row per total the engine returns, named from the athlete's own zone
- * names, then the app-language default for that zone id, then `Z<n>`.
+ * One row per total the engine returns, carrying the engine's whole share beside
+ * it, named from the athlete's own zone names, then the app-language default for
+ * that zone id, then `Z<n>`.
  */
 export function buildZoneDistribution(
   totals: number[] | undefined,
+  shares: number[] | undefined,
   type: 'power' | 'hr',
   names: string[] = [],
   defaultName: DefaultZoneName
@@ -43,7 +45,7 @@ export function buildZoneDistribution(
     zone: idx + 1,
     name: names[idx] || defaultName(type, idx + 1) || `Z${idx + 1}`,
     seconds,
-    percentage: Math.round((seconds / totalSeconds) * 100),
+    share: shares?.[idx] ?? 0,
   }));
 }
 
@@ -72,6 +74,6 @@ export function useZoneDistribution({
       const key = DEFAULT_ZONE_NAME_KEYS[zoneType][zone - 1];
       return key ? t(key) : undefined;
     };
-    return buildZoneDistribution(read?.seconds, type, read?.names, defaultName);
+    return buildZoneDistribution(read?.seconds, read?.shares, type, read?.names, defaultName);
   }, [type, sport, days, readActivities, t]);
 }

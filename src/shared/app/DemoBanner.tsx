@@ -47,7 +47,7 @@ export function DemoBanner() {
       slot="demo"
       tone="info"
       icon="information"
-      title={t('demo.banner', { defaultValue: 'Demo Mode' })}
+      title={t('demo.banner', { defaultValue: 'Demo mode' })}
       actions={[
         {
           label: t('demo.signIn', { defaultValue: 'Sign in' }),

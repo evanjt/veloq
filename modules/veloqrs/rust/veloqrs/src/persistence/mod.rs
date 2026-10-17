@@ -105,6 +105,7 @@ mod schema;
 pub use schema::SUPPORTED_SCHEMA_VERSION;
 pub(crate) mod screens;
 pub mod sections;
+pub use routes::RouteNameError;
 pub use sections::SectionNameError;
 pub use sections::conditioning::{DetectionSuspendGuard, detection_suspended, suspend_detection};
 pub mod settings;
@@ -2034,6 +2035,13 @@ impl PersistentEngine {
             ),
         }
 
+        self.adopt_section_config(config);
+        Ok(())
+    }
+
+    /// Put a section config that differs from the one in force into effect,
+    /// for every path that changes it: the setter and a restored record.
+    pub(crate) fn adopt_section_config(&mut self, config: SectionConfig) {
         self.section_config = config;
         // A config change alters what detection would find, so the
         // whole library must be re-analysed. The processed set is insert-only and
@@ -2045,7 +2053,6 @@ impl PersistentEngine {
         // registry is rebuilt from the catalogue so ids carry, and the next fold
         // applies the new params' answer in one step.
         self.section_identity_reseed_decisive();
-        Ok(())
     }
 
     // ========================================================================

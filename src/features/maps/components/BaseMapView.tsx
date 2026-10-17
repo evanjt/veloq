@@ -14,6 +14,7 @@ import {
   iconSize,
   ink,
   layout,
+  opacity,
   shadows,
   spacing,
   typography,
@@ -537,7 +538,7 @@ const styles = StyleSheet.create({
     zIndex: 5,
   },
   attributionPill: {
-    backgroundColor: colorWithOpacity(ink.white, 0.7),
+    backgroundColor: colorWithOpacity(ink.white, opacity.pressed),
     paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadiusSm,

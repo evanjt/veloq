@@ -20,6 +20,7 @@ All dependencies used in Veloq are compatible with commercial distribution. The 
 | Zlib | Permissive | Yes | Minimal |
 | CDLA-Permissive-2.0 | Permissive Data | Yes | Yes |
 | Unlicense | Public Domain | Yes | No |
+| OFL-1.1 | Font licence | Yes | Yes (licence ships with the font) |
 | BSL-1.0 (Boost) | Permissive | Yes | No |
 
 ---
@@ -139,6 +140,7 @@ For a complete list, run: `cargo tree --format "{p} {l}"` in the tracematch dire
 | react | MIT | https://github.com/facebook/react |
 | react-native | MIT | https://github.com/facebook/react-native |
 | expo | MIT | https://github.com/expo/expo |
+| expo-font | MIT | https://github.com/expo/expo |
 
 ### Maps and Graphics
 
@@ -297,7 +299,18 @@ OpenStreetMap attribution shown on every map surface.
 
 ---
 
-*Last updated: 2026-09-01*
+## Bundled Typeface
+
+The app draws in Manrope, embedded at build from `assets/fonts/`, with the
+font's licence text beside the files in `assets/fonts/Manrope-OFL.txt`.
+
+| Asset | Source | License |
+|-------|--------|---------|
+| Manrope 400, 600 and 700 | The Manrope Project Authors, https://github.com/sharanda/manrope | SIL Open Font License 1.1 |
+
+---
+
+*Last updated: 2026-10-17*
 
 ## Direct shipped dependency register
 
@@ -336,6 +349,7 @@ This register lists every direct app and engine dependency. The in-app Third-par
 | expo-sharing | MIT | https://github.com/expo/expo |
 | expo-splash-screen | MIT | https://github.com/expo/expo |
 | expo-status-bar | MIT | https://github.com/expo/expo |
+| expo-symbols | MIT | https://github.com/expo/expo |
 | expo-task-manager | MIT | https://github.com/expo/expo |
 | expo-web-browser | MIT | https://github.com/expo/expo |
 | i18next | MIT | https://github.com/i18next/i18next |

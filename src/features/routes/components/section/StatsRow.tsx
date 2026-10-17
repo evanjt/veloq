@@ -135,8 +135,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   statsDirection: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
+    ...typography.captionBold,
     color: colors.textPrimary,
   },
   countBadge: {
@@ -158,9 +157,9 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   outsideBand: {
+    ...typography.micro,
     paddingHorizontal: spacing.smPlus,
     paddingBottom: spacing.xs,
-    fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
   },
   prBadge: {
@@ -169,8 +168,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   prTime: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
+    ...typography.captionBold,
     color: colors.chartGoldText,
   },
   prTimeDark: {

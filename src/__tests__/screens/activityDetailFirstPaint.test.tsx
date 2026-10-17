@@ -46,7 +46,6 @@ jest.mock('@/shared/ui', () => {
     ComponentErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     ErrorState: () => null,
     useHeroMapHeight: () => 300,
-    HERO_HEADER_HEIGHT: 48,
     Shimmer: () => <View testID="shimmer" />,
     SwipeableTabs: () => null,
   };

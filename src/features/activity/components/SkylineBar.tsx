@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { decodeSkylineBytes } from '@/features/activity/lib/skylineDecoder';
 import { skylineColours } from '@/features/activity/lib/skylineColours';
 import { skylineSegmentHeight, skylineZoneTotals } from '@/features/activity/lib/skylineIntensity';
+import { ZONE_STRIP_HEIGHT } from '@/features/activity/lib/cardLayout';
 import { DEFAULT_ZONE_NAME_KEYS } from '@/shared/app/useSportSettings';
 import { formatDurationHuman } from '@/shared/format/format';
 import { colors, darkColors, spacing, layout } from '@/theme';
@@ -18,7 +19,7 @@ interface SkylineBarProps {
 export const SkylineBar = React.memo(function SkylineBar({
   skylineBytes,
   isDark,
-  height = spacing.sm,
+  height = ZONE_STRIP_HEIGHT,
 }: SkylineBarProps) {
   const { t } = useTranslation();
   const decoded = useMemo(() => decodeSkylineBytes(skylineBytes), [skylineBytes]);

@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { useQueryClient } from '@tanstack/react-query';
 import { colors, darkColors, iconSize, ink, layout, spacing, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
@@ -300,7 +301,7 @@ export function SyncDebugSection() {
               </Text>
             ))}
             {alignment.missingFromEngine.length > 20 && (
-              <Text style={[styles.idText, { color: mutedColor, fontStyle: 'italic' }]}>
+              <Text style={[styles.idText, { color: mutedColor }]}>
                 and {alignment.missingFromEngine.length - 20} more
               </Text>
             )}
@@ -331,7 +332,7 @@ export function SyncDebugSection() {
               </Text>
             ))}
             {alignment.extraInEngine.length > 20 && (
-              <Text style={[styles.idText, { color: mutedColor, fontStyle: 'italic' }]}>
+              <Text style={[styles.idText, { color: mutedColor }]}>
                 and {alignment.extraInEngine.length - 20} more
               </Text>
             )}
@@ -446,9 +447,7 @@ export function SyncDebugSection() {
             opensConfirm
             onPress={handleRemoveActivities}
             disabled={isRemoving || !apiActivities?.length}
-            icon={
-              <MaterialCommunityIcons name="delete-outline" size={iconSize.md} color={ink.white} />
-            }
+            icon={<ChromeIcon name="delete" size={iconSize.md} color={ink.white} />}
             label={isRemoving ? 'Removing...' : `Remove ${removeCount} & Re-sync`}
           />
         </View>
@@ -497,8 +496,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   sectionTitle: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
+    ...typography.bodyBold,
   },
   sectionContent: {
     paddingHorizontal: spacing.md,
@@ -529,8 +527,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   emptyText: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontStyle: 'italic',
+    ...typography.bodyCompact,
   },
   trafficLight: {
     flexDirection: 'row',
@@ -544,8 +541,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusFull,
   },
   trafficText: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    ...typography.bodySmallBold,
     color: colors.textPrimary,
   },
   expandButton: {
@@ -580,8 +576,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   stepperLabel: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    ...typography.bodySmallBold,
     color: colors.textPrimary,
   },
   stepper: {
@@ -601,7 +596,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   hintText: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     marginTop: spacing.xs,
     paddingHorizontal: spacing.xs,
   },

@@ -62,6 +62,7 @@ const listeners = new Map<string, Set<() => void>>();
 
 const getZoneDistribution = jest.fn(() => ({
   seconds: [600, 300, 100, 0, 0],
+  shares: [60, 30, 10, 0, 0],
   names: [],
 }));
 const getSectionById = jest.fn((id: string) => ({ id, name: 'Church Hill' }));

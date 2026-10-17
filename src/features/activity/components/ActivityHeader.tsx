@@ -6,6 +6,7 @@ import {
   ActivityMapView,
   ATTRIBUTION_CLEARANCE,
   type CreationState,
+  MAX_MAP_CONTROLS,
   type MapStyleType,
   useMapControlColumn,
   SectionCreationError,
@@ -90,9 +91,12 @@ export const ActivityHeader = React.memo(function ActivityHeader({
   onSectionMarkerPress,
 }: ActivityHeaderProps) {
   const { t } = useTranslation();
+  // The map reports the buttons it draws, so the text reserves only their width.
+  // Until it does, the reserve covers the fullest column.
+  const [controlCount, setControlCount] = useState(MAX_MAP_CONTROLS);
+  const controlColumn = useMapControlColumn(mapHeight, controlCount);
   // The satellite credit wraps to two rows at phone width, so the reservation
   // comes from what the pill measured. The constant is only the first guess.
-  const controlColumn = useMapControlColumn(mapHeight);
   const [attributionClearance, setAttributionClearance] = useState(ATTRIBUTION_CLEARANCE);
   const visibleSectionOverlays =
     activeTab === 'sections' || activeTab === 'charts' ? sectionOverlays : null;
@@ -182,6 +186,7 @@ export const ActivityHeader = React.memo(function ActivityHeader({
           showStyleToggle={!sectionCreationMode}
           showAttribution={true}
           onAttributionClearanceChange={setAttributionClearance}
+          onControlCountChange={setControlCount}
           highlightIndex={highlightIndex}
           enableFullscreen={!sectionCreationMode}
           on3DModeChange={on3DModeChange}

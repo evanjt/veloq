@@ -5,6 +5,7 @@ import { useTheme } from '@/shared/app';
 import { INTERVALS_URLS } from '@/shared/app/constants';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { openExternal } from '@/shared/app/openExternal';
 import { useDonation } from '@/shared/app/useDonation';
 import { TipButtons } from '@/shared/ui/TipButtons';
@@ -105,7 +106,6 @@ export function SupportSection() {
                   products={products}
                   isPurchasing={isPurchasing}
                   onTip={(id) => purchase(id)}
-                  isDark={isDark}
                 />
               </View>
             ) : (
@@ -150,7 +150,7 @@ export function SupportSection() {
           >
             <MaterialCommunityIcons name="bug-outline" size={iconSize.md} color={mutedColor} />
             <Text style={[styles.rowText, { color: textColor }]}>{t('support.shareCrashLog')}</Text>
-            <MaterialCommunityIcons name="share-variant" size={iconSize.md} color={mutedColor} />
+            <ChromeIcon name="share" size={iconSize.md} color={mutedColor} />
           </Pressable>
         </Card>
       </View>

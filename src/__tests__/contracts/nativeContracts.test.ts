@@ -835,17 +835,6 @@ const CONTRACTS: Contract[] = [
     },
   },
   {
-    agree: 'the backup rules exclude the preferences file the agent keeps its record in',
-    a: {
-      file: 'src/plugins/with-android-backup.js',
-      has: 'const AGENT_PREFERENCES = "veloq_auto_backup.xml";',
-    },
-    b: {
-      file: 'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/AutoBackupLedger.kt',
-      has: 'const val PREFERENCES = "veloq_auto_backup"',
-    },
-  },
-  {
     agree: 'the agent sizes the record zip the backup rules carry',
     a: {
       file: 'src/plugins/with-android-backup.js',
@@ -854,17 +843,6 @@ const CONTRACTS: Contract[] = [
     b: {
       file: 'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/AutoBackupLedger.kt',
       has: 'const val RECORD_ZIP = "veloq-decisions.zip"',
-    },
-  },
-  {
-    agree: 'the agent leaves out of its size the credential store the backup rules exclude',
-    a: {
-      file: 'src/plugins/with-android-backup.js',
-      has: '<exclude domain="sharedpref" path="SecureStore" />',
-    },
-    b: {
-      file: 'modules/veloq-backup-exclusion/android/src/main/java/com/veloq/backupexclusion/AutoBackupLedger.kt',
-      has: '"SecureStore.xml"',
     },
   },
   {

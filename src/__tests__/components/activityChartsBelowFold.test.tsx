@@ -12,6 +12,7 @@ import React from 'react';
 import { act, render, screen } from '@testing-library/react-native';
 
 import { ActivityChartsSection } from '@/features/activity/components/ActivityChartsSection';
+import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import type { ActivityDetail, ActivityStreams } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -22,8 +23,19 @@ jest.mock('@/shared/ui', () => {
   const { View, Text } = require('react-native');
   return {
     Card: jest.requireActual('@/shared/ui/Card').Card,
-    Button: ({ label, testID }: { label: string; testID?: string }) => (
-      <Text testID={testID}>{label}</Text>
+    Button: ({
+      label,
+      testID,
+      icon,
+    }: {
+      label: string;
+      testID?: string;
+      icon?: React.ReactNode;
+    }) => (
+      <View testID={testID}>
+        <Text>{label}</Text>
+        {icon}
+      </View>
     ),
     IconButton: ({ children }: { children: React.ReactNode }) => <>{children}</>,
     pressable: (style: unknown) => style,
@@ -72,7 +84,7 @@ const activity = {
 } as unknown as ActivityDetail;
 
 const streams = { time: [0, 1, 2], heartrate: [140, 150, 160] } as unknown as ActivityStreams;
-const hrZones = [{ zone: 1, minBpm: 0, maxBpm: 140, seconds: 60, percent: 100 }];
+const hrZones = [{ zone: 1, minBpm: 0, maxBpm: 140, seconds: 60, percent: 100, share: 100 }];
 
 const frames: FrameRequestCallback[] = [];
 
@@ -164,4 +176,15 @@ it('keeps the rest mounted once shown', async () => {
 
   await view.rerender(section(false));
   expectBelowFold(true);
+});
+
+it('draws the GPX export as a share, since it opens the share sheet', async () => {
+  await render(section(true));
+  await flushFrame();
+
+  const glyphs = screen
+    .getByTestId('activity-export-gpx')
+    .findAll((n) => n.type === ChromeIcon)
+    .map((n) => n.props.name);
+  expect(glyphs).toEqual(['share']);
 });

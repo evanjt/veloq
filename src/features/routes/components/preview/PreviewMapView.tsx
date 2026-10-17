@@ -20,6 +20,7 @@ import {
   darkColors,
   iconSize,
   layout,
+  opacity,
   slopToMinTapTarget,
   spacing,
   typography,
@@ -495,7 +496,7 @@ const styles = StyleSheet.create({
     borderWidth: stroke.hairline,
   },
   legendChipOff: {
-    opacity: 0.6,
+    opacity: opacity.dim,
   },
   legendSwatch: {
     width: 14,

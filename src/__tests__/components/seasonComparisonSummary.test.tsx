@@ -14,7 +14,7 @@ import { SeasonComparison } from '@/features/stats/components/SeasonComparison';
 import { verdictColor } from '@/theme';
 import { changeLanguage, initialiseI18n } from '@/i18n';
 import { getEngine } from '@/shared/native/engine';
-import { capturePans, holdAndScrub, longPressPan } from '../__shared__/chartScrub';
+import { capturePans, scrub, scrubPan } from '../__shared__/chartScrub';
 import { trainingScreenRead } from '../__shared__/trainingScreenRead';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -83,7 +83,7 @@ async function scrubJanuary() {
   await act(async () => {
     await fireEvent(chart!, 'layout', { nativeEvent: { layout: { width: 360, height: 200 } } });
   });
-  await holdAndScrub(longPressPan(pans), 10);
+  await scrub(scrubPan(pans), 10);
 }
 
 beforeEach(() => {

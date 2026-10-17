@@ -39,16 +39,15 @@ function FieldPickerSheetContent() {
   const selectedField = input?.selectedField ?? null;
   const caloriesWeight = useCaloriesWeight();
 
-  const surface = isDark ? darkColors.surface : colors.surface;
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const accentText = isDark ? darkColors.linkTeal : colors.linkTeal;
   const border = isDark ? darkColors.border : colors.border;
 
   return (
-    <View style={[styles.sheet, { backgroundColor: surface }]}>
+    <View style={styles.sheet}>
       <SheetHeader
-        title={t('recording.settingsDataFields', 'Data Fields')}
+        title={t('recording.settingsDataFields', 'Data fields')}
         onCancel={() => tapBack()}
         cancelTestID="field-picker-cancel"
       />

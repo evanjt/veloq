@@ -232,6 +232,5 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
-    fontStyle: 'italic',
   },
 });

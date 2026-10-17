@@ -1,4 +1,5 @@
 export { useChartGestures } from './useChartGestures';
+export { useScrubPan } from './useScrubPan';
 export type {
   ChartPoint,
   ChartBounds,

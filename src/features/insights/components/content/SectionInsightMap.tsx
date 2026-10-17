@@ -120,7 +120,7 @@ export const SectionInsightMap = React.memo(function SectionInsightMap({
               path={linePath}
               style="stroke"
               strokeWidth={5}
-              color={colorWithOpacity(ink.black, isDark ? 0.4 : 0.12)}
+              color={colorWithOpacity(ink.black, isDark ? opacity.dim : opacity.tint2)}
               strokeCap="round"
               strokeJoin="round"
             />

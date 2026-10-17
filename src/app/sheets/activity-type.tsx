@@ -82,16 +82,15 @@ function ActivityTypeSheetContent() {
   // section list counts a header and a footer per section beside its rows.
   const rowCount = sections.reduce((count, section) => count + section.data.length + 2, 0);
 
-  const surface = isDark ? darkColors.surface : colors.surface;
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const border = isDark ? darkColors.border : colors.border;
 
   const titleKey = isRecording ? 'recording.changeType' : 'recording.activityType';
-  const titleFallback = isRecording ? 'Change Activity Type' : 'Activity Type';
+  const titleFallback = isRecording ? 'Change activity type' : 'Activity type';
 
   return (
-    <View style={[styles.sheet, { backgroundColor: surface }]}>
+    <View style={styles.sheet}>
       <SheetHeader
         title={t(titleKey, titleFallback)}
         onCancel={() => tapBack()}
@@ -107,7 +106,7 @@ function ActivityTypeSheetContent() {
         renderSectionHeader={({ section }) => (
           <Text
             testID={`activity-type-section-${section.key}`}
-            style={[styles.sectionHeader, { color: textSecondary, backgroundColor: surface }]}
+            style={[styles.sectionHeader, { color: textSecondary }]}
           >
             {section.key === 'recent'
               ? t('recording.recentTypes')

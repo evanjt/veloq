@@ -26,7 +26,7 @@ import { useSyncState } from '@/shared/native/useSyncStatus';
 import { useMapPreviewCoordinates } from '../hooks/useMapPreviewCoordinates';
 import { isWithinPreviewRange, onPreviewRangeChange } from '../lib/previewRange';
 import { mapPreviewState } from '../lib/mapPreviewState';
-import { colorWithOpacity, iconSize, ink, layout } from '@/theme';
+import { colorWithOpacity, iconSize, ink, layout, opacity } from '@/theme';
 import { SyncState } from 'veloqrs';
 import type { Activity } from '@/types';
 import type { PreviewTrack } from '@/features/home';
@@ -353,7 +353,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
             <StaticCompassArrow
               bearing={bearing}
               size={iconSize.sm}
-              southColor={colorWithOpacity(ink.white, 0.7)}
+              southColor={colorWithOpacity(ink.white, opacity.pressed)}
             />
           </View>
         )}

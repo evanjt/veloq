@@ -33,13 +33,14 @@ import {
   darkColors,
   iconSize,
   layout,
+  opacity,
   spacing,
   stroke,
 } from '@/theme';
 import type { LatLngShort } from '@/shared/geo/distance';
 
 const BRAND_COLOR = brand.tealLight;
-const EXCLUDED_COLOR = colorWithOpacity(colors.neutralLine, 0.5);
+const EXCLUDED_COLOR = colorWithOpacity(colors.neutralLine, opacity.disabled);
 const POSITION_DOT_COLOR = colors.secondary;
 const POSITION_DOT_HALO = colors.surface;
 const OVERLAY_COLOR = brand.blue;

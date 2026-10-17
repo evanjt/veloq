@@ -123,8 +123,7 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.surfaceOverlay,
   },
   distanceText: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
+    ...typography.badge,
     color: colors.textPrimary,
   },
   distanceTextDark: {

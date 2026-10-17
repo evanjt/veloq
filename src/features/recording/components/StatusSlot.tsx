@@ -184,9 +184,8 @@ const styles = StyleSheet.create({
     backgroundColor: colorWithOpacity(colors.success, 0.85),
   },
   text: {
+    ...typography.bodyCompact,
     flex: 1,
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '400',
   },
 });
 

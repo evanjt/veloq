@@ -25,6 +25,10 @@ pub enum VeloqError {
     /// again once the app is back in the foreground succeeds.
     #[error("Engine suspended while the app is in the background")]
     Suspended,
+    /// A rename to a name another route is already shown under, refused as
+    /// a section's is.
+    #[error("Another route is already named {name}")]
+    RouteNameTaken { name: String },
 }
 
 /// Execute a closure with a **write lock** on the persistent engine.

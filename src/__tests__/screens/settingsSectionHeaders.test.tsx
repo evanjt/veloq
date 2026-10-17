@@ -147,7 +147,7 @@ describe('settings group headers', () => {
     ]);
     await collect('recording', await render(<RecordingSettingsScreen />), [
       'Upload',
-      'GPS & Battery',
+      'GPS & battery',
       'recording.settingsAutoPause',
       'recording.settingsDataFields',
       'Sensors',

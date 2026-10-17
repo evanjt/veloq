@@ -7,7 +7,7 @@ import { tapTo } from '@/shared/app/navigation';
 import { useBottomClearance } from '@/shared/ui';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useTheme } from '@/shared/app';
-import { colors, iconSize, layout, recording, spacing } from '@/theme';
+import { colors, iconSize, layout, recording, shadows, spacing } from '@/theme';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 
 /** Floating action button that opens the record screen. Hidden while a session is active. */
@@ -33,7 +33,7 @@ function RecordFABInner() {
       android_ripple={pressRipple}
       onPress={() => tapTo('/record')}
       accessibilityRole="button"
-      accessibilityLabel={t('recording.startActivity', 'Start Activity')}
+      accessibilityLabel={t('recording.startActivity', 'Start activity')}
     >
       <MaterialCommunityIcons
         name="record-circle-outline"
@@ -55,11 +55,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusFull,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 6,
-    shadowColor: colors.shadowBlack,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    ...shadows.fab,
     zIndex: 10,
     minWidth: layout.minTapTarget,
     minHeight: layout.minTapTarget,

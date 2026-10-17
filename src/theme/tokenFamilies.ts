@@ -113,6 +113,8 @@ export const TOKEN_FAMILIES: Record<string, TokenFamily> = {
   borderLight: 'ground',
   borderAccent: 'ground',
   divider: 'ground',
+  fillNeutral: 'ground',
+  borderStrong: 'ground',
   inputTrack: 'ground',
   shadowBlack: 'ground',
   transparent: 'ground',

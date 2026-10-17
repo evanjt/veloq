@@ -2,10 +2,11 @@
  * Scenario: an Android 12 or later device backs the app up to the cloud, or
  * transfers it to a new phone.
  *
- * Expected behaviour: the latest record zip and settings travel with it. `fullBackupContent`
- * has applied to Android 11 and lower since Android 12, which reads
- * `dataExtractionRules` instead, so both files have to name the record zip and
- * both have to keep expo-secure-store's credential exclusion.
+ * Expected behaviour: the latest record zip travels with it and nothing else.
+ * `fullBackupContent` has applied to Android 11 and lower since Android 12,
+ * which reads `dataExtractionRules` instead, so both files name the record zip.
+ * No shared preferences file is carried: each one is this install's state, and
+ * a restore lands at install, before the athlete could accept it.
  */
 
 import { mkdtempSync, readFileSync, readdirSync } from 'node:fs';
@@ -14,7 +15,6 @@ import { join } from 'node:path';
 
 const {
   BACKUP_AGENT,
-  AGENT_PREFERENCES,
   BACKUP_RULES,
   DATA_EXTRACTION_RULES,
   configureManifest,
@@ -26,39 +26,36 @@ function mainApplication(): { $: Record<string, string> } {
 }
 
 describe('with-android-backup rules', () => {
+  const blocks = () =>
+    ['cloud-backup', 'device-transfer'].map(
+      (block) => DATA_EXTRACTION_RULES.split(`<${block}>`)[1]?.split(`</${block}>`)[0]
+    );
+
   it('carries the record zip without the live library in the Android 11 rules', () => {
     expect(BACKUP_RULES).toContain('<full-backup-content>');
-    expect(BACKUP_RULES).toContain('domain="file" path="veloq-decisions.zip"');
+    expect(BACKUP_RULES).toContain('<include domain="file" path="veloq-decisions.zip" />');
     expect(BACKUP_RULES).not.toContain('path="routes.db"');
     expect(BACKUP_RULES).not.toContain('path="backups/"');
-    expect(BACKUP_RULES).toContain('<exclude domain="sharedpref" path="SecureStore" />');
   });
 
   it('carries the record zip in both Android 12 blocks', () => {
-    for (const block of ['cloud-backup', 'device-transfer']) {
-      const body = DATA_EXTRACTION_RULES.split(`<${block}>`)[1]?.split(`</${block}>`)[0];
+    for (const body of blocks()) {
       expect(body).toBeDefined();
-      expect(body).toContain('domain="file" path="veloq-decisions.zip"');
+      expect(body).toContain('<include domain="file" path="veloq-decisions.zip" />');
       expect(body).not.toContain('path="routes.db"');
       expect(body).not.toContain('path="backups/"');
-      expect(body).toContain('domain="sharedpref" path="."');
     }
   });
 
-  it('keeps the SecureStore exclusion in both Android 12 blocks', () => {
-    const excludes = DATA_EXTRACTION_RULES.match(
-      /<exclude domain="sharedpref" path="SecureStore" ?\/>/g
-    );
-    expect(excludes).toHaveLength(2);
+  it("carries no shared preferences in any rules, so a restore brings no other install's state", () => {
+    expect(BACKUP_RULES).not.toContain('domain="sharedpref"');
+    for (const body of blocks()) expect(body).not.toContain('domain="sharedpref"');
   });
 
-  it("keeps the backup agent's own record out of every block, so a restore brings no other phone's", () => {
-    expect(AGENT_PREFERENCES).toMatch(/\.xml$/);
-    const exclusion = `<exclude domain="sharedpref" path="${AGENT_PREFERENCES}" />`;
-    expect(BACKUP_RULES).toContain(exclusion);
-    for (const block of ['cloud-backup', 'device-transfer']) {
-      const body = DATA_EXTRACTION_RULES.split(`<${block}>`)[1]?.split(`</${block}>`)[0];
-      expect(body).toContain(exclusion);
+  it('includes the record zip alone in every rules set', () => {
+    for (const body of [BACKUP_RULES, ...blocks()]) {
+      expect(body.match(/<include /g)).toEqual(['<include ']);
+      expect(body).not.toContain('<exclude ');
     }
   });
 

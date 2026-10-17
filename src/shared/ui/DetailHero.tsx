@@ -19,7 +19,6 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   colors,
@@ -38,11 +37,11 @@ import { BACK_SWIPE_EDGE_WIDTH } from './backSwipeEdge';
 import { pressable, pressRipple } from './pressFeedback';
 import { useBackDismiss } from '@/shared/app/useBackDismiss';
 import { TextField, type TextFieldHandle } from './TextField';
+import { useHeroHeaderBottom } from './useHeroHeaderBottom';
 
 type MaterialIconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
 const GRADIENT_HEIGHT = 120;
-const NATIVE_BACK_CONTROL_SIZE = 40;
 const noop = () => {};
 
 export const heroTextStyles = StyleSheet.create({
@@ -61,19 +60,12 @@ export const heroTextStyles = StyleSheet.create({
   },
   statDivider: {
     ...typography.bodyCompact,
-    color: colorWithOpacity(colors.textOnDark, 0.5),
+    color: colorWithOpacity(colors.textOnDark, opacity.disabled),
     marginHorizontal: spacing.xsPlus,
     textShadowColor: opacity.overlay.full,
     ...mapTextShadow,
   },
 });
-
-/**
- * Height of the native header's control row below the top inset. Anything a
- * hero's map floats over its own top corners has to clear the inset plus this,
- * or it lands under the back control.
- */
-export const HERO_HEADER_HEIGHT = NATIVE_BACK_CONTROL_SIZE + spacing.sm;
 
 /** How far below the header the top scrim takes to fade out. */
 const TOP_SCRIM_FADE = spacing.xl;
@@ -110,7 +102,7 @@ export function DetailHero({
   overlayInsetEnd,
   children,
 }: DetailHeroProps) {
-  const headerBottom = useSafeAreaInsets().top + HERO_HEADER_HEIGHT;
+  const headerBottom = useHeroHeaderBottom();
   const topScrimHeight = headerBottom + TOP_SCRIM_FADE;
 
   return (

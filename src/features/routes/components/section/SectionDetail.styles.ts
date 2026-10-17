@@ -20,7 +20,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   rescanRefusalText: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   rescanRefusalTextDark: {

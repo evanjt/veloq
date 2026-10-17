@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, iconSize } from '@/theme';
 import { CompassArrow, IconButton } from '@/shared/ui';
 import { getStyleIcon, type MapStyleType } from './mapStyles';
-import { useMapControlColumn } from '../lib/mapControlColumnLayout';
+import { activityMapControlCount, useMapControlColumn } from '../lib/mapControlColumnLayout';
 import { styles } from './ActivityMapView.styles';
 
 interface ActivityMapControlsProps {
@@ -50,7 +50,10 @@ export function ActivityMapControls({
   mapHeight,
 }: ActivityMapControlsProps) {
   const { t } = useTranslation();
-  const { top, maxHeight } = useMapControlColumn(mapHeight);
+  const { top, maxHeight } = useMapControlColumn(
+    mapHeight,
+    activityMapControlCount({ shown: true, hasGradientData, hasRoute, enableFullscreen })
+  );
 
   return (
     <View testID="activity-map-controls" style={[styles.controlsContainer, { top, maxHeight }]}>

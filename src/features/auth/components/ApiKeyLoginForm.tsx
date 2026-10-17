@@ -136,10 +136,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   apiKeyDescription: {
-    fontSize: typography.bodySmall.fontSize,
+    ...typography.bodySmall,
     color: colors.textSecondary,
     marginBottom: spacing.md,
-    lineHeight: 20,
   },
   getApiKeyLink: {
     marginBottom: spacing.md,
@@ -155,7 +154,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   localModeText: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   textDark: {

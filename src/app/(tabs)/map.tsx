@@ -538,8 +538,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   loadingText: {
+    ...typography.body,
     marginTop: spacing.md,
-    fontSize: typography.body.fontSize,
     color: colors.textSecondary,
   },
   loadingTextDark: {
@@ -597,7 +597,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
   },
   infoText: {
-    fontSize: typography.bodyCompact.fontSize,
+    ...typography.bodyCompact,
     color: colors.textSecondary,
   },
   infoTextDark: {

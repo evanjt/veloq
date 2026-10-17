@@ -268,7 +268,7 @@ export function TrimSlider({
       {/* Title + time labels */}
       <View style={styles.headerRow}>
         <Text style={[styles.title, { color: textPrimary }]}>
-          {t('recording.trimActivity', 'Trim Activity')}
+          {t('recording.trimActivity', 'Trim activity')}
         </Text>
         <View style={styles.rangeRow}>
           {isTrimmed ? (
@@ -392,8 +392,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   title: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
+    ...typography.bodyCompactBold,
   },
   rangeRow: {
     flexDirection: 'row',
@@ -401,8 +400,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   timeRange: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
+    ...typography.captionBold,
     fontVariant: ['tabular-nums'],
   },
   timeRangeTrimmed: {

@@ -32,15 +32,11 @@ export const styles = StyleSheet.create({
     borderWidth: stroke.hairline,
   },
   typeBadgeText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
+    ...typography.captionBold,
     maxWidth: 80,
   },
   timerText: {
     ...typography.statsHero,
-  },
-  timerPaused: {
-    opacity: 0.45,
   },
   autoPauseLabel: {
     ...typography.captionBold,

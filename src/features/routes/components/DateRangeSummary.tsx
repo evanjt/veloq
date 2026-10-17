@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
     marginRight: spacing.xs,
   },
   syncText: {
-    fontSize: typography.bodyCompact.fontSize,
+    ...typography.bodyCompact,
     color: colors.textSecondary,
   },
   summaryRow: {
@@ -131,12 +131,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   countText: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    ...typography.bodySmallBold,
     color: colors.textPrimary,
   },
   dateText: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
     marginTop: spacing.xxs,
   },

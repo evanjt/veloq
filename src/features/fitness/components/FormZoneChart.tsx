@@ -10,16 +10,17 @@ import { Line as SkiaLine, Rect, vec } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue } from 'react-native-reanimated';
 import {
-  colors,
-  darkColors,
-  typography,
-  spacing,
   chartStyles,
-  layout,
+  colors,
   colorWithOpacity,
+  darkColors,
   ink,
-  themedStyles,
+  layout,
+  opacity,
   type Palette,
+  spacing,
+  themedStyles,
+  typography,
 } from '@/theme';
 import {
   ChartCanvas,
@@ -354,8 +355,7 @@ const makeStyles = (palette: Palette) =>
       flex: 1,
     },
     dateText: {
-      fontSize: typography.bodySmall.fontSize,
-      fontWeight: '600',
+      ...typography.bodySmallBold,
       color: colors.textPrimary,
     },
     textLight: {
@@ -367,12 +367,10 @@ const makeStyles = (palette: Palette) =>
       gap: spacing.sm,
     },
     formValue: {
-      fontSize: typography.statsValueLarge.fontSize,
-      fontWeight: '700',
+      ...typography.statsValueLarge,
     },
     zoneText: {
-      fontSize: typography.caption.fontSize,
-      fontWeight: '400',
+      ...typography.caption,
     },
     yAxisOverlay: {
       position: 'absolute',
@@ -384,7 +382,7 @@ const makeStyles = (palette: Palette) =>
     axisLabel: {
       fontSize: typography.pillLabel.fontSize,
       color: palette.textSecondary,
-      backgroundColor: colorWithOpacity(ink.white, 0.7),
+      backgroundColor: colorWithOpacity(ink.white, opacity.pressed),
       paddingHorizontal: spacing.xxs,
       borderRadius: layout.borderRadiusXs,
     },

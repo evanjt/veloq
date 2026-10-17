@@ -12,10 +12,9 @@ import React, { useCallback, useState } from 'react';
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { useIsFocused } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { heroScrolledPast, mapHeroChrome } from '@/shared/app/screenHeaders';
-import { HERO_HEADER_HEIGHT } from '@/shared/ui/DetailHero';
+import { useHeroHeaderBottom } from '@/shared/ui/useHeroHeaderBottom';
 
 export function MapHeroStatusBar({
   scrolledPastHero,
@@ -35,7 +34,7 @@ export function MapHeroStatusBar({
  * renders the screen twice at most rather than once a frame.
  */
 export function useHeroScrolledPast(heroHeight: number) {
-  const headerBottom = useSafeAreaInsets().top + HERO_HEADER_HEIGHT;
+  const headerBottom = useHeroHeaderBottom();
   const [scrolledPastHero, setScrolledPastHero] = useState(false);
   const onScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {

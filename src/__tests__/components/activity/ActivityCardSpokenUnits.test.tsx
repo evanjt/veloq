@@ -84,7 +84,7 @@ describe.each([
 
   it('speaks the heart rate with one unit', async () => {
     await renderCard();
-    expect(cardLabel()).toContain('Heart Rate: 142 bpm');
+    expect(cardLabel()).toContain('Heart rate: 142 bpm');
     expect(occurrences(cardLabel(), 'bpm')).toBe(1);
   });
 

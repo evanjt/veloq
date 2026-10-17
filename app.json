@@ -120,6 +120,30 @@
         }
       ],
       "expo-localization",
+      [
+        "expo-font",
+        {
+          "ios": {
+            "fonts": [
+              "./assets/fonts/Manrope-Regular.ttf",
+              "./assets/fonts/Manrope-SemiBold.ttf",
+              "./assets/fonts/Manrope-Bold.ttf"
+            ]
+          },
+          "android": {
+            "fonts": [
+              {
+                "fontFamily": "Manrope",
+                "fontDefinitions": [
+                  { "path": "./assets/fonts/Manrope-Regular.ttf", "weight": 400 },
+                  { "path": "./assets/fonts/Manrope-SemiBold.ttf", "weight": 600 },
+                  { "path": "./assets/fonts/Manrope-Bold.ttf", "weight": 700 }
+                ]
+              }
+            ]
+          }
+        }
+      ],
       "./src/plugins/with-android-locale-config",
       [
       "expo-location",

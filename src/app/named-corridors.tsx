@@ -8,7 +8,7 @@
 import React, { useMemo } from 'react';
 import { Pressable, View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import Svg, { Polyline } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import {
@@ -87,7 +87,7 @@ function NamedCorridorsScreenContent() {
   };
 
   return (
-    <ScreenSafeAreaView hasNativeHeader style={[styles.container, isDark && styles.containerDark]}>
+    <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
       <ScreenScrollView
         contentContainerStyle={[styles.content, { paddingBottom: layout.screenPadding }]}
         testID="named-corridors-list"
@@ -161,11 +161,7 @@ function NamedCorridorsScreenContent() {
                     onPress={() => confirmRemove(corridor)}
                     accessibilityLabel={t('namedCorridors.delete')}
                   >
-                    <MaterialCommunityIcons
-                      name="trash-can-outline"
-                      size={iconSize.md}
-                      color={colors.error}
-                    />
+                    <ChromeIcon name="delete" size={iconSize.md} color={colors.error} />
                   </IconButton>
                 </View>
               </Card>

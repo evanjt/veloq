@@ -32,6 +32,7 @@ import { debug } from '@/shared/debug/debug';
 import { SyncProgressStrip } from './SyncProgressStrip';
 import { pressable, pressRipple } from './pressFeedback';
 import { GRADIENT_HEIGHT, TAB_BAR_HEIGHT, isTabBarRoute } from './tabBarClearance';
+import { emitTabReselect, type TabRoute } from './tabReselect';
 
 const log = debug.create('BottomTabBar');
 
@@ -92,11 +93,15 @@ function BottomTabBarComponent() {
       ] as const);
 
   const handlePress = useCallback(
-    (route: string) => {
+    (route: TabRoute) => {
       const isCurrentRoute =
         route === '/' ? pathname === '/' || pathname === '/index' : pathname.startsWith(route);
 
-      if (isCurrentRoute) return;
+      // A reselect neither navigates nor ticks: the tab's list goes back to the top.
+      if (isCurrentRoute) {
+        emitTabReselect(route);
+        return;
+      }
 
       // Performance: Log navigation start
       if (PERF_DEBUG) {
@@ -238,8 +243,7 @@ const styles = StyleSheet.create({
     width: iconSize.lg,
   },
   label: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
+    ...typography.badge,
     marginTop: spacing.xs,
   },
   labelActive: {

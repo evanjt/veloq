@@ -143,7 +143,7 @@ fn main() {
 
     for (index, section) in engine.get_section_summaries().iter().enumerate() {
         for sport in &section.sport_types {
-            let data = engine.section_detail_performance(&section.id, 0, Some(sport));
+            let data = engine.section_detail_performance(&section.id, 0, Some(sport), None);
             let label = format!("section {index} {sport}");
             let cell = |direction: &str| {
                 data.chart_data

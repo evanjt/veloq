@@ -24,10 +24,11 @@ import {
   colors,
   colorWithOpacity,
   darkColors,
+  opacity,
   spacing,
+  stroke,
   typography,
   zoneColour,
-  stroke,
 } from '@/theme';
 import type { ActivityType, DataFieldType } from '@/types';
 import { isSwimmingActivity } from '@/shared/activity/activityUtils';
@@ -201,7 +202,7 @@ const DataFieldTile = React.memo(function DataFieldTile({
         styles.cell,
         {
           backgroundColor: zoned
-            ? colorWithOpacity(zoneColour(zone, isDark, 'fill'), isDark ? 0.28 : 0.18)
+            ? colorWithOpacity(zoneColour(zone, isDark, 'fill'), isDark ? 0.28 : opacity.tint3)
             : isDark
               ? darkColors.surfaceElevated
               : colors.surface,
@@ -306,9 +307,7 @@ const styles = StyleSheet.create({
     borderWidth: stroke.hairline,
   },
   value: {
-    fontSize: typography.statsValueLarge.fontSize,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
+    ...typography.statsValueLarge,
   },
   labelRow: {
     flexDirection: 'row',
@@ -317,9 +316,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.xxs,
   },
   label: {
+    ...typography.caption,
     flexShrink: 1,
-    fontSize: typography.caption.fontSize,
-    fontWeight: '400',
   },
   zone: {
     flexShrink: 0,

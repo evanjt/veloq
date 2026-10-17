@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   sortChipLabel: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   sortChipLabelActive: {

@@ -10,7 +10,7 @@ function NotificationSettingsScreenContent() {
   const { isDark } = useTheme();
 
   return (
-    <ScreenSafeAreaView hasNativeHeader style={[styles.container, isDark && styles.containerDark]}>
+    <ScreenSafeAreaView style={[styles.container, isDark && styles.containerDark]}>
       <ScreenScrollView contentContainerStyle={{ paddingBottom: spacing.xl }}>
         <NotificationSection />
       </ScreenScrollView>

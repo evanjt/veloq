@@ -485,8 +485,7 @@ const styles = StyleSheet.create({
     borderColor: colors.transparent,
   },
   activityPillText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
+    ...typography.captionBold,
   },
   noActivityLabel: {
     fontSize: typography.label.fontSize,

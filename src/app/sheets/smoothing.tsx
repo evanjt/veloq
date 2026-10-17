@@ -24,11 +24,10 @@ function SmoothingSheetContent() {
   const { input, resolve } = useSheetRequest<SmoothingSheetInput, SmoothingWindow>();
   const current = input?.window;
 
-  const surface = isDark ? darkColors.surface : colors.surface;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   return (
-    <View style={[styles.sheet, { backgroundColor: surface }]}>
+    <View style={styles.sheet}>
       <SheetHeader
         title={t('wellness.smoothingTitle' as never)}
         subtitle={t('wellness.smoothingDescription' as never)}
@@ -73,7 +72,6 @@ const styles = StyleSheet.create({
   },
   hint: {
     ...typography.caption,
-    fontStyle: 'italic',
     paddingHorizontal: layout.screenPadding,
   },
 });

@@ -185,8 +185,11 @@ impl RouteManager {
         };
         with_engine(|e| {
             e.set_route_name(&route_id, name_opt)
-                .map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
+                .map_err(|error| match error {
+                    crate::persistence::RouteNameError::Taken(name) => {
+                        VeloqError::RouteNameTaken { name }
+                    }
+                    crate::persistence::RouteNameError::Failed(msg) => VeloqError::Database { msg },
                 })
         })?
     }
@@ -210,37 +213,28 @@ impl RouteManager {
         })?
     }
 
-    /// Everything the route detail screen paints with: engine counts, the
-    /// route and the group list it is ranked within, every attempt across
-    /// sports, the representative polyline, names, exclusions and signatures.
-    fn get_detail_data(
-        &self,
-        group_id: String,
-        current_activity_id: Option<String>,
-        min_group_activities: u32,
-    ) -> Result<crate::FfiRouteDetailData, VeloqError> {
+    /// Everything the route detail screen paints with that one sport and one
+    /// range do not change: engine counts, the route and its shown name, the
+    /// representative polyline and headline, exclusions and signatures.
+    fn get_detail_data(&self, group_id: String) -> Result<crate::FfiRouteDetailData, VeloqError> {
         // Off the engine lock: every read behind this is committed rows. The
-        // groups it lists are the last saved grouping rather than one a
-        // regroup would produce on the way past, which is the deferred-regroup
-        // staleness the app already announces to the athlete.
-        with_reader(|conn| {
-            crate::persistence::screens::pooled::route_detail_data(
-                conn,
-                &group_id,
-                current_activity_id.as_deref(),
-                min_group_activities,
-            )
-        })
+        // route is the last saved grouping rather than one a regroup would
+        // produce on the way past, which is the deferred-regroup staleness the
+        // app already announces to the athlete.
+        with_reader(|conn| crate::persistence::screens::pooled::route_detail_data(conn, &group_id))
     }
 
     /// The route detail reads that answer one sport and one range, in the
     /// section performance read's shape: the chart, calendar, ranged bests,
     /// trend, histogram, correlations, sport counts and excluded attempts.
+    /// `highlight_activity_id` is the attempt the scatter's focus range always
+    /// holds.
     fn get_detail_performance(
         &self,
         group_id: String,
         time_range_days: u32,
         sport_filter: Option<String>,
+        highlight_activity_id: Option<String>,
     ) -> Result<crate::FfiSectionPerformanceData, VeloqError> {
         // Off the engine lock: every read behind this is committed rows. The
         // delta curves come only once held, since computing them can take
@@ -252,6 +246,7 @@ impl RouteManager {
                 &group_id,
                 time_range_days,
                 sport_filter.as_deref(),
+                highlight_activity_id.as_deref(),
                 CurveRead::Held,
             )
         })

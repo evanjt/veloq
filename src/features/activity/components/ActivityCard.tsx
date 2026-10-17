@@ -6,7 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as haptics from '@/shared/ui/haptics';
 import { useTranslation } from 'react-i18next';
 import type { Activity } from '@/types';
-import { getActivityIcon, getActivityColor, getActivityInk } from '@/shared/activity/activityUtils';
+import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
 import {
   formatHeartRate,
   formatPower,
@@ -26,6 +26,7 @@ import {
   ink,
   layout,
   mapTextShadow,
+  opacity,
   slopToMinTapTarget,
   spacing,
   typography,
@@ -103,7 +104,7 @@ interface ActivityCardProps {
 const WHITE_TEXT = {
   text: ink.white,
   textSecondary: colorWithOpacity(ink.white, 0.85),
-  dot: colorWithOpacity(ink.white, 0.5),
+  dot: colorWithOpacity(ink.white, opacity.disabled),
   divider: colorWithOpacity(ink.white, 0.15),
   secondaryText: colorWithOpacity(ink.white, 0.9),
   shadow: colorWithOpacity(ink.black, 0.8),
@@ -125,7 +126,7 @@ const GRADIENT = {
   lightLight: {
     top: [
       colorWithOpacity(ink.white, 0.92),
-      colorWithOpacity(ink.white, 0.5),
+      colorWithOpacity(ink.white, opacity.disabled),
       'transparent',
     ] as const,
     bottom: [
@@ -138,7 +139,7 @@ const GRADIENT = {
   // Light theme + dark map: subtle scrim, map already provides contrast
   lightDark: {
     top: [
-      colorWithOpacity(ink.black, 0.5),
+      colorWithOpacity(ink.black, opacity.disabled),
       colorWithOpacity(ink.black, 0.2),
       'transparent',
     ] as const,
@@ -152,8 +153,8 @@ const GRADIENT = {
   // Dark theme + light map: strong dark scrim to blend into dark UI
   darkLight: {
     top: [
-      colorWithOpacity(ink.black, 0.7),
-      colorWithOpacity(ink.black, 0.3),
+      colorWithOpacity(ink.black, opacity.pressed),
+      colorWithOpacity(ink.black, opacity.tint4),
       'transparent',
     ] as const,
     bottom: [
@@ -166,7 +167,7 @@ const GRADIENT = {
   // Dark theme + dark map: subtle scrim, everything already dark
   darkDark: {
     top: [
-      colorWithOpacity(ink.black, 0.5),
+      colorWithOpacity(ink.black, opacity.disabled),
       colorWithOpacity(ink.black, 0.2),
       'transparent',
     ] as const,
@@ -274,7 +275,6 @@ export const ActivityCard = React.memo(
 
     const { getStyleForActivity } = useMapPreferences();
     const activityColor = getActivityColor(activity.type);
-    const activityInk = getActivityInk(activity.type, isDark);
     const iconName = getActivityIcon(activity.type);
     const mapStyle = getStyleForActivity(activity.type, activity.id);
     const theme = getGradientTheme(isDark, mapStyle);
@@ -283,7 +283,7 @@ export const ActivityCard = React.memo(
     const compactTextColor = isDark ? darkColors.textPrimary : colors.textPrimary;
     const compactMutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
     const compactDotColor = isDark
-      ? colorWithOpacity(ink.white, 0.3)
+      ? colorWithOpacity(ink.white, opacity.tint4)
       : colorWithOpacity(ink.black, 0.25);
     const compactDividerColor = isDark ? darkColors.border : colorWithOpacity(ink.black, 0.1);
 
@@ -436,7 +436,7 @@ export const ActivityCard = React.memo(
                       <MaterialCommunityIcons
                         name="map-marker-off"
                         size={iconSize.sm}
-                        color={activityInk}
+                        color={compactMutedColor}
                         style={styles.compactNoMapIcon}
                       />
                     </View>
@@ -1040,8 +1040,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   secondaryStatValue: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
+    ...typography.captionBold,
   },
   compactContent: {
     padding: spacing.smPlus,
@@ -1059,18 +1058,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   compactName: {
+    ...typography.cardTitle,
     flex: 1,
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
     letterSpacing: -0.3,
   },
   compactNoMapIcon: {
     marginLeft: spacing.xsPlus,
-    opacity: 0.5,
   },
   compactDateSubtitle: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '400',
+    ...typography.caption,
     marginTop: spacing.xxs,
   },
   compactPrimaryRow: {

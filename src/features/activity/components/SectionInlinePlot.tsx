@@ -486,9 +486,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   name: {
+    ...typography.bodyBold,
     flex: 1,
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
     color: colors.textPrimary,
   },
   directionRow: {

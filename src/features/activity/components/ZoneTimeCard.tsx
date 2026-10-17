@@ -14,7 +14,8 @@ export interface ZoneTimeBand {
   /** Absent for an open top zone */
   max?: number | undefined;
   seconds: number;
-  percent: number;
+  /** The engine's whole-percent share, the bands' shares totalling 100 */
+  share: number;
 }
 
 interface ZoneTimeCardProps {
@@ -53,7 +54,8 @@ export function ZoneTimeCard({
     key: `Z${band.zone}`,
     label: `Z${band.zone}`,
     zone: band.zone,
-    percent: band.percent,
+    seconds: band.seconds,
+    share: band.share,
     primary: formatDurationHuman(band.seconds),
     secondary: formatRange(band.min, band.max ?? null),
   }));

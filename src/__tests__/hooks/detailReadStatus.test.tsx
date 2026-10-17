@@ -146,14 +146,14 @@ describe('route detail read status', () => {
         throw failure;
       },
     });
-    const { result } = await renderHook(() => useRouteDetailData('g1', undefined));
+    const { result } = await renderHook(() => useRouteDetailData('g1'));
     expect(result.current.data).toBeNull();
     expect(result.current.status).toEqual({ kind: 'failed', error: failure });
   });
 
   it('reports a closed engine as closed', async () => {
     mockGetEngine.mockReturnValue(null);
-    const { result } = await renderHook(() => useRouteDetailData('g1', undefined));
+    const { result } = await renderHook(() => useRouteDetailData('g1'));
     expect(result.current.status).toEqual({ kind: 'closed' });
   });
 
@@ -162,7 +162,7 @@ describe('route detail read status', () => {
       subscribe: () => () => {},
       getRouteDetailData: () => ({ activityCount: 0, group: undefined }),
     });
-    const { result } = await renderHook(() => useRouteDetailData('g1', undefined));
+    const { result } = await renderHook(() => useRouteDetailData('g1'));
     expect(result.current.status).toEqual({ kind: 'missing' });
   });
 });

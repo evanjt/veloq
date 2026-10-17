@@ -1,7 +1,17 @@
 import type { ColorSchemeName } from 'react-native';
-import { DefaultTheme, type Theme } from 'expo-router';
+import type { Theme } from 'expo-router';
 
 import { colors, darkColors } from './colors';
+import { faceWeight, typeface } from './typography';
+
+// The stack's header titles, back titles and tab labels draw the app's face at
+// the weights it ships, through the slots the navigator reads them from.
+const fonts: Theme['fonts'] = {
+  regular: { fontFamily: typeface.family, fontWeight: faceWeight('400') },
+  medium: { fontFamily: typeface.family, fontWeight: faceWeight('500') },
+  bold: { fontFamily: typeface.family, fontWeight: faceWeight('700') },
+  heavy: { fontFamily: typeface.family, fontWeight: faceWeight('800') },
+};
 
 function build(dark: boolean): Theme {
   const palette = dark ? darkColors : colors;
@@ -15,7 +25,7 @@ function build(dark: boolean): Theme {
       border: palette.border,
       notification: palette.error,
     },
-    fonts: DefaultTheme.fonts,
+    fonts,
   };
 }
 

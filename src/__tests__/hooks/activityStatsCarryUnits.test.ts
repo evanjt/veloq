@@ -56,7 +56,7 @@ describe('the activity stat tiles', () => {
   });
 
   it('give heart rate, energy and power a unit beside the value', () => {
-    expect(card('Heart Rate')).toMatchObject({ value: '152', unit: 'bpm' });
+    expect(card('Heart rate')).toMatchObject({ value: '152', unit: 'bpm' });
     expect(card('Energy')).toMatchObject({ value: '820', unit: 'kcal' });
     expect(card('Power')).toMatchObject({ value: '245', unit: 'W' });
   });
@@ -86,13 +86,13 @@ describe('the activity stat tiles', () => {
   });
 
   it('names the maximum heart rate Max, as the power card does', () => {
-    expect(row('Heart Rate', 'Max')).toBe('181 bpm');
+    expect(row('Heart rate', 'Max')).toBe('181 bpm');
     expect(i18n.exists('activity.stats.peak')).toBe(false);
   });
 
   it('print HRV in ms through the one formatter on both cards', () => {
-    expect(row('Heart Rate', 'HRV that day')).toBe('48 ms');
-    expect(row('Your Form', 'HRV')).toBe('48 ms');
+    expect(row('Heart rate', 'HRV that day')).toBe('48 ms');
+    expect(row('Your form', 'HRV')).toBe('48 ms');
   });
 
   it('print energy in kcal and its rate per hour', () => {
@@ -105,6 +105,6 @@ describe('the activity stat tiles', () => {
   });
 
   it('print the sleep score as a score, as Health does', () => {
-    expect(row('Your Form', 'Sleep Score')).toBe('85');
+    expect(row('Your form', 'Sleep score')).toBe('85');
   });
 });

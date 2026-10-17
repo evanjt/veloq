@@ -99,7 +99,8 @@
     "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
     "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
     "charts.column.distance": "The same word in this language.",
-    "charts.column.zone": "The same word in this language."
+    "charts.column.zone": "The same word in this language.",
+    "recording.settingsAutoPause": "Established loanword for the recording feature."
   },
   "de-CH": {
     "activity.stats.maxLabel": "Abbreviation of the German label with the same spelling.",
@@ -227,7 +228,6 @@
     "fitnessScreen.ctl": "Conventional training or recording abbreviation.",
     "fitnessScreen.linkTSBManagement": "Original title of the linked English-language article.",
     "fitnessScreen.linkTrainingLoad": "Original title of the linked English-language article.",
-    "fitnessScreen.title": "Established German loanword or technical term.",
     "formZones.optimal": "German word or phrase with the same spelling.",
     "insights.beta": "The German word for a pre-release, spelled as in English.",
     "insights.sectionWithSport": "Placeholders only, no translatable words.",
@@ -252,7 +252,6 @@
     "recording.library.statusLabel": "German word or phrase with the same spelling.",
     "recording.rec": "Conventional training or recording abbreviation.",
     "recording.rpe": "Conventional training or recording abbreviation.",
-    "recording.settingsAutoPause": "Established German loanword or technical term.",
     "recording.splitBanner": "Interpolation and punctuation only; the inserted names and units are localised.",
     "routes.sortNameAZ": "German word or phrase with the same spelling.",
     "routes.targetPace": "Established German loanword or technical term.",
@@ -629,7 +628,6 @@
     "settings.support": "French word or phrase with the same spelling.",
     "settings.unitsAuto": "Abbreviation of the French label with the same spelling.",
     "settings.version": "French word or phrase with the same spelling.",
-    "strength.balancePairs.bicepsTriceps": "French anatomical term or abbreviation with the same spelling.",
     "strength.muscles.biceps": "French anatomical term or abbreviation with the same spelling.",
     "strength.muscles.obliques": "French anatomical term or abbreviation with the same spelling.",
     "strength.muscles.quadriceps": "French anatomical term or abbreviation with the same spelling.",
@@ -956,7 +954,8 @@
     "charts.summary.title": "Placeholder and full stop only, no translatable words.",
     "charts.summary.single": "Placeholders and punctuation only, no translatable words.",
     "charts.summary.parts": "Placeholders and punctuation only, no translatable words.",
-    "charts.column.zone": "The same word in this language."
+    "charts.column.zone": "The same word in this language.",
+    "licenses.sectionNativeEngine": "Dutch words with the same spelling, beside the library's own name."
   },
   "pl": {
     "activity.stats.trimp": "Conventional training or recording abbreviation.",
@@ -1003,7 +1002,6 @@
     "sections.plotHistogram": "Established statistical term, written the same in this language.",
     "settings.unitsAuto": "Abbreviation of the Polish label with the same spelling.",
     "stats.gap": "Conventional training or recording abbreviation.",
-    "strength.balancePairs.bicepsTriceps": "Polish anatomical term or abbreviation with the same spelling.",
     "strength.muscles.biceps": "Polish anatomical term or abbreviation with the same spelling.",
     "strength.muscles.triceps": "Polish anatomical term or abbreviation with the same spelling.",
     "support.forum": "Polish word or phrase with the same spelling.",

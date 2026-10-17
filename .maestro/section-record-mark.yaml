@@ -29,10 +29,20 @@ tags:
       id: "section-row-.*"
     timeout: 300000
 
-- scrollUntilVisible:
-    element:
-      id: "section-row-record-.*"
-    direction: DOWN
-    timeout: 30000
+# The search, filter and sort rows above the list stay put and can reach past
+# the middle of a phone screen, so a scroll from the screen's centre moves
+# nothing. Swipe inside the list.
+- repeat:
+    times: 20
+    commands:
+      - runFlow:
+          when:
+            notVisible:
+              id: "section-row-record-.*"
+          commands:
+            - swipe:
+                start: 50%, 82%
+                end: 50%, 62%
+                duration: 400
 - assertVisible:
     id: "section-row-record-.*"

@@ -14,6 +14,8 @@
  * the part of it the keyboard covers. A tap on a button with the keyboard up reaches the button
  * rather than only dismissing the keyboard, and a drag puts the keyboard away.
  * A prop the caller passes wins over the default.
+ *
+ * Its content is one readable column, `readableColumn`, centred in a window wider than that.
  */
 
 import React, { forwardRef, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
@@ -29,6 +31,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { useWindowInsets } from '@/shared/app/TopSafeAreaContext';
+import { layout } from '@/theme';
 import { useScrollEndInset } from './tabBarClearance';
 
 /** Whether the keyboard has to be cleared by padding, read once like the defaults below. */
@@ -63,6 +66,17 @@ export const screenListInsets: ScreenScrollDefaults =
   Platform.OS === 'ios'
     ? { contentInsetAdjustmentBehavior: 'automatic', ...formKeyboardProps }
     : formKeyboardProps;
+
+/**
+ * A screen's content column: the full width on a phone, and `layout.maxContentWidth` centred in
+ * a wider window. Put it first on the content container of a screen's vertical list, so the
+ * screen's own padding applies inside the column.
+ */
+export const readableColumn: ViewStyle = {
+  width: '100%',
+  maxWidth: layout.maxContentWidth,
+  alignSelf: 'center',
+};
 
 /** How far a view whose top and height are given reaches below the keyboard's top edge. */
 function keyboardOverlap(viewTop: number, viewHeight: number, keyboardTop: number): number {
@@ -133,13 +147,14 @@ export const ScreenScrollView = forwardRef<ScrollView, ScrollViewProps>(function
   ref
 ) {
   const endInset = useScrollEndInset();
+  const column = props.horizontal ? contentContainerStyle : [readableColumn, contentContainerStyle];
   return (
     <KeyboardClearance>
       <ScrollView
         ref={ref}
         {...screenListInsets}
         {...props}
-        contentContainerStyle={withEndPadding(contentContainerStyle, endInset)}
+        contentContainerStyle={withEndPadding(column, endInset)}
       />
     </KeyboardClearance>
   );

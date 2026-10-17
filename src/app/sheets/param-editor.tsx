@@ -71,7 +71,6 @@ function ParamEditorSheetContent() {
     min: bound(range.min),
     max: bound(range.max),
   });
-  const surface = isDark ? darkColors.surface : colors.surface;
   const secondary = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   const ids =
@@ -90,7 +89,7 @@ function ParamEditorSheetContent() {
   };
 
   return (
-    <View testID={prefix} style={[styles.sheet, { backgroundColor: surface }]}>
+    <View testID={prefix} style={styles.sheet}>
       <SheetHeader title={input.label} {...actions} />
       <View style={styles.body}>
         <TextField

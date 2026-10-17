@@ -405,18 +405,30 @@ struct SyncInner {
     /// The install the running job claimed its slot against, so a clean finish
     /// stamps the library it ran for and never one that replaced it.
     install: Option<u64>,
-    running: bool,
+    /// What holds the exclusive slot, or `None` when it is free. The one
+    /// answer to whether a sync is running, and to what it was asked to do,
+    /// so an interrupt can hand it back.
+    running: Option<SyncRequest>,
     cancel: bool,
     /// A credential the profile confirmed as rejected. Set by the park and
     /// cleared only by a credential change, so the running sync's own
     /// terminal transition cannot write `Idle` over it and nothing new
     /// begins on the dead token.
     auth_expired: bool,
-    /// What the running job was asked to do, kept so an interrupt can hand
-    /// it back.
-    running_request: Option<SyncRequest>,
     /// A restart waiting for the interrupted run to settle.
     resume: Option<PendingResume>,
+    /// Windows refused because the slot was held, in the order they were
+    /// asked for. Started by the engine as the slot frees, since a refusal
+    /// that is not a network failure is retried by no edge the caller sees.
+    owed: Vec<OwedWindow>,
+}
+
+/// A date window refused while the slot was held, and whose athlete asked.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct OwedWindow {
+    athlete_id: String,
+    oldest: String,
+    newest: String,
 }
 
 /// What a sync was started for: the default pass, or one date window.
@@ -457,11 +469,11 @@ impl Default for SyncInner {
             retry_at: None,
             deferred_until: None,
             install: None,
-            running: false,
+            running: None,
             cancel: false,
             auth_expired: false,
-            running_request: None,
             resume: None,
+            owed: Vec::new(),
         }
     }
 }
@@ -472,14 +484,24 @@ pub struct SyncService {
     inner: Mutex<SyncInner>,
     creds: Mutex<Option<Credentials>>,
     base_url: Mutex<String>,
+    /// Starts a window the slot refused, once it frees.
+    start_window: Box<dyn Fn(String, String) + Send + Sync>,
 }
 
 impl SyncService {
+    #[cfg(test)]
     fn new() -> Self {
+        Self::starting_windows_with(|_, _| {})
+    }
+
+    fn starting_windows_with(
+        start_window: impl Fn(String, String) + Send + Sync + 'static,
+    ) -> Self {
         SyncService {
             inner: Mutex::new(SyncInner::default()),
             creds: Mutex::new(None),
             base_url: Mutex::new(INTERVALS_BASE_URL.to_string()),
+            start_window: Box::new(start_window),
         }
     }
 
@@ -572,17 +594,34 @@ impl SyncService {
         self.claim_slot_for(SyncRequest::Full { force: false })
     }
 
+    /// Claim the slot for `request`, or name why not.
+    ///
+    /// A window refused because the slot is held is kept owed under the same
+    /// lock, so the finish that frees the slot cannot pass between the
+    /// refusal and the record and leave it unasked.
     fn claim_slot_for(&self, request: SyncRequest) -> Result<(), FfiStartOutcome> {
+        let athlete_id = self.athlete_id();
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         if inner.auth_expired {
             return Err(FfiStartOutcome::NotConfigured);
         }
-        if inner.running {
+        if inner.running.is_some() {
+            if let (SyncRequest::Window { oldest, newest }, Some(athlete_id)) =
+                (request, athlete_id)
+            {
+                let owed = OwedWindow {
+                    athlete_id,
+                    oldest,
+                    newest,
+                };
+                if !inner.owed.contains(&owed) {
+                    inner.owed.push(owed);
+                }
+            }
             return Err(FfiStartOutcome::Busy);
         }
-        inner.running = true;
+        inner.running = Some(request);
         inner.install = Some(crate::persistence::engine_install());
-        inner.running_request = Some(request);
         inner.cancel = false;
         inner.state = SyncState::Syncing;
         inner.total = 1;
@@ -671,14 +710,13 @@ impl SyncService {
         let stamp;
         let resume = {
             let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
-            inner.running_request = None;
             let install = inner.install.take();
             let resume = inner.resume.take();
             // A park outlives whatever was running when it landed. Without
             // this the interrupted run's own tail wrote `Idle` over it and
             // the athlete was never told the session was gone.
             if inner.auth_expired && state != SyncState::AuthExpired {
-                inner.running = false;
+                inner.running = None;
                 inner.in_flight = 0;
                 inner.step = None;
                 drop(inner);
@@ -687,7 +725,7 @@ impl SyncService {
             }
             stamp = install.filter(|_| success && failure.is_none() && state == SyncState::Idle);
             inner.state = state;
-            inner.running = false;
+            inner.running = None;
             inner.in_flight = 0;
             inner.step = None;
             inner.step_items_done = 0;
@@ -711,6 +749,34 @@ impl SyncService {
             && self.still_signed_in(&resume.athlete_id)
         {
             (resume.start)();
+        }
+        self.start_owed_windows();
+    }
+
+    /// Start the windows the slot refused, oldest ask first, until one of
+    /// them holds it again. The rest wait for that run's finish.
+    ///
+    /// A start that does not take the slot, a window that landed meanwhile
+    /// and answers `NotOwed`, an engine not open, is passed over for the next.
+    /// Nothing starts while the credential is parked or the engine is
+    /// suspended: the resume that ends a suspension restarts the run it cut
+    /// short, and that run's finish comes back here. A window owed for an
+    /// athlete who has since signed out is dropped.
+    fn start_owed_windows(&self) {
+        if crate::persistence::suspension::is_suspended() {
+            return;
+        }
+        loop {
+            let next = {
+                let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+                if inner.running.is_some() || inner.auth_expired || inner.owed.is_empty() {
+                    return;
+                }
+                inner.owed.remove(0)
+            };
+            if self.still_signed_in(&next.athlete_id) {
+                (self.start_window)(next.oldest, next.newest);
+            }
         }
     }
 
@@ -801,7 +867,7 @@ impl SyncService {
         inner.cancel = true;
         // Pause dispatch while a request is in flight; the job's terminal
         // transition then settles back to Idle.
-        if inner.running {
+        if inner.running.is_some() {
             inner.state = SyncState::Paused;
         }
     }
@@ -812,7 +878,7 @@ impl SyncService {
     pub(crate) fn interrupt(&self) -> Option<Interrupted> {
         let running = {
             let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
-            inner.running_request.clone()
+            inner.running.clone()
         };
         let athlete_id = self.athlete_id();
         self.request_cancel();
@@ -841,7 +907,7 @@ impl SyncService {
             if inner.auth_expired {
                 return;
             }
-            if inner.running {
+            if inner.running.is_some() {
                 inner.resume = Some(PendingResume {
                     athlete_id: interrupted.athlete_id,
                     start: Box::new(start),
@@ -913,7 +979,11 @@ fn stamp_last_success(install: u64) {
 }
 
 /// The process-wide sync service.
-pub static SYNC_SERVICE: LazyLock<SyncService> = LazyLock::new(SyncService::new);
+pub static SYNC_SERVICE: LazyLock<SyncService> = LazyLock::new(|| {
+    SyncService::starting_windows_with(|oldest, newest| {
+        start_window_sync(oldest, newest);
+    })
+});
 
 /// Ask the credential again, on an endpoint a live one always answers.
 ///
@@ -4183,6 +4253,10 @@ pub(crate) fn start_resumed_sync() -> FfiStartResult {
 
 /// Start a sync of one date window, answering `NotOwed` for a window the
 /// census holds current.
+///
+/// A window refused `Busy` is not forgotten: the service keeps it owed and
+/// starts it here again when the run holding the slot finishes, so the caller
+/// asks once.
 fn start_window_sync(oldest: String, newest: String) -> FfiStartOutcome {
     if let Some(athlete_id) = SYNC_SERVICE.athlete_id() {
         // Recorded for every ask, including one that answers `NotOwed` or is
@@ -4577,6 +4651,10 @@ mod sync_profile_gate_tests;
 #[cfg(test)]
 #[path = "tests/sync_install_stamp.rs"]
 mod sync_install_stamp_tests;
+
+#[cfg(test)]
+#[path = "tests/sync_slot.rs"]
+mod sync_slot_tests;
 
 #[cfg(test)]
 mod tests {

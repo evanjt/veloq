@@ -1,22 +1,18 @@
 /**
  * Shared scrub gesture for every chart.
  *
- * Uses manual activation rather than `.activateAfterLongPress()`. While the
- * long-press timer runs the gesture stays UNDETERMINED, so a parent ScrollView
- * keeps scrolling and only claims the touch once the finger has actually moved
- * vertically. A JS timer drives the wait so the haptic and the crosshair still
- * fire when the finger is perfectly still, which a worklet-only timer cannot do.
+ * A scrub starts on the first horizontal move, with no hold, and a vertical
+ * move leaves the touch to the page. `useScrubPan` decides which.
  *
  * Charts feed pixel x-coordinates in through `syncXCoords`. Selection snaps to
  * the nearest of those, which makes log-scaled axes work without a separate
  * domain mode, and the crosshair sits exactly on the point rather than under
  * the finger.
  *
- * Small charts that fill a tappable card use `scrubActivation: 'drag'` instead.
- * There the surface behind answers the tap, so waiting would only delay the
- * scrub, and the tap is composed exclusively against the pan.
+ * Small charts that fill a tappable card use `scrubActivation: 'drag'` instead,
+ * which claims a move in any direction and a smaller slop.
  *
- * A screen reader, a switch or a keyboard makes no hold and no drag, so the
+ * A screen reader, a switch or a keyboard makes no drag, so the
  * surface is also one adjustable element that steps the selection by sample.
  * A step pins the point the way a tap does: it opens no scrub, so a screen
  * that locks its scroll while scrubbing stays scrollable, and it fires no
@@ -45,7 +41,7 @@ import {
 import { light as lightHaptic } from '@/shared/ui/haptics';
 import { useGestureCallback } from '@/shared/ui/useGestureCallback';
 import { CHART_CONFIG } from './constants';
-import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
+import { useScrubPan } from './useScrubPan';
 
 // ============================================================================
 // Types
@@ -96,17 +92,11 @@ export interface ChartGestureOptions<T> {
   scrubEnabled?: boolean | undefined;
 
   /**
-   * How the scrub claims the touch. `longPress` waits, which is what a chart
-   * inside a scrolling page needs. `drag` claims as soon as the finger moves,
-   * for a small chart whose whole card is also tappable.
+   * How the scrub claims the touch. `horizontal` claims a horizontal move and
+   * fails a vertical one, which is what a chart inside a scrolling page needs.
+   * `drag` claims any move, for a small chart whose whole card is also tappable.
    */
-  scrubActivation?: 'longPress' | 'drag' | undefined;
-
-  /** Long-press wait before the scrub claims the touch. */
-  activationDelay?: number | undefined;
-
-  /** Vertical travel that hands the touch back to the scroll parent. */
-  verticalSlop?: number | undefined;
+  scrubActivation?: 'horizontal' | 'drag' | undefined;
 
   /** Movement that starts a drag-activated scrub. */
   dragSlop?: number | undefined;
@@ -194,9 +184,7 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
     onInteractionChange,
     enabled = true,
     scrubEnabled = true,
-    scrubActivation = 'longPress',
-    activationDelay = PREVIEW_HOLD_MS,
-    verticalSlop = CHART_CONFIG.PAN_THRESHOLD,
+    scrubActivation = 'horizontal',
     dragSlop = CHART_CONFIG.DRAG_SLOP,
     haptics = true,
     sharedSelectedIdx,
@@ -326,88 +314,10 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
     [scrubOnJS, sharedSelectedIdx]
   );
 
-  // Manual activation: hold the touch UNDETERMINED until the timer fires so the
-  // scroll parent stays in control, then activate on the next move.
-  const gestureStartY = useSharedValue(0);
-  const gestureInitialX = useSharedValue(0);
-  const gestureReady = useSharedValue(false);
-  const gestureActive = useSharedValue(false);
-  const longPressTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-
-  const beginLongPress = useCallback(() => {
-    clearTimeout(longPressTimer.current);
-    longPressTimer.current = setTimeout(() => {
-      touchX.value = gestureInitialX.value;
-      gestureReady.value = true;
-      if (haptics) lightHaptic();
-    }, activationDelay);
-  }, [touchX, gestureInitialX, gestureReady, activationDelay, haptics]);
-  const beginLongPressOnJS = useGestureCallback(beginLongPress);
-
-  const cancelLongPress = useCallback(() => {
-    clearTimeout(longPressTimer.current);
-    gestureReady.value = false;
-  }, [gestureReady]);
-  const cancelLongPressOnJS = useGestureCallback(cancelLongPress);
-
-  useEffect(() => () => clearTimeout(longPressTimer.current), []);
-
-  const longPressPan = useMemo(
-    () =>
-      Gesture.Pan()
-        .manualActivation(true)
-        .onTouchesDown((e) => {
-          'worklet';
-          gestureStartY.value = e.allTouches[0].absoluteY;
-          gestureInitialX.value = e.allTouches[0].x;
-          gestureReady.value = false;
-          gestureActive.value = false;
-          runOnJS(beginLongPressOnJS)();
-        })
-        .onTouchesMove((e, mgr) => {
-          'worklet';
-          if (gestureActive.value) return;
-          if (Math.abs(e.allTouches[0].absoluteY - gestureStartY.value) > verticalSlop) {
-            runOnJS(cancelLongPressOnJS)();
-            mgr.fail();
-            return;
-          }
-          if (gestureReady.value) {
-            gestureActive.value = true;
-            mgr.activate();
-          }
-        })
-        .onTouchesUp((_e, mgr) => {
-          'worklet';
-          if (gestureActive.value) return;
-          runOnJS(cancelLongPressOnJS)();
-          touchX.value = -1;
-          mgr.fail();
-        })
-        .onStart((e) => {
-          'worklet';
-          touchX.value = e.x;
-        })
-        .onUpdate((e) => {
-          'worklet';
-          touchX.value = e.x;
-        })
-        .onEnd(() => {
-          'worklet';
-          touchX.value = -1;
-          gestureActive.value = false;
-        }),
-    [
-      beginLongPressOnJS,
-      cancelLongPressOnJS,
-      gestureStartY,
-      gestureInitialX,
-      gestureReady,
-      gestureActive,
-      touchX,
-      verticalSlop,
-    ]
-  );
+  const activationHaptic = useCallback(() => {
+    if (haptics) lightHaptic();
+  }, [haptics]);
+  const horizontalPan = useScrubPan(touchX, activationHaptic);
 
   // Drag activation: the scrub takes the touch as soon as the finger moves past
   // the slop, which lets a stationary touch stay a tap on the surface behind.
@@ -431,7 +341,7 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
     [dragSlop, touchX]
   );
 
-  const panGesture = scrubActivation === 'drag' ? dragPan : longPressPan;
+  const panGesture = scrubActivation === 'drag' ? dragPan : horizontalPan;
 
   const handleTap = useCallback(
     (x: number, y: number) => {
@@ -467,16 +377,10 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
     if (!enabled) return nativeGesture;
     if (!scrubEnabled)
       return wantsTap ? Gesture.Simultaneous(nativeGesture, tapGesture) : nativeGesture;
-    // Drag activation races the tap, so the two must be exclusive or a scrub
-    // would also fire the tap on release.
-    if (scrubActivation === 'drag') {
-      return wantsTap ? Gesture.Exclusive(panGesture, tapGesture) : panGesture;
-    }
-    if (wantsTap) {
-      return Gesture.Simultaneous(nativeGesture, Gesture.Simultaneous(tapGesture, panGesture));
-    }
-    return panGesture;
-  }, [enabled, scrubEnabled, scrubActivation, wantsTap, nativeGesture, tapGesture, panGesture]);
+    // The scrub claims a moving touch and the tap a still one, so the two are
+    // exclusive or a scrub would also fire the tap on release.
+    return wantsTap ? Gesture.Exclusive(panGesture, tapGesture) : panGesture;
+  }, [enabled, scrubEnabled, wantsTap, nativeGesture, tapGesture, panGesture]);
 
   // A step starts from whatever is selected, wherever it was set: a sibling
   // chart's selection is the newest, then this chart's own, then the screen's

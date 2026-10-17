@@ -650,6 +650,7 @@ fn activity_hr_zones(
     if total <= 0.0 {
         return None;
     }
+    let shares = crate::persistence::fitness::whole_shares(&seconds);
     Some(
         bounds
             .iter()
@@ -664,6 +665,7 @@ fn activity_hr_zones(
                 max_bpm: upper.round() as u32,
                 seconds: seconds[i],
                 percent: seconds[i] / total * 100.0,
+                share: shares[i],
             })
             .collect(),
     )
@@ -712,7 +714,8 @@ fn activity_hr_zones_from(
 /// The summary intervals.icu stored with the activity. A field that is
 /// missing, zero or not a number is `None`: a manual entry or a trainer ride
 /// sends zeros for what it never measured, and a zero speed is not a reading.
-fn activity_summary(body: Option<&str>) -> crate::FfiActivitySummary {
+/// Cadence is in the unit of `sport`, so a run's strides are steps.
+fn activity_summary(body: Option<&str>, sport: &str) -> crate::FfiActivitySummary {
     let body: Option<serde_json::Value> = body.and_then(|b| serde_json::from_str(b).ok());
     let field = |name: &str| positive(body.as_ref()?.get(name)?.as_f64());
     crate::FfiActivitySummary {
@@ -720,7 +723,9 @@ fn activity_summary(body: Option<&str>) -> crate::FfiActivitySummary {
         elapsed_time: field("elapsed_time"),
         average_speed: field("average_speed"),
         max_speed: field("max_speed"),
-        average_cadence: field("average_cadence"),
+        average_cadence: field("average_cadence")
+            .map(|cadence| crate::sport::cadence_per_minute(sport, cadence)),
+        cadence_unit: crate::sport::cadence_unit(sport),
     }
 }
 
@@ -761,6 +766,9 @@ fn activity_power_zones(body: Option<&str>) -> Option<Vec<crate::FfiPowerZoneBan
     if total <= 0.0 {
         return None;
     }
+    let shares = crate::persistence::fitness::whole_shares(
+        &seconds.iter().map(|s| f64::from(*s)).collect::<Vec<_>>(),
+    );
     Some(
         seconds
             .iter()
@@ -771,6 +779,7 @@ fn activity_power_zones(body: Option<&str>) -> Option<Vec<crate::FfiPowerZoneBan
                 max_watts: uppers.get(i).copied(),
                 seconds: f64::from(*secs),
                 percent: f64::from(*secs) / total * 100.0,
+                share: shares[i],
             })
             .collect(),
     )
@@ -908,33 +917,22 @@ impl super::PersistentEngine {
         section_id: &str,
         time_range_days: u32,
         sport_filter: Option<&str>,
+        highlight_activity_id: Option<&str>,
     ) -> crate::FfiSectionPerformanceData {
         pooled::section_detail_performance(
             self.cold_connection(),
             section_id,
             time_range_days,
             sport_filter,
+            highlight_activity_id,
             crate::persistence::sections::lap_curves::pooled::CurveRead::Held,
         )
     }
 
-    /// Everything the route detail screen paints with.
-    ///
-    /// The performances come back unfiltered so the screen can build its sport
-    /// pills without a second read. A sport-filtered read is only worth making
-    /// once the user picks one.
-    pub fn route_detail_data(
-        &self,
-        group_id: &str,
-        current_activity_id: Option<&str>,
-        min_group_activities: u32,
-    ) -> crate::FfiRouteDetailData {
-        pooled::route_detail_data(
-            self.cold_connection(),
-            group_id,
-            current_activity_id,
-            min_group_activities,
-        )
+    /// Everything the route detail screen paints with that one sport and one
+    /// range do not change.
+    pub fn route_detail_data(&self, group_id: &str) -> crate::FfiRouteDetailData {
+        pooled::route_detail_data(self.cold_connection(), group_id)
     }
 
     /// The route detail reads that answer one sport and one range, in the
@@ -945,12 +943,14 @@ impl super::PersistentEngine {
         group_id: &str,
         time_range_days: u32,
         sport_filter: Option<&str>,
+        highlight_activity_id: Option<&str>,
     ) -> crate::FfiSectionPerformanceData {
         pooled::route_detail_performance(
             self.cold_connection(),
             group_id,
             time_range_days,
             sport_filter,
+            highlight_activity_id,
             crate::persistence::sections::lap_curves::pooled::CurveRead::Held,
         )
     }
@@ -1319,11 +1319,13 @@ fn climb_bests(
 /// and every figure on the screen is taken over one sport and one cutoff.
 /// Each closure is one source a section and a route read differently.
 #[allow(clippy::too_many_arguments)]
-fn section_detail_from<R>(
+pub(crate) fn section_detail_from<R>(
     sports: &[(String, u32)],
     section_distance: Option<f64>,
     requested: Option<&str>,
     time_range_days: u32,
+    subject: crate::FfiPerformanceSubject,
+    highlight: Option<&str>,
     wellness_between: impl FnOnce(&str, &str) -> Vec<crate::FfiWellnessDay>,
     curves_of: impl FnOnce(Option<&str>) -> Option<std::sync::Arc<Option<crate::FfiSectionLapCurves>>>,
     efficiency_of: impl FnOnce(&str) -> Option<crate::FfiEfficiencyTrend>,
@@ -1369,7 +1371,14 @@ where
         .or_else(|| sports.first().map(|(sport, _)| sport.clone()));
 
     let all = read(filter.as_deref(), laps::Rows::Included);
-    let chart_data = chart_from_cutoff(&all, cutoff);
+    let mut chart_data = chart_from_cutoff(&all, cutoff);
+    // Taken after the cached performances, so the highlighted attempt is no
+    // part of any cache key and one cached read serves every activity.
+    let scatter_focus = crate::persistence::sections::scatter_focus::scatter_focus(
+        &mut chart_data.points,
+        subject,
+        highlight,
+    );
     let performances = if time_range_days == 0 {
         all.as_ref().clone()
     } else {
@@ -1389,9 +1398,16 @@ where
     let excluded = read(filter.as_deref(), laps::Rows::Excluded);
     let mut excluded_points = chart_from_cutoff(&excluded, cutoff).points;
     for point in &mut excluded_points {
-        // An excluded attempt is never a record.
+        // An excluded attempt is never a record, nor measured against one.
         point.is_best = false;
+        point.record_gap_secs = None;
+        point.record_gap_speed = None;
     }
+    crate::persistence::sections::scatter_focus::flag_against(
+        &mut excluded_points,
+        &scatter_focus,
+        subject,
+    );
 
     let sport_counts = offered
         .into_iter()
@@ -1427,6 +1443,11 @@ where
     });
     // Over the whole record, like the calendar: a range only filters the chart.
     let efficiency_trend = sport_type.as_deref().and_then(efficiency_of);
+    // Over the whole record, like the ring: a range only filters what is drawn.
+    let record_progression = crate::FfiRecordProgressions {
+        forward: crate::persistence::records::section_record_progression(&all, false),
+        reverse: crate::persistence::records::section_record_progression(&all, true),
+    };
 
     crate::FfiSectionPerformanceData {
         best_forward_is_record,
@@ -1445,6 +1466,8 @@ where
         curves,
         curves_pending,
         efficiency_trend,
+        scatter_focus,
+        record_progression,
     }
 }
 
@@ -1942,6 +1965,7 @@ pub mod pooled {
         section_id: &str,
         time_range_days: u32,
         sport_filter: Option<&str>,
+        highlight_activity_id: Option<&str>,
         curves: crate::persistence::sections::lap_curves::pooled::CurveRead,
     ) -> crate::FfiSectionPerformanceData {
         use crate::persistence::fitness::performances::{laps, pooled};
@@ -1952,6 +1976,8 @@ pub mod pooled {
             section_distance,
             sport_filter,
             time_range_days,
+            crate::FfiPerformanceSubject::Section,
+            highlight_activity_id,
             |oldest, newest| {
                 crate::persistence::wellness::pooled::wellness_days(conn, oldest, newest)
                     .unwrap_or_default()
@@ -2132,29 +2158,19 @@ pub mod pooled {
                 .any(|i| i.indicator_type == "section_pr" || i.indicator_type == "route_pr")
     }
 
-    /// Everything the route detail screen paints with.
+    /// Everything the route detail screen paints with that one sport and one
+    /// range do not change: the route, its line and headline, exclusions and
+    /// signatures. Attempt times come from [`route_detail_performance`].
     ///
-    /// The groups it lists are the last saved grouping rather than one the
-    /// engine would regroup on the way past: a pooled reader sees committed
-    /// rows, and `route_groups` holds the previous grouping until something on
-    /// the write lock asks for a regroup. That deferred-regroup staleness is
-    /// accepted and announced to the athlete elsewhere, so this read inherits
-    /// it rather than fixing it.
-    pub fn route_detail_data(
-        conn: &Connection,
-        group_id: &str,
-        current_activity_id: Option<&str>,
-        min_group_activities: u32,
-    ) -> crate::FfiRouteDetailData {
+    /// The route is the last saved grouping rather than one the engine would
+    /// regroup on the way past: a pooled reader sees committed rows, and
+    /// `route_groups` holds the previous grouping until something on the write
+    /// lock asks for a regroup. That deferred-regroup staleness is accepted and
+    /// announced to the athlete elsewhere, so this read inherits it rather than
+    /// fixing it.
+    pub fn route_detail_data(conn: &Connection, group_id: &str) -> crate::FfiRouteDetailData {
         use crate::persistence::activities::pooled as activities;
         use crate::persistence::routes::pooled as routes;
-
-        let mut groups: Vec<crate::FfiRouteGroup> = routes::all_groups(conn)
-            .into_iter()
-            .filter(|g| g.activity_ids.len() as u32 >= min_group_activities)
-            .map(crate::FfiRouteGroup::from)
-            .collect();
-        groups.sort_by_key(|g| std::cmp::Reverse(g.activity_ids.len()));
 
         let group = routes::group_by_id(conn, group_id);
         let activity_ids: Vec<String> = group
@@ -2163,33 +2179,19 @@ pub mod pooled {
             .unwrap_or_default();
         let excluded = routes::excluded_route_activity_ids(conn, group_id);
 
-        let match_info = routes::match_info(conn, group_id);
-        let performances = crate::persistence::fitness::performances::route_performances(
-            &activity_ids,
-            Some(&match_info),
-            &excluded,
-            |id| activities::metrics_of(conn, id),
-            current_activity_id,
-            None,
-        );
-
         let representative = group
             .as_ref()
             .and_then(|g| activities::metrics_of(conn, &g.representative_id));
         let (distance_meters, elevation_gain_meters) =
             representative.map_or((0.0, 0.0), |m| (m.distance, m.elevation_gain));
-        let performances = crate::FfiRoutePerformanceResult::from(performances);
 
         crate::FfiRouteDetailData {
             activity_count: activity_count(conn),
-            groups,
-            performances,
             distance_meters,
             elevation_gain_meters,
             encoded_representative: routes::representative_route(conn, group_id)
                 .map(|points| crate::persistence::codec::encode_polyline(points.as_slice()))
                 .unwrap_or_default(),
-            route_names: routes::all_route_names(conn),
             excluded_activity_ids: excluded,
             map_signatures: activities::map_signatures_for_ids(conn, &activity_ids),
             missing_time_stream_ids: activities::activities_missing_time_streams(
@@ -2223,6 +2225,7 @@ pub mod pooled {
         group_id: &str,
         time_range_days: u32,
         sport_filter: Option<&str>,
+        highlight_activity_id: Option<&str>,
         curves: crate::persistence::sections::lap_curves::pooled::CurveRead,
     ) -> crate::FfiSectionPerformanceData {
         use crate::persistence::activities::pooled as activities;
@@ -2296,6 +2299,8 @@ pub mod pooled {
             None,
             sport_filter,
             time_range_days,
+            crate::FfiPerformanceSubject::Route,
+            highlight_activity_id,
             |oldest, newest| {
                 crate::persistence::wellness::pooled::wellness_days(conn, oldest, newest)
                     .unwrap_or_default()
@@ -2371,10 +2376,8 @@ pub mod pooled {
 
         let names = named::overlay_names(conn);
 
-        let route_groups: Vec<crate::FfiRouteGroup> = routes::all_groups(conn)
-            .into_iter()
+        let route_groups: Vec<crate::FfiRouteGroup> = routes::group_holding(conn, activity_id)
             .filter(|g| g.activity_ids.len() as u32 >= min_route_activities)
-            .find(|g| g.activity_ids.iter().any(|a| a == activity_id))
             .map(crate::FfiRouteGroup::from)
             .into_iter()
             .collect();
@@ -2458,7 +2461,10 @@ pub mod pooled {
             max_hr,
             max_hr_source,
             hr_zones: super::activity_hr_zones_from(conn, activity_id),
-            summary: super::activity_summary(body.as_deref()),
+            summary: super::activity_summary(
+                body.as_deref(),
+                &activities::activity_sport(conn, activity_id).unwrap_or_default(),
+            ),
             power_zones: super::activity_power_zones(body.as_deref()).unwrap_or_default(),
             ledger_changes:
                 crate::persistence::sections::history::pooled::ledger_changes_naming_activity(
@@ -3573,6 +3579,8 @@ mod tests {
             Some(1000.0),
             None,
             30,
+            crate::FfiPerformanceSubject::Section,
+            None,
             |_, _| Vec::new(),
             |_| Some(std::sync::Arc::new(None)),
             |_| None,
@@ -3855,6 +3863,16 @@ mod tests {
             let bands = activity_hr_zones(Some(body), Some(SETTINGS), None, None).expect("zones");
             assert_eq!(bands[0].seconds, 60.0);
             assert!((bands[1].percent - 100.0 / 3.0).abs() < 1e-9);
+            let shares: Vec<u32> = bands.iter().map(|b| b.share).collect();
+            assert_eq!(shares, vec![67, 33, 0, 0, 0]);
+        }
+
+        #[test]
+        fn heart_rate_shares_total_one_hundred_where_each_rounded_alone_would_not() {
+            let body = r#"{"type":"Ride","icu_hr_zone_times":[60,60,60,0,0]}"#;
+            let bands = activity_hr_zones(Some(body), Some(SETTINGS), None, None).expect("zones");
+            let shares: Vec<u32> = bands.iter().map(|b| b.share).collect();
+            assert_eq!(shares, vec![34, 33, 33, 0, 0]);
         }
 
         #[test]
@@ -3975,6 +3993,7 @@ mod tests {
             assert_eq!(bands[6].seconds, 100.0);
             assert_eq!(bands[0].percent, 60.0);
             assert_eq!(bands.iter().map(|b| b.percent).sum::<f64>(), 100.0);
+            assert_eq!(bands.iter().map(|b| b.share).sum::<u32>(), 100);
         }
 
         #[test]
@@ -4043,6 +4062,20 @@ mod tests {
             assert_eq!(summary.average_speed, Some(8.2));
             assert_eq!(summary.max_speed, Some(15.4));
             assert_eq!(summary.average_cadence, Some(88.5));
+            assert_eq!(summary.cadence_unit, crate::FfiCadenceUnit::Rpm);
+        }
+
+        #[test]
+        fn a_run_carries_its_strides_as_steps() {
+            let body = r#"{"type":"Run","moving_time":5800,"average_cadence":66}"#;
+            let mut engine = crate::persistence::PersistentEngine::in_memory().expect("engine");
+            engine
+                .upsert_activity_bodies(&[("r1".into(), 1_700_000_000, body.into())])
+                .expect("body");
+
+            let summary = pooled::activity_detail_data(&engine.db, "r1", 1).summary;
+            assert_eq!(summary.average_cadence, Some(132.0));
+            assert_eq!(summary.cadence_unit, crate::FfiCadenceUnit::StepsPerMinute);
         }
 
         #[test]
@@ -5261,6 +5294,7 @@ mod tests {
             "auto1",
             1,
             None,
+            None,
             crate::persistence::sections::lap_curves::pooled::CurveRead::Held,
         );
         assert!(
@@ -5347,6 +5381,7 @@ mod tests {
             "auto1",
             days,
             sport,
+            None,
             crate::persistence::sections::lap_curves::pooled::CurveRead::Held,
         )
     }
@@ -5404,6 +5439,7 @@ mod tests {
             &engine.db,
             "auto1",
             0,
+            None,
             None,
             crate::persistence::sections::lap_curves::pooled::CurveRead::Held,
         );
@@ -6689,7 +6725,7 @@ mod tests {
         engine.load_activity_matches().expect("matches");
 
         let activity = pooled::activity_detail_data(&engine.db, "a1", 1).activity_count;
-        let route = pooled::route_detail_data(&engine.db, "g1", Some("a2"), 1).activity_count;
+        let route = pooled::route_detail_data(&engine.db, "g1").activity_count;
         let section = pooled::section_detail_data(&engine.db, "auto1").activity_count;
 
         assert_eq!(activity, 3, "activity detail");
@@ -6727,10 +6763,17 @@ mod tests {
         engine.load_groups().expect("groups");
         engine.load_activity_matches().expect("matches");
 
-        let detail = pooled::route_detail_data(&engine.db, "g1", None, 1);
-        let best = detail
+        let read = pooled::route_detail_performance(
+            &engine.db,
+            "g1",
+            0,
+            None,
+            None,
+            crate::persistence::sections::lap_curves::pooled::CurveRead::Held,
+        );
+        let best = read
             .performances
-            .best
+            .best_forward_record
             .as_ref()
             .map(|p| p.activity_id.as_str());
         assert_eq!(best, Some("a2"));
@@ -6761,7 +6804,7 @@ mod tests {
 
         let long_encoded = crate::persistence::codec::encode_polyline(&long_track);
         assert_eq!(
-            pooled::route_detail_data(&engine.db, "g1", None, 1).encoded_representative,
+            pooled::route_detail_data(&engine.db, "g1").encoded_representative,
             long_encoded
         );
 
@@ -6770,7 +6813,7 @@ mod tests {
             .expect("set reference");
         let short_encoded = crate::persistence::codec::encode_polyline(&short_track);
         assert_eq!(
-            pooled::route_detail_data(&engine.db, "g1", None, 1).encoded_representative,
+            pooled::route_detail_data(&engine.db, "g1").encoded_representative,
             short_encoded
         );
         crate::persistence::read_cache::close();
@@ -6787,9 +6830,9 @@ mod tests {
         let path = path.to_str().expect("utf-8");
         let engine = crate::persistence::PersistentEngine::new(path).expect("engine");
 
-        let detail = pooled::route_detail_data(&engine.db, "nope", None, 1);
+        let detail = pooled::route_detail_data(&engine.db, "nope");
         assert!(detail.group.is_none());
-        assert!(detail.performances.performances.is_empty());
+        assert!(detail.map_signatures.is_empty());
         assert!(detail.encoded_representative.is_empty());
 
         crate::persistence::read_cache::close();
@@ -7084,10 +7127,10 @@ mod tests {
         engine.load_groups().expect("groups");
         engine.load_activity_matches().expect("matches");
 
-        let detail = pooled::route_detail_data(&engine.db, "g1", None, 1);
+        let detail = pooled::route_detail_data(&engine.db, "g1");
         assert_eq!(detail.distance_meters, 10_000.0);
         assert_eq!(detail.elevation_gain_meters, 236.0);
-        let unknown = pooled::route_detail_data(&engine.db, "nope", None, 1);
+        let unknown = pooled::route_detail_data(&engine.db, "nope");
         assert_eq!(unknown.distance_meters, 0.0);
         assert_eq!(unknown.elevation_gain_meters, 0.0);
 

@@ -5,6 +5,7 @@
 import type { ActivityStreams, ActivityType } from '@/types';
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
+import type { CadenceUnit } from 'veloqrs';
 import {
   celsiusToFahrenheit,
   formatDecimal,
@@ -18,6 +19,7 @@ import { isSwimmingActivity } from '@/shared/activity/activityUtils';
 import { paceMinutesFromSample } from '@/shared/math/kinematics';
 import { chartStreamColors, chartInkColor } from '@/theme';
 import { DEFAULT_AUTO_PAUSE_KMH, stoppedSpeedMs } from '@/shared/recording';
+import { cadenceUnitLabel } from './cadenceUnit';
 
 // Used when no activity is loaded: the lowest stop speed, walking's.
 const FLOOR_STOPPED_MS = DEFAULT_AUTO_PAUSE_KMH.walking / 3.6;
@@ -111,7 +113,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     color: chartStreamColors.cadence, // Distinct from amber power
     ink: chartInkColor('cadence'),
     streamKey: 'cadence',
-    unit: 'rpm',
+    // The unit is the sport's, which the engine names: see `chartConfigsFor`.
     getStream: (streams) => streams.cadence,
     formatValue: (v) => formatDecimal(v, 0),
   },
@@ -225,14 +227,14 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
   },
   moving_time: {
     id: 'moving_time',
-    label: 'Moving Time',
+    label: 'Moving time',
     icon: 'clock-outline',
     color: chartStreamColors.time,
     ink: chartInkColor('time'),
   },
   elapsed_time: {
     id: 'elapsed_time',
-    label: 'Elapsed Time',
+    label: 'Elapsed time',
     icon: 'clock',
     color: chartStreamColors.time,
     ink: chartInkColor('time'),
@@ -310,21 +312,29 @@ function withStopSpeed(
   return out;
 }
 
-const configsByStopSpeed = new Map<string, Record<ChartTypeId, ChartConfig>>();
+const configsByKey = new Map<string, Record<ChartTypeId, ChartConfig>>();
 
 /**
  * The chart configs for a sport: a swim reads pace per 100 rather than per km,
- * and the speed and pace series treat a sample under the sport's auto-pause
- * default as a stop. Memoised so the identity is stable across renders.
+ * the speed and pace series treat a sample under the sport's auto-pause
+ * default as a stop, and cadence is labelled in the unit the engine gave the
+ * series in, unlabelled until the engine has named it. Memoised so the
+ * identity is stable across renders.
  */
-export function chartConfigsFor(type: ActivityType): Record<ChartTypeId, ChartConfig> {
+export function chartConfigsFor(
+  type: ActivityType,
+  cadenceUnit?: CadenceUnit
+): Record<ChartTypeId, ChartConfig> {
   const swim = isSwimmingActivity(type);
   const stoppedBelowMs = stoppedSpeedMs(type);
-  const key = `${swim ? 'swim' : 'base'}:${stoppedBelowMs}`;
-  let configs = configsByStopSpeed.get(key);
+  const key = `${swim ? 'swim' : 'base'}:${stoppedBelowMs}:${cadenceUnit ?? ''}`;
+  let configs = configsByKey.get(key);
   if (!configs) {
     configs = withStopSpeed(swim ? SWIM_CHART_CONFIGS : CHART_CONFIGS, stoppedBelowMs);
-    configsByStopSpeed.set(key, configs);
+    if (cadenceUnit != null) {
+      configs.cadence = { ...configs.cadence, unit: cadenceUnitLabel(cadenceUnit) };
+    }
+    configsByKey.set(key, configs);
   }
   return configs;
 }

@@ -166,8 +166,7 @@ export function SectionInfoCard({
 
 const styles = StyleSheet.create({
   title: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    ...typography.bodySmallBold,
     marginBottom: spacing.sm,
   },
   row: {
@@ -185,7 +184,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xxs,
   },
   label: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
   },
   value: {
     fontSize: typography.body.fontSize,

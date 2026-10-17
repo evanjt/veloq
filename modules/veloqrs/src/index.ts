@@ -186,6 +186,7 @@ export type {
 // Delegate-shaped bundles returned by the façade
 export type { ActivityHighlightsBundle } from './delegates/activities';
 export type { RouteDetailData } from './delegates/routes';
+export { isRouteNameTakenError } from './delegates/routes';
 
 // Re-export types with shorter names for convenience
 export type ActivityMetrics = FfiActivityMetrics;
@@ -212,6 +213,7 @@ export type ZoneDistributionData = FfiZoneDistribution;
 export type DayLoad = FfiDayLoad;
 export { FfiDayLoadStatus as DayLoadStatus } from './generated/veloqrs';
 export { FfiMaxHrSource as MaxHrSource } from './generated/veloqrs';
+export { FfiCadenceUnit as CadenceUnit } from './generated/veloqrs';
 export type SummaryCardData = FfiSummaryCardData;
 export type FtpTrend = FfiFtpTrend;
 export type PaceTrend = FfiPaceTrend;

@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { isAutoBackupEnabled, setAutoBackupEnabled } from '@/features/settings/lib/autobackup';
@@ -38,11 +39,7 @@ export function BackupSlide() {
           color={mutedColor}
         />
         <View style={[styles.iconBox, { backgroundColor: bgColor }]}>
-          <MaterialCommunityIcons
-            name={'share-variant-outline' as keyof typeof MaterialCommunityIcons.glyphMap}
-            size={iconSize.xl}
-            color={primaryColor}
-          />
+          <ChromeIcon name="share" size={iconSize.xl} color={primaryColor} />
         </View>
         <MaterialCommunityIcons
           name={'arrow-right' as keyof typeof MaterialCommunityIcons.glyphMap}

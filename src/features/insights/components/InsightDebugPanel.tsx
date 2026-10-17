@@ -147,8 +147,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   section: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
+    ...typography.bodyBold,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
   },

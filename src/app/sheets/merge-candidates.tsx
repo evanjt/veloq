@@ -26,7 +26,6 @@ function MergeCandidatesSheetContent() {
   const { input, resolve } = useSheetRequest<MergeCandidatesSheetInput, MergeCandidate>();
   const candidates = input?.candidates ?? [];
 
-  const surface = isDark ? darkColors.surface : colors.surface;
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const border = isDark ? darkColors.border : colors.border;
@@ -61,7 +60,7 @@ function MergeCandidatesSheetContent() {
   );
 
   return (
-    <View style={[styles.sheet, { backgroundColor: surface }]}>
+    <View style={styles.sheet}>
       <SheetHeader
         title={t('sections.mergeCandidatesTitle')}
         onCancel={() => tapBack()}

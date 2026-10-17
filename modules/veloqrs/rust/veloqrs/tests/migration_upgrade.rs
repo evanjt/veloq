@@ -20,6 +20,7 @@
 //! the quarantine test runs in this file's own process, the same arrangement
 //! `tests/engine_init_failover.rs` relies on.
 
+use super::migration_support::open_seed;
 use rusqlite::{Connection, params};
 use rusqlite_migration::{M, Migrations};
 use std::fs;
@@ -132,7 +133,7 @@ fn polyline_json() -> String {
 /// install would be: two activities, their metrics, a route group, a section
 /// and its portions.
 fn seed_previous_version_db(path: &Path) -> rusqlite::Result<()> {
-    let mut conn = Connection::open(path)?;
+    let mut conn = open_seed(path);
     previous_version_migrations()
         .to_latest(&mut conn)
         .expect("apply previous-version migrations");
@@ -442,7 +443,7 @@ const WELLNESS_HRV: f64 = 78.0;
 /// A database one version behind, carrying wellness written before the body
 /// column existed.
 fn seed_one_version_behind_db(path: &Path) -> rusqlite::Result<()> {
-    let mut conn = Connection::open(path)?;
+    let mut conn = open_seed(path);
     one_behind_migrations()
         .to_latest(&mut conn)
         .expect("apply one-behind migrations");
@@ -833,7 +834,7 @@ fn rows_without_a_body_still_read_as_a_whole_day() {
 fn seed_interrupted_beta_db(path: &Path) -> rusqlite::Result<()> {
     seed_previous_version_db(path)?;
 
-    let conn = Connection::open(path)?;
+    let conn = open_seed(path);
     conn.execute_batch(
         "ALTER TABLE sections ADD COLUMN original_polyline_json TEXT;
          ALTER TABLE sections ADD COLUMN disabled INTEGER NOT NULL DEFAULT 0;",

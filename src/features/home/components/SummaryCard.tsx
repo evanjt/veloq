@@ -532,11 +532,10 @@ const styles = StyleSheet.create({
 
   // Scrub date - top right corner
   scrubDate: {
+    ...typography.micro,
     position: 'absolute',
     top: spacing.xs,
     right: spacing.md,
-    fontSize: typography.micro.fontSize,
-    fontWeight: '400',
     zIndex: 1,
   },
 
@@ -613,22 +612,19 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   heroValue: {
-    fontSize: typography.statsValueLarge.fontSize,
-    fontWeight: '700',
+    ...typography.statsValueLarge,
     lineHeight: 28,
     letterSpacing: -0.5,
   },
   heroValueFixed: {
-    fontSize: typography.statsValueLarge.fontSize,
-    fontWeight: '700',
+    ...typography.statsValueLarge,
     lineHeight: 28,
     letterSpacing: -0.5,
     minWidth: 38,
     textAlign: 'right' as const,
   },
   secondaryValueFixed: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
+    ...typography.bodyBold,
     lineHeight: 20,
     letterSpacing: -0.3,
     minWidth: 30,
@@ -636,19 +632,16 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   secondaryLabel: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '400',
+    ...typography.caption,
     color: colors.textSecondary,
     flexShrink: 1,
   },
   heroUnit: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '400',
+    ...typography.bodySmall,
     letterSpacing: 0,
   },
   secondaryUnit: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '400',
+    ...typography.caption,
     letterSpacing: 0,
   },
   heroTrend: {
@@ -656,8 +649,7 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xxs,
   },
   heroLabel: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '400',
+    ...typography.bodySmall,
     color: colors.textSecondary,
   },
   // Sparkline - own row, full width
@@ -680,25 +672,22 @@ const styles = StyleSheet.create({
     minHeight: layout.minTapTarget,
   },
   metricLabel: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '400',
+    ...typography.caption,
     color: colors.textSecondary,
   },
   metricValue: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '600',
+    ...typography.captionBold,
     color: colors.textPrimary,
   },
   metricUnit: {
-    fontSize: typography.micro.fontSize,
-    fontWeight: '400',
+    ...typography.micro,
   },
   metricTrend: {
     fontSize: typography.micro.fontSize,
     marginLeft: spacing.xxs,
   },
   metricDivider: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
     marginHorizontal: spacing.xs,
   },

@@ -51,6 +51,15 @@ export function getFilteredGroupSummaries(
   );
 }
 
+/** The engine's refusal text for a name another route is already shown under. */
+const ROUTE_NAME_TAKEN_MESSAGE = 'Another route is already named';
+
+export function isRouteNameTakenError(error: unknown): boolean {
+  const text = error instanceof Error ? error.message : String(error);
+  return text.includes(ROUTE_NAME_TAKEN_MESSAGE);
+}
+
+/** Throws the engine's refusal when another route is already shown under `name`. */
 export function setRouteName(host: DelegateHost, routeId: string, name: string): void {
   validateId(routeId, 'route ID');
   validateName(name, 'route name');
@@ -176,27 +185,19 @@ export async function resetRouteRepresentative(
 }
 
 /**
- * Everything the route detail screen paints with in one round-trip: engine
- * counts, the route and its ranking list, every attempt across sports, the
- * representative polyline, names, exclusions and per-activity signatures.
+ * Everything the route detail screen paints with that one sport and one range
+ * do not change: engine counts, the route and its shown name, the
+ * representative polyline and headline, exclusions and per-activity
+ * signatures. It carries nothing of any other route.
  */
-export type RouteDetailData = Omit<FfiRouteDetailData, 'routeNames'> & {
-  routeNames: Record<string, string>;
-};
+export type RouteDetailData = FfiRouteDetailData;
 
 export function getRouteDetailData(
   host: DelegateHost,
-  groupId: string,
-  currentActivityId: string | undefined,
-  minGroupActivities: number
+  groupId: string
 ): RouteDetailData | undefined {
   if (!host.ready || !groupId) return undefined;
-  const result = host.timed('getRouteDetailData', () =>
-    host.engine.routes().getDetailData(groupId, currentActivityId, minGroupActivities)
-  );
-  if (!result) return undefined;
-  // The façade hands out plain objects for name maps.
-  return { ...result, routeNames: Object.fromEntries(result.routeNames) };
+  return host.timed('getRouteDetailData', () => host.engine.routes().getDetailData(groupId));
 }
 
 /**
@@ -209,11 +210,14 @@ export function getRouteDetailPerformance(
   host: DelegateHost,
   groupId: string,
   timeRangeDays: number,
-  sportFilter?: string
+  sportFilter?: string,
+  highlightActivityId?: string
 ): FfiSectionPerformanceData | undefined {
   if (!host.ready || !groupId) return undefined;
   return host.timed('getRouteDetailPerformance', () =>
-    host.engine.routes().getDetailPerformance(groupId, timeRangeDays, sportFilter)
+    host.engine
+      .routes()
+      .getDetailPerformance(groupId, timeRangeDays, sportFilter, highlightActivityId)
   );
 }
 
@@ -225,12 +229,19 @@ export async function loadRouteDetailPerformance(
   host: DelegateHost,
   groupId: string,
   timeRangeDays: number,
-  sportFilter?: string
+  sportFilter?: string,
+  highlightActivityId?: string
 ): Promise<FfiSectionPerformanceData | undefined> {
   if (!host.ready || !groupId) return undefined;
   return host.timedAsync('loadRouteDetailPerformance', () =>
     host.engine
       .sections()
-      .loadDetailPerformance(FfiPerformanceSubject.Route, groupId, timeRangeDays, sportFilter)
+      .loadDetailPerformance(
+        FfiPerformanceSubject.Route,
+        groupId,
+        timeRangeDays,
+        sportFilter,
+        highlightActivityId
+      )
   );
 }

@@ -18,13 +18,14 @@ import { RecordingCloseButton } from './RecordingCloseButton';
 import { styles } from '../RecordingScreen.styles';
 import { useTimer } from '../hooks/useTimer';
 
-function ElapsedTime({ textPrimary, autoPaused }: { textPrimary: string; autoPaused: boolean }) {
+/** The clock reads in the secondary ink while auto-pause holds it, and in the primary ink otherwise. */
+function ElapsedTime({ color }: { color: string }) {
   const { formattedElapsed } = useTimer();
   return (
     <Text
       testID="recording-timer"
       maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-      style={[styles.timerText, { color: textPrimary }, autoPaused && styles.timerPaused]}
+      style={[styles.timerText, { color }]}
     >
       {formattedElapsed}
     </Text>
@@ -77,7 +78,7 @@ function TimerHeaderInner({
     <View style={styles.timerHeader}>
       <View>
         {status === 'idle' && <RecordingCloseButton />}
-        <ElapsedTime textPrimary={textPrimary} autoPaused={autoPaused} />
+        <ElapsedTime color={autoPaused ? textSecondary : textPrimary} />
         {autoPaused ? (
           <Text
             testID="recording-autopause"

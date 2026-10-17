@@ -148,8 +148,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   label: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '400',
+    ...typography.caption,
     textAlign: 'center',
   },
   labelSelected: {

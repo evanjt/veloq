@@ -75,7 +75,7 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
   'cache-settings': { titleKey: 'settings.dataCache', largeTitle: true },
   'data-sources-settings': { titleKey: 'settings.dataSources', largeTitle: true },
   // No large title: on iOS 26 the dashboard scrolled under a title that never collapsed.
-  debug: { title: 'Developer Dashboard' },
+  debug: { title: 'Developer dashboard' },
   'detection-preview': { titleKey: 'settings.previewSections' },
   'detection-settings': { titleKey: 'settings.sectionDetection', largeTitle: true },
   'display-settings': { titleKey: 'settings.display', largeTitle: true },
@@ -172,12 +172,23 @@ export const SCREEN_SHEETS: Record<string, number[] | 'fitToContents'> = {
 };
 
 /**
+ * Whether the system draws the sheet's background itself. iOS 26 gives a form sheet a
+ * translucent material that follows the colour scheme, and an opaque fill laid over it stops
+ * short of the sheet's bottom edge and leaves a seam where the material shows below it.
+ */
+function sheetHasSystemMaterial(os: string, osVersion: string | number): boolean {
+  return os === 'ios' && parseInt(String(osVersion), 10) >= 26;
+}
+
+/**
  * The stack options that make a listed route a sheet, or undefined for any other route.
  *
  * The grabber is iOS only. Android's sheet defaults to square top corners, so it takes
- * Material's extra-large radius there, and iOS keeps the system's own corners.
+ * Material's extra-large radius there, and iOS keeps the system's own corners. Where the
+ * system draws the sheet's material, the container is cleared so the stack's theme background
+ * does not cover it; elsewhere the theme background stays.
  */
-export function sheetScreenOptions(name: string, os: string) {
+export function sheetScreenOptions(name: string, os: string, osVersion: string | number) {
   const detents = SCREEN_SHEETS[name];
   if (!detents) return undefined;
   return {
@@ -186,7 +197,23 @@ export function sheetScreenOptions(name: string, os: string) {
     sheetAllowedDetents: detents,
     headerShown: false,
     ...(os === 'android' && { sheetCornerRadius: layout.borderRadiusXxl }),
+    ...(sheetHasSystemMaterial(os, osVersion) && {
+      contentStyle: { backgroundColor: 'transparent' },
+    }),
   };
+}
+
+/**
+ * The fill the shared sheet frame paints: the theme's surface, or none where the system draws
+ * the sheet's material. The frame is a sheet route's only fill, so no route paints its own.
+ */
+export function sheetSurface(
+  os: string,
+  osVersion: string | number,
+  isDark: boolean
+): string | undefined {
+  if (sheetHasSystemMaterial(os, osVersion)) return undefined;
+  return isDark ? darkColors.surface : colors.surface;
 }
 
 /** Whether a sheet route rests at more than one detent, so it can be dragged between them. */

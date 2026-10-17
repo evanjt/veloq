@@ -12,7 +12,16 @@ import { useTranslation } from 'react-i18next';
 import { useIsFocused } from 'expo-router';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { getActivityColor } from '@/shared/activity/activityUtils';
-import { colors, colorWithOpacity, iconSize, ink, layout, mapLayerColors, spacing } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  iconSize,
+  ink,
+  layout,
+  mapLayerColors,
+  opacity,
+  spacing,
+} from '@/theme';
 import { useMapPreferences } from '@/features/settings';
 import {
   BaseMapView,
@@ -441,7 +450,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: spacing.sm,
     right: spacing.sm,
-    backgroundColor: colorWithOpacity(ink.black, 0.5),
+    backgroundColor: colorWithOpacity(ink.black, opacity.disabled),
     borderRadius: layout.borderRadiusSm,
     padding: spacing.xs,
   },

@@ -6,8 +6,8 @@
     "draining": "Preparing catalog"
   },
   "about": {
-    "openSource": "Open Source License (Apache 2.0)",
-    "thirdPartyLicenses": "Third-Party Licenses"
+    "openSource": "Open source license (Apache 2.0)",
+    "thirdPartyLicenses": "Third-party licenses"
   },
   "activityTypes": {
     "Soccer": "Soccer"
@@ -33,7 +33,7 @@
     "stripGloss": "Marks show days trained; colors identify sports, not shares of load. Gray means no recorded load."
   },
   "formZones": {
-    "greyZone": "Gray Zone"
+    "greyZone": "Gray zone"
   },
   "insights": {
     "noInsightsHint": "Complete more activities to see personalized insights",
@@ -53,8 +53,8 @@
   "licenses": {
     "footer": "Tap any license badge to view the full license text. Tap the link icon to visit the project repository.",
     "intro": "Veloq is built with open-source software. This screen lists the third-party libraries and their licenses.",
-    "sectionSpecialLicenses": "Special Licenses",
-    "title": "Third-Party Licenses"
+    "sectionSpecialLicenses": "Special licenses",
+    "title": "Third-party licenses"
   },
   "login": {
     "sessionDataKept": "Your activities, sections, and settings are still on this device."
@@ -77,11 +77,8 @@
   "permissions": {
     "locationBackground": "Lets Veloq record an activity you start from Siri, Control Center or a widget without opening the app first."
   },
-  "routes": {
-    "createSection": "Create section"
-  },
   "settings": {
-    "customiseByActivity": "Customize by Activity Type",
+    "customiseByActivity": "Customize by activity type",
     "reanalyzeSections": "Reanalyze sections",
     "unitsMetricHint": "Distances in kilometers, elevation in meters, temperature in Celsius",
     "previewRunning_one": "Analyzing {{count}} activity in this area",

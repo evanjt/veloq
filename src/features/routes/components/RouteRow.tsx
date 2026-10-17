@@ -246,8 +246,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   routeName: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
+    ...typography.bodyCompactBold,
     color: colors.textPrimary,
     flexShrink: 1,
   },
@@ -272,15 +271,14 @@ const styles = StyleSheet.create({
     gap: spacing.xxs,
   },
   proximityText: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   proximityTextDark: {
     color: darkColors.textSecondary,
   },
   matchPercent: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
+    ...typography.badge,
   },
   countBadge: {
     flexDirection: 'row',

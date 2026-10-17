@@ -1,9 +1,8 @@
 import React from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
+import { View, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { colors, controlHeight, spacing, layout, slopToMinTapTarget, typography } from '@/theme';
-import { pressable, pressRipple } from '@/shared/ui';
+import { spacing } from '@/theme';
+import { Button } from '@/shared/ui/Button';
 
 const SIZE_LABELS: Record<string, string> = {
   tip_small: 'support.tipSmall',
@@ -11,61 +10,43 @@ const SIZE_LABELS: Record<string, string> = {
   tip_large: 'support.tipLarge',
 };
 
+const ORDER = ['tip_small', 'tip_medium', 'tip_large'];
+
 interface TipButtonsProps {
   products: { id: string; displayPrice: string }[];
   isPurchasing: boolean;
   onTip: (id: string) => void;
-  isDark: boolean;
   small?: boolean;
 }
 
-export function TipButtons({ products, isPurchasing, onTip, isDark, small }: TipButtonsProps) {
+/**
+ * The tip options, one secondary `Button` each. A tip sits beside a screen's own primary
+ * action, so it takes the second rank. The price is the label, and the size leads the
+ * accessible name.
+ */
+export function TipButtons({ products, isPurchasing, onTip, small }: TipButtonsProps) {
   const { t } = useTranslation();
-  const sorted = [...products].sort((a, b) => {
-    const order = ['tip_small', 'tip_medium', 'tip_large'];
-    return order.indexOf(a.id) - order.indexOf(b.id);
-  });
+  const sorted = [...products].sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id));
 
   return (
     <View style={[styles.tipRow, small && styles.tipRowSmall]}>
       {sorted.map((product) => (
-        <Pressable
+        <Button
           key={product.id}
-          accessibilityRole="button"
+          label={product.displayPrice}
           accessibilityLabel={`${t(
             (SIZE_LABELS[product.id] ?? product.id) as 'support.tipSmall'
           )} ${product.displayPrice}`}
-          accessibilityState={{ disabled: isPurchasing }}
           onPress={() => onTip(product.id)}
-          hitSlop={small ? TIP_SLOP.small : TIP_SLOP.full}
+          variant="secondary"
+          size={small ? 'sm' : 'md'}
           disabled={isPurchasing}
-          style={pressable([
-            small ? styles.tipButtonSmall : styles.tipButton,
-            isDark && styles.tipButtonDark,
-            isPurchasing && styles.tipButtonDisabled,
-          ])}
-          android_ripple={pressRipple}
-        >
-          <Text
-            style={[small ? styles.tipPriceSmall : styles.tipPrice, isDark && styles.tipTextDark]}
-          >
-            {product.displayPrice}
-          </Text>
-          {!small && (
-            <Text style={[styles.tipLabel, isDark && styles.tipLabelDark]}>
-              {t((SIZE_LABELS[product.id] ?? product.id) as 'support.tipSmall')}
-            </Text>
-          )}
-        </Pressable>
+          style={small ? undefined : styles.tipButton}
+        />
       ))}
     </View>
   );
 }
-
-const TIP_SLOP = {
-  small: slopToMinTapTarget(controlHeight.buttonSm),
-  full: slopToMinTapTarget(controlHeight.button),
-} as const;
 
 const styles = StyleSheet.create({
   tipRow: {
@@ -77,48 +58,5 @@ const styles = StyleSheet.create({
   },
   tipButton: {
     flex: 1,
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.sm,
-    borderRadius: layout.borderRadiusSm,
-    alignItems: 'center',
-    minHeight: controlHeight.button,
-    justifyContent: 'center',
-  },
-  tipButtonSmall: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.primary,
-    borderRadius: layout.borderRadiusSm,
-    alignItems: 'center',
-    minHeight: controlHeight.buttonSm,
-    justifyContent: 'center',
-  },
-  tipButtonDark: {
-    backgroundColor: colors.primary,
-  },
-  tipButtonDisabled: {
-    opacity: 0.5,
-  },
-  tipPrice: {
-    ...typography.bodySmall,
-    fontWeight: '700',
-    color: colors.textOnPrimary,
-  },
-  tipPriceSmall: {
-    ...typography.caption,
-    fontWeight: '700',
-    color: colors.textOnPrimary,
-  },
-  tipLabel: {
-    ...typography.caption,
-    fontSize: typography.label.fontSize,
-    color: colors.textOnPrimary,
-    marginTop: spacing.xxs,
-  },
-  tipLabelDark: {
-    color: colors.textOnPrimary,
-  },
-  tipTextDark: {
-    color: colors.textOnPrimary,
   },
 });

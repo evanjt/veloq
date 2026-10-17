@@ -115,12 +115,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   description: {
-    fontSize: typography.bodyMedium.fontSize,
+    ...typography.bodyMedium,
     textAlign: 'center',
     lineHeight: 22,
   },
   error: {
-    fontSize: typography.bodyCompact.fontSize,
+    ...typography.bodyCompact,
     textAlign: 'center',
   },
 });

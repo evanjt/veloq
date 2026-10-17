@@ -12,21 +12,16 @@ tags:
 - runFlow:
     file: helpers/navigate-to-training.yaml
 
-# Scroll down to find weekly summary (Activity Calendar and Wellness Trends
-# fill the viewport above it)
-- scrollUntilVisible:
-    element:
-      id: "weekly-summary"
-    direction: DOWN
-    timeout: 15000
-    speed: 40
-    centerElement: true
-
-# Wait for range buttons to render inside the weekly summary
-- extendedWaitUntil:
-    visible:
-      id: "weekly-summary-range-year"
-    timeout: 10000
+# Scroll down to the weekly summary (the heatmap and the wellness chart fill
+# the viewport above it), then bring its range buttons clear of the tab bar
+- runFlow:
+    file: helpers/reveal.yaml
+    env:
+      ELEMENT: "weekly-summary"
+- runFlow:
+    file: helpers/reveal.yaml
+    env:
+      ELEMENT: "weekly-summary-range-year"
 
 # Switch to year range where demo data is guaranteed to exist
 - tapOn:
@@ -35,13 +30,11 @@ tags:
 - waitForAnimationToEnd:
     timeout: 3000
 
-# Re-scroll to weekly summary (range change may re-render and shift layout)
-- scrollUntilVisible:
-    element:
-      id: "weekly-summary"
-    direction: DOWN
-    timeout: 10000
-    speed: 40
+# Re-reveal the weekly summary (range change may re-render and shift layout)
+- runFlow:
+    file: helpers/reveal.yaml
+    env:
+      ELEMENT: "weekly-summary"
 
 # Verify component rendered (stats or empty state, both are valid)
 # Longer timeout for the year range to compute from demo data

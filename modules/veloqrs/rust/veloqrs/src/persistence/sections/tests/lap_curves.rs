@@ -1048,6 +1048,7 @@ mod stored {
                 "climb",
                 days,
                 sport,
+                None,
                 pooled::CurveRead::Held,
             )
         })
@@ -1062,6 +1063,7 @@ mod stored {
                 "climb",
                 days,
                 sport,
+                None,
                 pooled::CurveRead::Computed,
             )
         })
@@ -1212,7 +1214,7 @@ mod stored {
     fn route_read(days: u32, curves: pooled::CurveRead) -> crate::FfiSectionPerformanceData {
         crate::persistence::read_pool::with_read_conn(|conn| {
             crate::persistence::screens::pooled::route_detail_performance(
-                conn, "climb", days, None, curves,
+                conn, "climb", days, None, None, curves,
             )
         })
         .expect("reader")
@@ -1480,7 +1482,7 @@ mod stored {
         let _engine = route_with(db_path, "steady", false);
 
         let detail = crate::persistence::read_pool::with_read_conn(|conn| {
-            crate::persistence::screens::pooled::route_detail_data(conn, "climb", None, 2)
+            crate::persistence::screens::pooled::route_detail_data(conn, "climb")
         })
         .expect("reader");
         assert_eq!(detail.missing_time_stream_ids, ["unstreamed"]);

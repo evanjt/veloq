@@ -170,8 +170,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusSm,
   },
   label: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
+    ...typography.badge,
     fontVariant: ['tabular-nums'],
   },
   labelLine: {

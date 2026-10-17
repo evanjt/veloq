@@ -19,7 +19,7 @@ import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import type { Activity, ActivityDetail, ActivityStreams, IntervalsDTO } from '@/types';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { useReconnect, useSyncSettled } from '@/shared/app/useRetryTriggers';
+import { useReconnect } from '@/shared/app/useRetryTriggers';
 import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
 import { useDetailCoordinates } from './useDetailCoordinates';
 import { parseBodies, readActivities } from '@/shared/native/storedActivities';
@@ -59,8 +59,9 @@ function requestActivityWindow(oldest: string, newest: string): void {
 
 /**
  * Keep asking the engine for a window until it is local, without reading it.
- * The ask goes out when the window changes, on a reconnect and when the launch
- * sync lets go of its slot.
+ * The ask goes out when the window changes and on a reconnect. A window
+ * refused because the launch sync holds the exclusive slot is not asked again:
+ * the engine keeps it owed and starts it when the slot frees.
  */
 export function useActivityWindowRequest(oldest: string, newest: string, enabled = true): void {
   const athleteId = useAuthStore((s) => s.athleteId);
@@ -75,12 +76,6 @@ export function useActivityWindowRequest(oldest: string, newest: string, enabled
   // A window accepted while the connection was dropping may have fetched
   // nothing, and the mount effect never re-runs for an unchanged window.
   useReconnect(askForWindow);
-
-  // The launch sync holds the exclusive slot for minutes and refuses every
-  // window opened while it runs. Nothing else observes it letting go, so a
-  // window asked for at launch would otherwise stay blank until the user went
-  // offline and back. A window that landed meanwhile answers `NotOwed`.
-  useSyncSettled(askForWindow);
 }
 
 interface UseActivitiesOptions {
@@ -197,13 +192,6 @@ export function useInfiniteActivities() {
   // asking for again. The refetch replays every loaded page through the
   // `queryFn`, and the engine decides which of them still owe a download.
   useReconnect(() => {
-    void query.refetch();
-  });
-
-  // The launch sync refuses any page opened while it runs. Refetching replays
-  // every loaded page through the queryFn, and the engine answers `NotOwed`
-  // for the ones that landed, so only the refused windows are asked again.
-  useSyncSettled(() => {
     void query.refetch();
   });
 
@@ -520,9 +508,6 @@ export function useRangeActivities(range: FeedRange | null) {
   });
 
   useReconnect(() => {
-    if (range) void query.refetch();
-  });
-  useSyncSettled(() => {
     if (range) void query.refetch();
   });
 

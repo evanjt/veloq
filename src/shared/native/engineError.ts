@@ -25,6 +25,7 @@ export const ENGINE_ERROR_TAGS = [
   'Busy',
   'NameTaken',
   'Suspended',
+  'RouteNameTaken',
 ] as const;
 
 export type EngineErrorTag = (typeof ENGINE_ERROR_TAGS)[number];
@@ -68,6 +69,8 @@ const KEYS: Record<EngineErrorTag, EngineFailureKey> = {
   // The engine stopped writing while the app is in the background, and the
   // same call succeeds once it is back. Busy is the line that says try again.
   Suspended: 'engine.failure.busy',
+  // A refusal, as NameTaken is.
+  RouteNameTaken: 'engine.failure.database',
 };
 
 /**

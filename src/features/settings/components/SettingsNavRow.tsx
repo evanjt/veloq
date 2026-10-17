@@ -1,9 +1,10 @@
 import React from 'react';
-import { Text, StyleSheet } from 'react-native';
+import { Text, StyleSheet, View } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { Row } from '@/shared/ui/Row';
+import { useLargeText } from '@/shared/ui/useLargeText';
 import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
 
 interface SettingsNavRowProps {
@@ -25,6 +26,11 @@ export function SettingsNavRow({
   testID,
 }: SettingsNavRowProps) {
   const { isDark } = useTheme();
+  // Past the dense cap a title and value side by side both cut off, so the
+  // title wraps and the value moves under it.
+  const stacked = useLargeText();
+  const titleStyle = [styles.title, isDark && styles.titleDark];
+  const subtitleStyle = [styles.subtitle, isDark && styles.subtitleDark];
 
   return (
     <Row
@@ -39,23 +45,41 @@ export function SettingsNavRow({
         size={iconSize.lg}
         color={isDark ? darkColors.textSecondary : colors.textSecondary}
       />
-      <Text style={[styles.title, isDark && styles.titleDark]} numberOfLines={1}>
-        {title}
-      </Text>
-      {subtitle ? (
-        <Text style={[styles.subtitle, isDark && styles.subtitleDark]} numberOfLines={1}>
-          {subtitle}
-        </Text>
-      ) : null}
+      {stacked ? (
+        <View style={styles.stack}>
+          <Text style={titleStyle}>{title}</Text>
+          {subtitle ? (
+            <Text style={subtitleStyle} numberOfLines={2}>
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
+      ) : (
+        <>
+          <Text style={[titleStyle, styles.titleBeside]} numberOfLines={1}>
+            {title}
+          </Text>
+          {subtitle ? (
+            <Text style={[subtitleStyle, styles.subtitleBeside]} numberOfLines={1}>
+              {subtitle}
+            </Text>
+          ) : null}
+        </>
+      )}
     </Row>
   );
 }
 
 const styles = StyleSheet.create({
+  stack: {
+    flex: 1,
+  },
   title: {
     ...typography.body,
-    flex: 1,
     color: colors.textPrimary,
+  },
+  titleBeside: {
+    flex: 1,
   },
   titleDark: {
     color: colors.textOnDark,
@@ -63,6 +87,8 @@ const styles = StyleSheet.create({
   subtitle: {
     ...typography.bodySmall,
     color: colors.textSecondary,
+  },
+  subtitleBeside: {
     marginRight: spacing.xs,
     maxWidth: '45%',
   },

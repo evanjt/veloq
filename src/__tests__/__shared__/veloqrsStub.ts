@@ -15,6 +15,9 @@
  *     );
  */
 
+// The real check, not a copy: the delegate holds no native import.
+import { isRouteNameTakenError } from '../../../modules/veloqrs/src/delegates/routes';
+
 /**
  * `FfiCallKind` as the generated binding declares it. The generated module
  * cannot be imported here, so this is a copy, and `ffiEnumStub.test.ts` reads
@@ -120,6 +123,13 @@ export enum EfficiencyDirection {
   Worsening,
 }
 
+/** `FfiOffScale` as generated, where a scatter point lies against its focus range. */
+export enum FfiOffScale {
+  None,
+  Slow,
+  Fast,
+}
+
 /** `FfiLoadMetric` as generated, the metric a period comparison was taken on. */
 export enum LoadMetric {
   Tss = 0,
@@ -146,6 +156,13 @@ export enum MaxHrSource {
   ActivityZones = 0,
   SportSettings = 1,
   Default = 2,
+}
+
+/** `FfiCadenceUnit` as generated, the unit an activity's cadence crosses in. */
+export enum CadenceUnit {
+  Rpm = 0,
+  StepsPerMinute = 1,
+  StrokesPerMinute = 2,
 }
 
 /** `FfiSectionSort` as generated, held to the source by the same test. */
@@ -376,10 +393,12 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     MapDistanceBand,
     FfiNewGroundBadge,
     EfficiencyDirection,
+    FfiOffScale,
     SectionSort,
     LoadMetric,
     DayLoadStatus,
     MaxHrSource,
+    CadenceUnit,
     BestEffortKind,
     StartOutcome,
     InitOutcome,
@@ -393,6 +412,7 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     isRetryableStart,
     hasStarted,
     startOutcome,
+    isRouteNameTakenError,
     decodeCoords,
     decodeCoordsFlat,
     createPreviewClientStub,

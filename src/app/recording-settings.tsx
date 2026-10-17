@@ -177,7 +177,6 @@ function RecordingSettingsScreenContent() {
 
   return (
     <ScreenSafeAreaView
-      hasNativeHeader
       testID="recording-settings-screen"
       style={[styles.container, { backgroundColor: bg }]}
     >
@@ -193,7 +192,7 @@ function RecordingSettingsScreenContent() {
               title={t('recording.autoUpload', 'Auto-upload')}
               description={t(
                 'recording.autoUploadDescription',
-                'Upload recordings to intervals.icu automatically when you save them. Off keeps them on this device until you upload from My Recordings.'
+                'Upload recordings to intervals.icu automatically when you save them. Off keeps them on this device until you upload from My recordings.'
               )}
               value={autoUploadEnabled}
               onValueChange={handleToggleAutoUpload}
@@ -206,7 +205,7 @@ function RecordingSettingsScreenContent() {
               <SettingsNavRow
                 testID="settings-recordings-link"
                 icon="folder-play-outline"
-                title={t('recording.library.title', 'My Recordings')}
+                title={t('recording.library.title', 'My recordings')}
                 onPress={() => tapTo('/recordings')}
               />
             </Card>
@@ -216,7 +215,7 @@ function RecordingSettingsScreenContent() {
         {/* GPS & Battery Section */}
         <View style={styles.section}>
           <ListSectionHeader inset={false}>
-            {t('recording.settingsGps', 'GPS & Battery')}
+            {t('recording.settingsGps', 'GPS & battery')}
           </ListSectionHeader>
           <Card variant="flat">
             <Text style={[styles.rowLabel, { color: textPrimary }]}>

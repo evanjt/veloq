@@ -14,8 +14,10 @@
 import { Platform } from 'react-native';
 import type { PressableStateCallbackType, StyleProp, ViewStyle } from 'react-native';
 
-/** How far a press fades on iOS. `Button`'s number, so the app has one. */
-export const PRESS_OPACITY = 0.7;
+import { opacity } from '@/theme';
+
+/** How far a press fades on iOS, the theme's pressed step. */
+export const PRESS_OPACITY = opacity.pressed;
 
 /** The ripple a press draws on Android, and nothing anywhere else. */
 export const pressRipple = Platform.select({

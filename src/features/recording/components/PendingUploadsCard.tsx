@@ -62,8 +62,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   text: {
+    ...typography.bodyCompactBold,
     flex: 1,
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
   },
 });

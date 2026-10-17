@@ -66,8 +66,11 @@ onFlowComplete:
       id: "home-activity-list"
     timeout: 15000
 
-- assertVisible:
-    id: "activity-card-demo-test-0"
+# Newer demo rides list above this one, so it can start below the fold.
+- runFlow:
+    file: helpers/reveal.yaml
+    env:
+      ELEMENT: "activity-card-demo-test-0"
 
 - assertNotVisible:
     text: "NaN"
@@ -164,8 +167,11 @@ onFlowComplete:
       id: "home-activity-list"
     timeout: 15000
 
-- assertVisible:
-    id: "activity-card-demo-test-0"
+# Newer demo rides list above this one, so it can start below the fold.
+- runFlow:
+    file: helpers/reveal.yaml
+    env:
+      ELEMENT: "activity-card-demo-test-0"
 
 - assertNotVisible:
     text: "NaN"

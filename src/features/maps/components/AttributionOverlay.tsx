@@ -10,7 +10,16 @@
 
 import React, { memo, forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react';
 import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
-import { colors, darkColors, spacing, layout, typography, colorWithOpacity, ink } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  darkColors,
+  ink,
+  layout,
+  opacity,
+  spacing,
+  typography,
+} from '@/theme';
 
 const PILL_INSET = 4;
 /** Share of the map the pill may claim before it wraps instead of spreading. */
@@ -108,7 +117,7 @@ const attributionStyles = StyleSheet.create({
   },
   attributionPill: {
     alignSelf: 'flex-end',
-    backgroundColor: colorWithOpacity(ink.white, 0.7),
+    backgroundColor: colorWithOpacity(ink.white, opacity.pressed),
     paddingHorizontal: spacing.smPlus,
     paddingVertical: PILL_PADDING_VERTICAL,
     borderRadius: layout.borderRadiusSm,

@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
   screenDark: { backgroundColor: darkColors.background },
   content: { padding: spacing.md, gap: spacing.sm },
   title: { color: colors.textPrimary },
-  section: { fontSize: typography.body.fontSize, fontWeight: '600', color: colors.textPrimary },
+  section: { ...typography.bodyBold, color: colors.textPrimary },
   method: { color: colors.textSecondary },
   secondaryDark: { color: darkColors.textSecondary },
   textDark: { color: darkColors.textPrimary },

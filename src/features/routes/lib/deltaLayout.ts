@@ -5,7 +5,8 @@
  * distance falls on the x axis and the grid point a touch snaps to.
  */
 
-import type { FfiDirectionDeltas, FfiLapDelta } from 'veloqrs';
+import { chartBoundsFor, xForValue, yForValue } from '@/shared/charts';
+import type { FfiDirectionDeltas, FfiLapDelta, FfiSplitSummary } from 'veloqrs';
 
 /** What the section map needs to colour its line by the shown attempt's per-stretch delta. */
 export interface SectionDeltaLine {
@@ -181,4 +182,102 @@ export function snapScrubIndex(
 ): { distanceM: number; index: number } {
   const distanceM = Math.round(plot.distanceForX(x) / SCRUB_SNAP_M) * SCRUB_SNAP_M;
   return { distanceM, index: gridStepM > 0 ? Math.round(distanceM / gridStepM) : 0 };
+}
+
+/** One split's bar in the typical-attempt plot, in pixels. */
+export interface SplitSummaryBar {
+  index: number;
+  left: number;
+  right: number;
+  /** The bar runs from the zero line to the median, so one of these is the zero line. */
+  top: number;
+  bottom: number;
+  /** Behind the reference over the split, drawn above the zero line. */
+  lost: boolean;
+  /** The quartiles, where both are finite. */
+  whisker: { top: number; bottom: number } | null;
+}
+
+export interface SplitSummaryLayout {
+  bars: SplitSummaryBar[];
+  zeroY: number;
+  /** Seconds from the zero line to the top and bottom edge of the plot. */
+  extentSecs: number;
+  /** The distance in metres at a pixel x, clamped to the section. */
+  distanceForX: (x: number) => number;
+}
+
+/** The share of its split a bar spans, centred in it. */
+const BAR_SHARE = 0.5;
+
+/**
+ * Bars for the engine's typical attempt per split: the median from the zero
+ * line, lost above and won below as the lap curves are, with the quartiles as
+ * a whisker. A split whose median is NaN has no bar, and one with either
+ * quartile NaN has no whisker. The y axis scales to the largest finite figure.
+ */
+export function layoutSplitSummary(
+  summary: FfiSplitSummary,
+  splitStepM: number,
+  sectionLengthM: number,
+  frame: DeltaFrame
+): SplitSummaryLayout {
+  const bounds = chartBoundsFor(frame.width, frame.height, frame.padding);
+  const { medianSecs, lowerQuartileSecs, upperQuartileSecs } = summary;
+
+  let peak = 0;
+  for (const series of [medianSecs, lowerQuartileSecs, upperQuartileSecs]) {
+    for (const secs of series) if (Number.isFinite(secs)) peak = Math.max(peak, Math.abs(secs));
+  }
+  const extentSecs = Math.max(peak, MIN_EXTENT_SECS);
+  const yFor = (secs: number) => yForValue(secs, [-extentSecs, extentSecs], bounds);
+  const xFor = (distanceM: number) => xForValue(distanceM, [0, sectionLengthM], bounds);
+  const zeroY = yFor(0);
+
+  const bars: SplitSummaryBar[] = [];
+  if (splitStepM > 0 && sectionLengthM > 0) {
+    medianSecs.forEach((secs, index) => {
+      if (!Number.isFinite(secs)) return;
+      const start = xFor(Math.min(index * splitStepM, sectionLengthM));
+      const end = xFor(Math.min((index + 1) * splitStepM, sectionLengthM));
+      const inset = ((end - start) * (1 - BAR_SHARE)) / 2;
+      const y = yFor(secs);
+      const lower = lowerQuartileSecs[index];
+      const upper = upperQuartileSecs[index];
+      bars.push({
+        index,
+        left: start + inset,
+        right: end - inset,
+        top: Math.min(y, zeroY),
+        bottom: Math.max(y, zeroY),
+        lost: secs > 0,
+        whisker:
+          lower !== undefined &&
+          upper !== undefined &&
+          Number.isFinite(lower) &&
+          Number.isFinite(upper)
+            ? { top: yFor(Math.max(lower, upper)), bottom: yFor(Math.min(lower, upper)) }
+            : null,
+      });
+    });
+  }
+
+  const distanceForX = (x: number) => {
+    const width = bounds.right - bounds.left;
+    if (width <= 0) return 0;
+    const fraction = (x - bounds.left) / width;
+    return Math.min(Math.max(fraction, 0), 1) * sectionLengthM;
+  };
+
+  return { bars, zeroY, extentSecs, distanceForX };
+}
+
+/** The split a distance along the section falls in, the section's end in the last one. */
+export function splitAtDistance(
+  distanceM: number,
+  splitStepM: number,
+  splitCount: number
+): number | undefined {
+  if (!(splitStepM > 0) || splitCount <= 0) return undefined;
+  return Math.min(Math.max(Math.floor(distanceM / splitStepM), 0), splitCount - 1);
 }

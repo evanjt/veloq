@@ -181,7 +181,7 @@ function RecordScreenContent() {
   const warnedPastScope = reason === 'no_permission' && ridingWithoutScope;
   if (!canRecord && reason !== 'ok' && !warnedPastScope) {
     return (
-      <ScreenSafeAreaView hasNativeHeader style={[styles.container, { backgroundColor: bg }]}>
+      <ScreenSafeAreaView style={[styles.container, { backgroundColor: bg }]}>
         <RecordingGate
           reason={reason === 'checking' ? 'no_permission' : reason}
           onGrantAccess={upgradePermissions}
@@ -203,7 +203,7 @@ function RecordScreenContent() {
       gps.state === 'servicesOff');
 
   return (
-    <ScreenSafeAreaView hasNativeHeader style={[styles.container, { backgroundColor: bg }]}>
+    <ScreenSafeAreaView style={[styles.container, { backgroundColor: bg }]}>
       <Stack.Screen
         options={{
           headerRight: () => (
@@ -211,7 +211,7 @@ function RecordScreenContent() {
               <IconButton
                 testID="record-library"
                 onPress={() => tapTo('/recordings')}
-                accessibilityLabel={t('recording.library.title', 'My Recordings')}
+                accessibilityLabel={t('recording.library.title', 'My recordings')}
               >
                 <MaterialCommunityIcons
                   name="folder-play-outline"

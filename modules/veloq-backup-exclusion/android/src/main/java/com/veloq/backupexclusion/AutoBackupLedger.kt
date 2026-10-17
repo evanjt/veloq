@@ -68,8 +68,8 @@ class AutoBackupLedger(private val store: Store) {
 
   companion object {
     /**
-     * The preferences file the record is kept in. The backup rules exclude it, so a restore
-     * does not bring another phone's record.
+     * The preferences file the record is kept in. The backup rules carry no preferences, so a
+     * restore does not bring another phone's record.
      */
     const val PREFERENCES = "veloq_auto_backup"
 
@@ -105,20 +105,16 @@ class AutoBackupLedger(private val store: Store) {
 }
 
 /**
- * The size of what the backup rules carry, which the platform does not hand the agent: every
- * preferences file but the credential store and the agent's own record, and the latest record
- * zip. These are the paths the rules files written by `with-android-backup.js` name.
+ * The size of what the backup rules carry, which the platform does not hand the agent: the latest
+ * record zip alone, the one path the rules files written by `with-android-backup.js` name. No
+ * preferences file is carried, so none is counted.
  */
 object BackupPayload {
   const val RECORD_ZIP = "veloq-decisions.zip"
-  private val EXCLUDED_PREFERENCES = setOf("SecureStore.xml", "${AutoBackupLedger.PREFERENCES}.xml")
 
-  /** Bytes under the app's data directory, the parent of `files` and `shared_prefs`. */
+  /** Bytes of the record zip under the app's data directory, the parent of `files`. */
   fun bytes(dataDir: File): Long {
-    val preferences = File(dataDir, "shared_prefs").listFiles().orEmpty()
-      .filter { it.isFile && it.name !in EXCLUDED_PREFERENCES }
-      .sumOf { it.length() }
     val zip = File(File(dataDir, "files"), RECORD_ZIP)
-    return preferences + (if (zip.isFile) zip.length() else 0L)
+    return if (zip.isFile) zip.length() else 0L
   }
 }

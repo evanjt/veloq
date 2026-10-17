@@ -40,7 +40,7 @@ function AboutScreenContent() {
   const shared = createSharedStyles(isDark);
 
   return (
-    <ScreenSafeAreaView hasNativeHeader testID="about-screen" style={shared.container}>
+    <ScreenSafeAreaView testID="about-screen" style={shared.container}>
       <ScreenScrollView contentContainerStyle={styles.content}>
         {/* App Info */}
         <View
@@ -268,7 +268,6 @@ const styles = {
   },
   trademarkText: {
     ...typography.micro,
-    opacity: 0.7,
     lineHeight: 14,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,

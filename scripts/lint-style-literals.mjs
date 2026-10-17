@@ -11,12 +11,17 @@
 // has already beaten fails with the command that lowers it, so ground a sweep
 // takes cannot be given away again.
 //
+// `--lower` is the lander's mode, run by `lower-style-baselines.mjs` before the
+// gates: a tree above its baseline still fails and nothing is written, and a
+// tree that only beat it has the beaten keys written down to what it holds,
+// each named on a `lowered <key>` line, and passes.
+//
 // `--class font-weight` also refuses a weight of 500 or 800 anywhere under
 // `src/`, the theme included, held at its own count under
 // `font-weight-off-scale`, which stands at zero.
 //
 // Usage: node scripts/lint-style-literals.mjs --class <name> [--root <dir>]
-//        [--baseline <file>] [--write] [--list]
+//        [--baseline <file>] [--write | --lower] [--list]
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -42,6 +47,7 @@ const BASELINE_FILE = resolve(flag('--baseline') ?? join(HERE, 'style-literal-ba
 const CLASS = flag('--class');
 const WRITE = process.argv.includes('--write');
 const LIST = process.argv.includes('--list');
+const LOWER = process.argv.includes('--lower');
 
 const ratcheted = STYLE_CLASSES.filter((c) => c.guard?.startsWith('lint:style-'));
 const cls = ratcheted.find((c) => c.name === CLASS);
@@ -121,8 +127,8 @@ if (WRITE) {
   process.exit(0);
 }
 
-let failed = false;
-for (const key of Object.keys(counts)) {
+/** Per key, the files above the baseline and the files below it. */
+const judged = Object.keys(counts).map((key) => {
   const allowed = baseline[key] ?? {};
   const over = [];
   const under = [];
@@ -134,22 +140,45 @@ for (const key of Object.keys(counts)) {
   for (const file of Object.keys(allowed)) {
     if (!(file in counts[key])) under.push([file, 0, allowed[file]]);
   }
+  return { key, over, under };
+});
+
+const reportOver = (key, over) => {
+  const instead =
+    key === OFF_SCALE
+      ? 'a weight of 400, 600 or 700: a 500 resolves to 400 or 600 by platform, and nothing is drawn above 700'
+      : cls.instead;
+  console.error(`A hand-written ${key} value above the baseline. Use ${instead}.\n`);
+  for (const [file, n, ceiling] of over) {
+    console.error(`  ${file}  ${n}, baseline ${ceiling}`);
+    for (const site of sites[key][file]) console.error(`    ${file}:${site.line}  ${site.text}`);
+  }
+};
+
+if (LOWER) {
+  const above = judged.filter((j) => j.over.length > 0);
+  if (above.length > 0) {
+    for (const { key, over } of above) reportOver(key, over);
+    process.exit(1);
+  }
+  const beaten = judged.filter((j) => j.under.length > 0).map((j) => j.key);
+  if (beaten.length > 0) {
+    const next = { ...baseline };
+    for (const key of beaten) next[key] = sorted(counts[key]);
+    writeFileSync(BASELINE_FILE, JSON.stringify(sorted(next), null, 2) + '\n');
+    for (const key of beaten) console.log(`lowered ${key}`);
+  }
+  process.exit(0);
+}
+
+let failed = false;
+for (const { key, over, under } of judged) {
   if (over.length === 0 && under.length === 0) {
     console.log(`style ${key} guard: ${total(counts[key])} sites, all at baseline.`);
     continue;
   }
   failed = true;
-  if (over.length > 0) {
-    const instead =
-      key === OFF_SCALE
-        ? 'a weight of 400, 600 or 700: a 500 resolves to 400 or 600 by platform, and nothing is drawn above 700'
-        : cls.instead;
-    console.error(`A hand-written ${key} value above the baseline. Use ${instead}.\n`);
-    for (const [file, n, ceiling] of over) {
-      console.error(`  ${file}  ${n}, baseline ${ceiling}`);
-      for (const site of sites[key][file]) console.error(`    ${file}:${site.line}  ${site.text}`);
-    }
-  }
+  if (over.length > 0) reportOver(key, over);
   if (under.length > 0) {
     console.error(
       `\nThe tree has beaten its ${key} baseline. Lower it, so the ground stays taken:`

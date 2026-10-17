@@ -44,9 +44,6 @@ tags:
       id: "home-activity-list"
     timeout: 15000
 
-- assertVisible:
-    id: "activity-card-demo-test-0"
-
 # Online state: offline banner must NOT be visible
 - assertNotVisible:
     id: "offline-banner"
@@ -62,9 +59,6 @@ tags:
     visible:
       id: "home-activity-list"
     timeout: 10000
-
-- assertVisible:
-    id: "activity-card-demo-test-0"
 
 - assertNotVisible:
     text: "NaN"
@@ -85,6 +79,14 @@ tags:
 
 - assertNotVisible:
     text: "undefined"
+
+# The stable ride is still in the feed after both refreshes. It is looked for
+# only now: newer demo rides list above it, so reaching it scrolls the list, and
+# a pull-down on a scrolled list scrolls back up rather than refreshing.
+- runFlow:
+    file: helpers/reveal.yaml
+    env:
+      ELEMENT: "activity-card-demo-test-0"
 
 # Navigate to fitness tab and pull-to-refresh there too, fitness uses a
 # different data path (getFitnessData vs getFeedData) and has historically

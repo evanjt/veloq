@@ -192,15 +192,14 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   balanceTitle: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '600',
+    ...typography.bodyBold,
     color: colors.textPrimary,
   },
   balanceTitleDark: {
     color: darkColors.textPrimary,
   },
   balanceSubtitle: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
     marginTop: spacing.xxs,
   },
@@ -218,7 +217,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   balanceHeroText: {
-    fontSize: typography.bodyCompact.fontSize,
+    ...typography.bodyCompact,
     lineHeight: 19,
     color: colors.textSecondary,
     marginTop: spacing.sm,
@@ -244,9 +243,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   balanceRowTitle: {
+    ...typography.bodySmallBold,
     flex: 1,
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
     color: colors.textPrimary,
   },
   balanceRowTitleDark: {
@@ -269,8 +267,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   balanceValueText: {
+    ...typography.caption,
     flex: 1,
-    fontSize: typography.caption.fontSize,
     color: colors.textSecondary,
   },
   balanceValueTextDark: {

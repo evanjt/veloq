@@ -18,10 +18,7 @@ export function StrengthPairsInfoSheet({ isDark, onClose }: StrengthPairsInfoShe
   const { t } = useTranslation();
 
   return (
-    <View
-      testID="strength-pairs-info-sheet"
-      style={[styles.sheet, { backgroundColor: isDark ? darkColors.surface : colors.surface }]}
-    >
+    <View testID="strength-pairs-info-sheet" style={styles.sheet}>
       <SheetHeader title={t('strength.pairsInfoTitle')} onClose={onClose} />
       <View style={styles.body}>
         <Text style={[styles.intro, isDark && styles.introDark]}>
@@ -52,7 +49,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   intro: {
-    fontSize: typography.bodyCompact.fontSize,
+    ...typography.bodyCompact,
     color: colors.textSecondary,
     marginBottom: spacing.xs,
   },
@@ -60,7 +57,7 @@ const styles = StyleSheet.create({
     color: darkColors.textSecondary,
   },
   pair: {
-    fontSize: typography.bodyCompact.fontSize,
+    ...typography.bodyCompact,
     color: colors.textPrimary,
     paddingVertical: spacing.xxs,
   },
@@ -68,7 +65,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   thresholds: {
-    fontSize: typography.caption.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
     marginTop: spacing.xs,
     lineHeight: 17,
