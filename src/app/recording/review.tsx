@@ -18,6 +18,7 @@ import {
   layout,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 import { Button, ScreenScrollView, StatusLine, TextField } from '@/shared/ui';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
@@ -201,7 +202,7 @@ function ReviewScreenContent() {
     isUploading,
     errorMessage,
     errorDetail,
-    queuedMessage,
+    leaving,
     showPermissionFix,
     isOAuthLoading,
     handleUpgradeToOAuth,
@@ -226,8 +227,8 @@ function ReviewScreenContent() {
   });
   useEffect(() => {
     const foreignSession = !!recordingAthleteId && recordingAthleteId !== signedInAthleteId;
-    if (!ownedReview && (foreignSession || (!isUploading && !queuedMessage))) replaceTo('/record');
-  }, [ownedReview, recordingAthleteId, signedInAthleteId, isUploading, queuedMessage]);
+    if (!ownedReview && (foreignSession || (!isUploading && !leaving))) replaceTo('/record');
+  }, [ownedReview, recordingAthleteId, signedInAthleteId, isUploading, leaving]);
 
   // The alert is the guard against a stray tap, as the unlock swipe is for Stop.
   const handleDiscard = useCallback(() => {
@@ -272,7 +273,7 @@ function ReviewScreenContent() {
     ignoreBack
   );
   // Save and Discard return to the root, which the guard lets through as the app's own navigation.
-  useDiscardGuard(ownedReview && edited && !isProcessing && !queuedMessage);
+  useDiscardGuard(ownedReview && edited && !isProcessing && !leaving);
   const { height: windowHeight } = useWindowDimensions();
   const mapHeight = hasGps ? windowHeight * MAP_FRACTION : 0;
 
@@ -372,25 +373,6 @@ function ReviewScreenContent() {
           editable={!isProcessing}
         />
 
-        {/* Queued success message */}
-        {queuedMessage ? (
-          <StatusLine tone="success" message={queuedMessage} style={styles.queuedBanner}>
-            <MaterialCommunityIcons
-              name="check-circle-outline"
-              size={iconSize.md}
-              color={isDark ? darkColors.successDeep : colors.successDeep}
-            />
-            <Text
-              style={[
-                styles.queuedBannerText,
-                { color: isDark ? darkColors.successDeep : colors.successDeep },
-              ]}
-            >
-              {queuedMessage}
-            </Text>
-          </StatusLine>
-        ) : null}
-
         {/* The scope the athlete recorded past: say where the ride is going. */}
         {ridingWithoutScope ? (
           <Text
@@ -415,7 +397,7 @@ function ReviewScreenContent() {
             />
             <Text
               style={[
-                styles.queuedBannerText,
+                styles.bannerText,
                 { color: isDark ? darkColors.warningAmber : colors.warningAmber },
               ]}
             >
@@ -502,7 +484,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     borderRadius: layout.borderRadiusSm,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: stroke.hairline,
     alignSelf: 'flex-start',
     marginTop: spacing.md,
   },
@@ -514,19 +496,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   // Banners
-  queuedBannerText: {
+  bannerText: {
     ...typography.caption,
     flex: 1,
-  },
-  queuedBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colorWithOpacity(colors.success, 0.1),
-    borderRadius: layout.borderRadiusSm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    marginTop: spacing.sm,
   },
   noBackupBanner: {
     flexDirection: 'row',

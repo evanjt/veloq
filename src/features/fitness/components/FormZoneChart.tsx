@@ -372,7 +372,7 @@ const makeStyles = (palette: Palette) =>
     },
     zoneText: {
       fontSize: typography.caption.fontSize,
-      fontWeight: '500',
+      fontWeight: '400',
     },
     yAxisOverlay: {
       position: 'absolute',

@@ -51,6 +51,7 @@ jest.mock('@/shared/app', () => ({
   useMetricSystem: () => false,
 }));
 jest.mock('@/shared/ui', () => ({
+  Card: jest.requireActual('@/shared/ui/Card').Card,
   ScreenSafeAreaView: require('react-native').View,
   useHeroMapHeight: () => 300,
   useScrollEndInset: () => 0,

@@ -118,8 +118,7 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
   },
   toggleLabel: {
-    ...typography.body,
-    fontWeight: '500',
+    ...typography.bodyBold,
     color: colors.textPrimary,
   },
   toggleDescription: {

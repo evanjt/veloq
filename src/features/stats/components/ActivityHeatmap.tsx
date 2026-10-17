@@ -10,6 +10,7 @@ import {
   View,
   StyleSheet,
   ScrollView,
+  Pressable,
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -20,14 +21,24 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { RangeCoverage } from 'veloqrs';
-import { colors, darkColors, typography, spacing, contributionRamp, layout } from '@/theme';
+import { colors, darkColors, typography, spacing, contributionRamp, layout, stroke } from '@/theme';
 import { useTrainingScreenData } from '../hooks/useEngineStats';
 import { useWindowCoverage } from '@/shared/native/useRangeCoverage';
-import { formatFullDate, formatMonth, getIntlLocale } from '@/shared/format/format';
+import {
+  formatDurationHuman,
+  formatFullDate,
+  formatMonth,
+  getIntlLocale,
+} from '@/shared/format/format';
+import { readActivities } from '@/shared/native/storedActivities';
+import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
+import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
+import { dayActivityRow, useOpenDayActivities } from '@/features/activity/light';
 import {
   cellPosition,
   columnYear,
   positionsOf,
+  HEATMAP_CELL_GAP,
   HEATMAP_CELL_SIZE,
   HEATMAP_PITCH,
   HEATMAP_WEEKS,
@@ -57,6 +68,17 @@ export interface ActivityHeatmapHandle {
 // Color scale for activity intensity (based on training load or duration)
 const INTENSITY_COLORS = contributionRamp.dark;
 const INTENSITY_COLORS_LIGHT = contributionRamp.light;
+
+/**
+ * The legend's bins, intensity 1 to 4, which the engine brackets on the day's
+ * longest moving time: up to an hour, then 1.5 h, then 2 h, then beyond.
+ */
+const LEGEND_BINS = [
+  'stats.longestUnderOneHour',
+  'stats.longestOneToOneAndAHalfHours',
+  'stats.longestOneAndAHalfToTwoHours',
+  'stats.longestOverTwoHours',
+] as const;
 
 /** The weekday rows that carry a name, Monday 0, every other one so they fit. */
 const NAMED_ROWS = new Set([0, 2, 4]);
@@ -103,7 +125,10 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
     // Migration rebuilds it from stored metrics on upgrade. A read that throws
     // leaves the grid empty rather than failing the tab.
     const days = useMemo(() => {
-      const map = new Map<string, { intensity: number; activityCount: number }>();
+      const map = new Map<
+        string,
+        { intensity: number; maxDuration: number; activityCount: number }
+      >();
       for (const day of heatmap) map.set(day.date, day);
       return map;
     }, [heatmap]);
@@ -178,6 +203,50 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
 
       return recorder.finishRecordingAsPicture();
     }, [drawn, grid, intensities, intensityColors, dividerColor]);
+
+    // A day's activities are read only when it is pressed, from the stored
+    // bodies for that one date.
+    const openDay = useOpenDayActivities();
+    const openDayOn = useCallback(
+      (date: string) => {
+        void openDay(readActivities(date, date).map(dayActivityRow));
+      },
+      [openDay]
+    );
+
+    // One control over each day with activities, so the drawn grid can be
+    // pressed and a screen reader hears what each day holds. Days with none
+    // are left out: there is nothing to open or announce. Built with the grid,
+    // so a scrub's re-render reuses the same elements.
+    const dayControls = useMemo(() => {
+      if (!drawn) return null;
+      return grid.cells.map((cell) => {
+        const day = days.get(cell.date);
+        if (!day || day.activityCount === 0) return null;
+        const { x, y } = cellPosition(cell.col, cell.row);
+        const label = composeAccessibilityLabel(
+          formatFullDate(cell.date),
+          t('stats.activitiesCount', { count: day.activityCount }),
+          day.maxDuration > 0
+            ? t('stats.dayLongest', { duration: formatDurationHuman(day.maxDuration) })
+            : null
+        );
+        return (
+          <Pressable
+            key={cell.date}
+            testID={`activity-heatmap-day-${cell.date}`}
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            onPress={() => openDayOn(cell.date)}
+            android_ripple={pressRipple}
+            style={pressable([
+              styles.dayControl,
+              { left: x - HEATMAP_CELL_GAP / 2, top: y - HEATMAP_CELL_GAP / 2 },
+            ])}
+          />
+        );
+      });
+    }, [drawn, grid, days, t, openDayOn]);
 
     // Built once with the grid, off the same layout, so a scrub tick is one
     // lookup rather than a walk of the year.
@@ -332,6 +401,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
                     ]}
                   />
                 ) : null}
+                {dayControls}
               </View>
             </View>
           </ScrollView>
@@ -346,19 +416,26 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
           </Text>
         )}
 
-        {/* Legend */}
+        {/* Legend: the measure the colour stands for, and its bins */}
         <View style={styles.legend}>
-          <Text style={[styles.legendLabel, isDark && styles.textDark]}>{t('stats.less')}</Text>
-          {intensityColors.map((color, idx) => (
-            <View
-              key={idx}
-              style={[
-                styles.legendCell,
-                { backgroundColor: color, width: CELL_SIZE, height: CELL_SIZE },
-              ]}
-            />
+          <Text style={[styles.legendTitle, isDark && styles.textDark]}>
+            {t('stats.longestSession')}
+          </Text>
+          {LEGEND_BINS.map((key, idx) => (
+            <View key={key} style={styles.legendBin}>
+              <View
+                style={[
+                  styles.legendCell,
+                  {
+                    backgroundColor: intensityColors[idx + 1],
+                    width: CELL_SIZE,
+                    height: CELL_SIZE,
+                  },
+                ]}
+              />
+              <Text style={[styles.legendLabel, isDark && styles.textDark]}>{t(key)}</Text>
+            </View>
           ))}
-          <Text style={[styles.legendLabel, isDark && styles.textDark]}>{t('stats.more')}</Text>
         </View>
       </View>
     );
@@ -424,15 +501,31 @@ const styles = StyleSheet.create({
   },
   legend: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'flex-end',
     marginTop: spacing.sm,
+    columnGap: spacing.sm,
+    rowGap: spacing.xs,
+  },
+  legendTitle: {
+    fontSize: typography.pillLabel.fontSize,
+    fontWeight: typography.pillLabel.fontWeight,
+    color: colors.textSecondary,
+  },
+  legendBin: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.xs,
   },
   legendLabel: {
     fontSize: typography.pillLabel.fontSize,
     color: colors.textSecondary,
-    marginHorizontal: spacing.xs,
+  },
+  dayControl: {
+    position: 'absolute',
+    width: HEATMAP_PITCH,
+    height: HEATMAP_PITCH,
   },
   legendCell: {
     borderRadius: layout.borderRadiusXs,
@@ -440,7 +533,7 @@ const styles = StyleSheet.create({
   highlightCell: {
     position: 'absolute',
     borderRadius: layout.borderRadiusXs,
-    borderWidth: 2,
+    borderWidth: stroke.two,
     borderColor: colors.primary,
   },
   emptyState: {

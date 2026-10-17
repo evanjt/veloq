@@ -9,20 +9,21 @@ import Animated, {
 } from 'react-native-reanimated';
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 
-import { bodyDiagram, brand, loupeChrome, layout } from '@/theme';
+import { bodyDiagram, brand, duration, layout, loupeChrome, stroke } from '@/theme';
 import { useTheme } from '@/shared/app';
 
 import { BODY_INTRINSIC_H, BODY_INTRINSIC_W, bodyPairLayout } from '../lib/bodyScale';
 import { findMuscleAtPoint } from '../lib/polygons';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 import * as haptics from '@/shared/ui/haptics';
+import { useGestureCallback } from '@/shared/ui/useGestureCallback';
 
 const LOUPE_SIZE = 90;
 const LOUPE_OFFSET_Y = -100;
 const LOUPE_SCALE = 2.5;
 
 /** The loupe's fade out, and so how long its bodies outlive the scrub. */
-const LOUPE_FADE_MS = 150;
+const LOUPE_FADE_MS = duration.instant;
 
 interface BodyPairWithLoupeProps {
   data: readonly ExtendedBodyPart[];
@@ -116,6 +117,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
     fadeTimer.current = null;
     setScrubbing(true);
   }, []);
+  const showLoupeOnJS = useGestureCallback(showLoupe);
 
   // Kept until the fade has run, so the loupe still goes out rather than
   // vanishing on the frame the finger lifts.
@@ -194,11 +196,13 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
     },
     [touchToMuscle, scrubCallback]
   );
+  const scrubUpdateOnJS = useGestureCallback(handleScrubUpdate);
 
   const handleScrubEnd = useCallback(() => {
     lastScrubSlug.current = null;
     hideLoupe();
   }, [hideLoupe]);
+  const scrubEndOnJS = useGestureCallback(handleScrubEnd);
 
   const handleTap = useCallback(
     (x: number, y: number) => {
@@ -208,6 +212,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
     },
     [touchToMuscle, onMuscleTap]
   );
+  const tapOnJS = useGestureCallback(handleTap);
 
   const updateLoupePosition = (x: number, y: number) => {
     'worklet';
@@ -250,7 +255,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
   const tapGesture = Gesture.Tap()
     .onEnd((e) => {
       'worklet';
-      runOnJS(handleTap)(e.x, e.y);
+      runOnJS(tapOnJS)(e.x, e.y);
     })
     .enabled(!!(onMuscleTap && tappableSlugs && tappableSlugs.size > 0));
 
@@ -262,10 +267,10 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
     .enabled(scrubEnabled)
     .onStart((e) => {
       'worklet';
-      loupeOpacity.value = withTiming(1, { duration: 100 });
-      runOnJS(showLoupe)();
+      loupeOpacity.value = withTiming(1, { duration: LOUPE_FADE_MS });
+      runOnJS(showLoupeOnJS)();
       updateLoupePosition(e.x, e.y);
-      runOnJS(handleScrubUpdate)(e.x, e.y);
+      runOnJS(scrubUpdateOnJS)(e.x, e.y);
     })
     .shouldCancelWhenOutside(false);
 
@@ -282,17 +287,17 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
     .onUpdate((e) => {
       'worklet';
       updateLoupePosition(e.x, e.y);
-      runOnJS(handleScrubUpdate)(e.x, e.y);
+      runOnJS(scrubUpdateOnJS)(e.x, e.y);
     })
     .onEnd(() => {
       'worklet';
       loupeOpacity.value = withTiming(0, { duration: LOUPE_FADE_MS });
-      runOnJS(handleScrubEnd)();
+      runOnJS(scrubEndOnJS)();
     })
     .onFinalize(() => {
       'worklet';
       loupeOpacity.value = withTiming(0, { duration: LOUPE_FADE_MS });
-      runOnJS(handleScrubEnd)();
+      runOnJS(scrubEndOnJS)();
     });
 
   const scrubGesture = Gesture.Simultaneous(longPressGesture, panGesture);
@@ -445,7 +450,7 @@ const styles = StyleSheet.create({
     height: LOUPE_SIZE,
     borderRadius: LOUPE_SIZE / 2,
     overflow: 'hidden',
-    borderWidth: 3,
+    borderWidth: stroke.three,
     borderColor: brand.tealLight,
     backgroundColor: loupeChrome.bgLight,
     justifyContent: 'center',
@@ -464,7 +469,7 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: layout.borderRadiusFull,
     backgroundColor: loupeChrome.crosshairDot,
-    borderWidth: 1,
+    borderWidth: stroke.one,
     borderColor: loupeChrome.crosshairRing,
     zIndex: 5,
   },

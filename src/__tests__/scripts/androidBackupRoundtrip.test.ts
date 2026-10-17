@@ -33,6 +33,8 @@ type Handset = {
   leaks?: string[];
   /** Whether the install itself restores, as Android does with automatic restore on. */
   installRestore?: boolean;
+  /** Whether `cmd package unstop` exists, as it does from Android 14. */
+  unstop?: boolean;
 };
 
 const PREFS = '<map><string name="units">metric</string></map>';
@@ -61,6 +63,7 @@ function handset(options: Handset = {}): string {
     qemu = '',
     leaks = [],
     installRestore = false,
+    unstop = true,
   } = options;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'veloq-roundtrip-'));
   const bin = path.join(dir, 'bin');
@@ -116,7 +119,10 @@ case "$call" in
   "shell bmgr transport "*)
     echo "Selected transport \${args[3]} (formerly $(cat "${dir}/transport"))"
     echo "\${args[3]}" > "${dir}/transport" ;;
-  "shell am force-stop com.veloq.app.dev") ;;
+  "shell am force-stop com.veloq.app.dev") touch "${dir}/stopped" ;;
+  "shell cmd package unstop com.veloq.app.dev")
+    if [ "${unstop}" = true ]; then rm -f "${dir}/stopped"
+    else echo "Unknown command: unstop"; exit 255; fi ;;
   "shell run-as com.veloq.app.dev ls -d "*)
     target="\${args[5]}"
     if [ -e "$data/$target" ]; then echo "$target"
@@ -136,6 +142,11 @@ case "$call" in
   "exec-out run-as com.veloq.app.dev cat "*) cat "$data/\${args[4]}" ;;
   "shell bmgr backupnow com.veloq.app.dev")
     echo "Running incremental backup for 1 requested packages."
+    if [ -e "${dir}/stopped" ]; then
+      echo "Package com.veloq.app.dev with result: Backup is not allowed"
+      echo "Backup finished with result: Success"
+      exit 0
+    fi
     case "${backup}" in
       recorded)
         rm -rf "${dir}/cloud"; mkdir -p "${dir}/cloud/files" "${dir}/cloud/shared_prefs"
@@ -165,6 +176,7 @@ case "$call" in
   "install "*)
     [ -f "\${args[1]}" ] || { echo "adb: \${args[1]} not found"; exit 1; }
     mkdir -p "$data/files" "$data/shared_prefs"
+    touch "${dir}/stopped"
     if [ "${installRestore}" = true ] && [ "${restore}" != nothing ]; then restore; fi
     echo "Performing Streamed Install"; echo "Success" ;;
   *) echo "fake adb: unexpected call: $call" >&2; exit 1 ;;
@@ -233,6 +245,28 @@ describe('android-backup-roundtrip.sh', () => {
     expect(result.verdict).toContain('52000 bytes of the 25 MB cap');
     expect(result.verdict).toContain('restored 2025-10-09T08:54:20Z');
     expect(result.calls).toContain('shell bmgr restore 3a5e7b8c1d2f4e6a com.veloq.app.dev');
+    expect(result.zip).toBe(ZIP);
+  });
+
+  it('clears the stopped state its own force-stop leaves before asking for a backup', () => {
+    const { calls } = run(fixture());
+
+    const stop = calls.indexOf('shell am force-stop com.veloq.app.dev');
+    const unstop = calls.indexOf('shell cmd package unstop com.veloq.app.dev');
+    const backup = calls.indexOf('shell bmgr backupnow com.veloq.app.dev');
+    expect(stop).toBeGreaterThanOrEqual(0);
+    expect(unstop).toBeGreaterThan(stop);
+    expect(backup).toBeGreaterThan(unstop);
+  });
+
+  it('fails step 3 naming the stopped package when Android will not back it up, and keeps the zip', () => {
+    const result = run(fixture({ unstop: false }));
+
+    expect(result.status).toBe(1);
+    expect(result.verdict).toMatch(/^FAIL step 3: /);
+    expect(result.verdict).toContain('not allowed');
+    expect(deleted(result.calls)).toBe(false);
+    expect(restored(result.calls)).toBe(false);
     expect(result.zip).toBe(ZIP);
   });
 

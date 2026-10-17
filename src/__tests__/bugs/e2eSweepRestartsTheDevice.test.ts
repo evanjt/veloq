@@ -33,7 +33,9 @@ function androidScripts(): string {
 it('runs the suite through run-suite.sh rather than maestro directly', () => {
   const scripts = androidScripts();
 
-  expect(scripts).toMatch(/\.maestro\/run-suite\.sh\s+maestro-report\.xml/);
+  // run-shard.sh hands each shard's selection to run-suite.sh, which the shard
+  // guard proves by running the step against a stub run-suite.sh.
+  expect(scripts).toMatch(/\.maestro\/run-(suite|shard)\.sh\s+maestro-report\.xml/);
   expect(scripts).not.toMatch(/maestro" test \.maestro\/ --include-tags/);
 });
 

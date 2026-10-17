@@ -58,6 +58,7 @@ export const SCREEN_HEADERS: Record<string, ScreenHeader | null> = {
   'sheets/merge-candidates': null,
   'sheets/merge-confirm': null,
   'sheets/section-chooser': null,
+  'sheets/explainer': null,
 
   'activity/[id]': { overMap: true },
   'exercise/[category]': { titleKey: 'strength.history', largeTitle: true },
@@ -167,6 +168,7 @@ export const SCREEN_SHEETS: Record<string, number[] | 'fitToContents'> = {
   'sheets/merge-candidates': [0.6, 1],
   'sheets/merge-confirm': [0.6, 1],
   'sheets/section-chooser': 'fitToContents',
+  'sheets/explainer': 'fitToContents',
 };
 
 /**

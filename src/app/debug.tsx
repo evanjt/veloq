@@ -4,7 +4,16 @@ import Constants from 'expo-constants';
 import { Button, ScreenScrollView, pressable, pressRipple } from '@/shared/ui';
 import { shareText } from '@/features/settings/light';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, darkColors, iconSize, layout, spacing, themePalette, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  iconSize,
+  layout,
+  spacing,
+  themePalette,
+  typography,
+  stroke,
+} from '@/theme';
 import { useTheme } from '@/shared/app';
 import {
   readBasemapTileCounts,
@@ -645,10 +654,7 @@ function DebugScreenContent() {
                 </Text>
               </View>
               {ffiMethods.map(([name, m]) => (
-                <View
-                  key={name}
-                  style={[styles.tableRow, { borderLeftColor: getAvgColor(m.avgMs) }]}
-                >
+                <View key={name} style={styles.tableRow}>
                   <Text
                     style={[styles.tableCell, styles.methodCol, { color: textColor }]}
                     numberOfLines={1}
@@ -896,7 +902,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyCompact.fontSize,
     fontFamily: typography.code.fontFamily,
     color: colors.textPrimary,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   textSecondary: {
     color: darkColors.textSecondary,
@@ -911,7 +917,7 @@ const styles = StyleSheet.create({
   tableHeader: {
     flexDirection: 'row',
     paddingBottom: spacing.xs,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: stroke.hairline,
     marginBottom: spacing.xs,
   },
   tableHeaderText: {
@@ -923,9 +929,6 @@ const styles = StyleSheet.create({
   tableRow: {
     flexDirection: 'row',
     paddingVertical: spacing.xs,
-    borderLeftWidth: 3,
-    paddingLeft: spacing.xsPlus,
-    marginLeft: -spacing.xxs,
   },
   tableCell: {
     fontSize: typography.caption.fontSize,
@@ -943,7 +946,7 @@ const styles = StyleSheet.create({
   },
   taskRunRow: {
     paddingVertical: spacing.xs,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: stroke.hairline,
   },
   taskRunHeader: {
     flexDirection: 'row',

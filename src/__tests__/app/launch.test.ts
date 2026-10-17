@@ -474,15 +474,20 @@ const retainedFiles = [
   'file:///data/documents/backups/veloq-backup-kept.zip',
   'file:///cache/restores/veloq-record-active.tmp',
   'file:///cache/DocumentPicker/veloq-backup-picked.zip',
-  'file:///cache/exports/veloq-activities-2026-09-01.zip',
   'file:///cache/exports/River_Ride.gpx',
   'file:///cache/exports/veloq-crash-log.txt',
   'file:///cache/veloq-backup-unrelated.txt',
   'file:///cache/veloq-autobackup-unrelated.zip',
 ];
 
+/**
+ * An earlier bulk export's archive, kept past its share for a target that reads
+ * it late. Launch sweeps it, a record export leaves it to the next bulk export.
+ */
+const sharedBulkArchive = 'file:///cache/exports/veloq-activities-2026-09-01.zip';
+
 function seedBackupFiles() {
-  for (const uri of [...staleBackups, ...retainedFiles]) mockFiles.add(uri);
+  for (const uri of [...staleBackups, sharedBulkArchive, ...retainedFiles]) mockFiles.add(uri);
 }
 
 function deferred() {
@@ -575,8 +580,10 @@ describe('backup temporary files', () => {
       else await expect(exportRecordBackup()).resolves.toBe('complete');
       await finishBackupWork();
 
-      expect(staleBackups.filter((uri) => mockFiles.has(uri))).toHaveLength(1);
+      const swept = trigger === 'launch' ? [...staleBackups, sharedBulkArchive] : staleBackups;
+      expect(swept.filter((uri) => mockFiles.has(uri))).toHaveLength(1);
       expect(retainedFiles.every((uri) => mockFiles.has(uri))).toBe(true);
+      if (trigger === 'export') expect(mockFiles.has(sharedBulkArchive)).toBe(true);
       expect(warn.mock.calls.some((args) => args.includes(failure))).toBe(true);
     }
   );

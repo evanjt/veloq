@@ -396,3 +396,202 @@ fn a_restored_route_number_whose_members_are_not_here_is_held_across_regroups() 
     assert_eq!(numbers.len(), 4, "the hold is gone once its route holds it");
     assert_no_number_shared(&numbers);
 }
+
+fn number_entry(
+    table: &str,
+    key: &str,
+    id: &str,
+    number: u32,
+    ground: serde_json::Value,
+) -> serde_json::Value {
+    serde_json::json!({
+        "table": table,
+        "values": { key: id, "number": number },
+        "ground": ground,
+    })
+}
+
+fn restore_entries(
+    engine: &mut PersistentEngine,
+    entries: Vec<serde_json::Value>,
+) -> super::RestoreRecordResult {
+    let payload = serde_json::json!({ "version": super::super::record_backup::RECORD_VERSION, "entries": entries });
+    engine.restore_record_json(&payload.to_string()).unwrap()
+}
+
+/// Scenario: the backed-up library showed a climb as section 3 and a retired
+/// section on the same ground as section 6. The climb's line travels with the
+/// record, the retired section's ground is a ride this device has not fetched
+/// yet. The ride lands after the first pass and the retired ground then
+/// resolves to the climb.
+///
+/// Expected behaviour: the climb keeps 3 on every later pass, and 6 stays held.
+#[test]
+fn a_later_pass_never_moves_a_number_an_earlier_pass_restored() {
+    let _serial = crate::test_globals::serial_global_state();
+    let mut restored = PersistentEngine::in_memory().unwrap();
+    add_section(&restored, "climb", 0.0);
+    for n in 2..=7 {
+        add_section(&restored, &format!("local-{n}"), f64::from(n) * 0.05);
+    }
+
+    let carried = serde_json::to_string(&line(0.0)).unwrap();
+    let result = restore_entries(
+        &mut restored,
+        vec![
+            number_entry(
+                "section_numbers",
+                "section_id",
+                "old-climb",
+                3,
+                serde_json::json!({ "polyline_json": carried }),
+            ),
+            number_entry(
+                "section_numbers",
+                "section_id",
+                "old-retired",
+                6,
+                serde_json::json!({
+                    "rep_activity_id": "i900006",
+                    "rep_start_index": 0,
+                    "rep_end_index": 30,
+                    "point_count": 30,
+                }),
+            ),
+        ],
+    );
+    assert_eq!(result.unplaced, 0);
+    let first = section_numbers(&restored);
+    assert_eq!(first["climb"], 3);
+    assert_eq!(first["restored:section:old-retired"], 6);
+    assert_no_number_shared(&first);
+
+    restored
+        .add_activity("i900006".to_string(), line(0.0), "Ride".to_string())
+        .unwrap();
+    restored.retry_record_restore().unwrap();
+    let second = section_numbers(&restored);
+    assert_eq!(
+        second["climb"], 3,
+        "the climb keeps the number restored for it"
+    );
+    assert_eq!(
+        second.get("restored:section:old-retired"),
+        Some(&6),
+        "the retired number stays held"
+    );
+    assert_no_number_shared(&second);
+
+    restored.retry_record_restore().unwrap();
+    assert_eq!(
+        section_numbers(&restored),
+        second,
+        "a third pass moves nothing"
+    );
+}
+
+#[test]
+fn a_later_pass_never_moves_a_route_number_an_earlier_pass_restored() {
+    let _serial = crate::test_globals::serial_global_state();
+    let mut restored = PersistentEngine::in_memory().unwrap();
+    save_groups(
+        &mut restored,
+        vec![
+            group("r_1", &["a", "b"]),
+            group("r_2", &["x2"]),
+            group("r_3", &["x3"]),
+        ],
+    );
+
+    let result = restore_entries(
+        &mut restored,
+        vec![
+            number_entry(
+                "route_numbers",
+                "route_id",
+                "old-loop",
+                3,
+                serde_json::json!({ "rep_activity_id": "a", "activity_ids": ["a", "b"] }),
+            ),
+            number_entry(
+                "route_numbers",
+                "route_id",
+                "old-retired",
+                6,
+                serde_json::json!({ "rep_activity_id": "c", "activity_ids": ["c"] }),
+            ),
+        ],
+    );
+    assert_eq!(result.unplaced, 0);
+    let first = route_numbers(&restored);
+    assert_eq!(first["r_1"], 3);
+    assert_eq!(first["restored:route:old-retired"], 6);
+    assert_no_number_shared(&first);
+
+    let after = route_numbers(&restored);
+    save_groups(
+        &mut restored,
+        vec![
+            group("r_1", &["a", "b", "c"]),
+            group("r_2", &["x2"]),
+            group("r_3", &["x3"]),
+        ],
+    );
+    assert_eq!(
+        route_numbers(&restored),
+        after,
+        "the regroup itself moves nothing"
+    );
+    restored.retry_record_restore().unwrap();
+    let second = route_numbers(&restored);
+    assert_eq!(
+        second["r_1"], 3,
+        "the loop keeps the number restored for it"
+    );
+    assert_eq!(second.get("restored:route:old-retired"), Some(&6));
+    assert_no_number_shared(&second);
+
+    restored.retry_record_restore().unwrap();
+    assert_eq!(
+        route_numbers(&restored),
+        second,
+        "a third pass moves nothing"
+    );
+}
+
+/// A number a mint gave the local row, not a restore, still gives way to a
+/// restored number whose ground lands on it later.
+#[test]
+fn a_minted_number_still_gives_way_to_a_restored_one_on_a_later_pass() {
+    let _serial = crate::test_globals::serial_global_state();
+    let mut restored = PersistentEngine::in_memory().unwrap();
+    add_section(&restored, "climb", 0.0);
+    for n in 2..=7 {
+        add_section(&restored, &format!("local-{n}"), f64::from(n) * 0.05);
+    }
+    restore_entries(
+        &mut restored,
+        vec![number_entry(
+            "section_numbers",
+            "section_id",
+            "old-climb",
+            6,
+            serde_json::json!({
+                "rep_activity_id": "i900006",
+                "rep_start_index": 0,
+                "rep_end_index": 30,
+                "point_count": 30,
+            }),
+        )],
+    );
+    assert_eq!(section_numbers(&restored)["climb"], 1);
+
+    restored
+        .add_activity("i900006".to_string(), line(0.0), "Ride".to_string())
+        .unwrap();
+    restored.retry_record_restore().unwrap();
+    let numbers = section_numbers(&restored);
+    assert_eq!(numbers["climb"], 6);
+    assert!(!numbers.contains_key("restored:section:old-climb"));
+    assert_no_number_shared(&numbers);
+}

@@ -24,7 +24,7 @@ tags:
       id: "section-row-.*"
     timeout: 300000
 
-- openLink: "veloq://map?section=s_47075_-6085"
+- openLink: "veloq://map?section=s_47075_-6084"
 - runFlow:
     when:
       visible: "Open"

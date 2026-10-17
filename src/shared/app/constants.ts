@@ -25,15 +25,6 @@ export const CACHE = {
   MONTH: TIME.DAY * 30,
 } as const;
 
-export const CHART = {
-  /** Default chart height */
-  DEFAULT_HEIGHT: 200,
-  /** Small chart height */
-  SMALL_HEIGHT: 100,
-  /** Default downsampling target */
-  DOWNSAMPLE_TARGET: 500,
-} as const;
-
 export const INTERVALS_URLS = {
   signup: 'https://intervals.icu',
   privacyPolicy: 'https://intervals.icu/privacy-policy.html',

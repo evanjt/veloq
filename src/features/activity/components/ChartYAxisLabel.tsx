@@ -1,7 +1,16 @@
 import React, { useState } from 'react';
 import { StyleSheet, type LayoutChangeEvent } from 'react-native';
 import { DenseText } from '@/shared/ui/DenseText';
-import { colors, darkColors, typography, layout, spacing, ink, colorWithOpacity } from '@/theme';
+import {
+  colors,
+  darkColors,
+  typography,
+  layout,
+  spacing,
+  ink,
+  colorWithOpacity,
+  stroke,
+} from '@/theme';
 import type { SeriesInfo } from '@/features/stats';
 
 interface ChartYAxisLabelProps {
@@ -42,7 +51,7 @@ export const ChartYAxisLabel = React.memo(function ChartYAxisLabel({
   const [labelHeight, setLabelHeight] = useState(DEFAULT_LABEL_HEIGHT);
   const onLayout = (e: LayoutChangeEvent) => setLabelHeight(e.nativeEvent.layout.height);
   const accent = showYAxisAccent
-    ? { borderLeftWidth: 2, borderLeftColor: yAxisSeries.config.color }
+    ? { borderLeftWidth: stroke.two, borderLeftColor: yAxisSeries.config.color }
     : null;
 
   return (
@@ -102,7 +111,7 @@ export const ChartYAxisLabel = React.memo(function ChartYAxisLabel({
 const styles = StyleSheet.create({
   yLabel: {
     fontSize: typography.micro.fontSize,
-    fontWeight: '500',
+    fontWeight: '400',
     color: colors.textSecondary,
     backgroundColor: colorWithOpacity(ink.white, 0.8),
     paddingHorizontal: spacing.xs,

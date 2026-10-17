@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { sourceFor } from '@/shared/app/source';
@@ -16,7 +16,7 @@ import {
   requestNotificationPermission,
   useLaunchSurfaces,
 } from '@/features/settings';
-import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, motionPresets, spacing, typography } from '@/theme';
 import { Button, PermissionNotice, TextLink } from '@/shared/ui';
 import { Card } from '@/shared/ui/Card';
 
@@ -72,7 +72,7 @@ export function NotificationOptInCard({ libraryCount }: NotificationOptInCardPro
   // Show settings hint after dismissal
   if (showingSettingsHint) {
     return (
-      <Animated.View entering={FadeIn.duration(200)} exiting={FadeOut.duration(300)}>
+      <Animated.View {...motionPresets.card}>
         <Card
           variant="flat"
           padding="sm"
@@ -95,7 +95,7 @@ export function NotificationOptInCard({ libraryCount }: NotificationOptInCardPro
   if (!mayShow || (!owed && !shouldOptIn)) return null;
 
   return (
-    <Animated.View entering={FadeIn.duration(300)} exiting={FadeOut.duration(200)}>
+    <Animated.View {...motionPresets.card}>
       <Card variant="raised" style={{ gap: spacing.sm }}>
         {/* Header */}
         <View style={styles.header}>

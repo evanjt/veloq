@@ -23,7 +23,7 @@ import {
 import { createSharedStyles } from '@/styles';
 import { useTheme } from '@/shared/app';
 import { INTERVALS_URLS } from '@/features/auth';
-import { DIVIDER_INSET } from '@/features/settings';
+import { DIVIDER_INSET, settingsStyles } from '@/features/settings';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { tapTo } from '@/shared/app/navigation';
 import {
@@ -43,7 +43,10 @@ function AboutScreenContent() {
     <ScreenSafeAreaView hasNativeHeader testID="about-screen" style={shared.container}>
       <ScreenScrollView contentContainerStyle={styles.content}>
         {/* App Info */}
-        <View testID="about-app-info" style={styles.section(isDark)}>
+        <View
+          testID="about-app-info"
+          style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}
+        >
           <View style={styles.appInfo}>
             <View style={styles.appIcon(isDark)}>
               <MaterialCommunityIcons name="bike-fast" size={iconSize.xxl} color={colors.primary} />
@@ -61,13 +64,13 @@ function AboutScreenContent() {
 
         {/* Disclaimer */}
         <ListSectionHeader>{t('about.disclaimerTitle')}</ListSectionHeader>
-        <View style={styles.section(isDark)}>
+        <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
           <Text style={[styles.disclaimerText, shared.textSecondary]}>{t('about.disclaimer')}</Text>
         </View>
 
         {/* intervals.icu Links */}
         <ListSectionHeader>intervals.icu</ListSectionHeader>
-        <View style={styles.section(isDark)}>
+        <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
           <ExternalLinkRow
             testID="about-link-privacy"
             icon="shield-account"
@@ -92,7 +95,7 @@ function AboutScreenContent() {
 
         {/* Veloq Links */}
         <ListSectionHeader>Veloq</ListSectionHeader>
-        <View style={styles.section(isDark)}>
+        <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
           <ExternalLinkRow
             testID="about-link-veloq-privacy"
             icon="shield-lock"
@@ -138,7 +141,7 @@ function AboutScreenContent() {
 
         {/* Data Attribution */}
         <ListSectionHeader>{t('about.dataAttribution')}</ListSectionHeader>
-        <View style={styles.section(isDark)}>
+        <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
           <Text style={[styles.attributionText, shared.textSecondary]}>
             {t('about.garminNote')}
           </Text>
@@ -183,7 +186,7 @@ function AboutScreenContent() {
 
         {/* Map Data */}
         <ListSectionHeader>{t('about.mapData')}</ListSectionHeader>
-        <View style={styles.section(isDark)}>
+        <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
           <Text style={[styles.attributionText, shared.textSecondary]}>
             {t('about.mapAttribution')}
           </Text>
@@ -192,14 +195,6 @@ function AboutScreenContent() {
     </ScreenSafeAreaView>
   );
 }
-
-// Theme-aware section style helper
-const getSectionStyle = (isDark: boolean) => ({
-  backgroundColor: isDark ? darkColors.surface : colors.surface,
-  marginHorizontal: layout.screenPadding,
-  borderRadius: layout.borderRadius,
-  overflow: 'hidden' as const,
-});
 
 // Theme-aware app icon style helper
 const getAppIconStyle = (isDark: boolean) => ({
@@ -269,8 +264,7 @@ const styles = {
     gap: spacing.xs,
   },
   attributionName: {
-    ...typography.bodyCompact,
-    fontWeight: '500' as const,
+    ...typography.bodyCompactBold,
   },
   trademarkText: {
     ...typography.micro,
@@ -280,7 +274,6 @@ const styles = {
     paddingBottom: spacing.md,
   },
   // Theme-aware helpers
-  section: getSectionStyle,
   appIcon: getAppIconStyle,
   linkDivider: getLinkDividerStyle,
 };

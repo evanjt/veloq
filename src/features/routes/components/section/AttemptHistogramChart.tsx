@@ -17,7 +17,7 @@ import { formatDuration } from '@/shared/format/format';
 import { layoutHistogram } from '@/features/routes/lib/histogramLayout';
 import { formatSectionSpeed } from '@/features/routes/lib/sectionSpeedFormat';
 import { useMeasuredWidth } from '@/shared/charts';
-import { colors, darkColors, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import type { FfiAttemptHistogram } from 'veloqrs';
 import type { ActivityType } from '@/types';
 
@@ -92,7 +92,7 @@ export function AttemptHistogramChart({
   const plotHeight = CHART_HEIGHT - CHART_PADDING.top - CHART_PADDING.bottom;
 
   return (
-    <View testID="attempt-histogram" style={[styles.container, isDark && styles.containerDark]}>
+    <View testID="attempt-histogram" style={[styles.container]}>
       <View style={styles.plot} onLayout={onLayout}>
         {chartWidth > 0 && (
           <>
@@ -234,13 +234,8 @@ function KeyEntry({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadiusMd,
     overflow: 'hidden',
     paddingBottom: spacing.xs,
-  },
-  containerDark: {
-    backgroundColor: darkColors.surfaceCard,
   },
   plot: {
     height: CHART_HEIGHT,

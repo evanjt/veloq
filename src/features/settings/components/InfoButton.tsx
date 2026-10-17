@@ -5,11 +5,11 @@ import { useTranslation } from 'react-i18next';
 import { IconButton } from '@/shared/ui';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, iconSize } from '@/theme';
-import { inform } from '@/shared/ui/dialog';
+import { openExplainer } from '@/shared/app/explainer';
 
 interface InfoButtonProps {
   testID: string;
-  /** What the explanation is about, shown as the alert's title. */
+  /** What the explanation is about, shown as the sheet's title. */
   title: string;
   /** The explanation. It is not drawn on the screen until the button is pressed. */
   message: string;
@@ -24,7 +24,7 @@ export function InfoButton({ testID, title, message }: InfoButtonProps) {
     <IconButton
       testID={testID}
       accessibilityLabel={t('backup.aboutTopic', { title })}
-      onPress={() => inform({ title, message })}
+      onPress={() => openExplainer({ title, body: message })}
     >
       <MaterialCommunityIcons
         name="information-outline"

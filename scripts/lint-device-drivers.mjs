@@ -26,6 +26,11 @@
 // drives the one booted simulator, so a script that runs `simctl` against it
 // goes through `with-simulator-lock.sh`. Listing the simulators drives
 // nothing, and a script that creates a simulator of its own drives only that.
+//
+// Booting an emulator goes through `boot-emulator.sh`, which holds one lock
+// for the host and reuses an emulator already running: two emulators beside a
+// native build pushed a 31 GB host into swap. A script that launches one
+// itself boots a second beside whatever another session runs.
 
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -42,8 +47,10 @@ const LOCK_MACHINERY = new Set([
   'scripts/device-lock-path.sh',
   'scripts/device-lock-handset.sh',
   'scripts/with-simulator-lock.sh',
+  'scripts/boot-emulator.sh',
 ]);
 const WRAPPER = 'scripts/with-maestro.sh';
+const EMULATOR_BOOT = 'scripts/boot-emulator.sh';
 
 const SHELL = /\.(sh|bash)$/;
 const NODE = /\.(mjs|cjs|js|ts)$/;
@@ -66,12 +73,16 @@ const SHELL_MAESTRO = /(^|[\s;&|(`]|\$\()maestro\s+[-a-z"$]/;
 const SHELL_MAESTRO_DEVICE = /(^|[\s;&|(`]|\$\()maestro\s+--device[=\s]/;
 const SHELL_MAESTRO_VAR = /(^|[\s;&|(`]|\$\()"?\$\{?MAESTRO\}?"?\s+[-a-z"$]/;
 const SHELL_SIMCTL = /\bsimctl\s+([a-z]+)/g;
+// A launch names its image with `-avd` or `@`; `-list-avds` and the like boot nothing.
+const SHELL_EMULATOR_BOOT =
+  /(^|[\s;&|(`]|\$\()("?\$\{?EMULATOR\}?"?|"?[^\s;&|(`]*\/emulator"?|emulator)\s+(.*\s)?(-avd\b|@)/;
 // A script that names the wrapper `MAESTRO` calls the wrapper through it.
 const MAESTRO_IS_WRAPPER = /^\s*MAESTRO=.*with-maestro\.sh/m;
 // A command string handed to `child_process`, not a message that starts with the word.
 const NODE_CALL = String.raw`\b(?:exec|execSync|execFile|execFileSync|spawn|spawnSync)\(\s*[\x60'"]`;
 const NODE_ADB = new RegExp(`${NODE_CALL}adb\\b`);
 const NODE_MAESTRO = new RegExp(`${NODE_CALL}maestro\\b`);
+const NODE_EMULATOR = new RegExp(`${NODE_CALL}(?:[^\\s'"\x60]*/)?emulator['"\x60\\s]`);
 
 /** What a script invokes: `adb`, Maestro, both or neither. */
 export function invocations(file, source) {
@@ -89,6 +100,20 @@ export function invocations(file, source) {
     return { adb: NODE_ADB.test(code), maestro: NODE_MAESTRO.test(code) };
   }
   return { adb: false, maestro: false };
+}
+
+/** Whether a script launches an Android emulator itself. */
+export function bootsEmulator(file, source) {
+  if (SHELL.test(file))
+    return source
+      .split('\n')
+      .map(shellCode)
+      .some((l) => SHELL_EMULATOR_BOOT.test(l));
+  if (NODE.test(file)) {
+    const code = nodeCode(source);
+    return NODE_EMULATOR.test(code) && /-avd\b|['"\x60]@/.test(code);
+  }
+  return false;
 }
 
 /** Whether a shell script drives a simulator it shares with other sessions. */
@@ -125,11 +150,13 @@ function main() {
   const unlocked = [];
   const bare = [];
   const unlockedSimulator = [];
+  const booters = [];
   let drivers = 0;
 
   for (const [file, bytes] of sources) {
-    if (LOCK_MACHINERY.has(file)) continue;
     const source = bytes.toString('utf8');
+    if (file !== EMULATOR_BOOT && bootsEmulator(file, source)) booters.push(file);
+    if (LOCK_MACHINERY.has(file)) continue;
     if (drivesSharedSimulator(file, source) && !source.includes('with-simulator-lock.sh')) {
       unlockedSimulator.push(file);
     }
@@ -165,7 +192,22 @@ function main() {
     console.error('Every session on the Mac shares its booted simulator, so an install');
     console.error('lands under whatever another session is reading off it.');
   }
-  if (unlocked.length > 0 || bare.length > 0 || unlockedSimulator.length > 0) process.exit(1);
+  if (booters.length > 0) {
+    if (unlocked.length > 0 || bare.length > 0 || unlockedSimulator.length > 0) console.error('');
+    console.error('A script boots an Android emulator itself:');
+    for (const file of booters.sort()) console.error(`  ${file}`);
+    console.error('\nBoot through scripts/boot-emulator.sh, which prints the serial. It holds one');
+    console.error('lock for the host and reuses the emulator already running, because two');
+    console.error('emulators beside a native build push the host into swap.');
+  }
+  if (
+    unlocked.length > 0 ||
+    bare.length > 0 ||
+    unlockedSimulator.length > 0 ||
+    booters.length > 0
+  ) {
+    process.exit(1);
+  }
 
   console.log(`device driver guard: ${drivers} scripts drive the handset, all under the lock.`);
 }

@@ -27,6 +27,7 @@ import {
   colors,
   colorWithOpacity,
   darkColors,
+  duration,
   iconSize,
   spacing,
   typography,
@@ -74,7 +75,11 @@ export function UnlockTrack({ onUnlock, hint = 0 }: { onUnlock: () => void; hint
     if (hint === 0) return;
     haptics.light();
     Animated.sequence([
-      motionTiming(translateX, { toValue: HINT_TRAVEL, duration: 150, useNativeDriver: true }),
+      motionTiming(translateX, {
+        toValue: HINT_TRAVEL,
+        duration: duration.quick,
+        useNativeDriver: true,
+      }),
       motionSpring(translateX, {
         toValue: 0,
         useNativeDriver: true,

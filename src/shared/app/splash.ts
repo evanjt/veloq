@@ -1,5 +1,7 @@
 import * as SplashScreen from 'expo-splash-screen';
 
+import { duration } from '@/theme';
+
 // The native splash stays up until the first screen is ready, so the athlete
 // sees one launch screen rather than the splash followed by a spinner.
 void SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -7,7 +9,7 @@ void SplashScreen.preventAutoHideAsync().catch(() => {});
 // The hand-off cross-fades into the first screen. iOS cuts without `fade`, and
 // Android takes the same `duration` for its exit, so one value serves both.
 try {
-  SplashScreen.setOptions({ fade: true, duration: 300 });
+  SplashScreen.setOptions({ fade: true, duration: duration.slow });
 } catch {
   // Without the native module the splash keeps its default hand-off.
 }

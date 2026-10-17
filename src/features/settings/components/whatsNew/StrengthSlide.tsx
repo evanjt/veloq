@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
   },
   pairName: {
     fontSize: typography.caption.fontSize,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   sides: {
     flexDirection: 'row',

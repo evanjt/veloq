@@ -87,8 +87,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   dataSourceName: {
-    ...typography.bodyCompact,
-    fontWeight: '500',
+    ...typography.bodyCompactBold,
     color: colors.textPrimary,
   },
   trademarkText: {

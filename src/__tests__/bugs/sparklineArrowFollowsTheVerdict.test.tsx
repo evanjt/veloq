@@ -46,7 +46,7 @@ const EFFICIENCY = {
   hrChangeBpm: -4,
   trendSlope: -0.004,
   signalDelta: 1.2,
-  points: [820, 805, 790, 781].map((hrPaceRatio, i) => ({ hrPaceRatio, date: i })),
+  points: [830, 820, 805, 790, 785, 781].map((hrPaceRatio, i) => ({ hrPaceRatio, date: i })),
 } as unknown as EfficiencyTrend;
 
 const TRENDING = new Set(['trending-up', 'trending-down']);

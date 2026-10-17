@@ -144,6 +144,11 @@ export function generatePeriodComparisonInsights(
     value: displayValue(weekOverWeek.current, useTss),
     unit: useTss ? undefined : 'min',
   };
+  const weekOverWeekChange: DataPoint = {
+    label: t('insights.data.change'),
+    value: formatSignedPercent(ratio),
+    context: 'neutral',
+  };
   const comparisonSupportingData: InsightSupportingData = {
     // The weekly totals in the comparison's unit, including the compared week.
     ...sparkline(
@@ -165,12 +170,9 @@ export function generatePeriodComparisonInsights(
         value: displayValue(weekOverWeek.previous, useTss),
         unit: useTss ? undefined : 'min',
       },
-      change: {
-        label: t('insights.data.change'),
-        value: formatSignedPercent(ratio),
-        context: 'neutral',
-      },
+      change: weekOverWeekChange,
     },
+    change: weekOverWeekChange,
     dataPoints: [
       {
         label: t('insights.data.activitiesThisWeek'),
@@ -260,6 +262,11 @@ function generateLastWeekVsAverageInsight(
     value: displayValue(comparison.current, useTss),
     unit: useTss ? undefined : 'min',
   };
+  const chronicChange: DataPoint = {
+    label: t('insights.data.change'),
+    value: formatSignedPercent(ratio),
+    context: 'neutral',
+  };
 
   return [
     makeInsight({
@@ -302,12 +309,9 @@ function generateLastWeekVsAverageInsight(
             value: displayValue(comparison.previous, useTss),
             unit: useTss ? undefined : 'min',
           },
-          change: {
-            label: t('insights.data.change'),
-            value: formatSignedPercent(ratio),
-            context: 'neutral',
-          },
+          change: chronicChange,
         },
+        change: chronicChange,
       },
       methodology: {
         name: t('insights.methodology.periodComparisonName'),

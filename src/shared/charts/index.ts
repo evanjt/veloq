@@ -23,6 +23,7 @@ export type { XY } from './svgPath';
 export { CHART_CONFIG } from './constants';
 
 export { finiteExtent } from './extent';
+export { minMaxBuckets } from './minMaxBuckets';
 export type { Extent } from './extent';
 
 export { useMeasuredWidth } from './useMeasuredWidth';

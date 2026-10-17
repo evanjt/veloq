@@ -19,6 +19,7 @@ import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { Gesture, GestureDetector, RectButton } from 'react-native-gesture-handler';
 import { runOnJS, useSharedValue } from 'react-native-reanimated';
 import * as haptics from '@/shared/ui/haptics';
+import { useGestureCallback } from '@/shared/ui/useGestureCallback';
 import { useTranslation } from 'react-i18next';
 import { SectionInlinePlot } from './SectionInlinePlot';
 import { ActivityLedgerChanges } from './ActivityLedgerChanges';
@@ -26,6 +27,7 @@ import { findRowIndexAtPageY } from './scrubHitTest';
 import { DataRangeFooter, removeSectionWithUndo } from '@/features/routes';
 import {
   Button,
+  Card,
   composeAccessibilityLabel,
   EmptyState,
   pressable,
@@ -39,16 +41,7 @@ import {
 } from '@/features/activity/lib/groupSectionEncounters';
 import { tapTo } from '@/shared/app/navigation';
 import { formatDistance } from '@/shared/format/format';
-import {
-  colors,
-  darkColors,
-  iconSize,
-  layout,
-  shadows,
-  spacing,
-  swipeAction,
-  typography,
-} from '@/theme';
+import { colors, darkColors, iconSize, shadows, spacing, swipeAction, typography } from '@/theme';
 import { debug } from '@/shared/debug/debug';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
 import { confirmAction, inform } from '@/shared/ui/dialog';
@@ -346,6 +339,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     },
     [applyRow, ensureAutoScroll, findRowAtPageY]
   );
+  const scrubMoveOnJS = useGestureCallback(handleScrubMove);
 
   const handleScrubEnd = useCallback(() => {
     log.log('[scrub] end');
@@ -356,6 +350,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     isScrubbingSV.value = false;
     applyRow(null);
   }, [applyRow, stopAutoScroll, isScrubbingSV]);
+  const scrubEndOnJS = useGestureCallback(handleScrubEnd);
 
   useEffect(() => () => stopAutoScroll(), [stopAutoScroll]);
 
@@ -394,6 +389,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     },
     [applyRow, findRowAtPageY, isScrubbingSV, remeasureFirstRow]
   );
+  const startScrubAtOnJS = useGestureCallback(startScrubAt);
 
   // Scrub gesture: a Pan that only activates AFTER the user holds their finger
   // still for PREVIEW_HOLD_MS. Once activated, every finger move fires
@@ -405,21 +401,21 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       .activateAfterLongPress(PREVIEW_HOLD_MS)
       .onStart((e) => {
         'worklet';
-        runOnJS(startScrubAt)(e.absoluteY);
+        runOnJS(startScrubAtOnJS)(e.absoluteY);
       })
       .onUpdate((e) => {
         'worklet';
-        runOnJS(handleScrubMove)(e.absoluteY);
+        runOnJS(scrubMoveOnJS)(e.absoluteY);
       })
       .onEnd(() => {
         'worklet';
-        runOnJS(handleScrubEnd)();
+        runOnJS(scrubEndOnJS)();
       })
       .onFinalize(() => {
         'worklet';
-        runOnJS(handleScrubEnd)();
+        runOnJS(scrubEndOnJS)();
       });
-  }, [startScrubAt, handleScrubMove, handleScrubEnd]);
+  }, [startScrubAtOnJS, scrubMoveOnJS, scrubEndOnJS]);
 
   const handleContainerLayout = useCallback((_e: LayoutChangeEvent) => {
     // Capture the list container's window-Y on mount. Scrub start re-measures
@@ -573,34 +569,35 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         qualityText
       );
       return (
-        <View
-          key={`${match.sectionId}-${match.startIndex}`}
-          style={[styles.scanMatchRow, isDark && styles.scanMatchRowDark]}
-        >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={spokenName}
-            style={pressable(styles.scanMatchInfo)}
-            android_ripple={pressRipple}
-            onPress={() => tapTo(`/section/${match.sectionId}?activityId=${activityId}`)}
-          >
-            <Text
-              numberOfLines={2}
-              style={[styles.scanMatchName, isDark && { color: darkColors.textPrimary }]}
-            >
-              {displayName}
-            </Text>
-            <Text style={[styles.scanMatchMeta, isDark && { color: darkColors.textSecondary }]}>
-              {distance}
-              {position ? ` · ${position}` : ''}
-              {qualityText ? ` · ${qualityText}` : ''}
-            </Text>
-          </Pressable>
-          <Button
-            label={t('sections.addToSection')}
-            size="sm"
-            onPress={() => handleRematch(match.sectionId)}
-          />
+        <View key={`${match.sectionId}-${match.startIndex}`} style={styles.scanMatchFrame}>
+          <Card variant="flat" padding="none">
+            <View style={styles.scanMatchRow}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={spokenName}
+                style={pressable(styles.scanMatchInfo)}
+                android_ripple={pressRipple}
+                onPress={() => tapTo(`/section/${match.sectionId}?activityId=${activityId}`)}
+              >
+                <Text
+                  numberOfLines={2}
+                  style={[styles.scanMatchName, isDark && { color: darkColors.textPrimary }]}
+                >
+                  {displayName}
+                </Text>
+                <Text style={[styles.scanMatchMeta, isDark && { color: darkColors.textSecondary }]}>
+                  {distance}
+                  {position ? ` · ${position}` : ''}
+                  {qualityText ? ` · ${qualityText}` : ''}
+                </Text>
+              </Pressable>
+              <Button
+                label={t('sections.addToSection')}
+                size="sm"
+                onPress={() => handleRematch(match.sectionId)}
+              />
+            </View>
+          </Card>
         </View>
       );
     },
@@ -773,17 +770,14 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: spacing.sm,
   },
+  scanMatchFrame: {
+    marginBottom: spacing.sm,
+  },
   scanMatchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadiusMd,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  scanMatchRowDark: {
-    backgroundColor: darkColors.surface,
   },
   scanMatchInfo: {
     flex: 1,
@@ -791,7 +785,7 @@ const styles = StyleSheet.create({
   },
   scanMatchName: {
     fontSize: typography.bodyMedium.fontSize,
-    fontWeight: '500',
+    fontWeight: '600',
     color: colors.textPrimary,
   },
   scanMatchMeta: {

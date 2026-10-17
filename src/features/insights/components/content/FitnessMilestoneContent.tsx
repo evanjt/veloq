@@ -1,24 +1,14 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import {
-  colors,
-  darkColors,
-  iconSize,
-  layout,
-  opacity,
-  spacing,
-  typography,
-  verdictColor,
-  verdictFill,
-} from '@/theme';
+import { colors, darkColors, layout, opacity, spacing, typography, verdictColor } from '@/theme';
 import { formatEpochDayUtc } from '@/shared/format/format';
 import type { Insight } from '@/types';
 import { SheetContext } from './SheetContext';
-import { verdictIcon, verdictRung } from '@/shared/format/trend';
+import { verdictRung } from '@/shared/format/trend';
+import { ChangeChip } from '@/shared/ui/ChangeChip';
 import { InsightHistoryChart } from '../InsightHistoryChart';
 
 /** What each milestone compares, named as its card names it. */
@@ -59,7 +49,6 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
   // own context, so the badge draws the one verdict the insight carries.
   const trend = insight.supportingData?.trend;
   const rung = trend ? verdictRung(trend.verdict) : 'neutral';
-  const glyph = trend ? verdictIcon(trend.verdict, trend.direction) : 'minus';
   const rungColor = verdictColor(rung, isDark);
   // The unit says which estimate moved: watts are the daily eFTP, a pace per
   // 100 metres or yards is critical swim speed, a pace per kilometre or mile
@@ -92,12 +81,12 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
     <View style={styles.container}>
       {/* Change badge, under the sheet's figure */}
       {changeStr ? (
-        <View style={[styles.changeBadge, { backgroundColor: verdictFill(rung, isDark) }]}>
-          <MaterialCommunityIcons name={glyph} size={iconSize.md} color={rungColor} />
-          <Text style={[styles.changeText, { color: rungColor }]}>
-            {changeStr} {changeUnit}
-          </Text>
-        </View>
+        <ChangeChip
+          text={changeUnit ? `${changeStr} ${changeUnit}` : changeStr}
+          trend={trend}
+          isDark={isDark}
+          style={styles.changeChip}
+        />
       ) : null}
 
       {/* The card's history in full, or the two values it compares when it had none */}
@@ -161,18 +150,8 @@ const styles = StyleSheet.create({
   container: {
     gap: spacing.sm,
   },
-  changeBadge: {
+  changeChip: {
     alignSelf: 'center',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.smPlus,
-    paddingVertical: spacing.xs,
-    borderRadius: layout.borderRadiusMd,
-    gap: spacing.xs,
-  },
-  changeText: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '700',
   },
   timelineCard: {
     backgroundColor: opacity.overlay.subtle,

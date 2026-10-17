@@ -55,6 +55,8 @@ exit 0`
       ...process.env,
       PATH: `${bin}:${process.env.PATH}`,
       VELOQ_DEVICE_LOCK_HELD: '1',
+      // Keeps the host's Maestro lock, which sits beside the device locks, inside this rig.
+      VELOQ_DEVICE_LOCK_DIR: root,
       ANDROID_SERIAL: 'serial',
     },
   });

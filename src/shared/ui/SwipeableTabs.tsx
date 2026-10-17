@@ -18,19 +18,21 @@ import Animated, {
   interpolate,
   Extrapolation,
   runOnJS,
-  Easing,
 } from 'react-native-reanimated';
 import * as haptics from './haptics';
 import {
   brand,
   colors,
   darkColors,
+  duration,
+  easing,
   iconSize,
   layout,
   spacing,
   typography,
   verdictColor,
   verdictFill,
+  stroke,
 } from '@/theme';
 import { pressable, pressRipple } from '@/shared/ui';
 import { layoutTabStrip, scrollOffsetToShow } from '@/shared/ui/tabStripLayout';
@@ -38,16 +40,16 @@ import { pagerPanDecision } from '@/shared/ui/pagerPanDecision';
 import { pageAccessibility } from './pagerAccessibility';
 import { isReduceMotionOn } from './reduceMotion';
 import { composeAccessibilityLabel } from './accessibilityLabel';
+import { useGestureCallback } from './useGestureCallback';
 
 // Gesture thresholds
 const SWIPE_THRESHOLD_RATIO = 0.2; // 20% of screen width
 const VELOCITY_THRESHOLD = 400; // pixels per second
 
 // Timing config for smooth, non-bouncy animation
-const ANIMATION_DURATION_MS = 250;
 const TIMING_CONFIG = {
-  duration: ANIMATION_DURATION_MS,
-  easing: Easing.out(Easing.cubic),
+  duration: duration.standard,
+  easing: easing.standard,
 };
 
 // Horizontal padding inside each tab, either side of its content
@@ -207,11 +209,18 @@ export function SwipeableTabs({
     haptics.selection();
   }, []);
 
-  const updateTab = useCallback(
-    (key: string) => {
-      onTabChange(key);
-    },
-    [onTabChange]
+  // A swipe settles by index, so the worklet captures neither the tabs nor
+  // the screen's callback.
+  const settleOnTab = useGestureCallback(
+    useCallback(
+      (index: number) => {
+        const tab = tabs[index];
+        if (!tab) return;
+        triggerHaptic();
+        onTabChange(tab.key);
+      },
+      [tabs, onTabChange, triggerHaptic]
+    )
   );
 
   // Mark current tab as visited synchronously during render
@@ -317,8 +326,7 @@ export function SwipeableTabs({
           indicatorProgress.value = withTiming(targetTabIndex, TIMING_CONFIG);
 
           if (targetTabIndex !== activeTabIndex.value) {
-            runOnJS(triggerHaptic)();
-            runOnJS(updateTab)(tabs[targetTabIndex].key);
+            runOnJS(settleOnTab)(targetTabIndex);
           }
         }),
     [
@@ -328,9 +336,7 @@ export function SwipeableTabs({
       touchStartX,
       panTaken,
       isRTL,
-      triggerHaptic,
-      updateTab,
-      tabs,
+      settleOnTab,
       tabCount,
       maxOffset,
       screenWidth,
@@ -475,7 +481,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: spacing.md,
     backgroundColor: colors.background,
-    borderBottomWidth: 1,
+    borderBottomWidth: stroke.one,
     borderBottomColor: colors.border,
     position: 'relative',
   },
@@ -506,7 +512,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: typography.bodySmall.fontSize,
-    fontWeight: '500',
+    fontWeight: '400',
   },
   tabTextActive: {
     fontWeight: '600',

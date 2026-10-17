@@ -1,12 +1,21 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, iconSize, layout, shadows, spacing, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  iconSize,
+  layout,
+  motionPresets,
+  shadows,
+  spacing,
+  typography,
+} from '@/theme';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { Button, useBottomClearance } from '@/shared/ui';
 
@@ -33,11 +42,7 @@ export function TourReturnPill() {
   const bottomOffset = bottomClearance + spacing.sm;
 
   return (
-    <Animated.View
-      style={[styles.container, { bottom: bottomOffset }]}
-      entering={FadeIn.duration(250)}
-      exiting={FadeOut.duration(200)}
-    >
+    <Animated.View style={[styles.container, { bottom: bottomOffset }]} {...motionPresets.pill}>
       <View style={[styles.pillWrapper, { backgroundColor: bgColor }, shadows.elevated]}>
         {tourState.tip ? (
           <Text

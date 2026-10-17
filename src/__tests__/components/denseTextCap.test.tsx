@@ -132,7 +132,16 @@ describe('the dense text cap', () => {
       .split('\n')
       .filter(Boolean)
       .filter((f) => !f.startsWith('src/__tests__/'))
-      .filter((f) => f !== 'src/shared/ui/DenseText.tsx' && f !== 'src/shared/ui/index.ts')
+      // The cap's own modules: where it is defined, re-exported, and read as
+      // the large-text threshold, none of which draws text under it.
+      .filter(
+        (f) =>
+          ![
+            'src/shared/ui/DenseText.tsx',
+            'src/shared/ui/index.ts',
+            'src/shared/ui/useLargeText.ts',
+          ].includes(f)
+      )
       .sort();
     expect(users).toEqual([...DENSE_SURFACES].sort());
   });

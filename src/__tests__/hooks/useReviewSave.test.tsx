@@ -32,12 +32,18 @@ import { requestSyncRefresh } from '@/shared/native/syncRefresh';
 import { shareRecordingFit } from '@/features/recording/lib/shareRecordingFit';
 import type { RecordingStreams } from '@/features/recording/types';
 import * as haptics from '@/shared/ui/haptics';
+import { showNotice } from '@/shared/ui/Notice';
 
 jest.mock('@/shared/ui/haptics', () => ({
   selection: jest.fn(),
   light: jest.fn(),
   medium: jest.fn(),
   success: jest.fn(),
+}));
+
+jest.mock('@/shared/ui/Notice', () => ({
+  ...jest.requireActual('@/shared/ui/Notice'),
+  showNotice: jest.fn(),
 }));
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
@@ -145,8 +151,7 @@ beforeEach(() => {
     mode: 'gps',
     startTime: 1_700_000_000_000,
   });
-  // finishAndGoHome defers navigation 1.5s to show the queued toast; run it
-  // inline so the suite leaves no open timer handles.
+  // Timers run inline so the suite leaves no open handles.
   jest.spyOn(global, 'setTimeout').mockImplementation(((cb: () => void) => {
     cb();
     return 0 as never;
@@ -300,7 +305,9 @@ describe('useReviewSave', () => {
       expect.objectContaining({ uploadStatus: 'localOnly' })
     );
     expect(mockUploadRecording).not.toHaveBeenCalled();
-    expect(result.current.queuedMessage).not.toBeNull();
+    expect(showNotice).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'recording.savedLocally' })
+    );
   });
 
   it('reuses the saved entry on retry instead of duplicating it', async () => {
@@ -469,7 +476,9 @@ describe('useReviewSave', () => {
     await act(() => result.current.handleSave());
 
     expect(result.current.errorMessage).toBeNull();
-    expect(result.current.queuedMessage).not.toBeNull();
+    expect(showNotice).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'recording.savedQueued' })
+    );
   });
 
   it('finishes a saved recording when its upload needs a fresh sign-in', async () => {
@@ -481,7 +490,9 @@ describe('useReviewSave', () => {
 
     expect(result.current.isUploading).toBe(false);
     expect(result.current.errorMessage).toBeNull();
-    expect(result.current.queuedMessage).not.toBeNull();
+    expect(showNotice).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'recording.savedQueuedAuth' })
+    );
     expect(useRecordingStore.getState().status).toBe('idle');
     expect(router.dismissTo).toHaveBeenCalledWith('/');
     expect(mockSaveRecording).toHaveBeenCalledTimes(1);
@@ -684,7 +695,7 @@ describe('useReviewSave', () => {
     expect(mockUploadRecording).toHaveBeenCalledTimes(1);
     expect(mockUploadRecording).toHaveBeenCalledWith('rec-1');
     expect((router.dismissTo as jest.Mock).mock.calls.length > 0).toBe(expected.home);
-    expect(result.current.queuedMessage !== null).toBe(expected.queued);
+    expect((showNotice as jest.Mock).mock.calls.length > 0).toBe(expected.queued);
     expect(result.current.errorMessage !== null).toBe(expected.error);
     expect(result.current.canRetry).toBe(expected.retry);
     expect(result.current.showPermissionFix).toBe(expected.fix);

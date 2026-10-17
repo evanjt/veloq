@@ -24,11 +24,13 @@ import {
   shadows,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 import { formatDuration } from '@/shared/format/format';
 import { stepTrimBound, trimMinGap, type TrimBound } from '@/shared/math/trimRange';
 import { IconButton } from '@/shared/ui';
 import * as haptics from '@/shared/ui/haptics';
+import { useGestureCallback } from '@/shared/ui/useGestureCallback';
 
 const HANDLE_SIZE = 28;
 const TRACK_HEIGHT = 4;
@@ -135,6 +137,10 @@ export function TrimSlider({
     setTrackWidth(e.nativeEvent.layout.width);
   }, []);
 
+  const lastMovedOnJS = useGestureCallback(setLastMoved);
+  const trimChangeOnJS = useGestureCallback(onTrimChange);
+  const commitOnJS = useGestureCallback(commit);
+
   const startGesture = useMemo(
     () =>
       Gesture.Pan()
@@ -142,7 +148,7 @@ export function TrimSlider({
         .onStart(() => {
           startX.value = startFraction * trackWidth;
           liveIndex.value = startIdx;
-          runOnJS(setLastMoved)('start');
+          runOnJS(lastMovedOnJS)('start');
         })
         .onUpdate((e) => {
           const newX = Math.max(0, Math.min(startX.value + e.translationX, trackWidth));
@@ -157,11 +163,11 @@ export function TrimSlider({
           );
           if (next !== liveIndex.value) {
             liveIndex.value = next;
-            runOnJS(onTrimChange)(next, endIdx);
+            runOnJS(trimChangeOnJS)(next, endIdx);
           }
         })
         .onEnd(() => {
-          runOnJS(commit)(liveIndex.value, endIdx);
+          runOnJS(commitOnJS)(liveIndex.value, endIdx);
         })
         .hitSlop({ top: 15, bottom: 15, left: 15, right: 15 }),
     [
@@ -169,8 +175,9 @@ export function TrimSlider({
       trackWidth,
       maxIndex,
       minGap,
-      onTrimChange,
-      commit,
+      trimChangeOnJS,
+      commitOnJS,
+      lastMovedOnJS,
       startIdx,
       endIdx,
       startX,
@@ -185,7 +192,7 @@ export function TrimSlider({
         .onStart(() => {
           endX.value = endFraction * trackWidth;
           liveIndex.value = endIdx;
-          runOnJS(setLastMoved)('end');
+          runOnJS(lastMovedOnJS)('end');
         })
         .onUpdate((e) => {
           const newX = Math.max(0, Math.min(endX.value + e.translationX, trackWidth));
@@ -193,11 +200,11 @@ export function TrimSlider({
           const next = stepTrimBound(startIdx, endIdx, maxIndex, 'end', newIndex - endIdx, minGap);
           if (next !== liveIndex.value) {
             liveIndex.value = next;
-            runOnJS(onTrimChange)(startIdx, next);
+            runOnJS(trimChangeOnJS)(startIdx, next);
           }
         })
         .onEnd(() => {
-          runOnJS(commit)(startIdx, liveIndex.value);
+          runOnJS(commitOnJS)(startIdx, liveIndex.value);
         })
         .hitSlop({ top: 15, bottom: 15, left: 15, right: 15 }),
     [
@@ -205,8 +212,9 @@ export function TrimSlider({
       trackWidth,
       maxIndex,
       minGap,
-      onTrimChange,
-      commit,
+      trimChangeOnJS,
+      commitOnJS,
+      lastMovedOnJS,
       startIdx,
       endIdx,
       endX,
@@ -394,7 +402,7 @@ const styles = StyleSheet.create({
   },
   timeRange: {
     fontSize: typography.caption.fontSize,
-    fontWeight: '500',
+    fontWeight: '600',
     fontVariant: ['tabular-nums'],
   },
   timeRangeTrimmed: {
@@ -432,7 +440,7 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: layout.borderRadiusFull,
     backgroundColor: colors.textOnDark,
-    borderWidth: 2,
+    borderWidth: stroke.two,
     justifyContent: 'center',
     alignItems: 'center',
     ...shadows.elevated,

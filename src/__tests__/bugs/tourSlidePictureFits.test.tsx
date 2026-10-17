@@ -3,16 +3,18 @@
  * the slide's title and body leave less room than the picture drawn under them.
  *
  * Expected behaviour: the picture is drawn smaller, inside the space the slide
- * has, rather than at its own size and cut off by the card at the bottom.
+ * has, rather than at its own size and cut off by the card at the bottom. Once
+ * it is at its floor the title and body scroll above it, so no text is clipped
+ * and the picture is never dropped.
  */
 
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, within } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
 import { WhatsNewSlide } from '@/features/settings/components/whatsNew/WhatsNewSlide';
 import { HeatmapSlide } from '@/features/settings/components/whatsNew/HeatmapSlide';
-import { tourPictureSpace } from '@/features/settings/lib/tourSlideFit';
+import { TOUR_PICTURE_FLOOR, tourPictureSpace } from '@/features/settings/lib/tourSlideFit';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
@@ -68,9 +70,9 @@ describe('a tour slide picture on a short screen', () => {
     await fireEvent(tree.getByTestId('tour-slide-header'), 'layout', layout(100));
     const before = drawnHeight(tree);
 
-    await fireEvent(tree.getByTestId('tour-slide-header'), 'layout', layout(180));
+    await fireEvent(tree.getByTestId('tour-slide-header'), 'layout', layout(160));
     expect(drawnHeight(tree)).toBeLessThan(before);
-    expect(drawnHeight(tree)).toBeLessThanOrEqual(tourPictureSpace(320, 180));
+    expect(drawnHeight(tree)).toBeLessThanOrEqual(tourPictureSpace(320, 160));
   });
 
   it('is drawn at its own size when the screen has room for it', async () => {
@@ -79,5 +81,36 @@ describe('a tour slide picture on a short screen', () => {
     await fireEvent(tree.getByTestId('tour-slide-picture-content'), 'layout', layout(220));
 
     expect(drawnHeight(tree)).toBe(220);
+  });
+});
+
+describe('a tour slide whose title and body outgrow the slide', () => {
+  function scrollerOf(tree: Awaited<ReturnType<typeof render>>) {
+    return tree.getByTestId('tour-slide-text');
+  }
+
+  it('scrolls the title and body and keeps the picture at its floor', async () => {
+    const tree = await renderSlide(320);
+    await fireEvent(tree.getByTestId('tour-slide-picture-content'), 'layout', layout(220));
+    await fireEvent(tree.getByTestId('tour-slide-header'), 'layout', layout(420));
+
+    const scroller = scrollerOf(tree);
+    expect(scroller.props.scrollEnabled).toBe(true);
+    expect(scroller.props.showsVerticalScrollIndicator).toBe(true);
+    expect(within(scroller).getByText('Body')).toBeTruthy();
+    expect(within(scroller).getByText('Title')).toBeTruthy();
+
+    expect(drawnHeight(tree)).toBe(220 * TOUR_PICTURE_FLOOR);
+    const textHeight = StyleSheet.flatten(scroller.props.style)?.maxHeight;
+    expect(textHeight).toBe(320 - 24 - 24 - 220 * TOUR_PICTURE_FLOOR);
+  });
+
+  it('does not scroll when the title and body fit', async () => {
+    const tree = await renderSlide(900);
+    await fireEvent(tree.getByTestId('tour-slide-picture-content'), 'layout', layout(220));
+    await fireEvent(tree.getByTestId('tour-slide-header'), 'layout', layout(140));
+
+    expect(scrollerOf(tree).props.scrollEnabled).toBe(false);
+    expect(StyleSheet.flatten(scrollerOf(tree).props.style)?.maxHeight).toBeUndefined();
   });
 });

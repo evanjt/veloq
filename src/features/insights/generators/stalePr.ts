@@ -1,4 +1,4 @@
-import type { Insight, SeriesPoint, SupportingSection, TFunc } from '../types';
+import type { DataPoint, Insight, SeriesPoint, SupportingSection, TFunc } from '../types';
 import {
   formatDuration,
   formatPaceCompact,
@@ -152,6 +152,11 @@ export function stalePROpportunityToInsight(
     value: isPower ? Math.round(opportunity.currentValue) : currentStr,
     unit,
   };
+  const gain: DataPoint = {
+    label: t('insights.stalePr.metricGain', { metric: metricLabel }),
+    value: gainText(opportunity.gainPercent),
+    context: 'good',
+  };
 
   return {
     id: `stale_pr-${sectionPairKey(opportunity.sectionId, opportunity.sportType)}`,
@@ -196,6 +201,7 @@ export function stalePROpportunityToInsight(
       ...opportunityHistory(opportunity, t),
       sections: [supportingSection(opportunity)],
       hero: current,
+      change: gain,
       dataPoints: [
         current,
         {
@@ -203,11 +209,7 @@ export function stalePROpportunityToInsight(
           value: isPower ? Math.round(opportunity.previousValue) : previousStr,
           unit,
         },
-        {
-          label: t('insights.stalePr.metricGain', { metric: metricLabel }),
-          value: gainText(opportunity.gainPercent),
-          context: 'good',
-        },
+        gain,
         {
           label: t('insights.stalePr.prTime'),
           value: prTime,

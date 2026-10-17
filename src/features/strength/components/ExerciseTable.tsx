@@ -6,14 +6,14 @@ import { Trans, useTranslation } from 'react-i18next';
 
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { formatDuration } from '@/shared/format/format';
-import { colors, darkColors, spacing, layout, typography, shadows, brand } from '@/theme';
+import { brand, colors, darkColors, layout, spacing, stroke, typography } from '@/theme';
 
 import { useExerciseSets } from '../hooks/useExerciseSets';
 import { formatBestSet } from '../lib/formatting';
 import { formatWeight } from '@/shared/format/weight';
 import { ABSENT, absentLabel } from '@/shared/format/absent';
 import type { ExerciseGroup } from 'veloqrs';
-import { Button, InlineLink } from '@/shared/ui';
+import { Button, Card, InlineLink } from '@/shared/ui';
 import { tapTo } from '@/shared/app/navigation';
 
 interface ExerciseTableProps {
@@ -57,8 +57,12 @@ export function ExerciseTable({
 
   if (isLoading) {
     return (
-      <View style={[styles.card, isDark && styles.cardDark, styles.loadingContainer]}>
-        <ActivityIndicator size="small" color={colors.primary} />
+      <View style={styles.frame}>
+        <Card variant="raised" padding="none">
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color={colors.primary} />
+          </View>
+        </Card>
       </View>
     );
   }
@@ -68,10 +72,14 @@ export function ExerciseTable({
   // failed download read as an honest empty session with no way to tell.
   if (groups.length === 0 && outcome === 'pending') {
     return (
-      <View style={[styles.card, isDark && styles.cardDark, styles.loadingContainer]}>
-        <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>
-          {t('strength.setsNotDownloaded')}
-        </Text>
+      <View style={styles.frame}>
+        <Card variant="raised" padding="none">
+          <View style={styles.loadingContainer}>
+            <Text style={[styles.subtitle, isDark && styles.subtitleDark]}>
+              {t('strength.setsNotDownloaded')}
+            </Text>
+          </View>
+        </Card>
       </View>
     );
   }
@@ -84,157 +92,166 @@ export function ExerciseTable({
   return (
     <>
       {/* Exercise card */}
-      <View style={[styles.card, isDark && styles.cardDark]}>
-        <View style={styles.header}>
-          <Text style={[styles.title, isDark && styles.textDark]}>
-            {t('activityDetail.exercises')}
-          </Text>
-          <Text style={[styles.subtitle, isDark && styles.textSecondaryDark]}>
-            {t('activityDetail.exercisesSummary', {
-              exercises: groups.length,
-              sets: session.activeSetCount,
-            })}
-          </Text>
-        </View>
+      <View style={styles.frame}>
+        <Card variant="raised">
+          <View style={styles.header}>
+            <Text style={[styles.title, isDark && styles.textDark]}>
+              {t('activityDetail.exercises')}
+            </Text>
+            <Text style={[styles.subtitle, isDark && styles.textSecondaryDark]}>
+              {t('activityDetail.exercisesSummary', {
+                exercises: groups.length,
+                sets: session.activeSetCount,
+              })}
+            </Text>
+          </View>
 
-        {groups.map((group, groupIdx) => (
-          <View key={`${group.name}-${groupIdx}`}>
-            {groupIdx > 0 && <View style={[styles.divider, isDark && styles.dividerDark]} />}
-            <View style={styles.exerciseHeading}>
-              <Text style={[styles.exerciseName, isDark && styles.textDark]}>{group.name}</Text>
-              <Button
-                label={t('strength.history')}
-                variant="ghost"
-                size="sm"
-                onPress={() => tapTo(`/exercise/${group.exerciseCategory}`)}
-              />
-            </View>
-            {group.bestSet ? (
-              <Text style={[styles.subtitle, isDark && styles.textSecondaryDark]}>
-                {t('strength.bestSet')}: {formatBestSet(group.bestSet, isMetric, t)}
-              </Text>
-            ) : null}
-            {group.restSeconds.length > 0 && (
-              <Text style={[styles.subtitle, isDark && styles.textSecondaryDark]}>
-                {t('strength.restBetweenSets')}: {group.restSeconds.map(formatDuration).join(' · ')}
-              </Text>
-            )}
+          {groups.map((group, groupIdx) => (
+            <View key={`${group.name}-${groupIdx}`}>
+              {groupIdx > 0 && <View style={[styles.divider, isDark && styles.dividerDark]} />}
+              <View style={styles.exerciseHeading}>
+                <Text style={[styles.exerciseName, isDark && styles.textDark]}>{group.name}</Text>
+                <Button
+                  label={t('strength.history')}
+                  variant="ghost"
+                  size="sm"
+                  onPress={() => tapTo(`/exercise/${group.exerciseCategory}`)}
+                />
+              </View>
+              {group.bestSet ? (
+                <Text style={[styles.subtitle, isDark && styles.textSecondaryDark]}>
+                  {t('strength.bestSet')}: {formatBestSet(group.bestSet, isMetric, t)}
+                </Text>
+              ) : null}
+              {group.restSeconds.length > 0 && (
+                <Text style={[styles.subtitle, isDark && styles.textSecondaryDark]}>
+                  {t('strength.restBetweenSets')}:{' '}
+                  {group.restSeconds.map(formatDuration).join(' · ')}
+                </Text>
+              )}
 
-            <View style={styles.headerRow}>
-              <Text style={[styles.colHeader, styles.colSet, isDark && styles.textSecondaryDark]}>
-                {t('strength.setColumn')}
-              </Text>
-              <Text style={[styles.colHeader, styles.colReps, isDark && styles.textSecondaryDark]}>
-                {t('strength.repsColumn')}
-              </Text>
-              <Text
-                style={[styles.colHeader, styles.colWeight, isDark && styles.textSecondaryDark]}
-              >
-                {t('strength.weightColumn')}
-              </Text>
-              <Text style={[styles.colHeader, styles.colTime, isDark && styles.textSecondaryDark]}>
-                {t('strength.timeColumn')}
-              </Text>
-            </View>
-
-            {group.sets.map((set, setIdx) => {
-              const reps = set.repetitions != null ? String(set.repetitions) : ABSENT;
-              const weight = set.weightKg != null ? formatWeight(set.weightKg, isMetric) : ABSENT;
-              const time = set.durationSecs != null ? formatDuration(set.durationSecs) : ABSENT;
-              return (
-                <View
-                  key={set.setOrder}
-                  style={[
-                    styles.setRow,
-                    setIdx > 0 && styles.setRowBorder,
-                    setIdx > 0 && isDark && styles.setRowBorderDark,
-                  ]}
+              <View style={styles.headerRow}>
+                <Text style={[styles.colHeader, styles.colSet, isDark && styles.textSecondaryDark]}>
+                  {t('strength.setColumn')}
+                </Text>
+                <Text
+                  style={[styles.colHeader, styles.colReps, isDark && styles.textSecondaryDark]}
                 >
-                  <Text style={[styles.colValue, styles.colSet, isDark && styles.textDark]}>
-                    {setIdx + 1}
-                  </Text>
-                  <Text
-                    style={[styles.colValue, styles.colReps, isDark && styles.textDark]}
-                    accessibilityLabel={absentLabel(reps, t)}
-                  >
-                    {reps}
-                  </Text>
-                  <Text
-                    style={[styles.colValue, styles.colWeight, isDark && styles.textDark]}
-                    accessibilityLabel={absentLabel(weight, t)}
-                  >
-                    {weight}
-                  </Text>
-                  <Text
-                    style={[styles.colValue, styles.colTime, isDark && styles.textSecondaryDark]}
-                    accessibilityLabel={absentLabel(time, t)}
-                  >
-                    {time}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-        ))}
+                  {t('strength.repsColumn')}
+                </Text>
+                <Text
+                  style={[styles.colHeader, styles.colWeight, isDark && styles.textSecondaryDark]}
+                >
+                  {t('strength.weightColumn')}
+                </Text>
+                <Text
+                  style={[styles.colHeader, styles.colTime, isDark && styles.textSecondaryDark]}
+                >
+                  {t('strength.timeColumn')}
+                </Text>
+              </View>
 
-        {/* Totals row */}
-        <View style={[styles.totalsRow, isDark && styles.totalsRowDark]}>
-          <Text style={[styles.totalsLabel, isDark && styles.textSecondaryDark]}>
-            {t('strength.totalLabel')}
-          </Text>
-          <View style={styles.totalsValues}>
-            {session.totalVolumeKg > 0 && (
-              <Text style={[styles.totalsValue, isDark && styles.textDark]}>
-                {formatWeight(Math.round(session.totalVolumeKg), isMetric)}
-              </Text>
-            )}
-            {session.totalDurationSecs > 0 && (
-              <Text style={[styles.totalsValue, isDark && styles.textSecondaryDark]}>
-                {formatDuration(session.totalDurationSecs)}
-              </Text>
-            )}
+              {group.sets.map((set, setIdx) => {
+                const reps = set.repetitions != null ? String(set.repetitions) : ABSENT;
+                const weight = set.weightKg != null ? formatWeight(set.weightKg, isMetric) : ABSENT;
+                const time = set.durationSecs != null ? formatDuration(set.durationSecs) : ABSENT;
+                return (
+                  <View
+                    key={set.setOrder}
+                    style={[
+                      styles.setRow,
+                      setIdx > 0 && styles.setRowBorder,
+                      setIdx > 0 && isDark && styles.setRowBorderDark,
+                    ]}
+                  >
+                    <Text style={[styles.colValue, styles.colSet, isDark && styles.textDark]}>
+                      {setIdx + 1}
+                    </Text>
+                    <Text
+                      style={[styles.colValue, styles.colReps, isDark && styles.textDark]}
+                      accessibilityLabel={absentLabel(reps, t)}
+                    >
+                      {reps}
+                    </Text>
+                    <Text
+                      style={[styles.colValue, styles.colWeight, isDark && styles.textDark]}
+                      accessibilityLabel={absentLabel(weight, t)}
+                    >
+                      {weight}
+                    </Text>
+                    <Text
+                      style={[styles.colValue, styles.colTime, isDark && styles.textSecondaryDark]}
+                      accessibilityLabel={absentLabel(time, t)}
+                    >
+                      {time}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          ))}
+
+          {/* Totals row */}
+          <View style={[styles.totalsRow, isDark && styles.totalsRowDark]}>
+            <Text style={[styles.totalsLabel, isDark && styles.textSecondaryDark]}>
+              {t('strength.totalLabel')}
+            </Text>
+            <View style={styles.totalsValues}>
+              {session.totalVolumeKg > 0 && (
+                <Text style={[styles.totalsValue, isDark && styles.textDark]}>
+                  {formatWeight(Math.round(session.totalVolumeKg), isMetric)}
+                </Text>
+              )}
+              {session.totalDurationSecs > 0 && (
+                <Text style={[styles.totalsValue, isDark && styles.textSecondaryDark]}>
+                  {formatDuration(session.totalDurationSecs)}
+                </Text>
+              )}
+            </View>
           </View>
-        </View>
+        </Card>
       </View>
 
       {/* Info card below (like "Understanding the metrics" on Fitness tab) */}
-      <View style={[styles.infoCard, isDark && styles.infoCardDark]}>
-        <View style={styles.infoRow}>
-          <View style={[styles.infoDot, { backgroundColor: colors.primary }]} />
-          <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-            <Trans
-              i18nKey="strength.muscleSource"
-              components={{
-                source: (
-                  <InlineLink
-                    accessibilityLabel={EXERCISE_DATASET.name}
-                    onPress={() => {
-                      void openExternal(EXERCISE_DATASET.url);
-                    }}
-                  >
-                    {''}
-                  </InlineLink>
-                ),
-              }}
-            />
-          </Text>
-        </View>
-        <View style={styles.infoRow}>
-          <View style={[styles.infoDot, { backgroundColor: brand.tealDark }]} />
-          <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-            <Trans
-              i18nKey={hasSex ? 'strength.bodyTypeFromProfile' : 'strength.bodyTypeDefault'}
-              values={{ bodyType }}
-              components={{
-                type: (
-                  <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
-                    {''}
-                  </Text>
-                ),
-              }}
-            />
-          </Text>
-        </View>
+      <View style={styles.infoFrame}>
+        <Card variant="flat">
+          <View style={styles.infoRow}>
+            <View style={[styles.infoDot, { backgroundColor: colors.primary }]} />
+            <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
+              <Trans
+                i18nKey="strength.muscleSource"
+                components={{
+                  source: (
+                    <InlineLink
+                      accessibilityLabel={EXERCISE_DATASET.name}
+                      onPress={() => {
+                        void openExternal(EXERCISE_DATASET.url);
+                      }}
+                    >
+                      {''}
+                    </InlineLink>
+                  ),
+                }}
+              />
+            </Text>
+          </View>
+          <View style={styles.infoRow}>
+            <View style={[styles.infoDot, { backgroundColor: brand.tealDark }]} />
+            <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
+              <Trans
+                i18nKey={hasSex ? 'strength.bodyTypeFromProfile' : 'strength.bodyTypeDefault'}
+                values={{ bodyType }}
+                components={{
+                  type: (
+                    <Text style={[styles.infoHighlight, isDark && styles.infoHighlightDark]}>
+                      {''}
+                    </Text>
+                  ),
+                }}
+              />
+            </Text>
+          </View>
+        </Card>
       </View>
     </>
   );
@@ -249,21 +266,14 @@ const EXERCISE_DATASET = {
 
 const styles = StyleSheet.create({
   exerciseHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.cardPadding,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+  frame: {
     marginBottom: spacing.sm,
-    ...shadows.card,
-  },
-  cardDark: {
-    backgroundColor: darkColors.surface,
   },
   loadingContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.md,
   },
   header: {
     flexDirection: 'row',
@@ -290,7 +300,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   divider: {
-    height: StyleSheet.hairlineWidth,
+    height: stroke.hairline,
     backgroundColor: colors.divider,
     marginVertical: spacing.sm,
   },
@@ -306,7 +316,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xsPlus,
   },
   setRowBorder: {
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: stroke.hairline,
     borderTopColor: colors.divider,
   },
   setRowBorderDark: {
@@ -314,7 +324,7 @@ const styles = StyleSheet.create({
   },
   colHeader: {
     fontSize: typography.label.fontSize,
-    fontWeight: '500',
+    fontWeight: '600',
     color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -352,7 +362,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: spacing.sm,
     marginTop: spacing.sm,
-    borderTopWidth: 1,
+    borderTopWidth: stroke.one,
     borderTopColor: colors.divider,
   },
   totalsRowDark: {
@@ -375,14 +385,8 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   // Info card (matches fitness tab "Understanding the metrics" pattern)
-  infoCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    padding: layout.cardPadding,
+  infoFrame: {
     marginBottom: spacing.md,
-  },
-  infoCardDark: {
-    backgroundColor: darkColors.surface,
   },
   infoRow: {
     flexDirection: 'row',

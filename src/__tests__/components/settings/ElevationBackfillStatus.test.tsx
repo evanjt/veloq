@@ -36,6 +36,11 @@ jest.mock('veloqrs', () =>
   })
 );
 
+const mockOpenExplainer = jest.fn();
+jest.mock('@/shared/app/explainer', () => ({
+  openExplainer: (...a: unknown[]) => mockOpenExplainer(...a),
+}));
+
 const mockUseElevationBackfill = jest.fn();
 jest.mock('@/features/routes/hooks/useElevationBackfill', () => ({
   useElevationBackfill: () => mockUseElevationBackfill(),
@@ -139,6 +144,7 @@ describe('ElevationBackfillStatus explanation', () => {
 
   beforeEach(async () => {
     await changeLanguage('en-AU');
+    mockOpenExplainer.mockClear();
   });
 
   it('says what waits on the download while it runs', async () => {
@@ -191,16 +197,17 @@ describe('ElevationBackfillStatus explanation', () => {
     expect(tree.queryByTestId('elevation-backfill-explainer')).toBeNull();
   });
 
-  it('opens the Why explanation as a platform alert from the control', async () => {
+  it('opens the Why explanation in the explainer sheet from the control', async () => {
     mockUseElevationBackfill.mockReturnValue(partialRun(0));
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     const tree = await render(<ElevationBackfillStatus />);
 
-    expect(alertSpy).not.toHaveBeenCalled();
+    expect(mockOpenExplainer).not.toHaveBeenCalled();
     await fireEvent.press(tree.getByTestId('elevation-backfill-why'));
 
-    expect(alertSpy).toHaveBeenCalledTimes(1);
-    const [title, body] = alertSpy.mock.calls[0];
+    expect(alertSpy).not.toHaveBeenCalled();
+    expect(mockOpenExplainer).toHaveBeenCalledTimes(1);
+    const [{ title, body }] = mockOpenExplainer.mock.calls[0];
     expect(title).toBe(enAU.settings.elevationBackfillWhyTitle);
     expect(body).toBe(
       'The improved section algorithm and lift detection read elevation that earlier versions never fetched. Veloq downloads it once for your existing activities, then detects sections again with the new algorithm.'
@@ -210,20 +217,18 @@ describe('ElevationBackfillStatus explanation', () => {
 
   it('translates the explanation rather than falling back to English', async () => {
     mockUseElevationBackfill.mockReturnValue(partialRun(0));
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     for (const locale of ['fr', 'de-DE', 'ja', 'pl', 'zh-Hans'] as const) {
       await changeLanguage(locale);
       const tree = await render(<ElevationBackfillStatus />);
       await fireEvent.press(tree.getByTestId('elevation-backfill-why'));
 
       const explainer = tree.getByTestId('elevation-backfill-explainer').props.children as string;
-      const body = alertSpy.mock.calls[alertSpy.mock.calls.length - 1][1] as string;
+      const body = mockOpenExplainer.mock.calls.at(-1)[0].body as string;
       expect(explainer).not.toContain('Improved section detection');
       expect(body).not.toContain('The improved section algorithm');
       expect(explainer.trim().length).toBeGreaterThan(0);
       expect(body.trim().length).toBeGreaterThan(0);
     }
-    alertSpy.mockRestore();
   });
 });
 

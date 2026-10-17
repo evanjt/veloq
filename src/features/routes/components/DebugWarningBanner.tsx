@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { amberBanner, iconSize, layout, redBanner, spacing, typography } from '@/theme';
+import { colors, iconSize, layout, spacing, stroke, typography } from '@/theme';
 
 interface DebugWarning {
   level: 'warn' | 'error';
@@ -12,10 +12,11 @@ interface DebugWarningBannerProps {
   warnings: DebugWarning[];
 }
 
-const WARN_BG = amberBanner.light.bg;
-const WARN_BORDER = amberBanner.light.border;
-const ERROR_BG = redBanner.bg;
-const ERROR_BORDER = redBanner.border;
+// A debug build's own strip, drawn light in both themes on the status tints.
+const WARN_BG = colors.warningBg;
+const WARN_INK = colors.warningAmber;
+const ERROR_BG = colors.errorBg;
+const ERROR_INK = colors.errorDeep;
 
 export function DebugWarningBanner({ warnings }: DebugWarningBannerProps) {
   if (warnings.length === 0) return null;
@@ -31,18 +32,16 @@ export function DebugWarningBanner({ warnings }: DebugWarningBannerProps) {
               styles.banner,
               {
                 backgroundColor: isError ? ERROR_BG : WARN_BG,
-                borderLeftColor: isError ? ERROR_BORDER : WARN_BORDER,
+                borderLeftColor: isError ? ERROR_INK : WARN_INK,
               },
             ]}
           >
             <MaterialCommunityIcons
               name={isError ? 'alert-circle' : 'alert'}
               size={iconSize.sm}
-              color={isError ? ERROR_BORDER : WARN_BORDER}
+              color={isError ? ERROR_INK : WARN_INK}
             />
-            <Text
-              style={[styles.text, { color: isError ? redBanner.text : amberBanner.light.text }]}
-            >
+            <Text style={[styles.text, { color: isError ? ERROR_INK : WARN_INK }]}>
               {w.message}
             </Text>
           </View>
@@ -65,7 +64,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xsPlus,
     paddingHorizontal: spacing.smPlus,
     borderRadius: layout.borderRadiusSm,
-    borderLeftWidth: 3,
+    borderLeftWidth: stroke.three,
   },
   text: {
     fontSize: typography.caption.fontSize,

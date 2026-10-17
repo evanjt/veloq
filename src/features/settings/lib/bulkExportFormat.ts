@@ -17,3 +17,16 @@ export const BULK_EXPORT_FORMAT_NAME: Record<BulkExportKind, string> = {
   gpx: 'GPX',
   geojson: 'GeoJSON',
 };
+
+/**
+ * What every bulk export archive is named from. One archive is kept until the
+ * next export or launch sweeps it, since a share target may read it after the
+ * share sheet returns.
+ */
+export const BULK_EXPORT_PREFIX = 'veloq-activities-';
+
+/** The extension each format writes, which the share sheet is told too. */
+export const BULK_EXPORT_EXTENSION: Record<BulkExportKind, 'zip' | 'geojson'> = {
+  gpx: 'zip',
+  geojson: 'geojson',
+};

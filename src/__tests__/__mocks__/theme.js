@@ -21,10 +21,6 @@ module.exports = {
     border: '#3F3F46',
     error: '#F87171',
   },
-  amberBanner: {
-    light: { bg: '#FEF3C7', border: '#F59E0B', text: '#92400E', subtext: '#B45309' },
-    dark: { bg: '#3F2A17', border: '#92400E', text: '#FDE68A', subtext: '#FCD34D' },
-  },
   brand: {
     teal: '#0D9488',
     gold: '#F59E0B',
@@ -55,9 +51,10 @@ module.exports = {
     caption: { fontSize: 14, fontWeight: '400' },
     cardTitle: { fontSize: 18, fontWeight: '600', lineHeight: 24 },
     bodySmall: { fontSize: 14, fontWeight: '400', lineHeight: 20 },
+    bodySmallBold: { fontSize: 14, fontWeight: '600', lineHeight: 20 },
     bodyCompact: { fontSize: 13, fontWeight: '400', lineHeight: 18 },
     statsValue: { fontSize: 20, fontWeight: '700', lineHeight: 26 },
-    label: { fontSize: 11, fontWeight: '500', lineHeight: 14 },
+    label: { fontSize: 11, fontWeight: '600', lineHeight: 14 },
   },
   lightTheme: { colors: {} },
   darkTheme: { colors: {} },

@@ -9,7 +9,7 @@
  * when several are attached and none is named.
  */
 
-import { execFileSync } from 'child_process';
+import { execFileSync, spawn } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -62,8 +62,13 @@ function run(
     // The lock is the caller's here, as it is under `device-lock-shell.sh`,
     // so the wrapper runs its own body rather than re-execing.
     VELOQ_DEVICE_LOCK_HELD: '1',
+    // The host's Maestro lock sits beside the device locks, so it is this test's own.
+    VELOQ_DEVICE_LOCK_DIR: dir,
   };
   for (const name of [
+    'VELOQ_MAESTRO_LOCK',
+    'VELOQ_MAESTRO_LOCK_PATH',
+    'VELOQ_MAESTRO_LOCK_HELD',
     'ANDROID_SERIAL',
     'VELOQ_DEVICE_SERIAL',
     'VELOQ_DEVICE_LOCK',
@@ -228,5 +233,113 @@ describe('the Maestro wrapper checks where the run landed', () => {
 
     expect(result.status).toBe(0);
     expect(result.ran).toBe(true);
+  });
+});
+
+/**
+ * Scenario: two sessions on one host run Maestro at once, each on its own
+ * emulator and each holding that emulator's device lock. Maestro reaches its
+ * on-device driver through a forward of one fixed host port, so the two runs
+ * take the forward from each other and every flow fails on both.
+ *
+ * Expected behaviour: the wrapper also holds one lock for the whole host while
+ * Maestro runs, so the second run starts only after the first has ended, and
+ * while it waits it names who holds the lock.
+ */
+describe('the Maestro wrapper and the other runs on the host', () => {
+  function hostRig() {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'with-maestro-host-'));
+    const listing = ['List of devices attached', `${LOCKED}\tdevice`, `${OTHER}\tdevice`, ''].join(
+      '\n'
+    );
+    fs.writeFileSync(
+      path.join(dir, 'adb'),
+      `#!/usr/bin/env bash\nif [ "$1" = "devices" ]; then\n  cat <<'EOF'\n${listing}EOF\nfi\nexit 0\n`,
+      { mode: 0o755 }
+    );
+    fs.writeFileSync(
+      path.join(dir, 'maestro'),
+      [
+        '#!/usr/bin/env bash',
+        `echo "start $ANDROID_SERIAL" >> "${dir}/runs.log"`,
+        'sleep 1',
+        `echo "end $ANDROID_SERIAL" >> "${dir}/runs.log"`,
+        '',
+      ].join('\n'),
+      { mode: 0o755 }
+    );
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      PATH: `${dir}:${process.env.PATH}`,
+      VELOQ_DEVICE_LOCK_DIR: dir,
+      VELOQ_DEVICE_LOCK_HANDSET: '0',
+      XDG_CONFIG_HOME: dir,
+    };
+    for (const name of [
+      'ANDROID_SERIAL',
+      'VELOQ_ALLOW_HANDSET',
+      'VELOQ_DEVICE_SERIAL',
+      'VELOQ_DEVICE_LOCK',
+      'VELOQ_DEVICE_LOCK_PATH',
+      'VELOQ_DEVICE_LOCK_HELD',
+      'VELOQ_DEVICE_LOCK_AMBIGUOUS',
+      'VELOQ_MAESTRO_LOCK',
+      'VELOQ_MAESTRO_LOCK_PATH',
+      'VELOQ_MAESTRO_LOCK_HELD',
+    ]) {
+      delete env[name];
+    }
+    return { dir, env };
+  }
+
+  function start(dir: string, env: NodeJS.ProcessEnv, serial: string) {
+    const child = spawn('sh', [SCRIPT, 'test', 'flow.yaml'], {
+      cwd: dir,
+      env: { ...env, ANDROID_SERIAL: serial },
+    });
+    let stderr = '';
+    child.stderr.on('data', (chunk) => (stderr += chunk));
+    return new Promise<{ status: number | null; stderr: string }>((resolve) =>
+      child.on('close', (status) => resolve({ status, stderr }))
+    );
+  }
+
+  it('runs Maestro on one device of the host at a time', async () => {
+    const { dir, env } = hostRig();
+
+    const results = await Promise.all([start(dir, env, LOCKED), start(dir, env, OTHER)]);
+
+    expect(results.map((r) => r.status)).toEqual([0, 0]);
+    const runs = fs.readFileSync(path.join(dir, 'runs.log'), 'utf8').trim().split('\n');
+    expect(runs).toHaveLength(4);
+    expect(runs[0].split(' ')[0]).toBe('start');
+    expect(runs[1]).toBe(runs[0].replace('start', 'end'));
+    expect(runs[2].split(' ')[0]).toBe('start');
+    expect(runs[3]).toBe(runs[2].replace('start', 'end'));
+  });
+
+  it('names the run that holds the host while another waits', async () => {
+    const { dir, env } = hostRig();
+
+    const first = start(dir, env, LOCKED);
+    while (!fs.existsSync(path.join(dir, 'runs.log'))) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    const second = await start(dir, env, OTHER);
+    await first;
+
+    expect(second.status).toBe(0);
+    expect(second.stderr).toContain('with-maestro: another Maestro run holds this host');
+    expect(second.stderr).toContain(`serial=${LOCKED}`);
+  });
+
+  it('serialises a run that already holds its device lock', async () => {
+    const { dir, env } = hostRig();
+    const held = { ...env, VELOQ_DEVICE_LOCK_HELD: '1' };
+
+    await Promise.all([start(dir, held, LOCKED), start(dir, held, OTHER)]);
+
+    const runs = fs.readFileSync(path.join(dir, 'runs.log'), 'utf8').trim().split('\n');
+    expect(runs[1]).toBe(runs[0].replace('start', 'end'));
   });
 });

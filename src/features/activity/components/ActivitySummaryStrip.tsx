@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import type { ActivityDetail } from '@/types';
 import { formatDateTime } from '@/shared/format/format';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, typography, stroke } from '@/theme';
 import { activityHeroStats } from '../lib/activityHeroStats';
 
 interface ActivitySummaryStripProps {
@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     backgroundColor: colors.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: stroke.hairline,
     borderBottomColor: colors.divider,
   },
   containerDark: {

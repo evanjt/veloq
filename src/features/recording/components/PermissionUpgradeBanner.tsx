@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
   text: {
     flex: 1,
     fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '500',
+    fontWeight: '400',
   },
   errorText: {
     fontSize: typography.caption.fontSize,

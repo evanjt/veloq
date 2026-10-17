@@ -18,7 +18,7 @@ import {
   getTerrainPreviewUri,
   hasTerrainPreview,
 } from '@/features/maps/lib/storage/terrainPreviewCache';
-import { colors, iconSize, themePalette } from '@/theme';
+import { colors, duration, iconSize, themePalette } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { useMapPreferences } from '@/features/settings/light';
 import { useSectionCreation } from '@/features/maps/hooks/useSectionCreation';
@@ -500,7 +500,7 @@ export const ActivityMapView = memo(function ActivityMapView({
     setIs3DReady(true);
     motionTiming(map3DOpacity, {
       toValue: 1,
-      duration: 300,
+      duration: duration.slow,
       useNativeDriver: true,
     }).start();
   }, [map3DOpacity]);

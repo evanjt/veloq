@@ -33,6 +33,7 @@ import {
   FAMILY_BARS,
   FAMILY_EXEMPTIONS,
   TOKEN_FAMILIES,
+  TINT_GROUNDS,
   TOKEN_GROUNDS,
   UNDER_BAR,
 } from '@/theme/tokenFamilies';
@@ -439,14 +440,28 @@ describe('every palette token answers to its family bar', () => {
 
   const isHex = (value: string) => /^#[0-9A-Fa-f]{6}$/.test(value);
 
-  /** The grounds a token is measured on: its theme's surfaces, or its own pair. */
+  const resolve = (theme: keyof typeof THEMES) => (ground: string) =>
+    THEMES[theme].palette[ground] ?? colors[ground as keyof typeof colors];
+
+  /**
+   * The grounds a token is measured on: its own pair, or its theme's surfaces
+   * and any status tint it is drawn on.
+   */
   function grounds(token: string, theme: keyof typeof THEMES): string[] {
     const named = TOKEN_GROUNDS[token];
-    if (!named) return Object.values(THEMES[theme].surfaces);
-    return named.map(
-      (ground) => THEMES[theme].palette[ground] ?? colors[ground as keyof typeof colors]
-    );
+    if (named) return named.map(resolve(theme));
+    return [
+      ...Object.values(THEMES[theme].surfaces),
+      ...(TINT_GROUNDS[token] ?? []).map(resolve(theme)),
+    ];
   }
+
+  it('names only tints that exist in both palettes', () => {
+    const named = [...new Set(Object.values(TINT_GROUNDS).flat())];
+
+    expect(named.filter((g) => !(g in colors) || !(g in darkColors))).toStrictEqual([]);
+    expect(Object.keys(TINT_GROUNDS).filter((t) => TOKEN_FAMILIES[t] !== 'text')).toStrictEqual([]);
+  });
 
   function worstRatio(token: string, theme: keyof typeof THEMES): number | null {
     const value = THEMES[theme].palette[token];

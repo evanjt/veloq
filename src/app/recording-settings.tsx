@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import {
+  Card,
   ListSectionHeader,
   Row,
   ScreenSafeAreaView,
@@ -19,7 +20,7 @@ import {
   formatElevation,
   formatSpeed,
 } from '@/shared/format/format';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, stroke, typography } from '@/theme';
 import { tapTo } from '@/shared/app/navigation';
 import {
   ACCURACY_REJECT_BOUNDS_M,
@@ -99,7 +100,6 @@ function RecordingSettingsScreenContent() {
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bg = isDark ? darkColors.background : colors.background;
-  const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
 
   const handleToggleAutoPause = useCallback((value: boolean) => {
@@ -187,10 +187,7 @@ function RecordingSettingsScreenContent() {
           <ListSectionHeader inset={false}>
             {t('recording.settingsUpload', 'Upload')}
           </ListSectionHeader>
-          <View
-            testID="settings-upload-card"
-            style={[styles.card, { backgroundColor: surface, borderColor: border }]}
-          >
+          <Card testID="settings-upload-card" variant="flat">
             <SwitchRow
               inset="none"
               title={t('recording.autoUpload', 'Auto-upload')}
@@ -203,19 +200,16 @@ function RecordingSettingsScreenContent() {
               testID="settings-auto-upload"
             />
             <UploadPermissionNotice />
-          </View>
-          <View
-            style={[
-              styles.linkCard,
-              { backgroundColor: surface, borderColor: border, marginTop: spacing.sm },
-            ]}
-          >
-            <SettingsNavRow
-              testID="settings-recordings-link"
-              icon="folder-play-outline"
-              title={t('recording.library.title', 'My Recordings')}
-              onPress={() => tapTo('/recordings')}
-            />
+          </Card>
+          <View style={styles.linkFrame}>
+            <Card variant="flat" padding="none">
+              <SettingsNavRow
+                testID="settings-recordings-link"
+                icon="folder-play-outline"
+                title={t('recording.library.title', 'My Recordings')}
+                onPress={() => tapTo('/recordings')}
+              />
+            </Card>
           </View>
         </View>
 
@@ -224,7 +218,7 @@ function RecordingSettingsScreenContent() {
           <ListSectionHeader inset={false}>
             {t('recording.settingsGps', 'GPS & Battery')}
           </ListSectionHeader>
-          <View style={[styles.card, { backgroundColor: surface, borderColor: border }]}>
+          <Card variant="flat">
             <Text style={[styles.rowLabel, { color: textPrimary }]}>
               {t('recording.gpsMode', 'GPS accuracy')}
             </Text>
@@ -288,14 +282,14 @@ function RecordingSettingsScreenContent() {
                 testID="settings-keep-awake"
               />
             </View>
-          </View>
+          </Card>
         </View>
 
         {/* Auto-Pause Section */}
         <View style={styles.section}>
           <ListSectionHeader inset={false}>{t('recording.settingsAutoPause')}</ListSectionHeader>
 
-          <View style={[styles.card, { backgroundColor: surface, borderColor: border }]}>
+          <Card variant="flat">
             <SwitchRow
               inset="none"
               title={t('recording.settingsAutoPause')}
@@ -357,7 +351,7 @@ function RecordingSettingsScreenContent() {
                 })}
               </View>
             ) : null}
-          </View>
+          </Card>
         </View>
 
         {/* Data Fields Section */}
@@ -368,74 +362,68 @@ function RecordingSettingsScreenContent() {
             const selectedFields = fieldsForMode(dataFields, mode);
             const atCap = selectedFields.length >= MAX_DATA_FIELDS;
             return (
-              <View
-                key={mode}
-                style={[
-                  styles.card,
-                  {
-                    backgroundColor: surface,
-                    borderColor: border,
-                    marginBottom: spacing.sm,
-                  },
-                ]}
-              >
-                <View style={styles.modeHeader}>
-                  <Text style={[styles.modeLabel, { color: textPrimary }]}>
-                    {t(MODE_LABEL_KEYS[mode])}
-                  </Text>
-                  <Text
-                    testID={`settings-field-count-${mode}`}
-                    style={[styles.fieldCount, { color: textSecondary }]}
-                  >
-                    {t('recording.fieldsSelected', {
-                      selected: selectedFields.length,
-                      max: MAX_DATA_FIELDS,
+              <View key={mode} style={styles.modeFrame}>
+                <Card variant="flat">
+                  <View style={styles.modeHeader}>
+                    <Text style={[styles.modeLabel, { color: textPrimary }]}>
+                      {t(MODE_LABEL_KEYS[mode])}
+                    </Text>
+                    <Text
+                      testID={`settings-field-count-${mode}`}
+                      style={[styles.fieldCount, { color: textSecondary }]}
+                    >
+                      {t('recording.fieldsSelected', {
+                        selected: selectedFields.length,
+                        max: MAX_DATA_FIELDS,
+                      })}
+                    </Text>
+                  </View>
+                  <View style={styles.fieldGrid}>
+                    {ALL_DATA_FIELDS.map((field) => {
+                      const isSelected = selectedFields.includes(field);
+                      return (
+                        <ToggleButton
+                          key={field}
+                          testID={`settings-field-${mode}-${field}`}
+                          label={t(`recording.fields.${field}`)}
+                          selected={isSelected}
+                          disabled={atCap ? !isSelected : false}
+                          onPress={() => handleToggleField(mode, field)}
+                        />
+                      );
                     })}
+                  </View>
+                  <Text style={[styles.tileOrderTitle, { color: textPrimary }]}>
+                    {t('recording.tileOrder')}
                   </Text>
-                </View>
-                <View style={styles.fieldGrid}>
-                  {ALL_DATA_FIELDS.map((field) => {
-                    const isSelected = selectedFields.includes(field);
-                    return (
-                      <ToggleButton
-                        key={field}
-                        testID={`settings-field-${mode}-${field}`}
-                        label={t(`recording.fields.${field}`)}
-                        selected={isSelected}
-                        disabled={atCap ? !isSelected : false}
-                        onPress={() => handleToggleField(mode, field)}
-                      />
-                    );
-                  })}
-                </View>
-                <Text style={[styles.tileOrderTitle, { color: textPrimary }]}>
-                  {t('recording.tileOrder')}
-                </Text>
-                <Text style={[styles.rowDescription, { color: textSecondary }]}>
-                  {t('recording.tileOrderDescription')}
-                </Text>
-                <View style={styles.tileOrderList}>
-                  {selectedFields.map((field, index) => {
-                    const fieldLabel = t(`recording.fields.${field}`);
-                    return (
-                      <Row
-                        key={field}
-                        testID={`settings-tile-${mode}-${index}`}
-                        behaviour="navigate"
-                        accessibilityLabel={t('recording.tileSlotLabel', {
-                          number: index + 1,
-                          field: fieldLabel,
-                        })}
-                        onPress={() => handleEditTile(mode, index)}
-                      >
-                        <Text style={[styles.tileNumber, { color: textSecondary }]}>
-                          {index + 1}
-                        </Text>
-                        <Text style={[styles.linkText, { color: textPrimary }]}>{fieldLabel}</Text>
-                      </Row>
-                    );
-                  })}
-                </View>
+                  <Text style={[styles.rowDescription, { color: textSecondary }]}>
+                    {t('recording.tileOrderDescription')}
+                  </Text>
+                  <View style={styles.tileOrderList}>
+                    {selectedFields.map((field, index) => {
+                      const fieldLabel = t(`recording.fields.${field}`);
+                      return (
+                        <Row
+                          key={field}
+                          testID={`settings-tile-${mode}-${index}`}
+                          behaviour="navigate"
+                          accessibilityLabel={t('recording.tileSlotLabel', {
+                            number: index + 1,
+                            field: fieldLabel,
+                          })}
+                          onPress={() => handleEditTile(mode, index)}
+                        >
+                          <Text style={[styles.tileNumber, { color: textSecondary }]}>
+                            {index + 1}
+                          </Text>
+                          <Text style={[styles.linkText, { color: textPrimary }]}>
+                            {fieldLabel}
+                          </Text>
+                        </Row>
+                      );
+                    })}
+                  </View>
+                </Card>
               </View>
             );
           })}
@@ -444,26 +432,26 @@ function RecordingSettingsScreenContent() {
         {/* Sensors Link */}
         <View style={styles.section}>
           <ListSectionHeader inset={false}>{t('sensors.title', 'Sensors')}</ListSectionHeader>
-          <View style={[styles.linkCard, { backgroundColor: surface, borderColor: border }]}>
+          <Card variant="flat" padding="none">
             <SettingsNavRow
               testID="settings-sensors-link"
               icon="bluetooth"
               title={t('sensors.manageSensors', 'Heart rate, power & cadence sensors')}
               onPress={() => tapTo('/sensor-settings')}
             />
-          </View>
+          </Card>
         </View>
 
         {/* Units Link */}
         <View style={styles.section}>
           <ListSectionHeader inset={false}>{t('recording.settingsUnits')}</ListSectionHeader>
-          <View style={[styles.linkCard, { backgroundColor: surface, borderColor: border }]}>
+          <Card variant="flat" padding="none">
             <SettingsNavRow
               icon="ruler"
               title={t('settings.units')}
               onPress={() => tapTo('/display-settings')}
             />
-          </View>
+          </Card>
         </View>
       </ScreenScrollView>
     </ScreenSafeAreaView>
@@ -481,10 +469,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     marginBottom: spacing.lg,
   },
-  card: {
-    borderRadius: layout.borderRadius,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: spacing.md,
+  modeFrame: {
+    marginBottom: spacing.sm,
   },
   rowLabel: {
     ...typography.body,
@@ -505,14 +491,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   dividedRow: {
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: stroke.hairline,
   },
   thresholdRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: stroke.hairline,
   },
   thresholdLabel: {
     ...typography.body,
@@ -557,10 +543,8 @@ const styles = StyleSheet.create({
   gpsModeChip: {
     flex: 1,
   },
-  linkCard: {
-    borderRadius: layout.borderRadius,
-    borderWidth: StyleSheet.hairlineWidth,
-    overflow: 'hidden',
+  linkFrame: {
+    marginTop: spacing.sm,
   },
   linkText: {
     ...typography.body,

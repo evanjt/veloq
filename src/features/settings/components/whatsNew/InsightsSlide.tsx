@@ -42,7 +42,7 @@ function exampleRecord(nowSeconds: number): SectionPR | null {
     daysAgo: 1,
     sportType: 'Ride',
     traversalCount: 12,
-    recentEfforts: series([1188, 1162, 1171, 1139, 1104], nowSeconds, 9),
+    recentEfforts: series([1196, 1188, 1162, 1171, 1139, 1104], nowSeconds, 9),
   };
 }
 

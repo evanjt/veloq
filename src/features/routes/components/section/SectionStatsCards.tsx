@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
   },
   calendarMonthTime: {
     fontSize: typography.bodySmall.fontSize,
-    fontWeight: '500',
+    fontWeight: '600',
     color: colors.textPrimary,
     flex: 1,
   },

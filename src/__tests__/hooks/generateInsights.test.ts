@@ -219,13 +219,13 @@ describe('generateInsights', () => {
 
     it('includes HRV sparkline in supporting data', () => {
       const result = generateInsights(
-        withHrv(EMPTY_INPUT, hrvTrend('trendingUp', [50, 52, 55, 58, 60])),
+        withHrv(EMPTY_INPUT, hrvTrend('trendingUp', [48, 50, 52, 55, 58, 60])),
         mockT
       );
       const hrv = result.find((i) => i.id === 'hrv_trend');
       expect(hrv!.supportingData?.history).toMatchObject({
         kind: 'sparkline',
-        series: [{ points: datedSeries([50, 52, 55, 58, 60]) }],
+        series: [{ points: datedSeries([48, 50, 52, 55, 58, 60]) }],
       });
     });
 
@@ -1136,15 +1136,15 @@ describe('generateInsights - boundary conditions', () => {
         reason: 'halves',
         avg: 49,
         latest: 51,
-        dataPoints: 5,
-        sparkline: datedSeries([45, 48, 52, 49, 51]),
+        dataPoints: 6,
+        sparkline: datedSeries([47, 45, 48, 52, 49, 51]),
       } as HrvTrend),
       mockT
     );
     const hrv = result.find((i) => i.id === 'hrv_trend');
     expect(hrv!.supportingData?.history).toMatchObject({
       kind: 'sparkline',
-      series: [{ points: datedSeries([45, 48, 52, 49, 51]) }],
+      series: [{ points: datedSeries([47, 45, 48, 52, 49, 51]) }],
     });
     mockGetEngine.mockReturnValue(null);
   });

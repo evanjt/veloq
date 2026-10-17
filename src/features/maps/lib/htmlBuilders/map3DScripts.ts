@@ -21,6 +21,7 @@ import {
   sectionPalette,
   sectionPaletteExpression,
 } from '@/theme/colors';
+import { cameraMove } from '@/theme';
 
 export interface UpdateLayersParams {
   routesGeoJSON?: FeatureCollection | undefined;
@@ -522,7 +523,7 @@ export function buildSetRouteScript(
   const colorArg = color === undefined ? '' : `, ${JSON.stringify(color)}`;
   const fit =
     bounds && coordinates.length > 0
-      ? `window.map.fitBounds([${JSON.stringify(bounds.sw)}, ${JSON.stringify(bounds.ne)}], { padding: ${TRACK_FIT_PADDING}, duration: ${motionDurationExpression(600)} });`
+      ? `window.map.fitBounds([${JSON.stringify(bounds.sw)}, ${JSON.stringify(bounds.ne)}], { padding: ${TRACK_FIT_PADDING}, duration: ${motionDurationExpression(cameraMove.long)} });`
       : '';
   return `
         (function() {

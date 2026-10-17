@@ -14,6 +14,7 @@ import { startCenterFor } from '../../lib/markerCentre';
 import type { ActivityBoundsItem } from '@/types';
 import type { MapSurfaceRef } from '@/features/maps/components/MapSurface';
 import { REGIONAL_FIT_PADDING } from './regionalCamera';
+import { cameraMove } from '@/theme';
 import { openingClusterActivities } from '@/features/maps/lib/openingClusterActivities';
 import { densestClusterIndices } from '../../lib/densestCluster';
 import type { LatLngShort } from '@/shared/geo/distance';
@@ -201,7 +202,7 @@ export function useRegionalMapCamera({
         surfaceRef.current.fitBounds(
           { sw: data.targetBounds.sw, ne: data.targetBounds.ne },
           REGIONAL_FIT_PADDING,
-          500
+          cameraMove.move
         );
         setTimeout(() => {
           programmaticMoveRef.current = false;

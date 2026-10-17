@@ -4,14 +4,15 @@ import { View, StyleSheet, RefreshControl } from 'react-native';
 import { Text } from 'react-native-paper';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {
-  ScreenSafeAreaView,
-  ScreenScrollView,
+  Card,
   CardHeader,
   ErrorState,
-  Shimmer,
   IconButton,
-  ToggleButton,
+  ScreenSafeAreaView,
+  ScreenScrollView,
+  Shimmer,
   Spinner,
+  ToggleButton,
 } from '@/shared/ui';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
@@ -180,8 +181,10 @@ function HealthScreenContent() {
         }
       >
         {/* Activity Heatmap - promoted to top (Skia Picture, lightweight) */}
-        <View style={[styles.card, isDark && styles.cardDark]}>
-          <ActivityHeatmap ref={heatmap} drawn={skiaReady} />
+        <View style={styles.frame}>
+          <Card variant="flat">
+            <ActivityHeatmap ref={heatmap} drawn={skiaReady} />
+          </Card>
         </View>
 
         {/* Time range selector with smoothing config */}
@@ -214,37 +217,39 @@ function HealthScreenContent() {
         <View
           testID="wellness-trends-chart"
           onLayout={(event) => onAnchorLayout('wellness', event)}
-          style={[styles.card, isDark && styles.cardDark]}
+          style={styles.frame}
         >
-          <CardHeader
-            title={t('wellnessScreen.trends')}
-            accessory={
-              <Text style={[styles.smoothingLabel, isDark && styles.smoothingLabelDark]}>
-                {getSmoothingDescription(smoothingWindow, timeRange, t as never)}
-              </Text>
-            }
-          />
-          {/* Each card names its own failed read, so a wellness failure leaves the
+          <Card variant="flat">
+            <CardHeader
+              title={t('wellnessScreen.trends')}
+              accessory={
+                <Text style={[styles.smoothingLabel, isDark && styles.smoothingLabelDark]}>
+                  {getSmoothingDescription(smoothingWindow, timeRange, t as never)}
+                </Text>
+              }
+            />
+            {/* Each card names its own failed read, so a wellness failure leaves the
               title, the range pills and the other cards standing. */}
-          {isWellnessError ? (
-            <ErrorState
-              variant="inline"
-              error={wellnessError}
-              onRetry={retryWellness}
-              testID="wellness-trends-failed"
-            />
-          ) : !skiaReady || (wellnessLoading && !wellness) ? (
-            <Shimmer width="100%" height={200} borderRadius={layout.borderRadius} />
-          ) : (
-            <WellnessTrendsChart
-              data={wellness}
-              coverage={wellnessCoverage}
-              height={200}
-              timeRange={timeRange}
-              smoothingWindow={smoothingWindow}
-              onDateSelect={handleDateSelect}
-            />
-          )}
+            {isWellnessError ? (
+              <ErrorState
+                variant="inline"
+                error={wellnessError}
+                onRetry={retryWellness}
+                testID="wellness-trends-failed"
+              />
+            ) : !skiaReady || (wellnessLoading && !wellness) ? (
+              <Shimmer width="100%" height={200} borderRadius={layout.borderRadius} />
+            ) : (
+              <WellnessTrendsChart
+                data={wellness}
+                coverage={wellnessCoverage}
+                height={200}
+                timeRange={timeRange}
+                smoothingWindow={smoothingWindow}
+                onDateSelect={handleDateSelect}
+              />
+            )}
+          </Card>
         </View>
 
         {/* Below-fold cards - stage 2: WeeklySummary (pure RN).
@@ -252,22 +257,23 @@ function HealthScreenContent() {
               empty/loading states and the testID must be present for automated
               tests to find the widget during data load. */}
         {belowFoldReady ? (
-          <View
-            onLayout={(event) => onAnchorLayout('week', event)}
-            style={[styles.card, isDark && styles.cardDark]}
-          >
-            <WeeklySummary
-              summaryData={summaryData}
-              summaryLoading={summaryLoading}
-              summaryError={summaryError}
-            />
+          <View onLayout={(event) => onAnchorLayout('week', event)} style={styles.frame}>
+            <Card variant="flat">
+              <WeeklySummary
+                summaryData={summaryData}
+                summaryLoading={summaryLoading}
+                summaryError={summaryError}
+              />
+            </Card>
           </View>
         ) : null}
 
         {/* Below-fold Skia card - stage 3: SeasonComparison */}
         {chartsReady ? (
-          <View style={[styles.card, isDark && styles.cardDark]}>
-            <SeasonComparison height={180} />
+          <View style={styles.frame}>
+            <Card variant="flat">
+              <SeasonComparison height={180} />
+            </Card>
           </View>
         ) : null}
       </ScreenScrollView>
@@ -283,14 +289,8 @@ const styles = StyleSheet.create({
     padding: layout.screenPadding,
     paddingTop: spacing.sm,
   },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    padding: layout.cardPadding,
+  frame: {
     marginBottom: spacing.md,
-  },
-  cardDark: {
-    backgroundColor: darkColors.surface,
   },
   smoothingLabel: {
     ...typography.caption,

@@ -18,6 +18,7 @@ import {
   layout,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 import type { DataFieldType } from '@/types';
 import { tapBack } from '@/shared/app/navigation';
@@ -114,7 +115,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: stroke.hairline,
     minHeight: layout.minTapTarget,
   },
   rowSelected: {

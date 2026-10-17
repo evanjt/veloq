@@ -56,7 +56,7 @@ import { formatPrDelta, formatPrImprovement } from '@/shared/format/format';
 import type { RouteGroup as NativeRouteGroup, Section as NativeSection } from 'veloqrs';
 import { useExerciseSets, ExerciseTable, MuscleGroupView } from '@/features/strength';
 import { useAthlete } from '@/shared/app/useAthlete';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, typography, stroke } from '@/theme';
 import { noHeroHeaderOptions, overMapHeaderOptions } from '@/shared/app/screenHeaders';
 import { MapHeroStatusBar } from '@/shared/app/MapHeroStatusBar';
 
@@ -687,7 +687,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     backgroundColor: colors.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: stroke.hairline,
     borderBottomColor: colors.divider,
   },
   descriptionContainerDark: {

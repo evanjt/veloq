@@ -175,8 +175,12 @@ else
   fi
 fi
 
-# Stopped so it does not rewrite the zip between the steps.
+# Stopped so it does not rewrite the zip between the steps. A force-stop also
+# marks the package stopped, and Android backs up no stopped package, so the
+# mark is cleared without launching anything. Android before 14 has no
+# `unstop`, and step 3 then names the refusal.
 adb shell am force-stop "$PKG"
+adb shell cmd package unstop "$PKG" >/dev/null 2>&1
 
 log "2. The record zip"
 LISTED=$(adb shell run-as "$PKG" ls "$ZIP" 2>&1 | tr -d '\r')
@@ -213,7 +217,10 @@ QUOTA_BEFORE=$(recorded quotaExceededAt)
 RESTORED_BEFORE=$(recorded restoredAt)
 
 log "3. bmgr backupnow"
-adb shell bmgr backupnow "$PKG" | tr -d '\r' | sed 's/^/   /' >&2
+adb shell bmgr backupnow "$PKG" | tr -d '\r' | tee "$WORK/backupnow.txt" | sed 's/^/   /' >&2
+if grep -q "^Package $PKG with result: Backup is not allowed" "$WORK/backupnow.txt"; then
+  fail 3 "Android answered Backup is not allowed; a force-stopped package stays stopped until adb shell cmd package unstop $PKG or a launch"
+fi
 BACKED_AT=""
 for _ in $(seq 1 "$POLLS"); do
   read_record

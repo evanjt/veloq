@@ -69,7 +69,7 @@ jest.mock('@/features/recording/hooks/useReviewSave', () => ({
   useReviewSave: () => ({
     isUploading: mockUploading,
     errorMessage: null,
-    queuedMessage: null,
+    leaving: false,
     showPermissionFix: false,
     isOAuthLoading: false,
     handleUpgradeToOAuth: jest.fn(),

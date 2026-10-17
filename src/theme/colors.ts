@@ -326,6 +326,14 @@ export const colors = {
   // itself, where the fill is 2.66:1 and `infoLight` 2.00:1. 4.95:1 on the worst
   // light surface.
   infoText: '#2B6CA8',
+  // The status tints a notice is drawn on: each tone's own hue at 12% over
+  // the surface, laid down solid so a ratio is defined for whatever sits on
+  // it. The body ink holds 4.5:1 on all four and the tone's text role 3:1 as
+  // its icon, which `TINT_GROUNDS` puts in front of the contrast test.
+  errorBg: '#FDE9E9',
+  warningBg: '#FEF3E2',
+  infoBg: '#EBF3FA',
+  successBg: '#E4F8EC',
 
   // Inputs
   inputTrack: '#DDDDDD', // Slider/progress track (dark counterpart: #333333)
@@ -699,20 +707,6 @@ export const recording = {
   dark: '#DC2626',
 } as const;
 
-// Warning banner palette for the sync, startup and engine notices: amber
-// surfaces with deep amber text, one set per mode.
-export const amberBanner = {
-  light: { bg: '#FEF3C7', border: '#F59E0B', text: '#92400E', subtext: '#B45309' },
-  dark: { bg: '#3F2A17', border: '#92400E', text: '#FDE68A', subtext: '#FCD34D' },
-} as const;
-
-// Error-banner counterpart to amberBanner: red surfaces for a failure notice.
-export const redBanner = {
-  bg: '#FEE2E2',
-  border: '#EF4444',
-  text: '#991B1B',
-} as const;
-
 // The offline pill floating under the status bar. A neutral grey, so it reads
 // apart from the sync pill's blue, the same in both schemes because it floats
 // over either. Dark ink, because white on this grey is 2.56:1: the title is
@@ -958,6 +952,13 @@ export const darkColors = {
   cautionYellowText: '#FFC107',
   cautionOrangeText: '#FF9800',
   infoText: brand.blueLight,
+  // The dark status tints: the tone's dark text hue at 18% over the dark
+  // surface, the denser step because a dark ground needs more of the hue to
+  // read as one.
+  errorBg: '#40282A',
+  warningBg: '#41361D',
+  infoBg: '#2A343F',
+  successBg: '#213C2D',
   linkTeal: brand.tealDark,
 
   // The rest of the form zone text family. Same story: four of the five

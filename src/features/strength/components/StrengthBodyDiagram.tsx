@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { pressable, pressRipple } from '@/shared/ui';
+import { Card, pressable, pressRipple } from '@/shared/ui';
 import {
   bodyDiagram,
   brand,
@@ -62,101 +62,108 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
     : '';
 
   return (
-    <View testID="strength-body-diagram" style={[styles.bodyCard, isDark && styles.bodyCardDark]}>
-      <View style={styles.bodyHeader}>
-        <Text style={[styles.bodyTitle, isDark && styles.bodyTitleDark]}>
-          {t('strength.muscleGroupVolume')}
-        </Text>
-        <Text style={[styles.bodySubtitle, isDark && styles.bodySubtitleDark]}>
-          {t('strength.relativeWeightedSets')}
-        </Text>
-      </View>
-      {selectedVolume ? (
-        <Pressable
-          android_ripple={pressRipple}
-          accessibilityRole="button"
-          accessibilityLabel={`${t('strength.clearMuscle', { muscle: selectedName })}, ${selectedSummary}`}
-          style={pressable(styles.subtitleRow)}
-          onPress={onClearSelection}
-        >
-          <View
-            style={[
-              styles.subtitleDot,
-              {
-                backgroundColor: selectedVolume.primarySets > 0 ? brand.tealLight : brand.tealDark,
-              },
-            ]}
-          />
-          <Text style={[styles.subtitleText, isDark && styles.subtitleTextDark]} numberOfLines={1}>
-            {selectedName}
-          </Text>
-          <Text
-            testID="strength-selected-summary"
-            style={[styles.subtitleText, isDark && styles.subtitleTextDark]}
-            numberOfLines={1}
-          >
-            {`· ${selectedSummary}`}
-          </Text>
-          <MaterialCommunityIcons
-            name="close"
-            size={iconSize.sm}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-        </Pressable>
-      ) : (
-        <Text style={[styles.bodyHint, isDark && styles.bodyHintDark]}>
-          {t('strength.tapMuscleGroup')}
-        </Text>
-      )}
+    <View testID="strength-body-diagram" style={styles.frame}>
+      <Card variant="flat" padding="none">
+        <View style={styles.body}>
+          <View style={styles.bodyHeader}>
+            <Text style={[styles.bodyTitle, isDark && styles.bodyTitleDark]}>
+              {t('strength.muscleGroupVolume')}
+            </Text>
+            <Text style={[styles.bodySubtitle, isDark && styles.bodySubtitleDark]}>
+              {t('strength.relativeWeightedSets')}
+            </Text>
+          </View>
+          {selectedVolume ? (
+            <Pressable
+              android_ripple={pressRipple}
+              accessibilityRole="button"
+              accessibilityLabel={`${t('strength.clearMuscle', { muscle: selectedName })}, ${selectedSummary}`}
+              style={pressable(styles.subtitleRow)}
+              onPress={onClearSelection}
+            >
+              <View
+                style={[
+                  styles.subtitleDot,
+                  {
+                    backgroundColor:
+                      selectedVolume.primarySets > 0 ? brand.tealLight : brand.tealDark,
+                  },
+                ]}
+              />
+              <Text
+                style={[styles.subtitleText, isDark && styles.subtitleTextDark]}
+                numberOfLines={1}
+              >
+                {selectedName}
+              </Text>
+              <Text
+                testID="strength-selected-summary"
+                style={[styles.subtitleText, isDark && styles.subtitleTextDark]}
+                numberOfLines={1}
+              >
+                {`· ${selectedSummary}`}
+              </Text>
+              <MaterialCommunityIcons
+                name="close"
+                size={iconSize.sm}
+                color={isDark ? darkColors.textSecondary : colors.textSecondary}
+              />
+            </Pressable>
+          ) : (
+            <Text style={[styles.bodyHint, isDark && styles.bodyHintDark]}>
+              {t('strength.tapMuscleGroup')}
+            </Text>
+          )}
 
-      <BodyPairWithLoupe
-        data={bodyData}
-        selectedSlug={selectedVolume?.slug ?? null}
-        gender={gender}
-        maxScale={0.6}
-        colors={BODY_COLORS}
-        onMuscleTap={onMuscleTap}
-        onMuscleScrub={onMuscleScrub}
-        tappableSlugs={tappableSlugs}
-        defaultFill={untrainedFill}
-        accessibilityLabel={t('strength.muscleGroupVolume')}
-        accessibilityValueText={selectedVolume ? `${selectedName}, ${selectedSummary}` : undefined}
-      />
-
-      {/* Continuous scale bar */}
-      <View style={styles.scaleBarContainer}>
-        <Text style={[styles.scaleLabel, isDark && styles.scaleLabelDark]}>
-          {t('strength.relativeVolume')}
-        </Text>
-        <View style={styles.scaleBar}>
-          <LinearGradient
-            colors={[untrainedFill, ...strengthRamp]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.scaleGradient}
+          <BodyPairWithLoupe
+            data={bodyData}
+            selectedSlug={selectedVolume?.slug ?? null}
+            gender={gender}
+            maxScale={0.6}
+            colors={BODY_COLORS}
+            onMuscleTap={onMuscleTap}
+            onMuscleScrub={onMuscleScrub}
+            tappableSlugs={tappableSlugs}
+            defaultFill={untrainedFill}
+            accessibilityLabel={t('strength.muscleGroupVolume')}
+            accessibilityValueText={
+              selectedVolume ? `${selectedName}, ${selectedSummary}` : undefined
+            }
           />
+
+          {/* Continuous scale bar */}
+          <View style={styles.scaleBarContainer}>
+            <Text style={[styles.scaleLabel, isDark && styles.scaleLabelDark]}>
+              {t('strength.relativeVolume')}
+            </Text>
+            <View style={styles.scaleBar}>
+              <LinearGradient
+                colors={[untrainedFill, ...strengthRamp]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.scaleGradient}
+              />
+            </View>
+            <View style={styles.scaleLabels}>
+              <Text style={[styles.scaleValue, isDark && styles.scaleValueDark]}>0</Text>
+              <Text style={[styles.scaleValue, isDark && styles.scaleValueDark]}>
+                {t('strength.setsCount', { count: Math.round(maxWeightedSets * 10) / 10 })}
+              </Text>
+            </View>
+          </View>
         </View>
-        <View style={styles.scaleLabels}>
-          <Text style={[styles.scaleValue, isDark && styles.scaleValueDark]}>0</Text>
-          <Text style={[styles.scaleValue, isDark && styles.scaleValueDark]}>
-            {t('strength.setsCount', { count: Math.round(maxWeightedSets * 10) / 10 })}
-          </Text>
-        </View>
-      </View>
+      </Card>
     </View>
   );
 });
 
 const styles = StyleSheet.create({
-  bodyCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
+  frame: {
     marginBottom: spacing.sm,
   },
-  bodyCardDark: {
-    backgroundColor: darkColors.surface,
+  body: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
   },
   bodyHeader: {
     alignItems: 'center',

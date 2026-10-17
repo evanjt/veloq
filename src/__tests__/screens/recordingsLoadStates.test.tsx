@@ -34,6 +34,7 @@ jest.mock('@/shared/app', () => ({
 jest.mock('@/shared/ui', () => {
   const { Pressable, Text, View } = require('react-native');
   return {
+    Card: jest.requireActual('@/shared/ui/Card').Card,
     ScreenSafeAreaView: ({
       children,
       hasNativeHeader,

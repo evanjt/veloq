@@ -20,6 +20,7 @@ import {
   slopToMinTapTarget,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 import { sectionSizeTone, type SizeTone } from '@/features/maps/lib/sectionSizeTone';
 import { formatDistance } from '@/shared/format/format';
@@ -446,7 +447,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadius,
   },
   statusPillError: {
-    borderWidth: 1,
+    borderWidth: stroke.one,
   },
   statusRow: {
     flexDirection: 'row',
@@ -463,7 +464,7 @@ const styles = StyleSheet.create({
   expandedContent: {
     marginTop: spacing.sm,
     paddingTop: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: stroke.hairline,
     borderTopColor: colors.border,
     gap: spacing.xs,
   },

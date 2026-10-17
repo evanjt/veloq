@@ -7,9 +7,10 @@ import { getActivityIcon } from '@/shared/activity/activityUtils';
 import type { ActivityBoundsItem, ActivityMapData } from '@/types';
 import { useFocusOnAppear } from '@/shared/ui/useFocusOnAppear';
 import { motionSpring, motionTiming } from '@/shared/ui/reduceMotion';
+import { duration } from '@/theme';
 import { MapPopup } from './MapPopup';
 
-const FADE_IN_MS = 100;
+const FADE_IN_MS = duration.instant;
 
 export interface SelectedActivity {
   activity: ActivityBoundsItem;

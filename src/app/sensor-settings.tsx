@@ -1,19 +1,18 @@
 import React, { useCallback, useEffect } from 'react';
-import { View, StyleSheet, Pressable, Platform, Linking } from 'react-native';
+import { View, StyleSheet, Platform, Linking } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 
-import { ScreenSafeAreaView, ScreenScrollView, EmptyState, signalColor } from '@/shared/ui';
+import { Card, EmptyState, ScreenSafeAreaView, ScreenScrollView, signalColor } from '@/shared/ui';
 import { Button, ToggleButton } from '@/shared/ui/Button';
 import { ListSectionHeader } from '@/shared/ui/ListSectionHeader';
-import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 import { useTheme } from '@/shared/app';
 import { useForeground } from '@/shared/app/useRetryTriggers';
 import { openAppSettings } from '@/shared/app/permissions';
-import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { formatCadence, formatHeartRate, formatPower } from '@/shared/format/format';
 import { useClock, useRecordingStore } from '@/features/recording';
 import {
@@ -187,8 +186,6 @@ function SensorSettingsScreenContent() {
   const accentText = isDark ? darkColors.linkTeal : colors.linkTeal;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bg = isDark ? darkColors.background : colors.background;
-  const surface = isDark ? darkColors.surface : colors.surface;
-  const border = isDark ? darkColors.border : colors.border;
 
   const handleScan = useCallback(() => {
     if (scanning) {
@@ -336,42 +333,44 @@ function SensorSettingsScreenContent() {
                     ? signalColor('warn', isDark)
                     : textSecondary;
               return (
-                <View
-                  key={sensor.id}
-                  testID={`sensor-paired-${sensor.id}`}
-                  style={[styles.card, { backgroundColor: surface, borderColor: border }]}
-                >
-                  <View style={styles.cardBody}>
-                    <Text style={[styles.cardTitle, { color: textPrimary }]} numberOfLines={1}>
-                      {pairedLabels.get(sensor.id)}
-                    </Text>
-                    {renderSources(sensor)}
-                    {liveSamples(sensor).map(({ kind, sample }) => (
-                      <Text
-                        key={kind}
-                        testID={`sensor-live-${sensor.id}-${kind}`}
-                        style={[styles.liveText, { color: textPrimary }]}
-                      >
-                        {t('sensors.lastSample', {
-                          value: FORMAT_SAMPLE[kind](sample.value),
-                          seconds: Math.max(0, Math.round((now - sample.at) / 1000)),
-                        })}
-                      </Text>
-                    ))}
-                    <Text style={[styles.statusText, { color: statusColor }]}>
-                      {connection
-                        ? t(`sensors.status.${connection.status}`)
-                        : t('sensors.status.disconnected', 'Not connected')}
-                      {connection?.batteryPercent != null ? ` · ${connection.batteryPercent}%` : ''}
-                    </Text>
-                  </View>
-                  <Button
-                    testID={`sensor-forget-${sensor.id}`}
-                    onPress={() => handleForget(sensor)}
-                    label={t('sensors.forget', 'Forget')}
-                    variant="destructive"
-                    size="sm"
-                  />
+                <View key={sensor.id} style={styles.frame}>
+                  <Card variant="flat" padding="none" testID={`sensor-paired-${sensor.id}`}>
+                    <View style={styles.cardRow}>
+                      <View style={styles.cardBody}>
+                        <Text style={[styles.cardTitle, { color: textPrimary }]} numberOfLines={1}>
+                          {pairedLabels.get(sensor.id)}
+                        </Text>
+                        {renderSources(sensor)}
+                        {liveSamples(sensor).map(({ kind, sample }) => (
+                          <Text
+                            key={kind}
+                            testID={`sensor-live-${sensor.id}-${kind}`}
+                            style={[styles.liveText, { color: textPrimary }]}
+                          >
+                            {t('sensors.lastSample', {
+                              value: FORMAT_SAMPLE[kind](sample.value),
+                              seconds: Math.max(0, Math.round((now - sample.at) / 1000)),
+                            })}
+                          </Text>
+                        ))}
+                        <Text style={[styles.statusText, { color: statusColor }]}>
+                          {connection
+                            ? t(`sensors.status.${connection.status}`)
+                            : t('sensors.status.disconnected', 'Not connected')}
+                          {connection?.batteryPercent != null
+                            ? ` · ${connection.batteryPercent}%`
+                            : ''}
+                        </Text>
+                      </View>
+                      <Button
+                        testID={`sensor-forget-${sensor.id}`}
+                        onPress={() => handleForget(sensor)}
+                        label={t('sensors.forget', 'Forget')}
+                        variant="destructive"
+                        size="sm"
+                      />
+                    </View>
+                  </Card>
                 </View>
               );
             })
@@ -433,44 +432,47 @@ function SensorSettingsScreenContent() {
                 const signalLabel =
                   level == null ? null : t('sensors.signal', { dbm: Math.round(sensor.rssi ?? 0) });
                 return (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={[`${t('sensors.pair')}: ${label}`, signalLabel]
-                      .filter(Boolean)
-                      .join(', ')}
-                    key={sensor.id}
-                    testID={`sensor-discovered-${sensor.id}`}
-                    style={pressable([
-                      styles.card,
-                      { backgroundColor: surface, borderColor: border },
-                    ])}
-                    android_ripple={pressRipple}
-                    onPress={() => handlePair(sensor)}
-                  >
-                    <View style={styles.cardBody}>
-                      <Text style={[styles.cardTitle, { color: textPrimary }]} numberOfLines={1}>
-                        {label}
-                      </Text>
-                      {renderKinds(sensor.kinds, textSecondary)}
-                    </View>
-                    {level != null && (
-                      <View
-                        testID={`sensor-signal-${sensor.id}`}
-                        accessible
-                        accessibilityLabel={signalLabel ?? undefined}
-                        style={styles.signal}
-                      >
-                        <MaterialCommunityIcons
-                          name={SIGNAL_ICONS[level]}
-                          size={iconSize.md}
-                          color={textSecondary}
-                        />
+                  <View key={sensor.id} style={styles.frame}>
+                    <Card
+                      variant="flat"
+                      padding="none"
+                      accessibilityRole="button"
+                      accessibilityLabel={[`${t('sensors.pair')}: ${label}`, signalLabel]
+                        .filter(Boolean)
+                        .join(', ')}
+                      testID={`sensor-discovered-${sensor.id}`}
+                      onPress={() => handlePair(sensor)}
+                    >
+                      <View style={styles.cardRow}>
+                        <View style={styles.cardBody}>
+                          <Text
+                            style={[styles.cardTitle, { color: textPrimary }]}
+                            numberOfLines={1}
+                          >
+                            {label}
+                          </Text>
+                          {renderKinds(sensor.kinds, textSecondary)}
+                        </View>
+                        {level != null && (
+                          <View
+                            testID={`sensor-signal-${sensor.id}`}
+                            accessible
+                            accessibilityLabel={signalLabel ?? undefined}
+                            style={styles.signal}
+                          >
+                            <MaterialCommunityIcons
+                              name={SIGNAL_ICONS[level]}
+                              size={iconSize.md}
+                              color={textSecondary}
+                            />
+                          </View>
+                        )}
+                        <Text style={[styles.pairText, { color: accentText }]}>
+                          {t('sensors.pair', 'Pair')}
+                        </Text>
                       </View>
-                    )}
-                    <Text style={[styles.pairText, { color: accentText }]}>
-                      {t('sensors.pair', 'Pair')}
-                    </Text>
-                  </Pressable>
+                    </Card>
+                  </View>
                 );
               })}
 
@@ -503,14 +505,14 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     paddingVertical: spacing.sm,
   },
-  card: {
+  frame: {
+    marginBottom: spacing.sm,
+  },
+  cardRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderRadius: layout.borderRadius,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: spacing.sm,
   },
   cardBody: {
     flex: 1,

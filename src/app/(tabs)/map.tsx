@@ -50,6 +50,7 @@ import {
   colorWithOpacity,
   controlHeight,
   darkColors,
+  duration,
   ink,
   layout,
   slopToMinTapTarget,
@@ -73,7 +74,7 @@ const MAX_SEARCH_RESULTS = 5;
 // A vertical drag this far claims the gesture; a horizontal one this far leaves
 // it to the chip rows, which scroll sideways.
 const SHEET_DRAG_ACTIVATION = 12;
-const SHEET_FADE_MS = 150;
+const SHEET_FADE_MS = duration.quick;
 
 // Distance thresholds in meters (metric) and labels for both systems
 function getDistanceOptions(

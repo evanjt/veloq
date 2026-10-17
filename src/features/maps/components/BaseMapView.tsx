@@ -10,6 +10,7 @@ import {
   colors,
   colorWithOpacity,
   darkColors,
+  duration,
   iconSize,
   ink,
   layout,
@@ -185,7 +186,7 @@ export function BaseMapView({
     setIs3DReady(true);
     motionTiming(map3DOpacity, {
       toValue: 1,
-      duration: 300,
+      duration: duration.slow,
       useNativeDriver: true,
     }).start();
   }, [map3DOpacity]);

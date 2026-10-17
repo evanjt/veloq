@@ -1899,130 +1899,6 @@ pub struct FfiWorkoutSection {
 }
 
 // ============================================================================
-// Calendar Summary Types
-// ============================================================================
-
-/// Best performance in one direction for a calendar period.
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiCalendarDirectionBest {
-    /// Number of traversals in this direction
-    pub count: u32,
-    /// Best time in seconds
-    pub best_time: f64,
-    /// Best pace in m/s
-    pub best_pace: f64,
-    /// Activity ID of best traversal
-    pub best_activity_id: String,
-    /// Name of best activity
-    pub best_activity_name: String,
-}
-
-impl From<crate::CalendarDirectionBest> for FfiCalendarDirectionBest {
-    fn from(d: crate::CalendarDirectionBest) -> Self {
-        Self {
-            count: d.count,
-            best_time: d.best_time,
-            best_pace: d.best_pace,
-            best_activity_id: d.best_activity_id,
-            best_activity_name: d.best_activity_name,
-        }
-    }
-}
-
-/// Best performance in a calendar month for FFI.
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiCalendarMonthSummary {
-    /// Month number (1-12)
-    pub month: u32,
-    /// Total traversals (both directions), one per lap
-    pub traversal_count: u32,
-    /// Distinct activities those traversals came from
-    pub activity_count: u32,
-    /// Best forward/same direction performance
-    pub forward: Option<FfiCalendarDirectionBest>,
-    /// Best reverse direction performance
-    pub reverse: Option<FfiCalendarDirectionBest>,
-}
-
-impl From<crate::CalendarMonthSummary> for FfiCalendarMonthSummary {
-    fn from(m: crate::CalendarMonthSummary) -> Self {
-        Self {
-            month: m.month,
-            traversal_count: m.traversal_count,
-            activity_count: m.activity_count,
-            forward: m.forward.map(FfiCalendarDirectionBest::from),
-            reverse: m.reverse.map(FfiCalendarDirectionBest::from),
-        }
-    }
-}
-
-/// Best performance in a calendar year for FFI.
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiCalendarYearSummary {
-    /// Calendar year
-    pub year: i32,
-    /// Total traversals in this year, one per lap
-    pub traversal_count: u32,
-    /// Distinct activities those traversals came from
-    pub activity_count: u32,
-    /// Best forward/same direction performance this year
-    pub forward: Option<FfiCalendarDirectionBest>,
-    /// Best reverse direction performance this year
-    pub reverse: Option<FfiCalendarDirectionBest>,
-    /// Monthly breakdowns (only months with traversals)
-    pub months: Vec<FfiCalendarMonthSummary>,
-}
-
-impl From<crate::CalendarYearSummary> for FfiCalendarYearSummary {
-    fn from(y: crate::CalendarYearSummary) -> Self {
-        Self {
-            year: y.year,
-            traversal_count: y.traversal_count,
-            activity_count: y.activity_count,
-            forward: y.forward.map(FfiCalendarDirectionBest::from),
-            reverse: y.reverse.map(FfiCalendarDirectionBest::from),
-            months: y
-                .months
-                .into_iter()
-                .map(FfiCalendarMonthSummary::from)
-                .collect(),
-        }
-    }
-}
-
-/// Calendar-aligned performance summary for FFI.
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiCalendarSummary {
-    /// Year summaries (newest first)
-    pub years: Vec<FfiCalendarYearSummary>,
-    /// The forward record's outing, absent when no outing holds the record
-    pub forward_pr: Option<FfiCalendarDirectionBest>,
-    /// The reverse record's outing, absent when no outing holds the record
-    pub reverse_pr: Option<FfiCalendarDirectionBest>,
-    /// Section distance in meters
-    pub section_distance: f64,
-}
-
-impl From<crate::CalendarSummary> for FfiCalendarSummary {
-    fn from(s: crate::CalendarSummary) -> Self {
-        Self {
-            years: s
-                .years
-                .into_iter()
-                .map(FfiCalendarYearSummary::from)
-                .collect(),
-            forward_pr: s.forward_pr.map(FfiCalendarDirectionBest::from),
-            reverse_pr: s.reverse_pr.map(FfiCalendarDirectionBest::from),
-            section_distance: s.section_distance,
-        }
-    }
-}
-
-// ============================================================================
 // Activity Pattern Types
 // ============================================================================
 
@@ -2782,7 +2658,7 @@ pub struct FfiSectionPerformanceData {
     pub sport_counts: Vec<FfiSectionSportCount>,
     /// Year and month performance history over the whole record, or `None`
     /// with no records
-    pub calendar_summary: Option<FfiCalendarSummary>,
+    pub calendar_summary: Option<crate::CalendarSummary>,
     /// Per-activity performance records inside the range, with the bests and
     /// direction stats taken over them
     pub performances: FfiSectionPerformanceResult,
@@ -3480,6 +3356,17 @@ mod tests {
     //! keep compiling and quietly stop carrying it. Every value is distinct so
     //! a transposed pair of same-typed fields fails rather than passing.
     use super::*;
+
+    // A second calendar struct beside the domain one let a new field reach the
+    // engine and stop at the boundary, so the screen read carries the domain
+    // value as it is and this only compiles while that holds.
+    #[test]
+    fn section_performance_data_carries_the_domain_calendar_summary() {
+        fn calendar_of(data: &FfiSectionPerformanceData) -> Option<&crate::CalendarSummary> {
+            data.calendar_summary.as_ref()
+        }
+        let _ = calendar_of;
+    }
 
     fn direction_stats() -> crate::DirectionStats {
         crate::DirectionStats {

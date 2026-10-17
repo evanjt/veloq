@@ -10,7 +10,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { formatDistance, formatElevation } from '@/shared/format/format';
-import { brand, colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
+import { brand, colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
 import type { PreviewSection, PreviewSectionStatus } from 'veloqrs';
 import { IconButton } from '@/shared/ui';
 import { formatPercent } from '@/shared/format';
@@ -105,7 +105,7 @@ export function PreviewSectionPopover({ section, newNumber, onClose }: PreviewSe
 const styles = StyleSheet.create({
   card: {
     borderRadius: layout.borderRadius,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: stroke.hairline,
     padding: spacing.md,
     gap: spacing.sm,
   },
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusSm,
-    borderWidth: 1,
+    borderWidth: stroke.one,
   },
   badgeText: {
     ...typography.label,

@@ -11,6 +11,7 @@
  */
 
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { act, fireEvent, render, within } from '@testing-library/react-native';
 import { Circle, Rect } from '@shopify/react-native-skia';
 
@@ -57,6 +58,8 @@ function sectionPrCard(): Insight {
       { value: 295, date: start + 7 * DAY, activityId: 'a2' },
       { value: 281, date: start + 14 * DAY, activityId: 'a3' },
       { value: 290, date: start + 21 * DAY, activityId: 'a4' },
+      { value: 288, date: start + 28 * DAY, activityId: 'a5' },
+      { value: 297, date: start + 35 * DAY, activityId: 'a6' },
     ],
   } as SectionPR;
   const [card] = generateSectionPRInsights([pr], NOW, t);
@@ -64,19 +67,21 @@ function sectionPrCard(): Insight {
   return card;
 }
 
-function periodCard(): Insight {
-  const first = NOW / 1000 - 6 * WEEK;
+function periodCard(weekCount = 6): Insight {
+  const first = NOW / 1000 - weekCount * WEEK;
   const stats = (totalTss: number) => ({
     count: 4,
     totalDuration: 4 * 3600,
     totalDistance: 100_000,
     totalTss,
   });
-  const weeks: WeeklyTotal[] = [300, 320, 310, 330, 340, 450].map((tss, index) => ({
-    start: first + index * WEEK,
-    stats: stats(tss),
-    partial: index === 5,
-  }));
+  const weeks: WeeklyTotal[] = [300, 320, 310, 330, 340, 450]
+    .slice(-weekCount)
+    .map((tss, index) => ({
+      start: first + index * WEEK,
+      stats: stats(tss),
+      partial: index === weekCount - 1,
+    }));
   const [card] = generatePeriodComparisonInsights(
     stats(450),
     stats(340),
@@ -87,7 +92,7 @@ function periodCard(): Insight {
       current: 450,
       previous: 340,
       ratio: 450 / 340 - 1,
-      comparedStart: first + 5 * WEEK,
+      comparedStart: first + (weekCount - 1) * WEEK,
     },
     null,
     NOW,
@@ -252,7 +257,7 @@ describe('the insight list card', () => {
         .map((label) => label.props.children)
     ).toEqual([
       formatShortDate(new Date(PR_START * 1000)),
-      formatShortDate(new Date((PR_START + 21 * DAY) * 1000)),
+      formatShortDate(new Date((PR_START + 35 * DAY) * 1000)),
     ]);
   });
 
@@ -286,6 +291,32 @@ describe('the insight list card', () => {
     expect(tree.queryByTestId('insight-graphic')).toBeNull();
     expect(tree.queryByRole('link')).toBeNull();
     expect(tree.getByText(insight.title)).toBeTruthy();
+  });
+
+  it('shows the figure and its change in place of a graphic drawn from too few weeks', async () => {
+    const insight = periodCard(5);
+    const tree = await render(<InsightListCard insight={insight} onPress={jest.fn()} />);
+
+    expect(insight.supportingData?.history).toBeUndefined();
+    expect(tree.queryByTestId('insight-graphic')).toBeNull();
+    expect(tree.getByTestId('insight-figure').props.children).toBe('450');
+    const chip = tree.getByTestId('insight-change');
+    expect(within(chip).getByText('+32%')).toBeTruthy();
+    expect(StyleSheet.flatten(within(chip).getByText('+32%').props.style)).toMatchObject({
+      color: verdictColor('neutral', false),
+    });
+  });
+
+  it('shows the figure alone where the card states no change', async () => {
+    const card = periodCard(5);
+    const insight = {
+      ...card,
+      supportingData: { hero: { label: 'This week', value: 450 } },
+    } as Insight;
+    const tree = await render(<InsightListCard insight={insight} onPress={jest.fn()} />);
+
+    expect(tree.getByTestId('insight-figure').props.children).toBe('450');
+    expect(tree.queryByTestId('insight-change')).toBeNull();
   });
 
   it("draws each section's change above the line when faster and below when slower", async () => {

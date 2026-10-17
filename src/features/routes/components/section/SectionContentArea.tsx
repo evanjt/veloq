@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
-import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
 import {
   SectionPerformanceSection,
   type PerformanceSubject,
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     backgroundColor: colors.warning + '15',
-    borderWidth: 1,
+    borderWidth: stroke.one,
     borderColor: colors.warning + '30',
     borderRadius: layout.borderRadius,
     padding: spacing.md,
@@ -286,14 +286,14 @@ const styles = StyleSheet.create({
   disabledBannerText: {
     flex: 1,
     fontSize: typography.bodySmall.fontSize,
-    fontWeight: '500',
+    fontWeight: '400',
   },
   mergeBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     backgroundColor: colors.info + '10',
-    borderWidth: 1,
+    borderWidth: stroke.one,
     borderColor: colors.info + '25',
     borderRadius: layout.borderRadius,
     padding: spacing.md,
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   mergeBannerText: {
     flex: 1,
     fontSize: typography.bodySmall.fontSize,
-    fontWeight: '500',
+    fontWeight: '400',
     color: colors.infoText,
   },
   mergeBannerTextDark: {

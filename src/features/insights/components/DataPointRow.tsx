@@ -13,6 +13,7 @@ import {
   typography,
   verdictColor,
   type VerdictRung,
+  stroke,
 } from '@/theme';
 import type { DataPoint } from '@/types';
 
@@ -72,7 +73,7 @@ export const DataPointRow = React.memo(function DataPointRow({ dataPoint }: Data
 const styles = StyleSheet.create({
   container: {
     paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
+    borderBottomWidth: stroke.one,
     borderBottomColor: opacity.overlay.light,
   },
   row: {

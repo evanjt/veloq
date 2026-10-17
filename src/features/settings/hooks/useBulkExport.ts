@@ -10,9 +10,10 @@ import {
   PROGRESS_INTERVAL_MS,
   readBulkExportProgress,
   resumePendingBulkExport,
-  type BulkExportOutcome,
   type BulkExportPhase,
   type BulkExportProgress,
+  type BulkExportTally,
+  type ConfirmSkipped,
 } from '@/features/settings/lib/bulkExport';
 import {
   BULK_EXPORT_FORMAT_NAME,
@@ -20,11 +21,9 @@ import {
 } from '@/features/settings/lib/bulkExportFormat';
 import type { ShareAnchor } from '@/features/settings/lib/shareFile';
 import { engineErrorKey, engineErrorTag } from '@/shared/native/engineError';
-import { inform } from '@/shared/ui/dialog';
+import { confirmAction, inform } from '@/shared/ui/dialog';
 
 type ExportState = 'idle' | 'exporting' | 'done' | 'error';
-
-type Completed = Extract<BulkExportOutcome, { state: 'complete' }>;
 
 /**
  * An engine failure carries its variant, and its `message` is Rust's own
@@ -37,7 +36,7 @@ function failureMessage(err: unknown, t: TFunction): string {
 }
 
 /** One line per reason that skipped something, so a trimmed ride is never called GPS-less. */
-function completionMessage(outcome: Completed, t: TFunction): string | null {
+function completionMessage(outcome: BulkExportTally, t: TFunction): string | null {
   const skipped = [
     outcome.noTrack > 0 && t('export.bulkSkippedNoTrack', { count: outcome.noTrack }),
     outcome.trimmed > 0 && t('export.bulkSkippedTrimmed', { count: outcome.trimmed }),
@@ -85,12 +84,28 @@ export function useBulkExport(anchor?: ShareAnchor) {
     };
   }, []);
 
-  const reportComplete = useCallback(
-    (outcome: Completed) => {
-      if (live.current) setStillRunning(false);
-      const message = completionMessage(outcome, t);
-      if (message) inform({ title: t('export.bulkComplete'), message });
-    },
+  // What was skipped is said before the share sheet opens, by `confirmSkipped`.
+  const reportComplete = useCallback(() => {
+    if (live.current) setStillRunning(false);
+  }, []);
+
+  const confirmSkipped = useCallback<ConfirmSkipped>(
+    (tally) =>
+      new Promise((resolve) => {
+        const message = completionMessage(tally, t);
+        if (!message) {
+          resolve(true);
+          return;
+        }
+        confirmAction({
+          title: t('export.bulkComplete'),
+          message,
+          confirmLabel: t('export.share'),
+          cancelLabel: t('common.cancel'),
+          onConfirm: () => resolve(true),
+          onCancel: () => resolve(false),
+        });
+      }),
     [t]
   );
 
@@ -124,8 +139,8 @@ export function useBulkExport(anchor?: ShareAnchor) {
   const resume = useCallback(
     async function take(waited = false): Promise<void> {
       try {
-        const outcome = await resumePendingBulkExport(onProgress, anchor);
-        if (outcome.state === 'complete') reportComplete(outcome);
+        const outcome = await resumePendingBulkExport(onProgress, anchor, confirmSkipped);
+        if (outcome.state === 'complete') reportComplete();
         else if (outcome.state === 'still-running' && live.current) {
           setStillRunning(true);
           // Wait on the write while mounted. A screen that was left does not
@@ -151,7 +166,7 @@ export function useBulkExport(anchor?: ShareAnchor) {
         sharing.current = false;
       }
     },
-    [anchor, onProgress, reportComplete, reportFailure]
+    [anchor, confirmSkipped, onProgress, reportComplete, reportFailure]
   );
 
   const doExport = useCallback(
@@ -175,13 +190,13 @@ export function useBulkExport(anchor?: ShareAnchor) {
 
       try {
         const exportFn = kind === 'geojson' ? bulkExportActivitiesGeoJson : bulkExportActivities;
-        const result = await exportFn(onProgress, undefined, anchor);
+        const result = await exportFn(onProgress, undefined, anchor, confirmSkipped);
         if (live.current) setState('done');
         if (result.state === 'still-running') {
           if (live.current) setStillRunning(true);
           // Not awaited: the tap is not held for the rest of the run.
           void resume();
-        } else if (result.state === 'complete') reportComplete(result);
+        } else if (result.state === 'complete') reportComplete();
       } catch (err) {
         reportFailure(err);
       } finally {
@@ -191,7 +206,7 @@ export function useBulkExport(anchor?: ShareAnchor) {
         }, 1000);
       }
     },
-    [anchor, onProgress, resume, reportComplete, reportFailure]
+    [anchor, confirmSkipped, onProgress, resume, reportComplete, reportFailure]
   );
 
   // The worker runs on past the foreground wait, so the count does too, on the

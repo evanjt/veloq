@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
   },
   terrainLabel: {
     fontSize: typography.bodySmall.fontSize,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   terrainPicker: {
     width: '100%',

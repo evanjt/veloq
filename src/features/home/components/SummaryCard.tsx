@@ -15,6 +15,7 @@ import {
   shadows,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 import { SummaryCardSparkline, SPARKLINE_MIN_DAYS, type ScrubValues } from './SummaryCardSparkline';
 import { SummaryCardHRVSparkline } from './SummaryCardHRVSparkline';
@@ -535,7 +536,7 @@ const styles = StyleSheet.create({
     top: spacing.xs,
     right: spacing.md,
     fontSize: typography.micro.fontSize,
-    fontWeight: '500',
+    fontWeight: '400',
     zIndex: 1,
   },
 
@@ -560,7 +561,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.divider,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: stroke.one,
     borderColor: opacity.overlay.medium,
   },
   profilePhotoDark: {
@@ -577,7 +578,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: stroke.one,
     borderColor: colors.border,
     ...shadows.pill,
   },
@@ -609,7 +610,7 @@ const styles = StyleSheet.create({
   },
   heroSubText: {
     fontSize: typography.label.fontSize,
-    fontWeight: '500',
+    fontWeight: '400',
   },
   heroValue: {
     fontSize: typography.statsValueLarge.fontSize,
@@ -636,18 +637,18 @@ const styles = StyleSheet.create({
   },
   secondaryLabel: {
     fontSize: typography.caption.fontSize,
-    fontWeight: '500',
+    fontWeight: '400',
     color: colors.textSecondary,
     flexShrink: 1,
   },
   heroUnit: {
     fontSize: typography.bodySmall.fontSize,
-    fontWeight: '500',
+    fontWeight: '400',
     letterSpacing: 0,
   },
   secondaryUnit: {
     fontSize: typography.caption.fontSize,
-    fontWeight: '500',
+    fontWeight: '400',
     letterSpacing: 0,
   },
   heroTrend: {
@@ -656,7 +657,7 @@ const styles = StyleSheet.create({
   },
   heroLabel: {
     fontSize: typography.bodySmall.fontSize,
-    fontWeight: '500',
+    fontWeight: '400',
     color: colors.textSecondary,
   },
   // Sparkline - own row, full width
@@ -690,7 +691,7 @@ const styles = StyleSheet.create({
   },
   metricUnit: {
     fontSize: typography.micro.fontSize,
-    fontWeight: '500',
+    fontWeight: '400',
   },
   metricTrend: {
     fontSize: typography.micro.fontSize,

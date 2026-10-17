@@ -16,7 +16,16 @@ import * as haptics from './haptics';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { colors, colorWithOpacity, darkColors, iconSize, ink, spacing, typography } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  darkColors,
+  iconSize,
+  ink,
+  spacing,
+  typography,
+  stroke,
+} from '@/theme';
 import { PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { navigateTab } from '@/shared/app/navigation';
 import { debug } from '@/shared/debug/debug';
@@ -208,7 +217,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: stroke.hairline,
   },
   tabRow: {
     flexDirection: 'row',
@@ -230,7 +239,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: typography.label.fontSize,
-    fontWeight: '500',
+    fontWeight: '600',
     marginTop: spacing.xs,
   },
   labelActive: {

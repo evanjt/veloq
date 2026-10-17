@@ -15,7 +15,6 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   runOnJS,
-  Easing,
   type SharedValue,
 } from 'react-native-reanimated';
 import Constants from 'expo-constants';
@@ -23,7 +22,17 @@ import { useTranslation } from 'react-i18next';
 import { navigateTab } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
 import { useReduceMotion } from '@/shared/ui/reduceMotion';
-import { colors, darkColors, spacing, layout, ink, colorWithOpacity } from '@/theme';
+import { useGestureCallback } from '@/shared/ui/useGestureCallback';
+import {
+  colors,
+  darkColors,
+  spacing,
+  layout,
+  ink,
+  colorWithOpacity,
+  duration,
+  easing,
+} from '@/theme';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { useLaunchSurfaces } from '@/features/settings/hooks/useLaunchSurfaces';
@@ -55,9 +64,9 @@ import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 
 const SWIPE_THRESHOLD_RATIO = 0.2;
 const VELOCITY_THRESHOLD = 400;
-const TIMING_CONFIG = { duration: 250, easing: Easing.out(Easing.cubic) };
+const TIMING_CONFIG = { duration: duration.standard, easing: easing.standard };
 // The modal's own fade, which the resume slide waits out so the slide across is seen.
-const ENTER_FADE_MS = 300;
+const ENTER_FADE_MS = duration.slow;
 
 const MODAL_HORIZONTAL_PADDING = spacing.xl;
 const ALL_SLIDES = getAllSlides();
@@ -286,10 +295,12 @@ export function WhatsNewModal() {
     startTour(newMode);
   }, [tourState?.mode, startTour]);
 
+  const settleOnJS = useGestureCallback(setCurrentIndex);
   const panGesture = useMemo(
     () =>
       Gesture.Pan()
         .activeOffsetX([-10, 10])
+        .failOffsetY([-10, 10])
         .onUpdate((event) => {
           'worklet';
           const currentOffset = tourPageOffset(activeIndex.value, contentWidth);
@@ -315,9 +326,9 @@ export function WhatsNewModal() {
 
           activeIndex.value = targetIndex;
           translateX.value = withTiming(tourPageOffset(targetIndex, contentWidth), TIMING_CONFIG);
-          runOnJS(setCurrentIndex)(targetIndex);
+          runOnJS(settleOnJS)(targetIndex);
         }),
-    [translateX, activeIndex, slideCount, contentWidth, swipeThreshold]
+    [translateX, activeIndex, slideCount, contentWidth, swipeThreshold, settleOnJS]
   );
 
   const contentStyle = useAnimatedStyle(() => ({

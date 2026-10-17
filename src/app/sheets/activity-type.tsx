@@ -17,6 +17,7 @@ import {
   layout,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
 import { ACTIVITY_CATEGORIES, useRecordingPreferences } from '@/features/recording';
@@ -157,7 +158,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   headerBordered: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: stroke.hairline,
     borderBottomColor: colorWithOpacity(ink.black, 0.2),
   },
   headerBorderedDark: {
@@ -179,7 +180,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     minHeight: layout.minTapTarget,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: stroke.hairline,
   },
   rowSelected: {
     backgroundColor: colorWithOpacity(brand.teal, 0.08),

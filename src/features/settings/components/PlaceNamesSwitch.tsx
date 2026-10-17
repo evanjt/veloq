@@ -6,7 +6,8 @@ import type { TFunction } from 'i18next';
 import { useTheme } from '@/shared/app';
 import { openExternal } from '@/shared/app/openExternal';
 import { getPlaceNamesEnabled, setPlaceNamesEnabled } from '@/shared/native/placeNames';
-import { colors, darkColors, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
+import { Card } from '@/shared/ui/Card';
 import { SwitchRow } from '@/shared/ui/SwitchRow';
 import { chooseAction } from '@/shared/ui/dialog';
 
@@ -69,35 +70,26 @@ export function PlaceNamesSwitch() {
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   return (
-    <View
-      style={[
-        styles.card,
-        {
-          backgroundColor: isDark ? darkColors.surface : colors.surface,
-          borderColor: isDark ? darkColors.border : colors.border,
-        },
-      ]}
-    >
-      <SwitchRow
-        icon="map-marker-outline"
-        title={t('settings.placeNames.title')}
-        value={enabled}
-        onValueChange={handleToggle}
-        testID="settings-place-names-toggle"
-      />
-      <Text style={[styles.hint, { color: textSecondary }]}>
-        {t('settings.placeNames.attribution')}
-      </Text>
+    <View style={styles.frame}>
+      <Card variant="flat" padding="none">
+        <SwitchRow
+          icon="map-marker-outline"
+          title={t('settings.placeNames.title')}
+          value={enabled}
+          onValueChange={handleToggle}
+          testID="settings-place-names-toggle"
+        />
+        <Text style={[styles.hint, { color: textSecondary }]}>
+          {t('settings.placeNames.attribution')}
+        </Text>
+      </Card>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    borderRadius: layout.borderRadius,
-    borderWidth: StyleSheet.hairlineWidth,
+  frame: {
     marginBottom: spacing.lg,
-    overflow: 'hidden',
   },
   hint: {
     ...typography.caption,

@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
   },
   actionPillText: {
     fontSize: typography.caption.fontSize,
-    fontWeight: '500',
+    fontWeight: '600',
     color: colors.textSecondary,
   },
 });

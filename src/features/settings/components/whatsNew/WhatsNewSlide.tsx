@@ -2,21 +2,20 @@ import React, { useState } from 'react';
 import { View, StyleSheet, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ScrollView } from 'react-native-gesture-handler';
 import { useTheme } from '@/shared/app';
 import { SectionTitle } from '@/shared/ui/SectionTitle';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
-import {
-  TOUR_PICTURE_GAP,
-  TOUR_SLIDE_PADDING_TOP,
-  tourPictureScale,
-  tourPictureSpace,
-} from '../../lib/tourSlideFit';
+import { TOUR_PICTURE_GAP, TOUR_SLIDE_PADDING_TOP, tourSlideLayout } from '../../lib/tourSlideFit';
 
 interface WhatsNewSlideProps {
   icon: string;
   title: string;
   body: string;
-  /** The height the slide may take; its picture shrinks to fit under the text. */
+  /**
+   * The height the slide may take; its picture shrinks to fit under the text,
+   * and the text scrolls once the picture is at its floor.
+   */
   availableHeight?: number;
   children?: React.ReactNode;
 }
@@ -38,29 +37,44 @@ export function WhatsNewSlide({
   const onPictureLayout = (event: LayoutChangeEvent) =>
     setPictureHeight(event.nativeEvent.layout.height);
 
-  const scale =
-    availableHeight === undefined || headerHeight === 0
-      ? 1
-      : tourPictureScale(pictureHeight, tourPictureSpace(availableHeight, headerHeight));
+  const {
+    pictureScale: scale,
+    scrolls,
+    textHeight,
+  } = availableHeight === undefined
+    ? { pictureScale: 1, scrolls: false, textHeight: undefined }
+    : tourSlideLayout(availableHeight, headerHeight, pictureHeight);
   const frameStyle = pictureHeight > 0 ? { height: pictureHeight * scale } : undefined;
 
   return (
     <View style={[styles.container, { width: windowWidth - spacing.xl * 2 }]}>
-      <View style={styles.header} onLayout={onHeaderLayout} testID="tour-slide-header">
-        <MaterialCommunityIcons
-          name={icon as keyof typeof MaterialCommunityIcons.glyphMap}
-          size={iconSize.xxl}
-          color={isDark ? darkColors.primary : colors.primary}
-        />
-        <SectionTitle align="center" style={styles.title}>
-          {title}
-        </SectionTitle>
-        <Text
-          style={[styles.body, { color: isDark ? darkColors.textSecondary : colors.textSecondary }]}
-        >
-          {body}
-        </Text>
-      </View>
+      {/* The handler's own scroll view, so a vertical drag scrolls and a horizontal one turns. */}
+      <ScrollView
+        style={[styles.text, scrolls ? { maxHeight: textHeight } : undefined]}
+        scrollEnabled={scrolls}
+        showsVerticalScrollIndicator={scrolls}
+        persistentScrollbar={scrolls}
+        testID="tour-slide-text"
+      >
+        <View style={styles.header} onLayout={onHeaderLayout} testID="tour-slide-header">
+          <MaterialCommunityIcons
+            name={icon as keyof typeof MaterialCommunityIcons.glyphMap}
+            size={iconSize.xxl}
+            color={isDark ? darkColors.primary : colors.primary}
+          />
+          <SectionTitle align="center" style={styles.title}>
+            {title}
+          </SectionTitle>
+          <Text
+            style={[
+              styles.body,
+              { color: isDark ? darkColors.textSecondary : colors.textSecondary },
+            ]}
+          >
+            {body}
+          </Text>
+        </View>
+      </ScrollView>
       {children ? (
         <View style={[styles.frame, frameStyle]} testID="tour-slide-picture">
           <View
@@ -82,9 +96,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingTop: TOUR_SLIDE_PADDING_TOP,
   },
+  text: {
+    alignSelf: 'stretch',
+    flexGrow: 0,
+  },
   header: {
     alignItems: 'center',
-    alignSelf: 'stretch',
     gap: spacing.sm,
   },
   title: {

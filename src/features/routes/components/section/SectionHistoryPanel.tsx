@@ -20,6 +20,7 @@ import {
   slopToMinTapTarget,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 import { Button, Card } from '@/shared/ui';
 import type {
@@ -432,7 +433,7 @@ const styles = StyleSheet.create({
   },
   event: {
     paddingVertical: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: stroke.hairline,
     borderTopColor: colors.border,
   },
   eventDark: {

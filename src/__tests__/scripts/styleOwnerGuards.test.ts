@@ -5,7 +5,7 @@
  * nothing noticed a class that had neither.
  *
  * Expected behaviour: each class is a ratchet that refuses a new literal and
- * names the file, a weight of 500 is refused even inside the theme, and the
+ * names the file, a weight of 500 or 800 is refused even inside the theme, and the
  * completeness check fails on a style key that no class places, on a class
  * whose guard is not run and on an owner the theme does not export.
  */
@@ -95,7 +95,7 @@ describe('the style class ratchets', () => {
       [COMPONENT]: [
         'const s = StyleSheet.create({',
         '  a: { fontWeight: typography.body.fontWeight, borderWidth: 0, opacity: 1 },',
-        '  b: { opacity: 0, zIndex: 0, borderWidth: StyleSheet.hairlineWidth },',
+        '  b: { opacity: 0, zIndex: 0, borderWidth: stroke.hairline },',
         '});',
         'export const A = () => <MaterialCommunityIcons name="leaf" size={iconSize.md} />;',
         "import { colors } from '@/theme';",
@@ -107,6 +107,40 @@ describe('the style class ratchets', () => {
       expect(lintClass(root, className).status).toBe(0);
     }
     expect(lintClass(root, 'theme-import').status).toBe(0);
+  });
+
+  it('refuses a border width that is not a stroke read, a hairline or a constant included', () => {
+    for (const value of [
+      '1',
+      'StyleSheet.hairlineWidth',
+      'StyleSheet.hairlineWidth * 2',
+      'EDGE_WIDTH',
+      'selected ? 2 : 0',
+      'spacing.xxs',
+    ]) {
+      const root = treeWith({
+        [COMPONENT]: `const s = StyleSheet.create({ edge: { borderBottomWidth: ${value} } });\n`,
+      });
+      const result = lintClass(root, 'border-width');
+
+      expect({ value, status: result.status }).toEqual({ value, status: 1 });
+      expect(result.output).toContain(COMPONENT);
+    }
+  });
+
+  it('passes a border width read from the stroke token, switched off or handed on', () => {
+    const root = treeWith({
+      [COMPONENT]: [
+        'const s = StyleSheet.create({',
+        '  a: { borderWidth: stroke.one, borderTopWidth: stroke.hairline },',
+        '  b: { borderWidth: 0, borderLeftWidth: selected ? stroke.two : 0 },',
+        '});',
+        'export const A = () => <View style={{ borderBottomWidth: stroke.three }} />;',
+        'export const B = () => <View style={{ borderWidth: skin.borderWidth }} />;',
+      ].join('\n'),
+    });
+
+    expect(lintClass(root, 'border-width').status).toBe(0);
   });
 
   it('counts an elevation only where it is a style, not the climb in a data object', () => {
@@ -125,6 +159,34 @@ describe('the style class ratchets', () => {
     });
 
     expect(lintClass(root, 'font-style').status).toBe(0);
+  });
+
+  it.each([
+    ['a camera move', 'mapRef.current?.setCamera({ zoom: 12 }, 500);'],
+    ['a camera fit', 'mapRef.current?.fitBounds(bounds, padding, 400);'],
+    ['a config built apart from its timing call', 'const config = { duration: 250, easing };'],
+    ['a timing through the reduce motion owner', 'motionTiming(value, { duration: 300 });'],
+  ])('counts a hand-written duration in %s', (_name, source) => {
+    const result = lintClass(treeWith({ [COMPONENT]: `${source}\n` }), 'motion');
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain(`${COMPONENT}:1`);
+  });
+
+  it('counts no duration read from the motion tokens, and no duration in data', () => {
+    const root = treeWith({
+      [COMPONENT]: [
+        'const e = FadeIn.duration(duration.exit);',
+        'const v = withTiming(1, { duration: duration.standard, easing: easing.standard });',
+        '<Animated.View {...motionPresets.banner} />;',
+        'mapRef.current?.setCamera({ zoom: 12 }, cameraMove.move);',
+        'mapRef.current?.fitBounds(bounds, padding, cameraMove.brisk);',
+        'mapRef.current?.fitBounds(bounds, 40);',
+        'const lap = { duration: 3600, distance: 42000 };',
+      ].join('\n'),
+    });
+
+    expect(lintClass(root, 'motion').status).toBe(0);
   });
 
   it('judges neither the theme nor the tests, except for a weight of 500', () => {
@@ -152,8 +214,36 @@ describe('the style class ratchets', () => {
     const result = lintClass(root, 'font-weight');
 
     expect(result.status).toBe(1);
-    expect(result.output).toContain('font-weight-500');
+    expect(result.output).toContain('font-weight-off-scale');
     expect(result.output).toContain('src/theme/typography.ts');
+  });
+
+  it('refuses a weight of 800 in a component, a style prop and an svg attribute', () => {
+    const root = treeWith({
+      [COMPONENT]: [
+        `const s = StyleSheet.create({ yield: { fontWeight: '800' } });`,
+        `export const A = () => <Text style={{ fontWeight: 800 }} />;`,
+        `export const B = () => <SvgText fontWeight="800" />;`,
+        '',
+      ].join('\n'),
+    });
+    const result = lintClass(root, 'font-weight', {
+      'font-weight': { [COMPONENT]: 2 },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain('font-weight-off-scale');
+    expect(result.output).toContain(`${COMPONENT}:1`);
+    expect(result.output).toContain(`${COMPONENT}:2`);
+    expect(result.output).toContain(`${COMPONENT}:3`);
+  });
+
+  it('passes the weights the scale draws in', () => {
+    const root = treeWith({
+      'src/theme/typography.ts': `export const typography = { a: { fontWeight: '400' }, b: { fontWeight: '600' }, c: { fontWeight: 700 } };\n`,
+    });
+
+    expect(lintClass(root, 'font-weight').status).toBe(0);
   });
 });
 

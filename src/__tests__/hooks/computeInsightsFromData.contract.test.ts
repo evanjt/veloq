@@ -342,13 +342,13 @@ describe('Tier 0.6 contract: computeInsightsFromData', () => {
   it('marks last week on the rest-day card, not the week before it', () => {
     const ffiData = buildFfiData();
     ffiData.currentWeek = makePeriod(0, 0, 0, 0);
-    ffiData.weeklyTotals = weeksOf([300, 320, 340, 320, 220], false);
-    ffiData.weekAgainstChronic = { ...ffiData.weekAgainstChronic!, comparedStart: weekStart(4) };
+    ffiData.weeklyTotals = weeksOf([310, 300, 320, 340, 320, 220], false);
+    ffiData.weekAgainstChronic = { ...ffiData.weekAgainstChronic!, comparedStart: weekStart(5) };
 
     const weekly = weeklyCard(ffiData);
 
     expect(weekly?.id).toBe('period_comparison-volume');
-    expect(weekly?.supportingData?.history).toMatchObject({ mark: { date: weekStart(4) } });
+    expect(weekly?.supportingData?.history).toMatchObject({ mark: { date: weekStart(5) } });
     expect(weekly?.supportingData?.comparisonData?.current.label).toBe('insights.data.lastWeek');
   });
 

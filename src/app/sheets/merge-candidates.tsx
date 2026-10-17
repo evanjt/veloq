@@ -10,7 +10,7 @@ import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { Row, SheetHeader } from '@/shared/ui';
 import { formatDistance } from '@/shared/format/format';
 import { SportIcons } from '@/shared/activity/SportIcons';
-import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
 import type { MergeCandidatesSheetInput } from '@/features/routes';
 import { tapBack } from '@/shared/app/navigation';
 
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   row: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: stroke.hairline,
   },
   rowContent: {
     flex: 1,

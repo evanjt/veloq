@@ -14,7 +14,16 @@ import {
   openStorePage,
 } from '@/shared/app/supportLinks';
 import { useDonation } from '@/shared/app/useDonation';
-import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  duration,
+  iconSize,
+  layout,
+  motionPresets,
+  spacing,
+  typography,
+} from '@/theme';
 import { TipButtons } from '@/shared/ui/TipButtons';
 import { Card } from '@/shared/ui/Card';
 import { Button, DisclosureChevron, pressable, pressRipple } from '@/shared/ui';
@@ -95,7 +104,7 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
 
   if (purchaseSuccess) {
     return (
-      <Animated.View entering={FadeIn.duration(300)} exiting={FadeOut.duration(200)}>
+      <Animated.View {...motionPresets.card}>
         <Card variant="raised" style={{ gap: spacing.sm }}>
           <View style={styles.header}>
             <MaterialCommunityIcons name="heart" size={iconSize.md} color={colors.primary} />
@@ -110,11 +119,7 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   return (
-    <Animated.View
-      testID="support-card"
-      entering={FadeIn.duration(300)}
-      exiting={FadeOut.duration(200)}
-    >
+    <Animated.View testID="support-card" {...motionPresets.card}>
       <Card variant="raised" style={{ gap: spacing.sm }}>
         <View style={styles.header}>
           <MaterialCommunityIcons name="star-outline" size={iconSize.md} color={textColor} />
@@ -166,7 +171,10 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
         {/* Mounted only while open: the panel is as tall as its buttons at any text
             size, and a collapsed one leaves no purchase button for a screen reader. */}
         {tipsExpanded ? (
-          <Animated.View entering={FadeIn.duration(250)} exiting={FadeOut.duration(150)}>
+          <Animated.View
+            entering={FadeIn.duration(duration.standard)}
+            exiting={FadeOut.duration(duration.quick)}
+          >
             {isAvailable ? (
               <View testID="support-card-tip-buttons">
                 <TipButtons
@@ -188,7 +196,10 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
           </Animated.View>
         ) : null}
 
-        <Animated.View layout={LinearTransition.duration(250)} style={styles.dismissRow}>
+        <Animated.View
+          layout={LinearTransition.duration(duration.standard)}
+          style={styles.dismissRow}
+        >
           <Button
             label={t('support.remindLater')}
             variant="ghost"
@@ -272,8 +283,7 @@ const styles = StyleSheet.create({
     minHeight: layout.minTapTarget,
   },
   tipToggleText: {
-    ...typography.caption,
-    fontWeight: '500',
+    ...typography.captionBold,
     flex: 1,
   },
   dismissRow: {

@@ -15,6 +15,7 @@ import {
   spacing,
   themedStyles,
   typography,
+  stroke,
 } from '@/theme';
 import type { StatDetail } from './types';
 
@@ -151,7 +152,7 @@ const makeStyles = (palette: Palette, isDark: boolean) => {
       flexDirection: 'row',
       justifyContent: 'space-between',
       paddingVertical: spacing.sm,
-      borderBottomWidth: 1,
+      borderBottomWidth: stroke.one,
       borderBottomColor: overlay.light,
     },
     detailLabel: {

@@ -28,7 +28,7 @@ export const chartStyles = StyleSheet.create({
   axisLabelCompact: {
     fontSize: typography.micro.fontSize,
     color: colors.textSecondary,
-    fontWeight: '500' as const,
+    fontWeight: '400' as const,
   },
   axisLabelCompactDark: {
     color: darkColors.textSecondary,

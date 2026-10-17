@@ -92,7 +92,10 @@ export type InformArgs = {
   | { dismissLabel: string; onDismiss?: () => void }
 );
 
-/** A notice with one way out, which back and a scrim tap take too. */
+/**
+ * A notice with one way out, which back and a scrim tap take too. An explanation of how something
+ * works opens with `openExplainer` instead.
+ */
 export function inform(args: InformArgs): void {
   const buttons: AlertButton[] | undefined =
     args.dismissLabel === undefined

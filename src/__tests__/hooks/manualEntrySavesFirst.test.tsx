@@ -20,7 +20,12 @@ import { uploadRecordingNow } from '@/features/recording/lib/upload/intervalsUpl
 import { clearRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { showNotice } from '@/shared/ui/Notice';
 
+jest.mock('@/shared/ui/Notice', () => ({
+  ...jest.requireActual('@/shared/ui/Notice'),
+  showNotice: jest.fn(),
+}));
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('@tanstack/react-query', () => ({
   ...jest.requireActual('@tanstack/react-query'),
@@ -166,7 +171,9 @@ describe('saving a manual entry', () => {
     // goes home rather than holding the athlete on a red banner.
     expect(saveRecording).toHaveBeenCalled();
     expect(result.current.errorMessage).toBeNull();
-    expect(result.current.queuedMessage).not.toBeNull();
+    expect(showNotice).toHaveBeenCalledWith(
+      expect.objectContaining({ message: 'recording.savedQueued' })
+    );
   });
 
   it('saves the row and posts nothing with auto-upload off', async () => {

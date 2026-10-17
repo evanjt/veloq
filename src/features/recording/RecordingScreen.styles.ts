@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import { spacing, layout, typography } from '@/theme';
+import { spacing, layout, typography, stroke } from '@/theme';
 
 export const styles = StyleSheet.create({
   container: {
@@ -29,11 +29,11 @@ export const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadiusSm,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: stroke.hairline,
   },
   typeBadgeText: {
     fontSize: typography.caption.fontSize,
-    fontWeight: '500',
+    fontWeight: '600',
     maxWidth: 80,
   },
   timerText: {
@@ -43,8 +43,7 @@ export const styles = StyleSheet.create({
     opacity: 0.45,
   },
   autoPauseLabel: {
-    ...typography.caption,
-    fontWeight: '500',
+    ...typography.captionBold,
   },
   statusRow: {
     flexDirection: 'row',
@@ -91,7 +90,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     margin: spacing.md,
     borderRadius: layout.borderRadius,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: stroke.hairline,
   },
   indoorTimer: {
     ...typography.heroNumber,

@@ -31,6 +31,43 @@ export function tourPictureScale(naturalHeight: number, space: number): number {
   return Math.min(1, Math.max(0, space / naturalHeight));
 }
 
+/**
+ * The least share of its own height a picture is drawn at. Below it the
+ * picture would be a sliver, so it holds here and the title and body scroll.
+ */
+export const TOUR_PICTURE_FLOOR = 0.5;
+
+export interface TourSlideLayout {
+  pictureScale: number;
+  scrolls: boolean;
+  /** The height the scrolling title and body may take; undefined when they do not scroll. */
+  textHeight: number | undefined;
+}
+
+/**
+ * How a slide fits its area: the picture shrinks to the space under the title
+ * and body down to its floor, and once even that does not fit, the title and
+ * body scroll above it. A header not yet laid out changes nothing, so the
+ * first frame neither shrinks nor scrolls.
+ */
+export function tourSlideLayout(
+  slideHeight: number,
+  headerHeight: number,
+  pictureHeight: number
+): TourSlideLayout {
+  if (headerHeight <= 0) return { pictureScale: 1, scrolls: false, textHeight: undefined };
+  const fit = tourPictureScale(pictureHeight, tourPictureSpace(slideHeight, headerHeight));
+  const pictureScale = pictureHeight > 0 ? Math.max(TOUR_PICTURE_FLOOR, fit) : 1;
+  const pictureDrawn = pictureHeight * pictureScale;
+  const needed = TOUR_SLIDE_PADDING_TOP + headerHeight + TOUR_PICTURE_GAP + pictureDrawn;
+  if (needed <= slideHeight) return { pictureScale, scrolls: false, textHeight: undefined };
+  const textHeight = Math.max(
+    0,
+    slideHeight - TOUR_SLIDE_PADDING_TOP - TOUR_PICTURE_GAP - pictureDrawn
+  );
+  return { pictureScale, scrolls: true, textHeight };
+}
+
 /** The least space between two of the tour's footer buttons. */
 export const TOUR_FOOTER_GAP = spacing.sm;
 

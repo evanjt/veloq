@@ -20,7 +20,7 @@ import { initialiseI18n } from '@/i18n';
 import FeedScreen from '@/app/(tabs)/(feed)/index';
 
 const mockSettings = new Map<string, string>();
-let mockBackups: { id: string; timestamp: number }[] = [];
+let mockBackups: { id: string; timestamp: string; sizeBytes: number; appVersion: string }[] = [];
 
 jest.mock('@/shared/native/syncRefresh', () => ({
   requestSyncRefresh: jest.fn(),
@@ -104,6 +104,9 @@ jest.mock('@/features/settings/lib/autobackup/backends', () => ({
     isAvailable: async () => true,
     listBackups: async () => mockBackups,
   },
+  googleDriveBackend: { isAvailable: async () => false, listBackups: async () => [] },
+  icloudBackend: { listBackups: async () => [] },
+  isIcloudSupported: () => false,
 }));
 jest.mock('@/features/settings/hooks/useBackup', () => ({
   confirmLegacyImport: jest.fn(),
@@ -128,10 +131,12 @@ beforeAll(async () => {
 
 beforeEach(() => {
   mockSettings.clear();
-  mockBackups = [{ id: 'b1', timestamp: 1_700_000_000_000 }];
+  mockBackups = [
+    { id: 'b1', timestamp: '2026-06-08T06:30:00.000Z', sizeBytes: 2_400_000, appVersion: '0.4.0' },
+  ];
   (router.push as jest.Mock).mockClear();
   (router.navigate as jest.Mock).mockClear();
-  useWhatsNewStore.setState({ launchModal: null, restoreOffered: false });
+  useWhatsNewStore.setState({ launchModal: null, restoreOffer: null });
   (getEngine as jest.Mock).mockReturnValue({
     getActivityHighlightsBundle: () => ({ indicators: [], routeHighlights: [], newGround: [] }),
     searchActivityBodies: () => ({ bodies: [], matchedCount: 0, hasMore: false }),
@@ -170,7 +175,7 @@ describe('the restore offer on an empty feed', () => {
     expect(screen.queryByTestId('restore-offer-card')).toBeNull();
 
     await offerRestorePrompt(0, () => true);
-    expect(useWhatsNewStore.getState().restoreOffered).toBe(false);
+    expect(useWhatsNewStore.getState().restoreOffer).toBeNull();
   });
 
   it('is not offered when no backup can be seen', async () => {

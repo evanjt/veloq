@@ -26,6 +26,9 @@ describe('insight card histories', () => {
             { value: 260, date: DAY, activityId: 'ride-1' },
             { value: 240, date: DAY * 2, activityId: 'ride-2' },
             { value: 250, date: DAY * 3, activityId: 'ride-3' },
+            { value: 255, date: DAY * 4, activityId: 'ride-4' },
+            { value: 245, date: DAY * 5, activityId: 'ride-5' },
+            { value: 250, date: DAY * 6, activityId: 'ride-6' },
           ],
         },
       ],
@@ -43,6 +46,9 @@ describe('insight card histories', () => {
             { value: 260, date: DAY, activityId: 'ride-1' },
             { value: 240, date: DAY * 2, activityId: 'ride-2' },
             { value: 250, date: DAY * 3, activityId: 'ride-3' },
+            { value: 255, date: DAY * 4, activityId: 'ride-4' },
+            { value: 245, date: DAY * 5, activityId: 'ride-5' },
+            { value: 250, date: DAY * 6, activityId: 'ride-6' },
           ],
         },
       ],
@@ -66,6 +72,9 @@ describe('insight card histories', () => {
             { value: 260, date: DAY },
             { value: 250, date: DAY * 2 },
             { value: 240, date: DAY * 3 },
+            { value: 245, date: DAY * 4 },
+            { value: 255, date: DAY * 5 },
+            { value: 250, date: DAY * 6 },
           ],
         },
       ],
@@ -93,6 +102,9 @@ describe('insight card histories', () => {
         { value: 260, date: DAY, activityId: 'ride-1' },
         { value: 240, date: DAY * 2, activityId: 'ride-2' },
         { value: 250, date: DAY * 3, activityId: 'ride-3' },
+        { value: 255, date: DAY * 4, activityId: 'ride-4' },
+        { value: 245, date: DAY * 5, activityId: 'ride-5' },
+        { value: 250, date: DAY * 6, activityId: 'ride-6' },
       ],
     } as StalePrOpportunity;
     const [card] = generateStalePRInsights([row], t, NOW);
@@ -104,22 +116,30 @@ describe('insight card histories', () => {
     });
   });
 
-  it('omits a history shorter than three readings', () => {
+  function hrvCard(readings: number) {
     const [card] = generateHrvTrendInsight(
       {
         label: 'trendingUp',
         avg: 52,
         latest: 55,
-        dataPoints: 2,
-        sparkline: [
-          { value: 50, date: DAY },
-          { value: 55, date: DAY * 2 },
-        ],
+        dataPoints: readings,
+        sparkline: Array.from({ length: readings }, (_, index) => ({
+          value: 50 + index,
+          date: DAY * (index + 1),
+        })),
       },
       NOW,
       t
     );
-    expect(card.supportingData?.history).toBeUndefined();
+    return card;
+  }
+
+  it('omits a history of five readings, too few to draw', () => {
+    expect(hrvCard(5).supportingData?.history).toBeUndefined();
+  });
+
+  it('draws a history from six readings', () => {
+    expect(hrvCard(6).supportingData?.history).toMatchObject({ kind: 'sparkline' });
   });
 
   it('marks the HRV split over dated readings', () => {
@@ -128,12 +148,15 @@ describe('insight card histories', () => {
         label: 'trendingUp',
         avg: 52,
         latest: 55,
-        dataPoints: 3,
+        dataPoints: 6,
         windowSplit: DAY * 2,
         sparkline: [
           { value: 50, date: DAY },
           { value: 52, date: DAY * 2 },
           { value: 55, date: DAY * 3 },
+          { value: 53, date: DAY * 4 },
+          { value: 54, date: DAY * 5 },
+          { value: 55, date: DAY * 6 },
         ],
       },
       NOW,
@@ -141,8 +164,19 @@ describe('insight card histories', () => {
     );
     expect(card.supportingData?.history).toMatchObject({
       kind: 'sparkline',
-      mark: { from: DAY * 2, to: DAY * 3 },
-      series: [{ points: [{ date: DAY }, { date: DAY * 2 }, { date: DAY * 3 }] }],
+      mark: { from: DAY * 2, to: DAY * 6 },
+      series: [
+        {
+          points: [
+            { date: DAY },
+            { date: DAY * 2 },
+            { date: DAY * 3 },
+            { date: DAY * 4 },
+            { date: DAY * 5 },
+            { date: DAY * 6 },
+          ],
+        },
+      ],
     });
   });
 
@@ -151,7 +185,7 @@ describe('insight card histories', () => {
       sectionId: 'ridge',
       sectionName: 'Ridge',
       sportType: 'Ride',
-      points: [1, 2, 3, 4].map((day, index) => ({
+      points: [1, 2, 3, 4, 5, 6].map((day, index) => ({
         date: day * DAY,
         paceSecsPerKm: 240,
         avgHr: 150,
@@ -160,12 +194,12 @@ describe('insight card histories', () => {
       trendSlope: -100,
       direction: 0,
       hrChangeBpm: -5,
-      effortCount: 4,
+      effortCount: 6,
     } as EfficiencyTrend;
     const [card] = generateEfficiencyTrendInsights([trend], NOW, t);
     expect(card.supportingData?.history).toMatchObject({
       kind: 'sparkline',
-      mark: { from: DAY, to: DAY * 4 },
+      mark: { from: DAY, to: DAY * 6 },
       target: '/section/ridge',
       series: [
         {
@@ -174,6 +208,8 @@ describe('insight card histories', () => {
             { date: DAY * 2, value: 35900 },
             { date: DAY * 3, value: 35800 },
             { date: DAY * 4, value: 35700 },
+            { date: DAY * 5, value: 35600 },
+            { date: DAY * 6, value: 35500 },
           ],
         },
       ],
@@ -183,7 +219,7 @@ describe('insight card histories', () => {
   it('marks the FTP and pace comparison dates', () => {
     const previousDate = 1_700_000_000;
     const latestDate = previousDate + DAY * 2;
-    const points = [1, 2, 3].map((day) => ({
+    const points = [1, 2, 3, 4, 5, 6].map((day) => ({
       value: 220 + day * 10,
       date: previousDate + (day - 1) * DAY,
     }));
@@ -239,6 +275,9 @@ describe('insight card histories', () => {
         { start: DAY, stats: week(100), partial: false },
         { start: DAY * 8, stats: week(200), partial: false },
         { start: DAY * 15, stats: week(300), partial: false },
+        { start: DAY * 22, stats: week(250), partial: false },
+        { start: DAY * 29, stats: week(350), partial: false },
+        { start: DAY * 36, stats: week(400), partial: false },
       ],
       { metric: 'tss', current: 400, previous: 300, ratio: 1 / 3, comparedStart: DAY * 15 },
       null,
@@ -254,6 +293,9 @@ describe('insight card histories', () => {
             { date: DAY, value: 100 },
             { date: DAY * 8, value: 200 },
             { date: DAY * 15, value: 300 },
+            { date: DAY * 22, value: 250 },
+            { date: DAY * 29, value: 350 },
+            { date: DAY * 36, value: 400 },
           ],
         },
       ],
@@ -285,12 +327,15 @@ describe('the scale a card graphic prints', () => {
         label: 'trendingUp',
         avg: 52,
         latest: 55,
-        dataPoints: 3,
+        dataPoints: 6,
         windowSplit: DAY * 2,
         sparkline: [
           { value: 50.4, date: DAY },
           { value: 52, date: DAY * 2 },
           { value: 55.2, date: DAY * 3 },
+          { value: 53, date: DAY * 4 },
+          { value: 51, date: DAY * 5 },
+          { value: 54, date: DAY * 6 },
         ],
       },
       NOW,
@@ -317,6 +362,9 @@ describe('the scale a card graphic prints', () => {
             { value: 260, date: DAY, activityId: 'ride-1' },
             { value: 240, date: DAY * 2, activityId: 'ride-2' },
             { value: 250, date: DAY * 3, activityId: 'ride-3' },
+            { value: 255, date: DAY * 4, activityId: 'ride-4' },
+            { value: 245, date: DAY * 5, activityId: 'ride-5' },
+            { value: 250, date: DAY * 6, activityId: 'ride-6' },
           ],
         } as StalePrOpportunity,
       ],
@@ -337,11 +385,11 @@ describe('the scale a card graphic prints', () => {
   it('prints the FTP and threshold pace in their units, the faster pace at the top', () => {
     const previousDate = 1_700_000_000;
     const latestDate = previousDate + DAY * 2;
-    const watts = [230, 240, 250].map((value, index) => ({
+    const watts = [230, 240, 235, 245, 240, 250].map((value, index) => ({
       value,
       date: previousDate + index * DAY,
     }));
-    const speeds = [3, 3.2, 3.5].map((value, index) => ({
+    const speeds = [3, 3.2, 3.1, 3.3, 3.4, 3.5].map((value, index) => ({
       value,
       date: previousDate + index * DAY,
     }));
@@ -389,6 +437,9 @@ describe('the scale a card graphic prints', () => {
       { start: DAY, stats: week(100, 3600), partial: false },
       { start: DAY * 8, stats: week(320, 7200), partial: false },
       { start: DAY * 15, stats: week(300, 5400), partial: false },
+      { start: DAY * 22, stats: week(250, 3600), partial: false },
+      { start: DAY * 29, stats: week(200, 5400), partial: false },
+      { start: DAY * 36, stats: week(150, 3600), partial: false },
     ];
     const [byLoad] = generatePeriodComparisonInsights(
       week(400),
@@ -426,16 +477,16 @@ describe('the scale a card graphic prints', () => {
           sectionId: 'ridge',
           sectionName: 'Ridge',
           sportType: 'Ride',
-          points: [1, 2, 3].map((day) => ({
-            date: day * DAY,
+          points: [35900, 35800, 35700, 35750, 35850, 35800].map((hrPaceRatio, index) => ({
+            date: (index + 1) * DAY,
             paceSecsPerKm: 240,
             avgHr: 150,
-            hrPaceRatio: 36000 - day * 100,
+            hrPaceRatio,
           })),
           trendSlope: -100,
           direction: 0,
           hrChangeBpm: -5,
-          effortCount: 3,
+          effortCount: 6,
         } as EfficiencyTrend,
       ],
       NOW,

@@ -12,6 +12,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import {
+  Card,
   EmptyState,
   IconButton,
   pressable,
@@ -132,9 +133,9 @@ function NamedCorridorsScreenContent() {
               </>
             );
             return (
-              <View
+              <Card
                 key={corridor.intentId}
-                style={[styles.card, isDark && styles.cardDark]}
+                variant="flat"
                 testID={`named-corridor-${corridor.intentId}`}
               >
                 <View style={styles.row}>
@@ -167,7 +168,7 @@ function NamedCorridorsScreenContent() {
                     />
                   </IconButton>
                 </View>
-              </View>
+              </Card>
             );
           })
         )}
@@ -180,12 +181,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   containerDark: { backgroundColor: darkColors.background },
   content: { padding: layout.screenPadding, gap: spacing.sm },
-  card: {
-    padding: layout.cardPadding,
-    borderRadius: layout.borderRadius,
-    backgroundColor: colors.surface,
-  },
-  cardDark: { backgroundColor: darkColors.surface },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   body: { flex: 1, gap: spacing.xs, minHeight: layout.minTapTarget },
   name: { ...typography.body, color: colors.textPrimary },

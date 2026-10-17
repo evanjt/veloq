@@ -25,7 +25,17 @@ import {
   pointFeature,
   pointsBetweenSourceIndices,
 } from '@/features/maps';
-import { brand, colors, colorWithOpacity, darkColors, iconSize, layout, spacing } from '@/theme';
+import {
+  brand,
+  cameraMove,
+  colors,
+  colorWithOpacity,
+  darkColors,
+  iconSize,
+  layout,
+  spacing,
+  stroke,
+} from '@/theme';
 import type { LatLngShort } from '@/shared/geo/distance';
 
 const BRAND_COLOR = brand.tealLight;
@@ -209,7 +219,7 @@ function RecordingMapInner({
   // Live mode: keep the camera on the current position until the user pans.
   useEffect(() => {
     if (fitBounds || !isFollowing || !followTarget) return;
-    surfaceRef.current?.setCamera({ center: followTarget, zoom: FOLLOW_ZOOM }, 500);
+    surfaceRef.current?.setCamera({ center: followTarget, zoom: FOLLOW_ZOOM }, cameraMove.move);
   }, [fitBounds, isFollowing, followTarget]);
 
   // Review mode: frame the whole track once it is known.
@@ -405,7 +415,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: darkColors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: stroke.hairline,
     borderColor: darkColors.border,
   },
   controlButtonActive: {

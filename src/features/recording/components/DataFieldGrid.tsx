@@ -20,7 +20,15 @@ import {
   formatSportSpeed,
   formatElevation,
 } from '@/shared/format/format';
-import { colors, colorWithOpacity, darkColors, spacing, typography, zoneColour } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  darkColors,
+  spacing,
+  typography,
+  zoneColour,
+  stroke,
+} from '@/theme';
 import type { ActivityType, DataFieldType } from '@/types';
 import { isSwimmingActivity } from '@/shared/activity/activityUtils';
 import { accessibleActions, pressable, pressRipple } from '@/shared/ui';
@@ -295,7 +303,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: stroke.hairline,
   },
   value: {
     fontSize: typography.statsValueLarge.fontSize,

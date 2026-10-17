@@ -7,7 +7,7 @@ import { Canvas, Group, Rect } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import { ChartCrosshair, useChartGestures } from '@/shared/charts';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography, stroke } from '@/theme';
 import { sortByDateId } from '@/shared/activity/activityUtils';
 import { ACTIVITY_CATEGORIES, getActivityCategory } from '@/shared/activity/sportCategories';
 import type { DayLoad } from 'veloqrs';
@@ -18,10 +18,9 @@ import { dayPillTone, groupColor } from '../lib/dayPillTone';
 import { formFromLoads } from '@/shared/math';
 import { formatShortDate } from '@/shared/format/format';
 import { Row } from '@/shared/ui';
+import { useGestureCallback } from '@/shared/ui/useGestureCallback';
 
-import { useSheetOpener } from '@/shared/app/sheetRequest';
-import type { DayActivitiesInput } from '@/app/sheets/day-activities';
-import { tapTo } from '@/shared/app/navigation';
+import { dayActivityRow, useOpenDayActivities, type DayActivity } from '@/features/activity/light';
 
 interface ActivityDotsChartProps {
   /** Wellness data for date alignment */
@@ -43,7 +42,7 @@ interface ActivityDotsChartProps {
 interface DotData {
   x: number;
   date: string;
-  activities: DayActivitiesInput['activities'];
+  activities: DayActivity[];
   fitness: number;
   fatigue: number;
   form: number;
@@ -70,7 +69,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
     activities: DotData['activities'];
   } | null>(null);
   const persistedActivities = persisted?.activities ?? null;
-  const openSheet = useSheetOpener();
+  const openDay = useOpenDayActivities();
   const onDateSelectRef = useRef(onDateSelect);
   const onInteractionChangeRef = useRef(onInteractionChange);
   onDateSelectRef.current = onDateSelect;
@@ -81,7 +80,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
 
   // Build a map of activities by date
   const activitiesByDate = useMemo(() => {
-    const map = new Map<string, DayActivitiesInput['activities']>();
+    const map = new Map<string, DayActivity[]>();
     for (const activity of activities) {
       const date = activity.start_date_local?.split('T')[0];
       if (!date) continue;
@@ -91,15 +90,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
         onDay = [];
         map.set(date, onDay);
       }
-      onDay.push({
-        id: activity.id,
-        name: activity.name,
-        type: activity.type,
-        load: activity.icu_training_load || 0,
-        startDateLocal: activity.start_date_local,
-        movingTime: activity.moving_time,
-        distance: activity.distance,
-      });
+      onDay.push(dayActivityRow(activity));
     }
     return map;
   }, [activities]);
@@ -262,16 +253,17 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
     },
     [dotData]
   );
+  const sharedIdxOnJS = useGestureCallback(updateFromSharedIdx);
 
   useAnimatedReaction(
     () => sharedSelectedIdx?.value ?? -1,
     (idx, prevIdx) => {
       // Only react while this chart is not the one being scrubbed.
       if (crosshairX.value < 0 && idx !== prevIdx) {
-        runOnJS(updateFromSharedIdx)(idx, prevIdx ?? -1);
+        runOnJS(sharedIdxOnJS)(idx, prevIdx ?? -1);
       }
     },
-    [updateFromSharedIdx, crosshairX]
+    [sharedIdxOnJS, crosshairX]
   );
 
   // Get activities to display:
@@ -297,20 +289,8 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   const handleActivityTap = useCallback(async () => {
     if (displayActivities.length === 0) return;
 
-    if (displayActivities.length === 1) {
-      // Single activity - navigate directly
-      tapTo(`/activity/${displayActivities[0].id}`);
-      setPersisted(null);
-      return;
-    }
-    // Multiple activities - choose one in a sheet
-    const result = await openSheet<DayActivitiesInput, string>('sheets/day-activities', {
-      activities: displayActivities,
-    });
-    if (result.kind !== 'selected') return;
-    setPersisted(null);
-    tapTo(`/activity/${result.value}`);
-  }, [displayActivities, openSheet]);
+    if (await openDay(displayActivities)) setPersisted(null);
+  }, [displayActivities, openDay]);
 
   // Below every hook, so the hook count stays fixed across renders.
   if (dotData.length === 0) {
@@ -498,7 +478,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.smPlus,
     paddingVertical: spacing.xs,
     borderRadius: layout.borderRadius,
-    borderWidth: 1,
+    borderWidth: stroke.one,
   },
   restBox: {
     paddingHorizontal: 0,

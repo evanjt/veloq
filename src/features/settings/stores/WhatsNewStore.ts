@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { getSetting, setSetting } from '@/shared/storage';
 import type { LaunchModal } from '../lib/launchSurfaces';
+import type { FoundBackup } from '../lib/restorePrompt';
 
 const WHATS_NEW_KEY = 'veloq-whats-new-seen';
 
@@ -22,8 +23,8 @@ interface WhatsNewState {
    * a relaunch starts empty and a tour that lost the slot opens then.
    */
   launchModal: LaunchModal | null;
-  /** A backup was found for an empty library and the offer is unanswered. */
-  restoreOffered: boolean;
+  /** The backup found for an empty library while the offer is unanswered, else null. */
+  restoreOffer: FoundBackup | null;
 
   initialise: () => Promise<void>;
   markSeen: (version: string) => Promise<void>;
@@ -34,7 +35,7 @@ interface WhatsNewState {
   endTour: () => void;
   dismissTour: (currentVersion: string) => Promise<void>;
   takeLaunchSlot: (modal: LaunchModal) => void;
-  setRestoreOffered: (offered: boolean) => void;
+  setRestoreOffer: (offer: FoundBackup | null) => void;
 }
 
 export const useWhatsNewStore = create<WhatsNewState>((set, get) => ({
@@ -42,7 +43,7 @@ export const useWhatsNewStore = create<WhatsNewState>((set, get) => ({
   isLoaded: false,
   tourState: null,
   launchModal: null,
-  restoreOffered: false,
+  restoreOffer: null,
 
   initialise: async () => {
     try {
@@ -105,7 +106,7 @@ export const useWhatsNewStore = create<WhatsNewState>((set, get) => ({
     if (get().launchModal === null) set({ launchModal: modal });
   },
 
-  setRestoreOffered: (offered) => set({ restoreOffered: offered }),
+  setRestoreOffer: (offer) => set({ restoreOffer: offer }),
 }));
 
 export async function initialiseWhatsNewStore(): Promise<void> {

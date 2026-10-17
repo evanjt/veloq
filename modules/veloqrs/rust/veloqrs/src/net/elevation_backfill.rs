@@ -3379,6 +3379,33 @@ mod tests {
             assert!(walk.unasked.is_empty());
         }
 
+        /// Scenario: an earlier test switched route matching off on its own
+        /// library and ended, and the next test walks without opening one.
+        ///
+        /// Expected behaviour: the earlier library is gone with its test, so
+        /// its switch cannot stop this walk.
+        #[test]
+        fn a_library_an_earlier_test_switched_off_does_not_stop_the_next_walk() {
+            {
+                let _serial = serial_global_state();
+                let _tmp = seeded_global_engine();
+                with_persistent_engine(|engine| engine.set_detection_enabled(false))
+                    .expect("engine")
+                    .expect("switch off");
+            }
+            let _serial = serial_global_state();
+            connectivity::reset();
+
+            let mut asked = 0usize;
+            let walk = drain_queue_with(engine_install(), &queue(3 * BATCH), true, |ids, _ask| {
+                asked += ids.len();
+                answer(ids)
+            });
+
+            assert_eq!(asked, 3 * BATCH, "an ended test's switch refused this walk");
+            assert!(walk.stopped.is_none());
+        }
+
         /// Three batches have two boundaries between them, and an athlete who
         /// is touching the screen gets the gap at each. The first batch has
         /// nothing before it to wait behind.

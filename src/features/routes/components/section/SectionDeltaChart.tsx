@@ -27,7 +27,7 @@ import {
   type DeltaFrame,
 } from '@/features/routes/lib/deltaLayout';
 import { useMeasuredWidth } from '@/shared/charts';
-import { colors, darkColors, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { FfiReferenceSource, type FfiDirectionDeltas } from 'veloqrs';
 
 const CHART_HEIGHT = 160;
@@ -97,7 +97,7 @@ export function SectionDeltaChart({
     setScrubX(event.nativeEvent.locationX);
 
   return (
-    <View testID="section-delta-chart" style={[styles.container, isDark && styles.containerDark]}>
+    <View testID="section-delta-chart" style={[styles.container]}>
       <View
         style={styles.plot}
         onLayout={onLayout}
@@ -233,13 +233,8 @@ export function SectionDeltaChart({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadiusMd,
     overflow: 'hidden',
     paddingBottom: spacing.xs,
-  },
-  containerDark: {
-    backgroundColor: darkColors.surfaceCard,
   },
   plot: {
     height: CHART_HEIGHT,

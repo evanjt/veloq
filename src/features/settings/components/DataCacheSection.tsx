@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, LayoutChangeEvent } from 'react-native';
+import { View, LayoutChangeEvent } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -26,8 +26,8 @@ import { ErrorState } from '@/shared/ui/ErrorState';
 import * as haptics from '@/shared/ui/haptics';
 import { useQueryCacheCount } from '../hooks/useQueryCacheCount';
 import { offlineConfirmMessage } from '../lib/offlineConfirmCopy';
-import { colors, darkColors, layout } from '@/theme';
 import { ListSectionHeader } from '@/shared/ui/ListSectionHeader';
+import { settingsStyles } from './settingsStyles';
 import { CacheManagementPanel } from './CacheManagementPanel';
 import { StorageStatsPanel } from './StorageStatsPanel';
 import { confirmAction, inform } from '@/shared/ui/dialog';
@@ -235,7 +235,7 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
       <View onLayout={onLayout}>
         <ListSectionHeader>{t('settings.dataCache')}</ListSectionHeader>
       </View>
-      <View style={[styles.section, isDark && styles.sectionDark]}>
+      <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
         <CacheManagementPanel
           isDark={isDark}
           isDemoMode={isDemoMode}
@@ -276,15 +276,3 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  section: {
-    backgroundColor: colors.surface,
-    marginHorizontal: layout.screenPadding,
-    borderRadius: layout.borderRadiusMd,
-    overflow: 'hidden',
-  },
-  sectionDark: {
-    backgroundColor: darkColors.surfaceCard,
-  },
-});

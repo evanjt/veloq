@@ -2235,6 +2235,7 @@ impl PersistentEngine {
             super::settings_keys::SECTION_HEALTH_CHECK_DONE,
             super::record_restore::PENDING_KEY,
             super::record_restore::OWED_KEY,
+            super::record_restore::RESTORED_NUMBERS_KEY,
             super::record_restore::UNAVAILABLE_KEY,
             super::record_restore::PAUSED_IMPORT_KEY,
             super::settings_keys::EXPORT_HOME_LAT,

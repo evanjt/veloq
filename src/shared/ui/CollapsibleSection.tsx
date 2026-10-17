@@ -4,11 +4,20 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  Easing,
   interpolate,
 } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
+import {
+  colors,
+  darkColors,
+  duration,
+  easing,
+  iconSize,
+  layout,
+  spacing,
+  stroke,
+  typography,
+} from '@/theme';
 import { useTheme } from '@/shared/app';
 import { DisclosureChevron } from './DisclosureChevron';
 import * as haptics from './haptics';
@@ -71,8 +80,8 @@ export function CollapsibleSection({
   }
   useEffect(() => {
     animation.value = withTiming(expanded ? 1 : 0, {
-      duration: 250,
-      easing: Easing.bezier(0.4, 0, 0.2, 1),
+      duration: duration.standard,
+      easing: easing.standard,
     });
   }, [expanded, animation]);
 
@@ -192,7 +201,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xxs,
   },
   divider: {
-    height: StyleSheet.hairlineWidth,
+    height: stroke.hairline,
     marginHorizontal: spacing.md,
   },
   content: {

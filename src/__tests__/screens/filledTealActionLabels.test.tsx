@@ -30,6 +30,7 @@ jest.mock('@/shared/app', () => ({
   useMetricSystem: () => true,
 }));
 jest.mock('@/shared/ui', () => ({
+  Card: jest.requireActual('@/shared/ui/Card').Card,
   ScreenSafeAreaView: require('react-native').View,
   ScreenScrollView: require('react-native').ScrollView,
   EmptyState: () => null,

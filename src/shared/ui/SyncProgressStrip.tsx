@@ -13,9 +13,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Animated, {
-  Easing,
-  FadeIn,
-  FadeOut,
   cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
@@ -31,15 +28,23 @@ import { useReduceMotion } from './reduceMotion';
 import { formatSyncProgressParts } from '@/shared/format/syncProgress';
 import { useSyncStatus } from '@/shared/native/useSyncStatus';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
-import { colorWithOpacity, colors, darkColors, layout, spacing, typography } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  darkColors,
+  duration,
+  easing,
+  layout,
+  motionPresets,
+  spacing,
+  stroke,
+  typography,
+} from '@/theme';
 
 const MARK_SIZE = typography.bodyCompact.lineHeight;
-const TURN_MS = 2400;
-const FADE_IN_MS = 700;
-const FADE_OUT_MS = 500;
 
 /** The least time one step's line stays on screen before the next replaces it. */
-export const SYNC_MESSAGE_HOLD_MS = 1500;
+export const SYNC_MESSAGE_HOLD_MS = duration.hold;
 
 interface SyncLine {
   label: string;
@@ -84,7 +89,11 @@ function SyncMark({ color }: { color: string }) {
       turn.value = 0;
       return undefined;
     }
-    turn.value = withRepeat(withTiming(1, { duration: TURN_MS, easing: Easing.linear }), -1, false);
+    turn.value = withRepeat(
+      withTiming(1, { duration: duration.loop, easing: easing.linear }),
+      -1,
+      false
+    );
     return () => cancelAnimation(turn);
   }, [reduceMotion, turn]);
 
@@ -130,8 +139,7 @@ export function SyncProgressStrip() {
         <View testID="sync-progress-line" style={styles.line}>
           <Animated.Text
             key={label}
-            entering={FadeIn.duration(FADE_IN_MS)}
-            exiting={FadeOut.duration(FADE_OUT_MS)}
+            {...motionPresets.pill}
             style={[styles.text, { color: ink }]}
             numberOfLines={1}
             ellipsizeMode="tail"
@@ -175,7 +183,7 @@ const styles = StyleSheet.create({
     width: MARK_SIZE / 1.5,
     height: MARK_SIZE / 1.5,
     borderRadius: MARK_SIZE,
-    borderWidth: spacing.xxs,
+    borderWidth: stroke.two,
   },
   line: {
     flexShrink: 1,

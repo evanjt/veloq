@@ -7,7 +7,8 @@ import * as WebBrowser from 'expo-web-browser';
 import { EngineInitBanner } from '@/shared/app/EngineInitBanner';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { shareFile } from '@/features/settings/lib/shareFile';
-import { amberBanner, spacing } from '@/theme';
+import { spacing } from '@/theme';
+import { noticePalette } from '@/shared/ui/NoticeBanner';
 import { InitOutcome } from '../__shared__/veloqrsStub';
 
 type EngineStatusReason = Parameters<
@@ -197,9 +198,9 @@ describe('EngineInitBanner', () => {
 
   describe('palette', () => {
     it.each([
-      [false, amberBanner.light],
-      [true, amberBanner.dark],
-    ])('draws the banner for dark mode %s from its own tones', async (isDark, palette) => {
+      [false, noticePalette('error', false)],
+      [true, noticePalette('error', true)],
+    ])('draws the banner for dark mode %s from the error tone', async (isDark, palette) => {
       mockIsDark = isDark;
       failedWith(InitOutcome.Busy);
       const { getByTestId, getByText } = await render(<EngineInitBanner />);

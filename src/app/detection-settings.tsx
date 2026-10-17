@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useRouteSettings, useSectionRescan, rescanRefusalKey } from '@/features/routes';
-import { Button, ScreenSafeAreaView, ScreenScrollView, StatusLine } from '@/shared/ui';
+import { Button, Card, ScreenSafeAreaView, ScreenScrollView, StatusLine } from '@/shared/ui';
 import {
   BackgroundJobsActivityBar,
   CutoverStatus,
@@ -14,7 +14,7 @@ import {
   SettingsNavRow,
   DIVIDER_INSET,
 } from '@/features/settings';
-import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, spacing, stroke, typography } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { SwitchRow } from '@/shared/ui/SwitchRow';
 import { tapTo } from '@/shared/app/navigation';
@@ -28,7 +28,6 @@ function DetectionSettingsScreenContent() {
   const setRouteMatchingEnabled = useRouteSettings((s) => s.setEnabled);
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bg = isDark ? darkColors.background : colors.background;
-  const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
   const danger = isDark ? darkColors.error : colors.error;
 
@@ -65,13 +64,15 @@ function DetectionSettingsScreenContent() {
     >
       <ScreenScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <BackgroundJobsActivityBar />
-        <View style={[styles.toggleCard, { backgroundColor: surface, borderColor: border }]}>
-          <SwitchRow
-            icon="map-marker-path"
-            title={t('settings.routeMatching')}
-            value={routeMatchingEnabled}
-            onValueChange={setRouteMatchingEnabled}
-          />
+        <View style={styles.toggleFrame}>
+          <Card variant="flat" padding="none">
+            <SwitchRow
+              icon="map-marker-path"
+              title={t('settings.routeMatching')}
+              value={routeMatchingEnabled}
+              onValueChange={setRouteMatchingEnabled}
+            />
+          </Card>
         </View>
 
         <PlaceNamesSwitch />
@@ -86,22 +87,24 @@ function DetectionSettingsScreenContent() {
             </Text>
           )}
 
-          <View style={[styles.previewCard, { backgroundColor: surface, borderColor: border }]}>
-            <SettingsNavRow
-              testID="detection-preview-row"
-              icon="map-search-outline"
-              title={t('settings.previewSections')}
-              onPress={() => tapTo('/detection-preview')}
-              disabled={!routeMatchingEnabled}
-            />
-            <View style={[styles.previewDivider, { backgroundColor: border }]} />
-            <SettingsNavRow
-              testID="route-grouping-preview-row"
-              icon="source-branch"
-              title={t('settings.previewRouteGrouping')}
-              onPress={() => tapTo('/route-grouping-preview')}
-              disabled={!routeMatchingEnabled}
-            />
+          <View style={styles.previewFrame}>
+            <Card variant="flat" padding="none">
+              <SettingsNavRow
+                testID="detection-preview-row"
+                icon="map-search-outline"
+                title={t('settings.previewSections')}
+                onPress={() => tapTo('/detection-preview')}
+                disabled={!routeMatchingEnabled}
+              />
+              <View style={[styles.previewDivider, { backgroundColor: border }]} />
+              <SettingsNavRow
+                testID="route-grouping-preview-row"
+                icon="source-branch"
+                title={t('settings.previewRouteGrouping')}
+                onPress={() => tapTo('/route-grouping-preview')}
+                disabled={!routeMatchingEnabled}
+              />
+            </Card>
           </View>
 
           <Button
@@ -176,11 +179,8 @@ function DetectionSettingsScreenContent() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  toggleCard: {
-    borderRadius: layout.borderRadius,
-    borderWidth: StyleSheet.hairlineWidth,
+  toggleFrame: {
     marginBottom: spacing.lg,
-    overflow: 'hidden',
   },
   content: {
     paddingHorizontal: spacing.md,
@@ -197,14 +197,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.sm,
   },
-  previewCard: {
-    borderRadius: layout.borderRadius,
-    borderWidth: StyleSheet.hairlineWidth,
+  previewFrame: {
     marginTop: spacing.md,
-    overflow: 'hidden',
   },
   previewDivider: {
-    height: StyleSheet.hairlineWidth,
+    height: stroke.hairline,
     marginLeft: DIVIDER_INSET,
   },
 });

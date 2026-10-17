@@ -18,6 +18,7 @@ import {
   sectionPaletteIndex,
   spacing,
   typography,
+  stroke,
 } from '@/theme';
 import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
 import { formatDistance, formatDuration, formatSportSpeed } from '@/shared/format/format';
@@ -453,7 +454,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
     marginHorizontal: spacing.md,
     overflow: 'hidden',
-    borderWidth: 2,
+    borderWidth: stroke.two,
     borderColor: 'transparent',
   },
   cardDark: {
@@ -482,7 +483,7 @@ const styles = StyleSheet.create({
   numberLabel: {
     textAlign: 'center',
     fontSize: typography.metricValue.fontSize,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   name: {
     flex: 1,
@@ -498,7 +499,7 @@ const styles = StyleSheet.create({
     paddingLeft: DIRECTION_LABEL_WIDTH + spacing.md,
   },
   directionRowDivided: {
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: stroke.hairline,
     borderTopColor: colors.divider,
     paddingTop: spacing.xs,
   },

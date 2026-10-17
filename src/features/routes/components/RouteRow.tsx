@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
   },
   matchPercent: {
     fontSize: typography.label.fontSize,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   countBadge: {
     flexDirection: 'row',

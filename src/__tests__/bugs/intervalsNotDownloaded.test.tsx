@@ -31,6 +31,7 @@ jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('@/shared/ui', () => {
   const { View, Pressable, Text } = require('react-native');
   return {
+    Card: jest.requireActual('@/shared/ui/Card').Card,
     Button: ({ label, onPress }: { label: string; onPress: () => void }) => (
       <Pressable onPress={onPress}>
         <Text>{label}</Text>

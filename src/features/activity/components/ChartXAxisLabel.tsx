@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
   },
   xLabel: {
     fontSize: typography.micro.fontSize,
-    fontWeight: '500',
+    fontWeight: '400',
     color: colors.textSecondary,
   },
   xLabelDark: {

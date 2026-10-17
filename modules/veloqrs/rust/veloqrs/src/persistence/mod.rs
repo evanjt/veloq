@@ -94,6 +94,7 @@ pub(crate) mod record_restore;
 pub mod recordings;
 pub(crate) mod records;
 pub use recordings::{FfiRecordingEntry, MAX_AUTO_RETRIES};
+mod pre_upgrade_copy;
 #[doc(hidden)]
 pub mod regroup;
 pub mod route_grouping_preview;

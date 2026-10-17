@@ -94,7 +94,7 @@ describe('openableSystemPath', () => {
     'veloq://insights?tab=sections',
     'veloq://map',
     'veloq://map?activity=demo-test-0',
-    'veloq://map?section=s_47075_-6085',
+    'veloq://map?section=s_47075_-6084',
     'veloq://training',
     'veloq://activity/demo-test-0',
     'veloq://activity/demo-test-0?tab=sections',

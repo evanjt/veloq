@@ -8,7 +8,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { ChipSelector } from '@/shared/ui';
+import { Card, ChipSelector } from '@/shared/ui';
 import { colors, spacing } from '@/theme';
 import { pickEmphasisedLap, type SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
 import {
@@ -167,26 +167,32 @@ export function PerformanceChartPanel({
         />
       ) : null}
       {shownPlot === 'delta' && deltas && curves ? (
-        <SectionDeltaChart
-          deltas={deltas}
-          gridStepM={curves.gridStepM}
-          sectionLengthM={curves.sectionLengthM}
-          isDark={isDark}
-          highlightedActivityId={highlightedActivityId}
-        />
+        <Card variant="flat" padding="none">
+          <SectionDeltaChart
+            deltas={deltas}
+            gridStepM={curves.gridStepM}
+            sectionLengthM={curves.sectionLengthM}
+            isDark={isDark}
+            highlightedActivityId={highlightedActivityId}
+          />
+        </Card>
       ) : shownPlot === 'histogram' && histogram ? (
-        <AttemptHistogramChart
-          histogram={histogram}
-          activityType={activityType}
-          isDark={isDark}
-          useTimeAxis={useTimeAxis}
-          highlightedTime={highlightedTime}
-          recordTime={recordTime}
-          recordHeld={recordHeld}
-        />
+        <Card variant="flat" padding="none">
+          <AttemptHistogramChart
+            histogram={histogram}
+            activityType={activityType}
+            isDark={isDark}
+            useTimeAxis={useTimeAxis}
+            highlightedTime={highlightedTime}
+            recordTime={recordTime}
+            recordHeld={recordHeld}
+          />
+        </Card>
       ) : (
         <>
-          <SectionScatterChart {...scatterProps} selectedDirection={direction} />
+          <Card variant="flat" padding="none">
+            <SectionScatterChart {...scatterProps} selectedDirection={direction} />
+          </Card>
           <ScatterLegend
             isDark={isDark}
             showTrend={!!trend && trend.length >= 2}

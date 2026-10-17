@@ -20,7 +20,7 @@ import { useIsFocused } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { getActivityColor } from '@/shared/activity/activityUtils';
-import { colors, iconSize, spacing } from '@/theme';
+import { cameraMove, colors, duration, iconSize, spacing } from '@/theme';
 import { useMapPreferences } from '@/features/settings';
 import {
   BaseMapView,
@@ -247,7 +247,7 @@ export const SectionMapView = memo(function SectionMapView({
     );
     if (!nextBounds) return;
     framedSection.current = frameKey;
-    surfaceRef.current?.fitBounds(nextBounds, SECTION_MAP_FIT_PADDING, 500);
+    surfaceRef.current?.fitBounds(nextBounds, SECTION_MAP_FIT_PADDING, cameraMove.move);
   }, [frameKey, extensionCoords, sectionCoords, isExpanding]);
 
   // Reset 3D ready state when toggling off
@@ -271,7 +271,7 @@ export const SectionMapView = memo(function SectionMapView({
     setIs3DReady(true);
     motionTiming(map3DOpacity, {
       toValue: 1,
-      duration: 300,
+      duration: duration.slow,
       useNativeDriver: true,
     }).start();
   }, [map3DOpacity]);

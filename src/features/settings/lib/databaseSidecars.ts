@@ -32,15 +32,22 @@ export async function clearDatabaseSidecars(path: string): Promise<void> {
 export const QUARANTINE_INFIX = '.corrupt-';
 
 /**
+ * What the engine puts between a database's name and the schema version it
+ * copied the library at before migrating it: `routes.db.pre-upgrade-<version>`
+ * (`persistence/pre_upgrade_copy.rs`).
+ */
+export const PRE_UPGRADE_INFIX = '.pre-upgrade-';
+
+/**
  * Every copy of the library set aside beside `dbPath` and its pair, as file
- * URIs: each quarantined generation, and each library the move into the App
- * Group found at its target and moved aside. A directory that is not there
- * holds none.
+ * URIs: each quarantined generation, each library the move into the App
+ * Group found at its target and moved aside, and the copy an upgrade took
+ * before migrating. A directory that is not there holds none.
  */
 export async function setAsideCopies(dbPath: string): Promise<string[]> {
   const slash = dbPath.lastIndexOf('/');
   const dir = `file://${dbPath.slice(0, slash + 1)}`;
-  const prefixes = [QUARANTINE_INFIX, DISPLACED_INFIX].map(
+  const prefixes = [QUARANTINE_INFIX, DISPLACED_INFIX, PRE_UPGRADE_INFIX].map(
     (infix) => `${dbPath.slice(slash + 1)}${infix}`
   );
   let names: string[];
@@ -59,8 +66,9 @@ export async function setAsideCopies(dbPath: string): Promise<string[]> {
  *
  * Launch keeps the oldest quarantined one so the salvage can read what it
  * missed, and a later quarantine removes only the newer ones. Nothing removes
- * a displaced one. Either is a whole copy of a library that would otherwise
- * outlive the athlete it belongs to.
+ * a displaced one, and an upgrade's copy waits for the next launch. Each is a
+ * whole copy of a library that would otherwise outlive the athlete it belongs
+ * to.
  */
 export async function deleteSetAsideCopies(dbPath: string): Promise<void> {
   const copies = await setAsideCopies(dbPath);

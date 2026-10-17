@@ -1433,8 +1433,7 @@ where
         best_reverse_is_record,
         sport_type,
         sport_counts,
-        calendar_summary: crate::persistence::fitness::derivations::calendar_from(&all)
-            .map(crate::FfiCalendarSummary::from),
+        calendar_summary: crate::persistence::fitness::derivations::calendar_from(&all),
         lap_records: lap_records(&all, &excluded.records),
         performances: crate::FfiSectionPerformanceResult::from(performances),
         chart_data,

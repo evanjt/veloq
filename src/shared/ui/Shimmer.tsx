@@ -8,9 +8,10 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
-import { colors, darkColors, layout, spacing } from '@/theme';
+import { colors, darkColors, duration, layout, spacing } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { CARD_HEIGHT, CARD_MARGIN } from '@/features/activity/lib/cardLayout';
+import { Card } from './Card';
 
 interface ShimmerProps {
   width?: DimensionValue;
@@ -25,7 +26,10 @@ function ShimmerHighlight({ color, borderRadius }: { color: string; borderRadius
 
   React.useEffect(() => {
     opacity.value = withRepeat(
-      withSequence(withTiming(0.7, { duration: 800 }), withTiming(0.3, { duration: 800 })),
+      withSequence(
+        withTiming(0.7, { duration: duration.pulse }),
+        withTiming(0.3, { duration: duration.pulse })
+      ),
       -1
     );
   }, [opacity]);
@@ -101,16 +105,13 @@ function SkeletonFrame({
 
 // Pre-built skeleton patterns
 export function ActivityCardSkeleton() {
-  const { isDark } = useTheme();
-
   return (
-    <SkeletonFrame
-      testID="activity-card-skeleton"
-      style={[styles.activityCard, isDark && styles.cardDark]}
-    >
-      <View testID="activity-card-skeleton-fill" style={{ height: CARD_HEIGHT }}>
-        <Shimmer width="100%" height={CARD_HEIGHT} borderRadius={0} />
-      </View>
+    <SkeletonFrame testID="activity-card-skeleton" style={styles.activityCard}>
+      <Card variant="raised" padding="none">
+        <View testID="activity-card-skeleton-fill" style={{ height: CARD_HEIGHT }}>
+          <Shimmer width="100%" height={CARD_HEIGHT} borderRadius={0} />
+        </View>
+      </Card>
     </SkeletonFrame>
   );
 }
@@ -144,14 +145,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   activityCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
     marginHorizontal: CARD_MARGIN,
     marginBottom: CARD_MARGIN,
-    overflow: 'hidden',
-  },
-  cardDark: {
-    backgroundColor: darkColors.surface,
   },
   chartHeader: {
     flexDirection: 'row',

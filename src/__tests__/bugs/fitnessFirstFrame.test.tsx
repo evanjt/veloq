@@ -30,6 +30,7 @@ jest.mock('react-native-gesture-handler', () => ({
 jest.mock('@/shared/ui', () => {
   const { View } = require('react-native');
   return {
+    Card: jest.requireActual('@/shared/ui/Card').Card,
     ScreenSafeAreaView: View,
     useBottomClearance: () => 0,
     useScrollEndInset: () => 0,

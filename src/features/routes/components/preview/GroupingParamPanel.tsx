@@ -23,7 +23,7 @@ import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { useTheme } from '@/shared/app/useTheme';
 import { formatDistance } from '@/shared/format/format';
 import { pressable, pressRipple } from '@/shared/ui';
-import { brand, colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
+import { brand, colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
 import {
   GROUPING_PARAM_RANGES,
   isPastGroupingRange,
@@ -182,7 +182,7 @@ const PARAM_ROW_MIN_HEIGHT = layout.minTapTarget;
 const styles = StyleSheet.create({
   card: {
     borderRadius: layout.borderRadius,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: stroke.hairline,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     gap: spacing.xs,

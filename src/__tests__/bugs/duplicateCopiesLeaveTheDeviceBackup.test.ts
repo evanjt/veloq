@@ -85,6 +85,21 @@ describe('quarantined copies', () => {
     ]);
   });
 
+  it('marks the copy an upgrade took before migrating, and its pair', async () => {
+    fs.readDirectoryAsync.mockResolvedValue([
+      'routes.db',
+      'routes.db.pre-upgrade-12',
+      'routes.db.pre-upgrade-12-wal',
+    ]);
+
+    await excludeSetAsideCopies('/group/routes.db');
+
+    expect(markedFiles().sort()).toEqual([
+      'file:///group/routes.db.pre-upgrade-12',
+      'file:///group/routes.db.pre-upgrade-12-wal',
+    ]);
+  });
+
   it('marks nothing when no quarantine has happened', async () => {
     fs.readDirectoryAsync.mockResolvedValue(['routes.db', 'routes.db-wal']);
 

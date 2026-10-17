@@ -1,6 +1,6 @@
 import type { MD3Theme } from 'react-native-paper';
 
-import { brand, colorWithOpacity, colors, darkColors, ink, opacity, redBanner } from './colors';
+import { brand, colorWithOpacity, colors, darkColors, ink, opacity } from './colors';
 
 type MD3Scheme = MD3Theme['colors'];
 
@@ -27,7 +27,7 @@ export const md3LightScheme: MD3Scheme = {
   surfaceDisabled: colorWithOpacity(colors.textPrimary, DISABLED_FILL),
   background: colors.background,
   error: colors.error,
-  errorContainer: redBanner.bg,
+  errorContainer: colors.errorBg,
   // Dark ink on the teal: white reads 3.74:1 on it, short of the 4.5:1 a label owes.
   onPrimary: colors.textOnPrimary,
   onPrimaryContainer: colors.textPrimary,
@@ -39,7 +39,7 @@ export const md3LightScheme: MD3Scheme = {
   onSurfaceVariant: colors.textSecondary,
   onSurfaceDisabled: colorWithOpacity(colors.textPrimary, DISABLED_LABEL),
   onError: colors.textPrimary,
-  onErrorContainer: redBanner.text,
+  onErrorContainer: colors.errorDeep,
   onBackground: colors.textPrimary,
   outline: colors.border,
   outlineVariant: colors.borderLight,

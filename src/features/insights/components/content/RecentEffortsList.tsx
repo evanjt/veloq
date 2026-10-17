@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   },
   date: {
     fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '500',
+    fontWeight: '600',
     color: colors.textPrimary,
   },
   dateDark: {
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   },
   delta: {
     fontSize: typography.caption.fontSize,
-    fontWeight: '500',
+    fontWeight: '400',
     color: colors.textSecondary,
   },
   deltaDark: {

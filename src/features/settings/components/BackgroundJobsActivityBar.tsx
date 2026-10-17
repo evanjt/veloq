@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { Button, DisclosureChevron } from '@/shared/ui';
+import { Button, Card, DisclosureChevron } from '@/shared/ui';
 import { getPhaseDisplayKey } from '@/features/routes';
 import { formatClockOrDate } from '@/shared/format/format';
 import {
@@ -14,7 +14,7 @@ import {
   type BackgroundJobRun,
   type BackgroundJobId,
 } from '@/features/settings/hooks/useBackgroundJobs';
-import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
 
 const ICONS: Record<BackgroundJobId, React.ComponentProps<typeof MaterialCommunityIcons>['name']> =
   {
@@ -206,45 +206,41 @@ export function BackgroundJobsActivityBar() {
       : t('backgroundJobs.lastFinished', { time: formatClockOrDate(newest) });
 
   return (
-    <View testID="background-jobs-activity" style={[styles.card, isDark && styles.cardDark]}>
-      <Button
-        testID="background-jobs-activity-toggle"
-        label={`${t('backgroundJobs.title')} · ${summary}`}
-        variant="secondary"
-        size="sm"
-        onPress={() => setExpanded((value) => !value)}
-        expanded={expanded}
-        icon={
-          <DisclosureChevron
-            expanded={expanded}
-            size={iconSize.md}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-        }
-        style={styles.toggle}
-      />
-      {expanded
-        ? listed.map((job, index) => (
-            <View key={job.id}>
-              {index > 0 ? <View style={[styles.divider, isDark && styles.dividerDark]} /> : null}
-              <JobRow job={job} />
-            </View>
-          ))
-        : null}
+    <View testID="background-jobs-activity" style={styles.frame}>
+      <Card variant="flat" padding="none">
+        <Button
+          testID="background-jobs-activity-toggle"
+          label={`${t('backgroundJobs.title')} · ${summary}`}
+          variant="secondary"
+          size="sm"
+          onPress={() => setExpanded((value) => !value)}
+          expanded={expanded}
+          icon={
+            <DisclosureChevron
+              expanded={expanded}
+              size={iconSize.md}
+              color={isDark ? darkColors.textSecondary : colors.textSecondary}
+            />
+          }
+          style={styles.toggle}
+        />
+        {expanded
+          ? listed.map((job, index) => (
+              <View key={job.id}>
+                {index > 0 ? <View style={[styles.divider, isDark && styles.dividerDark]} /> : null}
+                <JobRow job={job} />
+              </View>
+            ))
+          : null}
+      </Card>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
+  frame: {
     marginHorizontal: layout.screenPadding,
     marginBottom: spacing.sm,
-    overflow: 'hidden',
-  },
-  cardDark: {
-    backgroundColor: darkColors.surface,
   },
   toggle: {
     minHeight: layout.minTapTarget,
@@ -268,7 +264,7 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
   },
   divider: {
-    height: StyleSheet.hairlineWidth,
+    height: stroke.hairline,
     backgroundColor: colors.border,
     marginLeft: spacing.md,
   },

@@ -6,11 +6,12 @@ import { useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
   BodyNotDownloaded,
+  Card,
   EmptyState,
   ErrorState,
   ScreenSafeAreaView,
-  ToggleButtonRow,
   Spinner,
+  ToggleButtonRow,
   useScrollEndInset,
 } from '@/shared/ui';
 import type { Period } from '@/shared/app/period';
@@ -91,75 +92,80 @@ function SportSection({ sport, efforts, curve, isLoading, isDark }: SportSection
         : t('bestEffortsScreen.swimBests');
 
   return (
-    <View style={[styles.card, isDark && styles.cardDark]} testID={`best-efforts-section-${sport}`}>
-      <View style={styles.cardHeader}>
-        <MaterialCommunityIcons
-          name={sportIcon(sport)}
-          size={iconSize.md}
-          color={sportColor}
-          style={styles.cardHeaderIcon}
-        />
-        <Text accessibilityRole="header" style={[styles.cardTitle, isDark && styles.cardTitleDark]}>
-          {sectionTitle}
-        </Text>
-      </View>
-
-      {labelsError != null && (
-        <ErrorState
-          variant="inline"
-          error={labelsError}
-          onRetry={refetchLabels}
-          testID={`best-efforts-labels-failed-${sport}`}
-        />
-      )}
-
-      {isLoading || (notFetched && curve.status === 'waiting') ? (
-        <View style={styles.loadingContainer}>
-          <Spinner />
+    <View style={styles.frame} testID={`best-efforts-section-${sport}`}>
+      <Card variant="flat">
+        <View style={styles.cardHeader}>
+          <MaterialCommunityIcons
+            name={sportIcon(sport)}
+            size={iconSize.md}
+            color={sportColor}
+            style={styles.cardHeaderIcon}
+          />
+          <Text
+            accessibilityRole="header"
+            style={[styles.cardTitle, isDark && styles.cardTitleDark]}
+          >
+            {sectionTitle}
+          </Text>
         </View>
-      ) : notFetched ? (
-        <BodyNotDownloaded
-          testID={`best-efforts-not-downloaded-${sport}`}
-          style={styles.notDownloaded}
-          textStyle={[styles.notDownloadedText, isDark && styles.notDownloadedTextDark]}
-          message={t('statsScreen.curveNotDownloaded')}
-          status={curve.status}
-          onRetry={curve.retry}
-        />
-      ) : !hasAnyValue ? (
-        <EmptyState variant="inline" title={t('statsScreen.noEffortData')} />
-      ) : (
-        efforts.map((effort, index) => {
-          const activityInfo = effort.activityId ? activityMap.get(effort.activityId) : undefined;
-          const timeStr = formatDurationOrNull(effort.time);
-          const shownTime = timeStr && sport !== 'Cycling' ? timeStr : null;
-          const valueText = formatEffortValue(effort.value, sport, t('units.watts'), isMetric);
-          const isLast = index === efforts.length - 1;
 
-          return (
-            <BestEffortRow
-              key={effort.checkpoint}
-              testID={`best-efforts-row-${sport}-${effort.checkpoint}`}
-              label={effort.label}
-              value={valueText}
-              secondary={shownTime}
-              valueColor={sportText}
-              isLast={isLast}
-              activity={
-                activityInfo && effort.activityId
-                  ? { id: effort.activityId, ...activityInfo }
-                  : undefined
-              }
-            >
-              {effort.value !== null && labelsError == null ? (
-                <Text style={[styles.activityMissing, isDark && styles.activityMissingDark]}>
-                  {t('activitySummary.notDownloaded')}
-                </Text>
-              ) : null}
-            </BestEffortRow>
-          );
-        })
-      )}
+        {labelsError != null && (
+          <ErrorState
+            variant="inline"
+            error={labelsError}
+            onRetry={refetchLabels}
+            testID={`best-efforts-labels-failed-${sport}`}
+          />
+        )}
+
+        {isLoading || (notFetched && curve.status === 'waiting') ? (
+          <View style={styles.loadingContainer}>
+            <Spinner />
+          </View>
+        ) : notFetched ? (
+          <BodyNotDownloaded
+            testID={`best-efforts-not-downloaded-${sport}`}
+            style={styles.notDownloaded}
+            textStyle={[styles.notDownloadedText, isDark && styles.notDownloadedTextDark]}
+            message={t('statsScreen.curveNotDownloaded')}
+            status={curve.status}
+            onRetry={curve.retry}
+          />
+        ) : !hasAnyValue ? (
+          <EmptyState variant="inline" title={t('statsScreen.noEffortData')} />
+        ) : (
+          efforts.map((effort, index) => {
+            const activityInfo = effort.activityId ? activityMap.get(effort.activityId) : undefined;
+            const timeStr = formatDurationOrNull(effort.time);
+            const shownTime = timeStr && sport !== 'Cycling' ? timeStr : null;
+            const valueText = formatEffortValue(effort.value, sport, t('units.watts'), isMetric);
+            const isLast = index === efforts.length - 1;
+
+            return (
+              <BestEffortRow
+                key={effort.checkpoint}
+                testID={`best-efforts-row-${sport}-${effort.checkpoint}`}
+                label={effort.label}
+                value={valueText}
+                secondary={shownTime}
+                valueColor={sportText}
+                isLast={isLast}
+                activity={
+                  activityInfo && effort.activityId
+                    ? { id: effort.activityId, ...activityInfo }
+                    : undefined
+                }
+              >
+                {effort.value !== null && labelsError == null ? (
+                  <Text style={[styles.activityMissing, isDark && styles.activityMissingDark]}>
+                    {t('activitySummary.notDownloaded')}
+                  </Text>
+                ) : null}
+              </BestEffortRow>
+            );
+          })
+        )}
+      </Card>
     </View>
   );
 }
@@ -178,34 +184,36 @@ function ClimbingSection({ sport, bests, status, isLoading, isDark }: ClimbingSe
   const hasNote = status.owed > 0 || status.sourceExcluded > 0;
 
   return (
-    <View
-      style={[styles.card, isDark && styles.cardDark]}
-      testID={`best-efforts-climbing-${sport}`}
-    >
-      <View style={styles.cardHeader}>
-        <MaterialCommunityIcons
-          name={sportIcon(sport)}
-          size={iconSize.md}
-          color={SPORT_COLORS[sport]}
-          style={styles.cardHeaderIcon}
-        />
-        <Text accessibilityRole="header" style={[styles.cardTitle, isDark && styles.cardTitleDark]}>
-          {t('bestEffortsScreen.climbingBests')}
-        </Text>
-      </View>
-
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <Spinner />
+    <View style={styles.frame} testID={`best-efforts-climbing-${sport}`}>
+      <Card variant="flat">
+        <View style={styles.cardHeader}>
+          <MaterialCommunityIcons
+            name={sportIcon(sport)}
+            size={iconSize.md}
+            color={SPORT_COLORS[sport]}
+            style={styles.cardHeaderIcon}
+          />
+          <Text
+            accessibilityRole="header"
+            style={[styles.cardTitle, isDark && styles.cardTitleDark]}
+          >
+            {t('bestEffortsScreen.climbingBests')}
+          </Text>
         </View>
-      ) : !hasAnyValue && !hasNote ? (
-        <EmptyState variant="inline" title={t('statsScreen.noEffortData')} />
-      ) : (
-        <>
-          {hasAnyValue ? <ClimbingBestRows bests={bests} sport={sport} /> : null}
-          <ClimbingStatusNote status={status} />
-        </>
-      )}
+
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <Spinner />
+          </View>
+        ) : !hasAnyValue && !hasNote ? (
+          <EmptyState variant="inline" title={t('statsScreen.noEffortData')} />
+        ) : (
+          <>
+            {hasAnyValue ? <ClimbingBestRows bests={bests} sport={sport} /> : null}
+            <ClimbingStatusNote status={status} />
+          </>
+        )}
+      </Card>
     </View>
   );
 }
@@ -331,14 +339,8 @@ const styles = StyleSheet.create({
   subtitleDark: {
     color: darkColors.textSecondary,
   },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    padding: layout.cardPadding,
+  frame: {
     marginBottom: spacing.md,
-  },
-  cardDark: {
-    backgroundColor: darkColors.surface,
   },
   cardHeader: {
     flexDirection: 'row',

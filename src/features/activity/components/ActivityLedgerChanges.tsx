@@ -6,8 +6,8 @@ import type { ActivityLedgerChange } from 'veloqrs';
 import { tapTo } from '@/shared/app/navigation';
 import { formatFullDate } from '@/shared/format/format';
 import { FIXED_LABEL_LEDGER_KINDS, ledgerDate } from '@/features/routes';
-import { CardHeader, Row } from '@/shared/ui';
-import { spacing, typography, layout, themedStyles, type Palette } from '@/theme';
+import { Card, CardHeader, Row } from '@/shared/ui';
+import { spacing, typography, themedStyles, type Palette } from '@/theme';
 
 interface ActivityLedgerChangesProps {
   changes: readonly ActivityLedgerChange[];
@@ -24,50 +24,54 @@ export function ActivityLedgerChanges({ changes, isDark }: ActivityLedgerChanges
   const styles = themedStyles(makeStyles, isDark);
 
   return (
-    <View style={styles.card} testID="activity-ledger-changes">
-      <View style={styles.header}>
-        <CardHeader title={t('sectionHistory.around')} />
-      </View>
-      {changes.map((change) => {
-        const kindLabel = FIXED_LABEL_LEDGER_KINDS.has(change.kind)
-          ? t(`sectionHistory.kind_${change.kind}` as never)
-          : null;
-        const name = change.sectionName ?? kindLabel ?? change.kind;
-        const date = formatFullDate(ledgerDate(change.at));
-        return (
-          <Row
-            key={`${change.eventId}-${change.relation}`}
-            testID={`activity-ledger-change-${change.eventId}`}
-            onPress={() => tapTo(`/section/${change.sectionId}`)}
-            accessibilityLabel={`${name}, ${date}`}
-            behaviour="navigate"
-          >
-            <View style={styles.rowText}>
-              <Text style={styles.name} numberOfLines={1}>
-                {name}
-              </Text>
-              {change.sectionName != null && kindLabel != null && (
-                <Text style={styles.detail}>{kindLabel}</Text>
-              )}
-              {change.relation === 'fork_around' && (
-                <Text style={styles.detail}>{t('sectionHistory.forkAround')}</Text>
-              )}
-              <Text style={styles.detail}>{date}</Text>
-            </View>
-          </Row>
-        );
-      })}
+    <View style={styles.frame} testID="activity-ledger-changes">
+      <Card variant="flat" padding="none">
+        <View style={styles.body}>
+          <View style={styles.header}>
+            <CardHeader title={t('sectionHistory.around')} />
+          </View>
+          {changes.map((change) => {
+            const kindLabel = FIXED_LABEL_LEDGER_KINDS.has(change.kind)
+              ? t(`sectionHistory.kind_${change.kind}` as never)
+              : null;
+            const name = change.sectionName ?? kindLabel ?? change.kind;
+            const date = formatFullDate(ledgerDate(change.at));
+            return (
+              <Row
+                key={`${change.eventId}-${change.relation}`}
+                testID={`activity-ledger-change-${change.eventId}`}
+                onPress={() => tapTo(`/section/${change.sectionId}`)}
+                accessibilityLabel={`${name}, ${date}`}
+                behaviour="navigate"
+              >
+                <View style={styles.rowText}>
+                  <Text style={styles.name} numberOfLines={1}>
+                    {name}
+                  </Text>
+                  {change.sectionName != null && kindLabel != null && (
+                    <Text style={styles.detail}>{kindLabel}</Text>
+                  )}
+                  {change.relation === 'fork_around' && (
+                    <Text style={styles.detail}>{t('sectionHistory.forkAround')}</Text>
+                  )}
+                  <Text style={styles.detail}>{date}</Text>
+                </View>
+              </Row>
+            );
+          })}
+        </View>
+      </Card>
     </View>
   );
 }
 
 const makeStyles = (palette: Palette) =>
   StyleSheet.create({
-    card: {
-      backgroundColor: palette.surface,
-      borderRadius: layout.borderRadiusMd,
+    frame: {
       marginHorizontal: spacing.md,
       marginTop: spacing.sm,
+    },
+    body: {
       paddingVertical: spacing.md,
     },
     header: {
@@ -78,7 +82,7 @@ const makeStyles = (palette: Palette) =>
     },
     name: {
       fontSize: typography.bodyMedium.fontSize,
-      fontWeight: '500',
+      fontWeight: '600',
       color: palette.textPrimary,
     },
     detail: {

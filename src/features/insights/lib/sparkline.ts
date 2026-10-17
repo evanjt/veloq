@@ -42,14 +42,21 @@ interface SparklineOptions {
   unit?: string;
 }
 
-/** A dated graphic from the engine series, when at least three points exist. */
+/**
+ * The fewest dated points a card draws as a graphic. Fewer stretch across the
+ * card into a shape the data does not have, so the card states its figure and
+ * change instead.
+ */
+export const HISTORY_MIN_POINTS = 6;
+
+/** A dated graphic from the engine series, when enough points exist to draw one. */
 export function sparkline(
   points: SeriesPoint[] | undefined,
   label: string,
   target: string,
   { kind = 'sparkline', mark, format, unit }: SparklineOptions = {}
-): { history?: InsightHistory } {
-  if (!points || points.length < 3) return {};
+): { history?: InsightHistory; dataTarget: string } {
+  if (!points || points.length < HISTORY_MIN_POINTS) return { dataTarget: target };
   const series: HistorySeries[] = [
     { label, points, ...(unit ? { unit } : {}), ...(format ? { format } : {}) },
   ];
@@ -61,6 +68,7 @@ export function sparkline(
       ...(format ? { scale: historyScale(kind, series, format) } : {}),
       target,
     },
+    dataTarget: target,
   };
 }
 

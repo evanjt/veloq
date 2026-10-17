@@ -303,14 +303,14 @@ const styles = StyleSheet.create({
   },
   inlineLabel: {
     fontSize: typography.pillLabel.fontSize,
-    fontWeight: '500',
+    fontWeight: '400',
   },
   rangeLabel: {
     position: 'absolute',
     top: -12,
     right: 2,
     fontSize: typography.pillLabel.fontSize,
-    fontWeight: '500',
+    fontWeight: '400',
   },
   crosshair: {
     position: 'absolute',
