@@ -27,7 +27,13 @@ jest.mock('@/shared/storage/platformRecord', () => ({
 jest.mock('@/features/settings/lib/backup', () => ({
   checkRecordBackup: async () => {
     if (mockRecordRefused) throw new Error('another athlete');
-    return mockRecordWrittenAt;
+    return {
+      writtenAt: mockRecordWrittenAt,
+      namesAccount: true,
+      names: 0,
+      settings: 0,
+      decisions: 0,
+    };
   },
 }));
 jest.mock('@/features/settings/lib/autobackup/webdavConfig', () => ({

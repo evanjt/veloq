@@ -16,8 +16,6 @@ import type { ShareAnchor } from '@/features/settings/lib/shareFile';
 import { isPickerCopy } from '@/shared/storage/cacheFiles';
 import { inform } from '@/shared/ui/dialog';
 
-export { confirmLegacyImport } from '@/features/settings/lib/importBackupFile';
-
 /** `anchor` is the control the export starts from, which the share sheet points at on iPad. */
 export function useExportRecordBackup(anchor?: ShareAnchor) {
   const [exporting, setExporting] = useState(false);
@@ -109,7 +107,9 @@ export function useImportDatabaseBackup() {
     let pickedCopy: string | null = null;
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['application/octet-stream', 'application/json', '*/*'],
+        // A record zip, and the older `.veloq` and `.veloqdb` files, which no
+        // platform types, so they come through as plain bytes.
+        type: ['application/zip', 'application/octet-stream'],
         copyToCacheDirectory: true,
       });
 

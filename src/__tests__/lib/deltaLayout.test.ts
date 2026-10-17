@@ -3,7 +3,7 @@
  * of distance along the section, with the reference as the zero line.
  * Expected behaviour: a lap's path starts at its covered distance, a NaN run is
  * a gap, the newest lap is emphasised unless one is selected, and the scrub
- * snaps to 100 m.
+ * stops every 100 m.
  */
 
 import {
@@ -12,8 +12,7 @@ import {
   pickEmphasisedLap,
   rebaseCurve,
   scrubDeltaSecs,
-  snapScrubIndex,
-  splitAtDistance,
+  scrubStops,
 } from '@/features/routes/lib/deltaLayout';
 import type { FfiDirectionDeltas, FfiLapDelta, FfiSplitSummary } from 'veloqrs';
 
@@ -160,32 +159,24 @@ describe('layoutDelta', () => {
   });
 });
 
-describe('snapScrubIndex', () => {
-  it('snaps a touch to the nearest 100 m and returns that distance and grid index', () => {
-    const plot = layoutDelta(
-      deltas([lap('a', 1, [0, 1, 2, 3, 4, 5, 6, 7, 8])]),
-      50,
-      400,
-      FRAME,
-      'a'
-    );
-
-    const snapped = snapScrubIndex(plot.xForDistance(130), plot, 50);
-    expect(snapped).toEqual({ distanceM: 100, index: 2 });
-    expect(snapScrubIndex(plot.xForDistance(160), plot, 50)).toEqual({ distanceM: 200, index: 4 });
+describe('scrubStops', () => {
+  it('stops every 100 m with the grid index of the curve point there', () => {
+    expect(scrubStops(400, 50)).toEqual([
+      { distanceM: 0, index: 0 },
+      { distanceM: 100, index: 2 },
+      { distanceM: 200, index: 4 },
+      { distanceM: 300, index: 6 },
+      { distanceM: 400, index: 8 },
+    ]);
   });
 
-  it('clamps a touch past either end of the section', () => {
-    const plot = layoutDelta(
-      deltas([lap('a', 1, [0, 1, 2, 3, 4, 5, 6, 7, 8])]),
-      50,
-      400,
-      FRAME,
-      'a'
-    );
+  it('places no stop past the end of a section that is not a whole number of stops', () => {
+    expect(scrubStops(450, 50).map((stop) => stop.distanceM)).toEqual([0, 100, 200, 300, 400]);
+  });
 
-    expect(snapScrubIndex(-50, plot, 50)).toEqual({ distanceM: 0, index: 0 });
-    expect(snapScrubIndex(10_000, plot, 50)).toEqual({ distanceM: 400, index: 8 });
+  it('keeps the start for a section shorter than one stop, and gives none for a broken length', () => {
+    expect(scrubStops(60, 50)).toEqual([{ distanceM: 0, index: 0 }]);
+    expect(scrubStops(NaN, 50)).toEqual([]);
   });
 });
 
@@ -261,25 +252,24 @@ describe('layoutSplitSummary', () => {
     expect(plot.bars.every((bar) => bar.whisker === null)).toBe(true);
   });
 
+  it('centres the scrub on every split, the short last one and a NaN one included', () => {
+    const plot = layoutSplitSummary(summary([4, -2, NaN, 1]), STEP_M, LENGTH_M, FRAME);
+
+    expect(plot.splitCentres).toHaveLength(4);
+    expect(plot.splitCentres[0]).toBeCloseTo(xAt(50));
+    expect(plot.splitCentres[2]).toBeCloseTo(xAt(250));
+    expect(plot.splitCentres[3]).toBeCloseTo(xAt(325));
+  });
+
+  it('gives no scrub centres without a split step', () => {
+    expect(layoutSplitSummary(summary([4, -2]), 0, LENGTH_M, FRAME).splitCentres).toEqual([]);
+  });
+
   it('keeps a level summary from collapsing the axis', () => {
     const plot = layoutSplitSummary(summary([0, 0]), STEP_M, 200, FRAME);
 
     expect(plot.extentSecs).toBe(1);
     expect(plot.bars.every((bar) => bar.top === bar.bottom)).toBe(true);
-  });
-});
-
-describe('splitAtDistance', () => {
-  it('names the split a distance falls in, the section end in the last one', () => {
-    expect(splitAtDistance(0, 100, 4)).toBe(0);
-    expect(splitAtDistance(250, 100, 4)).toBe(2);
-    expect(splitAtDistance(350, 100, 4)).toBe(3);
-    expect(splitAtDistance(400, 100, 4)).toBe(3);
-  });
-
-  it('names no split without any', () => {
-    expect(splitAtDistance(100, 100, 0)).toBeUndefined();
-    expect(splitAtDistance(100, 0, 4)).toBeUndefined();
   });
 });
 

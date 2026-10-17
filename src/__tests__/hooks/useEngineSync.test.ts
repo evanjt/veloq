@@ -5,13 +5,14 @@
  * the life of the process, so a relaunch was the only cure.
  *
  * Expected behaviour: the latch holds only when the call actually started a
- * sync, the engine-ready bump brings the effect back to retry, and a return
- * from the background starts a sync. A sync that failed for the connection, or
- * a start the exclusive slot refused, is the engine's to start again, so
- * neither the reconnect nor the settle asks from here.
+ * sync, and the engine-ready bump brings the effect back to retry. A return
+ * from the background, a sync that failed for the connection, and a start the
+ * exclusive slot refused are all the engine's to start again, so neither the
+ * foreground, the reconnect nor the settle asks from here.
  */
 
 import { act, renderHook } from '@testing-library/react-native';
+import { AppState, type AppStateStatus } from 'react-native';
 
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -41,16 +42,15 @@ jest.mock('@/shared/app/NetworkContext', () => ({
   useIsOnline: () => mockIsOnline,
 }));
 
-let foregroundCallback: (() => void) | null = null;
-jest.mock('@/shared/app/useRetryTriggers', () => {
-  const actual = jest.requireActual('@/shared/app/useRetryTriggers');
-  return {
-    useReconnect: actual.useReconnect,
-    useForeground: (callback: () => void) => {
-      foregroundCallback = callback;
-    },
-  };
-});
+/** The app state listeners mounted, so a test can take the app away and back. */
+const appStateListeners: ((next: AppStateStatus) => void)[] = [];
+
+/** Background the app and bring it back, as a swipe home and a reopen do. */
+function returnFromBackground(): void {
+  for (const next of ['background', 'active'] as const) {
+    appStateListeners.forEach((listener) => listener(next));
+  }
+}
 
 jest.mock('@/features/home/lib/widgetBridge', () => ({
   scheduleWidgetSnapshot: jest.fn(),
@@ -99,21 +99,27 @@ describe('useEngineSync', () => {
     jest.clearAllMocks();
     mockStatus = null;
     mockIsOnline = true;
-    foregroundCallback = null;
+    appStateListeners.length = 0;
+    jest.spyOn(AppState, 'addEventListener').mockImplementation(((
+      _event: string,
+      listener: (next: AppStateStatus) => void
+    ) => {
+      appStateListeners.push(listener);
+      return { remove: jest.fn() };
+    }) as unknown as typeof AppState.addEventListener);
     resetListeners.length = 0;
     storedListeners.length = 0;
     useEngineStatus.setState({ readyNonce: 0 });
     useAuthStore.setState({ isAuthenticated: true, isDemoMode: false });
   });
 
-  it('leaves the athlete profile to its age gate on launch and on foreground', async () => {
+  it('leaves the athlete profile to its age gate on launch', async () => {
     const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     await renderHook(() => useEngineSync());
-    await act(() => foregroundCallback?.());
 
-    expect(syncNow.mock.calls).toEqual([[false], [false]]);
+    expect(syncNow.mock.calls).toEqual([[false]]);
   });
 
   it('retries once the engine is ready when the first call found none', async () => {
@@ -212,15 +218,20 @@ describe('useEngineSync', () => {
     expect(syncNow).toHaveBeenCalledTimes(1);
   });
 
-  it('starts a fresh sync when the app returns from the background', async () => {
+  /**
+   * What a return starts is the engine's: the network provider's push says
+   * the app came back, and the sync service decides. A second scheduler here
+   * would start it again for every mounted caller.
+   */
+  it('asks for no sync when the app returns from the background', async () => {
     const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     await renderHook(() => useEngineSync());
     expect(syncNow).toHaveBeenCalledTimes(1);
 
-    await act(() => foregroundCallback?.());
-    expect(syncNow).toHaveBeenCalledTimes(2);
+    await act(() => returnFromBackground());
+    expect(syncNow).toHaveBeenCalledTimes(1);
   });
 
   /**
@@ -256,13 +267,13 @@ describe('useEngineSync', () => {
     expect(syncNow).toHaveBeenCalledTimes(2);
   });
 
-  it('holds one listener, not one per retry', async () => {
+  it('holds one listener, not one per return', async () => {
     const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
     await renderHook(() => useEngineSync());
-    await act(() => foregroundCallback?.());
-    await act(() => foregroundCallback?.());
+    await act(() => returnFromBackground());
+    await act(() => returnFromBackground());
 
     expect(resetListeners).toHaveLength(1);
   });
@@ -304,7 +315,7 @@ describe('useEngineSync', () => {
     expect(syncNow).toHaveBeenCalledTimes(1);
   });
 
-  it('retries on foreground after a sync settled with an error', async () => {
+  it('leaves a sync that settled with an error to the engine on foreground', async () => {
     const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
@@ -321,12 +332,12 @@ describe('useEngineSync', () => {
     mockStatus = settled('timed out');
     await act(async () => await rerender(undefined));
 
-    await act(() => foregroundCallback?.());
+    await act(() => returnFromBackground());
 
-    expect(syncNow).toHaveBeenCalledTimes(2);
+    expect(syncNow).toHaveBeenCalledTimes(1);
   });
 
-  it('re-syncs once per foreground return after a successful sync', async () => {
+  it('asks nothing on any foreground return after a successful sync', async () => {
     const syncNow = jest.fn().mockReturnValue(StartOutcome.Started);
     mockGetEngine.mockReturnValue(engineWith(syncNow));
 
@@ -343,10 +354,10 @@ describe('useEngineSync', () => {
     mockStatus = settled();
     await act(async () => await rerender(undefined));
 
-    await act(() => foregroundCallback?.());
-    await act(() => foregroundCallback?.());
+    await act(() => returnFromBackground());
+    await act(() => returnFromBackground());
 
-    expect(syncNow).toHaveBeenCalledTimes(3);
+    expect(syncNow).toHaveBeenCalledTimes(1);
   });
 
   it.each([
@@ -413,7 +424,7 @@ describe('useEngineSync', () => {
     };
     await act(async () => await rerender(undefined));
 
-    await act(() => foregroundCallback?.());
+    await act(() => returnFromBackground());
 
     expect(syncNow).toHaveBeenCalledTimes(1);
   });

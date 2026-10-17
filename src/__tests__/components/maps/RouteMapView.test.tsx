@@ -13,6 +13,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RouteMapView } from '@/features/routes/components/RouteMapView';
 import type { RoutePoint } from '@/types';
 
+// The map page is hidden from screen readers, so a query reaching it includes hidden elements.
+const MAP_PAGE = { includeHiddenElements: true };
+
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
 jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
@@ -69,7 +72,7 @@ describe('RouteMapView', () => {
     await renderRoute();
 
     expect(screen.getByTestId('route-map-container')).toBeTruthy();
-    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+    expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
   });
 
   it('opens fullscreen on tap when fullscreen is enabled', async () => {
@@ -121,7 +124,7 @@ describe('RouteMapView', () => {
       await renderRoute({ routeGroup: routeGroup(null) });
 
       expect(screen.queryByTestId('route-map-container')).toBeNull();
-      expect(screen.queryByTestId('maplibre-map')).toBeNull();
+      expect(screen.queryByTestId('maplibre-map', MAP_PAGE)).toBeNull();
     });
 
     it('falls back to a placeholder for an empty point list', async () => {

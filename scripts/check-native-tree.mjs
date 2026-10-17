@@ -18,7 +18,8 @@
 // installation the worklets lifecycle repair never reached, because that app
 // keeps a vsync loop running while Android caches it and is killed for CPU, and
 // one the screens sheet width patch never reached, because that app draws every
-// sheet across the full width of a tablet.
+// sheet across the full width of a tablet, and one the screens sheet hide patch never
+// reached, because that app lets a drag dismiss a sheet that is meant to stay on screen.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, lstatSync, readdirSync, realpathSync } from 'node:fs';
@@ -37,6 +38,10 @@ const { applyPatch: repairWorklets } = createRequire(import.meta.url)(
 const PATCH_SCREENS = 'node scripts/patch-screens-sheet-width.js';
 const { applyPatch: patchScreens } = createRequire(import.meta.url)(
   './patch-screens-sheet-width.js'
+);
+const PATCH_SCREENS_HIDE = 'node scripts/patch-screens-sheet-hide.js';
+const { applyPatch: patchScreensHide } = createRequire(import.meta.url)(
+  './patch-screens-sheet-hide.js'
 );
 
 /** The router app root: expo-router reads `src/app` when the directory exists. */
@@ -191,6 +196,15 @@ export function requireNativeTree(root) {
     console.error('A build here would draw every sheet across the full width of a tablet.');
     console.error('Patch it, then build again:');
     console.error(`  ${PATCH_SCREENS}`);
+    process.exit(1);
+  }
+  const hide = patchProblem(root, 'react-native-screens', patchScreensHide);
+  if (hide !== null) {
+    console.error('The installed react-native-screens does not carry the sheet hide patch.');
+    console.error(`  ${hide}`);
+    console.error('A build here would let a drag dismiss a sheet that is meant to stay on screen.');
+    console.error('Patch it, then build again:');
+    console.error(`  ${PATCH_SCREENS_HIDE}`);
     process.exit(1);
   }
 }

@@ -26,7 +26,8 @@ import { useSyncState } from '@/shared/native/useSyncStatus';
 import { useMapPreviewCoordinates } from '../hooks/useMapPreviewCoordinates';
 import { isWithinPreviewRange, onPreviewRangeChange } from '../lib/previewRange';
 import { mapPreviewState } from '../lib/mapPreviewState';
-import { colorWithOpacity, iconSize, ink, layout, opacity } from '@/theme';
+import { colorWithOpacity, iconSize, ink, layout, opacity, spacing } from '@/theme';
+import { CARD_FOOTER_CLEARANCE } from '@/features/activity/lib/cardLayout';
 import { SyncState } from 'veloqrs';
 import type { Activity } from '@/types';
 import type { PreviewTrack } from '@/features/home';
@@ -287,7 +288,12 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   // No GPS data available for this activity (stream_types doesn't include latlng)
   if (previewState === 'noGps') {
     return (
-      <View style={[styles.placeholder, { height, backgroundColor: activityColor + '20' }]}>
+      <View
+        style={[
+          styles.placeholder,
+          { height, backgroundColor: colorWithOpacity(activityColor, opacity.tint2) },
+        ]}
+      >
         <MaterialCommunityIcons name="map-marker-off" size={iconSize.xl} color={activityColor} />
       </View>
     );
@@ -296,7 +302,12 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   // Still loading streams, or a sync that can still deliver this one.
   if (previewState === 'loading') {
     return (
-      <View style={[styles.placeholder, { height, backgroundColor: activityColor + '10' }]}>
+      <View
+        style={[
+          styles.placeholder,
+          { height, backgroundColor: colorWithOpacity(activityColor, opacity.tint1) },
+        ]}
+      >
         <ActivityIndicator size="small" color={activityColor} />
       </View>
     );
@@ -310,7 +321,12 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   // the sync has not reached.
   if (previewState === 'awaitingDownload') {
     return (
-      <View style={[styles.placeholder, { height, backgroundColor: activityColor + '20' }]}>
+      <View
+        style={[
+          styles.placeholder,
+          { height, backgroundColor: colorWithOpacity(activityColor, opacity.tint2) },
+        ]}
+      >
         <MaterialCommunityIcons
           name="cloud-download-outline"
           size={iconSize.xl}
@@ -366,7 +382,12 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   // dressed up as a failed one.
   if (!snapshotFailed && isOnline) {
     return (
-      <View style={[styles.placeholder, { height, backgroundColor: activityColor + '10' }]}>
+      <View
+        style={[
+          styles.placeholder,
+          { height, backgroundColor: colorWithOpacity(activityColor, opacity.tint1) },
+        ]}
+      >
         <ActivityIndicator size="small" color={activityColor} />
       </View>
     );
@@ -377,7 +398,12 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   // track to draw, so it takes the settled mark for that rather than a spinner
   // nothing will ever resolve.
   return (
-    <View style={[styles.placeholder, { height, backgroundColor: activityColor + '20' }]}>
+    <View
+      style={[
+        styles.placeholder,
+        { height, backgroundColor: colorWithOpacity(activityColor, opacity.tint2) },
+      ]}
+    >
       <MaterialCommunityIcons name="map-marker-off" size={iconSize.xl} color={activityColor} />
     </View>
   );
@@ -392,12 +418,12 @@ const styles = StyleSheet.create({
   },
   compassOverlay: {
     position: 'absolute',
-    bottom: 68,
-    right: 10,
-    backgroundColor: colorWithOpacity(ink.black, 0.45),
+    bottom: CARD_FOOTER_CLEARANCE,
+    right: spacing.smPlus,
+    backgroundColor: colorWithOpacity(ink.black, opacity.dim),
     borderRadius: layout.borderRadiusFull,
-    width: 24,
-    height: 24,
+    width: spacing.lg,
+    height: spacing.lg,
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -31,7 +31,7 @@ export function YAxisLabels({ ticks, domain, padding, testID }: YAxisLabelsProps
     setHeight((prev) => (prev === next ? prev : next));
   }, []);
 
-  const labelStyle = [chartStyles.axisLabel, isDark && chartStyles.axisLabelDark];
+  const labelStyle = [chartStyles.chartLabel, isDark && chartStyles.chartLabelDark];
   const tops =
     height > 0
       ? axisLabelTops(

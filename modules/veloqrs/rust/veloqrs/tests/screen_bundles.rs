@@ -1474,14 +1474,23 @@ fn route_performance_carries_the_efficiency_trend_of_its_counted_attempts() {
     // Heart rate and pace both fell, so a given speed cost less.
     assert!(trend.trend_slope < 0.0);
 
-    // A range filters the chart, not the trend.
+    // A range filters the trend as it filters the chart: 35 days hold the
+    // three newest counted rides, and a week holds none.
     let ranged = s
         .engine
-        .route_detail_performance("loop", 7, Some("Ride"), None);
+        .route_detail_performance("loop", 35, Some("Ride"), None);
+    let ranged_trend = ranged
+        .efficiency_trend
+        .expect("three counted Ride attempts in range");
+    assert_eq!(ranged_trend.effort_count, 3);
     assert_eq!(
-        format!("{:?}", ranged.efficiency_trend),
-        format!("{:?}", Some(&trend))
+        format!("{:?}", ranged_trend.points),
+        format!("{:?}", &trend.points[1..])
     );
+    let week = s
+        .engine
+        .route_detail_performance("loop", 7, Some("Ride"), None);
+    assert!(week.efficiency_trend.is_none());
 
     // Two Run attempts are too few to call a trend.
     let run = s

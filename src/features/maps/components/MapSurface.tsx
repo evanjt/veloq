@@ -82,6 +82,7 @@ import type { WebViewStyleOptions } from '@/features/maps/lib/htmlBuilders/style
 import type { MapStyleType } from './mapStyles';
 import {} from '@/features/maps/lib/terrainSnapshotEvents';
 import { useReduceMotion } from '@/shared/ui/reduceMotion';
+import { MapWebViewHost } from './MapWebViewHost';
 
 const log = debug.create('MapSurface');
 
@@ -170,6 +171,8 @@ export interface MapSurfaceProps {
   onRegionIsChanging?: ((state: MapCameraState, isUserInteraction: boolean) => void) | undefined;
   onRegionDidChange?: ((state: MapCameraState, isUserInteraction: boolean) => void) | undefined;
   onBearingChange?: ((bearing: number) => void) | undefined;
+  /** What the map shows, for a screen reader. Omitted, the map is hidden from it. */
+  accessibilityLabel?: string | undefined;
   testID?: string | undefined;
 }
 
@@ -217,6 +220,7 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     onRegionIsChanging,
     onRegionDidChange,
     onBearingChange,
+    accessibilityLabel,
     testID = MAP_SURFACE_TEST_ID,
   },
   ref
@@ -570,32 +574,34 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
     <ComponentErrorBoundary part="map" debugName="Map">
       <View style={styles.container} accessibilityIgnoresInvertColors>
         {!lost && (
-          <WebView
-            key={viewKey}
-            ref={webViewRef}
-            testID={testID}
-            source={{ html, baseUrl: mapPageBaseUrl() }}
-            style={styles.webview}
-            scrollEnabled={false}
-            bounces={false}
-            overScrollMode="never"
-            nestedScrollEnabled
-            javaScriptEnabled
-            domStorageEnabled
-            startInLoadingState={false}
-            showsVerticalScrollIndicator={false}
-            showsHorizontalScrollIndicator={false}
-            originWhitelist={['*']}
-            mixedContentMode="always"
-            nativeConfig={veloqWebViewNativeConfig}
-            onMessage={handleMessage}
-            onContentProcessDidTerminate={onRendererGone}
-            onRenderProcessGone={onRendererGone}
-            onError={(event) =>
-              reportFailure(event.nativeEvent?.description ?? 'webview load error')
-            }
-            onHttpError={(event) => reportFailure(`HTTP ${event.nativeEvent?.statusCode ?? '?'}`)}
-          />
+          <MapWebViewHost style={styles.webview} accessibilityLabel={accessibilityLabel}>
+            <WebView
+              key={viewKey}
+              ref={webViewRef}
+              testID={testID}
+              source={{ html, baseUrl: mapPageBaseUrl() }}
+              style={styles.webview}
+              scrollEnabled={false}
+              bounces={false}
+              overScrollMode="never"
+              nestedScrollEnabled
+              javaScriptEnabled
+              domStorageEnabled
+              startInLoadingState={false}
+              showsVerticalScrollIndicator={false}
+              showsHorizontalScrollIndicator={false}
+              originWhitelist={['*']}
+              mixedContentMode="always"
+              nativeConfig={veloqWebViewNativeConfig}
+              onMessage={handleMessage}
+              onContentProcessDidTerminate={onRendererGone}
+              onRenderProcessGone={onRendererGone}
+              onError={(event) =>
+                reportFailure(event.nativeEvent?.description ?? 'webview load error')
+              }
+              onHttpError={(event) => reportFailure(`HTTP ${event.nativeEvent?.statusCode ?? '?'}`)}
+            />
+          </MapWebViewHost>
         )}
         {tilesLoading && !unavailable ? (
           <View

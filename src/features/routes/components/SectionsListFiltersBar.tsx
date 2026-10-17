@@ -5,6 +5,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import {
+  colorWithOpacity,
+  opacity,
   colors,
   darkColors,
   iconSize,
@@ -26,7 +28,7 @@ const chipHitSlop = slopToMinTapTarget(CHIP_HEIGHT);
 const activeChipStyles = (palette: Palette) =>
   StyleSheet.create({
     chip: {
-      backgroundColor: palette.primary + '15',
+      backgroundColor: colorWithOpacity(palette.primary, opacity.tint1),
       borderColor: palette.primary,
     },
   });

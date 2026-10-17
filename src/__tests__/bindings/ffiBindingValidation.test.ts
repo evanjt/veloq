@@ -133,8 +133,7 @@ describe('FFI Binding Validation', () => {
       // elevation pass nothing starts this at launch and the stop is the
       // control that matters.
       expect(names.has('stop_stream_backfill')).toBe(true);
-      expect(names.has('is_cutover_pending')).toBe(true);
-      expect(names.has('is_cutover_running')).toBe(true);
+      expect(names.has('is_cutover_held')).toBe(true);
       expect(names.has('start_detector_cutover')).toBe(true);
       // A cut that could not be stopped left a force-quit as the only lever,
       // and the in-flight token undid that on the next launch. This is the

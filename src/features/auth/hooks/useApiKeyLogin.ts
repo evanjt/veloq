@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { CallKind, validateCredentials } from 'veloqrs';
 
-import { replaceTo } from '@/shared/app/navigation';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
 import { resolveLoginLibrary } from '@/features/auth/lib/loginLibrary';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
@@ -84,7 +83,7 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
         resetSyncDateRange();
         await setCredentials(apiKey.trim(), incomingId);
         await clearPendingApiKey();
-        replaceTo('/');
+        // The root layout takes the athlete in once the library's identity is settled.
         return 'signedIn';
       } catch {
         setError(t('login.connectionFailed'));

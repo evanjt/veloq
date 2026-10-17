@@ -54,7 +54,7 @@ import {
 } from '../lib/heatmapGrid';
 import { CardHeader } from '@/shared/ui/CardHeader';
 import { EmptyState } from '@/shared/ui/EmptyState';
-import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
+import { DENSE_TEXT_SCALE, denseExtent } from '@/shared/ui/DenseText';
 
 interface ActivityHeatmapProps {
   /**
@@ -96,8 +96,8 @@ const NAMED_ROWS = new Set([0, 2, 4]);
 const CELL_SIZE = HEATMAP_CELL_SIZE;
 const GRID_WIDTH = HEATMAP_WEEKS * HEATMAP_PITCH;
 const GRID_HEIGHT = 7 * HEATMAP_PITCH;
-/** The fixed column left of the scroll view, wide enough for a four digit year. */
-const GUTTER_WIDTH = spacing.lg;
+/** The fixed column left of the scroll view, wide enough for a four digit year at the cap. */
+const GUTTER_WIDTH = denseExtent(typography.captionBold.fontSize, 2.6);
 const GUTTER_MARGIN = spacing.xs;
 
 /** A weekday's short name in the app language, Monday 0. */
@@ -504,8 +504,9 @@ const styles = StyleSheet.create({
   textDark: {
     color: darkColors.textSecondary,
   },
+  // A month name with the year above it at January.
   monthLabels: {
-    height: spacing.lg + spacing.xs,
+    height: 2 * typography.caption.lineHeight,
     position: 'relative',
     marginBottom: spacing.xs,
   },
@@ -514,13 +515,12 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   yearLabel: {
-    fontSize: typography.pillLabel.fontSize,
-    fontWeight: '600',
+    ...typography.captionBold,
+    fontVariant: ['tabular-nums'],
     color: colors.textPrimary,
-    marginBottom: spacing.xxs,
   },
   monthLabel: {
-    fontSize: typography.pillLabel.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   monthLabelAbsolute: {
@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   dayLabel: {
-    fontSize: typography.pillLabel.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
     textAlign: 'right',
     lineHeight: HEATMAP_PITCH,
@@ -543,8 +543,7 @@ const styles = StyleSheet.create({
     rowGap: spacing.xs,
   },
   legendTitle: {
-    fontSize: typography.pillLabel.fontSize,
-    fontWeight: typography.pillLabel.fontWeight,
+    ...typography.captionBold,
     color: colors.textSecondary,
   },
   legendBin: {
@@ -553,7 +552,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   legendLabel: {
-    fontSize: typography.pillLabel.fontSize,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   dayControl: {

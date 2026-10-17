@@ -67,6 +67,7 @@ export type ChartGesture = GestureType | ComposedGesture;
 export interface ChartAccessibilityProps {
   accessible?: boolean;
   accessibilityRole?: 'adjustable';
+  accessibilityLabel?: string;
   accessibilityValue?: AccessibilityValue;
   accessibilityActions?: AccessibilityActionInfo[];
   onAccessibilityAction?: (event: AccessibilityActionEvent) => void;
@@ -78,6 +79,12 @@ const PAGE_FRACTION = 0.1;
 export interface ChartGestureOptions<T> {
   /** Chart data points, index-aligned with the coords given to `syncXCoords`. */
   data: T[];
+
+  /**
+   * The surface's name, the chart's title as its card heads it. The selected
+   * point is the value, so a screen reader reads the name, the role, then the point.
+   */
+  accessibilityLabel: string;
 
   /** Called when a point is selected, by scrub or by tap. */
   onSelect?: ((point: T, index: number) => void) | undefined;
@@ -169,7 +176,7 @@ export interface ChartGestureResult<T> {
    */
   syncXCoords: <P>(points: readonly P[], getX: (point: P) => number) => void;
 
-  /** The adjustable role, the selected point's value text and the step actions. */
+  /** The adjustable role, the chart's name, the selected point's value text and the step actions. */
   accessibilityProps: ChartAccessibilityProps;
 }
 
@@ -180,6 +187,7 @@ export interface ChartGestureResult<T> {
 export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestureResult<T> {
   const {
     data,
+    accessibilityLabel,
     onSelect,
     onInteractionChange,
     enabled = true,
@@ -427,6 +435,7 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
     return {
       accessible: true,
       accessibilityRole: 'adjustable',
+      accessibilityLabel,
       ...(valueText !== undefined ? { accessibilityValue: { text: valueText } } : {}),
       accessibilityActions: [
         { name: 'increment' },
@@ -439,7 +448,7 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
         if (delta !== undefined) stepBy(delta);
       },
     };
-  }, [steppable, data.length, valueText, pageLabels, stepBy]);
+  }, [steppable, data.length, accessibilityLabel, valueText, pageLabels, stepBy]);
 
   // Priority: the finger, then a sibling chart, then a step, then whatever the screen set.
   const crosshairStyle = useAnimatedStyle(() => {

@@ -132,9 +132,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusFull,
   },
   elapsed: {
-    fontSize: typography.bodyMedium.fontSize,
-    fontWeight: '700',
-    fontVariant: ['tabular-nums'],
+    ...typography.pillValue,
   },
   label: {
     ...typography.bodyCompactBold,

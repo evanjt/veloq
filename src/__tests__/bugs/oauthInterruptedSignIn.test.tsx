@@ -4,7 +4,8 @@
  * from the redirect, and nothing in it is waiting for the browser.
  *
  * Expected behaviour: the sign-in screen completes the flow from the keychain,
- * showing progress while the code is redeemed, and lands on the Feed. With
+ * showing progress while the code is redeemed, and signs the athlete in, which
+ * is what the root layout takes onto the Feed. With
  * nothing stored it says the sign-in was interrupted rather than nothing.
  */
 import { act, renderHook, waitFor } from '@testing-library/react-native';
@@ -12,7 +13,6 @@ import * as WebBrowser from 'expo-web-browser';
 
 import { useOAuthLogin } from '@/features/auth/hooks/useOAuthLogin';
 import { holdInterruptedCallback } from '@/features/auth/lib/oauth';
-import { replaceTo } from '@/shared/app/navigation';
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('expo-web-browser', () => ({
@@ -48,7 +48,6 @@ jest.mock('@tanstack/react-query', () => ({
   ...jest.requireActual('@tanstack/react-query'),
   useQueryClient: () => ({}),
 }));
-jest.mock('@/shared/app/navigation', () => ({ replaceTo: jest.fn() }));
 jest.mock('@/shared/app/SyncDateRangeStore', () => ({
   useSyncDateRange: () => jest.fn(),
 }));
@@ -126,7 +125,7 @@ afterAll(() => {
   global.fetch = originalFetch;
 });
 
-it('completes a flow the killed process started, showing progress, and lands on the Feed', async () => {
+it('completes a flow the killed process started, showing progress, and signs the athlete in', async () => {
   const state = await startInDyingProcess();
   const answer = redemptionHeld();
   holdInterruptedCallback(`veloq://oauth/callback?success=true&code=onetime&state=${state}`);
@@ -134,13 +133,12 @@ it('completes a flow the killed process started, showing progress, and lands on 
   const { result } = await renderHook(() => useOAuthLogin({ setError }));
 
   await waitFor(() => expect(result.current.isLoading).toBe(true));
-  expect(replaceTo).not.toHaveBeenCalled();
+  expect(mockSetOAuthCredentials).not.toHaveBeenCalled();
 
   await act(async () => answer());
 
   await waitFor(() => expect(result.current.isLoading).toBe(false));
   expect(mockSetOAuthCredentials).toHaveBeenCalledWith('resumed-token', 'i7', 'Ana');
-  expect(replaceTo).toHaveBeenCalledWith('/');
   expect(shown()).toBeNull();
   expect(mockKeychain.size).toBe(0);
 });
@@ -157,8 +155,7 @@ it('completes a redirect held after the sign-in screen is already showing', asyn
     holdInterruptedCallback(`veloq://oauth/callback?success=true&code=onetime&state=${state}`);
   });
 
-  await waitFor(() => expect(replaceTo).toHaveBeenCalledWith('/'));
-  expect(mockSetOAuthCredentials).toHaveBeenCalledWith('late-token', 'i7', '');
+  await waitFor(() => expect(mockSetOAuthCredentials).toHaveBeenCalledWith('late-token', 'i7', ''));
   expect(result.current.isLoading).toBe(false);
 });
 
@@ -171,7 +168,6 @@ it('says the sign-in was interrupted when nothing is stored', async () => {
   expect(result.current.isLoading).toBe(false);
   expect(global.fetch).not.toHaveBeenCalled();
   expect(mockSetOAuthCredentials).not.toHaveBeenCalled();
-  expect(replaceTo).not.toHaveBeenCalled();
 });
 
 it('completes a held redirect once, not again on a second sign-in screen', async () => {
@@ -183,7 +179,7 @@ it('completes a held redirect once, not again on a second sign-in screen', async
   holdInterruptedCallback(`veloq://oauth/callback?success=true&code=onetime&state=${state}`);
 
   await renderHook(() => useOAuthLogin({ setError }));
-  await waitFor(() => expect(replaceTo).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(mockSetOAuthCredentials).toHaveBeenCalledTimes(1));
   await renderHook(() => useOAuthLogin({ setError }));
   await act(async () => {});
 

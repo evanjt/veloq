@@ -157,10 +157,13 @@ struct LatestActivityView: View {
     VStack(alignment: .leading, spacing: 2) {
       if let name = content.name {
         HStack(spacing: 4) {
+          // The name is text, so it is primary text; the sport is said by the key dot beside it.
+          Circle().fill(tint).frame(width: 6, height: 6)
+            .unspoken()
           Text(name)
             .measuredText("activity name")
             .widgetProseFont(.label, weight: .semibold, shrinks: fitted)
-            .foregroundColor(tint)
+            .foregroundColor(palette.textPrimary)
             // A name the column keeps takes every line it wraps to, as the lines under it do.
             .fixedSize(horizontal: false, vertical: !fitted)
           if latest.isPr == true {
@@ -187,7 +190,7 @@ struct LatestActivityView: View {
         captionLine("detail", detail, palette, prose: true, fitted: fitted)
       }
       if !content.dots.isEmpty {
-        AttemptDotsView(dots: content.dots, tint: tint, palette: palette)
+        AttemptDotsView(dots: content.dots, palette: palette)
           .unspoken()
           .padding(.top, 2)
       }
@@ -280,15 +283,15 @@ struct LatestActivityView: View {
   }
 }
 
-/// Every attempt at the route as a dot, oldest first. An earlier attempt is a small dot, the record
-/// a gold one and the latest the full size in the activity's colour, ringed when it is also the
-/// record. The row shrinks until all of them fit the width.
+/// Every attempt at the route as a dot, oldest first, each as `LastActivityDotMark` decides: an
+/// earlier attempt is a small dot, the record a gold one, and this activity the reticle, four short
+/// ticks in primary text round its dot, drawn at the row's height. No mark takes the sport's
+/// colour. The row shrinks until all of them fit the width.
 ///
-/// The record takes the widget's accent while the other dots stay default, and the ring stands
-/// clear of the dot it rings, so it still reads where both are drawn in one colour.
+/// The record takes the widget's accent while the other dots stay default, and the reticle is a
+/// shape, so both still read where everything is drawn in one colour.
 struct AttemptDotsView: View {
   let dots: [LastActivityDot]
-  let tint: Color
   let palette: WidgetPalette
 
   private let rowHeight: CGFloat = 10
@@ -300,7 +303,7 @@ struct AttemptDotsView: View {
       let full = min(rowHeight, proxy.size.width / (count + (count - 1) * gapRatio))
       HStack(spacing: full * gapRatio) {
         ForEach(0..<dots.count, id: \.self) { index in
-          dot(dots[index], full: full)
+          dot(dots[index].mark, full: full)
         }
       }
       .frame(maxWidth: .infinity, alignment: .leading)
@@ -309,21 +312,40 @@ struct AttemptDotsView: View {
   }
 
   @ViewBuilder
-  private func dot(_ dot: LastActivityDot, full: CGFloat) -> some View {
-    let diameter = dot.current || dot.record ? full : full * 0.7
-    Group {
-      if dot.current && dot.record {
-        ZStack {
-          Circle().strokeBorder(tint, lineWidth: full * 0.15)
-          Circle().fill(palette.gold).padding(full * 0.3)
-        }
-      } else {
-        Circle().fill(dot.record ? palette.gold : dot.current ? tint : palette.textSecondary)
+  private func dot(_ mark: LastActivityDotMark, full: CGFloat) -> some View {
+    // Inside the reticle the dot gives the ticks the outer part of the cell.
+    let diameter = mark.reticle ? full * 0.4 : mark.full ? full : full * 0.7
+    ZStack {
+      Circle()
+        .fill(mark.fill == .record ? palette.gold : palette.textSecondary)
+        .frame(width: diameter, height: diameter)
+        .widgetAccentable(mark.fill == .record)
+      if mark.reticle {
+        Reticle(inner: 0.32, lineWidth: full * 0.12)
+          .stroke(palette.textPrimary, style: StrokeStyle(lineWidth: full * 0.12, lineCap: .round))
       }
     }
-    .widgetAccentable(dot.record)
-    .frame(width: diameter, height: diameter)
     .frame(width: full, height: full)
+  }
+}
+
+/// Four short ticks round the centre of the rect, from `inner` of its side out to its edge, which a
+/// round cap of `lineWidth` just reaches: the mark for this activity.
+struct Reticle: Shape {
+  let inner: CGFloat
+  let lineWidth: CGFloat
+
+  func path(in rect: CGRect) -> Path {
+    let c = CGPoint(x: rect.midX, y: rect.midY)
+    let side = min(rect.width, rect.height)
+    let outer = side / 2 - lineWidth / 2
+    let from = side * inner
+    var path = Path()
+    for (dx, dy) in [(0.0, -1.0), (0.0, 1.0), (-1.0, 0.0), (1.0, 0.0)] {
+      path.move(to: CGPoint(x: c.x + dx * from, y: c.y + dy * from))
+      path.addLine(to: CGPoint(x: c.x + dx * outer, y: c.y + dy * outer))
+    }
+    return path
   }
 }
 

@@ -212,8 +212,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   progressTitle: {
-    fontSize: typography.bodyMedium.fontSize,
-    fontWeight: '600',
+    ...typography.bodyBold,
     color: colors.textPrimary,
   },
   progressTitleDark: {
@@ -243,8 +242,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   trendText: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '700',
+    ...typography.badge,
     color: colors.textPrimary,
   },
   statsRow: {

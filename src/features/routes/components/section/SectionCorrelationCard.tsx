@@ -169,11 +169,9 @@ export function SectionCorrelationCard({
       variant="flat"
       testID="section-correlation-card"
       accessibilityRole="summary"
+      title={t('sections.correlationTitle')}
       style={{ gap: spacing.xs }}
     >
-      <Text accessibilityRole="header" style={[styles.heading, isDark && styles.headingDark]}>
-        {t('sections.correlationTitle')}
-      </Text>
       <Text style={mutedStyle}>{t('sections.correlationMethod')}</Text>
       <View style={styles.switchRow}>
         <Text style={mutedStyle}>{t('sections.correlationShowRaw')}</Text>
@@ -209,13 +207,6 @@ export function SectionCorrelationCard({
 }
 
 const styles = StyleSheet.create({
-  heading: {
-    ...typography.cardTitle,
-    color: colors.textPrimary,
-  },
-  headingDark: {
-    color: darkColors.textPrimary,
-  },
   rowGroup: {
     gap: spacing.xxs,
   },

@@ -61,6 +61,8 @@ function screenRead(
       swims: 6,
       dominant: 'dominant' in over ? over.dominant : 'Running',
     },
+    fitnessDays: 28,
+    fatigueDays: 5,
   };
 }
 
@@ -101,6 +103,37 @@ describe('the fitness screen read', () => {
     expect(engine.getFitnessScreenData).toHaveBeenCalledTimes(1);
     expect(engine.getFtpTrend).not.toHaveBeenCalled();
     expect(engine.getSummaryCardData).not.toHaveBeenCalled();
+  });
+
+  it('carries the fitness and fatigue days the engine read gives', async () => {
+    const { result } = await renderHook(useFitnessScreenRead);
+
+    expect(result.current.fitnessDays).toBe(28);
+    expect(result.current.fatigueDays).toBe(5);
+  });
+
+  it('gives no days when the read is refused', async () => {
+    engine.getFitnessScreenData.mockImplementation(() => {
+      throw new Error('engine closed');
+    });
+
+    const { result } = await renderHook(useFitnessScreenRead);
+
+    expect(result.current.fitnessDays).toBeNull();
+    expect(result.current.fatigueDays).toBeNull();
+  });
+
+  it('gives no days for the zero a closed handle stands in with', async () => {
+    engine.getFitnessScreenData.mockImplementation(() => ({
+      ...screenRead(),
+      fitnessDays: 0,
+      fatigueDays: 0,
+    }));
+
+    const { result } = await renderHook(useFitnessScreenRead);
+
+    expect(result.current.fitnessDays).toBeNull();
+    expect(result.current.fatigueDays).toBeNull();
   });
 
   it('names no library sport when the read finds no single dominant one', async () => {

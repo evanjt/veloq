@@ -19,6 +19,7 @@ import {
   typography,
   stroke,
   themePalette,
+  opacity,
 } from '@/theme';
 import type { DataFieldType } from '@/types';
 import { tapBack } from '@/shared/app/navigation';
@@ -68,7 +69,7 @@ function FieldPickerSheetContent() {
               style={pressable([
                 styles.row,
                 { borderBottomColor: border },
-                isSelected && { backgroundColor: colorWithOpacity(palette.primary, 0.08) },
+                isSelected && { backgroundColor: colorWithOpacity(palette.primary, opacity.tint1) },
               ])}
               android_ripple={pressRipple}
               onPress={() => resolve(item)}

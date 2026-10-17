@@ -4,7 +4,8 @@
  * beside fitness and fatigue, for the newest day or the pinned one.
  *
  * Expected behaviour: form reads rounded fitness minus rounded fatigue, or its
- * percentage of fitness under that preference, tinted by its zone; the ramp is
+ * percentage of fitness under that preference, in text colour with its zone's
+ * swatch beside it; the ramp is
  * the displayed day's own, signed per week, and absent when that day logs none.
  */
 
@@ -14,7 +15,8 @@ import { render } from '@testing-library/react-native';
 import type { ReactTestInstance } from 'react-test-renderer';
 
 import { FitnessChart } from '@/features/fitness/components/FitnessChart';
-import { formZoneTextColor } from '@/features/fitness/lib';
+import { FORM_ZONE_MARK_COLORS } from '@/features/fitness/lib';
+import { colors } from '@/theme';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import type { WellnessData } from '@/types';
 import { ABSENT } from '@/shared/format/absent';
@@ -33,6 +35,10 @@ function colourOf(node: ReactTestInstance) {
   return StyleSheet.flatten(node.props.style).color;
 }
 
+function fillOf(node: ReactTestInstance) {
+  return StyleSheet.flatten(node.props.style).backgroundColor;
+}
+
 describe('the fitness chart corner', () => {
   it("reads the newest day's form and ramp with nothing pinned", async () => {
     const tree = await render(<FitnessChart data={DAYS} />);
@@ -48,12 +54,11 @@ describe('the fitness chart corner', () => {
     expect(tree.getByTestId('fitness-ramp-value')).toHaveTextContent('-1.3', { exact: true });
   });
 
-  it('tints form by its zone', async () => {
+  it('keys form to its zone by a swatch, with the number in text colour', async () => {
     const tree = await render(<FitnessChart data={DAYS} selectedDate="2026-04-01" />);
 
-    expect(colourOf(tree.getByTestId('fitness-form-value'))).toBe(
-      formZoneTextColor('greyZone', false)
-    );
+    expect(colourOf(tree.getByTestId('fitness-form-value'))).toBe(colors.textPrimary);
+    expect(fillOf(tree.getByTestId('fitness-form-key'))).toBe(FORM_ZONE_MARK_COLORS.greyZone);
   });
 
   it('prints form as a percentage of fitness under that preference', async () => {
@@ -61,9 +66,7 @@ describe('the fitness chart corner', () => {
     const tree = await render(<FitnessChart data={DAYS} selectedDate="2026-04-01" />);
 
     expect(tree.getByTestId('fitness-form-value')).toHaveTextContent('-20%', { exact: true });
-    expect(colourOf(tree.getByTestId('fitness-form-value'))).toBe(
-      formZoneTextColor('optimal', false)
-    );
+    expect(fillOf(tree.getByTestId('fitness-form-key'))).toBe(FORM_ZONE_MARK_COLORS.optimal);
   });
 
   it('shows no ramp on a day that logs none', async () => {
@@ -77,6 +80,7 @@ describe('the fitness chart corner', () => {
     const tree = await render(<FitnessChart data={DAYS} selectedDate="2026-04-03" />);
 
     expect(tree.getByTestId('fitness-form-value')).toHaveTextContent(ABSENT, { exact: true });
+    expect(tree.queryByTestId('fitness-form-key')).toBeNull();
     expect(tree.queryByTestId('fitness-ramp-value')).toBeNull();
   });
 

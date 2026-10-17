@@ -32,6 +32,7 @@ import { useBackDismiss } from '@/shared/app/useBackDismiss';
 import { MapKeyRamp, MapKeySwatch } from '../MapKey';
 import { ACTIVITY_CATEGORIES, type SportFamily } from '../../lib/activityCategories';
 import { RECENCY_FADE } from './regionalMapLayerSpecs';
+import { FIT_GLYPH, LOCATE_GLYPH } from '@/features/maps/lib/mapGlyphs';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -285,7 +286,7 @@ export function MapControlStack({
             <ActivityIndicator size="small" color={iconColor} />
           ) : (
             <MaterialCommunityIcons
-              name="crosshairs-gps"
+              name={LOCATE_GLYPH}
               size={iconSize.md}
               color={userLocationActive ? colors.textOnPrimary : iconColor}
             />
@@ -399,7 +400,7 @@ export function MapControlStack({
               </View>
               <MenuRow
                 testID="map-fit-all"
-                icon="fit-to-screen-outline"
+                icon={FIT_GLYPH}
                 label={t('maps.fitAll')}
                 isDark={isDark}
                 onPress={closing(onFitAll)}

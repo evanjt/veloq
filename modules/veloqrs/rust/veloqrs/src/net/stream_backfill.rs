@@ -434,9 +434,8 @@ pub fn consent_stream_backfill() -> FfiStartOutcome {
     let elevation_owed = crate::objects::error::with_reader(
         crate::net::elevation_backfill::pooled_elevation_backfill_remaining,
     );
-    let busy = matches!(elevation_owed, Ok(Ok(n)) if n > 0)
-        || crate::persistence::cutover::cutover_pending()
-        || crate::persistence::cutover::cutover_running();
+    let busy =
+        matches!(elevation_owed, Ok(Ok(n)) if n > 0) || crate::persistence::cutover::cutover_held();
     if busy && !BACKFILL.running.load(Ordering::SeqCst) {
         if stream_backfill_progress().phase == STREAM_PHASE_AWAITING_CONSENT {
             set_phase(STREAM_PHASE_IDLE);

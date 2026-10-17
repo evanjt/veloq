@@ -55,13 +55,15 @@ export const OFFLINE_BANNER_DELAY_MS = 2500;
  * The network lifecycle is Rust's, and nothing in the crate can see the
  * network, so this is its only input. It rides the debounced edge below
  * rather than the raw one, so the app runs one debounce rather than two.
+ * `foregrounded` marks the push made as the app returns from the background,
+ * which is the engine's only lifecycle input: what a return starts is Rust's.
  *
  * A push that cannot land is not worth failing over: the provider mounts
  * before `initWithPath`, the value is advisory in Rust, and it expires there,
  * so a dropped push costs a deferred pass at worst.
  */
-function pushToEngine(online: boolean): void {
-  connectivity.setNetworkOnline(online);
+function pushToEngine(online: boolean, foregrounded = false): void {
+  connectivity.setNetworkOnline(online, foregrounded);
 }
 
 export function NetworkProvider({ children }: { children: ReactNode }) {
@@ -198,8 +200,8 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
   });
   const applyRef = useRef<(state: Network.NetworkState) => void>(() => {});
   useEffect(() => {
-    const restate = () => {
-      pushToEngine(onlineRef.current);
+    const restate = (foregrounded: boolean) => {
+      pushToEngine(onlineRef.current, foregrounded);
       Network.getNetworkStateAsync()
         .then((state) => applyRef.current(state))
         .catch(() => {
@@ -214,7 +216,7 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
     // while it is active, and never while it is not.
     let interval: ReturnType<typeof setInterval> | null = null;
     const startClock = () => {
-      if (interval === null) interval = setInterval(restate, FOREGROUND_REREAD_MS);
+      if (interval === null) interval = setInterval(() => restate(false), FOREGROUND_REREAD_MS);
     };
     const stopClock = () => {
       if (interval !== null) clearInterval(interval);
@@ -222,12 +224,19 @@ export function NetworkProvider({ children }: { children: ReactNode }) {
     };
     if (AppState.currentState === 'active') startClock();
 
+    // The push on a return from the background tells Rust it is one, and Rust
+    // decides what a return starts. iOS passes through `inactive` for a
+    // notification shade or a control centre pull, so only a `background`
+    // since the last `active` makes the next one a return.
+    let wasBackgrounded = false;
     const subscription = AppState.addEventListener('change', (status) => {
       if (status !== 'active') {
+        if (status === 'background') wasBackgrounded = true;
         stopClock();
         return;
       }
-      restate();
+      restate(wasBackgrounded);
+      wasBackgrounded = false;
       startClock();
     });
     return () => {

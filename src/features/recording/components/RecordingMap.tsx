@@ -39,6 +39,7 @@ import {
   stroke,
 } from '@/theme';
 import type { LatLngShort } from '@/shared/geo/distance';
+import { LOCATE_GLYPH } from '@/features/maps';
 
 const EXCLUDED_COLOR = colorWithOpacity(colors.neutralLine, opacity.disabled);
 const POSITION_DOT_COLOR = colors.secondary;
@@ -390,7 +391,7 @@ function RecordingMapInner({
               android_ripple={pressRipple}
             >
               <MaterialCommunityIcons
-                name="crosshairs-gps"
+                name={LOCATE_GLYPH}
                 size={iconSize.md}
                 color={darkColors.textPrimary}
               />

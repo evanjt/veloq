@@ -135,9 +135,7 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.background,
   },
   title: {
-    ...typography.body,
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
+    ...typography.cardTitle,
     marginTop: spacing.md,
     textAlign: 'center',
   },

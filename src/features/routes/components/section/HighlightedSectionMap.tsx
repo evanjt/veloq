@@ -4,7 +4,7 @@ import { useMapHighlight, type MapHighlightStore } from '@/features/routes/lib/m
 
 type MapProps = Omit<
   ComponentProps<typeof SectionMapView>,
-  'highlightedActivityId' | 'highlightedLapPoints'
+  'highlightedActivityId' | 'highlightedLapPoints' | 'highlightedActivityDate'
 >;
 
 interface HighlightedSectionMapProps extends MapProps {
@@ -17,12 +17,13 @@ interface HighlightedSectionMapProps extends MapProps {
  * map under it, and nothing above.
  */
 export function HighlightedSectionMap({ highlight, ...mapProps }: HighlightedSectionMapProps) {
-  const { activityId, lapPoints } = useMapHighlight(highlight);
+  const { activityId, lapPoints, date } = useMapHighlight(highlight);
   return (
     <SectionMapView
       {...mapProps}
       highlightedActivityId={activityId}
       highlightedLapPoints={lapPoints}
+      highlightedActivityDate={date}
     />
   );
 }

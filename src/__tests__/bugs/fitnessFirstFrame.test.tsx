@@ -36,7 +36,6 @@ jest.mock('@/shared/ui', () => {
     useScrollEndInset: () => 0,
     ChartSkeleton: View,
     ErrorState: View,
-    ExplanationCard: View,
   };
 });
 jest.mock('@/shared/ui/withScreenBoundary', () => ({
@@ -64,6 +63,7 @@ jest.mock('@/features/fitness', () => {
     FitnessChartCard: () => <View testID="fitness-chart-canvas" />,
     PerformanceCurveSection: () => <View testID="performance-curves" />,
     FitnessTrendSections: () => <View testID="fitness-trends" />,
+    FitnessDefinitionsCard: View,
     TimeRangeSelector: () => <View testID="time-range" />,
     SportToggleSelector: () => <View testID="sport-toggle" />,
     BestEffortsHeaderButton: () => null,

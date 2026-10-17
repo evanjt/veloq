@@ -455,8 +455,7 @@ const styles = StyleSheet.create({
     gap: spacing.xxs,
   },
   countText: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '700',
+    ...typography.bodyCompactBold,
     color: colors.textOnPrimary,
   },
   textLight: {
@@ -489,11 +488,10 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusXs,
   },
   customTagDark: {
-    backgroundColor: colorWithOpacity(darkColors.chartPurple, 0.15),
+    backgroundColor: colorWithOpacity(darkColors.chartPurple, opacity.tint2),
   },
   customTagText: {
-    fontSize: typography.micro.fontSize,
-    fontWeight: '600',
+    ...typography.badge,
     color: colors.chartPurpleText,
   },
   customTagTextDark: {
@@ -509,11 +507,10 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusXs,
   },
   disabledTagDark: {
-    backgroundColor: colorWithOpacity(darkColors.amberIcon, 0.15),
+    backgroundColor: colorWithOpacity(darkColors.amberIcon, opacity.tint2),
   },
   disabledTagText: {
-    fontSize: typography.micro.fontSize,
-    fontWeight: '600',
+    ...typography.badge,
     color: colors.amberIcon,
   },
   disabledTagTextDark: {

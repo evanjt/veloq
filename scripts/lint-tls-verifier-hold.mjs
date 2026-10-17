@@ -9,10 +9,10 @@
 // Without them the crate compiles for every target and every HTTPS request the
 // engine makes fails on the handset: sync, map tiles and geocoding alike.
 //
-// Dependabot reads 0.12 to 0.13 as a minor step and would put it in the grouped
-// cargo minor pull request, where the dropped `rustls-tls` feature fails the
-// build and holds back every other cargo update in the group. So the cargo entry
-// ignores reqwest's minor updates for as long as this hold stands.
+// Dependabot reads 0.12 to 0.13 as a minor step and would open it as a pull
+// request of its own, where the dropped `rustls-tls` feature fails the build
+// every month. So the cargo entry ignores reqwest's minor updates for as long as
+// this hold stands.
 //
 // When the Android verifier wiring lands, the hold is lifted here and in
 // `.github/dependabot.yml` together.
@@ -57,8 +57,8 @@ if (config === undefined) {
   if (problem !== null) {
     failures.push(
       `${DEPENDABOT}: ${problem}`,
-      `  Dependabot reads ${HELD} 0.12 to 0.13 as ${HELD_UPDATE} and groups it with every`,
-      '  other cargo minor bump, where the dropped `rustls-tls` feature fails the build.',
+      `  Dependabot reads ${HELD} 0.12 to 0.13 as ${HELD_UPDATE} and opens a pull request`,
+      '  for it, where the dropped `rustls-tls` feature fails the build.',
       `  Ignore it in the cargo entry: dependency-name "${HELD}", update-types ["${HELD_UPDATE}"].`
     );
   }

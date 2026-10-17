@@ -10,6 +10,7 @@
     android:padding="@dimen/widget_padding">
 
     <TextView
+      android:fontFamily="@font/widget_manrope"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
       android:paddingStart="@dimen/widget_padding"

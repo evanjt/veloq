@@ -162,9 +162,10 @@ for (const file of walk(SRC)) {
     // A map layer's line is drawn over tiles, not over an app surface, so the
     // surface bar does not describe it and its own item decides its colour.
     if (/'line-color'|'circle-color'|'fill-color'/.test(line)) return;
-    // A translucent border is decoration on a tinted card, not a mark: the
-    // text inside it is what has to be legible.
-    if (/colorWithOpacity\(|\+ '[0-9A-Fa-f]{2}'/.test(line)) return;
+    // A border washed at a tint step is decoration on a tinted card, not a
+    // mark: the text inside it is what has to be legible. Any other alpha is
+    // judged as a mark.
+    if (/colorWithOpacity\([^)]*opacity\.tint[1-4]\)/.test(line)) return;
     if (!PROP.test(line)) return;
     if (!/colors\.(success|warning)\b/.test(line)) return;
     if (

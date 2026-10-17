@@ -74,6 +74,33 @@ describe('the radius lint', () => {
     expect(lint(tokenSource)).not.toContain('Raw border radius');
   });
 
+  it('refuses a radius read from a layout member that is not a radius token', () => {
+    const paddingSource =
+      "import { layout } from '@/theme';\nexport const s = { card: { borderRadius: layout.cardPadding } };\n";
+    expect(lint(paddingSource)).toContain('Raw border radius');
+    const tapTargetSource =
+      "import { layout } from '@/theme';\nexport const s = { fab: { borderRadius: layout.minTapTarget / 2 } };\n";
+    expect(lint(tapTargetSource)).toContain('Raw border radius');
+    const cornerSource =
+      "import { layout } from '@/theme';\nexport const s = { sheet: { borderTopLeftRadius: layout.screenPadding } };\n";
+    expect(lint(cornerSource)).toContain('Raw border radius');
+    const tokenSource =
+      "import { layout } from '@/theme';\nexport const s = { fab: { borderRadius: layout.borderRadiusFull } };\n";
+    expect(lint(tokenSource)).not.toContain('Raw border radius');
+  });
+
+  it('refuses a radius computed as half a size, which is a pill', () => {
+    const halfSource =
+      'const TRACK = 6;\nexport const s = { track: { height: TRACK, borderRadius: TRACK / 2 } };\n';
+    expect(lint(halfSource)).toContain('Raw border radius');
+    const ringSource =
+      'const size = 20;\nexport const s = { ring: { borderRadius: size / 2 + 2 } };\n';
+    expect(lint(ringSource)).toContain('Raw border radius');
+    const tokenSource =
+      "import { layout } from '@/theme';\nexport const s = { track: { borderRadius: layout.borderRadiusFull } };\n";
+    expect(lint(tokenSource)).not.toContain('Raw border radius');
+  });
+
   it('requires the map text shadow token outside the theme', () => {
     expect(lint('export const s = { textShadowRadius: 2 };\n')).toContain('Raw text shadow radius');
     expect(lint('export const s = { textShadowOffset: { width: 0, height: 1 } };\n')).toContain(

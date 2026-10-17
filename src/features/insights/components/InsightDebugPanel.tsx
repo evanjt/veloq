@@ -8,7 +8,7 @@ import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, typography } from '@/theme';
 
 import { getLastInsightOutcome } from '../lib/generateInsights';
-import { Button } from '@/shared/ui';
+import { Button, SectionTitle } from '@/shared/ui';
 
 interface Props {
   visible: boolean;
@@ -55,7 +55,7 @@ export const InsightDebugPanel = React.memo(function InsightDebugPanel({
     <FullWindowModal visible={visible} animationType="slide" onRequestClose={onClose}>
       <View style={[styles.container, isDark && styles.containerDark]}>
         <View style={styles.header}>
-          <Text style={[styles.title, { color: textColor }]}>Insight pipeline debug</Text>
+          <SectionTitle>Insight pipeline debug</SectionTitle>
           <Button label={t('common.close')} variant="ghost" size="sm" onPress={onClose} />
         </View>
         <ScrollView contentContainerStyle={styles.scroll}>
@@ -141,10 +141,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
-  },
-  title: {
-    fontSize: typography.statsValue.fontSize,
-    fontWeight: '600',
   },
   section: {
     ...typography.bodyBold,

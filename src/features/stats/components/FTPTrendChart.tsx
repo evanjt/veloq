@@ -13,7 +13,6 @@ import {
   spacing,
   layout,
   chartStyles,
-  darkColors,
   themedStyles,
   verdictColor,
   verdictFill,
@@ -181,12 +180,7 @@ export function FTPTrendChart({
         <View>
           <Text style={styles.label}>{t('stats.estimatedFtp')}</Text>
           <View style={styles.ftpRow}>
-            <Text
-              style={[
-                styles.ftpValue,
-                { color: isDark ? darkColors.chartFtpText : colors.chartFtpText },
-              ]}
-            >
+            <Text style={styles.ftpValue}>
               {latestFTP} {t('units.watts')}
             </Text>
             <View style={[styles.changeBadge, { backgroundColor: verdictFill(rung, isDark) }]}>
@@ -249,13 +243,13 @@ export function FTPTrendChart({
                 <>
                   <Text
                     maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                    style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
+                    style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}
                   >
                     {formatMonth(chartData[0].date)}
                   </Text>
                   <Text
                     maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                    style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
+                    style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}
                   >
                     {formatMonth(chartData[chartData.length - 1].date)}
                   </Text>
@@ -286,6 +280,7 @@ const makeStyles = (palette: Palette) =>
     },
     ftpValue: {
       ...typography.headlineNumber,
+      color: palette.textPrimary,
     },
     changeBadge: {
       paddingHorizontal: spacing.sm,
@@ -296,7 +291,7 @@ const makeStyles = (palette: Palette) =>
       ...typography.captionBold,
     },
     changeSubtext: {
-      fontSize: typography.label.fontSize,
+      ...typography.caption,
       color: palette.textSecondary,
       marginTop: spacing.xxs,
     },

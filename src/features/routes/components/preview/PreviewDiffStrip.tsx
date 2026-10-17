@@ -77,7 +77,6 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusFull,
   },
   cellText: {
-    ...typography.caption,
-    fontWeight: '600',
+    ...typography.captionBold,
   },
 });

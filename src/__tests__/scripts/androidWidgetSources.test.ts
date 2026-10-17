@@ -57,6 +57,10 @@ function tree() {
     path.join(root, 'widget/android/res/xml/sample_info.xml'),
     `<info android:configure="__PKG__.widget.SampleConfigure"/>\n`
   );
+  // The widget plugin writes the widget font family from the app's bundled files.
+  for (const face of ['Regular', 'SemiBold', 'Bold']) {
+    write(path.join(root, `assets/fonts/Manrope-${face}.ttf`), `sample ${face}\n`);
+  }
 
   const main = path.join(root, 'android/app/src/main');
   write(path.join(root, 'android/app/build.gradle'), `android {\n    namespace '${PKG}'\n}\n`);

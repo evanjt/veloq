@@ -60,6 +60,7 @@ export {
   BackgroundJobsActivityBar,
   BackupSection,
   CutoverStatus,
+  DataAttribution,
   DataCacheSection,
   DataSourcesSection,
   DisplaySettings,

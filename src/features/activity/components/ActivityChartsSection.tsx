@@ -69,6 +69,7 @@ import type {
   WellnessData,
 } from '@/types';
 import {
+  colorWithOpacity,
   colors,
   controlHeight,
   darkColors,
@@ -395,7 +396,10 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                         {intervalZoneSummary.map((z, i) => (
                           <View
                             key={i}
-                            style={[styles.zoneChip, { backgroundColor: z.color + '25' }]}
+                            style={[
+                              styles.zoneChip,
+                              { backgroundColor: colorWithOpacity(z.color, opacity.tint2) },
+                            ]}
                           >
                             <View style={[styles.zoneDot, { backgroundColor: z.color }]} />
                             <Text style={[styles.zoneChipText, isDark && styles.zoneChipTextDark]}>
@@ -793,8 +797,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusFull,
   },
   zoneChipText: {
-    fontSize: typography.micro.fontSize,
-    fontWeight: '600',
+    ...typography.badge,
     color: colors.textPrimary,
   },
   zoneChipTextDark: {

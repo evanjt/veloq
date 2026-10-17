@@ -29,6 +29,18 @@ const spacingRadiusSelector = {
   message:
     'Raw border radius, set from a spacing token. Use a layout.borderRadius* token from src/theme.',
 };
+// Padding and the tap target share a radius token's value today and drift from
+// it the day either changes.
+const layoutRadiusSelector = {
+  selector: `Property[${radiusKey}] MemberExpression[object.name="layout"][property.name!=/^borderRadius/]`,
+  message:
+    'Raw border radius, set from a layout member that is not a radius. Use a layout.borderRadius* token from src/theme.',
+};
+const halfSizeRadiusSelector = {
+  selector: `Property[${radiusKey}] BinaryExpression[operator="/"]`,
+  message:
+    'Raw border radius, computed as half a size. A radius that is half the element is layout.borderRadiusFull.',
+};
 const fontSizeSelector = {
   selector: 'Property[key.name="fontSize"] > Literal[raw=/^[0-9.]+$/]',
   message:
@@ -82,6 +94,8 @@ const scaleSelectors = [
   radiusSelector,
   conditionalRadiusSelector,
   spacingRadiusSelector,
+  layoutRadiusSelector,
+  halfSizeRadiusSelector,
   fontSizeSelector,
   conditionalFontSizeSelector,
   derivedFontSizeSelector,
@@ -183,6 +197,7 @@ module.exports = [
       'src/theme/layout.ts',
       'src/theme/typography.ts',
       'src/theme/colors.ts',
+      'src/theme/colourTokens.generated.ts',
       'src/theme/shadows.ts',
     ],
     rules: {

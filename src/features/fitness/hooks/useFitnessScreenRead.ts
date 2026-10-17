@@ -19,6 +19,9 @@ export interface FitnessScreenRead {
   storedSwimPace: number | null;
   /** The sport the latest activities are mostly in, null for none or a tie. */
   librarySport: string | null;
+  /** The fitness and fatigue time constants in days in effect today, null without a read. */
+  fitnessDays: number | null;
+  fatigueDays: number | null;
 }
 
 const NO_FITNESS_SCREEN: FitnessScreenRead = {
@@ -28,6 +31,8 @@ const NO_FITNESS_SCREEN: FitnessScreenRead = {
   storedRunPace: null,
   storedSwimPace: null,
   librarySport: null,
+  fitnessDays: null,
+  fatigueDays: null,
 };
 
 function fitnessScreenView(read: FitnessScreenData): FitnessScreenRead {
@@ -44,6 +49,9 @@ function fitnessScreenView(read: FitnessScreenData): FitnessScreenRead {
     storedRunPace: read.runPaceTrend.latestPace ?? null,
     storedSwimPace: read.swimPaceTrend.latestPace ?? null,
     librarySport: read.sportMix.dominant ?? null,
+    // Zero is the closed handle's stand-in, never a time constant.
+    fitnessDays: read.fitnessDays || null,
+    fatigueDays: read.fatigueDays || null,
   };
 }
 

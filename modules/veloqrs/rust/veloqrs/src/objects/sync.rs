@@ -853,6 +853,29 @@ impl SyncService {
         self.start_owed_runs();
     }
 
+    /// The app came back from the background: start the default sync.
+    ///
+    /// The one place a return is turned into network work, so a screen
+    /// mounted twice cannot start it twice and a run that settled with an
+    /// error is asked again here rather than from a hook. The profile is left
+    /// to its age gate. Nothing starts while the credential is parked, for no
+    /// credential, which is a signed-out or demo install, or while the engine
+    /// is suspended, whose resume restarts what it cut short.
+    pub(crate) fn foregrounded(&self) {
+        if crate::persistence::suspension::is_suspended() || self.athlete_id().is_none() {
+            return;
+        }
+        if self
+            .inner
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .auth_expired
+        {
+            return;
+        }
+        (self.start_full)(false);
+    }
+
     /// Start the runs the slot refused, oldest ask first, until one of them
     /// holds it again. The rest wait for that run's finish.
     ///
@@ -1101,6 +1124,12 @@ pub static SYNC_SERVICE: LazyLock<SyncService> = LazyLock::new(|| {
 pub(crate) fn reconnected() {
     SYNC_SERVICE.reconnected();
     crate::objects::gps_pass::reconnected();
+}
+
+/// The app came back from the background. Pushed from the FFI with the
+/// network reading the provider takes on the return.
+pub(crate) fn foregrounded() {
+    SYNC_SERVICE.foregrounded();
 }
 
 /// Ask the credential again, on an endpoint a live one always answers.

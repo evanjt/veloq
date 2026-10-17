@@ -19,7 +19,7 @@ import { colors, darkColors, spacing, typography } from '@/theme';
 import type { FfiAttemptHistograms, FfiSectionLapCurves, FfiSectionTrendCurves } from 'veloqrs';
 import type { SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
-import { ChipSelector, EmptyState, ErrorState, Shimmer } from '@/shared/ui';
+import { EmptyState, ErrorState, Shimmer, ToggleButtonRow } from '@/shared/ui';
 import { FLOW_EXPAND, completeFlowAfterFrame, markFlow } from '@/shared/debug/flowTiming';
 import type { UseSectionTimeStreamSyncResult } from '@/features/routes/hooks/useSectionPerformances';
 
@@ -79,7 +79,7 @@ export interface SectionPerformanceSectionProps {
    * record. Until then no record mark is drawn. Absent means settled.
    */
   recordsSettled?: boolean | undefined;
-  onActivitySelect: (activityId: string | null, activityPoints?: RoutePoint[]) => void;
+  onActivitySelect: (activityId: string | null, activityPoints?: RoutePoint[], date?: Date) => void;
   onExcludeActivity?: ((activityId: string) => void) | undefined;
   onIncludeActivity?: ((activityId: string) => void) | undefined;
   onSetAsReference?: ((activityId: string) => void) | undefined;
@@ -138,16 +138,17 @@ export function SectionPerformanceSection({
         <Text style={[styles.chartTitle, isDark && styles.chartTitleDark]}>
           {t('sections.performanceOverTime')}
         </Text>
-        <ChipSelector
+        <ToggleButtonRow
+          layout="hug"
           style={styles.timeRangePills}
           options={SECTION_TIME_RANGES.map((r) => ({
             value: r.id,
             label: t(r.labelKey as never),
+            testID: `section-time-range-${r.id}`,
           }))}
           value={sectionTimeRange}
-          optionTestID={(id) => `section-time-range-${id}`}
-          onChange={(id) => {
-            if (id !== sectionTimeRange) markFlow(FLOW_EXPAND);
+          onValueChange={(id) => {
+            markFlow(FLOW_EXPAND);
             onTimeRangeChange(id);
           }}
         />
@@ -237,8 +238,6 @@ const styles = StyleSheet.create({
   },
   timeRangePills: {
     flexShrink: 0,
-    flexDirection: 'row',
-    gap: spacing.xxs,
   },
   method: {
     ...typography.caption,

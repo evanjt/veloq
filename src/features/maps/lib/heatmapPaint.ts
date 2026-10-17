@@ -1,4 +1,5 @@
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
+import { heatmapTileStops } from '@/theme';
 
 /**
  * The raster paint of the heatmap layer, for every surface that draws it.
@@ -6,7 +7,7 @@ import type { MapStyleType } from '@/features/maps/components/mapStyles';
  * The tile ramp rises in lightness with density, which on a light basemap would
  * draw the densest ground palest. The light map rotates the hue by 180 degrees
  * and maps lightness onto a brightness range that falls from .3 to 0, so the
- * ramp darkens with density and keeps its teal hue. The faintest stops composite
+ * ramp darkens with density and keeps its blue hue. The faintest stops composite
  * at 3:1 or better against every light ground, and the faintest to the densest
  * at 3:1 or better over land. The 2D map and both 3D scripts read this one
  * function, so a retune lands on all three.
@@ -27,22 +28,13 @@ export function heatmapRasterPaint(mapStyle: MapStyleType): Record<string, numbe
   };
 }
 
-type Rgba = readonly [number, number, number, number];
-
 /**
  * The colour stops the engine paints heatmap tiles with, as intensity and RGBA
  * bytes, faintest first. The transparent zero stop is left out: nothing is drawn
- * there. A contract test holds this to the engine's own table.
+ * there. Both this and the engine's table are generated from the colour token
+ * file, and a contract test holds the two together.
  */
-export const HEATMAP_TILE_STOPS: readonly { intensity: number; rgba: Rgba }[] = [
-  { intensity: 0.04, rgba: [13, 148, 136, 176] },
-  { intensity: 0.14, rgba: [16, 163, 150, 190] },
-  { intensity: 0.32, rgba: [20, 184, 166, 205] },
-  { intensity: 0.58, rgba: [45, 212, 191, 220] },
-  { intensity: 0.8, rgba: [94, 234, 212, 232] },
-  { intensity: 0.94, rgba: [153, 246, 228, 242] },
-  { intensity: 1, rgba: [204, 251, 241, 248] },
-];
+export const HEATMAP_TILE_STOPS = heatmapTileStops;
 
 /**
  * The heatmap's stops as the layer draws them over `ground`, faintest first, for

@@ -13,6 +13,7 @@ import { render } from '@testing-library/react-native';
 
 import DebugScreen from '@/app/debug';
 import { headerLargeTitle } from '@/shared/app/screenHeaders';
+import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
 import { spacing } from '@/theme';
 
 jest.mock('expo-router', () => ({
@@ -64,7 +65,7 @@ describe('developer dashboard scroll view', () => {
 
     const scroll = UNSAFE_getAllByType(ScrollView)[0];
     expect(scroll.props.contentInsetAdjustmentBehavior).toBe('automatic');
-    expect(scroll.props.refreshControl.type).toBe(RefreshControl);
+    expect(scroll.props.refreshControl.type).toBe(ScreenRefreshControl);
     expect(UNSAFE_getByType(RefreshControl)).toBeTruthy();
     expect(StyleSheet.flatten(scroll.props.contentContainerStyle).paddingBottom).toBe(spacing.md);
   });

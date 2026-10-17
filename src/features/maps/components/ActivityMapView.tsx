@@ -4,14 +4,7 @@
 // in ActivityMapControls, and styles in ActivityMapView.styles.
 
 import React, { useMemo, useState, useRef, useCallback, useEffect, memo } from 'react';
-import {
-  View,
-  StatusBar,
-  Animated,
-  ActivityIndicator,
-  Image,
-  useWindowDimensions,
-} from 'react-native';
+import { View, StatusBar, Animated, Image, useWindowDimensions } from 'react-native';
 import { FullWindowModal } from '@/shared/ui/FullWindowModal';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useIsFocused } from 'expo-router';
@@ -25,7 +18,7 @@ import {
   getTerrainPreviewUri,
   hasTerrainPreview,
 } from '@/features/maps/lib/storage/terrainPreviewCache';
-import { colors, duration, iconSize, themePalette } from '@/theme';
+import { duration, iconSize, themePalette } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { useMapPreferences } from '@/features/settings/light';
 import { useSectionCreation } from '@/features/maps/hooks/useSectionCreation';
@@ -554,8 +547,9 @@ export const ActivityMapView = memo(function ActivityMapView({
   // the remount opens there instead of fitting the track again. While the 3D
   // page boots the poster covers the hero, so a 2D page not already on screen
   // is not built behind it: creating that WebView costs the tap's first frames.
+  const is3DLoading = is3DMode && !is3DReady;
   const posterCovers3DBoot =
-    is3DMode && !is3DReady && posterUri !== null && !(mapReady || mapFailed) && !map3DCrashed;
+    is3DLoading && posterUri !== null && !(mapReady || mapFailed) && !map3DCrashed;
   const show2DSurface = !(is3DMode && is3DReady) && !isFullscreen && !posterCovers3DBoot;
 
   const surfaceReady = is3DMode ? is3DReady : mapReady || mapFailed;
@@ -952,13 +946,6 @@ export const ActivityMapView = memo(function ActivityMapView({
           </ComponentErrorBoundary>
         ) : null}
 
-        {/* 3D loading spinner */}
-        {is3DMode && !is3DReady && !isFullscreen && !posterUri ? (
-          <View style={styles.loadingOverlay} pointerEvents="none" testID="activity-map-3d-loading">
-            <ActivityIndicator size="large" color={colors.primary} />
-          </View>
-        ) : null}
-
         {terrainNotice}
 
         {/* Attribution - uses ref-based updates to avoid map re-renders */}
@@ -983,6 +970,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           gradientActive={gradientActive}
           onToggleGradient={toggleColorByGradient}
           is3DMode={is3DMode}
+          is3DLoading={is3DLoading}
           hasRoute={hasRoute}
           onToggle3D={toggle3D}
           bearingAnim={bearingAnim}

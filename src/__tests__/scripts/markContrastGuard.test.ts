@@ -112,3 +112,20 @@ it('checks the sport filter chips like any other file', () => {
   expect(status).toBe(1);
   expect(output).toContain('ActivityTypeFilter.tsx:1');
 });
+
+it('judges a fill token washed at a hand-written alpha as a mark', () => {
+  const { status, output } = runOn(
+    'const a = { borderColor: colorWithOpacity(colors.success, 0.6) };\n'
+  );
+
+  expect(status).toBe(1);
+  expect(output).toContain('Mark.tsx:1');
+});
+
+it('leaves a border washed at a tint step alone', () => {
+  const { status } = runOn(
+    'const a = { borderColor: colorWithOpacity(colors.success, opacity.tint2) };\n'
+  );
+
+  expect(status).toBe(0);
+});

@@ -1,24 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { AppState, View, Linking, Platform, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { AppState, Linking, Platform, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { useTheme } from '@/shared/app';
-import {
-  colors,
-  colorWithOpacity,
-  iconSize,
-  layout,
-  opacity,
-  spacing,
-  themePalette,
-  typography,
-} from '@/theme';
+import { spacing } from '@/theme';
 import { batteryOptimisationExempt } from '@/features/recording/lib/recordingNotification';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { Button } from '@/shared/ui/Button';
-import { IconButton } from '@/shared/ui/IconButton';
+import { InlineNotice } from '@/shared/ui/InlineNotice';
 
 /**
  * One-time, dismissable Android nudge to exempt Veloq from battery
@@ -28,8 +16,6 @@ import { IconButton } from '@/shared/ui/IconButton';
  */
 export function BatteryOptimisationNudge() {
   const { t } = useTranslation();
-  const { isDark } = useTheme();
-  const palette = themePalette(isDark);
   const dismissed = useRecordingPreferences((s) => s.batteryOptDismissed);
   const isLoaded = useRecordingPreferences((s) => s.isLoaded);
   const dismiss = useRecordingPreferences((s) => s.dismissBatteryOptNudge);
@@ -44,42 +30,24 @@ export function BatteryOptimisationNudge() {
   };
 
   return (
-    <View
+    <InlineNotice
       testID="battery-opt-nudge"
-      style={[
-        styles.container,
-        {
-          backgroundColor: colorWithOpacity(colors.warning, isDark ? opacity.tint3 : 0.1),
-        },
-      ]}
+      tone="warning"
+      icon="battery-alert-variant-outline"
+      title={t(
+        'recording.batteryOptNudge',
+        'Long recordings work best with battery optimisation off for Veloq.'
+      )}
+      onDismiss={dismiss}
+      style={styles.container}
     >
-      <MaterialCommunityIcons
-        name="battery-alert-variant-outline"
-        size={iconSize.md}
-        color={palette.warningAmber}
+      <Button
+        onPress={openBatterySettings}
+        label={t('recording.batteryOptOpenSettings', 'Open battery settings')}
+        variant="ghost"
+        size="sm"
       />
-      <View style={styles.body}>
-        <Text style={[styles.text, { color: palette.amberIcon }]}>
-          {t(
-            'recording.batteryOptNudge',
-            'Long recordings work best with battery optimisation off for Veloq.'
-          )}
-        </Text>
-        <Button
-          onPress={openBatterySettings}
-          label={t('recording.batteryOptOpenSettings', 'Open battery settings')}
-          variant="ghost"
-          size="sm"
-        />
-      </View>
-      <IconButton
-        testID="battery-opt-nudge-dismiss"
-        onPress={dismiss}
-        accessibilityLabel={t('common.close', 'Close')}
-      >
-        <MaterialCommunityIcons name="close" size={iconSize.md} color={palette.amberIcon} />
-      </IconButton>
-    </View>
+    </InlineNotice>
   );
 }
 
@@ -105,20 +73,7 @@ function useBatteryOptimisationExempt(): boolean {
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: layout.borderRadiusSm,
-  },
-  body: {
-    flex: 1,
-    gap: spacing.xxs,
-  },
-  text: {
-    ...typography.bodyCompact,
   },
 });

@@ -15,6 +15,7 @@ import { useElevationBackfill } from '@/features/routes/hooks/useElevationBackfi
 import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing } from '@/theme';
 import { useSections } from '@/features/routes/hooks/useSections';
@@ -104,6 +105,10 @@ interface SectionsListProps {
   onRetry?: (() => void) | undefined;
   /** Why the engine holds no section of any kind, or null while it holds one */
   emptyReason?: FfiCatalogueEmptyReason | null | undefined;
+  /** Called when the athlete pulls the page down; without it the page offers no refresh */
+  onRefresh?: (() => unknown) | undefined;
+  /** A refresh or the sync it asked for is running */
+  refreshing?: boolean | undefined;
 }
 
 export type { SectionsSortOption };
@@ -233,6 +238,8 @@ export const SectionsList = memo(function SectionsList({
   loadError,
   onRetry,
   emptyReason = null,
+  onRefresh,
+  refreshing = false,
 }: SectionsListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -595,6 +602,11 @@ export const SectionsList = memo(function SectionsList({
         maxToRenderPerBatch={10}
         windowSize={5}
         initialNumToRender={8}
+        refreshControl={
+          onRefresh ? (
+            <ScreenRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          ) : undefined
+        }
       />
     </View>
   );

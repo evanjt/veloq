@@ -86,6 +86,7 @@ import {
   publishSnapshotQueueTrace,
   unpublishSnapshotQueueShape,
 } from '@/features/maps/lib/snapshotQueueTrace';
+import { MapWebViewHost } from './MapWebViewHost';
 
 const log = debug.create('TerrainSnapshotWebView');
 
@@ -1375,30 +1376,34 @@ export const TerrainSnapshotWebView = forwardRef<
       <View style={styles.surface}>
         {workers.map((worker) =>
           worker.lostRef.current ? null : (
-            <WebView
+            <MapWebViewHost
               key={`${worker.id}:${worker.viewGenerationRef.current}`}
-              ref={worker.webViewRef as React.RefObject<WebView>}
-              source={{
-                html: workerHtmls[worker.id],
-                baseUrl: mapPageBaseUrl(),
-              }}
               style={StyleSheet.absoluteFill}
-              scrollEnabled={false}
-              bounces={false}
-              javaScriptEnabled={true}
-              domStorageEnabled={true}
-              startInLoadingState={false}
-              originWhitelist={['*']}
-              mixedContentMode="always"
-              androidLayerType="hardware"
-              nativeConfig={veloqWebViewNativeConfig}
-              onMessage={handleMessage}
-              onLoadEnd={() => {
-                worker.documentReadyRef.current = true;
-              }}
-              onRenderProcessGone={worker.recovery.gone}
-              onContentProcessDidTerminate={worker.recovery.gone}
-            />
+            >
+              <WebView
+                ref={worker.webViewRef as React.RefObject<WebView>}
+                source={{
+                  html: workerHtmls[worker.id],
+                  baseUrl: mapPageBaseUrl(),
+                }}
+                style={StyleSheet.absoluteFill}
+                scrollEnabled={false}
+                bounces={false}
+                javaScriptEnabled={true}
+                domStorageEnabled={true}
+                startInLoadingState={false}
+                originWhitelist={['*']}
+                mixedContentMode="always"
+                androidLayerType="hardware"
+                nativeConfig={veloqWebViewNativeConfig}
+                onMessage={handleMessage}
+                onLoadEnd={() => {
+                  worker.documentReadyRef.current = true;
+                }}
+                onRenderProcessGone={worker.recovery.gone}
+                onContentProcessDidTerminate={worker.recovery.gone}
+              />
+            </MapWebViewHost>
           )
         )}
       </View>

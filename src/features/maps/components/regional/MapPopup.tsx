@@ -13,7 +13,8 @@ import {
   typography,
   themePalette,
 } from '@/theme';
-import { Button, IconButton } from '@/shared/ui';
+import { Button, ICON_BUTTON_GAP, IconButton } from '@/shared/ui';
+import { FIT_GLYPH } from '@/features/maps/lib/mapGlyphs';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -115,11 +116,7 @@ export const MapPopup = memo(function MapPopup({
             variant="ghost"
             accessibilityLabel={zoom.label}
           >
-            <MaterialCommunityIcons
-              name="crosshairs-gps"
-              size={iconSize.lg}
-              color={palette.primary}
-            />
+            <MaterialCommunityIcons name={FIT_GLYPH} size={iconSize.lg} color={palette.primary} />
           </IconButton>
         ) : null}
         <IconButton
@@ -168,7 +165,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: ICON_BUTTON_GAP,
     marginBottom: spacing.xsPlus,
   },
   info: {

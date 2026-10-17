@@ -28,6 +28,7 @@ import {
   ToggleButton,
   useScrollEndInset,
 } from '@/shared/ui';
+import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
 import { useScrollToTopOnReselect } from '@/shared/ui/tabReselect';
 import { useSyncState } from '@/shared/native/useSyncStatus';
 import { SyncState } from 'veloqrs';
@@ -49,11 +50,17 @@ interface StrengthTabProps {
    * the athlete's own choice stands.
    */
   linkedPeriod?: { period: StrengthPeriod } | undefined;
+  /** Called when the athlete pulls the page down; without it the page offers no refresh */
+  onRefresh?: (() => unknown) | undefined;
+  /** A refresh or the sync it asked for is running */
+  refreshing?: boolean | undefined;
 }
 
 export const StrengthTab = React.memo(function StrengthTab({
   awaitingDownload = false,
   linkedPeriod,
+  onRefresh,
+  refreshing = false,
 }: StrengthTabProps) {
   const { isDark } = useTheme();
   const scrollEndInset = useScrollEndInset();
@@ -148,6 +155,11 @@ export const StrengthTab = React.memo(function StrengthTab({
       style={styles.container}
       contentContainerStyle={[styles.scrollContent, { paddingBottom: scrollEndInset + 16 }]}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        onRefresh ? (
+          <ScreenRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        ) : undefined
+      }
     >
       {/* Period selector */}
       <View style={styles.periodRow}>

@@ -204,6 +204,26 @@ class LastActivityWidgetTest {
   }
 
   @Test
+  fun this_activity_carries_the_reticle_and_the_record_its_gold_dot_combined_by_shape() {
+    val earlier = AttemptMark.of(AttemptDot(current = false, record = false))
+    val record = AttemptMark.of(AttemptDot(current = false, record = true))
+    val current = AttemptMark.of(AttemptDot(current = true, record = false))
+    val both = AttemptMark.of(AttemptDot(current = true, record = true))
+
+    assertEquals(AttemptMark(AttemptFill.EARLIER, full = false, reticle = false), earlier)
+    assertEquals(AttemptMark(AttemptFill.RECORD, full = true, reticle = false), record)
+    assertEquals(AttemptMark(AttemptFill.EARLIER, full = true, reticle = true), current)
+    assertEquals(AttemptMark(AttemptFill.RECORD, full = true, reticle = true), both)
+  }
+
+  @Test
+  fun only_this_activity_is_marked_with_the_reticle_in_a_row_of_attempts() {
+    val marks = content(snapshot(matchedHeadline), SummarySize.MEDIUM).dots.map(AttemptMark::of)
+    assertEquals(listOf(13), marks.indices.filter { marks[it].reticle })
+    assertEquals(listOf(0), marks.indices.filter { marks[it].fill == AttemptFill.RECORD })
+  }
+
+  @Test
   fun the_size_follows_the_width_and_then_the_height() {
     assertEquals(SummarySize.SMALL, LastActivityWidget.sizeFor(110, 110))
     assertEquals(SummarySize.SMALL, LastActivityWidget.sizeFor(150, 300))

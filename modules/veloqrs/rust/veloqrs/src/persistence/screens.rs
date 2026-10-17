@@ -430,18 +430,14 @@ fn fitness_days_on(events_json: &str, date: chrono::NaiveDate) -> (u32, u32) {
     )
 }
 
-/// [`fitness_days_on`] over the stored fitness model events, for an activity
-/// starting at `start`, local wall-clock in epoch seconds. A library synced
+/// [`fitness_days_on`] over the stored fitness model events. A library synced
 /// before the events were stored reads the defaults.
-fn stored_fitness_days_on(conn: &rusqlite::Connection, start: i64) -> (u32, u32) {
-    let Some(start) = chrono::DateTime::from_timestamp(start, 0) else {
-        return DEFAULT_FITNESS_DAYS;
-    };
+fn stored_fitness_days_on(conn: &rusqlite::Connection, date: chrono::NaiveDate) -> (u32, u32) {
     let events = super::settings::setting_from(conn, super::settings_keys::FITNESS_MODEL_EVENTS)
         .ok()
         .flatten()
         .unwrap_or_default();
-    fitness_days_on(&events, start.date_naive())
+    fitness_days_on(&events, date)
 }
 
 /// One activity's contribution to the fitness and fatigue load averages over
@@ -1333,7 +1329,7 @@ pub(crate) fn section_detail_from<R>(
     highlight: Option<&str>,
     wellness_between: impl FnOnce(&str, &str) -> Vec<crate::FfiWellnessDay>,
     curves_of: impl FnOnce(Option<&str>) -> Option<std::sync::Arc<Option<crate::FfiSectionLapCurves>>>,
-    efficiency_of: impl FnOnce(&str) -> Option<crate::FfiEfficiencyTrend>,
+    efficiency_of: impl FnOnce(&str, i64) -> Option<crate::FfiEfficiencyTrend>,
     mut read: R,
 ) -> crate::FfiSectionPerformanceData
 where
@@ -1446,8 +1442,11 @@ where
             crate::persistence::sections::lap_curves::in_range(curves, cutoff, highlight)
         })
     });
-    // Over the whole record, like the calendar: a range only filters the chart.
-    let efficiency_trend = sport_type.as_deref().and_then(efficiency_of);
+    // Over the efforts the chart plots for the range, so the card never counts
+    // efforts the header and the chart leave out.
+    let efficiency_trend = sport_type
+        .as_deref()
+        .and_then(|sport| efficiency_of(sport, cutoff));
     // Over the whole record, like the ring: a range only filters what is drawn.
     let record_progression = crate::FfiRecordProgressions {
         forward: crate::persistence::records::section_record_progression(&all, false),
@@ -1841,9 +1840,13 @@ pub mod pooled {
     /// get a curve.
     pub fn fitness_screen_data(conn: &Connection, today: &str) -> crate::FfiFitnessScreenData {
         use crate::persistence::fitness::derivations::pooled as fitness;
-        let window_start = chrono::NaiveDate::parse_from_str(today, "%Y-%m-%d")
+        let today_date = chrono::NaiveDate::parse_from_str(today, "%Y-%m-%d").ok();
+        let window_start = today_date
             .map(|day| (day - chrono::Duration::days(FITNESS_FTP_LOOKBACK_DAYS)).to_string())
-            .unwrap_or_else(|_| today.to_string());
+            .unwrap_or_else(|| today.to_string());
+        let (fitness_days, fatigue_days) = today_date.map_or(super::DEFAULT_FITNESS_DAYS, |day| {
+            super::stored_fitness_days_on(conn, day)
+        });
         crate::FfiFitnessScreenData {
             ftp_trend: fitness::ftp_trend_with_history(conn, today, FITNESS_FTP_LOOKBACK_DAYS),
             ftp_trend_coverage: crate::persistence::wellness::pooled::coverage(
@@ -1854,6 +1857,8 @@ pub mod pooled {
             run_pace_trend: fitness::pace_trend(conn, "Run"),
             swim_pace_trend: fitness::pace_trend(conn, "Swim"),
             sport_mix: sport_mix(conn),
+            fitness_days,
+            fatigue_days,
         }
     }
 
@@ -2061,13 +2066,13 @@ pub mod pooled {
                     conn, section_id, sport, curves,
                 )
             },
-            |sport| {
+            |sport, since| {
                 // This section's name alone: the whole overlay grows with the catalogue.
                 let names = crate::persistence::sections::named::pooled::overlay_names_for(
                     conn,
                     &[section_id],
                 );
-                section_efficiency_trend_of(conn, section_id, sport, &names)
+                section_efficiency_trend_of(conn, section_id, sport, &names, since)
             },
             |sport, rows| match rows {
                 laps::Rows::Included => {
@@ -2388,7 +2393,7 @@ pub mod pooled {
                     || attempts_of(sport, laps::Rows::Included),
                 )
             },
-            |sport| {
+            |sport, since| {
                 let attempts = route_performances(
                     &activity_ids,
                     Some(&match_info),
@@ -2413,6 +2418,7 @@ pub mod pooled {
                 let efforts: Vec<Effort> = weighed
                     .iter()
                     .filter(|(p, _)| is_comparable_attempt(p, latest_direction))
+                    .filter(|(p, _)| p.date >= since)
                     .map(|(p, hr)| Effort {
                         time_secs: f64::from(p.moving_time),
                         avg_hr: f64::from(*hr),
@@ -2508,7 +2514,11 @@ pub mod pooled {
                 })
                 .unwrap_or_default(),
             fitness_impact: activities::metrics_of(conn, activity_id).and_then(|metrics| {
-                let days = super::stored_fitness_days_on(conn, metrics.date);
+                // The date is local wall-clock in epoch seconds.
+                let days = chrono::DateTime::from_timestamp(metrics.date, 0)
+                    .map_or(super::DEFAULT_FITNESS_DAYS, |start| {
+                        super::stored_fitness_days_on(conn, start.date_naive())
+                    });
                 super::activity_load_impact(metrics.training_load, &metrics.sport_type, days)
             }),
             activity_count: activity_count(conn),
@@ -2794,7 +2804,8 @@ pub mod pooled {
 
         let mut efficiency_trends: Vec<crate::FfiEfficiencyTrend> = Vec::new();
         for (section_id, sport_type) in &candidates {
-            let Some(trend) = section_efficiency_trend_of(conn, section_id, sport_type, &names)
+            let Some(trend) =
+                section_efficiency_trend_of(conn, section_id, sport_type, &names, i64::MIN)
             else {
                 continue;
             };
@@ -3053,13 +3064,15 @@ pub mod pooled {
         })
     }
 
-    /// One section's efficiency trend, with its name and length read from the
-    /// row rather than the in-memory catalogue the engine path uses.
+    /// One section's efficiency trend over the efforts since `since`, with
+    /// its name and length read from the row rather than the in-memory
+    /// catalogue the engine path uses.
     pub(crate) fn section_efficiency_trend_of(
         conn: &Connection,
         section_id: &str,
         sport_type: &str,
         names: &std::collections::BTreeMap<String, String>,
+        since: i64,
     ) -> Option<crate::FfiEfficiencyTrend> {
         let (name, length) =
             crate::persistence::sections::queries::pooled::section_name_and_length(
@@ -3071,6 +3084,7 @@ pub mod pooled {
             sport_type,
             name.as_deref().unwrap_or("Section"),
             length,
+            since,
         )
     }
 
@@ -3655,7 +3669,7 @@ mod tests {
             None,
             |_, _| Vec::new(),
             |_| Some(std::sync::Arc::new(None)),
-            |_| None,
+            |_, _| None,
             |_, rows| match rows {
                 laps::Rows::Included => all.clone(),
                 laps::Rows::Excluded => std::sync::Arc::new(laps::empty()),

@@ -19,14 +19,13 @@ const mockedGetEngine = getEngine as jest.MockedFunction<typeof getEngine>;
 
 const settings = new Map<string, string>();
 
-function engineWith(outcome: StartOutcome) {
+function engineWith(outcome: StartOutcome, cutoverHeld = false) {
   return {
     getSetting: jest.fn((key: string) => settings.get(key)),
     setSetting: jest.fn((key: string, value: string) => void settings.set(key, value)),
     getActivityCount: jest.fn(() => 1),
     getSectionCount: jest.fn(() => 0),
-    isCutoverPending: jest.fn(() => false),
-    isCutoverRunning: jest.fn(() => false),
+    isCutoverHeld: jest.fn(() => cutoverHeld),
     forceRedetectSections: jest.fn(() => outcome),
   };
 }
@@ -86,6 +85,18 @@ describe('section health check redetect', () => {
     await act(async () => {});
 
     expect(engine.forceRedetectSections).not.toHaveBeenCalled();
+  });
+
+  it('leaves the empty catalogue to a cutover that holds detection, and owes the check', async () => {
+    const engine = engineWith(StartOutcome.Started, true);
+    mockedGetEngine.mockReturnValue(engine as never);
+
+    await renderHook(() => useSectionHealthCheck(true));
+    await waitFor(() => expect(engine.isCutoverHeld).toHaveBeenCalled());
+    await act(async () => {});
+
+    expect(engine.forceRedetectSections).not.toHaveBeenCalled();
+    expect(settings.get(SECTION_HEALTH_CHECK_SETTING)).toBeUndefined();
   });
 
   it('carries a spent AsyncStorage stamp into the engine once and removes it', async () => {

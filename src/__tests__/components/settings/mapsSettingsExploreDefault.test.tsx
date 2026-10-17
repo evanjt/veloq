@@ -2,14 +2,16 @@
  * Scenario: the map's own style button saved satellite as the Explore Map style,
  * and the athlete wants the map to follow their default style again.
  *
- * Expected behaviour: the Explore Map pill cycles through Default like every
- * other row, Default clears the saved choice so the map follows the default
- * style, and the screen does not repeat its own title as a section label.
+ * Expected behaviour: the Explore Map control offers Default beside every
+ * style, Default clears the saved choice so the map follows the default style,
+ * and the screen does not repeat its own title as a section label.
  */
 
 import React from 'react';
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor, type RenderAPI } from '@testing-library/react-native';
 import { Pressable, Text } from 'react-native';
+
+import { PaperProvider } from 'react-native-paper';
 
 import { MapPreferencesProvider, useMapPreferences } from '@/features/settings';
 import { MapsSection } from '@/features/settings/components/MapsSection';
@@ -72,10 +74,23 @@ function Gate() {
 }
 
 const screen = () => (
-  <MapPreferencesProvider>
-    <Gate />
-  </MapPreferencesProvider>
+  <PaperProvider>
+    <MapPreferencesProvider>
+      <Gate />
+    </MapPreferencesProvider>
+  </PaperProvider>
 );
+
+/** Opens a style control and chooses one of its options by label. */
+async function choose(view: RenderAPI, testID: string, option: string) {
+  await act(async () => {
+    await fireEvent.press(view.getByTestId(testID));
+  });
+  const row = await view.findByRole('menuitem', { name: option });
+  await act(async () => {
+    await fireEvent.press(row);
+  });
+}
 
 beforeEach(() => {
   mockStore.clear();
@@ -101,16 +116,14 @@ describe('the Explore Map style override', () => {
     expect(view.getByTestId('explore-style')).toHaveTextContent('dark');
   });
 
-  it('cycles from satellite to Default, which clears the override and follows the default style', async () => {
+  it('chooses Default over satellite, which clears the override and follows the default style', async () => {
     seed({ globalMapStyle: 'satellite' });
     const view = render(screen());
     await waitFor(() => expect(view.getByTestId('map-style-pill-explore')).toBeTruthy());
     expect(view.getByTestId('map-style-pill-explore')).toHaveTextContent('settings.satellite');
     expect(view.getByTestId('explore-style')).toHaveTextContent('satellite');
 
-    await act(async () => {
-      await fireEvent.press(view.getByTestId('map-style-pill-explore'));
-    });
+    await choose(view, 'map-style-pill-explore', 'settings.default');
 
     expect(view.getByTestId('map-style-pill-explore')).toHaveTextContent('settings.default');
     expect(saved()).not.toHaveProperty('globalMapStyle');
@@ -123,14 +136,12 @@ describe('the Explore Map style override', () => {
     expect(view.getByTestId('map-style-pill-explore')).toHaveTextContent('settings.default');
   });
 
-  it('sets an override again on the next tap after Default', async () => {
+  it('sets an override again when a style is chosen over Default', async () => {
     seed({});
     const view = render(screen());
     await waitFor(() => expect(view.getByTestId('map-style-pill-explore')).toBeTruthy());
 
-    await act(async () => {
-      await fireEvent.press(view.getByTestId('map-style-pill-explore'));
-    });
+    await choose(view, 'map-style-pill-explore', 'settings.light');
 
     expect(view.getByTestId('map-style-pill-explore')).toHaveTextContent('settings.light');
     expect(saved().globalMapStyle).toBe('light');

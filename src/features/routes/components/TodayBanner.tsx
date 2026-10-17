@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   sectionNamePR: {
-    fontWeight: '600',
+    fontWeight: typography.bodyCompactBold.fontWeight,
   },
   sectionMeta: {
     flexDirection: 'row',
@@ -360,8 +360,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   prTextCelebration: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '700',
+    ...typography.bodyCompactBold,
     color: colors.chartGoldText,
     fontVariant: ['tabular-nums'],
   },
@@ -379,7 +378,6 @@ const styles = StyleSheet.create({
     color: darkColors.actionLink,
   },
   trendArrow: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '700',
+    ...typography.bodyCompactBold,
   },
 });

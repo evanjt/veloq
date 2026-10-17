@@ -172,6 +172,47 @@ export const SCREEN_SHEETS: Record<string, number[] | 'fitToContents'> = {
   'sheets/explainer': 'fitToContents',
 };
 
+/** The height the map sheet's lowest stop shows above the bottom inset: the title and key stats. */
+const MAP_SHEET_PEEK = 150;
+/** The map sheet's resting stop, as a fraction of the window. */
+const MAP_SHEET_HALF = 0.52;
+/** The strip of map the map sheet leaves above itself at its highest stop. */
+const MAP_SHEET_STRIP = 72;
+/** The least gap between two stops, so a window too short for the sizes above keeps three. */
+const MAP_SHEET_MIN_STEP = 0.05;
+
+/** The map sheet's three stops as fractions of the window, low to high, or null with no window. */
+function mapSheetFractions(
+  windowHeight: number,
+  bottomInset: number
+): [number, number, number] | null {
+  if (windowHeight <= 0) return null;
+  const peek = Math.min(
+    (MAP_SHEET_PEEK + bottomInset) / windowHeight,
+    MAP_SHEET_HALF - MAP_SHEET_MIN_STEP
+  );
+  const full = Math.min(
+    Math.max((windowHeight - MAP_SHEET_STRIP) / windowHeight, MAP_SHEET_HALF + MAP_SHEET_MIN_STEP),
+    1
+  );
+  return [peek, MAP_SHEET_HALF, full];
+}
+
+/**
+ * The three stops a map screen's data sheet rests at, low to high, as fractions of the window,
+ * with the height of map left visible above the sheet at each. Peek shows its row clear of the
+ * bottom inset, because the sheet runs under the navigation bar and the frame pads it. A window
+ * too short for those sizes still gets three ascending stops, and one with no height yet gets
+ * none.
+ */
+export function sheetStops(
+  windowHeight: number,
+  bottomInset: number
+): { detents: number[]; visibleMap: number[] } {
+  const detents = mapSheetFractions(windowHeight, bottomInset) ?? [];
+  return { detents, visibleMap: detents.map((detent) => windowHeight * (1 - detent)) };
+}
+
 /**
  * Whether the system draws the sheet's background itself. iOS 26 gives a form sheet a
  * translucent material that follows the colour scheme, and an opaque fill laid over it stops
@@ -192,6 +233,39 @@ function sheetHasSystemMaterial(os: string, osVersion: string | number): boolean
 export function sheetScreenOptions(name: string, os: string, osVersion: string | number) {
   const detents = SCREEN_SHEETS[name];
   if (!detents) return undefined;
+  return sheetOptions(detents, os, osVersion);
+}
+
+/**
+ * The stack options of a map screen's data sheet: the sheet edges every other sheet takes, at
+ * the three stops of `sheetStops`, opened at the middle one. No stop dims what is behind, so the
+ * map under the sheet stays lit and takes its gestures at every stop. The dismiss gesture is
+ * off, so a drag stops at the lowest stop and back is what leaves.
+ *
+ * The Android sheet sizes its middle detent as that detent over the highest, of the whole
+ * window, and its highest below the top inset unless told to overflow it. So Android is given
+ * the middle stop scaled by the highest, and overflows the inset, which puts all three where
+ * `sheetStops` says. iOS takes the stops as they are.
+ */
+export function mapSheetScreenOptions(
+  os: string,
+  osVersion: string | number,
+  windowHeight: number,
+  bottomInset: number
+) {
+  const stops = mapSheetFractions(windowHeight, bottomInset);
+  const android = os === 'android' && stops !== null;
+  const detents = !stops ? [] : android ? [stops[0], stops[1] * stops[2], stops[2]] : stops;
+  return {
+    ...sheetOptions(detents, os, osVersion),
+    sheetInitialDetentIndex: 1,
+    sheetLargestUndimmedDetentIndex: 'last' as const,
+    gestureEnabled: false,
+    ...(android && { sheetShouldOverflowTopInset: true }),
+  };
+}
+
+function sheetOptions(detents: number[] | 'fitToContents', os: string, osVersion: string | number) {
   return {
     presentation: 'formSheet' as const,
     sheetGrabberVisible: true,
@@ -310,10 +384,15 @@ export function heroScrolledPast(offsetY: number, heroHeight: number, headerBott
   return offsetY >= heroHeight - headerBottom;
 }
 
-/** The stack header's own colours: the theme surface behind it, the theme text for its controls. */
-export function themeHeaderColors(isDark: boolean) {
+/**
+ * The stack header's own options: the theme surface behind it, the theme text for its controls,
+ * and each platform's own title metrics. The Material 3 top app bar is flat at rest, so Android
+ * draws no toolbar shadow; iOS keeps its bar's separator.
+ */
+export function stackHeaderOptions(os: string, isDark: boolean) {
   const chrome = mapHeroChrome({ scrolledPastHero: true, isDark });
   return {
+    headerShadowVisible: os !== 'android',
     headerStyle: { backgroundColor: chrome.headerBackgroundColor },
     headerTintColor: chrome.tint,
   };
@@ -350,21 +429,22 @@ export function overMapHeaderOptions({
 
 /**
  * The header of a map-hero detail screen in a state with no hero: the opaque platform header in
- * the theme, so content starts directly under it. With a title it names the screen; without one
- * the route keeps the title it has. It sets every option `overMapHeaderOptions` does, because
- * options a screen sets outlast the state that set them.
+ * the theme, as the stack draws it, so content starts directly under it. With a title it names
+ * the screen; without one the route keeps the title it has. It sets every option
+ * `overMapHeaderOptions` does, because options a screen sets outlast the state that set them.
  */
 export function noHeroHeaderOptions({
   title,
   isDark,
+  os,
 }: {
   title?: string | undefined;
   isDark: boolean;
+  os: string;
 }) {
-  const themed = themeHeaderColors(isDark);
+  const themed = stackHeaderOptions(os, isDark);
   return {
     headerTransparent: false,
-    headerShadowVisible: true,
     ...themed,
     headerTitleStyle: { color: themed.headerTintColor },
     ...(title !== undefined && { title }),

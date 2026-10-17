@@ -4,9 +4,10 @@
  * import of a switch, so the colours and the name cannot drift per screen.
  *
  * It is Paper's `Switch`, which is the platform's own control with theme colours.
- * The colours come from the theme and never from the caller: on iOS only the on
- * track is tinted and the thumb is the system's, on Android the thumb and track
- * follow the state from per-mode tokens, the off track at 3:1 on every surface.
+ * The colours come from the theme and never from the caller. The on track is
+ * `controlOn` and the off track `controlBoundary`, each a mark at 3:1 on every
+ * surface. On iOS the thumb is the system's; on Android it is white on the on
+ * track and the surface on the off one, so it holds 3:1 against either.
  */
 
 import React, { useCallback } from 'react';
@@ -14,7 +15,7 @@ import { Platform } from 'react-native';
 import { Switch as PaperSwitch } from 'react-native-paper';
 
 import { useTheme } from '@/shared/app';
-import { colors, colorWithOpacity, darkColors, opacity, switchTrackOff } from '@/theme';
+import { colors, darkColors } from '@/theme';
 import { selection } from './haptics';
 
 export interface SwitchProps {
@@ -27,8 +28,10 @@ export interface SwitchProps {
 }
 
 export interface SwitchColors {
-  trackColor: { true: string; false?: string };
+  trackColor: { true: string; false: string };
   thumbColor?: string;
+  /** The iOS off track's fill, which `trackColor.false` alone only outlines. */
+  ios_backgroundColor?: string;
 }
 
 /** The colours a switch draws in, by mode, state and platform. */
@@ -37,14 +40,10 @@ export function switchColors(
   value: boolean,
   os: typeof Platform.OS = Platform.OS
 ): SwitchColors {
-  const primary = isDark ? darkColors.primary : colors.primary;
-  if (os === 'ios') return { trackColor: { true: primary } };
-  const trackOff = isDark ? switchTrackOff.dark : switchTrackOff.light;
-  const thumbOff = isDark ? darkColors.textSecondary : colors.surface;
-  return {
-    thumbColor: value ? primary : thumbOff,
-    trackColor: { true: colorWithOpacity(primary, opacity.disabled), false: trackOff },
-  };
+  const palette = isDark ? darkColors : colors;
+  const trackColor = { true: palette.controlOn, false: palette.controlBoundary };
+  if (os === 'ios') return { trackColor, ios_backgroundColor: palette.controlBoundary };
+  return { thumbColor: value ? colors.textOnPrimary : palette.surface, trackColor };
 }
 
 export function Switch({

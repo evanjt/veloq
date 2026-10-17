@@ -15,6 +15,7 @@ import {
   pressRipple,
   useScrollEndInset,
 } from '@/shared/ui';
+import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
 import { formatRelativeDate } from '@/shared/format/format';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import type { Insight } from '@/types';
@@ -44,6 +45,10 @@ interface InsightsPanelProps {
    */
   initialInsightId?: string | undefined;
   onInsightOpened?: (() => void) | undefined;
+  /** Called when the athlete pulls the page down; without it the page offers no refresh */
+  onRefresh?: (() => unknown) | undefined;
+  /** A refresh or the sync it asked for is running */
+  refreshing?: boolean | undefined;
 }
 
 export const InsightsPanel = React.memo(function InsightsPanel({
@@ -54,6 +59,8 @@ export const InsightsPanel = React.memo(function InsightsPanel({
   form = null,
   initialInsightId,
   onInsightOpened,
+  onRefresh,
+  refreshing = false,
 }: InsightsPanelProps) {
   const { isDark } = useTheme();
   const scrollEndInset = useScrollEndInset();
@@ -88,6 +95,11 @@ export const InsightsPanel = React.memo(function InsightsPanel({
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: layout.screenPadding + scrollEndInset }}
+        refreshControl={
+          onRefresh ? (
+            <ScreenRefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          ) : undefined
+        }
       >
         {__DEV__ ? (
           <Pressable

@@ -14,9 +14,8 @@ import { StyleSheet, Text } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 
 import { initialiseI18n } from '@/i18n';
-import { Button, ToggleButton } from '@/shared/ui/Button';
+import { Button, ToggleButton, ToggleButtonRow } from '@/shared/ui/Button';
 import { IconButton } from '@/shared/ui/IconButton';
-import { ChipSelector } from '@/shared/ui/ChipSelector';
 import { FeedFilterChips } from '@/features/activity/components/FeedFilterChips';
 import { controlHeight } from '@/theme';
 import { layout } from '@/theme/layout';
@@ -115,16 +114,16 @@ describe('compact controls', () => {
     expect(reachWidth(node)).toBeGreaterThanOrEqual(layout.minTapTarget);
   });
 
-  it('draws each ChipSelector option as a chip that reaches the minimum', async () => {
+  it('draws each option of a label-sized chip row as a chip that reaches the minimum', async () => {
     await render(
-      <ChipSelector
+      <ToggleButtonRow
+        layout="hug"
         options={[
-          { value: 'a', label: 'Alpha' },
-          { value: 'b', label: 'Beta' },
+          { value: 'a', label: 'Alpha', testID: 'option-a' },
+          { value: 'b', label: 'Beta', testID: 'option-b' },
         ]}
         value="a"
-        onChange={() => {}}
-        optionTestID={(value) => `option-${value}`}
+        onValueChange={() => {}}
       />
     );
 
@@ -156,11 +155,11 @@ describe('compact controls', () => {
 
   it('draws the section page chip and the feed chip as one selector', async () => {
     const section = await render(
-      <ChipSelector
-        options={[{ value: 'a', label: 'Alpha' }]}
+      <ToggleButtonRow
+        layout="hug"
+        options={[{ value: 'a', label: 'Alpha', testID: 'option-a' }]}
         value="a"
-        onChange={() => {}}
-        optionTestID={(value) => `option-${value}`}
+        onValueChange={() => {}}
       />
     );
     const feed = await render(

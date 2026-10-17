@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.Typeface
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -16,12 +17,14 @@ import kotlin.math.roundToInt
  * the scale is readable, as on intervals.icu. Values are oldest-first.
  */
 object FitnessChart {
+  /** What the trend chart paints with: its lines, their casing, the gridlines and the labels. */
   data class ChartColors(
     val fitness: Int,
     val fatigue: Int,
     val casing: Int,
     val axisText: Int,
     val grid: Int,
+    val labelFace: Typeface,
   )
 
   /** What the form chart paints with: a fill per zone key, the line, its casing and the labels. */
@@ -30,6 +33,7 @@ object FitnessChart {
     val line: Int,
     val casing: Int,
     val axisText: Int,
+    val labelFace: Typeface,
   )
 
   /**
@@ -53,6 +57,7 @@ object FitnessChart {
       Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = colors.axisText
         textSize = labelPx
+        typeface = colors.labelFace
       }
     val bounds = chart.bands.dropLast(1).map { it.to }
     val gutter = (bounds.maxOfOrNull { text.measureText(it.roundToInt().toString()) } ?: 0f) + 4f * density
@@ -208,6 +213,7 @@ object FitnessChart {
       Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = colors.axisText
         textSize = labelPx
+        typeface = colors.labelFace
       }
     val grid =
       Paint(Paint.ANTI_ALIAS_FLAG).apply {

@@ -6,7 +6,7 @@ import { TERRAIN_UPSTREAM_TEMPLATE } from '@/features/maps/lib/terrainTemplate';
 import { LIBERTY_STYLE } from '@/features/maps/styles/liberty';
 import { NATURAL_EARTH_ORIGIN } from '@/features/maps/styles/liberty/sources';
 import type { LngLatBounds } from '@/features/maps/lib/coordinates';
-import { ink, colorWithOpacity } from '@/theme';
+import { ink, colorWithOpacity, opacity } from '@/theme';
 import { HILLSHADE_DARK_SHADOW, HILLSHADE_DARK_HIGHLIGHT } from '@/features/maps/styles/hillshade';
 
 export type MapStyleType = 'light' | 'dark' | 'satellite';
@@ -822,7 +822,7 @@ export const TERRAIN_3D_CONFIG = {
     },
     light: {
       'hillshade-shadow-color': '#473B24',
-      'hillshade-highlight-color': colorWithOpacity(ink.white, 0.1),
+      'hillshade-highlight-color': colorWithOpacity(ink.white, opacity.tint2),
       'hillshade-illumination-anchor': 'map',
       'hillshade-exaggeration': 0.3,
     },

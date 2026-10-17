@@ -16,7 +16,8 @@ export function strayCardGrounds(root: ReactTestInstance): string[] {
     const ground = style.backgroundColor;
     const edge = style.borderWidth;
     const darkGround = ground === darkColors.surface || ground === darkColors.surfaceCard;
-    const bordered = typeof edge === 'number' && edge > 0;
+    // A transparent edge holds a control's layout and draws nothing.
+    const bordered = typeof edge === 'number' && edge > 0 && style.borderColor !== 'transparent';
     const radius = style.borderRadius;
     if (typeof radius !== 'number' || radius < layout.borderRadiusMd) continue;
     if (!darkGround && !bordered) continue;

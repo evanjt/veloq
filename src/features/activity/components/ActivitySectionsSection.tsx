@@ -606,10 +606,10 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       const quality = Math.round(match.matchQuality * 100);
       const baseName = match.sectionName || match.sectionId.slice(0, 8);
       const displayName = !match.sameDirection ? `${baseName} \u21A9` : baseName;
-      const totalPoints = coordinates?.length ?? 0;
-      const startPct = totalPoints > 0 ? Math.round((match.startIndex / totalPoints) * 100) : 0;
       const distance = formatDistance(match.distanceMeters, isMetric);
-      const position = startPct > 0 ? t('sections.atPosition', { pct: startPct }) : null;
+      const position = t('sections.startsAt', {
+        distance: formatDistance(match.startDistanceMeters, isMetric),
+      });
       const qualityText = quality < 90 ? t('sections.matchQuality', { quality }) : null;
       // The row is one element: the arrow is spoken as the reverse word, then
       // the meta line it draws.
@@ -639,7 +639,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
                 </Text>
                 <Text style={[styles.scanMatchMeta, isDark && { color: darkColors.textSecondary }]}>
                   {distance}
-                  {position ? ` · ${position}` : ''}
+                  {` · ${position}`}
                   {qualityText ? ` · ${qualityText}` : ''}
                 </Text>
               </Pressable>
@@ -654,7 +654,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         </View>
       );
     },
-    [isDark, isMetric, handleRematch, coordinates, activityId, t]
+    [isDark, isMetric, handleRematch, activityId, t]
   );
 
   // Render footer for section list
@@ -785,11 +785,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   scanResultsTitle: {
-    fontSize: typography.bodyCompact.fontSize,
-    fontWeight: '600',
+    ...typography.sectionHeader,
     color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
     marginBottom: spacing.sm,
   },
   scanMatchFrame: {
@@ -806,8 +803,7 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   scanMatchName: {
-    fontSize: typography.bodyMedium.fontSize,
-    fontWeight: '600',
+    ...typography.bodyBold,
     color: colors.textPrimary,
   },
   scanMatchMeta: {

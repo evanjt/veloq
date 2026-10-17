@@ -1,0 +1,741 @@
+{
+  "note": "How each key of colors and darkColors relates to the colour tokens in tokens.json. role is the token a key folds into and also the others its readers split across. from lists the themes in which the key is read from its role now, written by npm run gen:colour-tokens; a key without from keeps a hand value in colors.ts until it folds. drop says why a key goes without a role. reserved names tokens, or prefixes ending in *, that nothing reads yet and are kept for a reader to come.",
+  "keys": {
+    "primary": {
+      "role": "action-primary",
+      "also": [
+        "action-link",
+        "control-on",
+        "focus-ring"
+      ],
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "primaryHover": {
+      "role": "action-primary-hover",
+      "from": [
+        "light"
+      ]
+    },
+    "primaryLight": {
+      "role": "action-secondary"
+    },
+    "accent": {
+      "role": "achievement",
+      "from": [
+        "dark"
+      ]
+    },
+    "accentLight": {
+      "role": "achievement"
+    },
+    "secondary": {
+      "role": "chart-series",
+      "also": [
+        "brand-blue"
+      ],
+      "from": [
+        "light"
+      ]
+    },
+    "secondaryLight": {
+      "role": "brand-blue"
+    },
+    "appColourPillBackground": {
+      "role": "surface-raised",
+      "also": [
+        "text-primary"
+      ]
+    },
+    "surface": {
+      "role": "surface",
+      "from": [
+        "light"
+      ]
+    },
+    "background": {
+      "role": "surface-page"
+    },
+    "backgroundAlt": {
+      "role": "surface-input"
+    },
+    "regionTintIdle": {
+      "role": "state-hover"
+    },
+    "regionTintActive": {
+      "role": "state-pressed"
+    },
+    "textPrimary": {
+      "role": "text-primary"
+    },
+    "textSecondary": {
+      "role": "text-secondary"
+    },
+    "textDisabled": {
+      "role": "text-disabled"
+    },
+    "textOnDark": {
+      "role": "text-on-fill",
+      "from": [
+        "light"
+      ]
+    },
+    "textOnPrimary": {
+      "role": "text-on-fill",
+      "also": [
+        "text-on-bright"
+      ],
+      "from": [
+        "light"
+      ]
+    },
+    "textOnBright": {
+      "role": "text-on-bright"
+    },
+    "iconFaint": {
+      "role": "icon-muted"
+    },
+    "iconNeutral": {
+      "role": "icon-secondary"
+    },
+    "neutralLine": {
+      "role": "fill-neutral",
+      "also": [
+        "chart-muted"
+      ]
+    },
+    "warningAmber": {
+      "role": "warning-text",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "amberIcon": {
+      "role": "warning-text",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "success": {
+      "role": "success-text",
+      "also": [
+        "success-fill"
+      ],
+      "from": [
+        "dark"
+      ]
+    },
+    "successLight": {
+      "role": "success-text"
+    },
+    "successDark": {
+      "role": "success-text"
+    },
+    "successDeep": {
+      "role": "success-text",
+      "from": [
+        "dark"
+      ]
+    },
+    "successChipText": {
+      "role": "success-text",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "error": {
+      "role": "error-text",
+      "also": [
+        "danger-fill"
+      ],
+      "from": [
+        "dark"
+      ]
+    },
+    "errorLight": {
+      "role": "error-text"
+    },
+    "errorDark": {
+      "role": "danger-fill"
+    },
+    "errorDeep": {
+      "role": "error-text",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "dangerFill": {
+      "role": "danger-fill",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "warning": {
+      "role": "warning-text",
+      "also": [
+        "warning-fill"
+      ],
+      "from": [
+        "dark"
+      ]
+    },
+    "warningLight": {
+      "role": "warning-text"
+    },
+    "cautionYellow": {
+      "role": "text-secondary",
+      "also": [
+        "warning-text"
+      ]
+    },
+    "cautionOrange": {
+      "role": "text-secondary",
+      "also": [
+        "warning-text"
+      ]
+    },
+    "cautionYellowText": {
+      "role": "text-secondary",
+      "also": [
+        "warning-text"
+      ]
+    },
+    "cautionOrangeText": {
+      "role": "text-secondary",
+      "also": [
+        "warning-text"
+      ]
+    },
+    "info": {
+      "role": "action-link"
+    },
+    "infoLight": {
+      "role": "action-link"
+    },
+    "infoText": {
+      "role": "action-link",
+      "from": [
+        "dark"
+      ]
+    },
+    "errorBg": {
+      "role": "error-bg"
+    },
+    "warningBg": {
+      "role": "warning-bg"
+    },
+    "infoBg": {
+      "role": "info-bg"
+    },
+    "successBg": {
+      "role": "success-bg"
+    },
+    "controlOn": {
+      "role": "control-on",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "controlBoundary": {
+      "role": "control-boundary",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "focusRing": {
+      "role": "focus-ring",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "track": {
+      "role": "track",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "textTertiary": {
+      "role": "text-tertiary",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "surfaceInput": {
+      "role": "surface-input",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "border": {
+      "role": "border"
+    },
+    "borderLight": {
+      "role": "border"
+    },
+    "divider": {
+      "role": "border"
+    },
+    "fillNeutral": {
+      "role": "fill-neutral",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "borderStrong": {
+      "role": "border-strong",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "gray50": {
+      "role": "neutral-25"
+    },
+    "gray100": {
+      "role": "neutral-50"
+    },
+    "gray200": {
+      "role": "neutral-100"
+    },
+    "gray300": {
+      "role": "neutral-200"
+    },
+    "gray400": {
+      "role": "neutral-300"
+    },
+    "gray500": {
+      "role": "neutral-500"
+    },
+    "gray600": {
+      "role": "neutral-600"
+    },
+    "gray700": {
+      "role": "neutral-700"
+    },
+    "gray800": {
+      "role": "neutral-800"
+    },
+    "gray900": {
+      "role": "neutral-900"
+    },
+    "ride": {
+      "role": "sport-ride"
+    },
+    "run": {
+      "role": "sport-run"
+    },
+    "swim": {
+      "role": "sport-water"
+    },
+    "rideText": {
+      "role": "sport-ride",
+      "also": [
+        "text-primary"
+      ]
+    },
+    "runText": {
+      "role": "sport-run",
+      "also": [
+        "text-primary"
+      ]
+    },
+    "swimText": {
+      "role": "sport-water",
+      "also": [
+        "text-primary"
+      ]
+    },
+    "walk": {
+      "role": "sport-foot"
+    },
+    "hike": {
+      "role": "sport-foot"
+    },
+    "workout": {
+      "role": "sport-strength"
+    },
+    "walkChipFill": {
+      "role": "sport-foot"
+    },
+    "workoutChipFill": {
+      "role": "sport-strength"
+    },
+    "fitness": {
+      "role": "fitness-ctl"
+    },
+    "fatigue": {
+      "role": "fatigue-atl"
+    },
+    "fitnessBlue": {
+      "role": "fitness-ctl"
+    },
+    "fatiguePurple": {
+      "role": "fatigue-atl"
+    },
+    "chartBlue": {
+      "role": "data-seq-1",
+      "also": [
+        "data-seq-2",
+        "data-seq-3",
+        "data-seq-4"
+      ]
+    },
+    "chartPurple": {
+      "role": "fill-neutral",
+      "also": [
+        "text-secondary"
+      ]
+    },
+    "chartGreen": {
+      "drop": "no reader"
+    },
+    "chartYellow": {
+      "drop": "no reader"
+    },
+    "chartCyan": {
+      "role": "focus-ring",
+      "also": [
+        "map-light-ink",
+        "map-dark-ink"
+      ]
+    },
+    "chartPink": {
+      "role": "icon-secondary"
+    },
+    "chartIndigo": {
+      "drop": "no reader"
+    },
+    "chartAmber": {
+      "drop": "no reader"
+    },
+    "chartGold": {
+      "role": "achievement"
+    },
+    "chartGoldMark": {
+      "role": "achievement",
+      "also": [
+        "achievement-text"
+      ]
+    },
+    "chartGreenMark": {
+      "role": "text-primary"
+    },
+    "chartSilverMark": {
+      "role": "chart-reference"
+    },
+    "chartBronzeMark": {
+      "role": "chart-reference"
+    },
+    "chartGoldText": {
+      "role": "achievement-text",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "chartPinkText": {
+      "role": "text-primary"
+    },
+    "chartPurpleText": {
+      "role": "text-primary"
+    },
+    "chartAccentText": {
+      "role": "action-link",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "fitnessBlueText": {
+      "role": "text-primary"
+    },
+    "fatiguePurpleText": {
+      "role": "text-primary"
+    },
+    "chartRed": {
+      "drop": "no reader"
+    },
+    "chartCasing": {
+      "drop": "lines are 2px and hold 3:1 on their own"
+    },
+    "chartHrv": {
+      "role": "chart-series"
+    },
+    "chartRhr": {
+      "role": "chart-series"
+    },
+    "chartHrvText": {
+      "role": "text-primary"
+    },
+    "chartRhrText": {
+      "role": "text-primary"
+    },
+    "chartSleep": {
+      "role": "chart-series"
+    },
+    "chartSleepScore": {
+      "role": "chart-series"
+    },
+    "chartWeight": {
+      "role": "chart-series"
+    },
+    "chartFtp": {
+      "role": "stream-power"
+    },
+    "chartFtpText": {
+      "role": "text-primary"
+    },
+    "chartGuideLine": {
+      "role": "chart-reference"
+    },
+    "chartPreviousSeason": {
+      "role": "chart-muted"
+    },
+    "chartSeries": {
+      "role": "chart-series",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "chartGridFaint": {
+      "role": "chart-grid"
+    },
+    "chartZeroLine": {
+      "role": "chart-axis"
+    },
+    "chartMutedBar": {
+      "role": "chart-muted"
+    },
+    "chartDotMuted": {
+      "role": "chart-muted"
+    },
+    "chartBandWarmup": {
+      "role": "chart-muted"
+    },
+    "chartBandCooldown": {
+      "role": "chart-muted"
+    },
+    "chartBandNeutral": {
+      "role": "chart-muted"
+    },
+    "chartZeroLineSolid": {
+      "role": "chart-axis"
+    },
+    "chartFormLine": {
+      "role": "text-primary"
+    },
+    "highlight": {
+      "role": "action-link"
+    },
+    "highlightAlt": {
+      "role": "action-link"
+    },
+    "shadowBlack": {
+      "role": "neutral-950"
+    },
+    "transparent": {
+      "drop": "literal transparent"
+    },
+    "sameDirection": {
+      "drop": "no reader"
+    },
+    "reverseDirection": {
+      "role": "direction-reverse",
+      "also": [
+        "direction-forward"
+      ]
+    },
+    "formTransition": {
+      "role": "data-div-cool-3"
+    },
+    "formFresh": {
+      "role": "data-div-cool-1"
+    },
+    "formGreyZone": {
+      "role": "data-div-mid"
+    },
+    "formOptimal": {
+      "role": "data-div-warm-1"
+    },
+    "formHighRisk": {
+      "role": "data-div-warm-3"
+    },
+    "formTransitionText": {
+      "role": "text-primary"
+    },
+    "formFreshText": {
+      "role": "text-primary"
+    },
+    "formGreyZoneText": {
+      "role": "text-primary"
+    },
+    "formOptimalText": {
+      "role": "text-primary"
+    },
+    "formHighRiskText": {
+      "role": "text-primary"
+    },
+    "eventPriorityA": {
+      "drop": "no reader"
+    },
+    "eventPriorityB": {
+      "drop": "no reader"
+    },
+    "eventPriorityC": {
+      "drop": "no reader"
+    },
+    "workoutCooldown": {
+      "drop": "no reader"
+    },
+    "actionLink": {
+      "role": "action-link",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "compassNorth": {
+      "role": "compass-north"
+    },
+    "markCyan": {
+      "role": "data-seq-1",
+      "also": [
+        "data-seq-2",
+        "data-seq-3",
+        "data-seq-4"
+      ]
+    },
+    "markGreen": {
+      "role": "data-seq-1",
+      "also": [
+        "data-seq-2",
+        "data-seq-3",
+        "data-seq-4"
+      ]
+    },
+    "markAmber": {
+      "role": "data-seq-1",
+      "also": [
+        "data-seq-2",
+        "data-seq-3",
+        "data-seq-4"
+      ]
+    },
+    "markYellow": {
+      "role": "data-seq-1",
+      "also": [
+        "data-seq-2",
+        "data-seq-3",
+        "data-seq-4"
+      ]
+    },
+    "markOrange": {
+      "role": "data-seq-1",
+      "also": [
+        "data-seq-2",
+        "data-seq-3",
+        "data-seq-4"
+      ]
+    },
+    "markFormTransition": {
+      "role": "data-div-cool-3"
+    },
+    "markFormFresh": {
+      "role": "data-div-cool-1"
+    },
+    "markFormGreyZone": {
+      "role": "data-div-mid"
+    },
+    "markFormOptimal": {
+      "role": "data-div-warm-1"
+    },
+    "surfaceElevated": {
+      "role": "surface-raised"
+    },
+    "surfaceCard": {
+      "role": "surface-raised"
+    },
+    "surfaceOverlay": {
+      "role": "surface-raised"
+    },
+    "borderAccent": {
+      "role": "border"
+    },
+    "iconPrimary": {
+      "role": "text-primary"
+    },
+    "iconSecondary": {
+      "role": "icon-secondary"
+    },
+    "iconMuted": {
+      "role": "icon-muted"
+    },
+    "iconDisabled": {
+      "role": "text-disabled"
+    },
+    "buttonSecondary": {
+      "drop": "no reader; the secondary button is surface with a control-boundary edge"
+    },
+    "inputBackground": {
+      "role": "surface-input",
+      "also": [
+        "surface"
+      ]
+    },
+    "chartFitness": {
+      "role": "fitness-ctl"
+    },
+    "chartFatigue": {
+      "role": "fatigue-atl"
+    },
+    "chartForm": {
+      "role": "text-primary"
+    },
+    "chartHR": {
+      "role": "stream-heartrate"
+    },
+    "chartCadence": {
+      "role": "stream-cadence"
+    },
+    "chartElevation": {
+      "role": "stream-context",
+      "also": [
+        "stream-context-line"
+      ]
+    }
+  },
+  "reserved": {
+    "gold-50": "the lightest gold step, kept with its ramp",
+    "scrim": "the ground behind a sheet, read when the overlay opacities fold into it",
+    "text-tertiary": "the third text step, which no palette key has yet",
+    "text-on-gold": "the ink on a gold fill, read when the badge inks fold into it",
+    "card-edge": "the raised card's dark edge, read when surfaces draw a border in dark",
+    "control-boundary": "the edge of an unchecked control, read when switchTrackOff and inputBoundary fold into it",
+    "achievement-bg": "the record tint, read when the record chips fold into it",
+    "achievement-on-bg": "the ink on the record tint, read with achievement-bg",
+    "section-badge": "the section number disc in lists, read when sectionPalette folds into it",
+    "section-badge-ink": "the ink on section-badge, read with it",
+    "record": "the record button and Live Activity red, read when recording folds into it",
+    "chart-crosshair": "the chart scrubber line, read when the chart crosshair takes a token",
+    "data-*": "the sequential and diverging data ramps, read when gradientScale, strengthRamp and contributionRamp fold into them",
+    "sport-*": "the sport families and their shades, read when activityTypeColors folds into them",
+    "stream-*": "one colour per activity stream, read when chartStreamColors folds into them",
+    "zone-*": "the zone ladder, read when zoneColors, the interval bands and the workout steps fold into it",
+    "map-*": "the map's own paints and basemap, read when the map layers and styles take the map tokens"
+  }
+}

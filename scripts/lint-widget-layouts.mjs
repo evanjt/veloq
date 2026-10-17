@@ -127,8 +127,9 @@ function size(value) {
   return m ? Number(m[1]) : value;
 }
 
-// One line of Roboto with its font padding is a little over its text size.
-const LINE = 1.2;
+// One line of Manrope, the face every widget label draws, is its ascent and descent: 2,132 and 600
+// units on its 2,000 to the em, in every weight the widgets ship.
+const LINE = 1.37;
 // Android's own floor when a label shrinks with no minimum given.
 const AUTO_SIZE_MIN_DEFAULT = 12;
 

@@ -21,12 +21,15 @@ import {
   SCREEN_SHEETS,
   headerLargeTitle,
   largeTitleScreenOptions,
+  mapSheetScreenOptions,
   noHeroHeaderOptions,
   overMapHeaderOptions,
   sheetFrame,
   sheetHasDetents,
   sheetScreenOptions,
+  sheetStops,
   sheetSurface,
+  stackHeaderOptions,
 } from '@/shared/app/screenHeaders';
 import type { ScreenHeader } from '@/shared/app/screenHeaders';
 import { colors, darkColors } from '@/theme';
@@ -110,6 +113,49 @@ describe('the native stack header', () => {
  * Expected behaviour: the over-map header leaves `title` to reach the native item and draws it at
  * an alpha nobody can see, so the header stays visually empty over the hero.
  */
+/**
+ * Scenario: the stack header carried an 18pt title and the toolbar's elevation shadow on both
+ * platforms, which matches neither the iOS navigation bar nor the Material 3 top app bar.
+ *
+ * Expected behaviour: each platform draws its own title metrics, and the Android bar is flat at
+ * rest in the theme surface.
+ */
+describe('the stack header options', () => {
+  it('leaves the title metrics to the platform on both platforms', () => {
+    for (const os of ['ios', 'android']) {
+      for (const isDark of [false, true]) {
+        const options: Record<string, unknown> = stackHeaderOptions(os, isDark);
+        expect(options).not.toHaveProperty('headerTitleStyle');
+      }
+    }
+  });
+
+  it('draws the Android bar flat in the theme surface', () => {
+    expect(stackHeaderOptions('android', false)).toEqual({
+      headerShadowVisible: false,
+      headerStyle: { backgroundColor: colors.surface },
+      headerTintColor: colors.textPrimary,
+    });
+    expect(stackHeaderOptions('android', true)).toMatchObject({
+      headerShadowVisible: false,
+      headerStyle: { backgroundColor: darkColors.surface },
+    });
+  });
+
+  it('keeps the iOS bar its own separator', () => {
+    expect(stackHeaderOptions('ios', false)).toEqual({
+      headerShadowVisible: true,
+      headerStyle: { backgroundColor: colors.surface },
+      headerTintColor: colors.textPrimary,
+    });
+  });
+
+  it('keeps a no-hero detail header flat on Android, as the stack draws it', () => {
+    expect(noHeroHeaderOptions({ isDark: false, os: 'android' }).headerShadowVisible).toBe(false);
+    expect(noHeroHeaderOptions({ isDark: false, os: 'ios' }).headerShadowVisible).toBe(true);
+  });
+});
+
 describe('the over-map header', () => {
   it('hands the screen title to the native item', () => {
     const options = overMapHeaderOptions({ title: 'Harbour loop', isDark: false });
@@ -210,6 +256,99 @@ describe('sheet routes', () => {
     expect(sheetHasDetents('sheets/field-picker')).toBe(true);
     expect(sheetHasDetents('sheets/smoothing')).toBe(false);
     expect(sheetHasDetents('settings')).toBe(false);
+  });
+});
+
+describe('map sheet stops', () => {
+  it('rests at peek, half and full on a small and a tall phone', () => {
+    for (const height of [667, 844]) {
+      const { detents, visibleMap } = sheetStops(height, 0);
+      expect(detents).toHaveLength(3);
+      expect(detents[0]).toBeLessThan(detents[1]);
+      expect(detents[1]).toBeLessThan(detents[2]);
+      expect(detents[0] * height).toBeCloseTo(150);
+      expect(detents[1]).toBe(0.52);
+      expect(height - detents[2] * height).toBeCloseTo(72);
+      expect(visibleMap[0]).toBeCloseTo(height - 150);
+      expect(visibleMap[1]).toBeCloseTo(height * 0.48);
+      expect(visibleMap[2]).toBeCloseTo(72);
+    }
+  });
+
+  it('keeps the peek row clear of the navigation bar, which the sheet runs under', () => {
+    const { detents, visibleMap } = sheetStops(844, 48);
+    expect(detents[0] * 844).toBeCloseTo(198);
+    expect(visibleMap[0]).toBeCloseTo(646);
+    expect(detents[1]).toBe(0.52);
+  });
+
+  it('stays in ascending order on a window too short for the guide sizes', () => {
+    for (const height of [320, 260, 200]) {
+      const { detents, visibleMap } = sheetStops(height, 48);
+      expect(detents[0]).toBeLessThan(detents[1]);
+      expect(detents[1]).toBeLessThan(detents[2]);
+      expect(detents[2]).toBeLessThanOrEqual(1);
+      expect(detents[0]).toBeGreaterThan(0);
+      expect(visibleMap[0]).toBeGreaterThan(visibleMap[1]);
+      expect(visibleMap[1]).toBeGreaterThan(visibleMap[2]);
+    }
+  });
+
+  it('gives no stops for a window with no height yet', () => {
+    expect(sheetStops(0, 0).detents).toEqual([]);
+    expect(sheetStops(0, 0).visibleMap).toEqual([]);
+  });
+});
+
+describe('map sheet options', () => {
+  it('presents a form sheet at the three stops, opened at half, with the map undimmed', () => {
+    for (const [os, version] of [
+      ['ios', '26.2'],
+      ['ios', '18.5'],
+      ['android', 35],
+    ] as const) {
+      const options = mapSheetScreenOptions(os, version, 844, 0);
+      expect(options).toMatchObject({
+        presentation: 'formSheet',
+        sheetGrabberVisible: true,
+        headerShown: false,
+        sheetInitialDetentIndex: 1,
+        sheetLargestUndimmedDetentIndex: 'last',
+      });
+      expect(options.gestureEnabled).toBe(false);
+    }
+    expect(mapSheetScreenOptions('ios', '26.2', 844, 0).sheetAllowedDetents).toEqual(
+      sheetStops(844, 0).detents
+    );
+  });
+
+  it('gives Android the middle stop as a share of the highest, which its sheet sizes it by', () => {
+    const [peek, half, full] = sheetStops(914, 24).detents;
+    const options = mapSheetScreenOptions('android', 35, 914, 24);
+    expect(options.sheetAllowedDetents).toEqual([peek, half * full, full]);
+    // The Android sheet rests at the middle detent over the highest, of the whole window.
+    const [, middle, highest] = options.sheetAllowedDetents as number[];
+    expect((middle / highest) * 914).toBeCloseTo(0.52 * 914);
+    expect(options.sheetShouldOverflowTopInset).toBe(true);
+  });
+
+  it('keeps the dismiss gesture off, so a drag stops at peek rather than closing the sheet', () => {
+    expect(mapSheetScreenOptions('android', 35, 844, 48).gestureEnabled).toBe(false);
+    expect(mapSheetScreenOptions('ios', '26.2', 844, 34).gestureEnabled).toBe(false);
+    expect(mapSheetScreenOptions('ios', '26.2', 844, 34)).not.toHaveProperty(
+      'sheetShouldOverflowTopInset'
+    );
+  });
+
+  it('takes the same edges as every other sheet', () => {
+    expect(mapSheetScreenOptions('android', 35, 844, 48).sheetCornerRadius).toBe(
+      sheetScreenOptions('sheets/insight', 'android', 35)?.sheetCornerRadius
+    );
+    expect(mapSheetScreenOptions('ios', '26.2', 844, 34)).not.toHaveProperty('sheetCornerRadius');
+    expect(mapSheetScreenOptions('ios', '26.2', 844, 34).contentStyle).toEqual(
+      sheetScreenOptions('sheets/insight', 'ios', '26.2')?.contentStyle
+    );
+    expect(mapSheetScreenOptions('android', 35, 844, 48)).not.toHaveProperty('contentStyle');
   });
 });
 
@@ -340,7 +479,7 @@ describe('large title options', () => {
  */
 describe('map-hero detail header states', () => {
   it('gives a screen with no hero an opaque header in the theme, titled with its name', () => {
-    expect(noHeroHeaderOptions({ title: 'Trainer ride', isDark: false })).toEqual({
+    expect(noHeroHeaderOptions({ title: 'Trainer ride', isDark: false, os: 'ios' })).toEqual({
       headerTransparent: false,
       headerShadowVisible: true,
       headerStyle: { backgroundColor: colors.surface },
@@ -349,9 +488,12 @@ describe('map-hero detail header states', () => {
       title: 'Trainer ride',
     });
     expect(
-      getHeaderTitle(noHeroHeaderOptions({ title: 'Trainer ride', isDark: false }), 'activity/[id]')
+      getHeaderTitle(
+        noHeroHeaderOptions({ title: 'Trainer ride', isDark: false, os: 'ios' }),
+        'activity/[id]'
+      )
     ).toBe('Trainer ride');
-    expect(noHeroHeaderOptions({ title: 'Trainer ride', isDark: true })).toMatchObject({
+    expect(noHeroHeaderOptions({ title: 'Trainer ride', isDark: true, os: 'ios' })).toMatchObject({
       headerStyle: { backgroundColor: darkColors.surface },
       headerTintColor: darkColors.textPrimary,
       headerTitleStyle: { color: darkColors.textPrimary },
@@ -359,7 +501,7 @@ describe('map-hero detail header states', () => {
   });
 
   it("leaves the route's own title alone when the screen has no name to show", () => {
-    const options = noHeroHeaderOptions({ isDark: false });
+    const options = noHeroHeaderOptions({ isDark: false, os: 'ios' });
     expect(options.headerTransparent).toBe(false);
     expect(options).not.toHaveProperty('title');
     expect(options).not.toHaveProperty('headerTitle');
@@ -390,7 +532,7 @@ describe('map-hero detail header states', () => {
 
   it('undoes every option the hero header sets, so neither state leaks into the other', () => {
     const hero = Object.keys(overMapHeaderOptions({ isDark: false })).sort();
-    const noHero = Object.keys(noHeroHeaderOptions({ title: 'x', isDark: false }));
+    const noHero = Object.keys(noHeroHeaderOptions({ title: 'x', isDark: false, os: 'android' }));
     expect(hero.filter((key) => !noHero.includes(key))).toEqual([]);
   });
 });

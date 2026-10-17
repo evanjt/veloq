@@ -18,6 +18,7 @@
     android:paddingEnd="4dp">
 
     <TextView
+      android:fontFamily="@font/widget_manrope"
       android:id="@+id/sum_cell0_label"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
@@ -33,6 +34,7 @@
       android:gravity="center_vertical">
 
       <TextView
+        android:fontFamily="@font/widget_manrope"
         android:id="@+id/sum_cell0_value"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -43,6 +45,7 @@
         android:textColor="@color/widget_text_primary" />
 
       <TextView
+        android:fontFamily="@font/widget_manrope"
         android:id="@+id/sum_cell0_trend"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -53,6 +56,7 @@
   </LinearLayout>
 
   <TextView
+    android:fontFamily="@font/widget_manrope"
     android:id="@+id/sum_div1"
     android:layout_width="1dp"
     android:layout_height="match_parent"
@@ -68,6 +72,7 @@
     android:paddingEnd="4dp">
 
     <TextView
+      android:fontFamily="@font/widget_manrope"
       android:id="@+id/sum_cell1_label"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
@@ -83,6 +88,7 @@
       android:gravity="center_vertical">
 
       <TextView
+        android:fontFamily="@font/widget_manrope"
         android:id="@+id/sum_cell1_value"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -93,6 +99,7 @@
         android:textColor="@color/widget_text_primary" />
 
       <TextView
+        android:fontFamily="@font/widget_manrope"
         android:id="@+id/sum_cell1_trend"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -103,6 +110,7 @@
   </LinearLayout>
 
   <TextView
+    android:fontFamily="@font/widget_manrope"
     android:id="@+id/sum_div2"
     android:layout_width="1dp"
     android:layout_height="match_parent"
@@ -118,6 +126,7 @@
     android:paddingEnd="4dp">
 
     <TextView
+      android:fontFamily="@font/widget_manrope"
       android:id="@+id/sum_cell2_label"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
@@ -133,6 +142,7 @@
       android:gravity="center_vertical">
 
       <TextView
+        android:fontFamily="@font/widget_manrope"
         android:id="@+id/sum_cell2_value"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -143,6 +153,7 @@
         android:textColor="@color/widget_text_primary" />
 
       <TextView
+        android:fontFamily="@font/widget_manrope"
         android:id="@+id/sum_cell2_trend"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -153,6 +164,7 @@
   </LinearLayout>
 
   <TextView
+    android:fontFamily="@font/widget_manrope"
     android:id="@+id/sum_div3"
     android:layout_width="1dp"
     android:layout_height="match_parent"
@@ -168,6 +180,7 @@
     android:paddingEnd="4dp">
 
     <TextView
+      android:fontFamily="@font/widget_manrope"
       android:id="@+id/sum_cell3_label"
       android:layout_width="match_parent"
       android:layout_height="wrap_content"
@@ -183,6 +196,7 @@
       android:gravity="center_vertical">
 
       <TextView
+        android:fontFamily="@font/widget_manrope"
         android:id="@+id/sum_cell3_value"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -193,6 +207,7 @@
         android:textColor="@color/widget_text_primary" />
 
       <TextView
+        android:fontFamily="@font/widget_manrope"
         android:id="@+id/sum_cell3_trend"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"

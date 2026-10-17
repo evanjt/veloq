@@ -226,7 +226,7 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_method_veloqengine_bulk_export_progress(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_method_veloqengine_check_record_zip(
+  jsi::Value cpp_uniffi_veloqrs_fn_method_veloqengine_check_record(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_veloqengine_clear_observer(
@@ -1038,10 +1038,7 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_func_get_routes_status_data(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_func_is_cutover_pending(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value cpp_uniffi_veloqrs_fn_func_is_cutover_running(
+  jsi::Value cpp_uniffi_veloqrs_fn_func_is_cutover_held(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_func_pause_elevation_backfill(
@@ -1307,10 +1304,7 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_checksum_func_get_routes_status_data(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value cpp_uniffi_veloqrs_checksum_func_is_cutover_pending(
-      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-      size_t count);
-  jsi::Value cpp_uniffi_veloqrs_checksum_func_is_cutover_running(
+  jsi::Value cpp_uniffi_veloqrs_checksum_func_is_cutover_held(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_func_pause_elevation_backfill(
@@ -1536,7 +1530,7 @@ protected:
   cpp_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_progress(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
-  jsi::Value cpp_uniffi_veloqrs_checksum_method_veloqengine_check_record_zip(
+  jsi::Value cpp_uniffi_veloqrs_checksum_method_veloqengine_check_record(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_veloqengine_clear_observer(

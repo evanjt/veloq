@@ -13,7 +13,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import { runLaunchRestores } from '@/features/settings/lib/launchRestore';
 import { answerRestorePrompt, restoreFoundBackup } from '@/features/settings/lib/restorePrompt';
-import { restoreRecordBackup } from '@/features/settings/lib/backup';
+import { restoreCheckedFile } from '@/features/settings/lib/checkedRestore';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 
 const ZIP = 'file:///docs/veloq-decisions.zip';
@@ -21,7 +21,8 @@ const WRITTEN_AT = '2026-06-01T08:30:00.000Z';
 const MARKER = '__platform_record_answered';
 
 const mockSettings = new Map<string, string>();
-const mockCheckRecordBackup = jest.fn(async (_uri: string): Promise<string | null> => WRITTEN_AT);
+const CHECKED = { writtenAt: WRITTEN_AT, namesAccount: true, names: 1, settings: 1, decisions: 0 };
+const mockCheckRecordBackup = jest.fn(async (_uri: string) => CHECKED);
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({
@@ -34,7 +35,9 @@ jest.mock('@/shared/storage/platformRecord', () => ({
 }));
 jest.mock('@/features/settings/lib/backup', () => ({
   checkRecordBackup: (uri: string) => mockCheckRecordBackup(uri),
-  restoreRecordBackup: jest.fn(async () => ({ placed: 3, unplaced: 0, missingActivityIds: [] })),
+}));
+jest.mock('@/features/settings/lib/checkedRestore', () => ({
+  restoreCheckedFile: jest.fn(async () => ({ unplaced: 0, notRestored: 0, namesNotRestored: 0 })),
 }));
 jest.mock('@/features/settings/lib/heldImport', () => ({
   applyHeldImport: jest.fn(async () => false),
@@ -62,14 +65,14 @@ jest.mock('expo-file-system/legacy', () => ({
 }));
 
 const t = ((key: string) => key) as never;
-const restore = restoreRecordBackup as jest.MockedFunction<typeof restoreRecordBackup>;
+const restore = jest.mocked(restoreCheckedFile);
 const getInfoAsync = FileSystem.getInfoAsync as jest.MockedFunction<typeof FileSystem.getInfoAsync>;
 const offer = () => useWhatsNewStore.getState().restoreOffer;
 
 beforeEach(() => {
   jest.clearAllMocks();
   mockSettings.clear();
-  mockCheckRecordBackup.mockReset().mockResolvedValue(WRITTEN_AT);
+  mockCheckRecordBackup.mockReset().mockResolvedValue(CHECKED);
   getInfoAsync.mockResolvedValue({ exists: true, size: 4096, modificationTime: 0 } as never);
   useWhatsNewStore.getState().setRestoreOffer(null);
 });
@@ -94,11 +97,11 @@ describe('the record zip a device backup brings back, on a signed-in launch', ()
     const found = offer();
     expect(found).not.toBeNull();
 
-    await restoreFoundBackup(found!);
+    await restoreFoundBackup(found!, t);
     answerRestorePrompt();
 
     expect(restore).toHaveBeenCalledTimes(1);
-    expect(restore).toHaveBeenCalledWith(ZIP);
+    expect(restore).toHaveBeenCalledWith(ZIP, ZIP, t);
     expect(offer()).toBeNull();
     expect(mockSettings.get(MARKER)).toBe('1');
   });

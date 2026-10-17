@@ -23,7 +23,13 @@ const ROUTE_SETTINGS_KEY = 'veloq-route-settings';
 beforeEach(async () => {
   await AsyncStorage.clear();
   jest.clearAllMocks();
-  useHeatmapPreference.setState({ enabled: true, routesVisible: false, isLoaded: false });
+  useHeatmapPreference.setState({
+    enabled: true,
+    routesVisible: false,
+    heatmapVisible: true,
+    activitiesVisible: true,
+    isLoaded: false,
+  });
 });
 
 describe('the heatmap preference', () => {
@@ -98,5 +104,53 @@ describe('the routes visibility', () => {
 
     await initialiseHeatmapPreference();
     expect(useHeatmapPreference.getState().routesVisible).toBe(true);
+  });
+});
+
+describe('the heatmap and activities layer checks', () => {
+  it('are on by default', async () => {
+    await initialiseHeatmapPreference();
+
+    expect(useHeatmapPreference.getState().heatmapVisible).toBe(true);
+    expect(useHeatmapPreference.getState().activitiesVisible).toBe(true);
+  });
+
+  it('survive a relaunch once turned off', async () => {
+    await initialiseHeatmapPreference();
+
+    useHeatmapPreference.getState().setHeatmapVisible(false);
+    useHeatmapPreference.getState().setActivitiesVisible(false);
+    await Promise.resolve();
+    useHeatmapPreference.setState({
+      heatmapVisible: true,
+      activitiesVisible: true,
+      isLoaded: false,
+    });
+
+    await initialiseHeatmapPreference();
+    expect(useHeatmapPreference.getState().heatmapVisible).toBe(false);
+    expect(useHeatmapPreference.getState().activitiesVisible).toBe(false);
+  });
+
+  it('come back on after being turned off and on again', async () => {
+    await initialiseHeatmapPreference();
+
+    useHeatmapPreference.getState().setHeatmapVisible(false);
+    useHeatmapPreference.getState().setHeatmapVisible(true);
+    await Promise.resolve();
+    useHeatmapPreference.setState({ heatmapVisible: false, isLoaded: false });
+
+    await initialiseHeatmapPreference();
+    expect(useHeatmapPreference.getState().heatmapVisible).toBe(true);
+  });
+
+  it('leave the heatmap setting alone, which says whether the layer exists at all', async () => {
+    await initialiseHeatmapPreference();
+
+    useHeatmapPreference.getState().setHeatmapVisible(false);
+    await Promise.resolve();
+
+    expect(isHeatmapEnabled()).toBe(true);
+    expect(await AsyncStorage.getItem(HEATMAP_KEY)).toBe('true');
   });
 });

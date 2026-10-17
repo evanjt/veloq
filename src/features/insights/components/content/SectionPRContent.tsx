@@ -10,11 +10,21 @@ import { cardSportType } from '@/features/insights/lib/cardSport';
 import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { Shimmer } from '@/shared/ui/Shimmer';
 import { ErrorState } from '@/shared/ui/ErrorState';
-import { SectionInsightMap } from './SectionInsightMap';
+import { SheetTrackDrawing } from './SheetTrackDrawing';
 import { SectionPerformanceTimeline } from './SectionPerformanceTimeline';
 import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration, formatShortDate } from '@/shared/format/format';
-import { brand, colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
+import {
+  brand,
+  colors,
+  darkColors,
+  iconSize,
+  layout,
+  opacity,
+  spacing,
+  themePalette,
+  typography,
+} from '@/theme';
 import { prRecordOf } from '@/features/insights/lib/directionBests';
 import type { Insight } from '@/types';
 import { NameText } from '@/shared/ui/NameText';
@@ -68,10 +78,7 @@ export const SectionPRContent = React.memo(function SectionPRContent({
         />
       ) : null}
 
-      {/* Section map */}
-      {section?.polyline && section.polyline.length >= 2 ? (
-        <SectionInsightMap polyline={section.polyline} lineColor={brand.gold} />
-      ) : null}
+      <SheetTrackDrawing points={section?.polyline} color={themePalette(isDark).primary} />
 
       {/* What the record beat; the time itself is the sheet's figure */}
       {bestTimeFormatted ? (

@@ -8,7 +8,6 @@ import {
   FlatList,
   Image,
   Platform,
-  RefreshControl,
   StyleSheet,
   type LayoutChangeEvent,
 } from 'react-native';
@@ -28,7 +27,7 @@ import { logScreenRender, PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { RestoreOfferCard, StreamConsentCard, useDashboardPreferences } from '@/features/settings';
 import { tapTo } from '@/shared/app/navigation';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { onPullRefresh } from '@/shared/ui/haptics';
+import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
 import { isReduceMotionOn } from '@/shared/ui/reduceMotion';
 import { useScrollToTopOnReselect } from '@/shared/ui/tabReselect';
 import { useSyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
@@ -360,51 +359,47 @@ function FeedScreenContent() {
   const strengthCards = useStrengthCardData(strengthCardRows);
 
   // Comprehensive refresh: invalidates feed (stale-while-revalidate), triggers route engine sync
-  const handleRefresh = useMemo(
-    () =>
-      onPullRefresh(async () => {
-        setPullRefreshing(true);
-        try {
-          requestRefresh();
-          // Reset the infinite query if page params are stale (don't cover today),
-          // otherwise invalidate for smooth stale-while-revalidate.
-          const infiniteRefresh = isInfiniteActivitiesStale(queryClient)
-            ? queryClient.resetQueries({ queryKey: queryKeys.activities.infinite.all })
-            : queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
+  const handleRefresh = useCallback(async () => {
+    setPullRefreshing(true);
+    try {
+      requestRefresh();
+      // Reset the infinite query if page params are stale (don't cover today),
+      // otherwise invalidate for smooth stale-while-revalidate.
+      const infiniteRefresh = isInfiniteActivitiesStale(queryClient)
+        ? queryClient.resetQueries({ queryKey: queryKeys.activities.infinite.all })
+        : queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
 
-          await Promise.all([
-            infiniteRefresh,
-            queryClient.invalidateQueries({ queryKey: queryKeys.activities.all }),
-            queryClient.invalidateQueries({ queryKey: queryKeys.activities.range.all }),
-            queryClient.invalidateQueries({ queryKey: queryKeys.activities.search.all }),
-            queryClient.invalidateQueries({ queryKey: queryKeys.wellness.all }),
-            queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all }),
-            queryClient.invalidateQueries({ queryKey: queryKeys.charts.powerCurve.all }),
-            queryClient.invalidateQueries({ queryKey: queryKeys.charts.paceCurve.all }),
-            queryClient.invalidateQueries({ queryKey: queryKeys.charts.bestEfforts.all }),
-            refetchSummary(),
-          ]);
-          // The card is painted from the startup bundle, which no query invalidation
-          // reaches, so without this a refresh leaves it on whatever the last engine
-          // announcement gave it while the Fitness screen shows the current number.
-          refreshStartupData();
-          // Retry any failed 3D terrain snapshots
-          snapshotRef.current?.retryFailed();
-          // Re-hide the filter section after refresh (if no active filter)
-          if (!filtered) {
-            setTimeout(() => {
-              listRef.current?.scrollToOffset({
-                offset: hiddenHeadHeight.current,
-                animated: !isReduceMotionOn(),
-              });
-            }, 100);
-          }
-        } finally {
-          setPullRefreshing(false);
-        }
-      }),
-    [queryClient, refetchSummary, refreshStartupData, filtered, requestRefresh]
-  );
+      await Promise.all([
+        infiniteRefresh,
+        queryClient.invalidateQueries({ queryKey: queryKeys.activities.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.activities.range.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.activities.search.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.wellness.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charts.powerCurve.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charts.paceCurve.all }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.charts.bestEfforts.all }),
+        refetchSummary(),
+      ]);
+      // The card is painted from the startup bundle, which no query invalidation
+      // reaches, so without this a refresh leaves it on whatever the last engine
+      // announcement gave it while the Fitness screen shows the current number.
+      refreshStartupData();
+      // Retry any failed 3D terrain snapshots
+      snapshotRef.current?.retryFailed();
+      // Re-hide the filter section after refresh (if no active filter)
+      if (!filtered) {
+        setTimeout(() => {
+          listRef.current?.scrollToOffset({
+            offset: hiddenHeadHeight.current,
+            animated: !isReduceMotionOn(),
+          });
+        }, 100);
+      }
+    } finally {
+      setPullRefreshing(false);
+    }
+  }, [queryClient, refetchSummary, refreshStartupData, filtered, requestRefresh]);
 
   // Load more when scrolling to the end, from whichever read the list holds
   const {
@@ -439,24 +434,8 @@ function FeedScreenContent() {
   }, [searching, hasPreviousPage, isFetchingPreviousPage, fetchPreviousPage]);
 
   const refreshControl = useMemo(
-    () => (
-      <RefreshControl
-        refreshing={pullRefreshing}
-        onRefresh={handleRefresh}
-        colors={[themePalette(isDark).primary]}
-        tintColor={themePalette(isDark).primary}
-        progressBackgroundColor={isDark ? darkColors.surface : colors.surface}
-        title={Platform.OS === 'ios' ? t('common.pullToRefresh') : undefined}
-        titleColor={
-          Platform.OS === 'ios'
-            ? isDark
-              ? darkColors.textSecondary
-              : colors.textSecondary
-            : undefined
-        }
-      />
-    ),
-    [pullRefreshing, handleRefresh, isDark, t]
+    () => <ScreenRefreshControl refreshing={pullRefreshing} onRefresh={handleRefresh} />,
+    [pullRefreshing, handleRefresh]
   );
 
   // The line itself is part of the key: a re-ingest can replace a track while
@@ -923,11 +902,8 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   sectionTitle: {
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '600',
+    ...typography.sectionHeader,
     color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   footerLoader: {
     flexDirection: 'row',

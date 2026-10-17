@@ -8,7 +8,8 @@
  * - A unit sits beside the value and is part of the name.
  * - An error replaces the supporting text under the field, and is spoken: a
  *   polite live region on Android, an announcement on iOS.
- * - The edge is `inputBoundary`, a mark at 3:1 on the theme's surfaces.
+ * - The edge is `controlBoundary`, a mark at 3:1 on the theme's surfaces, and
+ *   the focused edge `focusRing`.
  * - The height is a minimum, so the user's text size grows the field rather than
  *   clipping it, and the keyboard follows the theme.
  * - A secret field carries its own show or hide control, so a paste can be
@@ -35,16 +36,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app/useTheme';
-import {
-  colors,
-  darkColors,
-  iconSize,
-  inputBoundary,
-  layout,
-  spacing,
-  typography,
-  stroke,
-} from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
 
 import { IconButton } from './IconButton';
 import { secretReveal } from './secretReveal';
@@ -141,7 +133,7 @@ export function TextField({
   const { isDark: themeDark } = useTheme();
   const isDark = themeDark || onDarkGround;
   const palette = isDark ? darkColors : colors;
-  const boundary = isDark ? inputBoundary.dark : inputBoundary.light;
+  const boundary = palette.controlBoundary;
   const [focused, setFocused] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const reveal = secureTextEntry ? secretReveal(revealed, t) : null;
@@ -225,7 +217,7 @@ export function TextField({
           label={shownLabel}
           error={!!error}
           outlineColor={boundary}
-          activeOutlineColor={palette.primary}
+          activeOutlineColor={palette.focusRing}
           textColor={palette.textPrimary}
           style={{ backgroundColor: palette.surface }}
           // Paper caps the field's text at 1.5x by default; zero lifts the cap.
@@ -249,7 +241,7 @@ export function TextField({
     );
   }
 
-  const edge = error ? palette.errorDeep : focused ? palette.primary : boundary;
+  const edge = error ? palette.errorDeep : focused ? palette.focusRing : boundary;
 
   return (
     <View style={style}>

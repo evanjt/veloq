@@ -60,6 +60,14 @@ export function collectTestIds(files) {
       literals.add(m[1] ?? m[2]);
     }
 
+    // A templated `testID: \`row-${option.id}\`` in an options object, which a
+    // row component hands to each control it draws.
+    for (const m of source.matchAll(/\b\w*[Tt]estID:\s*`([^`]+)`/g)) {
+      const pattern = templateToPattern(m[1]);
+      if (pattern) patterns.push({ pattern, source: m[1], file });
+      else unreadable.push({ source: m[1], file });
+    }
+
     // `testID={...}` holds an expression, not just a literal: a ternary picking
     // between two ids, a concatenation, a template. Take every string it
     // mentions rather than trying to evaluate it, because every id the

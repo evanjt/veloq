@@ -91,8 +91,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   stat: {
-    ...typography.bodyCompact,
-    fontWeight: '600',
+    ...typography.bodyCompactBold,
     color: colors.textPrimary,
   },
   statDark: {

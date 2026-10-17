@@ -42,8 +42,6 @@ export interface DeltaLayout {
   /** Seconds from the zero line to the top and bottom edge of the plot. */
   extentSecs: number;
   xForDistance: (distanceM: number) => number;
-  /** The distance in metres at a pixel x, clamped to the section. */
-  distanceForX: (x: number) => number;
 }
 
 /** The scrub readout moves in steps of this many metres. */
@@ -160,11 +158,6 @@ export function layoutDelta(
 
   const xForDistance = (distanceM: number) =>
     padding.left + (sectionLengthM > 0 ? (distanceM / sectionLengthM) * plotWidth : 0);
-  const distanceForX = (x: number) => {
-    if (plotWidth <= 0) return 0;
-    const fraction = (x - padding.left) / plotWidth;
-    return Math.min(Math.max(fraction, 0), 1) * sectionLengthM;
-  };
   // Behind the reference is positive and drawn up, so ahead falls below zero.
   const yForSecs = (secs: number) => zeroY - (secs / extentSecs) * (plotHeight / 2);
   const columns = Math.max(1, Math.ceil(plotWidth));
@@ -185,17 +178,23 @@ export function layoutDelta(
     emphasised: lap === emphasised,
   }));
 
-  return { laps, zeroY, extentSecs, xForDistance, distanceForX };
+  return { laps, zeroY, extentSecs, xForDistance };
 }
 
-/** The 100 m stop nearest a touch and the grid index of the curve point there. */
-export function snapScrubIndex(
-  x: number,
-  plot: Pick<DeltaLayout, 'distanceForX'>,
+/**
+ * The stops the scrub readout snaps to: every 100 m from the start that lies
+ * on the section, each with the grid index of the curve point there.
+ */
+export function scrubStops(
+  sectionLengthM: number,
   gridStepM: number
-): { distanceM: number; index: number } {
-  const distanceM = Math.round(plot.distanceForX(x) / SCRUB_SNAP_M) * SCRUB_SNAP_M;
-  return { distanceM, index: gridStepM > 0 ? Math.round(distanceM / gridStepM) : 0 };
+): { distanceM: number; index: number }[] {
+  if (!(sectionLengthM >= 0)) return [];
+  const count = Math.floor(sectionLengthM / SCRUB_SNAP_M) + 1;
+  return Array.from({ length: count }, (_, stop) => {
+    const distanceM = stop * SCRUB_SNAP_M;
+    return { distanceM, index: gridStepM > 0 ? Math.round(distanceM / gridStepM) : 0 };
+  });
 }
 
 /** One split's bar in the typical-attempt plot, in pixels. */
@@ -217,8 +216,8 @@ export interface SplitSummaryLayout {
   zeroY: number;
   /** Seconds from the zero line to the top and bottom edge of the plot. */
   extentSecs: number;
-  /** The distance in metres at a pixel x, clamped to the section. */
-  distanceForX: (x: number) => number;
+  /** The pixel x at the middle of each split, one per median, the last split short. */
+  splitCentres: number[];
 }
 
 /** The share of its split a bar spans, centred in it. */
@@ -276,22 +275,14 @@ export function layoutSplitSummary(
     });
   }
 
-  const distanceForX = (x: number) => {
-    const width = bounds.right - bounds.left;
-    if (width <= 0) return 0;
-    const fraction = (x - bounds.left) / width;
-    return Math.min(Math.max(fraction, 0), 1) * sectionLengthM;
-  };
+  const splitCentres =
+    splitStepM > 0 && sectionLengthM > 0
+      ? Array.from(medianSecs, (_, index) => {
+          const start = Math.min(index * splitStepM, sectionLengthM);
+          const end = Math.min((index + 1) * splitStepM, sectionLengthM);
+          return xFor((start + end) / 2);
+        })
+      : [];
 
-  return { bars, zeroY, extentSecs, distanceForX };
-}
-
-/** The split a distance along the section falls in, the section's end in the last one. */
-export function splitAtDistance(
-  distanceM: number,
-  splitStepM: number,
-  splitCount: number
-): number | undefined {
-  if (!(splitStepM > 0) || splitCount <= 0) return undefined;
-  return Math.min(Math.max(Math.floor(distanceM / splitStepM), 0), splitCount - 1);
+  return { bars, zeroY, extentSecs, splitCentres };
 }

@@ -1,3 +1,4 @@
+import { requireOptionalNativeModule } from 'expo-modules-core';
 import { Platform, TextStyle } from 'react-native';
 
 // Manrope is the app's face, embedded at build by the `expo-font` plugin in
@@ -12,12 +13,46 @@ export const typeface = {
 
 export type FaceWeight = (typeof typeface.weights)[number];
 
-/** The bundled weight a requested one draws, rounding half up, as a medium label becomes semibold. */
-export function faceWeight(weight: TextStyle['fontWeight']): FaceWeight {
+interface VeloqAccessibilityModule {
+  boldText(): boolean;
+}
+
+/**
+ * Whether the system's bold text setting was on at launch. The roles below are
+ * spread into styles when their modules load, so the setting is read once, here,
+ * and a change while the app runs shows at the next launch. With no native
+ * module to ask (Jest, a web build) or a read that fails, it is off.
+ */
+function readBoldText(): boolean {
+  try {
+    return (
+      requireOptionalNativeModule<VeloqAccessibilityModule>('VeloqAccessibility')?.boldText() ===
+      true
+    );
+  } catch {
+    return false;
+  }
+}
+
+export const BOLD_TEXT = readBoldText();
+
+// One file up the face's weights, the heaviest staying where it is.
+const heavierFace: Record<FaceWeight, FaceWeight> = { '400': '600', '600': '700', '700': '700' };
+
+/**
+ * The bundled weight a requested one draws, rounding half up, as a medium label
+ * becomes semibold. With bold text on it draws one file heavier: 400 as 600,
+ * 600 as 700, and 700 stays, the heaviest the face ships.
+ */
+export function faceWeight(
+  weight: TextStyle['fontWeight'],
+  boldText: boolean = BOLD_TEXT
+): FaceWeight {
   const numeric =
     weight === 'bold' ? 700 : weight === undefined || weight === 'normal' ? 400 : Number(weight);
-  if (!Number.isFinite(numeric) || numeric < 500) return '400';
-  return numeric < 650 ? '600' : '700';
+  const nearest: FaceWeight =
+    !Number.isFinite(numeric) || numeric < 500 ? '400' : numeric < 650 ? '600' : '700';
+  return boldText ? heavierFace[nearest] : nearest;
 }
 
 const fontFamily = typeface.family;
@@ -37,21 +72,21 @@ export const typography = {
   screenTitle: {
     fontFamily,
     fontSize: 28,
-    fontWeight: '700' as const,
+    fontWeight: faceWeight('700'),
     lineHeight: 34,
     letterSpacing: -0.5,
   },
   sectionTitle: {
     fontFamily,
     fontSize: 22,
-    fontWeight: '700' as const,
+    fontWeight: faceWeight('700'),
     lineHeight: 28,
     letterSpacing: -0.3,
   },
   cardTitle: {
     fontFamily,
     fontSize: 18,
-    fontWeight: '600' as const,
+    fontWeight: faceWeight('600'),
     lineHeight: 24,
     letterSpacing: -0.2,
   },
@@ -60,43 +95,43 @@ export const typography = {
   body: {
     fontFamily,
     fontSize: 16,
-    fontWeight: '400' as const,
+    fontWeight: faceWeight('400'),
     lineHeight: 22,
   },
   bodyBold: {
     fontFamily,
     fontSize: 16,
-    fontWeight: '600' as const,
+    fontWeight: faceWeight('600'),
     lineHeight: 22,
   },
   bodySmall: {
     fontFamily,
     fontSize: 14,
-    fontWeight: '400' as const,
+    fontWeight: faceWeight('400'),
     lineHeight: 20,
   },
   bodySmallBold: {
     fontFamily,
     fontSize: 14,
-    fontWeight: '600' as const,
+    fontWeight: faceWeight('600'),
     lineHeight: 20,
   },
   bodyMedium: {
     fontFamily,
     fontSize: 15,
-    fontWeight: '400' as const,
+    fontWeight: faceWeight('400'),
     lineHeight: 21,
   },
   bodyCompact: {
     fontFamily,
     fontSize: 13,
-    fontWeight: '400' as const,
+    fontWeight: faceWeight('400'),
     lineHeight: 18,
   },
   bodyCompactBold: {
     fontFamily,
     fontSize: 13,
-    fontWeight: '600' as const,
+    fontWeight: faceWeight('600'),
     lineHeight: 18,
   },
 
@@ -105,7 +140,7 @@ export const typography = {
   statsHero: {
     fontFamily,
     fontSize: 44,
-    fontWeight: '700' as const,
+    fontWeight: faceWeight('700'),
     lineHeight: 50,
     letterSpacing: -0.5,
     fontVariant: tabularFigures,
@@ -113,7 +148,7 @@ export const typography = {
   heroNumber: {
     fontFamily,
     fontSize: 48,
-    fontWeight: '700' as const,
+    fontWeight: faceWeight('700'),
     lineHeight: 56,
     letterSpacing: -1,
     fontVariant: tabularFigures,
@@ -121,7 +156,7 @@ export const typography = {
   largeNumber: {
     fontFamily,
     fontSize: 36,
-    fontWeight: '700' as const,
+    fontWeight: faceWeight('700'),
     lineHeight: 42,
     letterSpacing: -0.8,
     fontVariant: tabularFigures,
@@ -129,7 +164,7 @@ export const typography = {
   headlineNumber: {
     fontFamily,
     fontSize: 32,
-    fontWeight: '700' as const,
+    fontWeight: faceWeight('700'),
     lineHeight: 38,
     letterSpacing: -0.6,
     fontVariant: tabularFigures,
@@ -137,7 +172,7 @@ export const typography = {
   statsValueLarge: {
     fontFamily,
     fontSize: 24,
-    fontWeight: '700' as const,
+    fontWeight: faceWeight('700'),
     lineHeight: 30,
     letterSpacing: -0.4,
     fontVariant: tabularFigures,
@@ -145,7 +180,7 @@ export const typography = {
   statsValue: {
     fontFamily,
     fontSize: 20,
-    fontWeight: '700' as const,
+    fontWeight: faceWeight('700'),
     lineHeight: 26,
     letterSpacing: -0.3,
     fontVariant: tabularFigures,
@@ -153,7 +188,7 @@ export const typography = {
   statsLabel: {
     fontFamily,
     fontSize: 12,
-    fontWeight: '400' as const,
+    fontWeight: faceWeight('400'),
     lineHeight: 16,
     letterSpacing: 0.3,
     textTransform: 'uppercase' as const,
@@ -163,7 +198,7 @@ export const typography = {
   sectionHeader: {
     fontFamily,
     fontSize: 12,
-    fontWeight: '600' as const,
+    fontWeight: faceWeight('600'),
     lineHeight: 16,
     letterSpacing: 0.3,
     textTransform: 'uppercase' as const,
@@ -171,7 +206,7 @@ export const typography = {
   metricValue: {
     fontFamily,
     fontSize: 18,
-    fontWeight: '600' as const,
+    fontWeight: faceWeight('600'),
     lineHeight: 24,
     fontVariant: tabularFigures,
   },
@@ -179,7 +214,7 @@ export const typography = {
   tableValue: {
     fontFamily,
     fontSize: 14,
-    fontWeight: '400' as const,
+    fontWeight: faceWeight('400'),
     lineHeight: 20,
     fontVariant: tabularFigures,
   },
@@ -196,19 +231,19 @@ export const typography = {
   caption: {
     fontFamily,
     fontSize: 12,
-    fontWeight: '400' as const,
+    fontWeight: faceWeight('400'),
     lineHeight: 16,
   },
   captionBold: {
     fontFamily,
     fontSize: 12,
-    fontWeight: '600' as const,
+    fontWeight: faceWeight('600'),
     lineHeight: 16,
   },
   label: {
     fontFamily,
     fontSize: 11,
-    fontWeight: '600' as const,
+    fontWeight: faceWeight('600'),
     lineHeight: 14,
     letterSpacing: 0.4,
     textTransform: 'uppercase' as const,
@@ -216,22 +251,24 @@ export const typography = {
   micro: {
     fontFamily,
     fontSize: 10,
-    fontWeight: '400' as const,
+    fontWeight: faceWeight('400'),
     lineHeight: 12,
     letterSpacing: 0.2,
   },
 
   // Pills & Badges
+  // A number in a pill, a chip or a live chart readout.
   pillValue: {
     fontFamily,
     fontSize: 14,
-    fontWeight: '700' as const,
+    fontWeight: faceWeight('700'),
     lineHeight: 18,
+    fontVariant: tabularFigures,
   },
   pillLabel: {
     fontFamily,
     fontSize: 9,
-    fontWeight: '600' as const,
+    fontWeight: faceWeight('600'),
     lineHeight: 11,
     letterSpacing: 0.3,
     textTransform: 'uppercase' as const,
@@ -239,7 +276,7 @@ export const typography = {
   badge: {
     fontFamily,
     fontSize: 11,
-    fontWeight: '600' as const,
+    fontWeight: faceWeight('600'),
     lineHeight: 14,
   },
 } as const;

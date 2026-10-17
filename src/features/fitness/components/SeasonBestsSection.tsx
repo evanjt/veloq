@@ -25,6 +25,7 @@ import {
   spacing,
   typography,
   stroke,
+  opacity,
 } from '@/theme';
 import {
   bestEffortsHref,
@@ -157,8 +158,7 @@ export function SeasonBestsSection({
 
 const styles = StyleSheet.create({
   climbingTitle: {
-    ...typography.bodySmall,
-    fontWeight: '600',
+    ...typography.bodySmallBold,
     color: colors.textSecondary,
     marginTop: spacing.sm,
   },
@@ -173,14 +173,13 @@ const styles = StyleSheet.create({
     minHeight: layout.minTapTarget,
     marginTop: spacing.xs,
     borderTopWidth: stroke.hairline,
-    borderTopColor: colorWithOpacity(ink.black, 0.08),
+    borderTopColor: colorWithOpacity(ink.black, opacity.tint1),
   },
   viewAllRowDark: {
-    borderTopColor: colorWithOpacity(ink.white, 0.08),
+    borderTopColor: colorWithOpacity(ink.white, opacity.tint1),
   },
   viewAllText: {
-    ...typography.caption,
-    fontWeight: '600',
+    ...typography.captionBold,
     marginRight: spacing.xs,
   },
 });

@@ -320,29 +320,14 @@ export function getRoutesStatusData(): FfiRoutesStatusData {
 }
 
 /**
- * Whether the Corridor-to-Unified cutover is pending.
+ * Whether the cutover holds detection, owed or running. The one answer every
+ * screen that defers to the migration reads.
  */
-export function isCutoverPending(): boolean {
+export function isCutoverHeld(): boolean {
   return FfiConverterBool.lift(
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_is_cutover_pending(
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    ),
-  );
-}
-
-/**
- * Whether a cutover run is currently in flight.
- */
-export function isCutoverRunning(): boolean {
-  return FfiConverterBool.lift(
-    uniffiCaller.rustCall(
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_func_is_cutover_running(
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_is_cutover_held(
           callStatus,
         );
       },
@@ -435,23 +420,29 @@ export function setInteracting(interacting: boolean): void {
 }
 
 /**
- * Tell the engine what TypeScript sees on the network.
+ * Tell the engine what TypeScript sees on the network, and whether the
+ * reading is the one taken as the app came back from the background.
  *
  * The network lifecycle is Rust's, and nothing in the crate can see the
- * network itself, so this is the whole of its connectivity input. Call it
- * from the same place that calls `onlineManager.setOnline`, on every
- * transition and on foreground, so there is one debounce and one edge rather
- * than two.
+ * network or the app's lifecycle itself, so this is the whole of its input
+ * for both. Call it from the same place that calls
+ * `onlineManager.setOnline`, on every transition and on foreground, so there
+ * is one debounce and one edge rather than two. `foregrounded` is true only
+ * for a return from the background: a re-read on a clock, or the app
+ * passing through inactive for a system sheet, is not one.
  *
- * The value is advisory and only ever a reason to refuse work: a state
- * nobody has refreshed for fifteen minutes expires back to "try", and an
- * install that never calls this behaves exactly as it did before.
+ * The online value is advisory and only ever a reason to refuse work: a
+ * state nobody has refreshed for fifteen minutes expires back to "try", and
+ * an install that never calls this behaves exactly as it did before. A
+ * return starts the default sync, which the sync service gates on the
+ * credential.
  */
-export function setNetworkOnline(online: boolean): void {
+export function setNetworkOnline(online: boolean, foregrounded: boolean): void {
   uniffiCaller.rustCall(
     /*caller:*/ (callStatus) => {
       nativeModule().ubrn_uniffi_veloqrs_fn_func_set_network_online(
         FfiConverterBool.lower(online, nativeModule().rustbuffer_alloc),
+        FfiConverterBool.lower(foregrounded, nativeModule().rustbuffer_alloc),
         callStatus,
       );
     },
@@ -8692,6 +8683,14 @@ export type FfiFitnessScreenData = {
    * primary sport defaults to until the athlete chooses one.
    */
   sportMix: FfiSportMix;
+  /**
+   * The fitness time constant in days in effect today
+   */
+  fitnessDays: number;
+  /**
+   * The fatigue time constant in days in effect today
+   */
+  fatigueDays: number;
 };
 
 /**
@@ -8722,6 +8721,8 @@ const FfiConverterTypeFfiFitnessScreenData = (() => {
         runPaceTrend: FfiConverterTypeFfiPaceTrend.readFromCursor(c),
         swimPaceTrend: FfiConverterTypeFfiPaceTrend.readFromCursor(c),
         sportMix: FfiConverterTypeFfiSportMix.readFromCursor(c),
+        fitnessDays: FfiConverterUInt32.readFromCursor(c),
+        fatigueDays: FfiConverterUInt32.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -8730,6 +8731,8 @@ const FfiConverterTypeFfiFitnessScreenData = (() => {
       FfiConverterTypeFfiPaceTrend.writeIntoCursor(value.runPaceTrend, c);
       FfiConverterTypeFfiPaceTrend.writeIntoCursor(value.swimPaceTrend, c);
       FfiConverterTypeFfiSportMix.writeIntoCursor(value.sportMix, c);
+      FfiConverterUInt32.writeIntoCursor(value.fitnessDays, c);
+      FfiConverterUInt32.writeIntoCursor(value.fatigueDays, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -8737,7 +8740,9 @@ const FfiConverterTypeFfiFitnessScreenData = (() => {
         FfiConverterTypeRangeCoverage.allocationSize(value.ftpTrendCoverage) +
         FfiConverterTypeFfiPaceTrend.allocationSize(value.runPaceTrend) +
         FfiConverterTypeFfiPaceTrend.allocationSize(value.swimPaceTrend) +
-        FfiConverterTypeFfiSportMix.allocationSize(value.sportMix)
+        FfiConverterTypeFfiSportMix.allocationSize(value.sportMix) +
+        FfiConverterUInt32.allocationSize(value.fitnessDays) +
+        FfiConverterUInt32.allocationSize(value.fatigueDays)
       );
     }
   }
@@ -13635,15 +13640,33 @@ const FfiConverterTypeFfiQuarantineReport = (() => {
 })();
 
 /**
- * What a check of a record zip learnt about the zip, once it found nothing
- * the restore would refuse.
+ * What a check of a record learnt about it, once it found nothing the
+ * restore would refuse, so the question before a restore can say what the
+ * restore would replace.
  */
 export type FfiRecordCheck = {
   /**
-   * When the zip was written, RFC 3339 in UTC, from its own content.
-   * `None` for a zip written before records carried the time.
+   * When the record was written, RFC 3339 in UTC, from its own content.
+   * `None` for a record written before records carried the time.
    */
   writtenAt?: string;
+  /**
+   * Whether the record names the account it was written for. The check
+   * refuses one naming another account, so a named one is this account's.
+   */
+  namesAccount: boolean;
+  /**
+   * Route and section names the record carries.
+   */
+  names: number;
+  /**
+   * Settings rows the record carries.
+   */
+  settings: number;
+  /**
+   * Every other decision: hand-cut sections, pins, exclusions, numbers.
+   */
+  decisions: number;
 };
 
 /**
@@ -13669,13 +13692,27 @@ const FfiConverterTypeFfiRecordCheck = (() => {
     readFromCursor(c: Cursor): TypeName {
       return {
         writtenAt: FfiConverterOptionalString.readFromCursor(c),
+        namesAccount: FfiConverterBool.readFromCursor(c),
+        names: FfiConverterUInt32.readFromCursor(c),
+        settings: FfiConverterUInt32.readFromCursor(c),
+        decisions: FfiConverterUInt32.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterOptionalString.writeIntoCursor(value.writtenAt, c);
+      FfiConverterBool.writeIntoCursor(value.namesAccount, c);
+      FfiConverterUInt32.writeIntoCursor(value.names, c);
+      FfiConverterUInt32.writeIntoCursor(value.settings, c);
+      FfiConverterUInt32.writeIntoCursor(value.decisions, c);
     }
     allocationSize(value: TypeName): number {
-      return FfiConverterOptionalString.allocationSize(value.writtenAt);
+      return (
+        FfiConverterOptionalString.allocationSize(value.writtenAt) +
+        FfiConverterBool.allocationSize(value.namesAccount) +
+        FfiConverterUInt32.allocationSize(value.names) +
+        FfiConverterUInt32.allocationSize(value.settings) +
+        FfiConverterUInt32.allocationSize(value.decisions)
+      );
     }
   }
   return new FFIConverter();
@@ -17911,6 +17948,11 @@ export type FfiSectionMatch = {
   matchQuality: number;
   sameDirection: boolean;
   distanceMeters: number;
+  /**
+   * Distance ridden from the activity's first point to the pass's first
+   * point, in metres, so the athlete can place the pass along the ride.
+   */
+  startDistanceMeters: number;
 };
 
 /**
@@ -17942,6 +17984,7 @@ const FfiConverterTypeFfiSectionMatch = (() => {
         matchQuality: FfiConverterFloat64.readFromCursor(c),
         sameDirection: FfiConverterBool.readFromCursor(c),
         distanceMeters: FfiConverterFloat64.readFromCursor(c),
+        startDistanceMeters: FfiConverterFloat64.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -17952,6 +17995,7 @@ const FfiConverterTypeFfiSectionMatch = (() => {
       FfiConverterFloat64.writeIntoCursor(value.matchQuality, c);
       FfiConverterBool.writeIntoCursor(value.sameDirection, c);
       FfiConverterFloat64.writeIntoCursor(value.distanceMeters, c);
+      FfiConverterFloat64.writeIntoCursor(value.startDistanceMeters, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -17961,7 +18005,8 @@ const FfiConverterTypeFfiSectionMatch = (() => {
         FfiConverterUInt32.allocationSize(value.endIndex) +
         FfiConverterFloat64.allocationSize(value.matchQuality) +
         FfiConverterBool.allocationSize(value.sameDirection) +
-        FfiConverterFloat64.allocationSize(value.distanceMeters)
+        FfiConverterFloat64.allocationSize(value.distanceMeters) +
+        FfiConverterFloat64.allocationSize(value.startDistanceMeters)
       );
     }
   }
@@ -21998,6 +22043,145 @@ const FfiConverterTypeFfiPlaceNameOutcome = (() => {
     }
     allocationSize(value: TypeName): number {
       return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+// Enum: FfiRecordSource
+export enum FfiRecordSource_Tags {
+  Zip = "Zip",
+  Json = "Json",
+}
+/**
+ * A record to check: a record zip on disk, or record JSON such as an older
+ * `.veloq` file converts to.
+ */
+export const FfiRecordSource = (() => {
+  type Zip__interface = {
+    tag: FfiRecordSource_Tags.Zip;
+    inner: Readonly<{ path: string }>;
+  };
+  class Zip_ extends UniffiEnum implements Zip__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiRecordSource";
+    readonly tag = FfiRecordSource_Tags.Zip;
+    readonly inner: Readonly<{ path: string }>;
+    constructor(inner: { path: string }) {
+      super("FfiRecordSource", "Zip");
+
+      this.inner = Object.freeze(inner);
+    }
+    static new(inner: { path: string }): Zip_ {
+      return new Zip_(inner);
+    }
+
+    static instanceOf(obj: any): obj is Zip_ {
+      return obj.tag === FfiRecordSource_Tags.Zip;
+    }
+  }
+
+  type Json__interface = {
+    tag: FfiRecordSource_Tags.Json;
+    inner: Readonly<{ json: string }>;
+  };
+  class Json_ extends UniffiEnum implements Json__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "FfiRecordSource";
+    readonly tag = FfiRecordSource_Tags.Json;
+    readonly inner: Readonly<{ json: string }>;
+    constructor(inner: { json: string }) {
+      super("FfiRecordSource", "Json");
+
+      this.inner = Object.freeze(inner);
+    }
+    static new(inner: { json: string }): Json_ {
+      return new Json_(inner);
+    }
+
+    static instanceOf(obj: any): obj is Json_ {
+      return obj.tag === FfiRecordSource_Tags.Json;
+    }
+  }
+
+  function instanceOf(obj: any): obj is FfiRecordSource {
+    return obj[uniffiTypeNameSymbol] === "FfiRecordSource";
+  }
+
+  return Object.freeze({
+    instanceOf,
+    Zip: Zip_,
+    Json: Json_,
+  });
+})();
+/**
+ * A record to check: a record zip on disk, or record JSON such as an older
+ * `.veloq` file converts to.
+ */
+export type FfiRecordSource = InstanceType<
+  (typeof FfiRecordSource)["Zip" | "Json"]
+>;
+
+// FfiConverter for enum FfiRecordSource
+const FfiConverterTypeFfiRecordSource = (() => {
+  type TypeName = FfiRecordSource;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return new FfiRecordSource.Zip({
+            path: FfiConverterString.readFromCursor(c),
+          });
+        case 2:
+          return new FfiRecordSource.Json({
+            json: FfiConverterString.readFromCursor(c),
+          });
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value.tag) {
+        case FfiRecordSource_Tags.Zip: {
+          c.writeI32(1);
+          const inner = value.inner;
+          FfiConverterString.writeIntoCursor(inner.path, c);
+          return;
+        }
+        case FfiRecordSource_Tags.Json: {
+          c.writeI32(2);
+          const inner = value.inner;
+          FfiConverterString.writeIntoCursor(inner.json, c);
+          return;
+        }
+        default:
+          // Throwing from here means that FfiRecordSource_Tags hasn't matched an ordinal.
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    allocationSize(value: TypeName): number {
+      switch (value.tag) {
+        case FfiRecordSource_Tags.Zip: {
+          const inner = value.inner;
+          let size = 4;
+          size += FfiConverterString.allocationSize(inner.path);
+          return size;
+        }
+        case FfiRecordSource_Tags.Json: {
+          const inner = value.inner;
+          let size = 4;
+          size += FfiConverterString.allocationSize(inner.json);
+          return size;
+        }
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
     }
   }
   return new FFIConverter();
@@ -33350,13 +33534,14 @@ export interface VeloqEngineLike {
    */
   bulkExportProgress(): FfiBulkExportProgress;
   /**
-   * Run the checks a restore of the record ZIP at `path` would run, the
-   * version, row content and both athlete checks, and write nothing. Off
-   * the JS thread, since it inflates the archive. Returns when the zip was
-   * written, which its file time does not keep through every restore.
+   * Run the checks a restore of the record would run, the version, row
+   * content and both athlete checks, and write nothing. Off the JS thread,
+   * since it inflates an archive. Returns when the record was written,
+   * which a zip's file time does not keep through every restore, and what
+   * it would place.
    */
-  checkRecordZip(
-    path: string,
+  checkRecord(
+    source: FfiRecordSource,
     asyncOpts_?: { signal: AbortSignal },
   ) /*throws*/ : Promise<FfiRecordCheck>;
   /**
@@ -33645,13 +33830,14 @@ export class VeloqEngine
   }
 
   /**
-   * Run the checks a restore of the record ZIP at `path` would run, the
-   * version, row content and both athlete checks, and write nothing. Off
-   * the JS thread, since it inflates the archive. Returns when the zip was
-   * written, which its file time does not keep through every restore.
+   * Run the checks a restore of the record would run, the version, row
+   * content and both athlete checks, and write nothing. Off the JS thread,
+   * since it inflates an archive. Returns when the record was written,
+   * which a zip's file time does not keep through every restore, and what
+   * it would place.
    */
-  async checkRecordZip(
-    path: string,
+  async checkRecord(
+    source: FfiRecordSource,
     asyncOpts_?: { signal: AbortSignal },
   ): Promise<FfiRecordCheck> /*throws*/ {
     const __stack = uniffiIsDebug ? new Error().stack : undefined;
@@ -33659,9 +33845,12 @@ export class VeloqEngine
       return await uniffiRustCallAsync(
         /*rustCaller:*/ uniffiCaller,
         /*rustFutureFunc:*/ () => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_check_record_zip(
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_check_record(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
-            FfiConverterString.lower(path, nativeModule().rustbuffer_alloc),
+            FfiConverterTypeFfiRecordSource.lower(
+              source,
+              nativeModule().rustbuffer_alloc,
+            ),
           );
         },
         /*pollFunc:*/ nativeModule()
@@ -35687,19 +35876,10 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_is_cutover_pending() !==
-    63840
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_is_cutover_held() !== 24907
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_is_cutover_pending",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_is_cutover_running() !==
-    39788
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_is_cutover_running",
+      "uniffi_veloqrs_checksum_func_is_cutover_held",
     );
   }
   if (
@@ -35735,7 +35915,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_set_network_online() !==
-    23758
+    64517
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_set_network_online",
@@ -37781,11 +37961,11 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_check_record_zip() !==
-    64898
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_check_record() !==
+    26844
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_veloqengine_check_record_zip",
+      "uniffi_veloqrs_checksum_method_veloqengine_check_record",
     );
   }
   if (
@@ -38210,6 +38390,7 @@ export default Object.freeze({
     FfiConverterTypeFfiRecordCheck,
     FfiConverterTypeFfiRecordProgressions,
     FfiConverterTypeFfiRecordRestoreResult,
+    FfiConverterTypeFfiRecordSource,
     FfiConverterTypeFfiRecordStep,
     FfiConverterTypeFfiRecordingEntry,
     FfiConverterTypeFfiReferenceSource,

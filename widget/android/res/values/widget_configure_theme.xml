@@ -2,7 +2,10 @@
 <!-- The theme every widget picker runs under, set on each picker's manifest entry by the widget
      plugin. Material 3 in the widget palette's brand colours, which switch with the night
      qualifier. No action bar, because the shared shell layout carries its own toolbar, and
-     transparent system bars, because the pickers draw edge to edge and pad by the bar insets. -->
+     transparent system bars, because the pickers draw edge to edge and pad by the bar insets. The
+     toolbar title, the buttons and the ticks and radios take their text from the three text
+     appearances below, each Material's own drawn in the widget family, at 600 for a button label
+     as the app draws its medium labels. -->
 <resources>
   <style name="Theme.Veloq.WidgetConfigure" parent="Theme.Material3.DayNight.NoActionBar">
     <item name="colorPrimary">@color/widget_primary</item>
@@ -13,5 +16,24 @@
     <item name="colorOnSurfaceVariant">@color/widget_text_secondary</item>
     <item name="android:statusBarColor">@android:color/transparent</item>
     <item name="android:navigationBarColor">@android:color/transparent</item>
+    <item name="textAppearanceTitleLarge">@style/TextAppearance.Veloq.WidgetConfigure.Title</item>
+    <item name="textAppearanceLabelLarge">@style/TextAppearance.Veloq.WidgetConfigure.Label</item>
+    <item name="textAppearanceBodyMedium">@style/TextAppearance.Veloq.WidgetConfigure.Body</item>
+  </style>
+
+  <style name="TextAppearance.Veloq.WidgetConfigure.Title" parent="TextAppearance.Material3.TitleLarge">
+    <item name="fontFamily">@font/widget_manrope</item>
+    <item name="android:fontFamily">@font/widget_manrope</item>
+  </style>
+
+  <style name="TextAppearance.Veloq.WidgetConfigure.Label" parent="TextAppearance.Material3.LabelLarge">
+    <item name="fontFamily">@font/widget_manrope</item>
+    <item name="android:fontFamily">@font/widget_manrope</item>
+    <item name="android:textFontWeight">600</item>
+  </style>
+
+  <style name="TextAppearance.Veloq.WidgetConfigure.Body" parent="TextAppearance.Material3.BodyMedium">
+    <item name="fontFamily">@font/widget_manrope</item>
+    <item name="android:fontFamily">@font/widget_manrope</item>
   </style>
 </resources>

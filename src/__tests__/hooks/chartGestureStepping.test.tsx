@@ -30,7 +30,11 @@ const days = (n: number): Day[] =>
 
 function renderChart(options: Partial<ChartGestureOptions<Day>> & { data: Day[] }) {
   return renderHook(() =>
-    useChartGestures<Day>({ describePoint: (point) => point.day, ...options })
+    useChartGestures<Day>({
+      accessibilityLabel: 'Kiln heat',
+      describePoint: (point) => point.day,
+      ...options,
+    })
   );
 }
 

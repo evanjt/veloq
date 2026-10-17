@@ -8,7 +8,7 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 
 import { DataFieldGrid } from '@/features/recording/components/DataFieldGrid';
-import { colorWithOpacity } from '@/theme';
+import { colorWithOpacity, opacity } from '@/theme';
 import { zoneColour } from '@/theme/zoneColour';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -42,7 +42,9 @@ it('tints the heart rate tile from the dark zone fill', async () => {
   const tree = await render(
     <DataFieldGrid fields={['heartrate']} metrics={METRICS} isMetric hrZone={{ zone: 7 }} />
   );
-  expect(tileStyle(tree).backgroundColor).toBe(colorWithOpacity(zoneColour(7, true, 'fill'), 0.28));
+  expect(tileStyle(tree).backgroundColor).toBe(
+    colorWithOpacity(zoneColour(7, true, 'fill'), opacity.tint3)
+  );
   expect(zoneColour(7, true, 'fill')).not.toBe(zoneColour(7, false, 'fill'));
 });
 
@@ -50,12 +52,14 @@ it('takes the nearer end of the ladder for a zone past it', async () => {
   const tree = await render(
     <DataFieldGrid fields={['heartrate']} metrics={METRICS} isMetric hrZone={{ zone: 9 }} />
   );
-  expect(tileStyle(tree).backgroundColor).toBe(colorWithOpacity(zoneColour(7, true, 'fill'), 0.28));
+  expect(tileStyle(tree).backgroundColor).toBe(
+    colorWithOpacity(zoneColour(7, true, 'fill'), opacity.tint3)
+  );
 });
 
 it('leaves the tile untinted when no zone is known', async () => {
   const tree = await render(<DataFieldGrid fields={['heartrate']} metrics={METRICS} isMetric />);
   expect(tileStyle(tree).backgroundColor).not.toBe(
-    colorWithOpacity(zoneColour(7, true, 'fill'), 0.28)
+    colorWithOpacity(zoneColour(7, true, 'fill'), opacity.tint3)
   );
 });

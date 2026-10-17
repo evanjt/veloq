@@ -8,7 +8,7 @@
 
 import { listCountLabel, ROUTE_COUNT_KEYS } from '@/features/routes/lib/listCountLabel';
 import React, { memo, useMemo, useRef } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, Pressable } from 'react-native';
+import { View, StyleSheet, FlatList, Pressable } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import type { FfiCatalogueEmptyReason, GroupWithPolyline } from 'veloqrs';
@@ -16,6 +16,8 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import {
+  colorWithOpacity,
+  opacity,
   colors,
   darkColors,
   iconSize,
@@ -36,6 +38,7 @@ import {
   pressable,
   pressRipple,
 } from '@/shared/ui';
+import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
 import { useScrollToTopOnReselect } from '@/shared/ui/tabReselect';
 import { RowSkeleton } from '@/features/routes/components/RowSkeleton';
 import { RouteRow } from './RouteRow';
@@ -279,7 +282,7 @@ export const RoutesList = memo(function RoutesList({
                       styles.sortChip,
                       isDark && styles.sortChipDark,
                       isActive && {
-                        backgroundColor: palette.primary + '15',
+                        backgroundColor: colorWithOpacity(palette.primary, opacity.tint1),
                         borderColor: palette.primary,
                       },
                     ])}
@@ -341,11 +344,7 @@ export const RoutesList = memo(function RoutesList({
         initialNumToRender={8}
         refreshControl={
           onRefresh ? (
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={onRefresh}
-              tintColor={palette.primary}
-            />
+            <ScreenRefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
           ) : undefined
         }
       />

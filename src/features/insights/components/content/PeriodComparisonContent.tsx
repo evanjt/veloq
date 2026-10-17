@@ -170,7 +170,7 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
                     style={[
                       styles.barValueText,
                       isDark && styles.barValueTextDark,
-                      bar.isCurrent && { fontWeight: '700' },
+                      bar.isCurrent && styles.barValueTextCurrent,
                     ]}
                   >
                     {typeof bar.value === 'number' && bar.unit
@@ -226,9 +226,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   barValueText: {
-    ...typography.captionBold,
+    ...typography.caption,
     color: colors.textPrimary,
     textAlign: 'center',
+  },
+  barValueTextCurrent: {
+    ...typography.captionBold,
   },
   barValueTextDark: {
     color: darkColors.textPrimary,
@@ -240,7 +243,6 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   changeText: {
-    fontSize: typography.bodyMedium.fontSize,
-    fontWeight: '700',
+    ...typography.bodyBold,
   },
 });

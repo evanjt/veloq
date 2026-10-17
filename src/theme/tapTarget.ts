@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-import { MIN_TAP_TARGET } from './spacing';
+import { MIN_TAP_TARGET, spacing } from './spacing';
 
 /**
  * This platform's tap-target minimum.
@@ -29,4 +29,14 @@ export function slopToMinTapTarget(
   const vertical = slopEach(drawnHeight);
   const horizontal = drawnWidth === undefined ? 0 : slopEach(drawnWidth);
   return { top: vertical, bottom: vertical, left: horizontal, right: horizontal };
+}
+
+/**
+ * The least distance between the drawn edges of two targets `drawnWidth` wide
+ * side by side, each lifted on that axis by `slopToMinTapTarget`. It is the
+ * slop each lends the other, so their hit areas never overlap, and never under
+ * `spacing.sm`.
+ */
+export function gapBetweenTargets(drawnWidth: number): number {
+  return Math.max(spacing.sm, 2 * slopEach(drawnWidth));
 }

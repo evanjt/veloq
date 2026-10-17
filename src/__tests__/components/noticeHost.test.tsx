@@ -91,6 +91,32 @@ describe('the app notice', () => {
     expect(announce).toHaveBeenCalledWith('Angle saved');
   });
 
+  it('keeps a notice with an action seven seconds when no duration is named', async () => {
+    await mountHost();
+
+    await show({ message: 'Kite stowed', action: { label: 'Undo', onPress: jest.fn() } });
+    await advance(6000);
+    await finishHiding();
+    expect(screen.getByText('Kite stowed')).toBeTruthy();
+
+    await advance(700);
+    await finishHiding();
+    expect(screen.queryByText('Kite stowed')).toBeNull();
+  });
+
+  it('keeps a notice without an action four seconds when no duration is named', async () => {
+    await mountHost();
+
+    await show({ message: 'Kite stowed' });
+    await advance(3600);
+    await finishHiding();
+    expect(screen.getByText('Kite stowed')).toBeTruthy();
+
+    await advance(100);
+    await finishHiding();
+    expect(screen.queryByText('Kite stowed')).toBeNull();
+  });
+
   it('lets a notice with no action go after its duration under a screen reader', async () => {
     screenReaderOn = true;
     await mountHost();

@@ -8,7 +8,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { Card, ChipSelector } from '@/shared/ui';
+import { Card, ToggleButtonRow } from '@/shared/ui';
 import { colors, spacing } from '@/theme';
 import { pickEmphasisedLap, type SectionDeltaLine } from '@/features/routes/lib/deltaLayout';
 import {
@@ -147,28 +147,30 @@ export function PerformanceChartPanel({
   return (
     <View testID="performance-chart-panel">
       {available.length > 1 && (
-        <ChipSelector
+        <ToggleButtonRow
+          layout="hug"
           style={styles.control}
           options={available.map((type) => ({
             value: type,
             label: t(PLOT_LABEL_KEYS[type]),
+            testID: `chart-plot-${type}`,
           }))}
           value={shownPlot}
-          optionTestID={(type) => `chart-plot-${type}`}
-          onChange={setPlotType}
+          onValueChange={setPlotType}
         />
       )}
       {hasForward && hasReverse ? (
-        <ChipSelector
+        <ToggleButtonRow
+          layout="hug"
           style={styles.control}
           options={DIRECTIONS.map((value) => ({
             value,
             label: t(value === 'reverse' ? 'sections.reverse' : 'sections.forward'),
-            accent: value === 'reverse' ? colors.reverseDirection : forwardColour,
+            mark: value === 'reverse' ? colors.reverseDirection : forwardColour,
+            testID: `section-chart-direction-${value}`,
           }))}
           value={direction}
-          optionTestID={(value) => `section-chart-direction-${value}`}
-          onChange={(value) => {
+          onValueChange={(value) => {
             setRequestedDirection(value);
             onActivitySelect?.(null);
           }}

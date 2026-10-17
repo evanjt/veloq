@@ -25,6 +25,7 @@ import {
   layout,
   spacing,
   typography,
+  opacity,
 } from '@/theme';
 import type {
   DirectionBestRecord,
@@ -71,7 +72,9 @@ export function StatsRow({
           <Text style={[styles.statsDirection, isDark && styles.textLight]}>
             {directionWord(t, direction)}
           </Text>
-          <View style={[styles.countBadge, { backgroundColor: colorWithOpacity(color, 0.13) }]}>
+          <View
+            style={[styles.countBadge, { backgroundColor: colorWithOpacity(color, opacity.tint2) }]}
+          >
             <Text testID={`stats-row-count-${direction}`} style={[styles.countText, { color }]}>
               {stats?.count ?? pointCount}
             </Text>
@@ -145,8 +148,7 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xxs,
   },
   countText: {
-    fontSize: typography.micro.fontSize,
-    fontWeight: '700',
+    ...typography.badge,
   },
   statsMiddle: {
     flex: 1,

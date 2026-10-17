@@ -361,6 +361,8 @@ export function SwipeableTabs({
     transform: [{ translateX: translateX.value }],
   }));
 
+  // The underline marks the selected tab, so it is the on role of the theme.
+  const indicatorFill = isDark ? darkColors.controlOn : colors.controlOn;
   // Animated underline indicator: follows the measured left edge and width of
   // the tab under it, equal shares or content widths alike.
   const indicatorStyle = useAnimatedStyle(() => {
@@ -431,7 +433,10 @@ export function SwipeableTabs({
               );
             })}
             {/* Animated underline indicator */}
-            <Animated.View testID="tab-indicator" style={[styles.indicator, indicatorStyle]} />
+            <Animated.View
+              testID="tab-indicator"
+              style={[styles.indicator, { backgroundColor: indicatorFill }, indicatorStyle]}
+            />
           </ScrollView>
         ) : (
           <>
@@ -460,7 +465,10 @@ export function SwipeableTabs({
               );
             })}
             {/* Animated underline indicator */}
-            <Animated.View testID="tab-indicator" style={[styles.indicator, indicatorStyle]} />
+            <Animated.View
+              testID="tab-indicator"
+              style={[styles.indicator, { backgroundColor: indicatorFill }, indicatorStyle]}
+            />
           </>
         )}
       </View>
@@ -527,7 +535,7 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
   },
   tabTextActive: {
-    fontWeight: '600',
+    fontWeight: typography.bodySmallBold.fontWeight,
   },
   tabBadge: {
     borderRadius: layout.borderRadiusFull,
@@ -544,7 +552,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: spacing.md,
     height: 3,
-    backgroundColor: colors.primary,
     borderTopLeftRadius: layout.borderRadiusXs,
     borderTopRightRadius: layout.borderRadiusXs,
   },

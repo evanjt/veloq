@@ -11,7 +11,6 @@ import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue } from 'react-native-reanimated';
 import {
   colors,
-  darkColors,
   typography,
   spacing,
   layout,
@@ -41,7 +40,7 @@ import {
 } from '@/shared/charts';
 import type { WellnessData } from '@/types';
 import { displayedDay, headerDay } from '../lib/pinnedDay';
-import { formatForm, formZoneTextColor, formZoneFromLoads, formZoneLabel } from '../lib';
+import { formatForm, FORM_ZONE_MARK_COLORS, formZoneFromLoads, formZoneLabel } from '../lib';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { eftpChangesOn, formatEftpChange, type EftpChange } from '../lib/eftpChanges';
 import { ABSENT, absentLabel } from '@/shared/format/absent';
@@ -65,6 +64,8 @@ interface FitnessChartProps {
    * empty state into "not downloaded". Absent, the chart claims nothing.
    */
   coverage?: RangeCoverage | undefined;
+  /** The data is the previous range's, kept on screen while the new range is read. */
+  held?: boolean;
 }
 
 interface ChartDataPoint {
@@ -108,9 +109,10 @@ export const FitnessChart = React.memo(function FitnessChart({
   onDateSelect,
   onInteractionChange,
   coverage,
+  held = false,
 }: FitnessChartProps) {
   const { t } = useTranslation();
-  const { isDark, colors: themeColors } = useTheme();
+  const { isDark } = useTheme();
   const styles = themedStyles(makeStyles, isDark);
   const asPercent = useFormPreference((state) => state.formAsPercent) === true;
   const chartColors = useChartColors();
@@ -224,6 +226,7 @@ export const FitnessChart = React.memo(function FitnessChart({
   const { gesture, isActive, crosshairStyle, syncBounds, syncXCoords, accessibilityProps } =
     useChartGestures<ChartDataPoint>({
       data: chartData,
+      accessibilityLabel: t('fitnessScreen.fitnessAndFatigue'),
       onSelect: handleSelect,
       onInteractionChange: handleInteractionChange,
       sharedSelectedIdx,
@@ -304,68 +307,67 @@ export const FitnessChart = React.memo(function FitnessChart({
               {header.isToday ? t('time.today') : formatShortDate(header.date)}
             </Text>
             {markerChanges.length > 0 && (
-              <Text
-                testID="fitness-eftp-change"
-                style={[
-                  styles.markerText,
-                  { color: isDark ? darkColors.chartAccentText : colors.chartAccentText },
-                ]}
-              >
-                {markerChanges.map((c) => formatEftpChange(c, t('units.watts'))).join(', ')}
-              </Text>
+              <View style={[styles.keyedLabel, styles.markerRow]}>
+                <View style={[styles.keyDot, { backgroundColor: chartColors.ftp }]} />
+                <Text testID="fitness-eftp-change" style={styles.markerText}>
+                  {markerChanges.map((c) => formatEftpChange(c, t('units.watts'))).join(', ')}
+                </Text>
+              </View>
             )}
           </View>
           <View style={styles.valuesRow}>
             <View style={styles.valueItem}>
-              <Text style={styles.valueLabel}>{t('metrics.fitness')}</Text>
+              <View style={styles.keyedLabel}>
+                <View
+                  testID="fitness-ctl-key"
+                  style={[styles.keyDot, { backgroundColor: chartColors.fitness }]}
+                />
+                <Text style={styles.valueLabel}>{t('metrics.fitness')}</Text>
+              </View>
               <Text
                 testID="fitness-ctl-value"
-                style={[
-                  styles.valueNumber,
-                  { color: isDark ? darkColors.fitnessBlueText : colors.fitnessBlueText },
-                ]}
+                style={styles.valueNumber}
                 accessibilityLabel={absentLabel(fitnessText, t)}
               >
                 {fitnessText}
               </Text>
             </View>
             <View style={styles.valueItem}>
-              <Text style={styles.valueLabel}>{t('metrics.fatigue')}</Text>
+              <View style={styles.keyedLabel}>
+                <View
+                  testID="fitness-atl-key"
+                  style={[styles.keyDot, { backgroundColor: chartColors.fatigue }]}
+                />
+                <Text style={styles.valueLabel}>{t('metrics.fatigue')}</Text>
+              </View>
               <Text
                 testID="fitness-atl-value"
-                style={[
-                  styles.valueNumber,
-                  { color: isDark ? darkColors.chartPurpleText : colors.chartPurpleText },
-                ]}
+                style={styles.valueNumber}
                 accessibilityLabel={absentLabel(fatigueText, t)}
               >
                 {fatigueText}
               </Text>
             </View>
             <View style={styles.valueItem}>
-              <Text style={styles.valueLabel}>{t('metrics.form')}</Text>
+              <View style={styles.keyedLabel}>
+                {formZone ? (
+                  <View
+                    testID="fitness-form-key"
+                    style={[styles.keyDot, { backgroundColor: FORM_ZONE_MARK_COLORS[formZone] }]}
+                  />
+                ) : null}
+                <Text style={styles.valueLabel}>{t('metrics.form')}</Text>
+              </View>
               <View style={styles.inlineValue}>
                 <Text
                   testID="fitness-form-value"
-                  style={[
-                    styles.valueNumber,
-                    {
-                      color: formZone ? formZoneTextColor(formZone, isDark) : themeColors.text,
-                    },
-                  ]}
+                  style={styles.valueNumber}
                   accessibilityLabel={absentLabel(formText, t)}
                 >
                   {formText}
                 </Text>
                 {formZone ? (
-                  <Text
-                    testID="fitness-form-zone"
-                    style={[
-                      styles.valueLabel,
-                      styles.inlineCaption,
-                      { color: formZoneTextColor(formZone, isDark) },
-                    ]}
-                  >
+                  <Text testID="fitness-form-zone" style={[styles.unitText, styles.inlineCaption]}>
                     {formZoneLabel(formZone)}
                   </Text>
                 ) : null}
@@ -375,25 +377,10 @@ export const FitnessChart = React.memo(function FitnessChart({
               <View style={styles.valueItem}>
                 <Text style={styles.valueLabel}>{t('fitnessScreen.rampRate')}</Text>
                 <View style={styles.inlineValue}>
-                  <Text
-                    testID="fitness-ramp-value"
-                    style={[
-                      styles.valueNumber,
-                      {
-                        color:
-                          rampRate >= 0
-                            ? isDark
-                              ? darkColors.fitnessBlueText
-                              : colors.fitnessBlueText
-                            : isDark
-                              ? darkColors.fatiguePurpleText
-                              : colors.fatiguePurpleText,
-                      },
-                    ]}
-                  >
+                  <Text testID="fitness-ramp-value" style={styles.valueNumber}>
                     {formatSigned(rampRate, 1)}
                   </Text>
-                  <Text style={styles.valueLabel}>{t('fitnessScreen.perWeek')}</Text>
+                  <Text style={styles.unitText}>{t('fitnessScreen.perWeek')}</Text>
                 </View>
               </View>
             )}
@@ -401,7 +388,12 @@ export const FitnessChart = React.memo(function FitnessChart({
         </View>
 
         {/* Chart */}
-        <ChartSurface summary={reading.summary} table={reading.table} testID="fitness-chart-plot">
+        <ChartSurface
+          summary={reading.summary}
+          table={reading.table}
+          held={held}
+          testID="fitness-chart-plot"
+        >
           <View style={styles.plotRow}>
             <YAxisLabels
               ticks={yTicks}
@@ -484,13 +476,13 @@ export const FitnessChart = React.memo(function FitnessChart({
                 <View style={styles.xAxisOverlay} pointerEvents="none">
                   <Text
                     maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                    style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
+                    style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}
                   >
                     {chartData.length > 0 ? formatShortDate(chartData[0].date) : ''}
                   </Text>
                   <Text
                     maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                    style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
+                    style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}
                   >
                     {chartData.length > 0
                       ? formatShortDate(chartData[chartData.length - 1].date)
@@ -540,7 +532,7 @@ export const FitnessChart = React.memo(function FitnessChart({
 
 // The two toggles sit side by side a gap apart, so the slop lifts only their
 // height and each keeps its own width.
-const LEGEND_ITEM_HEIGHT = typography.label.lineHeight;
+const LEGEND_ITEM_HEIGHT = typography.caption.lineHeight;
 const LEGEND_SLOP = slopToMinTapTarget(LEGEND_ITEM_HEIGHT);
 
 const makeStyles = (palette: Palette) =>
@@ -567,7 +559,21 @@ const makeStyles = (palette: Palette) =>
     },
     markerText: {
       ...typography.caption,
+      color: palette.textPrimary,
+    },
+    // A label keyed to its series by a dot in the series colour, never by its own colour.
+    keyedLabel: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    markerRow: {
       marginTop: spacing.xxs,
+    },
+    keyDot: {
+      width: spacing.xsPlus,
+      height: spacing.xsPlus,
+      borderRadius: layout.borderRadiusFull,
+      marginRight: spacing.xs,
     },
     valuesRow: {
       flexDirection: 'row',
@@ -577,9 +583,12 @@ const makeStyles = (palette: Palette) =>
       alignItems: 'center',
     },
     valueLabel: {
-      ...typography.micro,
+      ...typography.caption,
       color: palette.textSecondary,
-      marginBottom: spacing.xxs,
+    },
+    unitText: {
+      ...typography.caption,
+      color: palette.textSecondary,
     },
     // A number with its unit or its zone name beside it on one baseline.
     inlineValue: {
@@ -589,9 +598,10 @@ const makeStyles = (palette: Palette) =>
     inlineCaption: {
       marginLeft: spacing.xxs,
     },
+    // A readout that changes on every scrub step, so each digit keeps one width.
     valueNumber: {
-      fontSize: typography.cardTitle.fontSize,
-      fontWeight: '700',
+      ...typography.metricValue,
+      color: palette.textPrimary,
     },
     plotRow: {
       flex: 1,
@@ -623,7 +633,7 @@ const makeStyles = (palette: Palette) =>
       marginRight: spacing.xs,
     },
     legendText: {
-      fontSize: typography.label.fontSize,
+      ...typography.caption,
       lineHeight: LEGEND_ITEM_HEIGHT,
       color: palette.textSecondary,
     },

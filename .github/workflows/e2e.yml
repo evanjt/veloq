@@ -15,6 +15,11 @@ on:
         required: false
         default: "tier0,tier1,tier2,tier3"
         type: string
+      capture-candidates:
+        description: "Capture the screen compare set as candidate goldens and compare nothing"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -267,6 +272,92 @@ jobs:
         run: exit 1
 
   # ============================================
+  # Screen compare - Android
+  # ============================================
+  # The eight demo screens in light and dark, held against the goldens under
+  # .maestro/goldens/android, on an emulator of its own so no flow of the sweep
+  # leaves state behind on it. The goldens are taken on this runner image with
+  # the capture-candidates input, which uploads the captures in the goldens'
+  # layout and compares nothing. They land only by a commit after the owner
+  # signs off the before-and-after report, never from a job.
+  screen-compare-android:
+    needs: build-android-dev
+    name: Screen compare (Android)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install dependencies
+        uses: ./.github/actions/npm-ci
+
+      - name: Download APK
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.build-android-dev.outputs.apk-artifact }}
+          path: /tmp/android-artifact
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install Maestro
+        uses: ./.github/actions/install-maestro
+
+      - name: Capture the compare screens on an emulator
+        timeout-minutes: 20
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          ram-size: 6144
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -no-metrics
+          disable-animations: true
+          # One `sh -c` per line, so the verdict goes through the environment.
+          script: |
+            adb install "$(find /tmp/android-artifact -name '*.apk' | head -1)"
+            scripts/capture-screen-compare-android.sh || echo "SCREEN_CAPTURE_FAILED=true" >> "$GITHUB_ENV"
+
+      - name: Compare the screens against the goldens
+        if: always()
+        env:
+          MODE: ${{ inputs.capture-candidates && 'capture' || 'compare' }}
+        run: scripts/screen-compare-ci.sh android "$MODE" || echo "SCREEN_COMPARE_FAILED=true" >> "$GITHUB_ENV"
+
+      - name: Upload screen compare diffs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: screen-compare-diffs-android
+          path: screen-compare/diffs/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload screen compare candidates
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: screen-compare-candidates-android
+          path: screen-compare/candidates/
+          retention-days: 14
+
+      - name: Fail on a capture or compare failure
+        if: always() && (env.SCREEN_CAPTURE_FAILED == 'true' || env.SCREEN_COMPARE_FAILED == 'true')
+        run: exit 1
+
+  # ============================================
   # E2E Tests - iOS with Maestro
   # ============================================
   e2e-ios:
@@ -397,6 +488,65 @@ jobs:
         run: exit 1
 
   # ============================================
+  # Screen compare - iOS
+  # ============================================
+  # The iOS twin of the Android screen compare, on a simulator of its own,
+  # held against .maestro/goldens/ios.
+  screen-compare-ios:
+    needs: build-ios-dev
+    name: Screen compare (iOS)
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install dependencies
+        uses: ./.github/actions/npm-ci
+
+      - name: Install Maestro
+        uses: ./.github/actions/install-maestro
+
+      - name: Boot simulator with the Dev app
+        id: simulator
+        uses: ./.github/actions/boot-ios-simulator
+        with:
+          artifact: ${{ needs.build-ios-dev.outputs.simulator-artifact }}
+
+      - name: Capture the compare screens on the simulator
+        timeout-minutes: 20
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
+        run: |
+          scripts/capture-screen-compare-ios.sh "${{ steps.simulator.outputs.udid }}" || echo "SCREEN_CAPTURE_FAILED=true" >> "$GITHUB_ENV"
+
+      - name: Compare the screens against the goldens
+        if: always()
+        env:
+          MODE: ${{ inputs.capture-candidates && 'capture' || 'compare' }}
+        run: scripts/screen-compare-ci.sh ios "$MODE" || echo "SCREEN_COMPARE_FAILED=true" >> "$GITHUB_ENV"
+
+      - name: Upload screen compare diffs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: screen-compare-diffs-ios
+          path: screen-compare/diffs/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload screen compare candidates
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: screen-compare-candidates-ios
+          path: screen-compare/candidates/
+          retention-days: 14
+
+      - name: Fail on a capture or compare failure
+        if: always() && (env.SCREEN_CAPTURE_FAILED == 'true' || env.SCREEN_COMPARE_FAILED == 'true')
+        run: exit 1
+
+  # ============================================
   # Widget captures - iOS
   # ============================================
   # Every widget at every family it supports, in the smallest and the largest
@@ -433,7 +583,7 @@ jobs:
   # E2E Summary
   # ============================================
   e2e-summary:
-    needs: [build-android-dev, build-ios-dev, e2e-ios, e2e-android, widget-captures-android, widget-captures-ios]
+    needs: [build-android-dev, build-ios-dev, e2e-ios, e2e-android, widget-captures-android, widget-captures-ios, screen-compare-android, screen-compare-ios]
     if: ${{ always() && (needs.e2e-ios.result != 'skipped' || needs.e2e-android.result != 'skipped') }}
     name: E2E Summary
     runs-on: ubuntu-24.04
@@ -534,14 +684,18 @@ jobs:
           ANDROID_RESULT: ${{ needs.e2e-android.result }}
           WIDGETS_RESULT: ${{ needs.widget-captures-android.result }}
           WIDGETS_IOS_RESULT: ${{ needs.widget-captures-ios.result }}
+          SCREENS_RESULT: ${{ needs.screen-compare-android.result }}
+          SCREENS_IOS_RESULT: ${{ needs.screen-compare-ios.result }}
         run: |
           red=0
-          for platform in ios android widgets widgets-ios; do
+          for platform in ios android widgets widgets-ios screens screens-ios; do
             case "$platform" in
               ios) result="$IOS_RESULT" ;;
               android) result="$ANDROID_RESULT" ;;
               widgets) result="$WIDGETS_RESULT" ;;
               widgets-ios) result="$WIDGETS_IOS_RESULT" ;;
+              screens) result="$SCREENS_RESULT" ;;
+              screens-ios) result="$SCREENS_IOS_RESULT" ;;
             esac
             if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
               echo "E2E $platform: $result"

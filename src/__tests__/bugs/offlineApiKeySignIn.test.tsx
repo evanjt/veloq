@@ -13,14 +13,12 @@ import { CallKind, validateCredentials } from 'veloqrs';
 import { useApiKeyLogin } from '@/features/auth/hooks/useApiKeyLogin';
 import { readPendingApiKey, signInPlan } from '@/features/auth/lib/pendingSignIn';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { replaceTo } from '@/shared/app/navigation';
 
 jest.mock('veloqrs', () => ({
   ...require('../__shared__/veloqrsStub').withOverrides(),
   validateCredentials: jest.fn(),
 }));
 
-jest.mock('@/shared/app/navigation', () => ({ replaceTo: jest.fn() }));
 jest.mock('@/shared/storage', () => ({
   clearAccountData: jest.fn(async () => undefined),
   clearAuthOnly: jest.fn(async () => undefined),
@@ -102,7 +100,6 @@ describe('signing in with no network', () => {
     });
 
     expect(mockValidateCredentials).not.toHaveBeenCalled();
-    expect(replaceTo).not.toHaveBeenCalled();
     expect(useAuthStore.getState().setCredentials).not.toHaveBeenCalled();
   });
 
@@ -180,7 +177,7 @@ describe('signing in with no network', () => {
     });
 
     expect(mockValidateCredentials).toHaveBeenCalledWith('api_key', 'a-valid-key');
-    expect(replaceTo).toHaveBeenCalledWith('/');
+    expect(useAuthStore.getState().setCredentials).toHaveBeenCalledWith('a-valid-key', '350768');
     expect(held.key).toBeNull();
   });
 

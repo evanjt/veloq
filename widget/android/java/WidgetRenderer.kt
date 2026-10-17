@@ -5,6 +5,7 @@ import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Typeface
 import android.icu.text.DisplayContext
 import android.icu.text.RelativeDateTimeFormatter
 import android.icu.util.ULocale
@@ -12,6 +13,7 @@ import android.net.Uri
 import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
+import androidx.core.content.res.ResourcesCompat
 import __PKG__.R
 import java.time.ZoneId
 import java.util.Locale
@@ -331,8 +333,11 @@ object WidgetRenderer {
     val d = context.resources.displayMetrics.density
     val tint = tintOrDefault(p, latest.tintHex)
 
+    // The name is text, so it is primary text; the sport is said by the key dot beside it.
     bindLine(v, R.id.act_name, content.name)
-    p.textColor(v, R.id.act_name, tint)
+    p.textColor(v, R.id.act_name, R.color.widget_text_primary)
+    v.setViewVisibility(R.id.act_sport, if (content.name != null) View.VISIBLE else View.GONE)
+    p.colorFilter(v, R.id.act_sport, tint)
     // The tall size has the rows for a long name to wrap into rather than be cut short.
     v.setInt(R.id.act_name, "setMaxLines", if (size == SummarySize.LARGE) 4 else 2)
     v.setViewVisibility(
@@ -354,12 +359,13 @@ object WidgetRenderer {
     } else {
       val earlier = p.color(R.color.widget_text_secondary)
       val record = p.color(R.color.widget_gold)
+      val reticle = p.color(R.color.widget_text_primary)
       p.bitmap(v, R.id.act_dots) { dark ->
         AttemptDotsBitmap.render(
           content.dots,
           (columnDp.coerceAtLeast(40) * d).roundToInt(),
           (10 * d).roundToInt(),
-          AttemptDotsBitmap.Colors(earlier.pick(dark), record.pick(dark), tint.pick(dark)))
+          AttemptDotsBitmap.Colors(earlier.pick(dark), record.pick(dark), reticle.pick(dark)))
       }
       v.setViewVisibility(R.id.act_dots, View.VISIBLE)
     }
@@ -460,13 +466,14 @@ object WidgetRenderer {
   private fun chartWidthDp(minWidthDp: Int, fallbackDp: Int): Int =
     (if (minWidthDp > 0) minWidthDp else fallbackDp) - 32
 
-  private fun chartColors(p: WidgetPalette, dark: Boolean) =
+  private fun chartColors(context: Context, p: WidgetPalette, dark: Boolean) =
     FitnessChart.ChartColors(
       fitness = p.color(R.color.widget_chart_fitness).pick(dark),
       fatigue = p.color(R.color.widget_chart_fatigue).pick(dark),
       casing = p.color(R.color.widget_chart_casing).pick(dark),
       axisText = p.color(R.color.widget_text_secondary).pick(dark),
       grid = p.color(R.color.widget_border).pick(dark),
+      labelFace = chartLabelFace(context),
     )
 
   /**
@@ -493,10 +500,10 @@ object WidgetRenderer {
       when (chart) {
         is SummaryChart.Dual ->
           FitnessChart.fitnessBitmap(
-            chart.fitness, chart.fatigue, w, h, d, label, chartColors(p, dark))
+            chart.fitness, chart.fatigue, w, h, d, label, chartColors(context, p, dark))
         is SummaryChart.Single ->
           FitnessChart.singleBitmap(
-            chart.values, primary.pick(dark), w, h, d, label, chartColors(p, dark))
+            chart.values, primary.pick(dark), w, h, d, label, chartColors(context, p, dark))
         SummaryChart.None -> null
       }
     // Whether a series draws at all does not depend on the theme, so the light one decides.
@@ -557,6 +564,7 @@ object WidgetRenderer {
         line = p.color(R.color.widget_text_primary).pick(dark),
         casing = p.color(R.color.widget_chart_casing).pick(dark),
         axisText = p.color(R.color.widget_text_secondary).pick(dark),
+        labelFace = chartLabelFace(context),
       )
     val caption = SummaryWidget.formCaption(snap)
     v.setViewVisibility(R.id.sum_form_header, View.VISIBLE)
@@ -572,6 +580,13 @@ object WidgetRenderer {
         colors(dark))
     }
   }
+
+  /**
+   * A chart's axis labels in the face the layouts name for every label. A bitmap draws in the
+   * default face unless its paint is given one, and a face that cannot be read draws the default.
+   */
+  private fun chartLabelFace(context: Context): Typeface =
+    ResourcesCompat.getFont(context, R.font.widget_manrope) ?: Typeface.DEFAULT
 
   /** A chart's axis labels at the caption size and the reader's font scale, up to the cap. */
   private fun axisLabelPx(context: Context): Float {

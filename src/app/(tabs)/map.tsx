@@ -57,6 +57,7 @@ import {
   slopToMinTapTarget,
   spacing,
   typography,
+  opacity,
 } from '@/theme';
 import { ToggleButton } from '@/shared/ui/Button';
 import { SportChipRow } from '@/shared/ui/SportChipRow';
@@ -127,8 +128,7 @@ function FilterChipRow<K extends string | number>({
           label={label}
           selected={selected === key}
           onPress={() => onSelect(key)}
-          fill={FILTER_CHIP.fill}
-          ink={FILTER_CHIP.ink}
+          accent={FILTER_CHIP}
         />
       ))}
     </ScrollView>
@@ -241,6 +241,14 @@ function MapScreenContent() {
     if (!oldestSyncedDate || !newestSyncedDate) return '';
     return `${formatMonthYear(oldestSyncedDate)} – ${formatMonthYear(newestSyncedDate)}`;
   }, [oldestSyncedDate, newestSyncedDate]);
+
+  // The line under the period chips, which also names the map for a screen reader.
+  const activitySummary =
+    t('mapScreen.activitySummary', {
+      count: totalCount,
+      mapped: displayActivities.length,
+      defaultValue: '{{count}} activities · {{mapped}} on the map',
+    }) + (dateRangeLabel ? ` · ${dateRangeLabel}` : '');
 
   // The engine counts chips before sport and distance filters, so they stay put.
   const categorySorted = useMemo(() => {
@@ -373,6 +381,7 @@ function MapScreenContent() {
           selectSectionId={sectionsEnabled ? selectSectionId : undefined}
           keyCategories={keyCategories}
           bottomClearance={sheetHeight + attributionClearance}
+          mapLabel={activitySummary}
         />
       </ComponentErrorBoundary>
 
@@ -510,12 +519,7 @@ function MapScreenContent() {
             {/* Activity count and date range, in either position of the sheet */}
             <View style={styles.infoRow}>
               <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
-                {t('mapScreen.activitySummary', {
-                  count: totalCount,
-                  mapped: displayActivities.length,
-                  defaultValue: '{{count}} activities · {{mapped}} on the map',
-                })}
-                {dateRangeLabel ? ` · ${dateRangeLabel}` : ''}
+                {activitySummary}
               </Text>
               <Button
                 label={t('mapScreen.expandRange', 'Expand range')}
@@ -601,10 +605,10 @@ const styles = StyleSheet.create({
     width: spacing.xl,
     height: HANDLE_HEIGHT,
     borderRadius: layout.borderRadiusFull,
-    backgroundColor: colorWithOpacity(ink.black, 0.25),
+    backgroundColor: colorWithOpacity(ink.black, opacity.tint4),
   },
   handleDark: {
-    backgroundColor: colorWithOpacity(ink.white, 0.35),
+    backgroundColor: colorWithOpacity(ink.white, opacity.tint4),
   },
   infoBarDark: {
     backgroundColor: colorWithOpacity(darkColors.backgroundAlt, 0.92),

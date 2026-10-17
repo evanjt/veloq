@@ -13,15 +13,10 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
-import {
-  SIGNAL_TINT_ALPHA,
-  signalColor,
-  signalTint,
-  type SignalLevel,
-} from '@/shared/ui/SignalStatus';
+import { signalColor, signalGround, type SignalLevel } from '@/shared/ui/SignalStatus';
 import { EngineInitBanner } from '@/shared/app/EngineInitBanner';
 import { widgetPalette } from '@/shared/theme/widgetTheme';
-import { colors, darkColors, verdictColor } from '@/theme';
+import { verdictColor } from '@/theme';
 
 function luminance(hex: string): number {
   const lin = [1, 3, 5].map((i) => {
@@ -34,18 +29,6 @@ function luminance(hex: string): number {
 function contrast(a: string, b: string): number {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
   return (hi + 0.05) / (lo + 0.05);
-}
-
-/** `fg` at `alpha` over `bg`, as the 10% tint the status line sits on. */
-function over(fg: string, alpha: number, bg: string): string {
-  const mixed = [1, 3, 5].map((i) => {
-    const f = parseInt(fg.slice(i, i + 2), 16);
-    const b = parseInt(bg.slice(i, i + 2), 16);
-    return Math.round(f * alpha + b * (1 - alpha))
-      .toString(16)
-      .padStart(2, '0');
-  });
-  return `#${mixed.join('')}`;
 }
 
 let mockIsDark = false;
@@ -64,13 +47,12 @@ jest.mock('@/features/routes/stores/EngineStatusStore', () => ({
 const LEVELS: SignalLevel[] = ['ok', 'warn', 'bad'];
 
 describe.each([
-  ['light', false, colors.background],
-  ['dark', true, darkColors.surfaceCard],
-] as const)('signalColor in the %s theme', (_name, isDark, surface) => {
-  it.each(LEVELS)('keeps %s at 4.5:1 on the chip tint over the surface', (level) => {
-    const tone = signalColor(level, isDark);
+  ['light', false],
+  ['dark', true],
+] as const)('signalColor in the %s theme', (_name, isDark) => {
+  it.each(LEVELS)('keeps %s at 4.5:1 on its chip ground', (level) => {
     expect(
-      contrast(tone, over(signalTint(level, isDark), SIGNAL_TINT_ALPHA, surface))
+      contrast(signalColor(level, isDark), signalGround(level, isDark).bg)
     ).toBeGreaterThanOrEqual(4.5);
   });
 });

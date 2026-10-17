@@ -11,16 +11,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { getIntlLocale } from '@/shared/format/format';
 import { formatAttemptFigure, type AttemptBasis } from '@/features/routes/lib/attemptBasis';
-import {
-  colors,
-  darkColors,
-  iconSize,
-  slopToMinTapTarget,
-  spacing,
-  themePalette,
-  typography,
-} from '@/theme';
-import { Card, CardHeader, DisclosureChevron, pressable, pressRipple } from '@/shared/ui';
+import { colors, darkColors, iconSize, spacing, themePalette, typography } from '@/theme';
+import { Button, Card, CardHeader, DisclosureChevron, pressable, pressRipple } from '@/shared/ui';
 import { tapTo } from '@/shared/app/navigation';
 import { DirectionArrow, directionWord } from './DirectionCue';
 
@@ -264,7 +256,7 @@ export function SectionStatsCards({
                                   style={[
                                     styles.calendarMonthTime,
                                     isDark && styles.textLight,
-                                    isMonthFwdYearBest && { fontWeight: '700' },
+                                    isMonthFwdYearBest && styles.calendarMonthTimeBest,
                                   ]}
                                 >
                                   {formatBest(fwd)}
@@ -285,8 +277,6 @@ export function SectionStatsCards({
                               {onSetAsReference ? (
                                 <ReferenceStar
                                   isReference={fwd.bestActivityId === referenceActivityId}
-                                  isDark={isDark}
-                                  label={t('sections.legendReference')}
                                   onPress={() => onSetAsReference(fwd.bestActivityId)}
                                 />
                               ) : null}
@@ -310,7 +300,7 @@ export function SectionStatsCards({
                                   style={[
                                     styles.calendarMonthTime,
                                     isDark && styles.textLight,
-                                    isMonthRevYearBest && { fontWeight: '700' },
+                                    isMonthRevYearBest && styles.calendarMonthTimeBest,
                                   ]}
                                 >
                                   {formatBest(rev)}
@@ -331,8 +321,6 @@ export function SectionStatsCards({
                               {onSetAsReference ? (
                                 <ReferenceStar
                                   isReference={rev.bestActivityId === referenceActivityId}
-                                  isDark={isDark}
-                                  label={t('sections.legendReference')}
                                   onPress={() => onSetAsReference(rev.bestActivityId)}
                                 />
                               ) : null}
@@ -353,38 +341,26 @@ export function SectionStatsCards({
 
 interface ReferenceStarProps {
   isReference: boolean;
-  isDark: boolean;
-  label: string;
   onPress: () => void;
 }
 
-function ReferenceStar({ isReference, isDark, label, onPress }: ReferenceStarProps) {
+/** The reference attempt says so; any other best offers to become it. */
+function ReferenceStar({ isReference, onPress }: ReferenceStarProps) {
+  const { t } = useTranslation();
   return (
-    <Pressable
+    <Button
       testID="calendar-reference-button"
-      accessibilityRole="button"
-      accessibilityLabel={label}
+      label={isReference ? t('sections.legendReference') : t('sections.setAsReference')}
+      variant="ghost"
+      size="sm"
+      icon={isReference ? 'star' : 'star-outline'}
       onPress={onPress}
-      hitSlop={REFERENCE_HIT_SLOP}
-      style={pressable(styles.referenceButton)}
-      android_ripple={pressRipple}
-    >
-      {isReference ? (
-        <Text style={[styles.referenceTag, isDark && styles.referenceTagDark]}>{label}</Text>
-      ) : null}
-      <MaterialCommunityIcons
-        name={isReference ? 'star' : 'star-outline'}
-        size={iconSize.sm}
-        color={isReference ? themePalette(isDark).primary : themePalette(isDark).textSecondary}
-      />
-    </Pressable>
+    />
   );
 }
 
-const REFERENCE_MIN_WIDTH = 24;
 // Room for "12 traversals" on one line; a longer word wraps to a second.
 const MONTH_COUNT_WIDTH = 72;
-const REFERENCE_HIT_SLOP = slopToMinTapTarget(iconSize.sm, REFERENCE_MIN_WIDTH);
 const STATS_LABEL_INSET = spacing.md + iconSize.md + spacing.xs;
 
 const styles = StyleSheet.create({
@@ -454,31 +430,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
-  referenceButton: {
-    minWidth: REFERENCE_MIN_WIDTH,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xxs,
-  },
-  referenceTag: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  referenceTagDark: {
-    color: colors.textOnDark,
-  },
   calendarMonthTime: {
-    ...typography.bodySmallBold,
+    ...typography.bodySmall,
     color: colors.textPrimary,
     flex: 1,
+  },
+  calendarMonthTimeBest: {
+    ...typography.bodySmallBold,
   },
   // The word beside the trophy. The trophy alone told an overall best from a
   // year's best by hue, which is the one thing a mark may not do on its own.
   prTag: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '700',
+    ...typography.captionBold,
     color: colors.chartGoldText,
     marginLeft: spacing.xs,
   },

@@ -7,7 +7,7 @@
  * wait is drawn here and `lint-source-rules.mjs --rule paper-spinner` refuses
  * Paper's.
  *
- * Coloured from the theme's primary token unless the surface it sits on asks
+ * Coloured from the theme's on role unless the surface it sits on asks
  * for another.
  */
 
@@ -25,6 +25,6 @@ export interface SpinnerProps {
 
 export function Spinner({ size = 'small', color, style, testID }: SpinnerProps) {
   const { isDark } = useTheme();
-  const tint = color ?? (isDark ? darkColors.primary : colors.primary);
+  const tint = color ?? (isDark ? darkColors.controlOn : colors.controlOn);
   return <ActivityIndicator size={size} color={tint} style={style} testID={testID} />;
 }

@@ -4,25 +4,12 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { FfiSectionEventDetails, FfiSectionLink } from 'veloqrs';
-import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { formatDuration, formatFullDate } from '@/shared/format/format';
-import {
-  colors,
-  controlHeight,
-  darkColors,
-  iconSize,
-  layout,
-  slopToMinTapTarget,
-  spacing,
-  typography,
-  stroke,
-  themePalette,
-} from '@/theme';
+import { colors, controlHeight, darkColors, layout, spacing, typography, stroke } from '@/theme';
 import { Button, Card } from '@/shared/ui';
 import type {
   SectionGeometryVersion,
@@ -34,7 +21,6 @@ import {
   NO_EVENT_DETAILS,
 } from '@/features/routes/lib/sectionLedger';
 import { tapTo } from '@/shared/app/navigation';
-import { FitText } from '@/shared/ui/FitText';
 
 export const MAX_CHIPS = 6;
 
@@ -68,7 +54,7 @@ function SplitTarget({
   if (!link.available) {
     return (
       <View testID={testID} style={[styles.chip, styles.splitTarget, isDark && styles.chipDark]}>
-        <Text style={[styles.chipText, isDark && styles.textDark]}>
+        <Text style={[styles.chipText, isDark && styles.textSecondaryDark]}>
           {link.name
             ? `${link.name} · ${t('sectionHistory.unavailable')}`
             : t('sectionHistory.unavailable')}
@@ -115,27 +101,18 @@ function Chips({
   return (
     <View style={styles.chips} testID={testID}>
       {shown.map((id) => (
-        <Pressable
+        <Button
           key={id}
           testID={`${testID}-${id}`}
-          style={pressable([styles.chip, isDark && styles.chipDark])}
-          hitSlop={pillSlop}
-          accessibilityRole="button"
-          accessibilityLabel={chipLabel(id, names)}
+          label={chipLabel(id, names)}
+          variant="secondary"
+          size="sm"
+          icon="map-marker-path"
+          style={styles.activityChip}
           onPress={() => tapTo(`/activity/${id}`)}
-          android_ripple={pressRipple}
-        >
-          <MaterialCommunityIcons
-            name="map-marker-path"
-            size={iconSize.xs}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-          <FitText style={[styles.chipText, isDark && styles.textDark]}>
-            {chipLabel(id, names)}
-          </FitText>
-        </Pressable>
+        />
       ))}
-      {rest > 0 && <Text style={[styles.more, isDark && styles.textDark]}>+{rest}</Text>}
+      {rest > 0 && <Text style={[styles.more, isDark && styles.textSecondaryDark]}>+{rest}</Text>}
     </View>
   );
 }
@@ -190,43 +167,27 @@ export function SectionHistoryPanel({
   };
 
   return (
-    <Card variant="flat" testID="section-history-panel">
-      <View style={styles.header}>
-        <MaterialCommunityIcons
-          name="history"
-          size={iconSize.md}
-          color={isDark ? darkColors.textPrimary : colors.textPrimary}
-        />
-        <Text accessibilityRole="header" style={[styles.title, isDark && styles.textDark]}>
-          {t('sectionHistory.title')}
-        </Text>
-        {pinnedVersion != null && (
-          <Pressable
+    <Card
+      variant="flat"
+      testID="section-history-panel"
+      title={t('sectionHistory.title')}
+      titleAccessory={
+        pinnedVersion != null && (
+          <Button
             testID="section-history-unpin"
-            style={pressable([styles.pill, isDark && styles.pillDark])}
-            hitSlop={pillSlop}
-            accessibilityRole="button"
-            accessibilityLabel={t('sectionHistory.unpin')}
-            accessibilityState={{ disabled: isReverting }}
+            label={t('sectionHistory.unpin')}
+            variant="ghost"
+            size="sm"
+            icon="pin-off"
             disabled={isReverting}
             onPress={onUnpin}
-            android_ripple={pressRipple}
-          >
-            <MaterialCommunityIcons
-              name="pin-off"
-              size={iconSize.sm}
-              color={themePalette(isDark).primary}
-            />
-            <Text style={[styles.pillText, isDark && { color: darkColors.actionLink }]}>
-              {t('sectionHistory.unpin')}
-            </Text>
-          </Pressable>
-        )}
-      </View>
-
+          />
+        )
+      }
+    >
       {versions.length > 1 && (
         <View style={styles.block}>
-          <Text style={[styles.label, isDark && styles.textDark]}>
+          <Text style={[styles.label, isDark && styles.textSecondaryDark]}>
             {t('sectionHistory.versions')}
           </Text>
           {versions.map((v) => {
@@ -244,43 +205,27 @@ export function SectionHistoryPanel({
                   {isCurrent ? ` · ${t('sectionHistory.current')}` : ''}
                   {isPinned ? ` · ${t('sections.pinned')}` : ''}
                 </Text>
-                <Pressable
+                <Button
                   testID={`section-version-${v.version}-show`}
-                  style={pressable([styles.pill, isDark && styles.pillDark])}
-                  hitSlop={pillSlop}
-                  accessibilityRole="button"
+                  label={isShown ? t('sectionHistory.hideOnMap') : t('sectionHistory.showOnMap')}
                   accessibilityLabel={`${t('sectionHistory.version', { version: v.version })}, ${isShown ? t('sectionHistory.hideOnMap') : t('sectionHistory.showOnMap')}`}
-                  accessibilityState={{ selected: isShown }}
+                  variant="ghost"
+                  size="sm"
                   onPress={() => onShowVersion(isShown ? null : v.version)}
-                  android_ripple={pressRipple}
-                >
-                  <Text style={[styles.pillText, isDark && { color: darkColors.actionLink }]}>
-                    {isShown ? t('sectionHistory.hideOnMap') : t('sectionHistory.showOnMap')}
-                  </Text>
-                </Pressable>
+                />
                 {!isPinned && !isCurrent && (
-                  <Pressable
+                  <Button
                     testID={`section-version-${v.version}-revert`}
-                    style={pressable([styles.pill, isDark && styles.pillDark])}
-                    hitSlop={pillSlop}
-                    accessibilityRole="button"
+                    label={t('sectionHistory.revert')}
                     accessibilityLabel={t('sectionHistory.revertVersion', {
                       version: v.version,
                     })}
-                    accessibilityState={{ disabled: isReverting }}
+                    variant="ghost"
+                    size="sm"
+                    icon="undo-variant"
                     disabled={isReverting}
                     onPress={() => onRevert(v.version)}
-                    android_ripple={pressRipple}
-                  >
-                    <MaterialCommunityIcons
-                      name="undo-variant"
-                      size={iconSize.sm}
-                      color={themePalette(isDark).primary}
-                    />
-                    <Text style={[styles.pillText, isDark && { color: darkColors.actionLink }]}>
-                      {t('sectionHistory.revert')}
-                    </Text>
-                  </Pressable>
+                  />
                 )}
               </View>
             );
@@ -289,7 +234,9 @@ export function SectionHistoryPanel({
       )}
 
       {history.length === 0 ? (
-        <Text style={[styles.empty, isDark && styles.textDark]}>{t('sectionHistory.empty')}</Text>
+        <Text style={[styles.empty, isDark && styles.textSecondaryDark]}>
+          {t('sectionHistory.empty')}
+        </Text>
       ) : (
         history.map((e) => {
           const d = e.details ?? NO_EVENT_DETAILS;
@@ -299,13 +246,13 @@ export function SectionHistoryPanel({
               style={[styles.event, isDark && styles.eventDark]}
               testID={`section-history-event-${e.kind}`}
             >
-              <Text style={[styles.date, isDark && styles.textDark]}>
+              <Text style={[styles.date, isDark && styles.textSecondaryDark]}>
                 {formatFullDate(ledgerDate(e.at))}
               </Text>
               <Text style={[styles.kind, isDark && styles.textDark]}>{kindLine(e, d)}</Text>
               {e.kind === 'formed' && d.splitFrom ? (
                 <View style={styles.block}>
-                  <Text style={[styles.label, isDark && styles.textDark]}>
+                  <Text style={[styles.label, isDark && styles.textSecondaryDark]}>
                     {t('sectionHistory.splitFrom')}
                   </Text>
                   <SplitTarget link={d.splitFrom} isDark={isDark} direction="from" />
@@ -313,7 +260,7 @@ export function SectionHistoryPanel({
               ) : null}
               {e.kind === 'split' && d.splitInto.length > 0 && (
                 <View style={styles.block}>
-                  <Text style={[styles.label, isDark && styles.textDark]}>
+                  <Text style={[styles.label, isDark && styles.textSecondaryDark]}>
                     {t('sectionHistory.splitInto')}
                   </Text>
                   <View style={styles.chips}>
@@ -324,7 +271,7 @@ export function SectionHistoryPanel({
                 </View>
               )}
               {e.kind === 'pr_rebased' && d.prFrom != null && d.prTo != null && (
-                <Text style={[styles.meta, isDark && styles.textDark]}>
+                <Text style={[styles.meta, isDark && styles.textSecondaryDark]}>
                   {inSport(
                     d.prSport,
                     d.prDirection,
@@ -339,7 +286,7 @@ export function SectionHistoryPanel({
                 d.prs.map((record) => (
                   <Text
                     key={`${record.sport ?? ''}-${record.direction ?? ''}`}
-                    style={[styles.meta, isDark && styles.textDark]}
+                    style={[styles.meta, isDark && styles.textSecondaryDark]}
                   >
                     {inSport(
                       record.sport,
@@ -352,7 +299,7 @@ export function SectionHistoryPanel({
                 ))}
               {d.around.length > 0 && (
                 <>
-                  <Text style={[styles.label, isDark && styles.textDark]}>
+                  <Text style={[styles.label, isDark && styles.textSecondaryDark]}>
                     {t('sectionHistory.around')}
                   </Text>
                   <Chips
@@ -365,7 +312,7 @@ export function SectionHistoryPanel({
               )}
               {d.forkAround.length > 0 && (
                 <>
-                  <Text style={[styles.label, isDark && styles.textDark]}>
+                  <Text style={[styles.label, isDark && styles.textSecondaryDark]}>
                     {t('sectionHistory.forkAround')}
                   </Text>
                   <Chips
@@ -384,22 +331,10 @@ export function SectionHistoryPanel({
   );
 }
 
-// A caption line inside the padding of the activity chips and the version pills.
+// A caption line inside the padding of a split target chip.
 const PILL_HEIGHT = typography.caption.lineHeight + 2 * spacing.xs;
-const pillSlop = slopToMinTapTarget(PILL_HEIGHT);
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  title: {
-    ...typography.cardTitle,
-    color: colors.textPrimary,
-    flex: 1,
-  },
   block: {
     marginBottom: spacing.sm,
   },
@@ -419,23 +354,6 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.textPrimary,
     flex: 1,
-  },
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    minHeight: PILL_HEIGHT,
-    borderRadius: layout.borderRadiusLg,
-    backgroundColor: colors.background,
-  },
-  pillDark: {
-    backgroundColor: darkColors.surfaceElevated,
-  },
-  pillText: {
-    ...typography.caption,
-    color: colors.actionLink,
   },
   event: {
     paddingVertical: spacing.sm,
@@ -474,6 +392,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     maxWidth: 160,
   },
+  activityChip: {
+    maxWidth: 160,
+  },
   chipDark: {
     backgroundColor: darkColors.surfaceElevated,
   },
@@ -496,5 +417,8 @@ const styles = StyleSheet.create({
   },
   textDark: {
     color: darkColors.textPrimary,
+  },
+  textSecondaryDark: {
+    color: darkColors.textSecondary,
   },
 });

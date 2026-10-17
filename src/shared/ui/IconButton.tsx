@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 
 import { useTheme } from '@/shared/app';
-import { controlHeight, layout, opacity, slopToMinTapTarget } from '@/theme';
+import { controlHeight, gapBetweenTargets, layout, opacity, slopToMinTapTarget } from '@/theme';
 
 import { paint, type ButtonVariant } from './Button';
 import { pressRipple, pressedOpacity } from './pressFeedback';
@@ -88,6 +88,9 @@ export function IconButton({
 
 const ICON_SLOP = slopToMinTapTarget(controlHeight.button, controlHeight.button);
 const COMPACT_SLOP = slopToMinTapTarget(controlHeight.buttonSm, controlHeight.buttonSm);
+
+/** The gap a row of icon buttons keeps between them, so their hit slops never overlap. */
+export const ICON_BUTTON_GAP = gapBetweenTargets(controlHeight.button);
 
 const styles = StyleSheet.create({
   base: {

@@ -3,7 +3,8 @@
  *
  * Expected behaviour: every widget the app registers shows a line under its preview saying what it
  * shows, in the athlete's language. Each provider info names a description string, and that string
- * is generated for every locale the app ships.
+ * is generated for every locale the app ships. Each receiver names its widget with a label of its
+ * own, so no entry in the list falls back to the application name.
  */
 
 import fs from 'fs';
@@ -72,5 +73,45 @@ describe('the Android widget picker', () => {
         expect([info, dir, name, defined(xml).has(name)]).toEqual([info, dir, name, true]);
       }
     }
+  });
+
+  it('names every registered widget with a label of its own, defined in every locale', () => {
+    const files: Record<string, string> = strings.androidStringFiles(strings.loadLocaleBundles());
+    const app: { receiver: Entry[] } = { receiver: [] };
+    plugin.applyReceivers(app);
+    expect(app.receiver.length).toBeGreaterThan(1);
+
+    for (const receiver of app.receiver) {
+      const name = receiver.$['android:name'];
+      const label = receiver.$['android:label'] ?? '';
+      expect([name, label]).toEqual([name, expect.stringMatching(/^@string\/\w+$/)]);
+      expect([name, label]).not.toEqual([name, '@string/app_name']);
+
+      const key = label.replace('@string/', '');
+      for (const [dir, xml] of Object.entries(files)) {
+        expect([name, dir, key, defined(xml).has(key)]).toEqual([name, dir, key, true]);
+      }
+    }
+  });
+
+  it('labels a receiver an earlier prebuild registered without one', () => {
+    const app: { receiver: Entry[] } = {
+      receiver: [
+        {
+          $: {
+            'android:name': '.widget.VeloqActivityWidgetProvider',
+            'android:exported': 'true',
+          },
+          'meta-data': [],
+        },
+      ],
+    };
+    plugin.applyReceivers(app);
+    plugin.applyReceivers(app);
+
+    const activity = app.receiver.filter(
+      (r) => r.$['android:name'] === '.widget.VeloqActivityWidgetProvider'
+    );
+    expect(activity.map((r) => r.$['android:label'])).toEqual(['@string/widget_activity_label']);
   });
 });

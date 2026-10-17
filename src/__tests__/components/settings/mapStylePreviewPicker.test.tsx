@@ -30,8 +30,9 @@ function expectCircleOverWholeLabel(optionTestID: string, label: string, rowWidt
   const circle = StyleSheet.flatten(
     within(option).getByTestId(`${optionTestID}-circle`).props.style
   );
+  // A square drawn with a radius of at least half its side is a circle.
   expect(circle.width).toBe(circle.height);
-  expect(circle.borderRadius).toBe(Number(circle.width) / 2);
+  expect(Number(circle.borderRadius)).toBeGreaterThanOrEqual(Number(circle.width) / 2);
   expect(Number(circle.width)).toBeGreaterThanOrEqual(40);
   expect(Number(circle.width)).toBeLessThanOrEqual(rowWidth / 3);
 

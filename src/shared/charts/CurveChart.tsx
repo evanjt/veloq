@@ -85,6 +85,8 @@ export interface CurveChartProps<T extends ChartSample> {
   describePoint?: (point: T) => string;
   onSelect?: (point: T) => void;
   onInteractionChange?: (active: boolean) => void;
+  /** The data is the previous range's, kept on screen while the new range is read. */
+  held?: boolean;
   testID?: string;
 }
 
@@ -132,6 +134,7 @@ export function CurveChart<T extends ChartSample>({
   describePoint,
   onSelect,
   onInteractionChange,
+  held = false,
   testID,
 }: CurveChartProps<T>) {
   const { t } = useTranslation();
@@ -162,6 +165,7 @@ export function CurveChart<T extends ChartSample>({
   const { gesture, crosshairStyle, syncBounds, syncXCoords, accessibilityProps } =
     useChartGestures<T>({
       data: data as T[],
+      accessibilityLabel: reading.title,
       onSelect,
       onInteractionChange,
       crosshairMode,
@@ -176,7 +180,7 @@ export function CurveChart<T extends ChartSample>({
     [xLabels, xDomain, data, x, width]
   );
 
-  const labelStyle = [chartStyles.axisLabel, isDark && chartStyles.axisLabelDark];
+  const labelStyle = [chartStyles.chartLabel, isDark && chartStyles.chartLabelDark];
   const yTicks = useMemo(
     () =>
       [yDomain[1], (yDomain[0] + yDomain[1]) / 2, yDomain[0]].map((value, i) => ({
@@ -190,7 +194,7 @@ export function CurveChart<T extends ChartSample>({
   const showReference = referenceLine != null && domainContains(yDomain, referenceLine.value);
 
   return (
-    <ChartSurface summary={spoken.summary} table={spoken.table}>
+    <ChartSurface summary={spoken.summary} table={spoken.table} held={held}>
       <View style={styles.row} testID={testID}>
         <YAxisLabels ticks={yTicks} domain={yDomain} padding={PADDING} />
         <GestureDetector gesture={gesture}>

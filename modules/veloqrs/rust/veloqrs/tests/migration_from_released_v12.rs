@@ -612,9 +612,7 @@ fn opening_an_upgraded_library_starts_the_cutover_itself() {
         )
     );
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
-    while veloqrs::persistence::cutover::cutover_pending()
-        || veloqrs::persistence::cutover::cutover_running()
-    {
+    while veloqrs::persistence::cutover::cutover_held() {
         assert!(
             std::time::Instant::now() < deadline,
             "the cutover was never started"

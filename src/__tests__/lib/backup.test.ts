@@ -1,7 +1,7 @@
 /**
  * Tests for backup/restore functionality.
  *
- * Covers: restoreBackup, restoreDatabaseBackup
+ * Covers: restoreBackup, and the check and restore of an older database file
  * Bug fixes validated:
  * - version === undefined conflated with version > BACKUP_VERSION
  * - Missing startIndex < endIndex validation
@@ -19,10 +19,10 @@ import {
   exportRecordBackup,
   restoreRecordBackup,
   restoreBackup,
-  restoreDatabaseBackup,
   resumeRecordImport,
 } from '@/features/settings/lib/backup';
-import { RestoreRefusedError } from '@/features/settings/lib/restoreRefusal';
+import { checkBackupFile } from '@/features/settings/lib/checkedRestore';
+import { RestoreRefusedError, restoreRefusal } from '@/features/settings/lib/restoreRefusal';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getSetting, setSetting, removeSetting } from '@/shared/storage';
 import { shareExistingFile } from '@/features/settings/lib/shareFile';
@@ -364,37 +364,57 @@ describe('record backup import', () => {
 });
 
 describe('legacy database conversion', () => {
+  /** What checking and then restoring an older database file refuses with, or null once it is in. */
+  async function refusalOf(uri: string): Promise<string | null> {
+    try {
+      const checked = await checkBackupFile(uri, uri);
+      await checked.restore();
+      await checked.release();
+      return null;
+    } catch (error) {
+      return restoreRefusal(error);
+    }
+  }
+
   it('invalidates cached reads after a converted record is placed', async () => {
-    await restoreDatabaseBackup('content://picked/old.veloqdb');
+    const checked = await checkBackupFile('content://picked/old.veloqdb', 'old.veloqdb');
+    await checked.restore();
 
     expect(queryClient.invalidateQueries).toHaveBeenCalledWith();
   });
-  it('restores decisions through the record path without replacing the live library', async () => {
-    const result = await restoreDatabaseBackup('content://picked/old.veloqdb');
+
+  it('checks the converted record, then restores it through the record path without replacing the live library', async () => {
+    const checked = await checkBackupFile('content://picked/old.veloqdb', 'old.veloqdb');
 
     expect(mockNativeModule.convertLegacyDatabaseToRecordBackup).toHaveBeenCalledTimes(1);
+    expect(mockEngine.checkRecordZip).toHaveBeenCalledTimes(1);
+    expect(mockEngine.restoreRecordZip).not.toHaveBeenCalled();
+
+    const restored = await checked.restore();
+    await checked.release();
+
+    const [, recordPath] = mockNativeModule.convertLegacyDatabaseToRecordBackup.mock.calls[0];
+    expect(mockEngine.checkRecordZip).toHaveBeenCalledWith(recordPath);
     expect(mockEngine.restoreRecordZip).toHaveBeenCalledTimes(1);
     expect(mockEngine.destroyEngine).not.toHaveBeenCalled();
-    expect(result).toMatchObject({ success: true, activityCount: 100, unplacedCount: 1 });
+    expect(restored).toMatchObject({ unplaced: 1 });
+    expect(FileSystem.deleteAsync).toHaveBeenCalledWith(`file://${recordPath}`, {
+      idempotent: true,
+    });
   });
 
   it('names an empty or missing file by reason, not by an English sentence', async () => {
     (FileSystem.getInfoAsync as jest.Mock).mockResolvedValueOnce({ exists: true, size: 0 });
 
-    const result = await restoreDatabaseBackup('content://picked/empty.veloqdb');
-
-    expect(result).toEqual({ success: false, activityCount: 0, refusal: 'missing' });
+    expect(await refusalOf('content://picked/empty.veloqdb')).toBe('missing');
     expect(mockNativeModule.convertLegacyDatabaseToRecordBackup).not.toHaveBeenCalled();
   });
 
-  it('reports the converted record account mismatch without replacing the library', async () => {
-    mockEngine.restoreRecordZip.mockRejectedValueOnce(
-      new Error('Record belongs to another athlete')
-    );
+  it('refuses a converted record for another account at the check, before anything is restored', async () => {
+    mockEngine.checkRecordZip.mockRejectedValueOnce(new Error('Record belongs to another athlete'));
 
-    const result = await restoreDatabaseBackup('content://picked/other.veloqdb');
-
-    expect(result).toEqual({ success: false, activityCount: 0, refusal: 'differentAccount' });
+    expect(await refusalOf('content://picked/other.veloqdb')).toBe('differentAccount');
+    expect(mockEngine.restoreRecordZip).not.toHaveBeenCalled();
     expect(mockEngine.destroyEngine).not.toHaveBeenCalled();
   });
 
@@ -403,17 +423,13 @@ describe('legacy database conversion', () => {
       Object.assign(new Error('Database error: disk I/O error'), { tag: 'Database' })
     );
 
-    const result = await restoreDatabaseBackup('content://picked/broken.veloqdb');
-
-    expect(result).toEqual({ success: false, activityCount: 0, refusal: 'failed' });
+    expect(await refusalOf('content://picked/broken.veloqdb')).toBe('failed');
   });
 
   it('names a missing reader by refusal', async () => {
     mockEngineState.reader = false;
 
-    const result = await restoreDatabaseBackup('content://picked/old.veloqdb');
-
-    expect(result).toEqual({ success: false, activityCount: 0, refusal: 'unavailable' });
+    expect(await refusalOf('content://picked/old.veloqdb')).toBe('unavailable');
   });
 });
 
@@ -572,8 +588,9 @@ describe('record zip and .veloqdb signed-out import', () => {
   });
 
   it('refuses a .veloqdb as sign-in required, not as a raw engine error', async () => {
-    const result = await restoreDatabaseBackup('content://picked/old.veloqdb');
-    expect(result).toEqual({ success: false, activityCount: 0, refusal: 'signInRequired' });
+    await expect(
+      checkBackupFile('content://picked/old.veloqdb', 'old.veloqdb')
+    ).rejects.toMatchObject({ refusal: 'signInRequired' });
     expectNothingTouched();
   });
 });

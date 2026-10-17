@@ -37,6 +37,8 @@ export const PREFERENCE_KEYS = [
   'veloq-map-preferences',
   'veloq-route-settings',
   'veloq-map-routes-visible',
+  'veloq-map-heatmap-visible',
+  'veloq-map-activities-visible',
   'veloq-debug-mode',
   'dashboard_summary_card',
   '@terrain_camera_overrides',

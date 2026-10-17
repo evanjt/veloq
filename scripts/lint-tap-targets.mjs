@@ -6,7 +6,10 @@
 // nothing about the size it reaches, so it drifts under the floor as the
 // control or the platform minimum changes. Slop comes from slopToMinTapTarget,
 // which owns that sum. A Text that takes a press itself is drawn at its line
-// height, so only the shared link component may write one.
+// height, so only the shared link component may write one. A control that
+// takes a press never draws one platform's minimum as a literal size: 44 on
+// Android is 4 short of its 48, so a target is drawn at a control height and
+// lifted by slop, or sized from layout.minTapTarget.
 
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -47,10 +50,11 @@ function numberIn(object, key) {
 }
 
 const platformTargets = objectFor(spacingSource, 'MIN_TAP_TARGET');
-const floor = Math.max(
-  numberIn(platformTargets, 'ios') ?? 0,
-  numberIn(platformTargets, 'android') ?? 0
-);
+const platformMinimums = [
+  numberIn(platformTargets, 'ios'),
+  numberIn(platformTargets, 'android'),
+].filter((value) => value !== undefined);
+const floor = Math.max(0, ...platformMinimums);
 if (!floor) throw new Error('Tap target guard could not read the platform minimum');
 
 function numeric(node, constants) {
@@ -106,6 +110,46 @@ function properties(expr, styleObjects, constants) {
   });
 }
 
+// The components that take a press, whose style is checked for a literal
+// platform minimum even when it is not passed through pressable().
+const PRESS_TAGS = ['Pressable', 'TouchableOpacity', 'TouchableHighlight', 'IconButton'];
+
+// Size axes written as one platform's minimum, a numeric literal or a local
+// numeric constant, anywhere a style expression can reach: a style object or
+// array, a conditional entry, or a pressed-state function.
+function literalMinimums(expr, styleObjects, constants) {
+  if (!expr) return [];
+  const again = (part) => literalMinimums(part, styleObjects, constants);
+  if (ts.isParenthesizedExpression(expr)) return again(expr.expression);
+  if (ts.isArrayLiteralExpression(expr)) return expr.elements.flatMap(again);
+  if (ts.isCallExpression(expr)) return expr.arguments.flatMap(again);
+  if (ts.isConditionalExpression(expr)) return [...again(expr.whenTrue), ...again(expr.whenFalse)];
+  if (ts.isBinaryExpression(expr)) return [...again(expr.left), ...again(expr.right)];
+  if (ts.isArrowFunction(expr) || ts.isFunctionExpression(expr)) {
+    return ts.isBlock(expr.body) ? [] : again(expr.body);
+  }
+  if (ts.isPropertyAccessExpression(expr)) {
+    const owner = styleObjects.get(expr.expression.getText());
+    const property = owner?.properties.find(
+      (part) => ts.isPropertyAssignment(part) && part.name.getText() === expr.name.text
+    );
+    return property && ts.isPropertyAssignment(property) ? again(property.initializer) : [];
+  }
+  if (!ts.isObjectLiteralExpression(expr)) return [];
+  return expr.properties.flatMap((part) => {
+    if (!ts.isPropertyAssignment(part) || !SIZE_AXES.includes(part.name.getText())) return [];
+    const value = part.initializer;
+    const literal = ts.isNumericLiteral(value)
+      ? Number(value.text)
+      : ts.isIdentifier(value)
+        ? constants.get(value.text)
+        : undefined;
+    return literal !== undefined && platformMinimums.includes(literal)
+      ? [`${part.name.getText()} ${literal}`]
+      : [];
+  });
+}
+
 // The vertical padding the style resolves to, the later entry winning as it
 // does in a style array, or undefined when the style declares none.
 function verticalPadding(entries) {
@@ -155,6 +199,7 @@ function literalSlop(expr, objects, constants) {
 
 const failures = [];
 const literalSlops = [];
+const literalTargets = [];
 const files = tree.files(
   join(root, 'src'),
   (path) => path.endsWith('.tsx') && !path.includes('/__tests__/')
@@ -194,6 +239,15 @@ for (const file of files) {
       const style = props.find((part) => ts.isJsxAttribute(part) && part.name.text === 'style');
       const value = style?.initializer;
       const call = value && ts.isJsxExpression(value) ? value.expression : undefined;
+      const takesPress = pressed || PRESS_TAGS.includes(node.tagName.getText(parsed));
+      const pressStyle =
+        call && ts.isCallExpression(call) && call.expression.getText(parsed) === 'pressable';
+      if (call && (takesPress || pressStyle)) {
+        const literals = literalMinimums(call, objects, constants);
+        if (literals.length) {
+          literalTargets.push(`${relative(root, file)}:${line}: ${literals.join(', ')}`);
+        }
+      }
       if (
         call &&
         ts.isCallExpression(call) &&
@@ -233,7 +287,13 @@ if (literalSlops.length) {
   console.error('Hit slop written as a number; compute it with slopToMinTapTarget:');
   for (const failure of literalSlops) console.error(`  ${failure}`);
 }
-if (failures.length || literalSlops.length) process.exit(1);
+if (literalTargets.length) {
+  console.error(
+    'A control drawn at a literal platform minimum; draw it at a control height with slopToMinTapTarget, or size it from layout.minTapTarget:'
+  );
+  for (const failure of literalTargets) console.error(`  ${failure}`);
+}
+if (failures.length || literalSlops.length || literalTargets.length) process.exit(1);
 console.log(
-  'Tap target guard: explicit pressable dimensions and thin padding reach the platform floor, and every hit slop is computed.'
+  'Tap target guard: explicit pressable dimensions and thin padding reach the platform floor, every hit slop is computed, and no control draws a literal platform minimum.'
 );

@@ -74,4 +74,12 @@ describe('the calendar card reference row', () => {
       expect(style.height ?? 0).toBeLessThan(44);
     }
   });
+
+  it('draws each reference control as a Button that says what it is or what it does', async () => {
+    const { getAllByTestId, getByRole } = await renderCards();
+
+    const labels = getAllByTestId('calendar-reference-button-label').map((l) => l.props.children);
+    expect(labels.sort()).toEqual(['Reference', 'Set as reference']);
+    expect(getByRole('button', { name: 'Set as reference' })).toBeTruthy();
+  });
 });

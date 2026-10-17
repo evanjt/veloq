@@ -215,7 +215,7 @@ function ParamRow({
   disabled?: boolean;
 }) {
   const txt = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const trackBg = isDark ? darkColors.inputTrack : colors.inputTrack;
+  const trackBg = isDark ? darkColors.track : colors.track;
   const { t } = useTranslation();
   const { min, max, step } = DETECTION_PARAM_RANGES[paramKey];
   return (

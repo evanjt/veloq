@@ -4,7 +4,9 @@
  *
  * Expected behaviour: nothing draws or is named for neighbouring sections, and
  * the legend appears only when the highlighted activity, a ledger version or
- * the delta colouring is on the map.
+ * the delta colouring is on the map. A picked attempt is keyed "This activity"
+ * only when it is the activity the page was opened from, and otherwise by its
+ * date, or as the selected attempt when no date is to hand.
  */
 
 import React from 'react';
@@ -13,6 +15,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { initialiseI18n, changeLanguage } from '@/i18n';
 import { SectionMapView } from '@/features/routes/components/SectionMapView';
+import { formatFullDate } from '@/shared/format/format';
 import type { FrequentSection, RoutePoint } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
@@ -103,9 +106,45 @@ describe('the section detail map legend', () => {
   it('names only the highlighted lap when one is drawn', async () => {
     await renderMap({ highlightedLapPoints: POLYLINE });
 
-    expect(screen.getByText('This activity')).toBeTruthy();
+    expect(screen.getByText('Selected attempt')).toBeTruthy();
+    expect(screen.queryByText('This activity')).toBeNull();
     expect(screen.queryByText('This section')).toBeNull();
     expect(screen.queryByText('Other sections nearby')).toBeNull();
+  });
+
+  it('keys an earlier attempt picked on the chart by its date, not as this activity', async () => {
+    const attemptDate = new Date(2023, 2, 12, 8, 30);
+    await renderMap({
+      pageActivityId: 'opened-from',
+      highlightedActivityId: 'three-years-ago',
+      highlightedActivityDate: attemptDate,
+      highlightedLapPoints: POLYLINE,
+    });
+
+    expect(screen.getByText(formatFullDate(attemptDate))).toBeTruthy();
+    expect(screen.queryByText('This activity')).toBeNull();
+  });
+
+  it('keys a picked attempt with no date as the selected attempt', async () => {
+    await renderMap({
+      pageActivityId: 'opened-from',
+      highlightedActivityId: 'undated',
+      highlightedLapPoints: POLYLINE,
+    });
+
+    expect(screen.getByText('Selected attempt')).toBeTruthy();
+    expect(screen.queryByText('This activity')).toBeNull();
+  });
+
+  it('keys the attempt the page was opened from as this activity', async () => {
+    await renderMap({
+      pageActivityId: 'opened-from',
+      highlightedActivityId: 'opened-from',
+      highlightedActivityDate: new Date(2026, 5, 1),
+      highlightedLapPoints: POLYLINE,
+    });
+
+    expect(screen.getByText('This activity')).toBeTruthy();
   });
 
   it('names the shown ledger version, which draws as a grey line', async () => {

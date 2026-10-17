@@ -68,7 +68,6 @@ import {
 } from '@/features/settings/lib/autobackup/backends/googleDriveBackend';
 import { onBackupCarrierSignedIn } from '@/features/settings/lib/autobackup/autoBackup';
 import { restoreBackendEntry } from '@/features/settings/lib/restoreBackendEntry';
-import { confirmLegacyImport } from '@/features/settings/hooks/useBackup';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
 import { InfoButton } from './InfoButton';
@@ -492,19 +491,13 @@ export function BackupSection() {
     async (backend: BackupBackend, entry: BackupEntry) => {
       if (restoreRunning.current) return;
       restoreRunning.current = true;
-      const confirmed = await confirmLegacyImport({
-        title: t('backup.importBackup'),
-        message: t('backup.legacyImportMessage'),
-        cancel: t('common.cancel'),
-      });
-      if (!confirmed) {
-        restoreRunning.current = false;
-        return;
-      }
       setRestoringEntry(entry.id);
       try {
-        showRestoreNotice(await restoreBackendEntry(backend, entry), t);
-        setBackendBackups(null);
+        const outcome = await restoreBackendEntry(backend, entry, t);
+        if (outcome !== 'declined') {
+          showRestoreNotice(outcome, t);
+          setBackendBackups(null);
+        }
       } catch (error) {
         inform({ title: t('backup.notRestoredTitle'), message: describeBackupError(error) });
       } finally {

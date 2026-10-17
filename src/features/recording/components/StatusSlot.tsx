@@ -6,27 +6,15 @@
  */
 
 import React from 'react';
-import { Pressable, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
 
 import { tapTo } from '@/shared/app/navigation';
-import {
-  colors,
-  colorWithOpacity,
-  darkColors,
-  duration,
-  iconSize,
-  layout,
-  spacing,
-  typography,
-} from '@/theme';
-import { useTheme } from '@/shared/app';
+import { colors, colorWithOpacity, duration, iconSize, layout, spacing, typography } from '@/theme';
 import { selectStatusMessage, type StatusSlotInput } from '../lib/statusSlot';
-import { OpenSettingsButton, pressable, pressRipple } from '@/shared/ui';
-import { IconButton } from '@/shared/ui/IconButton';
+import { InlineNotice, OpenSettingsButton } from '@/shared/ui';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 
 // Every message drops in and lifts out alike, so a swap reads as one slot.
@@ -47,8 +35,6 @@ function StatusSlotInner({
   lapBanner,
   onDismissGpsWarning,
 }: StatusSlotProps) {
-  const { t } = useTranslation();
-  const { isDark } = useTheme();
   const message = selectStatusMessage({
     backgroundTrackingWarning,
     backupWarning,
@@ -63,46 +49,27 @@ function StatusSlotInner({
   useAnnounceOnAppear(message?.spoken);
   if (!message) return null;
 
-  // The amber has to be the mark here, not the ground: `colors.warning` is
-  // 2.15:1 on white, so the row's text and icons take the deep tone instead.
-  const amber = isDark ? darkColors.warningAmber : colors.warningAmber;
-
-  // No dismiss: the ride still cannot record off screen after it is read, and
-  // it clears itself if a later attempt succeeds.
-  if (message.kind === 'background') {
+  // Each fault is a warning notice the slot speaks itself, through the live
+  // region on its wrapper, so the notice does not announce a second time.
+  // No dismiss on the first two: the ride still cannot record off screen after
+  // it is read, and a backup failure clears once a write lands. Freeing
+  // storage does that, not reading it.
+  if (message.kind === 'background' || message.kind === 'backup') {
     return (
       <Animated.View
-        key="background"
+        key={message.kind}
         entering={ENTERING}
         exiting={EXITING}
-        style={[styles.row, styles.warnRow]}
-        testID="status-slot-background"
+        style={styles.slot}
+        testID={`status-slot-${message.kind}`}
         accessibilityLiveRegion="assertive"
       >
-        <MaterialCommunityIcons name="alert-circle-outline" size={iconSize.sm} color={amber} />
-        <Text style={[styles.text, { color: amber }]}>{message.text}</Text>
-      </Animated.View>
-    );
-  }
-
-  // No dismiss either: it clears itself once a write lands, and reading it
-  // does not make the next one land. Freeing storage does.
-  if (message.kind === 'backup') {
-    return (
-      <Animated.View
-        key="backup"
-        entering={ENTERING}
-        exiting={EXITING}
-        style={[styles.row, styles.warnRow]}
-        testID="status-slot-backup"
-        accessibilityLiveRegion="assertive"
-      >
-        <MaterialCommunityIcons
-          name="content-save-alert-outline"
-          size={iconSize.sm}
-          color={amber}
+        <InlineNotice
+          tone="warning"
+          icon={message.kind === 'backup' ? 'content-save-alert-outline' : 'alert-circle-outline'}
+          title={message.text}
+          announce={false}
         />
-        <Text style={[styles.text, { color: amber }]}>{message.text}</Text>
       </Animated.View>
     );
   }
@@ -113,16 +80,22 @@ function StatusSlotInner({
         key="gps"
         entering={ENTERING}
         exiting={EXITING}
-        style={[styles.row, styles.warnRow]}
+        style={styles.slot}
         testID="status-slot-gps"
         accessibilityLiveRegion="assertive"
       >
-        <MaterialCommunityIcons name="alert-circle-outline" size={iconSize.sm} color={amber} />
-        <Text style={[styles.text, { color: amber }]}>{message.text}</Text>
-        {message.opensSettings ? <OpenSettingsButton testID="status-slot-gps-settings" /> : null}
-        <IconButton onPress={onDismissGpsWarning} accessibilityLabel={t('common.close', 'Close')}>
-          <MaterialCommunityIcons name="close" size={iconSize.sm} color={amber} />
-        </IconButton>
+        <InlineNotice
+          tone="warning"
+          icon="alert-circle-outline"
+          title={message.text}
+          action={
+            message.opensSettings ? (
+              <OpenSettingsButton testID="status-slot-gps-settings" />
+            ) : undefined
+          }
+          onDismiss={onDismissGpsWarning}
+          announce={false}
+        />
       </Animated.View>
     );
   }
@@ -133,20 +106,17 @@ function StatusSlotInner({
         key="sensor"
         entering={ENTERING}
         exiting={EXITING}
+        style={styles.slot}
         testID="status-slot-sensor"
         accessibilityLiveRegion="assertive"
       >
-        <Pressable
-          style={pressable([styles.row, styles.warnRow])}
-          android_ripple={pressRipple}
+        <InlineNotice
+          tone="warning"
+          icon="bluetooth"
+          title={message.text}
           onPress={() => tapTo('/sensor-settings')}
-          accessibilityRole="button"
-          accessibilityLabel={message.text}
-        >
-          <MaterialCommunityIcons name="bluetooth" size={iconSize.sm} color={amber} />
-          <Text style={[styles.text, { color: amber }]}>{message.text}</Text>
-          <MaterialCommunityIcons name="chevron-right" size={iconSize.sm} color={amber} />
-        </Pressable>
+          announce={false}
+        />
       </Animated.View>
     );
   }
@@ -170,6 +140,10 @@ function StatusSlotInner({
 }
 
 const styles = StyleSheet.create({
+  slot: {
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.xs,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -179,9 +153,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xsPlus,
     borderRadius: layout.borderRadiusSm,
-  },
-  warnRow: {
-    backgroundColor: colorWithOpacity(colors.warning, 0.15),
   },
   splitRow: {
     backgroundColor: colorWithOpacity(colors.success, 0.85),

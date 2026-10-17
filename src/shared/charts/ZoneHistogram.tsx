@@ -87,17 +87,11 @@ export function ZoneHistogram({ title, bands, testID }: ZoneHistogramProps) {
           const primary = filled ? (band.primary ?? ABSENT) : ABSENT;
           return (
             <View key={band.key} style={[styles.row, { paddingVertical: rowPadding }]}>
-              <DenseText
-                style={[styles.label, compact && styles.labelCompact, isDark && styles.textOnDark]}
-              >
+              <DenseText style={[styles.label, isDark && styles.textOnDark]}>
                 {band.label}
               </DenseText>
               <DenseText
-                style={[
-                  styles.percent,
-                  compact && styles.percentCompact,
-                  isDark && styles.textOnDark,
-                ]}
+                style={[styles.percent, isDark && styles.textOnDark]}
                 accessibilityLabel={absentLabel(share, t)}
               >
                 {share}
@@ -115,13 +109,9 @@ export function ZoneHistogram({ title, bands, testID }: ZoneHistogramProps) {
                   ]}
                 />
               </View>
-              <View style={[styles.stats, compact && styles.statsCompact]}>
+              <View style={styles.stats}>
                 <DenseText
-                  style={[
-                    styles.primary,
-                    compact && styles.primaryCompact,
-                    isDark && styles.textOnDark,
-                  ]}
+                  style={[styles.primary, isDark && styles.textOnDark]}
                   accessibilityLabel={absentLabel(primary, t)}
                 >
                   {primary}
@@ -151,26 +141,17 @@ const styles = StyleSheet.create({
   },
   // The zone is named in text colour beside its fill, never in the fill's colour.
   label: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '700',
+    ...typography.captionBold,
     color: colors.textPrimary,
-    width: denseExtent(typography.caption.fontSize, LABEL_EMS),
-  },
-  labelCompact: {
-    fontSize: typography.label.fontSize,
-    width: denseExtent(typography.label.fontSize, LABEL_EMS),
+    width: denseExtent(typography.captionBold.fontSize, LABEL_EMS),
   },
   percent: {
-    ...typography.badge,
-    width: denseExtent(typography.badge.fontSize, PERCENT_EMS),
+    ...typography.caption,
+    fontVariant: ['tabular-nums'],
+    width: denseExtent(typography.caption.fontSize, PERCENT_EMS),
     textAlign: 'right',
     color: colors.textPrimary,
     marginRight: spacing.xsPlus,
-  },
-  percentCompact: {
-    fontSize: typography.micro.fontSize,
-    width: denseExtent(typography.micro.fontSize, PERCENT_EMS),
-    marginRight: spacing.xs,
   },
   textOnDark: {
     color: colors.textOnDark,
@@ -189,23 +170,18 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusXs,
   },
   stats: {
-    width: denseExtent(typography.badge.fontSize, STATS_EMS),
+    width: denseExtent(typography.caption.fontSize, STATS_EMS),
     marginLeft: spacing.xsPlus,
     alignItems: 'flex-end',
   },
-  statsCompact: {
-    width: denseExtent(typography.micro.fontSize, STATS_EMS),
-    marginLeft: spacing.xs,
-  },
   primary: {
-    ...typography.badge,
+    ...typography.captionBold,
+    fontVariant: ['tabular-nums'],
     color: colors.textPrimary,
   },
-  primaryCompact: {
-    fontSize: typography.micro.fontSize,
-  },
   secondary: {
-    fontSize: typography.pillLabel.fontSize,
+    ...typography.caption,
+    fontVariant: ['tabular-nums'],
     color: colors.textSecondary,
   },
   secondaryDark: {

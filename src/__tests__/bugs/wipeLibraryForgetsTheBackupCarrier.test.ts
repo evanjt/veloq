@@ -45,11 +45,8 @@ import {
 } from '@/features/settings/stores/NotificationPreferencesStore';
 import { unregisterPushToken } from '@/features/settings/lib/pushTokenRegistration';
 import { shareFile } from '@/features/settings/lib/shareFile';
-import {
-  exportRecordBackup,
-  restoreDatabaseBackup,
-  restoreRecordBackup,
-} from '@/features/settings/lib/backup';
+import { exportRecordBackup, restoreRecordBackup } from '@/features/settings/lib/backup';
+import { checkBackupFile } from '@/features/settings/lib/checkedRestore';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { writeWidgetSnapshot } from '@/features/home/lib/widgetBridge';
 import {
@@ -238,6 +235,12 @@ const mockEngine = {
   }),
   getActivityCount: () => 0,
   restoreRecordZip: jest.fn(async () => ({ unplaced: 0, missingActivityIds: [] as string[] })),
+  checkRecordZip: jest.fn(async () => ({
+    namesAccount: true,
+    names: 0,
+    settings: 0,
+    decisions: 0,
+  })),
 };
 
 /** The Android module that cancels and prunes activity pushes. */
@@ -622,7 +625,9 @@ describe('the wipe every hand-off takes', () => {
     mockFiles.set('file:///picked/athlete-a.veloqdb', 'db');
 
     await restoreRecordBackup('file:///picked/athlete-a.zip');
-    await restoreDatabaseBackup('file:///picked/athlete-a.veloqdb');
+    const legacy = await checkBackupFile('file:///picked/athlete-a.veloqdb', 'athlete-a.veloqdb');
+    await legacy.restore();
+    await legacy.release();
 
     expect(restoreCopies.length).toBeGreaterThanOrEqual(3);
     expect(restoreCopies.filter((uri) => !uri.startsWith('file:///cache/restores/'))).toEqual([]);

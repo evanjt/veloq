@@ -60,6 +60,10 @@ describe('the style class ratchets', () => {
     ['font-style', `const s = StyleSheet.create({ aside: { fontStyle: 'italic' } });`],
     ['shadow', 'const s = StyleSheet.create({ lifted: { elevation: 4, shadowRadius: 3 } });'],
     ['alpha', 'const tint = colorWithOpacity(colors.primary, 0.12);'],
+    [
+      'status-tint',
+      'const s = StyleSheet.create({ frost: { backgroundColor: colorWithOpacity(colors.warning, opacity.tint2) } });',
+    ],
     ['motion', 'const v = withTiming(1, { duration: 300 });\nconst e = FadeIn.duration(200);'],
     [
       'container',
@@ -71,6 +75,33 @@ describe('the style class ratchets', () => {
 
     expect(result.status).toBe(1);
     expect(result.output).toContain(COMPONENT);
+  });
+
+  it.each([
+    [
+      'a two-digit hex alpha concatenated onto a colour',
+      "const s = { a: { backgroundColor: colors.primary + '15' } };",
+    ],
+    [
+      'a two-digit hex alpha templated onto a colour',
+      'const s = { a: { backgroundColor: `${c}20` } };',
+    ],
+  ])('alpha refuses %s', (_shape, source) => {
+    const result = lintClass(treeWith({ [COMPONENT]: `${source}\n` }), 'alpha');
+
+    expect(result.status).toBe(1);
+    expect(result.output).toContain(COMPONENT);
+  });
+
+  it('alpha passes a colour washed at an opacity step and a string joined to a word', () => {
+    const source = [
+      'const s = { a: { backgroundColor: colorWithOpacity(c, opacity.tint2) } };',
+      "const id = 'plot-' + '12';",
+      "const label = name + ' 42';",
+    ].join('\n');
+    const result = lintClass(treeWith({ [COMPONENT]: `${source}\n` }), 'alpha');
+
+    expect(result.status).toBe(0);
   });
 
   it('passes a file sitting on its baseline and refuses one above it', () => {
@@ -192,6 +223,37 @@ describe('the style class ratchets', () => {
         'z-index': {},
       });
     });
+  });
+
+  it('counts every way a status hue is tinted by hand into a ground or an edge', () => {
+    const root = treeWith({
+      [COMPONENT]: [
+        'const FROST = colorWithOpacity(colors.warning, opacity.tint2);',
+        'const s = StyleSheet.create({',
+        "  a: { backgroundColor: colors.error + '15', borderColor: colors.info + '30' },",
+        '  b: { backgroundColor: isDark ? `${palette.warningAmber}20` : FROST },',
+        '});',
+      ].join('\n'),
+    });
+
+    const listed = run(LITERALS, ['--class', 'status-tint', '--root', root, '--list']).output;
+
+    expect(listed.trim().split('\n')).toHaveLength(4);
+    expect(lintClass(root, 'status-tint').status).toBe(1);
+  });
+
+  it('passes a status ground read from its role and a status hue that is not a ground', () => {
+    const root = treeWith({
+      [COMPONENT]: [
+        'const s = StyleSheet.create({',
+        '  a: { backgroundColor: colors.warningBg, borderColor: colorWithOpacity(colors.primary, opacity.tint2) },',
+        '  b: { color: colorWithOpacity(colors.error, opacity.tint2) },',
+        '});',
+        'const pin = { circleColor: colorWithOpacity(colors.error, opacity.tint2) };',
+      ].join('\n'),
+    });
+
+    expect(lintClass(root, 'status-tint').status).toBe(0);
   });
 
   it('counts no token read, no zero and no full opacity', () => {

@@ -6,7 +6,8 @@
  * Expected behaviour: `.husky/pre-push` reads the submodule pin at the tip of
  * each pushed ref and refuses it unless the submodule's published repository
  * (the URL in `.gitmodules`, never the local clone's `origin`) holds that commit
- * on a branch or tag. Deleted refs are skipped.
+ * on a branch or tag. Deleted refs are skipped, and so is a `gate/` ref pushed
+ * to the iOS gate's remote, which builds from its own checkout of the submodule.
  */
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -83,10 +84,11 @@ function push(
   superproject: string,
   ref: string,
   local: string,
-  remote = ZERO
+  remote = ZERO,
+  remoteName = 'origin'
 ): { status: number; stderr: string } {
   try {
-    execFileSync('sh', ['.husky/pre-push', 'origin', 'url'], {
+    execFileSync('sh', ['.husky/pre-push', remoteName, 'url'], {
       cwd: superproject,
       env: gitFreeEnv(),
       input: `${ref} ${local} ${ref} ${remote}\n`,
@@ -197,5 +199,29 @@ describe('submodule pin published check in pre-push', () => {
 
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(published);
+  });
+
+  it('skips a gate ref pushed to the iOS gate remote, which builds from its own submodule checkout', () => {
+    const { superproject, library } = fixture();
+    runGit(['config', 'veloq.iosGateRemote', 'mac'], superproject);
+    const tip = pin(superproject, commitIn(library, 'two'));
+
+    expect(push(superproject, 'refs/heads/gate/main', tip, ZERO, 'mac').status).toBe(0);
+  });
+
+  it('still checks a branch outside gate/ pushed to the iOS gate remote', () => {
+    const { superproject, library } = fixture();
+    runGit(['config', 'veloq.iosGateRemote', 'mac'], superproject);
+    const tip = pin(superproject, commitIn(library, 'two'));
+
+    expect(push(superproject, 'refs/heads/main', tip, ZERO, 'mac').status).toBe(1);
+  });
+
+  it('still checks a gate ref pushed to a remote that is not the iOS gate remote', () => {
+    const { superproject, library } = fixture();
+    runGit(['config', 'veloq.iosGateRemote', 'mac'], superproject);
+    const tip = pin(superproject, commitIn(library, 'two'));
+
+    expect(push(superproject, 'refs/heads/gate/main', tip).status).toBe(1);
   });
 });

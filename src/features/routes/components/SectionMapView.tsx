@@ -27,7 +27,16 @@ import { useIsFocused } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { getActivityColor } from '@/shared/activity/activityUtils';
-import { cameraMove, colors, duration, iconSize, spacing, themePalette } from '@/theme';
+import {
+  cameraMove,
+  colorWithOpacity,
+  colors,
+  duration,
+  iconSize,
+  opacity,
+  spacing,
+  themePalette,
+} from '@/theme';
 import { useMapPreferences } from '@/features/settings';
 import { useTheme } from '@/shared/app';
 import {
@@ -68,7 +77,7 @@ import { toActivityType } from '@/features/routes/types';
 import { onlySport } from '@/shared/activity/sportSet';
 import { useSectionMapLayers } from './useSectionMapLayers';
 import { buildSection3DOverlays } from './sectionMap3DOverlays';
-import { buildDeltaLineStops } from '@/features/maps';
+import { buildDeltaLineStops, LOCATE_GLYPH } from '@/features/maps';
 import type { SectionDeltaLine } from '../lib/deltaLayout';
 import { DetailMapLegend, hasLegendLayers } from './DetailMapLegend';
 import { buildSectionLayers, buildSectionSources } from './sectionMapLayerSpecs';
@@ -100,6 +109,10 @@ interface SectionMapViewProps {
   highlightedActivityId?: string | null | undefined;
   /** Specific lap points to highlight (takes precedence over highlightedActivityId) */
   highlightedLapPoints?: RoutePoint[] | undefined;
+  /** When the highlighted attempt was ridden, which the map key names it by. */
+  highlightedActivityDate?: Date | undefined;
+  /** The activity the page was opened from, the only one the key calls "This activity". */
+  pageActivityId?: string | undefined;
   /**
    * Pre-loaded activity traces for fast scrubbing.
    * When provided, all traces are rendered in a single FeatureCollection
@@ -134,6 +147,8 @@ export const SectionMapView = memo(function SectionMapView({
   shadowTrack,
   highlightedActivityId = null,
   highlightedLapPoints,
+  highlightedActivityDate,
+  pageActivityId,
   allActivityTraces,
   trimRange = null,
   extensionTrack = null,
@@ -249,6 +264,7 @@ export const SectionMapView = memo(function SectionMapView({
   // The 2D surface comes down once the 3D layer covers it, so where it was is
   // captured on the way out and handed back to the remount.
   const show2DSurface = !(is3DMode && is3DReady);
+  const is3DLoading = is3DMode && !is3DReady;
   useEffect(() => {
     if (!show2DSurface) setCameraOnHide(settledCameraRef.current);
   }, [show2DSurface]);
@@ -373,6 +389,11 @@ export const SectionMapView = memo(function SectionMapView({
       sectionLayerData.highlightedTraceGeoJSON !== EMPTY_FEATURE_COLLECTION ||
       sectionLayerData.highlightedTraceFilter !== undefined,
     showEarlierVersion: sectionLayerData.shadowGeoJSON !== EMPTY_FEATURE_COLLECTION,
+  };
+  const pickedAttempt = {
+    activityId: highlightedActivityId,
+    date: highlightedActivityDate,
+    pageActivityId,
   };
   // The inline map draws the section line itself; the fullscreen modal draws
   // it through the base map and carries no delta colouring.
@@ -515,7 +536,12 @@ export const SectionMapView = memo(function SectionMapView({
 
   if (!bounds || displayPoints.length === 0) {
     return (
-      <View style={[styles.placeholder, { height, backgroundColor: activityColor + '20' }]}>
+      <View
+        style={[
+          styles.placeholder,
+          { height, backgroundColor: colorWithOpacity(activityColor, opacity.tint2) },
+        ]}
+      >
         <MaterialCommunityIcons name="map-marker-off" size={iconSize.xl} color={activityColor} />
       </View>
     );
@@ -587,13 +613,6 @@ export const SectionMapView = memo(function SectionMapView({
               </ComponentErrorBoundary>
             ) : null}
 
-            {/* 3D loading spinner */}
-            {is3DMode && !is3DReady ? (
-              <View style={styles.loadingOverlay} testID="section-map-3d-loading">
-                <ActivityIndicator size="large" color={colors.primary} />
-              </View>
-            ) : null}
-
             {terrainNotice}
           </View>
 
@@ -628,26 +647,39 @@ export const SectionMapView = memo(function SectionMapView({
                   testID="section-map-3d-toggle"
                   accessibilityRole="button"
                   accessibilityLabel={t(is3DMode ? 'maps.disable3D' : 'maps.enable3D')}
-                  accessibilityState={{ selected: is3DMode }}
+                  accessibilityState={{
+                    selected: is3DMode,
+                    busy: is3DLoading,
+                    disabled: is3DLoading,
+                  }}
                   style={pressable([
                     styles.controlButton,
                     isDark && styles.controlButtonDark,
                     is3DMode && activeControl,
                   ])}
                   onPress={toggle3D}
+                  disabled={is3DLoading}
                   android_ripple={pressRipple}
                 >
-                  <MaterialCommunityIcons
-                    name="terrain"
-                    size={iconSize.lg}
-                    color={
-                      is3DMode
-                        ? colors.textOnDark
-                        : isDark
+                  {is3DLoading ? (
+                    <ActivityIndicator
+                      testID="section-map-3d-busy"
+                      size="small"
+                      color={colors.textOnDark}
+                    />
+                  ) : (
+                    <MaterialCommunityIcons
+                      name="terrain"
+                      size={iconSize.lg}
+                      color={
+                        is3DMode
                           ? colors.textOnDark
-                          : colors.textSecondary
-                    }
-                  />
+                          : isDark
+                            ? colors.textOnDark
+                            : colors.textSecondary
+                      }
+                    />
+                  )}
                 </Pressable>
               ) : null}
 
@@ -689,7 +721,7 @@ export const SectionMapView = memo(function SectionMapView({
                   />
                 ) : (
                   <MaterialCommunityIcons
-                    name="crosshairs-gps"
+                    name={LOCATE_GLYPH}
                     size={iconSize.lg}
                     color={isDark ? colors.textOnDark : colors.textSecondary}
                   />
@@ -722,6 +754,7 @@ export const SectionMapView = memo(function SectionMapView({
               isDark={isDark}
               top={overlayTop}
               testID="section-map-legend"
+              pickedAttempt={pickedAttempt}
               {...inlineLegendLayers}
             />
           ) : null}
@@ -762,7 +795,7 @@ export const SectionMapView = memo(function SectionMapView({
           routeCoordinates={sectionCoords}
           routeColor={
             highlightedActivityId || sectionLayerData.highlightedTraceGeoJSON
-              ? activityColor + '66'
+              ? colorWithOpacity(activityColor, opacity.dim)
               : activityColor
           }
           bounds={bounds || undefined}
@@ -778,6 +811,7 @@ export const SectionMapView = memo(function SectionMapView({
             isDark={isDark}
             testID="section-map-legend"
             top={fullscreenInsets.top + spacing.sm}
+            pickedAttempt={pickedAttempt}
             {...fullscreenLegendLayers}
           />
         )}

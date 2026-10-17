@@ -17,6 +17,9 @@ import { MapSurface, type MapCameraState } from '@/features/maps/components/MapS
 import { CompassArrow } from '@/shared/ui';
 import { darkColors } from '@/theme';
 
+// The map page is hidden from screen readers, so a query reaching it includes hidden elements.
+const MAP_PAGE = { includeHiddenElements: true };
+
 // The binding registers a TurboModule at import time. A hook on this screen's
 // import path compares against one of its generated enums, so the stub is the
 // module here.
@@ -181,7 +184,7 @@ describe('BaseMapView', () => {
   it('mounts a map with a route and bounds', async () => {
     await renderMap({ routeCoordinates: ROUTE, bounds: BOUNDS });
 
-    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+    expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
   });
 
   it('shows the close control only when a close handler is supplied', async () => {
@@ -213,7 +216,7 @@ describe('BaseMapView', () => {
         await fireEvent.press(toggle);
       })()
     ).resolves.not.toThrow();
-    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+    expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
   });
 
   it('hides the toggles when the caller turns them off', async () => {
@@ -261,13 +264,13 @@ describe('BaseMapView', () => {
   it('swaps in the terrain view when 3D is enabled and back out again', async () => {
     await renderMap({ routeCoordinates: ROUTE });
 
-    expect(screen.queryByTestId('webview')).toBeNull();
+    expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
 
     await fireEvent.press(screen.getByTestId('map-3d-toggle'));
-    expect(screen.getByTestId('webview')).toBeTruthy();
+    expect(screen.getByTestId('webview', MAP_PAGE)).toBeTruthy();
 
     await fireEvent.press(screen.getByTestId('map-3d-toggle'));
-    expect(screen.queryByTestId('webview')).toBeNull();
+    expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
   });
 
   it('forwards map presses to the caller', async () => {
@@ -290,7 +293,7 @@ describe('BaseMapView', () => {
         }))()
     ).resolves.not.toThrow();
 
-    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+    expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
   });
 
   describe('in 3D', () => {
@@ -354,7 +357,7 @@ describe('BaseMapView', () => {
       await renderMap({ routeCoordinates: ROUTE, bounds: BOUNDS });
 
       await enter3D();
-      expect(screen.queryByTestId('maplibre-map')).toBeNull();
+      expect(screen.queryByTestId('maplibre-map', MAP_PAGE)).toBeNull();
       await act(() => {
         (mockMap3DProbe.props!.onCameraStateChange as (c: unknown, g: boolean) => void)(
           { center: [7.6, 46.7], zoom: 14, bearing: 30, pitch: 60 },
@@ -363,7 +366,7 @@ describe('BaseMapView', () => {
       });
       await fireEvent.press(screen.getByTestId('map-3d-toggle'));
 
-      expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+      expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
       expect(mockSurfaceProbe.initialCamera).toEqual({ center: [7.6, 46.7], zoom: 14 });
     });
 
@@ -482,7 +485,7 @@ describe('BaseMapView', () => {
 
     it.each(cases)('survives %s', async (_label, props) => {
       await expect((async () => renderMap(props))()).resolves.not.toThrow();
-      expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+      expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
     });
   });
 });
@@ -490,7 +493,7 @@ describe('BaseMapView', () => {
 // The surface reports a tap as a bridge message, so a press test drives the
 // same message the page would post rather than a renderer-specific event.
 async function pressMapAt(coordinate: [number, number]) {
-  await fireEvent(screen.getByTestId('maplibre-map'), 'message', {
+  await fireEvent(screen.getByTestId('maplibre-map', MAP_PAGE), 'message', {
     nativeEvent: {
       data: JSON.stringify({ type: 'mapClick', coordinate, point: [0, 0], feature: null }),
     },

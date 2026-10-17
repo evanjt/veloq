@@ -128,6 +128,9 @@ export function getFitnessScreenData(host: DelegateHost): FfiFitnessScreenData {
       runPaceTrend: EMPTY_PACE_TREND,
       swimPaceTrend: EMPTY_PACE_TREND,
       sportMix: { rides: 0, runs: 0, swims: 0 },
+      // The engine never answers zero days, so zero says there is no read.
+      fitnessDays: 0,
+      fatigueDays: 0,
     };
   }
   return host.timed('getFitnessScreenData', () => host.engine.fitness().getFitnessScreenData());

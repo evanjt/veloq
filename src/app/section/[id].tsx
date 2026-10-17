@@ -389,6 +389,7 @@ function SectionDetailScreenContent() {
             customName={customName}
             shadowTrack={shadowTrack}
             highlight={highlight}
+            pageActivityId={navActivityId}
             deltaLine={deltaLine}
             allActivityTraces={allActivityTraces}
             onUnflagLift={isTrimming ? undefined : handleUnflagLift}

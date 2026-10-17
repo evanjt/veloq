@@ -96,6 +96,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
   const {
     data: curve,
     isLoading,
+    isPlaceholderData,
     error,
     coverage,
     bodyStatus,
@@ -255,6 +256,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
         }
         onSelect={setTooltipData}
         onInteractionChange={handleInteractionChange}
+        held={isPlaceholderData}
       />
 
       {/* CSS Legend */}

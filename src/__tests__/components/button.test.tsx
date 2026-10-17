@@ -15,8 +15,8 @@ import { Platform } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-import { Button, ToggleButton } from '@/shared/ui/Button';
-import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
+import { Button, ToggleButton, ToggleButtonRow, paint } from '@/shared/ui/Button';
+import { colors, darkColors, iconSize, layout, spacing, stroke, typography } from '@/theme';
 import { MIN_TAP_TARGET } from '@/theme/spacing';
 
 jest.mock('@/shared/ui/haptics', () => ({
@@ -29,6 +29,11 @@ jest.mock('@/shared/ui/haptics', () => ({
 let mockIsDark = false;
 jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: mockIsDark }),
+}));
+
+let mockButtonShapes = false;
+jest.mock('@/shared/ui/buttonShapes', () => ({
+  useButtonShapes: () => mockButtonShapes,
 }));
 
 function contrastRatio(a: string, b: string): number {
@@ -366,9 +371,19 @@ describe('ToggleButton', () => {
   });
 
   for (const isDark of [false, true]) {
-    it(`steps in lightness when selected, so the state survives greyscale, in the ${isDark ? 'dark' : 'light'} theme`, async () => {
+    const palette = isDark ? darkColors : colors;
+    const theme = isDark ? 'dark' : 'light';
+    const surfaces = isDark
+      ? [
+          darkColors.background,
+          darkColors.surface,
+          darkColors.surfaceElevated,
+          darkColors.surfaceCard,
+        ]
+      : [colors.background, colors.surface, colors.backgroundAlt];
+
+    it(`fills the chosen chip with the on role and the others with the neutral fill, in the ${theme} theme`, async () => {
       mockIsDark = isDark;
-      const surface = (isDark ? darkColors : colors).surface;
       const { getByTestId: on } = await render(
         <ToggleButton label="x" selected onPress={() => {}} testID="t" />
       );
@@ -377,11 +392,109 @@ describe('ToggleButton', () => {
       );
       mockIsDark = false;
 
-      const selected = over(styleOf(on('t')).backgroundColor as string, surface);
-      const unselected = over(styleOf(off('t')).backgroundColor as string, surface);
-      expect(contrastRatio(selected, unselected)).toBeGreaterThanOrEqual(3);
+      expect(styleOf(on('t')).backgroundColor).toBe(palette.controlOn);
+      expect(styleOf(off('t')).backgroundColor).toBe(palette.fillNeutral);
+    });
+
+    it(`tells the chosen chip by a 3:1 mark on every surface, so the state survives greyscale, in the ${theme} theme`, async () => {
+      mockIsDark = isDark;
+      const { getByTestId: on } = await render(
+        <ToggleButton label="x" selected onPress={() => {}} testID="t" />
+      );
+      const { getByTestId: off } = await render(
+        <ToggleButton label="x" onPress={() => {}} testID="t" />
+      );
+      mockIsDark = false;
+
+      for (const surface of surfaces) {
+        const unselected = over(styleOf(off('t')).backgroundColor as string, surface);
+        const fill = over(styleOf(on('t')).backgroundColor as string, surface);
+        const outline = over(styleOf(on('t')).borderColor as string, surface);
+        const step = Math.max(contrastRatio(fill, unselected), contrastRatio(outline, unselected));
+        expect(step).toBeGreaterThanOrEqual(3);
+      }
+      expect(styleOf(on('t')).borderWidth).toBe(styleOf(off('t')).borderWidth);
     });
   }
+
+  for (const isDark of [false, true]) {
+    const palette = isDark ? darkColors : colors;
+    const theme = isDark ? 'dark' : 'light';
+
+    it(`draws a leading mark in its own colour in both states, with the label in the state's ink, in the ${theme} theme`, async () => {
+      mockIsDark = isDark;
+      const { getByTestId: on } = await render(
+        <ToggleButton label="x" mark="#2E8B57" selected onPress={() => {}} testID="t" />
+      );
+      const { getByTestId: off } = await render(
+        <ToggleButton label="x" mark="#2E8B57" onPress={() => {}} testID="t" />
+      );
+      mockIsDark = false;
+
+      for (const chip of [on, off]) {
+        const dot = styleOf(chip('t-mark'));
+        expect(dot.backgroundColor).toBe('#2E8B57');
+        expect(dot.width).toBe(spacing.sm);
+        expect(dot.height).toBe(spacing.sm);
+        expect(dot.borderWidth ?? 0).toBe(0);
+      }
+      expect(styleOf(on('t')).backgroundColor).toBe(palette.controlOn);
+      expect(styleOf(on('t-label')).color).toBe(colors.textOnPrimary);
+      expect(styleOf(off('t-label')).color).toBe(palette.textSecondary);
+    });
+  }
+
+  it('draws no mark when none is given', async () => {
+    const { queryByTestId } = await render(
+      <ToggleButton label="x" selected onPress={() => {}} testID="t" />
+    );
+
+    expect(queryByTestId('t-mark')).toBeNull();
+  });
+
+  it('fills a chosen accent chip with the fill and sets its label in the ink given with it', async () => {
+    const { getByTestId } = await render(
+      <ToggleButton
+        label="x"
+        selected
+        accent={{ fill: '#F2D16B', ink: '#1A1A1A' }}
+        onPress={() => {}}
+        testID="t"
+      />
+    );
+
+    expect(styleOf(getByTestId('t')).backgroundColor).toBe('#F2D16B');
+    expect(styleOf(getByTestId('t-label')).color).toBe('#1A1A1A');
+  });
+
+  it('refuses an accent fill without its ink at compile time', () => {
+    const fillAlone = (
+      // @ts-expect-error a fill without its ink falls back to an ink chosen for another ground
+      <ToggleButton label="x" accent={{ fill: '#F2D16B' }} onPress={() => {}} />
+    );
+    const looseFill = (
+      // @ts-expect-error the fill is part of the accent pair, never a prop of its own
+      <ToggleButton label="x" fill="#F2D16B" onPress={() => {}} />
+    );
+
+    expect([fillAlone, looseFill]).toHaveLength(2);
+  });
+
+  it('keeps 8 pt between the drawn edges of adjacent chips in a row', async () => {
+    const { toJSON } = await render(
+      <ToggleButtonRow
+        options={[
+          { value: 'a', label: 'A', testID: 'a' },
+          { value: 'b', label: 'B', testID: 'b' },
+        ]}
+        value="a"
+        onValueChange={() => {}}
+      />
+    );
+
+    const row = toJSON() as { props: { style?: unknown } };
+    expect(styleOf(row).gap).toBe(spacing.sm);
+  });
 
   it('keeps a chip label on one line, since chips sit in a horizontal row', async () => {
     const { getByTestId } = await render(
@@ -406,6 +519,63 @@ describe('ToggleButton', () => {
     await fireEvent.press(getByTestId('t'));
 
     expect(onPress).not.toHaveBeenCalled();
+  });
+});
+
+describe('selection haptic', () => {
+  const haptics = jest.requireMock('@/shared/ui/haptics') as Record<string, jest.Mock>;
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('ticks once when a press selects an unselected chip', async () => {
+    const onPress = jest.fn();
+    const { getByTestId } = await render(
+      <ToggleButton label="x" selected={false} onPress={onPress} testID="t" />
+    );
+    await fireEvent.press(getByTestId('t'));
+    expect(haptics.selection).toHaveBeenCalledTimes(1);
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('stays still when the chip pressed is already the chosen one', async () => {
+    const onPress = jest.fn();
+    const { getByTestId } = await render(
+      <ToggleButton label="x" selected onPress={onPress} testID="t" />
+    );
+    await fireEvent.press(getByTestId('t'));
+    expect(haptics.selection).not.toHaveBeenCalled();
+    expect(onPress).toHaveBeenCalledTimes(1);
+  });
+
+  it('neither ticks nor fires while disabled', async () => {
+    const onPress = jest.fn();
+    const { getByTestId } = await render(
+      <ToggleButton label="x" disabled onPress={onPress} testID="t" />
+    );
+    await fireEvent.press(getByTestId('t'));
+    expect(haptics.selection).not.toHaveBeenCalled();
+    expect(onPress).not.toHaveBeenCalled();
+  });
+
+  it('ticks once per change in a row, and a press on the chosen option reports nothing', async () => {
+    const onValueChange = jest.fn();
+    const { getByTestId } = await render(
+      <ToggleButtonRow
+        options={[
+          { value: 'a', label: 'A', testID: 'a' },
+          { value: 'b', label: 'B', testID: 'b' },
+        ]}
+        value="a"
+        onValueChange={onValueChange}
+      />
+    );
+    await fireEvent.press(getByTestId('a'));
+    expect(onValueChange).not.toHaveBeenCalled();
+    expect(haptics.selection).not.toHaveBeenCalled();
+
+    await fireEvent.press(getByTestId('b'));
+    expect(onValueChange).toHaveBeenCalledWith('b');
+    expect(haptics.selection).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -461,4 +631,56 @@ describe('destructive press haptic', () => {
       expect(haptics.medium).not.toHaveBeenCalled();
     }
   );
+});
+
+describe('ghost button under Button Shapes', () => {
+  afterEach(() => {
+    mockButtonShapes = false;
+    mockIsDark = false;
+  });
+
+  it('draws the secondary edge in each theme when the setting is on', () => {
+    for (const isDark of [false, true]) {
+      const palette = isDark ? darkColors : colors;
+      const ghost = paint('ghost', isDark, true);
+      expect(ghost.borderColor).toBe(palette.controlBoundary);
+      expect(ghost.borderWidth).toBe(stroke.one);
+      expect(ghost.borderColor).toBe(paint('secondary', isDark, true).borderColor);
+      expect(ghost.backgroundColor).toBe('transparent');
+      expect(ghost.color).toBe(palette.actionLink);
+    }
+  });
+
+  it('keeps the same border width with the setting off, so turning it on moves no layout', () => {
+    const off = paint('ghost', false, false);
+    expect(off.borderColor).toBe('transparent');
+    expect(off.borderWidth).toBe(stroke.one);
+  });
+
+  it('changes no other variant', () => {
+    for (const variant of ['primary', 'secondary', 'destructive'] as const) {
+      for (const isDark of [false, true]) {
+        expect(paint(variant, isDark, true)).toEqual(paint(variant, isDark, false));
+      }
+    }
+  });
+
+  it('draws the edge on a rendered ghost button when the setting is on', async () => {
+    mockButtonShapes = true;
+    const { getByTestId } = await render(
+      <Button label="Create account" variant="ghost" onPress={() => {}} testID="b" />
+    );
+    const style = styleOf(getByTestId('b'));
+    expect(style.borderColor).toBe(colors.controlBoundary);
+    expect(style.borderWidth).toBe(stroke.one);
+  });
+
+  it('draws no edge on a rendered ghost button when the setting is off', async () => {
+    const { getByTestId } = await render(
+      <Button label="Create account" variant="ghost" onPress={() => {}} testID="b" />
+    );
+    const style = styleOf(getByTestId('b'));
+    expect(style.borderColor).toBe('transparent');
+    expect(style.borderWidth).toBe(stroke.one);
+  });
 });

@@ -174,7 +174,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
   },
   value: {
-    fontSize: typography.body.fontSize,
-    fontWeight: '700',
+    ...typography.bodyBold,
   },
 });

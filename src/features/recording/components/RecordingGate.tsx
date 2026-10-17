@@ -10,6 +10,7 @@ import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 
 import { GrantAccessButton } from './GrantAccessButton';
 import { Button } from '@/shared/ui/Button';
+import { SectionTitle } from '@/shared/ui/SectionTitle';
 
 interface RecordingGateProps {
   /** Why recording is blocked. `ok` never reaches here. */
@@ -47,7 +48,6 @@ export function RecordingGate({
 }: RecordingGateProps): React.JSX.Element {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const errorText = isDark ? darkColors.errorDeep : colors.errorDeep;
   const signedOut = reason === 'not_signed_in';
@@ -59,11 +59,11 @@ export function RecordingGate({
         size={iconSize.xxl}
         color={isDark ? darkColors.warningAmber : colors.warningAmber}
       />
-      <Text style={[styles.title, { color: textPrimary }]}>
+      <SectionTitle align="center" style={styles.title}>
         {signedOut
           ? t('recording.signInRequired')
           : t('recording.writePermissionRequired', 'Write permission required')}
-      </Text>
+      </SectionTitle>
       <Text style={[styles.description, { color: textSecondary }]}>
         {signedOut ? t('recording.signInDescription') : t('recording.writePermissionLocalOnly')}
       </Text>
@@ -109,9 +109,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   title: {
-    fontSize: typography.statsValue.fontSize,
-    fontWeight: '600',
-    textAlign: 'center',
     marginTop: spacing.sm,
   },
   description: {

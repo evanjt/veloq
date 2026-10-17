@@ -420,7 +420,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                             color={
                               isDark
                                 ? colorWithOpacity(ink.black, opacity.disabled)
-                                : colorWithOpacity(ink.black, 0.15)
+                                : colorWithOpacity(ink.black, opacity.tint2)
                             }
                             strokeWidth={width + 0.75}
                           />

@@ -24,6 +24,7 @@
       android:orientation="vertical">
 
       <TextView
+        android:fontFamily="@font/widget_manrope"
         android:id="@+id/sum_label"
         android:importantForAccessibility="no"
         android:layout_width="match_parent"
@@ -43,6 +44,7 @@
         android:gravity="bottom">
 
         <TextView
+          android:fontFamily="@font/widget_manrope"
           android:id="@+id/sum_value"
           android:layout_width="wrap_content"
           android:layout_height="wrap_content"
@@ -52,6 +54,7 @@
           android:textColor="@color/widget_text_primary" />
 
         <TextView
+          android:fontFamily="@font/widget_manrope"
           android:id="@+id/sum_trend"
           android:layout_width="wrap_content"
           android:layout_height="wrap_content"
@@ -61,6 +64,7 @@
       </LinearLayout>
 
       <TextView
+        android:fontFamily="@font/widget_manrope"
         android:id="@+id/sum_line"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -100,6 +104,7 @@
           android:orientation="vertical">
 
           <TextView
+            android:fontFamily="@font/widget_manrope"
             android:id="@+id/sum_series_fitness"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -111,6 +116,7 @@
             android:textColor="@color/widget_text_secondary" />
 
           <TextView
+            android:fontFamily="@font/widget_manrope"
             android:id="@+id/sum_series_fatigue"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -123,6 +129,7 @@
         </LinearLayout>
 
         <TextView
+          android:fontFamily="@font/widget_manrope"
           android:id="@+id/sum_chart_span"
           android:layout_width="match_parent"
           android:layout_height="wrap_content"
@@ -138,6 +145,7 @@
         android:orientation="horizontal"
         android:gravity="center_vertical">
         <TextView
+          android:fontFamily="@font/widget_manrope"
           android:id="@+id/med_updated"
           android:layout_width="0dp"
           android:layout_height="wrap_content"
@@ -152,6 +160,7 @@
   </LinearLayout>
 
   <TextView
+    android:fontFamily="@font/widget_manrope"
     android:layout_width="match_parent"
     android:layout_height="1dp"
     android:layout_marginTop="2dp"

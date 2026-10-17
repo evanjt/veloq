@@ -135,7 +135,7 @@ export function SyncRangePanel() {
               styles.progressRow,
               {
                 backgroundColor: isDark
-                  ? colorWithOpacity(palette.primary, 0.1)
+                  ? colorWithOpacity(palette.primary, opacity.tint2)
                   : colorWithOpacity(palette.primary, opacity.tint1),
               },
             ]}

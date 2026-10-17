@@ -119,6 +119,8 @@ interface RegionalMapViewProps {
   keyCategories?: readonly SportFamily[] | undefined;
   /** Height the host draws over the foot of the map, as measured, which the popups clear. */
   bottomClearance?: number;
+  /** What the map shows, for a screen reader. */
+  mapLabel?: string | undefined;
 }
 
 export function RegionalMapView({
@@ -135,6 +137,7 @@ export function RegionalMapView({
   selectSectionId,
   keyCategories,
   bottomClearance = 0,
+  mapLabel,
 }: RegionalMapViewProps) {
   const { t } = useTranslation();
   const { getGlobalMapStyle, setGlobalMapStyle } = useMapPreferences();
@@ -652,6 +655,7 @@ export function RegionalMapView({
             onMapClick={handleEmptyPress}
             onActivityClick={handle3DActivityClick}
             onTerrainUnavailable={onTerrainUnavailable}
+            accessibilityLabel={mapLabel}
           />
         </ComponentErrorBoundary>
       ) : (
@@ -668,6 +672,7 @@ export function RegionalMapView({
           onPress={handleSurfacePress}
           onRegionIsChanging={handleRegionIsChanging}
           onRegionDidChange={handleRegionDidChange}
+          accessibilityLabel={mapLabel}
         />
       )}
 

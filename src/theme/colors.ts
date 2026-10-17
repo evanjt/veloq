@@ -9,6 +9,7 @@
  */
 
 import appColours from './appColours.json';
+import { colourTokens, roleColours } from './colourTokens.generated';
 
 /**
  * Creates a color with opacity from a hex color
@@ -37,28 +38,30 @@ export const ink = {
 // BRAND SIGNATURE COLORS
 // =============================================================================
 
-// The app colour and the light primary are also drawn by native code before
-// any JavaScript runs, on the adaptive icon, the splash and the notification
-// accent, so they live in a file app.config.js and the icon generator also read.
+// The steps of the token file's blue and gold ramps the palette is built on.
+// The app colour and the light primary are also drawn by native code before any
+// JavaScript runs, so the same generator writes them to appColours.json, which
+// app.config.js and the icon generator read.
+const step = colourTokens.light;
 export const brand = {
   // The action blue (buttons, links, selected and on states). White reads
   // 6.03:1 on blue600 and 4.93:1 on blue550, so a filled control is labelled
   // in white in both themes. blue550 is the dark theme's step: it holds 3:1
   // as a mark on the dark surfaces, where blue600 does not.
-  blue600: appColours.notificationAccent,
-  blue550: '#3D74A8',
-  blue700: '#255380',
+  blue600: step['blue-600'],
+  blue550: step['blue-550'],
+  blue700: step['blue-700'],
 
   // Gold - Accent (achievements, PRs, celebrations ONLY)
-  gold: '#D4AF37',
-  goldLight: '#E8C96E',
-  goldDark: '#B8942F',
+  gold: step['gold-400'],
+  goldLight: step['gold-300'],
+  goldDark: step['gold-500'],
 
   // Blue - Secondary (charts, data visualization). blueLight is also the
   // dark theme's link step.
-  blue: appColours.appColour,
-  blueLight: '#7DB3E3',
-  blueDark: appColours.appColourDeep,
+  blue: step['blue-400'],
+  blueLight: step['blue-300'],
+  blueDark: step['blue-500'],
 } as const;
 
 // Colours native code also draws, read from the same file. `notificationAccent`
@@ -251,10 +254,10 @@ export const gradientScale = [
 // =============================================================================
 
 export const colors = {
-  // Primary - the action blue. One value serves a fill, a mark and a stroke:
-  // white on it 6.03:1, and 5.42:1 on the worst light surface.
-  primary: brand.blue600,
-  primaryHover: brand.blue700,
+  // The keys that read a role from the colour token file, per colourRoles.json.
+  ...roleColours.light,
+
+  // The action blue's light step.
   primaryLight: brand.blueLight,
 
   // Accent - Gold (achievements, PRs only)
@@ -262,7 +265,6 @@ export const colors = {
   accentLight: brand.gold,
 
   // Secondary - Blue (charts, data)
-  secondary: brand.blueDark, // Darker blue for light mode
   secondaryLight: brand.blue,
 
   // The sync pill's fill, the app colour of the icon and splash, which
@@ -272,7 +274,6 @@ export const colors = {
   appColourPillBackground: brand.blueDark,
 
   // Surfaces
-  surface: '#FFFFFF',
   background: '#F8F9FA',
   backgroundAlt: '#F1F3F5',
   regionTintIdle: colorWithOpacity(ink.black, 0.02),
@@ -282,8 +283,6 @@ export const colors = {
   textPrimary: '#18181B',
   textSecondary: '#52525B',
   textDisabled: '#A1A1AA',
-  textOnDark: '#FFFFFF',
-  textOnPrimary: '#FFFFFF', // Ink on a filled primary control in both themes (6.03:1 on blue600, 4.93:1 on blue550)
   // Ink on a bright fill in both themes: gold, success, warning and the light
   // data hues, where white reads between 2.1:1 and 3:1. It is its own token so
   // the primary ink can change without moving these.
@@ -294,12 +293,6 @@ export const colors = {
   iconFaint: '#8A8A8A', // Faint chevrons / placeholder icons (dark counterpart: darkColors.iconFaint)
   iconNeutral: '#828A9A', // Idle/indeterminate status icons (GPS acquiring)
   neutralLine: '#888888', // Unselected map lines, non-navigable chevrons on dark surfaces
-  warningAmber: '#92400E', // Amber warning text/icon on light amber surfaces
-  // The same tone as `warningAmber` on purpose: the chip label and the banner
-  // word are both amber text on a light ground, and the lighter #D97706 this
-  // was read 2.86:1 on the chip's own 12% tint. The two names stay because the
-  // dark halves differ, #FBBF24 here against the banner's own.
-  amberIcon: '#92400E', // Amber icons/text on amber-tinted chips (dark counterpart: #FBBF24)
 
   // Semantic. `success` and `warning` are fills: 2.28:1 and 2.15:1 on white,
   // so neither can be the mark on a light surface, only the ground under one.
@@ -312,20 +305,9 @@ export const colors = {
   successLight: '#4ADE80',
   successDark: '#16A34A',
   successDeep: '#15803D',
-  // The green a word is set in on its own 12% tint, a status chip: successDeep
-  // falls to 4.27:1 there and this reads 5.95:1.
-  successChipText: '#166534',
   error: '#EF4444',
   errorLight: '#F87171',
   errorDark: '#DC2626',
-  // The red a word is set in. `error` is 3.38:1 on white, which is the 3:1 an
-  // icon or a border owes and not the 4.5:1 text owes, so a destructive action
-  // label and a failure line take this one instead: 5.82:1 on the worst light
-  // surface. Same shape as `successDeep` and `warningAmber` beside it, and the
-  // dark counterpart is the dark palette's own error red, 5.65:1.
-  errorDeep: '#B91C1C',
-  // The ground of a destructive control, under white ink in both themes.
-  dangerFill: '#B91C1C',
   warning: '#F59E0B',
   warningLight: '#FBBF24',
   // Capacity ladder, between warning and error: a section's point budget and
@@ -352,17 +334,10 @@ export const colors = {
   infoBg: '#EBF3FA',
   successBg: '#E4F8EC',
 
-  // Inputs
-  inputTrack: '#DDDDDD', // Slider/progress track (dark counterpart: #333333)
-
   // Borders
   border: '#E4E4E7',
   borderLight: '#F4F4F5',
   divider: '#E4E4E7',
-  // A skeleton pulses from fillNeutral to borderStrong. They must differ, or
-  // the pulse animates one colour and the wait stops moving.
-  fillNeutral: '#EFF1F4',
-  borderStrong: '#CDD2DA',
 
   // Neutral grays (Zinc scale)
   gray50: '#FAFAFA',
@@ -420,11 +395,6 @@ export const colors = {
   // Second and third place beside the gold of first, mark grade.
   chartSilverMark: '#6B7480',
   chartBronzeMark: '#9A5A24',
-  // The gold a PR time is set in. Mark grade is not text grade: `chartGoldMark`
-  // reaches 4.18:1 on white, which is the 3:1 a trophy owes and not the 4.5:1
-  // text owes, and text has no 1.4.11 exemption. Same hue again, one step
-  // further down, 4.91:1 on the worst of the three light surfaces.
-  chartGoldText: '#7E671B',
   // The rest of the series hues that reach a text style, same rule and same
   // method. Worst of the three light surfaces: chartPinkText 5.43:1,
   // chartPurpleText 6.28:1, fitnessBlueText 5.30:1, fatiguePurpleText 6.33:1.
@@ -432,9 +402,6 @@ export const colors = {
   // 1.4.11 exemption.
   chartPinkText: '#BE185D',
   chartPurpleText: '#7E22CE',
-  // The chart accent as text: the eFTP marker label reads in it. The action
-  // blue, 5.42:1 on the worst light surface.
-  chartAccentText: brand.blue600,
   fitnessBlueText: '#0F62C4',
   fatiguePurpleText: '#8E24AA',
   chartRed: '#EF4444',
@@ -461,10 +428,6 @@ export const colors = {
   // than the chart blue, so the two seasons are told apart by hue and not only
   // by opacity.
   chartPreviousSeason: '#4682DC',
-  // The one colour of a chart that draws a single series, a trend or a small
-  // line in a card. A verdict never colours it: the verdict is said in words
-  // beside the chart.
-  chartSeries: brand.blueDark,
 
   // Neutral chart overlays
   chartGridFaint: 'rgba(0, 0, 0, 0.06)', // Axis gridlines on an insight card
@@ -517,11 +480,6 @@ export const colors = {
 
   // Workout step colors
   workoutCooldown: '#8B5CF6',
-
-  // A tappable link, and an active label that reads as one. A link that
-  // carries its affordance in colour owes the text bar twice over: 5.42:1 on
-  // the worst light surface.
-  actionLink: brand.blue600,
 
   // Compass
   compassNorth: '#E53935',
@@ -770,23 +728,6 @@ export const shaderWarmup = {
   shadow: '#000000',
 } as const;
 
-// Switch track when the switch is off, one per mode. It is the only thing that
-// shows an off switch is there, so it clears 3:1 on every surface of its mode:
-// 3.29:1 on backgroundAlt in light, 3.42:1 on surfaceCard in dark.
-export const switchTrackOff = {
-  light: '#85858C',
-  dark: '#75757D',
-} as const;
-
-// The edge of a text field, one per mode. A field's outline is what says there
-// is somewhere to type, so it is a mark at 3:1 against every surface of its
-// theme rather than a divider: light 3.42:1 on backgroundAlt, dark 3.24:1 on
-// surfaceCard, each its theme's worst case.
-export const inputBoundary = {
-  light: '#82828B',
-  dark: '#71717A',
-} as const;
-
 // The QR scanner covers the screen with the camera feed, so its chrome is
 // fixed against the preview rather than following the theme.
 export const cameraOverlay = {
@@ -816,14 +757,14 @@ export const loupeChrome = {
 // =============================================================================
 
 export const darkColors = {
-  // Primary - the action blue's dark step, the same for a fill and a mark:
-  // white on it 4.93:1, and 3.17:1 on the lightest dark surface.
-  primary: brand.blue550,
+  // The keys that read a role from the colour token file, per colourRoles.json.
+  ...roleColours.dark,
+
+  // The action blue's dark steps.
   primaryHover: brand.blue600,
   primaryLight: brand.blueLight,
 
   // Accent - Gold (achievements, PRs only)
-  accent: brand.gold, // Full gold for dark mode
   accentLight: brand.goldLight,
 
   // Mark grade, the dark half of the pair in `colors`. A near-black surface
@@ -861,8 +802,6 @@ export const darkColors = {
   borderLight: '#3F3F46',
   borderAccent: 'rgba(125, 179, 227, 0.15)', // The link blue at a low alpha
   divider: '#27272A',
-  fillNeutral: '#262B34',
-  borderStrong: '#363D48',
 
   // Icon colors
   iconPrimary: '#FAFAFA',
@@ -871,34 +810,10 @@ export const darkColors = {
   iconDisabled: '#52525B',
   iconFaint: '#71717A', // Faint chevrons / placeholder icons (light counterpart: #8A8A8A)
   iconNeutral: '#9CA3AF', // Idle/indeterminate status icons; 6.16:1 on the dark surfaces
-  amberIcon: '#FBBF24', // Amber icons/text on amber-tinted chips (light counterpart: #92400E)
-  inputTrack: '#333333', // Slider/progress track (light counterpart: #DDDDDD)
-
-  // Amber warning text/icon (counterpart to light warningAmber)
-  warningAmber: '#FBBF24',
-
-  // Counterpart to light errorDeep. The dark palette's error red already clears
-  // the text bar on a near-black surface at 5.65:1, so the pair is one token
-  // read through isDark and not two hues.
-  errorDeep: '#F87171',
-  // White on the dark error red is 2.77:1, so the destructive ground is a
-  // deeper red that holds it.
-  dangerFill: '#C74239',
-
-  // Counterpart to light successDeep: on a near-black surface the mark has to
-  // be the light tone, not the dark one. 10.17:1 on #18181B.
-  successDeep: '#4ADE80',
-  // Counterpart to light successChipText, the same green as successDeep.
-  successChipText: '#4ADE80',
 
   // Interactive states
   buttonSecondary: '#27272A',
   inputBackground: '#1F1F23',
-
-  // Semantic overrides
-  success: '#4ADE80',
-  warning: '#FBBF24',
-  error: '#F87171',
 
   // Chart colors for dark mode (optimised for visibility)
   chartFitness: brand.blueLight, // Brighter blue for CTL
@@ -922,7 +837,6 @@ export const darkColors = {
   chartWeight: '#94A3B8', // Slate-400
   chartGuideLine: '#969696',
   chartPreviousSeason: '#6495ED', // Lighter cornflower, to carry on a dark ground
-  chartSeries: brand.blueLight,
 
   // Neutral chart overlays for dark mode
   chartGridFaint: 'rgba(255, 255, 255, 0.06)',
@@ -938,7 +852,6 @@ export const darkColors = {
   // reads one name in both themes. Worst of the three dark surfaces:
   // chartGoldText 7.44:1, chartFtpText 8.71:1, formOptimalText 6.62:1,
   // runText 6.17:1, swimText 6.44:1. Only `ride` needs its own tone, at 4.25:1.
-  chartGoldText: brand.gold,
   chartFtpText: '#FFB300',
   // The B950 half of the pair. On the dark surfaces `fitnessBlue` already
   // carries at 5.91:1 and is its own text tone; pink, purple and the fatigue
@@ -946,9 +859,6 @@ export const darkColors = {
   // 5.92:1 and 6.55:1 on the worst of the three.
   chartPinkText: '#F472B6',
   chartPurpleText: '#C084FC',
-  // The link step, a light tone on a near-black ground: 7.02:1 on the worst
-  // dark surface.
-  chartAccentText: brand.blueLight,
   fitnessBlueText: '#42A5F5',
   fatiguePurpleText: '#CE93D8',
   rideText: '#4F8FF7',
@@ -959,7 +869,6 @@ export const darkColors = {
   // link takes the same light step, 7.02:1 on the worst dark surface.
   cautionYellowText: '#FFC107',
   cautionOrangeText: '#FF9800',
-  infoText: brand.blueLight,
   // The dark status tints: the tone's dark text hue at 18% over the dark
   // surface, the denser step because a dark ground needs more of the hue to
   // read as one.
@@ -967,7 +876,6 @@ export const darkColors = {
   warningBg: '#41361D',
   infoBg: '#2A343F',
   successBg: '#213C2D',
-  actionLink: brand.blueLight,
 
   // The rest of the form zone text family. Same story: four of the five
   // are the fill, and the red is the one that does not carry, 4.49:1 on
@@ -1194,7 +1102,7 @@ export const zoneTextColors = {
 } as const;
 
 /**
- * Each zone fill lifted to 4.5:1 for text on its 28% tint over the dark screen
+ * Each zone fill lifted to 4.5:1 for text on its 18% tint over the dark screen
  * ground, and on every dark surface: zone 7 takes the light grey of its dark
  * fill, which the mid grey at 4.02:1 on the dark card did not clear.
  */

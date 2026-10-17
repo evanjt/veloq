@@ -46,7 +46,7 @@ import type {
 } from '@/features/routes/lib/performanceTypes';
 import { StatsRow } from './StatsRow';
 import { PerformanceTooltip } from './PerformanceTooltip';
-import { ChipSelector, IconButton } from '@/shared/ui';
+import { IconButton, ToggleButtonRow } from '@/shared/ui';
 
 const CHART_HEIGHT = 120;
 const CHART_PADDING = { left: 12, right: 8, top: 12, bottom: 12 } as const;
@@ -74,7 +74,7 @@ export interface SectionScatterChartProps {
   forwardStats: DirectionSummaryStats | null;
   reverseStats: DirectionSummaryStats | null;
   onActivitySelect?:
-    | ((activityId: string | null, activityPoints?: RoutePoint[]) => void)
+    | ((activityId: string | null, activityPoints?: RoutePoint[], date?: Date) => void)
     | undefined;
   onExcludeActivity?: ((activityId: string) => void) | undefined;
   onIncludeActivity?: ((activityId: string) => void) | undefined;
@@ -235,7 +235,7 @@ export function SectionScatterChart({
   const handlePointPress = useCallback(
     (point: PerformanceDataPoint & { x: number }) => {
       setSelectedPoint(point);
-      onActivitySelect?.(point.activityId, point.lapPoints);
+      onActivitySelect?.(point.activityId, point.lapPoints, point.date);
     },
     [onActivitySelect]
   );
@@ -297,6 +297,7 @@ export function SectionScatterChart({
     PerformanceDataPoint & { x: number }
   >({
     data: drawnPoints,
+    accessibilityLabel: t('sections.performanceOverTime'),
     enabled: !mini,
     scrubEnabled: !compact,
     crosshairMode: 'finger',
@@ -322,16 +323,17 @@ export function SectionScatterChart({
         />
       ) : null}
       {!mini && controlledDirection === undefined && hasForward && hasReverse ? (
-        <ChipSelector
+        <ToggleButtonRow
+          layout="hug"
           style={styles.directionControl}
           options={(['forward', 'reverse'] as const).map((direction) => ({
             value: direction,
             label: t(direction === 'reverse' ? 'sections.reverse' : 'sections.forward'),
-            accent: direction === 'reverse' ? colors.reverseDirection : forwardColour,
+            mark: direction === 'reverse' ? colors.reverseDirection : forwardColour,
+            testID: `section-chart-direction-${direction}`,
           }))}
           value={selectedDirection}
-          optionTestID={(direction) => `section-chart-direction-${direction}`}
-          onChange={(direction) => {
+          onValueChange={(direction) => {
             setRequestedDirection(direction);
             setSelectedPoint(null);
             onActivitySelect?.(null);
@@ -544,13 +546,13 @@ export function SectionScatterChart({
           <View style={styles.yAxisOverlay} pointerEvents="none" testID="section-scatter-y-axis">
             <Text
               maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-              style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
+              style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}
             >
               {useTimeAxis ? formatDuration(minTime) : formatSpeedValue(maxSpeed)}
             </Text>
             <Text
               maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-              style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}
+              style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}
             >
               {useTimeAxis ? formatDuration(maxTime) : formatSpeedValue(minSpeed)}
             </Text>
@@ -566,8 +568,8 @@ export function SectionScatterChart({
               maxFontSizeMultiplier={DENSE_TEXT_SCALE}
               key={idx}
               style={[
-                chartStyles.axisLabel,
-                isDark && chartStyles.axisLabelDark,
+                chartStyles.chartLabel,
+                isDark && chartStyles.chartLabelDark,
                 idx === 0 && styles.timeAxisLabelFirst,
                 idx === 1 && styles.timeAxisLabelMiddle,
                 idx === timeAxisLabels.length - 1 && styles.timeAxisLabelLast,

@@ -1344,22 +1344,30 @@ pub struct ElevationBackfillProgress {
     pub percent: u32,
 }
 
-/// Tell the engine what TypeScript sees on the network.
+/// Tell the engine what TypeScript sees on the network, and whether the
+/// reading is the one taken as the app came back from the background.
 ///
 /// The network lifecycle is Rust's, and nothing in the crate can see the
-/// network itself, so this is the whole of its connectivity input. Call it
-/// from the same place that calls `onlineManager.setOnline`, on every
-/// transition and on foreground, so there is one debounce and one edge rather
-/// than two.
+/// network or the app's lifecycle itself, so this is the whole of its input
+/// for both. Call it from the same place that calls
+/// `onlineManager.setOnline`, on every transition and on foreground, so there
+/// is one debounce and one edge rather than two. `foregrounded` is true only
+/// for a return from the background: a re-read on a clock, or the app
+/// passing through inactive for a system sheet, is not one.
 ///
-/// The value is advisory and only ever a reason to refuse work: a state
-/// nobody has refreshed for fifteen minutes expires back to "try", and an
-/// install that never calls this behaves exactly as it did before.
+/// The online value is advisory and only ever a reason to refuse work: a
+/// state nobody has refreshed for fifteen minutes expires back to "try", and
+/// an install that never calls this behaves exactly as it did before. A
+/// return starts the default sync, which the sync service gates on the
+/// credential.
 #[uniffi::export]
-pub fn set_network_online(online: bool) {
+pub fn set_network_online(online: bool, foregrounded: bool) {
     init_logging();
     if crate::net::connectivity::set_online(online) {
         crate::objects::sync::reconnected();
+    }
+    if foregrounded {
+        crate::objects::sync::foregrounded();
     }
 }
 
@@ -1517,16 +1525,17 @@ pub struct StreamBackfillProgress {
     pub estimate_bytes: f64,
 }
 
-/// Whether the Corridor-to-Unified cutover is pending.
-#[uniffi::export]
+/// Whether the Corridor-to-Unified cutover is still owed. Not exported: a
+/// screen asks [`is_cutover_held`], which also answers for a run in flight.
 pub fn is_cutover_pending() -> bool {
     crate::persistence::cutover::cutover_pending()
 }
 
-/// Whether a cutover run is currently in flight.
+/// Whether the cutover holds detection, owed or running. The one answer every
+/// screen that defers to the migration reads.
 #[uniffi::export]
-pub fn is_cutover_running() -> bool {
-    crate::persistence::cutover::cutover_running()
+pub fn is_cutover_held() -> bool {
+    crate::persistence::cutover::cutover_held()
 }
 
 /// How far a detector cutover has got. The phase is the whole story: a cut has

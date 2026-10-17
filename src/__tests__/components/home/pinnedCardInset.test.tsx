@@ -2,8 +2,9 @@
  * Scenario: the cards pinned above the feed sit in one container that insets
  * the column to the activity card's edge.
  * Expected behaviour: no pinned card adds a side margin of its own, so each one
- * lines up with the activity cards below, and each is drawn as the shared flat
- * card with a name a screen reader can read.
+ * lines up with the activity cards below, and each is drawn as a shared
+ * surface, the flat card or the inline notice, with a name a screen reader can
+ * read.
  */
 import React from 'react';
 import { StyleSheet } from 'react-native';
@@ -15,6 +16,7 @@ import { StreamConsentCard } from '@/features/settings/components/StreamConsentC
 import { useNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
 import { getVisibleUnuploadedCount } from '@/features/recording/lib/storage/recordingLibrary';
 import { Card } from '@/shared/ui/Card';
+import { InlineNotice } from '@/shared/ui/InlineNotice';
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
 jest.mock('expo-router', () => ({
@@ -61,11 +63,11 @@ function sideMargins(): number[] {
 }
 
 describe('pinned feed cards', () => {
-  it('draws the pending uploads banner as a flat card named for a screen reader', async () => {
+  it('draws the pending uploads banner as an info notice named for a screen reader', async () => {
     (getVisibleUnuploadedCount as jest.Mock).mockResolvedValue(3);
     await render(<PendingUploadsCard />);
     const card = await screen.findByTestId('pending-uploads-card');
-    expect(screen.UNSAFE_getByType(Card).props.variant).toBe('flat');
+    expect(screen.UNSAFE_getByType(InlineNotice).props.tone).toBe('info');
     expect(card.props.accessibilityRole).toBe('button');
     expect(card.props.accessibilityLabel).toContain('recording.library.pendingUploads');
     expect(sideMargins()).toEqual([0, 0, 0, 0, 0, 0]);

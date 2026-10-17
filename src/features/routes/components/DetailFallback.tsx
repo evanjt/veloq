@@ -8,7 +8,7 @@
  */
 
 import { useMemo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { Platform, View, StyleSheet } from 'react-native';
 import { Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
@@ -41,7 +41,7 @@ export function DetailFallback({
   onRetry,
 }: DetailFallbackProps) {
   const { t } = useTranslation();
-  const headerOptions = useMemo(() => noHeroHeaderOptions({ isDark }), [isDark]);
+  const headerOptions = useMemo(() => noHeroHeaderOptions({ isDark, os: Platform.OS }), [isDark]);
   // A closed read is the engine's answer, not the record's: the engine says
   // whether it is still opening or has given up, never the caller.
   const engine = useEngineReadState();

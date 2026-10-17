@@ -34,6 +34,10 @@ if [ -z "${JAVA_HOME:-}" ] && [ -d /opt/homebrew/opt/openjdk@21 ]; then
   JAVA_HOME=/opt/homebrew/opt/openjdk@21
   export JAVA_HOME
 fi
+# Nor a locale, and CocoaPods refuses to install under one that is not UTF-8.
+LANG=en_US.UTF-8
+LC_ALL=en_US.UTF-8
+export LANG LC_ALL
 
 if [ -z "${VELOQ_SIM_LOCK_HELD:-}" ]; then
   udid=$(xcrun simctl list devices -j |

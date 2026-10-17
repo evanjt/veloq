@@ -57,13 +57,13 @@ export const ChartXAxisLabel = React.memo(
 
     return (
       <View style={styles.xAxis} pointerEvents="none">
-        <DenseText style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}>
+        <DenseText style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}>
           {isTime ? '0:00' : '0'}
         </DenseText>
         {scrubLabel !== null ? (
           <DenseText
             testID="chart-x-axis-scrub"
-            style={[chartStyles.axisLabel, styles.xScrub, isDark && styles.xScrubDark]}
+            style={[chartStyles.chartLabel, styles.xScrub, isDark && styles.xScrubDark]}
           >
             {scrubLabel}
           </DenseText>
@@ -72,7 +72,7 @@ export const ChartXAxisLabel = React.memo(
             {t('activity.chartHint', 'Hold to scrub • Hold chip for axis')}
           </DenseText>
         )}
-        <DenseText style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}>
+        <DenseText style={[chartStyles.chartLabel, isDark && chartStyles.chartLabelDark]}>
           {maxLabel}
         </DenseText>
       </View>
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
     color: darkColors.textPrimary,
   },
   xAxisHint: {
-    ...typography.micro,
+    ...typography.caption,
     color: colors.textSecondary,
   },
   xAxisHintDark: {

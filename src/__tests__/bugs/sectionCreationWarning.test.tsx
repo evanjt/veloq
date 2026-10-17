@@ -48,3 +48,41 @@ describe('large section selection', () => {
     expect(screen.queryByText('Section may be too large to save')).toBeNull();
   });
 });
+
+/**
+ * Scenario: a section fails to save and the overlay offers its technical details.
+ *
+ * Expected behaviour: the details toggle is the shared small Button, announced as expanded or
+ * not, and its press shows the engine's message.
+ */
+describe('section creation technical details', () => {
+  it('opens the details from a Button that reports whether they are shown', async () => {
+    await render(
+      <SectionCreationOverlay
+        state="error"
+        startIndex={0}
+        endIndex={9}
+        coordinateCount={10}
+        sectionDistance={1000}
+        sectionPointCount={10}
+        error={{ message: 'Could not save', technicalDetails: 'engine said no' }}
+        onConfirm={jest.fn()}
+        onCancel={jest.fn()}
+        onReset={jest.fn()}
+      />
+    );
+    const toggle = screen.getByTestId('section-creation-technical-toggle');
+    expect(screen.getByTestId('section-creation-technical-toggle-label')).toHaveTextContent(
+      'common.showDetails'
+    );
+    expect(toggle.props.accessibilityState).toEqual(expect.objectContaining({ expanded: false }));
+    await fireEvent.press(toggle);
+    expect(screen.getByText('engine said no')).toBeTruthy();
+    expect(screen.getByTestId('section-creation-technical-toggle-label')).toHaveTextContent(
+      'common.hideDetails'
+    );
+    expect(
+      screen.getByTestId('section-creation-technical-toggle').props.accessibilityState
+    ).toEqual(expect.objectContaining({ expanded: true }));
+  });
+});

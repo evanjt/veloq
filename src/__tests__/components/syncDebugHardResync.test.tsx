@@ -97,3 +97,30 @@ describe('Hard Re-sync', () => {
     );
   });
 });
+
+/**
+ * Scenario: the count of activities to remove is set with a minus and plus pair.
+ *
+ * Expected behaviour: it is the shared Stepper, held between 1 and 50, so the minus is disabled
+ * at 1 and a screen reader adjusts one reading rather than two loose buttons.
+ */
+describe('Remove activities count', () => {
+  it('steps between 1 and 50 through the shared Stepper', async () => {
+    const { getByTestId } = await render(<SyncDebugSection />);
+    const reading = getByTestId('sync-debug-remove-count-value');
+    expect(reading.props.accessibilityRole).toBe('adjustable');
+    expect(reading.props.accessibilityValue).toEqual({ text: '3' });
+    expect(getByTestId('sync-debug-remove-count-minus').props.accessibilityState).toEqual(
+      expect.objectContaining({ disabled: false })
+    );
+    for (let i = 0; i < 3; i++) {
+      await fireEvent.press(getByTestId('sync-debug-remove-count-minus'));
+    }
+    expect(getByTestId('sync-debug-remove-count-value').props.accessibilityValue).toEqual({
+      text: '1',
+    });
+    expect(getByTestId('sync-debug-remove-count-minus').props.accessibilityState).toEqual(
+      expect.objectContaining({ disabled: true })
+    );
+  });
+});

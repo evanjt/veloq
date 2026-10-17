@@ -33,6 +33,7 @@ import {
   spacing,
   typography,
   themePalette,
+  opacity,
 } from '@/theme';
 
 interface SyncProgressBannerProps {
@@ -221,7 +222,7 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     height: 3,
-    backgroundColor: colorWithOpacity(ink.black, 0.2),
+    backgroundColor: colorWithOpacity(ink.black, opacity.tint3),
   },
   progressFill: {
     height: '100%',

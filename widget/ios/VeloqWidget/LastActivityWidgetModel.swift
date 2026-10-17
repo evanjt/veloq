@@ -29,6 +29,27 @@ struct LastActivityForm {
 struct LastActivityDot {
   let current: Bool
   let record: Bool
+
+  /// How the dot is drawn, from what it is.
+  var mark: LastActivityDotMark {
+    LastActivityDotMark(
+      fill: record ? .record : .earlier, full: record || current, reticle: current)
+  }
+}
+
+/// The fill of an attempt dot. Neither is the sport's colour: which attempt it is goes by shape.
+enum LastActivityDotFill {
+  case earlier
+  case record
+}
+
+/// How one attempt dot is drawn. The record is a gold dot at full size and this activity carries
+/// the reticle, so a record set by this activity is the reticle round the gold dot: the two marks
+/// combine by shape and each keeps one meaning. Every other attempt is a small dot.
+struct LastActivityDotMark: Equatable {
+  let fill: LastActivityDotFill
+  let full: Bool
+  let reticle: Bool
 }
 
 /// What the widget draws at one size. A nil field is not drawn, so a size with no room for a line

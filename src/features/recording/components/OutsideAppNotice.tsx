@@ -1,15 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { AppState, Platform, StyleSheet, View } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { AppState, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { useTheme } from '@/shared/app';
 import { useNotificationPermission } from '@/shared/app/permissions/notifications';
 import { Button } from '@/shared/ui/Button';
-import { IconButton } from '@/shared/ui/IconButton';
+import { InlineNotice } from '@/shared/ui/InlineNotice';
 import { OpenSettingsButton } from '@/shared/ui/PermissionNotice';
-import { SIGNAL_LINE_RADIUS, SignalStatus, signalColor } from '@/shared/ui/SignalStatus';
-import { iconSize, spacing } from '@/theme';
 import { isLiveActivityAvailable, isLiveActivitySupported } from '../lib/liveActivity/bridge';
 import { useRecordingPreferences } from '../stores/RecordingPreferencesStore';
 
@@ -49,7 +45,6 @@ function useLiveActivityOff(): boolean {
  */
 export function OutsideAppNotice({ askOnArrival }: { askOnArrival: boolean }) {
   const { t } = useTranslation();
-  const { isDark } = useTheme();
   const { outcome, request } = useNotificationPermission();
   const isLoaded = useRecordingPreferences((s) => s.isLoaded);
   const asked = useRecordingPreferences((s) => s.notificationsAsked);
@@ -85,42 +80,13 @@ export function OutsideAppNotice({ askOnArrival }: { askOnArrival: boolean }) {
     );
 
   return (
-    <View style={styles.line}>
-      <View style={styles.body}>
-        <SignalStatus
-          testID="record-outside-app-notice"
-          variant="line"
-          level="warn"
-          icon={notificationsOff ? 'bell-off-outline' : 'cellphone-lock'}
-          label={label}
-        >
-          {action}
-        </SignalStatus>
-      </View>
-      <IconButton
-        testID="record-outside-app-notice-dismiss"
-        onPress={() => setDismissed(true)}
-        accessibilityLabel={t('common.close')}
-      >
-        <MaterialCommunityIcons
-          name="close"
-          size={iconSize.md}
-          color={signalColor('warn', isDark)}
-        />
-      </IconButton>
-    </View>
+    <InlineNotice
+      testID="record-outside-app-notice"
+      tone="warning"
+      icon={notificationsOff ? 'bell-off-outline' : 'cellphone-lock'}
+      title={label}
+      action={action}
+      onDismiss={() => setDismissed(true)}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  line: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: SIGNAL_LINE_RADIUS,
-    overflow: 'hidden',
-    paddingRight: spacing.xs,
-  },
-  body: {
-    flex: 1,
-  },
-});

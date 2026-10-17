@@ -245,13 +245,15 @@ pub(crate) mod pooled {
 
     /// The efficiency trend for one section, with its name and length handed
     /// in: the engine reads those off the in-memory catalogue and a pooled
-    /// caller off the row, and neither belongs in this query.
+    /// caller off the row, and neither belongs in this query. Only efforts
+    /// dated at or after `since` are taken, `i64::MIN` for the whole record.
     pub(crate) fn section_efficiency_trend(
         conn: &Connection,
         section_id: &str,
         sport_type: &str,
         section_name: &str,
         section_distance_meters: f64,
+        since: i64,
     ) -> Option<crate::FfiEfficiencyTrend> {
         if section_distance_meters <= 0.0 {
             return None;
@@ -274,7 +276,8 @@ pub(crate) mod pooled {
                    AND sa.lap_time IS NOT NULL
                    AND sa.avg_hr IS NOT NULL
                    AND sa.lap_time > 0
-                   AND sa.avg_hr > 0{complete}
+                   AND sa.avg_hr > 0
+                   AND am.date >= ?3{complete}
                  ORDER BY am.date ASC"
             ))
             .map_err(|e| {
@@ -288,7 +291,7 @@ pub(crate) mod pooled {
             .ok()?;
 
         let rows: Vec<(super::Effort, String)> = stmt
-            .query_map(rusqlite::params![section_id, sport_type], |row| {
+            .query_map(rusqlite::params![section_id, sport_type, since], |row| {
                 Ok((
                     super::Effort {
                         time_secs: row.get(0)?,
@@ -1780,7 +1783,14 @@ impl PersistentEngine {
         }
         .unwrap_or_else(|| "Section".to_string());
         let distance_meters = section.distance_meters;
-        pooled::section_efficiency_trend(&self.db, section_id, sport_type, &name, distance_meters)
+        pooled::section_efficiency_trend(
+            &self.db,
+            section_id,
+            sport_type,
+            &name,
+            distance_meters,
+            i64::MIN,
+        )
     }
 
     // ========================================================================
@@ -3014,12 +3024,118 @@ mod tests {
                 .unwrap();
         }
 
-        let trend =
-            super::pooled::section_efficiency_trend(&engine.db, "s1", "Ride", "Hill", 1000.0)
-                .expect("three full efforts make a trend");
+        let trend = super::pooled::section_efficiency_trend(
+            &engine.db,
+            "s1",
+            "Ride",
+            "Hill",
+            1000.0,
+            i64::MIN,
+        )
+        .expect("three full efforts make a trend");
 
         assert_eq!(trend.effort_count, 3);
         assert!(trend.points.iter().all(|p| p.pace_secs_per_km > 200.0));
+    }
+
+    /// A 1 km ridden section whose full efforts carry heart rate, one per
+    /// entry of `days_ago`, each that many days before now.
+    fn section_ridden_days_ago(days_ago: &[i64]) -> PersistentEngine {
+        let now = chrono::Utc::now().timestamp();
+        let ids: Vec<String> = (0..days_ago.len()).map(|i| format!("e{i}")).collect();
+        let engine = engine_with(
+            ids.iter()
+                .zip(days_ago)
+                .map(|(id, days)| ActivityMetrics {
+                    date: now - days * 86_400,
+                    ..metric(id, "Ride", None)
+                })
+                .collect(),
+        );
+        engine
+            .db
+            .execute_batch("PRAGMA foreign_keys = OFF")
+            .unwrap();
+        engine
+            .db
+            .execute(
+                "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
+                    distance_meters, is_user_defined, version, created_at)
+                 VALUES ('s1', 'auto', 'Hill', 'Ride', '[]', 1000.0, 0, 1,
+                    '2026-01-01T00:00:00Z')",
+                [],
+            )
+            .unwrap();
+        for (i, id) in ids.iter().enumerate() {
+            engine
+                .db
+                .execute(
+                    "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
+                     VALUES (?1, 'Ride', 0, 0, 0, 0)",
+                    rusqlite::params![id],
+                )
+                .unwrap();
+            engine
+                .db
+                .execute(
+                    "INSERT INTO section_activities (section_id, activity_id, direction,
+                        start_index, end_index, distance_meters, lap_time, lap_pace,
+                        avg_hr, coverage)
+                     VALUES ('s1', ?1, 'same', 0, 10, 1000.0, ?2, 1000.0 / ?2, 150.0, 1.0)",
+                    rusqlite::params![id, 240.0 - i as f64],
+                )
+                .unwrap();
+        }
+        engine
+    }
+
+    /// The section screen's performance read over `days`, for rides.
+    fn section_screen(engine: &PersistentEngine, days: u32) -> crate::FfiSectionPerformanceData {
+        crate::persistence::screens::pooled::section_detail_performance(
+            &engine.db,
+            "s1",
+            days,
+            Some("Ride"),
+            None,
+            crate::persistence::sections::lap_curves::pooled::CurveRead::Held,
+        )
+    }
+
+    /// Scenario: a section ridden four times over a year ago and three times
+    /// in the last month, read under a six month range and over all time.
+    ///
+    /// Expected behaviour: the efficiency card counts the efforts the chart
+    /// plots for the range, so under six months both read three and over all
+    /// time both read seven.
+    #[test]
+    fn the_section_efficiency_trend_follows_the_range() {
+        let engine = section_ridden_days_ago(&[500, 480, 460, 440, 20, 10, 5]);
+
+        let ranged = section_screen(&engine, 180);
+        assert_eq!(ranged.chart_data.points.len(), 3);
+        let trend = ranged.efficiency_trend.expect("three efforts in range");
+        assert_eq!(trend.effort_count, 3);
+
+        let whole = section_screen(&engine, 0);
+        assert_eq!(whole.chart_data.points.len(), 7);
+        assert_eq!(
+            whole.efficiency_trend.expect("seven efforts").effort_count,
+            7
+        );
+    }
+
+    /// Scenario: a section ridden a dozen times, every one of them over a year
+    /// ago, read under a six month range.
+    ///
+    /// Expected behaviour: the range holds no traversal, so the efficiency
+    /// card has no efforts to count either.
+    #[test]
+    fn a_range_with_no_traversal_has_no_efficiency_trend() {
+        let engine = section_ridden_days_ago(&(400..412).collect::<Vec<_>>());
+
+        let ranged = section_screen(&engine, 180);
+        assert!(ranged.chart_data.points.is_empty());
+        assert!(ranged.efficiency_trend.is_none());
     }
 
     /// Scenario: one 1 km section run six times at a high-pulse pace, then
@@ -3080,9 +3196,15 @@ mod tests {
         }
 
         for sport in ["Run", "Ride"] {
-            let trend =
-                super::pooled::section_efficiency_trend(&engine.db, "s1", sport, "Hill", 1000.0)
-                    .expect("six efforts make a trend");
+            let trend = super::pooled::section_efficiency_trend(
+                &engine.db,
+                "s1",
+                sport,
+                "Hill",
+                1000.0,
+                i64::MIN,
+            )
+            .expect("six efforts make a trend");
             assert_eq!(trend.sport_type, sport);
             assert_eq!(trend.effort_count, 6);
             assert_eq!(
@@ -3154,17 +3276,29 @@ mod tests {
             insert(i);
         }
 
-        let trend =
-            super::pooled::section_efficiency_trend(&engine.db, "s1", "Ride", "Hill", 1000.0)
-                .expect("six same-way efforts make a trend");
+        let trend = super::pooled::section_efficiency_trend(
+            &engine.db,
+            "s1",
+            "Ride",
+            "Hill",
+            1000.0,
+            i64::MIN,
+        )
+        .expect("six same-way efforts make a trend");
         assert_eq!(trend.effort_count, 6);
         assert_eq!(trend.direction, crate::EfficiencyDirection::Flat);
         assert!(trend.points.iter().all(|p| p.pace_secs_per_km == 300.0));
 
         insert(9);
-        let trend =
-            super::pooled::section_efficiency_trend(&engine.db, "s1", "Ride", "Hill", 1000.0)
-                .expect("four reverse efforts make a trend");
+        let trend = super::pooled::section_efficiency_trend(
+            &engine.db,
+            "s1",
+            "Ride",
+            "Hill",
+            1000.0,
+            i64::MIN,
+        )
+        .expect("four reverse efforts make a trend");
         assert_eq!(trend.effort_count, 4);
         assert!(trend.points.iter().all(|p| p.pace_secs_per_km == 150.0));
     }
@@ -3221,9 +3355,15 @@ mod tests {
                 .unwrap();
         }
 
-        let trend =
-            super::pooled::section_efficiency_trend(&engine.db, "s1", "Run", "Hill", 1000.0)
-                .expect("five efforts make a trend");
+        let trend = super::pooled::section_efficiency_trend(
+            &engine.db,
+            "s1",
+            "Run",
+            "Hill",
+            1000.0,
+            i64::MIN,
+        )
+        .expect("five efforts make a trend");
 
         assert!(trend.points.iter().all(|p| p.avg_hr == 150.0));
         assert_eq!(trend.direction, crate::EfficiencyDirection::Improving);
@@ -3240,9 +3380,15 @@ mod tests {
                 [],
             )
             .unwrap();
-        let worsening =
-            super::pooled::section_efficiency_trend(&engine.db, "s1", "Run", "Hill", 1000.0)
-                .expect("five efforts make a trend");
+        let worsening = super::pooled::section_efficiency_trend(
+            &engine.db,
+            "s1",
+            "Run",
+            "Hill",
+            1000.0,
+            i64::MIN,
+        )
+        .expect("five efforts make a trend");
         assert_eq!(worsening.direction, crate::EfficiencyDirection::Worsening);
     }
 

@@ -16,6 +16,7 @@ import type { ReactTestInstance } from 'react-test-renderer';
 
 import { SportToggleSelector } from '@/features/fitness/components/SportToggleSelector';
 import { SportTypeSelector } from '@/features/routes/components/SportTypeSelector';
+import { colors } from '@/theme';
 import { layout } from '@/theme/layout';
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
@@ -76,7 +77,8 @@ function expectSportChips(selectedId: string, unselectedIds: string[]) {
 
   for (const id of unselectedIds) {
     const chip = screen.getByTestId(id);
-    expect(styleOf(chip).backgroundColor).not.toMatch(OPAQUE);
+    expect(styleOf(chip).backgroundColor).toBe(colors.fillNeutral);
+    expect(styleOf(chip).borderColor).toBe('transparent');
     expect(chip.props.accessibilityState).toEqual(expect.objectContaining({ selected: false }));
   }
   for (const id of [selectedId, ...unselectedIds]) {

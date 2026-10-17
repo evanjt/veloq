@@ -20,6 +20,7 @@ import {
   typography,
   colorWithOpacity,
   ink,
+  opacity,
 } from '@/theme';
 import { tourPanelColour } from './tourPanel';
 import {
@@ -95,7 +96,9 @@ export function SectionPerformanceSlide() {
   const { width: gridWidth, onLayout } = useMeasuredWidth();
   const palette = isDark ? darkColors : colors;
   const background = tourPanelColour(isDark);
-  const gridColor = isDark ? colorWithOpacity(ink.white, 0.25) : colorWithOpacity(ink.black, 0.2);
+  const gridColor = isDark
+    ? colorWithOpacity(ink.white, opacity.tint4)
+    : colorWithOpacity(ink.black, opacity.tint3);
   // Two panels to a row of the slide's own width, with the grid's gap between them.
   const panelWidth = Math.max(0, Math.floor((gridWidth - spacing.sm) / 2));
   const inner = panelWidth - PAD * 2;

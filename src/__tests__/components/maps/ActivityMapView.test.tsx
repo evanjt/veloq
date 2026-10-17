@@ -14,6 +14,9 @@ import type { LatLng } from '@/shared/geo/polyline';
 import { streamsFromArrays } from '@/features/activity/lib/streams';
 import { initialiseI18n } from '@/i18n';
 
+// The map page is hidden from screen readers, so a query reaching it includes hidden elements.
+const MAP_PAGE = { includeHiddenElements: true };
+
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
 jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
@@ -75,14 +78,14 @@ describe('ActivityMapView', () => {
   it('mounts a map from a coordinate array', async () => {
     await renderActivityMap();
 
-    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+    expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
     expect(screen.getByTestId('activity-map-style-toggle')).toBeTruthy();
   });
 
   it('hides the control stack when the caller turns it off', async () => {
     await renderActivityMap({ showStyleToggle: false });
 
-    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+    expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
     expect(screen.queryByTestId('activity-map-style-toggle')).toBeNull();
   });
 
@@ -100,13 +103,13 @@ describe('ActivityMapView', () => {
 
   it('unmounts the inline surface while fullscreen holds its own', async () => {
     await renderActivityMap({ enableFullscreen: true });
-    expect(screen.getAllByTestId('maplibre-map')).toHaveLength(1);
+    expect(screen.getAllByTestId('maplibre-map', MAP_PAGE)).toHaveLength(1);
 
     await fireEvent.press(screen.getByTestId('activity-map-fullscreen'));
-    expect(screen.getAllByTestId('maplibre-map')).toHaveLength(1);
+    expect(screen.getAllByTestId('maplibre-map', MAP_PAGE)).toHaveLength(1);
 
     await fireEvent.press(screen.getByTestId('map-fullscreen-close'));
-    expect(screen.getAllByTestId('maplibre-map')).toHaveLength(1);
+    expect(screen.getAllByTestId('maplibre-map', MAP_PAGE)).toHaveLength(1);
   });
 
   it('reports style changes to the caller', async () => {
@@ -133,13 +136,13 @@ describe('ActivityMapView', () => {
       highlightedSectionId: 's1',
     });
 
-    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+    expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
   });
 
   it('renders a route overlay alongside the activity trace', async () => {
     await renderActivityMap({ routeOverlay: COORDINATES });
 
-    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+    expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
   });
 
   it('accepts a scrub highlight index', async () => {
@@ -158,20 +161,20 @@ describe('ActivityMapView', () => {
           </SafeAreaProvider>
         ))()
     ).resolves.not.toThrow();
-    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+    expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
   });
 
   describe('degenerate input', () => {
     it('falls back to a placeholder with no geometry at all', async () => {
       await renderActivityMap({ coordinates: [] });
 
-      expect(screen.queryByTestId('maplibre-map')).toBeNull();
+      expect(screen.queryByTestId('maplibre-map', MAP_PAGE)).toBeNull();
     });
 
     it('falls back to a placeholder with no coordinates at all', async () => {
       await renderActivityMap({ coordinates: undefined });
 
-      expect(screen.queryByTestId('maplibre-map')).toBeNull();
+      expect(screen.queryByTestId('maplibre-map', MAP_PAGE)).toBeNull();
     });
 
     const cases: [string, Partial<React.ComponentProps<typeof ActivityMapView>>][] = [
@@ -200,7 +203,7 @@ describe('ActivityMapView', () => {
 
     it.each(cases)('survives %s', async (_label, props) => {
       await expect((async () => renderActivityMap(props))()).resolves.not.toThrow();
-      expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+      expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
     });
   });
   describe('colour by gradient', () => {
@@ -244,7 +247,7 @@ describe('ActivityMapView', () => {
 
       await fireEvent.press(screen.getByTestId('activity-map-gradient-toggle'));
 
-      expect(screen.getByTestId('webview')).toBeTruthy();
+      expect(screen.getByTestId('webview', MAP_PAGE)).toBeTruthy();
       expect(screen.getByTestId('activity-map-gradient-key')).toBeTruthy();
     });
   });
@@ -257,25 +260,44 @@ describe('ActivityMapView', () => {
       pitch: 60,
     };
 
+    function toggleState() {
+      return screen.getByTestId('activity-map-3d-toggle').props.accessibilityState;
+    }
+
     async function post(message: Record<string, unknown>) {
-      await fireEvent(screen.getByTestId('webview'), 'message', {
+      await fireEvent(screen.getByTestId('webview', MAP_PAGE), 'message', {
         nativeEvent: { data: JSON.stringify(message) },
       });
     }
 
-    it('shows a spinner while the terrain page is still loading', async () => {
+    it('marks the 3D control busy, not the map, while the terrain page is still loading', async () => {
       await renderActivityMap({ initial3DCamera: CAMERA_3D });
 
-      expect(screen.getByTestId('activity-map-3d-loading')).toBeTruthy();
-      expect(screen.getByTestId('webview')).toBeTruthy();
+      expect(screen.getByTestId('webview', MAP_PAGE)).toBeTruthy();
+      expect(screen.queryByTestId('activity-map-3d-loading')).toBeNull();
+      expect(toggleState()).toEqual(expect.objectContaining({ busy: true, disabled: true }));
+      expect(
+        within(screen.getByTestId('activity-map-3d-toggle')).getByTestId('activity-map-3d-busy')
+      ).toBeTruthy();
     });
 
-    it('clears the spinner once the terrain page reports ready', async () => {
+    it('ignores a press on the 3D control while the terrain page is still loading', async () => {
+      const on3DModeChange = jest.fn();
+      await renderActivityMap({ initial3DCamera: CAMERA_3D, on3DModeChange });
+
+      await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
+
+      expect(screen.getByTestId('webview', MAP_PAGE)).toBeTruthy();
+      expect(on3DModeChange).not.toHaveBeenCalledWith(false);
+    });
+
+    it('frees the 3D control once the terrain page reports ready', async () => {
       await renderActivityMap({ initial3DCamera: CAMERA_3D });
 
       await post({ type: 'mapReady' });
 
-      expect(screen.queryByTestId('activity-map-3d-loading')).toBeNull();
+      expect(toggleState()).toEqual(expect.objectContaining({ busy: false, disabled: false }));
+      expect(screen.queryByTestId('activity-map-3d-busy')).toBeNull();
     });
 
     it('restores the 2D surface while a crashed terrain page reloads', async () => {
@@ -283,13 +305,13 @@ describe('ActivityMapView', () => {
       await post({ type: 'mapReady' });
       expect(screen.queryByTestId('activity-map-2d-layer')).toBeNull();
 
-      await fireEvent(screen.getByTestId('webview'), 'renderProcessGone');
+      await fireEvent(screen.getByTestId('webview', MAP_PAGE), 'renderProcessGone');
       expect(screen.getByTestId('activity-map-2d-layer')).toBeTruthy();
 
       await post({ type: 'mapReady' });
       expect(screen.queryByTestId('activity-map-2d-layer')).toBeNull();
 
-      await fireEvent(screen.getByTestId('webview'), 'renderProcessGone');
+      await fireEvent(screen.getByTestId('webview', MAP_PAGE), 'renderProcessGone');
       expect(screen.getByTestId('activity-map-2d-layer')).toBeTruthy();
     });
 
@@ -298,9 +320,9 @@ describe('ActivityMapView', () => {
 
       await post({ type: 'mapFailed', reason: 'load timeout' });
 
-      expect(screen.queryByTestId('activity-map-3d-loading')).toBeNull();
-      expect(screen.queryByTestId('webview')).toBeNull();
-      expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+      expect(screen.queryByTestId('activity-map-3d-busy')).toBeNull();
+      expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
+      expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
     });
 
     /**
@@ -331,7 +353,7 @@ describe('ActivityMapView', () => {
       const on3DModeChange = jest.fn();
       await renderActivityMap({ initial3DCamera: CAMERA_3D, on3DModeChange });
 
-      await fireEvent(screen.getByTestId('webview'), 'error', {
+      await fireEvent(screen.getByTestId('webview', MAP_PAGE), 'error', {
         nativeEvent: { description: 'net::ERR_NAME_NOT_RESOLVED' },
       });
 
@@ -345,6 +367,7 @@ describe('ActivityMapView', () => {
       await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
       expect(on3DModeChange).toHaveBeenLastCalledWith(true);
 
+      await post({ type: 'mapReady' });
       await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
       expect(on3DModeChange).toHaveBeenLastCalledWith(false);
     });
@@ -362,12 +385,12 @@ describe('ActivityMapView', () => {
     it('falls back to the 2D map when the WebView itself fails to load', async () => {
       await renderActivityMap({ initial3DCamera: CAMERA_3D });
 
-      await fireEvent(screen.getByTestId('webview'), 'error', {
+      await fireEvent(screen.getByTestId('webview', MAP_PAGE), 'error', {
         nativeEvent: { description: 'net::ERR_NAME_NOT_RESOLVED' },
       });
 
-      expect(screen.queryByTestId('activity-map-3d-loading')).toBeNull();
-      expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+      expect(screen.queryByTestId('activity-map-3d-busy')).toBeNull();
+      expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
     });
 
     describe('a camera that arrives after mount', () => {
@@ -392,22 +415,23 @@ describe('ActivityMapView', () => {
       it('switches to 3D once, without reporting it as a choice', async () => {
         const on3DModeChange = jest.fn();
         const view = await renderActivityMap({ on3DModeChange });
-        expect(screen.queryByTestId('webview')).toBeNull();
+        expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
 
         await rerenderWith(view, CAMERA_3D, on3DModeChange);
 
-        expect(screen.getByTestId('webview')).toBeTruthy();
+        expect(screen.getByTestId('webview', MAP_PAGE)).toBeTruthy();
         expect(on3DModeChange).not.toHaveBeenCalled();
       });
 
       it('stays flat when the athlete has already used the toggle', async () => {
         const view = await renderActivityMap();
         await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
+        await post({ type: 'mapReady' });
         await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
 
         await rerenderWith(view, CAMERA_3D);
 
-        expect(screen.queryByTestId('webview')).toBeNull();
+        expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
       });
 
       it('stays flat after a failure', async () => {
@@ -416,7 +440,7 @@ describe('ActivityMapView', () => {
 
         await rerenderWith(view, { ...CAMERA_3D, bearing: 90 });
 
-        expect(screen.queryByTestId('webview')).toBeNull();
+        expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
       });
     });
 
@@ -426,8 +450,8 @@ describe('ActivityMapView', () => {
       await post({ type: 'mapFailed', reason: 'load timeout' });
       await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
 
-      expect(screen.getByTestId('webview')).toBeTruthy();
-      expect(screen.getByTestId('activity-map-3d-loading')).toBeTruthy();
+      expect(screen.getByTestId('webview', MAP_PAGE)).toBeTruthy();
+      expect(screen.getByTestId('activity-map-3d-busy')).toBeTruthy();
     });
 
     it('reaches a terminal state again on a second mount', async () => {
@@ -436,20 +460,20 @@ describe('ActivityMapView', () => {
       await first.unmount();
 
       await renderActivityMap({ initial3DCamera: CAMERA_3D });
-      expect(screen.getByTestId('activity-map-3d-loading')).toBeTruthy();
+      expect(screen.getByTestId('activity-map-3d-busy')).toBeTruthy();
 
       await post({ type: 'mapFailed', reason: 'load timeout' });
-      expect(screen.queryByTestId('activity-map-3d-loading')).toBeNull();
+      expect(screen.queryByTestId('activity-map-3d-busy')).toBeNull();
     });
 
     it('unmounts the 2D surface once the terrain page is ready', async () => {
       await renderActivityMap({ initial3DCamera: CAMERA_3D });
-      expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+      expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
 
       await post({ type: 'mapReady' });
 
-      expect(screen.queryByTestId('maplibre-map')).toBeNull();
-      expect(screen.getAllByTestId('webview')).toHaveLength(1);
+      expect(screen.queryByTestId('maplibre-map', MAP_PAGE)).toBeNull();
+      expect(screen.getAllByTestId('webview', MAP_PAGE)).toHaveLength(1);
     });
 
     it('brings the 2D surface back when the terrain page has nothing to drape', async () => {
@@ -458,15 +482,15 @@ describe('ActivityMapView', () => {
 
       await post({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' });
 
-      expect(screen.getByTestId('maplibre-map')).toBeTruthy();
-      expect(screen.queryByTestId('webview')).toBeNull();
+      expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
+      expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
     });
 
     describe('with the feed poster cached', () => {
       const ACTIVITY_ID = 'ride-poster';
 
       async function post2D(message: Record<string, unknown>) {
-        await fireEvent(screen.getByTestId('maplibre-map'), 'message', {
+        await fireEvent(screen.getByTestId('maplibre-map', MAP_PAGE), 'message', {
           nativeEvent: { data: JSON.stringify(message) },
         });
       }
@@ -480,7 +504,7 @@ describe('ActivityMapView', () => {
 
         expect(screen.getByTestId('activity-map-poster')).toBeTruthy();
         expect(screen.queryByTestId('activity-map-2d-layer')).toBeNull();
-        expect(screen.getAllByTestId('webview')).toHaveLength(1);
+        expect(screen.getAllByTestId('webview', MAP_PAGE)).toHaveLength(1);
 
         await post({ type: 'mapReady' });
 
@@ -492,7 +516,7 @@ describe('ActivityMapView', () => {
         await renderActivityMap({ activityId: ACTIVITY_ID, initial3DCamera: CAMERA_3D });
         await post({ type: 'mapReady' });
 
-        await fireEvent(screen.getByTestId('webview'), 'renderProcessGone');
+        await fireEvent(screen.getByTestId('webview', MAP_PAGE), 'renderProcessGone');
 
         expect(screen.getByTestId('activity-map-2d-layer')).toBeTruthy();
       });
@@ -503,7 +527,7 @@ describe('ActivityMapView', () => {
         await post({ type: 'mapFailed', reason: 'load timeout' });
 
         expect(screen.getByTestId('activity-map-2d-layer')).toBeTruthy();
-        expect(screen.queryByTestId('webview')).toBeNull();
+        expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
       });
 
       it('keeps a 2D map already on screen while the toggled terrain page boots', async () => {
@@ -513,7 +537,7 @@ describe('ActivityMapView', () => {
         await fireEvent.press(screen.getByTestId('activity-map-3d-toggle'));
 
         expect(screen.getByTestId('activity-map-2d-layer')).toBeTruthy();
-        expect(screen.getByTestId('webview')).toBeTruthy();
+        expect(screen.getByTestId('webview', MAP_PAGE)).toBeTruthy();
       });
     });
 
@@ -527,7 +551,7 @@ describe('ActivityMapView', () => {
     it('tolerates unmounting while the terrain page is still loading', async () => {
       const view = await renderActivityMap({ initial3DCamera: CAMERA_3D });
 
-      expect(screen.getByTestId('activity-map-3d-loading')).toBeTruthy();
+      expect(screen.getByTestId('activity-map-3d-busy')).toBeTruthy();
       await expect((async () => view.unmount())()).resolves.not.toThrow();
     });
   });

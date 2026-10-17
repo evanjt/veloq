@@ -308,8 +308,7 @@ const makeStyles = (palette: Palette, isDark: boolean) =>
       borderRadius: layout.borderRadiusFull,
     },
     detailName: {
-      fontSize: typography.bodyCompact.fontSize,
-      fontWeight: '700',
+      ...typography.bodyCompactBold,
       color: palette.textPrimary,
     },
     detailStat: {
@@ -338,8 +337,7 @@ const makeStyles = (palette: Palette, isDark: boolean) =>
       flexShrink: 0,
     },
     detailExName: {
-      fontSize: typography.micro.fontSize,
-      fontWeight: '600',
+      ...typography.badge,
       color: palette.textPrimary,
       flexShrink: 1,
     },
@@ -386,8 +384,7 @@ const makeStyles = (palette: Palette, isDark: boolean) =>
       color: palette.textSecondary,
     },
     durationStat: {
-      ...typography.bodyCompact,
-      fontWeight: '600',
+      ...typography.bodyCompactBold,
       color: colors.textOnDark,
       textShadowColor: colorWithOpacity(ink.black, opacity.disabled),
       ...mapTextShadow,

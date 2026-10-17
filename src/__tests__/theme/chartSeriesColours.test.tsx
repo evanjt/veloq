@@ -8,7 +8,8 @@
  *
  * Expected behaviour: every activity stream has a hue no other stream has, the
  * curve charts draw in the sport colours, and the feed card draws HRV and
- * resting HR in the wellness series colours of the theme it is in.
+ * resting HR in the wellness series colours of the theme it is in, naming each
+ * line in text colour rather than its own.
  */
 
 import React from 'react';
@@ -85,14 +86,14 @@ describe('the feed card HRV sparkline', () => {
     expect(colours).toContain(darkColors.chartRhr);
   });
 
-  it('labels HRV and resting HR in the text tones of those series', async () => {
+  it('labels HRV and resting HR in text colour, never in the colour of their lines', async () => {
     const dark = (await strokeColours('dark')).view;
-    expect(dark.getByText('metrics.hrv')).toHaveStyle({ color: darkColors.chartHrvText });
-    expect(dark.getByText('metrics.rhr')).toHaveStyle({ color: darkColors.chartRhrText });
+    expect(dark.getByText('metrics.hrv')).toHaveStyle({ color: darkColors.textPrimary });
+    expect(dark.getByText('metrics.rhr')).toHaveStyle({ color: darkColors.textPrimary });
     await dark.unmount();
 
     const light = (await strokeColours('light')).view;
-    expect(light.getByText('metrics.hrv')).toHaveStyle({ color: colors.chartHrvText });
-    expect(light.getByText('metrics.rhr')).toHaveStyle({ color: colors.chartRhrText });
+    expect(light.getByText('metrics.hrv')).toHaveStyle({ color: colors.textPrimary });
+    expect(light.getByText('metrics.rhr')).toHaveStyle({ color: colors.textPrimary });
   });
 });

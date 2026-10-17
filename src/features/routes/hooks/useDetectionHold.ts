@@ -33,7 +33,7 @@ function readCutoverHold(): boolean {
   const engine = getEngine();
   if (!engine) return false;
   try {
-    return !!engine.isCutoverPending?.() || !!engine.isCutoverRunning?.();
+    return !!engine.isCutoverHeld?.();
   } catch {
     return false;
   }

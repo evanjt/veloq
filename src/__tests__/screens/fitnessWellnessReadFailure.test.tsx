@@ -43,7 +43,6 @@ jest.mock('@/shared/ui', () => {
     useBottomClearance: () => 0,
     useScrollEndInset: () => 0,
     ChartSkeleton: View,
-    ExplanationCard: View,
   };
 });
 jest.mock('@/shared/ui/withScreenBoundary', () => ({
@@ -74,6 +73,7 @@ jest.mock('@/features/fitness', () => {
     },
     PerformanceCurveSection: () => <View testID="performance-curves" />,
     FitnessTrendSections: () => <View testID="fitness-trends" />,
+    FitnessDefinitionsCard: View,
     TimeRangeSelector: () => <View testID="time-range" />,
     SportToggleSelector: () => <View testID="sport-toggle" />,
     BestEffortsHeaderButton: () => null,

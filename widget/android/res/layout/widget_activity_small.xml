@@ -29,7 +29,18 @@
     android:orientation="horizontal"
     android:gravity="center_vertical">
 
+    <!-- The sport's key dot: the name stays in primary text, so the colour is said here. -->
+    <ImageView
+      android:id="@+id/act_sport"
+      android:layout_width="6dp"
+      android:layout_height="6dp"
+      android:layout_marginEnd="4dp"
+      android:importantForAccessibility="no"
+      android:src="@drawable/widget_tone_dot"
+      android:visibility="gone" />
+
     <TextView
+      android:fontFamily="@font/widget_manrope"
       android:id="@+id/act_name"
       android:layout_width="wrap_content"
       android:layout_height="wrap_content"
@@ -50,6 +61,7 @@
   </LinearLayout>
 
   <TextView
+    android:fontFamily="@font/widget_manrope"
     android:id="@+id/act_label"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -60,6 +72,7 @@
     android:textColor="@color/widget_text_secondary" />
 
   <TextView
+    android:fontFamily="@font/widget_manrope"
     android:id="@+id/act_hero"
     android:layout_width="match_parent"
     android:layout_height="@dimen/widget_metric_line"
@@ -74,6 +87,7 @@
     android:textColor="@color/widget_text_primary" />
 
   <TextView
+    android:fontFamily="@font/widget_manrope"
     android:id="@+id/act_detail"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -93,6 +107,7 @@
     android:importantForAccessibility="no" />
 
   <TextView
+    android:fontFamily="@font/widget_manrope"
     android:id="@+id/act_sub"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -102,6 +117,7 @@
     android:textColor="@color/widget_text_secondary" />
 
   <TextView
+    android:fontFamily="@font/widget_manrope"
     android:id="@+id/act_prs"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -112,6 +128,7 @@
     android:textColor="@color/widget_text_secondary" />
 
   <TextView
+    android:fontFamily="@font/widget_manrope"
     android:id="@+id/act_date"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -122,6 +139,7 @@
     android:textColor="@color/widget_text_secondary" />
 
   <TextView
+    android:fontFamily="@font/widget_manrope"
     android:id="@+id/act_demo"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"

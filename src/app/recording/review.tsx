@@ -10,17 +10,8 @@ import { replaceTo, tapTo } from '@/shared/app/navigation';
 import { useBackIntercept } from '@/shared/app/useBackIntercept';
 import { useDiscardGuard } from '@/shared/app/useDiscardGuard';
 import { overMapHeaderOptions } from '@/shared/app/screenHeaders';
-import {
-  colors,
-  colorWithOpacity,
-  darkColors,
-  iconSize,
-  layout,
-  spacing,
-  typography,
-  stroke,
-} from '@/theme';
-import { Button, ScreenScrollView, StatusLine, TextField } from '@/shared/ui';
+import { colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
+import { Button, InlineNotice, ScreenScrollView, TextField } from '@/shared/ui';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { formatDistance, formatDuration } from '@/shared/format/format';
 import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
@@ -385,26 +376,13 @@ function ReviewScreenContent() {
         ) : null}
 
         {unbackedRide ? (
-          <StatusLine
-            tone="error"
-            message={t('recording.reviewNoBackup')}
-            style={styles.noBackupBanner}
+          <InlineNotice
             testID="review-no-backup"
-          >
-            <MaterialCommunityIcons
-              name="content-save-alert-outline"
-              size={iconSize.md}
-              color={isDark ? darkColors.warningAmber : colors.warningAmber}
-            />
-            <Text
-              style={[
-                styles.bannerText,
-                { color: isDark ? darkColors.warningAmber : colors.warningAmber },
-              ]}
-            >
-              {t('recording.reviewNoBackup')}
-            </Text>
-          </StatusLine>
+            tone="warning"
+            icon="content-save-alert-outline"
+            title={t('recording.reviewNoBackup')}
+            style={styles.noBackupBanner}
+          />
         ) : null}
 
         {/* Error banner */}
@@ -497,18 +475,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   // Banners
-  bannerText: {
-    ...typography.caption,
-    flex: 1,
-  },
   noBackupBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colorWithOpacity(colors.warning, 0.15),
-    borderRadius: layout.borderRadiusSm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
     marginTop: spacing.sm,
   },
   // Actions

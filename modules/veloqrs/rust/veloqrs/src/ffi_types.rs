@@ -3362,6 +3362,10 @@ pub struct FfiFitnessScreenData {
     /// The rides, runs and swims among the latest activities, which the
     /// primary sport defaults to until the athlete chooses one.
     pub sport_mix: FfiSportMix,
+    /// The fitness time constant in days in effect today
+    pub fitness_days: u32,
+    /// The fatigue time constant in days in effect today
+    pub fatigue_days: u32,
 }
 
 /// The latest activities by the three sports the fitness tab draws.
@@ -4507,6 +4511,9 @@ pub struct FfiSectionMatch {
     pub match_quality: f64,
     pub same_direction: bool,
     pub distance_meters: f64,
+    /// Distance ridden from the activity's first point to the pass's first
+    /// point, in metres, so the athlete can place the pass along the ride.
+    pub start_distance_meters: f64,
 }
 
 /// Result of cheap per-activity section indexing after ingest.

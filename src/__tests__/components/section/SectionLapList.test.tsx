@@ -401,3 +401,30 @@ describe('SectionLapList', () => {
     });
   });
 });
+
+/**
+ * Scenario: a lap's exclude and undo each drew a pill of their own.
+ *
+ * Expected behaviour: each is the shared small Button, named for the lap it acts on.
+ */
+describe('SectionLapList lap actions', () => {
+  it('draws exclude and undo as Buttons with their labels', async () => {
+    const { getByTestId, getByRole, getByText } = await openAllRender(
+      <SectionLapList
+        isDark={false}
+        records={[record('a', [40, 10], [10])]}
+        onExcludeLap={jest.fn()}
+        onIncludeLap={jest.fn()}
+      />
+    );
+    expect(getByTestId('section-lap-exclude-a-40-label')).toHaveTextContent('sections.excludeLap');
+    expect(getByRole('button', { name: 'sections.excludeLapNumber:2' })).toBe(
+      getByTestId('section-lap-exclude-a-40')
+    );
+    expect(getByTestId('section-lap-undo-a-10-label')).toHaveTextContent('sections.undoExclude');
+    expect(getByRole('button', { name: 'sections.undoExcludeLap:1' })).toBe(
+      getByTestId('section-lap-undo-a-10')
+    );
+    expect(getByText('sections.lapExcluded')).toBeTruthy();
+  });
+});

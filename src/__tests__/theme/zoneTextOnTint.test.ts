@@ -4,7 +4,7 @@
  * themes, which the zone fill itself does not.
  */
 
-import { colors, darkColors, zoneColors, colorWithOpacity } from '@/theme/colors';
+import { colors, darkColors, zoneColors, colorWithOpacity, opacity } from '@/theme/colors';
 import { zoneColour } from '@/theme/zoneColour';
 
 function rgb(value: string): [number, number, number] {
@@ -37,8 +37,8 @@ const FILLS = Object.values(zoneColors);
 
 describe('zone text tones', () => {
   it.each([
-    ['light', false, colors.background, 0.18],
-    ['dark', true, darkColors.background, 0.28],
+    ['light', false, colors.background, opacity.tint3],
+    ['dark', true, darkColors.background, opacity.tint3],
   ])('clears 4.5:1 on every zone tint in %s mode', (_name, isDark, ground, alpha) => {
     FILLS.forEach((fill, i) => {
       const tint = over(colorWithOpacity(fill, alpha as number), ground as string);

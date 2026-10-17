@@ -8,6 +8,7 @@
  * dismissal both mean the athlete has been asked.
  */
 
+import type { TFunction } from 'i18next';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { platformRecordUri } from '@/shared/storage/platformRecord';
@@ -20,7 +21,8 @@ import {
   type BackupBackend,
   type BackupEntry,
 } from './autobackup/backends';
-import { checkRecordBackup, restoreRecordBackup } from './backup';
+import { checkRecordBackup } from './backup';
+import { restoreCheckedFile } from './checkedRestore';
 import { restoreBackendEntry } from './restoreBackendEntry';
 import type { RestoreOutcome } from './restoreNotice';
 import { getWebdavConfig, initWebdavConfig } from './autobackup/webdavConfig';
@@ -55,7 +57,7 @@ async function deviceRecord(): Promise<FoundBackup | null> {
   const info = await FileSystem.getInfoAsync(uri);
   if (!info.exists || ('size' in info && !(info.size ?? 0))) return null;
   // One the engine refuses would only be refused again on Restore.
-  const writtenAt = await checkRecordBackup(uri);
+  const { writtenAt } = await checkRecordBackup(uri);
   const size = 'size' in info ? (info.size ?? 0) : 0;
   // The platform's restore rewrites the file time, so the record's own time
   // stands where it names one.
@@ -120,10 +122,16 @@ export async function findNewestBackup(): Promise<FoundBackup | null> {
   return newest;
 }
 
-/** Restore the backup the offer named, fetching it first unless it is on the phone. */
-export async function restoreFoundBackup(found: FoundBackup): Promise<RestoreOutcome> {
-  if (found.backend) return restoreBackendEntry(found.backend, found.entry);
-  return restoreRecordBackup(found.entry.id);
+/**
+ * Restore the backup the offer named, fetching it first unless it is on the
+ * phone, and checking and asking before it replaces anything.
+ */
+export async function restoreFoundBackup(
+  found: FoundBackup,
+  t: TFunction
+): Promise<RestoreOutcome | 'declined'> {
+  if (found.backend) return restoreBackendEntry(found.backend, found.entry, t);
+  return restoreCheckedFile(found.entry.id, found.entry.id, t);
 }
 
 /** Record that the athlete has been asked, so the offer never returns. */

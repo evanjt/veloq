@@ -15,6 +15,7 @@ import {
   slopToMinTapTarget,
   spacing,
   typography,
+  opacity,
 } from '@/theme';
 import { isolateNumeric } from '@/shared/format';
 import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
@@ -126,7 +127,7 @@ export function ChartTypeSelector({
         // Use full color when selected, faded color when unselected
         const bgColor = isSelected
           ? config.color
-          : colorWithOpacity(config.color, isDark ? 0.25 : 0.15);
+          : colorWithOpacity(config.color, isDark ? opacity.tint4 : opacity.tint2);
         // Unselected read as the stream's own hue, `chartYellow` at 1.50:1 on
         // its own 15% tint. The chip keeps the hue as its ground and its dot, and
         // the label says which stream it is.
@@ -211,7 +212,7 @@ export function ChartTypeSelector({
 // The chips wrap into rows only a small gap apart, so each is drawn at its
 // content's height and reaches the tap target through slop.
 const CHIP_HEIGHT = typography.label.lineHeight + 2 * spacing.xs;
-const CHIP_WITH_VALUE_HEIGHT = CHIP_HEIGHT + spacing.xxs + typography.micro.lineHeight;
+const CHIP_WITH_VALUE_HEIGHT = CHIP_HEIGHT + spacing.xxs + typography.badge.lineHeight;
 const CHIP_SLOP = slopToMinTapTarget(CHIP_HEIGHT);
 const CHIP_WITH_VALUE_SLOP = slopToMinTapTarget(CHIP_WITH_VALUE_HEIGHT);
 
@@ -248,9 +249,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xxs,
   },
   chipValue: {
-    fontSize: typography.micro.fontSize,
-    lineHeight: typography.micro.lineHeight,
-    fontWeight: '700',
+    ...typography.badge,
     fontVariant: ['tabular-nums'],
     textAlign: 'center',
   },

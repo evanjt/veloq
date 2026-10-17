@@ -10,23 +10,14 @@ import {
   Card,
   ScreenSafeAreaView,
   ScreenScrollView,
+  InlineNotice,
   SectionTitle,
-  StatusLine,
   TextLink,
 } from '@/shared/ui';
-import { replaceTo } from '@/shared/app/navigation';
 import { openExternal } from '@/shared/app/openExternal';
 import { VELOQ_PRIVACY_URL } from '@/shared/app/supportLinks';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import {
-  colors,
-  colorWithOpacity,
-  darkColors,
-  iconSize,
-  layout,
-  spacing,
-  typography,
-} from '@/theme';
+import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { createSharedStyles } from '@/styles';
 import { clearAccountData } from '@/shared/storage';
@@ -109,8 +100,8 @@ function LoginScreenContent() {
       return;
     }
     resetSyncDateRange();
+    // The root layout takes the athlete in once the library's identity is settled.
     enterDemoMode();
-    replaceTo('/');
   };
 
   const handleCreateAccount = () => {
@@ -152,42 +143,32 @@ function LoginScreenContent() {
             {sessionNotice ? <SessionExpiredNotice notice={sessionNotice} /> : null}
 
             {error && !sessionNotice ? (
-              <StatusLine tone="error" message={error} style={styles.errorContainer}>
-                <MaterialCommunityIcons
-                  name="alert-circle"
-                  size={iconSize.md}
-                  color={colors.error}
-                />
-                <Text
-                  style={[styles.errorText, isDark && styles.errorTextDark]}
-                  testID="login-error-text"
-                >
-                  {error}
-                </Text>
-              </StatusLine>
+              <InlineNotice
+                testID="login-error-text"
+                tone="error"
+                icon="alert-circle-outline"
+                title={error}
+                style={styles.notice}
+              />
             ) : null}
 
             {queuedMessage && !error ? (
-              <StatusLine tone="info" message={queuedMessage} style={styles.queuedContainer}>
-                <MaterialCommunityIcons
-                  name="cloud-off-outline"
-                  size={iconSize.md}
-                  color={colors.secondary}
-                />
-                <Text
-                  style={[styles.queuedText, isDark && styles.queuedTextDark]}
-                  testID="login-queued-text"
-                >
-                  {queuedMessage}
-                </Text>
-                <Button
-                  testID="login-discard-queued-key"
-                  label={t('recording.discard')}
-                  variant="ghost"
-                  size="sm"
-                  onPress={discardQueuedKey}
-                />
-              </StatusLine>
+              <InlineNotice
+                testID="login-queued-text"
+                tone="neutral"
+                icon="cloud-off-outline"
+                title={queuedMessage}
+                action={
+                  <Button
+                    testID="login-discard-queued-key"
+                    label={t('recording.discard')}
+                    variant="ghost"
+                    size="sm"
+                    onPress={discardQueuedKey}
+                  />
+                }
+                style={styles.notice}
+              />
             ) : null}
 
             {/* OAuth Login */}
@@ -335,42 +316,11 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.textSecondary,
   },
+  notice: {
+    marginBottom: spacing.md,
+  },
   frame: {
     marginBottom: spacing.md,
-  },
-  errorContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colorWithOpacity(colors.error, 0.1),
-    padding: spacing.sm,
-    borderRadius: layout.borderRadiusSm,
-    marginBottom: spacing.md,
-    gap: spacing.sm,
-  },
-  errorText: {
-    ...typography.bodySmall,
-    color: colors.errorDeep,
-    flex: 1,
-  },
-  errorTextDark: {
-    color: darkColors.errorDeep,
-  },
-  queuedContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colorWithOpacity(colors.secondary, 0.1),
-    padding: spacing.sm,
-    borderRadius: layout.borderRadiusSm,
-    marginBottom: spacing.md,
-    gap: spacing.sm,
-  },
-  queuedText: {
-    ...typography.bodySmall,
-    color: colors.textSecondary,
-    flex: 1,
-  },
-  queuedTextDark: {
-    color: darkColors.textSecondary,
   },
   dividerContainer: {
     flexDirection: 'row',

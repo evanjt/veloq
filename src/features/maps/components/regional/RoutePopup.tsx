@@ -5,6 +5,7 @@ import { useMetricSystem } from '@/shared/app';
 import { formatDistance } from '@/shared/format/format';
 import { useFocusOnAppear } from '@/shared/ui/useFocusOnAppear';
 import { MapPopup } from './MapPopup';
+import { ACTIVITY_COUNT_GLYPH } from '@/features/maps/lib/mapGlyphs';
 
 /** What the popup shows for a route, as the map read gives it. */
 export interface MapRouteSummary {
@@ -53,7 +54,7 @@ export const RoutePopup = memo(function RoutePopup({
         },
         {
           key: 'activities',
-          icon: 'run',
+          icon: ACTIVITY_COUNT_GLYPH,
           value: t('routes.activitiesCount', { count: route.activityCount }),
         },
       ]}

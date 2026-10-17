@@ -13,6 +13,7 @@ import {
   ink,
   stroke,
   layout,
+  opacity,
 } from '@/theme';
 import type { PrimarySport } from '@/features/fitness/stores';
 import { NameText } from '@/shared/ui/NameText';
@@ -170,14 +171,13 @@ export function BestEffortRowsSkeleton({ rows }: { rows: number }) {
 const styles = StyleSheet.create({
   rowBorder: {
     borderBottomWidth: stroke.hairline,
-    borderBottomColor: colorWithOpacity(ink.black, 0.08),
+    borderBottomColor: colorWithOpacity(ink.black, opacity.tint1),
   },
   rowBorderDark: {
-    borderBottomColor: colorWithOpacity(ink.white, 0.08),
+    borderBottomColor: colorWithOpacity(ink.white, opacity.tint1),
   },
   label: {
-    ...typography.bodySmall,
-    fontWeight: '600',
+    ...typography.bodySmallBold,
     color: colors.textSecondary,
     minWidth: spacing.xxl,
     flexShrink: 1,
@@ -194,8 +194,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   value: {
-    ...typography.body,
-    fontWeight: '700',
+    ...typography.bodyBold,
     fontVariant: ['tabular-nums'],
   },
   secondary: {

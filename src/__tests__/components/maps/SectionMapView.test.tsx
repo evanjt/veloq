@@ -10,7 +10,7 @@
 import React from 'react';
 import { Animated, StatusBar, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { render, fireEvent, screen, act, waitFor } from '@testing-library/react-native';
+import { render, fireEvent, screen, act, waitFor, within } from '@testing-library/react-native';
 import * as Location from 'expo-location';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SectionMapView } from '@/features/routes/components/SectionMapView';
@@ -19,6 +19,9 @@ import { CompassArrow } from '@/shared/ui';
 import { darkColors } from '@/theme';
 import { TERRAIN_UNAVAILABLE_TEST_ID } from '@/features/maps/components/TerrainUnavailableNotice';
 import type { FrequentSection, RoutePoint } from '@/types';
+
+// The map page is hidden from screen readers, so a query reaching it includes hidden elements.
+const MAP_PAGE = { includeHiddenElements: true };
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
@@ -144,7 +147,7 @@ describe('SectionMapView', () => {
     await renderSection();
 
     expect(screen.getByTestId('section-map-container')).toBeTruthy();
-    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+    expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
     expect(screen.getByTestId('section-map-style-toggle')).toBeTruthy();
     expect(screen.getByTestId('section-map-3d-toggle')).toBeTruthy();
   });
@@ -154,7 +157,7 @@ describe('SectionMapView', () => {
 
     expect(screen.queryByTestId('section-map-container')).toBeNull();
     expect(screen.queryByTestId('section-map-style-toggle')).toBeNull();
-    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
+    expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
   });
 
   it('opens and closes fullscreen from the control stack', async () => {
@@ -182,16 +185,19 @@ describe('SectionMapView', () => {
   it('swaps in the terrain view when 3D is enabled', async () => {
     await renderSection();
 
-    expect(screen.queryByTestId('webview')).toBeNull();
+    expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
 
     await fireEvent(screen.getByTestId('section-map-3d-toggle'), 'pressIn');
-    expect(screen.queryByTestId('webview')).toBeNull();
+    expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
 
     await fireEvent.press(screen.getByTestId('section-map-3d-toggle'));
-    expect(screen.getByTestId('webview')).toBeTruthy();
+    expect(screen.getByTestId('webview', MAP_PAGE)).toBeTruthy();
 
+    await fireEvent(screen.getByTestId('webview', MAP_PAGE), 'message', {
+      nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) },
+    });
     await fireEvent.press(screen.getByTestId('section-map-3d-toggle'));
-    expect(screen.queryByTestId('webview')).toBeNull();
+    expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
   });
 
   it('changes style on release', async () => {
@@ -248,7 +254,7 @@ describe('SectionMapView', () => {
       await renderSection({ section: section({ polyline: [] }) });
 
       expect(screen.queryByTestId('section-map-container')).toBeNull();
-      expect(screen.queryByTestId('maplibre-map')).toBeNull();
+      expect(screen.queryByTestId('maplibre-map', MAP_PAGE)).toBeNull();
     });
 
     const cases: [string, Partial<React.ComponentProps<typeof SectionMapView>>][] = [
@@ -335,18 +341,43 @@ describe('SectionMapView', () => {
     });
   });
 
+  it('marks the 3D control busy, not the map, until the terrain page reports ready', async () => {
+    await renderSection();
+    const toggleState = () => screen.getByTestId('section-map-3d-toggle').props.accessibilityState;
+
+    await fireEvent.press(screen.getByTestId('section-map-3d-toggle'));
+
+    expect(screen.queryByTestId('section-map-3d-loading')).toBeNull();
+    expect(toggleState()).toEqual(
+      expect.objectContaining({ selected: true, busy: true, disabled: true })
+    );
+    expect(
+      within(screen.getByTestId('section-map-3d-toggle')).getByTestId('section-map-3d-busy')
+    ).toBeTruthy();
+
+    await fireEvent.press(screen.getByTestId('section-map-3d-toggle'));
+    expect(screen.getByTestId('webview', MAP_PAGE)).toBeTruthy();
+
+    await fireEvent(screen.getByTestId('webview', MAP_PAGE), 'message', {
+      nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) },
+    });
+
+    expect(toggleState()).toEqual(expect.objectContaining({ busy: false, disabled: false }));
+    expect(screen.queryByTestId('section-map-3d-busy')).toBeNull();
+  });
+
   it('falls back to the 2D map when the terrain page reports failure', async () => {
     await renderSection();
 
     await fireEvent.press(screen.getByTestId('section-map-3d-toggle'));
-    expect(screen.getByTestId('section-map-3d-loading')).toBeTruthy();
+    expect(screen.getByTestId('section-map-3d-busy')).toBeTruthy();
 
-    await fireEvent(screen.getByTestId('webview'), 'message', {
+    await fireEvent(screen.getByTestId('webview', MAP_PAGE), 'message', {
       nativeEvent: { data: JSON.stringify({ type: 'mapFailed', reason: 'ready timeout' }) },
     });
 
-    expect(screen.queryByTestId('section-map-3d-loading')).toBeNull();
-    expect(screen.queryByTestId('webview')).toBeNull();
+    expect(screen.queryByTestId('section-map-3d-busy')).toBeNull();
+    expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
     expect(screen.getByTestId('section-map-container')).toBeTruthy();
   });
 
@@ -356,14 +387,14 @@ describe('SectionMapView', () => {
     await fireEvent.press(screen.getByTestId('section-map-3d-toggle'));
     expect(screen.queryByTestId(TERRAIN_UNAVAILABLE_TEST_ID)).toBeNull();
 
-    await fireEvent(screen.getByTestId('webview'), 'message', {
+    await fireEvent(screen.getByTestId('webview', MAP_PAGE), 'message', {
       nativeEvent: {
         data: JSON.stringify({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' }),
       },
     });
 
-    expect(screen.queryByTestId('webview')).toBeNull();
-    expect(screen.queryByTestId('section-map-3d-loading')).toBeNull();
+    expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
+    expect(screen.queryByTestId('section-map-3d-busy')).toBeNull();
     expect(screen.getByTestId('section-map-3d-toggle').props.accessibilityState).toEqual(
       expect.objectContaining({ selected: false })
     );
@@ -383,7 +414,7 @@ describe('SectionMapView', () => {
 
     async function markSurfaceReady() {
       await act(async () => {
-        await fireEvent(screen.getByTestId('maplibre-map'), 'message', {
+        await fireEvent(screen.getByTestId('maplibre-map', MAP_PAGE), 'message', {
           nativeEvent: { data: JSON.stringify({ type: 'mapReady' }) },
         });
       });

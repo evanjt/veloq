@@ -256,6 +256,41 @@ describe('paper-spinner', () => {
   });
 });
 
+describe('bare-refresh-control', () => {
+  it("fails react-native's RefreshControl imported outside the shared control, under any name", () => {
+    const root = fixture({
+      'src/features/kiln/FiringLog.tsx': [
+        'import {',
+        '  View,',
+        '  RefreshControl,',
+        "} from 'react-native';",
+      ].join('\n'),
+      'src/app/kiln.tsx': "import { RefreshControl as Pull } from 'react-native';\n",
+      'src/app/glaze.tsx': [
+        "import * as RN from 'react-native';",
+        '<RN.RefreshControl refreshing={false} />',
+      ].join('\n'),
+    });
+
+    const { status, output } = runRule('bare-refresh-control', root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('src/features/kiln/FiringLog.tsx:3');
+    expect(output).toContain('src/app/kiln.tsx:1');
+    expect(output).toContain('src/app/glaze.tsx:2');
+  });
+
+  it('passes the shared control itself, other react-native imports, and tests', () => {
+    const root = fixture({
+      'src/shared/ui/ScreenRefreshControl.tsx': "import { RefreshControl } from 'react-native';\n",
+      'src/features/kiln/FiringLog.tsx': "import { View, ScrollView } from 'react-native';\n",
+      'src/__tests__/kiln.test.tsx': "import { RefreshControl } from 'react-native';\n",
+    });
+
+    expect(runRule('bare-refresh-control', root).status).toBe(0);
+  });
+});
+
 describe('lone-spinner-in-padding', () => {
   const PADDED = [
     "import { View, StyleSheet, ActivityIndicator } from 'react-native';",
@@ -1019,6 +1054,7 @@ describe('dark-counterpart', () => {
     const root = fixture({
       'src/theme/tokenFamilies.ts': real('src/theme/tokenFamilies.ts'),
       'src/theme/colors.ts': real('src/theme/colors.ts'),
+      'src/theme/colourTokens.generated.ts': real('src/theme/colourTokens.generated.ts'),
       'src/features/a/Panel.tsx': [
         `const s = StyleSheet.create({ a: { ${property}: colors.${token} } });`,
         'const Panel = ({ isDark }) => <Text style={[s.a, isDark && s.dark]} />;',
@@ -1035,6 +1071,7 @@ describe('dark-counterpart', () => {
     const root = fixture({
       'src/theme/tokenFamilies.ts': real('src/theme/tokenFamilies.ts'),
       'src/theme/colors.ts': real('src/theme/colors.ts'),
+      'src/theme/colourTokens.generated.ts': real('src/theme/colourTokens.generated.ts'),
       'src/features/a/Tabs.tsx': [
         'const s = StyleSheet.create({ active: { color: colors.actionLink } });',
         'const Tabs = ({ isDark }) => <Text style={s.active} />;',
@@ -1466,6 +1503,7 @@ describe('banner-live-region', () => {
   const SHARED = BANNERS[0];
   const DRAWN = BANNERS[5];
   const STATUS_OWNER = 'src/shared/ui/StatusLine.tsx';
+  const INLINE_OWNER = 'src/shared/ui/InlineNotice.tsx';
   const STATUS = [
     'src/app/login.tsx',
     'src/app/detection-settings.tsx',
@@ -1485,6 +1523,7 @@ describe('banner-live-region', () => {
     ...Object.fromEntries(BANNERS.map((f) => [f, ok])),
     ...Object.fromEntries(STATUS.map((f) => [f, status])),
     [STATUS_OWNER]: ok,
+    [INLINE_OWNER]: ok,
     [BOUNDARY]: status,
   });
 
@@ -1562,8 +1601,28 @@ describe('banner-live-region', () => {
     );
   });
 
+  it('passes a result drawn as an inline notice, which speaks for it', () => {
+    const root = fixture({
+      ...all(),
+      [STATUS[4]]: '<InlineNotice tone="error" title={text} />;\n',
+    });
+
+    expect(runRule('banner-live-region', root).status).toBe(0);
+  });
+
+  it('fails the inline notice when it stops speaking', () => {
+    const root = fixture({
+      ...all(),
+      [INLINE_OWNER]: '<View accessibilityLiveRegion="polite" />;\n',
+    });
+
+    expect(runRule('banner-live-region', root).output).toContain(
+      `${INLINE_OWNER}  no longer carries both`
+    );
+  });
+
   it('passes the real banners and status lines', () => {
-    const files = [...BANNERS, ...STATUS, STATUS_OWNER, BOUNDARY];
+    const files = [...BANNERS, ...STATUS, STATUS_OWNER, INLINE_OWNER, BOUNDARY];
     const root = fixture(Object.fromEntries(files.map((f) => [f, real(f)])));
 
     expect(runRule('banner-live-region', root).status).toBe(0);

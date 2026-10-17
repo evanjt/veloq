@@ -79,7 +79,9 @@ afterEach(() => jest.restoreAllMocks());
 describe('chart gesture worklets', () => {
   it('capture nothing the UI runtime cannot copy when the points carry dates', async () => {
     const pans = capturePans();
-    await renderHook(() => useChartGestures({ data: POINTS, onSelect: jest.fn() }));
+    await renderHook(() =>
+      useChartGestures({ data: POINTS, accessibilityLabel: 'Kiln heat', onSelect: jest.fn() })
+    );
 
     const worklets: [string, unknown][] = [
       ...handedToUi,

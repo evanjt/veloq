@@ -49,8 +49,6 @@ export {
   errorScreen,
   bodyDiagram,
   shaderWarmup,
-  inputBoundary,
-  switchTrackOff,
   cameraOverlay,
   mapStyleSwatchIcon,
   ink,
@@ -61,6 +59,7 @@ export {
   routePaletteIndex,
   sectionPaletteExpression,
 } from './colors';
+export { colourTokens, heatmapTileStops, type ColourToken } from './colourTokens.generated';
 export { zoneColour, type ZoneColourRole } from './zoneColour';
 export { themePalette, themedStyles, type Palette } from './palette';
 export { spacing, controlHeight, MIN_TAP_TARGET } from './spacing';
@@ -68,7 +67,7 @@ export { layout } from './layout';
 export { iconSize, type IconSize } from './iconSize';
 export { stroke } from './stroke';
 export { floatingLayers, layers } from './layers';
-export { slopToMinTapTarget } from './tapTarget';
+export { gapBetweenTargets, slopToMinTapTarget } from './tapTarget';
 export { typography } from './typography';
 export {
   FAMILY_BARS,

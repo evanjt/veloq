@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { replaceTo } from '@/shared/app/navigation';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
 import { resolveLoginLibrary } from '@/features/auth/lib/loginLibrary';
 import { recordGrantedScope } from '@/features/auth/lib/grantedScope';
@@ -74,8 +73,8 @@ export function useOAuthLogin({
       );
 
       recordGrantedScope(tokenResponse.scope);
-
-      replaceTo('/');
+      // The root layout takes the athlete off the login screen once the
+      // library's identity is settled, and that is the only way in.
     },
     [queryClient, resetSyncDateRange, setOAuthCredentials, discardQueuedKey]
   );

@@ -13,7 +13,7 @@ import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { darkColors, colors, colorWithOpacity, typography, spacing } from '@/theme';
+import { chartStyles, darkColors, colors, colorWithOpacity, typography, spacing } from '@/theme';
 import { summarySeriesColor } from '../lib/summaryMetricColour';
 import { useFormPreference } from '@/shared/app/FormPreferenceStore';
 import { formBarLayout } from '../lib/formBar';
@@ -32,7 +32,7 @@ const PLOT_BOTTOM = 2;
 export const SPARKLINE_MIN_DAYS = 2;
 
 /** The inline label column holds one short word, "Fitness" or "Form", at the cap. */
-const INLINE_LABEL_WIDTH = denseExtent(typography.pillLabel.fontSize, 3.6);
+const INLINE_LABEL_WIDTH = denseExtent(typography.caption.fontSize, 3.6);
 
 const CHART_HEIGHT = 44;
 const FORM_BAR_HEIGHT = 4;
@@ -144,6 +144,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
 
   const { gesture, crosshairStyle, syncBounds } = useChartGestures<number>({
     data: fitnessData,
+    accessibilityLabel: t('metrics.fitness'),
     scrubEnabled: !!onScrub,
     scrubActivation: 'drag',
     tapMaxDuration: 500,
@@ -199,7 +200,6 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     return <View style={{ width, height: totalHeight }} />;
   }
 
-  const labelColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const casingColor = isDark ? darkColors.chartCasing : colors.chartCasing;
   const fitnessHue = summarySeriesColor('fitness', isDark);
   const fatigueHue = summarySeriesColor('fatigue', isDark);
@@ -216,15 +216,14 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
           {showLabels ? (
             <View style={[styles.labelColumn, { width: labelWidth }]}>
               <DenseText
-                style={[
-                  styles.inlineLabel,
-                  { color: isDark ? darkColors.fitnessBlueText : colors.fitnessBlueText },
-                ]}
+                style={[chartStyles.chartLabelStrong, isDark && chartStyles.chartLabelStrongDark]}
               >
                 {t('metrics.fitness')}
               </DenseText>
               <View style={{ flex: 1 }} />
-              <DenseText style={[styles.inlineLabel, { color: labelColor }]}>
+              <DenseText
+                style={[chartStyles.chartLabelStrong, isDark && chartStyles.chartLabelStrongDark]}
+              >
                 {t('metrics.form')}
               </DenseText>
             </View>
@@ -347,16 +346,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: spacing.xxs,
   },
-  inlineLabel: {
-    fontSize: typography.pillLabel.fontSize,
-    fontWeight: '400',
-  },
   rangeLabel: {
+    ...typography.caption,
     position: 'absolute',
     bottom: '100%',
     right: 2,
-    fontSize: typography.pillLabel.fontSize,
-    fontWeight: '400',
   },
   crosshair: {
     position: 'absolute',

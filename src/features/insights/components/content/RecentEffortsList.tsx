@@ -154,8 +154,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusSm,
   },
   prText: {
+    ...typography.badge,
     color: colors.textOnBright,
-    fontSize: typography.micro.fontSize,
-    fontWeight: '700',
   },
 });

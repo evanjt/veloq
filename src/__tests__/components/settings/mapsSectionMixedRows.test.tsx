@@ -4,12 +4,14 @@
  * different styles.
  *
  * Expected behaviour: the row says Mixed for each column that disagrees, opening
- * the screen writes nothing, and only an explicit tap applies one value to
- * every member.
+ * the screen writes nothing, and only an explicit tap or choice applies one
+ * value to every member.
  */
 
 import React from 'react';
-import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor, type RenderAPI } from '@testing-library/react-native';
+
+import { PaperProvider } from 'react-native-paper';
 
 import { MapPreferencesProvider, useMapPreferences } from '@/features/settings';
 import { MapsSection } from '@/features/settings/components/MapsSection';
@@ -61,9 +63,11 @@ function Gate() {
 }
 
 const screen = () => (
-  <MapPreferencesProvider>
-    <Gate />
-  </MapPreferencesProvider>
+  <PaperProvider>
+    <MapPreferencesProvider>
+      <Gate />
+    </MapPreferencesProvider>
+  </PaperProvider>
 );
 
 const STRENGTH_SATELLITE = {
@@ -72,6 +76,17 @@ const STRENGTH_SATELLITE = {
   Yoga: 'satellite',
   Other: 'satellite',
 };
+
+/** Opens a style control and chooses one of its options by label. */
+async function choose(view: RenderAPI, testID: string, option: string) {
+  await act(async () => {
+    await fireEvent.press(view.getByTestId(testID));
+  });
+  const row = await view.findByRole('menuitem', { name: option });
+  await act(async () => {
+    await fireEvent.press(row);
+  });
+}
 
 beforeEach(() => {
   mockStore.clear();
@@ -123,13 +138,14 @@ describe('map style rows over split saved values', () => {
     );
     expect(view.getByTestId('map-style-pill-Strength')).toHaveTextContent('settings.mixed');
 
-    await act(async () => {
-      await fireEvent.press(view.getByTestId('map-style-pill-Strength'));
-    });
+    expect(view.getByTestId('map-style-pill-Strength').props.accessibilityLabel).toBe(
+      'sportFamilies.strength: settings.mixed'
+    );
+    await choose(view, 'map-style-pill-Strength', 'settings.light');
     const afterStyle = saved();
     const strengthStyles = Object.keys(STRENGTH_SATELLITE).filter((tp) => tp !== 'Other');
     const styles = new Set(strengthStyles.map((tp) => afterStyle.activityTypeStyles[tp]));
-    expect(styles.size).toBe(1);
+    expect([...styles]).toEqual(['light']);
     expect(afterStyle.terrain3DModeByType).toEqual(afterTerrain.terrain3DModeByType);
     expect(afterStyle.activityTypeStyles.Other).toBe('satellite');
     expect(view.getByTestId('map-style-pill-Strength')).not.toHaveTextContent('settings.mixed');

@@ -22,6 +22,7 @@ export {
   type AttributionOverlayRef,
 } from './components/AttributionOverlay';
 export { BaseMapView, type BaseMap3DLayer } from './components/BaseMapView';
+export { ACTIVITY_COUNT_GLYPH, FIT_GLYPH, LOCATE_GLYPH } from './lib/mapGlyphs';
 export {
   HOME_RADIUS_MAP_HEIGHT,
   HomeRadiusMap,

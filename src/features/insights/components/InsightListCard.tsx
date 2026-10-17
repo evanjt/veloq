@@ -16,6 +16,7 @@ import {
   spacing,
   typography,
   themePalette,
+  opacity,
 } from '@/theme';
 import { Card } from '@/shared/ui/Card';
 import { ChangeChip } from '@/shared/ui/ChangeChip';
@@ -88,7 +89,10 @@ export const InsightListCard = React.memo(function InsightListCard({
       <View style={styles.content}>
         <View style={styles.header}>
           <View
-            style={[styles.iconCircle, { backgroundColor: colorWithOpacity(categoryColor, 0.1) }]}
+            style={[
+              styles.iconCircle,
+              { backgroundColor: colorWithOpacity(categoryColor, opacity.tint2) },
+            ]}
           >
             <MaterialCommunityIcons
               name={insight.icon as keyof typeof MaterialCommunityIcons.glyphMap}

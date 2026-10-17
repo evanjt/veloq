@@ -440,13 +440,103 @@ fn the_pushed_online_edge_fetches_a_window_that_failed() {
     let window = listing(&server, 200);
     let _base = test_base_url(server.base_url());
 
-    crate::ffi::set_network_online(false);
+    crate::ffi::set_network_online(false, false);
     assert_eq!(window.calls(), 0, "nothing is asked while offline");
-    crate::ffi::set_network_online(true);
+    crate::ffi::set_network_online(true, false);
 
     eventually("the failed window was never fetched again", || {
         window.calls() > 0
     });
+    settle();
+    crate::net::connectivity::reset();
+}
+
+/// Scenario: the athlete leaves the app and comes back to it later. Nothing
+/// on screen asks for a sync: the return is a lifecycle fact, and deciding
+/// what it starts is the service's.
+///
+/// Expected behaviour: a return starts the default sync, leaving the profile
+/// to its age gate, and a second return while nothing settled starts it again
+/// rather than being latched away.
+#[test]
+fn a_return_from_the_background_starts_the_default_sync() {
+    let _serial = crate::test_globals::serial_global_state();
+    let (svc, runs) = recording_runs();
+
+    svc.foregrounded();
+    assert_eq!(*runs.lock().unwrap(), vec![full()]);
+
+    svc.foregrounded();
+    assert_eq!(*runs.lock().unwrap(), vec![full(), full()]);
+}
+
+/// A run that settled with an error is asked again by the next return, which
+/// is the retry the service holds now rather than a screen's hook.
+#[test]
+fn a_return_after_a_failed_sync_starts_it_again() {
+    let _serial = crate::test_globals::serial_global_state();
+    let (svc, runs) = recording_runs();
+    svc.claim_slot().expect("the slot is free");
+    svc.finish(SyncState::Idle, failure(FfiSyncErrorReason::Server), false);
+
+    svc.foregrounded();
+
+    assert_eq!(*runs.lock().unwrap(), vec![full()]);
+}
+
+#[test]
+fn a_return_while_the_credential_is_parked_starts_nothing() {
+    let _serial = crate::test_globals::serial_global_state();
+    let (svc, runs) = recording_runs();
+    svc.park_auth_expired_now();
+
+    svc.foregrounded();
+
+    assert!(runs.lock().unwrap().is_empty());
+}
+
+/// Demo mode and a signed-out install hold no credential, so there is no
+/// athlete to sync for.
+#[test]
+fn a_return_with_no_credential_starts_nothing() {
+    let _serial = crate::test_globals::serial_global_state();
+    let (svc, runs) = recording_runs();
+    svc.clear_credentials();
+
+    svc.foregrounded();
+
+    assert!(runs.lock().unwrap().is_empty());
+}
+
+/// Scenario: the global service, driven through the FFI's connectivity push
+/// as the network provider makes it on a return from the background.
+///
+/// Expected behaviour: the push that says it is a return starts a sync that
+/// reaches the server, and the same push without the return, the provider's
+/// quarter-hour re-read, starts nothing.
+#[test]
+fn the_pushed_foreground_return_starts_a_sync() {
+    let _serial = crate::test_globals::serial_global_state();
+    let _tmp = crate::test_globals::init_global_engine("foreground-sync.db");
+    let _creds = test_credentials();
+    crate::net::connectivity::reset();
+    let server = MockServer::start();
+    let any = server.mock(|when, then| {
+        when.method(GET);
+        then.status(200).json_body(serde_json::json!([]));
+    });
+    let _base = test_base_url(server.base_url());
+
+    crate::ffi::set_network_online(true, false);
+    assert_eq!(
+        SYNC_SERVICE.snapshot().state,
+        SyncState::Idle,
+        "a re-read that is not a return starts nothing"
+    );
+    assert_eq!(any.calls(), 0);
+
+    crate::ffi::set_network_online(true, true);
+    eventually("the return never reached the server", || any.calls() > 0);
     settle();
     crate::net::connectivity::reset();
 }
