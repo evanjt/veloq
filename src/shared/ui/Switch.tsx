@@ -43,7 +43,7 @@ export function switchColors(
   const palette = isDark ? darkColors : colors;
   const trackColor = { true: palette.controlOn, false: palette.controlBoundary };
   if (os === 'ios') return { trackColor, ios_backgroundColor: palette.controlBoundary };
-  return { thumbColor: value ? colors.textOnPrimary : palette.surface, trackColor };
+  return { thumbColor: value ? colors.textOnFill : palette.surface, trackColor };
 }
 
 export function Switch({

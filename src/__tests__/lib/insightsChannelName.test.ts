@@ -10,6 +10,7 @@
  */
 
 import * as Notifications from 'expo-notifications';
+import { AndroidImportance } from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import { changeLanguage, i18n, initialiseI18n } from '@/i18n';
@@ -82,7 +83,7 @@ describe('the activity channel', () => {
     const calls = (Notifications.setNotificationChannelAsync as jest.Mock).mock.calls;
     expect(calls.map(([id]) => id)).toEqual(['veloq-activity']);
     const [, channel] = calls[0];
-    expect(channel.importance).toBe(Notifications.AndroidImportance.DEFAULT);
+    expect(channel.importance).toBe(AndroidImportance.DEFAULT);
     expect(channel.vibrationPattern).toBeUndefined();
   });
 

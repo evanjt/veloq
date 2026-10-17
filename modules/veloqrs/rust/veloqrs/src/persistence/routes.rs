@@ -2325,7 +2325,7 @@ pub(crate) mod pooled {
                 custom_name: names.get(&group_id).cloned(),
                 representative_id: row.get(1)?,
                 activity_count,
-                bounds: decode_group_bounds(row)?.map(crate::FfiBounds::from),
+                bounds: decode_group_bounds(row)?,
                 distance_meters: row.get(7)?,
                 sport_types: Vec::new(),
                 group_id,

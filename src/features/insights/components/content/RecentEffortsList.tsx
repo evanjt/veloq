@@ -1,14 +1,14 @@
 import React, { useMemo, useCallback } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { formatDuration, formatShortDate, safeGetTime } from '@/shared/format/format';
 import { brand, colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
 import type { SectionPerformanceRecord } from '@/features/routes';
 import { pressable, pressRipple } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { directionEfforts, type DirectionBests } from '@/features/insights/lib/directionBests';
 
 const MAX_EFFORTS = 5;
@@ -37,7 +37,7 @@ export const RecentEffortsList = React.memo(function RecentEffortsList({
   }, [records, bests]);
 
   const handlePress = useCallback((activityId: string) => {
-    tapTo(`/activity/${activityId}`);
+    navigateTo(`/activity/${activityId}`);
   }, []);
 
   if (recentEfforts.length === 0) return null;
@@ -66,11 +66,7 @@ export const RecentEffortsList = React.memo(function RecentEffortsList({
               <Text style={[styles.time, isDark && styles.timeDark]}>{formatDuration(time)}</Text>
               {isPR ? (
                 <View style={styles.prBadge}>
-                  <MaterialCommunityIcons
-                    name="trophy"
-                    size={iconSize.xs}
-                    color={colors.textOnBright}
-                  />
+                  <Icon name="trophy" size={iconSize.xs} color={colors.textOnBright} />
                   <Text style={styles.prText}>{t('sections.legendPr')}</Text>
                 </View>
               ) : delta != null ? (
@@ -78,7 +74,7 @@ export const RecentEffortsList = React.memo(function RecentEffortsList({
                   +{formatDuration(delta)}
                 </Text>
               ) : null}
-              <MaterialCommunityIcons
+              <Icon
                 name="chevron-right"
                 size={iconSize.sm}
                 color={isDark ? darkColors.textSecondary : colors.textSecondary}

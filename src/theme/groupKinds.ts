@@ -10,8 +10,8 @@
  * does not fit them. Each is one of three kinds:
  *
  * - `pair` states a foreground and its own ground together, so the pair is
- *   measurable without knowing the screen: the offline pill's text on the
- *   pill's fill. A translucent fill is composited over the theme surface
+ *   measurable without knowing the screen: the QR scanner's text on its
+ *   camera chrome. A translucent fill is composited over the theme surface
  *   first, which is where the alpha of an eight-digit hex fill matters.
  * - `mark` is drawn on whatever surface the theme gives it, so it answers to
  *   3:1 against the three surfaces of its theme, the same as a mark token.
@@ -87,9 +87,20 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
     kind: 'series',
     reason: 'a six-step effort ramp, read against its neighbours and labelled with the number',
   },
-  strengthRamp: {
+  sequentialRamp: {
     kind: 'series',
-    reason: 'a five-step volume ramp on the body diagram, with a legend',
+    reason:
+      'five magnitude steps per mode, the body diagram volume and the heatmaps, read against the step beside it with a legend',
+  },
+  divergingRamp: {
+    kind: 'series',
+    reason:
+      'three steps each side of a grey midpoint per mode, read against the baseline and labelled by the axis or the legend',
+  },
+  sportFamilyColours: {
+    kind: 'series',
+    reason:
+      'one colour per sport family and two fixed sub-shades, drawn as a mark beside the sport name, never as its ground',
   },
   strengthTone: {
     kind: 'series',
@@ -119,19 +130,10 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
     reason:
       'lines on map tiles, each over its own white casing, which is outside the surface rule: the ground is the basemap',
   },
-  gradientScale: {
-    kind: 'series',
-    reason:
-      'the activity line coloured by gradient, over its white casing on the basemap, keyed by a labelled ramp while it draws',
-  },
   chartStreamColors: {
     kind: 'series',
-    reason: 'one hue per stream, with a labelled chip and a labelled axis',
-  },
-  chartStreamInk: {
-    kind: 'series',
     reason:
-      'the label ink of a selected chart chip, one per stream hue. Measured against its hue at 4.5:1 in chartStreamInk.test.ts, because the ground is in another group',
+      'one hue per stream and mode, with a labelled chip and a labelled axis; speed and pace share one, elevation and temperature are grey context',
   },
   sectionPaletteInk: {
     kind: 'series',
@@ -198,11 +200,6 @@ export const GROUP_KINDS: Record<string, GroupSpec> = {
       { paths: ['light'], theme: 'light' },
       { paths: ['dark'], theme: 'dark' },
     ],
-  },
-  offlinePill: {
-    kind: 'pair',
-    reason: 'the offline pill floats over either scheme, so it carries its own fill and ink',
-    pairs: [{ ground: 'bg', on: ['text'], bar: 'text' }],
   },
   contributionRamp: {
     kind: 'series',

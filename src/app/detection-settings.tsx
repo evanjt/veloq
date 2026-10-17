@@ -22,7 +22,7 @@ import {
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { SwitchRow } from '@/shared/ui/SwitchRow';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { confirmAction } from '@/shared/ui/dialog';
 
 function DetectionSettingsScreenContent() {
@@ -32,8 +32,8 @@ function DetectionSettingsScreenContent() {
   const routeMatchingEnabled = useRouteSettings((s) => s.settings.enabled);
   const setRouteMatchingEnabled = useRouteSettings((s) => s.setEnabled);
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const bg = isDark ? darkColors.background : colors.background;
-  const danger = isDark ? darkColors.error : colors.error;
+  const bg = isDark ? darkColors.surfacePage : colors.surfacePage;
+  const danger = isDark ? darkColors.errorText : colors.errorText;
 
   const {
     forceRescan,
@@ -97,14 +97,14 @@ function DetectionSettingsScreenContent() {
                   testID="detection-preview-row"
                   icon="map-search-outline"
                   title={t('settings.previewSections')}
-                  onPress={() => tapTo('/detection-preview')}
+                  onPress={() => navigateTo('/detection-preview')}
                   disabled={!routeMatchingEnabled}
                 />
                 <SettingsNavRow
                   testID="route-grouping-preview-row"
                   icon="source-branch"
                   title={t('settings.previewRouteGrouping')}
-                  onPress={() => tapTo('/route-grouping-preview')}
+                  onPress={() => navigateTo('/route-grouping-preview')}
                   disabled={!routeMatchingEnabled}
                 />
               </RowGroup>

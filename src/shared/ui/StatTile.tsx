@@ -9,7 +9,7 @@
  */
 
 import React from 'react';
-import { Pressable, StyleSheet, View, type TextStyle } from 'react-native';
+import { StyleSheet, View, type TextStyle } from 'react-native';
 import { useTheme } from '@/shared/app';
 import {
   spacing,
@@ -21,7 +21,7 @@ import {
 } from '@/theme';
 import { composeAccessibilityLabel } from './accessibilityLabel';
 import { DenseText } from './DenseText';
-import { pressable, pressRipple } from './pressFeedback';
+import { PressTarget } from './PressTarget';
 
 /**
  * A change beside the value. The glyph is the arrow or sign the move is drawn
@@ -159,18 +159,17 @@ export function StatTile({
 
   if (onPress !== undefined) {
     return (
-      <Pressable
+      <PressTarget
         testID={testID}
         accessibilityRole="button"
         accessibilityLabel={spoken}
         accessibilityState={{ disabled }}
         disabled={disabled}
         onPress={onPress}
-        style={pressable(frame)}
-        android_ripple={pressRipple}
+        style={frame}
       >
         {body}
-      </Pressable>
+      </PressTarget>
     );
   }
   return (

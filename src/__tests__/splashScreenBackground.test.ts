@@ -59,7 +59,7 @@ function splashColor(xml: ColorsXml): string | undefined {
 
 describe('the splash background', () => {
   it('is the brand blue the launcher icon sits on', () => {
-    expect(brandBlue()).toBe('#5B9BD5');
+    expect(brandBlue()).toBe('#2F6699');
   });
 
   it('is generated into the Android colours for light mode', async () => {

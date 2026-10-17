@@ -93,7 +93,11 @@ fn a_run_killed_after_its_first_checkpoint_resumes_where_it_stopped() {
         .collect();
     let cold = ingest_step(&mut engine, "cold", &base).snapshot;
     assert_catalogue_populated("cold", &cold);
-    let existing = engine.get_sections().to_vec();
+    let existing: Vec<_> = engine
+        .get_sections()
+        .iter()
+        .map(|s| (**s).clone())
+        .collect();
 
     // The uninterrupted answer, from the same state on a twin engine.
     let twin_path = dir.path().join("twin.db");

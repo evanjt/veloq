@@ -1,13 +1,12 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Canvas, Path } from '@shopify/react-native-skia';
 import { useTranslation } from 'react-i18next';
 import type { TFunc } from '../types';
 import { sectionRowKey, sectionWithSport } from '../lib/cardSport';
 import { rowTrendColor, rowTrendIcon, rowTrendWord } from '../lib/rowTrend';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
 import {
   colors,
@@ -25,6 +24,7 @@ import { InsightHistoryChart } from './InsightHistoryChart';
 import { formatDuration } from '@/shared/format/format';
 import type { InsightSupportingData } from '@/types';
 import { composeAccessibilityLabel, Row } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { TrackPreview, normaliseTrackPoints } from '@/shared/ui/TrackPreview';
 import { spokenVerdict } from '@/shared/format/spoken';
 import { verdictIcon, verdictRung } from '@/shared/format/trend';
@@ -57,7 +57,7 @@ function SectionPreview({
     <TrackPreview
       testID={`section-preview-${sectionId}`}
       points={normalised}
-      color={palette.primary}
+      color={palette.actionPrimary}
       isDark={isDark}
     />
   );
@@ -115,7 +115,7 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
         color={trendColor}
         accessory={
           trendGlyph && trendGlyph !== 'minus' ? (
-            <MaterialCommunityIcons
+            <Icon
               name={trendGlyph}
               size={iconSize.md}
               color={trendColor}
@@ -162,11 +162,7 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
             </View>
           </View>
           <View style={styles.comparisonChange}>
-            <MaterialCommunityIcons
-              name={trendGlyph ?? 'minus'}
-              size={iconSize.md}
-              color={trendColor}
-            />
+            <Icon name={trendGlyph ?? 'minus'} size={iconSize.md} color={trendColor} />
             <Text style={[styles.comparisonChangeText, { color: trendColor }]}>
               {String(comparison.change.value)}
               {comparison.change.unit ? ` ${comparison.change.unit}` : ''}
@@ -199,7 +195,7 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
                   traversals,
                   rowTrendWord(section.trend)
                 )}
-                onPress={() => tapTo(`/section/${section.sectionId}`)}
+                onPress={() => navigateTo(`/section/${section.sectionId}`)}
               >
                 <SectionPreview sectionId={section.sectionId} points={section.previewPoints} />
                 <View style={styles.sectionContent}>
@@ -219,7 +215,7 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
                         {traversals}
                       </Text>
                     ) : null}
-                    <MaterialCommunityIcons
+                    <Icon
                       name={rowTrendIcon(section.trend)}
                       size={iconSize.sm}
                       color={rowTrendColor(section.trend, isDark)}

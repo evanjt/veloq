@@ -93,7 +93,11 @@ fn a_section_whose_members_left_the_pool_is_not_persisted() {
     let before = engine.get_sections().len();
 
     // The payload: a frozen carry whose every member has left the pool.
-    let mut broken: Vec<_> = engine.get_sections().to_vec();
+    let mut broken: Vec<_> = engine
+        .get_sections()
+        .iter()
+        .map(|s| (**s).clone())
+        .collect();
     let victim = broken[0].id.clone();
     for portion in &mut broken[0].activity_portions {
         portion.activity_id = "ghost-activity".to_string();
@@ -117,7 +121,11 @@ fn an_auto_section_with_no_portions_at_all_trips_the_contract() {
     // Not the unpooled case above: the portions are gone, not stale. Nothing
     // legitimate emits this, so the assert catches an upstream regression
     // rather than a state the apply is meant to handle.
-    let mut broken: Vec<_> = engine.get_sections().to_vec();
+    let mut broken: Vec<_> = engine
+        .get_sections()
+        .iter()
+        .map(|s| (**s).clone())
+        .collect();
     broken[0].activity_portions.clear();
     let _ = engine.apply_sections(broken);
 }
@@ -128,7 +136,11 @@ fn a_user_defined_section_with_no_portions_still_applies() {
 
     // A hand-drawn section nobody has run yet is a legitimate zero-portion
     // input, so the contract check exempts it.
-    let mut drawn: Vec<_> = engine.get_sections().to_vec();
+    let mut drawn: Vec<_> = engine
+        .get_sections()
+        .iter()
+        .map(|s| (**s).clone())
+        .collect();
     drawn[0].is_user_defined = true;
     drawn[0].activity_portions.clear();
     drawn[0].activity_ids.clear();

@@ -47,10 +47,16 @@ jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('@/shared/app/SyncDateRangeStore', () => ({
   useSyncDateRange: (selector: (state: unknown) => unknown) =>
     selector({
-      gpsSyncProgress: { status: 'fetching', current: 4, total: 10 },
-      isGpsSyncing: true,
       extendedFetch: { running: true },
     }),
+}));
+jest.mock('@/shared/native/useSyncStatus', () => ({
+  useTrackStage: () => ({
+    step: require('../__shared__/veloqrsStub').TrackStep.Downloading,
+    completed: 4,
+    total: 10,
+    percent: 40,
+  }),
 }));
 
 jest.mock('@/shared/app/extendedFetch', () => ({ isExtendedFetchRunning: () => false }));

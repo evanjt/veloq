@@ -17,10 +17,10 @@ jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub').withOverrides
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').fallbackOrKey());
 
-const mockTapTo = jest.fn();
+const mockNavigateTo = jest.fn();
 jest.mock('@/shared/app/navigation', () => ({
   ...jest.requireActual('@/shared/app/navigation'),
-  tapTo: (...a: unknown[]) => mockTapTo(...a),
+  navigateTo: (...a: unknown[]) => mockNavigateTo(...a),
 }));
 
 jest.mock('@/shared/app/TopSafeAreaContext', () => ({

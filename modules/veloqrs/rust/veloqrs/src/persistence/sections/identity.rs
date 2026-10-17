@@ -38,6 +38,7 @@
 //! user has frozen. That is what flips accept/trim/merge survival by construction.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::Connection;
@@ -55,6 +56,10 @@ use tracematch::{
 #[path = "tests/replay_off_lock.rs"]
 mod replay_off_lock_tests;
 
+#[cfg(all(test, feature = "synthetic"))]
+#[path = "tests/shared_payload.rs"]
+mod shared_payload_tests;
+
 /// Sets each row's sport to the dominant sport of its members. A row none of
 /// whose members has a known sport keeps its label.
 fn relabel_by_member_sport(
@@ -68,7 +73,10 @@ fn relabel_by_member_sport(
             .iter()
             .any(|id| sports.contains_key(id))
         {
-            row.section.sport_type = tracematch::dominant_sport(&row.section.activity_ids, sports);
+            let sport = tracematch::dominant_sport(&row.section.activity_ids, sports);
+            if row.section.sport_type != sport {
+                Arc::make_mut(&mut row.section).sport_type = sport;
+            }
         }
     }
 }
@@ -256,7 +264,7 @@ impl SectionReplay<()> {
 /// lifecycle event its steps fired in step order, and the raw catalogue of the
 /// last step, which is `None` for a replay with no step.
 pub(crate) struct ReplayApplied {
-    pub visible: Vec<FrequentSection>,
+    pub visible: Vec<Arc<FrequentSection>>,
     pub events: Vec<SectionLifecycleEvent>,
     pub raw: Option<Vec<FrequentSection>>,
 }
@@ -384,7 +392,28 @@ pub(crate) struct IdentityRow {
     /// The content or clock id written to `sections.id`, or a seeded existing id.
     real_id: String,
     /// The section persisted under `real_id`. `section.id == real_id` always.
-    section: FrequentSection,
+    /// The visible catalogue holds the same allocation, so an edit goes through
+    /// [`PersistentEngine::edit_sections`] to land in both. Encoded exactly as
+    /// the bare section, so the blob layout does not depend on the sharing.
+    #[serde(serialize_with = "section_without_rank")]
+    section: Arc<FrequentSection>,
+}
+
+/// A row's payload as the registry persists it: with no rank. The registry
+/// holds identity, the tables hold the score, and ranking runs again after
+/// every apply, so a rank in the blob would describe a catalogue that is gone,
+/// and one the tables could not give back after a restart. Only a ranked
+/// section is copied to leave it out, one at a time.
+fn section_without_rank<S: serde::Serializer>(
+    section: &Arc<FrequentSection>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    if section.rank.is_none() {
+        return section.serialize(serializer);
+    }
+    let mut unranked = FrequentSection::clone(section);
+    unranked.rank = None;
+    unranked.serialize(serializer)
 }
 
 /// One tombstoned section: its real id and the identity fields a restore puts
@@ -421,7 +450,7 @@ impl GraveRow {
         section.sport_type = self.sport_type;
         IdentityRow {
             real_id: self.real_id,
-            section,
+            section: Arc::new(section),
         }
     }
 }
@@ -429,13 +458,15 @@ impl GraveRow {
 impl From<IdentityRow> for GraveRow {
     fn from(row: IdentityRow) -> Self {
         let IdentityRow { real_id, section } = row;
+        // Field by field: the payload is usually still shared with the
+        // visible catalogue, and a grave needs none of the rest of it.
         Self {
             real_id,
-            name: section.name,
-            created_at: section.created_at,
+            name: section.name.clone(),
+            created_at: section.created_at.clone(),
             version: section.version,
-            updated_at: section.updated_at,
-            sport_type: section.sport_type,
+            updated_at: section.updated_at.clone(),
+            sport_type: section.sport_type.clone(),
         }
     }
 }
@@ -609,7 +640,7 @@ impl PersistentEngine {
             .rows
             .values()
             .find(|r| r.real_id == real_id)
-            .map(|r| &r.section)
+            .map(|r| &*r.section)
     }
 
     /// The pure join id the registry holds a real id under, if it holds it.
@@ -774,6 +805,7 @@ impl PersistentEngine {
         match codec::deserialize_gps_composite::<SectionIdentity>(body) {
             Ok(state) => {
                 self.identity = state;
+                self.share_loaded_sections();
                 // Stored ids seed `taken` before minting, so a stale blob cannot
                 // mint a duplicate content id for a section saved after the blob.
                 true
@@ -823,15 +855,17 @@ impl PersistentEngine {
     /// loaded catalogue leaves them out, but the registry is what a detect
     /// writes the section from when it carries it unchanged, and a member the
     /// registry lacks is written with no row for the exclusion to sit on.
-    fn with_excluded_members(&self, section: &FrequentSection) -> FrequentSection {
-        let mut whole = section.clone();
+    ///
+    /// A section with no exclusion is returned as the loaded allocation, so the
+    /// registry and the visible catalogue share it.
+    fn with_excluded_members(&self, section: &Arc<FrequentSection>) -> Arc<FrequentSection> {
         let Ok(mut stmt) = self.db.prepare_cached(
             "SELECT activity_id, direction, start_index, end_index, distance_meters
              FROM section_activities
              WHERE section_id = ? AND excluded = 1
              ORDER BY activity_id, start_index",
         ) else {
-            return whole;
+            return Arc::clone(section);
         };
         let rows = stmt.query_map(rusqlite::params![section.id], |row| {
             let direction: String = row.get(1)?;
@@ -843,14 +877,114 @@ impl PersistentEngine {
                 direction: direction.parse().unwrap_or(tracematch::Direction::Same),
             })
         });
-        for portion in rows.into_iter().flatten().flatten() {
+        let excluded: Vec<tracematch::SectionPortion> =
+            rows.into_iter().flatten().flatten().collect();
+        if excluded.is_empty() {
+            return Arc::clone(section);
+        }
+        let mut whole = FrequentSection::clone(section);
+        for portion in excluded {
             if !whole.activity_ids.contains(&portion.activity_id) {
                 whole.activity_ids.push(portion.activity_id.clone());
             }
             whole.visit_count += 1;
             whole.activity_portions.push(portion);
         }
-        whole
+        Arc::new(whole)
+    }
+
+    /// The one write path for a visible section held in memory.
+    ///
+    /// `edit` runs on each listed visible section. An auto section that shares
+    /// its identity row's payload is edited once and both keep holding the
+    /// result. One whose row holds its own copy, the members the athlete
+    /// excluded put back, has the edit applied to both. Any other section,
+    /// custom or accepted, is edited where it is shown. So a rank, a name or a
+    /// lift flag lands in the registry too and leaves the payload shared.
+    pub(crate) fn edit_sections(
+        &mut self,
+        indices: impl IntoIterator<Item = usize>,
+        mut edit: impl FnMut(usize, &mut FrequentSection),
+    ) {
+        let mut rows: HashMap<&str, &mut Arc<FrequentSection>> = self
+            .identity
+            .rows
+            .values_mut()
+            .map(|row| {
+                let IdentityRow { real_id, section } = row;
+                let real_id: &String = real_id;
+                (real_id.as_str(), section)
+            })
+            .collect();
+        for idx in indices {
+            let Some(row) = rows.get_mut(self.sections[idx].id.as_str()) else {
+                edit(idx, Arc::make_mut(&mut self.sections[idx]));
+                continue;
+            };
+            if Arc::ptr_eq(row, &self.sections[idx]) {
+                edit_shared(&mut self.sections, idx, row, |section| edit(idx, section));
+            } else {
+                edit(idx, Arc::make_mut(row));
+                edit(idx, Arc::make_mut(&mut self.sections[idx]));
+            }
+        }
+    }
+
+    /// [`edit_sections`](Self::edit_sections) for the visible section with
+    /// `section_id`. False when no such section is held.
+    pub(crate) fn edit_section(
+        &mut self,
+        section_id: &str,
+        mut edit: impl FnMut(&mut FrequentSection),
+    ) -> bool {
+        let Some(idx) = self.sections.iter().position(|s| s.id == section_id) else {
+            return false;
+        };
+        self.edit_sections([idx], |_, section| edit(section));
+        true
+    }
+
+    /// Point each identity row at the visible section loaded for its real id,
+    /// so the two hold one payload.
+    ///
+    /// The tables own the section's fields, so the loaded section is what both
+    /// keep, with one exception: the members stay in the order the registry
+    /// holds them. The load reads them sorted, the detect that wrote them did
+    /// not, and the order is what a later fold appends to, so the registry
+    /// restored from its blob stays exactly the registry that wrote it. A row
+    /// whose members differ from the loaded ones keeps its own payload: that
+    /// is a row holding the members the athlete excluded, which the view
+    /// leaves out and the registry must not lose.
+    pub(crate) fn share_loaded_sections(&mut self) {
+        let loaded: HashMap<&str, usize> = self
+            .sections
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| !s.is_user_defined)
+            .map(|(idx, s)| (s.id.as_str(), idx))
+            .collect();
+        let mut adopt: Vec<(String, usize)> = Vec::new();
+        for (pid, row) in &self.identity.rows {
+            let Some(&idx) = loaded.get(row.real_id.as_str()) else {
+                continue;
+            };
+            let visible = &self.sections[idx];
+            if !Arc::ptr_eq(&row.section, visible) && same_members(&row.section, visible) {
+                adopt.push((pid.clone(), idx));
+            }
+        }
+        for (pid, idx) in adopt {
+            let Some(row) = self.identity.rows.get_mut(&pid) else {
+                continue;
+            };
+            let visible = &mut self.sections[idx];
+            let shared = Arc::make_mut(visible);
+            shared.activity_ids.clone_from(&row.section.activity_ids);
+            shared
+                .activity_portions
+                .clone_from(&row.section.activity_portions);
+            row.section = Arc::clone(visible);
+        }
     }
 
     /// Seed the registry from the sections already loaded from the DB, adopting
@@ -869,7 +1003,7 @@ impl PersistentEngine {
     /// so the caller decides whether to persist it (see
     /// [`section_identity_reseed_decisive`](Self::section_identity_reseed_decisive)).
     pub(crate) fn section_identity_reseed(&mut self) {
-        let managed: Vec<FrequentSection> = self
+        let managed: Vec<Arc<FrequentSection>> = self
             .sections
             .iter()
             .filter(|s| !s.is_user_defined)
@@ -877,8 +1011,10 @@ impl PersistentEngine {
             .collect();
 
         let mut identity = SectionIdentity::default();
-        let candidates: Vec<CandidateSection> =
-            managed.iter().map(CandidateSection::from_section).collect();
+        let candidates: Vec<CandidateSection> = managed
+            .iter()
+            .map(|s| CandidateSection::from_section(s))
+            .collect();
         // A fresh state mints one pure id per seed; join the real DB id onto each.
         let (_out, resolutions) = identity.hysteresis.step_assign(&candidates);
         for (j, section) in managed.into_iter().enumerate() {
@@ -1239,13 +1375,16 @@ impl ReplaySource<'_> {
                     // fields carry, and prior members the non-monotone batch
                     // re-clustering dropped are grafted back against the NEW
                     // geometry so membership stays monotone across the adopt.
-                    let prior =
-                        std::mem::replace(&mut row.section, payload.take().unwrap().clone());
-                    row.section.id = row.real_id.clone();
-                    row.section.name = prior.name.clone();
-                    row.section.created_at = prior.created_at.clone();
-                    row.section.version = prior.version;
-                    row.section.updated_at = prior.updated_at.clone();
+                    let prior = std::mem::replace(
+                        &mut row.section,
+                        Arc::new(payload.take().unwrap().clone()),
+                    );
+                    let adopted = Arc::make_mut(&mut row.section);
+                    adopted.id = row.real_id.clone();
+                    adopted.name = prior.name.clone();
+                    adopted.created_at = prior.created_at.clone();
+                    adopted.version = prior.version;
+                    adopted.updated_at = prior.updated_at.clone();
                     // The sport is derived from the ground: pooled detection
                     // labels a cut by the traffic that runs it, so an adopted
                     // carry takes the cut's label and two libraries with the
@@ -1253,7 +1392,7 @@ impl ReplaySource<'_> {
                     // frozen carry keeps the prior payload, label included.
                     graft_prior_members(
                         source.conn,
-                        &mut row.section,
+                        Arc::make_mut(&mut row.section),
                         cut,
                         &prior,
                         &judged,
@@ -1298,7 +1437,10 @@ impl ReplaySource<'_> {
                 // carries, dissolves, and restores instead of re-stamping at
                 // every save.
                 section.created_at = Some(super::stamp_now());
-                IdentityRow { real_id, section }
+                IdentityRow {
+                    real_id,
+                    section: Arc::new(section),
+                }
             });
             new_rows.insert(pid, row);
         }
@@ -1665,6 +1807,48 @@ impl PersistentEngine {
     }
 }
 
+/// Apply `edit` to a payload visible entry `idx` shares with `row`, and leave
+/// both holding the one result. The visible handle is let go first, so the
+/// edit is made in place unless something else, a trial registry say, also
+/// holds the payload, in which case only this section is copied.
+fn edit_shared<R>(
+    sections: &mut Vec<Arc<FrequentSection>>,
+    idx: usize,
+    row: &mut Arc<FrequentSection>,
+    edit: impl FnOnce(&mut FrequentSection) -> R,
+) -> R {
+    drop(sections.swap_remove(idx));
+    let out = edit(Arc::make_mut(row));
+    sections.push(Arc::clone(row));
+    let last = sections.len() - 1;
+    sections.swap(idx, last);
+    out
+}
+
+/// Whether two payloads of one section hold the same passes, in any order.
+fn same_members(a: &FrequentSection, b: &FrequentSection) -> bool {
+    fn passes(section: &FrequentSection) -> Vec<(&str, u32, u32, u64, &'static str)> {
+        let mut passes: Vec<_> = section
+            .activity_portions
+            .iter()
+            .map(|p| {
+                (
+                    p.activity_id.as_str(),
+                    p.start_index,
+                    p.end_index,
+                    p.distance_meters.to_bits(),
+                    p.direction.as_str(),
+                )
+            })
+            .collect();
+        passes.sort_unstable();
+        passes
+    }
+    a.activity_ids.len() == b.activity_ids.len()
+        && a.activity_portions.len() == b.activity_portions.len()
+        && passes(a) == passes(b)
+}
+
 /// Encode a section registry for persistence.
 pub(crate) fn identity_blob_for(identity: &SectionIdentity) -> Option<Vec<u8>> {
     codec::serialize_named(identity)
@@ -1675,9 +1859,18 @@ pub(crate) fn identity_blob_for(identity: &SectionIdentity) -> Option<Vec<u8>> {
 /// Remove an activity from candidate registry and section tiers.
 pub(crate) fn purge_activity_from_tiers(
     identity: &mut SectionIdentity,
-    sections: &mut [FrequentSection],
+    sections: &mut Vec<Arc<FrequentSection>>,
     activity_id: &str,
 ) -> bool {
+    /// Whether the section holds the activity at all. Only one that does is
+    /// copied out of a shared payload.
+    fn carries(section: &FrequentSection, activity_id: &str) -> bool {
+        section.activity_ids.iter().any(|a| a == activity_id)
+            || section
+                .activity_portions
+                .iter()
+                .any(|p| p.activity_id == activity_id)
+    }
     /// Whether the section carried the activity at all, and how many
     /// passes left with it.
     fn drop_from(section: &mut FrequentSection, activity_id: &str) -> (bool, u32) {
@@ -1700,7 +1893,15 @@ pub(crate) fn purge_activity_from_tiers(
     // Telling it what left keeps a deletion from narrating one.
     let mut dropped_by_pid: Vec<(String, u32)> = Vec::new();
     for (pid, row) in identity.rows.iter_mut() {
-        let (touched, dropped) = drop_from(&mut row.section, activity_id);
+        if !carries(&row.section, activity_id) {
+            continue;
+        }
+        let (touched, dropped) = match sections.iter().position(|s| Arc::ptr_eq(s, &row.section)) {
+            Some(idx) => edit_shared(sections, idx, &mut row.section, |section| {
+                drop_from(section, activity_id)
+            }),
+            None => drop_from(Arc::make_mut(&mut row.section), activity_id),
+        };
         moved |= touched;
         if dropped > 0 {
             dropped_by_pid.push((pid.clone(), dropped));
@@ -1710,8 +1911,10 @@ pub(crate) fn purge_activity_from_tiers(
         identity.hysteresis.drop_visits(&pid, dropped);
     }
     moved |= identity.seen.remove(activity_id);
-    for section in sections {
-        drop_from(section, activity_id);
+    for section in sections.iter_mut() {
+        if carries(section, activity_id) {
+            drop_from(Arc::make_mut(section), activity_id);
+        }
     }
     // The blob is the whole catalogue, and a bulk delete is one call per
     // activity, so an untouched registry writes nothing.
@@ -2047,9 +2250,11 @@ fn arrival_portions<'a>(
 /// only those. Never removes a member and never adopts the batch's
 /// re-clustered set, so a carried section is monotone across an add, the
 /// property the strict single-add gates assert. New laps bump `visit_count` in
-/// step with the junction rows `save_sections` will write.
+/// step with the junction rows `save_sections` will write. The payload is
+/// copied only when an arrival joins it, so a carry that gains nothing stays
+/// the allocation the visible catalogue shares.
 fn fold_new_activities(
-    section: &mut FrequentSection,
+    section: &mut Arc<FrequentSection>,
     cut: Option<&FrequentSection>,
     judged: &dyn Fn(&FrequentSection, &str) -> bool,
     new_tracks: &BTreeMap<String, Vec<GpsPoint>>,
@@ -2067,6 +2272,7 @@ fn fold_new_activities(
         if portions.is_empty() {
             continue;
         }
+        let section = Arc::make_mut(section);
         section.activity_ids.push(aid.clone());
         section.visit_count += portions.len() as u32;
         section.activity_portions.extend(portions);
@@ -2239,7 +2445,7 @@ mod tests {
                 id.to_string(),
                 IdentityRow {
                     real_id: id.to_string(),
-                    section,
+                    section: Arc::new(section),
                 },
             )
         };
@@ -2440,7 +2646,7 @@ mod tests {
             "s_1".to_string(),
             IdentityRow {
                 real_id: section.id.clone(),
-                section,
+                section: Arc::new(section),
             },
         );
         engine
@@ -2584,9 +2790,14 @@ mod tests {
             let real_id = format!("ride:u0m6q{i:03}");
             id_bytes += pid.len() + real_id.len();
             let section = retired_section(&real_id);
-            identity
-                .graves
-                .insert(pid, IdentityRow { real_id, section }.into());
+            identity.graves.insert(
+                pid,
+                IdentityRow {
+                    real_id,
+                    section: Arc::new(section),
+                }
+                .into(),
+            );
         }
         let full = named(&identity).len();
 
@@ -2620,9 +2831,10 @@ mod tests {
         let (mut engine, mut identity) = seeded(&dir);
         let hill_row = {
             let row = identity.rows.values_mut().next().expect("the hill row");
-            row.section.name = Some("Larkspur Climb".to_string());
-            row.section.created_at = Some("2021-03-04T05:06:07+00:00".to_string());
-            row.section.version = 4;
+            let hill = Arc::make_mut(&mut row.section);
+            hill.name = Some("Larkspur Climb".to_string());
+            hill.created_at = Some("2021-03-04T05:06:07+00:00".to_string());
+            hill.version = 4;
             row.clone()
         };
         let hill_pid = pure_id_of(&identity, &hill_row.real_id).expect("the hill pid");
@@ -2927,7 +3139,7 @@ mod tests {
     fn registry_bytes(identity: &SectionIdentity) -> Vec<u8> {
         let mut identity = identity.clone();
         for row in identity.rows.values_mut() {
-            row.section.created_at = None;
+            Arc::make_mut(&mut row.section).created_at = None;
         }
         for grave in identity.graves.values_mut() {
             grave.created_at = None;
@@ -2935,10 +3147,12 @@ mod tests {
         codec::serialize_named(&identity).expect("encode")
     }
 
-    fn catalogue_json(sections: &[FrequentSection]) -> serde_json::Value {
+    fn catalogue_json<S: std::borrow::Borrow<FrequentSection>>(
+        sections: &[S],
+    ) -> serde_json::Value {
         let cleared: Vec<FrequentSection> = sections
             .iter()
-            .cloned()
+            .map(|s| s.borrow().clone())
             .map(|mut s| {
                 s.created_at = None;
                 s
@@ -3144,7 +3358,7 @@ mod tests {
         let (mut engine, mut identity) = seeded(&dir);
         add_valley_ride(&mut engine, VALLEY_RIDES[0]);
         let before = codec::serialize_named(&identity).expect("encode");
-        let held: Vec<FrequentSection> =
+        let held: Vec<Arc<FrequentSection>> =
             identity.rows.values().map(|r| r.section.clone()).collect();
 
         let applied =

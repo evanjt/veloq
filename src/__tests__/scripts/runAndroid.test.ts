@@ -12,7 +12,7 @@ function executable(file: string, source: string) {
 
 // Stands in for Gradle in the fixture and in every project the generator stub writes.
 const GRADLEW =
-  '#!/bin/sh\n[ "$VELOQ_ANDROID_BUILD_LOCK_HELD" = 1 ] || exit 42\n[ -z "${VELOQ_DEVICE_LOCK_HELD:-}" ] || exit 43\necho "gradlew $* APP_VARIANT=${APP_VARIANT:-}" >> "$TEST_LOG"\n[ "${TEST_FAIL_BUILD:-}" != 1 ]\n';
+  '#!/bin/sh\n[ "$VELOQ_ANDROID_BUILD_LOCK_HELD" = 1 ] || exit 42\n[ -z "${VELOQ_DEVICE_LOCK_HELD:-}" ] || exit 43\necho "gradlew $* APP_VARIANT=${APP_VARIANT:-}" >> "$TEST_LOG"\necho "gradlew rust profile ${VELOQRS_RUST_PROFILE:-unset}" >> "$TEST_LOG"\n[ "${TEST_FAIL_BUILD:-}" != 1 ]\n';
 
 function gradle(appId: string) {
   return `android {\n    namespace '${appId}'\n    defaultConfig {\n        applicationId '${appId}'\n    }\n}\n`;
@@ -26,8 +26,12 @@ const SIGNING = {
 interface Options {
   serial?: string;
   failBuild?: boolean;
+  /** What the handset answers for its primary ABI, empty for no answer. */
+  abi?: string;
   /** The package the generated project builds, or null for no project at all. */
   tree?: string | null;
+  /** The Rust profile the caller exported, if any. */
+  rustProfile?: string;
 }
 
 interface Fixture {
@@ -65,6 +69,7 @@ function fixture(tree: string | null): Fixture {
     'device-lock-handset.sh',
     'prepare-native.mjs',
     'lib/app-identity.js',
+    'android-device-abi.sh',
   ]) {
     const target = path.join(dir, 'scripts', name);
     fs.copyFileSync(path.join(root, 'scripts', name), target);
@@ -105,6 +110,8 @@ function fixture(tree: string | null): Fixture {
     path.join(bin, 'adb'),
     '#!/bin/sh\n' +
       'if [ "$1" = devices ]; then printf "List of devices attached\\n"; [ "${TEST_NO_DEVICE:-}" = 1 ] || printf "emulator-5554\\tdevice\\n"; exit 0; fi\n' +
+      // The ABI query is read-only and answered before any lock is taken.
+      'if [ "$*" = "shell getprop ro.product.cpu.abi" ]; then echo "adb $* serial=$ANDROID_SERIAL" >> "$TEST_LOG"; [ -z "${VELOQ_ANDROID_BUILD_LOCK_HELD:-}" ] || exit 45; printf "%s\\r\\n" "${TEST_ABI:-}"; exit 0; fi\n' +
       '[ "$ANDROID_SERIAL" = emulator-5554 ] || exit 44\n' +
       '[ -z "${VELOQ_ANDROID_BUILD_LOCK_HELD:-}" ] || exit 45\n' +
       '[ "$VELOQ_DEVICE_LOCK_HELD" = 1 ] || exit 46\n' +
@@ -118,9 +125,16 @@ function fixture(tree: string | null): Fixture {
 function invoke(
   f: Fixture,
   args: string[],
-  { serial = 'emulator-5554', failBuild = false }: Omit<Options, 'tree'> = {}
+  {
+    serial = 'emulator-5554',
+    failBuild = false,
+    abi = 'arm64-v8a',
+    rustProfile,
+  }: Omit<Options, 'tree'> = {}
 ) {
   const env: NodeJS.ProcessEnv = { ...process.env };
+  delete env.VELOQRS_RUST_PROFILE;
+  if (rustProfile !== undefined) env.VELOQRS_RUST_PROFILE = rustProfile;
   // No allowlist from the machine running the suite, so only the emulator is a test handset.
   delete env.VELOQ_TEST_HANDSETS;
   delete env.VELOQ_ALLOW_HANDSET;
@@ -139,6 +153,7 @@ function invoke(
       TEST_LOG: f.log,
       TEST_NO_DEVICE: serial ? '0' : '1',
       TEST_FAIL_BUILD: failBuild ? '1' : '0',
+      TEST_ABI: abi,
     },
   });
   const calls = fs.existsSync(f.log) ? fs.readFileSync(f.log, 'utf8').trim().split('\n') : [];
@@ -166,6 +181,8 @@ const DEV_METRO = ['dev', 'metro'];
 const DEV_STANDALONE = ['dev', 'standalone'];
 const PRODUCTION = ['production', 'standalone'];
 const assembles = (calls: string[]) => calls.filter((call) => call.startsWith('gradlew assemble'));
+const rustProfiles = (calls: string[]) =>
+  calls.filter((call) => call.startsWith('gradlew rust profile '));
 const at = (calls: string[], prefix: string) => calls.findIndex((call) => call.startsWith(prefix));
 
 describe('Android build and device locks', () => {
@@ -206,7 +223,9 @@ describe('Android identity and compile mode are separate arguments', () => {
   it('builds Dev against Metro: a debug build, the dev client and the bundler', () => {
     const { result, calls } = run(DEV_METRO);
     expect(result.status).toBe(0);
-    expect(assembles(calls)).toEqual(['gradlew assembleDebug APP_VARIANT=dev']);
+    expect(assembles(calls)).toEqual([
+      'gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a APP_VARIANT=dev',
+    ]);
     expect(calls).toContain('install-apk debug --identity dev');
     expect(calls).toContain('adb reverse tcp:8081 tcp:8081');
     expect(calls.at(-2)).toBe(
@@ -218,7 +237,12 @@ describe('Android identity and compile mode are separate arguments', () => {
   it('builds Dev standalone: a release build with embedded JavaScript and no Metro', () => {
     const { result, calls } = run(DEV_STANDALONE);
     expect(result.status).toBe(0);
-    expect(assembles(calls)).toEqual(['gradlew assembleRelease APP_VARIANT=dev']);
+    expect(assembles(calls)).toEqual([
+      'gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a ' +
+        '-Pandroid.enableMinifyInReleaseBuilds=false ' +
+        '-Pandroid.enableShrinkResourcesInReleaseBuilds=false ' +
+        '-Pandroid.enablePngCrunchInReleaseBuilds=false APP_VARIANT=dev',
+    ]);
     expect(calls).toContain('node scripts/build-record.js snapshot android release');
     expect(calls).toContain('node scripts/build-record.js write release');
     expect(calls).toContain('install-apk release --identity dev');
@@ -233,7 +257,10 @@ describe('Android identity and compile mode are separate arguments', () => {
     for (const args of [PRODUCTION, ['production']]) {
       const { result, calls } = run(args, { tree: 'com.veloq.app' });
       expect(result.status).toBe(0);
-      expect(assembles(calls)).toEqual(['gradlew assembleRelease APP_VARIANT=production']);
+      expect(assembles(calls)).toEqual([
+        'gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a APP_VARIANT=production',
+      ]);
+      expect(assembles(calls)[0]).not.toContain('InReleaseBuilds');
       expect(calls).toContain('install-apk release --identity production');
       expect(calls.at(-1)).toBe('adb shell am start -n com.veloq.app/.MainActivity');
     }
@@ -273,6 +300,51 @@ describe('Android identity and compile mode are separate arguments', () => {
     } finally {
       fs.rmSync(f.dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('Android device builds compile for the handset ABI only', () => {
+  it.each([[DEV_METRO], [DEV_STANDALONE], [PRODUCTION]])(
+    'builds %j for the ABI the pinned handset reports',
+    (args) => {
+      const { result, calls } = run(args, { abi: 'x86_64' });
+      expect(result.status).toBe(0);
+      expect(calls).toContain('adb shell getprop ro.product.cpu.abi serial=emulator-5554');
+      expect(at(calls, 'adb shell getprop')).toBeLessThan(at(calls, 'gradlew assemble'));
+      expect(assembles(calls)).toHaveLength(1);
+      expect(assembles(calls)[0]).toContain(' -PreactNativeArchitectures=x86_64 ');
+    }
+  );
+
+  it.each([[''], ['mips'], ['arm64-v8a,x86']])(
+    'builds arm64-v8a when the handset answers %j',
+    (abi) => {
+      const { result, calls } = run(DEV_METRO, { abi });
+      expect(result.status).toBe(0);
+      expect(assembles(calls)[0]).toContain(' -PreactNativeArchitectures=arm64-v8a ');
+    }
+  );
+});
+
+describe('The Rust profile each Android build compiles the engine with', () => {
+  it('builds the engine for a Metro build with the local profile', () => {
+    const { result, calls } = run(DEV_METRO);
+    expect(result.status).toBe(0);
+    expect(rustProfiles(calls)).toEqual(['gradlew rust profile release-dev']);
+  });
+
+  it('keeps the profile a caller exported for a Metro build', () => {
+    const { result, calls } = run(DEV_METRO, { rustProfile: 'release' });
+    expect(result.status).toBe(0);
+    expect(rustProfiles(calls)).toEqual(['gradlew rust profile release']);
+  });
+
+  it.each([[DEV_STANDALONE], [PRODUCTION]])('selects no local profile for %j', (args) => {
+    const { result, calls } = run(args, {
+      tree: args[0] === 'production' ? 'com.veloq.app' : 'com.veloq.app.dev',
+    });
+    expect(result.status).toBe(0);
+    expect(rustProfiles(calls)).toEqual(['gradlew rust profile unset']);
   });
 });
 
@@ -325,5 +397,74 @@ describe('Android builds carry the identity they were asked for', () => {
     expect(calls.indexOf(prebuild)).toBeGreaterThanOrEqual(0);
     expect(calls.indexOf(prebuild)).toBeLessThan(at(calls, 'gradlew assembleDebug'));
     expect(built).toContain("applicationId 'com.veloq.app.dev'");
+  });
+});
+
+describe('The debug recipe compiles for the handset ABI only', () => {
+  const recipe = (
+    JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')) as {
+      scripts: Record<string, string>;
+    }
+  ).scripts['android:debug'];
+
+  /** Run the recipe with spies for every tool and return the Gradle calls it made. */
+  function debugBuild({ serial, abi }: { serial: string; abi: string }) {
+    const f = fixture('com.veloq.app.dev');
+    try {
+      executable(path.join(f.bin, 'node'), '#!/bin/sh\necho "node $*" >> "$TEST_LOG"\n');
+      executable(
+        path.join(f.bin, 'adb'),
+        '#!/bin/sh\n' +
+          'if [ "$1" = devices ]; then printf "List of devices attached\\n"; [ -z "$TEST_DEVICE" ] || printf "%s\\tdevice\\n" "$TEST_DEVICE"; exit 0; fi\n' +
+          '[ "$*" = "shell getprop ro.product.cpu.abi" ] || exit 44\n' +
+          '[ "$ANDROID_SERIAL" = "$TEST_DEVICE" ] || exit 1\n' +
+          'printf "%s\\r\\n" "$TEST_ABI"\n'
+      );
+      const env: NodeJS.ProcessEnv = { ...process.env };
+      delete env.ANDROID_SERIAL;
+      delete env.VELOQ_TEST_HANDSETS;
+      delete env.VELOQ_ALLOW_HANDSET;
+      const result = spawnSync('sh', ['-c', recipe], {
+        cwd: f.dir,
+        encoding: 'utf8',
+        env: {
+          ...env,
+          XDG_CONFIG_HOME: f.dir,
+          PATH: `${f.bin}:${process.env.PATH}`,
+          VELOQ_ANDROID_BUILD_LOCK: path.join(f.dir, 'build.lock'),
+          TEST_LOG: f.log,
+          TEST_DEVICE: serial,
+          TEST_ABI: abi,
+        },
+      });
+      const calls = fs.existsSync(f.log) ? fs.readFileSync(f.log, 'utf8').trim().split('\n') : [];
+      return { result, gradle: calls.filter((call) => call.startsWith('gradlew assemble')) };
+    } finally {
+      fs.rmSync(f.dir, { recursive: true, force: true });
+    }
+  }
+
+  it('builds for the ABI the attached emulator reports', () => {
+    const { result, gradle } = debugBuild({ serial: 'emulator-5554', abi: 'x86_64' });
+    expect(result.status).toBe(0);
+    expect(gradle).toEqual([
+      'gradlew assembleDebug -PreactNativeArchitectures=x86_64 APP_VARIANT=dev',
+    ]);
+  });
+
+  it('builds arm64-v8a when no device answers', () => {
+    const { result, gradle } = debugBuild({ serial: '', abi: '' });
+    expect(result.status).toBe(0);
+    expect(gradle).toEqual([
+      'gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a APP_VARIANT=dev',
+    ]);
+  });
+
+  it('asks nothing of a handset that is not a test handset and builds arm64-v8a', () => {
+    const { result, gradle } = debugBuild({ serial: '192.0.2.40:5555', abi: 'x86' });
+    expect(result.status).toBe(0);
+    expect(gradle).toEqual([
+      'gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a APP_VARIANT=dev',
+    ]);
   });
 });

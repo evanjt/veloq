@@ -10,3 +10,7 @@
 # Keep Turbo Module annotations and interfaces
 -keep @com.facebook.react.module.annotations.ReactModule class *
 -keep interface com.facebook.react.turbomodule.core.interfaces.CallInvokerHolder { *; }
+
+# WorkManager builds its Room database by reflection on the no-arg constructor, and the rule
+# Room 2.6 ships keeps the class without it, so R8 full mode strips it and launch crashes.
+-keep class * extends androidx.room.RoomDatabase { <init>(); }

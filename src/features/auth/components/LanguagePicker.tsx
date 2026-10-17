@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useLanguageStore, languageLabel } from '@/shared/app/LanguageStore';
 import {
@@ -16,6 +15,7 @@ import {
 } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { LanguageList, pressable, pressRipple } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 
 export const LanguagePicker = React.memo(function LanguagePicker() {
   const { t } = useTranslation();
@@ -51,7 +51,7 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
           accessibilityLabel={`${t('settings.language')}: ${currentLanguageLabel}`}
           accessibilityState={{ expanded: showLanguages, selected: isDialectSelected }}
         >
-          <MaterialCommunityIcons
+          <Icon
             name="translate"
             size={iconSize.md}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -59,7 +59,7 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
           <Text style={[styles.languageButtonText, isDark && styles.textDark]}>
             {currentLanguageLabel}
           </Text>
-          <MaterialCommunityIcons
+          <Icon
             name={showLanguages ? 'chevron-up' : 'chevron-down'}
             size={iconSize.md}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}

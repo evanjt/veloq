@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { formatRelativeDate } from '@/shared/format/format';
 import { colors, darkColors, typography, spacing } from '@/theme';
 import type { DecouplingSource } from '@/features/activity';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { formatPercent } from '@/shared/format';
 
 interface DecouplingChartProps {
@@ -68,7 +68,7 @@ export function DecouplingChart({ source, height = 150, coverage }: DecouplingCh
         variant="ghost"
         size="sm"
         label={`${source.name} · ${formatRelativeDate(source.date)}`}
-        onPress={() => tapTo(`/activity/${source.activityId}`)}
+        onPress={() => navigateTo(`/activity/${source.activityId}`)}
         style={styles.sourceRide}
       />
       <Text style={[styles.provenance, isDark && styles.textDark]}>

@@ -1,7 +1,12 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
-import { View, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
+import {
+  View,
+  ScrollView,
+  StyleSheet,
+  ActivityIndicator,
+  type ScrollViewInstance,
+} from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useTranslation } from 'react-i18next';
 
@@ -28,6 +33,7 @@ import {
   ToggleButton,
   useScrollEndInset,
 } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
 import { useScrollToTopOnReselect } from '@/shared/ui/tabReselect';
 import { useSyncState } from '@/shared/native/useSyncStatus';
@@ -64,7 +70,7 @@ export const StrengthTab = React.memo(function StrengthTab({
 }: StrengthTabProps) {
   const { isDark } = useTheme();
   const scrollEndInset = useScrollEndInset();
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   useScrollToTopOnReselect('/insights', scrollRef);
   const { t } = useTranslation();
   const { data: athlete } = useAthlete();
@@ -187,7 +193,11 @@ export const StrengthTab = React.memo(function StrengthTab({
       ) : !summary || summary.activityCount === 0 ? (
         periodDownloading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={colors.primary} testID="strength-downloading" />
+            <ActivityIndicator
+              size="small"
+              color={colors.actionPrimary}
+              testID="strength-downloading"
+            />
             <EmptyState
               variant="inline"
               title={t('strength.downloading')}
@@ -196,7 +206,7 @@ export const StrengthTab = React.memo(function StrengthTab({
           </View>
         ) : periodAwaitingDownload ? (
           <View style={styles.notDownloadedContainer} testID="strength-empty">
-            <MaterialCommunityIcons
+            <Icon
               name="cloud-download-outline"
               size={iconSize.xl}
               color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -223,7 +233,7 @@ export const StrengthTab = React.memo(function StrengthTab({
         <>
           {(screen?.owedCount ?? 0) > 0 && (
             <View style={styles.owedRow} testID="strength-period-owed">
-              <MaterialCommunityIcons
+              <Icon
                 name="cloud-download-outline"
                 size={iconSize.sm}
                 color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -235,6 +245,7 @@ export const StrengthTab = React.memo(function StrengthTab({
           )}
           <StrengthBodyDiagram
             bodyData={bodyData}
+            volumes={summary?.muscleVolumes}
             gender={gender}
             maxWeightedSets={maxWeightedSets}
             selectedVolume={selectedVolume}

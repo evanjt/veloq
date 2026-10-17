@@ -7,7 +7,6 @@
  */
 
 import { Platform, Share } from 'react-native';
-import * as RendererProxy from 'react-native/Libraries/ReactNative/RendererProxy';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 
@@ -19,6 +18,12 @@ import {
   type ShareAnchor,
   type ShareKind,
 } from '@/features/settings/lib/shareFile';
+
+// The module the package's `findNodeHandle` getter reads, which a spy can replace; the package
+// declares no types for it.
+const RendererProxy: {
+  findNodeHandle: (node: unknown) => number | null | undefined;
+} = require('react-native/Libraries/ReactNative/RendererProxy');
 
 jest.mock('expo-sharing', () => ({
   ...jest.requireActual('expo-sharing'),
@@ -132,7 +137,9 @@ it('opens without an anchor when the control never answers its measurement', asy
 });
 
 it('shares a link through the text sheet anchored to the control', async () => {
-  const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: Share.sharedAction });
+  const share = jest
+    .spyOn(Share, 'share')
+    .mockResolvedValue({ action: Share.sharedAction, activityType: undefined });
   const card = { name: 'card' };
   const handle = jest
     .spyOn(RendererProxy, 'findNodeHandle')
@@ -148,7 +155,9 @@ it('shares a link through the text sheet anchored to the control', async () => {
 });
 
 it('shares a link with no anchor when the control cannot be found', async () => {
-  const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: Share.sharedAction });
+  const share = jest
+    .spyOn(Share, 'share')
+    .mockResolvedValue({ action: Share.sharedAction, activityType: undefined });
   const anchor = { current: { name: 'not a view' } } as unknown as ShareAnchor;
   await shareText({ message: 'Lake loop' }, { anchor });
   expect(share).toHaveBeenCalledWith({ message: 'Lake loop' }, {});
@@ -156,7 +165,9 @@ it('shares a link with no anchor when the control cannot be found', async () => 
 });
 
 it('shares a link with no anchor when there is no control', async () => {
-  const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: Share.sharedAction });
+  const share = jest
+    .spyOn(Share, 'share')
+    .mockResolvedValue({ action: Share.sharedAction, activityType: undefined });
   await shareText({ message: 'Lake loop' });
   expect(share).toHaveBeenCalledWith({ message: 'Lake loop' }, {});
   share.mockRestore();

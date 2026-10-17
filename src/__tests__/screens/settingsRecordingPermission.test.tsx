@@ -23,10 +23,10 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
 
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').fallbackOrKey());
 
-const mockTapTo = jest.fn();
+const mockNavigateTo = jest.fn();
 jest.mock('@/shared/app/navigation', () => ({
   ...jest.requireActual('@/shared/app/navigation'),
-  tapTo: (...a: unknown[]) => mockTapTo(...a),
+  navigateTo: (...a: unknown[]) => mockNavigateTo(...a),
 }));
 
 jest.mock('@/shared/app/TopSafeAreaContext', () => ({
@@ -85,7 +85,7 @@ function signIn(authMethod: 'oauth' | 'apiKey' | 'demo') {
 
 describe('Settings recording permission', () => {
   beforeEach(() => {
-    mockTapTo.mockClear();
+    mockNavigateTo.mockClear();
     useUploadPermissionStore.setState({ hasWritePermission: null, isLoaded: true });
     signIn('oauth');
   });
@@ -103,7 +103,7 @@ describe('Settings recording permission', () => {
     const { getByTestId, queryByTestId } = await render(<SettingsScreen />);
     expect(queryByTestId('settings-grant-access')).toBeNull();
     fireEvent.press(getByTestId('settings-recording-permission-link'));
-    expect(mockTapTo).toHaveBeenCalledWith('/recording-settings');
+    expect(mockNavigateTo).toHaveBeenCalledWith('/recording-settings');
   });
 
   it('puts the notice above every group, under the account card', async () => {

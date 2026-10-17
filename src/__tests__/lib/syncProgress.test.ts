@@ -1,24 +1,10 @@
 import { IDLE_EXTENDED_FETCH, isExtendedFetchRunning } from '@/shared/app/extendedFetch';
-import { useSyncDateRange, GpsSyncProgress } from '@/shared/app/SyncDateRangeStore';
-import { formatGpsSyncProgress } from '@/features/maps/lib/syncProgressFormat';
-import type { TFunction } from 'i18next';
-
-const t = ((key: string) => key) as unknown as TFunction;
-
-const idleProgress: GpsSyncProgress = {
-  status: 'idle',
-  completed: 0,
-  total: 0,
-  percent: 0,
-  message: '',
-};
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 
 describe('useSyncDateRange', () => {
   beforeEach(() => {
     useSyncDateRange.setState({
       extendedFetch: IDLE_EXTENDED_FETCH,
-      gpsSyncProgress: idleProgress,
-      isGpsSyncing: false,
     });
   });
 
@@ -29,20 +15,5 @@ describe('useSyncDateRange', () => {
 
     useSyncDateRange.getState().windowAccepted();
     expect(isExtendedFetchRunning(useSyncDateRange.getState().extendedFetch)).toBe(true);
-  });
-});
-
-describe('formatGpsSyncProgress', () => {
-  it('returns null while idle and not fetching', () => {
-    expect(formatGpsSyncProgress(idleProgress, false, t)).toBeNull();
-  });
-
-  it('returns a label once fetching starts', () => {
-    const result = formatGpsSyncProgress(
-      { status: 'fetching', completed: 3, total: 10, percent: 30, message: '' },
-      true,
-      t
-    );
-    expect(result).not.toBeNull();
   });
 });

@@ -19,7 +19,7 @@ import {
   toEditorText,
   type ParamEditorSheetInput,
 } from '@/features/routes';
-import { goBack, tapBack } from '@/shared/app/navigation';
+import { goBack } from '@/shared/app/navigation';
 
 /** What a refused value is told: how to type one the sheet accepts. */
 function refusalKey(input: ParamEditorSheetInput) {
@@ -78,7 +78,7 @@ function ParamEditorSheetContent() {
       ? { cancelTestID: 'param-editor-cancel', saveTestID: 'param-editor-save' }
       : { cancelTestID: 'grouping-editor-cancel', saveTestID: 'grouping-editor-save' };
   const actions = {
-    onCancel: () => tapBack(),
+    onCancel: () => goBack(),
     cancelTestID: ids.cancelTestID,
     confirm: {
       label: t('common.save'),

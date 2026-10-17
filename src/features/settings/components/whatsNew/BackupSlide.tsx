@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
@@ -8,6 +8,7 @@ import { isAutoBackupEnabled, setAutoBackupEnabled } from '@/features/settings/l
 import { colors, darkColors, iconSize, layout, spacing } from '@/theme';
 import { tourPanelColour } from './tourPanel';
 import { SwitchRow } from '@/shared/ui/SwitchRow';
+import { Icon } from '@/shared/ui/Icon';
 
 export function BackupSlide() {
   const { isDark } = useTheme();
@@ -19,7 +20,7 @@ export function BackupSlide() {
     setAutoBackupEnabled(value);
     setAutoEnabled(value);
   }, []);
-  const primaryColor = isDark ? darkColors.primary : colors.primary;
+  const primaryColor = isDark ? darkColors.actionPrimary : colors.actionPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bgColor = tourPanelColour(isDark);
 
@@ -27,13 +28,13 @@ export function BackupSlide() {
     <View style={styles.container}>
       <View style={styles.row}>
         <View style={[styles.iconBox, { backgroundColor: bgColor }]}>
-          <MaterialCommunityIcons
+          <Icon
             name={'database-export-outline' as keyof typeof MaterialCommunityIcons.glyphMap}
             size={iconSize.xl}
             color={primaryColor}
           />
         </View>
-        <MaterialCommunityIcons
+        <Icon
           name={'arrow-right' as keyof typeof MaterialCommunityIcons.glyphMap}
           size={iconSize.lg}
           color={mutedColor}
@@ -41,13 +42,13 @@ export function BackupSlide() {
         <View style={[styles.iconBox, { backgroundColor: bgColor }]}>
           <ChromeIcon name="share" size={iconSize.xl} color={primaryColor} />
         </View>
-        <MaterialCommunityIcons
+        <Icon
           name={'arrow-right' as keyof typeof MaterialCommunityIcons.glyphMap}
           size={iconSize.lg}
           color={mutedColor}
         />
         <View style={[styles.iconBox, { backgroundColor: bgColor }]}>
-          <MaterialCommunityIcons
+          <Icon
             name={'database-import-outline' as keyof typeof MaterialCommunityIcons.glyphMap}
             size={iconSize.xl}
             color={primaryColor}

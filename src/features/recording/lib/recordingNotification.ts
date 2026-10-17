@@ -232,7 +232,7 @@ export function buildRecordingNotificationPayload(
     running: status === 'recording',
     actions,
     accentColor: recording.light,
-    traceColor: colors.textOnDark,
+    traceColor: colors.textOnFill,
     trace: decimateTrace(streams.latlng),
     interrupted: {
       channel: translate('recording.interruptedNotice.channel', 'Interrupted recordings'),

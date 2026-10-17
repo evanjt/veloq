@@ -2,12 +2,11 @@ import React from 'react';
 import { StyleSheet, Pressable, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import Animated from 'react-native-reanimated';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { usePathname } from 'expo-router';
 
 import { useTheme } from '@/shared/app';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import {
   colors,
   darkColors,
@@ -25,6 +24,7 @@ import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useTimer } from '@/features/recording/hooks/useTimer';
 import { pressable, pressRipple } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { sessionReturnRoute } from '@/features/recording/lib/sessionReturnRoute';
 import type { RecordingStatus } from '@/types';
 
@@ -69,16 +69,16 @@ function RecordingReturnPillInner({ status }: { status: RecordingStatus }) {
   const stopped = status === 'stopped';
   const route = sessionReturnRoute({ status, activityType });
 
-  const bgColor = isDark ? darkColors.surfaceElevated : colors.surface;
+  const bgColor = isDark ? darkColors.surfaceRaised : colors.surface;
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   // A live ride reads the record role, a paused one the warning mark, and a stopped one the
   // action colour, since what is left is the tap through to review.
   const accent = paused
     ? isDark
-      ? darkColors.warningAmber
-      : colors.warningAmber
+      ? darkColors.warningText
+      : colors.warningText
     : stopped
-      ? palette.primary
+      ? palette.actionPrimary
       : recording[isDark ? 'dark' : 'light'];
 
   return (
@@ -87,17 +87,13 @@ function RecordingReturnPillInner({ status }: { status: RecordingStatus }) {
         testID="recording-return-pill"
         style={pressable([styles.pill, { backgroundColor: bgColor }, shadows.elevated])}
         android_ripple={pressRipple}
-        onPress={() => route && tapTo(route)}
+        onPress={() => route && navigateTo(route)}
         accessibilityRole="button"
         accessibilityLabel={t('recording.returnToRecording', 'Return to recording')}
       >
         <View style={[styles.dot, { backgroundColor: accent }]} />
         {activityType ? (
-          <MaterialCommunityIcons
-            name={getActivityIcon(activityType)}
-            size={iconSize.md}
-            color={accent}
-          />
+          <Icon name={getActivityIcon(activityType)} size={iconSize.md} color={accent} />
         ) : null}
         <Text style={[styles.elapsed, { color: textPrimary }]}>{formattedElapsed}</Text>
         <Text style={[styles.label, { color: accent }]}>
@@ -107,7 +103,7 @@ function RecordingReturnPillInner({ status }: { status: RecordingStatus }) {
               ? t('recording.status.paused', 'Paused')
               : t('recording.status.recording', 'Recording')}
         </Text>
-        <MaterialCommunityIcons name="chevron-right" size={iconSize.md} color={accent} />
+        <Icon name="chevron-right" size={iconSize.md} color={accent} />
       </Pressable>
     </Animated.View>
   );

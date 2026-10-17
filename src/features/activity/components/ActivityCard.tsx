@@ -1,9 +1,14 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, ScrollView, StyleSheet, Pressable, Text as RNText } from 'react-native';
+import {
+  View,
+  ScrollView,
+  StyleSheet,
+  Pressable,
+  Text as RNText,
+  type ScrollViewInstance,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import * as haptics from '@/shared/ui/haptics';
 import { useTranslation } from 'react-i18next';
 import type { Activity } from '@/types';
 import { getActivityIcon, getActivityColor } from '@/shared/activity/activityUtils';
@@ -55,6 +60,7 @@ import {
   pressRippleOver,
   useLargeText,
 } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { Card } from '@/shared/ui/Card';
 import { contextMenuHoldIsNative } from '@/shared/ui/ContextMenu';
 import { activityCardA11yLabel, routeChipSpeech } from '../lib/activityCardA11yLabel';
@@ -62,7 +68,7 @@ import { freshLoginTimeline } from '@/shared/debug/freshLoginTimeline';
 
 import { CARD_HEIGHT, CARD_MARGIN } from '@/features/activity/lib/cardLayout';
 import { PREVIEW_HOLD_MS } from '@/shared/ui/holdDurations';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { NameText } from '@/shared/ui/NameText';
 import { FitText } from '@/shared/ui/FitText';
 
@@ -224,7 +230,7 @@ export const ActivityCard = React.memo(
     const openActivity = useCallback(
       (tab?: 'routes' | 'sections') => {
         prefetchActivityDetailData(activity.id);
-        tapTo(`/activity/${activity.id}${tab ? `?tab=${tab}` : ''}`);
+        navigateTo(`/activity/${activity.id}${tab ? `?tab=${tab}` : ''}`);
       },
       [activity.id]
     );
@@ -232,7 +238,6 @@ export const ActivityCard = React.memo(
     const handlePress = useCallback(() => openActivity(), [openActivity]);
 
     const handleLongPress = useCallback(() => {
-      haptics.medium();
       setMenuVisible(true);
     }, []);
 
@@ -270,7 +275,7 @@ export const ActivityCard = React.memo(
       [showsRouteChip, showsSectionChip, openActivity, handleLongPress, t]
     );
 
-    const scrollRef = useRef<ScrollView>(null);
+    const scrollRef = useRef<ScrollViewInstance>(null);
     const hasFlashed = useRef(false);
 
     const handleContentSizeChange = useCallback((_contentWidth: number, _contentHeight: number) => {
@@ -328,7 +333,7 @@ export const ActivityCard = React.memo(
         >
           {!!activity.icu_training_load && (
             <View style={styles.secondaryStat}>
-              <MaterialCommunityIcons name="fire" size={iconSize.sm} color={palette.primary} />
+              <Icon name="fire" size={iconSize.sm} color={palette.actionPrimary} />
               <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
                 {formatLoad(activity.icu_training_load)}
               </RNText>
@@ -336,7 +341,7 @@ export const ActivityCard = React.memo(
           )}
           {averageHeartRate ? (
             <View style={styles.secondaryStat}>
-              <MaterialCommunityIcons name="heart-pulse" size={iconSize.sm} color={colors.error} />
+              <Icon name="heart-pulse" size={iconSize.sm} color={colors.errorText} />
               <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
                 {formatHeartRate(averageHeartRate)}
               </RNText>
@@ -344,10 +349,10 @@ export const ActivityCard = React.memo(
           ) : null}
           {averagePower ? (
             <View style={styles.secondaryStat}>
-              <MaterialCommunityIcons
+              <Icon
                 name="lightning-bolt"
                 size={iconSize.sm}
-                color={isDark ? darkColors.warningAmber : colors.warningAmber}
+                color={isDark ? darkColors.warningText : colors.warningText}
               />
               <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
                 {formatPower(averagePower)}
@@ -356,10 +361,10 @@ export const ActivityCard = React.memo(
           ) : null}
           {!!activity.calories && (
             <View style={styles.secondaryStat}>
-              <MaterialCommunityIcons
+              <Icon
                 name="food-apple"
                 size={iconSize.sm}
-                color={isDark ? darkColors.successDeep : colors.successDeep}
+                color={isDark ? darkColors.successText : colors.successText}
               />
               <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
                 {formatCalories(activity.calories)}
@@ -368,11 +373,7 @@ export const ActivityCard = React.memo(
           )}
           {activity.has_weather && activity.average_weather_temp != null ? (
             <View style={styles.secondaryStat}>
-              <MaterialCommunityIcons
-                name="weather-partly-cloudy"
-                size={iconSize.sm}
-                color={colors.info}
-              />
+              <Icon name="weather-partly-cloudy" size={iconSize.sm} color={colors.actionLink} />
               <RNText style={[styles.secondaryStatValue, { color: textColor }]}>
                 {formatTemperature(activity.average_weather_temp, isMetric)}
               </RNText>
@@ -437,18 +438,14 @@ export const ActivityCard = React.memo(
                 {/* Header: icon + name/date stacked + no-map indicator */}
                 <View style={styles.compactHeader}>
                   <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
-                    <MaterialCommunityIcons
-                      name={iconName}
-                      size={iconSize.sm}
-                      color={colors.textOnDark}
-                    />
+                    <Icon name={iconName} size={iconSize.sm} color={colors.textOnFill} />
                   </View>
                   <View style={styles.compactTitleColumn}>
                     <View style={styles.compactNameRow}>
                       <NameText style={[styles.compactName, { color: compactTextColor }]}>
                         {activity.name}
                       </NameText>
-                      <MaterialCommunityIcons
+                      <Icon
                         name="map-marker-off"
                         size={iconSize.sm}
                         color={compactMutedColor}
@@ -556,11 +553,7 @@ export const ActivityCard = React.memo(
         >
           {routeHighlight.isPr ? (
             <>
-              <MaterialCommunityIcons
-                name="trophy"
-                size={iconSize.xs}
-                color={colors.textOnBright}
-              />
+              <Icon name="trophy" size={iconSize.xs} color={colors.textOnBright} />
               {formatPrImprovement(routeHighlight.prImprovementSeconds) != null && (
                 <RNText
                   testID={`activity-card-${activity.id}-route-improvement`}
@@ -584,7 +577,7 @@ export const ActivityCard = React.memo(
       <>
         <View style={styles.overlayHeader} pointerEvents="box-none">
           <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
-            <MaterialCommunityIcons name={iconName} size={iconSize.sm} color={colors.textOnDark} />
+            <Icon name={iconName} size={iconSize.sm} color={colors.textOnFill} />
           </View>
           <View style={styles.overlayTitleColumn}>
             <NameText
@@ -676,11 +669,7 @@ export const ActivityCard = React.memo(
                   importantForAccessibility="no-hide-descendants"
                   accessibilityElementsHidden
                 >
-                  <MaterialCommunityIcons
-                    name="compass-outline"
-                    size={iconSize.xs}
-                    color={ink.white}
-                  />
+                  <Icon name="compass-outline" size={iconSize.xs} color={ink.white} />
                   <RNText style={[styles.trendCount, { color: ink.white }]}>
                     {newGround.badge === 'entirelyNew'
                       ? t('activity.newGround')
@@ -715,11 +704,7 @@ export const ActivityCard = React.memo(
                               isDark ? styles.prPillDark : styles.prPillLight,
                             ]}
                           >
-                            <MaterialCommunityIcons
-                              name="trophy"
-                              size={iconSize.xs}
-                              color={colors.textOnBright}
-                            />
+                            <Icon name="trophy" size={iconSize.xs} color={colors.textOnBright} />
                             <RNText style={[styles.trendCount, { color: colors.textOnBright }]}>
                               {prCount}
                             </RNText>
@@ -733,11 +718,7 @@ export const ActivityCard = React.memo(
                               isDark ? styles.improvingPillDark : styles.improvingPillLight,
                             ]}
                           >
-                            <MaterialCommunityIcons
-                              name="trending-up"
-                              size={iconSize.xs}
-                              color={ink.white}
-                            />
+                            <Icon name="trending-up" size={iconSize.xs} color={ink.white} />
                             <RNText style={[styles.trendCount, { color: ink.white }]}>
                               {improving}
                             </RNText>
@@ -751,11 +732,7 @@ export const ActivityCard = React.memo(
                               isDark ? styles.decliningPillDark : styles.decliningPillLight,
                             ]}
                           >
-                            <MaterialCommunityIcons
-                              name="trending-down"
-                              size={iconSize.xs}
-                              color={ink.white}
-                            />
+                            <Icon name="trending-down" size={iconSize.xs} color={ink.white} />
                             <RNText style={[styles.trendCount, { color: ink.white }]}>
                               {declining}
                             </RNText>

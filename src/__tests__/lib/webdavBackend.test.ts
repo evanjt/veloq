@@ -56,7 +56,7 @@ function routeFetch(routes: Record<string, (url: string) => Response>) {
 }
 
 const METADATA: Omit<BackupEntry, 'id'> = {
-  timestamp: '2026-08-05T10:00:00.000Z',
+  timestamp: new Date(2026, 7, 5, 10, 0, 0).toISOString(),
   sizeBytes: 4096,
   appVersion: '0.4.0',
   schemaVersion: 14,
@@ -105,18 +105,18 @@ describe('webdavBackend.upload', () => {
     });
 
     await expect(webdavBackend.upload('/docs/veloq-decisions.zip', METADATA)).resolves.toBe(
-      'veloq-2026-08-05T10-00-00-000Z.zip'
+      'veloq-backup-2026-08-05-100000.zip'
     );
 
     const [fileUrl, localPath, options] = uploadAsync.mock.calls[0];
-    expect(fileUrl).toBe(`${SERVER}Veloq/veloq-2026-08-05T10-00-00-000Z.zip`);
+    expect(fileUrl).toBe(`${SERVER}Veloq/veloq-backup-2026-08-05-100000.zip`);
     expect(localPath).toBe('/docs/veloq-decisions.zip');
     expect(options.httpMethod).toBe('PUT');
     expect(options.headers.Authorization).toMatch(/^Basic /);
 
     const sidecar = fetchMock.mock.calls.find(([, init]) => init?.method === 'PUT');
     expect(sidecar?.[0]).toMatch(/\.zip\.meta\.json$/);
-    expect(JSON.parse(String(sidecar?.[1]?.body)).id).toBe('veloq-2026-08-05T10-00-00-000Z.zip');
+    expect(JSON.parse(String(sidecar?.[1]?.body)).id).toBe('veloq-backup-2026-08-05-100000.zip');
   });
 
   it('fails when the database PUT is rejected with 401', async () => {
@@ -199,6 +199,56 @@ describe('webdavBackend.listBackups', () => {
     expect(fetched).toContain(
       'https://cloud.example.com/remote.php/dav/files/athlete/Veloq/veloq-old.veloqdb.meta.json'
     );
+  });
+
+  it('lists a zip that has no sidecar by the instant its name carries', async () => {
+    const base = '/remote.php/dav/files/athlete/Veloq/';
+    const xml = propfind([
+      base,
+      `${base}veloq-backup-2026-10-10.zip`,
+      `${base}veloq-sidecar.veloqdb.meta.json`,
+      `${base}holiday.jpg`,
+    ]);
+    const fetchMock = routeFetch({
+      PROPFIND: () => response(207, xml),
+      GET: () => response(200, entryJson('veloq-sidecar.veloqdb', '2026-08-05T10:00:00.000Z')),
+    });
+
+    const entries = await webdavBackend.listBackups();
+
+    expect(entries.map((e) => [e.id, e.timestamp])).toEqual([
+      ['veloq-backup-2026-10-10.zip', new Date(2026, 9, 10).toISOString()],
+      ['veloq-sidecar.veloqdb', '2026-08-05T10:00:00.000Z'],
+    ]);
+    const gets = fetchMock.mock.calls.filter(([, init]) => !init?.method).map(([url]) => url);
+    expect(gets).toEqual([`${SERVER}Veloq/veloq-sidecar.veloqdb.meta.json`]);
+  });
+
+  it('lists a zip once when its sidecar is there as well', async () => {
+    const base = '/remote.php/dav/files/athlete/Veloq/';
+    const name = 'veloq-backup-2026-10-10-184512.zip';
+    const xml = propfind([`${base}${name}`, `${base}${name}.meta.json`]);
+    routeFetch({
+      PROPFIND: () => response(207, xml),
+      GET: () => response(200, entryJson(name, '2026-10-10T16:45:12.000Z')),
+    });
+
+    const entries = await webdavBackend.listBackups();
+
+    expect(entries.map((e) => [e.id, e.appVersion])).toEqual([[name, '0.4.0']]);
+  });
+
+  it('lists a zip by its name when its sidecar does not parse', async () => {
+    const base = '/remote.php/dav/files/athlete/Veloq/';
+    const name = 'veloq-backup-2026-10-10-184512.zip';
+    const xml = propfind([`${base}${name}`, `${base}${name}.meta.json`]);
+    routeFetch({ PROPFIND: () => response(207, xml), GET: () => response(200, 'not json') });
+
+    const entries = await webdavBackend.listBackups();
+
+    expect(entries.map((e) => [e.id, e.timestamp])).toEqual([
+      [name, new Date(2026, 9, 10, 18, 45, 12).toISOString()],
+    ]);
   });
 
   it('sends no credential to an absolute href on another scheme or host', async () => {

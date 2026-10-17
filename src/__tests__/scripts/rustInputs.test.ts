@@ -217,6 +217,53 @@ describe('the CI Rust library caches', () => {
     }
   );
 
+  // The Android library takes nothing from the runner image: CI deletes the
+  // image's NDK, Gradle installs the pinned one, and the builder's manifest
+  // rebuilds a restored library whose NDK revision disagrees. The packaged app
+  // does take the image's SDK pieces, so its key keeps the image.
+  describe('across a runner image update', () => {
+    const steps = caches.find(({ label }) => label === 'build-android build')!.steps;
+    const rustCache = steps.find((step) => step.name === 'Restore Rust Android libraries')!;
+    const appCache = steps.find((step) => step.name === 'Restore built APK/AAB')!;
+    const native = steps.find((step) => step.id === 'native')!;
+
+    // Runs the step with every expression fixed, once per image version.
+    const outputs = (image: string) => {
+      const outputFile = join(mkdtempSync(join(tmpdir(), 'native-inputs-')), 'output');
+      writeFileSync(outputFile, '');
+      const result = spawnSync(
+        'bash',
+        ['-e', '-o', 'pipefail', '-c', native.run!.replace(/\$\{\{[^}]*\}\}/g, 'fixed')],
+        {
+          encoding: 'utf8',
+          env: { ...process.env, GITHUB_OUTPUT: outputFile, ImageVersion: image },
+        }
+      );
+      expect(result.status).toBe(0);
+      return Object.fromEntries(
+        readFileSync(outputFile, 'utf8')
+          .split('\n')
+          .filter(Boolean)
+          .map((line) => line.split(/=(.*)/s, 2))
+      );
+    };
+    const before = outputs('20261004.327.1');
+    const after = outputs('20261012.334.1');
+    const named = (key: string | undefined) =>
+      [...(key ?? '').matchAll(/steps\.native\.outputs\.([\w-]+)/g)].map(([, name]) => name);
+
+    it('restores the Rust library on the same key', () => {
+      const names = named(rustCache.with?.key);
+      expect(names).not.toEqual([]);
+      for (const name of names) expect(after[name]).toBe(before[name]);
+    });
+
+    it('builds the app again', () => {
+      const names = named(appCache.with?.key);
+      expect(names.some((name) => after[name] !== before[name])).toBe(true);
+    });
+  });
+
   it('names every bundled floor tile in the real crate, so a tile change moves the hash', () => {
     const realRust = join(ROOT, 'modules/veloqrs/rust');
     const floor = join(realRust, 'veloqrs/floor');

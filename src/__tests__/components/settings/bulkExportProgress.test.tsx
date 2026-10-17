@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { BulkExportProgress } from '@/features/settings/components/BulkExportProgress';
 
@@ -23,6 +23,7 @@ it('shows a spinner and no count while the total is unknown', async () => {
       total={0}
       sizeBytes={0}
       isDark={false}
+      onCancel={jest.fn()}
     />
   );
 
@@ -40,6 +41,7 @@ it('shows the count and no spinner once the worker reports a total', async () =>
       total={402}
       sizeBytes={0}
       isDark={false}
+      onCancel={jest.fn()}
     />
   );
 
@@ -58,6 +60,7 @@ it('shows the size once the export has produced one', async () => {
       total={402}
       sizeBytes={8_400_000}
       isDark={false}
+      onCancel={jest.fn()}
     />
   );
 
@@ -74,6 +77,7 @@ it('says nothing about a size it does not have yet', async () => {
       total={0}
       sizeBytes={0}
       isDark={false}
+      onCancel={jest.fn()}
     />
   );
 
@@ -89,6 +93,7 @@ it('exposes the running count as a progress bar a screen reader can read', async
       total={490}
       sizeBytes={0}
       isDark={false}
+      onCancel={jest.fn()}
     />
   );
 
@@ -108,6 +113,7 @@ it('marks the row busy before the worker reports a total', async () => {
       total={0}
       sizeBytes={0}
       isDark={false}
+      onCancel={jest.fn()}
     />
   );
 
@@ -115,4 +121,26 @@ it('marks the row busy before the worker reports a total', async () => {
   expect(screen.getByTestId('bulk-export-spinner').props.accessibilityState).toEqual({
     busy: true,
   });
+});
+
+it('offers Cancel while writing and not once the share sheet opens on the whole file', async () => {
+  const onCancel = jest.fn();
+  const row = (phase: 'generating' | 'sharing') => (
+    <BulkExportProgress
+      phase={phase}
+      format="gpx"
+      current={150}
+      total={402}
+      sizeBytes={0}
+      isDark={false}
+      onCancel={onCancel}
+    />
+  );
+  const { rerender } = await render(row('generating'));
+
+  fireEvent.press(screen.getByTestId('bulk-export-cancel'));
+  expect(onCancel).toHaveBeenCalledTimes(1);
+
+  await rerender(row('sharing'));
+  expect(screen.queryByTestId('bulk-export-cancel')).toBeNull();
 });

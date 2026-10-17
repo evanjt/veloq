@@ -68,7 +68,11 @@ export {
 } from './lib/cameraAngle';
 export { cameraAfter3D, type Camera3DState } from './lib/cameraAfter3D';
 export { computeAttribution } from './lib/computeAttribution';
-export { filterSheetExpandedAfterDrag, filterSheetMaxHeight } from './lib/filterSheet';
+export {
+  filterSheetExpandedAfterDrag,
+  filterSheetFootCover,
+  filterSheetMaxHeight,
+} from './lib/filterSheet';
 export {
   USER_LOCATION_SOURCE_ID,
   buildUserLocationCollection,
@@ -96,7 +100,7 @@ export {
   type MapSourceSpec,
 } from './lib/htmlBuilders';
 export { circlePolygon } from './lib/radiusCircle';
-export { progressLine } from './lib/syncProgressFormat';
+export { formatTrackStage } from './lib/syncProgressFormat';
 export { TRIM_UPDATE_THROTTLE_MS } from './lib/mapBudgets';
 export { registerMapSurfaceReclaimer } from './lib/mapMemoryReclaimer';
 export {

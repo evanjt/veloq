@@ -83,7 +83,7 @@ it.each([
   mockIsDark = isDark;
   await render(<SensorSettingsScreen />);
   const card = flat(screen.getByTestId('sensor-discovered-strap-1').props.style);
-  expect(card.backgroundColor).toBe(isDark ? darkColors.surfaceCard : colors.surface);
+  expect(card.backgroundColor).toBe(isDark ? darkColors.surfaceRaised : colors.surface);
   const label = flat(screen.getByText('Pair').props.style);
   expect(contrast(label.color as string, card.backgroundColor as string)).toBeGreaterThanOrEqual(
     AA_TEXT

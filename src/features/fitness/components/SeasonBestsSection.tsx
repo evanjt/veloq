@@ -1,11 +1,11 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useActivityLabels } from '@/features/activity';
 import { useTheme } from '@/shared/app';
 import { EmptyState, ErrorState, pressable, pressRipple } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { formatDurationOrNull } from '@/shared/format/format';
 import { formatEffortValue } from '../lib/bestEfforts';
@@ -36,7 +36,7 @@ import {
 import { BEST_EFFORT_ROW_COUNT, BestEffortRow, BestEffortRowsSkeleton } from './BestEffortRow';
 import { ClimbingBestRows } from './ClimbingBestRows';
 import { ClimbingStatusNote } from './ClimbingStatusNote';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import type { Period } from '@/shared/app/period';
 
 interface SeasonBestsSectionProps {
@@ -86,12 +86,12 @@ export function SeasonBestsSection({
       accessibilityLabel={t('bestEffortsScreen.viewAll')}
       testID="season-bests-view-all"
       style={pressable([styles.viewAllRow, isDark && styles.viewAllRowDark])}
-      onPress={() => tapTo(bestEffortsHref(period))}
+      onPress={() => navigateTo(bestEffortsHref(period))}
     >
       <Text style={[styles.viewAllText, { color: sportText }]}>
         {t('bestEffortsScreen.viewAll')}
       </Text>
-      <MaterialCommunityIcons name="chevron-right" size={iconSize.sm} color={sportColor} />
+      <Icon name="chevron-right" size={iconSize.sm} color={sportColor} />
     </Pressable>
   );
 

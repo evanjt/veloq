@@ -1,272 +1,68 @@
 {
-  "note": "How each key of colors and darkColors relates to the colour tokens in tokens.json. role is the token a key folds into and also the others its readers split across. from lists the themes in which the key is read from its role now, written by npm run gen:colour-tokens; a key without from keeps a hand value in colors.ts until it folds. drop says why a key goes without a role. reserved names tokens, or prefixes ending in *, that nothing reads yet and are kept for a reader to come.",
+  "note": "How each key of colors and darkColors relates to the colour tokens in tokens.json. role is the token a key folds into and also the others its readers split across. from lists the themes in which the key is read from its role now, written by npm run gen:colour-tokens; a key without from keeps a hand value in colors.ts until it folds. drop says why a key goes without a role. reserved names tokens, or prefixes ending in *, that nothing reads yet and are kept for a reader to come. interface lists the roles the palette names its keys after: a key reading one carries its name, in both themes, so no role has a second name.",
+  "interface": [
+    "surface-page",
+    "surface",
+    "surface-raised",
+    "surface-input",
+    "fill-neutral",
+    "state-hover",
+    "state-pressed",
+    "scrim",
+    "text-primary",
+    "text-secondary",
+    "text-tertiary",
+    "text-disabled",
+    "text-on-fill",
+    "text-on-bright",
+    "text-on-gold",
+    "icon-secondary",
+    "icon-muted",
+    "border",
+    "card-edge",
+    "border-strong",
+    "track",
+    "control-boundary",
+    "action-primary",
+    "action-primary-hover",
+    "action-secondary",
+    "action-link",
+    "focus-ring",
+    "control-on",
+    "brand-blue",
+    "achievement",
+    "achievement-text",
+    "achievement-bg",
+    "achievement-on-bg",
+    "compass-north",
+    "success-text",
+    "success-bg",
+    "success-fill",
+    "warning-text",
+    "warning-bg",
+    "warning-fill",
+    "error-text",
+    "error-bg",
+    "danger-fill",
+    "info-bg"
+  ],
   "keys": {
-    "primary": {
-      "role": "action-primary",
-      "also": [
-        "action-link",
-        "control-on",
-        "focus-ring"
-      ],
+    "surfacePage": {
+      "role": "surface-page",
       "from": [
         "light",
         "dark"
-      ]
-    },
-    "primaryHover": {
-      "role": "action-primary-hover",
-      "from": [
-        "light"
-      ]
-    },
-    "primaryLight": {
-      "role": "action-secondary"
-    },
-    "accent": {
-      "role": "achievement",
-      "from": [
-        "dark"
-      ]
-    },
-    "accentLight": {
-      "role": "achievement"
-    },
-    "secondary": {
-      "role": "chart-series",
-      "also": [
-        "brand-blue"
-      ],
-      "from": [
-        "light"
-      ]
-    },
-    "secondaryLight": {
-      "role": "brand-blue"
-    },
-    "appColourPillBackground": {
-      "role": "surface-raised",
-      "also": [
-        "text-primary"
       ]
     },
     "surface": {
       "role": "surface",
       "from": [
-        "light"
-      ]
-    },
-    "background": {
-      "role": "surface-page"
-    },
-    "backgroundAlt": {
-      "role": "surface-input"
-    },
-    "regionTintIdle": {
-      "role": "state-hover"
-    },
-    "regionTintActive": {
-      "role": "state-pressed"
-    },
-    "textPrimary": {
-      "role": "text-primary"
-    },
-    "textSecondary": {
-      "role": "text-secondary"
-    },
-    "textDisabled": {
-      "role": "text-disabled"
-    },
-    "textOnDark": {
-      "role": "text-on-fill",
-      "from": [
-        "light"
-      ]
-    },
-    "textOnPrimary": {
-      "role": "text-on-fill",
-      "also": [
-        "text-on-bright"
-      ],
-      "from": [
-        "light"
-      ]
-    },
-    "textOnBright": {
-      "role": "text-on-bright"
-    },
-    "iconFaint": {
-      "role": "icon-muted"
-    },
-    "iconNeutral": {
-      "role": "icon-secondary"
-    },
-    "neutralLine": {
-      "role": "fill-neutral",
-      "also": [
-        "chart-muted"
-      ]
-    },
-    "warningAmber": {
-      "role": "warning-text",
-      "from": [
         "light",
         "dark"
       ]
     },
-    "amberIcon": {
-      "role": "warning-text",
-      "from": [
-        "light",
-        "dark"
-      ]
-    },
-    "success": {
-      "role": "success-text",
-      "also": [
-        "success-fill"
-      ],
-      "from": [
-        "dark"
-      ]
-    },
-    "successLight": {
-      "role": "success-text"
-    },
-    "successDark": {
-      "role": "success-text"
-    },
-    "successDeep": {
-      "role": "success-text",
-      "from": [
-        "dark"
-      ]
-    },
-    "successChipText": {
-      "role": "success-text",
-      "from": [
-        "light",
-        "dark"
-      ]
-    },
-    "error": {
-      "role": "error-text",
-      "also": [
-        "danger-fill"
-      ],
-      "from": [
-        "dark"
-      ]
-    },
-    "errorLight": {
-      "role": "error-text"
-    },
-    "errorDark": {
-      "role": "danger-fill"
-    },
-    "errorDeep": {
-      "role": "error-text",
-      "from": [
-        "light",
-        "dark"
-      ]
-    },
-    "dangerFill": {
-      "role": "danger-fill",
-      "from": [
-        "light",
-        "dark"
-      ]
-    },
-    "warning": {
-      "role": "warning-text",
-      "also": [
-        "warning-fill"
-      ],
-      "from": [
-        "dark"
-      ]
-    },
-    "warningLight": {
-      "role": "warning-text"
-    },
-    "cautionYellow": {
-      "role": "text-secondary",
-      "also": [
-        "warning-text"
-      ]
-    },
-    "cautionOrange": {
-      "role": "text-secondary",
-      "also": [
-        "warning-text"
-      ]
-    },
-    "cautionYellowText": {
-      "role": "text-secondary",
-      "also": [
-        "warning-text"
-      ]
-    },
-    "cautionOrangeText": {
-      "role": "text-secondary",
-      "also": [
-        "warning-text"
-      ]
-    },
-    "info": {
-      "role": "action-link"
-    },
-    "infoLight": {
-      "role": "action-link"
-    },
-    "infoText": {
-      "role": "action-link",
-      "from": [
-        "dark"
-      ]
-    },
-    "errorBg": {
-      "role": "error-bg"
-    },
-    "warningBg": {
-      "role": "warning-bg"
-    },
-    "infoBg": {
-      "role": "info-bg"
-    },
-    "successBg": {
-      "role": "success-bg"
-    },
-    "controlOn": {
-      "role": "control-on",
-      "from": [
-        "light",
-        "dark"
-      ]
-    },
-    "controlBoundary": {
-      "role": "control-boundary",
-      "from": [
-        "light",
-        "dark"
-      ]
-    },
-    "focusRing": {
-      "role": "focus-ring",
-      "from": [
-        "light",
-        "dark"
-      ]
-    },
-    "track": {
-      "role": "track",
-      "from": [
-        "light",
-        "dark"
-      ]
-    },
-    "textTertiary": {
-      "role": "text-tertiary",
+    "surfaceRaised": {
+      "role": "surface-raised",
       "from": [
         "light",
         "dark"
@@ -279,17 +75,92 @@
         "dark"
       ]
     },
-    "border": {
-      "role": "border"
-    },
-    "borderLight": {
-      "role": "border"
-    },
-    "divider": {
-      "role": "border"
-    },
     "fillNeutral": {
       "role": "fill-neutral",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "stateHover": {
+      "role": "state-hover",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "statePressed": {
+      "role": "state-pressed",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "textPrimary": {
+      "role": "text-primary",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "textSecondary": {
+      "role": "text-secondary",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "textTertiary": {
+      "role": "text-tertiary",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "textDisabled": {
+      "role": "text-disabled",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "textOnFill": {
+      "role": "text-on-fill",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "textOnBright": {
+      "role": "text-on-bright",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "iconSecondary": {
+      "role": "icon-secondary",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "iconMuted": {
+      "role": "icon-muted",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "border": {
+      "role": "border",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "cardEdge": {
+      "role": "card-edge",
       "from": [
         "light",
         "dark"
@@ -302,35 +173,167 @@
         "dark"
       ]
     },
-    "gray50": {
-      "role": "neutral-25"
+    "track": {
+      "role": "track",
+      "from": [
+        "light",
+        "dark"
+      ]
     },
-    "gray100": {
-      "role": "neutral-50"
+    "controlBoundary": {
+      "role": "control-boundary",
+      "from": [
+        "light",
+        "dark"
+      ]
     },
-    "gray200": {
-      "role": "neutral-100"
+    "actionPrimary": {
+      "role": "action-primary",
+      "from": [
+        "light",
+        "dark"
+      ]
     },
-    "gray300": {
-      "role": "neutral-200"
+    "actionPrimaryHover": {
+      "role": "action-primary-hover",
+      "from": [
+        "light",
+        "dark"
+      ]
     },
-    "gray400": {
-      "role": "neutral-300"
+    "actionSecondary": {
+      "role": "action-secondary",
+      "from": [
+        "light",
+        "dark"
+      ]
     },
-    "gray500": {
-      "role": "neutral-500"
+    "actionLink": {
+      "role": "action-link",
+      "from": [
+        "light",
+        "dark"
+      ]
     },
-    "gray600": {
-      "role": "neutral-600"
+    "focusRing": {
+      "role": "focus-ring",
+      "from": [
+        "light",
+        "dark"
+      ]
     },
-    "gray700": {
-      "role": "neutral-700"
+    "controlOn": {
+      "role": "control-on",
+      "from": [
+        "light",
+        "dark"
+      ]
     },
-    "gray800": {
-      "role": "neutral-800"
+    "achievement": {
+      "role": "achievement",
+      "from": [
+        "light",
+        "dark"
+      ]
     },
-    "gray900": {
-      "role": "neutral-900"
+    "achievementText": {
+      "role": "achievement-text",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "compassNorth": {
+      "role": "compass-north",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "successText": {
+      "role": "success-text",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "successBg": {
+      "role": "success-bg",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "successFill": {
+      "role": "success-fill",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "warningText": {
+      "role": "warning-text",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "warningBg": {
+      "role": "warning-bg",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "warningFill": {
+      "role": "warning-fill",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "errorText": {
+      "role": "error-text",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "errorBg": {
+      "role": "error-bg",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "dangerFill": {
+      "role": "danger-fill",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "infoBg": {
+      "role": "info-bg",
+      "from": [
+        "light",
+        "dark"
+      ]
+    },
+    "secondary": {
+      "role": "chart-series",
+      "also": [
+        "brand-blue"
+      ],
+      "from": [
+        "light"
+      ]
+    },
+    "appColourPillBackground": {
+      "role": "surface-raised",
+      "also": [
+        "text-primary"
+      ]
     },
     "ride": {
       "role": "sport-ride"
@@ -375,16 +378,18 @@
       "role": "sport-strength"
     },
     "fitness": {
-      "role": "fitness-ctl"
+      "role": "fitness-ctl",
+      "from": [
+        "light",
+        "dark"
+      ]
     },
     "fatigue": {
-      "role": "fatigue-atl"
-    },
-    "fitnessBlue": {
-      "role": "fitness-ctl"
-    },
-    "fatiguePurple": {
-      "role": "fatigue-atl"
+      "role": "fatigue-atl",
+      "from": [
+        "light",
+        "dark"
+      ]
     },
     "chartBlue": {
       "role": "data-seq-1",
@@ -422,15 +427,6 @@
     "chartAmber": {
       "drop": "no reader"
     },
-    "chartGold": {
-      "role": "achievement"
-    },
-    "chartGoldMark": {
-      "role": "achievement",
-      "also": [
-        "achievement-text"
-      ]
-    },
     "chartGreenMark": {
       "role": "text-primary"
     },
@@ -440,25 +436,11 @@
     "chartBronzeMark": {
       "role": "chart-reference"
     },
-    "chartGoldText": {
-      "role": "achievement-text",
-      "from": [
-        "light",
-        "dark"
-      ]
-    },
     "chartPinkText": {
       "role": "text-primary"
     },
     "chartPurpleText": {
       "role": "text-primary"
-    },
-    "chartAccentText": {
-      "role": "action-link",
-      "from": [
-        "light",
-        "dark"
-      ]
     },
     "fitnessBlueText": {
       "role": "text-primary"
@@ -494,7 +476,11 @@
       "role": "chart-series"
     },
     "chartFtp": {
-      "role": "stream-power"
+      "role": "stream-power",
+      "from": [
+        "light",
+        "dark"
+      ]
     },
     "chartFtpText": {
       "role": "text-primary"
@@ -539,41 +525,54 @@
     "chartFormLine": {
       "role": "text-primary"
     },
-    "highlight": {
-      "role": "action-link"
-    },
-    "highlightAlt": {
-      "role": "action-link"
-    },
-    "shadowBlack": {
-      "role": "neutral-950"
-    },
-    "transparent": {
-      "drop": "literal transparent"
-    },
     "sameDirection": {
-      "drop": "no reader"
+      "role": "direction-forward",
+      "from": [
+        "light",
+        "dark"
+      ]
     },
     "reverseDirection": {
       "role": "direction-reverse",
-      "also": [
-        "direction-forward"
+      "from": [
+        "light",
+        "dark"
       ]
     },
     "formTransition": {
-      "role": "data-div-cool-3"
+      "role": "data-div-cool-3",
+      "from": [
+        "light",
+        "dark"
+      ]
     },
     "formFresh": {
-      "role": "data-div-cool-1"
+      "role": "data-div-cool-1",
+      "from": [
+        "light",
+        "dark"
+      ]
     },
     "formGreyZone": {
-      "role": "data-div-mid"
+      "role": "data-div-mid",
+      "from": [
+        "light",
+        "dark"
+      ]
     },
     "formOptimal": {
-      "role": "data-div-warm-1"
+      "role": "data-div-warm-1",
+      "from": [
+        "light",
+        "dark"
+      ]
     },
     "formHighRisk": {
-      "role": "data-div-warm-3"
+      "role": "data-div-warm-3",
+      "from": [
+        "light",
+        "dark"
+      ]
     },
     "formTransitionText": {
       "role": "text-primary"
@@ -601,16 +600,6 @@
     },
     "workoutCooldown": {
       "drop": "no reader"
-    },
-    "actionLink": {
-      "role": "action-link",
-      "from": [
-        "light",
-        "dark"
-      ]
-    },
-    "compassNorth": {
-      "role": "compass-north"
     },
     "markCyan": {
       "role": "data-seq-1",
@@ -652,71 +641,8 @@
         "data-seq-4"
       ]
     },
-    "markFormTransition": {
-      "role": "data-div-cool-3"
-    },
-    "markFormFresh": {
-      "role": "data-div-cool-1"
-    },
-    "markFormGreyZone": {
-      "role": "data-div-mid"
-    },
-    "markFormOptimal": {
-      "role": "data-div-warm-1"
-    },
-    "surfaceElevated": {
-      "role": "surface-raised"
-    },
-    "surfaceCard": {
-      "role": "surface-raised"
-    },
-    "surfaceOverlay": {
-      "role": "surface-raised"
-    },
-    "borderAccent": {
-      "role": "border"
-    },
-    "iconPrimary": {
-      "role": "text-primary"
-    },
-    "iconSecondary": {
-      "role": "icon-secondary"
-    },
-    "iconMuted": {
-      "role": "icon-muted"
-    },
-    "iconDisabled": {
-      "role": "text-disabled"
-    },
-    "buttonSecondary": {
-      "drop": "no reader; the secondary button is surface with a control-boundary edge"
-    },
-    "inputBackground": {
-      "role": "surface-input",
-      "also": [
-        "surface"
-      ]
-    },
-    "chartFitness": {
-      "role": "fitness-ctl"
-    },
-    "chartFatigue": {
-      "role": "fatigue-atl"
-    },
     "chartForm": {
       "role": "text-primary"
-    },
-    "chartHR": {
-      "role": "stream-heartrate"
-    },
-    "chartCadence": {
-      "role": "stream-cadence"
-    },
-    "chartElevation": {
-      "role": "stream-context",
-      "also": [
-        "stream-context-line"
-      ]
     }
   },
   "reserved": {
@@ -732,9 +658,9 @@
     "section-badge-ink": "the ink on section-badge, read with it",
     "record": "the record button and Live Activity red, read when recording folds into it",
     "chart-crosshair": "the chart scrubber line, read when the chart crosshair takes a token",
-    "data-*": "the sequential and diverging data ramps, read when gradientScale, strengthRamp and contributionRamp fold into them",
-    "sport-*": "the sport families and their shades, read when activityTypeColors folds into them",
-    "stream-*": "one colour per activity stream, read when chartStreamColors folds into them",
+    "data-*": "the sequential and diverging data ramps, read by sequentialRamp and divergingRamp",
+    "sport-*": "the sport families and their shades, read by sportFamilyColours",
+    "stream-*": "one colour per activity stream, read by chartStreamColors",
     "zone-*": "the zone ladder, read when zoneColors, the interval bands and the workout steps fold into it",
     "map-*": "the map's own paints and basemap, read when the map layers and styles take the map tokens"
   }

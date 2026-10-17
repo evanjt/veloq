@@ -4,6 +4,7 @@ import type { TFunction } from 'i18next';
 import {
   bulkExportActivities,
   bulkExportActivitiesGeoJson,
+  cancelBulkExport,
   hasPendingBulkExport,
   pendingBulkExportKind,
   pendingBulkExportSettled,
@@ -67,6 +68,8 @@ export function useBulkExport(anchor?: ShareAnchor) {
   const [current, setCurrent] = useState(0);
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  // The athlete stopped the last run. Kept until the next one starts.
+  const [cancelled, setCancelled] = useState(false);
   const { t } = useTranslation();
   // A second tap inside one render reads the same `state`, so the guard is a ref.
   const running = useRef(false);
@@ -114,6 +117,14 @@ export function useBulkExport(anchor?: ShareAnchor) {
       // Rust refusing a second run is the first one still going, not a failure.
       if (engineErrorTag(err) === 'Busy') {
         if (live.current) setStillRunning(true);
+        return;
+      }
+      // A stop the athlete asked for wrote nothing and is not a failure.
+      if (engineErrorTag(err) === 'Cancelled') {
+        if (live.current) {
+          setStillRunning(false);
+          setCancelled(true);
+        }
         return;
       }
       const message = failureMessage(err, t);
@@ -187,6 +198,7 @@ export function useBulkExport(anchor?: ShareAnchor) {
       setTotal(0);
       setError(null);
       setStillRunning(false);
+      setCancelled(false);
 
       try {
         const exportFn = kind === 'geojson' ? bulkExportActivitiesGeoJson : bulkExportActivities;
@@ -234,12 +246,19 @@ export function useBulkExport(anchor?: ShareAnchor) {
     void resume();
   }, [resume]);
 
+  // The outcome arrives as the run's own rejection, on whichever wait holds it.
+  const cancel = useCallback(() => {
+    cancelBulkExport();
+  }, []);
+
   const exportAll = useCallback(() => doExport('gpx'), [doExport]);
   const exportAllGeoJson = useCallback(() => doExport('geojson'), [doExport]);
 
   return {
     exportAll,
     exportAllGeoJson,
+    cancel,
+    cancelled,
     isExporting: state === 'exporting',
     stillRunning,
     format,

@@ -1,20 +1,22 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { colors, darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { Button, pressable, pressRipple, Stepper } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { useActivities } from '@/features/activity';
 import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { getEngine } from '@/shared/native/engine';
+import { useLastSyncSuccessAt, useTrackStage } from '@/shared/native/useSyncStatus';
 import { attemptEngineRead, engineErrorKey, engineErrorTag } from '@/shared/native/engineError';
 import { i18n } from '@/i18n';
 import * as haptics from '@/shared/ui/haptics';
 import { deleteGpsTracks } from '@/shared/storage/gpsStorage';
 import { queryKeys } from '@/shared/query/queryKeys';
-import type { PersistentEngineStats } from 'veloqrs';
+import { TrackStep, type PersistentEngineStats } from 'veloqrs';
 import { ABSENT } from '@/shared/format/absent';
 import { confirmAction, inform } from '@/shared/ui/dialog';
 
@@ -65,14 +67,10 @@ function Section({
         accessibilityState={{ expanded: open }}
       >
         <View style={styles.sectionHeaderLeft}>
-          <MaterialCommunityIcons name={icon} size={iconSize.md} color={mutedColor} />
+          <Icon name={icon} size={iconSize.md} color={mutedColor} />
           <Text style={[styles.sectionTitle, { color: textColor }]}>{title}</Text>
         </View>
-        <MaterialCommunityIcons
-          name={open ? 'chevron-up' : 'chevron-down'}
-          size={iconSize.md}
-          color={mutedColor}
-        />
+        <Icon name={open ? 'chevron-up' : 'chevron-down'} size={iconSize.md} color={mutedColor} />
       </Pressable>
       {open ? <View style={styles.sectionContent}>{children}</View> : null}
     </View>
@@ -93,9 +91,8 @@ export function SyncDebugSection() {
   // Data sources
   const syncOldest = useSyncDateRange((s) => s.oldest);
   const syncNewest = useSyncDateRange((s) => s.newest);
-  const gpsSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
-  const lastSyncTimestamp = useSyncDateRange((s) => s.lastSyncTimestamp);
-  const isGpsSyncing = useSyncDateRange((s) => s.isGpsSyncing);
+  const trackStage = useTrackStage();
+  const lastSyncSuccessAt = useLastSyncSuccessAt();
 
   // The stored bodies over the sync window, read only while this debug tab is open
   const { data: apiActivities } = useActivities({
@@ -137,12 +134,12 @@ export function SyncDebugSection() {
 
   // Traffic light color
   const alignmentColor = useMemo(() => {
-    if (alignment.apiCount === 0 && alignment.engineCount === 0) return colors.iconNeutral;
+    if (alignment.apiCount === 0 && alignment.engineCount === 0) return colors.iconSecondary;
     if (alignment.missingFromEngine.length === 0 && alignment.extraInEngine.length === 0) {
-      return colors.success;
+      return colors.successText;
     }
-    if (alignment.missingFromEngine.length <= 3) return colors.warning;
-    return colors.error;
+    if (alignment.missingFromEngine.length <= 3) return colors.warningText;
+    return colors.errorText;
   }, [alignment]);
 
   // State for "Remove N Activities" stepper
@@ -370,21 +367,21 @@ export function SyncDebugSection() {
 
       {/* Sync Status */}
       <Section title="Sync Status" icon="sync" isDark={isDark}>
-        <StatRow label="Status" value={gpsSyncProgress.status} isDark={isDark} />
+        <StatRow
+          label="Track Stage"
+          value={trackStage ? TrackStep[trackStage.step] : 'Idle'}
+          isDark={isDark}
+        />
         <StatRow
           label="Progress"
           value={
-            gpsSyncProgress.total > 0
-              ? `${gpsSyncProgress.completed}/${gpsSyncProgress.total} (${gpsSyncProgress.percent}%)`
+            trackStage && trackStage.total > 0
+              ? `${trackStage.completed}/${trackStage.total} (${trackStage.percent}%)`
               : ABSENT
           }
           isDark={isDark}
         />
-        {gpsSyncProgress.message ? (
-          <StatRow label="Message" value={gpsSyncProgress.message} isDark={isDark} />
-        ) : null}
-        <StatRow label="Last Sync" value={lastSyncTimestamp ?? 'Never'} isDark={isDark} />
-        <StatRow label="Syncing" value={isGpsSyncing ? 'Yes' : 'No'} isDark={isDark} />
+        <StatRow label="Last Sync" value={lastSyncSuccessAt ?? 'Never'} isDark={isDark} />
         <StatRow label="Sync Range" value={`${syncOldest} - ${syncNewest}`} isDark={isDark} />
       </Section>
 
@@ -459,7 +456,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   sectionDark: {
-    backgroundColor: darkColors.surfaceElevated,
+    backgroundColor: darkColors.surfaceRaised,
   },
   sectionHeader: {
     flexDirection: 'row',

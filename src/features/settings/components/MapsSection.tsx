@@ -3,7 +3,6 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useMetricSystem, useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ACTIVITY_CATEGORIES } from '@/shared/activity/sportCategories';
 import { useMapPreferences } from '../stores/MapPreferencesContext';
 import { clearTerrainPreviews, SMART_3D_MIN_RELIEF_M, type MapStyleType } from '@/features/maps';
@@ -23,6 +22,7 @@ import {
 import { Row } from '@/shared/ui/Row';
 import { RowDivider } from '@/shared/ui/RowGroup';
 import { composeAccessibilityLabel, pressable, pressRipple, SelectButton } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { HeatmapRow } from './HeatmapRow';
 import { groupStyleState, groupTerrainState } from '../lib/mapStyleGroupState';
 import { settingsStyles } from './settingsStyles';
@@ -111,7 +111,7 @@ export function MapsSection() {
         : t('settings.terrain3DAlways', { defaultValue: 'Always' });
 
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const pillBg = isDark ? darkColors.surfaceElevated : colors.background;
+  const pillBg = isDark ? darkColors.surfaceRaised : colors.surfacePage;
 
   const mapsContent = (
     <>
@@ -128,10 +128,12 @@ export function MapsSection() {
           onPress={cycleTerrain3DMode}
           android_ripple={pressRipple}
         >
-          <MaterialCommunityIcons
+          <Icon
             name="image-filter-hdr"
             size={iconSize.sm}
-            color={mapPreferences.terrain3DMode === 'off' ? palette.textSecondary : palette.primary}
+            color={
+              mapPreferences.terrain3DMode === 'off' ? palette.textSecondary : palette.actionPrimary
+            }
           />
           <Text
             style={[
@@ -160,7 +162,7 @@ export function MapsSection() {
       {/* Per-activity overrides */}
       <RowDivider />
       <Row>
-        <MaterialCommunityIcons name="tune-variant" size={iconSize.md} color={palette.primary} />
+        <Icon name="tune-variant" size={iconSize.md} color={palette.actionPrimary} />
         <Text style={[styles.actionText, isDark && settingsStyles.textLight]}>
           {t('settings.customiseByActivity')}
         </Text>
@@ -169,7 +171,7 @@ export function MapsSection() {
       <View style={styles.overridesContainer}>
         {/* Explore Map row */}
         <View style={styles.overrideRow}>
-          <MaterialCommunityIcons name="map-outline" size={iconSize.md} color={palette.primary} />
+          <Icon name="map-outline" size={iconSize.md} color={palette.actionPrimary} />
           <Text style={[styles.overrideLabel, isDark && settingsStyles.textLight]}>
             {t('settings.exploreMapStyle')}
           </Text>

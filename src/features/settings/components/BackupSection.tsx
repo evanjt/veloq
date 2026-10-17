@@ -1,7 +1,6 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, StyleSheet, Platform, type ViewInstance } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   Button,
   Card,
@@ -11,6 +10,7 @@ import {
   StatusLine,
   SwitchRow,
 } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { RowDivider } from '@/shared/ui/RowGroup';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
@@ -54,10 +54,12 @@ import {
   type IcloudBackupState,
 } from '@/features/settings/lib/autobackup';
 import {
+  cancelRecordBackup,
   discardRecordImport,
   discardUnplacedRecords,
   resumeRecordImport,
 } from '@/features/settings/lib/backup';
+import { engineErrorTag } from '@/shared/native/engineError';
 import {
   forgetGoogleDrive,
   getGoogleDriveAccount,
@@ -267,6 +269,8 @@ export function BackupSection() {
   const [backingUp, setBackingUp] = useState(false);
   const [backupResult, setBackupResult] = useState<'success' | 'error' | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
+  // The athlete stopped the last Back Up Now. Kept until the next one starts.
+  const [backupCancelled, setBackupCancelled] = useState(false);
   const [backendBackups, setBackendBackups] = useState<CarrierEntries[] | null>(null);
   // Whether the last listing read a destination the athlete set up, rather
   // than only the older backups on this device.
@@ -406,6 +410,7 @@ export function BackupSection() {
     setBackingUp(true);
     setBackupResult(null);
     setBackupError(null);
+    setBackupCancelled(false);
     setRunResult(null);
     try {
       // A half-typed server is a destination the athlete meant to include, so
@@ -422,6 +427,11 @@ export function BackupSection() {
       setBackupResult(success ? 'success' : 'error');
       if (!success) setBackupError(t('backup.backupFailedMessage'));
     } catch (error) {
+      // A stop the athlete asked for wrote nothing and is not a failure.
+      if (engineErrorTag(error) === 'Cancelled') {
+        setBackupCancelled(true);
+        return;
+      }
       setBackupResult('error');
       setBackupError(describeBackupError(error));
     } finally {
@@ -439,8 +449,13 @@ export function BackupSection() {
     [runBackup]
   );
 
+  // While a backup runs the button is its Cancel. The outcome arrives as the
+  // run's own rejection.
   const handleBackupNow = useCallback(async () => {
-    if (backingUp) return;
+    if (backingUp) {
+      cancelRecordBackup();
+      return;
+    }
     await runBackup();
   }, [backingUp, runBackup]);
 
@@ -643,9 +658,11 @@ export function BackupSection() {
     setBackendBackups(null);
   }, []);
 
-  const exportAnchor = useRef<View>(null);
+  const exportAnchor = useRef<ViewInstance>(null);
   const {
     exportRecordBackup,
+    cancel: cancelRecordExport,
+    cancelled: recordExportCancelled,
     exporting: dbExporting,
     stillRunning: exportStillRunning,
   } = useExportRecordBackup(exportAnchor);
@@ -658,10 +675,12 @@ export function BackupSection() {
 
   // Bulk export. The pills give way to progress while it runs, so the share
   // sheet anchors to their row.
-  const bulkAnchor = useRef<View>(null);
+  const bulkAnchor = useRef<ViewInstance>(null);
   const {
     exportAll,
     exportAllGeoJson,
+    cancel: cancelBulk,
+    cancelled: bulkCancelled,
     isExporting: bulkExporting,
     stillRunning: bulkStillRunning,
     format: bulkFormat,
@@ -712,11 +731,18 @@ export function BackupSection() {
         />
         {divider}
         <Row>
-          <MaterialCommunityIcons name="history" size={iconSize.lg} color={iconColor} />
+          <Icon name="history" size={iconSize.lg} color={iconColor} />
           <View style={styles.fill}>
             <Text testID="backup-last-run-text" style={labelStyle}>
               {lastBackupText}
             </Text>
+            {backupCancelled ? (
+              <StatusLine tone="info" message={t('common.cancelled')}>
+                <Text testID="backup-cancelled" style={detailStyle}>
+                  {t('common.cancelled')}
+                </Text>
+              </StatusLine>
+            ) : null}
             {runStatus ? (
               <StatusLine tone={runStatus.tone} message={runStatus.spoken}>
                 {runStatus.saved ? (
@@ -746,11 +772,10 @@ export function BackupSection() {
           </View>
           <Button
             testID="backup-now-button"
-            label={t('backup.backupNow')}
+            label={backingUp ? t('common.cancel') : t('backup.backupNow')}
             variant="secondary"
             size="sm"
             onPress={handleBackupNow}
-            loading={backingUp}
           />
         </Row>
       </Card>
@@ -771,11 +796,7 @@ export function BackupSection() {
             />
           }
         >
-          <MaterialCommunityIcons
-            name="cloud-download-outline"
-            size={iconSize.lg}
-            color={iconColor}
-          />
+          <Icon name="cloud-download-outline" size={iconSize.lg} color={iconColor} />
           <Text style={labelStyle}>{t('backup.restoreFromDestination')}</Text>
         </Row>
         {backendBackups?.every((group) => group.entries.length === 0) ? (
@@ -818,11 +839,7 @@ export function BackupSection() {
           disabled={dbImporting}
           busy={dbImporting}
         >
-          <MaterialCommunityIcons
-            name="database-import-outline"
-            size={iconSize.lg}
-            color={iconColor}
-          />
+          <Icon name="database-import-outline" size={iconSize.lg} color={iconColor} />
           <Text style={labelStyle}>
             {dbImporting ? t('backup.importing') : t('backup.importBackup')}
           </Text>
@@ -831,11 +848,7 @@ export function BackupSection() {
           <>
             {divider}
             <Row>
-              <MaterialCommunityIcons
-                name="pause-circle-outline"
-                size={iconSize.lg}
-                color={iconColor}
-              />
+              <Icon name="pause-circle-outline" size={iconSize.lg} color={iconColor} />
               <View style={styles.fill}>
                 <Text testID="backup-import-paused" style={labelStyle}>
                   {t('backup.importPaused')}
@@ -867,11 +880,7 @@ export function BackupSection() {
           <>
             {divider}
             <Row testID="backup-restore-fetch">
-              <MaterialCommunityIcons
-                name="download-outline"
-                size={iconSize.lg}
-                color={iconColor}
-              />
+              <Icon name="download-outline" size={iconSize.lg} color={iconColor} />
               <ProgressRow
                 label={t('backup.unplacedActivityPending')}
                 done={fetchDone}
@@ -889,7 +898,7 @@ export function BackupSection() {
           <>
             {divider}
             <Row testID="backup-unplaced-records">
-              <MaterialCommunityIcons name="timer-sand" size={iconSize.lg} color={iconColor} />
+              <Icon name="timer-sand" size={iconSize.lg} color={iconColor} />
               <View style={styles.fill}>
                 <Text style={labelStyle}>
                   {t('backup.unplacedRecords', { count: waitingRecords.length })}
@@ -912,11 +921,7 @@ export function BackupSection() {
           <>
             {divider}
             <Row testID="backup-restore-drops">
-              <MaterialCommunityIcons
-                name="information-outline"
-                size={iconSize.lg}
-                color={iconColor}
-              />
+              <Icon name="information-outline" size={iconSize.lg} color={iconColor} />
               <View style={styles.fill}>
                 {restoreDrops.map((line) => (
                   <Text key={line} style={labelStyle}>
@@ -939,7 +944,7 @@ export function BackupSection() {
       <ListSectionHeader>{t('backup.sectionDestinations')}</ListSectionHeader>
       <Card variant="flat" padding="none">
         <Row testID="backup-carrier-device">
-          <MaterialCommunityIcons name="cellphone" size={iconSize.lg} color={iconColor} />
+          <Icon name="cellphone" size={iconSize.lg} color={iconColor} />
           <View style={styles.fill}>
             <Text style={labelStyle}>
               {t(Platform.OS === 'ios' ? 'backup.carrierDeviceIos' : 'backup.carrierDeviceAndroid')}
@@ -1000,7 +1005,7 @@ export function BackupSection() {
         {divider}
         <View testID="backup-carrier-folder">
           <Row>
-            <MaterialCommunityIcons name="folder-outline" size={iconSize.lg} color={iconColor} />
+            <Icon name="folder-outline" size={iconSize.lg} color={iconColor} />
             <View style={styles.fill}>
               <Text style={labelStyle}>{t('backup.carrierFolder')}</Text>
               <Text style={detailStyle}>{folderName ?? t('backup.carrierFolderNone')}</Text>
@@ -1042,7 +1047,7 @@ export function BackupSection() {
             {divider}
             <View testID="backup-carrier-google-drive">
               <Row>
-                <MaterialCommunityIcons name="google-drive" size={iconSize.lg} color={iconColor} />
+                <Icon name="google-drive" size={iconSize.lg} color={iconColor} />
                 <View style={styles.fill}>
                   <Text style={labelStyle}>{t('backup.carrierGoogleDrive')}</Text>
                   <Text testID="backup-google-drive-account" style={detailStyle}>
@@ -1093,7 +1098,7 @@ export function BackupSection() {
         {divider}
         <View testID="backup-carrier-webdav">
           <Row>
-            <MaterialCommunityIcons name="server-network" size={iconSize.lg} color={iconColor} />
+            <Icon name="server-network" size={iconSize.lg} color={iconColor} />
             <View style={styles.fill}>
               <Text style={labelStyle}>{t('backup.backendWebdav')}</Text>
               {webdavSet ? (
@@ -1137,27 +1142,41 @@ export function BackupSection() {
             />
           }
         >
-          <MaterialCommunityIcons
-            name="database-export-outline"
-            size={iconSize.lg}
-            color={iconColor}
-          />
+          <Icon name="database-export-outline" size={iconSize.lg} color={iconColor} />
           <Text style={labelStyle}>
             {dbExporting ? t('backup.exporting') : t('backup.exportBackup')}
           </Text>
         </Row>
         {exportStillRunning ? (
           <Row>
-            <StatusLine tone="pending" message={t('settings.stillRunning')}>
-              <Text testID="backup-export-still-running" style={detailStyle}>
-                {t('settings.stillRunning')}
+            <View style={styles.fill}>
+              <StatusLine tone="pending" message={t('settings.stillRunning')}>
+                <Text testID="backup-export-still-running" style={detailStyle}>
+                  {t('settings.stillRunning')}
+                </Text>
+              </StatusLine>
+            </View>
+            <Button
+              testID="backup-export-cancel"
+              label={t('common.cancel')}
+              variant="secondary"
+              size="sm"
+              onPress={cancelRecordExport}
+            />
+          </Row>
+        ) : null}
+        {recordExportCancelled && !dbExporting ? (
+          <Row>
+            <StatusLine tone="info" message={t('common.cancelled')}>
+              <Text testID="backup-export-cancelled" style={detailStyle}>
+                {t('common.cancelled')}
               </Text>
             </StatusLine>
           </Row>
         ) : null}
         {divider}
         <Row ref={bulkAnchor}>
-          <MaterialCommunityIcons name="map-marker-path" size={iconSize.lg} color={iconColor} />
+          <Icon name="map-marker-path" size={iconSize.lg} color={iconColor} />
           {bulkExporting || bulkStillRunning ? (
             <BulkExportProgress
               phase={bulkPhase}
@@ -1166,6 +1185,7 @@ export function BackupSection() {
               total={bulkTotal}
               sizeBytes={bulkSizeBytes}
               isDark={isDark}
+              onCancel={cancelBulk}
             />
           ) : (
             <>
@@ -1193,6 +1213,15 @@ export function BackupSection() {
             </>
           )}
         </Row>
+        {bulkCancelled && !bulkExporting && !bulkStillRunning ? (
+          <Row>
+            <StatusLine tone="info" message={t('common.cancelled')}>
+              <Text testID="bulk-export-cancelled" style={detailStyle}>
+                {t('common.cancelled')}
+              </Text>
+            </StatusLine>
+          </Row>
+        ) : null}
         {/* A late share is the run ending, not one the athlete can leave. */}
         {bulkStillRunning && bulkPhase !== 'sharing' ? (
           <Row>
@@ -1231,15 +1260,15 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   success: {
-    color: colors.successDeep,
+    color: colors.successText,
   },
   successDark: {
-    color: darkColors.successDeep,
+    color: darkColors.successText,
   },
   error: {
-    color: colors.errorDeep,
+    color: colors.errorText,
   },
   errorDark: {
-    color: darkColors.errorDeep,
+    color: darkColors.errorText,
   },
 });

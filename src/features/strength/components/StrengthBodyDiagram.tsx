@@ -1,13 +1,14 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { Card, pressable, pressRipple, Shimmer, SkeletonFrame } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
+import { ChartSurface, partsSummary, partsTable } from '@/shared/charts';
 import {
   bodyDiagram,
   strengthTone,
@@ -16,7 +17,7 @@ import {
   iconSize,
   layout,
   spacing,
-  strengthRamp,
+  sequentialRamp,
   typography,
 } from '@/theme';
 import type { MuscleVolume } from '@/types';
@@ -28,7 +29,6 @@ import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { formatWeightRounded } from '@/shared/format/weight';
 import { FitText } from '@/shared/ui/FitText';
 
-const BODY_COLORS: readonly string[] = strengthRamp;
 const BODY_FILL_LIGHT = bodyDiagram.fillLight;
 const BODY_FILL_DARK = bodyDiagram.fillDark;
 /** The largest scale the figures are drawn at, which sets the card's height. */
@@ -36,6 +36,8 @@ const BODY_MAX_SCALE = 0.6;
 
 interface StrengthBodyDiagramProps {
   bodyData: ExtendedBodyPart[];
+  /** The period's trained muscles, which the summary and the Show data table list. */
+  volumes?: readonly MuscleVolume[];
   gender: 'male' | 'female';
   maxWeightedSets: number;
   selectedVolume: MuscleVolume | null;
@@ -47,6 +49,7 @@ interface StrengthBodyDiagramProps {
 
 export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
   bodyData,
+  volumes = NO_VOLUMES,
   gender,
   maxWeightedSets,
   selectedVolume,
@@ -60,10 +63,27 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
   const isMetric = useMetricSystem();
   // The legend's zero names the colour an untrained muscle is drawn in.
   const untrainedFill = isDark ? BODY_FILL_DARK : BODY_FILL_LIGHT;
+  const volumeRamp = sequentialRamp[isDark ? 'dark' : 'light'];
   const selectedName = selectedVolume ? muscleName(selectedVolume.slug, t) : '';
   const selectedSummary = selectedVolume
     ? `${t('strength.setsCount', { count: Math.round(selectedVolume.weightedSets * 10) / 10 })} · ${formatWeightRounded(selectedVolume.volumeKg, isMetric)}`
     : '';
+
+  // What a screen reader hears and the Show data sheet lists: each trained muscle's weighted
+  // sets, most first.
+  const reading = useMemo(() => {
+    const title = t('strength.muscleGroupVolume');
+    const parts = [...volumes]
+      .sort((a, b) => b.weightedSets - a.weightedSets)
+      .map((volume) => ({
+        label: muscleName(volume.slug, t),
+        value: t('strength.setsCount', { count: Math.round(volume.weightedSets * 10) / 10 }),
+      }));
+    return {
+      summary: partsSummary(title, parts, t),
+      table: partsTable(title, t('charts.column.muscle'), t('charts.column.sets'), parts),
+    };
+  }, [volumes, t]);
 
   return (
     <View testID="strength-body-diagram" style={styles.frame}>
@@ -105,7 +125,7 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
               >
                 {`· ${selectedSummary}`}
               </FitText>
-              <MaterialCommunityIcons
+              <Icon
                 name="close"
                 size={iconSize.sm}
                 color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -122,7 +142,7 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
             selectedSlug={selectedVolume?.slug ?? null}
             gender={gender}
             maxScale={BODY_MAX_SCALE}
-            colors={BODY_COLORS}
+            colors={volumeRamp}
             onMuscleTap={onMuscleTap}
             onMuscleScrub={onMuscleScrub}
             tappableSlugs={tappableSlugs}
@@ -133,31 +153,41 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
             }
           />
 
-          {/* Continuous scale bar */}
-          <View style={styles.scaleBarContainer}>
-            <Text style={[styles.scaleLabel, isDark && styles.scaleLabelDark]}>
-              {t('strength.relativeVolume')}
-            </Text>
-            <View style={styles.scaleBar}>
-              <LinearGradient
-                colors={[untrainedFill, ...strengthRamp]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.scaleGradient}
-              />
-            </View>
-            <View style={styles.scaleLabels}>
-              <Text style={[styles.scaleValue, isDark && styles.scaleValueDark]}>0</Text>
-              <Text style={[styles.scaleValue, isDark && styles.scaleValueDark]}>
-                {t('strength.setsCount', { count: Math.round(maxWeightedSets * 10) / 10 })}
+          {/* Continuous scale bar. The figures are their own adjustable control, so the
+              chart's reading sits on the scale that keys them rather than around them. */}
+          <ChartSurface
+            summary={reading.summary}
+            table={reading.table}
+            style={styles.scaleSurface}
+            testID="strength-body-plot"
+          >
+            <View style={styles.scaleBarContainer}>
+              <Text style={[styles.scaleLabel, isDark && styles.scaleLabelDark]}>
+                {t('strength.relativeVolume')}
               </Text>
+              <View style={styles.scaleBar}>
+                <LinearGradient
+                  colors={[untrainedFill, ...volumeRamp]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.scaleGradient}
+                />
+              </View>
+              <View style={styles.scaleLabels}>
+                <Text style={[styles.scaleValue, isDark && styles.scaleValueDark]}>0</Text>
+                <Text style={[styles.scaleValue, isDark && styles.scaleValueDark]}>
+                  {t('strength.setsCount', { count: Math.round(maxWeightedSets * 10) / 10 })}
+                </Text>
+              </View>
             </View>
-          </View>
+          </ChartSurface>
         </View>
       </Card>
     </View>
   );
 });
+
+const NO_VOLUMES: readonly MuscleVolume[] = [];
 
 /** The body diagram card while the period's first read is pending, laid out as the card it becomes. */
 export function StrengthBodyDiagramSkeleton() {
@@ -251,6 +281,9 @@ const styles = StyleSheet.create({
   },
   subtitleTextDark: {
     color: darkColors.textSecondary,
+  },
+  scaleSurface: {
+    flex: 0,
   },
   scaleBarContainer: {
     paddingHorizontal: spacing.md,

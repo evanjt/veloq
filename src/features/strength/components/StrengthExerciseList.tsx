@@ -10,7 +10,7 @@ import { formatWeightRounded as formatWeight } from '@/shared/format/weight';
 import { Row } from '@/shared/ui';
 
 import { muscleName } from '../lib/muscleNames';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { NameText } from '@/shared/ui/NameText';
 
 interface StrengthExerciseListProps {
@@ -41,7 +41,7 @@ export const StrengthExerciseList = React.memo(function StrengthExerciseList({
           <Row
             inset="none"
             behaviour="navigate"
-            onPress={() => tapTo(`/exercise/${exercise.exerciseCategory}`)}
+            onPress={() => navigateTo(`/exercise/${exercise.exerciseCategory}`)}
             accessibilityLabel={t('strength.openExerciseHistory', {
               exercise: exercise.exerciseName,
             })}
@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   titleDark: { color: darkColors.textSecondary },
-  itemBorder: { borderTopWidth: stroke.hairline, borderTopColor: colors.divider },
+  itemBorder: { borderTopWidth: stroke.hairline, borderTopColor: colors.border },
   itemBorderDark: { borderTopColor: darkColors.border },
   dot: {
     width: 6,

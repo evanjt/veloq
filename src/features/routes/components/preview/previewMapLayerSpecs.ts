@@ -70,7 +70,7 @@ export function buildPreviewLayers(): MapLayerSpec[] {
       source: 'current-sections',
       layout: roundLine,
       paint: {
-        'line-color': colors.neutralLine,
+        'line-color': colors.iconMuted,
         'line-opacity': 1,
         'line-width': 3,
         'line-dasharray': [2, 2],
@@ -82,7 +82,7 @@ export function buildPreviewLayers(): MapLayerSpec[] {
       source: 'gone-sections',
       layout: roundLine,
       paint: {
-        'line-color': colors.error,
+        'line-color': colors.dangerFill,
         'line-opacity': 0.6,
         'line-width': 3,
         'line-dasharray': [2, 2],
@@ -107,7 +107,7 @@ export function buildPreviewLayers(): MapLayerSpec[] {
       paint: {
         // 'changed' and 'unchanged' both render teal; the popover status chip
         // carries the distinction.
-        'line-color': ['match', ['get', 'status'], 'new', colors.success, brand.blue600],
+        'line-color': ['match', ['get', 'status'], 'new', colors.successFill, brand.blue600],
         'line-opacity': 0.9,
         'line-width': 4,
       },
@@ -124,7 +124,7 @@ export function buildPreviewLayers(): MapLayerSpec[] {
 export function previewLayerSwatch(layerId: string): string {
   const colour = buildPreviewLayers().find((l) => l.id === layerId)?.paint?.['line-color'];
   if (Array.isArray(colour)) return colour[colour.length - 1] as string;
-  return typeof colour === 'string' ? colour : colors.neutralLine;
+  return typeof colour === 'string' ? colour : colors.iconMuted;
 }
 
 export { EMPTY_FEATURE_COLLECTION };

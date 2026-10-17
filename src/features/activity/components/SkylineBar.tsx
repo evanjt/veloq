@@ -7,6 +7,7 @@ import { skylineSegmentHeight, skylineZoneTotals } from '@/features/activity/lib
 import { ZONE_STRIP_HEIGHT } from '@/features/activity/lib/cardLayout';
 import { DEFAULT_ZONE_NAME_KEYS } from '@/shared/app/useSportSettings';
 import { formatDurationHuman } from '@/shared/format/format';
+import { ChartSurface, partsSummary, partsTable } from '@/shared/charts';
 import { colors, darkColors, spacing, layout } from '@/theme';
 
 interface SkylineBarProps {
@@ -24,31 +25,35 @@ export const SkylineBar = React.memo(function SkylineBar({
   const { t } = useTranslation();
   const decoded = useMemo(() => decodeSkylineBytes(skylineBytes), [skylineBytes]);
 
-  const label = useMemo(() => {
-    if (!decoded) return undefined;
+  // What a screen reader hears and the Show data sheet lists: the time in each zone.
+  const reading = useMemo(() => {
+    if (!decoded) return null;
     const basis = decoded.zoneBasis;
-    const zones = skylineZoneTotals(decoded)
-      .map(({ zone, seconds }) => {
-        const key = DEFAULT_ZONE_NAME_KEYS[basis][zone - 1];
-        const name = key ? `Z${zone} ${t(key)}` : `Z${zone}`;
-        return `${name} ${formatDurationHuman(seconds)}`;
-      })
-      .join(', ');
-    const heading = basis === 'hr' ? t('activity.timeInHRZones') : t('activity.timeInPowerZones');
-    return `${heading}: ${zones}`;
+    const parts = skylineZoneTotals(decoded).map(({ zone, seconds }) => {
+      const key = DEFAULT_ZONE_NAME_KEYS[basis][zone - 1];
+      return {
+        label: key ? `Z${zone} ${t(key)}` : `Z${zone}`,
+        value: formatDurationHuman(seconds),
+      };
+    });
+    const title = basis === 'hr' ? t('activity.timeInHRZones') : t('activity.timeInPowerZones');
+    return {
+      summary: partsSummary(title, parts, t),
+      table: partsTable(title, t('charts.column.zone'), t('charts.column.time'), parts),
+    };
   }, [decoded, t]);
 
-  if (!decoded || decoded.intervals.length === 0) return null;
+  if (!decoded || !reading || decoded.intervals.length === 0) return null;
 
   const fills = skylineColours(decoded, isDark);
   const dividerColor = isDark ? darkColors.surface : colors.surface;
 
   return (
-    <View
+    <ChartSurface
+      summary={reading.summary}
+      table={reading.table}
       style={[styles.container, { height }]}
-      accessible
-      accessibilityRole="image"
-      accessibilityLabel={label}
+      showDataButton={false}
     >
       {decoded.intervals.map((interval, i) => {
         const prevZone = i > 0 ? decoded.intervals[i - 1].zone : interval.zone;
@@ -69,12 +74,13 @@ export const SkylineBar = React.memo(function SkylineBar({
           </React.Fragment>
         );
       })}
-    </View>
+    </ChartSurface>
   );
 });
 
 const styles = StyleSheet.create({
   container: {
+    flex: 0,
     flexDirection: 'row',
     alignItems: 'flex-end',
     marginHorizontal: spacing.smPlus,

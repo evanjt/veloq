@@ -85,7 +85,8 @@ pub(crate) fn check_record_athlete_from_conn(
     Ok(())
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+#[uniffi(name = "FfiUnplacedRecord")]
 pub struct UnplacedRecord {
     pub kind: String,
     pub name: Option<String>,

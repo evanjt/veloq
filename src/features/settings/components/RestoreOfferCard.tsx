@@ -8,10 +8,10 @@
  */
 import React, { useCallback, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { Card } from '@/shared/ui/Card';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
@@ -68,7 +68,7 @@ export function RestoreOfferCard() {
     <View testID="restore-offer-card">
       <Card variant="raised" style={{ gap: spacing.sm }}>
         <View style={styles.header}>
-          <MaterialCommunityIcons
+          <Icon
             name="backup-restore"
             size={iconSize.lg}
             color={isDark ? darkColors.textPrimary : colors.textPrimary}

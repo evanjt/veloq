@@ -46,9 +46,10 @@ jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
 jest.mock('@/shared/app/useCacheDays', () => ({ useCacheDays: () => 90 }));
 jest.mock('@/shared/native/engine', () => ({ isEngineReady: () => true }));
 jest.mock('@/shared/debug/renderTimer', () => ({ logScreenRender: () => () => {} }));
+const mockCompleteFlowAfterFrame = jest.fn();
 jest.mock('@/shared/debug/flowTiming', () => ({
   FLOW_SECTION_OPEN: 'section-open',
-  completeFlowAfterFrame: () => {},
+  completeFlowAfterFrame: (name: string) => mockCompleteFlowAfterFrame(name),
 }));
 jest.mock('@/shared/debug/useFFITimer', () => ({
   useFFITimer: () => ({ getPageMetrics: () => ({}) }),
@@ -400,5 +401,76 @@ describe('section detail with time streams missing', () => {
 
     expect((capturedContentArea?.streams as { status: string }).status).toBe('ready');
     expect(capturedContentArea?.bestForwardIsRecord).toBe(true);
+  });
+});
+
+/**
+ * Scenario: a section opens while its time streams are still being checked, so
+ * the first frame shows the header and no attempt yet.
+ *
+ * Expected behaviour: the open is timed to the frame after the performance
+ * read answers, the one that draws the visits, and once only however often the
+ * screen renders after that.
+ */
+describe('section detail open timing', () => {
+  const performanceRead = {
+    data: {
+      sportType: 'Ride',
+      sportCounts: [{ sportType: 'Ride', count: 3 }],
+      performances: {},
+      chartData: { points: [] },
+      excludedPoints: [],
+      lapRecords: [],
+    },
+    error: undefined,
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockSelectedSport = undefined;
+    mockUseSectionTimeStreamSync.mockImplementation(() => ({
+      ready: true,
+      error: undefined,
+      outstanding: 0,
+      refetch: () => {},
+    }));
+  });
+
+  it('completes at the frame the visits are drawn, not at mount', async () => {
+    mockUseSectionDetailPerformance.mockImplementation(() => ({
+      data: undefined,
+      error: undefined,
+    }));
+    const screen = await render(<SectionDetailScreen />);
+    await act(async () => {});
+    expect(mockCompleteFlowAfterFrame).not.toHaveBeenCalled();
+
+    mockUseSectionDetailPerformance.mockImplementation(() => performanceRead);
+    await screen.rerender(<SectionDetailScreen />);
+    await act(async () => {});
+    expect(mockCompleteFlowAfterFrame).toHaveBeenCalledTimes(1);
+    expect(mockCompleteFlowAfterFrame).toHaveBeenCalledWith('section-open');
+
+    await act(async () => {
+      capturedSaveName?.('Hill');
+    });
+    expect(mockCompleteFlowAfterFrame).toHaveBeenCalledTimes(1);
+  });
+
+  it('completes on the first frame when the read answers at mount', async () => {
+    mockUseSectionDetailPerformance.mockImplementation(() => performanceRead);
+    await render(<SectionDetailScreen />);
+    await act(async () => {});
+    expect(mockCompleteFlowAfterFrame).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not complete while the read has failed', async () => {
+    mockUseSectionDetailPerformance.mockImplementation(() => ({
+      data: undefined,
+      error: new Error('engine closed'),
+    }));
+    await render(<SectionDetailScreen />);
+    await act(async () => {});
+    expect(mockCompleteFlowAfterFrame).not.toHaveBeenCalled();
   });
 });

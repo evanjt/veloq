@@ -41,7 +41,7 @@ function appContext() {
 
 /** The URL the router starts from, read the way it reads it at launch. */
 function launchUrl(): Promise<string | null | undefined> {
-  const linking = getLinkingConfig(null as never, appContext(), () => ({ segments: [] }) as never, {
+  const linking = getLinkingConfig(null as never, appContext(), {
     metaOnly: true,
     skipGenerated: true,
     sitemap: false,

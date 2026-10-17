@@ -1,7 +1,9 @@
-//! FIT file parser: strength training exercise sets and the recorded track.
+//! FIT file parser: strength training exercise sets, a pool swim's lengths and
+//! the recorded track.
 //!
 //! Uses the `fitparser` crate to parse FIT files, extracting `set` messages
-//! (MesgNum::Set). Also provides exercise name and muscle group lookup tables.
+//! (MesgNum::Set) and `length` messages (MesgNum::Length). Also provides
+//! exercise and swim stroke name tables and the muscle group lookup.
 //!
 //! Exercise category IDs and set_type values follow the Garmin FIT SDK
 //! Profile (v21.133). See FIT SDK Profile.xlsx → Types → ExerciseCategory
@@ -163,6 +165,99 @@ pub fn parse_fit_recording(data: &[u8]) -> Result<FitRecording, FitParseError> {
         }
     }
     Ok(recording)
+}
+
+/// What a pool swim's FIT holds of its lengths.
+#[derive(Debug, Clone, Default)]
+pub struct FitPoolSwim {
+    /// The session's pool length in metres, whichever unit the device showed.
+    pub pool_length_m: Option<f64>,
+    /// One per `Length` message, in file order, idle lengths included.
+    pub lengths: Vec<FitPoolLength>,
+}
+
+/// One length of the pool, as the device closed it.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct FitPoolLength {
+    /// Unix seconds.
+    pub start_time: Option<i64>,
+    pub total_elapsed_time: Option<f64>,
+    pub total_timer_time: Option<f64>,
+    /// The profile's LengthType: 0 idle, which is a rest, 1 active.
+    pub length_type: Option<u8>,
+    /// The profile's SwimStroke number, named by `swim_stroke_display_name`.
+    pub swim_stroke: Option<u8>,
+    pub total_strokes: Option<u16>,
+    /// Metres per second.
+    pub avg_speed: Option<f64>,
+}
+
+/// The FIT invalid value for an enum field.
+const INVALID_ENUM: i64 = 0xFF;
+
+/// The lengths and pool length a FIT file records, from one decode.
+///
+/// A file with no `Length` messages reads as no lengths, which is how an
+/// open-water swim or a ride comes back, and an unreadable file is an error, so
+/// a caller never takes it for a swim with no lengths. The pool length is the
+/// first session message's.
+pub fn parse_fit_pool_swim(data: &[u8]) -> Result<FitPoolSwim, FitParseError> {
+    if data.is_empty() {
+        return Err(FitParseError::Empty);
+    }
+    let records = decode(data)?;
+    let mut swim = FitPoolSwim::default();
+    let mut session_read = false;
+    for record in &records {
+        match record.kind() {
+            fitparser::profile::MesgNum::Length => {
+                let mut length = FitPoolLength::default();
+                for field in record.fields() {
+                    let value = field.value();
+                    match field.name() {
+                        "start_time" => {
+                            if let fitparser::Value::Timestamp(dt) = value {
+                                length.start_time = Some(dt.timestamp());
+                            }
+                        }
+                        "total_elapsed_time" => length.total_elapsed_time = finite_number(value),
+                        "total_timer_time" => length.total_timer_time = finite_number(value),
+                        "length_type" => length.length_type = enum_number(value),
+                        "swim_stroke" => length.swim_stroke = enum_number(value),
+                        "total_strokes" => {
+                            if let fitparser::Value::UInt16(v) = value {
+                                length.total_strokes = Some(*v).filter(|v| *v != INVALID_U16);
+                            }
+                        }
+                        "avg_speed" => length.avg_speed = finite_number(value),
+                        _ => {}
+                    }
+                }
+                swim.lengths.push(length);
+            }
+            fitparser::profile::MesgNum::Session if !session_read => {
+                session_read = true;
+                swim.pool_length_m = record
+                    .fields()
+                    .iter()
+                    .find(|field| field.name() == "pool_length")
+                    .and_then(|field| finite_number(field.value()))
+                    .filter(|metres| *metres > 0.0);
+            }
+            _ => {}
+        }
+    }
+    Ok(swim)
+}
+
+/// An enum field's number, left as a number by `decode`, or `None` when the
+/// slot holds the invalid value.
+fn enum_number(value: &fitparser::Value) -> Option<u8> {
+    match value {
+        fitparser::Value::SInt64(v) if *v != INVALID_ENUM => u8::try_from(*v).ok(),
+        fitparser::Value::Enum(v) if i64::from(*v) != INVALID_ENUM => Some(*v),
+        _ => None,
+    }
 }
 
 /// A scaled FIT number as a finite, non-negative float.
@@ -350,6 +445,21 @@ pub fn exercise_display_name(category: u16, _subcategory: Option<u16>) -> String
     }
 }
 
+/// A display name for a FIT SwimStroke number, as the profile names them.
+pub fn swim_stroke_display_name(stroke: u8) -> String {
+    match stroke {
+        0 => "Freestyle".into(),
+        1 => "Backstroke".into(),
+        2 => "Breaststroke".into(),
+        3 => "Butterfly".into(),
+        4 => "Drill".into(),
+        5 => "Mixed".into(),
+        6 | 7 => "IM".into(),
+        8 => "Reverse IM".into(),
+        other => format!("Stroke {}", other),
+    }
+}
+
 // ============================================================================
 // Muscle Group Mapping
 // ============================================================================
@@ -466,6 +576,20 @@ pub fn aggregate_muscle_groups(sets: &[FitExerciseSet]) -> Vec<MuscleActivation>
 #[cfg(test)]
 pub(crate) fn recorded_ride_fit() -> Vec<u8> {
     let hex: String = include_str!("../tests/fixtures/recorded_ride_fit.hex")
+        .split_whitespace()
+        .collect();
+    (0..hex.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).expect("hex fixture"))
+        .collect()
+}
+
+/// A 25 m pool swim built to the FIT profile: four active lengths, two of
+/// freestyle and two of breaststroke, with an idle length third. Hex text for
+/// the same reason as the ride.
+#[cfg(test)]
+pub(crate) fn pool_swim_fit() -> Vec<u8> {
+    let hex: String = include_str!("../tests/fixtures/pool_swim_fit.hex")
         .split_whitespace()
         .collect();
     (0..hex.len())
@@ -785,5 +909,99 @@ pub(crate) mod tests {
             Err(FitParseError::Decode(_)) => {}
             other => panic!("expected Decode error, got {:?}", other),
         }
+    }
+
+    /// Scenario: a pool swim's per-length structure lives only in its FIT
+    /// file, since the activity record carries a count and a pool length.
+    ///
+    /// Expected behaviour: every length in file order, the idle one kept where
+    /// the rest fell, with its stroke, stroke count and times as written, and
+    /// the session's pool length in metres.
+    #[test]
+    fn a_pool_swim_reads_back_its_lengths_and_pool_length() {
+        let swim = parse_fit_pool_swim(&super::pool_swim_fit()).expect("a readable FIT");
+        assert_eq!(swim.pool_length_m, Some(25.0));
+
+        let read: Vec<(Option<u8>, Option<u8>, Option<u16>)> = swim
+            .lengths
+            .iter()
+            .map(|l| (l.length_type, l.swim_stroke, l.total_strokes))
+            .collect();
+        assert_eq!(
+            read,
+            vec![
+                (Some(1), Some(0), Some(18)),
+                (Some(1), Some(0), Some(19)),
+                (Some(0), None, None),
+                (Some(1), Some(2), Some(14)),
+                (Some(1), Some(2), Some(15)),
+            ]
+        );
+
+        let first = &swim.lengths[0];
+        assert_eq!(first.start_time, Some(1_100_000_000 + 631_065_600));
+        assert_eq!(first.total_elapsed_time, Some(25.0));
+        assert_eq!(first.total_timer_time, Some(25.0));
+        assert_eq!(first.avg_speed, Some(1.0));
+        assert_eq!(swim.lengths[2].avg_speed, None);
+        assert_eq!(swim.lengths[3].total_elapsed_time, Some(32.0));
+        assert_eq!(swim.lengths[4].avg_speed, Some(0.8));
+
+        let starts: Vec<i64> = swim.lengths.iter().filter_map(|l| l.start_time).collect();
+        assert!(starts.windows(2).all(|w| w[0] < w[1]), "{starts:?}");
+    }
+
+    /// A ride has no lengths and no pool, and that is a valid reading rather
+    /// than an error, which is also how an open-water swim reads.
+    #[test]
+    fn a_ride_reads_as_no_lengths_and_no_pool() {
+        let swim = parse_fit_pool_swim(&super::recorded_ride_fit()).expect("a readable FIT");
+        assert!(swim.lengths.is_empty());
+        assert_eq!(swim.pool_length_m, None);
+    }
+
+    #[test]
+    fn a_pool_swim_from_empty_bytes_is_empty() {
+        assert!(matches!(
+            parse_fit_pool_swim(&[]),
+            Err(FitParseError::Empty)
+        ));
+    }
+
+    #[test]
+    fn a_truncated_pool_swim_is_a_decode_error_not_fewer_lengths() {
+        let data = super::pool_swim_fit();
+        for cut in [data.len() - 1, data.len() / 2, 20] {
+            assert!(
+                matches!(
+                    parse_fit_pool_swim(&data[..cut]),
+                    Err(FitParseError::Decode(_))
+                ),
+                "cut at {cut}"
+            );
+        }
+        let header = oversized_headers();
+        assert!(matches!(
+            parse_fit_pool_swim(&header[0]),
+            Err(FitParseError::Decode(_))
+        ));
+    }
+
+    #[test]
+    fn swim_strokes_are_named_by_the_profile_number() {
+        let names: Vec<String> = (0..=6).map(swim_stroke_display_name).collect();
+        assert_eq!(
+            names,
+            [
+                "Freestyle",
+                "Backstroke",
+                "Breaststroke",
+                "Butterfly",
+                "Drill",
+                "Mixed",
+                "IM"
+            ]
+        );
+        assert_eq!(swim_stroke_display_name(42), "Stroke 42");
     }
 }

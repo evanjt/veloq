@@ -67,10 +67,17 @@ jest.mock('@/shared/app/SyncDateRangeStore', () => ({
     selector({
       oldest: '2026-06-03',
       extendedFetch: { phase: 'idle', since: 0 },
-      isGpsSyncing: true,
-      gpsSyncProgress: { percent: 40, message: '', completed: 4, total: 10 },
       isExpansionLocked: false,
     }),
+}));
+jest.mock('@/shared/native/useSyncStatus', () => ({
+  ...jest.requireActual('@/shared/native/useSyncStatus'),
+  useTrackStage: () => ({
+    step: require('../__shared__/veloqrsStub').TrackStep.Downloading,
+    completed: 4,
+    total: 10,
+    percent: 40,
+  }),
 }));
 
 jest.mock('@/features/routes/components/DataRangeFooter', () => ({
@@ -85,10 +92,10 @@ jest.mock('@/features/routes/lib/batchGroupToRouteGroup', () => ({
 const AA_MARK = 3;
 
 /** Every dark ground a settings card or a list chip sits on. */
-const DARK_GROUNDS = [darkColors.background, darkColors.surface, darkColors.surfaceCard];
+const DARK_GROUNDS = [darkColors.surfacePage, darkColors.surface, darkColors.surfaceRaised];
 
 function expectDarkMark(colour: unknown) {
-  expect(colour).toBe(darkColors.primary);
+  expect(colour).toBe(darkColors.actionPrimary);
   for (const ground of DARK_GROUNDS) {
     expect(contrastRatio(colour as string, ground)).toBeGreaterThanOrEqual(AA_MARK);
   }
@@ -147,6 +154,6 @@ describe('the primary drawn as a mark in the dark theme', () => {
     expectDarkMark(chip.borderColor);
     const [icon] = within(selected).UNSAFE_getAllByType(MaterialCommunityIcons);
     expectDarkMark(icon.props.color);
-    expect(chip.borderColor).not.toBe(colors.primary);
+    expect(chip.borderColor).not.toBe(colors.actionPrimary);
   });
 });

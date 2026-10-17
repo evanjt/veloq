@@ -126,7 +126,7 @@ const attributionStyles = StyleSheet.create({
     borderRadius: layout.borderRadiusSm,
   },
   attributionPillDark: {
-    backgroundColor: colorWithOpacity(darkColors.surfaceElevated, 0.8),
+    backgroundColor: colorWithOpacity(darkColors.surfaceRaised, 0.8),
   },
   attributionText: {
     ...typography.micro,

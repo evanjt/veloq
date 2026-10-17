@@ -15,11 +15,10 @@
 // all resolve inside this checkout, with `veloqrs` resolving to this
 // checkout's own module, and otherwise names what escapes and the command
 // that gives the tree an installation of its own. It also refuses an
-// installation the worklets lifecycle repair never reached, because that app
-// keeps a vsync loop running while Android caches it and is killed for CPU, and
-// one the screens sheet width patch never reached, because that app draws every
-// sheet across the full width of a tablet, and one the screens sheet hide patch never
-// reached, because that app lets a drag dismiss a sheet that is meant to stay on screen.
+// installation the screens sheet width patch never reached, because that app draws
+// every sheet across the full width of a tablet, and one the screens sheet hide patch
+// never reached, because that app lets a drag dismiss a sheet that is meant to stay
+// on screen.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, lstatSync, readdirSync, realpathSync } from 'node:fs';
@@ -31,10 +30,6 @@ import { SYNC as SYNC_WIDGETS, hasWidgetTree, widgetDrift } from './lib/androidW
 
 export const SETUP = 'npm run setup:native';
 
-const REPAIR_WORKLETS = 'node scripts/patch-worklets-lifecycle.js';
-const { applyPatch: repairWorklets } = createRequire(import.meta.url)(
-  './patch-worklets-lifecycle.js'
-);
 const PATCH_SCREENS = 'node scripts/patch-screens-sheet-width.js';
 const { applyPatch: patchScreens } = createRequire(import.meta.url)(
   './patch-screens-sheet-width.js'
@@ -178,15 +173,6 @@ export function requireNativeTree(root) {
   const found = escapes(root);
   if (found.length > 0) {
     report(root, found);
-    process.exit(1);
-  }
-  const problem = patchProblem(root, 'react-native-worklets', repairWorklets);
-  if (problem !== null) {
-    console.error('The installed react-native-worklets does not carry the lifecycle repair.');
-    console.error(`  ${problem}`);
-    console.error('A build here would keep scheduling frames while Android caches the app,');
-    console.error('and Android kills a cached process for that CPU. Repair it, then build again:');
-    console.error(`  ${REPAIR_WORKLETS}`);
     process.exit(1);
   }
   const screens = patchProblem(root, 'react-native-screens', patchScreens);

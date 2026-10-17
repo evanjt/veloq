@@ -106,7 +106,6 @@ const READS: [string, (client: EngineClient) => unknown][] = [
   ['takePreviewResult', (c) => c.takePreviewResult()],
   ['getRoutesStatusData', (c) => c.getRoutesStatusData()],
   ['getSectionHistory', (c) => c.getSectionHistory('sec-1')],
-  ['getSectionGeometryVersions', (c) => c.getSectionGeometryVersions('sec-1')],
   ['getSectionGeometryVersionPolyline', (c) => c.getSectionGeometryVersionPolyline('sec-1', 2)],
   ['getPinnedSectionVersion', (c) => c.getPinnedSectionVersion('sec-1')],
   ['getRetiredSections', (c) => c.getRetiredSections()],

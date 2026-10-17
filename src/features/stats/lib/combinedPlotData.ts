@@ -123,7 +123,6 @@ export interface ChartMetricValue {
   label: string;
   value: string;
   unit: string;
-  color: string;
   /** Longest formatted value (for stable chip width during scrubbing) */
   maxValueWidth?: string | undefined;
   /** The value is the activity's average rather than the sample under a scrub. */
@@ -363,7 +362,6 @@ export function computeAllAverages(
       label: config.label,
       value: formatted,
       unit,
-      color: config.color,
       maxValueWidth: widest,
       // The gain is a total and carries its own '+'.
       isAverage: config.defaultMetric !== 'gain',

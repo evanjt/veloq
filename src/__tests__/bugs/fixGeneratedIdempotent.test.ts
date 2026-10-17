@@ -8,7 +8,16 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, copyFileSync, rmSync } from 'node:fs';
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -180,5 +189,53 @@ describe('error classes in the generated bindings', () => {
     run(root);
 
     expect(bindingsOf(root)).toBe(committed);
+  });
+});
+
+describe('a tree already in its fixed form', () => {
+  // CMake and Ninja rebuild by modification time, so a file rewritten with the
+  // same bytes reconfigures and recompiles the JNI bridge for every ABI.
+  const FILES = [
+    'cpp/veloqrs.cpp',
+    'cpp/generated/veloqrs.cpp',
+    'cpp/generated/veloqrs.hpp',
+    'src/generated/veloqrs.ts',
+    'src/generated/veloqrs-ffi.ts',
+    'android/CMakeLists.txt',
+    'android/src/main/java/com/veloq/VeloqrsModule.kt',
+  ];
+  const PAST = new Date('2020-01-01T00:00:00Z');
+
+  function fixedTree(): string {
+    const root = moduleTree(GENERATED);
+    mkdirSync(join(root, 'cpp/generated'), { recursive: true });
+    mkdirSync(join(root, 'src/generated'), { recursive: true });
+    writeFileSync(join(root, 'cpp/generated/veloqrs.cpp'), '// a \u2014 b\nint x;\n');
+    writeFileSync(join(root, 'cpp/generated/veloqrs.hpp'), '// c\u2014d\n');
+    writeFileSync(join(root, 'src/generated/veloqrs.ts'), ERROR_CLASSES);
+    writeFileSync(join(root, 'src/generated/veloqrs-ffi.ts'), '// e \u2014 f\n');
+    run(root);
+    for (const file of FILES) utimesSync(join(root, file), PAST, PAST);
+    return root;
+  }
+
+  it('leaves every file untouched on disk', () => {
+    const root = fixedTree();
+    run(root);
+
+    const moved = FILES.filter((file) => statSync(join(root, file)).mtimeMs !== PAST.getTime());
+    expect(moved).toEqual([]);
+  });
+
+  it('still writes a file that needs a fix', () => {
+    const root = fixedTree();
+    writeFileSync(join(root, 'cpp/veloqrs.cpp'), '#include "/generated/veloqrs.hpp"\n');
+    utimesSync(join(root, 'cpp/veloqrs.cpp'), PAST, PAST);
+    run(root);
+
+    expect(readFileSync(join(root, 'cpp/veloqrs.cpp'), 'utf8')).toBe(
+      '#include "generated/veloqrs.hpp"\n'
+    );
+    expect(statSync(join(root, 'cpp/veloqrs.cpp')).mtimeMs).not.toBe(PAST.getTime());
   });
 });

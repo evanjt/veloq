@@ -6,6 +6,5 @@
   "src/features/settings/components/SettingsNavRow.tsx": 2,
   "src/features/stats/components/ActivityHeatmap.tsx": 1,
   "src/shared/ui/BottomTabBar.tsx": 1,
-  "src/shared/ui/SwipeableTabs.tsx": 1,
-  "src/shared/ui/SyncProgressStrip.tsx": 2
+  "src/shared/ui/SwipeableTabs.tsx": 1
 }

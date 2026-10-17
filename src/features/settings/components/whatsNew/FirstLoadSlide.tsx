@@ -5,10 +5,11 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, iconSize, layout, spacing } from '@/theme';
 import { tourPanelColour } from './tourPanel';
+import { Icon } from '@/shared/ui/Icon';
 
 const ICON_BOX = 60;
 const TRACK_HEIGHT = 6;
@@ -17,7 +18,7 @@ const LOADED = 0.6;
 
 export function FirstLoadSlide() {
   const { isDark } = useTheme();
-  const primaryColor = isDark ? darkColors.primary : colors.primary;
+  const primaryColor = isDark ? darkColors.actionPrimary : colors.actionPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bgColor = tourPanelColour(isDark);
 
@@ -25,19 +26,19 @@ export function FirstLoadSlide() {
     <View style={styles.container} testID="tour-first-load-picture">
       <View style={styles.row}>
         <View style={[styles.iconBox, { backgroundColor: bgColor }]}>
-          <MaterialCommunityIcons
+          <Icon
             name={'cloud-outline' as keyof typeof MaterialCommunityIcons.glyphMap}
             size={iconSize.xl}
             color={primaryColor}
           />
         </View>
-        <MaterialCommunityIcons
+        <Icon
           name={'arrow-right' as keyof typeof MaterialCommunityIcons.glyphMap}
           size={iconSize.lg}
           color={mutedColor}
         />
         <View style={[styles.iconBox, { backgroundColor: bgColor }]}>
-          <MaterialCommunityIcons
+          <Icon
             name={'cellphone' as keyof typeof MaterialCommunityIcons.glyphMap}
             size={iconSize.xl}
             color={primaryColor}

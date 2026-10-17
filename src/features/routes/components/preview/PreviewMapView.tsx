@@ -10,7 +10,6 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useIsFocused } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { decodeCoords } from 'veloqrs';
@@ -58,6 +57,7 @@ import {
   PREVIEW_INTERACTIVE_LAYERS,
 } from './previewMapLayerSpecs';
 import { pressable, pressRipple } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 
 /** Zoom assumed before the surface reports one, matching the camera fallback. */
 const DEFAULT_ATTRIBUTION_ZOOM = 11;
@@ -355,11 +355,7 @@ export function PreviewMapView({
         accessibilityRole="button"
         accessibilityLabel={t('maps.toggleStyle')}
       >
-        <MaterialCommunityIcons
-          name={getStyleIcon(mapStyle)}
-          size={iconSize.md}
-          color={textPrimary}
-        />
+        <Icon name={getStyleIcon(mapStyle)} size={iconSize.md} color={textPrimary} />
       </Pressable>
       <View style={styles.legend} pointerEvents="box-none">
         <LegendChip

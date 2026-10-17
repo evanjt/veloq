@@ -26,6 +26,7 @@ export const ENGINE_ERROR_TAGS = [
   'NameTaken',
   'Suspended',
   'RouteNameTaken',
+  'Cancelled',
 ] as const;
 
 export type EngineErrorTag = (typeof ENGINE_ERROR_TAGS)[number];
@@ -48,7 +49,8 @@ export function engineErrorTag(error: unknown): EngineErrorTag | undefined {
 export type EngineFailureKey =
   | 'engine.failure.notOpen'
   | 'engine.failure.busy'
-  | 'engine.failure.database';
+  | 'engine.failure.database'
+  | 'common.cancelled';
 
 /** The i18n key naming a failure, for the surfaces that show one. */
 const KEYS: Record<EngineErrorTag, EngineFailureKey> = {
@@ -71,6 +73,9 @@ const KEYS: Record<EngineErrorTag, EngineFailureKey> = {
   Suspended: 'engine.failure.busy',
   // A refusal, as NameTaken is.
   RouteNameTaken: 'engine.failure.database',
+  // The athlete stopped the job, and it wrote nothing. A caller that can says
+  // so in place, and this line is for the ones that cannot.
+  Cancelled: 'common.cancelled',
 };
 
 /**

@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack } from 'expo-router';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
@@ -33,6 +32,7 @@ import { useMuscleDetail } from '../hooks/useMuscleDetail';
 import { formatWeight } from '@/shared/format/weight';
 import { BodyPairWithLoupe } from './BodyPairWithLoupe';
 import { IconButton, useHeroHeaderBottom } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { RowDivider } from '@/shared/ui/RowGroup';
 import { ErrorState } from '@/shared/ui/ErrorState';
 import { NameText } from '@/shared/ui/NameText';
@@ -104,7 +104,7 @@ export function MuscleGroupView({
   return (
     <View style={styles.hero}>
       <Stack.Screen
-        options={{ headerTintColor: isDark ? colors.textOnDark : colors.textPrimary }}
+        options={{ headerTintColor: isDark ? colors.textOnFill : colors.textPrimary }}
       />
 
       {/* Body diagrams with unified loupe + center column */}
@@ -165,11 +165,7 @@ export function MuscleGroupView({
                       accessibilityLabel={t('common.close', 'Close')}
                       onPress={() => setSelectedMuscle(null)}
                     >
-                      <MaterialCommunityIcons
-                        name="close"
-                        size={iconSize.xs}
-                        color={styles.detailStat.color}
-                      />
+                      <Icon name="close" size={iconSize.xs} color={styles.detailStat.color} />
                     </IconButton>
                   </View>
                   <Text style={styles.detailStat}>
@@ -362,7 +358,7 @@ const makeStyles = (palette: Palette, isDark: boolean) =>
     },
     activityName: {
       ...typography.statsValue,
-      color: colors.textOnDark,
+      color: colors.textOnFill,
       textShadowColor: colorWithOpacity(ink.black, 0.6),
       ...mapTextShadow,
     },
@@ -378,14 +374,14 @@ const makeStyles = (palette: Palette, isDark: boolean) =>
     },
     activityDate: {
       ...typography.bodyCompact,
-      color: colors.textOnDark,
+      color: colors.textOnFill,
     },
     activityDateLight: {
       color: palette.textSecondary,
     },
     durationStat: {
       ...typography.bodyCompactBold,
-      color: colors.textOnDark,
+      color: colors.textOnFill,
       textShadowColor: colorWithOpacity(ink.black, opacity.disabled),
       ...mapTextShadow,
     },

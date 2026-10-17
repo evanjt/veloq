@@ -77,7 +77,10 @@ fn engine_with_sections() -> PersistentEngine {
             .add_activity(ride.to_string(), track(), "Ride".to_string())
             .unwrap();
     }
-    engine.sections = vec![section("s_kept", &["a0", "a1"]), section("s_gone", &["x0"])];
+    engine.sections = vec![
+        section("s_kept", &["a0", "a1"]).into(),
+        section("s_gone", &["x0"]).into(),
+    ];
     engine
 }
 

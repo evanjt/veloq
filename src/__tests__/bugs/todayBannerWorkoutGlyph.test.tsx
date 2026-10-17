@@ -55,6 +55,6 @@ describe('TodayBanner workout glyph', () => {
     mockType = type;
     const { queryByText } = await render(<TodayBanner form={null} />);
     expect(queryByText(/\u{1F6B4}|\u{1F3C3}/u)).toBeNull();
-    expect(queryByText(`icon:${icon}`)).not.toBeNull();
+    expect(queryByText(`icon:${icon}`, { includeHiddenElements: true })).not.toBeNull();
   });
 });

@@ -931,7 +931,7 @@ impl PersistentEngine {
                     .sections
                     .iter()
                     .filter(|s| !s.is_user_defined)
-                    .cloned()
+                    .map(|s| FrequentSection::clone(s))
                     .collect(),
             };
             let all_ids = self.sorted_activity_ids();
@@ -1052,8 +1052,9 @@ impl PersistentEngine {
         // catalogue). Only the auto catalogue belongs here: `self.sections`
         // also carries the durable user-defined sections (custom + accepted)
         // for the matcher, but the incremental converges the AUTO batch and
-        // must not treat a custom section as an auto prior.
-        let existing_sections: Vec<FrequentSection> = self
+        // must not treat a custom section as an auto prior. The engine's own
+        // payloads are shared here and copied on the worker, not under the lock.
+        let existing_at_spawn: Vec<Arc<FrequentSection>> = self
             .sections
             .iter()
             .filter(|s| !s.is_user_defined)
@@ -1133,6 +1134,13 @@ impl PersistentEngine {
                 "veloqrs: [SectionDetection] Background thread started with {} activity IDs",
                 ids_to_load.len()
             );
+            // Copied at once and let go, so an edit the engine makes meanwhile
+            // copies no section it would otherwise edit in place.
+            let existing_sections: Vec<FrequentSection> = existing_at_spawn
+                .iter()
+                .map(|s| FrequentSection::clone(s))
+                .collect();
+            drop(existing_at_spawn);
 
             let conn = match Connection::open(&db_path) {
                 Ok(c) => {
@@ -1632,6 +1640,11 @@ impl PersistentEngine {
         let old_identity = std::mem::replace(&mut self.identity, trial_identity);
         match self.save_sections_with_events(&events) {
             Ok(()) => {
+                // The prior catalogue and registry hold the payloads the new
+                // ones carried over, so they go before any edit below, which
+                // would otherwise copy each section it touches.
+                drop(old_sections);
+                drop(old_identity);
                 if let Some(raw) = raw_for_convergence {
                     self.raw_sections = Some(Arc::from(raw));
                 }
@@ -1640,10 +1653,17 @@ impl PersistentEngine {
                 // traces were used for consensus computation but aren't
                 // persisted; shrink_to_fit() releases the bucket
                 // allocation too.
-                for section in &mut self.sections {
+                let traced: Vec<usize> = self
+                    .sections
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, s)| s.activity_traces.capacity() > 0)
+                    .map(|(idx, _)| idx)
+                    .collect();
+                self.edit_sections(traced, |_, section| {
                     section.activity_traces.clear();
                     section.activity_traces.shrink_to_fit();
-                }
+                });
                 self.section_cache.clear();
                 self.invalidate_perf_cache();
                 if rank && let Err(e) = self.rank_catalogue() {

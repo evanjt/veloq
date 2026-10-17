@@ -1,9 +1,15 @@
 import React, { memo, useCallback, useMemo, useRef } from 'react';
-import { View, StyleSheet, Pressable, Text as RNText, type LayoutChangeEvent } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  Text as RNText,
+  type LayoutChangeEvent,
+  type ViewInstance,
+} from 'react-native';
 import { Text } from 'react-native-paper';
-import Swipeable from 'react-native-gesture-handler/Swipeable';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Animated } from 'react-native';
+import Swipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
+import type { SharedValue } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import {
@@ -24,12 +30,13 @@ import {
 import { isPaceSport, isSwimmingActivity } from '@/shared/activity/activityUtils';
 import { formatDistance, formatDuration, formatSportSpeed } from '@/shared/format/format';
 import {
+  type AccessibleAction,
   accessibleActions,
   composeAccessibilityLabel,
   pressable,
   pressRipple,
-  type AccessibleAction,
 } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
 import { SectionSparkline } from '@/features/routes';
 import type { SectionEncounter } from 'veloqrs';
@@ -52,7 +59,7 @@ interface SectionInlinePlotProps {
   onRowHeight?: ((index: number, height: number) => void) | undefined;
   /** Expose the first row's outer View ref to the parent. Only row 0 needs
    *  to be measured - subsequent rows' positions are pure arithmetic. */
-  firstRowRef?: ((ref: View | null) => void) | undefined;
+  firstRowRef?: ((ref: ViewInstance | null) => void) | undefined;
   /**
    * The swipe actions for this row. It takes the group rather than closing over
    * it, so the list passes one function for every row and the memo above holds
@@ -60,15 +67,15 @@ interface SectionInlinePlotProps {
    */
   renderRightActions: (
     group: SectionEncounterGroup,
-    progress: Animated.AnimatedInterpolation<number>,
-    dragX: Animated.AnimatedInterpolation<number>
+    progress: SharedValue<number>,
+    drag: SharedValue<number>
   ) => React.ReactNode;
   /**
    * What the swipe actions do, offered to a screen reader on the card, which
    * takes the swipe for itself. One function for every row, as above.
    */
   actionsFor: (group: SectionEncounterGroup) => readonly AccessibleAction[];
-  swipeableRefs: React.MutableRefObject<Map<string, Swipeable | null>>;
+  swipeableRefs: React.MutableRefObject<Map<string, SwipeableMethods | null>>;
 }
 
 /** Pace for foot and water sports, elapsed time otherwise, as SectionInfoCard. */
@@ -210,10 +217,8 @@ export const SectionInlinePlot = memo(
     }, [onPress, group.sectionId]);
 
     const swipeActions = useCallback(
-      (
-        progress: Animated.AnimatedInterpolation<number>,
-        dragX: Animated.AnimatedInterpolation<number>
-      ) => renderRightActions(group, progress, dragX),
+      (progress: SharedValue<number>, drag: SharedValue<number>) =>
+        renderRightActions(group, progress, drag),
       [renderRightActions, group]
     );
 
@@ -239,9 +244,9 @@ export const SectionInlinePlot = memo(
 
     // Only row 0's ref is forwarded to the parent - it's the anchor point the
     // scrub hit-test measures at gesture start. Other rows don't need refs.
-    const ownRef = useRef<View | null>(null);
+    const ownRef = useRef<ViewInstance | null>(null);
     const handleRef = useCallback(
-      (r: View | null) => {
+      (r: ViewInstance | null) => {
         ownRef.current = r;
         if (index === 0) firstRowRef?.(r);
       },
@@ -284,10 +289,10 @@ export const SectionInlinePlot = memo(
               <NameText style={[styles.name, isDark && styles.textLight]}>
                 {group.sectionName}
               </NameText>
-              <MaterialCommunityIcons
+              <Icon
                 name="chevron-right"
                 size={iconSize.md}
-                color={isDark ? darkColors.iconFaint : colors.iconFaint}
+                color={isDark ? darkColors.iconMuted : colors.iconMuted}
               />
             </View>
             {group.encounters.map((encounter, dirIndex) => {
@@ -362,11 +367,7 @@ export const SectionInlinePlot = memo(
                           accessibilityLabel={t('a11y.personalRecord')}
                           style={{ marginLeft: spacing.xxs }}
                         >
-                          <MaterialCommunityIcons
-                            name="trophy"
-                            size={iconSize.xs}
-                            color={brand.gold}
-                          />
+                          <Icon name="trophy" size={iconSize.xs} color={brand.gold} />
                         </View>
                       ) : null}
                       {encounter.isComplete && (encounter.rank === 2 || encounter.rank === 3) ? (
@@ -378,7 +379,7 @@ export const SectionInlinePlot = memo(
                           )}
                           style={{ marginLeft: spacing.xxs }}
                         >
-                          <MaterialCommunityIcons
+                          <Icon
                             name="medal"
                             size={iconSize.xs}
                             color={
@@ -460,7 +461,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   cardDark: {
-    backgroundColor: darkColors.surfaceCard,
+    backgroundColor: darkColors.surfaceRaised,
   },
   // The border is the only thing saying this card is the one being viewed, so
   // it takes the mark tone rather than the series one.
@@ -500,7 +501,7 @@ const styles = StyleSheet.create({
   },
   directionRowDivided: {
     borderTopWidth: stroke.hairline,
-    borderTopColor: colors.divider,
+    borderTopColor: colors.border,
     paddingTop: spacing.xs,
   },
   directionRowDividedDark: {

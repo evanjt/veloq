@@ -24,7 +24,7 @@ export function TrackEndpointMarkers({ start, end }: { start: Point; end: Point 
         cx={start.x}
         cy={start.y}
         r={MARKER_RADIUS}
-        fill={colors.success}
+        fill={colors.successFill}
         stroke={ink.white}
         strokeWidth={MARKER_STROKE}
       />
@@ -33,7 +33,7 @@ export function TrackEndpointMarkers({ start, end }: { start: Point; end: Point 
         y={end.y - MARKER_RADIUS}
         width={MARKER_RADIUS * 2}
         height={MARKER_RADIUS * 2}
-        fill={colors.error}
+        fill={colors.dangerFill}
         stroke={ink.white}
         strokeWidth={MARKER_STROKE}
       />

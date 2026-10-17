@@ -1,7 +1,6 @@
 import React, { useState, memo } from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { useTheme, useIsOnline } from '@/shared/app';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ChromeIcon } from '@/shared/ui/ChromeIcon';
 import { RowDivider } from '@/shared/ui/RowGroup';
 import { useQueryClient } from '@tanstack/react-query';
@@ -20,6 +19,7 @@ import * as haptics from '@/shared/ui/haptics';
 import { offlineConfirmMessage } from '../lib/offlineConfirmCopy';
 import { useExportRecordBackup } from '../hooks/useBackup';
 import { chooseAction, confirmAction, inform } from '@/shared/ui/dialog';
+import { Icon } from '@/shared/ui/Icon';
 
 interface Athlete {
   name?: string;
@@ -33,7 +33,7 @@ interface ProfileAccountSectionProps {
 
 function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps) {
   const { isDark } = useTheme();
-  const errorDeep = isDark ? darkColors.errorDeep : colors.errorDeep;
+  const errorText = isDark ? darkColors.errorText : colors.errorText;
   const { t } = useTranslation();
   const isOnline = useIsOnline();
   const [profileImageError, setProfileImageError] = useState(false);
@@ -211,7 +211,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
             onError={() => setProfileImageError(true)}
           />
         ) : (
-          <MaterialCommunityIcons
+          <Icon
             name="account"
             size={iconSize.xl}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -275,7 +275,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
         onPress={handleLogout}
         accessibilityLabel={signOutLabel}
       >
-        <MaterialCommunityIcons
+        <Icon
           name="logout"
           size={iconSize.lg}
           color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -297,8 +297,8 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
               defaultValue: 'Sign out and delete all data',
             })}
           >
-            <ChromeIcon name="delete" size={iconSize.lg} color={colors.error} />
-            <Text style={[settingsStyles.actionRowText, { color: errorDeep }]}>
+            <ChromeIcon name="delete" size={iconSize.lg} color={colors.errorText} />
+            <Text style={[settingsStyles.actionRowText, { color: errorText }]}>
               {t('settings.disconnectAndClearData', {
                 defaultValue: 'Sign out and delete all data',
               })}
@@ -318,13 +318,13 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: layout.borderRadiusFull,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfacePage,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
   },
   profilePhotoDark: {
-    backgroundColor: darkColors.surfaceElevated,
+    backgroundColor: darkColors.surfaceRaised,
   },
   profileInfo: {
     flex: 1,

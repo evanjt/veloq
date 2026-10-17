@@ -88,6 +88,13 @@ export enum SyncStep {
   Calendar = 11,
 }
 
+/** `FfiTrackStep` as generated, held to the source by the same test. */
+export enum TrackStep {
+  Downloading = 1,
+  Analysing = 2,
+  DrawingHeatmap = 3,
+}
+
 /** `FfiGroupSort` as generated, held to the source by the same test. */
 export enum GroupSort {
   Nearby = 0,
@@ -398,6 +405,7 @@ export function withOverrides(overrides: Record<string, unknown> = {}): Record<s
     SyncState,
     SyncErrorReason,
     SyncStep,
+    TrackStep,
     DownloadPriority,
     BulkExportFormat,
     GroupSort,

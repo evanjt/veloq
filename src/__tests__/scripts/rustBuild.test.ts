@@ -46,9 +46,12 @@ const flagFile = path.join(__dirname, '..', 'fake-env.json');
 const flags = { ...(fs.existsSync(flagFile) ? JSON.parse(fs.readFileSync(flagFile, 'utf8')) : {}), ...process.env };
 `;
 
-// Writes what cargo-ndk and `cargo build` would, and logs each call. The ELF
-// header carries the machine for the ABI, and the body the UniFFI symbol
-// prefix and the feature list, so a test can read which build it holds.
+// Writes what cargo-ndk and `cargo build` or `cargo rustc` would, and logs
+// each call. The ELF header carries the machine for the ABI, and the body the
+// UniFFI symbol prefix, the feature list and whether the profile's LTO ran, so
+// a test can read which build it holds. Cargo compiles a library once for all
+// its crate types and an rlib cannot take LTO, so it runs only when
+// `--crate-type` names the one type without the crate's default rlib.
 const FAKE_CARGO = `#!/usr/bin/env node
 const fs = require('fs');
 const path = require('path');
@@ -71,6 +74,8 @@ const value = (flag) => { const i = args.indexOf(flag); return i < 0 ? '' : args
 const features = value('--features');
 const symbols = flags.FAKE_NO_SYMBOLS ? '' : 'uniffi_veloqrs_fn_init';
 const machines = { 'arm64-v8a': 183, 'armeabi-v7a': 40, x86_64: 62, x86: 3 };
+const crateType = value('--crate-type');
+const lto = ' lto=' + (crateType && !crateType.split(',').includes('rlib') ? 'ran' : 'skipped');
 if (args[0] === 'ndk') {
   const out = value('-o');
   args.forEach((arg, i) => {
@@ -82,15 +87,15 @@ if (args[0] === 'ndk') {
     header.writeUInt16LE(flags.FAKE_WRONG_MACHINE ? 999 : machines[abi], 18);
     fs.mkdirSync(path.join(out, abi), { recursive: true });
     fs.writeFileSync(path.join(out, abi, 'libveloqrs.so'),
-      Buffer.concat([header, Buffer.from(symbols + ' features=' + features)]));
+      Buffer.concat([header, Buffer.from(symbols + ' features=' + features + lto)]));
   });
-} else if (args[0] === 'build') {
+} else if (args[0] === 'build' || args[0] === 'rustc') {
   const triple = value('--target');
   const profile = args.includes('--release') ? 'release' : 'debug';
   const dir = path.join(process.cwd(), 'target', triple, profile);
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, 'libveloqrs.a');
-  fs.writeFileSync(file, '!<arch>\\n' + symbols + ' triple=' + triple + ' features=' + features);
+  fs.writeFileSync(file, '!<arch>\\n' + symbols + ' triple=' + triple + ' features=' + features + lto);
   console.log(JSON.stringify({ reason: 'compiler-artifact', target: { name: 'veloqrs' }, filenames: [file] }));
   console.log(JSON.stringify({ reason: 'build-finished', success: true }));
 }
@@ -214,10 +219,11 @@ describe('the Android build', () => {
     expect(out).toBe(androidOut('release-arm64-v8a'));
     expect(calls('cargo')).toEqual([
       expect.stringMatching(
-        /^cargo ndk -t arm64-v8a --platform 24 -o \S+ build --release -p veloqrs$/
+        /^cargo ndk -t arm64-v8a --platform 24 -o \S+ rustc --release -p veloqrs --lib --crate-type cdylib$/
       ),
     ]);
     expect(library('release-arm64-v8a', 'arm64-v8a')).toContain('uniffi_veloqrs_');
+    expect(library('release-arm64-v8a', 'arm64-v8a')).toContain('lto=ran');
     const manifest = JSON.parse(readFileSync(join(out, 'manifest.json'), 'utf8'));
     expect(manifest).toMatchObject({
       platform: 'android',
@@ -312,8 +318,8 @@ describe('the Android build', () => {
     build(ARM);
     build([...ARM, '--profile', 'release-dev']);
     expect(calls('cargo')).toEqual([
-      expect.stringContaining('build --release -p veloqrs'),
-      expect.stringContaining('build --profile release-dev -p veloqrs'),
+      expect.stringContaining('rustc --release -p veloqrs --lib --crate-type cdylib'),
+      expect.stringContaining('rustc --profile release-dev -p veloqrs --lib --crate-type cdylib'),
     ]);
     expect(library('release-arm64-v8a', 'arm64-v8a')).toContain('uniffi_veloqrs_');
     expect(existsSync(androidOut('release-dev-arm64-v8a'))).toBe(true);
@@ -329,8 +335,8 @@ describe('the Android build', () => {
     build([...ARM, '--profile', 'release'], { VELOQRS_RUST_PROFILE: 'release-dev' });
 
     expect(calls('cargo')).toEqual([
-      expect.stringContaining('build --profile release-dev -p veloqrs'),
-      expect.stringContaining('build --release -p veloqrs'),
+      expect.stringContaining('rustc --profile release-dev -p veloqrs --lib --crate-type cdylib'),
+      expect.stringContaining('rustc --release -p veloqrs --lib --crate-type cdylib'),
     ]);
   });
 
@@ -460,7 +466,7 @@ describe('the iOS build', () => {
     build(phase(linked), { ...SIM_PHASE, VELOQRS_RUST_PROFILE: 'release-dev' });
 
     expect(calls('cargo')).toEqual([
-      expect.stringContaining('build --profile release-dev --target aarch64-apple-ios-sim'),
+      expect.stringContaining('rustc --profile release-dev --target aarch64-apple-ios-sim'),
     ]);
     expect(archive('release-dev-iphonesimulator-arm64')).toContain('uniffi_veloqrs_');
     expect(existsSync(join(linked, 'libveloqrs_ffi.a'))).toBe(true);
@@ -474,7 +480,7 @@ describe('the iOS build', () => {
       VELOQRS_RUST_PROFILE: 'release-dev',
     });
 
-    expect(calls('cargo')).toEqual([expect.stringContaining('build --release --target')]);
+    expect(calls('cargo')).toEqual([expect.stringContaining('rustc --release --target')]);
     expect(archive('release-iphoneos-arm64')).toContain('uniffi_veloqrs_');
   });
 
@@ -482,10 +488,13 @@ describe('the iOS build', () => {
     build(BOTH);
 
     expect(calls('cargo')).toEqual([
-      expect.stringContaining('--target aarch64-apple-ios -p veloqrs'),
-      expect.stringContaining('--target aarch64-apple-ios-sim -p veloqrs'),
+      expect.stringContaining('--target aarch64-apple-ios -p veloqrs --lib --crate-type staticlib'),
+      expect.stringContaining(
+        '--target aarch64-apple-ios-sim -p veloqrs --lib --crate-type staticlib'
+      ),
     ]);
     expect(archive('release-iphoneos-arm64')).toContain('triple=aarch64-apple-ios ');
+    expect(archive('release-iphoneos-arm64')).toContain('lto=ran');
     expect(archive('release-iphonesimulator-arm64')).toContain('triple=aarch64-apple-ios-sim ');
     expect(readFileSync(join(moduleDir, 'ios/cpp/generated/veloqrs.cpp'), 'utf8')).toBe(
       '// bindings\n'
@@ -687,8 +696,8 @@ describe('the iOS build', () => {
     build(phase(join(root, 'out')), { PLATFORM_NAME: 'iphonesimulator', ARCHS: 'arm64 x86_64' });
 
     expect(calls()).toEqual([
-      expect.stringContaining('cargo build --release --target aarch64-apple-ios-sim'),
-      expect.stringContaining('cargo build --release --target x86_64-apple-ios'),
+      expect.stringContaining('cargo rustc --release --target aarch64-apple-ios-sim'),
+      expect.stringContaining('cargo rustc --release --target x86_64-apple-ios'),
       expect.stringMatching(/^lipo -create /),
     ]);
     expect(() =>

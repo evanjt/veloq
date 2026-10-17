@@ -18,7 +18,7 @@ import { StatDetailSheet } from '@/features/activity/components/stats/StatDetail
 import { useActivityStats } from '@/features/activity/components/stats/useActivityStats';
 import type { StatDetail } from '@/features/activity/components/stats/types';
 import { initialiseI18n } from '@/i18n';
-import { chartStreamColors, colors, darkColors } from '@/theme';
+import { chartStreamColour, colors, darkColors } from '@/theme';
 import type { Activity, WellnessData } from '@/types';
 import type { ActivityFitnessImpact } from 'veloqrs';
 
@@ -42,7 +42,7 @@ const ride = {
 const wellness = { id: '2026-09-05', ctl: 60, atl: 70 } as WellnessData;
 const fitnessImpact = { fitness: 2.1, fatigue: 9.4, form: -7.3 } as ActivityFitnessImpact;
 
-const handPainted = (['chartGoldText', 'successDeep', 'warningAmber', 'chartPinkText'] as const)
+const handPainted = (['achievementText', 'successText', 'warningText', 'chartPinkText'] as const)
   .flatMap((key) => [colors[key], darkColors[key]])
   .map((c) => c.toLowerCase());
 
@@ -116,7 +116,7 @@ describe.each([
     const keyed = render(<StatCard stat={heartRate} isDark={isDark} onPress={() => {}} />);
     expect(iconColour(keyed, 'heart-pulse')).toBe(palette.textSecondary);
     expect(StyleSheet.flatten(keyed.getByTestId('stat-key-dot').props.style)).toMatchObject({
-      backgroundColor: chartStreamColors.heartrate,
+      backgroundColor: chartStreamColour('heartrate', isDark),
     });
     const plain = render(<StatCard stat={load} isDark={isDark} onPress={() => {}} />);
     expect(plain.queryByTestId('stat-key-dot')).toBeNull();

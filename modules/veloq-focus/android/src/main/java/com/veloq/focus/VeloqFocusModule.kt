@@ -8,5 +8,7 @@ class VeloqFocusModule : Module() {
     Name("VeloqFocus")
 
     View(KeyboardFocusBlockView::class) {}
+
+    View(ReadAfterHeaderView::class) {}
   }
 }

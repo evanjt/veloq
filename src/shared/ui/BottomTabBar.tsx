@@ -5,12 +5,12 @@
  */
 import { markTabPress } from '@/shared/debug/tabSwitchTiming';
 import React, { memo, useCallback, useRef } from 'react';
-import { StyleSheet, Pressable, View, Text } from 'react-native';
+import { StyleSheet, View, Text } from 'react-native';
 
+import { Icon } from './Icon';
 import { DENSE_TEXT_SCALE } from './DenseText';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { usePathname, useSegments } from 'expo-router';
 import * as haptics from './haptics';
 import { useTranslation } from 'react-i18next';
@@ -30,8 +30,7 @@ import {
 import { PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { navigateTab } from '@/shared/app/navigation';
 import { debug } from '@/shared/debug/debug';
-import { SyncProgressStrip } from './SyncProgressStrip';
-import { pressable, pressRipple } from './pressFeedback';
+import { PressTarget } from './PressTarget';
 import { GRADIENT_HEIGHT, TAB_BAR_HEIGHT, isTabBarRoute } from './tabBarClearance';
 import { emitTabReselect, type TabRoute } from './tabReselect';
 
@@ -71,7 +70,7 @@ function BottomTabBarComponent() {
   const { t } = useTranslation();
   const palette = isDark ? darkColors : colors;
   const activeLabel = palette.textPrimary;
-  const activeIcon = isDark ? palette.textPrimary : palette.primary;
+  const activeIcon = isDark ? palette.textPrimary : palette.actionPrimary;
   const inactiveColor = palette.textSecondary;
 
   // Gradient: smooth fade, slightly transparent at bottom (92% max)
@@ -130,76 +129,71 @@ function BottomTabBarComponent() {
   const totalHeight = GRADIENT_HEIGHT + TAB_BAR_HEIGHT + insets.bottom;
 
   return (
-    <>
-      {/* The sync pill shows on the tab screens, floating at the top of the page */}
-      <SyncProgressStrip />
-      <View
-        testID="bottom-tab-bar"
-        style={[styles.container, { height: totalHeight }]}
-        pointerEvents="box-none"
-      >
-        {preferOpaqueChrome ? (
-          <View
-            testID="bottom-tab-bar-surface"
-            style={[
-              styles.opaqueSurface,
-              {
-                height: TAB_BAR_HEIGHT + insets.bottom,
-                backgroundColor: palette.surface,
-                borderTopColor: palette.divider,
-              },
-            ]}
-            pointerEvents="none"
-          />
-        ) : (
-          <LinearGradient
-            testID="bottom-tab-bar-gradient"
-            colors={gradientColors}
-            locations={[0, 0.1, 0.22, 0.38, 0.6, 1]}
-            style={StyleSheet.absoluteFill}
-            pointerEvents="none"
-          />
-        )}
-        {/* Icons row - positioned at bottom above safe area */}
-        <View accessibilityRole="tablist" style={[styles.tabRow, { marginBottom: insets.bottom }]}>
-          {MENU_ITEMS.map((item) => {
-            const isActive =
-              item.route === '/'
-                ? pathname === '/' || pathname === '/index'
-                : pathname.startsWith(item.route);
+    <View
+      testID="bottom-tab-bar"
+      style={[styles.container, { height: totalHeight }]}
+      pointerEvents="box-none"
+    >
+      {preferOpaqueChrome ? (
+        <View
+          testID="bottom-tab-bar-surface"
+          style={[
+            styles.opaqueSurface,
+            {
+              height: TAB_BAR_HEIGHT + insets.bottom,
+              backgroundColor: palette.surface,
+              borderTopColor: palette.border,
+            },
+          ]}
+          pointerEvents="none"
+        />
+      ) : (
+        <LinearGradient
+          testID="bottom-tab-bar-gradient"
+          colors={gradientColors}
+          locations={[0, 0.1, 0.22, 0.38, 0.6, 1]}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+      )}
+      {/* Icons row - positioned at bottom above safe area */}
+      <View accessibilityRole="tablist" style={[styles.tabRow, { marginBottom: insets.bottom }]}>
+        {MENU_ITEMS.map((item) => {
+          const isActive =
+            item.route === '/'
+              ? pathname === '/' || pathname === '/index'
+              : pathname.startsWith(item.route);
 
-            const label = t(`navigation.${item.key}`);
+          const label = t(`navigation.${item.key}`);
 
-            return (
-              <Pressable
-                key={item.key}
-                style={pressable(styles.tabItem)}
-                android_ripple={pressRipple}
-                onPress={() => handlePress(item.route)}
-                accessibilityLabel={label}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: isActive }}
+          return (
+            <PressTarget
+              key={item.key}
+              style={styles.tabItem}
+              onPress={() => handlePress(item.route)}
+              accessibilityLabel={label}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isActive }}
+            >
+              <View style={styles.iconContainer}>
+                <Icon
+                  name={item.icon as never}
+                  size={iconSize.lg}
+                  color={isActive ? activeIcon : inactiveColor}
+                />
+              </View>
+              <Text
+                maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                style={[styles.label, { color: isActive ? activeLabel : inactiveColor }]}
+                numberOfLines={1}
               >
-                <View style={styles.iconContainer}>
-                  <MaterialCommunityIcons
-                    name={item.icon as never}
-                    size={iconSize.lg}
-                    color={isActive ? activeIcon : inactiveColor}
-                  />
-                </View>
-                <Text
-                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                  style={[styles.label, { color: isActive ? activeLabel : inactiveColor }]}
-                  numberOfLines={1}
-                >
-                  {label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+                {label}
+              </Text>
+            </PressTarget>
+          );
+        })}
       </View>
-    </>
+    </View>
   );
 }
 

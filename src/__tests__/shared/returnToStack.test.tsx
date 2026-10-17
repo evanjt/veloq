@@ -18,15 +18,15 @@ import { replaceTo, returnTo } from '@/shared/app/navigation';
 
 jest.unmock('expo-router');
 
-let app: ReturnType<typeof renderRouter>;
+let app: Awaited<ReturnType<typeof renderRouter>>;
 
 function stackNames(): string[] {
   const root = app.getRouterState()?.routes[0]?.state;
   return (root?.routes ?? []).map((route: { name: string }) => route.name);
 }
 
-function renderFlow(initialUrl = '/') {
-  app = renderRouter(
+async function renderFlow(initialUrl = '/') {
+  app = await renderRouter(
     {
       _layout: () => <Stack />,
       index: () => <Text>feed</Text>,
@@ -39,7 +39,7 @@ function renderFlow(initialUrl = '/') {
 }
 
 it('starts the live screen in place of the entry screen', async () => {
-  renderFlow();
+  await renderFlow();
   await act(() => router.push('/launch'));
 
   await act(() => replaceTo('/launch/kite'));
@@ -49,7 +49,7 @@ it('starts the live screen in place of the entry screen', async () => {
 });
 
 it('returns to the root with nothing the flow pushed left beneath it', async () => {
-  renderFlow();
+  await renderFlow();
   await act(() => router.push('/launch'));
   await act(() => router.push('/launch/kite'));
   await act(() => router.push('/launch/summary'));
@@ -61,7 +61,7 @@ it('returns to the root with nothing the flow pushed left beneath it', async () 
 });
 
 it('replaces the screen with the root when the root is not in history', async () => {
-  renderFlow('/launch/summary');
+  await renderFlow('/launch/summary');
 
   await act(() => returnTo('/'));
 

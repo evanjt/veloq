@@ -42,7 +42,8 @@ export interface RoutesStatus {
    */
   elevationRemaining: number | null;
   elevationPaused: boolean;
-  cutover: { phase: CutoverPhase; running: boolean };
+  /** `run` is the running cutover's id, for `cancelRun`, or null between runs. */
+  cutover: { phase: CutoverPhase; running: boolean; run: number | null };
   /** Tiles processed and tiles in the sweep, `[0, 0]` when none runs. */
 }
 
@@ -77,6 +78,7 @@ export function getRoutesStatusData(host: DelegateHost): RoutesStatus | null {
     cutover: {
       phase: narrow(CUTOVER_PHASES, status.cutover.phase, 'idle'),
       running: status.cutover.running,
+      run: status.cutover.run ?? null,
     },
   };
 }

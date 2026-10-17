@@ -7,13 +7,13 @@ import { useMetricSystem } from '@/shared/app';
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { getIntlLocale } from '@/shared/format/format';
 import { formatAttemptFigure, type AttemptBasis } from '@/features/routes/lib/attemptBasis';
 import { colors, darkColors, iconSize, spacing, themePalette, typography } from '@/theme';
 import { Button, Card, CardHeader, DisclosureChevron, pressable, pressRipple } from '@/shared/ui';
-import { tapTo } from '@/shared/app/navigation';
+import { Icon } from '@/shared/ui/Icon';
+import { navigateTo } from '@/shared/app/navigation';
 import { DirectionArrow, directionWord } from './DirectionCue';
 
 const REVERSE_COLOR = colors.reverseDirection;
@@ -115,7 +115,7 @@ export function SectionStatsCards({
   const reversePr = recordsSettled ? calendarSummary.reversePr : undefined;
   // The trophy marks the record and nothing else, in the one gold on every
   // row. A year's best that is not the record is told by its bold time.
-  const recordGold = themePalette(isDark).chartGoldMark;
+  const recordGold = themePalette(isDark).achievement;
 
   return (
     <Card variant="flat" padding="none" testID="section-calendar">
@@ -187,7 +187,7 @@ export function SectionStatsCards({
                 </Text>
                 {isYearFwdPr ? (
                   <View style={styles.calendarTrophy}>
-                    <MaterialCommunityIcons name="trophy" size={iconSize.sm} color={recordGold} />
+                    <Icon name="trophy" size={iconSize.sm} color={recordGold} />
                     {yearRev ? (
                       <DirectionArrow
                         direction="forward"
@@ -199,7 +199,7 @@ export function SectionStatsCards({
                 ) : null}
                 {isYearRevPr ? (
                   <View style={styles.calendarTrophy}>
-                    <MaterialCommunityIcons name="trophy" size={iconSize.sm} color={recordGold} />
+                    <Icon name="trophy" size={iconSize.sm} color={recordGold} />
                     {yearFwd ? (
                       <DirectionArrow
                         direction="reverse"
@@ -245,7 +245,7 @@ export function SectionStatsCards({
                                 android_ripple={pressRipple}
                                 accessibilityRole="button"
                                 accessibilityLabel={`${directionWord(t, 'forward')}, ${formatBest(fwd)}, ${fwd.bestActivityName}`}
-                                onPress={() => tapTo(`/activity/${fwd.bestActivityId}`)}
+                                onPress={() => navigateTo(`/activity/${fwd.bestActivityId}`)}
                               >
                                 <DirectionArrow
                                   direction="forward"
@@ -262,11 +262,7 @@ export function SectionStatsCards({
                                   {formatBest(fwd)}
                                 </Text>
                                 {isMonthFwdOverallPr ? (
-                                  <MaterialCommunityIcons
-                                    name="trophy"
-                                    size={iconSize.xs}
-                                    color={recordGold}
-                                  />
+                                  <Icon name="trophy" size={iconSize.xs} color={recordGold} />
                                 ) : null}
                                 {isMonthFwdOverallPr ? (
                                   <Text style={[styles.prTag, isDark && styles.prTagDark]}>
@@ -289,7 +285,7 @@ export function SectionStatsCards({
                                 android_ripple={pressRipple}
                                 accessibilityRole="button"
                                 accessibilityLabel={`${directionWord(t, 'reverse')}, ${formatBest(rev)}, ${rev.bestActivityName}`}
-                                onPress={() => tapTo(`/activity/${rev.bestActivityId}`)}
+                                onPress={() => navigateTo(`/activity/${rev.bestActivityId}`)}
                               >
                                 <DirectionArrow
                                   direction="reverse"
@@ -306,11 +302,7 @@ export function SectionStatsCards({
                                   {formatBest(rev)}
                                 </Text>
                                 {isMonthRevOverallPr ? (
-                                  <MaterialCommunityIcons
-                                    name="trophy"
-                                    size={iconSize.xs}
-                                    color={recordGold}
-                                  />
+                                  <Icon name="trophy" size={iconSize.xs} color={recordGold} />
                                 ) : null}
                                 {isMonthRevOverallPr ? (
                                   <Text style={[styles.prTag, isDark && styles.prTagDark]}>
@@ -365,7 +357,7 @@ const STATS_LABEL_INSET = spacing.md + iconSize.md + spacing.xs;
 
 const styles = StyleSheet.create({
   textLight: {
-    color: colors.textOnDark,
+    color: colors.textOnFill,
   },
   textSecondary: {
     color: darkColors.textSecondary,
@@ -442,10 +434,10 @@ const styles = StyleSheet.create({
   // year's best by hue, which is the one thing a mark may not do on its own.
   prTag: {
     ...typography.captionBold,
-    color: colors.chartGoldText,
+    color: colors.achievementText,
     marginLeft: spacing.xs,
   },
   prTagDark: {
-    color: darkColors.chartGoldText,
+    color: darkColors.achievementText,
   },
 });

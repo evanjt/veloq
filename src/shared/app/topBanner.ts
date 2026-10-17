@@ -9,7 +9,8 @@
  * Offline is not in the slot. It is a pill floating under the status bar, which
  * moves no screen's edge, so it takes no inset. It still outranks a failing
  * sync, because a device with no network has no sync to report on: the
- * sync-error banner gives way while the pill shows, and the slot with it.
+ * sync-error banner gives way while the pill shows, and the slot with it. A
+ * sync the engine has paused is a pill too, so it takes no slot either.
  */
 
 import { create } from 'zustand';
@@ -26,6 +27,8 @@ export interface TopBannerState {
   isDemoMode: boolean;
   hideDemoBanner: boolean;
   lastError: string | null;
+  /** Whether the engine has paused the sync until a time it resumes at on its own. */
+  syncPaused: boolean;
   trackFetchNoticeShown: boolean;
   engineInitFailed: boolean;
 }
@@ -45,6 +48,7 @@ export function pickTopBanner(state: TopBannerState): TopBanner {
     state.isAuthenticated &&
     !state.isDemoMode &&
     !state.offlineBannerShown &&
+    !state.syncPaused &&
     state.lastError !== null
   ) {
     return 'syncError';

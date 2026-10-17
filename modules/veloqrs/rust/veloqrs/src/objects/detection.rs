@@ -30,9 +30,15 @@ fn record_outcome(outcome: u8) {
     LAST_DETECTION_OUTCOME.store(outcome, Ordering::Relaxed);
 }
 
+/// Every start that installs a run calls this with the detection slot's lock
+/// held, just before it installs.
 pub(crate) fn record_started_run(slot: &crate::persistence::CheckpointSlot) {
     slot.mark_run_id(NEXT_RUN_ID.fetch_add(1, Ordering::Relaxed));
     record_outcome(OUTCOME_IDLE);
+    // The sync status carries the run from here. The screens that render it
+    // read again on this rather than polling an idle engine, and the read
+    // waits on the slot's lock, so it finds the run installed.
+    crate::objects::observer::notify(crate::objects::observer::Announcement::SyncProgress);
 }
 
 fn record_run_outcome(slot: &crate::persistence::CheckpointSlot, outcome: u8) {

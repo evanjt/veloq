@@ -44,14 +44,19 @@ type DegreeBox = (f64, f64, f64, f64);
 pub static SECTION_PREVIEW_HANDLE: LazyLock<Mutex<Option<SectionPreviewHandle>>> =
     LazyLock::new(|| Mutex::new(None));
 
-/// A ranked riding area: one occupied ~5 km bin.
-#[derive(Debug, Clone)]
+/// A ranked riding area: one occupied ~5 km bin of the user's library.
+#[derive(Debug, Clone, uniffi::Record)]
+#[uniffi(name = "FfiPreviewCentre")]
 pub struct PreviewCentre {
+    /// "lat_bin:lng_bin" at ~5 km, an order-free ranking key.
     pub bin_key: String,
     pub lat: f64,
     pub lng: f64,
+    /// Sum of section visit counts in the bin, or activity count on fallback.
     pub visit_total: u32,
+    /// 0 on the activities fallback.
     pub section_count: u32,
+    /// "sections" | "activities"
     pub source: String,
 }
 
@@ -394,7 +399,7 @@ fn within_component(section: &FrequentSection, padded_bbox: DegreeBox) -> bool {
 /// inside the component. Superseded rows stay in memory as detection priors
 /// but are hidden everywhere else, so the preview never draws or counts them.
 fn scoped_live_catalogue(
-    sections: &[FrequentSection],
+    sections: &[Arc<FrequentSection>],
     superseded_ids: &HashSet<String>,
     padded_bbox: DegreeBox,
     names: &std::collections::BTreeMap<String, String>,
@@ -404,7 +409,7 @@ fn scoped_live_catalogue(
         .filter(|s| !s.is_user_defined && !superseded_ids.contains(&s.id))
         .filter(|s| within_component(s, padded_bbox))
         .map(|s| {
-            let mut section = s.clone();
+            let mut section = FrequentSection::clone(s);
             if let Some(name) = names.get(&s.id) {
                 section.name = Some(name.clone());
             }
@@ -1022,7 +1027,7 @@ mod tests {
     fn a_superseded_section_is_not_in_the_live_catalogue() {
         let kept = section("kept", line(5.0, 10.0));
         let hidden = section("hidden", line(5.0, 10.001));
-        let sections = vec![kept, hidden];
+        let sections = vec![Arc::new(kept), Arc::new(hidden)];
         let superseded = HashSet::from(["hidden".to_string()]);
         let everywhere = (-90.0, 90.0, -180.0, 180.0);
 

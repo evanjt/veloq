@@ -54,19 +54,19 @@ const FAMILY_LOOK: Record<
   Foot: {
     color: colors.walk,
     selectedFill: colors.walkChipFill,
-    selectedInk: colors.textOnDark,
+    selectedInk: colors.textOnFill,
     icon: 'walk',
   },
   Strength: {
     color: colors.workout,
     selectedFill: colors.workoutChipFill,
-    selectedInk: colors.textOnDark,
+    selectedInk: colors.textOnFill,
     icon: 'dumbbell',
   },
   Other: {
     color: OTHER_COLOR,
     selectedFill: OTHER_COLOR,
-    selectedInk: colors.textOnDark,
+    selectedInk: colors.textOnFill,
     icon: 'heart-pulse',
   },
 };
@@ -117,7 +117,7 @@ export function getActivityCategory(type: string): SportFamily {
 }
 
 /** Fill and label ink of a selected period or distance chip. */
-export const FILTER_CHIP = { fill: colors.primary, ink: colors.textOnPrimary } as const;
+export const FILTER_CHIP = { fill: colors.actionPrimary, ink: colors.textOnFill } as const;
 
 /** A sport chip's fill and label ink: the measured pair when selected, the icon hue on the card otherwise. */
 export function categoryChipColours(

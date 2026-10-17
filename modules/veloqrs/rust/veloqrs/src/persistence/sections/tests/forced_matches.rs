@@ -478,7 +478,7 @@ fn detected_line() -> tracematch::FrequentSection {
 
 fn apply_detected_line(engine: &mut PersistentEngine) {
     engine.sections.retain(|s| s.is_user_defined);
-    engine.sections.push(detected_line());
+    engine.sections.push(detected_line().into());
     engine.save_sections_with_events(&[]).unwrap();
 }
 

@@ -538,24 +538,6 @@ impl SectionManager {
         })
     }
 
-    fn get_geometry_versions(
-        &self,
-        section_id: String,
-    ) -> Result<Vec<crate::FfiSectionGeometryVersion>, VeloqError> {
-        with_reader(|conn| {
-            let pinned = history::pinned_section_version(conn, &section_id);
-            history::section_geometry_versions(conn, &section_id)
-                .into_iter()
-                .map(|v| crate::FfiSectionGeometryVersion {
-                    version: v.version as f64,
-                    created_at: v.created_at,
-                    milestone: v.milestone,
-                    pinned: pinned == Some(v.version),
-                })
-                .collect()
-        })
-    }
-
     /// A stored version's line, coordinate-encoded like a section polyline.
     fn get_geometry_version_coords(
         &self,
@@ -587,15 +569,7 @@ impl SectionManager {
         with_reader(|conn| {
             history::retired_sections(conn)
                 .into_iter()
-                .map(|r| crate::FfiRetiredSection {
-                    section_id: r.section_id,
-                    kind: r.kind,
-                    at: r.at,
-                    into: r.into,
-                    versions: r.versions.into_iter().map(|v| v as f64).collect(),
-                    name: r.name,
-                    distance_meters: r.distance_meters,
-                })
+                .map(Into::into)
                 .collect()
         })
     }

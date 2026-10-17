@@ -29,8 +29,7 @@
     "src/features/stats/components/SwimPaceCurveChart.tsx": 1,
     "src/features/strength/components/MuscleGroupView.tsx": 2,
     "src/shared/ui/BottomTabBar.tsx": 10,
-    "src/shared/ui/DetailHero.tsx": 1,
-    "src/shared/ui/OfflineBanner.tsx": 1
+    "src/shared/ui/DetailHero.tsx": 1
   },
   "border-width": {
     "src/shared/ui/CompassArrow.tsx": 4
@@ -220,7 +219,6 @@
     "src/features/fitness/lib/fitness.ts": 1,
     "src/features/home/lib/widgetSnapshot.ts": 1,
     "src/features/maps/lib/htmlBuilders/map3DScripts.ts": 1,
-    "src/features/maps/lib/routeLineCollection.ts": 1,
     "src/features/maps/lib/sectionLineCollection.ts": 1,
     "src/features/stats/lib/periodWindows.ts": 1,
     "src/shared/activity/activityUtils.ts": 1,

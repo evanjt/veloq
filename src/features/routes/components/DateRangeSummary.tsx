@@ -13,7 +13,7 @@ import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { formatDateOrDash } from '@/shared/format/format';
 import { colors, darkColors, duration, spacing, stroke, typography } from '@/theme';
 import { Button } from '@/shared/ui';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 
 interface DateRangeSummaryProps {
   activityCount: number;
@@ -36,7 +36,7 @@ export function DateRangeSummary({
   const themeColors = isDark ? darkColors : colors;
 
   const handleExpandPress = () => {
-    tapTo('/sync-settings');
+    navigateTo('/sync-settings');
   };
 
   return (
@@ -48,7 +48,11 @@ export function DateRangeSummary({
           exiting={FadeOut.duration(duration.quick)}
           style={[styles.syncBanner, isDark && styles.syncBannerDark]}
         >
-          <ActivityIndicator size="small" color={themeColors.primary} style={styles.syncIcon} />
+          <ActivityIndicator
+            size="small"
+            color={themeColors.actionPrimary}
+            style={styles.syncIcon}
+          />
           <Text style={[styles.syncText, isDark && styles.textSecondary]}>{syncMessage}</Text>
         </Animated.View>
       ) : null}
@@ -58,7 +62,11 @@ export function DateRangeSummary({
         <View style={styles.dateInfo}>
           <View style={styles.countRow}>
             {isLoading ? (
-              <ActivityIndicator size="small" color={themeColors.primary} style={styles.syncIcon} />
+              <ActivityIndicator
+                size="small"
+                color={themeColors.actionPrimary}
+                style={styles.syncIcon}
+              />
             ) : null}
             <Text style={[styles.countText, isDark && styles.textLight]}>
               {isLoading
@@ -89,12 +97,12 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfacePage,
     borderBottomWidth: stroke.one,
     borderBottomColor: colors.border,
   },
   containerDark: {
-    backgroundColor: darkColors.background,
+    backgroundColor: darkColors.surfacePage,
     borderBottomColor: darkColors.border,
   },
   syncBanner: {
@@ -133,7 +141,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xxs,
   },
   textLight: {
-    color: colors.textOnDark,
+    color: colors.textOnFill,
   },
   textSecondary: {
     color: darkColors.textSecondary,

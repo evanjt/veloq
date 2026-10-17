@@ -14,9 +14,8 @@ import { SyncState, SyncStep } from 'veloqrs';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { getEngine } from '@/shared/native/engine';
-import { OfflineBanner } from '@/shared/ui/OfflineBanner';
 import { SyncErrorBanner } from '@/shared/ui/SyncErrorBanner';
-import { SyncProgressStrip } from '@/shared/ui/SyncProgressStrip';
+import { FloatingPillStack } from '@/shared/ui/FloatingPillStack';
 import { TrackFetchNotice } from '@/shared/ui/TrackFetchNotice';
 import { useTrackFetchNotice } from '@/features/routes/lib/trackFetchNotice';
 import { spacing } from '@/theme';
@@ -89,12 +88,12 @@ describe('a floating pill and the top banners', () => {
     await render(
       <>
         <SyncErrorBanner />
-        <SyncProgressStrip />
+        <FloatingPillStack />
       </>
     );
     await laidOut('sync-error-banner', 96);
 
-    expect(top('sync-progress-strip')).toBeGreaterThanOrEqual(96);
+    expect(top('floating-pill-sync')).toBeGreaterThanOrEqual(96);
   });
 
   it('draws the sync pill below two stacked banners', async () => {
@@ -103,20 +102,20 @@ describe('a floating pill and the top banners', () => {
       <>
         <SyncErrorBanner />
         <TrackFetchNotice />
-        <SyncProgressStrip />
+        <FloatingPillStack />
       </>
     );
     await laidOut('sync-error-banner', 96);
     await laidOut('track-fetch-notice', 80);
 
-    expect(top('sync-progress-strip')).toBeGreaterThanOrEqual(96 + 80);
+    expect(top('floating-pill-sync')).toBeGreaterThanOrEqual(96 + 80);
   });
 
   it('puts the sync pill back under the status bar once the banner goes', async () => {
     const tree = () => (
       <>
         <SyncErrorBanner />
-        <SyncProgressStrip />
+        <FloatingPillStack />
       </>
     );
     const { rerender } = await render(tree());
@@ -125,14 +124,14 @@ describe('a floating pill and the top banners', () => {
     mockHealth = { lastError: null, lastErrorReason: null, lastSuccessAt: null };
     await rerender(tree());
 
-    expect(top('sync-progress-strip')).toBe(TOP_INSET + spacing.xs);
+    expect(top('floating-pill-sync')).toBe(TOP_INSET + spacing.xs);
   });
 
   it('sits under the status bar when no banner is up', async () => {
     mockHealth = { lastError: null, lastErrorReason: null, lastSuccessAt: null };
-    await render(<SyncProgressStrip />);
+    await render(<FloatingPillStack />);
 
-    expect(top('sync-progress-strip')).toBe(TOP_INSET + spacing.xs);
+    expect(top('floating-pill-sync')).toBe(TOP_INSET + spacing.xs);
   });
 
   it('draws the offline pill below a notice in the slot', async () => {
@@ -141,11 +140,11 @@ describe('a floating pill and the top banners', () => {
     await render(
       <>
         <TrackFetchNotice />
-        <OfflineBanner />
+        <FloatingPillStack />
       </>
     );
     await laidOut('track-fetch-notice', 80);
 
-    expect(top('offline-banner')).toBeGreaterThanOrEqual(80);
+    expect(top('floating-pill-offline')).toBeGreaterThanOrEqual(80);
   });
 });

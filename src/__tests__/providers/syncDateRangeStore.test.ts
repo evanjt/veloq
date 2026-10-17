@@ -2,19 +2,14 @@ import { IDLE_EXTENDED_FETCH, isExtendedFetchRunning } from '@/shared/app/extend
 /**
  * SyncDateRangeStore Tests
  *
- * Tests the sync date range and GPS progress management including:
+ * Tests the sync date range management including:
  * - Range expansion and locking
  * - Generation counter for race condition prevention
- * - GPS sync progress state machine
  * - Delayed unlock behaviour
  */
 
 import { formatLocalDate } from '@/shared/format/format';
-import {
-  useSyncDateRange,
-  getSyncGeneration,
-  GpsSyncProgress,
-} from '@/shared/app/SyncDateRangeStore';
+import { useSyncDateRange, getSyncGeneration } from '@/shared/app/SyncDateRangeStore';
 
 // Helper to get a date string N days from today
 function daysFromToday(days: number): string {
@@ -39,15 +34,6 @@ describe('SyncDateRangeStore', () => {
       newest: defaultNewest,
       extendedFetch: IDLE_EXTENDED_FETCH,
       hasExpanded: false,
-      gpsSyncProgress: {
-        status: 'idle',
-        completed: 0,
-        total: 0,
-        percent: 0,
-        message: '',
-      },
-      isGpsSyncing: false,
-      lastSyncTimestamp: null,
       isExpansionLocked: false,
       syncGeneration: 0,
     });
@@ -132,56 +118,6 @@ describe('SyncDateRangeStore', () => {
       useSyncDateRange.getState().reset();
 
       expect(useSyncDateRange.getState().syncGeneration).toBe(genBefore + 1);
-    });
-  });
-
-  describe('GPS Sync Progress', () => {
-    it('sets isGpsSyncing=true for active statuses', () => {
-      const activeStatuses: GpsSyncProgress['status'][] = ['fetching', 'processing', 'computing'];
-
-      for (const status of activeStatuses) {
-        useSyncDateRange.getState().setGpsSyncProgress({
-          status,
-          completed: 0,
-          total: 10,
-          percent: 0,
-          message: '',
-        });
-
-        expect(useSyncDateRange.getState().isGpsSyncing).toBe(true);
-      }
-    });
-
-    it('sets isGpsSyncing=false for terminal statuses', () => {
-      const terminalStatuses: GpsSyncProgress['status'][] = ['idle', 'complete', 'error'];
-
-      for (const status of terminalStatuses) {
-        useSyncDateRange.getState().setGpsSyncProgress({
-          status,
-          completed: 0,
-          total: 10,
-          percent: 0,
-          message: '',
-        });
-
-        expect(useSyncDateRange.getState().isGpsSyncing).toBe(false);
-      }
-    });
-
-    it('sets lastSyncTimestamp on complete', () => {
-      expect(useSyncDateRange.getState().lastSyncTimestamp).toBeNull();
-
-      useSyncDateRange.getState().setGpsSyncProgress({
-        status: 'complete',
-        completed: 20,
-        total: 20,
-        percent: 100,
-        message: 'Done',
-      });
-
-      const timestamp = useSyncDateRange.getState().lastSyncTimestamp;
-      expect(timestamp).not.toBeNull();
-      expect(new Date(timestamp!).getTime()).toBeCloseTo(Date.now(), -2); // Within 100ms
     });
   });
 

@@ -1,7 +1,7 @@
 import type { TFunction } from 'i18next';
 import { InitOutcome } from 'veloqrs';
 
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { offerCrashLog, openForum, openStorePage } from '@/shared/app/supportLinks';
 
 /**
@@ -65,7 +65,7 @@ export function engineRecoveryActions(
       return [
         {
           label: t('engine.initAction.freeSpace'),
-          onPress: () => tapTo('/cache-settings'),
+          onPress: () => navigateTo('/cache-settings'),
           testID: 'engine-free-space-button',
         },
         retryAction,

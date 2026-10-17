@@ -229,6 +229,13 @@ fn tile_pass_slot() -> MutexGuard<'static, Option<super::CancelToken>> {
     TILE_PASS.lock().unwrap_or_else(|e| e.into_inner())
 }
 
+/// Whether a tile pass is drawing now. The slot is held for the generation and
+/// emptied when its guard drops, a panic included, so a pass that ended reads
+/// false however it ended.
+pub(crate) fn tile_pass_running() -> bool {
+    tile_pass_slot().is_some()
+}
+
 /// The attempt-store identity of the one tile pass.
 fn tile_pass_key() -> JobKey {
     JobKey::new("tile_pass", &[])
@@ -936,6 +943,9 @@ impl PersistentEngine {
         *super::persistent_engine_ffi::TILE_GENERATION_HANDLE
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = Some(handle);
+        // The sync status carries the pass from here, and the screens that
+        // render it read again on this rather than polling an idle engine.
+        crate::objects::observer::notify(Announcement::SyncProgress);
         true
     }
 

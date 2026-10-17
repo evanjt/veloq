@@ -4,9 +4,8 @@
 
 import React from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
-  chartStreamColors,
+  chartStreamColour,
   darkColors,
   iconSize,
   layout,
@@ -17,11 +16,12 @@ import {
 import {
   composeAccessibilityLabel,
   KeyDot,
-  StatTile,
   pressable,
   pressRipple,
+  StatTile,
   useTextScaleColumns,
 } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 
 import type { StatDetail } from './types';
 
@@ -54,10 +54,10 @@ export const StatCard = React.memo(function StatCard({ stat, isDark, onPress }: 
           carries a colour, as the dot that keys it to its chart line. */}
       <View style={styles.markRow}>
         <View testID="stat-icon-disc" style={styles.iconContainer}>
-          <MaterialCommunityIcons name={stat.icon} size={iconSize.sm} color={styles.icon.color} />
+          <Icon name={stat.icon} size={iconSize.sm} color={styles.icon.color} />
         </View>
         {stat.stream ? (
-          <KeyDot testID="stat-key-dot" color={chartStreamColors[stat.stream]} />
+          <KeyDot testID="stat-key-dot" color={chartStreamColour(stat.stream, isDark)} />
         ) : null}
       </View>
 
@@ -77,7 +77,7 @@ export const StatCard = React.memo(function StatCard({ stat, isDark, onPress }: 
 const makeStyles = (palette: Palette, isDark: boolean) =>
   StyleSheet.create({
     statCard: {
-      backgroundColor: isDark ? darkColors.surfaceElevated : palette.background,
+      backgroundColor: isDark ? darkColors.fillNeutral : palette.surfacePage,
       borderRadius: layout.borderRadiusMd,
       padding: spacing.sm,
       position: 'relative',

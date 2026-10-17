@@ -1,19 +1,16 @@
 /**
  * Scenario: the ink on a filled primary control turns white. Dark ink on the
  * primary fill also sat on the gold PR badges, the success and warning fills,
- * the light chart and section hues and the dark destructive red, where white
+ * the light section hues and the dark destructive red, where white
  * reads between 2.1:1 and 3:1.
  *
  * Expected behaviour: every filled pair that is not the primary one names its
  * own ink and keeps 4.5:1 in both themes, whatever the primary ink is. A bright
- * fill (gold, success, warning, a light data hue) takes `textOnBright`; the
+ * fill (gold, success, warning, a light section hue) takes `textOnBright`; the
  * destructive red is the deep `dangerFill` with white in both themes.
  */
 
 import {
-  chartInkColor,
-  chartStreamColors,
-  chartStreamInk,
   colors,
   darkColors,
   sectionNumberInk,
@@ -50,7 +47,7 @@ const THEMES = [
 
 describe('bright fills take the bright-fill ink', () => {
   it.each(THEMES)('clears 4.5:1 on gold, success and warning in the %s theme', (_, __, palette) => {
-    for (const ground of ['accent', 'accentLight', 'success', 'warning'] as const) {
+    for (const ground of ['achievement', 'successFill', 'warningFill'] as const) {
       expectReadable(ground, colors.textOnBright, palette[ground]);
     }
   });
@@ -66,13 +63,6 @@ describe('bright fills take the bright-fill ink', () => {
   it('draws the hide and restore swipe actions readable', () => {
     expectReadable('hide', swipeAction.hide.text, swipeAction.hide.bg);
     expectReadable('restore', swipeAction.restore.text, swipeAction.restore.bg);
-  });
-
-  it('labels every dark-ink chart stream readable on its hue', () => {
-    const streams = Object.keys(chartStreamInk) as (keyof typeof chartStreamColors)[];
-    for (const stream of streams.filter((s) => chartStreamInk[s] === 'dark')) {
-      expectReadable(stream, chartInkColor(stream), chartStreamColors[stream]);
-    }
   });
 
   it('numbers every dark-ink section slot readable on its hue', () => {
@@ -95,7 +85,7 @@ describe('the destructive fill', () => {
 
     expect({ backgroundColor, color }).toEqual({
       backgroundColor: palette.dangerFill,
-      color: colors.textOnDark,
+      color: colors.textOnFill,
     });
     expectReadable('destructive', color, backgroundColor);
   });

@@ -6,10 +6,10 @@
 
 import React from 'react';
 import { ActivityIndicator } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { PlaceNameKind } from 'veloqrs';
 import { IconButton } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { colors, colorWithOpacity, iconSize } from '@/theme';
 import { usePlaceNameLookup } from '../hooks/usePlaceNameLookup';
 
@@ -32,12 +32,12 @@ export function PlaceNameButton({ kind, itemId, testID }: PlaceNameButtonProps) 
       onPress={request}
     >
       {pending ? (
-        <ActivityIndicator size="small" color={colors.textOnDark} />
+        <ActivityIndicator size="small" color={colors.textOnFill} />
       ) : (
-        <MaterialCommunityIcons
+        <Icon
           name="map-marker-outline"
           size={iconSize.md}
-          color={colorWithOpacity(colors.textOnDark, 0.8)}
+          color={colorWithOpacity(colors.textOnFill, 0.8)}
         />
       )}
     </IconButton>

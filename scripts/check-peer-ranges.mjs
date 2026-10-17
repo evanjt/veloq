@@ -34,6 +34,20 @@ const ALLOWED = [
   },
   {
     kind: 'invalid',
+    name: 'picomatch',
+    requiredBy: 'fdir',
+    reason:
+      'fdir loads picomatch only for its own glob builder, and its two users here, tinyglobby and jest-haste-map, crawl with filters of their own and never call it',
+  },
+  {
+    kind: 'invalid',
+    name: '@testing-library/react-native',
+    requiredBy: 'expo-router',
+    reason:
+      "read only by the router's test helper, which awaits the render it is handed, and a synchronous render awaits as itself; the suite renders with version 13",
+  },
+  {
+    kind: 'invalid',
     name: 'ws',
     requiredBy: '@expo/ws-tunnel',
     reason:

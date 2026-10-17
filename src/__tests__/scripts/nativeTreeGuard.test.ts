@@ -7,10 +7,8 @@
  * Expected behaviour: every native build command refuses such a tree before
  * it starts, names what resolves outside the checkout and the setup command
  * that gives the tree an installation of its own, and lets a self-contained
- * tree through. It also refuses an installation whose worklets repair never
- * ran, since that build keeps a vsync loop alive while Android caches the app
- * and gets it killed for CPU, and one whose screens sheet width patch never
- * ran, since that build draws every sheet across the full width of a tablet.
+ * tree through. It also refuses an installation whose screens sheet width patch
+ * never ran, since that build draws every sheet across the full width of a tablet.
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -19,7 +17,6 @@ import path from 'node:path';
 
 import { gitFreeEnv, runGit } from '../__shared__/gitFixture';
 
-const worklets = require('../../../scripts/patch-worklets-lifecycle');
 const screens = require('../../../scripts/patch-screens-sheet-width');
 const screensHide = require('../../../scripts/patch-screens-sheet-hide');
 
@@ -188,40 +185,6 @@ describe('the native build tree check', () => {
     expect(result.stderr).toContain(path.join('src', 'app'));
   });
 
-  /** The installed worklets package copied into `root`, repaired or as the package ships it. */
-  function installWorklets(root: string, repaired: boolean): void {
-    const from = path.join(projectRoot, 'node_modules', 'react-native-worklets');
-    const to = path.join(root, 'node_modules', 'react-native-worklets');
-    fs.mkdirSync(to, { recursive: true });
-    fs.copyFileSync(path.join(from, 'package.json'), path.join(to, 'package.json'));
-    for (const file of worklets.FILES) {
-      const source = fs.readFileSync(path.join(from, file), 'utf8');
-      fs.mkdirSync(path.dirname(path.join(to, file)), { recursive: true });
-      fs.writeFileSync(path.join(to, file), repaired ? source : worklets.unpatchSource(source));
-    }
-  }
-
-  it('lets an installation carrying the worklets lifecycle repair through', () => {
-    const { main } = pair();
-    installWorklets(main, true);
-
-    const result = check(main);
-
-    expect(result.stderr).toBe('');
-    expect(result.status).toBe(0);
-  });
-
-  it('refuses an installation whose worklets lifecycle repair never ran', () => {
-    const { main } = pair();
-    installWorklets(main, false);
-
-    const result = check(main);
-
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain('react-native-worklets');
-    expect(result.stderr).toContain('node scripts/patch-worklets-lifecycle.js');
-  });
-
   /**
    * The installed screens package's patched files copied into `root`, each patched or as it
    * ships: the sheet width patch per `patched`, the sheet hide patch per `hidePatched`.
@@ -273,9 +236,9 @@ describe('the native build tree check', () => {
     expect(result.stderr).toContain('node scripts/patch-screens-sheet-hide.js');
   });
 
-  it('refuses an installation whose worklets lifecycle repair never ran before the build lock', () => {
+  it('refuses an installation whose screens sheet width patch never ran before the build lock', () => {
     const { main } = pair();
-    installWorklets(main, false);
+    installScreens(main, false);
 
     const result = spawnSync(process.execPath, [script, '--root', main, '--installation'], {
       encoding: 'utf8',
@@ -283,7 +246,7 @@ describe('the native build tree check', () => {
     });
 
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain('react-native-worklets');
+    expect(result.stderr).toContain('react-native-screens');
   });
 
   it('runs before every command that builds the app natively', () => {

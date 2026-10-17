@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
   },
   activityDate: {
     ...typography.bodyCompact,
-    color: colors.textOnDark,
+    color: colors.textOnFill,
     textShadowColor: opacity.overlay.full,
     ...mapTextShadow,
   },

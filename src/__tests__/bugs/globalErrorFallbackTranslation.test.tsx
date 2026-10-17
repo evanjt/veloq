@@ -3,6 +3,7 @@ import { render } from '@testing-library/react-native';
 
 import { i18n, initialiseI18n } from '@/i18n';
 import { GlobalErrorBoundary } from '@/shared/ui/GlobalErrorBoundary';
+import { makeDocumentsDirectory } from '../__shared__/documentsDirectory';
 
 function Broken(): React.ReactElement {
   throw new Error('render failed');
@@ -20,6 +21,7 @@ let consoleError: jest.SpyInstance;
 
 beforeEach(() => {
   consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+  makeDocumentsDirectory();
 });
 
 afterEach(() => {

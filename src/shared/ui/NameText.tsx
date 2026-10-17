@@ -13,7 +13,7 @@ import { Text, type TextProps } from 'react-native-paper';
 /** Lines a name takes before it is cut. */
 const NAME_LINES = 2;
 
-interface NameTextProps extends Omit<TextProps<never>, 'children'> {
+interface NameTextProps extends Omit<TextProps<never>, 'children' | 'ref'> {
   /** The name, absent while it loads or when the athlete never gave one. */
   children: string | null | undefined;
 }

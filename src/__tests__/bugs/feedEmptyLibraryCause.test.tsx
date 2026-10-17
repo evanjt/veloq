@@ -14,13 +14,13 @@ import { SyncErrorReason, SyncState } from 'veloqrs';
 
 import { getEngine } from '@/shared/native/engine';
 import { requestSyncRefresh } from '@/shared/native/syncRefresh';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import FeedScreen from '@/app/(tabs)/(feed)';
 
 jest.mock('@/shared/app/navigation', () => ({
   ...jest.requireActual('@/shared/app/navigation'),
-  tapTo: jest.fn(),
+  navigateTo: jest.fn(),
 }));
 jest.mock('@/shared/native/syncRefresh', () => ({
   requestSyncRefresh: jest.fn(() => require('veloqrs').StartOutcome.Started),
@@ -139,7 +139,7 @@ it('sends a refused login to sign in again', async () => {
   expect(screen.queryByText('feed.emptyLibrary.emptyTitle')).toBeNull();
 
   await fireEvent.press(screen.getByText('feed.emptyLibrary.signInAgain'));
-  expect(tapTo).toHaveBeenCalledWith('/login');
+  expect(navigateTo).toHaveBeenCalledWith('/login');
 });
 
 it('says a rate-limited sync is waiting, with nothing to press', async () => {
@@ -164,5 +164,5 @@ it('tells an account with no activities where they come from and offers to recor
   expect(screen.getByText('feed.emptyLibrary.emptyBody')).toBeTruthy();
 
   await fireEvent.press(screen.getByText('feed.emptyLibrary.record'));
-  expect(tapTo).toHaveBeenCalledWith('/record');
+  expect(navigateTo).toHaveBeenCalledWith('/record');
 });

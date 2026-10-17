@@ -6,13 +6,13 @@
 
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { formatDistance, formatElevation } from '@/shared/format/format';
 import { colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
 import type { PreviewSection, PreviewSectionStatus } from 'veloqrs';
 import { IconButton } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { formatPercent } from '@/shared/format';
 import { NameText } from '@/shared/ui/NameText';
 
@@ -37,8 +37,8 @@ export function PreviewSectionPopover({ section, newNumber, onClose }: PreviewSe
   const border = isDark ? darkColors.border : colors.border;
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const success = isDark ? darkColors.success : colors.success;
-  const danger = isDark ? darkColors.error : colors.error;
+  const success = isDark ? darkColors.successText : colors.successText;
+  const danger = isDark ? darkColors.errorText : colors.errorText;
 
   const statusColor: Record<PreviewSectionStatus, string> = {
     unchanged: textSecondary,
@@ -61,7 +61,7 @@ export function PreviewSectionPopover({ section, newNumber, onClose }: PreviewSe
           accessibilityLabel={t('common.close')}
           testID="preview-popover-close"
         >
-          <MaterialCommunityIcons name="close" size={iconSize.md} color={textSecondary} />
+          <Icon name="close" size={iconSize.md} color={textSecondary} />
         </IconButton>
       </View>
 
@@ -73,7 +73,7 @@ export function PreviewSectionPopover({ section, newNumber, onClose }: PreviewSe
         </View>
         {section.pinned ? (
           <View style={[styles.badge, { borderColor: textSecondary }]}>
-            <MaterialCommunityIcons name="pin" size={iconSize.xs} color={textSecondary} />
+            <Icon name="pin" size={iconSize.xs} color={textSecondary} />
             <Text style={[styles.badgeText, { color: textSecondary }]}>
               {t('sections.accepted')}
             </Text>

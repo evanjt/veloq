@@ -44,7 +44,7 @@
     "explanations": {
       "conditions": "Temperatur aus Wetterdaten oder deinem Gerätesensor.",
       "energy": "Geschätzter Energieverbrauch aus Herzfrequenz, Leistung und Dauer.",
-      "fitnessImpact": "Im Vergleich zu einem Ruhetag erhöht diese Aktivität die Fitness um Belastung × (1 − e^(−1/42)) und die Ermüdung um Belastung × (1 − e^(−1/7)). Krafttraining erhöht nur die Ermüdung. Der Formbeitrag ist Fitness minus Ermüdung.",
+      "fitnessImpact": "Im Vergleich zu einem Ruhetag erhöht diese Aktivität die Fitness um Belastung × (1 − e^(−1/{{fitnessDays}})) und die Ermüdung um Belastung × (1 − e^(−1/{{fatigueDays}})). Krafttraining erhöht nur die Ermüdung. Der Formbeitrag ist Fitness minus Ermüdung.",
       "heartRate": "Durchschnittliche Herzfrequenz während der Aktivität.",
       "newGround": "Der Anteil der Kartenkacheln dieser Aktivität, die keine frühere Aktivität berührt hatte. Eine Kachel ist je nach Breitengrad etwa 150 bis 300 m breit; gemessen wird also die Kachelabdeckung, nicht die Strecke auf neuen Wegen.",
       "activityEftp": "Der eFTP ist die Schätzung des Leistungsmodells von intervals.icu für diese Aktivität.",
@@ -488,6 +488,7 @@
     "back": "Zurück",
     "close": "Schließen",
     "cancel": "Abbrechen",
+    "cancelled": "Abgebrochen",
     "clearSearch": "Suche löschen",
     "clearFilters": "Filter zurücksetzen",
     "quoted": "„{{text}}“",
@@ -2819,15 +2820,29 @@
       "single": "{{name}}, {{start}}: {{value}}.",
       "series": "{{name}}, {{start}} bis {{end}}: zuletzt {{latest}}, Bereich {{min}} bis {{max}}, Durchschnitt {{average}}.",
       "curve": "{{name}}, {{start}} bis {{end}}: {{first}} bei {{start}}, {{last}} bei {{end}}, Spitze {{max}}.",
-      "parts": "{{name}}: {{parts}}."
+      "parts": "{{name}}: {{parts}}.",
+      "dayActive": "{{name}}, {{start}}: aktiv.",
+      "dayRest": "{{name}}, {{start}}: keine Aktivität.",
+      "noActivity": "{{name}}, {{start}} bis {{end}}: keine Aktivität.",
+      "daysActive_one": "{{name}}, {{start}} bis {{end}}: aktiv an {{active}} von {{count}} Tag.",
+      "daysActive_other": "{{name}}, {{start}} bis {{end}}: aktiv an {{active}} von {{count}} Tagen.",
+      "longestBreak": "Längste Pause {{gap}}.",
+      "dayCount_one": "{{count}} Tag",
+      "dayCount_other": "{{count}} Tage",
+      "peakDay": "Höchstwert {{value}} am {{day}}."
     },
     "column": {
       "date": "Datum",
       "duration": "Dauer",
       "distance": "Distanz",
       "zone": "Zone",
-      "time": "Zeit"
-    }
+      "time": "Zeit",
+      "month": "Monat",
+      "activities": "Aktivitäten",
+      "muscle": "Muskel",
+      "sets": "Gewichtete Sätze"
+    },
+    "activityPlot": "Aktivitätsdiagramm"
   },
   "sportFamilies": {
     "ride": "Radfahren",

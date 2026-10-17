@@ -13,12 +13,12 @@
  */
 
 import React from 'react';
-import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, layout, shadows, spacing, stroke } from '@/theme';
 import { CardHeader } from './CardHeader';
-import { pressable, pressRipple } from './pressFeedback';
+import { PressTarget } from './PressTarget';
 import { accessibleActions, type AccessibleAction } from './accessibleActions';
 
 export type CardVariant = 'flat' | 'raised';
@@ -91,7 +91,7 @@ export function Card({
   const { isDark } = useTheme();
 
   const ground: ViewStyle = {
-    backgroundColor: isDark ? darkColors.surfaceCard : colors.surface,
+    backgroundColor: isDark ? darkColors.surfaceRaised : colors.surface,
     borderRadius: layout.borderRadius,
     ...(variant === 'raised'
       ? isDark
@@ -106,10 +106,11 @@ export function Card({
       : { padding: PADDING[padding] as number };
 
   const { flexDirection, alignItems, gap, ...outer } = style ?? {};
-  const inner: ViewStyle = {};
-  if (flexDirection !== undefined) inner.flexDirection = flexDirection;
-  if (alignItems !== undefined) inner.alignItems = alignItems;
-  if (gap !== undefined) inner.gap = gap;
+  const inner: ViewStyle = {
+    ...(flexDirection !== undefined && { flexDirection }),
+    ...(alignItems !== undefined && { alignItems }),
+    ...(gap !== undefined && { gap }),
+  };
 
   const body = (
     <View testID={testID ? `${testID}-body` : undefined} style={[styles.body, bodyStyle, inner]}>
@@ -126,18 +127,17 @@ export function Card({
 
   if (onPress) {
     return (
-      <Pressable
+      <PressTarget
         testID={testID}
         accessibilityRole={accessibilityRole}
         accessibilityLabel={accessibilityLabel}
         accessibilityValue={accessibilityValue ? { text: accessibilityValue } : undefined}
         {...accessibleActions(actions)}
         onPress={onPress}
-        android_ripple={pressRipple}
-        style={pressable([ground, outer])}
+        style={[ground, outer]}
       >
         {body}
-      </Pressable>
+      </PressTarget>
     );
   }
 

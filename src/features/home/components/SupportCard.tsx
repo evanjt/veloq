@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Animated, { FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { useTheme } from '@/shared/app';
@@ -27,7 +27,15 @@ import {
 } from '@/theme';
 import { TipButtons } from '@/shared/ui/TipButtons';
 import { Card } from '@/shared/ui/Card';
-import { Button, DisclosureChevron, pressable, pressRipple, useLargeText } from '@/shared/ui';
+import {
+  Button,
+  DisclosureChevron,
+  pressable,
+  pressRipple,
+  TextSeparator,
+  useLargeText,
+} from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 
 /**
  * Whether the card is on screen, and nothing else.
@@ -112,7 +120,7 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
       <Animated.View {...motionPresets.card}>
         <Card variant="raised" style={{ gap: spacing.sm }}>
           <View style={styles.header}>
-            <MaterialCommunityIcons name="heart" size={iconSize.md} color={palette.primary} />
+            <Icon name="heart" size={iconSize.md} color={palette.actionPrimary} />
             <Text style={[styles.title, isDark && styles.titleDark]}>{t('support.thankYou')}</Text>
           </View>
         </Card>
@@ -127,7 +135,7 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
     <Animated.View testID="support-card" {...motionPresets.card}>
       <Card variant="raised" style={{ gap: spacing.sm }}>
         <View style={styles.header}>
-          <MaterialCommunityIcons name="star-outline" size={iconSize.md} color={textColor} />
+          <Icon name="star-outline" size={iconSize.md} color={textColor} />
           <Text style={[styles.title, isDark && styles.titleDark]}>
             {t('support.enjoyingTitle')}
           </Text>
@@ -166,7 +174,7 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
           style={pressable(styles.tipToggle)}
           android_ripple={pressRipple}
         >
-          <MaterialCommunityIcons name="wrench-outline" size={iconSize.sm} color={mutedColor} />
+          <Icon name="wrench-outline" size={iconSize.sm} color={mutedColor} />
           <Text style={[styles.tipToggleText, { color: mutedColor }]}>
             {t('support.supportDevelopment')}
           </Text>
@@ -207,7 +215,7 @@ function SupportCardBody({ onDismiss }: { onDismiss: () => void }) {
             onPress={handleRemindLater}
           />
           {stackDismiss ? null : (
-            <Text style={[styles.dismissSeparator, isDark && styles.dismissTextDark]}>·</Text>
+            <TextSeparator style={[styles.dismissSeparator, isDark && styles.dismissTextDark]} />
           )}
           <Button
             label={t('support.neverShow')}

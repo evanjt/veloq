@@ -16,10 +16,10 @@ import SettingsScreen from '@/app/settings';
 import { SCREEN_HEADERS } from '@/shared/app/screenHeaders';
 import { spacing } from '@/theme';
 
-const mockTapTo = jest.fn();
+const mockNavigateTo = jest.fn();
 jest.mock('@/shared/app/navigation', () => ({
   ...jest.requireActual('@/shared/app/navigation'),
-  tapTo: (...a: unknown[]) => mockTapTo(...a),
+  navigateTo: (...a: unknown[]) => mockNavigateTo(...a),
 }));
 
 jest.mock('expo-router', () => ({
@@ -129,10 +129,10 @@ describe('Settings hub grouping', () => {
     const rows = inRenderOrder(screen.toJSON()).filter((id) => id.startsWith('settings-nav-'));
 
     const mismatched = rows.flatMap((id) => {
-      mockTapTo.mockClear();
+      mockNavigateTo.mockClear();
       const row = screen.getByTestId(id);
       fireEvent.press(row);
-      const route = String(mockTapTo.mock.calls[0]?.[0]).replace(/^\//, '');
+      const route = String(mockNavigateTo.mock.calls[0]?.[0]).replace(/^\//, '');
       const rowTitle = row.findAllByType(Text)[0].props.children;
       // The suite's translator answers a bare key with the key itself.
       const headerTitle = SCREEN_HEADERS[route]?.titleKey;

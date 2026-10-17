@@ -19,6 +19,7 @@ import { NotificationSection } from '@/features/settings/components/Notification
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import AboutScreen from '@/app/about';
+import { Icon } from '@/shared/ui/Icon';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('expo-web-browser', () => ({
@@ -45,7 +46,7 @@ let openURL: jest.SpyInstance;
 
 beforeEach(() => {
   openBrowser.mockClear();
-  openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+  openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
 });
 
 afterEach(() => openURL.mockRestore());
@@ -70,8 +71,10 @@ describe('ExternalLinkRow', () => {
       <ExternalLinkRow url="https://example.org" label="Example" testID="external" />
     );
     expect(tree.queryByRole('button')).toBeNull();
-    expect(tree.UNSAFE_queryAllByProps({ name: 'open-in-new' })).toHaveLength(1);
-    expect(tree.queryByTestId('row-chevron')).toBeNull();
+    expect(
+      tree.UNSAFE_queryAllByType(Icon).filter((node) => node.props.name === 'open-in-new')
+    ).toHaveLength(1);
+    expect(tree.queryByTestId('row-chevron', { includeHiddenElements: true })).toBeNull();
     await expectInAppLink(tree, 'Example', 'https://example.org');
   });
 });

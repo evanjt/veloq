@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { Button } from '@/shared/ui';
 import { formatDaySpan, type SpanTranslator } from '@/shared/format';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 
 interface DataRangeFooterProps {
   /** Number of days of data being shown */
@@ -24,7 +24,7 @@ export function DataRangeFooter({ days, isDark = false }: DataRangeFooterProps) 
   const { t } = useTranslation();
 
   const handleExpandPress = () => {
-    tapTo('/sync-settings');
+    navigateTo('/sync-settings');
   };
 
   return (

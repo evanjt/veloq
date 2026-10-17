@@ -20,7 +20,8 @@
  *
  * A run that ended on a refusal from intervals.icu carries the time the
  * engine asks again. That is a pause the engine resumes on its own, not a
- * fault, so the banner turns neutral, names the time and offers no retry.
+ * fault, and asks nothing of the athlete, so the paused-sync pill reports it
+ * and this banner draws nothing.
  */
 
 import React from 'react';
@@ -29,11 +30,10 @@ import { SyncErrorReason } from 'veloqrs';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useNetwork } from '@/shared/app/NetworkContext';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { useSyncHealth } from '@/shared/native/useSyncHealth';
 import { requestSyncRefresh } from '@/shared/native/syncRefresh';
 import { formatDateTime } from '@/shared/format';
-import { formatClockOrDate } from '@/shared/format/format';
 import { SYNC_ERROR_REASON_KEY } from '@/shared/format/syncErrorReason';
 import { NoticeBanner, type NoticeAction } from './NoticeBanner';
 
@@ -63,41 +63,36 @@ export function SyncErrorBanner() {
   // from the session that just ended. Demo data needs no account sync.
   const reasonKey = lastErrorReason === null ? undefined : SYNC_ERROR_REASON_KEY[lastErrorReason];
 
-  if (!isAuthenticated || isDemoMode || offlineBannerShown || (!lastError && !reasonKey)) {
+  if (
+    !isAuthenticated ||
+    isDemoMode ||
+    offlineBannerShown ||
+    (retryAtMs ?? null) !== null ||
+    (!lastError && !reasonKey)
+  ) {
     return null;
   }
-
-  const pausedUntil = retryAtMs ?? null;
-  const paused = pausedUntil !== null;
 
   const actions: NoticeAction[] = [];
   if (lastErrorReason === SyncErrorReason.StorageFull) {
     actions.push({
       label: t('common.freeUpSpace'),
-      onPress: () => tapTo('/cache-settings'),
+      onPress: () => navigateTo('/cache-settings'),
       testID: 'sync-error-free-space',
     });
   }
-  if (!paused && lastErrorReason !== null && RETRYABLE.has(lastErrorReason)) {
+  if (lastErrorReason !== null && RETRYABLE.has(lastErrorReason)) {
     actions.push({ label: t('common.retry'), onPress: retry, testID: 'sync-error-banner-retry' });
   }
 
   return (
     <NoticeBanner
       slot="syncError"
-      tone={paused ? 'neutral' : 'error'}
-      icon={paused ? 'timer-sand' : 'cloud-alert'}
-      title={
-        paused
-          ? t('emptyState.syncError.paused', { time: formatClockOrDate(pausedUntil) })
-          : t('emptyState.syncError.title')
-      }
+      tone="error"
+      icon="cloud-alert"
+      title={t('emptyState.syncError.title')}
       detail={[
-        paused
-          ? t('emptyState.syncError.pausedDetail')
-          : reasonKey
-            ? t(reasonKey)
-            : (lastError ?? ''),
+        reasonKey ? t(reasonKey) : (lastError ?? ''),
         lastSuccessAt
           ? t('emptyState.syncError.lastSynced', { when: formatDateTime(lastSuccessAt) })
           : t('emptyState.syncError.neverSynced'),

@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { InlineNotice } from '@/shared/ui/InlineNotice';
 import { getVisibleUnuploadedCount } from '@/features/recording/lib/storage/recordingLibrary';
 
@@ -31,7 +31,7 @@ function PendingUploadsCardInner() {
       tone="info"
       icon="cloud-upload-outline"
       title={t('recording.library.pendingUploads', { count })}
-      onPress={() => tapTo('/recordings')}
+      onPress={() => navigateTo('/recordings')}
       announce={false}
     />
   );

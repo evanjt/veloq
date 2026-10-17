@@ -2,8 +2,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { ExplanationCard, type ExplanationRow } from '@/shared/ui';
 import { INTERVALS_URLS } from '@/shared/app/constants';
-import { colors } from '@/theme';
-import { FORM_ZONE_COLORS } from '@/features/fitness/lib/fitness';
+import { useChartColors } from '@/shared/charts';
 
 interface FitnessDefinitionsCardProps {
   /** The fitness and fatigue days in effect today, null when the read gave none. */
@@ -14,6 +13,7 @@ interface FitnessDefinitionsCardProps {
 /** What fitness, fatigue and form are, with the time constants in effect. */
 export function FitnessDefinitionsCard({ fitnessDays, fatigueDays }: FitnessDefinitionsCardProps) {
   const { t } = useTranslation();
+  const chartColors = useChartColors();
   // A read that gave no days leaves fitness and fatigue undefined rather than
   // state time constants the athlete may not have.
   const rows: ExplanationRow[] = [
@@ -23,7 +23,7 @@ export function FitnessDefinitionsCard({ fitnessDays, fatigueDays }: FitnessDefi
             key: 'fitness',
             label: t('activity.stats.fitnessCTL'),
             text: t('fitnessScreen.fitnessDescription', { days: fitnessDays }),
-            dotColor: colors.fitnessBlue,
+            dotColor: chartColors.fitness,
           },
         ]
       : []),
@@ -33,7 +33,7 @@ export function FitnessDefinitionsCard({ fitnessDays, fatigueDays }: FitnessDefi
             key: 'fatigue',
             label: t('activity.stats.fatigueATL'),
             text: t('fitnessScreen.fatigueDescription', { days: fatigueDays }),
-            dotColor: colors.fatiguePurple,
+            dotColor: chartColors.fatigue,
           },
         ]
       : []),
@@ -41,7 +41,7 @@ export function FitnessDefinitionsCard({ fitnessDays, fatigueDays }: FitnessDefi
       key: 'form',
       label: t('activity.stats.formTSB'),
       text: t('fitnessScreen.formDescription'),
-      dotColor: FORM_ZONE_COLORS.optimal,
+      dotColor: chartColors.formLine,
     },
   ];
   return (

@@ -1,11 +1,10 @@
 import React, { useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import {
   colors,
   darkColors,
@@ -25,6 +24,7 @@ import {
   type BalanceCopyKey,
 } from '../lib/formatting';
 import { Card, IconButton } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { StrengthBalanceScale } from './StrengthBalanceScale';
 
 interface StrengthBalanceViewProps {
@@ -45,7 +45,7 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const balanceCopy = (key: BalanceCopyKey) => t(key);
-  const openInfo = useCallback(() => tapTo('/sheets/strength-pairs-info'), []);
+  const openInfo = useCallback(() => navigateTo('/sheets/strength-pairs-info'), []);
 
   if (visibleBalancePairs.length === 0) return null;
 
@@ -59,7 +59,7 @@ export const StrengthBalanceView = React.memo(function StrengthBalanceView({
                 {t('insights.strengthBalance.volumeSplit')}
               </Text>
               <IconButton accessibilityLabel={t('strength.pairsInfoTitle')} onPress={openInfo}>
-                <MaterialCommunityIcons
+                <Icon
                   name="information-outline"
                   size={iconSize.sm}
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
   },
   balanceRowBorder: {
     borderTopWidth: stroke.hairline,
-    borderTopColor: colors.divider,
+    borderTopColor: colors.border,
   },
   balanceRowBorderDark: {
     borderTopColor: darkColors.border,

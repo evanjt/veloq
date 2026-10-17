@@ -483,6 +483,13 @@ npm run ios                # run on a simulator
 npm run bundle:android     # rebuild the Android JavaScript bundle
 ```
 
+`npm run android` and `npm run android:debug` compile the engine with the `release-dev` Rust
+profile, which has no fat LTO and 16 codegen units rather than one, so an engine edit does not
+recompile the crate as a single unit. An engine timing taken on such a build is not the shipped
+engine's: take it on `npm run android:standalone`, which compiles `release`. Export
+`VELOQRS_RUST_PROFILE=release` to build a debug APK with the shipped profile, and export it again
+for `npm run install:android`.
+
 ## Tests
 
 ```bash

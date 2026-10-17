@@ -211,7 +211,9 @@ describe('MapNameSearch count and rows', () => {
 
     const date = formatShortDateWithYear(new Date(six[0]!.date));
     expect(screen.getByText('42.3 km')).toBeTruthy();
-    expect(screen.getByTestId('map-search-result-m0-icon')).toBeTruthy();
+    expect(
+      screen.getByTestId('map-search-result-m0-icon', { includeHiddenElements: true })
+    ).toBeTruthy();
     const label = screen.getByTestId('map-search-result-m0').props.accessibilityLabel;
     expect(label).toBe(
       composeAccessibilityLabel(

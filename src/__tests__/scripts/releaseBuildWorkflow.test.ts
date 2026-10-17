@@ -56,6 +56,15 @@ describe('Android release configuration', () => {
     expect(call?.['allow-stub']).toBe("${{ github.event_name == 'pull_request' }}");
   });
 
+  it('bundles the identity the pull request build would have built', () => {
+    const build = workflow('build') as unknown as {
+      jobs: Record<string, { with?: Record<string, string>; env?: Record<string, string> }>;
+    };
+    expect(build.jobs['bundle-check'].env?.APP_VARIANT).toBe(
+      build.jobs['build-android'].with?.variant
+    );
+  });
+
   it('fails without the secret on main and dispatch builds', () => {
     const dir = mkdtempSync(join(tmpdir(), 'veloq-google-services-'));
     try {

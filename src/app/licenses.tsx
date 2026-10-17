@@ -11,7 +11,7 @@ import {
   ScreenSafeAreaView,
   ScreenScrollView,
 } from '@/shared/ui';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Icon } from '@/shared/ui/Icon';
 import type { ParseKeys } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import {
@@ -586,11 +586,7 @@ function LicenseEntryRow({ entry, isDark, isLast, testID }: LicenseEntryRowProps
             accessibilityLabel={`${t('licenses.openRepository')}: ${entry.name}`}
             onPress={handlePress}
           >
-            <MaterialCommunityIcons
-              name="open-in-new"
-              size={iconSize.md}
-              color={themeColors.textSecondary}
-            />
+            <Icon name="open-in-new" size={iconSize.md} color={themeColors.textSecondary} />
           </IconButton>
         ) : null}
       </View>
@@ -665,7 +661,7 @@ const styles = {
   entryCount: {
     ...typography.caption,
     marginRight: spacing.sm,
-    backgroundColor: colorWithOpacity(colors.neutralLine, opacity.tint3),
+    backgroundColor: colorWithOpacity(colors.iconMuted, opacity.tint3),
     paddingHorizontal: spacing.xs,
     paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusXs,

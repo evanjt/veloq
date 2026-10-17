@@ -30,12 +30,12 @@ export function CacheManagementPanel({
       <ChromeIcon
         name="delete"
         size={iconSize.lg}
-        color={isDemoMode ? palette.textSecondary : palette.error}
+        color={isDemoMode ? palette.textSecondary : palette.errorText}
       />
       <Text
         style={[
           styles.actionText,
-          { color: isDemoMode ? palette.textSecondary : palette.errorDeep },
+          { color: isDemoMode ? palette.textSecondary : palette.errorText },
         ]}
       >
         {t('settings.clearAllReload')}

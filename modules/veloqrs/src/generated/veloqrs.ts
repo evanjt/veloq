@@ -61,26 +61,6 @@ const uniffiIsDebug =
 // Public interface members begin here.
 
 /**
- * Ask the running cutover to stop at its next step boundary.
- *
- * The cut is a cold detect over the whole library, spawned unattended at
- * launch, and the only lever before this was a force-quit, which the
- * in-flight token undid on the next launch anyway. Stopping costs the run's
- * work and nothing else: the migration is still owed and the next launch runs
- * it again from the top.
- */
-export function cancelDetectorCutover(): void {
-  uniffiCaller.rustCall(
-    /*caller:*/ (callStatus) => {
-      nativeModule().ubrn_uniffi_veloqrs_fn_func_cancel_detector_cutover(
-        callStatus,
-      );
-    },
-    /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-  );
-}
-
-/**
  * Ask one fetch-and-store run to stop. Returns whether that run was still in
  * the queue.
  *
@@ -94,6 +74,30 @@ export function cancelFetchAndStore(run: number): boolean {
     uniffiCaller.rustCall(
       /*caller:*/ (callStatus) => {
         return nativeModule().ubrn_uniffi_veloqrs_fn_func_cancel_fetch_and_store(
+          FfiConverterFloat64.lower(run, nativeModule().rustbuffer_alloc),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
+    ),
+  );
+}
+
+/**
+ * Ask one bulk export, record backup or detector cutover to stop, by the id
+ * its screen read names. Returns whether that run was still going.
+ *
+ * An export stops at its next activity, or its next stage for the backup,
+ * removes what it had written and answers `Cancelled`. The cutover stops at
+ * its next step boundary and is still owed, so the next launch runs it again.
+ * The id belongs to the run and ends with it, so a stop cannot reach a later
+ * one.
+ */
+export function cancelRun(run: number): boolean {
+  return FfiConverterBool.lift(
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_cancel_run(
           FfiConverterFloat64.lower(run, nativeModule().rustbuffer_alloc),
           callStatus,
         );
@@ -859,75 +863,6 @@ const FfiConverterTypeActivitySportMapping = (() => {
 })();
 
 /**
- * Result of a bulk export, with every skip counted under its reason.
- */
-export type BulkExportResult = {
-  exported: number;
-  /**
-   * Activities with no stored track, such as trainer rides.
-   */
-  noTrack: number;
-  /**
-   * Tracks the privacy trim left too short to export.
-   */
-  trimmed: number;
-  /**
-   * Tracks that could not be read or written.
-   */
-  failed: number;
-  totalBytes: number;
-};
-
-/**
- * Generated factory for {@link BulkExportResult} record objects.
- */
-export const BulkExportResult = (() => {
-  const defaults = () => ({});
-  const create = (() => {
-    return uniffiCreateRecord<BulkExportResult, ReturnType<typeof defaults>>(
-      defaults,
-    );
-  })();
-  return Object.freeze({
-    create,
-    new: create,
-    defaults: () => Object.freeze(defaults()) as Partial<BulkExportResult>,
-  });
-})();
-
-const FfiConverterTypeBulkExportResult = (() => {
-  type TypeName = BulkExportResult;
-  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
-    readFromCursor(c: Cursor): TypeName {
-      return {
-        exported: FfiConverterUInt32.readFromCursor(c),
-        noTrack: FfiConverterUInt32.readFromCursor(c),
-        trimmed: FfiConverterUInt32.readFromCursor(c),
-        failed: FfiConverterUInt32.readFromCursor(c),
-        totalBytes: FfiConverterFloat64.readFromCursor(c),
-      };
-    }
-    writeIntoCursor(value: TypeName, c: Cursor): void {
-      FfiConverterUInt32.writeIntoCursor(value.exported, c);
-      FfiConverterUInt32.writeIntoCursor(value.noTrack, c);
-      FfiConverterUInt32.writeIntoCursor(value.trimmed, c);
-      FfiConverterUInt32.writeIntoCursor(value.failed, c);
-      FfiConverterFloat64.writeIntoCursor(value.totalBytes, c);
-    }
-    allocationSize(value: TypeName): number {
-      return (
-        FfiConverterUInt32.allocationSize(value.exported) +
-        FfiConverterUInt32.allocationSize(value.noTrack) +
-        FfiConverterUInt32.allocationSize(value.trimmed) +
-        FfiConverterUInt32.allocationSize(value.failed) +
-        FfiConverterFloat64.allocationSize(value.totalBytes)
-      );
-    }
-  }
-  return new FFIConverter();
-})();
-
-/**
  * What one poll of the cache-size walk says. `bytes` is meaningful only
  * while `state` is "complete".
  */
@@ -990,6 +925,10 @@ export type CutoverProgress = {
    * Whether a run holds the slot right now.
    */
   running: boolean;
+  /**
+   * The running cutover's id, for `cancel_run`.
+   */
+  run?: number;
 };
 
 /**
@@ -1016,16 +955,19 @@ const FfiConverterTypeCutoverProgress = (() => {
       return {
         phase: FfiConverterString.readFromCursor(c),
         running: FfiConverterBool.readFromCursor(c),
+        run: FfiConverterOptionalFloat64.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterString.writeIntoCursor(value.phase, c);
       FfiConverterBool.writeIntoCursor(value.running, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.run, c);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.phase) +
-        FfiConverterBool.allocationSize(value.running)
+        FfiConverterBool.allocationSize(value.running) +
+        FfiConverterOptionalFloat64.allocationSize(value.run)
       );
     }
   }
@@ -1929,7 +1871,7 @@ const FfiConverterTypeFfiActivityFitnessImpact = (() => {
 })();
 
 /**
- * Bounding box for FFI
+ * A bounding box in degrees.
  */
 export type FfiBounds = {
   minLat: number;
@@ -4640,6 +4582,11 @@ export type FfiBackupScreenData = {
    * merged their routes into one that already took a restored name.
    */
   namesNotRestored: number;
+  /**
+   * The running record backup's id, for `cancel_run`, or nothing running.
+   * Read from the job, not the database: a backup is single-flight.
+   */
+  recordBackupRun?: number;
 };
 
 /**
@@ -4670,6 +4617,7 @@ const FfiConverterTypeFfiBackupScreenData = (() => {
         suggestion: FfiConverterOptionalTypeSuggestedHome.readFromCursor(c),
         notRestored: FfiConverterUInt32.readFromCursor(c),
         namesNotRestored: FfiConverterUInt32.readFromCursor(c),
+        recordBackupRun: FfiConverterOptionalFloat64.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -4682,6 +4630,7 @@ const FfiConverterTypeFfiBackupScreenData = (() => {
       );
       FfiConverterUInt32.writeIntoCursor(value.notRestored, c);
       FfiConverterUInt32.writeIntoCursor(value.namesNotRestored, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.recordBackupRun, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -4690,7 +4639,8 @@ const FfiConverterTypeFfiBackupScreenData = (() => {
         FfiConverterOptionalString.allocationSize(value.radiusM) +
         FfiConverterOptionalTypeSuggestedHome.allocationSize(value.suggestion) +
         FfiConverterUInt32.allocationSize(value.notRestored) +
-        FfiConverterUInt32.allocationSize(value.namesNotRestored)
+        FfiConverterUInt32.allocationSize(value.namesNotRestored) +
+        FfiConverterOptionalFloat64.allocationSize(value.recordBackupRun)
       );
     }
   }
@@ -5143,6 +5093,10 @@ export type FfiBulkExportProgress = {
    */
   running: boolean;
   /**
+   * The running export's id, for `cancel_run`.
+   */
+  run?: number;
+  /**
    * Stored tracks visited so far, written or skipped, and how many there
    * are, so the count reaches the total on a run with skips.
    */
@@ -5174,18 +5128,21 @@ const FfiConverterTypeFfiBulkExportProgress = (() => {
     readFromCursor(c: Cursor): TypeName {
       return {
         running: FfiConverterBool.readFromCursor(c),
+        run: FfiConverterOptionalFloat64.readFromCursor(c),
         visited: FfiConverterUInt32.readFromCursor(c),
         total: FfiConverterUInt32.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
       FfiConverterBool.writeIntoCursor(value.running, c);
+      FfiConverterOptionalFloat64.writeIntoCursor(value.run, c);
       FfiConverterUInt32.writeIntoCursor(value.visited, c);
       FfiConverterUInt32.writeIntoCursor(value.total, c);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterBool.allocationSize(value.running) +
+        FfiConverterOptionalFloat64.allocationSize(value.run) +
         FfiConverterUInt32.allocationSize(value.visited) +
         FfiConverterUInt32.allocationSize(value.total)
       );
@@ -6009,7 +5966,7 @@ const FfiConverterTypeFfiCatalogueCounts = (() => {
 })();
 
 /**
- * The claims the change card may make on this build.
+ * The claims the change card is allowed to make on this build.
  */
 export type FfiChangeCardSupport = {
   deterministic: boolean;
@@ -8979,7 +8936,7 @@ const FfiConverterTypeFfiGpsPassStart = (() => {
 })();
 
 /**
- * GPS point for FFI
+ * A track point, elevation in metres when the source recorded one.
  */
 export type FfiGpsPoint = {
   latitude: number;
@@ -20109,6 +20066,126 @@ const FfiConverterTypeFfiSyncErrorReason = (() => {
 })();
 
 /**
+ * Which piece of the track work is running.
+ *
+ * The wire carries the variant's position, so the order here is the contract:
+ * append, never reorder. The discriminants start at one so no member is falsy.
+ */
+export enum FfiTrackStep {
+  /**
+   * The GPS pass is downloading tracks.
+   */
+  Downloading = 1,
+  /**
+   * Section detection is reading the stored tracks.
+   */
+  Analysing = 2,
+  /**
+   * The heatmap tile pass is drawing them.
+   */
+  DrawingHeatmap = 3,
+}
+
+const FfiConverterTypeFfiTrackStep = (() => {
+  type TypeName = FfiTrackStep;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      switch (c.readI32()) {
+        case 1:
+          return FfiTrackStep.Downloading;
+        case 2:
+          return FfiTrackStep.Analysing;
+        case 3:
+          return FfiTrackStep.DrawingHeatmap;
+        default:
+          throw new UniffiInternalError.UnexpectedEnumCase();
+      }
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      switch (value) {
+        case FfiTrackStep.Downloading:
+          return c.writeI32(1);
+        case FfiTrackStep.Analysing:
+          return c.writeI32(2);
+        case FfiTrackStep.DrawingHeatmap:
+          return c.writeI32(3);
+      }
+    }
+    allocationSize(value: TypeName): number {
+      return 4;
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The running piece of the track work and how far it has got.
+ */
+export type FfiTrackStage = {
+  step: FfiTrackStep;
+  /**
+   * Items the step has handled, of `total`: tracks for the download, tiles
+   * for the heatmap, the current phase's items for detection.
+   */
+  completed: number;
+  /**
+   * Zero while the step has not counted its work yet.
+   */
+  total: number;
+  /**
+   * The step's own progress, 0 to 100. Detection weights its phases, so
+   * this is not always `completed` of `total`.
+   */
+  percent: number;
+};
+
+/**
+ * Generated factory for {@link FfiTrackStage} record objects.
+ */
+export const FfiTrackStage = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiTrackStage, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiTrackStage>,
+  });
+})();
+
+const FfiConverterTypeFfiTrackStage = (() => {
+  type TypeName = FfiTrackStage;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    readFromCursor(c: Cursor): TypeName {
+      return {
+        step: FfiConverterTypeFfiTrackStep.readFromCursor(c),
+        completed: FfiConverterUInt32.readFromCursor(c),
+        total: FfiConverterUInt32.readFromCursor(c),
+        percent: FfiConverterUInt32.readFromCursor(c),
+      };
+    }
+    writeIntoCursor(value: TypeName, c: Cursor): void {
+      FfiConverterTypeFfiTrackStep.writeIntoCursor(value.step, c);
+      FfiConverterUInt32.writeIntoCursor(value.completed, c);
+      FfiConverterUInt32.writeIntoCursor(value.total, c);
+      FfiConverterUInt32.writeIntoCursor(value.percent, c);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterTypeFfiTrackStep.allocationSize(value.step) +
+        FfiConverterUInt32.allocationSize(value.completed) +
+        FfiConverterUInt32.allocationSize(value.total) +
+        FfiConverterUInt32.allocationSize(value.percent)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * The status fields TypeScript reads / subscribes to.
  */
 export type FfiSyncStatus = {
@@ -20150,6 +20227,14 @@ export type FfiSyncStatus = {
    * request budget. The engine resumes it itself at this time.
    */
   retryAtMs?: number;
+  /**
+   * The track work running beside the sync or after it: the GPS download,
+   * section detection or the heatmap pass, whichever comes first in that
+   * order, or `None` when none of them is running. Independent of `state`,
+   * which is the metadata sync's alone, so a pass the engine starts by
+   * itself after the sync has settled is reported all the same.
+   */
+  tracks?: FfiTrackStage;
 };
 
 /**
@@ -20186,6 +20271,7 @@ const FfiConverterTypeFfiSyncStatus = (() => {
           FfiConverterOptionalTypeFfiSyncErrorReason.readFromCursor(c),
         lastSuccessAt: FfiConverterOptionalString.readFromCursor(c),
         retryAtMs: FfiConverterOptionalFloat64.readFromCursor(c),
+        tracks: FfiConverterOptionalTypeFfiTrackStage.readFromCursor(c),
       };
     }
     writeIntoCursor(value: TypeName, c: Cursor): void {
@@ -20203,6 +20289,7 @@ const FfiConverterTypeFfiSyncStatus = (() => {
       );
       FfiConverterOptionalString.writeIntoCursor(value.lastSuccessAt, c);
       FfiConverterOptionalFloat64.writeIntoCursor(value.retryAtMs, c);
+      FfiConverterOptionalTypeFfiTrackStage.writeIntoCursor(value.tracks, c);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -20218,7 +20305,8 @@ const FfiConverterTypeFfiSyncStatus = (() => {
           value.lastErrorReason,
         ) +
         FfiConverterOptionalString.allocationSize(value.lastSuccessAt) +
-        FfiConverterOptionalFloat64.allocationSize(value.retryAtMs)
+        FfiConverterOptionalFloat64.allocationSize(value.retryAtMs) +
+        FfiConverterOptionalTypeFfiTrackStage.allocationSize(value.tracks)
       );
     }
   }
@@ -23116,6 +23204,7 @@ export enum VeloqError_Tags {
   NameTaken = "NameTaken",
   Suspended = "Suspended",
   RouteNameTaken = "RouteNameTaken",
+  Cancelled = "Cancelled",
 }
 export const VeloqError = (() => {
   type NotInitialized__interface = {
@@ -23460,6 +23549,36 @@ export const VeloqError = (() => {
     }
   }
 
+  type Cancelled__interface = {
+    tag: VeloqError_Tags.Cancelled;
+  };
+  /**
+   * The athlete stopped the job before it finished. Not a failure: nothing
+   * was written, and a caller says it was cancelled.
+   */
+  class Cancelled_ extends UniffiError implements Cancelled__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "VeloqError";
+    readonly tag = VeloqError_Tags.Cancelled;
+    constructor() {
+      super("VeloqError", "Cancelled");
+    }
+
+    static new(): Cancelled_ {
+      return new Cancelled_();
+    }
+
+    static override instanceOf(obj: any): obj is Cancelled_ {
+      return obj.tag === VeloqError_Tags.Cancelled;
+    }
+    static hasInner(obj: any): obj is Cancelled_ {
+      return false;
+    }
+  }
+
   function instanceOf(obj: any): obj is VeloqError {
     return obj[uniffiTypeNameSymbol] === "VeloqError";
   }
@@ -23476,6 +23595,7 @@ export const VeloqError = (() => {
     NameTaken: NameTaken_,
     Suspended: Suspended_,
     RouteNameTaken: RouteNameTaken_,
+    Cancelled: Cancelled_,
   });
 })();
 export type VeloqError = InstanceType<
@@ -23489,7 +23609,8 @@ export type VeloqError = InstanceType<
     | "Busy"
     | "NameTaken"
     | "Suspended"
-    | "RouteNameTaken"]
+    | "RouteNameTaken"
+    | "Cancelled"]
 >;
 
 // FfiConverter for enum VeloqError
@@ -23534,6 +23655,8 @@ const FfiConverterTypeVeloqError = (() => {
           return new VeloqError.RouteNameTaken({
             name: FfiConverterString.readFromCursor(c),
           });
+        case 11:
+          return new VeloqError.Cancelled();
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
       }
@@ -23596,6 +23719,10 @@ const FfiConverterTypeVeloqError = (() => {
           FfiConverterString.writeIntoCursor(inner.name, c);
           return;
         }
+        case VeloqError_Tags.Cancelled: {
+          c.writeI32(11);
+          return;
+        }
         default:
           // Throwing from here means that VeloqError_Tags hasn't matched an ordinal.
           throw new UniffiInternalError.UnexpectedEnumCase();
@@ -23656,6 +23783,9 @@ const FfiConverterTypeVeloqError = (() => {
           let size = 4;
           size += FfiConverterString.allocationSize(inner.name);
           return size;
+        }
+        case VeloqError_Tags.Cancelled: {
+          return 4;
         }
         default:
           throw new UniffiInternalError.UnexpectedEnumCase();
@@ -25753,8 +25883,9 @@ const FfiConverterTypeDetectionManager = new FfiConverterObject(
  */
 export interface EngineObserver {
   /**
-   * A sync step completed. Carries no payload: the reader takes a status
-   * snapshot.
+   * A sync step completed, or a GPS pass, a detection run or a heatmap
+   * pass started, which the status carries beside the sync. Carries no
+   * payload: the reader takes a status snapshot.
    */
   syncProgress(): void;
   /**
@@ -25860,8 +25991,9 @@ export class EngineObserverImpl
   }
 
   /**
-   * A sync step completed. Carries no payload: the reader takes a status
-   * snapshot.
+   * A sync step completed, or a GPS pass, a detection run or a heatmap
+   * pass started, which the status carries beside the sync. Carries no
+   * payload: the reader takes a status snapshot.
    */
   syncProgress(): void {
     uniffiCaller.rustCall(
@@ -29789,9 +29921,6 @@ export interface SectionManagerLike {
     sectionId: string,
     version: number,
   ) /*throws*/ : ArrayBuffer;
-  getGeometryVersions(
-    sectionId: string,
-  ) /*throws*/ : Array<FfiSectionGeometryVersion>;
   getHistory(sectionId: string) /*throws*/ : Array<FfiSectionHistoryEvent>;
   getMapSections(
     sportType: string | undefined,
@@ -30336,29 +30465,6 @@ export class SectionManager
     );
     try {
       return FfiConverterArrayBuffer.lift(__rb);
-    } finally {
-      nativeModule().rustbuffer_free(__rb);
-    }
-  }
-
-  getGeometryVersions(
-    sectionId: string,
-  ): Array<FfiSectionGeometryVersion> /*throws*/ {
-    const __rb: Uint8Array = uniffiCaller.rustCallWithError(
-      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-        FfiConverterTypeVeloqError,
-      ),
-      /*caller:*/ (callStatus) => {
-        return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_geometry_versions(
-          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
-          FfiConverterString.lower(sectionId, nativeModule().rustbuffer_alloc),
-          callStatus,
-        );
-      },
-      /*liftString:*/ FfiConverterString.lift.bind(FfiConverterString),
-    );
-    try {
-      return FfiConverterSequenceTypeFfiSectionGeometryVersion.lift(__rb);
     } finally {
       nativeModule().rustbuffer_free(__rb);
     }
@@ -33704,6 +33810,9 @@ export interface VeloqEngineLike {
   }) /*throws*/ : Promise<DerivedClearCounts>;
   /**
    * Write the athlete record as a compressed backup off the JS thread.
+   *
+   * The backup screen's read names the run while it goes, for `cancel_run`.
+   * A stopped run answers `Cancelled` and leaves the destination as it was.
    */
   runRecordBackup(
     destPath: string,
@@ -34625,6 +34734,9 @@ export class VeloqEngine
 
   /**
    * Write the athlete record as a compressed backup off the JS thread.
+   *
+   * The backup screen's read names the run while it goes, for `cancel_run`.
+   * A stopped run answers `Cancelled` and leaves the destination as it was.
    */
   async runRecordBackup(
     destPath: string,
@@ -35584,6 +35696,11 @@ const FfiConverterOptionalTypeFfiSyncErrorReason = new FfiConverterOptional(
   FfiConverterTypeFfiSyncErrorReason,
 );
 
+// FfiConverter for FfiTrackStage | undefined
+const FfiConverterOptionalTypeFfiTrackStage = new FfiConverterOptional(
+  FfiConverterTypeFfiTrackStage,
+);
+
 // FfiConverter for Array<FfiHeatmapDay>
 const FfiConverterSequenceTypeFfiHeatmapDay = new FfiConverterArray(
   FfiConverterTypeFfiHeatmapDay,
@@ -35796,19 +35913,16 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_func_cancel_detector_cutover() !==
-    38367
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_func_cancel_detector_cutover",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_cancel_fetch_and_store() !==
     29777
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_cancel_fetch_and_store",
+    );
+  }
+  if (nativeModule().ubrn_uniffi_veloqrs_checksum_func_cancel_run() !== 49608) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_cancel_run",
     );
   }
   if (
@@ -35837,7 +35951,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_get_change_card_support() !==
-    55123
+    33702
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_get_change_card_support",
@@ -36418,7 +36532,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_engineobserver_sync_progress() !==
-    62184
+    13052
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_engineobserver_sync_progress",
@@ -37249,14 +37363,6 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_versions() !==
-    6310
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_sectionmanager_get_geometry_versions",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_history() !==
     21918
   ) {
@@ -37458,7 +37564,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionpreview_centres() !==
-    22879
+    21969
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionpreview_centres",
@@ -38042,7 +38148,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_unplaced_backup_records() !==
-    30332
+    16190
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_get_unplaced_backup_records",
@@ -38138,7 +38244,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_run_bulk_export() !==
-    1108
+    19114
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_run_bulk_export",
@@ -38162,7 +38268,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_run_record_backup() !==
-    12690
+    1070
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_run_record_backup",
@@ -38243,7 +38349,6 @@ export default Object.freeze({
     FfiConverterTypeActivitySportMapping,
     FfiConverterTypeBasemapManager,
     FfiConverterTypeBulkExportFormat,
-    FfiConverterTypeBulkExportResult,
     FfiConverterTypeCacheSizePoll,
     FfiConverterTypeCutoverProgress,
     FfiConverterTypeDerivedClear,
@@ -38467,6 +38572,8 @@ export default Object.freeze({
     FfiConverterTypeFfiSyncStatus,
     FfiConverterTypeFfiSyncStep,
     FfiConverterTypeFfiTimestampRange,
+    FfiConverterTypeFfiTrackStage,
+    FfiConverterTypeFfiTrackStep,
     FfiConverterTypeFfiTrainingScreenData,
     FfiConverterTypeFfiTrainingScreenWindows,
     FfiConverterTypeFfiTrendBandPoint,

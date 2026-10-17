@@ -157,7 +157,10 @@ export function useActivityStats({
         value: formatSigned(fitnessImpact.fitness, 1),
         icon: 'chart-line',
         context: t('activity.stats.fitnessImpactContext'),
-        explanation: t('activity.explanations.fitnessImpact'),
+        explanation: t('activity.explanations.fitnessImpact', {
+          fitnessDays: fitnessImpact.fitnessDays,
+          fatigueDays: fitnessImpact.fatigueDays,
+        }),
         details: [
           { label: t('activity.stats.fitnessCTL'), value: formatSigned(fitnessImpact.fitness, 1) },
           { label: t('activity.stats.fatigueATL'), value: formatSigned(fitnessImpact.fatigue, 1) },

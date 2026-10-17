@@ -13,6 +13,7 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { formatFileSize } from '@/shared/format/format';
+import { Button } from '@/shared/ui';
 import { ProgressRow } from '@/shared/ui/ProgressRow';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import type { BulkExportPhase } from '@/features/settings/lib/bulkExport';
@@ -33,6 +34,8 @@ interface BulkExportProgressProps {
   total: number;
   sizeBytes: number;
   isDark: boolean;
+  /** Stops the write. Not offered once the share sheet opens, since the file is whole. */
+  onCancel: () => void;
 }
 
 export function BulkExportProgress({
@@ -42,6 +45,7 @@ export function BulkExportProgress({
   total,
   sizeBytes,
   isDark,
+  onCancel,
 }: BulkExportProgressProps) {
   const { t } = useTranslation();
   const counting = phase === 'generating' && total > 0;
@@ -55,7 +59,7 @@ export function BulkExportProgress({
       {!counting && (
         <ActivityIndicator
           size="small"
-          color={colors.primary}
+          color={colors.actionPrimary}
           testID="bulk-export-spinner"
           accessibilityState={{ busy: true }}
         />
@@ -67,6 +71,17 @@ export function BulkExportProgress({
         counts={t('export.bulkCount', { current, total })}
         countsTestID="bulk-export-count"
         barTestID="bulk-export-progress"
+        action={
+          phase === 'generating' ? (
+            <Button
+              testID="bulk-export-cancel"
+              label={t('common.cancel')}
+              variant="secondary"
+              size="sm"
+              onPress={onCancel}
+            />
+          ) : undefined
+        }
         labelStyle={[styles.label, isDark && styles.labelDark]}
         detailStyle={[styles.detail, isDark && styles.detailDark]}
       >
@@ -92,7 +107,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   labelDark: {
-    color: colors.textOnDark,
+    color: colors.textOnFill,
   },
   detail: {
     ...typography.caption,

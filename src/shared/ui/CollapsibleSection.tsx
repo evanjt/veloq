@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View, Text, StyleProp, ViewStyle } from 'react-native';
+import { StyleSheet, View, Text, StyleProp, ViewStyle } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   interpolate,
 } from 'react-native-reanimated';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   colors,
   darkColors,
@@ -18,11 +18,12 @@ import {
   typography,
 } from '@/theme';
 import { useTheme } from '@/shared/app';
+import { Icon } from './Icon';
 import { composeAccessibilityLabel } from './accessibilityLabel';
 import { DisclosureChevron } from './DisclosureChevron';
 import { FitText } from './FitText';
 import * as haptics from './haptics';
-import { pressable, pressRipple } from './pressFeedback';
+import { PressTarget } from './PressTarget';
 
 interface CollapsibleSectionProps {
   /** Section title */
@@ -109,18 +110,17 @@ export function CollapsibleSection({
   return (
     <View style={[styles.container, style]}>
       {/* A container's header role is not read on the control inside it, so it goes here. */}
-      <Pressable
+      <PressTarget
         testID={testID}
         accessibilityRole="header"
         accessibilityLabel={composeAccessibilityLabel(title, value)}
         accessibilityState={{ expanded }}
         onPress={handlePress}
-        style={pressable(styles.header)}
-        android_ripple={pressRipple}
+        style={styles.header}
       >
         <View style={styles.headerLeft}>
           {icon ? (
-            <MaterialCommunityIcons
+            <Icon
               name={icon}
               size={iconSize.lg}
               color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -166,7 +166,7 @@ export function CollapsibleSection({
           size={iconSize.lg}
           color={isDark ? darkColors.textSecondary : colors.textSecondary}
         />
-      </Pressable>
+      </PressTarget>
 
       <Animated.View style={contentStyle}>
         <View onLayout={onContentLayout} style={styles.content}>

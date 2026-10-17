@@ -3,9 +3,9 @@ import {
   View,
   FlatList,
   Pressable,
-  Animated,
   StyleSheet,
   type LayoutChangeEvent,
+  type ViewInstance,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import type {
@@ -14,9 +14,9 @@ import type {
   SectionEncounter,
 } from 'veloqrs';
 import type { LatLng } from '@/shared/geo/polyline';
-import Swipeable from 'react-native-gesture-handler/Swipeable';
+import type { SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { runOnJS, useSharedValue } from 'react-native-reanimated';
+import { runOnJS, useSharedValue, type SharedValue } from 'react-native-reanimated';
 import * as haptics from '@/shared/ui/haptics';
 import { useGestureCallback } from '@/shared/ui/useGestureCallback';
 import { useTranslation } from 'react-i18next';
@@ -45,7 +45,7 @@ import {
   sectionGroupIndex,
   type SectionEncounterGroup,
 } from '@/features/activity/lib/groupSectionEncounters';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { formatDistance } from '@/shared/format/format';
 import { colors, darkColors, duration, shadows, spacing, typography } from '@/theme';
 import { debug } from '@/shared/debug/debug';
@@ -111,7 +111,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   const bottomClearance = useBottomClearance();
 
   // Track open swipeable refs to close them when another opens
-  const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
+  const swipeableRefs = useRef<Map<string, SwipeableMethods | null>>(new Map());
   const openSwipeableRef = useRef<string | null>(null);
 
   // Track which scan matches have been successfully added
@@ -215,7 +215,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   const isScrubbingSV = useSharedValue(false);
 
   const flatListRef = useRef<FlatList<SectionEncounterGroup> | null>(null);
-  const listContainerRef = useRef<View | null>(null);
+  const listContainerRef = useRef<ViewInstance | null>(null);
   // Window-Y of the list container - only used for the auto-scroll edge
   // detection (am I near the top/bottom of the visible list area?).
   const listTopYRef = useRef(0);
@@ -225,7 +225,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   // at scrub start. Using the first row instead of listTop + paddingTop
   // removes any drift introduced by parent transforms, safe-area padding,
   // or differences between layout-event height and measureInWindow height.
-  const firstRowRef = useRef<View | null>(null);
+  const firstRowRef = useRef<ViewInstance | null>(null);
   const firstRowTopYRef = useRef(0);
   // Every card's measured height, in list order. A section crossed both ways
   // renders one row per direction, so cards are not all the same height. The
@@ -244,7 +244,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     }
   }, []);
 
-  const handleFirstRowRef = useCallback((ref: View | null) => {
+  const handleFirstRowRef = useCallback((ref: ViewInstance | null) => {
     firstRowRef.current = ref;
   }, []);
 
@@ -497,7 +497,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   // Handle section press navigation
   const handleSectionPress = useCallback(
     (sectionId: string) => {
-      tapTo(`/section/${sectionId}?activityId=${activityId}`);
+      navigateTo(`/section/${sectionId}?activityId=${activityId}`);
     },
     [activityId]
   );
@@ -520,26 +520,13 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
 
   // Render swipe actions for section cards
   const renderSectionSwipeActions = useCallback(
-    (
-      group: SectionEncounterGroup,
-      _progress: Animated.AnimatedInterpolation<number>,
-      dragX: Animated.AnimatedInterpolation<number>
-    ) => {
-      const opacity = dragX.interpolate({
-        inputRange: [-80, -40, 0],
-        outputRange: [1, 0.8, 0],
-        extrapolate: 'clamp',
-      });
-
-      const action = sectionAction(group);
-      return (
-        <SectionSwipeAction
-          kind={sectionSwipeKind(group.sectionType, false)}
-          action={action}
-          opacity={opacity}
-        />
-      );
-    },
+    (group: SectionEncounterGroup, _progress: SharedValue<number>, drag: SharedValue<number>) => (
+      <SectionSwipeAction
+        kind={sectionSwipeKind(group.sectionType, false)}
+        action={sectionAction(group)}
+        drag={drag}
+      />
+    ),
     [sectionAction]
   );
 
@@ -629,7 +616,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
                 accessibilityLabel={spokenName}
                 style={pressable(styles.scanMatchInfo)}
                 android_ripple={pressRipple}
-                onPress={() => tapTo(`/section/${match.sectionId}?activityId=${activityId}`)}
+                onPress={() => navigateTo(`/section/${match.sectionId}?activityId=${activityId}`)}
               >
                 <Text
                   numberOfLines={2}

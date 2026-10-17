@@ -8,7 +8,8 @@
 //! with no second ask from the caller.
 
 use super::*;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{OnceLock, Weak};
 
 /// The ranges a test service was asked to start, in order.
 type Started = Arc<Mutex<Vec<PassRange>>>;
@@ -32,12 +33,14 @@ fn harness(answer: FfiStartOutcome) -> Harness {
     let record = Arc::clone(&started);
     let offline = Arc::new(AtomicBool::new(false));
     let reads_offline = Arc::clone(&offline);
+    // Each start is its own fetch run, numbered from one.
+    let runs = AtomicU64::new(0);
     let service = GpsPassService::new(
         move |range: &PassRange| {
             record.lock().unwrap().push(range.clone());
             PassStart {
                 outcome: answer,
-                run: 1,
+                run: runs.fetch_add(1, Ordering::SeqCst) + 1,
                 total: 1,
             }
         },
@@ -178,6 +181,77 @@ fn a_pass_that_does_not_start_frees_the_slot() {
         "a refusal holds nothing, so the next ask is answered rather than owed"
     );
     assert_eq!(h.started().len(), 2);
+}
+
+#[test]
+fn the_running_pass_names_its_run_until_it_ends() {
+    let h = harness(FfiStartOutcome::Started);
+    assert_eq!(h.service.running_run(), None);
+
+    h.service.request(range("2024-01-01", "2024-03-31"));
+    assert_eq!(h.service.running_run(), Some(1));
+
+    h.service.finish(false);
+    assert_eq!(h.service.running_run(), None);
+}
+
+#[test]
+fn a_pass_the_engine_starts_itself_names_its_own_run() {
+    let h = harness(FfiStartOutcome::Started);
+    h.service.request(range("2024-01-01", "2024-03-31"));
+    h.service.request(range("2024-01-01", "2024-03-31"));
+
+    h.service.finish(false);
+
+    assert_eq!(
+        h.service.running_run(),
+        Some(2),
+        "the owed pass nobody on screen asked for is still the one reported"
+    );
+}
+
+#[test]
+fn a_pass_that_did_not_start_names_no_run() {
+    let h = harness(FfiStartOutcome::NotOwed);
+    h.service.request(range("2024-01-01", "2024-03-31"));
+    assert_eq!(h.service.running_run(), None);
+}
+
+/// Scenario: a pass ends on its fetch thread before the start that spawned
+/// it has returned, and the pass owed behind it starts in that gap.
+///
+/// Expected behaviour: the run reported is the owed pass's, which is the one
+/// downloading, and not the run of the pass that has already ended.
+#[test]
+fn a_pass_that_ends_before_its_start_returns_does_not_name_its_run() {
+    let service_slot: Arc<OnceLock<Weak<GpsPassService>>> = Arc::new(OnceLock::new());
+    let reaches_service = Arc::clone(&service_slot);
+    let calls = AtomicU64::new(0);
+    let service = Arc::new(GpsPassService::new(
+        move |_range: &PassRange| {
+            let call = calls.fetch_add(1, Ordering::SeqCst) + 1;
+            if call == 1
+                && let Some(service) = reaches_service.get().and_then(Weak::upgrade)
+            {
+                service.request(range("2023-01-01", "2023-12-31"));
+                service.finish(false);
+            }
+            PassStart {
+                outcome: FfiStartOutcome::Started,
+                run: call,
+                total: 1,
+            }
+        },
+        || false,
+    ));
+    service_slot.set(Arc::downgrade(&service)).ok();
+
+    service.request(range("2024-01-01", "2024-03-31"));
+
+    assert_eq!(service.running_run(), Some(2));
+
+    service.finish(false);
+    assert_eq!(service.running_run(), None);
 }
 
 #[test]

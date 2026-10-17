@@ -57,7 +57,7 @@ describe('label contrast', () => {
     it(`keeps every variant's label at 4.5:1 in the ${theme} theme, a transparent one on each ground it sits on`, async () => {
       mockIsDark = isDark;
       const palette = isDark ? darkColors : colors;
-      const pageGrounds = [palette.surface, palette.background, palette.backgroundAlt];
+      const pageGrounds = [palette.surface, palette.surfacePage, palette.surfaceInput];
       for (const variant of ['primary', 'secondary', 'ghost', 'destructive'] as const) {
         const { getByTestId } = await render(
           <Button label="x" variant={variant} onPress={() => {}} testID="b" />
@@ -84,12 +84,12 @@ describe('label contrast', () => {
     // ground is a wash laid over that surface, so each surface is a ground.
     const surfaces = isDark
       ? [
-          darkColors.background,
+          darkColors.surfacePage,
           darkColors.surface,
-          darkColors.surfaceElevated,
-          darkColors.surfaceCard,
+          darkColors.surfaceRaised,
+          darkColors.surfaceRaised,
         ]
-      : [colors.surface, colors.background, colors.backgroundAlt];
+      : [colors.surface, colors.surfacePage, colors.surfaceInput];
 
     for (const selected of [false, true]) {
       const state = selected ? 'selected' : 'unselected';
@@ -156,7 +156,7 @@ describe('Button', () => {
     const { getByTestId } = await render(<Button label="Save" onPress={() => {}} testID="b" />);
 
     const style = styleOf(getByTestId('b'));
-    expect(style.backgroundColor).toBe(colors.primary);
+    expect(style.backgroundColor).toBe(colors.actionPrimary);
     expect(style.borderRadius).toBe(layout.borderRadiusMd);
     expect(style.paddingHorizontal).toBe(spacing.md);
   });
@@ -170,10 +170,10 @@ describe('Button', () => {
       grounds.push(styleOf(getByTestId('b')).backgroundColor);
     }
 
-    expect(grounds[0]).toBe(colors.primary);
+    expect(grounds[0]).toBe(colors.actionPrimary);
     expect(grounds[1]).toBe(colors.surface);
     expect(grounds[2]).toBe('transparent');
-    expect(grounds[3]).toBe(colors.errorDeep);
+    expect(grounds[3]).toBe(colors.errorText);
     expect(new Set(grounds).size).toBe(4);
   });
 
@@ -375,12 +375,12 @@ describe('ToggleButton', () => {
     const theme = isDark ? 'dark' : 'light';
     const surfaces = isDark
       ? [
-          darkColors.background,
+          darkColors.surfacePage,
           darkColors.surface,
-          darkColors.surfaceElevated,
-          darkColors.surfaceCard,
+          darkColors.surfaceRaised,
+          darkColors.surfaceRaised,
         ]
-      : [colors.background, colors.surface, colors.backgroundAlt];
+      : [colors.surfacePage, colors.surface, colors.surfaceInput];
 
     it(`fills the chosen chip with the on role and the others with the neutral fill, in the ${theme} theme`, async () => {
       mockIsDark = isDark;
@@ -439,7 +439,7 @@ describe('ToggleButton', () => {
         expect(dot.borderWidth ?? 0).toBe(0);
       }
       expect(styleOf(on('t')).backgroundColor).toBe(palette.controlOn);
-      expect(styleOf(on('t-label')).color).toBe(colors.textOnPrimary);
+      expect(styleOf(on('t-label')).color).toBe(colors.textOnFill);
       expect(styleOf(off('t-label')).color).toBe(palette.textSecondary);
     });
   }

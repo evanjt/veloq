@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
@@ -13,6 +13,7 @@ import {
   ToggleButtonRow,
   useScrollEndInset,
 } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import type { Period } from '@/shared/app/period';
 import { useActivityLabels } from '@/features/activity';
 import {
@@ -96,7 +97,7 @@ function SportSection({ sport, efforts, curve, isLoading, isDark }: SportSection
     <View style={styles.frame} testID={`best-efforts-section-${sport}`}>
       <Card variant="flat">
         <View style={styles.cardHeader}>
-          <MaterialCommunityIcons
+          <Icon
             name={sportIcon(sport)}
             size={iconSize.md}
             color={sportColor}
@@ -186,7 +187,7 @@ function ClimbingSection({ sport, bests, status, isLoading, isDark }: ClimbingSe
     <View style={styles.frame} testID={`best-efforts-climbing-${sport}`}>
       <Card variant="flat">
         <View style={styles.cardHeader}>
-          <MaterialCommunityIcons
+          <Icon
             name={sportIcon(sport)}
             size={iconSize.md}
             color={SPORT_COLORS[sport]}
@@ -311,10 +312,10 @@ function BestEffortsScreenContent() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfacePage,
   },
   containerDark: {
-    backgroundColor: darkColors.background,
+    backgroundColor: darkColors.surfacePage,
   },
   rangeToggleContainer: {
     marginHorizontal: layout.screenPadding,

@@ -13,7 +13,7 @@ import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import type { FfiCatalogueEmptyReason, GroupWithPolyline } from 'veloqrs';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import {
   colorWithOpacity,
@@ -34,10 +34,11 @@ import {
   EmptyState,
   ErrorState,
   ExplanationCard,
-  SearchBar,
   pressable,
   pressRipple,
+  SearchBar,
 } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
 import { useScrollToTopOnReselect } from '@/shared/ui/tabReselect';
 import { RowSkeleton } from '@/features/routes/components/RowSkeleton';
@@ -282,20 +283,20 @@ export const RoutesList = memo(function RoutesList({
                       styles.sortChip,
                       isDark && styles.sortChipDark,
                       isActive && {
-                        backgroundColor: colorWithOpacity(palette.primary, opacity.tint1),
-                        borderColor: palette.primary,
+                        backgroundColor: colorWithOpacity(palette.actionPrimary, opacity.tint1),
+                        borderColor: palette.actionPrimary,
                       },
                     ])}
                     android_ripple={pressRipple}
                     hitSlop={sortChipHitSlop}
                     onPress={() => onSortChange(chip.key)}
                   >
-                    <MaterialCommunityIcons
+                    <Icon
                       name={chip.icon}
                       size={iconSize.xs}
                       color={
                         isActive
-                          ? palette.primary
+                          ? palette.actionPrimary
                           : isDark
                             ? darkColors.textSecondary
                             : colors.textSecondary

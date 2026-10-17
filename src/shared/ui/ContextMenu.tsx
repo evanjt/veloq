@@ -8,18 +8,15 @@
  * A screen reader reaches the menu through the source's own action rather than
  * a hold, so the anchored popup is drawn on both platforms when `visible` is
  * set: on iOS that is the only way an action can open a menu.
+ *
+ * Opening fires one `light` haptic from the menu itself, so no source picks
+ * its own weight. The system's menu on an iOS hold gives its own feel and
+ * never sets `visible`, so it gets no second one.
  */
 
-import React, { useEffect, useState, type ComponentProps } from 'react';
-import {
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-  useWindowDimensions,
-} from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import React, { useEffect, useRef, useState, type ComponentProps } from 'react';
+import { Platform, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Link, type Href } from 'expo-router';
 import { Menu, Text, useTheme as usePaperTheme } from 'react-native-paper';
 
@@ -37,7 +34,9 @@ import {
   typography,
   stroke,
 } from '@/theme';
-import { pressable, pressRipple } from './pressFeedback';
+import { Icon } from './Icon';
+import * as haptics from './haptics';
+import { PressTarget } from './PressTarget';
 
 type SystemSymbol = NonNullable<ComponentProps<typeof Link.MenuAction>['icon']>;
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
@@ -159,7 +158,7 @@ function raisedEdge(isDark: boolean) {
     ? {
         ...shadows.none,
         borderWidth: stroke.hairline,
-        borderColor: darkColors.borderLight,
+        borderColor: darkColors.border,
       }
     : shadows.elevated;
 }
@@ -179,7 +178,7 @@ function MenuRow({
 }) {
   const checkable = item.checked !== undefined;
   return (
-    <Pressable
+    <PressTarget
       accessibilityRole="menuitem"
       accessibilityLabel={item.label}
       accessibilityState={checkable ? { checked: !!item.checked } : undefined}
@@ -188,21 +187,18 @@ function MenuRow({
         if (!checkable || closeOnSelect) onDismiss();
         item.onPress();
       }}
-      style={pressable(styles.row)}
-      android_ripple={pressRipple}
+      style={styles.row}
     >
-      {item.icon ? (
-        <MaterialCommunityIcons name={item.icon} size={iconSize.md} color={mutedColor} />
-      ) : null}
+      {item.icon ? <Icon name={item.icon} size={iconSize.md} color={mutedColor} /> : null}
       <Text style={[styles.rowLabel, { color: textColor }]}>{item.label}</Text>
       {checkable ? (
-        <MaterialCommunityIcons
+        <Icon
           name="check"
           size={iconSize.md}
           color={item.checked ? brand.blue550 : 'transparent'}
         />
       ) : null}
-    </Pressable>
+    </PressTarget>
   );
 }
 
@@ -221,10 +217,10 @@ export function MenuPopup({
   const { isDark } = useTheme();
   const window = useWindowDimensions();
   const insets = useWindowInsets();
-  const surface = isDark ? darkColors.surfaceElevated : colors.surface;
+  const surface = isDark ? darkColors.surfaceRaised : colors.surface;
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const hairline = isDark ? darkColors.divider : colors.divider;
+  const hairline = isDark ? darkColors.border : colors.border;
   const openAllowed = useOpenAllowed(visible);
 
   return (
@@ -286,6 +282,15 @@ export function MenuPopup({
   );
 }
 
+/** One `light` haptic each time `visible` turns on, none while open or on close. */
+function useOpenHaptic(visible: boolean): void {
+  const wasVisible = useRef(false);
+  useEffect(() => {
+    if (visible && !wasVisible.current) haptics.light();
+    wasVisible.current = visible;
+  }, [visible]);
+}
+
 function nativeAction(item: ContextMenuAction) {
   return (
     <Link.MenuAction
@@ -307,6 +312,11 @@ function TriggerSource({ children }: { children: React.ReactNode }) {
 
 export function ContextMenu(props: ContextMenuProps) {
   const { href: _href, ...popup } = props;
+  useOpenHaptic(props.visible);
+  // Unsized, the preview takes the width UIKit hands it, which on a tablet is
+  // unbounded, and a gradient on the previewed screen then cannot allocate its
+  // bitmap. The window bounds it on every device.
+  const window = useWindowDimensions();
   const anchored = <MenuPopup {...popup} />;
   if (!contextMenuHoldIsNative()) return anchored;
 
@@ -315,7 +325,7 @@ export function ContextMenu(props: ContextMenuProps) {
       <Link.Trigger>
         <TriggerSource>{anchored}</TriggerSource>
       </Link.Trigger>
-      <Link.Preview />
+      <Link.Preview style={{ width: window.width, height: window.height }} />
       <Link.Menu title={props.title}>
         {props.entries.map((entry) =>
           isGroup(entry) ? (

@@ -39,7 +39,16 @@ import {
   metersToLongDistance,
 } from '@/shared/format/format';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
-import { niceScale, useChartColors, useChartGestures, YAxisLabels } from '@/shared/charts';
+import {
+  ChartSurface,
+  lanesSummary,
+  niceScale,
+  seriesTable,
+  useChartColors,
+  useChartGestures,
+  YAxisLabels,
+  type SummarySeries,
+} from '@/shared/charts';
 import { DENSE_TEXT_SCALE } from '@/shared/ui/DenseText';
 import { formatDecimalTrimmed } from '@/shared/format';
 
@@ -194,6 +203,31 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
       ].join(', '),
     [unit, currentYear]
   );
+  // What a screen reader hears and the Show data sheet lists: each year's month totals. A month
+  // of this year still to come is a gap, not a month with nothing in it.
+  const metricLabel = metricLabels[metric].label;
+  const reading = useMemo(() => {
+    const title = `${t('stats.seasonComparison')}, ${metricLabel}`;
+    const year = (
+      name: number,
+      pick: (month: (typeof data)[number], idx: number) => number | null
+    ) =>
+      ({
+        name: String(name),
+        unit: unit || undefined,
+        points: data.map((month, idx) => ({ label: month.month, value: pick(month, idx) })),
+        format: (v: number) => `${formatDecimalTrimmed(v, 1)} ${unit}`.trim(),
+      }) satisfies SummarySeries;
+    const lanes = [
+      year(currentYear - 1, (month) => month.previous ?? null),
+      year(currentYear, (month, idx) => (idx > currentMonth ? null : month.current)),
+    ];
+    return {
+      summary: lanesSummary(title, lanes, t),
+      table: seriesTable(title, t('charts.column.month'), lanes),
+    };
+  }, [data, unit, metricLabel, currentYear, currentMonth, t]);
+
   const {
     gesture: panGesture,
     syncXCoords,
@@ -223,7 +257,7 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
   const axisMax = yScale.domain[1];
 
   // Color constants
-  const colorCurrent = palette.primary;
+  const colorCurrent = palette.actionPrimary;
   const colorPrevious = isDark
     ? colorWithOpacity(darkColors.chartPreviousSeason, 0.8)
     : colorWithOpacity(colors.chartPreviousSeason, opacity.pressed);
@@ -520,47 +554,49 @@ export function SeasonComparison({ height = 200 }: SeasonComparisonProps) {
       </View>
 
       {/* Chart - Skia Picture + gesture overlay */}
-      <View style={[styles.plotRow, { height }]}>
-        <YAxisLabels
-          ticks={yTicks}
-          domain={yScale.domain}
-          padding={PLOT_PADDING}
-          testID="season-chart-y-axis"
-        />
-        <GestureDetector gesture={panGesture}>
-          <View
-            style={styles.plot}
-            onLayout={onChartLayout}
-            testID="season-chart-surface"
-            {...accessibilityProps}
-          >
-            {chartPicture ? (
-              <Canvas style={{ width: '100%', height }}>
-                <Picture picture={chartPicture} />
-              </Canvas>
-            ) : null}
-            {/* Month labels overlay */}
-            <View style={styles.monthLabelsRow} pointerEvents="none">
-              {monthLabels.map((m, idx) => (
-                <Text
-                  key={idx}
-                  testID={`season-month-label-${idx}`}
-                  maxFontSizeMultiplier={DENSE_TEXT_SCALE}
-                  style={[
-                    styles.monthLabel,
-                    isDark && chartStyles.textDark,
-                    m.isCurrentMonth && styles.currentMonthLabel,
-                    m.isCurrentMonth && isDark && { color: darkColors.actionLink },
-                    m.isSelected && styles.selectedMonthLabel,
-                  ]}
-                >
-                  {m.letter}
-                </Text>
-              ))}
+      <ChartSurface summary={reading.summary} table={reading.table} testID="season-chart-plot">
+        <View style={[styles.plotRow, { height }]}>
+          <YAxisLabels
+            ticks={yTicks}
+            domain={yScale.domain}
+            padding={PLOT_PADDING}
+            testID="season-chart-y-axis"
+          />
+          <GestureDetector gesture={panGesture}>
+            <View
+              style={styles.plot}
+              onLayout={onChartLayout}
+              testID="season-chart-surface"
+              {...accessibilityProps}
+            >
+              {chartPicture ? (
+                <Canvas style={{ width: '100%', height }}>
+                  <Picture picture={chartPicture} />
+                </Canvas>
+              ) : null}
+              {/* Month labels overlay */}
+              <View style={styles.monthLabelsRow} pointerEvents="none">
+                {monthLabels.map((m, idx) => (
+                  <Text
+                    key={idx}
+                    testID={`season-month-label-${idx}`}
+                    maxFontSizeMultiplier={DENSE_TEXT_SCALE}
+                    style={[
+                      styles.monthLabel,
+                      isDark && chartStyles.textDark,
+                      m.isCurrentMonth && styles.currentMonthLabel,
+                      m.isCurrentMonth && isDark && { color: darkColors.actionLink },
+                      m.isSelected && styles.selectedMonthLabel,
+                    ]}
+                  >
+                    {m.letter}
+                  </Text>
+                ))}
+              </View>
             </View>
-          </View>
-        </GestureDetector>
-      </View>
+          </GestureDetector>
+        </View>
+      </ChartSurface>
 
       {notDownloaded ? (
         <Text testID="season-comparison-partial" style={styles.partial}>
@@ -575,7 +611,7 @@ const makeStyles = (palette: Palette) =>
   StyleSheet.create({
     container: {},
     textLight: {
-      color: colors.textOnDark,
+      color: colors.textOnFill,
     },
     metricSelector: {
       flexDirection: 'row',
@@ -589,17 +625,17 @@ const makeStyles = (palette: Palette) =>
       paddingVertical: spacing.sm,
       paddingHorizontal: spacing.sm,
       borderRadius: layout.borderRadiusSm,
-      backgroundColor: colors.regionTintIdle,
+      backgroundColor: colors.stateHover,
       minHeight: 44,
     },
     summaryDark: {
-      backgroundColor: darkColors.regionTintIdle,
+      backgroundColor: darkColors.stateHover,
     },
     summaryActive: {
-      backgroundColor: colors.regionTintActive,
+      backgroundColor: colors.statePressed,
     },
     summaryActiveDark: {
-      backgroundColor: darkColors.regionTintActive,
+      backgroundColor: darkColors.statePressed,
     },
     summaryItem: {
       alignItems: 'center',

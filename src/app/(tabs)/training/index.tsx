@@ -2,7 +2,6 @@ import { useTabFirstFrame } from '@/shared/debug/tabSwitchTiming';
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import {
   Card,
   CardHeader,
@@ -14,6 +13,7 @@ import {
   Spinner,
   ToggleButton,
 } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { WeeklySummary, ActivityHeatmap, SeasonComparison } from '@/features/stats';
@@ -203,12 +203,10 @@ function HealthScreenContent() {
                 onPress={pickSmoothing}
                 testID="training-smoothing-button"
               >
-                <MaterialCommunityIcons
+                <Icon
                   name="chart-bell-curve-cumulative"
                   size={iconSize.md}
-                  color={
-                    smoothingWindow !== 'auto' ? colors.textOnPrimary : themeColors.textSecondary
-                  }
+                  color={smoothingWindow !== 'auto' ? colors.textOnFill : themeColors.textSecondary}
                 />
               </IconButton>
             </View>

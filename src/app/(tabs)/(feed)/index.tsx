@@ -13,25 +13,25 @@ import {
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import {
-  ScreenSafeAreaView,
-  ErrorState,
-  ComponentErrorBoundary,
   ActivityCardSkeleton,
-  useScrollEndInset,
   canDrawProfilePhoto,
-  IconButton,
-  useLargeText,
+  ComponentErrorBoundary,
   EmptyState,
+  ErrorState,
+  IconButton,
+  ScreenSafeAreaView,
+  useLargeText,
+  useScrollEndInset,
 } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { logScreenRender, PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { RestoreOfferCard, StreamConsentCard, useDashboardPreferences } from '@/features/settings';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
 import { isReduceMotionOn } from '@/shared/ui/reduceMotion';
 import { useScrollToTopOnReselect } from '@/shared/ui/tabReselect';
 import { useSyncRefreshNotice } from '@/shared/native/useSyncRefreshNotice';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSyncLastErrorReason, useSyncState } from '@/shared/native/useSyncStatus';
@@ -481,10 +481,10 @@ function FeedScreenContent() {
   // is one of them. The identity has to stay put or the list rejects it, which
   // is what the empty dependency list is for.
   const onViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: { index: number | null }[] }) => {
+    ({ viewableItems }: { viewableItems: { index: number | null | undefined }[] }) => {
       const indices = viewableItems
         .map((item) => item.index)
-        .filter((index): index is number => index !== null);
+        .filter((index): index is number => index != null);
       setVisibleRange(
         indices.length > 0 ? { first: Math.min(...indices), last: Math.max(...indices) } : null
       );
@@ -493,11 +493,11 @@ function FeedScreenContent() {
   );
 
   const navigateToSettings = useCallback(() => {
-    tapTo('/settings');
+    navigateTo('/settings');
   }, []);
 
   const navigateToHeroMetric = useCallback(() => {
-    tapTo(summaryCardTarget(summaryCard.heroMetric));
+    navigateTo(summaryCardTarget(summaryCard.heroMetric));
   }, [summaryCard.heroMetric]);
 
   const selectRange = useCallback((preset: FeedRangePreset) => {
@@ -548,7 +548,7 @@ function FeedScreenContent() {
           setSearchQuery(event.nativeEvent.text),
         onCancelButtonPress: () => setSearchQuery(''),
         onClose: () => setSearchQuery(''),
-        tintColor: themePalette(isDark).primary,
+        tintColor: themePalette(isDark).actionPrimary,
         textColor: textPrimary,
         hintTextColor: textSecondary,
         headerIconColor: textPrimary,
@@ -571,7 +571,7 @@ function FeedScreenContent() {
                 onError={() => setProfileImageFailed(true)}
               />
             ) : (
-              <MaterialCommunityIcons name="account" size={iconSize.md} color={textSecondary} />
+              <Icon name="account" size={iconSize.md} color={textSecondary} />
             )}
           </IconButton>
         ) : null,
@@ -711,7 +711,7 @@ function FeedScreenContent() {
     if (!loadingMore) return null;
     return (
       <View style={styles.footerLoader}>
-        <ActivityIndicator size="small" color={colors.primary} />
+        <ActivityIndicator size="small" color={colors.actionPrimary} />
         <Text style={[styles.footerText, isDark && styles.textDark]}>
           {t('common.loadingMore')}
         </Text>
@@ -873,7 +873,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   textLight: {
-    color: colors.textOnDark,
+    color: colors.textOnFill,
   },
   textDark: {
     color: darkColors.textSecondary,

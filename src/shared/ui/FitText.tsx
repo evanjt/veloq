@@ -14,7 +14,7 @@ import { Text, type TextProps } from 'react-native-paper';
 /** How far a value shrinks before it gives up and ellipsises. */
 export const FIT_MIN_FONT_SCALE = 0.75;
 
-export function FitText(props: TextProps<never>) {
+export function FitText(props: Omit<TextProps<never>, 'ref'>) {
   return (
     <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={FIT_MIN_FONT_SCALE} {...props} />
   );

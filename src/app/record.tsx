@@ -5,12 +5,13 @@ import {
   Button,
   ICON_BUTTON_GAP,
   IconButton,
-  ToggleButton,
-  ScreenSafeAreaView,
-  useBottomClearance,
   pressable,
   pressRipple,
+  ScreenSafeAreaView,
+  ToggleButton,
+  useBottomClearance,
 } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import {
   OpenSettingsButton,
   SIGNAL_LINE_RADIUS,
@@ -19,7 +20,7 @@ import {
   type SignalLevel,
 } from '@/shared/ui';
 import { Stack } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as haptics from '@/shared/ui/haptics';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
@@ -59,7 +60,7 @@ import {
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import { getEngine } from '@/shared/native/engine';
 import { readPlannedWorkouts } from '@/features/home';
-import { replaceTo, tapTo } from '@/shared/app/navigation';
+import { replaceTo, navigateTo } from '@/shared/app/navigation';
 import { formatLocalDate, formatDuration } from '@/shared/format/format';
 import type { ActivityTypeSheetInput } from '@/app/sheets/activity-type';
 import type { ActivityType, CalendarEvent } from '@/types';
@@ -171,7 +172,7 @@ function RecordScreenContent() {
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const bg = isDark ? darkColors.background : colors.background;
+  const bg = isDark ? darkColors.surfacePage : colors.surfacePage;
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
 
@@ -218,25 +219,17 @@ function RecordScreenContent() {
             <View style={styles.headerActions}>
               <IconButton
                 testID="record-library"
-                onPress={() => tapTo('/recordings')}
+                onPress={() => navigateTo('/recordings')}
                 accessibilityLabel={t('recording.library.title', 'My recordings')}
               >
-                <MaterialCommunityIcons
-                  name="folder-play-outline"
-                  size={iconSize.lg}
-                  color={textSecondary}
-                />
+                <Icon name="folder-play-outline" size={iconSize.lg} color={textSecondary} />
               </IconButton>
               <IconButton
                 testID="record-settings"
-                onPress={() => tapTo('/recording-settings')}
+                onPress={() => navigateTo('/recording-settings')}
                 accessibilityLabel={t('recording.settings')}
               >
-                <MaterialCommunityIcons
-                  name="cog-outline"
-                  size={iconSize.lg}
-                  color={textSecondary}
-                />
+                <Icon name="cog-outline" size={iconSize.lg} color={textSecondary} />
               </IconButton>
             </View>
           ),
@@ -308,7 +301,7 @@ function RecordScreenContent() {
             onPress={() => start(event.type as ActivityType, event.id)}
             accessibilityRole="button"
           >
-            <MaterialCommunityIcons
+            <Icon
               name={getActivityIcon(event.type as ActivityType)}
               size={iconSize.lg}
               color={getActivityInk(event.type as ActivityType, isDark)}
@@ -397,7 +390,7 @@ function SportSurface({
       testID={`record-surface-${mode}`}
       style={[styles.sportSurface, { backgroundColor: colorWithOpacity(surface, 0.6) }]}
     >
-      <MaterialCommunityIcons
+      <Icon
         name={getActivityIcon(sport)}
         size={iconSize.xxl}
         color={getActivityInk(sport, isDark)}
@@ -519,7 +512,7 @@ function GpsWarningLine({
         onPress={onDismiss}
         accessibilityLabel={t('common.close')}
       >
-        <MaterialCommunityIcons name="close" size={iconSize.md} color={tint} />
+        <Icon name="close" size={iconSize.md} color={tint} />
       </IconButton>
     </View>
   );

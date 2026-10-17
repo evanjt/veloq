@@ -90,7 +90,7 @@ jest.mock('@/features/settings/lib/reconcilePushRegistration', () => ({
   reconcilePushRegistrationOnLaunch: jest.fn(),
 }));
 jest.mock('@/shared/ui/ShaderWarmup', () => ({ ShaderWarmup: () => null }));
-jest.mock('@/shared/ui/OfflineBanner', () => ({ OfflineBanner: () => null }));
+jest.mock('@/shared/ui/FloatingPillStack', () => ({ FloatingPillStack: () => null }));
 jest.mock('@/shared/ui/SyncErrorBanner', () => ({ SyncErrorBanner: () => null }));
 jest.mock('@/shared/ui/TrackFetchNotice', () => ({ TrackFetchNotice: () => null }));
 jest.mock('@/shared/ui/BottomTabBar', () => ({ BottomTabBar: () => null }));
@@ -106,12 +106,12 @@ it('hands the root stack the dark ground under a dark scheme', async () => {
   mockSystemScheme = 'dark';
   const { findByTestId } = mountRoot();
   const ground = await findByTestId('stack-ground');
-  expect(ground.props.children).toBe(darkColors.background);
+  expect(ground.props.children).toBe(darkColors.surfacePage);
 });
 
 it('hands the root stack the light ground under a light scheme', async () => {
   mockSystemScheme = 'light';
   const { findByTestId } = mountRoot();
   const ground = await findByTestId('stack-ground');
-  expect(ground.props.children).toBe(colors.background);
+  expect(ground.props.children).toBe(colors.surfacePage);
 });

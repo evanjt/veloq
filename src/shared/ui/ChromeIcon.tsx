@@ -4,16 +4,17 @@
  * action reads the same everywhere on a platform and as that platform's own.
  *
  * The role set is fixed: a caller names what the action does, never a glyph.
- * Sport, data and map glyphs are the app's own and stay on
- * `MaterialCommunityIcons`.
+ * Sport, data and map glyphs are the app's own and stay on `Icon`. Either way
+ * the glyph is decoration: the control it sits in carries the name.
  */
 
 import React from 'react';
 import { Platform } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SymbolView, type SFSymbol } from 'expo-symbols';
 
-type MaterialGlyph = keyof typeof MaterialCommunityIcons.glyphMap;
+import { hiddenFromScreenReader, Icon, type IconName } from './Icon';
+
+type MaterialGlyph = IconName;
 
 const GLYPHS = {
   share: { ios: 'square.and.arrow.up', android: 'share-variant' },
@@ -31,9 +32,7 @@ interface ChromeIconProps {
 
 export function ChromeIcon({ name, size, color, testID }: ChromeIconProps) {
   const glyph = GLYPHS[name];
-  const material = (
-    <MaterialCommunityIcons testID={testID} name={glyph.android} size={size} color={color} />
-  );
+  const material = <Icon testID={testID} name={glyph.android} size={size} color={color} />;
   if (Platform.OS !== 'ios') return material;
   // The fallback draws where the native symbol view is not built in.
   return (
@@ -43,6 +42,7 @@ export function ChromeIcon({ name, size, color, testID }: ChromeIconProps) {
       size={size}
       tintColor={color}
       fallback={material}
+      {...hiddenFromScreenReader}
     />
   );
 }

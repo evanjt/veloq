@@ -24,6 +24,7 @@ jest.mock('react-i18next', () => ({
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   useRouter: () => ({ push: jest.fn() }),
+  useIsFocused: () => true,
   useSegments: () => ['(tabs)', 'map'],
 }));
 jest.mock('@/features/maps', () => ({

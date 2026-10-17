@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { tapBack } from '@/shared/app/navigation';
+import { goBack } from '@/shared/app/navigation';
 import { Button } from '@/shared/ui';
 
 /**
@@ -12,7 +12,7 @@ import { Button } from '@/shared/ui';
  */
 export function RecordingCloseButton(): React.JSX.Element {
   const { t } = useTranslation();
-  const close = useCallback(() => tapBack(), []);
+  const close = useCallback(() => goBack(), []);
 
   return (
     <Button

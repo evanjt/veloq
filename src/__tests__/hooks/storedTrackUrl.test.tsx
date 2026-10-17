@@ -127,7 +127,12 @@ describe('the activity detail line', () => {
 
   const useDetailLayers = (held: boolean) => {
     const trackUrl = useStoredTrackUrl('i1', held);
-    return useMapLayers({ validCoordinates: track, coordinates: track, trackUrl });
+    return useMapLayers({
+      validCoordinates: track,
+      coordinates: track,
+      trackUrl,
+      mapStyle: 'light',
+    });
   };
 
   it('is the URL when the engine holds the track, and keeps the coordinates for their readers', async () => {

@@ -2,8 +2,8 @@ import { listCountLabel, SECTION_COUNT_KEYS } from '@/features/routes/lib/listCo
 import React from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Button, IconButton, SearchBar } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
@@ -130,7 +130,7 @@ export function SectionsListHeader({
                 color={isDark ? darkColors.textSecondary : colors.textSecondary}
               />
             ) : (
-              <MaterialCommunityIcons
+              <Icon
                 name="reload"
                 size={iconSize.sm}
                 color={
@@ -149,7 +149,7 @@ export function SectionsListHeader({
       </View>
       {elevationLine !== null && (
         <View style={styles.pausedRow} testID="elevation-backfill-row">
-          <MaterialCommunityIcons
+          <Icon
             name="elevation-rise"
             size={iconSize.xs}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -159,7 +159,7 @@ export function SectionsListHeader({
       )}
       {refusalKey !== null && (
         <View style={styles.pausedRow} testID="rescan-refused">
-          <MaterialCommunityIcons
+          <Icon
             name="information-outline"
             size={iconSize.xs}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -169,7 +169,7 @@ export function SectionsListHeader({
       )}
       {detectionHold !== null && (
         <View style={styles.pausedRow} testID="detection-paused">
-          <MaterialCommunityIcons
+          <Icon
             name="pause-circle-outline"
             size={iconSize.xs}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}

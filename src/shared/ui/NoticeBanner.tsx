@@ -19,13 +19,14 @@ import React, { useEffect } from 'react';
 import { StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { useBannerTopPadding } from '@/shared/app/TopSafeAreaContext';
 import { useTopBannerHeights, type ShownBanner } from '@/shared/app/topBanner';
 import { controlHeight, iconSize, motionPresets, spacing, stroke, typography } from '@/theme';
+import { Icon } from './Icon';
 import { Button } from './Button';
 import { IconButton } from './IconButton';
 import { useAnnounceOnAppear } from './useAnnounceOnAppear';
@@ -94,7 +95,7 @@ export function NoticeBanner({
       >
         <View testID={`${testID}-content`} style={[styles.content, stacked && styles.stacked]}>
           <View style={[styles.headline, !stacked && styles.headlineBeside]}>
-            <MaterialCommunityIcons name={icon} size={iconSize.sm} color={ground.icon} />
+            <Icon name={icon} size={iconSize.sm} color={ground.icon} />
             <View style={styles.text}>
               <Text style={[styles.title, { color: ground.text }]}>{title}</Text>
               {detail.map((line, index) => (
@@ -123,7 +124,7 @@ export function NoticeBanner({
                   compact
                   testID={`${testID}-dismiss`}
                 >
-                  <MaterialCommunityIcons name="close" size={iconSize.sm} color={ground.subtext} />
+                  <Icon name="close" size={iconSize.sm} color={ground.subtext} />
                 </IconButton>
               ) : null}
             </View>

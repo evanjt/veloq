@@ -12,12 +12,7 @@
  */
 
 import React, { createRef } from 'react';
-import type {
-  KeyboardEvent,
-  ScrollView as ScrollViewType,
-  StyleProp,
-  ViewStyle,
-} from 'react-native';
+import type { KeyboardEvent, ScrollViewInstance, StyleProp, ViewStyle } from 'react-native';
 
 type KeyboardListener = (event: KeyboardEvent | null) => void;
 
@@ -149,7 +144,7 @@ describe('ScreenScrollView', () => {
 
   it('forwards the other props and the ref to the scroll view', async () => {
     const ui = loadFor('ios');
-    const ref = createRef<ScrollViewType>();
+    const ref = createRef<ScrollViewInstance>();
     const { getByTestId } = await ui.rtl.render(
       <ui.ScreenScrollView ref={ref} testID="body" showsVerticalScrollIndicator={false}>
         <ui.rn.Text>x</ui.rn.Text>

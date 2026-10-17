@@ -7,8 +7,7 @@ import React, { memo, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { useTranslation } from 'react-i18next';
 import {
   colors,
@@ -36,6 +35,7 @@ import {
   ROW_PREVIEW_WIDTH,
 } from '@/features/routes/lib/rowLayout';
 import { NameText } from '@/shared/ui/NameText';
+import { Icon } from '@/shared/ui/Icon';
 
 interface RouteRowProps {
   /** Route data - can be either DiscoveredRouteInfo (during processing) or RouteGroup (saved) */
@@ -68,7 +68,7 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
 
   // Get activity color for the route type
   // RouteGroup.type is ActivityType, DiscoveredRouteInfo.type is string
-  const activityColor = palette.primary;
+  const activityColor = palette.actionPrimary;
 
   // Get preview points from the route's representative.
   const previewPoints = useMemo(() => {
@@ -103,7 +103,7 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
   // which `batchGroupToRouteGroup` always builds empty, so it never had a row
   // to draw. Every row the list renders is navigable.
   const handlePress = () => {
-    if (navigable) tapTo(`/route/${route.id}`);
+    if (navigable) navigateTo(`/route/${route.id}`);
   };
 
   return (
@@ -129,10 +129,10 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
             <TrackPreview points={previewPoints} color={activityColor} isDark={isDark} />
           ) : (
             <View style={[styles.previewPlaceholder, isDark && styles.previewPlaceholderDark]}>
-              <MaterialCommunityIcons
+              <Icon
                 name={getActivityIcon(toActivityType(route.type))}
                 size={iconSize.md}
-                color={isDark ? darkColors.iconFaint : colors.iconFaint}
+                color={isDark ? darkColors.iconMuted : colors.iconMuted}
               />
             </View>
           )}
@@ -161,7 +161,7 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
             ) : null}
             {proximityText ? (
               <View style={styles.proximityTag}>
-                <MaterialCommunityIcons
+                <Icon
                   name="map-marker-distance"
                   size={iconSize.xs}
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -175,7 +175,7 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
               <Text
                 style={[
                   styles.matchPercent,
-                  { color: isDark ? darkColors.successDeep : colors.successDeep },
+                  { color: isDark ? darkColors.successText : colors.successText },
                 ]}
               >
                 {matchText}
@@ -186,24 +186,22 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
 
         {/* Activity count badge */}
         <View
-          style={[styles.countBadge, { backgroundColor: palette.primary }]}
+          style={[styles.countBadge, { backgroundColor: palette.actionPrimary }]}
           accessible
           accessibilityLabel={countLabel}
           testID={`route-row-${route.id}-count`}
         >
-          <MaterialCommunityIcons
+          <Icon
             name="map-marker-multiple"
             size={iconSize.sm}
-            color={colors.textOnPrimary}
+            color={colors.textOnFill}
             testID={`route-row-${route.id}-count-glyph`}
           />
           <Text style={styles.countText}>{route.activityCount}</Text>
-          <MaterialCommunityIcons
+          <Icon
             name={navigable ? 'chevron-right' : 'chevron-down'}
             size={iconSize.sm}
-            color={
-              navigable ? colors.textOnDark : isDark ? colors.neutralLine : colors.textSecondary
-            }
+            color={navigable ? colors.textOnFill : isDark ? colors.iconMuted : colors.textSecondary}
           />
         </View>
       </Card>
@@ -301,10 +299,10 @@ const styles = StyleSheet.create({
   },
   countText: {
     ...typography.bodyCompactBold,
-    color: colors.textOnPrimary,
+    color: colors.textOnFill,
   },
   textLight: {
-    color: colors.textOnDark,
+    color: colors.textOnFill,
   },
   textSecondary: {
     color: darkColors.textSecondary,

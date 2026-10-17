@@ -24,7 +24,7 @@ export function TourReturnPill() {
     dismissTour(currentVersion);
   };
 
-  const bgColor = isDark ? darkColors.surfaceElevated : colors.surface;
+  const bgColor = isDark ? darkColors.surfaceRaised : colors.surface;
 
   return (
     <Animated.View style={styles.container} {...motionPresets.pill}>

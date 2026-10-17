@@ -51,6 +51,26 @@ jest.mock("expo-router", () => {
 });
 
 // The back intercept needs the same navigator. A suite that drives a real stack unmocks both.
+// The stand-ins Jest gives expo-notifications' native modules answer
+// `addListener` with a promise rather than a subscription, so a listener the app
+// adds, or a second notification handler, has nothing to remove.
+jest.mock("expo-notifications/build/NotificationsHandlerModule", () => {
+  const actual = jest.requireActual("expo-notifications/build/NotificationsHandlerModule");
+  return {
+    __esModule: true,
+    ...actual,
+    default: { ...actual.default, addListener: () => ({ remove: () => undefined }) },
+  };
+});
+jest.mock("expo-notifications/build/NotificationsEmitterModule", () => {
+  const actual = jest.requireActual("expo-notifications/build/NotificationsEmitterModule");
+  return {
+    __esModule: true,
+    ...actual,
+    default: { ...actual.default, addListener: () => ({ remove: () => undefined }) },
+  };
+});
+
 jest.mock("expo-router/react-navigation", () => ({
   ...jest.requireActual("expo-router/react-navigation"),
   useNavigation: () => ({ dispatch: jest.fn() }),

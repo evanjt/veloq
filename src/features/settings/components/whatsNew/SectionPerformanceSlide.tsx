@@ -171,7 +171,7 @@ export function SectionPerformanceSlide() {
             }
           >
             {pictures.points.map((p, i) => (
-              <Circle key={i} cx={p.x} cy={p.y} r={2.5} color={palette.primary} />
+              <Circle key={i} cx={p.x} cy={p.y} r={2.5} color={palette.actionPrimary} />
             ))}
             <Line
               p1={pictures.trendStart}
@@ -193,7 +193,7 @@ export function SectionPerformanceSlide() {
                 y={PANEL_HEIGHT - PAD - bar.height}
                 width={bar.width}
                 height={bar.height}
-                color={palette.primary}
+                color={palette.actionPrimary}
               />
             ))}
           </Panel>
@@ -219,7 +219,9 @@ export function SectionPerformanceSlide() {
                   strokeWidth={newest ? 2 : 1}
                   strokeJoin="round"
                   color={
-                    newest ? palette.primary : colorWithOpacity(palette.primary, FAINT_OPACITY)
+                    newest
+                      ? palette.actionPrimary
+                      : colorWithOpacity(palette.actionPrimary, FAINT_OPACITY)
                   }
                 />
               );

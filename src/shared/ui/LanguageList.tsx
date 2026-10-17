@@ -1,7 +1,6 @@
 import React from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
@@ -25,8 +24,9 @@ import {
   typography,
   stroke,
 } from '@/theme';
+import { Icon } from './Icon';
 import { ToggleButton } from './Button';
-import { pressable, pressRipple } from './pressFeedback';
+import { PressTarget } from './PressTarget';
 
 interface LanguageListProps {
   /** The stored language code. */
@@ -54,15 +54,14 @@ export function LanguageList({ language, onSelect }: LanguageListProps) {
   return (
     <View>
       <View style={[styles.languageRow, isDark && styles.languageRowDark]}>
-        <Pressable
+        <PressTarget
           testID="language-system"
           onPress={() => onSelect(SYSTEM_LANGUAGE)}
-          style={pressable(styles.languageLabelContainer)}
+          style={styles.languageLabelContainer}
           hitSlop={slopToMinTapTarget(LANGUAGE_LABEL_HEIGHT)}
           accessibilityRole="button"
           accessibilityLabel={`${t('settings.system')}, ${phoneLanguage}`}
           accessibilityState={{ selected: followsSystem }}
-          android_ripple={pressRipple}
         >
           <Text style={[styles.languageLabel, isDark && styles.textLight]}>
             {t('settings.system')}
@@ -70,25 +69,22 @@ export function LanguageList({ language, onSelect }: LanguageListProps) {
           <Text style={[styles.systemLanguage, isDark && styles.textSecondary]}>
             {phoneLanguage}
           </Text>
-        </Pressable>
+        </PressTarget>
         {Platform.OS === 'ios' && (
-          <Pressable
+          <PressTarget
             testID="language-open-settings"
             onPress={openAppSettings}
-            style={pressable(styles.settingsLink)}
+            style={styles.settingsLink}
             hitSlop={slopToMinTapTarget(LANGUAGE_LABEL_HEIGHT)}
             accessibilityRole="link"
             accessibilityLabel={t('common.openSettings')}
-            android_ripple={pressRipple}
           >
             <Text style={[styles.settingsLinkText, isDark && styles.settingsLinkTextDark]}>
               {t('common.openSettings')}
             </Text>
-          </Pressable>
+          </PressTarget>
         )}
-        {followsSystem ? (
-          <MaterialCommunityIcons name="check" size={iconSize.md} color={checkInk} />
-        ) : null}
+        {followsSystem ? <Icon name="check" size={iconSize.md} color={checkInk} /> : null}
       </View>
       {languages.map((lang) => {
         const isSelected = language === lang.value;
@@ -100,19 +96,18 @@ export function LanguageList({ language, onSelect }: LanguageListProps) {
             key={lang.value}
             style={[styles.languageRow, styles.languageRowBorder, isDark && styles.languageRowDark]}
           >
-            <Pressable
+            <PressTarget
               onPress={() =>
                 onSelect(lang.defaultVariant ?? lang.variants?.[0]?.value ?? lang.value)
               }
-              style={pressable(styles.languageLabelContainer)}
+              style={styles.languageLabelContainer}
               hitSlop={slopToMinTapTarget(LANGUAGE_LABEL_HEIGHT)}
               accessibilityRole="button"
               accessibilityLabel={lang.label}
               accessibilityState={{ selected: showCheck }}
-              android_ripple={pressRipple}
             >
               <Text style={[styles.languageLabel, isDark && styles.textLight]}>{lang.label}</Text>
-            </Pressable>
+            </PressTarget>
             {lang.variants ? (
               <View style={styles.variantChips}>
                 {lang.variants.map((variant) => {
@@ -139,7 +134,7 @@ export function LanguageList({ language, onSelect }: LanguageListProps) {
               </View>
             ) : null}
             {showCheck && !lang.variants ? (
-              <MaterialCommunityIcons name="check" size={iconSize.md} color={checkInk} />
+              <Icon name="check" size={iconSize.md} color={checkInk} />
             ) : null}
           </View>
         );

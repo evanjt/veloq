@@ -6,18 +6,18 @@
 import React from 'react';
 import { StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { useMetricSystem } from '@/shared/app';
 import {
   DetailHero,
   HeroStatsRow,
-  useHeroHeaderBottom,
-  useHeroMapHeight,
   Shimmer,
   SkeletonFrame,
+  useHeroHeaderBottom,
+  useHeroMapHeight,
 } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { PlaceNameKind } from 'veloqrs';
 import { SectionNameEditor } from './SectionNameEditor';
 import { PlaceNameButton } from '../PlaceNameButton';
@@ -156,13 +156,13 @@ export function SectionHeader({
               android_ripple={pressRipple}
               hitSlop={liftBadgeSlop}
             >
-              <MaterialCommunityIcons name="gondola" size={iconSize.sm} color={colors.textOnDark} />
+              <Icon name="gondola" size={iconSize.sm} color={colors.textOnFill} />
               <Text style={styles.liftBadgeText}>{t('sections.liftGround')}</Text>
               {onUnflagLift ? (
-                <MaterialCommunityIcons
+                <Icon
                   name="close"
                   size={iconSize.sm}
-                  color={colors.textOnDark}
+                  color={colors.textOnFill}
                   testID="section-lift-unflag"
                 />
               ) : null}
@@ -217,6 +217,6 @@ const styles = StyleSheet.create({
   },
   liftBadgeText: {
     ...typography.captionBold,
-    color: colors.textOnDark,
+    color: colors.textOnFill,
   },
 });

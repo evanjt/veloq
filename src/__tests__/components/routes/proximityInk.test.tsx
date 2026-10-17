@@ -99,7 +99,7 @@ describe.each([
       const { ink, ground } = inkAndGround(view.getByText('3.7 km'));
       const disabled = dark ? darkColors.textDisabled : colors.textDisabled;
 
-      expect(ground).toBe(dark ? darkColors.surfaceCard : colors.surface);
+      expect(ground).toBe(dark ? darkColors.surfaceRaised : colors.surface);
       expect(ink).not.toBe(disabled);
       expect(contrastRatio(ink, ground as string)).toBeGreaterThanOrEqual(4.5);
     }

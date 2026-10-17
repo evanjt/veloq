@@ -66,7 +66,12 @@ it('hands the shared empty collection to the fullscreen overlay when none is pas
 it('draws no portions when the activity has no section overlays', async () => {
   for (const sectionOverlays of [null, []]) {
     const { result } = await renderHook(() =>
-      useMapLayers({ validCoordinates: track, coordinates: track, sectionOverlays })
+      useMapLayers({
+        validCoordinates: track,
+        coordinates: track,
+        sectionOverlays,
+        mapStyle: 'light',
+      })
     );
     expect(result.current.consolidatedPortionsGeoJSON).toBe(EMPTY_FEATURE_COLLECTION);
   }

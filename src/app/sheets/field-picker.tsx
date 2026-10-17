@@ -1,13 +1,13 @@
 import React from 'react';
 import { Pressable, View, FlatList, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { pressable, pressRipple, SheetHeader } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { ALL_DATA_FIELDS, CALORIES_ASSUMED_AGE, useCaloriesWeight } from '@/features/recording';
 import {
   colors,
@@ -22,7 +22,7 @@ import {
   opacity,
 } from '@/theme';
 import type { DataFieldType } from '@/types';
-import { tapBack } from '@/shared/app/navigation';
+import { goBack } from '@/shared/app/navigation';
 
 /**
  * The data field picker for a recording tile, a sheet route opened with `openSheet` and answered
@@ -50,7 +50,7 @@ function FieldPickerSheetContent() {
     <View style={styles.sheet}>
       <SheetHeader
         title={t('recording.settingsDataFields', 'Data fields')}
-        onCancel={() => tapBack()}
+        onCancel={() => goBack()}
         cancelTestID="field-picker-cancel"
       />
       <FlatList
@@ -69,7 +69,9 @@ function FieldPickerSheetContent() {
               style={pressable([
                 styles.row,
                 { borderBottomColor: border },
-                isSelected && { backgroundColor: colorWithOpacity(palette.primary, opacity.tint1) },
+                isSelected && {
+                  backgroundColor: colorWithOpacity(palette.actionPrimary, opacity.tint1),
+                },
               ])}
               android_ripple={pressRipple}
               onPress={() => resolve(item)}
@@ -88,7 +90,7 @@ function FieldPickerSheetContent() {
                 ) : null}
               </View>
               {isSelected ? (
-                <MaterialCommunityIcons name="check" size={iconSize.md} color={palette.primary} />
+                <Icon name="check" size={iconSize.md} color={palette.actionPrimary} />
               ) : null}
             </Pressable>
           );

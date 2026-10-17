@@ -10,11 +10,11 @@ import React from 'react';
 import { fireEvent, render } from '@testing-library/react-native';
 
 import { RoutePerformanceSection } from '@/features/routes/components/performance/RoutePerformanceSection';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
-jest.mock('@/shared/app/navigation', () => ({ tapTo: jest.fn() }));
+jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 jest.mock('@/features/routes/components/section', () => ({
   SectionScatterChart: () => null,
   ScatterLegend: () => null,
@@ -38,15 +38,15 @@ jest.mock('@/features/routes/hooks/useRoutePerformances', () => ({
   }),
 }));
 
-beforeEach(() => jest.mocked(tapTo).mockClear());
+beforeEach(() => jest.mocked(navigateTo).mockClear());
 
 it('opens the route page carrying the activity it was opened from', async () => {
   const view = await render(<RoutePerformanceSection activityId="a1" activityType="Ride" />);
 
   fireEvent.press(view.getByRole('button', { name: 'Harbour loop' }));
 
-  expect(tapTo).toHaveBeenCalledTimes(1);
-  expect(tapTo).toHaveBeenCalledWith('/route/harbour_loop?activityId=a1');
+  expect(navigateTo).toHaveBeenCalledTimes(1);
+  expect(navigateTo).toHaveBeenCalledWith('/route/harbour_loop?activityId=a1');
 });
 
 it('carries the activity id escaped so the route page reads it back whole', async () => {
@@ -54,5 +54,5 @@ it('carries the activity id escaped so the route page reads it back whole', asyn
 
   fireEvent.press(view.getByRole('button', { name: 'Harbour loop' }));
 
-  expect(tapTo).toHaveBeenCalledWith('/route/harbour_loop?activityId=a%201%26b');
+  expect(navigateTo).toHaveBeenCalledWith('/route/harbour_loop?activityId=a%201%26b');
 });

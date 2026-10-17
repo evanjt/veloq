@@ -25,7 +25,7 @@ import {
 } from './regionalMapLayerSpecs';
 import { REGIONAL_FIT_PADDING } from './regionalCamera';
 import { REGION_SETTLE_DEBOUNCE_MS } from '@/features/maps/lib/mapBudgets';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { cameraMove } from '@/theme';
 
 /** The ease onto a cluster whose leaves never arrived. */
@@ -171,7 +171,7 @@ export function useMapHandlers({
   const handleViewDetails = useCallback(() => {
     const current = selectedRef.current;
     if (current) {
-      tapTo(`/activity/${current.activity.id}`);
+      navigateTo(`/activity/${current.activity.id}`);
       setSelected(null);
     }
   }, [setSelected]);

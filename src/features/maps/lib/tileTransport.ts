@@ -81,7 +81,7 @@ export function nativeHeatmapTileUrl(): string {
 }
 
 /** What the engine answers GeoJSON for at a `veloq-geo` URL. */
-export type NativeGeoKind = 'track';
+export type NativeGeoKind = 'track' | 'route-lines';
 
 /**
  * Where the page asks for GeoJSON the engine writes from what it stores, such

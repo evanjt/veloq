@@ -10,7 +10,11 @@ import { useMemo } from 'react';
 import { type LatLng } from '@/shared/geo/polyline';
 import type { SectionOverlay } from '@/features/maps/components/ActivityMapView';
 import { sectionPaletteIndex } from '@/theme';
-import { buildGradientLineStops } from '@/features/maps/lib/gradientLineColor';
+import {
+  buildGradientLineStops,
+  gradientStepExpression,
+} from '@/features/maps/lib/gradientLineColor';
+import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import type { ActivityStreams } from '@/types';
 import type { MapGeoJSONData } from '../lib/htmlBuilders';
 import { EMPTY_FEATURE_COLLECTION } from '../lib/coordinates';
@@ -50,6 +54,8 @@ interface UseMapLayersParams {
    * still serve the scrub highlight, the camera and the 3D view.
    */
   trackUrl?: string | null | undefined;
+  /** The base map drawn, whose diverging steps colour the line by gradient */
+  mapStyle: MapStyleType;
 }
 
 interface UseMapLayersResult {
@@ -77,8 +83,8 @@ interface UseMapLayersResult {
   /** GeoJSON for highlight point, drawn as a circle layer */
   highlightGeoJSON: GeoJSON.Feature<GeoJSON.Point>;
   /**
-   * MapLibre `line-gradient` interpolation expression for the route line,
-   * derived from the `grade_smooth` and `distance` streams. `null` when there
+   * MapLibre `line-gradient` step expression for the route line, derived from
+   * the `grade_smooth` and `distance` streams in the base map's diverging steps. `null` when there
    * is no grade stream or the track is too short.
    */
   gradientLineExpression: unknown | null;
@@ -94,6 +100,7 @@ export function useMapLayers({
   activeTab,
   streams,
   trackUrl,
+  mapStyle,
 }: UseMapLayersParams): UseMapLayersResult {
   // ----- route line -----
   const routeGeoJSON = useMemo((): MapGeoJSONData => {
@@ -386,12 +393,13 @@ export function useMapLayers({
     const stops = buildGradientLineStops(
       streams.grade_smooth,
       streams.distance,
+      mapStyle,
       undefined,
       hasPosition
     );
     if (!stops) return null;
-    return ['interpolate', ['linear'], ['line-progress'], ...stops];
-  }, [streams, coordinates, validCoordinates.length]);
+    return gradientStepExpression(stops);
+  }, [streams, coordinates, validCoordinates.length, mapStyle]);
 
   return {
     routeGeoJSON,

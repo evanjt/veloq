@@ -44,7 +44,7 @@
     "explanations": {
       "conditions": "Temperatura dai dati meteo o dal sensore del tuo dispositivo.",
       "energy": "Dispendio energetico stimato da frequenza cardiaca, potenza e durata.",
-      "fitnessImpact": "Rispetto a un giorno di riposo, questa attività aggiunge carico × (1 − e^(−1/42)) alla condizione fisica e carico × (1 − e^(−1/7)) alla fatica. L’allenamento di forza aumenta solo la fatica. L’impatto sulla forma è condizione fisica meno fatica.",
+      "fitnessImpact": "Rispetto a un giorno di riposo, questa attività aggiunge carico × (1 − e^(−1/{{fitnessDays}})) alla condizione fisica e carico × (1 − e^(−1/{{fatigueDays}})) alla fatica. L’allenamento di forza aumenta solo la fatica. L’impatto sulla forma è condizione fisica meno fatica.",
       "heartRate": "Frequenza cardiaca media durante l'attività.",
       "newGround": "La quota delle tessere di mappa toccate da questa attività che nessuna attività precedente aveva toccato. Una tessera misura circa 150-300 m in base alla latitudine: è copertura di tessere, non distanza su strade nuove.",
       "activityEftp": "L'eFTP è la stima del modello di potenza di intervals.icu per questa attività.",
@@ -495,6 +495,7 @@
     "back": "Indietro",
     "close": "Chiudi",
     "cancel": "Annulla",
+    "cancelled": "Annullato",
     "clearSearch": "Cancella ricerca",
     "clearFilters": "Cancella filtri",
     "quoted": "«{{text}}»",
@@ -2893,15 +2894,31 @@
       "single": "{{name}}, {{start}}: {{value}}.",
       "series": "{{name}}, da {{start}} a {{end}}: ultimo {{latest}}, intervallo da {{min}} a {{max}}, media {{average}}.",
       "curve": "{{name}}, da {{start}} a {{end}}: {{first}} a {{start}}, {{last}} a {{end}}, picco {{max}}.",
-      "parts": "{{name}}: {{parts}}."
+      "parts": "{{name}}: {{parts}}.",
+      "dayActive": "{{name}}, {{start}}: attivo.",
+      "dayRest": "{{name}}, {{start}}: nessuna attività.",
+      "noActivity": "{{name}}, da {{start}} a {{end}}: nessuna attività.",
+      "daysActive_one": "{{name}}, da {{start}} a {{end}}: attivo {{active}} giorno su {{count}}.",
+      "daysActive_many": "{{name}}, da {{start}} a {{end}}: attivo {{active}} giorni su {{count}}.",
+      "daysActive_other": "{{name}}, da {{start}} a {{end}}: attivo {{active}} giorni su {{count}}.",
+      "longestBreak": "Pausa più lunga: {{gap}}.",
+      "dayCount_one": "{{count}} giorno",
+      "dayCount_many": "{{count}} di giorni",
+      "dayCount_other": "{{count}} giorni",
+      "peakDay": "Massimo {{value}} il {{day}}."
     },
     "column": {
       "date": "Data",
       "duration": "Durata",
       "distance": "Distanza",
       "zone": "Zona",
-      "time": "Tempo"
-    }
+      "time": "Tempo",
+      "month": "Mese",
+      "activities": "Attività",
+      "muscle": "Muscolo",
+      "sets": "Serie ponderate"
+    },
+    "activityPlot": "Grafico dell'attività"
   },
   "sportFamilies": {
     "ride": "Ciclismo",

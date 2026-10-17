@@ -8,13 +8,13 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { getPhaseDisplayKey, useCutoverSummary } from '@/features/routes';
 import { CUTOVER_FAILURE_KEYS } from '../../lib/cutoverPhaseKeys';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import type { CutoverSettings, CutoverSettingsReset } from 'veloqrs';
+import { Icon } from '@/shared/ui/Icon';
 
 type Translate = (key: string, vars?: Record<string, unknown>) => string;
 
@@ -74,10 +74,10 @@ export function SectionChangeCardSlide() {
       ) : null}
       {failure ? (
         <View style={styles.row} testID="change-card-failed">
-          <MaterialCommunityIcons
+          <Icon
             name="alert-circle-outline"
             size={iconSize.md}
-            color={isDark ? darkColors.error : colors.error}
+            color={isDark ? darkColors.errorText : colors.errorText}
           />
           <Text style={[styles.text, isDark && styles.textDark]}>{t(failure.card)}</Text>
         </View>
@@ -101,10 +101,10 @@ export function SectionChangeCardSlide() {
       )}
       {changes !== '' && (
         <View style={styles.row} testID="change-card-settings-reset">
-          <MaterialCommunityIcons
+          <Icon
             name="tune-variant"
             size={iconSize.md}
-            color={isDark ? darkColors.primary : colors.primary}
+            color={isDark ? darkColors.actionPrimary : colors.actionPrimary}
           />
           <Text style={[styles.text, isDark && styles.textDark]}>
             {t('whatsNew.v040.settingsReset', { changes })}

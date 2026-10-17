@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Canvas, RoundedRect } from '@shopify/react-native-skia';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import {
   colors,
@@ -16,6 +15,7 @@ import {
 } from '@/theme';
 import { verdictRung } from '@/shared/format/trend';
 import { ChartErrorBoundary } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { useChartColors, useMeasuredWidth } from '@/shared/charts';
 import type { Insight } from '@/types';
 import { InsightHistoryChart } from '../InsightHistoryChart';
@@ -186,7 +186,7 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
 
       {/* Change badge */}
       <View style={styles.changeRow}>
-        <MaterialCommunityIcons name={changeIcon as never} size={iconSize.md} color={changeColor} />
+        <Icon name={changeIcon as never} size={iconSize.md} color={changeColor} />
         <Text style={[styles.changeText, { color: changeColor }]}>{changeStr}</Text>
       </View>
     </View>

@@ -27,7 +27,11 @@ import type {
   ViewStyle,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Gesture, ComposedGesture, GestureType } from 'react-native-gesture-handler';
+import {
+  Gesture,
+  type GestureType,
+  type LegacyComposedGesture,
+} from 'react-native-gesture-handler';
 import {
   useSharedValue,
   useAnimatedReaction,
@@ -61,7 +65,7 @@ export interface ChartBounds {
 }
 
 /** What `GestureDetector` accepts, whether or not a tap was composed in. */
-export type ChartGesture = GestureType | ComposedGesture;
+export type ChartGesture = GestureType | LegacyComposedGesture;
 
 /** Spread on the gesture surface. Empty when the chart has nothing to step. */
 export interface ChartAccessibilityProps {

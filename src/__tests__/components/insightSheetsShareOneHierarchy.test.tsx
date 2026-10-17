@@ -24,13 +24,13 @@ import { generatePeriodComparisonInsights } from '@/features/insights/generators
 import { generateEfficiencyTrendInsights } from '@/features/insights/generators/efficiencyTrend';
 import { generateFitnessMilestoneInsights } from '@/features/insights/generators/fitnessMilestone';
 import { generateStalePRInsights } from '@/features/insights/generators/stalePr';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { colors, layout, typography } from '@/theme';
 import type { Insight } from '@/types';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub'));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
-jest.mock('@/shared/app/navigation', () => ({ tapTo: jest.fn(), navigateTo: jest.fn() }));
+jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 jest.mock('@/shared/native/useSectionDetail', () => ({
   useSectionDetail: () => ({ section: null }),
 }));
@@ -224,7 +224,7 @@ function texts(root: ReturnType<typeof render>['UNSAFE_root']) {
 }
 
 beforeAll(() => initialiseI18n('en-GB'));
-beforeEach(() => jest.mocked(tapTo).mockClear());
+beforeEach(() => jest.mocked(navigateTo).mockClear());
 
 describe('an insight sheet', () => {
   it.each([
@@ -290,9 +290,9 @@ describe('an insight sheet', () => {
 
     const reaching: string[] = [];
     for (const button of screen.getAllByRole('button')) {
-      jest.mocked(tapTo).mockClear();
+      jest.mocked(navigateTo).mockClear();
       await fireEvent.press(button);
-      const target = jest.mocked(tapTo).mock.calls[0]?.[0];
+      const target = jest.mocked(navigateTo).mock.calls[0]?.[0];
       if (typeof target === 'string' && target.startsWith('/section/quarry')) {
         reaching.push(String(button.props.accessibilityLabel ?? button.props.testID));
       }
@@ -307,6 +307,6 @@ describe('an insight sheet', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: 'View in detail' }));
 
-    expect(tapTo).toHaveBeenCalledWith('/wellness');
+    expect(navigateTo).toHaveBeenCalledWith('/wellness');
   });
 });

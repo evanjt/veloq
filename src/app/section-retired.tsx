@@ -17,7 +17,7 @@ import { getAllSectionDisplayNames, ledgerDate } from '@/features/routes';
 import { formatDistance, formatFullDate } from '@/shared/format/format';
 import { colors, darkColors, layout, spacing, typography } from '@/theme';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 
 function SectionRetiredScreenContent() {
   const { t } = useTranslation();
@@ -84,7 +84,7 @@ function SectionRetiredScreenContent() {
               <Pressable
                 key={r.sectionId}
                 testID={`section-retired-${r.sectionId}`}
-                onPress={() => tapTo(`/section/${r.into}`)}
+                onPress={() => navigateTo(`/section/${r.into}`)}
                 accessibilityRole="link"
                 accessibilityLabel={into}
                 android_ripple={pressRipple}
@@ -112,8 +112,8 @@ function SectionRetiredScreenContent() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  containerDark: { backgroundColor: darkColors.background },
+  container: { flex: 1, backgroundColor: colors.surfacePage },
+  containerDark: { backgroundColor: darkColors.surfacePage },
   content: {
     padding: layout.screenPadding,
     gap: spacing.sm,

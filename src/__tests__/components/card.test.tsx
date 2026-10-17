@@ -57,7 +57,7 @@ describe('Card surface', () => {
           <Text>x</Text>
         </Card>
       );
-      expect(flat(getByTestId(variant)).backgroundColor).toBe(darkColors.surfaceCard);
+      expect(flat(getByTestId(variant)).backgroundColor).toBe(darkColors.surfaceRaised);
     }
   });
 

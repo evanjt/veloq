@@ -52,8 +52,8 @@ describe.each([
     expect(buttons).toHaveLength(3);
     for (const [button, price] of buttons.map((b, i) => [b, ['$1', '$5', '$10'][i]] as const)) {
       const ground = flattened(button.props.style).backgroundColor as string;
-      expect(ground).not.toBe(colors.primary);
-      expect(ground).not.toBe(darkColors.primary);
+      expect(ground).not.toBe(colors.actionPrimary);
+      expect(ground).not.toBe(darkColors.actionPrimary);
       expect(ground).toBe(palette.surface);
       const ink = flattened(getByText(price).props.style).color as string;
       expect(contrastRatio(ink, ground)).toBeGreaterThan(AA_TEXT);

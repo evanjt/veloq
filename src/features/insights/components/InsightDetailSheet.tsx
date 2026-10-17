@@ -1,9 +1,8 @@
 import React, { useCallback } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
 import {
   colors,
@@ -21,6 +20,7 @@ import { MethodologySection } from './MethodologySection';
 import { viewInDetailTarget } from '../lib/dataLink';
 import type { Insight } from '@/types';
 import { pressable, pressRipple, SheetHeader, SheetScrollView } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 
 interface InsightDetailSheetProps {
   insight: Insight;
@@ -38,7 +38,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
   const handleNavigate = useCallback(() => {
     if (detailTarget) {
       onClose();
-      tapTo(detailTarget);
+      navigateTo(detailTarget);
     }
   }, [detailTarget, onClose]);
 
@@ -69,11 +69,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
               { backgroundColor: colorWithOpacity(toneColor, opacity.tint2) },
             ]}
           >
-            <MaterialCommunityIcons
-              name={insight.icon as never}
-              size={iconSize.sm}
-              color={toneColor}
-            />
+            <Icon name={insight.icon as never} size={iconSize.sm} color={toneColor} />
           </View>
         }
       />
@@ -105,7 +101,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
           <Text style={[styles.navLinkText, isDark && styles.navLinkTextDark]}>
             {t('insights.viewInDetail')}
           </Text>
-          <MaterialCommunityIcons
+          <Icon
             name="chevron-right"
             size={iconSize.md}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}

@@ -100,7 +100,7 @@ export function SectionInfoCard({
   const bestLabel = t('sections.best', 'Best');
   const avgLabel = t('sections.avg', 'Avg');
   if (bothDirections) {
-    const forwardColor = activityColor ?? themePalette(isDark).primary;
+    const forwardColor = activityColor ?? themePalette(isDark).actionPrimary;
     const entries = [
       [bestLabel, forwardBest, 'section-best-forward', 'forward', forwardColor],
       [bestLabel, reverseBest, 'section-best-reverse', 'reverse', REVERSE_COLOR],

@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { Pressable, View, SectionList, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
@@ -29,7 +28,8 @@ import {
 } from '@/shared/activity/sportCategories';
 import type { ActivityType } from '@/types';
 import { pressable, pressRipple, SheetHeader } from '@/shared/ui';
-import { tapBack } from '@/shared/app/navigation';
+import { Icon } from '@/shared/ui/Icon';
+import { goBack } from '@/shared/app/navigation';
 
 /**
  * The activity type picker, a sheet route opened with `openSheet` and answered
@@ -100,7 +100,7 @@ function ActivityTypeSheetContent() {
     <View style={styles.sheet}>
       <SheetHeader
         title={t(titleKey, titleFallback)}
-        onCancel={() => tapBack()}
+        onCancel={() => goBack()}
         cancelTestID="activity-type-cancel"
         style={!isRecording && [styles.headerBordered, isDark && styles.headerBorderedDark]}
       />
@@ -131,12 +131,14 @@ function ActivityTypeSheetContent() {
               style={pressable([
                 styles.row,
                 { borderBottomColor: border },
-                isSelected && { backgroundColor: colorWithOpacity(palette.primary, opacity.tint1) },
+                isSelected && {
+                  backgroundColor: colorWithOpacity(palette.actionPrimary, opacity.tint1),
+                },
               ])}
               onPress={() => resolve(item)}
               android_ripple={pressRipple}
             >
-              <MaterialCommunityIcons
+              <Icon
                 name={getActivityIcon(item)}
                 size={iconSize.lg}
                 color={getActivityInk(item, isDark)}
@@ -146,7 +148,7 @@ function ActivityTypeSheetContent() {
                 {t(`activityTypes.${item}`, item)}
               </Text>
               {isSelected ? (
-                <MaterialCommunityIcons name="check" size={iconSize.md} color={palette.primary} />
+                <Icon name="check" size={iconSize.md} color={palette.actionPrimary} />
               ) : null}
             </Pressable>
           );

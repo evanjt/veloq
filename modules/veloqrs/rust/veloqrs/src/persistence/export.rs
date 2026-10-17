@@ -6,7 +6,7 @@
 
 use std::io::Write;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 use rusqlite::{OpenFlags, Result as SqlResult};
 
@@ -183,8 +183,9 @@ fn unique_entry(written: &mut std::collections::HashSet<String>, stem: &str) -> 
     name
 }
 
-/// Result of a bulk export, with every skip counted under its reason.
+/// What a finished bulk export wrote, and what it left out under each reason.
 #[derive(Debug, Clone, serde::Serialize, uniffi::Record)]
+#[uniffi(name = "FfiBulkExportResult")]
 pub struct BulkExportResult {
     pub exported: u32,
     /// Activities with no stored track, such as trainer rides.
@@ -223,9 +224,14 @@ pub enum BulkExportFormat {
     GeoJson = 2,
 }
 
-/// How far a running export has got. The export thread writes it and the
-/// polling thread reads it, so the counts are atomics rather than a field on
-/// the result nobody can see until the end.
+/// What a run the athlete stopped answers with. A stop is not a failure, so
+/// the bindings carry it as its own variant rather than this text.
+pub const JOB_CANCELLED: &str = "Cancelled before it finished";
+
+/// How far a running export has got, and whether it was asked to stop. The
+/// export thread writes the counts and reads the latch, the polling thread
+/// does the reverse, so all three are atomics rather than a field on the
+/// result nobody can see until the end.
 ///
 /// `visited` moves for every stored track the writer takes, written or
 /// skipped, because `total` counts every stored track. The result says which
@@ -234,9 +240,20 @@ pub enum BulkExportFormat {
 pub struct BulkExportProgress {
     visited: AtomicU32,
     total: AtomicU32,
+    cancelled: AtomicBool,
 }
 
 impl BulkExportProgress {
+    /// Ask the writer to stop before its next track. The track in hand is
+    /// finished first, then the partial file is removed.
+    pub fn cancel(&self) {
+        self.cancelled.store(true, Ordering::SeqCst);
+    }
+
+    fn cancelled(&self) -> bool {
+        self.cancelled.load(Ordering::SeqCst)
+    }
+
     /// Tracks visited so far, and how many the export expects to visit.
     pub fn read(&self) -> (u32, u32) {
         (
@@ -753,15 +770,18 @@ impl PersistentEngine {
     /// so the export gets the same treatment as the backup: its own thread and
     /// its own connection. Only the privacy trim is read here, because it is
     /// one setting and it decides what the file may contain.
+    ///
+    /// `progress` is the run's own counters and stop latch, made by the caller
+    /// so a stop asked for before the worker starts still reaches it.
     pub fn bulk_export_background(
         &self,
         format: BulkExportFormat,
         dest_path: &str,
+        progress: Arc<BulkExportProgress>,
     ) -> super::BulkExportHandle {
         let db_path = self.db_path.clone();
         let dest_path = dest_path.to_string();
         let trim = PrivacyTrim::from_settings(self);
-        let progress = Arc::new(BulkExportProgress::default());
         let worker_progress = Arc::clone(&progress);
         let (tx, rx) = std::sync::mpsc::channel();
 
@@ -1465,6 +1485,9 @@ fn each_stored_track(
             .map_err(|e| format!("Query failed: {}", e))?;
         let mut read: i64 = 0;
         while let Some(row) = rows.next().map_err(|e| format!("Query failed: {}", e))? {
+            if progress.cancelled() {
+                return Err(JOB_CANCELLED.to_string());
+            }
             read += 1;
             let key: i64 = row.get(7).map_err(|e| format!("Query failed: {}", e))?;
             let id: String = row.get(0).map_err(|e| format!("Query failed: {}", e))?;
@@ -1500,9 +1523,31 @@ fn held_read<T>(read: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
     read()
 }
 
+/// A stopped export leaves nothing at its destination. A half-written
+/// archive opens as a shorter library than the athlete has, so it is not
+/// kept as partial work.
+fn nothing_left_if_cancelled(
+    dest_path: &str,
+    outcome: Result<BulkExportResult, String>,
+) -> Result<BulkExportResult, String> {
+    if outcome.as_ref().is_err_and(|e| e == JOB_CANCELLED) {
+        let _ = std::fs::remove_file(dest_path);
+    }
+    outcome
+}
+
 /// The gpx writer, taking the connection rather than the engine, so a
 /// background thread can run it on a connection of its own.
 fn export_gpx(
+    db: &rusqlite::Connection,
+    trim: Option<PrivacyTrim>,
+    dest_path: &str,
+    progress: &BulkExportProgress,
+) -> Result<BulkExportResult, String> {
+    nothing_left_if_cancelled(dest_path, write_gpx(db, trim, dest_path, progress))
+}
+
+fn write_gpx(
     db: &rusqlite::Connection,
     trim: Option<PrivacyTrim>,
     dest_path: &str,
@@ -1847,6 +1892,15 @@ pub fn write_geojson_feature<W: Write>(
 /// The geojson writer, taking the connection rather than the engine, so a
 /// background thread can run it on a connection of its own.
 fn export_geojson(
+    db: &rusqlite::Connection,
+    trim: Option<PrivacyTrim>,
+    dest_path: &str,
+    progress: &BulkExportProgress,
+) -> Result<BulkExportResult, String> {
+    nothing_left_if_cancelled(dest_path, write_geojson(db, trim, dest_path, progress))
+}
+
+fn write_geojson(
     db: &rusqlite::Connection,
     trim: Option<PrivacyTrim>,
     dest_path: &str,
@@ -2620,6 +2674,57 @@ mod bulk_export_tests {
         let stamp: serde_json::Value =
             serde_json::from_str(&archive_entry(&zip, "export.json")).unwrap();
         assert_provenance(&stamp, serde_json::Value::Null);
+    }
+
+    /// Scenario: the athlete stops an export before the writer takes its
+    /// next track.
+    /// Expected behaviour: both writers answer cancelled, visit nothing more
+    /// and leave no file at the destination.
+    #[test]
+    fn a_cancelled_export_answers_cancelled_and_leaves_no_file() {
+        type Writer = fn(
+            &rusqlite::Connection,
+            Option<PrivacyTrim>,
+            &str,
+            &BulkExportProgress,
+        ) -> Result<BulkExportResult, String>;
+        let dir = TempDir::new().unwrap();
+        let engine = mixed_library(&dir);
+        let writers: [(&str, Writer); 2] = [
+            ("export.zip", export_gpx),
+            ("export.geojson", export_geojson),
+        ];
+        for (name, write) in writers {
+            let dest = dir.path().join(name);
+            let progress = BulkExportProgress::default();
+            progress.cancel();
+
+            let outcome = write(&engine.db, None, dest.to_str().unwrap(), &progress);
+
+            assert_eq!(outcome.err().as_deref(), Some(JOB_CANCELLED), "{name}");
+            assert_eq!(progress.read().0, 0, "{name} took a track after the stop");
+            assert!(!dest.exists(), "{name} left a partial file");
+        }
+    }
+
+    /// An export nobody stopped is untouched by the latch it carries.
+    #[test]
+    fn an_export_nobody_cancelled_writes_its_file() {
+        let dir = TempDir::new().unwrap();
+        let engine = mixed_library(&dir);
+        let dest = dir.path().join("export.zip");
+        let progress = BulkExportProgress::default();
+
+        let result = export_gpx(
+            &engine.db,
+            PrivacyTrim::from_settings(&engine),
+            dest.to_str().unwrap(),
+            &progress,
+        )
+        .expect("gpx");
+
+        assert_eq!(result.exported, 1);
+        assert!(dest.exists());
     }
 
     #[test]

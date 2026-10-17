@@ -105,11 +105,11 @@ function Follow({
   if (!line) return null;
   const left = remainingSeconds(follow, now);
   const isRest = line.kind === 'rest';
-  const accent = isRest ? themeColors.textSecondary : themeColors.primary;
+  const accent = isRest ? themeColors.textSecondary : themeColors.actionPrimary;
 
   return (
     <View
-      style={[styles.container, { backgroundColor: themeColors.background }]}
+      style={[styles.container, { backgroundColor: themeColors.surfacePage }]}
       testID="strength-follow"
     >
       <View style={{ padding: spacing.md, gap: spacing.sm }}>

@@ -1,4 +1,5 @@
 import * as Notifications from 'expo-notifications';
+import { AndroidImportance } from 'expo-notifications';
 import { Platform } from 'react-native';
 import { nativeColours } from '@/theme';
 import { debug } from '@/shared/debug/debug';
@@ -77,7 +78,7 @@ function nameInsightsChannel(): void {
   Notifications.setNotificationChannelAsync(CHANNEL_ID, {
     name,
     description: i18n.t(CHANNEL_DESCRIPTION_KEY),
-    importance: Notifications.AndroidImportance.DEFAULT,
+    importance: AndroidImportance.DEFAULT,
     lightColor: nativeColours.notificationAccent,
   }).catch((e: unknown) => log.warn('could not create the insights channel', e));
 }

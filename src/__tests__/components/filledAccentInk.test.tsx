@@ -33,10 +33,16 @@ afterEach(() => {
 jest.mock('@/shared/app/SyncDateRangeStore', () => ({
   useSyncDateRange: (selector: (state: unknown) => unknown) =>
     selector({
-      gpsSyncProgress: { status: 'fetching', current: 4, total: 10 },
-      isGpsSyncing: true,
       extendedFetch: { running: true },
     }),
+}));
+jest.mock('@/shared/native/useSyncStatus', () => ({
+  useTrackStage: () => ({
+    step: require('../__shared__/veloqrsStub').TrackStep.Downloading,
+    completed: 4,
+    total: 10,
+    percent: 40,
+  }),
 }));
 jest.mock('@/shared/app/extendedFetch', () => ({ isExtendedFetchRunning: () => false }));
 jest.mock('@/shared/native/useLibraryCoverage', () => ({
@@ -60,7 +66,7 @@ describe('the sync progress banner', () => {
     const fill = flat(banner.props.style).backgroundColor as string;
     const inks = inksWithin(banner);
 
-    expect(fill).toBe(colors.primary);
+    expect(fill).toBe(colors.actionPrimary);
     // The headline, the count, two library lines and the icon.
     expect(inks.length).toBeGreaterThanOrEqual(4);
     for (const ink of inks) {
@@ -89,9 +95,12 @@ describe('the recording control bar', () => {
     ['idle', 'manual', 'control-save'],
   ] as const;
   const themes = [false, true] as const;
-  const notRecordFills = [colors.success, darkColors.success, brand.blue600, brand.blue550].map(
-    (c) => c.toUpperCase()
-  );
+  const notRecordFills = [
+    colors.successFill,
+    darkColors.successFill,
+    brand.blue600,
+    brand.blue550,
+  ].map((c) => c.toUpperCase());
 
   describe.each(themes)('with dark %s', (isDark) => {
     beforeEach(() => {
@@ -120,7 +129,7 @@ describe('the recording control bar', () => {
       const [stopGlyph] = getByTestId('control-stop').findAllByType(MaterialCommunityIcons);
       const [lapGlyph] = getByTestId('control-lap').findAllByType(MaterialCommunityIcons);
 
-      expect(stopGlyph.props.color).toBe(palette.errorDeep);
+      expect(stopGlyph.props.color).toBe(palette.errorText);
       expect(lapGlyph.props.color).toBe(palette.textPrimary);
     });
   });
@@ -172,7 +181,7 @@ describe('the map control column', () => {
         const fill = flat(button.props.style).backgroundColor as string;
         const [glyph] = button.findAllByType(MaterialCommunityIcons);
 
-        expect(fill).toBe(themePalette(isDark).primary);
+        expect(fill).toBe(themePalette(isDark).actionPrimary);
         expect(contrastRatio(glyph.props.color, fill)).toBeGreaterThanOrEqual(4.5);
       }
     }

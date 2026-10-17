@@ -25,7 +25,7 @@ use crate::persistence::{
 use log::info;
 use rusqlite::{OptionalExtension, params};
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use tracematch::sections::SectionConfig;
 
 /// The id of the current cutover. Absent in settings means never cut over.
@@ -77,6 +77,25 @@ static CUTOVER_CANCELLED: AtomicBool = AtomicBool::new(false);
 /// the library at, so the next launch resumes from the top.
 pub fn cancel_cutover() {
     CUTOVER_CANCELLED.store(true, Ordering::SeqCst);
+}
+
+/// The running cutover's id, for `cancel_run`, or zero between runs. Taken
+/// from the same counter as the exports, so an id names one run of one kind.
+static CUTOVER_RUN: AtomicU64 = AtomicU64::new(0);
+
+/// The running cutover's id, or nothing running.
+pub fn cutover_run() -> Option<u64> {
+    Some(CUTOVER_RUN.load(Ordering::SeqCst)).filter(|run| *run != 0)
+}
+
+/// Ask the cutover `run` to stop. Returns whether that run was still going,
+/// so an id read from a run that has ended stops nothing.
+pub fn cancel_cutover_run(run: u64) -> bool {
+    if run == 0 || CUTOVER_RUN.load(Ordering::SeqCst) != run {
+        return false;
+    }
+    cancel_cutover();
+    true
 }
 
 /// Whether the run in flight has been asked to stop.
@@ -271,7 +290,11 @@ pub(crate) fn change_card_support_from(
 }
 
 /// The claims the change card is allowed to make on this build.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, uniffi::Record,
+)]
+#[serde(rename_all = "camelCase")]
+#[uniffi(name = "FfiChangeCardSupport")]
 pub struct ChangeCardSupport {
     pub deterministic: bool,
     pub same_result_drip_or_batch: bool,
@@ -280,6 +303,19 @@ pub struct ChangeCardSupport {
     pub retired: bool,
     pub pinned_survive: bool,
     pub same_on_every_device: bool,
+}
+
+impl ChangeCardSupport {
+    /// No claim at all, for when the catalogue cannot be read.
+    pub const NONE: Self = Self {
+        deterministic: false,
+        same_result_drip_or_batch: false,
+        ledger: false,
+        revert: false,
+        retired: false,
+        pinned_survive: false,
+        same_on_every_device: false,
+    };
 }
 
 /// Where a run has got to, for the settings status line. Terminal phases are
@@ -929,6 +965,7 @@ impl PersistentEngine {
             // `is_user_defined` is the whole test. Ids are minted by the
             // identity registry, so no prefix identifies an auto section.
             .filter(|s| !s.is_user_defined)
+            .map(|s| &**s)
             .collect();
 
         // Reuse diff_catalogues with archive = old, live = new. Only the
@@ -1335,6 +1372,7 @@ fn run_cutover_claimed_with(
     }
     impl Drop for RunGuard {
         fn drop(&mut self) {
+            CUTOVER_RUN.store(0, Ordering::SeqCst);
             CUTOVER_RUNNING.store(false, Ordering::SeqCst);
             if self.announce {
                 // Written before the settle is announced, so a reader woken by
@@ -1358,6 +1396,9 @@ fn run_cutover_claimed_with(
     // is already claimed, so a flag left standing cannot refuse the next
     // launch's run before it has started.
     CUTOVER_CANCELLED.store(false, Ordering::SeqCst);
+    // Named only once the flag is clear, so a stop sent to this id is never
+    // undone by the clear.
+    CUTOVER_RUN.store(crate::objects::next_stoppable_run(), Ordering::SeqCst);
 
     // A failure anywhere below leaves the phase saying so: this covers a
     // failure before the clock enters its first phase, and `PhaseClock::drop`

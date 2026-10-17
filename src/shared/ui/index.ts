@@ -1,9 +1,9 @@
 export { Shimmer, SkeletonFrame, ActivityCardSkeleton, ChartSkeleton } from './Shimmer';
 export { BottomTabBar } from './BottomTabBar';
 export { useBottomClearance, useScrollEndInset } from './tabBarClearance';
-export { BottomPillStack } from './BottomPillStack';
+export { BottomPillSlot, BottomPillStack } from './BottomPillStack';
 export { CompassArrow, StaticCompassArrow } from './CompassArrow';
-export { Button, ToggleButton, ToggleButtonRow } from './Button';
+export { Button, ToggleButton, ToggleButtonRow, chipFrame, selectedChipPaint } from './Button';
 export type {
   ButtonGlyph,
   ButtonProps,
@@ -35,6 +35,8 @@ export { SwitchRow } from './SwitchRow';
 export type { SwitchRowInset, SwitchRowProps } from './SwitchRow';
 export { ICON_BUTTON_GAP, IconButton } from './IconButton';
 export { ChromeIcon, chromeMenuIcon, type ChromeRole } from './ChromeIcon';
+export { Icon, hiddenFromScreenReader, type IconName, type IconProps } from './Icon';
+export { TextSeparator } from './TextSeparator';
 export { secretReveal, type SecretReveal } from './secretReveal';
 export type { IconButtonProps } from './IconButton';
 export { Stepper, stepValue } from './Stepper';
@@ -52,10 +54,11 @@ export type { StatTileDelta, StatTileLayout, StatTileProps, StatTileSize } from 
 export { DeviceAttribution, isGarminDevice } from './GarminAttribution';
 export { SwipeableTabs, type SwipeableTab } from './SwipeableTabs';
 export { pageAccessibility } from './pagerAccessibility';
-export { OfflineBanner } from './OfflineBanner';
+export { FloatingPill } from './FloatingPill';
+export { FloatingPillStack } from './FloatingPillStack';
 export { hideNotice, NoticeHost, showNotice, type NoticeArgs } from './Notice';
 export { StatusLine, joinStatusMessage, type StatusTone } from './StatusLine';
-export { SyncProgressStrip } from './SyncProgressStrip';
+export { SyncPill } from './SyncPill';
 export {
   ReduceMotionSync,
   isReduceMotionOn,
@@ -97,7 +100,9 @@ export {
 export { SheetScrollView } from './SheetScrollView';
 export { TipButtons } from './TipButtons';
 export { canDrawProfilePhoto } from './profileAvatar';
+export { PressTarget, type PressTargetProps } from './PressTarget';
 export {
+  focusRing,
   pressable,
   pressedOpacity,
   pressRipple,

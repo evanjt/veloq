@@ -120,7 +120,7 @@ function RpeSliderInner({ value, onValueChange, textSecondary }: RpeSliderProps)
       <View
         style={[
           styles.rpeTrack,
-          { backgroundColor: isDark ? darkColors.surfaceElevated : colors.backgroundAlt },
+          { backgroundColor: isDark ? darkColors.surfaceRaised : colors.surfaceInput },
         ]}
         onLayout={handleLayout}
         accessible

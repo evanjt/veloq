@@ -1,6 +1,5 @@
 use super::*;
 use crate::GpsPoint;
-use crate::ffi_types::FfiGpsPoint;
 use crate::test_globals::{init_global_engine, read_while_writer_holds, serial_global_state};
 
 const HOME_LAT: f64 = 46.2333;
@@ -164,19 +163,16 @@ fn a_shared_track_loses_the_points_inside_the_configured_radius() {
     let _guard = serial_global_state();
     let _tmp = init_global_engine("trim_single_export.db");
     let settings = SettingsManager::new();
-    let track: Vec<FfiGpsPoint> = vec![
+    let track: Vec<GpsPoint> = vec![
         near_home(5.0),
         near_home(60.0),
         away(1.0),
         away(2.0),
         near_home(40.0),
         near_home(3.0),
-    ]
-    .into_iter()
-    .map(Into::into)
-    .collect();
+    ];
 
-    let build = |points: Vec<FfiGpsPoint>| {
+    let build = |points: Vec<GpsPoint>| {
         settings
             .build_gpx_file("Morning ride".into(), None, None, points)
             .unwrap()
@@ -200,13 +196,10 @@ fn a_shared_track_loses_the_points_inside_the_configured_radius() {
             .contains(&format!("lat=\"{:.6}\"", HOME_LAT))
     );
 
-    let backyard: Vec<FfiGpsPoint> = [5.0, 30.0, 10.0]
-        .iter()
-        .map(|m| near_home(*m).into())
-        .collect();
+    let backyard: Vec<GpsPoint> = [5.0, 30.0, 10.0].iter().map(|m| near_home(*m)).collect();
     assert!(build(backyard).is_none());
 
-    let no_fix: Vec<FfiGpsPoint> = vec![FfiGpsPoint {
+    let no_fix: Vec<GpsPoint> = vec![GpsPoint {
         latitude: f64::NAN,
         longitude: 7.36,
         elevation: None,

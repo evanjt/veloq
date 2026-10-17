@@ -54,7 +54,7 @@ export function SheetFrame({ name, children }: { name: string; children: React.R
   );
 }
 
-/** The root stack's `screenLayout`: a sheet route renders inside `SheetFrame`, any other as it is. */
+/** A sheet route renders inside `SheetFrame`, any other as it is. Part of `rootScreenLayout`. */
 export function sheetScreenLayout({
   route,
   children,

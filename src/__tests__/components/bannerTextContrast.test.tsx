@@ -14,7 +14,7 @@ import { render, screen } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 
 import { DemoBanner } from '@/shared/app/DemoBanner';
-import { OfflineBanner } from '@/shared/ui/OfflineBanner';
+import { OfflinePill } from '@/shared/ui/StatusPills';
 
 /** WCAG 2.2 AA for body text. */
 const AA_TEXT = 4.5;
@@ -87,9 +87,10 @@ function ratio(ink: string, fill: string): number {
 function inks(testID: string): { fill: string; inks: string[] } {
   const banner = screen.getByTestId(testID);
   const fill = StyleSheet.flatten(banner.props.style)?.backgroundColor as string;
-  const texts = screen.UNSAFE_getAllByType(
-    require('react-native-paper').Text as React.ComponentType
-  );
+  const texts = [
+    ...screen.UNSAFE_queryAllByType(require('react-native-paper').Text as React.ComponentType),
+    ...banner.findAll((node) => node.props.testID?.startsWith(`${testID}-`) ?? false),
+  ];
   return {
     fill,
     inks: texts
@@ -140,7 +141,7 @@ describe('a banner read at a glance clears the text bar', () => {
   });
 
   it('draws every offline-pill word over its fill at 4.5:1', async () => {
-    await render(<OfflineBanner />);
+    await render(<OfflinePill />);
     const { fill, inks: colours } = inks('offline-pill');
 
     expect(colours.length).toBeGreaterThan(1);

@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useEffect, useRef, useState } from 'react';
-import { View, ScrollView } from 'react-native';
+import { View, ScrollView, type ViewInstance } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useTranslation } from 'react-i18next';
@@ -105,7 +105,7 @@ function RouteDetailScreenContent() {
   const debugEnabled = useDebugStore((s) => s.enabled);
   const { getPageMetrics } = useFFITimer();
   const { exportGpx, exporting: gpxExporting } = useGpxExport();
-  const exportAnchor = useRef<View>(null);
+  const exportAnchor = useRef<ViewInstance>(null);
 
   // The chart's scrub lives outside this component, so a new index renders the
   // map and not the screen. Nothing here reads it.

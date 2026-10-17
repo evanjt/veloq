@@ -182,6 +182,55 @@ describe('checking the role map against the palette', () => {
     ]);
   });
 
+  it('names a key that reads an interface role under a name other than the role', () => {
+    const map: RoleMap = {
+      ...MAP,
+      interface: ['text-body'],
+      keys: {
+        ...MAP.keys,
+        textBody: { role: 'text-body', from: ['light', 'dark'] },
+      },
+    };
+    const palettes = {
+      light: { ...PALETTES.light, textBody: '#171B22' },
+      dark: { ...PALETTES.dark, textBody: '#EFF1F4' },
+    };
+    expect(checkColourRoles(FILE, resolved, map, palettes, readers)).toEqual([
+      'textPrimary reads the interface role text-body, which the palette names textBody',
+    ]);
+  });
+
+  it('names an interface role key that keeps a hand value in a theme', () => {
+    const map: RoleMap = {
+      interface: ['text-body', 'hover'],
+      keys: {
+        textBody: { role: 'text-body', from: ['light'] },
+        tint: { role: 'hover' },
+        oldCyan: { drop: 'no reader' },
+      },
+      reserved: MAP.reserved,
+    };
+    const palettes = {
+      light: { textBody: '#171B22', tint: 'rgba(0, 0, 0, 0.02)', oldCyan: '#06B6D4' },
+      dark: { textBody: '#FAFAFA', tint: 'rgba(255, 255, 255, 0.05)' },
+    };
+    expect(checkColourRoles(FILE, resolved, map, palettes, readers)).toEqual([
+      'textBody is the interface role text-body and reads it in light only, not in both themes',
+    ]);
+  });
+
+  it('lets a key that has not folded yet keep its own name and value', () => {
+    const map: RoleMap = { ...MAP, interface: ['hover'] };
+    expect(checkColourRoles(FILE, resolved, map, PALETTES, readers)).toEqual([]);
+  });
+
+  it('names an interface role that is not a token', () => {
+    const map: RoleMap = { ...MAP, interface: ['text-headline'] };
+    expect(checkColourRoles(FILE, resolved, map, PALETTES, readers)).toEqual([
+      'the interface role text-headline is not a token',
+    ]);
+  });
+
   it('names a reservation that matches nothing', () => {
     const map = { ...MAP, reserved: { ...MAP.reserved, 'sport-*': 'for later' } };
     expect(checkColourRoles(FILE, resolved, map, PALETTES, readers)).toEqual([

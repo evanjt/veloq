@@ -19,7 +19,7 @@ function powerConfig(): ChartConfig {
   return {
     id: 'power',
     label: 'Power',
-    color: '#FB923C',
+    stream: 'power',
     unit: 'W',
     streamKey: 'watts',
     getStream: (s: ActivityStreams) => s.watts ?? [],
@@ -31,7 +31,7 @@ function heartRateConfig(): ChartConfig {
   return {
     id: 'heartrate',
     label: 'HR',
-    color: '#EF4444',
+    stream: 'heartrate',
     unit: 'bpm',
     streamKey: 'heartrate',
     getStream: (s: ActivityStreams) => s.heartrate ?? [],
@@ -43,7 +43,7 @@ function altitudeConfig(): ChartConfig {
   return {
     id: 'altitude',
     label: 'Altitude',
-    color: '#8B5CF6',
+    stream: 'elevation',
     unit: 'm',
     unitImperial: 'ft',
     streamKey: 'altitude',
@@ -454,7 +454,7 @@ describe('buildChartData golden', () => {
       ),
       seriesInfo: result.seriesInfo.map((s) => ({
         id: s.id,
-        color: s.config.color,
+        stream: s.config.stream,
         range: s.range,
         isPreview: s.isPreview ?? false,
         rawDataLength: s.rawData.length,

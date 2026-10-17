@@ -4,13 +4,12 @@ import { RestoreRefusedError, type RestoreRefusal } from './restoreRefusal';
 import type { RestoreDrops } from './restoreNotice';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getEngine, getNativeModule, isEngineReady } from '@/shared/native/engine';
-import { formatLocalDate } from '@/shared/format/format';
 import { exportFileUri, restoreCopyUri } from '@/shared/storage/cacheFiles';
 import { shareExistingFile, type ShareAnchor } from '@/features/settings/lib/shareFile';
 import { inBackupSlot } from '@/features/settings/lib/backupSlot';
 import { withAwakeDeadline } from '@/shared/async/awakeDeadline';
 import { sweepBackupFiles } from './backupCache';
-import { SHARE_COPY_PREFIX } from '@/features/settings/lib/autobackup/backends/localBackend';
+import { backupFileName } from '@/features/settings/lib/autobackup/backends/backupName';
 import { initialiseSportPreference } from '@/features/fitness';
 import { initialiseDashboardPreferences } from '../stores/summaryCardPreferences';
 import { initialiseInsightsStore } from '@/features/insights';
@@ -64,7 +63,7 @@ async function writeRecordArchive(
   engine: NonNullable<ReturnType<typeof getEngine>>
 ): Promise<string> {
   await sweepBackupFiles();
-  const uri = await exportFileUri(`${SHARE_COPY_PREFIX}${formatLocalDate(new Date())}.zip`);
+  const uri = await exportFileUri(backupFileName(new Date().toISOString()));
   const path = uri.startsWith('file://') ? uri.slice(7) : uri;
   await engine.runRecordBackup(path);
   return uri;
@@ -121,6 +120,19 @@ export async function exportRecordBackup(anchor?: ShareAnchor): Promise<RecordEx
     return 'still-running';
   }
   return 'complete';
+}
+
+/**
+ * Ask the running record backup to stop, whichever of Export Backup or Back Up
+ * Now started it. Rust leaves the destination as it was and rejects the run
+ * with `Cancelled`. Answers whether a backup was still running to stop.
+ */
+export function cancelRecordBackup(): boolean {
+  const engine = getEngine();
+  // The backup screen's read names the running backup, since one runs at a time.
+  const run = engine?.getBackupScreenData()?.recordBackupRun;
+  if (!engine || run === undefined) return false;
+  return engine.cancelRun(run);
 }
 
 /** Whether a lapsed export still owes its file. */

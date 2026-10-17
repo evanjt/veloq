@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { TimelineSlider } from '@/features/maps';
+import { TimelineSlider, formatTrackStage } from '@/features/maps';
 import { useActivityBoundsCache } from '@/features/activity';
 import { useTheme } from '@/shared/app';
 import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
@@ -10,6 +10,7 @@ import { formatLocalDate } from '@/shared/format/format';
 import { DEFAULT_ACTIVITY_DAYS } from '@/shared/native/activityWindow.generated';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
+import { useTrackStage } from '@/shared/native/useSyncStatus';
 import { activitiesInRange, LARGE_HISTORY_THRESHOLD } from '../lib/historyGate';
 import { settingsStyles } from './settingsStyles';
 import {
@@ -36,9 +37,12 @@ export function SyncRangePanel() {
 
   const syncOldest = useSyncDateRange((s) => s.oldest);
   const isFetchingExtended = useSyncDateRange((s) => isExtendedFetchRunning(s.extendedFetch));
-  const isGpsSyncing = useSyncDateRange((s) => s.isGpsSyncing);
-  const isAnalysingInBackground = useSyncDateRange((s) => s.isAnalysingInBackground);
-  const gpsSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
+  // The track work as the engine reports it, whoever started it.
+  const trackStage = useTrackStage();
+  const trackLine = useMemo(
+    () => (trackStage ? formatTrackStage(trackStage, t) : null),
+    [trackStage, t]
+  );
   const isExpansionLocked = useSyncDateRange((s) => s.isExpansionLocked);
 
   const cachedStartDate = useMemo(() => {
@@ -58,7 +62,7 @@ export function SyncRangePanel() {
 
   const cachedEndDate = useMemo(() => new Date(), []);
 
-  const isSyncing = isGpsSyncing || isFetchingExtended;
+  const isSyncing = trackStage !== null || isFetchingExtended;
 
   const { minDateForSlider, maxDateForSlider } = useMemo(() => {
     const now = new Date();
@@ -129,14 +133,14 @@ export function SyncRangePanel() {
         </View>
 
         {/* GPS sync progress */}
-        {isSyncing || isFetchingExtended || isAnalysingInBackground ? (
+        {isSyncing ? (
           <View
             style={[
               styles.progressRow,
               {
                 backgroundColor: isDark
-                  ? colorWithOpacity(palette.primary, opacity.tint2)
-                  : colorWithOpacity(palette.primary, opacity.tint1),
+                  ? colorWithOpacity(palette.actionPrimary, opacity.tint2)
+                  : colorWithOpacity(palette.actionPrimary, opacity.tint1),
               },
             ]}
           >
@@ -146,17 +150,15 @@ export function SyncRangePanel() {
                 style={[
                   styles.progressBarFill,
                   {
-                    width: `${Math.max(gpsSyncProgress.percent, 2)}%`,
-                    backgroundColor: palette.primary,
+                    width: `${Math.max(trackLine?.percent ?? 0, 2)}%`,
+                    backgroundColor: palette.actionPrimary,
                   },
                 ]}
               />
             </View>
             <Text style={[styles.progressText, isDark && styles.progressTextDark]}>
-              {gpsSyncProgress.message ||
-                (isFetchingExtended ? t('cache.fetchingActivities') : t('common.loading'))}
-              {gpsSyncProgress.total > 0 &&
-                ` (${gpsSyncProgress.completed}/${gpsSyncProgress.total})`}
+              {trackLine?.text ?? t('cache.fetchingActivities')}
+              {trackLine?.countText ? ` (${trackLine.countText})` : null}
             </Text>
           </View>
         ) : null}

@@ -38,7 +38,7 @@ jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: false, colors: { textSecondary: '#888' } }),
   useMetricSystem: () => true,
 }));
-jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn(), tapTo: jest.fn() }));
+jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 
 jest.mock('@/shared/native/engine', () => ({
   getEngine: () => ({

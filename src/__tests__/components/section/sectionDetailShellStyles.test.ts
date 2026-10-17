@@ -46,6 +46,6 @@ describe('the section screen shell styles', () => {
         'rescanRefusalTextDark',
       ])
     );
-    expect(StyleSheet.flatten(shell.container).backgroundColor).toBe(colors.background);
+    expect(StyleSheet.flatten(shell.container)?.backgroundColor).toBe(colors.surfacePage);
   });
 });

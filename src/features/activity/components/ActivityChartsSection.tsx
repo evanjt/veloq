@@ -6,10 +6,10 @@ import {
   Platform,
   StyleSheet,
   type LayoutChangeEvent,
+  type ViewInstance,
 } from 'react-native';
 import { FullWindowModal } from '@/shared/ui/FullWindowModal';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
   SafeAreaProvider,
@@ -37,6 +37,7 @@ import {
   pressable,
   pressRipple,
 } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { DebugInfoPanel, DebugWarningBanner } from '@/features/routes';
 import { intervalChips } from '../lib/intervalChips';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
@@ -136,7 +137,7 @@ interface ActivityChartsSectionProps {
   onPointSelect: (index: number | null) => void;
   onInteractionChange: (isInteracting: boolean) => void;
   /** Takes the export button, which the share sheet points at on iPad. */
-  onExportGpx: (anchor: React.RefObject<View | null>) => void;
+  onExportGpx: (anchor: React.RefObject<ViewInstance | null>) => void;
 }
 
 export const ActivityChartsSection = React.memo(function ActivityChartsSection({
@@ -174,7 +175,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
 }: ActivityChartsSectionProps) {
   const { t } = useTranslation();
   const { getPageMetrics } = useFFITimer();
-  const exportAnchor = useRef<View>(null);
+  const exportAnchor = useRef<ViewInstance>(null);
 
   // Chart state
   const [selectedCharts, setSelectedCharts] = useState<ChartTypeId[]>([]);
@@ -313,10 +314,10 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                   onPress={openChartFullscreen}
                   accessibilityLabel={t('maps.openFullscreen')}
                 >
-                  <MaterialCommunityIcons
+                  <Icon
                     name="fullscreen"
                     size={iconSize.sm}
-                    color={isDark ? colors.textOnDark : colors.textPrimary}
+                    color={isDark ? colors.textOnFill : colors.textPrimary}
                   />
                 </IconButton>
               </View>
@@ -691,10 +692,10 @@ function FullscreenPlotLayout({
         hitSlop={CLOSE_SLOP}
         android_ripple={pressRipple}
       >
-        <MaterialCommunityIcons
+        <Icon
           name="close"
           size={iconSize.lg}
-          color={isDark ? colors.textOnDark : colors.textPrimary}
+          color={isDark ? colors.textOnFill : colors.textPrimary}
         />
       </Pressable>
 

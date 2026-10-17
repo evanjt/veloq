@@ -1,5 +1,4 @@
 import { useCallback } from 'react';
-import { useNavigation, type NavigationAction } from 'expo-router/react-navigation';
 import { useTranslation } from 'react-i18next';
 
 import { confirmAction } from '@/shared/ui/dialog';
@@ -15,20 +14,19 @@ import { useBackIntercept } from './useBackIntercept';
  */
 export function useDiscardGuard(dirty: boolean): void {
   const { t } = useTranslation();
-  const navigation = useNavigation();
 
   const onBack = useCallback(
-    (heldBack: NavigationAction) => {
+    (carryOut: () => void) => {
       confirmAction({
         title: t('common.discardChangesTitle'),
         message: t('common.discardChangesMessage'),
         confirmLabel: t('common.discard'),
         cancelLabel: t('common.keepEditing'),
         destructive: true,
-        onConfirm: () => navigation.dispatch(heldBack),
+        onConfirm: carryOut,
       });
     },
-    [navigation, t]
+    [t]
   );
 
   useBackIntercept(dirty, onBack);

@@ -7,7 +7,14 @@
  * the selected id rather than a rebuilt FeatureCollection, so panning with a
  * selection active does not re-upload every point.
  */
-import { colors, colorWithOpacity, ink, mapLayerColors, opacity } from '@/theme';
+import {
+  colors,
+  colorWithOpacity,
+  ink,
+  mapLayerColors,
+  opacity,
+  routePaletteExpression,
+} from '@/theme';
 import type { MapGeoJSONData, MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
 import { heatmapRasterPaint } from '@/features/maps/lib/heatmapPaint';
 import { HEATMAP_SOURCE_MINZOOM, heatmapTileTemplate } from '@/features/maps/lib/heatmapTiles';
@@ -48,8 +55,11 @@ export const REGIONAL_INTERACTIVE_LAYERS = [
 interface RegionalSourceInput {
   markersGeoJSON: GeoJSON.FeatureCollection;
   sectionsGeoJSON: GeoJSON.FeatureCollection;
-  /** The route lines, empty while the layer is off. The source stays declared either way. */
-  routesGeoJSON: GeoJSON.FeatureCollection;
+  /**
+   * The route lines, as the engine's URL for the layer or empty while the layer is off.
+   * The source stays declared either way.
+   */
+  routesGeoJSON: MapGeoJSONData;
   userLocationGeoJSON: GeoJSON.FeatureCollection;
   /** The selected activity's line, or the engine's URL for it. */
   routeGeoJSON: MapGeoJSONData;
@@ -177,7 +187,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       source: 'routes',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
       paint: {
-        'line-color': ['get', 'color'],
+        'line-color': routePaletteExpression(),
         'line-width': selectedRouteId
           ? ['case', isSelectedRoute, 5, 2]
           : ['interpolate', ['linear'], ['zoom'], 6, 1.5, 12, 2.5, 18, 4],
@@ -246,7 +256,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
       source: CLUSTER_SOURCE_ID,
       filter: ['has', 'point_count'],
       paint: {
-        'circle-color': colors.primary,
+        'circle-color': colors.actionPrimary,
         'circle-radius': ['step', ['get', 'point_count'], 20, 10, 25, 50, 30],
         // Opaque, so the count's contrast holds over any basemap beneath it.
         'circle-opacity': showActivities ? 1 : 0,
@@ -265,7 +275,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
         'text-allow-overlap': true,
         'text-ignore-placement': true,
       },
-      paint: { 'text-color': colors.textOnPrimary },
+      paint: { 'text-color': colors.textOnFill },
       visible: showActivities,
     },
     {
@@ -302,7 +312,7 @@ export function buildRegionalLayers(input: RegionalLayerInput): MapLayerSpec[] {
           : 0,
         'circle-stroke-width': selectedActivityId ? ['case', isSelectedActivity, 2.5, 1.5] : 1.5,
         'circle-stroke-color': selectedActivityId
-          ? ['case', isSelectedActivity, colors.primary, colorWithOpacity(ink.white, 0.8)]
+          ? ['case', isSelectedActivity, colors.actionPrimary, colorWithOpacity(ink.white, 0.8)]
           : colorWithOpacity(ink.white, 0.8),
         'circle-stroke-opacity': showActivities ? 1 : 0,
       },

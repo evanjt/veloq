@@ -261,7 +261,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
         'icon-ignore-placement': true,
         'icon-anchor': 'center',
       },
-      paint: { 'icon-color': colors.textOnDark, 'icon-opacity': creationMode ? 1 : 0 },
+      paint: { 'icon-color': colors.textOnFill, 'icon-opacity': creationMode ? 1 : 0 },
       visible: creationMode,
     },
     {
@@ -296,7 +296,7 @@ export function buildActivityLayers(input: ActivityLayerInput): MapLayerSpec[] {
         'text-allow-overlap': true,
         'text-ignore-placement': true,
       },
-      paint: { 'text-color': colors.textOnDark },
+      paint: { 'text-color': colors.textOnFill },
     },
     {
       id: 'section-marker-pr-icon',

@@ -48,9 +48,10 @@ export const UPSTREAM: Record<Exclude<keyof typeof FILES, 'helper'>, string> = {
     '      handleLocationUpdate(result.locations)',
     '    } else {',
     '      try {',
-    '        mLocationClient.lastLocation.addOnCompleteListener { task ->',
-    '          task.result?.let { handleLocationUpdate(listOf(it)) }',
-    '        }',
+    '        mLocationClient.lastLocation',
+    '          .addOnSuccessListener { location: Location? ->',
+    '            location?.let { handleLocationUpdate(listOf(it)) }',
+    '          }',
     '',
   ].join('\n'),
 };

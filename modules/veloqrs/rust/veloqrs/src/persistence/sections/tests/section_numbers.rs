@@ -86,7 +86,9 @@ fn engine_with_rides(rides: usize) -> PersistentEngine {
 /// Put `sections` in the auto catalogue the way a detection apply does.
 fn detect(engine: &mut PersistentEngine, sections: Vec<FrequentSection>) {
     engine.sections.retain(|s| s.is_user_defined);
-    engine.sections.extend(sections);
+    engine
+        .sections
+        .extend(sections.into_iter().map(std::sync::Arc::new));
     engine.save_sections().unwrap();
 }
 

@@ -16,8 +16,11 @@
 //              skipped run reports the outcome that sha was measured at, from
 //              the run history when the schedule is less often than daily
 //   cancel     nothing that runs on a push to main cancels it for a newer one
-//   aggregate  a `*-required` job needs and reads every other job, and
-//              test.yml and build.yml each keep theirs
+//   aggregate  a `*-required` job needs and reads every other job, reads the
+//              outputs any of them is gated on, and test.yml and build.yml
+//              each keep theirs
+//   gradle     every gradlew call passes --build-cache, since Gradle leaves its
+//              build cache off without it and every task reruns on a warm runner
 //   abi        a release APK is built for armeabi-v7a and arm64-v8a only, and the
 //              App Bundle is its own gradle invocation, so no athlete downloads
 //              an emulator architecture
@@ -76,6 +79,9 @@
 //   runtimes   no step pins an action at a version whose runtime is Node 20,
 //              which the runner has deprecated and forces onto Node 24, a sha
 //              pin judged by the tag in its trailing comment
+//   shards     a `--shard=I/N` takes I from a matrix key whose values are 1 to N,
+//              each once, since a count past the list or a fixed index leaves
+//              part of the suite unrun and every shard that did run reads green
 //   splice     no `run:` body and no action's `script:` input expands
 //              `inputs.*`, `github.event.*` or `github.head_ref` in place,
 //              since the runner pastes the value into the shell text before
@@ -272,6 +278,13 @@ function neverCancelsMain(expression) {
 }
 
 /** The native build a run script performs, by name, or null when it performs none. */
+/** Whether an environment hands CMake ccache as a compiler launcher. */
+function launchesCcache(env) {
+  return ['CMAKE_C_COMPILER_LAUNCHER', 'CMAKE_CXX_COMPILER_LAUNCHER'].some(
+    (name) => text(env?.[name]) === 'ccache'
+  );
+}
+
 function nativeBuild(run) {
   const lines = text(run)
     .replace(/\\\r?\n/g, ' ')
@@ -437,6 +450,20 @@ function checkStep(file, where, step, isBenchWorkflow, isDefinition = false) {
   if (uses === 'hendrikmuhs/ccache-action' && !writesOnlyOnMain(w.save)) {
     fail(file, where, `ccache-action saves off main. Set save: \${{ ${ON_MAIN} }}.`);
   }
+  if (uses === 'hendrikmuhs/ccache-action' && text(w['append-timestamp']) === 'false') {
+    fail(
+      file,
+      where,
+      'ccache-action with append-timestamp: false saves its key once and can never replace it, so the store stays the first one saved. Drop it and keep the prefix restore-keys.'
+    );
+  }
+  if (launchesCcache(step.env) && text(step.env.CCACHE_COMPILERCHECK) !== 'content') {
+    fail(
+      file,
+      where,
+      "ccache checks the compiler by mtime by default, and a compiler installed fresh on each run then misses every compile. Set CCACHE_COMPILERCHECK: content in the step's env."
+    );
+  }
   if (
     (uses === 'gradle/actions/setup-gradle' || uses === 'gradle/gradle-build-action') &&
     text(w['cache-disabled']) !== 'true' &&
@@ -505,6 +532,7 @@ function checkStep(file, where, step, isBenchWorkflow, isDefinition = false) {
     );
   }
   checkReleaseApk(file, where, step);
+  checkGradleCache(file, where, step);
   checkSimulatorEntitlements(file, where, step);
   if (!isBenchWorkflow && /\bcargo\s+(\+\S+\s+)?bench\b/.test(text(step.run))) {
     fail(
@@ -649,6 +677,28 @@ function checkReleaseApk(file, where, step) {
       file,
       where,
       'bundleRelease shares this invocation, so the bundle takes the APK architectures. Build it in its own step.'
+    );
+  }
+}
+
+/**
+ * Gradle's build cache is off unless the call asks for it, so a call without
+ * --build-cache reruns Kotlin, lint and R8 even when the restored caches hold
+ * their outputs. Each command is judged on its own, continuation lines joined.
+ */
+function checkGradleCache(file, where, step) {
+  const commands = text(step.run)
+    .replace(/\\\r?\n/g, ' ')
+    .split(/\n|&&|\|\||;|\|/);
+  if (
+    commands.some(
+      (command) => /\bgradlew\b/.test(command) && !/(^|\s)--build-cache(\s|$)/.test(command)
+    )
+  ) {
+    fail(
+      file,
+      where,
+      'a gradlew call leaves the build cache off, so every task reruns. Pass --build-cache.'
     );
   }
 }
@@ -1118,6 +1168,43 @@ function checkRunner(file, id, job) {
   }
 }
 
+const SHARD_FLAG = /--shard[=\s]+(\$\{\{[^}]*\}\}|[^\s/]+)\/(\d+)\b/g;
+
+/** Every `--shard` in a job takes its index from a matrix key that lists each shard once. */
+function checkShards(file, id, job) {
+  const matrix = job.strategy?.matrix ?? {};
+  for (const [index, step] of (job.steps ?? []).entries()) {
+    const where = `job ${id} step ${step.name ?? index + 1}`;
+    for (const [, part, count] of text(step.run).matchAll(SHARD_FLAG)) {
+      const key = part.match(/^\$\{\{\s*matrix\.([\w-]+)\s*\}\}$/)?.[1];
+      if (!key) {
+        fail(
+          file,
+          where,
+          `--shard=${part}/${count} runs one shard alone. Take the index from a matrix key.`
+        );
+        continue;
+      }
+      const values = [matrix[key] ?? []]
+        .flat()
+        .map(Number)
+        .sort((a, b) => a - b);
+      const total = Number(count);
+      const whole = values.length === total && values.every((value, i) => value === i + 1);
+      if (!whole) {
+        fail(
+          file,
+          where,
+          `--shard counts ${total} shards and matrix.${key} lists [${values.join(', ')}], so a shard goes unrun or runs twice. List 1 to ${total} once each.`
+        );
+      }
+    }
+  }
+}
+
+/** An `if:` that runs a job only on what an earlier job's outputs say. */
+const GATED_ON = /\bneeds\.([\w-]+)\.outputs\./g;
+
 function checkAggregators(file, workflow) {
   const jobs = workflow.jobs ?? {};
   const ids = Object.keys(jobs);
@@ -1141,6 +1228,15 @@ function checkAggregators(file, workflow) {
         fail(file, `job ${id}`, `does not need ${other}, so its result is never reported.`);
       } else if (!body.includes(`needs.${other}.result`)) {
         fail(file, `job ${id}`, `needs ${other} and never reads needs.${other}.result.`);
+      }
+      for (const [, gate] of text(jobs[other].if).matchAll(GATED_ON)) {
+        if (!body.includes(`needs.${gate}.outputs.`)) {
+          fail(
+            file,
+            `job ${id}`,
+            `${other} runs only on needs.${gate}.outputs and the aggregator never reads them, so it cannot tell a skip the change allows from one it does not.`
+          );
+        }
       }
     }
   }
@@ -1196,6 +1292,7 @@ for (const [file, { doc, isAction }] of parsed) {
     checkVariant(file, id, job, doc.env);
     checkCall(file, id, job, workflows);
     checkRunner(file, id, job);
+    checkShards(file, id, job);
     checkPinned(file, `job ${id}`, job.uses);
     if (startsOnTagOnly(triggers)) checkTagDeploys(file, id, job);
   }

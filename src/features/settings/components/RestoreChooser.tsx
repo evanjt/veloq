@@ -9,10 +9,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 
@@ -269,7 +269,7 @@ export function RestoreChooser({ onRestored, onBusyChange }: RestoreChooserProps
         </>
       )}
       <View testID="restore-chooser-device-backup" style={styles.deviceRow}>
-        <MaterialCommunityIcons
+        <Icon
           name="cellphone"
           size={iconSize.md}
           color={isDark ? darkColors.textSecondary : colors.textSecondary}

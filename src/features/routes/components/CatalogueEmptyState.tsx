@@ -19,7 +19,7 @@ import {
   type FfiDetectionHold,
 } from 'veloqrs';
 import { EmptyState } from '@/shared/ui';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { getPhaseDisplayKey } from '@/features/routes/lib/detectionProgress';
 
 export type CatalogueKind = 'routes' | 'sections';
@@ -37,7 +37,10 @@ interface EmptyCopy {
 }
 
 function expandRange(t: TFunction): EmptyAction {
-  return { label: t('mapScreen.expandRange') as string, onPress: () => tapTo('/sync-settings') };
+  return {
+    label: t('mapScreen.expandRange') as string,
+    onPress: () => navigateTo('/sync-settings'),
+  };
 }
 
 function heldDescription(hold: FfiDetectionHold, t: TFunction): string {
@@ -92,7 +95,7 @@ function emptyCopy(reason: FfiCatalogueEmptyReason, kind: CatalogueKind, t: TFun
         ...(hold.tag === FfiDetectionHold_Tags.ElevationPaused && {
           action: {
             label: t('common.openSettings') as string,
-            onPress: () => tapTo('/detection-settings'),
+            onPress: () => navigateTo('/detection-settings'),
           },
         }),
       };

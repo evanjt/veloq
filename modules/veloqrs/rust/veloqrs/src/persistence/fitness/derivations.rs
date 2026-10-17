@@ -3701,6 +3701,40 @@ mod tests {
         assert_eq!(trend.previous_ftp, Some(240));
     }
 
+    /// An electric mountain bike's threshold is a cycling threshold: it moves
+    /// the FTP trend and is the fitness a cycling record is measured against.
+    #[test]
+    fn an_electric_mountain_bike_threshold_is_a_cycling_threshold() {
+        let mut engine = PersistentEngine::in_memory().unwrap();
+        let day = |date: &str, sport: &str, eftp: f64| {
+            let mut row = wellness_day(date, None);
+            row.raw = Some(
+                serde_json::json!({
+                    "id": date,
+                    "sportInfo": [{"type": sport, "eftp": eftp}],
+                })
+                .to_string(),
+            );
+            row
+        };
+        engine
+            .upsert_wellness(&[
+                day("2026-08-01", "Ride", 240.0),
+                day("2026-09-05", "EMountainBikeRide", 255.0),
+            ])
+            .unwrap();
+
+        let trend = engine.get_ftp_trend_to("2026-09-05");
+        assert_eq!(trend.latest_ftp, Some(255));
+        assert_eq!(trend.previous_ftp, Some(240));
+        let midday = chrono::NaiveDate::from_ymd_opt(2026, 9, 6)
+            .and_then(|d| d.and_hms_opt(12, 0, 0))
+            .expect("midday")
+            .and_utc()
+            .timestamp() as f64;
+        assert_eq!(engine.fitness_on("EMountainBikeRide", midday), Some(255.0));
+    }
+
     /// Scenario: the stale-PR card asks what the athlete's fitness was on the
     /// day a section record was set.
     ///

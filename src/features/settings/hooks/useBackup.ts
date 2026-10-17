@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import {
+  cancelRecordBackup,
   exportRecordBackup,
   hasPendingRecordExport,
   pendingRecordExportSettled,
@@ -14,12 +15,15 @@ import { importBackupFile } from '@/features/settings/lib/importBackupFile';
 import { RESTORE_REFUSAL_KEYS, restoreRefusal } from '@/features/settings/lib/restoreRefusal';
 import type { ShareAnchor } from '@/features/settings/lib/shareFile';
 import { isPickerCopy } from '@/shared/storage/cacheFiles';
+import { engineErrorTag } from '@/shared/native/engineError';
 import { inform } from '@/shared/ui/dialog';
 
 /** `anchor` is the control the export starts from, which the share sheet points at on iPad. */
 export function useExportRecordBackup(anchor?: ShareAnchor) {
   const [exporting, setExporting] = useState(false);
   const [stillRunning, setStillRunning] = useState(false);
+  // The athlete stopped the last export. Kept until the next one starts.
+  const [cancelled, setCancelled] = useState(false);
   const running = useRef(false);
   const waiting = useRef(false);
   const live = useRef(true);
@@ -31,6 +35,19 @@ export function useExportRecordBackup(anchor?: ShareAnchor) {
       live.current = false;
     };
   }, []);
+
+  /** A stop the athlete asked for wrote nothing, so it is said in place and not alerted. */
+  const reportFailure = useCallback(
+    (err: unknown) => {
+      setStillRunning(false);
+      if (engineErrorTag(err) === 'Cancelled') {
+        if (live.current) setCancelled(true);
+        return;
+      }
+      inform({ title: t('backup.notSavedTitle'), message: t('backup.exportError') });
+    },
+    [t]
+  );
 
   const settle = useCallback(
     async function take(outcome: RecordExportOutcome): Promise<void> {
@@ -46,9 +63,8 @@ export function useExportRecordBackup(anchor?: ShareAnchor) {
             if (!live.current) return;
             try {
               await take(await resumePendingRecordExport(anchor));
-            } catch {
-              setStillRunning(false);
-              inform({ title: t('backup.notSavedTitle'), message: t('backup.exportError') });
+            } catch (err) {
+              reportFailure(err);
             }
           });
         }
@@ -56,40 +72,45 @@ export function useExportRecordBackup(anchor?: ShareAnchor) {
         setStillRunning(false);
       }
     },
-    [anchor, t]
+    [anchor, reportFailure]
   );
 
   useEffect(() => {
     if (!hasPendingRecordExport()) return;
-    resumePendingRecordExport(anchor).then(settle, () => {
-      setStillRunning(false);
-      inform({ title: t('backup.notSavedTitle'), message: t('backup.exportError') });
-    });
-  }, [anchor, settle, t]);
+    resumePendingRecordExport(anchor).then(settle, reportFailure);
+  }, [anchor, settle, reportFailure]);
 
   /**
    * Answers what became of the export: `busy` when one was already running,
-   * `failed` once the failure has been reported.
+   * `cancelled` when the athlete stopped it, `failed` once the failure has
+   * been reported.
    */
-  const doExport = useCallback(async (): Promise<RecordExportOutcome | 'busy' | 'failed'> => {
+  const doExport = useCallback(async (): Promise<
+    RecordExportOutcome | 'busy' | 'cancelled' | 'failed'
+  > => {
     if (running.current) return 'busy';
     running.current = true;
     setExporting(true);
+    setCancelled(false);
     try {
       const outcome = await exportRecordBackup(anchor);
       await settle(outcome);
       return outcome;
-    } catch {
-      setStillRunning(false);
-      inform({ title: t('backup.notSavedTitle'), message: t('backup.exportError') });
-      return 'failed';
+    } catch (err) {
+      reportFailure(err);
+      return engineErrorTag(err) === 'Cancelled' ? 'cancelled' : 'failed';
     } finally {
       running.current = false;
       if (live.current) setExporting(false);
     }
-  }, [anchor, settle, t]);
+  }, [anchor, settle, reportFailure]);
 
-  return { exportRecordBackup: doExport, exporting, stillRunning };
+  // The outcome arrives as the run's own rejection, on whichever wait holds it.
+  const cancel = useCallback(() => {
+    cancelRecordBackup();
+  }, []);
+
+  return { exportRecordBackup: doExport, cancel, cancelled, exporting, stillRunning };
 }
 
 /**

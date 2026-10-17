@@ -38,7 +38,7 @@ const series = [
 ];
 
 function badgeColor(node: { props: { style?: unknown } }) {
-  return StyleSheet.flatten(node.props.style as StyleProp<TextStyle>).color;
+  return StyleSheet.flatten(node.props.style as StyleProp<TextStyle>)?.color;
 }
 
 describe('the eFTP change badge', () => {

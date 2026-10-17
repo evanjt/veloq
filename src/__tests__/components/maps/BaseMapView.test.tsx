@@ -169,14 +169,14 @@ describe('BaseMapView', () => {
       mockTheme.isDark = true;
       await renderMap({ routeCoordinates: ROUTE, initialStyle: 'light' });
 
-      expect(groundOf('map-style-toggle')).toBe(darkColors.surfaceCard);
+      expect(groundOf('map-style-toggle')).toBe(darkColors.surfaceRaised);
       expect(attributionColour()).toBe(darkColors.textSecondary);
     });
 
     it('draws the light chrome in a light theme over the satellite map', async () => {
       await renderMap({ routeCoordinates: ROUTE, initialStyle: 'satellite' });
 
-      expect(groundOf('map-style-toggle')).not.toBe(darkColors.surfaceCard);
+      expect(groundOf('map-style-toggle')).not.toBe(darkColors.surfaceRaised);
       expect(attributionColour()).not.toBe(darkColors.textSecondary);
     });
   });

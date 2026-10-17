@@ -31,12 +31,13 @@ jest.mock('@/shared/app/SyncDateRangeStore', () => ({
     selector({
       oldest: '2026-01-01',
       newest: '2026-09-01',
-      gpsSyncProgress: { status: 'idle', completed: 0, total: 0, percent: 0, message: '' },
-      lastSyncTimestamp: null,
-      isGpsSyncing: false,
     }),
 }));
 jest.mock('@/shared/native/engine', () => ({ getEngine: () => mockEngine }));
+jest.mock('@/shared/native/useSyncStatus', () => ({
+  useTrackStage: () => null,
+  useLastSyncSuccessAt: () => null,
+}));
 jest.mock('@/shared/storage/gpsStorage', () => ({ deleteGpsTracks: jest.fn() }));
 jest.mock('@tanstack/react-query', () => ({
   ...jest.requireActual('@tanstack/react-query'),

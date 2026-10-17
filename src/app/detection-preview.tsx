@@ -54,7 +54,7 @@ import { useEngineRead } from '@/shared/native/useEngineSubscription';
 import { attemptEngineRead } from '@/shared/native/engineError';
 import type { PreviewCentre, PreviewParams, PreviewSection } from 'veloqrs';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { goBack, tapBack } from '@/shared/app/navigation';
+import { goBack } from '@/shared/app/navigation';
 import { confirmAction, inform } from '@/shared/ui/dialog';
 import { FitText } from '@/shared/ui/FitText';
 
@@ -129,11 +129,11 @@ function DetectionPreviewScreenContent() {
   const [showProposed, setShowProposed] = useState(true);
   const [showRemoved, setShowRemoved] = useState(true);
 
-  const bg = isDark ? darkColors.background : colors.background;
+  const bg = isDark ? darkColors.surfacePage : colors.surfacePage;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
-  const danger = isDark ? darkColors.error : colors.error;
+  const danger = isDark ? darkColors.errorText : colors.errorText;
 
   const selectedCentre = centre ?? centres[0] ?? null;
   const { sections: currentSections, failed: currentFailed } = usePreviewCurrentSections(
@@ -226,7 +226,7 @@ function DetectionPreviewScreenContent() {
 
   const handleDiscard = useCallback(() => {
     if (running) cancel();
-    tapBack();
+    goBack();
   }, [running, cancel]);
 
   // Leaving by any route cancels a run in flight. The Discard button did this
@@ -307,7 +307,7 @@ function DetectionPreviewScreenContent() {
               done={runPercent}
               total={100}
               label={runLabel}
-              color={palette.primary}
+              color={palette.actionPrimary}
               testID="preview-progress"
               fillTestID="preview-progress-fill"
             />

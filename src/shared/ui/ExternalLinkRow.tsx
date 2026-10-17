@@ -1,11 +1,12 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useTheme } from '@/shared/app';
 import { openExternal } from '@/shared/app/openExternal';
 import { colors, darkColors, iconSize, typography } from '@/theme';
+import { Icon } from './Icon';
 import { Row } from './Row';
 
 interface ExternalLinkRowProps {
@@ -33,7 +34,7 @@ export function ExternalLinkRow({ url, label, icon, children, testID }: External
       {children ?? (
         <>
           {icon ? (
-            <MaterialCommunityIcons
+            <Icon
               name={icon}
               size={iconSize.md}
               color={isDark ? darkColors.actionLink : colors.actionLink}

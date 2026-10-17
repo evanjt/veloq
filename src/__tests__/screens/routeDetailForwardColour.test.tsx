@@ -183,8 +183,8 @@ afterEach(() => {
 
 describe('route page forward colour', () => {
   it.each([
-    ['light', colors.primary],
-    ['dark', darkColors.primary],
+    ['light', colors.actionPrimary],
+    ['dark', darkColors.actionPrimary],
   ] as const)(
     'paints Forward in the %s primary on the chart and the Summary',
     async (scheme, primary) => {

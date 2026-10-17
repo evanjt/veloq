@@ -25,7 +25,10 @@ import { resolve } from 'node:path';
 
 const BINDINGS = 'modules/veloqrs/src/generated/veloqrs.ts';
 const APK = 'android/app/build/outputs/apk/debug/app-debug.apk';
-const LIB_IN_APK = 'lib/arm64-v8a/libveloqrs.so';
+// A device build carries the one ABI its handset loads, so the library is read
+// from whichever ABI the APK carries, arm64-v8a first.
+const LIB_IN_APK = /^lib\/[^/]+\/libveloqrs\.so$/;
+const PREFERRED_LIB = 'lib/arm64-v8a/libveloqrs.so';
 
 /** The metadata byte that opens a record definition. */
 const RECORD = 0x02;
@@ -92,7 +95,15 @@ export function disagreements(bindings, arity) {
 
 function libraryBytes(path) {
   if (path.endsWith('.apk')) {
-    return execFileSync('unzip', ['-p', path, LIB_IN_APK], {
+    const entries = execFileSync('unzip', ['-Z1', path], {
+      encoding: 'utf8',
+      maxBuffer: 64 * 1024 * 1024,
+    })
+      .split('\n')
+      .filter((entry) => LIB_IN_APK.test(entry));
+    const entry = entries.includes(PREFERRED_LIB) ? PREFERRED_LIB : entries.sort()[0];
+    if (!entry) throw new Error(`${path} carries no libveloqrs.so`);
+    return execFileSync('unzip', ['-p', path, entry], {
       encoding: 'buffer',
       maxBuffer: 512 * 1024 * 1024,
     });

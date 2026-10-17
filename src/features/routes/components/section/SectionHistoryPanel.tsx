@@ -20,7 +20,7 @@ import {
   ledgerDate,
   NO_EVENT_DETAILS,
 } from '@/features/routes/lib/sectionLedger';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 
 export const MAX_CHIPS = 6;
 
@@ -69,7 +69,7 @@ function SplitTarget({
       variant="ghost"
       size="sm"
       style={[styles.chip, styles.splitTarget, isDark && styles.chipDark]}
-      onPress={() => tapTo(`/section/${link.id}`)}
+      onPress={() => navigateTo(`/section/${link.id}`)}
     />
   );
 }
@@ -109,7 +109,7 @@ function Chips({
           size="sm"
           icon="map-marker-path"
           style={styles.activityChip}
-          onPress={() => tapTo(`/activity/${id}`)}
+          onPress={() => navigateTo(`/activity/${id}`)}
         />
       ))}
       {rest > 0 && <Text style={[styles.more, isDark && styles.textSecondaryDark]}>+{rest}</Text>}
@@ -389,14 +389,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     minHeight: PILL_HEIGHT,
     borderRadius: layout.borderRadiusLg,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfacePage,
     maxWidth: 160,
   },
   activityChip: {
     maxWidth: 160,
   },
   chipDark: {
-    backgroundColor: darkColors.surfaceElevated,
+    backgroundColor: darkColors.surfaceRaised,
   },
   splitTarget: {
     minHeight: controlHeight.buttonSm,

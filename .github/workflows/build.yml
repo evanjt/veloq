@@ -29,45 +29,46 @@ permissions:
   contents: read
 
 jobs:
-  # A pull request pays for the iOS build only when something native can
-  # change. The Android build is the app check for everything else. push and
-  # dispatch skip this job and build unconditionally below.
+  # Whether this run builds natively. A pull request that reaches neither
+  # native code nor the engine crate skips the Gradle and Xcode builds and runs
+  # the bundle check below instead. push and dispatch always build.
+  # scripts/ci-required.mjs decides it from scripts/ci-areas.mjs, and Build
+  # Required reads every build against the same answer.
   changes:
     name: Detect Native Changes
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     outputs:
-      native: ${{ steps.filter.outputs.native }}
+      native: ${{ steps.plan.outputs.native }}
+    env:
+      EVENT: ${{ github.event_name }}
     steps:
+      # Two commits: a pull request checks out its merge commit, and the first
+      # parent is the base the change is read against.
       - uses: actions/checkout@v7
-
-      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
-        id: filter
         with:
-          filters: |
-            native:
-              - 'package.json'
-              - 'package-lock.json'
-              - 'app.json'
-              - 'app.config.js'
-              - 'src/plugins/**'
-              - 'widget/**'
-              - 'push/**'
-              - 'expo-modules/**'
-              - 'modules/**'
-              - 'ios/**'
-              - '.github/workflows/build.yml'
-              - '.github/workflows/build-ios.yml'
-              - '.github/actions/**'
+          fetch-depth: 2
+
+      # A lockfile bump is native only when the package ships native code,
+      # which is read from the installed tree.
+      - name: Install dependencies
+        if: github.event_name == 'pull_request'
+        uses: ./.github/actions/npm-ci
+
+      - name: Plan the builds
+        id: plan
+        run: node scripts/ci-required.mjs build-plan
 
   # ============================================
   # Build Android
   # ============================================
-  # On pull requests too: the E2E gate now runs after a push to main, so this is
-  # the one build a Dependabot bump meets before it merges.
+  # On pull requests that reach native code too: the E2E gate runs after a push
+  # to main, so this is the one build such a bump meets before it merges. A
+  # failed plan leaves `native` empty, which builds.
   build-android:
     name: Build Android
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.native != 'false' }}
     uses: ./.github/workflows/build-android.yml
     with:
       variant: production
@@ -82,7 +83,7 @@ jobs:
   build-ios:
     name: Build iOS
     needs: changes
-    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.outputs.native == 'true') }}
+    if: ${{ !cancelled() && needs.changes.outputs.native != 'false' }}
     uses: ./.github/workflows/build-ios.yml
     with:
       variant: production
@@ -91,6 +92,30 @@ jobs:
       check-signing: ${{ github.event_name != 'pull_request' }}
       build-type: ${{ inputs.build_type || 'auto' }}
     secrets: inherit
+
+  # ============================================
+  # Bundle check, for a change that builds nothing native
+  # ============================================
+  # The Metro and Hermes bundle of the Android entry the release build embeds,
+  # so a JavaScript change that breaks the import graph or the bytecode compile
+  # still fails. Measured on 2026-10-17 on a loaded 60 GB workstation with a
+  # cold Metro cache: 21 s twice, npm ci not counted.
+  bundle-check:
+    name: Bundle Check
+    needs: changes
+    if: needs.changes.outputs.native == 'false'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      APP_VARIANT: production
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install dependencies
+        uses: ./.github/actions/npm-ci
+
+      - name: Bundle the Android entry
+        run: npx expo export --platform android --output-dir "$RUNNER_TEMP/bundle"
 
   # ============================================
   # E2E Smoke, quick post-build sanity check
@@ -167,16 +192,19 @@ jobs:
           path: smoke-report.xml
           retention-days: 7
 
-  # The one job branch protection requires from this workflow. Build iOS may be
-  # skipped only on a pull request that changes nothing native, and E2E Smoke
-  # only on a pull request, where it never runs.
+  # The one job branch protection requires from this workflow.
+  # scripts/ci-required.mjs judges it: both builds are required when the change
+  # reaches native code and the bundle check when it does not, and E2E Smoke
+  # is skipped on a pull request, where it never runs.
   build-required:
     name: Build Required
-    needs: [changes, build-android, build-ios, e2e-smoke]
+    needs: [changes, build-android, build-ios, bundle-check, e2e-smoke]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@v7
+
       - name: Check results
         env:
           EVENT: ${{ github.event_name }}
@@ -184,26 +212,6 @@ jobs:
           NATIVE: ${{ needs.changes.outputs.native }}
           ANDROID: ${{ needs.build-android.result }}
           IOS: ${{ needs.build-ios.result }}
+          BUNDLE: ${{ needs.bundle-check.result }}
           SMOKE: ${{ needs.e2e-smoke.result }}
-        run: |
-          echo "event=$EVENT changes=$CHANGES native=$NATIVE android=$ANDROID ios=$IOS smoke=$SMOKE"
-          failed=0
-          [ "$ANDROID" = success ] || failed=1
-          # A failed filter leaves `native` empty, which would read as nothing native.
-          if [ "$EVENT" = pull_request ]; then
-            [ "$CHANGES" = success ] || failed=1
-          fi
-          if [ "$EVENT" = pull_request ] && [ "$NATIVE" != true ]; then
-            [ "$IOS" = success ] || [ "$IOS" = skipped ] || failed=1
-          else
-            [ "$IOS" = success ] || failed=1
-          fi
-          if [ "$EVENT" = pull_request ]; then
-            [ "$SMOKE" = skipped ] || [ "$SMOKE" = success ] || failed=1
-          else
-            [ "$SMOKE" = success ] || failed=1
-          fi
-          if [ "$failed" = 1 ]; then
-            echo "::error::A required build did not pass."
-            exit 1
-          fi
+        run: node scripts/ci-required.mjs build-check

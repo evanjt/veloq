@@ -75,7 +75,7 @@ describe('the support card dismiss row', () => {
 
     const [later, never] = dismissButtons();
     expect(sharedDirection(later, never)).toBe('row');
-    expect(screen.queryByText('·')).not.toBeNull();
+    expect(screen.queryByText('·', { includeHiddenElements: true })).not.toBeNull();
   });
 
   it('stacks the two buttons and drops the separator past the large-text cap', async () => {
@@ -84,6 +84,6 @@ describe('the support card dismiss row', () => {
 
     const [later, never] = dismissButtons();
     expect(sharedDirection(later, never)).toBe('column');
-    expect(screen.queryByText('·')).toBeNull();
+    expect(screen.queryByText('·', { includeHiddenElements: true })).toBeNull();
   });
 });

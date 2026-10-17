@@ -4,6 +4,7 @@
 //! Conversion is done at the FFI boundary.
 
 use serde::{Deserialize, Serialize};
+use tracematch::{Bounds, GpsPoint};
 
 // ============================================================================
 // Integers on the wire
@@ -125,63 +126,26 @@ pub enum MapDistanceBand {
     Long,
 }
 
-/// GPS point for FFI
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, uniffi::Record)]
-pub struct FfiGpsPoint {
+// The matcher's track point and bounding box cross the boundary as they are.
+// The field lists repeat the matcher's, and the macro reads every field, so a
+// field added there fails this build until it is declared here.
+/// A track point, elevation in metres when the source recorded one.
+#[uniffi::remote(Record)]
+#[uniffi(name = "FfiGpsPoint")]
+pub struct GpsPoint {
     pub latitude: f64,
     pub longitude: f64,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub elevation: Option<f64>,
 }
 
-impl From<tracematch::GpsPoint> for FfiGpsPoint {
-    fn from(p: tracematch::GpsPoint) -> Self {
-        Self {
-            latitude: p.latitude,
-            longitude: p.longitude,
-            elevation: p.elevation,
-        }
-    }
-}
-
-impl From<FfiGpsPoint> for tracematch::GpsPoint {
-    fn from(p: FfiGpsPoint) -> Self {
-        match p.elevation {
-            Some(e) => Self::with_elevation(p.latitude, p.longitude, e),
-            None => Self::new(p.latitude, p.longitude),
-        }
-    }
-}
-
-/// Bounding box for FFI
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, uniffi::Record)]
-pub struct FfiBounds {
+/// A bounding box in degrees.
+#[uniffi::remote(Record)]
+#[uniffi(name = "FfiBounds")]
+pub struct Bounds {
     pub min_lat: f64,
     pub max_lat: f64,
     pub min_lng: f64,
     pub max_lng: f64,
-}
-
-impl From<tracematch::Bounds> for FfiBounds {
-    fn from(b: tracematch::Bounds) -> Self {
-        Self {
-            min_lat: b.min_lat,
-            max_lat: b.max_lat,
-            min_lng: b.min_lng,
-            max_lng: b.max_lng,
-        }
-    }
-}
-
-impl From<FfiBounds> for tracematch::Bounds {
-    fn from(b: FfiBounds) -> Self {
-        Self {
-            min_lat: b.min_lat,
-            max_lat: b.max_lat,
-            min_lng: b.min_lng,
-            max_lng: b.max_lng,
-        }
-    }
 }
 
 /// Activity metrics for FFI
@@ -623,7 +587,7 @@ pub struct FfiRouteGroup {
     pub group_id: String,
     pub representative_id: String,
     pub activity_ids: Vec<String>,
-    pub bounds: Option<FfiBounds>,
+    pub bounds: Option<Bounds>,
     pub custom_name: Option<String>,
     #[serde(default)]
     pub best_time: Option<f64>,
@@ -641,7 +605,7 @@ impl From<tracematch::RouteGroup> for FfiRouteGroup {
             group_id: g.group_id,
             representative_id: g.representative_id,
             activity_ids: g.activity_ids,
-            bounds: g.bounds.map(FfiBounds::from),
+            bounds: g.bounds,
             custom_name: g.custom_name,
             best_time: g.best_time,
             avg_time: g.avg_time,
@@ -658,7 +622,7 @@ impl From<FfiRouteGroup> for tracematch::RouteGroup {
             representative_id: g.representative_id,
             activity_ids: g.activity_ids,
             sport_type: String::new(),
-            bounds: g.bounds.map(tracematch::Bounds::from),
+            bounds: g.bounds,
             custom_name: g.custom_name,
             best_time: g.best_time,
             avg_time: g.avg_time,
@@ -1076,6 +1040,29 @@ pub struct FfiActivityLedgerChange {
     pub relation: String,
 }
 
+impl From<crate::persistence::sections::history::ActivityLedgerChange> for FfiActivityLedgerChange {
+    fn from(c: crate::persistence::sections::history::ActivityLedgerChange) -> Self {
+        let crate::persistence::sections::history::ActivityLedgerChange {
+            event_id,
+            section_id,
+            section_name,
+            section_type,
+            at,
+            kind,
+            relation,
+        } = c;
+        Self {
+            event_id: event_id as f64,
+            section_id,
+            section_name,
+            section_type,
+            at,
+            kind,
+            relation,
+        }
+    }
+}
+
 /// One stored geometry version of a section.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 #[serde(rename_all = "camelCase")]
@@ -1100,17 +1087,27 @@ pub struct FfiRetiredSection {
     pub distance_meters: Option<f64>,
 }
 
-/// The claims the change card may make on this build.
-#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
-#[serde(rename_all = "camelCase")]
-pub struct FfiChangeCardSupport {
-    pub deterministic: bool,
-    pub same_result_drip_or_batch: bool,
-    pub ledger: bool,
-    pub revert: bool,
-    pub retired: bool,
-    pub pinned_survive: bool,
-    pub same_on_every_device: bool,
+impl From<crate::persistence::sections::history::RetiredSection> for FfiRetiredSection {
+    fn from(r: crate::persistence::sections::history::RetiredSection) -> Self {
+        let crate::persistence::sections::history::RetiredSection {
+            section_id,
+            kind,
+            at,
+            into,
+            versions,
+            name,
+            distance_meters,
+        } = r;
+        Self {
+            section_id,
+            kind,
+            at,
+            into,
+            versions: versions.into_iter().map(|v| v as f64).collect(),
+            name,
+            distance_meters,
+        }
+    }
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
@@ -1125,6 +1122,9 @@ pub struct FfiBackupScreenData {
     /// Route names the latest restore gave up on because the grouping here
     /// merged their routes into one that already took a restored name.
     pub names_not_restored: u32,
+    /// The running record backup's id, for `cancel_run`, or nothing running.
+    /// Read from the job, not the database: a backup is single-flight.
+    pub record_backup_run: Option<f64>,
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
@@ -1530,7 +1530,7 @@ pub struct FfiGroupWithPolyline {
     pub representative_id: String,
     pub activity_count: u32,
     pub custom_name: Option<String>,
-    pub bounds: Option<FfiBounds>,
+    pub bounds: Option<Bounds>,
     /// Distance in meters (from representative activity's metrics)
     pub distance_meters: f64,
     /// Delta+varint encoded coordinates
@@ -1578,7 +1578,7 @@ pub struct FfiSectionWithPolyline {
     pub activity_count: u32,
     pub confidence: f64,
     pub scale: Option<String>,
-    pub bounds: Option<FfiBounds>,
+    pub bounds: Option<Bounds>,
     /// Delta+varint encoded coordinates
     pub encoded_polyline: Vec<u8>,
     /// Every sport whose included outings have taken the section, sorted.
@@ -3135,7 +3135,7 @@ pub struct FfiWidgetSnapshotData {
     /// it set a record on, and the load it usually carries
     pub latest_comparison: WidgetLatestComparison,
     /// The latest activity's GPS track, empty for indoor activities
-    pub latest_gps: Vec<FfiGpsPoint>,
+    pub latest_gps: Vec<GpsPoint>,
     /// The ramp rate intervals.icu computed, off the newest wellness day that
     /// carries one. `None` before wellness has synced. The widget derived its
     /// own from the fitness sparkline, which is a different number from the
@@ -3560,6 +3560,42 @@ mod tests {
             data.calendar_summary.as_ref()
         }
         let _ = calendar_of;
+    }
+
+    fn lowered_and_lifted<T>(value: T) -> T
+    where
+        T: uniffi::Lower<crate::UniFfiTag> + uniffi::Lift<crate::UniFfiTag>,
+    {
+        let mut buf = Vec::new();
+        <T as uniffi::Lower<crate::UniFfiTag>>::write(value, &mut buf);
+        let mut bytes = buf.as_slice();
+        let lifted = <T as uniffi::Lift<crate::UniFfiTag>>::try_read(&mut bytes).expect("lift");
+        assert!(
+            bytes.is_empty(),
+            "the lift left {} bytes unread",
+            bytes.len()
+        );
+        lifted
+    }
+
+    // The track point and the bounding box cross the boundary as the matcher's
+    // own types, so a field the matcher gains cannot be dropped by a copy.
+    #[test]
+    fn matcher_point_and_bounds_cross_the_boundary_unchanged() {
+        let bare = crate::GpsPoint::new(46.2, 7.35);
+        let raised = crate::GpsPoint::with_elevation(-33.9, 151.2, 512.5);
+        assert_eq!(lowered_and_lifted(bare), bare);
+        assert_eq!(lowered_and_lifted(raised), raised);
+        assert_eq!(lowered_and_lifted(vec![bare, raised]), vec![bare, raised]);
+
+        let bounds = crate::Bounds {
+            min_lat: 1.0,
+            max_lat: 2.0,
+            min_lng: 3.0,
+            max_lng: 4.0,
+        };
+        assert_eq!(lowered_and_lifted(bounds), bounds);
+        assert_eq!(lowered_and_lifted(Some(bounds)), Some(bounds));
     }
 
     fn direction_stats() -> crate::DirectionStats {
@@ -4107,6 +4143,49 @@ mod tests {
             uint_from_wire(9_007_199_254_740_992.0),
             9_007_199_254_740_992
         );
+    }
+
+    #[test]
+    fn an_activity_ledger_change_crosses_with_every_field() {
+        let change = FfiActivityLedgerChange::from(
+            crate::persistence::sections::history::ActivityLedgerChange {
+                event_id: 9_007_199_254_740_991,
+                section_id: "sec-heron".into(),
+                section_name: Some("Heron Ridge".into()),
+                section_type: "custom".into(),
+                at: "2025-03-04T05:06:07Z".into(),
+                kind: "merged".into(),
+                relation: "reanchored_to".into(),
+            },
+        );
+        assert_eq!(change.event_id, 9_007_199_254_740_991.0);
+        assert_eq!(change.section_id, "sec-heron");
+        assert_eq!(change.section_name.as_deref(), Some("Heron Ridge"));
+        assert_eq!(change.section_type, "custom");
+        assert_eq!(change.at, "2025-03-04T05:06:07Z");
+        assert_eq!(change.kind, "merged");
+        assert_eq!(change.relation, "reanchored_to");
+    }
+
+    #[test]
+    fn a_retired_section_crosses_with_every_field() {
+        let retired =
+            FfiRetiredSection::from(crate::persistence::sections::history::RetiredSection {
+                section_id: "sec-plover".into(),
+                kind: "superseded".into(),
+                at: "2025-08-09T10:11:12Z".into(),
+                into: Some("sec-kestrel".into()),
+                versions: vec![1, 3, 7],
+                name: Some("Plover Flats".into()),
+                distance_meters: Some(1234.5),
+            });
+        assert_eq!(retired.section_id, "sec-plover");
+        assert_eq!(retired.kind, "superseded");
+        assert_eq!(retired.at, "2025-08-09T10:11:12Z");
+        assert_eq!(retired.into.as_deref(), Some("sec-kestrel"));
+        assert_eq!(retired.versions, vec![1.0, 3.0, 7.0]);
+        assert_eq!(retired.name.as_deref(), Some("Plover Flats"));
+        assert_eq!(retired.distance_meters, Some(1234.5));
     }
 }
 

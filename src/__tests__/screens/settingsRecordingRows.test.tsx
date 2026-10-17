@@ -11,7 +11,7 @@ import React from 'react';
 import { render, within, fireEvent } from '@testing-library/react-native';
 
 import SettingsScreen from '@/app/settings';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { useSensorStore } from '@/features/sensors/store';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 
@@ -70,10 +70,10 @@ jest.mock('@/features/settings', () => ({
 }));
 
 jest.mock('@/shared/app/navigation', () => ({
-  tapTo: jest.fn(),
+  navigateTo: jest.fn(),
 }));
 
-const go = tapTo as jest.MockedFunction<typeof tapTo>;
+const go = navigateTo as jest.MockedFunction<typeof navigateTo>;
 
 /** The nav row renders its title then its subtitle, so the subtitle is the last line. */
 function subtitleOf(screen: Awaited<ReturnType<typeof render>>, testID: string): string {

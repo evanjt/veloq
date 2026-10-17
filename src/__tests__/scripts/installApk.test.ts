@@ -16,6 +16,10 @@ import { APK, RELEASE_APK, build, checkout, write } from '../__shared__/apkFixtu
 import { gitFreeEnv } from '../__shared__/gitFixture';
 
 const record = require('../../../scripts/lib/build-record.js');
+
+/** A debug APK as the debug recipes build it, with the local Rust profile. */
+const debugBuild = (root: string, options: Parameters<typeof build>[1] = {}) =>
+  build(root, { profile: 'release-dev', ...options });
 const { sourceIdentity } = require('../../../scripts/lib/build-stamp.js');
 
 const SCRIPTS = [
@@ -81,18 +85,18 @@ describe('install-apk.sh', () => {
   afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 
   it('installs the recorded build of the tree, keeping the app data', () => {
-    record.writeRecord(root, build(root), { variant: 'debug' });
+    record.writeRecord(root, debugBuild(root), { variant: 'debug' });
 
     const result = install(root);
 
     expect(result.status).toBe(0);
     expect(result.installs).toEqual([`install -r ${APK}`]);
-    expect(result.stdout).toMatch(/com\.veloq\.app\.dev debug, Rust release arm64-v8a/);
+    expect(result.stdout).toMatch(/com\.veloq\.app\.dev debug, Rust release-dev arm64-v8a/);
   });
 
   it('refuses a build whose dirty source changed since, and reaches no handset', () => {
     write(root, 'src/app.ts', 'export const greeting = "edited";\n');
-    record.writeRecord(root, build(root), { variant: 'debug' });
+    record.writeRecord(root, debugBuild(root), { variant: 'debug' });
     write(root, 'src/app.ts', 'export const greeting = "edited again";\n');
 
     const result = install(root);
@@ -103,7 +107,7 @@ describe('install-apk.sh', () => {
   });
 
   it('installs an unverified build once when --stale is passed', () => {
-    record.writeRecord(root, build(root), { variant: 'debug' });
+    record.writeRecord(root, debugBuild(root), { variant: 'debug' });
     write(root, 'src/app.ts', 'export const greeting = "edited";\n');
 
     const result = install(root, ['--stale']);
@@ -113,7 +117,7 @@ describe('install-apk.sh', () => {
   });
 
   it('refuses an APK with no build record', () => {
-    build(root);
+    debugBuild(root);
 
     const result = install(root);
 
@@ -123,7 +127,7 @@ describe('install-apk.sh', () => {
   });
 
   it('refuses a build with no library the handset can load', () => {
-    record.writeRecord(root, build(root, { abis: ['x86_64'] }), { variant: 'debug' });
+    record.writeRecord(root, debugBuild(root, { abis: ['x86_64'] }), { variant: 'debug' });
 
     const result = install(root);
 
@@ -133,7 +137,7 @@ describe('install-apk.sh', () => {
   });
 
   it('installs a build with the features it is asked for, and refuses it without them', () => {
-    record.writeRecord(root, build(root, { features: ['lock-trace'] }), { variant: 'debug' });
+    record.writeRecord(root, debugBuild(root, { features: ['lock-trace'] }), { variant: 'debug' });
 
     expect(install(root).status).toBe(1);
     const result = install(root, ['--features', 'lock-trace']);
@@ -151,7 +155,7 @@ describe('install-apk.sh', () => {
         c: 'A third phrase that a stub bundle cannot contain',
       })
     );
-    record.writeRecord(root, build(root, { bundle: 'var __BUNDLE_START_TIME__;' }), {
+    record.writeRecord(root, debugBuild(root, { bundle: 'var __BUNDLE_START_TIME__;' }), {
       variant: 'debug',
     });
 
@@ -173,7 +177,7 @@ describe('install-apk.sh', () => {
     }
 
     it('installs it when it is the build of the tree, reading a relative path from where the caller stood', () => {
-      record.writeRecord(root, build(root), { variant: 'debug' });
+      record.writeRecord(root, debugBuild(root), { variant: 'debug' });
       named();
 
       const result = install(root, [], undefined, 'before.apk', path.join(root, 'old'));
@@ -183,7 +187,7 @@ describe('install-apk.sh', () => {
     });
 
     it('refuses one cut from other inputs, prints its stamp beside the tree, and reaches no handset', () => {
-      record.writeRecord(root, build(root), { variant: 'debug' });
+      record.writeRecord(root, debugBuild(root), { variant: 'debug' });
       const file = named();
       write(root, 'src/app.ts', 'export const greeting = "later";\n');
 
@@ -196,7 +200,7 @@ describe('install-apk.sh', () => {
     });
 
     it('installs a stale one under --stale', () => {
-      record.writeRecord(root, build(root), { variant: 'debug' });
+      record.writeRecord(root, debugBuild(root), { variant: 'debug' });
       const file = named();
       write(root, 'src/app.ts', 'export const greeting = "later";\n');
 
@@ -282,7 +286,7 @@ describe('install-apk.sh', () => {
   });
 
   it('refuses an unknown argument before anything else', () => {
-    record.writeRecord(root, build(root), { variant: 'debug' });
+    record.writeRecord(root, debugBuild(root), { variant: 'debug' });
 
     const result = install(root, ['--force']);
 

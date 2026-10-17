@@ -315,9 +315,7 @@ impl PersistentEngine {
                     params![name, section_id],
                 )
                 .map_err(|e| e.to_string())?;
-            if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
-                section.name = Some(name.to_string());
-            }
+            self.edit_section(section_id, |section| section.name = Some(name.to_string()));
             return Ok(());
         }
 
@@ -422,9 +420,7 @@ impl PersistentEngine {
             "DELETE FROM section_intents WHERE id = ? AND kind = 'named'",
             params![intent_id],
         );
-        if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
-            section.name = Some(name);
-        }
+        self.edit_section(section_id, |section| section.name = Some(name.clone()));
         self.invalidate_section_cache(section_id);
     }
 
@@ -765,7 +761,7 @@ mod tests {
             Some("Quay Rise")
         );
 
-        engine.sections = vec![catalogue_section("new", line)];
+        engine.sections = vec![catalogue_section("new", line).into()];
         engine
             .db
             .execute(
@@ -798,7 +794,7 @@ mod tests {
         insert_auto_with_line(&engine, "same", &line);
         engine.upsert_named_intent_for("same", "Quay Rise").unwrap();
 
-        engine.sections = vec![catalogue_section("same", line)];
+        engine.sections = vec![catalogue_section("same", line).into()];
         engine
             .db
             .execute(

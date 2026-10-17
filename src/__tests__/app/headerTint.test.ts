@@ -15,7 +15,7 @@ describe('mapHeroChrome', () => {
   it('draws white glyphs on a transparent bar over the hero in either theme', () => {
     for (const isDark of [false, true]) {
       expect(mapHeroChrome({ scrolledPastHero: false, isDark })).toEqual({
-        tint: colors.textOnDark,
+        tint: colors.textOnFill,
         statusBarStyle: 'light',
         headerBackgroundColor: 'transparent',
       });

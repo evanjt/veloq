@@ -15,6 +15,7 @@ function state(overrides: Partial<TopBannerState> = {}): TopBannerState {
     isDemoMode: false,
     hideDemoBanner: false,
     lastError: null,
+    syncPaused: false,
     trackFetchNoticeShown: false,
     engineInitFailed: false,
     ...overrides,
@@ -40,6 +41,13 @@ describe('pickTopBanner', () => {
 
   it('gives up the slot for a stale sync error while the offline pill shows', () => {
     expect(pickTopBanner(state({ offlineBannerShown: true, lastError: 'HTTP 503' }))).toBeNull();
+  });
+
+  it('leaves the slot to the paused-sync pill while the engine waits to ask again', () => {
+    expect(pickTopBanner(state({ lastError: 'HTTP 429', syncPaused: true }))).toBeNull();
+    expect(
+      pickTopBanner(state({ lastError: 'HTTP 429', syncPaused: true, isDemoMode: true }))
+    ).toBe('demo');
   });
 
   it('shows the sync error when connected', () => {

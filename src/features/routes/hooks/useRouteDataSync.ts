@@ -116,7 +116,9 @@ function readActivityCount(): number | null {
  *
  * Progress lives in `useRouteSyncProgress`, the lifecycle refs in
  * `useRouteSyncContext` and the fetching in `useGpsDataFetcher`. This file is
- * the order they run in, nothing more.
+ * the order they run in, nothing more. The progress orders this hook's own
+ * lifecycle only: what the screens show of the track work is the engine's,
+ * read from the sync status.
  */
 export function useRouteDataSync(enabled: boolean = true): UseRouteDataSyncResult {
   // Extracted hooks
@@ -126,32 +128,7 @@ export function useRouteDataSync(enabled: boolean = true): UseRouteDataSyncResul
     updateProgress: writeProgress,
     isMountedRef,
   } = useRouteSyncProgress();
-  const setGpsSyncProgress = useSyncDateRange((s) => s.setGpsSyncProgress);
   const setGpsSyncPendingIds = useSyncDateRange((s) => s.setGpsSyncPendingIds);
-
-  // Sync progress to shared store whenever it changes
-  // This allows other screens to read progress without calling useRouteDataSync themselves
-  useEffect(() => {
-    setGpsSyncProgress(progress);
-  }, [progress, setGpsSyncProgress]);
-
-  // The sync stopped following a run that Rust kept going. Its end is what
-  // takes the "still analysing" state off the screen. The run may also have
-  // ended between the follow giving up and the progress write, in which case
-  // no announcement is coming, so the flag is checked against the engine too.
-  const detectionEnded = useEngineSubscription(['detectionApplied']);
-  const backgroundAnalysisEnded = useSyncDateRange((s) => s.backgroundAnalysisEnded);
-  const analysingInBackground = useSyncDateRange((s) => s.isAnalysingInBackground);
-  useEffect(() => {
-    if (!analysingInBackground) return;
-    let running = true;
-    try {
-      running = engine.getSectionDetectionProgress() != null;
-    } catch {
-      running = false;
-    }
-    if (!running) backgroundAnalysisEnded();
-  }, [detectionEnded, analysingInBackground, backgroundAnalysisEnded]);
   const {
     isAuthenticatedRef,
     isDemoModeRef,
@@ -390,7 +367,7 @@ export function useRouteDataSync(enabled: boolean = true): UseRouteDataSyncResul
           }
         }
 
-        // Set complete status so lastSyncTimestamp is updated.
+        // Set complete status so the expansion lock sees the pass settle.
         // Skip if aborted so a stale run can't mark a newer sync's work complete.
         if (isMountedRef.current && !abortController.signal.aborted) {
           updateProgress({
@@ -450,14 +427,12 @@ export function useRouteDataSync(enabled: boolean = true): UseRouteDataSyncResul
       // Always mark sync complete. Ownership check inside markSyncComplete
       // ensures a stale run won't clear the globals a newer sync now owns.
       markSyncComplete(abortController);
-      // And always release the cards this run was covering. The store clears
-      // them on a terminal progress too, but an aborted run publishes none:
-      // the catch above skips the update so a stale failure cannot overwrite
-      // a newer run's progress, and a gate left standing there is a feed of
-      // cards that never ask for a map again. Unconditional, without the
-      // ownership check above, because the worst this costs a newer run is
-      // one card asking for a track early, which is what it did before this
-      // gate existed.
+      // And always release the cards this run was covering, on every exit:
+      // an aborted run writes no terminal progress, and a gate left standing
+      // is a feed of cards that never ask for a map again. Unconditional,
+      // without the ownership check above, because the worst this costs a
+      // newer run is one card asking for a track early, which is what it did
+      // before this gate existed.
       setGpsSyncPendingIds([]);
     }
   }, [

@@ -3,7 +3,6 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   useDashboardPreferences,
   getMetricDefinition,
@@ -26,6 +25,7 @@ import {
   themePalette,
 } from '@/theme';
 import { Row, SwitchRow, ToggleButtonRow } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { RowDivider } from '@/shared/ui/RowGroup';
 import { settingsStyles } from './settingsStyles';
 
@@ -108,7 +108,7 @@ export function SummaryCardSection() {
         {/* Supporting Metrics */}
         <RowDivider />
         <Row>
-          <MaterialCommunityIcons name="tune-variant" size={iconSize.md} color={palette.primary} />
+          <Icon name="tune-variant" size={iconSize.md} color={palette.actionPrimary} />
           <Text style={[styles.actionText, isDark && settingsStyles.textLight]}>
             {t('settings.supportingMetrics')}
           </Text>

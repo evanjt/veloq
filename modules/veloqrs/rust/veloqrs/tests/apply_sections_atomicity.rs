@@ -92,7 +92,11 @@ fn apply_sections_remaps_duplicate_input_ids() {
     // identity registry the input ids are thrown away, so the two DISTINCT
     // grounds simply carry their own stable ids and the apply succeeds. The
     // collision cannot occur.
-    let mut broken: Vec<_> = engine.get_sections().to_vec();
+    let mut broken: Vec<_> = engine
+        .get_sections()
+        .iter()
+        .map(|s| (**s).clone())
+        .collect();
     assert!(
         broken.len() >= 2,
         "need at least two sections to construct a duplicate"

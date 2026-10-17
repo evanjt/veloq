@@ -10,7 +10,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import Swipeable from 'react-native-gesture-handler/Swipeable';
+import Swipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 
 import { SectionListItem } from '@/features/routes/components/SectionsList';
 import { swipeAction } from '@/theme';
@@ -93,7 +93,7 @@ describe('a section row for a screen reader', () => {
 async function swipedAction(item: FrequentSection, isDisabled: boolean) {
   draw(item, isDisabled);
   const reveal = screen.UNSAFE_getByType(Swipeable).props.renderRightActions;
-  const swipe = await render(reveal(null, { interpolate: () => 1 }));
+  const swipe = await render(reveal(null, { value: -80 }));
   const text = swipe.getByText(/^common\./);
   let fill: unknown;
   for (let node = text.parent; node && fill === undefined; node = node.parent) {

@@ -1,6 +1,5 @@
 import { View } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useTheme } from '@/shared/app';
 import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
@@ -9,6 +8,7 @@ import { styles } from '../RecordingScreen.styles';
 import { useTimer } from '../hooks/useTimer';
 
 import { iconSize } from '@/theme';
+import { Icon } from '@/shared/ui/Icon';
 export function IndoorDisplay({
   activityType,
   surface,
@@ -25,11 +25,7 @@ export function IndoorDisplay({
   const { formattedMoving } = useTimer();
   return (
     <View style={[styles.indoorDisplay, { backgroundColor: surface, borderColor: border }]}>
-      <MaterialCommunityIcons
-        name={getActivityIcon(activityType)}
-        size={iconSize.xxl}
-        color={activityColor}
-      />
+      <Icon name={getActivityIcon(activityType)} size={iconSize.xxl} color={activityColor} />
       <Text style={[styles.indoorTimer, { color: textPrimary }]}>{formattedMoving}</Text>
     </View>
   );

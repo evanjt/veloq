@@ -1,6 +1,14 @@
 import React, { memo, type ReactNode, type RefObject } from 'react';
-import { View, Text, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import {
+  Animated,
+  View,
+  Text,
+  StyleSheet,
+  type StyleProp,
+  type ViewStyle,
+  type TextInstance,
+} from 'react-native';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import {
@@ -14,6 +22,7 @@ import {
   themePalette,
 } from '@/theme';
 import { Button, ICON_BUTTON_GAP, IconButton } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { FIT_GLYPH } from '@/features/maps/lib/mapGlyphs';
 
 type IconName = React.ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -38,7 +47,7 @@ interface MapPopupProps {
   testID: string;
   titleTestID: string;
   closeTestID: string;
-  titleRef: RefObject<Text | null>;
+  titleRef: RefObject<TextInstance | null>;
   title: string;
   subtitle?: string;
   stats: MapPopupStat[];
@@ -46,10 +55,8 @@ interface MapPopupProps {
   onClose: () => void;
   viewDetails?: MapPopupAction | undefined;
   zoom?: (MapPopupAction & { label: string }) | undefined;
-  /** Placement and any entry animation the caller runs */
-  style?: StyleProp<ViewStyle>;
-  /** The host view, an `Animated.View` when the caller animates the entry */
-  container?: React.ComponentType<React.ComponentProps<typeof View>>;
+  /** Placement and any entry animation the caller runs, on an animated host */
+  style?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
 }
 
 /**
@@ -69,7 +76,6 @@ export const MapPopup = memo(function MapPopup({
   viewDetails,
   zoom,
   style,
-  container: Container = View,
 }: MapPopupProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -77,7 +83,7 @@ export const MapPopup = memo(function MapPopup({
   const ink = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   return (
-    <Container
+    <Animated.View
       testID={testID}
       style={[styles.popup, isDark && styles.popupDark, style]}
       pointerEvents="auto"
@@ -116,7 +122,7 @@ export const MapPopup = memo(function MapPopup({
             variant="ghost"
             accessibilityLabel={zoom.label}
           >
-            <MaterialCommunityIcons name={FIT_GLYPH} size={iconSize.lg} color={palette.primary} />
+            <Icon name={FIT_GLYPH} size={iconSize.lg} color={palette.actionPrimary} />
           </IconButton>
         ) : null}
         <IconButton
@@ -125,7 +131,7 @@ export const MapPopup = memo(function MapPopup({
           variant="ghost"
           accessibilityLabel={closeLabel}
         >
-          <MaterialCommunityIcons name="close" size={iconSize.lg} color={ink} />
+          <Icon name="close" size={iconSize.lg} color={ink} />
         </IconButton>
       </View>
 
@@ -134,16 +140,14 @@ export const MapPopup = memo(function MapPopup({
           <View key={stat.key} style={styles.stat}>
             {stat.renderIcon
               ? stat.renderIcon(ink)
-              : stat.icon && (
-                  <MaterialCommunityIcons name={stat.icon} size={iconSize.md} color={ink} />
-                )}
+              : stat.icon && <Icon name={stat.icon} size={iconSize.md} color={ink} />}
             {stat.value !== undefined && (
               <Text style={[styles.statValue, isDark && styles.statValueDark]}>{stat.value}</Text>
             )}
           </View>
         ))}
       </View>
-    </Container>
+    </Animated.View>
   );
 });
 
@@ -159,7 +163,7 @@ const styles = StyleSheet.create({
     ...shadows.modal,
   },
   popupDark: {
-    backgroundColor: darkColors.surfaceCard,
+    backgroundColor: darkColors.surfaceRaised,
   },
   header: {
     flexDirection: 'row',

@@ -30,8 +30,13 @@ jest.mock('@/features/routes/hooks/useCutoverSummary', () => ({
 }));
 
 const mockCancel = jest.fn();
+// The routes status read names the running cutover by its id.
+let mockCutoverRun: number | null = 7;
 jest.mock('@/shared/native/engine', () => ({
-  getEngine: () => ({ cancelDetectorCutover: mockCancel }),
+  getEngine: () => ({
+    cancelRun: mockCancel,
+    getRoutesStatusData: () => ({ cutover: { run: mockCutoverRun } }),
+  }),
 }));
 
 const running = (phase: CutoverSummary['phase']): CutoverSummary => ({
@@ -57,6 +62,7 @@ describe('stopping the cutover from its status line', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    mockCutoverRun = 7;
     await changeLanguage('en-AU');
   });
 
@@ -74,6 +80,17 @@ describe('stopping the cutover from its status line', () => {
     await fireEvent.press(screen.getByTestId(CUTOVER_CANCEL_TEST_ID));
 
     expect(mockCancel).toHaveBeenCalledTimes(1);
+    expect(mockCancel).toHaveBeenCalledWith(7);
+  });
+
+  it('stops nothing when the run ended before the tap', async () => {
+    mockUseCutoverSummary.mockReturnValue(running('detecting'));
+    mockCutoverRun = null;
+    await render(<CutoverStatus />);
+
+    await fireEvent.press(screen.getByTestId(CUTOVER_CANCEL_TEST_ID));
+
+    expect(mockCancel).not.toHaveBeenCalled();
   });
 
   it('says what stopping buys, which is this run and not the migration', async () => {

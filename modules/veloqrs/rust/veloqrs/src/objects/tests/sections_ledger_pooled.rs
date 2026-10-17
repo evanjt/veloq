@@ -55,11 +55,13 @@ fn test_get_history_writer_held() {
 }
 
 #[test]
-fn test_get_geometry_versions_writer_held() {
+fn test_detail_geometry_versions_writer_held() {
     let _guard = serial_global_state();
     let (_tmp, sections) = empty_engine("section_versions_under_writer.db");
     assert!(
-        read_while_writer_holds(|| sections.get_geometry_versions("s1".into()).unwrap()).is_empty()
+        read_while_writer_holds(|| sections.get_detail_data("s1".into()).unwrap())
+            .geometry_versions
+            .is_empty()
     );
 }
 
@@ -193,7 +195,10 @@ fn test_ledger_reads_match_the_engine() {
         assert_eq!(pooled.kind, locked.kind);
     }
 
-    let versions = sections.get_geometry_versions(id.clone()).unwrap();
+    let versions = sections
+        .get_detail_data(id.clone())
+        .unwrap()
+        .geometry_versions;
     assert!(!versions.is_empty(), "the recorded line is a version");
     let pinned = sections
         .get_pinned_version(id.clone())

@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AppState, View, StyleSheet, Text } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -17,6 +16,7 @@ import {
 } from '@/theme';
 import { permissionOutcome } from '@/shared/app/permissions';
 import { Button, IconButton, PermissionNotice } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { parseNextcloudLogin, type NextcloudLogin } from '../lib/autobackup/nextcloudLogin';
 
 /** How long a code that is not a login stays named before the camera reads again. */
@@ -84,7 +84,7 @@ export function NextcloudQrScanner({
   if (outcome !== 'granted') {
     return (
       <View style={[styles.container, styles.centered]}>
-        <MaterialCommunityIcons name="camera-off" size={iconSize.xxl} color={cameraOverlay.hint} />
+        <Icon name="camera-off" size={iconSize.xxl} color={cameraOverlay.hint} />
         <PermissionNotice
           testID="nextcloud-scanner-camera"
           outcome={outcome}
@@ -118,7 +118,7 @@ export function NextcloudQrScanner({
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <IconButton accessibilityLabel={t('common.close')} onPress={onClose}>
-          <MaterialCommunityIcons name="close" size={iconSize.lg} color={cameraOverlay.text} />
+          <Icon name="close" size={iconSize.lg} color={cameraOverlay.text} />
         </IconButton>
         <Text style={styles.headerTitle}>{t('backup.scanQrTitle', 'Scan Nextcloud QR code')}</Text>
         <IconButton
@@ -126,7 +126,7 @@ export function NextcloudQrScanner({
           accessibilityState={{ checked: torchOn }}
           onPress={() => setTorchOn((on) => !on)}
         >
-          <MaterialCommunityIcons
+          <Icon
             name={torchOn ? 'flashlight-off' : 'flashlight'}
             size={iconSize.lg}
             color={cameraOverlay.text}

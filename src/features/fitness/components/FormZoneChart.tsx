@@ -23,8 +23,7 @@ import {
 } from '@/shared/charts';
 import {
   formZoneFromLoads,
-  FORM_ZONE_COLORS,
-  FORM_ZONE_MARK_COLORS,
+  formZoneColor,
   formZoneLabel,
   FORM_ZONE_BOUNDARIES,
   formChartSeries,
@@ -203,7 +202,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
                           bounds={bounds}
                           minY={yFor(FORM_ZONE_BOUNDARIES[zone].max)}
                           maxY={yFor(FORM_ZONE_BOUNDARIES[zone].min)}
-                          color={FORM_ZONE_COLORS[zone] + (zone === 'greyZone' ? '20' : '30')}
+                          color={formZoneColor(zone, isDark) + (zone === 'greyZone' ? '20' : '30')}
                         />
                       ))}
                       <SkiaLine
@@ -235,7 +234,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
       <View style={styles.zoneLegend}>
         {ZONES.map((zone) => (
           <View key={zone} style={styles.zoneLegendItem}>
-            <View style={[styles.zoneDot, { backgroundColor: FORM_ZONE_MARK_COLORS[zone] }]} />
+            <View style={[styles.zoneDot, { backgroundColor: formZoneColor(zone, isDark) }]} />
             <Text style={styles.zoneLabel}>{formZoneLabel(zone)}</Text>
           </View>
         ))}

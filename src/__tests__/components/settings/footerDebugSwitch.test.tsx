@@ -17,7 +17,7 @@ jest.mock('react-i18next', () => ({
   ...jest.requireActual('react-i18next'),
   useTranslation: () => ({ t: (key: string) => `t(${key})` }),
 }));
-jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn(), tapTo: jest.fn() }));
+jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 jest.mock('@/shared/storage', () => ({
   getSetting: jest.fn(async () => null),
   setSetting: jest.fn(async () => {}),

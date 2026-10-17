@@ -46,9 +46,9 @@ describe('the floating layers', () => {
     }
   });
 
-  it('name the record button, the two status pills and the return pill stack', () => {
+  it('name the record button, the status pill stack and the return pill stack', () => {
     expect(Object.keys(floatingLayers).sort()).toEqual(
-      ['offlinePill', 'recordButton', 'returnPills', 'syncPill'].sort()
+      ['recordButton', 'returnPills', 'statusPills'].sort()
     );
   });
 });

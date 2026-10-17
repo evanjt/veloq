@@ -9,7 +9,9 @@
  * submodule cannot be fetched, never asks an iOS build for the Android
  * toolchain, refuses a call that names no platform, and does nothing in CI.
  * A Node major other than the one `.nvmrc` pins is named as a warning that
- * leaves the verdict alone, since CI builds under the pinned major.
+ * leaves the verdict alone, since CI builds under the pinned major. A shell
+ * with no JAVA_HOME on a machine that has a JDK under the system JVM directory
+ * builds with that JDK, named, rather than being refused.
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -69,8 +71,29 @@ function check(
   delete developer.JAVA_HOME;
   return spawnSync(process.execPath, [script, '--root', root, ...platform], {
     encoding: 'utf8',
-    env: { ...gitFreeEnv(developer), PATH: path.join(root, 'bin'), HOME: root, ...env },
+    env: {
+      ...gitFreeEnv(developer),
+      PATH: path.join(root, 'bin'),
+      HOME: root,
+      VELOQ_JVM_DIR: path.join(root, 'jvm'),
+      ...env,
+    },
   });
+}
+
+/** A JDK named `name` under the clone's own JVM directory, or a directory that only looks like one. */
+function jdk(root: string, name: string, { java = true } = {}): string {
+  const home = path.join(root, 'jvm', name);
+  fs.mkdirSync(path.join(home, 'bin'), { recursive: true });
+  if (java) executable(path.join(home, 'bin', 'java'), '#!/bin/sh\nexit 0\n');
+  return home;
+}
+
+/** A clone with everything an Android build needs except, unless given, a JAVA_HOME. */
+function androidClone(): string {
+  const root = rustClone(['aarch64-linux-android']);
+  executable(path.join(root, 'bin', 'cargo'), '#!/bin/sh\nexit 0\n');
+  return root;
 }
 
 describe('check-toolchain', () => {
@@ -133,6 +156,46 @@ describe('check-toolchain', () => {
     const result = check(rustClone(APPLE, { xcode: false }), {}, ['--platform', 'ios']);
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('xcodebuild not found');
+  });
+
+  it('builds with the system JDK when JAVA_HOME is unset, and names it', () => {
+    const root = androidClone();
+    const home = jdk(root, 'java-17-openjdk');
+    jdk(root, 'default');
+    const result = check(root, {}, ['--platform', 'android', '--print-java-home']);
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim()).toBe(home);
+    expect(result.stderr).toContain(`JAVA_HOME is not set; using ${home}`);
+  });
+
+  it('falls back to the default JDK when the pinned one is absent', () => {
+    const root = androidClone();
+    const home = jdk(root, 'default');
+    const result = check(root, {}, ['--platform', 'android', '--print-java-home']);
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim()).toBe(home);
+  });
+
+  it('refuses when the JVM directory holds nothing with a java binary', () => {
+    const root = androidClone();
+    jdk(root, 'java-17-openjdk', { java: false });
+    const result = check(root, {}, ['--platform', 'android', '--print-java-home']);
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe('');
+    expect(result.stderr).toContain('JAVA_HOME is not set');
+  });
+
+  it('keeps a JAVA_HOME the shell set, and says nothing about it', () => {
+    const root = androidClone();
+    jdk(root, 'java-17-openjdk');
+    const result = check(root, { JAVA_HOME: '/opt/jdk' }, [
+      '--platform',
+      'android',
+      '--print-java-home',
+    ]);
+    expect(result.status).toBe(0);
+    expect(result.stdout.trim()).toBe('/opt/jdk');
+    expect(result.stderr).toBe('');
   });
 
   const runningMajor = Number(process.versions.node.split('.')[0]);

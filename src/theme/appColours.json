@@ -1,5 +1,7 @@
 {
-  "appColour": "#5B9BD5",
-  "appColourDeep": "#3A7AB8",
+  "appColour": "#2F6699",
+  "appColourDeep": "#255380",
+  "markGold": "#E8C96E",
+  "markGoldDeep": "#D4AF37",
   "notificationAccent": "#2F6699"
 }

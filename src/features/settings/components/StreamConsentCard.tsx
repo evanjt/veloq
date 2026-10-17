@@ -12,11 +12,11 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { Button } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 
 import { useStreamBackfill } from '../hooks/useStreamBackfill';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
@@ -33,7 +33,7 @@ export function StreamConsentCard() {
     <View testID="stream-consent-card" accessibilityRole="alert">
       <Card variant="raised" style={{ gap: spacing.sm }}>
         <View style={styles.header}>
-          <MaterialCommunityIcons
+          <Icon
             name="cloud-download-outline"
             size={iconSize.lg}
             color={isDark ? darkColors.textPrimary : colors.textPrimary}

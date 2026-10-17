@@ -7,12 +7,14 @@
  */
 
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { render, fireEvent, screen, within } from '@testing-library/react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ActivityMapView } from '@/features/maps/components/ActivityMapView';
 import type { LatLng } from '@/shared/geo/polyline';
 import { streamsFromArrays } from '@/features/activity/lib/streams';
 import { initialiseI18n } from '@/i18n';
+import { GRADE_BANDS, gradeStepTokenColour } from '@/features/maps/lib/gradientLineColor';
 
 // The map page is hidden from screen readers, so a query reaching it includes hidden elements.
 const MAP_PAGE = { includeHiddenElements: true };
@@ -215,7 +217,7 @@ describe('ActivityMapView', () => {
       grade_smooth: [-12, -3, 4, 14],
       distance: [0, 100, 200, 300],
     });
-    const TICKS = ['-10%', '0%', '+10%', '+20%'];
+    const TICKS = ['-10%', '0%', '+10%'];
 
     it('shows no gradient key while the line is in the sport colour', async () => {
       await renderActivityMap({ streams: GRADED });
@@ -233,7 +235,10 @@ describe('ActivityMapView', () => {
       for (const tick of TICKS) {
         expect(within(key).getByText(tick)).toBeTruthy();
       }
-      expect(within(key).getAllByTestId('map-key-ramp-step').length).toBeGreaterThan(1);
+      const steps = within(key).getAllByTestId('map-key-ramp-step');
+      expect(steps.map((step) => StyleSheet.flatten(step.props.style).backgroundColor)).toEqual(
+        GRADE_BANDS.map((band) => gradeStepTokenColour(band.step, 'light'))
+      );
 
       await fireEvent.press(screen.getByTestId('activity-map-gradient-toggle'));
       expect(screen.queryByTestId('activity-map-gradient-key')).toBeNull();

@@ -9,7 +9,7 @@
  */
 
 import appColours from './appColours.json';
-import { colourTokens, roleColours } from './colourTokens.generated';
+import { colourTokens, roleColours, type ColourToken } from './colourTokens.generated';
 
 /**
  * Creates a color with opacity from a hex color
@@ -79,16 +79,64 @@ export const rpeRamp = [
   '#EF4444', // red, RPE 9-10
 ] as const;
 
-// Strength volume heatmap: a 5-step ramp, light to saturated, which the muscle
-// body diagram draws weighted-set volume per muscle in. A data hue, not the
-// action colour.
-export const strengthRamp = [
-  '#CCFBF1', // Teal-100
-  '#99F6E4', // Teal-200
-  '#5EEAD4', // Teal-300
-  '#2DD4BF', // Teal-400
-  '#0D9488', // Teal-600
-] as const;
+type Tokens = Readonly<Record<ColourToken, string>>;
+
+function sequentialSteps(t: Tokens) {
+  return [
+    t['data-seq-1'],
+    t['data-seq-2'],
+    t['data-seq-3'],
+    t['data-seq-4'],
+    t['data-seq-5'],
+  ] as const;
+}
+
+// Sequential magnitude, five steps, least first: heatmaps, intensity, density
+// and the body diagram's weighted-set volume. Light runs light to dark, dark
+// runs dark to light, so the most is always the step furthest from the page.
+export const sequentialRamp = {
+  light: sequentialSteps(colourTokens.light),
+  dark: sequentialSteps(colourTokens.dark),
+} as const;
+
+function divergingSteps(t: Tokens) {
+  return {
+    cool: [t['data-div-cool-1'], t['data-div-cool-2'], t['data-div-cool-3']],
+    mid: t['data-div-mid'],
+    warm: [t['data-div-warm-1'], t['data-div-warm-2'], t['data-div-warm-3']],
+  };
+}
+
+// Diverging around a baseline: three steps each side, nearest the midpoint
+// first, with a grey midpoint for no change. Cool is below the baseline
+// (faster, downhill, under target) and warm above it (slower, uphill, over).
+export const divergingRamp = {
+  light: divergingSteps(colourTokens.light),
+  dark: divergingSteps(colourTokens.dark),
+} as const;
+
+/** The sport families, named as the engine's family table names them. */
+export type SportFamilyName = 'Ride' | 'Winter' | 'Run' | 'Water' | 'Foot' | 'Strength' | 'Other';
+
+function sportFamilySteps(t: Tokens): Record<SportFamilyName, readonly string[]> {
+  return {
+    Ride: [t['sport-ride'], t['sport-ride-2'], t['sport-ride-3']],
+    Winter: [t['sport-winter'], t['sport-winter-2'], t['sport-winter-3']],
+    Run: [t['sport-run'], t['sport-run-2'], t['sport-run-3']],
+    Water: [t['sport-water'], t['sport-water-2'], t['sport-water-3']],
+    Foot: [t['sport-foot'], t['sport-foot-2'], t['sport-foot-3']],
+    Strength: [t['sport-strength'], t['sport-strength-2'], t['sport-strength-3']],
+    Other: [t['sport-other']],
+  };
+}
+
+// Each sport family's colour, then its second and third fixed sub-shades, in
+// the stack order the families are always drawn in. A mark, an edge or a line
+// takes one; a label never sits on one, and Other is grey with no sub-shades.
+export const sportFamilyColours = {
+  light: sportFamilySteps(colourTokens.light),
+  dark: sportFamilySteps(colourTokens.dark),
+} as const;
 
 // Strength's own data hue: worked muscles on the body diagram and the cards
 // beside it. `primary` is a primary muscle and `secondary` an assisting one.
@@ -130,6 +178,7 @@ export const sectionPalette = [
 // A separate warm/purple family so routes stay visually distinct from sections
 // even when overlapping on the same map. Like sections, a route's colour is a
 // hash of its id, so a regroup that reorders the routes leaves each its colour.
+// The engine writes that hash on each route line as `palette`.
 export const routePalette = [
   '#7C4DFF',
   '#AA00FF',
@@ -154,10 +203,6 @@ export function sectionPaletteIndex(sectionId: string): number {
   return idHash(sectionId) % sectionPalette.length;
 }
 
-export function routePaletteIndex(routeId: string): number {
-  return idHash(routeId) % routePalette.length;
-}
-
 // MapLibre expression builder: maps the `colorIndex` feature property to a
 // palette colour. Uses `match` (not `literal` + `at`) because MapLibre only
 // coerces hex strings to colours in direct positions - inside a literal array
@@ -168,6 +213,16 @@ export function sectionPaletteExpression(): unknown {
     branches.push(i, color);
   });
   return ['match', ['get', 'colorIndex'], ...branches, sectionPalette[0]];
+}
+
+// The same for a route line: its `palette` property is the engine's hash of
+// the route id, reduced here so the palette's length stays a theme fact.
+export function routePaletteExpression(): unknown {
+  const branches: unknown[] = [];
+  routePalette.forEach((color, i) => {
+    branches.push(i, color);
+  });
+  return ['match', ['%', ['get', 'palette'], routePalette.length], ...branches, routePalette[0]];
 }
 
 // =============================================================================
@@ -233,22 +288,6 @@ export const mapLayerColors = {
   homeRadiusFill: 'rgba(47,102,153,0.18)',
 } as const;
 
-// The activity line coloured by gradient, from steep descent to steep climb. It
-// diverges around flat ground: a light neutral at 0 %, blues darkening with the
-// descent and oranges darkening with the climb, so steepness reads in lightness
-// alone and the two sides never share a hue.
-export const gradientScale = [
-  { percent: -30, color: '#08306B' },
-  { percent: -20, color: '#08519C' },
-  { percent: -10, color: '#2171B5' },
-  { percent: -5, color: '#6BAED6' },
-  { percent: 0, color: '#E5E5E5' },
-  { percent: 5, color: '#FDAE6B' },
-  { percent: 10, color: '#F16913' },
-  { percent: 20, color: '#D94801' },
-  { percent: 30, color: '#7F2704' },
-] as const;
-
 // =============================================================================
 // LIGHT MODE COLORS
 // =============================================================================
@@ -257,99 +296,9 @@ export const colors = {
   // The keys that read a role from the colour token file, per colourRoles.json.
   ...roleColours.light,
 
-  // The action blue's light step.
-  primaryLight: brand.blueLight,
-
-  // Accent - Gold (achievements, PRs only)
-  accent: brand.goldDark, // Slightly darker gold for light mode
-  accentLight: brand.gold,
-
-  // Secondary - Blue (charts, data)
-  secondaryLight: brand.blue,
-
-  // The sync pill's fill, the app colour of the icon and splash, which
-  // appColours.json holds for native code and this palette alike. White on
-  // brand.blue itself is 2.96:1, under the 4.5:1 text owes, so it takes the
-  // blue's darker step, which holds 4.51:1.
+  // The sync pill's fill. White on brand.blue itself is 2.96:1, under the
+  // 4.5:1 text owes, so it takes the blue's darker step, which holds 4.51:1.
   appColourPillBackground: brand.blueDark,
-
-  // Surfaces
-  background: '#F8F9FA',
-  backgroundAlt: '#F1F3F5',
-  regionTintIdle: colorWithOpacity(ink.black, 0.02),
-  regionTintActive: colorWithOpacity(ink.black, 0.05),
-
-  // Text
-  textPrimary: '#18181B',
-  textSecondary: '#52525B',
-  textDisabled: '#A1A1AA',
-  // Ink on a bright fill in both themes: gold, success, warning and the light
-  // data hues, where white reads between 2.1:1 and 3:1. It is its own token so
-  // the primary ink can change without moving these.
-  textOnBright: '#18181B',
-  // A chevron is often the only thing saying a row opens, and an idle status
-  // icon is the only thing saying the GPS is still looking, so both owe 3:1.
-  // Same hue, lifted until they hold it on white, background and backgroundAlt.
-  iconFaint: '#8A8A8A', // Faint chevrons / placeholder icons (dark counterpart: darkColors.iconFaint)
-  iconNeutral: '#828A9A', // Idle/indeterminate status icons (GPS acquiring)
-  neutralLine: '#888888', // Unselected map lines, non-navigable chevrons on dark surfaces
-
-  // Semantic. `success` and `warning` are fills: 2.28:1 and 2.15:1 on white,
-  // so neither can be the mark on a light surface, only the ground under one.
-  // `successDeep` is the green that can, at 5.02:1, and it is the value the
-  // verdict ladder's positive rung already uses. `warningAmber` above is the
-  // amber that can, at 7.09:1. Both have a counterpart in `darkColors`, and
-  // both need it: no single green clears 4.5:1 on white and on #18181B at
-  // once, so a mark reads the pair through `isDark` rather than one constant.
-  success: '#22C55E',
-  successLight: '#4ADE80',
-  successDark: '#16A34A',
-  successDeep: '#15803D',
-  error: '#EF4444',
-  errorLight: '#F87171',
-  errorDark: '#DC2626',
-  warning: '#F59E0B',
-  warningLight: '#FBBF24',
-  // Capacity ladder, between warning and error: a section's point budget and
-  // the storage bar's cache segments.
-  cautionYellow: '#FFC107',
-  cautionOrange: '#FF9800',
-  // The two caution hues as text. Both are fills, 1.47:1 and 1.94:1 on white,
-  // and the section-size warning is set in them on a pill that is 95 per cent
-  // white. 4.92:1 and 4.90:1 on the worst light surface.
-  cautionYellowText: '#866400',
-  cautionOrangeText: '#995B00',
-  info: brand.blue,
-  infoLight: brand.blueLight,
-  // The info blue as text. The merge banner's line reads it over a 15% tint of
-  // itself, where the fill is 2.66:1 and `infoLight` 2.00:1. 4.95:1 on the worst
-  // light surface.
-  infoText: '#2B6CA8',
-  // The status tints a notice is drawn on: each tone's own hue at 12% over
-  // the surface, laid down solid so a ratio is defined for whatever sits on
-  // it. The body ink holds 4.5:1 on all four and the tone's text role 3:1 as
-  // its icon, which `TINT_GROUNDS` puts in front of the contrast test.
-  errorBg: '#FDE9E9',
-  warningBg: '#FEF3E2',
-  infoBg: '#EBF3FA',
-  successBg: '#E4F8EC',
-
-  // Borders
-  border: '#E4E4E7',
-  borderLight: '#F4F4F5',
-  divider: '#E4E4E7',
-
-  // Neutral grays (Zinc scale)
-  gray50: '#FAFAFA',
-  gray100: '#F4F4F5',
-  gray200: '#E4E4E7',
-  gray300: '#D4D4D8',
-  gray400: '#A1A1AA',
-  gray500: '#71717A',
-  gray600: '#52525B',
-  gray700: '#3F3F46',
-  gray800: '#27272A',
-  gray900: '#18181B',
 
   // Activity type colors
   ride: '#3B82F6', // Blue-500 - Royal blue for cycling
@@ -369,12 +318,6 @@ export const colors = {
   walkChipFill: '#7C3AED',
   workoutChipFill: '#4F46E5',
 
-  // Fitness metric colors (matching intervals.icu)
-  fitness: brand.blue, // CTL - Brand blue
-  fatigue: '#A855F7', // ATL - Purple
-  fitnessBlue: '#42A5F5', // CTL display color (intervals.icu blue)
-  fatiguePurple: '#AB47BC', // ATL display color (intervals.icu purple)
-
   // Chart accent colors
   chartBlue: brand.blue,
   chartPurple: '#A855F7',
@@ -384,15 +327,12 @@ export const colors = {
   chartPink: '#EC4899',
   chartIndigo: '#6366F1',
   chartAmber: '#F59E0B',
-  chartGold: brand.gold,
   // Mark grade. The chart tones above are fills and lines, where the mark on
-  // top carries the contrast. Where the mark itself is the carrier, a PR
-  // trophy or the ring round the best dot, `chartGold` measures 1.89:1 on
-  // white and `chartGreen` 2.28:1, under the 3:1 a graphical object owes. Same
-  // hues, lifted.
-  chartGoldMark: '#8A7224',
+  // top carries the contrast. Where the mark itself is the carrier, the ring
+  // round the best dot, `chartGreen` measures 2.28:1 on white, under the 3:1 a
+  // graphical object owes. Same hue, lifted.
   chartGreenMark: '#15803D',
-  // Second and third place beside the gold of first, mark grade.
+  // Second and third place beside the achievement gold of first, mark grade.
   chartSilverMark: '#6B7480',
   chartBronzeMark: '#9A5A24',
   // The rest of the series hues that reach a text style, same rule and same
@@ -417,7 +357,6 @@ export const colors = {
   chartSleep: '#A855F7', // Purple-500
   chartSleepScore: '#6366F1', // Indigo-500
   chartWeight: '#64748B', // Slate-500
-  chartFtp: '#FFB300', // Amber - FTP trend (stable across themes)
   // The same amber as text: the estimated-FTP headline reads in it, and
   // `chartFtp` is 1.61:1 on white. 4.91:1 on the worst light surface.
   chartFtpText: '#8B6200',
@@ -444,25 +383,8 @@ export const colors = {
   chartZeroLineSolid: '#CCCCCC',
   chartFormLine: '#333333',
 
-  // Semantic UI colors
-  highlight: brand.blue,
-  highlightAlt: brand.blueLight,
-  shadowBlack: '#000000',
-  transparent: 'transparent',
-
-  // Direction indicator colors
-  sameDirection: brand.blue,
-  reverseDirection: '#EC4899', // Pink
-
-  // Form zone colors (matching intervals.icu)
-  formTransition: '#64B5F6', // Light blue - transition zone
-  formFresh: '#81C784', // Light green - ready for events
-  formGreyZone: '#9E9E9E', // Grey - neutral zone
-  formOptimal: '#66BB6A', // Green - peak training zone
-  formHighRisk: '#EF5350', // Red - overtrained
-
-  // Form zone text. The fills above are bands and sparkline runs, grounds that
-  // 1.4.11 exempts at 3:1; a form number or a zone name drawn in one is text and
+  // Form zone text. The zone fills, which read the diverging ramp, are bands
+  // and sparkline runs, grounds that 1.4.11 exempts at 3:1; a form number or a zone name drawn in one is text and
   // holds 4.5:1 on every light surface, which none of the fills reach.
   // `formOptimalText` also carries the efficiency headline and effort count,
   // which sit on an 18% tint of the fill, so it is the darkest of the five.
@@ -481,9 +403,6 @@ export const colors = {
   // Workout step colors
   workoutCooldown: '#8B5CF6',
 
-  // Compass
-  compassNorth: '#E53935',
-
   // Mark-grade tones. The palette has three families: text at 4.5:1, a mark
   // at 3:1, a ground at no bar. These are the mark tones for hues whose fill
   // token sits under 3:1 on the light theme, so a border, a legend swatch or
@@ -493,65 +412,53 @@ export const colors = {
   markCyan: '#0891B2',
   markGreen: '#059669',
   markAmber: '#BE5A0A',
-  markYellow: '#B57200',
+  markYellow: '#B87400',
   markOrange: '#CC6A00',
-
-  // Four of the five form zones as marks: a legend dot, not the band it keys.
-  // `formHighRisk` is already 3.13:1 on the worst surface and keeps its fill.
-  markFormTransition: '#1B7FD8',
-  markFormFresh: '#3D9140',
-  markFormGreyZone: '#7A7A7A',
-  markFormOptimal: '#2E8C33',
 } as const;
 
 // =============================================================================
 // CHART STREAM COLORS
 // =============================================================================
 
-// One colour per activity data stream (activity charts via chartConfig.ts).
-// Picked for contrast against both themes and against each other, and no two
-// streams share one: a ride plots cadence and W'bal on the same canvas.
+function streamSteps(t: Tokens) {
+  return {
+    power: t['stream-power'],
+    heartrate: t['stream-heartrate'],
+    cadence: t['stream-cadence'],
+    // Speed and pace are one measurement, so they are one colour.
+    speed: t['stream-speed'],
+    pace: t['stream-speed'],
+    gap: t['stream-gap'],
+    wbal: t['stream-wbal'],
+    // Elevation and temperature are context, grey rather than a hue. The line
+    // carries the 3:1; an area under it takes `contextFill`.
+    elevation: t['stream-context-line'],
+    temp: t['stream-context-line'],
+    contextFill: t['stream-context'],
+    // Grade is signed: uphill on the warm arm of the diverging ramp, downhill
+    // on the cool arm. Its key and line take the uphill step.
+    grade: t['data-div-warm-2'],
+    gradeUp: t['data-div-warm-2'],
+    gradeDown: t['data-div-cool-2'],
+    // Distance and time are axes rather than streams, drawn as context.
+    distance: t['stream-context-line'],
+    time: t['stream-context-line'],
+  };
+}
+
+// One colour per activity data stream, per theme. The six identity streams,
+// power, heart rate, cadence, speed, GAP and W'bal, are set apart from each
+// other in that chip order, so any two of them can share a canvas.
 export const chartStreamColors = {
-  // Power and gap take the mark tones: the line is the only thing telling one
-  // series from another on the canvas and the chip that keys it is the same
-  // hue, so both move together.
-  power: colors.markYellow,
-  heartrate: '#DC2F3C',
-  cadence: '#F97316',
-  speed: '#2A9D8F',
-  pace: '#818CF8',
-  elevation: '#A3E635',
-  grade: '#6B8E23',
-  // Fuchsia, a hue no other stream is near. 3.32:1 on the worst surface of
-  // either theme, so the line carries as a mark wherever it is drawn.
-  wbal: '#C026D3',
-  gap: colors.markCyan,
-  distance: '#457B9D',
-  temp: '#E76F51',
-  time: '#6C757D',
+  light: streamSteps(colourTokens.light),
+  dark: streamSteps(colourTokens.dark),
 } as const;
 
-// The ink a selected chart chip prints over its stream hue. The hue does not
-// change with the theme, so neither does the ink: light (white) where it clears
-// 4.5:1, dark where white does not.
-export const chartStreamInk: Record<keyof typeof chartStreamColors, 'light' | 'dark'> = {
-  power: 'dark',
-  heartrate: 'light',
-  cadence: 'dark',
-  speed: 'dark',
-  pace: 'dark',
-  elevation: 'dark',
-  grade: 'dark',
-  wbal: 'light',
-  gap: 'dark',
-  distance: 'light',
-  temp: 'dark',
-  time: 'light',
-};
+export type ChartStream = keyof (typeof chartStreamColors)['light'];
 
-/** The ink colour a stream's chip label takes. */
-export function chartInkColor(stream: keyof typeof chartStreamColors): string {
-  return chartStreamInk[stream] === 'light' ? colors.textOnDark : colors.textOnBright;
+/** The colour a stream is drawn and keyed in, in the theme it is drawn on. */
+export function chartStreamColour(stream: ChartStream, isDark: boolean): string {
+  return chartStreamColors[isDark ? 'dark' : 'light'][stream];
 }
 
 // The ink a section's index number prints over its disc of section colour, one
@@ -571,7 +478,7 @@ export const sectionPaletteInk: readonly ('light' | 'dark')[] = [
 
 /** The ink colour a section's index number takes on its palette slot. */
 export function sectionNumberInk(slot: number): string {
-  return sectionPaletteInk[slot] === 'light' ? colors.textOnDark : colors.textOnBright;
+  return sectionPaletteInk[slot] === 'light' ? colors.textOnFill : colors.textOnBright;
 }
 
 // A list row's swipe actions: each fill with the ink its label and icon take.
@@ -579,9 +486,9 @@ export function sectionNumberInk(slot: number): string {
 // with the theme. White on the error red is 3.76:1, so the destructive action
 // takes the deep red; the amber and green keep their hue and take dark ink.
 export const swipeAction = {
-  destructive: { bg: colors.dangerFill, text: colors.textOnDark },
-  hide: { bg: colors.warning, text: colors.textOnBright },
-  restore: { bg: colors.success, text: colors.textOnBright },
+  destructive: { bg: colors.dangerFill, text: colors.textOnFill },
+  hide: { bg: colors.warningFill, text: colors.textOnBright },
+  restore: { bg: colors.successFill, text: colors.textOnBright },
 } as const;
 
 // Style-picker chip swatches (map style selection): one representative
@@ -672,20 +579,11 @@ export const recording = {
   dark: '#D1352F',
 } as const;
 
-// The offline pill floating under the status bar. A neutral grey, so it reads
-// apart from the sync pill's blue, the same in both schemes because it floats
-// over either. Dark ink, because white on this grey is 2.56:1: the title is
-// 6.91:1 and the description at 0.8 is 4.90:1.
-export const offlinePill = {
-  bg: '#A1A1AA',
-  text: '#18181B',
-} as const;
-
-// GitHub-style contribution ramp for the activity heatmap grid: five steps
-// from "no activity" upward, one set per mode.
+// The activity heatmap's five levels: no activity on the neutral fill, then
+// the first four steps of the sequential ramp.
 export const contributionRamp = {
-  dark: ['#161B22', '#0E4429', '#006D32', '#26A641', '#39D353'],
-  light: ['#EBEDF0', '#9BE9A8', '#40C463', '#30A14E', '#216E39'],
+  light: [colourTokens.light['fill-neutral'], ...sequentialRamp.light.slice(0, 4)],
+  dark: [colourTokens.dark['fill-neutral'], ...sequentialRamp.dark.slice(0, 4)],
 } as const;
 
 // The crash screen paints itself before any theme provider is mounted, so it
@@ -707,14 +605,14 @@ export const errorScreen = {
   },
 } as const;
 
-// Muscle body diagram: the base fill under the volume ramp, one per mode, and
-// the outline on the selected group, also one per mode. The outline runs along
-// the polygon boundaries, which are the page showing through rather than the
-// fill, so a near-black stroke that reads at 17:1 on the light page is drawn in
-// the colour of the dark one.
+// Muscle body diagram: the base fill under the volume ramp, the neutral fill of
+// each mode, and the outline on the selected group, one per mode. The outline
+// runs along the polygon boundaries, which are the page showing through rather
+// than the fill, so a near-black stroke that reads at 17:1 on the light page is
+// drawn in the colour of the dark one.
 export const bodyDiagram = {
-  fillLight: '#3F3F3F',
-  fillDark: '#555555',
+  fillLight: colourTokens.light['fill-neutral'],
+  fillDark: colourTokens.dark['fill-neutral'],
   selectedStroke: '#1A1A1A',
   selectedStrokeDark: '#FAFAFA',
 } as const;
@@ -760,69 +658,22 @@ export const darkColors = {
   // The keys that read a role from the colour token file, per colourRoles.json.
   ...roleColours.dark,
 
-  // The action blue's dark steps.
-  primaryHover: brand.blue600,
-  primaryLight: brand.blueLight,
-
-  // Accent - Gold (achievements, PRs only)
-  accentLight: brand.goldLight,
-
   // Mark grade, the dark half of the pair in `colors`. A near-black surface
   // wants the light tone where white wants the deep one, so a mark that reads
   // one token in both themes is the same defect the other way round.
-  chartGoldMark: brand.goldLight,
   chartGreenMark: '#86EFAC',
   chartSilverMark: '#C3CAD3',
   chartBronzeMark: '#D9904F',
 
   // Secondary - Blue (charts, data)
   secondary: brand.blue, // Full blue for dark mode
-  secondaryLight: brand.blueLight,
 
   // The same fill in both themes, see `colors`.
   appColourPillBackground: brand.blueDark,
 
-  // Surfaces (near-black, premium feel)
-  background: '#0D0D0F',
-  backgroundAlt: '#111114',
-  surface: '#18181B',
-  surfaceElevated: '#1F1F23',
-  surfaceCard: '#232328',
-  surfaceOverlay: 'rgba(24, 24, 27, 0.95)',
-  regionTintIdle: colorWithOpacity(ink.white, 0.05),
-  regionTintActive: colorWithOpacity(ink.white, 0.1),
-
-  // Text
-  textPrimary: '#FAFAFA',
-  textSecondary: '#A1A1AA',
-  textDisabled: '#52525B',
-
-  // Borders
-  border: '#27272A',
-  borderLight: '#3F3F46',
-  borderAccent: 'rgba(125, 179, 227, 0.15)', // The link blue at a low alpha
-  divider: '#27272A',
-
-  // Icon colors
-  iconPrimary: '#FAFAFA',
-  iconSecondary: '#A1A1AA',
-  iconMuted: '#71717A',
-  iconDisabled: '#52525B',
-  iconFaint: '#71717A', // Faint chevrons / placeholder icons (light counterpart: #8A8A8A)
-  iconNeutral: '#9CA3AF', // Idle/indeterminate status icons; 6.16:1 on the dark surfaces
-
-  // Interactive states
-  buttonSecondary: '#27272A',
-  inputBackground: '#1F1F23',
-
   // Chart colors for dark mode (optimised for visibility)
-  chartFitness: brand.blueLight, // Brighter blue for CTL
-  chartPurple: '#C084FC', // Custom tag ground; same hue as the ATL series, tuned on its own
-  chartFatigue: '#C084FC', // Brighter purple for ATL
+  chartPurple: '#C084FC', // Custom tag ground
   chartForm: brand.blueLight, // Brighter blue for TSB (neutral, zone-based at runtime)
-  chartHR: '#F87171', // Red for heart rate
-  chartCadence: '#C084FC', // Purple for cadence
-  chartElevation: '#94A3B8', // Slate for elevation
   chartCasing: '#00000080', // Under-stroke behind chart lines for edge contrast
 
   // Wellness metric colors for dark mode (one Tailwind step lighter)
@@ -853,7 +704,7 @@ export const darkColors = {
   // chartGoldText 7.44:1, chartFtpText 8.71:1, formOptimalText 6.62:1,
   // runText 6.17:1, swimText 6.44:1. Only `ride` needs its own tone, at 4.25:1.
   chartFtpText: '#FFB300',
-  // The B950 half of the pair. On the dark surfaces `fitnessBlue` already
+  // The B950 half of the pair. On the dark surfaces the fitness blue already
   // carries at 5.91:1 and is its own text tone; pink, purple and the fatigue
   // purple do not (4.43, 3.95 and 3.25) and take a lighter step, 5.91:1,
   // 5.92:1 and 6.55:1 on the worst of the three.
@@ -864,22 +715,9 @@ export const darkColors = {
   rideText: '#4F8FF7',
   runText: '#10B981',
   swimText: '#06B6D4',
-  // The B959 half. On a near-black ground the caution fills carry as they are,
-  // 9.60:1 and 7.26:1, and the info blue's own light step does at 7.02:1. The
-  // link takes the same light step, 7.02:1 on the worst dark surface.
-  cautionYellowText: '#FFC107',
-  cautionOrangeText: '#FF9800',
-  // The dark status tints: the tone's dark text hue at 18% over the dark
-  // surface, the denser step because a dark ground needs more of the hue to
-  // read as one.
-  errorBg: '#40282A',
-  warningBg: '#41361D',
-  infoBg: '#2A343F',
-  successBg: '#213C2D',
-
   // The rest of the form zone text family. Same story: four of the five
-  // are the fill, and the red is the one that does not carry, 4.49:1 on
-  // surfaceCard, so it takes the lighter tone the dark palette uses for error.
+  // are the fill, and the red is the one that does not carry, 4.49:1 on the
+  // raised surface, so it takes the lighter tone the dark palette uses for error.
   formTransitionText: '#64B5F6',
   formFreshText: '#81C784',
   formGreyZoneText: '#9E9E9E',
@@ -1096,7 +934,7 @@ export const zoneTextColors = {
   zone2: '#006F00',
   zone3: '#806607',
   zone4: '#994C08',
-  zone5: '#BC033C',
+  zone5: '#BA033B',
   zone6: '#6633CC',
   zone7: '#1A1A1A',
 } as const;
@@ -1139,6 +977,6 @@ export const insightCategoryColors: Record<string, { light: string; dark: string
 
 export function insightCategoryColor(category: string, isDark: boolean): string {
   const tone = insightCategoryColors[category];
-  if (!tone) return isDark ? darkColors.primary : colors.primary;
+  if (!tone) return isDark ? darkColors.actionPrimary : colors.actionPrimary;
   return isDark ? tone.dark : tone.light;
 }

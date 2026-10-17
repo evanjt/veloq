@@ -7,9 +7,9 @@
 
 import React, { memo } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { spacing } from '@/theme';
 import { getActivityIcon } from './activityUtils';
+import { Icon } from '@/shared/ui/Icon';
 
 interface SportIconsProps {
   sportTypes: readonly string[];
@@ -22,12 +22,7 @@ export const SportIcons = memo(function SportIcons({ sportTypes, size, color }: 
   return (
     <View style={styles.row}>
       {sportTypes.map((sport) => (
-        <MaterialCommunityIcons
-          key={sport}
-          name={getActivityIcon(sport)}
-          size={size}
-          color={color}
-        />
+        <Icon key={sport} name={getActivityIcon(sport)} size={size} color={color} />
       ))}
     </View>
   );

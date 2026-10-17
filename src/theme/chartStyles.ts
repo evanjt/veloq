@@ -46,7 +46,7 @@ export const chartStyles = StyleSheet.create({
   },
   chartLabelOnDataDark: {
     color: darkColors.textSecondary,
-    backgroundColor: darkColors.surfaceOverlay,
+    backgroundColor: darkColors.surfaceRaised,
   },
 
   /** Dark mode text override */

@@ -65,13 +65,22 @@ export type { CurveKind } from './curvePath';
 
 export {
   curveSummary,
+  daysTable,
+  heatmapSummary,
   lanesSummary,
   partsSummary,
   partsTable,
   seriesSummary,
   seriesTable,
+  stripSummary,
 } from './chartSummary';
-export type { ChartTable, SummaryPart, SummaryPoint, SummarySeries } from './chartSummary';
+export type {
+  ChartTable,
+  SummaryDay,
+  SummaryPart,
+  SummaryPoint,
+  SummarySeries,
+} from './chartSummary';
 
-export { ChartSurface } from './ChartSurface';
+export { ChartShowDataButton, ChartSurface } from './ChartSurface';
 export type { ChartSurfaceProps } from './ChartSurface';

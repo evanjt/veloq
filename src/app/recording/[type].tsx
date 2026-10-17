@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useMetricSystem, useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { replaceTo, tapTo } from '@/shared/app/navigation';
+import { replaceTo, navigateTo } from '@/shared/app/navigation';
 import { useBackIntercept } from '@/shared/app/useBackIntercept';
 import { useBottomClearance } from '@/shared/ui';
 import {
@@ -180,8 +180,8 @@ function RecordingContent({ activityType }: { activityType: ActivityType }) {
 
   // Stable handles and styles let memoised children hold when store updates
   // do not change the values they draw.
-  const openReview = useCallback(() => tapTo('/recording/review'), []);
-  const openSensorPairing = useCallback(() => tapTo('/sensor-settings'), []);
+  const openReview = useCallback(() => navigateTo('/recording/review'), []);
+  const openSensorPairing = useCallback(() => navigateTo('/sensor-settings'), []);
   const dismissGpsWarning = useCallback(() => setGpsWarning(null), [setGpsWarning]);
   const column = useRecordingColumnLayout();
   const bottomPadding = bottomClearance;
@@ -264,7 +264,7 @@ function RecordingContent({ activityType }: { activityType: ActivityType }) {
         testID="recording-checking"
       >
         {noHeader}
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={colors.actionPrimary} />
         <RecordingCloseButton />
       </View>
     );
@@ -354,7 +354,7 @@ function RecordingContent({ activityType }: { activityType: ActivityType }) {
             textSecondary={textSecondary}
             surface={surface}
             border={border}
-            accent={palette.primary}
+            accent={palette.actionPrimary}
           />
         </View>
 

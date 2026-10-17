@@ -42,34 +42,36 @@ fn engine_with_two_members_one_excluded() -> PersistentEngine {
     }
     let polyline = northbound();
     let distance = tracematch::matching::calculate_route_distance(&polyline);
-    engine.sections.push(tracematch::FrequentSection {
-        id: SECTION.into(),
-        name: None,
-        sport_type: "Ride".into(),
-        polyline,
-        representative_activity_id: "kept".into(),
-        representative_range: Some((0, POINTS as u32 - 1)),
-        activity_ids: vec!["kept".into(), "excluded".into()],
-        activity_portions: vec![portion("kept", distance), portion("excluded", distance)],
-        visit_count: 2,
-        distance_meters: distance,
-        activity_traces: Default::default(),
-        confidence: 0.8,
-        observation_count: 2,
-        average_spread: 10.0,
-        point_density: vec![1; POINTS],
-        scale: Some(tracematch::sections::ScaleName::Medium),
-        is_user_defined: false,
-        stability: 1.0,
-        version: 1,
-        updated_at: None,
-        created_at: None,
-        consensus_state: None,
-        elevation_gain_m: None,
-        avg_grade_percent: None,
-        enrichment: Default::default(),
-        rank: None,
-    });
+    engine
+        .sections
+        .push(std::sync::Arc::new(tracematch::FrequentSection {
+            id: SECTION.into(),
+            name: None,
+            sport_type: "Ride".into(),
+            polyline,
+            representative_activity_id: "kept".into(),
+            representative_range: Some((0, POINTS as u32 - 1)),
+            activity_ids: vec!["kept".into(), "excluded".into()],
+            activity_portions: vec![portion("kept", distance), portion("excluded", distance)],
+            visit_count: 2,
+            distance_meters: distance,
+            activity_traces: Default::default(),
+            confidence: 0.8,
+            observation_count: 2,
+            average_spread: 10.0,
+            point_density: vec![1; POINTS],
+            scale: Some(tracematch::sections::ScaleName::Medium),
+            is_user_defined: false,
+            stability: 1.0,
+            version: 1,
+            updated_at: None,
+            created_at: None,
+            consensus_state: None,
+            elevation_gain_m: None,
+            avg_grade_percent: None,
+            enrichment: Default::default(),
+            rank: None,
+        }));
     engine.save_sections_with_events(&[]).unwrap();
     engine
         .exclude_activity_from_section(SECTION, "excluded")

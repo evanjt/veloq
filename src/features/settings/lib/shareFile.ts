@@ -18,7 +18,7 @@ import {
   Share,
   type ShareContent,
   type ShareOptions,
-  type View,
+  type ViewInstance,
 } from 'react-native';
 
 import { i18n } from '@/i18n';
@@ -49,7 +49,7 @@ export type ShareKind = keyof typeof SHARE_KINDS;
  * The control that opened the share. On iPad the sheet is a popover and points
  * at it. A phone and Android ignore it.
  */
-export type ShareAnchor = RefObject<View | null>;
+export type ShareAnchor = RefObject<ViewInstance | null>;
 
 interface AnchorRect {
   x: number;
@@ -197,7 +197,7 @@ export async function takeSharedFile(): Promise<{ uri: string; name: string | nu
 function anchorTag(anchor: ShareAnchor | undefined): number | null {
   if (!anchor?.current) return null;
   try {
-    return findNodeHandle(anchor.current);
+    return findNodeHandle(anchor.current) ?? null;
   } catch {
     return null;
   }

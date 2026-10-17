@@ -55,7 +55,7 @@
 //! a pass regardless.
 
 use crate::governor::Lane;
-use crate::net::endpoints::DEFAULT_STREAM_TYPES;
+use crate::net::endpoints::{DEFAULT_STREAM_TYPES, fetch_streams_bytes};
 use crate::net::transport::{NetError, Transport};
 use crate::net::types::{
     StreamDto, TrackClock, parse_streams, storable_series, track_clock, trackless_series,
@@ -559,12 +559,7 @@ fn says_something_about_the_activity(e: &NetError) -> bool {
 /// One activity's series, reduced to the index space its stored track is in,
 /// or kept in the server's own when it has no track.
 async fn fetch_one(transport: &Transport, upstream: &str, points: Option<usize>) -> Fetched {
-    let bytes = match transport
-        .get_bytes(
-            &format!("/activity/{}/streams.json", upstream),
-            &[("types", DEFAULT_STREAM_TYPES)],
-            Lane::Backfill,
-        )
+    let bytes = match fetch_streams_bytes(transport, upstream, DEFAULT_STREAM_TYPES, Lane::Backfill)
         .await
     {
         Ok(b) => b,
@@ -1641,6 +1636,35 @@ mod tests {
         let lats: Vec<String> = (0..n).map(|i| format!("{}.0", 40 + i)).collect();
         let lngs: Vec<String> = (0..n).map(|i| format!("{}.0", 7 + i)).collect();
         format!("[{}],\"data2\":[{}]", lats.join(","), lngs.join(","))
+    }
+
+    /// Expected behaviour: one activity's series are asked for on its streams
+    /// path with the detail screen's full set of types, and the answer comes
+    /// back reduced to the stored track ready to store.
+    #[test]
+    fn one_activity_is_asked_for_with_the_detail_types() {
+        use crate::governor::{AuthMethod, Governor, NoopPolicy};
+        use httpmock::prelude::*;
+
+        let server = MockServer::start();
+        let answer = body(&[("latlng", &latlng(4)), ("watts", "[100,110,120,130]")]);
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/activity/i3/streams.json")
+                .query_param("types", DEFAULT_STREAM_TYPES);
+            then.status(200).body(answer);
+        });
+        let gov = std::sync::Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+        let transport =
+            Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), gov).unwrap();
+
+        let fetched = crate::runtime::block_on(fetch_one(&transport, "i3", Some(4)));
+
+        mock.assert();
+        let Fetched::Series(series, _) = fetched else {
+            panic!("the answer was not reduced to series to store");
+        };
+        assert!(series.iter().any(|s| s.kind == "watts"));
     }
 
     /// Scenario: upstream re-processed an activity after this device stored its

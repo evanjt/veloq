@@ -7,7 +7,7 @@ import React, { useMemo, useEffect, useState } from 'react';
 import { View, StyleSheet, type LayoutChangeEvent } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, {
   useAnimatedStyle,
   withTiming,
@@ -18,9 +18,10 @@ import Animated, {
 import { useTheme } from '@/shared/app';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isExtendedFetchRunning } from '@/shared/app/extendedFetch';
-import { formatGpsSyncProgress } from '../../lib/syncProgressFormat';
+import { formatTrackStage } from '../../lib/syncProgressFormat';
 import { formatLibraryCoverage } from '@/shared/format/libraryCoverage';
 import { useLibraryCoverage } from '@/shared/native/useLibraryCoverage';
+import { useTrackStage } from '@/shared/native/useSyncStatus';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 import {
   colors,
@@ -35,6 +36,7 @@ import {
   themePalette,
   opacity,
 } from '@/theme';
+import { Icon } from '@/shared/ui/Icon';
 
 interface SyncProgressBannerProps {
   /** Whether the banner is visible */
@@ -45,10 +47,8 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const palette = themePalette(isDark);
-  // GPS sync progress from shared store
-  const gpsSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
-  const isGpsSyncing = useSyncDateRange((s) => s.isGpsSyncing);
-  const isAnalysingInBackground = useSyncDateRange((s) => s.isAnalysingInBackground);
+  // The track work as the engine reports it, whoever started it.
+  const trackStage = useTrackStage();
   const isFetchingExtended = useSyncDateRange((s) => isExtendedFetchRunning(s.extendedFetch));
 
   // The queue figure above is the running pass's own, so it reaches "12/12"
@@ -56,20 +56,12 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
   const coverage = useLibraryCoverage();
   const libraryLines = useMemo(() => formatLibraryCoverage(coverage, t), [coverage, t]);
 
-  const isProcessingRoutes =
-    isAnalysingInBackground ||
-    (isGpsSyncing &&
-      (gpsSyncProgress.status === 'fetching' || gpsSyncProgress.status === 'computing'));
-
-  // Show immediate feedback when fetching extended date range (before GPS sync starts)
-  const isLoadingExtended = isFetchingExtended && !isProcessingRoutes;
-
-  // Use shared formatter - GPS sync first, then extended fetch
+  // The track work first, then the window download that comes before it.
   const displayInfo = useMemo(() => {
-    if (isProcessingRoutes) {
-      return formatGpsSyncProgress(gpsSyncProgress, false, t);
+    if (trackStage) {
+      return formatTrackStage(trackStage, t);
     }
-    if (isLoadingExtended) {
+    if (isFetchingExtended) {
       return {
         icon: 'cloud-download-outline',
         text: t('mapScreen.loadingOlderActivities') as string,
@@ -79,7 +71,7 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
       };
     }
     return null;
-  }, [isProcessingRoutes, isLoadingExtended, gpsSyncProgress, t]);
+  }, [trackStage, isFetchingExtended, t]);
 
   // Should show when visible AND there's something to display
   const shouldShow = visible && displayInfo !== null;
@@ -154,16 +146,16 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
 
   return (
     <Animated.View
-      style={[styles.container, { backgroundColor: palette.primary }, containerStyle]}
+      style={[styles.container, { backgroundColor: palette.actionPrimary }, containerStyle]}
       accessibilityLiveRegion="polite"
       testID="sync-progress-banner"
     >
       <View onLayout={onContentLayout} testID="sync-progress-banner-content">
         <View style={styles.content}>
-          <MaterialCommunityIcons
+          <Icon
             name={displayInfo.icon as keyof typeof MaterialCommunityIcons.glyphMap}
             size={iconSize.sm}
-            color={colors.textOnPrimary}
+            color={colors.textOnFill}
           />
           <Text style={styles.text} testID="sync-progress-message">
             {displayInfo.text}
@@ -209,11 +201,11 @@ const styles = StyleSheet.create({
   },
   text: {
     ...typography.bodyCompactBold,
-    color: colors.textOnPrimary,
+    color: colors.textOnFill,
   },
   countText: {
     ...typography.caption,
-    color: colors.textOnPrimary,
+    color: colors.textOnFill,
   },
   libraryLines: {
     alignItems: 'center',
@@ -226,7 +218,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: colors.textOnDark,
+    backgroundColor: colors.textOnFill,
   },
   indeterminateFill: {
     width: '30%',

@@ -25,7 +25,8 @@ import {
 import { cameraMove } from '@/theme';
 
 export interface UpdateLayersParams {
-  routesGeoJSON?: FeatureCollection | undefined;
+  /** The collection, or a URL on the page's origin that MapLibre fetches. */
+  routesGeoJSON?: FeatureCollection | string | undefined;
   sectionsGeoJSON?: FeatureCollection | undefined;
   tracesGeoJSON?: FeatureCollection | undefined;
   sectionMarkersGeoJSON?: FeatureCollection | undefined;
@@ -83,6 +84,10 @@ function lineOverlayTableScript(): string {
       { key: 'highlightedTrace', sourceId: 'highlighted-trace-source', layerId: 'highlighted-trace-layer',
         color: ${jsLiteral(colors.chartCyan)}, width: 4, opacity: 1 },
     ];
+    // A URL is a line to draw: MapLibre fetches it, and an empty answer draws nothing.
+    function veloqHasLine(data) {
+      return typeof data === 'string' || !!(data && data.features && data.features.length > 0);
+    }
     function veloqLine(key) {
       return VELOQ_LINES.filter(function(line) { return line.key === key; })[0];
     }
@@ -202,7 +207,7 @@ export function buildUpdateLayersScript(params: UpdateLayersParams): string {
             function addLine(line, data) {
               if (data === undefined) return;
               var sourceExists = !!window.map.getSource(line.sourceId);
-              var hasData = data && data.features && data.features.length > 0;
+              var hasData = veloqHasLine(data);
               var outlineId = line.layerId + '-outline';
 
               try {
@@ -316,12 +321,12 @@ export function buildUpdateLayersScript(params: UpdateLayersParams): string {
                   paint: { 'line-color': ${jsLiteral(mapLayerColors.casing)}, 'line-width': 6 } });
                 window.map.addLayer({ id: 'section-trim-line-3d', type: 'line', source: 'section-trim-source', filter: lineKind('trimmed'),
                   layout: { 'line-join': 'round', 'line-cap': 'round' },
-                  paint: { 'line-color': (window.map.getLayer('route-line') && window.map.getPaintProperty('route-line', 'line-color')) || ${jsLiteral(colors.primary)}, 'line-width': 4 } });
+                  paint: { 'line-color': (window.map.getLayer('route-line') && window.map.getPaintProperty('route-line', 'line-color')) || ${jsLiteral(colors.actionPrimary)}, 'line-width': 4 } });
                 window.map.addLayer({ id: 'section-trim-end-border-3d', type: 'circle', source: 'section-trim-source', filter: pointFilter,
                   paint: { 'circle-radius': 7, 'circle-color': ${jsLiteral(mapLayerColors.casing)} } });
                 window.map.addLayer({ id: 'section-trim-end-3d', type: 'circle', source: 'section-trim-source', filter: pointFilter,
                   paint: { 'circle-radius': 5,
-                    'circle-color': ['case', ['==', ['get', 'kind'], 'start'], ${jsLiteral(colorWithOpacity(colors.success, 0.75))}, ${jsLiteral(colorWithOpacity(colors.error, 0.75))}] } });
+                    'circle-color': ['case', ['==', ['get', 'kind'], 'start'], ${jsLiteral(colorWithOpacity(colors.successFill, 0.75))}, ${jsLiteral(colorWithOpacity(colors.dangerFill, 0.75))}] } });
               }
               if (window.map.getLayer('route-line')) {
                 window.map.setPaintProperty('route-line', 'line-opacity', trimOn ? 0.4 : 1);
@@ -576,7 +581,7 @@ export function buildStyleOverlayScript(): string {
       var above = [];
       VELOQ_LINES.forEach(function(line) {
         var data = sent[line.key];
-        if (!data || !data.features || data.features.length === 0) return;
+        if (!veloqHasLine(data)) return;
         var overlay = veloqLineOverlay(line, data);
         lineSources[line.sourceId] = overlay.source;
         var group = line.below ? below : above;
@@ -609,7 +614,7 @@ export function buildStyleOverlayScript(): string {
           { id: 'start-end-fill', type: 'circle', source: 'start-end-markers',
             layout: vis,
             paint: { 'circle-radius': 5,
-              'circle-color': ['case', ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.success, 0.75))}, ${jsLiteral(colorWithOpacity(colors.error, 0.75))}] } },
+              'circle-color': ['case', ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.successFill, 0.75))}, ${jsLiteral(colorWithOpacity(colors.dangerFill, 0.75))}] } },
           { id: 'highlight-border', type: 'circle', source: 'highlight-point',
             layout: { visibility: 'none' },
             paint: { 'circle-radius': 7, 'circle-color': ${jsLiteral(mapLayerColors.casing)} } },

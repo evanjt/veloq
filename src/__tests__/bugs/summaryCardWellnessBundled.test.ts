@@ -13,7 +13,7 @@ import { renderHook } from '@testing-library/react-native';
 
 import { useSummaryCardData } from '@/features/home/hooks/useSummaryCardData';
 import { useDashboardPreferences } from '@/features/settings/stores/summaryCardPreferences';
-import { FORM_ZONE_MARK_COLORS } from '@/features/fitness/lib/fitness';
+import { formZoneColor } from '@/features/fitness/lib/fitness';
 import { getEngine } from '@/shared/native/engine';
 import { ABSENT } from '@/shared/format/absent';
 
@@ -164,7 +164,7 @@ it('withholds the form zone until a form reading arrives', async () => {
       value: '0',
     });
     expect(result.current.heroZone).toBe('formZones.greyZone');
-    expect(result.current.heroKeyColor).toBe(FORM_ZONE_MARK_COLORS.greyZone);
+    expect(result.current.heroKeyColor).toBe(formZoneColor('greyZone', false));
   } finally {
     useDashboardPreferences.setState({ summaryCard: preferences });
   }

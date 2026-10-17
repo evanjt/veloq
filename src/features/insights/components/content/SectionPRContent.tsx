@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useSectionPerformances } from '@/features/routes';
@@ -28,6 +27,7 @@ import {
 import { prRecordOf } from '@/features/insights/lib/directionBests';
 import type { Insight } from '@/types';
 import { NameText } from '@/shared/ui/NameText';
+import { Icon } from '@/shared/ui/Icon';
 
 interface SectionPRContentProps {
   insight: Insight;
@@ -78,7 +78,7 @@ export const SectionPRContent = React.memo(function SectionPRContent({
         />
       ) : null}
 
-      <SheetTrackDrawing points={section?.polyline} color={themePalette(isDark).primary} />
+      <SheetTrackDrawing points={section?.polyline} color={themePalette(isDark).actionPrimary} />
 
       {/* What the record beat; the time itself is the sheet's figure */}
       {bestTimeFormatted ? (
@@ -87,7 +87,7 @@ export const SectionPRContent = React.memo(function SectionPRContent({
           {prData?.sectionName ? (
             <View style={styles.sectionTitleRow}>
               {sportType ? (
-                <MaterialCommunityIcons
+                <Icon
                   name={getActivityIcon(sportType)}
                   size={iconSize.sm}
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -192,11 +192,11 @@ const styles = StyleSheet.create({
   },
   deltaText: {
     ...typography.bodyBold,
-    color: colors.chartGoldText,
+    color: colors.achievementText,
     fontVariant: ['tabular-nums'],
   },
   prTextDark: {
-    color: darkColors.chartGoldText,
+    color: darkColors.achievementText,
   },
   previousText: {
     ...typography.bodyCompact,

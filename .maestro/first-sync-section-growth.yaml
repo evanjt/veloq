@@ -113,7 +113,7 @@ tags:
       - runFlow:
           when:
             visible:
-              id: "sync-progress-strip"
+              id: "sync-progress-pill"
           commands:
             - evalScript: ${output.strip = true}
       - runFlow:

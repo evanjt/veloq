@@ -20,7 +20,7 @@ jest.mock('@/theme', () => {
   return {
     ...jest.requireActual('@/theme'),
     bodyDiagram: real.bodyDiagram,
-    strengthRamp: real.strengthRamp,
+    sequentialRamp: real.sequentialRamp,
   };
 });
 

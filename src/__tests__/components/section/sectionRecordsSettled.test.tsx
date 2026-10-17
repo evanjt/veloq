@@ -86,7 +86,7 @@ describe('the calendar card while time streams are outstanding', () => {
     const tree = await renderCalendar(false);
 
     // A year's best is not the record, so it carries no trophy at all.
-    const gold = trophies(tree).filter((icon) => icon.props.color === colors.chartGoldMark);
+    const gold = trophies(tree).filter((icon) => icon.props.color === colors.achievement);
     expect(gold).toHaveLength(0);
     expect(tree.queryAllByText('PR')).toHaveLength(0);
     const yearTrophies = trophies(tree).filter((icon) => icon.props.size === iconSize.sm);
@@ -103,7 +103,7 @@ describe('the calendar card while time streams are outstanding', () => {
     const tree = await renderCalendar(true);
 
     expect(trophies(tree).filter((icon) => icon.props.size === iconSize.sm)).toHaveLength(2);
-    expect(trophies(tree).filter((icon) => icon.props.color === colors.chartGoldMark)).toHaveLength(
+    expect(trophies(tree).filter((icon) => icon.props.color === colors.achievement)).toHaveLength(
       4
     );
     expect(tree.getAllByText('PR')).toHaveLength(2);
@@ -169,13 +169,13 @@ describe('the scatter while time streams are outstanding', () => {
     const circles = await scatterCircles(false);
 
     expect(circles.length).toBeGreaterThan(0);
-    expect(circles.filter((circle) => circle.color === colors.chartGoldMark)).toHaveLength(0);
+    expect(circles.filter((circle) => circle.color === colors.achievement)).toHaveLength(0);
   });
 
   it('rings the best point once the streams are in', async () => {
     const circles = await scatterCircles(true);
 
-    expect(circles.filter((circle) => circle.color === colors.chartGoldMark)).toHaveLength(1);
+    expect(circles.filter((circle) => circle.color === colors.achievement)).toHaveLength(1);
   });
 });
 

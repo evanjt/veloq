@@ -4,11 +4,11 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { KeyDot, SheetHeader } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import {
-  chartStreamColors,
+  chartStreamColour,
   iconSize,
   layout,
   opacity,
@@ -36,13 +36,13 @@ export function StatDetailSheet({ stat, isDark, onClose }: StatDetailSheetProps)
       <View style={styles.body}>
         <View style={styles.valueRow}>
           <View testID="stat-icon-disc" style={styles.iconContainer}>
-            <MaterialCommunityIcons name={stat.icon} size={iconSize.xl} color={styles.icon.color} />
+            <Icon name={stat.icon} size={iconSize.xl} color={styles.icon.color} />
           </View>
           <Text style={styles.value}>
             {stat.value}
             {stat.unit ? <Text style={styles.unit}> {stat.unit}</Text> : null}
           </Text>
-          {stat.stream ? <KeyDot color={chartStreamColors[stat.stream]} /> : null}
+          {stat.stream ? <KeyDot color={chartStreamColour(stat.stream, isDark)} /> : null}
         </View>
 
         {stat.context ? (
@@ -54,7 +54,7 @@ export function StatDetailSheet({ stat, isDark, onClose }: StatDetailSheetProps)
         {stat.explanation ? (
           <View style={styles.explanationBox}>
             <View style={styles.explanationHeader}>
-              <MaterialCommunityIcons
+              <Icon
                 name="information-outline"
                 size={iconSize.sm}
                 color={styles.explanationTitle.color}

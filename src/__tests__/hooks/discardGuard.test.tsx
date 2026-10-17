@@ -16,12 +16,12 @@ import { ManualEntryForm } from '@/features/recording/components/ManualEntryForm
 import { StrengthSession } from '@/features/recording/components/StrengthFollow';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { StackActions } from 'expo-router/react-navigation';
-import { testStack } from '../__shared__/testStack';
+import { stackRouteNames, testStack } from '../__shared__/testStack';
 
 jest.unmock('expo-router/react-navigation');
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysOnly());
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
-jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn(), tapBack: jest.fn() }));
+jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn(), goBack: jest.fn() }));
 jest.mock('@/features/recording/hooks/useRecordingKeepAwake', () => ({
   useRecordingKeepAwake: () => undefined,
 }));
@@ -146,7 +146,7 @@ describe('useDiscardGuard', () => {
     await act(() => stack.ref.current?.dispatch(StackActions.popTo('root')));
 
     expect(routeName(stack.ref)).toBe('root');
-    expect(stack.ref.current?.getRootState().routes.map((r) => r.name)).toEqual(['root']);
+    expect(stackRouteNames(stack.ref)).toEqual(['root']);
     expect(alertSpy).not.toHaveBeenCalled();
   });
 

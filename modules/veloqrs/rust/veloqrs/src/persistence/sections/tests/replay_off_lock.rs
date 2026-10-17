@@ -90,13 +90,13 @@ fn seeded() -> (TempDir, PersistentEngine) {
 
 fn normalised(mut identity: SectionIdentity, mut applied: ReplayApplied) -> serde_json::Value {
     for row in identity.rows.values_mut() {
-        row.section.created_at = None;
+        std::sync::Arc::make_mut(&mut row.section).created_at = None;
     }
     for grave in identity.graves.values_mut() {
         grave.created_at = None;
     }
     for section in &mut applied.visible {
-        section.created_at = None;
+        std::sync::Arc::make_mut(section).created_at = None;
     }
     let events: Vec<_> = applied
         .events

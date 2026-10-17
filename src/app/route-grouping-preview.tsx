@@ -45,7 +45,7 @@ import {
   type GroupingRoute,
 } from '@/features/routes';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { goBack, tapBack } from '@/shared/app/navigation';
+import { goBack } from '@/shared/app/navigation';
 import { confirmAction, inform } from '@/shared/ui/dialog';
 
 /**
@@ -107,7 +107,7 @@ function RouteGroupingPreviewScreenContent() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const bottomClearance = useBottomClearance({ insetTaken: true });
-  const bg = isDark ? darkColors.background : colors.background;
+  const bg = isDark ? darkColors.surfacePage : colors.surfacePage;
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
 
@@ -198,7 +198,7 @@ function RouteGroupingPreviewScreenContent() {
     });
   }, [t, client, params, rescan]);
 
-  const handleDiscard = useCallback(() => tapBack(), []);
+  const handleDiscard = useCallback(() => goBack(), []);
 
   // A run that timed out has been cancelled and nothing is coming, so the row
   // has to say so: without its own branch the text stayed on "grouping" with

@@ -75,6 +75,7 @@
         }
       ],
       "./src/plugins/with-gradle-repositories",
+      "./src/plugins/with-gradle-build-cache",
       "./src/plugins/with-release-signing",
       "./src/plugins/with-packaging-options",
       "./src/plugins/with-r8-config",

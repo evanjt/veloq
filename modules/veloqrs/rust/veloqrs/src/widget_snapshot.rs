@@ -17,7 +17,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    FfiGpsPoint, FfiWidgetSnapshotData, WidgetLatestComparison, WidgetRouteStanding,
+    FfiWidgetSnapshotData, GpsPoint, WidgetLatestComparison, WidgetRouteStanding,
     WidgetWellnessSummary,
 };
 
@@ -2281,13 +2281,13 @@ fn write_date(pattern: &DatePattern, date: chrono::NaiveDate) -> Option<String> 
 /// Project and normalise a track into a 0..1 box. Equirectangular, x scaled by
 /// the cosine of the mid latitude, which keeps the shape at route scale; y is
 /// flipped so it grows downward. The origin is the absence of a fix.
-pub fn route_outline(gps: &[FfiGpsPoint], max_points: usize) -> Option<RouteOutline> {
+pub fn route_outline(gps: &[GpsPoint], max_points: usize) -> Option<RouteOutline> {
     if gps.len() < 2 {
         return None;
     }
-    let positioned = |p: &FfiGpsPoint| crate::net::types::is_recorded_fix(p.latitude, p.longitude);
+    let positioned = |p: &GpsPoint| crate::net::types::is_recorded_fix(p.latitude, p.longitude);
     let stride = gps.len().div_ceil(max_points.max(1)).max(1);
-    let mut sampled: Vec<&FfiGpsPoint> = gps
+    let mut sampled: Vec<&GpsPoint> = gps
         .iter()
         .step_by(stride)
         .filter(|p| positioned(p))

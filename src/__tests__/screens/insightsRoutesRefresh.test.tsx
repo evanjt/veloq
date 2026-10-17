@@ -1,3 +1,11 @@
+/**
+ * Scenario: the routes tab of the insights screen, whose list refreshes on a
+ * pull and spins while the track work runs.
+ *
+ * Expected behaviour: a pull asks the engine to sync, and the spinner follows
+ * the track work the engine reports, including a pass it started by itself
+ * after the sync settled.
+ */
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
@@ -29,15 +37,19 @@ jest.mock('@/features/activity', () => ({
   useActivityBoundsCache: () => ({ sync: jest.fn() }),
 }));
 jest.mock('@/features/routes/components/RoutesList', () => ({
-  RoutesList: ({ onRefresh }: { onRefresh: () => void }) => {
+  RoutesList: ({ onRefresh, isRefreshing }: { onRefresh: () => void; isRefreshing: boolean }) => {
     const React = require('react');
     const { Pressable, Text } = require('react-native');
     return React.createElement(
       Pressable,
       { testID: 'routes-refresh', onPress: onRefresh },
-      React.createElement(Text, null, 'Refresh routes')
+      React.createElement(Text, null, isRefreshing ? 'Refreshing routes' : 'Refresh routes')
     );
   },
+}));
+let mockTrackStage: unknown = null;
+jest.mock('@/shared/native/useSyncStatus', () => ({
+  useTrackStage: () => mockTrackStage,
 }));
 jest.mock('@/features/routes/components/SectionsList', () => ({ SectionsList: () => null }));
 jest.mock('@/features/routes/components/DateRangeSummary', () => ({
@@ -75,8 +87,6 @@ jest.mock('@/shared/app/SyncDateRangeStore', () => ({
       oldest: null,
       newest: null,
       extendedFetch: { phase: 'idle' },
-      gpsSyncProgress: { status: 'idle' },
-      isGpsSyncing: false,
     }),
 }));
 jest.mock('@/shared/native/syncRefresh', () => ({ requestSyncRefresh: jest.fn() }));
@@ -88,4 +98,17 @@ it('asks the engine to sync when the routes list refreshes', async () => {
   await fireEvent.press(screen.getByTestId('routes-refresh'));
 
   expect(requestSyncRefresh).toHaveBeenCalledTimes(1);
+});
+
+it('spins the list while the engine reports a GPS pass, and only then', async () => {
+  const { TrackStep } = require('../__shared__/veloqrsStub');
+  mockTrackStage = { step: TrackStep.Downloading, completed: 2, total: 9, percent: 22 };
+  const during = await render(<InsightsScreen />);
+  expect(screen.getByText('Refreshing routes')).toBeTruthy();
+  await during.unmount();
+
+  mockTrackStage = null;
+  await render(<InsightsScreen />);
+  expect(screen.getByText('Refresh routes')).toBeTruthy();
+  expect(screen.queryByText('Refreshing routes')).toBeNull();
 });

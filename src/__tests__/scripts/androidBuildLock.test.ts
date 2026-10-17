@@ -120,6 +120,50 @@ describe('the Android build takes a lock of its own', () => {
     expect(spawnSync(script, ['false'], { encoding: 'utf8', env }).status).not.toBe(0);
   });
 
+  describe('hands CMake the compiler cache when one is installed', () => {
+    /** A PATH that holds the shell's own tools and, when asked, a stand-in `ccache`. */
+    function pathWith(ccache: boolean): string {
+      const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'veloq-ccache-bin-'));
+      if (ccache) {
+        fs.writeFileSync(path.join(bin, 'ccache'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+      }
+      return `${bin}:/usr/bin:/bin`;
+    }
+
+    function launchers(env: NodeJS.ProcessEnv): string {
+      const run = spawnSync(
+        script,
+        ['sh', '-c', 'echo "$CMAKE_C_COMPILER_LAUNCHER|$CMAKE_CXX_COMPILER_LAUNCHER"'],
+        { encoding: 'utf8', env }
+      );
+      expect(run.status).toBe(0);
+      return run.stdout.trim();
+    }
+
+    function clean(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+      delete env.CMAKE_C_COMPILER_LAUNCHER;
+      delete env.CMAKE_CXX_COMPILER_LAUNCHER;
+      return env;
+    }
+
+    it('sets both launchers when ccache is on the PATH', () => {
+      const env = clean({ ...privateLock(), PATH: pathWith(true) });
+      expect(launchers(env)).toBe('ccache|ccache');
+    });
+
+    it('sets neither when ccache is not installed', () => {
+      const env = clean({ ...privateLock(), PATH: pathWith(false) });
+      expect(launchers(env)).toBe('|');
+    });
+
+    it('keeps a launcher the caller already chose', () => {
+      const env = clean({ ...privateLock(), PATH: pathWith(true) });
+      env.CMAKE_C_COMPILER_LAUNCHER = 'sccache';
+      env.CMAKE_CXX_COMPILER_LAUNCHER = 'sccache';
+      expect(launchers(env)).toBe('sccache|sccache');
+    });
+  });
+
   it('serialises two runs rather than letting them interleave', async () => {
     const marker = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'veloq-lock-')), 'order');
     const run = (tag: string) =>

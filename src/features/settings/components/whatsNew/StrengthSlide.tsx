@@ -12,7 +12,7 @@ import {
   muscleName,
   type MuscleSlug,
 } from '@/features/strength';
-import { colors, darkColors, spacing, typography, strengthRamp, bodyDiagram } from '@/theme';
+import { colors, darkColors, spacing, typography, sequentialRamp, bodyDiagram } from '@/theme';
 
 // Illustrative values, in the shape the strength tab draws: each muscle's shade
 // on the body's five-step ramp, and two of the antagonist pairs its volume
@@ -57,7 +57,7 @@ export function StrengthSlide() {
           data={BODY_DATA}
           gender="male"
           maxScale={BODY_SCALE}
-          colors={strengthRamp}
+          colors={sequentialRamp[isDark ? 'dark' : 'light']}
           defaultFill={isDark ? bodyDiagram.fillDark : bodyDiagram.fillLight}
         />
       </View>

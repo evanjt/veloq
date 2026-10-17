@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { useTheme } from '@/shared/app';
+import { Icon } from './Icon';
 
 /**
  * Helper to check if a device name indicates a Garmin device
@@ -39,7 +39,7 @@ export function DeviceAttribution({ deviceName }: DeviceAttributionProps) {
   return (
     <View style={styles.deviceContainer}>
       <View style={styles.deviceRow}>
-        <MaterialCommunityIcons
+        <Icon
           name="watch"
           size={iconSize.sm}
           color={isDark ? darkColors.textSecondary : colors.textSecondary}

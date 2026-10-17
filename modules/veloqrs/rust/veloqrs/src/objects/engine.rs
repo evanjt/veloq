@@ -62,13 +62,6 @@ pub struct FfiRecordCheck {
     pub decisions: u32,
 }
 
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct FfiUnplacedRecord {
-    pub kind: String,
-    pub name: Option<String>,
-    pub reason: String,
-}
-
 /// One wipe of each kind at a time.
 ///
 /// The flag is cleared by the wipe itself rather than by the caller's future,
@@ -83,11 +76,93 @@ static BACKUP_IN_FLIGHT: std::sync::atomic::AtomicBool = std::sync::atomic::Atom
 static BULK_EXPORT_IN_FLIGHT: std::sync::atomic::AtomicBool =
     std::sync::atomic::AtomicBool::new(false);
 
-/// What the running export has written, for the progress read to find. Held
-/// beside the flag rather than in the handle, which the awaiting task owns.
-static BULK_EXPORT_PROGRESS: std::sync::Mutex<
-    Option<std::sync::Arc<crate::persistence::export::BulkExportProgress>>,
+/// One run that can be stopped: the id a screen names to stop it, and the
+/// latch its worker reads.
+type StoppableRun<L> = Option<(u64, std::sync::Arc<L>)>;
+
+/// The running export, for the progress read and the stop to find. Held beside
+/// the flag rather than in the handle, which the awaiting task owns.
+static BULK_EXPORT_RUN: std::sync::Mutex<
+    StoppableRun<crate::persistence::export::BulkExportProgress>,
 > = std::sync::Mutex::new(None);
+
+/// The running record backup. The clear snapshot shares its slot and is
+/// never here: it is the rollback a wipe stands on, so it is not the
+/// athlete's to stop.
+static RECORD_BACKUP_RUN: std::sync::Mutex<StoppableRun<std::sync::atomic::AtomicBool>> =
+    std::sync::Mutex::new(None);
+
+/// Run ids for every kind `cancel_run` reaches, so an id never names a run of
+/// another kind. Zero is never handed out.
+static NEXT_STOPPABLE_RUN: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+
+/// A fresh id for one run that `cancel_run` can stop.
+pub(crate) fn next_stoppable_run() -> u64 {
+    NEXT_STOPPABLE_RUN.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+}
+
+/// A run held in its slot for as long as the work lasts, however it ends.
+struct RunSlot<L: 'static> {
+    slot: &'static std::sync::Mutex<StoppableRun<L>>,
+    run: u64,
+}
+
+impl<L> RunSlot<L> {
+    fn open(slot: &'static std::sync::Mutex<StoppableRun<L>>, latch: std::sync::Arc<L>) -> Self {
+        let run = next_stoppable_run();
+        *slot.lock().unwrap_or_else(|e| e.into_inner()) = Some((run, latch));
+        RunSlot { slot, run }
+    }
+}
+
+impl<L> Drop for RunSlot<L> {
+    fn drop(&mut self) {
+        let mut held = self.slot.lock().unwrap_or_else(|e| e.into_inner());
+        if held.as_ref().is_some_and(|(run, _)| *run == self.run) {
+            *held = None;
+        }
+    }
+}
+
+/// The run in `slot`, if one is running.
+fn running<L>(slot: &std::sync::Mutex<StoppableRun<L>>) -> StoppableRun<L> {
+    slot.lock().unwrap_or_else(|e| e.into_inner()).clone()
+}
+
+/// The running record backup's id, for `cancel_run`, or nothing running. The
+/// backup screen's read carries it, since a backup is single-flight.
+pub(crate) fn record_backup_run() -> Option<u64> {
+    running(&RECORD_BACKUP_RUN).map(|(run, _)| run)
+}
+
+/// Ask the export, record backup or detector cutover `run` to stop. Returns
+/// whether that run was still going.
+///
+/// Cooperative: the worker checks between activities, or between stages for
+/// the backup and the cutover, and an export removes what it had written. An
+/// id that names a finished run reaches nothing, so a stop cannot land on the
+/// next one.
+pub(crate) fn cancel_stoppable_run(run: u64) -> bool {
+    if let Some((_, progress)) = running(&BULK_EXPORT_RUN).filter(|(held, _)| *held == run) {
+        progress.cancel();
+        return true;
+    }
+    if let Some((_, latch)) = running(&RECORD_BACKUP_RUN).filter(|(held, _)| *held == run) {
+        latch.store(true, std::sync::atomic::Ordering::SeqCst);
+        return true;
+    }
+    crate::persistence::cutover::cancel_cutover_run(run)
+}
+
+/// The error a worker's message crosses as. A stop is its own variant, so a
+/// screen can say cancelled rather than failed.
+fn job_error(msg: String) -> VeloqError {
+    if msg == crate::persistence::export::JOB_CANCELLED {
+        VeloqError::Cancelled
+    } else {
+        VeloqError::Database { msg }
+    }
+}
 
 /// A claim on a job slot, released when the work ends however it ends.
 pub(crate) struct InFlight(&'static std::sync::atomic::AtomicBool);
@@ -114,18 +189,18 @@ impl Drop for InFlight {
     }
 }
 
+/// `cancel` is the record backup's stop latch. The clear snapshot takes none.
 fn backup_handle(
     dest_path: &str,
-    record: bool,
+    cancel: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
 ) -> Result<crate::persistence::BackupHandle, VeloqError> {
-    with_engine(|engine| {
-        if record {
-            // Read inside the engine take, so it names the library this
-            // handle was cut from.
-            engine.record_backup_background(dest_path, crate::persistence::engine_install())
-        } else {
-            engine.clear_snapshot_background(dest_path)
+    with_engine(|engine| match cancel {
+        // Read inside the engine take, so it names the library this
+        // handle was cut from.
+        Some(cancel) => {
+            engine.record_backup_background(dest_path, crate::persistence::engine_install(), cancel)
         }
+        None => engine.clear_snapshot_background(dest_path),
     })
 }
 
@@ -204,23 +279,12 @@ fn finish_partial_clear(interrupted: Option<crate::objects::sync::Interrupted>) 
 pub struct FfiBulkExportProgress {
     /// Whether an export is running at all.
     pub running: bool,
+    /// The running export's id, for `cancel_run`.
+    pub run: Option<f64>,
     /// Stored tracks visited so far, written or skipped, and how many there
     /// are, so the count reaches the total on a run with skips.
     pub visited: u32,
     pub total: u32,
-}
-
-/// What a finished bulk export wrote, and what it left out under each reason.
-#[derive(Debug, Clone, uniffi::Record)]
-pub struct FfiBulkExportResult {
-    pub exported: u32,
-    /// Activities with no stored track, such as trainer rides.
-    pub no_track: u32,
-    /// Tracks the privacy trim left too short to export.
-    pub trimmed: u32,
-    /// Tracks that could not be read or written.
-    pub failed: u32,
-    pub total_bytes: f64,
 }
 
 #[derive(uniffi::Object)]
@@ -495,7 +559,7 @@ impl VeloqEngine {
     /// than until somebody reads its outcome.
     async fn write_clear_snapshot(&self, dest_path: String) -> Result<(), VeloqError> {
         let slot = InFlight::claim(&BACKUP_IN_FLIGHT, "A backup is already running")?;
-        let handle = backup_handle(&dest_path, false)?;
+        let handle = backup_handle(&dest_path, None)?;
         crate::runtime::ASYNC_RUNTIME
             .spawn_blocking(move || {
                 let outcome = handle
@@ -510,20 +574,26 @@ impl VeloqEngine {
     }
 
     /// Write the athlete record as a compressed backup off the JS thread.
+    ///
+    /// The backup screen's read names the run while it goes, for `cancel_run`.
+    /// A stopped run answers `Cancelled` and leaves the destination as it was.
     async fn run_record_backup(&self, dest_path: String) -> Result<(), VeloqError> {
         let slot = InFlight::claim(&BACKUP_IN_FLIGHT, "A backup is already running")?;
-        let handle = backup_handle(&dest_path, true)?;
+        let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let run = RunSlot::open(&RECORD_BACKUP_RUN, std::sync::Arc::clone(&cancel));
+        let handle = backup_handle(&dest_path, Some(cancel))?;
         crate::runtime::ASYNC_RUNTIME
             .spawn_blocking(move || {
                 let outcome = handle
                     .recv_blocking()
                     .unwrap_or_else(|| Err("Backup thread died without a result".to_string()));
+                drop(run);
                 drop(slot);
                 outcome
             })
             .await
             .unwrap_or_else(|e| Err(format!("Backup thread died without a result: {e}")))
-            .map_err(|msg| VeloqError::Database { msg })
+            .map_err(job_error)
     }
 
     /// Read a record ZIP and apply its decisions off the JS thread.
@@ -611,22 +681,16 @@ impl VeloqEngine {
     }
 
     /// List decisions that still await their activity or matching ground.
-    async fn get_unplaced_backup_records(&self) -> Result<Vec<FfiUnplacedRecord>, VeloqError> {
-        let rows = crate::runtime::ASYNC_RUNTIME
+    async fn get_unplaced_backup_records(
+        &self,
+    ) -> Result<Vec<crate::persistence::record_restore::UnplacedRecord>, VeloqError> {
+        crate::runtime::ASYNC_RUNTIME
             .spawn_blocking(|| {
                 with_reader(crate::persistence::record_restore::unplaced_records_from_conn)
             })
             .await
             .map_err(|e| VeloqError::Database { msg: e.to_string() })??
-            .map_err(|msg| VeloqError::Database { msg })?;
-        Ok(rows
-            .into_iter()
-            .map(|row| FfiUnplacedRecord {
-                kind: row.kind,
-                name: row.name,
-                reason: row.reason,
-            })
-            .collect())
+            .map_err(|msg| VeloqError::Database { msg })
     }
 
     /// Get backup metadata as JSON for validation before restore.
@@ -666,26 +730,24 @@ impl VeloqEngine {
         &self,
         format: crate::persistence::export::BulkExportFormat,
         dest_path: String,
-    ) -> Result<FfiBulkExportResult, VeloqError> {
+    ) -> Result<crate::persistence::export::BulkExportResult, VeloqError> {
         let slot = InFlight::claim(&BULK_EXPORT_IN_FLIGHT, "An export is already running")?;
+        let progress =
+            std::sync::Arc::new(crate::persistence::export::BulkExportProgress::default());
+        let run = RunSlot::open(&BULK_EXPORT_RUN, std::sync::Arc::clone(&progress));
         let (install, handle) = with_engine(|e| {
             (
                 crate::persistence::engine_install(),
-                e.bulk_export_background(format, &dest_path),
+                e.bulk_export_background(format, &dest_path, progress),
             )
         })?;
-        *BULK_EXPORT_PROGRESS
-            .lock()
-            .unwrap_or_else(|e| e.into_inner()) = Some(handle.progress_handle());
 
         crate::runtime::ASYNC_RUNTIME
             .spawn_blocking(move || {
                 let outcome = handle
                     .recv_blocking()
                     .unwrap_or_else(|| Err("Export thread died without a result".to_string()));
-                *BULK_EXPORT_PROGRESS
-                    .lock()
-                    .unwrap_or_else(|e| e.into_inner()) = None;
+                drop(run);
                 drop(slot);
                 // A library wiped while the worker ran is not the one the
                 // caller asked about: its counts and file are not owed on.
@@ -698,34 +760,26 @@ impl VeloqEngine {
             })
             .await
             .unwrap_or_else(|e| Err(format!("Export thread died without a result: {e}")))
-            .map(|result| FfiBulkExportResult {
-                exported: result.exported,
-                no_track: result.no_track,
-                trimmed: result.trimmed,
-                failed: result.failed,
-                total_bytes: result.total_bytes,
-            })
-            .map_err(|msg| VeloqError::Database { msg })
+            .map_err(job_error)
     }
 
     /// How far the running export has got, or nothing running.
     ///
     /// One mutex and two atomic loads, which is what a progress bar may cost.
     fn bulk_export_progress(&self) -> FfiBulkExportProgress {
-        let guard = BULK_EXPORT_PROGRESS
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        match guard.as_ref() {
-            Some(progress) => {
+        match running(&BULK_EXPORT_RUN) {
+            Some((run, progress)) => {
                 let (visited, total) = progress.read();
                 FfiBulkExportProgress {
                     running: true,
+                    run: Some(run as f64),
                     visited,
                     total,
                 }
             }
             None => FfiBulkExportProgress {
                 running: false,
+                run: None,
                 visited: 0,
                 total: 0,
             },
@@ -1867,6 +1921,138 @@ mod tests {
         crate::runtime::block_on(running)
             .expect("the export task")
             .expect("the export");
+        assert!(std::path::Path::new(&dest).exists());
+    }
+
+    /// Hold the engine write lock on a thread of its own until the returned
+    /// sender is sent to, so a job started meanwhile is certainly still going.
+    fn hold_engine_lock() -> (std::sync::mpsc::Sender<()>, std::thread::JoinHandle<()>) {
+        let (holding, held) = std::sync::mpsc::channel();
+        let (release, released) = std::sync::mpsc::channel::<()>();
+        let writer = std::thread::spawn(move || {
+            with_persistent_engine(|_| {
+                holding.send(()).ok();
+                released.recv().ok();
+            })
+            .expect("engine");
+        });
+        held.recv().expect("the writer took the lock");
+        (release, writer)
+    }
+
+    /// Scenario: the athlete stops an export the moment it starts.
+    /// Expected behaviour: it answers cancelled, leaves no file, frees its
+    /// slot, and its id stops nothing once it has ended.
+    #[test]
+    fn a_running_export_can_be_cancelled_and_leaves_no_file() {
+        let _guard = serial_global_state();
+        let tmp = init_global_engine("engine.db");
+        let engine = VeloqEngine;
+        seed_activity("a1");
+        let (release, writer) = hold_engine_lock();
+
+        let dest = tmp.path().join("all.zip").to_string_lossy().into_owned();
+        let running = {
+            let dest = dest.clone();
+            crate::runtime::ASYNC_RUNTIME.spawn(async move {
+                VeloqEngine
+                    .run_bulk_export(BulkExportFormat::Gpx, dest)
+                    .await
+            })
+        };
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+        let run = loop {
+            if let Some(run) = engine.bulk_export_progress().run {
+                break run;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "no export was under way"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        };
+        assert!(
+            !crate::ffi::cancel_run(run + 1.0),
+            "another id stopped this run"
+        );
+        assert!(
+            crate::ffi::cancel_run(run),
+            "the running export was not found"
+        );
+        release.send(()).ok();
+        writer.join().expect("writer thread");
+
+        let outcome = crate::runtime::block_on(running).expect("the export task");
+        assert!(matches!(outcome, Err(VeloqError::Cancelled)), "{outcome:?}");
+        assert!(
+            !std::path::Path::new(&dest).exists(),
+            "a partial file was left"
+        );
+        assert!(!engine.bulk_export_progress().running, "the slot was kept");
+        assert!(!crate::ffi::cancel_run(run), "a finished run was stopped");
+
+        crate::runtime::block_on(engine.run_bulk_export(BulkExportFormat::Gpx, dest.clone()))
+            .expect("the next export runs whole");
+        assert!(std::path::Path::new(&dest).exists());
+    }
+
+    /// Scenario: the athlete stops a record backup while it waits to put its
+    /// zip in place.
+    /// Expected behaviour: it answers cancelled, writes nothing, and the next
+    /// backup is not refused.
+    #[test]
+    fn a_running_record_backup_can_be_cancelled_and_writes_nothing() {
+        let _guard = serial_global_state();
+        let tmp = init_global_engine("engine.db");
+        let engine = VeloqEngine;
+        seed_activity("a1");
+        assert_eq!(record_backup_run(), None, "nothing running yet");
+        let (release, writer) = hold_engine_lock();
+
+        let dest = tmp
+            .path()
+            .join("veloq-decisions.zip")
+            .to_string_lossy()
+            .into_owned();
+        let running = {
+            let dest = dest.clone();
+            crate::runtime::ASYNC_RUNTIME
+                .spawn(async move { VeloqEngine.run_record_backup(dest).await })
+        };
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+        let run = loop {
+            if let Some(run) = record_backup_run() {
+                break run as f64;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "no backup was under way"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        };
+        let screen =
+            crate::objects::error::with_reader(crate::persistence::screens::backup_screen_data)
+                .expect("reader")
+                .expect("backup screen");
+        assert_eq!(
+            screen.record_backup_run,
+            Some(run),
+            "the backup screen does not name the run"
+        );
+        assert!(
+            crate::ffi::cancel_run(run),
+            "the running backup was not found"
+        );
+        release.send(()).ok();
+        writer.join().expect("writer thread");
+
+        let outcome = crate::runtime::block_on(running).expect("the backup task");
+        assert!(matches!(outcome, Err(VeloqError::Cancelled)), "{outcome:?}");
+        assert!(!std::path::Path::new(&dest).exists(), "a zip was left");
+        assert_eq!(record_backup_run(), None, "the run was kept");
+
+        crate::runtime::block_on(engine.run_record_backup(dest.clone()))
+            .expect("the next backup runs whole");
         assert!(std::path::Path::new(&dest).exists());
     }
 

@@ -46,7 +46,7 @@ export function UploadPermissionNotice() {
     >
       {error ? (
         <StatusLine tone="error" message={error}>
-          <Text style={[styles.errorText, { color: palette.errorDeep }]} numberOfLines={2}>
+          <Text style={[styles.errorText, { color: palette.errorText }]} numberOfLines={2}>
             {error}
           </Text>
         </StatusLine>

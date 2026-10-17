@@ -2855,7 +2855,7 @@ fn section_detail_marks_retired_or_missing_split_targets_unavailable() {
 }
 
 /// A pinned version has to read as pinned in the bundle, which is the one
-/// field `get_geometry_versions` computed rather than read.
+/// field the bundle computes rather than reads.
 #[test]
 fn a_pinned_version_reads_as_pinned_in_the_bundle() {
     let _serial_state = crate::serial_state();

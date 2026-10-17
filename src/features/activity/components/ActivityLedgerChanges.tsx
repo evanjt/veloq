@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import type { ActivityLedgerChange } from 'veloqrs';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { formatFullDate } from '@/shared/format/format';
 import { FIXED_LABEL_LEDGER_KINDS, ledgerDate } from '@/features/routes';
 import { Card, CardHeader, Row } from '@/shared/ui';
@@ -41,7 +41,7 @@ export function ActivityLedgerChanges({ changes, isDark }: ActivityLedgerChanges
               <Row
                 key={`${change.eventId}-${change.relation}`}
                 testID={`activity-ledger-change-${change.eventId}`}
-                onPress={() => tapTo(`/section/${change.sectionId}`)}
+                onPress={() => navigateTo(`/section/${change.sectionId}`)}
                 accessibilityLabel={`${name}, ${date}`}
                 behaviour="navigate"
               >

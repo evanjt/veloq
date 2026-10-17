@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     marginRight: spacing.xsPlus,
   },
   textOnDark: {
-    color: colors.textOnDark,
+    color: colors.textOnFill,
   },
   track: {
     flex: 1,

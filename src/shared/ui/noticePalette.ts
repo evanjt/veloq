@@ -34,10 +34,10 @@ export function noticePalette(tone: PaletteTone, isDark: boolean): NoticePalette
   const p = isDark ? darkColors : colors;
   const ink = { text: p.textPrimary, subtext: p.textSecondary };
   const grounds: Record<PaletteTone, Omit<NoticePalette, 'text' | 'subtext'>> = {
-    error: { bg: p.errorBg, icon: p.errorDeep },
-    warning: { bg: p.warningBg, icon: p.warningAmber },
-    info: { bg: p.infoBg, icon: p.infoText },
-    success: { bg: p.successBg, icon: p.successDeep },
+    error: { bg: p.errorBg, icon: p.errorText },
+    warning: { bg: p.warningBg, icon: p.warningText },
+    info: { bg: p.infoBg, icon: p.actionLink },
+    success: { bg: p.successBg, icon: p.successText },
     neutral: { bg: p.surface, border: p.border, icon: p.textSecondary },
   };
   return { ...grounds[tone], ...ink };

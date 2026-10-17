@@ -82,16 +82,16 @@ function ChartErrorFallback({ height, onRetry }: FallbackProps) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfacePage,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: layout.borderRadiusSm,
     borderWidth: stroke.one,
-    borderColor: colors.divider,
+    borderColor: colors.border,
   },
   containerDark: {
-    backgroundColor: darkColors.background,
-    borderColor: darkColors.divider,
+    backgroundColor: darkColors.surfacePage,
+    borderColor: darkColors.border,
   },
   errorText: {
     ...typography.bodySmall,

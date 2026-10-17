@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef } from 'react';
-import { Platform, View } from 'react-native';
+import { Platform, View, type ViewInstance } from 'react-native';
 import * as haptics from '@/shared/ui/haptics';
 import { useTranslation } from 'react-i18next';
 import { useMapPreferences } from '@/features/settings';
@@ -14,7 +14,7 @@ import {
   type ContextMenuEntry,
 } from '@/shared/ui/ContextMenu';
 import { chromeMenuIcon } from '@/shared/ui/ChromeIcon';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { INTERVALS_URLS } from '@/shared/app/constants';
 import { debug } from '@/shared/debug/debug';
 
@@ -119,7 +119,7 @@ export function ActivityCardContextMenu({
 
   const webId = activity.intervalsWebId;
   // The menu row is gone by the time the sheet presents, so on iPad it points at the card.
-  const cardAnchor = useRef<View>(null);
+  const cardAnchor = useRef<ViewInstance>(null);
   const handleShare = useCallback(async () => {
     if (!webId) return;
     const url = INTERVALS_URLS.activityPage(webId);
@@ -145,7 +145,7 @@ export function ActivityCardContextMenu({
       label: t('activity.viewDetails'),
       icon: 'information-outline',
       systemIcon: 'info.circle',
-      onPress: () => tapTo(href),
+      onPress: () => navigateTo(href),
     };
     // Share links to intervals.icu, so it needs a page there.
     const share: ContextMenuEntry[] = webId

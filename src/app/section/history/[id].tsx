@@ -13,7 +13,7 @@ import {
 import { colors, darkColors, layout, spacing } from '@/theme';
 import { ScreenScrollView } from '@/shared/ui';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { confirmAction } from '@/shared/ui/dialog';
 
 function SectionHistoryScreenContent() {
@@ -58,7 +58,7 @@ function SectionHistoryScreenContent() {
   const showVersion = useCallback(
     (version: number | null) => {
       if (version === null) return;
-      tapTo({ pathname: '/section/[id]', params: { id, previewVersion: String(version) } });
+      navigateTo({ pathname: '/section/[id]', params: { id, previewVersion: String(version) } });
     },
     [id]
   );
@@ -95,8 +95,8 @@ function SectionHistoryScreenContent() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.background },
-  screenDark: { backgroundColor: darkColors.background },
+  screen: { flex: 1, backgroundColor: colors.surfacePage },
+  screenDark: { backgroundColor: darkColors.surfacePage },
   content: { padding: layout.screenPadding, paddingBottom: spacing.xl },
 });
 

@@ -1,23 +1,23 @@
 #!/usr/bin/env node
-// `colors.success` (#22C55E) measures 2.28:1 on white and `colors.warning`
-// (#F59E0B) 2.15:1. Neither clears the 4.5:1 a text or icon colour needs, nor
-// even the 3:1 for a graphical object. As a *fill* they are fine, because the
-// mark on top carries the contrast; as the mark itself they are not.
+// `colors.successFill` (#069E47) measures 3.10:1 on the neutral fill and
+// `colors.warningFill` (#BF7A05) 3.09:1. Neither clears the 4.5:1 a text
+// colour needs, and both sit on the 3:1 line a graphical object owes. As a
+// *fill* they are fine, because the mark on top carries the contrast; as the
+// mark itself they are not.
 //
 // So this guard holds the mark and leaves the ground alone: `color`,
 // `iconColor`, `borderColor`, `tintColor` and `tint` fail, `backgroundColor`
-// does not. The light palette already carries compliant tones for two of the
-// three, `warningAmber` at 7.09:1 and `errorDark` at 4.83:1, and `successDeep`
-// is the green.
+// does not. Each tone has a text role for its mark, `successText`,
+// `warningText` and `errorText`.
 //
 // A token routed through a local, a record entry or a name read out of one
-// (`const c = ok ? colors.success : colors.warning`) is followed to the
+// (`const c = ok ? colors.successFill : colors.warningFill`) is followed to the
 // `color`, `iconColor` or `tint` it reaches, since the same-line check cannot
 // see it. A bare `color={x}` counts only on an icon or text element, because
 // on a button it is the fill.
 //
-// Dark mode is not the problem: `darkColors.success` and `.warning` are light
-// tones on a near-black surface and clear the bar comfortably. It is
+// Dark mode is not the problem: `darkColors.successFill` and `.warningFill`
+// are light tones on a near-black surface and clear the bar comfortably. It is
 // `colors.*`, the light set, that this names.
 
 import { join, dirname, relative, resolve } from 'node:path';
@@ -54,13 +54,13 @@ function walk(dir) {
 /**
  * The `darkColors` status tones. These are chosen for a near-black surface, so
  * one read with no theme branch is the same defect in the other direction: the
- * energy card drew `darkColors.amberIcon` (#FBBF24, 2.15:1 on white) in both
+ * energy card drew the dark warning text (#FBBF24, 2.15:1 on white) in both
  * themes. Only the status tones, not the text ones: a `textLight` or
  * `textSecondaryDark` style is dark-only by convention and applied conditionally,
  * which is correct and is most of what a wider rule would flag.
  */
 const DARK_TONE = new RegExp(
-  `\\b${MARK_PROP}\\s*[:=]\\s*darkColors\\.(amberIcon|warningAmber|success|successDeep|warning|error|successLight|errorLight|warningLight)\\b`
+  `\\b${MARK_PROP}\\s*[:=]\\s*darkColors\\.(warningText|successText|successFill|warningFill|errorText|dangerFill)\\b`
 );
 
 /** A style key ending in `Dark` is a dark-only entry, applied under `isDark`. */
@@ -83,13 +83,13 @@ function unbranchedDarkTones(file, rel) {
   return out;
 }
 
-const FILL_TOKEN = /(?<![\w.])colors\.(success|warning)\b/;
+const FILL_TOKEN = /(?<![\w.])colors\.(successFill|warningFill)\b/;
 const DECL = /\b(?:const|let|var)\s+([A-Za-z_]\w*)\b[^=]*=\s*(\{)?/;
 
 /**
  * A fill token routed through a name before it reaches a mark: a local
- * (`const c = ok ? colors.success : colors.warning`), a record entry
- * (`const LEVELS = { ok: colors.success }`), or a name read out of either
+ * (`const c = ok ? colors.successFill : colors.warningFill`), a record entry
+ * (`const LEVELS = { ok: colors.successFill }`), or a name read out of either
  * (`const color = LEVELS[level]`). The same-line check cannot see these.
  */
 function routedMarks(file, rel) {
@@ -167,10 +167,10 @@ for (const file of walk(SRC)) {
     // judged as a mark.
     if (/colorWithOpacity\([^)]*opacity\.tint[1-4]\)/.test(line)) return;
     if (!PROP.test(line)) return;
-    if (!/colors\.(success|warning)\b/.test(line)) return;
+    if (!/colors\.(successFill|warningFill)\b/.test(line)) return;
     if (
-      /darkColors\.(success|warning)\b/.test(line) &&
-      !/[^k]colors\.(success|warning)\b/.test(line)
+      /darkColors\.(successFill|warningFill)\b/.test(line) &&
+      !/[^k]colors\.(successFill|warningFill)\b/.test(line)
     )
       return;
     failures.push(`${rel}:${i + 1}  ${line.trim().slice(0, 96)}`);
@@ -179,10 +179,10 @@ for (const file of walk(SRC)) {
 
 if (failures.length > 0) {
   console.error(
-    `A mark drawn in a token that cannot carry one: ${failures.length}. colors.success is 2.28:1 on white and colors.warning 2.15:1.`
+    `A mark drawn in a token that cannot carry one: ${failures.length}. colors.successFill and colors.warningFill are 3.10:1 and 3.09:1 on the neutral fill.`
   );
   console.error(
-    'Use verdictColor(rung, isDark) for a verdict, or colors.successDeep / colors.warningAmber for a mark that is not one.\n'
+    'Use verdictColor(rung, isDark) for a verdict, or colors.successText / colors.warningText for a mark that is not one.\n'
   );
   for (const f of failures) console.error(`  ${f}`);
   process.exit(1);

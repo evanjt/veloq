@@ -15,14 +15,14 @@ export function strayCardGrounds(root: ReactTestInstance): string[] {
     const style = StyleSheet.flatten(node.props.style) ?? {};
     const ground = style.backgroundColor;
     const edge = style.borderWidth;
-    const darkGround = ground === darkColors.surface || ground === darkColors.surfaceCard;
+    const darkGround = ground === darkColors.surface || ground === darkColors.surfaceRaised;
     // A transparent edge holds a control's layout and draws nothing.
     const bordered = typeof edge === 'number' && edge > 0 && style.borderColor !== 'transparent';
     const radius = style.borderRadius;
     if (typeof radius !== 'number' || radius < layout.borderRadiusMd) continue;
     if (!darkGround && !bordered) continue;
     const isCard =
-      ground === darkColors.surfaceCard &&
+      ground === darkColors.surfaceRaised &&
       style.borderRadius === layout.borderRadius &&
       (edge == null || (edge === 1 && style.borderColor === darkColors.border));
     if (!isCard) {

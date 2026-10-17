@@ -44,7 +44,7 @@
     "explanations": {
       "conditions": "天気データまたはデバイスセンサーからの温度。",
       "energy": "心拍数、パワー、持続時間から推定されるエネルギー消費量。",
-      "fitnessImpact": "休息日と比べ、このアクティビティは負荷 × (1 − e^(−1/42)) だけフィットネスを、負荷 × (1 − e^(−1/7)) だけ疲労を増やします。筋力トレーニングは疲労のみを増やします。フォームへの影響はフィットネスから疲労を引いた値です。",
+      "fitnessImpact": "休息日と比べ、このアクティビティは負荷 × (1 − e^(−1/{{fitnessDays}})) だけフィットネスを、負荷 × (1 − e^(−1/{{fatigueDays}})) だけ疲労を増やします。筋力トレーニングは疲労のみを増やします。フォームへの影響はフィットネスから疲労を引いた値です。",
       "heartRate": "アクティビティ中の平均心拍数。",
       "newGround": "このアクティビティが通過した地図タイルのうち、これまでのアクティビティが通過していなかったものの割合です。タイルの幅は緯度により約150〜300 mで、新しい道の距離ではなくタイルの被覆率を示します。",
       "activityEftp": "eFTPは、このアクティビティに対するintervals.icuのパワーモデル推定値です。",
@@ -488,6 +488,7 @@
     "back": "戻る",
     "close": "閉じる",
     "cancel": "キャンセル",
+    "cancelled": "キャンセルしました",
     "clearSearch": "検索をクリア",
     "clearFilters": "フィルターをクリア",
     "quoted": "「{{text}}」",
@@ -2819,15 +2820,29 @@
       "single": "{{name}}、{{start}}：{{value}}。",
       "series": "{{name}}、{{start}}～{{end}}：最新 {{latest}}、範囲 {{min}}～{{max}}、平均 {{average}}。",
       "curve": "{{name}}、{{start}}～{{end}}：{{start}}で{{first}}、{{end}}で{{last}}、ピーク {{max}}。",
-      "parts": "{{name}}：{{parts}}。"
+      "parts": "{{name}}：{{parts}}。",
+      "dayActive": "{{name}}、{{start}}：アクティブ。",
+      "dayRest": "{{name}}、{{start}}：アクティビティなし。",
+      "noActivity": "{{name}}、{{start}}～{{end}}：アクティビティなし。",
+      "daysActive_other": "{{name}}、{{start}}～{{end}}：{{count}}日中{{active}}日アクティブ。",
+      "longestBreak": "最長の休み {{gap}}。",
+      "dayCount_other": "{{count}}日",
+      "peakDay": "最大 {{value}}（{{day}}）。",
+      "daysActive_one": "{{name}}、{{start}}～{{end}}：{{count}}日中{{active}}日アクティブ。",
+      "dayCount_one": "{{count}}日"
     },
     "column": {
       "date": "日付",
       "duration": "継続時間",
       "distance": "距離",
       "zone": "ゾーン",
-      "time": "時間"
-    }
+      "time": "時間",
+      "month": "月",
+      "activities": "アクティビティ",
+      "muscle": "筋肉",
+      "sets": "加重セット"
+    },
+    "activityPlot": "アクティビティチャート"
   },
   "sportFamilies": {
     "ride": "サイクリング",

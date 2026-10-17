@@ -11,7 +11,6 @@ import React, { useCallback, useEffect, useMemo } from 'react';
 import { Pressable, View, StyleSheet, Text, LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as haptics from '@/shared/ui/haptics';
 import { useGestureCallback } from '@/shared/ui/useGestureCallback';
@@ -39,7 +38,8 @@ import {
   type TrimBound,
 } from '@/shared/math/trimRange';
 import { useMetricSystem, useTheme } from '@/shared/app';
-import { Button, IconButton, ToggleButton, pressable, pressRipple, Spinner } from '@/shared/ui';
+import { Button, IconButton, pressable, pressRipple, Spinner, ToggleButton } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import {
   levelRatio,
   precisionLevel,
@@ -55,19 +55,19 @@ const STEP_BUTTON_HEIGHT = 28;
 /** The parts of the slider drawn in the theme's primary. */
 const primaryStyles = (palette: Palette) =>
   StyleSheet.create({
-    trackSection: { backgroundColor: colorWithOpacity(palette.primary, opacity.tint3) },
-    trackActive: { backgroundColor: palette.primary },
-    handleInner: { borderColor: palette.primary },
-    handleBar: { backgroundColor: palette.primary },
+    trackSection: { backgroundColor: colorWithOpacity(palette.actionPrimary, opacity.tint3) },
+    trackActive: { backgroundColor: palette.actionPrimary },
+    handleInner: { borderColor: palette.actionPrimary },
+    handleBar: { backgroundColor: palette.actionPrimary },
     stepButton: {
       width: STEP_BUTTON_WIDTH,
       height: STEP_BUTTON_HEIGHT,
       borderRadius: layout.borderRadiusSm,
       justifyContent: 'center',
       alignItems: 'center',
-      backgroundColor: colorWithOpacity(palette.primary, opacity.tint1),
+      backgroundColor: colorWithOpacity(palette.actionPrimary, opacity.tint1),
     },
-    stepButtonDark: { backgroundColor: colorWithOpacity(palette.primary, opacity.tint2) },
+    stepButtonDark: { backgroundColor: colorWithOpacity(palette.actionPrimary, opacity.tint2) },
   });
 
 interface SectionTrimOverlayProps {
@@ -344,17 +344,17 @@ export function SectionTrimOverlay({
   const startLaterOut = stepped('start', 1) === startIndex;
   const endEarlierOut = stepped('end', -1) === endIndex;
   const endLaterOut = stepped('end', 1) === endIndex;
-  const stepInk = (out: boolean) => (out ? disabledInk : palette.primary);
+  const stepInk = (out: boolean) => (out ? disabledInk : palette.actionPrimary);
   const accentText = isDark ? darkColors.actionLink : colors.actionLink;
 
   return (
     <View testID="section-trim-overlay" style={styles.container}>
       {/* Info row */}
       <View style={styles.infoRow}>
-        <MaterialCommunityIcons
+        <Icon
           name={isExpandMode ? 'arrow-expand-horizontal' : 'content-cut'}
           size={iconSize.sm}
-          color={isTrimmed ? palette.primary : mutedColor}
+          color={isTrimmed ? palette.actionPrimary : mutedColor}
         />
         {isSaving ? (
           <Spinner />
@@ -385,7 +385,7 @@ export function SectionTrimOverlay({
             onPress={onReset}
             disabled={isSaving}
           >
-            <MaterialCommunityIcons name="refresh" size={iconSize.sm} color={palette.primary} />
+            <Icon name="refresh" size={iconSize.sm} color={palette.actionPrimary} />
           </IconButton>
         ) : null}
       </View>
@@ -434,11 +434,7 @@ export function SectionTrimOverlay({
             disabled={startEarlierOut}
             android_ripple={pressRipple}
           >
-            <MaterialCommunityIcons
-              name="chevron-left"
-              size={iconSize.sm}
-              color={stepInk(startEarlierOut)}
-            />
+            <Icon name="chevron-left" size={iconSize.sm} color={stepInk(startEarlierOut)} />
           </Pressable>
           <Pressable
             style={pressable([primary.stepButton, isDark && primary.stepButtonDark])}
@@ -449,11 +445,7 @@ export function SectionTrimOverlay({
             disabled={startLaterOut}
             android_ripple={pressRipple}
           >
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={iconSize.sm}
-              color={stepInk(startLaterOut)}
-            />
+            <Icon name="chevron-right" size={iconSize.sm} color={stepInk(startLaterOut)} />
           </Pressable>
         </View>
         <View style={styles.stepGroup}>
@@ -466,11 +458,7 @@ export function SectionTrimOverlay({
             disabled={endEarlierOut}
             android_ripple={pressRipple}
           >
-            <MaterialCommunityIcons
-              name="chevron-left"
-              size={iconSize.sm}
-              color={stepInk(endEarlierOut)}
-            />
+            <Icon name="chevron-left" size={iconSize.sm} color={stepInk(endEarlierOut)} />
           </Pressable>
           <Pressable
             style={pressable([primary.stepButton, isDark && primary.stepButtonDark])}
@@ -481,11 +469,7 @@ export function SectionTrimOverlay({
             disabled={endLaterOut}
             android_ripple={pressRipple}
           >
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={iconSize.sm}
-              color={stepInk(endLaterOut)}
-            />
+            <Icon name="chevron-right" size={iconSize.sm} color={stepInk(endLaterOut)} />
           </Pressable>
         </View>
       </View>
@@ -498,7 +482,7 @@ export function SectionTrimOverlay({
       {tooShort ? (
         <Text
           testID="section-trim-too-short"
-          style={[styles.reason, { color: isDark ? darkColors.errorDeep : colors.errorDeep }]}
+          style={[styles.reason, { color: isDark ? darkColors.errorText : colors.errorText }]}
         >
           {t('sections.trimTooShort', 'Section must have at least 5 points')}
         </Text>

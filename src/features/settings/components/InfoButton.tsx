@@ -1,8 +1,8 @@
 import React from 'react';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { IconButton } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, iconSize } from '@/theme';
 import { openExplainer } from '@/shared/app/explainer';
@@ -26,7 +26,7 @@ export function InfoButton({ testID, title, message }: InfoButtonProps) {
       accessibilityLabel={t('backup.aboutTopic', { title })}
       onPress={() => openExplainer({ title, body: message })}
     >
-      <MaterialCommunityIcons
+      <Icon
         name="information-outline"
         size={iconSize.md}
         color={isDark ? darkColors.textSecondary : colors.textSecondary}

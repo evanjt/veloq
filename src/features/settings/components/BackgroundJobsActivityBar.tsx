@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
 import { Card, CollapsibleSection, RowGroup } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { getPhaseDisplayKey } from '@/features/routes';
 import { formatClockOrDate } from '@/shared/format/format';
 import {
@@ -150,13 +151,13 @@ function JobRow({ job }: { job: BackgroundJob }) {
   const detail = useDetail(job);
   const lastRun = useLastRunLine(job);
 
-  const textPrimary = isDark ? colors.textOnDark : colors.textPrimary;
+  const textPrimary = isDark ? colors.textOnFill : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const danger = isDark ? darkColors.error : colors.error;
+  const danger = isDark ? darkColors.errorText : colors.errorText;
 
   return (
     <View style={styles.row} testID={`background-job-${job.id}`}>
-      <MaterialCommunityIcons name={ICONS[job.id]} size={iconSize.md} color={textSecondary} />
+      <Icon name={ICONS[job.id]} size={iconSize.md} color={textSecondary} />
       <View style={styles.rowText}>
         <Text style={[styles.title, { color: textPrimary }]}>{t(TITLE_KEYS[job.id])}</Text>
         <Text

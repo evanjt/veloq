@@ -12,7 +12,7 @@ import { requestSyncRefresh } from '@/shared/native/syncRefresh';
 import { isDeviceLowOnSpace } from '@/shared/storage/freeSpace';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/shared/app/AuthStore';
-import { returnTo, tapTo } from '@/shared/app/navigation';
+import { returnTo, navigateTo } from '@/shared/app/navigation';
 import { clearRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
 import {
   attachEngineActivity,
@@ -173,7 +173,7 @@ export function useReviewSave({
         setIsUploading(false);
         showNotice({
           message,
-          action: { label: t('recording.library.title'), onPress: () => tapTo('/recordings') },
+          action: { label: t('recording.library.title'), onPress: () => navigateTo('/recordings') },
           duration: NOTICE_LONG_MS,
         });
       }

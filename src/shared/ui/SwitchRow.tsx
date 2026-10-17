@@ -11,15 +11,16 @@
  */
 
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
+import { Icon } from './Icon';
 import { selection } from './haptics';
 import { KeyboardFocusBlock } from './KeyboardFocusBlock';
-import { pressable, pressRipple } from './pressFeedback';
+import { PressTarget } from './PressTarget';
 import { Switch } from './Switch';
 
 /**
@@ -68,7 +69,7 @@ export function SwitchRow({
 
   return (
     <View style={[styles.row, INSETS[inset].row, disabled && styles.disabled]}>
-      <Pressable
+      <PressTarget
         testID={testID}
         accessibilityRole="switch"
         accessibilityLabel={title}
@@ -76,12 +77,9 @@ export function SwitchRow({
         accessibilityState={{ checked: value, disabled: !!disabled }}
         onPress={toggle}
         disabled={disabled}
-        android_ripple={pressRipple}
-        style={pressable([styles.target, INSETS[inset].target])}
+        style={[styles.target, INSETS[inset].target]}
       >
-        {icon ? (
-          <MaterialCommunityIcons name={icon} size={iconSize.md} color={palette.textSecondary} />
-        ) : null}
+        {icon ? <Icon name={icon} size={iconSize.md} color={palette.textSecondary} /> : null}
         <View style={styles.label}>
           <Text testID={titleTestID} style={[styles.title, { color: palette.textPrimary }]}>
             {title}
@@ -95,7 +93,7 @@ export function SwitchRow({
             </Text>
           ) : null}
         </View>
-      </Pressable>
+      </PressTarget>
       {accessory}
       <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
         <KeyboardFocusBlock>

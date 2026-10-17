@@ -78,14 +78,20 @@ const ACTIVITY = {
 } as unknown as Activity;
 
 // The card menu's popup, which a screen reader opens on iOS beside the system menu.
-const renderCardMenu = () =>
-  render(
+// Opening fires its own light impact, so the haptics are cleared once it is open
+// and each test reads only what its row fires.
+const renderCardMenu = async () => {
+  const view = await render(
     <PaperProvider>
       <ActivityCardContextMenu visible onDismiss={jest.fn()} activity={ACTIVITY} hasMap>
         <View />
       </ActivityCardContextMenu>
     </PaperProvider>
   );
+  jest.mocked(Haptics.impactAsync).mockClear();
+  jest.mocked(Haptics.selectionAsync).mockClear();
+  return view;
+};
 
 describe('selection haptics', () => {
   beforeEach(() => {

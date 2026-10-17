@@ -45,7 +45,7 @@ function uiRuntimeCode(file: string): Map<string, string> {
           t.isIdentifier(prop.key, { name: 'code' }) &&
           t.isStringLiteral(prop.value)
         ) {
-          const name = /^function (\w+)/.exec(prop.value.value)?.[1] ?? id.name;
+          const name = /^\(?function (\w+)/.exec(prop.value.value)?.[1] ?? id.name;
           codes.set(name, prop.value.value);
         }
       }
@@ -54,33 +54,60 @@ function uiRuntimeCode(file: string): Map<string, string> {
   return codes;
 }
 
+/** The worklet function in its UI-runtime code. */
+function workletFunction(code: string): t.FunctionExpression {
+  const ast = parseSync(`(${code})`, { babelrc: false, configFile: false });
+  return (ast!.program.body[0] as t.ExpressionStatement).expression as t.FunctionExpression;
+}
+
+/**
+ * The names the body binds from `this.__closure`, in the order it binds them, and whether it
+ * takes them by position, which the plugin writes as an array pattern, or by name.
+ */
+function closureBindings(fn: t.FunctionExpression): { names: string[]; positional: boolean } {
+  const first = fn.body.body[0];
+  if (
+    !t.isVariableDeclaration(first) ||
+    !t.isMemberExpression(first.declarations[0]?.init) ||
+    !t.isIdentifier((first.declarations[0].init as t.MemberExpression).property, {
+      name: '__closure',
+    })
+  ) {
+    return { names: [], positional: false };
+  }
+  const pattern = first.declarations[0].id;
+  if (t.isArrayPattern(pattern)) {
+    return {
+      names: pattern.elements.flatMap((element) => (t.isIdentifier(element) ? [element.name] : [])),
+      positional: true,
+    };
+  }
+  if (t.isObjectPattern(pattern)) {
+    return {
+      names: pattern.properties.flatMap((prop) =>
+        t.isObjectProperty(prop) && t.isIdentifier(prop.key) ? [prop.key.name] : []
+      ),
+      positional: false,
+    };
+  }
+  return { names: [], positional: false };
+}
+
 /** Builds a worklet from its UI-runtime code with the closure the plugin would hand it. */
 function onUiRuntime<A extends unknown[], R>(
   code: string,
   closure: Record<string, unknown>
 ): (...args: A) => R {
+  const { names, positional } = closureBindings(workletFunction(code));
+  const bound = positional ? names.map((name) => closure[name]) : closure;
   const fn = new Function(`return (${code});`)() as (...args: A) => R;
-  return (...args: A) => fn.apply({ __closure: closure }, args);
+  return (...args: A) => fn.apply({ __closure: bound }, args);
 }
 
 /** Names a worklet's parameters read that only its body binds from the closure. */
 function closureNamesReadByParameters(code: string): string[] {
-  const ast = parseSync(`(${code})`, { babelrc: false, configFile: false });
-  const fn = (ast!.program.body[0] as t.ExpressionStatement).expression as t.FunctionExpression;
-  const first = fn.body.body[0];
-  const captured = new Set<string>();
-  if (
-    t.isVariableDeclaration(first) &&
-    t.isMemberExpression(first.declarations[0]?.init) &&
-    t.isIdentifier((first.declarations[0].init as t.MemberExpression).property, {
-      name: '__closure',
-    }) &&
-    t.isObjectPattern(first.declarations[0].id)
-  ) {
-    for (const prop of first.declarations[0].id.properties) {
-      if (t.isObjectProperty(prop) && t.isIdentifier(prop.key)) captured.add(prop.key.name);
-    }
-  }
+  const fn = workletFunction(code);
+  const captured = new Set(closureBindings(fn).names);
   const read = new Set<string>();
   const visit = (node: t.Node | null | undefined): void => {
     if (!node || typeof node !== 'object') return;

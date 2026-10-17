@@ -6,7 +6,6 @@
 
 import { useEffect, useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { View } from 'react-native';
 
 import { useTheme } from '@/shared/app';
@@ -15,6 +14,7 @@ import { getVisibleRecording } from '@/features/recording/lib/storage/recordingL
 import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
 import type { RecordingLibraryEntry } from '@/types';
 import { NameText } from '@/shared/ui/NameText';
+import { Icon } from '@/shared/ui/Icon';
 
 export function RecordingTitle() {
   const { isDark } = useTheme();
@@ -37,7 +37,7 @@ export function RecordingTitle() {
 
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs }}>
-      <MaterialCommunityIcons
+      <Icon
         name={getActivityIcon(entry.activityType)}
         size={iconSize.lg}
         color={getActivityInk(entry.activityType, isDark)}

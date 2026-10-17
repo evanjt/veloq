@@ -1,10 +1,11 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Platform, type ViewInstance } from 'react-native';
 import { ScreenRefreshControl } from '@/shared/ui/ScreenRefreshControl';
 import Constants from 'expo-constants';
-import { Button, ScreenScrollView, pressable, pressRipple } from '@/shared/ui';
+import { Button, pressable, pressRipple, ScreenScrollView } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { shareText } from '@/features/settings/light';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
   colors,
   darkColors,
@@ -98,14 +99,10 @@ function CollapsibleSection({
         android_ripple={pressRipple}
       >
         <View style={styles.sectionHeaderLeft}>
-          <MaterialCommunityIcons name={icon} size={iconSize.md} color={mutedColor} />
+          <Icon name={icon} size={iconSize.md} color={mutedColor} />
           <Text style={[styles.sectionTitle, { color: textColor }]}>{title}</Text>
         </View>
-        <MaterialCommunityIcons
-          name={open ? 'chevron-up' : 'chevron-down'}
-          size={iconSize.md}
-          color={mutedColor}
-        />
+        <Icon name={open ? 'chevron-up' : 'chevron-down'} size={iconSize.md} color={mutedColor} />
       </Pressable>
       {open ? <View style={styles.sectionContent}>{children}</View> : null}
     </View>
@@ -128,9 +125,9 @@ function StatRow({ label, value, isDark }: StatRowProps) {
 }
 
 function getAvgColor(avgMs: number): string {
-  if (avgMs > 100) return colors.error;
-  if (avgMs > 50) return colors.warning;
-  return colors.success;
+  if (avgMs > 100) return colors.errorText;
+  if (avgMs > 50) return colors.warningText;
+  return colors.successText;
 }
 
 function daysAgoLocal(days: number): string {
@@ -313,7 +310,7 @@ function BackgroundNotificationsDebug({
       defaultOpen={false}
       testID="debug-section-background-notifications"
     >
-      <View style={[styles.tableHeader, { borderBottomColor: themePalette(isDark).divider }]}>
+      <View style={[styles.tableHeader, { borderBottomColor: themePalette(isDark).border }]}>
         <Text style={[styles.tableHeaderText, { color: mutedColor }]}>Native push worker</Text>
       </View>
       {!dashboard.ok ? (
@@ -324,7 +321,7 @@ function BackgroundNotificationsDebug({
         pushRuns.map((run) => (
           <View
             key={`${run.ts}-${run.activityId}-${run.outcome}`}
-            style={[styles.taskRunRow, { borderBottomColor: themePalette(isDark).divider }]}
+            style={[styles.taskRunRow, { borderBottomColor: themePalette(isDark).border }]}
           >
             <View style={styles.taskRunHeader}>
               <Text style={[styles.statValue, { color: textColor }]}>{run.outcome}</Text>
@@ -347,7 +344,7 @@ function BackgroundNotificationsDebug({
         style={[
           styles.tableHeader,
           styles.taskRunGroup,
-          { borderBottomColor: themePalette(isDark).divider },
+          { borderBottomColor: themePalette(isDark).border },
         ]}
       >
         <Text style={[styles.tableHeaderText, { color: mutedColor }]}>JavaScript task</Text>
@@ -357,7 +354,7 @@ function BackgroundNotificationsDebug({
           {runs.map((run, idx) => (
             <View
               key={`${run.ts}-${idx}`}
-              style={[styles.taskRunRow, { borderBottomColor: themePalette(isDark).divider }]}
+              style={[styles.taskRunRow, { borderBottomColor: themePalette(isDark).border }]}
             >
               <View style={styles.taskRunHeader}>
                 <Text style={[styles.statValue, { color: textColor }]}>{run.stage}</Text>
@@ -515,7 +512,7 @@ function DebugScreenContent() {
     setRefreshKey((k) => k + 1);
   }, []);
 
-  const snapshotAnchor = useRef<View>(null);
+  const snapshotAnchor = useRef<ViewInstance>(null);
   // Not memoised: ffiSummary and mem are read fresh every render, so any
   // dependency list here is new on every render anyway.
   const handleShareSnapshot = async () => {
@@ -539,7 +536,7 @@ function DebugScreenContent() {
   return (
     <View
       testID="debug-screen"
-      style={{ flex: 1, backgroundColor: isDark ? darkColors.background : colors.background }}
+      style={{ flex: 1, backgroundColor: isDark ? darkColors.surfacePage : colors.surfacePage }}
     >
       <ScreenScrollView
         style={[styles.container, isDark && styles.containerDark]}
@@ -639,7 +636,7 @@ function DebugScreenContent() {
             <>
               {/* Header */}
               <View
-                style={[styles.tableHeader, { borderBottomColor: themePalette(isDark).divider }]}
+                style={[styles.tableHeader, { borderBottomColor: themePalette(isDark).border }]}
               >
                 <Text style={[styles.tableHeaderText, styles.methodCol, { color: mutedColor }]}>
                   Method
@@ -754,7 +751,7 @@ function DebugScreenContent() {
           {tileCounts.length > 0 ? (
             <>
               <View
-                style={[styles.tableHeader, { borderBottomColor: themePalette(isDark).divider }]}
+                style={[styles.tableHeader, { borderBottomColor: themePalette(isDark).border }]}
               >
                 <Text style={[styles.tableHeaderText, styles.methodCol, { color: mutedColor }]}>
                   Source
@@ -838,10 +835,10 @@ function DebugScreenContent() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfacePage,
   },
   containerDark: {
-    backgroundColor: darkColors.background,
+    backgroundColor: darkColors.surfacePage,
   },
   content: {
     padding: spacing.md,
@@ -853,7 +850,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   sectionDark: {
-    backgroundColor: darkColors.surfaceElevated,
+    backgroundColor: darkColors.surfaceRaised,
   },
   sectionHeader: {
     flexDirection: 'row',

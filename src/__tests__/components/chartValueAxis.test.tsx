@@ -131,6 +131,8 @@ describe('the chart value axis', () => {
       />
     );
 
-    expect(tree.getByTestId('activity-plot-y-max')).toHaveTextContent('180 bpm', { exact: true });
+    expect(
+      tree.getByTestId('activity-plot-y-max', { includeHiddenElements: true })
+    ).toHaveTextContent('180 bpm', { exact: true });
   });
 });

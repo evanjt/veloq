@@ -44,7 +44,7 @@
     "explanations": {
       "conditions": "Temperatur fra vejrdata eller din enheds sensor.",
       "energy": "Estimeret energiforbrug fra puls, kraft og varighed.",
-      "fitnessImpact": "Sammenlignet med en hviledag øger denne aktivitet fitness med belastning × (1 − e^(−1/42)) og træthed med belastning × (1 − e^(−1/7)). Styrketræning øger kun træthed. Formpåvirkningen er fitness minus træthed.",
+      "fitnessImpact": "Sammenlignet med en hviledag øger denne aktivitet fitness med belastning × (1 − e^(−1/{{fitnessDays}})) og træthed med belastning × (1 − e^(−1/{{fatigueDays}})). Styrketræning øger kun træthed. Formpåvirkningen er fitness minus træthed.",
       "heartRate": "Gennemsnitlig puls under aktiviteten.",
       "newGround": "Andelen af kortfelter, som denne aktivitet berørte, og som ingen tidligere aktivitet havde berørt. Et felt er cirka 150 til 300 m bredt afhængigt af breddegrad, så det måler feltdækning og ikke afstand på nye veje.",
       "activityEftp": "eFTP er intervals.icus effektmodelestimat for denne aktivitet.",
@@ -488,6 +488,7 @@
     "back": "Tilbage",
     "close": "Luk",
     "cancel": "Annuller",
+    "cancelled": "Annulleret",
     "clearSearch": "Ryd søgning",
     "clearFilters": "Ryd filtre",
     "quoted": "»{{text}}«",
@@ -2819,15 +2820,29 @@
       "single": "{{name}}, {{start}}: {{value}}.",
       "series": "{{name}}, {{start}} til {{end}}: seneste {{latest}}, interval {{min}} til {{max}}, gennemsnit {{average}}.",
       "curve": "{{name}}, {{start}} til {{end}}: {{first}} ved {{start}}, {{last}} ved {{end}}, top {{max}}.",
-      "parts": "{{name}}: {{parts}}."
+      "parts": "{{name}}: {{parts}}.",
+      "dayActive": "{{name}}, {{start}}: aktiv.",
+      "dayRest": "{{name}}, {{start}}: ingen aktivitet.",
+      "noActivity": "{{name}}, {{start}} til {{end}}: ingen aktivitet.",
+      "daysActive_one": "{{name}}, {{start}} til {{end}}: aktiv {{active}} af {{count}} dag.",
+      "daysActive_other": "{{name}}, {{start}} til {{end}}: aktiv {{active}} af {{count}} dage.",
+      "longestBreak": "Længste pause {{gap}}.",
+      "dayCount_one": "{{count}} dag",
+      "dayCount_other": "{{count}} dage",
+      "peakDay": "Højest {{value}} den {{day}}."
     },
     "column": {
       "date": "Dato",
       "duration": "Varighed",
       "distance": "Distance",
       "zone": "Zone",
-      "time": "Tid"
-    }
+      "time": "Tid",
+      "month": "Måned",
+      "activities": "Aktiviteter",
+      "muscle": "Muskel",
+      "sets": "Vægtede sæt"
+    },
+    "activityPlot": "Aktivitetsdiagram"
   },
   "sportFamilies": {
     "ride": "Cykling",

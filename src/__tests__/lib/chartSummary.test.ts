@@ -9,10 +9,14 @@
 
 import {
   curveSummary,
+  daysTable,
+  heatmapSummary,
   lanesSummary,
   partsSummary,
   seriesSummary,
   seriesTable,
+  stripSummary,
+  type SummaryDay,
 } from '@/shared/charts';
 import { i18n, initialiseI18n } from '@/i18n';
 import { ABSENT } from '@/shared/format/absent';
@@ -136,5 +140,88 @@ describe('seriesTable', () => {
 
   it('has no rows for an empty series', () => {
     expect(seriesTable('Harbour', 'Day', [tide([])]).rows).toEqual([]);
+  });
+});
+
+const kilnDays = (counts: number[], hours: (number | null)[] = []): SummaryDay[] =>
+  counts.map((count, i) => ({
+    label: `${i + 1} May`,
+    count,
+    value: hours[i],
+    cells: [String(count)],
+  }));
+const hoursOf = (v: number) => `${v} h`;
+
+describe('stripSummary', () => {
+  it('says there is no data for an empty strip', () => {
+    expect(stripSummary('Firings', [], t)).toBe('Firings: no data.');
+  });
+
+  it('reads a single day as active or not', () => {
+    expect(stripSummary('Firings', kilnDays([2]), t)).toBe('Firings, 1 May: active.');
+    expect(stripSummary('Firings', kilnDays([0]), t)).toBe('Firings, 1 May: no activity.');
+  });
+
+  it('counts the active days and names the longest break between two of them', () => {
+    expect(stripSummary('Firings', kilnDays([1, 0, 0, 0, 2, 0, 1, 0, 0]), t)).toBe(
+      'Firings, 1 May to 9 May: active on 3 of 9 days. Longest break 3 days.'
+    );
+  });
+
+  it('does not count the quiet days after the last active one as a break', () => {
+    expect(stripSummary('Firings', kilnDays([1, 0, 1, 0, 0, 0, 0]), t)).toBe(
+      'Firings, 1 May to 7 May: active on 2 of 7 days. Longest break 1 day.'
+    );
+  });
+
+  it('names no break when every day is active', () => {
+    expect(stripSummary('Firings', kilnDays([1, 1, 3]), t)).toBe(
+      'Firings, 1 May to 3 May: active on 3 of 3 days.'
+    );
+  });
+
+  it('says so when no day in the span is active', () => {
+    expect(stripSummary('Firings', kilnDays([0, 0, 0]), t)).toBe(
+      'Firings, 1 May to 3 May: no activity.'
+    );
+  });
+});
+
+describe('heatmapSummary', () => {
+  it('says there is no data for an empty calendar', () => {
+    expect(heatmapSummary('Kiln calendar', [], hoursOf, t)).toBe('Kiln calendar: no data.');
+  });
+
+  it('reads a single day with its figure', () => {
+    expect(heatmapSummary('Kiln calendar', kilnDays([1], [3]), hoursOf, t)).toBe(
+      'Kiln calendar, 1 May: active. Peak 3 h on 1 May.'
+    );
+  });
+
+  it('names the peak day across a gap, skipping a day with no figure', () => {
+    expect(
+      heatmapSummary('Kiln calendar', kilnDays([1, 0, 2, 1], [2, null, null, 5]), hoursOf, t)
+    ).toBe('Kiln calendar, 1 May to 4 May: active on 3 of 4 days. Peak 5 h on 4 May.');
+  });
+
+  it('names no peak when no active day has a figure', () => {
+    expect(heatmapSummary('Kiln calendar', kilnDays([1, 0], [null, 9]), hoursOf, t)).toBe(
+      'Kiln calendar, 1 May to 2 May: active on 1 of 2 days.'
+    );
+  });
+});
+
+describe('daysTable', () => {
+  it('has one row per active day, its cells after the date', () => {
+    const table = daysTable('Firings', ['Date', 'Activities'], kilnDays([1, 0, 2]));
+    expect(table.columns).toEqual(['Date', 'Activities']);
+    expect(table.rows).toEqual([
+      { key: '1 May', cells: ['1 May', '1'] },
+      { key: '3 May', cells: ['3 May', '2'] },
+    ]);
+  });
+
+  it('has no rows when no day is active', () => {
+    expect(daysTable('Firings', ['Date'], kilnDays([0, 0])).rows).toEqual([]);
   });
 });

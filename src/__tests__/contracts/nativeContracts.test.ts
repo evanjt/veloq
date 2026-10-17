@@ -1986,6 +1986,7 @@ const SETS: SetContract[] = [
       ['RangeCoverage', stub.RangeCoverage],
       ['FfiSyncErrorReason', stub.SyncErrorReason],
       ['FfiSyncStep', stub.SyncStep],
+      ['FfiTrackStep', stub.TrackStep],
       ['BulkExportFormat', stub.BulkExportFormat],
       ['FfiStartOutcome', stub.StartOutcome],
       ['FfiInitOutcome', stub.InitOutcome],

@@ -465,7 +465,7 @@ ${terrainVisibilityScript()}
           layout: { visibility: hasRoute ? 'visible' : 'none' },
           paint: {
             'circle-radius': 5,
-            'circle-color': ['case', ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.success, 0.75))}, ${jsLiteral(colorWithOpacity(colors.error, 0.75))}],
+            'circle-color': ['case', ['==', ['get', 'type'], 'start'], ${jsLiteral(colorWithOpacity(colors.successFill, 0.75))}, ${jsLiteral(colorWithOpacity(colors.dangerFill, 0.75))}],
           },
         });
       }

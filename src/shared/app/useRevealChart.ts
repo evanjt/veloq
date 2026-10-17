@@ -10,7 +10,7 @@
  */
 
 import { useCallback, useEffect, useRef } from 'react';
-import type { LayoutChangeEvent, ScrollView } from 'react-native';
+import type { LayoutChangeEvent, ScrollViewInstance } from 'react-native';
 import { router } from 'expo-router';
 
 import { isReduceMotionOn } from '@/shared/ui/reduceMotion';
@@ -20,7 +20,7 @@ export function useRevealChart<Chart extends string, Anchor extends string>(
   anchorOf: (chart: Chart) => Anchor,
   prepare?: ((chart: Chart) => void) | undefined
 ) {
-  const scrollRef = useRef<ScrollView | null>(null);
+  const scrollRef = useRef<ScrollViewInstance | null>(null);
   const anchors = useRef(new Map<Anchor, number>());
   // The anchor being followed. Nothing renders from it, so it is a ref.
   const revealing = useRef<Anchor | null>(null);

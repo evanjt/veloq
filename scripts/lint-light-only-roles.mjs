@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // `colors` holds the light theme and `darkColors` the dark one. A style or a
-// prop that names `colors.primary` draws the light primary in both themes, and
+// prop that names `colors.actionPrimary` draws the light primary in both themes, and
 // on the dark grounds the light primary sits under the 3:1 a mark owes. A
 // `brand.<step>` read is the same hazard by a second route: a ramp step is one
 // value in both themes, so it answers to no theme at all.
@@ -10,7 +10,7 @@
 // stroke or a file with no `isDark` passes it. This counts every read.
 //
 // Not counted: a read paired with its dark value in one conditional,
-// `isDark ? darkColors.primary : colors.primary`; anything under `src/theme/`,
+// `isDark ? darkColors.actionPrimary : colors.actionPrimary`; anything under `src/theme/`,
 // which is the owner; and tests.
 //
 // Demanding zero would fail every commit, so this is a ratchet, the shape
@@ -44,7 +44,7 @@ const EXEMPT = ['src/theme/', 'src/__tests__/', 'src/__mocks__/'];
 
 /** What each kind counts, for the report. */
 const KINDS = {
-  primary: 'colors.primary read with no dark pair',
+  primary: 'colors.actionPrimary read with no dark pair',
   brand: 'brand.<step> read outside src/theme',
 };
 
@@ -96,7 +96,7 @@ function countReads(text) {
       const object = node.expression.text;
       if (
         object === names.colors &&
-        node.name.text === 'primary' &&
+        node.name.text === 'actionPrimary' &&
         !pairedWithDark(node, names.darkColors)
       ) {
         counts.primary++;

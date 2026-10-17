@@ -29,13 +29,8 @@ function contrastRatio(a: string, b: string): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-const LIGHT_SURFACES = [colors.surface, colors.background, colors.backgroundAlt];
-const DARK_SURFACES = [
-  darkColors.background,
-  darkColors.surface,
-  darkColors.surfaceElevated,
-  darkColors.surfaceCard,
-];
+const LIGHT_SURFACES = [colors.surfacePage, colors.surface, colors.surfaceRaised];
+const DARK_SURFACES = [darkColors.surfacePage, darkColors.surface, darkColors.surfaceRaised];
 const ZONES = [1, 2, 3, 4, 5, 6, 7];
 
 describe('zoneColour', () => {

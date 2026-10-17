@@ -47,7 +47,7 @@ const itemEnd = (source, from) => {
   return source.length;
 };
 
-export const withoutTestItems = (source) => {
+const cutTestItems = (source, keep) => {
   let out = '';
   let from = 0;
   ATTRIBUTE.lastIndex = 0;
@@ -56,7 +56,15 @@ export const withoutTestItems = (source) => {
     if (match.index < from) continue;
     out += source.slice(from, match.index);
     from = itemEnd(source, match.index + match[0].length);
+    out += keep(source.slice(match.index, from));
     ATTRIBUTE.lastIndex = from;
   }
   return out + source.slice(from);
 };
+
+export const withoutTestItems = (source) => cutTestItems(source, () => '');
+
+// The same cut with each item's line breaks left in its place, so a line
+// number read off the result is the line in the file.
+export const blankTestItems = (source) =>
+  cutTestItems(source, (item) => item.replace(/[^\n]/g, ''));

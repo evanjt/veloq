@@ -106,8 +106,8 @@ describe('the chart label role', () => {
   it('is the 12px caption in tabular figures and the secondary text colour', () => {
     const label = StyleSheet.flatten(chartStyles.chartLabel);
     expect(label).toMatchObject({ ...typography.caption, color: colors.textSecondary });
-    expect(label.fontVariant).toEqual(['tabular-nums']);
-    expect(StyleSheet.flatten([chartStyles.chartLabel, chartStyles.chartLabelDark]).color).toBe(
+    expect(label?.fontVariant).toEqual(['tabular-nums']);
+    expect(StyleSheet.flatten([chartStyles.chartLabel, chartStyles.chartLabelDark])?.color).toBe(
       darkColors.textSecondary
     );
   });
@@ -116,7 +116,7 @@ describe('the chart label role', () => {
     const strong = StyleSheet.flatten(chartStyles.chartLabelStrong);
     expect(strong).toMatchObject({ ...typography.caption, color: colors.textPrimary });
     expect(
-      StyleSheet.flatten([chartStyles.chartLabelStrong, chartStyles.chartLabelStrongDark]).color
+      StyleSheet.flatten([chartStyles.chartLabelStrong, chartStyles.chartLabelStrongDark])?.color
     ).toBe(darkColors.textPrimary);
   });
 });

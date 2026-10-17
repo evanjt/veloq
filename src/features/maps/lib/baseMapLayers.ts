@@ -17,7 +17,7 @@ interface BaseMapLayerInput {
  * only thing that decides what covers what.
  */
 export function composeBaseMapLayers({
-  routeColor = colors.primary,
+  routeColor = colors.actionPrimary,
   underRouteLayers,
   overlayLayers,
   userLocationLayers,

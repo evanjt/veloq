@@ -1,5 +1,5 @@
 import React, { memo, useRef } from 'react';
-import { Text } from 'react-native';
+import type { TextInstance } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useMetricSystem } from '@/shared/app';
 import { formatDistance } from '@/shared/format/format';
@@ -24,7 +24,7 @@ export const SectionPopup = memo(function SectionPopup({
   onViewDetails,
 }: SectionPopupProps) {
   const { t } = useTranslation();
-  const titleRef = useRef<Text>(null);
+  const titleRef = useRef<TextInstance>(null);
   useFocusOnAppear(titleRef, section.id);
   const isMetric = useMetricSystem();
 

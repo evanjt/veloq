@@ -1,8 +1,8 @@
 import { View } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { RouteMapView } from './RouteMapView';
 import { useHeroMapHeight } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { styles } from './RouteDetailScreen.styles';
 import type { buildFinalRouteGroup } from '../lib/buildRouteGroup';
 import { useMapHighlight, type MapHighlightStore } from '../lib/mapHighlight';
@@ -65,11 +65,7 @@ export function RouteDetailMap({
             },
           ]}
         >
-          <MaterialCommunityIcons
-            name="map-marker-path"
-            size={iconSize.xxl}
-            color={activityColor}
-          />
+          <Icon name="map-marker-path" size={iconSize.xxl} color={activityColor} />
         </View>
       )}
     </View>

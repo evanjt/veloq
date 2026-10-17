@@ -14,6 +14,7 @@ import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type ScrollViewInstance,
 } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { isReduceMotionOn } from '@/shared/ui/reduceMotion';
@@ -21,6 +22,13 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { RangeCoverage } from 'veloqrs';
+import {
+  ChartShowDataButton,
+  ChartSurface,
+  daysTable,
+  heatmapSummary,
+  type SummaryDay,
+} from '@/shared/charts';
 import {
   colors,
   darkColors,
@@ -55,6 +63,7 @@ import {
 import { CardHeader } from '@/shared/ui/CardHeader';
 import { EmptyState } from '@/shared/ui/EmptyState';
 import { DENSE_TEXT_SCALE, denseExtent } from '@/shared/ui/DenseText';
+import { ABSENT } from '@/shared/format/absent';
 
 interface ActivityHeatmapProps {
   /**
@@ -119,7 +128,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
     const { isDark } = useTheme();
     const palette = themePalette(isDark);
     const intensityColors = isDark ? INTENSITY_COLORS : INTENSITY_COLORS_LIGHT;
-    const scrollRef = useRef<ScrollView>(null);
+    const scrollRef = useRef<ScrollViewInstance>(null);
 
     // The one interval every part of the card describes, and the days the
     // training screen read takes for it. It moves with the local date, so a
@@ -177,7 +186,32 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
       [grid, t]
     );
 
-    const dividerColor = isDark ? darkColors.divider : colors.divider;
+    // What a screen reader hears and the Show data sheet lists: every day of the window, and the
+    // longest session the colour stands for on each day that holds one.
+    const reading = useMemo(() => {
+      const title = t('stats.activityCalendar');
+      const summaryDays: SummaryDay[] = grid.cells.map((cell) => {
+        const day = days.get(cell.date);
+        const longest = day && day.maxDuration > 0 ? day.maxDuration : null;
+        return {
+          label: formatFullDate(cell.date),
+          key: cell.date,
+          count: day?.activityCount ?? 0,
+          value: longest,
+          cells: [String(day?.activityCount ?? 0), longest ? formatDurationHuman(longest) : ABSENT],
+        };
+      });
+      return {
+        summary: heatmapSummary(title, summaryDays, formatDurationHuman, t),
+        table: daysTable(
+          title,
+          [t('charts.column.date'), t('charts.column.activities'), t('stats.longestSession')],
+          summaryDays
+        ),
+      };
+    }, [grid, days, t]);
+
+    const dividerColor = isDark ? darkColors.border : colors.border;
 
     // Pre-render entire heatmap grid as a single Skia Picture (zero React elements)
     const heatmapPicture = useMemo(() => {
@@ -406,13 +440,23 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
               </View>
 
               <View>
-                {heatmapPicture ? (
-                  <Canvas style={styles.grid}>
-                    <Picture picture={heatmapPicture} />
-                  </Canvas>
-                ) : (
-                  <View testID="activity-heatmap-placeholder" style={styles.grid} />
-                )}
+                {/* The day controls stay beside the plot rather than in it, so each is still reached
+                    on its own, and Show data sits under the scroll rather than at its far end. */}
+                <ChartSurface
+                  summary={reading.summary}
+                  table={reading.table}
+                  style={styles.grid}
+                  showDataButton={false}
+                  testID="activity-heatmap-plot"
+                >
+                  {heatmapPicture ? (
+                    <Canvas style={styles.grid}>
+                      <Picture picture={heatmapPicture} />
+                    </Canvas>
+                  ) : (
+                    <View testID="activity-heatmap-placeholder" style={styles.grid} />
+                  )}
+                </ChartSurface>
                 {highlightPos ? (
                   <View
                     style={[
@@ -422,7 +466,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
                         top: highlightPos.y - 2,
                         width: CELL_SIZE + 4,
                         height: CELL_SIZE + 4,
-                        borderColor: palette.primary,
+                        borderColor: palette.actionPrimary,
                       },
                     ]}
                   />
@@ -432,6 +476,7 @@ export const ActivityHeatmap = React.forwardRef<ActivityHeatmapHandle, ActivityH
             </View>
           </ScrollView>
         </View>
+        <ChartShowDataButton table={reading.table} testID="activity-heatmap-plot" />
 
         {coverage === RangeCoverage.NotFetched && (
           <Text
@@ -499,7 +544,7 @@ const styles = StyleSheet.create({
     marginRight: GUTTER_MARGIN,
   },
   textLight: {
-    color: colors.textOnDark,
+    color: colors.textOnFill,
   },
   textDark: {
     color: darkColors.textSecondary,

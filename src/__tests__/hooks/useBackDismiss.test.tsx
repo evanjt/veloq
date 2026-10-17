@@ -15,12 +15,13 @@ import { act, renderHook } from '@testing-library/react-native';
 import { fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 import { router, useNavigation } from 'expo-router';
 import Stack from 'expo-router/stack';
-import Tabs from 'expo-router/tabs';
+import { Tabs } from 'expo-router/tabs';
 
 import { useBackDismiss } from '@/shared/app/useBackDismiss';
 import { stubHardwareBack, type HardwareBack } from '../__shared__/hardwareBack';
 
 jest.unmock('expo-router');
+jest.unmock('expo-router/react-navigation');
 
 let back: HardwareBack;
 let pathname: () => string = () => '';
@@ -121,13 +122,15 @@ function TwoModeScreen() {
 }
 
 async function renderStack() {
-  pathname = renderRouter(
-    {
-      _layout: () => <Stack />,
-      index: () => <Text>home</Text>,
-      detail: EditingScreen,
-    },
-    { initialUrl: '/' }
+  pathname = (
+    await renderRouter(
+      {
+        _layout: () => <Stack />,
+        index: () => <Text>home</Text>,
+        detail: EditingScreen,
+      },
+      { initialUrl: '/' }
+    )
   ).getPathname;
   await act(() => router.push('/detail'));
 }
@@ -180,13 +183,15 @@ describe('useBackDismiss on a stack screen', () => {
   });
 
   it('keeps the swipe off until the last of two states on the screen ends', async () => {
-    pathname = renderRouter(
-      {
-        _layout: () => <Stack />,
-        index: () => <Text>home</Text>,
-        detail: TwoModeScreen,
-      },
-      { initialUrl: '/' }
+    pathname = (
+      await renderRouter(
+        {
+          _layout: () => <Stack />,
+          index: () => <Text>home</Text>,
+          detail: TwoModeScreen,
+        },
+        { initialUrl: '/' }
+      )
     ).getPathname;
     await act(() => router.push('/detail'));
     expect(stackOptions).toEqual([{ gestureEnabled: false, headerBackVisible: false }]);
@@ -229,13 +234,20 @@ function MenuTab() {
 }
 
 async function renderTabs() {
-  pathname = renderRouter(
-    {
-      _layout: () => <Tabs />,
-      index: () => <Text>feed</Text>,
-      map: MenuTab,
-    },
-    { initialUrl: '/map' }
+  pathname = (
+    await renderRouter(
+      {
+        _layout: () => (
+          <Tabs>
+            <Tabs.Screen name="index" />
+            <Tabs.Screen name="map" />
+          </Tabs>
+        ),
+        index: () => <Text>feed</Text>,
+        map: MenuTab,
+      },
+      { initialUrl: '/map' }
+    )
   ).getPathname;
   await fireEvent.press(screen.getByTestId('menu'));
 }

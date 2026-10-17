@@ -47,7 +47,7 @@ export function ActivitySlide() {
             strokeWidth={TRACK_STROKE}
             strokeJoin="round"
             strokeCap="round"
-            color={palette.primary}
+            color={palette.actionPrimary}
           />
         </Canvas>
       </View>
@@ -63,13 +63,13 @@ export function ActivitySlide() {
               color={colorWithOpacity(colors.chartAmber, INTERVAL_OPACITY)}
             />
           ))}
-          <Path path={picture.area} color={colorWithOpacity(palette.primary, AREA_OPACITY)} />
+          <Path path={picture.area} color={colorWithOpacity(palette.actionPrimary, AREA_OPACITY)} />
           <Path
             path={picture.line}
             style="stroke"
             strokeWidth={ELEVATION_STROKE}
             strokeJoin="round"
-            color={palette.primary}
+            color={palette.actionPrimary}
           />
         </Canvas>
       </View>

@@ -90,6 +90,11 @@ const FLOORS = {
     reason:
       'earlier releases crash on withheld exiting animations, deadlock the CSS registry against the Fabric commit and leak a view unmounted mid-animation',
   },
+  'react-native-worklets': {
+    fixedIn: ['0.13.0'],
+    reason:
+      'earlier releases never register their lifecycle listener, so frames keep being scheduled while Android caches the app and it is killed for CPU',
+  },
   '@shopify/react-native-skia': {
     fixedIn: ['2.9.1'],
     reason:

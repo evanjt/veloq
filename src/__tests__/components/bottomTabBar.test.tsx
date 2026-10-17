@@ -24,8 +24,10 @@ jest.mock('expo-haptics', () => ({
 
 let mockSegments: string[] = ['(tabs)'];
 
+// The router refuses to navigate before an app root has rendered, and the bar renders alone.
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
+  router: { navigate: jest.fn() },
   usePathname: () => '/',
   useSegments: () => mockSegments,
 }));

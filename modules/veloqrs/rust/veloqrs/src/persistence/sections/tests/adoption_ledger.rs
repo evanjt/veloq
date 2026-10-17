@@ -69,7 +69,7 @@ fn engine_with_rides() -> PersistentEngine {
 
 fn apply(engine: &mut PersistentEngine, section: tracematch::FrequentSection) {
     engine.sections.retain(|s| s.is_user_defined);
-    engine.sections.push(section);
+    engine.sections.push(section.into());
     engine.save_sections_with_events(&[]).unwrap();
 }
 

@@ -94,13 +94,15 @@ describe('the record button reads as recording', () => {
   });
 
   it('carries its white glyph in both themes', () => {
-    expect(contrastRatio(recording.light, colors.textOnDark)).toBeGreaterThanOrEqual(AA_TEXT);
-    expect(contrastRatio(recording.dark, colors.textOnDark)).toBeGreaterThanOrEqual(AA_TEXT);
+    expect(contrastRatio(recording.light, colors.textOnFill)).toBeGreaterThanOrEqual(AA_TEXT);
+    expect(contrastRatio(recording.dark, colors.textOnFill)).toBeGreaterThanOrEqual(AA_TEXT);
   });
 
   it('separates from the surface it floats over in both themes', () => {
-    expect(contrastRatio(recording.light, colors.background)).toBeGreaterThanOrEqual(AA_GRAPHIC);
-    expect(contrastRatio(recording.dark, darkColors.background)).toBeGreaterThanOrEqual(AA_GRAPHIC);
+    expect(contrastRatio(recording.light, colors.surfacePage)).toBeGreaterThanOrEqual(AA_GRAPHIC);
+    expect(contrastRatio(recording.dark, darkColors.surfacePage)).toBeGreaterThanOrEqual(
+      AA_GRAPHIC
+    );
   });
 
   it('does not rely on colour alone: the glyph and the label stay', async () => {

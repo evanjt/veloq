@@ -3,7 +3,8 @@
  * neither does navigation with no tap behind it (a notification, the end of a recording, a
  * redirect).
  *
- * Expected behaviour: tapTo and tapBack navigate and fire nothing, on a first call and a second.
+ * Expected behaviour: navigateTo and goBack navigate and fire nothing, on a first call and a second.
+ * They are the only names for a push and a back, so a press handler and a redirect share one.
  * A back with nothing behind the screen, as on a screen a cold link opened as the stack root,
  * replaces to the Feed rather than dispatching a pop nothing handles.
  */
@@ -11,14 +12,8 @@
 import { router } from 'expo-router';
 
 import * as haptics from '@/shared/ui/haptics';
-import {
-  goBack,
-  navigateTab,
-  navigateTo,
-  replaceTo,
-  tapBack,
-  tapTo,
-} from '@/shared/app/navigation';
+import * as navigation from '@/shared/app/navigation';
+import { goBack, navigateTab, navigateTo, replaceTo } from '@/shared/app/navigation';
 
 jest.mock('@/shared/ui/haptics', () => ({
   selection: jest.fn(),
@@ -48,16 +43,16 @@ function expectNoHaptic(): void {
   expect(mockedHaptics.success).not.toHaveBeenCalled();
 }
 
-describe('tapTo', () => {
+describe('navigateTo', () => {
   it('pushes the path and fires no haptic', () => {
-    tapTo('/activity/a1');
+    navigateTo('/activity/a1');
 
     expect(mockedRouter.push).toHaveBeenCalledWith('/activity/a1');
     expectNoHaptic();
   });
 
   it('pushes a pathname with params unchanged', () => {
-    tapTo({ pathname: '/section/[id]', params: { id: 's1' } });
+    navigateTo({ pathname: '/section/[id]', params: { id: 's1' } });
 
     expect(mockedRouter.push).toHaveBeenCalledWith({
       pathname: '/section/[id]',
@@ -67,17 +62,17 @@ describe('tapTo', () => {
   });
 
   it('fires nothing on a second tap either', () => {
-    tapTo('/a');
-    tapTo('/b');
+    navigateTo('/a');
+    navigateTo('/b');
 
     expect(mockedRouter.push).toHaveBeenCalledTimes(2);
     expectNoHaptic();
   });
 });
 
-describe('tapBack', () => {
+describe('goBack, from a press', () => {
   it('goes back and fires no haptic', () => {
-    tapBack();
+    goBack();
 
     expect(mockedRouter.back).toHaveBeenCalledTimes(1);
     expectNoHaptic();
@@ -86,7 +81,7 @@ describe('tapBack', () => {
   it('replaces to the Feed and fires no haptic when nothing is behind the screen', () => {
     canGoBack.mockReturnValue(false);
 
-    tapBack();
+    goBack();
 
     expect(mockedRouter.back).not.toHaveBeenCalled();
     expect(mockedRouter.replace).toHaveBeenCalledWith('/');
@@ -94,8 +89,8 @@ describe('tapBack', () => {
   });
 
   it('fires nothing on a second back either', () => {
-    tapBack();
-    tapBack();
+    goBack();
+    goBack();
 
     expect(mockedRouter.back).toHaveBeenCalledTimes(2);
     expectNoHaptic();
@@ -142,5 +137,13 @@ describe('programmatic navigation', () => {
     expect(mockedRouter.replace).toHaveBeenCalledWith('/');
     expect(mockedRouter.navigate).toHaveBeenCalledWith('/map');
     expectNoHaptic();
+  });
+});
+
+describe('module surface', () => {
+  it('exports one name per move and no second name for a push or a back', () => {
+    expect(Object.keys(navigation).sort()).toEqual(
+      ['goBack', 'navigateTab', 'navigateTo', 'replaceTo', 'returnTo'].sort()
+    );
   });
 });

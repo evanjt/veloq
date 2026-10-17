@@ -10,7 +10,6 @@ import { View, StyleSheet, LayoutChangeEvent, AccessibilityActionEvent } from 'r
 import { Text } from 'react-native-paper';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
@@ -30,6 +29,7 @@ import {
 import { formatDuration } from '@/shared/format/format';
 import { stepTrimBound, trimMinGap, type TrimBound } from '@/shared/math/trimRange';
 import { IconButton } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import * as haptics from '@/shared/ui/haptics';
 import { useGestureCallback } from '@/shared/ui/useGestureCallback';
 
@@ -233,7 +233,7 @@ export function TrimSlider({
   }));
 
   const pillBg = isDark
-    ? colorWithOpacity(darkColors.surfaceElevated, 0.92)
+    ? colorWithOpacity(darkColors.surfaceRaised, 0.92)
     : colorWithOpacity(colors.surface, 0.95);
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
 
@@ -256,7 +256,7 @@ export function TrimSlider({
         onPress={() => nudge(bound, delta)}
         disabled={disabled}
       >
-        <MaterialCommunityIcons
+        <Icon
           name={later ? 'chevron-right' : 'chevron-left'}
           size={iconSize.md}
           color={textPrimary}
@@ -273,15 +273,7 @@ export function TrimSlider({
           {t('recording.trimActivity', 'Trim activity')}
         </Text>
         <View style={styles.rangeRow}>
-          {isTrimmed ? (
-            <MaterialCommunityIcons
-              name="content-cut"
-              size={iconSize.sm}
-              color={textPrimary}
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-            />
-          ) : null}
+          {isTrimmed ? <Icon name="content-cut" size={iconSize.sm} color={textPrimary} /> : null}
           <Text testID="review-trim-range" style={[styles.timeRange, { color: textPrimary }]}>
             {formatDuration(startTime)} - {formatDuration(endTime)}
           </Text>
@@ -303,7 +295,7 @@ export function TrimSlider({
               {
                 left: startFraction * trackWidth,
                 width: (endFraction - startFraction) * trackWidth,
-                backgroundColor: palette.primary,
+                backgroundColor: palette.actionPrimary,
               },
             ]}
           />
@@ -326,8 +318,8 @@ export function TrimSlider({
               accessibilityActions={STEP_ACTIONS}
               onAccessibilityAction={onStartAction}
             >
-              <View style={[styles.handleInner, { borderColor: palette.primary }]}>
-                <View style={[styles.handleBar, { backgroundColor: palette.primary }]} />
+              <View style={[styles.handleInner, { borderColor: palette.actionPrimary }]}>
+                <View style={[styles.handleBar, { backgroundColor: palette.actionPrimary }]} />
               </View>
             </Animated.View>
           </GestureDetector>
@@ -350,8 +342,8 @@ export function TrimSlider({
               accessibilityActions={STEP_ACTIONS}
               onAccessibilityAction={onEndAction}
             >
-              <View style={[styles.handleInner, { borderColor: palette.primary }]}>
-                <View style={[styles.handleBar, { backgroundColor: palette.primary }]} />
+              <View style={[styles.handleInner, { borderColor: palette.actionPrimary }]}>
+                <View style={[styles.handleBar, { backgroundColor: palette.actionPrimary }]} />
               </View>
             </Animated.View>
           </GestureDetector>
@@ -434,7 +426,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: layout.borderRadiusFull,
-    backgroundColor: colors.textOnDark,
+    backgroundColor: colors.textOnFill,
     borderWidth: stroke.two,
     justifyContent: 'center',
     alignItems: 'center',

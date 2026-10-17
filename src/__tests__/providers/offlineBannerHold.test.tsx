@@ -10,13 +10,13 @@
  * since a sync cannot progress offline, and comes back with the network.
  */
 import React from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { Text } from 'react-native';
 import { act, render, screen } from '@testing-library/react-native';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { NetworkProvider } from '@/shared/app/NetworkContext';
 import { TopSafeAreaProvider, useTopSafeArea } from '@/shared/app/TopSafeAreaContext';
-import { OfflineBanner } from '@/shared/ui/OfflineBanner';
+import { OfflinePill } from '@/shared/ui/StatusPills';
 import { SyncErrorBanner } from '@/shared/ui/SyncErrorBanner';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -68,7 +68,7 @@ async function mount() {
   await render(
     <NetworkProvider>
       <TopSafeAreaProvider>
-        <OfflineBanner />
+        <OfflinePill />
         <SyncErrorBanner />
         <Edges />
       </TopSafeAreaProvider>
@@ -118,11 +118,11 @@ it('shows nothing for a handoff shorter than both waits', async () => {
 
   await wait(DEBOUNCE_MS);
   await wait(HOLD_MS - 500);
-  expect(screen.queryByTestId('offline-banner')).toBeNull();
+  expect(screen.queryByTestId('offline-pill')).toBeNull();
 
   await reading(ONLINE);
   await wait(HOLD_MS * 2);
-  expect(screen.queryByTestId('offline-banner')).toBeNull();
+  expect(screen.queryByTestId('offline-pill')).toBeNull();
   expect(topEdgeKept()).toBe(true);
 });
 
@@ -133,7 +133,7 @@ it('shows nothing for a drop shorter than the debounce', async () => {
   await reading(ONLINE);
   await wait(DEBOUNCE_MS + HOLD_MS);
 
-  expect(screen.queryByTestId('offline-banner')).toBeNull();
+  expect(screen.queryByTestId('offline-pill')).toBeNull();
 });
 
 it('shows the pill four seconds after the drop, and the screens keep their top edge', async () => {
@@ -141,35 +141,31 @@ it('shows the pill four seconds after the drop, and the screens keep their top e
   await reading(UNREACHABLE);
 
   await waitThroughBoth(1);
-  expect(screen.queryByTestId('offline-banner')).toBeNull();
+  expect(screen.queryByTestId('offline-pill')).toBeNull();
 
   await wait(1);
-  expect(screen.getByTestId('offline-banner')).toBeTruthy();
+  expect(screen.getByTestId('offline-pill')).toBeTruthy();
   expect(topEdgeKept()).toBe(true);
 });
 
-it('floats the pill under the status bar, passing touches through, on one line', async () => {
+it('passes touches through and wraps its words rather than cutting them', async () => {
   await mount();
   await reading(UNREACHABLE);
   await waitThroughBoth();
 
-  const pill = screen.getByTestId('offline-banner');
-  const style = StyleSheet.flatten(pill.props.style) as { position?: string; top?: number };
-  expect(style.position).toBe('absolute');
-  expect(style.top).toBeGreaterThanOrEqual(40);
-  expect(pill.props.pointerEvents).toBe('none');
-  expect(screen.getByTestId('offline-banner-text').props.numberOfLines).toBe(1);
+  expect(screen.getByTestId('offline-pill').props.pointerEvents).toBe('none');
+  expect(screen.getByTestId('offline-pill-title').props.numberOfLines).toBeUndefined();
 });
 
 it('takes the pill away on the render the online reading lands', async () => {
   await mount();
   await reading(UNREACHABLE);
   await waitThroughBoth();
-  expect(screen.getByTestId('offline-banner')).toBeTruthy();
+  expect(screen.getByTestId('offline-pill')).toBeTruthy();
 
   await reading(ONLINE);
 
-  expect(screen.queryByTestId('offline-banner')).toBeNull();
+  expect(screen.queryByTestId('offline-pill')).toBeNull();
 });
 
 it('starts the wait over for a second drop after coming back', async () => {
@@ -180,10 +176,10 @@ it('starts the wait over for a second drop after coming back', async () => {
 
   await reading(UNREACHABLE);
   await waitThroughBoth(1);
-  expect(screen.queryByTestId('offline-banner')).toBeNull();
+  expect(screen.queryByTestId('offline-pill')).toBeNull();
 
   await wait(1);
-  expect(screen.getByTestId('offline-banner')).toBeTruthy();
+  expect(screen.getByTestId('offline-pill')).toBeTruthy();
 });
 
 describe('with a sync error holding the slot', () => {
@@ -213,16 +209,16 @@ describe('with a sync error holding the slot', () => {
 
     await waitThroughBoth(1);
     expect(screen.getByTestId('sync-error-banner')).toBeTruthy();
-    expect(screen.queryByTestId('offline-banner')).toBeNull();
+    expect(screen.queryByTestId('offline-pill')).toBeNull();
 
     await wait(1);
     expect(screen.queryByTestId('sync-error-banner')).toBeNull();
-    expect(screen.getByTestId('offline-banner')).toBeTruthy();
+    expect(screen.getByTestId('offline-pill')).toBeTruthy();
     expect(topEdgeKept()).toBe(true);
 
     await reading(ONLINE);
     expect(screen.getByTestId('sync-error-banner')).toBeTruthy();
-    expect(screen.queryByTestId('offline-banner')).toBeNull();
+    expect(screen.queryByTestId('offline-pill')).toBeNull();
     expect(topEdgeKept()).toBe(false);
   });
 });

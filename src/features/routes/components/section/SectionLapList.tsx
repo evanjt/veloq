@@ -9,12 +9,12 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { formatDuration, formatPower, formatFullDate } from '@/shared/format/format';
 import { Button, Card, composeAccessibilityLabel } from '@/shared/ui';
-import { tapTo } from '@/shared/app/navigation';
+import { Icon } from '@/shared/ui/Icon';
+import { navigateTo } from '@/shared/app/navigation';
 import { colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 import { NameText } from '@/shared/ui/NameText';
@@ -58,10 +58,10 @@ function collapsedActivities(lapped: SectionPerformanceRecord[]): SectionPerform
 function RecordMark({ testID, isDark, label }: { testID: string; isDark: boolean; label: string }) {
   return (
     <View testID={testID} accessible accessibilityRole="image" accessibilityLabel={label}>
-      <MaterialCommunityIcons
+      <Icon
         name="trophy"
         size={iconSize.xs}
-        color={isDark ? darkColors.chartGoldMark : colors.chartGoldMark}
+        color={isDark ? darkColors.achievement : colors.achievement}
       />
     </View>
   );
@@ -84,7 +84,7 @@ export function SectionLapList({
     <Card variant="flat" testID="section-lap-list">
       {showTitle ? (
         <View style={styles.header}>
-          <MaterialCommunityIcons
+          <Icon
             name="repeat"
             size={iconSize.md}
             color={isDark ? darkColors.textPrimary : colors.textPrimary}
@@ -115,7 +115,7 @@ export function SectionLapList({
                   bestLap,
                   t('a11y.laps', { n: r.laps.length })
                 )}
-                onPress={() => tapTo(`/activity/${r.activityId}`)}
+                onPress={() => navigateTo(`/activity/${r.activityId}`)}
                 android_ripple={pressRipple}
               >
                 <View style={styles.summaryName}>

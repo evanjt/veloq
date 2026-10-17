@@ -2,7 +2,6 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import Animated, { FadeIn, LinearTransition } from 'react-native-reanimated';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { useTheme } from '@/shared/app';
@@ -10,20 +9,21 @@ import { getActivityIcon } from '@/shared/activity/activityUtils';
 import { useSectionPerformances } from '@/features/routes';
 import { useSectionDetail } from '@/shared/native/useSectionDetail';
 import { Shimmer } from '@/shared/ui/Shimmer';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration } from '@/shared/format/format';
 import { brand, colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
 import { SheetContext } from './SheetContext';
 import {
-  composeAccessibilityLabel,
-  pressable,
-  pressRipple,
   Button,
   Card,
+  composeAccessibilityLabel,
   ErrorState,
+  pressable,
+  pressRipple,
 } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import type { TFunc } from '../../types';
 import { sectionRowKey, sectionWithSport } from '../../lib/cardSport';
 import { rowTrendColor, rowTrendIcon, rowTrendWord } from '../../lib/rowTrend';
@@ -102,7 +102,7 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
   }, [onToggle, section]);
 
   const handleOpenSection = useCallback(() => {
-    tapTo(`/section/${section.sectionId}`);
+    navigateTo(`/section/${section.sectionId}`);
   }, [section.sectionId]);
 
   const name = sectionWithSport(section.sectionName, section.sportType, t as unknown as TFunc);
@@ -143,7 +143,7 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
           <View style={styles.sectionContent}>
             <View style={styles.sectionNameRow}>
               {section.sportType ? (
-                <MaterialCommunityIcons
+                <Icon
                   name={getActivityIcon(section.sportType)}
                   size={iconSize.sm}
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -155,11 +155,7 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
               </NameText>
               {section.hasRecentPR ? (
                 <View style={styles.prChip}>
-                  <MaterialCommunityIcons
-                    name="trophy"
-                    size={iconSize.xs}
-                    color={colors.textOnBright}
-                  />
+                  <Icon name="trophy" size={iconSize.xs} color={colors.textOnBright} />
                 </View>
               ) : null}
             </View>
@@ -180,7 +176,7 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
                   {change}
                 </Text>
               ) : null}
-              <MaterialCommunityIcons
+              <Icon
                 name={rowTrendIcon(section.trend)}
                 size={iconSize.sm}
                 color={rowTrendColor(section.trend, isDark)}
@@ -189,7 +185,7 @@ const SectionAccordionItem = React.memo(function SectionAccordionItem({
           </View>
 
           <View style={styles.chevronButton}>
-            <MaterialCommunityIcons
+            <Icon
               name={expanded ? 'chevron-up' : 'chevron-down'}
               size={iconSize.md}
               color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -286,10 +282,10 @@ export const SectionTrendContent = React.memo(function SectionTrendContent({
 
       {hasAnyPR ? (
         <Animated.View layout={LinearTransition} style={styles.legend}>
-          <MaterialCommunityIcons
+          <Icon
             name="trophy"
             size={iconSize.xs}
-            color={isDark ? darkColors.chartGoldMark : colors.chartGoldMark}
+            color={isDark ? darkColors.achievement : colors.achievement}
           />
           <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
             {t('insights.recentPersonalRecord')}

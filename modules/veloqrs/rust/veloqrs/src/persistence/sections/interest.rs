@@ -94,13 +94,18 @@ impl PersistentEngine {
 
     pub(super) fn apply_lift_intents_to_memory(&mut self) -> SqlResult<()> {
         let unflagged = self.unflagged_lift_ids()?;
-        let mut changed = Vec::new();
-        for section in &mut self.sections {
-            if section.enrichment.is_lift && unflagged.contains(&section.id) {
-                section.enrichment.is_lift = false;
-                changed.push(section.id.clone());
-            }
-        }
+        let lifted: Vec<usize> = self
+            .sections
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| s.enrichment.is_lift && unflagged.contains(&s.id))
+            .map(|(idx, _)| idx)
+            .collect();
+        let changed: Vec<String> = lifted
+            .iter()
+            .map(|&idx| self.sections[idx].id.clone())
+            .collect();
+        self.edit_sections(lifted, |_, section| section.enrichment.is_lift = false);
         for id in changed {
             self.invalidate_section_cache(&id);
         }
@@ -202,11 +207,13 @@ impl PersistentEngine {
             }
         }
         tx.commit()?;
-        for (idx, r) in applied {
-            let s = &mut self.sections[idx];
-            s.enrichment = r.enrichment;
-            s.rank = Some(r.rank);
-        }
+        let ranked: HashMap<usize, RankedSection> = applied.into_iter().collect();
+        let indices: Vec<usize> = ranked.keys().copied().collect();
+        self.edit_sections(indices, |idx, s| {
+            let r = &ranked[&idx];
+            s.enrichment = r.enrichment.clone();
+            s.rank = Some(r.rank.clone());
+        });
         Ok(())
     }
 }
@@ -446,9 +453,7 @@ impl PersistentEngine {
                 rusqlite::params![i32::from(is_lift), section_id],
             )
             .map_err(|e| e.to_string())?;
-        if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
-            section.enrichment.is_lift = is_lift;
-        }
+        self.edit_section(section_id, |section| section.enrichment.is_lift = is_lift);
         self.invalidate_section_cache(section_id);
         Ok(())
     }
@@ -665,11 +670,7 @@ mod tests {
         let reader = rusqlite::Connection::open(dir.path().join("rank.db")).unwrap();
         let ranked = plan.compute(&reader).unwrap();
 
-        engine
-            .sections
-            .iter_mut()
-            .find(|s| s.id == "s1")
-            .unwrap()
+        std::sync::Arc::make_mut(engine.sections.iter_mut().find(|s| s.id == "s1").unwrap())
             .polyline
             .truncate(30);
         engine.write_rank(ranked).unwrap();

@@ -86,7 +86,7 @@ fn cut(engine: &PersistentEngine, members: &[&str]) -> FrequentSection {
     }
 }
 
-fn members(rows: &[FrequentSection]) -> Vec<String> {
+fn members(rows: &[std::sync::Arc<FrequentSection>]) -> Vec<String> {
     assert_eq!(rows.len(), 1, "one section on one line");
     let mut ids = rows[0].activity_ids.clone();
     ids.sort();
@@ -97,7 +97,7 @@ fn apply(
     engine: &PersistentEngine,
     identity: &mut SectionIdentity,
     cut: FrequentSection,
-) -> Vec<FrequentSection> {
+) -> Vec<std::sync::Arc<FrequentSection>> {
     engine
         .section_identity_apply_into(identity, SectionReplay::whole(vec![cut]))
         .visible

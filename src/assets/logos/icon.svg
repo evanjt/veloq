@@ -2,12 +2,12 @@
   <!-- Written by scripts/generate-app-icons.mjs: change the palette there and rerun it. -->
   <defs>
     <linearGradient id="ground" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#5B9BD5"/>
-      <stop offset="100%" stop-color="#3A7AB8"/>
+      <stop offset="0%" stop-color="#2F6699"/>
+      <stop offset="100%" stop-color="#255380"/>
     </linearGradient>
-    <linearGradient id="mark" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#FFD700"/>
-      <stop offset="100%" stop-color="#FFA500"/>
+    <linearGradient id="mark" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#E8C96E"/>
+      <stop offset="100%" stop-color="#D4AF37"/>
     </linearGradient>
   </defs>
   <rect width="1024" height="1024" fill="url(#ground)"/>

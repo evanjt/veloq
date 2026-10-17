@@ -21,7 +21,7 @@ import {
   formatSpeed,
 } from '@/shared/format/format';
 import { colors, darkColors, spacing, stroke, typography } from '@/theme';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import {
   ACCURACY_REJECT_BOUNDS_M,
   ALL_DATA_FIELDS,
@@ -99,7 +99,7 @@ function RecordingSettingsScreenContent() {
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const bg = isDark ? darkColors.background : colors.background;
+  const bg = isDark ? darkColors.surfacePage : colors.surfacePage;
   const border = isDark ? darkColors.border : colors.border;
 
   const handleToggleAutoPause = useCallback((value: boolean) => {
@@ -206,7 +206,7 @@ function RecordingSettingsScreenContent() {
                 testID="settings-recordings-link"
                 icon="folder-play-outline"
                 title={t('recording.library.title', 'My recordings')}
-                onPress={() => tapTo('/recordings')}
+                onPress={() => navigateTo('/recordings')}
               />
             </Card>
           </View>
@@ -436,7 +436,7 @@ function RecordingSettingsScreenContent() {
               testID="settings-sensors-link"
               icon="bluetooth"
               title={t('sensors.manageSensors', 'Heart rate, power & cadence sensors')}
-              onPress={() => tapTo('/sensor-settings')}
+              onPress={() => navigateTo('/sensor-settings')}
             />
           </Card>
         </View>
@@ -448,7 +448,7 @@ function RecordingSettingsScreenContent() {
             <SettingsNavRow
               icon="ruler"
               title={t('settings.units')}
-              onPress={() => tapTo('/display-settings')}
+              onPress={() => navigateTo('/display-settings')}
             />
           </Card>
         </View>

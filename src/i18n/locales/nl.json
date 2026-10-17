@@ -44,7 +44,7 @@
     "explanations": {
       "conditions": "Temperatuur uit weergegevens of je apparaatsensor.",
       "energy": "Geschat energieverbruik uit hartslag, vermogen en duur.",
-      "fitnessImpact": "Vergeleken met een rustdag verhoogt deze activiteit de fitheid met belasting × (1 − e^(−1/42)) en de vermoeidheid met belasting × (1 − e^(−1/7)). Krachttraining verhoogt alleen de vermoeidheid. De invloed op de vorm is fitheid min vermoeidheid.",
+      "fitnessImpact": "Vergeleken met een rustdag verhoogt deze activiteit de fitheid met belasting × (1 − e^(−1/{{fitnessDays}})) en de vermoeidheid met belasting × (1 − e^(−1/{{fatigueDays}})). Krachttraining verhoogt alleen de vermoeidheid. De invloed op de vorm is fitheid min vermoeidheid.",
       "heartRate": "Gemiddelde hartslag tijdens de activiteit.",
       "newGround": "Het aandeel kaarttegels van deze activiteit dat geen eerdere activiteit had aangeraakt. Een tegel is afhankelijk van de breedtegraad ongeveer 150 tot 300 m breed, dus dit meet tegeldekking en niet de afstand over nieuwe wegen.",
       "activityEftp": "De eFTP is de schatting van het vermogensmodel van intervals.icu voor deze activiteit.",
@@ -488,6 +488,7 @@
     "back": "Terug",
     "close": "Sluiten",
     "cancel": "Annuleren",
+    "cancelled": "Geannuleerd",
     "clearSearch": "Zoekopdracht wissen",
     "clearFilters": "Filters wissen",
     "quoted": "‘{{text}}’",
@@ -2819,15 +2820,29 @@
       "single": "{{name}}, {{start}}: {{value}}.",
       "series": "{{name}}, {{start}} tot {{end}}: laatste {{latest}}, bereik {{min}} tot {{max}}, gemiddeld {{average}}.",
       "curve": "{{name}}, {{start}} tot {{end}}: {{first}} bij {{start}}, {{last}} bij {{end}}, piek {{max}}.",
-      "parts": "{{name}}: {{parts}}."
+      "parts": "{{name}}: {{parts}}.",
+      "dayActive": "{{name}}, {{start}}: actief.",
+      "dayRest": "{{name}}, {{start}}: geen activiteit.",
+      "noActivity": "{{name}}, {{start}} tot {{end}}: geen activiteit.",
+      "daysActive_one": "{{name}}, {{start}} tot {{end}}: actief op {{active}} van {{count}} dag.",
+      "daysActive_other": "{{name}}, {{start}} tot {{end}}: actief op {{active}} van {{count}} dagen.",
+      "longestBreak": "Langste pauze {{gap}}.",
+      "dayCount_one": "{{count}} dag",
+      "dayCount_other": "{{count}} dagen",
+      "peakDay": "Hoogste {{value}} op {{day}}."
     },
     "column": {
       "date": "Datum",
       "duration": "Duur",
       "distance": "Afstand",
       "zone": "Zone",
-      "time": "Tijd"
-    }
+      "time": "Tijd",
+      "month": "Maand",
+      "activities": "Activiteiten",
+      "muscle": "Spier",
+      "sets": "Gewogen sets"
+    },
+    "activityPlot": "Activiteitsgrafiek"
   },
   "sportFamilies": {
     "ride": "Fietsen",

@@ -15,6 +15,9 @@ import { TERRAIN_UNAVAILABLE_TEST_ID } from '@/features/maps/components/TerrainU
 import { decodeCoords } from 'veloqrs';
 import type { ActivityBoundsItem } from '@/types';
 import { stubHardwareBack } from '../../__shared__/hardwareBack';
+import { useBottomPills } from '@/shared/ui/bottomPills';
+import { TAB_BAR_SAFE_PADDING } from '@/shared/ui/tabBarClearance';
+import { spacing } from '@/theme';
 
 // The map page is hidden from screen readers, so a query reaching it includes hidden elements.
 const MAP_PAGE = { includeHiddenElements: true };
@@ -35,6 +38,7 @@ jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   useRouter: () => ({ push: jest.fn(), navigate: jest.fn(), back: jest.fn() }),
   usePathname: () => mockPathname,
+  useSegments: () => ['(tabs)', 'map'],
 }));
 
 jest.mock('@/features/settings/stores/MapPreferencesContext', () => ({
@@ -297,6 +301,40 @@ describe('RegionalMapView', () => {
     expect(screen.queryByTestId('webview', MAP_PAGE)).toBeNull();
     expect(screen.getByTestId('maplibre-map', MAP_PAGE)).toBeTruthy();
     expect(screen.getByTestId(TERRAIN_UNAVAILABLE_TEST_ID)).toBeTruthy();
+  });
+
+  /**
+   * Scenario: the raised filter sheet covers the foot of the screen far past a fixed offset,
+   * and the terrain page falls back.
+   *
+   * Expected behaviour: the notice takes the top slot of the bottom pill stack, above the cover
+   * the tab reports, and gives the slot up when it clears.
+   */
+  it('places the terrain notice in the bottom pill stack above the reported cover', async () => {
+    useBottomPills.setState({ heights: {}, covers: { mapSheet: 380 } });
+    await renderRegional();
+
+    await fireEvent.press(screen.getByTestId('map-toggle-3d'));
+    await fireEvent(screen.getByTestId('webview', MAP_PAGE), 'message', {
+      nativeEvent: {
+        data: JSON.stringify({ type: 'terrainUnavailable', reason: 'no terrain tiles: 6 failed' }),
+      },
+    });
+
+    const slot = screen.getByTestId('bottom-pill-terrain');
+    expect(slot).toContainElement(screen.getByTestId(TERRAIN_UNAVAILABLE_TEST_ID));
+    expect(StyleSheet.flatten(slot.props.style).bottom).toBe(
+      TAB_BAR_SAFE_PADDING + 34 + 380 + spacing.md
+    );
+
+    await fireEvent(slot, 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 300, height: 40 } },
+    });
+    expect(useBottomPills.getState().heights.terrain).toBe(40);
+
+    await fireEvent.press(screen.getByTestId(TERRAIN_UNAVAILABLE_TEST_ID));
+    expect(screen.queryByTestId('bottom-pill-terrain')).toBeNull();
+    expect(useBottomPills.getState().heights.terrain).toBeUndefined();
   });
 
   it('tears the surface down when the tab loses focus and rebuilds it on return', async () => {

@@ -110,11 +110,15 @@ jobs:
         run: |
           echo "ndk=${{ hashFiles('package-lock.json', 'app.json', 'app.config.js', 'src/plugins/**', 'widget/android/**', 'modules/**/android/**', 'modules/**/cpp/**') }}" >> "$GITHUB_OUTPUT"
           echo "lockfile=${{ hashFiles('package-lock.json') }}" >> "$GITHUB_OUTPUT"
-          # The compiler pin, the setup action that installs the targets and cargo-ndk,
-          # and the runner image that carries SDK and NDK. The builder
-          # fingerprints the resolved versions too and rebuilds a restored
-          # library that disagrees.
-          echo "toolchain=${{ hashFiles('rust-toolchain.toml', '.github/actions/setup-rust-android/action.yml') }}-${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
+          # The compiler pin and the setup action that installs the targets and
+          # cargo-ndk. The Rust library takes nothing else from the image: the
+          # image's NDK is deleted and Gradle installs the pinned one, and the
+          # builder fingerprints the NDK revision and rebuilds a restored library
+          # that disagrees. The app also packages the image's SDK pieces, so its
+          # key adds the image version.
+          rust_toolchain="${{ hashFiles('rust-toolchain.toml', '.github/actions/setup-rust-android/action.yml') }}"
+          echo "rust_toolchain=$rust_toolchain" >> "$GITHUB_OUTPUT"
+          echo "toolchain=$rust_toolchain-${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
 
       - name: Select architectures
         id: targets
@@ -231,7 +235,7 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           path: modules/veloqrs/build/rust/android
-          key: rust-android-v5-${{ steps.rust-inputs.outputs.hash }}-${{ steps.native.outputs.toolchain }}-${{ steps.targets.outputs.selection }}
+          key: rust-android-v6-${{ steps.rust-inputs.outputs.hash }}-${{ steps.native.outputs.rust_toolchain }}-${{ steps.targets.outputs.selection }}
 
       - name: Setup Rust for Android
         if: steps.apk-cache.outputs.cache-hit != 'true' && steps.rust-android-cache.outputs.cache-hit != 'true'
@@ -277,12 +281,12 @@ jobs:
           cd android
           if [ "$RELEASE_BUILD" = true ]; then
             ./gradlew :veloqrs:buildRustLibrary \
-              -PreactNativeArchitectures=armeabi-v7a,arm64-v8a --no-daemon
+              -PreactNativeArchitectures=armeabi-v7a,arm64-v8a --build-cache --no-daemon
             ./gradlew :veloqrs:buildRustLibrary \
-              -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64 --no-daemon
+              -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86,x86_64 --build-cache --no-daemon
           else
             ./gradlew :veloqrs:buildRustLibrary \
-              -PreactNativeArchitectures="$ABIS" --no-daemon
+              -PreactNativeArchitectures="$ABIS" --build-cache --no-daemon
           fi
 
       # The module's JVM tests cover the Kotlin push worker's decisions and
@@ -308,8 +312,9 @@ jobs:
             :veloq-recording-notification:testDebugUnitTest \
             :veloq-backup-exclusion:testDebugUnitTest \
             :veloq-widget:testDebugUnitTest \
+            :veloq-focus:testDebugUnitTest \
             -PreactNativeArchitectures="$ABIS" \
-            --no-daemon
+            --build-cache --no-daemon
 
       # Saved directly after the build that produced it, not in a post step,
       # which runs only when every later step succeeds. The key names the Rust
@@ -347,16 +352,20 @@ jobs:
       # The Gradle time is CMake C++ for every React Native library. CMake reads
       # the launcher variables from the environment at configure time, so ccache
       # needs no Gradle change. Either identity compiles the same sources, so
-      # the other's store is a valid warm start.
+      # the other's store is a valid warm start. Each save takes a fresh
+      # timestamped key, since an existing key can never be overwritten, and a
+      # restore takes the newest under the prefix. The NDK is installed fresh on
+      # every run, so each compile step hashes the compiler's content rather
+      # than its mtime, and the inode cache keeps that to one read per run.
       - name: Setup ccache
         if: steps.apk-cache.outputs.cache-hit != 'true'
         uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
         with:
-          key: android-ndk-v3-${{ inputs.variant }}-${{ runner.os }}-${{ steps.native.outputs.ndk }}
+          key: android-ndk-v4-${{ inputs.variant }}-${{ runner.os }}-${{ steps.native.outputs.ndk }}
           restore-keys: |
-            android-ndk-v3-${{ inputs.variant }}-${{ runner.os }}-
-            android-ndk-v3-
-          append-timestamp: false
+            android-ndk-v4-${{ inputs.variant }}-${{ runner.os }}-${{ steps.native.outputs.ndk }}-
+            android-ndk-v4-${{ inputs.variant }}-${{ runner.os }}-
+            android-ndk-v4-
           max-size: 1G
           save: ${{ github.ref == 'refs/heads/main' }}
 
@@ -372,10 +381,13 @@ jobs:
           ABIS: ${{ inputs.abis }}
           CMAKE_C_COMPILER_LAUNCHER: ccache
           CMAKE_CXX_COMPILER_LAUNCHER: ccache
+          CCACHE_COMPILERCHECK: content
+          CCACHE_INODECACHE: 'true'
+          CCACHE_LOGFILE: ${{ runner.temp }}/ccache.log
         run: |
           cd android && ./gradlew assembleRelease \
             -PreactNativeArchitectures="$ABIS" \
-            --no-daemon
+            --build-cache --no-daemon
 
       # The engine module's test APK, which draws every widget from the snapshot
       # fixtures. Built after the app so it links the library already compiled.
@@ -386,24 +398,30 @@ jobs:
         run: |
           cd android && ./gradlew :veloqrs:assembleDebugAndroidTest \
             -PreactNativeArchitectures="$ABIS" \
-            --no-daemon
+            --build-cache --no-daemon
 
       - name: Build Android APK
         if: steps.apk-cache.outputs.cache-hit != 'true' && env.RELEASE_BUILD == 'true'
         env:
           CMAKE_C_COMPILER_LAUNCHER: ccache
           CMAKE_CXX_COMPILER_LAUNCHER: ccache
+          CCACHE_COMPILERCHECK: content
+          CCACHE_INODECACHE: 'true'
+          CCACHE_LOGFILE: ${{ runner.temp }}/ccache.log
         run: |
           cd android && ./gradlew assembleRelease \
             -PreactNativeArchitectures=armeabi-v7a,arm64-v8a \
-            --no-daemon
+            --build-cache --no-daemon
 
       - name: Build Android App Bundle
         if: steps.apk-cache.outputs.cache-hit != 'true' && env.RELEASE_BUILD == 'true'
         env:
           CMAKE_C_COMPILER_LAUNCHER: ccache
           CMAKE_CXX_COMPILER_LAUNCHER: ccache
-        run: cd android && ./gradlew bundleRelease --no-daemon
+          CCACHE_COMPILERCHECK: content
+          CCACHE_INODECACHE: 'true'
+          CCACHE_LOGFILE: ${{ runner.temp }}/ccache.log
+        run: cd android && ./gradlew bundleRelease --build-cache --no-daemon
 
       # Every save in this job runs on main only: main's entries are the ones
       # worth the space, and a pull request's, a branch's or a tag's are
@@ -436,6 +454,17 @@ jobs:
           if [ "$RELEASE_BUILD" = true ]; then
             node scripts/build-record.js identity android/app/build/outputs/bundle/release/app-release.aab --variant "$APP_VARIANT"
           fi
+
+      # The log names the reason for each ccache miss, which the post step's
+      # counts alone cannot. Uploaded after a failed build too.
+      - name: Upload ccache log
+        if: ${{ !cancelled() && steps.apk-cache.outputs.cache-hit != 'true' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: ccache-log-${{ steps.version.outputs.filename }}
+          path: ${{ runner.temp }}/ccache.log
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Copy APK
         id: apk

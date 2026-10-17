@@ -8,13 +8,13 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
 
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { colors, colorWithOpacity, duration, iconSize, layout, spacing, typography } from '@/theme';
 import { selectStatusMessage, type StatusSlotInput } from '../lib/statusSlot';
 import { InlineNotice, OpenSettingsButton } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 
 // Every message drops in and lifts out alike, so a swap reads as one slot.
@@ -114,7 +114,7 @@ function StatusSlotInner({
           tone="warning"
           icon="bluetooth"
           title={message.text}
-          onPress={() => tapTo('/sensor-settings')}
+          onPress={() => navigateTo('/sensor-settings')}
           announce={false}
         />
       </Animated.View>
@@ -133,8 +133,8 @@ function StatusSlotInner({
       accessible
       accessibilityLabel={message.spoken}
     >
-      <MaterialCommunityIcons name="flag-variant" size={iconSize.sm} color={colors.textOnDark} />
-      <Text style={[styles.text, { color: colors.textOnDark }]}>{message.text}</Text>
+      <Icon name="flag-variant" size={iconSize.sm} color={colors.textOnFill} />
+      <Text style={[styles.text, { color: colors.textOnFill }]}>{message.text}</Text>
     </Animated.View>
   );
 }
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadiusSm,
   },
   splitRow: {
-    backgroundColor: colorWithOpacity(colors.success, 0.85),
+    backgroundColor: colorWithOpacity(colors.successFill, 0.85),
   },
   text: {
     ...typography.bodyCompact,

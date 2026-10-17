@@ -8,9 +8,9 @@ import React, { useMemo, useCallback, useState } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Card, pressable, pressRipple } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { useTranslation } from 'react-i18next';
 import { useRoutePerformances } from '@/features/routes/hooks/useRoutePerformances';
 import { getActivityColor, getActivityInk } from '@/shared/activity/activityUtils';
@@ -115,7 +115,7 @@ export function RoutePerformanceSection({
 
   const handleRoutePress = useCallback(() => {
     if (routeGroup) {
-      tapTo(`/route/${routeGroup.id}?activityId=${encodeURIComponent(activityId)}`);
+      navigateTo(`/route/${routeGroup.id}?activityId=${encodeURIComponent(activityId)}`);
     }
   }, [routeGroup, activityId]);
 
@@ -154,7 +154,7 @@ export function RoutePerformanceSection({
           android_ripple={pressRipple}
         >
           <View style={[styles.iconBadge, { borderColor: activityInk }]}>
-            <MaterialCommunityIcons name="map-marker-path" size={iconSize.xs} color={activityInk} />
+            <Icon name="map-marker-path" size={iconSize.xs} color={activityInk} />
           </View>
           <View style={styles.headerInfo}>
             <NameText style={[styles.routeName, isDark && styles.textLight]}>
@@ -171,10 +171,10 @@ export function RoutePerformanceSection({
                     {bestTimeDisplay}
                   </Text>
                   {isCurrentBest ? (
-                    <MaterialCommunityIcons
+                    <Icon
                       name="trophy"
                       size={iconSize.xs}
-                      color={colors.chartGold}
+                      color={colors.achievement}
                       style={{ marginLeft: spacing.xxs }}
                     />
                   ) : null}
@@ -182,10 +182,10 @@ export function RoutePerformanceSection({
               ) : null}
             </View>
           </View>
-          <MaterialCommunityIcons
+          <Icon
             name="chevron-right"
             size={iconSize.md}
-            color={isDark ? darkColors.iconFaint : colors.iconFaint}
+            color={isDark ? darkColors.iconMuted : colors.iconMuted}
           />
         </Pressable>
 

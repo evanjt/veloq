@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, View, StyleSheet, FlatList } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
@@ -26,7 +25,8 @@ import {
 import type { ActivityType } from '@/types';
 import { engineErrorKey } from '@/shared/native/engineError';
 import { EmptyState, pressable, pressRipple, SheetHeader } from '@/shared/ui';
-import { tapBack } from '@/shared/app/navigation';
+import { Icon } from '@/shared/ui/Icon';
+import { goBack } from '@/shared/app/navigation';
 import { NameText } from '@/shared/ui/NameText';
 
 /**
@@ -109,7 +109,7 @@ function RouteOverlaySheetContent() {
     <View style={styles.sheet}>
       <SheetHeader
         title={t('recording.routeOverlay.title', 'Follow a route')}
-        onCancel={() => tapBack()}
+        onCancel={() => goBack()}
         cancelTestID="route-overlay-cancel"
       />
 
@@ -121,10 +121,10 @@ function RouteOverlaySheetContent() {
         android_ripple={pressRipple}
         onPress={() => resolve(null)}
       >
-        <MaterialCommunityIcons
+        <Icon
           name="close-circle-outline"
           size={iconSize.md}
-          color={selectedRouteId == null ? palette.primary : textSecondary}
+          color={selectedRouteId == null ? palette.actionPrimary : textSecondary}
         />
         <Text
           style={[styles.rowTitle, { color: selectedRouteId == null ? accentText : textPrimary }]}
@@ -135,10 +135,10 @@ function RouteOverlaySheetContent() {
 
       {groupsError !== undefined ? (
         <View style={styles.failureLine}>
-          <MaterialCommunityIcons
+          <Icon
             name="alert-circle-outline"
             size={iconSize.sm}
-            color={isDark ? darkColors.warningAmber : colors.warningAmber}
+            color={isDark ? darkColors.warningText : colors.warningText}
           />
           <Text
             testID="route-groups-failure"
@@ -179,10 +179,10 @@ function RouteOverlaySheetContent() {
                 android_ripple={pressRipple}
                 onPress={() => resolve(item.id)}
               >
-                <MaterialCommunityIcons
+                <Icon
                   name="map-marker-path"
                   size={iconSize.md}
-                  color={isSelected ? palette.primary : textSecondary}
+                  color={isSelected ? palette.actionPrimary : textSecondary}
                 />
                 <View style={styles.rowBody}>
                   <NameText
@@ -198,7 +198,7 @@ function RouteOverlaySheetContent() {
                   </Text>
                 </View>
                 {isSelected ? (
-                  <MaterialCommunityIcons name="check" size={iconSize.md} color={palette.primary} />
+                  <Icon name="check" size={iconSize.md} color={palette.actionPrimary} />
                 ) : null}
               </Pressable>
             );

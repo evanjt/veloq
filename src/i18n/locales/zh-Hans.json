@@ -44,7 +44,7 @@
     "explanations": {
       "conditions": "来自天气数据或您设备传感器的温度。",
       "energy": "根据心率、功率和持续时间估算的能量消耗。",
-      "fitnessImpact": "与休息日相比，本次活动使体能增加负荷 × (1 − e^(−1/42))，使疲劳增加负荷 × (1 − e^(−1/7))。力量训练只增加疲劳。状态影响等于体能影响减去疲劳影响。",
+      "fitnessImpact": "与休息日相比，本次活动使体能增加负荷 × (1 − e^(−1/{{fitnessDays}}))，使疲劳增加负荷 × (1 − e^(−1/{{fatigueDays}}))。力量训练只增加疲劳。状态影响等于体能影响减去疲劳影响。",
       "heartRate": "活动期间的平均心率。",
       "newGround": "本次活动经过的地图图块中，此前任何活动都未经过的比例。图块宽度随纬度约为150至300米，因此衡量的是图块覆盖率，而不是新道路上的距离。",
       "activityEftp": "eFTP 是 intervals.icu 对本次活动的功率模型估算值。",
@@ -488,6 +488,7 @@
     "back": "返回",
     "close": "关闭",
     "cancel": "取消",
+    "cancelled": "已取消",
     "clearSearch": "清除搜索",
     "clearFilters": "清除筛选",
     "quoted": "“{{text}}”",
@@ -2819,15 +2820,29 @@
       "single": "{{name}}，{{start}}：{{value}}。",
       "series": "{{name}}，{{start}}至{{end}}：最新 {{latest}}，范围 {{min}}至{{max}}，平均 {{average}}。",
       "curve": "{{name}}，{{start}}至{{end}}：{{start}}时{{first}}，{{end}}时{{last}}，峰值 {{max}}。",
-      "parts": "{{name}}：{{parts}}。"
+      "parts": "{{name}}：{{parts}}。",
+      "dayActive": "{{name}}，{{start}}：有活动。",
+      "dayRest": "{{name}}，{{start}}：无活动。",
+      "noActivity": "{{name}}，{{start}}至{{end}}：无活动。",
+      "daysActive_other": "{{name}}，{{start}}至{{end}}：{{count}}天中有{{active}}天有活动。",
+      "longestBreak": "最长间隔 {{gap}}。",
+      "dayCount_other": "{{count}}天",
+      "peakDay": "最高 {{value}}（{{day}}）。",
+      "daysActive_one": "{{name}}，{{start}}至{{end}}：{{count}}天中有{{active}}天有活动。",
+      "dayCount_one": "{{count}}天"
     },
     "column": {
       "date": "日期",
       "duration": "时长",
       "distance": "距离",
       "zone": "区间",
-      "time": "时间"
-    }
+      "time": "时间",
+      "month": "月份",
+      "activities": "活动",
+      "muscle": "肌肉",
+      "sets": "加权组数"
+    },
+    "activityPlot": "活动图表"
   },
   "sportFamilies": {
     "ride": "骑行",

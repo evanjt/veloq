@@ -3,15 +3,15 @@ import { View, StyleSheet, Pressable, useWindowDimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { replaceTo, tapTo } from '@/shared/app/navigation';
+import { replaceTo, navigateTo } from '@/shared/app/navigation';
 import { useBackIntercept } from '@/shared/app/useBackIntercept';
 import { useDiscardGuard } from '@/shared/app/useDiscardGuard';
 import { overMapHeaderOptions } from '@/shared/app/screenHeaders';
 import { colors, darkColors, iconSize, layout, spacing, typography, stroke } from '@/theme';
 import { Button, InlineNotice, ScreenScrollView, TextField } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { pressable, pressRipple } from '@/shared/ui/pressFeedback';
 import { formatDistance, formatDuration } from '@/shared/format/format';
 import { getActivityIcon, getActivityInk } from '@/shared/activity/activityUtils';
@@ -259,7 +259,7 @@ function ReviewScreenContent() {
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const bg = isDark ? darkColors.background : colors.background;
+  const bg = isDark ? darkColors.surfacePage : colors.surfacePage;
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
   const activityColor = getActivityInk(type, isDark);
@@ -341,15 +341,11 @@ function ReviewScreenContent() {
           android_ripple={pressRipple}
           onPress={() => !isProcessing && openTypePicker()}
         >
-          <MaterialCommunityIcons
-            name={getActivityIcon(type)}
-            size={iconSize.md}
-            color={activityColor}
-          />
+          <Icon name={getActivityIcon(type)} size={iconSize.md} color={activityColor} />
           <Text style={[styles.typeText, { color: textPrimary }]}>
             {t(`activityTypes.${type}`, type)}
           </Text>
-          <MaterialCommunityIcons name="chevron-down" size={iconSize.md} color={textSecondary} />
+          <Icon name="chevron-down" size={iconSize.md} color={textSecondary} />
         </Pressable>
 
         {/* Notes */}
@@ -398,7 +394,7 @@ function ReviewScreenContent() {
             keptRecording ? () => replaceTo(`/recordings/${keptRecording.id}`) : undefined
           }
           onShareFit={keptRecording?.kind === 'fit' ? shareKeptRecording : undefined}
-          onFreeSpace={lowStorage ? () => tapTo('/cache-settings') : undefined}
+          onFreeSpace={lowStorage ? () => navigateTo('/cache-settings') : undefined}
         />
 
         {/* Action Buttons */}

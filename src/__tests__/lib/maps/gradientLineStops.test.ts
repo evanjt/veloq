@@ -5,7 +5,17 @@
  * a slow climb and a fast descent each colour their own half of the line.
  */
 
-import { buildGradientLineStops, gradientToColor } from '@/features/maps/lib/gradientLineColor';
+import {
+  buildGradientLineStops as buildInStyle,
+  gradeStepColour,
+} from '@/features/maps/lib/gradientLineColor';
+
+const buildGradientLineStops = (
+  grade: number[] | undefined,
+  distance: number[] | undefined,
+  maxStops?: number,
+  hasPosition?: boolean[]
+) => buildInStyle(grade, distance, 'light', maxStops, hasPosition);
 
 /** Progress values out of the alternating `[progress, colour, ...]` stops. */
 const progressOf = (stops: (string | number)[]) => stops.filter((_, i) => i % 2 === 0) as number[];
@@ -29,7 +39,7 @@ describe('buildGradientLineStops', () => {
       ...Array.from({ length: 720 }, (_, i) => 10_000 + ((i + 1) * 10_000) / 720),
     ];
     const stops = buildGradientLineStops(grade, distance)!;
-    const lastClimbStop = stops.lastIndexOf(gradientToColor(6)) - 1;
+    const lastClimbStop = stops.lastIndexOf(gradeStepColour(6, 'light')) - 1;
     expect(stops[lastClimbStop] as number).toBeCloseTo(0.5, 1);
     expect(stops[lastClimbStop] as number).toBeLessThan(0.51);
   });

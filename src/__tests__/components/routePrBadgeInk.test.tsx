@@ -50,7 +50,7 @@ jest.mock('@/features/activity/components/ActivityMapPreview', () => {
 jest.mock('@/features/strength', () => ({ StrengthActivityCard: () => null }));
 jest.mock('@/shared/app/navigation', () => ({
   ...jest.requireActual('@/shared/app/navigation'),
-  tapTo: jest.fn(),
+  navigateTo: jest.fn(),
 }));
 
 const activity = {

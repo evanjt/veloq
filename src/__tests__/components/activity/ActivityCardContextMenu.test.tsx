@@ -9,7 +9,8 @@
  * one with no GPS track or a weight-training card, offers no map style, 3D
  * terrain or reset, on either platform. Share links to intervals.icu only with
  * the id the feed read hands over, never the row key, and is not offered when
- * intervals.icu holds no page for the activity.
+ * intervals.icu holds no page for the activity. Opening the menu fires one
+ * light haptic from the menu itself, whatever opened it.
  */
 
 import React from 'react';
@@ -19,6 +20,7 @@ import { PaperProvider } from 'react-native-paper';
 
 import { ActivityCardContextMenu } from '@/features/activity/components/ActivityCardContextMenu';
 import { ContextMenu } from '@/shared/ui/ContextMenu';
+import * as haptics from '@/shared/ui/haptics';
 import type { Activity } from '@/types';
 
 jest.mock('react-i18next', () => ({
@@ -84,6 +86,12 @@ jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(),
 }));
 
+jest.mock('@/shared/ui/haptics', () => ({
+  ...jest.requireActual('@/shared/ui/haptics'),
+  light: jest.fn(),
+  medium: jest.fn(),
+}));
+
 const activity = {
   id: 'a1',
   name: 'Morning ride',
@@ -142,7 +150,9 @@ describe('sharing from the card menu', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it('sends the activity name as the email subject on iOS', async () => {
-    const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: Share.sharedAction });
+    const share = jest
+      .spyOn(Share, 'share')
+      .mockResolvedValue({ action: Share.sharedAction, activityType: undefined });
     await renderMenu(false);
 
     await fireEvent.press(nativeAction('activity.share'));
@@ -157,7 +167,9 @@ describe('sharing from the card menu', () => {
 
   it('keeps the subject on Android, where the title carries it', async () => {
     jest.replaceProperty(Platform, 'OS', 'android');
-    const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: Share.sharedAction });
+    const share = jest
+      .spyOn(Share, 'share')
+      .mockResolvedValue({ action: Share.sharedAction, activityType: undefined });
     await renderMenu(true);
 
     await fireEvent.press(screen.getByLabelText('activity.share'));
@@ -183,7 +195,9 @@ describe('sharing from the card menu', () => {
   });
 
   it('stays quiet when the athlete closes the sheet without sharing', async () => {
-    jest.spyOn(Share, 'share').mockResolvedValue({ action: Share.dismissedAction });
+    jest
+      .spyOn(Share, 'share')
+      .mockResolvedValue({ action: Share.dismissedAction, activityType: undefined });
     await renderMenu(false);
 
     await fireEvent.press(nativeAction('activity.share'));
@@ -215,7 +229,9 @@ describe.each(['ios', 'android'] as const)('sharing on %s with no intervals.icu 
   });
 
   it('shares the id the feed read names for an uploaded recording, not its row key', async () => {
-    const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: Share.sharedAction });
+    const share = jest
+      .spyOn(Share, 'share')
+      .mockResolvedValue({ action: Share.sharedAction, activityType: undefined });
     await renderMenu(os === 'android', { ...activity, id: 'local-ride-8', intervalsWebId: 'i900' });
 
     await fireEvent.press(
@@ -322,5 +338,47 @@ describe.each([
     expect(screen.queryByTestId('native-menu-activity.mapStyle')).toBeNull();
     expect(screen.getAllByText('activity.viewDetails').length).toBeGreaterThan(0);
     expect(screen.getAllByText('activity.share').length).toBeGreaterThan(0);
+  });
+});
+
+describe.each(['ios', 'android'] as const)('opening the card menu on %s', (os) => {
+  beforeEach(() => {
+    jest.replaceProperty(Platform, 'OS', os);
+    jest.mocked(haptics.light).mockClear();
+    jest.mocked(haptics.medium).mockClear();
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  const menu = (visible: boolean) => (
+    <PaperProvider>
+      <ActivityCardContextMenu visible={visible} onDismiss={jest.fn()} activity={activity} hasMap>
+        <View testID="card" />
+      </ActivityCardContextMenu>
+    </PaperProvider>
+  );
+
+  it('fires one light haptic per open, none while closed, open or closing', async () => {
+    const view = await render(menu(false));
+    expect(haptics.light).not.toHaveBeenCalled();
+
+    await view.rerender(menu(true));
+    expect(haptics.light).toHaveBeenCalledTimes(1);
+
+    await view.rerender(menu(true));
+    expect(haptics.light).toHaveBeenCalledTimes(1);
+
+    await view.rerender(menu(false));
+    expect(haptics.light).toHaveBeenCalledTimes(1);
+
+    await view.rerender(menu(true));
+    expect(haptics.light).toHaveBeenCalledTimes(2);
+    expect(haptics.medium).not.toHaveBeenCalled();
+  });
+
+  it('fires once for a menu mounted open', async () => {
+    await render(menu(true));
+
+    expect(haptics.light).toHaveBeenCalledTimes(1);
+    expect(haptics.medium).not.toHaveBeenCalled();
   });
 });

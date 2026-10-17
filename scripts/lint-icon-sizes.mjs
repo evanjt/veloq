@@ -3,7 +3,7 @@
 // The app drew seventeen, set as literals and as file-local constants, so one
 // screen's glyph read larger than its neighbour's and nothing held the ladder.
 //
-// Counted: a rendered `<MaterialCommunityIcons` whose `size` is a number, a
+// Counted: a rendered `<Icon` or `<MaterialCommunityIcons` whose `size` is a number, a
 // constant, a type role's font size or any expression holding one, or which
 // sets no size and so draws at the library default. The shared wrappers that
 // draw one, `DisclosureChevron`, `DirectionArrow`, `SportIcons` and the two
@@ -36,7 +36,7 @@ const WRITE = process.argv.includes('--write');
 const EXEMPT = ['src/__tests__/'];
 
 const ICON =
-  /<(MaterialCommunityIcons|DisclosureChevron|DirectionArrow|SportIcons|CompassArrow|StaticCompassArrow)\b/g;
+  /<(MaterialCommunityIcons|Icon|DisclosureChevron|DirectionArrow|SportIcons|CompassArrow|StaticCompassArrow)\b/g;
 
 /** A prop passed through untouched: `size`, `props.size`, `iconSize` as a prop. */
 const PASS_THROUGH = /^[a-z][A-Za-z0-9]*(?:\.[a-z][A-Za-z0-9]*)*$/;
@@ -70,7 +70,7 @@ function sizeOf(tag) {
 function offLadder(element, tag) {
   if (/\{\s*\.\.\./.test(tag) && !/\ssize=/.test(tag)) return false;
   const size = sizeOf(tag);
-  if (size === null) return element === 'MaterialCommunityIcons';
+  if (size === null) return element === 'MaterialCommunityIcons' || element === 'Icon';
   if (size === '"') return true;
   if (/^iconSize\.[a-z]+$/.test(size)) return false;
   if (/\biconSize\.[a-z]+/.test(size) && !/\b\d/.test(size) && !/\b[A-Z][A-Z0-9_]+\b/.test(size)) {
@@ -84,7 +84,8 @@ const tree = treeView(ROOT, [relative(ROOT, SRC)]);
 const counts = {};
 for (const file of tree.files(
   SRC,
-  (rel) => /\.tsx?$/.test(rel) && !rel.split('/').includes('node_modules')
+  // Only a .tsx file draws JSX, so a tag named in a .ts comment is not counted.
+  (rel) => /\.tsx$/.test(rel) && !rel.split('/').includes('node_modules')
 )) {
   const rel = relative(ROOT, file).split('\\').join('/');
   if (EXEMPT.some((prefix) => rel.startsWith(prefix))) continue;

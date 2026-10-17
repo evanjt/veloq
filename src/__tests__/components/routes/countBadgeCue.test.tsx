@@ -60,7 +60,9 @@ describe('count badge cue', () => {
     expect(getByTestId('route-row-r_5-count').props.accessibilityLabel).toBe(
       'routes.activitiesCount:5'
     );
-    expect(getByTestId('route-row-r_5-count-glyph').props.name).toBe('map-marker-multiple');
+    expect(
+      getByTestId('route-row-r_5-count-glyph', { includeHiddenElements: true }).props.name
+    ).toBe('map-marker-multiple');
   });
 
   it('labels the section badge as traversals and draws the section glyph', async () => {
@@ -68,7 +70,9 @@ describe('count badge cue', () => {
     expect(getByTestId('section-row-s_5-count').props.accessibilityLabel).toBe(
       'sections.traversalsCount:5'
     );
-    expect(getByTestId('section-row-s_5-count-glyph').props.name).toBe('repeat');
+    expect(
+      getByTestId('section-row-s_5-count-glyph', { includeHiddenElements: true }).props.name
+    ).toBe('repeat');
   });
 
   it('uses the singular for one', async () => {

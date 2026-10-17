@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use crate::persistence::wellness::WellnessRow;
-use crate::{FfiGpsPoint, WidgetLatestComparison, WidgetRouteStanding};
+use crate::{GpsPoint, WidgetLatestComparison, WidgetRouteStanding};
 
 // 2024-12-05 00:53 on the wall clock, the instant the other snapshot tests use, so
 // a ride an hour earlier is dated yesterday.
@@ -287,11 +287,11 @@ fn ride(
 }
 
 /// A loop drawn as a rounded square, enough points for a route preview.
-fn track() -> Vec<FfiGpsPoint> {
+fn track() -> Vec<GpsPoint> {
     (0..80)
         .map(|i| {
             let t = i as f64 / 80.0 * std::f64::consts::TAU;
-            FfiGpsPoint {
+            GpsPoint {
                 latitude: -33.86 + 0.02 * t.sin() + 0.004 * (3.0 * t).sin(),
                 longitude: 151.20 + 0.03 * t.cos(),
                 elevation: None,

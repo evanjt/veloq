@@ -115,7 +115,7 @@ describe('the context menu popup', () => {
     const surface = flat(screen.getByTestId('context-menu-surface'));
     expect(surface).toMatchObject({
       borderWidth: StyleSheet.hairlineWidth,
-      borderColor: darkColors.borderLight,
+      borderColor: darkColors.border,
       borderRadius: layout.borderRadiusMd,
     });
     expect(surface.elevation ?? 0).toBe(0);

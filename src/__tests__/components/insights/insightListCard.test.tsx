@@ -26,7 +26,7 @@ import type {
   TFunc,
   WeeklyTotal,
 } from '@/features/insights/types';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { formatShortDate } from '@/shared/format/format';
 import { colors, insightCategoryColor, verdictColor } from '@/theme';
 
@@ -34,7 +34,7 @@ jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysWithValues());
 let mockIsDark = false;
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: mockIsDark }) }));
-jest.mock('@/shared/app/navigation', () => ({ tapTo: jest.fn() }));
+jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 
 const NOW = Date.UTC(2026, 8, 20);
 const DAY = 86_400;
@@ -154,7 +154,7 @@ async function laidOut(tree: Awaited<ReturnType<typeof render>>) {
 }
 
 beforeEach(() => {
-  jest.mocked(tapTo).mockClear();
+  jest.mocked(navigateTo).mockClear();
   mockIsDark = false;
 });
 
@@ -166,7 +166,7 @@ describe('the insight list card', () => {
 
     await fireEvent.press(tree.getByRole('link'));
 
-    expect(tapTo).toHaveBeenCalledWith('/section/s1?activityId=a3');
+    expect(navigateTo).toHaveBeenCalledWith('/section/s1?activityId=a3');
     expect(onPress).not.toHaveBeenCalled();
   });
 
@@ -178,7 +178,7 @@ describe('the insight list card', () => {
     await fireEvent.press(tree.getByText(insight.title));
 
     expect(onPress).toHaveBeenCalledWith(insight);
-    expect(tapTo).not.toHaveBeenCalled();
+    expect(navigateTo).not.toHaveBeenCalled();
   });
 
   it('names where the graphic goes', async () => {
@@ -344,7 +344,7 @@ describe('the insight list card', () => {
     await fireEvent.press(tree.getByTestId('insight-graphic'));
 
     expect(onPress).toHaveBeenCalledWith(insight);
-    expect(tapTo).not.toHaveBeenCalled();
+    expect(navigateTo).not.toHaveBeenCalled();
   });
 });
 

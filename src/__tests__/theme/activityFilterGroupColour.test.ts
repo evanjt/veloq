@@ -20,7 +20,15 @@ import { colors } from '@/theme';
 const BARS = { text: 4.5, mark: 3 } as const;
 
 /** The verdict palette: what a sport family must never borrow. */
-const VERDICT_TOKENS = ['success', 'warning', 'error', 'info'] as const;
+const VERDICT_TOKENS = [
+  'successText',
+  'successFill',
+  'warningText',
+  'warningFill',
+  'errorText',
+  'dangerFill',
+  'actionLink',
+] as const;
 
 function relativeLuminance(hex: string): number {
   const channels = [1, 3, 5]
@@ -50,11 +58,11 @@ describe('the Other hue does both jobs the chip asks of it', () => {
   });
 
   it('carries the selected chip label', () => {
-    expect(contrastRatio(colors.textOnDark, other)).toBeGreaterThanOrEqual(BARS.text);
+    expect(contrastRatio(colors.textOnFill, other)).toBeGreaterThanOrEqual(BARS.text);
   });
 
   it('is its own entry rather than a fallback', () => {
-    expect(other).not.toBe(colors.success);
+    expect(other).not.toBe(colors.successText);
   });
 });
 

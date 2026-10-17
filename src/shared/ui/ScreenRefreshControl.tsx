@@ -28,7 +28,13 @@ export type ScreenRefreshControlProps = Omit<
 export function ScreenRefreshControl({ onRefresh, ...rest }: ScreenRefreshControlProps) {
   const { isDark } = useTheme();
   const palette = themePalette(isDark);
-  const handleRefresh = useMemo(() => onPullRefresh(onRefresh), [onRefresh]);
+  // The control ignores what the handler returns, so a screen's promise is left to the screen.
+  const handleRefresh = useMemo(() => {
+    const pull = onPullRefresh(onRefresh);
+    return () => {
+      void pull();
+    };
+  }, [onRefresh]);
   return (
     <RefreshControl
       {...rest}

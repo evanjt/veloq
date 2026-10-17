@@ -135,17 +135,17 @@ function ErrorFallback({ part, minHeight, onRetry }: FallbackProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: colors.surfacePage,
     justifyContent: 'center',
     alignItems: 'center',
     padding: spacing.lg,
     borderRadius: layout.borderRadiusSm,
     borderWidth: stroke.one,
-    borderColor: colors.divider,
+    borderColor: colors.border,
   },
   containerDark: {
-    backgroundColor: darkColors.background,
-    borderColor: darkColors.divider,
+    backgroundColor: darkColors.surfacePage,
+    borderColor: darkColors.border,
   },
   errorText: {
     ...typography.body,

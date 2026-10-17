@@ -1,7 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Animated from 'react-native-reanimated';
 import { useTheme } from '@/shared/app';
@@ -18,6 +17,7 @@ import {
 } from '@/features/settings';
 import { colors, darkColors, iconSize, motionPresets, spacing, typography } from '@/theme';
 import { Button, PermissionNotice, TextLink } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { Card } from '@/shared/ui/Card';
 
 interface NotificationOptInCardProps {
@@ -79,7 +79,7 @@ export function NotificationOptInCard({ libraryCount }: NotificationOptInCardPro
           accessibilityLabel={t('notifications.prompt.settingsHint')}
           style={styles.hint}
         >
-          <MaterialCommunityIcons
+          <Icon
             name="cog-outline"
             size={iconSize.sm}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -99,7 +99,7 @@ export function NotificationOptInCard({ libraryCount }: NotificationOptInCardPro
       <Card variant="raised" style={{ gap: spacing.sm }}>
         {/* Header */}
         <View style={styles.header}>
-          <MaterialCommunityIcons
+          <Icon
             name="bell-ring-outline"
             size={iconSize.lg}
             color={isDark ? darkColors.textPrimary : colors.textPrimary}

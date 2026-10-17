@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
   },
   countLabelVisible: {
     ...typography.captionBold,
-    color: colors.textOnPrimary,
+    color: colors.textOnFill,
     textAlign: 'center',
   },
 });

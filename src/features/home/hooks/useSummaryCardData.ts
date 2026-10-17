@@ -329,7 +329,7 @@ export function useSummaryCardData(
       : getFormZone(quickStats.form, quickStats.fitness, asPercent);
   // The form hero's key dot takes its zone's mark, and none before a form reading.
   const isDark = useResolvedColorScheme() === 'dark';
-  const formKeyColor = formZone ? summaryFormZoneColor(formZone) : undefined;
+  const formKeyColor = formZone ? summaryFormZoneColor(formZone, isDark) : undefined;
 
   // A metric's spoken name, its value where the card draws it as a clock, and
   // the reading its arrow was judged against, formatted in the athlete's units

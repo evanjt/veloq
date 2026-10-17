@@ -5,17 +5,17 @@
 //
 // Four palettes used to answer this question. `insightIcon.positive` and
 // `.caution`, `statusBadge`'s good/alert/watch/bad, and the raw semantic
-// `colors.success`/`warning`/`error`. The badge palette is gone, and this
+// success, warning and error tones. The badge palette is gone, and this
 // guard holds the first everywhere: reaching it for a polarity fails, and
 // `insightIcon.info` and `.opportunity` are left alone because they are
 // categories rather than polarities and the ladder has no rung for either.
 //
-// The third palette is held everywhere in `src/`: a raw `colors.success`,
-// `warning` or `error` picked by a ternary is a verdict taken off the sign of
+// The third palette is held everywhere in `src/`: a raw success or warning
+// fill, the error text or the danger fill, picked by a ternary is a verdict taken off the sign of
 // a number, which is how the period comparison drew load green and amber
 // against the polarity table. The same token used as a fixed colour is not a
 // verdict and is left alone, and so is a theme pick,
-// `isDark ? darkColors.error : colors.error`. A file whose ternary is a state
+// `isDark ? darkColors.errorText : colors.errorText`. A file whose ternary is a state
 // and not a verdict is listed in `STATE_CHOICES` with the reason.
 //
 // The ladder's own module is exempt, since it is where the tokens live.
@@ -56,7 +56,7 @@ const STATE_CHOICES = {
  * `:` on the same line as a `?`, or on a line that opens with either, which is
  * how a ternary laid out over several lines reads.
  */
-const COMPARED = /(?<![\w.])colors\.(success|warning|error)\b/g;
+const COMPARED = /(?<![\w.])colors\.(successFill|warningFill|errorText|dangerFill)\b/g;
 function isComparedChoice(line, index) {
   const before = line.slice(0, index);
   if (/\bisDark\s*\?/.test(before)) return false;

@@ -60,7 +60,7 @@ const RIDE_SECTION = {
   createdAt: '2026-01-01T00:00:00Z',
 } as FrequentSection;
 
-const runGlyphs = () => screen.queryAllByTestId('glyph-run');
+const runGlyphs = () => screen.queryAllByTestId('glyph-run', { includeHiddenElements: true });
 
 beforeAll(async () => {
   await initialiseI18n();
@@ -78,8 +78,8 @@ describe('map popup glyphs', () => {
       />
     );
     const zoom = within(screen.getByTestId('activity-popup-zoom'));
-    expect(zoom.queryByTestId(`glyph-${LOCATE_GLYPH}`)).toBeNull();
-    expect(zoom.getByTestId(`glyph-${FIT_GLYPH}`)).toBeTruthy();
+    expect(zoom.queryByTestId(`glyph-${LOCATE_GLYPH}`, { includeHiddenElements: true })).toBeNull();
+    expect(zoom.getByTestId(`glyph-${FIT_GLYPH}`, { includeHiddenElements: true })).toBeTruthy();
   });
 
   it('draw no running figure on a ride-only section', async () => {
@@ -92,7 +92,9 @@ describe('map popup glyphs', () => {
       />
     );
     expect(runGlyphs()).toHaveLength(0);
-    expect(screen.getByTestId(`glyph-${ACTIVITY_COUNT_GLYPH}`)).toBeTruthy();
+    expect(
+      screen.getByTestId(`glyph-${ACTIVITY_COUNT_GLYPH}`, { includeHiddenElements: true })
+    ).toBeTruthy();
   });
 
   it('draw no running figure on a ride-only route', async () => {
@@ -110,6 +112,8 @@ describe('map popup glyphs', () => {
       />
     );
     expect(runGlyphs()).toHaveLength(0);
-    expect(screen.getByTestId(`glyph-${ACTIVITY_COUNT_GLYPH}`)).toBeTruthy();
+    expect(
+      screen.getByTestId(`glyph-${ACTIVITY_COUNT_GLYPH}`, { includeHiddenElements: true })
+    ).toBeTruthy();
   });
 });

@@ -50,12 +50,12 @@ function contrast(ink: string, ground: Rgb | string): number {
 }
 
 const SURFACES = {
-  light: [colors.surface, colors.background, colors.backgroundAlt],
+  light: [colors.surface, colors.surfacePage, colors.surfaceInput],
   dark: [
-    darkColors.background,
+    darkColors.surfacePage,
     darkColors.surface,
-    darkColors.surfaceElevated,
-    darkColors.surfaceCard,
+    darkColors.surfaceRaised,
+    darkColors.surfaceRaised,
   ],
 };
 

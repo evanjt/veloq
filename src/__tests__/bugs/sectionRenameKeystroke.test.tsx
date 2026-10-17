@@ -30,7 +30,10 @@ jest.mock('@/features/routes/hooks/useSectionRescan', () => ({
 jest.mock('@/features/routes/components/SectionMapView', () => ({
   SectionMapView: () => null,
 }));
-jest.mock('@/shared/app', () => ({ useMetricSystem: () => true }));
+jest.mock('@/shared/app', () => ({
+  ...jest.requireActual('@/shared/app'),
+  useMetricSystem: () => true,
+}));
 
 const mockRenameSection = jest.fn<Promise<void>, [string, string]>();
 jest.mock('@/features/routes/hooks/useCustomSections', () => ({

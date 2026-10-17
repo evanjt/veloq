@@ -22,7 +22,7 @@ import {
 } from '@/theme';
 import {
   FORM_ZONE_COLORS,
-  FORM_ZONE_MARK_COLORS,
+  formZoneColor,
   FORM_ZONE_TEXT_COLORS,
   FORM_ZONE_TEXT_COLORS_DARK,
   type FormZone,
@@ -65,25 +65,25 @@ function contrastRatio(a: string, b: string): number {
 }
 
 const LIGHT_SURFACES = {
+  surfacePage: colors.surfacePage,
   surface: colors.surface,
-  background: colors.background,
-  backgroundAlt: colors.backgroundAlt,
+  surfaceRaised: colors.surfaceRaised,
 };
 
 const DARK_SURFACES = {
-  background: darkColors.background,
+  surfacePage: darkColors.surfacePage,
   surface: darkColors.surface,
-  surfaceElevated: darkColors.surfaceElevated,
-  surfaceCard: darkColors.surfaceCard,
+  surfaceRaised: darkColors.surfaceRaised,
 };
 
 describe('region tints', () => {
   it('lifts the idle and selected regions in dark mode', () => {
-    const idle = darkColors.regionTintIdle;
-    const active = darkColors.regionTintActive;
+    const idle = darkColors.stateHover;
+    const active = darkColors.statePressed;
 
-    expect(idle).toMatch(/^rgba\(255, 255, 255, [\d.]+\)$/);
-    expect(active).toMatch(/^rgba\(255, 255, 255, [\d.]+\)$/);
+    const red = (tint: string) => Number(tint.match(/^rgba\((\d+), /)?.[1]);
+    expect(red(idle)).toBeGreaterThan(200);
+    expect(red(active)).toBeGreaterThan(200);
     const alpha = (tint: string) => Number(tint.match(/, ([\d.]+)\)$/)?.[1]);
     expect(alpha(idle)).toBeGreaterThan(0);
     expect(alpha(active)).toBeGreaterThan(alpha(idle));
@@ -152,7 +152,6 @@ describe('body text clears AA on every surface it is drawn on', () => {
    * screen still reads gold for a PR and green for the optimal zone.
    */
   const TEXT_VARIANTS = [
-    'chartGoldText',
     'chartFtpText',
     'formOptimalText',
     'rideText',
@@ -314,14 +313,14 @@ describe('the widget stale age line clears AA on its surface', () => {
  */
 describe('a mark that carries its own meaning clears AA for a graphical object', () => {
   const LIGHT_MARKS = {
-    chartGoldMark: colors.chartGoldMark,
+    chartGoldMark: colors.achievement,
     chartGreenMark: colors.chartGreenMark,
     chartSilverMark: colors.chartSilverMark,
     chartBronzeMark: colors.chartBronzeMark,
   };
 
   const DARK_MARKS = {
-    chartGoldMark: darkColors.chartGoldMark,
+    chartGoldMark: darkColors.achievement,
     chartGreenMark: darkColors.chartGreenMark,
     chartSilverMark: darkColors.chartSilverMark,
     chartBronzeMark: darkColors.chartBronzeMark,
@@ -342,7 +341,6 @@ describe('a mark that carries its own meaning clears AA for a graphical object',
   });
 
   it('is a lift of the chart tones, which are the ones that fail', () => {
-    expect(contrastRatio(colors.chartGold, colors.surface)).toBeLessThan(AA_MARK);
     expect(contrastRatio(colors.chartGreen, colors.surface)).toBeLessThan(AA_MARK);
   });
 });
@@ -359,10 +357,6 @@ const MARK_FAMILY = {
   markAmber: colors.markAmber,
   markYellow: colors.markYellow,
   markOrange: colors.markOrange,
-  markFormTransition: colors.markFormTransition,
-  markFormFresh: colors.markFormFresh,
-  markFormGreyZone: colors.markFormGreyZone,
-  markFormOptimal: colors.markFormOptimal,
 };
 
 /** The fill token each mark tone darkens, and which is why it exists. */
@@ -371,11 +365,6 @@ const MARK_REPLACES = {
   markGreen: colors.chartGreen,
   markAmber: colors.chartAmber,
   markYellow: colors.chartYellow,
-  markOrange: colors.cautionOrange,
-  markFormTransition: colors.formTransition,
-  markFormFresh: colors.formFresh,
-  markFormGreyZone: colors.formGreyZone,
-  markFormOptimal: colors.formOptimal,
 };
 
 const ALL_SURFACES = { ...LIGHT_SURFACES, ...DARK_SURFACES };
@@ -397,25 +386,31 @@ describe('a mark holds 3:1 on every surface it can be drawn on', () => {
 });
 
 describe('the marks the screens draw come from that family', () => {
-  it('keys every form zone with a tone that clears the bar', () => {
-    for (const zone of Object.keys(
-      FORM_ZONE_MARK_COLORS
-    ) as (keyof typeof FORM_ZONE_MARK_COLORS)[]) {
-      for (const ground of Object.values(ALL_SURFACES)) {
-        expect(contrastRatio(FORM_ZONE_MARK_COLORS[zone], ground)).toBeGreaterThanOrEqual(AA_MARK);
+  it('keys every form zone with a tone that clears the bar in its own theme', () => {
+    for (const [isDark, grounds] of [
+      [false, LIGHT_SURFACES],
+      [true, DARK_SURFACES],
+    ] as const) {
+      for (const zone of Object.keys(FORM_ZONE_COLORS) as (keyof typeof FORM_ZONE_COLORS)[]) {
+        for (const ground of Object.values(grounds)) {
+          expect(contrastRatio(formZoneColor(zone, isDark), ground)).toBeGreaterThanOrEqual(
+            AA_MARK
+          );
+        }
       }
     }
   });
 
-  it('leaves the one zone fill that already carried a mark where it was', () => {
-    expect(FORM_ZONE_MARK_COLORS.highRisk).toBe(FORM_ZONE_COLORS.highRisk);
-    expect(FORM_ZONE_MARK_COLORS.optimal).not.toBe(FORM_ZONE_COLORS.optimal);
-  });
-
   it("draws the power, gap and W'bal streams in a tone that clears the bar", () => {
-    for (const stream of [chartStreamColors.power, chartStreamColors.gap, chartStreamColors.wbal]) {
-      for (const ground of Object.values(ALL_SURFACES)) {
-        expect(contrastRatio(stream, ground)).toBeGreaterThanOrEqual(AA_MARK);
+    for (const [theme, grounds] of [
+      ['light', LIGHT_SURFACES],
+      ['dark', DARK_SURFACES],
+    ] as const) {
+      const streams = chartStreamColors[theme];
+      for (const stream of [streams.power, streams.gap, streams.wbal]) {
+        for (const ground of Object.values(grounds)) {
+          expect(contrastRatio(stream, ground)).toBeGreaterThanOrEqual(AA_MARK);
+        }
       }
     }
   });
@@ -536,9 +531,8 @@ describe('every palette token answers to its family bar', () => {
    */
   it('gives each semantic fill a text tone that clears the text bar', () => {
     for (const [fill, deep] of [
-      ['success', 'successDeep'],
-      ['warning', 'warningAmber'],
-      ['error', 'errorDeep'],
+      ['successFill', 'successText'],
+      ['warningFill', 'warningText'],
     ] as const) {
       expect(TOKEN_FAMILIES[fill]).toBe('ground');
       expect(TOKEN_FAMILIES[deep]).toBe('text');

@@ -10,10 +10,10 @@ import { fireEvent, render } from '@testing-library/react-native';
 import type { ActivityLedgerChange } from 'veloqrs';
 
 import { ActivityLedgerChanges } from '@/features/activity/components/ActivityLedgerChanges';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
-jest.mock('@/shared/app/navigation', () => ({ tapTo: jest.fn() }));
+jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 // The ripple Android selects, so a row is checked against the value it gets
 // on that platform.
 jest.mock('@/shared/ui/pressFeedback', () => ({
@@ -64,7 +64,7 @@ describe('ActivityLedgerChanges', () => {
     expect(queryByText('sectionHistory.kind_split')).toBeNull();
 
     await fireEvent.press(getByTestId('activity-ledger-change-2'));
-    expect(tapTo).toHaveBeenCalledWith('/section/s2');
+    expect(navigateTo).toHaveBeenCalledWith('/section/s2');
   });
 
   it('leaves out the kind label of a change that needs a count the row does not carry', async () => {

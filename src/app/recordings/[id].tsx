@@ -1,5 +1,5 @@
 import React, { useCallback, useRef } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet, type ViewInstance } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -53,9 +53,9 @@ function RecordingDetailScreenContent() {
   } = useVisibleRecording(id);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
-  const errorDeep = isDark ? darkColors.errorDeep : colors.errorDeep;
+  const errorText = isDark ? darkColors.errorText : colors.errorText;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const bg = isDark ? darkColors.background : colors.background;
+  const bg = isDark ? darkColors.surfacePage : colors.surfacePage;
   const border = isDark ? darkColors.border : colors.border;
 
   const handleUpload = useCallback(async () => {
@@ -64,7 +64,7 @@ function RecordingDetailScreenContent() {
     await load();
   }, [entry, uploadNow, load]);
 
-  const shareAnchor = useRef<View>(null);
+  const shareAnchor = useRef<ViewInstance>(null);
   const handleShare = useCallback(async () => {
     if (!entry || !recordingActions(entry, uploadingId).canShare) return;
     try {
@@ -206,7 +206,7 @@ function RecordingDetailScreenContent() {
                 </Text>
               </View>
               {entry.lastError ? (
-                <Text style={[styles.errorText, { color: errorDeep }]} numberOfLines={3}>
+                <Text style={[styles.errorText, { color: errorText }]} numberOfLines={3}>
                   {entry.lastError}
                 </Text>
               ) : null}

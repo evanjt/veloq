@@ -23,9 +23,9 @@ jest.mock('@/shared/app/useCacheDays', () => ({ useCacheDays: () => 30 }));
 jest.mock('@/features/routes/components/DataRangeFooter', () => ({
   DataRangeFooter: () => null,
 }));
-jest.mock('@/shared/app/navigation', () => ({ tapTo: jest.fn() }));
+jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 
-const { tapTo } = jest.requireMock('@/shared/app/navigation') as { tapTo: jest.Mock };
+const { navigateTo } = jest.requireMock('@/shared/app/navigation') as { navigateTo: jest.Mock };
 
 function reason(tag: string, inner?: Record<string, unknown>): FfiCatalogueEmptyReason {
   return { tag, inner } as unknown as FfiCatalogueEmptyReason;
@@ -62,7 +62,7 @@ describe('RoutesList empty reason', () => {
 
   beforeEach(async () => {
     await changeLanguage('en-GB');
-    tapTo.mockClear();
+    navigateTo.mockClear();
   });
 
   it('says a library of indoor sessions has no GPS, and offers a wider range', async () => {
@@ -74,7 +74,7 @@ describe('RoutesList empty reason', () => {
     ).toBeTruthy();
     expect(screen.queryByText('No routes yet')).toBeNull();
     await fireEvent.press(screen.getByText('Expand range'));
-    expect(tapTo).toHaveBeenCalledWith('/sync-settings');
+    expect(navigateTo).toHaveBeenCalledWith('/sync-settings');
   });
 
   it('counts the activities a detect has still to see', async () => {
@@ -105,7 +105,7 @@ describe('RoutesList empty reason', () => {
       screen.getByText('Detection is held until you resume the elevation download in Settings')
     ).toBeTruthy();
     await fireEvent.press(screen.getByText('Open settings'));
-    expect(tapTo).toHaveBeenCalledWith('/detection-settings');
+    expect(navigateTo).toHaveBeenCalledWith('/detection-settings');
   });
 
   it('sizes an elevation queue that waits on the network, with no action', async () => {

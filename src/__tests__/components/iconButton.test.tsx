@@ -76,6 +76,6 @@ describe('IconButton', () => {
         <Text>x</Text>
       </IconButton>
     );
-    expect(flatten(getByTestId('i').props.style).backgroundColor).toBe(colors.primary);
+    expect(flatten(getByTestId('i').props.style).backgroundColor).toBe(colors.actionPrimary);
   });
 });

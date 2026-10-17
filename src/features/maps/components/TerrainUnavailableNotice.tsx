@@ -1,13 +1,16 @@
 import { useEffect, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { darkColors, iconSize, layout, spacing, typography } from '@/theme';
 import { pressable, pressRipple } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { useAnnounceOnAppear } from '@/shared/ui/useAnnounceOnAppear';
 
 export const TERRAIN_UNAVAILABLE_TEST_ID = 'terrain-unavailable-notice';
+
+/** Where the notice sits: at the foot of an embedded map, or in the screen's bottom pill stack. */
+export type TerrainNoticePlacement = 'mapFoot' | 'pillStack';
 
 const DISMISS_AFTER_MS = 6000;
 
@@ -20,14 +23,15 @@ const DISMISS_AFTER_MS = 6000;
  * pill that has to be dismissed is worse than the silence it replaced. So it
  * speaks as it appears, since a screen reader may not reach it before it goes.
  *
- * `bottom` lifts it clear of whatever the host draws over the foot of its map.
+ * At `mapFoot` it floats at the foot of the map it explains. In `pillStack` it lays out in the
+ * bottom pill stack's slot, which places it.
  */
 export function TerrainUnavailableNotice({
   onDismiss,
-  bottom,
+  placement = 'mapFoot',
 }: {
   onDismiss: () => void;
-  bottom?: number | undefined;
+  placement?: TerrainNoticePlacement;
 }) {
   const { t } = useTranslation();
   const message = t('maps.threeDUnavailable');
@@ -46,7 +50,7 @@ export function TerrainUnavailableNotice({
 
   return (
     <Pressable
-      style={pressable([styles.wrapper, bottom !== undefined && { bottom }])}
+      style={pressable(placement === 'mapFoot' ? styles.mapFoot : styles.pillStack)}
       android_ripple={pressRipple}
       onPress={onDismiss}
       accessibilityRole="button"
@@ -56,11 +60,7 @@ export function TerrainUnavailableNotice({
       testID={TERRAIN_UNAVAILABLE_TEST_ID}
     >
       <View style={styles.pill}>
-        <MaterialCommunityIcons
-          name="terrain"
-          size={iconSize.md}
-          color={darkColors.textSecondary}
-        />
+        <Icon name="terrain" size={iconSize.md} color={darkColors.textSecondary} />
         <Text style={styles.text}>{message}</Text>
       </View>
     </Pressable>
@@ -68,11 +68,15 @@ export function TerrainUnavailableNotice({
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
+  mapFoot: {
     position: 'absolute',
     left: spacing.md,
     right: spacing.md,
     bottom: spacing.xl,
+    alignItems: 'center',
+  },
+  pillStack: {
+    marginHorizontal: spacing.md,
     alignItems: 'center',
   },
   pill: {
@@ -82,7 +86,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
     borderRadius: layout.borderRadiusFull,
-    backgroundColor: darkColors.surfaceElevated,
+    backgroundColor: darkColors.surfaceRaised,
   },
   text: {
     ...typography.bodySmall,

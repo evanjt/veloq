@@ -25,7 +25,7 @@ export function ManualEntry({
   const { isDark } = useTheme();
 
   const themeColors = isDark ? darkColors : colors;
-  const bg = themeColors.background;
+  const bg = themeColors.surfacePage;
 
   return (
     <View style={[styles.container, { backgroundColor: bg }]}>

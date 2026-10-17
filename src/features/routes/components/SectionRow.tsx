@@ -6,7 +6,6 @@ import React, { memo, useCallback, useMemo, useId } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import {
@@ -39,6 +38,7 @@ import {
   ROW_PREVIEW_WIDTH,
 } from '@/features/routes/lib/rowLayout';
 import { NameText } from '@/shared/ui/NameText';
+import { Icon } from '@/shared/ui/Icon';
 
 interface SectionRowProps {
   section: Section;
@@ -133,7 +133,7 @@ export const SectionRow = memo(function SectionRow({
   const hasSectionPolyline = sectionPolylineString.length > 0;
 
   // The app's own colour: ground has no sport to colour it by.
-  const activityColor = palette.primary;
+  const activityColor = palette.actionPrimary;
 
   // Background colors for map-like appearance
   const preview = isDark ? mapPreviewColors.dark : mapPreviewColors.light;
@@ -260,10 +260,10 @@ export const SectionRow = memo(function SectionRow({
           ) : (
             <View style={[styles.previewPlaceholder, isDark && styles.previewPlaceholderDark]}>
               {/* The section's own mark: the sports that took it are drawn beside the name. */}
-              <MaterialCommunityIcons
+              <Icon
                 name="road-variant"
                 size={iconSize.md}
-                color={isDark ? darkColors.iconFaint : colors.iconFaint}
+                color={isDark ? darkColors.iconMuted : colors.iconMuted}
               />
             </View>
           )}
@@ -276,7 +276,7 @@ export const SectionRow = memo(function SectionRow({
               {section.name}
             </NameText>
             {section.isUserDefined && section.sectionType === 'auto' ? (
-              <MaterialCommunityIcons
+              <Icon
                 name="pin"
                 size={iconSize.xs}
                 color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -292,7 +292,7 @@ export const SectionRow = memo(function SectionRow({
                 accessibilityLabel={t('sections.latestIsRecord')}
                 style={{ marginLeft: spacing.xs }}
               >
-                <MaterialCommunityIcons name="trophy" size={iconSize.xs} color={brand.gold} />
+                <Icon name="trophy" size={iconSize.xs} color={brand.gold} />
               </View>
             ) : null}
             {section.trend != null && section.trend !== 0 && (
@@ -302,17 +302,17 @@ export const SectionRow = memo(function SectionRow({
                 accessibilityLabel={trendWord ?? undefined}
                 style={{ marginLeft: spacing.xs }}
               >
-                <MaterialCommunityIcons
+                <Icon
                   name={section.trend > 0 ? 'trending-up' : 'trending-down'}
                   size={iconSize.sm}
                   color={
                     section.trend > 0
                       ? isDark
-                        ? darkColors.successDeep
-                        : colors.successDeep
+                        ? darkColors.successText
+                        : colors.successText
                       : isDark
-                        ? darkColors.amberIcon
-                        : colors.amberIcon
+                        ? darkColors.warningText
+                        : colors.warningText
                   }
                 />
               </View>
@@ -330,7 +330,7 @@ export const SectionRow = memo(function SectionRow({
             <Text style={[styles.metaText, isDark && styles.textSecondary]}>{distanceText}</Text>
             {elevation ? (
               <View style={styles.gainChip}>
-                <MaterialCommunityIcons
+                <Icon
                   name={elevation.direction === 'loss' ? 'arrow-bottom-right' : 'arrow-top-right'}
                   size={iconSize.xs}
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -342,7 +342,7 @@ export const SectionRow = memo(function SectionRow({
             ) : null}
             {proximityText ? (
               <View style={styles.proximityTag}>
-                <MaterialCommunityIcons
+                <Icon
                   name="map-marker-distance"
                   size={iconSize.xs}
                   color={isDark ? darkColors.textSecondary : colors.textSecondary}
@@ -361,10 +361,10 @@ export const SectionRow = memo(function SectionRow({
             )}
             {isDisabled ? (
               <View style={[styles.disabledTag, isDark && styles.disabledTagDark]}>
-                <MaterialCommunityIcons
+                <Icon
                   name="eye-off"
                   size={iconSize.xs}
-                  color={isDark ? darkColors.amberIcon : colors.amberIcon}
+                  color={isDark ? darkColors.warningText : colors.warningText}
                 />
                 <Text style={[styles.disabledTagText, isDark && styles.disabledTagTextDark]}>
                   {t('sections.disabled')}
@@ -376,19 +376,19 @@ export const SectionRow = memo(function SectionRow({
 
         {/* Visit count badge */}
         <View
-          style={[styles.countBadge, { backgroundColor: palette.primary }]}
+          style={[styles.countBadge, { backgroundColor: palette.actionPrimary }]}
           accessible
           accessibilityLabel={countLabel}
           testID={`section-row-${section.id}-count`}
         >
-          <MaterialCommunityIcons
+          <Icon
             name="repeat"
             size={iconSize.sm}
-            color={colors.textOnPrimary}
+            color={colors.textOnFill}
             testID={`section-row-${section.id}-count-glyph`}
           />
           <Text style={styles.countText}>{section.visitCount}</Text>
-          <MaterialCommunityIcons name="chevron-right" size={iconSize.sm} color={ink.white} />
+          <Icon name="chevron-right" size={iconSize.sm} color={ink.white} />
         </View>
       </Card>
     </View>
@@ -456,10 +456,10 @@ const styles = StyleSheet.create({
   },
   countText: {
     ...typography.bodyCompactBold,
-    color: colors.textOnPrimary,
+    color: colors.textOnFill,
   },
   textLight: {
-    color: colors.textOnDark,
+    color: colors.textOnFill,
   },
   textSecondary: {
     color: darkColors.textSecondary,
@@ -501,19 +501,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    backgroundColor: colorWithOpacity(colors.amberIcon, opacity.tint2),
+    backgroundColor: colors.warningBg,
     paddingHorizontal: spacing.xsPlus,
     paddingVertical: spacing.xxs,
     borderRadius: layout.borderRadiusXs,
   },
   disabledTagDark: {
-    backgroundColor: colorWithOpacity(darkColors.amberIcon, opacity.tint2),
+    backgroundColor: darkColors.warningBg,
   },
   disabledTagText: {
     ...typography.badge,
-    color: colors.amberIcon,
+    color: colors.warningText,
   },
   disabledTagTextDark: {
-    color: darkColors.amberIcon,
+    color: darkColors.warningText,
   },
 });

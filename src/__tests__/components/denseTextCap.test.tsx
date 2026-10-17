@@ -66,7 +66,6 @@ const DENSE_SURFACES = [
   'src/features/maps/components/AttributionOverlay.tsx',
   'src/shared/ui/Button.tsx',
   'src/shared/ui/ChangeChip.tsx',
-  'src/shared/ui/OfflineBanner.tsx',
   'src/features/routes/components/section/SectionActionRow.tsx',
 ];
 

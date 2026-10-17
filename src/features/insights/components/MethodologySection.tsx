@@ -1,13 +1,13 @@
 import React, { useCallback, useState } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { colors, darkColors, iconSize, layout, opacity, spacing, typography } from '@/theme';
 import type { DataPoint, Insight } from '@/types';
 import { pressable, pressRipple } from '@/shared/ui';
+import { Icon } from '@/shared/ui/Icon';
 import { CollapsibleSection } from '@/shared/ui/CollapsibleSection';
 import { DataPointRow } from './DataPointRow';
 import { RankingFactorsGroup } from './RankingFactorsGroup';
@@ -151,7 +151,7 @@ const DataLink = React.memo(function DataLink({
 }) {
   const handlePress = useCallback(() => {
     onLeave?.();
-    tapTo(target);
+    navigateTo(target);
   }, [onLeave, target]);
 
   return (
@@ -164,7 +164,7 @@ const DataLink = React.memo(function DataLink({
       onPress={handlePress}
     >
       <Text style={[styles.linkText, isDark && styles.linkTextDark]}>{label}</Text>
-      <MaterialCommunityIcons
+      <Icon
         name="chevron-right"
         size={iconSize.md}
         color={isDark ? darkColors.textSecondary : colors.textSecondary}

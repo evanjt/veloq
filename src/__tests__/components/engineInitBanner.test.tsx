@@ -153,7 +153,7 @@ describe('EngineInitBanner', () => {
     );
 
     it('opens the store page for a database a newer build wrote', async () => {
-      const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true);
+      const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
       failedWith(InitOutcome.ForwardSchema);
       const { getByText, queryByText } = await render(<EngineInitBanner />);
       await fireEvent.press(getByText('engine.initAction.update'));

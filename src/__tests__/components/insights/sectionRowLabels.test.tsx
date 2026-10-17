@@ -17,7 +17,7 @@ import type { Insight, InsightSupportingData } from '@/types';
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
-jest.mock('@/shared/app/navigation', () => ({ tapTo: jest.fn(), navigateTo: jest.fn() }));
+jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 jest.mock('@/shared/native/useSectionDetail', () => ({
   useSectionDetail: () => ({ section: null }),
 }));

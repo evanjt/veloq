@@ -386,9 +386,9 @@ fn assert_all_finite(snapshot: &WidgetSnapshot) {
     assert_eq!(n, 0, "the snapshot carries {n} non-finite numbers");
 }
 
-fn gps_line(n: usize) -> Vec<FfiGpsPoint> {
+fn gps_line(n: usize) -> Vec<GpsPoint> {
     (0..n)
-        .map(|i| FfiGpsPoint {
+        .map(|i| GpsPoint {
             latitude: 47.0 + i as f64 * 0.001,
             longitude: 8.0 + i as f64 * 0.002,
             elevation: None,
@@ -396,8 +396,8 @@ fn gps_line(n: usize) -> Vec<FfiGpsPoint> {
         .collect()
 }
 
-fn gps(latitude: f64, longitude: f64) -> FfiGpsPoint {
-    FfiGpsPoint {
+fn gps(latitude: f64, longitude: f64) -> GpsPoint {
+    GpsPoint {
         latitude,
         longitude,
         elevation: None,

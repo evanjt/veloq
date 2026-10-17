@@ -78,7 +78,7 @@ describe('section detail with route matching off', () => {
     const view = await render(<SectionDetailScreen />);
 
     const ground = StyleSheet.flatten(view.getByTestId('section-detail-disabled').props.style);
-    expect(ground.backgroundColor).toBe(darkColors.background);
+    expect(ground.backgroundColor).toBe(darkColors.surfacePage);
 
     const title = StyleSheet.flatten(view.getByText('insights.routesDisabledLine1').props.style);
     expect(contrast(title.color, ground.backgroundColor)).toBeGreaterThanOrEqual(4.5);

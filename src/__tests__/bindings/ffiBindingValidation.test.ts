@@ -136,9 +136,10 @@ describe('FFI Binding Validation', () => {
       expect(names.has('is_cutover_held')).toBe(true);
       expect(names.has('start_detector_cutover')).toBe(true);
       // A cut that could not be stopped left a force-quit as the only lever,
-      // and the in-flight token undid that on the next launch. This is the
-      // lever.
-      expect(names.has('cancel_detector_cutover')).toBe(true);
+      // and the in-flight token undid that on the next launch. The one
+      // run-scoped cancel is the lever, shared with the exports.
+      expect(names.has('cancel_run')).toBe(true);
+      expect(names.has('cancel_detector_cutover')).toBe(false);
       expect(names.has('get_cutover_diff')).toBe(true);
       expect(names.has('take_quarantine_report')).toBe(true);
       expect(names.has('set_network_online')).toBe(true);

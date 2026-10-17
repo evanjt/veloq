@@ -31,7 +31,7 @@ import {
   paceUnitLabel,
   formatDuration,
 } from '@/shared/format/format';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { formatDecimal } from '@/shared/format';
 import { NameText } from '@/shared/ui/NameText';
 
@@ -218,7 +218,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
   // Navigate to activity when tapped
   const handleActivityTap = useCallback(() => {
     if (displayData?.activityId) {
-      tapTo(`/activity/${displayData.activityId}`);
+      navigateTo(`/activity/${displayData.activityId}`);
     }
   }, [displayData]);
 
@@ -403,7 +403,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
 const makeStyles = (palette: Palette) =>
   StyleSheet.create({
     container: {},
-    textLight: { color: colors.textOnDark },
+    textLight: { color: colors.textOnFill },
     gapToggle: {
       flexDirection: 'row',
       alignSelf: 'flex-end',

@@ -64,11 +64,11 @@ import { pushPlaceNameWords } from '@/i18n/placeNameWords';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
 import {
   ShaderWarmup,
-  OfflineBanner,
   SyncErrorBanner,
   TrackFetchNotice,
   BottomPillStack,
   BottomTabBar,
+  FloatingPillStack,
   NoticeHost,
   GlobalErrorBoundary,
 } from '@/shared/ui';
@@ -120,7 +120,7 @@ import { initialiseApp, retryStartupAreas } from '@/shared/app/launch';
 import { releaseSplash } from '@/shared/app/splash';
 import { openLibrary } from '@/shared/storage/routeDbLocation';
 import { StartupErrorBanner, type StartupArea } from '@/shared/ui/StartupErrorBanner';
-import { sheetScreenLayout } from '@/shared/ui/SheetFrame';
+import { rootScreenLayout } from '@/shared/ui/rootScreenLayout';
 import { ReduceMotionSync } from '@/shared/ui/reduceMotion';
 
 const log = debug.create('RootLayout');
@@ -521,10 +521,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           flex: 1,
           justifyContent: 'center',
           alignItems: 'center',
-          backgroundColor: darkColors.background,
+          backgroundColor: darkColors.surfacePage,
         }}
       >
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color={colors.actionPrimary} />
       </View>
     );
   }
@@ -629,7 +629,6 @@ export default function RootLayout() {
                         onDismiss={() => setStartupError(null)}
                       />
                     ) : null}
-                    <OfflineBanner />
                     <SyncErrorBanner />
                     <TrackFetchNotice />
                     <EngineInitBanner />
@@ -644,7 +643,7 @@ export default function RootLayout() {
                     <BeneathTopSlot>
                       <NavigationThemeProvider>
                         <Stack
-                          screenLayout={sheetScreenLayout}
+                          screenLayout={rootScreenLayout}
                           screenOptions={{
                             // The iOS edge swipe. Android's back key and gesture are not
                             // governed by this, and a screen that must hold back does it
@@ -684,6 +683,7 @@ export default function RootLayout() {
                       </NavigationThemeProvider>
                     </BeneathTopSlot>
                     <BottomTabBar />
+                    <FloatingPillStack />
                     <NoticeHost />
                   </AuthGate>
                 </PaperProvider>

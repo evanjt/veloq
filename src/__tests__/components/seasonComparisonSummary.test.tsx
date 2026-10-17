@@ -10,6 +10,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RangeCoverage } from 'veloqrs';
 
+import ChartDataSheet from '@/app/sheets/chart-data';
 import { SeasonComparison } from '@/features/stats/components/SeasonComparison';
 import { verdictColor } from '@/theme';
 import { changeLanguage, initialiseI18n } from '@/i18n';
@@ -22,6 +23,13 @@ jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides())
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
+const mockPush = jest.fn();
+let mockParams: { request?: string } = {};
+jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
+  router: { push: (...a: unknown[]) => mockPush(...a), canGoBack: () => true, back: jest.fn() },
+  useLocalSearchParams: () => mockParams,
+}));
 /** Wednesday 17 June 2026, the clock each test sets in local time. */
 const YEAR = 2026;
 
@@ -253,5 +261,32 @@ describe('SeasonComparison in the app language', () => {
     await scrubJanuary();
 
     expect(screen.getAllByText('1月').length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('SeasonComparison read without seeing it', () => {
+  beforeAll(async () => {
+    await initialiseI18n();
+    await changeLanguage('en-GB');
+  });
+
+  it('speaks both years month by month, this year only up to its current month', async () => {
+    setRows([month(YEAR - 1, 1, 2), month(YEAR - 1, 12, 6), month(YEAR, 1, 4), month(YEAR, 6, 3)]);
+    await renderCard();
+    await waitFor(() => expect(screen.getByText('7h')).toBeTruthy());
+
+    const plot = screen.getByTestId('season-chart-plot');
+    expect(plot.props.accessibilityRole).toBe('image');
+    expect(plot.props.accessibilityLabel).toBe(
+      'Year comparison, Hours. 2025, Jan to Dec: latest 6 h, range 0 h to 6 h, average 0.7 h. ' +
+        '2026, Jan to Jun: latest 3 h, range 0 h to 4 h, average 1.2 h.'
+    );
+
+    await fireEvent.press(screen.getByTestId('season-chart-plot-show-data'));
+    const call = mockPush.mock.calls.at(-1)?.[0];
+    expect(call?.pathname).toBe('sheets/chart-data');
+    mockParams = { request: call.params.request };
+    await render(<ChartDataSheet />);
+    expect(screen.getAllByTestId(/^chart-data-row-/)).toHaveLength(12);
   });
 });

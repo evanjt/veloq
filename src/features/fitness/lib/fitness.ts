@@ -105,7 +105,12 @@ export function formChartSeries(data: WellnessData[], asPercent: boolean): FormC
   });
 }
 
-/** Fills: the chart bands, the sparkline runs and the widget's form bar. */
+/**
+ * The zones on the diverging ramp, fresh on the cool arm and high risk on the
+ * warm one around a grey midpoint: the chart bands, the sparkline runs, the
+ * form bar and the dot keying a zone to its name. Each step holds 3:1 on every
+ * surface of its own theme, so the fill is also the mark.
+ */
 export const FORM_ZONE_COLORS: Record<FormZone, string> = {
   highRisk: colors.formHighRisk,
   optimal: colors.formOptimal,
@@ -113,6 +118,19 @@ export const FORM_ZONE_COLORS: Record<FormZone, string> = {
   fresh: colors.formFresh,
   transition: colors.formTransition,
 };
+
+export const FORM_ZONE_COLORS_DARK: Record<FormZone, string> = {
+  highRisk: darkColors.formHighRisk,
+  optimal: darkColors.formOptimal,
+  greyZone: darkColors.formGreyZone,
+  fresh: darkColors.formFresh,
+  transition: darkColors.formTransition,
+};
+
+/** The zone's colour for the scheme on screen. */
+export function formZoneColor(zone: FormZone, isDark: boolean): string {
+  return isDark ? FORM_ZONE_COLORS_DARK[zone] : FORM_ZONE_COLORS[zone];
+}
 
 /**
  * Text: the form number, the zone name and any word coloured by zone. The fills
@@ -140,21 +158,6 @@ export const FORM_ZONE_TEXT_COLORS_DARK: Record<FormZone, string> = {
 export function formZoneTextColor(zone: FormZone, isDark: boolean): string {
   return isDark ? FORM_ZONE_TEXT_COLORS_DARK[zone] : FORM_ZONE_TEXT_COLORS[zone];
 }
-
-/**
- * The same zones as marks rather than grounds. A band on the chart is a fill
- * and the athlete reads the line over it, but a legend dot is the only thing
- * keying a band to its name, so it holds 3:1 on every surface of both themes
- * where four of the five fill tones sit between 1.8:1 and 2.7:1 on white.
- * `highRisk` is the one that already clears it and keeps its fill.
- */
-export const FORM_ZONE_MARK_COLORS: Record<FormZone, string> = {
-  highRisk: colors.formHighRisk,
-  optimal: colors.markFormOptimal,
-  greyZone: colors.markFormGreyZone,
-  fresh: colors.markFormFresh,
-  transition: colors.markFormTransition,
-};
 
 /**
  * The zone's name in the athlete's language. The widget already read these

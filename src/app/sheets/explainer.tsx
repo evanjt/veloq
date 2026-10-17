@@ -7,7 +7,7 @@ import type { ExplainerInput } from '@/shared/app/explainer';
 import { useSheetRequest } from '@/shared/app/sheetRequest';
 import { withScreenBoundary } from '@/shared/ui/withScreenBoundary';
 import { SheetHeader } from '@/shared/ui';
-import { tapBack } from '@/shared/app/navigation';
+import { goBack } from '@/shared/app/navigation';
 import { layout, type Palette, spacing, themedStyles, typography } from '@/theme';
 
 /** An explanation of how something works, a sheet route opened with `openExplainer` that returns nothing. */
@@ -24,7 +24,7 @@ function ExplainerSheetContent() {
     <View testID="explainer-sheet" style={styles.sheet}>
       <SheetHeader
         title={input.title}
-        onClose={() => tapBack()}
+        onClose={() => goBack()}
         closeTestID="explainer-sheet-close"
       />
       <View style={styles.body}>

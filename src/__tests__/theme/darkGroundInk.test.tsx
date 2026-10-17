@@ -29,7 +29,7 @@ jest.mock('@/shared/app', () => ({
   useTheme: () => ({ isDark: true }),
 }));
 jest.mock('@/shared/app/useTheme', () => ({ useTheme: () => ({ isDark: true }) }));
-jest.mock('@/shared/app/navigation', () => ({ tapTo: jest.fn() }));
+jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   Stack: Object.assign(() => null, { Screen: () => null }),
@@ -122,7 +122,7 @@ describe('in the dark theme every word and mark clears its bar on its ground', (
     await render(themed(<StatCard stat={STAT} isDark onPress={() => {}} />, true));
 
     expect(textCount()).toBeGreaterThan(2);
-    expect(underBar(darkColors.surfaceElevated)).toEqual([]);
+    expect(underBar(darkColors.surfaceRaised)).toEqual([]);
   });
 
   it('the stat detail sheet, on the sheet surface', async () => {
@@ -154,7 +154,7 @@ describe('in the dark theme every word and mark clears its bar on its ground', (
     );
 
     expect(textCount()).toBeGreaterThan(3);
-    expect(underBar(darkColors.surfaceElevated)).toEqual([]);
+    expect(underBar(darkColors.surfaceRaised)).toEqual([]);
   });
 
   it('the muscle legend, on the dark loupe ground', async () => {

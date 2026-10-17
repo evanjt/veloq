@@ -229,7 +229,7 @@ export function FTPTrendChart({
                     {last ? (
                       <>
                         <Circle cx={last.x} cy={last.y} r={6} color={chartColors.ftp} />
-                        <Circle cx={last.x} cy={last.y} r={3} color={colors.textOnDark} />
+                        <Circle cx={last.x} cy={last.y} r={3} color={colors.textOnFill} />
                       </>
                     ) : null}
                   </>

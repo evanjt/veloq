@@ -15,7 +15,7 @@ import { render } from '@testing-library/react-native';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { TopSafeAreaProvider } from '@/shared/app/TopSafeAreaContext';
 import { DemoBanner } from '@/shared/app/DemoBanner';
-import { OfflineBanner } from '@/shared/ui/OfflineBanner';
+import { OfflinePill } from '@/shared/ui/StatusPills';
 import { TrackFetchNotice } from '@/shared/ui/TrackFetchNotice';
 import { StartupErrorBanner } from '@/shared/ui/StartupErrorBanner';
 import { useTrackFetchNotice } from '@/features/routes/lib/trackFetchNotice';
@@ -61,7 +61,7 @@ describe('top banner stack', () => {
     const { getByTestId } = await render(
       <TopSafeAreaProvider startupErrorShown>
         <StartupErrorBanner areas={['preferences']} onRetry={() => {}} onDismiss={() => {}} />
-        <OfflineBanner />
+        <OfflinePill />
       </TopSafeAreaProvider>
     );
 
@@ -73,20 +73,20 @@ describe('top banner stack', () => {
         }
       ).paddingVertical
     ).toBe(spacing.sm);
-    expect(getByTestId('offline-banner')).toBeTruthy();
+    expect(getByTestId('offline-pill')).toBeTruthy();
   });
 
   it('pads the demo banner for the status bar while the offline pill floats over it', async () => {
     const { getByTestId } = await render(
       <QueryClientProvider client={new QueryClient()}>
         <TopSafeAreaProvider>
-          <OfflineBanner />
+          <OfflinePill />
           <DemoBanner />
         </TopSafeAreaProvider>
       </QueryClientProvider>
     );
 
-    expect(getByTestId('offline-banner')).toBeTruthy();
+    expect(getByTestId('offline-pill')).toBeTruthy();
     expect(paddingTop(getByTestId('demo-mode-banner'))).toBe(40);
   });
 

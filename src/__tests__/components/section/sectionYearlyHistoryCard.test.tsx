@@ -94,7 +94,7 @@ describe('the yearly history card', () => {
     const monthTrophy = trophies(tree).filter((icon) => icon.props.size === iconSize.xs);
     expect(yearTrophy).toHaveLength(1);
     expect(monthTrophy).toHaveLength(1);
-    expect(yearTrophy[0].props.color).toBe(colors.chartGoldMark);
+    expect(yearTrophy[0].props.color).toBe(colors.achievement);
     expect(monthTrophy[0].props.color).toBe(yearTrophy[0].props.color);
   });
 
@@ -103,7 +103,7 @@ describe('the yearly history card', () => {
     fireEvent.press(tree.getByLabelText('Year 2025'));
 
     const colours = trophies(tree).map((icon) => icon.props.color);
-    expect(colours).toEqual([darkColors.chartGoldMark, darkColors.chartGoldMark]);
+    expect(colours).toEqual([darkColors.achievement, darkColors.achievement]);
   });
 
   it('carries a header title', async () => {

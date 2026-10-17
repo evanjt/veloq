@@ -66,7 +66,7 @@ async function outermost(ui: React.ReactElement): Promise<Record<string, unknown
 }
 
 function expectFlatDarkCard(style: Record<string, unknown>) {
-  expect(style.backgroundColor).toBe(darkColors.surfaceCard);
+  expect(style.backgroundColor).toBe(darkColors.surfaceRaised);
   expect(style.borderRadius).toBe(layout.borderRadius);
   expect(style.borderWidth).toBeUndefined();
   for (const key of MARGINS) expect(style[key]).toBeUndefined();

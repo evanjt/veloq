@@ -23,14 +23,10 @@ export interface SizeTone {
  * Every fill the bands use that is under the text bar on the light pill.
  * Exported so a test can assert the text half is never one of them, which is
  * the mistake this module exists to stop repeating. The unselected band's blue
- * is not among them: it is the light link colour too, 6.03:1 on white.
+ * is not among them: it is the light link colour too, 6.03:1 on white. Nor is
+ * the danger fill, which holds the text bar and is the error text's own value.
  */
-export const STATUS_FILLS = [
-  colors.success,
-  colors.cautionYellow,
-  colors.cautionOrange,
-  colors.error,
-] as const;
+export const STATUS_FILLS = [colors.successFill, colors.warningFill] as const;
 
 /**
  * The band a point count falls in. Large selections can take longer to process.
@@ -39,9 +35,9 @@ export const STATUS_FILLS = [
  */
 export function sectionSizeTone(pointCount: number | null, isDark = false): SizeTone {
   const p = isDark ? darkColors : colors;
-  if (pointCount === null) return { fill: p.primary, text: p.actionLink };
-  if (pointCount < 2000) return { fill: p.success, text: p.successDeep };
-  if (pointCount < 5000) return { fill: colors.cautionYellow, text: p.cautionYellowText };
-  if (pointCount < 7000) return { fill: colors.cautionOrange, text: p.cautionOrangeText };
-  return { fill: p.error, text: p.errorDeep };
+  if (pointCount === null) return { fill: p.actionPrimary, text: p.actionLink };
+  if (pointCount < 2000) return { fill: p.successFill, text: p.successText };
+  if (pointCount < 5000) return { fill: p.iconSecondary, text: p.textSecondary };
+  if (pointCount < 7000) return { fill: p.warningFill, text: p.warningText };
+  return { fill: p.dangerFill, text: p.errorText };
 }

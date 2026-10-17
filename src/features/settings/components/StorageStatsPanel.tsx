@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { Pressable, View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
 import type { TileCacheBudgetSheetInput } from '@/app/sheets/tile-cache-budget';
 import { formatDateOrDash, formatFileSize } from '@/shared/format/format';
@@ -270,7 +270,7 @@ export function StorageStatsPanel({
               t('settings.activities'),
               totalActivities
             )}
-            onPress={() => tapTo('/map')}
+            onPress={() => navigateTo('/map')}
           />
         </View>
         <View style={statDivider} />
@@ -282,7 +282,7 @@ export function StorageStatsPanel({
             label={t('settings.routesCount')}
             value={routeMatchingEnabled ? routeGroupCount : ABSENT}
             accessibilityLabel={statLabel('settings.routesCount', routeGroupCount)}
-            onPress={() => tapTo('/insights?tab=routes')}
+            onPress={() => navigateTo('/insights?tab=routes')}
             disabled={!routeMatchingEnabled}
           />
         </View>
@@ -295,7 +295,7 @@ export function StorageStatsPanel({
             label={t('settings.sectionsCount')}
             value={routeMatchingEnabled ? totalSections : ABSENT}
             accessibilityLabel={statLabel('settings.sectionsCount', totalSections)}
-            onPress={() => tapTo('/insights?tab=sections')}
+            onPress={() => navigateTo('/insights?tab=sections')}
             disabled={!routeMatchingEnabled}
           />
         </View>
@@ -400,7 +400,7 @@ export function StorageStatsPanel({
         <View style={[styles.budgetTrack, isDark && styles.budgetTrackDark]}>
           <View
             testID="settings-tile-cache-fill"
-            style={{ flex: usedShare, backgroundColor: palette.primary }}
+            style={{ flex: usedShare, backgroundColor: palette.actionPrimary }}
           />
           <View style={{ flex: 1 - usedShare }} />
         </View>
@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: layout.borderRadiusFull,
     overflow: 'hidden',
-    backgroundColor: colors.borderLight,
+    backgroundColor: colors.border,
   },
   budgetTrackDark: {
     backgroundColor: darkColors.border,
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   textLight: {
-    color: colors.textOnDark,
+    color: colors.textOnFill,
   },
   textSecondary: {
     color: darkColors.textSecondary,

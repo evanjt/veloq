@@ -14,6 +14,7 @@ import { router } from 'expo-router';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { SyncErrorBanner } from '@/shared/ui/SyncErrorBanner';
+import { PausedSyncPill } from '@/shared/ui/StatusPills';
 import { SyncErrorReason } from '../__shared__/veloqrsStub';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
@@ -180,7 +181,7 @@ describe('SyncErrorBanner', () => {
 
   /// A refusal from intervals.icu is not a fault on the device, and the
   /// engine resumes on its own at the time it names.
-  it('reads as a pause until a time while a refusal holds, not as a failure', async () => {
+  it('leaves a pause until a time to the paused-sync pill, not a failure banner', async () => {
     const retryAtMs = new Date(2026, 2, 4, 14, 30).getTime();
     mockHealth = {
       lastError: 'Athlete: rate limited (429) after retries',
@@ -189,15 +190,18 @@ describe('SyncErrorBanner', () => {
       retryAtMs,
     };
     const { getByTestId, getByText, queryByTestId, queryByText } = await render(
-      <SyncErrorBanner />
+      <>
+        <SyncErrorBanner />
+        <PausedSyncPill />
+      </>
     );
 
+    expect(queryByTestId('sync-error-banner')).toBeNull();
+    expect(queryByText('emptyState.syncError.title')).toBeNull();
+    expect(queryByTestId('sync-error-banner-retry')).toBeNull();
     expect(getByText(/^emptyState\.syncError\.paused:\{"time":"[^"]+"\}$/)).toBeTruthy();
     expect(getByText('emptyState.syncError.pausedDetail')).toBeTruthy();
-    expect(queryByText('emptyState.syncError.title')).toBeNull();
-    expect(queryByText('emptyState.syncError.reason.rateLimited')).toBeNull();
-    expect(queryByTestId('sync-error-banner-retry')).toBeNull();
-    expect(getByTestId('sync-error-banner').props.accessibilityLiveRegion).toBe('polite');
+    expect(getByTestId('paused-sync-pill').props.accessibilityLiveRegion).toBe('polite');
   });
 
   it('falls back to the engine string for a reason it does not know', async () => {

@@ -35,7 +35,7 @@ function run(root: string) {
   return { status: result.status, output: `${result.stdout}${result.stderr}` };
 }
 
-function withFixture(edits: Edit[], check: (root: string) => void, declared = '13.16.1') {
+function withFixture(edits: Edit[], check: (root: string) => void, declared = '14.0.1') {
   const root = mkdtempSync(join(tmpdir(), 'webview-hooks-'));
   try {
     writeFileSync(
@@ -134,17 +134,17 @@ describe('web view hook guard', () => {
 
   it('refuses another installed version, even with the same hooks', () => {
     withFixture(
-      [{ file: 'package.json', from: '"version": "13.16.1"', to: '"version": "13.16.2"' }],
+      [{ file: 'package.json', from: '"version": "14.0.1"', to: '"version": "14.0.2"' }],
       (root) => {
         const result = run(root);
         expect(result.status).toBe(1);
-        expect(result.output).toContain('13.16.2');
+        expect(result.output).toContain('14.0.2');
       }
     );
   });
 
   it('refuses another declared version', () => {
-    withFixture([], (root) => expect(run(root).status).toBe(1), '^13.16.1');
+    withFixture([], (root) => expect(run(root).status).toBe(1), '^14.0.1');
   });
 
   it('refuses when the library is not installed', () => {

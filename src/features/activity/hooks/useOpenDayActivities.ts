@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 
 import type { DayActivitiesInput } from '@/app/sheets/day-activities';
 import { useSheetOpener } from '@/shared/app/sheetRequest';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import type { Activity } from '@/types';
 
 export type DayActivity = DayActivitiesInput['activities'][number];
@@ -32,14 +32,14 @@ export function useOpenDayActivities(): (activities: DayActivity[]) => Promise<b
       const [first] = activities;
       if (!first) return false;
       if (activities.length === 1) {
-        tapTo(`/activity/${first.id}`);
+        navigateTo(`/activity/${first.id}`);
         return true;
       }
       const result = await openSheet<DayActivitiesInput, string>('sheets/day-activities', {
         activities,
       });
       if (result.kind !== 'selected') return false;
-      tapTo(`/activity/${result.value}`);
+      navigateTo(`/activity/${result.value}`);
       return true;
     },
     [openSheet]

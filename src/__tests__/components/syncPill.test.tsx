@@ -1,10 +1,10 @@
 /**
  * Scenario: the launch sync walks a dozen steps, several of them inside a
- * second, and every tab reports it.
- * Expected behaviour: the pill floats at the top under the safe-area inset and
- * takes no room in the page, fills from its own theme token, holds one line
- * whatever the step says with the counts kept whole, keeps each step on screen
- * for a minimum time, and draws nothing once the sync settles.
+ * second, and every route reports it.
+ * Expected behaviour: the pill passes touches through, fills from its own theme
+ * token, wraps the label while the counts stay whole, keeps each step on screen
+ * for a minimum time and cross-fades into the next, and draws nothing once the
+ * sync settles.
  */
 
 import React from 'react';
@@ -12,15 +12,14 @@ import { StyleSheet } from 'react-native';
 import { act, render } from '@testing-library/react-native';
 import { SyncState, SyncStep } from 'veloqrs';
 
-import { SyncProgressStrip, SYNC_MESSAGE_HOLD_MS } from '@/shared/ui/SyncProgressStrip';
+import { SyncPill, SYNC_MESSAGE_HOLD_MS } from '@/shared/ui/SyncPill';
 import { getEngine } from '@/shared/native/engine';
-import { colors, darkColors } from '@/theme';
+import { colors, darkColors, motionPresets } from '@/theme';
 
 jest.mock('@/shared/native/engine', () => ({ getEngine: jest.fn() }));
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-i18next', () => require('../__shared__/i18nMock').keysWithValues());
 
-const TOP_INSET = 47;
 jest.mock('react-native-safe-area-context', () => ({
   ...jest.requireActual('react-native-safe-area-context'),
   useSafeAreaInsets: () => ({ top: 47, bottom: 24, left: 0, right: 0 }),
@@ -76,21 +75,16 @@ afterEach(() => {
 });
 
 test('an idle sync draws nothing', async () => {
-  const { queryByTestId } = await render(<SyncProgressStrip />);
+  const { queryByTestId } = await render(<SyncPill />);
 
-  expect(queryByTestId('sync-progress-strip')).toBeNull();
+  expect(queryByTestId('sync-progress-pill')).toBeNull();
 });
 
-test('the pill floats at the top under the safe-area inset and passes touches through', async () => {
+test('the pill passes touches through', async () => {
   status = { state: SyncState.Syncing, completed: 2, total: 8, step: SyncStep.Wellness };
-  const { getByTestId } = await render(<SyncProgressStrip />);
+  const { getByTestId } = await render(<SyncPill />);
 
-  const strip = getByTestId('sync-progress-strip');
-  const style = StyleSheet.flatten(strip.props.style);
-  expect(style.position).toBe('absolute');
-  expect(style.bottom).toBeUndefined();
-  expect(style.top).toBeGreaterThanOrEqual(TOP_INSET);
-  expect(strip.props.pointerEvents).toBe('none');
+  expect(getByTestId('sync-progress-pill').props.pointerEvents).toBe('none');
 });
 
 test.each([
@@ -100,17 +94,17 @@ test.each([
   mockIsDark = isDark;
   const palette = isDark ? darkColors : colors;
   status = { state: SyncState.Syncing, completed: 2, total: 8, step: SyncStep.Wellness };
-  const { getByTestId } = await render(<SyncProgressStrip />);
+  const { getByTestId } = await render(<SyncPill />);
 
   const pill = StyleSheet.flatten(getByTestId('sync-progress-pill').props.style);
   expect(pill.backgroundColor).toBe(palette.appColourPillBackground);
-  const message = StyleSheet.flatten(getByTestId('sync-progress-message').props.style);
-  const counts = StyleSheet.flatten(getByTestId('sync-progress-counts').props.style);
-  expect(message.color).toBe(colors.textOnDark);
-  expect(counts.color).toBe(colors.textOnDark);
+  const message = StyleSheet.flatten(getByTestId('sync-progress-pill-title').props.style);
+  const counts = StyleSheet.flatten(getByTestId('sync-progress-pill-detail').props.style);
+  expect(message.color).toBe(colors.textOnFill);
+  expect(counts.color).toBe(colors.textOnFill);
 });
 
-test('a long label keeps to one line and gives way before the counts do', async () => {
+test('a long label wraps and the counts stay whole', async () => {
   status = {
     state: SyncState.Syncing,
     completed: 2,
@@ -119,25 +113,34 @@ test('a long label keeps to one line and gives way before the counts do', async 
     stepItemsDone: 1234,
     stepItemsTotal: 5678,
   };
-  const { getByTestId } = await render(<SyncProgressStrip />);
+  const { getByTestId } = await render(<SyncPill />);
 
-  const message = getByTestId('sync-progress-message');
-  expect(message.props.numberOfLines).toBe(1);
-  expect(message.props.ellipsizeMode).toBe('tail');
-  expect(StyleSheet.flatten(getByTestId('sync-progress-line').props.style).flexShrink).toBe(1);
+  const message = getByTestId('sync-progress-pill-title');
+  expect(message.props.numberOfLines).toBeUndefined();
+  expect(StyleSheet.flatten(message.props.style).flexShrink).toBe(1);
 
-  const counts = getByTestId('sync-progress-counts');
+  const counts = getByTestId('sync-progress-pill-detail');
   expect(counts.props.children).toBe('2/11 · 1234/5678');
+  expect(counts.props.numberOfLines).toBeUndefined();
   expect(StyleSheet.flatten(counts.props.style).flexShrink).toBe(0);
 
-  // The pill never grows past the screen's edges, so the label is what shrinks.
+  // The pill never grows past the screen's edges, so the label is what wraps.
   const pill = StyleSheet.flatten(getByTestId('sync-progress-pill').props.style);
   expect(pill.maxWidth).toBe('100%');
 });
 
+test('a new step cross-fades in at the message duration', async () => {
+  status = { state: SyncState.Syncing, completed: 1, total: 8, step: SyncStep.Athlete };
+  const { getByTestId } = await render(<SyncPill />);
+
+  const message = getByTestId('sync-progress-pill-title');
+  expect(message.props.entering).toBe(motionPresets.message.entering);
+  expect(message.props.exiting).toBe(motionPresets.message.exiting);
+});
+
 test('a step holds the line for the minimum time when the next arrives sooner', async () => {
   status = { state: SyncState.Syncing, completed: 1, total: 8, step: SyncStep.Athlete };
-  const { getByTestId } = await render(<SyncProgressStrip />);
+  const { getByTestId } = await render(<SyncPill />);
 
   await wait(200);
   await announce({
@@ -149,30 +152,26 @@ test('a step holds the line for the minimum time when the next arrives sooner', 
   await wait(200);
   await announce({ state: SyncState.Syncing, completed: 3, total: 8, step: SyncStep.Wellness });
 
-  expect(getByTestId('sync-progress-message').props.children).toBe('settings.syncStep.athlete');
-  expect(getByTestId('sync-progress-counts').props.children).toBe('1/8');
+  expect(getByTestId('sync-progress-pill-title').props.children).toBe('settings.syncStep.athlete');
+  expect(getByTestId('sync-progress-pill-detail').props.children).toBe('1/8');
 
   await wait(SYNC_MESSAGE_HOLD_MS - 400 - 1);
-  expect(getByTestId('sync-progress-message').props.children).toBe('settings.syncStep.athlete');
+  expect(getByTestId('sync-progress-pill-title').props.children).toBe('settings.syncStep.athlete');
 
   await wait(1);
-  expect(getByTestId('sync-progress-message').props.children).toBe('settings.syncStep.wellness');
-  expect(getByTestId('sync-progress-counts').props.children).toBe('3/8');
+  expect(getByTestId('sync-progress-pill-title').props.children).toBe('settings.syncStep.wellness');
+  expect(getByTestId('sync-progress-pill-detail').props.children).toBe('3/8');
 });
 
 test('a step that outlasts the hold changes the line at once', async () => {
   status = { state: SyncState.Syncing, completed: 1, total: 8, step: SyncStep.Athlete };
-  const { getByTestId, getAllByTestId } = await render(<SyncProgressStrip />);
-  const heightBefore = StyleSheet.flatten(getByTestId('sync-progress-line').props.style).height;
+  const { getByTestId, getAllByTestId } = await render(<SyncPill />);
 
   await wait(SYNC_MESSAGE_HOLD_MS + 500);
   await announce({ state: SyncState.Syncing, completed: 3, total: 8, step: SyncStep.Census });
 
   expect(getAllByTestId('sync-progress-mark')).toHaveLength(1);
-  expect(getByTestId('sync-progress-message').props.children).toBe('settings.syncStep.census');
-  expect(StyleSheet.flatten(getByTestId('sync-progress-line').props.style).height).toBe(
-    heightBefore
-  );
+  expect(getByTestId('sync-progress-pill-title').props.children).toBe('settings.syncStep.census');
 });
 
 test('the item count inside one step follows at once', async () => {
@@ -184,35 +183,35 @@ test('the item count inside one step follows at once', async () => {
     stepItemsDone: 12,
     stepItemsTotal: 40,
   };
-  const { getByTestId } = await render(<SyncProgressStrip />);
+  const { getByTestId } = await render(<SyncPill />);
 
   await wait(100);
   await announce({ ...status, stepItemsDone: 13 });
 
-  expect(getByTestId('sync-progress-counts').props.children).toBe('4/8 · 13/40');
+  expect(getByTestId('sync-progress-pill-detail').props.children).toBe('4/8 · 13/40');
 });
 
 test('a sync that ends inside the hold stays on its last message, then goes', async () => {
   status = { state: SyncState.Syncing, completed: 1, total: 8, step: SyncStep.SportSettings };
-  const { getByTestId, queryByTestId } = await render(<SyncProgressStrip />);
+  const { getByTestId, queryByTestId } = await render(<SyncPill />);
 
   await wait(300);
   await announce({ state: SyncState.Idle });
 
-  expect(getByTestId('sync-progress-message').props.children).toBe(
+  expect(getByTestId('sync-progress-pill-title').props.children).toBe(
     'settings.syncStep.sportSettings'
   );
 
   await wait(SYNC_MESSAGE_HOLD_MS);
-  expect(queryByTestId('sync-progress-strip')).toBeNull();
+  expect(queryByTestId('sync-progress-pill')).toBeNull();
 });
 
 test('a sync that settles after the hold goes at once', async () => {
   status = { state: SyncState.Syncing, completed: 1, total: 8, step: SyncStep.SportSettings };
-  const { queryByTestId } = await render(<SyncProgressStrip />);
+  const { queryByTestId } = await render(<SyncPill />);
 
   await wait(SYNC_MESSAGE_HOLD_MS);
   await announce({ state: SyncState.Idle });
 
-  expect(queryByTestId('sync-progress-strip')).toBeNull();
+  expect(queryByTestId('sync-progress-pill')).toBeNull();
 });

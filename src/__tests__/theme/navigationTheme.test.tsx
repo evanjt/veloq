@@ -34,23 +34,23 @@ describe('navigationTheme', () => {
   it('takes the dark tokens for the dark scheme', () => {
     const theme = navigationTheme('dark');
     expect(theme.dark).toBe(true);
-    expect(theme.colors.background).toBe(darkColors.background);
+    expect(theme.colors.background).toBe(darkColors.surfacePage);
     expect(theme.colors.card).toBe(darkColors.surface);
     expect(theme.colors.text).toBe(darkColors.textPrimary);
     expect(theme.colors.border).toBe(darkColors.border);
-    expect(theme.colors.primary).toBe(darkColors.primary);
-    expect(theme.colors.notification).toBe(darkColors.error);
+    expect(theme.colors.primary).toBe(darkColors.actionPrimary);
+    expect(theme.colors.notification).toBe(darkColors.dangerFill);
   });
 
   it('takes the light tokens for the light scheme', () => {
     const theme = navigationTheme('light');
     expect(theme.dark).toBe(false);
-    expect(theme.colors.background).toBe(colors.background);
+    expect(theme.colors.background).toBe(colors.surfacePage);
     expect(theme.colors.card).toBe(colors.surface);
     expect(theme.colors.text).toBe(colors.textPrimary);
     expect(theme.colors.border).toBe(colors.border);
-    expect(theme.colors.primary).toBe(colors.primary);
-    expect(theme.colors.notification).toBe(colors.error);
+    expect(theme.colors.primary).toBe(colors.actionPrimary);
+    expect(theme.colors.notification).toBe(colors.dangerFill);
   });
 
   it('carries the fonts the stack header reads', () => {
@@ -81,7 +81,7 @@ describe('NavigationThemeProvider', () => {
         <Probe />
       </NavigationThemeProvider>
     );
-    expect(getByTestId('ground').props.children).toBe(darkColors.background);
+    expect(getByTestId('ground').props.children).toBe(darkColors.surfacePage);
   });
 
   it('follows the in-app preference across a flip', async () => {
@@ -90,10 +90,10 @@ describe('NavigationThemeProvider', () => {
         <Probe />
       </NavigationThemeProvider>
     );
-    expect(getByTestId('ground').props.children).toBe(colors.background);
+    expect(getByTestId('ground').props.children).toBe(colors.surfacePage);
     await act(() => setThemePreference('dark'));
-    expect(getByTestId('ground').props.children).toBe(darkColors.background);
+    expect(getByTestId('ground').props.children).toBe(darkColors.surfacePage);
     await act(() => setThemePreference('light'));
-    expect(getByTestId('ground').props.children).toBe(colors.background);
+    expect(getByTestId('ground').props.children).toBe(colors.surfacePage);
   });
 });

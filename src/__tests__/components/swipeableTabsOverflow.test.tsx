@@ -10,7 +10,7 @@
 import React from 'react';
 import { StyleSheet } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
-import { advanceAnimationByTime, getAnimatedStyle } from 'react-native-reanimated';
+import { advanceAnimationByTime, getAnimatedStyle } from '../__shared__/reanimatedJest';
 
 import { SwipeableTabs } from '@/shared/ui';
 import { spacing } from '@/theme';
@@ -82,7 +82,7 @@ describe('the tab strip when labels are measured', () => {
     await measure([60, wide, 60]);
     await act(() => advanceAnimationByTime(300));
 
-    expect(StyleSheet.flatten(getAnimatedStyle(getByTestId('tab-indicator'))).width).toBe(
+    expect(StyleSheet.flatten(getAnimatedStyle(getByTestId('tab-indicator')))?.width).toBe(
       wide + PADDING
     );
   });

@@ -12,7 +12,9 @@ import { Platform, StyleSheet, Text } from 'react-native';
 import { render, screen } from '@testing-library/react-native';
 
 import { SheetFrame, sheetScreenLayout } from '@/shared/ui/SheetFrame';
-import { colors } from '@/theme';
+import { colors, darkColors } from '@/theme';
+
+import { contrastRatio } from '../__shared__/contrast';
 
 const mockInsets = { top: 0, bottom: 48, left: 0, right: 0 };
 
@@ -84,6 +86,13 @@ describe('SheetFrame on Android', () => {
     expect(StyleSheet.flatten(handle.props.children.props.style).backgroundColor).toBe(
       colors.track
     );
+  });
+
+  it.each([
+    ['light', colors],
+    ['dark', darkColors],
+  ])('draws a handle that holds 3:1 on the %s sheet surface', (_theme, palette) => {
+    expect(contrastRatio(palette.track, palette.surface)).toBeGreaterThanOrEqual(3);
   });
 
   it('hides the handle from assistive technology, since it carries no action', async () => {

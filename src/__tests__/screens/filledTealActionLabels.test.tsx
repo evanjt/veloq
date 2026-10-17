@@ -105,15 +105,15 @@ it('draws the Upload now label, icon and ink on the teal fill', async () => {
   });
   await render(<RecordingDetailScreen />);
   const button = await screen.findByTestId('recording-upload-button');
-  expect(flat(button.props.style).backgroundColor).toBe(colors.primary);
-  expect(flat(screen.getByText('Upload now').props.style).color).toBe(colors.textOnPrimary);
+  expect(flat(button.props.style).backgroundColor).toBe(colors.actionPrimary);
+  expect(flat(screen.getByText('Upload now').props.style).color).toBe(colors.textOnFill);
 });
 
 it.each([false, true])('draws the scan label on the teal fill (scanning %s)', async (scanning) => {
   useSensorStore.setState({ scanning } as never);
   await render(<SensorSettingsScreen />);
   const button = screen.getByTestId('sensor-scan-button');
-  expect(flat(button.props.style).backgroundColor).toBe(colors.primary);
+  expect(flat(button.props.style).backgroundColor).toBe(colors.actionPrimary);
   const label = screen.getByText(scanning ? 'Stop scanning' : 'Scan for sensors');
-  expect(flat(label.props.style).color).toBe(colors.textOnPrimary);
+  expect(flat(label.props.style).color).toBe(colors.textOnFill);
 });

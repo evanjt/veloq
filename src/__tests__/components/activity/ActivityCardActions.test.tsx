@@ -7,15 +7,17 @@
  */
 
 import React from 'react';
+import { Platform } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { ActivityCard } from '@/features/activity/components/ActivityCard';
+import * as haptics from '@/shared/ui/haptics';
 import type { Activity } from '@/types';
 
-const mockTapTo = jest.fn();
+const mockNavigateTo = jest.fn();
 jest.mock('@/shared/app/navigation', () => ({
   ...jest.requireActual('@/shared/app/navigation'),
-  tapTo: (path: string) => mockTapTo(path),
+  navigateTo: (path: string) => mockNavigateTo(path),
 }));
 
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
@@ -56,6 +58,11 @@ jest.mock('@/features/activity/components/ActivityCardContextMenu', () => {
     ),
   };
 });
+jest.mock('@/shared/ui/haptics', () => ({
+  ...jest.requireActual('@/shared/ui/haptics'),
+  light: jest.fn(),
+  medium: jest.fn(),
+}));
 jest.mock('react-i18next', () => require('../../__shared__/i18nMock').keysOnly());
 
 const ride = {
@@ -83,7 +90,7 @@ const fire = (name: string) =>
     nativeEvent: { actionName: name },
   });
 
-beforeEach(() => mockTapTo.mockClear());
+beforeEach(() => mockNavigateTo.mockClear());
 
 describe('the map card for a screen reader', () => {
   it('is one button carrying the route, section and menu actions', () => {
@@ -105,7 +112,7 @@ describe('the map card for a screen reader', () => {
     render(<ActivityCard activity={ride} sectionHighlights={highlights} />);
 
     fire('openSections');
-    expect(mockTapTo).toHaveBeenCalledWith('/activity/a1?tab=sections');
+    expect(mockNavigateTo).toHaveBeenCalledWith('/activity/a1?tab=sections');
   });
 
   it('offers no route action without a route chip', () => {
@@ -134,5 +141,23 @@ describe('the compact card for a screen reader', () => {
     expect(actionNames()).toEqual(['longpress']);
     fire('longpress');
     expect(screen.getByTestId('card-menu')).toBeTruthy();
+  });
+});
+
+describe.each(['ios', 'android'] as const)('a card opening its menu on %s', (os) => {
+  beforeEach(() => {
+    jest.replaceProperty(Platform, 'OS', os);
+    jest.mocked(haptics.light).mockClear();
+    jest.mocked(haptics.medium).mockClear();
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  it('fires no haptic of its own, leaving the open to the menu', () => {
+    render(<ActivityCard activity={ride} />);
+
+    fire('longpress');
+    expect(screen.getByTestId('card-menu')).toBeTruthy();
+    expect(haptics.medium).not.toHaveBeenCalled();
+    expect(haptics.light).not.toHaveBeenCalled();
   });
 });

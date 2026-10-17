@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { tapTo } from '@/shared/app/navigation';
+import { navigateTo } from '@/shared/app/navigation';
 import { pressable, pressRipple } from '@/shared/ui';
 import { insightCategoryColor } from '@/theme';
 import type { Insight, TFunc } from '../../types';
@@ -28,7 +28,7 @@ export const SectionChangedContent = React.memo(function SectionChangedContent({
   const line = history?.kind === 'line' ? history : undefined;
   const target = line?.target;
   const onPress = useCallback(() => {
-    if (target) tapTo(target);
+    if (target) navigateTo(target);
   }, [target]);
 
   const drawable = line?.points.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));

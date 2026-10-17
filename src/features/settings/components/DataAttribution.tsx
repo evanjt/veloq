@@ -2,9 +2,9 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
+import { Icon } from '@/shared/ui/Icon';
 
 const PLATFORMS = [
   { name: 'Garmin', icon: 'watch' },
@@ -26,7 +26,7 @@ export function DataAttribution() {
       <View style={styles.platforms}>
         {PLATFORMS.map(({ name, icon }) => (
           <View key={name} style={styles.platform}>
-            <MaterialCommunityIcons name={icon} size={iconSize.md} color={palette.textSecondary} />
+            <Icon name={icon} size={iconSize.md} color={palette.textSecondary} />
             <Text style={[styles.platformName, { color: palette.textPrimary }]}>{name}</Text>
           </View>
         ))}

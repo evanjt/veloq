@@ -23,7 +23,7 @@ import type { Insight, InsightHistory, SectionTrendData } from '@/features/insig
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-native-iap', () => ({ useIAP: () => ({}), ErrorCode: {} }));
 jest.mock('@/shared/app', () => ({ useTheme: () => ({ isDark: false }) }));
-jest.mock('@/shared/app/navigation', () => ({ tapTo: jest.fn(), navigateTo: jest.fn() }));
+jest.mock('@/shared/app/navigation', () => ({ navigateTo: jest.fn() }));
 jest.mock('@/shared/native/useSectionDetail', () => ({
   useSectionDetail: () => ({ section: null }),
 }));
@@ -246,13 +246,13 @@ describe('the section changed sheet', () => {
   });
 
   it('opens the section from the drawing', async () => {
-    const { tapTo } = jest.requireMock('@/shared/app/navigation');
-    tapTo.mockClear();
+    const { navigateTo } = jest.requireMock('@/shared/app/navigation');
+    navigateTo.mockClear();
     await render(<InsightDetailContent insight={insight('section_changed', line)} />);
     await layout();
 
     fireEvent.press(screen.getByTestId('section-changed-link'));
-    expect(tapTo).toHaveBeenCalledWith('/section/quarry');
+    expect(navigateTo).toHaveBeenCalledWith('/section/quarry');
   });
 
   it('draws nothing for a section whose line did not arrive', async () => {

@@ -36,24 +36,47 @@ fi
 ANDROID_SERIAL=$VELOQ_DEVICE_SERIAL
 export ANDROID_SERIAL
 
+# Compile for the one ABI this handset loads, asked before the build lock is taken.
+VELOQ_BUILD_ABI=$(veloq_device_abi)
+export VELOQ_BUILD_ABI
+
+# Dev never reaches a store, so its release build skips the code shrinker, resource
+# shrinking and PNG crunching that only the store artefact needs. Production keeps all three.
+VELOQ_RELEASE_PROPERTIES=
+if [ "$identity" = dev ]; then
+  VELOQ_RELEASE_PROPERTIES="-Pandroid.enableMinifyInReleaseBuilds=false -Pandroid.enableShrinkResourcesInReleaseBuilds=false -Pandroid.enablePngCrunchInReleaseBuilds=false"
+fi
+export VELOQ_RELEASE_PROPERTIES
+
+# Gradle builds with the JDK the toolchain check passed, which it finds under
+# the system JVM directory when the shell exported none.
+# A Metro build compiles the engine with the local release-dev profile, which
+# skips fat LTO and splits the crate into 16 codegen units, so an engine edit
+# does not recompile it as one unit. Its timings are not the shipped engine's: a
+# standalone build compiles release, as Gradle forces for every release build.
+# The install reads the same variable to know which profile to expect.
 if [ "$mode" = metro ]; then
+  VELOQRS_RUST_PROFILE=${VELOQRS_RUST_PROFILE:-release-dev}
+  export VELOQRS_RUST_PROFILE
   scripts/with-android-build-lock.sh sh -ec '
     node scripts/prepare-native.mjs --platform android
-    node scripts/check-toolchain.mjs --platform android
+    JAVA_HOME=$(node scripts/check-toolchain.mjs --platform android --print-java-home)
+    export JAVA_HOME
     node scripts/sync-android-widgets.mjs
     node scripts/check-native-tree.mjs
     npm run bundle:android
-    (cd android && ./gradlew assembleDebug)
+    (cd android && ./gradlew assembleDebug -PreactNativeArchitectures="$VELOQ_BUILD_ABI")
     node scripts/build-record.js write debug
   '
 else
   scripts/with-android-build-lock.sh sh -ec '
     node scripts/prepare-native.mjs --platform android
-    node scripts/check-toolchain.mjs --platform android
+    JAVA_HOME=$(node scripts/check-toolchain.mjs --platform android --print-java-home)
+    export JAVA_HOME
     node scripts/sync-android-widgets.mjs
     node scripts/check-native-tree.mjs
     node scripts/build-record.js snapshot android release
-    (cd android && ./gradlew assembleRelease)
+    (cd android && ./gradlew assembleRelease -PreactNativeArchitectures="$VELOQ_BUILD_ABI" $VELOQ_RELEASE_PROPERTIES)
     node scripts/build-record.js write release
   '
 fi

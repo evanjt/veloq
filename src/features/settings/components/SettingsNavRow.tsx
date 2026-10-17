@@ -1,11 +1,12 @@
 import React from 'react';
 import { Text, StyleSheet, View } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, iconSize, spacing, typography } from '@/theme';
 import { Row } from '@/shared/ui/Row';
 import { useLargeText } from '@/shared/ui/useLargeText';
 import { composeAccessibilityLabel } from '@/shared/ui/accessibilityLabel';
+import { Icon } from '@/shared/ui/Icon';
 
 interface SettingsNavRowProps {
   icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -43,12 +44,12 @@ export function SettingsNavRow({
       accessibilityLabel={composeAccessibilityLabel(title, subtitle)}
       disabled={disabled}
     >
-      <MaterialCommunityIcons
+      <Icon
         name={icon}
         size={iconSize.lg}
         color={
           tone === 'warning'
-            ? (isDark ? darkColors : colors).warningAmber
+            ? (isDark ? darkColors : colors).warningText
             : isDark
               ? darkColors.textSecondary
               : colors.textSecondary
@@ -91,7 +92,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   titleDark: {
-    color: colors.textOnDark,
+    color: colors.textOnFill,
   },
   subtitle: {
     ...typography.bodySmall,

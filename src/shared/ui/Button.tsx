@@ -29,23 +29,24 @@
 import React from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
   type StyleProp,
   type ViewStyle,
+  type ViewInstance,
 } from 'react-native';
 
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import type { MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { useTheme } from '@/shared/app';
 import { useButtonShapes } from '@/shared/ui/buttonShapes';
 import { ChromeIcon, type ChromeRole } from '@/shared/ui/ChromeIcon';
 import { DisclosureChevron } from '@/shared/ui/DisclosureChevron';
 import * as haptics from '@/shared/ui/haptics';
-import { pressRipple, pressedOpacity } from '@/shared/ui/pressFeedback';
+import { pressedOpacity } from '@/shared/ui/pressFeedback';
+import { PressTarget } from '@/shared/ui/PressTarget';
 import {
   colors,
   controlHeight,
@@ -58,6 +59,7 @@ import {
   typography,
   stroke,
 } from '@/theme';
+import { Icon } from './Icon';
 import { DENSE_TEXT_SCALE } from './DenseText';
 import { FitText } from './FitText';
 
@@ -117,7 +119,7 @@ export interface ButtonProps {
   testID?: string;
   labelTestID?: string;
   /** The pressable, for a sheet that anchors to the control that opened it. */
-  ref?: React.Ref<View>;
+  ref?: React.Ref<ViewInstance>;
 }
 
 /**
@@ -151,15 +153,15 @@ export function paint(variant: ButtonVariant, isDark: boolean, shapes = false) {
         backgroundColor: palette.dangerFill,
         borderColor: palette.dangerFill,
         borderWidth: 0,
-        color: colors.textOnDark,
+        color: colors.textOnFill,
       };
     case 'primary':
     default:
       return {
-        backgroundColor: palette.primary,
-        borderColor: palette.primary,
+        backgroundColor: palette.actionPrimary,
+        borderColor: palette.actionPrimary,
         borderWidth: 0,
-        color: colors.textOnPrimary,
+        color: colors.textOnFill,
       };
   }
 }
@@ -172,11 +174,11 @@ const GLYPH_SIZE = {
 
 function Glyph({ glyph, size, color }: { glyph: ButtonGlyph; size: number; color: string }) {
   if (typeof glyph === 'string') {
-    return <MaterialCommunityIcons name={glyph} size={size} color={color} />;
+    return <Icon name={glyph} size={size} color={color} />;
   }
   if ('chrome' in glyph) return <ChromeIcon name={glyph.chrome} size={size} color={color} />;
   if ('spinner' in glyph) return <ActivityIndicator size="small" color={color} />;
-  return <MaterialCommunityIcons name={glyph.name} size={size} color={glyph.ink} />;
+  return <Icon name={glyph.name} size={size} color={glyph.ink} />;
 }
 
 export function Button({
@@ -210,7 +212,7 @@ export function Button({
       : onPress;
 
   return (
-    <Pressable
+    <PressTarget
       ref={ref}
       testID={testID}
       accessibilityRole="button"
@@ -221,8 +223,8 @@ export function Button({
         ...(expanded !== undefined && { expanded }),
       }}
       hitSlop={BUTTON_SLOP[size]}
-      android_ripple={inert ? undefined : pressRipple}
       disabled={inert}
+      fade={false}
       onPress={handlePress}
       style={({ pressed }) => [
         styles.base,
@@ -272,8 +274,31 @@ export function Button({
           />
         </View>
       ) : null}
-    </Pressable>
+    </PressTarget>
   );
+}
+
+/**
+ * The selected chip's fill, outline and label ink, which every selector chip
+ * draws, so a chip built around its own content reads as the same control.
+ */
+export function selectedChipPaint(isDark: boolean): { fill: string; outline: string; ink: string } {
+  const palette = isDark ? darkColors : colors;
+  return { fill: palette.controlOn, outline: palette.focusRing, ink: colors.textOnFill };
+}
+
+/**
+ * The frame of a selector chip drawn around its own content: the selected fill
+ * and outline, or `idleFill` with no edge. The edge keeps its width in both
+ * states, so choosing a chip does not move its row.
+ */
+export function chipFrame(selected: boolean, isDark: boolean, idleFill: string): ViewStyle {
+  const paint = selectedChipPaint(isDark);
+  return {
+    backgroundColor: selected ? paint.fill : idleFill,
+    borderColor: selected ? paint.outline : 'transparent',
+    borderWidth: stroke.one,
+  };
 }
 
 /** A selected chip's own ground and the label set on it. */
@@ -344,7 +369,8 @@ export function ToggleButton({
 }: ToggleButtonProps) {
   const { isDark } = useTheme();
   const palette = isDark ? darkColors : colors;
-  const labelInk = selected ? (accent?.ink ?? colors.textOnPrimary) : palette.textSecondary;
+  const selectedPaint = selectedChipPaint(isDark);
+  const labelInk = selected ? (accent?.ink ?? selectedPaint.ink) : palette.textSecondary;
   const handlePress = selected
     ? onPress
     : () => {
@@ -353,22 +379,22 @@ export function ToggleButton({
       };
 
   return (
-    <Pressable
+    <PressTarget
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ selected, disabled }}
       hitSlop={CHIP_SLOP[size]}
-      android_ripple={disabled ? undefined : pressRipple}
       disabled={disabled}
+      fade={false}
       onPress={handlePress}
       style={({ pressed }) => [
         styles.chip,
         size === 'sm' ? styles.chipSm : styles.chipMd,
         {
-          backgroundColor: selected ? (accent?.fill ?? palette.controlOn) : palette.fillNeutral,
+          backgroundColor: selected ? (accent?.fill ?? selectedPaint.fill) : palette.fillNeutral,
           borderColor: selected
-            ? (accent?.fill ?? palette.focusRing)
+            ? (accent?.fill ?? selectedPaint.outline)
             : outlined
               ? palette.controlBoundary
               : 'transparent',
@@ -405,7 +431,7 @@ export function ToggleButton({
           )}
         </FitText>
       </View>
-    </Pressable>
+    </PressTarget>
   );
 }
 

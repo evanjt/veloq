@@ -12,7 +12,7 @@ import React from 'react';
 import { render } from '@testing-library/react-native';
 
 import { duration, easingCurve, motionPairs, motionPresets } from '@/theme/motion';
-import { OfflineBanner } from '@/shared/ui/OfflineBanner';
+import { OfflinePill } from '@/shared/ui/StatusPills';
 import { NoticeBanner } from '@/shared/ui/NoticeBanner';
 import { TourReturnPill } from '@/features/settings/components/whatsNew/TourReturnPill';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
@@ -63,6 +63,7 @@ describe('motion tokens', () => {
     expect(motionPairs.banner).toEqual({ enter: duration.standard, exit: duration.exit });
     expect(motionPairs.pill).toEqual({ enter: duration.exit, exit: duration.quick });
     expect(motionPairs.card).toEqual({ enter: duration.slow, exit: duration.exit });
+    expect(motionPairs.message).toEqual({ enter: duration.message, exit: duration.message });
   });
 
   it('never exit slower than they enter', () => {
@@ -83,7 +84,7 @@ describe('shared presets', () => {
   });
 
   it('fade the offline pill with the pill preset', () => {
-    const { UNSAFE_root } = render(<OfflineBanner />);
+    const { UNSAFE_root } = render(<OfflinePill />);
 
     expect(animated(UNSAFE_root).entering).toBe(motionPresets.pill.entering);
     expect(animated(UNSAFE_root).exiting).toBe(motionPresets.pill.exiting);

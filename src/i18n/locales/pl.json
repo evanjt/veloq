@@ -44,7 +44,7 @@
     "explanations": {
       "conditions": "Temperatura z danych pogodowych lub czujnika urządzenia.",
       "energy": "Szacowany wydatek energetyczny na podstawie tętna, mocy i czasu trwania.",
-      "fitnessImpact": "W porównaniu z dniem odpoczynku ta aktywność zwiększa kondycję o obciążenie × (1 − e^(−1/42)), a zmęczenie o obciążenie × (1 − e^(−1/7)). Trening siłowy zwiększa tylko zmęczenie. Wpływ na formę to kondycja minus zmęczenie.",
+      "fitnessImpact": "W porównaniu z dniem odpoczynku ta aktywność zwiększa kondycję o obciążenie × (1 − e^(−1/{{fitnessDays}})), a zmęczenie o obciążenie × (1 − e^(−1/{{fatigueDays}})). Trening siłowy zwiększa tylko zmęczenie. Wpływ na formę to kondycja minus zmęczenie.",
       "heartRate": "Średnie tętno podczas aktywności.",
       "newGround": "Odsetek kafelków mapy, przez które przebiegała ta aktywność, a których żadna wcześniejsza aktywność nie dotknęła. Kafelek ma zależnie od szerokości geograficznej około 150–300 m, więc to pokrycie kafelków, a nie dystans po nowych drogach.",
       "activityEftp": "eFTP to oszacowanie modelu mocy intervals.icu dla tej aktywności.",
@@ -512,6 +512,7 @@
     "back": "Wstecz",
     "close": "Zamknij",
     "cancel": "Anuluj",
+    "cancelled": "Anulowano",
     "clearSearch": "Wyczyść wyszukiwanie",
     "clearFilters": "Wyczyść filtry",
     "quoted": "„{{text}}”",
@@ -3063,15 +3064,33 @@
       "single": "{{name}}, {{start}}: {{value}}.",
       "series": "{{name}}, od {{start}} do {{end}}: ostatnio {{latest}}, zakres od {{min}} do {{max}}, średnio {{average}}.",
       "curve": "{{name}}, od {{start}} do {{end}}: {{first}} przy {{start}}, {{last}} przy {{end}}, szczyt {{max}}.",
-      "parts": "{{name}}: {{parts}}."
+      "parts": "{{name}}: {{parts}}.",
+      "dayActive": "{{name}}, {{start}}: aktywny.",
+      "dayRest": "{{name}}, {{start}}: brak aktywności.",
+      "noActivity": "{{name}}, od {{start}} do {{end}}: brak aktywności.",
+      "daysActive_one": "{{name}}, od {{start}} do {{end}}: aktywność w {{active}} z {{count}} dnia.",
+      "daysActive_few": "{{name}}, od {{start}} do {{end}}: aktywność w {{active}} z {{count}} dni.",
+      "daysActive_many": "{{name}}, od {{start}} do {{end}}: aktywność w {{active}} z {{count}} dni.",
+      "daysActive_other": "{{name}}, od {{start}} do {{end}}: aktywność w {{active}} z {{count}} dnia.",
+      "longestBreak": "Najdłuższa przerwa: {{gap}}.",
+      "dayCount_one": "{{count}} dzień",
+      "dayCount_few": "{{count}} dni",
+      "dayCount_many": "{{count}} dni",
+      "dayCount_other": "{{count}} dnia",
+      "peakDay": "Maksimum {{value}} w dniu {{day}}."
     },
     "column": {
       "date": "Data",
       "duration": "Czas trwania",
       "distance": "Dystans",
       "zone": "Strefa",
-      "time": "Czas"
-    }
+      "time": "Czas",
+      "month": "Miesiąc",
+      "activities": "Aktywności",
+      "muscle": "Mięsień",
+      "sets": "Serie ważone"
+    },
+    "activityPlot": "Wykres aktywności"
   },
   "sportFamilies": {
     "ride": "Kolarstwo",

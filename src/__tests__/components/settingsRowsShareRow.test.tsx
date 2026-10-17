@@ -27,6 +27,7 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import AboutScreen from '@/app/about';
 import DetectionSettingsScreen from '@/app/detection-settings';
 import RecordingSettingsScreen from '@/app/recording-settings';
+import { Icon } from '@/shared/ui/Icon';
 
 jest.mock('veloqrs', () => require('../__shared__/veloqrsStub').withOverrides());
 jest.mock('react-i18next', () => ({
@@ -44,7 +45,7 @@ jest.mock('react-native-iap', () => ({
 }));
 jest.mock('@/shared/app/navigation', () => ({
   ...jest.requireActual('@/shared/app/navigation'),
-  tapTo: jest.fn(),
+  navigateTo: jest.fn(),
 }));
 jest.mock('@/features/routes/hooks/useSectionRescan', () => ({
   useSectionRescan: () => ({
@@ -81,7 +82,8 @@ function rootStyle(node: { props: { style?: unknown } }) {
 /** Every chevron drawn, each named by the testID it carries. */
 function chevronIds(tree: Awaited<ReturnType<typeof render>>) {
   return tree
-    .UNSAFE_queryAllByProps({ name: 'chevron-right' })
+    .UNSAFE_queryAllByType(Icon)
+    .filter((node) => node.props.name === 'chevron-right')
     .map((node) => node.props.testID as string | undefined);
 }
 
@@ -100,7 +102,7 @@ describe('settings list rows', () => {
     const style = rootStyle(tree.getByTestId('settings-clear-cache'));
     expect(style.minHeight).toBe(layout.minTapTarget);
     expect(style.borderTopWidth).toBeUndefined();
-    expect(tree.queryByTestId('row-chevron')).toBeNull();
+    expect(tree.queryByTestId('row-chevron', { includeHiddenElements: true })).toBeNull();
     await fireEvent.press(tree.getByTestId('settings-clear-cache'));
     expect(onClearCache).toHaveBeenCalledTimes(1);
   });
@@ -121,7 +123,7 @@ describe('settings list rows', () => {
     const style = rootStyle(getByTestId('nav'));
     expect(style.minHeight).toBe(layout.minTapTarget);
     expect(style.borderTopWidth).toBeUndefined();
-    expect(getAllByTestId('row-chevron')).toHaveLength(1);
+    expect(getAllByTestId('row-chevron', { includeHiddenElements: true })).toHaveLength(1);
   });
 
   it('speaks the nav row subtitle, which holds the current value, after its title', () => {
@@ -166,7 +168,7 @@ describe('chevrons on the settings screens', () => {
   it('draws no chevron on Support, whose subscription row leaves for a web page', async () => {
     const tree = await render(<SupportSection />);
     expectOnlyRowChevrons(tree, 0);
-    expect(tree.getAllByTestId('row-external')).toHaveLength(1);
+    expect(tree.getAllByTestId('row-external', { includeHiddenElements: true })).toHaveLength(1);
   });
 
   it('draws the shared chevron on the recordings, sensors, units and tile slot rows', async () => {
@@ -189,7 +191,7 @@ describe('account rows', () => {
   it('marks the profile row as a web page and neither sign-out row as anything', async () => {
     const tree = await render(<ProfileAccountSection athlete={{ name: 'Rider' }} />);
     expectOnlyRowChevrons(tree, 0);
-    expect(tree.getAllByTestId('row-external')).toHaveLength(1);
+    expect(tree.getAllByTestId('row-external', { includeHiddenElements: true })).toHaveLength(1);
     for (const id of ['settings-logout-button', 'settings-logout-clear-button']) {
       const row = tree.getByTestId(id);
       expect(row.findAll((node) => node.props.testID === 'row-chevron')).toHaveLength(0);
